@@ -1,17 +1,55 @@
-@use '@angular/material' as mat;
+/* GLOBAL RESET / CUSTOM VARIABLES */
 @use '_variables' as vars;
 @use '_mixins' as mix;
-@import '@angular/material/prebuilt-themes/deeppurple-amber.css';
+
+/* MATERIAL BASELINE IMPORT  */
+@import '@angular/material/prebuilt-themes/indigo-pink.css';
+
+/* --- SLIDE TOGGLE COLORS (ANGULAR MATERIAL 20) --- */
+/* ON (checked) */
+/* .mat-mdc-slide-toggle.mat-mdc-slide-toggle-checked .mdc-switch {
+  --mdc-switch-selected-track-color: vars.$vivid-blue !important;
+  --mdc-switch-selected-handle-color: vars.$black !important;
+} */
+
+/* OFF (unchecked) */
+/* .mat-mdc-slide-toggle:not(.mat-mdc-slide-toggle-checked) .mdc-switch {
+  --mdc-switch-unselected-track-color: #b2b2b2 !important;
+  --mdc-switch-unselected-handle-color: #888 !important;
+} */
+
+/* Override Material CSS variables globally */
+/* :root {
+  /* Slide toggle - ON (checked) */
+  /* --mdc-switch-selected-track-color: #{vars.$vivid-blue};
+  --mdc-switch-selected-handle-color: #{vars.$black};
+  --mdc-switch-selected-focus-track-color: #{vars.$vivid-blue};
+  --mdc-switch-selected-focus-handle-color: #{vars.$black};
+  --mdc-switch-selected-hover-track-color: #{vars.$vivid-blue};
+  --mdc-switch-selected-hover-handle-color: #{vars.$black}; */
+
+  /* Slide toggle - OFF (unchecked) */
+  /* --mdc-switch-unselected-track-color: #d6d6d6;
+  --mdc-switch-unselected-handle-color: #777;
+ */
+
+/* OPTIONAL: make it slightly smaller */
+/* .mat-mdc-slide-toggle .mdc-switch {
+  --mdc-switch-track-width: 36px;
+  --mdc-switch-track-height: 18px;
+  --mdc-switch-handle-width: 14px;
+  --mdc-switch-handle-height: 14px;
+} */
 
 /* ─────────────────────────────────────────────
-   FONT IMPORTS (same as before)
+   FONT IMPORTS
 ───────────────────────────────────────────────*/
 @font-face {
   font-family: 'Material Icons';
   font-style: normal;
   font-weight: 400;
   src: url(https://fonts.gstatic.com/s/materialicons/v47/flUhRq6tzZclQEJ-Vdg-IuiaDsNc.woff2)
-    format('woff2');
+  format('woff2');
 }
 
 .material-icons {
@@ -29,6 +67,7 @@
   src: url(vars.$scoreboard-font) format('truetype');
   font-display: swap;
 }
+
 @font-face {
   font-family: 'LucidaUnicodeCalligraphy';
   src: url(vars.$congratulations-font) format('truetype');
@@ -36,11 +75,11 @@
 }
 
 /* ─────────────────────────────────────────────
-   GLOBAL MATERIAL MDC RESET → RESTORE ANGULAR 10 DENSITY
+   GLOBAL MATERIAL MDC RESET (Angular 10 feel)
 ───────────────────────────────────────────────*/
 html, body {
   font-family: Roboto, "Helvetica Neue", sans-serif;
-  font-size: 14px;                // tighter baseline
+  font-size: 14px;
   line-height: 1.4;
 }
 
@@ -65,13 +104,13 @@ html, body {
   line-height: 1.2;
 }
 
-/* Compact form fields (if used later) */
+/* Compact form field */
 .mat-mdc-form-field {
   --mat-mdc-form-field-label-text-size: 13px;
   --mat-mdc-form-field-container-height: 38px;
 }
 
-/* Compact cards — aligns to Angular 10 look */
+/* Compact cards */
 .mat-mdc-card,
 mat-card {
   border-radius: 4px !important;
@@ -135,7 +174,7 @@ mat-card {
 }
 
 /* ─────────────────────────────────────────────
-   TEXT + QUIZ BODY RESTORATION
+   QUIZ TEXT
 ───────────────────────────────────────────────*/
 .question-text,
 .option-text {
@@ -150,7 +189,7 @@ mat-card {
 }
 
 /* ─────────────────────────────────────────────
-   PREVIOUS STYLES (unchanged)
+   PREVIOUS ANSWERS
 ───────────────────────────────────────────────*/
 .previous-answer-text {
   clear: both;
@@ -182,7 +221,7 @@ mat-card {
 }
 
 /* ─────────────────────────────────────────────
-   LOADER (unchanged)
+   LOADER
 ───────────────────────────────────────────────*/
 .preload {
   position: absolute;
@@ -223,8 +262,7 @@ mat-card {
 }
 
 @keyframes spin {
-  0%,
-  100% {
+  0%, 100% {
     transform: translate(0);
   }
   25% {
@@ -236,4 +274,60 @@ mat-card {
   75% {
     transform: translate(0, 160%);
   }
+}
+
+// ICON COLOR (✓ and –)
+.mdc-switch__icon,
+.mdc-switch__icon path {
+  fill: #{vars.$vivid-blue} !important;
+  stroke: #{vars.$vivid-blue} !important;
+  color: #{vars.$vivid-blue} !important;
+}
+
+// TRACK + THUMB COLORS (SELECTED)
+.mat-mdc-slide-toggle .mdc-switch--selected .mdc-switch__track {
+  background-color: #{vars.$vivid-blue} !important;
+}
+
+.mat-mdc-slide-toggle .mdc-switch--selected .mdc-switch__handle {
+  background-color: #{vars.$black} !important;
+}
+
+// TRACK + THUMB COLORS (UNSELECTED)
+.mat-mdc-slide-toggle .mdc-switch--unselected .mdc-switch__track {
+  background-color: #{vars.$vivid-blue}33 !important; /* faded */
+}
+
+.mat-mdc-slide-toggle .mdc-switch--unselected .mdc-switch__handle {
+  background-color: #{vars.$black} !important;
+}
+
+// REMOVE MDC RIPPLE + FOCUS RING
+.mat-mdc-slide-toggle .mdc-switch__ripple,
+.mat-mdc-slide-toggle .mat-mdc-slide-toggle-ripple,
+.mat-mdc-slide-toggle .mat-ripple,
+.mat-mdc-slide-toggle .mat-ripple-element,
+.mat-mdc-slide-toggle .mat-focus-indicator,
+.mat-mdc-slide-toggle .mdc-switch__focus-ring {
+  display: none !important;
+  opacity: 0 !important;
+  background: transparent !important;
+}
+
+/* GLOBAL OVERRIDES FOR MDC SWITCH COLORS */
+:root {
+  --mdc-switch-selected-track-color: #{vars.$vivid-blue} !important;
+  --mdc-switch-selected-handle-color: #{vars.$black} !important;
+
+  --mdc-switch-unselected-track-color: #{vars.$vivid-blue}33 !important;
+  --mdc-switch-unselected-handle-color: #{vars.$black} !important;
+
+  // Remove the purple halo
+  --mdc-switch-selected-focus-state-layer-color: transparent !important;
+  --mdc-switch-selected-hover-state-layer-color: transparent !important;
+  --mdc-switch-selected-pressed-state-layer-color: transparent !important;
+
+  --mdc-switch-unselected-focus-state-layer-color: transparent !important;
+  --mdc-switch-unselected-hover-state-layer-color: transparent !important;
+  --mdc-switch-unselected-pressed-state-layer-color: transparent !important;
 }
