@@ -1,7 +1,7 @@
 @use '../../../_variables' as vars;
 
 mat-card {
-  border: none;
+  border: none !important;
   height: auto;
   padding: 0;
 }
