@@ -15,7 +15,7 @@ import { QuizService } from '../../../../shared/services/quiz.service';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class FeedbackComponent implements OnInit, OnChanges {
-  @Input() feedbackConfig!: FeedbackProps;
+  @Input() feedbackConfig?: FeedbackProps | null;
   feedbackMessageClass = '';
   feedbackPrefix = '';
   displayMessage = '';
