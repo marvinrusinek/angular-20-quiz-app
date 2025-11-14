@@ -1,9 +1,8 @@
 @use '../../../../_variables' as vars;
-@use '../../../../_mixins' as mixins;
+// @use '../../../../_mixins' as mixins;
 
 .timer-container {
   float: right;
-  margin-right: 2rem;
 
   button {
     text-transform: uppercase;

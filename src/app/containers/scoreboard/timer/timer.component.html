@@ -1,7 +1,7 @@
-<ng-container class="timer-container">
+<ng-container class="timer-container" style="height: 40px; margin-top: 45px">
     <div class="timer-menu-container">
-      <button mat-button [matMenuTriggerFor]="timerMenu" aria-label="Timer menu">
-        <span class="timer-menu-button-text leader" i18n>Timer &#x25BC;</span>
+      <button mat-button [matMenuTriggerFor]="timerMenu" style="margin: 5px" aria-label="Timer menu">
+        <span class="timer-menu-button-text leader" i18n style="padding: 5px">Timer &#x25BC;</span>
       </button>
       <mat-menu #timerMenu="matMenu">
         <button mat-menu-item (click)="setTimerType(timerType.Countdown)" aria-label="Set to Countdown" i18n>Countdown</button>
