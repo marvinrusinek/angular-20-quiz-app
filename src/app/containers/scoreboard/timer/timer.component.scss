@@ -8,21 +8,16 @@
   button {
     text-transform: uppercase;
     font-family: vars.$font-stack;
-    border: none !important;
-    outline: none !important;
 
     .timer-menu-button-text {
       margin-left: -35px;
       text-transform: uppercase;
       font-family: vars.$font-stack;
-      border: none !important;
-      outline: none !important;
     }
   }
 
   .mat-menu {
     margin-left: -40px;
-    outline: none !important;
 
     .timer-menu-button-text,
     span.scoreboard-timer-text {
@@ -34,4 +29,22 @@
     margin-left: 5px;
     margin-top: 20px !important;
   }
+}
+
+/* Remove the MDC focus/selection 1px border from all mat-button */
+.mat-mdc-button {
+  --mdc-text-button-outline-color: transparent !important;
+  --mdc-text-button-hover-state-layer-color: transparent !important;
+  --mdc-text-button-focus-state-layer-color: transparent !important;
+  --mdc-text-button-pressed-state-layer-color: transparent !important;
+  --mdc-text-button-focus-indicator-color: transparent !important;
+}
+
+/* Also destroys residual border that appears on click/focus */
+.mat-mdc-button:focus,
+.mat-mdc-button:focus-visible,
+.mat-mdc-button:active {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
 }

@@ -52,16 +52,15 @@
           type="button"
           mat-raised-button
           color="primary"
-          class="btn btn-outline-primary"
+          class="btn btn-outline-primary start-btn"
           [disabled]="isStartingQuiz"
           (click)="onStartQuiz(selectedQuiz?.quizId)"
           aria-label="Start the Quiz"
         >
-          <span i18n
-            ><strong>Start the Quiz!</strong>&nbsp;<mat-icon inline="true" style="padding-top: 10px"
-              >play_arrow</mat-icon
-            ></span
-          >
+          <span i18n class="start-btn-content">
+              <strong>Start the Quiz!</strong>&nbsp;
+              <mat-icon>play_arrow</mat-icon>
+          </span>
         </button>
       </form>
     </mat-card-actions>

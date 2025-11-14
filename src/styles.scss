@@ -331,3 +331,37 @@ mat-card {
   --mdc-switch-unselected-hover-state-layer-color: transparent !important;
   --mdc-switch-unselected-pressed-state-layer-color: transparent !important;
 }
+
+
+/*********** TIMER BUTTON ***************/
+/* Remove 1px outline/border from mat-menu triggers */
+.mat-mdc-menu-trigger {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Remove MDC focus indicator that shows on click */
+.mat-mdc-menu-trigger:focus,
+.mat-mdc-menu-trigger:focus-visible,
+.mat-mdc-menu-trigger:active {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Remove MDC focus ring attached to menu triggers */
+.mat-mdc-menu-trigger .mdc-button__focus-ring {
+  display: none !important;
+}
+
+.mat-mdc-button .mdc-button__ripple::before,
+.mat-mdc-button .mdc-button__ripple::after {
+  background: transparent !important;
+  opacity: 0 !important;
+}
+
+button.mat-mdc-menu-trigger {
+  background-color: transparent !important;
+  --mdc-text-button-container-color: transparent !important;
+  --mdc-text-button-disabled-container-color: transparent !important;
+}
