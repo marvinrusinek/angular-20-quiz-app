@@ -1,9 +1,12 @@
 @use '../../../_variables' as vars;
 
 mat-card {
-  border: none !important;
   height: auto;
   padding: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  border-radius: 0 !important;
 }
 
 mat-card-content {
