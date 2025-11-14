@@ -32,7 +32,6 @@
             ],
             "index": "src/index.html",
             "browser": "src/main.ts",
-            "localize": true,
             "outputPath": "dist/demo",
             "polyfills": ["src/polyfills.ts"],
             "scripts": [],
