@@ -1,6 +1,9 @@
 mat-card-header {
     display: block;
-    border: none;
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
   
     .header-image {
       float: left;
