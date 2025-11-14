@@ -1,47 +1,60 @@
 <div class="container">
-    <header class="row">
-      <div class="logo">
-        <a href="https://www.codelab.fun" title="Angular Codelab" target="_blank">
-          <div mat-card-avatar class="header-image" loading="lazy"></div>
-        </a>
-      </div>
-      <div class="intro-titles">
-        <h1 i18n>Angular Codelab Quiz App</h1>
-        <h4>How well do you know Angular? Find out!</h4>
-      </div>
-      <div class="info">
-        <a
-          href="https://github.com/codelab-fun/codelab/blob/master/README.md"
-          target="_blank"
+  <header class="row">
+    <div class="logo">
+      <a href="https://www.codelab.fun" title="Angular Codelab" target="_blank">
+        <div mat-card-avatar class="header-image" loading="lazy"></div>
+      </a>
+    </div>
+
+    <div class="intro-titles">
+      <h1 i18n>Angular Codelab Quiz App</h1>
+      <h4>How well do you know Angular? Find out!</h4>
+    </div>
+
+    <div class="info">
+      <a
+        href="https://github.com/codelab-fun/codelab/blob/master/README.md"
+        target="_blank"
+      >
+        <mat-icon
+          class="material-icons"
+          matTooltip="Angular Codelab info"
+          matTooltipPosition="right"
         >
-          <mat-icon
-            class="material-icons"
-            matTooltip="Angular Codelab info"
-            matTooltipPosition="right"
-            >info
-          </mat-icon>
-        </a>
-      </div>
-    </header>
-  
-    <div class="toolbar">
-      <button mat-button [matMenuTriggerFor]="menu" aria-label="Milestones Menu">
-        <span i18n>Milestones &#x25BC;</span>
-      </button>
-      <mat-menu #menu="matMenu" xPosition="before">
-        <span style="margin-left: 10px" i18n><strong>Select a Quiz&hellip;</strong></span>
-        <button mat-menu-item *ngFor="let quiz of quizzes$ | async"
-                [routerLink]="['/intro/', quiz?.quizId]">
+          info
+        </mat-icon>
+      </a>
+    </div>
+  </header>
+
+  <!-- Toolbar: Milestones Menu -->
+  <div class="toolbar">
+    <button mat-button [matMenuTriggerFor]="menu" aria-label="Milestones Menu">
+      <span i18n>Milestones ▼</span>
+    </button>
+
+    <mat-menu #menu="matMenu" xPosition="before">
+      <span style="margin-left: 10px" i18n>
+        <strong>Select a Quiz…</strong>
+      </span>
+
+      @for (quiz of quizzes$ | async; track quiz?.quizId) {
+        <button
+          mat-menu-item
+          [routerLink]="['/intro/', quiz?.quizId]"
+        >
           {{ quiz?.milestone || 'Milestone not found' }}
         </button>
-      </mat-menu>
-    </div>
-  
-    <div class="quiz-grid">
+      }
+    </mat-menu>
+  </div>
+
+  <!-- Quiz Tiles Grid -->
+  <div class="quiz-grid">
+    @for (quiz of quizzes$ | async; let i = $index; track quiz?.quizId) {
       <div
         class="quiz-tile"
         #quizTile
-        *ngFor="let quiz of quizzes$ | async; let i = index"
         [@slideLeftToRight]="animationState$ | async"
         (@slideLeftToRight.done)="animationDoneHandler()"
         (click)="onSelect(quiz.quizId, i)"
@@ -49,34 +62,45 @@
         [ngStyle]="getQuizTileStyles(quiz)"
         loading="lazy"
       >
+
         <summary class="quiz-info">
           <h5 class="quiz-title" i18n>
             {{ quiz?.milestone || 'Milestone not found' }}
           </h5>
+
           <h6 class="quiz-summary" i18n>
             {{ quiz?.summary || 'Summary not found' }}
           </h6>
         </summary>
-  
+
         <div class="status-icon">
           <mat-card-actions>
-            <a mat-icon-button [ngClass]="getLinkClass(quiz)" [matTooltip]="getTooltip(quiz)"
-               *ngIf="shouldShowLink(quiz)" [routerLink]="getLinkRouterLink(quiz)">
-              <mat-icon>{{ getIconClass(quiz) }}</mat-icon>
-            </a>
+            @if (shouldShowLink(quiz)) {
+              <a
+                mat-icon-button
+                [ngClass]="getLinkClass(quiz)"
+                [matTooltip]="getTooltip(quiz)"
+                [routerLink]="getLinkRouterLink(quiz)"
+              >
+                <mat-icon>{{ getIconClass(quiz) }}</mat-icon>
+              </a>
+            }
           </mat-card-actions>
         </div>
       </div>
-    </div>
-  
-    <footer>
-      <h3 i18n>
-        Copyright &copy; 2025
-        <a target="_blank" href="https://www.codelab.fun">codelab.fun</a>
-      </h3>
-    </footer>
+    }
   </div>
-  <!--
+
+  <!-- Footer -->
+  <footer>
+    <h3 i18n>
+      Copyright © 2025
+      <a target="_blank" href="https://www.codelab.fun">codelab.fun</a>
+    </h3>
+  </footer>
+</div>
+
+<!--
   <ion-page>
   <ion-content>
     <ion-header>
@@ -132,4 +156,3 @@
     </ion-footer>
   </ion-content>
   </ion-page>-->
-  
