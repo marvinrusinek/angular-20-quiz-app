@@ -5,42 +5,6 @@
 /* MATERIAL BASELINE IMPORT  */
 @import '@angular/material/prebuilt-themes/indigo-pink.css';
 
-/* --- SLIDE TOGGLE COLORS (ANGULAR MATERIAL 20) --- */
-/* ON (checked) */
-/* .mat-mdc-slide-toggle.mat-mdc-slide-toggle-checked .mdc-switch {
-  --mdc-switch-selected-track-color: vars.$vivid-blue !important;
-  --mdc-switch-selected-handle-color: vars.$black !important;
-} */
-
-/* OFF (unchecked) */
-/* .mat-mdc-slide-toggle:not(.mat-mdc-slide-toggle-checked) .mdc-switch {
-  --mdc-switch-unselected-track-color: #b2b2b2 !important;
-  --mdc-switch-unselected-handle-color: #888 !important;
-} */
-
-/* Override Material CSS variables globally */
-/* :root {
-  /* Slide toggle - ON (checked) */
-  /* --mdc-switch-selected-track-color: #{vars.$vivid-blue};
-  --mdc-switch-selected-handle-color: #{vars.$black};
-  --mdc-switch-selected-focus-track-color: #{vars.$vivid-blue};
-  --mdc-switch-selected-focus-handle-color: #{vars.$black};
-  --mdc-switch-selected-hover-track-color: #{vars.$vivid-blue};
-  --mdc-switch-selected-hover-handle-color: #{vars.$black}; */
-
-  /* Slide toggle - OFF (unchecked) */
-  /* --mdc-switch-unselected-track-color: #d6d6d6;
-  --mdc-switch-unselected-handle-color: #777;
- */
-
-/* OPTIONAL: make it slightly smaller */
-/* .mat-mdc-slide-toggle .mdc-switch {
-  --mdc-switch-track-width: 36px;
-  --mdc-switch-track-height: 18px;
-  --mdc-switch-handle-width: 14px;
-  --mdc-switch-handle-height: 14px;
-} */
-
 /* ─────────────────────────────────────────────
    FONT IMPORTS
 ───────────────────────────────────────────────*/
