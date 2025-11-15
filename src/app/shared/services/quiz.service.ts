@@ -1711,6 +1711,24 @@ export class QuizService {
     return answers;
   }
 
+  public hasCachedQuestion(quizId: string, questionIndex: number): boolean {
+    const quiz = this.currentQuizSubject.getValue();
+    if (!quiz || quiz.quizId !== quizId) return false;
+
+    const questions = quiz.questions ?? [];
+    if (!Array.isArray(questions) || questionIndex < 0 || questionIndex >= questions.length) {
+      return false;
+    }
+
+    const q = questions[questionIndex];
+    if (!q) return false;
+
+    const hasOptions = Array.isArray(q.options) && q.options.length > 0;
+    const hasText = typeof q.questionText === 'string' && q.questionText.trim().length > 0;
+
+    return hasOptions && hasText;
+  }
+
   private cloneQuestionForSession(
     question: QuizQuestion
   ): QuizQuestion | null {

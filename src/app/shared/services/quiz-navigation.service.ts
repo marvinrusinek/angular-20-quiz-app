@@ -98,7 +98,7 @@ export class QuizNavigationService {
     }
   
     // Fetch quiz data and validate
-    return this.quizService.getQuizData().pipe(
+    return this.quizDataService.getQuizzes().pipe(
       map((quizzes: Quiz[]) => {
         const quizData = quizzes.find((quiz) => quiz.quizId === quizId);
         if (!quizData) {

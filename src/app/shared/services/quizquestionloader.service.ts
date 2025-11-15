@@ -180,7 +180,7 @@ export class QuizQuestionLoaderService {
         };
 
         const question$ = this.quizService
-          .getCurrentQuestionByIndex(quizId, questionIndex)
+          .getQuestionByIndex(questionIndex)
           .pipe(take(1));
         const options$ = this.quizService
           .getCurrentOptions(questionIndex)
@@ -749,21 +749,23 @@ export class QuizQuestionLoaderService {
     // ── ORIGINAL ASYNC PATH  ────────────────────────────────────
     try {
       // Fetch and validate question text
-      const resolvedQuestion = await firstValueFrom(
-        this.quizService.getResolvedQuestionByIndex(questionIndex)
-      );
+      const resolvedQuestion = (await firstValueFrom(
+        this.quizService.getQuestionByIndex(questionIndex)
+      )) as QuizQuestion | null;
 
-      if (!resolvedQuestion || !resolvedQuestion.questionText?.trim()) {
+      const rq = resolvedQuestion as QuizQuestion;
+
+      if (!rq || !rq.questionText?.trim()) {
         throw new Error(`Invalid question payload for index ${questionIndex}`);
       }
 
-      const trimmedText = resolvedQuestion.questionText.trim();
+      const trimmedText = rq.questionText.trim();
 
-      const options = Array.isArray(resolvedQuestion.options)
-        ? resolvedQuestion.options.map((option, idx) => ({
-            ...option,
-            optionId: option.optionId ?? idx,
-          }))
+      const options = Array.isArray(rq.options)
+        ? rq.options.map((option: Option, idx: number) => ({
+          ...option,
+          optionId: option.optionId ?? idx,
+        }))
         : [];
 
       if (!options.length) {
@@ -781,12 +783,12 @@ export class QuizQuestionLoaderService {
         console.warn(`[⚠️ Q${questionIndex}] Explanations not initialized`);
       }
 
-      if (!explanation && resolvedQuestion.explanation) {
-        explanation = resolvedQuestion.explanation.trim();
+      if (!explanation && rq.explanation) {
+        explanation = rq.explanation.trim();
       }
 
       // Determine question type
-      const correctCount = options.filter((opt) => opt.correct).length;
+      const correctCount = options.filter((opt: Option) => opt.correct).length;
       const type =
         correctCount > 1
           ? QuestionType.MultipleAnswer

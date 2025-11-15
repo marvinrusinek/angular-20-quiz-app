@@ -53,12 +53,6 @@ import { ChangeRouteAnimation } from '../../animations/animations';
 
 type AnimationState = 'animationStarted' | 'none';
 
-export interface LoadedQuestionData {
-  question: QuizQuestion,
-  options: Option[],
-  explanation: string
-}
-
 interface Override { idx: number; html: string; }
 
 @Component({
@@ -105,12 +99,10 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   @Input() shouldDisplayNumberOfCorrectAnswers = false;
   @Input() form!: FormGroup;
   quiz!: Quiz;
-  quizData: QuizData[] = [];
   quizComponentData: QuizComponentData;
   quizId = '';
   quizResources: QuizResource[] = [];
   quizQuestions: QuizQuestion[] = [];
-  quizInitialized = false;
   question: QuizQuestion | null = null;
   questions: QuizQuestion[] = [];
   question$!: Observable<[QuizQuestion, Option[]]>;
@@ -118,7 +110,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   questions$: Observable<QuizQuestion[]> = of([]);
   questionPayload: QuestionPayload | null = null;
   questionVersion = 0;
-  questionTextForHeader = '';
   currentQuestion$: Observable<QuizQuestion | null> =
     this.quizStateService.currentQuestion$;
   currentQuestionType: QuestionType | null = null;
@@ -129,7 +120,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   questionData!: QuizQuestion;
 
   currentQuiz: Quiz | null = null;
-  currentRouteIndex = 0;
   routeSubscription!: Subscription;
   routerSubscription!: Subscription;
   questionAndOptionsSubscription!: Subscription;
@@ -141,7 +131,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   answers: Option[] = [];
   answered = false;
   multipleAnswer = false;
-  indexOfQuizId = 0;
   status!: QuizStatus;
   disabled = true;
 
@@ -151,7 +140,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   selectionMessage$: Observable<string>;
   isAnswered = false;
   correctAnswers: any[] = [];
-  nextExplanationText = '';
   correctAnswersText = '';
   cardFooterClass = '';
 
@@ -162,7 +150,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   public explanationTextLocal = '';
   public explanationVisibleLocal = false;
   public explanationOverride: Override = { idx: -1, html: '' };
-  public questionHtml    = '';
   public explanationHtml = '';
   public localExplanationText = '';
   public showLocalExplanation = false;
@@ -174,7 +161,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.combinedQuestionDataSubject.asObservable();
 
   private correctAnswersTextSource = new BehaviorSubject<string>('');
-  correctAnswersText$ = this.correctAnswersTextSource.asObservable();
 
   questionIndex = 0;
   currentQuestionIndex = 0;
@@ -186,7 +172,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   numberOfCorrectAnswers = 0;
   score = 0;
   elapsedTimeDisplay = 0;
-  shouldDisplayCorrectAnswersFlag = false;
   feedbackText = '';
   showFeedback = false;
   showFeedbackForOption: { [key: number]: boolean } = {};
@@ -209,7 +194,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   private quizAlreadyInitialized = false;
   questionInitialized = false;
   questionTextLoaded = false;
-  hasLoadingError = false;
   public hasOptionsLoaded = false;
   public shouldRenderOptions = false;
   private resetComplete = false;
@@ -218,7 +202,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   private isCurrentQuestionAnswered = false;
 
   previousIndex: number | null = null;
-  isQuestionDisplayed = false;
 
   isNavigating = false;
   private isNavigatedByUrl = false;
@@ -232,33 +215,22 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   private isButtonEnabledSubject = new BehaviorSubject<boolean>(false);
   isButtonEnabled$: Observable<boolean>;
   isButtonEnabled = false;
-  isLoading$: Observable<boolean> = of(false);
   isAnswered$: Observable<boolean>;
   isNextButtonEnabled = false;
   isOptionSelected$: Observable<boolean> = of(false);
   nextButtonStyle: { [key: string]: string } = {};
   isContentAvailable$: Observable<boolean>;
-  isContentInitialized = false;
-  hasContentLoaded = false;
   isQuizReady = false;
-
-  badgeText$: Observable<string> = of('');
-
-  shouldDisplayCorrectAnswers = false;
-  shouldRenderChild = false;
 
   animationState$ = new BehaviorSubject<AnimationState>('none');
   unsubscribe$ = new Subject<void>();
   private destroy$ = new Subject<void>();
-  audioAvailable = true;
 
   private isNextButtonDisabledSubject = new BehaviorSubject<boolean>(true);
-  isNextButtonDisabled$ = this.isNextButtonDisabledSubject.asObservable();
 
   currentQuestionAnswered = false;
 
   private questionTextSubject = new BehaviorSubject<string>('');
-  public questionText$ = this.questionTextSubject.asObservable();
 
   private explanationTextSubject = new BehaviorSubject<string>('');
   public explanationText$ = this.explanationTextSubject.asObservable();
@@ -273,11 +245,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   displayState$ = this.displayStateSubject.asObservable();
 
   shouldRenderQuestionComponent = false;
-
-  private renderGateSubject = new BehaviorSubject<boolean>(false);
-  renderGate$ = this.renderGateSubject.asObservable();
-  public finalRenderReady = false;
-  private _bannerGate = false;
 
   qaToDisplay?: { question: QuizQuestion; options: Option[] };
 
@@ -3922,7 +3889,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     }
 
     // Fetch quiz data and validate
-    return this.quizService.getQuizData().pipe(
+    return this.quizDataService.getQuizzes().pipe(
       map((quizzes: Quiz[]) => {
         const quizData = quizzes.find((quiz) => quiz.quizId === quizId);
         if (!quizData) {
@@ -4032,15 +3999,15 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
   loadCurrentQuestion(): void {
     this.quizService
-      .getCurrentQuestionByIndex(this.quizId, this.currentQuestionIndex)
+      .getQuestionByIndex(this.currentQuestionIndex)
       .pipe(
         tap((question: QuizQuestion | null) => {
           if (question) {
             this.question = question;
 
-            // Fetch options using the correct method with arguments
+            // Fetch options for this question
             this.quizService
-              .getCurrentOptions(this.currentQuestionIndex)
+              .getOptions(this.currentQuestionIndex)
               .subscribe({
                 next: (options: Option[]) => {
                   this.optionsToDisplay = options || [];
@@ -4048,7 +4015,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
                 },
                 error: (error) => {
                   console.error('Error fetching options:', error);
-                  this.optionsToDisplay = [];  // fallback in case of error
+                  this.optionsToDisplay = [];
                 },
               });
           } else {
@@ -4060,7 +4027,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         }),
         catchError((error) => {
           console.error('Error fetching question:', error);
-          return of(null);  // return fallback observable
+          return of(null);
         })
       )
       .subscribe();
@@ -4422,8 +4389,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     questionIndex: number
   ): Promise<QuizQuestion> {
     try {
-      const resolvedQuestion = await firstValueFrom(
-        this.quizService.getResolvedQuestionByIndex(questionIndex)
+      const resolvedQuestion: QuizQuestion | null = await firstValueFrom(
+        this.quizService.getQuestionByIndex(questionIndex)
       );
 
       if (!resolvedQuestion || !resolvedQuestion.questionText?.trim()) {

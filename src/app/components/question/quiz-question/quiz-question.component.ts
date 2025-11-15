@@ -42,8 +42,8 @@ import { SoundService } from '../../../shared/services/sound.service';
 import { TimerService } from '../../../shared/services/timer.service';
 import { UserPreferenceService } from '../../../shared/services/user-preference.service';
 import { BaseQuestion } from '../base/base-question';
-import { AnswerComponent } from '../../../components/question/answer/answer-component/answer.component';
-import { SharedOptionComponent } from '../../../components/question/answer/shared-option-component/shared-option.component';
+import { AnswerComponent } from '../answer/answer-component/answer.component';
+import { SharedOptionComponent } from '../answer/shared-option-component/shared-option.component';
   
 type FeedbackKey = number | string;
   
@@ -150,25 +150,17 @@ export class QuizQuestionComponent extends BaseQuestion
   
   override selectedOption: SelectedOption | null = null;
   selectedOptions: SelectedOption[] = [];
-  selectedOption$ = new BehaviorSubject<Option | null>(null);
-  public wasReselected = false;
-  options$: Observable<Option[]> = of([]);
   currentOptions: Option[] | undefined;
   correctAnswers: number[] | undefined;
   override correctMessage = '';
   alreadyAnswered = false;
   optionChecked: { [optionId: number]: boolean } = {};
   answers: any[] = [];
-  correctOptionIndex = -1;
   shuffleOptions = true;
   shuffledOptions: Option[] = [];
   override optionBindings: OptionBindings[] = [];
-  feedbackIcon = '';
-  feedbackVisible: { [optionId: number]: boolean } = {};
   override showFeedbackForOption: { [optionId: string | number]: boolean } = {};
   isFeedbackApplied = false;
-  displayOptions: Option[] = [];
-  correctAnswersLoaded = false;
   resetFeedbackSubscription!: Subscription;
   resetStateSubscription!: Subscription;
   sharedVisibilitySubscription!: Subscription;
@@ -180,13 +172,10 @@ export class QuizQuestionComponent extends BaseQuestion
   isNavigatingToPrevious = false;
   isLoading = true;
   private isLoadingInProgress = false;
-  isLoadingQuestions = false;
   isFirstQuestion = true;
   isPaused = false;
   isQuizLoaded = false;
-  lastMessage = '';
   private initialized = false;
-  shouldDisplayAnswers = false;
   feedbackText = '';
   displayExplanation = false;
   override sharedOptionConfig: SharedOptionConfig | null = null;
@@ -203,7 +192,6 @@ export class QuizQuestionComponent extends BaseQuestion
   private displayModeSubscription!: Subscription;
   private lastOptionsQuestionSignature: string | null = null;
   shouldDisplayExplanation = false;
-  isContentAvailable$: Observable<boolean> = of(false);
   private isRestoringState = false;
   private displayState = {
     mode: 'question' as 'question' | 'explanation',
@@ -229,7 +217,6 @@ export class QuizQuestionComponent extends BaseQuestion
   private _formattedByIndex = new Map<number, string>();
   private _timerForIndex: number | null = null;
   private handledOnExpiry = new Set<number>();
-  public isFormatting = false;
   
   private lastSerializedOptions = '';
   lastSerializedPayload = '';
@@ -237,23 +224,19 @@ export class QuizQuestionComponent extends BaseQuestion
   private hydrationInProgress = false;
   
   public finalRenderReadySubject = new BehaviorSubject<boolean>(false);
-  public finalRenderReady$ = this.finalRenderReadySubject.asObservable();
   public finalRenderReady = false;
   public internalBufferReady = false;
   
   explanationTextSubject = new BehaviorSubject<string>('');
-  explanationText$ = this.explanationTextSubject.asObservable();
   private _fetEarlyShown = new Set<number>();
   
   feedbackTextSubject = new BehaviorSubject<string>('');
-  feedbackText$ = this.feedbackTextSubject.asObservable();
   
   selectionMessageSubject = new BehaviorSubject<string>('');
-  selectionMessage$ = this.selectionMessageSubject.asObservable();
   selectionMessageSubscription: Subscription = new Subscription();
   
-  private questionPayloadSubject = new BehaviorSubject<QuestionPayload | null>(null);
-  public questionPayload$ = this.questionPayloadSubject.asObservable();
+  private questionPayloadSubject =
+    new BehaviorSubject<QuestionPayload | null>(null);
   
   private renderReadySubject = new BehaviorSubject<boolean>(false);
   public renderReady$ = this.renderReadySubject.asObservable();
@@ -269,7 +252,6 @@ export class QuizQuestionComponent extends BaseQuestion
   private _elapsedAtHide: number | null = null;
   private _pendingRAF: number | null = null;
   _pendingPassiveRaf: number | null = null;
-  canonicalOptions: CanonicalOption[] = [];
   private _msgTok = 0;
   
   private questionFresh = true;
@@ -4769,50 +4751,52 @@ export class QuizQuestionComponent extends BaseQuestion
     this.answerSelected.emit(true);
     this.isFirstQuestion = false;  // reset after the first option click
   }
-  
+
   public async fetchAndProcessCurrentQuestion(): Promise<QuizQuestion | null> {
     try {
-      this.resetStateForNewQuestion();  // reset state before fetching new question
-  
+      this.resetStateForNewQuestion();
+
+      // Get quizId if needed
       const quizId = this.quizService.getCurrentQuizId();
+
+      // Use the ONLY valid API now
       const currentQuestion = await firstValueFrom(
-        this.quizService.getCurrentQuestionByIndex(
-          quizId,
-          this.currentQuestionIndex
-        )
+        this.quizService.getQuestionByIndex(this.currentQuestionIndex)
       );
-  
-      if (!currentQuestion) return null;
-  
+
+      if (!currentQuestion) {
+        console.warn('[fetchAndProcessCurrentQuestion] No question found.');
+        return null;
+      }
+
+      // Assign
       this.currentQuestion = currentQuestion;
-      this.optionsToDisplay = [...(currentQuestion.options || [])];
-  
-      // Set this.data
+      this.optionsToDisplay = [...(currentQuestion.options ?? [])];
+
+      // Prepare UI data
       this.data = {
         questionText: currentQuestion.questionText,
         explanationText: currentQuestion.explanation,
         correctAnswersText: this.quizService.getCorrectAnswersAsString(),
         options: this.optionsToDisplay
       };
-  
-      // Determine if the current question is answered
+
+      // Check if the question has been answered
       const isAnswered = await this.isAnyOptionSelected(this.currentQuestionIndex);
-  
-      // Update the selection message based on the current state
+
+      // Update selection message only if needed
       if (await this.shouldUpdateMessageOnAnswer(isAnswered)) {
         // await this.updateSelectionMessageBasedOnCurrentState(isAnswered);
-      } else {
-        console.log('No update required for the selection message.');
       }
-  
-      // Return the fetched current question
+
       return currentQuestion;
+
     } catch (error) {
-      console.error('[fetchAndProcessCurrentQuestion] An error occurred while fetching the current question:', error);
+      console.error('[fetchAndProcessCurrentQuestion] Error:', error);
       return null;
     }
   }
-  
+
   private processCurrentQuestionState(
     currentQuestion: QuizQuestion,
     option: SelectedOption,
