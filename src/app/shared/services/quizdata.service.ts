@@ -37,9 +37,7 @@ export class QuizDataService implements OnDestroy {
     private quizService: QuizService,
     private quizShuffleService: QuizShuffleService,
     private http: HttpClient
-  ) {
-    // this.loadQuizzesData();
-  }
+  ) {}
 
   ngOnDestroy(): void {
     this.destroy$.next();
