@@ -151,9 +151,6 @@ export class QuizService implements OnDestroy {
   private canonicalQuestionsByQuiz = new Map<string, QuizQuestion[]>();
   private canonicalQuestionIndexByText = new Map<string, Map<string, number>>();
 
-  currentAnswer = '';
-  nextQuestionText = '';
-
   correctMessage = '';
   correctOptions: Option[] = [];
   selectedOption$ = new BehaviorSubject<string | null>(null);
@@ -202,10 +199,7 @@ export class QuizService implements OnDestroy {
   private quizResetSource = new Subject<void>();
   quizReset$ = this.quizResetSource.asObservable();
 
-  loadingQuestions = false;
   lock = false;
-  questionsLoaded = false;
-  questionLoadingSubject: Subject<boolean> = new Subject<boolean>();
 
   score = 0;
   currentScore$: Observable<number> = of(0);
@@ -236,8 +230,6 @@ export class QuizService implements OnDestroy {
   private readonly _preReset$ = new Subject<number>();
   // Emitted with the target question index just before navigation hydrates it
   readonly preReset$ = this._preReset$.asObservable();
-
-  public _lastBannerFrameIndex: number | null = null;
 
   constructor(
     private quizShuffleService: QuizShuffleService,
