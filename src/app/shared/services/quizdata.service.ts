@@ -74,7 +74,19 @@ export class QuizDataService implements OnDestroy {
   getCachedQuizById(quizId: string): Quiz | null {
     if (!quizId) return null;
 
-    return this.quizzes.find((quiz) => quiz.quizId === quizId) ?? null;
+    // Prefer the BehaviorSubject cache (always up-to-date)
+    const quizzes = this.quizzesSubject.value;
+
+    // Fallback to your original this.quizzes array if ever needed
+    const source = Array.isArray(quizzes) && quizzes.length > 0
+      ? quizzes
+      : this.quizzes;
+
+    if (!Array.isArray(source) || source.length === 0) {
+      return null;
+    }
+
+    return source.find(q => q.quizId === quizId) ?? null;
   }
 
   async loadQuizById(quizId: string): Promise<Quiz | null> {
