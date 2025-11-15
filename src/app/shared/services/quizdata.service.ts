@@ -37,7 +37,9 @@ export class QuizDataService implements OnDestroy {
     private quizService: QuizService,
     private quizShuffleService: QuizShuffleService,
     private http: HttpClient
-  ) {}
+  ) {
+    // this.loadQuizzesData();
+  }
 
   ngOnDestroy(): void {
     this.destroy$.next();
@@ -73,19 +75,19 @@ export class QuizDataService implements OnDestroy {
    */
   getCachedQuizById(quizId: string): Quiz | null {
     if (!quizId) return null;
-
+  
     // Prefer the BehaviorSubject cache (always up-to-date)
     const quizzes = this.quizzesSubject.value;
-
-    // Fallback to original this.quizzes array
+  
+    // Fallback to your original this.quizzes array if ever needed
     const source = Array.isArray(quizzes) && quizzes.length > 0
       ? quizzes
       : this.quizzes;
-
+  
     if (!Array.isArray(source) || source.length === 0) {
       return null;
     }
-
+  
     return source.find(q => q.quizId === quizId) ?? null;
   }
 
