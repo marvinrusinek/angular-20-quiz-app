@@ -2052,8 +2052,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     try {
       this.selectedOptionService.resetAllStates();
       this.selectedOptionService.clearSelectionsForQuestion(adjustedIndex);
-      (this.quizService.questions ?? []).forEach(q =>
-        q.options?.forEach(o => {
+      (this.quizService.questions ?? []).forEach((q: QuizQuestion) =>
+        q.options?.forEach((o: Option) => {
           o.selected = false;
           (o as any).highlight = false;
           (o as any).showFeedback = false;
@@ -4792,15 +4792,15 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     }
   
     console.log('[emitCorrectAnswersBanner] 🧮 Raw options at index', index,
-      fresh.options.map(o => ({ text: o.text, correct: o.correct })));
+      fresh.options.map((o: Option) => ({ text: o.text, correct: o.correct })));
   
     const isMulti =
       (fresh.type === QuestionType.MultipleAnswer) ||
-      fresh.options.filter(o => o.correct === true).length > 1;
+      fresh.options.filter((o: Option) => o.correct === true).length > 1;
     (fresh as any).isMulti = isMulti; // 🔹 stamp here
     console.log('[emitCorrectAnswersBanner] ✅ isMulti set to', isMulti);
   
-    const numCorrect = fresh.options.filter(o => o.correct).length;
+    const numCorrect = fresh.options.filter((o: Option) => o.correct).length;
     const totalOpts = fresh.options.length;
     const banner = isMulti
       ? this.quizQuestionManagerService.getNumberOfCorrectAnswersText(numCorrect, totalOpts)

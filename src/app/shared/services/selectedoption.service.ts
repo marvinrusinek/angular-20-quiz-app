@@ -1721,12 +1721,14 @@ export class SelectedOptionService {
 
     console.log(
       '[ARE-ALL SYNC] live state:',
-      this.quizService.questions?.[questionIndex]?.options?.map(o => ({
-        id: o.optionId,
-        text: o.text,
-        selected: o.selected,
-        correct: o.correct
-      }))
+      this.quizService.questions?.[questionIndex]?.options?.map(
+        (o: Option) => ({
+          id: o.optionId,
+          text: o.text,
+          selected: o.selected,
+          correct: o.correct
+        })
+      )
     );
 
     // Pull the REAL current option state

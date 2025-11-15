@@ -1719,7 +1719,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     const isMulti =
       !!qObj &&
       (qObj.type === QuestionType.MultipleAnswer ||
-        (Array.isArray(qObj.options) && qObj.options.some(o => o.correct)));
+        (Array.isArray(qObj.options) && qObj.options.some((o: Option) => o.correct)));
   
     let merged = qText;
     if (isMulti && bannerText && mode === 'question') {
