@@ -163,7 +163,6 @@ export class QuizService implements OnDestroy {
 
   optionsSource: Subject<Option[]> = new Subject<Option[]>();
   private optionsSubject = new BehaviorSubject<Option[]>([]);
-  public options$ = this.optionsSubject.asObservable();;
 
   nextQuestionSource = new BehaviorSubject<QuizQuestion | null>(null);
   nextQuestionSubject = new BehaviorSubject<QuizQuestion | null>(null);
@@ -3148,19 +3147,5 @@ export class QuizService implements OnDestroy {
       this.selectedQuiz?.quizId ||
       null
     );
-  }
-  
-  public restoreCorrectAnswersTextFromStorage(): void {
-    setTimeout(() => {
-      try {
-        const saved = localStorage.getItem('correctAnswersText');
-        if (saved && saved.trim().length > 0) {
-          this.correctAnswersCountTextSource.next(saved);
-          console.log('[QuizService] 🔁 Restored banner text from localStorage:', saved);
-        }
-      } catch (err) {
-        console.warn('[QuizService] ⚠️ Failed to restore banner text', err);
-      }
-    }, 300);  // small async delay prevents re-render race
   }
 }
