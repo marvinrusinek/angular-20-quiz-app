@@ -27,10 +27,8 @@ export class QuizDataService implements OnDestroy {
   private readonly quizQuestionCache = new Map<string, QuizQuestion[]>();
 
   selectedQuiz$: BehaviorSubject<Quiz | null> = new BehaviorSubject<Quiz | null>(null);
-  selectedQuizSubject = new BehaviorSubject<Quiz | null>(null);
 
   private currentQuizSubject = new BehaviorSubject<Quiz | null>(null);
-  currentQuiz$ = this.currentQuizSubject.asObservable();
 
   private isContentAvailableSubject = new BehaviorSubject<boolean>(false);
   public isContentAvailable$: Observable<boolean> = this.isContentAvailableSubject.asObservable();
@@ -40,7 +38,7 @@ export class QuizDataService implements OnDestroy {
     private quizShuffleService: QuizShuffleService,
     private http: HttpClient
   ) {
-    this.loadQuizzesData();
+    // this.loadQuizzesData();
   }
 
   ngOnDestroy(): void {
@@ -55,19 +53,20 @@ export class QuizDataService implements OnDestroy {
     );
   }
 
-  public loadQuizzesData(): void {
-    this.http.get<Quiz[]>(this.quizUrl).pipe(
+  loadQuizzes(): Observable<Quiz[]> {
+    return this.http.get<Quiz[]>(this.quizUrl).pipe(
       tap(quizzes => {
         this.quizzes = Array.isArray(quizzes) ? [...quizzes] : [];
         this.quizzesSubject.next(quizzes);
         console.log('[QuizDataService] Loaded quizzes:', quizzes);
       }),
-      catchError((error) => {
-        console.error('[QuizDataService] Failed to load quiz data:', error);
+      catchError(err => {
+        console.error('[QuizDataService] Failed:', err);
         return throwError(() => new Error('Error fetching quiz data'));
       })
-    ).subscribe();
+    );
   }
+
 
   /**
    * Returns a synchronously cached quiz instance, if available.

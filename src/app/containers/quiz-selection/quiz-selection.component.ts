@@ -63,9 +63,16 @@ export class QuizSelectionComponent implements OnInit {
   private initializeQuizSelection(): void {
     this.currentQuestionIndex = this.quizService.currentQuestionIndex;
     this.selectionParams = this.quizService.returnQuizSelectionParams();
+
+    // Load quizzes once – replaces constructor side-effect
+    this.quizDataService.loadQuizzes().subscribe();
+
+    // Consume cached quizzes
     this.quizzes$ = this.quizDataService.getQuizzes();
+
     this.subscribeToSelectedQuiz();
   }
+
 
   private subscribeToSelectedQuiz(): void {
     this.selectedQuizSubscription = this.quizService.selectedQuiz$
