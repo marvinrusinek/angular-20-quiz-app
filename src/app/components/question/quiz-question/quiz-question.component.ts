@@ -3733,51 +3733,6 @@ export class QuizQuestionComponent extends BaseQuestion
     }
   }
   
-  // Handles logic for when the timer should stop.
-  private async stopTimerIfApplicable(
-    isMultipleAnswer: boolean,
-    option: SelectedOption
-  ): Promise<void> {
-    let stopTimer = false;
-  
-    try {
-      if (isMultipleAnswer) {
-        // Ensure options and question index are valid
-        if (
-          !this.currentQuestion ||
-          !Array.isArray(this.currentQuestion.options)
-        ) {
-          console.warn(
-            '[stopTimerIfApplicable] Invalid question or options for multiple-answer question.'
-          );
-          return;
-        }
-  
-        const allCorrectSelected =
-          await this.selectedOptionService.areAllCorrectAnswersSelectedSync(this.currentQuestionIndex);
-        stopTimer = allCorrectSelected;
-      } else {
-        stopTimer = option.correct ?? false;
-      }
-  
-      if (stopTimer) {
-        const stopped = this.timerService.attemptStopTimerForQuestion({
-          questionIndex: this.currentQuestionIndex,
-        });
-  
-        if (stopped) {
-          console.log('[stopTimerIfApplicable] Stopping timer: Condition met.');
-        } else {
-          console.log('[stopTimerIfApplicable] Timer stop attempt rejected.');
-        }
-      } else {
-        console.log('[stopTimerIfApplicable] Timer not stopped: Condition not met.');
-      }
-    } catch (error) {
-      console.error('[stopTimerIfApplicable] Error in timer logic:', error);
-    }
-  }
-  
   // Updates the display to explanation mode.
   private updateDisplayStateToExplanation(): void {
     // Get answered state from SelectedOptionService

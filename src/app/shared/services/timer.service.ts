@@ -3,6 +3,8 @@ import { BehaviorSubject, Observable, Subject, Subscription, timer } from 'rxjs'
 import { finalize, map, takeUntil, tap } from 'rxjs/operators';
 
 import { Option } from '../models/Option.model';
+import { QuizQuestion } from '../models/QuizQuestion.model';
+import { SelectedOption } from '../models/SelectedOption.model';
 import { SelectedOptionService } from './selectedoption.service';
 import { QuizService } from './quiz.service';
 
@@ -321,6 +323,56 @@ export class TimerService {
       this.stoppedForQuestion.delete(questionIndex);
       console.error('[TimerService] stopTimer failed in attemptStopTimerForQuestion:', err);
       return false;
+    }
+  }
+
+  /**
+   * Stops the timer if the answer conditions are met.
+   *
+   * Single-answer → stop when the clicked option is correct.
+   * Multiple-answer → stop when all correct answers are selected.
+   */
+  public async stopTimerIfApplicable(
+    question: QuizQuestion,
+    questionIndex: number,
+    selectedOption: SelectedOption
+  ): Promise<void> {
+    try {
+      if (!question || !Array.isArray(question.options)) {
+        console.warn('[TimerService] Invalid question/options. Cannot evaluate.');
+        return;
+      }
+
+      let shouldStop = false;
+
+      const isMultiple = question.options.filter(o => o.correct).length > 1;
+
+      if (isMultiple) {
+        // All correct chosen?
+        const allCorrectSelected =
+          await this.selectedOptionService.areAllCorrectAnswersSelectedSync(
+            questionIndex
+          );
+
+        shouldStop = allCorrectSelected === true;
+      } else {
+        // Single-answer case
+        shouldStop = !!selectedOption?.correct;
+      }
+
+      if (shouldStop) {
+        const stopped = this.attemptStopTimerForQuestion({
+          questionIndex
+        });
+
+        if (stopped) {
+          console.log('[TimerService] Timer stopped (conditions met).');
+        } else {
+          console.log('[TimerService] Timer stop rejected (already stopped?).');
+        }
+      }
+    } catch (err) {
+      console.error('[TimerService] Error during stop-timer evaluation:', err);
     }
   }
 
