@@ -2691,7 +2691,7 @@ export class QuizQuestionComponent extends BaseQuestion
     this.isUserClickInProgress = true;
     this._skipNextAsyncUpdates = false;  // reset skip flag at start of each click
    
-    // Cancel pending RAF
+    // Cancel pending RAFconst allCorrect =
     if (this._pendingRAF != null) {
       cancelAnimationFrame(this._pendingRAF);
       this._pendingRAF = null;
@@ -2851,6 +2851,9 @@ export class QuizQuestionComponent extends BaseQuestion
             selectedCorrectCount === correctOpts.length &&
             selKeys.size === correctOpts.length
           : !!evtOpt?.correct;
+
+      // Stop the timer if this question is now complete
+      await this.timerService.stopTimerIfApplicable(q, idx, evtOpt);
    
       this._lastAllCorrect = allCorrect;
       this.nextButtonStateService.setNextButtonState(allCorrect);
