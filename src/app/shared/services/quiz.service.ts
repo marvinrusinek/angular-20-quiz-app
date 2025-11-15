@@ -43,7 +43,8 @@ export class QuizService {
   quizId = '';
   quizResources: QuizResource[] = [];
   question: QuizQuestion | null = null;
-  questions: QuizQuestion[] = [];
+  private _questions: QuizQuestion[] = [];
+  // questions: QuizQuestion[] = [];
   questionsList: QuizQuestion[] = [];
   isNavigating = false;
 
@@ -224,6 +225,15 @@ export class QuizService {
     private http: HttpClient
   ) {
     this.initializeData();
+  }
+
+  set questions(value: any) {
+    console.trace('[TRACE QUESTIONS RESET]', value);
+    this._questions = value;
+  }
+
+  get questions() {
+    return this._questions;
   }
 
   getQuizName(segments: any[]): string {

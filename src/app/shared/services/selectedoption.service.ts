@@ -1714,13 +1714,42 @@ export class SelectedOptionService {
     questionIndex: number,
     optionsSnapshot?: Option[]
   ): boolean {
-    const snapshot = this.buildCanonicalSelectionSnapshot(
-      questionIndex,
-      Array.isArray(optionsSnapshot) ? optionsSnapshot : []
+    console.log('[ARE-ALL SYNC] questions array:', this.quizService.questions);
+    console.log('[ARE-ALL SYNC] questionIndex:', questionIndex);
+    console.log('[ARE-ALL SYNC] question at index:', this.quizService.questions?.[questionIndex]);
+    console.log('[ARE-ALL SYNC] live state:', this.quizService.questions?.[questionIndex]?.options);
+
+    console.log(
+      '[ARE-ALL SYNC] live state:',
+      this.quizService.questions?.[questionIndex]?.options?.map(o => ({
+        id: o.optionId,
+        text: o.text,
+        selected: o.selected,
+        correct: o.correct
+      }))
     );
 
+    // Pull the REAL current option state
+    // (instead of defaulting to an empty snapshot)
+    const q = this.quizService.questions?.[questionIndex];
+    const liveOptions = Array.isArray(q?.options) ? q.options : [];
+
+    // Use provided snapshot OR fallback to real state
+    const snapshotSource = Array.isArray(optionsSnapshot)
+      ? optionsSnapshot
+      : liveOptions;
+
+    // Build canonical snapshot from the *actual* state
+    // (previously always passed "[]", which wiped state)
+    const snapshot = this.buildCanonicalSelectionSnapshot(
+      questionIndex,
+      snapshotSource
+    );
+
+    // Resolve canonical option definitions
     const canonicalOptions = this.resolveCanonicalOptionsFor(questionIndex);
 
+    // Delegate to existing truth function
     return this.determineIfAllCorrectAnswersSelected(
       questionIndex,
       snapshot,

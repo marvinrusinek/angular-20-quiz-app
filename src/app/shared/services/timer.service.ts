@@ -338,6 +338,7 @@ export class TimerService {
     selectedOption: SelectedOption
   ): Promise<void> {
     try {
+      // Defensive checks
       if (!question || !Array.isArray(question.options)) {
         console.warn('[TimerService] Invalid question/options. Cannot evaluate.');
         return;
@@ -345,25 +346,32 @@ export class TimerService {
 
       let shouldStop = false;
 
-      const isMultiple = question.options.filter(o => o.correct).length > 1;
+      // Determine multi vs single
+      const correctOptions = question.options.filter(o => o.correct);
+      const isMultiple = correctOptions.length > 1;
 
       if (isMultiple) {
-        // All correct chosen?
+        // MULTIPLE-ANSWER CASE
+        // -------------------------------------------------
+        // We check if ALL correct answers are selected.
+        // Your method name says Sync but returns a Promise,
+        // so we still await it.
+        // -------------------------------------------------
         const allCorrectSelected =
           await this.selectedOptionService.areAllCorrectAnswersSelectedSync(
             questionIndex
           );
 
         shouldStop = allCorrectSelected === true;
+
       } else {
-        // Single-answer case
+        // SINGLE-ANSWER CASE
         shouldStop = !!selectedOption?.correct;
       }
 
+      // If we should stop the timer, attempt to stop
       if (shouldStop) {
-        const stopped = this.attemptStopTimerForQuestion({
-          questionIndex
-        });
+        const stopped = this.attemptStopTimerForQuestion({ questionIndex });
 
         if (stopped) {
           console.log('[TimerService] Timer stopped (conditions met).');
@@ -371,6 +379,7 @@ export class TimerService {
           console.log('[TimerService] Timer stop rejected (already stopped?).');
         }
       }
+
     } catch (err) {
       console.error('[TimerService] Error during stop-timer evaluation:', err);
     }

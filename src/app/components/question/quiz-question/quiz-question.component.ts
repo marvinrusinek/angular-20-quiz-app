@@ -2836,7 +2836,12 @@ export class QuizQuestionComponent extends BaseQuestion
         canonicalOptions: canonicalOpts as CanonicalOption[],
         token: tok
       });
-   
+
+      // Sync question.options before correctness evaluation
+      if (q && Array.isArray(q.options)) {
+        q.options = canonicalOpts.map(o => ({ ...o }));
+      }
+
       // Compute correctness
       const correctOpts = canonicalOpts.filter(o => !!o.correct);
       const selOpts = Array.from(
@@ -2851,14 +2856,18 @@ export class QuizQuestionComponent extends BaseQuestion
             selectedCorrectCount === correctOpts.length &&
             selKeys.size === correctOpts.length
           : !!evtOpt?.correct;
-
-      // Stop the timer if this question is now complete
-      await this.timerService.stopTimerIfApplicable(q, idx, evtOpt);
    
       this._lastAllCorrect = allCorrect;
+
+      // Stop the timer if this question is now complete
+      console.log('%c[TIMER DEBUG] ❗ reached stopTimerIfApplicable SPOT', 'color:red;font-weight:bold');
+      await this.timerService.stopTimerIfApplicable(q, idx, evtOpt);
+      console.log('%c[TIMER DEBUG] ❗ returned from stopTimerIfApplicable', 'color:red;font-weight:bold');
+
+
       this.nextButtonStateService.setNextButtonState(allCorrect);
       this.quizStateService.setAnswered(allCorrect);
-      this.quizStateService.setAnswerSelected(allCorrect);
+      this.quizStateService.setAnswerSelected(allCorrect)
 
       // Lock the question index immediately to avoid drift
       const lockedIndex = this.currentQuestionIndex ?? idx;

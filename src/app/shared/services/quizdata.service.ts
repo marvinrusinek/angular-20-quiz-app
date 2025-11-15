@@ -192,34 +192,44 @@ export class QuizDataService {
 
         // Build normalized base questions (clone options per question)
         const baseQuestions: QuizQuestion[] = (quiz.questions ?? [])
-          .map((question) => this.normalizeQuestion(question));
+          .map(question => this.normalizeQuestion(question));
 
-        this.baseQuizQuestionCache.set(quizId, this.cloneQuestions(baseQuestions));
+        // Cache base canonical form
+        this.baseQuizQuestionCache.set(
+          quizId,
+          this.cloneQuestions(baseQuestions)
+        );
+
+        // Set canonical representation (does NOT mutate runtime questions)
         this.quizService.setCanonicalQuestions(quizId, baseQuestions);
 
         const shouldShuffle = this.quizService.isShuffleEnabled();
+
+        // Build session questions
         const sessionQuestions = this.buildSessionQuestions(
           quizId,
           baseQuestions,
           shouldShuffle
         );
 
-        this.quizQuestionCache.set(quizId, this.cloneQuestions(sessionQuestions));
-        this.quizService.applySessionQuestions(
+        // Cache session form
+        this.quizQuestionCache.set(
           quizId,
           this.cloneQuestions(sessionQuestions)
         );
+
+        // Sync persistent quiz-level flags / metadata
         this.syncSelectedQuizState(quizId, sessionQuestions, quiz);
 
-        // Assign questions to QuizService so UI can access them
-        this.quizService.questions = this.cloneQuestions(sessionQuestions);
+        // ❗ DO NOT assign to quizService.questions here
+        // (mutating live runtime state during fetch is destructive)
 
-        // Stamp multi-answer flag for each question
-        for (const [qIndex, question] of this.quizService.questions.entries()) {
+        // Stamp multi-answer flag INTO THE RETURNED QUESTIONS ONLY
+        for (const [qIndex, question] of sessionQuestions.entries()) {
           (question as any).isMulti =
             question.type === QuestionType.MultipleAnswer ||
             (Array.isArray(question.options) &&
-              question.options.filter((o) => o.correct === true).length > 1);
+              question.options.filter(o => o.correct === true).length > 1);
 
           console.log(
             `[QuizDataService] Q${qIndex + 1} isMulti =`,
@@ -227,11 +237,11 @@ export class QuizDataService {
           );
         }
 
-        // Debug logs for confirmation
         console.log(
-          `[QuizDataService] ✅ Assigned ${this.quizService.questions.length} questions to QuizService`
+          `[QuizDataService] Returning ${sessionQuestions.length} questions (safe, unmutated).`
         );
 
+        // Return clones so caller can set quizService.questions ONCE
         return this.cloneQuestions(sessionQuestions);
       }),
       catchError(error => {
