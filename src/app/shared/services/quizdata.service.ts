@@ -1,4 +1,4 @@
-import { Injectable, OnDestroy } from '@angular/core';
+import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { BehaviorSubject, firstValueFrom, Observable, of, Subject, throwError } from 'rxjs';
 import { catchError, distinctUntilChanged, filter, map, switchMap, take, takeUntil, tap } from 'rxjs/operators';
@@ -13,12 +13,10 @@ import { QuizShuffleService } from '../../shared/services/quiz-shuffle.service';
 import { Utils } from '../../shared/utils/utils';
 
 @Injectable({ providedIn: 'root' })
-export class QuizDataService implements OnDestroy {
+export class QuizDataService {
   private quizUrl = 'assets/data/quiz.json';
   question: QuizQuestion | null = null;
   questionType: string | null = null;
-  
-  private destroy$ = new Subject<void>();
 
   private quizzesSubject = new BehaviorSubject<Quiz[]>([]);
   quizzes$ = this.quizzesSubject.asObservable();
@@ -38,11 +36,6 @@ export class QuizDataService implements OnDestroy {
     private quizShuffleService: QuizShuffleService,
     private http: HttpClient
   ) {}
-
-  ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
-  }
 
   getQuizzes(): Observable<Quiz[]> {
     return this.quizzes$.pipe(
@@ -150,8 +143,7 @@ export class QuizDataService implements OnDestroy {
       catchError((error: HttpErrorResponse) => {
         console.error('Error retrieving quizzes:', error.message || error);
         return throwError(() => new Error('Error retrieving quizzes'));
-      }),
-      takeUntil(this.destroy$)
+      })
     );
   }
 
