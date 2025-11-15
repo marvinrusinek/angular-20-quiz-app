@@ -77,7 +77,7 @@ export class QuizDataService implements OnDestroy {
     // Prefer the BehaviorSubject cache (always up-to-date)
     const quizzes = this.quizzesSubject.value;
 
-    // Fallback to your original this.quizzes array if ever needed
+    // Fallback to original this.quizzes array
     const source = Array.isArray(quizzes) && quizzes.length > 0
       ? quizzes
       : this.quizzes;
