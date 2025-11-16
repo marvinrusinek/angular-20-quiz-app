@@ -1,7 +1,7 @@
 import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, EventEmitter, Input, OnChanges, OnInit, Output, QueryList, SimpleChanges, ViewChild, ViewChildren, ViewContainerRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder } from '@angular/forms';
-import { BehaviorSubject, Subject } from 'rxjs';
+import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 
 import { Option } from '../../../../shared/models/Option.model';
@@ -12,14 +12,13 @@ import { SelectedOption } from '../../../../shared/models/SelectedOption.model';
 import { SharedOptionConfig } from '../../../../shared/models/SharedOptionConfig.model';
 import { DynamicComponentService } from '../../../../shared/services/dynamic-component.service';
 import { FeedbackService } from '../../../../shared/services/feedback.service';
-import { NextButtonStateService } from '../../../../shared/services/next-button-state.service';
 import { QuizService } from '../../../../shared/services/quiz.service';
 import { QuizQuestionLoaderService } from '../../../../shared/services/quizquestionloader.service';
 import { QuizQuestionManagerService } from '../../../../shared/services/quizquestionmgr.service';
 import { QuizStateService } from '../../../../shared/services/quizstate.service';
 import { SelectedOptionService } from '../../../../shared/services/selectedoption.service';
 import { BaseQuestion } from '../../base/base-question';
-import { SharedOptionComponent } from '../../../../components/question/answer/shared-option-component/shared-option.component';
+import { SharedOptionComponent } from '../shared-option-component/shared-option.component';
 
 @Component({
   selector: 'codelab-question-answer',
@@ -29,7 +28,6 @@ import { SharedOptionComponent } from '../../../../components/question/answer/sh
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implements OnInit, OnChanges, AfterViewInit {
-  @ViewChildren('dynamicAnswerContainer', { read: ViewContainerRef })
   viewContainerRefs!: QueryList<ViewContainerRef>;
   viewContainerRef!: ViewContainerRef;
   @ViewChild(SharedOptionComponent)
@@ -55,14 +53,11 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
   selectedOptions: SelectedOption[] = [];
   incomingOptions: Option[] = [];
   override sharedOptionConfig!: SharedOptionConfig;
-  isQuizQuestionComponentLoaded = false;
   hasComponentLoaded = false;
   override type: 'single' | 'multiple' = 'single';  // store the type (single/multiple answer)
   override selectedOptionIndex = -1;
   renderReady = false;
 
-  private quizQuestionComponentLoadedSubject = new BehaviorSubject<boolean>(false);
-  quizQuestionComponentLoaded$ = this.quizQuestionComponentLoadedSubject.asObservable();
   public quizQuestionComponentLoaded = new EventEmitter<void>();
 
   private destroy$ = new Subject<void>();
@@ -70,7 +65,6 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
   constructor(
     protected quizQuestionLoaderService: QuizQuestionLoaderService,
     protected quizQuestionManagerService: QuizQuestionManagerService,
-    protected nextButtonStateService: NextButtonStateService,
     protected override dynamicComponentService: DynamicComponentService,
     protected override feedbackService: FeedbackService,
     protected override quizService: QuizService,
@@ -84,7 +78,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
 
   override async ngOnInit(): Promise<void> {
     await this.initializeAnswerConfig();
-    this.initializeSharedOptionConfig();
+    await this.initializeSharedOptionConfig();
 
     // Guard against the first render missing its options because the
     // options stream may not have emitted yet when the template binds.
@@ -261,7 +255,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
       const isMultipleAnswer = this.quizQuestionManagerService.isMultipleAnswerQuestion(currentQuestion);
       console.log('Is Multiple Answer:', isMultipleAnswer);
 
-      if (typeof isMultipleAnswer === 'boolean') {
+      if (isMultipleAnswer) {
         this.type = isMultipleAnswer ? 'multiple' : 'single';
         this.hasComponentLoaded = true;  // prevent further attempts to load
         this.quizQuestionComponentLoaded.emit();  // notify listeners that the component is loaded
@@ -297,7 +291,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
   public override async onOptionClicked(
     event: { option: SelectedOption; index: number; checked: boolean }
   ): Promise<void> {
-    const { option, index, checked } = event;  // destructure the event object
+    const { option, index } = event;  // destructure the event object
 
     // Handle single-answer questions
     if (this.type === 'single') {
