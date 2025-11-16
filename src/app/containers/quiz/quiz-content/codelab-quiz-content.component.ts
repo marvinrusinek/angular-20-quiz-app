@@ -10,6 +10,7 @@ import { QuestionPayload } from '../../../shared/models/QuestionPayload.model';
 import { QuizQuestion } from '../../../shared/models/QuizQuestion.model';
 import { QuizService } from '../../../shared/services/quiz.service';
 import { QuizDataService } from '../../../shared/services/quizdata.service';
+import { QuizNavigationService } from '../../../shared/services/quiz-navigation.service';
 import { QuizQuestionLoaderService } from '../../../shared/services/quizquestionloader.service';
 import { QuizQuestionManagerService } from '../../../shared/services/quizquestionmgr.service';
 import { QuizStateService } from '../../../shared/services/quizstate.service';
@@ -205,6 +206,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   constructor(
     private quizService: QuizService,
     private quizDataService: QuizDataService,
+    private quizNavigationService: QuizNavigationService,
     private quizStateService: QuizStateService,
     private explanationTextService: ExplanationTextService,
     private quizQuestionLoaderService: QuizQuestionLoaderService,
@@ -216,9 +218,11 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     this.nextQuestion$ = this.quizService.nextQuestion$;
     this.previousQuestion$ = this.quizService.previousQuestion$;
 
-    this.quizService.getIsNavigatingToPrevious().subscribe(
-      (isNavigating) => (this.isNavigatingToPrevious = isNavigating)
-    );
+    this.quizNavigationService
+      .getIsNavigatingToPrevious()
+      .subscribe((isNavigating: boolean) => {
+        this.isNavigatingToPrevious = isNavigating;
+      });
 
     this.isExplanationTextDisplayed$ = this.explanationTextService.isExplanationTextDisplayed$;
   }
