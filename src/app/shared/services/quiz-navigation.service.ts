@@ -1,11 +1,10 @@
 import { Injectable, NgZone } from '@angular/core';
-import { ActivatedRoute, ActivatedRouteSnapshot, NavigationCancel, NavigationEnd, NavigationError, ParamMap, Router } from '@angular/router';
-import { BehaviorSubject, firstValueFrom, Observable, of, Subject, throwError } from 'rxjs';
+import { ActivatedRoute, ActivatedRouteSnapshot, ParamMap, Router } from '@angular/router';
+import { firstValueFrom, Observable, of, Subject, throwError } from 'rxjs';
 import { catchError, map, take } from 'rxjs/operators';
 
 import { Option } from '../models/Option.model';
-import { QuestionPayload } from '../models/QuestionPayload.model';
-import { QuestionType } from '../../shared/models/question-type.enum';
+import { QuestionType } from '../models/question-type.enum';
 import { Quiz } from '../models/Quiz.model';
 import { QuizQuestion } from '../models/QuizQuestion.model';
 import { ExplanationTextService } from './explanation-text.service';
@@ -18,33 +17,21 @@ import { QuizStateService } from './quizstate.service';
 import { SelectedOptionService } from './selectedoption.service';
 import { TimerService } from './timer.service';
 
-type AnimationState = 'animationStarted' | 'none';
-
 @Injectable({ providedIn: 'root' })
 export class QuizNavigationService {
-  animationState$ = new BehaviorSubject<AnimationState>('none');
-
   private quizId = '';
   question!: QuizQuestion;
-  questionPayload: QuestionPayload | null = null;
   currentQuestion: QuizQuestion | null = null;
   currentQuestionIndex = 0;
   totalQuestions = 0;
+  questionReady = false;
   answers = [];
 
   optionsToDisplay: Option[] = [];
   explanationToDisplay = '';
 
   isNavigating = false;
-  private navigatingToResults = false;
-
   isOptionSelected = false;
-  private isButtonEnabledSubject = new BehaviorSubject<boolean>(false);
-  public isButtonEnabled$ = this.isButtonEnabledSubject.asObservable();
-
-  questionReady = false;
-  shouldRenderQuestionComponent = false;
-  elapsedTimeDisplay = 0;
 
   private navigationSuccessSubject = new Subject<void>();
   navigationSuccess$ = this.navigationSuccessSubject.asObservable();
@@ -133,47 +120,6 @@ export class QuizNavigationService {
     }
   
     return await this.navigateWithOffset(-1);
-  }
-
-  advanceToResults(): void {
-    if (this.navigatingToResults) {
-      console.warn('Navigation to results already in progress.');
-      return;
-    }
-  
-    this.navigatingToResults = true;  // prevent multiple clicks
-  
-    // Reset quiz state
-    this.quizService.resetAll();
-  
-    // Stop the timer and record elapsed time
-    if (this.timerService.isTimerRunning) {
-      this.timerService.stopTimer((elapsedTime: number) => {
-        this.elapsedTimeDisplay = elapsedTime;
-        console.log('Elapsed time recorded for results:', elapsedTime);
-      }, { force: true });
-    } else {
-      console.log('Timer was not running, skipping stopTimer.');
-    }
-  
-    // Check if all answers were completed before navigating
-    if (!this.quizService.quizCompleted) {
-      this.quizService.checkIfAnsweredCorrectly()
-        .then(() => {
-          console.log('All answers checked, navigating to results...');
-          this.handleQuizCompletion();
-          this.quizService.navigateToResults();
-        })
-        .catch((error) => {
-          console.error('Error during checkIfAnsweredCorrectly:', error);
-        })
-        .finally(() => {
-          this.navigatingToResults = false;  // allow navigation again after the process
-        });
-    } else {
-      console.warn('Quiz already marked as completed.');
-      this.navigatingToResults = false;
-    }
   }
 
   private async navigateWithOffset(offset: number): Promise<boolean> {
@@ -287,9 +233,8 @@ export class QuizNavigationService {
       } catch (err) {
         console.warn('[NAV] ⚠️ Failed to force display mode reset', err);
       }
-  
-      const quizId = effectiveQuizId;
-      const routeUrl = `/question/${quizId}/${targetIndex + 1}`;
+
+      const routeUrl = `/question/${effectiveQuizId}/${targetIndex + 1}`;
       const currentUrl = this.router.url;
   
       // Force reload if URL identical
@@ -544,14 +489,15 @@ export class QuizNavigationService {
       ets.formattedExplanationSubject?.next('');
       ets.shouldDisplayExplanationSubject?.next(false);
       ets.isExplanationTextDisplayedSubject?.next(false);
-  
-      if (ets._byIndex instanceof Map) {
+
+      if (ets._byIndex?.values) {
         for (const subj of ets._byIndex.values()) subj?.next?.(null);
       }
-      if (ets._gate instanceof Map) {
+
+      if (ets._gate?.values) {
         for (const gate of ets._gate.values()) gate?.next?.(false);
       }
-  
+
       ets._activeIndex = -1;
       ets._fetGateLockUntil = nowBlackout + freezeMs;
       console.log(`[NAV] 🚫 Full FET blackout for ${freezeMs}ms`);
@@ -588,13 +534,14 @@ export class QuizNavigationService {
       ets.setIsExplanationTextDisplayed(false);
   
       // Flush any existing active subjects
-      if (ets._byIndex instanceof Map) {
+      if (ets._byIndex) {
         for (const subj of ets._byIndex.values()) subj?.next?.(null);
       }
-      if (ets._gate instanceof Map) {
+
+      if (ets._gate) {
         for (const gate of ets._gate.values()) gate?.next?.(false);
       }
-  
+
       console.log('[NAV] 🔇 Global ETS hard-mute applied (quiet zone 120ms)');
     } catch (err) {
       console.warn('[NAV] ⚠️ Failed to pre-mute ETS', err);
@@ -649,7 +596,6 @@ export class QuizNavigationService {
   
       this.quizQuestionLoaderService.resetQuestionLocksForIndex(currentIndex);
       this.timerService.resetTimerFlagsFor(index);
-      const waitForRoute = this.waitForUrl(routeUrl);
   
       // ROUTER NAVIGATION
       if (currentIndex === index && currentUrl === routeUrl) {
@@ -696,13 +642,14 @@ export class QuizNavigationService {
         ets.isExplanationTextDisplayedSubject?.next(false);
       
         // Also clear all cached per-index subjects
-        if (ets._byIndex instanceof Map) {
+        if (ets._byIndex) {
           for (const subj of ets._byIndex.values()) subj?.next?.('');
         }
-        if (ets._gate instanceof Map) {
+
+        if (ets._gate) {
           for (const gate of ets._gate.values()) gate?.next?.(false);
         }
-      
+
         console.log(`[NAV] 🚿 Purged all stale FET for old indices — aligned to Q${index + 1}`);
       } catch (err) {
         console.warn('[NAV] ⚠️ Failed to purge FET cache', err);
@@ -827,7 +774,7 @@ export class QuizNavigationService {
 
         const quiz = this.quizService.getActiveQuiz();
         const totalQuestions = quiz?.questions?.length ?? 0;
-        if (typeof totalQuestions === 'number' && totalQuestions > 0) {
+        if (totalQuestions > 0) {
           this.quizService.updateBadgeText(index + 1, totalQuestions);
         }
       } else {
@@ -929,7 +876,11 @@ export class QuizNavigationService {
     this.quizQuestionLoaderService.clearQA();
   }
 
-  private handleQuizCompletion(): void {
+  /**
+   * TODO: Re-enable when results/score submission flow is finalized.
+   * Currently unused, but will be required when integrating full results routing.
+   */
+  /* private handleQuizCompletion(): void {
     const quizId = this.quizService.quizId;
     
     this.quizService.submitQuizScore(this.answers).subscribe({
@@ -941,7 +892,7 @@ export class QuizNavigationService {
         console.error('[❌ Error submitting score]', err);
       }
     });
-  }  
+  } */
 
   public notifyNavigationSuccess(): void {
     this.navigationSuccessSubject.next();
@@ -955,11 +906,21 @@ export class QuizNavigationService {
     this.explanationResetSubject.next();
   }
 
-  emitNavigationToQuestion(question: QuizQuestion, options: Option[]): void {
+  /**
+   * TODO: Keep for future navigation/analytics/event-bus integration.
+   * Currently unused, but will be required when emitting question-navigation events.
+   */
+  /* emitNavigationToQuestion(question: QuizQuestion, options: Option[]): void {
     this.navigationToQuestionSubject.next({ question, options });
-  }
+  } */
 
-  private waitForUrl(url: string): Promise<string> {
+  /**
+   * TODO: Keep for future navigation synchronization.
+   * This will be needed when coordinating async route changes,
+   * dynamic component loading, and explanation/option rendering.
+   * Currently unused, but intentionally preserved.
+   */
+  /* private waitForUrl(url: string): Promise<string> {
     const target = this.normalizeUrl(url);
   
     return new Promise<string>((resolve, reject) => {
@@ -996,9 +957,15 @@ export class QuizNavigationService {
         }
       });
     });
-  }
+  } */
 
-  private normalizeUrl(url: string): string {
+  /**
+   * TODO: Remains intentionally unused for now.
+   * Required by future route-sync helpers (e.g., waitForUrl).
+   * Normalizes and safely parses router URLs to prevent
+   * mismatch during async navigation events.
+   */
+  /* private normalizeUrl(url: string): string {
     if (!url) return '';
 
     try {
@@ -1007,7 +974,7 @@ export class QuizNavigationService {
     } catch {
       return url.startsWith('/') ? url : `/${url}`;
     }
-  }
+  } */
 
   private readQuizIdFromRouterSnapshot(): string | null {
     const direct = this.activatedRoute.snapshot.paramMap.get('quizId');
