@@ -1,5 +1,5 @@
-import { Injectable, NgZone } from '@angular/core';
-import { BehaviorSubject, Observable, Subject, Subscription, timer } from 'rxjs';
+import { Injectable, NgZone, OnDestroy } from '@angular/core';
+import { BehaviorSubject, Subject, Subscription, timer } from 'rxjs';
 import { finalize, map, takeUntil, tap } from 'rxjs/operators';
 
 import { Option } from '../models/Option.model';
@@ -16,9 +16,8 @@ interface StopTimerAttemptOptions {
 }
 
 @Injectable({ providedIn: 'root' })
-export class TimerService {
+export class TimerService implements OnDestroy {
   timePerQuestion = 30;
-  private currentDuration = this.timePerQuestion;
   private elapsedTime = 0;
   completionTime = 0;
   elapsedTimes: number[] = [];
@@ -31,29 +30,19 @@ export class TimerService {
   private isStop = new Subject<void>();
   private isReset = new Subject<void>();
 
-  public start$!: Observable<number>;
-
   // Observables
   private elapsedTimeSubject = new BehaviorSubject<number>(0);
   public elapsedTime$ = this.elapsedTimeSubject.asObservable();
 
   // Consolidated stop/reset using BehaviorSubjects
   private stopSubject = new BehaviorSubject<void>(undefined);
-  private resetSubject = new BehaviorSubject<void>(undefined);
   public stop$ = this.stopSubject.asObservable().pipe(map(() => 0));
-  public reset$ = this.resetSubject.asObservable().pipe(map(() => 0));
 
-  // Timer observable
-  timer$!: Observable<number>;
   private timerSubscription: Subscription | null = null;
   private stopTimerSignalSubscription: Subscription | null = null;
 
   private expiredSubject = new Subject<void>();
   public expired$ = this.expiredSubject.asObservable();
-
-  // Expiry that includes the question index
-  private expiredIndexSubject = new Subject<number>();
-  public expiredIndex$ = this.expiredIndexSubject.asObservable();
 
   private stoppedForQuestion = new Set<number>();
 
@@ -122,11 +111,6 @@ export class TimerService {
     }
   }
 
-  public deferAttemptStop(options: StopTimerAttemptOptions = {}): void {
-    // Ensure state (selected flags) is committed before we read it
-    queueMicrotask(() => this.attemptStopTimerForQuestion(options));
-  }
-
   // Starts the timer
   startTimer(duration: number = this.timePerQuestion, isCountdown: boolean = true): void {
     if (this.isTimerStoppedForCurrentQuestion) {
@@ -184,10 +168,9 @@ export class TimerService {
   // Stops the timer
   stopTimer(
     callback?: (elapsedTime: number) => void,
-    options: { force?: boolean } = {}
+    options: { force?: boolean } = {}  // future use
   ): void {
-    const shouldForce = !!options.force;
-    console.log('Entered stopTimer(). Timer running:', this.isTimerRunning);
+    void options;  // prevent unused-parameter warning (intentional)
 
     if (!this.isTimerRunning) {
       console.log('Timer is not running. Nothing to stop.');
@@ -216,15 +199,6 @@ export class TimerService {
     console.log('Timer stopped successfully.');
   }
 
-  // Pause without marking "stopped for current question" so resume works
-  pauseTimer(): void {
-    if (!this.isTimerRunning) return;
-    console.log('[TimerService] Pausing at', this.elapsedTime, 's');
-    this.isTimerRunning = false;
-    this.timerSubscription?.unsubscribe();
-    this.timerSubscription = null;
-  }
-
   // Resets the timer
   resetTimer(): void {
     console.log('Attempting to reset timer...');
@@ -240,26 +214,6 @@ export class TimerService {
     this.isReset.next();  // signal to reset
     this.elapsedTimeSubject.next(0);  // reset elapsed time for observers
     console.log('Timer reset successfully.');
-  }
-
-  // Resume from remaining time (countdown only). If stopwatch mode, skip the check.
-  resumeTimer(): void {
-    if (this.isTimerRunning) return;
-
-    if (this.isCountdown) {
-      const remaining = Math.max(this.currentDuration - this.elapsedTime, 0);
-      if (remaining <= 0) {
-        console.log('[TimerService] Resume skipped (no time remaining).');
-        return;
-      }
-      console.log('[TimerService] Resuming with', remaining, 's left');
-      // Start a fresh countdown for the remaining seconds
-      this.startTimer(remaining, true);
-    } else {
-      // Stopwatch mode: just start in stopwatch mode again (elapsed will restart from 0)
-      console.log('[TimerService] Resuming stopwatch');
-      this.startTimer(this.timePerQuestion, false);
-    }
   }
 
   public attemptStopTimerForQuestion(options: StopTimerAttemptOptions = {}): boolean {
@@ -307,7 +261,7 @@ export class TimerService {
     // Fire sound (or any UX) BEFORE stopping so teardown doesn’t kill it
     try { options.onBeforeStop?.(); } catch {}
   
-    // Mark as stopped for this question BEFORE stopping to avoid re-entrancy
+    // Mark as stopped for this question BEFORE stopping to avoid re-entrance
     this.selectedOptionService.stopTimerEmitted = true;
     this.isTimerStoppedForCurrentQuestion = true;
     this.stoppedForQuestion.add(questionIndex);
@@ -338,38 +292,24 @@ export class TimerService {
     selectedOption: SelectedOption
   ): Promise<void> {
     try {
-      // Defensive checks
       if (!question || !Array.isArray(question.options)) {
         console.warn('[TimerService] Invalid question/options. Cannot evaluate.');
         return;
       }
 
-      let shouldStop = false;
+      let shouldStop!: boolean;
 
-      // Determine multi vs single
       const correctOptions = question.options.filter(o => o.correct);
       const isMultiple = correctOptions.length > 1;
 
       if (isMultiple) {
-        // MULTIPLE-ANSWER CASE
-        // -------------------------------------------------
-        // We check if ALL correct answers are selected.
-        // Your method name says Sync but returns a Promise,
-        // so we still await it.
-        // -------------------------------------------------
-        const allCorrectSelected =
-          await this.selectedOptionService.areAllCorrectAnswersSelectedSync(
-            questionIndex
-          );
-
-        shouldStop = allCorrectSelected === true;
-
+        shouldStop = this.selectedOptionService.areAllCorrectAnswersSelectedSync(
+          questionIndex
+        );
       } else {
-        // SINGLE-ANSWER CASE
         shouldStop = !!selectedOption?.correct;
       }
 
-      // If we should stop the timer, attempt to stop
       if (shouldStop) {
         const stopped = this.attemptStopTimerForQuestion({ questionIndex });
 
@@ -385,21 +325,10 @@ export class TimerService {
     }
   }
 
-  preventRestartForCurrentQuestion(): void {
-    if (this.isTimerStoppedForCurrentQuestion) {
-      console.warn(`[TimerService] ⚠️ Timer restart prevented.`);
-      return;
-    }
-
-    // Mark the timer as stopped and prevent restart
-    this.isTimerStoppedForCurrentQuestion = true;
-    console.log(`[TimerService] ✅ Timer stop recorded.`);
-  }
-
   // Sets a custom elapsed time
-  setElapsed(time: number): void {
+  /* setElapsed(time: number): void {
     this.elapsedTime = time;
-  }
+  } */
 
   public resetTimerFlagsFor(index: number): void {
     this.isTimerStoppedForCurrentQuestion = false;
