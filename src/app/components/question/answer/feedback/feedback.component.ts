@@ -66,8 +66,7 @@ export class FeedbackComponent implements OnInit, OnChanges {
 
   private determineFeedbackPrefix(): string {
     const isCorrect = this.feedbackConfig?.selectedOption?.correct ?? false;
-    const prefix = isCorrect ? "You're right! " : "That's wrong. ";
-    return prefix;
+    return isCorrect ? "You're right! " : "That's wrong. ";
   }
 
   private determineFeedbackMessageClass(): string {
