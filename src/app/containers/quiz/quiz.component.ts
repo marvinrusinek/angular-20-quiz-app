@@ -13,7 +13,7 @@ import { SharedOptionComponent } from '../../components/question/answer/shared-o
 import { CodelabQuizContentComponent } from './quiz-content/codelab-quiz-content.component';
 import { CodelabQuizHeaderComponent } from './quiz-header/quiz-header.component';
 import { ScoreboardComponent } from '../scoreboard/scoreboard.component';
-import { Utils } from '../../shared/utils/utils';
+// import { Utils } from '../../shared/utils/utils';
 import { QuizStatus } from '../../shared/models/quiz-status.enum';
 import { QuestionType } from '../../shared/models/question-type.enum';
 import { QuestionPayload } from '../../shared/models/QuestionPayload.model';
@@ -99,7 +99,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   quizComponentData: QuizComponentData;
   quizId = '';
   quizResources: QuizResource[] = [];
-  quizQuestions: QuizQuestion[] = [];
   question: QuizQuestion | null = null;
   questions: QuizQuestion[] = [];
   questionsArray: QuizQuestion[] = [];
@@ -697,7 +696,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   }
 
   async ngAfterViewInit(): Promise<void> {
-    this.quizQuestionLoaderService.loadQuestionContents(this.currentQuestionIndex);
+    void this.quizQuestionLoaderService.loadQuestionContents(this.currentQuestionIndex);
 
     // If the loader queued options before the child existed, apply them now
     if (this.quizQuestionLoaderService.pendingOptions?.length) {
@@ -748,7 +747,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       );
 
       if (currentIndex >= 0 && currentIndex < totalQuestions) {
-        this.updateQuestionDisplay(currentIndex);  // ensure question state is restored
+        void this.updateQuestionDisplay(currentIndex);  // ensure question state is restored
       } else {
         console.warn(
           'Invalid or out-of-range question index on visibility change.'
@@ -874,7 +873,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     this.showExplanationForQuestion(normalizedQuestionIndex);
     await firstValueFrom(this.quizService.getOptions(normalizedQuestionIndex));
-    let isAnswered = false;
+    let isAnswered!: boolean;
 
     const questionForIndex =
       this.questionsArray?.[normalizedQuestionIndex] ??
@@ -1196,7 +1195,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         this.quizId = params['quizId'];
         this.questionIndex = +params['questionIndex'];
         this.currentQuestionIndex = this.questionIndex - 1;  // ensure it's zero-based
-        this.loadQuizData();
+        void this.loadQuizData();
       });
   }
 
@@ -1394,7 +1393,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         if (adjustedIndex === 0) {
           await this.initializeFirstQuestion();  // handles Q1 load
         } else {
-          this.updateQuestionDisplay(adjustedIndex);
+          void this.updateQuestionDisplay(adjustedIndex);
         }
       } else {
         console.error(
@@ -1531,7 +1530,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.quizAlreadyInitialized = true;
 
     // Initialize quiz session, dependencies, and routing
-    this.prepareQuizSession();
+    void this.prepareQuizSession();
     this.initializeQuizDependencies();
     this.initializeQuizBasedOnRouteParams();
 
@@ -1874,7 +1873,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         distinctUntilChanged(),
         tap((currentIndex) => {
           this.isNavigatedByUrl = true;
-          this.updateContentBasedOnIndex(currentIndex);
+          void this.updateContentBasedOnIndex(currentIndex);
         })
       )
       .subscribe();
@@ -2060,7 +2059,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           '[loadQuestionByRouteIndex] ⚠️ Invalid route index:',
           routeIndex
         );
-        this.router.navigate(['/question/', this.quizId, 1]);  // or redirect to the first question
+        void this.router.navigate(['/question/', this.quizId, 1]);  // or redirect to the first question
         return;
       }
 
@@ -2149,8 +2148,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       // Await feedback generation
       try {
         const feedback =
-          await (this.quizQuestionComponent?.generateFeedbackText(question) ??
-            Promise.resolve(''));
+          await (this.quizQuestionComponent?.generateFeedbackText(question) ?? '');
         this.feedbackText = feedback;
         console.log('[loadQuestionByRouteIndex] 🧠 Feedback Text:', feedback);
       } catch (error) {
@@ -2606,7 +2604,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         switchMap((data: { quizData?: Quiz }) => {
           if (!data.quizData) {
             console.error('Quiz data is unavailable.');
-            this.router.navigate(['/select']);
+            void this.router.navigate(['/select']);
             return EMPTY;
           }
   
