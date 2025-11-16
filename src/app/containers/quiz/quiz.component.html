@@ -1,7 +1,7 @@
 <ng-container>
   @if (combinedQuestionData$ | async; as qa) {
     <mat-card
-      [@changeRoute]="animationState$ | async"
+      @changeRoute
       (@changeRoute.done)="animationDoneHandler()"
     >
       <codelab-quiz-header />
@@ -19,7 +19,6 @@
           />
 
           <codelab-quiz-question
-            #quizQuestionComponent
             [questionPayload]="qa"
             [question]="qa.question"
             [options]="qa.options"
@@ -45,12 +44,11 @@
         <!-- NAVIGATION -->
         @if (showPaging) {
           <section class="paging">
-            <mat-card-actions>
+            <mat-card-actions [class.last-question]="shouldApplyLastQuestionClass">
               @if (shouldShowPrevButton) {
                 <div class="prev-question-nav">
                   <button
                     type="button"
-                    mat-icon-button
                     matTooltip="« Previous Question"
                     matTooltipPosition="above"
                     aria-label="Previous Question"
@@ -64,7 +62,6 @@
                 <div class="restart-nav">
                   <button
                     type="button"
-                    mat-icon-button
                     (click)="restartQuiz()"
                     matTooltip="Restart Quiz"
                     matTooltipPosition="above"
@@ -80,7 +77,6 @@
                   <button
                     type="button"
                     #nextButton="matTooltip"
-                    mat-icon-button
                     [disabled]="!(nextButtonEnabled$ | async)"
                     (click)="advanceToNextQuestion()"
                     matTooltipPosition="above"
@@ -96,8 +92,6 @@
                 <div class="show-score-nav">
                   <button
                     type="submit"
-                    mat-raised-button
-                    disableRipple="true"
                     (click)="advanceToResults()"
                     class="btn btn-outline-primary"
                     aria-label="Show Results"
