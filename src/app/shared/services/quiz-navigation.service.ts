@@ -1,6 +1,6 @@
 import { Injectable, NgZone } from '@angular/core';
 import { ActivatedRoute, ActivatedRouteSnapshot, ParamMap, Router } from '@angular/router';
-import { firstValueFrom, Observable, of, Subject, throwError } from 'rxjs';
+import {BehaviorSubject, firstValueFrom, Observable, of, Subject, throwError} from 'rxjs';
 import { catchError, map, take } from 'rxjs/operators';
 
 import { Option } from '../models/Option.model';
@@ -16,6 +16,7 @@ import { QuizDataService } from './quizdata.service';
 import { QuizStateService } from './quizstate.service';
 import { SelectedOptionService } from './selectedoption.service';
 import { TimerService } from './timer.service';
+import {QuizRoutes} from "../models/quiz-routes.enum";
 
 @Injectable({ providedIn: 'root' })
 export class QuizNavigationService {
@@ -32,6 +33,7 @@ export class QuizNavigationService {
 
   isNavigating = false;
   isOptionSelected = false;
+  quizCompleted = false;
 
   private navigationSuccessSubject = new Subject<void>();
   navigationSuccess$ = this.navigationSuccessSubject.asObservable();
@@ -41,6 +43,7 @@ export class QuizNavigationService {
 
   private navigationToQuestionSubject = new Subject<{ question: QuizQuestion, options: Option[] }>();
   public navigationToQuestion$ = this.navigationToQuestionSubject.asObservable();
+  private isNavigatingToPrevious = new BehaviorSubject<boolean>(false);
 
   private explanationResetSubject = new Subject<void>();
   explanationReset$ = this.explanationResetSubject.asObservable();
@@ -352,7 +355,7 @@ export class QuizNavigationService {
       this.isNavigating = false;
       this.quizStateService.setNavigating(false);
       this.quizStateService.setLoading(false);
-      this.quizService.setIsNavigatingToPrevious(false);
+      this.setIsNavigatingToPrevious(false);
     }
   }
   
@@ -1047,5 +1050,25 @@ export class QuizNavigationService {
     this.quizStateService.displayStateSubject?.next({ mode: 'question', answered: false });
   
     console.log(`[RESET] Render state cleared before navigating → Q${targetIndex + 1}`);
+  }
+
+  navigateToResults(): void {
+    if (this.quizCompleted) {
+      console.warn('Navigation to results already completed.');
+      return;
+    }
+
+    this.quizCompleted = true;
+    this.router.navigate([QuizRoutes.RESULTS, this.quizId]).catch((error) => {
+      console.error('Navigation to results failed:', error);
+    });
+  }
+
+  setIsNavigatingToPrevious(value: boolean): void {
+    this.isNavigatingToPrevious.next(value);
+  }
+
+  getIsNavigatingToPrevious(): Observable<boolean> {
+    return this.isNavigatingToPrevious.asObservable();
   }
 }

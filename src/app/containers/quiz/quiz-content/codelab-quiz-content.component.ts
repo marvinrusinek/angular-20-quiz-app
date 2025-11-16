@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, NgZone, OnChanges, OnDestroy, OnInit, Output, SimpleChanges, ViewChild } from '@angular/core';
 import { ActivatedRoute, ParamMap } from '@angular/router';
 import { animationFrameScheduler, BehaviorSubject, combineLatest, defer, firstValueFrom, forkJoin, Observable, of, Subject, Subscription } from 'rxjs';
-import { auditTime, catchError, debounceTime, distinctUntilChanged, filter, map, observeOn, scan, shareReplay, skip, skipUntil, startWith, switchMap, take, takeUntil, tap, withLatestFrom } from 'rxjs/operators';
+import { auditTime, catchError, debounceTime, distinctUntilChanged, filter, map, observeOn, shareReplay, skip, skipUntil, startWith, switchMap, take, takeUntil, tap, withLatestFrom } from 'rxjs/operators';
 
 import { CombinedQuestionDataType } from '../../../shared/models/CombinedQuestionDataType.model';
 import { Option } from '../../../shared/models/Option.model';
@@ -23,12 +23,6 @@ interface QuestionViewState {
   markup: string,
   fallbackExplanation: string,
   question: QuizQuestion | null
-}
-
-interface FETState {
-  idx: number,
-  text: string,
-  gate: boolean
 }
 
 @Component({
@@ -107,27 +101,16 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   previousQuestion$: Observable<QuizQuestion | null>;
   isNavigatingToPrevious = false;
   currentQuestionType: QuestionType | undefined = undefined;
-  private lastRenderedQuestionText = '';
-  private lastRenderedCorrectText = '';
-  private lastRenderedIndex = -1;  // track the most recently rendered question index
-  private lastCorrectBanner = '';
-  private lastRenderedQuestionTextWithBanner: string = '';
-  private lastRenderedBannerText = '';
-  private _lastRenderedFrameTime = 0;
-  private _lastNavChangeTime = 0;
-  private _pendingQuestionFrame: string | null = null;
-  private _pendingFrameStartedAt = 0;
-  private _fetLockedIndex: number | null = null;  // keeps track of the last question index whose FET (explanation) is locked in view
-  private _fetCooldownUntil = 0;
+  public lastRenderedIndex = -1;  // track the most recently rendered question index
+  public lastRenderedQuestionTextWithBanner = '';
+  public lastRenderedBannerText = '';
 
-  // Prevent FET flashback by remembering last opened index and time
-  private _lastFetIndex: number | null = null;
-  private _lastFetOpenTime: number = 0;
+  // Keeps track of the last question index whose FET (explanation) is locked in view
+  _fetLockedIndex: number | null = null;
 
   // Time of last stable question paint
-  private _lastQuestionPaintTime = 0;
-  private _lastModeSwitchTime = 0;
-  private _lastQuestionText = '';
+  _lastQuestionPaintTime = 0;
+  _lastQuestionText = '';
 
   private overrideSubject = new BehaviorSubject<{ idx: number; html: string }>({ idx: -1, html: '' });
   private currentIndex = -1;
@@ -141,8 +124,8 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     cached: string,
     fallback: string
   } | null = null;
-  private latestDisplayMode: 'question' | 'explanation' = 'question';
-  private awaitingQuestionBaseline = false;
+  latestDisplayMode: 'question' | 'explanation' = 'question';
+  awaitingQuestionBaseline = false;
   private renderModeByKey = new Map<string, 'question' | 'explanation'>();
   private readonly explanationLoadingText = 'Loading explanation…';
   private readonly questionLoadingText = 'Loading question…';

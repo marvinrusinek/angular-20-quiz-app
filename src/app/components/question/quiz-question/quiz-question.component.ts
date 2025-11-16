@@ -1378,7 +1378,7 @@ export class QuizQuestionComponent extends BaseQuestion
   
   // Function to subscribe to navigation flags
   private subscribeToNavigationFlags(): void {
-    this.quizService.getIsNavigatingToPrevious().subscribe(
+    this.quizNavigationService.getIsNavigatingToPrevious().subscribe(
       (isNavigating) => (this.isNavigatingToPrevious = isNavigating)
     );
   }
@@ -5510,11 +5510,8 @@ export class QuizQuestionComponent extends BaseQuestion
       return;
     }
 
-    const explanationText =
-      formattedExplanation.explanation || 'No explanation available';
-  
     // Directly update and emit explanation text
-    this.explanationToDisplay = explanationText;
+    this.explanationToDisplay = formattedExplanation.explanation || 'No explanation available';
   
     if (this.isAnswered && this.shouldDisplayExplanation) {
       this.explanationToDisplayChange.emit(this.explanationToDisplay);
