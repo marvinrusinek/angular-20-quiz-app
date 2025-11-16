@@ -3744,7 +3744,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         .then(() => {
           console.log('All answers checked, navigating to results...');
           this.handleQuizCompletion();
-          this.quizService.navigateToResults();
+          this.quizNavigationService.navigateToResults();
         })
         .catch((error) => {
           console.error('Error during checkIfAnsweredCorrectly:', error);
