@@ -1,16 +1,15 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { BehaviorSubject, firstValueFrom, Observable, of, Subject, throwError } from 'rxjs';
-import { catchError, distinctUntilChanged, filter, map, switchMap, take, takeUntil, tap } from 'rxjs/operators';
+import { BehaviorSubject, firstValueFrom, Observable, of, throwError } from 'rxjs';
+import { catchError, distinctUntilChanged, filter, map, switchMap, take, tap } from 'rxjs/operators';
 
-import { QUIZ_DATA } from '../../shared/quiz';
-import { QuestionType } from '../../shared/models/question-type.enum';
-import { Option } from '../../shared/models/Option.model';
-import { Quiz } from '../../shared/models/Quiz.model';
-import { QuizQuestion } from '../../shared/models/QuizQuestion.model';
-import { QuizService } from '../../shared/services/quiz.service';
-import { QuizShuffleService } from '../../shared/services/quiz-shuffle.service';
-import { Utils } from '../../shared/utils/utils';
+import { QuestionType } from '../models/question-type.enum';
+import { Option } from '../models/Option.model';
+import { Quiz } from '../models/Quiz.model';
+import { QuizQuestion } from '../models/QuizQuestion.model';
+import { QuizService } from './quiz.service';
+import { QuizShuffleService } from './quiz-shuffle.service';
+import { Utils } from '../utils/utils';
 
 @Injectable({ providedIn: 'root' })
 export class QuizDataService {
@@ -35,9 +34,7 @@ export class QuizDataService {
     private quizService: QuizService,
     private quizShuffleService: QuizShuffleService,
     private http: HttpClient
-  ) {
-    // this.loadQuizzesData();
-  }
+  ) {}
 
   getQuizzes(): Observable<Quiz[]> {
     return this.quizzes$.pipe(
@@ -59,7 +56,6 @@ export class QuizDataService {
       })
     );
   }
-
 
   /**
    * Returns a synchronously cached quiz instance, if available.
@@ -105,29 +101,8 @@ export class QuizDataService {
     }
   }
 
-  isValidQuiz(quizId: string): Observable<boolean> {
-    return this.getQuizzes().pipe(
-      map((quizzes: Quiz[]) => 
-        quizzes.some((quiz) => quiz.quizId === quizId)
-      ),
-      catchError((error: any) => {
-        console.error(`Error validating quiz ID "${quizId}":`, error.message || error);
-        return of(false);  // return `false` to indicate an invalid quiz
-      })
-    );
-  }
-  
-  getCurrentQuizId(): string | null {
-    const currentQuiz = this.currentQuizSubject.getValue();
-    return currentQuiz ? currentQuiz.quizId : null;
-  }
-
   setSelectedQuiz(quiz: Quiz | null): void {
     this.selectedQuiz$.next(quiz);
-  }
-
-  getSelectedQuizSnapshot(): Quiz | null {
-    return this.selectedQuiz$.getValue();
   }
 
   setSelectedQuizById(quizId: string): Observable<void> {
@@ -317,16 +292,6 @@ export class QuizDataService {
     );
   }
 
-
-  private createBaseQuestions(quiz: Quiz): QuizQuestion[] {
-    const questions = Array.isArray(quiz?.questions) ? quiz.questions : [];
-    if (!questions.length) {
-      return [];
-    }
-
-    return questions.map((question) => this.normalizeQuestion(question));
-  }
-
   private buildSessionQuestions(
     quizId: string,
     baseQuestions: QuizQuestion[],
@@ -442,7 +407,7 @@ export class QuizDataService {
     quizId: string,
     questionIndex: number
   ): Observable<[QuizQuestion | null, Option[] | null]> {
-    if (typeof questionIndex !== 'number' || isNaN(questionIndex)) {
+    if (!Number.isFinite(questionIndex)) {
       console.error(`❌ Invalid questionIndex: ${questionIndex}`);
       return of<[QuizQuestion | null, Option[] | null]>([null, null]);
     }
@@ -577,55 +542,16 @@ export class QuizDataService {
     currentQuestionIndex: number
   ): Promise<[QuizQuestion, Option[]] | null> {
     try {
-      const questionAndOptions = await firstValueFrom(
+      return await firstValueFrom(
         this.getQuestionAndOptions(quizId, currentQuestionIndex).pipe(
           filter((v): v is [QuizQuestion, Option[]] => v !== null),
           take(1)
         )
       );
-  
-      return questionAndOptions;
     } catch (error) {
       console.error('Error fetching question and options:', error);
       return null;
     }
-  }
-
-  getOptions(quizId: string, questionIndex: number): Observable<Option[]> {
-    return this.getQuiz(quizId).pipe(
-      map((quiz) => {
-        const cachedQuestions = this.quizQuestionCache.get(quizId);
-        if (cachedQuestions) {
-          if (questionIndex < 0 || questionIndex >= cachedQuestions.length) {
-            console.warn(`Question at index ${questionIndex} not found in cached quiz "${quizId}".`);
-            return [];
-          }
-          return cachedQuestions[questionIndex].options ?? [];
-        }
-    
-        // Only call extractOptions if quiz is valid
-        if (quiz) {
-          return this.extractOptions(quiz, questionIndex);
-        } else {
-          console.warn(`[QuizDataService] No quiz found for ID: ${quizId}`);
-          return [];
-        }
-      }),
-      distinctUntilChanged(),
-      catchError((error: HttpErrorResponse) => {
-        console.error(`Error fetching options for quiz ID "${quizId}", question index ${questionIndex}:`, error.message);
-        return throwError(() => new Error('Failed to fetch question options.'));
-      })
-    );    
-  }
-  
-  private extractOptions(quiz: Quiz, questionIndex: number): Option[] {
-    if (!quiz?.questions || quiz.questions.length <= questionIndex) {
-      console.warn(`Question at index ${questionIndex} not found in quiz "${quiz.quizId}".`);
-      return [];
-    }
-
-    return quiz.questions[questionIndex].options || [];
   }
 
   getAllExplanationTextsForQuiz(quizId: string): Observable<string[]> {
@@ -633,11 +559,7 @@ export class QuizDataService {
       filter((quiz): quiz is Quiz => quiz !== null),
       switchMap((quiz: Quiz) => {
         const sourceQuestions = this.quizQuestionCache.get(quizId) ?? quiz.questions ?? [];
-    
-        const explanationTexts = sourceQuestions.map(q =>
-          typeof q.explanation === 'string' ? q.explanation : ''
-        );
-    
+        const explanationTexts = sourceQuestions.map(q => (q.explanation ?? '').trim());
         return of(explanationTexts);
       }),
       catchError((error: HttpErrorResponse) => {
@@ -688,17 +610,16 @@ export class QuizDataService {
     this.questionType = question.type;
   }
 
-  private mapQuestionType(type: QuestionType): 'single' | 'multiple' {
-    return type === QuestionType.MultipleAnswer ? 'multiple' : 'single';
-  }
-
-  submitQuiz(quiz: Quiz): Observable<any> {
+  // TODO (future backend integration):
+  // Implement quiz result submission to server when backend API exists.
+  // remove local-only result handling and call real submitQuiz() here.
+  /* submitQuiz(quiz: Quiz): Observable<any> {
     const submitUrl = `${this.quizUrl}/results/${quiz.quizId}`;
     return this.http.post(submitUrl, quiz).pipe(
       catchError((error: HttpErrorResponse) => throwError(() => new Error(`Error submitting quiz ${quiz.quizId}: ` + error.message))),
       distinctUntilChanged()
     );
-  }
+  } */
 
   private syncSelectedQuizState(
     quizId: string,
