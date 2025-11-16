@@ -1,8 +1,9 @@
-<button
-  class="back-to-top"
-  *ngIf="isVisible"
-  (click)="scrollToTop()"
-  aria-label="Back to top"
->
-  ⬆ Back to top
-</button>
+@if (isVisible) {
+  <button
+    class="back-to-top"
+    (click)="scrollToTop()"
+    aria-label="Back to top"
+  >
+    ⬆ Back to top
+  </button>
+}
