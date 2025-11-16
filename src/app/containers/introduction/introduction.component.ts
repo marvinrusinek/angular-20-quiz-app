@@ -34,7 +34,6 @@ import { UserPreferenceService } from '../../shared/services/user-preference.ser
 })
 export class IntroductionComponent implements OnInit, OnDestroy {
   quiz!: Quiz;
-  quizData: Quiz[] = [];
   quizId: string | undefined;
   selectedQuiz: Quiz | null = null;
   selectedQuiz$ = new BehaviorSubject<Quiz | null>(null);
@@ -273,7 +272,7 @@ export class IntroductionComponent implements OnInit, OnDestroy {
       return false;
     }
   
-    // Ensure the session is ready and we can resolve Q0 (best-effort; don’t block nav)
+    // Ensure the session is ready and can resolve Q0 (best-effort; don’t block nav)
     await this.quizNavigationService.ensureSessionQuestions(quizId);
     const q0 = await this.quizNavigationService.tryResolveQuestion(0);
     if (!q0) {
@@ -285,11 +284,7 @@ export class IntroductionComponent implements OnInit, OnDestroy {
     try {
       // Preferred path: let the service reset UI and navigate to Q1 (index 0)
       const viaService = await this.quizNavigationService.resetUIAndNavigate(0, quizId);
-  
-      // If the service explicitly succeeded, we’re done.
-      if (viaService === true) {
-        return true;
-      }
+      if (viaService) return true;  // if the service explicitly succeeded, we’re done
   
       // Service returned false/undefined/non-boolean – fall back to direct navigation
       console.warn(
@@ -298,7 +293,6 @@ export class IntroductionComponent implements OnInit, OnDestroy {
       );
     } catch (err) {
       console.error('[navigateToFirstQuestion] resetUIAndNavigate threw.', err);
-      // fall through to fallback
     }
   
     // Fallback to direct router navigation
@@ -359,8 +353,7 @@ export class IntroductionComponent implements OnInit, OnDestroy {
   }
   
   public get milestone(): string {
-    const milestone = this.selectedQuiz?.milestone || 'Milestone not found';
-    return milestone;
+    return this.selectedQuiz?.milestone || 'Milestone not found';
   }
   
   public getPluralizedQuestionLabel(count: number): string {
