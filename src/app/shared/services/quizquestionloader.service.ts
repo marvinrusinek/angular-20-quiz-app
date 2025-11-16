@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { ActivatedRouteSnapshot, Router } from '@angular/router';
-import { BehaviorSubject, firstValueFrom, forkJoin, lastValueFrom, Observable, of, ReplaySubject } from 'rxjs';
-import { catchError, debounceTime, distinctUntilChanged, filter, take } from 'rxjs/operators';
+import { BehaviorSubject, firstValueFrom, forkJoin, lastValueFrom, of, ReplaySubject } from 'rxjs';
+import { catchError, filter, take } from 'rxjs/operators';
 
 import { QuestionType } from '../models/question-type.enum';
 import { CombinedQuestionDataType } from '../models/CombinedQuestionDataType.model';
@@ -39,12 +39,6 @@ export class QuizQuestionLoaderService {
   // Observable stream for safe external subscription
   public readonly questionToDisplay$ = this.questionToDisplaySubject.asObservable();
 
-  // Derived stream that smooths rapid clears/fills (prevents flash)
-  public readonly questionDisplay$ = this.questionToDisplay$.pipe(
-    debounceTime(0),              // merge empty→real emissions in same tick
-    distinctUntilChanged()        // ignore identical repeats
-  );
-
   questionTextLoaded = false;
   questionInitialized = false;
   explanationToDisplay = '';
@@ -67,16 +61,12 @@ export class QuizQuestionLoaderService {
   isQuestionDisplayed = false;
   isNextButtonEnabled = false;
   isAnswered = false;
-  isAnswered$: Observable<boolean> = of(false);
 
   shouldRenderQuestionComponent = false;
   resetComplete = false;
 
   private questionTextSubject = new BehaviorSubject<string>('');
-  public questionText$ = this.questionTextSubject.asObservable();
-
   private questionPayloadReadySource = new BehaviorSubject<boolean>(false);
-  public questionPayloadReady$ = this.questionPayloadReadySource.asObservable();
 
   private explanationTextSubject = new BehaviorSubject<string>('');
   public explanationText$ = this.explanationTextSubject.asObservable();
@@ -93,7 +83,6 @@ export class QuizQuestionLoaderService {
   private currentLoadAbortCtl = new AbortController();  // abort a stale fetch when the user clicks “Next” too fast
 
   private qaSubject = new BehaviorSubject<QAPayload | null>(null);
-  readonly qa$ = this.qaSubject.asObservable();
 
   readonly optionsStream$: BehaviorSubject<Option[]> = new BehaviorSubject<Option[]>([]);
   options$ = this.optionsStream$.asObservable();
@@ -109,16 +98,12 @@ export class QuizQuestionLoaderService {
   public _lastNavTime = 0;
 
   public _renderFreezeUntil = 0;
-  private _questionFreeze = false;
-  public _freezeUntil = 0;
   public _frozen = false;
   public _isVisualFrozen = false;
-  public readonly isVisible$ = new BehaviorSubject<boolean>(true);
   private _freezeTimer: any = null;
-  private _quietUntil = 0;
+  public _quietUntil = 0;
   public _quietZoneUntil = 0;
   private _navBarrier = false;
-  private _navBarrierActive = false;
 
   public quietZoneUntil$ = new BehaviorSubject<number>(0);
 
@@ -559,8 +544,12 @@ export class QuizQuestionLoaderService {
     return { q, opts };
   }
 
+  /**
+   * TODO: Keep this. Will be used to unify option hydration, cloning,
+   * and deep state resets across the quiz flows. Not yet wired in.
+   */
   // Hydrate flags then deep-clone
-  private hydrateAndClone(opts: Option[]): Option[] {
+  /* private hydrateAndClone(opts: Option[]): Option[] {
     const hydrated = opts.map((o, i) => ({
       ...o,
       optionId: o.optionId ?? i,
@@ -576,7 +565,7 @@ export class QuizQuestionLoaderService {
     return typeof structuredClone === 'function'
       ? structuredClone(active)
       : JSON.parse(JSON.stringify(active));
-  }
+  } */
 
   // Push options and heading downstream
   // Emits heading, options, and explanation through the BehaviourSubjects and
@@ -733,7 +722,13 @@ export class QuizQuestionLoaderService {
    *  Falls back to the full async path only if the cache is missing.
    *  Keeps all validation / type-detection logic and emits QA.
    */
-  private async fetchQuestionDetails(
+  /**
+   * TODO: Keep for future integration.
+   * Full question-hydration + explanation-fetch pipeline.
+   * Not currently wired in, but essential for upcoming refactors
+   * (QA stream, dynamic component rendering, explanation sync, etc).
+   */
+  /* private async fetchQuestionDetails(
     questionIndex: number
   ): Promise<QuizQuestion> {
     // ── FAST-PATH  ───────────────────────────────────────────────
@@ -824,7 +819,7 @@ export class QuizQuestionLoaderService {
       console.error(`[❌ fetchQuestionDetails] Error loading Q${questionIndex}:`, error);
       throw error;  // propagate to loader
     }
-  }
+  } */
 
   public setQuestionDetails(
     questionText: string,
@@ -837,19 +832,13 @@ export class QuizQuestionLoaderService {
     // Ensure options are a valid array
     this.optionsToDisplay = Array.isArray(options) ? options : [];
 
-    const trimmedExplanation =
-      typeof explanationText === 'string' ? explanationText.trim() : '';
-    this.explanationToDisplay = trimmedExplanation;
+    this.explanationToDisplay = explanationText.trim();
 
     // Emit latest values to any subscribers (template/UI)
     this.questionTextSubject.next(this.questionToDisplay);
     this.explanationTextSubject.next(this.explanationToDisplay);
 
-    if (
-      typeof explanationText === 'string' &&
-      explanationText.trim() === '' &&
-      explanationText.length > 0
-    ) {
+    if (!explanationText.trim() && explanationText.length > 0) {
       console.warn('[setQuestionDetails] ⚠️ Explanation fallback triggered');
     }
   }
@@ -1228,23 +1217,6 @@ export class QuizQuestionLoaderService {
     });
   }
 
-  // Helper control methods
-  public enableNavBarrier(): void {
-    this._navBarrierActive = true;
-    this._quietZoneUntil = performance.now() + 120;
-    console.log('[Loader] 🚧 Nav barrier enabled');
-  }
-  
-  public disableNavBarrier(): void {
-    this._navBarrierActive = false;
-    console.log('[Loader] ✅ Nav barrier disabled');
-  }
-  
-  public isInQuietZone(): boolean {
-    const now = performance.now();
-    return this._navBarrierActive || now < this._quietZoneUntil;
-  }
-
   public isNavBarrierActive(): boolean {
     return this._navBarrier;
   }
@@ -1258,86 +1230,4 @@ export class QuizQuestionLoaderService {
       });
     });
   }
-
-  /** 
-   * Ensures no visual update (like question text) occurs until DOM is stable.
-   * Used as a pre-guard during navigation to prevent Q1→Q2 flashes.
-   */
-  public async enforceRenderGate(delayMs = 64): Promise<void> {
-    const now = performance.now();
-
-    // Extend both logic and visual freeze slightly beyond the next paint
-    this._isVisualFrozen = true;
-    this._frozen = true;
-    this._renderFreezeUntil = now + delayMs;
-
-    const el = document.querySelector('h3[i18n]');
-    if (el) (el as HTMLElement).style.visibility = 'hidden';
-    console.log(`[Loader] 🚫 Render gate ON for ${delayMs}ms`);
-
-    await new Promise<void>((resolve) => {
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          this._isVisualFrozen = false;
-          this._frozen = false;
-          this._renderFreezeUntil = performance.now() + 8;  // tiny safety window
-
-          // Reveal only after one paint frame
-          requestAnimationFrame(() => {
-            const el2 = document.querySelector('h3[i18n]');
-            if (el2) (el2 as HTMLElement).style.visibility = 'visible';
-            console.log('[Loader] ✅ Render gate OFF');
-            resolve();
-          });
-        }, delayMs);
-      });
-    });
-  }
-
-  public async holdVisualUntilStable(extra = 48): Promise<void> {
-    const el = document.querySelector('h3[i18n]');
-    if (!el) return;
-  
-    // Immediately hide text before Angular starts reattaching DOM
-    (el as HTMLElement).style.visibility = 'hidden';
-    this._isVisualFrozen = true;
-    this._frozen = true;
-  
-    console.log('[Loader] 🧊 Visual hold ON');
-  
-    // Wait for 2 paint cycles (DOM detach + reattach)
-    await new Promise<void>(resolve => requestAnimationFrame(() => {
-      setTimeout(resolve, extra);
-    }));
-  
-    // Reveal after next frame to ensure content is stable
-    requestAnimationFrame(() => {
-      (el as HTMLElement).style.visibility = 'visible';
-      this._isVisualFrozen = false;
-      this._frozen = false;
-      console.log('[Loader] ✅ Visual hold OFF');
-    });
-  }
-
-  public async waitForDomAndLiftVisualLock(extraDelay = 48): Promise<void> {
-    // Wait one microtask for Angular to flush
-    await new Promise<void>(res => setTimeout(res, 0));
-  
-    // Wait one frame for new DOM to render
-    await new Promise<void>(res => requestAnimationFrame(() => res()));
-  
-    // Add optional buffer (~3 frames)
-    if (extraDelay > 0) await new Promise<void>(res => setTimeout(res, extraDelay));
-  
-    // Restore visibility
-    const el = document.querySelector('h3[i18n]');
-    if (el) (el as HTMLElement).style.visibility = 'visible';
-    this._isVisualFrozen = false;
-    this._frozen = false;
-    console.log('[Loader] 🧊 Visual lock lifted after DOM settle');
-  }
-
-  public getQuietZoneUntil(): number {
-    return this._quietZoneUntil ?? 0;
-  } 
 }
