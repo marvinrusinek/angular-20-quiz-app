@@ -6,7 +6,7 @@ import { catchError, debounceTime, distinctUntilChanged, filter, take } from 'rx
 import { QuestionType } from '../models/question-type.enum';
 import { CombinedQuestionDataType } from '../models/CombinedQuestionDataType.model';
 import { Option } from '../models/Option.model';
-import { QAPayload } from '../../shared/models/QAPayload.model';
+import { QAPayload } from '../models/QAPayload.model';
 import { QuestionPayload } from '../models/QuestionPayload.model';
 import { Quiz } from '../models/Quiz.model';
 import { QuizQuestion } from '../models/QuizQuestion.model';
