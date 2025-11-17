@@ -605,7 +605,9 @@ export class QuizDataService {
       return;
     }
 
-    const numCorrectAnswers = question.options.filter((option) => option?.correct ?? false).length;
+    const numCorrectAnswers = question.options
+      .filter((option: Option) => option.correct === true)
+      .length;
     question.type = numCorrectAnswers > 1 ? QuestionType.MultipleAnswer : QuestionType.SingleAnswer;
     this.questionType = question.type;
   }
