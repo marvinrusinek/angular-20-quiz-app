@@ -2,7 +2,14 @@
   <header class="row">
     <div class="logo">
       <a href="https://www.codelab.fun" title="Angular Codelab" target="_blank">
-        <div mat-card-avatar class="header-image" loading="lazy"></div>
+        <img
+          mat-card-avatar
+          class="header-image"
+          ngSrc="assets/images/codelab_logo.jpeg"
+          width="200"
+          height="100"
+          alt="Angular Codelab logo"
+          loading="lazy" />
       </a>
     </div>
 
@@ -29,7 +36,7 @@
 
   <!-- Toolbar: Milestones Menu -->
   <div class="toolbar">
-    <button mat-button [matMenuTriggerFor]="menu" aria-label="Milestones Menu">
+    <button [matMenuTriggerFor]="menu" aria-label="Milestones Menu">
       <span i18n>Milestones ▼</span>
     </button>
 
@@ -54,13 +61,11 @@
     @for (quiz of quizzes$ | async; let i = $index; track quiz?.quizId) {
       <div
         class="quiz-tile"
-        #quizTile
         [@slideLeftToRight]="animationState$ | async"
         (@slideLeftToRight.done)="animationDoneHandler()"
         (click)="onSelect(quiz.quizId, i)"
         routerLinkActive="active"
         [ngStyle]="getQuizTileStyles(quiz)"
-        loading="lazy"
       >
 
         <summary class="quiz-info">
@@ -77,7 +82,6 @@
           <mat-card-actions>
             @if (shouldShowLink(quiz)) {
               <a
-                mat-icon-button
                 [ngClass]="getLinkClass(quiz)"
                 [matTooltip]="getTooltip(quiz)"
                 [routerLink]="getLinkRouterLink(quiz)"
@@ -155,4 +159,4 @@
       </ion-toolbar>
     </ion-footer>
   </ion-content>
-  </ion-page>-->
+</ion-page>-->

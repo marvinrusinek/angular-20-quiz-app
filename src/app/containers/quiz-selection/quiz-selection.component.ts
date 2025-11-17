@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, OnInit, ViewEncapsulation } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, NgOptimizedImage } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -27,7 +27,8 @@ import { QuizDataService } from '../../shared/services/quizdata.service';
     MatCardModule,
     MatIconModule,
     MatMenuModule,
-    MatTooltipModule
+    MatTooltipModule,
+    NgOptimizedImage
   ],
   templateUrl: './quiz-selection.component.html',
   styleUrls: ['./quiz-selection.component.scss'],
