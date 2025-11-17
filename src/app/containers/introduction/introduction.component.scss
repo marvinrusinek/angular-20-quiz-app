@@ -21,7 +21,6 @@ mat-card-header {
   justify-content: center;
   width: 400px;
   height: 270px;
-  margin-top: 10px;
   margin: 0 auto;
 }
 
@@ -64,8 +63,7 @@ mat-card-actions {
 
     button {
       display: block;
-      margin: 0 auto;
-      margin-top: -5px;
+      margin: -5px auto 0;
       background-color: vars.$vivid-blue !important;
       color: vars.$black;
       width: 180px;
