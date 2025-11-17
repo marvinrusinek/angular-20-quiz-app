@@ -1,6 +1,6 @@
-import { ChangeDetectorRef, Directive, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChange, SimpleChanges, ViewChild, ViewContainerRef } from '@angular/core';
+import { ChangeDetectorRef, Directive, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChange, SimpleChanges } from '@angular/core';
 import { FormBuilder, FormControl, FormGroup } from '@angular/forms';
-import { BehaviorSubject, Subscription } from 'rxjs';
+import { Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
 
 import { Option } from '../../../shared/models/Option.model';
@@ -15,9 +15,6 @@ import { QuizStateService } from '../../../shared/services/quizstate.service';
 import { SelectedOptionService } from '../../../shared/services/selectedoption.service';
 
 @Directive()
-/* export abstract class BaseQuestion<
-  T extends { option: SelectedOption | null; index: number } = { option: SelectedOption; index: number }
-> implements OnInit, OnChanges, OnDestroy { */
 export abstract class BaseQuestion<
   T extends { option: SelectedOption | null; index: number; checked?: boolean } = {
     option: SelectedOption | null;
@@ -25,8 +22,6 @@ export abstract class BaseQuestion<
     checked?: boolean;
   }
 > implements OnInit, OnChanges, OnDestroy {
-  @ViewChild('dynamicAnswerContainer', { read: ViewContainerRef, static: false })
-  dynamicAnswerContainer!: ViewContainerRef;
   @Output() optionClicked = new EventEmitter<T>();
   @Output() questionChange = new EventEmitter<QuizQuestion>();
   @Output() explanationToDisplayChange = new EventEmitter<string>();
@@ -46,7 +41,6 @@ export abstract class BaseQuestion<
   sharedOptionConfig: SharedOptionConfig | null = null;
   currentQuestionSubscription!: Subscription;
   explanationToDisplay: string | null = null;
-  multipleAnswer: BehaviorSubject<boolean> = new BehaviorSubject<boolean>(false);
   questionForm!: FormGroup;
   selectedOption: SelectedOption | null = null;
   selectedOptionId: number | null = null;
@@ -56,7 +50,7 @@ export abstract class BaseQuestion<
   optionsInitialized = false;
   containerInitialized = false;
 
-  constructor(
+  protected constructor(
     protected fb: FormBuilder,
     protected dynamicComponentService: DynamicComponentService,
     protected feedbackService: FeedbackService,
@@ -117,11 +111,6 @@ export abstract class BaseQuestion<
       return;
     }
   
-    if (!this.dynamicAnswerContainer) {
-      console.warn('[❌ Dynamic Init] Container not available.');
-      return;
-    }
-  
     // Defer load if inputs are not yet ready
     if (!this.question || !Array.isArray(this.optionsToDisplay) || this.optionsToDisplay.length === 0) {
       console.warn('[🕒 Waiting to initialize dynamic component – data not ready]', {
@@ -147,10 +136,6 @@ export abstract class BaseQuestion<
       this.containerInitialized = true;
       this.cdRef.markForCheck();
     } catch (error) {
-      console.log('Condition not met, skipping dynamic component load', {
-        containerInitialized: this.containerInitialized,
-        dynamicAnswerContainer: !!this.dynamicAnswerContainer,
-      });
       console.error('[❌ initializeDynamicComponentIfNeeded] Exception caught:', error);
     }
   }
