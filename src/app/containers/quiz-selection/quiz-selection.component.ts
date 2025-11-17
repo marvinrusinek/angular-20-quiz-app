@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, ViewEncapsulation } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
 import { CommonModule, NgOptimizedImage } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
@@ -36,7 +36,7 @@ import { QuizDataService } from '../../shared/services/quizdata.service';
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class QuizSelectionComponent implements OnInit {
+export class QuizSelectionComponent implements OnInit, OnDestroy {
   quizzes$: Observable<Quiz[]> = of([]);
   selectedQuiz: Quiz | null = null;
   currentQuestionIndex = 0;
@@ -93,15 +93,16 @@ export class QuizSelectionComponent implements OnInit {
       });
   }
 
-  onSelect(quizId: string, index: number): void {
+  async onSelect(quizId: string, index: number): Promise<void> {
     try {
       if (!quizId) {
-        throw new Error('Quiz ID is null or undefined');
+        console.error('[❌ navigateToQuestion] quizId is null or undefined');
+        return;
       }
-  
+
       this.quizService.quizId = quizId;
       this.quizService.setIndexOfQuizId(index);
-      this.router.navigate([QuizRoutes.INTRO, quizId]);
+      await this.router.navigate([QuizRoutes.INTRO, quizId]);
     } catch (error) {
       if (error instanceof Error) {
         console.error(error.message);
