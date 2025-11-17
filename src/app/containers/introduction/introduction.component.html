@@ -2,7 +2,13 @@
 @if (selectedQuiz) {
   <mat-card>
     <mat-card-header>
-      <img mat-card-avatar class="header-image" loading="lazy" />
+      <img
+        mat-card-avatar
+        class="header-image"
+        [src]="selectedQuiz?.image || 'assets/default-image.jpg'"
+        alt="Quiz Header image"
+        loading="lazy"
+      />
 
       <mat-card-title-group>
         <mat-card-title i18n>
