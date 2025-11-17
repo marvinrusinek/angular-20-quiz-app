@@ -110,11 +110,6 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   private pendingExplanationRequests = new Map<string, Subscription>();
   private pendingExplanationKeys = new Set<string>();
   private latestViewState: QuestionViewState | null = null;
-  private previousExplanationSnapshot: {
-    resolved: string,
-    cached: string,
-    fallback: string
-  } | null = null;
   latestDisplayMode: 'question' | 'explanation' = 'question';
   awaitingQuestionBaseline = false;
   private renderModeByKey = new Map<string, 'question' | 'explanation'>();
@@ -396,7 +391,6 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
     if (this.latestViewState?.index === index) this.latestViewState = null;
 
-    this.previousExplanationSnapshot = null;
     this.latestDisplayMode = 'question';
     this.awaitingQuestionBaseline = false;
     this.staleFallbackIndices.delete(index);
