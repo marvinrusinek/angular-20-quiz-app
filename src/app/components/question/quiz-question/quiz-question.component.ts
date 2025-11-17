@@ -22,7 +22,6 @@ import { Quiz } from '../../../shared/models/Quiz.model';
 import { QuizQuestion } from '../../../shared/models/QuizQuestion.model';
 import { SelectedOption } from '../../../shared/models/SelectedOption.model';
 import { SharedOptionConfig } from '../../../shared/models/SharedOptionConfig.model';
-import { AnswerTrackingService } from '../../../shared/services/answer-tracking.service';
 import { FeedbackService } from '../../../shared/services/feedback.service';
 import { QuizService } from '../../../shared/services/quiz.service';
 import { QuizDataService } from '../../../shared/services/quizdata.service';
@@ -274,7 +273,6 @@ export class QuizQuestionComponent extends BaseQuestion
     protected quizNavigationService: QuizNavigationService,
     protected quizQuestionLoaderService: QuizQuestionLoaderService,
     protected quizQuestionManagerService: QuizQuestionManagerService,
-    protected answerTrackingService: AnswerTrackingService,
     protected explanationTextService: ExplanationTextService,
     protected nextButtonStateService: NextButtonStateService,
     protected resetStateService: ResetStateService,
