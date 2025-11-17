@@ -63,7 +63,7 @@ export interface FeedbackConfig {
 export class QuizQuestionComponent extends BaseQuestion
   implements OnInit, OnChanges, OnDestroy, AfterViewInit {
   @ViewChild('dynamicAnswerContainer', { read: ViewContainerRef, static: false })
-  override dynamicAnswerContainer!: ViewContainerRef;
+  dynamicAnswerContainer!: ViewContainerRef;
   @ViewChild(SharedOptionComponent, { static: false })
   sharedOptionComponent!: SharedOptionComponent;
   @Output() answer = new EventEmitter<number>();
@@ -106,7 +106,7 @@ export class QuizQuestionComponent extends BaseQuestion
   @Input() currentQuestionIndex = 0;
   @Input() previousQuestionIndex = 0;
   @Input() quizId: string | null | undefined = '';
-  @Input() override multipleAnswer: BehaviorSubject<boolean> = 
+  @Input() multipleAnswer: BehaviorSubject<boolean> =
     new BehaviorSubject<boolean>(false);
   @Input() explanation: string | null | undefined = '';
   @Input() explanationText: string | null = '';
