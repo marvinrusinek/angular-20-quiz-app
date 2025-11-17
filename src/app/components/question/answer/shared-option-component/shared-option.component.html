@@ -1,26 +1,74 @@
 @let opts = optionBindings || [];
 @if (opts.length > 0 && canShowOptions()) {
   <form [formGroup]="form" class="options-form">
-    <!-- SINGLE-ANSWER (RADIO) -->
-    @if (type === 'single') {
-      <mat-radio-group
-        formControlName="selectedOptionId"
-        class="options-group options">
+    @switch (type) {
+      <!-- SINGLE-ANSWER (RADIO) -->
+      @case ('single') {
+        <mat-radio-group
+          formControlName="selectedOptionId"
+          class="options-group options">
 
+          @for (b of optionBindings; let i = $index; track trackByQuestionScoped($index, b)) {
+            <div class="option-container">
+              <mat-radio-button
+                appHighlightOption
+                class="option-radio single-option"
+                [value]="b.option.optionId"
+                [option]="b.option"
+                [optionBinding]="b"
+                [isSelected]="b.isSelected"
+                [isCorrect]="b.isCorrect"
+                [selectedOptionHistory]="selectedOptionHistory"
+                [highlightCorrectAfterIncorrect]="highlightCorrectAfterIncorrect"
+                [appHighlightInputType]="'radio'"
+                [appHighlightReset]="shouldResetBackground"
+                [ngClass]="getOptionClasses(b)"
+                [disabled]="isDisabled(b, i)"
+                (click)="onOptionClick(b, i, $event)"
+                (change)="updateOptionAndUI(b, i, $event)">
+
+                <div class="option-wrapper">
+                  <span class="option-text">
+                    {{ getOptionDisplayText(b.option, i) }}
+                  </span>
+
+                  @if (shouldShowIcon(b.option, i)) {
+                    <mat-icon class="opt-icon">
+                      {{ getOptionIcon(b.option, i) }}
+                    </mat-icon>
+                  }
+                </div>
+              </mat-radio-button>
+
+              @if (b.option.optionId === lastFeedbackOptionId) {
+                <div class="feedback-wrapper">
+                  @if (feedbackConfigs[b.option.optionId]?.showFeedback) {
+                    <codelab-quiz-feedback
+                      [feedbackConfig]="feedbackConfigs[b.option.optionId]">
+                    </codelab-quiz-feedback>
+                  }
+                </div>
+              }
+            </div>
+          }
+        </mat-radio-group>
+      }
+
+      <!-- MULTIPLE-ANSWER (CHECKBOX) -->
+      @case ('multiple') {
         @for (b of optionBindings; let i = $index; track trackByQuestionScoped($index, b)) {
-
           <div class="option-container">
-            <mat-radio-button
+            <mat-checkbox
               appHighlightOption
-              class="option-radio single-option"
-              [value]="b.option.optionId"
+              class="option-row multiple-option"
+              [checked]="b.option.selected"
               [option]="b.option"
               [optionBinding]="b"
               [isSelected]="b.isSelected"
               [isCorrect]="b.isCorrect"
               [selectedOptionHistory]="selectedOptionHistory"
               [highlightCorrectAfterIncorrect]="highlightCorrectAfterIncorrect"
-              [appHighlightInputType]="'radio'"
+              [appHighlightInputType]="'checkbox'"
               [appHighlightReset]="shouldResetBackground"
               [ngClass]="getOptionClasses(b)"
               [disabled]="isDisabled(b, i)"
@@ -38,8 +86,7 @@
                   </mat-icon>
                 }
               </div>
-
-            </mat-radio-button>
+            </mat-checkbox>
 
             @if (b.option.optionId === lastFeedbackOptionId) {
               <div class="feedback-wrapper">
@@ -52,57 +99,11 @@
             }
           </div>
         }
-      </mat-radio-group>
-    }
-
-    <!-- MULTIPLE-ANSWER (CHECKBOX) -->
-    @else {
-      @for (b of optionBindings; let i = $index; track trackByQuestionScoped($index, b)) {
-        <div class="option-container">
-          <mat-checkbox
-            appHighlightOption
-            class="option-row multiple-option"
-            [checked]="b.option.selected"
-            [option]="b.option"
-            [optionBinding]="b"
-            [isSelected]="b.isSelected"
-            [isCorrect]="b.isCorrect"
-            [selectedOptionHistory]="selectedOptionHistory"
-            [highlightCorrectAfterIncorrect]="highlightCorrectAfterIncorrect"
-            [appHighlightInputType]="'checkbox'"
-            [appHighlightReset]="shouldResetBackground"
-            [ngClass]="getOptionClasses(b)"
-            [disabled]="isDisabled(b, i)"
-            (click)="onOptionClick(b, i, $event)"
-            (change)="updateOptionAndUI(b, i, $event)">
-
-            <div class="option-wrapper">
-              <span class="option-text">
-                {{ getOptionDisplayText(b.option, i) }}
-              </span>
-
-              @if (shouldShowIcon(b.option, i)) {
-                <mat-icon class="opt-icon">
-                  {{ getOptionIcon(b.option, i) }}
-                </mat-icon>
-              }
-            </div>
-
-          </mat-checkbox>
-
-          @if (b.option.optionId === lastFeedbackOptionId) {
-            <div class="feedback-wrapper">
-              @if (feedbackConfigs[b.option.optionId]?.showFeedback) {
-                <codelab-quiz-feedback
-                  [feedbackConfig]="feedbackConfigs[b.option.optionId]">
-                </codelab-quiz-feedback>
-              }
-            </div>
-          }
-        </div>
       }
-    }
+    }  <!-- end @switch -->
   </form>
-} @else if (!optionBindings || optionBindings.length === 0) {
+}
+@else if (opts.length === 0) {
+  <!-- Only show this when we have no options -->
   <span>Options not ready...</span>
 }

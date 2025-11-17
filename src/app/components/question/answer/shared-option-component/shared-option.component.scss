@@ -19,14 +19,13 @@ div.mat-radio-inner-container {
     height: auto;
     font-family: vars.$font-stack;
     font-size: 20px;
-    color: $dark-brown;
-    background-color: $light-gray;
-    border: 2px solid $medium-gray;
-    // padding: 0 5px 0 30px;
+    color: vars.$dark-brown;
+    background-color: vars.$light-gray;
+    border: 2px solid vars.$medium-gray;
     margin-left: -5px;
 
     &:hover {
-      border: 2px solid $vivid-blue;
+      border: 2px solid vars.$vivid-blue;
     }
 
     // Disabled state (applies when [disabled] is true)
@@ -35,8 +34,8 @@ div.mat-radio-inner-container {
       opacity: 0.5;
       cursor: not-allowed;
       pointer-events: none;  // prevent accidental clicks
-      background-color: lighten($light-gray, 10%);
-      border-color: $medium-gray;
+      background-color: lighten(vars.$light-gray, 10%);
+      border-color: vars.$medium-gray;
     }
   }  
 }
@@ -49,25 +48,25 @@ div.mat-radio-inner-container {
 }
 
 .correct {
-  background-color: $green;
+  background-color: vars.$green;
 }
 
 .incorrect {
-  background-color: $red;
+  background-color: vars.$red;
 }
 
 .correct, .incorrect {
-  border: 2px solid $vivid-blue;
+  border: 2px solid vars.$vivid-blue;
 }
 
 
 .correct-icon {
-  color: green;
+  color: vars.$green;
   margin-left: 10px;
 }
 
 .incorrect-icon {
-  color: red;
+  color: vars.$red;
   margin-left: 10px;
 }
 
@@ -78,13 +77,13 @@ div.mat-radio-inner-container {
 }
 
 .correct-option {
-  background-color: $green !important;
-  border: 2px solid $vivid-blue !important;
+  background-color: vars.$green !important;
+  border: 2px solid vars.$vivid-blue !important;
 }
 
 .incorrect-option {
-  background-color: $red !important;
-  border: 2px solid $vivid-blue !important;
+  background-color: vars.$red !important;
+  border: 2px solid vars.$vivid-blue !important;
 }
 
 .flash-red {
@@ -92,7 +91,7 @@ div.mat-radio-inner-container {
 }
 
 @keyframes flashRed {
-  0%   { background-color: $red; }
-  50%  { background-color: lighten($red, 15%); }
-  100% { background-color: $light-gray; }  // back to normal disabled
+  0%   { background-color: vars.$red; }
+  50%  { background-color: lighten(vars.$red, 15%); }
+  100% { background-color: vars.$light-gray; }  // back to normal disabled
 }
