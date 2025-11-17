@@ -30,7 +30,7 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
   @Input() isAnswered = false;
   @Input() selectedOptionHistory: number[] = [];
   @Input() renderReady = false;
-  private areAllCorrectAnswersSelected = false;
+  public areAllCorrectAnswersSelected = false;
 
   constructor(
     private quizService: QuizService,
@@ -83,10 +83,11 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
   
           // Check if every correct option is now selected
           try {
-            const result = this.selectedOptionService
-              .areAllCorrectAnswersSelectedSync(this.quizService.currentQuestionIndex);
-            this.areAllCorrectAnswersSelected = result;
-          
+            this.areAllCorrectAnswersSelected =
+              this.selectedOptionService.areAllCorrectAnswersSelectedSync(
+                this.quizService.currentQuestionIndex
+              );
+
             // Re-apply highlight in case the completion state just flipped
             this.updateHighlight();
           } catch (error) {
@@ -101,7 +102,8 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
     }
   }
 
-  @HostBinding('style.backgroundColor') backgroundColor: string = '';
+  @HostBinding('style.background-color')
+  backgroundColor: string = '';
 
   @HostListener('click', ['$event'])
   onClick(event: Event): void {
@@ -159,7 +161,7 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
     }, 0);
   }  
   
-  private highlightCorrectAnswers(): void {
+  /* private highlightCorrectAnswers(): void {
     if (!Array.isArray(this.allOptions)) {
       console.error('All options are not defined');
       return;
@@ -177,11 +179,11 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
         this.setBackgroundColor(this.paintTarget, '#ff0000'); // red
       }
     }
-  }
+  } */
 
-  private get paintTarget(): HTMLElement {
+  /* private get paintTarget(): HTMLElement {
     return this.el.nativeElement.firstElementChild as HTMLElement ?? this.el.nativeElement;
-  }
+  } */
 
   private setBackgroundColor(element: HTMLElement, color: string): void {
     this.renderer.setStyle(element, 'background-color', color);
@@ -191,12 +193,12 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
     this.renderer.setStyle(el, 'pointer-events', value);
   }
 
-  public paintNow(): void {
+  /* public paintNow(): void {
     this.updateHighlight();
-  }
+  } */
 
   // Reset the state in-between questions
-  public reset(): void {
+  /* public reset(): void {
     this.isAnswered = false;
     if (this.allOptions) {
       for (const opt of this.allOptions) {
@@ -206,5 +208,5 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
     this.setBackgroundColor(this.paintTarget, 'transparent');
     this.renderer.setStyle(this.el.nativeElement, 'background-color', 'white');
     this.resetBackground.emit(true);  // emit event to notify the reset
-  }
+  } */
 }
