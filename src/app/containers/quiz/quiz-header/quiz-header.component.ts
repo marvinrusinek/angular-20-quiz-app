@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, NgOptimizedImage } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { Observable } from 'rxjs';
@@ -12,7 +12,7 @@ import { QuizDataService } from '../../../shared/services/quizdata.service';
 @Component({
   selector: 'codelab-quiz-header',
   standalone: true,
-  imports: [CommonModule, RouterModule, MatCardModule],
+  imports: [CommonModule, NgOptimizedImage, MatCardModule, RouterModule],
   templateUrl: './quiz-header.component.html',
   styleUrls: ['./quiz-header.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
