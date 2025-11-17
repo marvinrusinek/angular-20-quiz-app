@@ -1,21 +1,27 @@
 <mat-card-header>
+  <a
+    [routerLink]="['/select']"
+    matTooltip="Back to Codelab Quiz Selection"
+    matTooltipPosition="left"
+  >
     <img
       mat-card-avatar
       class="header-image"
       loading="lazy"
-      [routerLink]="['/select']"
-      matTooltip="back to Codelab Quiz Selection"
-      matTooltipPosition="left"
+      alt="Quiz Header Image"
     />
-    <div class="header-titles" *ngIf="currentQuiz$ | async as currentQuiz">
-      <mat-card-title i18n
-        >
-        {{ currentQuiz?.milestone || 'No questions found' }} Quiz</mat-card-title
-      >
-      <mat-card-subtitle i18n
-        >Assess your knowledge of
-        {{ currentQuiz?.milestone || 'No questions found' }}</mat-card-subtitle
-      >
+  </a>
+
+  @if (currentQuiz$ | async; as currentQuiz) {
+    <div class="header-titles">
+      <mat-card-title i18n>
+        {{ currentQuiz?.milestone || 'No questions found' }} Quiz
+      </mat-card-title>
+
+      <mat-card-subtitle i18n>
+        Assess your knowledge of
+        {{ currentQuiz?.milestone || 'No questions found' }}
+      </mat-card-subtitle>
     </div>
-  </mat-card-header>
-  
+  }
+</mat-card-header>
