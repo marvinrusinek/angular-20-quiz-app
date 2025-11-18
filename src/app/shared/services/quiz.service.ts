@@ -8,7 +8,6 @@ import _, { isEqual } from 'lodash';
 import { QUIZ_DATA, QUIZ_RESOURCES } from '../quiz';
 import { Utils } from '../utils/utils';
 import { QuestionType } from '../models/question-type.enum';
-import { CombinedQuestionDataType } from '../models/CombinedQuestionDataType.model';
 import { Option } from '../models/Option.model';
 import { QuestionPayload } from '../models/QuestionPayload.model';
 import { Quiz } from '../models/Quiz.model';
@@ -185,14 +184,7 @@ export class QuizService {
   highScores: QuizScore[] = [];
   highScoresLocal = JSON.parse(localStorage.getItem('highScoresLocal') ?? '[]');
 
-  combinedQuestionDataSubject =
-    new BehaviorSubject<CombinedQuestionDataType | null>(null);
-  combinedQuestionData$: Observable<CombinedQuestionDataType | null> =
-    this.combinedQuestionDataSubject.asObservable();
-
-  destroy$ = new Subject<void>();
   private quizUrl = 'assets/data/quiz.json';
-
   questionPayloadSubject = new BehaviorSubject<QuestionPayload | null>(null);
   questionPayload$ = this.questionPayloadSubject.asObservable();
   private questionPayloadMap= new Map<number, QuestionPayload>();
@@ -200,6 +192,8 @@ export class QuizService {
   private readonly _preReset$ = new Subject<number>();
   // Emitted with the target question index just before navigation hydrates it
   readonly preReset$ = this._preReset$.asObservable();
+
+  destroy$ = new Subject<void>();
 
   constructor(
     private quizShuffleService: QuizShuffleService,
