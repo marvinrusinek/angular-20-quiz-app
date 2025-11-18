@@ -2,12 +2,12 @@ import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { distinctUntilChanged } from 'rxjs/operators';
 
-import { QuestionType } from '../../shared/models/question-type.enum';
-import { CanonicalOption } from '../../shared/models/CanonicalOption.model';
-import { Option } from '../../shared/models/Option.model';
-import { QuizQuestion } from '../../shared/models/QuizQuestion.model';
-import { QuizService } from '../../shared/services/quiz.service';
-import { SelectedOptionService } from '../../shared/services/selectedoption.service';
+import { QuestionType } from '../models/question-type.enum';
+import { CanonicalOption } from '../models/CanonicalOption.model';
+import { Option } from '../models/Option.model';
+import { QuizQuestion } from '../models/QuizQuestion.model';
+import { QuizService } from './quiz.service';
+import { SelectedOptionService } from './selectedoption.service';
 
 const START_MSG = 'Please start the quiz by selecting an option.';
 const CONTINUE_MSG = 'Please select an option to continue...';
@@ -30,7 +30,6 @@ export class SelectionMessageService {
 
   public optionsSnapshot: Option[] = [];
   private optionsSnapshotSubject = new BehaviorSubject<Option[]>([]);
-  latestOptionsSnapshot: ReadonlyArray<OptionSnapshot> | null = null;
   private writeSeq = 0;
   private latestByIndex = new Map<number, number>();
   private freezeNextishUntil = new Map<number, number>();
@@ -49,9 +48,6 @@ export class SelectionMessageService {
   public stickyAnySelectedKeysByIndex = new Map<number, Set<string>>();  // fallback store
 
   private observedCorrectIds = new Map<number, Set<string>>();
-
-  // Latch to prevent regressions after a multi question is satisfied
-  public completedByIndex = new Map<number, boolean>();
 
   // Track which questions have been "locked" once correct is chosen
   // Single-answer: one for incorrect, one for correct
@@ -111,7 +107,7 @@ export class SelectionMessageService {
         ? qArr[questionIndex] : undefined) ??
       (svc.currentQuestion as QuizQuestion | undefined) ?? null;
   
-    // Resolve declared type (may be stale)
+    // Resolve declared type (perhaps stale)
     const declaredType: QuestionType | undefined =
       q?.type ??
       this.quizService.currentQuestion?.getValue()?.type ??
@@ -416,7 +412,7 @@ export class SelectionMessageService {
       this._setMsgCounter++;
   
       // Ignore stray "false" calls until baseline has been seeded by forceBaseline()
-      if (!this._baselineReleased.has(i0) && isAnswered === false) {
+      if (!this._baselineReleased.has(i0) && !isAnswered) {
         console.log('[setSelectionMessage] Ignored pre-release call (baseline handled separately)', { i0 });
         return;
       }
@@ -518,19 +514,6 @@ export class SelectionMessageService {
     this.latestByIndex.set(index, token);
     this.freezeNextishUntil.set(index, performance.now() + freezeMs);
     return token;
-  }
-
-  private inFreezeWindow(index: number): boolean {
-    const until = this.freezeNextishUntil.get(index) ?? 0;
-    return performance.now() < until;
-  }
-
-  public isWriteFrozen(index: number, token: number): boolean {
-    const latest = this.latestByIndex.get(index);
-    const stillFrozen = this.inFreezeWindow(index);
-
-    // Only frozen if the token matches the latest one and still inside the freeze window
-    return token === latest && stillFrozen;
   }
 
   // Emit a selection message based on canonical + UI state
@@ -646,31 +629,6 @@ export class SelectionMessageService {
     }
   }
 
-  public getExpectedCorrectCount(index: number): number | undefined {
-    // Exact index match
-    const fromIndex = this.expectedCorrectByIndex.get(index);
-    if (typeof fromIndex === 'number' && fromIndex > 0) return fromIndex;
-
-    // Resolve the question object and try an id-based override
-    try {
-      const svc: any = this.quizService as any;
-      const arr = Array.isArray(svc.questions)
-        ? (svc.questions as QuizQuestion[])
-        : [];
-      const q: any =
-        (index >= 0 && index < arr.length ? arr[index] : undefined) ??
-        (svc.currentQuestion as QuizQuestion | undefined);
-
-      const qid = q?.id ?? q?._id ?? q?.questionId ?? q?.uuid;
-      if (qid !== undefined && qid !== null) {
-        const fromId = this.expectedCorrectByQid.get(qid);
-        if (typeof fromId === 'number' && fromId > 0) return fromId;
-      }
-    } catch {}
-
-    return undefined;
-  }
-
   public registerClick(
     index: number,
     optionId: number | string,
@@ -718,13 +676,13 @@ export class SelectionMessageService {
   ): Option {
     return {
       optionId: s.id as any,
-      selected: !!s.selected,
+      selected: s.selected,
       correct: typeof s.correct === 'boolean' ? s.correct : false,
       // safe defaults for common fields; customize if you have stricter types
       text: '',
       value: s.id as any,
-      showIcon: !!s.selected,
-      highlight: !!s.selected,
+      showIcon: s.selected,
+      highlight: s.selected,
       feedback: '',
       styleClass: ''
     } as unknown as Option;
