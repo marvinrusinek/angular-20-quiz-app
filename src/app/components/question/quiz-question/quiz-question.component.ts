@@ -2286,10 +2286,7 @@ export class QuizQuestionComponent extends BaseQuestion
       }
   
       // Generate feedback using the feedback service
-      const feedbackText = this.feedbackService.setCorrectMessage(
-        correctOptions,
-        this.optionsToDisplay
-      );
+      const feedbackText = this.feedbackService.setCorrectMessage(this.optionsToDisplay);
   
       // Emit the feedback text
       this.feedbackText = 
