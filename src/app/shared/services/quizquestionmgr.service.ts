@@ -1,15 +1,11 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, combineLatest, Observable, of } from 'rxjs';
-import { map, switchMap } from 'rxjs/operators';
+import { BehaviorSubject, Observable, of } from 'rxjs';
 
-import { Option } from '../../shared/models/Option.model';
-import { QuizQuestion } from '../../shared/models/QuizQuestion.model';
+import { Option } from '../models/Option.model';
+import { QuizQuestion } from '../models/QuizQuestion.model';
 
 @Injectable({ providedIn: 'root' })
 export class QuizQuestionManagerService {
-  private currentQuestionSubject = new BehaviorSubject<QuizQuestion | null>(null);
-  currentQuestion$ = this.currentQuestionSubject.asObservable();
-
   private shouldDisplayExplanationSubject = new BehaviorSubject<boolean>(false);
   shouldDisplayExplanation$ = this.shouldDisplayExplanationSubject.asObservable();
 
@@ -17,8 +13,6 @@ export class QuizQuestionManagerService {
 
   selectedOption: Option | null = null;
   explanationText = '';
-  shouldDisplayNumberOfCorrectAnswers = false;
-  shouldDisplayNumberOfCorrectAnswers$: Observable<boolean> = of(false);
 
   setExplanationText(explanation: string): void {
     this.explanationTextSubject.next(explanation);
@@ -43,31 +37,12 @@ export class QuizQuestionManagerService {
     return `(${numberOfCorrectAnswers} ${pluralSuffix} correct)`;
   }
 
-  updateCurrentQuestionDetail(question: QuizQuestion): void {
-    this.currentQuestionSubject.next(question);
-
-    this.shouldDisplayNumberOfCorrectAnswers$ = combineLatest([
-      this.shouldDisplayExplanation$,
-      this.currentQuestion$
-    ]).pipe(
-      switchMap(([shouldExplain, question]) => {
-        if (!question) {
-          return of(false);
-        }
-        return this.isMultipleAnswerQuestion(question).pipe(
-          map((isMultiple) => !shouldExplain && isMultiple)
-        );
-      })
-    );
-  }
-
   calculateNumberOfCorrectAnswers(options: Option[]): number {
     const validOptions = options ?? [];
-    const numberOfCorrectAnswers = validOptions.reduce(
+    return validOptions.reduce(
       (count, option) => count + (option.correct ? 1 : 0),
       0
     );
-    return numberOfCorrectAnswers;
   }
 
   public isMultipleAnswerQuestion(question: QuizQuestion): Observable<boolean> {
@@ -83,10 +58,6 @@ export class QuizQuestionManagerService {
       console.error('Error determining if it is a multiple-answer question:', error);
       return of(false);
     }
-  }
-
-  isSelectedOption(option: Option): boolean {
-    return this.selectedOption === option;
   }
 
   isValidQuestionData(questionData: QuizQuestion): boolean {
