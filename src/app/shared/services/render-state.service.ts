@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, combineLatest, Observable, of } from 'rxjs';
+import { BehaviorSubject, combineLatest, of } from 'rxjs';
 import { catchError, filter, take, tap } from 'rxjs/operators';
 
 import { Option } from '../models/Option.model';
@@ -10,17 +10,10 @@ import { QuizService } from './quiz.service';
 export class RenderStateService {
   public optionsToDisplay$ = new BehaviorSubject<Option[]>([]);
 
-  private combinedQuestionDataSubject = new BehaviorSubject<{
-    question: QuizQuestion,
-    options: Option[]
-  } | null>(null);
-  combinedQuestionData$: Observable<{
-    question: QuizQuestion,
-    options: Option[]
-  } | null> = this.combinedQuestionDataSubject.asObservable();
+  private combinedQuestionDataSubject =
+    new BehaviorSubject<{ question: QuizQuestion, options: Option[] } | null>(null);
 
   private renderGateSubject = new BehaviorSubject<boolean>(false);
-  renderGate$ = this.renderGateSubject.asObservable();
 
   constructor(private quizService: QuizService) {}
 
@@ -41,7 +34,7 @@ export class RenderStateService {
       tap(([index, question, options]) => {
         console.log('[✅ RenderGate Triggered]', { index, question, options });
         this.combinedQuestionDataSubject.next({ question, options });
-        this.renderGateSubject.next(true);  // tells template it's safe to render
+        this.renderGateSubject.next(true);  // tells the template it's safe to render
       }),
       catchError(err => {
         console.error('[❌ RenderGateSync Error]', err);
