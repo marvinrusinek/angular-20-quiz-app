@@ -4030,10 +4030,7 @@ export class QuizQuestionComponent extends BaseQuestion
         const correctOptions = questionData.options.filter(
           (opt: Option) => opt.correct
         );
-        this.correctMessage = this.feedbackService.setCorrectMessage(
-          correctOptions,
-          this.optionsToDisplay
-        );
+        this.correctMessage = this.feedbackService.setCorrectMessage(this.optionsToDisplay);
       } else {
         console.error(
           '[handleOptionProcessingAndFeedback] ❌ Invalid question data when handling option processing.'
