@@ -5148,12 +5148,8 @@ export class QuizQuestionComponent extends BaseQuestion
       selectedOptions: this.selectedOptions
     });
   
-    // Retrieve correct answers and set correct message
-    const correctAnswers = this.optionsToDisplay.filter((opt) => opt.correct);
-    this.feedbackService.setCorrectMessage(
-      correctAnswers,
-      this.optionsToDisplay
-    );
+    // Set correct message
+    this.feedbackService.setCorrectMessage(this.optionsToDisplay);
   }
   
   unselectOption(): void {
