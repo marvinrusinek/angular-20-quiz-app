@@ -1944,11 +1944,7 @@ export class SharedOptionComponent implements
       };
     }
   
-    const correctMessage = this.feedbackService.setCorrectMessage(
-      this.optionsToDisplay?.filter(o => o.correct),
-      this.optionsToDisplay
-    );
-  
+    const correctMessage = this.feedbackService.setCorrectMessage(this.optionsToDisplay);
     const isCorrect = option.correct ?? false;
     const rawFeedback = option.feedback?.trim();
     
