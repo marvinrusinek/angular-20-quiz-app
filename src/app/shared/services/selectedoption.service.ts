@@ -384,9 +384,8 @@ export class SelectedOptionService {
   
     const key = norm(text);
     const aliasFields = ['text', 'value', 'label', 'name', 'title', 'displayText', 'description', 'html'];
+    const directMatch = this.matchOptionFromSource(source, optionId);
 
-    const directMatch = this.matchOptionFromSource(source, optionId, text, aliasFields);
-  
     // Try to find a concrete index in the chosen source by matching text/value/aliases
     let fallbackIndexFromText = -1;
     for (let i = 0; i < source.length && fallbackIndexFromText < 0; i++) {
@@ -411,7 +410,14 @@ export class SelectedOptionService {
       (fallbackIndexFromText >= 0 ? fallbackIndexFromText :
         (directMatch?.index ?? text));
 
-    let canonicalOptionId = this.resolveCanonicalOptionId(questionIndex, optionId, resolverHint);
+    const numericFallback =
+      typeof resolverHint === 'number'
+        ? resolverHint
+        : Number.isFinite(Number(resolverHint))
+          ? Number(resolverHint)
+          : undefined;
+
+    let canonicalOptionId = this.resolveCanonicalOptionId(questionIndex, optionId, numericFallback);
 
     // Last-resort fallbacks: if resolver failed, but we have a concrete index from the source, use it.
     if (canonicalOptionId == null) {
@@ -1181,60 +1187,32 @@ export class SelectedOptionService {
 
   private matchOptionFromSource(
     options: Option[],
-    optionId: number | string | null | undefined,
-    text: string,
-    aliasFields: string[]
+    optionId: number | string | null | undefined
   ): { option: Option; index: number } | null {
+
     if (!Array.isArray(options) || options.length === 0) {
       return null;
     }
 
-    const decodeHtml = (value: string) =>
-      value
-        .replace(/&nbsp;/gi, ' ')
-        .replace(/&amp;/gi, '&')
-        .replace(/&lt;/gi, '<')
-        .replace(/&gt;/gi, '>')
-        .replace(/&quot;/gi, '"')
-        .replace(/&#39;/gi, "'");
-    const stripTags = (value: string) => value.replace(/<[^>]*>/g, ' ');
-    const normalize = (value: unknown) =>
-      typeof value === 'string'
-        ? stripTags(decodeHtml(value)).trim().toLowerCase().replace(/\s+/g, ' ')
-        : '';
-
+    // Normalize the id so match works on number/string interchangeably
     const targetId = optionId != null ? String(optionId) : null;
-    const targetNumeric = optionId != null ? Number(optionId) : null;
-    const targetText = normalize(text);
+    const targetNum = optionId != null ? Number(optionId) : null;
 
     for (let i = 0; i < options.length; i++) {
-      const candidate: any = options[i];
+      const opt = options[i];
 
-      if (targetId !== null) {
-        const candidateId = candidate?.optionId != null ? String(candidate.optionId) : null;
-        if (candidateId !== null && candidateId === targetId) {
-          return { option: candidate, index: i };
-        }
-
-        const candidateNumeric = candidate?.optionId != null ? Number(candidate.optionId) : null;
-        if (
-          candidateNumeric !== null &&
-          targetNumeric !== null &&
-          Number.isFinite(candidateNumeric) &&
-          Number.isFinite(targetNumeric) &&
-          candidateNumeric === targetNumeric
-        ) {
-          return { option: candidate, index: i };
-        }
+      // Check string equality
+      if (opt.optionId != null && String(opt.optionId) === targetId) {
+        return { option: opt, index: i };
       }
 
-      if (targetText) {
-        for (const field of aliasFields) {
-          const candidateText = normalize(candidate?.[field]);
-          if (candidateText && candidateText === targetText) {
-            return { option: candidate, index: i };
-          }
-        }
+      // Check numeric equality
+      if (
+        opt.optionId != null &&
+        Number(opt.optionId) === targetNum &&
+        Number.isFinite(targetNum)
+      ) {
+        return { option: opt, index: i };
       }
     }
 
@@ -1258,144 +1236,43 @@ export class SelectedOptionService {
   private resolveCanonicalOptionId(
     questionIndex: number,
     rawId: number | string | null | undefined,
-    fallbackIndexOrText?: number | string
+    fallbackIndex?: number
   ): number | null {
-    const toFiniteNumber = (value: unknown): number | null => {
-      if (typeof value === 'number' && Number.isFinite(value)) {
-        return value;
-      }
-
-      const parsed = Number(String(value));
-      return Number.isFinite(parsed) ? parsed : null;
-    };
-
-    const parseFallbackNumber = (): number | null => {
-      const rawNumeric = toFiniteNumber(rawId);
-      if (rawNumeric !== null) {
-        return rawNumeric;
-      }
-
-      if (typeof fallbackIndexOrText === 'number') {
-        return fallbackIndexOrText >= 0 ? fallbackIndexOrText : null;
-      }
-
-      if (typeof fallbackIndexOrText === 'string') {
-        return toFiniteNumber(fallbackIndexOrText);
-      }
-
-      return null;
-    };
 
     const options = this.getKnownOptions(questionIndex);
-    if (options.length === 0) {
-      return parseFallbackNumber();
-    }
+    const count = options.length;
 
-    const decodeHtml = (value: string) =>
-      value
-        .replace(/&nbsp;/gi, ' ')
-        .replace(/&amp;/gi, '&')
-        .replace(/&lt;/gi, '<')
-        .replace(/&gt;/gi, '>')
-        .replace(/&quot;/gi, '"')
-        .replace(/&#39;/gi, "'");
-    const stripTags = (value: string) => value.replace(/<[^>]*>/g, ' ');
-    const normalize = (value: unknown) =>
-      typeof value === 'string'
-        ? stripTags(decodeHtml(value)).trim().toLowerCase().replace(/\s+/g, ' ')
-        : '';
-
-    const inBounds = (index: number | undefined) =>
-      typeof index === 'number' && index >= 0 && index < options.length;
-
-    const fallbackIndex =
-      typeof fallbackIndexOrText === 'number' ? fallbackIndexOrText : undefined;
-    const hintText =
-      typeof fallbackIndexOrText === 'string' ? fallbackIndexOrText : undefined;
-    const normalizedHint = hintText ? normalize(hintText) : null;
-
-    const resolveFromIndex = (index: number): number => {
-      const numericId = toFiniteNumber((options[index] as any)?.optionId);
-      return numericId ?? index;
+    // Convert rawId to a number if possible
+    const toNum = (v: any): number | null => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
     };
 
-    const aliasFields = [
-      'text',
-      'value',
-      'label',
-      'name',
-      'title',
-      'displayText',
-      'html',
-      'description'
-    ];
+    const rawNum = toNum(rawId);
 
-    const lookupById = new Map<string | number, number>();
-    const lookupByAlias = new Map<string, number>();
+    // 1) Direct numeric id → if it matches an optionId
+    if (rawId != null) {
+      const rawStr = String(rawId);
 
-    const buildStableKey = (option: any): string => {
-      const idPart = option?.optionId != null ? String(option.optionId) : '';
-      const alias = aliasFields.map((field) => normalize(option?.[field])).find(Boolean) || '';
-      return `${questionIndex}|${idPart}|${alias}`;
-    };
-
-    options.forEach((option: any, index) => {
-      if (option?.optionId !== null && option?.optionId !== undefined) {
-        lookupById.set(option.optionId, index);
-
-        const numericId = toFiniteNumber(option.optionId);
-        if (numericId !== null) {
-          lookupById.set(numericId, index);
-        }
-
-        lookupById.set(String(option.optionId), index);
-      }
-
-      aliasFields.forEach((field) => {
-        const key = normalize(option?.[field]);
-        if (key) {
-          lookupByAlias.set(key, index);
-        }
-      });
-
-      lookupByAlias.set(normalize(buildStableKey(option)), index);
-    });
-
-    if (rawId !== undefined && rawId !== null) {
-      const rawNumeric = toFiniteNumber(rawId);
-      const candidates: Array<string | number> = [rawId, String(rawId)];
-      if (rawNumeric !== null) {
-        candidates.push(rawNumeric);
-      }
-
-      for (const candidate of candidates) {
-        const match = lookupById.get(candidate as any);
-        if (match !== undefined) {
-          return resolveFromIndex(match);
-        }
-      }
-
-      if (rawNumeric !== null) {
-        if (inBounds(rawNumeric) && fallbackIndex === undefined) {
-          return rawNumeric;
-        }
-
-        const zeroBased = rawNumeric - 1;
-        if (inBounds(zeroBased)) {
-          return zeroBased;
+      for (let i = 0; i < count; i++) {
+        const opt = options[i];
+        if (opt.optionId != null) {
+          if (String(opt.optionId) === rawStr) return i;
+          if (toNum(opt.optionId) === rawNum) return i;
         }
       }
     }
 
-    if (normalizedHint) {
-      const match = lookupByAlias.get(normalizedHint);
-      if (match !== undefined) {
-        return resolveFromIndex(match);
-      }
+    // 2) If rawNum is a valid index
+    if (rawNum !== null && rawNum >= 0 && rawNum < count) {
+      return rawNum;
     }
 
-    if (inBounds(fallbackIndex)) {
-      return resolveFromIndex(fallbackIndex!);
+    // 3) Fallback index if provided
+    if (typeof fallbackIndex === 'number' &&
+      fallbackIndex >= 0 &&
+      fallbackIndex < count) {
+      return fallbackIndex;
     }
 
     return null;
