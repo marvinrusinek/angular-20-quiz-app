@@ -3,7 +3,7 @@ import { Resolve, ActivatedRouteSnapshot, RouterStateSnapshot, Router, UrlTree }
 import { Observable, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 
-import { Quiz } from '../../shared/models/Quiz.model';
+import { Quiz } from '../models/Quiz.model';
 import { QuizDataService } from './quizdata.service';
 
 @Injectable({ providedIn: 'root' })
