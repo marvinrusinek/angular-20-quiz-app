@@ -401,10 +401,7 @@ export abstract class BaseQuestion<
     if (!correctOptions) {
       correctOptions = this.optionsToDisplay.filter((opt) => opt.correct);
     }
-    this.correctMessage = this.feedbackService.setCorrectMessage(
-      correctOptions,
-      this.optionsToDisplay
-    );
+    this.correctMessage = this.feedbackService.setCorrectMessage(this.optionsToDisplay);
     this.correctMessageChange.emit(this.correctMessage);
     this.cdRef.detectChanges();
   }
