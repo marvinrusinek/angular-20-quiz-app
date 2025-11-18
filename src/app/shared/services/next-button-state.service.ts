@@ -1,16 +1,11 @@
-import { Injectable, NgZone } from '@angular/core';
+import { Injectable, NgZone, OnDestroy } from '@angular/core';
 import { BehaviorSubject, combineLatest, Observable, of, Subscription } from 'rxjs';
-import { distinctUntilChanged, map } from 'rxjs/operators';
+import { distinctUntilChanged } from 'rxjs/operators';
 
 @Injectable({ providedIn: 'root' })
-export class NextButtonStateService {
+export class NextButtonStateService implements OnDestroy {
   private isButtonEnabledSubject = new BehaviorSubject<boolean>(false);
   public isButtonEnabled$ = this.isButtonEnabledSubject.asObservable();
-
-  public nextButtonTooltip$ = this.isButtonEnabled$.pipe(
-    map((enabled) => (enabled ? 'Next' : 'Please select an option to continue...')),
-    distinctUntilChanged()
-  );
 
   public nextButtonStyle: { [key: string]: string } = {
     opacity: '0.5',
@@ -19,11 +14,7 @@ export class NextButtonStateService {
   };
 
   private nextButtonStateSubscription?: Subscription;
-
-  private isEnabled = false;
   private initialized = false;
-
-  // Flag to allow manual override
   private manualOverride: boolean | null = null;
 
   constructor(private ngZone: NgZone) {}
@@ -32,7 +23,6 @@ export class NextButtonStateService {
     this.cleanupNextButtonStateStream();
   }
 
-  // NextButtonStateService
   public initializeNextButtonStateStream(
     isAnswered$: Observable<boolean>,
     isLoading$: Observable<boolean>,
@@ -65,7 +55,6 @@ export class NextButtonStateService {
     });
   }
 
-
   public cleanupNextButtonStateStream(): void {
     this.nextButtonStateSubscription?.unsubscribe();
     this.nextButtonStateSubscription = undefined;
@@ -85,8 +74,9 @@ export class NextButtonStateService {
   public updateAndSyncNextButtonState(isEnabled: boolean): void {
     this.ngZone.run(() => {
       const effective = this.manualOverride !== null ? this.manualOverride : isEnabled;
-      this.isEnabled = effective;
+
       this.isButtonEnabledSubject.next(effective);
+
       this.nextButtonStyle = {
         opacity: effective ? '1' : '0.5',
         cursor: effective ? 'pointer' : 'not-allowed',
@@ -100,20 +90,7 @@ export class NextButtonStateService {
     this.updateAndSyncNextButtonState(enabled);  // reuse consistent logic
   }
 
-  public getNextButtonState(): Observable<boolean> {
-    return this.isButtonEnabledSubject.asObservable();
-  }
-
-  public isButtonCurrentlyEnabled(): boolean {
-    return this.isEnabled;
-  }
-
   reset(): void {
     this.setNextButtonState(false);
-  }
-
-  // Reset to let stream control again
-  public clearManualOverride(): void {
-    this.manualOverride = null;
   }
 }
