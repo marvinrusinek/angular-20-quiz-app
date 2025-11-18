@@ -1,9 +1,9 @@
 import { Injectable } from '@angular/core';
 
-import { Option } from '../../shared/models/Option.model';
-import { QuizQuestion } from '../../shared/models/QuizQuestion.model';
-import { ShuffleState } from '../../shared/models/ShuffleState.model';
-import { Utils } from '../../shared/utils/utils';
+import { Option } from '../models/Option.model';
+import { QuizQuestion } from '../models/QuizQuestion.model';
+import { ShuffleState } from '../models/ShuffleState.model';
+import { Utils } from '../utils/utils';
 
 export interface PrepareShuffleOpts {
   shuffleQuestions?: boolean,
@@ -150,11 +150,6 @@ export class QuizShuffleService {
     return [];
   }
 
-  // How many questions to display (after any sampling)
-  public getDisplayCount(quizId: string): number {
-    return this.shuffleByQuizId.get(quizId)?.questionOrder.length ?? 0;
-  }
-
   // Map display index -> original index (for scoring, persistence, timers)
   public toOriginalIndex(quizId: string, displayIdx: number): number | null {
     const state = this.shuffleByQuizId.get(quizId);
@@ -234,30 +229,6 @@ export class QuizShuffleService {
     }
 
     return displaySet;
-  }
-
-  // Persist/recover between reloads. Keep versions simple.
-  public saveState(quizId: string): void {
-    const state = this.shuffleByQuizId.get(quizId);
-    if (!state) return;
-    const serializable = {
-      questionOrder: state.questionOrder,
-      optionOrder: Array.from(state.optionOrder.entries())  // [ [origIdx, [order]] ]
-    };
-    localStorage.setItem(`shuffle:${quizId}`, JSON.stringify(serializable));
-  }
-
-  public restoreState(quizId: string): boolean {
-    const raw = localStorage.getItem(`shuffle:${quizId}`);
-    if (!raw) return false;
-    try {
-      const parsed = JSON.parse(raw);
-      const optionOrder = new Map<number, number[]>(parsed.optionOrder ?? []);
-      this.shuffleByQuizId.set(quizId, { questionOrder: parsed.questionOrder ?? [], optionOrder });
-      return true;
-    } catch {
-      return false;
-    }
   }
 
   // Clear when the session ends
