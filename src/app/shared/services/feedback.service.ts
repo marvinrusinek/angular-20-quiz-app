@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 
-import { Option } from '../../shared/models/Option.model';
-import { isValidOption } from '../../shared/utils/option-utils';
+import { Option } from '../models/Option.model';
+import { isValidOption } from '../utils/option-utils';
 
 @Injectable({ providedIn: 'root' })
 export class FeedbackService {
@@ -19,8 +19,8 @@ export class FeedbackService {
       console.warn('[generateFeedbackForOptions] ❌ No valid options to display. STOPPING BEFORE CALLING setCorrectMessage.');
       return 'Feedback unavailable.';
     }
-  
-    const correctFeedback = this.setCorrectMessage(validCorrectOptions, validOptionsToDisplay);  
+
+    const correctFeedback = this.setCorrectMessage(validOptionsToDisplay);
     if (!correctFeedback?.trim()) {
       console.warn('[generateFeedbackForOptions] ❌ setCorrectMessage returned empty or invalid feedback. Falling back...');
       return 'Feedback unavailable.';
@@ -29,8 +29,8 @@ export class FeedbackService {
     return correctFeedback;
   }
 
-  public setCorrectMessage(correctOptions?: Option[], optionsToDisplay?: Option[]): string {
-    // Store the last known correct optionsToDisplay
+  public setCorrectMessage(optionsToDisplay?: Option[]): string {
+    // Store the last known options
     if (optionsToDisplay && optionsToDisplay.length > 0) {
       this.lastKnownOptions = [...optionsToDisplay];
     }
@@ -40,10 +40,10 @@ export class FeedbackService {
       return 'Feedback unavailable.';
     }
 
-    // Ensure all correct options are present
+    // Extract indices of correct options
     const indices = optionsToDisplay
       .map((option, index) => option.correct ? index + 1 : null)
-      .filter((index): index is number => index !== null)
+      .filter((i): i is number => i !== null)
       .sort((a, b) => a - b);
 
     if (indices.length === 0) {
@@ -51,10 +51,9 @@ export class FeedbackService {
       return 'No correct options found for this question.';
     }
 
-    const message = this.formatFeedbackMessage(indices);
-    return message;
+    return this.formatFeedbackMessage(indices);
   }
- 
+
   private formatFeedbackMessage(indices: number[]): string {
     const optionsText = indices.length === 1 ? 'answer is Option' : 'answers are Options';
     const optionStrings = indices.length > 1
