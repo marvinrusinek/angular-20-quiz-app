@@ -1,16 +1,14 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, ReplaySubject, Subject, throwError } from 'rxjs';
-import { catchError, distinctUntilChanged } from 'rxjs/operators';
+import { BehaviorSubject, EMPTY, Observable, ReplaySubject, Subject } from 'rxjs';
+import { catchError, distinctUntilChanged, filter } from 'rxjs/operators';
 
-import { Option } from '../../shared/models/Option.model';
-import { QAPayload } from '../../shared/models/QAPayload.model';
-import { QuestionState } from '../../shared/models/QuestionState.model';
-import { QuizQuestion } from '../../shared/models/QuizQuestion.model';
+import { Option } from '../models/Option.model';
+import { QAPayload } from '../models/QAPayload.model';
+import { QuestionState } from '../models/QuestionState.model';
+import { QuizQuestion } from '../models/QuizQuestion.model';
 
 @Injectable({ providedIn: 'root' })
 export class QuizStateService {
-  quizState: { [quizId: string]: { [questionIndex: number]: { explanation?: string } } } = {};
-
   currentQuestion: BehaviorSubject<QuizQuestion | null>
     = new BehaviorSubject<QuizQuestion | null>(null);
 
@@ -23,15 +21,6 @@ export class QuizStateService {
   private currentOptionsSubject = new BehaviorSubject<Option[]>([]);
   currentOptions$: Observable<Option[]> = this.currentOptionsSubject.asObservable();
 
-  private explanationDisplayedSubject = new BehaviorSubject<boolean>(false);
-  explanationDisplayed$ = this.explanationDisplayedSubject.asObservable();
-
-  private resetQuizSubject = new Subject<void>(); 
-  resetQuiz$ = this.resetQuizSubject.asObservable();  // for QuizContent component
-
-  public correctAnswersTextSource = new BehaviorSubject<string>('');
-  correctAnswersText$ = this.correctAnswersTextSource.asObservable();
-
   questionStates: Map<number, QuestionState> = new Map();
   private quizStates: { [quizId: string]: Map<number, QuestionState> } = {};
 
@@ -41,13 +30,9 @@ export class QuizStateService {
   public displayExplanationLocked = false;
 
   loadingSubject = new BehaviorSubject<boolean>(false);
-  loading$: Observable<boolean> = this.loadingSubject.asObservable();
 
   isLoadingSubject = new BehaviorSubject<boolean>(false);
   public isLoading$ = this.isLoadingSubject.asObservable();
-
-  private questionTextSubject = new BehaviorSubject<string>('');
-  public questionText$ = this.questionTextSubject.asObservable();
 
   isNavigatingSubject = new BehaviorSubject<boolean>(false);
   public isNavigating$ = this.isNavigatingSubject.asObservable();
@@ -62,9 +47,6 @@ export class QuizStateService {
 
   qaSubject = new ReplaySubject<QAPayload>(1);
   qa$ = this.qaSubject.asObservable();
-
-  private isNextButtonEnabledSubject = new BehaviorSubject<boolean>(false);
-  isNextButtonEnabled$ = this.isNextButtonEnabledSubject.asObservable();
 
   private interactionReadySubject = new BehaviorSubject<boolean>(true);
   public interactionReady$ = this.interactionReadySubject.asObservable();
@@ -100,7 +82,7 @@ export class QuizStateService {
             })
           );
         } else {
-          throw new Error('Stored state is not in object format');
+          console.error('Stored state is not in object format');
         }
       } catch (error) {
         console.error(`Error parsing stored state for quizId ${quizId}:`, error);
@@ -191,20 +173,6 @@ export class QuizStateService {
     this.setQuestionState(quizId, index, questionState);
   }
 
-  // Store explanation for a question
-  setQuestionExplanation(quizId: string, questionIndex: number, explanation: string): void {
-    if (!this.quizState[quizId]) this.quizState[quizId] = {};
-    if (!this.quizState[quizId][questionIndex]) this.quizState[quizId][questionIndex] = {};
-    this.quizState[quizId][questionIndex] = { explanation };
-  }
-
-  // Method to retrieve stored explanation text
-  getStoredExplanation(quizId: string, questionIndex: number): string | null {
-    const explanationObject = this.quizState[quizId]?.[questionIndex];
-    const explanation = explanationObject?.explanation || null;
-    return explanation;
-  }
-
   createDefaultQuestionState(): QuestionState {
     return {
       isAnswered: false,
@@ -220,66 +188,40 @@ export class QuizStateService {
       this.quizStates[quizId] = new Map<number, QuestionState>();
     }
   
-    for (const [index, question] of questions.entries()) {
+    for (const [index] of questions.entries()) {
       const defaultState = this.createDefaultQuestionState();
       // Apply the default state to each question using its index as the identifier within the specific quiz's state map
       this.quizStates[quizId].set(index, defaultState);
     }
   }
-  
+
   updateCurrentQuizState(question$: Observable<QuizQuestion | null>): void {
-    if (question$ === null || question$ === undefined) {
-      throw new Error('Question$ is null or undefined.');
-      return;
+    if (!question$) {
+      throw new Error('question$ must be an observable.');
     }
 
-    question$.pipe(
-      catchError((error: any) => {
-        console.error(error);
-        return throwError(() => new Error(error));
-      }),
-      distinctUntilChanged()
-    ).subscribe((question: QuizQuestion | null) => {
-      if (!question) {
-        console.warn('[QuizState] Received null question');
-        return;
-      }
-      this.currentQuestion.next(question);
-      this.currentQuestionSubject.next(question);
-
-      if (question && question.options) {
+    question$
+      .pipe(
+        filter((q): q is QuizQuestion => q !== null),
+        distinctUntilChanged((a, b) => a === b), // object reference check
+        catchError((err) => {
+          console.error('[QuizState] Error in question$ stream:', err);
+          return EMPTY;  // safest fallback
+        })
+      )
+      .subscribe((question: QuizQuestion) => {
         this.currentQuestion.next(question);
-        this.currentOptionsSubject.next(question?.options ?? []);
-      } else {
-        console.log('No options found.');
-      }
-    });
+        this.currentQuestionSubject.next(question);
+        this.currentOptionsSubject.next(question.options ?? []);
+      });
   }
 
   updateCurrentQuestion(newQuestion: QuizQuestion): void {
     this.currentQuestionSubject.next(newQuestion);
   }
-
-  setExplanationDisplayed(isDisplayed: boolean): void {
-    this.explanationDisplayedSubject.next(isDisplayed);
-  }
-
-  setNextButtonEnabled(enabled: boolean): void {
-    this.isNextButtonEnabledSubject.next(enabled);
-  }
-
-  notifyRestoreQuestionState(): void {
-    this.restoreStateSubject.next();
-  }
   
   onRestoreQuestionState(): Observable<void> {
     return this.restoreStateSubject.asObservable();
-  }
-  
-  clearSelectedOptions(): void {
-    for (const [key, state] of this.questionStates.entries()) {
-      state.selectedOptions = [];
-    }    
   }
   
   setQuizQuestionCreated(): void {
@@ -313,10 +255,6 @@ export class QuizStateService {
     if (isAnswered && !this.displayExplanationLocked) this.displayExplanationLocked = true;
   }
 
-  resetDisplayLock(): void {
-    this.displayExplanationLocked = false;  // reset for new questions
-  }
-
   startLoading(): void {
     if (!this.isLoading()) {
       console.log('Loading started');
@@ -324,13 +262,8 @@ export class QuizStateService {
     }
   }
 
-  resetState(): void {
-    this.quizQuestionCreated = false;
-  }
-
   emitQA(
     question: QuizQuestion,
-    options: Option[],
     selectionMessage: string,
     quizId: string,
     index: number
@@ -367,7 +300,7 @@ export class QuizStateService {
   }
 
   setInteractionReady(v: boolean) {
-    this.interactionReadySubject.next(!!v);
+    this.interactionReadySubject.next(v);
   }
 
   isInteractionReady(): boolean { 

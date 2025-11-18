@@ -1,11 +1,10 @@
 import { Injectable, NgZone } from '@angular/core';
-import { ActivatedRoute, ActivatedRouteSnapshot, ParamMap, Router } from '@angular/router';
-import {BehaviorSubject, firstValueFrom, Observable, of, Subject, throwError} from 'rxjs';
-import { catchError, map, take } from 'rxjs/operators';
+import { ActivatedRoute, ActivatedRouteSnapshot, Router } from '@angular/router';
+import { BehaviorSubject, firstValueFrom, Observable, of, Subject } from 'rxjs';
+import { catchError, take } from 'rxjs/operators';
 
 import { Option } from '../models/Option.model';
 import { QuestionType } from '../models/question-type.enum';
-import { Quiz } from '../models/Quiz.model';
 import { QuizQuestion } from '../models/QuizQuestion.model';
 import { ExplanationTextService } from './explanation-text.service';
 import { NextButtonStateService } from './next-button-state.service';
@@ -16,7 +15,7 @@ import { QuizDataService } from './quizdata.service';
 import { QuizStateService } from './quizstate.service';
 import { SelectedOptionService } from './selectedoption.service';
 import { TimerService } from './timer.service';
-import {QuizRoutes} from "../models/quiz-routes.enum";
+import { QuizRoutes } from "../models/quiz-routes.enum";
 
 @Injectable({ providedIn: 'root' })
 export class QuizNavigationService {
@@ -70,38 +69,6 @@ export class QuizNavigationService {
     private router: Router,
     private ngZone: NgZone
   ) {}
-
-  handleRouteParams(params: ParamMap): 
-    Observable<{ quizId: string, questionIndex: number, quizData: Quiz }> {
-    const quizId = params.get('quizId');
-    const questionIndex = Number(params.get('questionIndex'));
-  
-    // Validate parameters
-    if (!quizId) {
-      console.error('Quiz ID is missing.');
-      return throwError(() => new Error('Quiz ID is required'));
-    }
-  
-    if (isNaN(questionIndex)) {
-      console.error('Invalid question index:', params.get('questionIndex'));
-      return throwError(() => new Error('Invalid question index'));
-    }
-  
-    // Fetch quiz data and validate
-    return this.quizDataService.getQuizzes().pipe(
-      map((quizzes: Quiz[]) => {
-        const quizData = quizzes.find((quiz) => quiz.quizId === quizId);
-        if (!quizData) {
-          throw new Error(`Quiz with ID "${quizId}" not found.`);
-        }
-        return { quizId, questionIndex, quizData };
-      }),
-      catchError((error: Error) => {
-        console.error('Error processing quiz data:', error);
-        return throwError(() => new Error('Failed to process quiz data'));
-      })
-    );
-  }
 
   public async advanceToNextQuestion(): Promise<boolean> {
     this.resetExplanationAndState();

@@ -619,7 +619,6 @@ export class QuizQuestionLoaderService {
     );
     this.quizStateService.emitQA(
       questionForPayload,
-      optionsForPayload,
       selMsg,
       this.quizService.quizId!,
       index
@@ -697,7 +696,6 @@ export class QuizQuestionLoaderService {
 
       this.quizStateService.emitQA(
         { ...q, options: opts },  // question object
-        opts,  // options list
         selMsg,  // selection message
         this.quizService.quizId!,  // quiz id (non-null assertion)
         idx  // question index
@@ -1044,7 +1042,6 @@ export class QuizQuestionLoaderService {
       // Emit trio into state
       this.quizStateService.emitQA(
         safeQuestion,
-        finalOpts,
         msg,
         effectiveQuizId,
         index
