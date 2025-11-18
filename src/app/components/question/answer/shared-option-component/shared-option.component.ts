@@ -2269,8 +2269,8 @@ export class SharedOptionComponent implements
       question,
       selectedOption: option,
       correctMessage:
-        this.feedbackService.setCorrectMessage(this.quizService.correctOptions, this.optionsToDisplay) ??
-        'No correct message available',
+        this.feedbackService.setCorrectMessage(this.optionsToDisplay)
+          ?? 'No correct message available',
       feedback: option.feedback ?? 'No feedback available',
       showFeedback,
       idx
