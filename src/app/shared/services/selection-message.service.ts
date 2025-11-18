@@ -164,19 +164,17 @@ export class SelectionMessageService {
       ? QuestionType.MultipleAnswer
       : declaredType ?? QuestionType.SingleAnswer;
   
-    // ───────── BASELINE GUARD: prevent flicker before baseline is released ─────────
+    // BASELINE GUARD: prevent flicker before baseline is released
     if (!this._baselineReleased?.has(questionIndex)) {
       if (qType === QuestionType.MultipleAnswer) {
         const totalCorrect = overlaid.filter(o => !!o.correct).length;
-        const baselineMsg = `Select ${totalCorrect} correct answer${totalCorrect > 1 ? 's' : ''} to continue...`;
-        return baselineMsg;
+        return `Select ${totalCorrect} correct answer${totalCorrect > 1 ? 's' : ''} to continue...`;
       } else {
-        const baselineMsg = questionIndex === 0 ? START_MSG : CONTINUE_MSG;
-        return baselineMsg;
+        return questionIndex === 0 ? START_MSG : CONTINUE_MSG;
       }
     }
   
-    // ───────── NORMAL PATH ─────────
+    // NORMAL PATH
     return this.computeFinalMessage({
       index: questionIndex,
       total: totalQuestions,
@@ -654,7 +652,7 @@ export class SelectionMessageService {
       const arr = snapAny as OptionSnapshot[];
       return arr.map((s) => ({
         id: s.id,
-        selected: !!s.selected,
+        selected: s.selected,
         // keep 'correct' only if it's a boolean; otherwise omit/undefined
         correct: typeof s.correct === 'boolean' ? s.correct : undefined
       }));
