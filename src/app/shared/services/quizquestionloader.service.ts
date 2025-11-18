@@ -4,7 +4,6 @@ import { BehaviorSubject, firstValueFrom, forkJoin, lastValueFrom, of, ReplaySub
 import { catchError, filter, take } from 'rxjs/operators';
 
 import { QuestionType } from '../models/question-type.enum';
-import { CombinedQuestionDataType } from '../models/CombinedQuestionDataType.model';
 import { Option } from '../models/Option.model';
 import { QAPayload } from '../models/QAPayload.model';
 import { QuestionPayload } from '../models/QuestionPayload.model';
@@ -69,12 +68,6 @@ export class QuizQuestionLoaderService {
   private questionPayloadReadySource = new BehaviorSubject<boolean>(false);
 
   private explanationTextSubject = new BehaviorSubject<string>('');
-  public explanationText$ = this.explanationTextSubject.asObservable();
-
-  private combinedQuestionDataSubject =
-    new BehaviorSubject<CombinedQuestionDataType | null>(null);
-  public combinedQuestionData$ =
-    this.combinedQuestionDataSubject.asObservable();
 
   isButtonEnabled = false;
   private isButtonEnabledSubject = new BehaviorSubject<boolean>(false);
