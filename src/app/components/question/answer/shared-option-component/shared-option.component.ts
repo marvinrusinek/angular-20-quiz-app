@@ -2198,16 +2198,16 @@ export class SharedOptionComponent implements
     if (!Array.isArray(this.optionsToDisplay) || this.optionsToDisplay.length === 0) {
       return;
     }
-  
+
     const currentIndex =
       this.getActiveQuestionIndex?.() ??
       this.currentQuestionIndex ??
       this.questionIndex ??
       0;
-  
+
     const storedSelections =
       this.selectedOptionService.getSelectedOptionsForQuestion(currentIndex) ?? [];
-  
+
     // Now it's safe to map
     this.optionsToDisplay = this.optionsToDisplay.map((opt, i) => {
       const match = storedSelections.find(
@@ -2215,7 +2215,7 @@ export class SharedOptionComponent implements
           Number(s.optionId) === Number(opt.optionId) &&
           Number(s.questionIndex) === Number(currentIndex)
       );
-  
+
       return {
         ...opt,
         optionId:
@@ -2229,10 +2229,10 @@ export class SharedOptionComponent implements
         disabled: false
       };
     });
-  
+
     this.cdRef.markForCheck();
   }
-  
+
 
   getFeedbackBindings(option: Option, idx: number): FeedbackProps {
     // Check if the option is selected (fallback to false if undefined or null)
