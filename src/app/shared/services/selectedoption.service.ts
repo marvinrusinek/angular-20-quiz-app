@@ -1484,23 +1484,6 @@ export class SelectedOptionService {
     questionIndex: number,
     optionsSnapshot?: Option[]
   ): boolean {
-    console.log('[ARE-ALL SYNC] questions array:', this.quizService.questions);
-    console.log('[ARE-ALL SYNC] questionIndex:', questionIndex);
-    console.log('[ARE-ALL SYNC] question at index:', this.quizService.questions?.[questionIndex]);
-    console.log('[ARE-ALL SYNC] live state:', this.quizService.questions?.[questionIndex]?.options);
-
-    console.log(
-      '[ARE-ALL SYNC] live state:',
-      this.quizService.questions?.[questionIndex]?.options?.map(
-        (o: Option) => ({
-          id: o.optionId,
-          text: o.text,
-          selected: o.selected,
-          correct: o.correct
-        })
-      )
-    );
-
     // Pull the REAL current option state
     // (instead of defaulting to an empty snapshot)
     const q = this.quizService.questions?.[questionIndex];
