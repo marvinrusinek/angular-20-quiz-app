@@ -463,6 +463,13 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     await this.ensureInitialQuestionFromRoute();
 
+    // Get total question count once for this quiz
+    this.quizService.getTotalQuestionsCount(this.quizId)
+      .pipe(take(1))
+      .subscribe(total => {
+        this.totalQuestions = total;
+      });
+
     this.indexSubscription = this.quizService.currentQuestionIndex$
       .pipe(distinctUntilChanged())
       .subscribe((idx: number) => {
@@ -487,6 +494,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         this.selectionMessageService.lastRemainingByIndex?.delete(idx);
         this.selectionMessageService.stickyCorrectIdsByIndex?.delete(idx);
         this.selectionMessageService.stickyAnySelectedKeysByIndex?.delete(idx);
+
+        // Update progressbar
+        this.progressBarService.updateProgress(idx + 1, this.totalQuestions);
 
         // Wake OnPush so the template updates
         this.cdRef.markForCheck();

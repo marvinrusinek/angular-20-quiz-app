@@ -113,7 +113,7 @@
             [striped]="true"
             [animated]="true"
             [value]="(progress$ | async) || 0"
-            [showValue]="true"
+            [showValue]="false"
           >
             <strong>{{ (progress$ | async)?.toFixed(0) }}%</strong>
           </ngb-progressbar>
