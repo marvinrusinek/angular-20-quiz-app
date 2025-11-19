@@ -1,20 +1,17 @@
 import { ComponentRef, Injectable, Type, ViewContainerRef } from '@angular/core';
 
+// ⬅️ STATIC IMPORT — works everywhere, no network fetch
+import { AnswerComponent } from '../../components/question/answer/answer-component/answer.component';
+
 @Injectable({ providedIn: 'root' })
 export class DynamicComponentService {
   constructor() {}
 
-  public async loadComponent<T>(
+  public loadComponent<T>(
     container: ViewContainerRef,
     multipleAnswer: boolean,
     onOptionClicked: (event: any) => void
-  ): Promise<ComponentRef<T>> {
-
-    // Dynamically import the AnswerComponent
-    const { AnswerComponent } = await this.importComponent();
-    if (!AnswerComponent) {
-      throw new Error('[DynamicComponentService] AnswerComponent failed to load.');
-    }
+  ): ComponentRef<T> {
 
     // Clear BEFORE creating the new component
     container.clear();
@@ -27,6 +24,7 @@ export class DynamicComponentService {
 
     // Subscribe to the output and forward the event
     const instance: any = componentRef.instance;
+
     if (instance.optionClicked) {
       instance.optionClicked.subscribe((event: any) => {
         console.log('[⚡ DCS] Forwarding optionClicked event:', event);
@@ -37,10 +35,5 @@ export class DynamicComponentService {
     }
 
     return componentRef;
-  }
-
-  private async importComponent(): Promise<{ AnswerComponent?: Type<any> }> {
-    const module = await import('../../components/question/answer/answer-component/answer.component');
-    return { AnswerComponent: module.AnswerComponent };
   }
 }
