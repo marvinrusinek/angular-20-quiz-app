@@ -13,8 +13,4 @@ export class SharedVisibilityService {
       this.pageVisibilitySubject.next(this.isPageHidden);
     });
   }
-
-  isPageHiddenNow(): boolean {
-    return this.isPageHidden;
-  }
 }
