@@ -4,10 +4,8 @@ import { Injectable, ViewContainerRef, ComponentRef, Type } from '@angular/core'
 export class DynamicComponentService {
 
   constructor() {}
-
-  /**
-   * Dynamically loads AnswerComponent without creating circular dependencies.
-   */
+  
+  // Dynamically loads AnswerComponent without creating circular dependencies.
   private async loadAnswerComponent(): Promise<Type<any>> {
     // Lazy-load module — NO TOP-LEVEL IMPORTS
     const module = await import(
@@ -21,9 +19,7 @@ export class DynamicComponentService {
     return module.AnswerComponent;
   }
 
-  /**
-   * Creates the component and wires its output.
-   */
+  // Creates the component and wires its output.
   public async loadComponent<T>(
     container: ViewContainerRef,
     multipleAnswer: boolean,
