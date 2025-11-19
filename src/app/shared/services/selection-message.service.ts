@@ -67,7 +67,6 @@ export class SelectionMessageService {
   private _pendingMsgTokens = new Map<number, number>();
 
   // Incremental counter for unique tokens
-  private _msgTokenCounter = 0;
   private _setMsgCounter = 0;
 
   constructor(
@@ -138,18 +137,18 @@ export class SelectionMessageService {
     // Ensure canonical and UI snapshot share the same optionId space, enriching snapshot with canonical fields like text
     const canonical = Array.isArray(q?.options) ? (q!.options as Option[]) : [];
   
-    const priorSnapAsOpts: Option[] = this.getLatestOptionsSnapshotAsOptions(canonical);
-  
+    const priorSnapAsOpts: Option[] = this.getLatestOptionsSnapshotAsOptions();
+
     this.ensureStableIds(
       questionIndex,
       canonical,
-      this.toOptionArrayWithLookup(q?.options ?? [], canonical),
+      this.normalizeOptionArray(q?.options ?? []),
       priorSnapAsOpts
     );
-  
+
     const base: Option[] = canonical.length
       ? canonical
-      : this.toOptionArrayWithLookup(uiSnapshot, canonical);
+      : this.normalizeOptionArray(uiSnapshot);
   
     // Overlay selection into canonical (correct flags intact)
     const overlaid: Option[] = base.map((o, idx) => {
@@ -315,9 +314,6 @@ export class SelectionMessageService {
     if (!this._pendingMsgTokens) {
       this._pendingMsgTokens = new Map<number, number>();
     }
-    if (typeof this._msgTokenCounter !== 'number') {
-      this._msgTokenCounter = 0;
-    }
   
     // Mark this index as released so baseline guards stop firing
     if (!this._baselineReleased.has(index)) {
@@ -414,8 +410,8 @@ export class SelectionMessageService {
         console.log('[setSelectionMessage] Ignored pre-release call (baseline handled separately)', { i0 });
         return;
       }
-  
-      if (typeof i0 !== 'number' || isNaN(i0) || total <= 0) return;
+
+      if (!Number.isFinite(i0) || total <= 0) return;
       if (!this.optionsSnapshot || this.optionsSnapshot.length === 0) return;
   
       const qType: QuestionType | undefined =
@@ -668,15 +664,12 @@ export class SelectionMessageService {
   }
 
   // Map a single snapshot -> Option
-  private mapSnapshotToOption(
-    s: OptionSnapshot,
-    lookup?: Map<string | number, Option>
-  ): Option {
+  private mapSnapshotToOption(s: OptionSnapshot): Option {
     return {
       optionId: s.id as any,
       selected: s.selected,
       correct: typeof s.correct === 'boolean' ? s.correct : false,
-      // safe defaults for common fields; customize if you have stricter types
+      // safe defaults for common fields
       text: '',
       value: s.id as any,
       showIcon: s.selected,
@@ -770,29 +763,21 @@ export class SelectionMessageService {
     };
   }
 
-  public getLatestOptionsSnapshotAsOptions(lookupFrom?: Option[]): Option[] {
+  public getLatestOptionsSnapshotAsOptions(): Option[] {
     const snaps = this.getLatestOptionsSnapshot();  // OptionSnapshot[]
-    return this.toOptionArrayWithLookup(snaps, lookupFrom);  // Option[]
+    return this.normalizeOptionArray(snaps);  // Option[]
   }
 
-  private toOptionArrayWithLookup(
-    input: Option[] | OptionSnapshot[] | null | undefined,
-    lookupFrom?: Option[]
+  private normalizeOptionArray(
+    input: Option[] | OptionSnapshot[] | null | undefined
   ): Option[] {
     if (!input || !Array.isArray(input) || input.length === 0) return [];
-    if (this.isOptionArray(input)) return input as Option[];
-    const lookup = Array.isArray(lookupFrom)
-      ? this.buildOptionLookup(lookupFrom)
-      : undefined;
-    return (input as OptionSnapshot[]).map((s) =>
-      this.mapSnapshotToOption(s, lookup)
-    );
-  }
 
-  private buildOptionLookup(sources: Option[]): Map<string | number, Option> {
-    const map = new Map<string | number, Option>();
-    sources.forEach((o, idx) => map.set(this.toStableId(o, idx), o));
-    return map;
+    if (this.isOptionArray(input)) {
+      return input as Option[];
+    }
+
+    return (input as OptionSnapshot[]).map((s) => this.mapSnapshotToOption(s));
   }
 
   // Helper: normalize rawSel into a Set of keys
