@@ -776,7 +776,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     this._lastQuestionText = merged;
     return merged;
   } */
-  private resolveTextToDisplay(
+  /* private resolveTextToDisplay(
     idx: number,
     question: string,
     banner: string,
@@ -840,6 +840,61 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         (Array.isArray(qObj.options) && qObj.options.some((o: Option) => o.correct)));
   
     let merged = qText;
+    if (isMulti && bannerText && mode === 'question') {
+      merged = `${qText} <span class="correct-count">${bannerText}</span>`;
+    }
+  
+    this._lastQuestionText = merged;
+    return merged;
+  } */
+  private resolveTextToDisplay(
+    idx: number,
+    question: string,
+    banner: string,
+    fet: { idx: number; text: string; gate: boolean } | null,
+    shouldShow: boolean
+  ): string {
+    const qText = (question ?? '').trim();
+    const bannerText = (banner ?? '').trim();
+    const fetText = (fet?.text ?? '').trim();
+    const activeIndex = this.quizService.getCurrentQuestionIndex();
+    const mode = this.quizStateService.displayStateSubject?.value?.mode ?? 'question';
+  
+    // ─────────────────────────────
+    // 1️⃣ NO FET available → show question
+    // ─────────────────────────────
+    if (!fetText || !fet) {
+      this._lastQuestionText = qText;
+      return qText;
+    }
+  
+    // ─────────────────────────────
+    // 2️⃣ Wrong question index → ignore this FET entirely
+    // ─────────────────────────────
+    if (fet.idx !== idx || idx !== activeIndex) {
+      this._lastQuestionText = qText;
+      return qText;
+    }
+  
+    // ─────────────────────────────
+    // 3️⃣ When explanation mode is active → ALWAYS show FET
+    // ─────────────────────────────
+    if (mode === 'explanation') {
+      this._lastQuestionText = fetText;
+      return fetText;
+    }
+  
+    // ─────────────────────────────
+    // 4️⃣ Otherwise use the question text (banner if multi-answer)
+    // ─────────────────────────────
+    const qObj = this.quizService.questions?.[idx];
+    const isMulti =
+      !!qObj &&
+      (qObj.type === QuestionType.MultipleAnswer ||
+        (Array.isArray(qObj.options) && qObj.options.some((o: Option) => o.correct)));
+  
+    let merged = qText;
+  
     if (isMulti && bannerText && mode === 'question') {
       merged = `${qText} <span class="correct-count">${bannerText}</span>`;
     }
