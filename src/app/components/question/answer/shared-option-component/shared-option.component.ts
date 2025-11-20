@@ -508,29 +508,25 @@ export class SharedOptionComponent implements
   // Handle visibility changes to restore state
   @HostListener('window:visibilitychange', [])
   onVisibilityChange(): void {
-    try {
-      if (document.visibilityState === 'visible') {
-        // Ensure options are restored
-        this.ensureOptionsToDisplay();
-
-        // Restore options and highlights
-        if (!this.optionsToDisplay || this.optionsToDisplay.length === 0) {
-          console.warn('[SharedOptionComponent] No optionsToDisplay found. Attempting to restore...');
-          this.restoreOptionsToDisplay();
-        }
-
-        // Preserve option highlighting
-        this.preserveOptionHighlighting();
-
-        // Trigger UI update
-        this.cdRef.detectChanges();
-      } else {
-        console.log('[SharedOptionComponent] Tab is hidden.');
-      }
-    } catch (error) {
-      console.error('[SharedOptionComponent] Error during visibility change handling:', error);
+    if (document.visibilityState !== 'visible') {
+      return;
     }
-  } 
+
+    try {
+      // Make sure optionsToDisplay is populated
+      this.ensureOptionsToDisplay();
+
+      // Restore highlight / selection styling
+      this.preserveOptionHighlighting();
+
+      this.cdRef.markForCheck();
+    } catch (error) {
+      console.error(
+        '[SharedOptionComponent] Error during visibility change handling:',
+        error
+      );
+    }
+  }
 
   // Push the newly‐clicked option into history, then synchronize every binding’s
   // visual state (selected, highlight, icon, feedback) in one synchronous pass.
