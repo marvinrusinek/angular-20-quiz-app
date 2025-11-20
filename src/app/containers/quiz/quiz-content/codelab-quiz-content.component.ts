@@ -842,24 +842,51 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     fet: { idx: number; text: string; gate: boolean } | null,
     shouldShow: boolean
   ): string {
-    const qText = (question ?? '').trim();
+  
+    const qText   = (question ?? '').trim();
+    const bannerText = (banner ?? '').trim();
     const fetText = (fet?.text ?? '').trim();
+    const active  = this.quizService.getCurrentQuestionIndex();
+    const mode    = this.quizStateService.displayStateSubject?.value?.mode ?? 'question';
   
-    console.warn('[DISPLAY CHECK]', {
-      idx,
-      fetIdx: fet?.idx,
-      fetText,
-      shouldShow,
-      gate: fet?.gate,
-    });
+    // 1. Always keep a last valid question text cached
+    if (qText) {
+      this._lastQuestionText = qText;
+    }
   
-    if (fetText && fet?.idx === idx) {
-      console.warn('🔥 FORCED FET DISPLAY');
+    // 2. If FET exists and is for the active question, allow it
+    const fetValid =
+      !!fet &&
+      fetText.length > 2 &&
+      fet.idx === idx &&
+      fet.idx === active &&
+      fet.gate === true &&
+      !this.explanationTextService._fetLocked &&
+      (shouldShow || mode === 'explanation');
+  
+    if (fetValid) {
+      console.log(`[resolveTextToDisplay] ✅ Showing FET for Q${idx + 1}`);
+      this._lastQuestionText = fetText;
       return fetText;
     }
   
-    return qText;
+    // 3. Otherwise, return safe question text (never empty)
+    const fallback = this._lastQuestionText || qText || '...';
+  
+    const qObj = this.quizService.questions?.[idx];
+    const isMulti =
+      !!qObj &&
+      (qObj.type === QuestionType.MultipleAnswer ||
+        (Array.isArray(qObj.options) && qObj.options.filter(o => o.correct).length > 1));
+  
+    if (isMulti && bannerText && mode === 'question') {
+      return `${fallback} <span class="correct-count">${bannerText}</span>`;
+    }
+  
+    console.log(`[resolveTextToDisplay] fallback →`, fallback);
+    return fallback;
   }
+  
   
   
   
