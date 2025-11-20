@@ -877,7 +877,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     const isMulti =
       !!qObj &&
       (qObj.type === QuestionType.MultipleAnswer ||
-        (Array.isArray(qObj.options) && qObj.options.filter(o => o.correct).length > 1));
+        (Array.isArray(qObj.options) && qObj.options.filter((o: Option) => o.correct).length > 1));
   
     if (isMulti && bannerText && mode === 'question') {
       return `${fallback} <span class="correct-count">${bannerText}</span>`;
