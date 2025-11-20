@@ -5,17 +5,22 @@ export class DynamicComponentService {
 
   constructor() {}
 
-  private async importComponent(): Promise<Type<any>> {
-    // Clean import — no ?cb, no globs
-    const module = await import(
-      '../../components/question/answer/answer-component/answer.component'
+  private async loadAnswerComponent(): Promise<Type<any>> {
+    try {
+      const module = await import(
+        '../../components/question/answer/answer-component/answer.component'
       );
-
-    if (!module || !module.AnswerComponent) {
-      throw new Error('[DynamicComponentService] ❌ AnswerComponent failed to load.');
+  
+      if (!module || !module.AnswerComponent) {
+        throw new Error('AnswerComponent export not found');
+      }
+  
+      return module.AnswerComponent;
+  
+    } catch (err) {
+      console.error('[DynamicComponentService] ❌ Failed to dynamically import AnswerComponent:', err);
+      throw err;
     }
-
-    return module.AnswerComponent;
   }
 
   public async loadComponent<T>(
@@ -23,22 +28,31 @@ export class DynamicComponentService {
     multipleAnswer: boolean,
     onOptionClicked: (event: any) => void
   ): Promise<ComponentRef<T>> {
-
-    const AnswerComponent = await this.importComponent();
-
+  
+    // Wait one frame (cold boot stabilization)
+    await new Promise(res => requestAnimationFrame(res));
+  
+    const AnswerComponent = await this.loadAnswerComponent();
+  
     container.clear();
-
+  
     const componentRef = container.createComponent(AnswerComponent as Type<T>);
-
-    (componentRef.instance as any).isMultipleAnswer = multipleAnswer;
-
+  
+    // Let Angular wire bindings
+    await new Promise(res => setTimeout(res, 0));
+  
     const instance: any = componentRef.instance;
+    instance.isMultipleAnswer = multipleAnswer;
+  
     if (instance.optionClicked) {
       instance.optionClicked.subscribe((event: any) => {
+        console.log('[⚡ DCS] Forwarding optionClicked:', event);
         onOptionClicked(event);
       });
     }
-
+  
+    componentRef.changeDetectorRef.detectChanges();
+  
     return componentRef;
-  }
+  }  
 }
