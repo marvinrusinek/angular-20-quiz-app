@@ -2820,7 +2820,7 @@ export class QuizQuestionComponent extends BaseQuestion
       // Lock the question index immediately to avoid drift
       const lockedIndex = this.currentQuestionIndex ?? idx;
   
-      if (
+      /* if (
         evtOpt?.correct && 
         q?.type === QuestionType.MultipleAnswer && 
         !this._fetEarlyShown.has(lockedIndex)
@@ -2831,7 +2831,19 @@ export class QuizQuestionComponent extends BaseQuestion
         console.log(`[QQC] 🧠 Immediate FET trigger for multi-answer Q${lockedIndex + 1}`);
 
         this.fireAndForgetExplanationUpdate(lockedIndex, q);
+      } */
+      const shouldTriggerFET =
+        (q?.type === QuestionType.SingleAnswer && !!evtOpt?.correct) ||
+        (q?.type === QuestionType.MultipleAnswer && allCorrect);
+
+      if (shouldTriggerFET && !this._fetEarlyShown.has(lockedIndex)) {
+        this.safeStopTimer('completed');
+        this._fetEarlyShown.add(lockedIndex);
+
+        console.log(`[QQC] 💡 FET trigger for Q${lockedIndex + 1}`);
+        this.fireAndForgetExplanationUpdate(lockedIndex, q);
       }
+
    
       // Continue post-click microtasks for highlighting and feedback
       queueMicrotask(() => {
