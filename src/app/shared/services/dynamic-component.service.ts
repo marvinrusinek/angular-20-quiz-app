@@ -5,15 +5,14 @@ export class DynamicComponentService {
 
   constructor() {}
 
-  private async loadAnswerComponent(): Promise<Type<any>> {
+  private async importComponent(): Promise<Type<any>> {
+    // Clean import — no ?cb, no globs
     const module = await import(
-      /* webpackIgnore: true */
-      '../../components/question/answer/answer-component/answer.component' +
-      `?cb=${Date.now()}`
-    );
+      '../../components/question/answer/answer-component/answer.component'
+      );
 
-    if (!module?.AnswerComponent) {
-      throw new Error('[DynamicComponentService] Failed to load AnswerComponent.');
+    if (!module || !module.AnswerComponent) {
+      throw new Error('[DynamicComponentService] ❌ AnswerComponent failed to load.');
     }
 
     return module.AnswerComponent;
@@ -25,7 +24,7 @@ export class DynamicComponentService {
     onOptionClicked: (event: any) => void
   ): Promise<ComponentRef<T>> {
 
-    const AnswerComponent = await this.loadAnswerComponent();
+    const AnswerComponent = await this.importComponent();
 
     container.clear();
 
@@ -34,14 +33,10 @@ export class DynamicComponentService {
     (componentRef.instance as any).isMultipleAnswer = multipleAnswer;
 
     const instance: any = componentRef.instance;
-
     if (instance.optionClicked) {
       instance.optionClicked.subscribe((event: any) => {
-        console.log('[⚡ DCS] Forwarding optionClicked:', event);
         onOptionClicked(event);
       });
-    } else {
-      console.warn('[⚠️ DCS] AnswerComponent has no optionClicked output.');
     }
 
     return componentRef;
