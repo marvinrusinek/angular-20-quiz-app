@@ -779,71 +779,77 @@ export class QuizQuestionComponent extends BaseQuestion
   // Listen for the visibility change event
   @HostListener('window:visibilitychange', [])
   async onVisibilityChange(): Promise<void> {
-    // HIDDEN STATE (User switches away from tab)
-    if (document.visibilityState === 'hidden') {
-      this._wasHidden = true;  // mark hidden phase
-  
+    const state = document.visibilityState;
+
+    // ─────────────────────────────
+    // HIDDEN  → just save state + timer
+    // ─────────────────────────────
+    if (state === 'hidden') {
+      this._wasHidden = true;
+
       try {
         const idx = this.currentQuestionIndex ?? 0;
-          
+
         if (!this.quizId) {
-          console.warn('[⚠️ Missing quizId in getQuestionState]');
-          return;
+          console.warn('[VISIBILITY] ⚠️ Missing quizId on hide');
+        } else {
+          const qState = this.quizStateService.getQuestionState(this.quizId, idx);
+
+          const totalCorrectAnswers =
+            Array.isArray(qState?.selectedOptions)
+              ? qState.selectedOptions.filter(o => o.correct).length
+              : 0;
+
+          this.quizStateService.updateQuestionState(
+            this.quizId,
+            idx,
+            {
+              ...qState,
+              isAnswered: qState?.isAnswered ?? false,
+              explanationDisplayed:
+                this.displayExplanation ||
+                !!(this.explanationTextService as any)?.shouldDisplayExplanation$?.value,
+              explanationText:
+                this.explanationTextService.latestExplanation ??
+                qState?.explanationText ??
+                '',
+              selectedOptions: qState?.selectedOptions ?? []
+            },
+            totalCorrectAnswers
+          );
+
+          console.log(
+            `[VISIBILITY] 💾 Saved state for Q${idx + 1} (answered=${qState?.isAnswered})`
+          );
         }
-        const qState = this.quizStateService.getQuestionState(this.quizId, idx);
-
-        const totalCorrectAnswers =
-          Array.isArray(qState?.selectedOptions)
-            ? qState.selectedOptions.filter(o => o.correct).length
-            : 0;
-
-        this.quizStateService.updateQuestionState(
-          this.quizId!,
-          idx,
-          {
-            ...qState,
-            isAnswered: qState?.isAnswered ?? false,
-            explanationDisplayed: this.displayExplanation,
-            explanationText: this.explanationTextService.latestExplanation ?? '',
-            selectedOptions: qState?.selectedOptions ?? []
-          },
-          totalCorrectAnswers
-        );
-        console.log(
-          `[VISIBILITY] 💾 Saved FET display state for Q${idx + 1}:`,
-          this.displayExplanation
-        );
       } catch (err) {
-        console.warn('[VISIBILITY] ⚠️ Failed to persist FET state', err);
-      }
-  
-      // Explanation state reset before backgrounding
-      // Prevents stale FET (e.g. Q1’s) from replaying on restore
-      try {
-        const ets = this.explanationTextService;
-        ets.setShouldDisplayExplanation(false);
-        ets.setIsExplanationTextDisplayed(false);
-        ets.updateFormattedExplanation(''); // clear the BehaviorSubject value
-        ets._activeIndex = -1;
-        ets.latestExplanation = '';
-        console.log('[VISIBILITY] 💤 Cleared FET cache before backgrounding');
-      } catch (err) {
-        console.warn('[VISIBILITY] ⚠️ Failed to reset FET cache before sleep', err);
+        console.warn('[VISIBILITY] ⚠️ Failed to persist state on hide', err);
       }
 
+      // Save timer snapshot (for expiry check)
       try {
         this._elapsedAtHide = await firstValueFrom(
           this.timerService.elapsedTime$.pipe(take(1))
         );
+        this._hiddenAt = performance.now();
       } catch {
         this._elapsedAtHide = null;
+        this._hiddenAt = null;
       }
 
-      this._hiddenAt = performance.now();
       return;
     }
-  
-    //  FAST-PATH EXPIRY CHECK
+
+    // Anything else that isn't "visible" – ignore
+    if (state !== 'visible') {
+      return;
+    }
+
+    // ─────────────────────────────
+    // VISIBLE  → timer check + light restore
+    // ─────────────────────────────
+
+    // 1) Timer expiry check
     try {
       const duration = this.timerService.timePerQuestion ?? 30;
 
@@ -855,165 +861,102 @@ export class QuizQuestionComponent extends BaseQuestion
         const hiddenDeltaSec = Math.floor((performance.now() - this._hiddenAt) / 1000);
         candidate = this._elapsedAtHide + hiddenDeltaSec;
       }
-  
+
       if (candidate >= duration) {
         const i0 = this.normalizeIndex(this.currentQuestionIndex ?? 0);
-  
-        const alreadyShowing =
-          this.displayExplanation ||
-          (await firstValueFrom<boolean>(
-            this.explanationTextService.shouldDisplayExplanation$.pipe(take(1))
-          ));
+
+        const alreadyShowing = await firstValueFrom(
+          this.explanationTextService.shouldDisplayExplanation$.pipe(
+            map(Boolean),
+            take(1)
+          )
+        );
+
         if (!alreadyShowing) {
+          console.log('[VISIBILITY] ⏰ Timer expired while hidden, forcing expiry handler');
           this.timerService.stopTimer?.(undefined, { force: true });
-          this.ngZone.run(() => {
-            this.onTimerExpiredFor(i0);
-          });
-          this._hiddenAt = null;
-          this._elapsedAtHide = null;
-          return;
+          this.ngZone.run(() => this.onTimerExpiredFor(i0));
         }
       }
-  
+    } catch (err) {
+      console.warn('[VISIBILITY] ⚠️ Timer expiry check failed', err);
+    } finally {
       this._hiddenAt = null;
       this._elapsedAtHide = null;
-    } catch (err) {
-      console.warn('[onVisibilityChange] fast-path expiry check failed', err);
     }
-  
-    //  RESTORE FLOW (LOCKED)
+
+    const idx = this.currentQuestionIndex ?? 0;
+
+    // 2) Let your own restore logic run (but don’t let it trash display mode elsewhere)
     try {
-      if (document.visibilityState === 'visible') {
-        console.log('[onVisibilityChange] 🟢 Restoring quiz state...');
-  
-        // LOCK RESTORATION PHASE
-        this._visibilityRestoreInProgress = true;
-        (this.explanationTextService as any)._visibilityLocked = true;
-  
-        // Give it a full frame to stabilize before letting observables fire
-        this._suppressDisplayStateUntil = performance.now() + 300;
-  
-        // Ensure base quiz state restored
-        this.restoreQuizState();
-  
-        // Mark that restoration has occurred so the UI can safely resume rendering
-        this.quizStateService.hasRestoredOnce = true;
-  
-        // Ensure options are ready
-        if (!Array.isArray(this.optionsToDisplay) || this.optionsToDisplay.length === 0) {
-          console.warn('[onVisibilityChange] ⚠️ optionsToDisplay empty → repopulating');
-          if (this.currentQuestion && Array.isArray(this.currentQuestion.options)) {
-            this.optionsToDisplay = this.currentQuestion.options.map((option, index) => ({
-              ...option,
-              optionId: option.optionId ?? index,
-              correct: option.correct ?? false
-            }));
-          } else {
-            console.error('[onVisibilityChange] ❌ Failed to repopulate optionsToDisplay');
-            return;
-          }
-        }
-  
-        // Restore feedback and selection
-        if (this.currentQuestion) {
-          this.restoreFeedbackState();
-  
-          setTimeout(() => {
-            const prevOpt = this.optionsToDisplay.find(o => o.selected);
-            if (prevOpt) {
-              this.applyOptionFeedback(prevOpt);
-            }
-          }, 50);
-
-          try {
-            this.feedbackText = await this.generateFeedbackText(this.currentQuestion);
-          } catch (error) {
-            console.error('[onVisibilityChange] ❌ Error generating feedback text:', error);
-          }
-        }
-  
-        // Debounce before restoring FET (ensures no race)
-        await new Promise(res => setTimeout(res, 60));
-  
-        // Purge only if user navigated to another question while hidden
-        const qIdx = this.currentQuestionIndex ?? 0;
-        if (this._wasHidden && qIdx !== this.explanationTextService._activeIndex) {
-          console.log(`[Visibility] User navigated while hidden → purging FET for Q${qIdx + 1}`);
-          this.explanationTextService.purgeAndDefer(qIdx);
-        } else {
-          console.log('[Visibility] Same question — skipping FET clear');
-        }
-  
-        this._wasHidden = false;  // reset flag
-  
-        // Authoritative FET restore (locked phase)
-        try {
-          if (!this.quizId) {
-            console.error('[QuizComponent] quizId is missing');
-            return;
-          }
-
-          const qState = this.quizStateService.getQuestionState(this.quizId, qIdx);
-          const shouldShowExplanation =
-            qState?.explanationDisplayed === true ||
-            (this.explanationTextService as any)?.shouldDisplayExplanation$.value === true;
-  
-          if (shouldShowExplanation) {
-            this.displayExplanation = true;
-  
-            // Prevent premature state flipping while restoring
-            this.explanationTextService.setShouldDisplayExplanation(true, { force: true });
-            this.explanationTextService.setIsExplanationTextDisplayed(true, { force: true });
-            this.explanationTextService.setExplanationText(
-              qState?.explanationText ?? this.explanationTextService.latestExplanation ?? '',
-              { force: true }
-            );
-  
-            this.safeSetDisplayState({ mode: 'explanation', answered: true });
-            console.log(`[onVisibilityChange] ✅ Restored FET for Q${qIdx + 1}`);
-          } else {
-            this.displayExplanation = false;
-  
-            this.explanationTextService.setShouldDisplayExplanation(false, { force: true });
-            this.explanationTextService.setIsExplanationTextDisplayed(false, { force: true });
-            this.safeSetDisplayState({ mode: 'question', answered: false });
-            console.log(`[onVisibilityChange] ↩️ Restored question text for Q${qIdx + 1}`);
-          }
-        } catch (fetErr) {
-          console.warn('[onVisibilityChange] ⚠️ FET restore failed:', fetErr);
-        } finally {
-          // Unlock after a short delay — ensures streams stabilize first
-          setTimeout(() => {
-            (this.explanationTextService as any)._visibilityLocked = false;
-            this._visibilityRestoreInProgress = false;
-  
-            setTimeout(() => {
-              try {
-                const ets = this.explanationTextService;
-                const qIdx = this.currentQuestionIndex ?? 0;
-  
-                // Re-sync explanation subjects to the current question only
-                ets._activeIndex = qIdx;
-                ets.updateFormattedExplanation('');  // clear stale text
-                ets.latestExplanation = '';
-                ets.setShouldDisplayExplanation(false);
-                ets.setIsExplanationTextDisplayed(false);
-  
-                console.log(`[VISIBILITY] 🔄 Explanation state refreshed for Q${qIdx + 1}`);
-              } catch (err) {
-                console.warn('[VISIBILITY] ⚠️ Failed post-restore FET refresh', err);
-              }
-            }, 400);
-  
-            console.log('[VISIBILITY] 🔓 Restore complete, reactive updates re-enabled');
-          }, 350);
-        }
-      }
-    } catch (error) {
-      console.error('[onVisibilityChange] ❌ Error during state restoration:', error);
+      this.restoreQuizState?.();
+    } catch (err) {
+      console.warn('[VISIBILITY] ⚠️ restoreQuizState failed', err);
     }
+
+    // 3) Ensure optionsToDisplay is sane
+    if (!Array.isArray(this.optionsToDisplay) || this.optionsToDisplay.length === 0) {
+      if (this.currentQuestion?.options?.length) {
+        this.optionsToDisplay = this.currentQuestion.options.map((option, i) => ({
+          ...option,
+          optionId: option.optionId ?? i,
+          correct: option.correct ?? false
+        }));
+      } else {
+        console.warn('[VISIBILITY] ⚠️ No options available to repopulate optionsToDisplay');
+      }
+    }
+
+    // 4) Restore explanation/question display based on stored state,
+    //    WITHOUT nuking the explanation service again.
+    try {
+      if (!this.quizId) {
+        console.error('[VISIBILITY] ❌ quizId missing on visible restore');
+        this.cdRef.markForCheck();
+        return;
+      }
+
+      const qState = this.quizStateService.getQuestionState(this.quizId, idx);
+
+      const shouldShowExplanation =
+        qState?.explanationDisplayed === true ||
+        !!(this.explanationTextService as any)?.shouldDisplayExplanation$?.value;
+
+      if (shouldShowExplanation) {
+        console.log(`[VISIBILITY] ✅ Restoring explanation view for Q${idx + 1}`);
+
+        // Rebuild FET text for this index
+        const text = await this.updateExplanationText(idx);
+
+        this.displayExplanation = true;
+
+        this.explanationTextService.setExplanationText(
+          text || qState?.explanationText || this.explanationTextService.latestExplanation || ''
+        );
+        this.explanationTextService.setShouldDisplayExplanation(true);
+        this.explanationTextService.setIsExplanationTextDisplayed(true);
+
+        this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
+      } else {
+        console.log(`[VISIBILITY] ↩️ Restoring question view for Q${idx + 1}`);
+
+        this.displayExplanation = false;
+        this.explanationTextService.setShouldDisplayExplanation(false);
+        this.explanationTextService.setIsExplanationTextDisplayed(false);
+
+        this.quizStateService.setDisplayState({
+          mode: 'question',
+          answered: qState?.isAnswered ?? false
+        });
+      }
+    } catch (err) {
+      console.warn('[VISIBILITY] ⚠️ FET restore failed', err);
+    }
+
+    this._wasHidden = false;
+    this.cdRef.markForCheck();
   }
-  
+
   // Safely replace the option list when navigating to a new question
   public updateOptionsSafely(newOptions: Option[]): void {
     const incoming = JSON.stringify(newOptions);
