@@ -406,6 +406,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   }
 
   private buildCombinedStream(): Observable<string> {
+<<<<<<< HEAD
     const idx$ = this.quizService.currentQuestionIndex$.pipe(
       distinctUntilChanged(),
       tap(i => {
@@ -459,6 +460,85 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     );
   }
 
+=======
+    type Fet = { idx: number; text: string; gate: boolean };
+  
+    const index$ = this.quizService.currentQuestionIndex$.pipe(
+      startWith(this.currentQuestionIndexValue ?? 0),
+      distinctUntilChanged(),
+      shareReplay(1)
+    );
+  
+    const questionText$ = this.questionToDisplay$.pipe(
+      map(q => (q ?? '').trim()),
+      filter(q => q.length > 0),
+      distinctUntilChanged(),
+      shareReplay(1)
+    );
+  
+    const correctText$ = this.quizService.correctAnswersText$.pipe(
+      map(v => v?.trim() || ''),
+      startWith(''),
+      distinctUntilChanged(),
+      shareReplay(1)
+    );
+  
+    const fet$ = combineLatest([
+      this.explanationTextService.formattedExplanation$ ?? of(''),
+      this.explanationTextService.shouldDisplayExplanation$ ?? of(false),
+      this.explanationTextService.activeIndex$ ?? of(-1)
+    ]).pipe(
+      map(([text, gate, idx]) => ({
+        idx,
+        gate: !!gate,
+        text: (text ?? '').trim()
+      })),
+      distinctUntilChanged((a: Fet, b: Fet) =>
+        a.idx === b.idx && a.text === b.text && a.gate === b.gate
+      ),
+      shareReplay(1)
+    );
+  
+    const shouldShow$ = this.explanationTextService.shouldDisplayExplanation$.pipe(
+      startWith(false),
+      distinctUntilChanged(),
+      shareReplay(1)
+    );
+  
+    const navigating$ = this.quizStateService.isNavigating$.pipe(
+      startWith(false),
+      distinctUntilChanged(),
+      shareReplay(1)
+    );
+  
+    return combineLatest([
+      index$,
+      questionText$,
+      correctText$,
+      fet$,
+      shouldShow$,
+      navigating$
+    ]).pipe(
+      // 1) freeze while navigating
+      filter(([, , , , , navigating]) => !navigating),
+  
+      // 2) compute what to show
+      map(([idx, qText, banner, fet, shouldShow]) =>
+        this.resolveTextToDisplay(idx, qText, banner, fet, shouldShow)
+      ),
+  
+      // 3) only paint if text actually changed
+      distinctUntilChanged((a, b) => a.trim() === b.trim()),
+  
+      // 4) one animation frame delay for stability
+      observeOn(animationFrameScheduler),
+  
+      shareReplay(1)
+    );
+  }  
+
+  
+>>>>>>> ea63898d7edd3a21c3eb1d11954c15727938878b
   /* private resolveTextToDisplay(
     idx: number,
     question: string,
@@ -703,7 +783,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     this._lastQuestionText = merged;
     return merged;
   } */
-  private resolveTextToDisplay(
+  /* private resolveTextToDisplay(
     idx: number,
     question: string,
     banner: string,
@@ -750,8 +830,60 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
     this._lastQuestionText = merged;
     return merged;
+<<<<<<< HEAD
   }
 
+=======
+  } */
+  private resolveTextToDisplay(
+    idx: number,
+    question: string,
+    banner: string,
+    fet: { idx: number; text: string; gate: boolean } | null,
+    shouldShow: boolean
+  ): string {
+    const qText = (question ?? '').trim();
+    const bannerText = (banner ?? '').trim();
+    const fetText = (fet?.text ?? '').trim();
+  
+    const activeIndex = this.quizService.getCurrentQuestionIndex();
+    const mode = this.quizStateService.displayStateSubject?.value?.mode ?? 'question';
+  
+    // 1) No explanation loaded → question only
+    if (!fet || !fetText) {
+      this._lastQuestionText = qText;
+      return qText;
+    }
+  
+    // 2) Wrong question → never show this FET
+    if (fet.idx !== idx || idx !== activeIndex) {
+      this._lastQuestionText = qText;
+      return qText;
+    }
+  
+    // 3) When in explanation mode → always show FET
+    if (mode === 'explanation') {
+      this._lastQuestionText = fetText;
+      return fetText;
+    }
+  
+    // 4) Otherwise show question (with banner for multi-answer)
+    const qObj = this.quizService.questions?.[idx];
+    const isMulti =
+      !!qObj &&
+      (qObj.type === QuestionType.MultipleAnswer ||
+        (Array.isArray(qObj.options) && qObj.options.some((o: any) => o.correct)));
+  
+    let merged = qText;
+  
+    if (isMulti && bannerText && mode === 'question') {
+      merged = `${qText} <span class="correct-count">${bannerText}</span>`;
+    }
+  
+    this._lastQuestionText = merged;
+    return merged;
+  }
+>>>>>>> ea63898d7edd3a21c3eb1d11954c15727938878b
 
   private emitContentAvailableState(): void {
     this.isContentAvailable$.pipe(takeUntil(this.destroy$)).subscribe({
