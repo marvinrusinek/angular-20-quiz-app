@@ -776,7 +776,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     this._lastQuestionText = merged;
     return merged;
   } */
-  private resolveTextToDisplay(
+  /* private resolveTextToDisplay(
     idx: number,
     question: string,
     banner: string,
@@ -834,7 +834,33 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   
     this._lastQuestionText = merged;
     return merged;
+  } */
+  private resolveTextToDisplay(
+    idx: number,
+    question: string,
+    banner: string,
+    fet: { idx: number; text: string; gate: boolean } | null,
+    shouldShow: boolean
+  ): string {
+    const qText = (question ?? '').trim();
+    const fetText = (fet?.text ?? '').trim();
+  
+    console.warn('[DISPLAY CHECK]', {
+      idx,
+      fetIdx: fet?.idx,
+      fetText,
+      shouldShow,
+      gate: fet?.gate,
+    });
+  
+    if (fetText && fet?.idx === idx) {
+      console.warn('🔥 FORCED FET DISPLAY');
+      return fetText;
+    }
+  
+    return qText;
   }
+  
   
   
 
