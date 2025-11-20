@@ -2846,6 +2846,24 @@ export class QuizQuestionComponent extends BaseQuestion
    
       this._lastAllCorrect = allCorrect;
 
+      // Trigger the formatted explanation text
+      if (allCorrect) {
+        // Update FET contents first
+        await this.updateExplanationText(idx);
+
+        // Switch to explanation mode
+        this.explanationTextService.setShouldDisplayExplanation(true);
+        this.explanationTextService.setIsExplanationTextDisplayed(true);
+
+        // Lock display mode → explanation
+        this.quizStateService.setDisplayState({
+          mode: 'explanation',
+          answered: true
+        });
+
+        console.log(`[QQC] 🎉 FET DISPLAY TRIGGERED for Q${idx + 1}`);
+      }
+
       // Stop the timer if this question is now complete
       console.log('%c[TIMER DEBUG] ❗ reached stopTimerIfApplicable SPOT', 'color:red;font-weight:bold');
       await this.timerService.stopTimerIfApplicable(q, idx, evtOpt);
@@ -4616,40 +4634,36 @@ export class QuizQuestionComponent extends BaseQuestion
     this.explanationTextService.setExplanationText(html);  // single place that writes
     this.cdRef.markForCheck();
   }
-  
+
   async updateExplanationText(index: number): Promise<string> {
     const i0 = this.normalizeIndex(index);
     const q = this.questions?.[i0];
-    let ets = this.explanationTextService;
-    
-    if (ets._fetLocked) {
-      console.log(`[QQC] 🔒 Skipping updateExplanationText for Q${i0 + 1} while locked`);
-      return '';
-    }
-    
-    // Purge previous FET *before anything else*
-    try {
-      ets.purgeAndDefer(i0);
-      console.log(`[QQC] 🔄 Purged FET state before formatting Q${i0 + 1}`);
-    } catch (err) {
-      console.warn(`[QQC] ⚠️ purgeAndDefer failed for Q${i0 + 1}`, err);
-    }
-    
-    await new Promise(res => requestAnimationFrame(res));
-    
-    // Build base explanation safely
-    const svcCached = (ets.formattedExplanations?.[i0]?.explanation ?? '').trim();
+    const ets = this.explanationTextService;
+
+    // ─────────────────────────────────────────────
+    // 0️⃣ Allow FET building even if we just switched questions.
+    //     DO NOT check _fetLocked here. Purge happens elsewhere now.
+    // ─────────────────────────────────────────────
+
+    // Wait a frame so UI stabilizes before formatting
+    await new Promise(resolve => requestAnimationFrame(resolve));
+
+    // ─────────────────────────────────────────────
+    // 1️⃣ Build the raw explanation text
+    // ─────────────────────────────────────────────
+    const cached = (ets.formattedExplanations?.[i0]?.explanation ?? '').trim();
     let baseRaw = (q?.explanation ?? '').toString().trim();
-    
-    // Ignore cache from any previous index
+
+    // Ignore old cached text if user navigated quickly
     if (ets._activeIndex !== i0) {
-      console.log(`[QQC] 🧹 Ignoring stale cached explanation for Q${i0 + 1}`);
       baseRaw = baseRaw || '';
-    } else if (!baseRaw && svcCached) {
-      baseRaw = svcCached;
+    } else if (!baseRaw && cached) {
+      baseRaw = cached;
     }
-    
-    // Format explanation safely
+
+    // ─────────────────────────────────────────────
+    // 2️⃣ Format the explanation via ETS.formatExplanation
+    // ─────────────────────────────────────────────
     let formatted: string;
 
     try {
@@ -4661,69 +4675,66 @@ export class QuizQuestionComponent extends BaseQuestion
             baseRaw
           )
           : baseRaw;
-    } catch (e) {
-      console.warn('[updateExplanationText] formatter threw; using raw', e);
-      formatted = baseRaw;  // fallback assignment
+    } catch (err) {
+      console.warn('[updateExplanationText] formatter failed, using raw', err);
+      formatted = baseRaw;
     }
 
     const clean = (formatted ?? '').trim();
-    
-    // Cache per-index
+    const next = clean || baseRaw;
+
+    if (!next) return next;
+
+    // ─────────────────────────────────────────────
+    // 3️⃣ Cache per-index (safe overwrite)
+    // ─────────────────────────────────────────────
     try {
       const prev = ets.formattedExplanations?.[i0] as any;
       ets.formattedExplanations[i0] = {
         ...(prev ?? {}),
         questionIndex: i0,
-        explanation: clean || baseRaw,
+        explanation: next,
       };
     } catch (err) {
       console.warn('[updateExplanationText] cache push failed', err);
     }
-    
-    // Emit only if we’re still on this index and it’s not locked
-    const next = (clean || baseRaw).trim();
-    if (!next) return clean || baseRaw;
-  
-    // Combine both local and service-level index checks
+
+    // ─────────────────────────────────────────────
+    // 4️⃣ Only emit if still on the same index
+    // ─────────────────────────────────────────────
     const stillActive =
       i0 === this.currentQuestionIndex &&
-      ets._activeIndex === i0 &&
-      !ets._fetLocked  // cross-verify no lingering global lock
-  
+      ets._activeIndex === i0;
+
     if (!stillActive) {
       console.log(
-        `[🧠 FET] ⏸ Skip emit — index mismatch or locked (Q${i0 + 1}, active=${ets._activeIndex}, current=${this.currentQuestionIndex})`
+        `[🧠 FET] ⏸ Skip emit — index mismatch (Q${i0 + 1}, active=${ets._activeIndex}, current=${this.currentQuestionIndex})`
       );
-      return clean || baseRaw;
+      return next;
     }
-  
-    // Drop duplicates or stale echoes before emit
-    if (ets.latestExplanation?.trim() === next) {
+
+    // Drop duplicate emits
+    if (ets.latestExplanation?.trim() === next.trim()) {
       console.log(`[🧠 FET] ⏸ Skip duplicate emit for Q${i0 + 1}`);
-      return clean || baseRaw;
+      return next;
     }
-  
-    // Emit explanation text and flag atomically
+
+    // ─────────────────────────────────────────────
+    // 5️⃣ EMIT the formatted explanation
+    // ─────────────────────────────────────────────
     ets.setExplanationText(next);
     ets.setShouldDisplayExplanation(true);
+    ets.setIsExplanationTextDisplayed(true);
     ets.latestExplanation = next;
-  
-    // Unlock only after the new explanation is committed
-    requestAnimationFrame(() => {
-      // Make sure this unlock belongs to the same active index
-      if (ets._activeIndex === i0 && this.currentQuestionIndex === i0) {
-        ets._fetLocked = false;
-        console.log(`[🧠 FET] 🔓 post-emit unlock for Q${i0 + 1}`);
-      } else {
-        console.log(
-          `[🧠 FET] ⏭ skipped unlock (mismatch active=${ets._activeIndex}, current=${this.currentQuestionIndex})`
-        );
-      }
-    });
-  
+
+    // ─────────────────────────────────────────────
+    // 6️⃣ No unlock needed here — unlock is done by paginator/navigation
+    // ─────────────────────────────────────────────
+
+    console.log(`[🧠 FET] ✅ Explanation emitted for Q${i0 + 1}`);
     return next;
   }
-  
+
   public async handleOptionSelection(
     option: SelectedOption,
     optionIndex: number,
