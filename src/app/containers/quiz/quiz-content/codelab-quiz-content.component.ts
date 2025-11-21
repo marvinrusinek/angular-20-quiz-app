@@ -842,40 +842,52 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     fet: { idx: number; text: string; gate: boolean } | null,
     shouldShow: boolean
   ): string {
-    console.log('[FET TRACE]', {
-      idx,
-      active: this.quizService.getCurrentQuestionIndex(),
-      fetIdx: fet?.idx,
-      fetLen: fet?.text?.length,
-      fetGate: fet?.gate,
-      shouldShow,
-      mode: this.quizStateService.displayStateSubject?.value?.mode,
-      locked: this.explanationTextService._fetLocked
-    });
-    
   
-    const qText = (question ?? '').trim();
+    const qText      = (question ?? '').trim();
     const bannerText = (banner ?? '').trim();
-    const fetText = (fet?.text ?? '').trim();
-    const active = this.quizService.getCurrentQuestionIndex();
-    const mode = this.quizStateService.displayStateSubject?.value?.mode ?? 'question';
+    const fetText    = (fet?.text ?? '').trim();
+    const active     = this.quizService.getCurrentQuestionIndex();
+    const mode       = this.quizStateService.displayStateSubject?.value?.mode ?? 'question';
   
-    // 1. Always keep a last valid question text cached
+    const qObj = this.quizService.questions?.[idx];
+  
+    // 1️⃣ Always cache a “last known good” question text
     if (qText) {
       this._lastQuestionText = qText;
     }
   
-    // 🔴 TEMP TEST: force explanation rendering
-    if (fet?.text?.trim()) {
-      console.log('[FET FORCE] Showing text:', fet.text.slice(0, 60));
-      return fet.text;
+    // 2️⃣ If we’re explicitly in EXPLANATION mode → always render formatted explanation
+    if (mode === 'explanation') {
+      const ets = this.explanationTextService;
+      const raw = (qObj?.explanation ?? '').toString().trim();
+  
+      if (raw) {
+        let formatted = raw;
+        try {
+          const correctIdxs = ets.getCorrectOptionIndices(qObj);
+          formatted =
+            ets.formatExplanation(qObj, correctIdxs, raw)?.trim() || raw;
+        } catch (e) {
+          console.warn('[resolveTextToDisplay] formatExplanation failed, using raw', e);
+        }
+  
+        if (formatted) {
+          console.log(`[resolveTextToDisplay] 🧠 Showing EXPLANATION for Q${idx + 1}`);
+          this._lastQuestionText = formatted;
+          return formatted;
+        }
+      }
+  
+      // No explanation text available → fall back to question text
+      const fallbackExpl = this._lastQuestionText || qText || '...';
+      console.warn(
+        `[resolveTextToDisplay] ⚠️ No explanation text for Q${idx + 1}, falling back to question`
+      );
+      return fallbackExpl;
     }
   
-    // ✅ Safe snapshot (no .value on observable nonsense)
-    const shouldDisplaySnapshot =
-      this.explanationTextService.shouldDisplayExplanationSource?.getValue?.() === true;
-  
-    // 🧠 Step 1: corrected FET gate
+    // 3️⃣ (Optional) Keep your FET gating logic for future use,
+    //    but it no longer blocks explanation rendering.
     const fetValid =
       !!fet &&
       fetText.length > 2 &&
@@ -883,38 +895,34 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       fet.idx === active &&
       fet.gate === true &&
       !this.explanationTextService._fetLocked &&
-      (
-        shouldShow === true ||
-        mode === 'explanation' ||
-        shouldDisplaySnapshot
-      );
+      (shouldShow === true);
   
     if (fetValid) {
-      console.log(`[resolveTextToDisplay] ✅ Showing FET for Q${idx + 1}`);
+      console.log(`[resolveTextToDisplay] ✅ FET gate open for Q${idx + 1}`);
       this._lastQuestionText = fetText;
       return fetText;
     }
   
-    // 3. Otherwise, return safe question text (never empty)
-    const fallback = this._lastQuestionText || qText || '...';
-  
-    const qObj = this.quizService.questions?.[idx];
+    // 4️⃣ Default: show question text (with banner for multi-answer)
     const isMulti =
       !!qObj &&
       (qObj.type === QuestionType.MultipleAnswer ||
-        (Array.isArray(qObj.options) && qObj.options.filter((o: Option) => o.correct).length > 1));
+        (Array.isArray(qObj.options) &&
+          qObj.options.filter((o: Option) => o.correct).length > 1));
+  
+    const fallback = this._lastQuestionText || qText || '...';
   
     if (isMulti && bannerText && mode === 'question') {
-      return `${fallback} <span class="correct-count">${bannerText}</span>`;
+      const merged = `${fallback} <span class="correct-count">${bannerText}</span>`;
+      console.log(`[resolveTextToDisplay] 🎯 Question+banner for Q${idx + 1}`);
+      this._lastQuestionText = merged;
+      return merged;
     }
   
-    console.log(`[resolveTextToDisplay] fallback →`, fallback);
+    console.log(`[resolveTextToDisplay] 🔁 Question fallback →`, fallback);
+    this._lastQuestionText = fallback;
     return fallback;
   }
-  
-  
-  
-
 
   private emitContentAvailableState(): void {
     this.isContentAvailable$.pipe(takeUntil(this.destroy$)).subscribe({
