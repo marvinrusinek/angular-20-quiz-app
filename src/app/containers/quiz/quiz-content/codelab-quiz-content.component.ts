@@ -590,6 +590,26 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       // ────────────────────────────────
       auditTime(32),  // waits ~1 frame before passing combined emission
       filter(([ , question]) => typeof question === 'string' && question.trim().length > 0),
+
+      // ─────────────────────────────────────────────────────────────
+      // NEW: Explanation lock filter — prevents overwriting FET mid-display
+      // ─────────────────────────────────────────────────────────────
+      filter(([idx]) => {
+        const mode = this.quizStateService.displayStateSubject?.value?.mode;
+        const explLock = this.explanationTextService._activeIndex;
+        const currentIdx = this.quizService.getCurrentQuestionIndex();
+
+        const block =
+          mode === 'explanation' &&
+          explLock === currentIdx &&
+          idx === currentIdx;
+
+        if (block) {
+          console.log('[DisplayGate] ⛔ Blocking text override while FET active');
+        }
+
+        return !block;
+      }),
   
       map(([idx, question, banner, fet, shouldShow, ..._rest]) =>
         this.resolveTextToDisplay(idx, question, banner, fet, shouldShow)
