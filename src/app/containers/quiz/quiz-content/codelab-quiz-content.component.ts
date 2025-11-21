@@ -864,8 +864,8 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       !this.explanationTextService._fetLocked &&
       (
         shouldShow === true  ||
-        this.explanationTextService.shouldDisplayExplanationSnapshot === true ||
-        mode === 'explanation'
+        mode === 'explanation' || 
+        this.explanationTextService.shouldDisplayExplanationSnapshot
       );
   
     if (fetValid) {
