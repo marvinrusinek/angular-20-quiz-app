@@ -843,18 +843,28 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     shouldShow: boolean
   ): string {
   
-    const qText   = (question ?? '').trim();
+    const qText = (question ?? '').trim();
     const bannerText = (banner ?? '').trim();
     const fetText = (fet?.text ?? '').trim();
-    const active  = this.quizService.getCurrentQuestionIndex();
-    const mode    = this.quizStateService.displayStateSubject?.value?.mode ?? 'question';
+    const active = this.quizService.getCurrentQuestionIndex();
+    const mode = this.quizStateService.displayStateSubject?.value?.mode ?? 'question';
   
     // 1. Always keep a last valid question text cached
     if (qText) {
       this._lastQuestionText = qText;
     }
   
-    // 🔁 STEP 1: Corrected FET gate
+    // 🔴 TEMP TEST: force explanation rendering
+    if (fet?.text?.trim()) {
+      console.log('[FET FORCE] Showing text:', fet.text.slice(0, 60));
+      return fet.text;
+    }
+  
+    // ✅ Safe snapshot (no .value on observable nonsense)
+    const shouldDisplaySnapshot =
+      this.explanationTextService.shouldDisplayExplanationSource?.getValue?.() === true;
+  
+    // 🧠 Step 1: corrected FET gate
     const fetValid =
       !!fet &&
       fetText.length > 2 &&
@@ -863,9 +873,9 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       fet.gate === true &&
       !this.explanationTextService._fetLocked &&
       (
-        shouldShow === true  ||
-        mode === 'explanation' || 
-        this.explanationTextService.shouldDisplayExplanationSnapshot
+        shouldShow === true ||
+        mode === 'explanation' ||
+        shouldDisplaySnapshot
       );
   
     if (fetValid) {
@@ -890,6 +900,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     console.log(`[resolveTextToDisplay] fallback →`, fallback);
     return fallback;
   }
+  
   
   
 
