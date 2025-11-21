@@ -92,6 +92,10 @@ export class ExplanationTextService {
     console.log(`[ETS] ✅ Instance created, ID=${this._instanceId}`);
   }
 
+  get shouldDisplayExplanationSnapshot(): boolean {
+    return this.shouldDisplayExplanationSource.getValue() === true;
+  }
+
   updateExplanationText(question: QuizQuestion): void {
     const explanation = question.explanation?.trim();
   
