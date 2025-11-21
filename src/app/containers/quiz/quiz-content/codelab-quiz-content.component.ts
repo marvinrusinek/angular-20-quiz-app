@@ -876,13 +876,33 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       this._lastQuestionText = qText;
     }
   
-    // 2️⃣ If we’re explicitly in EXPLANATION mode → always render formatted explanation
+    // =========================================================
+    // 🧪 STALEMATE BREAKER: FORCE-FET DISPLAY TEST
+    // =========================================================
+    if (fetText) {
+      console.log('[FET FORCE TEST]', {
+        idx,
+        active,
+        fetIdx: fet?.idx,
+        fetGate: fet?.gate,
+        shouldShow,
+        textPreview: fetText.slice(0, 80)
+      });
+  
+      // If this shows text, the problem is NOT explanation generation
+      return fetText;
+    }
+  
+    // =========================================================
+    // 2️⃣ If we’re explicitly in EXPLANATION mode → force use of question.explanation
+    // =========================================================
     if (mode === 'explanation') {
       const ets = this.explanationTextService;
       const raw = (qObj?.explanation ?? '').toString().trim();
   
       if (raw) {
         let formatted = raw;
+  
         try {
           const correctIdxs = ets.getCorrectOptionIndices(qObj);
           formatted =
@@ -899,15 +919,20 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       }
   
       // No explanation text available → fall back to question text
-      const fallbackExpl = this._lastQuestionText || qText || '...';
+      const fallbackExpl = this._lastQuestionText ||
+                           qText ||
+                           '[Recovery: question still loading…]';
+  
       console.warn(
-        `[resolveTextToDisplay] ⚠️ No explanation text for Q${idx + 1}, falling back to question`
+        `[resolveTextToDisplay] ⚠️ No explanation text for Q${idx + 1}, falling back`
       );
+  
       return fallbackExpl;
     }
   
-    // 3️⃣ (Optional) Keep your FET gating logic for future use,
-    //    but it no longer blocks explanation rendering.
+    // =========================================================
+    // 3️⃣ Keep your FET gating logic (not used in this test)
+    // =========================================================
     const fetValid =
       !!fet &&
       fetText.length > 2 &&
@@ -915,7 +940,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       fet.idx === active &&
       fet.gate === true &&
       !this.explanationTextService._fetLocked &&
-      (shouldShow === true);
+      shouldShow === true;
   
     if (fetValid) {
       console.log(`[resolveTextToDisplay] ✅ FET gate open for Q${idx + 1}`);
@@ -923,14 +948,19 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       return fetText;
     }
   
-    // 4️⃣ Default: show question text (with banner for multi-answer)
+    // =========================================================
+    // 4️⃣ Default: render safe question text
+    // =========================================================
     const isMulti =
       !!qObj &&
       (qObj.type === QuestionType.MultipleAnswer ||
         (Array.isArray(qObj.options) &&
-          qObj.options.filter((o: Option) => o.correct).length > 1));
+         qObj.options.filter((o: Option) => o.correct).length > 1));
   
-    const fallback = this._lastQuestionText || qText || '...';
+    const fallback =
+      this._lastQuestionText ||
+      qText ||
+      '[Recovery: question still loading…]';
   
     if (isMulti && bannerText && mode === 'question') {
       const merged = `${fallback} <span class="correct-count">${bannerText}</span>`;
@@ -940,6 +970,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     }
   
     console.log(`[resolveTextToDisplay] 🔁 Question fallback →`, fallback);
+  
     this._lastQuestionText = fallback;
     return fallback;
   }
