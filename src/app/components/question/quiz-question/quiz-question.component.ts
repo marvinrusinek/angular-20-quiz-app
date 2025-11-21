@@ -2829,17 +2829,22 @@ export class QuizQuestionComponent extends BaseQuestion
 
         this.fireAndForgetExplanationUpdate(lockedIndex, q);
       } */
-      const shouldTriggerFET =
-        (q?.type === QuestionType.SingleAnswer && !!evtOpt?.correct) ||
-        (q?.type === QuestionType.MultipleAnswer && allCorrect);
+      const lockIdx = this.currentQuestionIndex;
+      const question = this.quizService.questions?.[lockIdx];
 
-      if (shouldTriggerFET && !this._fetEarlyShown.has(lockedIndex)) {
-        this.safeStopTimer('completed');
-        this._fetEarlyShown.add(lockedIndex);
+      console.warn('[FET CHECK]', {
+        lockIdx,
+        type: q?.type,
+        evtOptCorrect: !!evtOpt?.correct,
+        allCorrect,
+        alreadyFired: this._fetEarlyShown.has(lockIdx)
+      });
 
-        console.log(`[QQC] 💡 FET trigger for Q${lockedIndex + 1}`);
-        this.fireAndForgetExplanationUpdate(lockedIndex, q);
-      }
+      // 🔥 TEMP: ignore internal gate for debugging
+      this._fetEarlyShown.delete(lockIdx);
+
+      console.warn(`[QQC] 🔥 FORCED FET call for Q${lockIdx + 1}`);
+      this.fireAndForgetExplanationUpdate(lockIdx, question);
 
 
       // Continue post-click microtasks for highlighting and feedback
@@ -2933,6 +2938,13 @@ export class QuizQuestionComponent extends BaseQuestion
         ets._fetLocked = false;
         return;
       }
+
+      console.log('[FET ORIGIN]', {
+        index: lockedIndex,
+        formattedLength: formatted.length,
+        formattedPreview: formatted.slice(0, 120),
+        shouldDisplay: (this.explanationTextService as any)?.shouldDisplayExplanationSource?.value
+      });
   
       // ───────────── 2. Commit explanation (THIS must happen unlocked) ─────────────
       ets._fetLocked = false;  // ← critical fix
