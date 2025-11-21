@@ -842,6 +842,17 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     fet: { idx: number; text: string; gate: boolean } | null,
     shouldShow: boolean
   ): string {
+    console.log('[FET TRACE]', {
+      idx,
+      active: this.quizService.getCurrentQuestionIndex(),
+      fetIdx: fet?.idx,
+      fetLen: fet?.text?.length,
+      fetGate: fet?.gate,
+      shouldShow,
+      mode: this.quizStateService.displayStateSubject?.value?.mode,
+      locked: this.explanationTextService._fetLocked
+    });
+    
   
     const qText = (question ?? '').trim();
     const bannerText = (banner ?? '').trim();

@@ -2891,83 +2891,87 @@ export class QuizQuestionComponent extends BaseQuestion
     q: QuizQuestion
   ): Promise<void> {
     const ets = this.explanationTextService;
-
+  
     try {
       console.log(`[QQC] 🚀 Starting FET for Q${lockedIndex + 1}`);
-
+  
       // ───────────── 1. Pin this update to a single question ─────────────
       ets._activeIndex = lockedIndex;
-
+  
       // Important: lock only during formatting – NOT during display
       ets._fetLocked = true;
-
+  
       ets.setShouldDisplayExplanation(false);
       ets.setIsExplanationTextDisplayed(false);
       ets.latestExplanation = '';
       ets.updateFormattedExplanation('');
-
+  
       // Kill any stale cache from previous questions
       ets.purgeAndDefer(lockedIndex);
-
+  
       // Wait one frame so previous emissions are dead
       await new Promise(res => requestAnimationFrame(res));
-
+  
       const canonicalQ =
         this.quizService.questions?.[lockedIndex] ?? q;
-
+  
       const raw = (canonicalQ?.explanation ?? '').trim();
       if (!raw) {
         console.warn(`[QQC] ⚠️ No explanation text for Q${lockedIndex + 1}`);
         ets._fetLocked = false;
         return;
       }
-
+  
       const correctIdxs = ets.getCorrectOptionIndices(canonicalQ);
-
+  
       const formatted = ets
         .formatExplanation(canonicalQ, correctIdxs, raw)
         .trim();
-
+  
       if (!formatted) {
         console.warn(`[QQC] ⚠️ Formatter stripped explanation text`);
         ets._fetLocked = false;
         return;
       }
-
+  
       // ───────────── 2. Commit explanation (THIS must happen unlocked) ─────────────
       ets._fetLocked = false;  // ← critical fix
-
-      ets.setExplanationText(formatted);
+  
+      console.log('🧠 [FET] Emitting explanation:', formatted.slice(0, 80));
+  
+      // ✅ Direct subject emission bypassing wrappers
+      ets.formattedExplanationSubject?.next(formatted);
+      ets.shouldDisplayExplanationSource?.next(true);
+  
+      // Preserve your existing state storage
       ets.latestExplanation = formatted;
-      ets.updateFormattedExplanation(formatted);
-
+  
       console.warn('[FET PROBE] EMITTED:', {
         idx: lockedIndex,
         text: formatted,
-        gate: ets.shouldDisplayExplanation$,
         activeIndex: ets._activeIndex
       });
-
+  
       ets.setIsExplanationTextDisplayed(true);
-      ets.setShouldDisplayExplanation(true);
-
+  
       // ───────────── 3. Sync component display state ─────────────
       this.displayExplanation = true;
-
+  
       this.quizStateService.setDisplayState({
         mode: 'explanation',
         answered: true
       });
-
+  
       this.explanationToDisplay = formatted;
       this.explanationToDisplayChange.emit(formatted);
-
+  
       console.log(`[QQC ✅] FET successfully displayed for Q${lockedIndex + 1}`);
     } catch (err) {
       console.warn('[QQC ❌] FET trigger failed:', err);
       ets._fetLocked = false;
     }
   }
+  
 
 
   private onQuestionTimedOut(targetIndex?: number): void {
