@@ -9,9 +9,7 @@
       <mat-card-content>
         <codelab-scoreboard />
 
-        <!-- question + options -->
-        @if (qa) {
-          <ng-content></ng-content>
+        <ng-content></ng-content>
 
           <codelab-quiz-content
             [questionToDisplay$]="questionToDisplay$"
@@ -31,12 +29,10 @@
             (optionSelected)="onOptionSelected($any($event))"
             (selectionMessageChange)="onSelectionMessageChange($any($event))"
           />
-        }
       </mat-card-content>
 
-      <!-- footer -->
+      <!-- Footer -->
       <mat-card-footer [ngClass]="cardFooterClass">
-
         @if (selectionMessage$ | async; as message) {
           <h5 class="instructions-message">{{ message }}</h5>
         }
