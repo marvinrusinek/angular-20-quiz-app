@@ -482,6 +482,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         this.explanationOverride  = { idx, html: '' };
         this.showLocalExplanation = false;
         this.localExplanationText = '';
+        (this.quizStateService as any)._explanationLock = null;
 
         // Reset shared “explanation” state
         this.explanationTextService.setShouldDisplayExplanation(false);
