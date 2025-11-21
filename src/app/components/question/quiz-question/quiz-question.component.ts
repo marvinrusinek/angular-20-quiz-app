@@ -4715,6 +4715,15 @@ export class QuizQuestionComponent extends BaseQuestion
     ets.setIsExplanationTextDisplayed(true);
     ets.latestExplanation = next;
 
+    this.displayExplanation = true;
+
+    this.quizStateService.displayStateSubject.next({
+      mode: 'explanation',
+      answered: true
+    });
+
+    console.log(`[🧠 FET] ✅ Explanation emitted for Q${i0 + 1}`);
+
     // ─────────────────────────────────────────────
     // 6️⃣ No unlock needed here — unlock is done by paginator/navigation
     // ─────────────────────────────────────────────
