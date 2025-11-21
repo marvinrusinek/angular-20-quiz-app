@@ -590,6 +590,15 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       // ────────────────────────────────
       auditTime(32),  // waits ~1 frame before passing combined emission
       filter(([ , question]) => typeof question === 'string' && question.trim().length > 0),
+      tap(([idx, question, banner, fet, shouldShow]) => {
+        console.log('[FET STREAM]', {
+          idx,
+          question: question?.slice?.(0, 40),
+          fetText: fet?.text?.slice?.(0, 40),
+          fetGate: fet?.gate,
+          shouldShow
+        });
+      }),
 
       // ─────────────────────────────────────────────────────────────
       // NEW: Explanation lock filter — prevents overwriting FET mid-display
