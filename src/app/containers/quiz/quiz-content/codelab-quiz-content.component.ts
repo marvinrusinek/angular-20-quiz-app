@@ -854,7 +854,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       this._lastQuestionText = qText;
     }
   
-    // 2. If FET exists and is for the active question, allow it
+    // 🔁 STEP 1: Corrected FET gate
     const fetValid =
       !!fet &&
       fetText.length > 2 &&
@@ -862,7 +862,11 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       fet.idx === active &&
       fet.gate === true &&
       !this.explanationTextService._fetLocked &&
-      (shouldShow || mode === 'explanation');
+      (
+        shouldShow === true  ||
+        this.explanationTextService.shouldDisplayExplanationSnapshot === true ||
+        mode === 'explanation'
+      );
   
     if (fetValid) {
       console.log(`[resolveTextToDisplay] ✅ Showing FET for Q${idx + 1}`);
@@ -886,8 +890,6 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     console.log(`[resolveTextToDisplay] fallback →`, fallback);
     return fallback;
   }
-  
-  
   
   
 
