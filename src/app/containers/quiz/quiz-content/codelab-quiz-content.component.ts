@@ -864,7 +864,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     this._lastQuestionText = merged;
     return merged;
   } */
-  private resolveTextToDisplay(
+  /* private resolveTextToDisplay(
     idx: number,
     question: string,
     banner: string,
@@ -982,7 +982,27 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   
     this._lastQuestionText = fallback;
     return fallback;
+  } */
+  private resolveTextToDisplay(
+    idx: number,
+    question: string,
+    banner: string,
+    fet: { idx: number; text: string; gate: boolean } | null,
+    shouldShow: boolean
+  ): string {
+  
+    const qText = (question ?? '').trim();
+  
+    // 🔮 HARD OVERRIDE: If FET exists, ALWAYS display it.
+    if (fet?.text?.trim()) {
+      console.log('[FET FORCE RENDER]', fet.text.slice(0, 80));
+      return fet.text;
+    }
+  
+    console.warn('[FET MISSING] Showing question text:', qText);
+    return qText || 'No question available';
   }
+  
 
   private emitContentAvailableState(): void {
     this.isContentAvailable$.pipe(takeUntil(this.destroy$)).subscribe({
