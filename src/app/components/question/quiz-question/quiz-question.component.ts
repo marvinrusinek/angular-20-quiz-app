@@ -139,6 +139,11 @@ export class QuizQuestionComponent extends BaseQuestion
   private _clickGate = false;  // same-tick re-entrance guard
   public selectedIndices = new Set<number>();
 
+  private lastGoodQuestion: QuizQuestion | null = null;
+  private lastGoodOptions: Option[] = [];
+  private _lastGoodQuestion: QuizQuestion | null = null;
+  private _lastGoodOptions: Option[] = [];
+
   combinedQuestionData$: Subject<{
     questionText: string,
     explanationText?: string,
@@ -1437,7 +1442,7 @@ export class QuizQuestionComponent extends BaseQuestion
     }
   }
 
-  private async handleRouteChanges(): Promise<void> {
+  /* private async handleRouteChanges(): Promise<void> {
     this.activatedRoute.paramMap.subscribe(async (params) => {
       const rawParam = params.get('questionIndex');
       const parsedParam = Number(rawParam);
@@ -1514,7 +1519,120 @@ export class QuizQuestionComponent extends BaseQuestion
         console.error('[handleRouteChanges] ❌ Unexpected error:', error);
       }
     });
+  } */
+  private async handleRouteChanges(): Promise<void> {
+    this.activatedRoute.paramMap.subscribe(async (params) => {
+      const rawParam = params.get('questionIndex');
+      const parsedParam = Number(rawParam);
+  
+      // Ensure valid integer and convert to 0-based index
+      let questionIndex = isNaN(parsedParam) ? 1 : parsedParam;
+  
+      if (questionIndex < 1 || questionIndex > this.totalQuestions) {
+        console.warn(`[⚠️ Invalid questionIndex param: ${rawParam}. Defaulting to Q1]`);
+        questionIndex = 1;
+      }
+  
+      const zeroBasedIndex = questionIndex - 1;
+  
+      try {
+        // Sync state before loadQuestion() so it sees the correct 0-based index.
+        this.currentQuestionIndex = zeroBasedIndex;
+        this.quizService.setCurrentQuestionIndex(zeroBasedIndex);
+  
+        // Reset explanation UI for every new question
+        this.explanationVisible = false;
+        this.explanationText = '';
+        this._expl$.next(null);
+  
+        // Load the question using correct index
+        const loaded = await this.loadQuestion();  // now uses new index
+        if (!loaded) {
+          console.error(
+            `[handleRouteChanges] ❌ Failed to load data for Q${questionIndex}`
+          );
+  
+          // 🔒 SAFETY: fall back to last known good question instead of poisoning state
+          if (this._lastGoodQuestion) {
+            console.warn('[handleRouteChanges] 🛟 Using _lastGoodQuestion fallback');
+            this.currentQuestion = this._lastGoodQuestion;
+            this.optionsToDisplay = this._lastGoodOptions.map(o => ({ ...o }));
+          }
+  
+          return;
+        }
+  
+        // Reset form and assign question
+        this.resetForm();
+  
+        const fromArray = Array.isArray(this.questionsArray)
+          ? this.questionsArray[zeroBasedIndex]
+          : null;
+  
+        if (!fromArray) {
+          console.warn(
+            `[handleRouteChanges] ⚠️ questionsArray has no entry for index ${zeroBasedIndex}`
+          );
+  
+          // 🔒 SAFETY: again, fall back to last good instead of "No question available"
+          if (this._lastGoodQuestion) {
+            console.warn('[handleRouteChanges] 🛟 Using _lastGoodQuestion (array-miss)');
+            this.currentQuestion = this._lastGoodQuestion;
+            this.optionsToDisplay = this._lastGoodOptions.map(o => ({ ...o }));
+          }
+  
+          return;
+        }
+  
+        this.currentQuestion = fromArray;
+  
+        // ✅ Cache as “last known good” so later code never has to show "No question available"
+        this._lastGoodQuestion = this.currentQuestion;
+  
+        // Prepare options
+        const originalOptions = this.currentQuestion.options ?? [];
+        this.optionsToDisplay = originalOptions.map((opt) => ({
+          ...opt,
+          active: true,
+          feedback: undefined,
+          showIcon: false,
+        }));
+  
+        // Cache safe copy of options for fallback
+        this._lastGoodOptions = this.optionsToDisplay.map(o => ({ ...o }));
+  
+        if (!this.optionsToDisplay.length) {
+          console.warn(`[⚠️ Q${questionIndex}] No options to display.`);
+        } else {
+          console.log(
+            `[✅ Q${questionIndex}] optionsToDisplay:`,
+            this.optionsToDisplay
+          );
+        }
+  
+        // Handle explanation if previously answered
+        const isAnswered = await this.isAnyOptionSelected(zeroBasedIndex);
+        if (isAnswered) {
+          await this.fetchAndUpdateExplanationText(zeroBasedIndex);
+  
+          if (this.shouldDisplayExplanation) {
+            this.showExplanationChange.emit(true);
+            this.updateDisplayStateToExplanation();
+          }
+        }
+      } catch (error) {
+        console.error('[handleRouteChanges] ❌ Unexpected error:', error);
+  
+        // FINAL SAFETY NET: do NOT leave the UI in a "no question" state
+        if (this._lastGoodQuestion) {
+          console.warn('[handleRouteChanges] 🛟 Error fallback → _lastGoodQuestion');
+          this.currentQuestion = this._lastGoodQuestion;
+          this.optionsToDisplay = this._lastGoodOptions.map(o => ({ ...o }));
+        }
+      }
+    });
   }
+  
 
   private setQuestionFirst(index: number): void {
     if (!this.questionsArray || this.questionsArray.length === 0) {
