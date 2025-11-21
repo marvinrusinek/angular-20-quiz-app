@@ -2976,6 +2976,27 @@ export class QuizQuestionComponent extends BaseQuestion
   
       this.explanationToDisplay = formatted;
       this.explanationToDisplayChange.emit(formatted);
+
+
+      const el = document.querySelector('#questionText, .question-text, h3');
+
+      if (el instanceof HTMLElement) {
+        console.log('[HARD FET WRITE] Writing directly to DOM');
+
+        el.innerHTML = `
+          <div style="
+            color:#66ff66;
+            background:#111;
+            padding:8px;
+            border:1px solid #444;
+            border-radius:6px;
+            font-size:15px;
+          ">
+            ⚡ FORCED EXPLANATION TEXT ⚡<br/><br/>
+            ${formatted}
+          </div>
+        `;
+      }
   
       console.log(`[QQC ✅] FET successfully displayed for Q${lockedIndex + 1}`);
     } catch (err) {
