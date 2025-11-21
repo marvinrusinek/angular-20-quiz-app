@@ -2791,22 +2791,17 @@ export class QuizQuestionComponent extends BaseQuestion
 
       this._lastAllCorrect = allCorrect;
 
-      // Trigger the formatted explanation text
-      if (allCorrect) {
-        // Update FET contents first
-        await this.updateExplanationText(idx);
-
-        // Switch to explanation mode
-        this.explanationTextService.setShouldDisplayExplanation(true);
-        this.explanationTextService.setIsExplanationTextDisplayed(true);
-
-        // Lock display mode → explanation
-        this.quizStateService.setDisplayState({
+      // FET trigger
+      if (evtOpt?.correct) {
+        console.log(`[QQC] ✅ Correct answer selected → trigger FET for Q${idx + 1}`);
+        this.displayExplanation = true;
+        this.quizStateService.displayStateSubject.next({
           mode: 'explanation',
           answered: true
         });
 
-        console.log(`[QQC] 🎉 FET DISPLAY TRIGGERED for Q${idx + 1}`);
+        this.explanationTextService.setShouldDisplayExplanation(true);
+        await this.updateExplanationText(idx);
       }
 
       // Stop the timer if this question is now complete
