@@ -1009,8 +1009,10 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
     const hasUserInteracted =
       (this.quizStateService as any).hasUserInteracted?.(idx) ?? false;
+    const hasAnsweredCorrectly =
+      (this.quizStateService as any).isQuestionAnswered?.(idx) ?? false;
 
-    if ((mode === 'explanation' || this.showExplanation) && hasUserInteracted) {
+    if ((mode === 'explanation' || this.showExplanation) && hasUserInteracted && hasAnsweredCorrectly) {
       console.log('[CQCC] 🛑 Explanation mode active — blocking question repaint');
 
       const locked =
@@ -1080,7 +1082,8 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       fet.gate &&
       !this.explanationTextService._fetLocked &&
       shouldShow &&
-      hasUserInteracted;
+      hasUserInteracted &&
+      hasAnsweredCorrectly;
 
     if (fetValid) {
       console.log(`[resolveTextToDisplay] ✅ FET gate open for Q${idx + 1}`);

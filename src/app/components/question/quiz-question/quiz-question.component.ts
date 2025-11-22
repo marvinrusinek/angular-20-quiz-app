@@ -937,14 +937,31 @@ export class QuizQuestionComponent extends BaseQuestion
       if (shouldShowExplanation) {
         console.log(`[VISIBILITY] ✅ Restoring explanation view for Q${idx + 1}`);
 
-        // Rebuild FET text for this index
-        const text = await this.updateExplanationText(idx);
+        // Restore only – do NOT regenerate explanation text here
+        const stored =
+          qState?.explanationText ||
+          this.explanationTextService.latestExplanation ||
+          '';
 
-        this.displayExplanation = true;
+        if (stored && stored.trim().length > 0) {
+          console.log('[VisibilityChange] ♻️ Restoring existing FET for Q' + (idx + 1));
 
-        this.explanationTextService.setExplanationText(
-          text || qState?.explanationText || this.explanationTextService.latestExplanation || ''
-        );
+          this.displayExplanation = true;
+          this.explanationToDisplay = stored;
+
+          // Sync service state
+          this.explanationTextService.setExplanationText(stored);
+          this.explanationTextService.setShouldDisplayExplanation(true);
+
+          // Update global display mode
+          this.quizStateService.displayStateSubject.next({
+            mode: 'explanation',
+            answered: true
+          });
+        } else {
+          console.log('[VisibilityChange] No stored explanation to restore');
+        }
+
         this.explanationTextService.setShouldDisplayExplanation(true);
         this.explanationTextService.setIsExplanationTextDisplayed(true);
 
@@ -2891,6 +2908,8 @@ export class QuizQuestionComponent extends BaseQuestion
       // Persist selection
       try { this.selectedOptionService.setSelectedOption(evtOpt, idx); } catch { }
 
+      (this.quizStateService as any).setUserInteracted?.(idx);
+
       // Canonical options for consistent state
       const canonicalOpts: Option[] = (q?.options ?? []).map((o, i) => ({
         ...o,
@@ -2989,7 +3008,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
         this.displayExplanation = true;
 
-        await this.updateExplanationText(idx);
+        // await this.updateExplanationText(idx);
       }
 
       // FET trigger
@@ -3002,7 +3021,7 @@ export class QuizQuestionComponent extends BaseQuestion
         });
 
         this.explanationTextService.setShouldDisplayExplanation(true);
-        await this.updateExplanationText(idx);
+        // await this.updateExplanationText(idx);
       }
 
       // Stop the timer if this question is now complete
@@ -3095,14 +3114,44 @@ export class QuizQuestionComponent extends BaseQuestion
     lockedIndex: number,
     q: QuizQuestion
   ): void {
+    const active = this.quizService.getCurrentQuestionIndex();
+
     console.error('[FET ENTRY] fireAndForgetExplanationUpdate HIT', {
       lockedIndex,
+      activeIndex: active,
       hasQuestion: !!q,
       questionText: q?.questionText?.slice(0, 80)
     });
 
+    // Guard: do not fire if stale index
+    if (lockedIndex !== active) {
+      console.warn('[FET SKIP] Stale explanation request dropped', {
+        lockedIndex,
+        active
+      });
+      return;
+    }
+
+    // Guard: user must have interacted first
+    const hasUserInteracted =
+      (this.quizStateService as any).hasUserInteracted?.(lockedIndex) ?? false;
+
+    if (!hasUserInteracted) {
+      console.warn('[FET SKIP] User has not interacted yet, blocking FET');
+      return;
+    }
+
     // Fire-and-forget — never awaited on purpose
-    void this.performExplanationUpdate(lockedIndex, q);
+    // void this.performExplanationUpdate(lockedIndex, q);
+    console.error('[FET PIPELINE] Calling performExplanationUpdate for Q' + (lockedIndex + 1));
+
+    this.performExplanationUpdate(lockedIndex, q)
+      .then(() => {
+        console.log('[FET PIPELINE ✅] performExplanationUpdate completed');
+      })
+      .catch(err => {
+        console.error('[FET PIPELINE ❌] performExplanationUpdate crashed', err);
+      });
   }
 
   /* private async performExplanationUpdate(
@@ -3391,6 +3440,21 @@ export class QuizQuestionComponent extends BaseQuestion
     lockedIndex: number,
     q: QuizQuestion
   ): Promise<void> {
+    console.error('[FET GUARD CHECK] performExplanationUpdate ENTERED', {
+      lockedIndex,
+      activeIndex: this.quizService.getCurrentQuestionIndex(),
+      displayState: this.quizStateService.displayStateSubject?.value,
+      shouldShowExplanation: this.explanationTextService.shouldDisplayExplanationSource?.value
+    });
+
+    console.warn('[FET GUARD CHECK]', {
+      lockedIndex,
+      activeIndex: this.quizService.getCurrentQuestionIndex(),
+      hasUserInteracted: (this.quizStateService as any).hasUserInteracted?.(lockedIndex),
+      hasAnswered: (this.quizStateService as any).isQuestionAnswered?.(lockedIndex),
+      latestExplanation: this.explanationTextService?.latestExplanation?.slice(0, 80),
+    });
+
     console.error('[FET ORIGIN] PERFORM UPDATE ENTERED', lockedIndex);
 
     const ets = this.explanationTextService;
