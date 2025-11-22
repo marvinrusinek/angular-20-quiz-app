@@ -2820,7 +2820,7 @@ export class QuizQuestionComponent extends BaseQuestion
       // Lock the question index immediately to avoid drift
       const lockedIndex = this.currentQuestionIndex ?? idx;
   
-      if (
+      /* if (
         evtOpt?.correct && 
         q?.type === QuestionType.MultipleAnswer && 
         !this._fetEarlyShown.has(lockedIndex)
@@ -2831,7 +2831,8 @@ export class QuizQuestionComponent extends BaseQuestion
         console.log(`[QQC] 🧠 Immediate FET trigger for multi-answer Q${lockedIndex + 1}`);
 
         this.fireAndForgetExplanationUpdate(lockedIndex, q);
-      }
+      } */
+      this.fireAndForgetExplanationUpdate(lockedIndex, q);
    
       // Continue post-click microtasks for highlighting and feedback
       queueMicrotask(() => {
@@ -2873,11 +2874,17 @@ export class QuizQuestionComponent extends BaseQuestion
     lockedIndex: number,
     q: QuizQuestion
   ): void {
+    console.error('[FET ENTRY] fireAndForgetExplanationUpdate HIT', {
+      lockedIndex,
+      hasQuestion: !!q,
+      questionText: q?.questionText?.slice(0, 80)
+    });
+
     // Fire-and-forget — never awaited on purpose
     void this.performExplanationUpdate(lockedIndex, q);
   }
 
-  private async performExplanationUpdate(
+  /* private async performExplanationUpdate(
     lockedIndex: number,
     q: QuizQuestion
   ): Promise<void> {
@@ -2909,6 +2916,14 @@ export class QuizQuestionComponent extends BaseQuestion
       ets.setIsExplanationTextDisplayed(true);
       ets.setShouldDisplayExplanation(true);
 
+      console.warn('🧪 FET RAW CHECK:', {
+        index: lockedIndex,
+        questionText: canonicalQ?.questionText?.slice(0, 80),
+        explanationText: canonicalQ?.explanation?.slice(0, 80),
+        formattedLength: formatted.length
+      });
+
+
       // Update component presentation
       this.displayExplanation = true;
       this.displayStateSubject?.next({
@@ -2923,7 +2938,57 @@ export class QuizQuestionComponent extends BaseQuestion
     } catch (err) {
       console.warn('[QQC] ⚠️ FET trigger failed', err);
     }
+  } */
+  private async performExplanationUpdate(
+    lockedIndex: number,
+    q: QuizQuestion
+  ): Promise<void> {
+    console.error('[FET ORIGIN] PERFORM UPDATE ENTERED', lockedIndex);
+
+    const ets = this.explanationTextService;
+
+    const raw = (q?.explanation ?? '').trim();
+
+    console.error('[FET DATA]', {
+      hasExplanation: !!raw,
+      raw: raw.slice(0, 120),
+    });
+
+    if (!raw) {
+      console.warn('[FET FAIL] No explanation text in question.');
+      return;
+    }
+
+    let formatted = raw;
+
+    try {
+      const correctIdxs = ets.getCorrectOptionIndices(q);
+      formatted = ets.formatExplanation(q, correctIdxs, raw);
+
+      console.warn('[FET CONTENT CHECK]', {
+        length: formatted.length,
+        preview: formatted.slice(0, 120)
+      });
+    } catch (e) {
+      console.warn('[FET FAIL] formatter error, using raw', e);
+    }
+
+    console.error('[FET FINAL]', formatted.slice(0, 150));
+
+    // Hard emit
+    ets.formattedExplanationSubject.next(formatted);
+    ets.shouldDisplayExplanationSource.next(true);
+
+    // Flip display mode
+    this.displayExplanation = true;
+    this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
+
+    this.explanationToDisplay = formatted;
+    this.explanationToDisplayChange.emit(formatted);
+
+    console.error('[FET DONE] Display triggered.');
   }
+
 
   private onQuestionTimedOut(targetIndex?: number): void {
     // Ignore repeated signals

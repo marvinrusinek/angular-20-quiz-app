@@ -149,6 +149,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   public localExplanationText = '';
   public showLocalExplanation = false;
 
+  // Tracks questions where FET already fired to prevent double-triggering
+  private _fetEarlyShown: Set<number> = new Set<number>();
+
   private combinedQuestionDataSubject = new BehaviorSubject<QuestionPayload | null>(
     null
   );
@@ -171,14 +174,14 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   showFeedbackForOption: { [key: number]: boolean } = {};
 
   questionToDisplay = '';
+  private questionToDisplaySource = new BehaviorSubject<string>('Loading...');
+  public questionToDisplay$ = this.questionToDisplaySource.asObservable();
+
   optionsToDisplay: Option[] = [];
   optionsToDisplay$ = new BehaviorSubject<Option[]>([]);
   explanationToDisplay = '';
   displayVariables = { question: '', explanation: '' };
   displayText = '';
-
-  private questionToDisplaySubject = new BehaviorSubject<string | null>('');
-  questionToDisplay$ = this.questionToDisplaySubject.asObservable();
 
   private isLoading = false;
   private isQuizLoaded = false;  // tracks if the quiz data has been loaded
@@ -473,35 +476,96 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.indexSubscription = this.quizService.currentQuestionIndex$
       .pipe(distinctUntilChanged())
       .subscribe((idx: number) => {
-        // Update local view model
+
+        console.error('[INDEX STREAM]', idx);
+
+        // ─────────────────────────────
+        // 🔥 HARD RESET: kill any stale Q1 FET immediately
+        // ─────────────────────────────
+        this.explanationTextService.latestExplanation = '';
+        this.explanationTextService.formattedExplanationSubject.next('');
+        this.explanationTextService.shouldDisplayExplanationSource.next(false);
+
+        this.explanationOverride  = { idx, html: '' };
+        this.displayExplanation   = false;
+        this.explanationVisibleLocal = false;
+        this.explanationHtml      = '';
+        this.explanationToDisplay = '';
+        this.showExplanation      = false;
+
+        // Reset FET gating for new index
+        this.explanationTextService._activeIndex = idx;
+        this._fetEarlyShown.delete(idx);
+
+        console.error('[FET RESET] Cleared before rendering Q', idx + 1);
+
+        // ─────────────────────────────
+        // NEW: bind question to index
+        // ─────────────────────────────
+        const q = this.questionsArray?.[idx];
+
+        console.log('[QUESTION STREAM]', {
+          idx,
+          questionExists: !!q,
+          questionText: q?.questionText?.slice(0, 80)
+        });
+
+        if (!q) {
+          console.error(`🔥 No question found for index ${idx}`);
+          return;
+        }
+
+        // Update local question references
+        this.currentQuestion = q;
+        // this.questionText = q.questionText;
+
+        // If tracking options here, reset them too
+        const originalOptions = q.options ?? [];
+        this.optionsToDisplay = originalOptions.map(opt => ({
+          ...opt,
+          active: true,
+          selected: false,
+          feedback: undefined,
+          showIcon: false
+        }));
+
+        // ─────────────────────────────
+        // Existing logic (untouched)
+        // ─────────────────────────────
         this.currentQuestionIndex = idx;
         this.lastLoggedIndex      = -1;
-        this.explanationHtml      = '';
-        this.showExplanation      = false;
-        this.explanationToDisplay = '';
-        this.explanationOverride  = { idx, html: '' };
         this.showLocalExplanation = false;
         this.localExplanationText = '';
 
-        // Reset shared “explanation” state
+        // CRITICAL RESET: force back to question mode
+        this.quizStateService.setDisplayState({
+          mode: 'question',
+          answered: false
+        });
+
+        // Reset shared explanation state
         this.explanationTextService.setShouldDisplayExplanation(false);
         this.quizStateService.setDisplayState({ mode: 'question', answered: false });
 
-        // Clear any per-question selections
+        // Clear per-question selection cache
         this.selectedOptionService.selectedOptionIndices[idx] = [];
 
-        // Reset sticky correct ids for the newly-entered question (Q4 logic helper)
+        // Reset sticky helpers
         this.selectionMessageService.lastRemainingByIndex?.delete(idx);
         this.selectionMessageService.stickyCorrectIdsByIndex?.delete(idx);
         this.selectionMessageService.stickyAnySelectedKeysByIndex?.delete(idx);
 
-        // Update progressbar
+        // Progress bar
         this.progressBarService.updateProgress(idx + 1, this.totalQuestions);
 
-        // Wake OnPush so the template updates
+        // Force question redraw
+        this.questionToDisplaySource.next(
+          this.quizService.questions?.[idx]?.questionText?.trim() || '...'
+        );
+
+        // Trigger UI refresh
         this.cdRef.markForCheck();
       });
-
 
     try {
       const questions = await this.quizService.fetchQuizQuestions(quizId);
@@ -609,7 +673,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           const hasHydratedSelections = hasSelectedOptions && persistedSelectionsCount > 0;
           const answered = hasServiceSelections || answeredViaState || hasHydratedSelections;
 
-          this.questionToDisplaySubject.next(
+          this.questionToDisplaySource.next(
             (question.questionText ?? '').trim() ||
             'No question available'
           );
@@ -1181,7 +1245,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       this.qaToDisplay = { question: hydratedQuestion, options: hydratedOptions };
       this.optionsToDisplay = [...hydratedOptions];
       this.shouldRenderOptions = true;
-      this.questionToDisplaySubject.next(
+      this.questionToDisplaySource.next(
         hydratedQuestion.questionText?.trim() ?? 'No question available'
       );
 
@@ -1631,7 +1695,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   ): void {
     if (!Array.isArray(hydratedQuestions) || hydratedQuestions.length === 0) {
       this.questionToDisplay = '';
-      this.questionToDisplaySubject.next(null);
+      this.questionToDisplaySource.next('');
       this.qaToDisplay = undefined;
       this.currentQuestion = null;
       this.optionsToDisplay = [];
@@ -1696,7 +1760,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     };
 
     this.questionToDisplay = trimmedQuestionText;
-    this.questionToDisplaySubject.next(trimmedQuestionText);
+    this.questionToDisplaySource.next(trimmedQuestionText);
 
     this.optionsToDisplay = [...normalizedOptions];
     this.optionsToDisplay$.next([...normalizedOptions]);
@@ -1975,7 +2039,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       const q = this.quizService.questions?.[adjustedIndex];
       const qText = (q?.questionText ?? '').trim();
       if (qText) {
-        this.questionToDisplaySubject.next(qText);
+        this.questionToDisplaySource.next(qText);
         console.log(`[updateContentBasedOnIndex] 🪄 Seeded fresh Q${adjustedIndex + 1} text`);
       }
   
@@ -2660,7 +2724,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           if (firstQuestion) {
             const trimmed = (firstQuestion.questionText ?? '').trim();
             if (trimmed.length > 0) {
-              this.questionToDisplaySubject.next(trimmed);
+              this.questionToDisplaySource.next(trimmed);
               console.log('[QUIZ INIT] 🪄 Seeded initial question text for Q1');
           
               // Unlock gate only *after* first text is stable
@@ -2850,7 +2914,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           payload.question?.questionText?.trim() ?? fallbackQuestion.questionText;
 
         this.questionToDisplay = trimmedQuestionText;
-        this.questionToDisplaySubject.next(trimmedQuestionText);
+        this.questionToDisplaySource.next(trimmedQuestionText);
 
         this.explanationToDisplay = payload.explanation ?? '';
 
@@ -3162,7 +3226,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   ): void {
     if (!payload?.question) {
       this.questionToDisplay = 'No question available';
-      this.questionToDisplaySubject.next('No question available');
+      this.questionToDisplaySource.next('No question available');
       this.optionsToDisplay = [];
       this.optionsToDisplay$.next([]);
       this.options = [];
@@ -3190,7 +3254,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.question = payload.question;
     this.currentQuestion = payload.question;
     this.questionToDisplay = trimmedQuestionText;
-    this.questionToDisplaySubject.next(trimmedQuestionText);
+    this.questionToDisplaySource.next(trimmedQuestionText);
 
     this.optionsToDisplay = [...normalizedOptions];
     this.optionsToDisplay$.next([...normalizedOptions]);
@@ -3877,7 +3941,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   
       // Defer header and options assignment so Angular renders them together
       Promise.resolve().then(() => {
-        this.questionToDisplaySubject.next(trimmedText);
+        this.questionToDisplaySource.next(trimmedText);
       
         // Force fresh array reference to trigger ngOnChanges
         this.optionsToDisplay = clonedOptions;
