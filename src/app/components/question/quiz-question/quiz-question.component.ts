@@ -407,16 +407,18 @@ export class QuizQuestionComponent extends BaseQuestion
     )
       .subscribe((i0: number) => this.onTimerExpiredFor(i0));
 
-    this.quizService.currentQuestionIndex$.subscribe((index) => {
-      // Log a stack trace for tracing unexpected emissions
-      if (index === 1) {
-        console.warn('[🧵 Stack trace for index === 1]', {
-          stack: new Error().stack
-        });
-      }
+    this.quizService.currentQuestionIndex$
+      .pipe(distinctUntilChanged())
+      .subscribe((index) => {
 
-      this.currentQuestionIndex = index;
-    });
+        console.warn('[QQC INDEX OBSERVED]', index, {
+          routeIndex: Number(this.activatedRoute.snapshot.paramMap.get('questionIndex')) - 1,
+          serviceIndex: this.quizService.getCurrentQuestionIndex()
+        });
+
+        // ❌ DO NOT COPY INTO LOCAL STATE
+        // this.currentQuestionIndex = index;
+      });
 
     if (this.questionToDisplay$) {
       this.latestQuestionText$ = this.questionToDisplay$.pipe(
@@ -1541,7 +1543,17 @@ export class QuizQuestionComponent extends BaseQuestion
       try {
         // Sync state before loadQuestion() so it sees the correct 0-based index.
         this.currentQuestionIndex = zeroBasedIndex;
+
+        console.error(
+          '[ROUTE INDEX UPDATE]',
+          'routeIndex =', zeroBasedIndex,
+          'quizServiceIndex =', this.quizService.getCurrentQuestionIndex()
+        );
         this.quizService.setCurrentQuestionIndex(zeroBasedIndex);
+
+        console.warn('[AFTER SET]', {
+          quizServiceIndex: this.quizService.getCurrentQuestionIndex()
+        });
   
         // Reset explanation UI for every new question
         this.explanationVisible = false;
@@ -2818,7 +2830,7 @@ export class QuizQuestionComponent extends BaseQuestion
     const evtIdx = event.index;
     const evtOpt = event.option;
 
-    this.quizStateService.markUserInteracted(idx);
+    // this.quizStateService.markUserInteracted(idx);
     this.explanationTextService._activeIndex = idx;
     this.explanationTextService.updateFormattedExplanation('');
     this.explanationTextService.latestExplanation = '';

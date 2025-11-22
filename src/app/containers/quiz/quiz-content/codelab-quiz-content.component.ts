@@ -101,7 +101,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   previousQuestion$: Observable<QuizQuestion | null>;
   isNavigatingToPrevious = false;
   currentQuestionType: QuestionType | undefined = undefined;
-  _lastQuestionText = '';
+  private _lastQuestionTextByIndex = new Map<number, string>();
 
   private overrideSubject = new BehaviorSubject<{ idx: number; html: string }>({ idx: -1, html: '' });
   private currentIndex = -1;
@@ -982,6 +982,12 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     fet: { idx: number; text: string; gate: boolean } | null,
     shouldShow: boolean
   ): string {
+    console.error('[CQCC IDX TRACE]', {
+      incomingIdx: idx,
+      activeIdx: this.quizService.getCurrentQuestionIndex(),
+      routeIdx: this.activatedRoute?.snapshot?.paramMap?.get('questionIndex'),
+    });
+
     console.error('[CQCC HARD DIAG JSON]',
       JSON.stringify({
         idx,
@@ -1001,8 +1007,6 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     // ──────────────────────────────────────────────
     const mode = this.quizStateService.displayStateSubject?.value?.mode ?? 'question';
 
-    // If someone set explanation mode but user never actually interacted with this question,
-    // treat it as bogus and fall back to question text.
     const hasUserInteracted =
       (this.quizStateService as any).hasUserInteracted?.(idx) ?? false;
 
@@ -1016,14 +1020,11 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
       if (locked) {
         console.log('[CQCC] 🔒 Returning locked explanation text');
-        this._lastQuestionText = locked;
+        this._lastQuestionTextByIndex.set(idx, locked);
         return locked;
       }
     } else if (mode === 'explanation' || this.showExplanation) {
-      console.warn(
-        '[CQCC] ⚠️ Explanation mode requested but no user interaction — ignoring explanation for this frame'
-      );
-      // fall through into question logic below
+      console.warn('[CQCC] ⚠️ Explanation mode requested but no user interaction — ignoring');
     }
 
     const qText      = (question ?? '').trim();
@@ -1033,31 +1034,12 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
     const qObj = this.quizService.questions?.[idx];
 
-    // Always cache a “last known good” question text
+    // ✅ FIX: cache question text PER INDEX
     if (qText) {
-      this._lastQuestionText = qText;
+      this._lastQuestionTextByIndex.set(idx, qText);
     }
 
-    // 🧪 STALEMATE BREAKER: FORCE-FET DISPLAY TEST
-    // ❌ This was forcing FET even before any user interaction.
-    //    Disable it and let the normal fetValid logic below decide.
-    /*
-    if (fetText) {
-      console.log('[FET FORCE TEST]', {
-        idx,
-        active,
-        fetIdx: fet?.idx,
-        fetGate: fet?.gate,
-        shouldShow,
-        textPreview: fetText.slice(0, 80)
-      });
-
-      // If this shows text, the problem is NOT explanation generation
-      return fetText;
-    }
-    */
-
-    // If we’re explicitly in EXPLANATION mode → force use of question.explanation
+    // If we’re explicitly in explanation mode AFTER interaction
     if (mode === 'explanation' && hasUserInteracted) {
       const ets = this.explanationTextService;
       const raw = (qObj?.explanation ?? '').toString().trim();
@@ -1075,21 +1057,17 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
         if (formatted) {
           console.log(`[resolveTextToDisplay] 🧠 Showing EXPLANATION for Q${idx + 1}`);
-          this._lastQuestionText = formatted;
+          this._lastQuestionTextByIndex.set(idx, formatted);
           return formatted;
         }
       }
 
-      // No explanation text available → fall back to question text
       const fallbackExpl =
-        this._lastQuestionText ||
+        this._lastQuestionTextByIndex.get(idx) ||
         qText ||
         '[Recovery: question still loading…]';
 
-      console.warn(
-        `[resolveTextToDisplay] ⚠️ No explanation text for Q${idx + 1}, falling back`
-      );
-
+      console.warn(`[resolveTextToDisplay] ⚠️ No explanation text for Q${idx + 1}, falling back`);
       return fallbackExpl;
     }
 
@@ -1102,11 +1080,11 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       fet.gate &&
       !this.explanationTextService._fetLocked &&
       shouldShow &&
-      hasUserInteracted;  // ✅ only trust FET after user interaction
+      hasUserInteracted;
 
     if (fetValid) {
       console.log(`[resolveTextToDisplay] ✅ FET gate open for Q${idx + 1}`);
-      this._lastQuestionText = fetText;
+      this._lastQuestionTextByIndex.set(idx, fetText);
       return fetText;
     }
 
@@ -1117,23 +1095,25 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         (Array.isArray(qObj.options) &&
           qObj.options.filter((o: Option) => o.correct).length > 1));
 
+    // ✅ FIX: fallback is now index-isolated
     const fallback =
-      this._lastQuestionText ||
+      this._lastQuestionTextByIndex.get(idx) ||
       qText ||
       '[Recovery: question still loading…]';
 
     if (isMulti && bannerText && mode === 'question') {
       const merged = `${fallback} <span class="correct-count">${bannerText}</span>`;
       console.log(`[resolveTextToDisplay] 🎯 Question+banner for Q${idx + 1}`);
-      this._lastQuestionText = merged;
+      this._lastQuestionTextByIndex.set(idx, merged);
       return merged;
     }
 
     console.log(`[resolveTextToDisplay] 🔁 Question fallback →`, fallback);
 
-    this._lastQuestionText = fallback;
+    this._lastQuestionTextByIndex.set(idx, fallback);
     return fallback;
   }
+
 
   private emitContentAvailableState(): void {
     this.isContentAvailable$.pipe(takeUntil(this.destroy$)).subscribe({

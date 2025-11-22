@@ -818,10 +818,17 @@ export class QuizService {
     return this.currentQuestion.asObservable();
   }
 
-  setCurrentQuestionIndex(index: number): void {
-    const safeIndex = Math.max(0, Number(index) || 0);
-    console.log('[QS] setCurrentQuestionIndex ->', safeIndex);
-    this.currentQuestionIndexSource.next(safeIndex);
+  setCurrentQuestionIndex(idx: number) {
+    const current = this.currentQuestionIndexSource.getValue();
+
+    // 🔥 Ignore stale index resets
+    if (idx === 0 && current > 0) {
+      console.warn('[QuizService] ❌ Blocked stale reset to 0. Current index:', current);
+      return;
+    }
+
+    console.log('[QuizService] ✅ Setting index to', idx);
+    this.currentQuestionIndexSource.next(idx);
   }
 
   getCurrentQuestionIndex(): number {
