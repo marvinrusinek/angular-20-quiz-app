@@ -2143,4 +2143,16 @@ export class SelectedOptionService {
     if (!this.selectedOptionsMap.has(idx)) this.selectedOptionsMap.set(idx, []);
     return this.selectedOptionsMap.get(idx)!;
   }
+
+  public reapplySelectionForQuestion(option: Option, index: number): void {
+    console.log('[SelectedOptionService] Reapplying selection for Q', index);
+
+    // mark as selected again
+    option.selected = true;
+
+    // mark question as answered
+    this.setAnswered(true);
+
+    // let your existing pipelines react naturally
+  }
 }

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, NgZone, OnChanges, OnDestroy, OnInit, Output, SimpleChanges, ViewChild } from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, NgZone, OnChanges, OnDestroy, OnInit, Output, SimpleChanges, ViewChild } from '@angular/core';
 import { ActivatedRoute, ParamMap } from '@angular/router';
 import { animationFrameScheduler, BehaviorSubject, combineLatest, defer, firstValueFrom, forkJoin, Observable, of, Subject, Subscription } from 'rxjs';
 import { auditTime, catchError, debounceTime, distinctUntilChanged, filter, map, observeOn, shareReplay, skip, skipUntil, startWith, switchMap, take, takeUntil, tap, withLatestFrom } from 'rxjs/operators';
@@ -32,7 +32,7 @@ interface QuestionViewState {
   styleUrls: ['./codelab-quiz-content.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy {
+export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy, AfterViewInit {
   @ViewChild(QuizQuestionComponent, { static: false })
   quizQuestionComponent!: QuizQuestionComponent;
   
@@ -216,42 +216,55 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
               const el = this.qText?.nativeElement;
               if (!el) return;
 
-              // Run inside Angular's zone so FET + banner are reactive
-              this.ngZone.run(() => {
-                requestAnimationFrame(() => {
-                  const incoming = v ?? '';
-                  const plainText = incoming
-                    .replace(/<[^>]*>/g, ' ')
-                    .replace(/&nbsp;/gi, ' ')
-                    .trim();
+              console.error('[CQCC DIAG]', {
+                mode: this.quizStateService.displayStateSubject?.value?.mode,
+                showExplanation: this.showExplanation,
+                explanationToDisplay: this.explanationToDisplay?.slice(0, 80),
+                latestServiceExplanation: this.explanationTextService?.latestExplanation?.slice(0, 80),
+              });
 
-                  // Skip transient placeholder frames (e.g. a lone question mark)
-                  if (plainText === '?') {
-                    return;
-                  }
+              // 🔐 HARD LOCK: Explanation mode owns the screen
+              const isExplanationMode =
+                this.quizStateService.displayStateSubject?.value?.mode === 'explanation';
 
-                  // Fade-out
-                  el.style.transition = 'opacity 0.12s linear';
-                  el.style.opacity = '0.4';
+              const explanation =
+                this.explanationToDisplay?.trim() ||
+                this.explanationTextService?.latestExplanation?.trim() ||
+                '';
 
-                  // Update content atomically
-                  el.innerHTML = incoming || '';
+              if (isExplanationMode && explanation) {
+                console.warn('[CQCC ✅ LOCKED] Explanation mode active, blocking question redraw');
 
-                  // Fade-in again
-                  requestAnimationFrame(() => {
-                    el.style.opacity = '1';
-                  });
+                el.innerHTML = `
+              <div style="
+                color:#66ff66;
+                background:#111;
+                padding:8px;
+                border:1px solid #444;
+                border-radius:6px;
+                font-size:15px;
+              ">
+                ${explanation}
+              </div>
+            `;
 
-                  // Force Angular to refresh bindings that depend on FET state
-                  this.cdRef.detectChanges();
-                });
+                return; // ⛔ Nothing below executes
+              }
+
+              const incoming = v ?? '';
+
+              el.style.transition = 'opacity 0.12s linear';
+              el.style.opacity = '0.4';
+              el.innerHTML = incoming;
+
+              requestAnimationFrame(() => {
+                el.style.opacity = '1';
               });
             },
             error: (err) => console.error('[CQCC combinedText$ error]', err),
           });
       }
     }, 20);
-
 
     this.combinedQuestionData$ = this.combineCurrentQuestionAndOptions().pipe(
       map(({ currentQuestion, currentOptions }) => {
@@ -352,6 +365,10 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     this.pendingExplanationRequests.clear();
     this.combinedTextSubject.complete();
     this.combinedSub?.unsubscribe();
+  }
+
+  ngAfterViewInit(): void {
+    this.connectCombinedTextStream();
   }
 
   private resetExplanationView(): void {
@@ -639,11 +656,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
         return !block;
       }),
-<<<<<<< HEAD
 
-=======
-  
->>>>>>> c7b94206c94a757b09b033db3376210c4be83b1d
       map(([idx, question, banner, fet, shouldShow, ..._rest]) =>
         this.resolveTextToDisplay(idx, question, banner, fet, shouldShow)
       ),
@@ -656,13 +669,87 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     ) as Observable<string>;
   }
 
-    /* private resolveTextToDisplay(
-      idx: number,
-      question: string,
-      banner: string,
-      fet: { idx: number; text: string; gate: boolean } | null,
-      shouldShow: boolean
-    ): string { */
+  private connectCombinedTextStream(): void {
+    if (this.combinedSub) {
+      this.combinedSub.unsubscribe();
+    }
+
+    if (!this.combinedText$) {
+      console.error('[CQCC] combinedText$ not ready yet');
+      return;
+    }
+
+    console.error('[CQCC] Connecting combinedText$ stream');
+
+    const mode = this.quizStateService.displayStateSubject?.value?.mode;
+
+    const explanation =
+      this.explanationToDisplay?.trim() ||
+      this.explanationTextService?.latestExplanation?.trim();
+
+    // Explanation mode wins, always
+    if (mode === 'explanation' && explanation) {
+      console.warn('[CQCC] 🛑 Explanation taking over render');
+
+
+      this.combinedSub = this.combinedText$
+        .pipe(distinctUntilChanged())
+        .subscribe({
+          next: (v) => {
+            const el = this.qText?.nativeElement;
+            if (!el) return;
+
+            // 🔍 Diagnostics
+            console.error('[CQCC DIAG]', {
+              mode: this.quizStateService.displayStateSubject?.value?.mode,
+              showExplanation: this.showExplanation,
+              explanationToDisplay: this.explanationToDisplay?.slice(0, 80),
+              latestServiceExplanation: this.explanationTextService?.latestExplanation?.slice(0, 80),
+            });
+
+            const isExplanationMode =
+              this.quizStateService.displayStateSubject?.value?.mode === 'explanation';
+
+            const explanation =
+              this.explanationToDisplay?.trim() ||
+              this.explanationTextService.latestExplanation?.trim() ||
+              '';
+
+            // 🛑 Hard lock: EXPLANATION OWNS THE DOM
+            if (isExplanationMode && explanation) {
+              console.warn('[CQCC ✅ LOCKED] Explanation mode active');
+
+              el.innerHTML = `
+              <div style="
+                color:#66ff66;
+                background:#111;
+                padding:8px;
+                border:1px solid #444;
+                border-radius:6px;
+                font-size:15px;
+              ">
+                ${explanation}
+              </div>
+            `;
+              return;
+            }
+
+            // Normal question rendering
+            el.innerHTML = v ?? '';
+          },
+          error: (err) => console.error('[CQCC combinedText$ error]', err),
+        });
+    }
+  }
+
+
+  /* private resolveTextToDisplay(
+    idx: number,
+    question: string,
+    banner: string,
+    fet: { idx: number; text: string; gate: boolean } | null,
+    shouldShow: boolean
+  ): string { */
     /* const active = this.quizService.getCurrentQuestionIndex();
     const fetTxt = fet?.text?.trim() ?? '';
     const qTxt = question?.trim() ?? '';
@@ -888,30 +975,73 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     this._lastQuestionText = merged;
     return merged;
   } */
-  /* private resolveTextToDisplay(
+  private resolveTextToDisplay(
     idx: number,
     question: string,
     banner: string,
     fet: { idx: number; text: string; gate: boolean } | null,
     shouldShow: boolean
   ): string {
-  
+    console.error('[CQCC HARD DIAG JSON]',
+      JSON.stringify({
+        idx,
+        activeIndex: this.quizService.getCurrentQuestionIndex(),
+        displayStateMode: this.quizStateService.displayStateSubject?.value?.mode,
+        showExplanation: this.showExplanation,
+        explanationToDisplay: this.explanationToDisplay?.slice?.(0, 120),
+        latestServiceExplanation: this.explanationTextService?.latestExplanation?.slice?.(0, 120),
+        fetText: fet?.text?.slice?.(0, 120),
+        fetGate: fet?.gate,
+        shouldShow
+      }, null, 2)
+    );
+
+    // ──────────────────────────────────────────────
+    // 🛑 ABSOLUTE GUARD: Explanation mode owns output
+    // ──────────────────────────────────────────────
+    const mode = this.quizStateService.displayStateSubject?.value?.mode ?? 'question';
+
+    // If someone set explanation mode but user never actually interacted with this question,
+    // treat it as bogus and fall back to question text.
+    const hasUserInteracted =
+      (this.quizStateService as any).hasUserInteracted?.(idx) ?? false;
+
+    if ((mode === 'explanation' || this.showExplanation) && hasUserInteracted) {
+      console.log('[CQCC] 🛑 Explanation mode active — blocking question repaint');
+
+      const locked =
+        this.explanationToDisplay?.trim() ||
+        this.explanationTextService?.latestExplanation?.trim() ||
+        '';
+
+      if (locked) {
+        console.log('[CQCC] 🔒 Returning locked explanation text');
+        this._lastQuestionText = locked;
+        return locked;
+      }
+    } else if (mode === 'explanation' || this.showExplanation) {
+      console.warn(
+        '[CQCC] ⚠️ Explanation mode requested but no user interaction — ignoring explanation for this frame'
+      );
+      // fall through into question logic below
+    }
+
     const qText      = (question ?? '').trim();
     const bannerText = (banner ?? '').trim();
     const fetText    = (fet?.text ?? '').trim();
     const active     = this.quizService.getCurrentQuestionIndex();
-    const mode       = this.quizStateService.displayStateSubject?.value?.mode ?? 'question';
-  
+
     const qObj = this.quizService.questions?.[idx];
-  
-    // 1️⃣ Always cache a “last known good” question text
+
+    // Always cache a “last known good” question text
     if (qText) {
       this._lastQuestionText = qText;
     }
-  
-    // =========================================================
+
     // 🧪 STALEMATE BREAKER: FORCE-FET DISPLAY TEST
-    // =========================================================
+    // ❌ This was forcing FET even before any user interaction.
+    //    Disable it and let the normal fetValid logic below decide.
+    /*
     if (fetText) {
       console.log('[FET FORCE TEST]', {
         idx,
@@ -921,21 +1051,20 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         shouldShow,
         textPreview: fetText.slice(0, 80)
       });
-  
+
       // If this shows text, the problem is NOT explanation generation
       return fetText;
     }
-  
-    // =========================================================
-    // 2️⃣ If we’re explicitly in EXPLANATION mode → force use of question.explanation
-    // =========================================================
-    if (mode === 'explanation') {
+    */
+
+    // If we’re explicitly in EXPLANATION mode → force use of question.explanation
+    if (mode === 'explanation' && hasUserInteracted) {
       const ets = this.explanationTextService;
       const raw = (qObj?.explanation ?? '').toString().trim();
-  
+
       if (raw) {
         let formatted = raw;
-  
+
         try {
           const correctIdxs = ets.getCorrectOptionIndices(qObj);
           formatted =
@@ -943,90 +1072,68 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         } catch (e) {
           console.warn('[resolveTextToDisplay] formatExplanation failed, using raw', e);
         }
-  
+
         if (formatted) {
           console.log(`[resolveTextToDisplay] 🧠 Showing EXPLANATION for Q${idx + 1}`);
           this._lastQuestionText = formatted;
           return formatted;
         }
       }
-  
+
       // No explanation text available → fall back to question text
-      const fallbackExpl = this._lastQuestionText ||
-                           qText ||
-                           '[Recovery: question still loading…]';
-  
+      const fallbackExpl =
+        this._lastQuestionText ||
+        qText ||
+        '[Recovery: question still loading…]';
+
       console.warn(
         `[resolveTextToDisplay] ⚠️ No explanation text for Q${idx + 1}, falling back`
       );
-  
+
       return fallbackExpl;
     }
-  
-    // =========================================================
-    // 3️⃣ Keep your FET gating logic (not used in this test)
-    // =========================================================
+
+    // Keep FET gating logic
     const fetValid =
       !!fet &&
       fetText.length > 2 &&
       fet.idx === idx &&
       fet.idx === active &&
-      fet.gate === true &&
+      fet.gate &&
       !this.explanationTextService._fetLocked &&
-      shouldShow === true;
-  
+      shouldShow &&
+      hasUserInteracted;  // ✅ only trust FET after user interaction
+
     if (fetValid) {
       console.log(`[resolveTextToDisplay] ✅ FET gate open for Q${idx + 1}`);
       this._lastQuestionText = fetText;
       return fetText;
     }
-  
-    // =========================================================
-    // 4️⃣ Default: render safe question text
-    // =========================================================
+
+    // Default: render safe question text
     const isMulti =
       !!qObj &&
       (qObj.type === QuestionType.MultipleAnswer ||
         (Array.isArray(qObj.options) &&
-         qObj.options.filter((o: Option) => o.correct).length > 1));
-  
+          qObj.options.filter((o: Option) => o.correct).length > 1));
+
     const fallback =
       this._lastQuestionText ||
       qText ||
       '[Recovery: question still loading…]';
-  
+
     if (isMulti && bannerText && mode === 'question') {
       const merged = `${fallback} <span class="correct-count">${bannerText}</span>`;
       console.log(`[resolveTextToDisplay] 🎯 Question+banner for Q${idx + 1}`);
       this._lastQuestionText = merged;
       return merged;
     }
-  
+
     console.log(`[resolveTextToDisplay] 🔁 Question fallback →`, fallback);
-  
+
     this._lastQuestionText = fallback;
     return fallback;
-  } */
-  private resolveTextToDisplay(
-    idx: number,
-    question: string,
-    banner: string,
-    fet: { idx: number; text: string; gate: boolean } | null,
-    shouldShow: boolean
-  ): string {
-  
-    const qText = (question ?? '').trim();
-  
-    // 🔮 HARD OVERRIDE: If FET exists, ALWAYS display it.
-    if (fet?.text?.trim()) {
-      console.log('[FET FORCE RENDER]', fet.text.slice(0, 80));
-      return fet.text;
-    }
-  
-    console.warn('[FET MISSING] Showing question text:', qText);
-    return qText || 'No question available';
   }
-  
 
   private emitContentAvailableState(): void {
     this.isContentAvailable$.pipe(takeUntil(this.destroy$)).subscribe({

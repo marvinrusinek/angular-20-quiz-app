@@ -443,9 +443,14 @@ export class QuizQuestionLoaderService {
 
     // Child component reset
     if (this.quizQuestionComponent) {
-      await this.quizQuestionComponent.resetQuestionStateBeforeNavigation({
-        preserveVisualState: canReuseCachedQuestion
+      this.quizStateService.displayStateSubject.next({
+        mode: 'question',
+        answered: false
       });
+
+      this.selectedOptionService.resetAllStates();
+      this.resetStateService.triggerResetState();
+      this.explanationTextService.resetExplanationState();
     }
 
     this.quizService.questionPayloadSubject.next(null);

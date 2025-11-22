@@ -170,6 +170,7 @@ export class QuizQuestionComponent extends BaseQuestion
   optionSelectionSubscription!: Subscription;
   shufflePreferenceSubscription!: Subscription;
   private idxSub!: Subscription;
+  private routeSub!: Subscription;
   isMultipleAnswer = false;
   isExplanationTextDisplayed = false;
   isNavigatingToPrevious = false;
@@ -501,6 +502,7 @@ export class QuizQuestionComponent extends BaseQuestion
         this.resetPerQuestionState(idx as number);  // reset for the incoming question
       });
 
+    // this.initRouteHandling();
     this.activatedRoute.paramMap.subscribe(async (params) => {
       this.explanationVisible = false;
       this.explanationText = '';
@@ -780,6 +782,7 @@ export class QuizQuestionComponent extends BaseQuestion
     this.displayModeSubscription?.unsubscribe();
     this.renderReadySubscription?.unsubscribe();
     this.timerSub?.unsubscribe();
+    this.routeSub?.unsubscribe();
     this.shufflePreferenceSubscription?.unsubscribe();
   }
 
@@ -1632,7 +1635,57 @@ export class QuizQuestionComponent extends BaseQuestion
       }
     });
   }
-  
+
+  private initRouteHandling(): void {
+    this.routeSub = this.activatedRoute.paramMap.subscribe(async params => {
+      const raw = params.get('questionIndex');
+      const parsed = Number(raw);
+
+      let oneBasedIndex = Number.isFinite(parsed) && parsed > 0
+        ? parsed
+        : 1;
+
+      if (oneBasedIndex > this.totalQuestions) {
+        oneBasedIndex = 1;
+      }
+
+      const zeroIndex = oneBasedIndex - 1;
+
+      console.log('[ROUTE → QQC]', { raw, oneBasedIndex, zeroIndex });
+
+      try {
+        // Single source of index truth
+        this.quizService.setCurrentQuestionIndex(zeroIndex);
+        this.currentQuestionIndex = zeroIndex;
+
+        // Reset per-question UI state
+        this.explanationVisible = false;
+        this.explanationText = '';
+        this.shouldDisplayExplanation = false;
+        this.displayExplanation = false;
+
+        // Load data
+        const loaded = await this.loadQuestion();
+        if (!loaded) {
+          console.error('[QQC] Failed to load question for index', zeroIndex);
+          return;
+        }
+
+        // If already answered → restore explanation
+        const answered = await this.isAnyOptionSelected(zeroIndex);
+        if (answered) {
+          await this.fetchAndUpdateExplanationText(zeroIndex);
+
+          if (this.shouldDisplayExplanation) {
+            this.showExplanationChange.emit(true);
+            this.updateDisplayStateToExplanation();
+          }
+        }
+      } catch (err) {
+        console.error('[QQC] Route handling error:', err);
+      }
+    });
+  }
 
   private setQuestionFirst(index: number): void {
     if (!this.questionsArray || this.questionsArray.length === 0) {
@@ -2765,6 +2818,7 @@ export class QuizQuestionComponent extends BaseQuestion
     const evtIdx = event.index;
     const evtOpt = event.option;
 
+    this.quizStateService.markUserInteracted(idx);
     this.explanationTextService._activeIndex = idx;
     this.explanationTextService.updateFormattedExplanation('');
     this.explanationTextService.latestExplanation = '';
@@ -2909,6 +2963,23 @@ export class QuizQuestionComponent extends BaseQuestion
 
       this._lastAllCorrect = allCorrect;
 
+      // Only show explanation after real user interaction
+      if (
+        allCorrect &&
+        this.quizStateService.hasUserInteracted(idx)
+      ) {
+        console.log(`[QQC] ✅ USER completed Q${idx + 1} → FET unlocked`);
+
+        this.quizStateService.displayStateSubject.next({
+          mode: 'explanation',
+          answered: true
+        });
+
+        this.displayExplanation = true;
+
+        await this.updateExplanationText(idx);
+      }
+
       // FET trigger
       if (evtOpt?.correct) {
         console.log(`[QQC] ✅ Correct answer selected → trigger FET for Q${idx + 1}`);
@@ -2934,10 +3005,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
       // Lock the question index immediately to avoid drift
       const lockedIndex = this.currentQuestionIndex ?? idx;
-<<<<<<< HEAD
-=======
 
->>>>>>> c7b94206c94a757b09b033db3376210c4be83b1d
       /* if (
         evtOpt?.correct && 
         q?.type === QuestionType.MultipleAnswer && 
@@ -2950,12 +3018,8 @@ export class QuizQuestionComponent extends BaseQuestion
 
         this.fireAndForgetExplanationUpdate(lockedIndex, q);
       } */
-<<<<<<< HEAD
-
       this.fireAndForgetExplanationUpdate(lockedIndex, q);
-   
-=======
->>>>>>> c7b94206c94a757b09b033db3376210c4be83b1d
+
       const lockIdx = this.currentQuestionIndex;
       const question = this.quizService.questions?.[lockIdx];
 
@@ -2973,14 +3037,11 @@ export class QuizQuestionComponent extends BaseQuestion
       console.warn(`[QQC] 🔥 FORCED FET call for Q${lockIdx + 1}`);
       this.fireAndForgetExplanationUpdate(lockIdx, question);
 
-<<<<<<< HEAD
       console.log('[FET ENTRY] fireAndForgetExplanationUpdate HIT', {
         lockedIndex,
         hasQuestion: !!q,
         questionText: q?.questionText
       });
-=======
->>>>>>> c7b94206c94a757b09b033db3376210c4be83b1d
 
       // Continue post-click microtasks for highlighting and feedback
       queueMicrotask(() => {
@@ -3118,10 +3179,8 @@ export class QuizQuestionComponent extends BaseQuestion
 
 
       // Update component presentation
-=======
   
       // ───────────── 3. Sync component display state ─────────────
->>>>>>> 77c3902595f06f72f10b4eaad6812ee9a0df5fd9
       this.displayExplanation = true;
   
       this.quizStateService.setDisplayState({
@@ -3159,11 +3218,10 @@ export class QuizQuestionComponent extends BaseQuestion
       ets._fetLocked = false;
     }
   } */
-  private async performExplanationUpdate(
+  /* private async performExplanationUpdate(
     lockedIndex: number,
     q: QuizQuestion
   ): Promise<void> {
-<<<<<<< HEAD
     console.error('[FET ORIGIN] PERFORM UPDATE ENTERED', lockedIndex);
 
     const ets = this.explanationTextService;
@@ -3178,12 +3236,12 @@ export class QuizQuestionComponent extends BaseQuestion
     if (!raw) {
       console.warn('[FET FAIL] No explanation text in question.');
       return;
-=======
-    const ets = this.explanationTextService;
+    }
   
     try {
       console.log(`[QQC] 🚀 Starting FET for Q${lockedIndex + 1}`);
-  
+
+      const ets = this.explanationTextService;
       // ───────────── 1. Pin this update to a single question ─────────────
       ets._activeIndex = lockedIndex;
   
@@ -3286,7 +3344,6 @@ export class QuizQuestionComponent extends BaseQuestion
     } catch (err) {
       console.warn('[QQC ❌] FET trigger failed:', err);
       ets._fetLocked = false;
->>>>>>> c7b94206c94a757b09b033db3376210c4be83b1d
     }
 
     let formatted = raw;
@@ -3317,13 +3374,110 @@ export class QuizQuestionComponent extends BaseQuestion
     this.explanationToDisplayChange.emit(formatted);
 
     console.error('[FET DONE] Display triggered.');
+  } */
+  private async performExplanationUpdate(
+    lockedIndex: number,
+    q: QuizQuestion
+  ): Promise<void> {
+    console.error('[FET ORIGIN] PERFORM UPDATE ENTERED', lockedIndex);
+
+    const ets = this.explanationTextService;
+
+    const raw = (q?.explanation ?? '').trim();
+
+    console.error('[FET DATA]', {
+      hasExplanation: !!raw,
+      raw: raw.slice(0, 120),
+    });
+
+    if (!raw) {
+      console.warn('[FET FAIL] No explanation text in question.');
+      return;
+    }
+
+    try {
+      console.log(`[QQC] 🚀 Starting FET for Q${lockedIndex + 1}`);
+
+      // ───────────── 1. Pin to active index ─────────────
+      ets._activeIndex = lockedIndex;
+
+      // Lock only during formatting
+      ets._fetLocked = true;
+
+      ets.setShouldDisplayExplanation(false);
+      ets.setIsExplanationTextDisplayed(false);
+      ets.latestExplanation = '';
+      ets.updateFormattedExplanation('');
+
+      // Kill stale per-index cache
+      ets.purgeAndDefer(lockedIndex);
+
+      // Give one clean frame to kill stale renders
+      await new Promise(res => requestAnimationFrame(res));
+
+      const canonicalQ =
+        this.quizService.questions?.[lockedIndex] ?? q;
+
+      const canonicalRaw = (canonicalQ?.explanation ?? '').trim();
+      if (!canonicalRaw) {
+        console.warn(`[QQC] ⚠️ No explanation text for Q${lockedIndex + 1}`);
+        ets._fetLocked = false;
+        return;
+      }
+
+      const correctIdxs = ets.getCorrectOptionIndices(canonicalQ);
+
+      const formatted = ets
+        .formatExplanation(canonicalQ, correctIdxs, canonicalRaw)
+        .trim();
+
+      if (!formatted) {
+        console.warn(`[QQC] ⚠️ Formatter stripped explanation text`);
+        ets._fetLocked = false;
+        return;
+      }
+
+      console.log('[FET ORIGIN]', {
+        index: lockedIndex,
+        formattedLength: formatted.length,
+        formattedPreview: formatted.slice(0, 120),
+      });
+
+      // ───────────── 2. Unlock BEFORE emission ─────────────
+      ets._fetLocked = false;
+
+      console.log('🧠 [FET] Emitting explanation:', formatted.slice(0, 80));
+
+      // Single clean emission path (no duplicates later)
+      ets.latestExplanation = formatted;
+      ets.formattedExplanationSubject?.next(formatted);
+      ets.shouldDisplayExplanationSource?.next(false);
+      ets.setIsExplanationTextDisplayed(true);
+
+      console.warn('[FET PROBE] EMITTED:', {
+        idx: lockedIndex,
+        activeIndex: ets._activeIndex
+      });
+
+      // Sync component display state
+      this.displayExplanation = true;
+
+      this.quizStateService.setDisplayState({
+        mode: 'explanation',
+        answered: true
+      });
+
+      this.explanationToDisplay = formatted;
+      this.explanationToDisplayChange.emit(formatted);
+
+      console.log(`[QQC ✅] FET successfully displayed for Q${lockedIndex + 1}`);
+
+    } catch (err) {
+      console.warn('[QQC ❌] FET trigger failed:', err);
+      ets._fetLocked = false;
+    }
   }
-  
 
-<<<<<<< HEAD
-
-=======
->>>>>>> c7b94206c94a757b09b033db3376210c4be83b1d
 
   private onQuestionTimedOut(targetIndex?: number): void {
     // Ignore repeated signals

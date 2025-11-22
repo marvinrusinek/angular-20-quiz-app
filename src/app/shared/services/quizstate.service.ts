@@ -54,6 +54,8 @@ export class QuizStateService {
   // Tracks whether the quiz state has completed at least one full restoration
   public hasRestoredOnce = false;
 
+  private _hasUserInteracted = new Set<number>();
+
   constructor() {
     this.questionStates = new Map<number, QuestionState>();
   }
@@ -305,5 +307,13 @@ export class QuizStateService {
 
   isInteractionReady(): boolean { 
     return this.interactionReadySubject.getValue(); 
+  }
+
+  markUserInteracted(idx: number): void {
+    this._hasUserInteracted.add(idx);
+  }
+
+  hasUserInteracted(idx: number): boolean {
+    return this._hasUserInteracted.has(idx);
   }
 }

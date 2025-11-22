@@ -476,7 +476,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.indexSubscription = this.quizService.currentQuestionIndex$
       .pipe(distinctUntilChanged())
       .subscribe((idx: number) => {
-<<<<<<< HEAD
         console.log('[INDEX STREAM SOURCE]', idx);
         console.error('[INDEX STREAM]', idx);
 
@@ -538,7 +537,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           mode: 'question',
           answered: false
         });
-=======
+
         // Update local view model
         this.currentQuestionIndex = idx;
         this.lastLoggedIndex      = -1;
@@ -549,7 +548,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         this.showLocalExplanation = false;
         this.localExplanationText = '';
         (this.quizStateService as any)._explanationLock = null;
->>>>>>> c7b94206c94a757b09b033db3376210c4be83b1d
 
         this.explanationTextService.setShouldDisplayExplanation(false);
 
@@ -2134,6 +2132,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       }
 
       if (!this.quiz?.questions) return;
+
       if (
         isNaN(routeIndex) ||
         routeIndex < 1 ||
@@ -2143,17 +2142,15 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           '[loadQuestionByRouteIndex] ⚠️ Invalid route index:',
           routeIndex
         );
-        void this.router.navigate(['/question/', this.quizId, 1]);  // or redirect to the first question
+        void this.router.navigate(['/question/', this.quizId, 1]);
         return;
       }
 
       const questionIndex = routeIndex - 1;  // convert 1-based URL index to 0-based
-      console.log(
-        `[loadQuestionByRouteIndex] 🚀 Navigating to Q${questionIndex}`
-      );
+
+      console.log(`[loadQuestionByRouteIndex] 🚀 Navigating to Q${questionIndex}`);
 
       if (
-        !this.quiz ||
         questionIndex < 0 ||
         questionIndex >= this.quiz.questions.length
       ) {
@@ -2170,6 +2167,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
       this.timerService.resetTimer();
       this.timerService.startTimer();
+
       this.quizService.updateBadgeText(
         questionIndex + 1,
         this.quiz.questions.length
@@ -2178,6 +2176,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       this.resetFeedbackState();
 
       const question = this.quiz.questions[questionIndex];
+
       this.questionToDisplay =
         question.questionText?.trim() ?? 'No question available';
 
@@ -2185,6 +2184,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         question.options || [],
         this.currentQuestionIndex
       );
+
       this.optionsToDisplay = optionsWithIds.map((option, index) => ({
         ...option,
         feedback: 'Loading feedback...',
@@ -2198,7 +2198,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
             : index + 1
       }));
 
-      const correctOptions = this.optionsToDisplay.filter((opt) => opt.correct);
+      const correctOptions = this.optionsToDisplay.filter(opt => opt.correct);
       if (!correctOptions.length) {
         console.warn(
           '[loadQuestionByRouteIndex] ⚠️ No correct answers found for this question.'
@@ -2211,39 +2211,51 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
         setTimeout(() => {
           if (!this.optionsToDisplay || this.optionsToDisplay.length === 0) {
-            this.quizQuestionComponent?.populateOptionsToDisplay();
+            console.warn('[loadQuestionByRouteIndex] ⚠️ optionsToDisplay empty, relying on loader pipeline.');
           }
 
           const previouslySelectedOption = this.optionsToDisplay.find(
-            (opt) => opt.selected
+            opt => opt.selected
           );
+
           if (previouslySelectedOption) {
-            this.quizQuestionComponent?.applyOptionFeedback(
-              previouslySelectedOption
+            // Route feedback through the service instead
+            this.selectedOptionService.reapplySelectionForQuestion(
+              previouslySelectedOption,
+              this.currentQuestionIndex
             );
           } else {
             console.log(
-              '[loadQuestionByRouteIndex] ℹ️ No previously selected option. Applying feedback to all.'
+              '[loadQuestionByRouteIndex] ℹ️ No previously selected option. Skipping feedback replay.'
             );
           }
+
         }, 50);
+
       }, 150);
 
-      // Await feedback generation
+      // ✅ Feedback generation must NOT be inside setTimeout.
+      // It runs after initialization but stays in the async flow.
+
       try {
         const feedback =
           await (this.quizQuestionComponent?.generateFeedbackText(question) ?? '');
+
         this.feedbackText = feedback;
+
         console.log('[loadQuestionByRouteIndex] 🧠 Feedback Text:', feedback);
       } catch (error) {
         console.error(
           '[loadQuestionByRouteIndex] ❌ Feedback generation failed:',
           error
         );
+
         this.feedbackText = 'Could not generate feedback. Please try again.';
       }
+
     } catch (error) {
       console.error('[loadQuestionByRouteIndex] ❌ Unexpected error:', error);
+
       this.feedbackText = 'Error loading question details.';
       this.cdRef.markForCheck();
     }
@@ -4366,7 +4378,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       this.quizService.updateBadgeText(1, this.totalQuestions);
   
       // Ensure child resets itself for Q1
-      this.quizQuestionComponent?.resetForQuestion(0);
+      this.resetStateService.triggerResetState();
+      this.quizService.setCurrentQuestionIndex(0);
   
       // Guarantee Next is off for Q1
       this.nextButtonStateService.setNextButtonState(false);

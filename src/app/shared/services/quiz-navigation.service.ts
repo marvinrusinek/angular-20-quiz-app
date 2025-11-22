@@ -603,6 +603,9 @@ export class QuizNavigationService {
         return false;
       }
 
+      // Tell the entire app "we are on this index now"
+      this.quizService.setCurrentQuestionIndex(index);
+
       try {
         const ets: any = this.explanationTextService;
         // Reset any lingering formatted explanation text or gates
