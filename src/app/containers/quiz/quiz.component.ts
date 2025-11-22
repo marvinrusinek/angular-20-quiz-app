@@ -476,50 +476,51 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.indexSubscription = this.quizService.currentQuestionIndex$
       .pipe(distinctUntilChanged())
       .subscribe((idx: number) => {
-
+        console.log('[INDEX STREAM SOURCE]', idx);
         console.error('[INDEX STREAM]', idx);
 
-        // ─────────────────────────────
-        // 🔥 HARD RESET: kill any stale Q1 FET immediately
-        // ─────────────────────────────
-        this.explanationTextService.latestExplanation = '';
-        this.explanationTextService.formattedExplanationSubject.next('');
-        this.explanationTextService.shouldDisplayExplanationSource.next(false);
+        const ets = this.explanationTextService;
 
-        this.explanationOverride  = { idx, html: '' };
-        this.displayExplanation   = false;
-        this.explanationVisibleLocal = false;
-        this.explanationHtml      = '';
-        this.explanationToDisplay = '';
-        this.showExplanation      = false;
+        // Reset aLL stale FET from previous question
+        ets.latestExplanation = '';
+        ets.formattedExplanationSubject.next('');
+        ets.shouldDisplayExplanationSource.next(false);
+        ets._fetLocked = false;
+        ets._activeIndex = idx;
 
-        // Reset FET gating for new index
-        this.explanationTextService._activeIndex = idx;
         this._fetEarlyShown.delete(idx);
 
-        console.error('[FET RESET] Cleared before rendering Q', idx + 1);
+        this.explanationOverride       = { idx, html: '' };
+        this.displayExplanation        = false;
+        this.explanationVisibleLocal   = false;
+        this.explanationHtml           = '';
+        this.explanationToDisplay      = '';
+        this.showExplanation           = false;
+        this.showLocalExplanation      = false;
+        this.localExplanationText      = '';
 
-        // ─────────────────────────────
-        // NEW: bind question to index
-        // ─────────────────────────────
+        console.warn('[FET RESET] ✅ Cleared for Q', idx + 1);
+
+        // Attach correct question
         const q = this.questionsArray?.[idx];
-
-        console.log('[QUESTION STREAM]', {
-          idx,
-          questionExists: !!q,
-          questionText: q?.questionText?.slice(0, 80)
-        });
-
         if (!q) {
           console.error(`🔥 No question found for index ${idx}`);
           return;
         }
 
-        // Update local question references
         this.currentQuestion = q;
-        // this.questionText = q.questionText;
+        const trimmed = (q.questionText ?? '').trim();
+        this.questionToDisplay = trimmed;
 
-        // If tracking options here, reset them too
+        // Push into the actual stream the template uses
+        this.questionToDisplaySource.next(trimmed);
+
+        console.log('[QUESTION STREAM]', {
+          idx,
+          questionPreview: q?.questionText?.slice(0, 80)
+        });
+
+        // Reset options
         const originalOptions = q.options ?? [];
         this.optionsToDisplay = originalOptions.map(opt => ({
           ...opt,
@@ -529,41 +530,37 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           showIcon: false
         }));
 
-        // ─────────────────────────────
-        // Existing logic (untouched)
-        // ─────────────────────────────
-        this.currentQuestionIndex = idx;
-        this.lastLoggedIndex      = -1;
-        this.showLocalExplanation = false;
-        this.localExplanationText = '';
+        // Reset quiz state locks
+        (this.quizStateService as any)._explanationLock = null;
 
-        // CRITICAL RESET: force back to question mode
         this.quizStateService.setDisplayState({
           mode: 'question',
           answered: false
         });
 
-        // Reset shared explanation state
         this.explanationTextService.setShouldDisplayExplanation(false);
-        this.quizStateService.setDisplayState({ mode: 'question', answered: false });
 
-        // Clear per-question selection cache
+        // Clear selection cache
         this.selectedOptionService.selectedOptionIndices[idx] = [];
 
-        // Reset sticky helpers
         this.selectionMessageService.lastRemainingByIndex?.delete(idx);
         this.selectionMessageService.stickyCorrectIdsByIndex?.delete(idx);
         this.selectionMessageService.stickyAnySelectedKeysByIndex?.delete(idx);
 
-        // Progress bar
+        // Update progress bar
         this.progressBarService.updateProgress(idx + 1, this.totalQuestions);
 
-        // Force question redraw
-        this.questionToDisplaySource.next(
-          this.quizService.questions?.[idx]?.questionText?.trim() || '...'
-        );
+        // Re-inject the question text
+        const freshText = q.questionText?.trim() || '...';
 
-        // Trigger UI refresh
+        console.warn('[QUESTION REFRESH]', {
+          idx,
+          freshTextPreview: freshText.slice(0, 80)
+        });
+
+        this.quizQuestionLoaderService.questionToDisplaySubject.next(freshText);
+
+        // Wake Angular
         this.cdRef.markForCheck();
       });
 

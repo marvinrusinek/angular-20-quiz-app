@@ -604,9 +604,41 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       ),
 
       // Coalesce multi-stream bursts (question, banner, FET clears)
-      // Prevents flash of empty strings between renders
       auditTime(32),
       filter(([, question]) => typeof question === 'string' && question.trim().length > 0),
+
+      // ────────────────────────────────
+      auditTime(32),  // waits ~1 frame before passing combined emission
+      filter(([ , question]) => typeof question === 'string' && question.trim().length > 0),
+      tap(([idx, question, banner, fet, shouldShow]) => {
+        console.log('[FET STREAM]', {
+          idx,
+          question: question?.slice?.(0, 40),
+          fetText: fet?.text?.slice?.(0, 40),
+          fetGate: fet?.gate,
+          shouldShow
+        });
+      }),
+
+      // ─────────────────────────────────────────────────────────────
+      // NEW: Explanation lock filter — prevents overwriting FET mid-display
+      // ─────────────────────────────────────────────────────────────
+      filter(([idx]) => {
+        const mode = this.quizStateService.displayStateSubject?.value?.mode;
+        const explLock = this.explanationTextService._activeIndex;
+        const currentIdx = this.quizService.getCurrentQuestionIndex();
+
+        const block =
+          mode === 'explanation' &&
+          explLock === currentIdx &&
+          idx === currentIdx;
+
+        if (block) {
+          console.log('[DisplayGate] ⛔ Blocking text override while FET active');
+        }
+
+        return !block;
+      }),
 
       map(([idx, question, banner, fet, shouldShow, ..._rest]) =>
         this.resolveTextToDisplay(idx, question, banner, fet, shouldShow)
@@ -793,7 +825,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     this._lastQuestionText = merged;
     return merged;
   } */
-  private resolveTextToDisplay(
+  /* private resolveTextToDisplay(
     idx: number,
     question: string,
     banner: string,
@@ -804,52 +836,39 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     const bannerText = (banner ?? '').trim();
     const fetText = (fet?.text ?? '').trim();
     const active = this.quizService.getCurrentQuestionIndex();
-    const mode = this.quizStateService.displayStateSubject?.value?.mode ?? 'question';
+    const mode =
+      this.quizStateService.displayStateSubject?.value?.mode ?? 'question';
   
-    // ─────────────────────────────
-    // 1️⃣ If there’s no explanation yet, always show the question
-    // ─────────────────────────────
-    if (!fet || !fetText) {
+    // 1️⃣ No explanation → show normal question
+    if (!fetText) {
       this._lastQuestionText = qText;
       return qText;
     }
   
-    // ─────────────────────────────
-    // 2️⃣ If indices don’t line up, reject the FET entirely
-    // ─────────────────────────────
-    if (fet.idx !== idx || fet.idx !== active) {
-      console.log(
-        `[resolveTextToDisplay] 🚫 FET mismatch (fet.idx=${fet.idx}, idx=${idx}, active=${active})`
+    // 2️⃣ Reject only if explanation belongs to another question
+    if (fet?.idx !== idx || active !== idx) {
+      console.warn(
+        `[FET BLOCK] idx mismatch → fet.idx=${fet?.idx}, idx=${idx}, active=${active}`
       );
       this._lastQuestionText = qText;
       return qText;
     }
   
-    // ─────────────────────────────
-    // 3️⃣ If gate closed or lock engaged, keep question visible
-    // ─────────────────────────────
-    if (this.explanationTextService._fetLocked || !fet.gate) {
-      return qText;
-    }
+    // 3️⃣ Allow FET when:
+    //    - gate is open
+    //    - OR UI is explicitly in explanation mode
+    const allowFET =
+      fet.gate === true ||
+      shouldShow === true ||
+      mode === 'explanation';
   
-    // ─────────────────────────────
-    // 4️⃣ Only show FET when gate open, text nonempty, and in explanation mode
-    // ─────────────────────────────
-    const fetAllowed =
-      fetText.length > 2 &&
-      fet.gate &&
-      (shouldShow || mode === 'explanation') &&
-      !this.explanationTextService._fetLocked;
-  
-    if (fetAllowed) {
-      console.log(`[resolveTextToDisplay] ✅ Showing FET for Q${idx + 1}`);
+    if (allowFET) {
+      console.log(`[✅ FET DISPLAY] Showing explanation for Q${idx + 1}`);
       this._lastQuestionText = fetText;
       return fetText;
     }
   
-    // ─────────────────────────────
-    // 5️⃣ Default back to question text (include banner for multi-answer)
-    // ─────────────────────────────
+    // 4️⃣ Otherwise show question + banner
     const qObj = this.quizService.questions?.[idx];
     const isMulti =
       !!qObj &&
@@ -857,15 +876,153 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         (Array.isArray(qObj.options) && qObj.options.some((o: Option) => o.correct)));
   
     let merged = qText;
+  
     if (isMulti && bannerText && mode === 'question') {
       merged = `${qText} <span class="correct-count">${bannerText}</span>`;
     }
   
     this._lastQuestionText = merged;
     return merged;
+  } */
+  /* private resolveTextToDisplay(
+    idx: number,
+    question: string,
+    banner: string,
+    fet: { idx: number; text: string; gate: boolean } | null,
+    shouldShow: boolean
+  ): string {
+  
+    const qText      = (question ?? '').trim();
+    const bannerText = (banner ?? '').trim();
+    const fetText    = (fet?.text ?? '').trim();
+    const active     = this.quizService.getCurrentQuestionIndex();
+    const mode       = this.quizStateService.displayStateSubject?.value?.mode ?? 'question';
+  
+    const qObj = this.quizService.questions?.[idx];
+  
+    // 1️⃣ Always cache a “last known good” question text
+    if (qText) {
+      this._lastQuestionText = qText;
+    }
+  
+    // =========================================================
+    // 🧪 STALEMATE BREAKER: FORCE-FET DISPLAY TEST
+    // =========================================================
+    if (fetText) {
+      console.log('[FET FORCE TEST]', {
+        idx,
+        active,
+        fetIdx: fet?.idx,
+        fetGate: fet?.gate,
+        shouldShow,
+        textPreview: fetText.slice(0, 80)
+      });
+  
+      // If this shows text, the problem is NOT explanation generation
+      return fetText;
+    }
+  
+    // =========================================================
+    // 2️⃣ If we’re explicitly in EXPLANATION mode → force use of question.explanation
+    // =========================================================
+    if (mode === 'explanation') {
+      const ets = this.explanationTextService;
+      const raw = (qObj?.explanation ?? '').toString().trim();
+  
+      if (raw) {
+        let formatted = raw;
+  
+        try {
+          const correctIdxs = ets.getCorrectOptionIndices(qObj);
+          formatted =
+            ets.formatExplanation(qObj, correctIdxs, raw)?.trim() || raw;
+        } catch (e) {
+          console.warn('[resolveTextToDisplay] formatExplanation failed, using raw', e);
+        }
+  
+        if (formatted) {
+          console.log(`[resolveTextToDisplay] 🧠 Showing EXPLANATION for Q${idx + 1}`);
+          this._lastQuestionText = formatted;
+          return formatted;
+        }
+      }
+  
+      // No explanation text available → fall back to question text
+      const fallbackExpl = this._lastQuestionText ||
+                           qText ||
+                           '[Recovery: question still loading…]';
+  
+      console.warn(
+        `[resolveTextToDisplay] ⚠️ No explanation text for Q${idx + 1}, falling back`
+      );
+  
+      return fallbackExpl;
+    }
+  
+    // =========================================================
+    // 3️⃣ Keep your FET gating logic (not used in this test)
+    // =========================================================
+    const fetValid =
+      !!fet &&
+      fetText.length > 2 &&
+      fet.idx === idx &&
+      fet.idx === active &&
+      fet.gate === true &&
+      !this.explanationTextService._fetLocked &&
+      shouldShow === true;
+  
+    if (fetValid) {
+      console.log(`[resolveTextToDisplay] ✅ FET gate open for Q${idx + 1}`);
+      this._lastQuestionText = fetText;
+      return fetText;
+    }
+  
+    // =========================================================
+    // 4️⃣ Default: render safe question text
+    // =========================================================
+    const isMulti =
+      !!qObj &&
+      (qObj.type === QuestionType.MultipleAnswer ||
+        (Array.isArray(qObj.options) &&
+         qObj.options.filter((o: Option) => o.correct).length > 1));
+  
+    const fallback =
+      this._lastQuestionText ||
+      qText ||
+      '[Recovery: question still loading…]';
+  
+    if (isMulti && bannerText && mode === 'question') {
+      const merged = `${fallback} <span class="correct-count">${bannerText}</span>`;
+      console.log(`[resolveTextToDisplay] 🎯 Question+banner for Q${idx + 1}`);
+      this._lastQuestionText = merged;
+      return merged;
+    }
+  
+    console.log(`[resolveTextToDisplay] 🔁 Question fallback →`, fallback);
+  
+    this._lastQuestionText = fallback;
+    return fallback;
+  } */
+  private resolveTextToDisplay(
+    idx: number,
+    question: string,
+    banner: string,
+    fet: { idx: number; text: string; gate: boolean } | null,
+    shouldShow: boolean
+  ): string {
+  
+    const qText = (question ?? '').trim();
+  
+    // 🔮 HARD OVERRIDE: If FET exists, ALWAYS display it.
+    if (fet?.text?.trim()) {
+      console.log('[FET FORCE RENDER]', fet.text.slice(0, 80));
+      return fet.text;
+    }
+  
+    console.warn('[FET MISSING] Showing question text:', qText);
+    return qText || 'No question available';
   }
   
-
 
   private emitContentAvailableState(): void {
     this.isContentAvailable$.pipe(takeUntil(this.destroy$)).subscribe({

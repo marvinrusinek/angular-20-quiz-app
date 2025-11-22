@@ -3,19 +3,35 @@ import { Injectable, ViewContainerRef, ComponentRef, Type } from '@angular/core'
 @Injectable({ providedIn: 'root' })
 export class DynamicComponentService {
 
+  private cachedAnswerComponent: Type<any> | null = null;
+  private loadingPromise: Promise<Type<any>> | null = null;
+
   constructor() {}
 
   private async importComponent(): Promise<Type<any>> {
-    // Clean import — no ?cb, no globs
-    const module = await import(
-      '../../components/question/answer/answer-component/answer.component'
-      );
-
-    if (!module || !module.AnswerComponent) {
-      throw new Error('[DynamicComponentService] ❌ AnswerComponent failed to load.');
+    // ✅ Already cached → instant
+    if (this.cachedAnswerComponent) {
+      return this.cachedAnswerComponent;
     }
 
-    return module.AnswerComponent;
+    // ✅ Already loading → wait for same promise
+    if (this.loadingPromise) {
+      return this.loadingPromise;
+    }
+
+    // ✅ First load (real one)
+    this.loadingPromise = import(
+      '../../components/question/answer/answer-component/answer.component'
+    ).then(module => {
+      if (!module?.AnswerComponent) {
+        throw new Error('[DynamicComponentService] AnswerComponent missing from module');
+      }
+
+      this.cachedAnswerComponent = module.AnswerComponent;
+      return module.AnswerComponent;
+    });
+
+    return this.loadingPromise;
   }
 
   public async loadComponent<T>(
@@ -33,10 +49,13 @@ export class DynamicComponentService {
     (componentRef.instance as any).isMultipleAnswer = multipleAnswer;
 
     const instance: any = componentRef.instance;
+
     if (instance.optionClicked) {
       instance.optionClicked.subscribe((event: any) => {
         onOptionClicked(event);
       });
+    } else {
+      console.warn('[DCS] optionClicked output not found on AnswerComponent');
     }
 
     return componentRef;
