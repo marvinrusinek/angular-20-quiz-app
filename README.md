@@ -2,7 +2,7 @@
 
 <p>Welcome to the Angular Quiz App — an interactive, modern quiz platform built with Angular. Whether you're testing your knowledge or learning something new, this app offers a smooth and rewarding experience, complete with feedback, explanations, and a polished UI.</p>
 
-👉 <a href="https://angular-10-quiz-app.stackblitz.io/" target="_blank">Launch the App Now</a>
+👉 <a href="https://stackblitz.com/~/github.com/marvinrusinek/angular-20-quiz-app" target="_blank">Launch the App Now</a>
 
 <h3>🎯 What Makes It Awesome</h3>
 
@@ -37,9 +37,9 @@
 <b>Prerequisites</b>
 <p>Make sure you have the following installed:
 
-Node.js (v12+)
+Node.js (v19+)
 
-Angular CLI (v10+)
+Angular CLI (v20+)
 
 Run Locally
 git clone https://github.com/yourusername/quiz-app.git
