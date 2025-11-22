@@ -819,13 +819,13 @@ export class QuizService {
   }
 
   setCurrentQuestionIndex(index: number): void {
-    this.currentQuestionIndex = index;
-    this.currentQuestionIndexSource.next(index);
-  }  
+    const safeIndex = Math.max(0, Number(index) || 0);
+    console.log('[QS] setCurrentQuestionIndex ->', safeIndex);
+    this.currentQuestionIndexSource.next(safeIndex);
+  }
 
   getCurrentQuestionIndex(): number {
-    const idx = this.currentQuestionIndexSource.getValue?.() ?? this.currentQuestionIndex;
-    return Math.max(0, idx);
+    return this.currentQuestionIndexSource.getValue();
   }
 
   getCurrentQuestionIndexObservable(): Observable<number> {
