@@ -639,7 +639,11 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
         return !block;
       }),
+<<<<<<< HEAD
 
+=======
+  
+>>>>>>> c7b94206c94a757b09b033db3376210c4be83b1d
       map(([idx, question, banner, fet, shouldShow, ..._rest]) =>
         this.resolveTextToDisplay(idx, question, banner, fet, shouldShow)
       ),

@@ -476,6 +476,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.indexSubscription = this.quizService.currentQuestionIndex$
       .pipe(distinctUntilChanged())
       .subscribe((idx: number) => {
+<<<<<<< HEAD
         console.log('[INDEX STREAM SOURCE]', idx);
         console.error('[INDEX STREAM]', idx);
 
@@ -537,6 +538,18 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           mode: 'question',
           answered: false
         });
+=======
+        // Update local view model
+        this.currentQuestionIndex = idx;
+        this.lastLoggedIndex      = -1;
+        this.explanationHtml      = '';
+        this.showExplanation      = false;
+        this.explanationToDisplay = '';
+        this.explanationOverride  = { idx, html: '' };
+        this.showLocalExplanation = false;
+        this.localExplanationText = '';
+        (this.quizStateService as any)._explanationLock = null;
+>>>>>>> c7b94206c94a757b09b033db3376210c4be83b1d
 
         this.explanationTextService.setShouldDisplayExplanation(false);
 

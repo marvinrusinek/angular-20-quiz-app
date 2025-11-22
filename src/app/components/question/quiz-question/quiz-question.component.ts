@@ -2934,6 +2934,10 @@ export class QuizQuestionComponent extends BaseQuestion
 
       // Lock the question index immediately to avoid drift
       const lockedIndex = this.currentQuestionIndex ?? idx;
+<<<<<<< HEAD
+=======
+
+>>>>>>> c7b94206c94a757b09b033db3376210c4be83b1d
       /* if (
         evtOpt?.correct && 
         q?.type === QuestionType.MultipleAnswer && 
@@ -2946,9 +2950,12 @@ export class QuizQuestionComponent extends BaseQuestion
 
         this.fireAndForgetExplanationUpdate(lockedIndex, q);
       } */
+<<<<<<< HEAD
 
       this.fireAndForgetExplanationUpdate(lockedIndex, q);
    
+=======
+>>>>>>> c7b94206c94a757b09b033db3376210c4be83b1d
       const lockIdx = this.currentQuestionIndex;
       const question = this.quizService.questions?.[lockIdx];
 
@@ -2966,11 +2973,14 @@ export class QuizQuestionComponent extends BaseQuestion
       console.warn(`[QQC] 🔥 FORCED FET call for Q${lockIdx + 1}`);
       this.fireAndForgetExplanationUpdate(lockIdx, question);
 
+<<<<<<< HEAD
       console.log('[FET ENTRY] fireAndForgetExplanationUpdate HIT', {
         lockedIndex,
         hasQuestion: !!q,
         questionText: q?.questionText
       });
+=======
+>>>>>>> c7b94206c94a757b09b033db3376210c4be83b1d
 
       // Continue post-click microtasks for highlighting and feedback
       queueMicrotask(() => {
@@ -3153,6 +3163,7 @@ export class QuizQuestionComponent extends BaseQuestion
     lockedIndex: number,
     q: QuizQuestion
   ): Promise<void> {
+<<<<<<< HEAD
     console.error('[FET ORIGIN] PERFORM UPDATE ENTERED', lockedIndex);
 
     const ets = this.explanationTextService;
@@ -3167,6 +3178,115 @@ export class QuizQuestionComponent extends BaseQuestion
     if (!raw) {
       console.warn('[FET FAIL] No explanation text in question.');
       return;
+=======
+    const ets = this.explanationTextService;
+  
+    try {
+      console.log(`[QQC] 🚀 Starting FET for Q${lockedIndex + 1}`);
+  
+      // ───────────── 1. Pin this update to a single question ─────────────
+      ets._activeIndex = lockedIndex;
+  
+      // Important: lock only during formatting – NOT during display
+      ets._fetLocked = true;
+  
+      ets.setShouldDisplayExplanation(false);
+      ets.setIsExplanationTextDisplayed(false);
+      ets.latestExplanation = '';
+      ets.updateFormattedExplanation('');
+  
+      // Kill any stale cache from previous questions
+      ets.purgeAndDefer(lockedIndex);
+  
+      // Wait one frame so previous emissions are dead
+      await new Promise(res => requestAnimationFrame(res));
+  
+      const canonicalQ =
+        this.quizService.questions?.[lockedIndex] ?? q;
+  
+      const raw = (canonicalQ?.explanation ?? '').trim();
+      if (!raw) {
+        console.warn(`[QQC] ⚠️ No explanation text for Q${lockedIndex + 1}`);
+        ets._fetLocked = false;
+        return;
+      }
+  
+      const correctIdxs = ets.getCorrectOptionIndices(canonicalQ);
+  
+      const formatted = ets
+        .formatExplanation(canonicalQ, correctIdxs, raw)
+        .trim();
+  
+      if (!formatted) {
+        console.warn(`[QQC] ⚠️ Formatter stripped explanation text`);
+        ets._fetLocked = false;
+        return;
+      }
+
+      console.log('[FET ORIGIN]', {
+        index: lockedIndex,
+        formattedLength: formatted.length,
+        formattedPreview: formatted.slice(0, 120),
+        shouldDisplay: (this.explanationTextService as any)?.shouldDisplayExplanationSource?.value
+      });
+  
+      // ───────────── 2. Commit explanation (THIS must happen unlocked) ─────────────
+      ets._fetLocked = false;  // ← critical fix
+  
+      console.log('🧠 [FET] Emitting explanation:', formatted.slice(0, 80));
+  
+      // ✅ Direct subject emission bypassing wrappers
+      ets.formattedExplanationSubject?.next(formatted);
+      ets.shouldDisplayExplanationSource?.next(true);
+  
+      // Preserve your existing state storage
+      ets.latestExplanation = formatted;
+  
+      console.warn('[FET PROBE] EMITTED:', {
+        idx: lockedIndex,
+        text: formatted,
+        activeIndex: ets._activeIndex
+      });
+  
+      ets.setIsExplanationTextDisplayed(true);
+  
+      // ───────────── 3. Sync component display state ─────────────
+      this.displayExplanation = true;
+  
+      this.quizStateService.setDisplayState({
+        mode: 'explanation',
+        answered: true
+      });
+  
+      this.explanationToDisplay = formatted;
+      this.explanationToDisplayChange.emit(formatted);
+
+
+      const el = document.querySelector('#questionText, .question-text, h3');
+
+      if (el instanceof HTMLElement) {
+        console.log('[HARD FET WRITE] Writing directly to DOM');
+
+        el.innerHTML = `
+          <div style="
+            color:#66ff66;
+            background:#111;
+            padding:8px;
+            border:1px solid #444;
+            border-radius:6px;
+            font-size:15px;
+          ">
+            ⚡ FORCED EXPLANATION TEXT ⚡<br/><br/>
+            ${formatted}
+          </div>
+        `;
+      }
+  
+      console.log(`[QQC ✅] FET successfully displayed for Q${lockedIndex + 1}`);
+    } catch (err) {
+      console.warn('[QQC ❌] FET trigger failed:', err);
+      ets._fetLocked = false;
+>>>>>>> c7b94206c94a757b09b033db3376210c4be83b1d
     }
 
     let formatted = raw;
@@ -3200,7 +3320,10 @@ export class QuizQuestionComponent extends BaseQuestion
   }
   
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> c7b94206c94a757b09b033db3376210c4be83b1d
 
   private onQuestionTimedOut(targetIndex?: number): void {
     // Ignore repeated signals
