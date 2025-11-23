@@ -3116,6 +3116,12 @@ export class QuizQuestionComponent extends BaseQuestion
     lockedIndex: number,
     q: QuizQuestion
   ): void {
+    console.error('[FET ENTRY HIT]', {
+      lockedIndex,
+      activeIndex: this.quizService.getCurrentQuestionIndex(),
+      questionText: q?.questionText?.slice(0, 40)
+    });
+
     const active = this.quizService.getCurrentQuestionIndex();
 
     console.error('[FET ENTRY] fireAndForgetExplanationUpdate HIT', {
@@ -3438,7 +3444,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
     console.error('[FET DONE] Display triggered.');
   } */
-  private async performExplanationUpdate(
+  /* private async performExplanationUpdate(
     lockedIndex: number,
     q: QuizQuestion
   ): Promise<void> {
@@ -3548,7 +3554,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
       console.log('🧠 [FET] Emitting explanation:', formatted.slice(0, 80));
 
-      // ✅ Explanation emission chain (index-safe)
+      // Explanation emission chain (index-safe)
       ets.latestExplanation = formatted;
       ets.formattedExplanationSubject?.next(formatted);
       ets.updateFormattedExplanation(formatted);
@@ -3556,9 +3562,23 @@ export class QuizQuestionComponent extends BaseQuestion
       ets.shouldDisplayExplanationSource?.next(true);
       ets.setIsExplanationTextDisplayed(true);
 
-      // ✅ ONLY NOW mark interaction + answered
+      // ONLY NOW mark interaction + answered
       (this.quizStateService as any).markUserInteracted(lockedIndex);
       (this.quizStateService as any).markQuestionAnswered(lockedIndex);
+
+      console.error('🧨 [FET HARD WRITE]', {
+        idx: lockedIndex,
+        activeIndex: this.quizService.getCurrentQuestionIndex(),
+        latestExplanationIndex: (ets as any).latestExplanationIndex,
+        explanationLength: formatted.length,
+        explanationPreview: formatted.slice(0, 120),
+      });
+      // 🔥 HARD ASSERT: If this fails, your service is broken
+      console.assert(
+        ets.latestExplanation === formatted,
+        '[❌ FET FAILED TO STICK] Explanation not retained in service!'
+      );
+
 
       console.warn('[FET PROBE] EMITTED:', {
         idx: lockedIndex,
@@ -3580,8 +3600,129 @@ export class QuizQuestionComponent extends BaseQuestion
       console.warn('[QQC ❌] FET trigger failed:', err);
       ets._fetLocked = false;
     }
-  }
+  } */
+  private async performExplanationUpdate(
+    lockedIndex: number,
+    q: QuizQuestion
+  ): Promise<void> {
+    console.error('[FET GUARD CHECK] performExplanationUpdate ENTERED', {
+      lockedIndex,
+      activeIndex: this.quizService.getCurrentQuestionIndex(),
+      displayState: this.quizStateService.displayStateSubject?.value,
+      shouldShowExplanation: this.explanationTextService.shouldDisplayExplanationSource?.value
+    });
 
+    console.warn('[FET GUARD CHECK]', {
+      lockedIndex,
+      activeIndex: this.quizService.getCurrentQuestionIndex(),
+      hasUserInteracted: (this.quizStateService as any).hasUserInteracted?.(lockedIndex),
+      hasAnswered: (this.quizStateService as any).isQuestionAnswered?.(lockedIndex),
+      latestExplanation: this.explanationTextService?.latestExplanation?.slice(0, 80),
+    });
+
+    console.error('[FET ORIGIN] PERFORM UPDATE ENTERED', lockedIndex);
+
+    const ets = this.explanationTextService;
+
+    const raw = (q?.explanation ?? '').trim();
+
+    console.error('[FET DATA]', {
+      hasExplanation: !!raw,
+      raw: raw.slice(0, 120),
+    });
+
+    if (!raw) {
+      console.warn('[FET FAIL] No explanation text in question.');
+      return;
+    }
+
+    try {
+      console.log(`[QQC] 🚀 Starting FET for Q${lockedIndex + 1}`);
+
+      // ───────────── 1. Pin to active index ─────────────
+      ets._activeIndex = lockedIndex;
+
+      // 🔑 Bind explanation to this question index
+      (ets as any).latestExplanationIndex = lockedIndex;
+
+      // Lock only during formatting
+      ets._fetLocked = true;
+
+      // Clear old text in a controlled way
+      ets.latestExplanation = '';
+      ets.updateFormattedExplanation('');
+
+      // Kill stale per-index cache
+      ets.purgeAndDefer(lockedIndex);
+
+      // Give one clean frame to kill stale renders
+      await new Promise(res => requestAnimationFrame(res));
+
+      const canonicalQ =
+        this.quizService.questions?.[lockedIndex] ?? q;
+
+      const canonicalRaw = (canonicalQ?.explanation ?? '').trim();
+      if (!canonicalRaw) {
+        console.warn(`[QQC] ⚠️ No explanation text for Q${lockedIndex + 1}`);
+        ets._fetLocked = false;
+        return;
+      }
+
+      const correctIdxs = ets.getCorrectOptionIndices(canonicalQ);
+
+      const formatted = ets
+        .formatExplanation(canonicalQ, correctIdxs, canonicalRaw)
+        .trim();
+
+      if (!formatted) {
+        console.warn(`[QQC] ⚠️ Formatter stripped explanation text`);
+        ets._fetLocked = false;
+        return;
+      }
+
+      console.log('[FET ORIGIN]', {
+        index: lockedIndex,
+        formattedLength: formatted.length,
+        formattedPreview: formatted.slice(0, 120),
+      });
+
+      // ───────────── 2. Unlock BEFORE emission ─────────────
+      ets._fetLocked = false;
+
+      console.log('🧠 [FET] Emitting explanation:', formatted.slice(0, 80));
+
+      // ──────────────────────────────────────────────
+      // ✅ CORRECTED EMISSION CHAIN
+      // explanation is now tied to its origin index
+      // ──────────────────────────────────────────────
+      ets.latestExplanation = formatted;
+      (ets as any).latestExplanationIndex = lockedIndex;
+
+      ets.formattedExplanationSubject?.next(formatted);
+      ets.updateFormattedExplanation(formatted);
+
+      // Open the gate and mark as displayed
+      ets.shouldDisplayExplanationSource?.next(true);
+      ets.setIsExplanationTextDisplayed(true);
+
+      console.warn('[FET EMISSION FINAL]', {
+        idx: lockedIndex,
+        activeIndex: ets._activeIndex,
+        latestExplanationIndex: (ets as any).latestExplanationIndex,
+        preview: formatted.slice(0, 80)
+      });
+
+      // Do NOT touch displayMode here – let content decide based on latestExplanation
+      this.explanationToDisplay = formatted;
+      this.explanationToDisplayChange.emit(formatted);
+
+      console.log(`[QQC ✅] FET successfully generated for Q${lockedIndex + 1}`);
+
+    } catch (err) {
+      console.warn('[QQC ❌] FET trigger failed:', err);
+      this.explanationTextService._fetLocked = false;
+    }
+  }
 
 
   private onQuestionTimedOut(targetIndex?: number): void {
@@ -4417,9 +4558,42 @@ export class QuizQuestionComponent extends BaseQuestion
       return;
     }
 
-    // 🔢 Single source of truth for the 0-based index
-    const effectiveIdx =
-      this.quizService.getCurrentQuestionIndex() ?? this.currentQuestionIndex ?? 0;
+    const routeIndex = this.quizService.getCurrentQuestionIndex()
+      ?? this.currentQuestionIndex
+      ?? 1;
+
+    // ALWAYS force to 0-based index
+    const effectiveIdx = Number(routeIndex) - 1;
+
+    console.warn('🧭 INDEX CHECK', {
+      routeIndex,
+      effectiveIdx,
+      expectedForQ1: 0
+    });
+
+    console.warn('[INDEX NORMALIZED]', { routeIndex, effectiveIdx });
+
+    const safeQuizId = this.quizId ?? '';
+
+    console.warn('[DEBUG: STATE BEFORE FET]', {
+      idx: effectiveIdx,
+      effectiveIdx,
+
+      hasUserInteracted: this.quizStateService.hasUserInteracted(effectiveIdx),
+      isAnswered: this.quizStateService.isQuestionAnswered(effectiveIdx),
+
+      questionState: safeQuizId
+        ? this.quizStateService.getQuestionState?.(safeQuizId, effectiveIdx)
+        : '[NO QUIZ ID]',
+
+      answeredQuestions: (this.quizStateService as any)._answeredQuestionIndices
+        ? Array.from((this.quizStateService as any)._answeredQuestionIndices)
+        : '[NO ANSWER STATE]',
+
+      interactedQuestions: (this.quizStateService as any)._hasUserInteracted
+        ? Array.from((this.quizStateService as any)._hasUserInteracted)
+        : '[NO INTERACTION STATE]',
+    });
 
     if (this.currentQuestion.type === QuestionType.MultipleAnswer) {
       await this.handleMultipleAnswerTimerLogic(option);
@@ -4439,6 +4613,13 @@ export class QuizQuestionComponent extends BaseQuestion
       // Treat timeout as virtual interaction
       this.quizStateService.markUserInteracted(effectiveIdx);
       this.quizStateService.markQuestionAnswered(effectiveIdx);
+
+      // DEBUG proof line — DO NOT REMOVE YET
+      console.warn('[FET INTERACTION CONFIRM]', {
+        idx: effectiveIdx,
+        hasUserInteracted: this.quizStateService.hasUserInteracted(effectiveIdx),
+        isAnswered: this.quizStateService.isQuestionAnswered(effectiveIdx)
+      });
 
       // 🔐 Bind explanation identity to this question
       (this.explanationTextService as any).latestExplanationIndex = effectiveIdx;
@@ -4464,6 +4645,12 @@ export class QuizQuestionComponent extends BaseQuestion
     // ──────────────────────────────────────────────
     // ✅ NORMAL CORRECT-ANSWER PATH
     // ──────────────────────────────────────────────
+    console.error('[FET DEBUG] allCorrectSelected =', allCorrectSelected, {
+      idx: effectiveIdx,
+      selected: this.selectedOptionService.selectedOptionIndices?.[effectiveIdx],
+      correct: this.currentQuestion?.options?.filter(o => o.correct)?.map(o => o.optionId),
+    });
+
     if (allCorrectSelected) {
       console.log(
         '[FET CHECK] ✅ allCorrectSelected fired for Q (effectiveIdx)',

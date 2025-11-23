@@ -473,9 +473,10 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         this.totalQuestions = total;
       });
 
-    this.indexSubscription = this.quizService.currentQuestionIndex$
+    /* this.indexSubscription = this.quizService.currentQuestionIndex$
       .pipe(distinctUntilChanged())
       .subscribe((idx: number) => {
+
 
         const prevIdx = this.lastLoggedIndex;
         const ets = this.explanationTextService;
@@ -517,7 +518,90 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
         // ✅ Remember current index for the next transition
         this.lastLoggedIndex = idx;
+      }); */
+    /* this.indexSubscription = this.quizService.currentQuestionIndex$
+      .pipe(distinctUntilChanged())
+      .subscribe((idx: number) => {
+
+        const ets = this.explanationTextService;
+
+        console.warn('[INDEX CHANGE] →', idx + 1);
+
+        // 🔥 Only reset when switching away from a question
+        if (this.lastLoggedIndex !== null && this.lastLoggedIndex !== idx) {
+
+          console.warn('[CLEANUP PREVIOUS Q]', this.lastLoggedIndex + 1);
+
+          (this.quizStateService as any)._hasUserInteracted?.delete(this.lastLoggedIndex);
+          (this.quizStateService as any)._answeredQuestionIndices?.delete(this.lastLoggedIndex);
+
+          // ✅ Only clear if explanation belongs to the OLD one
+          if ((ets as any).latestExplanationIndex === this.lastLoggedIndex) {
+            console.warn('[CLEAR OLD FET]', this.lastLoggedIndex + 1);
+            ets.latestExplanation = '';
+            ets.formattedExplanationSubject.next('');
+            ets.shouldDisplayExplanationSource.next(false);
+            ets.setIsExplanationTextDisplayed(false);
+            (ets as any).latestExplanationIndex = null;
+          }
+        }
+
+        // ✅ DO NOT CLEAR CURRENT QUESTION
+        ets._activeIndex = idx;
+        this._fetEarlyShown.delete(idx);
+
+        this.lastLoggedIndex = idx;
+      }); */
+    this.indexSubscription = this.quizService.currentQuestionIndex$
+      .pipe(distinctUntilChanged())
+      .subscribe((idx: number) => {
+
+        const prevIdx = this.lastLoggedIndex;
+        const ets = this.explanationTextService;
+
+        // ✅ ONLY purge the PREVIOUS question
+        if (prevIdx !== null && prevIdx !== idx) {
+          console.warn('[STATE CLEANUP] Purging Q', prevIdx + 1);
+
+          (this.quizStateService as any)._hasUserInteracted?.delete(prevIdx);
+          (this.quizStateService as any)._answeredQuestionIndices?.delete(prevIdx);
+
+          // (this.quizStateService as any)._hasUserInteracted?.delete(prevIdx);
+          // (this.quizStateService as any)._answeredQuestionIndices?.delete(prevIdx);
+
+          // Only clear FET belonging to the previous question
+          if ((ets as any).latestExplanationIndex === prevIdx) {
+            ets.latestExplanation = '';
+            ets.formattedExplanationSubject.next('');
+            ets.shouldDisplayExplanationSource.next(false);
+            ets.setIsExplanationTextDisplayed(false);
+            (ets as any).latestExplanationIndex = null;
+          }
+        }
+
+        // 🧠 HARD RESET QUESTION STATE (NOT JUST UI)
+        // ─────────────────────────────────────────────
+        const qState =
+          this.quizId && Number.isFinite(idx)
+            ? this.quizStateService.getQuestionState?.(this.quizId, idx)
+            : null;
+
+        if (qState) {
+          console.warn('[QSTATE HARD RESET] Clearing stale explanation flags for Q', idx + 1);
+
+          qState.explanationDisplayed = false;
+          qState.explanationText = '';
+        }
+
+        // ✅ DO NOT clear the current question state
+        ets._activeIndex = idx;
+        ets._fetLocked = false;
+        this._fetEarlyShown.delete(idx);
+        this.lastLoggedIndex = idx;
+
+        console.warn('[✅ INDEX SWITCH OK]', idx + 1);
       });
+
 
     try {
       const questions = await this.quizService.fetchQuizQuestions(quizId);
@@ -616,7 +700,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
           const answeredViaState =
             !!questionState?.isAnswered ||
-            !!questionState?.explanationDisplayed;
+            (questionState?.explanationDisplayed === true &&
+              (this.quizStateService as any).hasUserInteracted?.(resolvedIndex) === true);
 
           const persistedSelectionsCount = Array.isArray(questionState?.selectedOptions)
             ? questionState.selectedOptions.length
@@ -630,7 +715,14 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
             'No question available'
           );
 
-          const shouldRestoreExplanation = answered && !!questionState?.explanationDisplayed;
+          const interacted =
+            (this.quizStateService as any).hasUserInteracted?.(resolvedIndex) === true;
+
+          /* const shouldRestoreExplanation =
+            interacted &&
+            answered &&
+            questionState?.explanationDisplayed === true;
+
           if (shouldRestoreExplanation) {
             const explanationFromState = typeof questionState?.explanationText === 'string'
               ? questionState.explanationText.trim()
@@ -653,7 +745,15 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
                 answered
               });
             });
-          }
+          } */
+
+          // Simple, safe state for now
+          queueMicrotask(() => {
+            this.quizStateService.setDisplayState({
+              mode: 'question',
+              answered
+            });
+          });
     
           this.isQuizReady = true;
     

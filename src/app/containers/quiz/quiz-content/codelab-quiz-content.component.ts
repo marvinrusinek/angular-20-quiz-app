@@ -1116,7 +1116,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     this._lastQuestionTextByIndex.set(idx, fallback);
     return fallback;
   } */
-  private resolveTextToDisplay(
+  /* private resolveTextToDisplay(
     idx: number,
     question: string,
     banner: string,
@@ -1314,7 +1314,541 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     });
 
     return fallbackQuestion;
+  } */
+  /* private resolveTextToDisplay(
+    idx: number,
+    question: string,
+    banner: string,
+    fet: { idx: number; text: string; gate: boolean } | null,
+    shouldShow: boolean
+  ): string {
+    console.warn('🧪 FET SNAPSHOT', {
+      idx,
+      mode: this.quizStateService.displayStateSubject?.value?.mode,
+      latestExplanation: this.explanationTextService.latestExplanation?.slice(0, 120),
+      latestExplanationLength: this.explanationTextService.latestExplanation?.length,
+      explanationIndex: (this.explanationTextService as any).latestExplanationIndex,
+      shouldShowExplanation: this.explanationTextService.shouldDisplayExplanationSource?.value,
+    });
+
+    console.error(
+      '[CQCC HARD DIAG JSON]',
+      JSON.stringify(
+        {
+          idx,
+          activeIndex: this.quizService.getCurrentQuestionIndex(),
+          displayStateMode: this.quizStateService.displayStateSubject?.value?.mode,
+          showExplanation: this.showExplanation,
+          explanationToDisplay: this.explanationToDisplay?.slice?.(0, 120),
+          latestServiceExplanation:
+            this.explanationTextService?.latestExplanation?.slice?.(0, 120),
+          fetText: fet?.text?.slice?.(0, 120),
+          fetGate: fet?.gate,
+          shouldShow,
+        },
+        null,
+        2
+      )
+    );
+
+    const qText      = (question ?? '').trim();
+    const bannerText = (banner ?? '').trim();
+    const fetText    = (fet?.text ?? '').trim();
+    const active     = this.quizService.getCurrentQuestionIndex();
+    const mode       = this.quizStateService.displayStateSubject?.value?.mode ?? 'question';
+
+    const qObj = this.quizService.questions?.[idx];
+    const ets  = this.explanationTextService;
+
+    // Ensure we have index-scoped cache map
+    if (!this._lastQuestionTextByIndex) {
+      (this as any)._lastQuestionTextByIndex = new Map<number, string>();
+    }
+
+    // Always cache a “last known good” QUESTION text per index
+    if (qText) {
+      this._lastQuestionTextByIndex.set(idx, qText);
+    }
+
+    // ============================================================
+    // 🔥 TEMP BYPASS: if we're in EXPLANATION mode and the service
+    // has a non-empty explanation, JUST USE IT.
+    // This is to confirm the pipeline actually delivers FET.
+    // ============================================================
+    const svcExpl = ets.latestExplanation?.toString().trim();
+
+    if (mode === 'explanation' && svcExpl && svcExpl.length > 0) {
+      console.warn('[CQCC TEMP BYPASS] USING latestExplanation for EXPLANATION mode', {
+        idx,
+        active,
+        svcExplPreview: svcExpl.slice(0, 80)
+      });
+
+      this._lastQuestionTextByIndex.set(idx, svcExpl);
+      return svcExpl;
+    }
+
+    // ============================================================
+    // 🔥 INDEX-SAFETY GUARD — reject explanations from OTHER questions
+    // ============================================================
+    const explanationIndex = (ets as any).latestExplanationIndex;
+
+    if (
+      ets.latestExplanation &&
+      explanationIndex !== undefined &&
+      explanationIndex !== null &&
+      explanationIndex !== idx
+    ) {
+      console.warn('[FET BLOCKED: WRONG INDEX]', {
+        incomingIdx: idx,
+        explanationIndex,
+        activeIndex: this.quizService.getCurrentQuestionIndex(),
+        stalePreview: ets.latestExplanation.slice(0, 80)
+      });
+
+      // Do NOT allow cross-question contamination
+      return (
+        this._lastQuestionTextByIndex.get(idx) ||
+        qText ||
+        '[Recovery: question still loading…]'
+      );
+    }
+
+    // ──────────────────────────────────────────────
+    // 🔐 USER-DRIVEN EXPLANATION GATE
+    // ──────────────────────────────────────────────
+    const hasUserInteracted =
+      (this.quizStateService as any).hasUserInteracted?.(idx) ?? false;
+
+    const explanationGate = !!ets.shouldDisplayExplanationSource?.value;
+
+    console.log('[FET INDEX CHECK]', {
+      idx,
+      explanationIndex,
+      active: this.quizService.getCurrentQuestionIndex(),
+      latestExplanationPreview: ets.latestExplanation?.slice?.(0, 80),
+      hasUserInteracted,
+      explanationGate
+    });
+
+    // ✅ Only allow explanation if it belongs to THIS question
+    if (
+      hasUserInteracted &&
+      explanationGate &&
+      explanationIndex === idx
+    ) {
+      const fromService = ets.latestExplanation?.toString().trim();
+
+      if (fromService) {
+        console.log(
+          `[resolveTextToDisplay] ✅ USING INDEX-SAFE FET for Q${idx + 1}`
+        );
+
+        this._lastQuestionTextByIndex.set(idx, fromService);
+        return fromService;
+      }
+    }
+
+    // ──────────────────────────────────────────────
+    // 2️⃣ FET STRUCT-BASED PATH
+    // ──────────────────────────────────────────────
+    const fetValid =
+      !!fet &&
+      fetText.length > 2 &&
+      fet.idx === idx &&
+      fet.idx === active &&
+      fet.gate &&
+      !ets._fetLocked &&
+      shouldShow &&
+      hasUserInteracted;
+
+    if (fetValid) {
+      console.log(`[resolveTextToDisplay] ✅ FET gate open for Q${idx + 1}`);
+      this._lastQuestionTextByIndex.set(idx, fetText);
+      return fetText;
+    }
+
+    // ──────────────────────────────────────────────
+    // 3️⃣ DEFAULT: QUESTION + BANNER
+    // ──────────────────────────────────────────────
+    const isMulti =
+      !!qObj &&
+      (qObj.type === QuestionType.MultipleAnswer ||
+        (Array.isArray(qObj.options) &&
+          qObj.options.filter((o: Option) => o.correct).length > 1));
+
+    const fallbackQuestion =
+      this._lastQuestionTextByIndex.get(idx) ||
+      qText ||
+      '[Recovery: question still loading…]';
+
+    if (isMulti && bannerText && mode === 'question') {
+      const merged = `${fallbackQuestion} <span class="correct-count">${bannerText}</span>`;
+      console.log(`[resolveTextToDisplay] 🎯 Question+banner for Q${idx + 1}`);
+      this._lastQuestionTextByIndex.set(idx, merged);
+      return merged;
+    }
+
+    console.log(`[resolveTextToDisplay] 🔁 Question fallback →`, fallbackQuestion);
+
+    this._lastQuestionTextByIndex.set(idx, fallbackQuestion);
+
+    console.log('[CQCC TEXT RESOLVE]', {
+      idx,
+      shouldDisplayExplanation: ets.shouldDisplayExplanationSource.value,
+      explanationDisplayed: ets.isExplanationTextDisplayedSource.value,
+      latestExplanation: ets.latestExplanation?.slice(0, 80),
+    });
+
+    return fallbackQuestion;
+  } */
+  /* private resolveTextToDisplay(
+    idx: number,
+    question: string,
+    banner: string,
+    fet: { idx: number; text: string; gate: boolean } | null,
+    shouldShow: boolean
+  ): string {
+    console.error(
+      '[CQCC HARD DIAG JSON]',
+      JSON.stringify(
+        {
+          idx,
+          activeIndex: this.quizService.getCurrentQuestionIndex(),
+          displayStateMode: this.quizStateService.displayStateSubject?.value?.mode,
+          showExplanation: this.showExplanation,
+          explanationToDisplay: this.explanationToDisplay?.slice?.(0, 120),
+          latestServiceExplanation:
+            this.explanationTextService?.latestExplanation?.slice?.(0, 120),
+          fetText: fet?.text?.slice?.(0, 120),
+          fetGate: fet?.gate,
+          shouldShow,
+        },
+        null,
+        2
+      )
+    );
+
+    const qText      = (question ?? '').trim();
+    const bannerText = (banner ?? '').trim();
+    const fetText    = (fet?.text ?? '').trim();
+    const active     = this.quizService.getCurrentQuestionIndex();
+    const mode       = this.quizStateService.displayStateSubject?.value?.mode ?? 'question';
+
+    const qObj = this.quizService.questions?.[idx];
+    const ets  = this.explanationTextService;
+
+    // Ensure we have index-scoped cache map
+    if (!this._lastQuestionTextByIndex) {
+      (this as any)._lastQuestionTextByIndex = new Map<number, string>();
+    }
+
+    // Always cache a “last known good” QUESTION text per index
+    if (qText) {
+      this._lastQuestionTextByIndex.set(idx, qText);
+    }
+
+    // ============================================================
+    // 🔥 INDEX-SAFETY GUARD — reject explanations from OTHER questions
+    // ============================================================
+    const explanationIndex = (ets as any).latestExplanationIndex;
+
+    // 🚨 TEMPORARY DIAGNOSTIC BYPASS FOR Q1
+    if (
+      idx === 0 &&
+      (ets as any).latestExplanationIndex === 0 &&
+      ets.latestExplanation &&
+      ets.latestExplanation.length > 0
+    ) {
+      console.warn('[🔥 TEMP Q1 OVERRIDE] Forcing FET render for Q1');
+      return ets.latestExplanation;
+    }
+
+    if (
+      ets.latestExplanation &&
+      explanationIndex !== undefined &&
+      explanationIndex !== null &&
+      explanationIndex !== idx
+    ) {
+      console.warn('[FET BLOCKED: WRONG INDEX]', {
+        incomingIdx: idx,
+        explanationIndex,
+        activeIndex: this.quizService.getCurrentQuestionIndex(),
+        stalePreview: ets.latestExplanation.slice(0, 80)
+      });
+
+      // Do NOT allow cross-question contamination
+      return (
+        this._lastQuestionTextByIndex.get(idx) ||
+        qText ||
+        '[Recovery: question still loading…]'
+      );
+    }
+
+    // ============================================================
+    // 🚨 TEMP FET BYPASS — FORCE USE OF LATEST EXPLANATION IF INDEX MATCHES
+    // ============================================================
+    if (
+      ets.latestExplanation &&
+      ets.latestExplanation.trim().length > 0 &&
+      explanationIndex === idx
+    ) {
+      console.warn('[FET BYPASS] ✅ Forcing FET display for Q', idx + 1, {
+        explanationIndex,
+        textPreview: ets.latestExplanation.slice(0, 80)
+      });
+
+      this._lastQuestionTextByIndex.set(idx, ets.latestExplanation);
+      return ets.latestExplanation;
+    }
+
+    // ──────────────────────────────────────────────
+    // 🔐 USER-DRIVEN EXPLANATION GATE
+    // ──────────────────────────────────────────────
+    const hasUserInteracted =
+      (this.quizStateService as any).hasUserInteracted?.(idx) ?? false;
+
+    const explanationGate = !!ets.shouldDisplayExplanationSource?.value;
+
+    console.log('[FET INDEX CHECK]', {
+      idx,
+      explanationIndex,
+      active: this.quizService.getCurrentQuestionIndex(),
+      latestExplanationPreview: ets.latestExplanation?.slice?.(0, 80),
+      hasUserInteracted,
+      explanationGate
+    });
+
+    // ✅ Only allow explanation if it belongs to THIS question
+    if (
+      hasUserInteracted &&
+      explanationGate &&
+      explanationIndex === idx
+    ) {
+      const fromService = ets.latestExplanation?.toString().trim();
+
+      if (fromService) {
+        console.log(
+          `[resolveTextToDisplay] ✅ USING INDEX-SAFE FET for Q${idx + 1}`
+        );
+
+        this._lastQuestionTextByIndex.set(idx, fromService);
+        return fromService;
+      }
+    }
+
+    // ──────────────────────────────────────────────
+    // 2️⃣ FET STRUCT-BASED PATH
+    // ──────────────────────────────────────────────
+    const fetValid =
+      !!fet &&
+      fetText.length > 2 &&
+      fet.idx === idx &&
+      fet.idx === active &&
+      fet.gate &&
+      !ets._fetLocked &&
+      shouldShow &&
+      hasUserInteracted;
+
+    if (fetValid) {
+      console.log(`[resolveTextToDisplay] ✅ FET gate open for Q${idx + 1}`);
+      this._lastQuestionTextByIndex.set(idx, fetText);
+      return fetText;
+    }
+
+    // ──────────────────────────────────────────────
+    // 3️⃣ DEFAULT: QUESTION + BANNER
+    // ──────────────────────────────────────────────
+    const isMulti =
+      !!qObj &&
+      (qObj.type === QuestionType.MultipleAnswer ||
+        (Array.isArray(qObj.options) &&
+          qObj.options.filter((o: Option) => o.correct).length > 1));
+
+    const fallbackQuestion =
+      this._lastQuestionTextByIndex.get(idx) ||
+      qText ||
+      '[Recovery: question still loading…]';
+
+    if (isMulti && bannerText && mode === 'question') {
+      const merged = `${fallbackQuestion} <span class="correct-count">${bannerText}</span>`;
+      console.log(`[resolveTextToDisplay] 🎯 Question+banner for Q${idx + 1}`);
+      this._lastQuestionTextByIndex.set(idx, merged);
+      return merged;
+    }
+
+    console.log(`[resolveTextToDisplay] 🔁 Question fallback →`, fallbackQuestion);
+
+    this._lastQuestionTextByIndex.set(idx, fallbackQuestion);
+
+    console.log('[CQCC TEXT RESOLVE]', {
+      idx,
+      shouldDisplayExplanation: ets.shouldDisplayExplanationSource.value,
+      explanationDisplayed: ets.isExplanationTextDisplayedSource.value,
+      latestExplanation: ets.latestExplanation?.slice(0, 80),
+    });
+
+    return fallbackQuestion;
+  } */
+  private resolveTextToDisplay(
+    idx: number,
+    question: string,
+    banner: string,
+    fet: { idx: number; text: string; gate: boolean } | null,
+    shouldShow: boolean
+  ): string {
+    console.error(
+      '[CQCC HARD DIAG JSON]',
+      JSON.stringify(
+        {
+          idx,
+          activeIndex: this.quizService.getCurrentQuestionIndex(),
+          displayStateMode: this.quizStateService.displayStateSubject?.value?.mode,
+          showExplanation: this.showExplanation,
+          explanationToDisplay: this.explanationToDisplay?.slice?.(0, 120),
+          latestServiceExplanation:
+            this.explanationTextService?.latestExplanation?.slice?.(0, 120),
+          fetText: fet?.text?.slice?.(0, 120),
+          fetGate: fet?.gate,
+          shouldShow,
+        },
+        null,
+        2
+      )
+    );
+
+    // 🧨 HARD FET OVERRIDE — Q1 DIAGNOSTIC
+// ============================================================
+    if (idx === 0) {
+      console.error('[🔥 Q1 FORCE TEST ACTIVATED]', {
+        latestExplanation: this.explanationTextService.latestExplanation,
+        latestExplanationIndex: (this.explanationTextService as any).latestExplanationIndex,
+      });
+
+      // Force use explanation even if gate/state failed
+      const forced = this.explanationTextService.latestExplanation;
+
+      if (forced && forced.trim().length > 0) {
+        console.error('[🔥 Q1 FORCE RENDER] Showing locked explanation');
+        return forced.trim();
+      }
+    }
+
+    const qText      = (question ?? '').trim();
+    const bannerText = (banner ?? '').trim();
+    const fetText    = (fet?.text ?? '').trim();
+    const active     = this.quizService.getCurrentQuestionIndex();
+    const mode       = this.quizStateService.displayStateSubject?.value?.mode ?? 'question';
+
+    const qObj = this.quizService.questions?.[idx];
+    const ets  = this.explanationTextService;
+
+    // Ensure we have index-scoped cache map
+    if (!this._lastQuestionTextByIndex) {
+      (this as any)._lastQuestionTextByIndex = new Map<number, string>();
+    }
+
+    // Always cache a “last known good” QUESTION text per index
+    if (qText) {
+      this._lastQuestionTextByIndex.set(idx, qText);
+    }
+
+    // ============================================================
+    // 🔥 TEMP NUKE: if we have a latestExplanation for THIS index,
+    // ALWAYS use it, no questions asked.
+    // ============================================================
+    const explanationIndex = (ets as any).latestExplanationIndex;
+
+    console.log('[🧪 FET SNAPSHOT]', {
+      idx,
+      explanationIndex,
+      latestExplanationPreview: ets.latestExplanation?.slice?.(0, 80),
+      mode,
+      activeIndex: active
+    });
+
+    if (
+      ets.latestExplanation &&
+      typeof ets.latestExplanation === 'string' &&
+      ets.latestExplanation.trim().length > 0 &&
+      explanationIndex === idx
+    ) {
+      const safe = ets.latestExplanation.trim();
+      console.warn('[🧨 FET HARD WRITE] Using FET for index', idx, '→', safe.slice(0, 80));
+      this._lastQuestionTextByIndex.set(idx, safe);
+      return safe;
+    }
+
+    // ──────────────────────────────────────────────
+    // (Optional) structured FET path (kept but now secondary)
+    // ──────────────────────────────────────────────
+    const hasUserInteracted =
+      (this.quizStateService as any).hasUserInteracted?.(idx) ?? false;
+
+    const explanationGate = !!ets.shouldDisplayExplanationSource?.value;
+
+    console.log('[FET INDEX CHECK]', {
+      idx,
+      explanationIndex,
+      active: this.quizService.getCurrentQuestionIndex(),
+      latestExplanationPreview: ets.latestExplanation?.slice?.(0, 80),
+      hasUserInteracted,
+      explanationGate
+    });
+
+    const fetValid =
+      !!fet &&
+      fetText.length > 2 &&
+      fet.idx === idx &&
+      fet.idx === active &&
+      fet.gate &&
+      !ets._fetLocked &&
+      shouldShow &&
+      hasUserInteracted;
+
+    if (fetValid) {
+      console.log(`[resolveTextToDisplay] ✅ FET gate open for Q${idx + 1}`);
+      this._lastQuestionTextByIndex.set(idx, fetText);
+      return fetText;
+    }
+
+    // ──────────────────────────────────────────────
+    // DEFAULT: QUESTION + BANNER
+    // ──────────────────────────────────────────────
+    const isMulti =
+      !!qObj &&
+      (qObj.type === QuestionType.MultipleAnswer ||
+        (Array.isArray(qObj.options) &&
+          qObj.options.filter((o: Option) => o.correct).length > 1));
+
+    const fallbackQuestion =
+      this._lastQuestionTextByIndex.get(idx) ||
+      qText ||
+      '[Recovery: question still loading…]';
+
+    if (isMulti && bannerText && mode === 'question') {
+      const merged = `${fallbackQuestion} <span class="correct-count">${bannerText}</span>`;
+      console.log(`[resolveTextToDisplay] 🎯 Question+banner for Q${idx + 1}`);
+      this._lastQuestionTextByIndex.set(idx, merged);
+      return merged;
+    }
+
+    console.log(`[resolveTextToDisplay] 🔁 Question fallback →`, fallbackQuestion);
+
+    this._lastQuestionTextByIndex.set(idx, fallbackQuestion);
+
+    console.log('[CQCC TEXT RESOLVE]', {
+      idx,
+      shouldDisplayExplanation: ets.shouldDisplayExplanationSource.value,
+      explanationDisplayed: ets.isExplanationTextDisplayedSource.value,
+      latestExplanation: ets.latestExplanation?.slice(0, 80),
+    });
+
+    return fallbackQuestion;
   }
+
+
+
 
   private emitContentAvailableState(): void {
     this.isContentAvailable$.pipe(takeUntil(this.destroy$)).subscribe({
