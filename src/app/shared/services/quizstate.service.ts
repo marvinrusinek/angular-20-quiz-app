@@ -56,6 +56,8 @@ export class QuizStateService {
 
   private _hasUserInteracted = new Set<number>();
 
+  private _answeredQuestionIndices = new Set<number>();
+
   constructor() {
     this.questionStates = new Map<number, QuestionState>();
   }
@@ -315,5 +317,13 @@ export class QuizStateService {
 
   hasUserInteracted(idx: number): boolean {
     return this._hasUserInteracted.has(idx);
+  }
+
+  markQuestionAnswered(idx: number): void {
+    this._answeredQuestionIndices.add(idx);
+  }
+
+  isQuestionAnswered(idx: number): boolean {
+    return this._answeredQuestionIndices.has(idx);
   }
 }

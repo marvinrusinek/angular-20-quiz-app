@@ -4425,6 +4425,45 @@ export class QuizQuestionComponent extends BaseQuestion
       await this.handleMultipleAnswerTimerLogic(option);
     }
 
+    // ──────────────────────────────────────────────
+    // ⏳ TIMER-EXPIRED PATH → force FET pipeline
+    // ──────────────────────────────────────────────
+    const timerExpired =
+      !this.timerService.isTimerRunning &&
+      !allCorrectSelected &&
+      !(this.quizStateService as any).hasUserInteracted?.(effectiveIdx);
+
+    if (timerExpired) {
+      console.warn('[TIMER EXPIRED] Triggering FET via timeout path for Q', effectiveIdx);
+
+      // Treat timeout as virtual interaction
+      this.quizStateService.markUserInteracted(effectiveIdx);
+      this.quizStateService.markQuestionAnswered(effectiveIdx);
+
+      // 🔐 Bind explanation identity to this question
+      (this.explanationTextService as any).latestExplanationIndex = effectiveIdx;
+
+      // Open explanation gate
+      this.explanationTextService.shouldDisplayExplanationSource.next(true);
+
+      requestAnimationFrame(() => {
+        console.log('[FET ⏳ TIMER] Forcing explanation reveal for Q', effectiveIdx);
+
+        this.quizStateService.displayStateSubject.next({
+          mode: 'explanation',
+          answered: true
+        });
+
+        const q = this.currentQuestion;
+        if (!q) return;
+
+        this.fireAndForgetExplanationUpdate(effectiveIdx, q);
+      });
+    }
+
+    // ──────────────────────────────────────────────
+    // ✅ NORMAL CORRECT-ANSWER PATH
+    // ──────────────────────────────────────────────
     if (allCorrectSelected) {
       console.log(
         '[FET CHECK] ✅ allCorrectSelected fired for Q (effectiveIdx)',
@@ -4442,7 +4481,7 @@ export class QuizQuestionComponent extends BaseQuestion
       });
 
       if (stopped) {
-        this.timerService.isTimerRunning = false; // ensure the timer state is updated
+        this.timerService.isTimerRunning = false;
       } else if (!this.timerService.isTimerRunning) {
         console.log(
           '[handleCorrectnessOutcome] ⚠️ Timer was already stopped. No action taken.'
@@ -4465,15 +4504,14 @@ export class QuizQuestionComponent extends BaseQuestion
           effectiveIdx
         );
 
-        // Switch display state to explanation
         this.quizStateService.displayStateSubject.next({
           mode: 'explanation',
           answered: true
         });
 
-        // Fire explanation generation bound to the same index
         const q = this.currentQuestion;
         if (!q) return;
+
         this.fireAndForgetExplanationUpdate(effectiveIdx, q);
       });
     }
@@ -4482,11 +4520,10 @@ export class QuizQuestionComponent extends BaseQuestion
     this.selectedOptionService.setSelectedOption(option);
 
     // Play sound based on correctness
-    // Only play sound if this is a new selection
     if (!wasPreviouslySelected) {
       const enrichedOption: SelectedOption = {
         ...option,
-        questionIndex: effectiveIdx  // keep this consistent too
+        questionIndex: effectiveIdx
       };
 
       this.soundService.playOnceForOption(enrichedOption);
@@ -4498,11 +4535,7 @@ export class QuizQuestionComponent extends BaseQuestion
     // ❌ REMOVED: explanation text override logic
     // This was blocking / poisoning the real FET flow
     // ──────────────────────────────────────────────
-    // No explanationToDisplay updates here.
-    // No direct explanationTextService.setExplanationText here.
-    // CQCC + performExplanationUpdate now own it.
 
-    // Ensure Next button state is correctly updated, preventing premature disabling
     setTimeout(() => {
       const shouldEnableNext =
         allCorrectSelected ||

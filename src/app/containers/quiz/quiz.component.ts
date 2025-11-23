@@ -493,17 +493,17 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
           const currentExplIdx = (ets as any).latestExplanationIndex;
 
-          // Only clear explanation if it belongs to the previous question
-          if (currentExplIdx === prevIdx) {
-            console.warn('[FET RESET] Clearing explanation for Q', prevIdx + 1);
+          // Only clear explanation when switching to a DIFFERENT question
+          if (currentExplIdx !== null && currentExplIdx !== idx) {
+            console.warn('[FET RESET] Purging explanation from old index', currentExplIdx);
 
             ets.latestExplanation = '';
-            ets.formattedExplanationSubject.next('');
-            ets.shouldDisplayExplanationSource.next(false);
+            ets.formattedExplanationSubject?.next('');
+            ets.shouldDisplayExplanationSource?.next(false);
             ets.setIsExplanationTextDisplayed(false);
-            (ets as any).latestExplanationIndex = null;
+            // (ets as any).latestExplanationIndex = null;
           } else {
-            console.warn('[FET HOLD] Explanation does not belong to Q', prevIdx + 1, ', leaving untouched');
+            console.log('[FET HOLD] Preserving explanation pipeline for Q', idx + 1);
           }
         }
 
