@@ -476,103 +476,47 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.indexSubscription = this.quizService.currentQuestionIndex$
       .pipe(distinctUntilChanged())
       .subscribe((idx: number) => {
-        console.log('[INDEX STREAM SOURCE]', idx);
-        console.error('[INDEX STREAM]', idx);
 
+        const prevIdx = this.lastLoggedIndex;
         const ets = this.explanationTextService;
 
-        // Reset aLL stale FET from previous question
-        ets.latestExplanation = '';
-        ets.formattedExplanationSubject.next('');
-        ets.shouldDisplayExplanationSource.next(false);
-        ets._fetLocked = false;
-        ets._activeIndex = idx;
+        // ───────────────────────────────
+        // 🔥 ONLY nuke FET when switching questions
+        // ───────────────────────────────
+        if (prevIdx !== null && prevIdx !== idx) {
 
-        this._fetEarlyShown.delete(idx);
+          console.warn('[INDEX CHANGE] Q', prevIdx + 1, '→ Q', idx + 1);
 
-        this.explanationOverride       = { idx, html: '' };
-        this.displayExplanation        = false;
-        this.explanationVisibleLocal   = false;
-        this.explanationHtml           = '';
-        this.explanationToDisplay      = '';
-        this.showExplanation           = false;
-        this.showLocalExplanation      = false;
-        this.localExplanationText      = '';
+          // Clear user state for PREVIOUS question only
+          (this.quizStateService as any)._hasUserInteracted?.delete(prevIdx);
+          (this.quizStateService as any)._answeredQuestionIndices?.delete(prevIdx);
 
-        console.warn('[FET RESET] ✅ Cleared for Q', idx + 1);
+          const currentExplIdx = (ets as any).latestExplanationIndex;
 
-        // Attach correct question
-        const q = this.questionsArray?.[idx];
-        if (!q) {
-          console.error(`🔥 No question found for index ${idx}`);
-          return;
+          // Only clear explanation if it belongs to the previous question
+          if (currentExplIdx === prevIdx) {
+            console.warn('[FET RESET] Clearing explanation for Q', prevIdx + 1);
+
+            ets.latestExplanation = '';
+            ets.formattedExplanationSubject.next('');
+            ets.shouldDisplayExplanationSource.next(false);
+            ets.setIsExplanationTextDisplayed(false);
+            (ets as any).latestExplanationIndex = null;
+          } else {
+            console.warn('[FET HOLD] Explanation does not belong to Q', prevIdx + 1, ', leaving untouched');
+          }
         }
 
-        this.currentQuestion = q;
-        const trimmed = (q.questionText ?? '').trim();
-        this.questionToDisplay = trimmed;
+        // ───────────────────────────────
+        // ✅ Set new active index only
+        // ───────────────────────────────
+        ets._activeIndex = idx;
+        this._fetEarlyShown.delete(idx);
 
-        // Push into the actual stream the template uses
-        this.questionToDisplaySource.next(trimmed);
+        console.warn('[ACTIVE INDEX SET]', idx + 1);
 
-        console.log('[QUESTION STREAM]', {
-          idx,
-          questionPreview: q?.questionText?.slice(0, 80)
-        });
-
-        // Reset options
-        const originalOptions = q.options ?? [];
-        this.optionsToDisplay = originalOptions.map(opt => ({
-          ...opt,
-          active: true,
-          selected: false,
-          feedback: undefined,
-          showIcon: false
-        }));
-
-        // Reset quiz state locks
-        (this.quizStateService as any)._explanationLock = null;
-
-        this.quizStateService.setDisplayState({
-          mode: 'question',
-          answered: false
-        });
-
-        // Update local view model
-        this.currentQuestionIndex = idx;
-        this.lastLoggedIndex      = -1;
-        this.explanationHtml      = '';
-        this.showExplanation      = false;
-        this.explanationToDisplay = '';
-        this.explanationOverride  = { idx, html: '' };
-        this.showLocalExplanation = false;
-        this.localExplanationText = '';
-        (this.quizStateService as any)._explanationLock = null;
-
-        this.explanationTextService.setShouldDisplayExplanation(false);
-
-        // Clear selection cache
-        this.selectedOptionService.selectedOptionIndices[idx] = [];
-
-        this.selectionMessageService.lastRemainingByIndex?.delete(idx);
-        this.selectionMessageService.stickyCorrectIdsByIndex?.delete(idx);
-        this.selectionMessageService.stickyAnySelectedKeysByIndex?.delete(idx);
-
-        // Update progress bar
-        this.progressBarService.updateProgress(idx + 1, this.totalQuestions);
-
-        // Re-inject the question text
-        const freshText = q.questionText?.trim() || '...';
-
-        console.warn('[QUESTION REFRESH]', {
-          idx,
-          freshTextPreview: freshText.slice(0, 80)
-        });
-
-        this.quizQuestionLoaderService.questionToDisplaySubject.next(freshText);
-
-        // Wake Angular
-        this.cdRef.markForCheck();
+        // ✅ Remember current index for the next transition
+        this.lastLoggedIndex = idx;
       });
 
     try {

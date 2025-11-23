@@ -86,6 +86,7 @@ export class ExplanationTextService {
   private _textMap: Map<number, { text$: ReplaySubject<string> }> = new Map();
   private readonly _instanceId: string = '';
   private _unlockRAFId: number | null = null;
+  public latestExplanationIndex: number | null = null;
 
   constructor() {
     this._instanceId = Math.random().toFixed(5);

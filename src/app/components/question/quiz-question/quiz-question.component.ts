@@ -2820,6 +2820,8 @@ export class QuizQuestionComponent extends BaseQuestion
 
   // Called when a user clicks an option row
   public override async onOptionClicked(event: OptionClickedPayload): Promise<void> {
+    console.log('[CLICK ENTRY] onOptionClicked fired for Q', this.currentQuestionIndex);
+
     this.isUserClickInProgress = true;
     this._skipNextAsyncUpdates = false;  // reset skip flag at start of each click
 
@@ -3049,7 +3051,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
         this.fireAndForgetExplanationUpdate(lockedIndex, q);
       } */
-      this.fireAndForgetExplanationUpdate(lockedIndex, q);
+      // this.fireAndForgetExplanationUpdate(lockedIndex, q);
 
       const lockIdx = this.currentQuestionIndex;
       const question = this.quizService.questions?.[lockIdx];
@@ -3066,7 +3068,7 @@ export class QuizQuestionComponent extends BaseQuestion
       this._fetEarlyShown.delete(lockIdx);
 
       console.warn(`[QQC] 🔥 FORCED FET call for Q${lockIdx + 1}`);
-      this.fireAndForgetExplanationUpdate(lockIdx, question);
+      // this.fireAndForgetExplanationUpdate(lockIdx, question);
 
       console.log('[FET ENTRY] fireAndForgetExplanationUpdate HIT', {
         lockedIndex,
@@ -3440,6 +3442,15 @@ export class QuizQuestionComponent extends BaseQuestion
     lockedIndex: number,
     q: QuizQuestion
   ): Promise<void> {
+    console.error('[FET EMISSION FINAL]', {
+      lockedIndex,
+      activeIndex: this.quizService.getCurrentQuestionIndex(),
+      latestExplanation: (this.explanationTextService as any).latestExplanation?.slice(0, 80),
+      latestExplanationIndex: (this.explanationTextService as any).latestExplanationIndex,
+      gate: this.explanationTextService.shouldDisplayExplanationSource?.value,
+      displayed: this.explanationTextService.isExplanationTextDisplayedSource?.value
+    });
+
     console.error('[FET GUARD CHECK] performExplanationUpdate ENTERED', {
       lockedIndex,
       activeIndex: this.quizService.getCurrentQuestionIndex(),
@@ -3477,13 +3488,17 @@ export class QuizQuestionComponent extends BaseQuestion
       // ───────────── 1. Pin to active index ─────────────
       ets._activeIndex = lockedIndex;
 
+      // 🔑 Bind explanation to this question index
+      (ets as any).latestExplanationIndex = lockedIndex;
+
       // Lock only during formatting
       ets._fetLocked = true;
 
-      ets.setShouldDisplayExplanation(false);
-      ets.setIsExplanationTextDisplayed(false);
       ets.latestExplanation = '';
       ets.updateFormattedExplanation('');
+
+      ets.setShouldDisplayExplanation(false);
+      ets.setIsExplanationTextDisplayed(false);
 
       // Kill stale per-index cache
       ets.purgeAndDefer(lockedIndex);
@@ -3503,11 +3518,20 @@ export class QuizQuestionComponent extends BaseQuestion
 
       const correctIdxs = ets.getCorrectOptionIndices(canonicalQ);
 
-      const formatted = ets
+      // ✅ Multi-answer banner injection
+      const correctCount = correctIdxs.length;
+      const banner =
+        correctCount > 1
+          ? `This question has ${correctCount} correct answers.\n\n`
+          : '';
+
+      const formattedCore = ets
         .formatExplanation(canonicalQ, correctIdxs, canonicalRaw)
         .trim();
 
-      if (!formatted) {
+      const formatted = banner + formattedCore;
+
+      if (!formattedCore) {
         console.warn(`[QQC] ⚠️ Formatter stripped explanation text`);
         ets._fetLocked = false;
         return;
@@ -3524,19 +3548,23 @@ export class QuizQuestionComponent extends BaseQuestion
 
       console.log('🧠 [FET] Emitting explanation:', formatted.slice(0, 80));
 
-      // Single clean emission path (no duplicates later)
+      // ✅ Explanation emission chain (index-safe)
       ets.latestExplanation = formatted;
       ets.formattedExplanationSubject?.next(formatted);
-      ets.shouldDisplayExplanationSource?.next(false);
+      ets.updateFormattedExplanation(formatted);
+
+      ets.shouldDisplayExplanationSource?.next(true);
       ets.setIsExplanationTextDisplayed(true);
+
+      // ✅ ONLY NOW mark interaction + answered
+      (this.quizStateService as any).markUserInteracted(lockedIndex);
+      (this.quizStateService as any).markQuestionAnswered(lockedIndex);
 
       console.warn('[FET PROBE] EMITTED:', {
         idx: lockedIndex,
-        activeIndex: ets._activeIndex
+        activeIndex: ets._activeIndex,
+        latestExplanationIndex: (ets as any).latestExplanationIndex
       });
-
-      // Sync component display state
-      this.displayExplanation = true;
 
       this.quizStateService.setDisplayState({
         mode: 'explanation',
@@ -3546,13 +3574,14 @@ export class QuizQuestionComponent extends BaseQuestion
       this.explanationToDisplay = formatted;
       this.explanationToDisplayChange.emit(formatted);
 
-      console.log(`[QQC ✅] FET successfully displayed for Q${lockedIndex + 1}`);
+      console.log(`[QQC ✅] FET successfully generated for Q${lockedIndex + 1}`);
 
     } catch (err) {
       console.warn('[QQC ❌] FET trigger failed:', err);
       ets._fetLocked = false;
     }
   }
+
 
 
   private onQuestionTimedOut(targetIndex?: number): void {
@@ -4388,13 +4417,28 @@ export class QuizQuestionComponent extends BaseQuestion
       return;
     }
 
+    // 🔢 Single source of truth for the 0-based index
+    const effectiveIdx =
+      this.quizService.getCurrentQuestionIndex() ?? this.currentQuestionIndex ?? 0;
+
     if (this.currentQuestion.type === QuestionType.MultipleAnswer) {
       await this.handleMultipleAnswerTimerLogic(option);
     }
 
     if (allCorrectSelected) {
+      console.log(
+        '[FET CHECK] ✅ allCorrectSelected fired for Q (effectiveIdx)',
+        effectiveIdx
+      );
+
+      // ✅ Mark interaction using the SAME 0-based index the streams use
+      this.quizStateService.markUserInteracted(effectiveIdx);
+
+      // 🔐 HARD BIND explanation identity for this question
+      (this.explanationTextService as any).latestExplanationIndex = effectiveIdx;
+
       const stopped = this.timerService.attemptStopTimerForQuestion({
-        questionIndex: this.currentQuestionIndex,
+        questionIndex: effectiveIdx,
       });
 
       if (stopped) {
@@ -4408,6 +4452,30 @@ export class QuizQuestionComponent extends BaseQuestion
       // Ensure Next button is enabled
       this.answerSelected.emit(true);
       this.selectedOptionService.isAnsweredSubject.next(true);
+
+      // Enable explanation gate
+      this.explanationTextService.shouldDisplayExplanationSource.next(true);
+
+      // ──────────────────────────────────────────────
+      // ✅ CLEAN FET TRIGGER — no UI mutation here
+      // ──────────────────────────────────────────────
+      requestAnimationFrame(() => {
+        console.log(
+          '[FET] 🚀 Triggering explanation reveal for Q (effectiveIdx)',
+          effectiveIdx
+        );
+
+        // Switch display state to explanation
+        this.quizStateService.displayStateSubject.next({
+          mode: 'explanation',
+          answered: true
+        });
+
+        // Fire explanation generation bound to the same index
+        const q = this.currentQuestion;
+        if (!q) return;
+        this.fireAndForgetExplanationUpdate(effectiveIdx, q);
+      });
     }
 
     // Update selection state
@@ -4418,7 +4486,7 @@ export class QuizQuestionComponent extends BaseQuestion
     if (!wasPreviouslySelected) {
       const enrichedOption: SelectedOption = {
         ...option,
-        questionIndex: this.currentQuestionIndex
+        questionIndex: effectiveIdx  // keep this consistent too
       };
 
       this.soundService.playOnceForOption(enrichedOption);
@@ -4426,29 +4494,20 @@ export class QuizQuestionComponent extends BaseQuestion
       console.log('[⏸️ No sound - reselection]');
     }
 
-    // Ensure explanation text is preserved if not already set
-    if (!this.explanationToDisplay || !this.explanationToDisplay.trim()) {
-      const explanationText = this.explanationTextService
-        .explanationsInitialized
-        ? await firstValueFrom(
-          this.explanationTextService.getFormattedExplanationTextForQuestion(
-            this.currentQuestionIndex
-          )
-        )
-        : 'No explanation available';
-
-      this.explanationToDisplay = explanationText || 'No explanation available';
-    } else {
-      console.log(
-        '[handleCorrectnessOutcome] 🔄 Explanation text already exists. Not overriding.'
-      );
-    }
+    // ──────────────────────────────────────────────
+    // ❌ REMOVED: explanation text override logic
+    // This was blocking / poisoning the real FET flow
+    // ──────────────────────────────────────────────
+    // No explanationToDisplay updates here.
+    // No direct explanationTextService.setExplanationText here.
+    // CQCC + performExplanationUpdate now own it.
 
     // Ensure Next button state is correctly updated, preventing premature disabling
     setTimeout(() => {
       const shouldEnableNext =
         allCorrectSelected ||
         this.selectedOptionService.isAnsweredSubject.getValue();
+
       this.nextButtonState.emit(shouldEnableNext);
     }, 50);
   }
