@@ -1664,42 +1664,71 @@ export class SharedOptionComponent implements
   }
 
   private resolveExplanationText(questionIndex: number): string {
+    // Try to get pre-formatted explanation first
     const formatted = this.explanationTextService
       .formattedExplanations[questionIndex]?.explanation?.trim();
 
     if (formatted) {
+      console.log(`[✅ Using pre-formatted FET for Q${questionIndex + 1}]:`, formatted.slice(0, 80));
       return formatted;
     }
 
+    // Get the raw explanation text
     const activeIndex = this.getActiveQuestionIndex() ?? questionIndex;
     const matchesCurrentInput = this.currentQuestionIndex === activeIndex;
-    const currentInputExplanation = matchesCurrentInput
-      ? this.currentQuestion?.explanation?.trim()
-      : undefined;
 
-    if (currentInputExplanation) {
-      return currentInputExplanation;
+    let rawExplanation = '';
+
+    // Try current question first
+    if (matchesCurrentInput && this.currentQuestion?.explanation?.trim()) {
+      rawExplanation = this.currentQuestion.explanation.trim();
     }
 
-    const serviceQuestion = this.quizService.currentQuestion?.getValue();
-    if (serviceQuestion?.explanation && activeIndex === questionIndex) {
-      return serviceQuestion.explanation.trim();
+    // Try service question
+    if (!rawExplanation) {
+      const serviceQuestion = this.quizService.currentQuestion?.getValue();
+      if (serviceQuestion?.explanation && activeIndex === questionIndex) {
+        rawExplanation = serviceQuestion.explanation.trim();
+      }
     }
 
-    const questionsFromService =
-      (Array.isArray(this.quizService.questions) && this.quizService.questions) ||
-      (Array.isArray((this.quizService as any).questionsArray) && (this.quizService as any).questionsArray) ||
-      (Array.isArray(this.quizService.questionsList) && this.quizService.questionsList) ||
-      [];
+    // Try questions array
+    if (!rawExplanation) {
+      const questionsFromService =
+        (Array.isArray(this.quizService.questions) && this.quizService.questions) ||
+        (Array.isArray((this.quizService as any).questionsArray) && (this.quizService as any).questionsArray) ||
+        (Array.isArray(this.quizService.questionsList) && this.quizService.questionsList) ||
+        [];
 
-    const fallbackQuestion = questionsFromService[activeIndex] ?? questionsFromService[questionIndex];
-    const fallbackExplanation = fallbackQuestion?.explanation?.trim();
-
-    if (fallbackExplanation) {
-      return fallbackExplanation;
+      const fallbackQuestion = questionsFromService[activeIndex] ?? questionsFromService[questionIndex];
+      rawExplanation = fallbackQuestion?.explanation?.trim() || '';
     }
 
-    return 'No explanation available';
+    if (!rawExplanation) {
+      console.warn(`[⚠️ No explanation found for Q${questionIndex + 1}]`);
+      return 'No explanation available';
+    }
+
+    // ✅ FORMAT THE EXPLANATION with "Option X is correct because..."
+    try {
+      const question = this.currentQuestion || this.quizService.questions?.[questionIndex];
+
+      if (question) {
+        const correctIndices = this.explanationTextService.getCorrectOptionIndices(question);
+        const formattedExplanation = this.explanationTextService.formatExplanation(
+          question,
+          correctIndices,
+          rawExplanation
+        );
+
+        console.log(`[✅ Formatted FET for Q${questionIndex + 1}]:`, formattedExplanation.slice(0, 80));
+        return formattedExplanation;
+      }
+    } catch (err) {
+      console.warn('[⚠️ Failed to format explanation, using raw]:', err);
+    }
+
+    return rawExplanation;
   }
 
   private forceHighlightRefresh(optionId: number): void {
