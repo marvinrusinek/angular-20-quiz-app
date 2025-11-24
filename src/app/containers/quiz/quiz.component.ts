@@ -710,10 +710,15 @@ get quizQuestionComponent(): QuizQuestionComponent {
           const hasHydratedSelections = hasSelectedOptions && persistedSelectionsCount > 0;
           const answered = hasServiceSelections || answeredViaState || hasHydratedSelections;
 
-          this.questionToDisplaySource.next(
-            (question.questionText ?? '').trim() ||
-            'No question available'
-          );
+          const questionText = (question.questionText ?? '').trim() || 'No question available';
+
+          console.log(`[QA$ SUBSCRIPTION] Setting question text for Q${resolvedIndex + 1}:`, {
+            index: resolvedIndex,
+            questionText: questionText.slice(0, 80),
+            fullQuestion: question
+          });
+
+          this.questionToDisplaySource.next(questionText);
 
           const interacted =
             (this.quizStateService as any).hasUserInteracted?.(resolvedIndex) === true;
