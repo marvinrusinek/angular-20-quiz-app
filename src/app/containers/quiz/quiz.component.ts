@@ -78,12 +78,12 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   quizQuestionComponent!: QuizQuestionComponent;
 
   /* set quizQuestionComponent(component: unknown) {
-    this._quizQuestionComponent = component as QuizQuestionComponent;
-  }
+  this._quizQuestionComponent = component as QuizQuestionComponent;
+}
 
-  get quizQuestionComponent(): QuizQuestionComponent {
-    return this._quizQuestionComponent;
-  } */
+get quizQuestionComponent(): QuizQuestionComponent {
+  return this._quizQuestionComponent;
+} */
 
   @ViewChild(SharedOptionComponent, { static: false })
   sharedOptionComponent!: SharedOptionComponent;
@@ -474,84 +474,84 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       });
 
     /* this.indexSubscription = this.quizService.currentQuestionIndex$
-      .pipe(distinctUntilChanged())
-      .subscribe((idx: number) => {
+  .pipe(distinctUntilChanged())
+  .subscribe((idx: number) => {
 
 
-        const prevIdx = this.lastLoggedIndex;
-        const ets = this.explanationTextService;
+    const prevIdx = this.lastLoggedIndex;
+    const ets = this.explanationTextService;
 
-        // ───────────────────────────────
-        // 🔥 ONLY nuke FET when switching questions
-        // ───────────────────────────────
-        if (prevIdx !== null && prevIdx !== idx) {
+    // ───────────────────────────────
+    // 🔥 ONLY nuke FET when switching questions
+    // ───────────────────────────────
+    if (prevIdx !== null && prevIdx !== idx) {
 
-          console.warn('[INDEX CHANGE] Q', prevIdx + 1, '→ Q', idx + 1);
+      console.warn('[INDEX CHANGE] Q', prevIdx + 1, '→ Q', idx + 1);
 
-          // Clear user state for PREVIOUS question only
-          (this.quizStateService as any)._hasUserInteracted?.delete(prevIdx);
-          (this.quizStateService as any)._answeredQuestionIndices?.delete(prevIdx);
+      // Clear user state for PREVIOUS question only
+      (this.quizStateService as any)._hasUserInteracted?.delete(prevIdx);
+      (this.quizStateService as any)._answeredQuestionIndices?.delete(prevIdx);
 
-          const currentExplIdx = (ets as any).latestExplanationIndex;
+      const currentExplIdx = (ets as any).latestExplanationIndex;
 
-          // Only clear explanation when switching to a DIFFERENT question
-          if (currentExplIdx !== null && currentExplIdx !== idx) {
-            console.warn('[FET RESET] Purging explanation from old index', currentExplIdx);
+      // Only clear explanation when switching to a DIFFERENT question
+      if (currentExplIdx !== null && currentExplIdx !== idx) {
+        console.warn('[FET RESET] Purging explanation from old index', currentExplIdx);
 
-            ets.latestExplanation = '';
-            ets.formattedExplanationSubject?.next('');
-            ets.shouldDisplayExplanationSource?.next(false);
-            ets.setIsExplanationTextDisplayed(false);
-            // (ets as any).latestExplanationIndex = null;
-          } else {
-            console.log('[FET HOLD] Preserving explanation pipeline for Q', idx + 1);
-          }
-        }
+        ets.latestExplanation = '';
+        ets.formattedExplanationSubject?.next('');
+        ets.shouldDisplayExplanationSource?.next(false);
+        ets.setIsExplanationTextDisplayed(false);
+        // (ets as any).latestExplanationIndex = null;
+      } else {
+        console.log('[FET HOLD] Preserving explanation pipeline for Q', idx + 1);
+      }
+    }
 
-        // ───────────────────────────────
-        // ✅ Set new active index only
-        // ───────────────────────────────
-        ets._activeIndex = idx;
-        this._fetEarlyShown.delete(idx);
+    // ───────────────────────────────
+    // ✅ Set new active index only
+    // ───────────────────────────────
+    ets._activeIndex = idx;
+    this._fetEarlyShown.delete(idx);
 
-        console.warn('[ACTIVE INDEX SET]', idx + 1);
+    console.warn('[ACTIVE INDEX SET]', idx + 1);
 
-        // ✅ Remember current index for the next transition
-        this.lastLoggedIndex = idx;
-      }); */
+    // ✅ Remember current index for the next transition
+    this.lastLoggedIndex = idx;
+  }); */
     /* this.indexSubscription = this.quizService.currentQuestionIndex$
-      .pipe(distinctUntilChanged())
-      .subscribe((idx: number) => {
+  .pipe(distinctUntilChanged())
+  .subscribe((idx: number) => {
 
-        const ets = this.explanationTextService;
+    const ets = this.explanationTextService;
 
-        console.warn('[INDEX CHANGE] →', idx + 1);
+    console.warn('[INDEX CHANGE] →', idx + 1);
 
-        // 🔥 Only reset when switching away from a question
-        if (this.lastLoggedIndex !== null && this.lastLoggedIndex !== idx) {
+    // 🔥 Only reset when switching away from a question
+    if (this.lastLoggedIndex !== null && this.lastLoggedIndex !== idx) {
 
-          console.warn('[CLEANUP PREVIOUS Q]', this.lastLoggedIndex + 1);
+      console.warn('[CLEANUP PREVIOUS Q]', this.lastLoggedIndex + 1);
 
-          (this.quizStateService as any)._hasUserInteracted?.delete(this.lastLoggedIndex);
-          (this.quizStateService as any)._answeredQuestionIndices?.delete(this.lastLoggedIndex);
+      (this.quizStateService as any)._hasUserInteracted?.delete(this.lastLoggedIndex);
+      (this.quizStateService as any)._answeredQuestionIndices?.delete(this.lastLoggedIndex);
 
-          // ✅ Only clear if explanation belongs to the OLD one
-          if ((ets as any).latestExplanationIndex === this.lastLoggedIndex) {
-            console.warn('[CLEAR OLD FET]', this.lastLoggedIndex + 1);
-            ets.latestExplanation = '';
-            ets.formattedExplanationSubject.next('');
-            ets.shouldDisplayExplanationSource.next(false);
-            ets.setIsExplanationTextDisplayed(false);
-            (ets as any).latestExplanationIndex = null;
-          }
-        }
+      // ✅ Only clear if explanation belongs to the OLD one
+      if ((ets as any).latestExplanationIndex === this.lastLoggedIndex) {
+        console.warn('[CLEAR OLD FET]', this.lastLoggedIndex + 1);
+        ets.latestExplanation = '';
+        ets.formattedExplanationSubject.next('');
+        ets.shouldDisplayExplanationSource.next(false);
+        ets.setIsExplanationTextDisplayed(false);
+        (ets as any).latestExplanationIndex = null;
+      }
+    }
 
-        // ✅ DO NOT CLEAR CURRENT QUESTION
-        ets._activeIndex = idx;
-        this._fetEarlyShown.delete(idx);
+    // ✅ DO NOT CLEAR CURRENT QUESTION
+    ets._activeIndex = idx;
+    this._fetEarlyShown.delete(idx);
 
-        this.lastLoggedIndex = idx;
-      }); */
+    this.lastLoggedIndex = idx;
+  }); */
     this.indexSubscription = this.quizService.currentQuestionIndex$
       .pipe(distinctUntilChanged())
       .subscribe((idx: number) => {
@@ -730,7 +730,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
             const explanationToPush = question.explanation?.trim() || explanationFromState || '';
 
-            this.explanationTextService.explanationText$.next(explanationToPush);
+            this.explanationTextService.setExplanationText(explanationToPush);
             queueMicrotask(() => {
               this.quizStateService.setDisplayState({
                 mode: 'explanation',
@@ -808,8 +808,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   }
 
   private initializeExplanationText(): void {
-    this.quizService.nextExplanationText$.subscribe((text) => {
-      this.explanationToDisplay = text;
+    this.explanationTextService.explanationText$.subscribe((text) => {
+      this.explanationToDisplay = text || '';
     });
   }
 
@@ -2299,51 +2299,51 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
   // TODO: Remove if correct-answers hint is fully deprecated from UI
   /* private async syncCorrectAnswersHint(
-    question: QuizQuestion
-  ): Promise<void> {
-    const resolvedType = this.resolveQuestionType(question);
+  question: QuizQuestion
+): Promise<void> {
+  const resolvedType = this.resolveQuestionType(question);
 
-    this.persistCurrentQuestionType(resolvedType);
+  this.persistCurrentQuestionType(resolvedType);
 
-    if (!this.isNavigatedByUrl) {
-      if (resolvedType !== QuestionType.MultipleAnswer) {
-        this.quizService.updateCorrectAnswersText('');
-      }
-      return;
-    }
-
-    const storedType = this.readStoredQuestionType();
-    if (storedType !== QuestionType.MultipleAnswer) {
+  if (!this.isNavigatedByUrl) {
+    if (resolvedType !== QuestionType.MultipleAnswer) {
       this.quizService.updateCorrectAnswersText('');
-      return;
     }
+    return;
+  }
 
-    try {
-      const normalizedOptions =
-        (question.options ?? []).map((option) => ({
-        ...option,
-        correct: !!option.correct
-      }));
+  const storedType = this.readStoredQuestionType();
+  if (storedType !== QuestionType.MultipleAnswer) {
+    this.quizService.updateCorrectAnswersText('');
+    return;
+  }
 
-      const numberOfCorrectAnswers =
-        this.quizQuestionManagerService.calculateNumberOfCorrectAnswers(
-          normalizedOptions
-        );
-      const correctAnswersText =
-        this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
-          numberOfCorrectAnswers,
-          normalizedOptions.length
-        );
+  try {
+    const normalizedOptions =
+      (question.options ?? []).map((option) => ({
+      ...option,
+      correct: !!option.correct
+    }));
 
-      this.quizService.updateCorrectAnswersText(correctAnswersText);
-    } catch (error) {
-      console.error(
-        '[loadQuestionByRouteIndex] ❌ Failed to sync correct answers hint:',
-        error
+    const numberOfCorrectAnswers =
+      this.quizQuestionManagerService.calculateNumberOfCorrectAnswers(
+        normalizedOptions
       );
-      this.quizService.updateCorrectAnswersText('');
-    }
-  } */
+    const correctAnswersText =
+      this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
+        numberOfCorrectAnswers,
+        normalizedOptions.length
+      );
+
+    this.quizService.updateCorrectAnswersText(correctAnswersText);
+  } catch (error) {
+    console.error(
+      '[loadQuestionByRouteIndex] ❌ Failed to sync correct answers hint:',
+      error
+    );
+    this.quizService.updateCorrectAnswersText('');
+  }
+} */
 
   // TODO: Keep this fallback type resolver for now.
   //       Remove ONLY after:
@@ -2353,57 +2353,57 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   //       Currently still required by navigation, correct-answers hints,
   //       and explanation-text formatting.
   /* private resolveQuestionType(question: QuizQuestion): QuestionType {
-    if (question?.type) return question.type;
+  if (question?.type) return question.type;
 
-    const correctCount = (question?.options ?? []).reduce(
-      (count, option) => (option?.correct ? count + 1 : count),
-      0
-    );
+  const correctCount = (question?.options ?? []).reduce(
+    (count, option) => (option?.correct ? count + 1 : count),
+    0
+  );
 
-    return correctCount > 1
-      ? QuestionType.MultipleAnswer
-      : QuestionType.SingleAnswer;
-  } */
+  return correctCount > 1
+    ? QuestionType.MultipleAnswer
+    : QuestionType.SingleAnswer;
+} */
 
   // keep, called in syncCorrectAnswersHint()
   /* private persistCurrentQuestionType(type: QuestionType): void {
-    try {
-      localStorage.setItem('currentQuestionType', type);
-    } catch (error) {
-      console.warn(
-        '[QuizComponent] ⚠️ Unable to persist currentQuestionType to storage:',
-        error
-      );
-    }
-  } */
+  try {
+    localStorage.setItem('currentQuestionType', type);
+  } catch (error) {
+    console.warn(
+      '[QuizComponent] ⚠️ Unable to persist currentQuestionType to storage:',
+      error
+    );
+  }
+} */
 
   // keep, called in syncCorrectAnswersHint()
   /* private readStoredQuestionType(): QuestionType | null {
-    try {
-      const stored = localStorage.getItem('currentQuestionType');
-      if (!stored) return null;
+  try {
+    const stored = localStorage.getItem('currentQuestionType');
+    if (!stored) return null;
 
-      if (stored === QuestionType.MultipleAnswer) {
-        return QuestionType.MultipleAnswer;
-      }
-
-      if (stored === QuestionType.SingleAnswer) {
-        return QuestionType.SingleAnswer;
-      }
-
-      if (stored === QuestionType.TrueFalse) {
-        return QuestionType.TrueFalse;
-      }
-
-      return null;
-    } catch (error) {
-      console.warn(
-        '[QuizComponent] ⚠️ Unable to read currentQuestionType from storage:',
-        error
-      );
-      return null;
+    if (stored === QuestionType.MultipleAnswer) {
+      return QuestionType.MultipleAnswer;
     }
-  } */
+
+    if (stored === QuestionType.SingleAnswer) {
+      return QuestionType.SingleAnswer;
+    }
+
+    if (stored === QuestionType.TrueFalse) {
+      return QuestionType.TrueFalse;
+    }
+
+    return null;
+  } catch (error) {
+    console.warn(
+      '[QuizComponent] ⚠️ Unable to read currentQuestionType from storage:',
+      error
+    );
+    return null;
+  }
+} */
 
   private restoreSelectedOptions(): void {
     const selectedOptionsData = sessionStorage.getItem(`selectedOptions`);
@@ -2464,8 +2464,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   //       Even though it currently forwards to updateQuestionDisplay,
   //       DO NOT remove it until shuffle logic is fully implemented.
   /* updateQuestionDisplayForShuffledQuestions(): void {
-    void this.updateQuestionDisplay(this.currentQuestionIndex);
-  } */
+  void this.updateQuestionDisplay(this.currentQuestionIndex);
+} */
 
   refreshQuestionOnReset(): void {
     const firstQuestion = this.quizService.getQuestionByIndex(0);
