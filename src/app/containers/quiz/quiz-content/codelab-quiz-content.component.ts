@@ -216,40 +216,13 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
               const el = this.qText?.nativeElement;
               if (!el) return;
 
-              // Get current question index
               const currentIndex = this.quizService.getCurrentQuestionIndex();
-
-              // ✅ VALIDATED: Only show explanation if it matches current question
-              const explanationIndex = this.explanationTextService?.latestExplanationIndex;
-              const explanation =
-                this.explanationTextService?.latestExplanation?.trim() ||
-                this.explanationToDisplay?.trim() ||
-                '';
-
-              // Validate: explanation must belong to current question
-              const isValidExplanation =
-                explanation &&
-                explanation.length > 10 &&
-                explanationIndex !== null &&
-                explanationIndex === currentIndex;
-
-              if (isValidExplanation) {
-                console.warn('[CQCC ✅] Displaying explanation for Q' + (currentIndex + 1) + ':', explanation.slice(0, 80));
-
-                // Display explanation with same styling as question text
-                el.innerHTML = explanation;
-
-                return; // ⛔ Nothing below executes
-              }
-
-              // Log if we're blocking a mismatched explanation
-              if (explanation && explanation.length > 10 && explanationIndex !== currentIndex) {
-                console.warn('[CQCC ⛔] Blocking mismatched explanation: index=' + explanationIndex + ', current=' + currentIndex);
-              }
-
-              // Otherwise display the question text
               const incoming = v ?? '';
 
+              console.log(`[CQCC Display] Q${currentIndex + 1}: "${incoming.slice(0, 100)}"`);
+
+              // Simple: just display whatever the stream gives us
+              // The resolveTextToDisplay() method already handles the logic
               el.style.transition = 'opacity 0.12s linear';
               el.style.opacity = '0.4';
               el.innerHTML = incoming;
@@ -543,15 +516,15 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
       // If navigating or in quiet zone, hold the last stable string (don’t pass new frames).
       filter(([
-                , // idx
-                , // question
-                , // banner
-                , // fet
-                , // shouldShow
-                navigating,
-                qQuiet,
-                eQuiet
-              ]) => {
+        , // idx
+        , // question
+        , // banner
+        , // fet
+        , // shouldShow
+        navigating,
+        qQuiet,
+        eQuiet
+      ]) => {
         const hold = navigating || performance.now() < Math.max(qQuiet || 0, eQuiet || 0);
         if (hold) {
           console.log('[VisualGate] ⏸ hold (navigating/quiet-zone)');
@@ -597,9 +570,9 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       withLatestFrom(this.quizService.currentQuestionIndex$),
 
       filter(([
-                [idx, question, banner, fet, shouldShow, navigating, qQuiet, eQuiet],
-                liveIdx
-              ]) => {
+        [idx, question, banner, fet, shouldShow, navigating, qQuiet, eQuiet],
+        liveIdx
+      ]) => {
         const valid = idx === liveIdx;
 
         if (!valid) {
@@ -1839,10 +1812,18 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         (Array.isArray(qObj.options) &&
           qObj.options.filter((o: Option) => o.correct).length > 1));
 
+    // ✅ FIX: Use incoming qText first, NOT cached value
+    // The cached value might be from a different question
     const fallbackQuestion =
+      qText ||  // ← Use incoming text FIRST
       this._lastQuestionTextByIndex.get(idx) ||
-      qText ||
       '[Recovery: question still loading…]';
+
+    console.log(`[resolveTextToDisplay] Using text for Q${idx + 1}:`, {
+      incomingQText: qText?.slice(0, 50),
+      cachedText: this._lastQuestionTextByIndex.get(idx)?.slice(0, 50),
+      usingText: fallbackQuestion.slice(0, 50)
+    });
 
     // ✅ Only show banner when NOT in explanation mode
     if (isMulti && bannerText && mode === 'question') {
@@ -1852,9 +1833,12 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       return merged;
     }
 
-    console.log(`[resolveTextToDisplay] 🔁 Question fallback →`, fallbackQuestion);
+    console.log(`[resolveTextToDisplay] 🔁 Question fallback for Q${idx + 1} →`, fallbackQuestion.slice(0, 80));
 
-    this._lastQuestionTextByIndex.set(idx, fallbackQuestion);
+    // Cache the current question text for this index
+    if (qText) {
+      this._lastQuestionTextByIndex.set(idx, qText);
+    }
 
     console.log('[CQCC TEXT RESOLVE]', {
       idx,
@@ -2275,11 +2259,11 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     ]).pipe(
       switchMap(
         ([
-           currentQuizData,
-           numberOfCorrectAnswers,
-           isExplanationDisplayed,
-           formattedExplanation,
-         ]) => {
+          currentQuizData,
+          numberOfCorrectAnswers,
+          isExplanationDisplayed,
+          formattedExplanation,
+        ]) => {
           // Check if currentQuestion is null and handle it
           if (!currentQuizData.currentQuestion) {
             console.warn('No current question found in data:', currentQuizData);
