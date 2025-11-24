@@ -1,4 +1,5 @@
 import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, NgZone, OnChanges, OnDestroy, OnInit, Output, SimpleChanges, ViewChild } from '@angular/core';
+import { AsyncPipe, CommonModule } from '@angular/common';
 import { ActivatedRoute, ParamMap } from '@angular/router';
 import { animationFrameScheduler, BehaviorSubject, combineLatest, defer, firstValueFrom, forkJoin, Observable, of, Subject, Subscription } from 'rxjs';
 import { auditTime, catchError, debounceTime, distinctUntilChanged, filter, map, observeOn, shareReplay, skip, skipUntil, startWith, switchMap, take, takeUntil, tap, withLatestFrom } from 'rxjs/operators';
@@ -17,6 +18,7 @@ import { QuizStateService } from '../../../shared/services/quizstate.service';
 import { ExplanationTextService } from '../../../shared/services/explanation-text.service';
 import { QuizQuestionComponent } from '../../../components/question/quiz-question/quiz-question.component';
 
+
 interface QuestionViewState {
   index: number,
   key: string,
@@ -28,6 +30,7 @@ interface QuestionViewState {
 @Component({
   selector: 'codelab-quiz-content',
   standalone: true,
+  imports: [CommonModule, AsyncPipe],
   templateUrl: './codelab-quiz-content.component.html',
   styleUrls: ['./codelab-quiz-content.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
