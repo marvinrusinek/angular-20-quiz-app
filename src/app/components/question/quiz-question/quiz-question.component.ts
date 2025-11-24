@@ -4900,6 +4900,7 @@ export class QuizQuestionComponent extends BaseQuestion
         console.log('[QQC] handleOptionProcessingAndFeedback setting explanation:', explanationText);
         this.explanationToDisplay = explanationText;
         this.explanationTextService.setExplanationText(explanationText);
+        this.explanationTextService.setShouldDisplayExplanation(true);
 
         if (this.isAnswered && this.shouldDisplayExplanation) {
           this.explanationToDisplayChange.emit(explanationText);
@@ -6198,6 +6199,7 @@ export class QuizQuestionComponent extends BaseQuestion
             this.explanationTextService.setExplanationText(
               this.explanationToDisplay
             );
+            this.explanationTextService.setShouldDisplayExplanation(true);
             this.explanationToDisplayChange.emit(this.explanationToDisplay);
           } else {
             console.log(
