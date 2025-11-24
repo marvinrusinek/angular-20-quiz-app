@@ -4901,6 +4901,7 @@ export class QuizQuestionComponent extends BaseQuestion
         this.explanationToDisplay = explanationText;
         this.explanationTextService.setExplanationText(explanationText);
         this.explanationTextService.setShouldDisplayExplanation(true);
+        this.shouldDisplayExplanation = true;
 
         if (this.isAnswered && this.shouldDisplayExplanation) {
           this.explanationToDisplayChange.emit(explanationText);
@@ -6200,6 +6201,7 @@ export class QuizQuestionComponent extends BaseQuestion
               this.explanationToDisplay
             );
             this.explanationTextService.setShouldDisplayExplanation(true);
+            this.shouldDisplayExplanation = true;
             this.explanationToDisplayChange.emit(this.explanationToDisplay);
           } else {
             console.log(

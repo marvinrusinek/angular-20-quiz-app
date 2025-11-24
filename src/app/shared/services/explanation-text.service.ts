@@ -149,6 +149,9 @@ export class ExplanationTextService {
     const signature = `${contextKey}:::${trimmed}`;
     console.log(`[ETS] setExplanationText called with: "${trimmed}" (context: ${contextKey})`);
 
+    // ✅ FIX: Ensure we track WHICH question this explanation belongs to
+    this.latestExplanationIndex = this._activeIndexValue;
+
     // Visibility lock: prevent overwrites during tab restore
     if ((this as any)._visibilityLocked) {
       console.log('[ETS] ⏸ Ignored setExplanationText while locked');

@@ -4511,12 +4511,14 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   }
 
   onExplanationChanged(explanation: string): void {
+    console.log('[QC] onExplanationChanged called with:', explanation);
     this.explanationToDisplay = explanation;
     this.explanationTextService.setExplanationText(explanation);
     this.explanationTextService.setShouldDisplayExplanation(true);
   }
 
   onShowExplanationChanged(shouldShow: boolean): void {
+    console.log('[QC] onShowExplanationChanged called with:', shouldShow);
     if (shouldShow) {
       this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
     }
