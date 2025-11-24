@@ -1,5 +1,4 @@
 import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, NgZone, OnChanges, OnDestroy, OnInit, Output, SimpleChanges, ViewChild } from '@angular/core';
-import { CommonModule, AsyncPipe } from '@angular/common';
 import { ActivatedRoute, ParamMap } from '@angular/router';
 import { animationFrameScheduler, BehaviorSubject, combineLatest, defer, firstValueFrom, forkJoin, Observable, of, Subject, Subscription } from 'rxjs';
 import { auditTime, catchError, debounceTime, distinctUntilChanged, filter, map, observeOn, shareReplay, skip, skipUntil, startWith, switchMap, take, takeUntil, tap, withLatestFrom } from 'rxjs/operators';
@@ -29,7 +28,6 @@ interface QuestionViewState {
 @Component({
   selector: 'codelab-quiz-content',
   standalone: true,
-  imports: [CommonModule, AsyncPipe],
   templateUrl: './codelab-quiz-content.component.html',
   styleUrls: ['./codelab-quiz-content.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -135,8 +133,17 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   ]).pipe(
     map(([state, qText, fet]) => {
       const mode = state?.mode || 'question';
+      const currentIdx = this.quizService.getCurrentQuestionIndex();
+
+      console.log(`[displayText$] ═══════════════════════════════════`);
+      console.log(`[displayText$] Current Index: ${currentIdx}`);
+      console.log(`[displayText$] Mode: ${mode}`);
+      console.log(`[displayText$] Question Text: "${qText?.slice(0, 80)}"`);
+      console.log(`[displayText$] FET: "${fet?.slice(0, 80)}"`);
+      console.log(`[displayText$] ═══════════════════════════════════`);
+
       const text = mode === 'explanation' && fet ? fet : qText;
-      console.log(`[displayText$] Mode: ${mode}, Text: "${text?.slice(0, 60)}"`);
+      console.log(`[displayText$] ✅ RETURNING: "${text?.slice(0, 80)}"`);
       return text || 'Loading...';
     })
   );
