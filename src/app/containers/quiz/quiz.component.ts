@@ -657,7 +657,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
     }
 
     // Assign question and options together when ready
-    this.quizStateService.qa$
+    /* this.quizStateService.qa$
       .pipe(
         filter(d =>
           !!d.question &&
@@ -758,6 +758,15 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
           this.cdRef.markForCheck();  // trigger change‑detection just once
         });
+      }); */
+    this.quizService.questionToDisplay$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(qText => {
+        // qText is already the correct text for the current question
+        console.log(`[QuizComponent] New question text received: "${qText?.slice(0, 80)}"`);
+    
+        // Push it into the source that CodelabQuizContentComponent consumes
+        this.questionToDisplaySource.next(qText ?? 'No question available');
       });
 
     this.nextButtonStateService.isButtonEnabled$

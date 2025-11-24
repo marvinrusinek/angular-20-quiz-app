@@ -49,6 +49,13 @@ export class QuizService {
   private questionsSubject = new BehaviorSubject<QuizQuestion[]>([]);
   questions$ = this.questionsSubject.asObservable();
 
+  // Inside the class definition (near other fields)
+  private questionToDisplaySource = new BehaviorSubject<string>('Loading question…');
+
+  // PUBLIC observable that other components can subscribe to
+  public readonly questionToDisplay$: Observable<string> =
+  this.questionToDisplaySource.asObservable();
+
   currentQuestionIndexSource = new BehaviorSubject<number>(0);
   currentQuestionIndex$ = this.currentQuestionIndexSource.asObservable();
 
@@ -2167,5 +2174,13 @@ export class QuizService {
       options: optionsToUse,
       explanation: questionToEmit.explanation ?? ''
     });
+  }
+
+  // When the service receives a new question (usually in a method
+  // that loads the next question), push the text into the source:
+  private updateCurrentQuestion(question: QuizQuestion): void {
+    const qText = (question.questionText ?? '').trim() || 'No question available';
+    console.log(`[QuizService] Updating question text: "${qText.slice(0, 80)}"`);
+    this.questionToDisplaySource.next(qText);
   }
 }
