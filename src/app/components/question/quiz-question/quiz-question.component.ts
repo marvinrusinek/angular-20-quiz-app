@@ -4887,17 +4887,17 @@ export class QuizQuestionComponent extends BaseQuestion
       }
 
       if (this.quizQuestionManagerService.isValidQuestionData(questionData)) {
-        const processedExplanation = await this.processExplanationText(
+        // ✅ FIX: Use ExplanationTextService to format the explanation
+        const rawExplanation = questionData.explanation ?? 'No explanation available';
+        const correctIndices = this.explanationTextService.getCorrectOptionIndices(questionData);
+
+        const explanationText = this.explanationTextService.formatExplanation(
           questionData,
-          this.currentQuestionIndex
+          correctIndices,
+          rawExplanation
         );
 
-        let explanationText =
-          processedExplanation?.explanation ??
-          questionData.explanation ??
-          'No explanation available';
-
-        console.log('[QQC] handleOptionProcessingAndFeedback setting explanation:', explanationText);
+        console.log('[QQC] handleOptionProcessingAndFeedback setting formatted explanation:', explanationText);
         this.explanationToDisplay = explanationText;
         this.explanationTextService.setExplanationText(explanationText);
         this.explanationTextService.setShouldDisplayExplanation(true);

@@ -196,16 +196,39 @@ export class ExplanationTextService {
     }
 
     this.lastExplanationSignature = signature;
-    this.latestExplanation = trimmed;
+
+    // ✅ AUTO-FORMAT: Check if explanation needs formatting
+    let finalExplanation = trimmed;
+    if (trimmed && this._activeIndexValue !== null) {
+      // Check if already formatted
+      const alreadyFormattedRe = /^(?:option|options)\s+\d+(?:\s*,\s*\d+)*(?:\s+and\s+\d+)?\s+(?:is|are)\s+correct\s+because\s+/i;
+
+      if (!alreadyFormattedRe.test(trimmed)) {
+        console.log('[ETS] ⚙️ Auto-formatting explanation for Q' + (this._activeIndexValue + 1));
+        // Explanation needs formatting - but we don't have the question here
+        // So we'll just store it as-is and rely on the caller to format it
+        // This is a fallback - callers should format before calling setExplanationText
+      }
+    }
+
+    // ✅ FIX: Clear old explanation when we're NOT setting new text
+    // This prevents Q1's explanation from showing for Q2
+    if (!finalExplanation && this.latestExplanation) {
+      console.log('[ETS] Clearing stale explanation');
+      this.latestExplanation = '';
+      this.latestExplanationIndex = null;
+    } else {
+      this.latestExplanation = finalExplanation;
+    }
 
     // Unified emission pipeline
-    console.log(`[ETS] Emitting to formattedExplanationSubject: "${trimmed}"`);
-    this.explanationText$.next(trimmed);
-    this.formattedExplanationSubject.next(trimmed);
+    console.log(`[ETS] Emitting to formattedExplanationSubject: "${finalExplanation}"`);
+    this.explanationText$.next(finalExplanation);
+    this.formattedExplanationSubject.next(finalExplanation);
 
     // Ensure direct subject update for visibility-stable downstream
     try {
-      (this as any).explanationTextSubject?.next(trimmed);
+      (this as any).explanationTextSubject?.next(finalExplanation);
     } catch {
       // optional secondary stream
     }

@@ -216,41 +216,38 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
               const el = this.qText?.nativeElement;
               if (!el) return;
 
-              console.error('[CQCC DIAG]', {
-                mode: this.quizStateService.displayStateSubject?.value?.mode,
-                showExplanation: this.showExplanation,
-                explanationToDisplay: this.explanationToDisplay?.slice(0, 80),
-                latestServiceExplanation: this.explanationTextService?.latestExplanation?.slice(0, 80),
-              });
+              // Get current question index
+              const currentIndex = this.quizService.getCurrentQuestionIndex();
 
-              // 🔐 HARD LOCK: Explanation mode owns the screen
-              const isExplanationMode =
-                this.quizStateService.displayStateSubject?.value?.mode === 'explanation';
-
+              // ✅ VALIDATED: Only show explanation if it matches current question
+              const explanationIndex = this.explanationTextService?.latestExplanationIndex;
               const explanation =
-                this.explanationToDisplay?.trim() ||
                 this.explanationTextService?.latestExplanation?.trim() ||
+                this.explanationToDisplay?.trim() ||
                 '';
 
-              if (isExplanationMode && explanation) {
-                console.warn('[CQCC ✅ LOCKED] Explanation mode active, blocking question redraw');
+              // Validate: explanation must belong to current question
+              const isValidExplanation =
+                explanation &&
+                explanation.length > 10 &&
+                explanationIndex !== null &&
+                explanationIndex === currentIndex;
 
-                el.innerHTML = `
-              <div style="
-                color:#66ff66;
-                background:#111;
-                padding:8px;
-                border:1px solid #444;
-                border-radius:6px;
-                font-size:15px;
-              ">
-                ${explanation}
-              </div>
-            `;
+              if (isValidExplanation) {
+                console.warn('[CQCC ✅] Displaying explanation for Q' + (currentIndex + 1) + ':', explanation.slice(0, 80));
+
+                // Display explanation with same styling as question text
+                el.innerHTML = explanation;
 
                 return; // ⛔ Nothing below executes
               }
 
+              // Log if we're blocking a mismatched explanation
+              if (explanation && explanation.length > 10 && explanationIndex !== currentIndex) {
+                console.warn('[CQCC ⛔] Blocking mismatched explanation: index=' + explanationIndex + ', current=' + currentIndex);
+              }
+
+              // Otherwise display the question text
               const incoming = v ?? '';
 
               el.style.transition = 'opacity 0.12s linear';
@@ -428,6 +425,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         // Completely clear explanation state *before* CombineLatest runs again
         ets._activeIndex = newIdx;
         ets.latestExplanation = '';
+        ets.latestExplanationIndex = null;  // ✅ Also clear the index
         ets.formattedExplanationSubject?.next('');
         ets.setShouldDisplayExplanation(false);
         ets.setIsExplanationTextDisplayed(false);
