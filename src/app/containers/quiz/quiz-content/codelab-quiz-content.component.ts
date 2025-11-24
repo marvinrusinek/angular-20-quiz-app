@@ -125,6 +125,20 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   private _showExplanation = false;
   formattedExplanation$ = this.explanationTextService.formattedExplanation$;
 
+  // ✅ SIMPLE: One observable that switches between question text and FET
+  displayText$ = combineLatest([
+    this.displayState$,
+    this.questionToDisplay$,
+    this.formattedExplanation$
+  ]).pipe(
+    map(([state, qText, fet]) => {
+      const mode = state?.mode || 'question';
+      const text = mode === 'explanation' && fet ? fet : qText;
+      console.log(`[displayText$] Mode: ${mode}, Text: "${text?.slice(0, 60)}"`);
+      return text || 'Loading...';
+    })
+  );
+
   numberOfCorrectAnswers$: BehaviorSubject<string> = new BehaviorSubject<string>('0');
 
   correctAnswersTextSource: BehaviorSubject<string> = new BehaviorSubject<string>('');
