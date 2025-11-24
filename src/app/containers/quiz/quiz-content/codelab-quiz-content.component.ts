@@ -705,6 +705,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
               showExplanation: this.showExplanation,
               explanationToDisplay: this.explanationToDisplay?.slice(0, 80),
               latestServiceExplanation: this.explanationTextService?.latestExplanation?.slice(0, 80),
+              serviceGateOpen: this.explanationTextService?.shouldDisplayExplanationSnapshot
             });
 
             const isExplanationMode =
@@ -1867,6 +1868,10 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
     return fallbackQuestion;
   }
+
+
+
+
 
   private emitContentAvailableState(): void {
     this.isContentAvailable$.pipe(takeUntil(this.destroy$)).subscribe({

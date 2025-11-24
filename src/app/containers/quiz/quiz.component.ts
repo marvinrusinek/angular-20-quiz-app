@@ -4509,4 +4509,16 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     this.quizService.updateCorrectAnswersText(banner);
   }
+
+  onExplanationChanged(explanation: string): void {
+    this.explanationToDisplay = explanation;
+    this.explanationTextService.setExplanationText(explanation);
+    this.explanationTextService.setShouldDisplayExplanation(true);
+  }
+
+  onShowExplanationChanged(shouldShow: boolean): void {
+    if (shouldShow) {
+      this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
+    }
+  }
 }

@@ -57,7 +57,16 @@ export class ExplanationTextService {
 
   public _byIndex = new Map<number, BehaviorSubject<string | null>>();
   public _gate = new Map<number, BehaviorSubject<boolean>>();
-  public _activeIndex: number | null = null;
+  private _activeIndexValue: number | null = null;
+  get _activeIndex(): number | null {
+    return this._activeIndexValue;
+  }
+  set _activeIndex(value: number | null) {
+    this._activeIndexValue = value;
+    if (value !== null) {
+      this.activeIndex$.next(value);
+    }
+  }
   public readonly activeIndex$ = new BehaviorSubject<number>(0);
 
   private _readyForExplanation$ = new BehaviorSubject<boolean>(false);
@@ -99,13 +108,13 @@ export class ExplanationTextService {
 
   updateExplanationText(question: QuizQuestion): void {
     const explanation = question.explanation?.trim();
-  
+
     // Guard: don't push placeholder text early
     if (!explanation || explanation === 'No explanation available') {
       console.log('[ETS] ⏸ No valid explanation yet — skipping emit.');
       return;
     }
-  
+
     this.explanationTextSubject.next(explanation);
   }
 
@@ -138,58 +147,59 @@ export class ExplanationTextService {
     const trimmed = (explanation ?? '').trim();
     const contextKey = this.normalizeContext(options.context);
     const signature = `${contextKey}:::${trimmed}`;
-  
+    console.log(`[ETS] setExplanationText called with: "${trimmed}" (context: ${contextKey})`);
+
     // Visibility lock: prevent overwrites during tab restore
     if ((this as any)._visibilityLocked) {
       console.log('[ETS] ⏸ Ignored setExplanationText while locked');
       return;
     }
-  
+
     if (!options.force && this.explanationLocked) {
       const lockedContext = this.lockedContext ?? this.globalContextKey;
       const contextsMatch =
         lockedContext === this.globalContextKey ||
         contextKey === this.globalContextKey ||
         lockedContext === contextKey;
-  
+
       if (!contextsMatch) {
         console.warn(
           `[🛡️ Blocked explanation update for ${contextKey} while locked to ${lockedContext}]`
         );
         return;
       }
-  
+
       if (trimmed === '') {
         console.warn('[🛡️ Blocked reset: explanation is locked]');
         return;
       }
     }
-  
+
     if (!options.force) {
       const previous = this.explanationByContext.get(contextKey) ?? '';
       if (previous === trimmed && signature === this.lastExplanationSignature) {
         console.log(
-          `[🛡️ Prevented duplicate emit${
-            contextKey !== this.globalContextKey ? ` for ${contextKey}` : ''
+          `[🛡️ Prevented duplicate emit${contextKey !== this.globalContextKey ? ` for ${contextKey}` : ''
           }]`
         );
         return;
       }
     }
-  
+
     if (trimmed) {
       this.explanationByContext.set(contextKey, trimmed);
     } else {
       this.explanationByContext.delete(contextKey);
     }
-  
+
     this.lastExplanationSignature = signature;
     this.latestExplanation = trimmed;
-  
+
     // Unified emission pipeline
+    console.log(`[ETS] Emitting to formattedExplanationSubject: "${trimmed}"`);
     this.explanationText$.next(trimmed);
     this.formattedExplanationSubject.next(trimmed);
-  
+
     // Ensure direct subject update for visibility-stable downstream
     try {
       (this as any).explanationTextSubject?.next(trimmed);
@@ -232,7 +242,7 @@ export class ExplanationTextService {
       console.log(`[ETS] ⏸ FET locked, ignoring request for Q${questionIndex + 1}`);
       return EMPTY;  // ignore until the deferred window ends
     }
-  
+
     // ────────────────────────────────────────────────
     // 🧹 Step 1: Hard reset any stale emission whenever a new question index is requested
     // Prevents replay of previous question’s FET (e.g., Q1 showing on Q2)
@@ -247,7 +257,7 @@ export class ExplanationTextService {
         if ((this.latestExplanation ?? '') !== '') {
           this.formattedExplanationSubject?.next('');
         }
-        
+
         if (this._activeIndex !== null) {
           this.emitFormatted(this._activeIndex, null);
           this.setGate(this._activeIndex, false);
@@ -278,35 +288,35 @@ export class ExplanationTextService {
     if (!Number.isFinite(idx)) {
       console.error(`[❌ Invalid questionIndex — must be a finite number]:`, questionIndex);
 
-      try { this.emitFormatted(0, null); } catch {}
-      try { this.setGate(0, false); } catch {}
+      try { this.emitFormatted(0, null); } catch { }
+      try { this.setGate(0, false); } catch { }
 
       return of(FALLBACK);
     }
-  
+
     // Allow rehydration after restore: refresh active index
     if (this._activeIndex === -1) {
       this._activeIndex = questionIndex;
     }
-  
+
     const entry = this.formattedExplanations[questionIndex];
     if (!entry) {
       console.error(`[❌ Q${questionIndex} not found in formattedExplanations`, entry);
       console.log('🧾 All formattedExplanations:', this.formattedExplanations);
-  
-      try { this.emitFormatted(questionIndex, null); } catch {}
-      try { this.setGate(questionIndex, false); } catch {}
+
+      try { this.emitFormatted(questionIndex, null); } catch { }
+      try { this.setGate(questionIndex, false); } catch { }
       return of(null);
     }
-  
+
     const explanation = (entry.explanation ?? '').trim();
     if (!explanation) {
       console.warn(`[⚠️ No valid explanation for Q${questionIndex}]`);
-      try { this.emitFormatted(questionIndex, null); } catch {}
-      try { this.setGate(questionIndex, false); } catch {}
+      try { this.emitFormatted(questionIndex, null); } catch { }
+      try { this.setGate(questionIndex, false); } catch { }
       return of(FALLBACK);
     }
-  
+
     // HARD GATE: prevent FET emission unless the explanation gate is open
     const gateOpen = (() => {
       try {
@@ -314,24 +324,24 @@ export class ExplanationTextService {
         const shouldShow = this.shouldDisplayExplanation$ instanceof BehaviorSubject
           ? (this.shouldDisplayExplanation$ as BehaviorSubject<boolean>).value
           : undefined;
-  
+
         const isShown = this.isExplanationTextDisplayed$ instanceof BehaviorSubject
           ? (this.isExplanationTextDisplayed$ as BehaviorSubject<boolean>).value
           : undefined;
-  
+
         // Fall back to false if undefined
         return shouldShow === true || isShown === true;
       } catch {
         return false;
       }
     })();
-  
+
     if (!gateOpen) {
       console.log(`[ETS] 🚫 Gate closed → suppressing FET for Q${questionIndex + 1}`);
       this.setGate(questionIndex, false);
       return EMPTY;
     }
-  
+
     // Only emit if explanation belongs to current active question
     // (but allow re-emit when restoring same index)
     if (this._activeIndex !== questionIndex) {
@@ -340,14 +350,14 @@ export class ExplanationTextService {
       );
       return of(FALLBACK);
     }
-  
+
     // Drive only the index-scoped channel (no global .next here)
-    try { 
+    try {
       this.emitFormatted(questionIndex, explanation);
       this.latestExplanation = explanation;
-    } catch {}
-    try { this.setGate(questionIndex, true); } catch {}
-  
+    } catch { }
+    try { this.setGate(questionIndex, true); } catch { }
+
     return of(explanation);
   }
 
@@ -357,7 +367,7 @@ export class ExplanationTextService {
       if (typeof subj.getValue === 'function') {
         return subj.getValue();
       }
-  
+
       let val: string | null = null;
       subj.pipe(take(1)).subscribe((v: string) => (val = v));
       return val;
@@ -671,7 +681,7 @@ export class ExplanationTextService {
     if (!this.explanationsInitialized) {
       return of('No explanation available');
     }
-  
+
     // Clear any stale formatted text whenever index changes
     if (
       this._activeIndex !== null &&
@@ -680,29 +690,29 @@ export class ExplanationTextService {
     ) {
       try {
         this.emitFormatted(this._activeIndex, null);
-      } catch {}
+      } catch { }
       try {
         this.setGate(this._activeIndex, false);
-      } catch {}
+      } catch { }
       console.log(
         `[ETS] 🧹 Cleared stale FET for previous Q${this._activeIndex + 1}`
       );
     }
-  
+
     // Now safely update active index to current question
     this._activeIndex = questionIndex;
-  
+
     return this.getFormattedExplanationTextForQuestion(questionIndex).pipe(
       map((explanationText: string | null) => {
         const text = explanationText?.trim() || 'No explanation available';
-    
+
         if (this._activeIndex !== questionIndex) {
           console.log(
             `[ETS] 🚫 Ignoring stale FET emission (incoming=${questionIndex}, active=${this._activeIndex})`
           );
           return this.latestExplanation || 'No explanation available';
         }
-    
+
         return text;
       })
     );
@@ -717,10 +727,10 @@ export class ExplanationTextService {
       console.log('[ETS] ⏸ Ignored setIsExplanationTextDisplayed while locked');
       return;
     }
-  
+
     const contextKey = this.normalizeContext(options.context);
     const signature = `${options.context ?? 'global'}:::${isDisplayed}`;
-  
+
     if (!options.force) {
       const previous = this.displayedByContext.get(contextKey);
       if (
@@ -730,7 +740,7 @@ export class ExplanationTextService {
         return;
       }
     }
-  
+
     if (isDisplayed) {
       this.displayedByContext.set(contextKey, true);
     } else if (contextKey === this.globalContextKey) {
@@ -738,20 +748,20 @@ export class ExplanationTextService {
     } else {
       this.displayedByContext.delete(contextKey);
     }
-  
+
     this.lastDisplayedSignature = signature;
     const aggregated = this.computeContextualFlag(this.displayedByContext);
-  
+
     if (
       !options.force &&
       aggregated === this.isExplanationTextDisplayedSource.getValue()
     ) {
       return;
     }
-  
+
     // Update the canonical BehaviorSubject
     this.isExplanationTextDisplayedSource.next(aggregated);
-  
+
     // Also update a secondary Subject for legacy or parallel subscribers
     try {
       (this as any).isExplanationTextDisplayedSubject?.next(aggregated);
@@ -769,10 +779,11 @@ export class ExplanationTextService {
       console.log('[ETS] ⏸ Ignored setShouldDisplayExplanation while locked');
       return;
     }
-  
+
     const contextKey = this.normalizeContext(options.context);
     const signature = `${options.context ?? 'global'}:::${shouldDisplay}`;
-  
+    console.log(`[ETS] setShouldDisplayExplanation called with: ${shouldDisplay} (context: ${contextKey})`);
+
     if (!options.force) {
       const previous = this.shouldDisplayByContext.get(contextKey);
       if (
@@ -782,7 +793,7 @@ export class ExplanationTextService {
         return;
       }
     }
-  
+
     if (shouldDisplay) {
       this.shouldDisplayByContext.set(contextKey, true);
     } else if (contextKey === this.globalContextKey) {
@@ -790,20 +801,20 @@ export class ExplanationTextService {
     } else {
       this.shouldDisplayByContext.delete(contextKey);
     }
-  
+
     this.lastDisplaySignature = signature;
     const aggregated = this.computeContextualFlag(this.shouldDisplayByContext);
-  
+
     if (
       !options.force &&
       aggregated === this.shouldDisplayExplanationSource.getValue()
     ) {
       return;
     }
-  
+
     // Normal reactive push (this is your main subject)
     this.shouldDisplayExplanationSource.next(aggregated);
-  
+
     // Optional: if you still maintain a convenience mirror Subject, update it too
     try {
       (this as any).shouldDisplayExplanationSubject?.next(aggregated);
@@ -851,7 +862,7 @@ export class ExplanationTextService {
       !!question.questionText &&
       !this.processedQuestions.has(question.questionText)
     );
-  }  
+  }
 
   setCurrentQuestionExplanation(explanation: string): void {
     this.currentQuestionExplanation = explanation;
@@ -931,22 +942,22 @@ export class ExplanationTextService {
   // Emit per-index formatted text; coalesces duplicates and broadcasts event
   public emitFormatted(index: number, value: string | null): void {
     const token = this._currentGateToken;
-  
+
     // Outer guards
     if (this._fetLocked || this._gateToken !== token) return;
     if (index !== this._activeIndex) return;
-  
+
     const trimmed = (value ?? '').trim();
     if (!trimmed || trimmed === (this.latestExplanation ?? '').trim()) return;
-  
+
     this.latestExplanation = trimmed;
-  
+
     // Schedule 1 frame, then re-check token+index
     requestAnimationFrame(() => {
       if (this._fetLocked) return;
       if (this._currentGateToken !== token) return;
       if (index !== this._activeIndex) return;
-  
+
       this.safeNext(this._fetSubject, { idx: index, text: trimmed, token });
       this.safeNext(this.shouldDisplayExplanation$, true);
       this.safeNext(this.isExplanationTextDisplayed$, true);
@@ -966,18 +977,18 @@ export class ExplanationTextService {
   // Call to open a gate for an index
   public openExclusive(index: number, text: string): void {
     const token = this._currentGateToken;
-  
+
     // pre-guards
     if (this._fetLocked || index !== this._activeIndex || token !== this._gateToken) {
       console.log(`[ETS] ⏸ openExclusive rejected (idx=${index}, active=${this._activeIndex}, token=${token}/${this._gateToken})`);
       return;
     }
-  
+
     const trimmed = (text ?? '').trim();
     if (!trimmed || trimmed === this.latestExplanation?.trim()) return;
-  
+
     this.latestExplanation = trimmed;
-  
+
     // one-frame emit with re-checks
     requestAnimationFrame(() => {
       if (this._fetLocked || index !== this._activeIndex || token !== this._currentGateToken) {
@@ -1026,22 +1037,22 @@ export class ExplanationTextService {
     if (this._activeIndex !== null && this._activeIndex !== -1 && this._activeIndex !== index) {
       try {
         this._byIndex.get(this._activeIndex)?.next(null);
-      } catch {}
-    
+      } catch { }
+
       try {
         this._gate.get(this._activeIndex)?.next(false);
-      } catch {}
-    
+      } catch { }
+
       if (this.formattedExplanations) {
         delete this.formattedExplanations[this._activeIndex];
       }
     }
-  
+
     // ensure and hard-emit null/false for new index
     const { text$, gate$ } = this.getOrCreate(index);
-    try { text$.next(''); } catch {}
-    try { gate$.next(false); } catch {}
-  
+    try { text$.next(''); } catch { }
+    try { gate$.next(false); } catch { }
+
     this._activeIndex = index;
     this.formattedExplanations[index] = {
       questionIndex: index,
@@ -1082,14 +1093,14 @@ export class ExplanationTextService {
   public closeAllGates(): void {
     this._gatesByIndex.clear();
     this._fetLocked = null;
-  
+
     try {
       this.setShouldDisplayExplanation(false, { force: true });
       this.setIsExplanationTextDisplayed(false);
     } catch (err) {
       console.warn('[ETS] Failed to close gates cleanly', err);
     }
-  
+
     console.log('[ETS] All explanation gates closed');
   }
 
@@ -1106,34 +1117,34 @@ export class ExplanationTextService {
 
   public purgeAndDefer(newIndex: number): void {
     console.log(`[ETS ${this._instanceId}] 🔄 purgeAndDefer(${newIndex})`);
-  
+
     // Bump generation and lock everything immediately
     this._gateToken++;
     this._currentGateToken = this._gateToken;
     this._activeIndex = newIndex;
     this._fetLocked = true;
-  
+
     // Stop all lingering subjects to prevent replay from Q1
     try {
       if (this.formattedExplanationSubject) {
         this.formattedExplanationSubject.complete();
       }
-    } catch {}
+    } catch { }
     this.formattedExplanationSubject = new BehaviorSubject<string>('');
     this.formattedExplanation$ = this.formattedExplanationSubject.asObservable();
-  
+
     // Hard reset every flag
     this.latestExplanation = '';
     this.setShouldDisplayExplanation(false);
     this.setIsExplanationTextDisplayed(false);
     this._textMap?.clear?.();
-  
+
     // Cancel any pending unlocks from older cycles
     if (this._unlockRAFId != null) {
       cancelAnimationFrame(this._unlockRAFId);
       this._unlockRAFId = null;
     }
-  
+
     // Strict token-based unlock logic
     const localToken = this._currentGateToken;
     this._unlockRAFId = requestAnimationFrame(() => {
@@ -1145,7 +1156,7 @@ export class ExplanationTextService {
           );
           return;
         }
-  
+
         // Token still current → unlock safely
         this._fetLocked = false;
         console.log(
