@@ -4898,7 +4898,7 @@ export class QuizQuestionComponent extends BaseQuestion
           'No explanation available';
 
         this.explanationToDisplay = explanationText;
-        this.explanationTextService.updateFormattedExplanation(explanationText);
+        this.explanationTextService.setExplanationText(explanationText);
 
         if (this.isAnswered && this.shouldDisplayExplanation) {
           this.explanationToDisplayChange.emit(explanationText);
@@ -5323,7 +5323,7 @@ export class QuizQuestionComponent extends BaseQuestion
       this.explanationToDisplay = '';
       this.explanationToDisplayChange.emit('');
       this.explanationTextService.explanationText$.next('');
-      this.explanationTextService.updateFormattedExplanation('');
+      this.explanationTextService.setExplanationText('');
       this.explanationTextService.setResetComplete(false);
       this.explanationTextService.unlockExplanation();
       this.explanationTextService.setShouldDisplayExplanation(false);
@@ -6120,7 +6120,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
             if (processedExplanation) {
               this.explanationToDisplay = processedExplanation.explanation;
-              this.explanationTextService.updateFormattedExplanation(
+              this.explanationTextService.setExplanationText(
                 processedExplanation.explanation
               );
             } else {
@@ -6193,7 +6193,7 @@ export class QuizQuestionComponent extends BaseQuestion
             this.currentQuestionIndex = questionIndex;
             this.explanationToDisplay =
               explanationText || 'No explanation available';
-            this.explanationTextService.updateFormattedExplanation(
+            this.explanationTextService.setExplanationText(
               this.explanationToDisplay
             );
             this.explanationToDisplayChange.emit(this.explanationToDisplay);
