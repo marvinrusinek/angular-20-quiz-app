@@ -1546,17 +1546,17 @@ export class QuizQuestionComponent extends BaseQuestion
     this.activatedRoute.paramMap.subscribe(async (params) => {
       const rawParam = params.get('questionIndex');
       const parsedParam = Number(rawParam);
-  
+
       // Ensure valid integer and convert to 0-based index
       let questionIndex = isNaN(parsedParam) ? 1 : parsedParam;
-  
+
       if (questionIndex < 1 || questionIndex > this.totalQuestions) {
         console.warn(`[⚠️ Invalid questionIndex param: ${rawParam}. Defaulting to Q1]`);
         questionIndex = 1;
       }
-  
+
       const zeroBasedIndex = questionIndex - 1;
-  
+
       try {
         // Sync state before loadQuestion() so it sees the correct 0-based index.
         this.currentQuestionIndex = zeroBasedIndex;
@@ -1571,56 +1571,56 @@ export class QuizQuestionComponent extends BaseQuestion
         console.warn('[AFTER SET]', {
           quizServiceIndex: this.quizService.getCurrentQuestionIndex()
         });
-  
+
         // Reset explanation UI for every new question
         this.explanationVisible = false;
         this.explanationText = '';
         this._expl$.next(null);
-  
+
         // Load the question using correct index
         const loaded = await this.loadQuestion();  // now uses new index
         if (!loaded) {
           console.error(
             `[handleRouteChanges] ❌ Failed to load data for Q${questionIndex}`
           );
-  
+
           // 🔒 SAFETY: fall back to last known good question instead of poisoning state
           if (this._lastGoodQuestion) {
             console.warn('[handleRouteChanges] 🛟 Using _lastGoodQuestion fallback');
             this.currentQuestion = this._lastGoodQuestion;
             this.optionsToDisplay = this._lastGoodOptions.map(o => ({ ...o }));
           }
-  
+
           return;
         }
-  
+
         // Reset form and assign question
         this.resetForm();
-  
+
         const fromArray = Array.isArray(this.questionsArray)
           ? this.questionsArray[zeroBasedIndex]
           : null;
-  
+
         if (!fromArray) {
           console.warn(
             `[handleRouteChanges] ⚠️ questionsArray has no entry for index ${zeroBasedIndex}`
           );
-  
+
           // 🔒 SAFETY: again, fall back to last good instead of "No question available"
           if (this._lastGoodQuestion) {
             console.warn('[handleRouteChanges] 🛟 Using _lastGoodQuestion (array-miss)');
             this.currentQuestion = this._lastGoodQuestion;
             this.optionsToDisplay = this._lastGoodOptions.map(o => ({ ...o }));
           }
-  
+
           return;
         }
-  
+
         this.currentQuestion = fromArray;
-  
+
         // ✅ Cache as “last known good” so later code never has to show "No question available"
         this._lastGoodQuestion = this.currentQuestion;
-  
+
         // Prepare options
         const originalOptions = this.currentQuestion.options ?? [];
         this.optionsToDisplay = originalOptions.map((opt) => ({
@@ -1629,10 +1629,10 @@ export class QuizQuestionComponent extends BaseQuestion
           feedback: undefined,
           showIcon: false,
         }));
-  
+
         // Cache safe copy of options for fallback
         this._lastGoodOptions = this.optionsToDisplay.map(o => ({ ...o }));
-  
+
         if (!this.optionsToDisplay.length) {
           console.warn(`[⚠️ Q${questionIndex}] No options to display.`);
         } else {
@@ -1641,12 +1641,12 @@ export class QuizQuestionComponent extends BaseQuestion
             this.optionsToDisplay
           );
         }
-  
+
         // Handle explanation if previously answered
         const isAnswered = await this.isAnyOptionSelected(zeroBasedIndex);
         if (isAnswered) {
           await this.fetchAndUpdateExplanationText(zeroBasedIndex);
-  
+
           if (this.shouldDisplayExplanation) {
             this.showExplanationChange.emit(true);
             this.updateDisplayStateToExplanation();
@@ -1654,7 +1654,7 @@ export class QuizQuestionComponent extends BaseQuestion
         }
       } catch (error) {
         console.error('[handleRouteChanges] ❌ Unexpected error:', error);
-  
+
         // FINAL SAFETY NET: do NOT leave the UI in a "no question" state
         if (this._lastGoodQuestion) {
           console.warn('[handleRouteChanges] 🛟 Error fallback → _lastGoodQuestion');
@@ -3040,13 +3040,13 @@ export class QuizQuestionComponent extends BaseQuestion
       const lockedIndex = this.currentQuestionIndex ?? idx;
 
       /* if (
-        evtOpt?.correct && 
-        q?.type === QuestionType.MultipleAnswer && 
+        evtOpt?.correct &&
+        q?.type === QuestionType.MultipleAnswer &&
         !this._fetEarlyShown.has(lockedIndex)
       ) {
         this.safeStopTimer('completed');
         this._fetEarlyShown.add(lockedIndex);
-       
+
         console.log(`[QQC] 🧠 Immediate FET trigger for multi-answer Q${lockedIndex + 1}`);
 
         this.fireAndForgetExplanationUpdate(lockedIndex, q);
@@ -3116,6 +3116,15 @@ export class QuizQuestionComponent extends BaseQuestion
     lockedIndex: number,
     q: QuizQuestion
   ): void {
+    console.error('[FET TRACE]', {
+      lockedIndex,
+      activeIndex: this.quizService.getCurrentQuestionIndex(),
+      hasUserInteracted: this.quizStateService.hasUserInteracted?.(lockedIndex),
+      gate: this.explanationTextService.shouldDisplayExplanationSource?.value,
+      latestExplanationIndex: (this.explanationTextService as any).latestExplanationIndex,
+      latestExplanationPreview: this.explanationTextService.latestExplanation?.slice?.(0, 80)
+    });
+
     console.error('[FET ENTRY HIT]', {
       lockedIndex,
       activeIndex: this.quizService.getCurrentQuestionIndex(),
@@ -3167,43 +3176,43 @@ export class QuizQuestionComponent extends BaseQuestion
     q: QuizQuestion
   ): Promise<void> {
     const ets = this.explanationTextService;
-  
+
     try {
       console.log(`[QQC] 🚀 Starting FET for Q${lockedIndex + 1}`);
-  
+
       // ───────────── 1. Pin this update to a single question ─────────────
       ets._activeIndex = lockedIndex;
-  
+
       // Important: lock only during formatting – NOT during display
       ets._fetLocked = true;
-  
+
       ets.setShouldDisplayExplanation(false);
       ets.setIsExplanationTextDisplayed(false);
       ets.latestExplanation = '';
       ets.updateFormattedExplanation('');
-  
+
       // Kill any stale cache from previous questions
       ets.purgeAndDefer(lockedIndex);
-  
+
       // Wait one frame so previous emissions are dead
       await new Promise(res => requestAnimationFrame(res));
-  
+
       const canonicalQ =
         this.quizService.questions?.[lockedIndex] ?? q;
-  
+
       const raw = (canonicalQ?.explanation ?? '').trim();
       if (!raw) {
         console.warn(`[QQC] ⚠️ No explanation text for Q${lockedIndex + 1}`);
         ets._fetLocked = false;
         return;
       }
-  
+
       const correctIdxs = ets.getCorrectOptionIndices(canonicalQ);
-  
+
       const formatted = ets
         .formatExplanation(canonicalQ, correctIdxs, raw)
         .trim();
-  
+
       if (!formatted) {
         console.warn(`[QQC] ⚠️ Formatter stripped explanation text`);
         ets._fetLocked = false;
@@ -3216,25 +3225,25 @@ export class QuizQuestionComponent extends BaseQuestion
         formattedPreview: formatted.slice(0, 120),
         shouldDisplay: (this.explanationTextService as any)?.shouldDisplayExplanationSource?.value
       });
-  
+
       // ───────────── 2. Commit explanation (THIS must happen unlocked) ─────────────
       ets._fetLocked = false;  // ← critical fix
-  
+
       console.log('🧠 [FET] Emitting explanation:', formatted.slice(0, 80));
-  
+
       // ✅ Direct subject emission bypassing wrappers
       ets.formattedExplanationSubject?.next(formatted);
       ets.shouldDisplayExplanationSource?.next(true);
-  
+
       // Preserve your existing state storage
       ets.latestExplanation = formatted;
-  
+
       console.warn('[FET PROBE] EMITTED:', {
         idx: lockedIndex,
         text: formatted,
         activeIndex: ets._activeIndex
       });
-  
+
       ets.setIsExplanationTextDisplayed(true);
 <<<<<<< HEAD
       ets.setShouldDisplayExplanation(true);
@@ -3248,15 +3257,15 @@ export class QuizQuestionComponent extends BaseQuestion
 
 
       // Update component presentation
-  
+
       // ───────────── 3. Sync component display state ─────────────
       this.displayExplanation = true;
-  
+
       this.quizStateService.setDisplayState({
         mode: 'explanation',
         answered: true
       });
-  
+
       this.explanationToDisplay = formatted;
       this.explanationToDisplayChange.emit(formatted);
 
@@ -3280,7 +3289,7 @@ export class QuizQuestionComponent extends BaseQuestion
           </div>
         `;
       }
-  
+
       console.log(`[QQC ✅] FET successfully displayed for Q${lockedIndex + 1}`);
     } catch (err) {
       console.warn('[QQC ❌] FET trigger failed:', err);
@@ -3306,44 +3315,44 @@ export class QuizQuestionComponent extends BaseQuestion
       console.warn('[FET FAIL] No explanation text in question.');
       return;
     }
-  
+
     try {
       console.log(`[QQC] 🚀 Starting FET for Q${lockedIndex + 1}`);
 
       const ets = this.explanationTextService;
       // ───────────── 1. Pin this update to a single question ─────────────
       ets._activeIndex = lockedIndex;
-  
+
       // Important: lock only during formatting – NOT during display
       ets._fetLocked = true;
-  
+
       ets.setShouldDisplayExplanation(false);
       ets.setIsExplanationTextDisplayed(false);
       ets.latestExplanation = '';
       ets.updateFormattedExplanation('');
-  
+
       // Kill any stale cache from previous questions
       ets.purgeAndDefer(lockedIndex);
-  
+
       // Wait one frame so previous emissions are dead
       await new Promise(res => requestAnimationFrame(res));
-  
+
       const canonicalQ =
         this.quizService.questions?.[lockedIndex] ?? q;
-  
+
       const raw = (canonicalQ?.explanation ?? '').trim();
       if (!raw) {
         console.warn(`[QQC] ⚠️ No explanation text for Q${lockedIndex + 1}`);
         ets._fetLocked = false;
         return;
       }
-  
+
       const correctIdxs = ets.getCorrectOptionIndices(canonicalQ);
-  
+
       const formatted = ets
         .formatExplanation(canonicalQ, correctIdxs, raw)
         .trim();
-  
+
       if (!formatted) {
         console.warn(`[QQC] ⚠️ Formatter stripped explanation text`);
         ets._fetLocked = false;
@@ -3356,35 +3365,35 @@ export class QuizQuestionComponent extends BaseQuestion
         formattedPreview: formatted.slice(0, 120),
         shouldDisplay: (this.explanationTextService as any)?.shouldDisplayExplanationSource?.value
       });
-  
+
       // ───────────── 2. Commit explanation (THIS must happen unlocked) ─────────────
       ets._fetLocked = false;  // ← critical fix
-  
+
       console.log('🧠 [FET] Emitting explanation:', formatted.slice(0, 80));
-  
+
       // ✅ Direct subject emission bypassing wrappers
       ets.formattedExplanationSubject?.next(formatted);
       ets.shouldDisplayExplanationSource?.next(true);
-  
+
       // Preserve your existing state storage
       ets.latestExplanation = formatted;
-  
+
       console.warn('[FET PROBE] EMITTED:', {
         idx: lockedIndex,
         text: formatted,
         activeIndex: ets._activeIndex
       });
-  
+
       ets.setIsExplanationTextDisplayed(true);
-  
+
       // ───────────── 3. Sync component display state ─────────────
       this.displayExplanation = true;
-  
+
       this.quizStateService.setDisplayState({
         mode: 'explanation',
         answered: true
       });
-  
+
       this.explanationToDisplay = formatted;
       this.explanationToDisplayChange.emit(formatted);
 
@@ -3408,7 +3417,7 @@ export class QuizQuestionComponent extends BaseQuestion
           </div>
         `;
       }
-  
+
       console.log(`[QQC ✅] FET successfully displayed for Q${lockedIndex + 1}`);
     } catch (err) {
       console.warn('[QQC ❌] FET trigger failed:', err);
