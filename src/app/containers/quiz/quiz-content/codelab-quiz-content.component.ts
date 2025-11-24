@@ -108,6 +108,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
   private overrideSubject = new BehaviorSubject<{ idx: number; html: string }>({ idx: -1, html: '' });
   private currentIndex = -1;
+  currentIndex$ = this.quizService.currentQuestionIndex$;
   private explanationCache = new Map<string, string>();
   private lastExplanationMarkupByKey = new Map<string, string>();
   private pendingExplanationRequests = new Map<string, Subscription>();
@@ -128,28 +129,26 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   private _showExplanation = false;
   formattedExplanation$ = this.explanationTextService.formattedExplanation$;
 
-  // ✅ SIMPLE: One observable that switches between question text and FET
+    // SIMPLE: One observable that switches between question text and FET
   displayText$ = combineLatest([
-    this.displayState$,
-    this.questionToDisplay$,
-    this.formattedExplanation$
+    this.displayState$,          // mode: 'question' | 'explanation'
+    this.questionToDisplay$,     // raw question text
+    this.formattedExplanation$,  // formatted FET
+    this.currentIndex$           // current index (debug)
   ]).pipe(
-    map(([state, qText, fet]) => {
+    map(([state, qText, fet, idx]) => {
       const mode = state?.mode || 'question';
-      const currentIdx = this.quizService.getCurrentQuestionIndex();
-
-      console.log(`[displayText$] ═══════════════════════════════════`);
-      console.log(`[displayText$] Current Index: ${currentIdx}`);
-      console.log(`[displayText$] Mode: ${mode}`);
-      console.log(`[displayText$] Question Text: "${qText?.slice(0, 80)}"`);
-      console.log(`[displayText$] FET: "${fet?.slice(0, 80)}"`);
-      console.log(`[displayText$] ═══════════════════════════════════`);
-
+      console.log(`[displayText$] ─────────────────────`);
+      console.log(`[displayText$] Index: ${idx}`);
+      console.log(`[displayText$] Mode : ${mode}`);
+      console.log(`[displayText$] QText: "${qText?.slice(0, 80)}"`);
+      console.log(`[displayText$] FET  : "${fet?.slice(0, 80)}"`);
+      console.log(`[displayText$] ─────────────────────`);
       const text = mode === 'explanation' && fet ? fet : qText;
-      console.log(`[displayText$] ✅ RETURNING: "${text?.slice(0, 80)}"`);
       return text || 'Loading...';
     })
   );
+
 
   numberOfCorrectAnswers$: BehaviorSubject<string> = new BehaviorSubject<string>('0');
 

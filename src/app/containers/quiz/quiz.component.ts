@@ -710,6 +710,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
           const hasHydratedSelections = hasSelectedOptions && persistedSelectionsCount > 0;
           const answered = hasServiceSelections || answeredViaState || hasHydratedSelections;
 
+          // 👉 NEW – build the text for the *current* question index
           const questionText = (question.questionText ?? '').trim() || 'No question available';
 
           console.log(`[QA$ SUBSCRIPTION] Setting question text for Q${resolvedIndex + 1}:`, {
@@ -718,6 +719,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
             fullQuestion: question
           });
 
+          // ALWAYS emit the freshly‑built text (do NOT cache the first one)
           this.questionToDisplaySource.next(questionText);
 
           const interacted =
