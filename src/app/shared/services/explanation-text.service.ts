@@ -1,10 +1,11 @@
-import { Injectable } from '@angular/core';
+import { Injectable, Injector } from '@angular/core';
 import { BehaviorSubject, EMPTY, firstValueFrom, Observable, of, ReplaySubject, Subject } from 'rxjs';
 import { filter, map, take, timeout } from 'rxjs/operators';
 
 import { QuestionType } from '../models/question-type.enum';
 import { FormattedExplanation } from '../models/FormattedExplanation.model';
 import { QuizQuestion } from '../models/QuizQuestion.model';
+import { QuizService } from '../services/quiz.service';
 
 type FETPayload = { idx: number; text: string; token: number };
 
@@ -97,9 +98,9 @@ export class ExplanationTextService {
   private _unlockRAFId: number | null = null;
   public latestExplanationIndex: number | null = null;
 
-  constructor() {
-    this._instanceId = Math.random().toFixed(5);
-    console.log(`[ETS] ✅ Instance created, ID=${this._instanceId}`);
+  constructor(private injector: Injector) {
+    this._instanceId = `ETS-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    console.log(`[${this._instanceId}] ExplanationTextService initialized`);
   }
 
   get shouldDisplayExplanationSnapshot(): boolean {
@@ -197,17 +198,43 @@ export class ExplanationTextService {
 
     this.lastExplanationSignature = signature;
 
-    // ✅ AUTO-FORMAT: Check if explanation needs formatting
+    // ✅ AUTO-FORMAT: Check if explanation needs formatting and format it
     let finalExplanation = trimmed;
-    if (trimmed && this._activeIndexValue !== null) {
+    if (trimmed && this._activeIndexValue !== null && trimmed !== 'No explanation available') {
       // Check if already formatted
       const alreadyFormattedRe = /^(?:option|options)\s+\d+(?:\s*,\s*\d+)*(?:\s+and\s+\d+)?\s+(?:is|are)\s+correct\s+because\s+/i;
 
       if (!alreadyFormattedRe.test(trimmed)) {
         console.log('[ETS] ⚙️ Auto-formatting explanation for Q' + (this._activeIndexValue + 1));
-        // Explanation needs formatting - but we don't have the question here
-        // So we'll just store it as-is and rely on the caller to format it
-        // This is a fallback - callers should format before calling setExplanationText
+
+        // Try to get the question data to format the explanation
+        try {
+          // Use Injector to get QuizService dynamically (avoids circular dependency)
+          // We use a token approach to avoid importing QuizService directly
+          const quizService = this.injector.get(QuizService, null);
+
+          // ✅ Use the public questions cache instead of relying on questionsArray
+          const questions = quizService?.questions;
+
+          if (quizService && Array.isArray(questions)) {
+
+            // Get question synchronously from the service's cache
+            const questionData = questions[this._activeIndexValue];
+
+            if (questionData) {
+              const correctIndices = this.getCorrectOptionIndices(questionData);
+              finalExplanation = this.formatExplanation(questionData, correctIndices, trimmed);
+              console.log('[ETS] ✅ Auto-formatted:', finalExplanation.slice(0, 80));
+            } else {
+              console.warn('[ETS] ⚠️ Question data not available for auto-formatting');
+            }
+
+          } else {
+            console.warn('[ETS] ⚠️ QuizService not available or questions not loaded for auto-formatting');
+          }
+        } catch (err) {
+          console.warn('[ETS] ⚠️ Auto-format failed, using raw text:', err);
+        }
       }
     }
 

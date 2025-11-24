@@ -6100,46 +6100,19 @@ export class QuizQuestionComponent extends BaseQuestion
         return '';
       }
 
+      // ✅ FIX: Format the explanation using ExplanationTextService
+      const rawExplanation = questionData.explanation || 'No explanation available';
+      const correctIndices = this.explanationTextService.getCorrectOptionIndices(questionData);
+      const formattedExplanation = this.explanationTextService.formatExplanation(
+        questionData,
+        correctIndices,
+        rawExplanation
+      );
 
-      if (this.quizQuestionManagerService.isValidQuestionData(questionData)) {
-        const formattedExplanationObservable =
-          this.explanationTextService.getFormattedExplanation(questionIndex);
+      console.log('[QQC prepareAndSetExplanationText] Formatted explanation:', formattedExplanation);
 
-        try {
-          const formattedExplanation = await Promise.race([
-            firstValueFrom(formattedExplanationObservable),
-            new Promise<string>((_, reject) =>
-              setTimeout(() => reject(new Error('Timeout')), 5000)
-            ),
-          ]);
-
-          if (formattedExplanation) {
-            this.explanationToDisplay = formattedExplanation;
-          } else {
-            const processedExplanation = await this.processExplanationText(
-              questionData,
-              questionIndex
-            );
-
-            if (processedExplanation) {
-              this.explanationToDisplay = processedExplanation.explanation;
-              this.explanationTextService.setExplanationText(
-                processedExplanation.explanation
-              );
-            } else {
-              this.explanationToDisplay = 'No explanation available...';
-            }
-          }
-        } catch (timeoutError) {
-          console.error(
-            'Timeout while fetching formatted explanation:', timeoutError
-          );
-          this.explanationToDisplay = 'Explanation text unavailable at the moment.';
-        }
-      } else {
-        console.error('Error: questionData is invalid');
-        this.explanationToDisplay = 'No explanation available.';
-      }
+      this.explanationToDisplay = formattedExplanation;
+      return formattedExplanation;
     } catch (error) {
       console.error('Error in fetching explanation text:', error);
       if (error instanceof Error) {
@@ -6194,9 +6167,25 @@ export class QuizQuestionComponent extends BaseQuestion
         next: async (explanationText: string) => {
           if (await this.isAnyOptionSelected(questionIndex)) {
             this.currentQuestionIndex = questionIndex;
-            console.log('[QQC] Setting explanation text:', explanationText);
-            this.explanationToDisplay =
-              explanationText || 'No explanation available';
+
+            // ✅ FIX: Format the explanation before setting it
+            const questionData = await firstValueFrom(
+              this.quizService.getQuestionByIndex(questionIndex)
+            );
+
+            let formattedExplanation = explanationText || 'No explanation available';
+
+            if (questionData && explanationText) {
+              const correctIndices = this.explanationTextService.getCorrectOptionIndices(questionData);
+              formattedExplanation = this.explanationTextService.formatExplanation(
+                questionData,
+                correctIndices,
+                explanationText
+              );
+            }
+
+            console.log('[QQC] Setting formatted explanation text:', formattedExplanation);
+            this.explanationToDisplay = formattedExplanation;
             this.explanationTextService.setExplanationText(
               this.explanationToDisplay
             );
@@ -6326,18 +6315,27 @@ export class QuizQuestionComponent extends BaseQuestion
       };
     }
 
-    const explanation = questionData.explanation || 'No explanation available';
-    this.explanationTextService.setCurrentQuestionExplanation(explanation);
+    const rawExplanation = questionData.explanation || 'No explanation available';
+
+    // ✅ Format the explanation
+    const correctIndices = this.explanationTextService.getCorrectOptionIndices(questionData);
+    const formattedExplanation = this.explanationTextService.formatExplanation(
+      questionData,
+      correctIndices,
+      rawExplanation
+    );
+
+    this.explanationTextService.setCurrentQuestionExplanation(formattedExplanation);
 
     try {
-      const formattedExplanation = await this.getFormattedExplanation(
+      const formattedExplanationFromService = await this.getFormattedExplanation(
         questionData,
         questionIndex
       );
 
-      if (formattedExplanation) {
+      if (formattedExplanationFromService) {
         // Use the explanation string inside the object
-        const explanationText: string = formattedExplanation.explanation ?? '';
+        const explanationText: string = formattedExplanationFromService.explanation ?? '';
 
         const formattedExplanationObject: FormattedExplanation = {
           questionIndex,
@@ -6349,17 +6347,33 @@ export class QuizQuestionComponent extends BaseQuestion
 
       } else {
         console.warn('No formatted explanation received');
+        // ✅ Format the explanation
+        const rawExp = questionData.explanation || 'No explanation available';
+        const correctIndices = this.explanationTextService.getCorrectOptionIndices(questionData);
+        const formattedExp = this.explanationTextService.formatExplanation(
+          questionData,
+          correctIndices,
+          rawExp
+        );
         return {
           questionIndex,
-          explanation: questionData.explanation || 'No explanation available'
+          explanation: formattedExp
         };
       }
 
     } catch (error) {
       console.error('Error in processing explanation text:', error);
+      // ✅ Format the explanation even in error case
+      const rawExp = questionData.explanation || 'Error processing explanation';
+      const correctIndices = this.explanationTextService.getCorrectOptionIndices(questionData);
+      const formattedExp = this.explanationTextService.formatExplanation(
+        questionData,
+        correctIndices,
+        rawExp
+      );
       return {
         questionIndex,
-        explanation: questionData.explanation || 'Error processing explanation'
+        explanation: formattedExp
       };
     }
   }
