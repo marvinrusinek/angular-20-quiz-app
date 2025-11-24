@@ -409,12 +409,15 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     );
 
     const questionText$ = defer(() => this.questionToDisplay$).pipe(
+      tap(q => console.log(`[questionText$] Raw input: "${(q ?? '').slice(0, 60)}"`)),
       map(q => (q ?? '').trim()),                     // normalize to trimmed strings
+      tap(q => console.log(`[questionText$] After trim: "${q.slice(0, 60)}"`)),
       filter(q => q.length > 0),                      // skip empty startup emissions
+      tap(q => console.log(`[questionText$] After filter: "${q.slice(0, 60)}"`)),
       debounceTime(0),                                // merge microtasks in one tick
       observeOn(animationFrameScheduler),             // wait for paint frame
-      distinctUntilChanged(),                         // avoid same-string repaint
-      shareReplay({ bufferSize: 1, refCount: true })  // cache latest stable text
+      distinctUntilChanged()                          // avoid same-string repaint
+      // ❌ REMOVED shareReplay - it was caching Q1 text for all questions!
     );
 
     /* const questionText$ = this.questionToDisplay$.pipe(
