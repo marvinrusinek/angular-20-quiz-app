@@ -4897,6 +4897,7 @@ export class QuizQuestionComponent extends BaseQuestion
           questionData.explanation ??
           'No explanation available';
 
+        console.log('[QQC] handleOptionProcessingAndFeedback setting explanation:', explanationText);
         this.explanationToDisplay = explanationText;
         this.explanationTextService.setExplanationText(explanationText);
 
@@ -6191,6 +6192,7 @@ export class QuizQuestionComponent extends BaseQuestion
         next: async (explanationText: string) => {
           if (await this.isAnyOptionSelected(questionIndex)) {
             this.currentQuestionIndex = questionIndex;
+            console.log('[QQC] Setting explanation text:', explanationText);
             this.explanationToDisplay =
               explanationText || 'No explanation available';
             this.explanationTextService.setExplanationText(
