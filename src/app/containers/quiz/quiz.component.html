@@ -28,6 +28,8 @@
             (answer)="selectedAnswer($any($event))"
             (optionSelected)="onOptionSelected($any($event))"
             (selectionMessageChange)="onSelectionMessageChange($any($event))"
+            (explanationToDisplayChange)="explanationToDisplay = $event"
+            (showExplanationChange)="showExplanation = $event"
           />
       </mat-card-content>
 
