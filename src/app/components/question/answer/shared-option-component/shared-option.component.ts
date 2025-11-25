@@ -1321,18 +1321,18 @@ export class SharedOptionComponent implements
       // Don't touch feedback if this is not the newly selected option
       if (id !== optionId) return;
 
-      // Build missing feedback config
-      const correctOptions = this.optionsToDisplay.filter(opt => opt.correct);
-      const dynamicFeedback = this.feedbackService.generateFeedbackForOptions(correctOptions, this.optionsToDisplay);
+      // Get the formatted explanation text for this question
+      const questionIndex = this.getActiveQuestionIndex() ?? 0;
+      const formattedExplanation = this.resolveExplanationText(questionIndex);
 
       if (!this.feedbackConfigs[optionId]) {
         this.feedbackConfigs[optionId] = {
-          feedback: dynamicFeedback,
+          feedback: formattedExplanation,
           showFeedback: true,
           options: this.optionsToDisplay,
           question: this.currentQuestion,
           selectedOption: optionBinding.option,
-          correctMessage: dynamicFeedback,
+          correctMessage: formattedExplanation,
           idx: index
         };
       }
@@ -1405,13 +1405,21 @@ export class SharedOptionComponent implements
   private applyFeedback(optionBinding: OptionBindings): void {
     console.log(`[📝 Applying Feedback for Option ${optionBinding.option.optionId}]`);
 
+    // Get the current question index
+    const questionIndex = this.getActiveQuestionIndex() ?? 0;
+
+    // Get the formatted explanation text for this question
+    const formattedExplanation = this.resolveExplanationText(questionIndex);
+
+    console.log(`[📝 Using FET for feedback]: "${formattedExplanation.slice(0, 80)}..."`);
+
     const feedbackProps: FeedbackProps = {
-      feedback: optionBinding.option.feedback ?? 'No feedback available',
+      feedback: formattedExplanation,
       showFeedback: true,
       options: this.optionsToDisplay,
       question: this.currentQuestion,
       selectedOption: optionBinding.option,
-      correctMessage: optionBinding.option.feedback ?? 'No feedback available',
+      correctMessage: formattedExplanation,
       idx: optionBinding.index
     };
 
