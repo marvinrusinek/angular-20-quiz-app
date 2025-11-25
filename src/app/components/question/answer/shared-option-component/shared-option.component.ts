@@ -2799,3 +2799,4 @@ export class SharedOptionComponent implements
     return this.canDisplayOptions && this.renderReady && hasOptions;
   }
 }
+
