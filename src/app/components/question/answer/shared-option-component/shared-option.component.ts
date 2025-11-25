@@ -1570,6 +1570,9 @@ export class SharedOptionComponent implements
   }
 
   private applyExplanationText(explanationText: string, questionIndex: number): void {
+    console.log(`[🎯 applyExplanationText] Q${questionIndex + 1}`);
+    console.log(`[🎯 Explanation text being set]:`, explanationText.slice(0, 150));
+
     const contextKey = this.buildExplanationContext(questionIndex);
 
     this.explanationTextService.setExplanationText(explanationText, {
@@ -1592,6 +1595,7 @@ export class SharedOptionComponent implements
     (this.quizStateService as any).markQuestionAsInteracted?.(questionIndex);
 
     console.log(`[✅ FET Display Mode Set] Q${questionIndex + 1} → explanation mode`);
+    console.log(`[✅ Should now display]:`, explanationText.slice(0, 150));
   }
 
   private buildExplanationContext(questionIndex: number): string {
@@ -1664,6 +1668,8 @@ export class SharedOptionComponent implements
   }
 
   private resolveExplanationText(questionIndex: number): string {
+    console.log(`[🔍 resolveExplanationText] Called for Q${questionIndex + 1}`);
+
     // Try to get pre-formatted explanation first
     const formatted = this.explanationTextService
       .formattedExplanations[questionIndex]?.explanation?.trim();
@@ -1677,11 +1683,19 @@ export class SharedOptionComponent implements
     const activeIndex = this.getActiveQuestionIndex() ?? questionIndex;
     const matchesCurrentInput = this.currentQuestionIndex === activeIndex;
 
+    console.log(`[🔍 Debug Info]:`, {
+      questionIndex,
+      activeIndex,
+      currentQuestionIndex: this.currentQuestionIndex,
+      matchesCurrentInput
+    });
+
     let rawExplanation = '';
 
     // Try current question first
     if (matchesCurrentInput && this.currentQuestion?.explanation?.trim()) {
       rawExplanation = this.currentQuestion.explanation.trim();
+      console.log(`[📝 From currentQuestion.explanation]:`, rawExplanation.slice(0, 100));
     }
 
     // Try service question
@@ -1689,6 +1703,7 @@ export class SharedOptionComponent implements
       const serviceQuestion = this.quizService.currentQuestion?.getValue();
       if (serviceQuestion?.explanation && activeIndex === questionIndex) {
         rawExplanation = serviceQuestion.explanation.trim();
+        console.log(`[📝 From quizService.currentQuestion]:`, rawExplanation.slice(0, 100));
       }
     }
 
@@ -1702,6 +1717,8 @@ export class SharedOptionComponent implements
 
       const fallbackQuestion = questionsFromService[activeIndex] ?? questionsFromService[questionIndex];
       rawExplanation = fallbackQuestion?.explanation?.trim() || '';
+      console.log(`[📝 From questions array [${activeIndex}]]:`, rawExplanation.slice(0, 100));
+      console.log(`[📝 Full question object]:`, fallbackQuestion);
     }
 
     if (!rawExplanation) {
@@ -1709,11 +1726,19 @@ export class SharedOptionComponent implements
       return 'No explanation available';
     }
 
+    console.log(`[📝 Raw explanation before formatting]:`, rawExplanation.slice(0, 100));
+
     // ✅ FORMAT THE EXPLANATION with "Option X is correct because..."
     try {
       const question = this.currentQuestion || this.quizService.questions?.[questionIndex];
 
       if (question) {
+        console.log(`[🔍 Question object for formatting]:`, {
+          questionText: question.questionText?.slice(0, 80),
+          explanation: question.explanation?.slice(0, 80),
+          options: question.options?.map((o: Option) => ({ text: o.text, correct: o.correct }))
+        });
+
         const correctIndices = this.explanationTextService.getCorrectOptionIndices(question);
         const formattedExplanation = this.explanationTextService.formatExplanation(
           question,
@@ -1721,7 +1746,7 @@ export class SharedOptionComponent implements
           rawExplanation
         );
 
-        console.log(`[✅ Formatted FET for Q${questionIndex + 1}]:`, formattedExplanation.slice(0, 80));
+        console.log(`[✅ Formatted FET for Q${questionIndex + 1}]:`, formattedExplanation.slice(0, 100));
         return formattedExplanation;
       }
     } catch (err) {
