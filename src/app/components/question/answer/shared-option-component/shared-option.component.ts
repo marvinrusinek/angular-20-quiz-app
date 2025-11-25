@@ -1613,7 +1613,7 @@ export class SharedOptionComponent implements
     });
 
     // ✅ Mark question as having user interaction
-    (this.quizStateService as any).markQuestionAsInteracted?.(questionIndex);
+    this.quizStateService.markUserInteracted(questionIndex);
 
     console.log(`[✅ FET Display Mode Set] Q${questionIndex + 1} → explanation mode`);
     console.log(`[✅ Should now display]:`, explanationText.slice(0, 150));
@@ -2799,4 +2799,3 @@ export class SharedOptionComponent implements
     return this.canDisplayOptions && this.renderReady && hasOptions;
   }
 }
-
