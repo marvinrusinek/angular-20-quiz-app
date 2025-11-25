@@ -759,14 +759,18 @@ get quizQuestionComponent(): QuizQuestionComponent {
           this.cdRef.markForCheck();  // trigger change‑detection just once
         });
       }); */
-    this.quizService.questionToDisplay$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(qText => {
-        // qText is already the correct text for the current question
-        console.log(`[QuizComponent] New question text received: "${qText?.slice(0, 80)}"`);
-    
-        // Push it into the source that CodelabQuizContentComponent consumes
-        this.questionToDisplaySource.next(qText ?? 'No question available');
+      this.quizService
+      .getCurrentQuestionObservable()
+      .pipe(
+        takeUntil(this.destroy$),
+        filter((question): question is QuizQuestion => !!question),
+        map((question) => (question.questionText ?? '').trim()),
+        filter((questionText) => questionText.length > 0),
+        distinctUntilChanged()
+      )
+      .subscribe((questionText) => {
+        this.questionToDisplay = questionText;
+        this.questionToDisplaySource.next(questionText);
       });
 
     this.nextButtonStateService.isButtonEnabled$
