@@ -592,6 +592,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
         // ✅ CRITICAL FIX: Update the component property so it propagates to children!
         this.currentQuestionIndex = idx;
+        this.cdRef.markForCheck();
 
         // ✅ ONLY reset display mode when NAVIGATING to a NEW question
         if (prevIdx !== null && prevIdx !== idx) {
