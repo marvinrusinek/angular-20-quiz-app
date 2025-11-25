@@ -1,7 +1,7 @@
 import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, NgZone, OnChanges, OnDestroy, OnInit, Output, SimpleChanges, ViewChild } from '@angular/core';
 import { AsyncPipe, CommonModule } from '@angular/common';
 import { ActivatedRoute, ParamMap } from '@angular/router';
-import { animationFrameScheduler, BehaviorSubject, combineLatest, defer, firstValueFrom, forkJoin, Observable, of, Subject, Subscription } from 'rxjs';
+import { animationFrameScheduler, BehaviorSubject, combineLatest, defer, firstValueFrom, forkJoin, merge, Observable, of, Subject, Subscription } from 'rxjs';
 import { auditTime, catchError, debounceTime, distinctUntilChanged, filter, map, observeOn, shareReplay, skip, skipUntil, startWith, switchMap, take, takeUntil, tap, withLatestFrom } from 'rxjs/operators';
 
 import { CombinedQuestionDataType } from '../../../shared/models/CombinedQuestionDataType.model';
@@ -127,27 +127,15 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   isExplanationTextDisplayed$: Observable<boolean>;
   private isExplanationDisplayed$ = new BehaviorSubject<boolean>(false);
   private _showExplanation = false;
-  formattedExplanation$ = this.explanationTextService.formattedExplanation$;
-
-    // SIMPLE: One observable that switches between question text and FET
-  displayText$ = combineLatest([
-    this.displayState$,          // mode: 'question' | 'explanation'
-    this.questionToDisplay$,     // raw question text
-    this.formattedExplanation$,  // formatted FET
-    this.currentIndex$           // current index (debug)
-  ]).pipe(
-    map(([state, qText, fet, idx]) => {
-      const mode = state?.mode || 'question';
-      console.log(`[displayText$] ─────────────────────`);
-      console.log(`[displayText$] Index: ${idx}`);
-      console.log(`[displayText$] Mode : ${mode}`);
-      console.log(`[displayText$] QText: "${qText?.slice(0, 80)}"`);
-      console.log(`[displayText$] FET  : "${fet?.slice(0, 80)}"`);
-      console.log(`[displayText$] ─────────────────────`);
-      const text = mode === 'explanation' && fet ? fet : qText;
-      return text || 'Loading...';
-    })
+  // Use the service's formattedExplanation$ but ensure it always emits for combineLatest
+  formattedExplanation$ = this.explanationTextService.formattedExplanationSubject.pipe(
+    startWith(''),
+    distinctUntilChanged()
   );
+
+  // SIMPLE: One observable that switches between question text and FET
+  // Will be initialized in ngOnInit after inputs are set
+  displayText$!: Observable<string>;
 
 
   numberOfCorrectAnswers$: BehaviorSubject<string> = new BehaviorSubject<string>('0');
@@ -217,6 +205,43 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
     this.displayState$ = this.quizStateService.displayState$;
 
+    // Initialize displayText$ after inputs are available
+    this.displayText$ = combineLatest([
+      (this.displayState$ || of({ mode: 'question' as const, answered: false })).pipe(
+        startWith({ mode: 'question' as const, answered: false })
+      ),  // mode: 'question' | 'explanation'
+      (this.questionToDisplay$ || of('')).pipe(
+        startWith(''),
+        map(q => (q ?? '').trim()),
+        distinctUntilChanged()
+      ),     // raw question text
+      this.formattedExplanation$,  // formatted FET
+      this.currentIndex$.pipe(startWith(0))           // current index (debug)
+    ]).pipe(
+      map(([state, qText, fet, idx]) => {
+        const mode = state?.mode || 'question';
+        const trimmedQText = (qText ?? '').trim();
+        const trimmedFet = (fet ?? '').trim();
+
+        console.log(`[displayText$] ─────────────────────`);
+        console.log(`[displayText$] Index: ${idx}`);
+        console.log(`[displayText$] Mode : ${mode}`);
+        console.log(`[displayText$] QText: "${trimmedQText.slice(0, 80)}"`);
+        console.log(`[displayText$] FET  : "${trimmedFet.slice(0, 80)}"`);
+        console.log(`[displayText$] ─────────────────────`);
+
+        // Show formatted explanation when in explanation mode and FET is available
+        if (mode === 'explanation' && trimmedFet) {
+          return trimmedFet;
+        }
+
+        // Otherwise show question text
+        return trimmedQText || 'Loading...';
+      }),
+      distinctUntilChanged(), // Prevent duplicate emissions
+      startWith('Loading question...') // Ensure initial value
+    );
+
     this.resetExplanationView();
 
     this.explanationTextService.setShouldDisplayExplanation(false);
@@ -230,11 +255,12 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     // Build the stream only once globally
     this.combinedText$ = this.getCombinedDisplayTextStream();
 
-    // Always subscribe after the stream is created
-    // Use a small delay so as not to subscribe to an undefined observable
+    // Subscribe to displayText$ to update the DOM (works alongside template binding)
+    // This ensures the question text and explanations are displayed
+    // Wait for displayText$ to be initialized in ngOnInit
     setTimeout(() => {
-      if (this.combinedText$ && !this.combinedSub) {
-        this.combinedSub = this.combinedText$
+      if (this.displayText$ && !this.combinedSub) {
+        this.combinedSub = this.displayText$
           .pipe(distinctUntilChanged())
           .subscribe({
             next: (v) => {
@@ -246,8 +272,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
               console.log(`[CQCC Display] Q${currentIndex + 1}: "${incoming.slice(0, 100)}"`);
 
-              // Simple: just display whatever the stream gives us
-              // The resolveTextToDisplay() method already handles the logic
+              // Update the DOM with the text
               el.style.transition = 'opacity 0.12s linear';
               el.style.opacity = '0.4';
               el.innerHTML = incoming;
@@ -256,10 +281,10 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
                 el.style.opacity = '1';
               });
             },
-            error: (err) => console.error('[CQCC combinedText$ error]', err),
+            error: (err) => console.error('[CQCC displayText$ error]', err),
           });
       }
-    }, 20);
+    }, 50); // Slightly longer delay to ensure displayText$ is initialized
 
     this.combinedQuestionData$ = this.combineCurrentQuestionAndOptions().pipe(
       map(({ currentQuestion, currentOptions }) => {
@@ -433,24 +458,23 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       shareReplay({ bufferSize: 1, refCount: true })
     );
 
-    const questionText$ = defer(() => this.questionToDisplay$).pipe(
-      tap(q => console.log(`[questionText$] Raw input: "${(q ?? '').slice(0, 60)}"`)),
-      map(q => (q ?? '').trim()),                     // normalize to trimmed strings
-      tap(q => console.log(`[questionText$] After trim: "${q.slice(0, 60)}"`)),
-      filter(q => q.length > 0),                      // skip empty startup emissions
-      tap(q => console.log(`[questionText$] After filter: "${q.slice(0, 60)}"`)),
-      debounceTime(0),                                // merge microtasks in one tick
-      observeOn(animationFrameScheduler),             // wait for paint frame
-      distinctUntilChanged()                          // avoid same-string repaint
-      // ❌ REMOVED shareReplay - it was caching Q1 text for all questions!
+    const serviceQuestionText$ = (this.questionToDisplay$ || of('')).pipe(
+      tap(q => console.log(`[questionText$] 🔵 Raw input (service): "${(q ?? '').slice(0, 80)}"`)),
+      map(q => (q ?? '').trim()),
+      filter(q => q.length > 0)
     );
 
-    /* const questionText$ = this.questionToDisplay$.pipe(
-      map(q => (q ?? '').trim()),
-      filter(q => q.length > 0 && q !== '?'),
+    const fallbackQuestionText$ = this.currentQuestion$.pipe(
+      map(question => (question?.questionText ?? '').trim()),
+      filter(text => text.length > 0),
+      tap(text => console.log(`[questionText$] 🟣 Fallback from payload: "${text.slice(0, 80)}"`))
+    );
+
+    const questionText$ = merge(serviceQuestionText$, fallbackQuestionText$).pipe(
+      tap(q => console.log(`[questionText$] 🟢 After merge: "${q.slice(0, 80)}"`)),
       distinctUntilChanged(),
-      shareReplay({ bufferSize: 1, refCount: true })
-    ); */
+      tap(q => console.log(`[questionText$] ✅ Final: "${q.slice(0, 80)}"`))
+    );
 
     const correctText$ = this.quizService.correctAnswersText$.pipe(
       map(v => v?.trim() || ''),
