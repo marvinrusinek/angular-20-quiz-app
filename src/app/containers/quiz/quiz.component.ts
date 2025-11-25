@@ -552,55 +552,76 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
     this.lastLoggedIndex = idx;
   }); */
-    this.indexSubscription = this.quizService.currentQuestionIndex$
-      .pipe(distinctUntilChanged())
-      .subscribe((idx: number) => {
+  this.indexSubscription = this.quizService.currentQuestionIndex$
+  .pipe(distinctUntilChanged())
+  .subscribe((idx: number) => {
 
-        const prevIdx = this.lastLoggedIndex;
-        const ets = this.explanationTextService;
+    const prevIdx = this.lastLoggedIndex;
+    const ets = this.explanationTextService;
 
-        // ✅ ONLY purge the PREVIOUS question
-        if (prevIdx !== null && prevIdx !== idx) {
-          console.warn('[STATE CLEANUP] Purging Q', prevIdx + 1);
+    // ✅ ONLY purge the PREVIOUS question
+    if (prevIdx !== null && prevIdx !== idx) {
+      console.warn('[STATE CLEANUP] Purging Q', prevIdx + 1);
 
-          (this.quizStateService as any)._hasUserInteracted?.delete(prevIdx);
-          (this.quizStateService as any)._answeredQuestionIndices?.delete(prevIdx);
+      (this.quizStateService as any)._hasUserInteracted?.delete(prevIdx);
+      (this.quizStateService as any)._answeredQuestionIndices?.delete(prevIdx);
 
-          // (this.quizStateService as any)._hasUserInteracted?.delete(prevIdx);
-          // (this.quizStateService as any)._answeredQuestionIndices?.delete(prevIdx);
+      // Only clear FET belonging to the previous question
+      if ((ets as any).latestExplanationIndex === prevIdx) {
+        ets.latestExplanation = '';
+        ets.formattedExplanationSubject.next('');
+        ets.shouldDisplayExplanationSource.next(false);
+        ets.setIsExplanationTextDisplayed(false);
+        (ets as any).latestExplanationIndex = null;
+      }
+    }
 
-          // Only clear FET belonging to the previous question
-          if ((ets as any).latestExplanationIndex === prevIdx) {
-            ets.latestExplanation = '';
-            ets.formattedExplanationSubject.next('');
-            ets.shouldDisplayExplanationSource.next(false);
-            ets.setIsExplanationTextDisplayed(false);
-            (ets as any).latestExplanationIndex = null;
-          }
-        }
+    // 🧠 HARD RESET QUESTION STATE (NOT JUST UI)
+    // ─────────────────────────────────────────────
+    const qState =
+      this.quizId && Number.isFinite(idx)
+        ? this.quizStateService.getQuestionState?.(this.quizId, idx)
+        : null;
 
-        // 🧠 HARD RESET QUESTION STATE (NOT JUST UI)
-        // ─────────────────────────────────────────────
-        const qState =
-          this.quizId && Number.isFinite(idx)
-            ? this.quizStateService.getQuestionState?.(this.quizId, idx)
-            : null;
+    if (qState) {
+      console.warn('[QSTATE HARD RESET] Clearing stale explanation flags for Q', idx + 1);
 
-        if (qState) {
-          console.warn('[QSTATE HARD RESET] Clearing stale explanation flags for Q', idx + 1);
+      qState.explanationDisplayed = false;
+      qState.explanationText = '';
+    }
 
-          qState.explanationDisplayed = false;
-          qState.explanationText = '';
-        }
+    // ✅ DO NOT clear the current question state
+    ets._activeIndex = idx;
+    ets._fetLocked = false;
+    this._fetEarlyShown.delete(idx);
+    this.lastLoggedIndex = idx;
 
-        // ✅ DO NOT clear the current question state
-        ets._activeIndex = idx;
-        ets._fetLocked = false;
-        this._fetEarlyShown.delete(idx);
-        this.lastLoggedIndex = idx;
+    // ─────────────────────────────────────────────
+    // 🔨 NEW: GLOBAL EXPLANATION MODE RESET
+    // Prevents Q1 FET leaking into Q2 display
+    // ─────────────────────────────────────────────
 
-        console.warn('[✅ INDEX SWITCH OK]', idx + 1);
-      });
+    console.warn('[🧨 GLOBAL FET RESET] For Q', idx + 1);
+
+    ets.latestExplanation = '';
+    ets.formattedExplanationSubject.next('');
+    ets.shouldDisplayExplanationSource.next(false);
+    ets.setIsExplanationTextDisplayed(false);
+    (ets as any).latestExplanationIndex = null;
+
+    // 🚨 FORCE question mode on navigation
+    this.quizStateService.displayStateSubject.next({
+      mode: 'question',
+      answered: false
+    });
+
+    // Reset any local UI explanation flags
+    this.showExplanation = false;
+    this.explanationToDisplay = '';
+    this.explanationVisibleLocal = false;
+
+    console.warn('[✅ INDEX SWITCH OK + FET PURGED]', idx + 1);
+  });
 
 
     try {
