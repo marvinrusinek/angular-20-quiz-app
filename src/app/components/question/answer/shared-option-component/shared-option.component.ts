@@ -421,7 +421,8 @@ export class SharedOptionComponent implements
 
     // Handle changes to optionsToDisplay / questionIndex (if any)
     const questionChanged =
-      changes['questionIndex'] && !changes['questionIndex'].firstChange;
+      (changes['questionIndex'] && !changes['questionIndex'].firstChange) ||
+      (changes['currentQuestionIndex'] && !changes['currentQuestionIndex'].firstChange);
     const optionsChanged =
       changes['optionsToDisplay'] &&
       changes['optionsToDisplay'].previousValue !== changes['optionsToDisplay'].currentValue;
