@@ -428,6 +428,21 @@ export class SharedOptionComponent implements
     if ((questionChanged || optionsChanged) && this.optionsToDisplay?.length) {
       this.questionVersion++;
 
+      // ✅ CRITICAL FIX: Reset display mode back to 'question' when navigating to new question
+      console.log(`[🔄 RESET] Switching back to question mode for new question`);
+      this.quizStateService.setDisplayState({
+        mode: 'question',
+        answered: false
+      });
+
+      // ✅ Clear the explanation text service to prevent old FET from showing
+      this.explanationTextService.unlockExplanation();
+      this.explanationTextService.setExplanationText('', { force: true });
+      this.explanationTextService.setShouldDisplayExplanation(false, { force: true });
+      this.explanationTextService.setIsExplanationTextDisplayed(false, { force: true });
+
+      console.log(`[🔄 RESET] Cleared explanation text service for new question`);
+
       // If the previous question forced every option disabled (e.g. after
       // showing feedback on completion), make sure that guard is cleared before
       // the restart/new question renders so Q1 is interactive again.
