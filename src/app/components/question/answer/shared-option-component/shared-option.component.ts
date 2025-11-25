@@ -418,6 +418,7 @@ export class SharedOptionComponent implements
       console.warn('[⏳ generateOptionBindings skipped] No triggering inputs changed');
     }
 
+
     // Handle changes to optionsToDisplay / questionIndex (if any)
     const questionChanged =
       changes['questionIndex'] && !changes['questionIndex'].firstChange;
@@ -425,6 +426,24 @@ export class SharedOptionComponent implements
       changes['optionsToDisplay'] &&
       changes['optionsToDisplay'].previousValue !== changes['optionsToDisplay'].currentValue;
 
+    // ✅ CRITICAL: ONLY reset display mode when QUESTION changes, not when options change
+    if (questionChanged) {
+      console.log(`[🔄 RESET] Question changed - resetting to question mode`);
+      this.quizStateService.setDisplayState({
+        mode: 'question',
+        answered: false
+      });
+
+      // Clear the explanation text service to prevent old FET from showing
+      this.explanationTextService.unlockExplanation();
+      this.explanationTextService.setExplanationText('', { force: true });
+      this.explanationTextService.setShouldDisplayExplanation(false, { force: true });
+      this.explanationTextService.setIsExplanationTextDisplayed(false, { force: true });
+
+      console.log(`[🔄 RESET] Cleared explanation text service for new question`);
+    }
+
+    // ✅ UI cleanup can happen on both question and options changes
     if ((questionChanged || optionsChanged) && this.optionsToDisplay?.length) {
       this.questionVersion++;
 
