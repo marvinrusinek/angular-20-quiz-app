@@ -590,6 +590,9 @@ get quizQuestionComponent(): QuizQuestionComponent {
         this._fetEarlyShown.delete(idx);
         this.lastLoggedIndex = idx;
 
+        // ✅ CRITICAL FIX: Update the component property so it propagates to children!
+        this.currentQuestionIndex = idx;
+
         // ✅ ONLY reset display mode when NAVIGATING to a NEW question
         if (prevIdx !== null && prevIdx !== idx) {
           console.warn('[🔄 NAVIGATION RESET] Moving from Q', prevIdx + 1, '→ Q', idx + 1);
