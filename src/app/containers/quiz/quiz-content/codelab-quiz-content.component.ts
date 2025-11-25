@@ -1740,50 +1740,42 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         2
       )
     );
-
+  
     const qText = (question ?? '').trim();
     const bannerText = (banner ?? '').trim();
     const fetText = (fet?.text ?? '').trim();
     const active = this.quizService.getCurrentQuestionIndex();
-    //const mode       = this.quizStateService.displayStateSubject?.value?.mode ?? 'question';
-
+  
     const qObj = this.quizService.questions?.[idx];
-    //const ets  = this.explanationTextService;
-
-
+  
     const ets = this.explanationTextService;
     const explanationIndex = (ets as any).latestExplanationIndex;
     const mode = this.quizStateService.displayStateSubject?.value?.mode;
+  
     const hasUserInteracted =
       (this.quizStateService as any).hasUserInteracted?.(idx) ?? false;
-
+  
     console.log('[🧭 FET DIAGNOSTIC]', JSON.stringify({
       idx,
-      activeIndex: this.quizService.getCurrentQuestionIndex(),
-      mode: this.quizStateService.displayStateSubject?.value?.mode,
-      explanationIndex: (this.explanationTextService as any).latestExplanationIndex,
-      hasUserInteracted: (this.quizStateService as any).hasUserInteracted?.(idx),
-      shouldDisplayExplanation: this.explanationTextService.shouldDisplayExplanationSource?.value,
+      activeIndex: active,
+      mode,
+      explanationIndex,
+      hasUserInteracted,
+      shouldDisplayExplanation: ets.shouldDisplayExplanationSource?.value,
       latestExplanationPreview:
-        this.explanationTextService.latestExplanation?.slice?.(0, 120) || '[EMPTY]'
+        ets.latestExplanation?.slice?.(0, 120) || '[EMPTY]'
     }, null, 2));
-
-
+  
     // Ensure we have index-scoped cache map
     if (!this._lastQuestionTextByIndex) {
       (this as any)._lastQuestionTextByIndex = new Map<number, string>();
     }
-
+  
     // Always cache a “last known good” QUESTION text per index
     if (qText) {
       this._lastQuestionTextByIndex.set(idx, qText);
     }
-
-    // ============================================================
-    // 🔐 FET DISPLAY GATE — only allow in explanation mode
-    // ============================================================
-    // const explanationIndex = (ets as any).latestExplanationIndex;
-
+  
     console.log('[🧪 FET SNAPSHOT]', {
       idx,
       explanationIndex,
@@ -1791,50 +1783,50 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       mode,
       activeIndex: active
     });
-
-    /* const hasUserInteracted =
-      (this.quizStateService as any).hasUserInteracted?.(idx) ?? false; */
-
+  
     const explanationGate =
-      this.explanationTextService.shouldDisplayExplanationSource?.value === true;
-
-    // ✅ ONLY render FET when:
-    // - this question is active
-    // - mode is explanation
-    // - user actually interacted
-    // - the explanation belongs to THIS index
+      ets.shouldDisplayExplanationSource?.value === true;
+  
+    // ============================================================
+    // 🔐 FET DISPLAY GATE — only allow in explanation mode
+    // ============================================================
+    const explanationIndexMatches =
+      explanationIndex === idx ||
+      explanationIndex === null ||      // ✅ tolerate late sync
+      explanationIndex === undefined;  // ✅ tolerate bootstrap race
+  
     if (
       idx === active &&
       mode === 'explanation' &&
       explanationGate &&
       hasUserInteracted &&
-      explanationIndex === idx &&
+      explanationIndexMatches &&        // ✅ relaxed guard
       ets.latestExplanation &&
       ets.latestExplanation.trim().length > 0
     ) {
       const safe = ets.latestExplanation.trim();
-
+  
       console.warn('[✅ FET RENDER]', {
         idx,
         explanationIndex,
         hasUserInteracted,
         explanationGate
       });
-
+  
       this._lastQuestionTextByIndex.set(idx, safe);
       return safe;
     }
-
+  
     console.log('[FET INDEX CHECK]', {
       idx,
       explanationIndex,
-      active: this.quizService.getCurrentQuestionIndex(),
+      active,
       latestExplanationPreview: ets.latestExplanation?.slice?.(0, 80),
       hasUserInteracted,
       explanationGate,
       mode
     });
-
+  
     // ──────────────────────────────────────────────
     // 2️⃣ STRUCTURED FET PATH (kept, but secondary)
     // ──────────────────────────────────────────────
@@ -1848,13 +1840,13 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       shouldShow &&
       hasUserInteracted &&
       mode === 'explanation';
-
+  
     if (fetValid) {
       console.log(`[resolveTextToDisplay] ✅ FET gate open for Q${idx + 1}`);
       this._lastQuestionTextByIndex.set(idx, fetText);
       return fetText;
     }
-
+  
     // ──────────────────────────────────────────────
     // 3️⃣ DEFAULT: QUESTION + BANNER
     // ──────────────────────────────────────────────
@@ -1863,20 +1855,21 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       (qObj.type === QuestionType.MultipleAnswer ||
         (Array.isArray(qObj.options) &&
           qObj.options.filter((o: Option) => o.correct).length > 1));
-
-    // ✅ FIX: Use incoming qText first, NOT cached value
-    // The cached value might be from a different question
+  
+    // ✅ SAFETY: never reuse Q1's cache for other questions
+    const cachedForThisIndex = this._lastQuestionTextByIndex.get(idx);
+  
     const fallbackQuestion =
-      qText ||  // ← Use incoming text FIRST
-      this._lastQuestionTextByIndex.get(idx) ||
+      qText ||
+      cachedForThisIndex ||              // ✅ index scoped
       '[Recovery: question still loading…]';
-
+  
     console.log(`[resolveTextToDisplay] Using text for Q${idx + 1}:`, {
       incomingQText: qText?.slice(0, 50),
-      cachedText: this._lastQuestionTextByIndex.get(idx)?.slice(0, 50),
+      cachedText: cachedForThisIndex?.slice(0, 50),
       usingText: fallbackQuestion.slice(0, 50)
     });
-
+  
     // ✅ Only show banner when NOT in explanation mode
     if (isMulti && bannerText && mode === 'question') {
       const merged = `${fallbackQuestion} <span class="correct-count">${bannerText}</span>`;
@@ -1884,14 +1877,13 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       this._lastQuestionTextByIndex.set(idx, merged);
       return merged;
     }
-
+  
     console.log(`[resolveTextToDisplay] 🔁 Question fallback for Q${idx + 1} →`, fallbackQuestion.slice(0, 80));
-
-    // Cache the current question text for this index
+  
     if (qText) {
       this._lastQuestionTextByIndex.set(idx, qText);
     }
-
+  
     console.log('[CQCC TEXT RESOLVE]', {
       idx,
       shouldDisplayExplanation: ets.shouldDisplayExplanationSource.value,
@@ -1899,9 +1891,10 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       latestExplanation: ets.latestExplanation?.slice(0, 80),
       mode
     });
-
+  
     return fallbackQuestion;
   }
+  
 
 
 
