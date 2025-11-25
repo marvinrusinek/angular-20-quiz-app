@@ -172,30 +172,28 @@ export class SharedOptionComponent implements
   }
 
   private updateResolvedQuestionIndex(candidate: unknown): void {
+    if (typeof candidate !== 'number' && candidate !== null) {
+      console.warn(`[SharedOption] Invalid candidate for updateResolvedQuestionIndex: ${candidate}`);
+      return;
+    }
     const normalized = this.normalizeQuestionIndex(candidate);
 
     if (normalized !== null) this.resolvedQuestionIndex = normalized;
   }
 
   private getActiveQuestionIndex(): number | null {
-    if (this.resolvedQuestionIndex !== null) {
-      return this.resolvedQuestionIndex;
-    }
-
+    // 1. Always prefer explicit inputs (most reliable source of truth)
     const inputIndex =
       this.normalizeQuestionIndex(this.questionIndex) ??
-      this.normalizeQuestionIndex(this.currentQuestionIndex) ??
-      this.normalizeQuestionIndex(this.config?.idx);
+      this.normalizeQuestionIndex(this.currentQuestionIndex);
 
-    if (inputIndex !== null) {
-      this.resolvedQuestionIndex = inputIndex;
+    if (inputIndex !== null && inputIndex !== undefined) {
+      // Keep cache in sync, but return input directly
+      if (this.resolvedQuestionIndex !== inputIndex) {
+        console.log(`[SharedOption] 🔄 Index updated from input: ${this.resolvedQuestionIndex} -> ${inputIndex}`);
+        this.resolvedQuestionIndex = inputIndex;
+      }
       return inputIndex;
-    }
-
-    const directInput = this.normalizeQuestionIndex(this.currentQuestionIndex);
-    if (directInput !== null) {
-      this.resolvedQuestionIndex = directInput;
-      return directInput;
     }
 
     if (typeof this.quizService?.getCurrentQuestionIndex === 'function') {
