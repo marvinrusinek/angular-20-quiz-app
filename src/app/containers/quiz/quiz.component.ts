@@ -223,21 +223,15 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
   private questionTextSubject = new BehaviorSubject<string>('');
   private explanationTextSubject = new BehaviorSubject<string>('');
-  private displayStateSubject = new BehaviorSubject<{
-    mode: 'question' | 'explanation';
-    answered: boolean;
-  }>({
-    mode: 'question',
-    answered: false
-  });
-  displayState$ = this.displayStateSubject.asObservable();
+  // Use the display state from QuizStateService instead of local state
+  displayState$ = this.quizStateService.displayState$;
 
   shouldRenderQuestionComponent = false;
 
   qaToDisplay?: { question: QuizQuestion; options: Option[] };
 
   constructor(
-    private quizService: QuizService,
+    public quizService: QuizService,
     private quizDataService: QuizDataService,
     private quizInitializationService: QuizInitializationService,
     private quizNavigationService: QuizNavigationService,
@@ -552,76 +546,68 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
     this.lastLoggedIndex = idx;
   }); */
-  this.indexSubscription = this.quizService.currentQuestionIndex$
-  .pipe(distinctUntilChanged())
-  .subscribe((idx: number) => {
+    this.indexSubscription = this.quizService.currentQuestionIndex$
+      .pipe(distinctUntilChanged())
+      .subscribe((idx: number) => {
 
-    const prevIdx = this.lastLoggedIndex;
-    const ets = this.explanationTextService;
+        const prevIdx = this.lastLoggedIndex;
+        const ets = this.explanationTextService;
 
-    // ✅ ONLY purge the PREVIOUS question
-    if (prevIdx !== null && prevIdx !== idx) {
-      console.warn('[STATE CLEANUP] Purging Q', prevIdx + 1);
+        // ✅ ONLY purge the PREVIOUS question
+        if (prevIdx !== null && prevIdx !== idx) {
+          console.warn('[STATE CLEANUP] Purging Q', prevIdx + 1);
 
-      (this.quizStateService as any)._hasUserInteracted?.delete(prevIdx);
-      (this.quizStateService as any)._answeredQuestionIndices?.delete(prevIdx);
+          (this.quizStateService as any)._hasUserInteracted?.delete(prevIdx);
+          (this.quizStateService as any)._answeredQuestionIndices?.delete(prevIdx);
 
-      // Only clear FET belonging to the previous question
-      if ((ets as any).latestExplanationIndex === prevIdx) {
-        ets.latestExplanation = '';
-        ets.formattedExplanationSubject.next('');
-        ets.shouldDisplayExplanationSource.next(false);
-        ets.setIsExplanationTextDisplayed(false);
-        (ets as any).latestExplanationIndex = null;
-      }
-    }
+          // Only clear FET belonging to the previous question
+          if ((ets as any).latestExplanationIndex === prevIdx) {
+            ets.latestExplanation = '';
+            ets.formattedExplanationSubject.next('');
+            ets.shouldDisplayExplanationSource.next(false);
+            ets.setIsExplanationTextDisplayed(false);
+            (ets as any).latestExplanationIndex = null;
+          }
+        }
 
-    // 🧠 HARD RESET QUESTION STATE (NOT JUST UI)
-    // ─────────────────────────────────────────────
-    const qState =
-      this.quizId && Number.isFinite(idx)
-        ? this.quizStateService.getQuestionState?.(this.quizId, idx)
-        : null;
+        // 🧠 HARD RESET QUESTION STATE (NOT JUST UI)
+        // ─────────────────────────────────────────────
+        const qState =
+          this.quizId && Number.isFinite(idx)
+            ? this.quizStateService.getQuestionState?.(this.quizId, idx)
+            : null;
 
-    if (qState) {
-      console.warn('[QSTATE HARD RESET] Clearing stale explanation flags for Q', idx + 1);
+        if (qState) {
+          console.warn('[QSTATE HARD RESET] Clearing stale explanation flags for Q', idx + 1);
 
-      qState.explanationDisplayed = false;
-      qState.explanationText = '';
-    }
+          qState.explanationDisplayed = false;
+          qState.explanationText = '';
+        }
 
-    // ✅ DO NOT clear the current question state
-    ets._activeIndex = idx;
-    ets._fetLocked = false;
-    this._fetEarlyShown.delete(idx);
-    this.lastLoggedIndex = idx;
+        // ✅ DO NOT clear the current question state
+        ets._activeIndex = idx;
+        ets._fetLocked = false;
+        this._fetEarlyShown.delete(idx);
+        this.lastLoggedIndex = idx;
 
-    // ─────────────────────────────────────────────
-    // 🔨 NEW: GLOBAL EXPLANATION MODE RESET
-    // Prevents Q1 FET leaking into Q2 display
-    // ─────────────────────────────────────────────
+        // ✅ ONLY reset display mode when NAVIGATING to a NEW question
+        if (prevIdx !== null && prevIdx !== idx) {
+          console.warn('[🔄 NAVIGATION RESET] Moving from Q', prevIdx + 1, '→ Q', idx + 1);
 
-    console.warn('[🧨 GLOBAL FET RESET] For Q', idx + 1);
+          // 🚨 FORCE question mode on navigation
+          this.quizStateService.displayStateSubject.next({
+            mode: 'question',
+            answered: false
+          });
 
-    ets.latestExplanation = '';
-    ets.formattedExplanationSubject.next('');
-    ets.shouldDisplayExplanationSource.next(false);
-    ets.setIsExplanationTextDisplayed(false);
-    (ets as any).latestExplanationIndex = null;
+          // Reset any local UI explanation flags
+          this.showExplanation = false;
+          this.explanationToDisplay = '';
+          this.explanationVisibleLocal = false;
 
-    // 🚨 FORCE question mode on navigation
-    this.quizStateService.displayStateSubject.next({
-      mode: 'question',
-      answered: false
-    });
-
-    // Reset any local UI explanation flags
-    this.showExplanation = false;
-    this.explanationToDisplay = '';
-    this.explanationVisibleLocal = false;
-
-    console.warn('[✅ INDEX SWITCH OK + FET PURGED]', idx + 1);
-  });
+          console.warn('[✅ NAVIGATION COMPLETE]', idx + 1);
+        }
+      });
 
 
     try {
@@ -636,8 +622,10 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
       // Set quiz as loaded and sync index after questions are ready
       this.isQuizDataLoaded = true;
-      this.currentQuestionIndex = 0;
-      this.quizService.setCurrentQuestionIndex(0);
+
+      // Use the index we got from the route earlier (or 0 if not set)
+      const initialIndex = this.currentQuestionIndex || 0;
+      this.quizService.setCurrentQuestionIndex(initialIndex);
       Promise.resolve().then(() => this.cdRef.detectChanges());
 
       // Continue processing questions
@@ -780,7 +768,19 @@ get quizQuestionComponent(): QuizQuestionComponent {
           this.cdRef.markForCheck();  // trigger change‑detection just once
         });
       }); */
-      this.quizService
+    this.quizService.questionToDisplay$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(qText => {
+        // qText is already the correct text for the current question
+        console.log(`[QuizComponent] 📥 Received question text from service: "${qText?.slice(0, 80)}"`);
+
+        // Push it into the source that CodelabQuizContentComponent consumes
+        this.questionToDisplaySource.next(qText ?? 'No question available');
+
+        console.log(`[QuizComponent] 📤 Forwarded to questionToDisplaySource`);
+      });
+
+    this.quizService
       .getCurrentQuestionObservable()
       .pipe(
         takeUntil(this.destroy$),
