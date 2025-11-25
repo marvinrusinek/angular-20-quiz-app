@@ -1359,8 +1359,10 @@ export class SharedOptionComponent implements
     this.syncSelectedFlags();  // set .selected for every row
     this.highlightDirectives?.forEach(d => d.updateHighlight());
 
-    // Sync explanation
-    this.emitExplanation(this.quizService.currentQuestionIndex)
+    // Sync explanation - USE THE CORRECT QUESTION INDEX!
+    const activeIndex = this.getActiveQuestionIndex() ?? 0;
+    console.log(`[🔧 FIX] Using activeIndex: ${activeIndex} instead of quizService.currentQuestionIndex: ${this.quizService.currentQuestionIndex}`);
+    this.emitExplanation(activeIndex);
 
     // Final UI change detection
     this.cdRef.detectChanges();
