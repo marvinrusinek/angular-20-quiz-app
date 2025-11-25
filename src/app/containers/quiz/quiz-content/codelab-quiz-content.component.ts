@@ -1846,6 +1846,12 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       this._lastQuestionTextByIndex.set(idx, fetText);
       return fetText;
     }
+
+    // 🚨 If user already interacted, NEVER resurrect question text
+    if (hasUserInteracted && mode === 'explanation') {
+      console.warn('[💀 BLOCKING Q TEXT] User interacted, explanation expected. No fallback allowed.');
+      return '[Loading explanation…]';
+    }
   
     // ──────────────────────────────────────────────
     // 3️⃣ DEFAULT: QUESTION + BANNER
@@ -1857,18 +1863,20 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           qObj.options.filter((o: Option) => o.correct).length > 1));
   
     // ✅ SAFETY: never reuse Q1's cache for other questions
-    const cachedForThisIndex = this._lastQuestionTextByIndex.get(idx);
+    /* const cachedForThisIndex = this._lastQuestionTextByIndex.get(idx);
   
     const fallbackQuestion =
       qText ||
       cachedForThisIndex ||              // ✅ index scoped
-      '[Recovery: question still loading…]';
+      '[Recovery: question still loading…]'; */
+    const fallbackQuestion =
+      qText || '[…]';
   
-    console.log(`[resolveTextToDisplay] Using text for Q${idx + 1}:`, {
+    /* console.log(`[resolveTextToDisplay] Using text for Q${idx + 1}:`, {
       incomingQText: qText?.slice(0, 50),
       cachedText: cachedForThisIndex?.slice(0, 50),
       usingText: fallbackQuestion.slice(0, 50)
-    });
+    }); */
   
     // ✅ Only show banner when NOT in explanation mode
     if (isMulti && bannerText && mode === 'question') {
