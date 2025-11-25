@@ -1321,18 +1321,18 @@ export class SharedOptionComponent implements
       // Don't touch feedback if this is not the newly selected option
       if (id !== optionId) return;
 
-      // Get the formatted explanation text for this question
-      const questionIndex = this.getActiveQuestionIndex() ?? 0;
-      const formattedExplanation = this.resolveExplanationText(questionIndex);
+      // Build missing feedback config
+      const correctOptions = this.optionsToDisplay.filter(opt => opt.correct);
+      const dynamicFeedback = this.feedbackService.generateFeedbackForOptions(correctOptions, this.optionsToDisplay);
 
       if (!this.feedbackConfigs[optionId]) {
         this.feedbackConfigs[optionId] = {
-          feedback: formattedExplanation,
+          feedback: dynamicFeedback,
           showFeedback: true,
           options: this.optionsToDisplay,
           question: this.currentQuestion,
           selectedOption: optionBinding.option,
-          correctMessage: formattedExplanation,
+          correctMessage: dynamicFeedback,
           idx: index
         };
       }
@@ -1405,21 +1405,13 @@ export class SharedOptionComponent implements
   private applyFeedback(optionBinding: OptionBindings): void {
     console.log(`[📝 Applying Feedback for Option ${optionBinding.option.optionId}]`);
 
-    // Get the current question index
-    const questionIndex = this.getActiveQuestionIndex() ?? 0;
-
-    // Get the formatted explanation text for this question
-    const formattedExplanation = this.resolveExplanationText(questionIndex);
-
-    console.log(`[📝 Using FET for feedback]: "${formattedExplanation.slice(0, 80)}..."`);
-
     const feedbackProps: FeedbackProps = {
-      feedback: formattedExplanation,
+      feedback: optionBinding.option.feedback ?? 'No feedback available',
       showFeedback: true,
       options: this.optionsToDisplay,
       question: this.currentQuestion,
       selectedOption: optionBinding.option,
-      correctMessage: formattedExplanation,
+      correctMessage: optionBinding.option.feedback ?? 'No feedback available',
       idx: optionBinding.index
     };
 
