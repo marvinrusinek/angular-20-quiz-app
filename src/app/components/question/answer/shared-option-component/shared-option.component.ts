@@ -427,8 +427,13 @@ export class SharedOptionComponent implements
       changes['optionsToDisplay'].previousValue !== changes['optionsToDisplay'].currentValue;
 
     // ✅ CRITICAL: ONLY reset display mode when QUESTION changes, not when options change
+    // ✅ CRITICAL: ONLY reset display mode when QUESTION changes, not when options change
     if (questionChanged) {
       console.log(`[🔄 RESET] Question changed - resetting to question mode`);
+
+      // ✅ RESET cached index so we don't use the old one!
+      this.resolvedQuestionIndex = null;
+
       this.quizStateService.setDisplayState({
         mode: 'question',
         answered: false
