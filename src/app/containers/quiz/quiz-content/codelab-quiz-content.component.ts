@@ -567,16 +567,17 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       auditTime(16),
 
       // If navigating or in quiet zone, hold the last stable string (don’t pass new frames).
-      filter(([
-        , // idx
-        , // question
-        , // banner
-        , // fet
-        , // shouldShow
-        navigating,
-        qQuiet,
-        eQuiet
-      ]) => {
+      filter((tuple: CombinedTuple) => {
+        const [
+          , // idx
+          , // question
+          , // banner
+          , // fet
+          , // shouldShow
+          navigating,
+          qQuiet,
+          eQuiet
+        ] = tuple;
         const hold = navigating || performance.now() < Math.max(qQuiet || 0, eQuiet || 0);
         if (hold) {
           console.log('[VisualGate] ⏸ hold (navigating/quiet-zone)');
@@ -585,7 +586,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       }),
 
       // drop back-to-back duplicate “question → FET → question” bursts
-      distinctUntilChanged((prev, curr) => {
+      distinctUntilChanged((prev: CombinedTuple, curr: CombinedTuple) => {
         const [pIdx, , , pFet, pShow] = prev;
         const [cIdx, , , cFet, cShow] = curr;
         return (
@@ -655,21 +656,24 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           idx,
           question: question?.slice?.(0, 40),
           fetText: fet?.text?.slice?.(0, 40),
-        }),
+          fetGate: fet?.gate,
+          shouldShow
+        });
+      }),
 
-          // ✅ REMOVED BLOCKING FILTER - was preventing FET from displaying
-          // The filter below was blocking text updates when in explanation mode,
-          // which prevented the formatted explanation from showing when clicking options
+      // ✅ REMOVED BLOCKING FILTER - was preventing FET from displaying
+      // The filter below was blocking text updates when in explanation mode,
+      // which prevented the formatted explanation from showing when clicking options
 
-          map(([idx, question, banner, fet, shouldShow, ..._rest]) =>
-            this.resolveTextToDisplay(idx, question, banner, fet, shouldShow)
-          ),
+      map(([idx, question, banner, fet, shouldShow, ..._rest]) =>
+        this.resolveTextToDisplay(idx, question, banner, fet, shouldShow)
+      ),
 
-          // Coalesce bursts to a single animation frame once gate opens
-          auditTime(16),
-          distinctUntilChanged((a, b) => a.trim() === b.trim()),
-          observeOn(animationFrameScheduler),
-          shareReplay({ bufferSize: 1, refCount: true })
+      // Coalesce bursts to a single animation frame once gate opens
+      auditTime(16),
+      distinctUntilChanged((a: string, b: string) => a.trim() === b.trim()),
+      observeOn(animationFrameScheduler),
+      shareReplay({ bufferSize: 1, refCount: true })
     ) as Observable<string>;
   }
 
