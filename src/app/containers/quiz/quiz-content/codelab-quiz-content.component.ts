@@ -655,40 +655,21 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           idx,
           question: question?.slice?.(0, 40),
           fetText: fet?.text?.slice?.(0, 40),
-          fetGate: fet?.gate,
-          shouldShow
-        });
-      }),
+        }),
 
-      // ─────────────────────────────────────────────────────────────
-      // NEW: Explanation lock filter — prevents overwriting FET mid-display
-      // ─────────────────────────────────────────────────────────────
-      filter(([idx]) => {
-        const mode = this.quizStateService.displayStateSubject?.value?.mode;
-        const explLock = this.explanationTextService._activeIndex;
-        const currentIdx = this.quizService.getCurrentQuestionIndex();
+          // ✅ REMOVED BLOCKING FILTER - was preventing FET from displaying
+          // The filter below was blocking text updates when in explanation mode,
+          // which prevented the formatted explanation from showing when clicking options
 
-        const block =
-          mode === 'explanation' &&
-          explLock === currentIdx &&
-          idx === currentIdx;
+          map(([idx, question, banner, fet, shouldShow, ..._rest]) =>
+            this.resolveTextToDisplay(idx, question, banner, fet, shouldShow)
+          ),
 
-        if (block) {
-          console.log('[DisplayGate] ⛔ Blocking text override while FET active');
-        }
-
-        return !block;
-      }),
-
-      map(([idx, question, banner, fet, shouldShow, ..._rest]) =>
-        this.resolveTextToDisplay(idx, question, banner, fet, shouldShow)
-      ),
-
-      // Coalesce bursts to a single animation frame once gate opens
-      auditTime(16),
-      distinctUntilChanged((a, b) => a.trim() === b.trim()),
-      observeOn(animationFrameScheduler),
-      shareReplay({ bufferSize: 1, refCount: true })
+          // Coalesce bursts to a single animation frame once gate opens
+          auditTime(16),
+          distinctUntilChanged((a, b) => a.trim() === b.trim()),
+          observeOn(animationFrameScheduler),
+          shareReplay({ bufferSize: 1, refCount: true })
     ) as Observable<string>;
   }
 
@@ -1740,21 +1721,21 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         2
       )
     );
-  
+
     const qText = (question ?? '').trim();
     const bannerText = (banner ?? '').trim();
     const fetText = (fet?.text ?? '').trim();
     const active = this.quizService.getCurrentQuestionIndex();
-  
+
     const qObj = this.quizService.questions?.[idx];
-  
+
     const ets = this.explanationTextService;
     const explanationIndex = (ets as any).latestExplanationIndex;
     const mode = this.quizStateService.displayStateSubject?.value?.mode;
-  
+
     const hasUserInteracted =
       (this.quizStateService as any).hasUserInteracted?.(idx) ?? false;
-  
+
     console.log('[🧭 FET DIAGNOSTIC]', JSON.stringify({
       idx,
       activeIndex: active,
@@ -1765,17 +1746,17 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       latestExplanationPreview:
         ets.latestExplanation?.slice?.(0, 120) || '[EMPTY]'
     }, null, 2));
-  
+
     // Ensure we have index-scoped cache map
     if (!this._lastQuestionTextByIndex) {
       (this as any)._lastQuestionTextByIndex = new Map<number, string>();
     }
-  
+
     // Always cache a “last known good” QUESTION text per index
     if (qText) {
       this._lastQuestionTextByIndex.set(idx, qText);
     }
-  
+
     console.log('[🧪 FET SNAPSHOT]', {
       idx,
       explanationIndex,
@@ -1783,10 +1764,10 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       mode,
       activeIndex: active
     });
-  
+
     const explanationGate =
       ets.shouldDisplayExplanationSource?.value === true;
-  
+
     // ============================================================
     // 🔐 FET DISPLAY GATE — only allow in explanation mode
     // ============================================================
@@ -1794,7 +1775,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       explanationIndex === idx ||
       explanationIndex === null ||      // ✅ tolerate late sync
       explanationIndex === undefined;  // ✅ tolerate bootstrap race
-  
+
     if (
       idx === active &&
       mode === 'explanation' &&
@@ -1805,18 +1786,18 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       ets.latestExplanation.trim().length > 0
     ) {
       const safe = ets.latestExplanation.trim();
-  
+
       console.warn('[✅ FET RENDER]', {
         idx,
         explanationIndex,
         hasUserInteracted,
         explanationGate
       });
-  
+
       this._lastQuestionTextByIndex.set(idx, safe);
       return safe;
     }
-  
+
     console.log('[FET INDEX CHECK]', {
       idx,
       explanationIndex,
@@ -1826,7 +1807,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       explanationGate,
       mode
     });
-  
+
     // ──────────────────────────────────────────────
     // 2️⃣ STRUCTURED FET PATH (kept, but secondary)
     // ──────────────────────────────────────────────
@@ -1840,7 +1821,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       shouldShow &&
       hasUserInteracted &&
       mode === 'explanation';
-  
+
     if (fetValid) {
       console.log(`[resolveTextToDisplay] ✅ FET gate open for Q${idx + 1}`);
       this._lastQuestionTextByIndex.set(idx, fetText);
@@ -1852,7 +1833,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       console.warn('[💀 BLOCKING Q TEXT] User interacted, explanation expected. No fallback allowed.');
       return '[Loading explanation…]';
     } */
-  
+
     // ──────────────────────────────────────────────
     // 3️⃣ DEFAULT: QUESTION + BANNER
     // ──────────────────────────────────────────────
@@ -1861,21 +1842,21 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       (qObj.type === QuestionType.MultipleAnswer ||
         (Array.isArray(qObj.options) &&
           qObj.options.filter((o: Option) => o.correct).length > 1));
-  
+
     // ✅ SAFETY: never reuse Q1's cache for other questions
     const cachedForThisIndex = this._lastQuestionTextByIndex.get(idx);
-  
+
     const fallbackQuestion =
       qText ||
       cachedForThisIndex ||              // ✅ index scoped
       '[Recovery: question still loading…]';
-  
+
     /* console.log(`[resolveTextToDisplay] Using text for Q${idx + 1}:`, {
       incomingQText: qText?.slice(0, 50),
       cachedText: cachedForThisIndex?.slice(0, 50),
       usingText: fallbackQuestion.slice(0, 50)
     }); */
-  
+
     // ✅ Only show banner when NOT in explanation mode
     if (isMulti && bannerText && mode === 'question') {
       const merged = `${fallbackQuestion} <span class="correct-count">${bannerText}</span>`;
@@ -1883,13 +1864,13 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       this._lastQuestionTextByIndex.set(idx, merged);
       return merged;
     }
-  
+
     console.log(`[resolveTextToDisplay] 🔁 Question fallback for Q${idx + 1} →`, fallbackQuestion.slice(0, 80));
-  
+
     if (qText) {
       this._lastQuestionTextByIndex.set(idx, qText);
     }
-  
+
     console.log('[CQCC TEXT RESOLVE]', {
       idx,
       shouldDisplayExplanation: ets.shouldDisplayExplanationSource.value,
@@ -1897,10 +1878,10 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       latestExplanation: ets.latestExplanation?.slice(0, 80),
       mode
     });
-  
+
     return fallbackQuestion;
   }
-  
+
 
 
 
