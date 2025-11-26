@@ -18,9 +18,7 @@ export class ExplanationTextService {
   formattedExplanations: Record<number, FormattedExplanation> = {};
   formattedExplanations$: BehaviorSubject<string | null>[] = [];
   formattedExplanationSubject = new BehaviorSubject<string>('');
-  formattedExplanation$ = this.formattedExplanationSubject.pipe(
-    filter((v) => v.trim().length > 0)
-  );
+  formattedExplanation$ = this.formattedExplanationSubject.asObservable();
   private formattedExplanationByQuestionText = new Map<string, string>();
 
   private readonly globalContextKey = 'global';
