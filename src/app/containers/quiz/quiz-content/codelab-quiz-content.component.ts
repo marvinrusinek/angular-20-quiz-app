@@ -388,7 +388,8 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   }
 
   ngAfterViewInit(): void {
-    this.connectCombinedTextStream();
+    // ✅ DISABLED - was competing with displayText$ subscription
+    // this.connectCombinedTextStream();
   }
 
   private resetExplanationView(): void {
