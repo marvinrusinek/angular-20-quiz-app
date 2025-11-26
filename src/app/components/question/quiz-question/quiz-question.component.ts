@@ -4897,7 +4897,7 @@ export class QuizQuestionComponent extends BaseQuestion
       this.isAnswered = true;
 
       await this.fetchAndSetExplanationText(this.currentQuestionIndex);
-      void this.updateExplanationDisplay(true);
+      // void this.updateExplanationDisplay(true);  // Commented out - performExplanationUpdate handles this now
 
       const questionData = await firstValueFrom(
         this.quizService.getQuestionByIndex(this.currentQuestionIndex)
@@ -5218,7 +5218,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
       // Set the current explanation text
       this.explanationTextService.setCurrentQuestionExplanation(explanationText);
-      void this.updateExplanationDisplay(true);
+      // void this.updateExplanationDisplay(true);  // Commented out - performExplanationUpdate handles this now
 
       const totalCorrectAnswers = this.quizService.getTotalCorrectAnswers(currentQuestion);
 
