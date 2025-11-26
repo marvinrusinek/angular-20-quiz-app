@@ -1940,6 +1940,9 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   }
 
   private initializeExplanationTextObservable(): void {
+    // DISABLED: This logic conflicts with QuizQuestionComponent's explanation handling
+    // and causes "No explanation available" to be displayed prematurely.
+    /*
     combineLatest([
       this.quizStateService.currentQuestion$.pipe(
         map((value) => value ?? null),  // default to `null` if value is `undefined`
@@ -1948,7 +1951,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       this.explanationTextService.isExplanationTextDisplayed$.pipe(
         map((value) => value ?? false),  // default to `false` if value is `undefined`
         distinctUntilChanged()
-      ),
+      )
     ])
       .pipe(
         takeUntil(this.destroy$),
@@ -1974,6 +1977,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         this.explanationToDisplay = explanation;
         this.isExplanationDisplayed = !!explanation;
       });
+      */
   }
 
   private fetchExplanationTextAfterRendering(
@@ -2255,21 +2259,22 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         console.error('Error combining current quiz and options:', err),
     });
 
-    this.explanationTextService
-      .getFormattedExplanation(questionIndex)
-      .pipe(
-        takeUntil(this.destroy$),
-        map((explanation) => explanation || 'No explanation available'),
-        catchError((error) => {
-          console.error(`Error fetching explanation for question ${questionIndex}:`, error);
-          return of('Error fetching explanation');
-        })
-      )
-      .subscribe((explanation: string) => {
-        this.explanationTextService.formattedExplanationSubject.next(
-          explanation
-        );
-      });
+    // DISABLED: Redundant subscription that pushes fallback text
+    // this.explanationTextService
+    //   .getFormattedExplanation(questionIndex)
+    //   .pipe(
+    //     takeUntil(this.destroy$),
+    //     map((explanation) => explanation || 'No explanation available'),
+    //     catchError((error) => {
+    //       console.error(`Error fetching explanation for question ${questionIndex}:`, error);
+    //       return of('Error fetching explanation');
+    //     })
+    //   )
+    //   .subscribe((explanation: string) => {
+    //     this.explanationTextService.formattedExplanationSubject.next(
+    //       explanation
+    //     );
+    //   });
 
     this.combinedQuestionData$ = combineLatest([
       currentQuizAndOptions$.pipe(
