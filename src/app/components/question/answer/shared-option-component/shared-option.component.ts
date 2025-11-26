@@ -1710,6 +1710,17 @@ export class SharedOptionComponent implements
       return formatted;
     }
 
+    // 🚨 Fallback: Generate on the fly if missing
+    console.warn(`[⚠️ FET missing for Q${questionIndex + 1}] - Generating on the fly...`);
+    const question = this.quizService.questions[questionIndex];
+    if (question) {
+      const correctIndices = this.explanationTextService.getCorrectOptionIndices(question);
+      const raw = question.explanation || '';
+      const generated = this.explanationTextService.formatExplanation(question, correctIndices, raw);
+      console.log(`[✨ Generated on-the-fly FET]:`, generated.slice(0, 80));
+      return generated;
+    }
+
     // Get the raw explanation text
     const activeIndex = this.getActiveQuestionIndex() ?? questionIndex;
     const matchesCurrentInput = this.currentQuestionIndex === activeIndex;
