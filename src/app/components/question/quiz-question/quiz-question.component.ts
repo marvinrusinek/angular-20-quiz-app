@@ -5275,34 +5275,41 @@ export class QuizQuestionComponent extends BaseQuestion
       // Delay to avoid UI race conditions and flickering
       setTimeout(async () => {
         try {
-          let explanationText = 'No explanation available';
+          // Use the explanation already set by performExplanationUpdate
+          let explanationText = this.explanationTextService.latestExplanation?.trim() || '';
 
-          if (this.explanationTextService.explanationsInitialized) {
+          // If no explanation is set yet, try to fetch it
+          if (!explanationText && this.explanationTextService.explanationsInitialized) {
             const fetched = await firstValueFrom(
               this.explanationTextService.getFormattedExplanationTextForQuestion(
                 this.currentQuestionIndex
               )
             );
 
-            explanationText = fetched?.trim() || explanationText;
-          } else {
+            explanationText = fetched?.trim() || 'No explanation available';
+          } else if (!explanationText) {
             console.warn(
-              `[updateExplanationDisplay] ⚠️ Explanations not initialized for Q${this.currentQuestionIndex}`
+              `[updateExplanationDisplay] ⚠️ No explanation available for Q${this.currentQuestionIndex}`
             );
+            explanationText = 'No explanation available';
           }
 
-          // Update and emit valid explanation
-          this.explanationToDisplay = explanationText;
-          this.explanationTextService.setExplanationText(explanationText); // ensure central state is synced
-          this.explanationToDisplayChange.emit(explanationText);
-          this.cdRef.markForCheck(); // trigger change detection
+          // Only update if we have a valid explanation
+          if (explanationText && explanationText !== 'No explanation available') {
+            this.explanationToDisplay = explanationText;
+            this.explanationToDisplayChange.emit(explanationText);
+            this.cdRef.markForCheck(); // trigger change detection
+          }
         } catch (error) {
           console.error(
             '❌ [updateExplanationDisplay] Error fetching explanation:',
             error
           );
-          this.explanationToDisplay = 'Error loading explanation.';
-          this.explanationToDisplayChange.emit(this.explanationToDisplay);
+          // Don't overwrite with error message if we already have an explanation
+          if (!this.explanationToDisplay) {
+            this.explanationToDisplay = 'Error loading explanation.';
+            this.explanationToDisplayChange.emit(this.explanationToDisplay);
+          }
         }
       }, 50);
     } else {
