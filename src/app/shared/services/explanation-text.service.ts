@@ -290,17 +290,18 @@ export class ExplanationTextService {
     const FALLBACK = 'No explanation available';
 
     if (this._fetLocked) {
-      console.log(`[ETS] ⏸ FET locked, ignoring request for Q${questionIndex + 1}`);
-      return EMPTY;  // ignore until the deferred window ends
+      console.log(`[ETS] ⏸ FET locked, returning fallback for Q${questionIndex + 1}`);
+      // Return fallback instead of EMPTY to prevent firstValueFrom errors
+      return of(FALLBACK);
     }
 
     // ────────────────────────────────────────────────
     // 🧹 Step 1: Hard reset any stale emission whenever a new question index is requested
-    // Prevents replay of previous question’s FET (e.g., Q1 showing on Q2)
+    // Prevents replay of previous question's FET (e.g., Q1 showing on Q2)
     // ────────────────────────────────────────────────
     // ────────────────────────────────────────────────
     // 🧹 Step 1: Fully purge cached FET state if switching question
-    // Prevents Q1’s explanation from leaking into Q2.
+    // Prevents Q1's explanation from leaking into Q2.
     // ────────────────────────────────────────────────
     if (this._activeIndex !== questionIndex) {
       try {
@@ -388,9 +389,10 @@ export class ExplanationTextService {
     })();
 
     if (!gateOpen) {
-      console.log(`[ETS] 🚫 Gate closed → suppressing FET for Q${questionIndex + 1}`);
+      console.log(`[ETS] 🚫 Gate closed → returning fallback for Q${questionIndex + 1}`);
       this.setGate(questionIndex, false);
-      return EMPTY;
+      // Return fallback instead of EMPTY to prevent firstValueFrom errors
+      return of(FALLBACK);
     }
 
     // Only emit if explanation belongs to current active question
