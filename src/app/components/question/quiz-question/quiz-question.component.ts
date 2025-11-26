@@ -4898,7 +4898,9 @@ export class QuizQuestionComponent extends BaseQuestion
       this.showFeedbackForOption[option.optionId] = true;
       this.isAnswered = true;
 
-      await this.fetchAndSetExplanationText(this.currentQuestionIndex);
+      // DISABLED: performExplanationUpdate handles this. Calling this here causes race condition
+      // and overwrites the correct explanation with "No explanation available" (due to lock).
+      // await this.fetchAndSetExplanationText(this.currentQuestionIndex);
       // void this.updateExplanationDisplay(true);  // Commented out - performExplanationUpdate handles this now
 
       const questionData = await firstValueFrom(
