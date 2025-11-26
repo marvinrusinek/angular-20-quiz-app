@@ -1182,10 +1182,10 @@ export class ExplanationTextService {
     // Stop all lingering subjects to prevent replay from Q1
     try {
       if (this.formattedExplanationSubject) {
-        this.formattedExplanationSubject.complete();
+        this.formattedExplanationSubject.next('');
       }
     } catch { }
-    this.formattedExplanationSubject = new BehaviorSubject<string>('');
+    // this.formattedExplanationSubject = new BehaviorSubject<string>(''); // ❌ DON'T REPLACE IT!
     this.formattedExplanation$ = this.formattedExplanationSubject.asObservable();
 
     // Hard reset every flag
