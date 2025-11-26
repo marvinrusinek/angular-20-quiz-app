@@ -4914,8 +4914,10 @@ export class QuizQuestionComponent extends BaseQuestion
       if (this.quizQuestionManagerService.isValidQuestionData(questionData)) {
         // ✅ FIX: Use ExplanationTextService to format the explanation
         const rawExplanation = questionData.explanation ?? 'No explanation available';
-        const correctIndices = this.explanationTextService.getCorrectOptionIndices(questionData);
+        // const correctIndices = this.explanationTextService.getCorrectOptionIndices(questionData);
 
+        // DISABLED: performExplanationUpdate handles explanation formatting and display
+        /*
         const explanationText = this.explanationTextService.formatExplanation(
           questionData,
           correctIndices,
@@ -4933,6 +4935,7 @@ export class QuizQuestionComponent extends BaseQuestion
           this.showExplanationChange.emit(true);
           this.displayExplanation = true;
         }
+        */
 
         const correctOptions = questionData.options.filter(
           (opt: Option) => opt.correct
