@@ -1531,8 +1531,9 @@ export class SharedOptionComponent implements
 
     console.log(`[✅ updateHighlighting Complete] at ${Date.now()}`);
 
-    // Immediately trigger explanation text update
-    this.emitExplanation(questionIndex);
+    // ❌ REMOVED: Do not auto-emit explanation on highlight update. 
+    // Only emit on explicit user interaction (click).
+    // this.emitExplanation(questionIndex);
   }
 
   /* private renderAllStates(optionId: number, questionIndex: number): void {
