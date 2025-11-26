@@ -2102,6 +2102,10 @@ export class SharedOptionComponent implements
 
     this.showFeedback = true;
     this.updateHighlighting();
+
+    // ✅ Explicitly emit explanation since we removed it from updateHighlighting
+    this.emitExplanation(this.resolvedQuestionIndex ?? 0);
+
     this.cdRef.detectChanges();
 
     // Reset the backward navigation flag
