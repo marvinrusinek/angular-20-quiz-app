@@ -464,6 +464,10 @@ export class ExplanationTextService {
       };
     }
 
+    console.log(`[ETS] ✅ Initialized ${Object.keys(this.formattedExplanations).length} formatted explanations`);
+    console.log(`[ETS] Sample Q0:`, this.formattedExplanations[0]?.explanation?.slice(0, 80));
+    console.log(`[ETS] Sample Q2:`, this.formattedExplanations[2]?.explanation?.slice(0, 80));
+
     // Notify subscribers about the updated explanations
     this.explanationsUpdated.next(this.formattedExplanations);
   }
