@@ -1699,6 +1699,12 @@ export class SharedOptionComponent implements
     const formatted = this.explanationTextService
       .formattedExplanations[questionIndex]?.explanation?.trim();
 
+    console.log(`[🔍 resolveExplanationText] Q${questionIndex + 1} Lookup:`, {
+      found: !!formatted,
+      text: formatted?.slice(0, 50),
+      allKeys: Object.keys(this.explanationTextService.formattedExplanations)
+    });
+
     if (formatted) {
       console.log(`[✅ Using pre-formatted FET for Q${questionIndex + 1}]:`, formatted.slice(0, 80));
       return formatted;
