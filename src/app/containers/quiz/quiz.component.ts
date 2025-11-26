@@ -1749,12 +1749,28 @@ get quizQuestionComponent(): QuizQuestionComponent {
     );
 
     this.explanationTextService.initializeExplanationTexts(explanations);
-    this.explanationTextService.initializeFormattedExplanations(
-      hydratedQuestions.map((__, index) => ({
+
+    // ✅ FIX: Format each explanation with "Option X is correct because..." prefix
+    const formattedExplanations = hydratedQuestions.map((question, index) => {
+      const rawExplanation = (question.explanation ?? '').trim();
+
+      // Get correct option indices for this question
+      const correctIndices = this.explanationTextService.getCorrectOptionIndices(question);
+
+      // Format the explanation with the prefix
+      const formattedText = this.explanationTextService.formatExplanation(
+        question,
+        correctIndices,
+        rawExplanation
+      );
+
+      return {
         questionIndex: index,
-        explanation: explanations[index]
-      }))
-    );
+        explanation: formattedText
+      };
+    });
+
+    this.explanationTextService.initializeFormattedExplanations(formattedExplanations);
 
     if (this.quiz) {
       this.quiz = {
