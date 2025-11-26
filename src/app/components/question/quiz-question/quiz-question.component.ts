@@ -2147,11 +2147,13 @@ export class QuizQuestionComponent extends BaseQuestion
       });
       if (!shouldKeepExplanationVisible) {
         this.explanationTextService.resetExplanationState();
-        this.explanationTextService.setExplanationText('');
+        this.explanationTextService.setExplanationText('', { force: true });
         this.explanationTextService.setIsExplanationTextDisplayed(false);
+        this.explanationTextService.setShouldDisplayExplanation(false);
         this.renderReadySubject.next(false);
 
         this.displayState = { mode: 'question', answered: false };
+        this.quizStateService.setDisplayState({ mode: 'question', answered: false });
         this.forceQuestionDisplay = true;
         this.readyForExplanationDisplay = false;
         this.isExplanationReady = false;
@@ -5244,6 +5246,11 @@ export class QuizQuestionComponent extends BaseQuestion
   }
 
   private async updateExplanationDisplay(shouldDisplay: boolean): Promise<void> {
+    // DISABLED: performExplanationUpdate now handles all explanation display
+    // This method was causing "No explanation available" to overwrite the correct explanation
+    console.log('[updateExplanationDisplay] DISABLED - performExplanationUpdate handles this now');
+    return;
+
     let ets = this.explanationTextService;
     if (shouldDisplay) {
       // Set the display flag first so UI binds update properly
