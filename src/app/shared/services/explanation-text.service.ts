@@ -1101,14 +1101,16 @@ export class ExplanationTextService {
       if (this.formattedExplanations) {
         delete this.formattedExplanations[this._activeIndex];
       }
-    }
 
-    // Clear global explanation state to prevent bleed
-    this.latestExplanation = '';
-    this.latestExplanationIndex = null;
-    this.formattedExplanationSubject?.next('');
-    this.setShouldDisplayExplanation(false, { force: true });
-    this.setIsExplanationTextDisplayed(false, { force: true });
+      // Only clear global state when switching to a DIFFERENT question
+      this.latestExplanation = '';
+      this.latestExplanationIndex = null;
+      this.formattedExplanationSubject?.next('');
+      this.setShouldDisplayExplanation(false, { force: true });
+      this.setIsExplanationTextDisplayed(false, { force: true });
+
+      console.log(`[ETS] Cleared global state for question switch: ${this._activeIndex} -> ${index}`);
+    }
 
     // ensure and hard-emit null/false for new index
     const { text$, gate$ } = this.getOrCreate(index);
@@ -1120,7 +1122,7 @@ export class ExplanationTextService {
       questionIndex: index,
       explanation: ''
     };
-    console.log(`[ETS] resetForIndex(${index}) -> null/false, cleared global state`);
+    console.log(`[ETS] resetForIndex(${index}) -> null/false`);
   }
 
   // Set readiness flag — true when navigation finishes and FET is cached
