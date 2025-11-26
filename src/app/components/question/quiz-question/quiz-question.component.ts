@@ -311,10 +311,10 @@ export class QuizQuestionComponent extends BaseQuestion
       cdRef
     );
 
-    setTimeout(() => {
-      console.log('[QQC] 🔧 manual test call purgeAndDefer(99)');
-      this.explanationTextService.purgeAndDefer(99);
-    }, 500);
+    // setTimeout(() => {
+    //   console.log('[QQC] 🔧 manual test call purgeAndDefer(99)');
+    //   this.explanationTextService.purgeAndDefer(99);
+    // }, 500);
   }
 
   @Input() set questionIndex(value: number) {
