@@ -1103,6 +1103,13 @@ export class ExplanationTextService {
       }
     }
 
+    // Clear global explanation state to prevent bleed
+    this.latestExplanation = '';
+    this.latestExplanationIndex = null;
+    this.formattedExplanationSubject?.next('');
+    this.setShouldDisplayExplanation(false, { force: true });
+    this.setIsExplanationTextDisplayed(false, { force: true });
+
     // ensure and hard-emit null/false for new index
     const { text$, gate$ } = this.getOrCreate(index);
     try { text$.next(''); } catch { }
@@ -1113,7 +1120,7 @@ export class ExplanationTextService {
       questionIndex: index,
       explanation: ''
     };
-    console.log(`[ETS] resetForIndex(${index}) -> null/false`);
+    console.log(`[ETS] resetForIndex(${index}) -> null/false, cleared global state`);
   }
 
   // Set readiness flag — true when navigation finishes and FET is cached
