@@ -2094,7 +2094,9 @@ export class QuizQuestionComponent extends BaseQuestion
     // ABSOLUTE LOCK: prevent stale FET display
     this.explanationTextService.setShouldDisplayExplanation(false);
     this.explanationTextService.setIsExplanationTextDisplayed(false);
-    this.explanationTextService.setExplanationText('');
+    this.explanationTextService.setExplanationText('', { force: true });
+    this.explanationTextService.latestExplanation = '';
+    this.explanationTextService.latestExplanationIndex = null;
     this.readyForExplanationDisplay = false;
     this.isExplanationReady = false;
     this.isExplanationLocked = true;
@@ -3649,23 +3651,33 @@ export class QuizQuestionComponent extends BaseQuestion
       console.log(`[QQC] 🚀 Starting FET for Q${lockedIndex + 1}`);
 
       // ───────────── 1. Pin to active index ─────────────
-      ets._activeIndex = lockedIndex;
+      const currentActiveIndex = this.quizService.getCurrentQuestionIndex();
 
-      // 🔑 Bind explanation to this question index
-      (ets as any).latestExplanationIndex = lockedIndex;
+      // Guard: Prevent stale explanation updates
+      if (lockedIndex !== currentActiveIndex) {
+        console.warn(`[QQC] ⚠️ Index mismatch: locked=${lockedIndex}, active=${currentActiveIndex}. Aborting FET.`);
+        return;
+      }
+
+      ets._activeIndex = lockedIndex;
 
       // Lock only during formatting
       ets._fetLocked = true;
 
-      // Clear old text in a controlled way
+      // Clear old text BEFORE setting new index
       ets.latestExplanation = '';
+      ets.latestExplanationIndex = null;
       ets.updateFormattedExplanation('');
+      ets.formattedExplanationSubject?.next('');
 
       // Kill stale per-index cache
       ets.purgeAndDefer(lockedIndex);
 
       // Give one clean frame to kill stale renders
       await new Promise(res => requestAnimationFrame(res));
+
+      // NOW bind explanation to this question index (after clearing)
+      (ets as any).latestExplanationIndex = lockedIndex;
 
       const canonicalQ =
         this.quizService.questions?.[lockedIndex] ?? q;
@@ -3704,6 +3716,15 @@ export class QuizQuestionComponent extends BaseQuestion
       // ✅ CORRECTED EMISSION CHAIN
       // explanation is now tied to its origin index
       // ──────────────────────────────────────────────
+
+      // Final guard: ensure we're still on the same question
+      const finalActiveIndex = this.quizService.getCurrentQuestionIndex();
+      if (lockedIndex !== finalActiveIndex) {
+        console.warn(`[QQC] ⚠️ Question changed during FET generation. Aborting emission.`);
+        ets._fetLocked = false;
+        return;
+      }
+
       ets.latestExplanation = formatted;
       (ets as any).latestExplanationIndex = lockedIndex;
 
