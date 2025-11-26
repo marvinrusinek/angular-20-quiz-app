@@ -3068,7 +3068,7 @@ export class QuizQuestionComponent extends BaseQuestion
       this._fetEarlyShown.delete(lockIdx);
 
       console.warn(`[QQC] 🔥 FORCED FET call for Q${lockIdx + 1}`);
-      // this.fireAndForgetExplanationUpdate(lockIdx, question);
+      this.fireAndForgetExplanationUpdate(lockIdx, question);
 
       console.log('[FET ENTRY] fireAndForgetExplanationUpdate HIT', {
         lockedIndex,
