@@ -1,6 +1,6 @@
 import { Injectable, Injector } from '@angular/core';
 import { BehaviorSubject, EMPTY, firstValueFrom, Observable, of, ReplaySubject, Subject } from 'rxjs';
-import { filter, map, take, timeout } from 'rxjs/operators';
+import { distinctUntilChanged, filter, map, take, timeout } from 'rxjs/operators';
 
 import { QuestionType } from '../models/question-type.enum';
 import { FormattedExplanation } from '../models/FormattedExplanation.model';
@@ -99,6 +99,20 @@ export class ExplanationTextService {
   constructor(private injector: Injector) {
     this._instanceId = `ETS-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     console.log(`[${this._instanceId}] ExplanationTextService initialized`);
+
+    // Always clear stale FET payloads when switching to a new question index.
+    // Without this, the previous question's formatted explanation (e.g., Q1)
+    // can remain in the global subject and be rendered for later questions
+    // such as Q4 before their own FET is ready.
+    this.activeIndex$
+      .pipe(distinctUntilChanged())
+      .subscribe((idx) => {
+        this.latestExplanation = '';
+        this.latestExplanationIndex = null;
+        this.formattedExplanationSubject.next('');
+        this.setShouldDisplayExplanation(false, { force: true });
+        this.setIsExplanationTextDisplayed(false, { force: true });
+      });
   }
 
   get shouldDisplayExplanationSnapshot(): boolean {
