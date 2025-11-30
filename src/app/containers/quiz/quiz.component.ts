@@ -6,7 +6,6 @@ import { BehaviorSubject, combineLatest, EMPTY, firstValueFrom, forkJoin, merge,
 import { catchError, debounceTime, distinctUntilChanged, filter, map, retry, shareReplay, startWith, switchMap, take, takeUntil, tap } from 'rxjs/operators';
 import { MatCardModule } from '@angular/material/card';
 import { MatTooltip, MatTooltipModule } from '@angular/material/tooltip';
-import { NgbProgressbarModule } from '@ng-bootstrap/ng-bootstrap';
 
 import { QuizQuestionComponent } from '../../components/question/quiz-question/quiz-question.component';
 import { SharedOptionComponent } from '../../components/question/answer/shared-option-component/shared-option.component';
@@ -60,7 +59,6 @@ interface Override { idx: number; html: string; }
     AsyncPipe,
     MatCardModule,
     MatTooltipModule,
-    NgbProgressbarModule,
     QuizQuestionComponent,
     CodelabQuizHeaderComponent,
     CodelabQuizContentComponent,
@@ -3296,7 +3294,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
       ]);
 
       const correctAnswersText =
-        multipleAnswers && !isExplanationDisplayed
+        multipleAnswers
           ? this.getCorrectAnswersText(options)
           : '';
 

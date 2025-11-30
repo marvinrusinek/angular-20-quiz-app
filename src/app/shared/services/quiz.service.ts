@@ -760,13 +760,12 @@ export class QuizService {
 
         const questions = quiz.questions;
 
-        // Ensure the index is valid; fallback to the first question if out of bounds
-        const validIndex =
-          questionIndex >= 0 && questionIndex < questions.length
-            ? questionIndex
-            : 0;
+        if (questionIndex < 0 || questionIndex >= questions.length) {
+          console.warn(`[QuizService] Index ${questionIndex} out of bounds (0-${questions.length - 1}). Returning null.`);
+          return null;
+        }
 
-        return questions[validIndex];
+        return questions[questionIndex];
       }),
       distinctUntilChanged(), // Prevent unnecessary re-emissions
       catchError((error: Error) => {

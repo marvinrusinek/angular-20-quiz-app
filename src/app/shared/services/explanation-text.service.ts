@@ -296,14 +296,11 @@ export class ExplanationTextService {
     }
 
     // ────────────────────────────────────────────────
-    // 🧹 Step 1: Hard reset any stale emission whenever a new question index is requested
-    // Prevents replay of previous question's FET (e.g., Q1 showing on Q2)
-    // ────────────────────────────────────────────────
-    // ────────────────────────────────────────────────
     // 🧹 Step 1: Fully purge cached FET state if switching question
     // Prevents Q1's explanation from leaking into Q2.
     // ────────────────────────────────────────────────
     if (this._activeIndex !== questionIndex) {
+      console.warn(`[ETS] ⚠️ Index mismatch detected! Active=${this._activeIndex}, Requested=${questionIndex}. Purging state...`);
       try {
         // Clear all channels immediately before anything else runs
         if ((this.latestExplanation ?? '') !== '') {
@@ -316,6 +313,7 @@ export class ExplanationTextService {
         }
 
         this.latestExplanation = '';
+        this.latestExplanationIndex = null; // ✅ Force clear index
         this._fetLocked = false;
 
         if (this.shouldDisplayExplanation$ instanceof BehaviorSubject)
@@ -331,6 +329,8 @@ export class ExplanationTextService {
       }
 
       this._activeIndex = questionIndex;
+    } else {
+      console.log(`[ETS] ℹ️ Index match: Active=${this._activeIndex}, Requested=${questionIndex}`);
     }
 
     // Normalize index FIRST
@@ -369,31 +369,9 @@ export class ExplanationTextService {
       return of(FALLBACK);
     }
 
-    // HARD GATE: prevent FET emission unless the explanation gate is open
-    const gateOpen = (() => {
-      try {
-        // Both are Observables<boolean>, so read their latest emissions synchronously
-        const shouldShow = this.shouldDisplayExplanation$ instanceof BehaviorSubject
-          ? (this.shouldDisplayExplanation$ as BehaviorSubject<boolean>).value
-          : undefined;
-
-        const isShown = this.isExplanationTextDisplayed$ instanceof BehaviorSubject
-          ? (this.isExplanationTextDisplayed$ as BehaviorSubject<boolean>).value
-          : undefined;
-
-        // Fall back to false if undefined
-        return shouldShow === true || isShown === true;
-      } catch {
-        return false;
-      }
-    })();
-
-    if (!gateOpen) {
-      console.log(`[ETS] 🚫 Gate closed → returning fallback for Q${questionIndex + 1}`);
-      this.setGate(questionIndex, false);
-      // Return fallback instead of EMPTY to prevent firstValueFrom errors
-      return of(FALLBACK);
-    }
+    // ✅ FIX: Auto-open gate when we have a valid formatted explanation
+    // This ensures the explanation displays after option selection
+    console.log(`[ETS] ✅ Valid explanation found for Q${questionIndex + 1}, opening gate`);
 
     // Only emit if explanation belongs to current active question
     // (but allow re-emit when restoring same index)
@@ -408,8 +386,15 @@ export class ExplanationTextService {
     try {
       this.emitFormatted(questionIndex, explanation);
       this.latestExplanation = explanation;
+      this.latestExplanationIndex = questionIndex;
     } catch { }
-    try { this.setGate(questionIndex, true); } catch { }
+
+    // ✅ Open the gate and set display flags
+    try {
+      this.setGate(questionIndex, true);
+      this.setShouldDisplayExplanation(true);
+      this.setIsExplanationTextDisplayed(true);
+    } catch { }
 
     return of(explanation);
   }

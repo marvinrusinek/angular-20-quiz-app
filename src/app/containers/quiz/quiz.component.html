@@ -72,10 +72,16 @@
 
         <!-- Progress Bar -->
         <section class="quiz-progress">
-          <ngb-progressbar type="success" [max]="100" [striped]="true" [animated]="true"
-                           [value]="(progress$ | async) || 0" [showValue]="false">
-            <strong>{{ (progress$ | async)?.toFixed(0) }}%</strong>
-          </ngb-progressbar>
+          <div class="custom-bar">
+            <div
+              class="custom-bar-fill"
+              [style.width.%]="(progress$ | async) || 0"
+            ></div>
+          </div>
+
+          <div class="progress-label">
+            {{ (progress$ | async)?.toFixed(0) }}%
+          </div>
         </section>
       </mat-card-footer>
     </mat-card>

@@ -65,15 +65,15 @@
 
       <!-- PROGRESS BAR -->
       @if (status === 'Completed') {
-        <ngb-progressbar
-          type="success"
-          [striped]="true"
-          [animated]="true"
-          [value]="quizMetadata.percentage ?? 0"
-          class="progress-bar bg-success"
-        >
-          <strong>{{ quizMetadata.percentage }}%</strong>
-        </ngb-progressbar>
+        <div class="progress" style="height: 24px;">
+          <div
+            class="progress-bar bg-success progress-bar-striped progress-bar-animated"
+            role="progressbar"
+            [style.width.%]="quizMetadata.percentage ?? 0"
+          >
+            <strong>{{ quizMetadata.percentage }}%</strong>
+          </div>
+        </div>
       }
 
       <!-- ELAPSED TIME -->

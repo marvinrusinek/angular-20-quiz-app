@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { Observable, of } from 'rxjs';
 import { map } from 'rxjs/operators';
-import { NgbProgressbarModule } from '@ng-bootstrap/ng-bootstrap';
 
 import { Quiz } from '../../../shared/models/Quiz.model';
 import { QuizMetadata } from '../../../shared/models/QuizMetadata.model';
@@ -21,7 +20,7 @@ enum Status {
 @Component({
   selector: 'codelab-results-statistics',
   standalone: true,
-  imports: [CommonModule, NgbProgressbarModule],
+  imports: [CommonModule],
   templateUrl: './statistics.component.html',
   styleUrls: ['./statistics.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush

@@ -230,12 +230,20 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         console.log(`[displayText$] FET  : "${trimmedFet.slice(0, 80)}"`);
         console.log(`[displayText$] ─────────────────────`);
 
-        // Show formatted explanation when in explanation mode and FET is available
-        if (mode === 'explanation' && trimmedFet) {
+        // ✅ FIX: Only show FET when explicitly in explanation mode AND we have valid FET
+        // AND the FET doesn't contain fallback text
+        const isValidFet = trimmedFet &&
+          trimmedFet !== 'No explanation available' &&
+          trimmedFet !== 'No explanation available for this question.' &&
+          trimmedFet.length > 10;
+
+        if (mode === 'explanation' && isValidFet) {
+          console.log(`[displayText$] ✅ Showing FET for Q${idx + 1}`);
           return trimmedFet;
         }
 
-        // Otherwise show question text
+        // Otherwise show question text (default mode)
+        console.log(`[displayText$] 📝 Showing question text for Q${idx + 1}`);
         return trimmedQText || 'Loading...';
       }),
       distinctUntilChanged(), // Prevent duplicate emissions
@@ -446,16 +454,30 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       distinctUntilChanged(),
       tap((newIdx) => {
         const ets = this.explanationTextService;
+        // ✅ FIX: More aggressive state clearing to prevent FET flash
         // Completely clear explanation state *before* CombineLatest runs again
         ets._activeIndex = newIdx;
         ets.latestExplanation = '';
-        ets.latestExplanationIndex = null;  // ✅ Also clear the index
+        ets.latestExplanationIndex = null;
+
+        // Clear all explanation-related subjects
         ets.formattedExplanationSubject?.next('');
+        ets.explanationText$?.next('');
+
+        // Close gates immediately
         ets.setShouldDisplayExplanation(false);
         ets.setIsExplanationTextDisplayed(false);
         ets.setGate?.(newIdx, false);
+
+        // Clear previous question's gate if it exists
+        if (ets._activeIndex !== null && ets._activeIndex !== newIdx) {
+          ets.setGate?.(ets._activeIndex, false);
+        }
+
         console.log(`[INDEX] 🔄 Reset FET streams for new index → ${newIdx}`);
       }),
+      // ✅ Add debounce to allow question text to load before checking for FET
+      debounceTime(50),
       shareReplay({ bufferSize: 1, refCount: true })
     );
 
@@ -1776,17 +1798,15 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     // ============================================================
     // 🔐 FET DISPLAY GATE — only allow in explanation mode
     // ============================================================
-    const explanationIndexMatches =
-      explanationIndex === idx ||
-      explanationIndex === null ||      // ✅ tolerate late sync
-      explanationIndex === undefined;  // ✅ tolerate bootstrap race
+    // ✅ STRICT GUARD: Explanation index MUST match current index
+    const explanationIndexMatches = explanationIndex === idx;
 
     if (
       idx === active &&
       mode === 'explanation' &&
       explanationGate &&
       hasUserInteracted &&
-      explanationIndexMatches &&        // ✅ relaxed guard
+      explanationIndexMatches &&        // ✅ strict guard
       ets.latestExplanation &&
       ets.latestExplanation.trim().length > 0
     ) {
@@ -1842,11 +1862,16 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     // ──────────────────────────────────────────────
     // 3️⃣ DEFAULT: QUESTION + BANNER
     // ──────────────────────────────────────────────
+    // ──────────────────────────────────────────────
+    // 3️⃣ DEFAULT: QUESTION + BANNER
+    // ──────────────────────────────────────────────
+    const effectiveQObj = this.quizService.questions?.[idx];
+
     const isMulti =
-      !!qObj &&
-      (qObj.type === QuestionType.MultipleAnswer ||
-        (Array.isArray(qObj.options) &&
-          qObj.options.filter((o: Option) => o.correct).length > 1));
+      !!effectiveQObj &&
+      (effectiveQObj.type === QuestionType.MultipleAnswer ||
+        (Array.isArray(effectiveQObj.options) &&
+          effectiveQObj.options.filter((o: Option) => o.correct).length > 1));
 
     // ✅ SAFETY: never reuse Q1's cache for other questions
     const cachedForThisIndex = this._lastQuestionTextByIndex.get(idx);
@@ -1856,15 +1881,30 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       cachedForThisIndex ||              // ✅ index scoped
       '[Recovery: question still loading…]';
 
-    /* console.log(`[resolveTextToDisplay] Using text for Q${idx + 1}:`, {
-      incomingQText: qText?.slice(0, 50),
-      cachedText: cachedForThisIndex?.slice(0, 50),
-      usingText: fallbackQuestion.slice(0, 50)
-    }); */
+    // ✅ Robust Banner Logic: Use stream banner OR calculate fallback
+    let finalBanner = bannerText;
+    if (isMulti && !finalBanner && effectiveQObj) {
+      const numCorrect = effectiveQObj.options?.filter((o: Option) => o.correct).length || 0;
+      const totalOpts = effectiveQObj.options?.length || 0;
+
+      console.log(`[resolveTextToDisplay] 🔍 Banner Fallback Check Q${idx + 1}:`, {
+        numCorrect,
+        totalOpts,
+        hasOptions: !!effectiveQObj.options,
+        optionsLen: effectiveQObj.options?.length
+      });
+
+      if (numCorrect > 0) {
+        finalBanner = this.quizQuestionManagerService.getNumberOfCorrectAnswersText(numCorrect, totalOpts);
+        console.log(`[resolveTextToDisplay] 🛠️ Calculated fallback banner for Q${idx + 1}: "${finalBanner}"`);
+      } else {
+        console.warn(`[resolveTextToDisplay] ⚠️ Banner fallback failed: numCorrect=${numCorrect} for Q${idx + 1}`);
+      }
+    }
 
     // ✅ Only show banner when NOT in explanation mode
-    if (isMulti && bannerText && mode === 'question') {
-      const merged = `${fallbackQuestion} <span class="correct-count">${bannerText}</span>`;
+    if (isMulti && finalBanner && mode === 'question') {
+      const merged = `${fallbackQuestion} <span class="correct-count">${finalBanner}</span>`;
       console.log(`[resolveTextToDisplay] 🎯 Question+banner for Q${idx + 1}`);
       this._lastQuestionTextByIndex.set(idx, merged);
       return merged;
