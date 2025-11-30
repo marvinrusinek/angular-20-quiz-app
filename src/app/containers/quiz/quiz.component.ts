@@ -452,11 +452,22 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
     this.quizId = quizId;
 
+    this.quizService.resetQuestionPayload();
+
+    // Also clear any replayed headline/question text that the loader service
+    // might have cached from a previous session (e.g., if the last viewed
+    // question was Q6). This prevents the ReplaySubject from emitting that
+    // stale text to the template before the fresh route-based payload is
+    // ready.
+    this.quizQuestionLoaderService?.resetUI?.();
+    localStorage.removeItem('savedQuestionIndex');
+
     // SET INDEX FROM ROUTE PARAMS EARLY
     const routeParamIndex = this.activatedRoute.snapshot.paramMap.get('questionIndex');
     const idx = Math.max(0, (Number(routeParamIndex) || 1) - 1);
     this.currentQuestionIndex = idx;
     this.quizService.setCurrentQuestionIndex(idx);
+    localStorage.setItem('savedQuestionIndex', JSON.stringify(idx));
 
     await this.ensureInitialQuestionFromRoute();
 
@@ -841,6 +852,9 @@ get quizQuestionComponent(): QuizQuestionComponent {
             });
           }
 
+          // Restore question text and state
+          void this.handleVisibilityChange();
+
           queueMicrotask(() => this.injectDynamicComponent());
         }, 50);
       }
@@ -910,7 +924,54 @@ get quizQuestionComponent(): QuizQuestionComponent {
       );
 
       if (currentIndex >= 0 && currentIndex < totalQuestions) {
-        void this.updateQuestionDisplay(currentIndex);  // ensure question state is restored
+        // Check if explanation should be showing
+        const isAnswered = this.quizService.isAnswered(currentIndex);
+        const shouldShowExplanation = this.explanationTextService.shouldDisplayExplanationSnapshot;
+        const displayState = this.quizStateService.displayStateSubject?.value;
+
+        console.log('[handleVisibilityChange] State check:', {
+          currentIndex,
+          isAnswered,
+          shouldShowExplanation,
+          displayMode: displayState?.mode
+        });
+
+        // Only update question display if we're not showing explanation
+        if (!shouldShowExplanation && displayState?.mode !== 'explanation') {
+          await this.updateQuestionDisplay(currentIndex);  // ensure question state is restored
+
+          // Explicitly re-emit the question text to ensure it's displayed
+          const question = this.questions[currentIndex];
+          if (question?.questionText) {
+            this.questionToDisplay = question.questionText;
+            this.questionToDisplaySource.next(question.questionText);
+            console.log('[handleVisibilityChange] Restored question text:', question.questionText.substring(0, 50));
+          }
+        } else {
+          console.log('[handleVisibilityChange] Preserving explanation display');
+          // Restore the explanation text without resetting display mode
+          const question = this.questions[currentIndex];
+          if (question?.explanation) {
+            try {
+              // IMPORTANT: Set these flags to true BEFORE fetching the explanation
+              // Otherwise getFormattedExplanationTextForQuestion will return fallback
+              this.explanationTextService.setShouldDisplayExplanation(true);
+              this.explanationTextService.setIsExplanationTextDisplayed(true);
+
+              const formattedExplanation = await firstValueFrom(
+                this.explanationTextService.getFormattedExplanationTextForQuestion(currentIndex)
+              );
+              if (formattedExplanation && formattedExplanation !== 'No explanation available') {
+                this.explanationTextService.setExplanationText(formattedExplanation);
+                console.log('[handleVisibilityChange] Successfully restored explanation');
+              } else {
+                console.warn('[handleVisibilityChange] Got fallback explanation:', formattedExplanation);
+              }
+            } catch (error) {
+              console.warn('[handleVisibilityChange] Failed to restore explanation:', error);
+            }
+          }
+        }
       } else {
         console.warn(
           'Invalid or out-of-range question index on visibility change.'
@@ -1251,19 +1312,17 @@ get quizQuestionComponent(): QuizQuestionComponent {
     this.createQuestionData();
     void this.getQuestion();
 
-    this.correctAnswersTextSource.subscribe((text) => {
-      this.correctAnswersText = text;
-    });  // todo: check if needed
+    this.quizService.correctAnswersText$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((text) => {
+        this.correctAnswersText = text;
+        this.correctAnswersTextSource.next(text);
+      });
 
     this.subscribeToCurrentQuestion();
   }
 
   private async ensureInitialQuestionFromRoute(): Promise<void> {
-    const existingPayload = this.quizService.questionPayloadSubject?.value;
-    if (existingPayload?.question && existingPayload?.options?.length) {
-      return;
-    }
-
     const quizIdFromRoute = this.quizId || this.activatedRoute.snapshot.paramMap.get('quizId');
     if (!quizIdFromRoute) {
       console.error('[ensureInitialQuestionFromRoute] ❌ Missing quizId from route.');
@@ -1275,6 +1334,18 @@ get quizQuestionComponent(): QuizQuestionComponent {
     const normalizedIndex = Number.isFinite(parsedRouteIndex) && parsedRouteIndex > 0
       ? parsedRouteIndex - 1
       : 0;
+
+    const existingPayload = this.quizService.questionPayloadSubject?.value;
+    const currentIndex = this.quizService.getCurrentQuestionIndex();
+
+    // If the cached payload matches the requested index, reuse it; otherwise, reload
+    if (
+      existingPayload?.question &&
+      existingPayload?.options?.length &&
+      currentIndex === normalizedIndex
+    ) {
+      return;
+    }
 
     try {
       const quiz: Quiz = await firstValueFrom(
@@ -1321,33 +1392,67 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
       const hydratedQuestion: QuizQuestion = { ...rawQuestion, options: hydratedOptions };
 
-      this.quiz = quiz;
-      this.selectedQuiz = quiz;
-      this.currentQuiz = quiz;
-      this.questions = quiz.questions;
-      this.questionsArray = [...quiz.questions];
-      this.totalQuestions = quiz.questions.length;
-      this.currentQuestionIndex = safeIndex;
-      this.isQuizLoaded = true;
-      this.question = hydratedQuestion;
-      this.currentQuestion = hydratedQuestion;
-      this.qaToDisplay = { question: hydratedQuestion, options: hydratedOptions };
-      this.optionsToDisplay = [...hydratedOptions];
-      this.shouldRenderOptions = true;
-      this.questionToDisplaySource.next(
-        hydratedQuestion.questionText?.trim() ?? 'No question available'
-      );
+      this.setInitialQuestionState(quiz, hydratedQuestion, hydratedOptions, safeIndex, quizIdFromRoute);
 
-      this.quizService.setQuizId(quizIdFromRoute);
-      this.quizService.setSelectedQuiz(quiz);
-      this.quizService.setActiveQuiz(quiz);
-      this.quizService.setCurrentQuestionIndex(safeIndex);
-      this.quizService.updateBadgeText(safeIndex + 1, quiz.questions.length);
-      this.quizService.emitQuestionAndOptions(hydratedQuestion, hydratedOptions, safeIndex);
-      this.cdRef.markForCheck();
+      this.quizService.emitQuestionAndOptions(
+        hydratedQuestion,
+        hydratedOptions,
+        safeIndex
+      );
     } catch (error) {
       console.error('[ensureInitialQuestionFromRoute] ❌ Failed to load quiz/question from route.', error);
     }
+  }
+
+  private setInitialQuestionState(
+    quiz: Quiz,
+    hydratedQuestion: QuizQuestion,
+    hydratedOptions: Option[],
+    safeIndex: number,
+    quizIdFromRoute: string
+  ): void {
+
+    if (!quiz?.questions || quiz.questions.length === 0) {
+      console.error('[INIT] Quiz has no questions');
+      return;
+    }
+
+    // From here on, TypeScript KNOWS quiz.questions is defined
+    this.quiz = quiz;
+    this.selectedQuiz = quiz;
+    this.currentQuiz = quiz;
+
+    this.questions = quiz.questions;
+    this.questionsArray = [...quiz.questions];
+    this.totalQuestions = quiz.questions.length;
+    this.currentQuestionIndex = safeIndex;
+    this.isQuizLoaded = true;
+
+    this.question = hydratedQuestion;
+    this.currentQuestion = hydratedQuestion;
+    this.qaToDisplay = { question: hydratedQuestion, options: hydratedOptions };
+    this.optionsToDisplay = [...hydratedOptions];
+    this.shouldRenderOptions = true;
+
+    this.questionToDisplaySource.next(
+      hydratedQuestion.questionText?.trim() ?? 'No question available'
+    );
+
+    const initialPayload: QuestionPayload = {
+      question: hydratedQuestion,
+      options: hydratedOptions,
+      explanation: hydratedQuestion.explanation ?? ''
+    };
+    this.combinedQuestionDataSubject.next(initialPayload);
+    this.quizService.questionPayloadSubject.next(initialPayload);
+
+    this.quizService.setQuizId(quizIdFromRoute);
+    this.quizService.setSelectedQuiz(quiz);
+    this.quizService.setActiveQuiz(quiz);
+    this.quizService.setCurrentQuestionIndex(safeIndex);
+    this.quizService.updateBadgeText(safeIndex + 1, quiz.questions.length);
+
+    this.cdRef.markForCheck();
   }
 
   /***************** Initialize route parameters and subscribe to updates ****************/
@@ -1880,7 +1985,12 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
     const trimmedExplanation = (selectedQuestion.explanation ?? '').trim();
     this.explanationToDisplay = trimmedExplanation;
-    this.explanationTextService.setExplanationText(trimmedExplanation);
+
+    // ❌ REMOVED: This was causing Q2's FET to show prematurely
+    // setExplanationText triggers auto-format and emits to formattedExplanationSubject
+    // The cache is already populated by initializeFormattedExplanations
+    // this.explanationTextService.setExplanationText(trimmedExplanation);
+
     this.explanationTextService.setExplanationTextForQuestionIndex(
       normalizedIndex,
       trimmedExplanation
@@ -3404,7 +3514,12 @@ get quizQuestionComponent(): QuizQuestionComponent {
       questionIndex
     );
 
-    if (questionState?.isAnswered) {
+    // Preserve display state if user already interacted with this question
+    if (
+      questionState?.isAnswered ||
+      (questionState?.selectedOptions?.length ?? 0) > 0
+    ) {
+      console.warn('[RESET SKIPPED] Preserving state for Q', questionIndex);
       return;
     }
 
@@ -3440,17 +3555,46 @@ get quizQuestionComponent(): QuizQuestionComponent {
     const isAnswered = questionState.isAnswered;
     const explanationAlreadyDisplayed = questionState.explanationDisplayed;
 
+    // ✅ Detect actual user interaction
+    const hasUserSelected =
+      (questionState.selectedOptions?.length ?? 0) > 0;
+
+    // ✅ Multi-answer correction override
+    const isNowFullyCorrect =
+      this.selectedOptionService.areAllCorrectAnswersSelectedSync(questionIndex);
+
+    if (isNowFullyCorrect) {
+      console.warn('[✅ Override] Final correct selection detected – forcing explanation refresh');
+      questionState.isAnswered = true;
+      questionState.explanationDisplayed = false;
+      this.explanationTextService.unlockExplanation();
+    }
+
+    /**
+     * 🛑 CRITICAL GUARD:
+     * If the user has NOT interacted with this question,
+     * DO NOT touch the explanation streams at all.
+     * This prevents Q1 from inheriting stale text from QN.
+     */
+    if (!hasUserSelected) {
+      console.log('[NO USER SELECTION] Skipping explanation processing for Q', questionIndex);
+      return;
+    }
+
     // Only disable if it's a fresh unanswered question and explanation not yet shown
     const shouldDisableExplanation = !isAnswered && !explanationAlreadyDisplayed;
 
     if (isAnswered || explanationAlreadyDisplayed) {
       // Validate inputs and ensure explanation system is initialized
-      if (Number.isFinite(questionIndex) &&
-        this.explanationTextService.explanationsInitialized) {
+      if (
+        Number.isFinite(questionIndex) &&
+        this.explanationTextService.explanationsInitialized
+      ) {
         const explanation$ =
           this.explanationTextService.getFormattedExplanationTextForQuestion(
             questionIndex
           );
+
         this.explanationToDisplay = (await firstValueFrom(explanation$)) ?? '';
 
         // Defensive fallback for empty explanation
@@ -3480,7 +3624,9 @@ get quizQuestionComponent(): QuizQuestionComponent {
       this.explanationTextService.setShouldDisplayExplanation(true);
       this.explanationTextService.lockExplanation();
       this.showExplanation = true;
+
       this.cdRef.detectChanges();
+
     } else if (shouldDisableExplanation) {
       this.explanationToDisplay = '';
 
