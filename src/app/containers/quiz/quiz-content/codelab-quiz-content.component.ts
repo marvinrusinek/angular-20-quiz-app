@@ -2348,6 +2348,19 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             ? (safeQuizData as any).selectionMessage || ''
             : '';
 
+        const currentQuizData: CombinedQuestionDataType = {
+          currentQuestion: safeQuizData.currentQuestion,
+          currentOptions: safeQuizData.currentOptions ?? [],
+          options: safeQuizData.currentOptions ?? [],
+          questionText:
+            safeQuizData.currentQuestion?.questionText || 'No question available',
+          explanation: safeQuizData.explanation ?? '',
+          correctAnswersText: '',
+          isExplanationDisplayed: !!isExplanationDisplayed,
+          isNavigatingToPrevious: false,
+          selectionMessage,
+        };
+
         return this.calculateCombinedQuestionData(
           currentQuizData,
           +(numberOfCorrectAnswers ?? 0),
@@ -2560,12 +2573,12 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     numberOfCorrectAnswers: number,
     isExplanationDisplayed: boolean,
     formattedExplanation: string
-  ): Observable<CombinedQuestionDataType> {
+  ): CombinedQuestionDataType {
     const { currentQuestion, currentOptions } = currentQuizData;
 
     if (!currentQuestion) {
       console.error('No current question found in data:', currentQuizData);
-      return of({
+      return {
         currentQuestion: null,
         currentOptions: [],
         options: [],
@@ -2575,7 +2588,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         isExplanationDisplayed: false,
         isNavigatingToPrevious: false,
         selectionMessage: '',
-      });
+      };
     }
 
     const normalizedCorrectCount = Number.isFinite(numberOfCorrectAnswers)
@@ -2620,7 +2633,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       isNavigatingToPrevious: false,
       selectionMessage: ''
     };
-    return of(combinedQuestionData);
+    return combinedQuestionData;
   }
 
   handleQuestionDisplayLogic(): Observable<{
