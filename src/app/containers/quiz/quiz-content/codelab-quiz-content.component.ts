@@ -39,17 +39,9 @@ type DisplayState = { mode: 'question' | 'explanation'; answered: boolean };
 export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy, AfterViewInit {
   @ViewChild(QuizQuestionComponent, { static: false })
   quizQuestionComponent!: QuizQuestionComponent;
-
-  /* set quizQuestionComponent(component: unknown) {
-    this._quizQuestionComponent = component as QuizQuestionComponent | undefined;
-  }
-
-  get quizQuestionComponent(): QuizQuestionComponent | undefined {
-    return this._quizQuestionComponent;
-  } */
-
   @ViewChild('qText', { static: true })
   qText!: ElementRef<HTMLHeadingElement>;
+
   @Output() isContentAvailableChange = new EventEmitter<boolean>();
   @Input() combinedQuestionData$: Observable<CombinedQuestionDataType> | null = null;
   @Input() currentQuestion = new BehaviorSubject<QuizQuestion | null>(null);
