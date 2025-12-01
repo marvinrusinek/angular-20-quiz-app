@@ -268,6 +268,36 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         console.log(`[displayText$] FET  : "${trimmedFet.slice(0, 80)}"`);
         console.log(`[displayText$] ─────────────────────`);
 
+        // ✅ Get question object to check if multi-answer
+        const qObj = this.quizService.questions?.[safeIdx];
+
+        console.log(`[displayText$] 🔍 Question Object Debug for Q${safeIdx + 1}:`, {
+          hasQObj: !!qObj,
+          qObjType: qObj?.type,
+          numOptions: qObj?.options?.length,
+          numCorrect: qObj?.options?.filter((o: Option) => o.correct).length,
+          correctOptions: qObj?.options?.filter((o: Option) => o.correct).map((o: Option) => o.text)
+        });
+
+        const isMulti =
+          !!qObj &&
+          (qObj.type === QuestionType.MultipleAnswer ||
+            (Array.isArray(qObj.options) &&
+              qObj.options.filter((o: Option) => o.correct).length > 1));
+
+        console.log(`[displayText$] isMulti = ${isMulti} for Q${safeIdx + 1}`);
+
+        // ✅ Calculate banner text for multi-answer questions
+        let bannerText = '';
+        if (isMulti && qObj) {
+          const numCorrect = qObj.options?.filter((o: Option) => o.correct).length || 0;
+          const totalOpts = qObj.options?.length || 0;
+          if (numCorrect > 0) {
+            bannerText = this.quizQuestionManagerService.getNumberOfCorrectAnswersText(numCorrect, totalOpts);
+            console.log(`[displayText$] 🎯 Banner for Q${safeIdx + 1}: "${bannerText}"`);
+          }
+        }
+
         // ✅ FIX: Only show FET when explicitly in explanation mode AND we have valid FET
         // AND the FET doesn't contain fallback text
         const isValidFet = belongsToIndex &&
@@ -277,12 +307,23 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
         if (mode === 'explanation' && isValidFet) {
           console.log(`[displayText$] ✅ Showing FET for Q${idx + 1}`);
+          // ✅ Prepend banner to FET for multi-answer questions
+          if (isMulti && bannerText) {
+            return `<div class="correct-count-header">${bannerText}</div>${trimmedFet}`;
+          }
           return trimmedFet;
         }
 
         // Otherwise show question text (default mode)
         console.log(`[displayText$] 📝 Showing question text for Q${safeIdx + 1}`);
-        return trimmedQText || 'Loading...';
+        const questionText = trimmedQText || 'Loading...';
+
+        // ✅ Append banner to question text for multi-answer questions
+        if (isMulti && bannerText) {
+          return `${questionText} <span class="correct-count">${bannerText}</span>`;
+        }
+
+        return questionText;
       }),
       distinctUntilChanged(), // Prevent duplicate emissions
       startWith('Loading question...') // Ensure initial value
@@ -1764,6 +1805,13 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
     const qObj = this.quizService.questions?.[idx];
 
+    // ✅ Declare isMulti early so it can be used throughout the function
+    const isMulti =
+      !!qObj &&
+      (qObj.type === QuestionType.MultipleAnswer ||
+        (Array.isArray(qObj.options) &&
+          qObj.options.filter((o: Option) => o.correct).length > 1));
+
     const ets = this.explanationTextService;
     const explanationIndex = (ets as any).latestExplanationIndex;
     const mode = this.quizStateService.displayStateSubject?.value?.mode;
@@ -1827,8 +1875,22 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         explanationGate
       });
 
-      this._lastQuestionTextByIndex.set(idx, safe);
-      return safe;
+      // ✅ FIXED: Append correct answers banner to FET for multi-answer questions
+      let finalFet = safe;
+      if (isMulti) {
+        const numCorrect = qObj?.options?.filter((o: Option) => o.correct).length || 0;
+        const totalOpts = qObj?.options?.length || 0;
+
+        if (numCorrect > 0) {
+          const banner = this.quizQuestionManagerService.getNumberOfCorrectAnswersText(numCorrect, totalOpts);
+          // Prepend the banner before the FET so it shows at the top
+          finalFet = `<div class="correct-count-header">${banner}</div>${safe}`;
+          console.log(`[✅ FET with banner] Q${idx + 1}: "${banner}"`);
+        }
+      }
+
+      this._lastQuestionTextByIndex.set(idx, finalFet);
+      return finalFet;
     }
 
     console.log('[FET INDEX CHECK]', {
@@ -1875,12 +1937,6 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     // ──────────────────────────────────────────────
     const effectiveQObj = this.quizService.questions?.[idx];
 
-    const isMulti =
-      !!effectiveQObj &&
-      (effectiveQObj.type === QuestionType.MultipleAnswer ||
-        (Array.isArray(effectiveQObj.options) &&
-          effectiveQObj.options.filter((o: Option) => o.correct).length > 1));
-
     // ✅ SAFETY: never reuse Q1's cache for other questions
     const cachedForThisIndex = this._lastQuestionTextByIndex.get(idx);
 
@@ -1891,6 +1947,17 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
     // ✅ Robust Banner Logic: Use stream banner OR calculate fallback
     let finalBanner = bannerText;
+
+    console.log(`[BANNER DEBUG] Q${idx + 1}:`, {
+      isMulti,
+      bannerText,
+      hasQObj: !!effectiveQObj,
+      mode,
+      qObjType: qObj?.type,
+      numOptions: qObj?.options?.length,
+      numCorrect: qObj?.options?.filter((o: Option) => o.correct).length
+    });
+
     if (isMulti && !finalBanner && effectiveQObj) {
       const numCorrect = effectiveQObj.options?.filter((o: Option) => o.correct).length || 0;
       const totalOpts = effectiveQObj.options?.length || 0;
@@ -1910,13 +1977,21 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       }
     }
 
-    const bannerReady = finalBanner && mode === 'question';
+    // ✅ FIXED: Show banner in question mode for multi-answer questions
+    const shouldShowBanner = isMulti && finalBanner && mode === 'question';
 
-    // ✅ Only show banner when NOT in explanation mode
-    //    Allow banner to render even if question metadata hasn't been stamped yet
-    if ((isMulti || finalBanner) && bannerReady) {
+    console.log(`[BANNER DECISION] Q${idx + 1}:`, {
+      shouldShowBanner,
+      isMulti,
+      hasFinalBanner: !!finalBanner,
+      finalBanner,
+      mode
+    });
+
+    // ✅ Only show banner when we have multi-answer question with banner text IN QUESTION MODE
+    if (shouldShowBanner) {
       const merged = `${fallbackQuestion} <span class="correct-count">${finalBanner}</span>`;
-      console.log(`[resolveTextToDisplay] 🎯 Question+banner for Q${idx + 1}`);
+      console.log(`[resolveTextToDisplay] 🎯 Question+banner for Q${idx + 1} (mode: ${mode})`);
       this._lastQuestionTextByIndex.set(idx, merged);
       return merged;
     }

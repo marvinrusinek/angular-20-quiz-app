@@ -741,11 +741,11 @@ export class SharedOptionComponent implements
     const questionIndex = this.getActiveQuestionIndex() ?? 0;
 
     // Check selected state before anything mutates it
-    let wasPreviouslySelected = false;  // initialize default
+    // ✅ FIX: Don't rely on soundService for selection state
+    let wasPreviouslySelected = optionBinding.option.selected || false;
 
     if (optionId !== undefined) {
-      wasPreviouslySelected = this.soundService.hasPlayed(questionIndex, optionId);
-      console.log('[🧪 SOC] wasPreviouslySelected (from soundService):', wasPreviouslySelected);
+      console.log('[🧪 SOC] wasPreviouslySelected (from option state):', wasPreviouslySelected);
     }
 
     const enrichedOption: SelectedOption = {
@@ -761,8 +761,12 @@ export class SharedOptionComponent implements
       wasReselected: wasPreviouslySelected
     });
 
-    // Only update UI if this is a new selection
-    if (!wasPreviouslySelected) {
+    // ✅ FIX: Allow UI update if it's a new selection OR if it's a multiple-answer question (to allow toggle/deselect)
+    // For single answer, we block re-selection of the same option to avoid redundant processing
+    const isMultiple = this.type === 'multiple' || this.currentQuestion?.type === QuestionType.MultipleAnswer;
+    const shouldUpdate = !wasPreviouslySelected || isMultiple;
+
+    if (shouldUpdate) {
       const simulatedEvent: MatRadioChange = {
         source: {
           value: optionBinding.option.optionId,
@@ -774,14 +778,18 @@ export class SharedOptionComponent implements
       this.updateOptionAndUI(optionBinding, index, simulatedEvent);
 
       // Fire the sound immediately for the first-time selection
-      this.soundService.playOnceForOption(enrichedOption);
+      if (!wasPreviouslySelected) {
+        this.soundService.playOnceForOption(enrichedOption);
 
-      // Mark this option as having triggered sound for this question
-      if (optionId !== undefined) {
-        this.soundService.markPlayed(questionIndex, optionId);
+        // Mark this option as having triggered sound for this question
+        if (optionId !== undefined) {
+          this.soundService.markPlayed(questionIndex, optionId);
+        }
       }
     } else {
       console.warn('[⚠️ Option already selected - skipping UI update]');
+      // Even if we skip UI update, we might want to ensure explanation is shown if it's missing?
+      // But usually single answer questions show explanation immediately.
     }
 
     this.flashAndDisable(optionBinding.option);
@@ -1584,11 +1592,13 @@ export class SharedOptionComponent implements
   } */
 
   private emitExplanation(questionIndex: number): void {
+    console.log(`[📤 emitExplanation CALLED] Q${questionIndex + 1}`);
+
     const explanationText = this.resolveExplanationText(questionIndex);
 
     this.pendingExplanationIndex = questionIndex;
 
-    console.log(`[📤 Emitting Explanation Text for Q${questionIndex}]: "${explanationText}"`);
+    console.log(`[📤 Emitting Explanation Text for Q${questionIndex + 1}]: "${explanationText}"`);
 
     this.applyExplanationText(explanationText, questionIndex);
 
@@ -1598,20 +1608,44 @@ export class SharedOptionComponent implements
   private applyExplanationText(explanationText: string, questionIndex: number): void {
     console.log(`[🎯 applyExplanationText] Q${questionIndex + 1}`);
     console.log(`[🎯 Explanation text being set]:`, explanationText.slice(0, 150));
+    console.log(`[🎯 Current state BEFORE]:`, {
+      activeIndex: this.explanationTextService._activeIndex,
+      latestExplanation: this.explanationTextService.latestExplanation?.slice(0, 80),
+      latestExplanationIndex: this.explanationTextService.latestExplanationIndex,
+      fetLocked: this.explanationTextService._fetLocked,
+      displayMode: this.quizStateService.displayStateSubject?.value?.mode
+    });
 
     const contextKey = this.buildExplanationContext(questionIndex);
 
+    // ✅ CRITICAL FIX: Set active index and emit FET BEFORE locking
+    this.explanationTextService._activeIndex = questionIndex;
+    this.explanationTextService.latestExplanation = explanationText;
+    this.explanationTextService.latestExplanationIndex = questionIndex;
+
+    console.log(`[🎯 About to emit FET for Q${questionIndex + 1}]`);
+
+    // ✅ Emit the formatted explanation to the _fetSubject stream
+    this.explanationTextService.emitFormatted(questionIndex, explanationText);
+
+    console.log(`[🎯 FET emitted for Q${questionIndex + 1}]`);
+
+    // Now set the explanation text in the service
     this.explanationTextService.setExplanationText(explanationText, {
       force: true,
       context: contextKey
     });
+
     const displayOptions = { context: contextKey, force: true } as const;
     this.explanationTextService.setShouldDisplayExplanation(true, displayOptions);
     this.explanationTextService.setIsExplanationTextDisplayed(true, displayOptions);
     this.explanationTextService.setResetComplete(true);
+
+    // ✅ Lock AFTER emitting to prevent race conditions
     this.explanationTextService.lockExplanation();
 
     // ✅ CRITICAL FIX: Switch to explanation mode so FET displays
+    console.log(`[🎯 Switching to explanation mode for Q${questionIndex + 1}]`);
     this.quizStateService.setDisplayState({
       mode: 'explanation',
       answered: true
@@ -1622,6 +1656,13 @@ export class SharedOptionComponent implements
 
     console.log(`[✅ FET Display Mode Set] Q${questionIndex + 1} → explanation mode`);
     console.log(`[✅ Should now display]:`, explanationText.slice(0, 150));
+    console.log(`[🎯 Current state AFTER]:`, {
+      activeIndex: this.explanationTextService._activeIndex,
+      latestExplanation: this.explanationTextService.latestExplanation?.slice(0, 80),
+      latestExplanationIndex: this.explanationTextService.latestExplanationIndex,
+      fetLocked: this.explanationTextService._fetLocked,
+      displayMode: this.quizStateService.displayStateSubject?.value?.mode
+    });
   }
 
   private buildExplanationContext(questionIndex: number): string {

@@ -33,7 +33,7 @@ export class SoundService {
     const optId = option.optionId;
     const key = `${qIndex}-${optId}`;
     const alreadyPlayed = this.playedSoundOptions.has(key);
-    
+
     if (alreadyPlayed) {
       console.log(`[⏸️ Sound already played for Q${qIndex}, Option ${optId}]`);
       return;
@@ -52,13 +52,13 @@ export class SoundService {
 
   play(soundName: string): void {
     this.resumeAudioContextIfSuspended();  // ensure audio context is active
-  
+
     const sound = this.sounds[soundName];
     if (!sound) {
       console.warn(`[❌ Sound "${soundName}" not found. Sounds may not be initialized yet.]`);
       return;
     }
-  
+
     try {
       sound.stop();  // stop any current playback
       const soundId = sound.play();  // returns a numeric sound ID
@@ -66,7 +66,7 @@ export class SoundService {
     } catch (error) {
       console.error(`[❌ Error playing sound "${soundName}"]:`, error);
     }
-  }  
+  }
 
   // True if already played a sound for this option
   hasPlayed(qIdx: number, optId: number): boolean {
@@ -81,7 +81,7 @@ export class SoundService {
 
   public reset(): void {
     this.playedSoundOptions.clear();
-  
+
     // Stop and unload all existing Howl instances FIRST
     Object.values(this.sounds).forEach((sound) => {
       try {
@@ -91,13 +91,13 @@ export class SoundService {
         console.warn('[SoundService] Error stopping/unloading sound:', error);
       }
     });
-  
+
     this.sounds = {};
 
     // Ensure audio context is resumed before recreating sounds
     this.resumeAudioContextIfSuspended();
 
-    // this.playedMap.clear();
+    this.playedMap.clear();
 
     // Small delay to ensure audio context is ready
     setTimeout(() => {
@@ -108,7 +108,7 @@ export class SoundService {
   resumeAudioContextIfSuspended(): void {
     try {
       const ctx = (Howler as any).ctx as AudioContext;
-    
+
       if (ctx && ctx.state === 'suspended') {
         ctx.resume().then(() => {
           console.log('[🔊 AudioContext resumed]');
@@ -133,5 +133,5 @@ export class SoundService {
       key.startsWith(`${questionIndex}-`)
     );
     keysToDelete.forEach(key => this.playedSoundOptions.delete(key));
-  } 
+  }
 }

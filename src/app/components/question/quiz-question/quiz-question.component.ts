@@ -3565,17 +3565,6 @@ export class QuizQuestionComponent extends BaseQuestion
       // ───────────── 2. Unlock BEFORE emission ─────────────
       ets._fetLocked = false;
 
-      // Persist the formatted explanation so that every downstream consumer
-      // (including the first option click) reads the correct FET immediately.
-      ets.formattedExplanations[lockedIndex] = {
-        questionIndex: lockedIndex,
-        explanation: formatted
-      };
-      if (!ets.formattedExplanations$[lockedIndex]) {
-        ets.formattedExplanations$[lockedIndex] = new BehaviorSubject<string | null>(null);
-      }
-      ets.formattedExplanations$[lockedIndex]?.next(formatted);
-
       console.log('🧠 [FET] Emitting explanation:', formatted.slice(0, 80));
 
       // Explanation emission chain (index-safe)
@@ -4293,6 +4282,7 @@ export class QuizQuestionComponent extends BaseQuestion
       const cachedExplanation = this.explanationTextService.formattedExplanations[questionIndex]?.explanation;
 
       if (cachedExplanation) {
+        this.syncExplanationService(questionIndex, cachedExplanation);
         this.applyExplanation(cachedExplanation);
 
         // Store in session storage for future use
@@ -4335,6 +4325,7 @@ export class QuizQuestionComponent extends BaseQuestion
         `explanationText_${questionIndex}`,
         explanationText
       );
+      this.syncExplanationService(questionIndex, explanationText);
       this.applyExplanation(explanationText);
 
       return explanationText;  // return the fetched explanation text
@@ -4353,6 +4344,17 @@ export class QuizQuestionComponent extends BaseQuestion
     }
 
     this.cdRef.detectChanges();
+  }
+
+  private syncExplanationService(questionIndex: number, explanation: string): void {
+    const ets: any = this.explanationTextService;
+
+    ets.latestExplanation = explanation;
+    ets.latestExplanationIndex = questionIndex;
+    this.explanationTextService.formattedExplanationSubject?.next(explanation);
+    this.explanationTextService.updateFormattedExplanation(explanation);
+    this.explanationTextService.setShouldDisplayExplanation(true);
+    this.explanationTextService.setIsExplanationTextDisplayed(true);
   }
 
   // ====================== Helper Functions ======================
@@ -5554,6 +5556,16 @@ export class QuizQuestionComponent extends BaseQuestion
     const i0 = this.normalizeIndex(index);
     const q = this.questions?.[i0];
     const ets = this.explanationTextService;
+
+    // Hard-align ETS to the current question before doing any work so the
+    // per-index emit guard (activeIndex check) cannot short-circuit the emit
+    // for questions other than the one it last saw. Without this, the
+    // formatted explanation stream may only emit for the previously active
+    // index (e.g., Q2) and skip all others.
+    if (ets._activeIndex !== i0) {
+      ets._activeIndex = i0;
+      ets.latestExplanation = '';
+    }
 
     // ─────────────────────────────────────────────
     // 0️⃣ Allow FET building even if we just switched questions.

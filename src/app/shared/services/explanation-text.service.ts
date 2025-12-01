@@ -1005,25 +1005,36 @@ export class ExplanationTextService {
   public emitFormatted(index: number, value: string | null): void {
     const token = this._currentGateToken;
 
-    // Outer guards
-    if (this._fetLocked || this._gateToken !== token) return;
-    if (index !== this._activeIndex) return;
+    // ✅ RELAXED GUARDS: Allow emission if we have valid content
+    // The lock check is removed because we now emit BEFORE locking in applyExplanationText
+    if (this._gateToken !== token) {
+      console.log(`[emitFormatted] Token mismatch: gate=${this._gateToken}, current=${token}`);
+    }
+
+    if (index !== this._activeIndex) {
+      console.log(`[emitFormatted] Index mismatch: active=${this._activeIndex}, requested=${index}`);
+    }
 
     const trimmed = (value ?? '').trim();
-    if (!trimmed || trimmed === (this.latestExplanation ?? '').trim()) return;
+    if (!trimmed) {
+      console.log(`[emitFormatted] No content to emit for Q${index + 1}`);
+      return;
+    }
+
+    // ✅ Allow re-emission of same content if it's important (e.g., after navigation)
+    if (trimmed === (this.latestExplanation ?? '').trim()) {
+      console.log(`[emitFormatted] Same content, but emitting anyway for Q${index + 1}`);
+    }
 
     this.latestExplanation = trimmed;
+    this.latestExplanationIndex = index;
 
-    // Schedule 1 frame, then re-check token+index
-    requestAnimationFrame(() => {
-      if (this._fetLocked) return;
-      if (this._currentGateToken !== token) return;
-      if (index !== this._activeIndex) return;
-
-      this.safeNext(this._fetSubject, { idx: index, text: trimmed, token });
-      this.safeNext(this.shouldDisplayExplanation$, true);
-      this.safeNext(this.isExplanationTextDisplayed$, true);
-    });
+    // ✅ Emit immediately without waiting for requestAnimationFrame
+    // This ensures the FET is available synchronously for the display stream
+    console.log(`[emitFormatted] ✅ Emitting FET for Q${index + 1}:`, trimmed.slice(0, 80));
+    this.safeNext(this._fetSubject, { idx: index, text: trimmed, token });
+    this.safeNext(this.shouldDisplayExplanationSource, true);
+    this.safeNext(this.isExplanationTextDisplayedSource, true);
   }
 
   public setGate(index: number, show: boolean): void {
