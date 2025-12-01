@@ -7,7 +7,8 @@ import { FormattedExplanation } from '../models/FormattedExplanation.model';
 import { QuizQuestion } from '../models/QuizQuestion.model';
 import { QuizService } from '../services/quiz.service';
 
-type FETPayload = { idx: number; text: string; token: number };
+// type FETPayload = { idx: number; text: string; token: number };
+export type FETPayload = { idx: number; text: string; token: number };
 
 @Injectable({ providedIn: 'root' })
 export class ExplanationTextService {
@@ -96,6 +97,11 @@ export class ExplanationTextService {
   private _unlockRAFId: number | null = null;
   public latestExplanationIndex: number | null = null;
 
+  // Convenience accessor to avoid template/type metadata mismatches.
+  getFormattedExplanationByIndex(): Observable<FETPayload> {
+    return this._fetSubject.asObservable();
+  }
+
   constructor(private injector: Injector) {
     this._instanceId = `ETS-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     console.log(`[${this._instanceId}] ExplanationTextService initialized`);
@@ -112,32 +118,6 @@ export class ExplanationTextService {
         this.formattedExplanationSubject.next('');
         this.setShouldDisplayExplanation(false, { force: true });
         this.setIsExplanationTextDisplayed(false, { force: true });
-
-        // Immediately hydrate the channel with the formatted explanation that
-        // belongs to the newly active question (if we already have it). Without
-        // this, the global BehaviorSubject can keep broadcasting the previous
-        // question's FET (e.g., Q1) until the user blurs/refocuses the tab and a
-        // re-render triggers a fresh lookup.
-        const existing = this.formattedExplanations[idx];
-        if (existing?.explanation) {
-          try {
-            this.emitFormatted(idx, existing.explanation);
-            this.latestExplanation = existing.explanation;
-            this.latestExplanationIndex = idx;
-            this.setGate(idx, true);
-            this.setShouldDisplayExplanation(true, { force: true });
-            this.setIsExplanationTextDisplayed(true, { force: true });
-          } catch (err) {
-            console.warn('[ETS] ⚠️ Failed to hydrate formatted explanation on index change', err);
-          }
-        } else {
-          try {
-            this.emitFormatted(idx, null);
-            this.setGate(idx, false);
-          } catch (err) {
-            console.warn('[ETS] ⚠️ Failed to clear formatted explanation on index change', err);
-          }
-        }
       });
   }
 
@@ -764,17 +744,6 @@ export class ExplanationTextService {
       return of('No explanation available');
     }
 
-    // Clear all display channels so Q1's FET cannot leak onto another index
-    if (
-      this.latestExplanationIndex !== null &&
-      this.latestExplanationIndex !== questionIndex
-    ) {
-      this.latestExplanation = '';
-      this.formattedExplanationSubject.next('');
-      this.setShouldDisplayExplanation(false, { force: true });
-      this.setIsExplanationTextDisplayed(false, { force: true });
-    }
-
     // Clear any stale formatted text whenever index changes
     if (
       this._activeIndex !== null &&
@@ -803,11 +772,7 @@ export class ExplanationTextService {
           console.log(
             `[ETS] 🚫 Ignoring stale FET emission (incoming=${questionIndex}, active=${this._activeIndex})`
           );
-          this.latestExplanation = '';
-          this.formattedExplanationSubject.next('');
-          this.setShouldDisplayExplanation(false, { force: true });
-          this.setIsExplanationTextDisplayed(false, { force: true });
-          return 'No explanation available';
+          return this.latestExplanation || 'No explanation available';
         }
 
         return text;

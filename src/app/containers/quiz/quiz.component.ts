@@ -3280,6 +3280,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
     this.options = [];
     this.currentQuestionType = null;  // reset on error
     this.correctAnswersTextSource.next('');  // clear the correct answers text
+    this.quizService.updateCorrectAnswersText('');
     console.warn('Resetting the current question state.');
   }
 
@@ -3300,9 +3301,12 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
       // Emit the correct answers text to subscribers
       this.correctAnswersTextSource.next(correctAnswersText);
+      this.quizService.updateCorrectAnswersText('');
     } catch (error) {
       console.error('Error updating correct answers text:', error);
-      this.correctAnswersTextSource.next('');  // clear text on error
+      const fallback = '';
+      this.correctAnswersTextSource.next(fallback);  // clear text on error
+      this.quizService.updateCorrectAnswersText(fallback);
     }
   }
 

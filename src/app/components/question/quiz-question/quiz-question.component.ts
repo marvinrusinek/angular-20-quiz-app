@@ -3565,6 +3565,17 @@ export class QuizQuestionComponent extends BaseQuestion
       // ───────────── 2. Unlock BEFORE emission ─────────────
       ets._fetLocked = false;
 
+      // Persist the formatted explanation so that every downstream consumer
+      // (including the first option click) reads the correct FET immediately.
+      ets.formattedExplanations[lockedIndex] = {
+        questionIndex: lockedIndex,
+        explanation: formatted
+      };
+      if (!ets.formattedExplanations$[lockedIndex]) {
+        ets.formattedExplanations$[lockedIndex] = new BehaviorSubject<string | null>(null);
+      }
+      ets.formattedExplanations$[lockedIndex]?.next(formatted);
+
       console.log('🧠 [FET] Emitting explanation:', formatted.slice(0, 80));
 
       // Explanation emission chain (index-safe)
