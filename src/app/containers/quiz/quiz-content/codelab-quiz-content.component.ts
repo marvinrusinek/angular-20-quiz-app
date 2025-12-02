@@ -282,7 +282,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         if (mode === 'explanation' && isValidFet) {
           // Add banner to FET for multiple-answer questions
           if (isMulti && bannerText) {
-            return `<div class="correct-count-header">${bannerText}</div>${trimmedFet}`;
+            return `${trimmedFet}`;
           }
           return trimmedFet;
         }
