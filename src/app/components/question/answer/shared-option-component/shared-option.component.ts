@@ -744,10 +744,6 @@ export class SharedOptionComponent implements
     // ✅ FIX: Don't rely on soundService for selection state
     let wasPreviouslySelected = optionBinding.option.selected || false;
 
-    if (optionId !== undefined) {
-      console.log('[🧪 SOC] wasPreviouslySelected (from option state):', wasPreviouslySelected);
-    }
-
     const enrichedOption: SelectedOption = {
       ...optionBinding.option,
       questionIndex
@@ -1592,8 +1588,6 @@ export class SharedOptionComponent implements
   } */
 
   private emitExplanation(questionIndex: number): void {
-    console.log(`[📤 emitExplanation CALLED] Q${questionIndex + 1}`);
-
     const explanationText = this.resolveExplanationText(questionIndex);
 
     this.pendingExplanationIndex = questionIndex;
@@ -1606,16 +1600,6 @@ export class SharedOptionComponent implements
   }
 
   private applyExplanationText(explanationText: string, questionIndex: number): void {
-    console.log(`[🎯 applyExplanationText] Q${questionIndex + 1}`);
-    console.log(`[🎯 Explanation text being set]:`, explanationText.slice(0, 150));
-    console.log(`[🎯 Current state BEFORE]:`, {
-      activeIndex: this.explanationTextService._activeIndex,
-      latestExplanation: this.explanationTextService.latestExplanation?.slice(0, 80),
-      latestExplanationIndex: this.explanationTextService.latestExplanationIndex,
-      fetLocked: this.explanationTextService._fetLocked,
-      displayMode: this.quizStateService.displayStateSubject?.value?.mode
-    });
-
     const contextKey = this.buildExplanationContext(questionIndex);
 
     // ✅ CRITICAL FIX: Set active index and emit FET BEFORE locking
@@ -1623,12 +1607,8 @@ export class SharedOptionComponent implements
     this.explanationTextService.latestExplanation = explanationText;
     this.explanationTextService.latestExplanationIndex = questionIndex;
 
-    console.log(`[🎯 About to emit FET for Q${questionIndex + 1}]`);
-
     // ✅ Emit the formatted explanation to the _fetSubject stream
     this.explanationTextService.emitFormatted(questionIndex, explanationText);
-
-    console.log(`[🎯 FET emitted for Q${questionIndex + 1}]`);
 
     // Now set the explanation text in the service
     this.explanationTextService.setExplanationText(explanationText, {
@@ -1645,7 +1625,6 @@ export class SharedOptionComponent implements
     this.explanationTextService.lockExplanation();
 
     // ✅ CRITICAL FIX: Switch to explanation mode so FET displays
-    console.log(`[🎯 Switching to explanation mode for Q${questionIndex + 1}]`);
     this.quizStateService.setDisplayState({
       mode: 'explanation',
       answered: true
@@ -1653,16 +1632,6 @@ export class SharedOptionComponent implements
 
     // ✅ Mark question as having user interaction
     this.quizStateService.markUserInteracted(questionIndex);
-
-    console.log(`[✅ FET Display Mode Set] Q${questionIndex + 1} → explanation mode`);
-    console.log(`[✅ Should now display]:`, explanationText.slice(0, 150));
-    console.log(`[🎯 Current state AFTER]:`, {
-      activeIndex: this.explanationTextService._activeIndex,
-      latestExplanation: this.explanationTextService.latestExplanation?.slice(0, 80),
-      latestExplanationIndex: this.explanationTextService.latestExplanationIndex,
-      fetLocked: this.explanationTextService._fetLocked,
-      displayMode: this.quizStateService.displayStateSubject?.value?.mode
-    });
   }
 
   private buildExplanationContext(questionIndex: number): string {

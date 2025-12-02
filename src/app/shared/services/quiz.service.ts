@@ -213,6 +213,7 @@ export class QuizService {
   set questions(value: any) {
     console.trace('[TRACE QUESTIONS RESET]', value);
     this._questions = value;
+    this.questionsSubject.next(value);
   }
 
   get questions() {

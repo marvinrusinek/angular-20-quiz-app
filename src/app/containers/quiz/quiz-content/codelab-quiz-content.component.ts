@@ -103,6 +103,9 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   shouldDisplayCorrectAnswers = false;
   private shouldDisplayCorrectAnswersSubject: BehaviorSubject<boolean> = new BehaviorSubject<boolean>(false);
   shouldDisplayCorrectAnswers$ = this.shouldDisplayCorrectAnswersSubject.asObservable();
+
+
+
   currentQuestionIndexValue = 0;
   currentQuestion$: BehaviorSubject<QuizQuestion | null> = new BehaviorSubject<QuizQuestion | null>(null);
   currentOptions$: BehaviorSubject<Option[] | null> = new BehaviorSubject<Option[] | null>([]);
@@ -227,98 +230,74 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       distinctUntilChanged()
     );
 
-    // Initialize displayText$ after inputs are available
-    this.displayText$ = combineLatest<[
-      DisplayState,
-      string,
-      FETPayload,
-      number
-    ]>([
-      (this.displayState$ || of({ mode: 'question' as const, answered: false })).pipe(
-        startWith({ mode: 'question' as const, answered: false })
-      ),  // mode: 'question' | 'explanation'
-      (this.questionToDisplay$ || of('')).pipe(
-        startWith(''),
-        map(q => (q ?? '').trim()),
-        distinctUntilChanged()
-      ),     // raw question text
-      this.formattedExplanation$,  // formatted FET payload (with index)
-      this.currentIndex$.pipe(startWith(0))           // current index (debug)
+    // Initialize displayText$ - handles both question text with banner and FET display
+    this.displayText$ = combineLatest([
+      this.displayState$ || of({ mode: 'question' as const, answered: false }),
+      this.questionToDisplay$ || of(''),
+      this.formattedExplanation$,
+      this.currentIndex$,
+      this.quizService.questions$.pipe(
+        filter(q => Array.isArray(q) && q.length > 0),
+        startWith(this.quizService.questions || [])
+      )
     ]).pipe(
-      map(([state, qText, fetPayload, idx]) => {
-        const safeIdx = Number.isFinite(idx) ? idx : -1;
+      debounceTime(50), // Allow time for questions to load
+      map(([state, qText, fetPayload, idx, questions]) => {
         const mode = state?.mode || 'question';
         const trimmedQText = (qText ?? '').trim();
+        const safeIdx = Number.isFinite(idx) ? idx : 0;
 
+        // Check if this is a multiple-answer question (use both sources)
+        const qObj = questions?.[safeIdx] || this.quizService.questions?.[safeIdx];
+        const numCorrect = qObj?.options?.filter((o: Option) => o.correct).length || 0;
+        const isMulti = numCorrect > 1;
+        console.log(`[displayText$] Q${safeIdx + 1}:`, JSON.stringify({
+          hasQObj: !!qObj,
+          numCorrect,
+          isMulti,
+          questionsFromParam: questions?.length,
+          questionsFromService: this.quizService.questions?.length,
+          mode,
+          qObjOptions: qObj?.options?.length
+        }));
+
+        // Generate banner text for multiple-answer questions
+        let bannerText = '';
+        if (isMulti && qObj) {
+          const totalOpts = qObj.options?.length || 0;
+          bannerText = this.quizQuestionManagerService.getNumberOfCorrectAnswersText(numCorrect, totalOpts);
+          console.log(`[displayText$] Banner for Q${safeIdx + 1}: "${bannerText}"`);
+        }
+
+        // Check if FET belongs to current question
         const belongsToIndex = fetPayload?.idx === safeIdx;
         const trimmedFet = belongsToIndex ? (fetPayload?.text ?? '').trim() : '';
 
-        console.log(`[displayText$] ─────────────────────`);
-        console.log(`[displayText$] Index: ${safeIdx}`);
-        console.log(`[displayText$] Mode : ${mode}`);
-        console.log(`[displayText$] QText: "${trimmedQText.slice(0, 80)}"`);
-        console.log(`[displayText$] FET  : "${trimmedFet.slice(0, 80)}"`);
-        console.log(`[displayText$] ─────────────────────`);
-
-        // ✅ Get question object to check if multi-answer
-        const qObj = this.quizService.questions?.[safeIdx];
-
-        console.log(`[displayText$] 🔍 Question Object Debug for Q${safeIdx + 1}:`, {
-          hasQObj: !!qObj,
-          qObjType: qObj?.type,
-          numOptions: qObj?.options?.length,
-          numCorrect: qObj?.options?.filter((o: Option) => o.correct).length,
-          correctOptions: qObj?.options?.filter((o: Option) => o.correct).map((o: Option) => o.text)
-        });
-
-        const isMulti =
-          !!qObj &&
-          (qObj.type === QuestionType.MultipleAnswer ||
-            (Array.isArray(qObj.options) &&
-              qObj.options.filter((o: Option) => o.correct).length > 1));
-
-        console.log(`[displayText$] isMulti = ${isMulti} for Q${safeIdx + 1}`);
-
-        // ✅ Calculate banner text for multi-answer questions
-        let bannerText = '';
-        if (isMulti && qObj) {
-          const numCorrect = qObj.options?.filter((o: Option) => o.correct).length || 0;
-          const totalOpts = qObj.options?.length || 0;
-          if (numCorrect > 0) {
-            bannerText = this.quizQuestionManagerService.getNumberOfCorrectAnswersText(numCorrect, totalOpts);
-            console.log(`[displayText$] 🎯 Banner for Q${safeIdx + 1}: "${bannerText}"`);
-          }
-        }
-
-        // ✅ FIX: Only show FET when explicitly in explanation mode AND we have valid FET
-        // AND the FET doesn't contain fallback text
+        // Show FET in explanation mode if available
         const isValidFet = belongsToIndex &&
           trimmedFet !== 'No explanation available' &&
           trimmedFet !== 'No explanation available for this question.' &&
           trimmedFet.length > 10;
 
         if (mode === 'explanation' && isValidFet) {
-          console.log(`[displayText$] ✅ Showing FET for Q${idx + 1}`);
-          // ✅ Prepend banner to FET for multi-answer questions
+          // Add banner to FET for multiple-answer questions
           if (isMulti && bannerText) {
             return `<div class="correct-count-header">${bannerText}</div>${trimmedFet}`;
           }
           return trimmedFet;
         }
 
-        // Otherwise show question text (default mode)
-        console.log(`[displayText$] 📝 Showing question text for Q${safeIdx + 1}`);
-        const questionText = trimmedQText || 'Loading...';
+        // Otherwise show question text with banner for multiple-answer questions
+        if (!trimmedQText) return 'Loading...';
 
-        // ✅ Append banner to question text for multi-answer questions
         if (isMulti && bannerText) {
-          return `${questionText} <span class="correct-count">${bannerText}</span>`;
+          return `${trimmedQText} <span class="correct-count">${bannerText}</span>`;
         }
 
-        return questionText;
+        return trimmedQText;
       }),
-      distinctUntilChanged(), // Prevent duplicate emissions
-      startWith('Loading question...') // Ensure initial value
+      distinctUntilChanged(),
+      startWith('Loading question...')
     );
 
     this.resetExplanationView();
@@ -604,7 +583,8 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       boolean, // shouldShow$
       boolean, // navigating$
       number,  // qQuiet$
-      number   // eQuiet$
+      number,  // eQuiet$
+      QuizQuestion[] // questions$
     ];
 
     return combineLatest<CombinedTuple>([
@@ -615,7 +595,11 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       shouldShow$,
       navigating$,
       qQuiet$,
-      eQuiet$
+      eQuiet$,
+      this.quizService.questions$.pipe(
+        startWith([]),
+        map(() => this.quizService.questions || [])
+      )
     ]).pipe(
       startWith([
         0, // index$
@@ -625,7 +609,8 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         false, // shouldShow$
         false, // navigating$
         0,     // qQuiet$
-        0      // eQuiet$
+        0,      // eQuiet$
+        []      // questions$
       ] as CombinedTuple),
       skip(1),
       auditTime(16),
@@ -704,8 +689,8 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       }),
 
       // unwrap back to original tuple so rest of your logic remains untouched
-      map(([[idx, question, banner, fet, shouldShow, navigating, qQuiet, eQuiet]]) =>
-        [idx, question, banner, fet, shouldShow, navigating, qQuiet, eQuiet] as CombinedTuple
+      map(([[idx, question, banner, fet, shouldShow, navigating, qQuiet, eQuiet, questions]]) =>
+        [idx, question, banner, fet, shouldShow, navigating, qQuiet, eQuiet, questions] as CombinedTuple
       ),
 
       // Coalesce multi-stream bursts (question, banner, FET clears)
@@ -729,9 +714,15 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       // The filter below was blocking text updates when in explanation mode,
       // which prevented the formatted explanation from showing when clicking options
 
-      map(([idx, question, banner, fet, shouldShow, ..._rest]) =>
-        this.resolveTextToDisplay(idx, question, banner, fet, shouldShow)
-      ),
+      map(([idx, question, banner, fet, shouldShow, navigating, qQuiet, eQuiet, questions]) => {
+        console.log(`[getCombinedDisplayTextStream] Q${idx + 1} before resolveTextToDisplay:`, {
+          questionsLength: questions?.length,
+          serviceQuestionsLength: this.quizService.questions?.length,
+          banner,
+          idx
+        });
+        return this.resolveTextToDisplay(idx, question, banner, fet, shouldShow, questions);
+      }),
 
       // Coalesce bursts to a single animation frame once gate opens
       auditTime(16),
@@ -1768,7 +1759,8 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     question: string,
     banner: string,
     fet: { idx: number; text: string; gate: boolean } | null,
-    shouldShow: boolean
+    shouldShow: boolean,
+    questions: QuizQuestion[] = []
   ): string {
     console.error(
       '[CQCC HARD DIAG JSON]',
@@ -1795,14 +1787,12 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     const fetText = (fet?.text ?? '').trim();
     const active = this.quizService.getCurrentQuestionIndex();
 
-    const qObj = this.quizService.questions?.[idx];
+    // ✅ ALWAYS use service questions as primary source (they're loaded synchronously)
+    const qObj = this.quizService.questions?.[idx] || questions?.[idx];
 
-    // ✅ Declare isMulti early so it can be used throughout the function
-    const isMulti =
-      !!qObj &&
-      (qObj.type === QuestionType.MultipleAnswer ||
-        (Array.isArray(qObj.options) &&
-          qObj.options.filter((o: Option) => o.correct).length > 1));
+    // ✅ Calculate isMulti early for use throughout the function
+    const numCorrectForMultiCheck = qObj?.options?.filter((o: Option) => o.correct).length || 0;
+    const isMulti = numCorrectForMultiCheck > 1;
 
     const ets = this.explanationTextService;
     const explanationIndex = (ets as any).latestExplanationIndex;
@@ -1922,12 +1912,21 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     } */
 
     // ──────────────────────────────────────────────
-    // 3️⃣ DEFAULT: QUESTION + BANNER
-    // ──────────────────────────────────────────────
     // ──────────────────────────────────────────────
     // 3️⃣ DEFAULT: QUESTION + BANNER
     // ──────────────────────────────────────────────
-    const effectiveQObj = this.quizService.questions?.[idx];
+    // ──────────────────────────────────────────────
+    // 3️⃣ DEFAULT: QUESTION + BANNER
+    // ──────────────────────────────────────────────
+    const effectiveQObj = questions?.[idx] || this.quizService.questions?.[idx];
+
+    console.log(`[resolveTextToDisplay] 🔍 Debug Q${idx + 1}:`, {
+      questionsLength: questions?.length,
+      serviceQuestionsLength: this.quizService.questions?.length,
+      hasEffectiveQObj: !!effectiveQObj,
+      qObjOptionsLen: effectiveQObj?.options?.length,
+      qObjCorrectLen: effectiveQObj?.options?.filter(o => o.correct).length
+    });
 
     // ✅ SAFETY: never reuse Q1's cache for other questions
     const cachedForThisIndex = this._lastQuestionTextByIndex.get(idx);
@@ -1942,12 +1941,10 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
     console.log(`[BANNER DEBUG] Q${idx + 1}:`, {
       isMulti,
+      numCorrect: numCorrectForMultiCheck,
       bannerText,
-      hasQObj: !!effectiveQObj,
-      mode,
-      qObjType: qObj?.type,
-      numOptions: qObj?.options?.length,
-      numCorrect: qObj?.options?.filter((o: Option) => o.correct).length
+      finalBanner,
+      mode
     });
 
     if (isMulti && !finalBanner && effectiveQObj) {
@@ -1970,7 +1967,8 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     }
 
     // ✅ FIXED: Show banner in question mode for multi-answer questions
-    const shouldShowBanner = isMulti && finalBanner && mode === 'question';
+    // Trust finalBanner if it exists (it implies multi-answer if it came from the service)
+    const shouldShowBanner = (isMulti || !!finalBanner) && !!finalBanner && mode === 'question';
 
     console.log(`[BANNER DECISION] Q${idx + 1}:`, {
       shouldShowBanner,
