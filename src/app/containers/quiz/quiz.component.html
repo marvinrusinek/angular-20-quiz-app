@@ -32,7 +32,7 @@
         <mat-card-actions [class.last-question]="shouldApplyLastQuestionClass">
           @if (shouldShowPrevButton) {
           <div class="prev-question-nav">
-            <button type="button" matTooltip="« Previous Question" matTooltipPosition="above"
+            <button type="button" (click)="advanceToPreviousQuestion()" matTooltip="« Previous Question" matTooltipPosition="above"
               aria-label="Previous Question">
               <i class="material-icons">navigate_before</i>
             </button>
@@ -75,10 +75,6 @@
       <section class="quiz-progress">
         <div class="custom-bar">
           <div class="custom-bar-fill" [style.width.%]="(progress$ | async) || 0"></div>
-        </div>
-
-        <div class="progress-label">
-          {{ (progress$ | async)?.toFixed(0) }}%
         </div>
       </section>
     </mat-card-footer>
