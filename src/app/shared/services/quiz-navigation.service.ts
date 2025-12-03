@@ -721,7 +721,6 @@ export class QuizNavigationService {
   
     qqls._frozen = false;
     qqls._isVisualFrozen = false;
-    qqls._freezeUntil = 0;
     qqls._renderFreezeUntil = 0;
     qqls._quietZoneUntil = performance.now() - 1;
     qqls.quietZoneUntil$?.next(qqls._quietZoneUntil);
