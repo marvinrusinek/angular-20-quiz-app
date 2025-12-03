@@ -6,6 +6,7 @@ import { QuestionType } from '../models/question-type.enum';
 import { FormattedExplanation } from '../models/FormattedExplanation.model';
 import { QuizQuestion } from '../models/QuizQuestion.model';
 import { QuizService } from '../services/quiz.service';
+import { QuizStateService } from '../services/quizstate.service';
 
 // type FETPayload = { idx: number; text: string; token: number };
 export type FETPayload = { idx: number; text: string; token: number };
@@ -119,6 +120,14 @@ export class ExplanationTextService {
         this.setShouldDisplayExplanation(false, { force: true });
         this.setIsExplanationTextDisplayed(false, { force: true });
       });
+  }
+
+  private _qss!: QuizStateService;
+  private get qss(): QuizStateService {
+    if (!this._qss) {
+      this._qss = this.injector.get(QuizStateService);
+    }
+    return this._qss;
   }
 
   get shouldDisplayExplanationSnapshot(): boolean {
