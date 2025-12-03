@@ -420,7 +420,7 @@ export class QuizNavigationService {
   
       // Clear question text
       const qqls = this.quizQuestionLoaderService;
-      qqls.questionToDisplay$?.next('');
+      qqls.questionToDisplaySubject?.next('');
       qqls.emitQuestionTextSafely?.('', -1);
   
       // Temporary hide
