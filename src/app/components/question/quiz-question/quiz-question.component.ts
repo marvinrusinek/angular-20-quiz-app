@@ -982,6 +982,46 @@ export class QuizQuestionComponent extends BaseQuestion
       console.warn('[VISIBILITY] ⚠️ FET restore failed', err);
     }
 
+    // ─────────────────────────────
+    // 5) ENFORCE QSS AS TRUTH
+    //    If the question is answered, force ETS back into explanation mode.
+    //    This fixes Q3/Q5/Q6 regressions after navigating away.
+    // ─────────────────────────────
+    try {
+      if (this.quizId) {
+        const idx2 = this.currentQuestionIndex ?? 0;
+        const state2 = this.quizStateService.getQuestionState(this.quizId, idx2);
+
+        if (state2?.isAnswered || state2?.explanationDisplayed) {
+          console.log(`[VISIBILITY] 🔒 Enforcing explanation mode for Q${idx2 + 1}`);
+
+          // Tell ETS to re-open the gate
+          this.explanationTextService.setShouldDisplayExplanation(true, { force: true });
+          this.explanationTextService.setIsExplanationTextDisplayed(true, { force: true });
+
+          // Tell QSS that explanation is READY (prevents fallback to question text)
+          this.quizStateService.setExplanationReady(true);
+
+          // Re-apply the correct display state
+          this.quizStateService.setDisplayState({
+            mode: 'explanation',
+            answered: true
+          });
+
+          // Update local component view fields
+          this.displayExplanation = true;
+
+          // If stored FET exists, re-hydrate
+          if (state2.explanationText) {
+            this.explanationToDisplay = state2.explanationText;
+            this.explanationTextService.setExplanationText(state2.explanationText);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[VISIBILITY] ⚠️ explanation enforcement failed', err);
+    }
+
     this._wasHidden = false;
     this.cdRef.markForCheck();
   }
