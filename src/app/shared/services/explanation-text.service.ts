@@ -1155,6 +1155,10 @@ export class ExplanationTextService {
       explanation: ''
     };
     console.log(`[ETS] resetForIndex(${index}) -> null/false`);
+
+    try {
+      this.qss.setExplanationReady(false);
+    } catch {}
   }
 
   // Set readiness flag — true when navigation finishes and FET is cached
