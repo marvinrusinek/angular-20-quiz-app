@@ -78,7 +78,7 @@ export class QuizNavigationService {
   public async advanceToPreviousQuestion(): Promise<boolean> {
     // Do not wipe everything; only clear transient display flags if necessary
     try {
-      this.quizStateService.setLoading(true);
+      this.quizStateService.setLoading(false);
   
       // Clear only ephemeral fields (no deep reset)
       (this as any).displayExplanation = false;
@@ -94,7 +94,11 @@ export class QuizNavigationService {
 
   private async navigateWithOffset(offset: number): Promise<boolean> {
     try {
-      // 🧹 Pre-cleanup (prevent FET & banner flicker)
+      // Clear stale locks so previous navigation works
+      this.quizStateService.setLoading(false);
+      this.quizStateService.setNavigating(false);
+
+      // Pre-cleanup (prevent FET & banner flicker)
       try {
         const ets: any = this.explanationTextService;
   
@@ -151,6 +155,7 @@ export class QuizNavigationService {
   
       const currentIndex = readIndexFromSnapshot();
       const targetIndex = currentIndex + offset;
+      this.quizService.setCurrentQuestionIndex(targetIndex);
       console.log(`[NAV] Snapshot index=${currentIndex}, target=${targetIndex}`);
   
       // Bounds / guard checks
