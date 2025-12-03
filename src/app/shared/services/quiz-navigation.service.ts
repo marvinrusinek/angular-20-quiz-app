@@ -344,54 +344,36 @@ export class QuizNavigationService {
     const targetIndex = Math.max(0, Math.min(index, this.quizService.questions?.length - 1 || 0));
     ets._activeIndex = targetIndex;
   
-    // ─────────────────────────────────────────────
-    // 1) BARRIERS
-    // ─────────────────────────────────────────────
+    // BARRIERS
     this.activateCrossServiceBarriers(ets, qqls, targetIndex);
   
-    // ─────────────────────────────────────────────
-    // 2) PRE-NAV QUARANTINE + PURGES + QUIET ZONE
-    // ─────────────────────────────────────────────
+    // PRE-NAV QUARANTINE + PURGES + QUIET ZONE
     this.applyPreNavigationQuarantines(index, targetIndex, ets, qqls);
   
-    // ─────────────────────────────────────────────
-    // 3) GLOBAL QUIET PATCH + FET BLACKOUT
-    // ─────────────────────────────────────────────
+    // GLOBAL QUIET PATCH + FET BLACKOUT
     this.applyQuietPatch(ets, qqls);
     this.applyFetBlackout(ets, qqls);
     this.applyHardMuteAndGatePrep(ets, qqls);
   
     try {
-      // ─────────────────────────────────────────────
-      // 4) SET NAVIGATING + RESET STREAMS + FREEZE UI
-      // ─────────────────────────────────────────────
+      // SET NAVIGATING + RESET STREAMS + FREEZE UI
       await this.prepareNavigationState(index);
   
-      // ─────────────────────────────────────────────
-      // 5) ROUTER NAVIGATION
-      // ─────────────────────────────────────────────
+      // ROUTER NAVIGATION
       const navSuccess = await this.performRouterNavigation(index);
       if (!navSuccess) return false;
   
-      // ─────────────────────────────────────────────
-      // 6) RESET SELECTION STATE + FET PURGE
-      // ─────────────────────────────────────────────
+      // RESET SELECTION STATE + FET PURGE
       await this.resetPostNavigationState(index);
   
-      // ─────────────────────────────────────────────
-      // 7) FETCH QUESTION + EMIT TEXT + BANNER
-      // ─────────────────────────────────────────────
+      // FETCH QUESTION + EMIT TEXT + BANNER
       const fresh = await this.fetchAndEmitQuestion(index);
       if (!fresh) return false;
   
-      // ─────────────────────────────────────────────
-      // 8) ARM EXPLANATION TEXT POST-PAINT
-      // ─────────────────────────────────────────────
+      // ARM EXPLANATION TEXT POST-PAINT
       this.armExplanationText(index, fresh);
   
-      // ─────────────────────────────────────────────
-      // 9) FINALIZE NAVIGATION + RELEASE FREEZES
-      // ─────────────────────────────────────────────
+      // FINALIZE NAVIGATION + RELEASE FREEZES
       await this.finalizeNavigation(ets, qqls);
   
       return true;
