@@ -1049,6 +1049,11 @@ export class ExplanationTextService {
     this.safeNext(this._fetSubject, { idx: index, text: trimmed, token });
     this.safeNext(this.shouldDisplayExplanationSource, true);
     this.safeNext(this.isExplanationTextDisplayedSource, true);
+
+    // At this point, FET is computed and “ready” for this question
+    try {
+      this.qss.setExplanationReady(true);
+    } catch {}
   }
 
   public setGate(index: number, show: boolean): void {
