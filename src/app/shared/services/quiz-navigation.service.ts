@@ -102,7 +102,7 @@ export class QuizNavigationService {
       try {
         const ets: any = this.explanationTextService;
   
-        // 🔸 Reset explanation service internal state
+        // Reset explanation service internal state
         ets._fetLocked = true;                 // lock explanation during navigation
         ets.readyForExplanation = false;       // explanation not ready until question settles
         ets._questionRenderedOnce = false;     // question not yet rendered
@@ -119,17 +119,15 @@ export class QuizNavigationService {
         // Reset display state to "question" mode
         this.quizStateService.displayStateSubject?.next({
           mode: 'question',
-          answered: false,
+          answered: false
         });
   
-        // Clear banner + answer state
+        // Clear banner and answer state
         this.quizService.updateCorrectAnswersText('');
         this.quizService.correctAnswersCountSubject?.next(0);  // safety reset
         this.quizStateService.setAnswerSelected(false);
         this.selectedOptionService.setAnswered(false);
         this.nextButtonStateService.reset();
-  
-        console.log('[NAV] 🔄 Global FET + banner reset before navigation');
       } catch (err) {
         console.warn('[NAV] ⚠️ Pre-cleanup reset failed', err);
       }
@@ -156,7 +154,6 @@ export class QuizNavigationService {
       const currentIndex = readIndexFromSnapshot();
       const targetIndex = currentIndex + offset;
       this.quizService.setCurrentQuestionIndex(targetIndex);
-      console.log(`[NAV] Snapshot index=${currentIndex}, target=${targetIndex}`);
   
       // Bounds / guard checks
       const effectiveQuizId = this.resolveEffectiveQuizId();
