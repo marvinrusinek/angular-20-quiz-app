@@ -717,14 +717,13 @@ export class QuizNavigationService {
     const qqls = this.quizQuestionLoaderService;
     await qqls.waitForDomStable(32);
   
-    const ets: any = this.explanationTextService;
-  
     qqls._frozen = false;
     qqls._isVisualFrozen = false;
     qqls._renderFreezeUntil = 0;
     qqls._quietZoneUntil = performance.now() - 1;
     qqls.quietZoneUntil$?.next(qqls._quietZoneUntil);
   
+    const ets: any = this.explanationTextService;
     ets._hardMuteUntil = performance.now() - 1;
   
     const el2 = document.querySelector('h3[i18n]');
