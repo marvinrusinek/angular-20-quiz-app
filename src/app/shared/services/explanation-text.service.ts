@@ -1235,6 +1235,11 @@ export class ExplanationTextService {
     this.setIsExplanationTextDisplayed(false);
     this._textMap?.clear?.();
 
+    // Navigation in progress → explanation not ready
+    try {
+      this.qss.setExplanationReady(false);
+    } catch {}
+
     // Cancel any pending unlocks from older cycles
     if (this._unlockRAFId != null) {
       cancelAnimationFrame(this._unlockRAFId);
