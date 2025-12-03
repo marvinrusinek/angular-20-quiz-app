@@ -900,11 +900,11 @@ export class QuizQuestionComponent extends BaseQuestion
     const idx = this.currentQuestionIndex ?? 0;
 
     // 2) Let your own restore logic run (but don’t let it trash display mode elsewhere)
-    try {
+    /* try {
       this.restoreQuizState?.();
     } catch (err) {
       console.warn('[VISIBILITY] ⚠️ restoreQuizState failed', err);
-    }
+    } */
 
     // 3) Ensure optionsToDisplay is sane
     if (!Array.isArray(this.optionsToDisplay) || this.optionsToDisplay.length === 0) {
