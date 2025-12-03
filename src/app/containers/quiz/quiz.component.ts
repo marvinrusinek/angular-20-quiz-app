@@ -260,7 +260,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
       if (isHidden) {
         // Pause updates here
       } else {
-        void this.handleVisibilityChange();
+        // void this.handleVisibilityChange();
       }
     });
 
@@ -735,7 +735,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
     this.setupQuiz();
     this.subscribeToRouteParams();
-    this.registerVisibilityChangeHandler();
+    // this.registerVisibilityChangeHandler();
     this.initializeDisplayVariables();
 
     this.quizInitializationService.initializeAnswerSync(
@@ -759,24 +759,16 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
   private registerVisibilityChangeHandler(): void {
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState !== 'visible') {
-        return;
-      }
-  
-      setTimeout(() => {
+      if (document.visibilityState === 'visible') {
+        // Only update badge — no UI restore, no question restore,
+        // no explanation restore, no component injection.
         const idx = this.quizService.getCurrentQuestionIndex();
-  
         if (idx >= 0 && idx < this.totalQuestions) {
           this.ngZone.run(() => {
             this.quizService.updateBadgeText(idx + 1, this.totalQuestions);
           });
         }
-  
-        // ❌ DO NOT call handleVisibilityChange here.
-        // QQC owns the restore logic for question/explanation state.
-  
-        queueMicrotask(() => this.injectDynamicComponent());
-      }, 50);
+      }
     });
   }
 
@@ -829,7 +821,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
     };
   }
 
-  private async handleVisibilityChange(): Promise<void> {
+  /* private async handleVisibilityChange(): Promise<void> {
     const currentIndex: number = this.quizService.getCurrentQuestionIndex();
     try {
       // Ensure questions are loaded
@@ -899,7 +891,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
     } catch (error) {
       console.error('Error retrieving total questions count:', error);
     }
-  }
+  } */
 
   private async restoreSelectionState(): Promise<void> {
     try {
