@@ -976,37 +976,60 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       base$,
       displayState$,
       explanationReady$,
-      this.explanationTextService.formattedExplanation$.pipe(startWith(''))
+      this.explanationTextService.formattedExplanation$.pipe(startWith('')),
+      this.quizService.currentQuestionIndex$
     ]).pipe(
-      map(([baseText, displayState, explanationReady, formatted]) => {
+      map(([baseText, displayState, explanationReady, formatted, idx]) => {
         const fet = String(
           formatted ??
           this.explanationTextService.latestExplanation ??
           ''
         ).trim();
-      
+  
         const mode = displayState?.mode ?? 'question';
-      
+        const base = String(baseText ?? '') as string;
+  
+        // 1️⃣ Normal explanation-mode override
         if (mode === 'explanation') {
           if (fet) {
             console.log('[CQCC] 🟢 Explanation mode override → showing FET');
             return fet as string;
           }
-      
+  
           if (explanationReady) {
             console.log('[CQCC] 🟡 Explanation ready but empty → placeholder, not question text');
             return (fet || 'Explanation not available.') as string;
           }
         }
-      
-        return String(baseText ?? '') as string;
+  
+        // 2️⃣ HARD OVERRIDE: once answered, FET wins if it exists
+        try {
+          const quizId = this.quizId ?? '';
+          if (quizId) {
+            const qState = this.quizStateService.getQuestionState(quizId, idx);
+            const isAnswered = qState?.isAnswered || qState?.explanationDisplayed;
+  
+            if (isAnswered) {
+              if (fet) {
+                console.log('[CQCC] 🔐 Answered override → forcing FET');
+                return fet as string;
+              }
+              // no FET? fall back to whatever base decided
+              return base;
+            }
+          }
+        } catch (err) {
+          console.warn('[CQCC] ⚠️ Answered override check failed', err);
+        }
+  
+        // 3️⃣ Default: use base text (usually question)
+        return base;
       }),
       distinctUntilChanged((a: string, b: string) => a.trim() === b.trim()),
       observeOn(animationFrameScheduler),
       shareReplay({ bufferSize: 1, refCount: true })
     );
   }
-  
 
   private connectCombinedTextStream(): void {
     if (this.combinedSub) {
