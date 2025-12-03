@@ -968,15 +968,18 @@ export class QuizQuestionComponent extends BaseQuestion
         this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
       } else {
         console.log(`[VISIBILITY] ↩️ Restoring question view for Q${idx + 1}`);
-
+      
         this.displayExplanation = false;
         this.explanationTextService.setShouldDisplayExplanation(false);
         this.explanationTextService.setIsExplanationTextDisplayed(false);
-
+      
         this.quizStateService.setDisplayState({
           mode: 'question',
           answered: qState?.isAnswered ?? false
         });
+      
+        // Explanation is not considered “ready to show” in pure question mode
+        this.quizStateService.setExplanationReady(false);
       }
     } catch (err) {
       console.warn('[VISIBILITY] ⚠️ FET restore failed', err);
