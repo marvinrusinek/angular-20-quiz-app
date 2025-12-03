@@ -534,7 +534,7 @@ export class ExplanationTextService {
 
     return of({
       questionIndex,
-      explanation: formattedExplanation,
+      explanation: formattedExplanation
     });
   }
 
@@ -551,9 +551,7 @@ export class ExplanationTextService {
     question: QuizQuestion
   ): void {
     if (index < 0) {
-      console.error(
-        `Invalid index: ${index}, must be greater than or equal to 0`
-      );
+      console.error(`Invalid index: ${index}, must be greater than or equal to 0`);
       return;
     }
 
@@ -605,26 +603,6 @@ export class ExplanationTextService {
     }
   }
 
-  /* getCorrectOptionIndices(question: QuizQuestion): number[] {
-    if (!question || !Array.isArray(question.options)) {
-      console.error("Invalid question or options:", question);
-      return [];
-    }
-
-    return question.options
-      .map((option, index) => {
-        if (!option?.correct) {
-          return null;
-        }
-
-        const displayIndex = typeof option.displayOrder === 'number'
-          ? option.displayOrder
-          : index;
-
-        return displayIndex + 1;
-      })
-      .filter((index): index is number => index !== null);
-  } */
   getCorrectOptionIndices(question: QuizQuestion): number[] {
     if (!question || !Array.isArray(question.options)) {
       console.error('Invalid question or options:', question);
@@ -694,7 +672,7 @@ export class ExplanationTextService {
         .filter((n) => n > 0);
     }
 
-    // ✅ Stabilize: dedupe + sort so multi-answer phrasing is consistent
+    // Stabilize: dedupe + sort so multi-answer phrasing is consistent
     indices = Array.from(new Set(indices)).sort((a, b) => a - b);
 
     // Multi-answer
@@ -765,9 +743,7 @@ export class ExplanationTextService {
       try {
         this.setGate(this._activeIndex, false);
       } catch { }
-      console.log(
-        `[ETS] 🧹 Cleared stale FET for previous Q${this._activeIndex + 1}`
-      );
+      console.log(`[ETS] 🧹 Cleared stale FET for previous Q${this._activeIndex + 1}`);
     }
 
     // Now safely update active index to current question
@@ -886,11 +862,11 @@ export class ExplanationTextService {
     // Normal reactive push (this is your main subject)
     this.shouldDisplayExplanationSource.next(aggregated);
 
-    // Optional: if you still maintain a convenience mirror Subject, update it too
+    // Update Subject
     try {
       (this as any).shouldDisplayExplanationSubject?.next(aggregated);
     } catch {
-      // ignore — optional mirror stream
+      // Ignore — optional mirror stream
     }
   }
 
@@ -1070,7 +1046,7 @@ export class ExplanationTextService {
   public openExclusive(index: number, text: string): void {
     const token = this._currentGateToken;
 
-    // pre-guards
+    // Pre-guards
     if (this._fetLocked || index !== this._activeIndex || token !== this._gateToken) {
       console.log(`[ETS] ⏸ openExclusive rejected (idx=${index}, active=${this._activeIndex}, token=${token}/${this._gateToken})`);
       return;
@@ -1081,7 +1057,7 @@ export class ExplanationTextService {
 
     this.latestExplanation = trimmed;
 
-    // one-frame emit with re-checks
+    // One-frame emit with re-checks
     requestAnimationFrame(() => {
       if (this._fetLocked || index !== this._activeIndex || token !== this._currentGateToken) {
         console.log(`[ETS] 🚫 late openExclusive dropped for Q${index + 1}`);
@@ -1090,9 +1066,8 @@ export class ExplanationTextService {
       this.safeNext(this.formattedExplanationSubject, trimmed);
       this.safeNext(this.shouldDisplayExplanation$, true);
       this.safeNext(this.isExplanationTextDisplayed$, true);
-      console.log(`[ETS] ✅ FET opened for Q${index + 1}`);
     
-      // 🔺 FET now open & visible for this index
+      // FET now open and visible for this index
       try {
         this.qss.setExplanationReady(true);
       } catch {}
@@ -1154,7 +1129,7 @@ export class ExplanationTextService {
       console.log(`[ETS] Cleared global state for question switch: ${this._activeIndex} -> ${index}`);
     }
 
-    // ensure and hard-emit null/false for new index
+    // Ensure and hard-emit null/false for new index
     const { text$, gate$ } = this.getOrCreate(index);
     try { text$.next(''); } catch { }
     try { gate$.next(false); } catch { }
@@ -1187,7 +1162,7 @@ export class ExplanationTextService {
         )
       );
     } catch {
-      // swallow timeouts or interruptions silently
+      // Swallow timeouts or interruptions silently
     }
   }
 
