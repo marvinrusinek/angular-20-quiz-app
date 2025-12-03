@@ -122,6 +122,7 @@ export class QuizNavigationService {
           mode: 'question',
           answered: false
         });
+        this.quizStateService.setExplanationReady(false);
   
         // Clear banner and answer state
         this.quizService.updateCorrectAnswersText('');
@@ -280,6 +281,7 @@ export class QuizNavigationService {
             mode: 'question',
             answered: false
           });
+          this.quizStateService.setExplanationReady(false);
   
           await this.explanationTextService.waitUntilQuestionRendered(600);
           setTimeout(() => {
@@ -1021,6 +1023,7 @@ export class QuizNavigationService {
   
     // Reset to question mode so next frame starts clean
     this.quizStateService.displayStateSubject?.next({ mode: 'question', answered: false });
+    this.quizStateService.setExplanationReady(false);
   
     console.log(`[RESET] Render state cleared before navigating → Q${targetIndex + 1}`);
   }

@@ -4585,6 +4585,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
     // Force display back to question mode
     this.quizStateService.displayStateSubject?.next({ mode: 'question', answered: false });
+    this.quizStateService.setExplanationReady(false);
 
     console.log('[RESET] Reactive quiz state cleared.');
 
