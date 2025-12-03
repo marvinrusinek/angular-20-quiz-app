@@ -112,6 +112,7 @@ export class QuizNavigationService {
         ets.setExplanationText('');
         ets.formattedExplanationSubject?.next('');
         ets.resetExplanationState?.();
+        this.quizStateService.setExplanationReady(false);
   
         // Reset component-level fields
         this.explanationToDisplay = '';
