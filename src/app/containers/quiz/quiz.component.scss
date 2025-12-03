@@ -120,8 +120,8 @@ mat-card {
       margin: 10px 0 10px 15px;
       background-color: vars.$white;
 
-      ngb-progressbar {
-        height: 20px;
+      .progress-label {
+        text-align: center;
       }
     }
 

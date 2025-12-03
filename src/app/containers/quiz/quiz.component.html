@@ -76,6 +76,9 @@
         <div class="custom-bar">
           <div class="custom-bar-fill" [style.width.%]="(progress$ | async) || 0"></div>
         </div>
+        <div class="progress-label">
+          {{ (progress$ | async)?.toFixed(0) }}% complete
+        </div>
       </section>
     </mat-card-footer>
   </mat-card>
