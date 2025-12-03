@@ -2868,296 +2868,324 @@ export class QuizQuestionComponent extends BaseQuestion
   // Called when a user clicks an option row
   public override async onOptionClicked(event: OptionClickedPayload): Promise<void> {
     console.log('[CLICK ENTRY] onOptionClicked fired for Q', this.currentQuestionIndex);
+  
+    this.prepareClickCycle();
+  
+    // ─────────────────────────────
+    // Wait if interaction is not ready
+    // ─────────────────────────────
+    await this.waitForInteractionReady();
+    if (!this.currentQuestion || !this.currentOptions) {
+      console.warn('[onOptionClicked] ❌ currentQuestion/currentOptions missing, returning early');
+      return;
+    }
+  
+    const idx = this.quizService.getCurrentQuestionIndex() ?? 0;
+    const q = this.questions?.[idx];
+    const evtIdx = event.index;
+    const evtOpt = event.option;
+    if (evtOpt == null) return;
+  
+    this.resetExplanationBeforeClick(idx);
+    if (this.blockIfLocked(evtOpt, idx)) return;
+    if (this._clickGate) return;
+  
+    this._clickGate = true;
+    this.questionFresh = false;
+  
+    try {
+      const optionsNow = this.cloneOptionsForUi(q, evtIdx, event);
+  
+      this.persistSelection(evtOpt, idx);
+      const canonicalOpts = this.buildCanonicalOptions(q, idx, evtOpt, evtIdx);
+  
+      this.revealFeedbackForAllOptions(canonicalOpts);
+      this.lockOptionsIfNeeded(q, evtOpt, idx);
+  
+      this.syncFeedbackAndHighlighting(idx, evtOpt);
+  
+      this.emitSelectionMessage(idx, q, optionsNow, canonicalOpts);
+  
+      this.syncCanonicalOptionsIntoQuestion(q, canonicalOpts);
+  
+      const allCorrect = this.computeCorrectness(q, canonicalOpts, evtOpt, idx);
+      this._lastAllCorrect = allCorrect;
+  
+      await this.maybeTriggerExplanation(q, evtOpt, idx, allCorrect);
+  
+      console.log('%c[TIMER DEBUG] ❗ reached stopTimerIfApplicable SPOT', 'color:red;font-weight:bold');
+      await this.timerService.stopTimerIfApplicable(q, idx, evtOpt);
+      console.log('%c[TIMER DEBUG] ❗ returned from stopTimerIfApplicable', 'color:red;font-weight:bold');
+  
+      this.updateNextButtonAndState(allCorrect);
+  
+      this.forceExplanationUpdate(idx, q);
+  
+      this.scheduleAsyncUiFinalization(evtOpt, evtIdx);
+  
+    } finally {
+      this.finalizeClickCycle(q, evtOpt);
+    }
+  }
 
+  private prepareClickCycle(): void {
     this.isUserClickInProgress = true;
-    this._skipNextAsyncUpdates = false;  // reset skip flag at start of each click
-
-    // Cancel pending RAFconst allCorrect =
+    this._skipNextAsyncUpdates = false;
+  
+    // Cancel pending RAF
     if (this._pendingRAF != null) {
       cancelAnimationFrame(this._pendingRAF);
       this._pendingRAF = null;
     }
+  }
 
-    // Wait if interaction is not ready yet
+  private async waitForInteractionReady(): Promise<void> {
     if (!this.quizStateService.isInteractionReady()) {
       console.warn('[onOptionClicked] Interaction not ready, waiting…');
       await firstValueFrom(
         this.quizStateService.interactionReady$.pipe(filter(Boolean), take(1))
       );
     }
+  }
 
-    if (!this.currentQuestion || !this.currentOptions) {
-      console.warn('[onOptionClicked] ❌ currentQuestion/currentOptions missing, returning early');
-      return;
-    }
-
-    const idx = this.quizService.getCurrentQuestionIndex() ?? 0;
-    const q = this.questions?.[idx];
-    const evtIdx = event.index;
-    const evtOpt = event.option;
-
-    // this.quizStateService.markUserInteracted(idx);
+  private resetExplanationBeforeClick(idx: number): void {
     this.explanationTextService._activeIndex = idx;
     this.explanationTextService.updateFormattedExplanation('');
     this.explanationTextService.latestExplanation = '';
     this.explanationTextService.setShouldDisplayExplanation(false);
     this.explanationTextService.setIsExplanationTextDisplayed(false);
+  }
 
-    if (evtOpt == null) return;
-
-    const getStableId = (o: Option | SelectedOption, idx?: number) =>
-      this.selectionMessageService.stableKey(o as Option, idx);
-
-    // [LOCK] Hard block re-clicks using NUMERIC optionId
+  private blockIfLocked(evtOpt: Option | SelectedOption, idx: number): boolean {
     try {
-      const lockIdNum = Number(evtOpt?.optionId);
-      if (Number.isFinite(lockIdNum) && this.selectedOptionService.isOptionLocked(idx, lockIdNum)) {
-        return;  // already locked
+      const idNum = Number(evtOpt?.optionId);
+      if (Number.isFinite(idNum) && this.selectedOptionService.isOptionLocked(idx, idNum)) {
+        return true;
       }
-    } catch { }
+    } catch {}
+    return false;
+  }
 
-    if (this._clickGate) return;
-    this._clickGate = true;
-    this.questionFresh = false;
+  private cloneOptionsForUi(q: QuizQuestion, evtIdx: number, event: OptionClickedPayload): Option[] {
+    const optionsNow: Option[] =
+      this.optionsToDisplay?.map(o => ({ ...o })) ??
+      this.currentQuestion?.options?.map(o => ({ ...o })) ??
+      [];
+  
+    // SINGLE-ANSWER → ignore deselects
+    if (q?.type === QuestionType.SingleAnswer && !event.checked) {
+      optionsNow.forEach(o => { if (o.selected) o.selected = true; });
+      this.optionsToDisplay?.forEach(o => { if (o.selected) o.selected = true; });
+      return optionsNow;
+    }
+  
+    this.selectionMessageService.releaseBaseline(evtIdx);
+  
+    if (q?.type === QuestionType.SingleAnswer) {
+      optionsNow.forEach((opt, i) => { opt.selected = i === evtIdx; });
+      this.optionsToDisplay?.forEach((opt, i) => { opt.selected = i === evtIdx; });
+    } else {
+      optionsNow[evtIdx].selected = event.checked ?? true;
+      if (this.optionsToDisplay) {
+        this.optionsToDisplay[evtIdx].selected = event.checked ?? true;
+      }
+    }
+  
+    return optionsNow;
+  }
 
+  private persistSelection(evtOpt: Option, idx: number): void {
     try {
-      // Update local UI selection immediately
-      const optionsNow: Option[] =
-        this.optionsToDisplay?.map(o => ({ ...o })) ??
-        this.currentQuestion?.options?.map(o => ({ ...o })) ??
-        [];
+      this.selectedOptionService.setSelectedOption(evtOpt, idx);
+    } catch {}
+  
+    (this.quizStateService as any).setUserInteracted?.(idx);
+  }
 
-      // SINGLE-ANSWER → ignore deselects
-      if (q?.type === QuestionType.SingleAnswer && !event.checked) {
-        optionsNow.forEach(opt => { if (opt.selected) opt.selected = true; });
-        if (Array.isArray(this.optionsToDisplay)) {
-          this.optionsToDisplay.forEach(opt => { if (opt.selected) opt.selected = true; });
-        }
-      } else {
-        this.selectionMessageService.releaseBaseline(idx);
-
-        if (q?.type === QuestionType.SingleAnswer) {
-          optionsNow.forEach((opt, i) => {
-            opt.selected = i === evtIdx ? (event.checked ?? true) : false;
-          });
-          if (Array.isArray(this.optionsToDisplay)) {
-            this.optionsToDisplay.forEach((opt, i) => {
-              opt.selected = i === evtIdx ? (event.checked ?? true) : false;
-            });
-          }
-        } else {
-          // Multiple-answer: allow multiple selections
-          optionsNow[evtIdx].selected = event.checked ?? true;
-          if (Array.isArray(this.optionsToDisplay)) {
-            this.optionsToDisplay[evtIdx].selected = event.checked ?? true;
-          }
-        }
-      }
-
-      // Persist selection
-      try { this.selectedOptionService.setSelectedOption(evtOpt, idx); } catch { }
-
-      (this.quizStateService as any).setUserInteracted?.(idx);
-
-      // Canonical options for consistent state
-      const canonicalOpts: Option[] = (q?.options ?? []).map((o, i) => ({
-        ...o,
-        optionId: Number(o.optionId ?? getStableId(o, i)),
-        selected: (this.selectedOptionService.selectedOptionsMap?.get(idx) ?? []).some(
-          sel => getStableId(sel) === getStableId(o)
-        )
-      }));
-
-      // Enforce single-answer exclusivity canonically
-      if (q?.type === QuestionType.SingleAnswer) {
-        canonicalOpts.forEach((opt, i) => { opt.selected = i === evtIdx; });
-        if (evtOpt?.correct && canonicalOpts[evtIdx]) {
-          canonicalOpts[evtIdx].selected = true;
-          this.selectionMessageService._singleAnswerCorrectLock.add(idx);
-          this.selectionMessageService._singleAnswerIncorrectLock.delete(idx);
-        }
-      } else if (canonicalOpts[evtIdx]) {
+  private buildCanonicalOptions(
+    q: QuizQuestion,
+    idx: number,
+    evtOpt: Option,
+    evtIdx: number
+  ): Option[] {
+    const getKey = (o: any, i?: number) =>
+      this.selectionMessageService.stableKey(o as Option, i);
+  
+    const canonicalOpts = (q?.options ?? []).map((o, i) => ({
+      ...o,
+      optionId: Number(o.optionId ?? getKey(o, i)),
+      selected: (this.selectedOptionService.selectedOptionsMap?.get(idx) ?? []).some(
+        sel => getKey(sel) === getKey(o)
+      )
+    }));
+  
+    if (q?.type === QuestionType.SingleAnswer) {
+      canonicalOpts.forEach((opt, i) => opt.selected = i === evtIdx);
+      if (evtOpt?.correct && canonicalOpts[evtIdx]) {
         canonicalOpts[evtIdx].selected = true;
+        this.selectionMessageService._singleAnswerCorrectLock.add(idx);
+        this.selectionMessageService._singleAnswerIncorrectLock.delete(idx);
       }
+    } else if (canonicalOpts[evtIdx]) {
+      canonicalOpts[evtIdx].selected = true;
+    }
+  
+    return canonicalOpts;
+  }
 
-      // Reveal feedback and lock options
-      this.revealFeedbackForAllOptions(canonicalOpts);
+  private lockOptionsIfNeeded(q: QuizQuestion, evtOpt: Option, idx: number): void {
+    try {
+      const numId = Number(evtOpt?.optionId ?? NaN);
+      if (Number.isFinite(numId)) {
+        this.selectedOptionService.lockOption(idx, numId);
+      }
+  
+      if (q?.type === QuestionType.SingleAnswer && evtOpt?.correct) {
+        const allIdsNum = (this.optionsToDisplay ?? [])
+          .map(o => Number(o.optionId))
+          .filter(Number.isFinite);
+        this.selectedOptionService.lockMany(idx, allIdsNum as number[]);
+      }
+    } catch {}
+  }
 
-      try {
-        const clickedIdNum = Number(evtOpt?.optionId ?? NaN);
-        if (Number.isFinite(clickedIdNum)) {
-          this.selectedOptionService.lockOption(idx, clickedIdNum);
-        }
-        if (q?.type === QuestionType.SingleAnswer) {
-          if (evtOpt?.correct) {
-            const allIdsNum = (this.optionsToDisplay ?? [])
-              .map(o => Number(o.optionId))
-              .filter(Number.isFinite);
-            this.selectedOptionService.lockMany(idx, allIdsNum as number[]);
-          }
-        }
-      } catch { }
+  private syncFeedbackAndHighlighting(idx: number, evtOpt: Option): void {
+    const getKey = (o: any) => this.selectionMessageService.stableKey(o as Option);
+  
+    const selSet = new Set(
+      (this.selectedOptionService.selectedOptionsMap?.get(idx) ?? [])
+        .map(o => getKey(o))
+    );
+  
+    this.updateOptionHighlighting(selSet);
+    this.refreshFeedbackFor(evtOpt ?? undefined);
+  
+    this.cdRef.markForCheck();
+    this.cdRef.detectChanges();
+  }
 
-      // Feedback sync
-      const selOptsSetImmediate = new Set(
-        (this.selectedOptionService.selectedOptionsMap?.get(idx) ?? []).map(o => getStableId(o))
-      );
-      this.updateOptionHighlighting(selOptsSetImmediate);
+  private emitSelectionMessage(
+    idx: number,
+    q: QuizQuestion,
+    optionsNow: Option[],
+    canonicalOpts: Option[]
+  ): void {
+    this.selectionMessageService.setOptionsSnapshot(canonicalOpts);
+    this._msgTok = (this._msgTok ?? 0) + 1;
+  
+    this.selectionMessageService.emitFromClick({
+      index: idx,
+      totalQuestions: this.totalQuestions,
+      questionType: q?.type ?? QuestionType.SingleAnswer,
+      options: optionsNow,
+      canonicalOptions: canonicalOpts as any,
+      token: this._msgTok
+    });
+  }
+
+  private syncCanonicalOptionsIntoQuestion(q: QuizQuestion, canonicalOpts: Option[]): void {
+    if (q && Array.isArray(q.options)) {
+      q.options = canonicalOpts.map(o => ({ ...o }));
+    }
+  }
+
+  private computeCorrectness(
+    q: QuizQuestion,
+    canonicalOpts: Option[],
+    evtOpt: Option,
+    idx: number
+  ): boolean {
+    const getKey = (o: any) => this.selectionMessageService.stableKey(o as Option);
+  
+    const correctOpts = canonicalOpts.filter(o => !!o.correct);
+    const selOpts = Array.from(this.selectedOptionService.selectedOptionsMap?.get(idx) ?? []);
+    const selKeys = new Set(selOpts.map(o => getKey(o)));
+  
+    const selectedCorrectCount = correctOpts.filter(o => selKeys.has(getKey(o))).length;
+  
+    return q?.type === QuestionType.MultipleAnswer
+      ? correctOpts.length > 0 &&
+        selectedCorrectCount === correctOpts.length &&
+        selKeys.size === correctOpts.length
+      : !!evtOpt?.correct;
+  }
+
+  private async maybeTriggerExplanation(
+    q: QuizQuestion,
+    evtOpt: Option,
+    idx: number,
+    allCorrect: boolean
+  ): Promise<void> {
+    if (allCorrect && this.quizStateService.hasUserInteracted(idx)) {
+      console.log(`[QQC] ✅ USER completed Q${idx + 1} → FET unlocked`);
+      this.quizStateService.displayStateSubject.next({ mode: 'explanation', answered: true });
+      this.displayExplanation = true;
+    }
+  
+    if (evtOpt?.correct) {
+      console.log(`[QQC] ✅ Correct answer selected → trigger FET for Q${idx + 1}`);
+      this.explanationTextService.setShouldDisplayExplanation(true);
+      this.quizStateService.displayStateSubject.next({ mode: 'explanation', answered: true });
+      this.displayExplanation = true;
+    }
+  }
+
+  private updateNextButtonAndState(allCorrect: boolean): void {
+    this.nextButtonStateService.setNextButtonState(allCorrect);
+    this.quizStateService.setAnswered(allCorrect);
+    this.quizStateService.setAnswerSelected(allCorrect);
+  }
+
+  private forceExplanationUpdate(idx: number, q: QuizQuestion): void {
+    console.warn('[FET CHECK]', {
+      idx,
+      type: q?.type,
+      alreadyFired: this._fetEarlyShown.has(idx)
+    });
+  
+    this._fetEarlyShown.delete(idx);
+  
+    console.warn(`[QQC] 🔥 FORCED FET call for Q${idx + 1}`);
+    this.fireAndForgetExplanationUpdate(idx, q);
+  }
+
+  private scheduleAsyncUiFinalization(evtOpt: Option, evtIdx: number): void {
+    queueMicrotask(() => {
+      if (this._skipNextAsyncUpdates) return;
       this.refreshFeedbackFor(evtOpt ?? undefined);
       this.cdRef.markForCheck();
       this.cdRef.detectChanges();
-
-      // Snapshot and message
-      this.selectionMessageService.setOptionsSnapshot(canonicalOpts);
-      this._msgTok = (this._msgTok ?? 0) + 1;
-      const tok = this._msgTok;
-
-      this.selectionMessageService.emitFromClick({
-        index: idx,
-        totalQuestions: this.totalQuestions,
-        questionType: q?.type ?? QuestionType.SingleAnswer,
-        options: optionsNow,
-        canonicalOptions: canonicalOpts as CanonicalOption[],
-        token: tok
-      });
-
-      // Sync question.options before correctness evaluation
-      if (q && Array.isArray(q.options)) {
-        q.options = canonicalOpts.map(o => ({ ...o }));
-      }
-
-      // Compute correctness
-      const correctOpts = canonicalOpts.filter(o => !!o.correct);
-      const selOpts = Array.from(
-        this.selectedOptionService.selectedOptionsMap?.get(idx) ?? []
-      );
-      const selKeys = new Set(selOpts.map(o => getStableId(o)));
-      const selectedCorrectCount = correctOpts.filter(o => selKeys.has(getStableId(o))).length;
-
-      const allCorrect =
-        q?.type === QuestionType.MultipleAnswer
-          ? correctOpts.length > 0 &&
-          selectedCorrectCount === correctOpts.length &&
-          selKeys.size === correctOpts.length
-          : !!evtOpt?.correct;
-
-      this._lastAllCorrect = allCorrect;
-
-      // Only show explanation after real user interaction
-      if (
-        allCorrect &&
-        this.quizStateService.hasUserInteracted(idx)
-      ) {
-        console.log(`[QQC] ✅ USER completed Q${idx + 1} → FET unlocked`);
-
-        this.quizStateService.displayStateSubject.next({
-          mode: 'explanation',
-          answered: true
-        });
-
-        this.displayExplanation = true;
-
-        // await this.updateExplanationText(idx);
-      }
-
-      // FET trigger
-      if (evtOpt?.correct) {
-        console.log(`[QQC] ✅ Correct answer selected → trigger FET for Q${idx + 1}`);
-        this.displayExplanation = true;
-        this.quizStateService.displayStateSubject.next({
-          mode: 'explanation',
-          answered: true
-        });
-
-        this.explanationTextService.setShouldDisplayExplanation(true);
-        // await this.updateExplanationText(idx);
-      }
-
-      // Stop the timer if this question is now complete
-      console.log('%c[TIMER DEBUG] ❗ reached stopTimerIfApplicable SPOT', 'color:red;font-weight:bold');
-      await this.timerService.stopTimerIfApplicable(q, idx, evtOpt);
-      console.log('%c[TIMER DEBUG] ❗ returned from stopTimerIfApplicable', 'color:red;font-weight:bold');
-
-
-      this.nextButtonStateService.setNextButtonState(allCorrect);
-      this.quizStateService.setAnswered(allCorrect);
-      this.quizStateService.setAnswerSelected(allCorrect)
-
-      // Lock the question index immediately to avoid drift
-      const lockedIndex = this.currentQuestionIndex ?? idx;
-
-      /* if (
-        evtOpt?.correct &&
-        q?.type === QuestionType.MultipleAnswer &&
-        !this._fetEarlyShown.has(lockedIndex)
-      ) {
-        this.safeStopTimer('completed');
-        this._fetEarlyShown.add(lockedIndex);
-
-        console.log(`[QQC] 🧠 Immediate FET trigger for multi-answer Q${lockedIndex + 1}`);
-
-        this.fireAndForgetExplanationUpdate(lockedIndex, q);
-      } */
-      // this.fireAndForgetExplanationUpdate(lockedIndex, q);
-
-      const lockIdx = this.currentQuestionIndex;
-      const question = this.quizService.questions?.[lockIdx];
-
-      console.warn('[FET CHECK]', {
-        lockIdx,
-        type: q?.type,
-        evtOptCorrect: !!evtOpt?.correct,
-        allCorrect,
-        alreadyFired: this._fetEarlyShown.has(lockIdx)
-      });
-
-      // 🔥 TEMP: ignore internal gate for debugging
-      this._fetEarlyShown.delete(lockIdx);
-
-      console.warn(`[QQC] 🔥 FORCED FET call for Q${lockIdx + 1}`);
-      this.fireAndForgetExplanationUpdate(lockIdx, question);
-
-      console.log('[FET ENTRY] fireAndForgetExplanationUpdate HIT', {
-        lockedIndex,
-        hasQuestion: !!q,
-        questionText: q?.questionText
-      });
-
-      // Continue post-click microtasks for highlighting and feedback
-      queueMicrotask(() => {
-        if (this._skipNextAsyncUpdates) return;
-        this.updateOptionHighlighting(selOptsSetImmediate);
+    });
+  
+    requestAnimationFrame(() => {
+      if (this._skipNextAsyncUpdates) return;
+  
+      (async () => {
+        try { if (evtOpt) this.optionSelected.emit(evtOpt); } catch {}
+        this.feedbackText = await this.generateFeedbackText(this.currentQuestion);
+        await this.postClickTasks(evtOpt ?? undefined, evtIdx, true, false);
+        this.handleCoreSelection({ option: evtOpt, index: evtIdx });
+        if (evtOpt) this.markBindingSelected(evtOpt);
         this.refreshFeedbackFor(evtOpt ?? undefined);
-        this.cdRef.markForCheck();
-        this.cdRef.detectChanges();
-      });
-
-      // Post-click tasks (feedback and message sync)
-      requestAnimationFrame(() => {
-        if (this._skipNextAsyncUpdates) return;
-        (async () => {
-          try { if (evtOpt) this.optionSelected.emit(evtOpt); } catch { }
-          this.feedbackText = await this.generateFeedbackText(q);
-          await this.postClickTasks(evtOpt ?? undefined, evtIdx, true, false);
-          this.handleCoreSelection(event);
-          if (evtOpt) this.markBindingSelected(evtOpt);
-          this.refreshFeedbackFor(evtOpt ?? undefined);
-        })().catch(() => { });
-      });
-    } finally {
-      queueMicrotask(() => {
-        this._clickGate = false;
-        this.isUserClickInProgress = false;
-
-        this.selectionMessageService.releaseBaseline(this.currentQuestionIndex);
-
-        const selectionComplete =
-          q?.type === QuestionType.SingleAnswer ? !!evtOpt?.correct : this._lastAllCorrect;
-
-        this.selectionMessageService.setSelectionMessage(selectionComplete);
-      });
-    }
+      })().catch(() => {});
+    });
   }
+
+  private finalizeClickCycle(q: QuizQuestion, evtOpt: Option): void {
+    queueMicrotask(() => {
+      this._clickGate = false;
+      this.isUserClickInProgress = false;
+  
+      this.selectionMessageService.releaseBaseline(this.currentQuestionIndex);
+  
+      const selectionComplete =
+        q?.type === QuestionType.SingleAnswer ? !!evtOpt?.correct : this._lastAllCorrect;
+  
+      this.selectionMessageService.setSelectionMessage(selectionComplete);
+    });
+  }
+
+  
 
   private fireAndForgetExplanationUpdate(
     lockedIndex: number,
