@@ -404,8 +404,6 @@ export class QuizNavigationService {
   }
 
   private activateCrossServiceBarriers(ets: any, qqls: any, targetIndex: number): void {
-    qqls.enableNavBarrier();
-    ets.enableNavBarrier();
     console.log('[NAV] 🧱 Cross-service barriers enabled');
   
     try {
@@ -719,10 +717,7 @@ export class QuizNavigationService {
     const qqls = this.quizQuestionLoaderService;
     await qqls.waitForDomStable(32);
   
-    // Release barriers + clear freezes
-    qqls.disableNavBarrier();
     const ets: any = this.explanationTextService;
-    ets.disableNavBarrier();
   
     qqls._frozen = false;
     qqls._isVisualFrozen = false;
