@@ -1091,6 +1091,11 @@ export class ExplanationTextService {
       this.safeNext(this.shouldDisplayExplanation$, true);
       this.safeNext(this.isExplanationTextDisplayed$, true);
       console.log(`[ETS] ✅ FET opened for Q${index + 1}`);
+    
+      // 🔺 FET now open & visible for this index
+      try {
+        this.qss.setExplanationReady(true);
+      } catch {}
     });
   }
 
