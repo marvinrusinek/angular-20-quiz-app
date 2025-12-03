@@ -839,23 +839,22 @@ get quizQuestionComponent(): QuizQuestionComponent {
   }
 
   private registerVisibilityChangeHandler(): void {
-    document.addEventListener('visibilitychange', async () => {
-      if (document.visibilityState === 'visible') {
-        setTimeout(() => {
-          const idx = this.quizService.getCurrentQuestionIndex();
-
-          if (idx >= 0 && idx < this.totalQuestions) {
-            this.ngZone.run(() => {
-              this.quizService.updateBadgeText(idx + 1, this.totalQuestions);
-            });
-          }
-
-          // Restore question text and state
-          void this.handleVisibilityChange();
-
-          queueMicrotask(() => this.injectDynamicComponent());
-        }, 50);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible') {
+        return;
       }
+  
+      setTimeout(() => {
+        const idx = this.quizService.getCurrentQuestionIndex();
+  
+        if (idx >= 0 && idx < this.totalQuestions) {
+          this.ngZone.run(() => {
+            this.quizService.updateBadgeText(idx + 1, this.totalQuestions);
+          });
+        }
+  
+        queueMicrotask(() => this.injectDynamicComponent());
+      }, 50);
     });
   }
 
