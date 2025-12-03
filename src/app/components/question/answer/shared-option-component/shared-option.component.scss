@@ -1,15 +1,51 @@
-@use '../../../../../variables' as vars;
+@use "../../../../../variables" as vars;
 
-.mat-checkbox-layout,
-.mat-radio-layout {
-  display: block !important;
+/* ────────────────────────────────────────────────
+   REMOVE MDC INTERNAL VISUALS (REQUIRED)
+──────────────────────────────────────────────────*/
+::ng-deep .mat-mdc-radio-touch-target,
+::ng-deep .mat-mdc-radio-ripple,
+::ng-deep .mat-mdc-radio-button .mdc-radio__background,
+::ng-deep .mat-mdc-checkbox-touch-target,
+::ng-deep .mat-mdc-checkbox-ripple,
+::ng-deep .mat-mdc-checkbox .mdc-checkbox__background,
+::ng-deep .mdc-radio__native-control,
+::ng-deep .mdc-checkbox__native-control {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
-div.mat-checkbox-inner-container,
-div.mat-radio-inner-container {
-  display: none;
+/* Allow whole option box to be clickable */
+::ng-deep .mat-mdc-radio-button,
+::ng-deep .mat-mdc-checkbox {
+  cursor: pointer;
+  user-select: none;
 }
 
+::ng-deep .mat-mdc-radio-button input[type="radio"],
+::ng-deep .mat-mdc-checkbox input[type="checkbox"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  margin: 0;
+  z-index: 2;
+}
+
+::ng-deep .mat-mdc-radio-label-content,
+::ng-deep .mat-mdc-checkbox .mdc-form-field {
+  display: flex !important;
+  align-items: center !important;
+  width: 100%;
+}
+
+
+/* ────────────────────────────────────────────────
+   MAIN OPTION BOX (THIS MUST STAY IN SOC)
+──────────────────────────────────────────────────*/
 .options {
   mat-checkbox,
   mat-radio-button {
@@ -17,75 +53,79 @@ div.mat-radio-inner-container {
     display: inline-block;
     width: 100% !important;
     height: auto;
+
     font-family: vars.$font-stack;
     font-size: 20px;
     color: vars.$dark-brown;
+
     background-color: vars.$light-gray;
     border: 2px solid vars.$medium-gray;
+    border-radius: 4px;
+    padding: 10px;
     margin-left: -5px;
+    margin-bottom: 20px;
+
+    transition: border-color 0.25s ease, background-color 0.25s ease;
 
     &:hover {
-      border: 2px solid vars.$vivid-blue;
+      border-color: vars.$vivid-blue;
     }
 
-    // Disabled state (applies when [disabled] is true)
     &.disabled-option,
     &[disabled] {
       opacity: 0.5;
       cursor: not-allowed;
-      pointer-events: none;  // prevent accidental clicks
+      pointer-events: none;
       background-color: lighten(vars.$light-gray, 10%);
       border-color: vars.$medium-gray;
     }
-  }  
-}
-
-.options {
-  > * {
-    margin-top: 4px !important;
-    margin-bottom: 20px !important;
   }
 }
 
-.correct {
-  background-color: vars.$green;
+
+/* ────────────────────────────────────────────────
+   TEXT + ICONS INSIDE THE OPTION BOX
+──────────────────────────────────────────────────*/
+.option-text {
+  flex-grow: 1;
+  margin-left: -20px;
 }
 
-.incorrect {
-  background-color: vars.$red;
+mat-icon.opt-icon {
+  position: absolute;
+  right: 20px;
+  font-size: 28px;
+  color: vars.$black;
 }
 
-.correct, .incorrect {
-  border: 2px solid vars.$vivid-blue;
+
+/* ────────────────────────────────────────────────
+   CORRECT / INCORRECT STATES
+──────────────────────────────────────────────────*/
+.correct,
+.correct-option {
+  background-color: vars.$green !important;
+  border-color: vars.$vivid-blue !important;
 }
 
+.incorrect,
+.incorrect-option {
+  background-color: vars.$red !important;
+  border-color: vars.$vivid-blue !important;
+}
 
 .correct-icon {
   color: vars.$green;
-  margin-left: 10px;
 }
 
 .incorrect-icon {
   color: vars.$red;
-  margin-left: 10px;
 }
 
-.disabled-option {
-  opacity: 0.6;
-  pointer-events: none;  // prevent clicks
-  cursor: not-allowed;
-}
 
-.correct-option {
-  background-color: vars.$green !important;
-  border: 2px solid vars.$vivid-blue !important;
-}
-
-.incorrect-option {
-  background-color: vars.$red !important;
-  border: 2px solid vars.$vivid-blue !important;
-}
-
+/* ────────────────────────────────────────────────
+   FLASH ANIMATION
+──────────────────────────────────────────────────*/
 .flash-red {
   animation: flashRed 0.5s ease;
 }
@@ -93,5 +133,5 @@ div.mat-radio-inner-container {
 @keyframes flashRed {
   0%   { background-color: vars.$red; }
   50%  { background-color: lighten(vars.$red, 15%); }
-  100% { background-color: vars.$light-gray; }  // back to normal disabled
+  100% { background-color: vars.$light-gray; }
 }
