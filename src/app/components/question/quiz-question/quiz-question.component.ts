@@ -2868,6 +2868,8 @@ export class QuizQuestionComponent extends BaseQuestion
   // Called when a user clicks an option row
   public override async onOptionClicked(event: OptionClickedPayload): Promise<void> {
     console.log('[CLICK ENTRY] onOptionClicked fired for Q', this.currentQuestionIndex);
+
+    const evtChecked = event?.checked ?? true;
   
     this.prepareClickCycle();
   
@@ -2921,7 +2923,7 @@ export class QuizQuestionComponent extends BaseQuestion
   
       this.forceExplanationUpdate(idx, q);
   
-      this.scheduleAsyncUiFinalization(evtOpt, evtIdx);
+      this.scheduleAsyncUiFinalization(evtOpt, evtIdx, evtChecked);
   
     } finally {
       this.finalizeClickCycle(q, evtOpt);
@@ -3149,7 +3151,11 @@ export class QuizQuestionComponent extends BaseQuestion
     this.fireAndForgetExplanationUpdate(idx, q);
   }
 
-  private scheduleAsyncUiFinalization(evtOpt: Option, evtIdx: number): void {
+  private scheduleAsyncUiFinalization(
+    evtOpt: Option,
+    evtIdx: number,
+    evtChecked: boolean
+  ): void {
     queueMicrotask(() => {
       if (this._skipNextAsyncUpdates) return;
       this.refreshFeedbackFor(evtOpt ?? undefined);
@@ -3159,15 +3165,28 @@ export class QuizQuestionComponent extends BaseQuestion
   
     requestAnimationFrame(() => {
       if (this._skipNextAsyncUpdates) return;
-  
+    
       (async () => {
         try { if (evtOpt) this.optionSelected.emit(evtOpt); } catch {}
-        this.feedbackText = await this.generateFeedbackText(this.currentQuestion);
+    
+        const qSafe = this.currentQuestion;
+        if (!qSafe) {
+          this.feedbackText = '';
+          return;   // prevent crash + keeps behavior unchanged
+        }
+    
+        this.feedbackText = await this.generateFeedbackText(qSafe);
+    
         await this.postClickTasks(evtOpt ?? undefined, evtIdx, true, false);
-        this.handleCoreSelection({ option: evtOpt, index: evtIdx });
+
+        this.handleCoreSelection({
+          option: evtOpt,
+          index: evtIdx,
+          checked: evtChecked
+        });
         if (evtOpt) this.markBindingSelected(evtOpt);
         this.refreshFeedbackFor(evtOpt ?? undefined);
-      })().catch(() => {});
+      })().catch(() => { });
     });
   }
 
