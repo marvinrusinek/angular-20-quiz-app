@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, EMPTY, Observable, ReplaySubject, Subject } from 'rxjs';
-import { catchError, distinctUntilChanged, filter } from 'rxjs/operators';
+import { BehaviorSubject, combineLatest, EMPTY, Observable, ReplaySubject, Subject } from 'rxjs';
+import { catchError, distinctUntilChanged, filter, map } from 'rxjs/operators';
 
 import { Option } from '../models/Option.model';
 import { QAPayload } from '../models/QAPayload.model';
@@ -39,6 +39,20 @@ export class QuizStateService {
   
   answeredSubject = new BehaviorSubject<boolean>(false);
   isAnswered$: Observable<boolean> = this.answeredSubject.asObservable();
+
+  // Tracks when the explanation text (FET) is fully formatted & ready
+  private explanationReadySubject = new BehaviorSubject<boolean>(false);
+  public explanationReady$ = this.explanationReadySubject.asObservable();
+
+  // Single source of truth: should the UI show explanation text?
+  // showExplanation = user has answered AND explanation is ready
+  public readonly shouldShowExplanation$ = combineLatest([
+    this.isAnswered$,
+    this.explanationReady$
+  ]).pipe(
+    map(([answered, ready]) => answered && ready),
+    distinctUntilChanged()
+  );
 
   public displayStateSubject = 
     new BehaviorSubject<{ mode: 'question' | 'explanation', answered: boolean }>({
@@ -257,6 +271,10 @@ export class QuizStateService {
   setAnswerSelected(isAnswered: boolean): void {
     this.answeredSubject.next(isAnswered);
     if (isAnswered && !this.displayExplanationLocked) this.displayExplanationLocked = true;
+  }
+
+  setExplanationReady(isReady: boolean): void {
+    this.explanationReadySubject.next(isReady);
   }
 
   startLoading(): void {
