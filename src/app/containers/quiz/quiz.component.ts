@@ -853,6 +853,9 @@ get quizQuestionComponent(): QuizQuestionComponent {
           });
         }
   
+        // ❌ DO NOT call handleVisibilityChange here.
+        // QQC owns the restore logic for question/explanation state.
+  
         queueMicrotask(() => this.injectDynamicComponent());
       }, 50);
     });
