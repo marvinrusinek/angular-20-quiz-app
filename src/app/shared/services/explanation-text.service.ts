@@ -981,6 +981,11 @@ export class ExplanationTextService {
     this.shouldDisplayExplanationSource.next(false);
     this.isExplanationTextDisplayedSource.next(false);
     this.resetCompleteSubject.next(false);
+
+    // FET is definitely NOT ready after a full reset
+    try {
+      this.qss.setExplanationReady(false);
+    } catch {}
   }
 
   resetProcessedQuestionsState(): void {
