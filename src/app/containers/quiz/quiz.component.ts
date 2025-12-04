@@ -172,7 +172,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
   showFeedbackForOption: { [key: number]: boolean } = {};
 
   questionToDisplay = '';
-  private questionToDisplaySource = new BehaviorSubject<string>('Loading...');
+  private questionToDisplaySource = new BehaviorSubject<string>('');
   public questionToDisplay$ = this.questionToDisplaySource.asObservable();
 
   optionsToDisplay: Option[] = [];

@@ -288,7 +288,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         }
 
         // Otherwise show question text with banner for multiple-answer questions
-        if (!trimmedQText) return 'Loading...';
+        if (!trimmedQText) return '';
 
         if (isMulti && bannerText) {
           return `${trimmedQText} <span class="correct-count">${bannerText}</span>`;
