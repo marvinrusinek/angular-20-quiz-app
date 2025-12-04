@@ -2,7 +2,7 @@
   <div class="animation-host">
     @if (combinedQuestionData$ | async; as qa) {
       <div class="route-anim" @changeRoute (@changeRoute.done)="animationDoneHandler()">
-        <mat-card @changeRoute (@changeRoute.done)="animationDoneHandler()">
+        <mat-card>
           <codelab-quiz-header />
 
           <mat-card-content>
