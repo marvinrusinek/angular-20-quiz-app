@@ -476,7 +476,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
       .subscribe(total => {
         this.totalQuestions = total;
       });
-    
+
     this.indexSubscription = this.quizService.currentQuestionIndex$
       .pipe(distinctUntilChanged())
       .subscribe((idx: number) => {
@@ -785,6 +785,8 @@ get quizQuestionComponent(): QuizQuestionComponent {
   }
 
   async ngAfterViewInit(): Promise<void> {
+    requestAnimationFrame(() => this.watchForAnimationGhosts());
+
     void this.quizQuestionLoaderService.loadQuestionContents(this.currentQuestionIndex);
 
     // If the loader queued options before the child existed, apply them now
@@ -814,6 +816,41 @@ get quizQuestionComponent(): QuizQuestionComponent {
       }
     }, 0);
   }
+
+  private watchForAnimationGhosts() {
+    const card = document.querySelector('mat-card');
+
+    if (!card) return;
+
+    const parent = card.parentElement;
+    if (!parent) return;
+
+    // Observe DOM changes around the card
+    const observer = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        m.addedNodes.forEach((node) => {
+          if (node.nodeType === 1) {
+            const el = node as HTMLElement;
+
+            // Highlight potential ghost nodes
+            el.style.outline = '2px solid red';
+
+            console.log(
+              '%c[GHOST FOUND]',
+              'color:#f00;font-weight:bold',
+              el,
+              'size:', el.getBoundingClientRect()
+            );
+          }
+        });
+      }
+    });
+
+    observer.observe(parent, { childList: true, subtree: true });
+
+    console.log('[DEBUG] Watching for animation ghost nodes…');
+  }
+
 
   initializeDisplayVariables(): void {
     this.displayVariables = {
@@ -3878,14 +3915,14 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
     // Allow emissions again
     this._animationInProgress = false;
-  
+
     // Restore visibility of the question text AFTER the animation is fully finished
     const el = document.querySelector('h3[i18n]');
     if (el) {
       // (el as HTMLElement).style.visibility = 'visible';
       (el as HTMLElement).style.opacity = '1';
     }
-  
+
     console.log('[NAV] 🔓 Visible now — animation finished');
   }
 
