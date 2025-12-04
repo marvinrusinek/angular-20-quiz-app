@@ -78,7 +78,7 @@ export class QuizNavigationService {
   public async advanceToPreviousQuestion(): Promise<boolean> {
     // Do not wipe everything; only clear transient display flags if necessary
     try {
-      this.quizStateService.setLoading(true);
+      this.quizStateService.setLoading(false);
   
       // Clear only ephemeral fields (no deep reset)
       (this as any).displayExplanation = false;
@@ -94,11 +94,15 @@ export class QuizNavigationService {
 
   private async navigateWithOffset(offset: number): Promise<boolean> {
     try {
-      // 🧹 Pre-cleanup (prevent FET & banner flicker)
+      // Clear stale locks so previous navigation works
+      this.quizStateService.setLoading(false);
+      this.quizStateService.setNavigating(false);
+
+      // Pre-cleanup (prevent FET & banner flicker)
       try {
         const ets: any = this.explanationTextService;
   
-        // 🔸 Reset explanation service internal state
+        // Reset explanation service internal state
         ets._fetLocked = true;                 // lock explanation during navigation
         ets.readyForExplanation = false;       // explanation not ready until question settles
         ets._questionRenderedOnce = false;     // question not yet rendered
@@ -108,6 +112,7 @@ export class QuizNavigationService {
         ets.setExplanationText('');
         ets.formattedExplanationSubject?.next('');
         ets.resetExplanationState?.();
+        this.quizStateService.setExplanationReady(false);
   
         // Reset component-level fields
         this.explanationToDisplay = '';
@@ -115,17 +120,16 @@ export class QuizNavigationService {
         // Reset display state to "question" mode
         this.quizStateService.displayStateSubject?.next({
           mode: 'question',
-          answered: false,
+          answered: false
         });
+        this.quizStateService.setExplanationReady(false);
   
-        // Clear banner + answer state
+        // Clear banner and answer state
         this.quizService.updateCorrectAnswersText('');
         this.quizService.correctAnswersCountSubject?.next(0);  // safety reset
         this.quizStateService.setAnswerSelected(false);
         this.selectedOptionService.setAnswered(false);
         this.nextButtonStateService.reset();
-  
-        console.log('[NAV] 🔄 Global FET + banner reset before navigation');
       } catch (err) {
         console.warn('[NAV] ⚠️ Pre-cleanup reset failed', err);
       }
@@ -151,7 +155,7 @@ export class QuizNavigationService {
   
       const currentIndex = readIndexFromSnapshot();
       const targetIndex = currentIndex + offset;
-      console.log(`[NAV] Snapshot index=${currentIndex}, target=${targetIndex}`);
+      this.quizService.setCurrentQuestionIndex(targetIndex);
   
       // Bounds / guard checks
       const effectiveQuizId = this.resolveEffectiveQuizId();
@@ -277,6 +281,7 @@ export class QuizNavigationService {
             mode: 'question',
             answered: false
           });
+          this.quizStateService.setExplanationReady(false);
   
           await this.explanationTextService.waitUntilQuestionRendered(600);
           setTimeout(() => {
@@ -335,382 +340,43 @@ export class QuizNavigationService {
   
     const ets: any = this.explanationTextService;
     const qqls: any = this.quizQuestionLoaderService;
-
+  
     const targetIndex = Math.max(0, Math.min(index, this.quizService.questions?.length - 1 || 0));
     ets._activeIndex = targetIndex;
   
-    // ACTIVATE BARRIERS (cross-service)
-    qqls.enableNavBarrier();
-    ets.enableNavBarrier();
-    console.log('[NAV] 🧱 Cross-service barriers enabled');
-
-    try {
-      ets._transitionLock = true;
-      ets._activeIndex = -1;
-      ets.latestExplanation = '';
-      ets.formattedExplanationSubject?.next('');
-      ets.setShouldDisplayExplanation(false);
-      ets.setIsExplanationTextDisplayed(false);
-
-      // Silence all per-index emitters before navigation begins
-      ets._byIndex?.forEach?.((s$: any) => s$?.next?.(null));
-      ets._gate?.forEach?.((g$: any) => g$?.next?.(false));
+    // BARRIERS
+    this.activateCrossServiceBarriers(ets, qqls, targetIndex);
   
-      // Also clear any lingering question text
-      qqls.questionToDisplay$?.next('');
-      qqls.emitQuestionTextSafely?.('', -1);
+    // PRE-NAV QUARANTINE + PURGES + QUIET ZONE
+    this.applyPreNavigationQuarantines(index, targetIndex, ets, qqls);
   
-      // Temporarily hide visual node
-      const el = document.querySelector('h3[i18n]');
-      if (el) (el as HTMLElement).style.visibility = 'hidden';
-  
-      // Release quarantine slightly after Angular’s next paint
-      setTimeout(() => {
-        ets._transitionLock = false;
-        ets._activeIndex = targetIndex;
-        const el2 = document.querySelector('h3[i18n]');
-        if (el2) (el2 as HTMLElement).style.visibility = 'visible';
-        console.log(`[NAV] ✅ Released quarantine for Q${targetIndex + 1}`);
-      }, 200);
-    } catch (quarantineErr) {
-      console.warn('[NAV] ⚠️ Hard quarantine failed', quarantineErr);
-    }
-
-    try {
-      // Flush / Clear logic before next question load
-      ets.formattedExplanationSubject?.next('');
-      ets.latestExplanation = '';
-      ets.setShouldDisplayExplanation(false);
-      ets.setIsExplanationTextDisplayed(false);
-
-      // Defer emissions briefly to allow new question text to render first
-      ets.purgeAndDefer(index);
-      ets.lockDuringTransition(140);
-    } catch (err) {
-      console.warn('[NAV] ⚠️ purgeAndDefer or lockDuringTransition failed', err);
-    }
-
-    // Also quarantine question text emissions (prevents Q1→Q2 flash)
-    try {
-      const qqls = this.quizQuestionLoaderService;
-      if (qqls?.questionToDisplaySubject) {
-        qqls.questionToDisplaySubject.next('');  // force-clear last Q
-      } else if ((this as any).questionToDisplaySubject) {
-        (this as any).questionToDisplaySubject.next('');
-      }
-      console.log('[NAV] 🧱 Quarantined question text before navigation');
-    } catch (err) {
-      console.warn('[NAV] ⚠️ Failed to clear question text', err);
-    }
-
-    // Cross-service quiet patch (no mid-frame emission)
-    try {
-      const now = performance.now();
-
-      // Set synchronized freeze + quiet windows
-      const freezeMs = 200;   // total hard freeze ~12 frames
-      const quietMs  = 180;   // matching quiet zone for CQCC
-      qqls._frozen = true;
-      qqls._isVisualFrozen = true;
-      qqls._renderFreezeUntil = now + freezeMs;
-      qqls._quietZoneUntil = now + quietMs;
-      ets._quietZoneUntil = now + quietMs;
-      ets._hardMuteUntil = now + quietMs;
-
-      // Broadcast quiet window downstream to CQCC
-      qqls.quietZoneUntil$?.next(qqls._quietZoneUntil);
-      if (typeof ets.setQuietZone === 'function') ets.setQuietZone(quietMs);
-
-      // Do NOT emit blank text yet — wait one frame to avoid racing Angular
-      requestAnimationFrame(() => {
-        try {
-          // After a frame boundary, flush old visuals cleanly
-          ets._activeIndex = -1;
-          ets.latestExplanation = '';
-          qqls.emitQuestionTextSafely('', -1);
-          this.quizService.updateCorrectAnswersText('');
-          ets.formattedExplanationSubject?.next('');
-          ets.setShouldDisplayExplanation(false);
-          ets.setIsExplanationTextDisplayed(false);
-          
-          // Lock emissions for a short window (gives Q2 text time to appear)
-          ets.lockDuringTransition(140);
-          console.log('[NAV] 🔒 Quiet patch frame-flush applied');
-        } catch (flushErr) {
-          console.warn('[NAV] ⚠️ Quiet patch flush failed', flushErr);
-        }
-      });
-
-      console.log('[NAV] 🧱 Quiet patch initialized — full freeze+mute window active');
-    } catch (err) {
-      console.warn('[NAV] ⚠️ Failed to apply quiet patch', err);
-    }
-  
-    // FULL FET BLACKOUT (prevents residual FET/expl text)
-    try {
-      const nowBlackout = performance.now();
-      const freezeMs = 200; // ~12 frames of total blackout
-  
-      ets._hardMuteUntil = nowBlackout + freezeMs;
-      ets._quietZoneUntil = nowBlackout + freezeMs;
-      qqls._quietZoneUntil = nowBlackout + freezeMs;
-  
-      // Flush all subjects and gates synchronously
-      ets.formattedExplanationSubject?.next('');
-      ets.shouldDisplayExplanationSubject?.next(false);
-      ets.isExplanationTextDisplayedSubject?.next(false);
-
-      if (ets._byIndex?.values) {
-        for (const subj of ets._byIndex.values()) subj?.next?.(null);
-      }
-
-      if (ets._gate?.values) {
-        for (const gate of ets._gate.values()) gate?.next?.(false);
-      }
-
-      ets._activeIndex = -1;
-      ets._fetGateLockUntil = nowBlackout + freezeMs;
-      console.log(`[NAV] 🚫 Full FET blackout for ${freezeMs}ms`);
-    } catch (err) {
-      console.warn('[NAV] ⚠️ Failed FET blackout init', err);
-    }
+    // GLOBAL QUIET PATCH + FET BLACKOUT
+    this.applyQuietPatch(ets, qqls);
+    this.applyFetBlackout(ets, qqls);
+    this.applyHardMuteAndGatePrep(ets, qqls);
   
     try {
-      // GLOBAL HARD-MUTE + QUIET ZONE
-      qqls._frozen = true;
-      qqls._isVisualFrozen = true;
-  
-      // Hard-hide the visual immediately so nothing old repaints
-      const el = document.querySelector('h3[i18n]');
-      if (el) (el as HTMLElement).style.visibility = 'hidden';
-  
-      const now = performance.now();
-      const quietDuration = 160;  // ~10 frames
-  
-      qqls._quietZoneUntil = now + quietDuration;
-      ets._quietZoneUntil = now + quietDuration;
-  
-      // Mirror to reactive streams so CQCC or any display layer can gate updates
-      qqls.quietZoneUntil$?.next(qqls._quietZoneUntil);
-      ets.setQuietZone(quietDuration);
-  
-      // Additional hard mute on explanation
-      ets._hardMuteUntil = now + 100;
-      ets._fetGateLockUntil = now + 140;
-      ets._activeIndex = -1;
-  
-      ets.formattedExplanationSubject?.next('');
-      ets.setShouldDisplayExplanation(false);
-      ets.setIsExplanationTextDisplayed(false);
-  
-      // Flush any existing active subjects
-      if (ets._byIndex) {
-        for (const subj of ets._byIndex.values()) subj?.next?.(null);
-      }
-
-      if (ets._gate) {
-        for (const gate of ets._gate.values()) gate?.next?.(false);
-      }
-
-      console.log('[NAV] 🔇 Global ETS hard-mute applied (quiet zone 120ms)');
-    } catch (err) {
-      console.warn('[NAV] ⚠️ Failed to pre-mute ETS', err);
-    }
-  
-    try {
-      this.quizStateService.isNavigatingSubject.next(true);
-      const prevIndex = this.quizService.getCurrentQuestionIndex() - 1;
-  
-      // RESET & LOCK FET GATES
-      try {
-        const ets: any = this.explanationTextService;
-        if (prevIndex >= 0) ets.closeGateForIndex(prevIndex);
-        ets._byIndex?.forEach?.((s$: any) => s$?.next?.(null));
-        ets.formattedExplanationSubject.next('');
-        ets.setShouldDisplayExplanation(false);
-        ets.setIsExplanationTextDisplayed(false);
-  
-        ets._fetGateLockUntil = performance.now() + 120;
-        console.log(`[NAV] 🧱 FET gates locked for 120 ms (prev=${prevIndex})`);
-      } catch (err) {
-        console.warn('[NAV] ⚠️ FET lock reset failed', err);
-      }
-  
-      // FREEZE BEFORE CLEARING ANYTHING
-      this.quizQuestionLoaderService.freezeQuestionStream(96);
-      this.quizQuestionLoaderService._lastNavTime = performance.now();
-      this.quizQuestionLoaderService.clearQuestionTextBeforeNavigation();
-      this.resetRenderStateBeforeNavigation(index);
-  
-      // Let Angular do one paint + a tiny buffer
-      await new Promise<void>((r) => requestAnimationFrame(() => r()));
-      await new Promise<void>((r) => setTimeout(r, 32));
-  
-      // Reinforce mute briefly after Angular repaint
-      const ets2: any = this.explanationTextService;
-      ets2._hardMuteUntil = performance.now() + 48;
-      ets2.formattedExplanationSubject.next('');
-      ets2.setShouldDisplayExplanation(false);
-      ets2.setIsExplanationTextDisplayed(false);
-  
-      // Resolve quiz ID and route URL
-      const quizIdFromRoute = this.activatedRoute.snapshot.paramMap.get('quizId');
-      const fallbackQuizId = localStorage.getItem('quizId');
-      const quizId = quizIdFromRoute || fallbackQuizId;
-      if (!quizId || quizId === 'fallback-id')
-        console.error('[❌ Invalid quizId – fallback used]', quizId);
-  
-      const routeUrl = `/question/${quizId}/${index + 1}`;
-      const currentUrl = this.router.url;
-      const currentIndex = this.quizService.getCurrentQuestionIndex();
-  
-      this.quizQuestionLoaderService.resetQuestionLocksForIndex(currentIndex);
-      this.timerService.resetTimerFlagsFor(index);
+      // SET NAVIGATING + RESET STREAMS + FREEZE UI
+      await this.prepareNavigationState(index);
   
       // ROUTER NAVIGATION
-      if (currentIndex === index && currentUrl === routeUrl) {
-        await this.ngZone.run(() =>
-          this.router.navigateByUrl('/', { skipLocationChange: true })
-        );
-      }
-      const navSuccess = await this.ngZone.run(() =>
-        this.router.navigateByUrl(routeUrl)
-      );
-      if (!navSuccess) {
-        console.warn('[⚠️ Router navigateByUrl returned false]', routeUrl);
-        return false;
-      }
+      const navSuccess = await this.performRouterNavigation(index);
+      await new Promise(res => requestAnimationFrame(res));  // stabilizer frame
+      await new Promise(res => setTimeout(res, 16));
+      if (!navSuccess) return false;
   
-      // RESET SELECTIONS
-      this.selectedOptionService.resetAllStates?.();
-      (this.selectedOptionService as any)._lockedOptionsMap?.clear?.();
-      (this.selectedOptionService as any).optionStates?.clear?.();
-      this.selectedOptionService.selectedOptionsMap?.clear?.();
-      this.selectedOptionService.clearSelectionsForQuestion(this.currentQuestionIndex);
-
-      ets._activeIndex = -1;
-      ets._transitionLock = true; 
-      ets.latestExplanation = '';
-      ets.setShouldDisplayExplanation(false);
-      ets.setIsExplanationTextDisplayed(false);
-      ets.formattedExplanationSubject.next('');  // hard clear
-      setTimeout(() => { ets._transitionLock = false; }, 180);
-      console.log(`[NAV] 🔇 Silencing ETS before loading Q${index + 1}`);
-
-      const fresh = await firstValueFrom(this.quizService.getQuestionByIndex(index));
-      if (!fresh) {
-        console.warn(`[NAV] ⚠️ getQuestionByIndex(${index}) returned null`);
-        return false;
-      }
-
-      // Tell the entire app "we are on this index now"
-      this.quizService.setCurrentQuestionIndex(index);
-
-      try {
-        const ets: any = this.explanationTextService;
-        // Reset any lingering formatted explanation text or gates
-        ets._activeIndex = index;  // realign to the current question immediately
-        ets.formattedExplanationSubject?.next('');
-        ets.shouldDisplayExplanationSubject?.next(false);
-        ets.isExplanationTextDisplayedSubject?.next(false);
-      
-        // Also clear all cached per-index subjects
-        if (ets._byIndex) {
-          for (const subj of ets._byIndex.values()) subj?.next?.('');
-        }
-
-        if (ets._gate) {
-          for (const gate of ets._gate.values()) gate?.next?.(false);
-        }
-
-        console.log(`[NAV] 🚿 Purged all stale FET for old indices — aligned to Q${index + 1}`);
-      } catch (err) {
-        console.warn('[NAV] ⚠️ Failed to purge FET cache', err);
-      }
+      // RESET SELECTION STATE + FET PURGE
+      await this.resetPostNavigationState(index);
   
-      // PREP TEXTS
-      const isMulti =
-        (fresh.type as any) === QuestionType.MultipleAnswer ||
-        (Array.isArray(fresh.options) && fresh.options.filter((o) => o.correct).length > 1);
+      // FETCH QUESTION + EMIT TEXT + BANNER
+      const fresh = await this.fetchAndEmitQuestion(index);
+      if (!fresh) return false;
   
-      const trimmedQ = (fresh.questionText ?? '').trim();
-      const explanationRaw = (fresh.explanation ?? '').trim();
-      const numCorrect = (fresh.options ?? []).filter((o) => o.correct).length;
-      const totalOpts = (fresh.options ?? []).length;
-      const banner = isMulti
-        ? this.quizQuestionManagerService.getNumberOfCorrectAnswersText(numCorrect, totalOpts)
-        : '';
+      // ARM EXPLANATION TEXT POST-PAINT
+      this.armExplanationText(index, fresh);
   
-      // EMIT
-      await qqls.waitForDomStable(32);
-  
-      // Release barriers + clear freezes + make visible
-      qqls.disableNavBarrier();
-      ets.disableNavBarrier();
-      qqls._frozen = false;
-      qqls._isVisualFrozen = false;
-      qqls._freezeUntil = 0;
-      qqls._renderFreezeUntil = 0;
-      qqls._quietZoneUntil = performance.now() - 1;
-      qqls.quietZoneUntil$?.next(qqls._quietZoneUntil);
-      ets._hardMuteUntil = performance.now() - 1;
-  
-      const el2 = document.querySelector('h3[i18n]');
-      if (el2) (el2 as HTMLElement).style.visibility = 'visible';
-  
-      // Emit question and banner together
-      await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => {
-          try {
-            qqls.emitQuestionTextSafely(trimmedQ, index);
-            console.log(`[NAV] 🧩 Question emitted for Q${index + 1}`);
-  
-            requestAnimationFrame(() => {
-              this.quizService.updateCorrectAnswersText(banner);
-              console.log(`[NAV] 🏷 Banner emitted for Q${index + 1}`);
-            });
-  
-            resolve();
-          } catch (err) {
-            console.warn('[NAV] ⚠️ Question emission failed', err);
-            qqls._frozen = false;
-            qqls._isVisualFrozen = false;
-            resolve();
-          }
-        });
-      });
-  
-      // Arm FET slightly later (safe post-paint)
-      if (explanationRaw) {
-        const correctIdxs = ets.getCorrectOptionIndices(fresh as any);
-        const formatted = ets.formatExplanation(fresh as any, correctIdxs, explanationRaw).trim();
-  
-        setTimeout(() => {
-          const nowAfter = performance.now();
-          const stillQuiet = nowAfter < (ets._quietZoneUntil ?? 0);
-          if (!stillQuiet) {
-            ets.openExclusive(index, formatted);
-            ets.setShouldDisplayExplanation(false, { force: false });
-            console.log(`[NAV] 🧩 FET armed post-paint for Q${index + 1}`);
-          } else {
-            console.log('[NAV] ⏸ FET skipped due to quiet zone still active');
-          }
-        }, 120);
-      }
-  
-      // Navigation completion
-      await new Promise<void>((resolve) =>
-        requestAnimationFrame(() => {
-          this.quizStateService.isNavigatingSubject.next(false);
-          resolve();
-        })
-      );
-  
-      const endNow = performance.now();
-      qqls._quietZoneUntil = endNow + 40;
-      ets._quietZoneUntil = endNow + 40;
-      ets.markLastNavTime?.(endNow);
-      qqls._lastNavTime = endNow;
+      // FINALIZE NAVIGATION + RELEASE FREEZES
+      await this.finalizeNavigation(ets, qqls);
   
       return true;
     } catch (err) {
@@ -719,6 +385,396 @@ export class QuizNavigationService {
     } finally {
       this._fetchInProgress = false;
     }
+  }
+
+  private activateCrossServiceBarriers(ets: any, qqls: any, targetIndex: number): void {
+    console.log('[NAV] 🧱 Cross-service barriers enabled');
+  
+    try {
+      ets._transitionLock = true;
+      ets._activeIndex = -1;
+      ets.latestExplanation = '';
+      ets.formattedExplanationSubject?.next('');
+      ets.setShouldDisplayExplanation(false);
+      ets.setIsExplanationTextDisplayed(false);
+      ets._byIndex?.forEach?.((s$: any) => s$?.next?.(null));
+      ets._gate?.forEach?.((g$: any) => g$?.next?.(false));
+  
+      // Clear question text
+      const qqls = this.quizQuestionLoaderService;
+      qqls.questionToDisplaySubject?.next('');
+      qqls.emitQuestionTextSafely?.('', -1);
+  
+      // Temporary hide
+      const el = document.querySelector('h3[i18n]');
+      if (el) (el as HTMLElement).style.visibility = 'hidden';
+  
+      setTimeout(() => {
+        ets._transitionLock = false;
+        ets._activeIndex = targetIndex;
+        const el2 = document.querySelector('h3[i18n]');
+        if (el2) (el2 as HTMLElement).style.visibility = 'visible';
+        console.log(`[NAV] ✅ Released quarantine for Q${targetIndex + 1}`);
+      }, 200);
+    } catch (e) {
+      console.warn('[NAV] ⚠️ Hard quarantine failed', e);
+    }
+  }
+
+  private applyPreNavigationQuarantines(index: number, targetIndex: number, ets: any, qqls: any): void {
+    try {
+      ets.formattedExplanationSubject?.next('');
+      ets.latestExplanation = '';
+      ets.setShouldDisplayExplanation(false);
+      ets.setIsExplanationTextDisplayed(false);
+  
+      ets.purgeAndDefer(index);
+      ets.lockDuringTransition(140);
+    } catch (err) {
+      console.warn('[NAV] ⚠️ purgeAndDefer or lockDuringTransition failed', err);
+    }
+  
+    // Also quarantine question text
+    try {
+      if (qqls?.questionToDisplaySubject) {
+        qqls.questionToDisplaySubject.next('');
+      } else if ((this as any).questionToDisplaySubject) {
+        (this as any).questionToDisplaySubject.next('');
+      }
+      console.log('[NAV] 🧱 Quarantined question text before navigation');
+    } catch (err) {
+      console.warn('[NAV] ⚠️ Failed to clear question text', err);
+    }
+  }
+
+  private applyQuietPatch(ets: any, qqls: any): void {
+    try {
+      const now = performance.now();
+      const freezeMs = 200;
+      const quietMs = 180;
+  
+      qqls._frozen = true;
+      qqls._isVisualFrozen = true;
+      qqls._renderFreezeUntil = now + freezeMs;
+      qqls._quietZoneUntil = now + quietMs;
+  
+      ets._quietZoneUntil = now + quietMs;
+      ets._hardMuteUntil = now + quietMs;
+  
+      qqls.quietZoneUntil$?.next(qqls._quietZoneUntil);
+      if (typeof ets.setQuietZone === 'function') ets.setQuietZone(quietMs);
+  
+      requestAnimationFrame(() => {
+        try {
+          ets._activeIndex = -1;
+          ets.latestExplanation = '';
+          qqls.emitQuestionTextSafely('', -1);
+          this.quizService.updateCorrectAnswersText('');
+  
+          ets.formattedExplanationSubject?.next('');
+          ets.setShouldDisplayExplanation(false);
+          ets.setIsExplanationTextDisplayed(false);
+  
+          ets.lockDuringTransition(140);
+          console.log('[NAV] 🔒 Quiet patch frame-flush applied');
+        } catch (flushErr) {
+          console.warn('[NAV] ⚠️ Quiet patch flush failed', flushErr);
+        }
+      });
+  
+      console.log('[NAV] 🧱 Quiet patch initialized — full freeze+mute window active');
+    } catch (err) {
+      console.warn('[NAV] ⚠️ Failed to apply quiet patch', err);
+    }
+  }
+
+  private applyFetBlackout(ets: any, qqls: any): void {
+    try {
+      const now = performance.now();
+      const freezeMs = 200;
+  
+      ets._hardMuteUntil = now + freezeMs;
+      ets._quietZoneUntil = now + freezeMs;
+      qqls._quietZoneUntil = now + freezeMs;
+  
+      ets.formattedExplanationSubject?.next('');
+      ets.shouldDisplayExplanationSubject?.next(false);
+      ets.isExplanationTextDisplayedSubject?.next(false);
+  
+      if (ets._byIndex?.values) {
+        for (const subj of ets._byIndex.values()) subj?.next?.(null);
+      }
+      if (ets._gate?.values) {
+        for (const gate of ets._gate.values()) gate?.next?.(false);
+      }
+  
+      ets._activeIndex = -1;
+      ets._fetGateLockUntil = now + freezeMs;
+  
+      console.log(`[NAV] 🚫 Full FET blackout for ${freezeMs}ms`);
+    } catch (err) {
+      console.warn('[NAV] ⚠️ Failed FET blackout init', err);
+    }
+  }
+
+  private applyHardMuteAndGatePrep(ets: any, qqls: any): void {
+    try {
+      qqls._frozen = true;
+      qqls._isVisualFrozen = true;
+  
+      const el = document.querySelector('h3[i18n]');
+      if (el) (el as HTMLElement).style.visibility = 'hidden';
+  
+      const now = performance.now();
+      const quietDuration = 160;
+  
+      qqls._quietZoneUntil = now + quietDuration;
+      ets._quietZoneUntil = now + quietDuration;
+  
+      qqls.quietZoneUntil$?.next(qqls._quietZoneUntil);
+      ets.setQuietZone(quietDuration);
+  
+      ets._hardMuteUntil = now + 100;
+      ets._fetGateLockUntil = now + 140;
+      ets._activeIndex = -1;
+  
+      ets.formattedExplanationSubject?.next('');
+      ets.setShouldDisplayExplanation(false);
+      ets.setIsExplanationTextDisplayed(false);
+  
+      if (ets._byIndex) {
+        for (const subj of ets._byIndex.values()) subj?.next?.(null);
+      }
+      if (ets._gate) {
+        for (const gate of ets._gate.values()) gate?.next?.(false);
+      }
+  
+      console.log('[NAV] 🔇 Global ETS hard-mute applied (quiet zone 120ms)');
+    } catch (err) {
+      console.warn('[NAV] ⚠️ Failed to pre-mute ETS', err);
+    }
+  }
+
+  private async prepareNavigationState(index: number): Promise<void> {
+    this.quizStateService.isNavigatingSubject.next(true);
+    const prevIndex = this.quizService.getCurrentQuestionIndex() - 1;
+  
+    // RESET & LOCK FET GATES
+    try {
+      const ets: any = this.explanationTextService;
+      if (prevIndex >= 0) ets.closeGateForIndex(prevIndex);
+      ets._byIndex?.forEach?.((s$: any) => s$?.next?.(null));
+      ets.formattedExplanationSubject.next('');
+      ets.setShouldDisplayExplanation(false);
+      ets.setIsExplanationTextDisplayed(false);
+  
+      ets._fetGateLockUntil = performance.now() + 120;
+      console.log(`[NAV] 🧱 FET gates locked for 120 ms (prev=${prevIndex})`);
+    } catch (err) {
+      console.warn('[NAV] ⚠️ FET lock reset failed', err);
+    }
+  
+    // FREEZE BEFORE CLEARING ANYTHING
+    this.quizQuestionLoaderService.freezeQuestionStream(96);
+    this.quizQuestionLoaderService._lastNavTime = performance.now();
+    this.quizQuestionLoaderService.clearQuestionTextBeforeNavigation();
+    this.resetRenderStateBeforeNavigation(index);
+  
+    // Allow Angular to paint first
+    await new Promise<void>((r) => requestAnimationFrame(() => r()));
+    await new Promise<void>((r) => setTimeout(r, 32));
+  
+    // Reinforce mute briefly after Angular repaint
+    const ets2: any = this.explanationTextService;
+    ets2._hardMuteUntil = performance.now() + 48;
+    ets2.formattedExplanationSubject.next('');
+    ets2.setShouldDisplayExplanation(false);
+    ets2.setIsExplanationTextDisplayed(false);
+  
+    // Validate quizId
+    const quizIdFromRoute = this.activatedRoute.snapshot.paramMap.get('quizId');
+    const fallbackQuizId = localStorage.getItem('quizId');
+    const quizId = quizIdFromRoute || fallbackQuizId;
+  
+    if (!quizId || quizId === 'fallback-id')
+      console.error('[❌ Invalid quizId – fallback used]', quizId);
+  
+    // Timer flags, locks
+    const currentIndex = this.quizService.getCurrentQuestionIndex();
+    this.quizQuestionLoaderService.resetQuestionLocksForIndex(currentIndex);
+    this.timerService.resetTimerFlagsFor(index);
+  }
+
+  private async performRouterNavigation(index: number): Promise<boolean> {
+    const quizIdFromRoute = this.activatedRoute.snapshot.paramMap.get('quizId');
+    const fallbackQuizId = localStorage.getItem('quizId');
+    const quizId = quizIdFromRoute || fallbackQuizId;
+  
+    const routeUrl = `/question/${quizId}/${index + 1}`;
+    const currentUrl = this.router.url;
+    const currentIndex = this.quizService.getCurrentQuestionIndex();
+  
+    // Handle same-URL reload scenario
+    if (currentIndex === index && currentUrl === routeUrl) {
+      await this.ngZone.run(() =>
+        this.router.navigateByUrl('/', { skipLocationChange: true })
+      );
+    }
+  
+    const navSuccess = await this.ngZone.run(() =>
+      this.router.navigateByUrl(routeUrl)
+    );
+  
+    if (!navSuccess) {
+      console.warn('[⚠️ Router navigateByUrl returned false]', routeUrl);
+      return false;
+    }
+  
+    return true;
+  }
+
+  private async resetPostNavigationState(index: number): Promise<void> {
+    // RESET SELECTIONS
+    this.selectedOptionService.resetAllStates?.();
+    (this.selectedOptionService as any)._lockedOptionsMap?.clear?.();
+    (this.selectedOptionService as any).optionStates?.clear?.();
+    this.selectedOptionService.selectedOptionsMap?.clear?.();
+    this.selectedOptionService.clearSelectionsForQuestion(this.currentQuestionIndex);
+  
+    // Silence ETS
+    const ets: any = this.explanationTextService;
+    ets._activeIndex = -1;
+    ets._transitionLock = true;
+    ets.latestExplanation = '';
+    ets.setShouldDisplayExplanation(false);
+    ets.setIsExplanationTextDisplayed(false);
+    ets.formattedExplanationSubject.next('');
+  
+    setTimeout(() => { ets._transitionLock = false; }, 180);
+  }
+
+  private async fetchAndEmitQuestion(index: number): Promise<any> {
+    const fresh = await firstValueFrom(this.quizService.getQuestionByIndex(index));
+    if (!fresh) {
+      console.warn(`[NAV] ⚠️ getQuestionByIndex(${index}) returned null`);
+      return null;
+    }
+  
+    this.quizService.setCurrentQuestionIndex(index);
+  
+    // Reset FET caches
+    try {
+      const ets: any = this.explanationTextService;
+      ets._activeIndex = index;
+      ets.formattedExplanationSubject?.next('');
+      ets.shouldDisplayExplanationSubject?.next(false);
+      ets.isExplanationTextDisplayedSubject?.next(false);
+  
+      if (ets._byIndex) {
+        for (const subj of ets._byIndex.values()) subj?.next?.('');
+      }
+  
+      if (ets._gate) {
+        for (const gate of ets._gate.values()) gate?.next?.(false);
+      }
+  
+      console.log(`[NAV] 🚿 Purged all stale FET for old indices — aligned to Q${index + 1}`);
+    } catch (err) {
+      console.warn('[NAV] ⚠️ Failed to purge FET cache', err);
+    }
+  
+    // Prepare text
+    const isMulti =
+      (fresh.type as any) === QuestionType.MultipleAnswer ||
+      (Array.isArray(fresh.options) && fresh.options.filter((o) => o.correct).length > 1);
+  
+    const trimmedQ = (fresh.questionText ?? '').trim();
+    const explanationRaw = (fresh.explanation ?? '').trim();
+    const numCorrect = (fresh.options ?? []).filter((o) => o.correct).length;
+    const totalOpts = (fresh.options ?? []).length;
+  
+    const banner = isMulti
+      ? this.quizQuestionManagerService.getNumberOfCorrectAnswersText(numCorrect, totalOpts)
+      : '';
+  
+    // WAIT for DOM to stabilize before final emission
+    const qqls = this.quizQuestionLoaderService;
+    await qqls.waitForDomStable(32);
+  
+    qqls._frozen = false;
+    qqls._isVisualFrozen = false;
+    qqls._renderFreezeUntil = 0;
+    qqls._quietZoneUntil = performance.now() - 1;
+    qqls.quietZoneUntil$?.next(qqls._quietZoneUntil);
+  
+    const ets: any = this.explanationTextService;
+    ets._hardMuteUntil = performance.now() - 1;
+  
+    // const el2 = document.querySelector('h3[i18n]');
+    // if (el2) (el2 as HTMLElement).style.visibility = 'visible';
+  
+    // Emit question and banner
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => {
+        try {
+          qqls.emitQuestionTextSafely(trimmedQ, index);
+          console.log(`[NAV] 🧩 Question emitted for Q${index + 1}`);
+  
+          requestAnimationFrame(() => {
+            this.quizService.updateCorrectAnswersText(banner);
+            console.log(`[NAV] 🏷 Banner emitted for Q${index + 1}`);
+          });
+  
+          resolve();
+        } catch (err) {
+          console.warn('[NAV] ⚠️ Question emission failed', err);
+          qqls._frozen = false;
+          qqls._isVisualFrozen = false;
+          resolve();
+        }
+      });
+    });
+  
+    return { fresh, explanationRaw };
+  }
+
+  private armExplanationText(index: number, data: any): void {
+    const { fresh, explanationRaw } = data;
+    const ets: any = this.explanationTextService;
+  
+    if (!explanationRaw) return;
+  
+    const correctIdxs = ets.getCorrectOptionIndices(fresh as any);
+    const formatted = ets.formatExplanation(fresh as any, correctIdxs, explanationRaw).trim();
+  
+    setTimeout(() => {
+      const nowAfter = performance.now();
+      const stillQuiet = nowAfter < (ets._quietZoneUntil ?? 0);
+  
+      if (!stillQuiet) {
+        ets.openExclusive(index, formatted);
+        ets.setShouldDisplayExplanation(false, { force: false });
+        console.log(`[NAV] 🧩 FET armed post-paint for Q${index + 1}`);
+      } else {
+        console.log('[NAV] ⏸ FET skipped due to quiet zone still active');
+      }
+    }, 120);
+  }
+
+  private async finalizeNavigation(ets: any, qqls: any): Promise<void> {
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => {
+        this.quizStateService.isNavigatingSubject.next(false);
+        resolve();
+      })
+    );
+  
+    const endNow = performance.now();
+    qqls._quietZoneUntil = endNow + 40;
+    ets._quietZoneUntil = endNow + 40;
+  
+    ets.markLastNavTime?.(endNow);
+    qqls._lastNavTime = endNow;
   }
   
   public async resetUIAndNavigate(index: number, quizIdOverride?: string): Promise<boolean> {
@@ -1018,6 +1074,7 @@ export class QuizNavigationService {
   
     // Reset to question mode so next frame starts clean
     this.quizStateService.displayStateSubject?.next({ mode: 'question', answered: false });
+    this.quizStateService.setExplanationReady(false);
   
     console.log(`[RESET] Render state cleared before navigating → Q${targetIndex + 1}`);
   }

@@ -214,6 +214,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
   isQuizReady = false;
 
   animationState$ = new BehaviorSubject<AnimationState>('none');
+  private _animationInProgress = false;
   unsubscribe$ = new Subject<void>();
   private destroy$ = new Subject<void>();
 
@@ -260,7 +261,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
       if (isHidden) {
         // Pause updates here
       } else {
-        void this.handleVisibilityChange();
+        // void this.handleVisibilityChange();
       }
     });
 
@@ -475,86 +476,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
       .subscribe(total => {
         this.totalQuestions = total;
       });
-
-    /* this.indexSubscription = this.quizService.currentQuestionIndex$
-  .pipe(distinctUntilChanged())
-  .subscribe((idx: number) => {
-
-
-    const prevIdx = this.lastLoggedIndex;
-    const ets = this.explanationTextService;
-
-    // ───────────────────────────────
-    // 🔥 ONLY nuke FET when switching questions
-    // ───────────────────────────────
-    if (prevIdx !== null && prevIdx !== idx) {
-
-      console.warn('[INDEX CHANGE] Q', prevIdx + 1, '→ Q', idx + 1);
-
-      // Clear user state for PREVIOUS question only
-      (this.quizStateService as any)._hasUserInteracted?.delete(prevIdx);
-      (this.quizStateService as any)._answeredQuestionIndices?.delete(prevIdx);
-
-      const currentExplIdx = (ets as any).latestExplanationIndex;
-
-      // Only clear explanation when switching to a DIFFERENT question
-      if (currentExplIdx !== null && currentExplIdx !== idx) {
-        console.warn('[FET RESET] Purging explanation from old index', currentExplIdx);
-
-        ets.latestExplanation = '';
-        ets.formattedExplanationSubject?.next('');
-        ets.shouldDisplayExplanationSource?.next(false);
-        ets.setIsExplanationTextDisplayed(false);
-        // (ets as any).latestExplanationIndex = null;
-      } else {
-        console.log('[FET HOLD] Preserving explanation pipeline for Q', idx + 1);
-      }
-    }
-
-    // ───────────────────────────────
-    // ✅ Set new active index only
-    // ───────────────────────────────
-    ets._activeIndex = idx;
-    this._fetEarlyShown.delete(idx);
-
-    console.warn('[ACTIVE INDEX SET]', idx + 1);
-
-    // ✅ Remember current index for the next transition
-    this.lastLoggedIndex = idx;
-  }); */
-    /* this.indexSubscription = this.quizService.currentQuestionIndex$
-  .pipe(distinctUntilChanged())
-  .subscribe((idx: number) => {
-
-    const ets = this.explanationTextService;
-
-    console.warn('[INDEX CHANGE] →', idx + 1);
-
-    // 🔥 Only reset when switching away from a question
-    if (this.lastLoggedIndex !== null && this.lastLoggedIndex !== idx) {
-
-      console.warn('[CLEANUP PREVIOUS Q]', this.lastLoggedIndex + 1);
-
-      (this.quizStateService as any)._hasUserInteracted?.delete(this.lastLoggedIndex);
-      (this.quizStateService as any)._answeredQuestionIndices?.delete(this.lastLoggedIndex);
-
-      // ✅ Only clear if explanation belongs to the OLD one
-      if ((ets as any).latestExplanationIndex === this.lastLoggedIndex) {
-        console.warn('[CLEAR OLD FET]', this.lastLoggedIndex + 1);
-        ets.latestExplanation = '';
-        ets.formattedExplanationSubject.next('');
-        ets.shouldDisplayExplanationSource.next(false);
-        ets.setIsExplanationTextDisplayed(false);
-        (ets as any).latestExplanationIndex = null;
-      }
-    }
-
-    // ✅ DO NOT CLEAR CURRENT QUESTION
-    ets._activeIndex = idx;
-    this._fetEarlyShown.delete(idx);
-
-    this.lastLoggedIndex = idx;
-  }); */
+    
     this.indexSubscription = this.quizService.currentQuestionIndex$
       .pipe(distinctUntilChanged())
       .subscribe((idx: number) => {
@@ -562,7 +484,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
         const prevIdx = this.lastLoggedIndex;
         const ets = this.explanationTextService;
 
-        // ✅ ONLY purge the PREVIOUS question
+        // ONLY purge the PREVIOUS question
         if (prevIdx !== null && prevIdx !== idx) {
           console.warn('[STATE CLEANUP] Purging Q', prevIdx + 1);
 
@@ -579,8 +501,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
           }
         }
 
-        // 🧠 HARD RESET QUESTION STATE (NOT JUST UI)
-        // ─────────────────────────────────────────────
+        // HARD RESET QUESTION STATE (NOT JUST UI)
         const qState =
           this.quizId && Number.isFinite(idx)
             ? this.quizStateService.getQuestionState?.(this.quizId, idx)
@@ -593,21 +514,21 @@ get quizQuestionComponent(): QuizQuestionComponent {
           qState.explanationText = '';
         }
 
-        // ✅ DO NOT clear the current question state
+        // DO NOT clear the current question state
         ets._activeIndex = idx;
         ets._fetLocked = false;
         this._fetEarlyShown.delete(idx);
         this.lastLoggedIndex = idx;
 
-        // ✅ CRITICAL FIX: Update the component property so it propagates to children!
+        // Update the component property so it propagates to children
         this.currentQuestionIndex = idx;
         this.cdRef.markForCheck();
 
-        // ✅ ONLY reset display mode when NAVIGATING to a NEW question
+        // ONLY reset display mode when NAVIGATING to a NEW question
         if (prevIdx !== null && prevIdx !== idx) {
           console.warn('[🔄 NAVIGATION RESET] Moving from Q', prevIdx + 1, '→ Q', idx + 1);
 
-          // 🚨 FORCE question mode on navigation
+          // FORCE question mode on navigation
           this.quizStateService.displayStateSubject.next({
             mode: 'question',
             answered: false
@@ -621,7 +542,6 @@ get quizQuestionComponent(): QuizQuestionComponent {
           console.warn('[✅ NAVIGATION COMPLETE]', idx + 1);
         }
       });
-
 
     try {
       const questions = await this.quizService.fetchQuizQuestions(quizId);
@@ -816,7 +736,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
     this.setupQuiz();
     this.subscribeToRouteParams();
-    this.registerVisibilityChangeHandler();
+    // this.registerVisibilityChangeHandler();
     this.initializeDisplayVariables();
 
     this.quizInitializationService.initializeAnswerSync(
@@ -839,22 +759,16 @@ get quizQuestionComponent(): QuizQuestionComponent {
   }
 
   private registerVisibilityChangeHandler(): void {
-    document.addEventListener('visibilitychange', async () => {
+    document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
-        setTimeout(() => {
-          const idx = this.quizService.getCurrentQuestionIndex();
-
-          if (idx >= 0 && idx < this.totalQuestions) {
-            this.ngZone.run(() => {
-              this.quizService.updateBadgeText(idx + 1, this.totalQuestions);
-            });
-          }
-
-          // Restore question text and state
-          void this.handleVisibilityChange();
-
-          queueMicrotask(() => this.injectDynamicComponent());
-        }, 50);
+        // Only update badge — no UI restore, no question restore,
+        // no explanation restore, no component injection.
+        const idx = this.quizService.getCurrentQuestionIndex();
+        if (idx >= 0 && idx < this.totalQuestions) {
+          this.ngZone.run(() => {
+            this.quizService.updateBadgeText(idx + 1, this.totalQuestions);
+          });
+        }
       }
     });
   }
@@ -908,7 +822,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
     };
   }
 
-  private async handleVisibilityChange(): Promise<void> {
+  /* private async handleVisibilityChange(): Promise<void> {
     const currentIndex: number = this.quizService.getCurrentQuestionIndex();
     try {
       // Ensure questions are loaded
@@ -978,7 +892,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
     } catch (error) {
       console.error('Error retrieving total questions count:', error);
     }
-  }
+  } */
 
   private async restoreSelectionState(): Promise<void> {
     try {
@@ -3959,7 +3873,19 @@ get quizQuestionComponent(): QuizQuestionComponent {
   }
 
   animationDoneHandler(): void {
+    // Restore animation state
     this.animationState$.next('none');
+
+    // Allow emissions again
+    this._animationInProgress = false;
+  
+    // Restore visibility of the question text AFTER the animation is fully finished
+    const el = document.querySelector('h3[i18n]');
+    if (el) {
+      (el as HTMLElement).style.visibility = 'visible';
+    }
+  
+    console.log('[NAV] 🔓 Visible now — animation finished');
   }
 
   selectedAnswer(option: Option): void {
@@ -4585,6 +4511,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
     // Force display back to question mode
     this.quizStateService.displayStateSubject?.next({ mode: 'question', answered: false });
+    this.quizStateService.setExplanationReady(false);
 
     console.log('[RESET] Reactive quiz state cleared.');
 

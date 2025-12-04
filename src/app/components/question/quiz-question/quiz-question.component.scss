@@ -40,12 +40,6 @@
 /* ────────────────────────────────────────────────
    MAIN OPTION BOX (replaces visible radio/checkbox)
 ──────────────────────────────────────────────────*/
-/* ────────────────────────────────────────────────
-   Restore Angular-10 option text size & left alignment
-──────────────────────────────────────────────────*/
-/* ────────────────────────────────────────────────
-   Re-enable visible rectangular option boxes
-──────────────────────────────────────────────────*/
 .options {
   margin-left: -5px;
 
@@ -59,8 +53,8 @@
     margin-left: -10px;
     margin-bottom: 10px;
     box-sizing: border-box;
-    width: 610px;
-    display: flex !important;
+    width: 615px;
+    display: flex;
     align-items: center;
     justify-content: flex-start;
     position: relative;
@@ -80,7 +74,7 @@
       margin-left: -20px;
     }
 
-    /* keep icons to the right edge */
+    /* Keep icons to the right edge */
     mat-icon {
       position: absolute;
       right: 20px;
@@ -89,7 +83,7 @@
     }
   }
 
-  /* feedback states */
+  /* Feedback states */
   .correct {
     background-color: vars.$green;
     border-color: vars.$vivid-blue;

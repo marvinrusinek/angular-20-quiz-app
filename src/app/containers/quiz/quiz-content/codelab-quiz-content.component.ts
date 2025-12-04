@@ -1,5 +1,5 @@
 import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, NgZone, OnChanges, OnDestroy, OnInit, Output, SimpleChanges, ViewChild } from '@angular/core';
-import { AsyncPipe, CommonModule } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { ActivatedRoute, ParamMap } from '@angular/router';
 import { animationFrameScheduler, BehaviorSubject, combineLatest, defer, firstValueFrom, forkJoin, merge, Observable, of, Subject, Subscription } from 'rxjs';
 import { auditTime, catchError, debounceTime, distinctUntilChanged, filter, map, observeOn, shareReplay, skip, skipUntil, startWith, switchMap, take, takeUntil, tap, withLatestFrom } from 'rxjs/operators';
@@ -31,7 +31,7 @@ type DisplayState = { mode: 'question' | 'explanation'; answered: boolean };
 @Component({
   selector: 'codelab-quiz-content',
   standalone: true,
-  imports: [CommonModule, AsyncPipe],
+  imports: [CommonModule],
   templateUrl: './codelab-quiz-content.component.html',
   styleUrls: ['./codelab-quiz-content.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -467,7 +467,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     }
   }
 
-  public getCombinedDisplayTextStream(): Observable<string> {
+  /* public getCombinedDisplayTextStream(): Observable<string> {
     // Core reactive inputs
     const index$ = this.quizService.currentQuestionIndex$.pipe(
       startWith(this.currentQuestionIndexValue ?? 0),
@@ -666,9 +666,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         return isMatch;
       }),
 
-      /* ============================================================
-         ✅ STEP 1 — HARD INDEX GATE (new, don’t remove above logic)
-         ============================================================ */
+      ✅ STEP 1 — HARD INDEX GATE (new, don’t remove above logic)
       withLatestFrom(this.quizService.currentQuestionIndex$),
 
       filter(([
@@ -730,6 +728,307 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       observeOn(animationFrameScheduler),
       shareReplay({ bufferSize: 1, refCount: true })
     ) as Observable<string>;
+  } */
+  public getCombinedDisplayTextStream(): Observable<string> {
+    // Core reactive inputs
+    const index$ = this.quizService.currentQuestionIndex$.pipe(
+      startWith(this.currentQuestionIndexValue ?? 0),
+      distinctUntilChanged(),
+      tap((newIdx) => {
+        const ets = this.explanationTextService;
+        // ✅ Reset FET only on index change (navigation), not on visibility
+        ets._activeIndex = newIdx;
+        ets.latestExplanation = '';
+        ets.latestExplanationIndex = null;
+  
+        ets.formattedExplanationSubject?.next('');
+        ets.explanationText$?.next('');
+  
+        ets.setShouldDisplayExplanation(false);
+        ets.setIsExplanationTextDisplayed(false);
+        ets.setGate?.(newIdx, false);
+  
+        if (ets._activeIndex !== null && ets._activeIndex !== newIdx) {
+          ets.setGate?.(ets._activeIndex, false);
+        }
+  
+        console.log(`[INDEX] 🔄 Reset FET streams for new index → ${newIdx}`);
+      }),
+      debounceTime(50),
+      shareReplay({ bufferSize: 1, refCount: true })
+    );
+  
+    const serviceQuestionText$ = (this.questionToDisplay$ || of('')).pipe(
+      tap(q => console.log(`[questionText$] 🔵 Raw input (service): "${(q ?? '').slice(0, 80)}"`)),
+      map(q => (q ?? '').trim()),
+      filter(q => q.length > 0)
+    );
+  
+    const fallbackQuestionText$ = this.currentQuestion$.pipe(
+      map(question => (question?.questionText ?? '').trim()),
+      filter(text => text.length > 0),
+      tap(text => console.log(`[questionText$] 🟣 Fallback from payload: "${text.slice(0, 80)}"`))
+    );
+  
+    const questionText$ = merge(serviceQuestionText$, fallbackQuestionText$).pipe(
+      tap(q => console.log(`[questionText$] 🟢 After merge: "${q.slice(0, 80)}"`)),
+      distinctUntilChanged(),
+      tap(q => console.log(`[questionText$] ✅ Final: "${q.slice(0, 80)}"`))
+    );
+  
+    const correctText$ = this.quizService.correctAnswersText$.pipe(
+      map(v => v?.trim() || ''),
+      startWith(''),
+      debounceTime(25),
+      distinctUntilChanged(),
+      shareReplay({ bufferSize: 1, refCount: true })
+    );
+  
+    const fetForIndex$ = combineLatest([
+      (this.explanationTextService.formattedExplanation$ ?? of('')).pipe(startWith('')),
+      (this.explanationTextService.shouldDisplayExplanation$ ?? of(false)).pipe(startWith(false)),
+      (this.explanationTextService.activeIndex$ ?? of(-1)).pipe(startWith(-1))
+    ]).pipe(
+      auditTime(0),
+      map(([text, gate, idx]) => ({ idx, text: (text ?? '').trim(), gate: !!gate })),
+      distinctUntilChanged((a, b) => a.idx === b.idx && a.gate === b.gate && a.text === b.text),
+      shareReplay({ bufferSize: 1, refCount: true })
+    );
+  
+    const shouldShow$ = this.explanationTextService.shouldDisplayExplanation$.pipe(
+      map(Boolean),
+      startWith(false),
+      distinctUntilChanged(),
+      auditTime(16),
+      shareReplay({ bufferSize: 1, refCount: true })
+    );
+  
+    const navigating$ = this.quizStateService.isNavigatingSubject.pipe(
+      startWith(false),
+      distinctUntilChanged(),
+      shareReplay({ bufferSize: 1, refCount: true })
+    );
+  
+    const qQuiet$ = this.quizQuestionLoaderService.quietZoneUntil$
+      ? this.quizQuestionLoaderService.quietZoneUntil$.pipe(
+          startWith(0),
+          distinctUntilChanged()
+        )
+      : of(0);
+  
+    const eQuiet$ = this.explanationTextService.quietZoneUntil$
+      ? this.explanationTextService.quietZoneUntil$.pipe(
+          startWith(0),
+          distinctUntilChanged()
+        )
+      : of(0);
+  
+    // NEW: display mode + explanation readiness
+    const displayState$ = this.quizStateService.displayState$;
+    const explanationReady$ = this.quizStateService.explanationReady$;
+  
+    type CombinedTuple = [
+      number, // index$
+      string, // questionText$
+      string, // correctText$
+      { idx: number; text: string; gate: boolean },  // fetForIndex$
+      boolean, // shouldShow$
+      boolean, // navigating$
+      number,  // qQuiet$
+      number,  // eQuiet$
+      QuizQuestion[] // questions$
+    ];
+  
+    // ─────────────────────────────────────
+    // Base stream: your existing logic
+    // ─────────────────────────────────────
+    const base$ = combineLatest<CombinedTuple>([
+      index$,
+      questionText$,
+      correctText$,
+      fetForIndex$,
+      shouldShow$,
+      navigating$,
+      qQuiet$,
+      eQuiet$,
+      this.quizService.questions$.pipe(
+        startWith([]),
+        map(() => this.quizService.questions || [])
+      )
+    ]).pipe(
+      startWith([
+        0,
+        'Loading question...',
+        '',
+        { idx: -1, text: '', gate: false },
+        false,
+        false,
+        0,
+        0,
+        []
+      ] as CombinedTuple),
+      skip(1),
+      auditTime(16),
+  
+      filter((tuple: CombinedTuple) => {
+        const [
+          , // idx
+          , // question
+          , // banner
+          , // fet
+          , // shouldShow
+          navigating,
+          qQuiet,
+          eQuiet
+        ] = tuple;
+        const hold = navigating || performance.now() < Math.max(qQuiet || 0, eQuiet || 0);
+        if (hold) {
+          console.log('[VisualGate] ⏸ hold (navigating/quiet-zone)');
+        }
+        return !hold;
+      }),
+  
+      distinctUntilChanged((prev: CombinedTuple, curr: CombinedTuple) => {
+        const [pIdx, , , pFet, pShow] = prev;
+        const [cIdx, , , cFet, cShow] = curr;
+        return (
+          pIdx === cIdx &&
+          pFet?.text === cFet?.text &&
+          pShow === cShow
+        );
+      }),
+  
+      skipUntil(
+        index$.pipe(
+          filter(idx => Number.isFinite(idx)),
+          take(1)
+        )
+      ),
+  
+      filter(([idx, , , fet]) => {
+        const isMatch = fet?.idx === idx || !fet?.text?.trim();
+  
+        if (!isMatch) {
+          console.log(
+            `[DisplayGate] 🚫 Suppressing mismatched FET (fet.idx=${fet?.idx}, current=${idx})`
+          );
+        }
+  
+        return isMatch;
+      }),
+  
+      withLatestFrom(this.quizService.currentQuestionIndex$),
+  
+      filter(([
+        [idx, question, banner, fet, shouldShow, navigating, qQuiet, eQuiet],
+        liveIdx
+      ]) => {
+        const valid = idx === liveIdx;
+  
+        if (!valid) {
+          console.warn('[INDEX GATE] Dropping stale emission', {
+            streamIndex: idx,
+            liveIndex: liveIdx,
+            fetIdx: fet?.idx
+          });
+        }
+  
+        return valid;
+      }),
+  
+      map(([[idx, question, banner, fet, shouldShow, navigating, qQuiet, eQuiet, questions]]) =>
+        [idx, question, banner, fet, shouldShow, navigating, qQuiet, eQuiet, questions] as CombinedTuple
+      ),
+  
+      auditTime(32),
+      filter(([, question]) => typeof question === 'string' && question.trim().length > 0),
+      auditTime(32),
+      filter(([, question]) => typeof question === 'string' && question.trim().length > 0),
+      tap(([idx, question, banner, fet, shouldShow]) => {
+        console.log('[FET STREAM]', {
+          idx,
+          question: question?.slice?.(0, 40),
+          fetText: fet?.text?.slice?.(0, 40),
+          fetGate: fet?.gate,
+          shouldShow
+        });
+      }),
+  
+      map(([idx, question, banner, fet, shouldShow, navigating, qQuiet, eQuiet, questions]) => {
+        console.log(`[getCombinedDisplayTextStream] Q${idx + 1} before resolveTextToDisplay:`, {
+          questionsLength: questions?.length,
+          serviceQuestionsLength: this.quizService.questions?.length,
+          banner,
+          idx
+        });
+        return this.resolveTextToDisplay(idx, question, banner, fet, shouldShow, questions);
+      }),
+  
+      auditTime(16),
+      distinctUntilChanged((a: string, b: string) => a.trim() === b.trim())
+      // NOTE: we remove observeOn/shareReplay here and apply it on the final stream instead
+    );
+  
+    // ─────────────────────────────────────
+    // FINAL LAYER: explanation wins
+    // ─────────────────────────────────────
+    return combineLatest([
+      base$,
+      displayState$,
+      explanationReady$,
+      this.explanationTextService.formattedExplanation$.pipe(startWith('')),
+      this.quizService.currentQuestionIndex$
+    ]).pipe(
+      map(([baseText, displayState, explanationReady, formatted, idx]) => {
+        const fet = String(
+          formatted ??
+          this.explanationTextService.latestExplanation ??
+          ''
+        ).trim();
+  
+        const mode = displayState?.mode ?? 'question';
+        const base = String(baseText ?? '') as string;
+  
+        // 1️⃣ Normal explanation-mode override
+        if (mode === 'explanation') {
+          if (fet) {
+            console.log('[CQCC] 🟢 Explanation mode override → showing FET');
+            return fet as string;
+          }
+  
+          if (explanationReady) {
+            console.log('[CQCC] 🟡 Explanation ready but empty → placeholder, not question text');
+            return (fet || 'Explanation not available.') as string;
+          }
+        }
+  
+        // 2️⃣ HARD OVERRIDE: once answered, FET wins if it exists
+        try {
+          const quizId = this.quizId ?? '';
+          if (quizId) {
+            const qState = this.quizStateService.getQuestionState(quizId, idx);
+            const isAnswered = qState?.isAnswered || qState?.explanationDisplayed;
+  
+            if (isAnswered) {
+              if (fet) {
+                console.log('[CQCC] 🔐 Answered override → forcing FET');
+                return fet as string;
+              }
+              // no FET? fall back to whatever base decided
+              return base;
+            }
+          }
+        } catch (err) {
+          console.warn('[CQCC] ⚠️ Answered override check failed', err);
+        }
+  
+        // 3️⃣ Default: use base text (usually question)
+        return base;
+      }),
+      distinctUntilChanged((a: string, b: string) => a.trim() === b.trim()),
+      observeOn(animationFrameScheduler),
+      shareReplay({ bufferSize: 1, refCount: true })
+    );
   }
 
   private connectCombinedTextStream(): void {
