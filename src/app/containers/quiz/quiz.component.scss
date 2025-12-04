@@ -148,7 +148,7 @@ mat-card > * {
   overflow: hidden;
 }
 
-.animation-host > * {
+.animation-host > mat-card {
   width: 100%;
   display: block;
 }
