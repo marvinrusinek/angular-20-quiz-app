@@ -141,6 +141,19 @@ mat-card {
   width: 100%;
   display: block;
   overflow: hidden;
+  border-radius: 10px;
+  border: 1.5px solid vars.$black;
+}
+
+.animation-host > .ng-animating {
+  position: absolute !important;
+  top: 0;
+  left: 0;
+  width: 100% !important;
+  height: 100% !important;
+  opacity: 0 !important;
+  pointer-events: none;
+  border: none !important;
 }
 
 /* Hide Angular’s ghost nodes */
