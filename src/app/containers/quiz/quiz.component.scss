@@ -140,6 +140,7 @@ mat-card {
   position: relative;
   width: 100%;
   display: block;
+  overflow: hidden;
 }
 
 /* Hide Angular’s ghost nodes */
