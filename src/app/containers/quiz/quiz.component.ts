@@ -3872,7 +3872,16 @@ get quizQuestionComponent(): QuizQuestionComponent {
   }
 
   animationDoneHandler(): void {
+    // Restore animation state
     this.animationState$.next('none');
+  
+    // Restore visibility of the question text AFTER the animation is fully finished
+    const el = document.querySelector('h3[i18n]');
+    if (el) {
+      (el as HTMLElement).style.visibility = 'visible';
+    }
+  
+    console.log('[NAV] 🔓 Visible now — animation finished');
   }
 
   selectedAnswer(option: Option): void {
