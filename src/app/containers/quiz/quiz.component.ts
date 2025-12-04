@@ -3882,7 +3882,8 @@ get quizQuestionComponent(): QuizQuestionComponent {
     // Restore visibility of the question text AFTER the animation is fully finished
     const el = document.querySelector('h3[i18n]');
     if (el) {
-      (el as HTMLElement).style.visibility = 'visible';
+      // (el as HTMLElement).style.visibility = 'visible';
+      (el as HTMLElement).style.opacity = '1';
     }
   
     console.log('[NAV] 🔓 Visible now — animation finished');

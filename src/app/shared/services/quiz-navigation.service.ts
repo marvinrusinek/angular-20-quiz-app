@@ -407,8 +407,9 @@ export class QuizNavigationService {
   
       // Temporary hide
       const el = document.querySelector('h3[i18n]');
-      if (el) (el as HTMLElement).style.visibility = 'hidden';
-  
+      // if (el) (el as HTMLElement).style.visibility = 'hidden';
+      if (el) (el as HTMLElement).style.opacity = '0';
+
       setTimeout(() => {
         ets._transitionLock = false;
         ets._activeIndex = targetIndex;
@@ -523,8 +524,9 @@ export class QuizNavigationService {
       qqls._isVisualFrozen = true;
   
       const el = document.querySelector('h3[i18n]');
-      if (el) (el as HTMLElement).style.visibility = 'hidden';
-  
+      // if (el) (el as HTMLElement).style.visibility = 'hidden';
+      if (el) (el as HTMLElement).style.opacity = '0';
+
       const now = performance.now();
       const quietDuration = 160;
   
