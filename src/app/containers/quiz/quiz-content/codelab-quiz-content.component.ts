@@ -296,8 +296,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
         return trimmedQText;
       }),
-      distinctUntilChanged(),
-      startWith('Loading question...')
+      distinctUntilChanged()
     );
 
     this.resetExplanationView();
@@ -858,7 +857,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     ]).pipe(
       startWith([
         0,
-        'Loading question...',
+        '',
         '',
         { idx: -1, text: '', gate: false },
         false,
