@@ -5,6 +5,13 @@ mat-card {
   height: auto !important;
   display: block;
 
+  mat-card-content {
+    width: 100%;
+    min-width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
   mat-card-footer {
     display: block;
     clear: left;
