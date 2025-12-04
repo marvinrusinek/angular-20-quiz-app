@@ -362,6 +362,7 @@ export class QuizNavigationService {
       // ROUTER NAVIGATION
       const navSuccess = await this.performRouterNavigation(index);
       await new Promise(res => requestAnimationFrame(res));  // stabilizer frame
+      await new Promise(res => setTimeout(res, 16));
       if (!navSuccess) return false;
   
       // RESET SELECTION STATE + FET PURGE
