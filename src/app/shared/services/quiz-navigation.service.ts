@@ -710,8 +710,8 @@ export class QuizNavigationService {
     const ets: any = this.explanationTextService;
     ets._hardMuteUntil = performance.now() - 1;
   
-    const el2 = document.querySelector('h3[i18n]');
-    if (el2) (el2 as HTMLElement).style.visibility = 'visible';
+    // const el2 = document.querySelector('h3[i18n]');
+    // if (el2) (el2 as HTMLElement).style.visibility = 'visible';
   
     // Emit question and banner
     await new Promise<void>((resolve) => {
