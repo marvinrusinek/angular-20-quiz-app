@@ -153,10 +153,6 @@ mat-card > * {
   display: block;
 }
 
-.animation-host {
-  position: relative;
-}
-
 .animation-host > .ng-animating {
   position: absolute !important;
   top: 0;
@@ -166,15 +162,6 @@ mat-card > * {
   pointer-events: none;
   opacity: 0 !important;  // hides the box completely
 }
-/* .animation-host > .ng-animating:not(mat-card):not([role]) {
-  position: absolute !important;
-  top: 0;
-  left: 0;
-  width: 100% !important;
-  height: 100% !important;
-  pointer-events: none;
-  opacity: 0 !important;
-} */
 
 .custom-bar {
   width: 100%;
