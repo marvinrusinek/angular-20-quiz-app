@@ -157,7 +157,7 @@ mat-card > * {
   position: relative;
 }
 
-/* .animation-host > .ng-animating {
+.animation-host > .ng-animating {
   position: absolute !important;
   top: 0;
   left: 0;
@@ -165,8 +165,8 @@ mat-card > * {
   height: 100% !important;
   pointer-events: none;
   opacity: 0 !important;  // hides the box completely
-} */
-.animation-host > .ng-animating:not(mat-card):not([role]) {
+}
+/* .animation-host > .ng-animating:not(mat-card):not([role]) {
   position: absolute !important;
   top: 0;
   left: 0;
@@ -174,7 +174,7 @@ mat-card > * {
   height: 100% !important;
   pointer-events: none;
   opacity: 0 !important;
-}
+} */
 
 :host ::ng-deep .ng-animating {
   width: 100% !important;
