@@ -129,31 +129,35 @@ mat-card {
   }
 }
 
+/* The animation container */
+.route-anim {
+  max-width: 680px;
+  margin: 12px auto;
+
+  background: #fff;
+  border: 1.5px solid vars.$black;
+  border-radius: 10px;
+  box-shadow: 10px 10px 5px vars.$gray;
+
+  overflow: hidden;
+  box-sizing: border-box;
+
+  display: block;
+}
+
 .animation-host {
   position: relative;
   width: 100%;
   overflow: hidden;
 }
 
-/* The animation container */
-.route-anim {
-  position: relative;
-  width: 100%;
-  display: block;
-  overflow: hidden;
-  border-radius: 10px;
-  border: 1.5px solid vars.$black;
-}
-
 .animation-host > .ng-animating {
   position: absolute !important;
-  top: 0;
-  left: 0;
+  inset: 0;
   width: 100% !important;
   height: 100% !important;
   opacity: 0 !important;
   pointer-events: none;
-  border: none !important;
 }
 
 /* Hide Angular’s ghost nodes */
