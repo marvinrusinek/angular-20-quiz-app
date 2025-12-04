@@ -164,7 +164,7 @@ mat-card > * {
   width: 100% !important;
   height: 100% !important;
   pointer-events: none;
-  opacity: 0 !important;   // hides the box completely
+  opacity: 0 !important;  // hides the box completely
 }
 
 :host ::ng-deep .ng-animating {
@@ -174,7 +174,6 @@ mat-card > * {
   display: block !important;
   box-sizing: border-box !important;
 }
-
 
 .custom-bar {
   width: 100%;
