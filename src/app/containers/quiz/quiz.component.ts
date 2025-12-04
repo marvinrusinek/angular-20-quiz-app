@@ -826,16 +826,17 @@ get quizQuestionComponent(): QuizQuestionComponent {
   
     console.log('[DEBUG] Watching for ghost nodes (only direct children)...');
   
-    // Observe only immediate children, not subtree
     const observer = new MutationObserver((mutations) => {
-      for (const mutation of mutations) {
-        for (const node of mutation.addedNodes) {
-          if (node.nodeType !== 1) continue;
+      mutations.forEach((mutation) => {
+  
+        // Convert NodeList → array to avoid TS2488
+        Array.from(mutation.addedNodes).forEach((node) => {
+          if (!(node instanceof HTMLElement)) return;
   
           const el = node as HTMLElement;
           const rect = el.getBoundingClientRect();
   
-          // Ghost nodes are tiny (<= 40px in width or height)
+          // Angular ghost nodes are tiny
           if (rect.width <= 40 || rect.height <= 40) {
             el.style.outline = '3px solid red';
             console.warn(
@@ -845,15 +846,17 @@ get quizQuestionComponent(): QuizQuestionComponent {
               'size:', rect
             );
           }
-        }
-      }
+        });
+  
+      });
     });
   
     observer.observe(parent, {
       childList: true,
-      subtree: false   // ✨ Important: watch only direct children of the parent
+      subtree: false
     });
   }
+  
   
 
   initializeDisplayVariables(): void {
