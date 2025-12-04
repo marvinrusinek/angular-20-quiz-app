@@ -133,15 +133,6 @@ mat-card {
   overflow: hidden;
 }
 
-// Force Angular animation ghost to full width
-mat-card > * {
-  width: 100% !important;
-  min-width: 100% !important;
-  max-width: 100% !important;
-  display: block !important;
-  box-sizing: border-box !important;
-}
-
 .animation-host {
   position: relative;
   width: 100%;
@@ -153,15 +144,16 @@ mat-card > * {
   display: block;
 }
 
-.animation-host > .ng-animating {
+.animation-host > .ng-animating:not(mat-card):not([class*="mat-"]) {
   position: absolute !important;
   top: 0;
   left: 0;
   width: 100% !important;
   height: 100% !important;
   pointer-events: none;
-  opacity: 0 !important;  // hides the box completely
+  opacity: 0 !important;
 }
+
 
 .custom-bar {
   width: 100%;
