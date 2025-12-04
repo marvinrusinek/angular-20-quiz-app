@@ -142,13 +142,13 @@ mat-card > * {
   box-sizing: border-box !important;
 }
 
-.route-wrapper {
+.animation-host {
   position: relative;
-  overflow: hidden;        // ✨ hides Angular’s animation placeholder
   width: 100%;
+  overflow: hidden;
 }
 
-.route-wrapper > * {
+.animation-host > * {
   width: 100%;
   display: block;
 }
