@@ -139,7 +139,25 @@ mat-card {
   overflow: hidden;
 }
 
-.animation-host > mat-card {
+/* The animation container */
+.route-anim {
+  position: relative;
+  width: 100%;
+  display: block;
+}
+
+/* Hide Angular’s ghost nodes */
+.route-anim > .ng-animating:not(.route-anim):not(mat-card):not([class*="mat-"]) {
+  position: absolute !important;
+  top: 0;
+  left: 0;
+  width: 100% !important;
+  height: 100% !important;
+  opacity: 0 !important;
+  pointer-events: none;
+}
+
+/* .animation-host > mat-card {
   width: 100%;
   display: block;
 }
@@ -152,7 +170,7 @@ mat-card {
   height: 100% !important;
   pointer-events: none;
   opacity: 0 !important;
-}
+} */
 
 
 .custom-bar {
