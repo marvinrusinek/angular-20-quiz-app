@@ -214,6 +214,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
   isQuizReady = false;
 
   animationState$ = new BehaviorSubject<AnimationState>('none');
+  private _animationInProgress = false;
   unsubscribe$ = new Subject<void>();
   private destroy$ = new Subject<void>();
 
@@ -3874,6 +3875,9 @@ get quizQuestionComponent(): QuizQuestionComponent {
   animationDoneHandler(): void {
     // Restore animation state
     this.animationState$.next('none');
+
+    // Allow emissions again
+    this._animationInProgress = false;
   
     // Restore visibility of the question text AFTER the animation is fully finished
     const el = document.querySelector('h3[i18n]');
