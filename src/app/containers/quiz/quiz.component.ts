@@ -785,7 +785,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
   }
 
   async ngAfterViewInit(): Promise<void> {
-    requestAnimationFrame(() => this.watchForAnimationGhosts());
+    requestAnimationFrame(() => this.watchForGhosts());
 
     void this.quizQuestionLoaderService.loadQuestionContents(this.currentQuestionIndex);
 
@@ -817,40 +817,44 @@ get quizQuestionComponent(): QuizQuestionComponent {
     }, 0);
   }
 
-  private watchForAnimationGhosts() {
+  private watchForGhosts() {
     const card = document.querySelector('mat-card');
-
     if (!card) return;
-
+  
     const parent = card.parentElement;
     if (!parent) return;
-
-    // Observe DOM changes around the card
+  
+    console.log('[DEBUG] Watching for ghost nodes (only direct children)...');
+  
+    // Observe only immediate children, not subtree
     const observer = new MutationObserver((mutations) => {
-      for (const m of mutations) {
-        m.addedNodes.forEach((node) => {
-          if (node.nodeType === 1) {
-            const el = node as HTMLElement;
-
-            // Highlight potential ghost nodes
-            el.style.outline = '2px solid red';
-
-            console.log(
-              '%c[GHOST FOUND]',
-              'color:#f00;font-weight:bold',
+      for (const mutation of mutations) {
+        for (const node of mutation.addedNodes) {
+          if (node.nodeType !== 1) continue;
+  
+          const el = node as HTMLElement;
+          const rect = el.getBoundingClientRect();
+  
+          // Ghost nodes are tiny (<= 40px in width or height)
+          if (rect.width <= 40 || rect.height <= 40) {
+            el.style.outline = '3px solid red';
+            console.warn(
+              '%c[LIKELY GHOST NODE]',
+              'color:red;font-weight:bold',
               el,
-              'size:', el.getBoundingClientRect()
+              'size:', rect
             );
           }
-        });
+        }
       }
     });
-
-    observer.observe(parent, { childList: true, subtree: true });
-
-    console.log('[DEBUG] Watching for animation ghost nodes…');
+  
+    observer.observe(parent, {
+      childList: true,
+      subtree: false   // ✨ Important: watch only direct children of the parent
+    });
   }
-
+  
 
   initializeDisplayVariables(): void {
     this.displayVariables = {
