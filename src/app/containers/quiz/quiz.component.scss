@@ -167,12 +167,6 @@ mat-card > * {
   opacity: 0 !important;   // hides the box completely
 }
 
-.animation-host [class*="ng-"] {
-  position: absolute;
-  top: 0;
-  left: 0;
-}
-
 :host ::ng-deep .ng-animating {
   width: 100% !important;
   min-width: 100% !important;
@@ -181,27 +175,6 @@ mat-card > * {
   box-sizing: border-box !important;
 }
 
-:host ::ng-deep mat-card + * {
-  width: 100% !important;
-  min-width: 100% !important;
-  max-width: 100% !important;
-  display: block !important;
-  box-sizing: border-box !important;
-}
-
-:host ::ng-deep .animation-host > *:not(mat-card) {
-  width: 0 !important;
-  min-width: 0 !important;
-  max-width: 0 !important;
-  height: 0 !important;
-  min-height: 0 !important;
-  max-height: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  overflow: hidden !important;
-  display: block !important;
-  position: absolute !important;
-}
 
 .custom-bar {
   width: 100%;
