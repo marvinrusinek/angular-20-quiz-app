@@ -153,6 +153,26 @@ mat-card > * {
   display: block;
 }
 
+.animation-host {
+  position: relative;
+}
+
+.animation-host > .ng-animating {
+  position: absolute !important;
+  top: 0;
+  left: 0;
+  width: 100% !important;
+  height: 100% !important;
+  pointer-events: none;
+  opacity: 0 !important;   // hides the box completely
+}
+
+.animation-host [class*="ng-"] {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
 :host ::ng-deep .ng-animating {
   width: 100% !important;
   min-width: 100% !important;
