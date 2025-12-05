@@ -3917,20 +3917,11 @@ get quizQuestionComponent(): QuizQuestionComponent {
   }
 
   animationDoneHandler(): void {
-    // Restore animation state
+    // Reset animation state for next transition
     this.animationState$.next('none');
-
-    // Allow emissions again
     this._animationInProgress = false;
-
-    // Restore visibility of the question text AFTER the animation is fully finished
-    const el = document.querySelector('h3[i18n]');
-    if (el) {
-      // (el as HTMLElement).style.visibility = 'visible';
-      (el as HTMLElement).style.opacity = '1';
-    }
-
-    console.log('[NAV] 🔓 Visible now — animation finished');
+  
+    console.log('[NAV] 🎬 Animation fully complete');
   }
 
   selectedAnswer(option: Option): void {
