@@ -1,98 +1,96 @@
 <ng-container>
   <div class="animation-host" [@changeRoute]="currentQuestionIndex">
     @if (combinedQuestionData$ | async; as qa) {
-      <div class="anim-wrapper">
-        <mat-card>
-          <codelab-quiz-header />
+      <mat-card>
+        <codelab-quiz-header />
 
-          <mat-card-content>
-            <codelab-scoreboard />
+        <mat-card-content>
+          <codelab-scoreboard />
 
-            <ng-content></ng-content>
+          <ng-content></ng-content>
 
-            <codelab-quiz-content 
-              [questionToDisplay$]="questionToDisplay$"
-              [explanationToDisplay]="explanationToDisplay"
-              [displayState$]="displayState$" />
+          <codelab-quiz-content 
+            [questionToDisplay$]="questionToDisplay$"
+            [explanationToDisplay]="explanationToDisplay"
+            [displayState$]="displayState$" />
 
-            <codelab-quiz-question 
-              [questionPayload]="qa"
-              [question]="qa.question"
-              [options]="qa.options"
-              [explanation]="qa.explanation"
-              [displayState$]="displayState$"
-              [shouldRenderOptions]="shouldRenderOptions"
-              [questionToDisplay$]="questionToDisplay$"
-              [explanationToDisplay]="explanationToDisplay"
-              (answer)="selectedAnswer($any($event))"
-              (optionSelected)="onOptionSelected($any($event))"
-              (selectionMessageChange)="onSelectionMessageChange($any($event))"
-              (explanationToDisplayChange)="onExplanationChanged($event)"
-              (showExplanationChange)="onShowExplanationChanged($event)" />
-          </mat-card-content>
+          <codelab-quiz-question 
+            [questionPayload]="qa"
+            [question]="qa.question"
+            [options]="qa.options"
+            [explanation]="qa.explanation"
+            [displayState$]="displayState$"
+            [shouldRenderOptions]="shouldRenderOptions"
+            [questionToDisplay$]="questionToDisplay$"
+            [explanationToDisplay]="explanationToDisplay"
+            (answer)="selectedAnswer($any($event))"
+            (optionSelected)="onOptionSelected($any($event))"
+            (selectionMessageChange)="onSelectionMessageChange($any($event))"
+            (explanationToDisplayChange)="onExplanationChanged($event)"
+            (showExplanationChange)="onShowExplanationChanged($event)" />
+        </mat-card-content>
 
-          <mat-card-footer [ngClass]="cardFooterClass">
-            @if (selectionMessage$ | async; as message) {
-              <h5 class="instructions-message">{{ message }}</h5>
-            }
+        <mat-card-footer [ngClass]="cardFooterClass">
+          @if (selectionMessage$ | async; as message) {
+            <h5 class="instructions-message">{{ message }}</h5>
+          }
 
-            <!-- NAVIGATION -->
-            @if (showPaging) {
-              <section class="paging">
-                <mat-card-actions [class.last-question]="shouldApplyLastQuestionClass">
-                  @if (shouldShowPrevButton) {
-                    <div class="prev-question-nav">
-                      <button type="button" (click)="advanceToPreviousQuestion()" matTooltip="« Previous Question" matTooltipPosition="above"
-                        aria-label="Previous Question">
-                        <i class="material-icons">navigate_before</i>
-                      </button>
-                    </div>
-                  }
+          <!-- NAVIGATION -->
+          @if (showPaging) {
+            <section class="paging">
+              <mat-card-actions [class.last-question]="shouldApplyLastQuestionClass">
+                @if (shouldShowPrevButton) {
+                  <div class="prev-question-nav">
+                    <button type="button" (click)="advanceToPreviousQuestion()" matTooltip="« Previous Question" matTooltipPosition="above"
+                      aria-label="Previous Question">
+                      <i class="material-icons">navigate_before</i>
+                    </button>
+                  </div>
+                }
 
-                  @if (shouldShowRestartButton) {
-                    <div class="restart-nav">
-                      <button type="button" (click)="restartQuiz()" matTooltip="Restart Quiz" matTooltipPosition="above"
-                        aria-label="Restart Quiz">
-                        <i class="material-icons">replay</i>
-                      </button>
-                    </div>
-                  }
+                @if (shouldShowRestartButton) {
+                  <div class="restart-nav">
+                    <button type="button" (click)="restartQuiz()" matTooltip="Restart Quiz" matTooltipPosition="above"
+                      aria-label="Restart Quiz">
+                      <i class="material-icons">replay</i>
+                    </button>
+                  </div>
+                }
 
-                  @if (shouldShowNextButton) {
-                    <div class="next-question-nav">
-                      <button type="button" #nextButton="matTooltip" [disabled]="!(nextButtonEnabled$ | async)"
-                        (click)="advanceToNextQuestion()" matTooltipPosition="above" [matTooltip]="nextButtonTooltip$ | async"
-                        aria-label="Next Question">
-                        <i class="material-icons">navigate_next</i>
-                      </button>
-                    </div>
-                  }
+                @if (shouldShowNextButton) {
+                  <div class="next-question-nav">
+                    <button type="button" #nextButton="matTooltip" [disabled]="!(nextButtonEnabled$ | async)"
+                      (click)="advanceToNextQuestion()" matTooltipPosition="above" [matTooltip]="nextButtonTooltip$ | async"
+                      aria-label="Next Question">
+                      <i class="material-icons">navigate_next</i>
+                    </button>
+                  </div>
+                }
 
-                  @if (shouldShowResultsButton) {
-                    <div class="show-score-nav">
-                      <button type="submit" (click)="advanceToResults()" class="btn btn-outline-primary"
-                        aria-label="Show Results">
-                        <i class="material-icons">score</i>&nbsp;&nbsp;
-                        <strong>Show Results</strong>
-                      </button>
-                    </div>
-                  }
-                </mat-card-actions>
-              </section>
-            }
-
-            <!-- Progress Bar -->
-            <section class="quiz-progress">
-              <div class="custom-bar">
-                <div class="custom-bar-fill" [style.width.%]="(progress$ | async) || 0"></div>
-              </div>
-              <div class="progress-label">
-                {{ (progress$ | async)?.toFixed(0) }}% complete
-              </div>
+                @if (shouldShowResultsButton) {
+                  <div class="show-score-nav">
+                    <button type="submit" (click)="advanceToResults()" class="btn btn-outline-primary"
+                      aria-label="Show Results">
+                      <i class="material-icons">score</i>&nbsp;&nbsp;
+                      <strong>Show Results</strong>
+                    </button>
+                  </div>
+                }
+              </mat-card-actions>
             </section>
-          </mat-card-footer>
-        </mat-card>
-      </div>
+          }
+
+          <!-- Progress Bar -->
+          <section class="quiz-progress">
+            <div class="custom-bar">
+              <div class="custom-bar-fill" [style.width.%]="(progress$ | async) || 0"></div>
+            </div>
+            <div class="progress-label">
+              {{ (progress$ | async)?.toFixed(0) }}% complete
+            </div>
+          </section>
+        </mat-card-footer>
+      </mat-card>
     } @else {
       <p>Loading question and options.</p>
     }
