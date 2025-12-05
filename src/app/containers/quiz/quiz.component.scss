@@ -128,29 +128,39 @@ mat-card {
 .animation-host {
   position: relative;
   width: 100%;
-  overflow: hidden;      // prevents ghost from sticking out
+  overflow: hidden; // hide ghost while keeping real shadow visible
   display: block;
 }
 
-/* The real mat-card (animated element) */
+/* REAL mat-card — do NOT touch box-shadow or border */
 .animation-host > mat-card {
-  display: block;
+  box-sizing: border-box;
   width: 100%;
-  margin: 12px auto;     // keep the same spacing as IntroductionComponent
+  display: block;
 }
 
-/* The GHOST Angular creates during transitions */
-.animation-host > mat-card.ng-animating {
+/* Limit children so they don't overflow horizontally */
+.animation-host > mat-card > * {
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+/* GHOST CLONE — ONLY hide Angular’s animation clone */
+.animation-host > .ng-animating {
   position: absolute !important;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
+  width: 100% !important;
+  height: 100% !important;
   pointer-events: none;
   opacity: 0 !important;
-  border: none !important;     // prevents double-border look
-  box-shadow: none !important; // prevents double-shadow
+
+  /* Kill ghost borders + ghost shadows ONLY */
+  border: none !important;
+  box-shadow: none !important;
 }
+
 
 /* ----------------------------------------------------
    PROGRESS BAR
