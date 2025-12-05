@@ -126,53 +126,27 @@ mat-card {
 /* ----------------------------------------------------
    ANIMATION WRAPPER (GHOST-SAFE + BORDER-SAFE)
 ----------------------------------------------------- */
+/* Container that animates */
 .animation-host {
   position: relative;
-  overflow: hidden;
   width: 100%;
   max-width: 680px;
   margin: 12px auto;
+  overflow: hidden;      // prevents scrollbars
   box-sizing: border-box;
 }
 
-/* Let global mat-card.css apply the border & shadow */
-/* .animation-host > mat-card {
-  display: block;
-  margin: 12px auto; // Same spacing as global
-  max-width: 680px; // Ensures border is visible on all sides
-} */
-
-/* Mat-card inherits full border and shadow from global styles */
-.card-wrapper > mat-card {
-  width: 100%;
-  display: block;
-}
-
-/* The wrapper is what actually animates */
-.card-wrapper {
+/* Ensure the real card displays its full border & shadow */
+.animation-host > mat-card {
   display: block;
   width: 100%;
-  max-width: 680px;
-  margin: 12px auto;
+  box-sizing: border-box;
 }
 
-/* Hide Angular's ghost animation element */
-.animation-host > .ng-animating {
+/* KILL ONLY the ghost animation clone */
+.animation-host > .ng-animating:not(mat-card):not(.mat-mdc-card):not(.mdc-card) {
   position: absolute !important;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100% !important;
-  pointer-events: none !important;
-  border: none !important;
-  box-shadow: none !important;
-  opacity: 0;
-}
-
-/* Hide only the tiny ghost animation elements — NOT the real card */
-.ng-animating:not(mat-card):not(.mat-mdc-card):not(.mdc-card) {
-  position: absolute !important;
-  inset: 0 !important;            // top:0, right:0, bottom:0, left:0
+  inset: 0 !important;
   width: 100% !important;
   height: 100% !important;
   pointer-events: none !important;
@@ -180,8 +154,9 @@ mat-card {
   border: none !important;
   box-shadow: none !important;
   background: transparent !important;
-  z-index: -1 !important;         // <-- forces it behind everything
+  z-index: -1 !important;
 }
+
 
 /* ----------------------------------------------------
    PROGRESS BAR
