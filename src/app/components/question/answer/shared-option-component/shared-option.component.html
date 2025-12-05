@@ -1,5 +1,5 @@
 @let opts = optionBindings || [];
-@if (canShowOptions()) {
+@if (canShowOptions(opts)) {
   <!-- OPTIONS ARE READY -->
   <form [formGroup]="form" class="options-form">
     @switch (type) {
