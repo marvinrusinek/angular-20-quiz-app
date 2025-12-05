@@ -128,8 +128,11 @@ mat-card {
 ----------------------------------------------------- */
 .animation-host {
   position: relative;
+  overflow: hidden;
   width: 100%;
-  overflow: visible; // Hide ghost frames (horizontal)
+  max-width: 680px;
+  margin: 12px auto;
+  box-sizing: border-box;
 }
 
 /* Let global mat-card.css apply the border & shadow */
@@ -166,11 +169,8 @@ mat-card {
   opacity: 0;
 }
 
-/* Kill ALL Angular ghost animation clones everywhere */
-.ng-animating,
-[class*="ng-animating"],
-div.ng-trigger-changeRoute,
-div[class*="ng-trigger-changeRoute"] {
+/* Hide only the tiny ghost animation elements — NOT the real card */
+.ng-animating:not(mat-card):not(.mat-mdc-card):not(.mdc-card) {
   position: absolute !important;
   top: 0 !important;
   left: 0 !important;
