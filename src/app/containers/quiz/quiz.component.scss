@@ -129,32 +129,6 @@ mat-card {
   }
 }
 
-/* The animation container */
-.route-anim {
-  max-width: 680px;
-  margin: 12px auto;
-
-  background: #fff;
-  border: 1.5px solid vars.$black;
-  border-radius: 10px;
-  box-shadow: 10px 10px 5px vars.$gray;
-
-  overflow: hidden;
-  box-sizing: border-box;
-
-  display: block;
-}
-
-/* Hide Angular’s ghost nodes */
-.route-anim > .ng-animating:not(.route-anim):not(mat-card):not([class*="mat-"]) {
-  position: absolute !important;
-  top: 0;
-  left: 0;
-  width: 100% !important;
-  height: 100% !important;
-  opacity: 0 !important;
-  pointer-events: none;
-}
 
 .animation-host {
   position: relative;
@@ -162,13 +136,20 @@ mat-card {
   overflow: hidden;
 }
 
+/* Animate the card EXACTLY as it was before */
+.animation-host > mat-card {
+  display: block;
+  width: 100%;
+}
+
+/* Hide ONLY the ghost elements Angular adds */
 .animation-host > .ng-animating {
-  position: absolute !important;
-  inset: 0;
-  width: 100% !important;
-  height: 100% !important;
-  opacity: 0 !important;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
   pointer-events: none;
+  opacity: 0;
 }
 
 /* .animation-host > mat-card {
