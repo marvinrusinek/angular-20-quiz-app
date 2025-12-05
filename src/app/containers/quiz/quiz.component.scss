@@ -12,31 +12,35 @@
   max-width: 680px;
   margin: 12px auto;
   overflow: visible;
-  box-sizing: border-box;
 }
 
-/* ENSURE MAT-CARD GETS FULL BORDER + SHADOW */
-.animation-host mat-card {
-  display: block;
+.card-wrapper {
   width: 100%;
   max-width: 680px;
+  margin: 0 auto;
+  display: block;
+  position: relative;
+}
+
+.card-wrapper > mat-card {
+  width: 100%;
+  display: block;
   box-sizing: border-box;
 }
 
-/* KILL ANY GHOST CLONE ANYWHERE INSIDE */
-.animation-host .ng-animating {
+/* Hide all Angular animation ghosts */
+.animation-host ~ .ng-animating,
+.animation-host > .ng-animating,
+:host ::ng-deep .ng-animating {
   position: absolute !important;
-  inset: 0 !important;        // top/right/bottom/left = 0
+  inset: 0 !important;
   width: 100% !important;
   height: 100% !important;
-
-  opacity: 0 !important;
   pointer-events: none !important;
+  opacity: 0 !important;
+  z-index: -1 !important;
   border: none !important;
   box-shadow: none !important;
-  background: transparent !important;
-
-  z-index: -1 !important;     // ensures REAL card stays on top
 }
 
 
