@@ -172,8 +172,7 @@ mat-card {
 /* Hide only the tiny ghost animation elements — NOT the real card */
 .ng-animating:not(mat-card):not(.mat-mdc-card):not(.mdc-card) {
   position: absolute !important;
-  top: 0 !important;
-  left: 0 !important;
+  inset: 0 !important;            // top:0, right:0, bottom:0, left:0
   width: 100% !important;
   height: 100% !important;
   pointer-events: none !important;
@@ -181,7 +180,7 @@ mat-card {
   border: none !important;
   box-shadow: none !important;
   background: transparent !important;
-  display: block !important;
+  z-index: -1 !important;         // <-- forces it behind everything
 }
 
 /* ----------------------------------------------------
