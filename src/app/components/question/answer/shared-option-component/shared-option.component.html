@@ -1,5 +1,7 @@
 @let opts = optionBindings || [];
-@if (opts.length > 0 && canShowOptions()) {
+
+@if (opts.length > 0) {
+  <!-- OPTIONS ARE READY -->
   <form [formGroup]="form" class="options-form">
     @switch (type) {
       <!-- SINGLE-ANSWER (RADIO) -->
@@ -104,6 +106,5 @@
   </form>
 }
 @else if (opts.length === 0) {
-  <!-- Only show this when we have no options -->
   <span>Options not ready...</span>
 }
