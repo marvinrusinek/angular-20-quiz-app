@@ -133,7 +133,8 @@ mat-card {
 .animation-host {
   position: relative;
   width: 100%;
-  overflow: hidden;
+  overflow-x: hidden;   // <— only hide horizontal ghosts
+  overflow-y: visible;  // <— allow card shadow + border to show
 }
 
 /* Animate the card EXACTLY as it was before */
