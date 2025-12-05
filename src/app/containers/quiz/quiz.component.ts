@@ -422,6 +422,14 @@ get quizQuestionComponent(): QuizQuestionComponent {
     }
   }
 
+  animationDoneHandler(): void {
+    // Restore animation state
+    this.animationState$.next('none');
+
+    // Allow emissions again
+    this._animationInProgress = false;
+  }
+
   async ngOnInit(): Promise<void> {
     this.initializeRouteParameters();
 
