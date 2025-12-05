@@ -29,20 +29,19 @@
 }
 
 /* Hide all Angular animation ghosts */
-.animation-host ~ .ng-animating,
-.animation-host > .ng-animating,
-:host ::ng-deep .ng-animating {
+.animation-host > .ng-animating {
   position: absolute !important;
-  inset: 0 !important;
+  top: 0;
+  left: 0;
   width: 100% !important;
   height: 100% !important;
-  pointer-events: none !important;
   opacity: 0 !important;
-  z-index: -1 !important;
+  pointer-events: none !important;
   border: none !important;
   box-shadow: none !important;
+  background: transparent !important;
+  z-index: -1 !important;
 }
-
 
 mat-card {
   margin: 12px auto !important;
@@ -195,4 +194,8 @@ mat-card {
   100% {
     background-position: 0 0;
   }
+}
+
+.animation-host * {
+  outline: 2px solid magenta !important;
 }
