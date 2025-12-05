@@ -1,7 +1,6 @@
 <ng-container>
   @if (combinedQuestionData$ | async; as qa) {
-    <div class="card-clip">
-      <mat-card class="quiz-card" [@changeRoute]="currentQuestionIndex">
+    <mat-card class="quiz-card" [@changeRoute]="currentQuestionIndex">
         <codelab-quiz-header />
 
         <mat-card-content>
@@ -90,8 +89,7 @@
             </div>
           </section>
         </mat-card-footer>
-      </mat-card>
-    </div>
+    </mat-card>
   } @else {
     <p>Loading…</p>
   }
