@@ -21,7 +21,7 @@ mat-card {
     clear: left;
     text-align: center;
     margin-bottom: -20px;
-    
+
     .instructions-message {
       font-family: vars.$font-stack;
       font-size: 16px;
@@ -57,6 +57,7 @@ mat-card {
           &:focus {
             outline: none;
           }
+
           &:hover {
             color: color.scale(vars.$dodger-blue, $lightness: -20%);
             transform: scale(1.15);
@@ -128,32 +129,41 @@ mat-card {
 .animation-host {
   position: relative;
   width: 100%;
-  overflow: visible;      // Hide ghost frames (horizontal)
+  overflow: visible; // Hide ghost frames (horizontal)
 }
 
 /* Let global mat-card.css apply the border & shadow */
-.animation-host > mat-card {
+/* .animation-host > mat-card {
   display: block;
-  margin: 12px auto;     // Same spacing as global
-  max-width: 680px;      // Ensures border is visible on all sides
+  margin: 12px auto; // Same spacing as global
+  max-width: 680px; // Ensures border is visible on all sides
+} */
+
+/* Mat-card inherits full border and shadow from global styles */
+.card-wrapper > mat-card {
+  width: 100%;
+  display: block;
+}
+
+/* The wrapper is what actually animates */
+.card-wrapper {
+  display: block;
+  width: 100%;
+  max-width: 680px;
+  margin: 12px auto;
 }
 
 /* Hide Angular's ghost animation element */
 .animation-host > .ng-animating {
-  position: absolute;
+  position: absolute !important;
   top: 0;
   left: 0;
   width: 100%;
-  pointer-events: none;
+  height: 100% !important;
+  pointer-events: none !important;
+  border: none !important;
+  box-shadow: none !important;
   opacity: 0;
-}
-
-/* DEBUG — see ALL animation wrappers INSIDE children */
-codelab-quiz-content [class*="ng-"],
-codelab-quiz-question [class*="ng-"],
-mat-card-content [class*="ng-"] {
-  outline: 3px solid lime !important;
-  background: rgba(0, 255, 0, 0.2) !important;
 }
 
 /* ----------------------------------------------------
@@ -169,21 +179,24 @@ mat-card-content [class*="ng-"] {
 
 .custom-bar-fill {
   height: 100%;
-  background: linear-gradient(
-      45deg,
+  background: linear-gradient(45deg,
       rgba(40, 167, 69, 0.85) 25%,
       rgba(40, 167, 69, 1) 25%,
       rgba(40, 167, 69, 1) 50%,
       rgba(40, 167, 69, 0.85) 50%,
       rgba(40, 167, 69, 0.85) 75%,
-      rgba(40, 167, 69, 1) 75%
-  );
+      rgba(40, 167, 69, 1) 75%);
   background-size: 40px 40px;
   animation: move 1s linear infinite;
   transition: width 0.3s ease;
 }
 
 @keyframes move {
-  0% { background-position: 40px 0; }
-  100% { background-position: 0 0; }
+  0% {
+    background-position: 40px 0;
+  }
+
+  100% {
+    background-position: 0 0;
+  }
 }
