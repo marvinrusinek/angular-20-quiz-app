@@ -180,9 +180,10 @@ mat-card {
 }
 
 .correct-count {
+  display: inline-block;
   color: vars.$dark-green;
   font-style: italic;
-  font-weight: 400;
+  font-weight: 700;
 }
 
 /* ─────────────────────────────────────────────
