@@ -128,35 +128,24 @@ mat-card {
 .animation-host {
   position: relative;
   width: 100%;
-  overflow: hidden; // hide ghost while keeping real shadow visible
-  display: block;
+  overflow: hidden;     // REQUIRED to hide ghost bleed
 }
 
-/* REAL mat-card — do NOT touch box-shadow or border */
 .animation-host > mat-card {
-  box-sizing: border-box;
-  width: 100%;
   display: block;
+  margin: 12px auto;
+  max-width: 680px;      // keeps your intro-style border
 }
 
-/* Limit children so they don't overflow horizontally */
-.animation-host > mat-card > * {
-  max-width: 100%;
-  box-sizing: border-box;
-  overflow-x: hidden;
-}
-
-/* GHOST CLONE — ONLY hide Angular’s animation clone */
-.animation-host > .ng-animating {
+/* Universal ghost killer */
+.animation-host [class*="ng-animating"] {
   position: absolute !important;
   top: 0;
   left: 0;
   width: 100% !important;
   height: 100% !important;
-  pointer-events: none;
   opacity: 0 !important;
-
-  /* Kill ghost borders + ghost shadows ONLY */
+  pointer-events: none !important;
   border: none !important;
   box-shadow: none !important;
 }
