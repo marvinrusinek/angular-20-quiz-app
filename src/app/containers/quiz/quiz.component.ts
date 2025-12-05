@@ -3916,14 +3916,6 @@ get quizQuestionComponent(): QuizQuestionComponent {
     this.question = question;
   }
 
-  animationDoneHandler(): void {
-    // Reset animation state for next transition
-    this.animationState$.next('none');
-    this._animationInProgress = false;
-  
-    console.log('[NAV] 🎬 Animation fully complete');
-  }
-
   selectedAnswer(option: Option): void {
     // Mark the question as answered
     this.answered = true;
