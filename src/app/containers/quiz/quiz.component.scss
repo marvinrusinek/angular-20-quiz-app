@@ -6,67 +6,29 @@
    Do NOT override border/shadow/background here.
 ----------------------------------------------------- */
 /* ANIMATION CONTAINER */
-.animation-host {
-  position: relative;
-  width: 100%;
-  max-width: 680px;
-  margin: 12px auto;
-  overflow: visible;
-}
+.quiz-card {
+  margin: 12px auto !important;
+  padding: 16px !important;
+  max-width: 680px !important;
 
-.card-wrapper {
-  width: 100%;
-  max-width: 680px;
-  margin: 0 auto;
-  display: block;
-  position: relative;
+  background: #fff !important;
+  border: 1.5px solid vars.$black !important;
+  border-radius: 10px !important;
+  box-shadow: 10px 10px 5px vars.$gray !important;
 
-  .quiz-card {
-    margin: 12px auto !important;
-    padding: 16px !important;
-    max-width: 680px !important;
-  
-    background: #fff !important;
-    border: 1.5px solid vars.$black !important;
-    border-radius: 10px !important;
-    box-shadow: 10px 10px 5px vars.$gray !important;
-  
-    display: block;
-    box-sizing: border-box;
-  
-    /* prevents scrollbars + keeps borders intact */
-    overflow: hidden;
-
-    /* Kill animation ghost clones cleanly */
-    .ng-animating {
-      opacity: 0 !important;
-      pointer-events: none !important;
-      box-shadow: none !important;
-      border: none !important;
-      position: absolute;
-    }
-  }
-}
-
-.card-wrapper > mat-card {
-  width: 100%;
   display: block;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
-/* Hide all Angular animation ghosts */
-.animation-host > .ng-animating {
-  position: absolute !important;
-  top: 0;
-  left: 0;
-  width: 100% !important;
-  height: 100% !important;
+/* prevent ghost from showing */
+.quiz-card.ng-animating {
   opacity: 0 !important;
   pointer-events: none !important;
   border: none !important;
   box-shadow: none !important;
-  background: transparent !important;
-  z-index: -1 !important;
+  position: absolute;
+  inset: 0;
 }
 
 mat-card {
