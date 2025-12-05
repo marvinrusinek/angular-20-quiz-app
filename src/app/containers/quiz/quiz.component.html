@@ -1,6 +1,6 @@
 <ng-container>
   @if (combinedQuestionData$ | async; as qa) {
-    <mat-card class="quiz-card" [@changeRoute]="currentQuestionIndex">
+    <mat-card class="quiz-card-wrapper" [@changeRoute]="currentQuestionIndex">
         <codelab-quiz-header />
 
         <mat-card-content>
