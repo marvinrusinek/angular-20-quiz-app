@@ -5,6 +5,41 @@
    CARD STYLING (KEEP THIS SIMPLE!)
    Do NOT override border/shadow/background here.
 ----------------------------------------------------- */
+/* ANIMATION CONTAINER */
+.animation-host {
+  position: relative;
+  width: 100%;
+  max-width: 680px;
+  margin: 12px auto;
+  overflow: visible;
+  box-sizing: border-box;
+}
+
+/* ENSURE MAT-CARD GETS FULL BORDER + SHADOW */
+.animation-host mat-card {
+  display: block;
+  width: 100%;
+  max-width: 680px;
+  box-sizing: border-box;
+}
+
+/* KILL ANY GHOST CLONE ANYWHERE INSIDE */
+.animation-host .ng-animating {
+  position: absolute !important;
+  inset: 0 !important;        // top/right/bottom/left = 0
+  width: 100% !important;
+  height: 100% !important;
+
+  opacity: 0 !important;
+  pointer-events: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+
+  z-index: -1 !important;     // ensures REAL card stays on top
+}
+
+
 mat-card {
   margin: 12px auto !important;
   padding: 16px !important;
@@ -122,41 +157,6 @@ mat-card {
     }
   }
 }
-
-/* ----------------------------------------------------
-   ANIMATION WRAPPER (GHOST-SAFE + BORDER-SAFE)
------------------------------------------------------ */
-/* Container that animates */
-.animation-host {
-  position: relative;
-  width: 100%;
-  max-width: 680px;
-  margin: 12px auto;
-  overflow: hidden;      // prevents scrollbars
-  box-sizing: border-box;
-}
-
-/* Ensure the real card displays its full border & shadow */
-.animation-host > mat-card {
-  display: block;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-/* KILL ONLY the ghost animation clone */
-.animation-host > .ng-animating:not(mat-card):not(.mat-mdc-card):not(.mdc-card) {
-  position: absolute !important;
-  inset: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-  pointer-events: none !important;
-  opacity: 0 !important;
-  border: none !important;
-  box-shadow: none !important;
-  background: transparent !important;
-  z-index: -1 !important;
-}
-
 
 /* ----------------------------------------------------
    PROGRESS BAR
