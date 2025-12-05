@@ -1,16 +1,13 @@
 @use "../../../variables" as vars;
 @use "sass:color";
 
+/* ----------------------------------------------------
+   CARD STYLING (KEEP THIS SIMPLE!)
+   Do NOT override border/shadow/background here.
+----------------------------------------------------- */
 mat-card {
   height: auto !important;
   display: block;
-
-  /* mat-card-content {
-    width: 100%;
-    min-width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
-  } */
 
   mat-card-footer {
     display: block;
@@ -35,15 +32,13 @@ mat-card {
 
       mat-card-actions {
         display: flex !important;
-        justify-content: space-between !important;  // prev | restart | next
+        justify-content: space-between !important;
         align-items: center;
         width: 100%;
-        padding: 8px 20px;  // 20px space on both sides
+        padding: 8px 20px;
         margin: 0;
         box-sizing: border-box;
-        gap: 0;  // no extra gaps
 
-        // Button base
         button {
           background-color: white;
           border: none;
@@ -55,14 +50,12 @@ mat-card {
           &:focus {
             outline: none;
           }
-
           &:hover {
             color: color.scale(vars.$dodger-blue, $lightness: -20%);
             transform: scale(1.15);
           }
         }
 
-        // ---- Icon sizes ----
         .prev-question-nav i,
         .next-question-nav i {
           font-size: 72px;
@@ -76,21 +69,20 @@ mat-card {
           line-height: 1;
         }
 
-        // Layout per section
         .prev-question-nav {
-          flex: 1;               // left edge
+          flex: 1;
           display: flex;
           justify-content: flex-start;
         }
 
         .restart-nav {
-          flex: 1;               // middle
+          flex: 1;
           display: flex;
           justify-content: center;
         }
 
         .next-question-nav {
-          flex: 1;               // right edge
+          flex: 1;
           display: flex;
           justify-content: flex-end;
         }
@@ -120,30 +112,26 @@ mat-card {
         text-align: center;
       }
     }
-
-    /* stripes animation */
-    @keyframes quizProgressStripes {
-      from { background-position: 0 0; }
-      to   { background-position: 40px 0; }
-    }   
   }
 }
 
-
+/* ----------------------------------------------------
+   ANIMATION WRAPPER (GHOST-SAFE + BORDER-SAFE)
+----------------------------------------------------- */
 .animation-host {
   position: relative;
   width: 100%;
-  overflow-x: hidden;   // <— only hide horizontal ghosts
-  overflow-y: visible;  // <— allow card shadow + border to show
+  overflow: hidden;      // Hide ghost frames (horizontal)
 }
 
-/* Animate the card EXACTLY as it was before */
+/* Let global mat-card.css apply the border & shadow */
 .animation-host > mat-card {
   display: block;
-  width: 100%;
+  margin: 12px auto;     // Same spacing as global
+  max-width: 680px;      // Ensures border is visible on all sides
 }
 
-/* Hide ONLY the ghost elements Angular adds */
+/* Hide Angular's ghost animation element */
 .animation-host > .ng-animating {
   position: absolute;
   top: 0;
@@ -153,22 +141,9 @@ mat-card {
   opacity: 0;
 }
 
-/* .animation-host > mat-card {
-  width: 100%;
-  display: block;
-}
-
-.animation-host > .ng-animating:not(mat-card):not([class*="mat-"]) {
-  position: absolute !important;
-  top: 0;
-  left: 0;
-  width: 100% !important;
-  height: 100% !important;
-  pointer-events: none;
-  opacity: 0 !important;
-} */
-
-
+/* ----------------------------------------------------
+   PROGRESS BAR
+----------------------------------------------------- */
 .custom-bar {
   width: 100%;
   height: 20px;
@@ -180,13 +155,13 @@ mat-card {
 .custom-bar-fill {
   height: 100%;
   background: linear-gradient(
-                  45deg,
-                  rgba(40, 167, 69, 0.85) 25%,
-                  rgba(40, 167, 69, 1) 25%,
-                  rgba(40, 167, 69, 1) 50%,
-                  rgba(40, 167, 69, 0.85) 50%,
-                  rgba(40, 167, 69, 0.85) 75%,
-                  rgba(40, 167, 69, 1) 75%
+      45deg,
+      rgba(40, 167, 69, 0.85) 25%,
+      rgba(40, 167, 69, 1) 25%,
+      rgba(40, 167, 69, 1) 50%,
+      rgba(40, 167, 69, 0.85) 50%,
+      rgba(40, 167, 69, 0.85) 75%,
+      rgba(40, 167, 69, 1) 75%
   );
   background-size: 40px 40px;
   animation: move 1s linear infinite;
