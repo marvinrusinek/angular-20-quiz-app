@@ -291,7 +291,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         if (!trimmedQText) return '';
 
         if (isMulti && bannerText) {
-          return `${trimmedQText} <span class="correct-count">${bannerText}</span>`;
+          return `${trimmedQText} <span class="correct-count" style="display: inline-block">${bannerText}</span>`;
         }
 
         return trimmedQText;
