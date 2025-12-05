@@ -6,6 +6,16 @@
    Do NOT override border/shadow/background here.
 ----------------------------------------------------- */
 /* ANIMATION CONTAINER */
+
+.card-clip {
+  width: 100%;
+  max-width: 680px;
+  margin: 12px auto;
+  overflow: hidden;  // prevents scrollbars during animation
+  position: relative;
+  box-sizing: border-box;
+}
+
 .quiz-card {
   margin: 12px auto !important;
   padding: 16px !important;
