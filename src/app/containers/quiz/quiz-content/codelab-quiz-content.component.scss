@@ -16,9 +16,8 @@ h3 {
   line-height: 1.35;
 
   .correct-count {
-    display: inline-block;
-    font-size: 0.85em;
-    color: vars.$gray;
+    display: inline-block !important;
+    color: vars.$green;
     margin-left: 10px;
     font-weight: 400;
   }
