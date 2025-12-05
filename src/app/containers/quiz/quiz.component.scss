@@ -127,19 +127,16 @@ mat-card {
 ----------------------------------------------------- */
 .animation-host {
   position: relative;
+  overflow: visible;
+}
+
+.anim-wrapper {
   width: 100%;
-  overflow: visible;      // Hide ghost frames (horizontal)
-}
-
-/* Let global mat-card.css apply the border & shadow */
-.animation-host > mat-card {
   display: block;
-  margin: 12px auto;     // Same spacing as global
-  max-width: 680px;      // Ensures border is visible on all sides
 }
 
-/* Hide Angular's ghost animation element */
-.animation-host > .ng-animating {
+/* Ghost clone during animation */
+.anim-wrapper.ng-animating {
   position: absolute;
   top: 0;
   left: 0;
