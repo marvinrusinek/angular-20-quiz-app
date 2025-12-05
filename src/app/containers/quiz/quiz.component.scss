@@ -2,18 +2,16 @@
 @use "sass:color";
 
 /* ----------------------------------------------------
-   CARD STYLING (KEEP THIS SIMPLE!)
+   CARD STYLING
    Do NOT override border/shadow/background here.
 ----------------------------------------------------- */
-/* ANIMATION CONTAINER */
-/* This clips ONLY the animated ghost, NOT the real card */
-.quiz-card-wrapper {
+.quiz-card {
   position: relative;
-  overflow: hidden;          // prevents scrollbars AND keeps border visible
+  overflow: hidden;
 }
 
 /* basic reset to ensure Angular’s clones don't show */
-.quiz-card-wrapper.ng-animating {
+.quiz-card.ng-animating {
   opacity: 0 !important;
   border: none !important;
   box-shadow: none !important;
@@ -21,31 +19,6 @@
   position: absolute !important;
   inset: 0 !important;
 }
-
-/* .quiz-card {
-  margin: 12px auto !important;
-  padding: 16px !important;
-  max-width: 680px !important;
-
-  background: #fff !important;
-  border: 1.5px solid vars.$black !important;
-  border-radius: 10px !important;
-  box-shadow: 10px 10px 5px vars.$gray !important;
-
-  display: block;
-  box-sizing: border-box;
-  overflow: hidden;
-} */
-
-/* prevent ghost from showing */
-/* .quiz-card.ng-animating {
-  opacity: 0 !important;
-  pointer-events: none !important;
-  border: none !important;
-  box-shadow: none !important;
-  position: absolute;
-  inset: 0;
-} */
 
 mat-card {
   margin: 12px auto !important;
