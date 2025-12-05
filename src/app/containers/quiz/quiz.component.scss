@@ -127,22 +127,29 @@ mat-card {
 ----------------------------------------------------- */
 .animation-host {
   position: relative;
-  overflow: visible;
-}
-
-.anim-wrapper {
   width: 100%;
+  overflow: hidden;      // prevents ghost from sticking out
   display: block;
 }
 
-/* Ghost clone during animation */
-.anim-wrapper.ng-animating {
-  position: absolute;
+/* The real mat-card (animated element) */
+.animation-host > mat-card {
+  display: block;
+  width: 100%;
+  margin: 12px auto;     // keep the same spacing as IntroductionComponent
+}
+
+/* The GHOST Angular creates during transitions */
+.animation-host > mat-card.ng-animating {
+  position: absolute !important;
   top: 0;
   left: 0;
   width: 100%;
+  height: 100%;
   pointer-events: none;
-  opacity: 0;
+  opacity: 0 !important;
+  border: none !important;     // prevents double-border look
+  box-shadow: none !important; // prevents double-shadow
 }
 
 /* ----------------------------------------------------
