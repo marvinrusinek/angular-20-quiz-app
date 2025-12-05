@@ -1,8 +1,7 @@
 <ng-container>
   <div class="animation-host">
     @if (combinedQuestionData$ | async; as qa) {
-      <div class="route-anim" @changeRoute (@changeRoute.done)="animationDoneHandler()">
-        <mat-card>
+        <mat-card @changeRoute (@changeRoute.done)="animationDoneHandler()">
           <codelab-quiz-header />
 
           <mat-card-content>
@@ -92,7 +91,7 @@
             </section>
           </mat-card-footer>
         </mat-card>
-      </div>
+
     } @else {
       <p>Loading question and options.</p>
     }
