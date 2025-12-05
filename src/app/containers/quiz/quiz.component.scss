@@ -148,6 +148,14 @@ mat-card {
   opacity: 0;
 }
 
+/* DEBUG — see ALL animation wrappers INSIDE children */
+codelab-quiz-content [class*="ng-"],
+codelab-quiz-question [class*="ng-"],
+mat-card-content [class*="ng-"] {
+  outline: 3px solid lime !important;
+  background: rgba(0, 255, 0, 0.2) !important;
+}
+
 /* ----------------------------------------------------
    PROGRESS BAR
 ----------------------------------------------------- */
