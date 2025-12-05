@@ -6,7 +6,14 @@
    Do NOT override border/shadow/background here.
 ----------------------------------------------------- */
 mat-card {
-  height: auto !important;
+  margin: 12px auto !important;
+  padding: 16px !important;
+  max-width: 680px !important;
+  background: #fff !important;
+  border: 1.5px solid vars.$black !important;
+  border-radius: 10px !important;
+  box-shadow: 10px 10px 5px vars.$gray !important;
+  height: auto;
   display: block;
 
   mat-card-footer {
@@ -121,7 +128,7 @@ mat-card {
 .animation-host {
   position: relative;
   width: 100%;
-  overflow: hidden;      // Hide ghost frames (horizontal)
+  overflow: visible;      // Hide ghost frames (horizontal)
 }
 
 /* Let global mat-card.css apply the border & shadow */
