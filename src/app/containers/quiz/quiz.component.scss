@@ -128,28 +128,25 @@ mat-card {
 .animation-host {
   position: relative;
   width: 100%;
-  overflow: hidden;     // REQUIRED to hide ghost bleed
+  overflow: visible;      // Hide ghost frames (horizontal)
 }
 
+/* Let global mat-card.css apply the border & shadow */
 .animation-host > mat-card {
   display: block;
-  margin: 12px auto;
-  max-width: 680px;      // keeps your intro-style border
+  margin: 12px auto;     // Same spacing as global
+  max-width: 680px;      // Ensures border is visible on all sides
 }
 
-/* Universal ghost killer */
-.animation-host [class*="ng-animating"] {
-  position: absolute !important;
+/* Hide Angular's ghost animation element */
+.animation-host > .ng-animating {
+  position: absolute;
   top: 0;
   left: 0;
-  width: 100% !important;
-  height: 100% !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
-  border: none !important;
-  box-shadow: none !important;
+  width: 100%;
+  pointer-events: none;
+  opacity: 0;
 }
-
 
 /* ----------------------------------------------------
    PROGRESS BAR
