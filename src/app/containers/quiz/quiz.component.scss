@@ -20,6 +20,32 @@
   margin: 0 auto;
   display: block;
   position: relative;
+
+  .quiz-card {
+    margin: 12px auto !important;
+    padding: 16px !important;
+    max-width: 680px !important;
+  
+    background: #fff !important;
+    border: 1.5px solid vars.$black !important;
+    border-radius: 10px !important;
+    box-shadow: 10px 10px 5px vars.$gray !important;
+  
+    display: block;
+    box-sizing: border-box;
+  
+    /* prevents scrollbars + keeps borders intact */
+    overflow: hidden;
+
+    /* Kill animation ghost clones cleanly */
+    .ng-animating {
+      opacity: 0 !important;
+      pointer-events: none !important;
+      box-shadow: none !important;
+      border: none !important;
+      position: absolute;
+    }
+  }
 }
 
 .card-wrapper > mat-card {
