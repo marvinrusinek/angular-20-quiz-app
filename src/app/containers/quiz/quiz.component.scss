@@ -148,17 +148,6 @@ mat-card {
   opacity: 0;
 }
 
-/* DEBUG — FIND ALL ANIMATION GHOSTS */
-[class*="ng-trigger"],
-[class*="ng-enter"],
-[class*="ng-leave"],
-[class*="ng-transition"],
-[class*="ng-animate"],
-[class*="ng-animating"] {
-  outline: 3px solid magenta !important;
-  background: rgba(255, 0, 255, 0.3) !important;
-}
-
 /* ----------------------------------------------------
    PROGRESS BAR
 ----------------------------------------------------- */
