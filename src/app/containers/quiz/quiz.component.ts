@@ -795,21 +795,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
         mutations.forEach(m => {
           m.addedNodes.forEach(node => {
             if (node instanceof HTMLElement) {
-              // Freeze ANY node Angular injects
-              console.log('%c[GHOST FOUND]', 'color:red;font-weight:bold', node);
-    
-              // FORCE it to stay long enough to inspect
-              (node as HTMLElement).style.transition = 'none';
-              (node as HTMLElement).style.opacity = '1';
-              (node as HTMLElement).style.background = 'lime';
-              (node as HTMLElement).style.zIndex = '99999';
-              (node as HTMLElement).style.position = 'fixed';
-              (node as HTMLElement).style.top = '20px';
-              (node as HTMLElement).style.left = '20px';
-              (node as HTMLElement).style.width = '200px';
-              (node as HTMLElement).style.height = '200px';
-    
-              debugger; // 🔥 FREEZES EXECUTION, lets you inspect it perfectly
+              console.log('%c[GHOST CANDIDATE]', 'color: magenta; font-weight: bold;', node.tagName, node.className);
             }
           });
         });
