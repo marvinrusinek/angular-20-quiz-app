@@ -697,7 +697,7 @@ export class SharedOptionComponent implements
       throw new Error(`[💣 ABORTED optionBindings reassignment after user click]`);
     }
 
-    this.optionBindings = this.optionsToDisplay.map((option, idx) => {
+    const bindings = this.optionsToDisplay.map((option, idx) => {
       const isSelected = option.selected ?? false;
       const isCorrect = option.correct ?? false;
 
@@ -716,7 +716,7 @@ export class SharedOptionComponent implements
         disabled: false,
         type: this.type ?? 'single',
         appHighlightOption: isSelected,
-        appHighlightInputType: this.type === 'multiple' ? 'checkbox' : 'radio',
+        appHighlightInputType: (this.type === 'multiple' ? 'checkbox' : 'radio') as 'checkbox' | 'radio',
         allOptions: [...this.optionsToDisplay],
         appHighlightReset: false,
         ariaLabel: `Option ${idx + 1}`,
@@ -726,6 +726,12 @@ export class SharedOptionComponent implements
         change: () => { },
         active: true
       };
+    });
+
+    // Defer assignment so Angular evaluates template AFTER data exists
+    queueMicrotask(() => {
+      this.optionBindings = bindings;
+      this.cdRef.markForCheck();
     });
 
     // Apply highlighting after reassignment
