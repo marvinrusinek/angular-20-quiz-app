@@ -346,6 +346,11 @@ export class SharedOptionComponent implements
       } catch (err) {
         console.warn('[💧 HARD RESET] deep clone failed', err);
       }
+
+      // Rebuild optionBindings at the right time
+      if (this.optionsToDisplay?.length > 0) {
+        this.synchronizeOptionBindings();
+      }
     }
 
     // HARD CLONE BARRIER: break all option object references between questions
