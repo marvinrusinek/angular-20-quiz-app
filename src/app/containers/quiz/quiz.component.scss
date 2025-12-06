@@ -16,17 +16,20 @@
 /* basic reset to ensure Angular’s clones don't show */
 .quiz-card.ng-animating {
   opacity: 0 !important;
-  border: none !important;
-  box-shadow: none !important;
-  pointer-events: none !important;
-  position: absolute !important;
-  inset: 0 !important;
+  //border: none !important;
+  //box-shadow: none !important;
+  //pointer-events: none !important;
+  //position: absolute !important;
+  //inset: 0 !important;
 }
 
 /* Force wrapper to hide any extra animated element Angular creates */
 .card-animation-wrapper {
   position: relative;
-  overflow: visible;
+  overflow: hidden;     
+  width: 100%;
+  max-width: 680px;
+  margin: 12px auto;
   display: block;
 }
 
