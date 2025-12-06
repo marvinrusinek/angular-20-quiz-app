@@ -31,21 +31,19 @@
   /* ============================================
      MAIN CARD (the real animated element)
      ============================================ */
-  .quiz-card {
+    .quiz-card {
       width: 100%;
       max-width: 680px;
       margin: 12px auto;
+      padding: 16px;
       background: #fff;
-      border-right: 3px solid #000;     /* THICK RHS BORDER */
-      border-top: 1.5px solid #000;
-      border-left: 1.5px solid #000;
-      border-bottom: 1.5px solid #000;
+      border: 1.5px solid #000;
+      border-right-width: 3px;             /* THICK RHS BORDER */
       border-radius: 10px;
       box-shadow: 10px 10px 5px #888;
-      padding: 16px;
-      position: relative;
-      overflow: visible;
+      overflow: visible;                   /* Required for animation */
       display: block;
+      position: relative;
     }
   
   /* ============================================
