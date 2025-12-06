@@ -31,20 +31,14 @@
 }
 
 /* Kill Angular's animation clone — always the 2nd child */
-.card-animation-wrapper > mat-card:not(:first-child),
-.card-animation-wrapper > *:not(:first-child):not(.quiz-card) {
+.card-animation-wrapper>mat-card:not(:first-child),
+.card-animation-wrapper>*:not(:first-child):not(.quiz-card) {
   opacity: 0 !important;
   pointer-events: none !important;
   position: absolute !important;
   inset: 0 !important;
   border: none !important;
   box-shadow: none !important;
-}
-
-/* TEMP DEBUG: freeze Angular animation clones */
-* {
-  animation-play-state: paused !important;
-  transition: none !important;
 }
 
 mat-card {
