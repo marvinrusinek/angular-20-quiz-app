@@ -2846,13 +2846,13 @@ export class SharedOptionComponent implements
     return this.canDisplayOptions && this.renderReady && hasOptions;
   } */
 
-  /* canShowOptions(opts: OptionBindings[]): boolean {
-    return Array.isArray(opts) && opts.length > 0;
-  } */
-
   canShowOptions(opts: OptionBindings[]): boolean {
+    return Array.isArray(opts) && opts.length > 0;
+  }
+
+  /* canShowOptions(opts: OptionBindings[]): boolean {
     const hasOptions = (this.optionsToDisplay?.length ?? 0) > 0;
     const isValidArray = Array.isArray(opts) && opts.length > 0;
     return this.canDisplayOptions && this.renderReady && hasOptions && isValidArray;
-  }
+  } */
 }
