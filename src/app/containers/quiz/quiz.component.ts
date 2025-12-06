@@ -4711,5 +4711,6 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
   private bumpAnimationKey() {
     this.animationKey++;
+    console.warn('[ANIM KEY]', this.animationKey);
   }
 }
