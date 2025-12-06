@@ -1,6 +1,17 @@
 @use "../../../variables" as vars;
 @use "sass:color";
 
+/* ------------------------------------------
+   HARD ANIMATION CLIP WRAPPER
+   ------------------------------------------*/
+   .animation-shell {
+    position: relative;
+    width: 100%;
+    max-width: 680px;
+    margin: 12px auto;
+    overflow: hidden;   /* <- THIS is mandatory for ghost-box elimination */
+  }
+
 /* ----------------------------------------------------
    CARD STYLING
    Do NOT override border/shadow/background here.
@@ -16,12 +27,35 @@
   box-shadow: 10px 10px 5px gray;
   padding: 16px;
   display: block;
+  overflow: hidden;
 }
 
 /* ANIMATION CLONE RESET — *ONLY* fade the clone */
 .quiz-card.ng-animating {
   opacity: 0 !important;
 }
+
+/* ------------------------------------------
+   HIDE ANGULAR'S GHOST CLONE
+   ------------------------------------------*/
+   .anim-target.ng-animating {
+    opacity: 0 !important;
+    transform: scale(1) !important;
+    border: none !important;
+    box-shadow: none !important;
+    pointer-events: none !important;
+    position: absolute !important;
+    inset: 0 !important;
+  }
+  
+  /* In case Angular inserts more than one clone */
+  .animation-shell > .anim-target:not(:first-child) {
+    opacity: 0 !important;
+    position: absolute !important;
+    inset: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
 
 /* WRAPPER — the ONLY element allowed to have overflow hidden */
 .card-animation-wrapper {

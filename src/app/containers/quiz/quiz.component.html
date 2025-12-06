@@ -2,8 +2,15 @@
 
 <ng-container>
   @if (qa) {
-    <div class="card-animation-wrapper" [@changeRoute]="currentQuestionIndex">
-      <mat-card class="quiz-card">
+
+    <!-- HARD CLIP WRAPPER (must be FULL WIDTH, must be RELATIVE) -->
+    <div class="animation-shell">
+
+      <!-- ANIMATION TARGET -->
+      <mat-card
+        class="quiz-card anim-target"
+        [@changeRoute]="currentQuestionIndex"
+      >
         <codelab-quiz-header />
 
         <mat-card-content>
