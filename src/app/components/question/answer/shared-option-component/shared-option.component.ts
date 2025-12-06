@@ -686,7 +686,7 @@ export class SharedOptionComponent implements
   private synchronizeOptionBindings(): void {
     if (!this.optionsToDisplay?.length) {
       console.warn('[synchronizeOptionBindings] No options to synchronize.');
-
+  
       const hasSelection = this.optionBindings?.some(opt => opt.isSelected);
       if (!hasSelection) {
         if (this.freezeOptionBindings) return;
@@ -694,18 +694,18 @@ export class SharedOptionComponent implements
       } else {
         console.warn('[🛡️ Skipped clearing optionBindings in sync — selection exists]');
       }
-
+  
       return;
     }
-
+  
     if (this.freezeOptionBindings) {
       throw new Error(`[💣 ABORTED optionBindings reassignment after user click]`);
     }
-
+  
     this.optionBindings = this.optionsToDisplay.map((option, idx) => {
       const isSelected = option.selected ?? false;
       const isCorrect = option.correct ?? false;
-
+    
       return {
         option,
         index: idx,
@@ -728,14 +728,14 @@ export class SharedOptionComponent implements
         appResetBackground: false,
         optionsToDisplay: [...this.optionsToDisplay],
         checked: isSelected,
-        change: () => { },
+        change: () => {},
         active: true
       };
-    });
-
+    });        
+  
     // Apply highlighting after reassignment
     this.updateHighlighting();
-
+  
     console.warn('[🧨 optionBindings REASSIGNED]', JSON.stringify(this.optionBindings, null, 2));
   }
 
