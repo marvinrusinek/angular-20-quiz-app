@@ -16,31 +16,49 @@
     margin: 12px auto;
   }
 
-  .card-animator {
+  /* ===============================================
+   Animated element (Angular clones this)
+   ===============================================*/
+.anim-host {
+  width: 100%;
+  transform-origin: center;
+}
+
+/* Make clone invisible */
+:host ::ng-deep .anim-host.ng-animating {
+  opacity: 0 !important;
+  position: absolute !important;
+  inset: 0 !important;
+  pointer-events: none !important;
+}
+
+/* ===============================================
+   Stable wrapper for mat-card 
+   (NEVER animated, NEVER cloned)
+   ===============================================*/
+   .quiz-card-wrapper {
     width: 100%;
     max-width: 680px;
-    margin: 12px auto;
-    overflow: visible; /* allow scale */
-    transform-origin: center;
-    display: block;
   }
+
   
   /* ============================================
      MAIN CARD (the real animated element)
      ============================================ */
-    .quiz-card {
+     .quiz-card {
       width: 100%;
-      max-width: 680px;
-      margin: 12px auto;
-      padding: 16px;
-      background: #fff;
-      border: 1.5px solid #000;
-      border-right-width: 3px;             /* THICK RHS BORDER */
-      border-radius: 10px;
-      box-shadow: 10px 10px 5px #888;
-      overflow: visible;                   /* Required for animation */
-      display: block;
-      position: relative;
+      background: #fff !important;
+    
+      border: 1.5px solid #000 !important;
+      border-right-width: 3px !important;
+      border-bottom-width: 3px !important;
+    
+      border-radius: 10px !important;
+      box-shadow: 10px 10px 5px #999 !important;
+    
+      padding: 16px !important;
+      box-sizing: border-box;
+      overflow: visible !important;
     }
 
   /* FORCE OVERRIDE Angular Material's card styling */
