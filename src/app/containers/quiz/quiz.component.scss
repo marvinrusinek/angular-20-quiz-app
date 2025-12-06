@@ -67,6 +67,16 @@
   inset: 0 !important;
   pointer-events: none !important;
 }
+
+:host ::ng-deep mat-card.quiz-card,
+:host ::ng-deep .quiz-card {
+  border: 1.5px solid #000 !important;
+  border-right-width: 3px !important;
+  border-bottom-width: 3px !important;
+  background: #fff !important;
+  border-radius: 10px !important;
+  box-shadow: 10px 10px 5px #999 !important;
+}
   
   /* ============================================
      Angular's ghost clone during animation
