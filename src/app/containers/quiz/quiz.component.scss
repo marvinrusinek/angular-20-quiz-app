@@ -5,6 +5,24 @@
    CARD STYLING
    Do NOT override border/shadow/background here.
 ----------------------------------------------------- */
+.quiz-card {
+  width: 100%;
+  max-width: 680px;
+  margin: 12px auto;
+  background: #fff;
+  border: 2px solid black; /* use 2px so RHS is very visible */
+  border-right: 4px solid black; /* extra thick RHS */
+  border-radius: 10px;
+  box-shadow: 10px 10px 5px gray;
+  padding: 16px;
+  display: block;
+}
+
+/* ANIMATION CLONE RESET — *ONLY* fade the clone */
+.quiz-card.ng-animating {
+  opacity: 0 !important;
+}
+
 /* WRAPPER — the ONLY element allowed to have overflow hidden */
 .card-animation-wrapper {
   position: relative;
@@ -16,21 +34,13 @@
 }
 
 /* MAIN CARD */
-.quiz-card {
+.card-animation-wrapper {
+  position: relative;
+  overflow: visible;   /* <-- required for scale animations */
   width: 100%;
   max-width: 680px;
   margin: 12px auto;
-  background: #fff;
-  border: 1.5px solid vars.$black;     /* thick border */
-  border-radius: 10px;
-  box-shadow: 10px 10px 5px vars.$gray;
-  padding: 16px;
   display: block;
-}
-
-/* ANIMATION CLONE RESET — *ONLY* fade the clone */
-.quiz-card.ng-animating {
-  opacity: 0 !important;
 }
 
 mat-card {
