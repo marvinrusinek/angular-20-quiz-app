@@ -2856,14 +2856,19 @@ export class SharedOptionComponent implements
     return Number(this.currentQuestionIndex) || 0;
   }
 
-  canShowOptions(): boolean {
+  /* canShowOptions(): boolean {
     const hasOptions = (this.optionsToDisplay?.length ?? 0) > 0;
     return this.canDisplayOptions && this.renderReady && hasOptions;
-  }
+  } */
 
   /* canShowOptions(opts: OptionBindings[]): boolean {
     return Array.isArray(opts) && opts.length > 0;
   } */
+
+  canShowOptions(): boolean {
+    const hasOptions = Array.isArray(this.optionBindings) && this.optionBindings.length > 0;
+    return this.canDisplayOptions && this.renderReady && hasOptions;
+  }
 
   /* canShowOptions(opts: OptionBindings[]): boolean {
     const hasOptions = (this.optionsToDisplay?.length ?? 0) > 0;
