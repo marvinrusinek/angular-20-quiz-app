@@ -684,41 +684,25 @@ export class SharedOptionComponent implements
   }
 
   private synchronizeOptionBindings(): void {
-    console.warn('[SOC] optionBindings BEFORE build:', this.optionBindings);
-
-    // SAFETY GUARD 1: optionsToDisplay must be an array
-    // Prevents early exits on cold-boot or undefined inputs
-    if (!Array.isArray(this.optionsToDisplay)) {
-      console.warn('[synchronizeOptionBindings] optionsToDisplay is not an array — resetting to empty.');
-      this.optionsToDisplay = [];
-      this.optionBindings = [];
-      return;
-    }
-
-    // SAFETY GUARD 2: handle EMPTY array, but do NOT block future sync
-    // This prevents the "empty-on-restart" bug in StackBlitz.
-    // We still respect freezeOptionBindings + existing selections.
-    if (this.optionsToDisplay.length === 0) {
-      console.warn('[synchronizeOptionBindings] Empty options array encountered.');
+    if (!this.optionsToDisplay?.length) {
+      console.warn('[synchronizeOptionBindings] No options to synchronize.');
 
       const hasSelection = this.optionBindings?.some(opt => opt.isSelected);
       if (!hasSelection) {
-        if (this.freezeOptionBindings) return;      // same logic you had
-        this.optionBindings = [];                  // clear safely
+        if (this.freezeOptionBindings) return;
+        this.optionBindings = [];
       } else {
         console.warn('[🛡️ Skipped clearing optionBindings in sync — selection exists]');
       }
 
-      return;   // IMPORTANT: early exit until real options arrive
+      return;
     }
 
-    // SAFETY GUARD 3: abort reassignment if bindings are frozen
     if (this.freezeOptionBindings) {
       throw new Error(`[💣 ABORTED optionBindings reassignment after user click]`);
     }
 
-    // BUILD OPTION BINDINGS
-    const bindings = this.optionsToDisplay.map((option, idx) => {
+    this.optionBindings = this.optionsToDisplay.map((option, idx) => {
       const isSelected = option.selected ?? false;
       const isCorrect = option.correct ?? false;
 
@@ -737,7 +721,7 @@ export class SharedOptionComponent implements
         disabled: false,
         type: this.type ?? 'single',
         appHighlightOption: isSelected,
-        appHighlightInputType: (this.type === 'multiple' ? 'checkbox' : 'radio') as 'checkbox' | 'radio',
+        appHighlightInputType: this.type === 'multiple' ? 'checkbox' : 'radio',
         allOptions: [...this.optionsToDisplay],
         appHighlightReset: false,
         ariaLabel: `Option ${idx + 1}`,
@@ -749,14 +733,7 @@ export class SharedOptionComponent implements
       };
     });
 
-    // SAFETY GUARD 4: ALWAYS defer the assignment
-    // This is the fix for StackBlitz cold-boot race conditions.
-    queueMicrotask(() => {
-      this.optionBindings = bindings;
-      this.cdRef.markForCheck();
-    });
-
-    // Apply highlighting after reassignment (your original logic)
+    // Apply highlighting after reassignment
     this.updateHighlighting();
 
     console.warn('[🧨 optionBindings REASSIGNED]', JSON.stringify(this.optionBindings, null, 2));
