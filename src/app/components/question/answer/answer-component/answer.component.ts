@@ -18,17 +18,20 @@ import { QuizQuestionManagerService } from '../../../../shared/services/quizques
 import { QuizStateService } from '../../../../shared/services/quizstate.service';
 import { SelectedOptionService } from '../../../../shared/services/selectedoption.service';
 import { BaseQuestion } from '../../base/base-question';
+import { SharedOptionComponent } from '../shared-option-component/shared-option.component';
 
 @Component({
   selector: 'codelab-question-answer',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, SharedOptionComponent],
   templateUrl: './answer.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implements OnInit, OnChanges, AfterViewInit {
   viewContainerRefs!: QueryList<ViewContainerRef>;
   viewContainerRef!: ViewContainerRef;
+  @ViewChild(SharedOptionComponent)
+  sharedOptionComponent!: SharedOptionComponent;
 
   //@Output() componentLoaded = new EventEmitter<QuizQuestionComponent>();
   @Output() componentLoaded = new EventEmitter<any>();
