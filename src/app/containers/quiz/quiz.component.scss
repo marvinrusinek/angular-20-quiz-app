@@ -12,6 +12,15 @@
     overflow: hidden;   /* <- THIS is mandatory for ghost-box elimination */
   }
 
+  /* In case Angular inserts more than one clone */
+  .animation-shell > .anim-target:not(:first-child) {
+    opacity: 0 !important;
+    position: absolute !important;
+    inset: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
 /* ----------------------------------------------------
    CARD STYLING
    Do NOT override border/shadow/background here.
@@ -38,24 +47,13 @@
 /* ------------------------------------------
    HIDE ANGULAR'S GHOST CLONE
    ------------------------------------------*/
-   .anim-target.ng-animating {
-    opacity: 0 !important;
-    transform: scale(1) !important;
-    border: none !important;
-    box-shadow: none !important;
-    pointer-events: none !important;
-    position: absolute !important;
-    inset: 0 !important;
-  }
-  
-  /* In case Angular inserts more than one clone */
-  .animation-shell > .anim-target:not(:first-child) {
-    opacity: 0 !important;
-    position: absolute !important;
-    inset: 0 !important;
-    border: none !important;
-    box-shadow: none !important;
-  }
+/* Only hide the clone – DO NOT remove border/shadow during animation */
+.anim-target.ng-animating {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  position: absolute !important;
+  inset: 0 !important;
+}
 
 /* WRAPPER — the ONLY element allowed to have overflow hidden */
 .card-animation-wrapper {
