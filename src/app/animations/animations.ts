@@ -22,11 +22,11 @@ export const ChangeRouteAnimation = {
   changeRoute: trigger('changeRoute', [
     transition('* <=> *', [
       animate(
-        '450ms cubic-bezier(0.4, 0.0, 0.2, 1)',
+        '1500ms cubic-bezier(0.4, 0.0, 0.2, 1)',
         keyframes([
           style({ transform: 'scale(1)', offset: 0 }),
-          style({ transform: 'scale(1.08)', offset: 0.4 }),
-          style({ transform: 'scale(1.12)', offset: 0.6 }),
+          style({ transform: 'scale(1.25)', offset: 0.35 }),
+          style({ transform: 'scale(1.35)', offset: 0.55 }),
           style({ transform: 'scale(1)', offset: 1 })
         ])
       )
