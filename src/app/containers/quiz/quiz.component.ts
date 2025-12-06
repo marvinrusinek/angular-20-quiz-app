@@ -215,6 +215,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
   animationState$ = new BehaviorSubject<AnimationState>('none');
   private _animationInProgress = false;
+  public animationKey = 0;
   unsubscribe$ = new Subject<void>();
   private destroy$ = new Subject<void>();
 
@@ -4704,5 +4705,9 @@ get quizQuestionComponent(): QuizQuestionComponent {
     if (shouldShow) {
       this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
     }
+  }
+
+  private bumpAnimationKey() {
+    this.animationKey++;
   }
 }
