@@ -8,7 +8,7 @@
 /* WRAPPER — the ONLY element allowed to have overflow hidden */
 .card-animation-wrapper {
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   width: 100%;
   max-width: 680px;
   margin: 12px auto;
@@ -34,15 +34,15 @@
 }
 
 mat-card {
-  margin: 12px auto !important;
-  padding: 16px !important;
-  max-width: 680px !important;
-  background: #fff !important;
-  border: 1.5px solid vars.$black !important;
-  border-radius: 10px !important;
-  box-shadow: 10px 10px 5px vars.$gray !important;
-  height: auto;
-  display: block;
+  //margin: 12px auto !important;
+  //padding: 16px !important;
+  //max-width: 680px !important;
+  //background: #fff !important;
+  //border: 1.5px solid vars.$black !important;
+  //border-radius: 10px !important;
+  //box-shadow: 10px 10px 5px vars.$gray !important;
+  //height: auto;
+  //display: block;
 
   mat-card-footer {
     display: block;
