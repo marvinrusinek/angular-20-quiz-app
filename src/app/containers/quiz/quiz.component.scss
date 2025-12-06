@@ -41,6 +41,12 @@
   box-shadow: none !important;
 }
 
+/* TEMP DEBUG: freeze Angular animation clones */
+* {
+  animation-play-state: paused !important;
+  transition: none !important;
+}
+
 mat-card {
   margin: 12px auto !important;
   padding: 16px !important;
