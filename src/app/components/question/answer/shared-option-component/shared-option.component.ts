@@ -684,28 +684,42 @@ export class SharedOptionComponent implements
   }
 
   private synchronizeOptionBindings(): void {
-    if (!this.optionsToDisplay?.length) {
-      console.warn('[synchronizeOptionBindings] No options to synchronize.');
-
+    // SAFETY GUARD 1: optionsToDisplay must be an array
+    // Prevents early exits on cold-boot or undefined inputs
+    if (!Array.isArray(this.optionsToDisplay)) {
+      console.warn('[synchronizeOptionBindings] optionsToDisplay is not an array — resetting to empty.');
+      this.optionsToDisplay = [];
+      this.optionBindings = [];
+      return;
+    }
+  
+    // SAFETY GUARD 2: handle EMPTY array, but do NOT block future sync
+    // This prevents the "empty-on-restart" bug in StackBlitz.
+    // We still respect freezeOptionBindings + existing selections.
+    if (this.optionsToDisplay.length === 0) {
+      console.warn('[synchronizeOptionBindings] Empty options array encountered.');
+  
       const hasSelection = this.optionBindings?.some(opt => opt.isSelected);
       if (!hasSelection) {
-        if (this.freezeOptionBindings) return;
-        this.optionBindings = [];
+        if (this.freezeOptionBindings) return;      // same logic you had
+        this.optionBindings = [];                  // clear safely
       } else {
         console.warn('[🛡️ Skipped clearing optionBindings in sync — selection exists]');
       }
-
-      return;
+  
+      return;   // IMPORTANT: early exit until real options arrive
     }
-
+  
+    // SAFETY GUARD 3: abort reassignment if bindings are frozen
     if (this.freezeOptionBindings) {
       throw new Error(`[💣 ABORTED optionBindings reassignment after user click]`);
     }
-
+  
+    // BUILD OPTION BINDINGS
     const bindings = this.optionsToDisplay.map((option, idx) => {
       const isSelected = option.selected ?? false;
       const isCorrect = option.correct ?? false;
-
+  
       return {
         option,
         index: idx,
@@ -728,20 +742,21 @@ export class SharedOptionComponent implements
         appResetBackground: false,
         optionsToDisplay: [...this.optionsToDisplay],
         checked: isSelected,
-        change: () => { },
+        change: () => {},
         active: true
       };
     });
-
-    // Defer assignment so Angular evaluates template AFTER data exists
+  
+    // SAFETY GUARD 4: ALWAYS defer the assignment
+    // This is the fix for StackBlitz cold-boot race conditions.
     queueMicrotask(() => {
       this.optionBindings = bindings;
       this.cdRef.markForCheck();
     });
-
-    // Apply highlighting after reassignment
+  
+    // Apply highlighting after reassignment (your original logic)
     this.updateHighlighting();
-
+  
     console.warn('[🧨 optionBindings REASSIGNED]', JSON.stringify(this.optionBindings, null, 2));
   }
 
