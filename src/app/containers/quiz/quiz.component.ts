@@ -4021,12 +4021,14 @@ get quizQuestionComponent(): QuizQuestionComponent {
     }
   }
 
-  public advanceToNextQuestion(): Promise<void> {
-    return this.advanceQuestion('next');
+  public async advanceToNextQuestion(): Promise<void> {
+    await this.advanceQuestion('next');
+    this.bumpAnimationKey();
   }
 
-  public advanceToPreviousQuestion(): Promise<void> {
-    return this.advanceQuestion('previous');
+  public async advanceToPreviousQuestion(): Promise<void> {
+    await this.advanceQuestion('previous');
+    this.bumpAnimationKey();
   }
 
   // REMOVE!!
