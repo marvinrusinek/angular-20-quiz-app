@@ -23,7 +23,7 @@ import { SharedOptionComponent } from '../shared-option-component/shared-option.
 @Component({
   selector: 'codelab-question-answer',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, SharedOptionComponent],
   templateUrl: './answer.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
