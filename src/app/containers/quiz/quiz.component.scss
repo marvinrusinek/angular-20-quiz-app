@@ -10,21 +10,26 @@
    ============================================ */
    .animation-shell {
     position: relative;
+    overflow: hidden;
     width: 100%;
     max-width: 680px;
     margin: 12px auto;
-    overflow: hidden;            /* REQUIRED */
   }
 
   /* FORCE OVERRIDE Angular Material's card styling */
-:host ::ng-deep mat-card.quiz-card {
-  border: 1.5px solid #000 !important;    /* thick border restored */
-  border-right-width: 3px !important;     /* extra thickness on RHS */
-  box-shadow: 10px 10px 5px #888 !important;
-  background: #fff !important;
-  overflow: visible !important;           /* required for animation */
-  padding: 16px !important;
-  border-radius: 10px !important;
+  :host ::ng-deep mat-card.quiz-card {
+    border: 1.5px solid #000 !important;
+    border-right-width: 3px !important;   /* thick on RHS */
+    box-shadow: 10px 10px 5px #888 !important;
+    border-radius: 10px !important;
+    background: #fff !important;
+    padding: 16px !important;
+    overflow: visible !important;
+  }
+
+  :host ::ng-deep .mdc-card,
+:host ::ng-deep .mdc-card * {
+  overflow: visible !important;
 }
 
   
