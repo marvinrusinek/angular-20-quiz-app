@@ -5,42 +5,32 @@
    CARD STYLING
    Do NOT override border/shadow/background here.
 ----------------------------------------------------- */
-.quiz-card {
-  position: relative;
-  overflow: hidden;
-  width: 100%;
-  max-width: 680px;
-  margin: 12px auto;
-}
-
-/* basic reset to ensure Angular’s clones don't show */
-.quiz-card.ng-animating {
-  opacity: 0 !important;
-  //border: none !important;
-  //box-shadow: none !important;
-  //pointer-events: none !important;
-  //position: absolute !important;
-  //inset: 0 !important;
-}
-
-/* Force wrapper to hide any extra animated element Angular creates */
+/* WRAPPER — the ONLY element allowed to have overflow hidden */
 .card-animation-wrapper {
   position: relative;
-  overflow: hidden;     
+  overflow: hidden;
   width: 100%;
   max-width: 680px;
   margin: 12px auto;
   display: block;
 }
 
-/* kill Angular's animation clone */
-.card-animation-wrapper > mat-card:not(:first-child) {
+/* MAIN CARD */
+.quiz-card {
+  width: 100%;
+  max-width: 680px;
+  margin: 12px auto;
+  background: #fff;
+  border: 1.5px solid vars.$black;     /* thick border */
+  border-radius: 10px;
+  box-shadow: 10px 10px 5px vars.$gray;
+  padding: 16px;
+  display: block;
+}
+
+/* ANIMATION CLONE RESET — *ONLY* fade the clone */
+.quiz-card.ng-animating {
   opacity: 0 !important;
-  pointer-events: none !important;
-  position: absolute !important;
-  inset: 0 !important;
-  border: none !important;
-  box-shadow: none !important;
 }
 
 mat-card {
