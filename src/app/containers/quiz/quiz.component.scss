@@ -23,10 +23,22 @@
   inset: 0 !important;
 }
 
+/* Force wrapper to hide any extra animated element Angular creates */
 .card-animation-wrapper {
   overflow: hidden;
   display: block;
   position: relative;
+}
+
+/* Kill Angular's animation clone — always the 2nd child */
+.card-animation-wrapper > mat-card:not(:first-child),
+.card-animation-wrapper > *:not(:first-child):not(.quiz-card) {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  position: absolute !important;
+  inset: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 mat-card {
