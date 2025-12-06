@@ -9,7 +9,9 @@
     width: 100%;
     max-width: 680px;
     margin: 12px auto;
-    overflow: visible;
+    overflow: hidden;
+    padding: 0;
+    box-sizing: border-box;
   }
 
   /* In case Angular inserts more than one clone */
