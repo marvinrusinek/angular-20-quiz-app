@@ -2,11 +2,8 @@
 
 <ng-container>
   @if (qa) {
-    <div
-      @changeRoute
-      class="card-animation-wrapper"
-    >
-      <mat-card class="quiz-card">
+    <div class="card-animation-wrapper">
+      <mat-card class="quiz-card" [@changeRoute]="questionIndex">
         <codelab-quiz-header />
 
         <mat-card-content>
