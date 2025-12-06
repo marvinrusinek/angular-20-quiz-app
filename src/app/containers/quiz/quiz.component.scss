@@ -4,83 +4,57 @@
 /* ------------------------------------------
    HARD ANIMATION CLIP WRAPPER
    ------------------------------------------*/
+/* ============================================
+   OUTER ANIMATION CLIP WRAPPER
+   Clips only animation overflow.
+   ============================================ */
    .animation-shell {
     position: relative;
     width: 100%;
     max-width: 680px;
     margin: 12px auto;
-    overflow: hidden;
-    padding: 0;
-    box-sizing: border-box;
+    overflow: hidden;            /* REQUIRED */
   }
-
-  /* In case Angular inserts more than one clone */
-  .animation-shell > .anim-target:not(:first-child) {
+  
+  /* ============================================
+     MAIN CARD (the real animated element)
+     ============================================ */
+  .quiz-card {
+    width: 100%;
+    background: #fff;
+    border: 1.5px solid #000;    /* THICK RIGHT BORDER restored */
+    border-radius: 10px;
+    box-shadow: 10px 10px 5px #888;
+    padding: 16px;
+    box-sizing: border-box;
+    position: relative;
+    overflow: visible;           /* REQUIRED for nice scaling */
+    display: block;
+  }
+  
+  /* ============================================
+     Angular's ghost clone during animation
+     ============================================ */
+  .anim-target.ng-animating {
     opacity: 0 !important;
+    pointer-events: none !important;
     position: absolute !important;
     inset: 0 !important;
-    border: none !important;
-    box-shadow: none !important;
   }
-
-/* ----------------------------------------------------
-   CARD STYLING
-   Do NOT override border/shadow/background here.
------------------------------------------------------ */
-.quiz-card {
-  width: 100%;
-  max-width: 680px;
-  margin: 12px auto;
-  background: #fff;
-  border: 1.5px solid #000;   /* ← RIGHT BORDER WILL APPEAR NOW */
-  border-radius: 10px;
-  box-shadow: 10px 10px 5px #888;
-  padding: 16px;
-  position: relative;
-  display: block;
-  overflow: visible;          /* ← ESSENTIAL for animation */
-}
-
-/* ANIMATION CLONE RESET — *ONLY* fade the clone */
-.quiz-card.ng-animating {
-  opacity: 0 !important;
-  pointer-events: none !important;
-  position: absolute !important;
-  inset: 0 !important;
-}
-
-/* ------------------------------------------
-   HIDE ANGULAR'S GHOST CLONE
-   ------------------------------------------*/
-/* Only hide the clone – DO NOT remove border/shadow during animation */
-.anim-target.ng-animating {
-  opacity: 0 !important;
-  pointer-events: none !important;
-  position: absolute !important;
-  inset: 0 !important;
-}
-
-/* WRAPPER — the ONLY element allowed to have overflow hidden */
-.card-animation-wrapper {
-  position: relative;
-  overflow: visible;
-  width: 100%;
-  max-width: 680px;
-  margin: 12px auto;
-  display: block;
-}
-
-/* MAIN CARD */
-.card-animation-wrapper {
-  position: relative;
-  overflow: visible;   /* <-- required for scale animations */
-  width: 100%;
-  max-width: 680px;
-  margin: 12px auto;
-  display: block;
-}
-
+  
+  /* ============================================
+     Safety: In case Angular creates multiple clones
+     ============================================ */
+  .animation-shell > .anim-target:not(:first-child) {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    position: absolute !important;
+    inset: 0 !important;
+  }
+  
 mat-card {
+  margin: 0 !important;
+
   mat-card-footer {
     display: block;
     clear: left;
