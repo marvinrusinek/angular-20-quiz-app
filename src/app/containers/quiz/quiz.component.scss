@@ -26,7 +26,7 @@
 /* Force wrapper to hide any extra animated element Angular creates */
 .card-animation-wrapper {
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   display: block;
 }
 
