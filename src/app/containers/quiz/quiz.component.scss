@@ -58,6 +58,15 @@
 :host ::ng-deep .mdc-card * {
   overflow: visible !important;
 }
+
+:host ::ng-deep .ng-animating {
+  opacity: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+  position: absolute !important;
+  inset: 0 !important;
+  pointer-events: none !important;
+}
   
   /* ============================================
      Angular's ghost clone during animation
