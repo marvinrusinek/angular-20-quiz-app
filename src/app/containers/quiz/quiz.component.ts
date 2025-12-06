@@ -481,6 +481,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
     this.indexSubscription = this.quizService.currentQuestionIndex$
       .pipe(distinctUntilChanged())
       .subscribe((idx: number) => {
+        this.bumpAnimationKey();
 
         const prevIdx = this.lastLoggedIndex;
         const ets = this.explanationTextService;
