@@ -4470,20 +4470,24 @@ export class QuizQuestionComponent extends BaseQuestion
     try {
       // Check if all correct options are selected
       // Update options state
-      this.optionsToDisplay = this.optionsToDisplay.map((opt) => {
+      const updatedOptions = this.optionsToDisplay.map((opt) => {
         const isSelected = opt.optionId === option.optionId;
 
         return {
           ...opt,
           feedback: isSelected && !opt.correct ? 'x' : opt.feedback,
           showIcon: isSelected,
+          selected: opt.selected || isSelected,
           active: true  // keep all options active
         };
       });
 
+      this.optionsToDisplay = updatedOptions;
+
       // Stop the timer if all correct options are selected
       const stopped = this.timerService.attemptStopTimerForQuestion({
         questionIndex: this.currentQuestionIndex,
+        optionsSnapshot: updatedOptions
       });
 
       if (!stopped) {
