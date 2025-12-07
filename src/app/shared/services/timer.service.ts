@@ -239,9 +239,12 @@ export class TimerService implements OnDestroy {
       return false;
     }
 
-    // Always check if all correct answers are selected, regardless of previous attempts
-    const allCorrectSelected = this.selectedOptionService.areAllCorrectAnswersSelectedSync(questionIndex);
-    
+    const snapshot = Array.isArray(options.optionsSnapshot)
+      ? options.optionsSnapshot
+      : undefined;
+
+    const allCorrectSelected = this.selectedOptionService
+      .areAllCorrectAnswersSelectedSync(questionIndex, snapshot)
     if (!allCorrectSelected) {
       return false;
     }
