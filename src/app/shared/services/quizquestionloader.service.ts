@@ -1158,7 +1158,8 @@ export class QuizQuestionLoaderService {
   
     // Hide content DOM-side without touching Angular templates
     const el = document.querySelector('h3[i18n]');
-    if (el) (el as HTMLElement).style.visibility = 'hidden';
+    // if (el) (el as HTMLElement).style.visibility = 'hidden';
+    if (el) (el as HTMLElement).style.opacity = '0';
   
     clearTimeout(this._freezeTimer);
     this._freezeTimer = setTimeout(() => {
@@ -1180,7 +1181,8 @@ export class QuizQuestionLoaderService {
       // keep question text hidden visually during this delay
       this._isVisualFrozen = true;
       const el = document.querySelector('h3[i18n]');
-      if (el) (el as HTMLElement).style.visibility = 'hidden';
+      // if (el) (el as HTMLElement).style.visibility = 'hidden';
+      if (el) (el as HTMLElement).style.opacity = '0';
   
       clearTimeout(this._freezeTimer);
       this._freezeTimer = setTimeout(() => {
@@ -1207,7 +1209,8 @@ export class QuizQuestionLoaderService {
     // Show the element again right after frame stabilization
     requestAnimationFrame(() => {
       const el = document.querySelector('h3[i18n]');
-      if (el) (el as HTMLElement).style.visibility = 'visible';
+      // if (el) (el as HTMLElement).style.visibility = 'visible';
+      if (el) (el as HTMLElement).style.opacity = '1';
       console.log(`[Loader] 🔓 Stream unfrozen (immediate) + quiet ${QUIET_WINDOW_MS} ms`);
     });
   }

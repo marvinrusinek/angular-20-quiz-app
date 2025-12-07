@@ -346,6 +346,11 @@ export class SharedOptionComponent implements
       } catch (err) {
         console.warn('[💧 HARD RESET] deep clone failed', err);
       }
+
+      // Rebuild optionBindings at the right time
+      /* if (this.optionsToDisplay?.length > 0) {
+        this.synchronizeOptionBindings();
+      } */
     }
 
     // HARD CLONE BARRIER: break all option object references between questions
@@ -679,28 +684,38 @@ export class SharedOptionComponent implements
   }
 
   private synchronizeOptionBindings(): void {
-    if (!this.optionsToDisplay?.length) {
-      console.warn('[synchronizeOptionBindings] No options to synchronize.');
-
+    // 1. HARD GUARD: optionsToDisplay not ready
+    if (!Array.isArray(this.optionsToDisplay) || this.optionsToDisplay.length === 0) {
+      console.warn('[SOC] ❌ synchronizeOptionBindings() aborted — optionsToDisplay EMPTY');
+  
+      // If no user selection exists, clear; otherwise keep old bindings
       const hasSelection = this.optionBindings?.some(opt => opt.isSelected);
-      if (!hasSelection) {
-        if (this.freezeOptionBindings) return;
+  
+      if (!hasSelection && !this.freezeOptionBindings) {
         this.optionBindings = [];
-      } else {
-        console.warn('[🛡️ Skipped clearing optionBindings in sync — selection exists]');
       }
-
+  
       return;
     }
-
-    if (this.freezeOptionBindings) {
-      throw new Error(`[💣 ABORTED optionBindings reassignment after user click]`);
+  
+    // 2. HARD GUARD: optionBindings already matches incoming options
+    // (prevents StackBlitz double-render race condition)
+    if (this.optionBindings.length === this.optionsToDisplay.length) {
+      console.warn('[SOC] ⚠️ synchronizeOptionBindings() skipped — counts match');
+      return;
     }
-
-    this.optionBindings = this.optionsToDisplay.map((option, idx) => {
+  
+    // 3. GUARD: user clicked recently → freeze updates
+    if (this.freezeOptionBindings) {
+      console.warn('[SOC] 🔒 freezeOptionBindings active — ABORTING reassignment');
+      return;
+    }
+  
+    // 4. BUILD NEW optionBindings
+    const bindings = this.optionsToDisplay.map((option, idx) => {
       const isSelected = option.selected ?? false;
-      const isCorrect = option.correct ?? false;
-
+      const isCorrect  = option.correct ?? false;
+  
       return {
         option,
         index: idx,
@@ -716,23 +731,28 @@ export class SharedOptionComponent implements
         disabled: false,
         type: this.type ?? 'single',
         appHighlightOption: isSelected,
-        appHighlightInputType: this.type === 'multiple' ? 'checkbox' : 'radio',
+        appHighlightInputType: (this.type === 'multiple' ? 'checkbox' : 'radio') as 'checkbox' | 'radio',
         allOptions: [...this.optionsToDisplay],
         appHighlightReset: false,
         ariaLabel: `Option ${idx + 1}`,
         appResetBackground: false,
         optionsToDisplay: [...this.optionsToDisplay],
         checked: isSelected,
-        change: () => { },
+        change: () => {},
         active: true
       };
     });
-
-    // Apply highlighting after reassignment
+  
+    // 5. DEFER assignment to next microtask
+    queueMicrotask(() => {
+      this.optionBindings = bindings;
+      this.cdRef.markForCheck();
+      console.warn('[SOC] ✅ optionBindings REASSIGNED', bindings);
+    });
+  
+    // 6. Restore highlights AFTER binding reassignment
     this.updateHighlighting();
-
-    console.warn('[🧨 optionBindings REASSIGNED]', JSON.stringify(this.optionBindings, null, 2));
-  }
+  }  
 
   handleClick(optionBinding: OptionBindings, index: number): void {
     if (this.shouldDisableOption(optionBinding)) return;

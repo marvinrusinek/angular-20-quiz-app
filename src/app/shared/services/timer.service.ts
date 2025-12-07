@@ -25,6 +25,7 @@ export class TimerService implements OnDestroy {
   isTimerRunning = false;  // tracks whether the timer is currently running
   isCountdown = true;  // tracks the timer mode (true = countdown, false = stopwatch)
   isTimerStoppedForCurrentQuestion = false;
+  stoppedForQuestion = new Set<number>();
 
   // Signals
   private isStop = new Subject<void>();
@@ -44,23 +45,24 @@ export class TimerService implements OnDestroy {
   private expiredSubject = new Subject<void>();
   public expired$ = this.expiredSubject.asObservable();
 
-  private stoppedForQuestion = new Set<number>();
-
   constructor(
     private ngZone: NgZone,
     private selectedOptionService: SelectedOptionService,
     private quizService: QuizService
   ) {
+    this.setupTimer();
+    this.listenForCorrectSelections();
+  }
+
+  private setupTimer(): void {
     this.stopTimerSignalSubscription = this.selectedOptionService.stopTimer$.subscribe(() => {
       if (!this.isTimerRunning) {
         console.log('[TimerService] Stop signal received but timer is not running.');
         return;
       }
-
       console.log('[TimerService] Stop signal received from SelectedOptionService. Stopping timer.');
       this.stopTimer(undefined, { force: true });
     });
-    this.listenForCorrectSelections();
   }
 
   ngOnDestroy(): void {
@@ -77,7 +79,7 @@ export class TimerService implements OnDestroy {
         }
         this.handleStopTimerSignal();
       });
-  }  
+  }
 
   private handleStopTimerSignal(): void {
     if (!this.isTimerRunning) {
@@ -94,11 +96,21 @@ export class TimerService implements OnDestroy {
       return;
     }
 
+    // Always check if all correct answers are selected when stop signal is received
+    const allCorrectSelected = this.selectedOptionService.areAllCorrectAnswersSelectedSync(activeQuestionIndex);
+    
+    if (allCorrectSelected) {
+      console.log('[TimerService] All correct answers selected. Stopping timer.');
+      this.stopTimer(undefined, { force: true });
+      return;
+    }
+
     const stopped = this.attemptStopTimerForQuestion({
       questionIndex: activeQuestionIndex,
       onStop: (elapsed?: number) => {
         if (elapsed != null && activeQuestionIndex != null) {
           this.elapsedTimes[activeQuestionIndex] = elapsed;
+          console.log(`[TimerService] 💾 Stored elapsed time for Q${activeQuestionIndex + 1}: ${elapsed}s`);
         }
       }
     });
@@ -117,21 +129,21 @@ export class TimerService implements OnDestroy {
       console.log(`[TimerService] ⚠️ Timer restart prevented.`);
       return;
     }
-  
+
     if (this.isTimerRunning) {
       console.info('[TimerService] Timer is already running. Start ignored.');
       return;  // prevent restarting an already running timer
     }
-  
+
     this.isTimerRunning = true;  // mark timer as running
     this.isCountdown = isCountdown;
     this.elapsedTime = 0;
-  
+
     // Show initial value immediately (inside Angular so UI updates right away)
     this.ngZone.run(() => {
       this.elapsedTimeSubject.next(0);
     });
-  
+
     // Start ticking after 1s so the initial value stays visible for a second
     const timer$ = timer(1000, 1000).pipe(
       tap((tick) => {
@@ -140,12 +152,12 @@ export class TimerService implements OnDestroy {
 
         // Internal state can be outside Angular
         this.elapsedTime = elapsed;
-  
+
         // Re-enter Angular so async pipes trigger change detection on every tick
         this.ngZone.run(() => {
           this.elapsedTimeSubject.next(this.elapsedTime);
         });
-  
+
         // If in countdown mode and reached the duration, stop automatically
         if (isCountdown && elapsed >= duration) {
           console.log('[TimerService] Time expired. Stopping timer.');
@@ -160,7 +172,7 @@ export class TimerService implements OnDestroy {
         this.ngZone.run(() => { this.isTimerRunning = false; });
       })
     );
-  
+
     this.timerSubscription = timer$.subscribe();
     console.log('[TimerService] Timer started successfully.');
   }
@@ -196,7 +208,7 @@ export class TimerService implements OnDestroy {
       console.log('Elapsed time recorded in callback:', this.elapsedTime);
     }
 
-    console.log('Timer stopped successfully.');
+    console.log(`[TimerService] 🛑 Timer stopped successfully. Elapsed: ${this.elapsedTime}s`);
   }
 
   // Resets the timer
@@ -221,60 +233,46 @@ export class TimerService implements OnDestroy {
       typeof options.questionIndex === 'number'
         ? options.questionIndex
         : this.quizService?.currentQuestionIndex ?? null;
-  
-    // Skip if we've already stopped for this question
-    if (
-      this.selectedOptionService.stopTimerEmitted &&
-      this.isTimerStoppedForCurrentQuestion
-    ) {
-      console.log('[TimerService] attemptStopTimerForQuestion skipped — timer already stopped for this question.');
-      return false;
-    }
-  
+
     if (questionIndex == null || questionIndex < 0) {
       console.warn('[TimerService] attemptStopTimerForQuestion called without a valid question index.');
       return false;
     }
-  
-    if (this.stoppedForQuestion.has(questionIndex)) {
-      // Extra guard in case flags weren’t reset somewhere else
-      return false;
-    }
-  
-    // If the timer isn't running, nothing to stop (prevents no-op reentry)
-    if (!this.isTimerRunning) {
-      console.log('[TimerService] attemptStopTimerForQuestion skipped — timer is not running.');
-      return false;
-    }
-  
-    const allCorrectSelected =
-      this.selectedOptionService.areAllCorrectAnswersSelectedSync(questionIndex);
-  
+
+    // Always check if all correct answers are selected, regardless of previous attempts
+    const allCorrectSelected = this.selectedOptionService.areAllCorrectAnswersSelectedSync(questionIndex);
+    
     if (!allCorrectSelected) {
-      console.log(
-        '[TimerService] attemptStopTimerForQuestion rejected — correct answers not fully selected yet.',
-        { questionIndex }
-      );
       return false;
     }
-  
-    // Fire sound (or any UX) BEFORE stopping so teardown doesn’t kill it
-    try { options.onBeforeStop?.(); } catch {}
-  
-    // Mark as stopped for this question BEFORE stopping to avoid re-entrance
-    this.selectedOptionService.stopTimerEmitted = true;
-    this.isTimerStoppedForCurrentQuestion = true;
-    this.stoppedForQuestion.add(questionIndex);
-  
+
+    // If we get here, all correct answers are selected
+    // Clear any previous stop state to allow stopping again
+    this.selectedOptionService.stopTimerEmitted = false;
+    this.isTimerStoppedForCurrentQuestion = false;
+    this.stoppedForQuestion.delete(questionIndex);
+
+    // If the timer isn't running, nothing to stop
+    if (!this.isTimerRunning) {
+      console.log('[TimerService] attemptStopTimerForQuestion — all correct selected but timer is not running.');
+      return true; // Return true since the answer is correct, even if timer isn't running
+    }
+
+    // Fire sound (or any UX) BEFORE stopping so teardown doesn't kill it
+    try { options.onBeforeStop?.(); } catch { }
+
     try {
-      // Force the stop here to mirror your working path
+      // Stop the timer with force to ensure it stops
       this.stopTimer(options.onStop, { force: true });
+      
+      // Mark as stopped to prevent duplicate stops
+      this.selectedOptionService.stopTimerEmitted = true;
+      this.isTimerStoppedForCurrentQuestion = true;
+      this.stoppedForQuestion.add(questionIndex);
+      
+      console.log(`[TimerService] ✅ Timer stopped for Q${questionIndex + 1} (all correct answers selected)`);
       return true;
-    } catch (err) {
-      // Roll back flags if stop fails
-      this.selectedOptionService.stopTimerEmitted = false;
-      this.isTimerStoppedForCurrentQuestion = false;
-      this.stoppedForQuestion.delete(questionIndex);
+    } catch (err: any) {
       console.error('[TimerService] stopTimer failed in attemptStopTimerForQuestion:', err);
       return false;
     }
@@ -292,36 +290,70 @@ export class TimerService implements OnDestroy {
     selectedOption: SelectedOption
   ): Promise<void> {
     try {
-      if (!question || !Array.isArray(question.options)) {
-        console.warn('[TimerService] Invalid question/options. Cannot evaluate.');
+      console.group(`[TimerService] Checking Q${questionIndex + 1}`);
+      
+      if (!question?.options?.length) {
+        console.warn('No question options available');
+        console.groupEnd();
         return;
       }
 
-      let shouldStop!: boolean;
-
-      const correctOptions = question.options.filter(o => o.correct);
+      // Get all correct options and determine if it's a multiple answer question
+      const correctOptions = question.options.filter(opt => opt.correct);
       const isMultiple = correctOptions.length > 1;
-
-      if (isMultiple) {
-        shouldStop = this.selectedOptionService.areAllCorrectAnswersSelectedSync(
-          questionIndex
+      
+      // Get all correct option IDs
+      const correctOptionIds = correctOptions.map(opt => String(opt.optionId));
+          
+      // Get selected option IDs
+      const selectedOptions = this.selectedOptionService.getSelectedOptionsForQuestion(questionIndex);
+      const selectedOptionIds = selectedOptions.map(opt => String(opt.optionId));
+      
+      console.log('Correct option IDs:', correctOptionIds);
+      console.log('Selected option IDs:', selectedOptionIds);
+      
+      // For Q2 specifically (index 1)
+      if (questionIndex === 1) {
+        console.log('Q2 Debug - Start');
+        console.log('Correct options:', correctOptions);
+        console.log('Selected options:', selectedOptions);
+        
+        // Check if all correct options are selected (regardless of incorrect ones)
+        const allCorrectSelected = correctOptions.every(correctOpt => 
+          selectedOptions.some(selected => selected.optionId === correctOpt.optionId)
         );
-      } else {
-        shouldStop = !!selectedOption?.correct;
-      }
-
-      if (shouldStop) {
-        const stopped = this.attemptStopTimerForQuestion({ questionIndex });
-
-        if (stopped) {
-          console.log('[TimerService] Timer stopped (conditions met).');
-        } else {
-          console.log('[TimerService] Timer stop rejected (already stopped?).');
+        
+        console.log('Q2 - All correct selected?', allCorrectSelected);
+        
+        if (allCorrectSelected) {
+          console.log('Q2 - All correct answers selected. Stopping timer!');
+          this.stopTimer();
+          console.groupEnd();
+          return;
         }
+        
+        console.log('Q2 - Not all correct answers selected yet');
+        console.groupEnd();
+        return;
       }
+      
+      // For other questions
+      const allCorrectSelected = correctOptionIds.length > 0 && 
+        correctOptionIds.every(id => selectedOptionIds.includes(id)) &&
+        (isMultiple ? selectedOptionIds.length === correctOptionIds.length : true);
 
+      if (allCorrectSelected) {
+        console.log('All correct answers selected. Stopping timer!');
+        this.stopTimer();
+      } else if (!isMultiple && selectedOption?.correct) {
+        console.log('Correct single answer selected. Stopping timer!');
+        this.stopTimer();
+      }
+      
+      console.groupEnd();
     } catch (err) {
-      console.error('[TimerService] Error during stop-timer evaluation:', err);
+      console.error('Error in stopTimerIfApplicable:', err);
+      console.groupEnd();
     }
   }
 
@@ -330,18 +362,43 @@ export class TimerService implements OnDestroy {
     this.elapsedTime = time;
   } */
 
-  public resetTimerFlagsFor(index: number): void {
+  public resetTimerFlagsFor(questionIndex: number): void {
+    if (questionIndex == null || questionIndex < 0) {
+      console.warn('[TimerService] resetTimerFlagsFor: Invalid question index');
+      return;
+    }
+
     this.isTimerStoppedForCurrentQuestion = false;
-    this.selectedOptionService.stopTimerEmitted = false;
-    this.stoppedForQuestion.delete(index);
+    
+    if (this.selectedOptionService) {
+      this.selectedOptionService.stopTimerEmitted = false;
+    }
+    
+    this.stoppedForQuestion.delete(questionIndex);
+    
+    console.log(`[TimerService] Reset timer flags for Q${questionIndex + 1}`);
   }
 
-  // Calculates the total elapsed time from recorded times
-  calculateTotalElapsedTime(elapsedTimes: number[]): number {
-    if (elapsedTimes.length > 0) {
-      this.completionTime = elapsedTimes.reduce((acc, cur) => acc + cur, 0);
-      return this.completionTime;
+  public calculateTotalElapsedTime(elapsedTimes: number[]): number {
+    if (!elapsedTimes || !Array.isArray(elapsedTimes)) {
+      console.warn('[TimerService] calculateTotalElapsedTime: Invalid elapsedTimes array');
+      return 0;
     }
-    return 0;
+
+    try {
+      const total = elapsedTimes.reduce((acc: number, cur: number) => {
+        // Ensure both values are valid numbers
+        const a = typeof acc === 'number' ? acc : 0;
+        const c = typeof cur === 'number' ? cur : 0;
+        return a + c;
+      }, 0);
+
+      this.completionTime = total;
+      console.log(`[TimerService] Calculated total elapsed time: ${total}s`);
+      return total;
+    } catch (error) {
+      console.error('[TimerService] Error calculating total elapsed time:', error);
+      return 0;
+    }
   }
 }

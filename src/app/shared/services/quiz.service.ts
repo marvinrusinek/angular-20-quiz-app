@@ -211,7 +211,6 @@ export class QuizService {
   }
 
   set questions(value: any) {
-    console.trace('[TRACE QUESTIONS RESET]', value);
     this._questions = value;
     this.questionsSubject.next(value);
   }
@@ -620,7 +619,7 @@ export class QuizService {
       const broadcastQuestions = sanitizedQuestions.map((question) =>
         this.cloneQuestionForSession(question) ?? question
       );
-      this.questionsSubject.next(broadcastQuestions);
+      this.questions = broadcastQuestions;
 
       return sanitizedQuestions.map((question) =>
         this.cloneQuestionForSession(question) ?? question

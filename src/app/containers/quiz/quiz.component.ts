@@ -172,7 +172,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
   showFeedbackForOption: { [key: number]: boolean } = {};
 
   questionToDisplay = '';
-  private questionToDisplaySource = new BehaviorSubject<string>('Loading...');
+  private questionToDisplaySource = new BehaviorSubject<string>('');
   public questionToDisplay$ = this.questionToDisplaySource.asObservable();
 
   optionsToDisplay: Option[] = [];
@@ -215,6 +215,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
   animationState$ = new BehaviorSubject<AnimationState>('none');
   private _animationInProgress = false;
+  public animationKey = 0;
   unsubscribe$ = new Subject<void>();
   private destroy$ = new Subject<void>();
 
@@ -476,10 +477,11 @@ get quizQuestionComponent(): QuizQuestionComponent {
       .subscribe(total => {
         this.totalQuestions = total;
       });
-    
+
     this.indexSubscription = this.quizService.currentQuestionIndex$
       .pipe(distinctUntilChanged())
       .subscribe((idx: number) => {
+        this.bumpAnimationKey();
 
         const prevIdx = this.lastLoggedIndex;
         const ets = this.explanationTextService;
@@ -785,6 +787,26 @@ get quizQuestionComponent(): QuizQuestionComponent {
   }
 
   async ngAfterViewInit(): Promise<void> {
+    // requestAnimationFrame(() => this.watchForGhosts());
+
+    setTimeout(() => {
+      const host = document.querySelector('.animation-host');
+      if (!host) return;
+    
+      const observer = new MutationObserver(mutations => {
+        mutations.forEach(m => {
+          m.addedNodes.forEach(node => {
+            if (node instanceof HTMLElement) {
+              console.log('%c[GHOST CANDIDATE]', 'color: magenta; font-weight: bold;', node.tagName, node.className);
+            }
+          });
+        });
+      });
+    
+      observer.observe(host, { childList: true, subtree: true });
+    }, 0);
+    
+
     void this.quizQuestionLoaderService.loadQuestionContents(this.currentQuestionIndex);
 
     // If the loader queued options before the child existed, apply them now
@@ -814,6 +836,48 @@ get quizQuestionComponent(): QuizQuestionComponent {
       }
     }, 0);
   }
+
+  private watchForGhosts() {
+    const card = document.querySelector('mat-card');
+    if (!card) return;
+  
+    const parent = card.parentElement;
+    if (!parent) return;
+  
+    console.log('[DEBUG] Watching for ghost nodes (only direct children)...');
+  
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+  
+        // Convert NodeList → array to avoid TS2488
+        Array.from(mutation.addedNodes).forEach((node) => {
+          if (!(node instanceof HTMLElement)) return;
+  
+          const el = node as HTMLElement;
+          const rect = el.getBoundingClientRect();
+  
+          // Angular ghost nodes are tiny
+          if (rect.width <= 40 || rect.height <= 40) {
+            el.style.outline = '3px solid red';
+            console.warn(
+              '%c[LIKELY GHOST NODE]',
+              'color:red;font-weight:bold',
+              el,
+              'size:', rect
+            );
+          }
+        });
+  
+      });
+    });
+  
+    observer.observe(parent, {
+      childList: true,
+      subtree: false
+    });
+  }
+  
+  
 
   initializeDisplayVariables(): void {
     this.displayVariables = {
@@ -3872,22 +3936,6 @@ get quizQuestionComponent(): QuizQuestionComponent {
     this.question = question;
   }
 
-  animationDoneHandler(): void {
-    // Restore animation state
-    this.animationState$.next('none');
-
-    // Allow emissions again
-    this._animationInProgress = false;
-  
-    // Restore visibility of the question text AFTER the animation is fully finished
-    const el = document.querySelector('h3[i18n]');
-    if (el) {
-      (el as HTMLElement).style.visibility = 'visible';
-    }
-  
-    console.log('[NAV] 🔓 Visible now — animation finished');
-  }
-
   selectedAnswer(option: Option): void {
     // Mark the question as answered
     this.answered = true;
@@ -3974,12 +4022,14 @@ get quizQuestionComponent(): QuizQuestionComponent {
     }
   }
 
-  public advanceToNextQuestion(): Promise<void> {
-    return this.advanceQuestion('next');
+  public async advanceToNextQuestion(): Promise<void> {
+    await this.advanceQuestion('next');
+    this.bumpAnimationKey();
   }
 
-  public advanceToPreviousQuestion(): Promise<void> {
-    return this.advanceQuestion('previous');
+  public async advanceToPreviousQuestion(): Promise<void> {
+    await this.advanceQuestion('previous');
+    this.bumpAnimationKey();
   }
 
   // REMOVE!!
@@ -4658,5 +4708,10 @@ get quizQuestionComponent(): QuizQuestionComponent {
     if (shouldShow) {
       this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
     }
+  }
+
+  private bumpAnimationKey() {
+    this.animationKey++;
+    console.warn('[ANIM KEY]', this.animationKey);
   }
 }

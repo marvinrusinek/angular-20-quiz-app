@@ -78,13 +78,13 @@ html, body {
 /* Compact cards */
 .mat-mdc-card,
 mat-card {
-  margin: 12px auto;
-  padding: 16px !important;
-  max-width: 680px;
+  //margin: 12px auto;
+  //padding: 16px !important;
+  //max-width: 680px;
   background: #fff;
-  border: 1.5px solid vars.$black;
-  border-radius: 10px !important;
-  box-shadow: 10px 10px 5px vars.$gray !important;
+  //border: 1.5px solid vars.$black;
+  // border-radius: 10px !important;
+  //box-shadow: 10px 10px 5px vars.$gray !important;
 
   .mat-mdc-card-header,
   mat-card-header {
@@ -180,9 +180,11 @@ mat-card {
 }
 
 .correct-count {
+  display: inline-block;
   color: vars.$dark-green;
   font-style: italic;
-  font-weight: 400;
+  font-weight: 500;
+  text-align: center;
 }
 
 /* ─────────────────────────────────────────────

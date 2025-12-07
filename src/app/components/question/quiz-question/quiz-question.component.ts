@@ -968,16 +968,16 @@ export class QuizQuestionComponent extends BaseQuestion
         this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
       } else {
         console.log(`[VISIBILITY] ↩️ Restoring question view for Q${idx + 1}`);
-      
+
         this.displayExplanation = false;
         this.explanationTextService.setShouldDisplayExplanation(false);
         this.explanationTextService.setIsExplanationTextDisplayed(false);
-      
+
         this.quizStateService.setDisplayState({
           mode: 'question',
           answered: qState?.isAnswered ?? false
         });
-      
+
         // Explanation is not considered “ready to show” in pure question mode
         this.quizStateService.setExplanationReady(false);
       }
@@ -2870,70 +2870,74 @@ export class QuizQuestionComponent extends BaseQuestion
     console.log('[CLICK ENTRY] onOptionClicked fired for Q', this.currentQuestionIndex);
 
     const evtChecked = event?.checked ?? true;
-  
-    this.prepareClickCycle();
-  
-    // ─────────────────────────────
-    // Wait if interaction is not ready
-    // ─────────────────────────────
-    await this.waitForInteractionReady();
-    if (!this.currentQuestion || !this.currentOptions) {
-      console.warn('[onOptionClicked] ❌ currentQuestion/currentOptions missing, returning early');
-      return;
-    }
-  
+
     const idx = this.quizService.getCurrentQuestionIndex() ?? 0;
-    const q = this.questions?.[idx];
+    let q: QuizQuestion | null | undefined = this.question;
+
+    console.log('[onOptionClicked] Initial q:', q);
+    console.log('[onOptionClicked] this.currentQuestion:', this.currentQuestion);
+    console.log('[onOptionClicked] QuizService.questions[idx]:', this.quizService.questions[idx]);
+
+    if (!q || !q.options || q.options.length === 0) {
+      q = this.currentQuestion;
+    }
+    if (!q || !q.options || q.options.length === 0) {
+      q = this.quizService.questions[idx];
+    }
+
+    console.log('[onOptionClicked] Resolved q:', q);
+
     const evtIdx = event.index;
     const evtOpt = event.option;
     if (evtOpt == null) return;
-  
+
     this.resetExplanationBeforeClick(idx);
     if (this.blockIfLocked(evtOpt, idx)) return;
     if (this._clickGate) return;
-  
-    this._clickGate = true;
-    this.questionFresh = false;
-  
+
+    this.prepareClickCycle();
+
     try {
-      const optionsNow = this.cloneOptionsForUi(q, evtIdx, event);
-  
-      this.persistSelection(evtOpt, idx);
-      const canonicalOpts = this.buildCanonicalOptions(q, idx, evtOpt, evtIdx);
-  
-      this.revealFeedbackForAllOptions(canonicalOpts);
-      this.lockOptionsIfNeeded(q, evtOpt, idx);
-  
-      this.syncFeedbackAndHighlighting(idx, evtOpt);
-  
-      this.emitSelectionMessage(idx, q, optionsNow, canonicalOpts);
-  
-      this.syncCanonicalOptionsIntoQuestion(q, canonicalOpts);
-  
-      const allCorrect = this.computeCorrectness(q, canonicalOpts, evtOpt, idx);
+      // ─────────────────────────────
+      // Wait if interaction is not ready
+      // ─────────────────────────────
+      await this.waitForInteractionReady();
+
+      console.log('[onOptionClicked] q resolved to:', q);
+      const optionsNow = this.cloneOptionsForUi(q!, evtIdx, event);
+      console.log('[onOptionClicked] optionsNow from cloneOptionsForUi:', optionsNow);
+      const canonicalOpts = this.buildCanonicalOptions(q!, idx, evtOpt, evtIdx);
+
+      this.persistSelection(evtOpt, idx, optionsNow, q?.type === QuestionType.MultipleAnswer);
+
+      this.emitSelectionMessage(idx, q!, optionsNow, canonicalOpts);
+
+      this.syncCanonicalOptionsIntoQuestion(q!, canonicalOpts);
+
+      const allCorrect = this.computeCorrectness(q!, canonicalOpts, evtOpt, idx);
       this._lastAllCorrect = allCorrect;
-  
-      await this.maybeTriggerExplanation(q, evtOpt, idx, allCorrect);
-  
-      console.log('%c[TIMER DEBUG] ❗ reached stopTimerIfApplicable SPOT', 'color:red;font-weight:bold');
-      await this.timerService.stopTimerIfApplicable(q, idx, evtOpt);
+
+      await this.maybeTriggerExplanation(q!, evtOpt, idx, allCorrect);
+      await this.timerService.stopTimerIfApplicable(q!, idx, evtOpt);
       console.log('%c[TIMER DEBUG] ❗ returned from stopTimerIfApplicable', 'color:red;font-weight:bold');
-  
+
       this.updateNextButtonAndState(allCorrect);
-  
-      this.forceExplanationUpdate(idx, q);
-  
+
+      this.forceExplanationUpdate(idx, q!);
+
       this.scheduleAsyncUiFinalization(evtOpt, evtIdx, evtChecked);
-  
+
+    } catch (err) {
+      console.error('[onOptionClicked] ❌ Error:', err);
     } finally {
-      this.finalizeClickCycle(q, evtOpt);
+      this.finalizeClickCycle(q!, evtOpt);
     }
   }
 
   private prepareClickCycle(): void {
     this.isUserClickInProgress = true;
     this._skipNextAsyncUpdates = false;
-  
+
     // Cancel pending RAF
     if (this._pendingRAF != null) {
       cancelAnimationFrame(this._pendingRAF);
@@ -2964,25 +2968,30 @@ export class QuizQuestionComponent extends BaseQuestion
       if (Number.isFinite(idNum) && this.selectedOptionService.isOptionLocked(idx, idNum)) {
         return true;
       }
-    } catch {}
+    } catch { }
     return false;
   }
 
   private cloneOptionsForUi(q: QuizQuestion, evtIdx: number, event: OptionClickedPayload): Option[] {
+    console.log('[cloneOptionsForUi] q:', q);
+    console.log('[cloneOptionsForUi] q.options:', q?.options);
+    console.log('[cloneOptionsForUi] this.optionsToDisplay:', this.optionsToDisplay);
     const optionsNow: Option[] =
-      this.optionsToDisplay?.map(o => ({ ...o })) ??
-      this.currentQuestion?.options?.map(o => ({ ...o })) ??
-      [];
-  
+      (this.optionsToDisplay && this.optionsToDisplay.length > 0) ? this.optionsToDisplay.map(o => ({ ...o })) :
+        (q?.options && q.options.length > 0) ? q.options.map(o => ({ ...o })) :
+          [];
+
+
+
     // SINGLE-ANSWER → ignore deselects
     if (q?.type === QuestionType.SingleAnswer && !event.checked) {
       optionsNow.forEach(o => { if (o.selected) o.selected = true; });
       this.optionsToDisplay?.forEach(o => { if (o.selected) o.selected = true; });
       return optionsNow;
     }
-  
+
     this.selectionMessageService.releaseBaseline(evtIdx);
-  
+
     if (q?.type === QuestionType.SingleAnswer) {
       optionsNow.forEach((opt, i) => { opt.selected = i === evtIdx; });
       this.optionsToDisplay?.forEach((opt, i) => { opt.selected = i === evtIdx; });
@@ -2992,15 +3001,22 @@ export class QuizQuestionComponent extends BaseQuestion
         this.optionsToDisplay[evtIdx].selected = event.checked ?? true;
       }
     }
-  
+
+    console.log('[cloneOptionsForUi] Returning optionsNow:', optionsNow);
     return optionsNow;
   }
 
-  private persistSelection(evtOpt: Option, idx: number): void {
+  private persistSelection(evtOpt: Option, idx: number, options: Option[], isMultipleAnswer: boolean): void {
+    console.log('[persistSelection] CALLED with:', {
+      optionId: evtOpt?.optionId,
+      questionIndex: idx,
+      optionsLength: options?.length,
+      isMultipleAnswer
+    });
     try {
-      this.selectedOptionService.setSelectedOption(evtOpt, idx);
-    } catch {}
-  
+      this.selectedOptionService.setSelectedOption(evtOpt, idx, options, isMultipleAnswer);
+    } catch { }
+
     (this.quizStateService as any).setUserInteracted?.(idx);
   }
 
@@ -3012,7 +3028,7 @@ export class QuizQuestionComponent extends BaseQuestion
   ): Option[] {
     const getKey = (o: any, i?: number) =>
       this.selectionMessageService.stableKey(o as Option, i);
-  
+
     const canonicalOpts = (q?.options ?? []).map((o, i) => ({
       ...o,
       optionId: Number(o.optionId ?? getKey(o, i)),
@@ -3020,7 +3036,7 @@ export class QuizQuestionComponent extends BaseQuestion
         sel => getKey(sel) === getKey(o)
       )
     }));
-  
+
     if (q?.type === QuestionType.SingleAnswer) {
       canonicalOpts.forEach((opt, i) => opt.selected = i === evtIdx);
       if (evtOpt?.correct && canonicalOpts[evtIdx]) {
@@ -3031,7 +3047,7 @@ export class QuizQuestionComponent extends BaseQuestion
     } else if (canonicalOpts[evtIdx]) {
       canonicalOpts[evtIdx].selected = true;
     }
-  
+
     return canonicalOpts;
   }
 
@@ -3041,27 +3057,27 @@ export class QuizQuestionComponent extends BaseQuestion
       if (Number.isFinite(numId)) {
         this.selectedOptionService.lockOption(idx, numId);
       }
-  
+
       if (q?.type === QuestionType.SingleAnswer && evtOpt?.correct) {
         const allIdsNum = (this.optionsToDisplay ?? [])
           .map(o => Number(o.optionId))
           .filter(Number.isFinite);
         this.selectedOptionService.lockMany(idx, allIdsNum as number[]);
       }
-    } catch {}
+    } catch { }
   }
 
   private syncFeedbackAndHighlighting(idx: number, evtOpt: Option): void {
     const getKey = (o: any) => this.selectionMessageService.stableKey(o as Option);
-  
+
     const selSet = new Set(
       (this.selectedOptionService.selectedOptionsMap?.get(idx) ?? [])
         .map(o => getKey(o))
     );
-  
+
     this.updateOptionHighlighting(selSet);
     this.refreshFeedbackFor(evtOpt ?? undefined);
-  
+
     this.cdRef.markForCheck();
     this.cdRef.detectChanges();
   }
@@ -3074,7 +3090,7 @@ export class QuizQuestionComponent extends BaseQuestion
   ): void {
     this.selectionMessageService.setOptionsSnapshot(canonicalOpts);
     this._msgTok = (this._msgTok ?? 0) + 1;
-  
+
     this.selectionMessageService.emitFromClick({
       index: idx,
       totalQuestions: this.totalQuestions,
@@ -3098,17 +3114,17 @@ export class QuizQuestionComponent extends BaseQuestion
     idx: number
   ): boolean {
     const getKey = (o: any) => this.selectionMessageService.stableKey(o as Option);
-  
+
     const correctOpts = canonicalOpts.filter(o => !!o.correct);
     const selOpts = Array.from(this.selectedOptionService.selectedOptionsMap?.get(idx) ?? []);
     const selKeys = new Set(selOpts.map(o => getKey(o)));
-  
+
     const selectedCorrectCount = correctOpts.filter(o => selKeys.has(getKey(o))).length;
-  
+
     return q?.type === QuestionType.MultipleAnswer
       ? correctOpts.length > 0 &&
-        selectedCorrectCount === correctOpts.length &&
-        selKeys.size === correctOpts.length
+      selectedCorrectCount === correctOpts.length &&
+      selKeys.size === correctOpts.length
       : !!evtOpt?.correct;
   }
 
@@ -3123,7 +3139,7 @@ export class QuizQuestionComponent extends BaseQuestion
       this.quizStateService.displayStateSubject.next({ mode: 'explanation', answered: true });
       this.displayExplanation = true;
     }
-  
+
     if (evtOpt?.correct) {
       console.log(`[QQC] ✅ Correct answer selected → trigger FET for Q${idx + 1}`);
       this.explanationTextService.setShouldDisplayExplanation(true);
@@ -3144,9 +3160,9 @@ export class QuizQuestionComponent extends BaseQuestion
       type: q?.type,
       alreadyFired: this._fetEarlyShown.has(idx)
     });
-  
+
     this._fetEarlyShown.delete(idx);
-  
+
     console.warn(`[QQC] 🔥 FORCED FET call for Q${idx + 1}`);
     this.fireAndForgetExplanationUpdate(idx, q);
   }
@@ -3162,21 +3178,21 @@ export class QuizQuestionComponent extends BaseQuestion
       this.cdRef.markForCheck();
       this.cdRef.detectChanges();
     });
-  
+
     requestAnimationFrame(() => {
       if (this._skipNextAsyncUpdates) return;
-    
+
       (async () => {
-        try { if (evtOpt) this.optionSelected.emit(evtOpt); } catch {}
-    
+        try { if (evtOpt) this.optionSelected.emit(evtOpt); } catch { }
+
         const qSafe = this.currentQuestion;
         if (!qSafe) {
           this.feedbackText = '';
           return;   // prevent crash + keeps behavior unchanged
         }
-    
+
         this.feedbackText = await this.generateFeedbackText(qSafe);
-    
+
         await this.postClickTasks(evtOpt ?? undefined, evtIdx, true, false);
 
         this.handleCoreSelection({
@@ -3194,17 +3210,17 @@ export class QuizQuestionComponent extends BaseQuestion
     queueMicrotask(() => {
       this._clickGate = false;
       this.isUserClickInProgress = false;
-  
+
       this.selectionMessageService.releaseBaseline(this.currentQuestionIndex);
-  
+
       const selectionComplete =
         q?.type === QuestionType.SingleAnswer ? !!evtOpt?.correct : this._lastAllCorrect;
-  
+
       this.selectionMessageService.setSelectionMessage(selectionComplete);
     });
   }
 
-  
+
 
   private fireAndForgetExplanationUpdate(
     lockedIndex: number,
@@ -3339,7 +3355,7 @@ export class QuizQuestionComponent extends BaseQuestion
       });
 
       ets.setIsExplanationTextDisplayed(true);
-<<<<<<< HEAD
+
       ets.setShouldDisplayExplanation(true);
 
       console.warn('🧪 FET RAW CHECK:', {
@@ -5026,13 +5042,13 @@ export class QuizQuestionComponent extends BaseQuestion
           correctIndices,
           rawExplanation
         );
-
+       
         console.log('[QQC] handleOptionProcessingAndFeedback setting formatted explanation:', explanationText);
         this.explanationToDisplay = explanationText;
         this.explanationTextService.setExplanationText(explanationText);
         this.explanationTextService.setShouldDisplayExplanation(true);
         this.shouldDisplayExplanation = true;
-
+       
         if (this.isAnswered && this.shouldDisplayExplanation) {
           this.explanationToDisplayChange.emit(explanationText);
           this.showExplanationChange.emit(true);
