@@ -93,18 +93,17 @@ mat-card-actions {
   }
 }
 
+/* ✓ CLEAN clone-hide block — keep this exactly */
 :host ::ng-deep .ng-animating {
-<<<<<<< HEAD
-=======
   opacity: 0 !important;
   border: none !important;
   box-shadow: none !important;
->>>>>>> 862325defd485eade5a546fab693266827591475
   position: absolute !important;
   inset: 0 !important;
   pointer-events: none !important;
 }
 
+/* ✓ Final card style — thick RHS + bottom border */
 :host ::ng-deep mat-card.quiz-card,
 :host ::ng-deep .quiz-card {
   border: 1.5px solid #000 !important;

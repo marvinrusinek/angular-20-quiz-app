@@ -1,66 +1,45 @@
 @use "../../../variables" as vars;
 @use "sass:color";
 
-/* ------------------------------------------
-   HARD ANIMATION CLIP WRAPPER
-   ------------------------------------------*/
-/* ============================================
+/* ============================================================
    OUTER ANIMATION CLIP WRAPPER
-   Clips only animation overflow.
-   ============================================ */
-<<<<<<< HEAD
+   (prevents ghost overflow)
+   ============================================================ */
 .animation-shell {
   position: relative;
-  overflow: visible;
+  overflow: hidden;
   width: 100%;
   max-width: 680px;
   margin: 12px auto;
 }
 
-/* ===============================================
-=======
-   .animation-shell {
-    position: relative;
-    overflow: hidden;
-    width: 100%;
-    max-width: 680px;
-    margin: 12px auto;
-  }
-
-  /* ===============================================
->>>>>>> 862325defd485eade5a546fab693266827591475
-   Animated element (Angular clones this)
-   ===============================================*/
+/* ============================================================
+   ANIMATED ELEMENT (Angular clones this)
+   ============================================================ */
 .anim-host {
   width: 100%;
   transform-origin: center;
 }
 
-/* Make clone invisible */
+/* Ghost clone (Angular animation clone) */
 :host ::ng-deep .anim-host.ng-animating {
-<<<<<<< HEAD
-=======
   opacity: 0 !important;
->>>>>>> 862325defd485eade5a546fab693266827591475
   position: absolute !important;
   inset: 0 !important;
   pointer-events: none !important;
 }
 
-/* ===============================================
-   Stable wrapper for mat-card 
-   (NEVER animated, NEVER cloned)
-   ===============================================*/
-<<<<<<< HEAD
+/* ============================================================
+   WRAPPER (never animated)
+   ============================================================ */
 .quiz-card-wrapper {
   width: 100%;
   max-width: 680px;
 }
 
-
-/* ============================================
-     MAIN CARD (the real animated element)
-     ============================================ */
+/* ============================================================
+   MAIN CARD (REAL animated element)
+   ============================================================ */
 .quiz-card {
   width: 100%;
   background: #fff !important;
@@ -77,11 +56,10 @@
   overflow: visible !important;
 }
 
-/* FORCE OVERRIDE Angular Material's card styling */
+/* Force override of Angular Material card */
 :host ::ng-deep mat-card.quiz-card {
   border: 1.5px solid #000 !important;
   border-right-width: 3px !important;
-  /* thick on RHS */
   box-shadow: 10px 10px 5px #888 !important;
   border-radius: 10px !important;
   background: #fff !important;
@@ -89,122 +67,41 @@
   overflow: visible !important;
 }
 
+/* Material card fix */
 :host ::ng-deep .mdc-card,
-=======
-   .quiz-card-wrapper {
-    width: 100%;
-    max-width: 680px;
-  }
-
-  
-  /* ============================================
-     MAIN CARD (the real animated element)
-     ============================================ */
-     .quiz-card {
-      width: 100%;
-      background: #fff !important;
-    
-      border: 1.5px solid #000 !important;
-      border-right-width: 3px !important;
-      border-bottom-width: 3px !important;
-    
-      border-radius: 10px !important;
-      box-shadow: 10px 10px 5px #999 !important;
-    
-      padding: 16px !important;
-      box-sizing: border-box;
-      overflow: visible !important;
-    }
-
-  /* FORCE OVERRIDE Angular Material's card styling */
-  :host ::ng-deep mat-card.quiz-card {
-    border: 1.5px solid #000 !important;
-    border-right-width: 3px !important;   /* thick on RHS */
-    box-shadow: 10px 10px 5px #888 !important;
-    border-radius: 10px !important;
-    background: #fff !important;
-    padding: 16px !important;
-    overflow: visible !important;
-  }
-
-  :host ::ng-deep .mdc-card,
->>>>>>> 862325defd485eade5a546fab693266827591475
 :host ::ng-deep .mdc-card * {
   overflow: visible !important;
 }
 
+/* Angular animation clones */
 :host ::ng-deep .ng-animating {
-<<<<<<< HEAD
-=======
   opacity: 0 !important;
   border: none !important;
   box-shadow: none !important;
->>>>>>> 862325defd485eade5a546fab693266827591475
   position: absolute !important;
   inset: 0 !important;
   pointer-events: none !important;
 }
 
-:host ::ng-deep mat-card.quiz-card,
-:host ::ng-deep .quiz-card {
-  border: 1.5px solid #000 !important;
-  border-right-width: 3px !important;
-  border-bottom-width: 3px !important;
-  background: #fff !important;
-  border-radius: 10px !important;
-  box-shadow: 10px 10px 5px #999 !important;
+/* Duplicate protection: hide extra clones */
+.animation-shell > .anim-target:not(:first-child) {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  position: absolute !important;
+  inset: 0 !important;
 }
-<<<<<<< HEAD
 
-/* ============================================
-     Angular's ghost clone during animation
-     ============================================ */
+/* Ghost clone (secondary) */
 .anim-target.ng-animating {
+  opacity: 0 !important;
+  pointer-events: none !important;
   position: absolute !important;
   inset: 0 !important;
-  pointer-events: none !important;
 }
 
-/* ============================================
-     Safety: In case Angular creates multiple clones
-     ============================================ */
-.animation-shell>.anim-target:not(:first-child) {
-  opacity: 0 !important;
-  position: absolute !important;
-  inset: 0 !important;
-  pointer-events: none !important;
-}
-
-:host ::ng-deep .ng-animating codelab-quiz-content,
-:host ::ng-deep .ng-animating codelab-quiz-content h3 {
-  opacity: 0 !important;
-  visibility: hidden !important;
-  display: none !important;
-}
-
-=======
-  
-  /* ============================================
-     Angular's ghost clone during animation
-     ============================================ */
-  .anim-target.ng-animating {
-    opacity: 0 !important;
-    pointer-events: none !important;
-    position: absolute !important;
-    inset: 0 !important;
-  }
-  
-  /* ============================================
-     Safety: In case Angular creates multiple clones
-     ============================================ */
-  .animation-shell > .anim-target:not(:first-child) {
-    opacity: 0 !important;
-    pointer-events: none !important;
-    position: absolute !important;
-    inset: 0 !important;
-  }
-  
->>>>>>> 862325defd485eade5a546fab693266827591475
+/* ======================================================================
+   QUIZ COMPONENT INTERNAL CARD LAYOUT
+   ====================================================================== */
 mat-card {
   margin: 0 !important;
 
@@ -226,7 +123,7 @@ mat-card {
 
     .paging {
       width: 640px;
-      margin: -50x auto 24px auto;
+      margin: -50px auto 24px auto;
       box-sizing: border-box;
 
       mat-card-actions {
@@ -315,9 +212,9 @@ mat-card {
   }
 }
 
-/* ----------------------------------------------------
+/* ============================================================
    PROGRESS BAR
------------------------------------------------------ */
+   ============================================================ */
 .custom-bar {
   width: 100%;
   height: 20px;
@@ -328,24 +225,21 @@ mat-card {
 
 .custom-bar-fill {
   height: 100%;
-  background: linear-gradient(45deg,
-      rgba(40, 167, 69, 0.85) 25%,
-      rgba(40, 167, 69, 1) 25%,
-      rgba(40, 167, 69, 1) 50%,
-      rgba(40, 167, 69, 0.85) 50%,
-      rgba(40, 167, 69, 0.85) 75%,
-      rgba(40, 167, 69, 1) 75%);
+  background: linear-gradient(
+                  45deg,
+                  rgba(40, 167, 69, 0.85) 25%,
+                  rgba(40, 167, 69, 1) 25%,
+                  rgba(40, 167, 69, 1) 50%,
+                  rgba(40, 167, 69, 0.85) 50%,
+                  rgba(40, 167, 69, 0.85) 75%,
+                  rgba(40, 167, 69, 1) 75%
+  );
   background-size: 40px 40px;
   animation: move 1s linear infinite;
   transition: width 0.3s ease;
 }
 
 @keyframes move {
-  0% {
-    background-position: 40px 0;
-  }
-
-  100% {
-    background-position: 0 0;
-  }
+  0% { background-position: 40px 0; }
+  100% { background-position: 0 0; }
 }
