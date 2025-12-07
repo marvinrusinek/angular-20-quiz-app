@@ -8,6 +8,7 @@
    OUTER ANIMATION CLIP WRAPPER
    Clips only animation overflow.
    ============================================ */
+<<<<<<< HEAD
 .animation-shell {
   position: relative;
   overflow: visible;
@@ -17,6 +18,17 @@
 }
 
 /* ===============================================
+=======
+   .animation-shell {
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    max-width: 680px;
+    margin: 12px auto;
+  }
+
+  /* ===============================================
+>>>>>>> 862325defd485eade5a546fab693266827591475
    Animated element (Angular clones this)
    ===============================================*/
 .anim-host {
@@ -26,6 +38,10 @@
 
 /* Make clone invisible */
 :host ::ng-deep .anim-host.ng-animating {
+<<<<<<< HEAD
+=======
+  opacity: 0 !important;
+>>>>>>> 862325defd485eade5a546fab693266827591475
   position: absolute !important;
   inset: 0 !important;
   pointer-events: none !important;
@@ -35,6 +51,7 @@
    Stable wrapper for mat-card 
    (NEVER animated, NEVER cloned)
    ===============================================*/
+<<<<<<< HEAD
 .quiz-card-wrapper {
   width: 100%;
   max-width: 680px;
@@ -73,11 +90,56 @@
 }
 
 :host ::ng-deep .mdc-card,
+=======
+   .quiz-card-wrapper {
+    width: 100%;
+    max-width: 680px;
+  }
+
+  
+  /* ============================================
+     MAIN CARD (the real animated element)
+     ============================================ */
+     .quiz-card {
+      width: 100%;
+      background: #fff !important;
+    
+      border: 1.5px solid #000 !important;
+      border-right-width: 3px !important;
+      border-bottom-width: 3px !important;
+    
+      border-radius: 10px !important;
+      box-shadow: 10px 10px 5px #999 !important;
+    
+      padding: 16px !important;
+      box-sizing: border-box;
+      overflow: visible !important;
+    }
+
+  /* FORCE OVERRIDE Angular Material's card styling */
+  :host ::ng-deep mat-card.quiz-card {
+    border: 1.5px solid #000 !important;
+    border-right-width: 3px !important;   /* thick on RHS */
+    box-shadow: 10px 10px 5px #888 !important;
+    border-radius: 10px !important;
+    background: #fff !important;
+    padding: 16px !important;
+    overflow: visible !important;
+  }
+
+  :host ::ng-deep .mdc-card,
+>>>>>>> 862325defd485eade5a546fab693266827591475
 :host ::ng-deep .mdc-card * {
   overflow: visible !important;
 }
 
 :host ::ng-deep .ng-animating {
+<<<<<<< HEAD
+=======
+  opacity: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+>>>>>>> 862325defd485eade5a546fab693266827591475
   position: absolute !important;
   inset: 0 !important;
   pointer-events: none !important;
@@ -92,6 +154,7 @@
   border-radius: 10px !important;
   box-shadow: 10px 10px 5px #999 !important;
 }
+<<<<<<< HEAD
 
 /* ============================================
      Angular's ghost clone during animation
@@ -119,6 +182,29 @@
   display: none !important;
 }
 
+=======
+  
+  /* ============================================
+     Angular's ghost clone during animation
+     ============================================ */
+  .anim-target.ng-animating {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    position: absolute !important;
+    inset: 0 !important;
+  }
+  
+  /* ============================================
+     Safety: In case Angular creates multiple clones
+     ============================================ */
+  .animation-shell > .anim-target:not(:first-child) {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    position: absolute !important;
+    inset: 0 !important;
+  }
+  
+>>>>>>> 862325defd485eade5a546fab693266827591475
 mat-card {
   margin: 0 !important;
 

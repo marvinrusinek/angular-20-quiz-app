@@ -94,6 +94,12 @@ mat-card-actions {
 }
 
 :host ::ng-deep .ng-animating {
+<<<<<<< HEAD
+=======
+  opacity: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+>>>>>>> 862325defd485eade5a546fab693266827591475
   position: absolute !important;
   inset: 0 !important;
   pointer-events: none !important;
