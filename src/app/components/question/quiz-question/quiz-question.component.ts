@@ -4464,10 +4464,42 @@ export class QuizQuestionComponent extends BaseQuestion
   }
 
   // ====================== Helper Functions ======================
-  private async handleMultipleAnswerTimerLogic(option: Option): Promise<void> {
+  private async handleMultipleAnswerTimerLogic(
+    option: Option,
+    questionIndex: number
+  ): Promise<void> {
     this.showFeedback = true;  // enable feedback display
 
     try {
+      const normalizedIndex = this.normalizeIndex(
+        typeof questionIndex === 'number' && questionIndex >= 0
+          ? questionIndex
+          : this.quizService.getCurrentQuestionIndex() ?? 0
+      );
+
+      // Include previously selected options so the snapshot reflects every choice
+      // the user has made (including earlier incorrect picks).
+      const priorSelections =
+        this.selectedOptionService.selectedOptionsMap.get(normalizedIndex) ?? [];
+      const selectedIds = new Set<number>(
+        priorSelections
+          .map(sel => sel?.optionId)
+          .filter((id): id is number => id !== null && id !== undefined)
+      );
+
+      // Also fold in any already-selected options from the rendered list so we
+      // don't lose earlier picks that weren't captured in the selections map.
+      this.optionsToDisplay.forEach((opt, idx) => {
+        const id = opt?.optionId ?? idx;
+        if (opt?.selected && id !== undefined && id !== null) {
+          selectedIds.add(id);
+        }
+      });
+
+      if (option?.optionId !== undefined && option?.optionId !== null) {
+        selectedIds.add(option.optionId);
+      }
+
       // Check if all correct options are selected
       // Update options state
       const updatedOptions = this.optionsToDisplay.map((opt) => {
@@ -4477,7 +4509,7 @@ export class QuizQuestionComponent extends BaseQuestion
           ...opt,
           feedback: isSelected && !opt.correct ? 'x' : opt.feedback,
           showIcon: isSelected,
-          selected: opt.selected || isSelected,
+          selected: opt.selected || isSelected || selectedIds.has(opt.optionId ?? -1),
           active: true  // keep all options active
         };
       });
@@ -4486,7 +4518,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
       // Stop the timer if all correct options are selected
       const stopped = this.timerService.attemptStopTimerForQuestion({
-        questionIndex: this.currentQuestionIndex,
+        questionIndex: normalizedIndex,
         optionsSnapshot: updatedOptions
       });
 
@@ -4715,10 +4747,10 @@ export class QuizQuestionComponent extends BaseQuestion
 
     const routeIndex = this.quizService.getCurrentQuestionIndex()
       ?? this.currentQuestionIndex
-      ?? 1;
+      ?? 0;
 
-    // ALWAYS force to 0-based index
-    const effectiveIdx = Number(routeIndex) - 1;
+    // Normalize to the actual 0-based index used throughout the timer logic
+    const effectiveIdx = this.normalizeIndex(routeIndex);
 
     console.warn('🧭 INDEX CHECK', {
       routeIndex,
@@ -4751,7 +4783,7 @@ export class QuizQuestionComponent extends BaseQuestion
     });
 
     if (this.currentQuestion.type === QuestionType.MultipleAnswer) {
-      await this.handleMultipleAnswerTimerLogic(option);
+      await this.handleMultipleAnswerTimerLogic(option, effectiveIdx);
     }
 
     // ──────────────────────────────────────────────
