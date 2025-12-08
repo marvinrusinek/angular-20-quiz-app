@@ -2933,16 +2933,22 @@ export class QuizQuestionComponent extends BaseQuestion
         evtOptId: evtOpt.optionId
       });
   
-      const selectedOptionsFinal =
-        this.selectedOptionService.getSelectedOptionsForQuestion(idx);
-
-      console.log('[QQC] SelectedOptionService returned:', selectedOptionsFinal);
-
-      await this.timerService.stopTimerIfApplicable(
-        q!,
-        idx,
-        selectedOptionsFinal
-      );
+      queueMicrotask(async () => {
+        const selectedNow =
+          this.selectedOptionService.getSelectedOptionsForQuestion(idx);
+      
+        console.log(
+          '%c[QQC][MICROTASK] SelectedOptionService now has:',
+          'color: #00bfff; font-weight: bold;',
+          selectedNow
+        );
+      
+        await this.timerService.stopTimerIfApplicable(
+          q!,
+          idx,
+          selectedNow
+        );
+      });
    
       console.log('%c[TIMER DEBUG] Final stopTimerIfApplicable done', 'color:green;font-weight:bold');
   
