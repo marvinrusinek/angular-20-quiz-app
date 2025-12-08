@@ -1724,8 +1724,25 @@ export class SelectedOptionService {
     questionIndex: number,
     optionsSnapshot?: Option[]
   ): boolean {
+    const normalizedIndex = this.normalizeQuestionIndex(questionIndex);
+
+    if (normalizedIndex < 0) {
+      console.warn('[areAllCorrectAnswersSelectedSync] Invalid question index:', questionIndex);
+      return false;
+    }
+
+    const rawSnapshot = Array.isArray(optionsSnapshot)
+      ? optionsSnapshot.filter(Boolean)
+      : [];
+
+    // Fast-path: if the provided snapshot already contains all correct options
+    // marked as selected, respect it without further canonical resolution.
+    if (rawSnapshot.length > 0 && this.evaluateAllCorrectSelections(rawSnapshot)) {
+      return true;
+    }
+
     // Fallback: Use optionSnapshotByQuestion if QuizService.questions is empty
-    let question = this.quizService.questions?.[questionIndex];
+    /* let question = this.quizService.questions?.[questionIndex];
     if (!question) {
       console.warn(`[ARE-ALL SYNC] QuizService.questions[${questionIndex}] is missing. Trying optionSnapshotByQuestion.`);
       const snapshotOptions = this.optionSnapshotByQuestion.get(questionIndex);
@@ -1734,27 +1751,56 @@ export class SelectedOptionService {
       if (snapshotOptions && snapshotOptions.length > 0) {
         question = { options: snapshotOptions } as any;
       }
-    }
+    } */
 
     const snapshot = this.buildCanonicalSelectionSnapshot(
-      questionIndex,
-      Array.isArray(optionsSnapshot) ? optionsSnapshot : []
+      normalizedIndex,
+      rawSnapshot
     );
 
     // If we still don't have a question, we can't determine correctness
-    if (!question || !Array.isArray(question.options)) {
+    /* if (!question || !Array.isArray(question.options)) {
       console.error(`[ARE-ALL SYNC] Unable to resolve options for Q${questionIndex + 1}. Returning false.`);
       return false;
-    }
+    } */
 
     // Use the resolved question options for canonical resolution
-    const canonicalOptions = question.options;
+    //const canonicalOptions = question.options;
+    const canonicalOptions = this.resolveCanonicalOptionsFor(normalizedIndex);
 
     return this.determineIfAllCorrectAnswersSelected(
-      questionIndex,
+      normalizedIndex,
       snapshot,
       canonicalOptions
     );
+  }
+
+  private normalizeQuestionIndex(index: number | null | undefined): number {
+    if (!Number.isFinite(index as number)) {
+      return -1;
+    }
+
+    const normalized = Math.trunc(index as number);
+    const questions = this.quizService?.questions;
+
+    if (!Array.isArray(questions) || questions.length === 0) {
+      return normalized;
+    }
+
+    if (questions[normalized] != null) {
+      return normalized;
+    }
+
+    const potentialOneBased = normalized - 1;
+    if (
+      potentialOneBased >= 0 &&
+      potentialOneBased < questions.length &&
+      questions[potentialOneBased] != null
+    ) {
+      return potentialOneBased;
+    }
+
+    return Math.min(Math.max(normalized, 0), questions.length - 1);
   }
 
   private evaluateAllCorrectSelections(snapshot: Option[]): boolean {

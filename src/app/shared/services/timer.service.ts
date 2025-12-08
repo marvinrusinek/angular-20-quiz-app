@@ -87,7 +87,9 @@ export class TimerService implements OnDestroy {
       return;
     }
 
-    const activeQuestionIndex = this.quizService?.currentQuestionIndex ?? -1;
+    const activeQuestionIndex = this.normalizeQuestionIndex(
+      this.quizService?.currentQuestionIndex
+    );
     if (activeQuestionIndex < 0) {
       console.warn(
         '[TimerService] Stop signal received without a valid question index. Forcing timer stop.'
@@ -229,10 +231,11 @@ export class TimerService implements OnDestroy {
   }
 
   public attemptStopTimerForQuestion(options: StopTimerAttemptOptions = {}): boolean {
-    const questionIndex =
+    const questionIndex = this.normalizeQuestionIndex(
       typeof options.questionIndex === 'number'
         ? options.questionIndex
-        : this.quizService?.currentQuestionIndex ?? null;
+        : this.quizService?.currentQuestionIndex
+    );
 
     if (questionIndex == null || questionIndex < 0) {
       console.warn('[TimerService] attemptStopTimerForQuestion called without a valid question index.');
@@ -292,70 +295,126 @@ export class TimerService implements OnDestroy {
     questionIndex: number,
     selectedOption: SelectedOption
   ): Promise<void> {
+    console.group(`[TimerService] Checking Q${questionIndex + 1}`);
+
     try {
-      console.group(`[TimerService] Checking Q${questionIndex + 1}`);
-      
-      if (!question?.options?.length) {
-        console.warn('No question options available');
+      // ────────────────────────────────────────────
+      // Validation
+      // ────────────────────────────────────────────
+      if (!question || !Array.isArray(question.options)) {
+        console.warn('[TimerService] Invalid question/options. Cannot evaluate.');
         console.groupEnd();
         return;
       }
 
-      // Get all correct options and determine if it's a multiple answer question
+      const normalizedIndex = this.normalizeQuestionIndex(questionIndex);
+      if (normalizedIndex < 0) {
+        console.warn('[TimerService] Invalid index — cannot evaluate:', questionIndex);
+        console.groupEnd();
+        return;
+      }
+
+      // ────────────────────────────────────────────
+      // Core data extraction
+      // ────────────────────────────────────────────
       const correctOptions = question.options.filter(opt => opt.correct);
       const isMultiple = correctOptions.length > 1;
-      
-      // Get all correct option IDs
+
       const correctOptionIds = correctOptions.map(opt => String(opt.optionId));
-          
-      // Get selected option IDs
-      const selectedOptions = this.selectedOptionService.getSelectedOptionsForQuestion(questionIndex);
+
+      const selectedOptions =
+        this.selectedOptionService.getSelectedOptionsForQuestion(normalizedIndex);
+
       const selectedOptionIds = selectedOptions.map(opt => String(opt.optionId));
-      
+
       console.log('Correct option IDs:', correctOptionIds);
       console.log('Selected option IDs:', selectedOptionIds);
-      
-      // For Q2 specifically (index 1)
-      if (questionIndex === 1) {
+
+      // ────────────────────────────────────────────
+      // SPECIAL CASE: Q2 (index 1) — your debugging logic preserved
+      // ────────────────────────────────────────────
+      if (normalizedIndex === 1) {
         console.log('Q2 Debug - Start');
         console.log('Correct options:', correctOptions);
         console.log('Selected options:', selectedOptions);
-        
-        // Check if all correct options are selected (regardless of incorrect ones)
-        const allCorrectSelected = correctOptions.every(correctOpt => 
-          selectedOptions.some(selected => selected.optionId === correctOpt.optionId)
+
+        const allCorrectSelected = correctOptions.every(correctOpt =>
+          selectedOptions.some(sel => sel.optionId === correctOpt.optionId)
         );
-        
+
         console.log('Q2 - All correct selected?', allCorrectSelected);
-        
+
         if (allCorrectSelected) {
-          console.log('Q2 - All correct answers selected. Stopping timer!');
+          console.log('Q2 - All correct answers selected → stopping timer!');
           this.stopTimer();
           console.groupEnd();
           return;
         }
-        
+
         console.log('Q2 - Not all correct answers selected yet');
         console.groupEnd();
         return;
       }
-      
-      // For other questions
-      const allCorrectSelected = correctOptionIds.length > 0 && 
-        correctOptionIds.every(id => selectedOptionIds.includes(id)) &&
-        (isMultiple ? selectedOptionIds.length === correctOptionIds.length : true);
 
-      if (allCorrectSelected) {
-        console.log('All correct answers selected. Stopping timer!');
-        this.stopTimer();
-      } else if (!isMultiple && selectedOption?.correct) {
-        console.log('Correct single answer selected. Stopping timer!');
-        this.stopTimer();
+      // ────────────────────────────────────────────
+      // Standard MULTIPLE-ANSWER logic
+      // ────────────────────────────────────────────
+      let shouldStop = false;
+
+      if (isMultiple) {
+        // All correct IDs must be included
+        const allCorrectSelected =
+          correctOptionIds.length > 0 &&
+          correctOptionIds.every(id => selectedOptionIds.includes(id));
+
+        // And the selection should not contain "extra" items
+        const sameLength = selectedOptionIds.length === correctOptionIds.length;
+
+        shouldStop = allCorrectSelected && sameLength;
+
+        if (shouldStop) {
+          console.log('All correct answers selected (multiple) → stopping timer!');
+        }
+      } else {
+        // ────────────────────────────────────────────
+        // SINGLE-ANSWER logic
+        // ────────────────────────────────────────────
+        if (selectedOption?.correct) {
+          shouldStop = true;
+          console.log('Correct single answer selected → stopping timer!');
+        }
       }
-      
+
+      // ────────────────────────────────────────────
+      // Final stop execution
+      // ────────────────────────────────────────────
+      if (shouldStop) {
+        const stopped = this.attemptStopTimerForQuestion({
+          questionIndex: normalizedIndex,
+          onStop: (elapsed?: number) => {
+            if (elapsed != null) {
+              this.elapsedTimes[normalizedIndex] = elapsed;
+              console.log(
+                `[TimerService] 💾 Stored elapsed time for Q${normalizedIndex + 1}: ${elapsed}s`
+              );
+            }
+          }
+        });
+
+        if (!stopped) {
+          console.warn('[TimerService] Stop rejected — forcing timer stop.');
+          this.stopTimer(undefined, { force: true });
+        }
+
+        console.groupEnd();
+        return;
+      }
+
+      console.log('Stop conditions NOT met — timer continues.');
       console.groupEnd();
+
     } catch (err) {
-      console.error('Error in stopTimerIfApplicable:', err);
+      console.error('[TimerService] Error in stopTimerIfApplicable:', err);
       console.groupEnd();
     }
   }
@@ -403,5 +462,33 @@ export class TimerService implements OnDestroy {
       console.error('[TimerService] Error calculating total elapsed time:', error);
       return 0;
     }
+  }
+
+  private normalizeQuestionIndex(index: number | null | undefined): number {
+    if (!Number.isFinite(index as number)) {
+      return -1;
+    }
+
+    const normalized = Math.trunc(index as number);
+    const questions = this.quizService?.questions;
+
+    if (!Array.isArray(questions) || questions.length === 0) {
+      return normalized;
+    }
+
+    if (questions[normalized] != null) {
+      return normalized;
+    }
+
+    const potentialOneBased = normalized - 1;
+    if (
+      potentialOneBased >= 0 &&
+      potentialOneBased < questions.length &&
+      questions[potentialOneBased] != null
+    ) {
+      return potentialOneBased;
+    }
+
+    return Math.min(Math.max(normalized, 0), questions.length - 1);
   }
 }
