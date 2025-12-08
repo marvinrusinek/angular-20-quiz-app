@@ -2874,10 +2874,6 @@ export class QuizQuestionComponent extends BaseQuestion
     const idx = this.quizService.getCurrentQuestionIndex() ?? 0;
     let q: QuizQuestion | null | undefined = this.question;
   
-    if (idx != null) {
-      this.timerService.requestStopEvaluationFromClick(idx, event.option);
-    }
-  
     console.log('[onOptionClicked] Initial q:', q);
     console.log('[onOptionClicked] this.currentQuestion:', this.currentQuestion);
     console.log('[onOptionClicked] QuizService.questions[idx]:', this.quizService.questions[idx]);
@@ -2907,7 +2903,12 @@ export class QuizQuestionComponent extends BaseQuestion
       const canonicalOpts = this.buildCanonicalOptions(q!, idx, evtOpt, evtIdx);
   
       // selection commit happens here
-      this.persistSelection(evtOpt, idx, optionsNow, q?.type === QuestionType.MultipleAnswer);
+      this.persistSelection(
+        evtOpt,
+        idx,
+        optionsNow,
+        q?.type === QuestionType.MultipleAnswer
+      );
   
       this.emitSelectionMessage(idx, q!, optionsNow, canonicalOpts);
   
@@ -2918,24 +2919,22 @@ export class QuizQuestionComponent extends BaseQuestion
   
       await this.maybeTriggerExplanation(q!, evtOpt, idx, allCorrect);
   
-      // ────────────────────────────────────────────────
-      // ⭐ FIX: ACTUAL TIMER STOP CALL (multi-select safe)
-      // ────────────────────────────────────────────────
-      console.warn('[TIMER DEBUG] Calling stopTimerIfApplicable with:', {
-        q, idx, evtOpt
-      });
-  
-      console.log('%c[TIMER DEBUG] FINISHED stopTimerIfApplicable()', 'color:green;font-weight:bold');
-      // ────────────────────────────────────────────────
-  
       this.updateNextButtonAndState(allCorrect);
   
       this.forceExplanationUpdate(idx, q!);
   
       this.scheduleAsyncUiFinalization(evtOpt, evtIdx, evtChecked);
-
+  
+      // ────────────────────────────────────────────────
+      // FINAL: evaluate timer stop AFTER selection + UI are settled
+      // ────────────────────────────────────────────────
+      console.warn('[TIMER DEBUG] Calling stopTimerIfApplicable with:', {
+        idx,
+        evtOptId: evtOpt.optionId
+      });
+  
       await this.timerService.stopTimerIfApplicable(q!, idx, evtOpt);
-
+  
       console.log('%c[TIMER DEBUG] Final stopTimerIfApplicable done', 'color:green;font-weight:bold');
   
     } catch (err) {
