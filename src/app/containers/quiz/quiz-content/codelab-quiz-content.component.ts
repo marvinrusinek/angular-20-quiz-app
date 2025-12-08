@@ -374,7 +374,6 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     // Run only when the new questionText arrives
     if (!!this.questionText && !this.questionRendered.getValue()) {
       this.questionRendered.next(true);
-      this.initializeExplanationTextObservable();
     }
 
     if (changes['questionIndex'] && !changes['questionIndex'].firstChange) {
@@ -924,47 +923,6 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           );
         }
       });
-  }
-
-  private initializeExplanationTextObservable(): void {
-    // DISABLED: This logic conflicts with QuizQuestionComponent's explanation handling
-    // and causes "No explanation available" to be displayed prematurely.
-    /*
-    combineLatest([
-      this.quizStateService.currentQuestion$.pipe(
-        map((value) => value ?? null),  // default to `null` if value is `undefined`
-        distinctUntilChanged()
-      ),
-      this.explanationTextService.isExplanationTextDisplayed$.pipe(
-        map((value) => value ?? false),  // default to `false` if value is `undefined`
-        distinctUntilChanged()
-      )
-    ])
-      .pipe(
-        takeUntil(this.destroy$),
-        withLatestFrom(
-          this.questionRendered.pipe(
-            map((value) => value ?? false),  // default to `false` if value is `undefined`
-            distinctUntilChanged()
-          )
-        ),
-        switchMap(([[question, isDisplayed], rendered]) => {
-          if (question && isDisplayed && rendered) {
-            return this.fetchExplanationTextAfterRendering(question);
-          } else {
-            return of('');
-          }
-        }),
-        catchError((error) => {
-          console.error('Error fetching explanation text:', error);
-          return of('');  // emit an empty string in case of an error
-        })
-      )
-      .subscribe((explanation: string) => {
-        this.explanationToDisplay = explanation;
-        this.isExplanationDisplayed = !!explanation;
-      });
-      */
   }
 
   private fetchExplanationTextAfterRendering(
