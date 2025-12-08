@@ -330,6 +330,8 @@ export class TimerService implements OnDestroy {
       // ────────────────────────────────────────────
       // SPECIAL CASE: Q2 (index 1) – for debugging
       // ────────────────────────────────────────────
+      console.log('[Q2 DEBUG] RAW question.options:', question.options);
+
       if (normalizedIndex === 1) {
         console.log('[TimerService][Q2] Debug - Start');
         console.log('[TimerService][Q2] Correct options:', correctOptions);
