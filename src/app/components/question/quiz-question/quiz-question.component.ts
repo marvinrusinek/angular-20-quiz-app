@@ -2925,8 +2925,6 @@ export class QuizQuestionComponent extends BaseQuestion
         q, idx, evtOpt
       });
   
-      await this.timerService.stopTimerIfApplicable(q!, idx, evtOpt);
-  
       console.log('%c[TIMER DEBUG] FINISHED stopTimerIfApplicable()', 'color:green;font-weight:bold');
       // ────────────────────────────────────────────────
   
@@ -2935,6 +2933,10 @@ export class QuizQuestionComponent extends BaseQuestion
       this.forceExplanationUpdate(idx, q!);
   
       this.scheduleAsyncUiFinalization(evtOpt, evtIdx, evtChecked);
+
+      await this.timerService.stopTimerIfApplicable(q!, idx, evtOpt);
+
+      console.log('%c[TIMER DEBUG] Final stopTimerIfApplicable done', 'color:green;font-weight:bold');
   
     } catch (err) {
       console.error('[onOptionClicked] ❌ Error:', err);
