@@ -196,8 +196,19 @@ export class SelectedOptionService {
       canonicalCurrent = [];
     }
 
-    if (!canonicalCurrent.some(sel => sel.optionId === enriched.optionId)) {
-      canonicalCurrent.push(enriched);
+    const exists = canonicalCurrent.find(sel => sel.optionId === enriched.optionId);
+
+    if (isMultipleAnswer) {
+      if (exists) {
+        // toggle OFF
+        canonicalCurrent = canonicalCurrent.filter(sel => sel.optionId !== enriched.optionId);
+      } else {
+        // toggle ON
+        canonicalCurrent.push(enriched);
+      }
+    } else {
+      // single answer
+      canonicalCurrent = [enriched];
     }
 
     const committed = this.commitSelections(qIndex, canonicalCurrent);
