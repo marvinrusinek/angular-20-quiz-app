@@ -1,4 +1,4 @@
-import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges, ViewChild } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, ParamMap } from '@angular/router';
 import { animationFrameScheduler, BehaviorSubject, combineLatest, firstValueFrom, forkJoin, merge, Observable, of, Subject, Subscription } from 'rxjs';
@@ -34,7 +34,7 @@ interface QuestionViewState {
   styleUrls: ['./codelab-quiz-content.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy, AfterViewInit {
+export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy {
   @ViewChild(QuizQuestionComponent, { static: false })
   quizQuestionComponent!: QuizQuestionComponent;
   @ViewChild('qText', { static: true })
@@ -329,7 +329,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             error: (err) => console.error('[CQCC displayText$ error]', err),
           });
       }
-    }, 50); // Slightly longer delay to ensure displayText$ is initialized
+    }, 50);  // slightly longer delay to ensure displayText$ is initialized
 
     this.isContentAvailable$ = this.combineCurrentQuestionAndOptions().pipe(
       map(({ currentQuestion, currentOptions }) => {
@@ -400,11 +400,6 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     this.pendingExplanationRequests.clear();
     this.combinedTextSubject.complete();
     this.combinedSub?.unsubscribe();
-  }
-
-  ngAfterViewInit(): void {
-    // ✅ DISABLED - was competing with displayText$ subscription
-    // this.connectCombinedTextStream();
   }
 
   private resetExplanationView(): void {
