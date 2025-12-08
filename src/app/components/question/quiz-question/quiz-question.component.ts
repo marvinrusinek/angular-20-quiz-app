@@ -2935,12 +2935,12 @@ export class QuizQuestionComponent extends BaseQuestion
   
       const selectedOptionsFinal = canonicalOpts.filter(o => o.selected);
 
-      await this.timerService.stopTimerIfApplicable(
+      /* await this.timerService.stopTimerIfApplicable(
         q!,
         idx,
         selectedOptionsFinal
-      );
-  
+      ); */
+   
       console.log('%c[TIMER DEBUG] Final stopTimerIfApplicable done', 'color:green;font-weight:bold');
   
     } catch (err) {

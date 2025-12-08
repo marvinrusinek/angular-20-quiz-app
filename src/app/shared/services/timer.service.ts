@@ -302,7 +302,7 @@ export class TimerService implements OnDestroy {
     );
 
     console.group(`[TimerService] stopTimerIfApplicable → Q${questionIndex + 1}`);
-  
+
     try {
       // ────────────────────────────────────────────
       // Validation
@@ -312,21 +312,21 @@ export class TimerService implements OnDestroy {
         console.groupEnd();
         return;
       }
-  
+
       const normalizedIndex = this.normalizeQuestionIndex(questionIndex);
       if (normalizedIndex < 0) {
         console.warn('[TimerService] Invalid index.');
         console.groupEnd();
         return;
       }
-  
+
       // ────────────────────────────────────────────
       // Determine correct answers
       // ────────────────────────────────────────────
       const correctOptions = question.options.filter(opt => opt.correct);
       const correctOptionIds = correctOptions.map(opt => String(opt.optionId));
       const isMultiple = correctOptionIds.length > 1;
-  
+
       // ────────────────────────────────────────────
       // Determine SELECTED answers (final options from QQC)
       // ────────────────────────────────────────────
@@ -334,15 +334,15 @@ export class TimerService implements OnDestroy {
         selectedOptionsFromQQC && Array.isArray(selectedOptionsFromQQC)
           ? selectedOptionsFromQQC
           : [];
-  
+
       const selectedIds = selectedOptionsFinal.map(o => String(o.optionId));
-  
+
       console.log('[TimerService] correctOptionIds:', correctOptionIds);
       console.log('[TimerService] selectedIds:', selectedIds);
       console.log('[TimerService] selectedOptionsFinal:', selectedOptionsFinal);
-  
+
       let shouldStop = false;
-  
+
       // ────────────────────────────────────────────
       // MULTIPLE-ANSWER LOGIC (LENIENT)
       // ────────────────────────────────────────────
@@ -350,11 +350,11 @@ export class TimerService implements OnDestroy {
         const allCorrectSelected =
           correctOptionIds.length > 0 &&
           correctOptionIds.every(id => selectedIds.includes(id));
-  
+
         console.log('[TimerService] allCorrectSelected (multi):', allCorrectSelected);
         shouldStop = allCorrectSelected;
       }
-  
+
       // ────────────────────────────────────────────
       // SINGLE-ANSWER LOGIC
       // ────────────────────────────────────────────
@@ -363,11 +363,11 @@ export class TimerService implements OnDestroy {
         const isCorrect =
           !!firstSelected &&
           (firstSelected.correct === true || (firstSelected as any).correct === 'true');
-  
+
         console.log('[TimerService] isCorrect (single):', isCorrect);
         shouldStop = isCorrect;
       }
-  
+
       // ────────────────────────────────────────────
       // STOP TIMER IF CONDITIONS MET
       // ────────────────────────────────────────────
@@ -376,9 +376,9 @@ export class TimerService implements OnDestroy {
         console.groupEnd();
         return;
       }
-  
+
       console.log('[TimerService] Conditions met → STOPPING TIMER!');
-  
+
       const stopped = this.attemptStopTimerForQuestion({
         questionIndex: normalizedIndex,
         onStop: (elapsed?: number) => {
@@ -390,15 +390,15 @@ export class TimerService implements OnDestroy {
           }
         }
       });
-  
+
       if (!stopped) {
         console.warn('[TimerService] Stop rejected → FORCING TIMER STOP.');
         this.stopTimer(undefined, { force: true });
       }
-  
+
       console.groupEnd();
       return;
-  
+
     } catch (err) {
       console.error('[TimerService] Error in stopTimerIfApplicable:', err);
       console.groupEnd();
@@ -427,35 +427,34 @@ export class TimerService implements OnDestroy {
     console.log(`[TimerService] Reset timer flags for Q${questionIndex + 1}`);
   }
 
-  public requestStopEvaluationFromClick(
+  public async requestStopEvaluationFromClick(
     questionIndex: number,
     selectedOption: SelectedOption | null
-  ): void {
+  ): Promise<void> {
     const normalizedIndex = this.normalizeQuestionIndex(questionIndex);
     const q = Array.isArray(this.quizService?.questions)
       ? this.quizService!.questions[normalizedIndex]
       : undefined;
-
+  
     console.log('[TimerService] requestStopEvaluationFromClick', {
       incomingIndex: questionIndex,
       normalizedIndex,
       hasQuestion: !!q,
       selectedOptionId: selectedOption?.optionId
     });
-
+  
     if (!q) {
-      console.warn('[TimerService] No question found for index in requestStopEvaluationFromClick');
+      console.warn(
+        '[TimerService] No question found for index in requestStopEvaluationFromClick'
+      );
       return;
     }
-
-    // push to microtask to let selection state settle first
-    queueMicrotask(() => {
-      this.stopTimerIfApplicable(
-        q,
-        normalizedIndex,
-        selectedOption ? [selectedOption] : []
-      );
-    });
+  
+    // ❌ DO NOT CALL stopTimerIfApplicable HERE ANYMORE.
+    // The correct call is made ONLY in onOptionClicked(),
+    // AFTER canonical options + selectedOptionsFinal are computed.
+  
+    // This method now logs the click but does not evaluate the timer.
   }
 
   public calculateTotalElapsedTime(elapsedTimes: number[]): number {
