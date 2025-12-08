@@ -330,16 +330,8 @@ export class TimerService implements OnDestroy {
       // ────────────────────────────────────────────
       // Determine SELECTED answers (final options from QQC)
       // ────────────────────────────────────────────
-      const selectedOptionsFinal =
-        this.selectedOptionService.getSelectedOptionsForQuestion(idx);
-
+      const selectedOptionsFinal = selectedOptionsFromQQC ?? [];
       const selectedIds = selectedOptionsFinal.map(o => String(o.optionId));
-
-      await this.stopTimerIfApplicable(
-        q!,
-        idx,
-        selectedOptionsFinal
-      );
 
       console.log('[TimerService] correctOptionIds:', correctOptionIds);
       console.log('[TimerService] selectedIds:', selectedIds);
