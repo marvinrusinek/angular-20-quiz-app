@@ -295,6 +295,12 @@ export class TimerService implements OnDestroy {
     questionIndex: number,
     selectedOptionsFromQQC: SelectedOption[] | null
   ): Promise<void> {
+    console.warn(
+      "%c[TIMER] ENTERED stopTimerIfApplicable",
+      "color: orange; font-weight: bold;",
+      { questionIndex, selectedOptionsFromQQC }
+    );
+
     console.group(`[TimerService] stopTimerIfApplicable → Q${questionIndex + 1}`);
   
     try {
