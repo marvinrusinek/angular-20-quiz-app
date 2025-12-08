@@ -441,7 +441,8 @@ export class TimerService implements OnDestroy {
     if (!q) return;
   
     // Always convert SelectedOption → SelectedOption[]
-    const selectedOptionsArray = selectedOption ? [selectedOption] : [];
+    const selectedOptionsArray =
+      this.selectedOptionService.getSelectedOptionsForQuestion(normalizedIndex);
   
     // Now fully valid call
     await this.stopTimerIfApplicable(
