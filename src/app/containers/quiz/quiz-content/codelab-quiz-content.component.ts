@@ -1303,7 +1303,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           ? index
           : this.currentIndex >= 0
             ? this.currentIndex
-            : 0,
+            : 0
       })),
       filter(({ payload, index }) => {
         const expected =
@@ -1311,9 +1311,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             ? this.questions[index] ?? null
             : null;
 
-        if (!expected) {
-          return true;
-        }
+        if (!expected) return true;
 
         const normalizedExpected = this.normalizeKeySource(
           expected.questionText
@@ -1332,7 +1330,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             {
               index,
               normalizedExpected,
-              normalizedIncoming,
+              normalizedIncoming
             }
           );
           return false;
@@ -1351,7 +1349,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             displayOrder:
               typeof option.displayOrder === 'number'
                 ? option.displayOrder
-                : optionIndex,
+                : optionIndex
           }))
           .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
 
@@ -1370,13 +1368,13 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             payload.explanation?.trim() ||
             payload.question.explanation?.trim() ||
             '',
-          currentIndex: index,
+          currentIndex: index
         };
       }),
       distinctUntilChanged((prev, curr) => {
         const norm = (s?: string) =>
           (s ?? '')
-            .replace(/<[^>]*>/g, ' ') // strip HTML
+            .replace(/<[^>]*>/g, ' ')  // strip HTML
             .replace(/&nbsp;/g, ' ')
             .trim()
             .toLowerCase()
@@ -1396,9 +1394,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           questionKey(curr.currentQuestion, curr.currentIndex);
         if (!sameQuestion) return false;
 
-        if (prev.explanation !== curr.explanation) {
-          return false;
-        }
+        if (prev.explanation !== curr.explanation) return false;
 
         return this.haveSameOptionOrder(
           prev.currentOptions,
@@ -1412,7 +1408,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           currentQuestion: null,
           currentOptions: [],
           explanation: '',
-          currentIndex: -1,
+          currentIndex: -1
         });
       })
     );
@@ -1430,9 +1426,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
     return left.every((option, index) => {
       const other = right[index];
-      if (!other) {
-        return false;
-      }
+      if (!other) return false;
 
       const optionText = (option.text ?? option.text ?? '').toString();
       const otherText = (other.text ?? other.text ?? '').toString();
@@ -1464,7 +1458,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         correctAnswersText: '',
         isExplanationDisplayed: false,
         isNavigatingToPrevious: false,
-        selectionMessage: '',
+        selectionMessage: ''
       };
     }
 
@@ -1517,7 +1511,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     combinedData: CombinedQuestionDataType;
     isMultipleAnswer: boolean;
   }> {
-    // ✅ Ensure combinedQuestionData$ is always defined with a safe fallback
+    // Ensure combinedQuestionData$ is always defined with a safe fallback
     const safeCombined$ =
       this.combinedQuestionData$ ??
       of<CombinedQuestionDataType>({
