@@ -2933,13 +2933,14 @@ export class QuizQuestionComponent extends BaseQuestion
         evtOptId: evtOpt.optionId
       });
   
-      const selectedOptionsFinal = canonicalOpts.filter(o => o.selected);
+      const selectedOptionsFinal =
+        this.selectedOptionService.getSelectedOptionsForQuestion(idx);
 
-      /* await this.timerService.stopTimerIfApplicable(
+      await this.timerService.stopTimerIfApplicable(
         q!,
         idx,
         selectedOptionsFinal
-      ); */
+      );
    
       console.log('%c[TIMER DEBUG] Final stopTimerIfApplicable done', 'color:green;font-weight:bold');
   
