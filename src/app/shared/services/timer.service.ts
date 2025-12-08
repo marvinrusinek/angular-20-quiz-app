@@ -100,7 +100,7 @@ export class TimerService implements OnDestroy {
 
     // Always check if all correct answers are selected when stop signal is received
     const allCorrectSelected = this.selectedOptionService.areAllCorrectAnswersSelectedSync(activeQuestionIndex);
-    
+
     if (allCorrectSelected) {
       console.log('[TimerService] All correct answers selected. Stopping timer.');
       this.stopTimer(undefined, { force: true });
@@ -270,12 +270,12 @@ export class TimerService implements OnDestroy {
     try {
       // Stop the timer with force to ensure it stops
       this.stopTimer(options.onStop, { force: true });
-      
+
       // Mark as stopped to prevent duplicate stops
       this.selectedOptionService.stopTimerEmitted = true;
       this.isTimerStoppedForCurrentQuestion = true;
       this.stoppedForQuestion.add(questionIndex);
-      
+
       console.log(`[TimerService] ✅ Timer stopped for Q${questionIndex + 1} (all correct answers selected)`);
       return true;
     } catch (err: any) {
@@ -293,9 +293,9 @@ export class TimerService implements OnDestroy {
   public async stopTimerIfApplicable(
     question: QuizQuestion,
     questionIndex: number,
-    selectedOption: SelectedOption
+    selectedOption: SelectedOption | null
   ): Promise<void> {
-    console.group(`[TimerService] Checking Q${questionIndex + 1}`);
+    console.group(`[TimerService] stopTimerIfApplicable → Q${questionIndex + 1}`);
   
     try {
       // ────────────────────────────────────────────
@@ -314,9 +314,6 @@ export class TimerService implements OnDestroy {
         return;
       }
   
-      // ────────────────────────────────────────────
-      // Core data extraction
-      // ────────────────────────────────────────────
       const correctOptions = question.options.filter(opt => opt.correct);
       const isMultiple = correctOptions.length > 1;
   
@@ -327,45 +324,59 @@ export class TimerService implements OnDestroy {
   
       const selectedOptionIds = selectedOptions.map(opt => String(opt.optionId));
   
-      console.log('Correct option IDs:', correctOptionIds);
-      console.log('Selected option IDs:', selectedOptionIds);
+      console.log('[TimerService] Correct option IDs:', correctOptionIds);
+      console.log('[TimerService] Selected option IDs:', selectedOptionIds);
   
       // ────────────────────────────────────────────
-      // SPECIAL CASE: Q2 (index 1)
+      // SPECIAL CASE: Q2 (index 1) – for debugging
       // ────────────────────────────────────────────
       if (normalizedIndex === 1) {
-        console.log('Q2 Debug - Start');
-        console.log('Correct options:', correctOptions);
-        console.log('Selected options:', selectedOptions);
+        console.log('[TimerService][Q2] Debug - Start');
+        console.log('[TimerService][Q2] Correct options:', correctOptions);
+        console.log('[TimerService][Q2] Selected options:', selectedOptions);
   
-        // LENIENT MODE: All correct must be selected, ignore incorrect picks
+        // LENIENT MODE: all correct must be present, ignore wrong picks
         const allCorrectSelected = correctOptions.every(correctOpt =>
           selectedOptions.some(sel => sel.optionId === correctOpt.optionId)
         );
   
-        console.log('Q2 - All correct selected?', allCorrectSelected);
+        console.log('[TimerService][Q2] All correct selected?', allCorrectSelected);
   
         if (allCorrectSelected) {
-          console.log('Q2 - All correct answers selected → stopping timer!');
-          this.stopTimer();
+          console.log('[TimerService][Q2] All correct → stopping timer!');
+          const stopped = this.attemptStopTimerForQuestion({
+            questionIndex: normalizedIndex,
+            onStop: (elapsed?: number) => {
+              if (elapsed != null) {
+                this.elapsedTimes[normalizedIndex] = elapsed;
+                console.log(
+                  `[TimerService] 💾 Stored elapsed time for Q${normalizedIndex + 1}: ${elapsed}s`
+                );
+              }
+            }
+          });
+  
+          if (!stopped) {
+            console.warn('[TimerService][Q2] Stop rejected — forcing timer stop.');
+            this.stopTimer(undefined, { force: true });
+          }
+  
           console.groupEnd();
           return;
         }
   
-        console.log('Q2 - Not all correct answers selected yet');
+        console.log('[TimerService][Q2] Not all correct yet – timer continues.');
         console.groupEnd();
         return;
       }
   
       // ────────────────────────────────────────────
-      // Standard MULTIPLE-ANSWER logic (LENIENT MODE)
+      // Standard MULTIPLE-ANSWER logic (LENIENT)
       // ────────────────────────────────────────────
       let shouldStop = false;
   
       if (isMultiple) {
-        // LENIENT MODE:
-        // Ignore wrong selections.
-        // Stop timer as soon as ALL correct IDs appear in the selected list.
+        // LENIENT: as soon as all correct IDs are included, ignore extras
         const allCorrectSelected =
           correctOptionIds.length > 0 &&
           correctOptionIds.every(id => selectedOptionIds.includes(id));
@@ -373,21 +384,16 @@ export class TimerService implements OnDestroy {
         shouldStop = allCorrectSelected;
   
         if (shouldStop) {
-          console.log('All correct answers selected → stopping timer!');
+          console.log('[TimerService] All correct answers selected → stopping timer!');
         }
       } else {
-        // ────────────────────────────────────────────
-        // SINGLE-ANSWER logic
-        // ────────────────────────────────────────────
+        // SINGLE ANSWER
         if (selectedOption?.correct) {
           shouldStop = true;
-          console.log('Correct single answer selected → stopping timer!');
+          console.log('[TimerService] Correct single answer selected → stopping timer!');
         }
       }
   
-      // ────────────────────────────────────────────
-      // Final stop execution
-      // ────────────────────────────────────────────
       if (shouldStop) {
         const stopped = this.attemptStopTimerForQuestion({
           questionIndex: normalizedIndex,
@@ -410,7 +416,7 @@ export class TimerService implements OnDestroy {
         return;
       }
   
-      console.log('Stop conditions NOT met — timer continues.');
+      console.log('[TimerService] Stop conditions NOT met — timer continues.');
       console.groupEnd();
   
     } catch (err) {
@@ -431,13 +437,13 @@ export class TimerService implements OnDestroy {
     }
 
     this.isTimerStoppedForCurrentQuestion = false;
-    
+
     if (this.selectedOptionService) {
       this.selectedOptionService.stopTimerEmitted = false;
     }
-    
+
     this.stoppedForQuestion.delete(questionIndex);
-    
+
     console.log(`[TimerService] Reset timer flags for Q${questionIndex + 1}`);
   }
 
