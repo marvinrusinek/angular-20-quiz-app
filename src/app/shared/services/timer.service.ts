@@ -447,6 +447,33 @@ export class TimerService implements OnDestroy {
     console.log(`[TimerService] Reset timer flags for Q${questionIndex + 1}`);
   }
 
+  public requestStopEvaluationFromClick(
+    questionIndex: number,
+    selectedOption: SelectedOption | null
+  ): void {
+    const normalizedIndex = this.normalizeQuestionIndex(questionIndex);
+    const q = Array.isArray(this.quizService?.questions)
+      ? this.quizService!.questions[normalizedIndex]
+      : undefined;
+  
+    console.log('[TimerService] requestStopEvaluationFromClick', {
+      incomingIndex: questionIndex,
+      normalizedIndex,
+      hasQuestion: !!q,
+      selectedOptionId: selectedOption?.optionId
+    });
+  
+    if (!q) {
+      console.warn('[TimerService] No question found for index in requestStopEvaluationFromClick');
+      return;
+    }
+  
+    // push to microtask to let selection state settle first
+    queueMicrotask(() => {
+      this.stopTimerIfApplicable(q, normalizedIndex, selectedOption);
+    });
+  }
+
   public calculateTotalElapsedTime(elapsedTimes: number[]): number {
     if (!elapsedTimes || !Array.isArray(elapsedTimes)) {
       console.warn('[TimerService] calculateTotalElapsedTime: Invalid elapsedTimes array');
