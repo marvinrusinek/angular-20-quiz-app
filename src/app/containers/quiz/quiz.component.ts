@@ -481,8 +481,6 @@ get quizQuestionComponent(): QuizQuestionComponent {
     this.indexSubscription = this.quizService.currentQuestionIndex$
       .pipe(distinctUntilChanged())
       .subscribe((idx: number) => {
-        this.bumpAnimationKey();
-
         const prevIdx = this.lastLoggedIndex;
         const ets = this.explanationTextService;
 
@@ -4022,14 +4020,12 @@ get quizQuestionComponent(): QuizQuestionComponent {
     }
   }
 
-  public async advanceToNextQuestion(): Promise<void> {
-    await this.advanceQuestion('next');
-    this.bumpAnimationKey();
+  public advanceToNextQuestion(): Promise<void> {
+    return this.advanceQuestion('next');
   }
 
-  public async advanceToPreviousQuestion(): Promise<void> {
-    await this.advanceQuestion('previous');
-    this.bumpAnimationKey();
+  public advanceToPreviousQuestion(): Promise<void> {
+    return this.advanceQuestion('previous');
   }
 
   // REMOVE!!
@@ -4708,10 +4704,5 @@ get quizQuestionComponent(): QuizQuestionComponent {
     if (shouldShow) {
       this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
     }
-  }
-
-  private bumpAnimationKey() {
-    this.animationKey++;
-    console.warn('[ANIM KEY]', this.animationKey);
   }
 }
