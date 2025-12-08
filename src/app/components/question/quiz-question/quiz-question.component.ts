@@ -2868,74 +2868,74 @@ export class QuizQuestionComponent extends BaseQuestion
   // Called when a user clicks an option row
   public override async onOptionClicked(event: OptionClickedPayload): Promise<void> {
     console.log('[CLICK ENTRY] onOptionClicked fired for Q', this.currentQuestionIndex);
-
+  
     const evtChecked = event?.checked ?? true;
-
+  
     const idx = this.quizService.getCurrentQuestionIndex() ?? 0;
     let q: QuizQuestion | null | undefined = this.question;
-
-    // Make sure idx is the same index used for questions & SelectedOptionService
+  
     if (idx != null) {
       this.timerService.requestStopEvaluationFromClick(idx, event.option);
     }
-
+  
     console.log('[onOptionClicked] Initial q:', q);
     console.log('[onOptionClicked] this.currentQuestion:', this.currentQuestion);
     console.log('[onOptionClicked] QuizService.questions[idx]:', this.quizService.questions[idx]);
-
-    if (!q || !q.options || q.options.length === 0) {
-      q = this.currentQuestion;
-    }
-    if (!q || !q.options || q.options.length === 0) {
-      q = this.quizService.questions[idx];
-    }
-
+  
+    if (!q || !q.options?.length) q = this.currentQuestion;
+    if (!q || !q.options?.length) q = this.quizService.questions[idx];
+  
     console.log('[onOptionClicked] Resolved q:', q);
-
+  
     const evtIdx = event.index;
     const evtOpt = event.option;
     if (evtOpt == null) return;
-
+  
     this.resetExplanationBeforeClick(idx);
     if (this.blockIfLocked(evtOpt, idx)) return;
     if (this._clickGate) return;
-
+  
     this.prepareClickCycle();
-
+  
     try {
-      // ─────────────────────────────
-      // Wait if interaction is not ready
-      // ─────────────────────────────
       await this.waitForInteractionReady();
-
+  
       console.log('[onOptionClicked] q resolved to:', q);
       const optionsNow = this.cloneOptionsForUi(q!, evtIdx, event);
       console.log('[onOptionClicked] optionsNow from cloneOptionsForUi:', optionsNow);
+  
       const canonicalOpts = this.buildCanonicalOptions(q!, idx, evtOpt, evtIdx);
-
+  
+      // selection commit happens here
       this.persistSelection(evtOpt, idx, optionsNow, q?.type === QuestionType.MultipleAnswer);
-
+  
       this.emitSelectionMessage(idx, q!, optionsNow, canonicalOpts);
-
+  
       this.syncCanonicalOptionsIntoQuestion(q!, canonicalOpts);
-
+  
       const allCorrect = this.computeCorrectness(q!, canonicalOpts, evtOpt, idx);
       this._lastAllCorrect = allCorrect;
-
+  
       await this.maybeTriggerExplanation(q!, evtOpt, idx, allCorrect);
-
-      queueMicrotask(() => {
-        this.timerService.stopTimerIfApplicable(q!, idx, evtOpt);
+  
+      // ────────────────────────────────────────────────
+      // ⭐ FIX: ACTUAL TIMER STOP CALL (multi-select safe)
+      // ────────────────────────────────────────────────
+      console.warn('[TIMER DEBUG] Calling stopTimerIfApplicable with:', {
+        q, idx, evtOpt
       });
-
-      console.log('%c[TIMER DEBUG] ❗ returned from stopTimerIfApplicable', 'color:red;font-weight:bold');
-
+  
+      await this.timerService.stopTimerIfApplicable(q!, idx, evtOpt);
+  
+      console.log('%c[TIMER DEBUG] FINISHED stopTimerIfApplicable()', 'color:green;font-weight:bold');
+      // ────────────────────────────────────────────────
+  
       this.updateNextButtonAndState(allCorrect);
-
+  
       this.forceExplanationUpdate(idx, q!);
-
+  
       this.scheduleAsyncUiFinalization(evtOpt, evtIdx, evtChecked);
-
+  
     } catch (err) {
       console.error('[onOptionClicked] ❌ Error:', err);
     } finally {
