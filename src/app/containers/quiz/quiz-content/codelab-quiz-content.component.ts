@@ -1204,23 +1204,6 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         console.error('Error combining current quiz and options:', err),
     });
 
-    // DISABLED: Redundant subscription that pushes fallback text
-    // this.explanationTextService
-    //   .getFormattedExplanation(questionIndex)
-    //   .pipe(
-    //     takeUntil(this.destroy$),
-    //     map((explanation) => explanation || 'No explanation available'),
-    //     catchError((error) => {
-    //       console.error(`Error fetching explanation for question ${questionIndex}:`, error);
-    //       return of('Error fetching explanation');
-    //     })
-    //   )
-    //   .subscribe((explanation: string) => {
-    //     this.explanationTextService.formattedExplanationSubject.next(
-    //       explanation
-    //     );
-    //   });
-
     this.combinedQuestionData$ = combineLatest([
       currentQuizAndOptions$.pipe(startWith<{ currentQuestion: QuizQuestion | null; currentOptions: Option[]; explanation: string; currentIndex: number } | null>(null)),
       this.numberOfCorrectAnswers$.pipe(startWith(0)),
