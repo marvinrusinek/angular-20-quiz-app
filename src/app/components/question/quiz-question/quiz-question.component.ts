@@ -2888,7 +2888,7 @@ export class QuizQuestionComponent extends BaseQuestion
     if (evtOpt == null) return;
   
     this.resetExplanationBeforeClick(idx);
-    if (this.blockIfLocked(evtOpt, idx)) return;
+    // if (this.blockIfLocked(evtOpt, idx)) return;
     if (this._clickGate) return;
   
     this.prepareClickCycle();
@@ -2933,7 +2933,11 @@ export class QuizQuestionComponent extends BaseQuestion
         evtOptId: evtOpt.optionId
       });
   
-      await this.timerService.stopTimerIfApplicable(q!, idx, evtOpt);
+      await this.timerService.stopTimerIfApplicable(
+        q!,
+        idx,
+        canonicalOpts.filter(o => o.isSelected)
+      );
   
       console.log('%c[TIMER DEBUG] Final stopTimerIfApplicable done', 'color:green;font-weight:bold');
   
