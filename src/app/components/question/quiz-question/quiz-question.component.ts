@@ -2918,7 +2918,11 @@ export class QuizQuestionComponent extends BaseQuestion
       this._lastAllCorrect = allCorrect;
 
       await this.maybeTriggerExplanation(q!, evtOpt, idx, allCorrect);
-      await this.timerService.stopTimerIfApplicable(q!, idx, evtOpt);
+
+      queueMicrotask(() => {
+        this.timerService.stopTimerIfApplicable(q!, idx, evtOpt);
+      });
+
       console.log('%c[TIMER DEBUG] ❗ returned from stopTimerIfApplicable', 'color:red;font-weight:bold');
 
       this.updateNextButtonAndState(allCorrect);
