@@ -2936,6 +2936,8 @@ export class QuizQuestionComponent extends BaseQuestion
       const selectedOptionsFinal =
         this.selectedOptionService.getSelectedOptionsForQuestion(idx);
 
+      console.log('[QQC] SelectedOptionService returned:', selectedOptionsFinal);
+
       await this.timerService.stopTimerIfApplicable(
         q!,
         idx,
