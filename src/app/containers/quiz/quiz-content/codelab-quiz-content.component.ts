@@ -1,7 +1,7 @@
 import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, NgZone, OnChanges, OnDestroy, OnInit, Output, SimpleChanges, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, ParamMap } from '@angular/router';
-import { animationFrameScheduler, BehaviorSubject, combineLatest, defer, firstValueFrom, forkJoin, merge, Observable, of, Subject, Subscription } from 'rxjs';
+import { animationFrameScheduler, BehaviorSubject, combineLatest, firstValueFrom, forkJoin, merge, Observable, of, Subject, Subscription } from 'rxjs';
 import { auditTime, catchError, debounceTime, distinctUntilChanged, filter, map, observeOn, shareReplay, skip, skipUntil, startWith, switchMap, take, takeUntil, tap, withLatestFrom } from 'rxjs/operators';
 
 import { CombinedQuestionDataType } from '../../../shared/models/CombinedQuestionDataType.model';
@@ -25,8 +25,6 @@ interface QuestionViewState {
   fallbackExplanation: string,
   question: QuizQuestion | null
 }
-
-type DisplayState = { mode: 'question' | 'explanation'; answered: boolean };
 
 @Component({
   selector: 'codelab-quiz-content',
