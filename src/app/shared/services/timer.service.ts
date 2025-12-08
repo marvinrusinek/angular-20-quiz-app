@@ -436,9 +436,7 @@ export class TimerService implements OnDestroy {
     selectedOption: SelectedOption | null
   ): Promise<void> {
     const normalizedIndex = this.normalizeQuestionIndex(questionIndex);
-    const q = Array.isArray(this.quizService?.questions)
-      ? this.quizService!.questions[normalizedIndex]
-      : undefined;
+    const q = this.quizService?.questions?.[normalizedIndex];
   
     console.log('[TimerService] requestStopEvaluationFromClick', {
       incomingIndex: questionIndex,
@@ -447,18 +445,17 @@ export class TimerService implements OnDestroy {
       selectedOptionId: selectedOption?.optionId
     });
   
-    if (!q) {
-      console.warn(
-        '[TimerService] No question found for index in requestStopEvaluationFromClick'
-      );
-      return;
-    }
+    if (!q) return;
   
-    // ❌ DO NOT CALL stopTimerIfApplicable HERE ANYMORE.
-    // The correct call is made ONLY in onOptionClicked(),
-    // AFTER canonical options + selectedOptionsFinal are computed.
+    // Always convert SelectedOption → SelectedOption[]
+    const selectedOptionsArray = selectedOption ? [selectedOption] : [];
   
-    // This method now logs the click but does not evaluate the timer.
+    // Now fully valid call
+    await this.stopTimerIfApplicable(
+      q,
+      normalizedIndex,
+      selectedOptionsArray
+    );
   }
 
   public calculateTotalElapsedTime(elapsedTimes: number[]): number {
