@@ -218,13 +218,6 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
     this.displayState$ = this.quizStateService.displayState$;
 
-    const activeFetText$ = this.formattedExplanation$.pipe(
-      startWith({ idx: -1, text: '', token: 0 }),
-      withLatestFrom(this.quizService.currentQuestionIndex$),
-      map(([payload, idx]) => (payload?.idx === idx ? payload.text ?? '' : '')),
-      distinctUntilChanged()
-    );
-
     // Initialize displayText$ - handles both question text with banner and FET display
     this.displayText$ = combineLatest([
       this.displayState$ || of({ mode: 'question' as const, answered: false }),
