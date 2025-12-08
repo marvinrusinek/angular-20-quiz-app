@@ -444,7 +444,11 @@ export class TimerService implements OnDestroy {
 
     // push to microtask to let selection state settle first
     queueMicrotask(() => {
-      this.stopTimerIfApplicable(q, normalizedIndex, selectedOption);
+      this.stopTimerIfApplicable(
+        q,
+        normalizedIndex,
+        selectedOption ? [selectedOption] : []
+      );
     });
   }
 

@@ -2889,7 +2889,7 @@ export class QuizQuestionComponent extends BaseQuestion
   
     this.resetExplanationBeforeClick(idx);
     // if (this.blockIfLocked(evtOpt, idx)) return;
-    if (this._clickGate) return;
+    //if (this._clickGate) return;
   
     this.prepareClickCycle();
   
