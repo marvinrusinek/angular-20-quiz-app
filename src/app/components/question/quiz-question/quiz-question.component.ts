@@ -2874,6 +2874,11 @@ export class QuizQuestionComponent extends BaseQuestion
     const idx = this.quizService.getCurrentQuestionIndex() ?? 0;
     let q: QuizQuestion | null | undefined = this.question;
 
+    // Make sure idx is the same index used for questions & SelectedOptionService
+    if (idx != null) {
+      this.timerService.requestStopEvaluationFromClick(idx, event.option);
+    }
+
     console.log('[onOptionClicked] Initial q:', q);
     console.log('[onOptionClicked] this.currentQuestion:', this.currentQuestion);
     console.log('[onOptionClicked] QuizService.questions[idx]:', this.quizService.questions[idx]);
