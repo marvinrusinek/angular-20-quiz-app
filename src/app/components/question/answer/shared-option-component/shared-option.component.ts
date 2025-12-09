@@ -2850,6 +2850,10 @@ export class SharedOptionComponent implements
     return this.shouldDisableOption(binding) || this.isLocked(binding, idx);
   }
 
+  debugClick() {
+    console.log('%c[SOC] DEBUG CLICK FIRED', 'color:red;font-weight:bold;');
+  }
+
   // Click wrapper that no-ops when disabled
   public onOptionClick(binding: OptionBindings, index: number, ev: MouseEvent): void {
     console.log('%c[SOC] ENTERED onOptionClick', 'color:#ff0077;font-weight:bold;', {

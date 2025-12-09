@@ -1,5 +1,6 @@
 @let opts = optionBindings || [];
 @if (canShowOptions()) {
+  <div (click)="debugClick()" style="border:1px solid red">TEST CLICK ZONE</div>
   <!-- OPTIONS ARE READY -->
   <form [formGroup]="form" class="options-form">
     @switch (type) {
