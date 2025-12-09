@@ -54,7 +54,7 @@ export class SharedOptionComponent implements
     checked: boolean,
     wasReselected?: boolean
   }>();
-  @Output() optionSelected = new EventEmitter<{ option: SelectedOption, index: number, checked: boolean }>();
+  @Output() optionSelected = new EventEmitter<OptionClickedPayload>();
   @Output() reselectionDetected = new EventEmitter<boolean>();
   @Output() explanationUpdate = new EventEmitter<number>();
   @Output() renderReadyChange = new EventEmitter<boolean>();
@@ -2842,7 +2842,7 @@ export class SharedOptionComponent implements
   
     // BUBBLE EVENT UP TO QQC
     const payload: OptionClickedPayload = {
-      option: binding.option,
+      option: binding.option as SelectedOption,
       index: idx,
       checked: binding.isSelected ?? false
     };
