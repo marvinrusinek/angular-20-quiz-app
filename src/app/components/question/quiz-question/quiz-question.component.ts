@@ -2955,29 +2955,28 @@ export class QuizQuestionComponent extends BaseQuestion
       // ────────────────────────────────────────────────
       // FINAL: evaluate timer stop AFTER selection + UI are settled
       // ────────────────────────────────────────────────
-      console.warn('[TIMER DEBUG] Calling stopTimerIfApplicable with:', {
+      const selectedOptionsFinal = canonicalOpts.filter(o => o.selected);
+
+      console.log(
+        '%c[QQC][TIMER] canonical selected options:',
+        'color:#00bfff;font-weight:bold;',
+        selectedOptionsFinal.map(o => ({
+          id: o.optionId,
+          correct: o.correct,
+          selected: o.selected
+        }))
+      );
+
+      await this.timerService.stopTimerIfApplicable(
+        q!,
         idx,
-        evtOptId: evtOpt.optionId
-      });
+        selectedOptionsFinal
+      );
 
-      queueMicrotask(async () => {
-        const selectedNow =
-          this.selectedOptionService.getSelectedOptionsForQuestion(idx);
-
-        console.log(
-          '%c[QQC][MICROTASK] SelectedOptionService now has:',
-          'color: #00bfff; font-weight: bold;',
-          selectedNow
-        );
-
-        await this.timerService.stopTimerIfApplicable(
-          q!,
-          idx,
-          selectedNow
-        );
-      });
-
-      console.log('%c[TIMER DEBUG] Final stopTimerIfApplicable done', 'color:green;font-weight:bold');
+      console.log(
+        '%c[TIMER DEBUG] Final stopTimerIfApplicable done',
+        'color:green;font-weight:bold'
+      );
 
     } catch (err) {
       console.error('[onOptionClicked] ❌ Error:', err);
