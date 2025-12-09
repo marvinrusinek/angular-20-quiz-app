@@ -290,66 +290,99 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
 
   public override async onOptionClicked(event: OptionClickedPayload): Promise<void> {
     console.log(
-      '%c[LOCATOR] >>> FIRED in FILE: AnswerComponent',
-      'background:#8b00ff;color:white;font-size:16px'
+      '%c[AnswerComponent] >>> ENTERED onOptionClicked',
+      'background:#ff00aa;color:white;font-size:14px'
     );
+  
+    if (!event || typeof event !== 'object') {
+      console.error('[AnswerComponent] onOptionClicked received invalid event:', event);
+      return;
+    }
   
     const { option, index, checked } = event;
   
-    // Handle local selection state
+    if (!option) {
+      console.error('[AnswerComponent] onOptionClicked received null option:', event);
+      return;
+    }
+  
+    // Always enrich with active question index
+    const activeIndex = this.currentQuestionIndex ?? 0;
+  
+    const enrichedOption: SelectedOption = {
+      ...option,
+      questionIndex: activeIndex,
+      selected: checked
+    };
+    const safeOptionId = enrichedOption.optionId ?? -1;
+  
+    // ─────────────────────────────
+    // SINGLE-ANSWER
+    // ─────────────────────────────
     if (this.type === 'single') {
+      this.selectedOption = enrichedOption;
       this.selectedOptionIndex = index;
-      this.selectedOption = option;
   
-      if (option.optionId) {
-        this.showFeedbackForOption = { [option.optionId]: true };
-      }
-    } else {
-      // multiple-answer
-      const existingIdx = this.selectedOptions.findIndex(o => o.optionId === option.optionId);
-      const isChecked = checked === true;
+      this.showFeedbackForOption = { [safeOptionId]: true };
   
-      if (isChecked && existingIdx === -1) {
-        this.selectedOptions.push(option);
-      } else if (!isChecked && existingIdx !== -1) {
+      this.selectedOptionService.setSelectedOption(enrichedOption);
+  
+      console.log('[AnswerComponent] (SINGLE) stored selectedOption:', enrichedOption);
+    }
+  
+    // ─────────────────────────────
+    // MULTIPLE-ANSWER
+    // ─────────────────────────────
+    else {
+      const existingIdx = this.selectedOptions.findIndex(
+        o => o.optionId === enrichedOption.optionId
+      );
+  
+      if (existingIdx === -1 && checked === true) {
+        this.selectedOptions.push(enrichedOption);
+      } else if (existingIdx !== -1 && checked === false) {
         this.selectedOptions.splice(existingIdx, 1);
       }
   
-      if (option.optionId) {
-        this.showFeedbackForOption[option.optionId] = isChecked;
-      }
+      this.showFeedbackForOption[safeOptionId] = checked;
+  
+      this.selectedOptionService.setSelectedOptions(this.selectedOptions);
+  
+      console.log('[AnswerComponent] (MULTI) selectedOptions:', this.selectedOptions);
     }
   
-    // Decide if anything is selected
-    const isOptionSelected =
+    // ─────────────────────────────
+    // UPDATE QUIZ STATE
+    // ─────────────────────────────
+    const hasSelection =
       this.type === 'single'
         ? !!this.selectedOption
         : this.selectedOptions.length > 0;
   
-    // Update quiz state (Next button enabling etc.)
-    this.quizStateService.setAnswerSelected(isOptionSelected);
-    this.quizStateService.setAnswered(isOptionSelected);
-  
-    // Update SelectedOptionService
-    if (isOptionSelected) {
-      if (this.type === 'single' && this.selectedOption) {
-        this.selectedOptionService.setSelectedOption(this.selectedOption);
-        console.log('[AnswerComponent] SelectedOptionService single:', this.selectedOption);
-      } else if (this.selectedOptions.length > 0) {
-        this.selectedOptionService.setSelectedOptions(this.selectedOptions);
-        console.log('[AnswerComponent] SelectedOptionService multiple:', this.selectedOptions);
-      }
-    } else {
-      this.selectedOptionService.clearSelectedOption();
-    }
-  
-    // Bubble the SAME payload up to QQC
-    console.log('%c[AnswerComponent] emitting to parent QQC', 'color:#00ff7f;font-weight:bold;', event);
-    this.optionClicked.emit(event);    // QQC listens to this
-    this.optionSelected.emit(event);   // keep if anything else uses it
+    this.quizStateService.setAnswerSelected(hasSelection);
+    this.quizStateService.setAnswered(hasSelection);
   
     this.cdRef.detectChanges();
+  
+    // ─────────────────────────────
+    // EMIT ONE EVENT ONLY (NO DUPLICATE)
+    // ─────────────────────────────
+    const finalPayload: OptionClickedPayload = {
+      option: enrichedOption,
+      index,
+      checked,
+      wasReselected: false
+    };
+  
+    console.log(
+      '%c[AnswerComponent] >>> EMIT optionClicked',
+      'color:#00eaff;font-weight:bold;',
+      finalPayload
+    );
+  
+    this.optionClicked.emit(finalPayload);
   }
+  
 
   // Rebuild optionBindings from the latest optionsToDisplay.
   private rebuildOptionBindings(opt: Option[]): OptionBindings[] {
