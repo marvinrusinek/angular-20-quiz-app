@@ -2867,6 +2867,11 @@ export class QuizQuestionComponent extends BaseQuestion
 
   // Called when a user clicks an option row
   public override async onOptionClicked(event: OptionClickedPayload): Promise<void> {
+    console.log(
+      '%c[QQC] CLICK RECEIVED',
+      'color: yellow; font-size: 16px;',
+      { idx: this.currentQuestionIndex, event }
+    );
     console.log('[CLICK ENTRY] onOptionClicked fired for Q', this.currentQuestionIndex);
   
     const evtChecked = event?.checked ?? true;
