@@ -1971,17 +1971,6 @@ export class SharedOptionComponent implements
       this.feedbackConfigs = this.feedbackConfigs ?? [];
       this.feedbackConfigs[index] = this.generateFeedbackConfig(selectedHydratedOption, index);
     }
-
-    // Determine whether this option is now checked
-    const isChecked = clonedOption.selected === true;
-
-    const payload: OptionClickedPayload = {
-      option: clonedOption,
-      index,
-      checked: isChecked
-    };
-
-    this.optionSelected.emit(payload);
   }
 
   private shouldIgnoreClick(optionId: number): boolean {
