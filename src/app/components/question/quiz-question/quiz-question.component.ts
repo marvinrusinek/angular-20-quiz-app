@@ -5237,13 +5237,13 @@ export class QuizQuestionComponent extends BaseQuestion
     await this.handleCorrectnessAndTimer();
 
     const checkState =
-      this.selectedOptionService.getSelectedOptionsForQuestion(idx);
+      this.selectedOptionService.getSelectedOptionsForQuestion(index);
 
     console.log(
       '%c[QQC][VERIFY SELECTED OPTIONS]',
       'color: red; font-weight: bold;',
       {
-        idx,
+        index,
         selected: checkState.map(o => ({
           optionId: o.optionId,
           correct: o.correct,
