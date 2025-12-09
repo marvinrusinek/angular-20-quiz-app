@@ -688,35 +688,35 @@ export class SharedOptionComponent implements
     // 1. HARD GUARD: optionsToDisplay not ready
     if (!Array.isArray(this.optionsToDisplay) || this.optionsToDisplay.length === 0) {
       console.warn('[SOC] ❌ synchronizeOptionBindings() aborted — optionsToDisplay EMPTY');
-  
+
       // If no user selection exists, clear; otherwise keep old bindings
       const hasSelection = this.optionBindings?.some(opt => opt.isSelected);
-  
+
       if (!hasSelection && !this.freezeOptionBindings) {
         this.optionBindings = [];
       }
-  
+
       return;
     }
-  
+
     // 2. HARD GUARD: optionBindings already matches incoming options
     // (prevents StackBlitz double-render race condition)
     if (this.optionBindings.length === this.optionsToDisplay.length) {
       console.warn('[SOC] ⚠️ synchronizeOptionBindings() skipped — counts match');
       return;
     }
-  
+
     // 3. GUARD: user clicked recently → freeze updates
     if (this.freezeOptionBindings) {
       console.warn('[SOC] 🔒 freezeOptionBindings active — ABORTING reassignment');
       return;
     }
-  
+
     // 4. BUILD NEW optionBindings
     const bindings = this.optionsToDisplay.map((option, idx) => {
       const isSelected = option.selected ?? false;
-      const isCorrect  = option.correct ?? false;
-  
+      const isCorrect = option.correct ?? false;
+
       return {
         option,
         index: idx,
@@ -739,21 +739,21 @@ export class SharedOptionComponent implements
         appResetBackground: false,
         optionsToDisplay: [...this.optionsToDisplay],
         checked: isSelected,
-        change: () => {},
+        change: () => { },
         active: true
       };
     });
-  
+
     // 5. DEFER assignment to next microtask
     queueMicrotask(() => {
       this.optionBindings = bindings;
       this.cdRef.markForCheck();
       console.warn('[SOC] ✅ optionBindings REASSIGNED', bindings);
     });
-  
+
     // 6. Restore highlights AFTER binding reassignment
     this.updateHighlighting();
-  }  
+  }
 
   handleClick(optionBinding: OptionBindings, index: number): void {
     // Build a clean payload FIRST
@@ -1986,7 +1986,7 @@ export class SharedOptionComponent implements
       index,
       checked: isChecked
     };
-    
+
     this.optionSelected.emit(payload);
   }
 
@@ -2852,20 +2852,24 @@ export class SharedOptionComponent implements
 
   // Click wrapper that no-ops when disabled
   public onOptionClick(binding: OptionBindings, index: number, ev: MouseEvent): void {
+    console.log('%c[SOC] ENTERED onOptionClick', 'color:#ff0077;font-weight:bold;', {
+      index,
+      optionId: binding?.option?.optionId
+    });
     if (this.isDisabled(binding, index)) {
       ev.stopImmediatePropagation();
       ev.preventDefault();
       return;
     }
-  
+
     this.handleClick(binding, index);
-  
+
     const payload: OptionClickedPayload = {
       option: binding.option,
       index,
       checked: binding.isSelected ?? false
     };
-  
+
     this.optionSelected.emit(payload);
   }
 
