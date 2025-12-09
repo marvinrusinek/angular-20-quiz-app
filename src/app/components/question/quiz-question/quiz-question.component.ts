@@ -2884,7 +2884,7 @@ export class QuizQuestionComponent extends BaseQuestion
       '%c[QQC][TOP VERIFY] SELECTED OPTIONS BEFORE ANY LOGIC',
       'color: hotpink; font-weight: bold;',
       {
-        event.index,
+        index: event.index,
         selected: checkStateTop.map(o => ({
           id: o.optionId,
           correct: o.correct,
