@@ -2872,41 +2872,59 @@ export class QuizQuestionComponent extends BaseQuestion
       'color: yellow; font-size: 16px;',
       { idx: this.currentQuestionIndex, event }
     );
+
+    const checkStateTop =
+      this.selectedOptionService.getSelectedOptionsForQuestion(idx);
+  
+    console.log(
+      '%c[QQC][TOP VERIFY] SELECTED OPTIONS BEFORE ANY LOGIC',
+      'color: hotpink; font-weight: bold;',
+      {
+        idx,
+        selected: checkStateTop.map(o => ({
+          id: o.optionId,
+          correct: o.correct,
+          selected: o.selected
+        }))
+      }
+    );
+
+
     console.log('[CLICK ENTRY] onOptionClicked fired for Q', this.currentQuestionIndex);
-  
+
     const evtChecked = event?.checked ?? true;
-  
+
     const idx = this.quizService.getCurrentQuestionIndex() ?? 0;
     let q: QuizQuestion | null | undefined = this.question;
-  
+
     console.log('[onOptionClicked] Initial q:', q);
     console.log('[onOptionClicked] this.currentQuestion:', this.currentQuestion);
     console.log('[onOptionClicked] QuizService.questions[idx]:', this.quizService.questions[idx]);
-  
+
     if (!q || !q.options?.length) q = this.currentQuestion;
     if (!q || !q.options?.length) q = this.quizService.questions[idx];
-  
+
     console.log('[onOptionClicked] Resolved q:', q);
-  
+
     const evtIdx = event.index;
     const evtOpt = event.option;
     if (evtOpt == null) return;
-  
+
     this.resetExplanationBeforeClick(idx);
     // if (this.blockIfLocked(evtOpt, idx)) return;
     //if (this._clickGate) return;
-  
+
     this.prepareClickCycle();
-  
+
     try {
       await this.waitForInteractionReady();
-  
+
       console.log('[onOptionClicked] q resolved to:', q);
       const optionsNow = this.cloneOptionsForUi(q!, evtIdx, event);
       console.log('[onOptionClicked] optionsNow from cloneOptionsForUi:', optionsNow);
-  
+
       const canonicalOpts = this.buildCanonicalOptions(q!, idx, evtOpt, evtIdx);
-  
+
       // selection commit happens here
       this.persistSelection(
         evtOpt,
@@ -2914,22 +2932,22 @@ export class QuizQuestionComponent extends BaseQuestion
         optionsNow,
         q?.type === QuestionType.MultipleAnswer
       );
-  
+
       this.emitSelectionMessage(idx, q!, optionsNow, canonicalOpts);
-  
+
       this.syncCanonicalOptionsIntoQuestion(q!, canonicalOpts);
-  
+
       const allCorrect = this.computeCorrectness(q!, canonicalOpts, evtOpt, idx);
       this._lastAllCorrect = allCorrect;
-  
+
       await this.maybeTriggerExplanation(q!, evtOpt, idx, allCorrect);
-  
+
       this.updateNextButtonAndState(allCorrect);
-  
+
       this.forceExplanationUpdate(idx, q!);
-  
+
       this.scheduleAsyncUiFinalization(evtOpt, evtIdx, evtChecked);
-  
+
       // ────────────────────────────────────────────────
       // FINAL: evaluate timer stop AFTER selection + UI are settled
       // ────────────────────────────────────────────────
@@ -2937,26 +2955,26 @@ export class QuizQuestionComponent extends BaseQuestion
         idx,
         evtOptId: evtOpt.optionId
       });
-  
+
       queueMicrotask(async () => {
         const selectedNow =
           this.selectedOptionService.getSelectedOptionsForQuestion(idx);
-      
+
         console.log(
           '%c[QQC][MICROTASK] SelectedOptionService now has:',
           'color: #00bfff; font-weight: bold;',
           selectedNow
         );
-      
+
         await this.timerService.stopTimerIfApplicable(
           q!,
           idx,
           selectedNow
         );
       });
-   
+
       console.log('%c[TIMER DEBUG] Final stopTimerIfApplicable done', 'color:green;font-weight:bold');
-  
+
     } catch (err) {
       console.error('[onOptionClicked] ❌ Error:', err);
     } finally {
