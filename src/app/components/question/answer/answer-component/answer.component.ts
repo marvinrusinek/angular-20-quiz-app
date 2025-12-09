@@ -291,6 +291,10 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
   public override async onOptionClicked(
     event: { option: SelectedOption; index: number; checked: boolean }
   ): Promise<void> {
+    console.log(
+      '%c[LOCATOR] >>> FIRED in FILE: AnswerComponent',
+      'background:#8b00ff;color:white;font-size:16px'
+    );
     const { option, index } = event;  // destructure the event object
 
     // Handle single-answer questions

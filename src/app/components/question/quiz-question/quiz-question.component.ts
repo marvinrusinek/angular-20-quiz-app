@@ -2868,6 +2868,10 @@ export class QuizQuestionComponent extends BaseQuestion
   // Called when a user clicks an option row
   public override async onOptionClicked(event: OptionClickedPayload): Promise<void> {
     console.log(
+      '%c[LOCATOR] >>> FIRED in FILE: QQC',
+      'background:#8b00ff;color:white;font-size:16px'
+    );
+    console.log(
       '%c[QQC] CLICK RECEIVED',
       'color: yellow; font-size: 16px;',
       { idx: this.currentQuestionIndex, event }
@@ -2875,7 +2879,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
     const checkStateTop =
       this.selectedOptionService.getSelectedOptionsForQuestion(event.index);
-  
+
     console.log(
       '%c[QQC][TOP VERIFY] SELECTED OPTIONS BEFORE ANY LOGIC',
       'color: hotpink; font-weight: bold;',

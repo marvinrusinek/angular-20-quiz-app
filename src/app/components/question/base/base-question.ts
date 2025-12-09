@@ -332,6 +332,10 @@ export abstract class BaseQuestion<
   ): Promise<void>;  
 
   public async onOptionClicked(event: { option: SelectedOption; index: number; checked: boolean }): Promise<void> {
+    console.log(
+      '%c[LOCATOR] >>> FIRED in FILE: BQC',
+      'background:#8b00ff;color:white;font-size:16px'
+    );
     const { option, index, checked } = event;
 
     // Ensure the selected option is updated
