@@ -1,5 +1,14 @@
 @let opts = optionBindings || [];
 @if (canShowOptions()) {
+  <p style="color:red">
+    DEBUG: canShowOptions() = {{ canShowOptions() }}
+  </p>
+  <p style="color:red">
+    DEBUG: optionBindings length = {{ optionBindings?.length }}
+  </p>
+  <!--<p style="color:red">
+    DEBUG: shouldRenderOptions = {{ shouldRenderOptions }}
+  </p>-->
   <div (click)="debugClick()" style="border:1px solid red">TEST CLICK ZONE</div>
   <!-- OPTIONS ARE READY -->
   <form [formGroup]="form" class="options-form">
