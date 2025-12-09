@@ -48,12 +48,12 @@ export class SharedOptionComponent implements
   @ViewChildren(HighlightOptionDirective)
   highlightDirectives!: QueryList<HighlightOptionDirective>;
 
-  @Output() optionClicked = new EventEmitter<{
+  /* @Output() optionClicked = new EventEmitter<{
     option: SelectedOption,
     index: number,
     checked: boolean,
     wasReselected?: boolean
-  }>();
+  }>(); */
   @Output() optionSelected = new EventEmitter<OptionClickedPayload>();
   @Output() reselectionDetected = new EventEmitter<boolean>();
   @Output() explanationUpdate = new EventEmitter<number>();
