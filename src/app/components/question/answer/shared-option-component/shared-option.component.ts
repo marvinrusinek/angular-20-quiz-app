@@ -9,6 +9,7 @@ import { distinctUntilChanged, observeOn, take, takeUntil } from 'rxjs/operators
 
 import { FeedbackProps } from '../../../../shared/models/FeedbackProps.model';
 import { Option } from '../../../../shared/models/Option.model';
+import { OptionClickedPayload } from '../../../../shared/models/OptionClickedPayload.model';
 import { OptionBindings } from '../../../../shared/models/OptionBindings.model';
 import { QuizQuestion } from '../../../../shared/models/QuizQuestion.model';
 import { QuestionType } from '../../../../shared/models/question-type.enum';
@@ -2835,7 +2836,24 @@ export class SharedOptionComponent implements
       ev.preventDefault();
       return;
     }
+  
+    // INTERNAL LOGIC
     this.handleClick(binding, idx);
+  
+    // BUBBLE EVENT UP TO QQC
+    const payload: OptionClickedPayload = {
+      option: binding.option,
+      index: idx,
+      checked: binding.isSelected ?? false
+    };
+  
+    console.log(
+      "%c[SOC] EMITTING optionSelected payload →",
+      "color: white; background: green; padding:2px",
+      payload
+    );
+  
+    this.optionSelected.emit(payload);
   }
 
   // Use the same key shape everywhere (STRING so we don't lose non-numeric ids)
