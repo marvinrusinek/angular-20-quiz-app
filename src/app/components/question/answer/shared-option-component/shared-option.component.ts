@@ -756,19 +756,39 @@ export class SharedOptionComponent implements
   }  
 
   handleClick(optionBinding: OptionBindings, index: number): void {
+    // Build a clean payload FIRST
+    const questionIndex = this.getActiveQuestionIndex() ?? 0;
+    const enrichedOption: SelectedOption = {
+      ...optionBinding.option,
+      questionIndex
+    };
+
+    const payload = {
+      option: enrichedOption,
+      index,
+      checked: true
+    };
+
+    // NOW this works ✔
+    console.log(
+      '%c[SOC] optionClicked EMITTED',
+      'color:#00e5ff; font-weight:bold;',
+      payload
+    );
+
     if (this.shouldDisableOption(optionBinding)) return;
 
     const optionId = optionBinding.option.optionId;
-    const questionIndex = this.getActiveQuestionIndex() ?? 0;
+    //const questionIndex = this.getActiveQuestionIndex() ?? 0;
 
     // Check selected state before anything mutates it
     // ✅ FIX: Don't rely on soundService for selection state
     let wasPreviouslySelected = optionBinding.option.selected || false;
 
-    const enrichedOption: SelectedOption = {
+    /* const enrichedOption: SelectedOption = {
       ...optionBinding.option,
       questionIndex
-    };
+    }; */
 
     // Emit BEFORE any mutation
     /* this.optionClicked.emit({
