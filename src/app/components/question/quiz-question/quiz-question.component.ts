@@ -2874,13 +2874,13 @@ export class QuizQuestionComponent extends BaseQuestion
     );
 
     const checkStateTop =
-      this.selectedOptionService.getSelectedOptionsForQuestion(idx);
+      this.selectedOptionService.getSelectedOptionsForQuestion(event.index);
   
     console.log(
       '%c[QQC][TOP VERIFY] SELECTED OPTIONS BEFORE ANY LOGIC',
       'color: hotpink; font-weight: bold;',
       {
-        idx,
+        event.index,
         selected: checkStateTop.map(o => ({
           id: o.optionId,
           correct: o.correct,
