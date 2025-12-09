@@ -295,9 +295,8 @@ export class TimerService implements OnDestroy {
     questionIndex: number,
     selectedOptionsFromQQC: SelectedOption[] | null
   ): Promise<void> {
-  
     console.warn(
-      "%c[TIMER] ENTER → stopTimerIfApplicable()",
+      "%c[TIMER] ENTERED stopTimerIfApplicable",
       "color: orange; font-weight: bold;",
       { questionIndex, selectedOptionsFromQQC }
     );
@@ -306,7 +305,7 @@ export class TimerService implements OnDestroy {
   
     try {
       // ────────────────────────────────────────────
-      // VALIDATION
+      // Basic validation
       // ────────────────────────────────────────────
       if (!question || !Array.isArray(question.options)) {
         console.warn('[TimerService] Invalid question/options.');
@@ -322,54 +321,58 @@ export class TimerService implements OnDestroy {
       }
   
       // ────────────────────────────────────────────
-      // CORRECT ANSWERS
+      // Determine correct answers
       // ────────────────────────────────────────────
-      const correctOptions = question.options.filter(opt => opt.correct);
-      const correctIds = correctOptions.map(opt => String(opt.optionId));
-      const isMultiple = correctIds.length > 1;
+      const correctOptions = question.options.filter(opt => !!opt.correct);
+      const correctOptionIds = correctOptions.map(opt => String(opt.optionId));
+      const isMultiple = correctOptionIds.length > 1;
   
       // ────────────────────────────────────────────
-      // SELECTED ANSWERS (from QQC)
+      // Selected answers (QQC is now the source of truth)
       // ────────────────────────────────────────────
-      const selectedFinal = selectedOptionsFromQQC ?? [];
-      const selectedIds = selectedFinal.map(opt => String(opt.optionId));
+      const selectedOptionsFinal = (selectedOptionsFromQQC ?? []).filter(o => o != null);
+      const selectedIds = selectedOptionsFinal.map(o => String(o.optionId));
   
-      console.log('[TimerService] correctIds:  ', correctIds);
-      console.log('[TimerService] selectedIds: ', selectedIds);
-      console.log('[TimerService] selectedFinal:', selectedFinal);
+      console.log('[TimerService] correctOptionIds:', correctOptionIds);
+      console.log('[TimerService] selectedIds:', selectedIds);
+      console.log('[TimerService] selectedOptionsFinal:', selectedOptionsFinal);
   
-      // ────────────────────────────────────────────
-      // MULTIPLE-ANSWER LOGIC (LENIENT)
-      // ────────────────────────────────────────────
       let shouldStop = false;
   
+      // ────────────────────────────────────────────
+      // MULTIPLE-ANSWER: lenient → all correct included (extras allowed)
+      // ────────────────────────────────────────────
       if (isMultiple) {
         const allCorrectSelected =
-          correctIds.length > 0 &&
-          correctIds.every(id => selectedIds.includes(id));
+          correctOptionIds.length > 0 &&
+          correctOptionIds.every(id => selectedIds.includes(id));
   
-        console.log('[TimerService] allCorrectSelected:', allCorrectSelected);
+        console.log(
+          '[TimerService] allCorrectSelected (multi):',
+          allCorrectSelected
+        );
         shouldStop = allCorrectSelected;
       }
   
       // ────────────────────────────────────────────
-      // SINGLE-ANSWER LOGIC
+      // SINGLE-ANSWER: first selected must be correct
       // ────────────────────────────────────────────
       else {
-        const first = selectedFinal[0];
-        const correctSingle =
-          !!first &&
-          (first.correct === true || (first as any).correct === 'true');
+        const firstSelected = selectedOptionsFinal[0];
+        const isCorrect =
+          !!firstSelected &&
+          (firstSelected.correct === true ||
+            (firstSelected as any).correct === 'true');
   
-        console.log('[TimerService] correctSingle:', correctSingle);
-        shouldStop = correctSingle;
+        console.log('[TimerService] isCorrect (single):', isCorrect);
+        shouldStop = isCorrect;
       }
   
       // ────────────────────────────────────────────
       // STOP TIMER IF CONDITIONS MET
       // ────────────────────────────────────────────
       if (!shouldStop) {
-        console.log('[TimerService] Conditions NOT met → continue timer.');
+        console.log('[TimerService] Conditions NOT met → timer continues.');
         console.groupEnd();
         return;
       }
@@ -389,15 +392,13 @@ export class TimerService implements OnDestroy {
       });
   
       if (!stopped) {
-        console.warn('[TimerService] Stop rejected → FORCING STOP.');
+        console.warn('[TimerService] Stop rejected → FORCING TIMER STOP.');
         this.stopTimer(undefined, { force: true });
       }
   
       console.groupEnd();
-      return;
-  
     } catch (err) {
-      console.error('[TimerService] Error:', err);
+      console.error('[TimerService] Error in stopTimerIfApplicable:', err);
       console.groupEnd();
     }
   }
