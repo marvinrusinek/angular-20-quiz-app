@@ -1958,15 +1958,16 @@ export class SharedOptionComponent implements
       this.feedbackConfigs[index] = this.generateFeedbackConfig(selectedHydratedOption, index);
     }
 
-    const emittedQuestionIndex = this.getActiveQuestionIndex() ?? 0;
-    this.optionSelected.emit({
-      option: {
-        ...option,
-        questionIndex: emittedQuestionIndex
-      },
+    // Determine whether this option is now checked
+    const isChecked = clonedOption.selected === true;
+
+    const payload: OptionClickedPayload = {
+      option: clonedOption,
       index,
-      checked: true
-    });
+      checked: isChecked
+    };
+    
+    this.optionSelected.emit(payload);
   }
 
   private shouldIgnoreClick(optionId: number): boolean {
@@ -2830,28 +2831,20 @@ export class SharedOptionComponent implements
   }
 
   // Click wrapper that no-ops when disabled
-  public onOptionClick(binding: OptionBindings, idx: number, ev: MouseEvent): void {
-    if (this.isDisabled(binding, idx)) {
+  public onOptionClick(binding: OptionBindings, index: number, ev: MouseEvent): void {
+    if (this.isDisabled(binding, index)) {
       ev.stopImmediatePropagation();
       ev.preventDefault();
       return;
     }
   
-    // INTERNAL LOGIC
-    this.handleClick(binding, idx);
+    this.handleClick(binding, index);
   
-    // BUBBLE EVENT UP TO QQC
     const payload: OptionClickedPayload = {
-      option: binding.option as SelectedOption,
-      index: idx,
+      option: binding.option,
+      index,
       checked: binding.isSelected ?? false
     };
-  
-    console.log(
-      "%c[SOC] EMITTING optionSelected payload →",
-      "color: white; background: green; padding:2px",
-      payload
-    );
   
     this.optionSelected.emit(payload);
   }
