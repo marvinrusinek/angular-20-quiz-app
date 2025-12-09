@@ -771,12 +771,12 @@ export class SharedOptionComponent implements
     };
 
     // Emit BEFORE any mutation
-    this.optionClicked.emit({
+    /* this.optionClicked.emit({
       option: enrichedOption,
       index,
       checked: true,
       wasReselected: wasPreviouslySelected
-    });
+    }); */
 
     // ✅ FIX: Allow UI update if it's a new selection OR if it's a multiple-answer question (to allow toggle/deselect)
     // For single answer, we block re-selection of the same option to avoid redundant processing
