@@ -2007,11 +2007,13 @@ export class QuizQuestionComponent extends BaseQuestion
       this.dynamicAnswerContainer.clear();
       await Promise.resolve();
 
+      const noop = () => {};
+
       const componentRef: ComponentRef<AnswerComponent> =
         await this.dynamicComponentService.loadComponent(
           this.dynamicAnswerContainer,
           isMultipleAnswer,
-          this.onOptionClicked.bind(this)
+          noop   // satisfies factory, doesn't override anything
         );
 
       if (!componentRef || !componentRef.instance) {
@@ -2100,10 +2102,10 @@ export class QuizQuestionComponent extends BaseQuestion
 
       await (instance as any).initializeSharedOptionConfig(clonedOptions);
 
-      if (!Object.prototype.hasOwnProperty.call(instance, 'onOptionClicked')) {
+      /* if (!Object.prototype.hasOwnProperty.call(instance, 'onOptionClicked')) {
         instance.onOptionClicked = this.onOptionClicked.bind(this);
         console.log('[🔁 Bound onOptionClicked to instance]');
-      }
+      } */
 
       const hasRenderableOptions = Array.isArray(instance.optionsToDisplay)
         && instance.optionsToDisplay.length > 0;
