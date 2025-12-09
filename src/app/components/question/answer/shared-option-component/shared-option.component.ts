@@ -48,13 +48,7 @@ export class SharedOptionComponent implements
   @ViewChildren(HighlightOptionDirective)
   highlightDirectives!: QueryList<HighlightOptionDirective>;
 
-  /* @Output() optionClicked = new EventEmitter<{
-    option: SelectedOption,
-    index: number,
-    checked: boolean,
-    wasReselected?: boolean
-  }>(); */
-  @Output() optionSelected = new EventEmitter<OptionClickedPayload>();
+  @Output() optionClicked = new EventEmitter<OptionClickedPayload>();
   @Output() reselectionDetected = new EventEmitter<boolean>();
   @Output() explanationUpdate = new EventEmitter<number>();
   @Output() renderReadyChange = new EventEmitter<boolean>();
@@ -2860,22 +2854,25 @@ export class SharedOptionComponent implements
       index,
       optionId: binding?.option?.optionId
     });
+  
     if (this.isDisabled(binding, index)) {
       ev.stopImmediatePropagation();
       ev.preventDefault();
       return;
     }
-
+  
+    // Keep your existing logic that updates state / highlights / feedback
     this.handleClick(binding, index);
-
+  
     const payload: OptionClickedPayload = {
-      option: binding.option,
+      option: binding.option as SelectedOption,   // structurally compatible
       index,
       checked: binding.isSelected ?? false
     };
-
-    this.optionSelected.emit(payload);
-  }
+  
+    console.log('%c[SOC] optionClicked EMITTED', 'color:#00e5ff;font-weight:bold;', payload);
+    this.optionClicked.emit(payload);
+  }  
 
   // Use the same key shape everywhere (STRING so we don't lose non-numeric ids)
   // Stable per-row key: prefer numeric optionId; fallback to stableKey + index
