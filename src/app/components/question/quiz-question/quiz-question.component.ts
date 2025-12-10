@@ -124,6 +124,7 @@ export class QuizQuestionComponent extends BaseQuestion
   questions: QuizQuestion[] = [];
   questionsArray: QuizQuestion[] = [];
   questionsObservableSubscription!: Subscription;
+  private _questionIndex!: number;
   questionData!: QuizQuestion;
   override questionForm: FormGroup = new FormGroup({});
   questionRenderComplete = new EventEmitter<void>();
@@ -318,6 +319,8 @@ export class QuizQuestionComponent extends BaseQuestion
   }
 
   @Input() set questionIndex(value: number) {
+    this._questionIndex = value;
+
     // Cancel any previous request
     this._abortController?.abort();
 
@@ -330,6 +333,10 @@ export class QuizQuestionComponent extends BaseQuestion
 
     // Fire-and-forget, but intentional
     void this.loadQuestion(signal);
+  }
+
+  get questionIndex(): number {
+    return this._questionIndex;
   }
 
   @Input() set questionPayload(value: QuestionPayload | null) {
