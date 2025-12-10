@@ -393,13 +393,11 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
       );
     }
   
-    // ───────────────────────────────────────────────
     // EMIT to QQC EXACTLY as your original version did
     // (Preserve your event signature 100%)
-    // ───────────────────────────────────────────────
     const cleanPayload: OptionClickedPayload = {
-      option: enrichedOption,       // MUST include questionIndex!!!
-      index: index,                 // MUST be the numeric option index
+      option: enrichedOption,
+      index: index,
       checked: !!enrichedOption.selected,
       wasReselected: event?.wasReselected ?? false
     };
