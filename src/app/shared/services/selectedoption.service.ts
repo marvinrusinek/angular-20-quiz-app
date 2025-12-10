@@ -318,13 +318,18 @@ export class SelectedOptionService {
   } */
   public getSelectedOptionsForQuestion(questionIndex: number): SelectedOption[] {
     const options = this.selectedOptionsMap.get(questionIndex) || [];
+  
     console.log(`[SelectedOptionService] getSelectedOptionsForQuestion(${questionIndex}):`, {
       selectedOptions: options.map(o => o.optionId),
       mapSize: this.selectedOptionsMap.size,
-      allEntries: Array.from(this.selectedOptionsMap.entries()).map(([idx, opts]) => 
+      allEntries: Array.from(this.selectedOptionsMap.entries()).map(([idx, opts]) =>
         [idx, opts.map(o => o.optionId)])
     });
-    return options;
+  
+    // Always return canonicalized versions
+    return options.map(o =>
+      this.canonicalizeOptionForQuestion(questionIndex, o)
+    );
   }
 
   clearSelectionsForQuestion(questionIndex: number): void {
