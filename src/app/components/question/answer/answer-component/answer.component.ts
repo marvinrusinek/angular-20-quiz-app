@@ -290,98 +290,20 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
 
   public override async onOptionClicked(event: OptionClickedPayload): Promise<void> {
     console.log(
-      '%c[AnswerComponent] >>> ENTERED onOptionClicked',
-      'background:#ff00aa;color:white;font-size:14px'
+      '%c[AnswerComponent] onOptionClicked RECEIVED',
+      'background:#8b00ff;color:white;font-size:14px;',
+      event
     );
   
-    if (!event || typeof event !== 'object') {
-      console.error('[AnswerComponent] onOptionClicked received invalid event:', event);
-      return;
-    }
+    // Pass straight up to QQC
+    this.optionClicked.emit(event);
   
-    const { option, index, checked } = event;
+    // Keep the quiz state flags updated for Next button
+    const isOptionSelected = !!event?.option;
   
-    if (!option) {
-      console.error('[AnswerComponent] onOptionClicked received null option:', event);
-      return;
-    }
-  
-    // Always enrich with active question index
-    const activeIndex = this.currentQuestionIndex ?? 0;
-  
-    const enrichedOption: SelectedOption = {
-      ...option,
-      questionIndex: activeIndex,
-      selected: checked
-    };
-    const safeOptionId = enrichedOption.optionId ?? -1;
-  
-    // ─────────────────────────────
-    // SINGLE-ANSWER
-    // ─────────────────────────────
-    if (this.type === 'single') {
-      this.selectedOption = enrichedOption;
-      this.selectedOptionIndex = index;
-  
-      this.showFeedbackForOption = { [safeOptionId]: true };
-  
-      this.selectedOptionService.setSelectedOption(enrichedOption);
-  
-      console.log('[AnswerComponent] (SINGLE) stored selectedOption:', enrichedOption);
-    }
-     
-    // ─────────────────────────────
-    // MULTIPLE-ANSWER
-    // ─────────────────────────────
-    else {
-      const existingIdx = this.selectedOptions.findIndex(
-        o => o.optionId === enrichedOption.optionId
-      );
-  
-      if (existingIdx === -1 && checked === true) {
-        this.selectedOptions.push(enrichedOption);
-      } else if (existingIdx !== -1 && checked === false) {
-        this.selectedOptions.splice(existingIdx, 1);
-      }
-  
-      this.showFeedbackForOption[safeOptionId] = checked;
-  
-      this.selectedOptionService.setSelectedOptions(this.selectedOptions);
-  
-      console.log('[AnswerComponent] (MULTI) selectedOptions:', this.selectedOptions);
-    }
-  
-    // ─────────────────────────────
-    // UPDATE QUIZ STATE
-    // ─────────────────────────────
-    const hasSelection =
-      this.type === 'single'
-        ? !!this.selectedOption
-        : this.selectedOptions.length > 0;
-  
-    this.quizStateService.setAnswerSelected(hasSelection);
-    this.quizStateService.setAnswered(hasSelection);
-  
-    this.cdRef.detectChanges();
-  
-    // ─────────────────────────────
-    // EMIT ONE EVENT ONLY (NO DUPLICATE)
-    // ─────────────────────────────
-    const finalPayload: OptionClickedPayload = {
-      option: enrichedOption,
-      index,
-      checked,
-      wasReselected: false
-    };
-  
-    console.log(
-      '%c[AnswerComponent] >>> EMIT optionClicked',
-      'color:#00eaff;font-weight:bold;',
-      finalPayload
-    );
-  
-    this.optionClicked.emit(finalPayload);
-  }
+    this.quizStateService.setAnswerSelected(isOptionSelected);
+    this.quizStateService.setAnswered(isOptionSelected);
+  }  
   
 
   // Rebuild optionBindings from the latest optionsToDisplay.
