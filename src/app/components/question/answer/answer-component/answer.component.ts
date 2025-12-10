@@ -39,6 +39,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
   //quizQuestionComponent: QuizQuestionComponent | undefined;
   @Output() optionSelected = new EventEmitter<{option: SelectedOption, index: number, checked: boolean}>();
   @Output() override optionClicked = new EventEmitter<OptionClickedPayload>() as any;
+  @Input() questionIndex!: number;
   @Input() questionData!: QuizQuestion;
   @Input() isNavigatingBackwards: boolean = false;
   override quizQuestionComponentOnOptionClicked!: (option: SelectedOption, index: number) => void;
@@ -47,7 +48,6 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
   @Input() override optionsToDisplay!: Option[];
   @Input() override optionBindings: OptionBindings[] = [];
   private optionBindingsSource: Option[] = [];
-  questionVersion = 0;
   override showFeedbackForOption: { [optionId: number]: boolean } = {};
   override selectedOption: SelectedOption | null = null;
   selectedOptions: SelectedOption[] = [];
@@ -107,10 +107,6 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
         // Defer rebuild and update bindings
         Promise.resolve().then(() => {
           this.resetSelectionState();
-
-          // Bump version to force view updates that rely on questionVersion keys
-          this.questionVersion++;
-
           this.applyIncomingOptions(this.incomingOptions, { resetSelection: false });
         });
       });
