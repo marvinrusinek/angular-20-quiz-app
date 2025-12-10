@@ -2932,44 +2932,88 @@ export class QuizQuestionComponent extends BaseQuestion
       'background:#8b00ff;color:white;font-size:16px'
     );
   
+    // ───────────────────────────────────────────────
+    // HARD GUARD: event / option must be valid
+    // ───────────────────────────────────────────────
+    if (!event || !event.option) {
+      console.error('[QQC] ❌ onOptionClicked received invalid event:', event);
+      return;
+    }
+  
+    const evtOpt = event.option;
+  
+    // Prefer the questionIndex on the option if present, otherwise fall back
+    const payloadQuestionIndex =
+      typeof (evtOpt as any).questionIndex === 'number'
+        ? (evtOpt as any).questionIndex
+        : null;
+  
+    const idx =
+      payloadQuestionIndex ??
+      this.quizService.getCurrentQuestionIndex() ??
+      this.currentQuestionIndex ??
+      0;
+  
+    console.log('[QQC] Resolved question index for click:', {
+      payloadQuestionIndex,
+      quizServiceIndex: this.quizService.getCurrentQuestionIndex?.(),
+      currentQuestionIndex: this.currentQuestionIndex,
+      finalIdx: idx
+    });
+  
+    // Use the *question index* for SOS, NOT the option index
     const checkStateTop =
-      this.selectedOptionService.getSelectedOptionsForQuestion(event.index);
+      this.selectedOptionService.getSelectedOptionsForQuestion(idx);
   
     console.log(
       '%c[QQC][TOP VERIFY] SELECTED OPTIONS BEFORE ANY LOGIC',
       'color: hotpink; font-weight: bold;',
       {
-        index: event.index,
+        index: idx,
         selected: checkStateTop.map(o => ({
           id: o.optionId,
           correct: o.correct,
-          selected: o.selected
+          selected: o.selected,
+          qIndex: o.questionIndex
         }))
       }
     );
   
-    console.log('[CLICK ENTRY] onOptionClicked fired for Q', this.currentQuestionIndex);
+    console.log('[CLICK ENTRY] onOptionClicked fired for Q', idx + 1);
   
     const evtChecked = event?.checked ?? true;
   
-    const idx = this.quizService.getCurrentQuestionIndex() ?? 0;
+    // ───────────────────────────────────────────────
+    // Resolve question safely
+    // ───────────────────────────────────────────────
     let q: QuizQuestion | null | undefined = this.question;
   
     console.log('[onOptionClicked] Initial q:', q);
     console.log('[onOptionClicked] this.currentQuestion:', this.currentQuestion);
-    console.log('[onOptionClicked] QuizService.questions[idx]:', this.quizService.questions[idx]);
+    console.log('[onOptionClicked] QuizService.questions[idx]:', this.quizService.questions?.[idx]);
   
     if (!q || !q.options?.length) q = this.currentQuestion;
-    if (!q || !q.options?.length) q = this.quizService.questions[idx];
+    if (!q || !q.options?.length) q = this.quizService.questions?.[idx];
+  
+    if (!q || !q.options?.length) {
+      console.error('[QQC] ❌ Unable to resolve question for index', idx, ' → aborting click handler');
+      return;
+    }
   
     console.log('[onOptionClicked] Resolved q:', q);
   
     const evtIdx = event.index;
-    const evtOpt = event.option;
-    if (evtOpt == null) return;
   
+    // Minimal sanity check
+    if (evtOpt == null) {
+      console.warn('[QQC] evtOpt is null — aborting.');
+      return;
+    }
+  
+    // ───────────────────────────────────────────────
+    // NORMAL PIPELINE (unchanged as much as possible)
+    // ───────────────────────────────────────────────
     this.resetExplanationBeforeClick(idx);
-  
     this.prepareClickCycle();
   
     try {
@@ -2981,7 +3025,7 @@ export class QuizQuestionComponent extends BaseQuestion
   
       const canonicalOpts = this.buildCanonicalOptions(q!, idx, evtOpt, evtIdx);
   
-      // Commit selection
+      // Commit selection into local + state
       this.persistSelection(
         evtOpt,
         idx,
@@ -2989,15 +3033,26 @@ export class QuizQuestionComponent extends BaseQuestion
         q?.type === QuestionType.MultipleAnswer
       );
   
+      // ALSO push into SelectedOptionService using the *question index*
+      const enrichedForSOS = {
+        ...evtOpt,
+        questionIndex: idx,
+        selected: evtChecked,
+        highlight: true,
+        showIcon: true
+      } as any; // conforms to SelectedOption
+      this.selectedOptionService.addOption(idx, enrichedForSOS);
+  
       this.emitSelectionMessage(idx, q!, optionsNow, canonicalOpts);
       this.syncCanonicalOptionsIntoQuestion(q!, canonicalOpts);
   
       const allCorrect = this.computeCorrectness(q!, canonicalOpts, evtOpt, idx);
+  
       console.log(
         `%c[QQC][CORRECTNESS] For Q${idx + 1}`,
         'color:#ffcc00; font-weight:bold;'
       );
-      
+  
       console.log(
         '%c   correctOptions:',
         'color:#ffcc00;',
@@ -3009,9 +3064,9 @@ export class QuizQuestionComponent extends BaseQuestion
             correct: o.correct
           }))
       );
-      
+  
       console.log(
-        '%c   selectedOptions:',
+        '%c   selectedOptions (canonical):',
         'color: #ffcc00;',
         canonicalOpts
           .filter(o => o.selected)
@@ -3021,13 +3076,13 @@ export class QuizQuestionComponent extends BaseQuestion
             selected: o.selected
           }))
       );
-      
+  
       console.log(
         '%c   allCorrect:',
         'color:#ffcc00;font-weight:bold;',
         allCorrect
       );
-      
+  
       this._lastAllCorrect = allCorrect;
   
       await this.maybeTriggerExplanation(q!, evtOpt, idx, allCorrect);
@@ -3037,36 +3092,36 @@ export class QuizQuestionComponent extends BaseQuestion
   
       this.scheduleAsyncUiFinalization(evtOpt, evtIdx, evtChecked);
   
-      // ────────────────────────────────────────────────
-      // TIMER: use canonical selected options
-      // ────────────────────────────────────────────────
-      const selectedOptionsFinal = canonicalOpts
-        .filter(o => o.selected)
-        .map(o => ({
-          ...o,
-          questionIndex: idx
-        })); // cast into SelectedOption-like objects
+      // ───────────────────────────────────────────────
+      // TIMER: always use SelectedOptionService as the
+      // single source of truth for selected options
+      // ───────────────────────────────────────────────
+      queueMicrotask(async () => {
+        const selectedNow =
+          this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
   
-      console.log(
-        '%c[QQC][TIMER] canonical selected options:',
-        'color:#00bfff;font-weight:bold;',
-        selectedOptionsFinal.map(o => ({
-          id: o.optionId,
-          correct: o.correct,
-          selected: o.selected
-        }))
-      );
+        console.log(
+          '%c[QQC][TIMER] selected options from SOS:',
+          'color:#00bfff;font-weight:bold;',
+          selectedNow.map(o => ({
+            id: o.optionId,
+            correct: o.correct,
+            selected: o.selected,
+            qIndex: o.questionIndex
+          }))
+        );
   
-      await this.timerService.stopTimerIfApplicable(
-        q!,
-        idx,
-        selectedOptionsFinal
-      );
+        await this.timerService.stopTimerIfApplicable(
+          q!,
+          idx,
+          selectedNow
+        );
   
-      console.log(
-        '%c[TIMER DEBUG] Final stopTimerIfApplicable done',
-        'color:green;font-weight:bold'
-      );
+        console.log(
+          '%c[TIMER DEBUG] Final stopTimerIfApplicable done',
+          'color:green;font-weight:bold'
+        );
+      });
     } catch (err) {
       console.error('[onOptionClicked] ❌ Error:', err);
     } finally {
