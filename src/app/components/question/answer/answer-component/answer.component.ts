@@ -297,6 +297,10 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
 
   public override async onOptionClicked(event: OptionClickedPayload): Promise<void> {
     console.log(
+      '%c[AC] ACTIVE INDEX = ' + this.getActiveQuestionIndex(),
+      'background:#ff00aa;color:white;font-size:14px;'
+    );
+    console.log(
       '%c[AnswerComponent] onOptionClicked RECEIVED',
       'background:#8b00ff;color:white;font-size:14px;',
       event
