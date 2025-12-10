@@ -295,16 +295,108 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
       event
     );
   
-    // Pass straight up to QQC
-    this.optionClicked.emit(event);
+    // ───────────────────────────────────────────────
+    // SAFETY: ensure event/option/index are valid
+    // ───────────────────────────────────────────────
+    if (!event || !event.option) {
+      console.error('[AnswerComponent] INVALID event passed into onOptionClicked:', event);
+      return;
+    }
   
-    // Keep the quiz state flags updated for Next button
-    const isOptionSelected = !!event?.option;
+    const { option, index, checked } = event;
+  
+    // ───────────────────────────────────────────────
+    // Build a proper SelectedOption w/ questionIndex
+    // (Your original version did NOT add this, which
+    //  is why Q2 never stops the timer.)
+    // ───────────────────────────────────────────────
+    const activeQuestionIndex =
+      typeof this.currentQuestionIndex === 'number'
+        ? this.currentQuestionIndex
+        : 0;
+  
+    const enrichedOption: SelectedOption = {
+      ...option,
+      questionIndex: activeQuestionIndex,
+      selected: checked,
+      highlight: true,
+      showIcon: true
+    };
+  
+    // ───────────────────────────────────────────────
+    // MULTIPLE vs SINGLE answer selection handling
+    // (Merged with your intent + minimal logic)
+    // ───────────────────────────────────────────────
+    if (this.type === 'single') {
+      // Replace previous selection
+      this.selectedOption = enrichedOption;
+      this.selectedOptions = [enrichedOption];
+    } else {
+      // Multiple-answer
+      if (!Array.isArray(this.selectedOptions)) {
+        this.selectedOptions = [];
+      }
+  
+      const exists = this.selectedOptions.findIndex(o => o.optionId === enrichedOption.optionId);
+  
+      if (checked) {
+        if (exists === -1) {
+          this.selectedOptions.push(enrichedOption);
+        } else {
+          this.selectedOptions[exists] = enrichedOption;
+        }
+      } else {
+        // remove option
+        if (exists !== -1) {
+          this.selectedOptions.splice(exists, 1);
+        }
+      }
+    }
+  
+    // ───────────────────────────────────────────────
+    // QUIZ STATE FLAGS FOR NEXT BUTTON
+    // (Preserve your original logic)
+    // ───────────────────────────────────────────────
+    const isOptionSelected =
+      this.type === 'single'
+        ? !!this.selectedOption
+        : this.selectedOptions.length > 0;
   
     this.quizStateService.setAnswerSelected(isOptionSelected);
     this.quizStateService.setAnswered(isOptionSelected);
-  }  
   
+    // ───────────────────────────────────────────────
+    // PUSH INTO SelectedOptionService
+    // (Critical fix — required for stopping Q2 timer)
+    // ───────────────────────────────────────────────
+    if (this.type === 'single') {
+      if (this.selectedOption) {
+        this.selectedOptionService.setSelectedOption(this.selectedOption);
+        console.log('[AnswerComponent] Set SINGLE selection →', this.selectedOption);
+      }
+    } else {
+      this.selectedOptionService.setSelectedOptions(this.selectedOptions);
+      console.log(
+        '[AnswerComponent] Set MULTI selection →',
+        this.selectedOptions.map(o => ({
+          qIndex: o.questionIndex,
+          id: o.optionId,
+          correct: o.correct
+        }))
+      );
+    }
+  
+    // ───────────────────────────────────────────────
+    // EMIT to QQC EXACTLY as your original version did
+    // (Preserve your event signature 100%)
+    // ───────────────────────────────────────────────
+    this.optionClicked.emit({
+      ...event,
+      option: enrichedOption // ensure enriched version goes upward
+    });
+  
+    this.cdRef.detectChanges();
+  }
 
   // Rebuild optionBindings from the latest optionsToDisplay.
   private rebuildOptionBindings(opt: Option[]): OptionBindings[] {
