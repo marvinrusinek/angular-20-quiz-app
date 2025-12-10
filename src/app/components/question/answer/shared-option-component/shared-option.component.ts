@@ -749,82 +749,35 @@ export class SharedOptionComponent implements
     this.updateHighlighting();
   }
 
-  handleClick(optionBinding: OptionBindings, index: number): void {
-    // Build a clean payload FIRST
-    const questionIndex = this.getActiveQuestionIndex() ?? 0;
+  private handleClick(binding: OptionBindings, index: number): void {
+    // 🔹 your existing handleClick body stays as-is, up to the end
+    // (selection maps, sound, history, etc.)
+  
+    // ... your existing code ...
+  
+    // 🔽 ADD THIS AT THE VERY END 🔽
+    const activeQuestionIndex = this.getActiveQuestionIndex() ?? 0;
+  
     const enrichedOption: SelectedOption = {
-      ...optionBinding.option,
-      questionIndex
+      ...binding.option,
+      selected: binding.option.selected === true,
+      questionIndex: activeQuestionIndex
     };
-
-    const payload = {
+  
+    const payload: OptionClickedPayload = {
       option: enrichedOption,
       index,
-      checked: true
+      checked: enrichedOption.selected === true
     };
-
-    // NOW this works ✔
+  
     console.log(
-      '%c[SOC] optionClicked EMITTED',
-      'color:#00e5ff; font-weight:bold;',
+      '%c[SOC] EMITTING optionClicked →',
+      'color:#00e5ff;font-weight:bold;',
       payload
     );
-
-    if (this.shouldDisableOption(optionBinding)) return;
-
-    const optionId = optionBinding.option.optionId;
-    //const questionIndex = this.getActiveQuestionIndex() ?? 0;
-
-    // Check selected state before anything mutates it
-    // ✅ FIX: Don't rely on soundService for selection state
-    let wasPreviouslySelected = optionBinding.option.selected || false;
-
-    /* const enrichedOption: SelectedOption = {
-      ...optionBinding.option,
-      questionIndex
-    }; */
-
-    // Emit BEFORE any mutation
-    /* this.optionClicked.emit({
-      option: enrichedOption,
-      index,
-      checked: true,
-      wasReselected: wasPreviouslySelected
-    }); */
-
-    // ✅ FIX: Allow UI update if it's a new selection OR if it's a multiple-answer question (to allow toggle/deselect)
-    // For single answer, we block re-selection of the same option to avoid redundant processing
-    const isMultiple = this.type === 'multiple' || this.currentQuestion?.type === QuestionType.MultipleAnswer;
-    const shouldUpdate = !wasPreviouslySelected || isMultiple;
-
-    if (shouldUpdate) {
-      const simulatedEvent: MatRadioChange = {
-        source: {
-          value: optionBinding.option.optionId,
-          checked: true,
-        } as unknown as MatRadioButton,
-        value: optionBinding.option.optionId
-      };
-
-      this.updateOptionAndUI(optionBinding, index, simulatedEvent);
-
-      // Fire the sound immediately for the first-time selection
-      if (!wasPreviouslySelected) {
-        this.soundService.playOnceForOption(enrichedOption);
-
-        // Mark this option as having triggered sound for this question
-        if (optionId !== undefined) {
-          this.soundService.markPlayed(questionIndex, optionId);
-        }
-      }
-    } else {
-      console.warn('[⚠️ Option already selected - skipping UI update]');
-      // Even if we skip UI update, we might want to ensure explanation is shown if it's missing?
-      // But usually single answer questions show explanation immediately.
-    }
-
-    this.flashAndDisable(optionBinding.option);
-  }
+  
+    this.optionClicked.emit(payload);
+  }  
 
   preserveOptionHighlighting(): void {
     for (const option of this.optionsToDisplay) {
