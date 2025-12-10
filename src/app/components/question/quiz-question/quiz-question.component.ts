@@ -2010,7 +2010,8 @@ export class QuizQuestionComponent extends BaseQuestion
       const componentRef: ComponentRef<AnswerComponent> =
         await this.dynamicComponentService.loadComponent(
           this.dynamicAnswerContainer,
-          isMultipleAnswer
+          isMultipleAnswer,
+          this.forwardClickFromAnswer.bind(this)
         );
 
       if (!componentRef || !componentRef.instance) {
@@ -2140,6 +2141,10 @@ export class QuizQuestionComponent extends BaseQuestion
         error
       );
     }
+  }
+
+  public async forwardClickFromAnswer(event: OptionClickedPayload): Promise<void> {
+    return this.handleOptionClicked(event);
   }
 
   // rename
