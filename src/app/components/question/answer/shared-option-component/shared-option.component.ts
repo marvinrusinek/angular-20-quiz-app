@@ -2854,9 +2854,9 @@ export class SharedOptionComponent implements
     this.handleClick(binding, index);
   
     const payload: OptionClickedPayload = {
-      option: binding.option as SelectedOption,   // structurally compatible
+      option: binding.option as SelectedOption,  // structurally compatible
       index,
-      checked: binding.isSelected ?? false
+      checked: true  // always true for emitted payloads
     };
   
     console.log('%c[SOC] optionClicked EMITTED', 'color:#00e5ff;font-weight:bold;', payload);
