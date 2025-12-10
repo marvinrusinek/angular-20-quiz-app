@@ -3233,23 +3233,23 @@ export class QuizQuestionComponent extends BaseQuestion
     idx: number
   ): boolean {
   
+    // Stable identity key generator
     const getKey = (o: any) =>
       this.selectionMessageService.stableKey(o as Option);
   
-    // All correct options
+    // All correct options for this question
     const correctOpts = canonicalOpts.filter(o => !!o.correct);
   
     // Get ALL selected options from SelectedOptionService
     const selOptsRaw =
       this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
   
-    // Normalize / canonicalize
-    const selOpts = selOptsRaw.map(o =>
-      this.selectionMessageService.stableOption(o)
+    // Normalize → return stable keys
+    const selKeys = new Set(
+      selOptsRaw.map(o => getKey(o))
     );
   
-    const selKeys = new Set(selOpts.map(o => getKey(o)));
-  
+    // Count how many correct options were selected
     const selectedCorrectCount = correctOpts.filter(o =>
       selKeys.has(getKey(o))
     ).length;
@@ -3260,13 +3260,13 @@ export class QuizQuestionComponent extends BaseQuestion
         correctCount: correctOpts.length,
         selectedCorrectCount,
         selectedTotal: selKeys.size,
-        selOpts
+        selectedKeys: Array.from(selKeys)
       });
   
       return (
         correctOpts.length > 0 &&
-        selectedCorrectCount === correctOpts.length &&
-        selKeys.size === correctOpts.length
+        selectedCorrectCount === correctOpts.length &&  // all correct selected
+        selKeys.size === correctOpts.length            // no extra wrong ones
       );
     }
   
