@@ -156,72 +156,6 @@ export class SharedOptionComponent implements
       .subscribe((id: number | string) => this.updateSelections(id));
   }
 
-  private normalizeQuestionIndex(candidate: unknown): number | null {
-    if (typeof candidate !== 'number' || !Number.isFinite(candidate)) {
-      return null;
-    }
-
-    if (candidate < 0) return 0;
-
-    return Math.floor(candidate);
-  }
-
-  private updateResolvedQuestionIndex(candidate: unknown): void {
-    if (typeof candidate !== 'number' && candidate !== null) {
-      console.warn(`[SharedOption] Invalid candidate for updateResolvedQuestionIndex: ${candidate}`);
-      return;
-    }
-    const normalized = this.normalizeQuestionIndex(candidate);
-
-    if (normalized !== null) this.resolvedQuestionIndex = normalized;
-  }
-
-  private getActiveQuestionIndex(): number {
-    // 1. Prefer currentQuestionIndex
-    const normalizedCurrent = this.normalizeQuestionIndex(this.currentQuestionIndex);
-  
-    if (normalizedCurrent !== null) {
-      if (this.resolvedQuestionIndex !== normalizedCurrent) {
-        console.log(
-          `[SharedOption] 🔄 Index updated from input (current): ${this.resolvedQuestionIndex} -> ${normalizedCurrent}`
-        );
-      }
-      this.resolvedQuestionIndex = normalizedCurrent;
-      return normalizedCurrent;
-    }
-  
-    // 2. Legacy fallback: questionIndex
-    const normalizedLegacy = this.normalizeQuestionIndex(this.questionIndex);
-  
-    if (normalizedLegacy !== null) {
-      if (this.resolvedQuestionIndex !== normalizedLegacy) {
-        console.log(
-          `[SharedOption] 🔄 Index updated from input (legacy): ${this.resolvedQuestionIndex} -> ${normalizedLegacy}`
-        );
-      }
-      this.resolvedQuestionIndex = normalizedLegacy;
-      return normalizedLegacy;
-    }
-  
-    // 3. Ultimate fallback to quizService
-    const serviceIndex = this.normalizeQuestionIndex(
-      this.quizService?.getCurrentQuestionIndex?.()
-    );
-  
-    if (serviceIndex !== null) {
-      this.resolvedQuestionIndex = serviceIndex;
-      return serviceIndex;
-    }
-  
-    // 4. Final fallback
-    const fallback = this.normalizeQuestionIndex(
-      this.quizService?.currentQuestionIndex
-    );
-  
-    this.resolvedQuestionIndex = fallback ?? 0;
-    return this.resolvedQuestionIndex;
-  }
-
   ngOnInit(): void {
     this.updateResolvedQuestionIndex(
       this.questionIndex ??
@@ -2876,5 +2810,71 @@ export class SharedOptionComponent implements
     );
 
     return this.canDisplayOptions && this.renderReady && hasOptions;
+  }
+
+  private normalizeQuestionIndex(candidate: unknown): number | null {
+    if (typeof candidate !== 'number' || !Number.isFinite(candidate)) {
+      return null;
+    }
+
+    if (candidate < 0) return 0;
+
+    return Math.floor(candidate);
+  }
+
+  private updateResolvedQuestionIndex(candidate: unknown): void {
+    if (typeof candidate !== 'number' && candidate !== null) {
+      console.warn(`[SharedOption] Invalid candidate for updateResolvedQuestionIndex: ${candidate}`);
+      return;
+    }
+    const normalized = this.normalizeQuestionIndex(candidate);
+
+    if (normalized !== null) this.resolvedQuestionIndex = normalized;
+  }
+
+  private getActiveQuestionIndex(): number {
+    // 1. Prefer currentQuestionIndex
+    const normalizedCurrent = this.normalizeQuestionIndex(this.currentQuestionIndex);
+  
+    if (normalizedCurrent !== null) {
+      if (this.resolvedQuestionIndex !== normalizedCurrent) {
+        console.log(
+          `[SharedOption] 🔄 Index updated from input (current): ${this.resolvedQuestionIndex} -> ${normalizedCurrent}`
+        );
+      }
+      this.resolvedQuestionIndex = normalizedCurrent;
+      return normalizedCurrent;
+    }
+  
+    // 2. Legacy fallback: questionIndex
+    const normalizedLegacy = this.normalizeQuestionIndex(this.questionIndex);
+  
+    if (normalizedLegacy !== null) {
+      if (this.resolvedQuestionIndex !== normalizedLegacy) {
+        console.log(
+          `[SharedOption] 🔄 Index updated from input (legacy): ${this.resolvedQuestionIndex} -> ${normalizedLegacy}`
+        );
+      }
+      this.resolvedQuestionIndex = normalizedLegacy;
+      return normalizedLegacy;
+    }
+  
+    // 3. Ultimate fallback to quizService
+    const serviceIndex = this.normalizeQuestionIndex(
+      this.quizService?.getCurrentQuestionIndex?.()
+    );
+  
+    if (serviceIndex !== null) {
+      this.resolvedQuestionIndex = serviceIndex;
+      return serviceIndex;
+    }
+  
+    // 4. Final fallback
+    const fallback = this.normalizeQuestionIndex(
+      this.quizService?.currentQuestionIndex
+    );
+  
+    this.resolvedQuestionIndex = fallback ?? 0;
+    return this.resolvedQuestionIndex;
   }
 }
