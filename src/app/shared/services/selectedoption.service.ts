@@ -82,7 +82,6 @@ export class SelectedOptionService {
 
   // Adds an option to the selectedOptionsMap
   addOption(questionIndex: number, option: SelectedOption): void {
-    // Validate
     if (!option) {
       console.error('Option is undefined. Cannot add it to selectedOptionsMap.');
       return;
@@ -93,19 +92,25 @@ export class SelectedOptionService {
       return;
     }
   
-    // Get existing selected options for the question
+    // Get existing selections for this question
     const existing = this.selectedOptionsMap.get(questionIndex) ?? [];
   
-    // Canonicalize everything
+    // Canonicalize existing options
     const existingCanonical = this.canonicalizeSelectionsForQuestion(
       questionIndex,
       existing
     );
   
+    // Canonicalize the incoming option
     const newCanonical = this.canonicalizeOptionForQuestion(
       questionIndex,
-      option
+      { ...option, selected: true, highlight: true, showIcon: true }
     );
+  
+    if (newCanonical.optionId == null) {
+      console.error('[SOS] canonical option missing ID:', newCanonical);
+      return;
+    }
   
     // Avoid duplicates
     const alreadyExists = existingCanonical.some(
@@ -116,17 +121,16 @@ export class SelectedOptionService {
       existingCanonical.push(newCanonical);
     }
   
-    // IMPORTANT: commitSelections returns the FINAL array
+    // IMPORTANT: commit selections and store the result
     const committed = this.commitSelections(questionIndex, existingCanonical);
-  
-    // Even more important: STORE IT!
     this.selectedOptionsMap.set(questionIndex, committed);
   
-    // Emit updates
+    // Emit observable updates
+    this.selectedOption = committed;
     this.selectedOptionSubject.next(committed);
     this.isOptionSelectedSubject.next(committed.length > 0);
   
-    console.log('[SOS] addOption → stored selections:', {
+    console.log('[SOS] addOption → final stored selection:', {
       qIndex: questionIndex,
       stored: committed.map(o => o.optionId)
     });
