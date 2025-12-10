@@ -2868,9 +2868,9 @@ export class QuizQuestionComponent extends BaseQuestion
   }
 
   // Called when a user clicks an option row
-  public async handleOptionClickFromAnswer(event: OptionClickedPayload): Promise<void> {
+  public async onOptionClicked(event: OptionClickedPayload): Promise<void> {
     console.log(
-      '%c[QQC] >>> ENTERED handleOptionClickFromAnswer',
+      '%c[QQC] >>> ENTERED onOptionClicked()',
       'background: green; color: white; font-size: 18px; padding: 4px;',
       event
     );

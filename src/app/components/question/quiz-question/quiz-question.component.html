@@ -16,6 +16,6 @@
     [questionData]="questionToDisplay"
     [optionsToDisplay]="optionsToDisplay"
     [currentQuestionIndex]="currentQuestionIndex"
-    (optionClicked)="handleOptionClickFromAnswer($any($event))">
+    (optionClicked)="onOptionClicked($any($event))">
   </codelab-question-answer>
 }

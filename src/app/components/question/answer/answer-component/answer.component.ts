@@ -329,7 +329,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
   
       console.log('[AnswerComponent] (SINGLE) stored selectedOption:', enrichedOption);
     }
-  
+     
     // ─────────────────────────────
     // MULTIPLE-ANSWER
     // ─────────────────────────────
