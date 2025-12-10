@@ -293,20 +293,16 @@ export class TimerService implements OnDestroy {
   public async stopTimerIfApplicable(
     question: QuizQuestion,
     questionIndex: number,
-    selectedOptionsFromQQC: SelectedOption[] | null
+    selectedOptionsFromQQC: Array<SelectedOption | Option> | null
   ): Promise<void> {
     console.warn(
       "%c[TIMER] ENTERED stopTimerIfApplicable",
       "color: orange; font-weight: bold;",
       { questionIndex, selectedOptionsFromQQC }
     );
-  
     console.group(`[TimerService] stopTimerIfApplicable → Q${questionIndex + 1}`);
   
     try {
-      // ────────────────────────────────────────────
-      // Basic validation
-      // ────────────────────────────────────────────
       if (!question || !Array.isArray(question.options)) {
         console.warn('[TimerService] Invalid question/options.');
         console.groupEnd();
@@ -320,18 +316,12 @@ export class TimerService implements OnDestroy {
         return;
       }
   
-      // ────────────────────────────────────────────
-      // Determine correct answers
-      // ────────────────────────────────────────────
-      const correctOptions = question.options.filter(opt => !!opt.correct);
+      const correctOptions = question.options.filter(opt => opt.correct);
       const correctOptionIds = correctOptions.map(opt => String(opt.optionId));
       const isMultiple = correctOptionIds.length > 1;
   
-      // ────────────────────────────────────────────
-      // Selected answers (QQC is now the source of truth)
-      // ────────────────────────────────────────────
-      const selectedOptionsFinal = (selectedOptionsFromQQC ?? []).filter(o => o != null);
-      const selectedIds = selectedOptionsFinal.map(o => String(o.optionId));
+      const selectedOptionsFinal = selectedOptionsFromQQC ?? [];
+      const selectedIds = selectedOptionsFinal.map(o => String((o as any).optionId));
   
       console.log('[TimerService] correctOptionIds:', correctOptionIds);
       console.log('[TimerService] selectedIds:', selectedIds);
@@ -339,38 +329,23 @@ export class TimerService implements OnDestroy {
   
       let shouldStop = false;
   
-      // ────────────────────────────────────────────
-      // MULTIPLE-ANSWER: lenient → all correct included (extras allowed)
-      // ────────────────────────────────────────────
       if (isMultiple) {
         const allCorrectSelected =
           correctOptionIds.length > 0 &&
           correctOptionIds.every(id => selectedIds.includes(id));
   
-        console.log(
-          '[TimerService] allCorrectSelected (multi):',
-          allCorrectSelected
-        );
+        console.log('[TimerService] allCorrectSelected (multi):', allCorrectSelected);
         shouldStop = allCorrectSelected;
-      }
-  
-      // ────────────────────────────────────────────
-      // SINGLE-ANSWER: first selected must be correct
-      // ────────────────────────────────────────────
-      else {
-        const firstSelected = selectedOptionsFinal[0];
+      } else {
+        const firstSelected = selectedOptionsFinal[0] as any;
         const isCorrect =
           !!firstSelected &&
-          (firstSelected.correct === true ||
-            (firstSelected as any).correct === 'true');
+          (firstSelected.correct === true || firstSelected.correct === 'true');
   
         console.log('[TimerService] isCorrect (single):', isCorrect);
         shouldStop = isCorrect;
       }
   
-      // ────────────────────────────────────────────
-      // STOP TIMER IF CONDITIONS MET
-      // ────────────────────────────────────────────
       if (!shouldStop) {
         console.log('[TimerService] Conditions NOT met → timer continues.');
         console.groupEnd();
@@ -401,7 +376,7 @@ export class TimerService implements OnDestroy {
       console.error('[TimerService] Error in stopTimerIfApplicable:', err);
       console.groupEnd();
     }
-  }
+  }  
 
   // Sets a custom elapsed time
   /* setElapsed(time: number): void {
