@@ -397,10 +397,16 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
     // EMIT to QQC EXACTLY as your original version did
     // (Preserve your event signature 100%)
     // ───────────────────────────────────────────────
-    this.optionClicked.emit({
-      ...event,
-      option: enrichedOption // ensure enriched version goes upward
-    });
+    const cleanPayload: OptionClickedPayload = {
+      option: enrichedOption,       // MUST include questionIndex!!!
+      index: index,                 // MUST be the numeric option index
+      checked: !!enrichedOption.selected,
+      wasReselected: event?.wasReselected ?? false
+    };
+    
+    console.log('%c[AC] EMITTING CLEAN PAYLOAD →', 'color:lime;font-weight:bold;', cleanPayload);
+    
+    this.optionClicked.emit(cleanPayload);
   
     this.cdRef.detectChanges();
   }
