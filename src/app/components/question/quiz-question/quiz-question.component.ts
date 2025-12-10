@@ -2939,6 +2939,15 @@ export class QuizQuestionComponent extends BaseQuestion
       this.syncCanonicalOptionsIntoQuestion(q!, canonicalOpts);
   
       const allCorrect = this.computeCorrectness(q!, canonicalOpts, evtOpt, idx);
+      console.log(
+        '%c[QQC][CORRECTNESS] For Q' + (idx + 1),
+        'color:#ffcc00; font-weight:bold;',
+        {
+          correctOptions: canonicalOpts.filter(o => o.correct).map(o => o.optionId),
+          selectedOptions: canonicalOpts.filter(o => o.selected).map(o => o.optionId),
+          allCorrect
+        }
+      );
       this._lastAllCorrect = allCorrect;
   
       await this.maybeTriggerExplanation(q!, evtOpt, idx, allCorrect);
