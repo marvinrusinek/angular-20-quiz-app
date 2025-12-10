@@ -1373,6 +1373,18 @@ export class SharedOptionComponent implements
     this.emitExplanation(activeIndex);
   
     this.cdRef.detectChanges();
+
+    console.log(
+      '%c[SOC][POST-UPDATE] FINAL STATE for Q' + (this.getActiveQuestionIndex() ?? '?'),
+      'color:#00e5ff;font-weight:bold;',
+      {
+        optionBindings: this.optionBindings.map(b => ({
+          id: b.option.optionId,
+          selected: b.option.selected,
+          isSelected: b.isSelected
+        }))
+      }
+    );
   }
 
   private applyHighlighting(optionBinding: OptionBindings): void {
