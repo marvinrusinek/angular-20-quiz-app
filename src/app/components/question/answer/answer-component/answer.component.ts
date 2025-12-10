@@ -39,7 +39,6 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
   //quizQuestionComponent: QuizQuestionComponent | undefined;
   @Output() optionSelected = new EventEmitter<{option: SelectedOption, index: number, checked: boolean}>();
   @Output() override optionClicked = new EventEmitter<OptionClickedPayload>() as any;
-  @Input() questionIndex!: number;
   @Input() questionData!: QuizQuestion;
   @Input() isNavigatingBackwards: boolean = false;
   override quizQuestionComponentOnOptionClicked!: (option: SelectedOption, index: number) => void;
@@ -47,6 +46,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
   @Input() quizId!: string;
   @Input() override optionsToDisplay!: Option[];
   @Input() override optionBindings: OptionBindings[] = [];
+  private _questionIndex: number | null = null;
   private optionBindingsSource: Option[] = [];
   override showFeedbackForOption: { [optionId: number]: boolean } = {};
   override selectedOption: SelectedOption | null = null;
@@ -61,6 +61,17 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
   public quizQuestionComponentLoaded = new EventEmitter<void>();
 
   private destroy$ = new Subject<void>();
+
+  @Input()
+  set questionIndex(v: number | null) {
+    this._questionIndex = v;
+    console.log('%c[AC] questionIndex input = ' + v,
+      'background:#333;color:#0f0');
+  }
+
+  get questionIndex(): number | null {
+    return this._questionIndex;
+  }
 
   constructor(
     protected quizQuestionLoaderService: QuizQuestionLoaderService,
@@ -481,5 +492,15 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
     return;
     // If the base implementation does something essential, call:
     // return super.loadDynamicComponent(_question, _options, _questionIndex);
+  }
+
+  private getActiveQuestionIndex(): number {
+    if (typeof this._questionIndex === 'number') {
+      return this._questionIndex;
+    }
+    if (typeof this.currentQuestionIndex === 'number') {
+      return this.currentQuestionIndex;
+    }
+    return 0;
   }
 }
