@@ -1970,7 +1970,7 @@ export class SharedOptionComponent implements
       const payload: OptionClickedPayload = {
         option: clonedOption,   // never mutate on the way out
         index,                  // OPTION INDEX
-        checked                 // boolean flag
+        checked: clonedOption.selected === true
       };
 
       console.log(
