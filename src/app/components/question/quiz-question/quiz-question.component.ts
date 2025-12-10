@@ -3232,19 +3232,46 @@ export class QuizQuestionComponent extends BaseQuestion
     evtOpt: Option,
     idx: number
   ): boolean {
-    const getKey = (o: any) => this.selectionMessageService.stableKey(o as Option);
-
+  
+    const getKey = (o: any) =>
+      this.selectionMessageService.stableKey(o as Option);
+  
+    // All correct options
     const correctOpts = canonicalOpts.filter(o => !!o.correct);
-    const selOpts = Array.from(this.selectedOptionService.selectedOptionsMap?.get(idx) ?? []);
+  
+    // Get ALL selected options from SelectedOptionService
+    const selOptsRaw =
+      this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
+  
+    // Normalize / canonicalize
+    const selOpts = selOptsRaw.map(o =>
+      this.selectionMessageService.stableOption(o)
+    );
+  
     const selKeys = new Set(selOpts.map(o => getKey(o)));
-
-    const selectedCorrectCount = correctOpts.filter(o => selKeys.has(getKey(o))).length;
-
-    return q?.type === QuestionType.MultipleAnswer
-      ? correctOpts.length > 0 &&
-      selectedCorrectCount === correctOpts.length &&
-      selKeys.size === correctOpts.length
-      : !!evtOpt?.correct;
+  
+    const selectedCorrectCount = correctOpts.filter(o =>
+      selKeys.has(getKey(o))
+    ).length;
+  
+    // MULTIPLE-ANSWER correctness
+    if (q?.type === QuestionType.MultipleAnswer) {
+      console.log('[QQC][CORRECTNESS] multi-answer check:', {
+        correctCount: correctOpts.length,
+        selectedCorrectCount,
+        selectedTotal: selKeys.size,
+        selOpts
+      });
+  
+      return (
+        correctOpts.length > 0 &&
+        selectedCorrectCount === correctOpts.length &&
+        selKeys.size === correctOpts.length
+      );
+    }
+  
+    // SINGLE-ANSWER correctness
+    return !!evtOpt?.correct;
   }
 
   private async maybeTriggerExplanation(
