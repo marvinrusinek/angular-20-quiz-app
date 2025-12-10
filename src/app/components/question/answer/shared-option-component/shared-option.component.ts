@@ -2849,10 +2849,14 @@ export class SharedOptionComponent implements
 
   // Click wrapper that no-ops when disabled
   public onOptionClick(binding: OptionBindings, index: number, ev: MouseEvent): void {
-    console.log('%c[SOC] ENTERED onOptionClick', 'color:#ff0077;font-weight:bold;', {
-      index,
-      optionId: binding?.option?.optionId
-    });
+    console.log(
+      '%c[SOC] ENTERED onOptionClick',
+      'color:#ff0077;font-weight:bold;',
+      {
+        index,
+        optionId: binding?.option?.optionId
+      }
+    );
   
     if (this.isDisabled(binding, index)) {
       ev.stopImmediatePropagation();
@@ -2860,18 +2864,9 @@ export class SharedOptionComponent implements
       return;
     }
   
-    // Keep your existing logic that updates state / highlights / feedback
+    // Let the main handler do all the heavy lifting
     this.handleClick(binding, index);
-  
-    const payload: OptionClickedPayload = {
-      option: binding.option as SelectedOption,  // structurally compatible
-      index,
-      checked: true  // always true for emitted payloads
-    };
-  
-    console.log('%c[SOC] optionClicked EMITTED', 'color:#00e5ff;font-weight:bold;', payload);
-    // this.optionClicked.emit(payload);
-  }  
+  }
 
   // Use the same key shape everywhere (STRING so we don't lose non-numeric ids)
   // Stable per-row key: prefer numeric optionId; fallback to stableKey + index
