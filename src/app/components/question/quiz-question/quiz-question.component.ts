@@ -3254,46 +3254,43 @@ export class QuizQuestionComponent extends BaseQuestion
     idx: number
   ): boolean {
   
-    // Stable identity key generator
     const getKey = (o: any) =>
       this.selectionMessageService.stableKey(o as Option);
   
-    // All correct options for this question
+    // All correct options
     const correctOpts = canonicalOpts.filter(o => !!o.correct);
   
-    // Get ALL selected options from SelectedOptionService
-    const selOptsRaw =
-      this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
+    // Pull selected options from SOS
+    const selOpts = this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
   
-    // Normalize → return stable keys
-    const selKeys = new Set(
-      selOptsRaw.map(o => getKey(o))
-    );
+    // Convert to canonical comparable keys
+    const selKeys = new Set(selOpts.map(o => getKey(o)));
   
-    // Count how many correct options were selected
     const selectedCorrectCount = correctOpts.filter(o =>
       selKeys.has(getKey(o))
     ).length;
   
-    // MULTIPLE-ANSWER correctness
+    // MULTIPLE-ANSWER logic
     if (q?.type === QuestionType.MultipleAnswer) {
       console.log('[QQC][CORRECTNESS] multi-answer check:', {
         correctCount: correctOpts.length,
         selectedCorrectCount,
         selectedTotal: selKeys.size,
-        selectedKeys: Array.from(selKeys)
+        selOpts
       });
   
+      // EXACT match required 
       return (
         correctOpts.length > 0 &&
-        selectedCorrectCount === correctOpts.length &&  // all correct selected
-        selKeys.size === correctOpts.length            // no extra wrong ones
+        selectedCorrectCount === correctOpts.length &&
+        selKeys.size === correctOpts.length
       );
     }
   
-    // SINGLE-ANSWER correctness
+    // SINGLE-ANSWER logic  
     return !!evtOpt?.correct;
   }
+  
 
   private async maybeTriggerExplanation(
     q: QuizQuestion,
