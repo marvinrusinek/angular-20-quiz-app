@@ -2129,10 +2129,10 @@ export class QuizQuestionComponent extends BaseQuestion
 
       await (instance as any).initializeSharedOptionConfig(clonedOptions);
 
-      if (!Object.prototype.hasOwnProperty.call(instance, 'onOptionClicked')) {
+      /* if (!Object.prototype.hasOwnProperty.call(instance, 'onOptionClicked')) {
         (instance as any).onOptionClicked = this.onOptionClicked.bind(this);
         console.log('[🔁 Bound onOptionClicked to instance]');
-      }
+      } */
 
       const hasRenderableOptions = Array.isArray(instance.optionsToDisplay)
         && instance.optionsToDisplay.length > 0;

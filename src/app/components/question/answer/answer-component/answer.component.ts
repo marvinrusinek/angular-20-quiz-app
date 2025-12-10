@@ -37,7 +37,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
   @Output() componentLoaded = new EventEmitter<any>();
   // quizQuestionComponent?: InstanceType<ReturnType<typeof forwardRef>>;
   //quizQuestionComponent: QuizQuestionComponent | undefined;
-  @Output() optionSelected = new EventEmitter<{option: SelectedOption, index: number, checked: boolean}>();
+  @Output() optionSelected = new EventEmitter<{ option: SelectedOption, index: number, checked: boolean }>();
   @Output() override optionClicked = new EventEmitter<OptionClickedPayload>() as any;
   @Input() questionData!: QuizQuestion;
   @Input() isNavigatingBackwards: boolean = false;
@@ -98,12 +98,12 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
     }
 
     this.quizService.getCurrentQuestion(this.quizService.currentQuestionIndex)
-    .subscribe((currentQuestion: QuizQuestion | null) => {
-      if (!currentQuestion) return;
-      const isMultipleAnswer = 
-        this.quizQuestionManagerService.isMultipleAnswerQuestion(currentQuestion);
-      this.type = isMultipleAnswer ? 'multiple' : 'single';
-    });
+      .subscribe((currentQuestion: QuizQuestion | null) => {
+        if (!currentQuestion) return;
+        const isMultipleAnswer =
+          this.quizQuestionManagerService.isMultipleAnswerQuestion(currentQuestion);
+        this.type = isMultipleAnswer ? 'multiple' : 'single';
+      });
 
     // Displays the unique options to the UI
     this.quizQuestionLoaderService.optionsStream$
@@ -128,32 +128,32 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
     // await super.ngOnChanges?.(changes as any);
 
     let shouldMark = false;
-  
+
     if (changes['optionsToDisplay']) {
       const change = changes['optionsToDisplay'];
       const next = change.currentValue as Option[] | null | undefined;
       const refChanged = change.previousValue !== change.currentValue;
-  
+
       // If the reference didn't change, skip the work
       if (refChanged) {
         if (Array.isArray(next) && next.length) {
           console.log('[📥 AnswerComponent] optionsToDisplay changed:', change);
-    
+
           // Hand SharedOptionComponent its own fresh reference
           this.optionBindingsSource = next.map(o => ({ ...o }));
-    
+
           // Respond to updates
           this.optionBindings = this.rebuildOptionBindings(this.optionBindingsSource);
-    
+
           // Apply any additional incoming option updates
           this.applyIncomingOptions(next);
-    
+
           // Wake the OnPush CD cycle
           this.cdRef.markForCheck();
         } else {
           this.optionBindingsSource = [];
           this.optionBindings = [];
-          this.applyIncomingOptions?.([]); 
+          this.applyIncomingOptions?.([]);
         }
       } else {
         shouldMark = true;
@@ -169,8 +169,8 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
     // Wake the OnPush CD cycle once
     if (shouldMark) this.cdRef.markForCheck();
   }
-  
-  ngAfterViewInit(): void {  
+
+  ngAfterViewInit(): void {
     if (this.viewContainerRefs) {
       this.viewContainerRefs?.changes.subscribe((refs) => {
         console.log('viewContainerRefs changed:', refs.toArray());
@@ -179,7 +179,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
     } else {
       console.error('viewContainerRefs is undefined or not initialized.');
     }
-  
+
     this.cdRef.detectChanges();  // ensure change detection runs
   }
 
@@ -257,20 +257,20 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
 
     // Get the current question and determine the component to load
     this.quizService.getCurrentQuestion(this.quizService.currentQuestionIndex)
-    .subscribe((currentQuestion: QuizQuestion | null) => {
-      if (!currentQuestion) return;
-      const isMultipleAnswer = this.quizQuestionManagerService.isMultipleAnswerQuestion(currentQuestion);
-      console.log('Is Multiple Answer:', isMultipleAnswer);
+      .subscribe((currentQuestion: QuizQuestion | null) => {
+        if (!currentQuestion) return;
+        const isMultipleAnswer = this.quizQuestionManagerService.isMultipleAnswerQuestion(currentQuestion);
+        console.log('Is Multiple Answer:', isMultipleAnswer);
 
-      if (isMultipleAnswer) {
-        this.type = isMultipleAnswer ? 'multiple' : 'single';
-        this.hasComponentLoaded = true;  // prevent further attempts to load
-        this.quizQuestionComponentLoaded.emit();  // notify listeners that the component is loaded
-        this.cdRef.markForCheck();
-      } else {
-        console.error('Could not determine whether question is multiple answer.');
-      }
-    });
+        if (isMultipleAnswer) {
+          this.type = isMultipleAnswer ? 'multiple' : 'single';
+          this.hasComponentLoaded = true;  // prevent further attempts to load
+          this.quizQuestionComponentLoaded.emit();  // notify listeners that the component is loaded
+          this.cdRef.markForCheck();
+        } else {
+          console.error('Could not determine whether question is multiple answer.');
+        }
+      });
   }
 
   private async initializeAnswerConfig(): Promise<void> {
@@ -305,7 +305,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
       'background:#8b00ff;color:white;font-size:14px;',
       event
     );
-  
+
     // ───────────────────────────────────────────────
     // SAFETY: ensure event/option/index are valid
     // ───────────────────────────────────────────────
@@ -313,9 +313,9 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
       console.error('[AnswerComponent] INVALID event passed into onOptionClicked:', event);
       return;
     }
-  
+
     const { option, index, checked } = event;
-  
+
     // ───────────────────────────────────────────────
     // Build a proper SelectedOption w/ questionIndex
     // (Your original version did NOT add this, which
@@ -325,7 +325,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
       typeof this.currentQuestionIndex === 'number'
         ? this.currentQuestionIndex
         : 0;
-  
+
     const enrichedOption: SelectedOption = {
       ...option,
       questionIndex: activeQuestionIndex,
@@ -333,7 +333,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
       highlight: true,
       showIcon: true
     };
-  
+
     // ───────────────────────────────────────────────
     // MULTIPLE vs SINGLE answer selection handling
     // (Merged with your intent + minimal logic)
@@ -347,9 +347,9 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
       if (!Array.isArray(this.selectedOptions)) {
         this.selectedOptions = [];
       }
-  
+
       const exists = this.selectedOptions.findIndex(o => o.optionId === enrichedOption.optionId);
-  
+
       if (checked) {
         if (exists === -1) {
           this.selectedOptions.push(enrichedOption);
@@ -363,7 +363,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
         }
       }
     }
-  
+
     // ───────────────────────────────────────────────
     // QUIZ STATE FLAGS FOR NEXT BUTTON
     // (Preserve your original logic)
@@ -372,10 +372,10 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
       this.type === 'single'
         ? !!this.selectedOption
         : this.selectedOptions.length > 0;
-  
+
     this.quizStateService.setAnswerSelected(isOptionSelected);
     this.quizStateService.setAnswered(isOptionSelected);
-  
+
     // ───────────────────────────────────────────────
     // PUSH INTO SelectedOptionService
     // (Critical fix — required for stopping Q2 timer)
@@ -396,7 +396,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
         }))
       );
     }
-  
+
     // ───────────────────────────────────────────────
     // EMIT to QQC EXACTLY as your original version did
     // (Preserve your event signature 100%)
@@ -405,84 +405,84 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
       ...event,
       option: enrichedOption // ensure enriched version goes upward
     });
-  
+
     this.cdRef.detectChanges();
   }
 
   // Rebuild optionBindings from the latest optionsToDisplay.
   private rebuildOptionBindings(opt: Option[]): OptionBindings[] {
     console.time('[⏱️ Rebuild OptionBindings]');
-  
+
     if (!opt?.length) {
       this.optionBindings = [];
       return [];
     }
-  
+
     // Deep clone options to avoid mutation
     const cloned: Option[] =
       typeof structuredClone === 'function'
         ? structuredClone(opt)
         : JSON.parse(JSON.stringify(opt));
-  
+
     // Build fresh bindings
     const rebuilt = cloned.map((opt, idx) => this.buildFallbackBinding(opt, idx));
-  
+
     // Patch shared references
     rebuilt.forEach(b => {
-      b.allOptions       = cloned;
+      b.allOptions = cloned;
       b.optionsToDisplay = cloned;
     });
-  
+
     // Gate rendering
     this.renderReady = false;
     console.time('[🕐 renderReady false]');
     this.optionBindings = rebuilt;
-  
+
     Promise.resolve().then(() => {
       console.timeEnd('[🕐 renderReady false]');
       this.renderReady = true;
       this.cdRef.markForCheck();
     });
-  
+
     console.timeEnd('[⏱️ Rebuild OptionBindings]');
     return rebuilt;
   }
-  
+
   // Builds a minimal but type-complete binding when no helper exists
   private buildFallbackBinding(opt: Option, idx: number): OptionBindings {
     return {
       // core data
-      option      : opt,
-      index       : idx,
-      isSelected  : !!opt.selected,
-      isCorrect   : opt.correct ?? false,
+      option: opt,
+      index: idx,
+      isSelected: !!opt.selected,
+      isCorrect: opt.correct ?? false,
 
       // feedback always starts visible so every row shows text
       showFeedback: true,
-      feedback    : opt.feedback?.trim() ||
-                    (opt.correct
-                      ? 'Great job — that answer is correct.'
-                      : 'Not quite — see the explanation above.'),
-      highlight   : !!opt.highlight,
+      feedback: opt.feedback?.trim() ||
+        (opt.correct
+          ? 'Great job — that answer is correct.'
+          : 'Not quite — see the explanation above.'),
+      highlight: !!opt.highlight,
 
       // required interface props
-      showFeedbackForOption         : {},
-      appHighlightOption            : false,
+      showFeedbackForOption: {},
+      appHighlightOption: false,
       highlightCorrectAfterIncorrect: false,
-      highlightIncorrect            : false,
-      highlightCorrect              : false,
-      styleClass                    : '',
-      disabled                      : false,
-      type                          : 'single',
-      appHighlightInputType         : 'radio',   // satisfies the union type
-      allOptions                    : [],        // will be replaced below
-      appHighlightReset             : false,
-      ariaLabel                     : `Option ${idx + 1}`,
-      appResetBackground            : false,
-      optionsToDisplay              : [],        // will be replaced below
-      checked                       : !!opt.selected,
-      change                        : () => {},
-      active                        : true
+      highlightIncorrect: false,
+      highlightCorrect: false,
+      styleClass: '',
+      disabled: false,
+      type: 'single',
+      appHighlightInputType: 'radio',   // satisfies the union type
+      allOptions: [],        // will be replaced below
+      appHighlightReset: false,
+      ariaLabel: `Option ${idx + 1}`,
+      appResetBackground: false,
+      optionsToDisplay: [],        // will be replaced below
+      checked: !!opt.selected,
+      change: () => { },
+      active: true
     } as OptionBindings;
   }
 
