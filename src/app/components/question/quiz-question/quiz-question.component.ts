@@ -2027,6 +2027,13 @@ export class QuizQuestionComponent extends BaseQuestion
         return;
       }
 
+      instance.questionIndex = this.currentQuestionIndex;
+      instance.currentQuestionIndex = this.currentQuestionIndex;
+
+      if ((instance as any)?.hasOwnProperty('isNavigatingBackwards')) {
+        (instance as any).isNavigatingBackwards = this.navigatingBackwards ?? false;
+      }
+
       // WIRE: AnswerComponent → QQC
       instance.optionClicked.subscribe((ev: OptionClickedPayload) => {
         console.log(
