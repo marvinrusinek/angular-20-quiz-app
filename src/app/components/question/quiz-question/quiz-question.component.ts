@@ -2157,22 +2157,29 @@ export class QuizQuestionComponent extends BaseQuestion
     }
   }
 
-  public async forwardClickFromAnswer(event: OptionClickedPayload): Promise<void> {
-    const currentQuestion = this.currentQuestion; // must exist
-    const optionIndex = event.index;             // correct index
+  public async forwardClickFromAnswer(ev: OptionClickedPayload): Promise<void> {
+
+    console.log('%c[QQC] forwardClickFromAnswer RECEIVED', 'color:cyan;font-weight:bold;', ev);
   
-    if (!currentQuestion) {
-      console.error('[QQC] forwardClickFromAnswer: No currentQuestion available');
+    const q = this.currentQuestion;   // QQC always sets this before dynamic load
+    const idx = ev.index;
+  
+    if (!q) {
+      console.error('[QQC] forwardClickFromAnswer → currentQuestion is MISSING');
       return;
     }
   
-    console.log(
-      '%c[QQC] ADAPTER → calling handleOptionClicked(currentQuestion, index)',
-      'background:#003cff;color:white;',
-      { optionIndex, optionId: event.option.optionId }
-    );
+    if (idx === undefined || idx === null) {
+      console.error('[QQC] forwardClickFromAnswer → missing option index in payload', ev);
+      return;
+    }
   
-    return this.handleOptionClicked(currentQuestion, optionIndex);
+    console.log('%c[QQC] FORWARDING to handleOptionClicked(q, idx)', 'color:orange;font-weight:bold;', {
+      questionText: q.questionText,
+      idx
+    });
+  
+    return this.handleOptionClicked(q, idx);
   }
 
   // rename
