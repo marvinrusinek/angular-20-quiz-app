@@ -2034,7 +2034,7 @@ export class QuizQuestionComponent extends BaseQuestion
           'color:lime;font-weight:bold;',
           ev
         );
-        this.handleOptionClickFromAnswer(ev);
+        //this.handleOptionClickFromAnswer(ev);
       });
 
       console.log(
@@ -2144,7 +2144,21 @@ export class QuizQuestionComponent extends BaseQuestion
   }
 
   public async forwardClickFromAnswer(event: OptionClickedPayload): Promise<void> {
-    return this.handleOptionClicked(event);
+    const currentQuestion = this.currentQuestion; // must exist
+    const optionIndex = event.index;             // correct index
+  
+    if (!currentQuestion) {
+      console.error('[QQC] forwardClickFromAnswer: No currentQuestion available');
+      return;
+    }
+  
+    console.log(
+      '%c[QQC] ADAPTER → calling handleOptionClicked(currentQuestion, index)',
+      'background:#003cff;color:white;',
+      { optionIndex, optionId: event.option.optionId }
+    );
+  
+    return this.handleOptionClicked(currentQuestion, optionIndex);
   }
 
   // rename
