@@ -306,18 +306,6 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
       'background:#8b00ff;color:white;font-size:14px;',
       event
     );
-
-    // Forward to parent (QQC)
-    if (this.onOptionClickedExternal) {
-      this.onOptionClickedExternal(event);
-    }
-
-    // internal click logic
-    const idx = this.getActiveQuestionIndex();
-    console.log('[AC] ACTIVE INDEX = ', idx);
-
-    this.quizStateService.setAnswerSelected(true);
-    this.quizStateService.setAnswered(true);
   
     // ───────────────────────────────────────────────
     // SAFETY: ensure event/option/index are valid
@@ -329,16 +317,15 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
   
     const { option, index, checked } = event;
   
-    // ───────────────────────────────────────────────
-    // Build a proper SelectedOption w/ questionIndex
-    // (Your original version did NOT add this, which
-    //  is why Q2 never stops the timer.)
-    // ───────────────────────────────────────────────
+    // Get the active question index
     const activeQuestionIndex =
       typeof this.currentQuestionIndex === 'number'
         ? this.currentQuestionIndex
         : 0;
   
+    // ───────────────────────────────────────────────
+    // Build enriched option (CRITICAL FIX)
+    // ───────────────────────────────────────────────
     const enrichedOption: SelectedOption = {
       ...option,
       questionIndex: activeQuestionIndex,
@@ -348,15 +335,12 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
     };
   
     // ───────────────────────────────────────────────
-    // MULTIPLE vs SINGLE answer selection handling
-    // (Merged with your intent + minimal logic)
+    // MULTIPLE vs SINGLE answer handling
     // ───────────────────────────────────────────────
     if (this.type === 'single') {
-      // Replace previous selection
       this.selectedOption = enrichedOption;
       this.selectedOptions = [enrichedOption];
     } else {
-      // Multiple-answer
       if (!Array.isArray(this.selectedOptions)) {
         this.selectedOptions = [];
       }
@@ -370,7 +354,6 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
           this.selectedOptions[exists] = enrichedOption;
         }
       } else {
-        // remove option
         if (exists !== -1) {
           this.selectedOptions.splice(exists, 1);
         }
@@ -379,7 +362,6 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
   
     // ───────────────────────────────────────────────
     // QUIZ STATE FLAGS FOR NEXT BUTTON
-    // (Preserve your original logic)
     // ───────────────────────────────────────────────
     const isOptionSelected =
       this.type === 'single'
@@ -390,8 +372,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
     this.quizStateService.setAnswered(isOptionSelected);
   
     // ───────────────────────────────────────────────
-    // PUSH INTO SelectedOptionService
-    // (Critical fix — required for stopping Q2 timer)
+    // Update SelectedOptionService (CRITICAL FOR Q2)
     // ───────────────────────────────────────────────
     if (this.type === 'single') {
       if (this.selectedOption) {
@@ -411,13 +392,21 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
     }
   
     // ───────────────────────────────────────────────
-    // EMIT to QQC EXACTLY as your original version did
-    // (Preserve your event signature 100%)
+    // FORWARDING LOGIC (ONLY ONE FORWARD)
+    // MUST forward enriched event BEFORE emitting optionClicked
     // ───────────────────────────────────────────────
-    this.optionClicked.emit({
+  
+    const enrichedEvent: OptionClickedPayload = {
       ...event,
-      option: enrichedOption // ensure enriched version goes upward
-    });
+      option: enrichedOption
+    };
+  
+    if (this.onOptionClickedExternal) {
+      this.onOptionClickedExternal(enrichedEvent);
+    }
+  
+    // Emit enriched event to parent (QQC)
+    this.optionClicked.emit(enrichedEvent);
   
     this.cdRef.detectChanges();
   }
