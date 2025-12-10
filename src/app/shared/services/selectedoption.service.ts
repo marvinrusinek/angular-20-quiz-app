@@ -272,10 +272,18 @@ export class SelectedOptionService {
     const combinedSelections: SelectedOption[] = [];
 
     groupedSelections.forEach((selections, questionIndex) => {
+      // Commit selections for this question
       const committed = this.commitSelections(questionIndex, selections);
+
+      // Always overwrite the map entry with ALL committed selections
+      this.selectedOptionsMap.set(questionIndex, committed);
+
+      // Aggregate globally
       if (committed.length > 0) {
         combinedSelections.push(...committed);
       }
+
+      // Update answered state
       this.updateAnsweredState(committed, questionIndex);
     });
 
