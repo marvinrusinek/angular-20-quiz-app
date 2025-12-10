@@ -1962,6 +1962,24 @@ export class SharedOptionComponent implements
       // Ensure feedbackConfigs exists and assign the new config
       this.feedbackConfigs = this.feedbackConfigs ?? [];
       this.feedbackConfigs[index] = this.generateFeedbackConfig(selectedHydratedOption, index);
+
+      // Compute final "checked" correctly
+      const checked = clonedOption.selected === true;
+
+      // Build final payload
+      const payload: OptionClickedPayload = {
+        option: clonedOption,   // never mutate on the way out
+        index,                  // OPTION INDEX
+        checked                 // boolean flag
+      };
+
+      console.log(
+        '%c[SOC] EMITTING optionClicked payload',
+        'color:#00e5ff;font-weight:bold;',
+        payload
+      );
+      
+      this.optionClicked.emit(payload);
     }
   }
 
@@ -2852,7 +2870,7 @@ export class SharedOptionComponent implements
     };
   
     console.log('%c[SOC] optionClicked EMITTED', 'color:#00e5ff;font-weight:bold;', payload);
-    this.optionClicked.emit(payload);
+    // this.optionClicked.emit(payload);
   }  
 
   // Use the same key shape everywhere (STRING so we don't lose non-numeric ids)
