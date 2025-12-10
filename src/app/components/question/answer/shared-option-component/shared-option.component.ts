@@ -2760,6 +2760,10 @@ export class SharedOptionComponent implements
   // Click wrapper that no-ops when disabled
   public onOptionClick(binding: OptionBindings, index: number, ev: MouseEvent): void {
     console.log(
+      `%c[SOC] >>> ACTIVE INDEX (during click) = ${this.getActiveQuestionIndex()}`,
+      'background:black;color:#0ff;font-size:14px;'
+    );
+    console.log(
       '%c[SOC] ENTERED onOptionClick',
       'color:#ff0077;font-weight:bold;',
       {
