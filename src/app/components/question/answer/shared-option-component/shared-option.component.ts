@@ -176,39 +176,50 @@ export class SharedOptionComponent implements
     if (normalized !== null) this.resolvedQuestionIndex = normalized;
   }
 
-  private getActiveQuestionIndex(): number | null {
-    // 1. Always prefer explicit inputs (most reliable source of truth)
-    const inputIndex =
-      this.normalizeQuestionIndex(this.questionIndex) ??
-      this.normalizeQuestionIndex(this.currentQuestionIndex);
-
-    if (inputIndex !== null && inputIndex !== undefined) {
-      // Keep cache in sync, but return input directly
-      if (this.resolvedQuestionIndex !== inputIndex) {
-        console.log(`[SharedOption] 🔄 Index updated from input: ${this.resolvedQuestionIndex} -> ${inputIndex}`);
-        this.resolvedQuestionIndex = inputIndex;
+  private getActiveQuestionIndex(): number {
+    // 1. Prefer currentQuestionIndex
+    const normalizedCurrent = this.normalizeQuestionIndex(this.currentQuestionIndex);
+  
+    if (normalizedCurrent !== null) {
+      if (this.resolvedQuestionIndex !== normalizedCurrent) {
+        console.log(
+          `[SharedOption] 🔄 Index updated from input (current): ${this.resolvedQuestionIndex} -> ${normalizedCurrent}`
+        );
       }
-      return inputIndex;
+      this.resolvedQuestionIndex = normalizedCurrent;
+      return normalizedCurrent;
     }
-
-    if (typeof this.quizService?.getCurrentQuestionIndex === 'function') {
-      const resolved = this.normalizeQuestionIndex(
-        this.quizService.getCurrentQuestionIndex()
-      );
-
-      if (resolved !== null) {
-        this.resolvedQuestionIndex = resolved;
-        return resolved;
+  
+    // 2. Legacy fallback: questionIndex
+    const normalizedLegacy = this.normalizeQuestionIndex(this.questionIndex);
+  
+    if (normalizedLegacy !== null) {
+      if (this.resolvedQuestionIndex !== normalizedLegacy) {
+        console.log(
+          `[SharedOption] 🔄 Index updated from input (legacy): ${this.resolvedQuestionIndex} -> ${normalizedLegacy}`
+        );
       }
+      this.resolvedQuestionIndex = normalizedLegacy;
+      return normalizedLegacy;
     }
-
-    const fallback = this.normalizeQuestionIndex(this.quizService?.currentQuestionIndex);
-
-    if (fallback !== null) {
-      this.resolvedQuestionIndex = fallback;
+  
+    // 3. Ultimate fallback to quizService
+    const serviceIndex = this.normalizeQuestionIndex(
+      this.quizService?.getCurrentQuestionIndex?.()
+    );
+  
+    if (serviceIndex !== null) {
+      this.resolvedQuestionIndex = serviceIndex;
+      return serviceIndex;
     }
-
-    return fallback;
+  
+    // 4. Final fallback
+    const fallback = this.normalizeQuestionIndex(
+      this.quizService?.currentQuestionIndex
+    );
+  
+    this.resolvedQuestionIndex = fallback ?? 0;
+    return this.resolvedQuestionIndex;
   }
 
   ngOnInit(): void {
@@ -752,32 +763,32 @@ export class SharedOptionComponent implements
   private handleClick(binding: OptionBindings, index: number): void {
     // 🔹 your existing handleClick body stays as-is, up to the end
     // (selection maps, sound, history, etc.)
-  
+
     // ... your existing code ...
-  
+
     // 🔽 ADD THIS AT THE VERY END 🔽
     const activeQuestionIndex = this.getActiveQuestionIndex() ?? 0;
-  
+
     const enrichedOption: SelectedOption = {
       ...binding.option,
       selected: binding.option.selected === true,
       questionIndex: activeQuestionIndex
     };
-  
+
     const payload: OptionClickedPayload = {
       option: enrichedOption,
       index,
       checked: enrichedOption.selected === true
     };
-  
+
     console.log(
       '%c[SOC] EMITTING optionClicked →',
       'color:#00e5ff;font-weight:bold;',
       payload
     );
-  
+
     this.optionClicked.emit(payload);
-  }  
+  }
 
   preserveOptionHighlighting(): void {
     for (const option of this.optionsToDisplay) {
@@ -1189,24 +1200,24 @@ export class SharedOptionComponent implements
     event: MatCheckboxChange | MatRadioChange
   ): void {
     const currentIndex = this.getActiveQuestionIndex() ?? 0;
-  
+
     if (this.lastFeedbackQuestionIndex !== currentIndex) {
       this.feedbackConfigs = {};
       this.showFeedbackForOption = {};
       this.lastFeedbackOptionId = -1;
       this.lastFeedbackQuestionIndex = currentIndex;
     }
-  
+
     const optionId = optionBinding.option.optionId;
     const now = Date.now();
     const checked = 'checked' in event ? (event as MatCheckboxChange).checked : true;
-  
+
     const alreadySelected = optionBinding.option.selected && checked;
-  
+
     // Always set the selection state first
     optionBinding.option.selected = checked;
     console.log('[🧪 updateOptionAndUI] option.selected:', optionBinding.option.selected);
-  
+
     // ───────────────────────────────────────────────
     // ✅ INSERTED FIX — KEEP CANONICAL SELECTED FLAGS IN SYNC
     // This ensures multiple-answer selection sets are correct for QQC/timer.
@@ -1215,28 +1226,28 @@ export class SharedOptionComponent implements
       b.isSelected = b.option.selected ?? false;
     });
     // ───────────────────────────────────────────────
-  
+
     if (alreadySelected) {
       console.warn('[🔒 Already selected – short-circuit]', optionId);
-  
+
       if (this.lastFeedbackOptionId !== -1 &&
-          this.lastFeedbackOptionId !== optionId) {
-  
+        this.lastFeedbackOptionId !== optionId) {
+
         Object.keys(this.showFeedbackForOption).forEach(k => {
           this.showFeedbackForOption[+k] = false;
         });
-  
+
         this.showFeedbackForOption[this.lastFeedbackOptionId] = true;
-  
+
         const cfg = this.feedbackConfigs[this.lastFeedbackOptionId];
         if (cfg) cfg.showFeedback = true;
-  
+
         this.cdRef.detectChanges();
       }
-  
+
       return;
     }
-  
+
     // Block rapid duplicate unselect toggle
     if (
       this.lastClickedOptionId === optionId &&
@@ -1247,95 +1258,95 @@ export class SharedOptionComponent implements
       console.warn('[⛔ Duplicate false event]', optionId);
       return;
     }
-  
+
     this.lastClickedOptionId = optionId ?? null;
     this.lastClickTimestamp = now;
     this.freezeOptionBindings ??= true;
     this.hasUserClicked = true;
-  
+
     // Apply selection state
     optionBinding.option.selected = checked;
     this.perQuestionHistory.add(optionId ?? -1);
-  
+
     if (this.type === 'single') {
       this.selectedOptionMap.clear();
       this.optionBindings.forEach(b => {
         const id = b.option.optionId;
         if (id === undefined) return;
-  
+
         const shouldPaint = this.perQuestionHistory.has(id);
-  
+
         b.isSelected = shouldPaint;
         b.option.selected = shouldPaint;
         b.option.highlight = shouldPaint;
         b.option.showIcon = shouldPaint;
-  
+
         if (b.showFeedbackForOption && b.option.optionId !== undefined) {
           b.showFeedbackForOption[b.option.optionId] = false;
         }
-  
+
         this.showFeedbackForOption[id] = id === optionId;
-  
+
         b.directiveInstance?.updateHighlight();
       });
     }
-  
+
     optionBinding.isSelected = true;
     optionBinding.option.highlight = true;
     optionBinding.option.showIcon = true;
-  
+
     if (optionId !== undefined) {
       this.selectedOptionMap.set(optionId, true);
     }
-  
+
     this.showFeedback = true;
-  
+
     // Track selection history
     let isAlreadyVisited = false;
     if (optionId !== undefined) {
       const isAlreadyVisited = this.selectedOptionHistory.includes(optionId);
-  
+
       if (!isAlreadyVisited) {
         this.selectedOptionHistory.push(optionId);
       }
     }
-  
+
     if (alreadySelected || isAlreadyVisited) {
       console.log('[↩️ Reselected existing option — preserving feedback anchor on previous option]');
-  
+
       Object.keys(this.showFeedbackForOption).forEach(key => {
         this.showFeedbackForOption[+key] = false;
       });
-  
+
       if (this.lastFeedbackOptionId !== -1) {
         this.showFeedbackForOption[this.lastFeedbackOptionId] = true;
-  
+
         const cfg = this.feedbackConfigs[this.lastFeedbackOptionId];
         if (cfg) cfg.showFeedback = true;
       }
-  
+
       this.cdRef.detectChanges();
       return;
     }
-  
+
     this.showFeedbackForOption = { [optionId ?? -1]: true };
     this.lastFeedbackOptionId = optionId ?? -1;
-  
+
     this.toggleSelectedOption(optionBinding.option);
     this.forceHighlightRefresh(optionId ?? -1);
-  
+
     this.optionBindings.forEach((binding) => {
       const id = binding.option.optionId ?? -1;
       const isSelected = this.selectedOptionMap.get(id) === true;
-  
+
       binding.isSelected = isSelected;
       binding.option.selected = isSelected;
-  
+
       if (id !== optionId) return;
-  
+
       const correctOptions = this.optionsToDisplay.filter(opt => opt.correct);
       const dynamicFeedback = this.feedbackService.generateFeedbackForOptions(correctOptions, this.optionsToDisplay);
-  
+
       if (!this.feedbackConfigs[optionId]) {
         this.feedbackConfigs[optionId] = {
           feedback: dynamicFeedback,
@@ -1347,31 +1358,31 @@ export class SharedOptionComponent implements
           idx: index
         };
       }
-  
+
       this.showFeedbackForOption[optionId] = true;
       this.lastFeedbackOptionId = optionId;
     });
-  
+
     this.applyHighlighting(optionBinding);
     this.applyFeedback(optionBinding);
-  
+
     this.updateLockedIncorrectOptions();
-  
+
     if (this.type === 'single') {
       this.enforceSingleSelection(optionBinding);
     }
-  
+
     this.selectedOptionHistory.forEach(id => {
       const b = this.optionBindings.find(x => x.option.optionId === id);
       b?.option && (b.option.selected = true);
     });
     this.syncSelectedFlags();
     this.highlightDirectives?.forEach(d => d.updateHighlight());
-  
+
     const activeIndex = this.getActiveQuestionIndex() ?? 0;
     console.log(`[🔧 FIX] Using activeIndex: ${activeIndex} instead of quizService.currentQuestionIndex: ${this.quizService.currentQuestionIndex}`);
     this.emitExplanation(activeIndex);
-  
+
     this.cdRef.detectChanges();
 
     console.log(
@@ -1943,7 +1954,7 @@ export class SharedOptionComponent implements
         'color:#00e5ff;font-weight:bold;',
         payload
       );
-      
+
       this.optionClicked.emit(payload);
     }
   }
@@ -2822,13 +2833,13 @@ export class SharedOptionComponent implements
         optionId: binding?.option?.optionId
       }
     );
-  
+
     if (this.isDisabled(binding, index)) {
       ev.stopImmediatePropagation();
       ev.preventDefault();
       return;
     }
-  
+
     // Let the main handler do all the heavy lifting
     this.handleClick(binding, index);
   }
@@ -2852,7 +2863,7 @@ export class SharedOptionComponent implements
   canShowOptions(): boolean {
     const len = this.optionsToDisplay?.length ?? 0;
     const hasOptions = len > 0;
-  
+
     console.log('%c[SOC] canShowOptions() CHECK',
       'color:#ff00ff; font-weight:bold;',
       {
@@ -2863,7 +2874,7 @@ export class SharedOptionComponent implements
         final: this.canDisplayOptions && this.renderReady && hasOptions
       }
     );
-  
+
     return this.canDisplayOptions && this.renderReady && hasOptions;
   }
 }
