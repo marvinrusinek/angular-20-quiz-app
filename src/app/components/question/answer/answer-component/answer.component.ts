@@ -306,18 +306,6 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
       'background:#8b00ff;color:white;font-size:14px;',
       event
     );
-
-    // Forward to parent (QQC)
-    if (this.onOptionClickedExternal) {
-      this.onOptionClickedExternal(event);
-    }
-
-    // internal click logic
-    const idx = this.getActiveQuestionIndex();
-    console.log('[AC] ACTIVE INDEX = ', idx);
-
-    this.quizStateService.setAnswerSelected(true);
-    this.quizStateService.setAnswered(true);
   
     // ───────────────────────────────────────────────
     // SAFETY: ensure event/option/index are valid
