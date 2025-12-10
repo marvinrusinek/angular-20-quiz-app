@@ -2048,7 +2048,7 @@ export class QuizQuestionComponent extends BaseQuestion
           'color:lime;font-weight:bold;',
           ev
         );
-        //this.handleOptionClickFromAnswer(ev);
+        this.onOptionClicked(ev);
       });
 
       console.log(
