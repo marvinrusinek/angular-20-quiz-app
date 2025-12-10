@@ -2010,8 +2010,7 @@ export class QuizQuestionComponent extends BaseQuestion
       const componentRef: ComponentRef<AnswerComponent> =
         await this.dynamicComponentService.loadComponent(
           this.dynamicAnswerContainer,
-          isMultipleAnswer,
-          this.onOptionClicked.bind(this)   // <- now exists again
+          isMultipleAnswer
         );
 
       if (!componentRef || !componentRef.instance) {
@@ -2026,6 +2025,21 @@ export class QuizQuestionComponent extends BaseQuestion
         console.warn('[⚠️ Early return F] ComponentRef has no instance');
         return;
       }
+
+      // WIRE: AnswerComponent → QQC
+      instance.optionClicked.subscribe((ev: OptionClickedPayload) => {
+        console.log(
+          '%c[QQC] ✔ Received optionClicked from AnswerComponent',
+          'color:lime;font-weight:bold;',
+          ev
+        );
+        this.handleOptionClickFromAnswer(ev);
+      });
+
+      console.log(
+        '%c[QQC] ✔ Subscribed to optionClicked from AnswerComponent',
+        'color:lime;font-weight:bold;'
+      );
 
       // Set backward nav flag if supported
       if ((instance as any)?.hasOwnProperty('isNavigatingBackwards')) {
