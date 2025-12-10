@@ -1259,7 +1259,7 @@ export class SharedOptionComponent implements
     // This ensures multiple-answer selection sets are correct for QQC/timer.
     // ───────────────────────────────────────────────
     this.optionBindings.forEach(b => {
-      b.isSelected = b.option.selected;
+      b.isSelected = b.option.selected ?? false;
     });
     // ───────────────────────────────────────────────
   
