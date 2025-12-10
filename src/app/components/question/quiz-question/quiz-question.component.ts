@@ -2940,14 +2940,40 @@ export class QuizQuestionComponent extends BaseQuestion
   
       const allCorrect = this.computeCorrectness(q!, canonicalOpts, evtOpt, idx);
       console.log(
-        '%c[QQC][CORRECTNESS] For Q' + (idx + 1),
-        'color:#ffcc00; font-weight:bold;',
-        {
-          correctOptions: canonicalOpts.filter(o => o.correct).map(o => o.optionId),
-          selectedOptions: canonicalOpts.filter(o => o.selected).map(o => o.optionId),
-          allCorrect
-        }
+        `%c[QQC][CORRECTNESS] For Q${idx + 1}`,
+        'color:#ffcc00; font-weight:bold;'
       );
+      
+      console.log(
+        '%c   correctOptions:',
+        'color:#ffcc00;',
+        canonicalOpts
+          .filter(o => o.correct)
+          .map(o => ({
+            id: o.optionId,
+            txt: o.text,
+            correct: o.correct
+          }))
+      );
+      
+      console.log(
+        '%c   selectedOptions:',
+        'color: #ffcc00;',
+        canonicalOpts
+          .filter(o => o.selected)
+          .map(o => ({
+            id: o.optionId,
+            txt: o.text,
+            selected: o.selected
+          }))
+      );
+      
+      console.log(
+        '%c   allCorrect:',
+        'color:#ffcc00;font-weight:bold;',
+        allCorrect
+      );
+      
       this._lastAllCorrect = allCorrect;
   
       await this.maybeTriggerExplanation(q!, evtOpt, idx, allCorrect);
