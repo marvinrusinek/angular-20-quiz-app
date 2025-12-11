@@ -2292,52 +2292,42 @@ export class SelectedOptionService {
    *  - no selections,
    *  - single-answer questions with incorrect option.
    */
-  public areAllCorrectAnswersSelectedActiveQuestion(): boolean {
-    try {
-      const qIndex = this.quizService.currentQuestionIndexSource.getValue();
+    public areAllCorrectAnswersSelectedActiveQuestion(): boolean {
+      try {
+        const qIndex = this.quizService.currentQuestionIndexSource.getValue();
     
-      // ----- 1. Fetch the question synchronously -----
-      const question = this.quizService.questionsArray?.[qIndex];
-    
-      if (!question || !Array.isArray(question.options)) {
-        console.warn('[SOS] Invalid question/options for index:', qIndex);
-        return false;
-      }
-    
-      // ----- 2. Read selected options for this question -----
-      const selected = this.getSelectedOptionsForQuestion(qIndex) ?? [];
-      if (selected.length === 0) return false;
-    
-      // ----- 3. Determine correct option IDs -----
-      const correctOptions = question.options.filter(o => o.correct === true);
-      const correctIds = new Set(correctOptions.map(o => String(o.optionId)));
-    
-      // ----- 4. Map selected IDs -----
-      const selectedIds = new Set(
-        selected.map(o => String((o as any).optionId ?? ''))
-      );
-    
-      // ----- 5. Reject immediately if any incorrect option was selected -----
-      for (const id of selectedIds) {
-        if (!correctIds.has(id)) {
+        const question = this._questionCache.get(qIndex);
+        if (!question || !Array.isArray(question.options)) {
+          console.warn('[SOS] No cached question for index:', qIndex);
           return false;
         }
-      }
     
-      // ----- 6. Exact match check -----
-      return (
-        correctIds.size > 0 &&
-        selectedIds.size === correctIds.size &&
-        [...selectedIds].every(id => correctIds.has(id))
-      );
-    } catch (err) {
-      console.error(
-        '[SOS] ERROR in areAllCorrectAnswersSelectedActiveQuestion:',
-        err
-      );
-      return false;
+        const selected = this.getSelectedOptionsForQuestion(qIndex) ?? [];
+        if (selected.length === 0) return false;
+    
+        const correctOptions = question.options.filter(o => o.correct === true);
+        const correctIds = new Set(correctOptions.map(o => String(o.optionId)));
+    
+        const selectedIds = new Set(
+          selected.map(o => String((o as any).optionId ?? ''))
+        );
+    
+        // reject immediately if selected any incorrect option
+        for (const id of selectedIds) {
+          if (!correctIds.has(id)) return false;
+        }
+    
+        // exact match only
+        return (
+          correctIds.size > 0 &&
+          selectedIds.size === correctIds.size &&
+          [...selectedIds].every(id => correctIds.has(id))
+        );
+      } catch (err) {
+        console.error('[SOS] Error evaluating correctness:', err);
+        return false;
+      }
     }
-  }
 
   public storeQuestion(index: number, question: QuizQuestion): void {
     if (question) {
