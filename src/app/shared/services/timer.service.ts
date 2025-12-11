@@ -303,6 +303,9 @@ export class TimerService implements OnDestroy {
     console.group(`[TimerService] stopTimerIfApplicable → Q${questionIndex + 1}`);
   
     try {
+      // ────────────────────────────────────────────
+      // Basic validation
+      // ────────────────────────────────────────────
       if (!question || !Array.isArray(question.options)) {
         console.warn('[TimerService] Invalid question/options.');
         console.groupEnd();
@@ -316,27 +319,90 @@ export class TimerService implements OnDestroy {
         return;
       }
   
+      // ────────────────────────────────────────────
+      // Determine correct answers
+      // ────────────────────────────────────────────
       const correctOptions = question.options.filter(opt => opt.correct);
       const correctOptionIds = correctOptions.map(opt => String(opt.optionId));
       const isMultiple = correctOptionIds.length > 1;
   
-      const selectedOptionsFinal = selectedOptionsFromQQC ?? [];
-      const selectedIds = selectedOptionsFinal.map(o => String((o as any).optionId));
+      // ────────────────────────────────────────────
+      // Build SELECTED set
+      //  - For MULTIPLE: prefer SelectedOptionService
+      //  - For SINGLE: use QQC payload
+      // ────────────────────────────────────────────
+      let selectedOptionsFinal: Array<SelectedOption | Option> = [];
+  
+      if (isMultiple) {
+        // pull from SelectedOptionService for this question
+        const fromStore =
+          this.selectedOptionService?.getSelectedOptionsForQuestion(normalizedIndex) ?? [];
+  
+        if (fromStore.length > 0) {
+          selectedOptionsFinal = fromStore;
+          console.log(
+            '[TimerService] Using SelectedOptionService selections (multi):',
+            fromStore
+          );
+        } else {
+          selectedOptionsFinal = selectedOptionsFromQQC ?? [];
+          console.log(
+            '[TimerService] Fallback to QQC payload selections (multi):',
+            selectedOptionsFinal
+          );
+        }
+      } else {
+        // single-answer: payload is fine
+        selectedOptionsFinal = selectedOptionsFromQQC ?? [];
+      }
+  
+      const selectedIds = selectedOptionsFinal.map(o => String((o as any).optionId ?? ''));
   
       console.log('[TimerService] correctOptionIds:', correctOptionIds);
       console.log('[TimerService] selectedIds:', selectedIds);
       console.log('[TimerService] selectedOptionsFinal:', selectedOptionsFinal);
   
+      // Extra debug so we can *see* Q2 clearly
+      console.log('[TIMER][STOP CHECK]', {
+        qIndex: normalizedIndex,
+        requiredCorrect: correctOptionIds.length,
+        selected: selectedOptionsFinal.map((o: any) => ({
+          id: o.optionId,
+          correct: o.correct,
+          selected: o.selected,
+          qIndex: o.questionIndex
+        }))
+      });
+  
       let shouldStop = false;
   
+      // ────────────────────────────────────────────
+      // MULTIPLE-ANSWER LOGIC (match computeCorrectness)
+      // ────────────────────────────────────────────
       if (isMultiple) {
-        const allCorrectSelected =
-          correctOptionIds.length > 0 &&
-          correctOptionIds.every(id => selectedIds.includes(id));
+        const selectedSet = new Set(selectedIds);
   
-        console.log('[TimerService] allCorrectSelected (multi):', allCorrectSelected);
-        shouldStop = allCorrectSelected;
-      } else {
+        const selectedCorrectCount = correctOptionIds.filter(id =>
+          selectedSet.has(id)
+        ).length;
+  
+        console.log('[TimerService] multi stats:', {
+          correctCount: correctOptionIds.length,
+          selectedCorrectCount,
+          selectedTotal: selectedSet.size
+        });
+  
+        // EXACT match: all and only correct options selected
+        shouldStop =
+          correctOptionIds.length > 0 &&
+          selectedCorrectCount === correctOptionIds.length &&
+          selectedSet.size === correctOptionIds.length;
+      }
+  
+      // ────────────────────────────────────────────
+      // SINGLE-ANSWER LOGIC
+      // ────────────────────────────────────────────
+      else {
         const firstSelected = selectedOptionsFinal[0] as any;
         const isCorrect =
           !!firstSelected &&
@@ -346,6 +412,9 @@ export class TimerService implements OnDestroy {
         shouldStop = isCorrect;
       }
   
+      // ────────────────────────────────────────────
+      // STOP TIMER IF CONDITIONS MET
+      // ────────────────────────────────────────────
       if (!shouldStop) {
         console.log('[TimerService] Conditions NOT met → timer continues.');
         console.groupEnd();
@@ -376,7 +445,8 @@ export class TimerService implements OnDestroy {
       console.error('[TimerService] Error in stopTimerIfApplicable:', err);
       console.groupEnd();
     }
-  }  
+  }
+    
 
   // Sets a custom elapsed time
   /* setElapsed(time: number): void {
