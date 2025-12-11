@@ -2276,4 +2276,62 @@ export class SelectedOptionService {
 
     // let your existing pipelines react naturally
   }
+
+    /**
+   * Returns true ONLY if the user has selected:
+   *  - every correct option for this question, AND
+   *  - no incorrect options.
+   *
+   * Returns false for:
+   *  - partial correct selections,
+   *  - selections including any incorrect option,
+   *  - invalid question index,
+   *  - no selections,
+   *  - single-answer questions with incorrect option.
+   */
+  public areAllCorrectAnswersSelectedActiveQuestion(): boolean {
+    try {
+      const qIndex = this.quizService.currentQuestionIndexSource.getValue();
+      const question = this.quizService.getQuestionSync(qIndex);
+
+      if (!question || !Array.isArray(question.options)) {
+        console.warn('[SOS] Invalid question/options for index:', qIndex);
+        return false;
+      }
+
+      // Get the selected options stored for this question
+      const selected = this.getSelectedOptionsForQuestion(qIndex) ?? [];
+      if (selected.length === 0) return false;
+
+      // Derive correct options from question data
+      const correctOptions = question.options.filter(o => o.correct === true);
+      const correctIds = new Set(correctOptions.map(o => String(o.optionId)));
+
+      // Map selections to IDs
+      const selectedIds = new Set(
+        selected.map(o => String((o as any).optionId ?? ''))
+      );
+
+      // Count: how many selected are correct?
+      let correctSelectedCount = 0;
+      for (const id of selectedIds) {
+        if (correctIds.has(id)) {
+          correctSelectedCount++;
+        } else {
+          // selected an incorrect option → fail immediately
+          return false;
+        }
+      }
+
+      // Must match exactly: all correct options selected, no extras
+      return (
+        correctIds.size > 0 &&
+        correctSelectedCount === correctIds.size &&
+        selectedIds.size === correctIds.size
+      );
+    } catch (err) {
+      console.error('[SOS] Error in areAllCorrectAnswersSelectedActiveQuestion:', err);
+      return false;
+    }
+  }
 }
