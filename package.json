@@ -28,7 +28,7 @@
   },
   "devDependencies": {
     "@angular/build": "20.3.8",
-    "@angular/cli": "20.3.14",
+    "@angular/cli": "^19.1.7",
     "@angular/compiler-cli": "20.3.14",
     "@ionic/angular": "^8.7.8",
     "@types/howler": "^2.2.11",
