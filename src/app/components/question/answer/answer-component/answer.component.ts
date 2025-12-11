@@ -310,18 +310,21 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
       return;
     }
   
-    const { option, index, checked } = event;
+    const { option, checked } = event;
   
     // ───────────────────────────────────────────────
-    // Build a proper SelectedOption w/ questionIndex
-    // (Your original version did NOT add this, which
-    //  is why Q2 never stops the timer.)
+    // FIX: Always use the real question index
+    // SOC cannot be trusted to send the correct one.
     // ───────────────────────────────────────────────
     const activeQuestionIndex =
       typeof this.currentQuestionIndex === 'number'
         ? this.currentQuestionIndex
         : 0;
   
+    // ───────────────────────────────────────────────
+    // Build a proper SelectedOption w/ questionIndex
+    // (Required for Q2 timer correctness)
+    // ───────────────────────────────────────────────
     const enrichedOption: SelectedOption = {
       ...option,
       questionIndex: activeQuestionIndex,
@@ -332,19 +335,19 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
   
     // ───────────────────────────────────────────────
     // MULTIPLE vs SINGLE answer selection handling
-    // (Merged with your intent + minimal logic)
+    // (Preserve your original behavior)
     // ───────────────────────────────────────────────
     if (this.type === 'single') {
-      // Replace previous selection
       this.selectedOption = enrichedOption;
       this.selectedOptions = [enrichedOption];
     } else {
-      // Multiple-answer
       if (!Array.isArray(this.selectedOptions)) {
         this.selectedOptions = [];
       }
   
-      const exists = this.selectedOptions.findIndex(o => o.optionId === enrichedOption.optionId);
+      const exists = this.selectedOptions.findIndex(
+        o => o.optionId === enrichedOption.optionId
+      );
   
       if (checked) {
         if (exists === -1) {
@@ -353,7 +356,6 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
           this.selectedOptions[exists] = enrichedOption;
         }
       } else {
-        // remove option
         if (exists !== -1) {
           this.selectedOptions.splice(exists, 1);
         }
@@ -362,7 +364,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
   
     // ───────────────────────────────────────────────
     // QUIZ STATE FLAGS FOR NEXT BUTTON
-    // (Preserve your original logic)
+    // (your same logic)
     // ───────────────────────────────────────────────
     const isOptionSelected =
       this.type === 'single'
@@ -374,7 +376,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
   
     // ───────────────────────────────────────────────
     // PUSH INTO SelectedOptionService
-    // (Critical fix — required for stopping Q2 timer)
+    // Critical for multi-answer timer correctness
     // ───────────────────────────────────────────────
     if (this.type === 'single') {
       if (this.selectedOption) {
@@ -393,21 +395,28 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
       );
     }
   
-    // EMIT to QQC EXACTLY as your original version did
-    // (Preserve your event signature 100%)
+    // ───────────────────────────────────────────────
+    // EMIT CLEAN PAYLOAD TO QQC
+    // FIX: index MUST be activeQuestionIndex, not event.index
+    // (SOC sends the wrong index — this corrects it)
+    // ───────────────────────────────────────────────
     const cleanPayload: OptionClickedPayload = {
       option: enrichedOption,
-      index: index,
+      index: activeQuestionIndex,        // <-- CRITICAL FIX
       checked: !!enrichedOption.selected,
       wasReselected: event?.wasReselected ?? false
     };
-    
-    console.log('%c[AC] EMITTING CLEAN PAYLOAD →', 'color:lime;font-weight:bold;', cleanPayload);
-    
+  
+    console.log(
+      '%c[AC] EMITTING CLEAN PAYLOAD →',
+      'color:lime;font-weight:bold;',
+      cleanPayload
+    );
+  
     this.optionClicked.emit(cleanPayload);
   
     this.cdRef.detectChanges();
-  }
+  }  
 
   // Rebuild optionBindings from the latest optionsToDisplay.
   private rebuildOptionBindings(opt: Option[]): OptionBindings[] {
