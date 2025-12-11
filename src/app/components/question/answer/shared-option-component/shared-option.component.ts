@@ -2837,48 +2837,22 @@ export class SharedOptionComponent implements
   }
 
   private getActiveQuestionIndex(): number {
-    // 1. Prefer currentQuestionIndex
-    const normalizedCurrent = this.normalizeQuestionIndex(this.currentQuestionIndex);
-  
-    if (normalizedCurrent !== null) {
-      if (this.resolvedQuestionIndex !== normalizedCurrent) {
-        console.log(
-          `[SharedOption] 🔄 Index updated from input (current): ${this.resolvedQuestionIndex} -> ${normalizedCurrent}`
-        );
-      }
-      this.resolvedQuestionIndex = normalizedCurrent;
-      return normalizedCurrent;
+    // Highest priority: explicitly assigned by QQC
+    if (typeof this.currentQuestionIndex === 'number') {
+      return this.currentQuestionIndex;
     }
   
-    // 2. Legacy fallback: questionIndex
-    const normalizedLegacy = this.normalizeQuestionIndex(this.questionIndex);
-  
-    if (normalizedLegacy !== null) {
-      if (this.resolvedQuestionIndex !== normalizedLegacy) {
-        console.log(
-          `[SharedOption] 🔄 Index updated from input (legacy): ${this.resolvedQuestionIndex} -> ${normalizedLegacy}`
-        );
-      }
-      this.resolvedQuestionIndex = normalizedLegacy;
-      return normalizedLegacy;
+    // Secondary: input questionIndex if provided
+    if (typeof this.questionIndex === 'number') {
+      return this.questionIndex;
     }
   
-    // 3. Ultimate fallback to quizService
-    const serviceIndex = this.normalizeQuestionIndex(
-      this.quizService?.getCurrentQuestionIndex?.()
-    );
-  
-    if (serviceIndex !== null) {
-      this.resolvedQuestionIndex = serviceIndex;
-      return serviceIndex;
+    // Last fallback: quizService
+    const svcIndex = this.quizService?.getCurrentQuestionIndex?.();
+    if (typeof svcIndex === 'number') {
+      return svcIndex;
     }
   
-    // 4. Final fallback
-    const fallback = this.normalizeQuestionIndex(
-      this.quizService?.currentQuestionIndex
-    );
-  
-    this.resolvedQuestionIndex = fallback ?? 0;
-    return this.resolvedQuestionIndex;
-  }
+    return 0; // emergency fallback
+  }  
 }
