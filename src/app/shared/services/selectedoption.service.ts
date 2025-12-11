@@ -4,6 +4,7 @@ import { distinctUntilChanged, map, startWith } from 'rxjs/operators';
 
 import { QuestionType } from '../../shared/models/question-type.enum';
 import { Option } from '../../shared/models/Option.model';
+import { QuizQuestion } from '../../shared/models/QuizQuestion.model';
 import { SelectedOption } from '../../shared/models/SelectedOption.model';
 import { NextButtonStateService } from '../../shared/services/next-button-state.service';
 import { QuizService } from '../../shared/services/quiz.service';
@@ -25,6 +26,8 @@ export class SelectedOptionService {
   isAnsweredSubject = new BehaviorSubject<boolean>(false);
   isAnswered$: Observable<boolean> = this.isAnsweredSubject.asObservable();
   public answered$ = this.isAnswered$;
+
+  private _questionCache = new Map<number, QuizQuestion>();
 
   private questionTextSubject = new BehaviorSubject<string>('');
   questionText$ = this.questionTextSubject.asObservable();
@@ -2292,46 +2295,53 @@ export class SelectedOptionService {
   public areAllCorrectAnswersSelectedActiveQuestion(): boolean {
     try {
       const qIndex = this.quizService.currentQuestionIndexSource.getValue();
-      const question = this.quizService.getQuestionSync(qIndex);
-
+    
+      // ----- 1. Fetch the question synchronously -----
+      const question = this.quizService.questionsArray?.[qIndex];
+    
       if (!question || !Array.isArray(question.options)) {
         console.warn('[SOS] Invalid question/options for index:', qIndex);
         return false;
       }
-
-      // Get the selected options stored for this question
+    
+      // ----- 2. Read selected options for this question -----
       const selected = this.getSelectedOptionsForQuestion(qIndex) ?? [];
       if (selected.length === 0) return false;
-
-      // Derive correct options from question data
+    
+      // ----- 3. Determine correct option IDs -----
       const correctOptions = question.options.filter(o => o.correct === true);
       const correctIds = new Set(correctOptions.map(o => String(o.optionId)));
-
-      // Map selections to IDs
+    
+      // ----- 4. Map selected IDs -----
       const selectedIds = new Set(
         selected.map(o => String((o as any).optionId ?? ''))
       );
-
-      // Count: how many selected are correct?
-      let correctSelectedCount = 0;
+    
+      // ----- 5. Reject immediately if any incorrect option was selected -----
       for (const id of selectedIds) {
-        if (correctIds.has(id)) {
-          correctSelectedCount++;
-        } else {
-          // selected an incorrect option → fail immediately
+        if (!correctIds.has(id)) {
           return false;
         }
       }
-
-      // Must match exactly: all correct options selected, no extras
+    
+      // ----- 6. Exact match check -----
       return (
         correctIds.size > 0 &&
-        correctSelectedCount === correctIds.size &&
-        selectedIds.size === correctIds.size
+        selectedIds.size === correctIds.size &&
+        [...selectedIds].every(id => correctIds.has(id))
       );
     } catch (err) {
-      console.error('[SOS] Error in areAllCorrectAnswersSelectedActiveQuestion:', err);
+      console.error(
+        '[SOS] ERROR in areAllCorrectAnswersSelectedActiveQuestion:',
+        err
+      );
       return false;
     }
   }
-}
+
+  public storeQuestion(index: number, question: QuizQuestion): void {
+    if (question) {
+      this._questionCache.set(index, question);
+    }
+  }
+}    
