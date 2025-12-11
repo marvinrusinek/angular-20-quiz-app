@@ -316,9 +316,14 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
         ? this.currentQuestionIndex
         : 0;
   
-    // Build a CLEAN, canonical SelectedOption
+    const canonical = this.optionsToDisplay?.find((opt: Option) =>
+      String(opt.optionId) === String(rawOption.optionId)
+    ) ?? rawOption;
+
     const enrichedOption: SelectedOption = {
-      ...rawOption,
+      optionId: canonical.optionId,
+      text: canonical.text,
+      correct: canonical.correct === true,  // always trust canonical correctness
       questionIndex: activeQuestionIndex,
       selected: wasChecked === true,
       highlight: true,
