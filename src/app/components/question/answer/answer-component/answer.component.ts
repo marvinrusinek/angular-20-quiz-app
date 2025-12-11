@@ -368,7 +368,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
       this.quizStateService.setAnswered(isCorrect);
     } else {
       const allCorrect = this.selectedOptionService.areAllCorrectAnswersSelectedActiveQuestion?.() ??
-        this.selectedOptionService.areAllCorrectAnswersSelected?.(this.currentQuestionIndex);
+        this.selectedOptionService.areAllCorrectAnswersSelectedSync?.(this.currentQuestionIndex);
 
       this.quizStateService.setAnswered(!!allCorrect);
     }
