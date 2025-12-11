@@ -5278,6 +5278,7 @@ export class QuizQuestionComponent extends BaseQuestion
         console.warn('[updateExplanationText] questionData is missing or invalid');
         return;
       }
+      this.selectedOptionService.storeQuestion(this.currentQuestionIndex, questionData);
 
       if (this.quizQuestionManagerService.isValidQuestionData(questionData)) {
         // ✅ FIX: Use ExplanationTextService to format the explanation
