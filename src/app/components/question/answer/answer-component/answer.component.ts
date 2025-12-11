@@ -302,109 +302,93 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
       event
     );
   
-    // ───────────────────────────────────────────────
-    // SAFETY: ensure event/option/index are valid
-    // ───────────────────────────────────────────────
     if (!event || !event.option) {
       console.error('[AnswerComponent] INVALID event passed into onOptionClicked:', event);
       return;
     }
   
-    const { option, checked } = event;
+    const rawOption = event.option;
+    const wasChecked = event.checked ?? true;
   
-    // ───────────────────────────────────────────────
-    // FIX: Always use the real question index
-    // SOC cannot be trusted to send the correct one.
-    // ───────────────────────────────────────────────
+    // Always get the QUESTION INDEX from QQC input
     const activeQuestionIndex =
       typeof this.currentQuestionIndex === 'number'
         ? this.currentQuestionIndex
         : 0;
   
-    // ───────────────────────────────────────────────
-    // Build a proper SelectedOption w/ questionIndex
-    // (Required for Q2 timer correctness)
-    // ───────────────────────────────────────────────
+    // Build a CLEAN, canonical SelectedOption
     const enrichedOption: SelectedOption = {
-      ...option,
+      ...rawOption,
       questionIndex: activeQuestionIndex,
-      selected: checked,
+      selected: wasChecked === true,
       highlight: true,
       showIcon: true
     };
   
-    // ───────────────────────────────────────────────
-    // MULTIPLE vs SINGLE answer selection handling
-    // (Preserve your original behavior)
-    // ───────────────────────────────────────────────
+    console.log('%c[AC] ENRICHED →', 'color:#00eaff;font-weight:bold;', enrichedOption);
+  
+    // ──────────────────────────────────────────────
+    // INTERNAL STATE UPDATE
+    // ──────────────────────────────────────────────
     if (this.type === 'single') {
       this.selectedOption = enrichedOption;
       this.selectedOptions = [enrichedOption];
     } else {
-      if (!Array.isArray(this.selectedOptions)) {
-        this.selectedOptions = [];
-      }
+      this.selectedOptions ??= [];  // ensure array
   
-      const exists = this.selectedOptions.findIndex(
-        o => o.optionId === enrichedOption.optionId
-      );
+      const i = this.selectedOptions.findIndex(o => o.optionId === enrichedOption.optionId);
   
-      if (checked) {
-        if (exists === -1) {
+      if (enrichedOption.selected) {
+        // add or replace
+        if (i === -1) {
           this.selectedOptions.push(enrichedOption);
         } else {
-          this.selectedOptions[exists] = enrichedOption;
+          this.selectedOptions[i] = enrichedOption;
         }
       } else {
-        if (exists !== -1) {
-          this.selectedOptions.splice(exists, 1);
-        }
+        // unselect
+        if (i !== -1) this.selectedOptions.splice(i, 1);
       }
     }
   
-    // ───────────────────────────────────────────────
-    // QUIZ STATE FLAGS FOR NEXT BUTTON
-    // (your same logic)
-    // ───────────────────────────────────────────────
-    const isOptionSelected =
+    // ──────────────────────────────────────────────
+    // NEXT BUTTON STATE
+    // ──────────────────────────────────────────────
+    const isSelected =
       this.type === 'single'
         ? !!this.selectedOption
         : this.selectedOptions.length > 0;
   
-    this.quizStateService.setAnswerSelected(isOptionSelected);
-    this.quizStateService.setAnswered(isOptionSelected);
+    this.quizStateService.setAnswerSelected(isSelected);
+    this.quizStateService.setAnswered(isSelected);
   
-    // ───────────────────────────────────────────────
-    // PUSH INTO SelectedOptionService
-    // Critical for multi-answer timer correctness
-    // ───────────────────────────────────────────────
+    // ──────────────────────────────────────────────
+    // SEND TO SelectedOptionService (the critical part)
+    // ──────────────────────────────────────────────
     if (this.type === 'single') {
-      if (this.selectedOption) {
-        this.selectedOptionService.setSelectedOption(this.selectedOption);
-        console.log('[AnswerComponent] Set SINGLE selection →', this.selectedOption);
-      }
+      this.selectedOptionService.setSelectedOptions([this.selectedOption]);
     } else {
-      this.selectedOptionService.setSelectedOptions(this.selectedOptions);
-      console.log(
-        '[AnswerComponent] Set MULTI selection →',
-        this.selectedOptions.map(o => ({
-          qIndex: o.questionIndex,
-          id: o.optionId,
-          correct: o.correct
-        }))
-      );
+      this.selectedOptionService.setSelectedOptions([...this.selectedOptions]);
     }
   
-    // ───────────────────────────────────────────────
-    // EMIT CLEAN PAYLOAD TO QQC
-    // FIX: index MUST be activeQuestionIndex, not event.index
-    // (SOC sends the wrong index — this corrects it)
-    // ───────────────────────────────────────────────
+    console.log(
+      '%c[AC] PUSHED TO SOS →',
+      'color:#00ff88;font-weight:bold;',
+      this.selectedOptions.map(o => ({
+        q: o.questionIndex,
+        id: o.optionId,
+        correct: o.correct
+      }))
+    );
+  
+    // ──────────────────────────────────────────────
+    // FORWARD CLEAN PAYLOAD UPWARD
+    // ──────────────────────────────────────────────
     const cleanPayload: OptionClickedPayload = {
       option: enrichedOption,
-      index: activeQuestionIndex,        // <-- CRITICAL FIX
-      checked: !!enrichedOption.selected,
-      wasReselected: event?.wasReselected ?? false
+      index: event.index,
+      checked: enrichedOption.selected === true,
+      wasReselected: event.wasReselected ?? false
     };
   
     console.log(
@@ -416,7 +400,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
     this.optionClicked.emit(cleanPayload);
   
     this.cdRef.detectChanges();
-  }  
+  }
 
   // Rebuild optionBindings from the latest optionsToDisplay.
   private rebuildOptionBindings(opt: Option[]): OptionBindings[] {
