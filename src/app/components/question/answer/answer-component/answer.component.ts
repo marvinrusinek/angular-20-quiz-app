@@ -354,13 +354,24 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
     // ──────────────────────────────────────────────
     // NEXT BUTTON STATE
     // ──────────────────────────────────────────────
-    const isSelected =
+    let isSelected =
       this.type === 'single'
         ? !!this.selectedOption
         : this.selectedOptions.length > 0;
-  
+
+    // This part is OK
     this.quizStateService.setAnswerSelected(isSelected);
-    this.quizStateService.setAnswered(isSelected);
+
+    // This part needs correctness
+    if (this.type === 'single') {
+      const isCorrect = enrichedOption.correct === true;
+      this.quizStateService.setAnswered(isCorrect);
+    } else {
+      const allCorrect = this.selectedOptionService.areAllCorrectAnswersSelectedActiveQuestion?.() ??
+        this.selectedOptionService.areAllCorrectAnswersSelected?.(this.currentQuestionIndex);
+
+      this.quizStateService.setAnswered(!!allCorrect);
+    }
   
     // ──────────────────────────────────────────────
     // SEND TO SelectedOptionService (the critical part)
