@@ -2281,16 +2281,16 @@ export class SelectedOptionService {
   }
 
     /**
-   * Returns true ONLY if the user has selected:
-   *  - every correct option for this question, AND
-   *  - no incorrect options.
-   *
-   * Returns false for:
-   *  - partial correct selections,
-   *  - selections including any incorrect option,
-   *  - invalid question index,
-   *  - no selections,
-   *  - single-answer questions with incorrect option.
+     * Returns true ONLY if the user has selected:
+     *  - every correct option for this question, AND
+     *  - no incorrect options.
+     *
+     * Returns false for:
+     *  - partial correct selections,
+     *  - selections including any incorrect option,
+     *  - invalid question index,
+     *  - no selections,
+     *  - single-answer questions with incorrect option.
    */
     public areAllCorrectAnswersSelectedActiveQuestion(): boolean {
       try {
@@ -2312,12 +2312,12 @@ export class SelectedOptionService {
           selected.map(o => String((o as any).optionId ?? ''))
         );
     
-        // reject immediately if selected any incorrect option
+        // Reject immediately if selected any incorrect option
         for (const id of selectedIds) {
           if (!correctIds.has(id)) return false;
         }
     
-        // exact match only
+        // Exact match only
         return (
           correctIds.size > 0 &&
           selectedIds.size === correctIds.size &&
@@ -2334,4 +2334,4 @@ export class SelectedOptionService {
       this._questionCache.set(index, question);
     }
   }
-}    
+}
