@@ -117,11 +117,14 @@ export class SelectedOptionService {
       o => o.optionId === newCanonical.optionId
     );
   
-    if (!alreadyExists) {
-      existingCanonical.push(newCanonical);
+    // Only store selections that are actually CHECKED and that exist in the UI
+    if (newCanonical.selected === true) {
+      if (!alreadyExists) {
+        existingCanonical.push(newCanonical);
+      }
     }
   
-    // IMPORTANT: commit selections and store the result
+    // Commit selections and store the result
     const committed = this.commitSelections(questionIndex, existingCanonical);
     this.selectedOptionsMap.set(questionIndex, committed);
   
