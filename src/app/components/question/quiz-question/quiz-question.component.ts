@@ -3097,11 +3097,14 @@ export class QuizQuestionComponent extends BaseQuestion
       // single source of truth for selected options
       // ───────────────────────────────────────────────
       queueMicrotask(async () => {
+        // Always re-fetch from SOS (never trust canonicalOpts or UI state)
         const selectedNow =
-          this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
-  
+          this.selectedOptionService
+            .getSelectedOptionsForQuestion(idx)
+            ?.map(o => ({ ...o, questionIndex: idx })) ?? [];
+      
         console.log(
-          '%c[QQC][TIMER] selected options from SOS:',
+          '%c[QQC][TIMER] SOS FINAL SELECTION →',
           'color:#00bfff;font-weight:bold;',
           selectedNow.map(o => ({
             id: o.optionId,
@@ -3110,17 +3113,8 @@ export class QuizQuestionComponent extends BaseQuestion
             qIndex: o.questionIndex
           }))
         );
-  
-        await this.timerService.stopTimerIfApplicable(
-          q!,
-          idx,
-          selectedNow
-        );
-  
-        console.log(
-          '%c[TIMER DEBUG] Final stopTimerIfApplicable done',
-          'color:green;font-weight:bold'
-        );
+      
+        await this.timerService.stopTimerIfApplicable(q!, idx, selectedNow);
       });
     } catch (err) {
       console.error('[onOptionClicked] ❌ Error:', err);
