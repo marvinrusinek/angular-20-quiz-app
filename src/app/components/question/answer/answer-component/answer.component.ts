@@ -366,7 +366,11 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
     // SEND TO SelectedOptionService (the critical part)
     // ──────────────────────────────────────────────
     if (this.type === 'single') {
-      this.selectedOptionService.setSelectedOptions([this.selectedOption]);
+      if (this.selectedOption) {
+        this.selectedOptionService.setSelectedOptions([this.selectedOption]);
+      } else {
+        this.selectedOptionService.setSelectedOptions([]);
+      }
     } else {
       this.selectedOptionService.setSelectedOptions([...this.selectedOptions]);
     }
