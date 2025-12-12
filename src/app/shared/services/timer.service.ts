@@ -264,12 +264,6 @@ export class TimerService implements OnDestroy {
       ? options.optionsSnapshot
       : undefined;
   
-    const allCorrectSelected = this.selectedOptionService
-      .areAllCorrectAnswersSelectedSync(questionIndex, snapshot);
-    if (!allCorrectSelected) {
-      return false;
-    }
-  
     // If we get here, all correct answers are selected
     // Clear any previous stop state to allow stopping again
     this.selectedOptionService.stopTimerEmitted = false;
