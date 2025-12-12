@@ -5311,9 +5311,6 @@ export class QuizQuestionComponent
             correctIdSet.size > 0 &&
             [...correctIdSet].every(id => selectedIdSet.has(id));
 
-          const correctSet  = new Set(correctOptionIds);
-          const selectedSet = new Set(selectedCorrectIds);
-
           // STRICT but fair:
           // every correct selected, wrong selections do NOT block stopping
           shouldStop =
