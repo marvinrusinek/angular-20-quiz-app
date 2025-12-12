@@ -1028,54 +1028,39 @@ export class SelectedOptionService {
     snapshot: Option[],
     canonicalOptions: Option[]
   ): boolean {
-    const correctOptionIds = this.collectCorrectOptionIds(
-      questionIndex,
-      canonicalOptions
-    );
-
-    const selectedOptionIds = this.collectSelectedOptionIds(
-      questionIndex,
-      canonicalOptions,
-      snapshot
-    );
-
-    const expectedCorrectAnswerCount = this.resolveExpectedCorrectAnswerCount(
-      questionIndex
-    );
-
-    const totalCorrectRequired = Math.max(
-      correctOptionIds.size,
-      expectedCorrectAnswerCount
-    );
-
-    if (totalCorrectRequired === 0) {
-      return this.evaluateAllCorrectSelections(snapshot);
+    if (!canonicalOptions || canonicalOptions.length === 0) {
+      console.error('[CORRECTNESS] No canonical options');
+      return false;
     }
-
-    let selectedCorrectCount = 0;
-
-    if (correctOptionIds.size > 0 && selectedOptionIds.size > 0) {
-      selectedOptionIds.forEach(id => {
-        if (correctOptionIds.has(id)) {
-          selectedCorrectCount++;
-        }
-      });
+  
+    const correctIds = canonicalOptions
+      .filter(o => o.correct === true)
+      .map(o => String(o.optionId));
+  
+    // 🚨 No correct answers defined → NEVER auto-complete
+    if (correctIds.length === 0) {
+      console.error('[CORRECTNESS] Question has zero correct answers');
+      return false;
     }
-
-    const selectedCorrectIndexes = this.collectSelectedCorrectOptionIndexes(
-      snapshot
-    );
-
-    selectedCorrectCount = Math.max(
-      selectedCorrectCount,
-      selectedCorrectIndexes.size
-    );
-
-    return (
-      selectedCorrectCount > 0 &&
-      selectedCorrectCount === totalCorrectRequired
-    );
+  
+    const selectedIds = snapshot.map(o => String(o.optionId));
+  
+    // ───────── SINGLE ANSWER ─────────
+    if (correctIds.length === 1) {
+      return (
+        selectedIds.length === 1 &&
+        selectedIds[0] === correctIds[0]
+      );
+    }
+  
+    // ───────── MULTIPLE ANSWER ─────────
+    if (selectedIds.length !== correctIds.length) {
+      return false;
+    }
+  
+    return correctIds.every(id => selectedIds.includes(id));
   }
+  
 
   private collectCorrectOptionIds(
     questionIndex: number,
@@ -1792,12 +1777,6 @@ export class SelectedOptionService {
     const rawSnapshot = Array.isArray(optionsSnapshot)
       ? optionsSnapshot.filter(Boolean)
       : [];
-
-    // Fast-path: if the provided snapshot already contains all correct options
-    // marked as selected, respect it without further canonical resolution.
-    if (rawSnapshot.length > 0 && this.evaluateAllCorrectSelections(rawSnapshot)) {
-      return true;
-    }
 
     // Fallback: Use optionSnapshotByQuestion if QuizService.questions is empty
     /* let question = this.quizService.questions?.[questionIndex];
