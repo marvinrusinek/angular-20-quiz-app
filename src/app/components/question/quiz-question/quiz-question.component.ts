@@ -5233,6 +5233,12 @@ export class QuizQuestionComponent
         return;
       }
 
+      // Normalize questionData optionIds so UI + questionData match
+      questionData.options = this.quizService.assignOptionIds(
+        [...(questionData.options ?? [])],
+        this.currentQuestionIndex
+      );
+
       this.selectedOptionService.storeQuestion(
         this.currentQuestionIndex,
         questionData,
