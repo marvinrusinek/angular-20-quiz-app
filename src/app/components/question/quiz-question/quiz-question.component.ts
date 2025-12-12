@@ -4863,59 +4863,40 @@ export class QuizQuestionComponent extends BaseQuestion
       // ─────────────────────────────────────────────
       const idx = this.currentQuestionIndex;
 
-      // HARD TRUTH: derive correctness ONLY from questionData
-      const correctOptionIds = questionData.options
-        .filter(o => o.correct === true)
-        .map(o => o.optionId);
-
-      // Safety: no correct answers defined → never stop
-      if (correctOptionIds.length === 0) {
-        console.warn('[QQC] No correct answers defined for question', idx);
-        return;
-      }
-
-      let shouldStop = false;
-
-      if (this.type === 'single') {
-        const clicked = questionData.options.find(
-          o => String(o.optionId) === String(option.optionId)
-        );
-
-        console.error('[TIMER CHECK][SINGLE]', {
-          idx,
-          clickedOptionId: option.optionId,
-          clickedCorrectFlag: clicked?.correct,
-          correctOptionIds,
-          questionText: questionData.questionText,
-          options: questionData.options.map(o => ({
-            id: o.optionId,
-            correct: o.correct,
-            text: o.text
-          }))
-        });
-
-        // STOP ONLY if the clicked option is marked correct in questionData
-        shouldStop = clicked?.correct === true;
-      } else {
-        const selectedIds = this.selectedOptionService
-          .getSelectedOptionsForQuestion(idx)
+      queueMicrotask(() => {
+        // HARD TRUTH: derive correctness ONLY after state settles
+        const correctOptionIds = questionData.options
+          .filter(o => o.correct === true)
           .map(o => String(o.optionId));
 
-        const correctIds = correctOptionIds.map(id => String(id));
-        const selectedSet = new Set(selectedIds);
+        if (correctOptionIds.length === 0) return;
 
-        // STRICT: all correct selected AND no extra wrong selections
-        shouldStop =
-          correctIds.length > 0 &&
-          correctIds.every(id => selectedSet.has(id)) &&
-          selectedSet.size === correctIds.length;
-      }
+        let shouldStop = false;
 
-      if (shouldStop) {
-        console.error('🛑 [STOPPING TIMER] reason: shouldStop=true', { idx });
-        this.timerService.allowAuthoritativeStop();
-        this.timerService.stopTimerForQuestion(idx);
-      }
+        if (this.type === 'single') {
+          const clicked = questionData.options.find(
+            o => String(o.optionId) === String(option.optionId)
+          );
+          shouldStop = clicked?.correct === true;
+        } else {
+          const selectedIds = this.selectedOptionService
+            .getSelectedOptionsForQuestion(idx)
+            .map(o => String(o.optionId));
+
+          const selectedSet = new Set(selectedIds);
+
+          // STRICT multi-answer rule
+          shouldStop =
+            selectedSet.size === correctOptionIds.length &&
+            correctOptionIds.every(id => selectedSet.has(id));
+        }
+
+        if (shouldStop) {
+          this.timerService.allowAuthoritativeStop();
+          this.timerService.stopTimerForQuestion(idx);
+        }
+      });
+
   
       // ─────────────────────────────────────────────
       // STEP 4: Feedback + messages
