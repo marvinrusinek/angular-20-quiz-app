@@ -601,18 +601,13 @@ export class SelectedOptionService {
       this.setNextButtonEnabled(true);
     } else {
       const selectedOptions = this.selectedOptionsMap.get(questionIndex) || [];
+    
+      // Multi-select: Next button is controlled elsewhere (QQC / QuizComponent)
       if (selectedOptions.length === 0) {
         console.warn('[⚠️ No selected options found for multi-select]');
         this.setNextButtonEnabled(false);
       }
-
-      const allCorrect = await this.areAllCorrectAnswersSelectedSync(questionIndex);
-      if (allCorrect) {
-        this.setNextButtonEnabled(true);
-      } else {
-        this.setNextButtonEnabled(false);
-      }
-    }
+    }    
   }
 
   private isSelectedOptionType(obj: unknown): obj is SelectedOption {
