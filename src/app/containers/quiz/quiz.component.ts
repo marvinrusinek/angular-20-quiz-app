@@ -1073,16 +1073,6 @@ get quizQuestionComponent(): QuizQuestionComponent {
     await firstValueFrom(this.quizService.getOptions(normalizedQuestionIndex));
     let isAnswered!: boolean;
 
-    const questionForIndex =
-      this.questionsArray?.[normalizedQuestionIndex] ??
-      this.quiz?.questions?.[normalizedQuestionIndex] ??
-      null;
-
-    if (questionForIndex?.type === QuestionType.MultipleAnswer) {
-      isAnswered = this.selectedOptionService.areAllCorrectAnswersSelectedSync(normalizedQuestionIndex);
-    } else {
-      isAnswered = this.selectedOptionService.isQuestionAnswered(normalizedQuestionIndex);
-    }
     // Mark as answered and enable Next
     if (isAnswered) {
       console.log('[✅ Option selected – enabling Next]');
