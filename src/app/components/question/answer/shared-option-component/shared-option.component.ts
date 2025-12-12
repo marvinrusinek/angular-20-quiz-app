@@ -1036,14 +1036,18 @@ export class SharedOptionComponent implements
     this.resolvedTypeForLock = resolvedType;
     this.hasCorrectSelectionForLock = hasCorrectSelection;
     this.allCorrectSelectedForLock = allCorrectSelectedLocally;
-
+      
+    // SOC must NOT compute correctness
+    const allCorrectPersisted = false;
+      
     const shouldLockIncorrect = this.computeShouldLockIncorrectOptions(
       resolvedType,
       hasCorrectSelection,
       allCorrectSelectedLocally
-    );
-
+     );
+      
     this.shouldLockIncorrectOptions = shouldLockIncorrect;
+      
 
     if (!shouldLockIncorrect) {
       this.lockedIncorrectOptionIds.clear();
