@@ -186,9 +186,18 @@ export class TimerService implements OnDestroy {
     callback?: (elapsedTime: number) => void,
     options: { force?: boolean } = {}  // future use
   ): void {
-    const e = new Error('[TimerService.stopTimer] stack');
-    console.error('🛑 [STOP TIMER CALLED] STACK:\n' + (e.stack ?? '(no stack)'));
-    console.trace('🧵 [STOP TIMER TRACE]');
+    // AUTHORITATIVE STOP GUARD (blocks rogue direct calls)
+    if (!options.force && !this._authoritativeStop) {
+      console.error('🛑 ILLEGAL stopTimer() CALL — BLOCKED', {
+        elapsedTime: this.elapsedTime,
+        stack: new Error().stack
+      });
+      return;
+    }
+
+    // Reset authority immediately to prevent re-entry / double stop paths
+    this._authoritativeStop = false;
+
     void options;  // prevent unused-parameter warning (intentional)
 
     if (!this.isTimerRunning) {
