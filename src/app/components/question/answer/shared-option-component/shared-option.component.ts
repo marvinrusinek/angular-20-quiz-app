@@ -1033,15 +1033,9 @@ export class SharedOptionComponent implements
 
     const candidateIndex = this.getActiveQuestionIndex();
 
-    const allCorrectPersisted =
-      typeof candidateIndex === 'number'
-        ? this.selectedOptionService.areAllCorrectAnswersSelectedSync(candidateIndex)
-        : false;
-
     this.resolvedTypeForLock = resolvedType;
     this.hasCorrectSelectionForLock = hasCorrectSelection;
     this.allCorrectSelectedForLock = allCorrectSelectedLocally;
-    this.allCorrectPersistedForLock = allCorrectPersisted;
 
     const shouldLockIncorrect = this.computeShouldLockIncorrectOptions(
       resolvedType,
