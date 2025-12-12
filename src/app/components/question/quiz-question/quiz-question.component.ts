@@ -4830,9 +4830,6 @@ export class QuizQuestionComponent extends BaseQuestion
   
       this.showFeedbackForOption[option.optionId] = true;
   
-      // 🚫 DO NOT mark answered here
-      // this.isAnswered = true;  ← REMOVED
-  
       // ─────────────────────────────────────────────
       // STEP 2: Load question data
       // ─────────────────────────────────────────────
