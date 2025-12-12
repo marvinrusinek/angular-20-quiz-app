@@ -5282,12 +5282,12 @@ export class QuizQuestionComponent
               .map(o => String(o.optionId))
           );
 
-          // Wrong click → exit immediately
+          // 🚫 Wrong click → exit immediately
           if (!correctIdSet.has(clickedId)) {
             return;
           }
 
-          // Correct click:
+          // ✅ Correct click:
           // HARD RESET state so stale wrong clicks can never interfere
           this.selectedOptionService.clearAllSelectionsForQuestion(idx);
 
@@ -5296,7 +5296,7 @@ export class QuizQuestionComponent
             option,
             idx,
             undefined,
-            false  // single-answer
+            false // single-answer
           );
 
           // AUTHORITATIVE STOP
@@ -5304,6 +5304,7 @@ export class QuizQuestionComponent
           this.timerService.stopTimerForQuestion(idx);
           return;
         }
+
       
         // ─────────────────────────────────────────
         // MULTIPLE-ANSWER: STATE-BASED
