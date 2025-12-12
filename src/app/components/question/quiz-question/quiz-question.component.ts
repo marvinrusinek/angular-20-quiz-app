@@ -6606,45 +6606,26 @@ export class QuizQuestionComponent
         next: async (explanationText: string) => {
           if (await this.isAnyOptionSelected(questionIndex)) {
             this.currentQuestionIndex = questionIndex;
-
-            // ✅ FIX: Format the explanation before setting it
-            const questionData = await firstValueFrom(
-              this.quizService.getQuestionByIndex(questionIndex),
-            );
-
-            let formattedExplanation =
+        
+            const finalExplanation =
               explanationText || 'No explanation available';
-
-            if (questionData && explanationText) {
-              const correctIndices =
-                this.explanationTextService.getCorrectOptionIndices(
-                  questionData,
-                );
-              formattedExplanation =
-                this.explanationTextService.formatExplanation(
-                  questionData,
-                  correctIndices,
-                  explanationText,
-                );
-            }
-
+        
             console.log(
               '[QQC] Setting formatted explanation text:',
-              formattedExplanation,
+              finalExplanation,
             );
-            this.explanationToDisplay = formattedExplanation;
-            this.explanationTextService.setExplanationText(
-              this.explanationToDisplay,
-            );
+        
+            this.explanationToDisplay = finalExplanation;
+            this.explanationTextService.setExplanationText(finalExplanation);
             this.explanationTextService.setShouldDisplayExplanation(true);
             this.shouldDisplayExplanation = true;
-            this.explanationToDisplayChange.emit(this.explanationToDisplay);
+            this.explanationToDisplayChange.emit(finalExplanation);
           } else {
             console.log(
               `Skipping explanation for unanswered question ${questionIndex}.`,
             );
           }
-        },
+        },        
         error: (error) => {
           console.error(
             `Error fetching explanation for question ${questionIndex}:`,
