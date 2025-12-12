@@ -1046,8 +1046,7 @@ export class SharedOptionComponent implements
     const shouldLockIncorrect = this.computeShouldLockIncorrectOptions(
       resolvedType,
       hasCorrectSelection,
-      allCorrectSelectedLocally,
-      allCorrectPersisted
+      allCorrectSelectedLocally
     );
 
     this.shouldLockIncorrectOptions = shouldLockIncorrect;
