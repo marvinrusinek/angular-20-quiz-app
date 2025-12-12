@@ -187,6 +187,14 @@ export class SelectedOptionService {
     this.isOptionSelectedSubject.next(false); // no option selected
   }
 
+  clearOtherSelections(questionIndex: number, keepOptionId: number): void {
+    const current = this.selectedOptionsMap.get(questionIndex) || [];
+    this.selectedOptionsMap.set(
+      questionIndex,
+      current.filter(o => o.optionId === keepOptionId)
+    );
+  }
+
   setSelectedOption(
     option: SelectedOption | null,
     questionIndex?: number,
