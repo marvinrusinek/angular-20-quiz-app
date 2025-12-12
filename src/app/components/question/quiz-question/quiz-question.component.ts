@@ -5293,10 +5293,23 @@ export class QuizQuestionComponent
           const selected = this.selectedOptionService
             .getSelectedOptionsForQuestion(idx);
 
-          // ✅ Count ONLY correct selections (ignore wrong ones entirely)
-          const selectedCorrectIds = selected
-            .filter(o => o.correct === true)
-            .map(o => String(o.optionId));
+          // Canonical correct ids from questionData
+          const correctIdSet = new Set(
+            questionData.options
+              .filter(o => o.correct === true)
+              .map(o => String(o.optionId))
+          );
+
+          // Selected ids (NO correctness assumed here)
+          const selectedIdSet = new Set(
+            selected.map(o => String(o.optionId))
+          );
+
+          // STOP when ALL correct are selected
+          // (wrong selections are ignored)
+          shouldStop =
+            correctIdSet.size > 0 &&
+            [...correctIdSet].every(id => selectedIdSet.has(id));
 
           const correctSet  = new Set(correctOptionIds);
           const selectedSet = new Set(selectedCorrectIds);
