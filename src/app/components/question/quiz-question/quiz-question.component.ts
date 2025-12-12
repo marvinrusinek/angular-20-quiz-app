@@ -5270,42 +5270,42 @@ export class QuizQuestionComponent
       
         if (correctIdSet.size === 0) return;
       
-        let shouldStop = false;
-      
-        // 🔒 SINGLE — ONLY the CURRENT CLICK matters
+        // ─────────────────────────────────────────
+        // SINGLE-ANSWER: HARD GATE
+        // ─────────────────────────────────────────
         if (this.type === 'single') {
           const clickedId = String(option.optionId);
       
-          shouldStop =
-            clickedId != null &&
-            correctIdSet.has(clickedId);
-        }
+          // 🚫 WRONG CLICK → EXIT IMMEDIATELY
+          if (!correctIdSet.has(clickedId)) {
+            return;
+          }
       
-        // 🔓 MULTIPLE — all correct answers must be selected
-        else {
-          const selectedIdSet = new Set(
-            this.selectedOptionService
-              .getSelectedOptionsForQuestion(idx)
-              .map(o => String(o.optionId))
-          );
-      
-          shouldStop =
-            [...correctIdSet].every(id => selectedIdSet.has(id));
-        }
-      
-        console.log('[TIMER DECISION]', {
-          idx,
-          type: this.type,
-          clicked: option.optionId,
-          correct: [...correctIdSet],
-          shouldStop
-        });
-      
-        if (shouldStop) {
+          // ✅ ONLY correct click reaches here
           this.timerService.allowAuthoritativeStop();
           this.timerService.stopTimerForQuestion(idx);
+          return;
         }
-      });      
+      
+        // ─────────────────────────────────────────
+        // MULTIPLE-ANSWER: STATE-BASED
+        // ─────────────────────────────────────────
+        const selectedIdSet = new Set(
+          this.selectedOptionService
+            .getSelectedOptionsForQuestion(idx)
+            .map(o => String(o.optionId))
+        );
+      
+        const allCorrectSelected =
+          [...correctIdSet].every(id => selectedIdSet.has(id));
+      
+        if (!allCorrectSelected) {
+          return;
+        }
+      
+        this.timerService.allowAuthoritativeStop();
+        this.timerService.stopTimerForQuestion(idx);
+      });
 
       // ─────────────────────────────────────────────
       // STEP 4: Feedback + messages
