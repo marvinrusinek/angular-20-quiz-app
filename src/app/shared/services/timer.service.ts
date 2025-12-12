@@ -475,26 +475,14 @@ export class TimerService implements OnDestroy {
     const idx = this.normalizeQuestionIndex(questionIndex);
     if (idx < 0) return;
   
-    // AUTHORITATIVE STOP GUARD
-    if (!this._authoritativeStop) {
-      console.error(
-        '🛑 ILLEGAL TIMER STOP — BLOCKED',
-        {
-          questionIndex: idx,
-          stack: new Error().stack
-        }
-      );
-      return;
-    }
-  
-    // Reset authority immediately to prevent re-entry
-    this._authoritativeStop = false;
-  
     // Prevent double-stops
     if (this.isTimerStoppedForCurrentQuestion) {
       console.warn('[TimerService] Timer already stopped for this question');
       return;
     }
+  
+    // ✅ AUTHORITATIVE STOP — grant authority immediately before stopping
+    this._authoritativeStop = true;
   
     const stopped = this.attemptStopTimerForQuestion({
       questionIndex: idx,
@@ -506,6 +494,7 @@ export class TimerService implements OnDestroy {
     });
   
     if (!stopped) {
+      // force is allowed, but stopTimer() will still clear authority
       this.stopTimer(undefined, { force: true });
     }
   }
