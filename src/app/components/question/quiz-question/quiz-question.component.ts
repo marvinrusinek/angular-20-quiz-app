@@ -5292,7 +5292,7 @@ export class QuizQuestionComponent extends BaseQuestion
       // STEP 3: STOP TIMER — ONLY if fully correct
       // ─────────────────────────────────────────────
       const allCorrect =
-        this.selectedOptionService.areAllCorrectAnswersSelected(
+        this.selectedOptionService.areAllCorrectAnswersSelectedSync(
           this.currentQuestionIndex
         );
   
