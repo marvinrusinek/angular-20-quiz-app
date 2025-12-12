@@ -5319,18 +5319,20 @@ export class QuizQuestionComponent extends BaseQuestion
       let shouldStop = false;
 
       if (this.type === 'single') {
-        // SINGLE: exact ID match only
-        shouldStop = correctOptionIds[0] === option.optionId;
+        // SINGLE: exact correct match only
+        shouldStop = option.optionId === correctOptionIds[0];
       } else {
-        // MULTIPLE: all correct IDs must be selected
+        // MULTIPLE: every correct option must be selected
         const selectedIds =
           this.selectedOptionService
             .getSelectedOptionsForQuestion(idx)
             .map(o => o.optionId);
 
+        const selectedCorrectCount =
+          selectedIds.filter(id => correctOptionIds.includes(id)).length;
+
         shouldStop =
-          selectedIds.length === correctOptionIds.length &&
-          correctOptionIds.every(id => selectedIds.includes(id));
+          selectedCorrectCount === correctOptionIds.length;
       }
 
       if (shouldStop) {
