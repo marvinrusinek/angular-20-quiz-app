@@ -5270,18 +5270,36 @@ export class QuizQuestionComponent
       
         if (correctIdSet.size === 0) return;
       
-        // ─────────────────────────────────────────
-        // SINGLE-ANSWER: HARD GATE
-        // ─────────────────────────────────────────
+        // ─────────────────────────────────────────────
+        // SINGLE-ANSWER: EVENT-DRIVEN + STATE RESET
+        // ─────────────────────────────────────────────
         if (this.type === 'single') {
           const clickedId = String(option.optionId);
-      
-          // 🚫 WRONG CLICK → EXIT IMMEDIATELY
+
+          const correctIdSet = new Set(
+            questionData.options
+              .filter(o => o.correct === true)
+              .map(o => String(o.optionId))
+          );
+
+          // Wrong click → exit immediately
           if (!correctIdSet.has(clickedId)) {
             return;
           }
-      
-          // ✅ ONLY correct click reaches here
+
+          // Correct click:
+          // HARD RESET state so stale wrong clicks can never interfere
+          this.selectedOptionService.clearAllSelectionsForQuestion(idx);
+
+          // Re-commit ONLY the correct option
+          this.selectedOptionService.setSelectedOption(
+            option,
+            idx,
+            undefined,
+            false  // single-answer
+          );
+
+          // AUTHORITATIVE STOP
           this.timerService.allowAuthoritativeStop();
           this.timerService.stopTimerForQuestion(idx);
           return;
