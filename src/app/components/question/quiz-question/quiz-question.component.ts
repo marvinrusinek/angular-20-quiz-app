@@ -5257,17 +5257,19 @@ export class QuizQuestionComponent
       );
 
       // ─────────────────────────────────────────────
-      // STEP 3: STOP TIMER — ONLY if fully correct
+      // STEP 3: STOP TIMER — AUTHORITATIVE + BULLETPROOF
       // ─────────────────────────────────────────────
       const idx = this.currentQuestionIndex;
 
-      // Use microtask to guarantee SelectedOptionService commit is complete
       queueMicrotask(() => {
-        const correctOptionIds = questionData.options
-          .filter(o => o.correct === true)
-          .map(o => String(o.optionId));
+        // Canonical correct IDs from questionData (source of truth)
+        const correctIdSet = new Set(
+          questionData.options
+            .filter(o => o.correct === true)
+            .map(o => String(o.optionId))
+        );
 
-        if (correctOptionIds.length === 0) return;
+        if (correctIdSet.size === 0) return;
 
         let shouldStop = false;
 
@@ -5275,62 +5277,41 @@ export class QuizQuestionComponent
           const clicked = questionData.options.find(
             o => String(o.optionId) === String(option.optionId)
           );
-
-          // STOP only if the clicked option is correct
           shouldStop = clicked?.correct === true;
 
-          // Clear stale wrong selections ONLY after a correct click
-          if (shouldStop && typeof option.optionId === 'number') {
-            this.selectedOptionService.clearOtherSelections(
-              idx,
-              option.optionId
-            );
-          }
-
         } else {
-          // AUTHORITATIVE STATE — AFTER COMMIT
+          // 🔒 AUTHORITATIVE selection set:
+          // combine persisted selections + CURRENT click
+          const persisted = this.selectedOptionService
+            .getSelectedOptionsForQuestion(idx)
+            .map(o => String(o.optionId));
 
-          const selected = this.selectedOptionService
-            .getSelectedOptionsForQuestion(idx);
+          const selectedIdSet = new Set(persisted);
 
-          // Canonical correct ids from questionData
-          const correctIdSet = new Set(
-            questionData.options
-              .filter(o => o.correct === true)
-              .map(o => String(o.optionId))
-          );
+          // 💡 CRITICAL FIX: force-include the clicked option
+          selectedIdSet.add(String(option.optionId));
 
-          // Selected ids (NO correctness assumed here)
-          const selectedIdSet = new Set(
-            selected.map(o => String(o.optionId))
-          );
-
-          // STOP when ALL correct are selected
-          // (wrong selections are ignored)
-          shouldStop =
-            correctIdSet.size > 0 &&
-            [...correctIdSet].every(id => selectedIdSet.has(id));
+          // Stop when ALL correct answers are present
+          shouldStop = [...correctIdSet].every(id => selectedIdSet.has(id));
         }
 
         if (shouldStop) {
           console.error('🟢 FINAL TIMER STOP', {
             idx,
             type: this.type,
-            correctOptionIds,
-            selectedCorrectIds:
-              this.type === 'multiple'
-                ? this.selectedOptionService
-                    .getSelectedOptionsForQuestion(idx)
-                    .filter(o => o.correct === true)
-                    .map(o => o.optionId)
-                : [option.optionId]
+            correct: [...correctIdSet],
+            selected: [...correctIdSet].filter(id =>
+              this.selectedOptionService
+                .getSelectedOptionsForQuestion(idx)
+                .map(o => String(o.optionId))
+                .includes(id)
+            )
           });
 
           this.timerService.allowAuthoritativeStop();
           this.timerService.stopTimerForQuestion(idx);
         }
       });
-
 
       // ─────────────────────────────────────────────
       // STEP 4: Feedback + messages
