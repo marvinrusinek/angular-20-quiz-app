@@ -3713,8 +3713,9 @@ get quizQuestionComponent(): QuizQuestionComponent {
   }
 
   // Check if an answer has been selected for the first question.
-  async checkIfAnswered(callback: (result: boolean) => void = () => { }):
-    Promise<void> {
+  async checkIfAnswered(
+    callback: (result: boolean) => void = () => {}
+  ): Promise<void> {
     try {
       // Ensure options are available
       if (!this.optionsToDisplay || this.optionsToDisplay.length === 0) {
@@ -3722,53 +3723,67 @@ get quizQuestionComponent(): QuizQuestionComponent {
         callback(false);
         return;
       }
-
+  
       // Validate and normalize options
       this.optionsToDisplay = this.optionsToDisplay.map((option, index) => ({
         ...option,
-        optionId: option.optionId ?? index + 1  // assign a unique ID if missing
+        optionId: option.optionId ?? index + 1 // assign a unique ID if missing
       }));
-
+  
       // Log undefined optionIds if any
-      const undefinedOptionIds = this.optionsToDisplay.filter((o) => o.optionId === undefined);
+      const undefinedOptionIds = this.optionsToDisplay.filter(
+        o => o.optionId === undefined
+      );
       if (undefinedOptionIds.length > 0) {
-        console.error('[checkIfAnswered] Options with undefined optionId found:', undefinedOptionIds);
-        callback(false);  // abort the check since option structure is invalid
+        console.error(
+          '[checkIfAnswered] Options with undefined optionId found:',
+          undefinedOptionIds
+        );
+        callback(false); // abort the check since option structure is invalid
         return;
       }
-
-      // Check if at least one option is selected
+  
+      // Check if at least one option is selected (UI-level only)
       const isAnyOptionSelected =
-        Array.isArray(this.optionsToDisplay) && this.optionsToDisplay.some(o => !!o?.selected);
-
-      // Validate that all correct options are selected (use current index + UI snapshot)
+        Array.isArray(this.optionsToDisplay) &&
+        this.optionsToDisplay.some(o => !!o?.selected);
+  
       const idx = this.currentQuestionIndex;
-      const areAllCorrectSelected =
-        this.selectedOptionService.areAllCorrectAnswersSelectedSync(idx, this.optionsToDisplay);
-
-      // Reflect state into any UI/state services (defensive optional chaining)
-      try { this.quizStateService?.setAnswered(isAnyOptionSelected || areAllCorrectSelected); } catch { }
-      try { this.quizStateService?.setAnswerSelected(isAnyOptionSelected); } catch { }
-
-      // For single-select, enable Next if something is chosen; for multi-select, require all correct.
+  
+      // Reflect state into any UI/state services (NO correctness here)
+      try {
+        this.quizStateService?.setAnswered(isAnyOptionSelected);
+      } catch {}
+  
+      try {
+        this.quizStateService?.setAnswerSelected(isAnyOptionSelected);
+      } catch {}
+  
+      // For navigation:
+      // - single: enable Next when anything is selected
+      // - multiple: Next is enabled elsewhere when correctness is confirmed
       if (!this.currentQuestion) {
         console.warn('[checkIfAnswered] No current question loaded');
         callback(false);
         return;
       }
-
-      const enableNext = (await this.isMultipleAnswer(this.currentQuestion))
-        ? areAllCorrectSelected : isAnyOptionSelected;
-
-      try { this.nextButtonStateService.setNextButtonState(enableNext); } catch { }
-
-      // Return result to caller (used by timer logic)
-      callback(areAllCorrectSelected);
-      
+  
+      const isMultiple = await this.isMultipleAnswer(this.currentQuestion);
+      const enableNext = isMultiple ? false : isAnyOptionSelected;
+  
+      try {
+        this.nextButtonStateService.setNextButtonState(enableNext);
+      } catch {}
+  
+      // Return UI-level result only (used for display, NOT correctness)
+      callback(isAnyOptionSelected);
+  
     } catch (error) {
-      console.error('[checkIfAnswered] Error checking if all correct answers are selected:', error);
-      try { this.nextButtonStateService.setNextButtonState(false); } catch { }
-      callback(false);  // fallback
+      console.error('[checkIfAnswered] Error checking answer state:', error);
+      try {
+        this.nextButtonStateService.setNextButtonState(false);
+      } catch {}
+      callback(false);
     }
   }
 
