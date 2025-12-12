@@ -5255,11 +5255,10 @@ export class QuizQuestionComponent
       // ─────────────────────────────────────────────
       const idx = this.currentQuestionIndex;
 
-      queueMicrotask(() => {
-        // HARD TRUTH: derive correctness ONLY after state settles
+      setTimeout(() => {
         const correctOptionIds = questionData.options
-          .filter((o) => o.correct === true)
-          .map((o) => String(o.optionId));
+          .filter(o => o.correct === true)
+          .map(o => String(o.optionId));
 
         if (correctOptionIds.length === 0) return;
 
@@ -5267,27 +5266,27 @@ export class QuizQuestionComponent
 
         if (this.type === 'single') {
           const clicked = questionData.options.find(
-            (o) => String(o.optionId) === String(option.optionId),
+            o => String(o.optionId) === String(option.optionId)
           );
           shouldStop = clicked?.correct === true;
         } else {
+          // AUTHORITATIVE STATE — AFTER COMMIT
           const selectedIds = this.selectedOptionService
             .getSelectedOptionsForQuestion(idx)
-            .map((o) => String(o.optionId));
+            .map(o => String(o.optionId));
 
           const selectedSet = new Set(selectedIds);
 
-          // STRICT multi-answer rule
           shouldStop =
             selectedSet.size === correctOptionIds.length &&
-            correctOptionIds.every((id) => selectedSet.has(id));
+            correctOptionIds.every(id => selectedSet.has(id));
         }
 
         if (shouldStop) {
           this.timerService.allowAuthoritativeStop();
           this.timerService.stopTimerForQuestion(idx);
         }
-      });
+      }, 0);
 
       // ─────────────────────────────────────────────
       // STEP 4: Feedback + messages
