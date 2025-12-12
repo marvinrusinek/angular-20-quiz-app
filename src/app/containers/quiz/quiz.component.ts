@@ -3527,17 +3527,6 @@ get quizQuestionComponent(): QuizQuestionComponent {
     const hasUserSelected =
       (questionState.selectedOptions?.length ?? 0) > 0;
 
-    // ✅ Multi-answer correction override
-    const isNowFullyCorrect =
-      this.selectedOptionService.areAllCorrectAnswersSelectedSync(questionIndex);
-
-    if (isNowFullyCorrect) {
-      console.warn('[✅ Override] Final correct selection detected – forcing explanation refresh');
-      questionState.isAnswered = true;
-      questionState.explanationDisplayed = false;
-      this.explanationTextService.unlockExplanation();
-    }
-
     /**
      * 🛑 CRITICAL GUARD:
      * If the user has NOT interacted with this question,
