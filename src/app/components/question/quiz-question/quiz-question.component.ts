@@ -5011,7 +5011,6 @@ export class QuizQuestionComponent extends BaseQuestion
     void this.selectOption(currentQuestion, option, index);
 
     this.processCurrentQuestionState(currentQuestion, option, index);
-    await this.handleCorrectnessAndTimer();
 
     const checkState =
       this.selectedOptionService.getSelectedOptionsForQuestion(index);
@@ -5178,22 +5177,6 @@ export class QuizQuestionComponent extends BaseQuestion
       this.currentQuestionIndex
     );
     this.questionAnswered.emit();
-  }
-
-  private handleCorrectnessAndTimer(): void {
-    const idx = this.currentQuestionIndex;
-  
-    // Ask ONE source of truth
-    const allCorrect = this.selectedOptionService
-      .areAllCorrectAnswersSelectedSync(idx);
-  
-    if (!allCorrect) return;
-  
-    // Grant authority explicitly
-    this.timerService.allowAuthoritativeStop();
-    this.timerService.attemptStopTimerForQuestion({
-      questionIndex: idx
-    });
   }
 
   private async processCurrentQuestion(currentQuestion: QuizQuestion): Promise<void> {
