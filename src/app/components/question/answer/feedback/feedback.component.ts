@@ -1,4 +1,12 @@
-import { ChangeDetectorRef, ChangeDetectionStrategy, Component, Input, OnInit, OnChanges, SimpleChanges } from '@angular/core';
+import {
+  ChangeDetectorRef,
+  ChangeDetectionStrategy,
+  Component,
+  Input,
+  OnInit,
+  OnChanges,
+  SimpleChanges,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 
@@ -12,7 +20,7 @@ import { QuizService } from '../../../../shared/services/quiz.service';
   imports: [CommonModule, MatIconModule],
   templateUrl: './feedback.component.html',
   styleUrls: ['./feedback.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class FeedbackComponent implements OnInit, OnChanges {
   @Input() feedbackConfig?: FeedbackProps | null;
@@ -23,7 +31,8 @@ export class FeedbackComponent implements OnInit, OnChanges {
   constructor(
     private feedbackService: FeedbackService,
     private quizService: QuizService,
-    private cdRef: ChangeDetectorRef) {}
+    private cdRef: ChangeDetectorRef,
+  ) {}
 
   ngOnInit(): void {
     this.updateFeedback();
@@ -31,17 +40,20 @@ export class FeedbackComponent implements OnInit, OnChanges {
 
   ngOnChanges(changes: SimpleChanges): void {
     const feedbackChange = changes['feedbackConfig'];
-  
+
     // Log any change to feedbackConfig
     if (feedbackChange) {
       console.log('[🧪 ngOnChanges] feedbackConfig changed:', feedbackChange);
-      console.log('[🧪 ngOnChanges] new feedbackConfig:', feedbackChange.currentValue);
+      console.log(
+        '[🧪 ngOnChanges] new feedbackConfig:',
+        feedbackChange.currentValue,
+      );
     }
-  
+
     if (this.shouldUpdateFeedback(changes)) {
       console.log('[🧪 shouldUpdateFeedback returned true]');
       this.updateFeedback();
-  
+
       // Force view update
       this.cdRef.markForCheck();
     } else {
@@ -50,7 +62,9 @@ export class FeedbackComponent implements OnInit, OnChanges {
   }
 
   private shouldUpdateFeedback(changes: SimpleChanges): boolean {
-    return 'feedbackConfig' in changes && !!changes['feedbackConfig'].currentValue;
+    return (
+      'feedbackConfig' in changes && !!changes['feedbackConfig'].currentValue
+    );
   }
 
   private updateFeedback(): void {
@@ -62,7 +76,7 @@ export class FeedbackComponent implements OnInit, OnChanges {
       console.log('Feedback is not set to be shown');
       this.displayMessage = '';
     }
-  }  
+  }
 
   private determineFeedbackPrefix(): string {
     const isCorrect = this.feedbackConfig?.selectedOption?.correct ?? false;
@@ -73,32 +87,32 @@ export class FeedbackComponent implements OnInit, OnChanges {
     const isCorrect = this.feedbackConfig?.selectedOption?.correct ?? false;
     return isCorrect ? 'correct-message' : 'wrong-message';
   }
-  
+
   private updateDisplayMessage(): void {
     if (!this.feedbackConfig) {
       this.displayMessage = '';
       return;
     }
-  
+
     const prefix = this.determineFeedbackPrefix();
-  
+
     // If feedback text already present, use it
     const supplied = this.feedbackConfig.feedback?.trim();
     if (supplied) {
       this.displayMessage = `${prefix}${supplied}`;
       return;
     }
-  
+
     // Otherwise generate it via the service
-    const opts    = this.feedbackConfig.options ?? [];
-    const correct = this.quizService.correctOptions ??
-                    opts.filter(o => o.correct);
-  
+    const opts = this.feedbackConfig.options ?? [];
+    const correct =
+      this.quizService.correctOptions ?? opts.filter((o) => o.correct);
+
     const sentence = this.feedbackService.generateFeedbackForOptions(
       correct,
-      opts
+      opts,
     );
-  
+
     this.displayMessage = `${prefix}${sentence}`;
   }
 }

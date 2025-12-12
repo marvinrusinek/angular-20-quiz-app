@@ -12,25 +12,25 @@ export const routes: Routes = [
   {
     path: '',
     redirectTo: 'select',
-    pathMatch: 'full'
+    pathMatch: 'full',
   },
   {
     path: 'select',
-    component: QuizSelectionComponent
+    component: QuizSelectionComponent,
   },
   {
     path: 'intro/:quizId',
-    component: IntroductionComponent
+    component: IntroductionComponent,
   },
   {
     path: 'question/:quizId/:questionIndex',
     component: QuizComponent,
     canActivate: [QuizGuard],
     resolve: { quizData: QuizResolverService },
-    runGuardsAndResolvers: 'always'
+    runGuardsAndResolvers: 'always',
   },
   {
     path: 'results/:quizId',
-    component: ResultsComponent
-  }
+    component: ResultsComponent,
+  },
 ];

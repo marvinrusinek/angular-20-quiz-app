@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject } from 'rxjs'; 
+import { BehaviorSubject } from 'rxjs';
 
 @Injectable({ providedIn: 'root' })
 export class ProgressBarService {
@@ -14,12 +14,13 @@ export class ProgressBarService {
       this.progressPercentageSubject.next(0);
       return;
     }
-  
+
     // Clamp index between 0 and totalQuestions
     const clampedIndex = Math.min(Math.max(currentIndex, 0), totalQuestions);
-  
+
     // Calculate and emit progress
-    const percentage = totalQuestions > 0 ? (clampedIndex / totalQuestions) * 100 : 0;
+    const percentage =
+      totalQuestions > 0 ? (clampedIndex / totalQuestions) * 100 : 0;
     this.progressPercentageSubject.next(percentage);
-  }  
+  }
 }

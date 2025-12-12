@@ -1,5 +1,5 @@
 @use '../../../variables' as vars;
-@use "sass:color";
+@use 'sass:color';
 
 .container {
   margin-top: 1%;
@@ -132,7 +132,9 @@
         }
 
         .quiz-summary {
-          font: 700 14px 'Helvetica Neue', sans-serif;
+          font:
+            700 14px 'Helvetica Neue',
+            sans-serif;
           text-align: justify;
           line-height: 1.35;
           width: 280px;

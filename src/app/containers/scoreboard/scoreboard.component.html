@@ -4,10 +4,7 @@
       <codelab-scoreboard-score class="scoreboard__score" />
 
       @if (badgeText$ | async; as badgeText) {
-        <span
-          class="scoreboard__badge"
-          i18n
-          role="status">
+        <span class="scoreboard__badge" i18n role="status">
           {{ badgeText }}
         </span>
       }

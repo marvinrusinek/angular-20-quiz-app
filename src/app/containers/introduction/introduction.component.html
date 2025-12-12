@@ -1,60 +1,86 @@
-@let selectedQuiz = (selectedQuiz$ | async);
+@let selectedQuiz = selectedQuiz$ | async;
 @if (selectedQuiz) {
-<mat-card class="quiz-card">
-  <mat-card-header>
-    <img mat-card-avatar class="header-image" ngSrc="assets/images/codelab_logo.jpeg" alt="Quiz Header image"
-      width="150" height="100" loading="lazy" />
+  <mat-card class="quiz-card">
+    <mat-card-header>
+      <img
+        mat-card-avatar
+        class="header-image"
+        ngSrc="assets/images/codelab_logo.jpeg"
+        alt="Quiz Header image"
+        width="150"
+        height="100"
+        loading="lazy"
+      />
 
-    <mat-card-title-group>
-      <mat-card-title i18n>
-        {{ selectedQuiz.milestone }} Quiz
-      </mat-card-title>
+      <mat-card-title-group>
+        <mat-card-title i18n>
+          {{ selectedQuiz.milestone }} Quiz
+        </mat-card-title>
 
-      <mat-card-subtitle i18n>
-        <span>
-          How well versed are you in {{ selectedQuiz.milestone }}?
-          Take the quiz and find out!
-        </span>
-      </mat-card-subtitle>
-    </mat-card-title-group>
-  </mat-card-header>
+        <mat-card-subtitle i18n>
+          <span>
+            How well versed are you in {{ selectedQuiz.milestone }}? Take the
+            quiz and find out!
+          </span>
+        </mat-card-subtitle>
+      </mat-card-title-group>
+    </mat-card-header>
 
-  <img mat-card-image class="quiz-topic-image" [src]="selectedQuiz.image || 'assets/default-image.jpg'"
-    alt="Quiz topic image" loading="lazy" />
+    <img
+      mat-card-image
+      class="quiz-topic-image"
+      [src]="selectedQuiz.image || 'assets/default-image.jpg'"
+      alt="Quiz topic image"
+      loading="lazy"
+    />
 
-  <mat-card-content>
-    <div class="intro-text" i18n>
-      <p>
-        <strong class="bold-text">{{ selectedQuiz.summary }}</strong>
-      </p>
+    <mat-card-content>
+      <div class="intro-text" i18n>
+        <p>
+          <strong class="bold-text">{{ selectedQuiz.summary }}</strong>
+        </p>
 
-      <p style="text-align: center">
-        Test your wits with
-        <strong class="bold-text">
-          {{ selectedQuiz.questions?.length ?? 0 }}
-        </strong>
-        timed multiple-choice {{ questionLabel }}! Have fun and share!
-      </p>
-    </div>
-  </mat-card-content>
+        <p style="text-align: center">
+          Test your wits with
+          <strong class="bold-text">
+            {{ selectedQuiz.questions?.length ?? 0 }}
+          </strong>
+          timed multiple-choice {{ questionLabel }}! Have fun and share!
+        </p>
+      </div>
+    </mat-card-content>
 
-  <mat-card-actions>
-    <form [formGroup]="preferencesForm" class="intro-preferences" ngNativeValidate>
-      <mat-slide-toggle formControlName="shouldShuffleOptions" (change)="onSlideToggleChange($event)"
-        [disableRipple]="true">
-        Turn on shuffling
-      </mat-slide-toggle>
+    <mat-card-actions>
+      <form
+        [formGroup]="preferencesForm"
+        class="intro-preferences"
+        ngNativeValidate
+      >
+        <mat-slide-toggle
+          formControlName="shouldShuffleOptions"
+          (change)="onSlideToggleChange($event)"
+          [disableRipple]="true"
+        >
+          Turn on shuffling
+        </mat-slide-toggle>
 
-      <button type="button" mat-raised-button color="primary" class="btn btn-outline-primary start-btn"
-        [disabled]="isStartingQuiz" (click)="onStartQuiz(selectedQuiz.quizId)" aria-label="Start the Quiz">
-        <span i18n class="start-btn-content">
-          <strong>Start the Quiz!</strong>&nbsp;
-          <mat-icon>play_arrow</mat-icon>
-        </span>
-      </button>
-    </form>
-  </mat-card-actions>
-</mat-card>
+        <button
+          type="button"
+          mat-raised-button
+          color="primary"
+          class="btn btn-outline-primary start-btn"
+          [disabled]="isStartingQuiz"
+          (click)="onStartQuiz(selectedQuiz.quizId)"
+          aria-label="Start the Quiz"
+        >
+          <span i18n class="start-btn-content">
+            <strong>Start the Quiz!</strong>&nbsp;
+            <mat-icon>play_arrow</mat-icon>
+          </span>
+        </button>
+      </form>
+    </mat-card-actions>
+  </mat-card>
 } @else {
-<p>Loading&hellip;</p>
+  <p>Loading&hellip;</p>
 }

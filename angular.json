@@ -26,21 +26,15 @@
             }
           },
           "options": {
-            "assets": [
-              "src/assets",
-              "src/favicon.ico"
-            ],
+            "assets": ["src/assets", "src/favicon.ico"],
             "index": "src/index.html",
             "browser": "src/main.ts",
             "outputPath": "dist/demo",
             "polyfills": ["src/polyfills.ts"],
             "scripts": [],
-            "styles": [
-              "src/global_styles.css",
-              "src/styles.scss"
-            ],
+            "styles": ["src/global_styles.css", "src/styles.scss"],
             "tsConfig": "tsconfig.app.json"
-          }  
+          }
         },
         "serve": {
           "builder": "@angular/build:dev-server",

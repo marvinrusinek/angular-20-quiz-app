@@ -10,7 +10,7 @@ import { QuizMetadata } from '../../../../shared/models/QuizMetadata.model';
   imports: [CommonModule],
   templateUrl: './summary-icons.component.html',
   styleUrls: ['./summary-icons.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SummaryIconsComponent {
   @Input() quiz: Quiz | null = null;

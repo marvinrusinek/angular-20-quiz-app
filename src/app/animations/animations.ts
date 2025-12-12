@@ -1,4 +1,10 @@
-import { animate, keyframes, style, transition, trigger } from '@angular/animations';
+import {
+  animate,
+  keyframes,
+  style,
+  transition,
+  trigger,
+} from '@angular/animations';
 
 /***************************************
  * Slide Left → Right (Intro)
@@ -9,10 +15,10 @@ export const SlideLeftToRightAnimation = {
       style({ transform: 'translateX(-100%)' }),
       animate(
         '900ms cubic-bezier(0.4, 0.0, 0.2, 1)',
-        style({ transform: 'translateX(0%)' })
-      )
-    ])
-  ])
+        style({ transform: 'translateX(0%)' }),
+      ),
+    ]),
+  ]),
 };
 
 /***************************************
@@ -27,9 +33,9 @@ export const ChangeRouteAnimation = {
           style({ transform: 'scale(1)', offset: 0 }),
           style({ transform: 'scale(1.25)', offset: 0.35 }),
           style({ transform: 'scale(1.35)', offset: 0.55 }),
-          style({ transform: 'scale(1)', offset: 1 })
-        ])
-      )
-    ])
-  ])
+          style({ transform: 'scale(1)', offset: 1 }),
+        ]),
+      ),
+    ]),
+  ]),
 };

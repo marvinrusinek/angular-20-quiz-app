@@ -1,4 +1,4 @@
-@use "variables" as vars;
+@use 'variables' as vars;
 @use 'sass:color';
 
 @mixin leader {
@@ -31,7 +31,6 @@
   word-wrap: break-word;
 }
 
-
 .leader {
   @include leader;
 }
@@ -40,6 +39,8 @@ span.scoreboard {
   @include scoreboard-span;
 }
 
-.message, .correct-message, .wrong-message {
+.message,
+.correct-message,
+.wrong-message {
   @include message;
 }

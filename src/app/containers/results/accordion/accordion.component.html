@@ -14,7 +14,8 @@
         </mat-panel-description>
 
         <mat-panel-title>
-          <span class="question-leader">Question #{{ i + 1 }}:</span>&nbsp;&nbsp;
+          <span class="question-leader">Question #{{ i + 1 }}:</span
+          >&nbsp;&nbsp;
           <span class="question-text">{{ question.questionText }}</span>
         </mat-panel-title>
 
@@ -26,23 +27,35 @@
                 <span class="leader">Your Answer(s):</span>
 
                 @if (results.userAnswers[i]) {
-                  {{ results.userAnswers[i].length === 1 ? 'Option' : 'Options' }}
+                  {{
+                    results.userAnswers[i].length === 1 ? 'Option' : 'Options'
+                  }}
                   {{ results.userAnswers[i] | join }} &mdash;
 
-                  @for (item of results.userAnswers[i]; track $index; let isLast = $last) {
+                  @for (
+                    item of results.userAnswers[i];
+                    track $index;
+                    let isLast = $last
+                  ) {
                     {{ question.options[item - 1].text }}
-                    @if (!isLast) { <span> AND </span> }
+                    @if (!isLast) {
+                      <span> AND </span>
+                    }
                   }
 
                   <!-- Correct / Incorrect Icons -->
-                  @if (!checkIfAnswersAreCorrect(correctAnswers, results.userAnswers, i)) {
+                  @if (
+                    !checkIfAnswersAreCorrect(
+                      correctAnswers,
+                      results.userAnswers,
+                      i
+                    )
+                  ) {
                     <mat-icon class="incorrect">clear</mat-icon>
-                  }
-                  @else {
+                  } @else {
                     <mat-icon class="correct">done</mat-icon>
                   }
-                }
-                @else {
+                } @else {
                   <span>(no answer provided)</span>
                 }
               </li>
@@ -55,11 +68,16 @@
                 @if (correctAnswers.length === 1) {
                   {{ correctAnswers[0] }} &mdash;
                   {{ question.options[correctAnswers[0] - 1].text }}
-                }
-                @else {
-                  @for (item of correctAnswers; track $index; let isLast = $last) {
+                } @else {
+                  @for (
+                    item of correctAnswers;
+                    track $index;
+                    let isLast = $last
+                  ) {
                     {{ question.options[item - 1].text }}
-                    @if (!isLast) { <span> AND </span> }
+                    @if (!isLast) {
+                      <span> AND </span>
+                    }
                   }
                   &mdash; were correct because {{ question.explanation }}.
                 }
@@ -72,8 +90,7 @@
                 @if (correctAnswers.length === 1) {
                   Option {{ correctAnswers[0] }} was correct because
                   {{ question.explanation }}.
-                }
-                @else {
+                } @else {
                   Options {{ correctAnswers | join }} were correct because
                   {{ question.explanation }}.
                 }

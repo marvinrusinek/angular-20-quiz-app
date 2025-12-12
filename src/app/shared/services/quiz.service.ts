@@ -1,8 +1,24 @@
 import { Injectable } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, firstValueFrom, from, Observable, of, Subject } from 'rxjs';
-import { auditTime, catchError, distinctUntilChanged, filter, map, shareReplay, take, tap } from 'rxjs/operators';
+import {
+  BehaviorSubject,
+  firstValueFrom,
+  from,
+  Observable,
+  of,
+  Subject,
+} from 'rxjs';
+import {
+  auditTime,
+  catchError,
+  distinctUntilChanged,
+  filter,
+  map,
+  shareReplay,
+  take,
+  tap,
+} from 'rxjs/operators';
 import _, { isEqual } from 'lodash';
 
 import { QUIZ_DATA, QUIZ_RESOURCES } from '../quiz';
@@ -28,14 +44,14 @@ export class QuizService {
   quizData: Quiz[] | null = this.quizInitialState;
   private _quizData$ = new BehaviorSubject<Quiz[]>([]);
   data: {
-    questionText: string,
-    correctAnswersText?: string,
-    currentOptions: Option[]
+    questionText: string;
+    correctAnswersText?: string;
+    currentOptions: Option[];
   } = {
-      questionText: '',
-      correctAnswersText: '',
-      currentOptions: []
-    };
+    questionText: '',
+    correctAnswersText: '',
+    currentOptions: [],
+  };
   quizId = '';
   quizResources: QuizResource[] = [];
   question: QuizQuestion | null = null;
@@ -88,11 +104,11 @@ export class QuizService {
   numberOfCorrectAnswers = 0;
 
   public correctAnswersCountSubject = new BehaviorSubject<number>(
-    Number(localStorage.getItem('correctAnswersCount')) || 0
+    Number(localStorage.getItem('correctAnswersCount')) || 0,
   );
 
   private correctAnswersCountTextSource = new BehaviorSubject<string>(
-    localStorage.getItem('correctAnswersText') ?? ''
+    localStorage.getItem('correctAnswersText') ?? '',
   );
 
   // Frame-synchronized observable for banner display
@@ -101,16 +117,16 @@ export class QuizService {
     .asObservable()
     .pipe(
       // Always emit — including empty clears — but skip null/undefined
-      filter(v => v != null),    // keeps '', filters null/undefined
+      filter((v) => v != null), // keeps '', filters null/undefined
       // Give Angular and questionText$ exactly one paint frame to sync
       auditTime(0),
       // Drop accidental rapid double-emits
       distinctUntilChanged(),
-      shareReplay({ bufferSize: 1, refCount: true })
+      shareReplay({ bufferSize: 1, refCount: true }),
     );
 
   // Guards to prevent banner flicker during nav
-  private _lastBanner = '';  // last text we emitted
+  private _lastBanner = ''; // last text we emitted
   private _pendingBannerTimer: any = null;
 
   currentQuestionIndexSubject = new BehaviorSubject<number>(0);
@@ -205,7 +221,7 @@ export class QuizService {
   constructor(
     private quizShuffleService: QuizShuffleService,
     private activatedRoute: ActivatedRoute,
-    private http: HttpClient
+    private http: HttpClient,
   ) {
     this.initializeData();
   }
@@ -238,11 +254,11 @@ export class QuizService {
       if (this.quizId) {
         // Try to find the quiz with the specified ID
         selectedQuiz = this.quizData.find(
-          (quiz) => quiz.quizId === this.quizId
+          (quiz) => quiz.quizId === this.quizId,
         );
         if (!selectedQuiz) {
           console.warn(
-            `No quiz found with ID: ${this.quizId}. Falling back to the first quiz.`
+            `No quiz found with ID: ${this.quizId}. Falling back to the first quiz.`,
           );
         }
       }
@@ -259,7 +275,7 @@ export class QuizService {
       } else {
         console.error(
           `Selected quiz (ID: ${this.quizId}) does not have a valid questions array:`,
-          selectedQuiz.questions
+          selectedQuiz.questions,
         );
         this.questions = [];
       }
@@ -274,7 +290,7 @@ export class QuizService {
 
     if (!this.questions || this.questions.length === 0) {
       console.warn(
-        'Questions array is empty or undefined after initialization'
+        'Questions array is empty or undefined after initialization',
       );
     } else {
       console.log('Final questions state:', this.questions);
@@ -286,7 +302,7 @@ export class QuizService {
       if (!this.isValidQuestionStructure(firstQuestion)) {
         console.error(
           'First question does not have a valid structure:',
-          firstQuestion
+          firstQuestion,
         );
       }
     }
@@ -300,9 +316,7 @@ export class QuizService {
       typeof question.questionText === 'string' &&
       Array.isArray(question.options) &&
       question.options.length > 0 &&
-      question.options.every(
-        (opt: any) => opt && typeof opt.text === 'string'
-      )
+      question.options.every((opt: any) => opt && typeof opt.text === 'string')
     );
   }
 
@@ -384,7 +398,6 @@ export class QuizService {
     this.quizCompleted = completed;
   } */
 
-
   setCompletedQuizId(value: string) {
     this.completedQuizId = value;
   }
@@ -400,12 +413,12 @@ export class QuizService {
       return;
     }
 
-    const values = options.map(opt =>
-      typeof opt.value === 'number' ? opt.value : 0
+    const values = options.map((opt) =>
+      typeof opt.value === 'number' ? opt.value : 0,
     );
     this.setAnswers(values);
 
-    this.optionsSubject.next(options);  // emit to options$
+    this.optionsSubject.next(options); // emit to options$
   }
 
   // Return a sanitized array of options for the given question index.
@@ -430,9 +443,7 @@ export class QuizService {
         }
 
         // Deep clone options cleanly so state never leaks between questions
-        const normalized = this.cloneOptions(
-          this.sanitizeOptions(q.options)
-        );
+        const normalized = this.cloneOptions(this.sanitizeOptions(q.options));
 
         // Broadcast to the app
         this.currentOptionsSubject.next(normalized);
@@ -442,7 +453,7 @@ export class QuizService {
       catchError((err) => {
         console.error(`[getOptions ❌] Failed for index ${index}`, err);
         return of([]);
-      })
+      }),
     );
   }
 
@@ -482,7 +493,7 @@ export class QuizService {
         showFeedback:
           typeof opt?.showFeedback === 'boolean' ? opt.showFeedback : false,
         feedback: (opt?.feedback ?? 'No feedback available').trim(),
-        styleClass: opt?.styleClass ?? ''
+        styleClass: opt?.styleClass ?? '',
       };
 
       if (typeof opt?.displayOrder === 'number') {
@@ -499,7 +510,9 @@ export class QuizService {
       return option.optionId;
     }
 
-    console.warn(`Invalid or missing optionId. Falling back to index: ${index}`);
+    console.warn(
+      `Invalid or missing optionId. Falling back to index: ${index}`,
+    );
     return index;
   }
 
@@ -523,16 +536,18 @@ export class QuizService {
         // Return a shallow clone to avoid direct mutations
         return {
           ...q,
-          options: (q.options ?? []).map((o) => ({ ...o }))
+          options: (q.options ?? []).map((o) => ({ ...o })),
         };
-      })
+      }),
     );
   }
 
-  getQuestionPayloadForIndex(index: number): Observable<QuestionPayload | null> {
+  getQuestionPayloadForIndex(
+    index: number,
+  ): Observable<QuestionPayload | null> {
     return this.questionPayload$.pipe(
       map(() => this.questionPayloadMap.get(index) ?? null),
-      distinctUntilChanged()
+      distinctUntilChanged(),
     );
   }
 
@@ -540,7 +555,7 @@ export class QuizService {
     try {
       if (!quizId) {
         console.error('Quiz ID is not provided or is empty:', quizId);
-        return [];   // stops execution cleanly
+        return []; // stops execution cleanly
       }
 
       // Reuse the already prepared questions when available to avoid
@@ -552,37 +567,37 @@ export class QuizService {
         cachedQuestions.length > 0 &&
         this.quizId === quizId
       ) {
-        return cachedQuestions.map((question) =>
-          this.cloneQuestionForSession(question) ?? question
+        return cachedQuestions.map(
+          (question) => this.cloneQuestionForSession(question) ?? question,
         );
       }
 
       // Fetch quizzes from the API
       const quizzes = await firstValueFrom<Quiz[]>(
-        this.http.get<Quiz[]>(this.quizUrl)
+        this.http.get<Quiz[]>(this.quizUrl),
       );
 
       const quiz = quizzes.find((q) => String(q.quizId) === String(quizId));
 
       if (!quiz) {
         console.error(`Quiz with ID ${quizId} not found`);
-        return [];   // or return null if your return type allows
+        return []; // or return null if your return type allows
       }
 
       // Normalize questions and options
       const normalizedQuestions = (quiz.questions ?? []).map((question) => {
         const normalizedOptions = Array.isArray(question.options)
           ? question.options.map((option, index) => ({
-            ...option,
-            correct: !!option.correct,
-            optionId: option.optionId ?? index + 1,
-            displayOrder: index,
-          }))
+              ...option,
+              correct: !!option.correct,
+              optionId: option.optionId ?? index + 1,
+              displayOrder: index,
+            }))
           : [];
 
         if (!normalizedOptions.length) {
           console.error(
-            `[fetchQuizQuestions] Question ${question.questionText} has no options.`
+            `[fetchQuizQuestions] Question ${question.questionText} has no options.`,
           );
         }
 
@@ -601,7 +616,7 @@ export class QuizService {
             Utils.shuffleArray(question.options);
             question.options = question.options.map((option, index) => ({
               ...option,
-              displayOrder: index
+              displayOrder: index,
             }));
           }
         }
@@ -616,13 +631,13 @@ export class QuizService {
 
       // Emit a fresh copy so that consumers don't accidentally mutate the
       // cached list and desynchronize future navigation lookups.
-      const broadcastQuestions = sanitizedQuestions.map((question) =>
-        this.cloneQuestionForSession(question) ?? question
+      const broadcastQuestions = sanitizedQuestions.map(
+        (question) => this.cloneQuestionForSession(question) ?? question,
       );
       this.questions = broadcastQuestions;
 
-      return sanitizedQuestions.map((question) =>
-        this.cloneQuestionForSession(question) ?? question
+      return sanitizedQuestions.map(
+        (question) => this.cloneQuestionForSession(question) ?? question,
       );
     } catch (error) {
       console.error('Error in fetchQuizQuestions:', error);
@@ -638,7 +653,7 @@ export class QuizService {
           tap((quizzes: Quiz[]) => {
             // Find the correct quiz and extract its questions
             const selectedQuiz = quizzes.find(
-              (quiz) => quiz.quizId === this.quizId
+              (quiz) => quiz.quizId === this.quizId,
             );
             if (!selectedQuiz) {
               console.error(`Quiz with ID ${this.quizId} not found`);
@@ -657,21 +672,22 @@ export class QuizService {
                 }));
               } else {
                 console.error(
-                  `Options are not properly defined for question:::>> ${question.questionText ?? 'undefined'
-                  }`
+                  `Options are not properly defined for question:::>> ${
+                    question.questionText ?? 'undefined'
+                  }`,
                 );
                 console.log('Question index:', qIndex, 'Question:', question);
                 question.options = []; // Initialize as an empty array to prevent further errors
               }
             }
 
-            this.questionsSubject.next(questions ?? []);  // update BehaviorSubject with new data
+            this.questionsSubject.next(questions ?? []); // update BehaviorSubject with new data
           }),
           catchError((error: Error) => {
             console.error('Error fetching questions:', error);
             return of([]);
           }),
-          shareReplay({ bufferSize: 1, refCount: true }) // Ensure the latest fetched data is replayed to new subscribers
+          shareReplay({ bufferSize: 1, refCount: true }), // Ensure the latest fetched data is replayed to new subscribers
         )
         .subscribe(); // Start the Observable chain
     }
@@ -684,12 +700,14 @@ export class QuizService {
 
   getQuestionData(
     quizId: string,
-    questionIndex: number
+    questionIndex: number,
   ): {
     questionText: string;
     currentOptions: Option[];
   } | null {
-    const currentQuiz = (this.quizData ?? []).find((quiz) => quiz.quizId === quizId);
+    const currentQuiz = (this.quizData ?? []).find(
+      (quiz) => quiz.quizId === quizId,
+    );
 
     const questions = currentQuiz?.questions ?? [];
     if (questions.length > questionIndex) {
@@ -706,7 +724,9 @@ export class QuizService {
 
   public setCurrentQuestion(question: QuizQuestion): void {
     if (!question) {
-      console.error('[QuizService] Attempted to set a null or undefined question.');
+      console.error(
+        '[QuizService] Attempted to set a null or undefined question.',
+      );
       return;
     }
 
@@ -715,13 +735,18 @@ export class QuizService {
     // Check for deep comparison result
     const isEqual = this.areQuestionsEqual(previousQuestion, question);
     if (isEqual) {
-      console.warn('[QuizService] Question is considered identical to the previous one. Skipping update.');
+      console.warn(
+        '[QuizService] Question is considered identical to the previous one. Skipping update.',
+      );
       return;
     }
 
     // Verify options structure
     if (!Array.isArray(question.options) || question.options.length === 0) {
-      console.error('[QuizService] No valid options array found in the provided question:', question);
+      console.error(
+        '[QuizService] No valid options array found in the provided question:',
+        question,
+      );
       return;
     }
 
@@ -732,20 +757,22 @@ export class QuizService {
       correct: option.correct ?? false,
       selected: option.selected ?? false,
       active: option.active ?? true,
-      showIcon: option.showIcon ?? false
+      showIcon: option.showIcon ?? false,
     }));
 
     // Construct the updated question object
     const updatedQuestion: QuizQuestion = {
       ...question,
-      options: updatedOptions
+      options: updatedOptions,
     };
 
     // Emit the new question
     this.currentQuestion.next(updatedQuestion);
   }
 
-  public getCurrentQuestion(questionIndex: number): Observable<QuizQuestion | null> {
+  public getCurrentQuestion(
+    questionIndex: number,
+  ): Observable<QuizQuestion | null> {
     const quizId = this.getCurrentQuizId(); // Retrieve the current quiz ID
     return this.findQuizByQuizId(quizId).pipe(
       map((quiz) => {
@@ -761,7 +788,9 @@ export class QuizService {
         const questions = quiz.questions;
 
         if (questionIndex < 0 || questionIndex >= questions.length) {
-          console.warn(`[QuizService] Index ${questionIndex} out of bounds (0-${questions.length - 1}). Returning null.`);
+          console.warn(
+            `[QuizService] Index ${questionIndex} out of bounds (0-${questions.length - 1}). Returning null.`,
+          );
           return null;
         }
 
@@ -771,51 +800,69 @@ export class QuizService {
       catchError((error: Error) => {
         console.error('Error fetching current question:', error);
         return of(null); // Return null on error
-      })
+      }),
     );
   }
 
   public getLastKnownOptions(): Option[] {
     const lastKnown = this.currentQuestion.getValue()?.options || [];
 
-    console.log('[QuizService] 🔍 getLastKnownOptions() returning:', JSON.stringify(lastKnown, null, 2));
+    console.log(
+      '[QuizService] 🔍 getLastKnownOptions() returning:',
+      JSON.stringify(lastKnown, null, 2),
+    );
 
     return lastKnown;
   }
 
   // Get the current options for the current quiz and question
-  getCurrentOptions(questionIndex: number = this.currentQuestionIndex ?? 0): Observable<Option[]> {
+  getCurrentOptions(
+    questionIndex: number = this.currentQuestionIndex ?? 0,
+  ): Observable<Option[]> {
     if (!Number.isInteger(questionIndex) || questionIndex < 0) {
-      console.error(`Invalid questionIndex: ${questionIndex}. Returning empty options.`);
+      console.error(
+        `Invalid questionIndex: ${questionIndex}. Returning empty options.`,
+      );
       return of([]);
     }
 
     return this.getQuestionByIndex(questionIndex).pipe(
       map((question) => {
-        if (!question || !Array.isArray(question.options) || question.options.length === 0) {
-          console.warn(`No options found for Q${questionIndex}. Returning empty array.`);
+        if (
+          !question ||
+          !Array.isArray(question.options) ||
+          question.options.length === 0
+        ) {
+          console.warn(
+            `No options found for Q${questionIndex}. Returning empty array.`,
+          );
           return [];
         }
 
-        const deepClone = typeof structuredClone === 'function'
-          ? structuredClone
-          : (obj: any) => JSON.parse(JSON.stringify(obj));
+        const deepClone =
+          typeof structuredClone === 'function'
+            ? structuredClone
+            : (obj: any) => JSON.parse(JSON.stringify(obj));
 
         // Clone and assign each option defensively
         const sanitized = question.options.map((opt, index) => ({
           ...deepClone(opt),
           optionId: typeof opt.optionId === 'number' ? opt.optionId : index,
           correct: opt.correct ?? false,
-          feedback: opt.feedback ?? `Generated feedback for Q${questionIndex} Option ${index}`
+          feedback:
+            opt.feedback ??
+            `Generated feedback for Q${questionIndex} Option ${index}`,
         }));
 
-        console.log(`[✅ getCurrentOptions] Q${questionIndex} returning ${sanitized.length} options`);
+        console.log(
+          `[✅ getCurrentOptions] Q${questionIndex} returning ${sanitized.length} options`,
+        );
         return sanitized;
       }),
       catchError((error) => {
         console.error(`Error fetching options for Q${questionIndex}:`, error);
         return of([]);
-      })
+      }),
     );
   }
 
@@ -824,9 +871,7 @@ export class QuizService {
   }
 
   setCurrentQuestionIndex(idx: number) {
-    const safeIndex = Number.isFinite(idx)
-      ? Math.max(0, Math.trunc(idx))
-      : 0;
+    const safeIndex = Number.isFinite(idx) ? Math.max(0, Math.trunc(idx)) : 0;
 
     this.currentQuestionIndex = safeIndex;
     this.currentQuestionIndexSource.next(safeIndex);
@@ -842,7 +887,10 @@ export class QuizService {
   }
 
   // set the text of the previous user answers in an array to show in the following quiz
-  setPreviousUserAnswersText(questions: QuizQuestion[], previousAnswers: string[]): void {
+  setPreviousUserAnswersText(
+    questions: QuizQuestion[],
+    previousAnswers: string[],
+  ): void {
     this.previousAnswers = previousAnswers.map((answer) => {
       const index = previousAnswers.indexOf(answer);
       const opts = questions[index]?.options ?? [];
@@ -850,12 +898,12 @@ export class QuizService {
       if (Array.isArray(answer)) {
         // Join multiple selected answers into a readable string
         return answer
-          .map(ans => opts.find(option => option.text === ans)?.text ?? '')
+          .map((ans) => opts.find((option) => option.text === ans)?.text ?? '')
           .join(', ');
       }
 
       // Single answer
-      return opts.find(option => option.text === answer)?.text ?? '';
+      return opts.find((option) => option.text === answer)?.text ?? '';
     });
   }
 
@@ -866,7 +914,7 @@ export class QuizService {
       if (question?.options) {
         // Use flatMap to build a clean number[] directly
         const correctOptionNumbers = question.options.flatMap((opt, idx) =>
-          opt.correct ? [idx + 1] : []
+          opt.correct ? [idx + 1] : [],
         );
 
         correctAnswers.set(question.questionText, correctOptionNumbers);
@@ -881,13 +929,16 @@ export class QuizService {
   getCorrectOptionsForCurrentQuestion(question: QuizQuestion): Option[] {
     if (!question) {
       console.error(
-        'No question provided to getCorrectOptionsForCurrentQuestion.'
+        'No question provided to getCorrectOptionsForCurrentQuestion.',
       );
       return [];
     }
 
     if (!Array.isArray(question.options)) {
-      console.error('No options available for the provided question:', question);
+      console.error(
+        'No options available for the provided question:',
+        question,
+      );
       return [];
     }
 
@@ -908,14 +959,21 @@ export class QuizService {
 
   updateBadgeText(questionIndex: number, totalQuestions: number): void {
     try {
-      console.warn('[🛠 updateBadgeText input]', { questionIndex, totalQuestions });
+      console.warn('[🛠 updateBadgeText input]', {
+        questionIndex,
+        totalQuestions,
+      });
 
       // Validate inputs
-      const isValidIndex = Number.isInteger(questionIndex) && questionIndex >= 1;
-      const isValidTotal = Number.isInteger(totalQuestions) && totalQuestions > 0;
+      const isValidIndex =
+        Number.isInteger(questionIndex) && questionIndex >= 1;
+      const isValidTotal =
+        Number.isInteger(totalQuestions) && totalQuestions > 0;
 
       if (!isValidIndex || !isValidTotal || questionIndex > totalQuestions) {
-        console.error(`[❌ updateBadgeText] Invalid question number: ${questionIndex} of ${totalQuestions}`);
+        console.error(
+          `[❌ updateBadgeText] Invalid question number: ${questionIndex} of ${totalQuestions}`,
+        );
         return;
       }
 
@@ -928,16 +986,19 @@ export class QuizService {
       }
 
       this.badgeTextSource.next(newBadgeText);
-      localStorage.setItem('savedQuestionIndex', JSON.stringify(questionIndex - 1));
+      localStorage.setItem(
+        'savedQuestionIndex',
+        JSON.stringify(questionIndex - 1),
+      );
     } catch (error) {
       console.error('[updateBadgeText] Exception:', error);
     }
   }
 
   getCurrentBadgeNumber(): number {
-    const currentBadgeText = this.badgeTextSource.getValue();  // get the current badge text
+    const currentBadgeText = this.badgeTextSource.getValue(); // get the current badge text
     if (!currentBadgeText || currentBadgeText.trim() === '') {
-      return 1;  // default if badge text isn't ready
+      return 1; // default if badge text isn't ready
     }
 
     const match = currentBadgeText.match(/Question (\d+) of \d+/); // extract the question number
@@ -967,7 +1028,9 @@ export class QuizService {
     // Emit immediately — even empty — for reactive streams
     console.log('[QuizService] 🧾 updateCorrectAnswersText called with:', text);
     this.correctAnswersCountTextSource.next(text);
-    console.log('[QuizService] 📤 Emitted banner text to Subject →', JSON.stringify(text)
+    console.log(
+      '[QuizService] 📤 Emitted banner text to Subject →',
+      JSON.stringify(text),
     );
 
     // Optional micro-delay to keep UI paint order stable (prevents banner from racing the question text)
@@ -1019,7 +1082,7 @@ export class QuizService {
         if (!quiz || quiz.quizId !== quizId) return 0;
         return quiz.questions?.length ?? 0;
       }),
-      distinctUntilChanged()
+      distinctUntilChanged(),
     );
   }
 
@@ -1032,7 +1095,7 @@ export class QuizService {
 
   validateAndSetCurrentQuestion(
     quiz: Quiz,
-    currentQuestionIndex: number
+    currentQuestionIndex: number,
   ): boolean {
     if (
       quiz &&
@@ -1044,7 +1107,7 @@ export class QuizService {
       return true;
     } else {
       console.error(
-        'Quiz is not initialized or currentQuestionIndex is out of bounds'
+        'Quiz is not initialized or currentQuestionIndex is out of bounds',
       );
       return false;
     }
@@ -1053,12 +1116,12 @@ export class QuizService {
   handleQuestionChange(
     question: QuizQuestion | null,
     selectedOptions: Array<string | number> | null | undefined,
-    options: Option[]
+    options: Option[],
   ): {
-    updatedOptions: Option[];  // same reference, mutated
-    nextQuestion: QuizQuestion | null;  // question with updated options
-    questionText: string;  // for UI
-    correctAnswersText: string;  // for UI
+    updatedOptions: Option[]; // same reference, mutated
+    nextQuestion: QuizQuestion | null; // question with updated options
+    questionText: string; // for UI
+    correctAnswersText: string; // for UI
   } {
     // Logic to update options based on the question
     if (question && Array.isArray(question.options)) {
@@ -1067,7 +1130,7 @@ export class QuizService {
       this.resetAll();
     }
 
-    const base = options;  // caller’s array reference
+    const base = options; // caller’s array reference
 
     // Empty state → return empties; caller will handle UI
     if (!Array.isArray(base) || base.length === 0) {
@@ -1075,14 +1138,14 @@ export class QuizService {
         updatedOptions: [],
         nextQuestion: question ?? null,
         questionText: question?.questionText ?? '',
-        correctAnswersText: ''
+        correctAnswersText: '',
       };
     }
 
     const selSet = new Set(
       (Array.isArray(selectedOptions) ? selectedOptions : [])
-        .filter(v => v != null)
-        .map(v => String(v))
+        .filter((v) => v != null)
+        .map((v) => String(v)),
     );
 
     for (const opt of base as any[]) {
@@ -1104,12 +1167,17 @@ export class QuizService {
         ? this.buildCorrectAnswerCountLabel(nextQuestion, base)
         : '';
 
-    return { updatedOptions: base, nextQuestion, questionText, correctAnswersText };
+    return {
+      updatedOptions: base,
+      nextQuestion,
+      questionText,
+      correctAnswersText,
+    };
   }
 
   private buildCorrectAnswerCountLabel(
     question: QuizQuestion,
-    options: Option[]
+    options: Option[],
   ): string {
     if (!question) {
       return '';
@@ -1141,12 +1209,16 @@ export class QuizService {
 
   async determineCorrectAnswer(
     question: QuizQuestion,
-    answers: Option[]
+    answers: Option[],
   ): Promise<boolean[]> {
-    return answers.map((answer) => !!question.options.find(
-      (option) =>
-        option.text.trim().toLowerCase() === answer.text.trim().toLowerCase()
-    )?.correct);
+    return answers.map(
+      (answer) =>
+        !!question.options.find(
+          (option) =>
+            option.text.trim().toLowerCase() ===
+            answer.text.trim().toLowerCase(),
+        )?.correct,
+    );
   }
 
   // Populate correctOptions when questions are loaded
@@ -1156,7 +1228,7 @@ export class QuizService {
     const sanitizedOptions = this.sanitizeOptions(options); // ensure options are sanitized
 
     this.correctOptions = sanitizedOptions.filter((option, idx) => {
-      const isValid = Number.isInteger(option.optionId)
+      const isValid = Number.isInteger(option.optionId);
 
       if (!isValid) {
         console.warn(`Invalid option at index ${idx}:`, option);
@@ -1169,12 +1241,12 @@ export class QuizService {
 
   setCorrectAnswers(
     question: QuizQuestion,
-    options: Option[]
+    options: Option[],
   ): Observable<void> {
     return new Observable((observer) => {
       console.log(
         'Setting correct answers for question:',
-        question.questionText
+        question.questionText,
       );
 
       // Filter and map correct options
@@ -1188,19 +1260,19 @@ export class QuizService {
         // Store the correct answers in the map
         this.correctAnswers.set(
           question.questionText.trim(),
-          correctOptionNumbers.filter((n): n is number => n !== undefined)
+          correctOptionNumbers.filter((n): n is number => n !== undefined),
         );
         this.correctAnswersSubject.next(new Map(this.correctAnswers));
         console.log(
           'Updated correctAnswers map:',
-          Array.from(this.correctAnswers.entries())
+          Array.from(this.correctAnswers.entries()),
         );
 
         observer.next();
         observer.complete();
       } else {
         observer.error(
-          `No correct options found for question: "${question.questionText}".`
+          `No correct options found for question: "${question.questionText}".`,
         );
       }
     });
@@ -1225,7 +1297,7 @@ export class QuizService {
 
     if (correctAnswers.length === 0) {
       console.warn(
-        `No correct answers found for question: "${question.questionText}".`
+        `No correct answers found for question: "${question.questionText}".`,
       );
     } else {
       console.log('Correct answers:', correctAnswers);
@@ -1236,7 +1308,7 @@ export class QuizService {
 
   getCorrectAnswersAsString(): string {
     return Array.from(this.correctAnswers.values())
-      .map(a => a.join(','))
+      .map((a) => a.join(','))
       .join(';');
   }
 
@@ -1246,7 +1318,7 @@ export class QuizService {
     }
 
     const isOptionSelected = this.answers.some(
-      (answer: Option) => answer.optionId === selectedOption.optionId
+      (answer: Option) => answer.optionId === selectedOption.optionId,
     );
 
     if (!isOptionSelected) {
@@ -1287,13 +1359,13 @@ export class QuizService {
     this.highScoresLocal.push(this.quizScore);
     this.highScoresLocal.sort(
       (a: QuizScore, b: QuizScore) =>
-        b.attemptDateTime.getTime() - a.attemptDateTime.getTime()
+        b.attemptDateTime.getTime() - a.attemptDateTime.getTime(),
     );
-    this.highScoresLocal.reverse();  // show high scores from most recent to latest
+    this.highScoresLocal.reverse(); // show high scores from most recent to latest
     this.highScoresLocal.splice(MAX_HIGH_SCORES);
     localStorage.setItem(
       'highScoresLocal',
-      JSON.stringify(this.highScoresLocal)
+      JSON.stringify(this.highScoresLocal),
     );
     this.highScores = this.highScoresLocal;
   }
@@ -1325,9 +1397,9 @@ export class QuizService {
     const cachedQuestions = this.questionsSubject.getValue();
     if (Array.isArray(cachedQuestions) && cachedQuestions.length > 0) {
       return of(
-        cachedQuestions.map((question) =>
-          this.cloneQuestionForSession(question) ?? question
-        )
+        cachedQuestions.map(
+          (question) => this.cloneQuestionForSession(question) ?? question,
+        ),
       );
     }
 
@@ -1342,10 +1414,10 @@ export class QuizService {
 
   shuffleQuestions(questions: QuizQuestion[]): QuizQuestion[] {
     if (this.shouldShuffle() && questions && questions.length > 0) {
-      return Utils.shuffleArray([...questions]);  // shuffle a copy for immutability
+      return Utils.shuffleArray([...questions]); // shuffle a copy for immutability
     }
     console.log(
-      '[shuffleQuestions] Skipping shuffle or no questions available.'
+      '[shuffleQuestions] Skipping shuffle or no questions available.',
     );
     return questions;
   }
@@ -1364,7 +1436,11 @@ export class QuizService {
     if (!quiz || quiz.quizId !== quizId) return false;
 
     const questions = quiz.questions ?? [];
-    if (!Array.isArray(questions) || questionIndex < 0 || questionIndex >= questions.length) {
+    if (
+      !Array.isArray(questions) ||
+      questionIndex < 0 ||
+      questionIndex >= questions.length
+    ) {
       return false;
     }
 
@@ -1372,14 +1448,13 @@ export class QuizService {
     if (!q) return false;
 
     const hasOptions = Array.isArray(q.options) && q.options.length > 0;
-    const hasText = typeof q.questionText === 'string' && q.questionText.trim().length > 0;
+    const hasText =
+      typeof q.questionText === 'string' && q.questionText.trim().length > 0;
 
     return hasOptions && hasText;
   }
 
-  private cloneQuestionForSession(
-    question: QuizQuestion
-  ): QuizQuestion | null {
+  private cloneQuestionForSession(question: QuizQuestion): QuizQuestion | null {
     if (!question) {
       return null;
     }
@@ -1387,31 +1462,31 @@ export class QuizService {
     const deepClone = JSON.parse(JSON.stringify(question)) as QuizQuestion;
     const normalizedOptions = Array.isArray(deepClone.options)
       ? deepClone.options.map((option, optionIdx) => ({
-        ...option,
-        optionId:
-          typeof option.optionId === 'number'
-            ? option.optionId
-            : optionIdx + 1,
-        displayOrder:
-          typeof option.displayOrder === 'number'
-            ? option.displayOrder
-            : optionIdx,
-        correct: option.correct === true,
-        selected: option.selected ?? false,
-        highlight: option.highlight ?? false,
-        showIcon: option.showIcon ?? false,
-      }))
+          ...option,
+          optionId:
+            typeof option.optionId === 'number'
+              ? option.optionId
+              : optionIdx + 1,
+          displayOrder:
+            typeof option.displayOrder === 'number'
+              ? option.displayOrder
+              : optionIdx,
+          correct: option.correct === true,
+          selected: option.selected ?? false,
+          highlight: option.highlight ?? false,
+          showIcon: option.showIcon ?? false,
+        }))
       : [];
 
     return {
       ...deepClone,
-      options: normalizedOptions
+      options: normalizedOptions,
     };
   }
 
   setCanonicalQuestions(
     quizId: string,
-    questions: QuizQuestion[] | null | undefined
+    questions: QuizQuestion[] | null | undefined,
   ): void {
     if (!quizId) {
       console.warn('[setCanonicalQuestions] quizId missing.');
@@ -1431,7 +1506,7 @@ export class QuizService {
         ...question,
         options: Array.isArray(question.options)
           ? question.options.map((option) => ({ ...option }))
-          : []
+          : [],
       }));
 
     if (sanitized.length === 0) {
@@ -1486,7 +1561,7 @@ export class QuizService {
 
     const boundedIndex = Math.min(
       Math.max(this.currentQuestionIndex ?? 0, 0),
-      sanitizedQuestions.length - 1
+      sanitizedQuestions.length - 1,
     );
     this.currentQuestionIndex = Number.isFinite(boundedIndex)
       ? boundedIndex
@@ -1495,13 +1570,17 @@ export class QuizService {
     this.currentQuestionIndexSource.next(this.currentQuestionIndex);
     this.currentQuestionIndexSubject.next(this.currentQuestionIndex);
 
-    const currentQuestion = sanitizedQuestions[this.currentQuestionIndex] ?? null;
+    const currentQuestion =
+      sanitizedQuestions[this.currentQuestionIndex] ?? null;
     this.currentQuestionSource.next(currentQuestion);
     this.currentQuestionSubject.next(currentQuestion);
     this.currentQuestion.next(currentQuestion);
 
     const normalizedOptions = Array.isArray(currentQuestion?.options)
-      ? this.assignOptionIds([...currentQuestion.options], this.currentQuestionIndex)
+      ? this.assignOptionIds(
+          [...currentQuestion.options],
+          this.currentQuestionIndex,
+        )
       : [];
 
     if (currentQuestion) {
@@ -1512,7 +1591,7 @@ export class QuizService {
       this.emitQuestionAndOptions(
         currentQuestion,
         normalizedOptions,
-        this.currentQuestionIndex
+        this.currentQuestionIndex,
       );
     } else {
       this.nextQuestionSubject.next(currentQuestion);
@@ -1573,7 +1652,9 @@ export class QuizService {
       const foundQuiz = this.currentQuizSubject.getValue();
 
       if (!foundQuiz) {
-        console.error(`[checkIfAnsweredCorrectly] Quiz not found for ID: ${this.quizId}`);
+        console.error(
+          `[checkIfAnsweredCorrectly] Quiz not found for ID: ${this.quizId}`,
+        );
         return false;
       }
 
@@ -1582,43 +1663,51 @@ export class QuizService {
       // Validate the current question index
       const isQuestionValid = this.validateAndSetCurrentQuestion(
         this.quiz,
-        this.currentQuestionIndex
+        this.currentQuestionIndex,
       );
 
       if (!isQuestionValid) {
-        console.error(`[checkIfAnsweredCorrectly] Invalid question index: ${this.currentQuestionIndex}`);
+        console.error(
+          `[checkIfAnsweredCorrectly] Invalid question index: ${this.currentQuestionIndex}`,
+        );
         return false;
       }
 
       // Pull the question
       const currentQuestionValue = this.currentQuestion.getValue();
       if (!currentQuestionValue) {
-        console.error('[checkIfAnsweredCorrectly] Current question value is undefined or null.');
+        console.error(
+          '[checkIfAnsweredCorrectly] Current question value is undefined or null.',
+        );
         return false;
       }
 
       // Validate answers exist
       if (!this.answers || this.answers.length === 0) {
-        console.info('[checkIfAnsweredCorrectly] No answers provided for validation.');
+        console.info(
+          '[checkIfAnsweredCorrectly] No answers provided for validation.',
+        );
         return false;
       }
 
       if (!this.validateAnswers(currentQuestionValue, this.answers)) {
-        console.warn('[checkIfAnsweredCorrectly] Answers are invalid or do not match question format.');
+        console.warn(
+          '[checkIfAnsweredCorrectly] Answers are invalid or do not match question format.',
+        );
         return false;
       }
 
       // Determine correctness
       const correctnessArray = await this.determineCorrectAnswer(
         currentQuestionValue,
-        this.answers
+        this.answers,
       );
 
       const isCorrect = correctnessArray.includes(true);
 
       // Convert answers → optionId[]
       const answerIds = this.answers
-        .map(a => a.optionId)
+        .map((a) => a.optionId)
         .filter((id): id is number => id !== undefined);
 
       // Update score
@@ -1634,7 +1723,7 @@ export class QuizService {
   incrementScore(
     answers: number[],
     correctAnswerFound: boolean,
-    isMultipleAnswer: boolean
+    isMultipleAnswer: boolean,
   ): void {
     if (isMultipleAnswer) {
       // For multiple-answer questions, ALL correct answers should be marked correct for the score to increase
@@ -1705,28 +1794,36 @@ export class QuizService {
   // Method to find the index of a question
   findQuestionIndex(question: QuizQuestion | null): number {
     if (!question) {
-      console.error('🚨 [QuizService] Provided question parameter is null or undefined.');
+      console.error(
+        '🚨 [QuizService] Provided question parameter is null or undefined.',
+      );
       return -1;
     }
 
     if (!this.selectedQuiz) {
-      console.error('🚨 [QuizService] Quiz data is not properly initialized: selectedQuiz is null');
+      console.error(
+        '🚨 [QuizService] Quiz data is not properly initialized: selectedQuiz is null',
+      );
       return -1;
     }
 
     if (!Array.isArray(this.selectedQuiz.questions)) {
-      console.error('🚨 [QuizService] Quiz data is not properly initialized: questions is not an array');
+      console.error(
+        '🚨 [QuizService] Quiz data is not properly initialized: questions is not an array',
+      );
       return -1;
     }
 
     if (this.selectedQuiz.questions.length === 0) {
-      console.error('🚨 [QuizService] Quiz data is not properly initialized: questions array is empty');
+      console.error(
+        '🚨 [QuizService] Quiz data is not properly initialized: questions array is empty',
+      );
       return -1;
     }
 
     // Find and return index for question
     return this.selectedQuiz.questions.findIndex(
-      q => q.questionText === question.questionText
+      (q) => q.questionText === question.questionText,
     );
   }
 
@@ -1762,7 +1859,7 @@ export class QuizService {
 
   areQuestionsEqual(
     question1: QuizQuestion | null,
-    question2: QuizQuestion | null
+    question2: QuizQuestion | null,
   ): boolean {
     if (!question1 || !question2) return false;
 
@@ -1771,7 +1868,7 @@ export class QuizService {
 
   resetQuestions(): void {
     let currentQuizData = this.quizInitialState.find(
-      (quiz) => quiz.quizId === this.quizId
+      (quiz) => quiz.quizId === this.quizId,
     );
     if (currentQuizData) {
       this.quizData = _.cloneDeep([currentQuizData]);
@@ -1802,7 +1899,9 @@ export class QuizService {
 
     return options.map((option, localIdx) => {
       // Build a globally unique numeric ID like 1001, 1002, 2001, 2002, etc.
-      const uniqueId = Number(`${questionIndex + 1}${(localIdx + 1).toString().padStart(2, '0')}`);
+      const uniqueId = Number(
+        `${questionIndex + 1}${(localIdx + 1).toString().padStart(2, '0')}`,
+      );
       return {
         ...option,
         optionId: uniqueId,
@@ -1820,13 +1919,13 @@ export class QuizService {
 
     return options.map((option, index) => ({
       ...option,
-      displayOrder: index
+      displayOrder: index,
     }));
   }
 
   assignOptionActiveStates(
     options: Option[],
-    correctOptionSelected: boolean
+    correctOptionSelected: boolean,
   ): Option[] {
     if (!Array.isArray(options) || options.length === 0) {
       console.warn('[assignOptionActiveStates] No options provided.');
@@ -1836,11 +1935,11 @@ export class QuizService {
     return options.map((opt, index) => ({
       ...opt,
       optionId: index,
-      active: correctOptionSelected ? opt.correct : true,  // keep only correct options active
-      feedback: correctOptionSelected && !opt.correct ? 'x' : undefined,  // add feedback for incorrect options
+      active: correctOptionSelected ? opt.correct : true, // keep only correct options active
+      feedback: correctOptionSelected && !opt.correct ? 'x' : undefined, // add feedback for incorrect options
       showIcon: correctOptionSelected
         ? opt.correct || opt.showIcon
-        : opt.showIcon  // preserve icons for correct or previously shown
+        : opt.showIcon, // preserve icons for correct or previously shown
     }));
   }
 
@@ -1925,7 +2024,7 @@ export class QuizService {
 
   private resolveCanonicalQuestion(
     index: number,
-    currentQuestion?: QuizQuestion | null
+    currentQuestion?: QuizQuestion | null,
   ): QuizQuestion | null {
     const quizId = this.resolveShuffleQuizId();
     if (!quizId) return null;
@@ -1937,7 +2036,7 @@ export class QuizService {
 
     const cloneCandidate = (
       question: QuizQuestion | null | undefined,
-      reason: string
+      reason: string,
     ): QuizQuestion | null => {
       if (!question) return null;
 
@@ -1952,11 +2051,19 @@ export class QuizService {
 
       if (currentQuestion) {
         const incomingText = this.normalizeQuestionText(clone.questionText);
-        const currentText = this.normalizeQuestionText(currentQuestion.questionText);
+        const currentText = this.normalizeQuestionText(
+          currentQuestion.questionText,
+        );
         if (incomingText && currentText && incomingText !== currentText) {
-          console.debug('[resolveCanonicalQuestion] Replacing mismatched question text', {
-            reason, currentText, incomingText, index
-          });
+          console.debug(
+            '[resolveCanonicalQuestion] Replacing mismatched question text',
+            {
+              reason,
+              currentText,
+              incomingText,
+              index,
+            },
+          );
         }
       }
 
@@ -1970,7 +2077,10 @@ export class QuizService {
       }
 
       if (hasCanonical) {
-        const originalIndex = this.quizShuffleService.toOriginalIndex(quizId, index);
+        const originalIndex = this.quizShuffleService.toOriginalIndex(
+          quizId,
+          index,
+        );
 
         if (
           typeof originalIndex === 'number' &&
@@ -1980,13 +2090,17 @@ export class QuizService {
         ) {
           const canonicalClone = cloneCandidate(
             canonical[originalIndex],
-            'canonical-original-index'
+            'canonical-original-index',
           );
           if (canonicalClone) return canonicalClone;
         }
       }
 
-      const fromShuffle = this.quizShuffleService.getQuestionAtDisplayIndex(quizId, index, base);
+      const fromShuffle = this.quizShuffleService.getQuestionAtDisplayIndex(
+        quizId,
+        index,
+        base,
+      );
       const shuffleClone = cloneCandidate(fromShuffle, 'shuffle-display-index');
       if (shuffleClone) return shuffleClone;
 
@@ -1995,29 +2109,47 @@ export class QuizService {
 
       // Post-shuffle fallbacks
       if (hasCanonical) {
-        const canonicalClone = cloneCandidate(canonical[index], 'canonical-index');
+        const canonicalClone = cloneCandidate(
+          canonical[index],
+          'canonical-index',
+        );
         if (canonicalClone) return canonicalClone;
       }
 
       if (currentQuestion) {
-        const currentKey = this.normalizeQuestionText(currentQuestion.questionText);
+        const currentKey = this.normalizeQuestionText(
+          currentQuestion.questionText,
+        );
         if (currentKey) {
           const textIndexMap = this.canonicalQuestionIndexByText.get(quizId);
           const mappedIndex = textIndexMap?.get(currentKey);
-          if (Number.isInteger(mappedIndex) && mappedIndex! >= 0 && mappedIndex! < canonical.length) {
-            const mappedClone = cloneCandidate(canonical[mappedIndex!], 'canonical-text-index');
+          if (
+            Number.isInteger(mappedIndex) &&
+            mappedIndex! >= 0 &&
+            mappedIndex! < canonical.length
+          ) {
+            const mappedClone = cloneCandidate(
+              canonical[mappedIndex!],
+              'canonical-text-index',
+            );
             if (mappedClone) return mappedClone;
           }
 
-          const fallbackMatch = canonical.find(q =>
-            this.normalizeQuestionText(q?.questionText) === currentKey
+          const fallbackMatch = canonical.find(
+            (q) => this.normalizeQuestionText(q?.questionText) === currentKey,
           );
-          const fallbackClone = cloneCandidate(fallbackMatch, 'canonical-text-scan');
+          const fallbackClone = cloneCandidate(
+            fallbackMatch,
+            'canonical-text-scan',
+          );
           if (fallbackClone) return fallbackClone;
         }
       }
 
-      return cloneCandidate(currentQuestion ?? source[index] ?? null, 'current-fallback');
+      return cloneCandidate(
+        currentQuestion ?? source[index] ?? null,
+        'current-fallback',
+      );
     }
 
     // Non-shuffle path
@@ -2027,20 +2159,22 @@ export class QuizService {
 
   private mergeOptionsWithCanonical(
     question: QuizQuestion,
-    incoming: Option[] = []
+    incoming: Option[] = [],
   ): Option[] {
     const canonical = Array.isArray(question?.options) ? question.options : [];
 
     if (!canonical.length) {
-      return this.normalizeOptionDisplayOrder(incoming ?? []).map((option, index) => ({
-        ...option,
-        optionId: this.toNumericId(option.optionId, index + 1),
-        displayOrder: index,
-        correct: option.correct === true,
-        selected: option.selected === true,
-        highlight: option.highlight ?? false,
-        showIcon: option.showIcon ?? false
-      }));
+      return this.normalizeOptionDisplayOrder(incoming ?? []).map(
+        (option, index) => ({
+          ...option,
+          optionId: this.toNumericId(option.optionId, index + 1),
+          displayOrder: index,
+          correct: option.correct === true,
+          selected: option.selected === true,
+          highlight: option.highlight ?? false,
+          showIcon: option.showIcon ?? false,
+        }),
+      );
     }
 
     const textKey = (value: string | null | undefined) =>
@@ -2061,7 +2195,7 @@ export class QuizService {
       const match =
         incomingById.get(id) ||
         incomingList.find(
-          (candidate) => textKey(candidate?.text) === textKey(option?.text)
+          (candidate) => textKey(candidate?.text) === textKey(option?.text),
         );
 
       const merged: Option = {
@@ -2071,7 +2205,7 @@ export class QuizService {
         correct: option.correct === true || match?.correct === true,
         selected: match?.selected === true || option.selected === true,
         highlight: match?.highlight ?? option.highlight ?? false,
-        showIcon: match?.showIcon ?? option.showIcon ?? false
+        showIcon: match?.showIcon ?? option.showIcon ?? false,
       };
 
       if (match && 'active' in match) {
@@ -2085,7 +2219,7 @@ export class QuizService {
   emitQuestionAndOptions(
     currentQuestion: QuizQuestion,
     options: Option[],
-    indexOverride?: number
+    indexOverride?: number,
   ): void {
     if (!currentQuestion) {
       console.warn('[emitQuestionAndOptions] Missing question data.');
@@ -2101,7 +2235,7 @@ export class QuizService {
 
     const canonical = this.resolveCanonicalQuestion(
       normalizedIndex,
-      currentQuestion
+      currentQuestion,
     );
     let questionToEmit = currentQuestion;
     let optionsToUse = rawOptions;
@@ -2114,7 +2248,8 @@ export class QuizService {
       if (!sameQuestion) {
         questionToEmit = {
           ...canonical,
-          explanation: canonical.explanation ?? currentQuestion.explanation ?? ''
+          explanation:
+            canonical.explanation ?? currentQuestion.explanation ?? '',
         };
         optionsToUse = Array.isArray(canonical.options)
           ? canonical.options.map((option) => ({ ...option }))
@@ -2122,14 +2257,18 @@ export class QuizService {
       } else {
         questionToEmit = {
           ...currentQuestion,
-          explanation: canonical.explanation ?? currentQuestion.explanation ?? '',
+          explanation:
+            canonical.explanation ?? currentQuestion.explanation ?? '',
           options: Array.isArray(canonical.options)
             ? canonical.options.map((option) => ({ ...option }))
-            : []
+            : [],
         };
       }
 
-      optionsToUse = this.mergeOptionsWithCanonical(questionToEmit, optionsToUse);
+      optionsToUse = this.mergeOptionsWithCanonical(
+        questionToEmit,
+        optionsToUse,
+      );
     } else {
       optionsToUse = this.normalizeOptionDisplayOrder(optionsToUse ?? []).map(
         (option, index) => ({
@@ -2139,20 +2278,22 @@ export class QuizService {
           correct: option.correct === true,
           selected: option.selected === true,
           highlight: option.highlight ?? false,
-          showIcon: option.showIcon ?? false
-        })
+          showIcon: option.showIcon ?? false,
+        }),
       );
     }
 
     if (!optionsToUse.length) {
-      console.warn('[emitQuestionAndOptions] No options available after normalization.');
+      console.warn(
+        '[emitQuestionAndOptions] No options available after normalization.',
+      );
       return;
     }
 
     const normalizedOptions = optionsToUse.map((option) => ({ ...option }));
     const normalizedQuestion = {
       ...questionToEmit,
-      options: normalizedOptions
+      options: normalizedOptions,
     };
 
     Object.assign(currentQuestion, normalizedQuestion);
@@ -2167,15 +2308,18 @@ export class QuizService {
     this.questionPayloadSubject.next({
       question: questionToEmit,
       options: optionsToUse,
-      explanation: questionToEmit.explanation ?? ''
+      explanation: questionToEmit.explanation ?? '',
     });
   }
 
   // When the service receives a new question (usually in a method
   // that loads the next question), push the text into the source:
   private updateCurrentQuestion(question: QuizQuestion): void {
-    const qText = (question.questionText ?? '').trim() || 'No question available';
-    console.log(`[QuizService] Updating question text: "${qText.slice(0, 80)}"`);
+    const qText =
+      (question.questionText ?? '').trim() || 'No question available';
+    console.log(
+      `[QuizService] Updating question text: "${qText.slice(0, 80)}"`,
+    );
     this.questionToDisplaySource.next(qText);
   }
 

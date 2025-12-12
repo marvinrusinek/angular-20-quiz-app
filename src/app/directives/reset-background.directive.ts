@@ -1,4 +1,10 @@
-import { Directive, Input, ElementRef, Renderer2, OnDestroy } from '@angular/core';
+import {
+  Directive,
+  Input,
+  ElementRef,
+  Renderer2,
+  OnDestroy,
+} from '@angular/core';
 import { Subscription } from 'rxjs';
 
 import { ResetBackgroundService } from '../shared/services/reset-background.service';
@@ -6,7 +12,7 @@ import { SelectedOptionService } from '../shared/services/selectedoption.service
 
 @Directive({
   selector: '[appResetBackground]',
-  standalone: true
+  standalone: true,
 })
 export class ResetBackgroundDirective implements OnDestroy {
   @Input() appResetBackground = false;
@@ -16,9 +22,9 @@ export class ResetBackgroundDirective implements OnDestroy {
     private el: ElementRef,
     private renderer: Renderer2,
     private resetBackgroundService: ResetBackgroundService,
-    private selectedOptionService: SelectedOptionService
+    private selectedOptionService: SelectedOptionService,
   ) {
-    this.resetBackgroundSubscription = 
+    this.resetBackgroundSubscription =
       this.resetBackgroundService.shouldResetBackground$.subscribe((value) => {
         if (value) {
           this.resetBackground();

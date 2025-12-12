@@ -16,10 +16,15 @@ import { TimerService } from '../../../shared/services/timer.service';
 @Component({
   selector: 'codelab-results-summary',
   standalone: true,
-  imports: [CommonModule, DatePipe, SummaryIconsComponent, SummaryStatsComponent],
+  imports: [
+    CommonModule,
+    DatePipe,
+    SummaryIconsComponent,
+    SummaryStatsComponent,
+  ],
   templateUrl: './summary-report.component.html',
   styleUrls: ['./summary-report.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SummaryReportComponent implements OnInit {
   quizzes$: Observable<Quiz[]> = of([]);
@@ -29,10 +34,11 @@ export class SummaryReportComponent implements OnInit {
     totalQuestions: this.quizService.totalQuestions,
     totalQuestionsAttempted: this.quizService.totalQuestions,
     correctAnswersCount$: this.quizService.correctAnswersCountSubject,
-    percentage: this.quizService.calculatePercentageOfCorrectlyAnsweredQuestions(),
+    percentage:
+      this.quizService.calculatePercentageOfCorrectlyAnsweredQuestions(),
     completionTime: this.timerService.calculateTotalElapsedTime(
-      this.timerService.elapsedTimes
-    )
+      this.timerService.elapsedTimes,
+    ),
   };
   elapsedMinutes = 0;
   elapsedSeconds = 0;
@@ -45,20 +51,20 @@ export class SummaryReportComponent implements OnInit {
     private quizService: QuizService,
     private quizDataService: QuizDataService,
     private timerService: TimerService,
-    private activatedRoute: ActivatedRoute
+    private activatedRoute: ActivatedRoute,
   ) {}
 
   ngOnInit(): void {
     this.quizzes$ = this.quizDataService.getQuizzes();
     this.quizName$ = this.activatedRoute.url.pipe(
-      map((segments) => this.quizService.getQuizName(segments))
+      map((segments) => this.quizService.getQuizName(segments)),
     );
     this.quizId = this.quizService.quizId;
     this.checkedShuffle$ = this.quizService.checkedShuffle$;
     this.calculateElapsedTime();
     this.quizService.saveHighScores();
     this.highScores = this.quizService.highScores;
-    console.log("QMP", this.quizMetadata.percentage);
+    console.log('QMP', this.quizMetadata.percentage);
   }
 
   calculateElapsedTime(): void {

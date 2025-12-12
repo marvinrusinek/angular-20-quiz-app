@@ -1,4 +1,4 @@
-@use "../../../../../variables" as vars;
+@use '../../../../../variables' as vars;
 
 * {
   outline: 1px solid rgba(255, 0, 0, 0.2);
@@ -26,8 +26,8 @@
   user-select: none;
 }
 
-::ng-deep .mat-mdc-radio-button input[type="radio"],
-::ng-deep .mat-mdc-checkbox input[type="checkbox"] {
+::ng-deep .mat-mdc-radio-button input[type='radio'],
+::ng-deep .mat-mdc-checkbox input[type='checkbox'] {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -44,7 +44,6 @@
   align-items: center !important;
   width: 100%;
 }
-
 
 /* ────────────────────────────────────────────────
    2. MAIN OPTION BOX APPEARANCE (SOC ONLY)
@@ -68,7 +67,9 @@
     margin-left: -5px;
     margin-bottom: 20px;
 
-    transition: border-color 0.25s ease, background-color 0.25s ease;
+    transition:
+      border-color 0.25s ease,
+      background-color 0.25s ease;
 
     &:hover {
       border-color: vars.$vivid-blue;
@@ -86,7 +87,6 @@
   }
 }
 
-
 /* ────────────────────────────────────────────────
    3. OPTION CONTENT (TEXT + ICONS)
 ──────────────────────────────────────────────────*/
@@ -101,7 +101,6 @@ mat-icon.opt-icon {
   font-size: 28px;
   color: vars.$black;
 }
-
 
 /* ────────────────────────────────────────────────
    4. CORRECT / INCORRECT STATES
@@ -126,7 +125,6 @@ mat-icon.opt-icon {
   color: vars.$red;
 }
 
-
 /* ────────────────────────────────────────────────
    5. ANIMATION (FLASH)
 ──────────────────────────────────────────────────*/
@@ -135,7 +133,13 @@ mat-icon.opt-icon {
 }
 
 @keyframes flashRed {
-  0%   { background-color: vars.$red; }
-  50%  { background-color: lighten(vars.$red, 15%); }
-  100% { background-color: vars.$light-gray; }
+  0% {
+    background-color: vars.$red;
+  }
+  50% {
+    background-color: lighten(vars.$red, 15%);
+  }
+  100% {
+    background-color: vars.$light-gray;
+  }
 }

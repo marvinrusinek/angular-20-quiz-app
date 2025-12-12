@@ -1,6 +1,6 @@
 export interface Resource {
-    title: string;
-    url: string;
-    host: string;
+  title: string;
+  url: string;
+  host: string;
 }
 type Resources = Resource[];

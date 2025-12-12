@@ -1,4 +1,17 @@
-import { ChangeDetectorRef, Directive, ElementRef, EventEmitter, HostBinding, HostListener, Input, OnChanges, OnInit, Output, Renderer2, SimpleChanges } from '@angular/core';
+import {
+  ChangeDetectorRef,
+  Directive,
+  ElementRef,
+  EventEmitter,
+  HostBinding,
+  HostListener,
+  Input,
+  OnChanges,
+  OnInit,
+  Output,
+  Renderer2,
+  SimpleChanges,
+} from '@angular/core';
 
 import { Option } from '../shared/models/Option.model';
 import { OptionBindings } from '../shared/models/OptionBindings.model';
@@ -9,7 +22,7 @@ import { UserPreferenceService } from '../shared/services/user-preference.servic
 @Directive({
   selector: '[appHighlightOption]',
   exportAs: 'appHighlightOption',
-  standalone: true
+  standalone: true,
 })
 export class HighlightOptionDirective implements OnInit, OnChanges {
   @Output() resetBackground = new EventEmitter<boolean>();
@@ -21,7 +34,7 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
   @Input() option!: Option;
   @Input() showFeedbackForOption: { [key: number]: boolean } = {};
   @Input() highlightCorrectAfterIncorrect = false;
-  @Input() allOptions: Option[] = [];  // to access all options directly
+  @Input() allOptions: Option[] = []; // to access all options directly
   @Input() optionsToDisplay: Option[] = [];
   @Input() optionBinding: OptionBindings | undefined;
   @Input() isSelected: boolean = false;
@@ -38,7 +51,7 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
     private el: ElementRef,
     private renderer: Renderer2,
     private cdRef: ChangeDetectorRef,
-    private userPreferenceService: UserPreferenceService
+    private userPreferenceService: UserPreferenceService,
   ) {}
 
   ngOnInit(): void {
@@ -50,22 +63,27 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
   ngOnChanges(changes: SimpleChanges): void {
     // Determine whether any inputs relevant to highlighting changed
     const optionBindingChanged = changes['optionBinding'] || changes['option'];
-    const isSelectedChanged    = changes['isSelected'];
-    const showFeedbackChanged  = changes['showFeedback'];
-    const resetChanged         = changes['appHighlightReset'];
-  
+    const isSelectedChanged = changes['isSelected'];
+    const showFeedbackChanged = changes['showFeedback'];
+    const resetChanged = changes['appHighlightReset'];
+
     const highlightRelevant =
-      optionBindingChanged || isSelectedChanged || showFeedbackChanged || resetChanged;
-  
+      optionBindingChanged ||
+      isSelectedChanged ||
+      showFeedbackChanged ||
+      resetChanged;
+
     // If something worth reacting to changed, run the full logic
     if (highlightRelevant && this.optionBinding) {
       // Maintain reference back to this directive
       this.optionBinding.directiveInstance = this;
-  
+
       // Immediate highlight update (keeps old UX)
       this.updateHighlight();
     } else {
-      console.log('[🛑 HighlightOptionDirective] ngOnChanges — no relevant changes detected');
+      console.log(
+        '[🛑 HighlightOptionDirective] ngOnChanges — no relevant changes detected',
+      );
     }
   }
 
@@ -75,19 +93,22 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
   @HostListener('click', ['$event'])
   onClick(event: Event): void {
     try {
-      event.stopPropagation();  // prevent further propagation
+      event.stopPropagation(); // prevent further propagation
 
       // Check if the option is deactivated (highlighted or inactive)
       if (this.option?.highlight || this.option?.active === false) {
-        console.info('Deactivated option clicked. No action taken:', this.option);
+        console.info(
+          'Deactivated option clicked. No action taken:',
+          this.option,
+        );
         return;
       }
 
       // Emit the event and update visuals
       if (this.option) {
-        this.optionClicked.emit(this.option);  // notify parent
-        this.updateHighlight();                // update UI
-        this.cdRef.detectChanges();            // ensure re-render
+        this.optionClicked.emit(this.option); // notify parent
+        this.updateHighlight(); // update UI
+        this.cdRef.detectChanges(); // ensure re-render
       }
     } catch (error) {
       console.error('Error in onClick:', error);
@@ -96,26 +117,26 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
 
   updateHighlight(): void {
     if (!this.optionBinding?.option) return;
-  
+
     setTimeout(() => {
       const opt = this.optionBinding?.option;
-      if (!opt) return;  // null guard for strict mode
-  
+      if (!opt) return; // null guard for strict mode
+
       const host = this.el.nativeElement as HTMLElement;
-  
+
       // RESET styles
       this.renderer.removeStyle(host, 'background-color');
       this.renderer.removeClass(host, 'deactivated-option');
       this.renderer.setStyle(host, 'cursor', 'pointer');
       this.setPointerEvents(host, 'auto');
-  
+
       // SELECTED
       if (opt.highlight) {
         this.setBackgroundColor(host, opt.correct ? '#43f756' : '#ff0000');
-        opt.showIcon = true;  // keep ✓/✗
+        opt.showIcon = true; // keep ✓/✗
         return;
       }
-  
+
       // DISABLED
       if (!opt.correct && opt.active === false) {
         this.setBackgroundColor(host, '#a3a3a3');
@@ -123,11 +144,11 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
         this.renderer.setStyle(host, 'cursor', 'not-allowed');
         this.setPointerEvents(host, 'none');
       }
-  
-      opt.showIcon = false;  // FALLBACK: no highlight and not disabled — no icon
+
+      opt.showIcon = false; // FALLBACK: no highlight and not disabled — no icon
     }, 0);
-  }  
-  
+  }
+
   /* private highlightCorrectAnswers(): void {
     if (!Array.isArray(this.allOptions)) {
       console.error('All options are not defined');
@@ -155,7 +176,7 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
   private setBackgroundColor(element: HTMLElement, color: string): void {
     this.renderer.setStyle(element, 'background-color', color);
   }
-  
+
   private setPointerEvents(el: HTMLElement, value: string): void {
     this.renderer.setStyle(el, 'pointer-events', value);
   }

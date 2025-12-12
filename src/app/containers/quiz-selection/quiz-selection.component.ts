@@ -1,11 +1,24 @@
-import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnDestroy,
+  OnInit,
+  ViewEncapsulation,
+} from '@angular/core';
 import { CommonModule, NgOptimizedImage } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { BehaviorSubject, EMPTY, Observable, Subject, Subscription, of } from 'rxjs';
+import {
+  BehaviorSubject,
+  EMPTY,
+  Observable,
+  Subject,
+  Subscription,
+  of,
+} from 'rxjs';
 import { catchError, takeUntil } from 'rxjs/operators';
 
 import { SlideLeftToRightAnimation } from '../../animations/animations';
@@ -21,20 +34,20 @@ import { QuizDataService } from '../../shared/services/quizdata.service';
 @Component({
   selector: 'codelab-quiz-selection',
   standalone: true,
-  imports: 
-    [CommonModule, 
+  imports: [
+    CommonModule,
     RouterModule,
     MatCardModule,
     MatIconModule,
     MatMenuModule,
     MatTooltipModule,
-    NgOptimizedImage
+    NgOptimizedImage,
   ],
   templateUrl: './quiz-selection.component.html',
   styleUrls: ['./quiz-selection.component.scss'],
   animations: [SlideLeftToRightAnimation.slideLeftToRight],
   encapsulation: ViewEncapsulation.None,
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class QuizSelectionComponent implements OnInit, OnDestroy {
   quizzes$: Observable<Quiz[]> = of([]);
@@ -48,7 +61,7 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
   constructor(
     private quizService: QuizService,
     private quizDataService: QuizDataService,
-    private router: Router
+    private router: Router,
   ) {}
 
   ngOnInit(): void {
@@ -74,7 +87,6 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
     this.subscribeToSelectedQuiz();
   }
 
-
   private subscribeToSelectedQuiz(): void {
     this.selectedQuizSubscription = this.quizService.selectedQuiz$
       .pipe(
@@ -85,11 +97,11 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
           } else {
             console.error('Unexpected error fetching selected quiz:', error);
           }
-          return EMPTY;  // completes the stream safely
-        })
+          return EMPTY; // completes the stream safely
+        }),
       )
       .subscribe((quiz: Quiz | null) => {
-        this.selectedQuiz = quiz as Quiz ?? null;
+        this.selectedQuiz = (quiz as Quiz) ?? null;
       });
   }
 
@@ -111,11 +123,11 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
       }
     }
   }
-  
+
   getQuizTileStyles(quiz: Quiz): QuizTileStyles {
     return {
       background: 'url(' + quiz.image + ') no-repeat center 10px',
-      'background-size': '300px 210px'
+      'background-size': '300px 210px',
     };
   }
 
@@ -124,10 +136,11 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
     switch (quiz.status) {
       case QuizStatus.STARTED:
         if (
-          (!this.selectionParams.quizCompleted || 
-            quiz.quizId === this.selectionParams.startedQuizId) || 
-          (quiz.quizId === this.selectionParams.continueQuizId) || 
-          (quiz.quizId === this.selectionParams.completedQuizId)) {
+          !this.selectionParams.quizCompleted ||
+          quiz.quizId === this.selectionParams.startedQuizId ||
+          quiz.quizId === this.selectionParams.continueQuizId ||
+          quiz.quizId === this.selectionParams.completedQuizId
+        ) {
           classes.push('link');
         }
         break;
@@ -155,13 +168,13 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
           !this.selectionParams.quizCompleted ||
           quiz.quizId === this.selectionParams.startedQuizId
         );
-  
+
       case QuizStatus.CONTINUE:
         return quiz.quizId === this.selectionParams.continueQuizId;
-  
+
       case QuizStatus.COMPLETED:
         return quiz.quizId === this.selectionParams.completedQuizId;
-  
+
       default:
         return false;
     }
@@ -194,7 +207,7 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
       default:
         return 'material-icons default-icon';
     }
-  }  
+  }
 
   animationDoneHandler(): void {
     this.animationState$.next('none');

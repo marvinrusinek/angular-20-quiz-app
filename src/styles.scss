@@ -14,7 +14,7 @@
   font-style: normal;
   font-weight: 400;
   src: url(https://fonts.gstatic.com/s/materialicons/v47/flUhRq6tzZclQEJ-Vdg-IuiaDsNc.woff2)
-  format('woff2');
+    format('woff2');
 }
 
 .material-icons {
@@ -42,8 +42,9 @@
 /* ─────────────────────────────────────────────
    GLOBAL MATERIAL MDC RESET (Angular 10 feel)
 ───────────────────────────────────────────────*/
-html, body {
-  font-family: Roboto, "Helvetica Neue", sans-serif;
+html,
+body {
+  font-family: Roboto, 'Helvetica Neue', sans-serif;
   font-size: 14px;
   line-height: 1.4;
 }
@@ -92,7 +93,7 @@ mat-card {
     justify-content: center;
     align-items: center;
     padding: 8px 16px !important;
-    border-bottom: 1px solid rgba(0,0,0,0.1);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
 
     .mat-mdc-card-title,
     mat-card-title {
@@ -229,7 +230,8 @@ mat-card {
 }
 
 @keyframes spin {
-  0%, 100% {
+  0%,
+  100% {
     transform: translate(0);
   }
   25% {
@@ -298,7 +300,6 @@ mat-card {
   --mdc-switch-unselected-hover-state-layer-color: transparent !important;
   --mdc-switch-unselected-pressed-state-layer-color: transparent !important;
 }
-
 
 /*********** TIMER BUTTON ***************/
 /* Remove 1px outline/border from mat-menu triggers */

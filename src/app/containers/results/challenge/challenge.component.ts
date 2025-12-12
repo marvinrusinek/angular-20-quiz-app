@@ -20,15 +20,15 @@ import { TimerService } from '../../../shared/services/timer.service';
 })
 export class ChallengeComponent implements OnInit {
   quizzes$: Observable<Quiz[]> = of([]);
-  quizName$: Observable<string> = of ('');
+  quizName$: Observable<string> = of('');
   quizMetadata: Partial<QuizMetadata> = {
     totalQuestions: this.quizService.totalQuestions,
     totalQuestionsAttempted: this.quizService.totalQuestions,
     correctAnswersCount$: this.quizService.correctAnswersCountSubject,
     percentage: this.calculatePercentageOfCorrectlyAnsweredQuestions(),
     completionTime: this.timerService.calculateTotalElapsedTime(
-      this.timerService.elapsedTimes
-    )
+      this.timerService.elapsedTimes,
+    ),
   };
   codelabUrl = 'https://www.codelab.fun';
 
@@ -36,20 +36,20 @@ export class ChallengeComponent implements OnInit {
     private quizService: QuizService,
     private quizDataService: QuizDataService,
     private timerService: TimerService,
-    private activatedRoute: ActivatedRoute
+    private activatedRoute: ActivatedRoute,
   ) {}
 
   ngOnInit(): void {
     this.quizzes$ = this.quizDataService.getQuizzes();
     this.quizName$ = this.activatedRoute.url.pipe(
-      map((segments) => this.quizService.getQuizName(segments))
+      map((segments) => this.quizService.getQuizName(segments)),
     );
   }
 
   calculatePercentageOfCorrectlyAnsweredQuestions(): number {
     return Math.round(
       (100 * this.quizService.correctAnswersCountSubject.getValue()) /
-        this.quizService.totalQuestions
+        this.quizService.totalQuestions,
     );
   }
 }

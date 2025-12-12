@@ -22,8 +22,12 @@ export interface SharedOptionConfig {
   highlightCorrectAfterIncorrect: boolean;
   quizQuestionComponentOnOptionClicked: (
     option: SelectedOption,
-    index: number
+    index: number,
   ) => void;
-  onOptionClicked: (option: Option, index: number, checked: boolean) => Promise<void>;
+  onOptionClicked: (
+    option: Option,
+    index: number,
+    checked: boolean,
+  ) => Promise<void>;
   onQuestionAnswered: (event: any) => void;
 }

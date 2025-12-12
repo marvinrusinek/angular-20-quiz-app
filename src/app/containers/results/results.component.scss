@@ -1,4 +1,4 @@
-@use "../../../variables" as vars;
+@use '../../../variables' as vars;
 
 mat-card-header {
   display: block;
@@ -14,10 +14,11 @@ mat-card-header {
     font-style: italic;
     font-weight: 900;
     color: vars.$green-angular-leaf;
-    text-shadow: 1px 0 0 vars.$black,
-                 0 -1px 0 vars.$black,
-                 0 1px 0 vars.$black,
-                 -1px 0 0 vars.$black;
+    text-shadow:
+      1px 0 0 vars.$black,
+      0 -1px 0 vars.$black,
+      0 1px 0 vars.$black,
+      -1px 0 0 vars.$black;
   }
 }
 

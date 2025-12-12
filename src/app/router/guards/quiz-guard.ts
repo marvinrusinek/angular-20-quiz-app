@@ -1,5 +1,11 @@
 import { Injectable } from '@angular/core';
-import { ActivatedRouteSnapshot, CanActivate, Router, RouterStateSnapshot, UrlTree } from '@angular/router';
+import {
+  ActivatedRouteSnapshot,
+  CanActivate,
+  Router,
+  RouterStateSnapshot,
+  UrlTree,
+} from '@angular/router';
 
 import { Quiz } from '../../shared/models/Quiz.model';
 import { QuizDataService } from '../../shared/services/quizdata.service';
@@ -8,14 +14,13 @@ import { QuizDataService } from '../../shared/services/quizdata.service';
 export class QuizGuard implements CanActivate {
   constructor(
     private quizDataService: QuizDataService,
-    private router: Router
+    private router: Router,
   ) {}
 
   canActivate(
     route: ActivatedRouteSnapshot,
-    _state: RouterStateSnapshot
+    _state: RouterStateSnapshot,
   ): boolean | UrlTree {
-
     const quizId = route.params['quizId'];
     const questionParam = route.params['questionIndex'];
 
@@ -38,9 +43,8 @@ export class QuizGuard implements CanActivate {
 
   private normalizeQuestionIndex(
     questionParam: unknown,
-    quizId: string
+    quizId: string,
   ): number | UrlTree {
-
     if (questionParam == null) {
       console.warn('[🛡️ QuizGuard] No index → redirect to #1');
       return this.router.createUrlTree(['/question', quizId, 1]);
@@ -69,9 +73,8 @@ export class QuizGuard implements CanActivate {
   private evaluateQuestionRequest(
     quiz: Quiz,
     questionIndex: number,
-    quizId: string
+    quizId: string,
   ): boolean | UrlTree {
-
     const total = quiz.questions?.length ?? 0;
 
     if (total <= 0) {

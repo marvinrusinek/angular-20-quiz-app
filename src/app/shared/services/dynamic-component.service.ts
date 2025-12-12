@@ -1,8 +1,12 @@
-import { Injectable, ViewContainerRef, ComponentRef, Type } from '@angular/core';
+import {
+  Injectable,
+  ViewContainerRef,
+  ComponentRef,
+  Type,
+} from '@angular/core';
 
 @Injectable({ providedIn: 'root' })
 export class DynamicComponentService {
-
   private cachedAnswerComponent: Type<any> | null = null;
   private loadingPromise: Promise<Type<any>> | null = null;
 
@@ -20,16 +24,19 @@ export class DynamicComponentService {
     }
 
     // ✅ First load (real one)
-    this.loadingPromise = import(
-      '../../components/question/answer/answer-component/answer.component'
-    ).then(module => {
-      if (!module?.AnswerComponent) {
-        throw new Error('[DynamicComponentService] AnswerComponent missing from module');
-      }
+    this.loadingPromise =
+      import('../../components/question/answer/answer-component/answer.component').then(
+        (module) => {
+          if (!module?.AnswerComponent) {
+            throw new Error(
+              '[DynamicComponentService] AnswerComponent missing from module',
+            );
+          }
 
-      this.cachedAnswerComponent = module.AnswerComponent;
-      return module.AnswerComponent;
-    });
+          this.cachedAnswerComponent = module.AnswerComponent;
+          return module.AnswerComponent;
+        },
+      );
 
     return this.loadingPromise;
   }
@@ -37,9 +44,8 @@ export class DynamicComponentService {
   public async loadComponent<T>(
     container: ViewContainerRef,
     multipleAnswer: boolean,
-    onOptionClicked: (event: any) => void
+    onOptionClicked: (event: any) => void,
   ): Promise<ComponentRef<T>> {
-
     const AnswerComponent = await this.importComponent();
 
     container.clear();

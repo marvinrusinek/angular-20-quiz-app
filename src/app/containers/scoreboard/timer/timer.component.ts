@@ -8,7 +8,7 @@ import { TimerService } from '../../../shared/services/timer.service';
 
 enum TimerType {
   Countdown = 'countdown',
-  Stopwatch = 'stopwatch'
+  Stopwatch = 'stopwatch',
 }
 
 @Component({
@@ -33,8 +33,8 @@ export class TimerComponent implements OnInit {
       map((elapsedTime) =>
         this.currentTimerType === TimerType.Countdown
           ? Math.max(this.timePerQuestion - elapsedTime, 0)
-          : elapsedTime
-      )
+          : elapsedTime,
+      ),
     );
   }
 

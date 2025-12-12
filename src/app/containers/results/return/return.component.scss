@@ -1,4 +1,4 @@
-@use "../../../../variables" as vars;
+@use '../../../../variables' as vars;
 
 .return {
   clear: left;
@@ -26,7 +26,7 @@ a.btn {
 
   &::after {
     display: none;
-    content: "";
+    content: '';
     position: absolute;
     border-radius: 50%;
     background-color: rgba(0, 0, 0, 0.3);

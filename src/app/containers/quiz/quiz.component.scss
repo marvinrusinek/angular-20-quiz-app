@@ -1,5 +1,5 @@
-@use "../../../variables" as vars;
-@use "sass:color";
+@use '../../../variables' as vars;
+@use 'sass:color';
 
 /* ============================================================
    OUTER ANIMATION CLIP WRAPPER
@@ -141,7 +141,9 @@ mat-card {
           box-shadow: none;
           cursor: pointer;
           padding: 4px 10px;
-          transition: transform 0.25s ease, color 0.25s ease;
+          transition:
+            transform 0.25s ease,
+            color 0.25s ease;
 
           &:focus {
             outline: none;
@@ -226,13 +228,13 @@ mat-card {
 .custom-bar-fill {
   height: 100%;
   background: linear-gradient(
-                  45deg,
-                  rgba(40, 167, 69, 0.85) 25%,
-                  rgba(40, 167, 69, 1) 25%,
-                  rgba(40, 167, 69, 1) 50%,
-                  rgba(40, 167, 69, 0.85) 50%,
-                  rgba(40, 167, 69, 0.85) 75%,
-                  rgba(40, 167, 69, 1) 75%
+    45deg,
+    rgba(40, 167, 69, 0.85) 25%,
+    rgba(40, 167, 69, 1) 25%,
+    rgba(40, 167, 69, 1) 50%,
+    rgba(40, 167, 69, 0.85) 50%,
+    rgba(40, 167, 69, 0.85) 75%,
+    rgba(40, 167, 69, 1) 75%
   );
   background-size: 40px 40px;
   animation: move 1s linear infinite;
@@ -240,6 +242,10 @@ mat-card {
 }
 
 @keyframes move {
-  0% { background-position: 40px 0; }
-  100% { background-position: 0 0; }
+  0% {
+    background-position: 40px 0;
+  }
+  100% {
+    background-position: 0 0;
+  }
 }

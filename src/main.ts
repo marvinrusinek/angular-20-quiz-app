@@ -10,6 +10,6 @@ bootstrapApplication(AppComponent, {
   providers: [
     provideHttpClient(withFetch()),
     provideRouter(routes),
-    provideAnimations()
+    provideAnimations(),
   ],
-}).catch(err => console.error(err));
+}).catch((err) => console.error(err));

@@ -7,25 +7,36 @@ import { isValidOption } from '../utils/option-utils';
 export class FeedbackService {
   lastKnownOptions: Option[] = [];
 
-  public generateFeedbackForOptions(correctOptions: Option[], optionsToDisplay: Option[]): string {
+  public generateFeedbackForOptions(
+    correctOptions: Option[],
+    optionsToDisplay: Option[],
+  ): string {
     const validCorrectOptions = (correctOptions || []).filter(isValidOption);
-    const validOptionsToDisplay = (optionsToDisplay || []).filter(isValidOption);
-  
+    const validOptionsToDisplay = (optionsToDisplay || []).filter(
+      isValidOption,
+    );
+
     if (validCorrectOptions.length === 0) {
-      console.warn('[generateFeedbackForOptions] ❌ No valid correct options provided.');
+      console.warn(
+        '[generateFeedbackForOptions] ❌ No valid correct options provided.',
+      );
       return 'No correct answers available for this question.';
     }
     if (validOptionsToDisplay.length === 0) {
-      console.warn('[generateFeedbackForOptions] ❌ No valid options to display. STOPPING BEFORE CALLING setCorrectMessage.');
+      console.warn(
+        '[generateFeedbackForOptions] ❌ No valid options to display. STOPPING BEFORE CALLING setCorrectMessage.',
+      );
       return 'Feedback unavailable.';
     }
 
     const correctFeedback = this.setCorrectMessage(validOptionsToDisplay);
     if (!correctFeedback?.trim()) {
-      console.warn('[generateFeedbackForOptions] ❌ setCorrectMessage returned empty or invalid feedback. Falling back...');
+      console.warn(
+        '[generateFeedbackForOptions] ❌ setCorrectMessage returned empty or invalid feedback. Falling back...',
+      );
       return 'Feedback unavailable.';
     }
-  
+
     return correctFeedback;
   }
 
@@ -42,7 +53,7 @@ export class FeedbackService {
 
     // Extract indices of correct options
     const indices = optionsToDisplay
-      .map((option, index) => option.correct ? index + 1 : null)
+      .map((option, index) => (option.correct ? index + 1 : null))
       .filter((i): i is number => i !== null)
       .sort((a, b) => a - b);
 
@@ -55,11 +66,13 @@ export class FeedbackService {
   }
 
   private formatFeedbackMessage(indices: number[]): string {
-    const optionsText = indices.length === 1 ? 'answer is Option' : 'answers are Options';
-    const optionStrings = indices.length > 1
-      ? `${indices.slice(0, -1).join(', ')} and ${indices.slice(-1)}`
-      : `${indices[0]}`;
-  
+    const optionsText =
+      indices.length === 1 ? 'answer is Option' : 'answers are Options';
+    const optionStrings =
+      indices.length > 1
+        ? `${indices.slice(0, -1).join(', ')} and ${indices.slice(-1)}`
+        : `${indices[0]}`;
+
     return `The correct ${optionsText} ${optionStrings}.`;
   }
 }

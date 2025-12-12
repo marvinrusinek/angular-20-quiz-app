@@ -6,11 +6,16 @@ export function firstValueFrom<T>(src: Observable<T>): Promise<T> {
 }
 export function lastValueFrom<T>(src: Observable<T>): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    let seen = false, last!: T;
+    let seen = false,
+      last!: T;
     src.subscribe({
-      next: v => { seen = true; last = v; },
+      next: (v) => {
+        seen = true;
+        last = v;
+      },
       error: reject,
-      complete: () => seen ? resolve(last) : reject(new Error('No elements in sequence')),
+      complete: () =>
+        seen ? resolve(last) : reject(new Error('No elements in sequence')),
     });
   });
 }

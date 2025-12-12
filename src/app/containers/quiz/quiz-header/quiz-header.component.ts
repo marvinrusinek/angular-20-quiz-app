@@ -15,19 +15,22 @@ import { QuizDataService } from '../../../shared/services/quizdata.service';
   imports: [CommonModule, NgOptimizedImage, MatCardModule, RouterModule],
   templateUrl: './quiz-header.component.html',
   styleUrls: ['./quiz-header.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class CodelabQuizHeaderComponent { 
+export class CodelabQuizHeaderComponent {
   currentQuiz$: Observable<Quiz | null>;
 
   constructor(
     private quizService: QuizService,
-    private quizDataService: QuizDataService
+    private quizDataService: QuizDataService,
   ) {
     this.currentQuiz$ = this.quizDataService.quizzes$.pipe(
-      map((quizzes: Quiz[]) => 
-        quizzes.find((quiz: Quiz) => quiz.quizId === this.quizService.quizId) ?? null
-      )
+      map(
+        (quizzes: Quiz[]) =>
+          quizzes.find(
+            (quiz: Quiz) => quiz.quizId === this.quizService.quizId,
+          ) ?? null,
+      ),
     );
   }
 }

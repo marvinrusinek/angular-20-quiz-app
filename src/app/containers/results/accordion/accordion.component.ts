@@ -1,4 +1,9 @@
-import { ChangeDetectionStrategy, Component, OnInit, ViewChild } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnInit,
+  ViewChild,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatAccordion, MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
@@ -15,14 +20,14 @@ import { TimerService } from '../../../shared/services/timer.service';
   imports: [CommonModule, MatExpansionModule, MatIconModule, JoinPipe],
   templateUrl: './accordion.component.html',
   styleUrls: ['./accordion.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AccordionComponent implements OnInit {
   questions: QuizQuestion[] = [];
   correctAnswers: number[] = [];
   results: Result = {
     userAnswers: this.quizService.userAnswers,
-    elapsedTimes: this.timerService.elapsedTimes
+    elapsedTimes: this.timerService.elapsedTimes,
   };
 
   @ViewChild('accordion', { static: false })
@@ -32,17 +37,19 @@ export class AccordionComponent implements OnInit {
 
   constructor(
     private quizService: QuizService,
-    private timerService: TimerService
-  ) { }
+    private timerService: TimerService,
+  ) {}
 
   ngOnInit(): void {
     this.questions = this.quizService.questions;
-    this.correctAnswers = Array.from(this.quizService.correctAnswers.values()).flat();
+    this.correctAnswers = Array.from(
+      this.quizService.correctAnswers.values(),
+    ).flat();
 
     // Normalize userAnswers so Angular can always iterate
     if (this.results?.userAnswers) {
       this.results.userAnswers = this.results.userAnswers.map((ans) =>
-        Array.isArray(ans) ? ans : [ans]
+        Array.isArray(ans) ? ans : [ans],
       );
     }
   }
@@ -59,15 +66,15 @@ export class AccordionComponent implements OnInit {
   checkIfAnswersAreCorrect(
     correctAnswers: number[],
     userAnswers: any[],
-    index: number
+    index: number,
   ): boolean {
     const user = userAnswers[index];
-  
+
     // Handle no answers case
     if (!user || (Array.isArray(user) && user.length === 0)) {
       return false;
     }
-  
+
     // Normalize user answers to an array
     const userArr = Array.isArray(user) ? user : [user];
 
@@ -75,12 +82,12 @@ export class AccordionComponent implements OnInit {
     const correctArr = Array.isArray(correctAnswers)
       ? correctAnswers
       : [correctAnswers];
-  
+
     // Check if every user-selected answer is in the correct set,
     // and if counts match (no extra guesses)
     const allMatch = userArr.every((ans: number) => correctArr.includes(ans));
     const sameLength = userArr.length === correctArr.length;
-  
+
     return allMatch && sameLength;
   }
 

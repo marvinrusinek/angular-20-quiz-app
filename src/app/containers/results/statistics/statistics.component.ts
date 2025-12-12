@@ -14,7 +14,7 @@ import { TimerService } from '../../../shared/services/timer.service';
 enum Status {
   Started = 'Started',
   Continue = 'Continue',
-  Completed = 'Completed'
+  Completed = 'Completed',
 }
 
 @Component({
@@ -23,7 +23,7 @@ enum Status {
   imports: [CommonModule],
   templateUrl: './statistics.component.html',
   styleUrls: ['./statistics.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class StatisticsComponent implements OnInit {
   quizzes$: Observable<Quiz[]> = of([]);
@@ -35,8 +35,8 @@ export class StatisticsComponent implements OnInit {
     correctAnswersCount$: this.quizService.correctAnswersCountSubject,
     percentage: this.calculatePercentageOfCorrectlyAnsweredQuestions(),
     completionTime: this.timerService.calculateTotalElapsedTime(
-      this.timerService.elapsedTimes
-    )
+      this.timerService.elapsedTimes,
+    ),
   };
   resources: Resource[] = [];
   status: Status = Status.Started;
@@ -55,13 +55,13 @@ export class StatisticsComponent implements OnInit {
     private quizService: QuizService,
     private quizDataService: QuizDataService,
     private timerService: TimerService,
-    private activatedRoute: ActivatedRoute
+    private activatedRoute: ActivatedRoute,
   ) {}
 
   ngOnInit(): void {
     this.quizzes$ = this.quizDataService.getQuizzes();
     this.quizName$ = this.activatedRoute.url.pipe(
-      map((segments) => this.quizService.getQuizName(segments))
+      map((segments) => this.quizService.getQuizName(segments)),
     );
     this.quizId = this.quizService.quizId;
     this.resources = this.quizService.resources;
@@ -80,7 +80,7 @@ export class StatisticsComponent implements OnInit {
   calculatePercentageOfCorrectlyAnsweredQuestions(): number {
     return Math.round(
       (100 * this.quizService.correctAnswersCountSubject.getValue()) /
-        this.quizService.totalQuestions
+        this.quizService.totalQuestions,
     );
   }
 

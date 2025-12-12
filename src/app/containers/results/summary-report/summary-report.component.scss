@@ -1,4 +1,4 @@
-@use "../../../../variables" as vars;
+@use '../../../../variables' as vars;
 
 .summary-report {
   border: 2px double vars.$black;
@@ -8,7 +8,7 @@
   width: 520px;
   padding: 5px;
   clear: both;
- 
+
   h2 {
     text-align: center;
     font-weight: vars.$font-weight-max;

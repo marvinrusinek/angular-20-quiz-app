@@ -1,4 +1,4 @@
 export interface FormattedExplanation {
-    questionIndex: number;
-    explanation: string;
+  questionIndex: number;
+  explanation: string;
 }

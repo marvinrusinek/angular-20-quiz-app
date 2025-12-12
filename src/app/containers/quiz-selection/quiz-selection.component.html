@@ -9,7 +9,8 @@
           width="200"
           height="100"
           alt="Angular Codelab logo"
-          loading="lazy" />
+          loading="lazy"
+        />
       </a>
     </div>
 
@@ -46,10 +47,7 @@
       </span>
 
       @for (quiz of quizzes$ | async; track quiz?.quizId) {
-        <button
-          mat-menu-item
-          [routerLink]="['/intro/', quiz?.quizId]"
-        >
+        <button mat-menu-item [routerLink]="['/intro/', quiz?.quizId]">
           {{ quiz?.milestone || 'Milestone not found' }}
         </button>
       }
@@ -67,7 +65,6 @@
         routerLinkActive="active"
         [ngStyle]="getQuizTileStyles(quiz)"
       >
-
         <summary class="quiz-info">
           <h5 class="quiz-title" i18n>
             {{ quiz?.milestone || 'Milestone not found' }}

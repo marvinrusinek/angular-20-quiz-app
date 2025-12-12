@@ -27,6 +27,6 @@ export interface OptionBindings {
   change: (element: MatCheckbox | MatRadioButton) => void;
   styleClass?: string;
   disabled: boolean;
-  ariaLabel: string
+  ariaLabel: string;
   directiveInstance?: HighlightOptionDirective;
 }

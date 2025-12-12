@@ -1,8 +1,49 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges, ViewChild } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  ElementRef,
+  EventEmitter,
+  Input,
+  OnChanges,
+  OnDestroy,
+  OnInit,
+  Output,
+  SimpleChanges,
+  ViewChild,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, ParamMap } from '@angular/router';
-import { animationFrameScheduler, BehaviorSubject, combineLatest, firstValueFrom, forkJoin, merge, Observable, of, Subject, Subscription } from 'rxjs';
-import { auditTime, catchError, debounceTime, distinctUntilChanged, filter, map, observeOn, shareReplay, skip, skipUntil, startWith, switchMap, take, takeUntil, tap, withLatestFrom } from 'rxjs/operators';
+import {
+  animationFrameScheduler,
+  BehaviorSubject,
+  combineLatest,
+  firstValueFrom,
+  forkJoin,
+  merge,
+  Observable,
+  of,
+  Subject,
+  Subscription,
+} from 'rxjs';
+import {
+  auditTime,
+  catchError,
+  debounceTime,
+  distinctUntilChanged,
+  filter,
+  map,
+  observeOn,
+  shareReplay,
+  skip,
+  skipUntil,
+  startWith,
+  switchMap,
+  take,
+  takeUntil,
+  tap,
+  withLatestFrom,
+} from 'rxjs/operators';
 
 import { CombinedQuestionDataType } from '../../../shared/models/CombinedQuestionDataType.model';
 import { Option } from '../../../shared/models/Option.model';
@@ -15,15 +56,18 @@ import { QuizNavigationService } from '../../../shared/services/quiz-navigation.
 import { QuizQuestionLoaderService } from '../../../shared/services/quizquestionloader.service';
 import { QuizQuestionManagerService } from '../../../shared/services/quizquestionmgr.service';
 import { QuizStateService } from '../../../shared/services/quizstate.service';
-import { ExplanationTextService, FETPayload } from '../../../shared/services/explanation-text.service';
+import {
+  ExplanationTextService,
+  FETPayload,
+} from '../../../shared/services/explanation-text.service';
 import { QuizQuestionComponent } from '../../../components/question/quiz-question/quiz-question.component';
 
 interface QuestionViewState {
-  index: number,
-  key: string,
-  markup: string,
-  fallbackExplanation: string,
-  question: QuizQuestion | null
+  index: number;
+  key: string;
+  markup: string;
+  fallbackExplanation: string;
+  question: QuizQuestion | null;
 }
 
 @Component({
@@ -32,16 +76,19 @@ interface QuestionViewState {
   imports: [CommonModule],
   templateUrl: './codelab-quiz-content.component.html',
   styleUrls: ['./codelab-quiz-content.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy {
+export class CodelabQuizContentComponent
+  implements OnInit, OnChanges, OnDestroy
+{
   @ViewChild(QuizQuestionComponent, { static: false })
   quizQuestionComponent!: QuizQuestionComponent;
   @ViewChild('qText', { static: true })
   qText!: ElementRef<HTMLHeadingElement>;
 
   @Output() isContentAvailableChange = new EventEmitter<boolean>();
-  @Input() combinedQuestionData$: Observable<CombinedQuestionDataType> | null = null;
+  @Input() combinedQuestionData$: Observable<CombinedQuestionDataType> | null =
+    null;
   @Input() currentQuestion = new BehaviorSubject<QuizQuestion | null>(null);
   @Input() questionToDisplay = '';
   @Input() questionToDisplay$!: Observable<string | null>;
@@ -55,14 +102,14 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   @Input() questionText = '';
   @Input() quizData: CombinedQuestionDataType | null = null;
   @Input() displayState$!: Observable<{
-    mode: 'question' | 'explanation',
-    answered: boolean
+    mode: 'question' | 'explanation';
+    answered: boolean;
   }>;
-  @Input() displayVariables!: { question: string, explanation: string };
+  @Input() displayVariables!: { question: string; explanation: string };
   @Input() localExplanationText = '';
   @Input() showLocalExplanation = false;
 
-  @Input() set explanationOverride(o: { idx: number, html: string }) {
+  @Input() set explanationOverride(o: { idx: number; html: string }) {
     this.overrideSubject.next(o);
   }
 
@@ -99,12 +146,17 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   combinedText$ = this.combinedTextSubject.asObservable();
 
   shouldDisplayCorrectAnswers = false;
-  private shouldDisplayCorrectAnswersSubject: BehaviorSubject<boolean> = new BehaviorSubject<boolean>(false);
-  shouldDisplayCorrectAnswers$ = this.shouldDisplayCorrectAnswersSubject.asObservable();
+  private shouldDisplayCorrectAnswersSubject: BehaviorSubject<boolean> =
+    new BehaviorSubject<boolean>(false);
+  shouldDisplayCorrectAnswers$ =
+    this.shouldDisplayCorrectAnswersSubject.asObservable();
 
   currentQuestionIndexValue = 0;
-  currentQuestion$: BehaviorSubject<QuizQuestion | null> = new BehaviorSubject<QuizQuestion | null>(null);
-  currentOptions$: BehaviorSubject<Option[] | null> = new BehaviorSubject<Option[] | null>([]);
+  currentQuestion$: BehaviorSubject<QuizQuestion | null> =
+    new BehaviorSubject<QuizQuestion | null>(null);
+  currentOptions$: BehaviorSubject<Option[] | null> = new BehaviorSubject<
+    Option[] | null
+  >([]);
   currentQuestionIndex$!: Observable<number>;
   nextQuestion$: Observable<QuizQuestion | null>;
   previousQuestion$: Observable<QuizQuestion | null>;
@@ -112,7 +164,10 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   currentQuestionType: QuestionType | undefined = undefined;
   private _lastQuestionTextByIndex = new Map<number, string>();
 
-  private overrideSubject = new BehaviorSubject<{ idx: number; html: string }>({ idx: -1, html: '' });
+  private overrideSubject = new BehaviorSubject<{ idx: number; html: string }>({
+    idx: -1,
+    html: '',
+  });
   private currentIndex = -1;
   currentIndex$ = this.quizService.currentQuestionIndex$;
   private explanationCache = new Map<string, string>();
@@ -139,22 +194,26 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     .getFormattedExplanationByIndex()
     .pipe(
       startWith<FETPayload>({ idx: -1, text: '', token: 0 }),
-      distinctUntilChanged((a: FETPayload, b: FETPayload) => a.idx === b.idx && a.text === b.text)
+      distinctUntilChanged(
+        (a: FETPayload, b: FETPayload) => a.idx === b.idx && a.text === b.text,
+      ),
     );
 
   public activeFetText$: Observable<string> = this.formattedExplanation$.pipe(
     withLatestFrom(this.quizService.currentQuestionIndex$),
-    map(([payload, idx]) => (payload?.idx === idx ? payload.text ?? '' : '')),
+    map(([payload, idx]) => (payload?.idx === idx ? (payload.text ?? '') : '')),
     startWith(''),
-    distinctUntilChanged()
+    distinctUntilChanged(),
   );
   // SIMPLE: One observable that switches between question text and FET
   // Will be initialized in ngOnInit after inputs are set
   displayText$!: Observable<string>;
 
-  numberOfCorrectAnswers$: BehaviorSubject<string> = new BehaviorSubject<string>('0');
+  numberOfCorrectAnswers$: BehaviorSubject<string> =
+    new BehaviorSubject<string>('0');
 
-  correctAnswersTextSource: BehaviorSubject<string> = new BehaviorSubject<string>('');
+  correctAnswersTextSource: BehaviorSubject<string> =
+    new BehaviorSubject<string>('');
   correctAnswersText$ = this.correctAnswersTextSource.asObservable();
 
   public displayCorrectAnswersText$!: Observable<string | null>;
@@ -164,7 +223,9 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
   private correctAnswersDisplaySubject = new Subject<boolean>();
 
-  questionRendered: BehaviorSubject<boolean> = new BehaviorSubject<boolean>(false);
+  questionRendered: BehaviorSubject<boolean> = new BehaviorSubject<boolean>(
+    false,
+  );
 
   isQuizQuestionComponentInitialized = new BehaviorSubject<boolean>(false);
   isContentAvailable$!: Observable<boolean>;
@@ -182,7 +243,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     private quizQuestionLoaderService: QuizQuestionLoaderService,
     private quizQuestionManagerService: QuizQuestionManagerService,
     private activatedRoute: ActivatedRoute,
-    private cdRef: ChangeDetectorRef
+    private cdRef: ChangeDetectorRef,
   ) {
     this.nextQuestion$ = this.quizService.nextQuestion$;
     this.previousQuestion$ = this.quizService.previousQuestion$;
@@ -193,7 +254,8 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         this.isNavigatingToPrevious = isNavigating;
       });
 
-    this.isExplanationTextDisplayed$ = this.explanationTextService.isExplanationTextDisplayed$;
+    this.isExplanationTextDisplayed$ =
+      this.explanationTextService.isExplanationTextDisplayed$;
   }
 
   async ngOnInit(): Promise<void> {
@@ -204,7 +266,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       combineLatest([
         this.questionToDisplay$.pipe(startWith(''), distinctUntilChanged()),
         this.quizService.currentQuestionIndex$.pipe(
-          startWith(this.quizService?.currentQuestionIndex ?? 0)
+          startWith(this.quizService?.currentQuestionIndex ?? 0),
         ),
       ])
         .pipe(takeUntil(this.destroy$))
@@ -225,9 +287,9 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       this.formattedExplanation$,
       this.currentIndex$,
       this.quizService.questions$.pipe(
-        filter(q => Array.isArray(q) && q.length > 0),
-        startWith(this.quizService.questions || [])
-      )
+        filter((q) => Array.isArray(q) && q.length > 0),
+        startWith(this.quizService.questions || []),
+      ),
     ]).pipe(
       debounceTime(50), // Allow time for questions to load
       map(([state, qText, fetPayload, idx, questions]) => {
@@ -236,33 +298,47 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         const safeIdx = Number.isFinite(idx) ? idx : 0;
 
         // Check if this is a multiple-answer question (use both sources)
-        const qObj = questions?.[safeIdx] || this.quizService.questions?.[safeIdx];
-        const numCorrect = qObj?.options?.filter((o: Option) => o.correct).length || 0;
+        const qObj =
+          questions?.[safeIdx] || this.quizService.questions?.[safeIdx];
+        const numCorrect =
+          qObj?.options?.filter((o: Option) => o.correct).length || 0;
         const isMulti = numCorrect > 1;
-        console.log(`[displayText$] Q${safeIdx + 1}:`, JSON.stringify({
-          hasQObj: !!qObj,
-          numCorrect,
-          isMulti,
-          questionsFromParam: questions?.length,
-          questionsFromService: this.quizService.questions?.length,
-          mode,
-          qObjOptions: qObj?.options?.length
-        }));
+        console.log(
+          `[displayText$] Q${safeIdx + 1}:`,
+          JSON.stringify({
+            hasQObj: !!qObj,
+            numCorrect,
+            isMulti,
+            questionsFromParam: questions?.length,
+            questionsFromService: this.quizService.questions?.length,
+            mode,
+            qObjOptions: qObj?.options?.length,
+          }),
+        );
 
         // Generate banner text for multiple-answer questions
         let bannerText = '';
         if (isMulti && qObj) {
           const totalOpts = qObj.options?.length || 0;
-          bannerText = this.quizQuestionManagerService.getNumberOfCorrectAnswersText(numCorrect, totalOpts);
-          console.log(`[displayText$] Banner for Q${safeIdx + 1}: "${bannerText}"`);
+          bannerText =
+            this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
+              numCorrect,
+              totalOpts,
+            );
+          console.log(
+            `[displayText$] Banner for Q${safeIdx + 1}: "${bannerText}"`,
+          );
         }
 
         // Check if FET belongs to current question
         const belongsToIndex = fetPayload?.idx === safeIdx;
-        const trimmedFet = belongsToIndex ? (fetPayload?.text ?? '').trim() : '';
+        const trimmedFet = belongsToIndex
+          ? (fetPayload?.text ?? '').trim()
+          : '';
 
         // Show FET in explanation mode if available
-        const isValidFet = belongsToIndex &&
+        const isValidFet =
+          belongsToIndex &&
           trimmedFet !== 'No explanation available' &&
           trimmedFet !== 'No explanation available for this question.' &&
           trimmedFet.length > 10;
@@ -284,7 +360,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
         return trimmedQText;
       }),
-      distinctUntilChanged()
+      distinctUntilChanged(),
     );
 
     this.resetExplanationView();
@@ -294,7 +370,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
     this.explanationTextService.resetForIndex(0);
     this.explanationTextService.setShouldDisplayExplanation(false, {
-      force: true
+      force: true,
     });
 
     // Build the stream only once globally
@@ -315,7 +391,9 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
               const currentIndex = this.quizService.getCurrentQuestionIndex();
               const incoming = v ?? '';
 
-              console.log(`[CQCC Display] Q${currentIndex + 1}: "${incoming.slice(0, 100)}"`);
+              console.log(
+                `[CQCC Display] Q${currentIndex + 1}: "${incoming.slice(0, 100)}"`,
+              );
 
               // Update the DOM with the text
               el.style.transition = 'opacity 0.12s linear';
@@ -329,7 +407,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             error: (err) => console.error('[CQCC displayText$ error]', err),
           });
       }
-    }, 50);  // slightly longer delay to ensure displayText$ is initialized
+    }, 50); // slightly longer delay to ensure displayText$ is initialized
 
     this.isContentAvailable$ = this.combineCurrentQuestionAndOptions().pipe(
       map(({ currentQuestion, currentOptions }) => {
@@ -338,9 +416,9 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       distinctUntilChanged(),
       catchError((error) => {
         console.error('Error in isContentAvailable$:', error);
-        return of(false);  // fallback to `false` in case of errors
+        return of(false); // fallback to `false` in case of errors
       }),
-      startWith(false)
+      startWith(false),
     );
 
     this.isContentAvailable$
@@ -354,7 +432,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         }
       });
 
-    this.emitContentAvailableState();  // start emitting the content availability state
+    this.emitContentAvailableState(); // start emitting the content availability state
 
     // Load quiz data from the route first
     this.loadQuizDataFromRoute();
@@ -394,7 +472,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     this.correctAnswersTextSource.complete();
     this.correctAnswersDisplaySubject.complete();
     this.pendingExplanationRequests.forEach((subscription) =>
-      subscription.unsubscribe()
+      subscription.unsubscribe(),
     );
     this.pendingExplanationRequests.clear();
     this.combinedTextSubject.complete();
@@ -412,7 +490,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
     const pruneMap = <T>(
       store: Map<string, T>,
-      onRemove?: (value: T, key: string) => void
+      onRemove?: (value: T, key: string) => void,
     ) => {
       for (const key of Array.from(store.keys())) {
         if (key.startsWith(keyPrefix)) {
@@ -459,105 +537,129 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         ets._activeIndex = newIdx;
         ets.latestExplanation = '';
         ets.latestExplanationIndex = null;
-  
+
         ets.formattedExplanationSubject?.next('');
         ets.explanationText$?.next('');
-  
+
         ets.setShouldDisplayExplanation(false);
         ets.setIsExplanationTextDisplayed(false);
         ets.setGate?.(newIdx, false);
-  
+
         if (ets._activeIndex !== null && ets._activeIndex !== newIdx) {
           ets.setGate?.(ets._activeIndex, false);
         }
-  
+
         console.log(`[INDEX] 🔄 Reset FET streams for new index → ${newIdx}`);
       }),
       debounceTime(50),
-      shareReplay({ bufferSize: 1, refCount: true })
+      shareReplay({ bufferSize: 1, refCount: true }),
     );
-  
+
     const serviceQuestionText$ = (this.questionToDisplay$ || of('')).pipe(
-      tap(q => console.log(`[questionText$] 🔵 Raw input (service): "${(q ?? '').slice(0, 80)}"`)),
-      map(q => (q ?? '').trim()),
-      filter(q => q.length > 0)
+      tap((q) =>
+        console.log(
+          `[questionText$] 🔵 Raw input (service): "${(q ?? '').slice(0, 80)}"`,
+        ),
+      ),
+      map((q) => (q ?? '').trim()),
+      filter((q) => q.length > 0),
     );
-  
+
     const fallbackQuestionText$ = this.currentQuestion$.pipe(
-      map(question => (question?.questionText ?? '').trim()),
-      filter(text => text.length > 0),
-      tap(text => console.log(`[questionText$] 🟣 Fallback from payload: "${text.slice(0, 80)}"`))
+      map((question) => (question?.questionText ?? '').trim()),
+      filter((text) => text.length > 0),
+      tap((text) =>
+        console.log(
+          `[questionText$] 🟣 Fallback from payload: "${text.slice(0, 80)}"`,
+        ),
+      ),
     );
-  
-    const questionText$ = merge(serviceQuestionText$, fallbackQuestionText$).pipe(
-      tap(q => console.log(`[questionText$] 🟢 After merge: "${q.slice(0, 80)}"`)),
+
+    const questionText$ = merge(
+      serviceQuestionText$,
+      fallbackQuestionText$,
+    ).pipe(
+      tap((q) =>
+        console.log(`[questionText$] 🟢 After merge: "${q.slice(0, 80)}"`),
+      ),
       distinctUntilChanged(),
-      tap(q => console.log(`[questionText$] ✅ Final: "${q.slice(0, 80)}"`))
+      tap((q) => console.log(`[questionText$] ✅ Final: "${q.slice(0, 80)}"`)),
     );
-  
+
     const correctText$ = this.quizService.correctAnswersText$.pipe(
-      map(v => v?.trim() || ''),
+      map((v) => v?.trim() || ''),
       startWith(''),
       debounceTime(25),
       distinctUntilChanged(),
-      shareReplay({ bufferSize: 1, refCount: true })
+      shareReplay({ bufferSize: 1, refCount: true }),
     );
-  
+
     const fetForIndex$ = combineLatest([
-      (this.explanationTextService.formattedExplanation$ ?? of('')).pipe(startWith('')),
-      (this.explanationTextService.shouldDisplayExplanation$ ?? of(false)).pipe(startWith(false)),
-      (this.explanationTextService.activeIndex$ ?? of(-1)).pipe(startWith(-1))
+      (this.explanationTextService.formattedExplanation$ ?? of('')).pipe(
+        startWith(''),
+      ),
+      (this.explanationTextService.shouldDisplayExplanation$ ?? of(false)).pipe(
+        startWith(false),
+      ),
+      (this.explanationTextService.activeIndex$ ?? of(-1)).pipe(startWith(-1)),
     ]).pipe(
       auditTime(0),
-      map(([text, gate, idx]) => ({ idx, text: (text ?? '').trim(), gate: !!gate })),
-      distinctUntilChanged((a, b) => a.idx === b.idx && a.gate === b.gate && a.text === b.text),
-      shareReplay({ bufferSize: 1, refCount: true })
+      map(([text, gate, idx]) => ({
+        idx,
+        text: (text ?? '').trim(),
+        gate: !!gate,
+      })),
+      distinctUntilChanged(
+        (a, b) => a.idx === b.idx && a.gate === b.gate && a.text === b.text,
+      ),
+      shareReplay({ bufferSize: 1, refCount: true }),
     );
-  
-    const shouldShow$ = this.explanationTextService.shouldDisplayExplanation$.pipe(
-      map(Boolean),
-      startWith(false),
-      distinctUntilChanged(),
-      auditTime(16),
-      shareReplay({ bufferSize: 1, refCount: true })
-    );
-  
+
+    const shouldShow$ =
+      this.explanationTextService.shouldDisplayExplanation$.pipe(
+        map(Boolean),
+        startWith(false),
+        distinctUntilChanged(),
+        auditTime(16),
+        shareReplay({ bufferSize: 1, refCount: true }),
+      );
+
     const navigating$ = this.quizStateService.isNavigatingSubject.pipe(
       startWith(false),
       distinctUntilChanged(),
-      shareReplay({ bufferSize: 1, refCount: true })
+      shareReplay({ bufferSize: 1, refCount: true }),
     );
-  
+
     const qQuiet$ = this.quizQuestionLoaderService.quietZoneUntil$
       ? this.quizQuestionLoaderService.quietZoneUntil$.pipe(
           startWith(0),
-          distinctUntilChanged()
+          distinctUntilChanged(),
         )
       : of(0);
-  
+
     const eQuiet$ = this.explanationTextService.quietZoneUntil$
       ? this.explanationTextService.quietZoneUntil$.pipe(
           startWith(0),
-          distinctUntilChanged()
+          distinctUntilChanged(),
         )
       : of(0);
-  
+
     // Display mode and explanation readiness
     const displayState$ = this.quizStateService.displayState$;
     const explanationReady$ = this.quizStateService.explanationReady$;
-  
+
     type CombinedTuple = [
-      number,  // index$
-      string,  // questionText$
-      string,  // correctText$
-      { idx: number; text: string; gate: boolean },  // fetForIndex$
-      boolean,  // shouldShow$
-      boolean,  // navigating$
-      number,   // qQuiet$
-      number,   // eQuiet$
-      QuizQuestion[]  // questions$
+      number, // index$
+      string, // questionText$
+      string, // correctText$
+      { idx: number; text: string; gate: boolean }, // fetForIndex$
+      boolean, // shouldShow$
+      boolean, // navigating$
+      number, // qQuiet$
+      number, // eQuiet$
+      QuizQuestion[], // questions$
     ];
-  
+
     // Base stream: existing logic
     const base$ = combineLatest<CombinedTuple>([
       index$,
@@ -570,8 +672,8 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       eQuiet$,
       this.quizService.questions$.pipe(
         startWith([]),
-        map(() => this.quizService.questions || [])
-      )
+        map(() => this.quizService.questions || []),
+      ),
     ]).pipe(
       startWith([
         0,
@@ -582,138 +684,194 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         false,
         0,
         0,
-        []
+        [],
       ] as CombinedTuple),
       skip(1),
       auditTime(16),
-  
+
       filter((tuple: CombinedTuple) => {
         const [
-          ,  // idx
-          ,  // question
-          ,  // banner
-          ,  // fet
-          ,  // shouldShow
+          ,
+          ,
+          ,
+          ,
+          ,
+          // idx
+          // question
+          // banner
+          // fet
+          // shouldShow
           navigating,
           qQuiet,
-          eQuiet
+          eQuiet,
         ] = tuple;
-        const hold = navigating || performance.now() < Math.max(qQuiet || 0, eQuiet || 0);
+        const hold =
+          navigating || performance.now() < Math.max(qQuiet || 0, eQuiet || 0);
         if (hold) {
           console.log('[VisualGate] ⏸ hold (navigating/quiet-zone)');
         }
         return !hold;
       }),
-  
+
       distinctUntilChanged((prev: CombinedTuple, curr: CombinedTuple) => {
         const [pIdx, , , pFet, pShow] = prev;
         const [cIdx, , , cFet, cShow] = curr;
-        return (
-          pIdx === cIdx &&
-          pFet?.text === cFet?.text &&
-          pShow === cShow
-        );
+        return pIdx === cIdx && pFet?.text === cFet?.text && pShow === cShow;
       }),
-  
+
       skipUntil(
         index$.pipe(
-          filter(idx => Number.isFinite(idx)),
-          take(1)
-        )
+          filter((idx) => Number.isFinite(idx)),
+          take(1),
+        ),
       ),
-  
+
       filter(([idx, , , fet]) => {
         const isMatch = fet?.idx === idx || !fet?.text?.trim();
-  
+
         if (!isMatch) {
           console.log(
-            `[DisplayGate] 🚫 Suppressing mismatched FET (fet.idx=${fet?.idx}, current=${idx})`
+            `[DisplayGate] 🚫 Suppressing mismatched FET (fet.idx=${fet?.idx}, current=${idx})`,
           );
         }
-  
+
         return isMatch;
       }),
-  
+
       withLatestFrom(this.quizService.currentQuestionIndex$),
-  
-      filter(([
-        [idx, question, banner, fet, shouldShow, navigating, qQuiet, eQuiet],
-        liveIdx
-      ]) => {
-        const valid = idx === liveIdx;
-  
-        if (!valid) {
-          console.warn('[INDEX GATE] Dropping stale emission', {
-            streamIndex: idx,
-            liveIndex: liveIdx,
-            fetIdx: fet?.idx
-          });
-        }
-  
-        return valid;
-      }),
-  
-      map(([[idx, question, banner, fet, shouldShow, navigating, qQuiet, eQuiet, questions]]) =>
-        [idx, question, banner, fet, shouldShow, navigating, qQuiet, eQuiet, questions] as CombinedTuple
+
+      filter(
+        ([
+          [idx, question, banner, fet, shouldShow, navigating, qQuiet, eQuiet],
+          liveIdx,
+        ]) => {
+          const valid = idx === liveIdx;
+
+          if (!valid) {
+            console.warn('[INDEX GATE] Dropping stale emission', {
+              streamIndex: idx,
+              liveIndex: liveIdx,
+              fetIdx: fet?.idx,
+            });
+          }
+
+          return valid;
+        },
       ),
-  
+
+      map(
+        ([
+          [
+            idx,
+            question,
+            banner,
+            fet,
+            shouldShow,
+            navigating,
+            qQuiet,
+            eQuiet,
+            questions,
+          ],
+        ]) =>
+          [
+            idx,
+            question,
+            banner,
+            fet,
+            shouldShow,
+            navigating,
+            qQuiet,
+            eQuiet,
+            questions,
+          ] as CombinedTuple,
+      ),
+
       auditTime(32),
-      filter(([, question]) => typeof question === 'string' && question.trim().length > 0),
+      filter(
+        ([, question]) =>
+          typeof question === 'string' && question.trim().length > 0,
+      ),
       auditTime(32),
-      filter(([, question]) => typeof question === 'string' && question.trim().length > 0),
-  
-      map(([idx, question, banner, fet, shouldShow, navigating, qQuiet, eQuiet, questions]) => {
-        console.log(`[getCombinedDisplayTextStream] Q${idx + 1} before resolveTextToDisplay:`, {
-          questionsLength: questions?.length,
-          serviceQuestionsLength: this.quizService.questions?.length,
+      filter(
+        ([, question]) =>
+          typeof question === 'string' && question.trim().length > 0,
+      ),
+
+      map(
+        ([
+          idx,
+          question,
           banner,
-          idx
-        });
-        return this.resolveTextToDisplay(idx, question, banner, fet, shouldShow, questions);
-      }),
-  
+          fet,
+          shouldShow,
+          navigating,
+          qQuiet,
+          eQuiet,
+          questions,
+        ]) => {
+          console.log(
+            `[getCombinedDisplayTextStream] Q${idx + 1} before resolveTextToDisplay:`,
+            {
+              questionsLength: questions?.length,
+              serviceQuestionsLength: this.quizService.questions?.length,
+              banner,
+              idx,
+            },
+          );
+          return this.resolveTextToDisplay(
+            idx,
+            question,
+            banner,
+            fet,
+            shouldShow,
+            questions,
+          );
+        },
+      ),
+
       auditTime(16),
-      distinctUntilChanged((a: string, b: string) => a.trim() === b.trim())
+      distinctUntilChanged((a: string, b: string) => a.trim() === b.trim()),
     );
-  
+
     // FINAL LAYER: explanation wins
     return combineLatest([
       base$,
       displayState$,
       explanationReady$,
       this.explanationTextService.formattedExplanation$.pipe(startWith('')),
-      this.quizService.currentQuestionIndex$
+      this.quizService.currentQuestionIndex$,
     ]).pipe(
       map(([baseText, displayState, explanationReady, formatted, idx]) => {
         const fet = String(
-          formatted ??
-          this.explanationTextService.latestExplanation ??
-          ''
+          formatted ?? this.explanationTextService.latestExplanation ?? '',
         ).trim();
-  
+
         const mode = displayState?.mode ?? 'question';
         const base = String(baseText ?? '') as string;
-  
+
         // Normal explanation-mode override
         if (mode === 'explanation') {
           if (fet) {
             console.log('[CQCC] 🟢 Explanation mode override → showing FET');
             return fet as string;
           }
-  
+
           if (explanationReady) {
-            console.log('[CQCC] 🟡 Explanation ready but empty → placeholder, not question text');
+            console.log(
+              '[CQCC] 🟡 Explanation ready but empty → placeholder, not question text',
+            );
             return (fet || 'Explanation not available.') as string;
           }
         }
-  
+
         // HARD OVERRIDE: once answered, FET wins if it exists
         try {
           const quizId = this.quizId ?? '';
           if (quizId) {
             const qState = this.quizStateService.getQuestionState(quizId, idx);
-            const isAnswered = qState?.isAnswered || qState?.explanationDisplayed;
-  
+            const isAnswered =
+              qState?.isAnswered || qState?.explanationDisplayed;
+
             if (isAnswered) {
               if (fet) {
                 console.log('[CQCC] 🔐 Answered override → forcing FET');
@@ -726,13 +884,13 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         } catch (err) {
           console.warn('[CQCC] ⚠️ Answered override check failed', err);
         }
-  
+
         // Default: use base text (usually question)
         return base;
       }),
       distinctUntilChanged((a: string, b: string) => a.trim() === b.trim()),
       observeOn(animationFrameScheduler),
-      shareReplay({ bufferSize: 1, refCount: true })
+      shareReplay({ bufferSize: 1, refCount: true }),
     );
   }
 
@@ -742,7 +900,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     banner: string,
     fet: { idx: number; text: string; gate: boolean } | null,
     shouldShow: boolean,
-    questions: QuizQuestion[] = []
+    questions: QuizQuestion[] = [],
   ): string {
     const qText = (question ?? '').trim();
     const bannerText = (banner ?? '').trim();
@@ -753,7 +911,8 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     const qObj = this.quizService.questions?.[idx] || questions?.[idx];
 
     // Calculate isMulti early for use throughout the function
-    const numCorrectForMultiCheck = qObj?.options?.filter((o: Option) => o.correct).length || 0;
+    const numCorrectForMultiCheck =
+      qObj?.options?.filter((o: Option) => o.correct).length || 0;
     const isMulti = numCorrectForMultiCheck > 1;
 
     const ets = this.explanationTextService;
@@ -773,8 +932,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       this._lastQuestionTextByIndex.set(idx, qText);
     }
 
-    const explanationGate =
-      ets.shouldDisplayExplanationSource?.value === true;
+    const explanationGate = ets.shouldDisplayExplanationSource?.value === true;
 
     // FET DISPLAY GATE — only allow in explanation mode
     // STRICT GUARD: Explanation index MUST match current index
@@ -785,7 +943,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       mode === 'explanation' &&
       explanationGate &&
       hasUserInteracted &&
-      explanationIndexMatches &&  // strict guard
+      explanationIndexMatches && // strict guard
       ets.latestExplanation &&
       ets.latestExplanation.trim().length > 0
     ) {
@@ -795,17 +953,22 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         idx,
         explanationIndex,
         hasUserInteracted,
-        explanationGate
+        explanationGate,
       });
 
       // Append correct answers banner to FET for multi-answer questions
       let finalFet = safe;
       if (isMulti) {
-        const numCorrect = qObj?.options?.filter((o: Option) => o.correct).length || 0;
+        const numCorrect =
+          qObj?.options?.filter((o: Option) => o.correct).length || 0;
         const totalOpts = qObj?.options?.length || 0;
 
         if (numCorrect > 0) {
-          const banner = this.quizQuestionManagerService.getNumberOfCorrectAnswersText(numCorrect, totalOpts);
+          const banner =
+            this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
+              numCorrect,
+              totalOpts,
+            );
           // Prepend the banner before the FET so it shows at the top
           finalFet = `<div class="correct-count-header">${banner}</div>${safe}`;
         }
@@ -841,32 +1004,44 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
     const fallbackQuestion =
       qText ||
-      cachedForThisIndex ||              // index scoped
+      cachedForThisIndex || // index scoped
       '[Recovery: question still loading…]';
 
     // Robust Banner Logic: Use stream banner OR calculate fallback
     let finalBanner = bannerText;
 
     if (isMulti && !finalBanner && effectiveQObj) {
-      const numCorrect = effectiveQObj.options?.filter((o: Option) => o.correct).length || 0;
+      const numCorrect =
+        effectiveQObj.options?.filter((o: Option) => o.correct).length || 0;
       const totalOpts = effectiveQObj.options?.length || 0;
 
       if (numCorrect > 0) {
-        finalBanner = this.quizQuestionManagerService.getNumberOfCorrectAnswersText(numCorrect, totalOpts);
-        console.log(`[resolveTextToDisplay] 🛠️ Calculated fallback banner for Q${idx + 1}: "${finalBanner}"`);
+        finalBanner =
+          this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
+            numCorrect,
+            totalOpts,
+          );
+        console.log(
+          `[resolveTextToDisplay] 🛠️ Calculated fallback banner for Q${idx + 1}: "${finalBanner}"`,
+        );
       } else {
-        console.warn(`[resolveTextToDisplay] ⚠️ Banner fallback failed: numCorrect=${numCorrect} for Q${idx + 1}`);
+        console.warn(
+          `[resolveTextToDisplay] ⚠️ Banner fallback failed: numCorrect=${numCorrect} for Q${idx + 1}`,
+        );
       }
     }
 
     // FIXED: Show banner in question mode for multi-answer questions
     // Trust finalBanner if it exists (it implies multi-answer if it came from the service)
-    const shouldShowBanner = (isMulti || !!finalBanner) && !!finalBanner && mode === 'question';
+    const shouldShowBanner =
+      (isMulti || !!finalBanner) && !!finalBanner && mode === 'question';
 
     // Only show banner when we have multi-answer question with banner text IN QUESTION MODE
     if (shouldShowBanner) {
       const merged = `${fallbackQuestion} <span class="correct-count">${finalBanner}</span>`;
-      console.log(`[resolveTextToDisplay] 🎯 Question+banner for Q${idx + 1} (mode: ${mode})`);
+      console.log(
+        `[resolveTextToDisplay] 🎯 Question+banner for Q${idx + 1} (mode: ${mode})`,
+      );
       this._lastQuestionTextByIndex.set(idx, merged);
       return merged;
     }
@@ -890,8 +1065,8 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
   private setupDisplayStateSubscription(): void {
     combineLatest([
-      this.displayState$.pipe(distinctUntilChanged()),  // ensure state changes trigger updates
-      this.isQuizQuestionComponentInitialized.pipe(distinctUntilChanged()),  // check initialization status
+      this.displayState$.pipe(distinctUntilChanged()), // ensure state changes trigger updates
+      this.isQuizQuestionComponentInitialized.pipe(distinctUntilChanged()), // check initialization status
     ])
       .pipe(takeUntil(this.destroy$))
       .subscribe(([state, isInitialized]) => {
@@ -900,17 +1075,17 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             if (state.mode === 'explanation' && state.answered) {
               console.log('Displaying explanation text.', {
                 mode: state.mode,
-                answered: state.answered
+                answered: state.answered,
               });
             } else {
               console.log('Displaying question text.', {
                 mode: state.mode,
-                answered: state.answered
+                answered: state.answered,
               });
             }
           } else {
             console.error(
-              'QuizQuestionComponent is unexpectedly null during display update.'
+              'QuizQuestionComponent is unexpectedly null during display update.',
             );
           }
         } else {
@@ -918,15 +1093,15 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             'QuizQuestionComponent not ready. Skipping display update.',
             {
               state,
-              isInitialized
-            }
+              isInitialized,
+            },
           );
         }
       });
   }
 
   private fetchExplanationTextAfterRendering(
-    question: QuizQuestion
+    question: QuizQuestion,
   ): Observable<string> {
     return new Observable<string>((observer) => {
       setTimeout(() => {
@@ -934,20 +1109,18 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           observer.next(explanation);
           observer.complete();
         });
-      }, 100);  // delay to ensure rendering order
+      }, 100); // delay to ensure rendering order
     });
   }
 
   configureDisplayLogic(): void {
-    this.handleQuestionDisplayLogic().subscribe(
-      ({ isMultipleAnswer }) => {
-        if (this.currentQuestionType === QuestionType.SingleAnswer) {
-          this.shouldDisplayCorrectAnswers = false;
-        } else {
-          this.shouldDisplayCorrectAnswers = isMultipleAnswer;
-        }
+    this.handleQuestionDisplayLogic().subscribe(({ isMultipleAnswer }) => {
+      if (this.currentQuestionType === QuestionType.SingleAnswer) {
+        this.shouldDisplayCorrectAnswers = false;
+      } else {
+        this.shouldDisplayCorrectAnswers = isMultipleAnswer;
       }
-    );
+    });
   }
 
   private loadQuizDataFromRoute(): void {
@@ -959,7 +1132,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       if (quizId) {
         this.quizId = quizId;
         this.quizService.quizId = quizId;
-        localStorage.setItem('quizId', quizId);  // store quizId in localStorage
+        localStorage.setItem('quizId', quizId); // store quizId in localStorage
         this.currentQuestionIndexValue = zeroBasedIndex;
         await this.loadQuestion(quizId, zeroBasedIndex);
       } else {
@@ -972,14 +1145,14 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         debounceTime(200),
         tap((question: QuizQuestion | null) => {
           if (question) this.updateCorrectAnswersDisplay(question).subscribe();
-        })
+        }),
       )
       .subscribe();
   }
 
   private async loadQuestion(
     quizId: string,
-    zeroBasedIndex: number
+    zeroBasedIndex: number,
   ): Promise<void> {
     if (zeroBasedIndex == null || isNaN(zeroBasedIndex)) {
       console.error('Question index is null or undefined');
@@ -988,7 +1161,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
     try {
       const questions = await firstValueFrom(
-        this.quizDataService.getQuestionsForQuiz(quizId)
+        this.quizDataService.getQuestionsForQuiz(quizId),
       );
       if (
         questions &&
@@ -997,8 +1170,8 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         zeroBasedIndex < questions.length
       ) {
         const question = questions[zeroBasedIndex];
-        this.currentQuestion.next(question);  // use 'next' to update BehaviorSubject
-        this.isExplanationDisplayed = false;  // reset explanation display state
+        this.currentQuestion.next(question); // use 'next' to update BehaviorSubject
+        this.isExplanationDisplayed = false; // reset explanation display state
         this.explanationToDisplay = '';
 
         // Reset explanation state
@@ -1026,13 +1199,13 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   private async initializeQuestionData(): Promise<void> {
     try {
       const params: ParamMap = await firstValueFrom(
-        this.activatedRoute.paramMap.pipe(take(1))
+        this.activatedRoute.paramMap.pipe(take(1)),
       );
 
       const data: [QuizQuestion[], string[]] = await firstValueFrom(
         this.fetchQuestionsAndExplanationTexts(params).pipe(
-          takeUntil(this.destroy$)
-        )
+          takeUntil(this.destroy$),
+        ),
       );
 
       const [questions, explanationTexts] = data;
@@ -1046,13 +1219,14 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
       await Promise.all(
         questions.map(async (question, index) => {
-          const explanation = this.explanationTexts[index] ?? 'No explanation available';
+          const explanation =
+            this.explanationTexts[index] ?? 'No explanation available';
           this.explanationTextService.storeFormattedExplanation(
             index,
             explanation,
-            question
+            question,
           );
-        })
+        }),
       );
 
       // Set before test fetch
@@ -1065,7 +1239,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   }
 
   private fetchQuestionsAndExplanationTexts(
-    params: ParamMap
+    params: ParamMap,
   ): Observable<[QuizQuestion[], string[]]> {
     this.quizId = params.get('quizId') ?? '';
     if (!this.quizId) {
@@ -1078,18 +1252,18 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         catchError((error) => {
           console.error('Error fetching questions:', error);
           return of([] as QuizQuestion[]);
-        })
+        }),
       ),
       this.quizDataService.getAllExplanationTextsForQuiz(this.quizId).pipe(
         catchError((error) => {
           console.error('Error fetching explanation texts:', error);
           return of([] as string[]);
-        })
+        }),
       ),
     ]).pipe(
       map(([questions, explanationTexts]) => {
         return [questions, explanationTexts] as [QuizQuestion[], string[]];
-      })
+      }),
     );
   }
 
@@ -1100,7 +1274,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   }
 
   private updateCorrectAnswersDisplay(
-    question: QuizQuestion | null
+    question: QuizQuestion | null,
   ): Observable<void> {
     if (!question) {
       return of(void 0);
@@ -1111,16 +1285,16 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       .pipe(
         tap((isMultipleAnswer) => {
           const correctAnswers = question.options.filter(
-            (option) => option.correct
+            (option) => option.correct,
           ).length;
           const explanationDisplayed =
             this.explanationTextService.isExplanationTextDisplayedSource.getValue();
           const newCorrectAnswersText =
             isMultipleAnswer && !explanationDisplayed
               ? this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
-                correctAnswers,
-                question.options?.length ?? 0
-              )
+                  correctAnswers,
+                  question.options?.length ?? 0,
+                )
               : '';
 
           if (
@@ -1129,17 +1303,18 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             this.correctAnswersTextSource.next(newCorrectAnswersText);
           }
 
-          const shouldDisplayCorrectAnswers = isMultipleAnswer && !explanationDisplayed;
+          const shouldDisplayCorrectAnswers =
+            isMultipleAnswer && !explanationDisplayed;
           if (
             this.shouldDisplayCorrectAnswersSubject.getValue() !==
             shouldDisplayCorrectAnswers
           ) {
             this.shouldDisplayCorrectAnswersSubject.next(
-              shouldDisplayCorrectAnswers
+              shouldDisplayCorrectAnswers,
             );
           }
         }),
-        map(() => void 0)
+        map(() => void 0),
       );
   }
 
@@ -1161,7 +1336,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         const questionIndex = questions.findIndex(
           (q) =>
             q.questionText.trim().toLowerCase() ===
-            question.questionText.trim().toLowerCase()
+            question.questionText.trim().toLowerCase(),
         );
 
         if (questionIndex < 0) {
@@ -1172,7 +1347,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         // Check if explanations are initialized
         if (!this.explanationTextService.explanationsInitialized) {
           console.warn(
-            `[fetchExplanationText] ⏳ Explanations not initialized — returning fallback for Q${questionIndex}`
+            `[fetchExplanationText] ⏳ Explanations not initialized — returning fallback for Q${questionIndex}`,
           );
           return of('No explanation available');
         }
@@ -1180,15 +1355,13 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         // Safely return the formatted explanation text for the given question index
         return this.explanationTextService
           .getFormattedExplanationTextForQuestion(questionIndex)
-          .pipe(
-            map((text) => text ?? 'No explanation available')
-          );
+          .pipe(map((text) => text ?? 'No explanation available'));
       }),
       catchError((error) => {
         // Catch any unexpected runtime errors
         console.error('Error fetching explanation text:', error);
         return of('No explanation available');
-      })
+      }),
     );
   }
 
@@ -1205,46 +1378,60 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     });
 
     this.combinedQuestionData$ = combineLatest([
-      currentQuizAndOptions$.pipe(startWith<{ currentQuestion: QuizQuestion | null; currentOptions: Option[]; explanation: string; currentIndex: number } | null>(null)),
+      currentQuizAndOptions$.pipe(
+        startWith<{
+          currentQuestion: QuizQuestion | null;
+          currentOptions: Option[];
+          explanation: string;
+          currentIndex: number;
+        } | null>(null),
+      ),
       this.numberOfCorrectAnswers$.pipe(startWith(0)),
       this.isExplanationTextDisplayed$.pipe(startWith(false)),
       this.activeFetText$.pipe(startWith('')),
     ]).pipe(
-      map(([quiz, numberOfCorrectAnswers, isExplanationDisplayed, formattedExplanation]) => {
-        const safeQuizData = quiz?.currentQuestion
-          ? quiz
-          : {
-            currentQuestion: null,
-            currentOptions: [],
-            explanation: '',
-            currentIndex: 0,
+      map(
+        ([
+          quiz,
+          numberOfCorrectAnswers,
+          isExplanationDisplayed,
+          formattedExplanation,
+        ]) => {
+          const safeQuizData = quiz?.currentQuestion
+            ? quiz
+            : {
+                currentQuestion: null,
+                currentOptions: [],
+                explanation: '',
+                currentIndex: 0,
+              };
+
+          const selectionMessage =
+            'selectionMessage' in safeQuizData
+              ? (safeQuizData as any).selectionMessage || ''
+              : '';
+
+          const currentQuizData: CombinedQuestionDataType = {
+            currentQuestion: safeQuizData.currentQuestion,
+            currentOptions: safeQuizData.currentOptions ?? [],
+            options: safeQuizData.currentOptions ?? [],
+            questionText:
+              safeQuizData.currentQuestion?.questionText ||
+              'No question available',
+            explanation: safeQuizData.explanation ?? '',
+            correctAnswersText: '',
+            isExplanationDisplayed: !!isExplanationDisplayed,
+            isNavigatingToPrevious: false,
+            selectionMessage,
           };
 
-        const selectionMessage =
-          'selectionMessage' in safeQuizData
-            ? (safeQuizData as any).selectionMessage || ''
-            : '';
-
-        const currentQuizData: CombinedQuestionDataType = {
-          currentQuestion: safeQuizData.currentQuestion,
-          currentOptions: safeQuizData.currentOptions ?? [],
-          options: safeQuizData.currentOptions ?? [],
-          questionText:
-            safeQuizData.currentQuestion?.questionText || 'No question available',
-          explanation: safeQuizData.explanation ?? '',
-          correctAnswersText: '',
-          isExplanationDisplayed: !!isExplanationDisplayed,
-          isNavigatingToPrevious: false,
-          selectionMessage,
-        };
-
-        return this.calculateCombinedQuestionData(
-          currentQuizData,
-          +(numberOfCorrectAnswers ?? 0),
-          !!isExplanationDisplayed,
-          formattedExplanation ?? ''
-        );
-      }
+          return this.calculateCombinedQuestionData(
+            currentQuizData,
+            +(numberOfCorrectAnswers ?? 0),
+            !!isExplanationDisplayed,
+            formattedExplanation ?? '',
+          );
+        },
       ),
       filter((data): data is CombinedQuestionDataType => data !== null),
       catchError((error: Error) => {
@@ -1258,7 +1445,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             answer: [],
             selectedOptionIds: [],
             type: undefined,
-            maxSelections: 0
+            maxSelections: 0,
           },
           currentOptions: [],
           options: [],
@@ -1267,12 +1454,12 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           correctAnswersText: '',
           isExplanationDisplayed: false,
           isNavigatingToPrevious: false,
-          selectionMessage: ''
+          selectionMessage: '',
         };
 
         // Explicit generic keeps the observable type consistent
         return of<CombinedQuestionDataType>(fallback);
-      })
+      }),
     );
   }
 
@@ -1286,7 +1473,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       withLatestFrom(this.quizService.currentQuestionIndex$),
       filter(
         (
-          value: [QuestionPayload | null, number]
+          value: [QuestionPayload | null, number],
         ): value is [QuestionPayload, number] => {
           const [payload] = value;
           return (
@@ -1295,7 +1482,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             Array.isArray(payload.options) &&
             payload.options.length > 0
           );
-        }
+        },
       ),
       map(([payload, index]) => ({
         payload,
@@ -1303,21 +1490,21 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           ? index
           : this.currentIndex >= 0
             ? this.currentIndex
-            : 0
+            : 0,
       })),
       filter(({ payload, index }) => {
         const expected =
           Array.isArray(this.questions) && index >= 0
-            ? this.questions[index] ?? null
+            ? (this.questions[index] ?? null)
             : null;
 
         if (!expected) return true;
 
         const normalizedExpected = this.normalizeKeySource(
-          expected.questionText
+          expected.questionText,
         );
         const normalizedIncoming = this.normalizeKeySource(
-          payload.question?.questionText
+          payload.question?.questionText,
         );
 
         if (
@@ -1330,8 +1517,8 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             {
               index,
               normalizedExpected,
-              normalizedIncoming
-            }
+              normalizedIncoming,
+            },
           );
           return false;
         }
@@ -1349,7 +1536,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             displayOrder:
               typeof option.displayOrder === 'number'
                 ? option.displayOrder
-                : optionIndex
+                : optionIndex,
           }))
           .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
 
@@ -1368,13 +1555,13 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             payload.explanation?.trim() ||
             payload.question.explanation?.trim() ||
             '',
-          currentIndex: index
+          currentIndex: index,
         };
       }),
       distinctUntilChanged((prev, curr) => {
         const norm = (s?: string) =>
           (s ?? '')
-            .replace(/<[^>]*>/g, ' ')  // strip HTML
+            .replace(/<[^>]*>/g, ' ') // strip HTML
             .replace(/&nbsp;/g, ' ')
             .trim()
             .toLowerCase()
@@ -1382,7 +1569,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
         const questionKey = (
           q: QuizQuestion | null | undefined,
-          idx?: number
+          idx?: number,
         ) => {
           // Prefer a stable id if it exists in the model; fallback to normalized text and index
           const textKey = norm(q?.questionText);
@@ -1398,7 +1585,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
         return this.haveSameOptionOrder(
           prev.currentOptions,
-          curr.currentOptions
+          curr.currentOptions,
         );
       }),
       shareReplay({ bufferSize: 1, refCount: true }),
@@ -1408,15 +1595,15 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           currentQuestion: null,
           currentOptions: [],
           explanation: '',
-          currentIndex: -1
+          currentIndex: -1,
         });
-      })
+      }),
     );
   }
 
   private haveSameOptionOrder(
     left: Option[] = [],
-    right: Option[] = []
+    right: Option[] = [],
   ): boolean {
     if (!Array.isArray(left) || !Array.isArray(right)) {
       return false;
@@ -1443,7 +1630,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     currentQuizData: CombinedQuestionDataType,
     numberOfCorrectAnswers: number,
     isExplanationDisplayed: boolean,
-    formattedExplanation: string
+    formattedExplanation: string,
   ): CombinedQuestionDataType {
     const { currentQuestion, currentOptions } = currentQuizData;
 
@@ -1458,7 +1645,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         correctAnswersText: '',
         isExplanationDisplayed: false,
         isNavigatingToPrevious: false,
-        selectionMessage: ''
+        selectionMessage: '',
       };
     }
 
@@ -1481,16 +1668,16 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     const correctAnswersText =
       isMultipleAnswerQuestion && normalizedCorrectCount > 0
         ? this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
-          normalizedCorrectCount,
-          totalOptions
-        )
+            normalizedCorrectCount,
+            totalOptions,
+          )
         : '';
 
     const explanationText = isExplanationDisplayed
       ? formattedExplanation?.trim() ||
-      currentQuizData.explanation ||
-      currentQuestion.explanation ||
-      ''
+        currentQuizData.explanation ||
+        currentQuestion.explanation ||
+        ''
       : '';
 
     const combinedQuestionData: CombinedQuestionDataType = {
@@ -1502,7 +1689,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       correctAnswersText,
       isExplanationDisplayed: isExplanationDisplayed,
       isNavigatingToPrevious: false,
-      selectionMessage: ''
+      selectionMessage: '',
     };
     return combinedQuestionData;
   }
@@ -1523,7 +1710,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           answer: [],
           selectedOptionIds: [],
           type: undefined,
-          maxSelections: 0
+          maxSelections: 0,
         },
         currentOptions: [],
         options: [],
@@ -1532,7 +1719,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         correctAnswersText: '',
         isExplanationDisplayed: false,
         isNavigatingToPrevious: false,
-        selectionMessage: ''
+        selectionMessage: '',
       });
 
     // Main observable pipeline
@@ -1549,18 +1736,18 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             .pipe(
               map((isMultipleAnswer) => ({
                 combinedData,
-                isMultipleAnswer
-              }))
+                isMultipleAnswer,
+              })),
             );
         } else {
           // Handle case where currentQuestion is missing
           this.currentQuestionType = undefined;
           return of({
             combinedData,
-            isMultipleAnswer: false
+            isMultipleAnswer: false,
           });
         }
-      })
+      }),
     );
   }
 
@@ -1568,25 +1755,28 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     // Combining the logic to determine if the correct answers text should be displayed
     this.shouldDisplayCorrectAnswers$ = combineLatest([
       this.shouldDisplayCorrectAnswers$.pipe(
-        startWith(false),  // ensuring it has an initial value
-        map((value) => value ?? false),  // fallback to false if value is undefined
-        distinctUntilChanged()
+        startWith(false), // ensuring it has an initial value
+        map((value) => value ?? false), // fallback to false if value is undefined
+        distinctUntilChanged(),
       ),
       this.isExplanationDisplayed$.pipe(
-        startWith(false),  // ensuring it has an initial value
-        map((value) => value ?? false),  // fallback to false if value is undefined
-        distinctUntilChanged()
+        startWith(false), // ensuring it has an initial value
+        map((value) => value ?? false), // fallback to false if value is undefined
+        distinctUntilChanged(),
       ),
     ]).pipe(
       map(
         ([shouldDisplayCorrectAnswers, isExplanationDisplayed]) =>
-          shouldDisplayCorrectAnswers && !isExplanationDisplayed
+          shouldDisplayCorrectAnswers && !isExplanationDisplayed,
       ),
       distinctUntilChanged(),
       catchError((error) => {
-        console.error('Error in shouldDisplayCorrectAnswers$ observable:', error);
-        return of(false);  // default to not displaying correct answers in case of error
-      })
+        console.error(
+          'Error in shouldDisplayCorrectAnswers$ observable:',
+          error,
+        );
+        return of(false); // default to not displaying correct answers in case of error
+      }),
     );
 
     // Display correctAnswersText only if the above conditions are met
@@ -1597,8 +1787,8 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       distinctUntilChanged(),
       catchError((error) => {
         console.error('Error in displayCorrectAnswersText$ observable:', error);
-        return of(null);  // default to null in case of error
-      })
+        return of(null); // default to null in case of error
+      }),
     );
   }
 

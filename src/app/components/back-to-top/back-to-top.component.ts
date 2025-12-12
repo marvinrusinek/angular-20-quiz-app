@@ -6,7 +6,7 @@ import { CommonModule } from '@angular/common';
   standalone: true,
   imports: [CommonModule],
   templateUrl: './back-to-top.component.html',
-  styleUrls: ['./back-to-top.component.scss']
+  styleUrls: ['./back-to-top.component.scss'],
 })
 export class BackToTopComponent {
   isVisible = false;

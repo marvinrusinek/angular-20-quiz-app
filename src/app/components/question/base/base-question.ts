@@ -1,4 +1,15 @@
-import { ChangeDetectorRef, Directive, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChange, SimpleChanges } from '@angular/core';
+import {
+  ChangeDetectorRef,
+  Directive,
+  EventEmitter,
+  Input,
+  OnChanges,
+  OnDestroy,
+  OnInit,
+  Output,
+  SimpleChange,
+  SimpleChanges,
+} from '@angular/core';
 import { FormBuilder, FormControl, FormGroup } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
@@ -16,19 +27,25 @@ import { SelectedOptionService } from '../../../shared/services/selectedoption.s
 
 @Directive()
 export abstract class BaseQuestion<
-  T extends { option: SelectedOption | null; index: number; checked?: boolean } = {
+  T extends {
     option: SelectedOption | null;
     index: number;
     checked?: boolean;
-  }
-> implements OnInit, OnChanges, OnDestroy {
+  } = {
+    option: SelectedOption | null;
+    index: number;
+    checked?: boolean;
+  },
+>
+  implements OnInit, OnChanges, OnDestroy
+{
   @Output() optionClicked = new EventEmitter<T>();
   @Output() questionChange = new EventEmitter<QuizQuestion>();
   @Output() explanationToDisplayChange = new EventEmitter<string>();
   @Output() correctMessageChange = new EventEmitter<string>();
   @Input() quizQuestionComponentOnOptionClicked!: (
     option: SelectedOption,
-    index: number
+    index: number,
   ) => void;
   @Input() question: QuizQuestion | null = null;
   @Input() optionsToDisplay: Option[] = [];
@@ -57,7 +74,7 @@ export abstract class BaseQuestion<
     protected quizService: QuizService,
     protected quizStateService: QuizStateService,
     protected selectedOptionService: SelectedOptionService,
-    protected cdRef: ChangeDetectorRef
+    protected cdRef: ChangeDetectorRef,
   ) {}
 
   async ngOnInit(): Promise<void> {
@@ -68,30 +85,45 @@ export abstract class BaseQuestion<
 
   async ngOnChanges(changes: SimpleChanges): Promise<void> {
     let shouldInitializeDynamicComponent = false;
-  
+
     if (changes['question']) {
       const newQuestion = changes['question'].currentValue;
-      if (!newQuestion || !Array.isArray(newQuestion.options) || newQuestion.options.length === 0) {
-        console.warn('[⏳ ngOnChanges] Question or options not ready. Will retry...');
-        setTimeout(() => this.ngOnChanges(changes), 50);  // retry once after delay
+      if (
+        !newQuestion ||
+        !Array.isArray(newQuestion.options) ||
+        newQuestion.options.length === 0
+      ) {
+        console.warn(
+          '[⏳ ngOnChanges] Question or options not ready. Will retry...',
+        );
+        setTimeout(() => this.ngOnChanges(changes), 50); // retry once after delay
         return;
       }
-  
+
       this.handleQuestionChange(changes['question']);
       this.initializeQuestionIfAvailable();
       await this.initializeSharedOptionConfig();
-  
+
       shouldInitializeDynamicComponent = true;
     }
-  
-    if (changes['optionsToDisplay'] && changes['optionsToDisplay'].currentValue) {
+
+    if (
+      changes['optionsToDisplay'] &&
+      changes['optionsToDisplay'].currentValue
+    ) {
       this.handleOptionsToDisplayChange(changes['optionsToDisplay']);
       shouldInitializeDynamicComponent = true;
-    }    
-  
+    }
+
     // Safe to initialize dynamic component after both inputs are handled
-    if (shouldInitializeDynamicComponent && this.question && this.optionsToDisplay?.length > 0) {
-      console.log('[📦 ngOnChanges] Inputs ready, initializing dynamic component...');
+    if (
+      shouldInitializeDynamicComponent &&
+      this.question &&
+      this.optionsToDisplay?.length > 0
+    ) {
+      console.log(
+        '[📦 ngOnChanges] Inputs ready, initializing dynamic component...',
+      );
       this.initializeDynamicComponentIfNeeded();
     }
   }
@@ -110,14 +142,21 @@ export abstract class BaseQuestion<
       console.log('Dynamic component already initialized. Skipping load.');
       return;
     }
-  
+
     // Defer load if inputs are not yet ready
-    if (!this.question || !Array.isArray(this.optionsToDisplay) || this.optionsToDisplay.length === 0) {
-      console.warn('[🕒 Waiting to initialize dynamic component – data not ready]', {
-        question: this.question,
-        optionsToDisplay: this.optionsToDisplay
-      });
-  
+    if (
+      !this.question ||
+      !Array.isArray(this.optionsToDisplay) ||
+      this.optionsToDisplay.length === 0
+    ) {
+      console.warn(
+        '[🕒 Waiting to initialize dynamic component – data not ready]',
+        {
+          question: this.question,
+          optionsToDisplay: this.optionsToDisplay,
+        },
+      );
+
       setTimeout(() => {
         if (!this.containerInitialized) {
           this.initializeDynamicComponentIfNeeded();
@@ -125,18 +164,19 @@ export abstract class BaseQuestion<
       }, 50);
       return;
     }
-  
+
     try {
       // this.dynamicAnswerContainer.clear();
 
-
       // this.loadDynamicComponent(this.question, this.optionsToDisplay, this.quizService.currentQuestionIndex);
-
 
       this.containerInitialized = true;
       this.cdRef.markForCheck();
     } catch (error) {
-      console.error('[❌ initializeDynamicComponentIfNeeded] Exception caught:', error);
+      console.error(
+        '[❌ initializeDynamicComponentIfNeeded] Exception caught:',
+        error,
+      );
     }
   }
 
@@ -151,7 +191,7 @@ export abstract class BaseQuestion<
       }
     } else {
       console.warn(
-        'quizStateService is not available. Unable to set current question.'
+        'quizStateService is not available. Unable to set current question.',
       );
       console.log('Component instance:', this);
     }
@@ -159,42 +199,57 @@ export abstract class BaseQuestion<
 
   protected initializeQuestion(): void {
     try {
-      const qqc = (this as any).quizQuestionComponent ?? (this as any)._quizQuestionComponent;
+      const qqc =
+        (this as any).quizQuestionComponent ??
+        (this as any)._quizQuestionComponent;
       qqc?._fetEarlyShown?.clear();
-      console.log('[BQC] 🔄 Cleared _fetEarlyShown before showing new question');
+      console.log(
+        '[BQC] 🔄 Cleared _fetEarlyShown before showing new question',
+      );
     } catch (err) {
       console.warn('[BQC] ⚠️ Could not clear _fetEarlyShown:', err);
     }
 
-    if (this.question && Array.isArray(this.question.options) && this.question.options.length > 0) {
+    if (
+      this.question &&
+      Array.isArray(this.question.options) &&
+      this.question.options.length > 0
+    ) {
       this.initializeOptions();
       this.optionsInitialized = true;
       this.questionChange.emit(this.question);
     } else {
       console.error(
         '[❌ initializeQuestion] Question input is invalid or missing options:',
-        this.question
+        this.question,
       );
     }
   }
 
   private initializeQuestionIfAvailable(): void {
-    if (this.question && Array.isArray(this.question.options) && this.question.options.length > 0) {
+    if (
+      this.question &&
+      Array.isArray(this.question.options) &&
+      this.question.options.length > 0
+    ) {
       this.setCurrentQuestion(this.question);
       this.initializeQuestion();
     } else {
-      console.warn('[⚠️ initializeQuestionIfAvailable] Question or options not ready:', this.question);
+      console.warn(
+        '[⚠️ initializeQuestionIfAvailable] Question or options not ready:',
+        this.question,
+      );
     }
-  }  
+  }
 
   protected initializeOptions(): void {
     if (!this.question?.options?.length) {
       console.error('initializeOptions - Invalid question or options', {
-        question: this.question
+        question: this.question,
       });
       return;
     }
-  
+
     // Only initialize form if not yet created
     if (!this.questionForm) {
       this.questionForm = new FormGroup({});
@@ -205,28 +260,37 @@ export abstract class BaseQuestion<
         }
       }
     }
-  
+
     // Always set and synchronize options
     this.optionsToDisplay = [...this.question.options];
     console.log('[✅ optionsToDisplay set]', this.optionsToDisplay);
   }
 
   public async initializeSharedOptionConfig(options?: Option[]): Promise<void> {
-    if (!this.question || !Array.isArray(this.question.options) || this.question.options.length === 0) {
-      console.warn('[❌ ISOC] Invalid or missing question/options:', this.question);
+    if (
+      !this.question ||
+      !Array.isArray(this.question.options) ||
+      this.question.options.length === 0
+    ) {
+      console.warn(
+        '[❌ ISOC] Invalid or missing question/options:',
+        this.question,
+      );
       return;
     }
-    
-    const clonedOptions = (options ?? this.question.options ?? []).map((opt, idx) => ({
-      ...opt,
-      optionId: opt.optionId ?? idx,
-      correct: opt.correct ?? false,
-      feedback: opt.feedback
-    }));
-  
+
+    const clonedOptions = (options ?? this.question.options ?? []).map(
+      (opt, idx) => ({
+        ...opt,
+        optionId: opt.optionId ?? idx,
+        correct: opt.correct ?? false,
+        feedback: opt.feedback,
+      }),
+    );
+
     this.sharedOptionConfig = {
       ...this.getDefaultSharedOptionConfig(),
-      type: 'single',  // overridden if needed
+      type: 'single', // overridden if needed
       optionsToDisplay: clonedOptions,
       currentQuestion: { ...this.question },
       shouldResetBackground: this.shouldResetBackground || false,
@@ -239,10 +303,11 @@ export abstract class BaseQuestion<
       isAnswerCorrect: false,
       feedback: this.feedback || '',
       highlightCorrectAfterIncorrect: false,
-      quizQuestionComponentOnOptionClicked: this.quizQuestionComponentOnOptionClicked || (() => {}),
+      quizQuestionComponentOnOptionClicked:
+        this.quizQuestionComponentOnOptionClicked || (() => {}),
       onOptionClicked: (option, index, checked) =>
         this.onOptionClicked({ option, index, checked }),
-      onQuestionAnswered: this.onQuestionAnswered.bind(this)
+      onQuestionAnswered: this.onQuestionAnswered.bind(this),
     };
   }
 
@@ -267,15 +332,15 @@ export abstract class BaseQuestion<
       quizQuestionComponentOnOptionClicked: () => {},
       onOptionClicked: () => Promise.resolve(),
       onQuestionAnswered: () => {},
-      idx: 0
+      idx: 0,
     };
   }
-  
-  protected onQuestionAnswered(event: { option: SelectedOption }): void {      
+
+  protected onQuestionAnswered(event: { option: SelectedOption }): void {
     if (this.selectedOption !== undefined) {
       this.selectedOption = event.option;
     }
-  
+
     if (this.showFeedback !== undefined) {
       this.showFeedback = true;
     }
@@ -283,7 +348,9 @@ export abstract class BaseQuestion<
 
   protected subscribeToQuestionChanges(): void {
     if (!this.quizStateService) {
-      console.warn('quizStateService is undefined. Make sure it is properly injected and initialized.');
+      console.warn(
+        'quizStateService is undefined. Make sure it is properly injected and initialized.',
+      );
       return;
     }
 
@@ -295,66 +362,70 @@ export abstract class BaseQuestion<
     }
 
     // Subscribe to `currentQuestion$` with filtering to skip undefined values
-    this.currentQuestionSubscription = currentQuestion$.pipe(
-      // Filter out undefined or option-less emissions
-      filter(
-        (quizQuestion): quizQuestion is QuizQuestion => {
+    this.currentQuestionSubscription = currentQuestion$
+      .pipe(
+        // Filter out undefined or option-less emissions
+        filter((quizQuestion): quizQuestion is QuizQuestion => {
           // Guard against undefined values
           if (!quizQuestion) {
             console.warn('Received undefined currentQuestion');
             return false;
           }
-    
+
           // Guard against questions that don’t yet have options
           const hasOptions = !!quizQuestion.options?.length;
           if (!hasOptions) {
             console.warn('Current question has no options', quizQuestion);
           }
-    
+
           return hasOptions;
-        }
+        }),
       )
-    ).subscribe({
-      next: (quizQuestion: QuizQuestion) => {
-        this.question = quizQuestion;
-        this.initializeOptions();
-      },
-      error: (err) => {
-        console.error('Error subscribing to currentQuestion:', err);
-      }
-    });
+      .subscribe({
+        next: (quizQuestion: QuizQuestion) => {
+          this.question = quizQuestion;
+          this.initializeOptions();
+        },
+        error: (err) => {
+          console.error('Error subscribing to currentQuestion:', err);
+        },
+      });
   }
 
   protected abstract loadDynamicComponent(
     question: QuizQuestion,
     options: Option[],
-    questionIndex: number
-  ): Promise<void>;  
+    questionIndex: number,
+  ): Promise<void>;
 
-  public async onOptionClicked(event: { option: SelectedOption; index: number; checked: boolean }): Promise<void> {
+  public async onOptionClicked(event: {
+    option: SelectedOption;
+    index: number;
+    checked: boolean;
+  }): Promise<void> {
     console.log(
       '%c[LOCATOR] >>> FIRED in FILE: BQC',
-      'background:#8b00ff;color:white;font-size:16px'
+      'background:#8b00ff;color:white;font-size:16px',
     );
     const { option, index, checked } = event;
 
     // Ensure the selected option is updated
     this.updateSelectedOption(index);
-  
+
     if (!this.sharedOptionConfig) {
       console.error('sharedOptionConfig is not initialized');
       await this.initializeSharedOptionConfig();
     }
-  
+
     if (!this.sharedOptionConfig) {
       console.error('Failed to initialize sharedOptionConfig. Cannot proceed.');
       return;
     }
-  
+
     try {
       // Always show feedback when an option is clicked
       this.showFeedback = true;
-  
+
       // For single-selection type questions
       if (this.type === 'single') {
         // Deselect all other options
@@ -368,38 +439,43 @@ export abstract class BaseQuestion<
         // For multiple-selection type questions, toggle the clicked option
         option.selected = checked;
       }
-  
+
       this.sharedOptionConfig.selectedOption = option;
-  
+
       // Ensure showFeedbackForOption is initialized
       if (!this.showFeedbackForOption) {
         this.showFeedbackForOption = {};
       }
-  
+
       // Update feedback display for each option
       for (const opt of this.optionsToDisplay) {
         if (opt.optionId) {
-          this.showFeedbackForOption[opt.optionId] = true;  // show feedback for clicked option
+          this.showFeedbackForOption[opt.optionId] = true; // show feedback for clicked option
         }
       }
-  
+
       this.selectedOption = option;
-  
+
       // Update the correct message for the question
       this.updateCorrectMessageForQuestion();
-  
+
       // Trigger change detection to update the UI
       this.cdRef.detectChanges();
     } catch (error) {
-      console.error('An error occurred while processing the option click:', error);
+      console.error(
+        'An error occurred while processing the option click:',
+        error,
+      );
     }
-  }  
+  }
 
   updateCorrectMessageForQuestion(correctOptions?: Option[]): void {
     if (!correctOptions) {
       correctOptions = this.optionsToDisplay.filter((opt) => opt.correct);
     }
-    this.correctMessage = this.feedbackService.setCorrectMessage(this.optionsToDisplay);
+    this.correctMessage = this.feedbackService.setCorrectMessage(
+      this.optionsToDisplay,
+    );
     this.correctMessageChange.emit(this.correctMessage);
     this.cdRef.detectChanges();
   }
@@ -409,7 +485,7 @@ export abstract class BaseQuestion<
       this.quizService.setCurrentQuestion(question);
     } else {
       console.warn(
-        'quizStateService is not available. Unable to set current question.'
+        'quizStateService is not available. Unable to set current question.',
       );
     }
   }
@@ -418,16 +494,25 @@ export abstract class BaseQuestion<
     if (change.currentValue) {
       this.question = change.currentValue;
       this.updateQuizStateService();
-  
-      if (this.question && Array.isArray(this.question.options) && this.question.options.length > 0) {
+
+      if (
+        this.question &&
+        Array.isArray(this.question.options) &&
+        this.question.options.length > 0
+      ) {
         this.initializeQuestion();
         this.optionsInitialized = true;
       } else {
-        console.warn('[⚠️ handleQuestionChange] Options not loaded yet:', this.question);
+        console.warn(
+          '[⚠️ handleQuestionChange] Options not loaded yet:',
+          this.question,
+        );
       }
-  
     } else {
-      console.warn('[⚠️ handleQuestionChange] Received null or undefined question:', change);
+      console.warn(
+        '[⚠️ handleQuestionChange] Received null or undefined question:',
+        change,
+      );
     }
   }
 

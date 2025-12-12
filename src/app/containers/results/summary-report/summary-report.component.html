@@ -3,13 +3,13 @@
     <div class="summary-report">
       <h2>Summary Report</h2>
 
-      <codelab-summary-icons
-        [quizPercentage]="quizMetadata.percentage ?? 0">
+      <codelab-summary-icons [quizPercentage]="quizMetadata.percentage ?? 0">
       </codelab-summary-icons>
 
       <codelab-summary-stats
         [elapsedMinutes]="elapsedMinutes"
-        [elapsedSeconds]="elapsedSeconds">
+        [elapsedSeconds]="elapsedSeconds"
+      >
       </codelab-summary-stats>
 
       <br />
@@ -19,11 +19,13 @@
           <i
             class="material-icons"
             matTooltip="quiz note"
-            matTooltipPosition="left">
+            matTooltipPosition="left"
+          >
             announcement
           </i>
-          &nbsp;<strong><em>Note:</em></strong>&nbsp;
-          Questions and answers were shuffled prior to the start of the quiz.
+          &nbsp;<strong><em>Note:</em></strong
+          >&nbsp; Questions and answers were shuffled prior to the start of the
+          quiz.
         </span>
       }
 

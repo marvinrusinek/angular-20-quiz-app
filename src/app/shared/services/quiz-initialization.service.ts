@@ -1,5 +1,5 @@
 // SETS UP QUIZ, LOADS QUESTIONS
-import { Injectable  } from '@angular/core';
+import { Injectable } from '@angular/core';
 import { BehaviorSubject, Subject, Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged, takeUntil } from 'rxjs/operators';
 
@@ -24,7 +24,8 @@ export class QuizInitializationService {
   totalQuestions = 0;
   numberOfCorrectAnswers = 0;
   quizId = '';
-  selectedOption$: BehaviorSubject<Option | null> = new BehaviorSubject<Option | null>(null);
+  selectedOption$: BehaviorSubject<Option | null> =
+    new BehaviorSubject<Option | null>(null);
 
   options: Option[] = [];
   optionsToDisplay: Option[] = [];
@@ -33,8 +34,7 @@ export class QuizInitializationService {
   selectionMessage = '';
 
   isNextButtonEnabled = false;
-  showFeedback = false
-;
+  showFeedback = false;
   correctAnswersText = '';
 
   private destroy$ = new Subject<void>();
@@ -44,14 +44,14 @@ export class QuizInitializationService {
     private quizService: QuizService,
     private quizStateService: QuizStateService,
     private selectedOptionService: SelectedOptionService,
-    private selectionMessageService: SelectionMessageService
+    private selectionMessageService: SelectionMessageService,
   ) {}
 
   initializeAnswerSync(
     onNextButtonEnabled: (enabled: boolean) => void,
     onOptionSelected: (selected: boolean) => void,
     onSelectionMessageChanged: (message: string) => void,
-    destroy$: Subject<void>
+    destroy$: Subject<void>,
   ): void {
     this.subscribeToOptionSelection();
 
@@ -60,7 +60,7 @@ export class QuizInitializationService {
       this.selectedOptionService.isAnswered$,
       this.quizStateService.isLoading$,
       this.quizStateService.isNavigating$,
-      this.quizStateService.interactionReady$
+      this.quizStateService.interactionReady$,
     );
 
     // Next button enabled state
@@ -78,7 +78,7 @@ export class QuizInitializationService {
     this.selectionMessageService.selectionMessage$
       .pipe(debounceTime(300), distinctUntilChanged(), takeUntil(destroy$))
       .subscribe(onSelectionMessageChanged);
-    
+
     this.subscribeToSelectionMessage();
   }
 
@@ -97,7 +97,7 @@ export class QuizInitializationService {
       .pipe(
         debounceTime(300),
         distinctUntilChanged(), // added distinctUntilChanged to prevent redundant updates
-        takeUntil(this.destroy$)
+        takeUntil(this.destroy$),
       )
       .subscribe((message: string) => {
         if (this.selectionMessage !== message) {
@@ -106,25 +106,37 @@ export class QuizInitializationService {
       });
   }
 
-  public updateQuizUIForNewQuestion(question: QuizQuestion | null = this.currentQuestion): void {
+  public updateQuizUIForNewQuestion(
+    question: QuizQuestion | null = this.currentQuestion,
+  ): void {
     console.trace('[TRACE] updateQuizUIForNewQuestion called');
 
     if (!question) {
-      console.error('🚨 [updateQuizUIForNewQuestion] Invalid question (null or undefined).');
+      console.error(
+        '🚨 [updateQuizUIForNewQuestion] Invalid question (null or undefined).',
+      );
       return;
     }
-  
+
     if (!this.selectedQuiz || !Array.isArray(this.selectedQuiz.questions)) {
-      console.warn('🚧 selectedQuiz or questions not ready yet – skipping UI update');
+      console.warn(
+        '🚧 selectedQuiz or questions not ready yet – skipping UI update',
+      );
       return;
     }
-  
+
     const questionIndex = this.quizService.findQuestionIndex(question);
-    if (questionIndex < 0 || questionIndex >= this.selectedQuiz.questions.length) {
-      console.error('🚨 [updateQuizUIForNewQuestion] Invalid question index:', questionIndex);
+    if (
+      questionIndex < 0 ||
+      questionIndex >= this.selectedQuiz.questions.length
+    ) {
+      console.error(
+        '🚨 [updateQuizUIForNewQuestion] Invalid question index:',
+        questionIndex,
+      );
       return;
     }
-  
+
     // Reset UI elements
     this.selectedOption$.next(null);
   }

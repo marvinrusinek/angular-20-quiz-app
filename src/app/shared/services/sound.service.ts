@@ -17,13 +17,17 @@ export class SoundService {
 
   initializeSounds(): void {
     this.sounds['correct'] = new Howl({
-      src: ['https://raw.githubusercontent.com/marvinrusinek/angular-10-quiz-app/master/src/assets/sounds/correct.mp3'],
-      html5: true
+      src: [
+        'https://raw.githubusercontent.com/marvinrusinek/angular-10-quiz-app/master/src/assets/sounds/correct.mp3',
+      ],
+      html5: true,
     });
 
     this.sounds['incorrect'] = new Howl({
-      src: ['https://raw.githubusercontent.com/marvinrusinek/angular-10-quiz-app/master/src/assets/sounds/incorrect.mp3'],
-      html5: true
+      src: [
+        'https://raw.githubusercontent.com/marvinrusinek/angular-10-quiz-app/master/src/assets/sounds/incorrect.mp3',
+      ],
+      html5: true,
     });
   }
 
@@ -51,18 +55,22 @@ export class SoundService {
   }
 
   play(soundName: string): void {
-    this.resumeAudioContextIfSuspended();  // ensure audio context is active
+    this.resumeAudioContextIfSuspended(); // ensure audio context is active
 
     const sound = this.sounds[soundName];
     if (!sound) {
-      console.warn(`[❌ Sound "${soundName}" not found. Sounds may not be initialized yet.]`);
+      console.warn(
+        `[❌ Sound "${soundName}" not found. Sounds may not be initialized yet.]`,
+      );
       return;
     }
 
     try {
-      sound.stop();  // stop any current playback
-      const soundId = sound.play();  // returns a numeric sound ID
-      console.log(`[✅ "${soundName}" triggered successfully with soundId: ${soundId}]`);
+      sound.stop(); // stop any current playback
+      const soundId = sound.play(); // returns a numeric sound ID
+      console.log(
+        `[✅ "${soundName}" triggered successfully with soundId: ${soundId}]`,
+      );
     } catch (error) {
       console.error(`[❌ Error playing sound "${soundName}"]:`, error);
     }
@@ -101,7 +109,7 @@ export class SoundService {
 
     // Small delay to ensure audio context is ready
     setTimeout(() => {
-      this.initializeSounds();  // recreate fresh Howl instances
+      this.initializeSounds(); // recreate fresh Howl instances
     }, 100);
   }
 
@@ -110,11 +118,14 @@ export class SoundService {
       const ctx = (Howler as any).ctx as AudioContext;
 
       if (ctx && ctx.state === 'suspended') {
-        ctx.resume().then(() => {
-          console.log('[🔊 AudioContext resumed]');
-        }).catch(err => {
-          console.error('[❌ Failed to resume AudioContext]', err);
-        });
+        ctx
+          .resume()
+          .then(() => {
+            console.log('[🔊 AudioContext resumed]');
+          })
+          .catch((err) => {
+            console.error('[❌ Failed to resume AudioContext]', err);
+          });
       }
     } catch (error) {
       console.warn('[⚠️ Error accessing AudioContext]:', error);
@@ -129,9 +140,9 @@ export class SoundService {
   }
 
   clearPlayedOptionsForQuestion(questionIndex: number): void {
-    const keysToDelete = [...this.playedSoundOptions].filter(key =>
-      key.startsWith(`${questionIndex}-`)
+    const keysToDelete = [...this.playedSoundOptions].filter((key) =>
+      key.startsWith(`${questionIndex}-`),
     );
-    keysToDelete.forEach(key => this.playedSoundOptions.delete(key));
+    keysToDelete.forEach((key) => this.playedSoundOptions.delete(key));
   }
 }

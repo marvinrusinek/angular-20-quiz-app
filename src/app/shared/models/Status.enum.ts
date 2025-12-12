@@ -1,5 +1,5 @@
 export enum Status {
-    Started = 'Started',
-    Continue = 'Continue',
-    Completed = 'Completed'
+  Started = 'Started',
+  Continue = 'Continue',
+  Completed = 'Completed',
 }

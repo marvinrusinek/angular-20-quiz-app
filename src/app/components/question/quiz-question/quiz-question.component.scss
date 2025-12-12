@@ -1,4 +1,4 @@
-@use "../../../../variables" as vars;
+@use '../../../../variables' as vars;
 
 /* Base layout for options */
 .options-form {
@@ -59,7 +59,9 @@
     justify-content: flex-start;
     position: relative;
     cursor: pointer;
-    transition: border-color 0.25s ease, background-color 0.25s ease;
+    transition:
+      border-color 0.25s ease,
+      background-color 0.25s ease;
 
     &:hover {
       border-color: vars.$vivid-blue;
@@ -95,7 +97,6 @@
   }
 }
 
-
 /* ────────────────────────────────────────────────
    HIDE all MDC radio/checkbox visuals (Angular 20)
 ──────────────────────────────────────────────────*/
@@ -120,8 +121,8 @@
 }
 
 /* ensure click region covers full option box */
-::ng-deep .mat-mdc-radio-button input[type="radio"],
-::ng-deep .mat-mdc-checkbox input[type="checkbox"] {
+::ng-deep .mat-mdc-radio-button input[type='radio'],
+::ng-deep .mat-mdc-checkbox input[type='checkbox'] {
   position: absolute;
   top: 0;
   left: 0;
