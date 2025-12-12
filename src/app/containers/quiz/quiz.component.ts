@@ -3847,18 +3847,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
     }
   }
 
-  private handleTimer(allCorrectSelected: boolean): void {
-    // Stop the timer only after the correct answer(s) have been provided
-    if (allCorrectSelected) {
-      const stopped = this.timerService.attemptStopTimerForQuestion({
-        questionIndex: this.currentQuestionIndex
-      });
-
-      if (!stopped) {
-        console.log('[handleTimer] Timer stop skipped — waiting for correct selections.');
-      }
-    }
-
+  private handleTimer(): void {
     // Start the timer only after the first question has been set and stabilized
     setTimeout(() => {
       this.timerService.startTimer();

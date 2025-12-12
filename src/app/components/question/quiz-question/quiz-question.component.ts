@@ -5955,17 +5955,6 @@ export class QuizQuestionComponent extends BaseQuestion
         this.currentQuestionIndex
       );
 
-      // Handle multiple-answer logic
-      const timerStopped = this.timerService.attemptStopTimerForQuestion({
-        questionIndex: this.currentQuestionIndex,
-      });
-
-      if (timerStopped) {
-        console.log(
-          '[handleOptionClicked] All correct options selected. Timer stopped successfully.'
-        );
-      }
-
       // Ensure the UI reflects the changes
       this.cdRef.markForCheck();
     } catch (error) {
