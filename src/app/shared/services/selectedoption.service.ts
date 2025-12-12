@@ -362,11 +362,9 @@ export class SelectedOptionService {
         [idx, opts.map(o => o.optionId)])
     });
   
-    // Always return canonicalized versions
-    return options.map(o =>
-      this.canonicalizeOptionForQuestion(questionIndex, o)
-    );
-  }
+    // RETURN AS-IS — NO CLONING, NO CANONICALIZATION
+    return options;
+  }  
 
   clearSelectionsForQuestion(questionIndex: number): void {
     const idx = Number(questionIndex);
