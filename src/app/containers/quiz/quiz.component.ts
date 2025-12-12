@@ -3670,15 +3670,9 @@ get quizQuestionComponent(): QuizQuestionComponent {
         // Force Angular to recognize the new options
         this.cdRef.detectChanges();
 
-        // Call checkIfAnswered() to track answered state
-        setTimeout(() => {
-          this.checkIfAnswered((areAllCorrectSelected) => {
-            this.handleTimer();
-          });
-        }, 150);
-
         // Ensure UI updates properly
         setTimeout(() => {
+          this.timerService.startTimer();
           this.cdRef.markForCheck();
         }, 200);
 
@@ -3725,15 +3719,9 @@ get quizQuestionComponent(): QuizQuestionComponent {
         // Force Angular to recognize the new options
         this.cdRef.detectChanges();
 
-        // Call checkIfAnswered() to track answered state
-        setTimeout(() => {
-          this.checkIfAnswered((areAllCorrectSelected) => {
-            this.handleTimer();
-          });
-        }, 150);
-
         // Ensure UI updates properly
         setTimeout(() => {
+          this.timerService.startTimer();
           this.cdRef.markForCheck();
         }, 200);
       } else {
