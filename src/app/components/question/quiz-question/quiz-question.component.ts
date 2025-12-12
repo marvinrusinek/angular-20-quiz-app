@@ -5304,13 +5304,36 @@ export class QuizQuestionComponent extends BaseQuestion
       // STEP 3: STOP TIMER — ONLY if fully correct
       // ─────────────────────────────────────────────
       const idx = this.currentQuestionIndex;
-  
-      const allCorrect =
-        (this.type === 'single')
-          ? this.selectedOptionService.isSingleAnswerCorrectSync(idx)
-          : this.selectedOptionService.areAllCorrectAnswersSelectedSync(idx);
-  
-      if (allCorrect) {
+
+      // HARD TRUTH: derive correctness ONLY from questionData
+      const correctOptionIds = questionData.options
+        .filter(o => o.correct === true)
+        .map(o => o.optionId);
+
+      // Safety: no correct answers defined → never stop
+      if (correctOptionIds.length === 0) {
+        console.warn('[QQC] No correct answers defined for question', idx);
+        return;
+      }
+
+      let shouldStop = false;
+
+      if (this.type === 'single') {
+        // SINGLE: exact ID match only
+        shouldStop = correctOptionIds[0] === option.optionId;
+      } else {
+        // MULTIPLE: all correct IDs must be selected
+        const selectedIds =
+          this.selectedOptionService
+            .getSelectedOptionsForQuestion(idx)
+            .map(o => o.optionId);
+
+        shouldStop =
+          selectedIds.length === correctOptionIds.length &&
+          correctOptionIds.every(id => selectedIds.includes(id));
+      }
+
+      if (shouldStop) {
         this.timerService.stopTimerForQuestion(idx);
       }
   
