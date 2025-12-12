@@ -4291,14 +4291,14 @@ export class QuizQuestionComponent extends BaseQuestion
       this.optionsToDisplay = updatedOptions;
 
       // Stop the timer if all correct options are selected
-      const stopped = this.timerService.attemptStopTimerForQuestion({
+      /* const stopped = this.timerService.attemptStopTimerForQuestion({
         questionIndex: normalizedIndex,
         optionsSnapshot: updatedOptions
       });
 
       if (!stopped) {
         console.log('❌ Timer not stopped: Conditions not met.');
-      }
+      } */
     } catch (error) {
       console.error('[handleMultipleAnswerTimerLogic] Error:', error);
     }
@@ -4624,7 +4624,7 @@ export class QuizQuestionComponent extends BaseQuestion
       // 🔐 HARD BIND explanation identity for this question
       (this.explanationTextService as any).latestExplanationIndex = effectiveIdx;
 
-      const stopped = this.timerService.attemptStopTimerForQuestion({
+      /* const stopped = this.timerService.attemptStopTimerForQuestion({
         questionIndex: effectiveIdx,
       });
 
@@ -4634,7 +4634,7 @@ export class QuizQuestionComponent extends BaseQuestion
         console.log(
           '[handleCorrectnessOutcome] ⚠️ Timer was already stopped. No action taken.'
         );
-      }
+      } */
 
       // Ensure Next button is enabled
       this.answerSelected.emit(true);
