@@ -306,6 +306,11 @@ export class TimerService implements OnDestroy {
       // ────────────────────────────────────────────
       // Basic validation
       // ────────────────────────────────────────────
+      if (this.isTimerStoppedForCurrentQuestion) {
+        console.log('[TimerService] Timer already stopped for this question.');
+        return;
+      }
+      
       if (!question || !Array.isArray(question.options)) {
         console.warn('[TimerService] Invalid question/options.');
         console.groupEnd();
