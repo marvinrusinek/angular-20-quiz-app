@@ -5011,57 +5011,6 @@ export class QuizQuestionComponent extends BaseQuestion
     void this.selectOption(currentQuestion, option, index);
 
     this.processCurrentQuestionState(currentQuestion, option, index);
-
-    const checkState =
-      this.selectedOptionService.getSelectedOptionsForQuestion(index);
-
-    console.log(
-      '%c[QQC][VERIFY SELECTED OPTIONS]',
-      'color: red; font-weight: bold;',
-      {
-        index,
-        selected: checkState.map(o => ({
-          optionId: o.optionId,
-          correct: o.correct,
-          selected: o.selected
-        }))
-      }
-    );
-
-    this.stopTimerIfAllCorrectSelected();
-  }
-
-  private stopTimerIfAllCorrectSelected(): void {
-    const idx = this.quizService.getCurrentQuestionIndex();
-
-    // Canonical (truth for `correct`)
-    const canonical =
-      (this.quizService.questions?.[idx]?.options ?? []).map((o: Option) => ({ ...o }));
-    // UI (truth for `selected`, possibly a different array)
-    const ui = (this.optionsToDisplay ?? []).map(o => ({ ...o }));
-
-    // Overlay UI.selected → canonical by identity (id/value/text), index-agnostic
-    const snapshot = this.selectedOptionService.overlaySelectedByIdentity(canonical, ui);
-
-    // Defer one macrotask so any async CD/pipes settle
-    setTimeout(() => {
-      const totalCorrect = snapshot.filter(o => !!(o as any).correct).length;
-      const selectedCorrect =
-        snapshot.filter(o => !!(o as any).correct && !!(o as any).selected).length;
-
-      if (totalCorrect > 0 && selectedCorrect === totalCorrect) {
-        try { this.soundService?.play('correct'); } catch { }
-
-        this.timerService.attemptStopTimerForQuestion({
-          questionIndex: idx,
-          optionsSnapshot: snapshot,  // make the service read this exact state
-          onStop: (elapsed) => {
-            this.timerService.elapsedTimes ||= [];
-            this.timerService.elapsedTimes[idx] = elapsed ?? 0;
-          }
-        });
-      }
-    }, 0);
   }
 
   // Helper method to update feedback for options
