@@ -5289,15 +5289,27 @@ export class QuizQuestionComponent extends BaseQuestion
       );
   
       // ─────────────────────────────────────────────
+      // 🔑 INSERT HERE: update SelectedOptionService
+      // ─────────────────────────────────────────────
+      const isMultiple = this.type === 'multiple';
+  
+      this.selectedOptionService.setSelectedOption(
+        option,
+        this.currentQuestionIndex,
+        undefined,          // snapshot not needed here
+        isMultiple          // 🚨 EXPLICIT
+      );
+  
+      // ─────────────────────────────────────────────
       // STEP 3: STOP TIMER — ONLY if fully correct
       // ─────────────────────────────────────────────
       const idx = this.currentQuestionIndex;
-
+  
       const allCorrect =
         (this.type === 'single')
           ? this.selectedOptionService.isSingleAnswerCorrectSync(idx)
           : this.selectedOptionService.areAllCorrectAnswersSelectedSync(idx);
-
+  
       if (allCorrect) {
         this.timerService.stopTimerForQuestion(idx);
       }
