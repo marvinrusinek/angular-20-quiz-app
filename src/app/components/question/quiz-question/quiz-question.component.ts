@@ -5261,7 +5261,8 @@ export class QuizQuestionComponent
       // ─────────────────────────────────────────────
       const idx = this.currentQuestionIndex;
 
-      setTimeout(() => {
+      // Use microtask to guarantee SelectedOptionService commit is complete
+      queueMicrotask(() => {
         const correctOptionIds = questionData.options
           .filter(o => o.correct === true)
           .map(o => String(o.optionId));
@@ -5278,14 +5279,13 @@ export class QuizQuestionComponent
           // STOP only if the clicked option is correct
           shouldStop = clicked?.correct === true;
 
-          // Clear stale wrong selections so they never interfere
-          if (shouldStop && option.optionId != null) {
+          // Clear stale wrong selections ONLY after a correct click
+          if (shouldStop && typeof option.optionId === 'number') {
             this.selectedOptionService.clearOtherSelections(
               idx,
               option.optionId
             );
           }
-          
 
         } else {
           // AUTHORITATIVE STATE — AFTER COMMIT
@@ -5293,18 +5293,20 @@ export class QuizQuestionComponent
           const selected = this.selectedOptionService
             .getSelectedOptionsForQuestion(idx);
 
-          // ✅ ONLY count correct selections (ignore wrong ones entirely)
+          // ✅ Count ONLY correct selections (ignore wrong ones entirely)
           const selectedCorrectIds = selected
             .filter(o => o.correct === true)
             .map(o => String(o.optionId));
 
-          const correctIds = correctOptionIds.map(String);
+          const correctSet  = new Set(correctOptionIds);
+          const selectedSet = new Set(selectedCorrectIds);
 
           // STRICT but fair:
-          // all correct must be selected, wrong selections do NOT block stopping
+          // every correct selected, wrong selections do NOT block stopping
           shouldStop =
-            correctIds.length > 0 &&
-            correctIds.every(id => selectedCorrectIds.includes(id));
+            correctSet.size > 0 &&
+            correctSet.size === selectedSet.size &&
+            [...correctSet].every(id => selectedSet.has(id));
         }
 
         if (shouldStop) {
@@ -5312,18 +5314,20 @@ export class QuizQuestionComponent
             idx,
             type: this.type,
             correctOptionIds,
-            selectedCorrectIds: this.type === 'multiple'
-              ? this.selectedOptionService
-                  .getSelectedOptionsForQuestion(idx)
-                  .filter(o => o.correct === true)
-                  .map(o => o.optionId)
-              : [option.optionId]
+            selectedCorrectIds:
+              this.type === 'multiple'
+                ? this.selectedOptionService
+                    .getSelectedOptionsForQuestion(idx)
+                    .filter(o => o.correct === true)
+                    .map(o => o.optionId)
+                : [option.optionId]
           });
 
           this.timerService.allowAuthoritativeStop();
           this.timerService.stopTimerForQuestion(idx);
         }
-      }, 0);
+      });
+
 
       // ─────────────────────────────────────────────
       // STEP 4: Feedback + messages
