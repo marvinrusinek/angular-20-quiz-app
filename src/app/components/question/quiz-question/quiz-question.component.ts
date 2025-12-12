@@ -4916,6 +4916,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
       if (shouldStop) {
         console.error('🛑 [STOPPING TIMER] reason: shouldStop=true', { idx });
+        this.timerService.allowAuthoritativeStop();
         this.timerService.stopTimerForQuestion(idx);
       }
   
