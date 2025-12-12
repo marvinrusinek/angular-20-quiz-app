@@ -4880,23 +4880,42 @@ export class QuizQuestionComponent extends BaseQuestion
       let shouldStop = false;
 
       if (this.type === 'single') {
-        // SINGLE: exact correct match only
-        shouldStop = option.optionId === correctOptionIds[0];
+        const clicked = questionData.options.find(
+          o => String(o.optionId) === String(option.optionId)
+        );
+
+        console.error('[TIMER CHECK][SINGLE]', {
+          idx,
+          clickedOptionId: option.optionId,
+          clickedCorrectFlag: clicked?.correct,
+          correctOptionIds,
+          questionText: questionData.questionText,
+          options: questionData.options.map(o => ({
+            id: o.optionId,
+            correct: o.correct,
+            text: o.text
+          }))
+        });
+
+        // STOP ONLY if the clicked option is marked correct in questionData
+        shouldStop = clicked?.correct === true;
       } else {
-        // MULTIPLE: every correct option must be selected
-        const selectedIds =
-          this.selectedOptionService
-            .getSelectedOptionsForQuestion(idx)
-            .map(o => o.optionId);
+        const selectedIds = this.selectedOptionService
+          .getSelectedOptionsForQuestion(idx)
+          .map(o => String(o.optionId));
 
-        const selectedCorrectCount =
-          selectedIds.filter(id => correctOptionIds.includes(id)).length;
+        const correctIds = correctOptionIds.map(id => String(id));
+        const selectedSet = new Set(selectedIds);
 
+        // STRICT: all correct selected AND no extra wrong selections
         shouldStop =
-          selectedCorrectCount === correctOptionIds.length;
+          correctIds.length > 0 &&
+          correctIds.every(id => selectedSet.has(id)) &&
+          selectedSet.size === correctIds.length;
       }
 
       if (shouldStop) {
+        console.error('🛑 [STOPPING TIMER] reason: shouldStop=true', { idx });
         this.timerService.stopTimerForQuestion(idx);
       }
   
