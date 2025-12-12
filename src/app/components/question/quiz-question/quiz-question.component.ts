@@ -3114,7 +3114,7 @@ export class QuizQuestionComponent extends BaseQuestion
           }))
         );
       
-        await this.timerService.stopTimerIfApplicable(q!, idx, selectedNow);
+        // await this.timerService.stopTimerIfApplicable(q!, idx, selectedNow);
       });
     } catch (err) {
       console.error('[onOptionClicked] ❌ Error:', err);
@@ -5296,16 +5296,8 @@ export class QuizQuestionComponent extends BaseQuestion
           this.currentQuestionIndex
         );
   
-      console.warn('[QQC] allCorrect:', allCorrect);
-  
       if (allCorrect) {
-        await this.timerService.stopTimerIfApplicable(
-          questionData,
-          this.currentQuestionIndex,
-          this.selectedOptionService.getSelectedOptionsForQuestion(
-            this.currentQuestionIndex
-          )
-        );
+        this.timerService.stopTimerForQuestion(this.currentQuestionIndex);
       }
   
       // ─────────────────────────────────────────────

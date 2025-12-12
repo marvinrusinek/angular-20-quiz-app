@@ -306,6 +306,8 @@ export class TimerService implements OnDestroy {
       "color: orange; font-weight: bold;",
       { questionIndex, selectedOptionsFromQQC }
     );
+
+    
     console.group(`[TimerService] stopTimerIfApplicable → Q${questionIndex + 1}`);
 
     try {
@@ -458,6 +460,29 @@ export class TimerService implements OnDestroy {
     }
   }
 
+  public stopTimerForQuestion(questionIndex: number): void {
+    const idx = this.normalizeQuestionIndex(questionIndex);
+    if (idx < 0) return;
+  
+    // Prevent double-stops
+    if (this.isTimerStoppedForCurrentQuestion) {
+      console.warn('[TimerService] Timer already stopped for this question');
+      return;
+    }
+  
+    const stopped = this.attemptStopTimerForQuestion({
+      questionIndex: idx,
+      onStop: (elapsed?: number) => {
+        if (elapsed != null) {
+          this.elapsedTimes[idx] = elapsed;
+        }
+      }
+    });
+  
+    if (!stopped) {
+      this.stopTimer(undefined, { force: true });
+    }
+  }
 
   // Sets a custom elapsed time
   /* setElapsed(time: number): void {
