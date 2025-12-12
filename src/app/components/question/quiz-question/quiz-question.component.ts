@@ -5262,7 +5262,6 @@ export class QuizQuestionComponent
       const idx = this.currentQuestionIndex;
 
       queueMicrotask(() => {
-        // 1️⃣ Canonical correct IDs (ONLY source of truth)
         const correctIdSet = new Set(
           questionData.options
             .filter(o => o.correct === true)
@@ -5271,34 +5270,34 @@ export class QuizQuestionComponent
       
         if (correctIdSet.size === 0) return;
       
-        // 2️⃣ Selected IDs (state + current click)
-        const selectedIdSet = new Set(
-          this.selectedOptionService
-            .getSelectedOptionsForQuestion(idx)
-            .map(o => String(o.optionId))
-        );
-      
-        // Force-include current click
-        selectedIdSet.add(String(option.optionId));
-      
         let shouldStop = false;
       
-        // 🔒 SINGLE-ANSWER: ONLY the clicked option matters
+        // 🔒 SINGLE — ONLY the CURRENT CLICK matters
         if (this.type === 'single') {
-          shouldStop = correctIdSet.has(String(option.optionId));
+          const clickedId = String(option.optionId);
+      
+          shouldStop =
+            clickedId != null &&
+            correctIdSet.has(clickedId);
         }
       
-        // 🔓 MULTI-ANSWER: all correct answers must be selected
+        // 🔓 MULTIPLE — all correct answers must be selected
         else {
+          const selectedIdSet = new Set(
+            this.selectedOptionService
+              .getSelectedOptionsForQuestion(idx)
+              .map(o => String(o.optionId))
+          );
+      
           shouldStop =
             [...correctIdSet].every(id => selectedIdSet.has(id));
         }
       
-        console.log('[TIMER CHECK]', {
+        console.log('[TIMER DECISION]', {
           idx,
           type: this.type,
+          clicked: option.optionId,
           correct: [...correctIdSet],
-          selected: [...selectedIdSet],
           shouldStop
         });
       
@@ -5306,7 +5305,7 @@ export class QuizQuestionComponent
           this.timerService.allowAuthoritativeStop();
           this.timerService.stopTimerForQuestion(idx);
         }
-      });
+      });      
 
       // ─────────────────────────────────────────────
       // STEP 4: Feedback + messages
