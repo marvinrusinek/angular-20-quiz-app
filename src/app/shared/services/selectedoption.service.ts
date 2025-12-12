@@ -195,6 +195,40 @@ export class SelectedOptionService {
     );
   }
 
+  public clearAllSelectionsForQuestion(questionIndex: number): void {
+    const idx = this.normalizeQuestionIndex(questionIndex);
+    if (idx < 0) return;
+  
+    // ─────────────────────────────────────────────
+    // Canonical selection state
+    // ─────────────────────────────────────────────
+    this.selectedOptionsMap.set(idx, []);
+    this.selectedOptionIndices[idx] = [];
+  
+    // ─────────────────────────────────────────────
+    // Snapshot used by correctness logic
+    // ─────────────────────────────────────────────
+    this.optionSnapshotByQuestion.delete(idx);
+  
+    // ─────────────────────────────────────────────
+    // Timer / correctness flags
+    // ─────────────────────────────────────────────
+    this.stopTimerEmitted = false;
+  
+    // ─────────────────────────────────────────────
+    // Emit clean state so UI updates
+    // ─────────────────────────────────────────────
+    try {
+      this.selectedOptionSubject.next([]);
+    } catch {}
+  
+    try {
+      this.isOptionSelectedSubject.next(false);
+    } catch {}
+  
+    console.log('[SelectedOptionService] 🧹 Cleared all selections for Q', idx);
+  }
+
   setSelectedOption(
     option: SelectedOption | null,
     questionIndex?: number,
