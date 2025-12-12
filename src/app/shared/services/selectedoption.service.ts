@@ -186,7 +186,13 @@ export class SelectedOptionService {
     });
 
     if (!option) {
-      this.selectedOptionsMap.clear();
+      if (questionIndex == null) {
+        console.warn('[setSelectedOption] null option with no questionIndex — ignoring');
+        return;
+      }
+    
+      console.log(`[setSelectedOption] Clearing selections for Q${questionIndex}`);
+      this.selectedOptionsMap.delete(questionIndex);
       this.selectedOptionSubject.next([]);
       this.isOptionSelectedSubject.next(false);
       this.updateAnsweredState();
