@@ -5291,13 +5291,15 @@ export class QuizQuestionComponent extends BaseQuestion
       // ─────────────────────────────────────────────
       // STEP 3: STOP TIMER — ONLY if fully correct
       // ─────────────────────────────────────────────
+      const idx = this.currentQuestionIndex;
+
       const allCorrect =
-        this.selectedOptionService.areAllCorrectAnswersSelectedSync(
-          this.currentQuestionIndex
-        );
-  
+        (this.type === 'single')
+          ? this.selectedOptionService.isSingleAnswerCorrectSync(idx)
+          : this.selectedOptionService.areAllCorrectAnswersSelectedSync(idx);
+
       if (allCorrect) {
-        this.timerService.stopTimerForQuestion(this.currentQuestionIndex);
+        this.timerService.stopTimerForQuestion(idx);
       }
   
       // ─────────────────────────────────────────────
