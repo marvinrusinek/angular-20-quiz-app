@@ -3728,7 +3728,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
         // Call checkIfAnswered() to track answered state
         setTimeout(() => {
           this.checkIfAnswered((areAllCorrectSelected) => {
-            this.handleTimer(areAllCorrectSelected);
+            this.handleTimer();
           });
         }, 150);
 
