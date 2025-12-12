@@ -100,15 +100,6 @@ export class TimerService implements OnDestroy {
       return;
     }
 
-    // Always check if all correct answers are selected when stop signal is received
-    const allCorrectSelected = this.selectedOptionService.areAllCorrectAnswersSelectedSync(activeQuestionIndex);
-
-    if (allCorrectSelected) {
-      console.log('[TimerService] All correct answers selected. Stopping timer.');
-      this.stopTimer(undefined, { force: true });
-      return;
-    }
-
     const stopped = this.attemptStopTimerForQuestion({
       questionIndex: activeQuestionIndex,
       onStop: (elapsed?: number) => {
