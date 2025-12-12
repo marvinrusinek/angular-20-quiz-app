@@ -5272,13 +5272,14 @@ export class QuizQuestionComponent
           // STOP only if the clicked option is correct
           shouldStop = clicked?.correct === true;
 
-          // 🧹 IMPORTANT: clear stale wrong selections so they never interfere
-          if (shouldStop) {
+          // Clear stale wrong selections so they never interfere
+          if (shouldStop && option.optionId != null) {
             this.selectedOptionService.clearOtherSelections(
               idx,
               option.optionId
             );
           }
+          
 
         } else {
           // AUTHORITATIVE STATE — AFTER COMMIT
