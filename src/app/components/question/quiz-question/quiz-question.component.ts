@@ -5268,29 +5268,32 @@ export class QuizQuestionComponent
             .filter(o => o.correct === true)
             .map(o => String(o.optionId))
         );
-
+      
         if (correctIdSet.size === 0) return;
-
+      
         // 2️⃣ Selected IDs (state + current click)
         const selectedIdSet = new Set(
           this.selectedOptionService
             .getSelectedOptionsForQuestion(idx)
             .map(o => String(o.optionId))
         );
-
-        // 🔥 CRITICAL: force-include current click
+      
+        // Force-include current click
         selectedIdSet.add(String(option.optionId));
-
-        // 3️⃣ STOP RULE
+      
         let shouldStop = false;
-
+      
+        // 🔒 SINGLE-ANSWER: ONLY the clicked option matters
         if (this.type === 'single') {
           shouldStop = correctIdSet.has(String(option.optionId));
-        } else {
-          // MULTI: all correct IDs must be selected
-          shouldStop = [...correctIdSet].every(id => selectedIdSet.has(id));
         }
-
+      
+        // 🔓 MULTI-ANSWER: all correct answers must be selected
+        else {
+          shouldStop =
+            [...correctIdSet].every(id => selectedIdSet.has(id));
+        }
+      
         console.log('[TIMER CHECK]', {
           idx,
           type: this.type,
@@ -5298,13 +5301,12 @@ export class QuizQuestionComponent
           selected: [...selectedIdSet],
           shouldStop
         });
-
+      
         if (shouldStop) {
           this.timerService.allowAuthoritativeStop();
           this.timerService.stopTimerForQuestion(idx);
         }
       });
-
 
       // ─────────────────────────────────────────────
       // STEP 4: Feedback + messages
