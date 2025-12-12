@@ -1060,7 +1060,24 @@ export class SelectedOptionService {
   
     return correctIds.every(id => selectedIds.includes(id));
   }
+
+  public isSingleAnswerCorrectSync(questionIndex: number): boolean {
+    const idx = this.normalizeQuestionIndex(questionIndex);
   
+    const canonicalOptions = this.resolveCanonicalOptionsFor(idx);
+    if (!canonicalOptions?.length) return false;
+  
+    const correct = canonicalOptions.find(o => o.correct === true);
+    const correctId = correct?.optionId != null ? String(correct.optionId) : null;
+    if (!correctId) return false;
+  
+    const selected = this.getSelectedOptionsForQuestion(idx);
+    const selectedId =
+      selected?.[0]?.optionId != null ? String(selected[0].optionId) : null;
+  
+    console.warn('[SINGLE CORRECT CHECK]', { idx, correctId, selectedId, selected });
+    return !!selectedId && selectedId === correctId;
+  }
 
   private collectCorrectOptionIds(
     questionIndex: number,
