@@ -5268,21 +5268,51 @@ export class QuizQuestionComponent
           const clicked = questionData.options.find(
             o => String(o.optionId) === String(option.optionId)
           );
+
+          // STOP only if the clicked option is correct
           shouldStop = clicked?.correct === true;
+
+          // 🧹 IMPORTANT: clear stale wrong selections so they never interfere
+          if (shouldStop) {
+            this.selectedOptionService.clearOtherSelections(
+              idx,
+              option.optionId
+            );
+          }
+
         } else {
           // AUTHORITATIVE STATE — AFTER COMMIT
-          const selectedIds = this.selectedOptionService
-            .getSelectedOptionsForQuestion(idx)
+
+          const selected = this.selectedOptionService
+            .getSelectedOptionsForQuestion(idx);
+
+          // ✅ ONLY count correct selections (ignore wrong ones entirely)
+          const selectedCorrectIds = selected
+            .filter(o => o.correct === true)
             .map(o => String(o.optionId));
 
-          const selectedSet = new Set(selectedIds);
+          const correctIds = correctOptionIds.map(String);
 
+          // STRICT but fair:
+          // all correct must be selected, wrong selections do NOT block stopping
           shouldStop =
-            selectedSet.size === correctOptionIds.length &&
-            correctOptionIds.every(id => selectedSet.has(id));
+            correctIds.length > 0 &&
+            correctIds.every(id => selectedCorrectIds.includes(id));
         }
 
         if (shouldStop) {
+          console.error('🟢 FINAL TIMER STOP', {
+            idx,
+            type: this.type,
+            correctOptionIds,
+            selectedCorrectIds: this.type === 'multiple'
+              ? this.selectedOptionService
+                  .getSelectedOptionsForQuestion(idx)
+                  .filter(o => o.correct === true)
+                  .map(o => o.optionId)
+              : [option.optionId]
+          });
+
           this.timerService.allowAuthoritativeStop();
           this.timerService.stopTimerForQuestion(idx);
         }
