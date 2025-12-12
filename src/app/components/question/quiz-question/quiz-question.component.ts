@@ -5310,13 +5310,6 @@ export class QuizQuestionComponent
           shouldStop =
             correctIdSet.size > 0 &&
             [...correctIdSet].every(id => selectedIdSet.has(id));
-
-          // STRICT but fair:
-          // every correct selected, wrong selections do NOT block stopping
-          shouldStop =
-            correctSet.size > 0 &&
-            correctSet.size === selectedSet.size &&
-            [...correctSet].every(id => selectedSet.has(id));
         }
 
         if (shouldStop) {
