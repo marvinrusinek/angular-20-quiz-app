@@ -924,20 +924,21 @@ export class SharedOptionComponent implements
   // Decide if an option should be disabled
   public shouldDisableOption(binding: OptionBindings): boolean {
     if (!binding || !binding.option) return false;
-
+  
     const option = binding.option;
     const optionId = option.optionId;
     const qIndex = this.resolveCurrentQuestionIndex();
-
+  
     if (this.forceDisableAll) return true;
-
+  
     try {
       if (this.selectedOptionService.isQuestionLocked(qIndex)) {
         return true;
       }
     } catch { }
+  
     if (binding.disabled) return true;
-
+  
     // ── Derived "fresh" guard: enable everything until the first real selection exists ──
     // Checks both persisted selections and local bindings to avoid timing glitches.
     const persistedSel =
@@ -947,45 +948,43 @@ export class SharedOptionComponent implements
     const answered = this.quizService.isAnswered(qIndex) ?? false;
     const fresh = !(persistedSel || localSel || answered);
     if (fresh) return false; // nothing disabled on first paint
-
+  
     // ── One-shot lock: if this option was "spent", block immediately ──
     try {
       if (optionId != null && this.selectedOptionService.isOptionLocked(qIndex, optionId)) {
         return true;
       }
     } catch { }
-
+  
     const bindings = this.optionBindings ?? [];
     const resolvedType = this.resolvedTypeForLock ?? this.resolveQuestionType();
-
+  
     const hasCorrectSelection = bindings.some(b =>
       (!!b.option?.selected || b.isSelected) && !!b.option?.correct
     );
-
+  
     const correctBindings = bindings.filter(b => !!b.option?.correct);
-
+  
+    // ✅ SINGLE SOURCE OF TRUTH FOR "ALL CORRECT SELECTED" (LOCAL/UI)
     const allCorrectSelectedLocally =
       correctBindings.length > 0 &&
       correctBindings.every(b => !!b.option?.selected || b.isSelected);
-
-    const allCorrectPersisted = this.areAllCorrectAnswersSelected();
-
+  
     const shouldLockIncorrect =
       this.shouldLockIncorrectOptions ||
       this.computeShouldLockIncorrectOptions(
         resolvedType,
         hasCorrectSelection,
         allCorrectSelectedLocally,
-        allCorrectPersisted
+        /* allCorrectPersisted REMOVED */
       );
-
+  
     if (shouldLockIncorrect && !option.correct) return true;
-
+  
     if (optionId != null && this.lockedIncorrectOptionIds.has(optionId)) return true;
-
+  
     return optionId != null && this.flashDisabledSet.has(optionId);
   }
-
 
   private resolveQuestionType(): QuestionType {
     if (this.currentQuestion?.type) {
@@ -1090,28 +1089,24 @@ export class SharedOptionComponent implements
   private computeShouldLockIncorrectOptions(
     resolvedType: QuestionType,
     hasCorrectSelection: boolean,
-    allCorrectSelectedLocally: boolean,
-    allCorrectPersisted: boolean
+    allCorrectSelectedLocally: boolean
   ): boolean {
-    if (resolvedType === QuestionType.SingleAnswer || resolvedType === QuestionType.TrueFalse) {
-      return hasCorrectSelection || allCorrectPersisted;
+    if (
+      resolvedType === QuestionType.SingleAnswer ||
+      resolvedType === QuestionType.TrueFalse
+    ) {
+      // Single / TF:
+      // lock incorrect options once a correct one is selected
+      return hasCorrectSelection;
     }
-
+  
     if (resolvedType === QuestionType.MultipleAnswer) {
-      return allCorrectSelectedLocally || allCorrectPersisted;
+      // Multiple:
+      // lock incorrect options only when all correct answers are selected
+      return allCorrectSelectedLocally;
     }
-
+  
     return false;
-  }
-
-  public areAllCorrectAnswersSelected(): boolean {
-    const index = this.getActiveQuestionIndex();
-
-    if (typeof index !== 'number') {
-      return false;
-    }
-
-    return this.selectedOptionService.areAllCorrectAnswersSelectedSync(index);
   }
 
   // Call this when an incorrect option is clicked
