@@ -5264,7 +5264,6 @@ export class QuizQuestionComponent extends BaseQuestion
         return;
       }
       this.showFeedbackForOption[option.optionId] = true;
-      this.isAnswered = true;
 
       // DISABLED: performExplanationUpdate handles this. Calling this here causes race condition
       // and overwrites the correct explanation with "No explanation available" (due to lock).
