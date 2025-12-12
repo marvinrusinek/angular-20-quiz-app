@@ -184,6 +184,9 @@ export class TimerService implements OnDestroy {
     callback?: (elapsedTime: number) => void,
     options: { force?: boolean } = {}  // future use
   ): void {
+    console.error('🛑 [STOP TIMER CALLED]', {
+      stack: new Error().stack
+    });
     void options;  // prevent unused-parameter warning (intentional)
 
     if (!this.isTimerRunning) {
@@ -301,7 +304,7 @@ export class TimerService implements OnDestroy {
       { questionIndex, selectedOptionsFromQQC }
     );
     console.group(`[TimerService] stopTimerIfApplicable → Q${questionIndex + 1}`);
-  
+
     try {
       // ────────────────────────────────────────────
       // Basic validation
@@ -310,39 +313,39 @@ export class TimerService implements OnDestroy {
         console.log('[TimerService] Timer already stopped for this question.');
         return;
       }
-      
+
       if (!question || !Array.isArray(question.options)) {
         console.warn('[TimerService] Invalid question/options.');
         console.groupEnd();
         return;
       }
-  
+
       const normalizedIndex = this.normalizeQuestionIndex(questionIndex);
       if (normalizedIndex < 0) {
         console.warn('[TimerService] Invalid index.');
         console.groupEnd();
         return;
       }
-  
+
       // ────────────────────────────────────────────
       // Determine correct answers
       // ────────────────────────────────────────────
       const correctOptions = question.options.filter(opt => opt.correct);
       const correctOptionIds = correctOptions.map(opt => String(opt.optionId));
       const isMultiple = correctOptionIds.length > 1;
-  
+
       // ────────────────────────────────────────────
       // Build SELECTED set
       //  - For MULTIPLE: prefer SelectedOptionService
       //  - For SINGLE: use QQC payload
       // ────────────────────────────────────────────
       let selectedOptionsFinal: Array<SelectedOption | Option> = [];
-  
+
       if (isMultiple) {
         // pull from SelectedOptionService for this question
         const fromStore =
           this.selectedOptionService?.getSelectedOptionsForQuestion(normalizedIndex) ?? [];
-  
+
         if (fromStore.length > 0) {
           selectedOptionsFinal = fromStore;
           console.log(
@@ -360,13 +363,13 @@ export class TimerService implements OnDestroy {
         // single-answer: payload is fine
         selectedOptionsFinal = selectedOptionsFromQQC ?? [];
       }
-  
+
       const selectedIds = selectedOptionsFinal.map(o => String((o as any).optionId ?? ''));
-  
+
       console.log('[TimerService] correctOptionIds:', correctOptionIds);
       console.log('[TimerService] selectedIds:', selectedIds);
       console.log('[TimerService] selectedOptionsFinal:', selectedOptionsFinal);
-  
+
       // Extra debug so we can *see* Q2 clearly
       console.log('[TIMER][STOP CHECK]', {
         qIndex: normalizedIndex,
@@ -378,32 +381,32 @@ export class TimerService implements OnDestroy {
           qIndex: o.questionIndex
         }))
       });
-  
+
       let shouldStop = false;
-  
+
       // ────────────────────────────────────────────
       // MULTIPLE-ANSWER LOGIC (match computeCorrectness)
       // ────────────────────────────────────────────
       if (isMultiple) {
         const selectedSet = new Set(selectedIds);
-  
+
         const selectedCorrectCount = correctOptionIds.filter(id =>
           selectedSet.has(id)
         ).length;
-  
+
         console.log('[TimerService] multi stats:', {
           correctCount: correctOptionIds.length,
           selectedCorrectCount,
           selectedTotal: selectedSet.size
         });
-  
+
         // EXACT match: all and only correct options selected
         shouldStop =
           correctOptionIds.length > 0 &&
           selectedCorrectCount === correctOptionIds.length &&
           selectedSet.size === correctOptionIds.length;
       }
-  
+
       // ────────────────────────────────────────────
       // SINGLE-ANSWER LOGIC
       // ────────────────────────────────────────────
@@ -412,11 +415,11 @@ export class TimerService implements OnDestroy {
         const isCorrect =
           !!firstSelected &&
           (firstSelected.correct === true || firstSelected.correct === 'true');
-  
+
         console.log('[TimerService] isCorrect (single):', isCorrect);
         shouldStop = isCorrect;
       }
-  
+
       // ────────────────────────────────────────────
       // STOP TIMER IF CONDITIONS MET
       // ────────────────────────────────────────────
@@ -425,9 +428,9 @@ export class TimerService implements OnDestroy {
         console.groupEnd();
         return;
       }
-  
+
       console.log('[TimerService] Conditions met → STOPPING TIMER!');
-  
+
       const stopped = this.attemptStopTimerForQuestion({
         questionIndex: normalizedIndex,
         onStop: (elapsed?: number) => {
@@ -439,19 +442,19 @@ export class TimerService implements OnDestroy {
           }
         }
       });
-  
+
       if (!stopped) {
         console.warn('[TimerService] Stop rejected → FORCING TIMER STOP.');
         this.stopTimer(undefined, { force: true });
       }
-  
+
       console.groupEnd();
     } catch (err) {
       console.error('[TimerService] Error in stopTimerIfApplicable:', err);
       console.groupEnd();
     }
   }
-    
+
 
   // Sets a custom elapsed time
   /* setElapsed(time: number): void {
@@ -481,20 +484,20 @@ export class TimerService implements OnDestroy {
   ): Promise<void> {
     const normalizedIndex = this.normalizeQuestionIndex(questionIndex);
     const q = this.quizService?.questions?.[normalizedIndex];
-  
+
     console.log('[TimerService] requestStopEvaluationFromClick', {
       incomingIndex: questionIndex,
       normalizedIndex,
       hasQuestion: !!q,
       selectedOptionId: selectedOption?.optionId
     });
-  
+
     if (!q) return;
-  
+
     // Always convert SelectedOption → SelectedOption[]
     const selectedOptionsArray =
       this.selectedOptionService.getSelectedOptionsForQuestion(normalizedIndex);
-  
+
     // Now fully valid call
     await this.stopTimerIfApplicable(
       q,
