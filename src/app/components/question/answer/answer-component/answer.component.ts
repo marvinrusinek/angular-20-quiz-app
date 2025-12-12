@@ -366,17 +366,6 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload> implemen
 
     // This part is OK
     this.quizStateService.setAnswerSelected(isSelected);
-
-    // This part needs correctness
-    if (this.type === 'single') {
-      const isCorrect = enrichedOption.correct === true;
-      this.quizStateService.setAnswered(isCorrect);
-    } else {
-      const allCorrect = this.selectedOptionService.areAllCorrectAnswersSelectedActiveQuestion?.() ??
-        this.selectedOptionService.areAllCorrectAnswersSelectedSync?.(this.currentQuestionIndex);
-
-      this.quizStateService.setAnswered(!!allCorrect);
-    }
   
     // ──────────────────────────────────────────────
     // SEND TO SelectedOptionService (the critical part)
