@@ -5252,69 +5252,68 @@ export class QuizQuestionComponent extends BaseQuestion
     try {
       const event = { option, index, checked };
       await super.onOptionClicked(event);
-
+  
+      // ─────────────────────────────────────────────
+      // STEP 1: Update selected option state ONLY
+      // ─────────────────────────────────────────────
       this.selectedOptions = [
         { ...option, questionIndex: this.currentQuestionIndex },
       ];
       this.selectedOption = { ...option };
       this.showFeedback = true;
-
+  
       if (option.optionId == null) {
-        console.warn('[applyOptionFeedback] Option missing optionId, skipping feedback flag.');
+        console.warn('[QQC] Option missing optionId');
         return;
       }
+  
       this.showFeedbackForOption[option.optionId] = true;
-
-      // DISABLED: performExplanationUpdate handles this. Calling this here causes race condition
-      // and overwrites the correct explanation with "No explanation available" (due to lock).
-      // await this.fetchAndSetExplanationText(this.currentQuestionIndex);
-      // void this.updateExplanationDisplay(true);  // Commented out - performExplanationUpdate handles this now
-
+  
+      // 🚫 DO NOT mark answered here
+      // this.isAnswered = true;  ← REMOVED
+  
+      // ─────────────────────────────────────────────
+      // STEP 2: Load question data
+      // ─────────────────────────────────────────────
       const questionData = await firstValueFrom(
         this.quizService.getQuestionByIndex(this.currentQuestionIndex)
       );
       if (!questionData) {
-        console.warn('[updateExplanationText] questionData is missing or invalid');
+        console.warn('[QQC] questionData missing');
         return;
       }
-      this.selectedOptionService.storeQuestion(this.currentQuestionIndex, questionData);
-
-      if (this.quizQuestionManagerService.isValidQuestionData(questionData)) {
-        // ✅ FIX: Use ExplanationTextService to format the explanation
-        const rawExplanation = questionData.explanation ?? 'No explanation available';
-        // const correctIndices = this.explanationTextService.getCorrectOptionIndices(questionData);
-
-        // DISABLED: performExplanationUpdate handles explanation formatting and display
-        /*
-        const explanationText = this.explanationTextService.formatExplanation(
+  
+      this.selectedOptionService.storeQuestion(
+        this.currentQuestionIndex,
+        questionData
+      );
+  
+      // ─────────────────────────────────────────────
+      // STEP 3: STOP TIMER — ONLY if fully correct
+      // ─────────────────────────────────────────────
+      const allCorrect =
+        this.selectedOptionService.areAllCorrectAnswersSelected(
+          this.currentQuestionIndex
+        );
+  
+      console.warn('[QQC] allCorrect:', allCorrect);
+  
+      if (allCorrect) {
+        await this.timerService.stopTimerIfApplicable(
           questionData,
-          correctIndices,
-          rawExplanation
+          this.currentQuestionIndex,
+          this.selectedOptionService.getSelectedOptionsForQuestion(
+            this.currentQuestionIndex
+          )
         );
-       
-        console.log('[QQC] handleOptionProcessingAndFeedback setting formatted explanation:', explanationText);
-        this.explanationToDisplay = explanationText;
-        this.explanationTextService.setExplanationText(explanationText);
-        this.explanationTextService.setShouldDisplayExplanation(true);
-        this.shouldDisplayExplanation = true;
-       
-        if (this.isAnswered && this.shouldDisplayExplanation) {
-          this.explanationToDisplayChange.emit(explanationText);
-          this.showExplanationChange.emit(true);
-          this.displayExplanation = true;
-        }
-        */
-
-        const correctOptions = questionData.options.filter(
-          (opt: Option) => opt.correct
-        );
-        this.correctMessage = this.feedbackService.setCorrectMessage(this.optionsToDisplay);
-      } else {
-        console.error(
-          '[handleOptionProcessingAndFeedback] ❌ Invalid question data when handling option processing.'
-        );
-        return;
       }
+  
+      // ─────────────────────────────────────────────
+      // STEP 4: Feedback + messages
+      // ─────────────────────────────────────────────
+      this.correctMessage =
+        this.feedbackService.setCorrectMessage(this.optionsToDisplay);
+  
     } catch (error) {
       console.error('[handleOptionProcessingAndFeedback] ❌ Error:', error);
       this.explanationToDisplay = 'Error processing question. Please try again.';
