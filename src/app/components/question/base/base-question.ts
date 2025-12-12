@@ -389,7 +389,7 @@ export abstract class BaseQuestion<
       const correctOptions = this.optionsToDisplay.filter((opt) => opt.correct);
 
       // Set the correct options in the quiz service
-      this.quizService.setCorrectOptions(correctOptions);
+      //this.quizService.setCorrectOptions(correctOptions);
   
       // Update the correct message for the question
       this.updateCorrectMessageForQuestion();

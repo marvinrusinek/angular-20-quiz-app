@@ -184,9 +184,9 @@ export class TimerService implements OnDestroy {
     callback?: (elapsedTime: number) => void,
     options: { force?: boolean } = {}  // future use
   ): void {
-    console.error('🛑 [STOP TIMER CALLED]', {
-      stack: new Error().stack
-    });
+    const e = new Error('[TimerService.stopTimer] stack');
+    console.error('🛑 [STOP TIMER CALLED] STACK:\n' + (e.stack ?? '(no stack)'));
+    console.trace('🧵 [STOP TIMER TRACE]');
     void options;  // prevent unused-parameter warning (intentional)
 
     if (!this.isTimerRunning) {
@@ -298,6 +298,9 @@ export class TimerService implements OnDestroy {
     questionIndex: number,
     selectedOptionsFromQQC: Array<SelectedOption | Option> | null
   ): Promise<void> {
+    console.error('🟧 [stopTimerIfApplicable CALLED]');
+    console.trace('🟧 [TRACE stopTimerIfApplicable]');
+
     console.warn(
       "%c[TIMER] ENTERED stopTimerIfApplicable",
       "color: orange; font-weight: bold;",
