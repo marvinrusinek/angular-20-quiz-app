@@ -224,6 +224,12 @@ export class SelectedOptionService {
       }
     );
 
+    // HARD RULE: single-answer questions may NEVER accumulate selections
+    if (isMultipleAnswer === false) {
+      console.warn('[LOCKDOWN] Clearing previous selections for single-answer question', qIndex);
+      this.selectedOptionsMap.set(qIndex, []);
+    }
+
     const current = this.selectedOptionsMap.get(qIndex) || [];
     let canonicalCurrent = this.canonicalizeSelectionsForQuestion(qIndex, current);
 
