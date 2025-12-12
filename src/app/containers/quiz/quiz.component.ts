@@ -3764,6 +3764,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
       // Return result to caller (used by timer logic)
       callback(areAllCorrectSelected);
+      
     } catch (error) {
       console.error('[checkIfAnswered] Error checking if all correct answers are selected:', error);
       try { this.nextButtonStateService.setNextButtonState(false); } catch { }
