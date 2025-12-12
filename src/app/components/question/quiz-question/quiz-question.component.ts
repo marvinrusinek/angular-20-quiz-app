@@ -5623,7 +5623,6 @@ export class QuizQuestionComponent extends BaseQuestion
 
       // Update the answers and check if the selection is correct
       this.quizService.updateAnswersForOption(option);
-      void this.checkAndHandleCorrectAnswer();
 
       const totalCorrectAnswers =
         this.quizService.getTotalCorrectAnswers(currentQuestion);
@@ -5795,25 +5794,6 @@ export class QuizQuestionComponent extends BaseQuestion
   private isFormValid(): boolean {
     // Check form validity, ensure form is defined
     return this.questionForm?.valid ?? false;
-  }
-
-  private checkAndHandleCorrectAnswer(): void {
-    const idx = this.currentQuestionIndex;
-  
-    // ONE source of truth — synchronous
-    const allCorrect =
-      this.selectedOptionService.areAllCorrectAnswersSelectedSync(idx);
-  
-    if (!allCorrect) return;
-  
-    // Explicit authority grant
-    this.timerService.allowAuthoritativeStop();
-    this.timerService.attemptStopTimerForQuestion({
-      questionIndex: idx,
-      onStop: () => {
-        console.log('Correct answer selected!');
-      }
-    });
   }
 
   private async handleOptionClicked(
