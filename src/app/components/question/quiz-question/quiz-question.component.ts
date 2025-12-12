@@ -5887,18 +5887,23 @@ export class QuizQuestionComponent extends BaseQuestion
     return this.questionForm?.valid ?? false;
   }
 
-  private async checkAndHandleCorrectAnswer(): Promise<void> {
-    const isCorrect = await this.quizService.checkIfAnsweredCorrectly();
-    if (isCorrect) {
-      // Stop the timer and provide an empty callback
-      this.timerService.attemptStopTimerForQuestion({
-        questionIndex: this.currentQuestionIndex,
-        onStop: () => {
-          console.log('Correct answer selected!');
-          // add additional logic here
-        },
-      });
-    }
+  private checkAndHandleCorrectAnswer(): void {
+    const idx = this.currentQuestionIndex;
+  
+    // ONE source of truth — synchronous
+    const allCorrect =
+      this.selectedOptionService.areAllCorrectAnswersSelectedSync(idx);
+  
+    if (!allCorrect) return;
+  
+    // Explicit authority grant
+    this.timerService.allowAuthoritativeStop();
+    this.timerService.attemptStopTimerForQuestion({
+      questionIndex: idx,
+      onStop: () => {
+        console.log('Correct answer selected!');
+      }
+    });
   }
 
   private async handleOptionClicked(
