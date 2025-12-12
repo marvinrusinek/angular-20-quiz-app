@@ -245,51 +245,64 @@ export class TimerService implements OnDestroy {
   }
 
   public attemptStopTimerForQuestion(options: StopTimerAttemptOptions = {}): boolean {
+
+    // 🚨 HARD GUARD — NOTHING may stop the timer without authority
+    if (!this._authoritativeStop) {
+      console.error(
+        '🛑 ILLEGAL attemptStopTimerForQuestion — BLOCKED',
+        {
+          questionIndex: options.questionIndex,
+          stack: new Error().stack
+        }
+      );
+      return false;
+    }
+  
     const questionIndex = this.normalizeQuestionIndex(
       typeof options.questionIndex === 'number'
         ? options.questionIndex
         : this.quizService?.currentQuestionIndex
     );
-
+  
     if (questionIndex == null || questionIndex < 0) {
       console.warn('[TimerService] attemptStopTimerForQuestion called without a valid question index.');
       return false;
     }
-
+  
     const snapshot = Array.isArray(options.optionsSnapshot)
       ? options.optionsSnapshot
       : undefined;
-
+  
     const allCorrectSelected = this.selectedOptionService
-      .areAllCorrectAnswersSelectedSync(questionIndex, snapshot)
+      .areAllCorrectAnswersSelectedSync(questionIndex, snapshot);
     if (!allCorrectSelected) {
       return false;
     }
-
+  
     // If we get here, all correct answers are selected
     // Clear any previous stop state to allow stopping again
     this.selectedOptionService.stopTimerEmitted = false;
     this.isTimerStoppedForCurrentQuestion = false;
     this.stoppedForQuestion.delete(questionIndex);
-
+  
     // If the timer isn't running, nothing to stop
     if (!this.isTimerRunning) {
       console.log('[TimerService] attemptStopTimerForQuestion — all correct selected but timer is not running.');
       return true; // Return true since the answer is correct, even if timer isn't running
     }
-
+  
     // Fire sound (or any UX) BEFORE stopping so teardown doesn't kill it
     try { options.onBeforeStop?.(); } catch { }
-
+  
     try {
       // Stop the timer with force to ensure it stops
       this.stopTimer(options.onStop, { force: true });
-
+  
       // Mark as stopped to prevent duplicate stops
       this.selectedOptionService.stopTimerEmitted = true;
       this.isTimerStoppedForCurrentQuestion = true;
       this.stoppedForQuestion.add(questionIndex);
-
+  
       console.log(`[TimerService] ✅ Timer stopped for Q${questionIndex + 1} (all correct answers selected)`);
       return true;
     } catch (err: any) {
