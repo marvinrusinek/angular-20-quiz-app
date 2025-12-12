@@ -45,6 +45,8 @@ export class TimerService implements OnDestroy {
   private expiredSubject = new Subject<void>();
   public expired$ = this.expiredSubject.asObservable();
 
+  private _authoritativeStop = false;
+
   constructor(
     private ngZone: NgZone,
     private selectedOptionService: SelectedOptionService,
@@ -464,6 +466,21 @@ export class TimerService implements OnDestroy {
     const idx = this.normalizeQuestionIndex(questionIndex);
     if (idx < 0) return;
   
+    // AUTHORITATIVE STOP GUARD
+    if (!this._authoritativeStop) {
+      console.error(
+        '🛑 ILLEGAL TIMER STOP — BLOCKED',
+        {
+          questionIndex: idx,
+          stack: new Error().stack
+        }
+      );
+      return;
+    }
+  
+    // Reset authority immediately to prevent re-entry
+    this._authoritativeStop = false;
+  
     // Prevent double-stops
     if (this.isTimerStoppedForCurrentQuestion) {
       console.warn('[TimerService] Timer already stopped for this question');
@@ -583,5 +600,9 @@ export class TimerService implements OnDestroy {
     }
 
     return Math.min(Math.max(normalized, 0), questions.length - 1);
+  }
+
+  public allowAuthoritativeStop(): void {
+    this._authoritativeStop = true;
   }
 }
