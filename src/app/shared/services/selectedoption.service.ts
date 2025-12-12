@@ -1780,56 +1780,6 @@ export class SelectedOptionService {
     return Array.from(keys);
   }
 
-  // Prefer the caller-provided snapshot (already overlaid) and ignore wrongs.
-  public areAllCorrectAnswersSelectedSync(
-    questionIndex: number,
-    optionsSnapshot?: Option[]
-  ): boolean {
-    const normalizedIndex = this.normalizeQuestionIndex(questionIndex);
-
-    if (normalizedIndex < 0) {
-      console.warn('[areAllCorrectAnswersSelectedSync] Invalid question index:', questionIndex);
-      return false;
-    }
-
-    const rawSnapshot = Array.isArray(optionsSnapshot)
-      ? optionsSnapshot.filter(Boolean)
-      : [];
-
-    // Fallback: Use optionSnapshotByQuestion if QuizService.questions is empty
-    /* let question = this.quizService.questions?.[questionIndex];
-    if (!question) {
-      console.warn(`[ARE-ALL SYNC] QuizService.questions[${questionIndex}] is missing. Trying optionSnapshotByQuestion.`);
-      const snapshotOptions = this.optionSnapshotByQuestion.get(questionIndex);
-      console.log(`[ARE-ALL SYNC] Snapshot for Q${questionIndex}:`, snapshotOptions?.length);
-
-      if (snapshotOptions && snapshotOptions.length > 0) {
-        question = { options: snapshotOptions } as any;
-      }
-    } */
-
-    const snapshot = this.buildCanonicalSelectionSnapshot(
-      normalizedIndex,
-      rawSnapshot
-    );
-
-    // If we still don't have a question, we can't determine correctness
-    /* if (!question || !Array.isArray(question.options)) {
-      console.error(`[ARE-ALL SYNC] Unable to resolve options for Q${questionIndex + 1}. Returning false.`);
-      return false;
-    } */
-
-    // Use the resolved question options for canonical resolution
-    //const canonicalOptions = question.options;
-    const canonicalOptions = this.resolveCanonicalOptionsFor(normalizedIndex);
-
-    return this.determineIfAllCorrectAnswersSelected(
-      normalizedIndex,
-      snapshot,
-      canonicalOptions
-    );
-  }
-
   private normalizeQuestionIndex(index: number | null | undefined): number {
     if (!Number.isFinite(index as number)) {
       return -1;
