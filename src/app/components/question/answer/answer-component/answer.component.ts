@@ -492,6 +492,9 @@ export class AnswerComponent
       this.timerService.stopTimer();
     }
 
+    // Only NOW is the question considered answered
+    this.quizStateService.setAnswered(true);
+
     // ──────────────────────────────────────────────
     // FORWARD CLEAN PAYLOAD UPWARD
     // ──────────────────────────────────────────────
