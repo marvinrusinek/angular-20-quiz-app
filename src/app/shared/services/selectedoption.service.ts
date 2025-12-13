@@ -420,6 +420,32 @@ export class SelectedOptionService {
     this.isOptionSelectedSubject.next(combinedSelections.length > 0);
   }
 
+  setSelectedOptionsForQuestion(
+    questionIndex: number,
+    newSelections: SelectedOption[]
+  ): void {
+    const existing = this.selectedOptionsMap.get(questionIndex) ?? [];
+  
+    const merged = new Map<number, SelectedOption>();
+  
+    // Keep existing selections
+    for (const opt of existing) {
+      merged.set(opt.optionId, opt);
+    }
+  
+    // Apply new selections (replace by optionId)
+    for (const opt of newSelections) {
+      merged.set(opt.optionId, opt);
+    }
+  
+    const committed = Array.from(merged.values());
+  
+    this.selectedOptionsMap.set(questionIndex, committed);
+    this.selectedOptionSubject.next(committed);
+    this.isOptionSelectedSubject.next(committed.length > 0);
+    this.updateAnsweredState(committed, questionIndex);
+  }  
+
   setSelectionsForQuestion(qIndex: number, selections: SelectedOption[]): void {
     const committed = this.commitSelections(qIndex, selections);
     this.selectedOptionSubject.next(committed);
