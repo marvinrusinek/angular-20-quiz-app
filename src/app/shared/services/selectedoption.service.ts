@@ -461,12 +461,12 @@ export class SelectedOptionService {
   }
 
   public areAllCorrectAnswersSelected(
-  question: QuizQuestion,
-    selectedOptionIds: Set<string>
+    question: QuizQuestion,
+    selectedOptionIds: Set<number>
   ): boolean {
     const correctIds = question.options
-      .filter(o => o.correct)
-      .map(o => o.optionId);
+      .map(o => o.optionId)
+      .filter((id): id is number => typeof id === 'number');
   
     if (correctIds.length === 0) return false;
   
@@ -477,7 +477,7 @@ export class SelectedOptionService {
     }
   
     return true;
-  }  
+  }   
 
   clearSelectionsForQuestion(questionIndex: number): void {
     const idx = Number(questionIndex);
