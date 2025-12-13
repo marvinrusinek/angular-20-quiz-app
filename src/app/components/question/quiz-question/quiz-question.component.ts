@@ -3266,7 +3266,7 @@ export class QuizQuestionComponent
       );
   
       if (allCorrectForTimer) {
-        await this.timerService.stop();
+        await this.timerService.stopTimer();
       }
   
       // ───────────────────────────────────────────────
@@ -3296,7 +3296,7 @@ export class QuizQuestionComponent
       this.finalizeClickCycle(q!, evtOpt);
     }
   } 
-   
+
   
   private prepareClickCycle(): void {
     this.isUserClickInProgress = true;
