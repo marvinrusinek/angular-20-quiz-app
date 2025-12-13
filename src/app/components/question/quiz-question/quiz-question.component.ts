@@ -3252,6 +3252,12 @@ export class QuizQuestionComponent
           ?.map(o => o.optionId)
           .filter((id): id is number => typeof id === 'number') ?? []
       );
+
+      console.log(
+        '%c[DIAG] SOS RAW STATE BEFORE TIMER CHECK',
+        'background:red;color:white;font-weight:bold;',
+        this.selectedOptionService.getSelectedOptionsForQuestion(idx)
+      );
   
       const allCorrectForTimer =
         this.selectedOptionService.areAllCorrectAnswersSelected(
