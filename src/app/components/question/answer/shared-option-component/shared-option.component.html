@@ -30,7 +30,6 @@
                 [appHighlightInputType]="'radio'"
                 [appHighlightReset]="shouldResetBackground"
                 [ngClass]="getOptionClasses(b)"
-                [disabled]="isDisabled(b, i)"
                 (click)="onOptionClick(b, i, $event)"
                 (change)="updateOptionAndUI(b, i, $event)"
               >
@@ -83,7 +82,6 @@
               [appHighlightInputType]="'checkbox'"
               [appHighlightReset]="shouldResetBackground"
               [ngClass]="getOptionClasses(b)"
-              [disabled]="isDisabled(b, i)"
               (click)="onOptionClick(b, i, $event)"
               (change)="updateOptionAndUI(b, i, $event)"
             >
