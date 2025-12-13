@@ -364,7 +364,7 @@ export class AnswerComponent
       'background:#8b00ff;color:white;font-size:14px;',
       event,
     );
-
+  
     if (!event || !event.option) {
       console.error(
         '[AnswerComponent] INVALID event passed into onOptionClicked:',
@@ -372,37 +372,31 @@ export class AnswerComponent
       );
       return;
     }
-
+  
     const rawOption = event.option;
     const wasChecked = event.checked ?? true;
-
+  
     // Always get the QUESTION INDEX from QQC input
     const activeQuestionIndex =
       typeof this.currentQuestionIndex === 'number'
         ? this.currentQuestionIndex
         : 0;
-
+  
     const canonical =
       this.optionsToDisplay?.find(
         (opt: Option) => String(opt.optionId) === String(rawOption.optionId),
       ) ?? rawOption;
-
+  
     const enrichedOption: SelectedOption = {
       optionId: canonical.optionId,
       text: canonical.text,
-      correct: canonical.correct === true, // always trust canonical correctness
+      correct: canonical.correct === true,
       questionIndex: activeQuestionIndex,
       selected: wasChecked === true,
       highlight: true,
-      showIcon: true
+      showIcon: true,
     };
-
-    console.log(
-      '%c[AC] ENRICHED →',
-      'color:#00eaff;font-weight:bold;',
-      enrichedOption,
-    );
-
+  
     // ──────────────────────────────────────────────
     // INTERNAL STATE UPDATE
     // ──────────────────────────────────────────────
@@ -410,64 +404,40 @@ export class AnswerComponent
       this.selectedOption = enrichedOption;
       this.selectedOptions = [enrichedOption];
     } else {
-      this.selectedOptions ??= []; // ensure array
-
+      this.selectedOptions ??= [];
+  
       const i = this.selectedOptions.findIndex(
         (o) => o.optionId === enrichedOption.optionId,
       );
-
+  
       if (enrichedOption.selected) {
-        // add or replace
         if (i === -1) {
           this.selectedOptions.push(enrichedOption);
         } else {
           this.selectedOptions[i] = enrichedOption;
         }
       } else {
-        // unselect
         if (i !== -1) this.selectedOptions.splice(i, 1);
       }
     }
-
+  
     // ──────────────────────────────────────────────
-    // NEXT BUTTON STATE
-    // ──────────────────────────────────────────────
-    let isSelected =
-      this.type === 'single'
-        ? !!this.selectedOption
-        : this.selectedOptions.length > 0;
-
-    // This part is OK
-    this.quizStateService.setAnswerSelected(isSelected);
-
-    // ──────────────────────────────────────────────
-    // SEND TO SelectedOptionService (the critical part)
+    // PUSH TO SelectedOptionService (AUTHORITATIVE)
     // ──────────────────────────────────────────────
     if (this.type === 'single') {
-      if (this.selectedOption) {
-        this.selectedOptionService.setSelectedOptions([this.selectedOption]);
-      } else {
-        this.selectedOptionService.setSelectedOptions([]);
-      }
+      this.selectedOptionService.setSelectedOptionsForQuestion(
+        activeQuestionIndex,
+        this.selectedOption ? [this.selectedOption] : [],
+      );
     } else {
       this.selectedOptionService.setSelectedOptionsForQuestion(
         activeQuestionIndex,
-        [...this.selectedOptions]
+        [...this.selectedOptions],
       );
     }
-
-    console.log(
-      '%c[AC] PUSHED TO SOS →',
-      'color:#00ff88;font-weight:bold;',
-      this.selectedOptions.map((o) => ({
-        q: o.questionIndex,
-        id: o.optionId,
-        correct: o.correct,
-      })),
-    );
-
+  
     // ──────────────────────────────────────────────
-    // TIMER STOP CHECK (AUTHORITATIVE — AnswerComponent)
+    // TIMER STOP + ANSWERED CHECK (THE INVARIANT)
     // ──────────────────────────────────────────────
     const selectedIds = new Set<number>(
       this.selectedOptionService
@@ -475,26 +445,30 @@ export class AnswerComponent
         ?.map(o => o.optionId)
         .filter((id): id is number => typeof id === 'number') ?? []
     );
-
+  
     const allCorrectForTimer =
       this.selectedOptionService.areAllCorrectAnswersSelected(
-        this.questionData, // the current question input to AnswerComponent
+        this.questionData,
         selectedIds
       );
-
+  
     console.log(
-      `%c[AC][TIMER CHECK] Q${activeQuestionIndex + 1} → allCorrectForTimer =`,
+      `%c[AC][INVARIANT] Q${activeQuestionIndex + 1}`,
       'color:#00ffaa;font-weight:bold;',
-      allCorrectForTimer,
+      {
+        selectedIds: [...selectedIds],
+        allCorrectForTimer,
+      }
     );
-
+  
+    // Stop timer ONLY when invariant is satisfied
     if (allCorrectForTimer) {
       this.timerService.stopTimer();
     }
-
-    // Only NOW is the question considered answered
-    this.quizStateService.setAnswered(true);
-
+  
+    // Mark answered ONLY when invariant is satisfied
+    this.quizStateService.setAnswerSelected(allCorrectForTimer);
+  
     // ──────────────────────────────────────────────
     // FORWARD CLEAN PAYLOAD UPWARD
     // ──────────────────────────────────────────────
@@ -504,16 +478,8 @@ export class AnswerComponent
       checked: enrichedOption.selected === true,
       wasReselected: event.wasReselected ?? false,
     };
-
-    console.log(
-      '%c[AC] EMITTING CLEAN PAYLOAD →',
-      'color:lime;font-weight:bold;',
-      cleanPayload,
-    );
-
+  
     this.optionClicked.emit(cleanPayload);
-
-    this.cdRef.detectChanges();
   }
 
   // Rebuild optionBindings from the latest optionsToDisplay.
