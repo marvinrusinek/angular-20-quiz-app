@@ -1094,19 +1094,22 @@ export class SharedOptionComponent
 
     const correctBindings = bindings.filter((b) => !!b.option?.correct);
 
-    // ✅ SINGLE SOURCE OF TRUTH FOR "ALL CORRECT SELECTED" (LOCAL/UI)
+    // SINGLE SOURCE OF TRUTH FOR "ALL CORRECT SELECTED" (LOCAL/UI)
     const allCorrectSelectedLocally =
       correctBindings.length > 0 &&
       correctBindings.every((b) => !!b.option?.selected || b.isSelected);
 
+    // Only lock incorrect options AFTER the question is complete
+    // (single: after correct is selected; multi: after ALL correct are selected)
     const shouldLockIncorrect =
-      this.shouldLockIncorrectOptions ||
+    allCorrectSelectedLocally &&
+    (this.shouldLockIncorrectOptions ||
       this.computeShouldLockIncorrectOptions(
         resolvedType,
         hasCorrectSelection,
         allCorrectSelectedLocally,
         /* allCorrectPersisted REMOVED */
-      );
+      ));
 
     if (shouldLockIncorrect && !option.correct) return true;
 
