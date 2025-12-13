@@ -450,7 +450,10 @@ export class AnswerComponent
         this.selectedOptionService.setSelectedOptions([]);
       }
     } else {
-      this.selectedOptionService.setSelectedOptions([...this.selectedOptions]);
+      this.selectedOptionService.setSelectedOptionsForQuestion(
+        activeQuestionIndex,
+        [...this.selectedOptions]
+      );
     }
 
     console.log(
