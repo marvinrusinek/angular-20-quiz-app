@@ -5223,6 +5223,15 @@ export class QuizQuestionComponent
       this.showFeedbackForOption[option.optionId] = true;
 
       // ─────────────────────────────────────────────
+      // 🔥 SINGLE-ANSWER HARD RESET (CRITICAL FIX)
+      // ─────────────────────────────────────────────
+      if (this.type === 'single') {
+        this.selectedOptionService.clearAllSelectionsForQuestion(
+          this.currentQuestionIndex
+        );
+      }
+
+      // ─────────────────────────────────────────────
       // STEP 2: Load question data
       // ─────────────────────────────────────────────
       const questionData = await firstValueFrom(
@@ -5237,6 +5246,11 @@ export class QuizQuestionComponent
       questionData.options = this.quizService.assignOptionIds(
         [...(questionData.options ?? [])],
         this.currentQuestionIndex
+      );
+
+      this.selectedOptionService.storeQuestion(
+        this.currentQuestionIndex,
+        questionData
       );
 
       // ✅ AUTHORITATIVE clicked option (NEVER trust event.option.optionId)
