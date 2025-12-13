@@ -5233,11 +5233,18 @@ export class QuizQuestionComponent
         return;
       }
 
-      // Normalize questionData optionIds so UI + questionData match
+      // ✅ Normalize questionData optionIds so UI + questionData match
       questionData.options = this.quizService.assignOptionIds(
         [...(questionData.options ?? [])],
         this.currentQuestionIndex
       );
+
+      // ✅ AUTHORITATIVE clicked option (NEVER trust event.option.optionId)
+      const clickedFromQuestion = questionData.options?.[index];
+      if (!clickedFromQuestion || clickedFromQuestion.optionId == null) {
+        console.warn('[QQC] clicked option missing in questionData', { idx: this.currentQuestionIndex, index });
+        return;
+      }
 
       this.selectedOptionService.storeQuestion(
         this.currentQuestionIndex,
@@ -5249,81 +5256,71 @@ export class QuizQuestionComponent
       // ─────────────────────────────────────────────
       const isMultiple = this.type === 'multiple';
 
+      // ✅ Store canonical selection (from questionData), not raw event.option
+      const canonicalSelected: SelectedOption = {
+        ...option, // keep your existing fields like text if you want
+        optionId: clickedFromQuestion.optionId,
+        questionIndex: this.currentQuestionIndex,
+        // if your SelectedOption supports these, they help:
+        correct: clickedFromQuestion.correct === true,
+        selected: true,
+        highlight: true,
+        showIcon: true,
+      };
+
       this.selectedOptionService.setSelectedOption(
-        option,
+        canonicalSelected,
         this.currentQuestionIndex,
-        undefined, // snapshot not needed here
-        isMultiple, // 🚨 EXPLICIT
+        undefined,
+        isMultiple
       );
 
       // ─────────────────────────────────────────────
-      // STEP 3: STOP TIMER — AUTHORITATIVE + BULLETPROOF
+      // STEP 3: STOP TIMER — ONLY if fully correct
       // ─────────────────────────────────────────────
       const idx = this.currentQuestionIndex;
 
       queueMicrotask(() => {
-        const correctIdSet = new Set(
-          questionData.options
+        const correctIds = new Set(
+          (questionData.options ?? [])
             .filter(o => o.correct === true)
             .map(o => String(o.optionId))
         );
-      
-        if (correctIdSet.size === 0) return;
-      
-        // ─────────────────────────────────────────────
-        // SINGLE-ANSWER: EVENT-DRIVEN + STATE RESET
-        // ─────────────────────────────────────────────
-        if (this.type === 'single') {
-          const clickedId = String(option.optionId);
 
-          const correctIdSet = new Set(
-            questionData.options
-              .filter(o => o.correct === true)
+        if (correctIds.size === 0) return;
+
+        let shouldStop = false;
+
+        if (this.type === 'single') {
+          // ✅ SINGLE: only stop if the clicked *canonical* option is correct
+          shouldStop = clickedFromQuestion.correct === true;
+
+          // Optional: if correct, wipe any stale garbage that could interfere later
+          if (shouldStop) {
+            this.selectedOptionService.clearAllSelectionsForQuestion(idx);
+            this.selectedOptionService.setSelectedOption(
+              canonicalSelected,
+              idx,
+              undefined,
+              false
+            );
+          }
+        } else {
+          // ✅ MULTI: stop when ALL correct ids are included in selected ids
+          // (wrong selections ignored here; change if you want “no wrong allowed”)
+          const selectedIds = new Set(
+            this.selectedOptionService
+              .getSelectedOptionsForQuestion(idx)
               .map(o => String(o.optionId))
           );
 
-          // 🚫 Wrong click → exit immediately
-          if (!correctIdSet.has(clickedId)) {
-            return;
-          }
+          shouldStop = [...correctIds].every(id => selectedIds.has(id));
+        }
 
-          // ✅ Correct click:
-          // HARD RESET state so stale wrong clicks can never interfere
-          this.selectedOptionService.clearAllSelectionsForQuestion(idx);
-
-          // Re-commit ONLY the correct option
-          this.selectedOptionService.setSelectedOption(
-            option,
-            idx,
-            undefined,
-            false // single-answer
-          );
-
-          // AUTHORITATIVE STOP
+        if (shouldStop) {
           this.timerService.allowAuthoritativeStop();
           this.timerService.stopTimerForQuestion(idx);
-          return;
         }
-
-      
-        // ─────────────────────────────────────────
-        // MULTIPLE-ANSWER: STATE-BASED
-        // ─────────────────────────────────────────
-        const selectedIdSet = new Set(
-          this.selectedOptionService
-            .getSelectedOptionsForQuestion(idx)
-            .map(o => String(o.optionId))
-        );
-      
-        const allCorrectSelected =
-          [...correctIdSet].every(id => selectedIdSet.has(id));
-      
-        if (!allCorrectSelected) {
-          return;
-        }
-      
-        this.timerService.allowAuthoritativeStop();
-        this.timerService.stopTimerForQuestion(idx);
       });
 
       // ─────────────────────────────────────────────
