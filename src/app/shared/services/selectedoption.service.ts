@@ -460,6 +460,25 @@ export class SelectedOptionService {
     return options;
   }
 
+  public areAllCorrectAnswersSelected(
+  question: QuizQuestion,
+    selectedOptionIds: Set<string>
+  ): boolean {
+    const correctIds = question.options
+      .filter(o => o.correct)
+      .map(o => o.optionId);
+  
+    if (correctIds.length === 0) return false;
+  
+    for (const id of correctIds) {
+      if (!selectedOptionIds.has(id)) {
+        return false;
+      }
+    }
+  
+    return true;
+  }  
+
   clearSelectionsForQuestion(questionIndex: number): void {
     const idx = Number(questionIndex);
     if (!Number.isFinite(idx)) {
