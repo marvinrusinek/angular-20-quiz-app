@@ -104,8 +104,7 @@ export interface FeedbackConfig {
 })
 export class QuizQuestionComponent
   extends BaseQuestion
-  implements OnInit, OnChanges, OnDestroy, AfterViewInit
-{
+  implements OnInit, OnChanges, OnDestroy, AfterViewInit {
   @ViewChild('dynamicAnswerContainer', {
     read: ViewContainerRef,
     static: false,
@@ -2252,7 +2251,7 @@ export class QuizQuestionComponent
         isSelected: opt.selected ?? false,
         active: opt.active ?? true,
         checked: false,
-        change: (_: MatCheckbox | MatRadioButton) => {},
+        change: (_: MatCheckbox | MatRadioButton) => { },
         disabled: false,
         ariaLabel: opt.text ?? `Option ${idx + 1}`,
       }));
@@ -2269,9 +2268,9 @@ export class QuizQuestionComponent
         showCorrectMessage: false,
         showExplanation: false,
         explanationText: '',
-        quizQuestionComponentOnOptionClicked: () => {},
+        quizQuestionComponentOnOptionClicked: () => { },
         onOptionClicked: () => Promise.resolve(),
-        onQuestionAnswered: () => {},
+        onQuestionAnswered: () => { },
         shouldResetBackground: false,
         showFeedbackForOption: {},
         isOptionSelected: false,
@@ -3136,12 +3135,12 @@ export class QuizQuestionComponent
       'background: green; color: white; font-size: 18px; padding: 4px;',
       event,
     );
-  
+
     console.log(
       '%c[LOCATOR] >>> FIRED in FILE: QQC',
       'background:#8b00ff;color:white;font-size:16px',
     );
-  
+
     // ───────────────────────────────────────────────
     // HARD GUARD: event / option must be valid
     // ───────────────────────────────────────────────
@@ -3149,32 +3148,32 @@ export class QuizQuestionComponent
       console.error('[QQC] ❌ onOptionClicked received invalid event:', event);
       return;
     }
-  
+
     const evtOpt = event.option;
-  
+
     // Prefer the questionIndex on the option if present, otherwise fall back
     const payloadQuestionIndex =
       typeof (evtOpt as any).questionIndex === 'number'
         ? (evtOpt as any).questionIndex
         : null;
-  
+
     const idx =
       payloadQuestionIndex ??
       this.quizService.getCurrentQuestionIndex() ??
       this.currentQuestionIndex ??
       0;
-  
+
     console.log('[QQC] Resolved question index for click:', {
       payloadQuestionIndex,
       quizServiceIndex: this.quizService.getCurrentQuestionIndex?.(),
       currentQuestionIndex: this.currentQuestionIndex,
       finalIdx: idx,
     });
-  
+
     // Use the *question index* for SOS, NOT the option index
     const checkStateTop =
       this.selectedOptionService.getSelectedOptionsForQuestion(idx);
-  
+
     console.log(
       '%c[QQC][TOP VERIFY] SELECTED OPTIONS BEFORE ANY LOGIC',
       'color: hotpink; font-weight: bold;',
@@ -3188,19 +3187,19 @@ export class QuizQuestionComponent
         })),
       },
     );
-  
+
     console.log('[CLICK ENTRY] onOptionClicked fired for Q', idx + 1);
-  
+
     const evtChecked = event?.checked ?? true;
-  
+
     // ───────────────────────────────────────────────
     // Resolve question safely
     // ───────────────────────────────────────────────
     let q: QuizQuestion | null | undefined = this.question;
-  
+
     if (!q || !q.options?.length) q = this.currentQuestion;
     if (!q || !q.options?.length) q = this.quizService.questions?.[idx];
-  
+
     if (!q || !q.options?.length) {
       console.error(
         '[QQC] ❌ Unable to resolve question for index',
@@ -3209,21 +3208,21 @@ export class QuizQuestionComponent
       );
       return;
     }
-  
+
     const evtIdx = event.index;
-  
+
     // ───────────────────────────────────────────────
     // NORMAL PIPELINE (unchanged as much as possible)
     // ───────────────────────────────────────────────
     this.resetExplanationBeforeClick(idx);
     this.prepareClickCycle();
-  
+
     try {
       await this.waitForInteractionReady();
-  
+
       const optionsNow = this.cloneOptionsForUi(q!, evtIdx, event);
       const canonicalOpts = this.buildCanonicalOptions(q!, idx, evtOpt, evtIdx);
-  
+
       // Commit selection into local + state
       this.persistSelection(
         evtOpt,
@@ -3231,7 +3230,7 @@ export class QuizQuestionComponent
         optionsNow,
         q?.type === QuestionType.MultipleAnswer,
       );
-  
+
       // ALSO push into SelectedOptionService using the *question index*
       const enrichedForSOS = {
         ...evtOpt,
@@ -3241,7 +3240,7 @@ export class QuizQuestionComponent
         showIcon: true,
       } as any;
       this.selectedOptionService.addOption(idx, enrichedForSOS);
-  
+
       // ───────────────────────────────────────────────
       // ✅ TIMER STOP CHECK (NEW, CORRECT LOCATION)
       // Uses SOS as the single source of truth
@@ -3258,52 +3257,52 @@ export class QuizQuestionComponent
         'background:red;color:white;font-weight:bold;',
         this.selectedOptionService.getSelectedOptionsForQuestion(idx)
       );
-  
+
       const allCorrectForTimer =
         this.selectedOptionService.areAllCorrectAnswersSelected(
           q!,
           selectedIds
         );
-  
+
       console.log(
         `%c[QQC][TIMER CHECK] Q${idx + 1} → allCorrectForTimer =`,
         'color:#00ffaa;font-weight:bold;',
         allCorrectForTimer,
       );
-  
+
       if (allCorrectForTimer) {
         await this.timerService.stopTimer();
       }
-  
+
       // ───────────────────────────────────────────────
       // EXISTING UI / FEEDBACK LOGIC (UNCHANGED)
       // ───────────────────────────────────────────────
       this.emitSelectionMessage(idx, q!, optionsNow, canonicalOpts);
       this.syncCanonicalOptionsIntoQuestion(q!, canonicalOpts);
-  
+
       const allCorrect = this.computeCorrectness(
         q!,
         canonicalOpts,
         evtOpt,
         idx,
       );
-  
+
       this._lastAllCorrect = allCorrect;
-  
+
       await this.maybeTriggerExplanation(q!, evtOpt, idx, allCorrect);
       this.updateNextButtonAndState(allCorrect);
       this.forceExplanationUpdate(idx, q!);
-  
+
       this.scheduleAsyncUiFinalization(evtOpt, evtIdx, evtChecked);
-  
+
     } catch (err) {
       console.error('[onOptionClicked] ❌ Error:', err);
     } finally {
       this.finalizeClickCycle(q!, evtOpt);
     }
-  } 
+  }
 
-  
+
   private prepareClickCycle(): void {
     this.isUserClickInProgress = true;
     this._skipNextAsyncUpdates = false;
@@ -3341,7 +3340,7 @@ export class QuizQuestionComponent
       ) {
         return true;
       }
-    } catch {}
+    } catch { }
     return false;
   }
 
@@ -3413,7 +3412,7 @@ export class QuizQuestionComponent
         options,
         isMultipleAnswer,
       );
-    } catch {}
+    } catch { }
 
     (this.quizStateService as any).setUserInteracted?.(idx);
   }
@@ -3466,7 +3465,7 @@ export class QuizQuestionComponent
           .filter(Number.isFinite);
         this.selectedOptionService.lockMany(idx, allIdsNum as number[]);
       }
-    } catch {}
+    } catch { }
   }
 
   private syncFeedbackAndHighlighting(idx: number, evtOpt: Option): void {
@@ -3623,7 +3622,7 @@ export class QuizQuestionComponent
       (async () => {
         try {
           if (evtOpt) this.optionSelected.emit(evtOpt);
-        } catch {}
+        } catch { }
 
         const qSafe = this.currentQuestion;
         if (!qSafe) {
@@ -3642,7 +3641,7 @@ export class QuizQuestionComponent
         });
         if (evtOpt) this.markBindingSelected(evtOpt);
         this.refreshFeedbackFor(evtOpt ?? undefined);
-      })().catch(() => {});
+      })().catch(() => { });
     });
   }
 
@@ -3714,7 +3713,7 @@ export class QuizQuestionComponent
     // void this.performExplanationUpdate(lockedIndex, q);
     console.error(
       '[FET PIPELINE] Calling performExplanationUpdate for Q' +
-        (lockedIndex + 1),
+      (lockedIndex + 1),
     );
 
     this.performExplanationUpdate(lockedIndex, q)
@@ -3920,7 +3919,7 @@ export class QuizQuestionComponent
       } else {
         void this.selectionMessageService.setSelectionMessage(true);
       }
-    } catch {}
+    } catch { }
 
     // Show explanation immediately
     try {
@@ -3939,7 +3938,7 @@ export class QuizQuestionComponent
       this.setExplanationFor(i0, txt);
       this.explanationToDisplay = txt;
       this.explanationToDisplayChange?.emit(txt);
-    } catch {}
+    } catch { }
 
     // Allow navigation to proceed
     this.nextButtonStateService.setNextButtonState(true);
@@ -3949,7 +3948,7 @@ export class QuizQuestionComponent
     // Defensive stop in case the timer didn’t auto-stop at zero
     try {
       this.timerService.stopTimer(undefined, { force: true });
-    } catch {}
+    } catch { }
 
     this.cdRef.markForCheck(); // render
   }
@@ -3972,7 +3971,7 @@ export class QuizQuestionComponent
     if (reason !== 'timeout') {
       try {
         this.selectionMessageService.releaseBaseline(this.currentQuestionIndex);
-      } catch {}
+      } catch { }
     }
 
     this.cdRef.markForCheck();
@@ -4020,7 +4019,7 @@ export class QuizQuestionComponent
       try {
         const stable = this.selectionMessageService.stableKey(opt, idx);
         addKeyVariant(stable);
-      } catch {}
+      } catch { }
     };
 
     const resolvedQuestion =
@@ -4100,23 +4099,23 @@ export class QuizQuestionComponent
     if (options.revealFeedback) {
       try {
         this.revealFeedbackForAllOptions(canonicalOpts);
-      } catch {}
+      } catch { }
     }
 
     try {
       this.selectedOptionService.lockQuestion(i0);
-    } catch {}
+    } catch { }
 
     if (lockKeys.size) {
       try {
         this.selectedOptionService.lockMany(i0, Array.from(lockKeys));
-      } catch {}
+      } catch { }
     }
 
     try {
       this.sharedOptionComponent?.forceDisableAllOptions?.();
       this.sharedOptionComponent?.triggerViewRefresh?.();
-    } catch {}
+    } catch { }
 
     try {
       // Update local bindings and option snapshots so any direct consumers
@@ -4142,7 +4141,7 @@ export class QuizQuestionComponent
         ...option,
         active: false,
       }));
-    } catch {}
+    } catch { }
 
     this._timerStoppedForQuestion = true;
   }
@@ -4471,10 +4470,10 @@ export class QuizQuestionComponent
       const explanationText = this.explanationTextService
         .explanationsInitialized
         ? await firstValueFrom(
-            this.explanationTextService.getFormattedExplanationTextForQuestion(
-              questionIndex,
-            ),
-          )
+          this.explanationTextService.getFormattedExplanationTextForQuestion(
+            questionIndex,
+          ),
+        )
         : 'No explanation available';
 
       if (!explanationText?.trim()) {
@@ -5936,12 +5935,12 @@ export class QuizQuestionComponent
       formatted =
         typeof ets.formatExplanation === 'function'
           ? ets.formatExplanation(
-              q,
-              q.options
-                ?.map((o, i) => (o.correct ? i + 1 : -1))
-                .filter((n) => n > 0),
-              baseRaw,
-            )
+            q,
+            q.options
+              ?.map((o, i) => (o.correct ? i + 1 : -1))
+              .filter((n) => n > 0),
+            baseRaw,
+          )
           : baseRaw;
     } catch (err) {
       console.warn('[updateExplanationText] formatter failed, using raw', err);
@@ -6571,15 +6570,15 @@ export class QuizQuestionComponent
         next: async (explanationText: string) => {
           if (await this.isAnyOptionSelected(questionIndex)) {
             this.currentQuestionIndex = questionIndex;
-        
+
             const finalExplanation =
               explanationText || 'No explanation available';
-        
+
             console.log(
               '[QQC] Setting formatted explanation text:',
               finalExplanation,
             );
-        
+
             this.explanationToDisplay = finalExplanation;
             this.explanationTextService.setExplanationText(finalExplanation);
             this.explanationTextService.setShouldDisplayExplanation(true);
@@ -6590,7 +6589,7 @@ export class QuizQuestionComponent
               `Skipping explanation for unanswered question ${questionIndex}.`,
             );
           }
-        },        
+        },
         error: (error) => {
           console.error(
             `Error fetching explanation for question ${questionIndex}:`,
@@ -6632,8 +6631,7 @@ export class QuizQuestionComponent
 
     if (index < 0 || index >= this.questionsArray.length) {
       console.error(
-        `Invalid index ${index}. Must be between 0 and ${
-          this.questionsArray.length - 1
+        `Invalid index ${index}. Must be between 0 and ${this.questionsArray.length - 1
         }.`,
       );
       throw new Error(`Invalid index ${index}. No such question exists.`);
@@ -7220,7 +7218,7 @@ export class QuizQuestionComponent
     // Form state
     try {
       this.questionForm?.enable({ emitEvent: false });
-    } catch {}
+    } catch { }
 
     // Clear any click dedupe/log cosmetics
     this.lastLoggedIndex = -1;
@@ -7279,14 +7277,14 @@ export class QuizQuestionComponent
             true,
             true,
           );
-        } catch {}
+        } catch { }
       } else {
         try {
           this.selectedOptionService.setAnswered(true);
-        } catch {}
+        } catch { }
         try {
           this.nextButtonStateService.setNextButtonState(true);
-        } catch {}
+        } catch { }
       }
 
       // Wipe any leftover feedback text
@@ -7400,7 +7398,7 @@ export class QuizQuestionComponent
             this.cdRef.detectChanges();
           });
         })
-        .catch(() => {});
+        .catch(() => { });
     } catch (err) {
       console.warn('[onTimerExpiredFor] failed; using raw', err);
     } finally {
@@ -7583,7 +7581,7 @@ export class QuizQuestionComponent
 
     try {
       this.timerService.stopTimer?.(undefined, { force: true });
-    } catch {}
+    } catch { }
     this._timerStoppedForQuestion = true;
   }
 

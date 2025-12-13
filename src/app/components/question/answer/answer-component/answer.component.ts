@@ -31,6 +31,7 @@ import { QuizQuestionLoaderService } from '../../../../shared/services/quizquest
 import { QuizQuestionManagerService } from '../../../../shared/services/quizquestionmgr.service';
 import { QuizStateService } from '../../../../shared/services/quizstate.service';
 import { SelectedOptionService } from '../../../../shared/services/selectedoption.service';
+import { TimerService } from '../../../../shared/services/timer.service';
 import { BaseQuestion } from '../../base/base-question';
 import { SharedOptionComponent } from '../shared-option-component/shared-option.component';
 
@@ -108,6 +109,7 @@ export class AnswerComponent
     protected override quizService: QuizService,
     protected override quizStateService: QuizStateService,
     protected override selectedOptionService: SelectedOptionService,
+    protected override timerService: TimerService,
     protected override fb: FormBuilder,
     protected override cdRef: ChangeDetectorRef,
   ) {
@@ -461,6 +463,33 @@ export class AnswerComponent
         correct: o.correct,
       })),
     );
+
+    // ──────────────────────────────────────────────
+    // TIMER STOP CHECK (AUTHORITATIVE — AnswerComponent)
+    // ──────────────────────────────────────────────
+    const selectedIds = new Set<number>(
+      this.selectedOptionService
+        .getSelectedOptionsForQuestion(activeQuestionIndex)
+        ?.map(o => o.optionId)
+        .filter((id): id is number => typeof id === 'number') ?? []
+    );
+
+    const allCorrectForTimer =
+      this.selectedOptionService.areAllCorrectAnswersSelected(
+        this.questionData, // 👈 the current question input to AnswerComponent
+        selectedIds
+      );
+
+    console.log(
+      `%c[AC][TIMER CHECK] Q${activeQuestionIndex + 1} → allCorrectForTimer =`,
+      'color:#00ffaa;font-weight:bold;',
+      allCorrectForTimer,
+    );
+
+    if (allCorrectForTimer) {
+      this.timerService.stopTimer();
+    }
+
 
     // ──────────────────────────────────────────────
     // FORWARD CLEAN PAYLOAD UPWARD
