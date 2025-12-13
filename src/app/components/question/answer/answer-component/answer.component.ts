@@ -285,9 +285,9 @@ export class AnswerComponent
         'viewContainerRefs available in handleViewContainerRef:',
         this.viewContainerRefs,
       );
-      this.viewContainerRef = this.viewContainerRefs.first; // assign the first available ViewContainerRef
+      this.viewContainerRef = this.viewContainerRefs.first;  // assign the first available ViewContainerRef
       this.loadQuizQuestionComponent();
-      this.hasComponentLoaded = true; // prevent further attempts to load
+      this.hasComponentLoaded = true;  // prevent further attempts to load
     } else {
       console.warn('No viewContainerRef available in handleViewContainerRef');
     }
@@ -315,9 +315,8 @@ export class AnswerComponent
         if (!currentQuestion) return;
         const isMultipleAnswer =
           this.quizQuestionManagerService.isMultipleAnswerQuestion(
-            currentQuestion,
+            currentQuestion
           );
-        console.log('Is Multiple Answer:', isMultipleAnswer);
 
         if (isMultipleAnswer) {
           this.type = isMultipleAnswer ? 'multiple' : 'single';
@@ -395,7 +394,7 @@ export class AnswerComponent
       questionIndex: activeQuestionIndex,
       selected: wasChecked === true,
       highlight: true,
-      showIcon: true,
+      showIcon: true
     };
 
     console.log(
@@ -476,7 +475,7 @@ export class AnswerComponent
 
     const allCorrectForTimer =
       this.selectedOptionService.areAllCorrectAnswersSelected(
-        this.questionData, // 👈 the current question input to AnswerComponent
+        this.questionData, // the current question input to AnswerComponent
         selectedIds
       );
 
@@ -489,7 +488,6 @@ export class AnswerComponent
     if (allCorrectForTimer) {
       this.timerService.stopTimer();
     }
-
 
     // ──────────────────────────────────────────────
     // FORWARD CLEAN PAYLOAD UPWARD
