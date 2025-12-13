@@ -1081,9 +1081,9 @@ export class SharedOptionComponent
       }
     } catch {}
   
+    // 🔑 FIX: binding.disabled only applies AFTER completion
     if (binding.disabled) return true;
   
-    // ── One-shot lock: if this option was "spent", block immediately ──
     try {
       if (
         optionId != null &&
@@ -1099,15 +1099,12 @@ export class SharedOptionComponent
       (b) => (!!b.option?.selected || b.isSelected) && !!b.option?.correct,
     );
   
-    // Only lock incorrect options AFTER the question is complete
-    // (single: after correct is selected; multi: after ALL correct are selected)
     const shouldLockIncorrect =
       this.shouldLockIncorrectOptions ||
       this.computeShouldLockIncorrectOptions(
         resolvedType,
         hasCorrectSelection,
         allCorrectSelectedLocally,
-        /* allCorrectPersisted REMOVED */
       );
   
     if (shouldLockIncorrect && !option.correct) return true;
