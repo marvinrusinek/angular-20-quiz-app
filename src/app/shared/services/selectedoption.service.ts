@@ -430,12 +430,20 @@ export class SelectedOptionService {
   
     // Keep existing selections
     for (const opt of existing) {
-      merged.set(opt.optionId, opt);
+      if (typeof opt.optionId === 'number') {
+        merged.set(opt.optionId, opt);
+      } else {
+        console.warn('[SOS] Skipping option with invalid optionId', opt);
+      }
     }
-  
+
     // Apply new selections (replace by optionId)
     for (const opt of newSelections) {
-      merged.set(opt.optionId, opt);
+      if (typeof opt.optionId === 'number') {
+        merged.set(opt.optionId, opt);
+      } else {
+        console.warn('[SOS] Skipping option with invalid optionId', opt);
+      }
     }
   
     const committed = Array.from(merged.values());
