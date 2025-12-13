@@ -104,12 +104,12 @@ export class AnswerComponent
   constructor(
     protected quizQuestionLoaderService: QuizQuestionLoaderService,
     protected quizQuestionManagerService: QuizQuestionManagerService,
+    protected timerService: TimerService,
     protected override dynamicComponentService: DynamicComponentService,
     protected override feedbackService: FeedbackService,
     protected override quizService: QuizService,
     protected override quizStateService: QuizStateService,
     protected override selectedOptionService: SelectedOptionService,
-    protected override timerService: TimerService,
     protected override fb: FormBuilder,
     protected override cdRef: ChangeDetectorRef,
   ) {
