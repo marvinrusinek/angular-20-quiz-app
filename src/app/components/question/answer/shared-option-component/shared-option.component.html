@@ -12,7 +12,7 @@
           @for (
             b of optionBindings;
             let i = $index;
-            track trackByQuestionScoped($index, b)
+            track trackByOptionId
           ) {
             <div class="option-container">
               <mat-radio-button
@@ -66,7 +66,7 @@
         @for (
           b of optionBindings;
           let i = $index;
-          track trackByQuestionScoped($index, b)
+          track trackByOptionId
         ) {
           <div class="option-container">
             <mat-checkbox
