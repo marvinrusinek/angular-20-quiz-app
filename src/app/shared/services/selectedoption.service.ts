@@ -451,7 +451,6 @@ export class SelectedOptionService {
     this.selectedOptionsMap.set(questionIndex, committed);
     this.selectedOptionSubject.next(committed);
     this.isOptionSelectedSubject.next(committed.length > 0);
-    this.updateAnsweredState(committed, questionIndex);
   }  
 
   setSelectionsForQuestion(qIndex: number, selections: SelectedOption[]): void {
