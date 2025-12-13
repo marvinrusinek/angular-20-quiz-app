@@ -1048,33 +1048,41 @@ export class SharedOptionComponent
   // Decide if an option should be disabled
   public shouldDisableOption(binding: OptionBindings): boolean {
     if (!binding || !binding.option) return false;
-
+  
     const option = binding.option;
     const optionId = option.optionId;
     const qIndex = this.resolveCurrentQuestionIndex();
-
+  
+    // ─────────────────────────────────────────────
+    // 🚫 GLOBAL GUARD: nothing disables until COMPLETE
+    // ─────────────────────────────────────────────
+    const bindings = this.optionBindings ?? [];
+    const correctBindings = bindings.filter(b => !!b.option?.correct);
+  
+    // SINGLE SOURCE OF TRUTH FOR "ALL CORRECT SELECTED" (LOCAL/UI)
+    const allCorrectSelectedLocally =
+      correctBindings.length > 0 &&
+      correctBindings.every(b => !!b.option?.selected || b.isSelected);
+  
+    // Until the question is COMPLETE, NOTHING is disabled
+    if (!allCorrectSelectedLocally) {
+      return false;
+    }
+  
+    // ─────────────────────────────────────────────
+    // ⬇️ EVERYTHING BELOW THIS POINT MAY DISABLE
+    // ─────────────────────────────────────────────
+  
     if (this.forceDisableAll) return true;
-
+  
     try {
       if (this.selectedOptionService.isQuestionLocked(qIndex)) {
         return true;
       }
     } catch {}
-
+  
     if (binding.disabled) return true;
-
-    // ── Derived "fresh" guard: enable everything until the first real selection exists ──
-    // Checks both persisted selections and local bindings to avoid timing glitches.
-    const persistedSel =
-      (this.selectedOptionService.selectedOptionsMap?.get(qIndex) ?? [])
-        .length > 0;
-    const localSel = (this.optionBindings ?? []).some(
-      (b) => b?.option?.selected || b?.isSelected,
-    );
-    const answered = this.quizService.isAnswered(qIndex) ?? false;
-    const fresh = !(persistedSel || localSel || answered);
-    if (fresh) return false; // nothing disabled on first paint
-
+  
     // ── One-shot lock: if this option was "spent", block immediately ──
     try {
       if (
@@ -1084,38 +1092,29 @@ export class SharedOptionComponent
         return true;
       }
     } catch {}
-
-    const bindings = this.optionBindings ?? [];
+  
     const resolvedType = this.resolvedTypeForLock ?? this.resolveQuestionType();
-
+  
     const hasCorrectSelection = bindings.some(
       (b) => (!!b.option?.selected || b.isSelected) && !!b.option?.correct,
     );
-
-    const correctBindings = bindings.filter((b) => !!b.option?.correct);
-
-    // SINGLE SOURCE OF TRUTH FOR "ALL CORRECT SELECTED" (LOCAL/UI)
-    const allCorrectSelectedLocally =
-      correctBindings.length > 0 &&
-      correctBindings.every((b) => !!b.option?.selected || b.isSelected);
-
+  
     // Only lock incorrect options AFTER the question is complete
     // (single: after correct is selected; multi: after ALL correct are selected)
     const shouldLockIncorrect =
-    allCorrectSelectedLocally &&
-    (this.shouldLockIncorrectOptions ||
+      this.shouldLockIncorrectOptions ||
       this.computeShouldLockIncorrectOptions(
         resolvedType,
         hasCorrectSelection,
         allCorrectSelectedLocally,
         /* allCorrectPersisted REMOVED */
-      ));
-
+      );
+  
     if (shouldLockIncorrect && !option.correct) return true;
-
+  
     if (optionId != null && this.lockedIncorrectOptionIds.has(optionId))
       return true;
-
+  
     return optionId != null && this.flashDisabledSet.has(optionId);
   }
 
