@@ -427,12 +427,37 @@ export class AnswerComponent
       this.selectedOptionService.getSelectedOptionsForQuestion(
         activeQuestionIndex,
       ) ?? [];
+
+    console.log(
+        `%c[DIAG][SELECTED NOW] Q${activeQuestionIndex + 1}`,
+        'color:#ff00ff;font-weight:bold;',
+        selectedNow.map(o => ({
+          id: o.optionId,
+          correct: o.correct,
+          selected: o.selected,
+          q: o.questionIndex,
+        })),
+    );
+      
+    console.log(
+        `%c[DIAG][QUESTION OPTIONS] Q${activeQuestionIndex + 1}`,
+        'color:#00ffff;font-weight:bold;',
+        this.questionData.options.map(o => ({
+          id: o.optionId,
+          correct: o.correct,
+        })),
+    );
   
     const complete =
       this.selectedOptionService.isQuestionComplete(
         this.questionData,
         selectedNow,
       );
+  
+    console.log(
+        `%c[DIAG][COMPLETE RESULT] Q${activeQuestionIndex + 1} = ${complete}`,
+        'color:red;font-weight:bold;',
+    );
   
     console.log(
       `%c[AC][INVARIANT] Q${activeQuestionIndex + 1}`,
