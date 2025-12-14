@@ -12,9 +12,7 @@
 ::ng-deep .mat-mdc-radio-button .mdc-radio__background,
 ::ng-deep .mat-mdc-checkbox-touch-target,
 ::ng-deep .mat-mdc-checkbox-ripple,
-::ng-deep .mat-mdc-checkbox .mdc-checkbox__background,
-::ng-deep .mdc-radio__native-control,
-::ng-deep .mdc-checkbox__native-control {
+::ng-deep .mat-mdc-checkbox .mdc-checkbox__background {
   display: none !important;
   opacity: 0 !important;
   pointer-events: none !important;
@@ -45,17 +43,20 @@
   width: 100%;
 }
 
+::ng-deep .mdc-form-field {
+  width: 100%;
+}
+
+::ng-deep .mdc-form-field > label {
+  width: 100%;
+  display: flex;
+}
+
 /* Make the entire option row clickable */
 .option-container {
   width: 100%;
   display: block;
-  position: relative;
   cursor: pointer;
-}
-
-/* Disable ALL pointer events inside */
-.option-container * {
-  pointer-events: none;
 }
 
 /* Re-enable pointer events ONLY on the container */
@@ -63,14 +64,11 @@
   pointer-events: auto;
 }
 
-/* Prevent Angular Material from eating clicks */
-.option-radio,
-.option-row {
-  pointer-events: none;
-}
-
 .option-wrapper {
   width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 /* ────────────────────────────────────────────────
