@@ -66,6 +66,13 @@
   pointer-events: auto;
 }
 
+/* Make the button fill the row */
+.options mat-radio-button,
+.options mat-checkbox {
+  width: 100%;
+  display: block;
+}
+
 .option-wrapper {
   width: 100%;
   display: flex;
