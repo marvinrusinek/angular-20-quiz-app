@@ -2628,25 +2628,30 @@ export class SelectedOptionService {
     }
   }
 
-  public isQuestionComplete(question: QuizQuestion, selected: SelectedOption[]): boolean {
+  public isQuestionComplete(
+    question: QuizQuestion,
+    selected: SelectedOption[],
+  ): boolean {
     if (!question?.options?.length) return false;
-
+  
+    // Get ALL correct option IDs from the question
     const correctIds = question.options
+      .filter(o => o.correct === true)
       .map(o => o.optionId)
-      .filter((id): id is number => typeof id === 'number')
-      .filter(id => question.options.find(x => x.optionId === id)?.correct === true);
-
+      .filter((id): id is number => typeof id === 'number');
+  
     if (correctIds.length === 0) return false;
-
+  
+    // Get selected option IDs (ignore correctness here)
     const selectedIds = new Set<number>(
       (selected ?? [])
         .map(o => o.optionId)
-        .filter((id): id is number => typeof id === 'number')
+        .filter((id): id is number => typeof id === 'number'),
     );
-
-    // “complete” means all correct ids are selected
+  
+    // COMPLETE iff *all* correct IDs are selected
     return correctIds.every(id => selectedIds.has(id));
-  }
+  }  
 }
 
 

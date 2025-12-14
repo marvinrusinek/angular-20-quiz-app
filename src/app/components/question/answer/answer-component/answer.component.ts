@@ -424,19 +424,12 @@ export class AnswerComponent
     }
   
     // ──────────────────────────────────────────────
-    // PUSH TO SelectedOptionService (AUTHORITATIVE)
+    // PUSH TO SelectedOptionService (MERGE, NOT REPLACE)
     // ──────────────────────────────────────────────
-    if (this.type === 'single') {
-      this.selectedOptionService.setSelectedOptionsForQuestion(
-        activeQuestionIndex,
-        this.selectedOption ? [this.selectedOption] : [],
-      );
-    } else {
-      this.selectedOptionService.setSelectedOptionsForQuestion(
-        activeQuestionIndex,
-        [...this.selectedOptions],
-      );
-    }
+    this.selectedOptionService.addOption(
+      activeQuestionIndex,
+      enrichedOption
+    );
   
     // ──────────────────────────────────────────────
     // AUTHORITATIVE COMPLETE CHECK (AFTER SOS UPDATE)
