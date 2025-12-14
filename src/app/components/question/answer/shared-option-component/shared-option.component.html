@@ -7,48 +7,45 @@
       @case ('single') {
         <mat-radio-group class="options-group options">
           @for (b of optionBindings; let i = $index; track trackByOptionId(i, b)) {
-            <div class="option-container" (click)="onOptionClick(b, i, $event)">
-              <mat-radio-button
-                appHighlightOption  
-                class="option-radio single-option"
-                [ngClass]="getOptionClasses(b)"
-                
-                [option]="b.option"
-                [optionBinding]="b"
-                [isSelected]="b.isSelected"
-                [isCorrect]="b.isCorrect"
-                [selectedOptionHistory]="selectedOptionHistory"
-                [highlightCorrectAfterIncorrect]="highlightCorrectAfterIncorrect"
-                [appHighlightInputType]="'radio'"
-                [appHighlightReset]="shouldResetBackground"
+            <mat-radio-button
+              class="option-radio single-option"
+              [ngClass]="getOptionClasses(b)"
 
-                [value]="b.option.optionId"
-                (change)="updateOptionAndUI(b, i, $event)"
-              >
-                <div class="option-wrapper">
-                  <span class="option-text">
-                    {{ getOptionDisplayText(b.option, i) }}
-                  </span>
+              [option]="b.option"
+              [optionBinding]="b"
+              [isSelected]="b.isSelected"
+              [isCorrect]="b.isCorrect"
+              [selectedOptionHistory]="selectedOptionHistory"
+              [highlightCorrectAfterIncorrect]="highlightCorrectAfterIncorrect"
+              [appHighlightInputType]="'radio'"
+              [appHighlightReset]="shouldResetBackground"
+
+              [value]="b.option.optionId"
+              (change)="updateOptionAndUI(b, i, $event)"
+            >
+              <div class="option-wrapper">
+                <span class="option-text">
+                  {{ getOptionDisplayText(b.option, i) }}
+                </span>
         
-                  @if (shouldShowIcon(b.option, i)) {
-                    <mat-icon class="opt-icon">
-                      {{ getOptionIcon(b.option, i) }}
-                    </mat-icon>
-                  }
-                </div>
-              </mat-radio-button>
+                @if (shouldShowIcon(b.option, i)) {
+                  <mat-icon class="opt-icon">
+                    {{ getOptionIcon(b.option, i) }}
+                  </mat-icon>
+                }
+              </div>
+            </mat-radio-button>
         
-              @if (b.option.optionId === lastFeedbackOptionId) {
-                <div class="feedback-wrapper">
-                  @if (feedbackConfigs[b.option.optionId]?.showFeedback) {
-                    <codelab-quiz-feedback
-                      [feedbackConfig]="feedbackConfigs[b.option.optionId]" />
-                  }
-                </div>
-              }
-            </div>
+            @if (b.option.optionId === lastFeedbackOptionId) {
+              <div class="feedback-wrapper">
+                @if (feedbackConfigs[b.option.optionId]?.showFeedback) {
+                  <codelab-quiz-feedback
+                    [feedbackConfig]="feedbackConfigs[b.option.optionId]" />
+                }
+              </div>
+            }
           }
-        </mat-radio-group>             
+        </mat-radio-group>                 
       }
 
       <!-- MULTIPLE-ANSWER (CHECKBOX) -->
