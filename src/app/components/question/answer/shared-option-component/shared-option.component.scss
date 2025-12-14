@@ -47,6 +47,8 @@
 
 /* Make the entire option row clickable */
 .option-container {
+  width: 100%;
+  display: block;
   position: relative;
   cursor: pointer;
 }
@@ -71,7 +73,7 @@
    2. MAIN OPTION BOX APPEARANCE (SOC ONLY)
 ──────────────────────────────────────────────────*/
 .options {
-  width: 100% !important;
+  width: 100%;
   
   mat-checkbox,
   mat-radio-button {
@@ -117,6 +119,7 @@
 .option-text {
   flex-grow: 1;
   margin-left: -20px;
+  width: 100%;
 }
 
 mat-icon.opt-icon {
