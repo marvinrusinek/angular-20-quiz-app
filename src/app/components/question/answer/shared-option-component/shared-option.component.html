@@ -10,6 +10,18 @@
             <div class="option-container" (click)="onOptionClick(b, i, $event)">
               <mat-radio-button
                 class="option-radio single-option"
+                appHighlightOption
+                class="option-radio single-option"
+                [value]="b.option.optionId"
+                [option]="b.option"
+                [optionBinding]="b"
+                [isSelected]="b.isSelected"
+                [isCorrect]="b.isCorrect"
+                [selectedOptionHistory]="selectedOptionHistory"
+                [highlightCorrectAfterIncorrect]="highlightCorrectAfterIncorrect"
+                [appHighlightInputType]="'radio'"
+                [appHighlightReset]="shouldResetBackground"
+                [ngClass]="getOptionClasses(b)"
                 [checked]="b.isSelected"
                 (click)="$event.stopPropagation()"
               >
@@ -45,6 +57,18 @@
           <div class="option-container" (click)="onOptionClick(b, i, $event)">
             <mat-checkbox
               class="option-row multiple-option"
+              appHighlightOption
+              class="option-radio single-option"
+              [value]="b.option.optionId"
+              [option]="b.option"
+              [optionBinding]="b"
+              [isSelected]="b.isSelected"
+              [isCorrect]="b.isCorrect"
+              [selectedOptionHistory]="selectedOptionHistory"
+              [highlightCorrectAfterIncorrect]="highlightCorrectAfterIncorrect"
+              [appHighlightInputType]="'radio'"
+              [appHighlightReset]="shouldResetBackground"
+              [ngClass]="getOptionClasses(b)"
               [checked]="b.isSelected"
               (click)="$event.stopPropagation()"
             >
