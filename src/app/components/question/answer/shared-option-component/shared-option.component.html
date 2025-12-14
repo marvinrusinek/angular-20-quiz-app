@@ -23,6 +23,7 @@
                 [appHighlightReset]="shouldResetBackground"
                 [ngClass]="getOptionClasses(b)"
                 [checked]="b.isSelected"
+                (change)="updateOptionAndUI(b, i, $event)"
                 (click)="$event.stopPropagation()"
               >
                 <div class="option-wrapper">
@@ -69,6 +70,7 @@
               [appHighlightReset]="shouldResetBackground"
               [ngClass]="getOptionClasses(b)"
               [checked]="b.isSelected"
+              (change)="updateOptionAndUI(b, i, $event)"
               (click)="$event.stopPropagation()"
             >
               <div class="option-wrapper">
