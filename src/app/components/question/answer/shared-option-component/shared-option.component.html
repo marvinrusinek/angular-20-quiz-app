@@ -24,7 +24,6 @@
 
                 [value]="b.option.optionId"
                 (change)="updateOptionAndUI(b, i, $event)"
-                (click)="$event.stopPropagation()"
               >
                 <div class="option-wrapper">
                   <span class="option-text">
@@ -71,7 +70,6 @@
               [appHighlightReset]="shouldResetBackground"
 
               (change)="updateOptionAndUI(b, i, $event)"
-              (click)="$event.stopPropagation()"
             >
               <div class="option-wrapper">
                 <span class="option-text">
