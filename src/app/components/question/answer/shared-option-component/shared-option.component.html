@@ -12,25 +12,21 @@
           class="options-group options"
           formControlName="selectedOptionId">
 
-          @for (b of optionBindings; let i = $index; track trackByOptionId(i, b)) {
-
-            <div
-              class="option-container"
-              appHighlightOption
-              [option]="b.option"
-              [optionBinding]="b"
-              [isSelected]="b.isSelected"
-              [isCorrect]="b.isCorrect"
-              [selectedOptionHistory]="selectedOptionHistory"
-              [highlightCorrectAfterIncorrect]="highlightCorrectAfterIncorrect"
-              [appHighlightInputType]="'radio'"
-              [appHighlightReset]="shouldResetBackground"
-              [ngClass]="getOptionClasses(b)"
-            >
+            @for (b of optionBindings; let i = $index; track trackByOptionId(i, b)) {
               <mat-radio-button
                 class="option-row single-option"
+                appHighlightOption
                 [checked]="b.isSelected"
                 [value]="b.option.optionId"
+                [option]="b.option"
+                [optionBinding]="b"
+                [isSelected]="b.isSelected"
+                [isCorrect]="b.isCorrect"
+                [selectedOptionHistory]="selectedOptionHistory"
+                [highlightCorrectAfterIncorrect]="highlightCorrectAfterIncorrect"
+                [appHighlightInputType]="'radio'"
+                [appHighlightReset]="shouldResetBackground"
+                [ngClass]="getOptionClasses(b)"
                 (change)="onOptionChanged(b, i, $event)"
               >
                 <div class="option-wrapper">
@@ -55,21 +51,26 @@
                   }
                 </div>
               }
-            </div>
-
-          }
-
+            }
         </mat-radio-group>
       }
 
       <!-- MULTIPLE-ANSWER (CHECKBOX) -->
       @case ('multiple') {
-
         @for (b of optionBindings; let i = $index; track trackByOptionId(i, b)) {
-
           <mat-checkbox
             class="option-row multiple-option"
+            appHighlightOption
             [checked]="b.isSelected"
+            [option]="b.option"
+            [optionBinding]="b"
+            [isSelected]="b.isSelected"
+            [isCorrect]="b.isCorrect"
+            [selectedOptionHistory]="selectedOptionHistory"
+            [highlightCorrectAfterIncorrect]="highlightCorrectAfterIncorrect"
+            [appHighlightInputType]="'radio'"
+            [appHighlightReset]="shouldResetBackground"
+            [ngClass]="getOptionClasses(b)"
             (change)="onOptionChanged(b, i, $event)"
           >
             <div class="option-wrapper">
@@ -94,16 +95,11 @@
               }
             </div>
           }
-
         }
-
       }
-
     }
     <!-- end @switch -->
-
   </form>
-
 } @else if (opts.length === 0) {
   <span>Options not ready...</span>
 }

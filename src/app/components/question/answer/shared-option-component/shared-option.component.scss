@@ -4,6 +4,17 @@
   outline: 1px solid rgba(255, 0, 0, 0.2);
 }
 
+/* Make entire option row clickable */
+.mat-radio-button,
+.mat-checkbox {
+  width: 100%;
+}
+
+.mat-radio-label,
+.mat-checkbox-layout {
+  width: 100%;
+}
+
 /* ────────────────────────────────────────────────
    1. FIX MDC DEFAULT RENDERING (REQUIRED)
 ──────────────────────────────────────────────────*/
@@ -55,14 +66,10 @@
 }
 
 /* Make the entire option row clickable */
-.option-container {
+.options-group, .option-row {
   width: 100%;
   display: block;
   cursor: pointer;
-}
-
-/* Re-enable pointer events ONLY on the container */
-.option-container {
   pointer-events: auto;
 }
 
