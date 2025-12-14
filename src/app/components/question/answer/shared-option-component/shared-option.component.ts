@@ -1250,6 +1250,10 @@ export class SharedOptionComponent
     }
   }
 
+  onOptionChanged(b: OptionBindings, i: number, event: MatRadioChange | MatCheckboxChange) {
+    this.updateOptionAndUI(b, i, event);
+  }
+
   public updateOptionAndUI(
     optionBinding: OptionBindings,
     index: number,
