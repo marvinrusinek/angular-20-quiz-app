@@ -71,6 +71,8 @@
    2. MAIN OPTION BOX APPEARANCE (SOC ONLY)
 ──────────────────────────────────────────────────*/
 .options {
+  width: 100% !important;
+  
   mat-checkbox,
   mat-radio-button {
     cursor: pointer;
