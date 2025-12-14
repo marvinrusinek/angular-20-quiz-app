@@ -8,7 +8,9 @@
 
       <!-- SINGLE-ANSWER (RADIO) -->
       @case ('single') {
-        <mat-radio-group class="options-group options">
+        <mat-radio-group 
+          class="options-group options"
+          formControlName="selectedOptionId">
 
           @for (b of optionBindings; let i = $index; track trackByOptionId(i, b)) {
 
@@ -28,6 +30,7 @@
               <mat-radio-button
                 class="option-row single-option"
                 [checked]="b.isSelected"
+                [value]="b.option.optionId"
                 (change)="onOptionChanged(b, i, $event)"
               >
                 <div class="option-wrapper">
