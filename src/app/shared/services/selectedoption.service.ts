@@ -2627,4 +2627,26 @@ export class SelectedOptionService {
       this._questionCache.set(index, question);
     }
   }
+
+  public isQuestionComplete(question: QuizQuestion, selected: SelectedOption[]): boolean {
+    if (!question?.options?.length) return false;
+
+    const correctIds = question.options
+      .map(o => o.optionId)
+      .filter((id): id is number => typeof id === 'number')
+      .filter(id => question.options.find(x => x.optionId === id)?.correct === true);
+
+    if (correctIds.length === 0) return false;
+
+    const selectedIds = new Set<number>(
+      (selected ?? [])
+        .map(o => o.optionId)
+        .filter((id): id is number => typeof id === 'number')
+    );
+
+    // “complete” means all correct ids are selected
+    return correctIds.every(id => selectedIds.has(id));
+  }
 }
+
+
