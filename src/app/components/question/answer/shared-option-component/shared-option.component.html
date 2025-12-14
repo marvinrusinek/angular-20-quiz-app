@@ -14,7 +14,7 @@
           let i = $index;
           track trackByOptionId(i, b)
         ) {
-            <div class="option-container">
+            <div class="option-container" (click)="onOptionClick(b, i, $event)">
               <mat-radio-button
                 appHighlightOption
                 class="option-radio single-option"
@@ -30,8 +30,8 @@
                 [appHighlightInputType]="'radio'"
                 [appHighlightReset]="shouldResetBackground"
                 [ngClass]="getOptionClasses(b)"
-                (click)="onOptionClick(b, i, $event)"
                 (change)="updateOptionAndUI(b, i, $event)"
+                (click)="$event.stopPropagation()"
               >
                 <div class="option-wrapper">
                   <span class="option-text">
@@ -68,7 +68,7 @@
           let i = $index;
           track trackByOptionId(i, b)
         ) {
-          <div class="option-container">
+          <div class="option-container" (click)="onOptionClick(b, i, $event)">
             <mat-checkbox
               appHighlightOption
               class="option-row multiple-option"
@@ -82,8 +82,8 @@
               [appHighlightInputType]="'checkbox'"
               [appHighlightReset]="shouldResetBackground"
               [ngClass]="getOptionClasses(b)"
-              (click)="onOptionClick(b, i, $event)"
               (change)="updateOptionAndUI(b, i, $event)"
+              (click)="$event.stopPropagation()"
             >
               <div class="option-wrapper">
                 <span class="option-text">
