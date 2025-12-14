@@ -157,8 +157,7 @@ export class SelectedOptionService {
     // IMPORTANT: commitSelections must NOT be allowed to drop the latest click.
     // So we give it the already-merged, latest-truth list.
     const mergedList = Array.from(merged.values());
-  
-    const committed = this.commitSelections(questionIndex, mergedList);
+    const committed = mergedList;
     this.selectedOptionsMap.set(questionIndex, committed);
   
     // Emit observable updates

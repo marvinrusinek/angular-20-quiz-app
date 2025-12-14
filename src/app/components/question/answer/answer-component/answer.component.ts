@@ -21,6 +21,7 @@ import { takeUntil } from 'rxjs/operators';
 import { Option } from '../../../../shared/models/Option.model';
 import { OptionBindings } from '../../../../shared/models/OptionBindings.model';
 import { OptionClickedPayload } from '../../../../shared/models/OptionClickedPayload.model';
+import { QuestionType } from '../../../../shared/models/question-type.enum';
 import { QuizQuestion } from '../../../../shared/models/QuizQuestion.model';
 import { SelectedOption } from '../../../../shared/models/SelectedOption.model';
 import { SharedOptionConfig } from '../../../../shared/models/SharedOptionConfig.model';
@@ -414,6 +415,9 @@ export class AnswerComponent
     // ──────────────────────────────────────────────
     // PUSH TO SelectedOptionService (MERGE, NOT REPLACE)
     // ──────────────────────────────────────────────
+    this.selectedOptionService.currentQuestionType =
+      this.type === 'single' ? QuestionType.SingleAnswer : QuestionType.MultipleAnswer;
+
     this.selectedOptionService.addOption(
       activeQuestionIndex,
       enrichedOption
