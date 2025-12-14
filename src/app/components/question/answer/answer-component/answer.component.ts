@@ -418,10 +418,19 @@ export class AnswerComponent
     this.selectedOptionService.currentQuestionType =
       this.type === 'single' ? QuestionType.SingleAnswer : QuestionType.MultipleAnswer;
 
-    this.selectedOptionService.addOption(
-      activeQuestionIndex,
-      enrichedOption
-    );
+    if (this.type === 'single') {
+      // Single-answer: REPLACE selection
+      this.selectedOptionService.setSelectedOptionsForQuestion(
+        activeQuestionIndex,
+        [enrichedOption]
+      );
+    } else {
+      // Multiple-answer: MERGE selection
+      this.selectedOptionService.addOption(
+        activeQuestionIndex,
+        enrichedOption
+      );
+    }
 
     // Resolve canonical question by INDEX (never trust @Input here)
     const question =
