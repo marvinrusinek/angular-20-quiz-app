@@ -44,8 +44,7 @@ import { SharedOptionComponent } from '../shared-option-component/shared-option.
 })
 export class AnswerComponent
   extends BaseQuestion<OptionClickedPayload>
-  implements OnInit, OnChanges, AfterViewInit
-{
+  implements OnInit, OnChanges, AfterViewInit {
   viewContainerRefs!: QueryList<ViewContainerRef>;
   viewContainerRef!: ViewContainerRef;
   @ViewChild(SharedOptionComponent)
@@ -169,7 +168,7 @@ export class AnswerComponent
 
   override async ngOnChanges(changes: SimpleChanges): Promise<void> {
     let shouldMark = false;
-  
+
     // RESET ONLY WHEN QUESTION CHANGES
     if (changes['questionData']) {
       console.log(
@@ -179,16 +178,16 @@ export class AnswerComponent
       this._wasComplete = false;
       shouldMark = true;
     }
-  
+
     if (changes['optionsToDisplay']) {
       const change = changes['optionsToDisplay'];
       const next = change.currentValue as Option[] | null | undefined;
       const refChanged = change.previousValue !== change.currentValue;
-  
+
       if (refChanged) {
         if (Array.isArray(next) && next.length) {
           console.log('[📥 AnswerComponent] optionsToDisplay changed:', change);
-  
+
           this.optionBindingsSource = next.map((o) => ({ ...o }));
           this.optionBindings = this.rebuildOptionBindings(
             this.optionBindingsSource,
@@ -204,7 +203,7 @@ export class AnswerComponent
         shouldMark = true;
       }
     }
-  
+
     if (shouldMark) this.cdRef.markForCheck();
   }
 
@@ -355,7 +354,7 @@ export class AnswerComponent
       'background:#8b00ff;color:white;font-size:14px;',
       event,
     );
-  
+
     if (!event || !event.option) {
       console.error(
         '[AnswerComponent] INVALID event passed into onOptionClicked:',
@@ -363,21 +362,21 @@ export class AnswerComponent
       );
       return;
     }
-  
+
     const rawOption = event.option;
     const wasChecked = event.checked ?? true;
-  
+
     // Always get the QUESTION INDEX from QQC input
     const activeQuestionIndex =
       typeof this.currentQuestionIndex === 'number'
         ? this.currentQuestionIndex
         : 0;
-  
+
     const canonical =
       this.optionsToDisplay?.find(
         (opt: Option) => String(opt.optionId) === String(rawOption.optionId),
       ) ?? rawOption;
-  
+
     const enrichedOption: SelectedOption = {
       optionId: canonical.optionId,
       text: canonical.text,
@@ -387,7 +386,7 @@ export class AnswerComponent
       highlight: true,
       showIcon: true,
     };
-  
+
     // ──────────────────────────────────────────────
     // INTERNAL STATE UPDATE
     // ──────────────────────────────────────────────
@@ -396,11 +395,11 @@ export class AnswerComponent
       this.selectedOptions = [enrichedOption];
     } else {
       this.selectedOptions ??= [];
-  
+
       const i = this.selectedOptions.findIndex(
         (o) => o.optionId === enrichedOption.optionId,
       );
-  
+
       if (enrichedOption.selected) {
         if (i === -1) {
           this.selectedOptions.push(enrichedOption);
@@ -411,7 +410,7 @@ export class AnswerComponent
         if (i !== -1) this.selectedOptions.splice(i, 1);
       }
     }
-  
+
     // ──────────────────────────────────────────────
     // PUSH TO SelectedOptionService (MERGE, NOT REPLACE)
     // ──────────────────────────────────────────────
@@ -419,7 +418,7 @@ export class AnswerComponent
       activeQuestionIndex,
       enrichedOption
     );
-  
+
     // ──────────────────────────────────────────────
     // AUTHORITATIVE COMPLETE CHECK (AFTER SOS UPDATE)
     // ──────────────────────────────────────────────
@@ -429,36 +428,36 @@ export class AnswerComponent
       ) ?? [];
 
     console.log(
-        `%c[DIAG][SELECTED NOW] Q${activeQuestionIndex + 1}`,
-        'color:#ff00ff;font-weight:bold;',
-        selectedNow.map(o => ({
-          id: o.optionId,
-          correct: o.correct,
-          selected: o.selected,
-          q: o.questionIndex,
-        })),
+      `%c[DIAG][SELECTED NOW] Q${activeQuestionIndex + 1}`,
+      'color:#ff00ff;font-weight:bold;',
+      selectedNow.map(o => ({
+        id: o.optionId,
+        correct: o.correct,
+        selected: o.selected,
+        q: o.questionIndex,
+      })),
     );
-      
+
     console.log(
-        `%c[DIAG][QUESTION OPTIONS] Q${activeQuestionIndex + 1}`,
-        'color:#00ffff;font-weight:bold;',
-        this.questionData.options.map(o => ({
-          id: o.optionId,
-          correct: o.correct,
-        })),
+      `%c[DIAG][QUESTION OPTIONS] Q${activeQuestionIndex + 1}`,
+      'color:#00ffff;font-weight:bold;',
+      this.questionData.options.map(o => ({
+        id: o.optionId,
+        correct: o.correct,
+      })),
     );
-  
+
     const complete =
       this.selectedOptionService.isQuestionComplete(
         this.questionData,
         selectedNow,
       );
-  
+
     console.log(
-        `%c[DIAG][COMPLETE RESULT] Q${activeQuestionIndex + 1} = ${complete}`,
-        'color:red;font-weight:bold;',
+      `%c[DIAG][COMPLETE RESULT] Q${activeQuestionIndex + 1} = ${complete}`,
+      'color:red;font-weight:bold;',
     );
-  
+
     console.log(
       `%c[AC][INVARIANT] Q${activeQuestionIndex + 1}`,
       'color:#00ffaa;font-weight:bold;',
@@ -467,7 +466,7 @@ export class AnswerComponent
         complete,
       },
     );
-  
+
     // Stop timer ONLY on transition: false → true
     if (complete && !this._wasComplete) {
       console.log(
@@ -478,10 +477,10 @@ export class AnswerComponent
     }
 
     this._wasComplete = complete;
-  
+
     // Mark answered ONLY when invariant is satisfied
     this.quizStateService.setAnswerSelected(complete);
-  
+
     // ──────────────────────────────────────────────
     // FORWARD CLEAN PAYLOAD UPWARD
     // ──────────────────────────────────────────────
@@ -491,7 +490,7 @@ export class AnswerComponent
       checked: enrichedOption.selected === true,
       wasReselected: event.wasReselected ?? false,
     };
-  
+
     this.optionClicked.emit(cleanPayload);
   }
 
@@ -570,7 +569,7 @@ export class AnswerComponent
       appResetBackground: false,
       optionsToDisplay: [], // will be replaced below
       checked: !!opt.selected,
-      change: () => {},
+      change: () => { },
       active: true,
     } as OptionBindings;
   }

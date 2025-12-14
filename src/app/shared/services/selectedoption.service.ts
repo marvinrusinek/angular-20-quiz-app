@@ -424,23 +424,17 @@ export class SelectedOptionService {
     questionIndex: number,
     newSelections: SelectedOption[]
   ): void {
-    const existing = this.selectedOptionsMap.get(questionIndex) ?? [];
-  
+    // Treat incoming selections as the SINGLE source of truth
     const merged = new Map<number, SelectedOption>();
   
-    // Keep existing selections
-    for (const opt of existing) {
+    // Apply current selections ONLY (authoritative)
+    for (const opt of newSelections ?? []) {
       if (typeof opt.optionId === 'number') {
-        merged.set(opt.optionId, opt);
-      } else {
-        console.warn('[SOS] Skipping option with invalid optionId', opt);
-      }
-    }
-
-    // Apply new selections (replace by optionId)
-    for (const opt of newSelections) {
-      if (typeof opt.optionId === 'number') {
-        merged.set(opt.optionId, opt);
+        merged.set(opt.optionId, {
+          ...opt,
+          questionIndex,
+          selected: true
+        });
       } else {
         console.warn('[SOS] Skipping option with invalid optionId', opt);
       }
@@ -448,10 +442,14 @@ export class SelectedOptionService {
   
     const committed = Array.from(merged.values());
   
+    // Overwrite the question entry completely
     this.selectedOptionsMap.set(questionIndex, committed);
+  
+    // Emit ONLY current question selections
     this.selectedOptionSubject.next(committed);
+  
     this.isOptionSelectedSubject.next(committed.length > 0);
-  }  
+  }
 
   setSelectionsForQuestion(qIndex: number, selections: SelectedOption[]): void {
     const committed = this.commitSelections(qIndex, selections);
