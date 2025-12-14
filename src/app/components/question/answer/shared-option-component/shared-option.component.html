@@ -7,24 +7,13 @@
       @case ('single') {
         <mat-radio-group class="options-group options">
           @for (b of optionBindings; let i = $index; track trackByOptionId(i, b)) {
-            <div class="option-container" (click)="onOptionClick(b, i, $event)">
+            <div class="option-container">
               <mat-radio-button
                 class="option-radio single-option"
                 appHighlightOption
-                class="option-radio single-option"
                 [value]="b.option.optionId"
-                [option]="b.option"
-                [optionBinding]="b"
-                [isSelected]="b.isSelected"
-                [isCorrect]="b.isCorrect"
-                [selectedOptionHistory]="selectedOptionHistory"
-                [highlightCorrectAfterIncorrect]="highlightCorrectAfterIncorrect"
-                [appHighlightInputType]="'radio'"
-                [appHighlightReset]="shouldResetBackground"
                 [ngClass]="getOptionClasses(b)"
-                [checked]="b.isSelected"
                 (change)="updateOptionAndUI(b, i, $event)"
-                (click)="$event.stopPropagation()"
               >
                 <div class="option-wrapper">
                   <span class="option-text">
@@ -40,7 +29,7 @@
               </mat-radio-button>
         
               @if (b.option.optionId === lastFeedbackOptionId) {
-                <div class="feedback-wrapper" (click)="$event.stopPropagation()">
+                <div class="feedback-wrapper">
                   @if (feedbackConfigs[b.option.optionId]?.showFeedback) {
                     <codelab-quiz-feedback
                       [feedbackConfig]="feedbackConfigs[b.option.optionId]" />
@@ -49,29 +38,18 @@
               }
             </div>
           }
-        </mat-radio-group>        
+        </mat-radio-group>             
       }
 
       <!-- MULTIPLE-ANSWER (CHECKBOX) -->
       @case ('multiple') {
         @for (b of optionBindings; let i = $index; track trackByOptionId(i, b)) {
-          <div class="option-container" (click)="onOptionClick(b, i, $event)">
+          <div class="option-container">
             <mat-checkbox
               class="option-row multiple-option"
               appHighlightOption
-              class="option-radio single-option"
-              [option]="b.option"
-              [optionBinding]="b"
-              [isSelected]="b.isSelected"
-              [isCorrect]="b.isCorrect"
-              [selectedOptionHistory]="selectedOptionHistory"
-              [highlightCorrectAfterIncorrect]="highlightCorrectAfterIncorrect"
-              [appHighlightInputType]="'checkbox'"
-              [appHighlightReset]="shouldResetBackground"
               [ngClass]="getOptionClasses(b)"
-              [checked]="b.isSelected"
               (change)="updateOptionAndUI(b, i, $event)"
-              (click)="$event.stopPropagation()"
             >
               <div class="option-wrapper">
                 <span class="option-text">
@@ -87,7 +65,7 @@
             </mat-checkbox>
         
             @if (b.option.optionId === lastFeedbackOptionId) {
-              <div class="feedback-wrapper" (click)="$event.stopPropagation()">
+              <div class="feedback-wrapper">
                 @if (feedbackConfigs[b.option.optionId]?.showFeedback) {
                   <codelab-quiz-feedback
                     [feedbackConfig]="feedbackConfigs[b.option.optionId]" />
@@ -95,7 +73,7 @@
               </div>
             }
           </div>
-        }        
+        }                
       }
     }
     <!-- end @switch -->
