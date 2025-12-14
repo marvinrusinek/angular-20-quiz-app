@@ -5,58 +5,6 @@
     @switch (type) {
       <!-- SINGLE-ANSWER (RADIO) -->
       @case ('single') {
-        <mat-radio-group class="options-group options">
-          @for (b of optionBindings; let i = $index; track trackByOptionId(i, b)) {
-        
-            <div
-              class="option-container"
-              appHighlightOption
-              [option]="b.option"
-              [optionBinding]="b"
-              [isSelected]="b.isSelected"
-              [isCorrect]="b.isCorrect"
-              [selectedOptionHistory]="selectedOptionHistory"
-              [highlightCorrectAfterIncorrect]="highlightCorrectAfterIncorrect"
-              [appHighlightInputType]="'radio'"
-              [appHighlightReset]="shouldResetBackground"
-              [ngClass]="getOptionClasses(b)"
-              (click)="onOptionClick(b, i, $event)"
-            >
-              <mat-radio-button
-                class="option-radio single-option"
-                [checked]="b.isSelected"
-                (click)="$event.stopPropagation()"
-              >
-                <div class="option-wrapper">
-                  <span class="option-text">
-                    {{ getOptionDisplayText(b.option, i) }}
-                  </span>
-        
-                  @if (shouldShowIcon(b.option, i)) {
-                    <mat-icon class="opt-icon">
-                      {{ getOptionIcon(b.option, i) }}
-                    </mat-icon>
-                  }
-                </div>
-              </mat-radio-button>
-        
-              @if (b.option.optionId === lastFeedbackOptionId) {
-                <div class="feedback-wrapper" (click)="$event.stopPropagation()">
-                  @if (feedbackConfigs[b.option.optionId]?.showFeedback) {
-                    <codelab-quiz-feedback
-                      [feedbackConfig]="feedbackConfigs[b.option.optionId]"
-                    ></codelab-quiz-feedback>
-                  }
-                </div>
-              }
-            </div>
-        
-          }
-        </mat-radio-group>                       
-      }
-
-      <!-- MULTIPLE-ANSWER (CHECKBOX) -->
-      @case ('multiple') {
         @for (b of optionBindings; let i = $index; track trackByOptionId(i, b)) {
 
           <div
@@ -101,7 +49,42 @@
               </div>
             }
           </div>
-        }                      
+        
+        }                             
+      }
+
+      <!-- MULTIPLE-ANSWER (CHECKBOX) -->
+      @case ('multiple') {
+        @for (b of optionBindings; let i = $index; track trackByOptionId(i, b)) {
+
+          <mat-checkbox
+            class="option-row multiple-option"
+            [checked]="b.isSelected"
+            (change)="onOptionChanged(b, i, $event)"
+          >
+            <div class="option-wrapper">
+              <span class="option-text">
+                {{ getOptionDisplayText(b.option, i) }}
+              </span>
+        
+              @if (shouldShowIcon(b.option, i)) {
+                <mat-icon class="opt-icon">
+                  {{ getOptionIcon(b.option, i) }}
+                </mat-icon>
+              }
+            </div>
+          </mat-checkbox>
+        
+          @if (b.option.optionId === lastFeedbackOptionId) {
+            <div class="feedback-wrapper">
+              @if (feedbackConfigs[b.option.optionId]?.showFeedback) {
+                <codelab-quiz-feedback
+                  [feedbackConfig]="feedbackConfigs[b.option.optionId]"
+                ></codelab-quiz-feedback>
+              }
+            </div>
+          }
+        }                             
       }
     }
     <!-- end @switch -->
