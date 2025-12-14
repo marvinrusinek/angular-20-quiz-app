@@ -93,60 +93,79 @@ export class SelectedOptionService {
   // Adds an option to the selectedOptionsMap
   addOption(questionIndex: number, option: SelectedOption): void {
     if (!option) {
-      console.error(
-        'Option is undefined. Cannot add it to selectedOptionsMap.',
-      );
+      console.error('Option is undefined. Cannot add it to selectedOptionsMap.');
       return;
     }
-
+  
     if (option.optionId == null) {
       console.error('option.optionId is undefined:', option);
       return;
     }
-
+  
     // Get existing selections for this question
     const existing = this.selectedOptionsMap.get(questionIndex) ?? [];
-
+  
     // Canonicalize existing options
     const existingCanonical = this.canonicalizeSelectionsForQuestion(
       questionIndex,
       existing,
     );
-
+  
     // Canonicalize the incoming option
     const newCanonical = this.canonicalizeOptionForQuestion(questionIndex, {
       ...option,
-      selected: true,
+      selected: option.selected ?? true, // respect unchecked if ever passed
       highlight: true,
       showIcon: true,
     });
-
+  
     if (newCanonical.optionId == null) {
       console.error('[SOS] canonical option missing ID:', newCanonical);
       return;
     }
-
-    // Avoid duplicates
-    const alreadyExists = existingCanonical.some(
-      (o) => o.optionId === newCanonical.optionId,
-    );
-
-    // Only store selections that are actually CHECKED and that exist in the UI
-    if (newCanonical.selected === true) {
-      if (!alreadyExists) {
-        existingCanonical.push(newCanonical);
+  
+    // ─────────────────────────────────────────────
+    // ✅ AUTHORITATIVE MERGE (REPLACE BY optionId)
+    // - Single-answer: newest selection replaces all previous
+    // - Multi-answer: newest selection replaces same optionId
+    // ─────────────────────────────────────────────
+    const merged = new Map<number, SelectedOption>();
+  
+    // Keep existing selections (as a base)
+    for (const o of existingCanonical) {
+      if (typeof o.optionId === 'number') {
+        merged.set(o.optionId, o);
       }
     }
-
+  
+    // If question is single-answer, replace entire selection set
+    // (this prevents "first click wins" bugs)
+    if (this.currentQuestionType === QuestionType.SingleAnswer) {
+      merged.clear();
+    }
+  
+    // Apply new selection (replace by optionId)
+    if (typeof newCanonical.optionId === 'number') {
+      if (newCanonical.selected === false) {
+        merged.delete(newCanonical.optionId); // support unselect if needed
+      } else {
+        merged.set(newCanonical.optionId, newCanonical);
+      }
+    }
+  
     // Commit selections and store the result
-    const committed = this.commitSelections(questionIndex, existingCanonical);
+    // IMPORTANT: commitSelections must NOT be allowed to drop the latest click.
+    // So we give it the already-merged, latest-truth list.
+    const mergedList = Array.from(merged.values());
+  
+    const committed = this.commitSelections(questionIndex, mergedList);
     this.selectedOptionsMap.set(questionIndex, committed);
-
+  
     // Emit observable updates
     this.selectedOption = committed;
     this.selectedOptionSubject.next(committed);
     this.isOptionSelectedSubject.next(committed.length > 0);
-
+  
     console.log('[SOS] addOption → final stored selection:', {
       qIndex: questionIndex,
       stored: committed.map((o) => o.optionId),
