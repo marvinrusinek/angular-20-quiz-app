@@ -168,33 +168,32 @@ export class AnswerComponent
   }
 
   override async ngOnChanges(changes: SimpleChanges): Promise<void> {
-    // Execute shared BaseQuestion lifecycle logic before handling local changes
-    // await super.ngOnChanges?.(changes as any);
-
     let shouldMark = false;
-
+  
+    // RESET ONLY WHEN QUESTION CHANGES
+    if (changes['questionData']) {
+      console.log(
+        'AnswerComponent - questionData changed:',
+        changes['questionData'].currentValue,
+      );
+      this._wasComplete = false;
+      shouldMark = true;
+    }
+  
     if (changes['optionsToDisplay']) {
       const change = changes['optionsToDisplay'];
       const next = change.currentValue as Option[] | null | undefined;
       const refChanged = change.previousValue !== change.currentValue;
-
-      // If the reference didn't change, skip the work
+  
       if (refChanged) {
         if (Array.isArray(next) && next.length) {
           console.log('[📥 AnswerComponent] optionsToDisplay changed:', change);
-
-          // Hand SharedOptionComponent its own fresh reference
+  
           this.optionBindingsSource = next.map((o) => ({ ...o }));
-
-          // Respond to updates
           this.optionBindings = this.rebuildOptionBindings(
             this.optionBindingsSource,
           );
-
-          // Apply any additional incoming option updates
           this.applyIncomingOptions(next);
-
-          // Wake the OnPush CD cycle
           this.cdRef.markForCheck();
         } else {
           this.optionBindingsSource = [];
@@ -205,17 +204,7 @@ export class AnswerComponent
         shouldMark = true;
       }
     }
-
-    // Extra logging
-    if (changes['questionData']) {
-      console.log(
-        'AnswerComponent - questionData changed:',
-        changes['questionData'].currentValue,
-      );
-      shouldMark = true;
-    }
-
-    // Wake the OnPush CD cycle once
+  
     if (shouldMark) this.cdRef.markForCheck();
   }
 
