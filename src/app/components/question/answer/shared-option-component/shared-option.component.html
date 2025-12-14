@@ -21,10 +21,10 @@
             [ngClass]="getOptionClasses(b)"
             (click)="onOptionClick(b, i, $event)"
           >
-            <mat-checkbox
+            <mat-radio-button
               class="option-row multiple-option"
               [checked]="b.isSelected"
-              (click)="$event.stopPropagation()"
+              (change)="onOptionChanged(b, i, $event)"
             >
               <div class="option-wrapper">
                 <span class="option-text">
@@ -37,7 +37,7 @@
                   </mat-icon>
                 }
               </div>
-            </mat-checkbox>
+            </mat-radio-button>
         
             @if (b.option.optionId === lastFeedbackOptionId) {
               <div class="feedback-wrapper" (click)="$event.stopPropagation()">
