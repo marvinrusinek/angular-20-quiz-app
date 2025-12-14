@@ -419,6 +419,18 @@ export class AnswerComponent
       enrichedOption
     );
 
+    // Resolve canonical question by INDEX (never trust @Input here)
+    const question =
+      this.quizService.questions?.[activeQuestionIndex];
+
+    if (!question) {
+      console.error(
+        '[AC][INVARIANT] Missing question for index',
+        activeQuestionIndex
+      );
+      return;
+    }
+
     // ──────────────────────────────────────────────
     // AUTHORITATIVE COMPLETE CHECK (AFTER SOS UPDATE)
     // ──────────────────────────────────────────────
@@ -449,8 +461,8 @@ export class AnswerComponent
 
     const complete =
       this.selectedOptionService.isQuestionComplete(
-        this.questionData,
-        selectedNow,
+        question,
+        selectedNow
       );
 
     console.log(
