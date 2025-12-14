@@ -7,13 +7,24 @@
       @case ('single') {
         <mat-radio-group class="options-group options">
           @for (b of optionBindings; let i = $index; track trackByOptionId(i, b)) {
-            <div class="option-container">
+            <div class="option-container" (click)="onOptionClick(b, i, $event)">
               <mat-radio-button
+                appHighlightOption  
                 class="option-radio single-option"
-                appHighlightOption
-                [value]="b.option.optionId"
                 [ngClass]="getOptionClasses(b)"
+                
+                [option]="b.option"
+                [optionBinding]="b"
+                [isSelected]="b.isSelected"
+                [isCorrect]="b.isCorrect"
+                [selectedOptionHistory]="selectedOptionHistory"
+                [highlightCorrectAfterIncorrect]="highlightCorrectAfterIncorrect"
+                [appHighlightInputType]="'radio'"
+                [appHighlightReset]="shouldResetBackground"
+
+                [value]="b.option.optionId"
                 (change)="updateOptionAndUI(b, i, $event)"
+                (click)="$event.stopPropagation()"
               >
                 <div class="option-wrapper">
                   <span class="option-text">
@@ -44,12 +55,23 @@
       <!-- MULTIPLE-ANSWER (CHECKBOX) -->
       @case ('multiple') {
         @for (b of optionBindings; let i = $index; track trackByOptionId(i, b)) {
-          <div class="option-container">
+          <div class="option-container" (click)="onOptionClick(b, i, $event)">
             <mat-checkbox
+              appHighlightOption  
               class="option-row multiple-option"
-              appHighlightOption
               [ngClass]="getOptionClasses(b)"
+              
+              [option]="b.option"
+              [optionBinding]="b"
+              [isSelected]="b.isSelected"
+              [isCorrect]="b.isCorrect"
+              [selectedOptionHistory]="selectedOptionHistory"
+              [highlightCorrectAfterIncorrect]="highlightCorrectAfterIncorrect"
+              [appHighlightInputType]="'radio'"
+              [appHighlightReset]="shouldResetBackground"
+
               (change)="updateOptionAndUI(b, i, $event)"
+              (click)="$event.stopPropagation()"
             >
               <div class="option-wrapper">
                 <span class="option-text">
