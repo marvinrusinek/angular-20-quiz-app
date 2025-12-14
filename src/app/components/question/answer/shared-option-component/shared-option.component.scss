@@ -13,6 +13,19 @@
 .mat-radio-label,
 .mat-checkbox-layout {
   width: 100%;
+  display: flex;
+}
+
+.mat-radio-label-content {
+  flex: 1;
+}
+
+/* Ensure nothing blocks pointer events */
+.option-container,
+.option-wrapper,
+.option-text,
+.opt-icon {
+  pointer-events: auto;
 }
 
 /* ────────────────────────────────────────────────
