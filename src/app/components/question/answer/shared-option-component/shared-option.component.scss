@@ -45,14 +45,26 @@
   width: 100%;
 }
 
+/* Make the entire option row clickable */
+.option-container {
+  position: relative;
+  cursor: pointer;
+}
+
+/* Disable ALL pointer events inside */
+.option-container * {
+  pointer-events: none;
+}
+
+/* Re-enable pointer events ONLY on the container */
+.option-container {
+  pointer-events: auto;
+}
+
 /* Prevent Angular Material from eating clicks */
 .option-radio,
 .option-row {
   pointer-events: none;
-}
-
-.option-container {
-  cursor: pointer;
 }
 
 /* ────────────────────────────────────────────────
