@@ -2,7 +2,7 @@ import { Injectable, NgZone } from '@angular/core';
 import {
   ActivatedRoute,
   ActivatedRouteSnapshot,
-  Router,
+  Router
 } from '@angular/router';
 import { BehaviorSubject, firstValueFrom, Observable, of, Subject } from 'rxjs';
 import { catchError, take } from 'rxjs/operators';
