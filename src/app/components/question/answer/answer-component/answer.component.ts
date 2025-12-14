@@ -86,6 +86,8 @@ export class AnswerComponent
 
   public quizQuestionComponentLoaded = new EventEmitter<void>();
 
+  private _wasComplete = false;
+
   private destroy$ = new Subject<void>();
 
   @Input()
@@ -459,10 +461,16 @@ export class AnswerComponent
       },
     );
   
-    // Stop timer ONLY when invariant is satisfied
-    if (complete) {
-      this.timerService.stopTimer(); // ← correct API
+    // Stop timer ONLY on transition: false → true
+    if (complete && !this._wasComplete) {
+      console.log(
+        `%c[AC][TIMER STOP] Q${activeQuestionIndex + 1} COMPLETE → stopping timer`,
+        'color:red;font-weight:bold;'
+      );
+      this.timerService.stopTimer();
     }
+
+    this._wasComplete = complete;
   
     // Mark answered ONLY when invariant is satisfied
     this.quizStateService.setAnswerSelected(complete);
