@@ -45,6 +45,16 @@
   width: 100%;
 }
 
+/* Prevent Angular Material from eating clicks */
+.option-radio,
+.option-row {
+  pointer-events: none;
+}
+
+.option-container {
+  cursor: pointer;
+}
+
 /* ────────────────────────────────────────────────
    2. MAIN OPTION BOX APPEARANCE (SOC ONLY)
 ──────────────────────────────────────────────────*/
