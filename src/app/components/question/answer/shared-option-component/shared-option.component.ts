@@ -2856,19 +2856,13 @@ export class SharedOptionComponent
     return showFromCfg || showLegacy;
   }
 
-  /* public shouldShowFeedback(index: number): boolean {
-    const optionId = this.optionBindings?.[index]?.option?.optionId;
+  shouldShowFeedbackFor(b: OptionBindings): boolean {
+    const id = b.option.optionId;
     return (
-      this.showFeedback &&
-      optionId !== undefined &&
-      this.showFeedbackForOption?.[optionId] === true &&
-      !!this.optionBindings?.[index]?.option?.feedback
+      id === this.lastFeedbackOptionId &&
+      !!this.feedbackConfigs[id]?.showFeedback
     );
-  } */
-
-  /* isAnswerCorrect(): boolean {
-    return !!this.selectedOption?.correct;
-  } */
+  }
 
   public get canDisplayOptions(): boolean {
     return (
