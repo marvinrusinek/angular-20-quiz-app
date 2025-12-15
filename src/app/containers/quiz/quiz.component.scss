@@ -33,9 +33,18 @@
   margin: 12px auto;
   max-width: 680px;
 
-  box-shadow: 10px 10px 5px vars.$gray;
+  /* THIS creates the gray “thick” RHS + bottom */
+  box-shadow:
+  10px 10px 5px rgba(0, 0, 0, 0.35),
+  6px 0 0 rgba(0, 0, 0, 0.25);
+
   border-radius: 10px;
 
+  /* 🔑 create visual separation */
+  padding-right: 2px;
+  padding-bottom: 2px;
+
+  background: transparent;
   overflow: visible;
 }
 
@@ -48,6 +57,7 @@
   border-radius: 10px;
 
   box-shadow: none;
+  margin: 0;
 }
 
 /* FORCE OVERRIDE Angular Material's card styling */
