@@ -1312,10 +1312,10 @@ export class SharedOptionComponent
 
     // If we clicked the padding/background (host), trigger manual selection.
     // We reuse onOptionContentClick logic since it does exactly what we want (Manual Logic + Form Sync).
-    this.onOptionContentClick(event, binding, index);
+    this.onOptionContentClick(binding, index, event);
   }
 
-  public onOptionContentClick(event: MouseEvent, binding: OptionBindings, index: number): void {
+  public onOptionContentClick(binding: OptionBindings, index: number, event: MouseEvent): void {
     // Prevent the click from bubbling up to the mat-radio-button/mat-checkbox
     event.stopPropagation();
 

@@ -54,7 +54,7 @@
     <!-- end @switch -->
 
     <ng-template #optionContent let-b let-i="index">
-      <div class="option-wrapper" (click)="onOptionContentClick($event, b, i)">
+      <div class="option-wrapper" (click)="onOptionContentClick(b, i, $event)">
         <span class="option-text">{{ getOptionDisplayText(b.option, i) }}</span>
 
         @if (shouldShowIcon(b.option, i)) {
