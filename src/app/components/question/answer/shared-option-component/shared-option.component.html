@@ -10,20 +10,15 @@
           @for (b of optionBindings; let i = $index; track trackByOptionId(i, b)) {
             <mat-radio-button class="option-row single-option"
               appHighlightOption
-              [checked]="b.isSelected"
               [value]="b.option.optionId"
-              [option]="b.option"
-              [optionBinding]="b"
-              [isSelected]="b.isSelected"
-              [isCorrect]="b.isCorrect"
-              [selectedOptionHistory]="selectedOptionHistory"
-              [highlightCorrectAfterIncorrect]="highlightCorrectAfterIncorrect"
-              [appHighlightInputType]="'radio'"
-              [appHighlightReset]="shouldResetBackground"
+              [checked]="b.isSelected"
+              [sharedOptionConfig]="getSharedOptionConfig(b, i)"
               [ngClass]="getOptionClasses(b)"
               (change)="onOptionChanged(b, i, $event)"
-              (click)="onHostClick($event, b, i)">
-              
+              (click)="onHostClick($event, b, i)"
+              [appHighlightInputType]="'radio'"
+              [appHighlightReset]="shouldResetBackground"
+            >
               <div class="option-wrapper" (click)="onDivClick($event, b, i)">
                 <span class="option-text">
                   {{ getOptionDisplayText(b.option, i) }}
@@ -54,17 +49,13 @@
           <mat-checkbox class="option-row multiple-option"
             appHighlightOption
             [checked]="b.isSelected"
-            [option]="b.option"
-            [optionBinding]="b"
-            [isSelected]="b.isSelected"
-            [isCorrect]="b.isCorrect"
-            [selectedOptionHistory]="selectedOptionHistory"
-            [highlightCorrectAfterIncorrect]="highlightCorrectAfterIncorrect"
-            [appHighlightInputType]="'radio'"
-            [appHighlightReset]="shouldResetBackground"
+            [sharedOptionConfig]="getSharedOptionConfig(b, i)"
             [ngClass]="getOptionClasses(b)"
             (change)="onOptionChanged(b, i, $event)"
-            (click)="onHostClick($event, b, i)">
+            (click)="onHostClick($event, b, i)"
+            [appHighlightInputType]="'checkbox'"
+            [appHighlightReset]="shouldResetBackground"
+            >
             
             <div class="option-wrapper" (click)="onDivClick($event, b, i)">
               <span class="option-text">
