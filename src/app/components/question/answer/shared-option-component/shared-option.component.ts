@@ -115,6 +115,7 @@ export class SharedOptionComponent
   @Input() renderReady = false;
   @Input() finalRenderReady$: Observable<boolean> | null = null;
   @Input() questionVersion = 0; // increments every time questionIndex changes
+  @Input() sharedOptionConfig!: SharedOptionConfig;
   public finalRenderReady = false;
   private finalRenderReadySub?: Subscription;
   private selectionSub!: Subscription;
@@ -845,6 +846,13 @@ export class SharedOptionComponent
   
       selectedOptionIndex: this.selectedOptionIndex,
     };
+  }
+
+  public getSharedOptionConfig(
+    b: OptionBindings,
+    i: number
+  ): SharedOptionConfig {
+    return this.buildSharedOptionConfig(b, i);
   }
 
   private handleClick(binding: OptionBindings, index: number): void {

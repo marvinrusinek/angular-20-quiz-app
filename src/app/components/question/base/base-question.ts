@@ -313,6 +313,7 @@ export abstract class BaseQuestion<
 
   getDefaultSharedOptionConfig(): SharedOptionConfig {
     return {
+      option: null as unknown as Option,
       optionsToDisplay: [],
       type: 'single',
       shouldResetBackground: false,
