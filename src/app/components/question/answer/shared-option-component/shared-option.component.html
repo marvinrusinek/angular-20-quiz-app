@@ -19,12 +19,12 @@
               [appHighlightInputType]="'radio'"
               [appHighlightReset]="shouldResetBackground"
             >
-            <ng-container *ngTemplateOutlet="optionContent;
-                context: { $implicit: b, index: i }"></ng-container>
-            </mat-radio-button>
+              <ng-container *ngTemplateOutlet="optionContent;
+                  context: { $implicit: b, index: i }"></ng-container>
+              </mat-radio-button>
 
-            <ng-container *ngTemplateOutlet="optionFeedback;
-                context: { $implicit: b }"></ng-container>
+              <ng-container *ngTemplateOutlet="optionFeedback;
+                  context: { $implicit: b }"></ng-container>
           }
         </mat-radio-group>
       }
@@ -56,14 +56,10 @@
 
     <ng-template #optionContent let-b let-i="index">
       <div class="option-wrapper" (click)="onDivClick($event, b, i)">
-        <span class="option-text">
-          {{ getOptionDisplayText(b.option, i) }}
-        </span>
+        <span class="option-text">{{ getOptionDisplayText(b.option, i) }}</span>
 
         @if (shouldShowIcon(b.option, i)) {
-          <mat-icon class="opt-icon">
-            {{ getOptionIcon(b.option, i) }}
-          </mat-icon>
+          <mat-icon class="opt-icon">{{ getOptionIcon(b.option, i) }}</mat-icon>
         }
       </div>
     </ng-template>
