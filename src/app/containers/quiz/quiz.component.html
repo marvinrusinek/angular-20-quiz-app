@@ -41,47 +41,47 @@
 
               <!-- NAVIGATION -->
               @if (showPaging) {
-              <section class="paging">
-                <mat-card-actions [class.last-question]="shouldApplyLastQuestionClass">
-                  @if (shouldShowPrevButton) {
-                    <div class="prev-question-nav">
-                      <button type="button" (click)="advanceToPreviousQuestion()" matTooltip="« Previous Question"
-                        matTooltipPosition="above" aria-label="Previous Question">
-                        <i class="material-icons">navigate_before</i>
-                      </button>
-                    </div>
-                  }
+                <section class="paging">
+                  <mat-card-actions [class.last-question]="shouldApplyLastQuestionClass">
+                    @if (shouldShowPrevButton) {
+                      <div class="prev-question-nav">
+                        <button type="button" (click)="advanceToPreviousQuestion()" matTooltip="« Previous Question"
+                          matTooltipPosition="above" aria-label="Previous Question">
+                          <i class="material-icons">navigate_before</i>
+                        </button>
+                      </div>
+                    }
 
-                  @if (shouldShowRestartButton) {
-                    <div class="restart-nav">
-                      <button type="button" (click)="restartQuiz()" matTooltip="Restart Quiz" matTooltipPosition="above"
-                        aria-label="Restart Quiz">
-                        <i class="material-icons">replay</i>
-                      </button>
-                    </div>
-                  }
+                    @if (shouldShowRestartButton) {
+                      <div class="restart-nav">
+                        <button type="button" (click)="restartQuiz()" matTooltip="Restart Quiz" matTooltipPosition="above"
+                          aria-label="Restart Quiz">
+                          <i class="material-icons">replay</i>
+                        </button>
+                      </div>
+                    }
 
-                  @if (shouldShowNextButton) {
-                    <div class="next-question-nav">
-                      <button type="button" #nextButton="matTooltip" [disabled]="!(nextButtonEnabled$ | async)"
-                        (click)="advanceToNextQuestion()" matTooltipPosition="above"
-                        [matTooltip]="nextButtonTooltip$ | async" aria-label="Next Question">
-                        <i class="material-icons">navigate_next</i>
-                      </button>
-                    </div>
-                  }
+                    @if (shouldShowNextButton) {
+                      <div class="next-question-nav">
+                        <button type="button" #nextButton="matTooltip" [disabled]="!(nextButtonEnabled$ | async)"
+                          (click)="advanceToNextQuestion()" matTooltipPosition="above"
+                          [matTooltip]="nextButtonTooltip$ | async" aria-label="Next Question">
+                          <i class="material-icons">navigate_next</i>
+                        </button>
+                      </div>
+                    }
 
-                  @if (shouldShowResultsButton) {
-                    <div class="show-score-nav">
-                      <button type="submit" (click)="advanceToResults()" class="btn btn-outline-primary"
-                        aria-label="Show Results">
-                        <i class="material-icons">score</i>&nbsp;&nbsp;
-                        <strong>Show Results</strong>
-                      </button>
-                    </div>
-                  }
-                </mat-card-actions>
-              </section>
+                    @if (shouldShowResultsButton) {
+                      <div class="show-score-nav">
+                        <button type="submit" (click)="advanceToResults()" class="btn btn-outline-primary"
+                          aria-label="Show Results">
+                          <i class="material-icons">score</i>&nbsp;&nbsp;
+                          <strong>Show Results</strong>
+                        </button>
+                      </div>
+                    }
+                  </mat-card-actions>
+                </section>
               }
 
               <!-- Progress Bar -->
