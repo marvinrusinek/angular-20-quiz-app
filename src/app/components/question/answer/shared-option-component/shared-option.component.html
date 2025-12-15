@@ -65,11 +65,8 @@
 
     <ng-template #optionFeedback let-b>
       @if (shouldShowFeedbackFor(b)) {
-        <div class="feedback-wrapper">
-          <codelab-quiz-feedback
-            [feedbackConfig]="feedbackConfigs[b.option.optionId]"
-          />
-        </div>
+        <codelab-quiz-feedback
+          [feedbackConfig]="feedbackConfigs[b.option.optionId]" />
       }
     </ng-template>
   </form>
