@@ -19,26 +19,20 @@
               [appHighlightInputType]="'radio'"
               [appHighlightReset]="shouldResetBackground"
             >
-              <div class="option-wrapper" (click)="onDivClick($event, b, i)">
-                <span class="option-text">
-                  {{ getOptionDisplayText(b.option, i) }}
-                </span>
-
-                @if (shouldShowIcon(b.option, i)) {
-                  <mat-icon class="opt-icon">
-                    {{ getOptionIcon(b.option, i) }}
-                  </mat-icon>
-                }
-              </div>
+            <ng-container
+              *ngTemplateOutlet="
+                optionContent;
+                context: { $implicit: b, index: i }
+              "
+            ></ng-container>
             </mat-radio-button>
 
-            @if (b.option.optionId === lastFeedbackOptionId) {
-              <div class="feedback-wrapper">
-                @if (feedbackConfigs[b.option.optionId]?.showFeedback) {
-                  <codelab-quiz-feedback [feedbackConfig]="feedbackConfigs[b.option.optionId]" />
-                }
-              </div>
-            }
+            <ng-container
+              *ngTemplateOutlet="
+                optionFeedback;
+                context: { $implicit: b }
+              "
+            ></ng-container>
           }
         </mat-radio-group>
       }
@@ -57,30 +51,50 @@
             [appHighlightReset]="shouldResetBackground"
             >
             
-            <div class="option-wrapper" (click)="onDivClick($event, b, i)">
-              <span class="option-text">
-                {{ getOptionDisplayText(b.option, i) }}
-              </span>
-
-              @if (shouldShowIcon(b.option, i)) {
-                <mat-icon class="opt-icon">
-                  {{ getOptionIcon(b.option, i) }}
-                </mat-icon>
-              }
-            </div>
+            <ng-container
+              *ngTemplateOutlet="
+                optionContent;
+                context: { $implicit: b, index: i }
+              "
+            ></ng-container>
           </mat-checkbox>
 
-          @if (b.option.optionId === lastFeedbackOptionId) {
-            <div class="feedback-wrapper">
-              @if (feedbackConfigs[b.option.optionId]?.showFeedback) {
-                <codelab-quiz-feedback [feedbackConfig]="feedbackConfigs[b.option.optionId]" />
-              }
-            </div>
-          }
-        }        
+          <ng-container
+            *ngTemplateOutlet="
+              optionFeedback;
+              context: { $implicit: b }
+            "
+          ></ng-container>
+        }
       }
     }
     <!-- end @switch -->
+
+    <ng-template #optionContent let-b let-i="index">
+      <div class="option-wrapper" (click)="onDivClick($event, b, i)">
+        <span class="option-text">
+          {{ getOptionDisplayText(b.option, i) }}
+        </span>
+
+        @if (shouldShowIcon(b.option, i)) {
+          <mat-icon class="opt-icon">
+            {{ getOptionIcon(b.option, i) }}
+          </mat-icon>
+        }
+      </div>
+    </ng-template>
+
+    <ng-template #optionFeedback let-b>
+      @if (b.option.optionId === lastFeedbackOptionId) {
+        <div class="feedback-wrapper">
+          @if (feedbackConfigs[b.option.optionId]?.showFeedback) {
+            <codelab-quiz-feedback
+              [feedbackConfig]="feedbackConfigs[b.option.optionId]"
+            />
+          }
+        </div>
+      }
+    </ng-template>
   </form>
 } @else if (opts.length === 0) {
   <span>Options not ready&hellip;</span>
