@@ -15,9 +15,11 @@ import {
 
 import { Option } from '../shared/models/Option.model';
 import { OptionBindings } from '../shared/models/OptionBindings.model';
+import { SharedOptionConfig } from '../shared/models/SharedOptionConfig.model';
 import { QuizService } from '../shared/services/quiz.service';
 import { SelectedOptionService } from '../shared/services/selectedoption.service';
 import { UserPreferenceService } from '../shared/services/user-preference.service';
+
 
 @Directive({
   selector: '[appHighlightOption]',
@@ -43,6 +45,7 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
   @Input() isAnswered = false;
   @Input() selectedOptionHistory: number[] = [];
   @Input() renderReady = false;
+  @Input() sharedOptionConfig!: SharedOptionConfig;
   public areAllCorrectAnswersSelected = false;
 
   constructor(
