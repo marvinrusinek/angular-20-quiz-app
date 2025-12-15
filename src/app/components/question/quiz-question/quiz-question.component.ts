@@ -2268,15 +2268,15 @@ export class QuizQuestionComponent
         showCorrectMessage: false,
         showExplanation: false,
         explanationText: '',
-        quizQuestionComponentOnOptionClicked: () => { },
-        onOptionClicked: () => Promise.resolve(),
-        onQuestionAnswered: () => { },
+        //quizQuestionComponentOnOptionClicked: () => { },
+        //onOptionClicked: () => Promise.resolve(),
+        //onQuestionAnswered: () => { },
         shouldResetBackground: false,
         showFeedbackForOption: {},
         isOptionSelected: false,
         correctMessage: '',
         feedback: '',
-        idx: this.currentQuestionIndex,
+        idx: this.currentQuestionIndex
       };
 
       this.questionData = {

@@ -3,9 +3,10 @@ import { QuizQuestion } from './QuizQuestion.model';
 import { SelectedOption } from './SelectedOption.model';
 
 export interface SharedOptionConfig {
+  option: Option;
   optionsToDisplay: Option[];
   selectedOption: SelectedOption | null;
-  currentQuestion: QuizQuestion;
+  currentQuestion: QuizQuestion | null;
   showFeedback: boolean;
   type: 'single' | 'multiple';
   idx: number;
@@ -17,10 +18,10 @@ export interface SharedOptionConfig {
   explanationText: string;
   showExplanation: boolean;
   isOptionSelected: boolean;
-  selectedOptionIndex: number;
+  selectedOptionIndex: number | null;
   isAnswerCorrect: boolean;
   highlightCorrectAfterIncorrect: boolean;
-  quizQuestionComponentOnOptionClicked: (
+  /* quizQuestionComponentOnOptionClicked: (
     option: SelectedOption,
     index: number,
   ) => void;
@@ -29,5 +30,5 @@ export interface SharedOptionConfig {
     index: number,
     checked: boolean,
   ) => Promise<void>;
-  onQuestionAnswered: (event: any) => void;
+  onQuestionAnswered: (event: any) => void; */
 }

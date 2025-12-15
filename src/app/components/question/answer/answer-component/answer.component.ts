@@ -329,8 +329,8 @@ export class AnswerComponent
 
     if (this.sharedOptionConfig) {
       this.sharedOptionConfig.type = this.type;
-      this.sharedOptionConfig.quizQuestionComponentOnOptionClicked =
-        this.quizQuestionComponentOnOptionClicked;
+      //this.sharedOptionConfig.quizQuestionComponentOnOptionClicked =
+        //this.quizQuestionComponentOnOptionClicked;
     } else {
       console.error(
         'Failed to initialize sharedOptionConfig in AnswerComponent',
