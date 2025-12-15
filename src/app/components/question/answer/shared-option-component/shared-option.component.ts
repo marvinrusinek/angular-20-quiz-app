@@ -1301,9 +1301,7 @@ export class SharedOptionComponent
     this.updateOptionAndUI(b, i, event);
   }
 
-
-
-  public onHostClick(binding: OptionBindings, index: number, event: MouseEvent): void {
+  public onOptionInteraction(binding: OptionBindings, index: number, event: MouseEvent): void {
     const target = event.target as HTMLElement;
     // If we clicked the native input, let it do its thing.
     if (target.tagName === 'INPUT') {
