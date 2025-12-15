@@ -1311,11 +1311,11 @@ export class SharedOptionComponent
     }
 
     // If we clicked the padding/background (host), trigger manual selection.
-    // We reuse onDivClick logic since it does exactly what we want (Manual Logic + Form Sync).
-    this.onDivClick(event, binding, index);
+    // We reuse onOptionContentClick logic since it does exactly what we want (Manual Logic + Form Sync).
+    this.onOptionContentClick(event, binding, index);
   }
 
-  public onDivClick(event: MouseEvent, binding: OptionBindings, index: number): void {
+  public onOptionContentClick(event: MouseEvent, binding: OptionBindings, index: number): void {
     // Prevent the click from bubbling up to the mat-radio-button/mat-checkbox
     event.stopPropagation();
 
