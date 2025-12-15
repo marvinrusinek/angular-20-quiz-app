@@ -23,7 +23,7 @@ export class NextButtonStateService implements OnDestroy {
   private initialized = false;
   private manualOverride: boolean | null = null;
 
-  constructor(private ngZone: NgZone) {}
+  constructor(private ngZone: NgZone) { }
 
   ngOnDestroy(): void {
     this.cleanupNextButtonStateStream();
@@ -56,6 +56,7 @@ export class NextButtonStateService implements OnDestroy {
         ),
       )
       .subscribe(([isAnswered, isLoading, isNavigating, ready]) => {
+        console.log(`[NextButtonState] Stream update: isAnswered=${isAnswered}, isLoading=${isLoading}, isNavigating=${isNavigating}, ready=${ready}`);
         const enabled = isAnswered && !isLoading && !isNavigating && !!ready;
         this.updateAndSyncNextButtonState(enabled);
       });

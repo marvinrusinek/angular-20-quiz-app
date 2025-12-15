@@ -15,7 +15,7 @@ export class QuizGuard implements CanActivate {
   constructor(
     private quizDataService: QuizDataService,
     private router: Router,
-  ) {}
+  ) { }
 
   canActivate(
     route: ActivatedRouteSnapshot,
@@ -76,6 +76,7 @@ export class QuizGuard implements CanActivate {
     quizId: string,
   ): boolean | UrlTree {
     const total = quiz.questions?.length ?? 0;
+    console.log(`[🛡️ QuizGuard] Eval: Q${questionIndex} of ${total} (quizId=${quizId})`);
 
     if (total <= 0) {
       console.warn(`[❌ QuizId=${quizId}] No questions.`);
@@ -83,9 +84,14 @@ export class QuizGuard implements CanActivate {
     }
 
     const zeroIdx = questionIndex - 1;
+    // CRITICAL DEBUG LOG
+    console.log(`[🛡️ QuizGuard] ZeroIdx=${zeroIdx}, Total=${total}, Valid?=${zeroIdx >= 0 && zeroIdx < total}`);
+
     if (zeroIdx >= 0 && zeroIdx < total) return true;
 
     const fallback = Math.min(total, Math.max(1, questionIndex));
+    console.warn(`[🛡️ QuizGuard] Invalid index. Redirecting to Q${fallback}`);
+
     if (fallback !== questionIndex) {
       return this.router.createUrlTree(['/question', quizId, fallback]);
     }

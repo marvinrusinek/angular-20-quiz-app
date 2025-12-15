@@ -96,21 +96,21 @@ export class SelectedOptionService {
       console.error('Option is undefined. Cannot add it to selectedOptionsMap.');
       return;
     }
-  
+
     if (option.optionId == null) {
       console.error('option.optionId is undefined:', option);
       return;
     }
-  
+
     // Get existing selections for this question
     const existing = this.selectedOptionsMap.get(questionIndex) ?? [];
-  
+
     // Canonicalize existing options
     const existingCanonical = this.canonicalizeSelectionsForQuestion(
       questionIndex,
       existing,
     );
-  
+
     // Canonicalize the incoming option
     const newCanonical = this.canonicalizeOptionForQuestion(questionIndex, {
       ...option,
@@ -118,32 +118,32 @@ export class SelectedOptionService {
       highlight: true,
       showIcon: true,
     });
-  
+
     if (newCanonical.optionId == null) {
       console.error('[SOS] canonical option missing ID:', newCanonical);
       return;
     }
-  
+
     // ─────────────────────────────────────────────
     // ✅ AUTHORITATIVE MERGE (REPLACE BY optionId)
     // - Single-answer: newest selection replaces all previous
     // - Multi-answer: newest selection replaces same optionId
     // ─────────────────────────────────────────────
     const merged = new Map<number, SelectedOption>();
-  
+
     // Keep existing selections (as a base)
     for (const o of existingCanonical) {
       if (typeof o.optionId === 'number') {
         merged.set(o.optionId, o);
       }
     }
-  
+
     // If question is single-answer, replace entire selection set
     // (this prevents "first click wins" bugs)
     if (this.currentQuestionType === QuestionType.SingleAnswer) {
       merged.clear();
     }
-  
+
     // Apply new selection (replace by optionId)
     if (typeof newCanonical.optionId === 'number') {
       if (newCanonical.selected === false) {
@@ -152,19 +152,19 @@ export class SelectedOptionService {
         merged.set(newCanonical.optionId, newCanonical);
       }
     }
-  
+
     // Commit selections and store the result
     // IMPORTANT: commitSelections must NOT be allowed to drop the latest click.
     // So we give it the already-merged, latest-truth list.
     const mergedList = Array.from(merged.values());
     const committed = mergedList;
     this.selectedOptionsMap.set(questionIndex, committed);
-  
+
     // Emit observable updates
     this.selectedOption = committed;
     this.selectedOptionSubject.next(committed);
     this.isOptionSelectedSubject.next(committed.length > 0);
-  
+
     console.log('[SOS] addOption → final stored selection:', {
       qIndex: questionIndex,
       stored: committed.map((o) => o.optionId),
@@ -216,34 +216,34 @@ export class SelectedOptionService {
   public clearAllSelectionsForQuestion(questionIndex: number): void {
     const idx = this.normalizeQuestionIndex(questionIndex);
     if (idx < 0) return;
-  
+
     // ─────────────────────────────────────────────
     // Canonical selection state
     // ─────────────────────────────────────────────
     this.selectedOptionsMap.set(idx, []);
     this.selectedOptionIndices[idx] = [];
-  
+
     // ─────────────────────────────────────────────
     // Snapshot used by correctness logic
     // ─────────────────────────────────────────────
     this.optionSnapshotByQuestion.delete(idx);
-  
+
     // ─────────────────────────────────────────────
     // Timer / correctness flags
     // ─────────────────────────────────────────────
     this.stopTimerEmitted = false;
-  
+
     // ─────────────────────────────────────────────
     // Emit clean state so UI updates
     // ─────────────────────────────────────────────
     try {
       this.selectedOptionSubject.next([]);
-    } catch {}
-  
+    } catch { }
+
     try {
       this.isOptionSelectedSubject.next(false);
-    } catch {}
-  
+    } catch { }
+
     console.log('[SelectedOptionService] 🧹 Cleared all selections for Q', idx);
   }
 
@@ -444,7 +444,7 @@ export class SelectedOptionService {
   ): void {
     // Treat incoming selections as the SINGLE source of truth
     const merged = new Map<number, SelectedOption>();
-  
+
     // Apply current selections ONLY (authoritative)
     for (const opt of newSelections ?? []) {
       if (typeof opt.optionId === 'number') {
@@ -457,15 +457,15 @@ export class SelectedOptionService {
         console.warn('[SOS] Skipping option with invalid optionId', opt);
       }
     }
-  
+
     const committed = Array.from(merged.values());
-  
+
     // Overwrite the question entry completely
     this.selectedOptionsMap.set(questionIndex, committed);
-  
+
     // Emit ONLY current question selections
     this.selectedOptionSubject.next(committed);
-  
+
     this.isOptionSelectedSubject.next(committed.length > 0);
   }
 
@@ -516,17 +516,17 @@ export class SelectedOptionService {
     const correctIds = question.options
       .map(o => o.optionId)
       .filter((id): id is number => typeof id === 'number');
-  
+
     if (correctIds.length === 0) return false;
-  
+
     for (const id of correctIds) {
       if (!selectedOptionIds.has(id)) {
         return false;
       }
     }
-  
+
     return true;
-  }   
+  }
 
   clearSelectionsForQuestion(questionIndex: number): void {
     const idx = Number(questionIndex);
@@ -554,7 +554,7 @@ export class SelectedOptionService {
     // Optional extra safety — clear any lingering lock states
     try {
       (this as any)._lockedOptionsMap?.delete?.(idx);
-    } catch {}
+    } catch { }
   }
 
   // Method to get the current option selected state
@@ -966,17 +966,17 @@ export class SelectedOptionService {
 
       const canonicalOption =
         Array.isArray(canonicalOptions) &&
-        resolvedIndex >= 0 &&
-        resolvedIndex < canonicalOptions.length
+          resolvedIndex >= 0 &&
+          resolvedIndex < canonicalOptions.length
           ? canonicalOptions[resolvedIndex]
           : undefined;
 
       const baseOption: SelectedOption = canonicalOption
         ? { ...canonicalOption }
         : {
-            optionId: canonicalId ?? optionIndex,
-            text: `Option ${optionIndex + 1}`,
-          };
+          optionId: canonicalId ?? optionIndex,
+          text: `Option ${optionIndex + 1}`,
+        };
 
       const newOption: SelectedOption = {
         ...baseOption,
@@ -1218,8 +1218,8 @@ export class SelectedOptionService {
 
     const optionIndexFromPayload = Array.isArray(questionOptions)
       ? questionOptions
-          .map((opt) => (opt as SelectedOption)?.questionIndex)
-          .find((idx) => typeof idx === 'number' && idx >= 0)
+        .map((opt) => (opt as SelectedOption)?.questionIndex)
+        .find((idx) => typeof idx === 'number' && idx >= 0)
       : undefined;
 
     if (typeof optionIndexFromPayload === 'number') {
@@ -1997,6 +1997,11 @@ export class SelectedOptionService {
 
     this.syncFeedbackForQuestion(idx, canonicalSelections);
 
+    // CRITICAL FIX: Update the "Answered" state whenever selections change.
+    // This drives the Next Button enablement.
+    this.updateAnsweredState(canonicalSelections, idx);
+    console.log(`[commitSelections] Updated answered state for Q${idx}. Selections: ${canonicalSelections.length}`);
+
     return canonicalSelections;
   }
 
@@ -2649,25 +2654,25 @@ export class SelectedOptionService {
     selected: SelectedOption[],
   ): boolean {
     if (!question?.options?.length) return false;
-  
+
     // Get ALL correct option IDs from the question
     const correctIds = question.options
       .filter(o => o.correct === true)
       .map(o => o.optionId)
       .filter((id): id is number => typeof id === 'number');
-  
+
     if (correctIds.length === 0) return false;
-  
+
     // Get selected option IDs (ignore correctness here)
     const selectedIds = new Set<number>(
       (selected ?? [])
         .map(o => o.optionId)
         .filter((id): id is number => typeof id === 'number'),
     );
-  
+
     // COMPLETE iff *all* correct IDs are selected
     return correctIds.every(id => selectedIds.has(id));
-  }  
+  }
 }
 
 

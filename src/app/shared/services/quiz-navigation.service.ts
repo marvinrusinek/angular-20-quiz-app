@@ -76,10 +76,21 @@ export class QuizNavigationService {
     private activatedRoute: ActivatedRoute,
     private router: Router,
     private ngZone: NgZone,
-  ) {}
+  ) { }
 
   public async advanceToNextQuestion(): Promise<boolean> {
-    this.resetExplanationAndState();
+    console.log('[NAV CHECKPOINT 1] QuizNavigationService.advanceToNextQuestion called');
+
+    // SAFETY RESET: Force clear flags to prevent stuck state
+    this.isNavigating = false;
+    this._fetchInProgress = false;
+    this.quizStateService.setNavigating(false);
+
+    try {
+      this.resetExplanationAndState();
+    } catch (err) {
+      console.warn('[NAV DEBUG] resetExplanationAndState failed, but proceeding', err);
+    }
     return await this.navigateWithOffset(1); // defer navigation until state is clean
   }
 
@@ -103,298 +114,113 @@ export class QuizNavigationService {
   }
 
   private async navigateWithOffset(offset: number): Promise<boolean> {
-    try {
-      // Clear stale locks so previous navigation works
-      this.quizStateService.setLoading(false);
-      this.quizStateService.setNavigating(false);
+    console.log(`[NAV FORCE] navigateWithOffset START. Offset: ${offset}`);
 
-      // Pre-cleanup (prevent FET & banner flicker)
+    // 1. Get Current Index (Robust URL Parsing)
+    const getUrlIndex = (): number => {
       try {
-        const ets: any = this.explanationTextService;
-
-        // Reset explanation service internal state
-        ets._fetLocked = true; // lock explanation during navigation
-        ets.readyForExplanation = false; // explanation not ready until question settles
-        ets._questionRenderedOnce = false; // question not yet rendered
-        ets._visibilityLocked = false; // ensure gate open next time
-        ets.setShouldDisplayExplanation(false);
-        ets.setIsExplanationTextDisplayed(false);
-        ets.setExplanationText('');
-        ets.formattedExplanationSubject?.next('');
-        ets.resetExplanationState?.();
-        this.quizStateService.setExplanationReady(false);
-
-        // Reset component-level fields
-        this.explanationToDisplay = '';
-
-        // Reset display state to "question" mode
-        this.quizStateService.displayStateSubject?.next({
-          mode: 'question',
-          answered: false,
-        });
-        this.quizStateService.setExplanationReady(false);
-
-        // Clear banner and answer state
-        this.quizService.updateCorrectAnswersText('');
-        this.quizService.correctAnswersCountSubject?.next(0); // safety reset
-        this.quizStateService.setAnswerSelected(false);
-        this.selectedOptionService.setAnswered(false);
-        this.nextButtonStateService.reset();
-      } catch (err) {
-        console.warn('[NAV] ⚠️ Pre-cleanup reset failed', err);
-      }
-
-      // Trust ONLY the router snapshot
-      const readIndexFromSnapshot = (): number => {
-        let snap = this.router.routerState.snapshot.root;
-        let raw: string | null = null;
-        while (snap) {
-          const v = snap.paramMap.get('questionIndex');
-          if (v != null) {
-            raw = v;
-            break;
-          }
-          snap = snap.firstChild!;
+        const url = this.router.url;
+        // Robust Regex: match /question/<quizId>/<number> anywhere in string
+        const match = url.match(/\/question\/[^/]+\/(\d+)/);
+        if (match && match[1]) {
+          return parseInt(match[1], 10);
         }
-        // Route is 1-based → normalize to 0-based
-        let n = Number(raw);
-        if (!Number.isFinite(n)) n = 0;
-        n = Math.max(0, n - 1);
-        return n;
-      };
-
-      const currentIndex = readIndexFromSnapshot();
-      const targetIndex = currentIndex + offset;
-      this.quizService.setCurrentQuestionIndex(targetIndex);
-
-      // Bounds / guard checks
-      const effectiveQuizId = this.resolveEffectiveQuizId();
-      if (!effectiveQuizId) {
-        console.error('[❌ No quizId available]');
-        return false;
+        // Fallback: split logic
+        const segments = url.split('/');
+        const last = segments[segments.length - 1];
+        const n = parseInt(last, 10);
+        return isNaN(n) ? 0 : n;
+      } catch (e) {
+        return 0;
       }
+    };
 
-      const totalQuestions = await this.resolveTotalQuestions(effectiveQuizId);
-      const lastIndex = totalQuestions - 1;
+    const currentRouteIndex = getUrlIndex();
+    const targetRouteIndex = currentRouteIndex + offset;
 
-      if (targetIndex < 0) {
-        console.warn('[⛔ Already at first question]');
-        return false;
-      }
-      if (targetIndex > lastIndex) {
-        console.log('[🏁 End of quiz → /results]');
-        await this.ngZone.run(() =>
-          this.router.navigate(['/results', effectiveQuizId]),
-        );
-        return true;
-      }
+    // User requested logic: Check if answered.
+    const isAnswered = this.selectedOptionService.isQuestionAnswered(currentRouteIndex - 1);
+    console.log(`[NAV FORCE] Logic Check: Q${currentRouteIndex} Answered? ${isAnswered}`);
 
-      if (
-        this.quizStateService.isLoadingSubject.getValue() ||
-        this.quizStateService.isNavigatingSubject.getValue()
-      ) {
-        console.warn('[🚫 Navigation blocked]');
-        return false;
-      }
+    console.log(`[NAV FORCE] URL Index: ${currentRouteIndex} -> Target: ${targetRouteIndex}`);
 
-      // Begin navigation
+    // 2. Get Quiz ID (best effort, fallback to 'angular-quiz')
+    let quizId = this.resolveEffectiveQuizId();
+    if (!quizId) {
+      console.warn('[NAV FORCE] No quizId found, defaulting to "angular-quiz"');
+      quizId = 'angular-quiz';
+    }
+
+    // 3. Simple Bounds Safety (only check min)
+    if (targetRouteIndex < 1) {
+      console.warn('[NAV] Cannot navigate below Q1');
+      return false;
+    }
+
+    const maxQuestions = this.quizService.questions?.length || 99;
+
+    if (targetRouteIndex > maxQuestions) {
+      console.log('[NAV FORCE] Target exceeds max known questions, going to Results');
+      await this.ngZone.run(() => this.router.navigate(['/results', quizId]));
+      return true;
+    }
+
+    console.log(`[NAV FORCE] Executing direct routing to Q${targetRouteIndex}`);
+    // NOTE: navigateToQuestion expects 0-based index, so sub 1
+    return this.navigateToQuestion(targetRouteIndex - 1);
+  }
+
+  public async navigateToQuestion(index: number): Promise<boolean> {
+    // REMOVED _fetchInProgress guard to prevent zombie locks.
+    // The UI button state (nextButtonEnabled$) is the primary debounce mechanism.
+    this._fetchInProgress = true;
+
+    console.log(`[NAV CHECKPOINT 5] navigateToQuestion START. Index: ${index}`);
+
+    try {
+      // 1. Set navigating state
       this.isNavigating = true;
       this.quizStateService.setNavigating(true);
       this.quizStateService.setLoading(true);
 
-      this.quizQuestionLoaderService.resetUI();
-
-      // Force display mode reset before question load
-      try {
-        this.quizStateService.displayStateSubject.next({
-          mode: 'question',
-          answered: false,
-        });
-        (this.explanationTextService as any)._shouldDisplayExplanation = false;
-        this.explanationTextService.setShouldDisplayExplanation(false);
-        this.explanationTextService.setIsExplanationTextDisplayed(false);
-      } catch (err) {
-        console.warn('[NAV] ⚠️ Failed to force display mode reset', err);
-      }
-
-      const routeUrl = `/question/${effectiveQuizId}/${targetIndex + 1}`;
-      const currentUrl = this.router.url;
-
-      // Force reload if URL identical
-      if (currentUrl === routeUrl) {
-        console.log('[NAV] Forcing same-route reload');
-        await this.ngZone.run(() =>
-          this.router.navigateByUrl('/', { skipLocationChange: true }),
-        );
-      }
-
-      // Actual navigation and wait
-      const navSuccess = await this.ngZone.run(() =>
-        this.router.navigateByUrl(routeUrl),
-      );
+      // 2. Perform Router Navigation
+      const navSuccess = await this.performRouterNavigation(index);
       if (!navSuccess) {
-        console.warn('[⚠️ Router navigateByUrl failed]', routeUrl);
+        console.error('[NAV] Router navigation failed');
         return false;
       }
 
-      // Trigger full question reinitialization
-      await this.navigateToQuestion(targetIndex);
-      this.setQuestionReadyAfterDelay();
+      // 3. Update Service State (Index) - CRITICAL: Update AFTER router nav success
+      this.quizService.setCurrentQuestionIndex(index);
+      this.currentQuestionIndex = index;
 
-      // Reset and trigger question load
-      this.quizService.setCurrentQuestionIndex(targetIndex);
-      this.currentQuestionIndex = targetIndex;
-
-      // Reset FET readiness so next question can display its explanation
-      try {
-        const ets: any = this.explanationTextService;
-        ets.readyForExplanation = false;
-        ets._fetLocked = false;
-        ets._preArmedReady = false;
-        ets._activeIndex = targetIndex;
-        console.log(`[NAV] 🔄 Reset FET readiness for Q${targetIndex + 1}`);
-      } catch (err) {
-        console.warn('[NAV] ⚠️ Failed to reset FET readiness', err);
-      }
-
+      // 4. Reset UI States for New Question
       this.resetExplanationAndState();
       this.selectedOptionService.setAnswered(false, true);
       this.nextButtonStateService.reset();
+      this.quizQuestionLoaderService.resetUI();
 
-      await this.quizQuestionLoaderService.loadQuestionAndOptions(targetIndex);
 
-      // Restore FET state safely for the new question
-      try {
-        const q = this.quizService.questions?.[targetIndex];
-        if (q && q.explanation) {
-          const rawExpl = (q.explanation ?? '').trim();
-          const correctIdxs =
-            this.explanationTextService.getCorrectOptionIndices(q as any);
-          const formatted = this.explanationTextService
-            .formatExplanation(q as any, correctIdxs, rawExpl)
-            .trim();
-
-          const ets: any = this.explanationTextService;
-          ets._questionRenderedOnce = false;
-          ets._visibilityLocked = false;
-          ets._activeIndex = targetIndex;
-          ets._fetLocked = false;
-          ets._cachedFormatted = formatted;
-          ets._cachedAt = performance.now();
-          ets.setShouldDisplayExplanation(false);
-          ets.setIsExplanationTextDisplayed(false);
-          ets.setReadyForExplanation(false);
-
-          this.quizStateService.displayStateSubject?.next({
-            mode: 'question',
-            answered: false,
-          });
-          this.quizStateService.setExplanationReady(false);
-
-          await this.explanationTextService.waitUntilQuestionRendered(600);
-          setTimeout(() => {
-            try {
-              if (ets._activeIndex === targetIndex && !ets._fetLocked) {
-                ets.setExplanationText(formatted);
-                ets.setShouldDisplayExplanation(false);
-                ets.setIsExplanationTextDisplayed(false);
-                ets.setReadyForExplanation(true);
-              } else {
-                console.log(
-                  `[NAV] 🚫 Skipped FET lazy cache for Q${targetIndex + 1} (locked or mismatched index)`,
-                );
-              }
-            } catch (err) {
-              console.warn('[NAV] ⚠️ Lazy FET cache failed', err);
-            }
-          }, 150);
-        } else {
-          this.explanationTextService.setExplanationText('');
-          this.explanationTextService.setShouldDisplayExplanation(false);
-        }
-      } catch (err) {
-        console.warn('[NAV] ⚠️ FET restoration failed:', err);
+      // 5. Fetch New Question Data
+      const fresh = await this.fetchAndEmitQuestion(index);
+      if (!fresh) {
+        console.error('[NAV] Failed to fetch new question data');
+        return false;
       }
 
-      this.notifyNavigatingBackwards();
-      this.notifyResetExplanation();
+      // 6. Finalize
       this.notifyNavigationSuccess();
 
-      try {
-        const ets: any = this.explanationTextService;
-        if (ets && ets._visibilityLocked) ets._visibilityLocked = false;
-      } catch (err) {
-        console.warn('[NAV] ⚠️ Failed to release ETS visibility lock', err);
-      }
-
       return true;
     } catch (err) {
-      console.error('[❌ navigateWithOffset error]', err);
-      return false;
-    } finally {
-      this.isNavigating = false;
-      this.quizStateService.setNavigating(false);
-      this.quizStateService.setLoading(false);
-      this.setIsNavigatingToPrevious(false);
-    }
-  }
-
-  public async navigateToQuestion(index: number): Promise<boolean> {
-    if (this._fetchInProgress) {
-      console.warn('[NAV] 🧯 Skipping overlapping getQuestionByIndex call');
-      return false;
-    }
-    this._fetchInProgress = true;
-
-    const ets: any = this.explanationTextService;
-    const qqls: any = this.quizQuestionLoaderService;
-
-    const targetIndex = Math.max(
-      0,
-      Math.min(index, this.quizService.questions?.length - 1 || 0),
-    );
-    ets._activeIndex = targetIndex;
-
-    // BARRIERS
-    this.activateCrossServiceBarriers(ets, qqls, targetIndex);
-
-    // PRE-NAV QUARANTINE + PURGES + QUIET ZONE
-    this.applyPreNavigationQuarantines(index, targetIndex, ets, qqls);
-
-    // GLOBAL QUIET PATCH + FET BLACKOUT
-    this.applyQuietPatch(ets, qqls);
-    this.applyFetBlackout(ets, qqls);
-    this.applyHardMuteAndGatePrep(ets, qqls);
-
-    try {
-      // SET NAVIGATING + RESET STREAMS + FREEZE UI
-      await this.prepareNavigationState(index);
-
-      // ROUTER NAVIGATION
-      const navSuccess = await this.performRouterNavigation(index);
-      await new Promise((res) => requestAnimationFrame(res)); // stabilizer frame
-      await new Promise((res) => setTimeout(res, 16));
-      if (!navSuccess) return false;
-
-      // RESET SELECTION STATE + FET PURGE
-      await this.resetPostNavigationState(index);
-
-      // FETCH QUESTION + EMIT TEXT + BANNER
-      const fresh = await this.fetchAndEmitQuestion(index);
-      if (!fresh) return false;
-
-      // ARM EXPLANATION TEXT POST-PAINT
-      this.armExplanationText(index, fresh);
-
-      // FINALIZE NAVIGATION + RELEASE FREEZES
-      await this.finalizeNavigation(ets, qqls);
-
-      return true;
-    } catch (err) {
-      console.error('[❌ Navigation error]', err);
+      console.error('[❌ navigateToQuestion error]', err);
       return false;
     } finally {
       this._fetchInProgress = false;
+      this.isNavigating = false;
+      this.quizStateService.setNavigating(false);
+      this.quizStateService.setLoading(false);
+      console.log(`[NAV DEBUG] navigateToQuestion END. Index: ${index}`);
     }
   }
 
@@ -420,16 +246,9 @@ export class QuizNavigationService {
       qqls.questionToDisplaySubject?.next('');
       qqls.emitQuestionTextSafely?.('', -1);
 
-      // Temporary hide
-      const el = document.querySelector('h3[i18n]');
-      // if (el) (el as HTMLElement).style.visibility = 'hidden';
-      if (el) (el as HTMLElement).style.opacity = '0';
-
       setTimeout(() => {
         ets._transitionLock = false;
         ets._activeIndex = targetIndex;
-        const el2 = document.querySelector('h3[i18n]');
-        if (el2) (el2 as HTMLElement).style.visibility = 'visible';
         console.log(`[NAV] ✅ Released quarantine for Q${targetIndex + 1}`);
       }, 200);
     } catch (e) {
@@ -548,10 +367,6 @@ export class QuizNavigationService {
       qqls._frozen = true;
       qqls._isVisualFrozen = true;
 
-      const el = document.querySelector('h3[i18n]');
-      // if (el) (el as HTMLElement).style.visibility = 'hidden';
-      if (el) (el as HTMLElement).style.opacity = '0';
-
       const now = performance.now();
       const quietDuration = 160;
 
@@ -638,11 +453,13 @@ export class QuizNavigationService {
     const quizId = quizIdFromRoute || fallbackQuizId;
 
     const routeUrl = `/question/${quizId}/${index + 1}`;
+    console.log(`[NAV DEBUG] performRouterNavigation START. Target: ${routeUrl}`);
     const currentUrl = this.router.url;
     const currentIndex = this.quizService.getCurrentQuestionIndex();
 
     // Handle same-URL reload scenario
     if (currentIndex === index && currentUrl === routeUrl) {
+      console.log('[NAV DEBUG] Same URL detected. Reloading root first.');
       await this.ngZone.run(() =>
         this.router.navigateByUrl('/', { skipLocationChange: true }),
       );
@@ -651,6 +468,7 @@ export class QuizNavigationService {
     const navSuccess = await this.ngZone.run(() =>
       this.router.navigateByUrl(routeUrl),
     );
+    console.log(`[NAV DEBUG] router.navigateByUrl result: ${navSuccess}`);
 
     if (!navSuccess) {
       console.warn('[⚠️ Router navigateByUrl returned false]', routeUrl);
@@ -731,9 +549,9 @@ export class QuizNavigationService {
 
     const banner = isMulti
       ? this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
-          numCorrect,
-          totalOpts,
-        )
+        numCorrect,
+        totalOpts,
+      )
       : '';
 
     // WAIT for DOM to stabilize before final emission
@@ -748,9 +566,6 @@ export class QuizNavigationService {
 
     const ets: any = this.explanationTextService;
     ets._hardMuteUntil = performance.now() - 1;
-
-    // const el2 = document.querySelector('h3[i18n]');
-    // if (el2) (el2 as HTMLElement).style.visibility = 'visible';
 
     // Emit question and banner
     await new Promise<void>((resolve) => {
@@ -963,6 +778,7 @@ export class QuizNavigationService {
   }
 
   private resetExplanationAndState(): void {
+    console.log('[NAV DEBUG] resetExplanationAndState called');
     // Immediately reset explanation-related state to avoid stale data
     this.explanationTextService.resetExplanationState();
     this.quizStateService.setDisplayState({
@@ -1146,7 +962,7 @@ export class QuizNavigationService {
     // Drop any lingering question text
     try {
       this.quizQuestionLoaderService?.questionToDisplaySubject?.next('');
-    } catch {}
+    } catch { }
 
     // Reset to question mode so next frame starts clean
     this.quizStateService.displayStateSubject?.next({

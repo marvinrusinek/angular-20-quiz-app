@@ -121,8 +121,7 @@ interface Override {
   providers: [UserPreferenceService],
 })
 export class QuizComponent
-  implements OnInit, OnDestroy, OnChanges, AfterViewInit
-{
+  implements OnInit, OnDestroy, OnChanges, AfterViewInit {
   @ViewChild(QuizQuestionComponent, { static: false })
   quizQuestionComponent!: QuizQuestionComponent;
 
@@ -255,8 +254,10 @@ get quizQuestionComponent(): QuizQuestionComponent {
   );
   nextButtonTooltip$ = this.nextButtonTooltipSubject.asObservable();
 
-  private isButtonEnabledSubject = new BehaviorSubject<boolean>(false);
-  isButtonEnabled$: Observable<boolean>;
+  // CRITICAL FIX: Match the template's async pipe variable name
+  nextButtonEnabled$: Observable<boolean> = this.nextButtonStateService.isButtonEnabled$;
+
+  isButtonEnabled$: Observable<boolean>; // (Legacy, keeping to avoid breaks if referenced)
   isButtonEnabled = false;
   isAnswered$: Observable<boolean>;
   isNextButtonEnabled = false;
@@ -483,6 +484,22 @@ get quizQuestionComponent(): QuizQuestionComponent {
   async ngOnInit(): Promise<void> {
     this.initializeRouteParameters();
 
+    // CRITICAL FIX: React to URL parameter changes (Q1 -> Q2)
+    this.routeSubscription = this.activatedRoute.params.subscribe((params) => {
+      const questionIndexRaw = params['questionIndex'];
+      if (questionIndexRaw) {
+        const newIndex = Math.max(0, Number(questionIndexRaw) - 1);
+        console.log(`[QuizComponent] Route param changed. New Index: ${newIndex}`);
+
+        // Only trigger fetch if it's a genuine change to avoid loops
+        if (newIndex !== this.currentQuestionIndex) {
+          this.currentQuestionIndex = newIndex;
+          this.quizService.setCurrentQuestionIndex(newIndex);
+          this.fetchAndSetQuestionData(newIndex);
+        }
+      }
+    });
+
     this.router.events
       .pipe(filter((event) => event instanceof NavigationEnd))
       .subscribe(() => {
@@ -638,19 +655,19 @@ get quizQuestionComponent(): QuizQuestionComponent {
             ? Math.floor(qq.expectedCorrect)
             : Array.isArray(qq?.answer)
               ? new Set(
-                  qq.answer.map((a: any) =>
-                    String(a ?? '')
-                      .trim()
-                      .toLowerCase(),
-                  ),
-                ).size
+                qq.answer.map((a: any) =>
+                  String(a ?? '')
+                    .trim()
+                    .toLowerCase(),
+                ),
+              ).size
               : undefined;
 
         const fromFlags = Array.isArray(qq?.options)
           ? qq.options.reduce(
-              (n: number, o: any) => n + (o?.correct ? 1 : 0),
-              0,
-            )
+            (n: number, o: any) => n + (o?.correct ? 1 : 0),
+            0,
+          )
           : 0;
 
         const totalCorrectFromOptions = Array.isArray(qq?.options)
@@ -1163,7 +1180,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
     const emittedQuestionIndex = event?.option?.questionIndex;
     const normalizedQuestionIndex =
       Number.isInteger(emittedQuestionIndex) &&
-      (emittedQuestionIndex as number) >= 0
+        (emittedQuestionIndex as number) >= 0
         ? (emittedQuestionIndex as number)
         : this.currentQuestionIndex;
 
@@ -1249,7 +1266,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
     this.currentQuestionAnswered = false;
     this.isNextButtonEnabled = false;
     this.isButtonEnabled = false;
-    this.isButtonEnabledSubject.next(false);
+    this.nextButtonStateService.reset();
 
     // Only reset options if current question exists
     if (!this.currentQuestion) {
@@ -1360,9 +1377,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
     return this.currentQuestionIndex === this.totalQuestions - 1;
   }
 
-  public get nextButtonEnabled$() {
-    return this.nextButtonStateService.isButtonEnabled$;
-  }
+
 
   /*************** Shuffle and initialize questions ******************/
   initializeQuestions(): void {
@@ -1962,9 +1977,9 @@ get quizQuestionComponent(): QuizQuestionComponent {
       ...question,
       options: Array.isArray(question.options)
         ? question.options.map((option) => ({
-            ...option,
-            correct: option.correct ?? false,
-          }))
+          ...option,
+          correct: option.correct ?? false,
+        }))
         : [],
     }));
   }
@@ -2830,8 +2845,8 @@ get quizQuestionComponent(): QuizQuestionComponent {
       const explanationObservable = this.explanationTextService
         .explanationsInitialized
         ? this.explanationTextService.getFormattedExplanationTextForQuestion(
-            questionIndex,
-          )
+          questionIndex,
+        )
         : of('');
 
       // Convert the Observable to a Promise and await its value
@@ -3261,9 +3276,9 @@ get quizQuestionComponent(): QuizQuestionComponent {
           const baseQuestion = payload?.question ?? fallbackQuestion;
           const safeOptions = Array.isArray(payload?.options)
             ? payload.options.map((option) => ({
-                ...option,
-                correct: option.correct ?? false,
-              }))
+              ...option,
+              correct: option.correct ?? false,
+            }))
             : [];
 
           const explanation = (
@@ -3943,7 +3958,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
   // Check if an answer has been selected for the first question.
   async checkIfAnswered(
-    callback: (result: boolean) => void = () => {},
+    callback: (result: boolean) => void = () => { },
   ): Promise<void> {
     try {
       // Ensure options are available
@@ -3984,11 +3999,11 @@ get quizQuestionComponent(): QuizQuestionComponent {
       // Reflect state into any UI/state services (NO correctness here)
       try {
         this.quizStateService?.setAnswered(isAnyOptionSelected);
-      } catch {}
+      } catch { }
 
       try {
         this.quizStateService?.setAnswerSelected(isAnyOptionSelected);
-      } catch {}
+      } catch { }
 
       // For navigation:
       // - single: enable Next when anything is selected
@@ -4004,7 +4019,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
       try {
         this.nextButtonStateService.setNextButtonState(enableNext);
-      } catch {}
+      } catch { }
 
       // Return UI-level result only (used for display, NOT correctness)
       callback(isAnyOptionSelected);
@@ -4012,7 +4027,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
       console.error('[checkIfAnswered] Error checking answer state:', error);
       try {
         this.nextButtonStateService.setNextButtonState(false);
-      } catch {}
+      } catch { }
       callback(false);
     }
   }
@@ -4206,31 +4221,27 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
   /************************ paging functions *********************/
   private async advanceQuestion(direction: 'next' | 'previous'): Promise<void> {
-    try {
-      this.triggerAnimation();
+    console.log(`[QUIZ COMPONENT] advanceQuestion(${direction}) calling service...`);
 
-      this.selectedOptionService.setAnswered(false);
+    this.triggerAnimation();
+    this.selectedOptionService.setAnswered(false);
 
-      const success =
-        direction === 'next'
-          ? await this.quizNavigationService.advanceToNextQuestion()
-          : await this.quizNavigationService.advanceToPreviousQuestion();
-
-      if (success) {
-        this.questionVersion++;
-        console.log(`[✅ Navigation to ${direction} question successful]`);
+    // FIX: Wrap in NgZone.run to ensure Angular detects navigation changes
+    // This fixes the bug where navigation only works when DevTools console is open
+    await this.ngZone.run(async () => {
+      if (direction === 'next') {
+        await this.quizNavigationService.advanceToNextQuestion();
       } else {
-        console.warn(`[⚠️ Navigation to ${direction} question failed]`);
+        await this.quizNavigationService.advanceToPreviousQuestion();
       }
-    } catch (error) {
-      console.error(
-        `[❌ Error in advanceTo${direction === 'next' ? 'Next' : 'Previous'}Question]`,
-        error,
-      );
-    }
+
+      // Force change detection after navigation completes
+      this.cdRef.markForCheck();
+    });
   }
 
   public advanceToNextQuestion(): Promise<void> {
+    console.log('[QUIZ COMPONENT] advanceToNextQuestion triggered (Simplified)');
     return this.advanceQuestion('next');
   }
 
@@ -4523,9 +4534,9 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
       const options = Array.isArray(resolvedQuestion.options)
         ? resolvedQuestion.options.map((option, idx) => ({
-            ...option,
-            optionId: option.optionId ?? idx,
-          }))
+          ...option,
+          optionId: option.optionId ?? idx,
+        }))
         : [];
 
       if (!options.length) {
@@ -4948,9 +4959,9 @@ get quizQuestionComponent(): QuizQuestionComponent {
     const totalOpts = fresh.options.length;
     const banner = isMulti
       ? this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
-          numCorrect,
-          totalOpts,
-        )
+        numCorrect,
+        totalOpts,
+      )
       : '';
 
     this.quizService.updateCorrectAnswersText(banner);

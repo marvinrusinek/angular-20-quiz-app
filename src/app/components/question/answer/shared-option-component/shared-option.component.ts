@@ -83,8 +83,7 @@ import { HighlightOptionDirective } from '../../../../directives/highlight-optio
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SharedOptionComponent
-  implements OnInit, OnChanges, OnDestroy, AfterViewInit, AfterViewChecked
-{
+  implements OnInit, OnChanges, OnDestroy, AfterViewInit, AfterViewChecked {
   @ViewChildren(HighlightOptionDirective)
   highlightDirectives!: QueryList<HighlightOptionDirective>;
 
@@ -204,9 +203,9 @@ export class SharedOptionComponent
   ngOnInit(): void {
     this.updateResolvedQuestionIndex(
       this.questionIndex ??
-        this.currentQuestionIndex ??
-        this.config?.idx ??
-        this.quizService?.currentQuestionIndex,
+      this.currentQuestionIndex ??
+      this.config?.idx ??
+      this.quizService?.currentQuestionIndex,
     );
 
     // ─── Fallback Rendering ────────────────────────────────────────────────
@@ -438,7 +437,7 @@ export class SharedOptionComponent
     const optionsChanged =
       changes['optionsToDisplay'] &&
       changes['optionsToDisplay'].previousValue !==
-        changes['optionsToDisplay'].currentValue;
+      changes['optionsToDisplay'].currentValue;
 
     // ✅ CRITICAL: ONLY reset display mode when QUESTION changes, not when options change
     // ✅ CRITICAL: ONLY reset display mode when QUESTION changes, not when options change
@@ -795,7 +794,7 @@ export class SharedOptionComponent
         appResetBackground: false,
         optionsToDisplay: [...this.optionsToDisplay],
         checked: isSelected,
-        change: () => {},
+        change: () => { },
         active: true,
       };
     });
@@ -1049,42 +1048,42 @@ export class SharedOptionComponent
   // Decide if an option should be disabled
   public shouldDisableOption(binding: OptionBindings): boolean {
     if (!binding || !binding.option) return false;
-  
+
     const option = binding.option;
     const optionId = option.optionId;
     const qIndex = this.resolveCurrentQuestionIndex();
-  
+
     // ─────────────────────────────────────────────
     // 🚫 GLOBAL GUARD: nothing disables until COMPLETE
     // ─────────────────────────────────────────────
     const bindings = this.optionBindings ?? [];
     const correctBindings = bindings.filter(b => !!b.option?.correct);
-  
+
     // SINGLE SOURCE OF TRUTH FOR "ALL CORRECT SELECTED" (LOCAL/UI)
     const allCorrectSelectedLocally =
       correctBindings.length > 0 &&
       correctBindings.every(b => !!b.option?.selected || b.isSelected);
-  
+
     // Until the question is COMPLETE, NOTHING is disabled
     if (!allCorrectSelectedLocally) {
       return false;
     }
-  
+
     // ─────────────────────────────────────────────
     // ⬇️ EVERYTHING BELOW THIS POINT MAY DISABLE
     // ─────────────────────────────────────────────
-  
+
     if (this.forceDisableAll) return true;
-  
+
     try {
       if (this.selectedOptionService.isQuestionLocked(qIndex)) {
         return true;
       }
-    } catch {}
-  
+    } catch { }
+
     // 🔑 FIX: binding.disabled only applies AFTER completion
     if (binding.disabled) return true;
-  
+
     try {
       if (
         optionId != null &&
@@ -1092,14 +1091,14 @@ export class SharedOptionComponent
       ) {
         return true;
       }
-    } catch {}
-  
+    } catch { }
+
     const resolvedType = this.resolvedTypeForLock ?? this.resolveQuestionType();
-  
+
     const hasCorrectSelection = bindings.some(
       (b) => (!!b.option?.selected || b.isSelected) && !!b.option?.correct,
     );
-  
+
     const shouldLockIncorrect =
       this.shouldLockIncorrectOptions ||
       this.computeShouldLockIncorrectOptions(
@@ -1107,12 +1106,12 @@ export class SharedOptionComponent
         hasCorrectSelection,
         allCorrectSelectedLocally,
       );
-  
+
     if (shouldLockIncorrect && !option.correct) return true;
-  
+
     if (optionId != null && this.lockedIncorrectOptionIds.has(optionId))
       return true;
-  
+
     return optionId != null && this.flashDisabledSet.has(optionId);
   }
 
@@ -1255,6 +1254,49 @@ export class SharedOptionComponent
     this.updateOptionAndUI(b, i, event);
   }
 
+
+
+  public onHostClick(event: MouseEvent, binding: OptionBindings, index: number): void {
+    const target = event.target as HTMLElement;
+    // If we clicked the native input, let it do its thing.
+    if (target.tagName === 'INPUT') {
+      return;
+    }
+
+    // If we clicked the padding/background (host), trigger manual selection.
+    // We reuse onDivClick logic since it does exactly what we want (Manual Logic + Form Sync).
+    this.onDivClick(event, binding, index);
+  }
+
+  public onDivClick(event: MouseEvent, binding: OptionBindings, index: number): void {
+    // Prevent the click from bubbling up to the mat-radio-button/mat-checkbox
+    event.stopPropagation();
+
+    const isSingle = this.type === 'single';
+    // For radio: always select. For checkbox: toggle.
+    const newState = isSingle ? true : !binding.isSelected;
+
+    // Construct a mock event to match what onOptionChanged expects
+    const mockEvent = isSingle
+      ? { source: null, value: binding.option.optionId }
+      : { source: null, checked: newState };
+
+    // 1. Run Logic (Generate Feedback, set local flags)
+    // We do THIS first so that updateOptionAndUI sees the "old" state and runs the feedback generator.
+    this.updateOptionAndUI(binding, index, mockEvent as any);
+
+    // 2. Sync Form (Update Visuals)
+    // We do this SECOND so the mat-radio-group UI updates to show the circle selected.
+    // emitEvent: false ensures we don't trigger the valueChanges subscriber again.
+    if (isSingle) {
+      this.form
+        .get('selectedOptionId')
+        ?.setValue(binding.option.optionId, { emitEvent: false });
+    }
+
+    this.cdRef.detectChanges();
+  }
+
   public updateOptionAndUI(
     optionBinding: OptionBindings,
     index: number,
@@ -1333,6 +1375,22 @@ export class SharedOptionComponent
     // Apply selection state
     optionBinding.option.selected = checked;
     this.perQuestionHistory.add(optionId ?? -1);
+
+    // ───────────────────────────────────────────────
+    // ✅ FORCE UPDATE SERVICE STATE DIRECTLY
+    // This bypasses flaky form listeners and ensures "Next" button enables immediately.
+    // ───────────────────────────────────────────────
+    if (checked && optionId !== undefined && optionId !== null) {
+      console.log('[SharedOptionComponent] 🚀 Forcing service update for option:', optionId);
+      // We don't await this to keep UI snappy, but it triggers the subject emissions
+      this.selectedOptionService.selectOption(
+        optionId,
+        currentIndex,
+        optionBinding.option.text,
+        this.type === 'multiple',
+        this.optionsToDisplay
+      );
+    }
 
     if (this.type === 'single') {
       this.selectedOptionMap.clear();
@@ -1450,6 +1508,9 @@ export class SharedOptionComponent
     this.syncSelectedFlags();
     this.highlightDirectives?.forEach((d) => d.updateHighlight());
 
+    // FORCE UI REFRESH: Ensure feedback icons and class changes are rendered immediately.
+    this.cdRef.detectChanges();
+
     const activeIndex = this.getActiveQuestionIndex() ?? 0;
     console.log(
       `[🔧 FIX] Using activeIndex: ${activeIndex} instead of quizService.currentQuestionIndex: ${this.quizService.currentQuestionIndex}`,
@@ -1460,7 +1521,7 @@ export class SharedOptionComponent
 
     console.log(
       '%c[SOC][POST-UPDATE] FINAL STATE for Q' +
-        (this.getActiveQuestionIndex() ?? '?'),
+      (this.getActiveQuestionIndex() ?? '?'),
       'color:#00e5ff;font-weight:bold;',
       {
         optionBindings: this.optionBindings.map((b) => ({
@@ -2887,7 +2948,7 @@ export class SharedOptionComponent
     try {
       const qIndex = this.currentQuestionIndex;
       this.selectedOptionService.unlockQuestion(qIndex);
-    } catch {}
+    } catch { }
 
     this.cdRef.markForCheck();
   }
