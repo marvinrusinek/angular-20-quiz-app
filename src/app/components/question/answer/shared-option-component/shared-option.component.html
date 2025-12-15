@@ -7,7 +7,7 @@
       <!-- SINGLE-ANSWER (RADIO) -->
       @case ('single') {
         <mat-radio-group class="options-group options" formControlName="selectedOptionId">
-          @for (b of optionBindings; let i = $index; track trackByOptionId(i, b)) {
+          @for (b of optionBindings; let i = $index; track trackByOptionId(b, i)) {
             <mat-radio-button class="option-row single-option"
               appHighlightOption
               [appHighlightInputType]="'radio'"
@@ -30,7 +30,7 @@
 
       <!-- MULTIPLE-ANSWER (CHECKBOX) -->
       @case ('multiple') {
-        @for (b of optionBindings; let i = $index; track trackByOptionId(i, b)) {
+        @for (b of optionBindings; let i = $index; track trackByOptionId(b, i)) {
           <mat-checkbox class="option-row multiple-option"
             appHighlightOption
             [appHighlightInputType]="'checkbox'"

@@ -161,10 +161,7 @@ export class SharedOptionComponent
 
   private click$ = new Subject<{ b: OptionBindings; i: number }>();
 
-  /* trackByOptionId = (_: number, b: OptionBindings) => {
-    return b?.option?.optionId ?? _;
-  }; */
-  trackByOptionId = (_: number, b: OptionBindings) => b.option.optionId;
+  trackByOptionId = (b: OptionBindings, _: number) => b.option.optionId ?? _;
 
   private flashDisabledSet = new Set<number>();
   private lockedIncorrectOptionIds = new Set<number>();
