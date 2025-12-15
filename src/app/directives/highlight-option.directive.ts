@@ -64,23 +64,36 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    // Determine whether any inputs relevant to highlighting changed
+    // ─────────────────────────────────────────────
+    // NEW SOURCE OF TRUTH:
+    // Highlighting is now driven by SharedOptionConfig
+    // ─────────────────────────────────────────────
+    if (changes['sharedOptionConfig']) {
+      // Immediate highlight update (keeps old UX)
+      this.updateHighlightFromConfig();
+      return;
+    }
+  
+    // ─────────────────────────────────────────────
+    // LEGACY FALLBACK (kept for safety / parity)
+    // These inputs may still fire during transition
+    // ─────────────────────────────────────────────
     const optionBindingChanged = changes['optionBinding'] || changes['option'];
     const isSelectedChanged = changes['isSelected'];
     const showFeedbackChanged = changes['showFeedback'];
     const resetChanged = changes['appHighlightReset'];
-
+  
     const highlightRelevant =
       optionBindingChanged ||
       isSelectedChanged ||
       showFeedbackChanged ||
       resetChanged;
-
+  
     // If something worth reacting to changed, run the full logic
     if (highlightRelevant && this.optionBinding) {
       // Maintain reference back to this directive
       this.optionBinding.directiveInstance = this;
-
+  
       // Immediate highlight update (keeps old UX)
       this.updateHighlight();
     } else {
@@ -150,6 +163,38 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
 
       opt.showIcon = false; // FALLBACK: no highlight and not disabled — no icon
     }, 0);
+  }
+
+  private updateHighlightFromConfig(): void {
+    const cfg = this.sharedOptionConfig;
+    if (!cfg || !cfg.option) return;
+  
+    const host = this.el.nativeElement as HTMLElement;
+    const opt = cfg.option;
+  
+    // RESET
+    this.renderer.removeStyle(host, 'background-color');
+    this.renderer.removeClass(host, 'deactivated-option');
+    this.renderer.setStyle(host, 'cursor', 'pointer');
+    this.setPointerEvents(host, 'auto');
+    opt.showIcon = false;
+  
+    // SELECTED
+    if (cfg.isOptionSelected) {
+      if (cfg.isAnswerCorrect) {
+        this.setBackgroundColor(host, '#43f756'); // green
+      } else {
+        this.setBackgroundColor(host, '#ff0000'); // red
+      }
+      opt.showIcon = true;
+      return;
+    }
+  
+    // RESET BETWEEN QUESTIONS
+    if (cfg.shouldResetBackground) {
+      this.setBackgroundColor(host, 'transparent');
+      opt.showIcon = false;
+    }
   }
 
   /* private highlightCorrectAnswers(): void {
