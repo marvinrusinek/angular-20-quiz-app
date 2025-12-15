@@ -65,6 +65,7 @@ import { SelectionMessageService } from '../../../../shared/services/selection-m
 import { SoundService } from '../../../../shared/services/sound.service';
 import { UserPreferenceService } from '../../../../shared/services/user-preference.service';
 import { HighlightOptionDirective } from '../../../../directives/highlight-option.directive';
+import { SharedOptionConfigDirective } from '../../../../directives/shared-option-config.directive';
 
 @Component({
   selector: 'app-shared-option',
@@ -77,6 +78,7 @@ import { HighlightOptionDirective } from '../../../../directives/highlight-optio
     MatIconModule,
     FeedbackComponent,
     HighlightOptionDirective,
+    SharedOptionConfigDirective
   ],
   templateUrl: './shared-option.component.html',
   styleUrls: ['../../quiz-question/quiz-question.component.scss'],
