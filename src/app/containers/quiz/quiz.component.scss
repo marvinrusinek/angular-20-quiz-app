@@ -40,32 +40,34 @@
 /* ============================================================
    MAIN CARD (REAL animated element)
    ============================================================ */
-.quiz-card {
-  width: 100%;
-  background: #fff !important;
-
-  border: 1.5px solid #000 !important;
-  border-right-width: 3px !important;
-  border-bottom-width: 3px !important;
-
-  border-radius: 10px !important;
-  box-shadow: 10px 10px 5px #999 !important;
-
-  padding: 16px !important;
-  box-sizing: border-box;
-  overflow: visible !important;
-}
-
-/* Force override of Angular Material card */
-:host ::ng-deep mat-card.quiz-card {
-  border: 1.5px solid #000 !important;
-  border-right-width: 3px !important;
-  box-shadow: 10px 10px 5px #888 !important;
-  border-radius: 10px !important;
-  background: #fff !important;
-  padding: 16px !important;
-  overflow: visible !important;
-}
+  .quiz-card {
+    width: 100%;
+    background: #fff !important;
+  
+    border: 3px solid #000 !important;
+    border-radius: 10px !important;
+  
+    /* Visual depth WITHOUT eating borders */
+    outline: 2px solid rgba(0, 0, 0, 0.15);
+    outline-offset: -6px;
+  
+    padding: 16px !important;
+    box-sizing: border-box;
+    overflow: visible !important;
+  
+    /* Kill deceptive shadow */
+    box-shadow: none !important;
+  }
+  
+  /* Angular Material override — keep it boring */
+  :host ::ng-deep mat-card.quiz-card {
+    border: 3px solid #000 !important;
+    border-radius: 10px !important;
+    background: #fff !important;
+    padding: 16px !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+  }
 
 /* Material card fix */
 :host ::ng-deep .mdc-card,
