@@ -16,7 +16,7 @@
               [value]="b.option.optionId"
               [ngClass]="getOptionClasses(b)"
               (change)="onOptionChanged(b, i, $event)"
-              (click)="onHostClick($event, b, i)"
+              (click)="onHostClick(b, i, $event)"
             >
               <ng-container *ngTemplateOutlet="optionContent;
                   context: { $implicit: b, index: i }"></ng-container>
@@ -39,7 +39,7 @@
             [checked]="b.isSelected"
             [ngClass]="getOptionClasses(b)"
             (change)="onOptionChanged(b, i, $event)"
-            (click)="onHostClick($event, b, i)"
+            (click)="onHostClick(b, i, $event)"
             >
             
             <ng-container *ngTemplateOutlet="optionContent;

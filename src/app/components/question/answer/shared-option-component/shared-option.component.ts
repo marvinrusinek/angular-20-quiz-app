@@ -1303,7 +1303,7 @@ export class SharedOptionComponent
 
 
 
-  public onHostClick(event: MouseEvent, binding: OptionBindings, index: number): void {
+  public onHostClick(binding: OptionBindings, index: number, event: MouseEvent): void {
     const target = event.target as HTMLElement;
     // If we clicked the native input, let it do its thing.
     if (target.tagName === 'INPUT') {
