@@ -179,13 +179,15 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
     this.setPointerEvents(host, 'auto');
     opt.showIcon = false;
   
-    // SELECTED
-    if (cfg.isOptionSelected) {
-      if (cfg.isAnswerCorrect) {
-        this.setBackgroundColor(host, '#43f756'); // green
-      } else {
-        this.setBackgroundColor(host, '#ff0000'); // red
-      }
+    // SELECTED (robust against Angular timing)
+    const isSelectedNow =
+      cfg.isOptionSelected === true || cfg.option.selected === true;
+
+    if (isSelectedNow) {
+      this.setBackgroundColor(
+        host,
+        cfg.isAnswerCorrect ? '#43f756' : '#ff0000'
+      );
       opt.showIcon = true;
       return;
     }
