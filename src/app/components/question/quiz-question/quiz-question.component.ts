@@ -2268,9 +2268,6 @@ export class QuizQuestionComponent
         showCorrectMessage: false,
         showExplanation: false,
         explanationText: '',
-        //quizQuestionComponentOnOptionClicked: () => { },
-        //onOptionClicked: () => Promise.resolve(),
-        //onQuestionAnswered: () => { },
         shouldResetBackground: false,
         showFeedbackForOption: {},
         isOptionSelected: false,
@@ -2287,11 +2284,6 @@ export class QuizQuestionComponent
       this.cdRef.markForCheck();
 
       await (instance as any).initializeSharedOptionConfig(clonedOptions);
-
-      /* if (!Object.prototype.hasOwnProperty.call(instance, 'onOptionClicked')) {
-        (instance as any).onOptionClicked = this.onOptionClicked.bind(this);
-        console.log('[🔁 Bound onOptionClicked to instance]');
-      } */
 
       const hasRenderableOptions =
         Array.isArray(instance.optionsToDisplay) &&
@@ -2324,7 +2316,7 @@ export class QuizQuestionComponent
       ev,
     );
 
-    const q = this.currentQuestion; // QQC always sets this before dynamic load
+    const q = this.currentQuestion;  // QQC always sets this before dynamic load
     const idx = ev.index;
 
     if (!q) {
