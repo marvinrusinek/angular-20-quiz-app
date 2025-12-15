@@ -13,7 +13,6 @@
               [appHighlightInputType]="'radio'"
               [appHighlightReset]="shouldResetBackground"
               [sharedOptionConfig]="getSharedOptionConfig(b, i)"
-              [checked]="b.isSelected"
               [value]="b.option.optionId"
               [ngClass]="getOptionClasses(b)"
               (change)="onOptionChanged(b, i, $event)"
@@ -68,8 +67,7 @@
       @if (shouldShowFeedbackFor(b)) {
         <div class="feedback-wrapper">
           <codelab-quiz-feedback
-            [feedbackConfig]="feedbackConfigs[b.option.optionId]"
-          />
+            [feedbackConfig]="feedbackConfigs[b.option.optionId]" />
         </div>
       }
     </ng-template>
