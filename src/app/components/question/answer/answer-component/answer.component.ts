@@ -472,8 +472,13 @@ export class AnswerComponent
       })),
     );
 
+    if (this.questionIndex == null) {
+      console.warn('[onOptionClicked] questionIndex is null — skipping completion check');
+      return;
+    }
+
     const allSelected =
-      this.selectedOptionService.getSelectedOptionsForQuestion(questionIndex);
+      this.selectedOptionService.getSelectedOptionsForQuestion(this.questionIndex);
 
     const complete =
       this.selectedOptionService.isQuestionComplete(
