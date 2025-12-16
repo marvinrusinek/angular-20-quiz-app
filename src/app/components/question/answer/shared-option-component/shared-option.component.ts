@@ -816,38 +816,27 @@ export class SharedOptionComponent
 
   buildSharedOptionConfig(b: OptionBindings, i: number): SharedOptionConfig {
     return {
-      // ─────────────────────────────
-      // option-level
-      // ─────────────────────────────
       option: b.option,
       idx: i,
       type: this.type,
-
       isOptionSelected: b.isSelected,
       isAnswerCorrect: b.isCorrect,
-
       highlightCorrectAfterIncorrect: this.highlightCorrectAfterIncorrect,
       shouldResetBackground: this.shouldResetBackground,
-
       feedback: b.feedback ?? '',
       showFeedbackForOption: this.showFeedbackForOption,
-
       // ─────────────────────────────
       // question / quiz-level (pass-through)
       // ─────────────────────────────
       optionsToDisplay: this.optionsToDisplay,
       selectedOption: this.selectedOption,
       currentQuestion: this.currentQuestion,
-
       showFeedback: this.showFeedback,
-
       correctMessage: this.correctMessage,
       showCorrectMessage: !!this.correctMessage,
-
       explanationText: '',
       showExplanation: false,
-
-      selectedOptionIndex: this.selectedOptionIndex,
+      selectedOptionIndex: this.selectedOptionIndex
     };
   }
 
