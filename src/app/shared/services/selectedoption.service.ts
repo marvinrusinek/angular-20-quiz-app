@@ -2666,26 +2666,35 @@ export class SelectedOptionService {
     question: QuizQuestion,
     selected: SelectedOption[],
   ): boolean {
-    if (!question?.options?.length) return false;
-
-    // Get ALL correct option IDs from the question
-    const correctIds = question.options
-      .filter(o => o.correct === true)
-      .map(o => o.optionId)
-      .filter((id): id is number => typeof id === 'number');
-
-    if (correctIds.length === 0) return false;
-
-    // Get selected option IDs (ignore correctness here)
+    if (!question || !Array.isArray(question.options)) return false;
+  
     const selectedIds = new Set<number>(
       (selected ?? [])
         .map(o => o.optionId)
         .filter((id): id is number => typeof id === 'number'),
     );
-
-    // COMPLETE iff *all* correct IDs are selected
-    return correctIds.every(id => selectedIds.has(id));
-  }
+  
+    if (selectedIds.size === 0) return false;
+  
+    // SINGLE-ANSWER: complete after one selection
+    if (question.type === QuestionType.SingleAnswer) {
+      return selectedIds.size === 1;
+    }
+  
+    // MULTIPLE-ANSWER: complete only when all correct options are selected
+    if (question.type === QuestionType.MultipleAnswer) {
+      const correctIds = question.options
+        .filter(o => o.correct === true)
+        .map(o => o.optionId)
+        .filter((id): id is number => typeof id === 'number');
+    
+      if (correctIds.length === 0) return false;
+    
+      return correctIds.every(id => selectedIds.has(id));
+    }
+  
+    return false;
+  } 
 }
 
 
