@@ -472,10 +472,14 @@ export class AnswerComponent
       })),
     );
 
+    const allSelected =
+      this.selectedOptionService.getSelectedOptionsForQuestion(questionIndex);
+
     const complete =
       this.selectedOptionService.isQuestionComplete(
         question,
-        selectedNow
+        //selectedNow
+        allSelected
       );
 
     console.log(
@@ -499,6 +503,7 @@ export class AnswerComponent
         'color:red;font-weight:bold;'
       );
       this.timerService.stopTimer();
+      // show formatted explanation
     }
 
     this._wasComplete = complete;
