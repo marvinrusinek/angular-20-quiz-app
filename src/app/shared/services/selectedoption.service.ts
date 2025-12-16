@@ -513,9 +513,13 @@ export class SelectedOptionService {
     question: QuizQuestion,
     selectedOptionIds: Set<number>
   ): boolean {
+    // FIXED: Only get CORRECT option IDs, not ALL options
     const correctIds = question.options
+      .filter(o => o.correct === true)  // <-- BUG FIX: filter for correct options first
       .map(o => o.optionId)
       .filter((id): id is number => typeof id === 'number');
+
+    console.log('[areAllCorrectAnswersSelected] correctIds:', correctIds, 'selectedIds:', Array.from(selectedOptionIds));
 
     if (correctIds.length === 0) return false;
 
@@ -1206,10 +1210,12 @@ export class SelectedOptionService {
           canonicalOptions,
         );
 
-      if (allCorrectAnswersSelected && !this.stopTimerEmitted) {
-        this.stopTimer$.next();
-        this.stopTimerEmitted = true;
-      }
+      // REMOVED: Timer stop is now handled in SharedOptionComponent.onOptionContentClick
+      // with proper multi-answer logic
+      // if (allCorrectAnswersSelected && !this.stopTimerEmitted) {
+      //   this.stopTimer$.next();
+      //   this.stopTimerEmitted = true;
+      // }
     } catch (error) {
       console.error('[updateAnsweredState] Unhandled error:', error);
     }

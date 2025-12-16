@@ -816,6 +816,9 @@ export class SharedOptionComponent
 
   buildSharedOptionConfig(b: OptionBindings, i: number): SharedOptionConfig {
     return {
+      // ─────────────────────────────
+      // option-level
+      // ─────────────────────────────
       option: b.option,
       idx: i,
       type: this.type,
@@ -1307,7 +1310,75 @@ export class SharedOptionComponent
     // Prevent the click from bubbling up to the mat-radio-button/mat-checkbox
     event.stopPropagation();
 
-    const isSingle = this.type === 'single';
+    // ═══════════════════════════════════════════════════════════════════
+    // 🔥 TIMER STOP LOGIC
+    // Single-answer: stop when correct option is clicked
+    // Multi-answer: stop when ALL correct options are selected
+    // ═══════════════════════════════════════════════════════════════════
+    const clickedIsCorrect = binding.option.correct === true;
+    const questionIndex = this.getActiveQuestionIndex() ?? 0;
+    const question = this.quizService?.questions?.[questionIndex];
+
+    // Use question.type directly instead of this.type for accuracy
+    const isMultipleAnswer = question?.type === 'multiple' ||
+      question?.type === 'MultipleAnswer' ||
+      (question?.options?.filter((o: Option) => o.correct === true).length ?? 0) > 1;
+    const isSingle = !isMultipleAnswer;
+
+    console.log(`[SOC] 🔥 Timer check: this.type=${this.type}, question.type=${question?.type}, isMultipleAnswer=${isMultipleAnswer}, clickedIsCorrect=${clickedIsCorrect}`);
+
+    if (isSingle) {
+      // SINGLE-ANSWER: Stop timer when correct option is clicked
+      if (clickedIsCorrect) {
+        console.log(`[SOC] 🎯 SINGLE-ANSWER: Correct option clicked → STOPPING TIMER`);
+        this.timerService.allowAuthoritativeStop();
+        this.timerService.stopTimer(undefined, { force: true });
+      }
+    } else {
+      // MULTI-ANSWER: Check if ALL correct options are now selected
+      if (question?.options) {
+        // Get all correct option IDs
+        const correctIds = question.options
+          .filter((o: Option) => o.correct === true)
+          .map((o: Option) => o.optionId)
+          .filter((id: number | undefined): id is number => typeof id === 'number');
+
+        // Get currently selected option IDs from bindings
+        const selectedIds = new Set<number>();
+        this.optionBindings.forEach((b: OptionBindings) => {
+          // Only count options that are currently marked as selected
+          if (b.isSelected && typeof b.option.optionId === 'number') {
+            selectedIds.add(b.option.optionId);
+          }
+        });
+
+        // Add the current option being clicked (it's being selected now)
+        if (typeof binding.option.optionId === 'number') {
+          selectedIds.add(binding.option.optionId);
+        }
+
+        // Check if ALL correct options are now selected
+        const allCorrectSelected = correctIds.every((id: number) => selectedIds.has(id));
+
+        console.log(`[SOC] 📊 MULTI-ANSWER check:`, {
+          correctIds,
+          selectedIds: Array.from(selectedIds),
+          correctCount: correctIds.length,
+          selectedCount: selectedIds.size,
+          allCorrectSelected
+        });
+
+        if (allCorrectSelected) {
+          console.log(`[SOC] 🎯 MULTI-ANSWER: ALL correct options selected → STOPPING TIMER`);
+          this.timerService.allowAuthoritativeStop();
+          this.timerService.stopTimer(undefined, { force: true });
+        } else {
+          console.log(`[SOC] ⏳ MULTI-ANSWER: Not all correct options selected yet, timer continues`);
+        }
+      }
+    }
+    // ═══════════════════════════════════════════════════════════════════
+
     // For radio: always select. For checkbox: toggle.
     const newState = isSingle ? true : !binding.isSelected;
 
@@ -1437,7 +1508,8 @@ export class SharedOptionComponent
 
       // TIMER STOP: Check if all correct answers are now selected and stop timer
       // This handles the "incorrect → correct" re-selection scenario
-      this.checkAndStopTimerIfAllCorrect(currentIndex);
+      // Pass the current optionId since it may not be committed to the service yet
+      this.checkAndStopTimerIfAllCorrect(currentIndex, optionId);
     }
 
     if (this.type === 'single') {
@@ -3235,10 +3307,15 @@ export class SharedOptionComponent
   /**
    * TIMER STOP FAILSAFE: Check if all correct answers are selected and stop timer
    * This handles the re-selection scenario (incorrect → correct)
+   * @param questionIndex - The current question index
+   * @param currentOptionId - The optionId currently being clicked (may not be committed yet)
    */
-  private checkAndStopTimerIfAllCorrect(questionIndex: number): void {
+  private checkAndStopTimerIfAllCorrect(questionIndex: number, currentOptionId: number): void {
+    console.log(`[SharedOptionComponent] 🔍 checkAndStopTimerIfAllCorrect called for Q${questionIndex + 1}, optionId=${currentOptionId}`);
+
     const question = this.quizService?.questions?.[questionIndex];
     if (!question || !Array.isArray(question.options)) {
+      console.log('[SharedOptionComponent] ❌ No question or options found');
       return;
     }
 
@@ -3248,33 +3325,51 @@ export class SharedOptionComponent
       .map((opt: Option) => opt.optionId as number);
 
     if (correctOptionIds.length === 0) {
+      console.log('[SharedOptionComponent] ❌ No correct options found');
       return;
     }
 
-    // Get currently selected options from bindings
-    const selectedIds: number[] = this.optionBindings
-      .filter((b: OptionBindings) => b.option.selected === true || b.isSelected === true)
-      .map((b: OptionBindings) => b.option.optionId as number);
+    // Get currently selected options from SelectedOptionService (the source of truth)
+    const selectedFromService = this.selectedOptionService.getSelectedOptionsForQuestion(questionIndex);
+    const selectedIdsFromService: number[] = selectedFromService
+      .map((s: any) => s.optionId)
+      .filter((id: any): id is number => typeof id === 'number');
 
-    const selectedSet = new Set<number>(selectedIds);
+    // CRITICAL: Include the current optionId being clicked (may not be in service yet)
+    const selectedSet = new Set<number>(selectedIdsFromService);
+    selectedSet.add(currentOptionId);
+
+    const selectedIds = Array.from(selectedSet);
+
+    console.log('[SharedOptionComponent] 📊 Timer check:', {
+      questionIndex,
+      correctOptionIds,
+      selectedIds,
+      currentOptionId,
+      isMultiple: correctOptionIds.length > 1
+    });
 
     // For SINGLE-answer: check if the selected option is correct
     if (correctOptionIds.length === 1) {
-      const isCorrectSelected = correctOptionIds.some((id: number) => selectedSet.has(id));
+      const isCorrectSelected = correctOptionIds.includes(currentOptionId);
+
+      console.log(`[SharedOptionComponent] SINGLE-answer check: currentOptionId=${currentOptionId}, isCorrect=${isCorrectSelected}`);
 
       if (isCorrectSelected) {
-        console.log(`[SharedOptionComponent] 🎯 SINGLE-answer correct → stopping timer`);
+        console.log(`[SharedOptionComponent] 🎯 SINGLE-answer correct → STOPPING TIMER`);
         this.timerService.allowAuthoritativeStop();
         this.timerService.stopTimer(undefined, { force: true });
       }
       return;
     }
 
-    // For MULTIPLE-answer: check if ALL correct options are selected
+    // For MULTIPLE-answer: check if ALL correct options are now selected
     const allCorrectSelected = correctOptionIds.every((id: number) => selectedSet.has(id));
 
+    console.log(`[SharedOptionComponent] MULTI-answer check: allCorrectSelected=${allCorrectSelected}`);
+
     if (allCorrectSelected) {
-      console.log(`[SharedOptionComponent] 🎯 ALL correct answers selected → stopping timer`);
+      console.log(`[SharedOptionComponent] 🎯 ALL correct answers selected → STOPPING TIMER`);
       this.timerService.allowAuthoritativeStop();
       this.timerService.stopTimer(undefined, { force: true });
     }

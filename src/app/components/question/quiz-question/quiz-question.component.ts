@@ -3162,6 +3162,9 @@ export class QuizQuestionComponent
       finalIdx: idx,
     });
 
+    // Timer stop logic is now handled in SharedOptionComponent.onOptionContentClick
+    // with proper multi-answer support
+
     // Use the *question index* for SOS, NOT the option index
     const checkStateTop =
       this.selectedOptionService.getSelectedOptionsForQuestion(idx);
@@ -3244,10 +3247,16 @@ export class QuizQuestionComponent
           .filter((id): id is number => typeof id === 'number') ?? []
       );
 
+      // CRITICAL: Add the current optionId being clicked (may not be in service yet!)
+      const currentOptId = evtOpt.optionId;
+      if (typeof currentOptId === 'number' && evtChecked) {
+        selectedIds.add(currentOptId);
+      }
+
       console.log(
         '%c[DIAG] SOS RAW STATE BEFORE TIMER CHECK',
         'background:red;color:white;font-weight:bold;',
-        this.selectedOptionService.getSelectedOptionsForQuestion(idx)
+        { fromService: this.selectedOptionService.getSelectedOptionsForQuestion(idx), selectedIds: Array.from(selectedIds), currentOptId }
       );
 
       const allCorrectForTimer =
@@ -3263,7 +3272,9 @@ export class QuizQuestionComponent
       );
 
       if (allCorrectForTimer) {
-        await this.timerService.stopTimer();
+        console.log(`[QQC] 🎯 ALL CORRECT → Stopping timer with force`);
+        this.timerService.allowAuthoritativeStop();
+        this.timerService.stopTimer(undefined, { force: true });
       }
 
       // ───────────────────────────────────────────────
@@ -5275,10 +5286,11 @@ export class QuizQuestionComponent
           shouldStop = [...correctIds].every(id => selectedIds.has(id));
         }
 
-        if (shouldStop) {
-          this.timerService.allowAuthoritativeStop();
-          this.timerService.stopTimerForQuestion(idx);
-        }
+        // REMOVED: Timer stop is now handled in SharedOptionComponent
+        // if (shouldStop) {
+        //   this.timerService.allowAuthoritativeStop();
+        //   this.timerService.stopTimerForQuestion(idx);
+        // }
       });
 
       // ─────────────────────────────────────────────

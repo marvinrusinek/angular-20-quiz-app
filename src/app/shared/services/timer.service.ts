@@ -109,6 +109,10 @@ export class TimerService implements OnDestroy {
       return;
     }
 
+    // CRITICAL: Must grant authority before calling attemptStopTimerForQuestion
+    this._authoritativeStop = true;
+    console.log(`[TimerService] 🔑 Granting authoritative stop for Q${activeQuestionIndex + 1}`);
+
     const stopped = this.attemptStopTimerForQuestion({
       questionIndex: activeQuestionIndex,
       onStop: (elapsed?: number) => {
@@ -299,7 +303,7 @@ export class TimerService implements OnDestroy {
     // Fire sound (or any UX) BEFORE stopping so teardown doesn't kill it
     try {
       options.onBeforeStop?.();
-    } catch {}
+    } catch { }
 
     try {
       // Stop the timer with force to ensure it stops
