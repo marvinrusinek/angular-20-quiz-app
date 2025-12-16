@@ -3254,24 +3254,24 @@ export class SharedOptionComponent
     }
 
     // Get all correct option IDs
-    const correctOptionIds = question.options
-      .filter(opt => opt.correct === true)
-      .map(opt => opt.optionId);
+    const correctOptionIds: number[] = question.options
+      .filter((opt: Option) => opt.correct === true)
+      .map((opt: Option) => opt.optionId as number);
 
     if (correctOptionIds.length === 0) {
       return;
     }
 
     // Get currently selected options from bindings
-    const selectedIds = this.optionBindings
-      .filter(b => b.option.selected === true || b.isSelected === true)
-      .map(b => b.option.optionId);
+    const selectedIds: number[] = this.optionBindings
+      .filter((b: OptionBindings) => b.option.selected === true || b.isSelected === true)
+      .map((b: OptionBindings) => b.option.optionId as number);
 
-    const selectedSet = new Set(selectedIds);
+    const selectedSet = new Set<number>(selectedIds);
 
     // For SINGLE-answer: check if the selected option is correct
     if (correctOptionIds.length === 1) {
-      const isCorrectSelected = correctOptionIds.some(id => selectedSet.has(id));
+      const isCorrectSelected = correctOptionIds.some((id: number) => selectedSet.has(id));
 
       if (isCorrectSelected) {
         console.log(`[SharedOptionComponent] 🎯 SINGLE-answer correct → stopping timer`);
@@ -3282,7 +3282,7 @@ export class SharedOptionComponent
     }
 
     // For MULTIPLE-answer: check if ALL correct options are selected
-    const allCorrectSelected = correctOptionIds.every(id => selectedSet.has(id));
+    const allCorrectSelected = correctOptionIds.every((id: number) => selectedSet.has(id));
 
     if (allCorrectSelected) {
       console.log(`[SharedOptionComponent] 🎯 ALL correct answers selected → stopping timer`);
