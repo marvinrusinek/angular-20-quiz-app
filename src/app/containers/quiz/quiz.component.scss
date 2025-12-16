@@ -29,43 +29,49 @@
   pointer-events: none !important;
 }
 
-/* ============================================================
-   WRAPPER (never animated)
-   ============================================================ */
 .quiz-card-wrapper {
-  width: 100%;
+  margin: 12px auto;
   max-width: 680px;
+
+  /* THIS creates the gray “thick” RHS + bottom */
+  box-shadow:
+  10px 10px 5px rgba(0, 0, 0, 0.35),
+  6px 0 0 rgba(0, 0, 0, 0.25);
+
+  border-radius: 10px;
+
+  /* 🔑 create visual separation */
+  padding-right: 2px;
+  padding-bottom: 2px;
+
+  background: transparent;
+  overflow: visible;
 }
 
-/* ============================================================
-   MAIN CARD (REAL animated element)
-   ============================================================ */
 .quiz-card {
   width: 100%;
-  background: #fff !important;
+  padding: 16px;
 
-  border: 1.5px solid #000 !important;
-  border-right-width: 3px !important;
-  border-bottom-width: 3px !important;
+  background: #fff;
+  border: 1.5px solid vars.$black;
+  border-radius: 10px;
 
-  border-radius: 10px !important;
-  box-shadow: 10px 10px 5px #999 !important;
-
-  padding: 16px !important;
-  box-sizing: border-box;
-  overflow: visible !important;
+  box-shadow: none;
+  margin: 0;
 }
 
-/* Force override of Angular Material card */
+/* FORCE OVERRIDE Angular Material's card styling */
 :host ::ng-deep mat-card.quiz-card {
   border: 1.5px solid #000 !important;
-  border-right-width: 3px !important;
+  border-right-width: 3px !important;   /* thick on RHS */
   box-shadow: 10px 10px 5px #888 !important;
   border-radius: 10px !important;
   background: #fff !important;
   padding: 16px !important;
   overflow: visible !important;
 }
+
+  
 
 /* Material card fix */
 :host ::ng-deep .mdc-card,

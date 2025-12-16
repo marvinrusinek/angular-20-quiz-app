@@ -62,9 +62,12 @@ import { QuizService } from '../../../../shared/services/quiz.service';
 import { QuizStateService } from '../../../../shared/services/quizstate.service';
 import { SelectedOptionService } from '../../../../shared/services/selectedoption.service';
 import { SelectionMessageService } from '../../../../shared/services/selection-message.service';
+import { NextButtonStateService } from '../../../../shared/services/next-button-state.service';
+import { TimerService } from '../../../../shared/services/timer.service';
 import { SoundService } from '../../../../shared/services/sound.service';
 import { UserPreferenceService } from '../../../../shared/services/user-preference.service';
 import { HighlightOptionDirective } from '../../../../directives/highlight-option.directive';
+import { SharedOptionConfigDirective } from '../../../../directives/shared-option-config.directive';
 
 @Component({
   selector: 'app-shared-option',
@@ -77,6 +80,7 @@ import { HighlightOptionDirective } from '../../../../directives/highlight-optio
     MatIconModule,
     FeedbackComponent,
     HighlightOptionDirective,
+    SharedOptionConfigDirective
   ],
   templateUrl: './shared-option.component.html',
   styleUrls: ['../../quiz-question/quiz-question.component.scss'],
@@ -115,6 +119,7 @@ export class SharedOptionComponent
   @Input() renderReady = false;
   @Input() finalRenderReady$: Observable<boolean> | null = null;
   @Input() questionVersion = 0; // increments every time questionIndex changes
+  @Input() sharedOptionConfig!: SharedOptionConfig;
   public finalRenderReady = false;
   private finalRenderReadySub?: Subscription;
   private selectionSub!: Subscription;
@@ -158,10 +163,7 @@ export class SharedOptionComponent
 
   private click$ = new Subject<{ b: OptionBindings; i: number }>();
 
-  /* trackByOptionId = (_: number, b: OptionBindings) => {
-    return b?.option?.optionId ?? _;
-  }; */
-  trackByOptionId = (_: number, b: OptionBindings) => b.option.optionId;
+  trackByOptionId = (b: OptionBindings, _: number) => b.option.optionId ?? _;
 
   private flashDisabledSet = new Set<number>();
   private lockedIncorrectOptionIds = new Set<number>();
@@ -185,6 +187,8 @@ export class SharedOptionComponent
     private selectionMessageService: SelectionMessageService,
     private soundService: SoundService,
     private userPreferenceService: UserPreferenceService,
+    private nextButtonStateService: NextButtonStateService,
+    private timerService: TimerService,
     private cdRef: ChangeDetectorRef,
     private fb: FormBuilder,
     private ngZone: NgZone,
@@ -810,6 +814,50 @@ export class SharedOptionComponent
     this.updateHighlighting();
   }
 
+  buildSharedOptionConfig(b: OptionBindings, i: number): SharedOptionConfig {
+    return {
+      // ─────────────────────────────
+      // option-level
+      // ─────────────────────────────
+      option: b.option,
+      idx: i,
+      type: this.type,
+
+      isOptionSelected: b.isSelected,
+      isAnswerCorrect: b.isCorrect,
+
+      highlightCorrectAfterIncorrect: this.highlightCorrectAfterIncorrect,
+      shouldResetBackground: this.shouldResetBackground,
+
+      feedback: b.feedback ?? '',
+      showFeedbackForOption: this.showFeedbackForOption,
+
+      // ─────────────────────────────
+      // question / quiz-level (pass-through)
+      // ─────────────────────────────
+      optionsToDisplay: this.optionsToDisplay,
+      selectedOption: this.selectedOption,
+      currentQuestion: this.currentQuestion,
+
+      showFeedback: this.showFeedback,
+
+      correctMessage: this.correctMessage,
+      showCorrectMessage: !!this.correctMessage,
+
+      explanationText: '',
+      showExplanation: false,
+
+      selectedOptionIndex: this.selectedOptionIndex,
+    };
+  }
+
+  public getSharedOptionConfig(
+    b: OptionBindings,
+    i: number
+  ): SharedOptionConfig {
+    return this.buildSharedOptionConfig(b, i);
+  }
+
   private handleClick(binding: OptionBindings, index: number): void {
     // 🔹 your existing handleClick body stays as-is, up to the end
     // (selection maps, sound, history, etc.)
@@ -1254,9 +1302,7 @@ export class SharedOptionComponent
     this.updateOptionAndUI(b, i, event);
   }
 
-
-
-  public onHostClick(event: MouseEvent, binding: OptionBindings, index: number): void {
+  public onOptionInteraction(binding: OptionBindings, index: number, event: MouseEvent): void {
     const target = event.target as HTMLElement;
     // If we clicked the native input, let it do its thing.
     if (target.tagName === 'INPUT') {
@@ -1264,11 +1310,11 @@ export class SharedOptionComponent
     }
 
     // If we clicked the padding/background (host), trigger manual selection.
-    // We reuse onDivClick logic since it does exactly what we want (Manual Logic + Form Sync).
-    this.onDivClick(event, binding, index);
+    // We reuse onOptionContentClick logic since it does exactly what we want (Manual Logic + Form Sync).
+    this.onOptionContentClick(binding, index, event);
   }
 
-  public onDivClick(event: MouseEvent, binding: OptionBindings, index: number): void {
+  public onOptionContentClick(binding: OptionBindings, index: number, event: MouseEvent): void {
     // Prevent the click from bubbling up to the mat-radio-button/mat-checkbox
     event.stopPropagation();
 
@@ -1390,6 +1436,19 @@ export class SharedOptionComponent
         this.type === 'multiple',
         this.optionsToDisplay
       );
+
+      // GUARANTEED FAILSAFE: Directly set answered state to enable Next button
+      // This ensures the button enables even if selectOption has internal issues
+      this.selectedOptionService.setAnswered(true, true);
+
+      // DOUBLE FAILSAFE: Directly set the button state via NextButtonStateService
+      // This bypasses ALL stream logic and directly enables the button
+      this.nextButtonStateService.setNextButtonState(true);
+      console.log('[SharedOptionComponent] ✅ FORCED setNextButtonState(true) - Button should now enable');
+
+      // TIMER STOP: Check if all correct answers are now selected and stop timer
+      // This handles the "incorrect → correct" re-selection scenario
+      this.checkAndStopTimerIfAllCorrect(currentIndex);
     }
 
     if (this.type === 'single') {
@@ -2809,19 +2868,13 @@ export class SharedOptionComponent
     return showFromCfg || showLegacy;
   }
 
-  /* public shouldShowFeedback(index: number): boolean {
-    const optionId = this.optionBindings?.[index]?.option?.optionId;
+  shouldShowFeedbackFor(b: OptionBindings): boolean {
+    const id = b.option.optionId;
     return (
-      this.showFeedback &&
-      optionId !== undefined &&
-      this.showFeedbackForOption?.[optionId] === true &&
-      !!this.optionBindings?.[index]?.option?.feedback
+      id === this.lastFeedbackOptionId &&
+      !!this.feedbackConfigs[id]?.showFeedback
     );
-  } */
-
-  /* isAnswerCorrect(): boolean {
-    return !!this.selectedOption?.correct;
-  } */
+  }
 
   public get canDisplayOptions(): boolean {
     return (
@@ -3188,5 +3241,53 @@ export class SharedOptionComponent
     }
 
     return 0; // emergency fallback
+  }
+
+  /**
+   * TIMER STOP FAILSAFE: Check if all correct answers are selected and stop timer
+   * This handles the re-selection scenario (incorrect → correct)
+   */
+  private checkAndStopTimerIfAllCorrect(questionIndex: number): void {
+    const question = this.quizService?.questions?.[questionIndex];
+    if (!question || !Array.isArray(question.options)) {
+      return;
+    }
+
+    // Get all correct option IDs
+    const correctOptionIds = question.options
+      .filter(opt => opt.correct === true)
+      .map(opt => opt.optionId);
+
+    if (correctOptionIds.length === 0) {
+      return;
+    }
+
+    // Get currently selected options from bindings
+    const selectedIds = this.optionBindings
+      .filter(b => b.option.selected === true || b.isSelected === true)
+      .map(b => b.option.optionId);
+
+    const selectedSet = new Set(selectedIds);
+
+    // For SINGLE-answer: check if the selected option is correct
+    if (correctOptionIds.length === 1) {
+      const isCorrectSelected = correctOptionIds.some(id => selectedSet.has(id));
+
+      if (isCorrectSelected) {
+        console.log(`[SharedOptionComponent] 🎯 SINGLE-answer correct → stopping timer`);
+        this.timerService.allowAuthoritativeStop();
+        this.timerService.stopTimer(undefined, { force: true });
+      }
+      return;
+    }
+
+    // For MULTIPLE-answer: check if ALL correct options are selected
+    const allCorrectSelected = correctOptionIds.every(id => selectedSet.has(id));
+
+    if (allCorrectSelected) {
+      console.log(`[SharedOptionComponent] 🎯 ALL correct answers selected → stopping timer`);
+      this.timerService.allowAuthoritativeStop();
+      this.timerService.stopTimer(undefined, { force: true });
+    }
   }
 }

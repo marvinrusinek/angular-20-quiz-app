@@ -619,8 +619,10 @@ export class SelectedOptionService {
     isMultiSelect: boolean,
     optionsSnapshot?: Option[], // ← NEW (optional live snapshot)
   ): Promise<void> {
+    console.warn('[SelectedOptionService] 🎯 selectOption CALLED:', { optionId, questionIndex, text, isMultiSelect });
+
     if (optionId == null || questionIndex == null || !text) {
-      console.error('Invalid data for SelectedOption:', {
+      console.error('[SelectedOptionService] ❌ Invalid data - EARLY RETURN:', {
         optionId,
         questionIndex,
         text,
@@ -771,7 +773,7 @@ export class SelectedOptionService {
 
     if (canonicalOptionId == null) {
       // Log a compact snapshot to see why it failed.
-      console.error('Unable to determine a canonical optionId for selection', {
+      console.error('[SelectedOptionService] ❌ canonicalOptionId is null - EARLY RETURN', {
         optionId,
         questionIndex,
         text,
@@ -825,6 +827,11 @@ export class SelectedOptionService {
     }
 
     this.selectedOptionSubject.next(committedSelections);
+
+    // CRITICAL FIX: Emit to isAnsweredSubject so NextButtonStateService enables the button
+    // This was the missing link - selectOption was updating isOptionSelectedSubject but not isAnsweredSubject
+    this.isAnsweredSubject.next(true);
+    console.log('[SelectedOptionService] isAnsweredSubject emitted TRUE');
 
     if (!isMultiSelect) {
       this.isOptionSelectedSubject.next(true);

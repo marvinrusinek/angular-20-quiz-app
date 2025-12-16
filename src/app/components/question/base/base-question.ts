@@ -303,16 +303,17 @@ export abstract class BaseQuestion<
       isAnswerCorrect: false,
       feedback: this.feedback || '',
       highlightCorrectAfterIncorrect: false,
-      quizQuestionComponentOnOptionClicked:
-        this.quizQuestionComponentOnOptionClicked || (() => {}),
-      onOptionClicked: (option, index, checked) =>
-        this.onOptionClicked({ option, index, checked }),
-      onQuestionAnswered: this.onQuestionAnswered.bind(this),
+      //quizQuestionComponentOnOptionClicked:
+        //this.quizQuestionComponentOnOptionClicked || (() => {}),
+      //onOptionClicked: (option, index, checked) =>
+        //this.onOptionClicked({ option, index, checked }),
+      //onQuestionAnswered: this.onQuestionAnswered.bind(this),
     };
   }
 
   getDefaultSharedOptionConfig(): SharedOptionConfig {
     return {
+      option: null as unknown as Option,
       optionsToDisplay: [],
       type: 'single',
       shouldResetBackground: false,
@@ -329,10 +330,10 @@ export abstract class BaseQuestion<
       showCorrectMessage: false,
       explanationText: '',
       showExplanation: false,
-      quizQuestionComponentOnOptionClicked: () => {},
-      onOptionClicked: () => Promise.resolve(),
-      onQuestionAnswered: () => {},
-      idx: 0,
+      //quizQuestionComponentOnOptionClicked: () => {},
+      //onOptionClicked: () => Promise.resolve(),
+      //onQuestionAnswered: () => {},
+      idx: 0
     };
   }
 
