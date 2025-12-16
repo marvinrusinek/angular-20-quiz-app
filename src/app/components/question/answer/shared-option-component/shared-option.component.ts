@@ -816,9 +816,6 @@ export class SharedOptionComponent
 
   buildSharedOptionConfig(b: OptionBindings, i: number): SharedOptionConfig {
     return {
-      // ─────────────────────────────
-      // option-level
-      // ─────────────────────────────
       option: b.option,
       idx: i,
       type: this.type,
@@ -828,9 +825,6 @@ export class SharedOptionComponent
       shouldResetBackground: this.shouldResetBackground,
       feedback: b.feedback ?? '',
       showFeedbackForOption: this.showFeedbackForOption,
-      // ─────────────────────────────
-      // question / quiz-level (pass-through)
-      // ─────────────────────────────
       optionsToDisplay: this.optionsToDisplay,
       selectedOption: this.selectedOption,
       currentQuestion: this.currentQuestion,
