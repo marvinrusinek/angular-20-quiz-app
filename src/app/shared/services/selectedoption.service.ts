@@ -140,9 +140,9 @@ export class SelectedOptionService {
 
     // If question is single-answer, replace entire selection set
     // (this prevents "first click wins" bugs)
-    if (this.currentQuestionType === QuestionType.SingleAnswer) {
+    /* if (this.currentQuestionType === QuestionType.SingleAnswer) {
       merged.clear();
-    }
+    } */
 
     // Apply new selection (replace by optionId)
     if (typeof newCanonical.optionId === 'number') {
