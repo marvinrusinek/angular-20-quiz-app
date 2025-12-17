@@ -15,8 +15,11 @@
   <mat-card-content>
     <section class="results">
       <h3 i18n>Congratulations! You've completed the quiz!</h3>
+
+      <!-- Immediate -->
       <codelab-results-statistics />
 
+      <!-- Deferred summary -->
       @defer {
         <section class="quiz-summary">
           <details>
@@ -32,9 +35,17 @@
         <p class="loading-muted">Preparing detailed results…</p>
       }
 
-    <codelab-results-return />
-    <hr />
-    <codelab-results-challenge />
+      <!-- Immediate -->
+      <codelab-results-return />
+      <hr />
+
+      <!-- Deferred challenge -->
+      @defer {
+        <codelab-results-challenge />
+      } @placeholder {
+        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+      }
+    </section>
   </mat-card-content>
 
   <app-back-to-top />
