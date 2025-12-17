@@ -2357,7 +2357,7 @@ export class QuizQuestionComponent
     this.explanationTextService.setIsExplanationTextDisplayed(false);
     this.explanationTextService.setExplanationText('', { force: true });
     this.explanationTextService.latestExplanation = '';
-    this.explanationTextService.latestExplanationIndex = null;
+    this.explanationTextService.latestExplanationIndex = this.currentQuestionIndex;
     this.readyForExplanationDisplay = false;
     this.isExplanationReady = false;
     this.isExplanationLocked = true;
