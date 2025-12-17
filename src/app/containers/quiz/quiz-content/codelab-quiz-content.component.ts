@@ -872,12 +872,13 @@ export class CodelabQuizContentComponent
 
         // Normal explanation-mode override
         if (mode === 'explanation') {
-          // SIMPLE FIX: Always check latestExplanation directly to bypass stream timing issues
+          // USE fetByIndex MAP: Check for this specific index first
+          const indexFet = this.explanationTextService.fetByIndex?.get(idx)?.trim() || '';
           const directFet = this.explanationTextService.latestExplanation?.trim() || '';
-          const effectiveFet = fet || directFet;
+          const effectiveFet = indexFet || fet || directFet;
 
           if (effectiveFet) {
-            console.log('[CQCC] 🟢 Explanation mode override → showing FET');
+            console.log('[CQCC] 🟢 Explanation mode override → showing FET for Q' + (idx + 1));
             return effectiveFet as string;
           }
 
@@ -898,12 +899,13 @@ export class CodelabQuizContentComponent
               qState?.isAnswered || qState?.explanationDisplayed;
 
             if (isAnswered) {
-              // SIMPLE FIX: Check latestExplanation directly as fallback
+              // USE fetByIndex MAP: Check for this specific index first
+              const indexFet = this.explanationTextService.fetByIndex?.get(idx)?.trim() || '';
               const directFet = this.explanationTextService.latestExplanation?.trim() || '';
-              const effectiveFet = fet || directFet;
+              const effectiveFet = indexFet || fet || directFet;
 
               if (effectiveFet) {
-                console.log('[CQCC] 🔐 Answered override → forcing FET');
+                console.log('[CQCC] 🔐 Answered override → forcing FET for Q' + (idx + 1));
                 return effectiveFet as string;
               }
               // no FET? fall back to whatever base decided
@@ -985,19 +987,21 @@ export class CodelabQuizContentComponent
       latestExplanationLength: ets.latestExplanation?.trim()?.length ?? 0,
     });
 
-    // MOST DIRECT FIX: If we have FET content and the index matches, show it
-    // This removes the mode dependency which was causing Q2+ to fail
-    const hasValidFet = ets.latestExplanation && ets.latestExplanation.trim().length > 0;
-    const latestIdx = ets.latestExplanationIndex;
-    const indexMatches = (latestIdx === idx) || (ets._activeIndex === idx);
+    // USE fetByIndex MAP AS PRIMARY SOURCE - bypasses stream timing issues
+    // Check if we have FET stored for THIS specific question index
+    const storedFet = ets.fetByIndex?.get(idx)?.trim() || '';
+    const fallbackFet = ets.latestExplanation?.trim() || '';
+    const effectiveFet = storedFet || fallbackFet;
+    const hasValidFet = effectiveFet.length > 0;
 
-    // Show FET if: we have content, index matches, and we're on the active question
+    console.log(`[FET-DEBUG] Q${idx + 1} storedFet="${storedFet.slice(0, 30)}", fallback="${fallbackFet.slice(0, 30)}"`);
+
+    // Show FET if: we have content stored for this index and we're on the active question
     if (
       hasValidFet &&
-      indexMatches &&
       idx === active
     ) {
-      const safe = ets.latestExplanation.trim();
+      const safe = effectiveFet;
 
       console.warn('[✅ FET RENDER]', {
         idx,
