@@ -75,7 +75,7 @@ export class ExplanationTextService {
 
   public _byIndex = new Map<number, BehaviorSubject<string | null>>();
   public _gate = new Map<number, BehaviorSubject<boolean>>();
-  private _activeIndexValue: number | null = null;
+  private _activeIndexValue: number | null = 0; // Start at 0 to match activeIndex$ initial value
   get _activeIndex(): number | null {
     return this._activeIndexValue;
   }
@@ -114,7 +114,7 @@ export class ExplanationTextService {
   private _textMap: Map<number, { text$: ReplaySubject<string> }> = new Map();
   private readonly _instanceId: string = '';
   private _unlockRAFId: number | null = null;
-  public latestExplanationIndex: number | null = null;
+  public latestExplanationIndex: number | null = 0; // Start at 0 to match activeIndex$ initial value
 
   // Convenience accessor to avoid template/type metadata mismatches.
   getFormattedExplanationByIndex(): Observable<FETPayload> {
@@ -1112,6 +1112,10 @@ export class ExplanationTextService {
 
     this.latestExplanation = trimmed;
     this.latestExplanationIndex = index;
+
+    // ✅ CRITICAL: Also emit to formattedExplanationSubject for FINAL LAYER
+    // This ensures getCombinedDisplayTextStream's combineLatest re-evaluates
+    this.formattedExplanationSubject.next(trimmed);
 
     // ✅ Emit immediately without waiting for requestAnimationFrame
     // This ensures the FET is available synchronously for the display stream
