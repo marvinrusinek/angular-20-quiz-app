@@ -403,6 +403,7 @@ export class ExplanationTextService {
       }
 
       this._activeIndex = questionIndex;
+      this.latestExplanationIndex = questionIndex; // Ensure index matches after reset
     } else {
       console.log(
         `[ETS] ℹ️ Index match: Active=${this._activeIndex}, Requested=${questionIndex}`,
@@ -1251,6 +1252,7 @@ export class ExplanationTextService {
     } catch { }
 
     this._activeIndex = index;
+    this.latestExplanationIndex = index; // Ensure FET guard can match for new question
     this.formattedExplanations[index] = {
       questionIndex: index,
       explanation: '',
