@@ -134,6 +134,11 @@ export class ExplanationTextService {
       skip(1), // Skip the initial value (0) so Q1's FET isn't cleared during initialization
       distinctUntilChanged()
     ).subscribe((idx: number) => {
+      // Don't clear if FET has already been set for this index (user clicked)
+      if (this._fetLocked) {
+        console.log(`[ETS] Skipping clear - FET locked for Q${idx + 1}`);
+        return;
+      }
       this.latestExplanation = '';
       this.latestExplanationIndex = idx; // Set to new index instead of null
       this.formattedExplanationSubject.next('');
@@ -309,7 +314,8 @@ export class ExplanationTextService {
     if (!finalExplanation && this.latestExplanation) {
       console.log('[ETS] Clearing stale explanation');
       this.latestExplanation = '';
-      this.latestExplanationIndex = null;
+      // Keep index aligned instead of null so subsequent questions work
+      this.latestExplanationIndex = this._activeIndex ?? 0;
     } else {
       this.latestExplanation = finalExplanation;
     }
@@ -1081,6 +1087,9 @@ export class ExplanationTextService {
 
   // Emit per-index formatted text; coalesces duplicates and broadcasts event
   public emitFormatted(index: number, value: string | null): void {
+    // ✅ Lock immediately to prevent race conditions with reactive streams
+    this._fetLocked = true;
+
     const token = this._currentGateToken;
 
     // ✅ RELAXED GUARDS: Allow emission if we have valid content
