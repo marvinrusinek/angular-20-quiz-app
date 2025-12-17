@@ -66,6 +66,9 @@ export class ExplanationTextService {
   processedQuestions: Set<string> = new Set<string>();
   currentQuestionExplanation: string | null = null;
   latestExplanation = '';
+
+  // FET cache by index - reliable storage that won't be cleared by stream timing issues
+  public fetByIndex = new Map<number, string>();
   explanationsInitialized = false;
   private explanationLocked = false;
   private lockedContext: string | null = null;
@@ -1121,6 +1124,10 @@ export class ExplanationTextService {
 
     this.latestExplanation = trimmed;
     this.latestExplanationIndex = index;
+
+    // RELIABLE FET STORAGE: Store in Map by index so it can be retrieved reliably
+    this.fetByIndex.set(index, trimmed);
+    console.log(`[emitFormatted] Stored FET for Q${index + 1} in fetByIndex Map`);
 
     // ✅ CRITICAL: Also emit to formattedExplanationSubject for FINAL LAYER
     // This ensures getCombinedDisplayTextStream's combineLatest re-evaluates
