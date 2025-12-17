@@ -79,6 +79,7 @@ export class ExplanationTextService {
     return this._activeIndexValue;
   }
   set _activeIndex(value: number | null) {
+    console.log(`[ETS] 📍 _activeIndex SET: ${this._activeIndexValue} → ${value}`);
     this._activeIndexValue = value;
     if (value !== null) {
       this.activeIndex$.next(value);
@@ -226,8 +227,7 @@ export class ExplanationTextService {
       const previous = this.explanationByContext.get(contextKey) ?? '';
       if (previous === trimmed && signature === this.lastExplanationSignature) {
         console.log(
-          `[🛡️ Prevented duplicate emit${
-            contextKey !== this.globalContextKey ? ` for ${contextKey}` : ''
+          `[🛡️ Prevented duplicate emit${contextKey !== this.globalContextKey ? ` for ${contextKey}` : ''
           }]`,
         );
         return;
@@ -256,7 +256,7 @@ export class ExplanationTextService {
       if (!alreadyFormattedRe.test(trimmed)) {
         console.log(
           '[ETS] ⚙️ Auto-formatting explanation for Q' +
-            (this._activeIndexValue + 1),
+          (this._activeIndexValue + 1),
         );
 
         // Try to get the question data to format the explanation
@@ -416,10 +416,10 @@ export class ExplanationTextService {
 
       try {
         this.emitFormatted(0, null);
-      } catch {}
+      } catch { }
       try {
         this.setGate(0, false);
-      } catch {}
+      } catch { }
 
       return of(FALLBACK);
     }
@@ -439,10 +439,10 @@ export class ExplanationTextService {
 
       try {
         this.emitFormatted(questionIndex, null);
-      } catch {}
+      } catch { }
       try {
         this.setGate(questionIndex, false);
-      } catch {}
+      } catch { }
       return of(null);
     }
 
@@ -451,10 +451,10 @@ export class ExplanationTextService {
       console.warn(`[⚠️ No valid explanation for Q${questionIndex}]`);
       try {
         this.emitFormatted(questionIndex, null);
-      } catch {}
+      } catch { }
       try {
         this.setGate(questionIndex, false);
-      } catch {}
+      } catch { }
       return of(FALLBACK);
     }
 
@@ -464,28 +464,29 @@ export class ExplanationTextService {
       `[ETS] ✅ Valid explanation found for Q${questionIndex + 1}, opening gate`,
     );
 
-    // Only emit if explanation belongs to current active question
-    // (but allow re-emit when restoring same index)
+    // ✅ CRITICAL FIX: Ensure _activeIndex is set BEFORE the guard check
+    // This prevents FET from being blocked when _activeIndex is null/different
     if (this._activeIndex !== questionIndex) {
-      console.log(
-        `[ETS] 🚫 Skipping FET emit for mismatched index (incoming=${questionIndex}, active=${this._activeIndex})`,
-      );
-      return of(FALLBACK);
+      console.log(`[ETS] � Setting _activeIndex: ${this._activeIndex} → ${questionIndex} before emit`);
+      this._activeIndex = questionIndex;
     }
+
+    // Guard is now effectively a no-op since we just ensured the match above
+    // Keeping the log for debugging purposes
 
     // Drive only the index-scoped channel (no global .next here)
     try {
       this.emitFormatted(questionIndex, explanation);
       this.latestExplanation = explanation;
       this.latestExplanationIndex = questionIndex;
-    } catch {}
+    } catch { }
 
     // ✅ Open the gate and set display flags
     try {
       this.setGate(questionIndex, true);
       this.setShouldDisplayExplanation(true);
       this.setIsExplanationTextDisplayed(true);
-    } catch {}
+    } catch { }
 
     return of(explanation);
   }
@@ -811,10 +812,10 @@ export class ExplanationTextService {
     ) {
       try {
         this.emitFormatted(this._activeIndex, null);
-      } catch {}
+      } catch { }
       try {
         this.setGate(this._activeIndex, false);
-      } catch {}
+      } catch { }
       console.log(
         `[ETS] 🧹 Cleared stale FET for previous Q${this._activeIndex + 1}`,
       );
@@ -1042,7 +1043,7 @@ export class ExplanationTextService {
     // FET is definitely NOT ready after a full reset
     try {
       this.qss.setExplanationReady(false);
-    } catch {}
+    } catch { }
   }
 
   resetProcessedQuestionsState(): void {
@@ -1119,7 +1120,7 @@ export class ExplanationTextService {
     // At this point, FET is computed and “ready” for this question
     try {
       this.qss.setExplanationReady(true);
-    } catch {}
+    } catch { }
   }
 
   public setGate(index: number, show: boolean): void {
@@ -1170,7 +1171,7 @@ export class ExplanationTextService {
       // FET now open and visible for this index
       try {
         this.qss.setExplanationReady(true);
-      } catch {}
+      } catch { }
     });
   }
 
@@ -1213,11 +1214,11 @@ export class ExplanationTextService {
     ) {
       try {
         this._byIndex.get(this._activeIndex)?.next(null);
-      } catch {}
+      } catch { }
 
       try {
         this._gate.get(this._activeIndex)?.next(false);
-      } catch {}
+      } catch { }
 
       if (this.formattedExplanations) {
         delete this.formattedExplanations[this._activeIndex];
@@ -1239,10 +1240,10 @@ export class ExplanationTextService {
     const { text$, gate$ } = this.getOrCreate(index);
     try {
       text$.next('');
-    } catch {}
+    } catch { }
     try {
       gate$.next(false);
-    } catch {}
+    } catch { }
 
     this._activeIndex = index;
     this.formattedExplanations[index] = {
@@ -1253,7 +1254,7 @@ export class ExplanationTextService {
 
     try {
       this.qss.setExplanationReady(false);
-    } catch {}
+    } catch { }
   }
 
   // Set readiness flag — true when navigation finishes and FET is cached
@@ -1325,7 +1326,7 @@ export class ExplanationTextService {
       if (this.formattedExplanationSubject) {
         this.formattedExplanationSubject.next('');
       }
-    } catch {}
+    } catch { }
     // this.formattedExplanationSubject = new BehaviorSubject<string>(''); // ❌ DON'T REPLACE IT!
     this.formattedExplanation$ =
       this.formattedExplanationSubject.asObservable();
@@ -1339,7 +1340,7 @@ export class ExplanationTextService {
     // Navigation in progress → explanation not ready
     try {
       this.qss.setExplanationReady(false);
-    } catch {}
+    } catch { }
 
     // Cancel any pending unlocks from older cycles
     if (this._unlockRAFId != null) {

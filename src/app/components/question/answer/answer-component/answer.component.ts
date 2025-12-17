@@ -330,7 +330,7 @@ export class AnswerComponent
     if (this.sharedOptionConfig) {
       this.sharedOptionConfig.type = this.type;
       //this.sharedOptionConfig.quizQuestionComponentOnOptionClicked =
-        //this.quizQuestionComponentOnOptionClicked;
+      //this.quizQuestionComponentOnOptionClicked;
     } else {
       console.error(
         'Failed to initialize sharedOptionConfig in AnswerComponent',
@@ -472,10 +472,19 @@ export class AnswerComponent
       })),
     );
 
+    if (this.questionIndex == null) {
+      console.warn('[onOptionClicked] questionIndex is null — skipping completion check');
+      return;
+    }
+
+    const allSelected =
+      this.selectedOptionService.getSelectedOptionsForQuestion(this.questionIndex);
+
     const complete =
       this.selectedOptionService.isQuestionComplete(
         question,
-        selectedNow
+        //selectedNow
+        allSelected
       );
 
     console.log(
@@ -492,14 +501,17 @@ export class AnswerComponent
       },
     );
 
-    // Stop timer ONLY on transition: false → true
-    if (complete && !this._wasComplete) {
-      console.log(
-        `%c[AC][TIMER STOP] Q${activeQuestionIndex + 1} COMPLETE → stopping timer`,
-        'color:red;font-weight:bold;'
-      );
-      this.timerService.stopTimer();
-    }
+    // REMOVED: Timer stop handled in SharedOptionComponent.onOptionContentClick
+    // console.log(`[AC][DEBUG] complete=${complete}, _wasComplete=${this._wasComplete}, question.type=${question.type}`);
+    // if (complete && !this._wasComplete) {
+    //   console.log(
+    //     `%c[AC][TIMER STOP] Q${activeQuestionIndex + 1} COMPLETE → stopping timer`,
+    //     'color:red;font-weight:bold;'
+    //   );
+    //   this.timerService.allowAuthoritativeStop();
+    //   this.timerService.stopTimer(undefined, { force: true });
+    //   // show formatted explanation
+    // }
 
     this._wasComplete = complete;
 

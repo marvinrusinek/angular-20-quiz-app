@@ -140,9 +140,9 @@ export class SelectedOptionService {
 
     // If question is single-answer, replace entire selection set
     // (this prevents "first click wins" bugs)
-    if (this.currentQuestionType === QuestionType.SingleAnswer) {
+    /* if (this.currentQuestionType === QuestionType.SingleAnswer) {
       merged.clear();
-    }
+    } */
 
     // Apply new selection (replace by optionId)
     if (typeof newCanonical.optionId === 'number') {
@@ -2666,9 +2666,17 @@ export class SelectedOptionService {
     question: QuizQuestion,
     selected: SelectedOption[],
   ): boolean {
-    if (!question?.options?.length) return false;
+    if (!question || !Array.isArray(question.options)) return false;
 
-    // Get ALL correct option IDs from the question
+    const selectedIds = new Set<number>(
+      (selected ?? [])
+        .map(o => o.optionId)
+        .filter((id): id is number => typeof id === 'number'),
+    );
+
+    if (selectedIds.size === 0) return false;
+
+    // Get correct option IDs
     const correctIds = question.options
       .filter(o => o.correct === true)
       .map(o => o.optionId)
@@ -2676,14 +2684,19 @@ export class SelectedOptionService {
 
     if (correctIds.length === 0) return false;
 
-    // Get selected option IDs (ignore correctness here)
-    const selectedIds = new Set<number>(
-      (selected ?? [])
-        .map(o => o.optionId)
-        .filter((id): id is number => typeof id === 'number'),
-    );
+    // Infer question type from data if not explicitly set
+    const isMultipleAnswer =
+      question.type === QuestionType.MultipleAnswer ||
+      correctIds.length > 1;
 
-    // COMPLETE iff *all* correct IDs are selected
+    console.log(`[isQuestionComplete] type=${question.type}, isMulti=${isMultipleAnswer}, correctIds=${correctIds.length}, selectedIds=${selectedIds.size}`);
+
+    // SINGLE-ANSWER: complete after one selection
+    if (!isMultipleAnswer) {
+      return selectedIds.size === 1;
+    }
+
+    // MULTIPLE-ANSWER: complete only when ALL correct options are selected
     return correctIds.every(id => selectedIds.has(id));
   }
 }

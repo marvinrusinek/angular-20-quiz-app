@@ -3271,11 +3271,12 @@ export class QuizQuestionComponent
         allCorrectForTimer,
       );
 
-      if (allCorrectForTimer) {
-        console.log(`[QQC] 🎯 ALL CORRECT → Stopping timer with force`);
-        this.timerService.allowAuthoritativeStop();
-        this.timerService.stopTimer(undefined, { force: true });
-      }
+      // REMOVED: Timer stop handled in SharedOptionComponent.onOptionContentClick
+      // if (allCorrectForTimer) {
+      //   console.log(`[QQC] 🎯 ALL CORRECT → Stopping timer with force`);
+      //   this.timerService.allowAuthoritativeStop();
+      //   this.timerService.stopTimer(undefined, { force: true });
+      // }
 
       // ───────────────────────────────────────────────
       // EXISTING UI / FEEDBACK LOGIC (UNCHANGED)

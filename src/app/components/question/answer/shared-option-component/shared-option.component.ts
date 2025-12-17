@@ -132,6 +132,8 @@ export class SharedOptionComponent
   selectedOptions: Set<number> = new Set();
   clickedOptionIds: Set<number> = new Set();
   private readonly perQuestionHistory = new Set<number>();
+  // Track CORRECT option clicks per question for timer stop logic
+  private correctClicksPerQuestion: Map<number, Set<number>> = new Map();
   // isSubmitted = false;  // using below in commented code
   iconVisibility: boolean[] = []; // array to store visibility state of icons
   showIconForOption: { [optionId: number]: boolean } = {};
@@ -1305,7 +1307,7 @@ export class SharedOptionComponent
     event.stopPropagation();
 
     // ═══════════════════════════════════════════════════════════════════
-    // 🔥 TIMER STOP LOGIC
+    // 🔥 TIMER STOP LOGIC (FIXED - THE ONLY LOCATION!)
     // Single-answer: stop when correct option is clicked
     // Multi-answer: stop when ALL correct options are selected
     // ═══════════════════════════════════════════════════════════════════
@@ -1313,13 +1315,29 @@ export class SharedOptionComponent
     const questionIndex = this.getActiveQuestionIndex() ?? 0;
     const question = this.quizService?.questions?.[questionIndex];
 
-    // Use question.type directly instead of this.type for accuracy
-    const isMultipleAnswer = question?.type === 'multiple' ||
-      question?.type === 'MultipleAnswer' ||
-      (question?.options?.filter((o: Option) => o.correct === true).length ?? 0) > 1;
+    // KEY DEBUG: Verify we have the correct question for Q2
+    console.log(`[SOC] 📍 Question verification: qIndex=${questionIndex}, questionText="${question?.questionText?.slice(0, 50)}"`);
+
+    // NUCLEAR DEBUG: Show ALL binding states BEFORE any check
+    console.log(`[SOC] 🔬 NUCLEAR DEBUG - All bindings BEFORE timer check:`,
+      (this.optionBindings ?? []).map((b: OptionBindings, i: number) => ({
+        idx: i,
+        optionId: b.option?.optionId,
+        text: b.option?.text?.slice(0, 25),
+        correct: b.option?.correct,
+        isSelected: b.isSelected,
+        optionSelected: b.option?.selected
+      }))
+    );
+
+    // Count correct options FROM BINDINGS (they're local and available)
+    // quizService.questions was returning undefined, so use optionBindings instead
+    const bindings = this.optionBindings ?? [];
+    const correctOptionCount = bindings.filter((b: OptionBindings) => b.option?.correct === true).length;
+    const isMultipleAnswer = correctOptionCount > 1;
     const isSingle = !isMultipleAnswer;
 
-    console.log(`[SOC] 🔥 Timer check: this.type=${this.type}, question.type=${question?.type}, isMultipleAnswer=${isMultipleAnswer}, clickedIsCorrect=${clickedIsCorrect}`);
+    console.log(`[SOC] 🔥 Timer check: qIndex=${questionIndex}, correctOptionCount=${correctOptionCount} (from bindings), isMultipleAnswer=${isMultipleAnswer}, isSingle=${isSingle}, clickedIsCorrect=${clickedIsCorrect}`);
 
     if (isSingle) {
       // SINGLE-ANSWER: Stop timer when correct option is clicked
@@ -1329,46 +1347,78 @@ export class SharedOptionComponent
         this.timerService.stopTimer(undefined, { force: true });
       }
     } else {
-      // MULTI-ANSWER: Check if ALL correct options are now selected
-      if (question?.options) {
-        // Get all correct option IDs
-        const correctIds = question.options
-          .filter((o: Option) => o.correct === true)
-          .map((o: Option) => o.optionId)
-          .filter((id: number | undefined): id is number => typeof id === 'number');
+      // MULTI-ANSWER: Check if ALL correct options have been CLICKED (not just isSelected)
+      // Using correctClicksPerQuestion Map as source of truth for actual user clicks
 
-        // Get currently selected option IDs from bindings
-        const selectedIds = new Set<number>();
-        this.optionBindings.forEach((b: OptionBindings) => {
-          // Only count options that are currently marked as selected
-          if (b.isSelected && typeof b.option.optionId === 'number') {
-            selectedIds.add(b.option.optionId);
-          }
+      // CRITICAL: Get correct option IDs from question.options (source of truth)
+      // NOT from bindings, which may not have correct property propagated!
+      const correctIdsFromQuestion = (question?.options ?? [])
+        .filter((o: Option) => o.correct === true)
+        .map((o: Option, idx: number) => {
+          // Option ID might not be set, use index-based fallback matching binding assignment
+          const id = o.optionId ?? (questionIndex * 100 + (idx + 1));
+          return id;
+        })
+        .filter((id: number): id is number => typeof id === 'number');
+
+      // Also get IDs from bindings to map which binding corresponds to which correct option
+      const bindingCorrectIds = (this.optionBindings ?? [])
+        .filter((b: OptionBindings) => b.option?.correct === true)
+        .map((b: OptionBindings) => b.option?.optionId)
+        .filter((id: number | undefined): id is number => typeof id === 'number');
+
+      console.log(`[SOC] 🔍 correctIds comparison: fromQuestion=${JSON.stringify(correctIdsFromQuestion)}, fromBindings=${JSON.stringify(bindingCorrectIds)}`);
+
+      // Use binding IDs if they exist (same source as what user clicks), otherwise fall back to question IDs
+      const correctIds = bindingCorrectIds.length > 0 ? bindingCorrectIds : correctIdsFromQuestion;
+
+      // Initialize clicks set for this question if needed
+      if (!this.correctClicksPerQuestion.has(questionIndex)) {
+        this.correctClicksPerQuestion.set(questionIndex, new Set<number>());
+      }
+      const clickedCorrectSet = this.correctClicksPerQuestion.get(questionIndex)!;
+
+      // If current click is on a correct option, add it to the clicked set
+      const currentOptionId = binding.option.optionId;
+      if (clickedIsCorrect && typeof currentOptionId === 'number') {
+        clickedCorrectSet.add(currentOptionId);
+      }
+
+      // STRICT VALIDATION: For multi-answer, we MUST have at least 2 correct options
+      if (correctIds.length < 2) {
+        console.error(`[SOC] 🚨 MULTI-ANSWER ERROR: correctIds.length=${correctIds.length}, expected >= 2! Data issue detected.`);
+        console.error(`[SOC] 🔍 Debug data:`, {
+          questionOptions: question?.options?.length,
+          correctFromQuestion: correctIdsFromQuestion,
+          correctFromBindings: bindingCorrectIds,
+          bindingsCount: (this.optionBindings ?? []).length,
+          bindingsData: (this.optionBindings ?? []).map((b: OptionBindings) => ({
+            optionId: b.option?.optionId,
+            correct: b.option?.correct,
+            text: b.option?.text?.slice(0, 20)
+          }))
         });
+        // DON'T stop timer - this is a data error
+        return;
+      }
 
-        // Add the current option being clicked (it's being selected now)
-        if (typeof binding.option.optionId === 'number') {
-          selectedIds.add(binding.option.optionId);
-        }
+      // Check if ALL correct options have been clicked
+      const allCorrectClicked = correctIds.every((id: number) => clickedCorrectSet.has(id));
 
-        // Check if ALL correct options are now selected
-        const allCorrectSelected = correctIds.every((id: number) => selectedIds.has(id));
+      console.log(`[SOC] 📊 MULTI-ANSWER check (using click tracking):`, {
+        correctIds,
+        clickedCorrectIds: Array.from(clickedCorrectSet),
+        correctCount: correctIds.length,
+        clickedCount: clickedCorrectSet.size,
+        allCorrectClicked
+      });
 
-        console.log(`[SOC] 📊 MULTI-ANSWER check:`, {
-          correctIds,
-          selectedIds: Array.from(selectedIds),
-          correctCount: correctIds.length,
-          selectedCount: selectedIds.size,
-          allCorrectSelected
-        });
-
-        if (allCorrectSelected) {
-          console.log(`[SOC] 🎯 MULTI-ANSWER: ALL correct options selected → STOPPING TIMER`);
-          this.timerService.allowAuthoritativeStop();
-          this.timerService.stopTimer(undefined, { force: true });
-        } else {
-          console.log(`[SOC] ⏳ MULTI-ANSWER: Not all correct options selected yet, timer continues`);
-        }
+      if (allCorrectClicked) {
+        console.log(`[SOC] 🎯 MULTI-ANSWER: ALL correct options CLICKED → STOPPING TIMER`);
+        this.timerService.allowAuthoritativeStop();
+        this.timerService.stopTimer(undefined, { force: true });
+      } else {
+        console.log(`[SOC] ⏳ MULTI-ANSWER: Not all correct options clicked yet (${clickedCorrectSet.size}/${correctIds.length}), timer continues`);
       }
     }
     // ═══════════════════════════════════════════════════════════════════
@@ -1500,10 +1550,9 @@ export class SharedOptionComponent
       this.nextButtonStateService.setNextButtonState(true);
       console.log('[SharedOptionComponent] ✅ FORCED setNextButtonState(true) - Button should now enable');
 
-      // TIMER STOP: Check if all correct answers are now selected and stop timer
-      // This handles the "incorrect → correct" re-selection scenario
-      // Pass the current optionId since it may not be committed to the service yet
-      this.checkAndStopTimerIfAllCorrect(currentIndex, optionId);
+      // REMOVED: Timer stop is already handled in onOptionContentClick with proper multi-answer logic
+      // This was a DUPLICATE call that could bypass the correct check
+      // this.checkAndStopTimerIfAllCorrect(currentIndex, optionId);
     }
 
     if (this.type === 'single') {
@@ -3289,12 +3338,19 @@ export class SharedOptionComponent
       return this.questionIndex;
     }
 
-    // Last fallback: quizService
+    // Tertiary: quizService.currentQuestionIndex property (more reliable)
+    if (typeof this.quizService?.currentQuestionIndex === 'number') {
+      console.log(`[SOC] getActiveQuestionIndex: using quizService.currentQuestionIndex property=${this.quizService.currentQuestionIndex}`);
+      return this.quizService.currentQuestionIndex;
+    }
+
+    // Fallback: quizService.getCurrentQuestionIndex() method
     const svcIndex = this.quizService?.getCurrentQuestionIndex?.();
     if (typeof svcIndex === 'number') {
       return svcIndex;
     }
 
+    console.warn(`[SOC] getActiveQuestionIndex: ALL sources failed!`);
     return 0; // emergency fallback
   }
 
