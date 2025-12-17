@@ -14,7 +14,7 @@ const CONTINUE_MSG = 'Please select an option to continue...';
 const NEXT_BTN_MSG = 'Please click the next button to continue...';
 const SHOW_RESULTS_MSG = 'Please click the Show Results button.';
 const buildRemainingMsg = (remaining: number) =>
-  `Select ${remaining} more correct answer${remaining === 1 ? '' : 's'} to continue...`;
+  `Please select ${remaining} more correct answer${remaining === 1 ? '' : 's'} to continue...`;
 
 interface OptionSnapshot {
   id: number | string;
@@ -72,7 +72,7 @@ export class SelectionMessageService {
   constructor(
     private quizService: QuizService,
     private selectedOptionService: SelectedOptionService,
-  ) {}
+  ) { }
 
   // Getter for the current selection message
   public getCurrentMessage(): string {
@@ -175,7 +175,7 @@ export class SelectionMessageService {
     if (!this._baselineReleased?.has(questionIndex)) {
       if (qType === QuestionType.MultipleAnswer) {
         const totalCorrect = overlaid.filter((o) => !!o.correct).length;
-        return `Select ${totalCorrect} correct answer${totalCorrect > 1 ? 's' : ''} to continue...`;
+        return `Please select ${totalCorrect} correct answer${totalCorrect > 1 ? 's' : ''} to continue...`;
       } else {
         return questionIndex === 0 ? START_MSG : CONTINUE_MSG;
       }
@@ -218,7 +218,7 @@ export class SelectionMessageService {
       // Wrong chosen
       if (selectedWrong > 0) {
         this._singleAnswerIncorrectLock.add(index);
-        return 'Select a correct answer to continue...';
+        return 'Please select a correct option to continue...';
       }
 
       // Correct chosen
@@ -231,7 +231,7 @@ export class SelectionMessageService {
 
     // ───────── MULTI-ANSWER ─────────
     if (qType === QuestionType.MultipleAnswer) {
-      const baselineMsg = `Select ${totalCorrect} correct answer${totalCorrect > 1 ? 's' : ''} to continue...`;
+      const baselineMsg = `Please select ${totalCorrect} correct answer${totalCorrect > 1 ? 's' : ''} to continue...`;
 
       // Baseline if no corrects chosen yet
       if (selectedCorrect === 0) {
@@ -250,7 +250,7 @@ export class SelectionMessageService {
       const remaining = totalCorrect - selectedCorrect;
       this._multiAnswerPreLock.delete(index);
       this._multiAnswerInProgressLock.add(index);
-      return `Select ${remaining} more correct answer${remaining > 1 ? 's' : ''} to continue...`;
+      return `Please select ${remaining} more correct answer${remaining > 1 ? 's' : ''} to continue...`;
     }
 
     // ───────── Default fallback ─────────
@@ -276,7 +276,7 @@ export class SelectionMessageService {
     if (qType === QuestionType.MultipleAnswer && selectedCorrect === 0) {
       if (!this._baselineReleased.has(i0)) {
         // Only force baseline if baseline not released yet
-        newMsg = `Select ${totalCorrect} correct answer${totalCorrect > 1 ? 's' : ''} to continue...`;
+        newMsg = `Please select ${totalCorrect} correct answer${totalCorrect > 1 ? 's' : ''} to continue...`;
       } else {
         // After baseline released → never regress to CONTINUE_MSG
         if (newMsg === CONTINUE_MSG) return;
@@ -381,7 +381,7 @@ export class SelectionMessageService {
       let baselineMsg: string | null = null;
 
       if (qType === QuestionType.MultipleAnswer) {
-        baselineMsg = `Select ${totalCorrect} correct answer${totalCorrect > 1 ? 's' : ''} to continue...`;
+        baselineMsg = `Please select ${totalCorrect} correct answer${totalCorrect > 1 ? 's' : ''} to continue...`;
 
         // Mark multi-answer as pre-lock
         this._multiAnswerPreLock.add(i0);
@@ -471,7 +471,7 @@ export class SelectionMessageService {
       // ───────── MULTI-ANSWER: baseline ─────────
       if (qType === QuestionType.MultipleAnswer && selectedCorrect === 0) {
         if (!this._baselineReleased.has(i0)) {
-          const baselineMsg = `Select ${totalCorrect} correct answer${totalCorrect > 1 ? 's' : ''} to continue...`;
+          const baselineMsg = `Please select ${totalCorrect} correct answer${totalCorrect > 1 ? 's' : ''} to continue...`;
           const prev = this._lastMessageByIndex.get(i0);
           if (prev !== baselineMsg) {
             this._lastMessageByIndex.set(i0, baselineMsg);
@@ -764,8 +764,8 @@ export class SelectionMessageService {
     return opt.optionId != null
       ? String(opt.optionId)
       : `${String(opt.value ?? '')
-          .trim()
-          .toLowerCase()}|${String(opt.text ?? '')
+        .trim()
+        .toLowerCase()}|${String(opt.text ?? '')
           .trim()
           .toLowerCase()}`;
   }
