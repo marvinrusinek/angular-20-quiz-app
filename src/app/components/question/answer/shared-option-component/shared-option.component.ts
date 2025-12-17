@@ -3333,26 +3333,28 @@ export class SharedOptionComponent
   }
 
   private getActiveQuestionIndex(): number {
-    // Highest priority: explicitly assigned by QQC
-    if (typeof this.currentQuestionIndex === 'number') {
-      return this.currentQuestionIndex;
-    }
-
-    // Secondary: input questionIndex if provided
-    if (typeof this.questionIndex === 'number') {
-      return this.questionIndex;
-    }
-
-    // Tertiary: quizService.currentQuestionIndex property (more reliable)
+    // HIGHEST PRIORITY: quizService.currentQuestionIndex (always up-to-date)
     if (typeof this.quizService?.currentQuestionIndex === 'number') {
-      console.log(`[SOC] getActiveQuestionIndex: using quizService.currentQuestionIndex property=${this.quizService.currentQuestionIndex}`);
+      console.log(`[SOC] getActiveQuestionIndex: using quizService.currentQuestionIndex=${this.quizService.currentQuestionIndex}`);
       return this.quizService.currentQuestionIndex;
     }
 
-    // Fallback: quizService.getCurrentQuestionIndex() method
+    // Secondary: quizService.getCurrentQuestionIndex() method
     const svcIndex = this.quizService?.getCurrentQuestionIndex?.();
     if (typeof svcIndex === 'number') {
+      console.log(`[SOC] getActiveQuestionIndex: using getCurrentQuestionIndex()=${svcIndex}`);
       return svcIndex;
+    }
+
+    // Fallback: component properties (may be stale)
+    if (typeof this.currentQuestionIndex === 'number') {
+      console.log(`[SOC] getActiveQuestionIndex: using component currentQuestionIndex=${this.currentQuestionIndex}`);
+      return this.currentQuestionIndex;
+    }
+
+    if (typeof this.questionIndex === 'number') {
+      console.log(`[SOC] getActiveQuestionIndex: using component questionIndex=${this.questionIndex}`);
+      return this.questionIndex;
     }
 
     console.warn(`[SOC] getActiveQuestionIndex: ALL sources failed!`);
