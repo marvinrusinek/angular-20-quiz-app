@@ -1090,9 +1090,7 @@ export class ExplanationTextService {
 
   // Emit per-index formatted text; coalesces duplicates and broadcasts event
   public emitFormatted(index: number, value: string | null): void {
-    console.warn(`[🔥🔥🔥 emitFormatted CALLED] idx=${index}, value="${(value || '').slice(0, 40)}..."`);
-
-    // ✅ Lock immediately to prevent race conditions with reactive streams
+    // Lock immediately to prevent race conditions with reactive streams
     this._fetLocked = true;
 
     const token = this._currentGateToken;
@@ -1127,9 +1125,8 @@ export class ExplanationTextService {
     this.latestExplanation = trimmed;
     this.latestExplanationIndex = index;
 
-    // RELIABLE FET STORAGE: Store in Map by index so it can be retrieved reliably
+    // Store in Map by index for reliable retrieval
     this.fetByIndex.set(index, trimmed);
-    console.log(`[emitFormatted] Stored FET for Q${index + 1} in fetByIndex Map`);
 
     // ✅ CRITICAL: Also emit to formattedExplanationSubject for FINAL LAYER
     // This ensures getCombinedDisplayTextStream's combineLatest re-evaluates
