@@ -135,7 +135,7 @@ export class ExplanationTextService {
       distinctUntilChanged()
     ).subscribe((idx: number) => {
       this.latestExplanation = '';
-      this.latestExplanationIndex = null;
+      this.latestExplanationIndex = idx; // Set to new index instead of null
       this.formattedExplanationSubject.next('');
       this.setShouldDisplayExplanation(false, { force: true });
       this.setIsExplanationTextDisplayed(false, { force: true });
