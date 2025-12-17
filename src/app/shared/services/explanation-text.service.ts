@@ -1090,6 +1090,8 @@ export class ExplanationTextService {
 
   // Emit per-index formatted text; coalesces duplicates and broadcasts event
   public emitFormatted(index: number, value: string | null): void {
+    console.warn(`[🔥🔥🔥 emitFormatted CALLED] idx=${index}, value="${(value || '').slice(0, 40)}..."`);
+
     // ✅ Lock immediately to prevent race conditions with reactive streams
     this._fetLocked = true;
 
