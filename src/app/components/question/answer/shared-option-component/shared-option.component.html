@@ -20,10 +20,10 @@
             >
               <ng-container *ngTemplateOutlet="optionContent;
                 context: { $implicit: b, index: i }"></ng-container>
-            </mat-radio-button>
+              </mat-radio-button>
 
-            <ng-container *ngTemplateOutlet="optionFeedback;
-              context: { $implicit: b }"></ng-container>
+              <ng-container *ngTemplateOutlet="optionFeedback;
+                context: { $implicit: b }"></ng-container>
           }
         </mat-radio-group>
       }
@@ -41,8 +41,9 @@
             (change)="onOptionChanged(b, i, $event)"
             (click)="onOptionInteraction(b, i, $event)"
             >
-              <ng-container *ngTemplateOutlet="optionContent;
-                context: { $implicit: b, index: i }"></ng-container>
+            
+            <ng-container *ngTemplateOutlet="optionContent;
+              context: { $implicit: b, index: i }"></ng-container>
           </mat-checkbox>
 
           <ng-container *ngTemplateOutlet="optionFeedback;
