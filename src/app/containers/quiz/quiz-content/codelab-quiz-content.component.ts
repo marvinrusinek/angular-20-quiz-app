@@ -849,6 +849,18 @@ export class CodelabQuizContentComponent
         const mode = displayState?.mode ?? 'question';
         const base = String(baseText ?? '') as string;
 
+        // DEBUG: Log final layer state
+        console.log('[CQCC-FINAL] combineLatest emit:', {
+          idx,
+          mode,
+          fetLength: fet?.length ?? 0,
+          fetPreview: fet?.slice(0, 50),
+          formatted: (formatted as string)?.slice(0, 30),
+          latestExplanation: this.explanationTextService.latestExplanation?.slice(0, 30),
+          explanationReady,
+          basePreview: base?.slice(0, 50),
+        });
+
         // Normal explanation-mode override
         if (mode === 'explanation') {
           if (fet) {
@@ -941,6 +953,21 @@ export class CodelabQuizContentComponent
       explanationIndex === idx ||
       (explanationIndex === null && ets._activeIndex === idx);
 
+    // DEBUG: Log all FET conditions for Q1 debugging
+    console.log('[FET-DEBUG] resolveTextToDisplay conditions:', {
+      idx,
+      active,
+      idxMatchesActive: idx === active,
+      mode,
+      explanationGate,
+      hasUserInteracted,
+      explanationIndex,
+      activeIndex: ets._activeIndex,
+      explanationIndexMatches,
+      latestExplanation: ets.latestExplanation?.slice(0, 50),
+      latestExplanationLength: ets.latestExplanation?.trim()?.length ?? 0,
+    });
+
     if (
       idx === active &&
       mode === 'explanation' &&
@@ -979,6 +1006,18 @@ export class CodelabQuizContentComponent
 
       this._lastQuestionTextByIndex.set(idx, finalFet);
       return finalFet;
+    } else {
+      // DEBUG: Log which conditions failed
+      console.warn('[❌ FET NOT RENDERED] Failed conditions:', {
+        idx,
+        'idx === active': idx === active,
+        'mode === explanation': mode === 'explanation',
+        explanationGate,
+        hasUserInteracted,
+        explanationIndexMatches,
+        'latestExplanation exists': !!ets.latestExplanation,
+        latestExplanationLength: ets.latestExplanation?.trim()?.length ?? 0,
+      });
     }
 
     // STRUCTURED FET PATH (kept, but secondary)
