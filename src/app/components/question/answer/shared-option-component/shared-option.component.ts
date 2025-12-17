@@ -1681,6 +1681,11 @@ export class SharedOptionComponent
     );
     this.emitExplanation(activeIndex);
 
+    // ✅ FORCE UPDATE SELECTION MESSAGE: Ensure the selection message service knows about this change
+    // This fixes the issue where messages would stay stuck on "Please start..."
+    this.selectionMessageService.notifySelectionMutated(this.optionsToDisplay);
+    this.selectionMessageService.setSelectionMessage(false);
+
     this.cdRef.detectChanges();
 
     console.log(
