@@ -2700,5 +2700,3 @@ export class SelectedOptionService {
     return correctIds.every(id => selectedIds.has(id));
   }
 }
-
-
