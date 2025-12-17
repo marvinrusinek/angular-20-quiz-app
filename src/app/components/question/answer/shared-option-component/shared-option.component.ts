@@ -506,6 +506,7 @@ export class SharedOptionComponent
       );
       this.highlightedOptionIds.clear();
       this.flashDisabledSet.clear();
+      this.correctClicksPerQuestion.clear();
       this.showFeedbackForOption = {};
       this.feedbackConfigs = {};
       this.selectedOptionHistory = [];
