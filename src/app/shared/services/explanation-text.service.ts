@@ -12,6 +12,7 @@ import {
   distinctUntilChanged,
   filter,
   map,
+  skip,
   take,
   timeout,
 } from 'rxjs/operators';
@@ -128,7 +129,11 @@ export class ExplanationTextService {
     // Without this, the previous question's formatted explanation (e.g., Q1)
     // can remain in the global subject and be rendered for later questions
     // such as Q4 before their own FET is ready.
-    this.activeIndex$.pipe(distinctUntilChanged()).subscribe((idx) => {
+    // NOTE: skip(1) prevents the initial BehaviorSubject emission from clearing state during init.
+    this.activeIndex$.pipe(
+      skip(1), // Skip the initial value (0) so Q1's FET isn't cleared during initialization
+      distinctUntilChanged()
+    ).subscribe((idx: number) => {
       this.latestExplanation = '';
       this.latestExplanationIndex = null;
       this.formattedExplanationSubject.next('');
