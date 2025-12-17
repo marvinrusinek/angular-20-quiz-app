@@ -985,14 +985,17 @@ export class CodelabQuizContentComponent
       latestExplanationLength: ets.latestExplanation?.trim()?.length ?? 0,
     });
 
+    // MOST DIRECT FIX: If we have FET content and the index matches, show it
+    // This removes the mode dependency which was causing Q2+ to fail
+    const hasValidFet = ets.latestExplanation && ets.latestExplanation.trim().length > 0;
+    const latestIdx = ets.latestExplanationIndex;
+    const indexMatches = (latestIdx === idx) || (ets._activeIndex === idx);
+
+    // Show FET if: we have content, index matches, and we're on the active question
     if (
-      idx === active &&
-      mode === 'explanation' &&
-      explanationGate &&
-      hasUserInteracted &&
-      explanationIndexMatches && // strict guard
-      ets.latestExplanation &&
-      ets.latestExplanation.trim().length > 0
+      hasValidFet &&
+      indexMatches &&
+      idx === active
     ) {
       const safe = ets.latestExplanation.trim();
 
