@@ -597,6 +597,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
         // DO NOT clear the current question state
         ets._activeIndex = idx;
+        ets.latestExplanationIndex = idx; // Ensure FET guard can match for new question
         ets._fetLocked = false;
         this._fetEarlyShown.delete(idx);
         this.lastLoggedIndex = idx;
