@@ -1913,8 +1913,12 @@ export class SharedOptionComponent
 
     this.pendingExplanationIndex = questionIndex;
 
-    console.log(
-      `[📤 Emitting Explanation Text for Q${questionIndex + 1}]: "${explanationText}"`,
+    console.warn(
+      `[🚀🚀🚀 EMIT EXPLANATION Q${questionIndex + 1}]:`,
+      `idx=${questionIndex}`,
+      `text="${explanationText?.slice(0, 50)}..."`,
+      `currentQuestionIndex=${this.currentQuestionIndex}`,
+      `quizServiceIdx=${this.quizService?.currentQuestionIndex}`,
     );
 
     this.applyExplanationText(explanationText, questionIndex);
