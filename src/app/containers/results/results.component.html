@@ -17,16 +17,20 @@
       <h3 i18n>Congratulations! You've completed the quiz!</h3>
       <codelab-results-statistics />
 
-      <section class="quiz-summary">
-        <details>
-          <summary role="button" i18n>
-            Click to view a more detailed summary of your quiz&hellip;
-          </summary>
-          <codelab-results-summary />
-          <codelab-results-accordion />
-        </details>
-      </section>
-    </section>
+      @defer {
+        <section class="quiz-summary">
+          <details>
+            <summary role="button" i18n>
+              Click to view a more detailed summary of your quiz&hellip;
+            </summary>
+
+            <codelab-results-summary />
+            <codelab-results-accordion />
+          </details>
+        </section>
+      } @placeholder {
+        <p class="loading-muted">Preparing detailed results…</p>
+      }
 
     <codelab-results-return />
     <hr />
