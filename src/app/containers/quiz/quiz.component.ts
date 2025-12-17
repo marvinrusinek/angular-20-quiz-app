@@ -4882,6 +4882,11 @@ get quizQuestionComponent(): QuizQuestionComponent {
   }
 
   public showExplanationForQuestion(qIdx: number): void {
+    // Ensure the service knows which question is active so it manages state correctly
+    if (this.explanationTextService._activeIndex !== qIdx) {
+      console.log(`[QuizComponent] Updating ETS active index to ${qIdx}`);
+      this.explanationTextService._activeIndex = qIdx;
+    }
     // Grab the exact question raw text
     const question =
       this.questionsArray?.[qIdx] ??
