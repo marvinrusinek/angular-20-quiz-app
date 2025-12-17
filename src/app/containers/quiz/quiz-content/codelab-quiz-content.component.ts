@@ -858,18 +858,6 @@ export class CodelabQuizContentComponent
         const mode = displayState?.mode ?? 'question';
         const base = String(baseText ?? '') as string;
 
-        // DEBUG: Log final layer state
-        console.log('[CQCC-FINAL] combineLatest emit:', {
-          idx,
-          mode,
-          fetLength: fet?.length ?? 0,
-          fetPreview: fet?.slice(0, 50),
-          formatted: (formatted as string)?.slice(0, 30),
-          latestExplanation: this.explanationTextService.latestExplanation?.slice(0, 30),
-          explanationReady,
-          basePreview: base?.slice(0, 50),
-        });
-
         // Normal explanation-mode override
         if (mode === 'explanation') {
           // USE fetByIndex MAP: Check for this specific index first
@@ -878,14 +866,10 @@ export class CodelabQuizContentComponent
           const effectiveFet = indexFet || fet || directFet;
 
           if (effectiveFet) {
-            console.log('[CQCC] 🟢 Explanation mode override → showing FET for Q' + (idx + 1));
             return effectiveFet as string;
           }
 
           if (explanationReady) {
-            console.log(
-              '[CQCC] 🟡 Explanation ready but empty → placeholder, not question text',
-            );
             return (effectiveFet || 'Explanation not available.') as string;
           }
         }
@@ -905,7 +889,6 @@ export class CodelabQuizContentComponent
               const effectiveFet = indexFet || fet || directFet;
 
               if (effectiveFet) {
-                console.log('[CQCC] 🔐 Answered override → forcing FET for Q' + (idx + 1));
                 return effectiveFet as string;
               }
               // no FET? fall back to whatever base decided
@@ -972,29 +955,11 @@ export class CodelabQuizContentComponent
       explanationIndex === idx ||
       (explanationIndex === null && ets._activeIndex === idx);
 
-    // DEBUG: Log all FET conditions for Q1 debugging
-    console.log('[FET-DEBUG] resolveTextToDisplay conditions:', {
-      idx,
-      active,
-      idxMatchesActive: idx === active,
-      mode,
-      explanationGate,
-      hasUserInteracted,
-      explanationIndex,
-      activeIndex: ets._activeIndex,
-      explanationIndexMatches,
-      latestExplanation: ets.latestExplanation?.slice(0, 50),
-      latestExplanationLength: ets.latestExplanation?.trim()?.length ?? 0,
-    });
-
-    // USE fetByIndex MAP AS PRIMARY SOURCE - bypasses stream timing issues
-    // Check if we have FET stored for THIS specific question index
+    // Use fetByIndex Map as primary source - bypasses stream timing issues
     const storedFet = ets.fetByIndex?.get(idx)?.trim() || '';
     const fallbackFet = ets.latestExplanation?.trim() || '';
     const effectiveFet = storedFet || fallbackFet;
     const hasValidFet = effectiveFet.length > 0;
-
-    console.log(`[FET-DEBUG] Q${idx + 1} storedFet="${storedFet.slice(0, 30)}", fallback="${fallbackFet.slice(0, 30)}"`);
 
     // Show FET if: we have content stored for this index and we're on the active question
     if (
@@ -1002,13 +967,6 @@ export class CodelabQuizContentComponent
       idx === active
     ) {
       const safe = effectiveFet;
-
-      console.warn('[✅ FET RENDER]', {
-        idx,
-        explanationIndex,
-        hasUserInteracted,
-        explanationGate,
-      });
 
       // Append correct answers banner to FET for multi-answer questions
       let finalFet = safe;
@@ -1030,18 +988,6 @@ export class CodelabQuizContentComponent
 
       this._lastQuestionTextByIndex.set(idx, finalFet);
       return finalFet;
-    } else {
-      // DEBUG: Log which conditions failed
-      console.warn('[❌ FET NOT RENDERED] Failed conditions:', {
-        idx,
-        'idx === active': idx === active,
-        'mode === explanation': mode === 'explanation',
-        explanationGate,
-        hasUserInteracted,
-        explanationIndexMatches,
-        'latestExplanation exists': !!ets.latestExplanation,
-        latestExplanationLength: ets.latestExplanation?.trim()?.length ?? 0,
-      });
     }
 
     // STRUCTURED FET PATH (kept, but secondary)
