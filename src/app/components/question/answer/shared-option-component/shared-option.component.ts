@@ -1913,14 +1913,6 @@ export class SharedOptionComponent
 
     this.pendingExplanationIndex = questionIndex;
 
-    console.warn(
-      `[🚀🚀🚀 EMIT EXPLANATION Q${questionIndex + 1}]:`,
-      `idx=${questionIndex}`,
-      `text="${explanationText?.slice(0, 50)}..."`,
-      `currentQuestionIndex=${this.currentQuestionIndex}`,
-      `quizServiceIdx=${this.quizService?.currentQuestionIndex}`,
-    );
-
     this.applyExplanationText(explanationText, questionIndex);
 
     this.scheduleExplanationVerification(questionIndex, explanationText);
@@ -3335,29 +3327,24 @@ export class SharedOptionComponent
   private getActiveQuestionIndex(): number {
     // HIGHEST PRIORITY: quizService.currentQuestionIndex (always up-to-date)
     if (typeof this.quizService?.currentQuestionIndex === 'number') {
-      console.log(`[SOC] getActiveQuestionIndex: using quizService.currentQuestionIndex=${this.quizService.currentQuestionIndex}`);
       return this.quizService.currentQuestionIndex;
     }
 
     // Secondary: quizService.getCurrentQuestionIndex() method
     const svcIndex = this.quizService?.getCurrentQuestionIndex?.();
     if (typeof svcIndex === 'number') {
-      console.log(`[SOC] getActiveQuestionIndex: using getCurrentQuestionIndex()=${svcIndex}`);
       return svcIndex;
     }
 
     // Fallback: component properties (may be stale)
     if (typeof this.currentQuestionIndex === 'number') {
-      console.log(`[SOC] getActiveQuestionIndex: using component currentQuestionIndex=${this.currentQuestionIndex}`);
       return this.currentQuestionIndex;
     }
 
     if (typeof this.questionIndex === 'number') {
-      console.log(`[SOC] getActiveQuestionIndex: using component questionIndex=${this.questionIndex}`);
       return this.questionIndex;
     }
 
-    console.warn(`[SOC] getActiveQuestionIndex: ALL sources failed!`);
     return 0; // emergency fallback
   }
 
