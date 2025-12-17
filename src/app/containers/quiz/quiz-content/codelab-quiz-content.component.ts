@@ -125,7 +125,7 @@ export class CodelabQuizContentComponent
     ets._activeIndex = idx;
     ets.resetForIndex(idx);
     ets.latestExplanation = '';
-    ets.latestExplanationIndex = null;
+    ets.latestExplanationIndex = idx;
     ets.formattedExplanationSubject.next('');
     ets.explanationText$.next('');
     ets.setShouldDisplayExplanation(false, { force: true });
