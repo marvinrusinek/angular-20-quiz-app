@@ -532,6 +532,15 @@ export class CodelabQuizContentComponent
       distinctUntilChanged(),
       tap((newIdx) => {
         const ets = this.explanationTextService;
+
+        // Don't clear if FET is locked (user has clicked and explanation is showing)
+        if (ets._fetLocked) {
+          console.log(`[INDEX] Skipping reset - FET locked for Q${newIdx + 1}`);
+          ets._activeIndex = newIdx;
+          ets.latestExplanationIndex = newIdx;
+          return;
+        }
+
         // Reset FET only on index change (navigation), not on visibility
         ets._activeIndex = newIdx;
         ets.latestExplanation = '';
@@ -863,16 +872,20 @@ export class CodelabQuizContentComponent
 
         // Normal explanation-mode override
         if (mode === 'explanation') {
-          if (fet) {
+          // SIMPLE FIX: Always check latestExplanation directly to bypass stream timing issues
+          const directFet = this.explanationTextService.latestExplanation?.trim() || '';
+          const effectiveFet = fet || directFet;
+
+          if (effectiveFet) {
             console.log('[CQCC] 🟢 Explanation mode override → showing FET');
-            return fet as string;
+            return effectiveFet as string;
           }
 
           if (explanationReady) {
             console.log(
               '[CQCC] 🟡 Explanation ready but empty → placeholder, not question text',
             );
-            return (fet || 'Explanation not available.') as string;
+            return (effectiveFet || 'Explanation not available.') as string;
           }
         }
 
@@ -885,9 +898,13 @@ export class CodelabQuizContentComponent
               qState?.isAnswered || qState?.explanationDisplayed;
 
             if (isAnswered) {
-              if (fet) {
+              // SIMPLE FIX: Check latestExplanation directly as fallback
+              const directFet = this.explanationTextService.latestExplanation?.trim() || '';
+              const effectiveFet = fet || directFet;
+
+              if (effectiveFet) {
                 console.log('[CQCC] 🔐 Answered override → forcing FET');
-                return fet as string;
+                return effectiveFet as string;
               }
               // no FET? fall back to whatever base decided
               return base;
