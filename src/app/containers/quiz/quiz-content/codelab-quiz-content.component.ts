@@ -79,8 +79,7 @@ interface QuestionViewState {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CodelabQuizContentComponent
-  implements OnInit, OnChanges, OnDestroy
-{
+  implements OnInit, OnChanges, OnDestroy {
   @ViewChild(QuizQuestionComponent, { static: false })
   quizQuestionComponent!: QuizQuestionComponent;
   @ViewChild('qText', { static: true })
@@ -126,7 +125,7 @@ export class CodelabQuizContentComponent
     ets._activeIndex = idx;
     ets.resetForIndex(idx);
     ets.latestExplanation = '';
-    ets.latestExplanationIndex = null;
+    ets.latestExplanationIndex = idx;
     ets.formattedExplanationSubject.next('');
     ets.explanationText$.next('');
     ets.setShouldDisplayExplanation(false, { force: true });
@@ -533,10 +532,20 @@ export class CodelabQuizContentComponent
       distinctUntilChanged(),
       tap((newIdx) => {
         const ets = this.explanationTextService;
+
+        // Don't clear if FET is locked (user has clicked and explanation is showing)
+        if (ets._fetLocked) {
+          console.log(`[INDEX] Skipping reset - FET locked for Q${newIdx + 1}`);
+          ets._activeIndex = newIdx;
+          ets.latestExplanationIndex = newIdx;
+          return;
+        }
+
         // Reset FET only on index change (navigation), not on visibility
         ets._activeIndex = newIdx;
         ets.latestExplanation = '';
-        ets.latestExplanationIndex = null;
+        // Don't set to null - set to newIdx so explanationIndexMatches works for Q1
+        ets.latestExplanationIndex = newIdx;
 
         ets.formattedExplanationSubject?.next('');
         ets.explanationText$?.next('');
@@ -632,16 +641,16 @@ export class CodelabQuizContentComponent
 
     const qQuiet$ = this.quizQuestionLoaderService.quietZoneUntil$
       ? this.quizQuestionLoaderService.quietZoneUntil$.pipe(
-          startWith(0),
-          distinctUntilChanged(),
-        )
+        startWith(0),
+        distinctUntilChanged(),
+      )
       : of(0);
 
     const eQuiet$ = this.explanationTextService.quietZoneUntil$
       ? this.explanationTextService.quietZoneUntil$.pipe(
-          startWith(0),
-          distinctUntilChanged(),
-        )
+        startWith(0),
+        distinctUntilChanged(),
+      )
       : of(0);
 
     // Display mode and explanation readiness
@@ -851,16 +860,17 @@ export class CodelabQuizContentComponent
 
         // Normal explanation-mode override
         if (mode === 'explanation') {
-          if (fet) {
-            console.log('[CQCC] 🟢 Explanation mode override → showing FET');
-            return fet as string;
+          // USE fetByIndex MAP: Check for this specific index first
+          const indexFet = this.explanationTextService.fetByIndex?.get(idx)?.trim() || '';
+          const directFet = this.explanationTextService.latestExplanation?.trim() || '';
+          const effectiveFet = indexFet || fet || directFet;
+
+          if (effectiveFet) {
+            return effectiveFet as string;
           }
 
           if (explanationReady) {
-            console.log(
-              '[CQCC] 🟡 Explanation ready but empty → placeholder, not question text',
-            );
-            return (fet || 'Explanation not available.') as string;
+            return (effectiveFet || 'Explanation not available.') as string;
           }
         }
 
@@ -873,9 +883,13 @@ export class CodelabQuizContentComponent
               qState?.isAnswered || qState?.explanationDisplayed;
 
             if (isAnswered) {
-              if (fet) {
-                console.log('[CQCC] 🔐 Answered override → forcing FET');
-                return fet as string;
+              // USE fetByIndex MAP: Check for this specific index first
+              const indexFet = this.explanationTextService.fetByIndex?.get(idx)?.trim() || '';
+              const directFet = this.explanationTextService.latestExplanation?.trim() || '';
+              const effectiveFet = indexFet || fet || directFet;
+
+              if (effectiveFet) {
+                return effectiveFet as string;
               }
               // no FET? fall back to whatever base decided
               return base;
@@ -936,25 +950,23 @@ export class CodelabQuizContentComponent
 
     // FET DISPLAY GATE — only allow in explanation mode
     // STRICT GUARD: Explanation index MUST match current index
-    const explanationIndexMatches = explanationIndex === idx;
+    // NOTE: Use _activeIndex as fallback since latestExplanationIndex may be null initially
+    const explanationIndexMatches =
+      explanationIndex === idx ||
+      (explanationIndex === null && ets._activeIndex === idx);
 
+    // Use fetByIndex Map as primary source - bypasses stream timing issues
+    const storedFet = ets.fetByIndex?.get(idx)?.trim() || '';
+    const fallbackFet = ets.latestExplanation?.trim() || '';
+    const effectiveFet = storedFet || fallbackFet;
+    const hasValidFet = effectiveFet.length > 0;
+
+    // Show FET if: we have content stored for this index and we're on the active question
     if (
-      idx === active &&
-      mode === 'explanation' &&
-      explanationGate &&
-      hasUserInteracted &&
-      explanationIndexMatches && // strict guard
-      ets.latestExplanation &&
-      ets.latestExplanation.trim().length > 0
+      hasValidFet &&
+      idx === active
     ) {
-      const safe = ets.latestExplanation.trim();
-
-      console.warn('[✅ FET RENDER]', {
-        idx,
-        explanationIndex,
-        hasUserInteracted,
-        explanationGate,
-      });
+      const safe = effectiveFet;
 
       // Append correct answers banner to FET for multi-answer questions
       let finalFet = safe;
@@ -1292,9 +1304,9 @@ export class CodelabQuizContentComponent
           const newCorrectAnswersText =
             isMultipleAnswer && !explanationDisplayed
               ? this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
-                  correctAnswers,
-                  question.options?.length ?? 0,
-                )
+                correctAnswers,
+                question.options?.length ?? 0,
+              )
               : '';
 
           if (
@@ -1400,11 +1412,11 @@ export class CodelabQuizContentComponent
           const safeQuizData = quiz?.currentQuestion
             ? quiz
             : {
-                currentQuestion: null,
-                currentOptions: [],
-                explanation: '',
-                currentIndex: 0,
-              };
+              currentQuestion: null,
+              currentOptions: [],
+              explanation: '',
+              currentIndex: 0,
+            };
 
           const selectionMessage =
             'selectionMessage' in safeQuizData
@@ -1668,16 +1680,16 @@ export class CodelabQuizContentComponent
     const correctAnswersText =
       isMultipleAnswerQuestion && normalizedCorrectCount > 0
         ? this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
-            normalizedCorrectCount,
-            totalOptions,
-          )
+          normalizedCorrectCount,
+          totalOptions,
+        )
         : '';
 
     const explanationText = isExplanationDisplayed
       ? formattedExplanation?.trim() ||
-        currentQuizData.explanation ||
-        currentQuestion.explanation ||
-        ''
+      currentQuizData.explanation ||
+      currentQuestion.explanation ||
+      ''
       : '';
 
     const combinedQuestionData: CombinedQuestionDataType = {

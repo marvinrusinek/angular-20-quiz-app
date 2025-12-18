@@ -19,11 +19,11 @@
               (click)="onOptionInteraction(b, i, $event)"
             >
               <ng-container *ngTemplateOutlet="optionContent;
-                  context: { $implicit: b, index: i }"></ng-container>
+                context: { $implicit: b, index: i }"></ng-container>
               </mat-radio-button>
 
               <ng-container *ngTemplateOutlet="optionFeedback;
-                  context: { $implicit: b }"></ng-container>
+                context: { $implicit: b }"></ng-container>
           }
         </mat-radio-group>
       }
@@ -50,8 +50,7 @@
             context: { $implicit: b }"></ng-container>
         }
       }
-    }
-    <!-- end @switch -->
+    }  <!-- end @switch -->
 
     <ng-template #optionContent let-b let-i="index">
       <div class="option-wrapper" (click)="onOptionContentClick(b, i, $event)">

@@ -12,6 +12,7 @@ import {
   distinctUntilChanged,
   filter,
   map,
+  skip,
   take,
   timeout,
 } from 'rxjs/operators';
@@ -65,6 +66,9 @@ export class ExplanationTextService {
   processedQuestions: Set<string> = new Set<string>();
   currentQuestionExplanation: string | null = null;
   latestExplanation = '';
+
+  // FET cache by index - reliable storage that won't be cleared by stream timing issues
+  public fetByIndex = new Map<number, string>();
   explanationsInitialized = false;
   private explanationLocked = false;
   private lockedContext: string | null = null;
@@ -74,7 +78,7 @@ export class ExplanationTextService {
 
   public _byIndex = new Map<number, BehaviorSubject<string | null>>();
   public _gate = new Map<number, BehaviorSubject<boolean>>();
-  private _activeIndexValue: number | null = null;
+  private _activeIndexValue: number | null = 0; // Start at 0 to match activeIndex$ initial value
   get _activeIndex(): number | null {
     return this._activeIndexValue;
   }
@@ -113,7 +117,7 @@ export class ExplanationTextService {
   private _textMap: Map<number, { text$: ReplaySubject<string> }> = new Map();
   private readonly _instanceId: string = '';
   private _unlockRAFId: number | null = null;
-  public latestExplanationIndex: number | null = null;
+  public latestExplanationIndex: number | null = 0; // Start at 0 to match activeIndex$ initial value
 
   // Convenience accessor to avoid template/type metadata mismatches.
   getFormattedExplanationByIndex(): Observable<FETPayload> {
@@ -128,9 +132,18 @@ export class ExplanationTextService {
     // Without this, the previous question's formatted explanation (e.g., Q1)
     // can remain in the global subject and be rendered for later questions
     // such as Q4 before their own FET is ready.
-    this.activeIndex$.pipe(distinctUntilChanged()).subscribe((idx) => {
+    // NOTE: skip(1) prevents the initial BehaviorSubject emission from clearing state during init.
+    this.activeIndex$.pipe(
+      skip(1), // Skip the initial value (0) so Q1's FET isn't cleared during initialization
+      distinctUntilChanged()
+    ).subscribe((idx: number) => {
+      // Don't clear if FET has already been set for this index (user clicked)
+      if (this._fetLocked) {
+        console.log(`[ETS] Skipping clear - FET locked for Q${idx + 1}`);
+        return;
+      }
       this.latestExplanation = '';
-      this.latestExplanationIndex = null;
+      this.latestExplanationIndex = idx; // Set to new index instead of null
       this.formattedExplanationSubject.next('');
       this.setShouldDisplayExplanation(false, { force: true });
       this.setIsExplanationTextDisplayed(false, { force: true });
@@ -304,7 +317,8 @@ export class ExplanationTextService {
     if (!finalExplanation && this.latestExplanation) {
       console.log('[ETS] Clearing stale explanation');
       this.latestExplanation = '';
-      this.latestExplanationIndex = null;
+      // Keep index aligned instead of null so subsequent questions work
+      this.latestExplanationIndex = this._activeIndex ?? 0;
     } else {
       this.latestExplanation = finalExplanation;
     }
@@ -398,6 +412,7 @@ export class ExplanationTextService {
       }
 
       this._activeIndex = questionIndex;
+      this.latestExplanationIndex = questionIndex; // Ensure index matches after reset
     } else {
       console.log(
         `[ETS] ℹ️ Index match: Active=${this._activeIndex}, Requested=${questionIndex}`,
@@ -1075,6 +1090,9 @@ export class ExplanationTextService {
 
   // Emit per-index formatted text; coalesces duplicates and broadcasts event
   public emitFormatted(index: number, value: string | null): void {
+    // Lock immediately to prevent race conditions with reactive streams
+    this._fetLocked = true;
+
     const token = this._currentGateToken;
 
     // ✅ RELAXED GUARDS: Allow emission if we have valid content
@@ -1106,6 +1124,13 @@ export class ExplanationTextService {
 
     this.latestExplanation = trimmed;
     this.latestExplanationIndex = index;
+
+    // Store in Map by index for reliable retrieval
+    this.fetByIndex.set(index, trimmed);
+
+    // ✅ CRITICAL: Also emit to formattedExplanationSubject for FINAL LAYER
+    // This ensures getCombinedDisplayTextStream's combineLatest re-evaluates
+    this.formattedExplanationSubject.next(trimmed);
 
     // ✅ Emit immediately without waiting for requestAnimationFrame
     // This ensures the FET is available synchronously for the display stream
@@ -1246,6 +1271,7 @@ export class ExplanationTextService {
     } catch { }
 
     this._activeIndex = index;
+    this.latestExplanationIndex = index; // Ensure FET guard can match for new question
     this.formattedExplanations[index] = {
       questionIndex: index,
       explanation: '',

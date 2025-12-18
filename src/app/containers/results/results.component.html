@@ -15,22 +15,37 @@
   <mat-card-content>
     <section class="results">
       <h3 i18n>Congratulations! You've completed the quiz!</h3>
+
+      <!-- Immediate -->
       <codelab-results-statistics />
 
-      <section class="quiz-summary">
-        <details>
-          <summary role="button" i18n>
-            Click to view a more detailed summary of your quiz&hellip;
-          </summary>
-          <codelab-results-summary />
-          <codelab-results-accordion />
-        </details>
-      </section>
-    </section>
+      <!-- Deferred summary -->
+      @defer {
+        <section class="quiz-summary">
+          <details>
+            <summary role="button" i18n>
+              Click to view a more detailed summary of your quiz&hellip;
+            </summary>
 
-    <codelab-results-return />
-    <hr />
-    <codelab-results-challenge />
+            <codelab-results-summary />
+            <codelab-results-accordion />
+          </details>
+        </section>
+      } @placeholder {
+        <p class="loading-muted">Preparing detailed results…</p>
+      }
+
+      <!-- Immediate -->
+      <codelab-results-return />
+      <hr />
+
+      <!-- Deferred challenge -->
+      @defer {
+        <codelab-results-challenge />
+      } @placeholder {
+        <p class="loading-muted">Loading…</p>
+      }
+    </section>
   </mat-card-content>
 
   <app-back-to-top />
