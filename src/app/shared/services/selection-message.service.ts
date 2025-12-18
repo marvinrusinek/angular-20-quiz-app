@@ -10,11 +10,11 @@ import { QuizService } from './quiz.service';
 import { SelectedOptionService } from './selectedoption.service';
 
 const START_MSG = 'Please start the quiz by selecting an option.';
-const CONTINUE_MSG = 'Please select an option to continue...';
+const CONTINUE_MSG = 'Please click an option to continue...';
 const NEXT_BTN_MSG = 'Please click the next button to continue...';
 const SHOW_RESULTS_MSG = 'Please click the Show Results button.';
 const buildRemainingMsg = (remaining: number) =>
-  `Select ${remaining} more correct answer${remaining === 1 ? '' : 's'} to continue...`;
+  `Please select ${remaining} more correct answer${remaining === 1 ? '' : 's'} to continue...`;
 
 interface OptionSnapshot {
   id: number | string;
@@ -72,7 +72,7 @@ export class SelectionMessageService {
   constructor(
     private quizService: QuizService,
     private selectedOptionService: SelectedOptionService,
-  ) {}
+  ) { }
 
   // Getter for the current selection message
   public getCurrentMessage(): string {
@@ -171,15 +171,8 @@ export class SelectionMessageService {
       ? QuestionType.MultipleAnswer
       : (declaredType ?? QuestionType.SingleAnswer);
 
-    // BASELINE GUARD: prevent flicker before baseline is released
-    if (!this._baselineReleased?.has(questionIndex)) {
-      if (qType === QuestionType.MultipleAnswer) {
-        const totalCorrect = overlaid.filter((o) => !!o.correct).length;
-        return `Select ${totalCorrect} correct answer${totalCorrect > 1 ? 's' : ''} to continue...`;
-      } else {
-        return questionIndex === 0 ? START_MSG : CONTINUE_MSG;
-      }
-    }
+    // Note: Baseline guard removed - computeFinalMessage now handles all cases
+    // The guard was preventing message updates after option clicks
 
     // NORMAL PATH
     return this.computeFinalMessage({
@@ -208,6 +201,15 @@ export class SelectionMessageService {
     const selectedCorrect = opts.filter((o) => o.selected && o.correct).length;
     const selectedWrong = opts.filter((o) => o.selected && !o.correct).length;
 
+    console.log(
+      `%c[SMS] computeFinalMessage Q${index + 1}`,
+      'background:#ff00ff;color:white;font-weight:bold;',
+      {
+        qType, totalCorrect, selectedCorrect, selectedWrong, isLast,
+        optsDetail: opts.map(o => ({ id: o.optionId, sel: o.selected, corr: o.correct }))
+      }
+    );
+
     // ───────── SINGLE-ANSWER ─────────
     if (qType === QuestionType.SingleAnswer) {
       // Baseline if nothing chosen
@@ -218,7 +220,7 @@ export class SelectionMessageService {
       // Wrong chosen
       if (selectedWrong > 0) {
         this._singleAnswerIncorrectLock.add(index);
-        return 'Select a correct answer to continue...';
+        return 'Please select a correct answer to continue...';
       }
 
       // Correct chosen
@@ -231,7 +233,7 @@ export class SelectionMessageService {
 
     // ───────── MULTI-ANSWER ─────────
     if (qType === QuestionType.MultipleAnswer) {
-      const baselineMsg = `Select ${totalCorrect} correct answer${totalCorrect > 1 ? 's' : ''} to continue...`;
+      const baselineMsg = `Please select ${totalCorrect} correct answer${totalCorrect > 1 ? 's' : ''} to continue...`;
 
       // Baseline if no corrects chosen yet
       if (selectedCorrect === 0) {
@@ -250,7 +252,7 @@ export class SelectionMessageService {
       const remaining = totalCorrect - selectedCorrect;
       this._multiAnswerPreLock.delete(index);
       this._multiAnswerInProgressLock.add(index);
-      return `Select ${remaining} more correct answer${remaining > 1 ? 's' : ''} to continue...`;
+      return `Please select ${remaining} more correct answer${remaining > 1 ? 's' : ''} to continue...`;
     }
 
     // ───────── Default fallback ─────────
@@ -260,68 +262,16 @@ export class SelectionMessageService {
   public pushMessage(newMsg: string, i0: number): void {
     const current = this.selectionMessageSubject.getValue();
 
-    // Safely grab qType + snapshot info
-    const qType: QuestionType | undefined =
-      (this.quizService.questions?.[i0]?.type as QuestionType | undefined) ??
-      undefined;
+    console.log(
+      `%c[SMS] pushMessage Q${i0 + 1}`,
+      'background:#00aa00;color:white;font-weight:bold;',
+      { current, newMsg }
+    );
 
-    const totalCorrect =
-      this.optionsSnapshot?.filter((o) => !!o.correct).length ?? 0;
-    const selectedCorrect =
-      this.optionsSnapshot?.filter((o) => o.selected && o.correct).length ?? 0;
-    const selectedWrong =
-      this.optionsSnapshot?.filter((o) => o.selected && !o.correct).length ?? 0;
-
-    // ───────── Multi-answer baseline guard ─────────
-    if (qType === QuestionType.MultipleAnswer && selectedCorrect === 0) {
-      if (!this._baselineReleased.has(i0)) {
-        // Only force baseline if baseline not released yet
-        newMsg = `Select ${totalCorrect} correct answer${totalCorrect > 1 ? 's' : ''} to continue...`;
-      } else {
-        // After baseline released → never regress to CONTINUE_MSG
-        if (newMsg === CONTINUE_MSG) return;
-      }
-    }
-
-    // ───────── Single-answer baseline guard ─────────
-    if (
-      qType === QuestionType.SingleAnswer &&
-      selectedCorrect === 0 &&
-      selectedWrong === 0 &&
-      !this._singleAnswerCorrectLock.has(i0) &&
-      !this._singleAnswerIncorrectLock.has(i0)
-    ) {
-      if (!this._baselineReleased.has(i0)) {
-        newMsg = i0 === 0 ? START_MSG : CONTINUE_MSG;
-        console.log(
-          '[pushMessage Guard] Sticky single baseline (pre-release)',
-          { i0, newMsg },
-        );
-      } else {
-        // After baseline released → don’t let a stale CONTINUE/START override
-        if (newMsg === START_MSG || newMsg === CONTINUE_MSG) {
-          console.log(
-            '[pushMessage Guard] Skipped stale baseline after release (single)',
-            { i0, newMsg },
-          );
-          return;
-        }
-      }
-    }
-
-    // ───────── Prevent false NEXT while wrong lock active ─────────
-    if (newMsg === NEXT_BTN_MSG && this._singleAnswerIncorrectLock.has(i0)) {
-      console.warn(
-        '[pushMessage Guard] Prevented false NEXT promotion (Q',
-        i0,
-        ')',
-      );
-      return;
-    }
-
-    // ───────── Push only if changed ─────────
+    // Push only if changed
     if (current !== newMsg) {
       this.selectionMessageSubject.next(newMsg);
+      console.log(`%c[SMS] ✅ Message updated: "${newMsg}"`, 'color:green;');
     } else {
       console.log('[pushMessage] skipped duplicate', { i0, newMsg });
     }
@@ -381,7 +331,7 @@ export class SelectionMessageService {
       let baselineMsg: string | null = null;
 
       if (qType === QuestionType.MultipleAnswer) {
-        baselineMsg = `Select ${totalCorrect} correct answer${totalCorrect > 1 ? 's' : ''} to continue...`;
+        baselineMsg = `Please select ${totalCorrect} correct answer${totalCorrect > 1 ? 's' : ''} to continue...`;
 
         // Mark multi-answer as pre-lock
         this._multiAnswerPreLock.add(i0);
@@ -414,6 +364,9 @@ export class SelectionMessageService {
   public forceBaseline(index: number): void {
     try {
       const total = this.quizService.totalQuestions;
+      const q = this.quizService.questions?.[index];
+      const qType = q?.type ?? QuestionType.SingleAnswer;
+      const isLast = total > 0 && index === total - 1;
 
       // Reset any pending state
       this._pendingMsgTokens?.set(index, -1);
@@ -421,8 +374,15 @@ export class SelectionMessageService {
       // Mark baseline as released for this index
       this.releaseBaseline(index);
 
-      // Compute the correct initial baseline message
-      const msg = this.determineSelectionMessage(index, total, false);
+      // Compute baseline message directly based on question type
+      let msg: string;
+      if (qType === QuestionType.MultipleAnswer) {
+        const totalCorrect = (q?.options ?? []).filter((o: any) => o.correct === true).length;
+        msg = `Please select ${totalCorrect} correct answer${totalCorrect > 1 ? 's' : ''} to continue...`;
+      } else {
+        // Single-answer: Q1 gets START_MSG, others get CONTINUE_MSG
+        msg = index === 0 ? START_MSG : CONTINUE_MSG;
+      }
 
       // Push only if changed
       const current = this.selectionMessageSubject.getValue();
@@ -471,7 +431,7 @@ export class SelectionMessageService {
       // ───────── MULTI-ANSWER: baseline ─────────
       if (qType === QuestionType.MultipleAnswer && selectedCorrect === 0) {
         if (!this._baselineReleased.has(i0)) {
-          const baselineMsg = `Select ${totalCorrect} correct answer${totalCorrect > 1 ? 's' : ''} to continue...`;
+          const baselineMsg = `Please select ${totalCorrect} correct answer${totalCorrect > 1 ? 's' : ''} to continue...`;
           const prev = this._lastMessageByIndex.get(i0);
           if (prev !== baselineMsg) {
             this._lastMessageByIndex.set(i0, baselineMsg);
@@ -580,6 +540,16 @@ export class SelectionMessageService {
     onMessageChange?: (msg: string) => void;
     token?: number;
   }): void {
+    console.log(
+      `%c[SMS] 🔥 emitFromClick CALLED! Q${params.index + 1}`,
+      'background:#ff6600;color:white;font-weight:bold;font-size:14px;',
+      {
+        qType: params.questionType,
+        canonicalOptions: params.canonicalOptions.map(o => ({
+          id: o.optionId, sel: (o as any).selected, corr: (o as any).correct
+        }))
+      }
+    );
     const {
       index,
       totalQuestions,
@@ -764,8 +734,8 @@ export class SelectionMessageService {
     return opt.optionId != null
       ? String(opt.optionId)
       : `${String(opt.value ?? '')
-          .trim()
-          .toLowerCase()}|${String(opt.text ?? '')
+        .trim()
+        .toLowerCase()}|${String(opt.text ?? '')
           .trim()
           .toLowerCase()}`;
   }
@@ -899,7 +869,7 @@ export class SelectionMessageService {
 
     let msg: string;
     if (selectedCount === 0) {
-      msg = 'Please select an option to continue...';
+      msg = 'Please click an option to continue...';
     } else if (selectedCount === 1) {
       msg = 'Please click the Next button to continue...';
     } else {

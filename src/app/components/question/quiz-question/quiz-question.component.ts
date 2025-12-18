@@ -2357,7 +2357,7 @@ export class QuizQuestionComponent
     this.explanationTextService.setIsExplanationTextDisplayed(false);
     this.explanationTextService.setExplanationText('', { force: true });
     this.explanationTextService.latestExplanation = '';
-    this.explanationTextService.latestExplanationIndex = null;
+    this.explanationTextService.latestExplanationIndex = this.currentQuestionIndex;
     this.readyForExplanationDisplay = false;
     this.isExplanationReady = false;
     this.isExplanationLocked = true;
@@ -3215,7 +3215,7 @@ export class QuizQuestionComponent
     try {
       await this.waitForInteractionReady();
 
-      const optionsNow = this.cloneOptionsForUi(q!, evtIdx, event);
+      const optionsNow = this.cloneOptionsForUi(q!, idx, evtIdx, event);
       const canonicalOpts = this.buildCanonicalOptions(q!, idx, evtOpt, evtIdx);
 
       // Commit selection into local + state
@@ -3281,6 +3281,11 @@ export class QuizQuestionComponent
       // ───────────────────────────────────────────────
       // EXISTING UI / FEEDBACK LOGIC (UNCHANGED)
       // ───────────────────────────────────────────────
+      console.log(
+        `%c[QQC] 🎯 About to call emitSelectionMessage for Q${idx + 1}`,
+        'background:#0066ff;color:white;font-weight:bold;font-size:14px;',
+        { idx, qType: q?.type, canonicalOptsCount: canonicalOpts.length }
+      );
       this.emitSelectionMessage(idx, q!, optionsNow, canonicalOpts);
       this.syncCanonicalOptionsIntoQuestion(q!, canonicalOpts);
 
@@ -3350,6 +3355,7 @@ export class QuizQuestionComponent
 
   private cloneOptionsForUi(
     q: QuizQuestion,
+    questionIndex: number,
     evtIdx: number,
     event: OptionClickedPayload,
   ): Option[] {
@@ -3377,7 +3383,7 @@ export class QuizQuestionComponent
       return optionsNow;
     }
 
-    this.selectionMessageService.releaseBaseline(evtIdx);
+    this.selectionMessageService.releaseBaseline(questionIndex);
 
     if (q?.type === QuestionType.SingleAnswer) {
       optionsNow.forEach((opt, i) => {

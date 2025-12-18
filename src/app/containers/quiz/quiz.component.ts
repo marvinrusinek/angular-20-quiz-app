@@ -250,7 +250,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
   private navigatingToResults = false;
 
   private nextButtonTooltipSubject = new BehaviorSubject<string>(
-    'Please select an option to continue...',
+    'Please click an option to continue...',
   );
   nextButtonTooltip$ = this.nextButtonTooltipSubject.asObservable();
 
@@ -597,6 +597,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
         // DO NOT clear the current question state
         ets._activeIndex = idx;
+        ets.latestExplanationIndex = idx; // Ensure FET guard can match for new question
         ets._fetLocked = false;
         this._fetEarlyShown.delete(idx);
         this.lastLoggedIndex = idx;
@@ -1141,12 +1142,12 @@ get quizQuestionComponent(): QuizQuestionComponent {
         console.log('Combined Tooltip State:', { isSelected, isEnabled });
         return isSelected && isEnabled
           ? 'Next Question >>'
-          : 'Please select an option to continue...';
+          : 'Please click an option to continue...';
       }),
       distinctUntilChanged(),
       catchError((error) => {
         console.error('Tooltip error:', error);
-        return of('Please select an option to continue...');
+        return of('Please click an option to continue...');
       }),
     );
 
@@ -4882,6 +4883,11 @@ get quizQuestionComponent(): QuizQuestionComponent {
   }
 
   public showExplanationForQuestion(qIdx: number): void {
+    // ALWAYS set _activeIndex and latestExplanationIndex so FET is tracked for ALL questions
+    // (including Q1 where _activeIndex may already be 0)
+    console.log(`[QuizComponent] Setting ETS active index to ${qIdx}`);
+    this.explanationTextService._activeIndex = qIdx;
+    this.explanationTextService.latestExplanationIndex = qIdx;
     // Grab the exact question raw text
     const question =
       this.questionsArray?.[qIdx] ??

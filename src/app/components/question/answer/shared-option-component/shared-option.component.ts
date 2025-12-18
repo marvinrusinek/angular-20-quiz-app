@@ -506,6 +506,7 @@ export class SharedOptionComponent
       );
       this.highlightedOptionIds.clear();
       this.flashDisabledSet.clear();
+      this.correctClicksPerQuestion.clear();
       this.showFeedbackForOption = {};
       this.feedbackConfigs = {};
       this.selectedOptionHistory = [];
@@ -1445,6 +1446,34 @@ export class SharedOptionComponent
     }
 
     this.cdRef.detectChanges();
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 🔔 SELECTION MESSAGE UPDATE (Using centralized computeFinalMessage)
+    // ═══════════════════════════════════════════════════════════════════
+    try {
+      // Build options array with correct selection state for computeFinalMessage
+      const clickedCorrectSet = this.correctClicksPerQuestion.get(questionIndex) ?? new Set<number>();
+      const opts = bindings.map((b: OptionBindings) => ({
+        ...b.option,
+        selected: isSingle
+          ? (b.option?.optionId === binding.option?.optionId) // Single: only clicked option is selected
+          : clickedCorrectSet.has(b.option?.optionId as number) // Multi: all clicked correct options
+      }));
+
+      const message = this.selectionMessageService.computeFinalMessage({
+        index: questionIndex,
+        total: this.quizService?.totalQuestions ?? 6,
+        qType: isSingle ? QuestionType.SingleAnswer : QuestionType.MultipleAnswer,
+        opts: opts as Option[]
+      });
+
+      // Push the message to the service
+      if (this.selectionMessageService) {
+        (this.selectionMessageService as any).selectionMessageSubject?.next?.(message);
+      }
+    } catch (err) {
+      console.error('[SOC] ❌ Failed to update selection message:', err);
+    }
   }
 
   public updateOptionAndUI(
@@ -1680,6 +1709,11 @@ export class SharedOptionComponent
     );
     this.emitExplanation(activeIndex);
 
+    // ✅ FORCE UPDATE SELECTION MESSAGE: Ensure the selection message service knows about this change
+    // This fixes the issue where messages would stay stuck on "Please start..."
+    this.selectionMessageService.notifySelectionMutated(this.optionsToDisplay);
+    this.selectionMessageService.setSelectionMessage(false);
+
     this.cdRef.detectChanges();
 
     console.log(
@@ -1911,10 +1945,6 @@ export class SharedOptionComponent
     const explanationText = this.resolveExplanationText(questionIndex);
 
     this.pendingExplanationIndex = questionIndex;
-
-    console.log(
-      `[📤 Emitting Explanation Text for Q${questionIndex + 1}]: "${explanationText}"`,
-    );
 
     this.applyExplanationText(explanationText, questionIndex);
 
@@ -3328,29 +3358,26 @@ export class SharedOptionComponent
   }
 
   private getActiveQuestionIndex(): number {
-    // Highest priority: explicitly assigned by QQC
-    if (typeof this.currentQuestionIndex === 'number') {
-      return this.currentQuestionIndex;
-    }
-
-    // Secondary: input questionIndex if provided
-    if (typeof this.questionIndex === 'number') {
-      return this.questionIndex;
-    }
-
-    // Tertiary: quizService.currentQuestionIndex property (more reliable)
+    // HIGHEST PRIORITY: quizService.currentQuestionIndex (always up-to-date)
     if (typeof this.quizService?.currentQuestionIndex === 'number') {
-      console.log(`[SOC] getActiveQuestionIndex: using quizService.currentQuestionIndex property=${this.quizService.currentQuestionIndex}`);
       return this.quizService.currentQuestionIndex;
     }
 
-    // Fallback: quizService.getCurrentQuestionIndex() method
+    // Secondary: quizService.getCurrentQuestionIndex() method
     const svcIndex = this.quizService?.getCurrentQuestionIndex?.();
     if (typeof svcIndex === 'number') {
       return svcIndex;
     }
 
-    console.warn(`[SOC] getActiveQuestionIndex: ALL sources failed!`);
+    // Fallback: component properties (may be stale)
+    if (typeof this.currentQuestionIndex === 'number') {
+      return this.currentQuestionIndex;
+    }
+
+    if (typeof this.questionIndex === 'number') {
+      return this.questionIndex;
+    }
+
     return 0; // emergency fallback
   }
 
