@@ -171,20 +171,8 @@ export class SelectionMessageService {
       ? QuestionType.MultipleAnswer
       : (declaredType ?? QuestionType.SingleAnswer);
 
-<<<<<<< HEAD
     // Note: Baseline guard removed - computeFinalMessage now handles all cases
     // The guard was preventing message updates after option clicks
-=======
-    // BASELINE GUARD: prevent flicker before baseline is released
-    if (!this._baselineReleased?.has(questionIndex)) {
-      if (qType === QuestionType.MultipleAnswer) {
-        const totalCorrect = overlaid.filter((o) => !!o.correct).length;
-        return `Please select ${totalCorrect} correct answer${totalCorrect > 1 ? 's' : ''} to continue...`;
-      } else {
-        return questionIndex === 0 ? START_MSG : CONTINUE_MSG;
-      }
-    }
->>>>>>> 70fce9578362005c0c22e11c00618ba2b1041a39
 
     // NORMAL PATH
     return this.computeFinalMessage({
@@ -280,65 +268,7 @@ export class SelectionMessageService {
       { current, newMsg }
     );
 
-<<<<<<< HEAD
     // Push only if changed
-=======
-    const totalCorrect =
-      this.optionsSnapshot?.filter((o) => !!o.correct).length ?? 0;
-    const selectedCorrect =
-      this.optionsSnapshot?.filter((o) => o.selected && o.correct).length ?? 0;
-    const selectedWrong =
-      this.optionsSnapshot?.filter((o) => o.selected && !o.correct).length ?? 0;
-
-    // ───────── Multi-answer baseline guard ─────────
-    if (qType === QuestionType.MultipleAnswer && selectedCorrect === 0) {
-      if (!this._baselineReleased.has(i0)) {
-        // Only force baseline if baseline not released yet
-        newMsg = `Please select ${totalCorrect} correct answer${totalCorrect > 1 ? 's' : ''} to continue...`;
-      } else {
-        // After baseline released → never regress to CONTINUE_MSG
-        if (newMsg === CONTINUE_MSG) return;
-      }
-    }
-
-    // ───────── Single-answer baseline guard ─────────
-    if (
-      qType === QuestionType.SingleAnswer &&
-      selectedCorrect === 0 &&
-      selectedWrong === 0 &&
-      !this._singleAnswerCorrectLock.has(i0) &&
-      !this._singleAnswerIncorrectLock.has(i0)
-    ) {
-      if (!this._baselineReleased.has(i0)) {
-        newMsg = i0 === 0 ? START_MSG : CONTINUE_MSG;
-        console.log(
-          '[pushMessage Guard] Sticky single baseline (pre-release)',
-          { i0, newMsg },
-        );
-      } else {
-        // After baseline released → don’t let a stale CONTINUE/START override
-        if (newMsg === START_MSG || newMsg === CONTINUE_MSG) {
-          console.log(
-            '[pushMessage Guard] Skipped stale baseline after release (single)',
-            { i0, newMsg },
-          );
-          return;
-        }
-      }
-    }
-
-    // ───────── Prevent false NEXT while wrong lock active ─────────
-    if (newMsg === NEXT_BTN_MSG && this._singleAnswerIncorrectLock.has(i0)) {
-      console.warn(
-        '[pushMessage Guard] Prevented false NEXT promotion (Q',
-        i0,
-        ')',
-      );
-      return;
-    }
-
-    // ───────── Push only if changed ─────────
->>>>>>> 70fce9578362005c0c22e11c00618ba2b1041a39
     if (current !== newMsg) {
       this.selectionMessageSubject.next(newMsg);
       console.log(`%c[SMS] ✅ Message updated: "${newMsg}"`, 'color:green;');
