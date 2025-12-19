@@ -1474,6 +1474,21 @@ export class SharedOptionComponent
     } catch (err) {
       console.error('[SOC] ❌ Failed to update selection message:', err);
     }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 🔊 DIRECT SOUND PLAYBACK (Event chain wasn't working)
+    // ═══════════════════════════════════════════════════════════════════
+    try {
+      const enrichedOption: SelectedOption = {
+        ...binding.option,
+        questionIndex: questionIndex,
+        optionId: binding.option.optionId,
+        correct: binding.option.correct
+      };
+      this.soundService.playOnceForOption(enrichedOption);
+    } catch (err) {
+      console.error('[SOC] ❌ Failed to play sound:', err);
+    }
   }
 
   public updateOptionAndUI(
