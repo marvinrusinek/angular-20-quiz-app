@@ -168,6 +168,15 @@
   }
 }
 
+/* 🔒 ROOT-LEVEL DISABLED STYLING - GUARANTEED TO WORK */
+.disabled-option {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+  background-color: #e0e0e0 !important;
+  border-color: #9e9e9e !important;
+}
+
 /* ────────────────────────────────────────────────
    3. OPTION CONTENT (TEXT + ICONS)
 ──────────────────────────────────────────────────*/
@@ -187,6 +196,16 @@ mat-icon.opt-icon {
 codelab-quiz-feedback {
   margin-top: -12px;
 }
+
+.option-feedback.correct {
+  margin-top: 6px;
+  font-weight: 600;
+  color: #1b8f3c;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 
 /* ────────────────────────────────────────────────
    4. CORRECT / INCORRECT STATES

@@ -68,6 +68,7 @@ import { SoundService } from '../../../../shared/services/sound.service';
 import { UserPreferenceService } from '../../../../shared/services/user-preference.service';
 import { HighlightOptionDirective } from '../../../../directives/highlight-option.directive';
 import { SharedOptionConfigDirective } from '../../../../directives/shared-option-config.directive';
+import { correctAnswerAnim } from '../../../../animations/animations';
 
 @Component({
   selector: 'app-shared-option',
@@ -84,6 +85,7 @@ import { SharedOptionConfigDirective } from '../../../../directives/shared-optio
   ],
   templateUrl: './shared-option.component.html',
   styleUrls: ['../../quiz-question/quiz-question.component.scss'],
+  animations: [correctAnswerAnim],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SharedOptionComponent
@@ -134,6 +136,8 @@ export class SharedOptionComponent
   private readonly perQuestionHistory = new Set<number>();
   // Track CORRECT option clicks per question for timer stop logic
   private correctClicksPerQuestion: Map<number, Set<number>> = new Map();
+  // 🔒 Track DISABLED option IDs per question - persists across binding recreations
+  private disabledOptionsPerQuestion: Map<number, Set<number>> = new Map();
   // isSubmitted = false;  // using below in commented code
   iconVisibility: boolean[] = []; // array to store visibility state of icons
   showIconForOption: { [optionId: number]: boolean } = {};
@@ -142,6 +146,9 @@ export class SharedOptionComponent
   lastFeedbackOptionId = -1;
   lastSelectedOptionId = -1;
   highlightedOptionIds: Set<number> = new Set();
+
+  // 🔒 Counter to force OnPush re-render when disabled state changes
+  disableRenderTrigger = 0;
 
   isOptionSelected = false;
   private optionsRestored = false; // tracks if options are restored
@@ -1090,20 +1097,61 @@ export class SharedOptionComponent
     const optionId = option.optionId;
     const qIndex = this.resolveCurrentQuestionIndex();
 
+    // 🔑 CHECK PERSISTENT DISABLED STATE FIRST
+    const disabledSet = this.disabledOptionsPerQuestion.get(qIndex);
+    if (disabledSet && typeof optionId === 'number' && disabledSet.has(optionId)) {
+      return true;
+    }
+
     // ─────────────────────────────────────────────
-    // 🚫 GLOBAL GUARD: nothing disables until COMPLETE
+    // 🔑 USE correctClicksPerQuestion AS SOURCE OF TRUTH
+    // This Map is reliably updated in onOptionContentClick
     // ─────────────────────────────────────────────
+    const clickedCorrectSet = this.correctClicksPerQuestion.get(qIndex) ?? new Set<number>();
+    const hasAnyCorrectClicked = clickedCorrectSet.size > 0;
+
+    // Get question type
+    const resolvedType = this.resolvedTypeForLock ?? this.resolveQuestionType();
+    const isSingleAnswer = resolvedType === QuestionType.SingleAnswer ||
+      resolvedType === QuestionType.TrueFalse;
+
+    // For multi-answer: check if ALL correct are clicked
     const bindings = this.optionBindings ?? [];
-    const correctBindings = bindings.filter(b => !!b.option?.correct);
+    const correctOptionIds = bindings
+      .filter(b => !!b.option?.correct)
+      .map(b => b.option!.optionId)
+      .filter((id): id is number => id !== undefined);
 
-    // SINGLE SOURCE OF TRUTH FOR "ALL CORRECT SELECTED" (LOCAL/UI)
-    const allCorrectSelectedLocally =
-      correctBindings.length > 0 &&
-      correctBindings.every(b => !!b.option?.selected || b.isSelected);
+    const allCorrectClicked = correctOptionIds.length > 0 &&
+      correctOptionIds.every(id => clickedCorrectSet.has(id));
 
-    // Until the question is COMPLETE, NOTHING is disabled
-    if (!allCorrectSelectedLocally) {
-      return false;
+    // ─────────────────────────────────────────────
+    // DISABLE LOGIC
+    // ─────────────────────────────────────────────
+
+    // DEBUG: Log all values to understand why disable isn't working
+    console.log('[shouldDisableOption] CHECK:', {
+      optionId,
+      qIndex,
+      isCorrect: option.correct,
+      hasAnyCorrectClicked,
+      clickedCorrectSetSize: clickedCorrectSet.size,
+      clickedCorrectIds: Array.from(clickedCorrectSet),
+      isSingleAnswer,
+      resolvedType,
+      allCorrectClicked
+    });
+
+    // For single-answer: disable incorrect options when correct is clicked
+    if (isSingleAnswer && hasAnyCorrectClicked && !option.correct) {
+      console.log('[shouldDisableOption] ✅ DISABLING single-answer incorrect option:', optionId);
+      return true;
+    }
+
+    // For multi-answer: disable incorrect options when ALL correct are clicked
+    if (!isSingleAnswer && allCorrectClicked && !option.correct) {
+      console.log('[shouldDisableOption] ✅ DISABLING multi-answer incorrect option:', optionId);
+      return true;
     }
 
     // ─────────────────────────────────────────────
@@ -1130,22 +1178,7 @@ export class SharedOptionComponent
       }
     } catch { }
 
-    const resolvedType = this.resolvedTypeForLock ?? this.resolveQuestionType();
-
-    const hasCorrectSelection = bindings.some(
-      (b) => (!!b.option?.selected || b.isSelected) && !!b.option?.correct,
-    );
-
-    const shouldLockIncorrect =
-      this.shouldLockIncorrectOptions ||
-      this.computeShouldLockIncorrectOptions(
-        resolvedType,
-        hasCorrectSelection,
-        allCorrectSelectedLocally,
-      );
-
-    if (shouldLockIncorrect && !option.correct) return true;
-
+    // Note: shouldLockIncorrect logic removed - now handled by correctClicksPerQuestion above
     if (optionId != null && this.lockedIncorrectOptionIds.has(optionId))
       return true;
 
@@ -1308,6 +1341,14 @@ export class SharedOptionComponent
     event.stopPropagation();
 
     // ═══════════════════════════════════════════════════════════════════
+    // 🛑 GUARD: Skip if this option is disabled
+    // ═══════════════════════════════════════════════════════════════════
+    if (binding.disabled) {
+      console.log('[SOC] 🛑 Option is disabled, skipping click processing:', binding.option?.optionId);
+      return;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
     // 🔥 TIMER STOP LOGIC (FIXED - THE ONLY LOCATION!)
     // Single-answer: stop when correct option is clicked
     // Multi-answer: stop when ALL correct options are selected
@@ -1341,11 +1382,87 @@ export class SharedOptionComponent
     console.log(`[SOC] 🔥 Timer check: qIndex=${questionIndex}, correctOptionCount=${correctOptionCount} (from bindings), isMultipleAnswer=${isMultipleAnswer}, isSingle=${isSingle}, clickedIsCorrect=${clickedIsCorrect}`);
 
     if (isSingle) {
-      // SINGLE-ANSWER: Stop timer when correct option is clicked
+      // SINGLE-ANSWER: Track correct click and stop timer when correct option is clicked
       if (clickedIsCorrect) {
+        // ═══════════════════════════════════════════════════════════════════
+        // 🔑 TRACK CORRECT CLICK FOR SINGLE-ANSWER (needed for disable logic)
+        // ═══════════════════════════════════════════════════════════════════
+        if (!this.correctClicksPerQuestion.has(questionIndex)) {
+          this.correctClicksPerQuestion.set(questionIndex, new Set<number>());
+        }
+        const clickedCorrectSet = this.correctClicksPerQuestion.get(questionIndex)!;
+        const currentOptionId = binding.option.optionId;
+        if (typeof currentOptionId === 'number') {
+          clickedCorrectSet.add(currentOptionId);
+        }
+
         console.log(`[SOC] 🎯 SINGLE-ANSWER: Correct option clicked → STOPPING TIMER`);
         this.timerService.allowAuthoritativeStop();
         this.timerService.stopTimer(undefined, { force: true });
+
+        // ═══════════════════════════════════════════════════════════════════
+        // 🔒 DIRECTLY DISABLE ALL INCORRECT OPTIONS
+        // ═══════════════════════════════════════════════════════════════════
+        console.log('[SOC] 🔒 About to disable incorrect options. optionBindings count:', this.optionBindings?.length);
+
+        // 🔑 PERSISTENT DISABLE: Add incorrect options to disabledOptionsPerQuestion Map
+        if (!this.disabledOptionsPerQuestion.has(questionIndex)) {
+          this.disabledOptionsPerQuestion.set(questionIndex, new Set<number>());
+        }
+        const disabledSet = this.disabledOptionsPerQuestion.get(questionIndex)!;
+
+        // Modify this.optionBindings directly (not the local bindings const)
+        for (const b of this.optionBindings ?? []) {
+          if (!b.option?.correct) {
+            b.disabled = true;
+            const optId = b.option?.optionId;
+            if (typeof optId === 'number') {
+              disabledSet.add(optId);
+            }
+            console.log(`[SOC] 🔒 DISABLED incorrect option:`, optId);
+          }
+        }
+
+        // Force Angular to see the change by creating new array reference
+        this.optionBindings = [...this.optionBindings];
+
+        // DEBUG: Verify disabled state after spread
+        console.log('[SOC] 🔒 After spread, disabled states:', this.optionBindings.map(b => ({
+          id: b.option?.optionId,
+          disabled: b.disabled,
+          correct: b.option?.correct
+        })));
+        console.log('[SOC] 🔒 disabledOptionsPerQuestion:', Array.from(disabledSet));
+
+        // Trigger change detection to update disabled state
+        // 🔒 INCREMENT COUNTER TO FORCE ONPUSH RE-RENDER
+        this.disableRenderTrigger++;
+        console.log('[SOC] 🔒 disableRenderTrigger incremented to:', this.disableRenderTrigger);
+
+        this.cdRef.markForCheck();
+        this.cdRef.detectChanges();
+
+        // 🔥 NUCLEAR OPTION: Directly manipulate DOM to add disabled class
+        setTimeout(() => {
+          const allRadioButtons = document.querySelectorAll('mat-radio-button');
+          console.log('[SOC] 🔥 Found mat-radio-buttons:', allRadioButtons.length);
+
+          allRadioButtons.forEach((el) => {
+            const optionId = parseInt(el.getAttribute('ng-reflect-value') || el.getAttribute('value') || '-1', 10);
+            console.log('[SOC] 🔥 Checking radio button optionId:', optionId, 'disabledSet has:', disabledSet.has(optionId));
+
+            if (disabledSet.has(optionId)) {
+              el.classList.add('disabled-option');
+              el.setAttribute('disabled', 'true');
+              (el as HTMLElement).style.opacity = '0.5';
+              (el as HTMLElement).style.pointerEvents = 'none';
+              console.log('[SOC] 🔥 DOM: Added disabled-option class to option:', optionId);
+            }
+          });
+        }, 100);
+      } else {
+        // User clicked an incorrect option for single-answer
+        console.log('[SOC] ❌ Single-answer: INCORRECT option clicked, not disabling others');
       }
     } else {
       // MULTI-ANSWER: Check if ALL correct options have been CLICKED (not just isSelected)
@@ -1383,6 +1500,8 @@ export class SharedOptionComponent
       const currentOptionId = binding.option.optionId;
       if (clickedIsCorrect && typeof currentOptionId === 'number') {
         clickedCorrectSet.add(currentOptionId);
+        // Trigger change detection to update disabled state for incorrect options
+        this.cdRef.detectChanges();
       }
 
       // STRICT VALIDATION: For multi-answer, we MUST have at least 2 correct options
@@ -3279,6 +3398,19 @@ export class SharedOptionComponent
 
   // Single place to decide disabled
   public isDisabled(binding: OptionBindings, idx: number): boolean {
+    // 🔑 CHECK PERSISTENT DISABLED STATE FIRST
+    const qIndex = this.resolveCurrentQuestionIndex();
+    const optionId = binding?.option?.optionId;
+    const disabledSet = this.disabledOptionsPerQuestion.get(qIndex);
+    const isInSet = disabledSet && typeof optionId === 'number' && disabledSet.has(optionId);
+
+    // DEBUG
+    console.log(`[isDisabled] optionId=${optionId}, qIndex=${qIndex}, isInSet=${isInSet}, disabledSet=`, disabledSet ? Array.from(disabledSet) : 'none');
+
+    if (isInSet) {
+      console.log(`[isDisabled] ✅ RETURNING TRUE for option ${optionId}`);
+      return true;
+    }
     return this.shouldDisableOption(binding) || this.isLocked(binding, idx);
   }
 

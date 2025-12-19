@@ -39,3 +39,20 @@ export const ChangeRouteAnimation = {
     ]),
   ]),
 };
+
+
+export const correctAnswerAnim = trigger('correctAnswer', [
+  transition(':enter', [
+    style({
+      transform: 'scale(0.92)',
+      opacity: 0
+    }),
+    animate(
+      '180ms cubic-bezier(0.2, 0.8, 0.2, 1)',
+      style({
+        transform: 'scale(1)',
+        opacity: 1
+      })
+    )
+  ])
+]);
