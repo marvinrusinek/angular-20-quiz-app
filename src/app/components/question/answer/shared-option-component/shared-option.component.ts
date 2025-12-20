@@ -1174,12 +1174,14 @@ export class SharedOptionComponent
     }
 
     if (this.forceDisableAll) {
-      bindings.forEach((binding) => {
+      for (const binding of bindings) {
         binding.disabled = true;
+
         if (binding.option) {
           binding.option.active = false;
         }
-      });
+      }
+
       this.cdRef.markForCheck();
       return;
     }
