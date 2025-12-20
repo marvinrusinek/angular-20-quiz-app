@@ -20,7 +20,8 @@
     <mat-radio-button class="option-row single-option" appHighlightOption [appHighlightInputType]="'radio'"
       [appHighlightReset]="shouldResetBackground" [sharedOptionConfig]="getSharedOptionConfig(b, i)"
       [value]="b.option.optionId" [ngClass]="getOptionClasses(b)" [disabled]="isDisabled(b, i)"
-      [class.disabled-option]="isDisabled(b, i)" (change)="onOptionChanged(b, i, $event)"
+      [class.disabled-option]="isDisabled(b, i)" [style.opacity]="isDisabled(b, i) ? '0.4' : '1'"
+      [style.pointer-events]="isDisabled(b, i) ? 'none' : 'auto'" (change)="onOptionChanged(b, i, $event)"
       (click)="onOptionInteraction(b, i, $event)">
 
       <ng-container *ngTemplateOutlet="optionContent;
