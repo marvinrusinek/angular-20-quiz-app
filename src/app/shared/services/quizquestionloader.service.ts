@@ -175,8 +175,8 @@ export class QuizQuestionLoaderService {
           .pipe(take(1));
         const explanation$ = this.explanationTextService.explanationsInitialized
           ? this.explanationTextService
-              .getFormattedExplanationTextForQuestion(questionIndex)
-              .pipe(take(1))
+            .getFormattedExplanationTextForQuestion(questionIndex)
+            .pipe(take(1))
           : of('');
 
         const data: FetchedData = await lastValueFrom(
@@ -472,17 +472,16 @@ export class QuizQuestionLoaderService {
     // Parent-level reset
     this.resetQuestionState(index);
 
-    // Child component reset
-    if (this.quizQuestionComponent) {
-      this.quizStateService.displayStateSubject.next({
-        mode: 'question',
-        answered: false,
-      });
+    // 🔑 ALWAYS reset display state when navigating to new question (not conditional)
+    this.quizStateService.displayStateSubject.next({
+      mode: 'question',
+      answered: false,
+    });
+    this.selectedOptionService.resetAllStates();
+    this.resetStateService.triggerResetState();
+    this.explanationTextService.resetExplanationState();
 
-      this.selectedOptionService.resetAllStates();
-      this.resetStateService.triggerResetState();
-      this.explanationTextService.resetExplanationState();
-    }
+    console.log(`[QQLoader] 🔄 Reset display state to 'question' mode for Q${index + 1}`);
 
     this.quizService.questionPayloadSubject.next(null);
     this.questionPayloadReadySource.next(false);
@@ -546,11 +545,30 @@ export class QuizQuestionLoaderService {
       this.lastQuizId = quizId;
     }
 
-    // Re-fetch if cache empty
-    if (this.questionsArray.length === 0) {
+    // 🔑 FIXED: Use quizService.questions as single source of truth
+    // This ensures both question text and options come from the same shuffled array
+    let questions = this.quizService.questions;
+
+    // 🔍 DEBUG: Log the state of quizService.questions
+    console.log(`[QQLoader fetchQO] quizService.questions state:`, {
+      hasQuestions: Array.isArray(questions) && questions.length > 0,
+      length: questions?.length,
+      Q1Text: questions?.[0]?.questionText?.substring(0, 40),
+      requestedIndex: index
+    });
+
+    // If quizService.questions is empty, fetch and set it
+    if (!Array.isArray(questions) || questions.length === 0) {
+      console.log(`[QQLoader fetchQO] ⚠️ quizService.questions EMPTY - fetching from getQuestionsForQuiz`);
       this.questionsArray = await firstValueFrom(
         this.quizDataService.getQuestionsForQuiz(quizId),
       );
+      questions = this.questionsArray;
+      // Also update quizService.questions so everyone uses the same array
+      this.quizService.questions = [...questions];
+      console.log(`[QQLoader fetchQO] ✅ Populated quizService.questions with ${questions.length} questions`);
+    } else {
+      console.log(`[QQLoader fetchQO] ✅ Using existing quizService.questions (${questions.length} questions)`);
     }
 
     // Keep other services in sync
@@ -566,12 +584,16 @@ export class QuizQuestionLoaderService {
     );
     this.quizService.setCurrentQuiz({
       ...fullQuiz,
-      questions: this.questionsArray,
+      questions: questions,
     });
 
-    // Return the requested question + options
-    const q = this.questionsArray[index] ?? null;
+    // Return the requested question + options from the SAME source
+    const q = questions[index] ?? null;
     const opts = q?.options ?? [];
+
+    // 🔍 DEBUG: Verify question and options come from same source
+    console.log(`[QQLoader] Q${index + 1}: "${q?.questionText?.substring(0, 40)}..." → Opt1: "${opts[0]?.text?.substring(0, 20) ?? 'N/A'}..."`);
+    console.log(`[QQLoader] Using quizService.questions (length: ${this.quizService.questions?.length})`);
 
     return { q, opts };
   }

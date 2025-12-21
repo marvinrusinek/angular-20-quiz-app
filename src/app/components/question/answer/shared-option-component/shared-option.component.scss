@@ -156,6 +156,12 @@
       border-color: vars.$vivid-blue;
     }
 
+    /* selected styling (before validation) */
+    &.selected-option {
+      background-color: lighten(vars.$vivid-blue, 40%);
+      border-color: vars.$vivid-blue;
+    }
+
     /* disabled styling */
     &.disabled-option,
     &[disabled] {

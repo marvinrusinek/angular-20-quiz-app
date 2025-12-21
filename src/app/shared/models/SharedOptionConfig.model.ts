@@ -21,6 +21,7 @@ export interface SharedOptionConfig {
   selectedOptionIndex: number | null;
   isAnswerCorrect: boolean;
   highlightCorrectAfterIncorrect: boolean;
+  highlight?: boolean;
   /* quizQuestionComponentOnOptionClicked: (
     option: SelectedOption,
     index: number,

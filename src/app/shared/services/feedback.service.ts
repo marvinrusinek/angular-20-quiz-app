@@ -29,6 +29,7 @@ export class FeedbackService {
       return 'Feedback unavailable.';
     }
 
+    // Use the full options array so setCorrectMessage can calculate correct indices
     const correctFeedback = this.setCorrectMessage(validOptionsToDisplay);
     if (!correctFeedback?.trim()) {
       console.warn(
@@ -51,18 +52,35 @@ export class FeedbackService {
       return 'Feedback unavailable.';
     }
 
-    // Extract indices of correct options
+    // ⚡ SYNCED WITH FET: Use displayOrder-aware logic same as ExplanationTextService.getCorrectOptionIndices
     const indices = optionsToDisplay
-      .map((option, index) => (option.correct ? index + 1 : null))
-      .filter((i): i is number => i !== null)
-      .sort((a, b) => a - b);
+      .map((option, idx) => {
+        if (!option.correct) return null;
 
-    if (indices.length === 0) {
+        // Match FET logic: use displayOrder when valid, else fall back to array index
+        const hasValidDisplayOrder =
+          typeof option.displayOrder === 'number' &&
+          Number.isFinite(option.displayOrder) &&
+          option.displayOrder >= 0;
+
+        const zeroBasedPos = hasValidDisplayOrder ? option.displayOrder! : idx;
+
+        // ⚡ DEBUG LOG
+        console.log(`[FeedbackService] Opt ID ${option.optionId}: displayOrder=${option.displayOrder}, hasValid=${hasValidDisplayOrder}, idx=${idx}, calcPos=${zeroBasedPos + 1}`);
+
+        return zeroBasedPos + 1; // 1-based for "Option N"
+      })
+      .filter((n): n is number => n !== null);
+
+    // Dedupe + sort for stable, readable "Options 1 and 2" strings (matches FET)
+    const deduped = Array.from(new Set(indices)).sort((a, b) => a - b);
+
+    if (deduped.length === 0) {
       console.warn(`[FeedbackService] ❌ No matching correct options found.`);
       return 'No correct options found for this question.';
     }
 
-    return this.formatFeedbackMessage(indices);
+    return this.formatFeedbackMessage(deduped);
   }
 
   private formatFeedbackMessage(indices: number[]): string {

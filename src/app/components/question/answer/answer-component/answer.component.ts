@@ -46,6 +46,7 @@ import { SharedOptionComponent } from '../shared-option-component/shared-option.
 export class AnswerComponent
   extends BaseQuestion<OptionClickedPayload>
   implements OnInit, OnChanges, AfterViewInit {
+
   viewContainerRefs!: QueryList<ViewContainerRef>;
   viewContainerRef!: ViewContainerRef;
   @ViewChild(SharedOptionComponent)
@@ -140,11 +141,11 @@ export class AnswerComponent
       .getCurrentQuestion(this.quizService.currentQuestionIndex)
       .subscribe((currentQuestion: QuizQuestion | null) => {
         if (!currentQuestion) return;
-        const isMultipleAnswer =
-          this.quizQuestionManagerService.isMultipleAnswerQuestion(
-            currentQuestion,
-          );
+        // ⚡ FIX: Calculate synchronously. Service returns Observable which caused bugs.
+        const correctCount = currentQuestion.options?.filter(o => o.correct).length ?? 0;
+        const isMultipleAnswer = correctCount > 1;
         this.type = isMultipleAnswer ? 'multiple' : 'single';
+        console.log(`[AC] Question Type Resolved: ${this.type} (Correct Options: ${correctCount})`);
       });
 
     // Displays the unique options to the UI
@@ -172,10 +173,17 @@ export class AnswerComponent
 
     // RESET ONLY WHEN QUESTION CHANGES
     if (changes['questionData']) {
-      console.log(
-        'AnswerComponent - questionData changed:',
-        changes['questionData'].currentValue,
-      );
+      const q = changes['questionData'].currentValue;
+      console.log(`[AC] 🔄 Input 'questionData' changed:`,
+        q ? `ID=${q.questionId} Text="${q.questionText?.substring(0, 20)}..."` : 'NULL');
+
+      if (q) {
+        // ⚡ FIX: Calculate synchronously from INPUT, not async service
+        const correctCount = q.options?.filter((o: Option) => o.correct).length ?? 0;
+        this.type = correctCount > 1 ? 'multiple' : 'single';
+        console.log(`[AC] ⚡ Sync Type Resolution: ${this.type} (Correct: ${correctCount})`);
+      }
+
       this._wasComplete = false;
       shouldMark = true;
     }

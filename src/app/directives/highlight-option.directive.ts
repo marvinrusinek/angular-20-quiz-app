@@ -55,7 +55,7 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
     private renderer: Renderer2,
     private cdRef: ChangeDetectorRef,
     private userPreferenceService: UserPreferenceService,
-  ) {}
+  ) { }
 
   ngOnInit(): void {
     if (this.optionBinding) {
@@ -73,7 +73,7 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
       this.updateHighlightFromConfig();
       return;
     }
-  
+
     // ─────────────────────────────────────────────
     // LEGACY FALLBACK (kept for safety / parity)
     // These inputs may still fire during transition
@@ -82,18 +82,18 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
     const isSelectedChanged = changes['isSelected'];
     const showFeedbackChanged = changes['showFeedback'];
     const resetChanged = changes['appHighlightReset'];
-  
+
     const highlightRelevant =
       optionBindingChanged ||
       isSelectedChanged ||
       showFeedbackChanged ||
       resetChanged;
-  
+
     // If something worth reacting to changed, run the full logic
     if (highlightRelevant && this.optionBinding) {
       // Maintain reference back to this directive
       this.optionBinding.directiveInstance = this;
-  
+
       // Immediate highlight update (keeps old UX)
       this.updateHighlight();
     } else {
@@ -109,7 +109,7 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
   @HostListener('click', ['$event'])
   onClick(event: Event): void {
     try {
-      event.stopPropagation(); // prevent further propagation
+      // event.stopPropagation(); // ⚠️ REMOVED: Potentially blocking component click handlers
 
       // Check if the option is deactivated (highlighted or inactive)
       if (this.option?.highlight || this.option?.active === false) {
@@ -168,20 +168,24 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
   private updateHighlightFromConfig(): void {
     const cfg = this.sharedOptionConfig;
     if (!cfg || !cfg.option) return;
-  
+    console.log(`[HighlightDirective] 🎨 Config Update for ${cfg.option.optionId}: Selected=${cfg.isOptionSelected}/${cfg.option.selected}, Highlight=${cfg.highlight}`);
+
     const host = this.el.nativeElement as HTMLElement;
     const opt = cfg.option;
-  
+
     // RESET
     this.renderer.removeStyle(host, 'background-color');
     this.renderer.removeClass(host, 'deactivated-option');
     this.renderer.setStyle(host, 'cursor', 'pointer');
     this.setPointerEvents(host, 'auto');
     opt.showIcon = false;
-  
-    // SELECTED (robust against Angular timing)
+
+    // SELECTED (robust against Angular timing) - check ALL possible selection indicators
     const isSelectedNow =
-      cfg.isOptionSelected === true || cfg.option.selected === true;
+      cfg.highlight === true ||
+      cfg.isOptionSelected === true ||
+      cfg.option.selected === true ||
+      cfg.option.highlight === true;
 
     if (isSelectedNow) {
       this.setBackgroundColor(
@@ -191,7 +195,7 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
       opt.showIcon = true;
       return;
     }
-  
+
     // RESET BETWEEN QUESTIONS
     if (cfg.shouldResetBackground) {
       this.setBackgroundColor(host, 'transparent');

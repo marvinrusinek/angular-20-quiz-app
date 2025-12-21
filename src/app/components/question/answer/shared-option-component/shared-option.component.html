@@ -42,25 +42,27 @@
   <!-- MULTIPLE-ANSWER (CHECKBOX) -->
   @case ('multiple') {
 
-  @for (b of optionBindings; let i = $index; track trackByOptionId(b, i)) {
+  <div class="options-group options" role="group" aria-label="Select one or more options">
+    @for (b of optionBindings; let i = $index; track trackByOptionId(b, i)) {
 
-  <mat-checkbox class="option-row multiple-option" appHighlightOption [appHighlightInputType]="'checkbox'"
-    [appHighlightReset]="shouldResetBackground" [sharedOptionConfig]="getSharedOptionConfig(b, i)"
-    [checked]="b.isSelected" [ngClass]="getOptionClasses(b)" [disabled]="isDisabled(b, i)"
-    [class.disabled-option]="isDisabled(b, i)" (change)="onOptionChanged(b, i, $event)"
-    (click)="onOptionInteraction(b, i, $event)">
+    <mat-checkbox class="option-row multiple-option" appHighlightOption [appHighlightInputType]="'checkbox'"
+      [appHighlightReset]="shouldResetBackground" [sharedOptionConfig]="getSharedOptionConfig(b, i)"
+      [checked]="b.isSelected" [ngClass]="getOptionClasses(b)" [disabled]="isDisabled(b, i)"
+      [class.disabled-option]="isDisabled(b, i)" (change)="onOptionChanged(b, i, $event)"
+      (click)="onOptionInteraction(b, i, $event)">
 
-    <ng-container *ngTemplateOutlet="optionContent;
+      <ng-container *ngTemplateOutlet="optionContent;
               context: { $implicit: b, index: i }">
+      </ng-container>
+
+    </mat-checkbox>
+
+    <ng-container *ngTemplateOutlet="optionFeedback;
+            context: { $implicit: b }">
     </ng-container>
 
-  </mat-checkbox>
-
-  <ng-container *ngTemplateOutlet="optionFeedback;
-            context: { $implicit: b }">
-  </ng-container>
-
-  }
+    }
+  </div>
   }
 
   } <!-- end @switch -->

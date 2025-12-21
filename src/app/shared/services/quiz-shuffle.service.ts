@@ -20,7 +20,8 @@ export class QuizShuffleService {
     questions: QuizQuestion[],
     opts: PrepareShuffleOpts = { shuffleQuestions: true, shuffleOptions: true },
   ): void {
-    const { shuffleQuestions = true, shuffleOptions = true } = opts;
+    // ✅ Re-enabled shuffling as part of the data flow fix
+    const { shuffleQuestions = true, shuffleOptions = false } = opts;
 
     const qIdx = questions.map((_, i) => i);
     const questionOrder = shuffleQuestions ? Utils.shuffleArray(qIdx) : qIdx;
@@ -181,7 +182,10 @@ export class QuizShuffleService {
     if (!src) return null;
 
     // Ensure numeric, stable optionId before reordering
-    const normalizedOpts = this.cloneAndNormalizeOptions(src.options ?? []);
+    const normalizedOpts = this.cloneAndNormalizeOptions(
+      src.options ?? [],
+      origIdx,
+    );
     const order = state.optionOrder.get(origIdx);
     const safeOptions = this.reorderOptions(normalizedOpts, order);
 
@@ -198,9 +202,10 @@ export class QuizShuffleService {
 
     const state = this.shuffleByQuizId.get(quizId);
     if (!state) {
-      return questions.map((question) => {
+      return questions.map((question, index) => {
         const normalizedOptions = this.cloneAndNormalizeOptions(
           question.options ?? [],
+          index, // Use loop index as question index
         );
         return {
           ...question,
@@ -220,6 +225,7 @@ export class QuizShuffleService {
 
         const normalizedOptions = this.cloneAndNormalizeOptions(
           source.options ?? [],
+          originalIndex,
         );
         const orderedOptions = this.reorderOptions(
           normalizedOptions,
@@ -235,9 +241,10 @@ export class QuizShuffleService {
       .filter((question): question is QuizQuestion => question !== null);
 
     if (displaySet.length === 0) {
-      return questions.map((question) => {
+      return questions.map((question, index) => {
         const normalizedOptions = this.cloneAndNormalizeOptions(
           question.options ?? [],
+          index,
         );
         return {
           ...question,
@@ -267,21 +274,29 @@ export class QuizShuffleService {
 
   // Make optionId numeric & stable; idempotent. Prefer 1-based ids for compatibility
   // with existing quiz logic while always normalising the display order.
-  public assignOptionIds(options: Option[], startAt: 0 | 1 = 1): Option[] {
+  // Make optionId numeric & stable; idempotent. Uses questionIndex to ensure global uniqueness.
+  public assignOptionIds(options: Option[], questionIndex: number): Option[] {
     return (options ?? []).map((o, i) => {
-      const id = this.toNum((o as any).optionId);
-      const stable = id ?? i + startAt;
+      // Build a globally unique numeric ID like 1001, 1002, 2001, 2002, etc.
+      // Format: (QuestionIndex + 1) + (OptionIndex + 1 padded to 2 digits)
+      const uniqueId = Number(
+        `${questionIndex + 1}${(i + 1).toString().padStart(2, '0')}`,
+      );
+
       return {
         ...o,
-        optionId: stable,
+        optionId: uniqueId,
         // fallback so selectedOptions.includes(option.value) remains viable
-        value: (o as any).value ?? (o as any).text ?? stable,
+        value: (o as any).value ?? (o as any).text ?? uniqueId,
       } as Option;
     });
   }
 
-  private cloneAndNormalizeOptions(options: Option[] = []): Option[] {
-    const withIds = this.assignOptionIds(options, 1);
+  private cloneAndNormalizeOptions(
+    options: Option[] = [],
+    questionIndex: number,
+  ): Option[] {
+    const withIds = this.assignOptionIds(options, questionIndex);
     return withIds.map((option, index) => ({
       ...option,
       displayOrder: index,

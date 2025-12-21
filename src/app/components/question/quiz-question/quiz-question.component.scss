@@ -145,7 +145,8 @@ mat-icon {
 
 /* alignment fixes for Angular 20 MDC labels */
 ::ng-deep .mat-mdc-radio-label-content,
-::ng-deep .mat-mdc-checkbox .mdc-form-field {
+::ng-deep .mat-mdc-checkbox .mdc-form-field,
+::ng-deep .mat-mdc-checkbox .mdc-label {
   display: flex !important;
   align-items: center !important;
   width: 100%;

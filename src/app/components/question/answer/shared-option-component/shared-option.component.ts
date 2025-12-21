@@ -263,6 +263,61 @@ export class SharedOptionComponent
       });
     }
 
+    // ⚡ CRITICAL FIX: Regenerate feedback when quizService index changes
+    this.quizService.currentQuestionIndex$
+      .pipe(
+        distinctUntilChanged(),
+        takeUntil(this.destroy$),
+      )
+      .subscribe((idx) => {
+        console.log(`[SOC 🔄] currentQuestionIndex$ fired: idx=${idx}, optionsToDisplay.length=${this.optionsToDisplay?.length}`);
+
+        if (idx >= 0 && this.optionsToDisplay?.length > 0) {
+          // Get fresh question from service
+          const question = this.quizService.questions?.[idx];
+          console.log(`[SOC 🔄] Q${idx + 1} question:`, question?.questionText?.slice(0, 50));
+
+          if (question?.options) {
+            // Generate fresh feedback for this question
+            const correctOptions = this.quizService.getCorrectOptionsForCurrentQuestion(question);
+            console.log(`[SOC 🔄] Q${idx + 1} correctOptions:`, correctOptions?.map(o => o.optionId));
+
+            const freshFeedback = this.feedbackService.generateFeedbackForOptions(
+              correctOptions,
+              question.options, // Use the question's options, not stale optionsToDisplay
+            );
+            console.log(`[SOC 🔄] Q${idx + 1} freshFeedback:`, freshFeedback);
+
+            // Clear and update feedbackConfigs - THIS IS WHAT THE TEMPLATE USES
+            this.feedbackConfigs = {};
+
+            // Update all option bindings with fresh feedback
+            this.optionBindings?.forEach(b => {
+              if (b.option) {
+                b.option.feedback = freshFeedback;
+                b.feedback = freshFeedback;
+
+                // Also update feedbackConfigs which is what the template reads
+                const optId = b.option.optionId ?? -1;
+                if (optId >= 0) {
+                  this.feedbackConfigs[optId] = {
+                    feedback: freshFeedback,
+                    showFeedback: b.showFeedback ?? false,
+                    options: this.optionsToDisplay,
+                    question: question,
+                    selectedOption: b.option,
+                    correctMessage: freshFeedback,
+                    idx: b.index,
+                  };
+                }
+              }
+            });
+
+            this.cdRef.markForCheck();
+          }
+        }
+      });
+
     this.click$.pipe(takeUntil(this.destroy$)).subscribe(({ b, i }) => {
       this.form
         .get('selectedOptionId')
@@ -492,6 +547,12 @@ export class SharedOptionComponent
       console.log(
         `[🔄 RESET] Cleared explanation text service for new question`,
       );
+    }
+
+    // ✅ Handle TYPE changes explicitly
+    if (changes['type']) {
+      this.type = changes['type'].currentValue;
+      console.log(`[SOC] 🔄 Type changed to: ${this.type}`);
     }
 
     // ✅ UI cleanup can happen on both question and options changes
@@ -968,8 +1029,12 @@ export class SharedOptionComponent
       return;
     }
 
-    // Determine question type based on options
-    this.type = this.determineQuestionType(this.currentQuestion);
+    // Determine question type based on options, but Respect explicit input first!
+    if (this.type !== 'multiple') {
+      this.type = this.determineQuestionType(this.currentQuestion);
+    } else {
+      console.log('[SOC] 🛡️ Preserving type="multiple" from Input');
+    }
 
     // Initialize bindings and feedback maps
     this.setOptionBindingsIfChanged(this.optionsToDisplay);
@@ -1283,6 +1348,7 @@ export class SharedOptionComponent
   }
 
   onOptionChanged(b: OptionBindings, i: number, event: MatRadioChange | MatCheckboxChange) {
+    console.log(`[🎯 onOptionChanged] optionId=${b?.option?.optionId}, index=${i}, Q${(this.currentQuestionIndex ?? 0) + 1}`);
     this.updateOptionAndUI(b, i, event);
   }
 
@@ -1604,6 +1670,9 @@ export class SharedOptionComponent
     index: number,
     event: MatCheckboxChange | MatRadioChange,
   ): void {
+    // ⚡ DEBUG: Is this method even called for Q3?
+    console.log(`[🔥 updateOptionAndUI CALLED] optionId=${optionBinding?.option?.optionId}, index=${index}`);
+
     const currentIndex = this.getActiveQuestionIndex() ?? 0;
 
     if (this.lastFeedbackQuestionIndex !== currentIndex) {
@@ -1783,25 +1852,31 @@ export class SharedOptionComponent
       binding.isSelected = isSelected;
       binding.option.selected = isSelected;
 
+      // ⚡ DEBUG: Check if clicked optionId matches any in optionBindings
+      console.log(`[🔍 forEach] binding.id=${id}, clicked optionId=${optionId}, match=${id === optionId}`);
+
       if (id !== optionId) return;
 
-      const correctOptions = this.optionsToDisplay.filter((opt) => opt.correct);
+      // ⚡ CRITICAL FIX: Use fresh data from quizService, not stale optionsToDisplay
+      const currentIdx = this.currentQuestionIndex ?? this.resolvedQuestionIndex ?? this.quizService.getCurrentQuestionIndex();
+      const currentQuestion = this.quizService.questions?.[currentIdx];
+      const freshOptions = currentQuestion?.options ?? this.optionsToDisplay;
+      const correctOptions = freshOptions.filter((opt: Option) => opt.correct);
       const dynamicFeedback = this.feedbackService.generateFeedbackForOptions(
         correctOptions,
-        this.optionsToDisplay,
+        freshOptions,
       );
 
-      if (!this.feedbackConfigs[optionId]) {
-        this.feedbackConfigs[optionId] = {
-          feedback: dynamicFeedback,
-          showFeedback: true,
-          options: this.optionsToDisplay,
-          question: this.currentQuestion,
-          selectedOption: optionBinding.option,
-          correctMessage: dynamicFeedback,
-          idx: index,
-        };
-      }
+      // ⚡ CRITICAL FIX: ALWAYS update feedbackConfigs, not just when empty (removed !this.feedbackConfigs[optionId] guard)
+      this.feedbackConfigs[optionId] = {
+        feedback: dynamicFeedback,
+        showFeedback: true,
+        options: freshOptions,
+        question: currentQuestion ?? this.currentQuestion,
+        selectedOption: optionBinding.option,
+        correctMessage: dynamicFeedback,
+        idx: index,
+      };
 
       this.showFeedbackForOption[optionId] = true;
       this.lastFeedbackOptionId = optionId;
@@ -1899,17 +1974,38 @@ export class SharedOptionComponent
   }
 
   private applyFeedback(optionBinding: OptionBindings): void {
-    console.log(
-      `[📝 Applying Feedback for Option ${optionBinding.option.optionId}]`,
-    );
+    // ⚡ SUPER ROBUST FIX: Prefer component input (ground truth) > config > resolved index > service index
+    // The `currentQuestion` input or `config.currentQuestion` is passed directly from parent and is the most reliable source.
+    const question = this.currentQuestion
+      || this.config?.currentQuestion
+      || this.quizService.questions?.[this.currentQuestionIndex]
+      || this.quizService.questions?.[this.resolvedQuestionIndex ?? 0]
+      || this.quizService.questions?.[this.quizService.getCurrentQuestionIndex()];
+
+    if (!question) {
+      console.warn('[applyFeedback] ❌ No question found. Feedback generation skipped.');
+      return;
+    }
+
+    let freshFeedback = optionBinding.option.feedback ?? 'No feedback available';
+
+    if (question.options) {
+      const correctOptions = this.quizService.getCorrectOptionsForCurrentQuestion(question);
+      freshFeedback = this.feedbackService.generateFeedbackForOptions(
+        correctOptions,
+        question.options,
+      );
+
+      console.log(`[📝 applyFeedback] Using Question: "${question.questionText?.substring(0, 30)}..." (ID: ${question.questionId})`);
+    }
 
     const feedbackProps: FeedbackProps = {
-      feedback: optionBinding.option.feedback ?? 'No feedback available',
+      feedback: freshFeedback,
       showFeedback: true,
-      options: this.optionsToDisplay,
-      question: this.currentQuestion,
+      options: question.options ?? this.optionsToDisplay,
+      question: question,
       selectedOption: optionBinding.option,
-      correctMessage: optionBinding.option.feedback ?? 'No feedback available',
+      correctMessage: freshFeedback,
       idx: optionBinding.index,
     };
 
@@ -3020,8 +3116,12 @@ export class SharedOptionComponent
         .filter(([id]) => id !== -1), // drop any undefined/fallback ids
     );
 
+    // ALWAYS use service's current index - local values might be stale
+    const questionIndex = this.quizService.getCurrentQuestionIndex();
+    const effectiveQuestion = this.quizService.questions?.[questionIndex] || this.currentQuestion;
+
     const correctOptions = this.quizService.getCorrectOptionsForCurrentQuestion(
-      this.currentQuestion,
+      effectiveQuestion,
     );
     const feedbackSentence =
       this.feedbackService.generateFeedbackForOptions(
@@ -3212,10 +3312,14 @@ export class SharedOptionComponent
       return;
     }
 
-    // Determine type based on the populated options
-    this.type = this.currentQuestion
-      ? this.determineQuestionType(this.currentQuestion)
-      : 'single';
+    // Determine type based on the populated options (if not already set correctly)
+    if (this.type !== 'multiple') {
+      this.type = this.currentQuestion
+        ? this.determineQuestionType(this.currentQuestion)
+        : 'single';
+    } else {
+      console.log('[SOC] 🛡️ finalizeOptionPopulation preserved type="multiple"');
+    }
   }
 
   /* isLastSelectedOption(option: Option): boolean {

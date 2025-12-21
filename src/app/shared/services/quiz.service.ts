@@ -48,10 +48,10 @@ export class QuizService {
     correctAnswersText?: string;
     currentOptions: Option[];
   } = {
-    questionText: '',
-    correctAnswersText: '',
-    currentOptions: [],
-  };
+      questionText: '',
+      correctAnswersText: '',
+      currentOptions: [],
+    };
   quizId = '';
   quizResources: QuizResource[] = [];
   question: QuizQuestion | null = null;
@@ -226,13 +226,16 @@ export class QuizService {
     this.initializeData();
   }
 
-  set questions(value: any) {
-    this._questions = value;
-    this.questionsSubject.next(value);
-  }
-
   get questions() {
     return this._questions;
+  }
+  set questions(value: any) {
+    if (Array.isArray(value) && value.length === 0 && Array.isArray(this._questions) && this._questions.length > 0) {
+      console.warn('[QuizService] ⚠️ CLEARING questions array! Trace:');
+      console.trace();
+    }
+    this._questions = value;
+    this.questionsSubject.next(value);
   }
 
   getQuizName(segments: any[]): string {
@@ -517,7 +520,26 @@ export class QuizService {
   }
 
   getQuestionByIndex(index: number): Observable<QuizQuestion | null> {
+    // 🛡️ Safety: Prioritize the definitive session array if available
+    // This bypasses any desynchronized Subject states
+    if (this.shuffledQuestions && this.shuffledQuestions.length > index) {
+      const q = this.shuffledQuestions[index];
+      if (q) {
+        console.log(
+          `[getQuestionByIndex] 🛡️ Returning Q${index} from shuffledQuestions array. ID: ${q.questionText?.substring(
+            0,
+            15,
+          )}`,
+        );
+        return of({
+          ...q,
+          options: (q.options ?? []).map((o) => ({ ...o })),
+        });
+      }
+    }
+
     return this.questions$.pipe(
+      filter((questions) => Array.isArray(questions) && questions.length > 0), // 🛡️ WAIT for Data Readiness
       take(1),
       map((questions: QuizQuestion[] | null) => {
         if (!Array.isArray(questions) || questions.length === 0) {
@@ -534,6 +556,10 @@ export class QuizService {
         if (!q) return null;
 
         // Return a shallow clone to avoid direct mutations
+        console.log(`[getQuestionByIndex] Accessing Q${index}. Is Shuffled?`, {
+          text: q.questionText,
+          questionsLength: questions.length
+        });
         return {
           ...q,
           options: (q.options ?? []).map((o) => ({ ...o })),
@@ -567,6 +593,7 @@ export class QuizService {
         cachedQuestions.length > 0 &&
         this.quizId === quizId
       ) {
+        // BUG HUNT: This path might skip shuffling!
         return cachedQuestions.map(
           (question) => this.cloneQuestionForSession(question) ?? question,
         );
@@ -588,11 +615,11 @@ export class QuizService {
       const normalizedQuestions = (quiz.questions ?? []).map((question) => {
         const normalizedOptions = Array.isArray(question.options)
           ? question.options.map((option, index) => ({
-              ...option,
-              correct: !!option.correct,
-              optionId: option.optionId ?? index + 1,
-              displayOrder: index,
-            }))
+            ...option,
+            correct: !!option.correct,
+            optionId: option.optionId ?? index + 1,
+            displayOrder: index,
+          }))
           : [];
 
         if (!normalizedOptions.length) {
@@ -672,8 +699,7 @@ export class QuizService {
                 }));
               } else {
                 console.error(
-                  `Options are not properly defined for question:::>> ${
-                    question.questionText ?? 'undefined'
+                  `Options are not properly defined for question:::>> ${question.questionText ?? 'undefined'
                   }`,
                 );
                 console.log('Question index:', qIndex, 'Question:', question);
@@ -773,19 +799,17 @@ export class QuizService {
   public getCurrentQuestion(
     questionIndex: number,
   ): Observable<QuizQuestion | null> {
-    const quizId = this.getCurrentQuizId(); // Retrieve the current quiz ID
-    return this.findQuizByQuizId(quizId).pipe(
-      map((quiz) => {
-        if (
-          !quiz ||
-          !Array.isArray(quiz.questions) ||
-          quiz.questions.length === 0
-        ) {
-          console.error('Invalid quiz data or no questions available');
-          return null; // Return null instead of throwing an error
-        }
+    // 🔑 FIXED: Use this.questions (shuffled) instead of fetching from findQuizByQuizId (unshuffled)
+    // This ensures the question text matches the options which also come from this.questions
+    return of(null).pipe(
+      map(() => {
+        // Use the shuffled questions array that was set via applySessionQuestions
+        const questions = this.questions;
 
-        const questions = quiz.questions;
+        if (!Array.isArray(questions) || questions.length === 0) {
+          console.error('[QuizService] getCurrentQuestion: No questions available in this.questions');
+          return null;
+        }
 
         if (questionIndex < 0 || questionIndex >= questions.length) {
           console.warn(
@@ -794,12 +818,14 @@ export class QuizService {
           return null;
         }
 
-        return questions[questionIndex];
+        const question = questions[questionIndex];
+        console.log(`[QuizService] 🔄 getCurrentQuestion(${questionIndex}): "${question?.questionText?.substring(0, 40)}..."`);
+        return question;
       }),
-      distinctUntilChanged(), // Prevent unnecessary re-emissions
+      distinctUntilChanged(),
       catchError((error: Error) => {
         console.error('Error fetching current question:', error);
-        return of(null); // Return null on error
+        return of(null);
       }),
     );
   }
@@ -1382,7 +1408,9 @@ export class QuizService {
   }
 
   private shouldShuffle(): boolean {
-    return this.shuffleEnabledSubject.getValue();
+    const should = this.shuffleEnabledSubject.getValue();
+    console.log(`[QuizService] shouldShuffle? ${should}`);
+    return should;
   }
 
   isShuffleEnabled(): boolean {
@@ -1394,13 +1422,19 @@ export class QuizService {
   }
 
   getShuffledQuestions(): Observable<QuizQuestion[]> {
+    // 1. If we have a stored shuffled session, return it to maintain consistency
+    if (this.shuffledQuestions && this.shuffledQuestions.length > 0) {
+      console.log('[getShuffledQuestions] Returning stored SHUFFLED session. First ID:', this.shuffledQuestions[0]?.questionText?.substring(0, 10));
+      return of(this.shuffledQuestions);
+    }
+
+    // 2. If we have cached question data (likely raw from Intro), shuffle it now
     const cachedQuestions = this.questionsSubject.getValue();
     if (Array.isArray(cachedQuestions) && cachedQuestions.length > 0) {
-      return of(
-        cachedQuestions.map(
-          (question) => this.cloneQuestionForSession(question) ?? question,
-        ),
-      );
+      console.log('[getShuffledQuestions] Found cached raw questions. Shuffling now...');
+      const shuffled = this.shuffleQuestions(cachedQuestions);
+      console.log('[getShuffledQuestions] Shuffled result First ID:', shuffled[0]?.questionText?.substring(0, 10));
+      return of(shuffled);
     }
 
     const quizId = this.quizId;
@@ -1409,7 +1443,13 @@ export class QuizService {
       return of([]);
     }
 
-    return from(this.fetchQuizQuestions(quizId));
+    // 3. Fetch from network and shuffle
+    return from(this.fetchQuizQuestions(quizId)).pipe(
+      map(questions => {
+        console.log('[getShuffledQuestions] Questions fetched. Shuffling now...');
+        return this.shuffleQuestions(questions);
+      })
+    );
   }
 
   shuffleQuestions(questions: QuizQuestion[]): QuizQuestion[] {
@@ -1462,20 +1502,20 @@ export class QuizService {
     const deepClone = JSON.parse(JSON.stringify(question)) as QuizQuestion;
     const normalizedOptions = Array.isArray(deepClone.options)
       ? deepClone.options.map((option, optionIdx) => ({
-          ...option,
-          optionId:
-            typeof option.optionId === 'number'
-              ? option.optionId
-              : optionIdx + 1,
-          displayOrder:
-            typeof option.displayOrder === 'number'
-              ? option.displayOrder
-              : optionIdx,
-          correct: option.correct === true,
-          selected: option.selected ?? false,
-          highlight: option.highlight ?? false,
-          showIcon: option.showIcon ?? false,
-        }))
+        ...option,
+        optionId:
+          typeof option.optionId === 'number'
+            ? option.optionId
+            : optionIdx + 1,
+        displayOrder:
+          typeof option.displayOrder === 'number'
+            ? option.displayOrder
+            : optionIdx,
+        correct: option.correct === true,
+        selected: option.selected ?? false,
+        highlight: option.highlight ?? false,
+        showIcon: option.showIcon ?? false,
+      }))
       : [];
 
     return {
@@ -1554,6 +1594,7 @@ export class QuizService {
     this.shuffledQuestions = sanitizedQuestions;
     this.questions = sanitizedQuestions;
     this.questionsList = sanitizedQuestions;
+    console.log('[QuizService] applySessionQuestions: Setting questionsSubject to SHUFFLED list. First Q:', sanitizedQuestions[0]?.questionText);
     this.questionsSubject.next(sanitizedQuestions);
 
     this.totalQuestions = sanitizedQuestions.length;
@@ -1578,9 +1619,9 @@ export class QuizService {
 
     const normalizedOptions = Array.isArray(currentQuestion?.options)
       ? this.assignOptionIds(
-          [...currentQuestion.options],
-          this.currentQuestionIndex,
-        )
+        [...currentQuestion.options],
+        this.currentQuestionIndex,
+      )
       : [];
 
     if (currentQuestion) {
@@ -1951,9 +1992,13 @@ export class QuizService {
     this.currentQuestionIndexSubject.next(0);
 
     this.shuffledQuestions = [];
-    this.questions = [];
-    this.questionsList = [];
-    this.questionsSubject.next([]);
+    // � FIXED: DO NOT clear this.questions during navigation between questions
+    // This was wiping the shuffled questions array and causing re-fetch of unshuffled data
+    // The questions array should persist for the entire quiz session
+    // this.questions = [];  // ❌ REMOVED - was causing Q2+ to use unshuffled data
+    // this.questionsList = [];
+    // this.questionsSubject.next([]);
+    console.log(`[QuizService] ⏭️ resetQuizSessionState called (preserving ${this.questions?.length ?? 0} questions)`);
 
     this.currentQuestionSource.next(null);
     this.currentQuestion.next(null);

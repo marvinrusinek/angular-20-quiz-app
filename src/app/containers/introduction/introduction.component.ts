@@ -202,13 +202,8 @@ export class IntroductionComponent implements OnInit, OnDestroy {
       .getQuestionsForQuiz(quizId)
       .pipe(
         switchMap((questions: QuizQuestion[]) => {
-          if (this.shouldShuffleOptions) {
-            questions = this.quizService.shuffleQuestions(questions);
-            questions = questions.map((q) => ({
-              ...q,
-              options: this.quizService.shuffleAnswers(q.options),
-            }));
-          }
+          // NOTE: Shuffle is handled by quiz.service.ts fetchQuizQuestions()
+          // Do NOT shuffle here - it would break question-option correspondence
           return of(questions);
         }),
         catchError((error: Error) => {
@@ -248,6 +243,9 @@ export class IntroductionComponent implements OnInit, OnDestroy {
         return;
       }
 
+      // 🔑 CLEAR CACHE before starting to ensure fresh shuffle with correct flag
+      this.quizDataService.clearQuizQuestionCache(targetQuizId);
+
       this.quizService.resetQuizSessionState();
 
       const activeQuiz = await this.resolveActiveQuiz(targetQuizId);
@@ -271,7 +269,7 @@ export class IntroductionComponent implements OnInit, OnDestroy {
       this.userPreferenceService.setFeedbackMode(feedbackMode);
 
       this.quizDataService.setSelectedQuiz(activeQuiz);
-      this.quizDataService.setCurrentQuiz(activeQuiz);
+      // NOTE: setCurrentQuiz is called AFTER prepareQuizSession to ensure shuffled questions
       this.quizService.setSelectedQuiz(activeQuiz);
       this.quizService.setActiveQuiz(activeQuiz);
       this.quizService.setQuizId(targetQuizId);
@@ -280,11 +278,21 @@ export class IntroductionComponent implements OnInit, OnDestroy {
       this.quizService.setCurrentQuestionIndex(0);
 
       try {
-        await firstValueFrom(
+        const preparedQuestions = await firstValueFrom(
           this.quizDataService.prepareQuizSession(targetQuizId),
         );
+
+        // 🔑 NOW set current quiz with the SHUFFLED questions
+        const quizWithShuffledQuestions = {
+          ...activeQuiz,
+          questions: preparedQuestions ?? activeQuiz.questions,
+        };
+        this.quizDataService.setCurrentQuiz(quizWithShuffledQuestions);
+        console.log(`[IntroComponent] ✅ Set currentQuiz with ${preparedQuestions?.length ?? 0} shuffled questions`);
       } catch (error) {
         console.error('Failed to prepare quiz session:', error);
+        // Fallback: set with original questions if shuffle fails
+        this.quizDataService.setCurrentQuiz(activeQuiz);
       }
 
       const navigationSucceeded =

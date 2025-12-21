@@ -21,6 +21,7 @@ export interface OptionBindings {
   appHighlightReset: boolean;
   appResetBackground: boolean;
   optionsToDisplay: Option[];
+  highlight?: boolean;
   isSelected: boolean;
   active: boolean;
   checked: boolean;

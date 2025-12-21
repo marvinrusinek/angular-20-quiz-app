@@ -197,6 +197,9 @@ export class QuizNavigationService {
       // 4. Reset UI States for New Question
       this.resetExplanationAndState();
       this.selectedOptionService.setAnswered(false, true);
+      // 🔑 FIXED: Clear all option selections when navigating to new question
+      this.selectedOptionService.resetAllStates?.();
+      this.selectedOptionService.clearSelectionsForQuestion?.(index);
       this.nextButtonStateService.reset();
       this.quizQuestionLoaderService.resetUI();
 

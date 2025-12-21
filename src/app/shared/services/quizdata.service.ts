@@ -64,6 +64,16 @@ export class QuizDataService implements OnDestroy {
     this.destroy$.complete();
   }
 
+  /**
+   * Clear the question cache for a quiz to force fresh shuffle on next load.
+   * Call this when starting a quiz to ensure shuffle flag is applied correctly.
+   */
+  clearQuizQuestionCache(quizId: string): void {
+    this.quizQuestionCache.delete(quizId);
+    this.baseQuizQuestionCache.delete(quizId);
+    console.log(`[QuizDataService] 🗑️ Cleared question cache for quiz ${quizId}`);
+  }
+
   getQuizzes(): Observable<Quiz[]> {
     return this.quizzes$.pipe(
       filter((quizzes) => quizzes.length > 0), // ensure data is loaded
@@ -208,6 +218,13 @@ export class QuizDataService implements OnDestroy {
 
   // Return a brand-new array of questions with fully-cloned options.
   getQuestionsForQuiz(quizId: string): Observable<QuizQuestion[]> {
+    // 🔑 CACHE CHECK: Return cached questions if already shuffled/built for this quiz
+    const cachedQuestions = this.quizQuestionCache.get(quizId);
+    if (Array.isArray(cachedQuestions) && cachedQuestions.length > 0) {
+      console.log(`[QuizDataService] ✅ Returning CACHED questions for quiz ${quizId} (${cachedQuestions.length} questions)`);
+      return of(this.cloneQuestions(cachedQuestions));
+    }
+
     return this.getQuiz(quizId).pipe(
       map((quiz) => {
         if (!quiz) {
@@ -219,7 +236,7 @@ export class QuizDataService implements OnDestroy {
 
         // Build normalized base questions (clone options per question)
         const baseQuestions: QuizQuestion[] = (quiz.questions ?? []).map(
-          (question) => this.normalizeQuestion(question),
+          (question, index) => this.normalizeQuestion(question, index),
         );
 
         this.baseQuizQuestionCache.set(
@@ -229,6 +246,7 @@ export class QuizDataService implements OnDestroy {
         this.quizService.setCanonicalQuestions(quizId, baseQuestions);
 
         const shouldShuffle = this.quizService.isShuffleEnabled();
+        console.log(`[QuizDataService] 🔀 getQuestionsForQuiz: shouldShuffle = ${shouldShuffle}`);
         const sessionQuestions = this.buildSessionQuestions(
           quizId,
           baseQuestions,
@@ -246,6 +264,7 @@ export class QuizDataService implements OnDestroy {
         this.syncSelectedQuizState(quizId, sessionQuestions, quiz);
 
         // Assign questions to QuizService so UI can access them
+        console.log(`[QuizDataService] 🔄 OVERWRITING quizService.questions with ${sessionQuestions.length} questions. Q1: "${sessionQuestions[0]?.questionText?.substring(0, 40)}..."`);
         this.quizService.questions = this.cloneQuestions(sessionQuestions);
 
         // Stamp multi-answer flag for each question
@@ -287,19 +306,28 @@ export class QuizDataService implements OnDestroy {
       return of([]);
     }
 
+    const shouldShuffle = this.quizService.isShuffleEnabled();
     const cached = this.quizQuestionCache.get(quizId);
     const baseForCanonical = this.baseQuizQuestionCache.get(quizId);
+
     if (Array.isArray(baseForCanonical) && baseForCanonical.length > 0) {
       this.quizService.setCanonicalQuestions(quizId, baseForCanonical);
     }
-    if (Array.isArray(cached) && cached.length > 0) {
+
+    // 🛑 CACHE POLICY: Only use cache if NOT shuffling.
+    // If shuffling is enabled, we MUST regenerate to ensure the user gets a shuffled set.
+    // (Future improvement: Store 'isShuffled' metadata in cache to allow resuming shuffled sessions correctly)
+    if (!shouldShuffle && Array.isArray(cached) && cached.length > 0) {
+      console.log('[QuizDataService] 📦 Cache Hit (Unshuffled) - reusing session');
       const sessionReadyQuestions = this.cloneQuestions(cached);
       this.quizService.applySessionQuestions(quizId, sessionReadyQuestions);
       this.syncSelectedQuizState(quizId, sessionReadyQuestions);
       return of(this.cloneQuestions(sessionReadyQuestions));
+    } else if (shouldShuffle && Array.isArray(cached) && cached.length > 0) {
+      console.log('[QuizDataService] ⚠️ Cache Exists but Shuffle is ON. Regenerating fresh shuffle from Base to avoid stale order.');
+      // We intentionally fall through to the buildSessionQuestions logic below
     }
 
-    const shouldShuffle = this.quizService.isShuffleEnabled();
     const baseQuestions = this.baseQuizQuestionCache.get(quizId);
 
     if (Array.isArray(baseQuestions) && baseQuestions.length > 0) {
@@ -351,7 +379,9 @@ export class QuizDataService implements OnDestroy {
       return [];
     }
 
-    return questions.map((question) => this.normalizeQuestion(question));
+    return questions.map((question, index) =>
+      this.normalizeQuestion(question, index),
+    );
   }
 
   private buildSessionQuestions(
@@ -367,6 +397,14 @@ export class QuizDataService implements OnDestroy {
         quizId,
         workingSet,
       );
+
+      // 🔍 DEBUG: Log question-option correspondence after shuffle
+      console.log('[QuizDataService] 🔀 SHUFFLED QUESTIONS:');
+      shuffled.forEach((q, idx) => {
+        const firstOption = q.options?.[0]?.text?.substring(0, 30) ?? 'N/A';
+        console.log(`  Q${idx + 1}: "${q.questionText?.substring(0, 40)}..." → Option1: "${firstOption}..."`);
+      });
+
       return this.cloneQuestions(shuffled);
     }
 
@@ -374,9 +412,15 @@ export class QuizDataService implements OnDestroy {
     return workingSet;
   }
 
-  private sanitizeOptions(options: Option[] = []): Option[] {
+  private sanitizeOptions(
+    options: Option[] = [],
+    questionIndex: number,
+  ): Option[] {
     // ensure numeric IDs (idempotent)
-    const withIds = this.quizShuffleService.assignOptionIds(options, 1);
+    const withIds = this.quizShuffleService.assignOptionIds(
+      options,
+      questionIndex,
+    );
 
     const toNum = (v: unknown): number | null => {
       if (typeof v === 'number' && Number.isFinite(v)) return v;
@@ -402,8 +446,14 @@ export class QuizDataService implements OnDestroy {
     });
   }
 
-  private normalizeQuestion(question: QuizQuestion): QuizQuestion {
-    const sanitizedOptions = this.sanitizeOptions(question.options ?? []);
+  private normalizeQuestion(
+    question: QuizQuestion,
+    questionIndex: number,
+  ): QuizQuestion {
+    const sanitizedOptions = this.sanitizeOptions(
+      question.options ?? [],
+      questionIndex,
+    );
     const alignedAnswers = this.quizShuffleService.alignAnswersWithOptions(
       question.answer,
       sanitizedOptions,
@@ -460,8 +510,8 @@ export class QuizDataService implements OnDestroy {
       return this.cloneQuestions(cached);
     }
 
-    const normalized = (quiz?.questions ?? []).map((question) =>
-      this.normalizeQuestion(question),
+    const normalized = (quiz?.questions ?? []).map((question, index) =>
+      this.normalizeQuestion(question, index),
     );
 
     const normalizedClone = this.cloneQuestions(normalized);

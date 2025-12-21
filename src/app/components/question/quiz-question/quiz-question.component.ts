@@ -539,12 +539,13 @@ export class QuizQuestionComponent
     this.quizNavigationService.navigationToQuestion$.subscribe(
       ({ question, options }) => {
         if (question?.questionText && options?.length) {
-          if (!this.containerInitialized && this.dynamicAnswerContainer) {
+          console.log(`[QQC] 🚢 navigationToQuestion$ fired. QID: ${(question as any).questionId}, Text: "${question.questionText?.substring(0, 15)}..."`);
+
+          // ⚡ ALWAYS load dynamic component to ensure fresh data (Q3 fix)
+          if (this.dynamicAnswerContainer) {
             this.loadDynamicComponent(question, options);
             this.containerInitialized = true;
-            console.log('[✅ Component injected dynamically from navigation]');
-          } else {
-            console.log('[🧊 Skipping re-injection — already initialized]');
+            console.log('[✅ Component injected dynamically from navigation (FORCE REFRESH)]');
           }
 
           this.sharedOptionConfig = null;
@@ -1243,8 +1244,8 @@ export class QuizQuestionComponent
 
     this.explanationToDisplay = explanation?.trim() || '';
 
-    // Now inject the AnswerComponent
-    if (!this.containerInitialized && this.dynamicAnswerContainer) {
+    // ALWAYS load component for each question to ensure fresh data
+    if (this.dynamicAnswerContainer) {
       void this.loadDynamicComponent(
         this.currentQuestion,
         this.optionsToDisplay,
@@ -2221,8 +2222,20 @@ export class QuizQuestionComponent
       const clonedOptions =
         structuredClone?.(options) ?? JSON.parse(JSON.stringify(options));
 
+      // ⚡ CRITICAL FIX: Generate fresh feedback for this question's options
+      const correctOptions = this.quizService.getCorrectOptionsForCurrentQuestion(question);
+      const generatedFeedback = this.feedbackService.generateFeedbackForOptions(
+        correctOptions,
+        clonedOptions,
+      );
+
+      // Assign the fresh feedback to ALL options
+      clonedOptions.forEach((opt: Option) => {
+        opt.feedback = generatedFeedback;
+      });
+
       try {
-        (instance as any).question = { ...question };
+        (instance as any).questionData = { ...question };
         instance.optionsToDisplay = clonedOptions;
       } catch (error) {
         console.error('[❌ Assignment failed in loadDynamicComponent]', error, {
@@ -2236,7 +2249,7 @@ export class QuizQuestionComponent
         appHighlightOption: false,
         option: opt,
         isCorrect: opt.correct ?? false,
-        feedback: opt.feedback ?? '',
+        feedback: generatedFeedback, // Use fresh feedback
         showFeedback: false,
         showFeedbackForOption: {},
         highlightCorrectAfterIncorrect: false,
@@ -7054,6 +7067,12 @@ export class QuizQuestionComponent
       console.warn(
         'QuizQuestionComponent - ngOnChanges - Question is undefined after change.',
       );
+    }
+
+    // ⚡ DIRECT SYNC: Ensure dynamic component is loaded with the new data
+    // This bypasses unreliable QuizNavigationService events
+    if (effectiveQuestion && normalizedOptions?.length) {
+      void this.loadDynamicComponent(effectiveQuestion, normalizedOptions);
     }
   }
 
