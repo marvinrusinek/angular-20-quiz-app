@@ -279,6 +279,12 @@ export class CodelabQuizContentComponent
 
     this.displayState$ = this.quizStateService.displayState$;
 
+    // Resolve the correct question object (respecting shuffle) for the current index
+    const questionForIndex$ = this.quizService.currentQuestionIndex$.pipe(
+      switchMap((idx) => this.quizService.getQuestionByIndex(idx)),
+      startWith(null),
+    );
+
     // Initialize displayText$ - handles both question text with banner and FET display
     this.displayText$ = combineLatest([
       this.displayState$ || of({ mode: 'question' as const, answered: false }),
@@ -289,16 +295,19 @@ export class CodelabQuizContentComponent
         filter((q) => Array.isArray(q) && q.length > 0),
         startWith(this.quizService.questions || []),
       ),
+      questionForIndex$,
     ]).pipe(
       debounceTime(50), // Allow time for questions to load
-      map(([state, qText, fetPayload, idx, questions]) => {
+      map(([state, qText, fetPayload, idx, questions, questionObj]) => {
         const mode = state?.mode || 'question';
         const trimmedQText = (qText ?? '').trim();
         const safeIdx = Number.isFinite(idx) ? idx : 0;
 
-        // Check if this is a multiple-answer question (use both sources)
+        // Check if this is a multiple-answer question (use resolved object first, then fallback)
         const qObj =
-          questions?.[safeIdx] || this.quizService.questions?.[safeIdx];
+          questionObj ||
+          questions?.[safeIdx] ||
+          this.quizService.questions?.[safeIdx];
         const numCorrect =
           qObj?.options?.filter((o: Option) => o.correct).length || 0;
         const isMulti = numCorrect > 1;
@@ -314,7 +323,9 @@ export class CodelabQuizContentComponent
             questionsFromService: this.quizService.questions?.length,
             mode,
             qObjOptions: qObj?.options?.length,
-            optionCorrectCounts: qObj?.options?.map((o: Option) => o.correct ? 1 : 0).join(',')
+            optionCorrectCounts: qObj?.options
+              ?.map((o: Option) => (o.correct ? 1 : 0))
+              .join(','),
           }),
         );
 
