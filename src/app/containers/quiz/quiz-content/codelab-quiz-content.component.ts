@@ -303,8 +303,10 @@ export class CodelabQuizContentComponent
         // Check if this is a multiple-answer question (use resolved object first, then fallback)
         const qObj =
           questionObj ||
-          questions?.[safeIdx] ||
-          this.quizService.questions?.[safeIdx];
+          (Array.isArray(questions) ? questions[safeIdx] : undefined) ||
+          (Array.isArray(this.quizService.questions)
+            ? this.quizService.questions[safeIdx]
+            : undefined);
         const numCorrect =
           qObj?.options?.filter((o: Option) => o.correct).length || 0;
         const isMulti = numCorrect > 1;
@@ -353,15 +355,19 @@ export class CodelabQuizContentComponent
           trimmedFet !== 'No explanation available for this question.' &&
           trimmedFet.length > 10;
 
-        if (mode === 'explanation' && isValidFet) {
-          // Add banner to FET for multiple-answer questions
-          if (isMulti && bannerText) {
-            return `${trimmedFet}`;
+        if (mode === 'explanation') {
+          if (isValidFet) {
+            if (isMulti && bannerText) {
+              return `${trimmedFet}`;
+            }
+            return trimmedFet;
           }
-          return trimmedFet;
+          // If in explanation mode but no FET, fall back to "No explanation available"
+          // but DO NOT show question text unless intended.
+          return 'No explanation available.';
         }
 
-        // Otherwise show question text with banner for multiple-answer questions
+        // QUESTION MODE
         if (!trimmedQText) return '';
 
         if (isMulti && bannerText) {
