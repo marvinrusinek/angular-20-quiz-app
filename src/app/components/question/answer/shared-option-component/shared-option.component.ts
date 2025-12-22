@@ -2388,8 +2388,15 @@ export class SharedOptionComponent
     );
 
     if (question) {
+      // ⚡ FIX: Sync indices with visual options
+      const opts =
+        this.optionsToDisplay?.length &&
+          questionIndex === this.currentQuestionIndex
+          ? this.optionsToDisplay.filter(isValidOption)
+          : (question.options || []).filter(isValidOption);
+
       const correctIndices =
-        this.explanationTextService.getCorrectOptionIndices(question);
+        this.explanationTextService.getCorrectOptionIndices(question, opts);
       const raw = question.explanation || '';
       const generated = this.explanationTextService.formatExplanation(
         question,
@@ -2481,8 +2488,15 @@ export class SharedOptionComponent
           })),
         });
 
+        // ⚡ FIX: Sync indices with visual options
+        const opts =
+          this.optionsToDisplay?.length &&
+            questionIndex === this.currentQuestionIndex
+            ? this.optionsToDisplay.filter(isValidOption)
+            : (question.options || []).filter(isValidOption);
+
         const correctIndices =
-          this.explanationTextService.getCorrectOptionIndices(question);
+          this.explanationTextService.getCorrectOptionIndices(question, opts);
         const formattedExplanation =
           this.explanationTextService.formatExplanation(
             question,
