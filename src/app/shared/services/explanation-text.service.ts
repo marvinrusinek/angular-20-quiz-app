@@ -698,11 +698,10 @@ export class ExplanationTextService {
     question: QuizQuestion,
     options?: Option[],
   ): number[] {
-    // 🔑 VISUAL ALIGNMENT FIX: Use the raw input array directly!
-    // The "options" argument is typically 'optionsToDisplay' from the UI.
-    // If we filter it, we shift the indices, causing "Option 2" to become "Option 1"
-    // in the text while remaining "Option 2" on screen.
-    const opts = options || question?.options || [];
+    // 🔑 VISUAL ALIGNMENT: Sync with FeedbackService logic
+    // We must filter the options to match the visual "valid only" count.
+    const rawOpts = options || question?.options;
+    const opts = (rawOpts || []).filter(isValidOption);
 
     if (!Array.isArray(opts) || opts.length === 0) {
       console.warn('No options found for question:', question?.questionText);
