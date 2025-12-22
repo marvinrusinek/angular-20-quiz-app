@@ -137,6 +137,7 @@ export class CodelabQuizContentComponent
 
     if (!isAnswered) {
       // Q3 Case: Clean global state completely
+      // Force clearing of the explanation text observable to prevent stale data
       ets.resetForIndex(idx);
       ets.latestExplanation = '';
       ets.latestExplanationIndex = idx;
