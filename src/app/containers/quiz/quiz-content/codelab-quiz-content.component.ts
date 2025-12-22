@@ -134,11 +134,10 @@ export class CodelabQuizContentComponent
     if (this._showExplanation) this._showExplanation = false;
 
     // ⚡ FIX: Sync Reset for Unanswered Questions
-    // This ensures that when we switch to a new question (like Q3), we force 'question' mode
-    // immediately, before the view renders.
-    // We access the map directly to avoid Observable truthiness issues.
-    const answers = this.quizService.selectedOptionsMap.get(idx);
-    const hasAnswers = answers && answers.length > 0;
+    // We check the 'selected' property of the options for the current question
+    // to determine if it has been answered.
+    const q = this.quizService.questions[idx];
+    const hasAnswers = q?.options?.some((o) => o.selected);
 
     if (!hasAnswers) {
       this.quizStateService.setDisplayState({ mode: 'question', answered: false });
