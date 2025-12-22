@@ -2298,6 +2298,35 @@ export class SharedOptionComponent
   private resolveExplanationText(questionIndex: number): string {
     console.log(`[🔍 resolveExplanationText] Called for Q${questionIndex + 1}`);
 
+    // ⚡ FIX: PRIORITIZE LOCAL GENERATION TO MATCH VISUAL ORDER
+    // If we have local options and this is the active question, ignore the service cache validation
+    // because the service cache might hold unshuffled "default" text.
+    const useLocalOptions =
+      Array.isArray(this.optionsToDisplay) &&
+      this.optionsToDisplay.length > 0 &&
+      (questionIndex === this.currentQuestionIndex ||
+        questionIndex === this.resolvedQuestionIndex);
+
+    const question = this.quizService.questions[questionIndex];
+
+    if (useLocalOptions && question) {
+      console.log(
+        `[⚡ Using LOCAL OPTIONS for Q${questionIndex + 1} to ensure visual match]`,
+      );
+      const correctIndices =
+        this.explanationTextService.getCorrectOptionIndices(
+          question,
+          this.optionsToDisplay,
+        );
+      const raw = question.explanation || '';
+      const generated = this.explanationTextService.formatExplanation(
+        question,
+        correctIndices,
+        raw,
+      );
+      return generated;
+    }
+
     // Try to get pre-formatted explanation first
     const formatted =
       this.explanationTextService.formattedExplanations[
@@ -2322,20 +2351,10 @@ export class SharedOptionComponent
     console.warn(
       `[⚠️ FET missing for Q${questionIndex + 1}] - Generating on the fly...`,
     );
-    const question = this.quizService.questions[questionIndex];
-    if (question) {
-      // ⚡ FIX: Use local options if indices match, to ensure FET "Option X" matches visual "Option X"
-      const useLocalOptions =
-        Array.isArray(this.optionsToDisplay) &&
-        this.optionsToDisplay.length > 0 &&
-        (questionIndex === this.currentQuestionIndex ||
-          questionIndex === this.resolvedQuestionIndex);
 
+    if (question) {
       const correctIndices =
-        this.explanationTextService.getCorrectOptionIndices(
-          question,
-          useLocalOptions ? this.optionsToDisplay : undefined,
-        );
+        this.explanationTextService.getCorrectOptionIndices(question);
       const raw = question.explanation || '';
       const generated = this.explanationTextService.formatExplanation(
         question,
