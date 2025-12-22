@@ -331,10 +331,13 @@ export class CodelabQuizContentComponent
       debounceTime(50), // Allow time for questions to load
       switchMap(([state, qText, fetPayload, idx, questions, questionObj]) => {
         // ⚡ FIX: Sync Safeguard
-        const safeIdx = Number.isFinite(idx)
-          ? idx
-          : Number.isFinite(this.currentIndex)
-            ? this.currentIndex
+        // Prioritize the component's synchronous index (this.currentIndex) over the streamed index (idx).
+        // The stream (combineLatest) can sometimes hold a stale index (e.g., 0) while other signals update,
+        // causing us to render Q1's state (Answered/Explanation) instead of Q3's state (Unanswered).
+        const safeIdx = Number.isFinite(this.currentIndex)
+          ? this.currentIndex
+          : Number.isFinite(idx)
+            ? idx
             : 0;
 
         // Check if this is a multiple-answer question (use resolved object first, then fallback)
