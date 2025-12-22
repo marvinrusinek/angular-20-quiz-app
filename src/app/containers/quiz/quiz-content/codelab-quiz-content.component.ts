@@ -316,10 +316,11 @@ export class CodelabQuizContentComponent
         // ⚡ FIX: Sync Safeguard
         // Use the component's local index if the pipe index is invalid/lagging.
         // Falling back to 0 causes Q3 to look like Q1 (which is answered + explanation mode).
+        const safeIdx = Number.isFinite(idx)
           ? idx
-        : Number.isFinite(this.currentIndex)
-          ? this.currentIndex
-          : 0;
+          : Number.isFinite(this.currentIndex)
+            ? this.currentIndex
+            : 0;
 
         // ⚡ FIX: Race Condition Safeguard (Double Check)
         // Ensure strictly that we only show explanation mode if truly answered.
