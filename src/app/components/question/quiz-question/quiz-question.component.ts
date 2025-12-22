@@ -1577,7 +1577,10 @@ export class QuizQuestionComponent
     void this.waitForQuestionData();
     this.initializeData();
     this.initializeForm();
+    this.initializeForm();
     this.quizStateService.setLoading(true);
+    // ⚡ FORCE: Ensure shuffling is enabled by default to address "not shuffling" report
+    this.shuffleOptions = true;
   }
 
   async initializeQuizDataAndRouting(): Promise<void> {
@@ -3107,12 +3110,25 @@ export class QuizQuestionComponent
           console.log(
             '[QQC] 🔄 triggering explanation usage/refresh with NEW options',
           );
-          // Recalculate AND push to service to ensure all subscribers see the correct text
-          this.prepareAndSetExplanationText(this.currentQuestionIndex).then(
-            (fet) => {
-              this.explanationTextService.setExplanationText(fet);
-            },
-          );
+          if (this.currentQuestionIndex >= 0) {
+            console.log(
+              '[QQC] 🔄 triggering explanation usage/refresh with NEW options',
+            );
+            // Recalculate AND push to service to ensure all subscribers see the correct text
+            // AND update the cache map so SharedOptionComponent finds the correct text
+            this.prepareAndSetExplanationText(this.currentQuestionIndex).then(
+              (fet) => {
+                if (this.currentQuestion) {
+                  this.explanationTextService.storeFormattedExplanation(
+                    this.currentQuestionIndex,
+                    fet,
+                    this.currentQuestion,
+                  );
+                }
+                this.explanationTextService.setExplanationText(fet);
+              },
+            );
+          }
         }
 
         this.cdRef.markForCheck();
@@ -6569,6 +6585,14 @@ export class QuizQuestionComponent
       );
 
       this.explanationToDisplay = formattedExplanation;
+
+      // ⚡ FIX: Sync to service cache immediately
+      this.explanationTextService.storeFormattedExplanation(
+        questionIndex,
+        formattedExplanation,
+        questionData
+      );
+
       return formattedExplanation;
     } catch (error) {
       console.error('Error in fetching explanation text:', error);
