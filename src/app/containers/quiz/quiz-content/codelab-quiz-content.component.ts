@@ -324,14 +324,18 @@ export class CodelabQuizContentComponent
 
         // ⚡ FIX: Race Condition Safeguard (Double Check)
         // Ensure strictly that we only show explanation mode if truly answered.
-        const isAnswered = this.quizService.isAnswered(safeIdx);
-        const mode = isAnswered ? state?.mode || 'question' : 'question';
+        // CHECK SYNC: isAnswered returns Observable, which is always true!
+        // We must check the map directly for synchronous truthiness.
+        const answers = this.quizService.selectedOptionsMap.get(safeIdx);
+        const isAnsweredSync = Array.isArray(answers) && answers.length > 0;
+
+        const mode = isAnsweredSync ? state?.mode || 'question' : 'question';
 
         const trimmedQText = (qText ?? '').trim();
 
         // Debug logging to diagnose "FET instead of QText"
         if (safeIdx > 0 && mode === 'explanation') {
-          console.log(`[displayText$] Showing FET for Q${safeIdx + 1}. isAnswered=${isAnswered}. FET Present: ${!!fetPayload?.text}`);
+          console.log(`[displayText$] Showing FET for Q${safeIdx + 1}. isAnswered=${isAnsweredSync}. FET Present: ${!!fetPayload?.text}`);
         }
 
         // Check if this is a multiple-answer question (use resolved object first, then fallback)
