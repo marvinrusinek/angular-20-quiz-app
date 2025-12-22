@@ -137,7 +137,7 @@ export class CodelabQuizContentComponent
     // We check the 'selected' property of the options for the current question
     // to determine if it has been answered.
     const q = this.quizService.questions[idx];
-    const hasAnswers = q?.options?.some((o) => o.selected);
+    const hasAnswers = q?.options?.some((o: Option) => o.selected);
 
     if (!hasAnswers) {
       this.quizStateService.setDisplayState({ mode: 'question', answered: false });
