@@ -1121,6 +1121,11 @@ export class QuizService {
 
   setAnswers(answers: number[]): void {
     this.answersSubject.next(answers);
+
+    // ⚡ FIX: Populate selectedOptionsMap so isAnswered() works correctly!
+    // We Map numbers to partial SelectedOption objects to satisfy the type.
+    const selectedOptions = answers.map(id => ({ optionId: id } as any));
+    this.selectedOptionsMap.set(this.currentQuestionIndex, selectedOptions);
   }
 
   // Method to check if the current question is answered
