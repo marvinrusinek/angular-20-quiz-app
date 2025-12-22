@@ -142,7 +142,7 @@ export class CodelabQuizContentComponent
       ets.latestExplanation = '';
       ets.latestExplanationIndex = idx;
       ets.formattedExplanationSubject.next('');
-      ets.explanationText$.next(''); 
+      ets.explanationText$.next('');
       ets.setShouldDisplayExplanation(false, { force: true });
       ets.setIsExplanationTextDisplayed(false, { force: true });
       this.quizStateService.setDisplayState({ mode: 'question', answered: false });
