@@ -1126,6 +1126,13 @@ export class QuizService {
     // We Map numbers to partial SelectedOption objects to satisfy the type.
     const selectedOptions = answers.map(id => ({ optionId: id } as any));
     this.selectedOptionsMap.set(this.currentQuestionIndex, selectedOptions);
+
+    // ⚡ FIX: Also update the main questions array so component checks work
+    if (this.questions[this.currentQuestionIndex]) {
+      this.questions[this.currentQuestionIndex].options.forEach(
+        (o: Option) => (o.selected = answers.includes(o.optionId as number))
+      );
+    }
   }
 
   // Method to check if the current question is answered
