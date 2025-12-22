@@ -19,9 +19,11 @@ import {
 
 import { QuestionType } from '../models/question-type.enum';
 import { FormattedExplanation } from '../models/FormattedExplanation.model';
+import { Option } from '../models/Option.model';
 import { QuizQuestion } from '../models/QuizQuestion.model';
 import { QuizService } from '../services/quiz.service';
 import { QuizStateService } from '../services/quizstate.service';
+import { isValidOption } from '../utils/option-utils';
 
 // type FETPayload = { idx: number; text: string; token: number };
 export type FETPayload = { idx: number; text: string; token: number };
