@@ -2804,9 +2804,9 @@ export class SharedOptionComponent
       };
     }
 
-    const correctMessage = this.feedbackService.setCorrectMessage(
-      this.optionsToDisplay,
-    );
+    // ⚡ FIX: Sync indices with visual options
+    const validOptions = (this.optionsToDisplay || []).filter(isValidOption);
+    const correctMessage = this.feedbackService.setCorrectMessage(validOptions);
     const isCorrect = option.correct ?? false;
     const rawFeedback = option.feedback?.trim();
 
