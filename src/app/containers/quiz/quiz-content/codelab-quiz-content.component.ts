@@ -132,21 +132,6 @@ export class CodelabQuizContentComponent
     this.resetExplanationView();
     if (this._showExplanation) this._showExplanation = false;
 
-    // ⚡ FIX: Ensure display state matches the question status
-    // IF the new question has NOT been answered yet, force 'question' mode.
-    // This prevents "Persistence" from carrying over Q2's 'explanation' mode to Q3.
-    const isAnswered = this.quizService.isAnswered(idx);
-    if (!isAnswered) {
-      this.quizStateService.setDisplayState({
-        mode: 'question',
-        answered: false,
-      });
-      // Also ensure ETS knows we shouldn't be showing explanation
-      ets.setShouldDisplayExplanation(false, { force: true });
-      ets.setIsExplanationTextDisplayed(false, { force: true });
-    }
-    // Else: If answered, let persistence (or service state) take over.
-
     this.cdRef.markForCheck();
   }
 
@@ -287,6 +272,16 @@ export class CodelabQuizContentComponent
           if (this.lastQuestionIndexForReset !== index) {
             this.explanationTextService.setShouldDisplayExplanation(false);
             this.lastQuestionIndexForReset = index;
+
+            // ⚡ FIX: Reset display state for NEW questions only
+            // If the question is NOT answered, we must force 'question' mode.
+            // If it IS answered, we leave it alone (persisting explanation if set).
+            this.quizService.isAnswered(index).pipe(take(1)).subscribe(isAnswered => {
+              if (!isAnswered) {
+                this.quizStateService.setDisplayState({ mode: 'question', answered: false });
+                this.explanationTextService.setIsExplanationTextDisplayed(false, { force: true });
+              }
+            });
           }
         });
     }
@@ -322,14 +317,10 @@ export class CodelabQuizContentComponent
             ? this.currentIndex
             : 0;
 
-        // ⚡ FIX: Race Condition Safeguard (Double Check)
-        // Ensure strictly that we only show explanation mode if truly answered.
-        // CHECK SYNC: isAnswered returns Observable, which is always true!
-        // We must check the map directly for synchronous truthiness.
-        const answers = this.quizService.selectedOptionsMap.get(safeIdx);
-        const isAnsweredSync = Array.isArray(answers) && answers.length > 0;
-
-        const mode = isAnsweredSync ? state?.mode || 'question' : 'question';
+        // ⚡ FIX: Simplified Trust State
+        // The state reset is now handled in ngOnInit on index change.
+        // We simply reflect the current state mode here.
+        const mode = state?.mode || 'question';
 
         const trimmedQText = (qText ?? '').trim();
 
