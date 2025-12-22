@@ -324,10 +324,7 @@ export class CodelabQuizContentComponent
 
         const trimmedQText = (qText ?? '').trim();
 
-        // Debug logging to diagnose "FET instead of QText"
-        if (safeIdx > 0 && mode === 'explanation') {
-          console.log(`[displayText$] Showing FET for Q${safeIdx + 1}. isAnswered=${isAnsweredSync}. FET Present: ${!!fetPayload?.text}`);
-        }
+
 
         // Check if this is a multiple-answer question (use resolved object first, then fallback)
         const qObj =
