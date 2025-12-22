@@ -329,7 +329,7 @@ export class CodelabQuizContentComponent
       questionForIndex$,
     ]).pipe(
       debounceTime(50), // Allow time for questions to load
-      map(([state, qText, fetPayload, idx, questions, questionObj]) => {
+      switchMap(([state, qText, fetPayload, idx, questions, questionObj]) => {
         // ⚡ FIX: Sync Safeguard
         const safeIdx = Number.isFinite(idx)
           ? idx
@@ -345,58 +345,60 @@ export class CodelabQuizContentComponent
             ? this.quizService.questions[safeIdx]
             : undefined);
 
-        // ⚡ FIX: Trust State (Reset handled in Setter)
-        // We rely on the Setter to reset the state for new questions.
-        // We do NOT re-calculate isAnsweredSync here to avoid race conditions with stale indices.
-        const mode = state?.mode || 'question';
-        const trimmedQText = (qText ?? '').trim();
-        const numCorrect =
-          qObj?.options?.filter((o: Option) => o.correct).length || 0;
-        const isMulti = numCorrect > 1;
+        // ⚡ FIX: Reactive "Is Answered" Check
+        // Now that selectedOptionsMap is reliable, we use the observable to determine status.
+        return this.quizService.isAnswered(safeIdx).pipe(
+          map((isAnswered) => {
+            const mode = isAnswered ? (state?.mode || 'question') : 'question';
+            const trimmedQText = (qText ?? '').trim();
+            const numCorrect =
+              qObj?.options?.filter((o: Option) => o.correct).length || 0;
+            const isMulti = numCorrect > 1;
 
-        // Generate banner text for multiple-answer questions
-        let bannerText = '';
-        if (isMulti && qObj) {
-          const totalOpts = qObj.options?.length || 0;
-          bannerText =
-            this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
-              numCorrect,
-              totalOpts,
-            );
-        }
-
-        // Check if FET belongs to current question
-        const belongsToIndex = fetPayload?.idx === safeIdx;
-        const trimmedFet = belongsToIndex
-          ? (fetPayload?.text ?? '').trim()
-          : '';
-
-        // Show FET in explanation mode if available
-        const isValidFet =
-          belongsToIndex &&
-          trimmedFet !== 'No explanation available' &&
-          trimmedFet !== 'No explanation available for this question.' &&
-          trimmedFet.length > 10;
-
-        if (mode === 'explanation') {
-          if (isValidFet) {
-            if (isMulti && bannerText) {
-              return `${trimmedFet}`;
+            // Generate banner text for multiple-answer questions
+            let bannerText = '';
+            if (isMulti && qObj) {
+              const totalOpts = qObj.options?.length || 0;
+              bannerText =
+                this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
+                  numCorrect,
+                  totalOpts,
+                );
             }
-            return trimmedFet;
-          }
-          // If in explanation mode but no FET, fall back to "No explanation available"
-          return 'No explanation available.';
-        }
 
-        // QUESTION MODE
-        if (!trimmedQText) return '';
+            // Check if FET belongs to current question
+            const belongsToIndex = fetPayload?.idx === safeIdx;
+            const trimmedFet = belongsToIndex
+              ? (fetPayload?.text ?? '').trim()
+              : '';
 
-        if (isMulti && bannerText) {
-          return `${trimmedQText} <span class="correct-count">${bannerText}</span>`;
-        }
+            const isValidFet =
+              belongsToIndex &&
+              trimmedFet !== 'No explanation available' &&
+              trimmedFet !== 'No explanation available for this question.' &&
+              trimmedFet.length > 10;
 
-        return trimmedQText;
+            if (mode === 'explanation') {
+              if (isValidFet) {
+                if (isMulti && bannerText) {
+                  return `${trimmedFet}`;
+                }
+                return trimmedFet;
+              }
+              // If in explanation mode but no FET, fall back to "No explanation available"
+              return 'No explanation available.';
+            }
+
+            // QUESTION MODE
+            if (!trimmedQText) return '';
+
+            if (isMulti && bannerText) {
+              return `${trimmedQText} <span class="correct-count">${bannerText}</span>`;
+            }
+
+            return trimmedQText;
+          })
+        );
       }),
       distinctUntilChanged(),
     );
