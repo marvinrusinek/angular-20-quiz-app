@@ -19,7 +19,6 @@ import {
 
 import { QuestionType } from '../models/question-type.enum';
 import { FormattedExplanation } from '../models/FormattedExplanation.model';
-import { Option } from '../models/Option.model';
 import { QuizQuestion } from '../models/QuizQuestion.model';
 import { QuizService } from '../services/quiz.service';
 import { QuizStateService } from '../services/quizstate.service';
@@ -692,14 +691,16 @@ export class ExplanationTextService {
     }
   }
 
+
   getCorrectOptionIndices(
     question: QuizQuestion,
     options?: Option[],
   ): number[] {
-    const opts = options || question?.options;
+    const rawOpts = options || question?.options;
+    const opts = (rawOpts || []).filter(isValidOption);
 
-    if (!opts || !Array.isArray(opts)) {
-      console.error('Invalid options:', opts);
+    if (opts.length === 0) {
+      console.warn('No valid options found for question:', question?.questionText);
       return [];
     }
 
