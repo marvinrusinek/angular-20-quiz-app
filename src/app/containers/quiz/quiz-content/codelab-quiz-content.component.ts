@@ -129,8 +129,22 @@ export class CodelabQuizContentComponent
     // The service handles resetting internally via activeIndex$ subscription if needed.
 
     // Reset view flags
+    // Reset view flags
     this.resetExplanationView();
     if (this._showExplanation) this._showExplanation = false;
+
+    // ⚡ FIX: Sync Reset for Unanswered Questions
+    // This ensures that when we switch to a new question (like Q3), we force 'question' mode
+    // immediately, before the view renders.
+    // We access the map directly to avoid Observable truthiness issues.
+    const answers = this.quizService.selectedOptionsMap.get(idx);
+    const hasAnswers = answers && answers.length > 0;
+
+    if (!hasAnswers) {
+      this.quizStateService.setDisplayState({ mode: 'question', answered: false });
+      this.explanationTextService.setIsExplanationTextDisplayed(false, { force: true });
+      this.explanationTextService.setShouldDisplayExplanation(false, { force: true });
+    }
 
     this.cdRef.markForCheck();
   }
