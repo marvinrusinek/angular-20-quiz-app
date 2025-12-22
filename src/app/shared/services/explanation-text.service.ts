@@ -19,6 +19,7 @@ import {
 
 import { QuestionType } from '../models/question-type.enum';
 import { FormattedExplanation } from '../models/FormattedExplanation.model';
+import { Option } from '../models/Option.model';
 import { QuizQuestion } from '../models/QuizQuestion.model';
 import { QuizService } from '../services/quiz.service';
 import { QuizStateService } from '../services/quizstate.service';
@@ -691,9 +692,14 @@ export class ExplanationTextService {
     }
   }
 
-  getCorrectOptionIndices(question: QuizQuestion): number[] {
-    if (!question || !Array.isArray(question.options)) {
-      console.error('Invalid question or options:', question);
+  getCorrectOptionIndices(
+    question: QuizQuestion,
+    options?: Option[],
+  ): number[] {
+    const opts = options || question?.options;
+
+    if (!opts || !Array.isArray(opts)) {
+      console.error('Invalid options:', opts);
       return [];
     }
 
@@ -702,13 +708,15 @@ export class ExplanationTextService {
     // - else fall back to its natural index
     // Then convert to 1-based for human-facing text,
     // dedupe, and sort for stable multi-answer phrasing.
-    const indices = question.options
+    const indices = opts
       .map((option, idx) => {
         if (!option?.correct) return null;
 
         // Log to diagnose Q1 mismatch
         if (idx === 0 || option.correct) {
-          console.log(`[ETS] getCorrectOptionIndices Q: "${question.questionText?.slice(0, 20)}..." Opt: "${option.text?.slice(0, 15)}..." idx=${idx}`);
+          console.log(
+            `[ETS] getCorrectOptionIndices Q: "${question?.questionText?.slice(0, 20)}..." Opt: "${option.text?.slice(0, 15)}..." idx=${idx}`,
+          );
         }
 
         // 🔑 FIX: Use array index directly (same as FeedbackService)

@@ -6522,8 +6522,18 @@ export class QuizQuestionComponent
       // ✅ FIX: Format the explanation using ExplanationTextService
       const rawExplanation =
         questionData.explanation || 'No explanation available';
+
+      // ⚡ FIX: Use locally displayed options if available and indices match
+      // This ensures FET matches "shuffled" visual state ("Option 4" vs "Option 3")
+      const useLocalOptions =
+        this.optionsToDisplay?.length > 0 &&
+        questionIndex === (this.currentQuestionIndex ?? -1);
+
       const correctIndices =
-        this.explanationTextService.getCorrectOptionIndices(questionData);
+        this.explanationTextService.getCorrectOptionIndices(
+          questionData,
+          useLocalOptions ? this.optionsToDisplay : undefined,
+        );
       const formattedExplanation =
         this.explanationTextService.formatExplanation(
           questionData,
@@ -6736,8 +6746,16 @@ export class QuizQuestionComponent
       questionData.explanation || 'No explanation available';
 
     // ✅ Format the explanation
+    // ⚡ FIX: Use locally displayed options if available and indices match
+    const useLocalOptions =
+      this.optionsToDisplay?.length > 0 &&
+      questionIndex === (this.currentQuestionIndex ?? -1);
+
     const correctIndices =
-      this.explanationTextService.getCorrectOptionIndices(questionData);
+      this.explanationTextService.getCorrectOptionIndices(
+        questionData,
+        useLocalOptions ? this.optionsToDisplay : undefined,
+      );
     const formattedExplanation = this.explanationTextService.formatExplanation(
       questionData,
       correctIndices,
@@ -6769,7 +6787,10 @@ export class QuizQuestionComponent
         // ✅ Format the explanation
         const rawExp = questionData.explanation || 'No explanation available';
         const correctIndices =
-          this.explanationTextService.getCorrectOptionIndices(questionData);
+          this.explanationTextService.getCorrectOptionIndices(
+            questionData,
+            useLocalOptions ? this.optionsToDisplay : undefined,
+          );
         const formattedExp = this.explanationTextService.formatExplanation(
           questionData,
           correctIndices,
@@ -6785,7 +6806,10 @@ export class QuizQuestionComponent
       // ✅ Format the explanation even in error case
       const rawExp = questionData.explanation || 'Error processing explanation';
       const correctIndices =
-        this.explanationTextService.getCorrectOptionIndices(questionData);
+        this.explanationTextService.getCorrectOptionIndices(
+          questionData,
+          useLocalOptions ? this.optionsToDisplay : undefined,
+        );
       const formattedExp = this.explanationTextService.formatExplanation(
         questionData,
         correctIndices,

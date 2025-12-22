@@ -2324,8 +2324,18 @@ export class SharedOptionComponent
     );
     const question = this.quizService.questions[questionIndex];
     if (question) {
+      // ⚡ FIX: Use local options if indices match, to ensure FET "Option X" matches visual "Option X"
+      const useLocalOptions =
+        Array.isArray(this.optionsToDisplay) &&
+        this.optionsToDisplay.length > 0 &&
+        (questionIndex === this.currentQuestionIndex ||
+          questionIndex === this.resolvedQuestionIndex);
+
       const correctIndices =
-        this.explanationTextService.getCorrectOptionIndices(question);
+        this.explanationTextService.getCorrectOptionIndices(
+          question,
+          useLocalOptions ? this.optionsToDisplay : undefined,
+        );
       const raw = question.explanation || '';
       const generated = this.explanationTextService.formatExplanation(
         question,
