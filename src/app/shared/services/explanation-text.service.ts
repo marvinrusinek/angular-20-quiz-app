@@ -698,37 +698,31 @@ export class ExplanationTextService {
     question: QuizQuestion,
     options?: Option[],
   ): number[] {
-    const rawOpts = options || question?.options;
-    const opts = (rawOpts || []).filter(isValidOption);
+    // 🔑 VISUAL ALIGNMENT FIX: Use the raw input array directly!
+    // The "options" argument is typically 'optionsToDisplay' from the UI.
+    // If we filter it, we shift the indices, causing "Option 2" to become "Option 1"
+    // in the text while remaining "Option 2" on screen.
+    const opts = options || question?.options || [];
 
-    if (opts.length === 0) {
-      console.warn('No valid options found for question:', question?.questionText);
+    if (!Array.isArray(opts) || opts.length === 0) {
+      console.warn('No options found for question:', question?.questionText);
       return [];
     }
 
-    // Normalize each option to a display position:
-    // - use displayOrder when it’s a finite, non-negative number
-    // - else fall back to its natural index
-    // Then convert to 1-based for human-facing text,
-    // dedupe, and sort for stable multi-answer phrasing.
     const indices = opts
       .map((option, idx) => {
-        if (!option?.correct) return null;
+        // Skip invalid/null options visually, but preserve their index slot
+        // if they take up space? No, usually isValidOption checks if it's a real option.
+        // But if the UI displays it, we count it.
+        if (!option || !option.correct) return null;
 
-        // Log to diagnose Q1 mismatch
-        if (idx === 0 || option.correct) {
-          console.log(
-            `[ETS] getCorrectOptionIndices Q: "${question?.questionText?.slice(0, 20)}..." Opt: "${option.text?.slice(0, 15)}..." idx=${idx}`,
-          );
-        }
-
-        // 🔑 FIX: Use array index directly (same as FeedbackService)
-        // This matches the UI render order where visually "Option 1" = array[0]
+        // Use the array index directly.
+        // This assumes 'opts' aligns 1:1 with the rendered list.
         return idx + 1; // 1-based for "Option N"
       })
       .filter((n): n is number => n !== null);
 
-    // Dedupe + sort for a stable, readable "Options 1 and 2" string
+    // Dedupe + sort for a stable, readable string
     return Array.from(new Set(indices)).sort((a, b) => a - b);
   }
 
