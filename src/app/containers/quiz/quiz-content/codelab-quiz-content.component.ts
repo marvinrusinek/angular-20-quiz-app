@@ -135,7 +135,7 @@ export class CodelabQuizContentComponent
     const answers = this.quizService.selectedOptionsMap.get(idx);
     const isAnswered = answers && answers.length > 0;
 
-    /* if (!isAnswered) {
+    if (!isAnswered) {
       // Q3 Case: Clean global state completely
       ets.resetForIndex(idx);
       ets.latestExplanation = '';
@@ -148,7 +148,7 @@ export class CodelabQuizContentComponent
     } else {
       // Q1 Case: Just update the index, preserve the data
       // (The Component's own view flags are reset below, but the Service data remains)
-    } */
+    }
 
     // Reset local view flags (Component level)
     this.resetExplanationView();
