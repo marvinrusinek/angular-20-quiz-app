@@ -313,15 +313,25 @@ export class CodelabQuizContentComponent
     ]).pipe(
       debounceTime(50), // Allow time for questions to load
       map(([state, qText, fetPayload, idx, questions, questionObj]) => {
-        const safeIdx = Number.isFinite(idx) ? idx : 0;
+        // ⚡ FIX: Sync Safeguard
+        // Use the component's local index if the pipe index is invalid/lagging.
+        // Falling back to 0 causes Q3 to look like Q1 (which is answered + explanation mode).
+          ? idx
+        : Number.isFinite(this.currentIndex)
+          ? this.currentIndex
+          : 0;
 
-        // ⚡ FIX: Race Condition Safeguard
-        // If the question hasn't been answered, we MUST show the question text,
-        // ignoring any stale 'explanation' state from the previous question.
+        // ⚡ FIX: Race Condition Safeguard (Double Check)
+        // Ensure strictly that we only show explanation mode if truly answered.
         const isAnswered = this.quizService.isAnswered(safeIdx);
-        const mode = isAnswered ? (state?.mode || 'question') : 'question';
+        const mode = isAnswered ? state?.mode || 'question' : 'question';
 
         const trimmedQText = (qText ?? '').trim();
+
+        // Debug logging to diagnose "FET instead of QText"
+        if (safeIdx > 0 && mode === 'explanation') {
+          console.log(`[displayText$] Showing FET for Q${safeIdx + 1}. isAnswered=${isAnswered}. FET Present: ${!!fetPayload?.text}`);
+        }
 
         // Check if this is a multiple-answer question (use resolved object first, then fallback)
         const qObj =
