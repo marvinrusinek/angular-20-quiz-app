@@ -135,9 +135,13 @@ export class CodelabQuizContentComponent
     const answers = this.quizService.selectedOptionsMap.get(idx);
     const isAnswered = answers && answers.length > 0;
 
-    /* if (!isAnswered) {
+    // ⚡ FIX: Sync Reset for Unanswered Questions
+    // Use the 'questions' array directly as a robust fall-back check.
+    const q = this.quizService.questions[idx];
+    const isAnsweredQuestions = q?.options?.some((o: Option) => o.selected);
+
+    if (!isAnswered && !isAnsweredQuestions) {
       // Q3 Case: Clean global state completely
-      // Force clearing of the explanation text observable to prevent stale data
       ets.resetForIndex(idx);
       ets.latestExplanation = '';
       ets.latestExplanationIndex = idx;
@@ -147,9 +151,8 @@ export class CodelabQuizContentComponent
       ets.setIsExplanationTextDisplayed(false, { force: true });
       this.quizStateService.setDisplayState({ mode: 'question', answered: false });
     } else {
-      // Q1 Case: Just update the index, preserve the data
-      // (The Component's own view flags are reset below, but the Service data remains)
-    } */
+      // Q1 Case: Do nothing (preserve data)
+    }
 
     // Reset local view flags (Component level)
     this.resetExplanationView();
