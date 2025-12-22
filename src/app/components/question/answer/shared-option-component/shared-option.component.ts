@@ -70,6 +70,7 @@ import { UserPreferenceService } from '../../../../shared/services/user-preferen
 import { HighlightOptionDirective } from '../../../../directives/highlight-option.directive';
 import { SharedOptionConfigDirective } from '../../../../directives/shared-option-config.directive';
 import { correctAnswerAnim } from '../../../../animations/animations';
+import { isValidOption } from '../../../../shared/utils/option-utils';
 
 @Component({
   selector: 'app-shared-option',
@@ -2340,10 +2341,16 @@ export class SharedOptionComponent
       console.log(
         `[⚡ Using LOCAL OPTIONS for Q${questionIndex + 1} to ensure visual match]`,
       );
+
+      // ⚡ SYNC WITH FEEDBACK SERVICE: Filter invalid options first so indices match
+      // FeedbackService filters options using isValidOption, so we must do the same
+      // to ensure "Option 1" here refers to the same option as "Option 1" in feedback.
+      const validOptions = this.optionsToDisplay.filter(isValidOption);
+
       const correctIndices =
         this.explanationTextService.getCorrectOptionIndices(
           question,
-          this.optionsToDisplay,
+          validOptions,
         );
       const raw = question.explanation || '';
       const generated = this.explanationTextService.formatExplanation(
@@ -2353,6 +2360,7 @@ export class SharedOptionComponent
       );
       return generated;
     }
+    // ...
 
     // Try to get pre-formatted explanation first
     const formatted =
