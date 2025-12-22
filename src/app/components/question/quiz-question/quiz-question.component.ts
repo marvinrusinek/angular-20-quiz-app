@@ -3094,6 +3094,16 @@ export class QuizQuestionComponent
         this.quizService.nextOptionsSubject.next(
           this.optionsToDisplay.map((option) => ({ ...option })),
         );
+
+        // ⚡ FIX: Now that optionsToDisplay is set, refresh explanation text if needed
+        // This ensures the FET is calculated using the SHUFFLED options we just set.
+        if (this.currentQuestionIndex >= 0) {
+          console.log('[QQC] 🔄 triggering explanation usage/refresh with NEW options');
+          // If we are already in explanation mode (e.g. revisiting answered question), update it.
+          // Even if not, pre-calculating it correctly is safer.
+          void this.prepareAndSetExplanationText(this.currentQuestionIndex);
+        }
+
         this.cdRef.markForCheck();
       });
   }
