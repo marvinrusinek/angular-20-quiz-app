@@ -128,8 +128,25 @@ export class CodelabQuizContentComponent
     // destroys persisting state when the user navigates back to this tab/route.
     // The service handles resetting internally via activeIndex$ subscription if needed.
 
+    // Reset view flags
     this.resetExplanationView();
     if (this._showExplanation) this._showExplanation = false;
+
+    // ⚡ FIX: Ensure display state matches the question status
+    // IF the new question has NOT been answered yet, force 'question' mode.
+    // This prevents "Persistence" from carrying over Q2's 'explanation' mode to Q3.
+    const isAnswered = this.quizService.isAnswered(idx);
+    if (!isAnswered) {
+      this.quizStateService.setDisplayState({
+        mode: 'question',
+        answered: false,
+      });
+      // Also ensure ETS knows we shouldn't be showing explanation
+      ets.setShouldDisplayExplanation(false, { force: true });
+      ets.setIsExplanationTextDisplayed(false, { force: true });
+    }
+    // Else: If answered, let persistence (or service state) take over.
+
     this.cdRef.markForCheck();
   }
 
