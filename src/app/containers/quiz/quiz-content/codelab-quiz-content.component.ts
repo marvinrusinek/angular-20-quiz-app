@@ -313,9 +313,15 @@ export class CodelabQuizContentComponent
     ]).pipe(
       debounceTime(50), // Allow time for questions to load
       map(([state, qText, fetPayload, idx, questions, questionObj]) => {
-        const mode = state?.mode || 'question';
-        const trimmedQText = (qText ?? '').trim();
         const safeIdx = Number.isFinite(idx) ? idx : 0;
+
+        // ⚡ FIX: Race Condition Safeguard
+        // If the question hasn't been answered, we MUST show the question text,
+        // ignoring any stale 'explanation' state from the previous question.
+        const isAnswered = this.quizService.isAnswered(safeIdx);
+        const mode = isAnswered ? (state?.mode || 'question') : 'question';
+
+        const trimmedQText = (qText ?? '').trim();
 
         // Check if this is a multiple-answer question (use resolved object first, then fallback)
         const qObj =
