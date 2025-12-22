@@ -307,80 +307,72 @@ export class CodelabQuizContentComponent
       questionForIndex$,
     ]).pipe(
       debounceTime(50), // Allow time for questions to load
-      switchMap(([state, qText, fetPayload, idx, questions, questionObj]) => {
+      map(([state, qText, fetPayload, idx, questions, questionObj]) => {
         // ⚡ FIX: Sync Safeguard
-        // Use the component's local index if the pipe index is invalid/lagging.
         const safeIdx = Number.isFinite(idx)
           ? idx
           : Number.isFinite(this.currentIndex)
             ? this.currentIndex
             : 0;
 
-        // ⚡ FIX: Race Condition Safeguard
-        // We MUST unwrap the isAnswered observable to get the true boolean value.
-        return this.quizService.isAnswered(safeIdx).pipe(
-          map((isAnswered) => {
-            // If NOT answered, strictly force "question" mode, ignoring stale state.
-            // If answered, respect the state (e.g. explanation mode).
-            const mode = isAnswered ? (state?.mode || 'question') : 'question';
-            const trimmedQText = (qText ?? '').trim();
+        // ⚡ FIX: Trust State (Reset handled in Setter)
+        const mode = state?.mode || 'question';
+        const trimmedQText = (qText ?? '').trim();
 
-            // Check if this is a multiple-answer question (use resolved object first, then fallback)
-            const qObj =
-              questionObj ||
-              (Array.isArray(questions) ? questions[safeIdx] : undefined) ||
-              (Array.isArray(this.quizService.questions)
-                ? this.quizService.questions[safeIdx]
-                : undefined);
-            const numCorrect =
-              qObj?.options?.filter((o: Option) => o.correct).length || 0;
-            const isMulti = numCorrect > 1;
+        // Check if this is a multiple-answer question (use resolved object first, then fallback)
+        const qObj =
+          questionObj ||
+          (Array.isArray(questions) ? questions[safeIdx] : undefined) ||
+          (Array.isArray(this.quizService.questions)
+            ? this.quizService.questions[safeIdx]
+            : undefined);
+        const numCorrect =
+          qObj?.options?.filter((o: Option) => o.correct).length || 0;
+        const isMulti = numCorrect > 1;
 
-            // Generate banner text for multiple-answer questions
-            let bannerText = '';
-            if (isMulti && qObj) {
-              const totalOpts = qObj.options?.length || 0;
-              bannerText =
-                this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
-                  numCorrect,
-                  totalOpts,
-                );
-            }
+        // Generate banner text for multiple-answer questions
+        let bannerText = '';
+        if (isMulti && qObj) {
+          const totalOpts = qObj.options?.length || 0;
+          bannerText =
+            this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
+              numCorrect,
+              totalOpts,
+            );
+        }
 
-            // Check if FET belongs to current question
-            const belongsToIndex = fetPayload?.idx === safeIdx;
-            const trimmedFet = belongsToIndex
-              ? (fetPayload?.text ?? '').trim()
-              : '';
+        // Check if FET belongs to current question
+        const belongsToIndex = fetPayload?.idx === safeIdx;
+        const trimmedFet = belongsToIndex
+          ? (fetPayload?.text ?? '').trim()
+          : '';
 
-            // Show FET in explanation mode if available
-            const isValidFet =
-              belongsToIndex &&
-              trimmedFet !== 'No explanation available' &&
-              trimmedFet !== 'No explanation available for this question.' &&
-              trimmedFet.length > 10;
+        // Show FET in explanation mode if available
+        const isValidFet =
+          belongsToIndex &&
+          trimmedFet !== 'No explanation available' &&
+          trimmedFet !== 'No explanation available for this question.' &&
+          trimmedFet.length > 10;
 
-            if (mode === 'explanation') {
-              if (isValidFet) {
-                if (isMulti && bannerText) {
-                  return `${trimmedFet}`;
-                }
-                return trimmedFet;
-              }
-              // If in explanation mode but no FET, fall back to "No explanation available"
-              return 'No explanation available.';
-            }
-
-            // QUESTION MODE
-            if (!trimmedQText) return '';
-
+        if (mode === 'explanation') {
+          if (isValidFet) {
             if (isMulti && bannerText) {
-              return `${trimmedQText} <span class="correct-count">${bannerText}</span>`;
+              return `${trimmedFet}`;
             }
+            return trimmedFet;
+          }
+          // If in explanation mode but no FET, fall back to "No explanation available"
+          return 'No explanation available.';
+        }
 
-            return trimmedQText;
-          })
-        );
+        // QUESTION MODE
+        if (!trimmedQText) return '';
+
+        if (isMulti && bannerText) {
+          return `${trimmedQText} <span class="correct-count">${bannerText}</span>`;
+        }
+
+        return trimmedQText;
       }),
       distinctUntilChanged(),
     );
