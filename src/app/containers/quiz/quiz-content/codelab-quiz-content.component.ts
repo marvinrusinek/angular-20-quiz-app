@@ -128,22 +128,31 @@ export class CodelabQuizContentComponent
     // destroys persisting state when the user navigates back to this tab/route.
     // The service handles resetting internally via activeIndex$ subscription if needed.
 
-    // Reset view flags
-    // Reset view flags
+    // ⚡ FIX: Conditional Reset Logic
+    // Only reset the ExplanationTextService state if the question is UNANSWERED.
+    // - For new Q3 (unanswered): We WANT to wipe the state so no stale FET from Q2 shows up.
+    // - For visited Q1 (answered): We DO NOT want to wipe state, so persistence works.
+    const answers = this.quizService.selectedOptionsMap.get(idx);
+    const isAnswered = answers && answers.length > 0;
+
+    if (!isAnswered) {
+      // Q3 Case: Clean global state completely
+      ets.resetForIndex(idx);
+      ets.latestExplanation = '';
+      ets.latestExplanationIndex = idx;
+      ets.formattedExplanationSubject.next('');
+      ets.explanationText$.next('');
+      ets.setShouldDisplayExplanation(false, { force: true });
+      ets.setIsExplanationTextDisplayed(false, { force: true });
+      this.quizStateService.setDisplayState({ mode: 'question', answered: false });
+    } else {
+      // Q1 Case: Just update the index, preserve the data
+      // (The Component's own view flags are reset below, but the Service data remains)
+    }
+
+    // Reset local view flags (Component level)
     this.resetExplanationView();
     if (this._showExplanation) this._showExplanation = false;
-
-    // ⚡ FIX: Sync Reset for Unanswered Questions
-    // We check the 'selected' property of the options for the current question
-    // to determine if it has been answered.
-    const q = this.quizService.questions[idx];
-    const hasAnswers = q?.options?.some((o: Option) => o.selected);
-
-    if (!hasAnswers) {
-      this.quizStateService.setDisplayState({ mode: 'question', answered: false });
-      this.explanationTextService.setIsExplanationTextDisplayed(false, { force: true });
-      this.explanationTextService.setShouldDisplayExplanation(false, { force: true });
-    }
 
     this.cdRef.markForCheck();
   }
