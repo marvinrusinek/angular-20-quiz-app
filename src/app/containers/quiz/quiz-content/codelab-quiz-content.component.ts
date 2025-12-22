@@ -123,13 +123,10 @@ export class CodelabQuizContentComponent
     // replay the previous question's FET (e.g., Q1 on Q4's first click).
     const ets = this.explanationTextService;
     ets._activeIndex = idx;
-    ets.resetForIndex(idx);
-    ets.latestExplanation = '';
-    ets.latestExplanationIndex = idx;
-    ets.formattedExplanationSubject.next('');
-    ets.explanationText$.next('');
-    ets.setShouldDisplayExplanation(false, { force: true });
-    ets.setIsExplanationTextDisplayed(false, { force: true });
+    // REMOVED AGGRESSIVE RESET LOGIC:
+    // Calling ets.resetForIndex(idx), clearing subjects, and hiding explanation here
+    // destroys persisting state when the user navigates back to this tab/route.
+    // The service handles resetting internally via activeIndex$ subscription if needed.
 
     this.resetExplanationView();
     if (this._showExplanation) this._showExplanation = false;
