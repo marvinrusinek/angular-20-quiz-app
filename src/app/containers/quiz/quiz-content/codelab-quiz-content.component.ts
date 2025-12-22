@@ -345,14 +345,10 @@ export class CodelabQuizContentComponent
             ? this.quizService.questions[safeIdx]
             : undefined);
 
-        // ⚡ FIX: Sync "Is Answered" Check
-        // We now rely on the Option State which is synced by QuizService.
-        // This is safer than the Map for view rendering.
-        const isAnsweredSync =
-          qObj?.options?.some((o: Option) => o.selected) ||
-          (this.quizService.selectedOptionsMap.get(safeIdx)?.length || 0) > 0;
-
-        const mode = isAnsweredSync ? (state?.mode || 'question') : 'question';
+        // ⚡ FIX: Trust State (Reset handled in Setter)
+        // We rely on the Setter to reset the state for new questions.
+        // We do NOT re-calculate isAnsweredSync here to avoid race conditions with stale indices.
+        const mode = state?.mode || 'question';
         const trimmedQText = (qText ?? '').trim();
         const numCorrect =
           qObj?.options?.filter((o: Option) => o.correct).length || 0;
