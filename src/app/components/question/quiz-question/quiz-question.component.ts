@@ -2419,6 +2419,12 @@ export class QuizQuestionComponent
         preserveVisualState: shouldPreserveVisualState,
         preserveExplanation: shouldKeepExplanationVisible,
       });
+
+      // ⚡ FIX: Clear optionsToDisplay explicitly to prevent stale options from being used 
+      // by prepareAndSetExplanationText during the navigation transition
+      if (!shouldPreserveVisualState) {
+        this.optionsToDisplay = [];
+      }
       if (!shouldKeepExplanationVisible) {
         this.explanationTextService.resetExplanationState();
         this.explanationTextService.setExplanationText('', { force: true });
@@ -3098,10 +3104,15 @@ export class QuizQuestionComponent
         // ⚡ FIX: Now that optionsToDisplay is set, refresh explanation text if needed
         // This ensures the FET is calculated using the SHUFFLED options we just set.
         if (this.currentQuestionIndex >= 0) {
-          console.log('[QQC] 🔄 triggering explanation usage/refresh with NEW options');
-          // If we are already in explanation mode (e.g. revisiting answered question), update it.
-          // Even if not, pre-calculating it correctly is safer.
-          void this.prepareAndSetExplanationText(this.currentQuestionIndex);
+          console.log(
+            '[QQC] 🔄 triggering explanation usage/refresh with NEW options',
+          );
+          // Recalculate AND push to service to ensure all subscribers see the correct text
+          this.prepareAndSetExplanationText(this.currentQuestionIndex).then(
+            (fet) => {
+              this.explanationTextService.setExplanationText(fet);
+            },
+          );
         }
 
         this.cdRef.markForCheck();
@@ -6534,10 +6545,11 @@ export class QuizQuestionComponent
         questionData.explanation || 'No explanation available';
 
       // ⚡ FIX: Use locally displayed options if available and indices match
-      // This ensures FET matches "shuffled" visual state ("Option 4" vs "Option 3")
+      // AND verify the question text matches to avoid using Q1 options for Q2 FET
       const useLocalOptions =
         this.optionsToDisplay?.length > 0 &&
-        questionIndex === (this.currentQuestionIndex ?? -1);
+        questionIndex === (this.currentQuestionIndex ?? -1) &&
+        this.currentQuestion?.questionText === questionData.questionText;
 
       const correctIndices =
         this.explanationTextService.getCorrectOptionIndices(
@@ -6759,7 +6771,8 @@ export class QuizQuestionComponent
     // ⚡ FIX: Use locally displayed options if available and indices match
     const useLocalOptions =
       this.optionsToDisplay?.length > 0 &&
-      questionIndex === (this.currentQuestionIndex ?? -1);
+      questionIndex === (this.currentQuestionIndex ?? -1) &&
+      this.currentQuestion?.questionText === questionData.questionText;
 
     const correctIndices =
       this.explanationTextService.getCorrectOptionIndices(
