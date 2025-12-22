@@ -329,8 +329,14 @@ export class CodelabQuizContentComponent
             ? this.currentIndex
             : 0;
 
-        // ⚡ FIX: Trust State (Reset handled in Setter)
-        const mode = state?.mode || 'question';
+        // ⚡ FIX: Sync "Is Answered" Check
+        // We cannot rely solely on displayState$ because it might hold the STALE state (explanation)
+        // from the previous question (Q2) during the transition to Q3.
+        // We must Force 'question' mode if selectedOptionsMap shows no answers for this index.
+        const answers = this.quizService.selectedOptionsMap.get(safeIdx);
+        const isAnsweredSync = Array.isArray(answers) && answers.length > 0;
+
+        const mode = isAnsweredSync ? (state?.mode || 'question') : 'question';
         const trimmedQText = (qText ?? '').trim();
 
         // Check if this is a multiple-answer question (use resolved object first, then fallback)
