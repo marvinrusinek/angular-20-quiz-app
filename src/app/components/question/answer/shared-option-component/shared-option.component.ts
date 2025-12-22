@@ -2389,11 +2389,12 @@ export class SharedOptionComponent
 
     if (question) {
       // ⚡ FIX: Sync indices with visual options
-      const opts =
+      const rawOpts =
         this.optionsToDisplay?.length &&
           questionIndex === this.currentQuestionIndex
           ? this.optionsToDisplay
           : (question.options || []);
+      const opts = rawOpts.filter(isValidOption);
 
       const correctIndices =
         this.explanationTextService.getCorrectOptionIndices(question, opts);
@@ -2489,11 +2490,12 @@ export class SharedOptionComponent
         });
 
         // ⚡ FIX: Sync indices with visual options
-        const opts =
+        const rawOpts =
           this.optionsToDisplay?.length &&
             questionIndex === this.currentQuestionIndex
             ? this.optionsToDisplay
             : (question.options || []);
+        const opts = rawOpts.filter(isValidOption);
 
         const correctIndices =
           this.explanationTextService.getCorrectOptionIndices(question, opts);
