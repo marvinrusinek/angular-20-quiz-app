@@ -2392,8 +2392,8 @@ export class SharedOptionComponent
       const opts =
         this.optionsToDisplay?.length &&
           questionIndex === this.currentQuestionIndex
-          ? this.optionsToDisplay.filter(isValidOption)
-          : (question.options || []).filter(isValidOption);
+          ? this.optionsToDisplay
+          : (question.options || []);
 
       const correctIndices =
         this.explanationTextService.getCorrectOptionIndices(question, opts);
@@ -2492,8 +2492,8 @@ export class SharedOptionComponent
         const opts =
           this.optionsToDisplay?.length &&
             questionIndex === this.currentQuestionIndex
-            ? this.optionsToDisplay.filter(isValidOption)
-            : (question.options || []).filter(isValidOption);
+            ? this.optionsToDisplay
+            : (question.options || []);
 
         const correctIndices =
           this.explanationTextService.getCorrectOptionIndices(question, opts);
