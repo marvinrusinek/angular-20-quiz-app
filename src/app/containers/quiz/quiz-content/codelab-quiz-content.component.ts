@@ -337,16 +337,6 @@ export class CodelabQuizContentComponent
             ? this.currentIndex
             : 0;
 
-        // ⚡ FIX: Sync "Is Answered" Check
-        // We cannot rely solely on displayState$ because it might hold the STALE state (explanation)
-        // from the previous question (Q2) during the transition to Q3.
-        // We must Force 'question' mode if selectedOptionsMap shows no answers for this index.
-        const answers = this.quizService.selectedOptionsMap.get(safeIdx);
-        const isAnsweredSync = Array.isArray(answers) && answers.length > 0;
-
-        const mode = isAnsweredSync ? (state?.mode || 'question') : 'question';
-        const trimmedQText = (qText ?? '').trim();
-
         // Check if this is a multiple-answer question (use resolved object first, then fallback)
         const qObj =
           questionObj ||
@@ -354,6 +344,16 @@ export class CodelabQuizContentComponent
           (Array.isArray(this.quizService.questions)
             ? this.quizService.questions[safeIdx]
             : undefined);
+
+        // ⚡ FIX: Sync "Is Answered" Check
+        // We now rely on the Option State which is synced by QuizService.
+        // This is safer than the Map for view rendering.
+        const isAnsweredSync =
+          qObj?.options?.some((o: Option) => o.selected) ||
+          (this.quizService.selectedOptionsMap.get(safeIdx)?.length || 0) > 0;
+
+        const mode = isAnsweredSync ? (state?.mode || 'question') : 'question';
+        const trimmedQText = (qText ?? '').trim();
         const numCorrect =
           qObj?.options?.filter((o: Option) => o.correct).length || 0;
         const isMulti = numCorrect > 1;
