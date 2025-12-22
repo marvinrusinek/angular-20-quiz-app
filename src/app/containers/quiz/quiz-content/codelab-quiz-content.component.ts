@@ -307,100 +307,80 @@ export class CodelabQuizContentComponent
       questionForIndex$,
     ]).pipe(
       debounceTime(50), // Allow time for questions to load
-      map(([state, qText, fetPayload, idx, questions, questionObj]) => {
+      switchMap(([state, qText, fetPayload, idx, questions, questionObj]) => {
         // ⚡ FIX: Sync Safeguard
         // Use the component's local index if the pipe index is invalid/lagging.
-        // Falling back to 0 causes Q3 to look like Q1 (which is answered + explanation mode).
         const safeIdx = Number.isFinite(idx)
           ? idx
           : Number.isFinite(this.currentIndex)
             ? this.currentIndex
             : 0;
 
-        // ⚡ FIX: Simplified Trust State
-        // The state reset is now handled in ngOnInit on index change.
-        // We simply reflect the current state mode here.
-        const mode = state?.mode || 'question';
+        // ⚡ FIX: Race Condition Safeguard
+        // We MUST unwrap the isAnswered observable to get the true boolean value.
+        return this.quizService.isAnswered(safeIdx).pipe(
+          map((isAnswered) => {
+            // If NOT answered, strictly force "question" mode, ignoring stale state.
+            // If answered, respect the state (e.g. explanation mode).
+            const mode = isAnswered ? (state?.mode || 'question') : 'question';
+            const trimmedQText = (qText ?? '').trim();
 
-        const trimmedQText = (qText ?? '').trim();
+            // Check if this is a multiple-answer question (use resolved object first, then fallback)
+            const qObj =
+              questionObj ||
+              (Array.isArray(questions) ? questions[safeIdx] : undefined) ||
+              (Array.isArray(this.quizService.questions)
+                ? this.quizService.questions[safeIdx]
+                : undefined);
+            const numCorrect =
+              qObj?.options?.filter((o: Option) => o.correct).length || 0;
+            const isMulti = numCorrect > 1;
 
-
-
-        // Check if this is a multiple-answer question (use resolved object first, then fallback)
-        const qObj =
-          questionObj ||
-          (Array.isArray(questions) ? questions[safeIdx] : undefined) ||
-          (Array.isArray(this.quizService.questions)
-            ? this.quizService.questions[safeIdx]
-            : undefined);
-        const numCorrect =
-          qObj?.options?.filter((o: Option) => o.correct).length || 0;
-        const isMulti = numCorrect > 1;
-        console.log(
-          `[displayText$] Q${safeIdx + 1}:`,
-          JSON.stringify({
-            hasQObj: !!qObj,
-            qId: qObj?.questionId || 'N/A',
-            qText: (qObj?.questionText || '').substring(0, 20),
-            numCorrect,
-            isMulti,
-            questionsFromParam: questions?.length,
-            questionsFromService: this.quizService.questions?.length,
-            mode,
-            qObjOptions: qObj?.options?.length,
-            optionCorrectCounts: qObj?.options
-              ?.map((o: Option) => (o.correct ? 1 : 0))
-              .join(','),
-          }),
-        );
-
-        // Generate banner text for multiple-answer questions
-        let bannerText = '';
-        if (isMulti && qObj) {
-          const totalOpts = qObj.options?.length || 0;
-          bannerText =
-            this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
-              numCorrect,
-              totalOpts,
-            );
-          console.log(
-            `[displayText$] Banner for Q${safeIdx + 1}: "${bannerText}"`,
-          );
-        }
-
-        // Check if FET belongs to current question
-        const belongsToIndex = fetPayload?.idx === safeIdx;
-        const trimmedFet = belongsToIndex
-          ? (fetPayload?.text ?? '').trim()
-          : '';
-
-        // Show FET in explanation mode if available
-        const isValidFet =
-          belongsToIndex &&
-          trimmedFet !== 'No explanation available' &&
-          trimmedFet !== 'No explanation available for this question.' &&
-          trimmedFet.length > 10;
-
-        if (mode === 'explanation') {
-          if (isValidFet) {
-            if (isMulti && bannerText) {
-              return `${trimmedFet}`;
+            // Generate banner text for multiple-answer questions
+            let bannerText = '';
+            if (isMulti && qObj) {
+              const totalOpts = qObj.options?.length || 0;
+              bannerText =
+                this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
+                  numCorrect,
+                  totalOpts,
+                );
             }
-            return trimmedFet;
-          }
-          // If in explanation mode but no FET, fall back to "No explanation available"
-          // but DO NOT show question text unless intended.
-          return 'No explanation available.';
-        }
 
-        // QUESTION MODE
-        if (!trimmedQText) return '';
+            // Check if FET belongs to current question
+            const belongsToIndex = fetPayload?.idx === safeIdx;
+            const trimmedFet = belongsToIndex
+              ? (fetPayload?.text ?? '').trim()
+              : '';
 
-        if (isMulti && bannerText) {
-          return `${trimmedQText} <span class="correct-count">${bannerText}</span>`;
-        }
+            // Show FET in explanation mode if available
+            const isValidFet =
+              belongsToIndex &&
+              trimmedFet !== 'No explanation available' &&
+              trimmedFet !== 'No explanation available for this question.' &&
+              trimmedFet.length > 10;
 
-        return trimmedQText;
+            if (mode === 'explanation') {
+              if (isValidFet) {
+                if (isMulti && bannerText) {
+                  return `${trimmedFet}`;
+                }
+                return trimmedFet;
+              }
+              // If in explanation mode but no FET, fall back to "No explanation available"
+              return 'No explanation available.';
+            }
+
+            // QUESTION MODE
+            if (!trimmedQText) return '';
+
+            if (isMulti && bannerText) {
+              return `${trimmedQText} <span class="correct-count">${bannerText}</span>`;
+            }
+
+            return trimmedQText;
+          })
+        );
       }),
       distinctUntilChanged(),
     );
