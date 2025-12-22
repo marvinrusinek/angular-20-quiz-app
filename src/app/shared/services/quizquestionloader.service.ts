@@ -545,55 +545,49 @@ export class QuizQuestionLoaderService {
       this.lastQuizId = quizId;
     }
 
-    // 🔑 FIXED: Use quizService.questions as single source of truth
-    // This ensures both question text and options come from the same shuffled array
+    // Ensure questions are loaded in QuizService
     let questions = this.quizService.questions;
 
-    // 🔍 DEBUG: Log the state of quizService.questions
-    console.log(`[QQLoader fetchQO] quizService.questions state:`, {
-      hasQuestions: Array.isArray(questions) && questions.length > 0,
-      length: questions?.length,
-      Q1Text: questions?.[0]?.questionText?.substring(0, 40),
-      requestedIndex: index
-    });
-
-    // If quizService.questions is empty, fetch and set it
+    // 🔒 FIX: Don't overwrite existing questions if they are already loaded (and potentially shuffled!)
+    // Only fetch raw if we truly have NOTHING.
     if (!Array.isArray(questions) || questions.length === 0) {
       console.log(`[QQLoader fetchQO] ⚠️ quizService.questions EMPTY - fetching from getQuestionsForQuiz`);
       this.questionsArray = await firstValueFrom(
         this.quizDataService.getQuestionsForQuiz(quizId),
       );
-      questions = this.questionsArray;
-      // Also update quizService.questions so everyone uses the same array
-      this.quizService.questions = [...questions];
-      console.log(`[QQLoader fetchQO] ✅ Populated quizService.questions with ${questions.length} questions`);
+      // Update QuizService so it has the base data
+      this.quizService.questions = [...this.questionsArray];
     } else {
-      console.log(`[QQLoader fetchQO] ✅ Using existing quizService.questions (${questions.length} questions)`);
+      console.log(`[QQLoader fetchQO] ✅ reusing existing quizService.questions (Length: ${questions.length})`);
     }
+
 
     // Keep other services in sync
     this.activeQuizId = quizId;
     this.quizService.quizId = quizId;
 
-    // Hydrate the full quiz so downstream code has metadata
-    const fullQuiz: Quiz = await firstValueFrom(
-      this.quizDataService.getQuiz(quizId).pipe(
-        filter((quiz): quiz is Quiz => quiz !== null),
-        take(1),
-      ),
-    );
-    this.quizService.setCurrentQuiz({
-      ...fullQuiz,
-      questions: questions,
-    });
-
-    // Return the requested question + options from the SAME source
-    const q = questions[index] ?? null;
+    // 🔑 CONSISTENCY FIX: Use getQuestionByIndex to respect shuffle state
+    // Previously, we accessed this.quizService.questions[index] directly,
+    // which bypassed 'shuffledQuestions' if they were different.
+    const q = await firstValueFrom(this.quizService.getQuestionByIndex(index));
     const opts = q?.options ?? [];
 
-    // 🔍 DEBUG: Verify question and options come from same source
-    console.log(`[QQLoader] Q${index + 1}: "${q?.questionText?.substring(0, 40)}..." → Opt1: "${opts[0]?.text?.substring(0, 20) ?? 'N/A'}..."`);
-    console.log(`[QQLoader] Using quizService.questions (length: ${this.quizService.questions?.length})`);
+    // 🔍 DEBUG: Verify question matches
+    console.log(`[QQLoader] Q${index + 1} Resolved via getQuestionByIndex: "${q?.questionText?.substring(0, 40)}..."`);
+
+    // Hydrate the full quiz metadata if needed (optional, kept for safety)
+    if (this.quizService.questions?.length) {
+      const fullQuiz: Quiz = await firstValueFrom(
+        this.quizDataService.getQuiz(quizId).pipe(
+          filter((quiz): quiz is Quiz => quiz !== null),
+          take(1),
+        ),
+      );
+      this.quizService.setCurrentQuiz({
+        ...fullQuiz,
+        questions: this.quizService.questions,
+      });
+    }
 
     return { q, opts };
   }

@@ -278,13 +278,21 @@ export class SharedOptionComponent
           console.log(`[SOC 🔄] Q${idx + 1} question:`, question?.questionText?.slice(0, 50));
 
           if (question?.options) {
-            // Generate fresh feedback for this question
-            const correctOptions = this.quizService.getCorrectOptionsForCurrentQuestion(question);
-            console.log(`[SOC 🔄] Q${idx + 1} correctOptions:`, correctOptions?.map(o => o.optionId));
+            // 🔑 FIX: Get correct options from optionsToDisplay (matches UI order)
+            // Don't use question from quizService as it may have different option order
+            const correctOptions = this.optionsToDisplay.filter(o => o.correct === true);
+            console.log(`[SOC 🔄] Q${idx + 1} correctOptions from optionsToDisplay:`, correctOptions?.map(o => o.optionId));
 
+            // Log displayOrder comparison
+            const serviceDisplayOrders = question.options?.map((o: Option) => o.displayOrder).join(',');
+            const inputDisplayOrders = this.optionsToDisplay?.map(o => o.displayOrder).join(',');
+            console.log(`[SOC 🔄] Service DisplayOrders: [${serviceDisplayOrders}] | Input DisplayOrders: [${inputDisplayOrders}]`);
+
+            // 🔑 FIX: Use this.optionsToDisplay to match what the UI renders, NOT question.options
+            // This ensures the "Option X" numbers match what the user sees on screen
             const freshFeedback = this.feedbackService.generateFeedbackForOptions(
               correctOptions,
-              question.options, // Use the question's options, not stale optionsToDisplay
+              this.optionsToDisplay, // Use the Input options that match UI order
             );
             console.log(`[SOC 🔄] Q${idx + 1} freshFeedback:`, freshFeedback);
 
@@ -3116,13 +3124,16 @@ export class SharedOptionComponent
         .filter(([id]) => id !== -1), // drop any undefined/fallback ids
     );
 
-    // ALWAYS use service's current index - local values might be stale
-    const questionIndex = this.quizService.getCurrentQuestionIndex();
-    const effectiveQuestion = this.quizService.questions?.[questionIndex] || this.currentQuestion;
+    // 🔑 FIX: Use this.currentQuestion which should match optionsToDisplay
+    // Don't fetch from quizService.questions as it may have different option order
+    const effectiveQuestion = this.currentQuestion;
+    if (!effectiveQuestion) {
+      console.warn('[processOptionBindings] No currentQuestion available');
+      return;
+    }
 
-    const correctOptions = this.quizService.getCorrectOptionsForCurrentQuestion(
-      effectiveQuestion,
-    );
+    // Get correct options from the same source as optionsToDisplay
+    const correctOptions = options.filter(o => o.correct === true);
     const feedbackSentence =
       this.feedbackService.generateFeedbackForOptions(
         correctOptions,
@@ -3456,15 +3467,15 @@ export class SharedOptionComponent
 
   /* public syncAndPaintAll(): void {
     if (!this.optionsToDisplay?.length) return;
-
+  
     // Grab all the SelectedOption objects for this question
     const all = this.selectedOptionService
       .getSelectedOptionsForQuestion(this.currentQuestionIndex)
       .map(s => s.optionId)
       .filter((id): id is number => id !== undefined);  // filter out undefined safely
-
+  
     const selIds = new Set<number>(all);
-
+  
     // Update flags in-place on the same objects
     this.optionsToDisplay.forEach(opt => {
       if (opt.optionId === undefined) return;  // skip invalid options
@@ -3473,7 +3484,7 @@ export class SharedOptionComponent
       opt.showIcon  = isSel;
       opt.highlight = isSel;
     });
-
+  
     // Rebuild bindings and trigger one CD cycle
     this.generateOptionBindings();
     this.cdRef.detectChanges();

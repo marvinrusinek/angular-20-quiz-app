@@ -52,23 +52,28 @@ export class FeedbackService {
       return 'Feedback unavailable.';
     }
 
-    // ⚡ SYNCED WITH FET: Use displayOrder-aware logic same as ExplanationTextService.getCorrectOptionIndices
+    // ⚡ FIX: Use array INDEX for visual position, NOT displayOrder
+    // The UI renders options based on their position in optionsToDisplay array.
+    // "Option 1" is optionsToDisplay[0], "Option 2" is optionsToDisplay[1], etc.
+    // displayOrder may be stale or from a different source, so we use idx directly.
+
+    // 🔍 DIAGNOSTIC: Log ALL options to compare with ETS array
+    console.log('[FeedbackService] 📋 ALL options in order:');
+    optionsToDisplay.forEach((opt, i) => {
+      console.log(`  [${i}] "${opt.text?.slice(0, 25)}..." correct=${opt.correct}`);
+    });
+
     const indices = optionsToDisplay
       .map((option, idx) => {
         if (!option.correct) return null;
 
-        // Match FET logic: use displayOrder when valid, else fall back to array index
-        const hasValidDisplayOrder =
-          typeof option.displayOrder === 'number' &&
-          Number.isFinite(option.displayOrder) &&
-          option.displayOrder >= 0;
-
-        const zeroBasedPos = hasValidDisplayOrder ? option.displayOrder! : idx;
+        // Use array index directly - this is the visual position in the UI
+        const visualPosition = idx + 1; // 1-based for "Option N"
 
         // ⚡ DEBUG LOG
-        console.log(`[FeedbackService] Opt ID ${option.optionId}: displayOrder=${option.displayOrder}, hasValid=${hasValidDisplayOrder}, idx=${idx}, calcPos=${zeroBasedPos + 1}`);
+        console.log(`[FeedbackService] Opt ID ${option.optionId}: idx=${idx}, visualPos=${visualPosition}, text="${option.text?.slice(0, 15)}..."`);
 
-        return zeroBasedPos + 1; // 1-based for "Option N"
+        return visualPosition;
       })
       .filter((n): n is number => n !== null);
 

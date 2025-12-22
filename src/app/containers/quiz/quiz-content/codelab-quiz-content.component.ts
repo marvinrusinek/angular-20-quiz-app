@@ -306,12 +306,15 @@ export class CodelabQuizContentComponent
           `[displayText$] Q${safeIdx + 1}:`,
           JSON.stringify({
             hasQObj: !!qObj,
+            qId: qObj?.questionId || 'N/A',
+            qText: (qObj?.questionText || '').substring(0, 20),
             numCorrect,
             isMulti,
             questionsFromParam: questions?.length,
             questionsFromService: this.quizService.questions?.length,
             mode,
             qObjOptions: qObj?.options?.length,
+            optionCorrectCounts: qObj?.options?.map((o: Option) => o.correct ? 1 : 0).join(',')
           }),
         );
 

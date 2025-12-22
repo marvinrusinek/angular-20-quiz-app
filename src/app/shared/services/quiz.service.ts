@@ -16,6 +16,7 @@ import {
   filter,
   map,
   shareReplay,
+  switchMap,
   take,
   tap,
 } from 'rxjs/operators';
@@ -526,16 +527,15 @@ export class QuizService {
       const q = this.shuffledQuestions[index];
       if (q) {
         console.log(
-          `[getQuestionByIndex] 🛡️ Returning Q${index} from shuffledQuestions array. ID: ${q.questionText?.substring(
-            0,
-            15,
-          )}`,
+          `[getQuestionByIndex] 🛡️ Q${index}: Returning from shuffledQuestions (Size: ${this.shuffledQuestions.length}). ID: ${q.questionText?.substring(0, 15)}...`
         );
         return of({
           ...q,
           options: (q.options ?? []).map((o) => ({ ...o })),
         });
       }
+    } else {
+      console.warn(`[getQuestionByIndex] ⚠️ Q${index}: shuffledQuestions miss. shuffledQuestions.length=${this.shuffledQuestions?.length}`);
     }
 
     return this.questions$.pipe(
@@ -577,99 +577,135 @@ export class QuizService {
     );
   }
 
+  private fetchPromise: Promise<QuizQuestion[]> | null = null;
+
   async fetchQuizQuestions(quizId: string): Promise<QuizQuestion[]> {
-    try {
-      if (!quizId) {
-        console.error('Quiz ID is not provided or is empty:', quizId);
-        return []; // stops execution cleanly
-      }
+    if (this.fetchPromise) {
+      console.log('[QuizService] 🔄 Reuse in-flight fetch promise.');
+      return this.fetchPromise;
+    }
 
-      // Reuse the already prepared questions when available to avoid
-      // reshuffling the quiz on every request (which also kept mutating
-      // the currently displayed options for a question).
-      const cachedQuestions = this.questionsSubject.getValue();
-      if (
-        Array.isArray(cachedQuestions) &&
-        cachedQuestions.length > 0 &&
-        this.quizId === quizId
-      ) {
-        // BUG HUNT: This path might skip shuffling!
-        return cachedQuestions.map(
-          (question) => this.cloneQuestionForSession(question) ?? question,
-        );
-      }
+    this.fetchPromise = (async () => {
+      try {
+        if (!quizId) {
+          console.error('Quiz ID is not provided or is empty:', quizId);
+          return [];
+        }
 
-      // Fetch quizzes from the API
-      const quizzes = await firstValueFrom<Quiz[]>(
-        this.http.get<Quiz[]>(this.quizUrl),
-      );
+        // Reuse the already prepared questions when available
+        const cachedQuestions = this.questionsSubject.getValue();
+        if (
+          Array.isArray(cachedQuestions) &&
+          cachedQuestions.length > 0 &&
+          this.quizId === quizId
+        ) {
+          console.log(`[QuizService] 🔄 fetchQuizQuestions: Cache hit. shouldShuffle=${this.shouldShuffle()}, cachedSize=${cachedQuestions.length}`);
+          if (this.shouldShuffle()) {
+            // 🔒 FIX: Reuse ALREADY SHUFFLED session data if available
+            if (
+              this.shuffledQuestions &&
+              this.shuffledQuestions.length > 0 &&
+              this.quizId === quizId
+            ) {
+              console.log('[QuizService] ♻️ Reusing ALREADY SHUFFLED session data.');
+              return this.shuffledQuestions;
+            }
 
-      const quiz = quizzes.find((q) => String(q.quizId) === String(quizId));
+            console.log('[QuizService] 🔀 Shuffle requested on CACHED data - re-shuffling...');
+            const questionsToShuffle = cachedQuestions.map(q => this.cloneQuestionForSession(q) ?? q);
+            Utils.shuffleArray(questionsToShuffle);
 
-      if (!quiz) {
-        console.error(`Quiz with ID ${quizId} not found`);
-        return []; // or return null if your return type allows
-      }
+            // 🔒 FIX: Shuffle options too! (Consistency with API path)
+            for (const question of questionsToShuffle) {
+              if (question.options?.length) {
+                Utils.shuffleArray(question.options);
+                question.options = question.options.map((option, index) => ({
+                  ...option,
+                  displayOrder: index,
+                }));
+              }
+            }
 
-      // Normalize questions and options
-      const normalizedQuestions = (quiz.questions ?? []).map((question) => {
-        const normalizedOptions = Array.isArray(question.options)
-          ? question.options.map((option, index) => ({
-            ...option,
-            correct: !!option.correct,
-            optionId: option.optionId ?? index + 1,
-            displayOrder: index,
-          }))
-          : [];
+            this.shuffledQuestions = questionsToShuffle;
+            this.questions = questionsToShuffle;
+            return questionsToShuffle;
+          }
 
-        if (!normalizedOptions.length) {
-          console.error(
-            `[fetchQuizQuestions] Question ${question.questionText} has no options.`,
+          return cachedQuestions.map(
+            (question) => this.cloneQuestionForSession(question) ?? question,
           );
         }
 
-        return {
-          ...question,
-          options: normalizedOptions,
-        };
-      });
+        // Fetch quizzes from the API
+        const quizzes = await firstValueFrom<Quiz[]>(
+          this.http.get<Quiz[]>(this.quizUrl),
+        );
 
-      // Shuffle questions and options if needed
-      if (this.shouldShuffle()) {
-        Utils.shuffleArray(normalizedQuestions);
+        const quiz = quizzes.find((q) => String(q.quizId) === String(quizId));
+        if (!quiz) {
+          console.error(`Quiz with ID ${quizId} not found`);
+          return [];
+        }
 
-        for (const question of normalizedQuestions) {
-          if (question.options?.length) {
-            Utils.shuffleArray(question.options);
-            question.options = question.options.map((option, index) => ({
+        // Normalize
+        const normalizedQuestions = (quiz.questions ?? []).map((question) => {
+          const normalizedOptions = Array.isArray(question.options)
+            ? question.options.map((option, index) => ({
               ...option,
+              correct: !!option.correct,
+              optionId: option.optionId ?? index + 1,
               displayOrder: index,
-            }));
+            }))
+            : [];
+
+          return { ...question, options: normalizedOptions };
+        });
+
+        // Shuffle if needed
+        if (this.shouldShuffle()) {
+          Utils.shuffleArray(normalizedQuestions);
+          for (const question of normalizedQuestions) {
+            if (question.options?.length) {
+              Utils.shuffleArray(question.options);
+              question.options = question.options.map((option, index) => ({
+                ...option,
+                displayOrder: index,
+              }));
+            }
           }
         }
+
+        const sanitizedQuestions = normalizedQuestions
+          .map((question) => this.cloneQuestionForSession(question))
+          .filter((question): question is QuizQuestion => !!question);
+
+        this.quizId = quizId;
+
+        if (this.shouldShuffle()) {
+          this.shuffledQuestions = sanitizedQuestions;
+        } else {
+          // Ensure we don't store unshuffled questions as "shuffled"
+          // This prevents future checks from returning unshuffled data when shuffle is requested
+          this.shuffledQuestions = [];
+        }
+
+        const broadcastQuestions = sanitizedQuestions.map(
+          (question) => this.cloneQuestionForSession(question) ?? question,
+        );
+        this.questions = broadcastQuestions;
+
+        return sanitizedQuestions.map(
+          (question) => this.cloneQuestionForSession(question) ?? question,
+        );
+      } catch (error) {
+        console.error('Error in fetchQuizQuestions:', error);
+        return [];
+      } finally {
+        this.fetchPromise = null;
       }
+    })();
 
-      const sanitizedQuestions = normalizedQuestions
-        .map((question) => this.cloneQuestionForSession(question))
-        .filter((question): question is QuizQuestion => !!question);
-
-      this.quizId = quizId;
-      this.shuffledQuestions = sanitizedQuestions;
-
-      // Emit a fresh copy so that consumers don't accidentally mutate the
-      // cached list and desynchronize future navigation lookups.
-      const broadcastQuestions = sanitizedQuestions.map(
-        (question) => this.cloneQuestionForSession(question) ?? question,
-      );
-      this.questions = broadcastQuestions;
-
-      return sanitizedQuestions.map(
-        (question) => this.cloneQuestionForSession(question) ?? question,
-      );
-    } catch (error) {
-      console.error('Error in fetchQuizQuestions:', error);
-      return [];
-    }
+    return this.fetchPromise;
   }
 
   getAllQuestions(): Observable<QuizQuestion[]> {

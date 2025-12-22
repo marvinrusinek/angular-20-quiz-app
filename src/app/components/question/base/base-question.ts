@@ -37,8 +37,7 @@ export abstract class BaseQuestion<
     checked?: boolean;
   },
 >
-  implements OnInit, OnChanges, OnDestroy
-{
+  implements OnInit, OnChanges, OnDestroy {
   @Output() optionClicked = new EventEmitter<T>();
   @Output() questionChange = new EventEmitter<QuizQuestion>();
   @Output() explanationToDisplayChange = new EventEmitter<string>();
@@ -75,7 +74,7 @@ export abstract class BaseQuestion<
     protected quizStateService: QuizStateService,
     protected selectedOptionService: SelectedOptionService,
     protected cdRef: ChangeDetectorRef,
-  ) {}
+  ) { }
 
   async ngOnInit(): Promise<void> {
     this.initializeQuestionIfAvailable();
@@ -261,9 +260,15 @@ export abstract class BaseQuestion<
       }
     }
 
-    // Always set and synchronize options
-    this.optionsToDisplay = [...this.question.options];
-    console.log('[✅ optionsToDisplay set]', this.optionsToDisplay);
+    // 🔑 FIX: Don't overwrite optionsToDisplay if it's already populated from @Input()
+    // The parent passes the correct shuffled options via [optionsToDisplay] binding.
+    // Overwriting with this.question.options could use unshuffled data from a different source.
+    if (!this.optionsToDisplay || this.optionsToDisplay.length === 0) {
+      this.optionsToDisplay = [...this.question.options];
+      console.log('[✅ optionsToDisplay initialized from question.options]', this.optionsToDisplay.length);
+    } else {
+      console.log('[🔒 optionsToDisplay preserved from Input - NOT overwriting]', this.optionsToDisplay.length);
+    }
   }
 
   public async initializeSharedOptionConfig(options?: Option[]): Promise<void> {
@@ -304,9 +309,9 @@ export abstract class BaseQuestion<
       feedback: this.feedback || '',
       highlightCorrectAfterIncorrect: false,
       //quizQuestionComponentOnOptionClicked:
-        //this.quizQuestionComponentOnOptionClicked || (() => {}),
+      //this.quizQuestionComponentOnOptionClicked || (() => {}),
       //onOptionClicked: (option, index, checked) =>
-        //this.onOptionClicked({ option, index, checked }),
+      //this.onOptionClicked({ option, index, checked }),
       //onQuestionAnswered: this.onQuestionAnswered.bind(this),
     };
   }

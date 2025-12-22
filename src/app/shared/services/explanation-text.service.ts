@@ -706,13 +706,14 @@ export class ExplanationTextService {
       .map((option, idx) => {
         if (!option?.correct) return null;
 
-        const hasValidDisplayOrder =
-          typeof option.displayOrder === 'number' &&
-          Number.isFinite(option.displayOrder) &&
-          option.displayOrder >= 0;
+        // Log to diagnose Q1 mismatch
+        if (idx === 0 || option.correct) {
+          console.log(`[ETS] getCorrectOptionIndices Q: "${question.questionText?.slice(0, 20)}..." Opt: "${option.text?.slice(0, 15)}..." idx=${idx}`);
+        }
 
-        const zeroBasedPos = hasValidDisplayOrder ? option.displayOrder! : idx;
-        return zeroBasedPos + 1; // 1-based for "Option N"
+        // 🔑 FIX: Use array index directly (same as FeedbackService)
+        // This matches the UI render order where visually "Option 1" = array[0]
+        return idx + 1; // 1-based for "Option N"
       })
       .filter((n): n is number => n !== null);
 

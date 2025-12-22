@@ -166,10 +166,16 @@ export class SelectionMessageService {
     });
 
     // If the data has >1 correct, treat as MultipleAnswer even if declared type is wrong
-    const computedIsMulti = overlaid.filter((o) => !!o?.correct).length > 1;
+    const correctCount = overlaid.filter((o) => !!o?.correct).length;
+    const computedIsMulti = correctCount > 1;
+
+    // 🔒 FIX: Trust the computed count over the declared type if we found multiple correct answers.
+    // This ensures Q1 (shuffled into Multi) gets the correct prompt.
     const qType: QuestionType = computedIsMulti
       ? QuestionType.MultipleAnswer
       : (declaredType ?? QuestionType.SingleAnswer);
+
+    console.log(`[SMS] Type Resolution Q${questionIndex + 1}: Declared=${declaredType} Computed=${computedIsMulti ? 'MULTI' : 'SINGLE'} (Correct=${correctCount})`);
 
     // Note: Baseline guard removed - computeFinalMessage now handles all cases
     // The guard was preventing message updates after option clicks

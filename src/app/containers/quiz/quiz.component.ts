@@ -1458,6 +1458,28 @@ get quizQuestionComponent(): QuizQuestionComponent {
     }
 
     try {
+      // 🔑 CRITICAL FIX: Ensure questions are loaded and SHUFFLED if needed via QuizService
+      // Do NOT bypass with QuizDataService.getQuiz() which returns raw unshuffled data.
+      const questions = await this.quizService.fetchQuizQuestions(quizIdFromRoute);
+
+      if (!questions || questions.length === 0) {
+        console.error('[ensureInitialQuestionFromRoute] ❌ No questions available via QuizService.');
+        return;
+      }
+
+      // Now fetch the specific question using the service which respects shuffle
+      const hydratedQuestion = await firstValueFrom(this.quizService.getQuestionByIndex(normalizedIndex));
+
+      if (!hydratedQuestion) {
+        console.error(
+          '[ensureInitialQuestionFromRoute] ❌ Missing question for index via QuizService.',
+          { quizId: quizIdFromRoute, index: normalizedIndex }
+        );
+        return;
+      }
+
+      // Also need the full quiz object for metadata
+      // It's safe to fetch this raw for metadata (title etc), but NOT for questions list
       const quiz: Quiz = await firstValueFrom(
         this.quizDataService.getQuiz(quizIdFromRoute).pipe(
           filter((q): q is Quiz => q !== null),
@@ -1465,65 +1487,18 @@ get quizQuestionComponent(): QuizQuestionComponent {
         ),
       );
 
-      if (
-        !quiz ||
-        !Array.isArray(quiz.questions) ||
-        quiz.questions.length === 0
-      ) {
-        console.error(
-          '[ensureInitialQuestionFromRoute] ❌ Quiz not found or contains no questions.',
-          {
-            quizId: quizIdFromRoute,
-          },
-        );
-        return;
-      }
+      // Extract options from the TRUSTED question object
+      const safeIndex = normalizedIndex; // getQuestionByIndex already handled bounds or null
 
-      const safeIndex = Math.min(
-        Math.max(normalizedIndex, 0),
-        quiz.questions.length - 1,
-      );
-      const rawQuestion = quiz.questions[safeIndex];
-
-      if (!rawQuestion) {
-        console.error(
-          '[ensureInitialQuestionFromRoute] ❌ Missing question for index.',
-          {
-            quizId: quizIdFromRoute,
-            safeIndex,
-          },
-        );
-        return;
-      }
-
-      const rawOptions = Array.isArray(rawQuestion.options)
-        ? [...rawQuestion.options]
-        : [];
-      const hydratedOptions = this.quizService
-        .assignOptionIds(rawOptions, safeIndex)
-        .map((option) => ({
-          ...option,
-          correct: option.correct ?? false,
-          selected: option.selected ?? false,
-          active: option.active ?? true,
-          showIcon: option.showIcon ?? false,
-        }));
+      // Ensure options are present
+      const hydratedOptions = hydratedQuestion.options || [];
 
       if (hydratedOptions.length === 0) {
-        console.error(
-          '[ensureInitialQuestionFromRoute] ❌ Question has no options to display.',
-          {
-            quizId: quizIdFromRoute,
-            safeIndex,
-          },
+        console.warn(
+          '[ensureInitialQuestionFromRoute] ⚠️ Question has no options.',
+          { index: safeIndex }
         );
-        return;
       }
-
-      const hydratedQuestion: QuizQuestion = {
-        ...rawQuestion,
-        options: hydratedOptions,
-      };
 
       this.setInitialQuestionState(
         quiz,
@@ -1985,7 +1960,16 @@ get quizQuestionComponent(): QuizQuestionComponent {
     }));
   }
 
+  private _questionsApplied = false;
+
   private applyQuestionsFromSession(questions: QuizQuestion[]): void {
+    // 🔑 FIX: Guard to prevent multiple calls that overwrite FET with different option orders
+    if (this._questionsApplied && this.questions?.length > 0) {
+      console.log('[applyQuestionsFromSession] ⚡ Already applied - skipping to preserve FET');
+      return;
+    }
+    this._questionsApplied = true;
+
     const hydratedQuestions = this.hydrateQuestionSet(questions);
 
     this.questions = hydratedQuestions;
@@ -2002,6 +1986,11 @@ get quizQuestionComponent(): QuizQuestionComponent {
     );
 
     this.explanationTextService.initializeExplanationTexts(explanations);
+
+    // 🔒 FIX: Clear FET cache to ensure we don't serve stale explanations
+    // This is critical when switching between shuffled/unshuffled or re-shuffling
+    this.explanationTextService.fetByIndex.clear();
+    console.log('[QuizComponent] 🧹 Cleared FET cache (fetByIndex) before regenerating.');
 
     // ✅ FIX: Format each explanation with "Option X is correct because..." prefix
     const formattedExplanations = hydratedQuestions.map((question, index) => {
@@ -2321,12 +2310,24 @@ get quizQuestionComponent(): QuizQuestionComponent {
       .subscribe();
   }
 
+  private _explanationsLoaded = false;
+
   ensureExplanationsLoaded(): Observable<boolean> {
+    // 🔑 FIX: Guard to prevent duplicate ETS calls that overwrite with different option orders
+    if (this._explanationsLoaded) {
+      console.log('[ensureExplanationsLoaded] ⚡ Already loaded - skipping duplicate call');
+      return of(true);
+    }
+    this._explanationsLoaded = true;
+
     // Force clear to prevent stale or mismapped explanations
     this.explanationTextService.formattedExplanations = {};
 
+    // 🔑 FIX: Use this.questions (shuffled order) instead of this.quiz.questions (potentially unshuffled)
+    // This ensures ETS generates "Option X" numbers matching the shuffled UI order
+    const questionsToFormat = this.questions ?? this.quiz.questions ?? [];
     const explanationObservables =
-      this.quiz.questions?.map((question, index) =>
+      questionsToFormat.map((question, index) =>
         this.explanationTextService.formatExplanationText(question, index),
       ) ?? [];
 
@@ -3101,14 +3102,10 @@ get quizQuestionComponent(): QuizQuestionComponent {
             console.warn('[INIT] ⚠️ FET clear failed', err);
           }
 
-          // Kick off your explanation preload
-          return this.ensureExplanationsLoaded().pipe(
-            tap(() => console.log('Explanations preloaded successfully.')),
-            catchError((err) => {
-              console.error('Failed to preload explanations', err);
-              return EMPTY;
-            }),
-          );
+          // 🔑 FIX: Skip ensureExplanationsLoaded - applyQuestionsFromSession already generates FET
+          // Calling both causes overwrites with different option orders for single-answer Qs
+          console.log('[INIT] ⚡ Skipping ensureExplanationsLoaded (applyQuestionsFromSession handles FET)');
+          return of(true);
         }),
       )
       .subscribe(() => {
