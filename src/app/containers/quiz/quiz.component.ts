@@ -322,11 +322,15 @@ get quizQuestionComponent(): QuizQuestionComponent {
           console.log('[VISIBILITY] 💾 Saved display state on hide:', this._savedDisplayState);
         }
       } else {
-        // Tab visible: Restore the saved display state WITHOUT changing it
+        // Tab visible: Lock display state changes, then restore the saved state
         if (this._savedDisplayState) {
           console.log('[VISIBILITY] ♻️ Restoring saved display state:', this._savedDisplayState);
-          // Re-apply the exact same state that was active before
-          this.quizStateService.setDisplayState(this._savedDisplayState);
+
+          // CRITICAL: Lock display state changes for 500ms to prevent other components from overriding
+          this.quizStateService.lockDisplayStateForVisibilityRestore(500);
+
+          // Re-apply the exact same state that was active before (with force to bypass the lock)
+          this.quizStateService.setDisplayState(this._savedDisplayState, { force: true });
 
           // Sync explanation service flags with the saved state
           const showingExplanation = this._savedDisplayState.mode === 'explanation';
