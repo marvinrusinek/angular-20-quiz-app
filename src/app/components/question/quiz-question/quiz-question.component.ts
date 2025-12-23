@@ -308,6 +308,7 @@ export class QuizQuestionComponent
   };
 
   private _wasHidden = false;
+  private _savedDisplayMode: 'question' | 'explanation' | null = null;
   private _hiddenAt: number | null = null;
   private _elapsedAtHide: number | null = null;
   private _pendingRAF: number | null = null;
@@ -878,10 +879,17 @@ export class QuizQuestionComponent
     const state = document.visibilityState;
 
     // ─────────────────────────────
-    // HIDDEN  → just save state + timer
+    // HIDDEN  → save state + timer + DISPLAY MODE
     // ─────────────────────────────
     if (state === 'hidden') {
       this._wasHidden = true;
+
+      // CRITICAL: Save the current display mode to restore it later
+      const currentDisplayState = this.quizStateService.displayStateSubject?.value;
+      if (currentDisplayState) {
+        this._savedDisplayMode = currentDisplayState.mode;
+        console.log('[VISIBILITY] 💾 QQC saved display mode on hide:', this._savedDisplayMode);
+      }
 
       try {
         const idx = this.currentQuestionIndex ?? 0;
@@ -1017,8 +1025,8 @@ export class QuizQuestionComponent
       }
     }
 
-    // 4) Restore explanation/question display based on stored state,
-    //    WITHOUT nuking the explanation service again.
+    // 4) Restore explanation/question display based on SAVED DISPLAY MODE,
+    //    NOT based on isAnswered or explanationDisplayed flags.
     try {
       if (!this.quizId) {
         console.error('[VISIBILITY] ❌ quizId missing on visible restore');
@@ -1028,10 +1036,14 @@ export class QuizQuestionComponent
 
       const qState = this.quizStateService.getQuestionState(this.quizId, idx);
 
-      const shouldShowExplanation =
-        qState?.explanationDisplayed === true ||
-        !!(this.explanationTextService as any)?.shouldDisplayExplanation$
-          ?.value;
+      // CRITICAL FIX: Use the saved display mode, not assumptions based on answered state
+      const shouldShowExplanation = this._savedDisplayMode === 'explanation';
+
+      console.log(`[VISIBILITY] 🔄 Restoring display mode for Q${idx + 1}:`, {
+        savedMode: this._savedDisplayMode,
+        shouldShowExplanation,
+        isAnswered: qState?.isAnswered
+      });
 
       if (shouldShowExplanation) {
         console.log(
@@ -1084,64 +1096,18 @@ export class QuizQuestionComponent
           answered: qState?.isAnswered ?? false,
         });
 
-        // Explanation is not considered “ready to show” in pure question mode
+        // Explanation is not considered "ready to show" in pure question mode
         this.quizStateService.setExplanationReady(false);
       }
     } catch (err) {
       console.warn('[VISIBILITY] ⚠️ FET restore failed', err);
     }
 
-    // ─────────────────────────────
-    // 5) ENFORCE QSS AS TRUTH
-    //    If the question is answered, force ETS back into explanation mode.
-    //    This fixes Q3/Q5/Q6 regressions after navigating away.
-    // ─────────────────────────────
-    try {
-      if (this.quizId) {
-        const idx2 = this.currentQuestionIndex ?? 0;
-        const state2 = this.quizStateService.getQuestionState(
-          this.quizId,
-          idx2,
-        );
+    // REMOVED: The "ENFORCE QSS AS TRUTH" section that was forcing explanation mode
+    // whenever isAnswered was true. This was the bug causing text swapping.
+    // The display state should be preserved exactly as it was when the tab was hidden.
 
-        if (state2?.isAnswered || state2?.explanationDisplayed) {
-          console.log(
-            `[VISIBILITY] 🔒 Enforcing explanation mode for Q${idx2 + 1}`,
-          );
-
-          // Tell ETS to re-open the gate
-          this.explanationTextService.setShouldDisplayExplanation(true, {
-            force: true,
-          });
-          this.explanationTextService.setIsExplanationTextDisplayed(true, {
-            force: true,
-          });
-
-          // Tell QSS that explanation is READY (prevents fallback to question text)
-          this.quizStateService.setExplanationReady(true);
-
-          // Re-apply the correct display state
-          this.quizStateService.setDisplayState({
-            mode: 'explanation',
-            answered: true,
-          });
-
-          // Update local component view fields
-          this.displayExplanation = true;
-
-          // If stored FET exists, re-hydrate
-          if (state2.explanationText) {
-            this.explanationToDisplay = state2.explanationText;
-            this.explanationTextService.setExplanationText(
-              state2.explanationText,
-            );
-          }
-        }
-      }
-    } catch (err) {
-      console.warn('[VISIBILITY] ⚠️ explanation enforcement failed', err);
-    }
-
+    this._savedDisplayMode = null; // Clear saved mode after restoration
     this._wasHidden = false;
     this.cdRef.markForCheck();
   }
