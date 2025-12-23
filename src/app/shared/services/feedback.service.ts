@@ -80,12 +80,16 @@ export class FeedbackService {
     // Dedupe + sort for stable, readable "Options 1 and 2" strings (matches FET)
     const deduped = Array.from(new Set(indices)).sort((a, b) => a - b);
 
+    console.log(`[FeedbackService] setCorrectMessage. Options Count: ${optionsToDisplay.length}. Indices: ${JSON.stringify(deduped)}`);
+
     if (deduped.length === 0) {
       console.warn(`[FeedbackService] ❌ No matching correct options found.`);
       return 'No correct options found for this question.';
     }
 
-    return this.formatFeedbackMessage(deduped);
+    const msg = this.formatFeedbackMessage(deduped);
+    console.log(`[FeedbackService] Returning msg: "${msg}"`);
+    return msg;
   }
 
   private formatFeedbackMessage(indices: number[]): string {

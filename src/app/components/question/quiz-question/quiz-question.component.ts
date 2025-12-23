@@ -1577,7 +1577,10 @@ export class QuizQuestionComponent
     void this.waitForQuestionData();
     this.initializeData();
     this.initializeForm();
+    this.initializeForm();
     this.quizStateService.setLoading(true);
+    // ⚡ FORCE: Ensure shuffling is enabled by default to address "not shuffling" report
+    this.shuffleOptions = true;
   }
 
   async initializeQuizDataAndRouting(): Promise<void> {
@@ -2419,6 +2422,12 @@ export class QuizQuestionComponent
         preserveVisualState: shouldPreserveVisualState,
         preserveExplanation: shouldKeepExplanationVisible,
       });
+
+      // ⚡ FIX: Clear optionsToDisplay explicitly to prevent stale options from being used 
+      // by prepareAndSetExplanationText during the navigation transition
+      if (!shouldPreserveVisualState) {
+        this.optionsToDisplay = [];
+      }
       if (!shouldKeepExplanationVisible) {
         this.explanationTextService.resetExplanationState();
         this.explanationTextService.setExplanationText('', { force: true });
@@ -3094,6 +3103,34 @@ export class QuizQuestionComponent
         this.quizService.nextOptionsSubject.next(
           this.optionsToDisplay.map((option) => ({ ...option })),
         );
+
+        // ⚡ FIX: Now that optionsToDisplay is set, refresh explanation text if needed
+        // This ensures the FET is calculated using the SHUFFLED options we just set.
+        if (this.currentQuestionIndex >= 0) {
+          console.log(
+            '[QQC] 🔄 triggering explanation usage/refresh with NEW options',
+          );
+          if (this.currentQuestionIndex >= 0) {
+            console.log(
+              '[QQC] 🔄 triggering explanation usage/refresh with NEW options',
+            );
+            // Recalculate AND push to service to ensure all subscribers see the correct text
+            // AND update the cache map so SharedOptionComponent finds the correct text
+            this.prepareAndSetExplanationText(this.currentQuestionIndex).then(
+              (fet) => {
+                if (this.currentQuestion) {
+                  this.explanationTextService.storeFormattedExplanation(
+                    this.currentQuestionIndex,
+                    fet,
+                    this.currentQuestion,
+                  );
+                }
+                this.explanationTextService.setExplanationText(fet);
+              },
+            );
+          }
+        }
+
         this.cdRef.markForCheck();
       });
   }
@@ -6522,8 +6559,19 @@ export class QuizQuestionComponent
       // ✅ FIX: Format the explanation using ExplanationTextService
       const rawExplanation =
         questionData.explanation || 'No explanation available';
+
+      // ⚡ FIX: Use locally displayed options if available and indices match
+      // AND verify the question text matches to avoid using Q1 options for Q2 FET
+      const useLocalOptions =
+        this.optionsToDisplay?.length > 0 &&
+        questionIndex === (this.currentQuestionIndex ?? -1) &&
+        this.currentQuestion?.questionText === questionData.questionText;
+
       const correctIndices =
-        this.explanationTextService.getCorrectOptionIndices(questionData);
+        this.explanationTextService.getCorrectOptionIndices(
+          questionData,
+          useLocalOptions ? this.optionsToDisplay : undefined,
+        );
       const formattedExplanation =
         this.explanationTextService.formatExplanation(
           questionData,
@@ -6537,6 +6585,14 @@ export class QuizQuestionComponent
       );
 
       this.explanationToDisplay = formattedExplanation;
+
+      // ⚡ FIX: Sync to service cache immediately
+      this.explanationTextService.storeFormattedExplanation(
+        questionIndex,
+        formattedExplanation,
+        questionData
+      );
+
       return formattedExplanation;
     } catch (error) {
       console.error('Error in fetching explanation text:', error);
@@ -6736,8 +6792,17 @@ export class QuizQuestionComponent
       questionData.explanation || 'No explanation available';
 
     // ✅ Format the explanation
+    // ⚡ FIX: Use locally displayed options if available and indices match
+    const useLocalOptions =
+      this.optionsToDisplay?.length > 0 &&
+      questionIndex === (this.currentQuestionIndex ?? -1) &&
+      this.currentQuestion?.questionText === questionData.questionText;
+
     const correctIndices =
-      this.explanationTextService.getCorrectOptionIndices(questionData);
+      this.explanationTextService.getCorrectOptionIndices(
+        questionData,
+        useLocalOptions ? this.optionsToDisplay : undefined,
+      );
     const formattedExplanation = this.explanationTextService.formatExplanation(
       questionData,
       correctIndices,
@@ -6769,7 +6834,10 @@ export class QuizQuestionComponent
         // ✅ Format the explanation
         const rawExp = questionData.explanation || 'No explanation available';
         const correctIndices =
-          this.explanationTextService.getCorrectOptionIndices(questionData);
+          this.explanationTextService.getCorrectOptionIndices(
+            questionData,
+            useLocalOptions ? this.optionsToDisplay : undefined,
+          );
         const formattedExp = this.explanationTextService.formatExplanation(
           questionData,
           correctIndices,
@@ -6785,7 +6853,10 @@ export class QuizQuestionComponent
       // ✅ Format the explanation even in error case
       const rawExp = questionData.explanation || 'Error processing explanation';
       const correctIndices =
-        this.explanationTextService.getCorrectOptionIndices(questionData);
+        this.explanationTextService.getCorrectOptionIndices(
+          questionData,
+          useLocalOptions ? this.optionsToDisplay : undefined,
+        );
       const formattedExp = this.explanationTextService.formatExplanation(
         questionData,
         correctIndices,
