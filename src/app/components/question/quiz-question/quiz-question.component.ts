@@ -663,11 +663,8 @@ export class QuizQuestionComponent
       );
       this.renderReadySubscription = this.renderReady$.subscribe();
 
-      // Add the visibility change listener
-      document.addEventListener(
-        'visibilitychange',
-        this.onVisibilityChange.bind(this),
-      );
+      // NOTE: Visibility change is handled by @HostListener('window:visibilitychange')
+      // Do NOT add another listener here - it would cause duplicate calls!
 
       // Initial component setups
       await this.initializeComponent();
@@ -852,11 +849,7 @@ export class QuizQuestionComponent
   }
 
   override ngOnDestroy(): void {
-    // super.ngOnDestroy();
-    document.removeEventListener(
-      'visibilitychange',
-      this.onVisibilityChange.bind(this),
-    );
+    // NOTE: No need to remove visibilitychange listener - @HostListener handles cleanup automatically
     this.destroy$.next();
     this.destroy$.complete();
     this.idxSub?.unsubscribe();
