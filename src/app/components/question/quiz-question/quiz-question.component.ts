@@ -1076,7 +1076,7 @@ export class QuizQuestionComponent
         this.quizStateService.setDisplayState({
           mode: 'explanation',
           answered: true,
-        });
+        }, { force: true });
       } else {
         console.log(`[VISIBILITY] ↩️ Restoring question view for Q${idx + 1}`);
 
@@ -1087,7 +1087,7 @@ export class QuizQuestionComponent
         this.quizStateService.setDisplayState({
           mode: 'question',
           answered: qState?.isAnswered ?? false,
-        });
+        }, { force: true });
 
         // Explanation is not considered "ready to show" in pure question mode
         this.quizStateService.setExplanationReady(false);
