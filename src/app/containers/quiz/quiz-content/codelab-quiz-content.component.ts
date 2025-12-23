@@ -404,17 +404,12 @@ export class CodelabQuizContentComponent
             // the question wasn't actually answered in this session
             const hasFetStored = this.explanationTextService.fetByIndex?.has(safeIdx) &&
               (this.explanationTextService.fetByIndex?.get(safeIdx)?.trim()?.length ?? 0) > 10;
-
-            // VISIBILITY FIX: If the display state mode is 'explanation', respect it even if fetByIndex is empty
-            // This prevents text swapping when switching browser tabs
-            const displayModeIsExplanation = state?.mode === 'explanation';
-            const actuallyAnswered = isAnswered && (hasFetStored || displayModeIsExplanation);
+            const actuallyAnswered = isAnswered && hasFetStored;
 
             // DEBUG: Log decision values
-            console.log(`[displayText$ DECISION] safeIdx=${safeIdx}, isAnswered=${isAnswered}, hasFetStored=${hasFetStored}, displayModeIsExplanation=${displayModeIsExplanation}, actuallyAnswered=${actuallyAnswered}, effectiveQText="${(trimmedQText || qObj?.questionText)?.substring(0, 50)}"`);
+            console.log(`[displayText$ DECISION] safeIdx=${safeIdx}, isAnswered=${isAnswered}, hasFetStored=${hasFetStored}, actuallyAnswered=${actuallyAnswered}, effectiveQText="${(trimmedQText || qObj?.questionText)?.substring(0, 50)}"`);
 
-            // CRITICAL: If NOT answered AND mode is not 'explanation', return question text
-            // But if mode IS 'explanation' (from visibility restore), show FET/explanation
+            // CRITICAL: If NOT answered, ALWAYS return question text (never FET or "No explanation")
             if (!actuallyAnswered) {
               // Use qObj.questionText as fallback if stream hasn't emitted yet
               const effectiveQText = trimmedQText || (qObj?.questionText ?? '').trim();
@@ -501,15 +496,11 @@ export class CodelabQuizContentComponent
               const hasFetForCurrentIdx = this.explanationTextService.fetByIndex?.has(currentIndex) &&
                 (this.explanationTextService.fetByIndex?.get(currentIndex)?.trim()?.length ?? 0) > 10;
 
-              // VISIBILITY FIX: Check the current display state mode
-              const currentDisplayState = this.quizStateService.displayStateSubject?.value;
-              const displayModeIsExplanation = currentDisplayState?.mode === 'explanation';
+              console.log(`[CQCC SUB] hasFetForCurrentIdx=${hasFetForCurrentIdx}, fetByIndex keys=[${Array.from(this.explanationTextService.fetByIndex?.keys() || [])}]`);
 
-              console.log(`[CQCC SUB] hasFetForCurrentIdx=${hasFetForCurrentIdx}, displayModeIsExplanation=${displayModeIsExplanation}, fetByIndex keys=[${Array.from(this.explanationTextService.fetByIndex?.keys() || [])}]`);
-
-              // AGGRESSIVE FIX: If question is unanswered AND mode is not 'explanation', use question text
-              // BUT if mode IS 'explanation' (from visibility restore), preserve the incoming text
-              if (!hasFetForCurrentIdx && !displayModeIsExplanation) {
+              // AGGRESSIVE FIX: If question is unanswered, ALWAYS use question text from array
+              // This completely ignores any stale FET that might be in the stream
+              if (!hasFetForCurrentIdx) {
                 const q = this.quizService.questions?.[currentIndex];
                 const questionText = q?.questionText ?? '';
                 if (questionText) {
