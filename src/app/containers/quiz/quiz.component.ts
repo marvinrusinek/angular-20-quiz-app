@@ -4844,6 +4844,9 @@ get quizQuestionComponent(): QuizQuestionComponent {
     this.soundService.reset?.();
     this.timerService.stopTimer?.(undefined, { force: true });
 
+    // Reset progress bar to 0%
+    this.progressBarService.updateProgress(0, this.totalQuestions);
+
     // Navigate to Q1
     this.router
       .navigate(['/question', this.quizId, 1])
