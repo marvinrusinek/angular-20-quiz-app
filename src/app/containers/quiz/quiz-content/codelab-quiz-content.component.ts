@@ -151,6 +151,8 @@ export class CodelabQuizContentComponent
       this._lastQuestionTextByIndex?.delete(idx);
       // CRITICAL: Clear stale selectedOptionsMap entry so isAnswered() returns false
       this.quizService.selectedOptionsMap?.delete(idx);
+      // CRITICAL: Clear session tracking so stale FET won't persist
+      this._fetDisplayedThisSession?.delete(idx);
       ets.setShouldDisplayExplanation(false, { force: true });
       ets.setIsExplanationTextDisplayed(false, { force: true });
       this.quizStateService.setDisplayState({ mode: 'question', answered: false });
@@ -210,6 +212,8 @@ export class CodelabQuizContentComponent
   isNavigatingToPrevious = false;
   currentQuestionType: QuestionType | undefined = undefined;
   private _lastQuestionTextByIndex = new Map<number, string>();
+  // Session-based tracking: which questions have had FET displayed this session
+  private _fetDisplayedThisSession = new Set<number>();
 
   private overrideSubject = new BehaviorSubject<{ idx: number; html: string }>({
     idx: -1,
@@ -498,15 +502,27 @@ export class CodelabQuizContentComponent
 
               console.log(`[CQCC SUB] hasFetForCurrentIdx=${hasFetForCurrentIdx}, fetByIndex keys=[${Array.from(this.explanationTextService.fetByIndex?.keys() || [])}]`);
 
-              // AGGRESSIVE FIX: If question is unanswered, ALWAYS use question text from array
-              // This completely ignores any stale FET that might be in the stream
-              if (!hasFetForCurrentIdx) {
+              // VISIBILITY FIX: If FET was displayed this session for this question, preserve it
+              // This prevents StackBlitz visibility events from reverting FET to question text
+              const fetShownThisSession = this._fetDisplayedThisSession.has(currentIndex);
+              const storedFet = this.explanationTextService.fetByIndex?.get(currentIndex)?.trim() || '';
+
+              if (fetShownThisSession && storedFet.length > 10) {
+                // FET was shown this session - preserve it even if mode changed
+                console.log(`[CQCC Display] Q${currentIndex + 1} FET preserved (shown this session)`);
+                incoming = storedFet;
+              } else if (!hasFetForCurrentIdx) {
+                // Question is unanswered - show question text
                 const q = this.quizService.questions?.[currentIndex];
                 const questionText = q?.questionText ?? '';
                 if (questionText) {
                   console.log(`[CQCC Display] Q${currentIndex + 1} UNANSWERED: Forcing question text: "${questionText.substring(0, 50)}..."`);
                   incoming = questionText;
                 }
+              } else {
+                // FET is available - mark as shown this session
+                this._fetDisplayedThisSession.add(currentIndex);
+                console.log(`[CQCC Display] Q${currentIndex + 1} FET newly displayed, tracking for session`);
               }
 
               console.log(
