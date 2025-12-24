@@ -270,6 +270,9 @@ get quizQuestionComponent(): QuizQuestionComponent {
   unsubscribe$ = new Subject<void>();
   private destroy$ = new Subject<void>();
 
+  // Saved display state for tab visibility restoration (question vs FET)
+  private _savedDisplayState: { mode: 'question' | 'explanation'; answered: boolean } | null = null;
+
   currentQuestionAnswered = false;
 
   private questionTextSubject = new BehaviorSubject<string>('');
@@ -309,11 +312,33 @@ get quizQuestionComponent(): QuizQuestionComponent {
       this.quizQuestionComponent.renderReady = false;
     }
 
+    // Tab visibility change handler - preserve display state (question vs FET)
     this.sharedVisibilityService.pageVisibility$.subscribe((isHidden) => {
       if (isHidden) {
-        // Pause updates here
+        // Tab hidden: Save the current display state to preserve it
+        const currentDisplayState = this.quizStateService.displayStateSubject?.value;
+        if (currentDisplayState) {
+          this._savedDisplayState = { ...currentDisplayState };
+          console.log('[VISIBILITY] 💾 Saved display state on hide:', this._savedDisplayState);
+        }
       } else {
-        // void this.handleVisibilityChange();
+        // Tab visible: Lock display state changes, then restore the saved state
+        if (this._savedDisplayState) {
+          console.log('[VISIBILITY] ♻️ Restoring saved display state:', this._savedDisplayState);
+
+          // CRITICAL: Lock display state changes for 500ms to prevent other components from overriding
+          this.quizStateService.lockDisplayStateForVisibilityRestore(500);
+
+          // Re-apply the exact same state that was active before (with force to bypass the lock)
+          this.quizStateService.setDisplayState(this._savedDisplayState, { force: true });
+
+          // Sync explanation service flags with the saved state
+          const showingExplanation = this._savedDisplayState.mode === 'explanation';
+          this.explanationTextService.setShouldDisplayExplanation(showingExplanation);
+          this.explanationTextService.setIsExplanationTextDisplayed(showingExplanation);
+
+          this.cdRef.markForCheck();
+        }
       }
     });
 
@@ -425,17 +450,17 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
   @HostListener('window:focus', ['$event'])
   onTabFocus(): void {
-    // Subscribe to restoreStateSubject for handling state restoration
-    this.quizStateService
-      .onRestoreQuestionState()
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: () => {
-          void this.restoreStateAfterFocus();
-        },
-        error: (err) =>
-          console.error('Error during state restoration on tab focus:', err),
-      });
+    // FIXED: Don't create new subscriptions on each focus event
+    // Just trigger restoration directly if needed
+    if (!this.isLoading && !this.quizStateService.isLoading()) {
+      // Restore display state from saved state (already handled by visibilitychange)
+      // Only update badge to ensure it shows correct question number
+      const idx = this.quizService.getCurrentQuestionIndex();
+      if (idx >= 0 && idx < this.totalQuestions) {
+        this.quizService.updateBadgeText(idx + 1, this.totalQuestions);
+      }
+      this.cdRef.markForCheck();
+    }
   }
 
   private async restoreStateAfterFocus(): Promise<void> {

@@ -39,6 +39,10 @@ export class QuizStateService {
   private quizQuestionCreated = false;
   public displayExplanationLocked = false;
 
+  // Visibility restoration lock - prevents display state changes during tab restore
+  private _visibilityRestoreLock = false;
+  private _visibilityRestoreLockTimeout: ReturnType<typeof setTimeout> | null = null;
+
   loadingSubject = new BehaviorSubject<boolean>(false);
 
   isLoadingSubject = new BehaviorSubject<boolean>(false);
@@ -93,8 +97,40 @@ export class QuizStateService {
   setDisplayState(state: {
     mode: 'question' | 'explanation';
     answered: boolean;
-  }): void {
+  }, options?: { force?: boolean }): void {
+    // If visibility restore lock is active, block state changes unless forced
+    if (this._visibilityRestoreLock && !options?.force) {
+      console.log('[QSS] 🔒 setDisplayState blocked by visibility restore lock:', state);
+      return;
+    }
     this.displayStateSubject.next(state);
+  }
+
+  // Lock display state changes (used during tab visibility restoration)
+  lockDisplayStateForVisibilityRestore(durationMs: number = 500): void {
+    this._visibilityRestoreLock = true;
+    console.log('[QSS] 🔐 Visibility restore lock ENABLED');
+
+    // Clear any existing timeout
+    if (this._visibilityRestoreLockTimeout) {
+      clearTimeout(this._visibilityRestoreLockTimeout);
+    }
+
+    // Automatically unlock after duration
+    this._visibilityRestoreLockTimeout = setTimeout(() => {
+      this._visibilityRestoreLock = false;
+      this._visibilityRestoreLockTimeout = null;
+      console.log('[QSS] 🔓 Visibility restore lock RELEASED');
+    }, durationMs);
+  }
+
+  unlockDisplayStateForVisibilityRestore(): void {
+    if (this._visibilityRestoreLockTimeout) {
+      clearTimeout(this._visibilityRestoreLockTimeout);
+      this._visibilityRestoreLockTimeout = null;
+    }
+    this._visibilityRestoreLock = false;
+    console.log('[QSS] 🔓 Visibility restore lock manually RELEASED');
   }
 
   getStoredState(quizId: string): Map<number, QuestionState> | null {
