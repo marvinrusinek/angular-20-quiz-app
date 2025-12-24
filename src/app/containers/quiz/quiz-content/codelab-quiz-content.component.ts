@@ -151,8 +151,6 @@ export class CodelabQuizContentComponent
       this._lastQuestionTextByIndex?.delete(idx);
       // CRITICAL: Clear stale selectedOptionsMap entry so isAnswered() returns false
       this.quizService.selectedOptionsMap?.delete(idx);
-      // CRITICAL: Clear session tracking so stale FET won't persist
-      this._fetDisplayedThisSession?.delete(idx);
       ets.setShouldDisplayExplanation(false, { force: true });
       ets.setIsExplanationTextDisplayed(false, { force: true });
       this.quizStateService.setDisplayState({ mode: 'question', answered: false });
@@ -212,8 +210,6 @@ export class CodelabQuizContentComponent
   isNavigatingToPrevious = false;
   currentQuestionType: QuestionType | undefined = undefined;
   private _lastQuestionTextByIndex = new Map<number, string>();
-  // Session-based tracking: which questions have had FET displayed this session
-  private _fetDisplayedThisSession = new Set<number>();
 
   private overrideSubject = new BehaviorSubject<{ idx: number; html: string }>({
     idx: -1,
@@ -352,10 +348,9 @@ export class CodelabQuizContentComponent
     this.displayText$ = combineLatest([
       this.displayState$ || of({ mode: 'question' as const, answered: false }),
       this.questionToDisplay$ || of(''),
-      this.formattedExplanation$,
+      this.explanationTextService.getFormattedExplanationByIndex().pipe(startWith(null)),
       this.currentIndex$,
       this.quizService.questions$.pipe(
-        filter((q) => Array.isArray(q) && q.length > 0),
         startWith(this.quizService.questions || []),
       ),
       questionForIndex$,
@@ -372,6 +367,7 @@ export class CodelabQuizContentComponent
         // Check if this is a multiple-answer question (use resolved object first, then fallback)
         const qObj =
           questionObj ||
+          (this.quizService.shuffledQuestions && this.quizService.shuffledQuestions[safeIdx]) ||
           (Array.isArray(questions) ? questions[safeIdx] : undefined) ||
           (Array.isArray(this.quizService.questions)
             ? this.quizService.questions[safeIdx]
@@ -385,9 +381,9 @@ export class CodelabQuizContentComponent
         return this.quizService.isAnswered(safeIdx).pipe(
           map((isAnswered) => {
 
-            // CRITICAL FIX: Always show question text if NOT answered, regardless of mode
             const mode = isAnswered ? (state?.mode || 'question') : 'question';
-            const trimmedQText = (qText ?? '').trim();
+            // PRIORITIZE qObj.questionText to avoid stale stream flashes
+            const trimmedQText = (qObj?.questionText ?? qText ?? '').trim();
             const numCorrect =
               qObj?.options?.filter((o: Option) => o.correct).length || 0;
             const isMulti = numCorrect > 1;
@@ -416,7 +412,7 @@ export class CodelabQuizContentComponent
             // CRITICAL: If NOT answered, ALWAYS return question text (never FET or "No explanation")
             if (!actuallyAnswered) {
               // Use qObj.questionText as fallback if stream hasn't emitted yet
-              const effectiveQText = trimmedQText || (qObj?.questionText ?? '').trim();
+              const effectiveQText = (qObj?.questionText ?? trimmedQText ?? '').trim();
               console.log(`[displayText$ RETURN] Q${safeIdx + 1} NOT ANSWERED → returning question text: "${effectiveQText?.substring(0, 50)}"`);
               if (!effectiveQText) return '';
               if (isMulti && bannerText) {
@@ -502,27 +498,15 @@ export class CodelabQuizContentComponent
 
               console.log(`[CQCC SUB] hasFetForCurrentIdx=${hasFetForCurrentIdx}, fetByIndex keys=[${Array.from(this.explanationTextService.fetByIndex?.keys() || [])}]`);
 
-              // VISIBILITY FIX: If FET was displayed this session for this question, preserve it
-              // This prevents StackBlitz visibility events from reverting FET to question text
-              const fetShownThisSession = this._fetDisplayedThisSession.has(currentIndex);
-              const storedFet = this.explanationTextService.fetByIndex?.get(currentIndex)?.trim() || '';
-
-              if (fetShownThisSession && storedFet.length > 10) {
-                // FET was shown this session - preserve it even if mode changed
-                console.log(`[CQCC Display] Q${currentIndex + 1} FET preserved (shown this session)`);
-                incoming = storedFet;
-              } else if (!hasFetForCurrentIdx) {
-                // Question is unanswered - show question text
+              // AGGRESSIVE FIX: If question is unanswered, ALWAYS use question text from array
+              // This completely ignores any stale FET that might be in the stream
+              if (!hasFetForCurrentIdx) {
                 const q = this.quizService.questions?.[currentIndex];
                 const questionText = q?.questionText ?? '';
                 if (questionText) {
                   console.log(`[CQCC Display] Q${currentIndex + 1} UNANSWERED: Forcing question text: "${questionText.substring(0, 50)}..."`);
                   incoming = questionText;
                 }
-              } else {
-                // FET is available - mark as shown this session
-                this._fetDisplayedThisSession.add(currentIndex);
-                console.log(`[CQCC Display] Q${currentIndex + 1} FET newly displayed, tracking for session`);
               }
 
               console.log(

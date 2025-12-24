@@ -226,6 +226,12 @@ export class SharedOptionComponent
       this.quizService?.currentQuestionIndex
     );
 
+    // 🛡️ RESET DISABLED STATE ON INIT
+    this.disabledOptionsPerQuestion.clear();
+    this.lockedIncorrectOptionIds.clear();
+    this.flashDisabledSet.clear();
+    console.log('[SOC INIT] 🔄 Cleared disabledOptionsPerQuestion, lockedIncorrectOptionIds, flashDisabledSet');
+
     // ─── Fallback Rendering ────────────────────────────────────────────────
     setTimeout(() => {
       if (!this.renderReady || !this.optionsToDisplay?.length) {
@@ -1217,6 +1223,7 @@ export class SharedOptionComponent
     // 🔑 CHECK PERSISTENT DISABLED STATE - THIS IS THE ONLY SOURCE OF TRUTH
     const disabledSet = this.disabledOptionsPerQuestion.get(qIndex);
     if (disabledSet && typeof optionId === 'number' && disabledSet.has(optionId)) {
+      console.log(`[SOC] 🚫 Option ${optionId} DISABLED by persistent set for Q${qIndex}`);
       return true;
     }
 
@@ -2027,9 +2034,12 @@ export class SharedOptionComponent
 
     if (question.options) {
       const correctOptions = this.quizService.getCorrectOptionsForCurrentQuestion(question);
+      // ⚡ FIX: Use optionsToDisplay (shuffled visual order) instead of question.options (original order)
+      // This ensures feedback option numbers match what the user sees on screen
+      const visualOptions = this.optionsToDisplay?.length > 0 ? this.optionsToDisplay : question.options;
       freshFeedback = this.feedbackService.generateFeedbackForOptions(
         correctOptions,
-        question.options,
+        visualOptions,
       );
 
       console.log(`[📝 applyFeedback] Using Question: "${question.questionText?.substring(0, 30)}..." (ID: ${question.questionId})`);

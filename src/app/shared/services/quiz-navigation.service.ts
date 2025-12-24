@@ -81,16 +81,21 @@ export class QuizNavigationService {
   public async advanceToNextQuestion(): Promise<boolean> {
     console.log('[NAV CHECKPOINT 1] QuizNavigationService.advanceToNextQuestion called');
 
-    // SAFETY RESET: Force clear flags to prevent stuck state
-    this.isNavigating = false;
-    this._fetchInProgress = false;
-    this.quizStateService.setNavigating(false);
+    if (this.isNavigating) {
+      console.warn('[NAV] ⚠️ advanceToNextQuestion ignored - isNavigating is TRUE');
+      return false;
+    }
+
+    // DO NOT aggressively reset flags here unless we are sure we are stuck.
+    // overly aggressive resetting (setting isNavigating = false immediately) causes race conditions
+    // where the button becomes clickable again too soon or state is inconsistent.
 
     try {
       this.resetExplanationAndState();
     } catch (err) {
       console.warn('[NAV DEBUG] resetExplanationAndState failed, but proceeding', err);
     }
+
     return await this.navigateWithOffset(1); // defer navigation until state is clean
   }
 

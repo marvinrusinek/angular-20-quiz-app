@@ -754,13 +754,10 @@ export class ExplanationTextService {
           if (!opt?.correct) {
             return -1;
           }
-          const hasValidDisplayOrder =
-            typeof opt.displayOrder === 'number' &&
-            Number.isFinite(opt.displayOrder) &&
-            opt.displayOrder >= 0;
-
-          const displayIndex = hasValidDisplayOrder ? opt.displayOrder : i;
-          return (displayIndex ?? 0) + 1;
+          // ⚡ FIX: Always use the array index for "Option X" labeling
+          // This ensures the explanation matches the VISUAL order of options (whether shuffled or not)
+          // displayOrder tracks the ORIGINAL position, which is confusing in a shuffled context
+          return i + 1; // 1-based visual index
         })
         .filter((n) => n > 0);
     }

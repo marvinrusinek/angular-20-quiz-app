@@ -886,7 +886,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
   private setupQuiz(): void {
     this.initializeQuizData();
-    this.initializeQuestions();
+    // this.initializeQuestions(); // REMOVED: Redundant, handled by loadQuizData
     this.initializeCurrentQuestion();
     void this.handleNavigationToQuestion(this.currentQuestionIndex);
   }
@@ -1406,21 +1406,9 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
 
   /*************** Shuffle and initialize questions ******************/
-  initializeQuestions(): void {
-    this.quizService.getShuffledQuestions().subscribe({
-      next: (questions) => {
-        if (questions && questions.length > 0) {
-          this.applyQuestionsFromSession(questions);
-          console.log('Shuffled questions received:', this.questions);
-        } else {
-          console.error('[initializeQuestions] No questions received.');
-        }
-      },
-      error: (err) => {
-        console.error('Error fetching questions:', err);
-      },
-    });
-  }
+  /*************** Shuffle and initialize questions ******************/
+  // REMOVED: Redundant initializeQuestions() method.
+  // Initialization is now strictly handled by loadQuizData via route params.
 
   /*************** ngOnInit barrel functions ******************/
   private initializeRouteParameters(): void {
@@ -1620,35 +1608,28 @@ get quizQuestionComponent(): QuizQuestionComponent {
     }
 
     try {
-      const { quiz, preparedQuestions } = await firstValueFrom(
-        forkJoin({
-          quiz: this.quizDataService.getQuiz(this.quizId).pipe(take(1)),
-          preparedQuestions: this.quizDataService
-            .prepareQuizSession(this.quizId)
-            .pipe(take(1)),
-        }).pipe(takeUntil(this.destroy$)),
-      );
+      // 🔑 CRITICAL FIX: Use QuizService to fetch questions!
+      // This ensures we get the SHUFFLED questions if shuffle is active.
+      // QuizDataService.prepareQuizSession return raw/unshuffled data in some paths,
+      // creating a desync.
+      const questions = await this.quizService.fetchQuizQuestions(this.quizId);
+
+      if (!questions || questions.length === 0) {
+        console.error('Quiz has no questions or failed to load via QuizService.');
+        return false;
+      }
+
+      // We still need the Quiz metadata (title, etc.)
+      const quiz = await firstValueFrom(this.quizDataService.getQuiz(this.quizId).pipe(take(1)));
 
       if (!quiz) {
-        console.error('Quiz is null or undefined. Failed to load quiz data.');
+        console.error('Quiz metadata not found.');
         return false;
       }
 
-      const questions = Array.isArray(preparedQuestions)
-        ? preparedQuestions
-        : quiz.questions;
-
-      if (!Array.isArray(questions) || questions.length === 0) {
-        console.error(
-          'Quiz has no questions or questions array is missing:',
-          quiz,
-        );
-        return false;
-      }
-
-      // Ensure the quiz instance and local state use the prepared (possibly shuffled) questions
-      this.quiz = { ...quiz, questions };
-      this.questions = [...questions];
+      // 🔑 CRITICAL FIX: Initialize session properly to generate correct FETs for shuffled order
+      // This calculates "Option X is correct" based on the SHUFFLED array index, matching the UI.
+      this.applyQuestionsFromSession(questions);
 
       const safeIndex = Math.min(
         Math.max(this.currentQuestionIndex ?? 0, 0),
@@ -1657,6 +1638,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
       this.currentQuestionIndex = safeIndex;
       this.currentQuestion = this.questions[safeIndex] ?? null;
 
+      // applyQuestionsFromSession updates local this.quiz, ensuring it has the shuffled questions
       this.quizService.setCurrentQuiz(this.quiz);
       this.isQuizLoaded = true;
 
@@ -1988,12 +1970,8 @@ get quizQuestionComponent(): QuizQuestionComponent {
   private _questionsApplied = false;
 
   private applyQuestionsFromSession(questions: QuizQuestion[]): void {
-    // 🔑 FIX: Guard to prevent multiple calls that overwrite FET with different option orders
-    if (this._questionsApplied && this.questions?.length > 0) {
-      console.log('[applyQuestionsFromSession] ⚡ Already applied - skipping to preserve FET');
-      return;
-    }
-    this._questionsApplied = true;
+    // 🔑 FIX: Removed _questionsApplied guard.
+    // We MUST allow re-application to ensure FETs are regenerated when valid shuffled data arrives.
 
     const hydratedQuestions = this.hydrateQuestionSet(questions);
 
@@ -4252,11 +4230,14 @@ get quizQuestionComponent(): QuizQuestionComponent {
     // FIX: Wrap in NgZone.run to ensure Angular detects navigation changes
     // This fixes the bug where navigation only works when DevTools console is open
     await this.ngZone.run(async () => {
+      let result = false;
       if (direction === 'next') {
-        await this.quizNavigationService.advanceToNextQuestion();
+        result = await this.quizNavigationService.advanceToNextQuestion();
       } else {
-        await this.quizNavigationService.advanceToPreviousQuestion();
+        await this.quizNavigationService.advanceToPreviousQuestion(); // prev doesn't return boolean yet or not needed
+        result = true;
       }
+      console.log(`[QUIZ COMPONENT] advanceQuestion(${direction}) result: ${result}`);
 
       // Force change detection after navigation completes
       this.cdRef.markForCheck();

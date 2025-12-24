@@ -218,7 +218,23 @@ export class QuizDataService implements OnDestroy {
 
   // Return a brand-new array of questions with fully-cloned options.
   getQuestionsForQuiz(quizId: string): Observable<QuizQuestion[]> {
-    // 🔑 CACHE CHECK: Return cached questions if already shuffled/built for this quiz
+    // ⚡ FIX: When shuffle is ON, ALWAYS delegate to prepareQuizSession
+    // This ensures ONE consistent shuffle regardless of which code path calls this
+    if (this.quizService.isShuffleEnabled()) {
+      // If we already have shuffled questions for this quiz, return them
+      if (
+        this.quizService.shuffledQuestions?.length > 0 &&
+        this.quizService.quizId === quizId
+      ) {
+        console.log(`[getQuestionsForQuiz] ✅ Returning existing SHUFFLED questions (${this.quizService.shuffledQuestions.length})`);
+        return of(this.cloneQuestions(this.quizService.shuffledQuestions));
+      }
+      // Otherwise, delegate to prepareQuizSession to create the shuffle
+      console.log(`[getQuestionsForQuiz] ⚡ Shuffle ON but no data - delegating to prepareQuizSession`);
+      return this.prepareQuizSession(quizId);
+    }
+
+    // 🔑 CACHE CHECK: Return cached questions if already built for this quiz (unshuffled case)
     const cachedQuestions = this.quizQuestionCache.get(quizId);
     if (Array.isArray(cachedQuestions) && cachedQuestions.length > 0) {
       console.log(`[QuizDataService] ✅ Returning CACHED questions for quiz ${quizId} (${cachedQuestions.length} questions)`);
@@ -304,6 +320,17 @@ export class QuizDataService implements OnDestroy {
     if (!quizId) {
       console.error('[prepareQuizSession] quizId is required.');
       return of([]);
+    }
+
+    // ⚡ GUARD: Return existing shuffled questions if already prepared
+    // This prevents multiple shuffle calls from creating different orders
+    if (
+      this.quizService.shuffledQuestions &&
+      this.quizService.shuffledQuestions.length > 0 &&
+      this.quizService.quizId === quizId
+    ) {
+      console.log(`[prepareQuizSession] ⏭️ SKIPPING - returning existing ${this.quizService.shuffledQuestions.length} questions`);
+      return of(this.quizService.shuffledQuestions);
     }
 
     const shouldShuffle = this.quizService.isShuffleEnabled();
@@ -392,11 +419,14 @@ export class QuizDataService implements OnDestroy {
     const workingSet = this.cloneQuestions(baseQuestions);
 
     if (shouldShuffle) {
+      console.log('[buildSessionQuestions] 🔀 Starting shuffle...');
       this.quizShuffleService.prepareShuffle(quizId, workingSet);
       const shuffled = this.quizShuffleService.buildShuffledQuestions(
         quizId,
         workingSet,
       );
+      console.log(`[buildSessionQuestions] ✅ Shuffled ${shuffled.length} questions. Order:`,
+        shuffled.map((q, i) => `Q${i + 1}="${q.questionText?.substring(0, 20)}..."`).join(', '));
 
       // 🔍 DEBUG: Log question-option correspondence after shuffle
       console.log('[QuizDataService] 🔀 SHUFFLED QUESTIONS:');
