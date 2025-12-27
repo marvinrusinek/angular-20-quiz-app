@@ -428,4 +428,17 @@ export class QuizStateService {
   isQuestionAnswered(idx: number): boolean {
     return this._answeredQuestionIndices.has(idx);
   }
+
+  // ⚡ FIX: Reset all state (called on Shuffle Toggle or Quiz Reset)
+  reset(): void {
+    console.log('[QuizStateService] ♻️ Resetting all state.');
+    this.questionStates.clear();
+    this.quizStates = {};
+    this._hasUserInteracted.clear();
+    this._answeredQuestionIndices.clear();
+    this.currentQuestionSubject.next(null);
+    this.explanationReadySubject.next(false);
+    this.answeredSubject.next(false);
+    this.qaSubject.next(null as any); // Clear replay subject
+  }
 }

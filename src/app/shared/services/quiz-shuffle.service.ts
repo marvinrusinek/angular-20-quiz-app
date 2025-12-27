@@ -21,7 +21,7 @@ export class QuizShuffleService {
     opts: PrepareShuffleOpts = { shuffleQuestions: true, shuffleOptions: true },
   ): void {
     // ✅ Re-enabled shuffling as part of the data flow fix
-    const { shuffleQuestions = true, shuffleOptions = false } = opts;
+    const { shuffleQuestions = true, shuffleOptions = true } = opts;
 
     const qIdx = questions.map((_, i) => i);
     const questionOrder = shuffleQuestions ? Utils.shuffleArray(qIdx) : qIdx;
@@ -231,6 +231,9 @@ export class QuizShuffleService {
           normalizedOptions,
           state.optionOrder.get(originalIndex),
         );
+
+        // DEBUG LOGGING
+        // console.log(`[Shuffle] Index ${originalIndex} -> ${source.questionText?.substring(0, 15)}... | Opts: ${orderedOptions[0]?.text?.substring(0, 10)}...`);
 
         return {
           ...source,

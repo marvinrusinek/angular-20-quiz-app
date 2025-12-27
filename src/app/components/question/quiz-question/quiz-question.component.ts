@@ -519,10 +519,12 @@ export class QuizQuestionComponent
         console.log('[📥 QQC got payload]', payload);
       });
 
-    this.shufflePreferenceSubscription =
-      this.quizService.checkedShuffle$.subscribe((shouldShuffle) => {
-        this.shuffleOptions = shouldShuffle;
-      });
+    this.quizService.checkedShuffle$.subscribe((shouldShuffle) => {
+      this.shuffleOptions = shouldShuffle;
+      // ⚡ FIX: Clear local cache to force re-fetch of correct (shuffled/unshuffled) questions
+      this.questionsArray = [];
+      console.log('[QQC] Shuffle changed, cleared questionsArray');
+    });
 
     this.quizNavigationService.navigationSuccess$.subscribe(() => {
       console.info('[QQC] 📦 navigationSuccess$ received — general navigation');
@@ -570,6 +572,8 @@ export class QuizQuestionComponent
 
     this.quizNavigationService.resetUIForNewQuestion$.subscribe(() => {
       this.resetUIForNewQuestion();
+      // ⚡ FIX: Ensure we don't hold stale questions if context changed
+      // this.questionsArray = []; // (Optional, might be too aggressive for simple next/prev)
     });
 
     this.quizService.preReset$
@@ -590,6 +594,23 @@ export class QuizQuestionComponent
       this._expl$.next(null);
 
       const questionIndex = Number(params.get('questionIndex'));
+
+      // ⚡ FIX: Prioritize Input Data ("Prop Drilling")
+      // If the parent (CodelabQuizContentComponent) passed us a question that matches the requested index,
+      // USE IT. Do not re-fetch from service, which might return stale/unshuffled data.
+      if (
+        this.question &&
+        this.questionToDisplay &&
+        (this.currentQuestionIndex === questionIndex || this.quizService.currentQuestionIndex === questionIndex)
+      ) {
+        console.log('[QQC] ⚡ Using INPUT question (preventing double-fetch mismatch). Text:', this.question.questionText?.substring(0, 20));
+        await this.hydrateFromPayload({
+          question: this.question,
+          options: this.optionsToDisplay || this.question.options,
+          explanation: this.explanationToDisplay || this.question.explanation
+        });
+        return;
+      }
 
       try {
         const question = await firstValueFrom(
@@ -1199,6 +1220,7 @@ export class QuizQuestionComponent
 
     this.currentQuestion = question;
     this.optionsToDisplay = structuredClone(options);
+    console.log(`[QQC hydrateFromPayload] Text="${question.questionText?.substring(0, 20)}..." | Options[0]="${options?.[0]?.text.substring(0, 10)}..."`);
     this.updateShouldRenderOptions(this.optionsToDisplay);
 
     this.explanationToDisplay = explanation?.trim() || '';

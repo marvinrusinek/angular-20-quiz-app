@@ -354,6 +354,19 @@ get quizQuestionComponent(): QuizQuestionComponent {
       }),
     );
 
+    // ⚡ FIX: Keep local questions in sync with service (handles shuffle toggle)
+    this.subscriptions.add(
+      this.quizService.questions$.subscribe((questions) => {
+        if (questions && questions.length > 0) {
+          console.log(`[QuizComponent] 🔄 questions$ update. Count=${questions.length}. First=${questions[0]?.questionText?.substring(0, 10)}...`);
+          this.questions = questions;
+          this.questionsArray = [...questions];
+          this.totalQuestions = questions.length;
+          this.cdRef.markForCheck();
+        }
+      })
+    );
+
     this.quizComponentData = {
       data: this.data,
       currentQuestion: this.currentQuestion ?? ({} as QuizQuestion),
@@ -507,9 +520,10 @@ get quizQuestionComponent(): QuizQuestionComponent {
   }
 
   async ngOnInit(): Promise<void> {
-    this.initializeRouteParameters();
+    // this.initializeRouteParameters();
 
     // CRITICAL FIX: React to URL parameter changes (Q1 -> Q2)
+    /* Duplicate route subscription - handled by subscribeToRouteParams
     this.routeSubscription = this.activatedRoute.params.subscribe((params) => {
       const questionIndexRaw = params['questionIndex'];
       if (questionIndexRaw) {
@@ -520,10 +534,11 @@ get quizQuestionComponent(): QuizQuestionComponent {
         if (newIndex !== this.currentQuestionIndex) {
           this.currentQuestionIndex = newIndex;
           this.quizService.setCurrentQuestionIndex(newIndex);
-          this.fetchAndSetQuestionData(newIndex);
+          // this.fetchAndSetQuestionData(newIndex);
         }
       }
     });
+    */
 
     this.router.events
       .pipe(filter((event) => event instanceof NavigationEnd))
@@ -569,7 +584,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
     this.quizService.setCurrentQuestionIndex(idx);
     localStorage.setItem('savedQuestionIndex', JSON.stringify(idx));
 
-    await this.ensureInitialQuestionFromRoute();
+    // await this.ensureInitialQuestionFromRoute();
 
     // Get total question count once for this quiz
     this.quizService
@@ -655,79 +670,111 @@ get quizQuestionComponent(): QuizQuestionComponent {
         }
       });
 
-    try {
-      const questions = await this.quizService.fetchQuizQuestions(quizId);
-      if (!questions?.length) {
-        console.error('[❌ QuizComponent] No quiz questions returned.');
-        return;
-      }
+    // ⚡ FIX: Reuse existing loaded questions if they match the current quiz
+    // This prevents re-fetching and potentially breaking the shuffle state
+    // ⚡ FIX: Reuse existing loaded questions if they match the current quiz AND shuffle state
+    const shouldShuffle = this.quizService.isShuffleEnabled();
+    const hasShuffled = this.quizService.shuffledQuestions && this.quizService.shuffledQuestions.length > 0;
 
-      this.questionsArray = questions;
-      console.log('[✅ QuizComponent] Questions fetched.');
+    // If shuffle is ON, we must have shuffledQuestions to reuse.
+    // If shuffle is OFF, we can reuse standard questions.
+    const canReuse = (shouldShuffle && hasShuffled) || (!shouldShuffle && this.quizService.questions && this.quizService.questions.length > 0);
 
-      // Set quiz as loaded and sync index after questions are ready
+    if (
+      canReuse &&
+      this.quizService.quizId === quizId
+    ) {
+      const source = shouldShuffle ? this.quizService.shuffledQuestions : this.quizService.questions;
+      console.log(`[QuizComponent] ♻️ Reusing existing ${shouldShuffle ? 'SHUFFLED' : 'standard'} questions (${source.length}) for quiz ${quizId}`);
+
+      // Propagate existing questions to local array
+      this.questionsArray = source;
       this.isQuizDataLoaded = true;
 
-      // Use the index we got from the route earlier (or 0 if not set)
-      const initialIndex = this.currentQuestionIndex || 0;
-      this.quizService.setCurrentQuestionIndex(initialIndex);
+      // Ensure UI knows about them
       Promise.resolve().then(() => this.cdRef.detectChanges());
+    } else {
+      try {
+        const questions = await this.quizService.fetchQuizQuestions(quizId);
+        if (!questions?.length) {
+          console.error('[❌ QuizComponent] No quiz questions returned.');
+          return;
+        }
 
-      // Continue processing questions
-      this.questionsArray.forEach((qq: any, idx: number) => {
-        // Prefer explicit expectedCorrect when valid (>0)
-        const fromMeta =
-          Number.isFinite(qq?.expectedCorrect) && qq.expectedCorrect > 0
-            ? Math.floor(qq.expectedCorrect)
-            : Array.isArray(qq?.answer)
-              ? new Set(
-                qq.answer.map((a: any) =>
-                  String(a ?? '')
-                    .trim()
-                    .toLowerCase(),
-                ),
-              ).size
-              : undefined;
+        this.questionsArray = questions;
+        console.log('[✅ QuizComponent] Questions fetched.');
 
-        const fromFlags = Array.isArray(qq?.options)
-          ? qq.options.reduce(
-            (n: number, o: any) => n + (o?.correct ? 1 : 0),
-            0,
-          )
-          : 0;
+        // Set quiz as loaded and sync index after questions are ready
+        this.isQuizDataLoaded = true;
+      } catch (err) {
+        console.error('[❌ QuizComponent] Failed to fetch questions:', err);
+      }
+    }
 
-        const totalCorrectFromOptions = Array.isArray(qq?.options)
-          ? qq.options.filter((o: any) => o?.correct === true).length
-          : 0;
+    // Common logic after loading (reusing existing continuation logic)
+    // Common logic after loading (reusing existing continuation logic)
+    // ... existing post-load logic ...
+    // We wrap this in a block to limit scope, or we can just let it run if we structure it right.
+    // Actually, since I replaced the fetch block, I need to ensure the continuation logic runs
+    // for BOTH paths.
 
-        const expected = fromMeta ?? fromFlags ?? totalCorrectFromOptions;
+    // Use the index we got from the route earlier (or 0 if not set)
+    const initialIndex = this.currentQuestionIndex || 0;
+    this.quizService.setCurrentQuestionIndex(initialIndex);
+    Promise.resolve().then(() => this.cdRef.detectChanges());
 
-        const qid =
-          qq?.id ??
-          qq?._id ??
-          qq?.questionId ??
-          qq?.uuid ??
-          qq?.qid ??
-          qq?.questionID ??
-          null;
+    // Continue processing questions
+    this.questionsArray.forEach((qq: any, idx: number) => {
+      // Prefer explicit expectedCorrect when valid (>0)
+      const fromMeta =
+        Number.isFinite(qq?.expectedCorrect) && qq.expectedCorrect > 0
+          ? Math.floor(qq.expectedCorrect)
+          : Array.isArray(qq?.answer)
+            ? new Set(
+              qq.answer.map((a: any) =>
+                String(a ?? '')
+                  .trim()
+                  .toLowerCase(),
+              ),
+            ).size
+            : undefined;
 
-        if (Number.isFinite(expected) && (expected as number) > 1) {
-          this.selectionMessageService.setExpectedCorrectCount(
-            idx,
+      const fromFlags = Array.isArray(qq?.options)
+        ? qq.options.reduce(
+          (n: number, o: any) => n + (o?.correct ? 1 : 0),
+          0,
+        )
+        : 0;
+
+      const totalCorrectFromOptions = Array.isArray(qq?.options)
+        ? qq.options.filter((o: any) => o?.correct === true).length
+        : 0;
+
+      const expected = fromMeta ?? fromFlags ?? totalCorrectFromOptions;
+
+      const qid =
+        qq?.id ??
+        qq?._id ??
+        qq?.questionId ??
+        qq?.uuid ??
+        qq?.qid ??
+        qq?.questionID ??
+        null;
+
+      if (Number.isFinite(expected) && (expected as number) > 1) {
+        this.selectionMessageService.setExpectedCorrectCount(
+          idx,
+          expected as number,
+        );
+
+        if (qid !== null && qid !== undefined) {
+          this.selectionMessageService.setExpectedCorrectCountForId(
+            qid,
             expected as number,
           );
-
-          if (qid !== null && qid !== undefined) {
-            this.selectionMessageService.setExpectedCorrectCountForId(
-              qid,
-              expected as number,
-            );
-          }
         }
-      });
-    } catch (err) {
-      console.error('[❌ QuizComponent] Failed to fetch questions:', err);
-    }
+      }
+    });
 
     // Assign question and options together when ready
     /* this.quizStateService.qa$
@@ -1526,6 +1573,8 @@ get quizQuestionComponent(): QuizQuestionComponent {
         hydratedOptions,
         safeIndex,
       );
+
+      console.log(`[QuizComponent] emitQuestionAndOptions Q${safeIndex + 1}: Text="${hydratedQuestion.questionText.substring(0, 20)}..." | Options[0]="${hydratedOptions[0]?.text.substring(0, 10)}..."`);
     } catch (error) {
       console.error(
         '[ensureInitialQuestionFromRoute] ❌ Failed to load quiz/question from route.',
@@ -1551,9 +1600,15 @@ get quizQuestionComponent(): QuizQuestionComponent {
     this.selectedQuiz = quiz;
     this.currentQuiz = quiz;
 
-    this.questions = quiz.questions;
-    this.questionsArray = [...quiz.questions];
-    this.totalQuestions = quiz.questions.length;
+    // ⚡ FIX: Use shuffled questions if shuffle is enabled, otherwise use original
+    const shouldUseShuffled = this.quizService.isShuffleEnabled() && this.quizService.shuffledQuestions?.length > 0;
+    const effectiveQuestions = shouldUseShuffled ? this.quizService.shuffledQuestions : quiz.questions;
+
+    console.log(`[QuizComponent] setInitialQuestionState using ${shouldUseShuffled ? 'SHUFFLED' : 'ORIGINAL'} questions. Count=${effectiveQuestions.length}`);
+
+    this.questions = effectiveQuestions;
+    this.questionsArray = [...effectiveQuestions];
+    this.totalQuestions = effectiveQuestions.length;
     this.currentQuestionIndex = safeIndex;
     this.isQuizLoaded = true;
 
@@ -2155,9 +2210,9 @@ get quizQuestionComponent(): QuizQuestionComponent {
       this.quizId = this.activatedRoute.snapshot.paramMap.get('quizId') ?? '';
 
       // Fetch questions for the quiz and await the result
-      const questions: QuizQuestion[] = await firstValueFrom(
-        this.quizDataService.getQuestionsForQuiz(this.quizId),
-      );
+      // ⚡ FIX: Use QuizService.fetchQuizQuestions to ensure we get SHUFFLED questions if shuffle is enabled.
+      // QuizDataService.getQuestionsForQuiz returns raw data, bypassing shuffling.
+      const questions: QuizQuestion[] = await this.quizService.fetchQuizQuestions(this.quizId);
 
       this.applyQuestionsFromSession(questions);
 
@@ -2804,7 +2859,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
   //       DO NOT remove it until shuffle logic is fully implemented.
   /* updateQuestionDisplayForShuffledQuestions(): void {
   void this.updateQuestionDisplay(this.currentQuestionIndex);
-} */
+  } */
 
   refreshQuestionOnReset(): void {
     const firstQuestion = this.quizService.getQuestionByIndex(0);
@@ -4995,5 +5050,6 @@ get quizQuestionComponent(): QuizQuestionComponent {
       });
     }
   }
+
 }
 

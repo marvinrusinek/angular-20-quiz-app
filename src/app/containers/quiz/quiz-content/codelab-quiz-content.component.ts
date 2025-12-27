@@ -340,7 +340,18 @@ export class CodelabQuizContentComponent
 
     // Resolve the correct question object (respecting shuffle) for the current index
     const questionForIndex$ = this.quizService.currentQuestionIndex$.pipe(
-      switchMap((idx) => this.quizService.getQuestionByIndex(idx)),
+      switchMap((idx) => {
+        // 🛡️ RACE CONDITION FIX: If shuffle is enabled, wait for shuffledQuestions to be ready
+        // This prevents Q1 from loading unshuffled data if the shuffle logic is slightly delayed
+        if (this.quizService.isShuffleEnabled()) {
+          return this.quizService.questions$.pipe(
+            filter(() => this.quizService.shuffledQuestions && this.quizService.shuffledQuestions.length > 0),
+            take(1),
+            switchMap(() => this.quizService.getQuestionByIndex(idx))
+          );
+        }
+        return this.quizService.getQuestionByIndex(idx);
+      }),
       startWith(null),
     );
 
@@ -367,14 +378,17 @@ export class CodelabQuizContentComponent
         // Check if this is a multiple-answer question (use resolved object first, then fallback)
         const qObj =
           questionObj ||
-          (this.quizService.shuffledQuestions && this.quizService.shuffledQuestions[safeIdx]) ||
+          (this.quizService.isShuffleEnabled() && this.quizService.shuffledQuestions && this.quizService.shuffledQuestions.length > safeIdx
+            ? this.quizService.shuffledQuestions[safeIdx]
+            : undefined) ||
           (Array.isArray(questions) ? questions[safeIdx] : undefined) ||
           (Array.isArray(this.quizService.questions)
             ? this.quizService.questions[safeIdx]
             : undefined);
 
-        // DEBUG: Log values to trace Q3 issue
-        console.log(`[displayText$ DEBUG] idx=${idx}, safeIdx=${safeIdx}, qText="${(qText as string)?.substring(0, 50)}", qObj.questionText="${qObj?.questionText?.substring(0, 50)}"`);
+        console.log(`[CQCC displayText$] idx=${safeIdx} | qObj Text="${(qObj?.questionText ?? '').substring(0, 20)}..." | Sources: questionObj=${!!questionObj}, shuffled=${this.quizService.shuffledQuestions?.length}, questions=${this.quizService.questions?.length}, default=${this.quizService.questions?.[safeIdx]?.questionText?.substring(0, 10)}`);
+
+        // ⚡ FIX: Reactive "Is Answered" Check
 
         // ⚡ FIX: Reactive "Is Answered" Check
         // Now that selectedOptionsMap is reliable, we use the observable to determine status.
@@ -383,7 +397,9 @@ export class CodelabQuizContentComponent
 
             const mode = isAnswered ? (state?.mode || 'question') : 'question';
             // PRIORITIZE qObj.questionText to avoid stale stream flashes
-            const trimmedQText = (qObj?.questionText ?? qText ?? '').trim();
+            // ⚡ FIX: Remove qText fallback. If qObj is missing, it's better to show nothing/loading 
+            // than to show the WRONG question text (e.g. Q4 text for Q1).
+            const trimmedQText = (qObj?.questionText ?? '').trim();
             const numCorrect =
               qObj?.options?.filter((o: Option) => o.correct).length || 0;
             const isMulti = numCorrect > 1;
@@ -409,11 +425,16 @@ export class CodelabQuizContentComponent
             // DEBUG: Log decision values
             console.log(`[displayText$ DECISION] safeIdx=${safeIdx}, isAnswered=${isAnswered}, hasFetStored=${hasFetStored}, actuallyAnswered=${actuallyAnswered}, effectiveQText="${(trimmedQText || qObj?.questionText)?.substring(0, 50)}"`);
 
-            // CRITICAL: If NOT answered, ALWAYS return question text (never FET or "No explanation")
-            if (!actuallyAnswered) {
+            // CRITICAL: If NOT answered, OR if mode is NOT 'explanation', 
+            // ALWAYS return question text (never FET or "No explanation")
+            // This prevents the header from swapping to Explanation text just because the user answered.
+            if (!actuallyAnswered || (state?.mode !== 'explanation')) {
               // Use qObj.questionText as fallback if stream hasn't emitted yet
               const effectiveQText = (qObj?.questionText ?? trimmedQText ?? '').trim();
-              console.log(`[displayText$ RETURN] Q${safeIdx + 1} NOT ANSWERED → returning question text: "${effectiveQText?.substring(0, 50)}"`);
+              if (state?.mode !== 'explanation') {
+                // console.log(`[displayText$] FORCE QUESTION MODE. Mode=${state?.mode}`);
+              }
+
               if (!effectiveQText) return '';
               if (isMulti && bannerText) {
                 return `${effectiveQText} <span class="correct-count">${bannerText}</span>`;
@@ -421,7 +442,7 @@ export class CodelabQuizContentComponent
               return effectiveQText;
             }
 
-            // Check if FET belongs to current question (only matters if answered)
+            // Check if FET belongs to current question (only matters if answered AND mode is explanation)
             const belongsToIndex = fetPayload?.idx === safeIdx;
             const trimmedFet = belongsToIndex
               ? (fetPayload?.text ?? '').trim()

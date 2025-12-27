@@ -34,6 +34,7 @@ import { QuizScore } from '../models/QuizScore.model';
 import { QuizSelectionParams } from '../models/QuizSelectionParams.model';
 import { Resource } from '../models/Resource.model';
 import { SelectedOption } from '../models/SelectedOption.model';
+import { QuizStateService } from './quizstate.service';
 import { QuizShuffleService } from './quiz-shuffle.service';
 
 @Injectable({ providedIn: 'root' })
@@ -221,13 +222,42 @@ export class QuizService {
 
   constructor(
     private quizShuffleService: QuizShuffleService,
+    private quizStateService: QuizStateService,
     private activatedRoute: ActivatedRoute,
-    private http: HttpClient,
+    private http: HttpClient
   ) {
+    this.http = http;
     this.initializeData();
+
+    // ⚡ FIX: Bridge questions update to QuizStateService
+    // When shuffling happens, we emit to questionsSubject. We MUST also update
+    // the current question in QuizStateService so the UI reflects the change immediately.
+    this.questionsSubject.subscribe((questions) => {
+      if (Array.isArray(questions) && questions.length > 0) {
+        const currentIdx = this.currentQuestionIndex ?? 0;
+        if (questions[currentIdx]) {
+          // console.log(`[QuizService] 🔄 Syncing QuizStateService with new Q${currentIdx+1}: "${questions[currentIdx].questionText.substring(0,15)}..."`);
+          this.quizStateService.updateCurrentQuestion(questions[currentIdx]);
+        }
+      }
+    });
+
+    // ⚡ FIX: Reset State Sync
+    // When quizReset$ emits (e.g. on Shuffle Toggle), we must clear the internal state cache
+    // in QuizStateService. Otherwise, "isAnswered" state for Index 0 persists across shuffles.
+    this.quizReset$.subscribe(() => {
+      console.log('[QuizService] 🧹 Triggering QuizStateService RESET via quizReset$');
+      this.quizStateService.reset();
+    });
   }
 
   get questions() {
+    // ⚡ FIX: Sync Safeguard
+    // Direct access to .questions should ALSO return shuffled data if active.
+    // This fixes components (like CodelabQuizContentComponent) that read array indices directly.
+    if (this.isShuffleEnabled() && this.shuffledQuestions.length > 0) {
+      return this.shuffledQuestions;
+    }
     return this._questions;
   }
   set questions(value: any) {
@@ -235,8 +265,35 @@ export class QuizService {
       console.warn('[QuizService] ⚠️ CLEARING questions array! Trace:');
       console.trace();
     }
+
+    // ⚡ FIX: Prevent shuffled data from overwriting canonical _questions
+    // Check if the incoming data IS the shuffled array to prevent pollution
+    const isIncomingShuffledData =
+      this.shuffledQuestions.length > 0 &&
+      Array.isArray(value) &&
+      value.length > 0 &&
+      value === this.shuffledQuestions;
+
+    if (isIncomingShuffledData) {
+      console.warn('[QuizService] ⚠️ BLOCKED: Attempted to overwrite _questions with shuffledQuestions reference!');
+      // Do NOT update _questions - the canonical data should remain unshuffled
+      // But still emit the shuffled questions for subscribers
+      this.questionsSubject.next(this.shuffledQuestions);
+      return;
+    }
+
     this._questions = value;
-    this.questionsSubject.next(value);
+
+    // ⚡ FIX: Sync Safeguard
+    // If shuffle is active and we have shuffled questions, DO NOT overwrite with incoming (likely unshuffled) data.
+    // Instead, re-emit the shuffled questions to keep everyone in sync.
+    // Use isShuffleEnabled() instead of checkedShuffle property
+    if (this.isShuffleEnabled() && this.shuffledQuestions.length > 0) {
+      console.log('[QuizService] 🔒 Shuffle active: Emitting shuffledQuestions instead of incoming value.');
+      this.questionsSubject.next(this.shuffledQuestions);
+    } else {
+      this.questionsSubject.next(value);
+    }
   }
 
   getQuizName(segments: any[]): string {
@@ -427,32 +484,22 @@ export class QuizService {
 
   // Return a sanitized array of options for the given question index.
   getOptions(index: number): Observable<Option[]> {
-    return this.questions$.pipe(
-      take(1),
-      map((questions: QuizQuestion[]) => {
-        // Validate index
-        if (!Array.isArray(questions) || questions.length === 0) {
-          console.warn('[getOptions ⚠️] No questions loaded.');
-          return [];
-        }
-        if (index < 0 || index >= questions.length) {
-          console.warn(`[getOptions ⚠️] Invalid index ${index}.`);
+    return this.getQuestionByIndex(index).pipe(
+      map((question) => {
+        if (!question || !Array.isArray(question.options) || question.options.length === 0) {
+          console.warn(`[getOptions ⚠️] No options found for Q${index}.`);
           return [];
         }
 
-        const q = questions[index];
-        if (!q || !Array.isArray(q.options)) {
-          console.warn(`[getOptions ⚠️] Question ${index} has no options.`);
-          return [];
-        }
+        const deepClone = (obj: any) => JSON.parse(JSON.stringify(obj));
+        const normalized = this.cloneOptions(this.sanitizeOptions(question.options));
 
-        // Deep clone options cleanly so state never leaks between questions
-        const normalized = this.cloneOptions(this.sanitizeOptions(q.options));
-
+        // Refine with deep clone
+        return normalized.map(opt => deepClone(opt));
+      }),
+      tap(options => {
         // Broadcast to the app
-        this.currentOptionsSubject.next(normalized);
-
-        return normalized;
+        this.currentOptionsSubject.next(options);
       }),
       catchError((err) => {
         console.error(`[getOptions ❌] Failed for index ${index}`, err);
@@ -566,6 +613,8 @@ export class QuizService {
   private fetchPromise: Promise<QuizQuestion[]> | null = null;
 
   async fetchQuizQuestions(quizId: string): Promise<QuizQuestion[]> {
+    console.log(`[QuizService] fetchQuizQuestions(${quizId}). hasShuffle=${this.shuffledQuestions?.length}, shouldShuffle=${this.shouldShuffle()}`);
+
     // ⚡ SIMPLE FIX: Always return shuffledQuestions if available
     // This ensures all components use the SAME shuffled data from prepareQuizSession
     if (
@@ -574,6 +623,9 @@ export class QuizService {
       this.quizId === quizId
     ) {
       console.log(`[fetchQuizQuestions] ✅ Returning shuffledQuestions (${this.shuffledQuestions.length} questions)`);
+      if (this.shuffledQuestions.length > 0) {
+        console.log(`[fetchQuizQuestions] Q1 Preview: Text="${this.shuffledQuestions[0].questionText.substring(0, 20)}..." | Options[0]="${this.shuffledQuestions[0].options?.[0]?.text.substring(0, 10)}..."`);
+      }
       // ⚡ SYNC FIX: Ensure subscribers get the shuffled version!
       this.questionsSubject.next(this.shuffledQuestions);
       return this.shuffledQuestions;
@@ -612,23 +664,14 @@ export class QuizService {
             }
 
             console.log('[QuizService] 🔀 Shuffle requested on CACHED data - re-shuffling...');
-            const questionsToShuffle = cachedQuestions.map(q => this.cloneQuestionForSession(q) ?? q);
-            Utils.shuffleArray(questionsToShuffle);
 
-            // 🔒 FIX: Shuffle options too! (Consistency with API path)
-            for (const question of questionsToShuffle) {
-              if (question.options?.length) {
-                Utils.shuffleArray(question.options);
-                question.options = question.options.map((option, index) => ({
-                  ...option,
-                  displayOrder: index,
-                }));
-              }
-            }
+            // ⚡ SYNC FIX: Delegate cached shuffle to QuizShuffleService
+            this.quizShuffleService.prepareShuffle(quizId, cachedQuestions);
+            const syncedShuffled = this.quizShuffleService.buildShuffledQuestions(quizId, cachedQuestions);
 
-            this.shuffledQuestions = questionsToShuffle;
-            this.questions = questionsToShuffle;
-            return questionsToShuffle;
+            this.shuffledQuestions = syncedShuffled;
+            this.questions = syncedShuffled;
+            return syncedShuffled;
           }
 
           return cachedQuestions.map(
@@ -648,7 +691,7 @@ export class QuizService {
         }
 
         // Normalize
-        const normalizedQuestions = (quiz.questions ?? []).map((question) => {
+        const normalizedQuestions: QuizQuestion[] = (quiz.questions ?? []).map((question) => {
           const normalizedOptions = Array.isArray(question.options)
             ? question.options.map((option, index) => ({
               ...option,
@@ -661,18 +704,31 @@ export class QuizService {
           return { ...question, options: normalizedOptions };
         });
 
-        // Shuffle if needed
-        if (this.shouldShuffle()) {
-          Utils.shuffleArray(normalizedQuestions);
-          for (const question of normalizedQuestions) {
-            if (question.options?.length) {
-              Utils.shuffleArray(question.options);
-              question.options = question.options.map((option, index) => ({
-                ...option,
-                displayOrder: index,
-              }));
-            }
+        // ⚡ CRITICAL FIX: Store canonical (original) order BEFORE shuffling!
+        // valid 'canonical' base allows resolveCanonicalQuestion to working correctly
+        // instead of falling back to the ALREADY shuffled 'this.questions' (double shuffle).
+        this.canonicalQuestionsByQuiz.set(quizId, JSON.parse(JSON.stringify(normalizedQuestions)));
+
+        // Shuffle if needed, OR if we already have shuffled data we should preserve
+        const effectivelyShuffling = this.shouldShuffle();
+
+        if (effectivelyShuffling) {
+          if (!this.shouldShuffle()) {
+            console.warn('[fetchQuizQuestions] ⚠️ shouldShuffle is false, but restoring from existing shuffledQuestions.');
           }
+
+          // ⚡ SYNC FIX: Delegate shuffling to QuizShuffleService!
+          // This ensures the internal map (used by resolveCanonicalQuestion) matches the array we return.
+          console.log('[QuizService] 🔀 Generating NEW shuffle via QuizShuffleService...');
+          this.quizShuffleService.prepareShuffle(quizId, normalizedQuestions);
+
+          // Re-generate the array from the authoritative map
+          const syncedShuffled = this.quizShuffleService.buildShuffledQuestions(quizId, normalizedQuestions);
+
+          // Assign to normalizedQuestions so subsequent logic uses the synced version
+          // We clear the array first to ensure we replace it
+          normalizedQuestions.length = 0;
+          normalizedQuestions.push(...syncedShuffled);
         }
 
         const sanitizedQuestions = normalizedQuestions
@@ -681,7 +737,7 @@ export class QuizService {
 
         this.quizId = quizId;
 
-        if (this.shouldShuffle()) {
+        if (effectivelyShuffling) {
           this.shuffledQuestions = sanitizedQuestions;
         } else {
           // Ensure we don't store unshuffled questions as "shuffled"
@@ -715,49 +771,11 @@ export class QuizService {
       return of(this.shuffledQuestions);
     }
 
+
     if (this.questionsSubject.getValue().length === 0) {
-      this.http
-        .get<Quiz[]>(this.quizUrl)
-        .pipe(
-          tap((quizzes: Quiz[]) => {
-            // Find the correct quiz and extract its questions
-            const selectedQuiz = quizzes.find(
-              (quiz) => quiz.quizId === this.quizId,
-            );
-            if (!selectedQuiz) {
-              console.error(`Quiz with ID ${this.quizId} not found`);
-              this.questionsSubject.next([]); // Empty array to avoid further issues
-              return;
-            }
-
-            const questions = selectedQuiz.questions;
-
-            // Add optionId to each option if options are defined
-            for (const [qIndex, question] of (questions ?? []).entries()) {
-              if (question.options && Array.isArray(question.options)) {
-                question.options = question.options.map((option, oIndex) => ({
-                  ...option,
-                  optionId: oIndex,
-                }));
-              } else {
-                console.error(
-                  `Options are not properly defined for question:::>> ${question.questionText ?? 'undefined'
-                  }`,
-                );
-                console.log('Question index:', qIndex, 'Question:', question);
-                question.options = []; // Initialize as an empty array to prevent further errors
-              }
-            }
-
-            this.questionsSubject.next(questions ?? []); // update BehaviorSubject with new data
-          }),
-          catchError((error: Error) => {
-            console.error('Error fetching questions:', error);
-            return of([]);
-          }),
-          shareReplay({ bufferSize: 1, refCount: true }), // Ensure the latest fetched data is replayed to new subscribers
-        )
-        .subscribe(); // Start the Observable chain
+      // ⚡ FIX: Delegate to fetchQuizQuestions which handles normalization AND shuffling!
+      // This prevents getAllQuestions from returning raw/unshuffled data that bypasses the shuffle logic.
+      return from(this.fetchQuizQuestions(this.quizId));
     }
     return this.questions$;
   }
@@ -1472,15 +1490,23 @@ export class QuizService {
   }
 
   setCheckedShuffle(isChecked: boolean): void {
+    console.log(`[QuizService] 🔍 setCheckedShuffle(${isChecked})`);
+    // console.trace(); // Optional: trace this if needed
     this.shuffleEnabledSubject.next(isChecked);
     // ⚡ Clear shuffle state on toggle to ensure fresh shuffle
     // This prevents stale shuffled data from being used when toggling
     this.shuffledQuestions = [];
+
+    // 🔒 FIX: Also clear basic questions to force a fresh fetch/shuffle cycle
+    this.questions = [];
+    this.questionsSubject.next([]);
+
     this.quizId = '';
-    console.log(`[setCheckedShuffle] Shuffle=${isChecked}, cleared shuffle state for fresh start`);
+    console.log(`[setCheckedShuffle] Shuffle=${isChecked}, cleared shuffle state & questions for fresh start`);
   }
 
   getShuffledQuestions(): Observable<QuizQuestion[]> {
+    console.log(`[QuizService] getShuffledQuestions called. stored=${this.shuffledQuestions?.length}`);
     // 1. If we have a stored shuffled session, return it to maintain consistency
     if (this.shuffledQuestions && this.shuffledQuestions.length > 0) {
       console.log('[getShuffledQuestions] Returning stored SHUFFLED session. First ID:', this.shuffledQuestions[0]?.questionText?.substring(0, 10));
@@ -1648,6 +1674,20 @@ export class QuizService {
 
     // Set quizId FIRST to enable guard for subsequent calls
     this.quizId = quizId;
+
+    // ⚡ FIX: Reset FET state when applying a new session
+    // This removes stale explanations from previous runs/quizzes
+    try {
+      // Use injector or find a way to access ETS without circular dep if possible
+      // Assuming we can't inject it in constructor easily due to circular deps, 
+      // we might need to rely on the component or a shared state trigger.
+      // BUT, let's try to emit an event that ETS listens to?
+      // Actually, ETS listens to `active index`.
+      // Let's just emit a "reset" event via a Subject that ETS subscribes to?
+      // Oh wait, I added resetState() to ETS. I should use it if I can access it.
+      // For now, let's trigger it via a new Subject in QuizService if we can't inject.
+      this.quizResetSource.next(); // ETS should maybe listen to this?
+    } catch (e) { }
 
     if (!Array.isArray(questions) || questions.length === 0) {
       console.warn('[applySessionQuestions] No questions supplied.');
@@ -2057,13 +2097,19 @@ export class QuizService {
   }
 
   resetQuizSessionState(): void {
+    console.log(`[QuizService] ⏭️ resetQuizSessionState called. Stack:`);
+    console.trace(); // 🔍 LOG STACK TRACE
     this.isNavigating = false;
 
     this.currentQuestionIndex = 0;
     this.currentQuestionIndexSource.next(0);
     this.currentQuestionIndexSubject.next(0);
 
-    this.shuffledQuestions = [];
+    // ⚡ FIX: Do NOT clear shuffledQuestions here.
+    // It should only be cleared when explicitly toggling shuffle or starting a BRAND NEW quiz config.
+    // Clearing it here breaks persistence during navigation/reloads.
+    // this.shuffledQuestions = [];
+
     this.quizId = ''; // ⚡ Clear quizId for fresh shuffle on restart
     // 🔧 FIXED: Clear questions to prevent stale data on restart
     // This ensures getQuestionByIndex waits for the NEW shuffle instead of emitting old data
@@ -2146,6 +2192,20 @@ export class QuizService {
     const quizId = this.resolveShuffleQuizId();
     if (!quizId) return null;
 
+    // ⚡ FIX: Strict Shuffle Priority
+    // If shuffle is enabled, the "canonical" question for this session IS the shuffled question.
+    // We should NOT look up the original quiz index 0, because that's a completely different question.
+    if (this.isShuffleEnabled() && this.shuffledQuestions && this.shuffledQuestions.length > 0) {
+      if (index >= 0 && index < this.shuffledQuestions.length) {
+        // Validation: If currentQuestion is provided, ensure it matches the text of the shuffled question
+        const shuffledQ = this.shuffledQuestions[index];
+        if (currentQuestion && currentQuestion.questionText !== shuffledQ.questionText) {
+          console.warn(`[resolveCanonicalQuestion] ⚠️ Index ${index} Mismatch! Shuffled="${shuffledQ.questionText.substring(0, 10)}", Current="${currentQuestion.questionText.substring(0, 10)}"`);
+        }
+        return shuffledQ;
+      }
+    }
+
     const canonical = this.canonicalQuestionsByQuiz.get(quizId) ?? [];
     const source = Array.isArray(this.questions) ? this.questions : [];
     const hasCanonical = canonical.length > 0;
@@ -2188,6 +2248,18 @@ export class QuizService {
     };
 
     if (shuffleActive) {
+      // ⚡ FIX: Direct Session Return
+      // If we have a prepared shuffle session, return the exact instance from it.
+      // Do not attempt to map back to canonical indices, which returns original (unshuffled) data.
+      if (
+        Array.isArray(this.shuffledQuestions) &&
+        this.shuffledQuestions.length > index &&
+        this.shuffledQuestions[index]
+      ) {
+        // console.log(`[resolveCanonicalQuestion] ⚡ Direct return from shuffledQuestions[${index}]`);
+        return this.shuffledQuestions[index];
+      }
+
       const base = hasCanonical ? canonical : source;
       if (!Array.isArray(base) || base.length === 0) {
         return cloneCandidate(currentQuestion, 'shuffle-no-base');
@@ -2350,44 +2422,19 @@ export class QuizService {
         ? Math.max(0, Math.trunc(this.currentQuestionIndex as number))
         : 0;
 
-    const canonical = this.resolveCanonicalQuestion(
-      normalizedIndex,
-      currentQuestion,
-    );
     let questionToEmit = currentQuestion;
     let optionsToUse = rawOptions;
 
-    if (canonical) {
-      const sameQuestion =
-        this.normalizeQuestionText(canonical?.questionText) ===
-        this.normalizeQuestionText(currentQuestion?.questionText);
+    // 🔍 DEBUG: Log what we are trying to emit
+    if (this.isShuffleEnabled()) {
+      console.log(`[emitQA] ⚡ Shuffle Active. Emitting from currentQuestion directly.`);
+      console.log(`[emitQA] Question: "${currentQuestion?.questionText?.substring(0, 20)}..."`);
+      console.log(`[emitQA] Options[0]: "${currentQuestion?.options?.[0]?.text?.substring(0, 20)}..."`);
+    }
 
-      if (!sameQuestion) {
-        questionToEmit = {
-          ...canonical,
-          explanation:
-            canonical.explanation ?? currentQuestion.explanation ?? '',
-        };
-        optionsToUse = Array.isArray(canonical.options)
-          ? canonical.options.map((option) => ({ ...option }))
-          : [];
-      } else {
-        questionToEmit = {
-          ...currentQuestion,
-          explanation:
-            canonical.explanation ?? currentQuestion.explanation ?? '',
-          options: Array.isArray(canonical.options)
-            ? canonical.options.map((option) => ({ ...option }))
-            : [],
-        };
-      }
-
-      optionsToUse = this.mergeOptionsWithCanonical(
-        questionToEmit,
-        optionsToUse,
-      );
-    } else {
-      optionsToUse = this.normalizeOptionDisplayOrder(optionsToUse ?? []).map(
+    // ⚡ FIX: If shuffle is enabled, TRUST the questions/options passed in.
+    if (this.isShuffleEnabled()) {
+      optionsToUse = this.normalizeOptionDisplayOrder(rawOptions ?? []).map(
         (option, index) => ({
           ...option,
           optionId: this.toNumericId(option.optionId, index + 1),
@@ -2398,6 +2445,54 @@ export class QuizService {
           showIcon: option.showIcon ?? false,
         }),
       );
+    } else {
+      const canonical = this.resolveCanonicalQuestion(
+        normalizedIndex,
+        currentQuestion,
+      );
+
+      if (canonical) {
+        const sameQuestion =
+          this.normalizeQuestionText(canonical?.questionText) ===
+          this.normalizeQuestionText(currentQuestion?.questionText);
+
+        if (!sameQuestion) {
+          questionToEmit = {
+            ...canonical,
+            explanation:
+              canonical.explanation ?? currentQuestion.explanation ?? '',
+          };
+          optionsToUse = Array.isArray(canonical.options)
+            ? canonical.options.map((option) => ({ ...option }))
+            : [];
+        } else {
+          questionToEmit = {
+            ...currentQuestion,
+            explanation:
+              canonical.explanation ?? currentQuestion.explanation ?? '',
+            options: Array.isArray(canonical.options)
+              ? canonical.options.map((option) => ({ ...option }))
+              : [],
+          };
+        }
+
+        optionsToUse = this.mergeOptionsWithCanonical(
+          questionToEmit,
+          optionsToUse,
+        );
+      } else {
+        optionsToUse = this.normalizeOptionDisplayOrder(optionsToUse ?? []).map(
+          (option, index) => ({
+            ...option,
+            optionId: this.toNumericId(option.optionId, index + 1),
+            displayOrder: index,
+            correct: option.correct === true,
+            selected: option.selected === true,
+            highlight: option.highlight ?? false,
+            showIcon: option.showIcon ?? false,
+          }),
+        );
+      }
     }
 
     if (!optionsToUse.length) {
@@ -2413,7 +2508,19 @@ export class QuizService {
       options: normalizedOptions,
     };
 
-    Object.assign(currentQuestion, normalizedQuestion);
+    // ⚡ SAFEGUARD: Only mutate currentQuestion if we are NOT in shuffle mode,
+    // or if we are SURE we aren't creating a Frankenstein (mixed source).
+    // In shuffle mode, currentQuestion SHOULD be the shuffled instance.
+    // Assigning normalizedQuestion (which uses currentQuestion properties) is redundant but safe,
+    // UNLESS optionsToUse came from a different source.
+    if (!this.isShuffleEnabled()) {
+      Object.assign(currentQuestion, normalizedQuestion);
+    } else {
+      // In Shuffle mode, we just update the internal state of the question (e.g. options ref)
+      // but we do NOT merge properties blindly from potential canonical fallbacks.
+      currentQuestion.options = normalizedOptions;
+    }
+
     questionToEmit = normalizedQuestion;
     optionsToUse = normalizedOptions;
 

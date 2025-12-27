@@ -103,8 +103,13 @@ export class SelectionMessageService {
 
     // Compute correctness from canonical question options (authoritative)
     const svc: any = this.quizService as any;
-    const qArr = Array.isArray(svc.questions)
-      ? (svc.questions as QuizQuestion[])
+    // ⚡ FIX: Prioritize shuffledQuestions if shuffle is enabled and active!
+    const effectiveQuestions = (svc.isShuffleEnabled() && svc.shuffledQuestions?.length > 0)
+      ? svc.shuffledQuestions
+      : svc.questions;
+
+    const qArr = Array.isArray(effectiveQuestions)
+      ? (effectiveQuestions as QuizQuestion[])
       : [];
     const q =
       (questionIndex >= 0 && questionIndex < qArr.length

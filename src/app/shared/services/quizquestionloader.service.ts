@@ -8,7 +8,7 @@ import {
   of,
   ReplaySubject,
 } from 'rxjs';
-import { catchError, filter, take } from 'rxjs/operators';
+import { catchError, filter, take, timeout } from 'rxjs/operators';
 
 import { QuestionType } from '../models/question-type.enum';
 import { Option } from '../models/Option.model';
@@ -546,21 +546,61 @@ export class QuizQuestionLoaderService {
     }
 
     // Ensure questions are loaded in QuizService
-    let questions = this.quizService.questions;
-
-    // 🔒 FIX: Don't overwrite existing questions if they are already loaded (and potentially shuffled!)
-    // Only fetch raw if we truly have NOTHING.
-    if (!Array.isArray(questions) || questions.length === 0) {
-      console.log(`[QQLoader fetchQO] ⚠️ quizService.questions EMPTY - fetching from getQuestionsForQuiz`);
-      this.questionsArray = await firstValueFrom(
-        this.quizDataService.getQuestionsForQuiz(quizId),
-      );
-      // Update QuizService so it has the base data
-      this.quizService.questions = [...this.questionsArray];
+    // 🔒 FIX: Strictly prioritize shuffledQuestions if shuffle is enabled!
+    if (this.quizService.isShuffleEnabled() && this.quizService.shuffledQuestions?.length > 0) {
+      console.log(`[QQLoader] 🛡️ Using SHUFFLED questions source (${this.quizService.shuffledQuestions.length})`);
+      this.questionsArray = [...this.quizService.shuffledQuestions];
+      // ⚡ FIX: DO NOT overwrite (poison) QuizService.questions with shuffled data.
+      // this.quizService.questions = this.questionsArray; 
     } else {
-      console.log(`[QQLoader fetchQO] ✅ reusing existing quizService.questions (Length: ${questions.length})`);
-    }
+      let questions = this.quizService.questions;
 
+      // 🔒 FIX: Don't overwrite existing questions if they are already loaded (and potentially shuffled!)
+      // Only fetch raw if we truly have NOTHING.
+      if (!Array.isArray(questions) || questions.length === 0) {
+
+        // ⚡ RACE CONDITION FIX: If shuffle is enabled but we don't have shuffled questions YET,
+        // we MUST NOT fetch raw data from QuizDataService. We must wait for QuizService to finish its shuffle.
+        if (this.quizService.isShuffleEnabled()) {
+          console.log(`[QQLoader] ⏳ Shuffle enabled but no questions yet. WAITING for QuizService...`);
+          try {
+            // Wait for QuizService to populate questions (it handles the fetch + shuffle)
+            const fetched = await firstValueFrom(this.quizService.getAllQuestions().pipe(
+              filter(q => Array.isArray(q) && q.length > 0),
+              take(1),
+              timeout(5000) // Safety timeout
+            ));
+
+            // Re-check shuffled questions
+            if (this.quizService.shuffledQuestions?.length > 0) {
+              console.log(`[QQLoader] ♻️ Shuffle ready! Loading shuffled questions.`);
+              this.questionsArray = [...this.quizService.shuffledQuestions];
+              // this.quizService.questions = this.questionsArray; // DO NOT POISON
+            } else {
+              console.warn(`[QQLoader] ⚠️ Shuffle wait timed out or failed. Using fetched data.`);
+              this.questionsArray = [...(fetched as QuizQuestion[])];
+              // If fetched data is essentially shuffled data, do not assign.
+              // But 'fetched' came from getAllQuestions() which returns shuffled if enabled.
+              // So we should NOT assign.
+            }
+          } catch (err) {
+            console.error(`[QQLoader] ❌ Error waiting for shuffle:`, err);
+            // Fallback only on error
+            this.questionsArray = await firstValueFrom(this.quizDataService.getQuestionsForQuiz(quizId));
+            this.quizService.questions = [...this.questionsArray];
+          }
+        } else {
+          console.log(`[QQLoader fetchQO] ⚠️ quizService.questions EMPTY - fetching from getQuestionsForQuiz`);
+          this.questionsArray = await firstValueFrom(
+            this.quizDataService.getQuestionsForQuiz(quizId),
+          );
+          // Update QuizService so it has the base data
+          this.quizService.questions = [...this.questionsArray];
+        }
+      } else {
+        console.log(`[QQLoader fetchQO] ✅ reusing existing quizService.questions (Length: ${questions.length})`);
+      }
+    }
 
     // Keep other services in sync
     this.activeQuizId = quizId;
