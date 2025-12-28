@@ -3072,12 +3072,9 @@ export class QuizQuestionComponent
           displayOrder: index,
         }));
 
-        // ⚡ FIX: DISABLED to prevent double-shuffle!
-        // Options are already shuffled by quiz.service.ts in fetchQuizQuestions.
-        // Shuffling again here causes FET option numbers to mismatch the displayed options.
-        // if (this.shuffleOptions) {
-        //   Utils.shuffleArray(this.currentOptions);
-        // }
+        if (this.shuffleOptions) {
+          Utils.shuffleArray(this.currentOptions);
+        }
 
         this.currentOptions = this.applyDisplayOrder(this.currentOptions);
         this.optionsToDisplay = this.currentOptions.map((option) => ({

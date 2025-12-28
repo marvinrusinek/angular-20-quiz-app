@@ -2398,16 +2398,12 @@ export class SharedOptionComponent
     );
 
     if (question) {
-      // ⚡ FIX: Always use visual order options for FET
-      // Priority: optionsToDisplay (current) > shuffledQuestions > question.options
-      let rawOpts: Option[] = [];
-      if (this.optionsToDisplay?.length) {
-        rawOpts = this.optionsToDisplay;
-      } else if (this.quizService?.shuffledQuestions?.[questionIndex]?.options?.length) {
-        rawOpts = this.quizService.shuffledQuestions[questionIndex].options;
-      } else {
-        rawOpts = question.options || [];
-      }
+      // ⚡ FIX: Sync indices with visual options
+      const rawOpts =
+        this.optionsToDisplay?.length &&
+          questionIndex === this.currentQuestionIndex
+          ? this.optionsToDisplay
+          : (question.options || []);
       const opts = rawOpts.filter(isValidOption);
 
       const correctIndices =
@@ -2503,16 +2499,12 @@ export class SharedOptionComponent
           })),
         });
 
-        // ⚡ FIX: Always use visual order options for FET
-        // Priority: optionsToDisplay (current) > shuffledQuestions > question.options
-        let rawOpts: Option[] = [];
-        if (this.optionsToDisplay?.length) {
-          rawOpts = this.optionsToDisplay;
-        } else if (this.quizService?.shuffledQuestions?.[questionIndex]?.options?.length) {
-          rawOpts = this.quizService.shuffledQuestions[questionIndex].options;
-        } else {
-          rawOpts = question.options || [];
-        }
+        // ⚡ FIX: Sync indices with visual options
+        const rawOpts =
+          this.optionsToDisplay?.length &&
+            questionIndex === this.currentQuestionIndex
+            ? this.optionsToDisplay
+            : (question.options || []);
         const opts = rawOpts.filter(isValidOption);
 
         const correctIndices =
