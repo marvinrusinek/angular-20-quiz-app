@@ -2028,6 +2028,15 @@ get quizQuestionComponent(): QuizQuestionComponent {
     // 🔑 FIX: Removed _questionsApplied guard.
     // We MUST allow re-application to ensure FETs are regenerated when valid shuffled data arrives.
 
+    // 🔍 DIAGNOSTIC LOGGING
+    console.log(`[applyQuestionsFromSession] 📥 Received ${questions?.length ?? 0} questions`);
+    if (questions?.length > 0) {
+      console.log(`[applyQuestionsFromSession] Q1: "${questions[0].questionText?.substring(0, 30)}..." | Opt[0]="${questions[0].options?.[0]?.text?.substring(0, 20)}..."`);
+      if (questions.length > 1) {
+        console.log(`[applyQuestionsFromSession] Q2: "${questions[1].questionText?.substring(0, 30)}..." | Opt[0]="${questions[1].options?.[0]?.text?.substring(0, 20)}..."`);
+      }
+    }
+
     const hydratedQuestions = this.hydrateQuestionSet(questions);
 
     this.questions = hydratedQuestions;

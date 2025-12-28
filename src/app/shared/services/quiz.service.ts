@@ -568,38 +568,37 @@ export class QuizService {
   }
 
   getQuestionByIndex(index: number): Observable<QuizQuestion | null> {
-    const quizId = this.resolveShuffleQuizId();
-    if (!quizId) {
-      console.warn('[getQuestionByIndex] No active quiz ID resolved.');
+    // ⚡ SIMPLIFIED FIX: Direct lookup from the authoritative source
+    // When shuffle is enabled, ALWAYS use shuffledQuestions - no fallbacks that could cause mismatches
+
+    if (this.isShuffleEnabled() && this.shuffledQuestions?.length > 0) {
+      if (index >= 0 && index < this.shuffledQuestions.length) {
+        const q = this.shuffledQuestions[index];
+        console.log(`[getQuestionByIndex] ✅ Q${index + 1} from shuffledQuestions: "${q.questionText?.substring(0, 25)}..." | Opt[0]="${q.options?.[0]?.text?.substring(0, 15)}..."`);
+        return of({
+          ...q,
+          options: (q.options ?? []).map((o) => ({ ...o })),
+        });
+      }
+      console.warn(`[getQuestionByIndex] ⚠️ Index ${index} out of bounds for shuffledQuestions (length=${this.shuffledQuestions.length})`);
       return of(null);
     }
 
-    // Use the centralized resolution logic to ensure consistency with shuffle service
-    // This expects that resolveCanonicalQuestion returns the CORRECT shuffled question at this index
-    const resolvedQuestion = this.resolveCanonicalQuestion(index, null);
-
-    if (resolvedQuestion) {
-      console.log(`[getQuestionByIndex] 🛡️ Q${index}: Resolved via canonical logic. ID: ${resolvedQuestion.questionText?.substring(0, 15)}...`);
+    // Non-shuffle path: use this.questions (which is the getter that returns _questions)
+    const questions = this._questions;
+    if (Array.isArray(questions) && index >= 0 && index < questions.length) {
+      const q = questions[index];
+      console.log(`[getQuestionByIndex] ✅ Q${index + 1} from _questions: "${q.questionText?.substring(0, 25)}..." | Opt[0]="${q.options?.[0]?.text?.substring(0, 15)}..."`);
       return of({
-        ...resolvedQuestion,
-        options: (resolvedQuestion.options ?? []).map((o) => ({ ...o })),
+        ...q,
+        options: (q.options ?? []).map((o) => ({ ...o })),
       });
     }
 
-    // Fallback to legacy behavior if resolution fails (should rarely happen)
-    return this.questions$.pipe(
-      filter((questions) => Array.isArray(questions) && questions.length > 0),
-      take(1),
-      map((questions: QuizQuestion[] | null) => {
-        if (!Array.isArray(questions) || !questions[index]) return null;
-        const q = questions[index];
-        return {
-          ...q,
-          options: (q.options ?? []).map((o) => ({ ...o })),
-        };
-      })
-    );
+    console.warn(`[getQuestionByIndex] ❌ No question found for index ${index}`);
+    return of(null);
   }
+
 
   getQuestionPayloadForIndex(
     index: number,
