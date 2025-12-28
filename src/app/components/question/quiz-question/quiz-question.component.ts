@@ -6110,6 +6110,14 @@ export class QuizQuestionComponent
       // Update the answers and check if the selection is correct
       this.quizService.updateAnswersForOption(option);
 
+      // 🔑 FIX: Update score immediately when correct answer is selected
+      try {
+        await this.quizService.checkIfAnsweredCorrectly();
+      } catch (err) {
+        console.error('[handleOptionSelection] Error checking correctness:', err);
+      }
+
+
       const totalCorrectAnswers =
         this.quizService.getTotalCorrectAnswers(currentQuestion);
 
@@ -7039,9 +7047,13 @@ export class QuizQuestionComponent
       selectedOption: selectedOption,
     });
 
+    // 🔑 FIX: Sync the selected option to QuizService so checkIfAnsweredCorrectly has the data
+    this.quizService.updateAnswersForOption(selectedOption);
+
     let isCorrect = false;
     try {
       isCorrect = await this.quizService.checkIfAnsweredCorrectly();
+
     } catch (error) {
       console.error('Error checking answer correctness:', error);
     }

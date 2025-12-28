@@ -75,10 +75,12 @@ export class ScoreComponent implements OnInit, OnDestroy {
 
   private setupScoreSubscription(): void {
     this.scoreSubscription = combineLatest([
-      this.correctAnswersCount$.pipe(
+      // 🔑 FIX: Use QuizService's correctAnswersCountSubject instead of local one
+      this.quizService.correctAnswersCountSubject.pipe(
         takeUntil(this.unsubscribeTrigger$),
         distinctUntilChanged(),
       ),
+
       this.totalQuestions$.pipe(
         startWith(0), // Provide a default value to ensure it's never undefined
         distinctUntilChanged(),

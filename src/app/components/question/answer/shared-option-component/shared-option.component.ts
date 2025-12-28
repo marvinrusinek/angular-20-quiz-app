@@ -972,6 +972,8 @@ export class SharedOptionComponent
   }
 
   private handleClick(binding: OptionBindings, index: number): void {
+    console.log('[SOC] 🟢 handleClick START - clicked option:', binding.option.text);
+
     // 🔹 your existing handleClick body stays as-is, up to the end
     // (selection maps, sound, history, etc.)
 
@@ -992,6 +994,15 @@ export class SharedOptionComponent
       checked: enrichedOption.selected === true,
     };
 
+    // 🔑 FIX: Force update answers and trigger score
+    this.quizService.answers = [enrichedOption];
+    this.quizService.updateAnswersForOption(enrichedOption);
+
+    this.quizService.checkIfAnsweredCorrectly().then((isCorrect) => {
+      console.log(`[SOC] Score check result: ${isCorrect}`);
+    });
+
+
     console.log(
       '%c[SOC] EMITTING optionClicked →',
       'color:#00e5ff;font-weight:bold;',
@@ -999,6 +1010,7 @@ export class SharedOptionComponent
     );
 
     this.optionClicked.emit(payload);
+
   }
 
   preserveOptionHighlighting(): void {
@@ -1427,6 +1439,65 @@ export class SharedOptionComponent
       return;
     }
 
+    // 🔑 FIX: Force update answers and trigger score logic here (Multi-Answer Support)
+    const bindingsForScore = this.optionBindings ?? [];
+    const correctCountForScore = bindingsForScore.filter(b => b.option?.correct).length;
+    const isMultipleForScore = correctCountForScore > 1;
+    const qIndexForScore = this.resolveCurrentQuestionIndex();
+
+    // 1. Calculate Current Selected Set (prior to this click)
+    let currentSelectedOptions = bindingsForScore
+      .filter(b => b.isSelected)
+      .map(b => b.option);
+
+    // 2. Determine Action
+    const willBeSelected = isMultipleForScore ? !binding.isSelected : true;
+
+    // 3. Update Set
+    if (isMultipleForScore) {
+      if (willBeSelected) {
+        // Add if not present
+        if (!currentSelectedOptions.find(o => o.optionId === binding.option.optionId)) {
+          currentSelectedOptions.push(binding.option);
+        }
+      } else {
+        // Remove
+        currentSelectedOptions = currentSelectedOptions.filter(o => o.optionId !== binding.option.optionId);
+      }
+    } else {
+      // Single: just this option
+      currentSelectedOptions = [binding.option];
+    }
+
+    // 4. Use SelectedOptionService as Source of Truth (Correct Fix)
+    const storedSelection = this.selectedOptionService.getSelectedOptionsForQuestion(qIndexForScore) || [];
+    let simulatedSelection = [...storedSelection];
+
+    // Check current option status in stored selection
+    const existingIdx = simulatedSelection.findIndex(o => o.optionId === binding.option.optionId);
+
+    // Toggle Logic
+    if (isMultipleForScore) {
+      if (existingIdx > -1) {
+        simulatedSelection.splice(existingIdx, 1);
+      } else {
+        simulatedSelection.push({ ...binding.option, selected: true, questionIndex: qIndexForScore } as SelectedOption);
+      }
+    } else {
+      simulatedSelection = [{ ...binding.option, selected: true, questionIndex: qIndexForScore } as SelectedOption];
+    }
+
+    // 5. Update Service & Check Score
+    this.quizService.answers = simulatedSelection;
+    this.quizService.checkIfAnsweredCorrectly().then((isCorrect) => {
+      console.log(`[SOC V2] Score check: isCorrect=${isCorrect}`);
+    });
+
+
+
+
+
+
     // ═══════════════════════════════════════════════════════════════════
     // 🔥 TIMER STOP LOGIC (FIXED - THE ONLY LOCATION!)
     // Single-answer: stop when correct option is clicked
@@ -1605,8 +1676,15 @@ export class SharedOptionComponent
         allCorrectClicked
       });
 
-      if (allCorrectClicked) {
-        console.log(`[SOC] 🎯 MULTI-ANSWER: ALL correct options CLICKED → STOPPING TIMER`);
+      // 🔑 VALIDATION: Check strictly if CURRENT state is perfect (All Correct AND No Incorrect)
+      const currentAnswersForLock = simulatedSelection || [];
+      const correctSelectedCount = currentAnswersForLock.filter(a => a.correct).length;
+      const hasIncorrectForLock = currentAnswersForLock.some(a => !a.correct);
+      const isPerfectState = correctSelectedCount === correctIds.length && !hasIncorrectForLock;
+
+      if (isPerfectState) {
+        console.log(`[SOC] 🎯 MULTI-ANSWER: PERFECTION ACHIEVED → STOPPING TIMER`);
+
         this.timerService.allowAuthoritativeStop();
         this.timerService.stopTimer(undefined, { force: true });
 
@@ -3681,11 +3759,13 @@ export class SharedOptionComponent
       },
     );
 
-    if (this.isDisabled(binding, index)) {
-      ev.stopImmediatePropagation();
-      ev.preventDefault();
-      return;
-    }
+    /* if (this.isDisabled(binding, index)) {
+      console.log(`[SOC] 🛑 isDisabled is TRUE for ${binding?.option?.optionId} but ignoring for debug`);
+      // ev.stopImmediatePropagation();
+      // ev.preventDefault();
+      // return;
+    } */
+
 
     // Let the main handler do all the heavy lifting
     this.handleClick(binding, index);

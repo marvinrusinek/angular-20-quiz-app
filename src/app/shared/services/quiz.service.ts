@@ -829,6 +829,31 @@ export class QuizService {
 
     const previousQuestion = this.currentQuestion.getValue();
 
+    // Volatile Scoring: Decrement score when leaving a previously correct question provided we are navigating backwards
+    if (previousQuestion) {
+      let prevIndex = (previousQuestion as any).index;
+      if (typeof prevIndex !== 'number') {
+        prevIndex = this.questions.findIndex(
+          (q: QuizQuestion) =>
+            q === previousQuestion ||
+            (q.questionText === previousQuestion.questionText &&
+              q.questionText),
+        );
+      }
+      const isGoingBack = prevIndex > this.currentQuestionIndex;
+
+      if (prevIndex > -1 && isGoingBack) {
+        const wasCorrect = this.questionCorrectness.get(prevIndex);
+        if (wasCorrect) {
+          this.updateCorrectCountForResults(this.correctCount - 1);
+          this.questionCorrectness.set(prevIndex, false);
+          console.log(
+            `[QuizService] 📉 Decremented score for Leaving Q${prevIndex} (Backwards)`,
+          );
+        }
+      }
+    }
+
     // Check for deep comparison result
     const isEqual = this.areQuestionsEqual(previousQuestion, question);
     if (isEqual) {
@@ -863,8 +888,12 @@ export class QuizService {
       options: updatedOptions,
     };
 
+    // 🔑 FIX: Clear stale answers
+    this.answers = [];
+
     // Emit the new question
     this.currentQuestion.next(updatedQuestion);
+
   }
 
   public getCurrentQuestion(
@@ -1320,14 +1349,15 @@ export class QuizService {
     question: QuizQuestion,
     answers: Option[],
   ): Promise<boolean[]> {
-    return answers.map(
-      (answer) =>
-        !!question.options.find(
-          (option) =>
-            option.text.trim().toLowerCase() ===
-            answer.text.trim().toLowerCase(),
-        )?.correct,
-    );
+    return answers.map((answer) => {
+      const found = question.options.find(
+        (option) =>
+          option.text.trim().toLowerCase() ===
+          answer.text.trim().toLowerCase(),
+      );
+      const correct = found?.correct as any;
+      return !!correct && String(correct) !== 'false';
+    });
   }
 
   // Populate correctOptions when questions are loaded
@@ -1422,6 +1452,8 @@ export class QuizService {
   }
 
   updateAnswersForOption(selectedOption: Option): void {
+    console.log(`[updateAnswersForOption] 📝 Called with option: ${selectedOption?.text?.substring(0, 20)}... optionId=${selectedOption?.optionId}`);
+
     if (!this.answers) {
       this.answers = [];
     }
@@ -1434,11 +1466,14 @@ export class QuizService {
       this.answers.push(selectedOption);
     }
 
+
     const answerIds = this.answers
       .map((answer: Option) => answer.optionId)
       .filter((id): id is number => id !== undefined);
     this.answersSubject.next(answerIds);
+    console.log(`[updateAnswersForOption] Final answers array: ${JSON.stringify(this.answers.map(a => a.text?.substring(0, 15)))}`);
   }
+
 
   returnQuizSelectionParams(): QuizSelectionParams {
     return {
@@ -1811,53 +1846,39 @@ export class QuizService {
   }
 
   async checkIfAnsweredCorrectly(): Promise<boolean> {
+    console.log(`[checkIfAnsweredCorrectly] 🎯 Called! quizId=${this.quizId}, currentQuestionIndex=${this.currentQuestionIndex}`);
+    console.log(`[checkIfAnsweredCorrectly] 🎯 STARTING CHECK for Q${this.currentQuestionIndex}`);
     try {
-      // Get the quiz already loaded in memory
       const foundQuiz = this.currentQuizSubject.getValue();
-
       if (!foundQuiz) {
-        console.error(
-          `[checkIfAnsweredCorrectly] Quiz not found for ID: ${this.quizId}`,
-        );
+        console.error(`[checkIfAnsweredCorrectly] ❌ EXIT 1: Quiz not found`);
         return false;
       }
 
       this.quiz = foundQuiz;
-
-      // Validate the current question index
-      const isQuestionValid = this.validateAndSetCurrentQuestion(
-        this.quiz,
-        this.currentQuestionIndex,
-      );
-
-      if (!isQuestionValid) {
-        console.error(
-          `[checkIfAnsweredCorrectly] Invalid question index: ${this.currentQuestionIndex}`,
-        );
-        return false;
-      }
-
-      // Pull the question
       const currentQuestionValue = this.currentQuestion.getValue();
+
       if (!currentQuestionValue) {
-        console.error(
-          '[checkIfAnsweredCorrectly] Current question value is undefined or null.',
-        );
+        console.error('[checkIfAnsweredCorrectly] ❌ EXIT 3: No current question');
         return false;
       }
 
-      // Validate answers exist
+      console.log(`[checkIfAnsweredCorrectly] 🔍 Current Question: ${currentQuestionValue.questionText?.substring(0, 30)}`);
+
+      // Update derived state for scoring logic
+      this.numberOfCorrectAnswers = currentQuestionValue.options.filter(
+        (option) => !!option.correct && String(option.correct) !== 'false'
+      ).length;
+      this.multipleAnswer = this.numberOfCorrectAnswers > 1;
+
+      console.log(`[checkIfAnsweredCorrectly] 📊 Updated state: correctOptions=${this.numberOfCorrectAnswers}, isMultiple=${this.multipleAnswer}`);
+
+
+      // 🔑 DEBUG: Print answers
+      console.log(`[checkIfAnsweredCorrectly] 🔍 Answers Array:`, JSON.stringify(this.answers));
+
       if (!this.answers || this.answers.length === 0) {
-        console.info(
-          '[checkIfAnsweredCorrectly] No answers provided for validation.',
-        );
-        return false;
-      }
-
-      if (!this.validateAnswers(currentQuestionValue, this.answers)) {
-        console.warn(
-          '[checkIfAnsweredCorrectly] Answers are invalid or do not match question format.',
-        );
+        console.info('[checkIfAnsweredCorrectly] ❌ EXIT 4: Answers EMPTY');
         return false;
       }
 
@@ -1867,14 +1888,17 @@ export class QuizService {
         this.answers,
       );
 
-      const isCorrect = correctnessArray.includes(true);
+      console.log(`[checkIfAnsweredCorrectly] 🔍 Correctness Array:`, correctnessArray);
 
-      // Convert answers → optionId[]
+      const correctFoundCount = correctnessArray.filter((v) => v === true).length;
+      const isCorrect = correctFoundCount === this.numberOfCorrectAnswers;
+
       const answerIds = this.answers
         .map((a) => a.optionId)
         .filter((id): id is number => id !== undefined);
 
       // Update score
+      console.log(`[checkIfAnsweredCorrectly] 🚀 CALLING incrementScore with isCorrect=${isCorrect}`);
       this.incrementScore(answerIds, isCorrect, this.multipleAnswer);
 
       return isCorrect;
@@ -1882,28 +1906,51 @@ export class QuizService {
       console.error('[checkIfAnsweredCorrectly] Exception:', error);
       return false;
     }
+
   }
+
+  // 🔑 State tracking for scoring (Index -> IsCorrect)
+  private questionCorrectness = new Map<number, boolean>();
 
   incrementScore(
     answers: number[],
     correctAnswerFound: boolean,
     isMultipleAnswer: boolean,
   ): void {
+    const qIndex = this.currentQuestionIndex;
+    const wasCorrect = this.questionCorrectness.get(qIndex) || false;
+
+    // Determine strict correctness for this attempt
+    let isNowCorrect = false;
     if (isMultipleAnswer) {
-      // For multiple-answer questions, ALL correct answers should be marked correct for the score to increase
-      if (
-        correctAnswerFound &&
-        answers.length === this.numberOfCorrectAnswers
-      ) {
-        this.updateCorrectCountForResults(this.correctCount + 1);
-      }
+      isNowCorrect = correctAnswerFound;
     } else {
-      // For single-answer questions, a single correct answer should increase the score
-      if (correctAnswerFound) {
-        this.updateCorrectCountForResults(this.correctCount + 1);
-      }
+      isNowCorrect = correctAnswerFound;
     }
+
+    console.log(`[incrementScore] 📊 Q${qIndex} Check: Now=${isNowCorrect}, Was=${wasCorrect}, Multi=${isMultipleAnswer}`);
+
+    // State Transition Logic
+    if (isNowCorrect && !wasCorrect) {
+      // Gained a point
+      this.updateCorrectCountForResults(this.correctCount + 1);
+      this.questionCorrectness.set(qIndex, true);
+      console.log(`[Score] 📈 Gained point for Q${qIndex}. Total: ${this.correctCount}`);
+    } else if (!isNowCorrect && wasCorrect) {
+      // Lost a point
+      this.updateCorrectCountForResults(this.correctCount - 1);
+      this.questionCorrectness.set(qIndex, false);
+      console.log(`[Score] 📉 Lost point for Q${qIndex}. Total: ${this.correctCount}`);
+    } else {
+      // No change
+      console.log(`[Score] 😐 No change for Q${qIndex}. Total: ${this.correctCount}`);
+    }
+
+    // Redundant logging for debug
+    // console.log(`[incrementScore] 📊 After update: score=${this.correctCount}`);
   }
+
+
 
   private updateCorrectCountForResults(value: number): void {
     this.correctCount = value;
