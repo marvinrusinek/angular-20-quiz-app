@@ -455,8 +455,7 @@ export class TimerService implements OnDestroy {
         // EXACT match: all and only correct options selected
         shouldStop =
           correctOptionIds.length > 0 &&
-          selectedCorrectCount === correctOptionIds.length &&
-          selectedSet.size === correctOptionIds.length;
+          selectedCorrectCount === correctOptionIds.length;
       }
 
       // ────────────────────────────────────────────

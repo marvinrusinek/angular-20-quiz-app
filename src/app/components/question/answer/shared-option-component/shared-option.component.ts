@@ -1679,8 +1679,7 @@ export class SharedOptionComponent
       // 🔑 VALIDATION: Check strictly if CURRENT state is perfect (All Correct AND No Incorrect)
       const currentAnswersForLock = simulatedSelection || [];
       const correctSelectedCount = currentAnswersForLock.filter(a => a.correct).length;
-      const hasIncorrectForLock = currentAnswersForLock.some(a => !a.correct);
-      const isPerfectState = correctSelectedCount === correctIds.length && !hasIncorrectForLock;
+      const isPerfectState = correctSelectedCount === correctIds.length;
 
       if (isPerfectState) {
         console.log(`[SOC] 🎯 MULTI-ANSWER: PERFECTION ACHIEVED → STOPPING TIMER`);

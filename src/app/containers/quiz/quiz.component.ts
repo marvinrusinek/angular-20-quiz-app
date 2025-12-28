@@ -644,6 +644,16 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
         // Update the component property so it propagates to children
         this.currentQuestionIndex = idx;
+
+        // 🔑 FIX: URL Navigation Sync. Manually update currentQuestion when index changes.
+        // ngOnChanges does not fire for internal property updates.
+        if (this.questionsArray?.[idx]) {
+          this.currentQuestion = this.questionsArray[idx];
+          console.log(`[QuizComponent] 🔄 Synced currentQuestion to Q${idx + 1} from URL/Index update`);
+          // Ensure QuizStateService is also aligned
+          this.quizStateService.updateCurrentQuestion(this.currentQuestion);
+        }
+
         this.cdRef.markForCheck();
 
         // ONLY reset display mode when NAVIGATING to a NEW question
@@ -1462,7 +1472,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
     this.fetchRouteParams();
     this.subscribeRouterAndInit();
     this.subscribeToRouteParams();
-    void this.initializeRouteParams();
+    // void this.initializeRouteParams(); // REMOVED RECURSIVE CALL
   }
 
   private initializeQuizData(): void {

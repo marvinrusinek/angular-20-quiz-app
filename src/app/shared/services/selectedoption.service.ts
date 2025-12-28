@@ -795,10 +795,36 @@ export class SelectedOptionService {
       return;
     }
 
+    // Resolve the source option to extract 'correct' status
+    let foundSourceOption: Option | undefined;
+
+    // Priority 1: Use direct index if canonicalOptionId is an index into source
+    if (
+      typeof canonicalOptionId === 'number' &&
+      canonicalOptionId >= 0 &&
+      canonicalOptionId < source.length &&
+      (source[canonicalOptionId]?.optionId === canonicalOptionId || source[canonicalOptionId]?.optionId === undefined)
+    ) {
+      foundSourceOption = source[canonicalOptionId];
+    }
+
+    // Priority 2: Use resolved indices from previous steps
+    if (!foundSourceOption) {
+      if (indexFromId >= 0) foundSourceOption = source[indexFromId];
+      else if (fallbackIndexFromText >= 0) foundSourceOption = source[fallbackIndexFromText];
+      else if (directMatch?.option) foundSourceOption = directMatch.option;
+    }
+
+    // Priority 3: Scan source for ID match
+    if (!foundSourceOption) {
+      foundSourceOption = source.find(o => String(o.optionId) === String(canonicalOptionId));
+    }
+
     const newSelection: SelectedOption = {
       optionId: canonicalOptionId, // numeric id if available, else index
       questionIndex,
       text,
+      correct: this.coerceToBoolean(foundSourceOption?.correct),
       selected: true,
       highlight: true,
       showIcon: true,
