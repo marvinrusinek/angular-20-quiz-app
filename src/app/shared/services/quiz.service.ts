@@ -579,12 +579,14 @@ export class QuizService {
     const resolvedQuestion = this.resolveCanonicalQuestion(index, null);
 
     if (resolvedQuestion) {
-      console.log(`[getQuestionByIndex] 🛡️ Q${index}: Resolved via canonical logic. ID: ${resolvedQuestion.questionText?.substring(0, 15)}...`);
+      // 🔍 DIAGNOSTIC: What is being returned?
+      console.log(`[getQuestionByIndex] 🛡️ Q${index + 1}: "${resolvedQuestion.questionText?.substring(0, 30)}..." | Opt[0]="${resolvedQuestion.options?.[0]?.text?.substring(0, 20)}..."`);
       return of({
         ...resolvedQuestion,
         options: (resolvedQuestion.options ?? []).map((o) => ({ ...o })),
       });
     }
+
 
     // Fallback to legacy behavior if resolution fails (should rarely happen)
     return this.questions$.pipe(
@@ -613,23 +615,32 @@ export class QuizService {
   private fetchPromise: Promise<QuizQuestion[]> | null = null;
 
   async fetchQuizQuestions(quizId: string): Promise<QuizQuestion[]> {
-    console.log(`[QuizService] fetchQuizQuestions(${quizId}). hasShuffle=${this.shuffledQuestions?.length}, shouldShuffle=${this.shouldShuffle()}`);
+    console.log(`[QuizService] fetchQuizQuestions(${quizId}). hasShuffle=${this.shuffledQuestions?.length}, quizId=${this.quizId}, shouldShuffle=${this.shouldShuffle()}`);
 
-    // ⚡ SIMPLE FIX: Always return shuffledQuestions if available
-    // This ensures all components use the SAME shuffled data from prepareQuizSession
-    if (
-      this.shuffledQuestions &&
-      this.shuffledQuestions.length > 0 &&
-      this.quizId === quizId
-    ) {
-      console.log(`[fetchQuizQuestions] ✅ Returning shuffledQuestions (${this.shuffledQuestions.length} questions)`);
-      if (this.shuffledQuestions.length > 0) {
-        console.log(`[fetchQuizQuestions] Q1 Preview: Text="${this.shuffledQuestions[0].questionText.substring(0, 20)}..." | Options[0]="${this.shuffledQuestions[0].options?.[0]?.text.substring(0, 10)}..."`);
+    // 🔒 CRITICAL FIX: ALWAYS return existing shuffledQuestions if available
+    // This prevents re-shuffling on every call which causes option order instability
+    if (this.shuffledQuestions && this.shuffledQuestions.length > 0) {
+      // If quiz IDs don't match, only then we might need to re-fetch
+      // But if they DO match (or quizId is empty), return the cached shuffle
+      if (!quizId || this.quizId === quizId || !this.quizId) {
+        console.log(`[fetchQuizQuestions] ✅ Returning EXISTING shuffledQuestions (${this.shuffledQuestions.length} questions) - NO RE-SHUFFLE`);
+        if (this.shuffledQuestions.length > 0) {
+          console.log(`[fetchQuizQuestions] Q1 Preview: Text="${this.shuffledQuestions[0].questionText.substring(0, 20)}..." | Options[0]="${this.shuffledQuestions[0].options?.[0]?.text.substring(0, 10)}..."`);
+        }
+        // Ensure the quizId is set if it wasn't
+        if (quizId && !this.quizId) {
+          this.quizId = quizId;
+        }
+        // ⚡ SYNC FIX: Ensure subscribers get the shuffled version!
+        this.questionsSubject.next(this.shuffledQuestions);
+        return this.shuffledQuestions;
+      } else {
+        console.log(`[fetchQuizQuestions] ⚠️ Quiz ID changed from ${this.quizId} to ${quizId} - will re-fetch`);
+        // Clear old shuffle for new quiz
+        this.shuffledQuestions = [];
       }
-      // ⚡ SYNC FIX: Ensure subscribers get the shuffled version!
-      this.questionsSubject.next(this.shuffledQuestions);
-      return this.shuffledQuestions;
     }
+
 
     if (this.fetchPromise) {
       console.log('[QuizService] 🔄 Reuse in-flight fetch promise.');

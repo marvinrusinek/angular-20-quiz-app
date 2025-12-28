@@ -18,13 +18,17 @@ export class QuizShuffleService {
   public prepareShuffle(
     quizId: string,
     questions: QuizQuestion[],
-    opts: PrepareShuffleOpts = { shuffleQuestions: true, shuffleOptions: true },
+    opts: PrepareShuffleOpts = { shuffleQuestions: true, shuffleOptions: false }, // 🔒 Question shuffle ON, Option shuffle OFF
   ): void {
-    // ✅ Re-enabled shuffling as part of the data flow fix
-    const { shuffleQuestions = true, shuffleOptions = true } = opts;
+    // Question shuffling enabled, but option shuffling disabled for stability
+    const { shuffleQuestions = true, shuffleOptions = false } = opts;
+
+
+    console.log(`[QuizShuffleService] prepareShuffle called. shuffleQuestions=${shuffleQuestions}, shuffleOptions=${shuffleOptions}`);
 
     const qIdx = questions.map((_, i) => i);
     const questionOrder = shuffleQuestions ? Utils.shuffleArray(qIdx) : qIdx;
+
 
     const optionOrder = new Map<number, number[]>();
     for (const origIdx of questionOrder) {
