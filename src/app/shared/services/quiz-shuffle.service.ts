@@ -20,15 +20,20 @@ export class QuizShuffleService {
     questions: QuizQuestion[],
     opts: PrepareShuffleOpts = { shuffleQuestions: true, shuffleOptions: false }, // 🔒 Question shuffle ON, Option shuffle OFF
   ): void {
+    // 🔒 CRITICAL FIX: Only shuffle ONCE per quiz session
+    // If we already have a shuffle order for this quiz, DO NOT recreate it!
+    if (this.shuffleByQuizId.has(quizId)) {
+      console.log(`[QuizShuffleService] ⚡ REUSING existing shuffle for quiz ${quizId} - NOT re-shuffling!`);
+      return;
+    }
+
     // Question shuffling enabled, but option shuffling disabled for stability
     const { shuffleQuestions = true, shuffleOptions = false } = opts;
 
-
-    console.log(`[QuizShuffleService] prepareShuffle called. shuffleQuestions=${shuffleQuestions}, shuffleOptions=${shuffleOptions}`);
+    console.log(`[QuizShuffleService] 🔀 prepareShuffle FIRST TIME for ${quizId}. shuffleQuestions=${shuffleQuestions}, shuffleOptions=${shuffleOptions}`);
 
     const qIdx = questions.map((_, i) => i);
     const questionOrder = shuffleQuestions ? Utils.shuffleArray(qIdx) : qIdx;
-
 
     const optionOrder = new Map<number, number[]>();
     for (const origIdx of questionOrder) {
@@ -42,6 +47,7 @@ export class QuizShuffleService {
 
     this.shuffleByQuizId.set(quizId, { questionOrder, optionOrder });
   }
+
 
   private reorderOptions(options: Option[], order?: number[]): Option[] {
     if (!Array.isArray(options) || options.length === 0) {

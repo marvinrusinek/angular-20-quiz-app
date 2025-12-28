@@ -1514,8 +1514,11 @@ get quizQuestionComponent(): QuizQuestionComponent {
       existingPayload?.options?.length &&
       currentIndex === normalizedIndex
     ) {
+      // 🔍 DIAGNOSTIC: Is this reusing stale data?
+      console.log(`[ensureInitialQuestionFromRoute] ⚠️ REUSING existing payload for Q${normalizedIndex + 1}: "${existingPayload.question.questionText?.substring(0, 25)}..."`);
       return;
     }
+
 
     try {
       // 🔑 CRITICAL FIX: Ensure questions are loaded and SHUFFLED if needed via QuizService
