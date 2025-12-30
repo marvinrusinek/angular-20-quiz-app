@@ -335,9 +335,6 @@ export class QuizQuestionLoaderService {
         opt.active = true;
         i++;
       }
-      console.log(
-        `[QQ Loader] 🧱 Deep-cloned ${cloned.length} options for Q${index + 1}`,
-      );
     } catch (err) {
       console.warn(
         '[QQ Loader] ⚠️ Deep clone failed, falling back to structuredClone',
@@ -356,9 +353,6 @@ export class QuizQuestionLoaderService {
     this.explanationTextService.setShouldDisplayExplanation(false);
     this.explanationTextService.setIsExplanationTextDisplayed(false);
     this.explanationTextService.setExplanationText('');
-    console.log(
-      `[QQ Loader] 🔄 Reset selection and FET state before rendering Q${index + 1}`,
-    );
 
     // Safe assignment — always new objects
     this.currentQuestion = { ...q, options: cloned };
