@@ -4926,7 +4926,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
     // Navigate to Q1
     this.router
-      .navigate(['/question', this.quizId, 1])
+      .navigate(['/quiz/question', this.quizId, 1])
       .then(() => {
         // Sync current index
         this.currentQuestionIndex = 0;

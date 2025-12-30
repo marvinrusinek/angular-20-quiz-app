@@ -39,7 +39,7 @@ export class QuizResolverService implements Resolve<Quiz | UrlTree | null> {
       map((quiz) => {
         if (!quiz) {
           console.error(`[❌ QuizResolver] Quiz not found for ID: ${quizId}`);
-          return this.router.createUrlTree(['/select']);
+          return this.router.createUrlTree(['/quiz']);
         }
         console.log('[✅ QuizResolver] Quiz resolved (slow path):', quiz);
         return quiz;
@@ -47,7 +47,7 @@ export class QuizResolverService implements Resolve<Quiz | UrlTree | null> {
 
       catchError((error) => {
         console.error('[❌ QuizResolverService failure]', error);
-        return of(this.router.createUrlTree(['/select']));
+        return of(this.router.createUrlTree(['/quiz']));
       }),
     );
   }

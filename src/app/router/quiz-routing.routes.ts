@@ -11,26 +11,31 @@ import { QuizGuard } from './guards/quiz-guard';
 export const routes: Routes = [
   {
     path: '',
-    redirectTo: 'select',
+    redirectTo: 'quiz',
     pathMatch: 'full',
   },
   {
-    path: 'select',
+    path: 'quiz',
     component: QuizSelectionComponent,
   },
   {
-    path: 'intro/:quizId',
+    path: 'quiz/intro/:quizId',
     component: IntroductionComponent,
   },
   {
-    path: 'question/:quizId/:questionIndex',
+    path: 'quiz/question/:quizId/:questionIndex',
     component: QuizComponent,
     canActivate: [QuizGuard],
     resolve: { quizData: QuizResolverService },
     runGuardsAndResolvers: 'always',
   },
   {
-    path: 'results/:quizId',
+    path: 'quiz/results/:quizId',
     component: ResultsComponent,
   },
+  // Backward compatibility redirects
+  { path: 'select', redirectTo: 'quiz', pathMatch: 'full' },
+  { path: 'intro/:quizId', redirectTo: 'quiz/intro/:quizId', pathMatch: 'full' },
+  { path: 'question/:quizId/:questionIndex', redirectTo: 'quiz/question/:quizId/:questionIndex', pathMatch: 'full' },
+  { path: 'results/:quizId', redirectTo: 'quiz/results/:quizId', pathMatch: 'full' },
 ];

@@ -125,8 +125,8 @@ export class QuizNavigationService {
     const getUrlIndex = (): number => {
       try {
         const url = this.router.url;
-        // Robust Regex: match /question/<quizId>/<number> anywhere in string
-        const match = url.match(/\/question\/[^/]+\/(\d+)/);
+        // Robust Regex: match /quiz/question/<quizId>/<number> anywhere in string
+        const match = url.match(/\/quiz\/question\/[^/]+\/(\d+)/);
         if (match && match[1]) {
           return parseInt(match[1], 10);
         }
@@ -166,7 +166,7 @@ export class QuizNavigationService {
 
     if (targetRouteIndex > maxQuestions) {
       console.log('[NAV FORCE] Target exceeds max known questions, going to Results');
-      await this.ngZone.run(() => this.router.navigate(['/results', quizId]));
+      await this.ngZone.run(() => this.router.navigate(['/quiz/results', quizId]));
       return true;
     }
 
@@ -460,7 +460,7 @@ export class QuizNavigationService {
     const fallbackQuizId = localStorage.getItem('quizId');
     const quizId = quizIdFromRoute || fallbackQuizId;
 
-    const routeUrl = `/question/${quizId}/${index + 1}`;
+    const routeUrl = `/quiz/question/${quizId}/${index + 1}`;
     console.log(`[NAV DEBUG] performRouterNavigation START. Target: ${routeUrl}`);
     const currentUrl = this.router.url;
     const currentIndex = this.quizService.getCurrentQuestionIndex();
@@ -681,7 +681,7 @@ export class QuizNavigationService {
         );
       }
 
-      const routeUrl = `/question/${effectiveQuizId}/${index + 1}`;
+      const routeUrl = `/quiz/question/${effectiveQuizId}/${index + 1}`;
       if (this.router.url === routeUrl) {
         console.warn(`[resetUIAndNavigate] ⚠️ Already on route ${routeUrl}`);
         return true;

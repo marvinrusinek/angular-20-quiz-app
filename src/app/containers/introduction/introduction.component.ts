@@ -354,7 +354,7 @@ export class IntroductionComponent implements OnInit, OnDestroy {
     try {
       // Router expects 1-based question in URL; index 0 ⇒ "/.../1"
       const fallbackSucceeded = await this.ngZone.run(() =>
-        this.router.navigate(['/question', quizId, 1]),
+        this.router.navigate(['/quiz/question', quizId, 1]),
       );
 
       if (!fallbackSucceeded) {
