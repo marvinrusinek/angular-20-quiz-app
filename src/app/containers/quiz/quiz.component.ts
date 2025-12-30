@@ -1206,7 +1206,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
   public async onOptionSelected(
     event: SelectedOption,
-    isUserAction: boolean = true
+    isUserAction: boolean = true,
   ): Promise<void> {
     // Guards and de-duplication
     if (!isUserAction || (!this.resetComplete && !this.hasOptionsLoaded))
@@ -1234,7 +1234,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
     ) {
       console.warn('[⚠️ Invalid question index for explanation]', {
         emittedQuestionIndex,
-        currentQuestionIndex: this.currentQuestionIndex
+        currentQuestionIndex: this.currentQuestionIndex,
       });
       return;
     }
@@ -1245,10 +1245,12 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
     // Mark as answered and enable Next
     if (isAnswered) {
+      console.log('[✅ Option selected – enabling Next]');
       this.selectedOptionService.setAnswered(true);
       this.nextButtonStateService.setNextButtonState(isAnswered);
     }
     this.cdRef.markForCheck();
+    console.log('[PARENT] onOptionSelected → about to enable Next');
 
     // Persist per-question “seen” flag␊
     const prev = this.quizStateService.getQuestionState(
@@ -1280,7 +1282,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
         this.nextButtonStateService.evaluateNextButtonState(
           this.selectedOptionService.isAnsweredSubject.getValue(),
           this.quizStateService.isLoadingSubject.getValue(),
-          this.quizStateService.isNavigatingSubject.getValue()
+          this.quizStateService.isNavigatingSubject.getValue(),
         );
       }, 50);
     } catch (err) {
@@ -1772,17 +1774,42 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
           await this.quizQuestionLoaderService.loadQA(index);
 
-          const question = currentQuiz.questions?.[index] ?? null;
+          // 🔑 FIX: Use the correct question source (shuffled or original)
+          const shouldUseShuffled = this.quizService.isShuffleEnabled() && this.quizService.shuffledQuestions?.length > 0;
+          const effectiveQuestions = shouldUseShuffled ? this.quizService.shuffledQuestions : currentQuiz.questions;
+          const question = effectiveQuestions?.[index] ?? null;
+
           if (!question) {
             console.error('[❌ No question at index]', { index });
             return;
           }
 
-          // Now it’s safe to clear previous headline data
+          // Now it's safe to clear previous headline data
           this.quizQuestionLoaderService.resetHeadlineStreams(index);
 
           // Local state still needed elsewhere in the component
           this.currentQuestion = question;
+          this.question = question;
+
+          // 🔑 FIX: Update combinedQuestionDataSubject so the template gets the new question
+          const options = question.options ?? [];
+          const explanation = question.explanation ?? '';
+          const payload: QuestionPayload = {
+            question: question,
+            options: options,
+            explanation: explanation,
+          };
+          this.combinedQuestionDataSubject.next(payload);
+
+          // Also update related state for consistency
+          this.questionToDisplaySource.next(question.questionText?.trim() ?? '');
+          this.optionsToDisplay = [...options];
+          this.optionsToDisplay$.next([...options]);
+          this.explanationToDisplay = explanation;
+          this.qaToDisplay = { question, options };
+          this.shouldRenderOptions = true;
+
+          console.log(`[subscribeToRouteParams] ✅ Updated combinedQuestionDataSubject for Q${index + 1}`);
 
           // Progress Bar
           this.progressBarService.updateProgress(index, totalQuestions);
@@ -2799,7 +2826,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
         const restoredOption = this.optionsToDisplay.find(
           opt => opt.optionId === option.optionId,
         );
-      
+
         if (restoredOption) {
           restoredOption.selected = true; // ✅ Set option as selected
           console.log(
@@ -2812,7 +2839,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
             option,
           );
         }
-      }      
+      }
     } catch (error) {
       console.error(
         '[restoreSelectedOptions] ❌ Error parsing selected options:',
