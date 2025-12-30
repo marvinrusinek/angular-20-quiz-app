@@ -29,7 +29,7 @@
               [questionToDisplay$]="questionToDisplay$"
               [explanationToDisplay]="explanationToDisplay"
               (answer)="selectedAnswer($event)"
-              (optionSelected)="onOptionSelected($any($event))"
+              (optionSelected)="onOptionSelected($event)"
               (selectionMessageChange)="
                   onSelectionMessageChange($event)"
               (explanationToDisplayChange)="onExplanationChanged($event)"

@@ -1205,21 +1205,23 @@ get quizQuestionComponent(): QuizQuestionComponent {
   }
 
   public async onOptionSelected(
-    event: { option: SelectedOption; index: number; checked: boolean },
+    event: SelectedOption,
     isUserAction: boolean = true,
   ): Promise<void> {
     // Guards and de-duplication
     if (!isUserAction || (!this.resetComplete && !this.hasOptionsLoaded))
       return;
 
-    if (event.index === this.lastLoggedIndex) {
+    // Use optionId or displayOrder for deduplication
+    const optionIdentifier = event?.optionId ?? event?.displayOrder ?? -1;
+    if (optionIdentifier === this.lastLoggedIndex) {
       console.warn('[🟡 Skipping duplicate event]', event);
       return;
     }
-    this.lastLoggedIndex = event.index;
+    this.lastLoggedIndex = optionIdentifier;
 
     // Show the explanation on first click
-    const emittedQuestionIndex = event?.option?.questionIndex;
+    const emittedQuestionIndex = event?.questionIndex;
     const normalizedQuestionIndex =
       Number.isInteger(emittedQuestionIndex) &&
         (emittedQuestionIndex as number) >= 0
