@@ -1475,8 +1475,12 @@ export class SelectedOptionService {
 
     for (const options of candidateOptionSets) {
       const normalized = Array.isArray(options) ? options.filter(Boolean) : [];
-
-      normalized.forEach((option, idx) => recordFromOption(option, idx));
+    
+      let idx = 0;
+      for (const option of normalized) {
+        recordFromOption(option, idx);
+        idx++;
+      }
     }
 
     return ids;
@@ -1705,7 +1709,8 @@ export class SelectedOptionService {
       return `${questionIndex}|${idPart}|${alias}`;
     };
 
-    options.forEach((option: any, index) => {
+    let index = 0;
+    for (const option of options) {
       if (option?.optionId !== null && option?.optionId !== undefined) {
         lookupById.set(option.optionId, index);
 
@@ -1717,15 +1722,17 @@ export class SelectedOptionService {
         lookupById.set(String(option.optionId), index);
       }
 
-      aliasFields.forEach((field) => {
-        const key = normalize(option?.[field]);
+      for (const field of aliasFields) {
+        const key = normalize((option as unknown as Record<string, unknown>)?.[field]);
         if (key) {
           lookupByAlias.set(key, index);
         }
-      });
+      }
 
       lookupByAlias.set(normalize(buildStableKey(option)), index);
-    });
+
+      index++;
+    }
 
     if (rawId !== undefined && rawId !== null) {
       const rawNumeric = toFiniteNumber(rawId);
@@ -2204,12 +2211,12 @@ export class SelectedOptionService {
 
       // Also reset any visible array directly bound to the template
       if (Array.isArray(optionsToDisplay)) {
-        optionsToDisplay.forEach((o) => {
+        for (const o of optionsToDisplay) {
           o.selected = false;
           o.highlight = false;
           o.showIcon = false;
           (o as any).disabled = false;
-        });
+        }
       }
     } catch (err) {
       console.warn('[SelectedOptionService] ⚠️ resetOptionState failed:', err);
@@ -2350,7 +2357,9 @@ export class SelectedOptionService {
       set = new Set<string | number>();
       this._lockedByQuestion.set(qIndex, set);
     }
-    optIds.forEach((id) => set!.add(id));
+    for (const id of optIds) {
+      set!.add(id);
+    }
   }
 
   lockQuestion(qIndex: number): void {
