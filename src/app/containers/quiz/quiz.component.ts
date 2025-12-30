@@ -975,25 +975,23 @@ get quizQuestionComponent(): QuizQuestionComponent {
   }
 
   async ngAfterViewInit(): Promise<void> {
-    // requestAnimationFrame(() => this.watchForGhosts());
-
     setTimeout(() => {
       const host = document.querySelector('.animation-host');
       if (!host) return;
 
       const observer = new MutationObserver((mutations) => {
-        mutations.forEach((m) => {
-          m.addedNodes.forEach((node) => {
+        for (const m of mutations) {
+          for (const node of Array.from(m.addedNodes)) {
             if (node instanceof HTMLElement) {
               console.log(
                 '%c[GHOST CANDIDATE]',
                 'color: magenta; font-weight: bold;',
                 node.tagName,
-                node.className,
+                node.className
               );
             }
-          });
-        });
+          }
+        }
       });
 
       observer.observe(host, { childList: true, subtree: true });
@@ -1029,45 +1027,6 @@ get quizQuestionComponent(): QuizQuestionComponent {
           });
       }
     }, 0);
-  }
-
-  private watchForGhosts() {
-    const card = document.querySelector('mat-card');
-    if (!card) return;
-
-    const parent = card.parentElement;
-    if (!parent) return;
-
-    console.log('[DEBUG] Watching for ghost nodes (only direct children)...');
-
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        // Convert NodeList → array to avoid TS2488
-        Array.from(mutation.addedNodes).forEach((node) => {
-          if (!(node instanceof HTMLElement)) return;
-
-          const el = node as HTMLElement;
-          const rect = el.getBoundingClientRect();
-
-          // Angular ghost nodes are tiny
-          if (rect.width <= 40 || rect.height <= 40) {
-            el.style.outline = '3px solid red';
-            console.warn(
-              '%c[LIKELY GHOST NODE]',
-              'color:red;font-weight:bold',
-              el,
-              'size:',
-              rect,
-            );
-          }
-        });
-      });
-    });
-
-    observer.observe(parent, {
-      childList: true,
-      subtree: false,
-    });
   }
 
   initializeDisplayVariables(): void {
@@ -2467,14 +2426,14 @@ get quizQuestionComponent(): QuizQuestionComponent {
     try {
       this.selectedOptionService.resetAllStates();
       this.selectedOptionService.clearSelectionsForQuestion(adjustedIndex);
-      (this.quizService.questions ?? []).forEach((q: QuizQuestion) =>
-        q.options?.forEach((o: Option) => {
+      for (const q of this.quizService.questions ?? []) {
+        for (const o of q.options ?? []) {
           o.selected = false;
           (o as any).highlight = false;
           (o as any).showFeedback = false;
           (o as any).showIcon = false;
-        }),
-      );
+        }
+      }
       this.nextButtonStateService.setNextButtonState(false);
       console.log(
         `[updateContentBasedOnIndex] 🔄 Cleared option states for Q${adjustedIndex + 1}`,
@@ -2536,11 +2495,13 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
       // Ensure all options are clickable again
       setTimeout(() => {
-        document
-          .querySelectorAll('.option-button,.mat-radio-button,.mat-checkbox')
-          .forEach(
-            (btn) => ((btn as HTMLElement).style.pointerEvents = 'auto'),
-          );
+        for (const btn of Array.from(
+          document.querySelectorAll(
+            '.option-button,.mat-radio-button,.mat-checkbox'
+          )
+        )) {
+          (btn as HTMLElement).style.pointerEvents = 'auto';
+        }
       }, 200);
     } catch (err) {
       console.error(
@@ -2834,10 +2795,11 @@ get quizQuestionComponent(): QuizQuestionComponent {
         return;
       }
 
-      selectedOptions.forEach((option) => {
+      for (const option of selectedOptions) {
         const restoredOption = this.optionsToDisplay.find(
-          (opt) => opt.optionId === option.optionId,
+          opt => opt.optionId === option.optionId,
         );
+      
         if (restoredOption) {
           restoredOption.selected = true; // ✅ Set option as selected
           console.log(
@@ -2850,7 +2812,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
             option,
           );
         }
-      });
+      }      
     } catch (error) {
       console.error(
         '[restoreSelectedOptions] ❌ Error parsing selected options:',
@@ -2862,26 +2824,14 @@ get quizQuestionComponent(): QuizQuestionComponent {
   private resetFeedbackState(): void {
     this.showFeedback = false;
     this.showFeedbackForOption = {};
-    this.optionsToDisplay.forEach((option) => {
+    for (const option of this.optionsToDisplay) {
       option.feedback = '';
       option.showIcon = false;
       option.selected = false; // reset selection before reapplying
-    });
+    }
     this.cdRef.detectChanges();
   }
   /****** End of functions responsible for handling navigation to a particular question using the URL. ******/
-
-  // TODO: This wrapper will be needed once question or option shuffling
-  //       is finalized. Keep this method so we can:
-  //       - re-order options before rendering
-  //       - re-seed optionIds after shuffle
-  //       - re-sync dynamic component rendering
-  //       - update selection messages & correct-answers hint after shuffle
-  //       Even though it currently forwards to updateQuestionDisplay,
-  //       DO NOT remove it until shuffle logic is fully implemented.
-  /* updateQuestionDisplayForShuffledQuestions(): void {
-  void this.updateQuestionDisplay(this.currentQuestionIndex);
-  } */
 
   refreshQuestionOnReset(): void {
     const firstQuestion = this.quizService.getQuestionByIndex(0);
