@@ -1206,7 +1206,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
   public async onOptionSelected(
     event: SelectedOption,
-    isUserAction: boolean = true,
+    isUserAction: boolean = true
   ): Promise<void> {
     // Guards and de-duplication
     if (!isUserAction || (!this.resetComplete && !this.hasOptionsLoaded))
@@ -1234,7 +1234,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
     ) {
       console.warn('[⚠️ Invalid question index for explanation]', {
         emittedQuestionIndex,
-        currentQuestionIndex: this.currentQuestionIndex,
+        currentQuestionIndex: this.currentQuestionIndex
       });
       return;
     }
@@ -1245,12 +1245,10 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
     // Mark as answered and enable Next
     if (isAnswered) {
-      console.log('[✅ Option selected – enabling Next]');
       this.selectedOptionService.setAnswered(true);
       this.nextButtonStateService.setNextButtonState(isAnswered);
     }
     this.cdRef.markForCheck();
-    console.log('[PARENT] onOptionSelected → about to enable Next');
 
     // Persist per-question “seen” flag␊
     const prev = this.quizStateService.getQuestionState(
@@ -1282,7 +1280,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
         this.nextButtonStateService.evaluateNextButtonState(
           this.selectedOptionService.isAnsweredSubject.getValue(),
           this.quizStateService.isLoadingSubject.getValue(),
-          this.quizStateService.isNavigatingSubject.getValue(),
+          this.quizStateService.isNavigatingSubject.getValue()
         );
       }, 50);
     } catch (err) {
