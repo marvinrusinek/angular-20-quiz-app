@@ -325,13 +325,16 @@ export class QuizQuestionLoaderService {
     let cloned: Option[] = [];
     try {
       cloned = JSON.parse(JSON.stringify(opts));
-      cloned.forEach((opt, i) => {
+  
+      let i = 0;
+      for (const opt of cloned) {
         opt.optionId = opt.optionId ?? i + 1;
         opt.selected = false;
         opt.highlight = false;
         opt.showIcon = false;
         opt.active = true;
-      });
+        i++;
+      }
       console.log(
         `[QQ Loader] 🧱 Deep-cloned ${cloned.length} options for Q${index + 1}`,
       );
