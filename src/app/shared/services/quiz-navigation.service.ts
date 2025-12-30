@@ -152,7 +152,7 @@ export class QuizNavigationService {
       quizId = 'angular-quiz';
     }
 
-    //Simple Bounds Safety (only check min)
+    // Simple Bounds Safety (only check min)
     if (targetRouteIndex < 1) {
       console.warn('[NAV] Cannot navigate below Q1');
       return false;
@@ -380,7 +380,7 @@ export class QuizNavigationService {
     const banner = isMulti
       ? this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
         numCorrect,
-        totalOpts,
+        totalOpts
       )
       : '';
 
