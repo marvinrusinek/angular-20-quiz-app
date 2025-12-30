@@ -610,9 +610,9 @@ export class CodelabQuizContentComponent
     this.destroy$.complete();
     this.correctAnswersTextSource.complete();
     this.correctAnswersDisplaySubject.complete();
-    this.pendingExplanationRequests.forEach((subscription) =>
-      subscription.unsubscribe(),
-    );
+    for (const subscription of this.pendingExplanationRequests) {
+      subscription.unsubscribe();
+    }
     this.pendingExplanationRequests.clear();
     this.combinedTextSubject.complete();
     this.combinedSub?.unsubscribe();
