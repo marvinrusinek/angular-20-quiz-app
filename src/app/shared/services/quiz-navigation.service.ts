@@ -1,9 +1,5 @@
 import { Injectable, NgZone } from '@angular/core';
-import {
-  ActivatedRoute,
-  ActivatedRouteSnapshot,
-  Router
-} from '@angular/router';
+import { ActivatedRoute, ActivatedRouteSnapshot, Router } from '@angular/router';
 import { BehaviorSubject, firstValueFrom, Observable, of, Subject } from 'rxjs';
 import { catchError, take } from 'rxjs/operators';
 
@@ -75,7 +71,7 @@ export class QuizNavigationService {
     private timerService: TimerService,
     private activatedRoute: ActivatedRoute,
     private router: Router,
-    private ngZone: NgZone,
+    private ngZone: NgZone
   ) { }
 
   public async advanceToNextQuestion(): Promise<boolean> {
@@ -174,8 +170,6 @@ export class QuizNavigationService {
   }
 
   public async navigateToQuestion(index: number): Promise<boolean> {
-    // REMOVED _fetchInProgress guard to prevent zombie locks.
-    // The UI button state (nextButtonEnabled$) is the primary debounce mechanism.
     this._fetchInProgress = true;
 
     try {
@@ -191,13 +185,14 @@ export class QuizNavigationService {
         return false;
       }
 
-      // Update Service State (Index) - CRITICAL: Update AFTER router nav success
+      // Update Service State (Index) - Update AFTER router nav success
       this.quizService.setCurrentQuestionIndex(index);
       this.currentQuestionIndex = index;
 
       // Reset UI States for New Question
       this.resetExplanationAndState();
       this.selectedOptionService.setAnswered(false, true);
+
       // Clear all option selections when navigating to new question
       this.selectedOptionService.resetAllStates();
       this.selectedOptionService.clearSelectionsForQuestion(index);
@@ -235,7 +230,12 @@ export class QuizNavigationService {
     try {
       const ets: any = this.explanationTextService;
       if (prevIndex >= 0) ets.closeGateForIndex(prevIndex);
-      ets._byIndex?.forEach?.((s$: any) => s$?.next?.(null));
+      for (const s$ of Array.from(((ets as any)._byIndex ?? []) as unknown[])) {
+        const nextFn = (s$ as any)?.next;
+        if (typeof nextFn === 'function') {
+          nextFn.call(s$, null);
+        }
+      }
       ets.formattedExplanationSubject.next('');
       ets.setShouldDisplayExplanation(false);
       ets.setIsExplanationTextDisplayed(false);
