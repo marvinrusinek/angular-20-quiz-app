@@ -425,15 +425,6 @@ export class QuizDataService implements OnDestroy {
         quizId,
         workingSet,
       );
-      console.log(`[buildSessionQuestions] ✅ Shuffled ${shuffled.length} questions. Order:`,
-        shuffled.map((q, i) => `Q${i + 1}="${q.questionText?.substring(0, 20)}..."`).join(', '));
-
-      // 🔍 DEBUG: Log question-option correspondence after shuffle
-      console.log('[QuizDataService] 🔀 SHUFFLED QUESTIONS:');
-      shuffled.forEach((q, idx) => {
-        const firstOption = q.options?.[0]?.text?.substring(0, 30) ?? 'N/A';
-        console.log(`  Q${idx + 1}: "${q.questionText?.substring(0, 40)}..." → Option1: "${firstOption}..."`);
-      });
 
       return this.cloneQuestions(shuffled);
     }
