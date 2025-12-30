@@ -121,7 +121,7 @@ export class QuizNavigationService {
   private async navigateWithOffset(offset: number): Promise<boolean> {
     console.log(`[NAV FORCE] navigateWithOffset START. Offset: ${offset}`);
 
-    // 1. Get Current Index (Robust URL Parsing)
+    // Get Current Index (Robust URL Parsing)
     const getUrlIndex = (): number => {
       try {
         const url = this.router.url;
@@ -149,14 +149,14 @@ export class QuizNavigationService {
 
     console.log(`[NAV FORCE] URL Index: ${currentRouteIndex} -> Target: ${targetRouteIndex}`);
 
-    // 2. Get Quiz ID (best effort, fallback to 'angular-quiz')
+    // Get Quiz ID (best effort, fallback to 'angular-quiz')
     let quizId = this.resolveEffectiveQuizId();
     if (!quizId) {
       console.warn('[NAV FORCE] No quizId found, defaulting to "angular-quiz"');
       quizId = 'angular-quiz';
     }
 
-    // 3. Simple Bounds Safety (only check min)
+    //Simple Bounds Safety (only check min)
     if (targetRouteIndex < 1) {
       console.warn('[NAV] Cannot navigate below Q1');
       return false;
@@ -170,8 +170,6 @@ export class QuizNavigationService {
       return true;
     }
 
-    console.log(`[NAV FORCE] Executing direct routing to Q${targetRouteIndex}`);
-    // NOTE: navigateToQuestion expects 0-based index, so sub 1
     return this.navigateToQuestion(targetRouteIndex - 1);
   }
 
@@ -180,43 +178,40 @@ export class QuizNavigationService {
     // The UI button state (nextButtonEnabled$) is the primary debounce mechanism.
     this._fetchInProgress = true;
 
-    console.log(`[NAV CHECKPOINT 5] navigateToQuestion START. Index: ${index}`);
-
     try {
-      // 1. Set navigating state
+      // Set navigating state
       this.isNavigating = true;
       this.quizStateService.setNavigating(true);
       this.quizStateService.setLoading(true);
 
-      // 2. Perform Router Navigation
+      // Perform Router Navigation
       const navSuccess = await this.performRouterNavigation(index);
       if (!navSuccess) {
         console.error('[NAV] Router navigation failed');
         return false;
       }
 
-      // 3. Update Service State (Index) - CRITICAL: Update AFTER router nav success
+      // Update Service State (Index) - CRITICAL: Update AFTER router nav success
       this.quizService.setCurrentQuestionIndex(index);
       this.currentQuestionIndex = index;
 
-      // 4. Reset UI States for New Question
+      // Reset UI States for New Question
       this.resetExplanationAndState();
       this.selectedOptionService.setAnswered(false, true);
-      // 🔑 FIXED: Clear all option selections when navigating to new question
-      this.selectedOptionService.resetAllStates?.();
-      this.selectedOptionService.clearSelectionsForQuestion?.(index);
+      // Clear all option selections when navigating to new question
+      this.selectedOptionService.resetAllStates();
+      this.selectedOptionService.clearSelectionsForQuestion(index);
       this.nextButtonStateService.reset();
       this.quizQuestionLoaderService.resetUI();
 
-
-      // 5. Fetch New Question Data
+      // Fetch New Question Data
       const fresh = await this.fetchAndEmitQuestion(index);
       if (!fresh) {
         console.error('[NAV] Failed to fetch new question data');
         return false;
       }
 
-      // 6. Finalize
+      // Finalize
       this.notifyNavigationSuccess();
 
       return true;
