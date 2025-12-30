@@ -1138,11 +1138,11 @@ export class QuizQuestionComponent
       this.finalRenderReady = false;
 
       // Clear previous highlight / form flags before we clone
-      newOptions.forEach((o) => {
+      for (const o of newOptions) {
         o.selected = false;
         o.highlight = false;
         o.showIcon = false;
-      });
+      }
 
       // Batch the visual swap
       const latest = JSON.stringify(newOptions);
@@ -2214,9 +2214,9 @@ export class QuizQuestionComponent
       );
 
       // Assign the fresh feedback to ALL options
-      clonedOptions.forEach((opt: Option) => {
+      for (const opt of clonedOptions) {
         opt.feedback = generatedFeedback;
-      });
+      }
 
       try {
         (instance as any).questionData = { ...question };
@@ -2930,9 +2930,12 @@ export class QuizQuestionComponent
     try {
       // Assign option IDs
       if (question.options?.length) {
-        question.options.forEach((option, oIndex) => {
+        let oIndex = 0;
+
+        for (const option of question.options) {
           option.optionId = oIndex;
-        });
+          oIndex++;
+        }
       } else {
         console.error(
           `❌ No options found for Q${index}: ${question.questionText}`,
@@ -3405,24 +3408,34 @@ export class QuizQuestionComponent
 
     // SINGLE-ANSWER → ignore deselects
     if (q?.type === QuestionType.SingleAnswer && !event.checked) {
-      optionsNow.forEach((o) => {
-        if (o.selected) o.selected = true;
-      });
-      this.optionsToDisplay?.forEach((o) => {
-        if (o.selected) o.selected = true;
-      });
+      for (const o of optionsNow) {
+        if (o.selected) {
+          o.selected = true;
+        }
+      }
+      
+      for (const o of this.optionsToDisplay ?? []) {
+        if (o.selected) {
+          o.selected = true;
+        }
+      }
       return optionsNow;
     }
 
     this.selectionMessageService.releaseBaseline(questionIndex);
 
     if (q?.type === QuestionType.SingleAnswer) {
-      optionsNow.forEach((opt, i) => {
+      let i = 0;
+      for (const opt of optionsNow) {
         opt.selected = i === evtIdx;
-      });
-      this.optionsToDisplay?.forEach((opt, i) => {
+        i++;
+      }
+
+      i = 0;
+      for (const opt of this.optionsToDisplay ?? []) {
         opt.selected = i === evtIdx;
-      });
+        i++;
+      }
     } else {
       optionsNow[evtIdx].selected = event.checked ?? true;
       if (this.optionsToDisplay) {
@@ -3476,7 +3489,12 @@ export class QuizQuestionComponent
     }));
 
     if (q?.type === QuestionType.SingleAnswer) {
-      canonicalOpts.forEach((opt, i) => (opt.selected = i === evtIdx));
+      let i = 0;
+      for (const opt of canonicalOpts) {
+        opt.selected = i === evtIdx;
+        i++;
+      }
+
       if (evtOpt?.correct && canonicalOpts[evtIdx]) {
         canonicalOpts[evtIdx].selected = true;
         this.selectionMessageService._singleAnswerCorrectLock.add(idx);
@@ -3487,26 +3505,6 @@ export class QuizQuestionComponent
     }
 
     return canonicalOpts;
-  }
-
-  private lockOptionsIfNeeded(
-    q: QuizQuestion,
-    evtOpt: Option,
-    idx: number,
-  ): void {
-    try {
-      const numId = Number(evtOpt?.optionId ?? NaN);
-      if (Number.isFinite(numId)) {
-        this.selectedOptionService.lockOption(idx, numId);
-      }
-
-      if (q?.type === QuestionType.SingleAnswer && evtOpt?.correct) {
-        const allIdsNum = (this.optionsToDisplay ?? [])
-          .map((o) => Number(o.optionId))
-          .filter(Number.isFinite);
-        this.selectedOptionService.lockMany(idx, allIdsNum as number[]);
-      }
-    } catch { }
   }
 
   private syncFeedbackAndHighlighting(idx: number, evtOpt: Option): void {
@@ -4121,12 +4119,17 @@ export class QuizQuestionComponent
         .filter((opt): opt is Option => !!opt);
     }
 
-    (this.optionsToDisplay ?? []).forEach((opt, idx) =>
-      harvestOptionKeys(opt, idx),
-    );
-    (this.sharedOptionComponent?.optionBindings ?? []).forEach((binding, idx) =>
-      harvestOptionKeys(binding?.option, idx),
-    );
+    let idx = 0;
+    for (const opt of this.optionsToDisplay ?? []) {
+      harvestOptionKeys(opt, idx);
+      idx++;
+    }
+
+    idx = 0;
+    for (const binding of this.sharedOptionComponent?.optionBindings ?? []) {
+      harvestOptionKeys(binding?.option, idx);
+      idx++;
+    }
 
     return { canonicalOpts, lockKeys };
   }
@@ -4606,12 +4609,17 @@ export class QuizQuestionComponent
 
       // Also fold in any already-selected options from the rendered list so we
       // don't lose earlier picks that weren't captured in the selections map.
-      this.optionsToDisplay.forEach((opt, idx) => {
+      let idx = 0;
+
+      for (const opt of this.optionsToDisplay) {
         const id = opt?.optionId ?? idx;
+
         if (opt?.selected && id !== undefined && id !== null) {
           selectedIds.add(id);
         }
-      });
+
+        idx++;
+      }
 
       if (option?.optionId !== undefined && option?.optionId !== null) {
         selectedIds.add(option.optionId);
@@ -4628,21 +4636,11 @@ export class QuizQuestionComponent
           showIcon: isSelected,
           selected:
             opt.selected || isSelected || selectedIds.has(opt.optionId ?? -1),
-          active: true, // keep all options active
+          active: true // keep all options active
         };
       });
 
       this.optionsToDisplay = updatedOptions;
-
-      // Stop the timer if all correct options are selected
-      /* const stopped = this.timerService.attemptStopTimerForQuestion({
-        questionIndex: normalizedIndex,
-        optionsSnapshot: updatedOptions
-      });
-
-      if (!stopped) {
-        console.log('❌ Timer not stopped: Conditions not met.');
-      } */
     } catch (error) {
       console.error('[handleMultipleAnswerTimerLogic] Error:', error);
     }
@@ -7192,10 +7190,10 @@ export class QuizQuestionComponent
   private clearOptionStateForQuestion(index: number): void {
     this.selectedOptionService.clearSelectionsForQuestion(index);
 
-    this.optionsToDisplay?.forEach((opt) => {
+    for (const opt of this.optionsToDisplay ?? []) {
       opt.selected = false;
       opt.showIcon = false;
-    });
+    }
 
     this.cdRef.detectChanges();
   }
@@ -7203,13 +7201,14 @@ export class QuizQuestionComponent
   restoreSelectionsAndIconsForQuestion(index: number) {
     const selectedOptions =
       this.selectedOptionService.getSelectedOptionsForQuestion(index);
-    this.optionsToDisplay?.forEach((opt) => {
+    for (const opt of this.optionsToDisplay ?? []) {
       const match = selectedOptions.find(
-        (sel) => sel.optionId === opt.optionId,
+        sel => sel.optionId === opt.optionId
       );
+      
       opt.selected = !!match;
       opt.showIcon = !!match?.showIcon;
-    });
+    }
 
     this.cdRef.detectChanges();
   }
