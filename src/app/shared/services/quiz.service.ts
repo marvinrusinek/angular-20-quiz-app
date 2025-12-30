@@ -1856,7 +1856,17 @@ export class QuizService {
       }
 
       this.quiz = foundQuiz;
-      const currentQuestionValue = this.currentQuestion.getValue();
+      let currentQuestionValue = this.currentQuestion.getValue();
+
+      // ⚡ FIX: In shuffled mode, currentQuestionSubject might be stale (pointing to prev question).
+      // Force resolution by index to ensure we validate against the ACTUAL question on screen.
+      if (this.isShuffleEnabled()) {
+        const resolved = this.resolveCanonicalQuestion(this.currentQuestionIndex, null);
+        if (resolved) {
+          console.log('[checkIfAnsweredCorrectly] 🔀 Shuffled mode: Resolved question by index', this.currentQuestionIndex);
+          currentQuestionValue = resolved;
+        }
+      }
 
       if (!currentQuestionValue) {
         console.error('[checkIfAnsweredCorrectly] ❌ EXIT 3: No current question');
