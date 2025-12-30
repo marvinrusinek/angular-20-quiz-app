@@ -1,13 +1,7 @@
 import { Injectable } from '@angular/core';
 import { ActivatedRouteSnapshot, Router } from '@angular/router';
-import {
-  BehaviorSubject,
-  firstValueFrom,
-  forkJoin,
-  lastValueFrom,
-  of,
-  ReplaySubject,
-} from 'rxjs';
+import { BehaviorSubject, firstValueFrom, forkJoin, lastValueFrom, of,
+  ReplaySubject } from 'rxjs';
 import { catchError, filter, take, timeout } from 'rxjs/operators';
 
 import { QuestionType } from '../models/question-type.enum';
@@ -43,8 +37,7 @@ export class QuizQuestionLoaderService {
   public readonly questionToDisplaySubject = new ReplaySubject<string>(1);
 
   // Observable stream for safe external subscription
-  public readonly questionToDisplay$ =
-    this.questionToDisplaySubject.asObservable();
+  public readonly questionToDisplay$ = this.questionToDisplaySubject.asObservable();
 
   questionTextLoaded = false;
   questionInitialized = false;
@@ -80,8 +73,8 @@ export class QuizQuestionLoaderService {
   isButtonEnabled = false;
   private isButtonEnabledSubject = new BehaviorSubject<boolean>(false);
 
-  public readonly isLoading$ = new BehaviorSubject<boolean>(false); // true while a question is being fetched
-  private currentLoadAbortCtl = new AbortController(); // abort a stale fetch when the user clicks “Next” too fast
+  public readonly isLoading$ = new BehaviorSubject<boolean>(false);  // true while a question is being fetched
+  private currentLoadAbortCtl = new AbortController();  // abort a stale fetch when the user clicks “Next” too fast
 
   private qaSubject = new BehaviorSubject<QAPayload | null>(null);
 
@@ -121,14 +114,14 @@ export class QuizQuestionLoaderService {
     private timerService: TimerService,
     private selectedOptionService: SelectedOptionService,
     private quizStateService: QuizStateService,
-    private router: Router,
+    private router: Router
   ) {
     (this.explanationTextService as any)._loaderRef = this;
   }
 
   public async loadQuestionContents(questionIndex: number): Promise<void> {
     try {
-      // ───── Validate quizId before proceeding ─────
+      // Validate quizId before proceeding
       const quizId = this.quizService.getCurrentQuizId();
       if (!quizId) {
         console.warn(
@@ -142,7 +135,7 @@ export class QuizQuestionLoaderService {
         questionIndex,
       );
 
-      // ───── Reset visual/UI state before rendering ─────
+      // Reset visual/UI state before rendering
       if (!hasCachedQuestion) {
         this.hasContentLoaded = false;
         this.hasOptionsLoaded = false;
@@ -151,7 +144,7 @@ export class QuizQuestionLoaderService {
         this.isQuestionDisplayed = false;
         this.isNextButtonEnabled = false;
 
-        // ───── Reset any previous data ─────
+        // Reset any previous data
         this.optionsToDisplay = [];
         this.explanationToDisplay = '';
         this.questionData = null;
@@ -159,7 +152,7 @@ export class QuizQuestionLoaderService {
         this.isLoading = false;
       }
 
-      // ───── Attempt to fetch question, options, and explanation in parallel ─────
+      // Attempt to fetch question, options, and explanation in parallel
       try {
         type FetchedData = {
           question: QuizQuestion | null;
@@ -199,7 +192,7 @@ export class QuizQuestionLoaderService {
           ),
         );
 
-        // ───── Guard against incomplete question data ─────
+        // Guard against incomplete question data
         if (
           !data.question?.questionText?.trim() ||
           !Array.isArray(data.options) ||
@@ -212,20 +205,20 @@ export class QuizQuestionLoaderService {
           return;
         }
 
-        // ───── Generate feedback message for current question ─────
+        // Generate feedback message for current question
         const correctOptions = data.options.filter((opt) => opt.correct);
         const feedbackMessage = this.feedbackService.generateFeedbackForOptions(
           correctOptions,
           data.options,
         );
 
-        // ───── Apply feedback to each option ─────
+        // Apply feedback to each option
         const updatedOptions = data.options.map((opt) => ({
           ...opt,
           feedback: feedbackMessage,
         }));
 
-        // ───── Apply loaded values to local state ─────
+        // Apply loaded values to local state
         this.optionsToDisplay = [...updatedOptions];
         this.optionsToDisplay$.next(this.optionsToDisplay);
         this.hasOptionsLoaded = true;
@@ -234,7 +227,7 @@ export class QuizQuestionLoaderService {
         this.explanationToDisplay = data.explanation ?? '';
         this.isQuestionDisplayed = true;
 
-        // ───── Final loading flag ─────
+        // Final loading flag
         this.isLoading = false;
       } catch (error) {
         console.error(
@@ -245,9 +238,7 @@ export class QuizQuestionLoaderService {
       }
     } catch (error) {
       console.error(
-        `[QuizQuestionLoaderService] ❌ Unexpected outer error:`,
-        error,
-      );
+        `[QuizQuestionLoaderService] ❌ Unexpected outer error:`, error);
       this.isLoading = false;
     }
   }
@@ -381,7 +372,7 @@ export class QuizQuestionLoaderService {
     }
 
     if (routeId !== this.lastQuizId) {
-      // quiz switch
+      // Quiz switch
       this.questionsArray = [];
       this.lastQuizId = routeId;
     }
