@@ -413,21 +413,21 @@ export class SelectedOptionService {
 
     const combinedSelections: SelectedOption[] = [];
 
-    groupedSelections.forEach((selections, questionIndex) => {
+    for (const [questionIndex, selections] of groupedSelections) {
       // Commit selections for this question
       const committed = this.commitSelections(questionIndex, selections);
-
+    
       // Always overwrite the map entry with ALL committed selections
       this.selectedOptionsMap.set(questionIndex, committed);
-
+    
       // Aggregate globally
       if (committed.length > 0) {
         combinedSelections.push(...committed);
       }
-
+    
       // Update answered state
       this.updateAnsweredState(committed, questionIndex);
-    });
+    }
 
     if (combinedSelections.length === 0) {
       this.updateAnsweredState([], this.getFallbackQuestionIndex());
@@ -476,46 +476,32 @@ export class SelectedOptionService {
 
   getSelectedOptions(): SelectedOption[] {
     const combined: SelectedOption[] = [];
-
-    this.selectedOptionsMap.forEach((opts, qIndex) => {
+  
+    for (const [, opts] of this.selectedOptionsMap) {
       if (Array.isArray(opts)) {
         combined.push(...opts);
       }
-    });
-
+    }
+  
     return combined;
   }
 
-  /* getSelectedOptionsForQuestion(questionIndex: number): SelectedOption[] {
-    return this.selectedOptionsMap.get(questionIndex) || [];
-  } */
   public getSelectedOptionsForQuestion(
     questionIndex: number,
   ): SelectedOption[] {
     const options = this.selectedOptionsMap.get(questionIndex) || [];
 
-    console.log(
-      `[SelectedOptionService] getSelectedOptionsForQuestion(${questionIndex}):`,
-      {
-        selectedOptions: options.map((o) => o.optionId),
-        mapSize: this.selectedOptionsMap.size,
-        allEntries: Array.from(this.selectedOptionsMap.entries()).map(
-          ([idx, opts]) => [idx, opts.map((o) => o.optionId)],
-        ),
-      },
-    );
-
-    // RETURN AS-IS — NO CLONING, NO CANONICALIZATION
-    return options;
+    return options;  // return as-is — no cloning, no canonicalization
+    
   }
 
   public areAllCorrectAnswersSelected(
     question: QuizQuestion,
     selectedOptionIds: Set<number>
   ): boolean {
-    // FIXED: Only get CORRECT option IDs, not ALL options
+    // Only get CORRECT option IDs, not ALL options
     const correctIds = question.options
-      .filter(o => o.correct === true)  // <-- BUG FIX: filter for correct options first
+      .filter(o => o.correct === true)  // filter for correct options first
       .map(o => o.optionId)
       .filter((id): id is number => typeof id === 'number');
 
@@ -1307,13 +1293,19 @@ export class SelectedOptionService {
       }
     };
 
-    normalizedOverrides.forEach((opt, idx) => recordSelection(opt, idx));
-    mapSelections.forEach((opt) => recordSelection(opt));
+    let idx = 0;
+    for (const opt of normalizedOverrides) {
+      recordSelection(opt, idx);
+      idx++;
+    }
 
-    const subjectOptions = this.quizService.currentOptions?.getValue?.();
+    for (const opt of mapSelections) {
+      recordSelection(opt);
+    }
+
+    const subjectOptions = this.quizService.currentOptions?.getValue();
     const dataOptions = Array.isArray(this.quizService.data?.currentOptions)
-      ? this.quizService.data.currentOptions
-      : [];
+      ? this.quizService.data.currentOptions : [];
 
     const baseOptions =
       [
@@ -1321,14 +1313,14 @@ export class SelectedOptionService {
         Array.isArray(subjectOptions) ? subjectOptions : [],
         dataOptions,
         normalizedOverrides,
-        mapSelections,
+        mapSelections
       ].find((options) => Array.isArray(options) && options.length > 0) || [];
 
     return baseOptions.map((option, idx) => {
       const overlay = overlaySelections.get(idx);
       const mergedOption = {
         ...option,
-        ...(overlay ?? {}),
+        ...(overlay ?? {})
       } as Option;
 
       return {
@@ -1450,21 +1442,25 @@ export class SelectedOptionService {
       }
     };
 
-    canonicalOptions.forEach((option, idx) => recordFromOption(option, idx));
+    let idx = 0;
+    for (const option of canonicalOptions) {
+      recordFromOption(option, idx);
+      idx++;
+    }
 
     const questionText = this.resolveQuestionText(questionIndex);
     const mappedAnswers = questionText
-      ? this.quizService.correctAnswers?.get(questionText)
+      ? this.quizService.correctAnswers.get(questionText)
       : undefined;
 
     if (Array.isArray(mappedAnswers)) {
-      mappedAnswers.forEach((rawId) => {
+      for (const rawId of mappedAnswers) {
         const canonicalId = this.resolveCanonicalOptionId(questionIndex, rawId);
-
+      
         if (canonicalId !== null) {
           ids.add(canonicalId);
         }
-      });
+      }
     }
 
     const candidateOptionSets: Array<Option[] | undefined | null> = [
@@ -1484,121 +1480,6 @@ export class SelectedOptionService {
     }
 
     return ids;
-  }
-
-  private collectSelectedOptionIds(
-    questionIndex: number,
-    canonicalOptions: Option[],
-    snapshot: Option[],
-  ): Set<number> {
-    const ids = new Set<number>();
-    const selections = this.selectedOptionsMap.get(questionIndex) || [];
-
-    selections.forEach((selection, idx) => {
-      if (!selection) {
-        return;
-      }
-
-      const canonicalId = this.resolveCanonicalOptionId(
-        questionIndex,
-        selection.optionId,
-        idx,
-      );
-
-      if (canonicalId !== null) {
-        ids.add(canonicalId);
-      }
-    });
-
-    if (Array.isArray(snapshot) && snapshot.length > 0) {
-      snapshot.forEach((option, idx) => {
-        if (!this.coerceToBoolean(option?.selected)) {
-          return;
-        }
-
-        const canonicalId = this.resolveCanonicalOptionId(
-          questionIndex,
-          option?.optionId,
-          idx,
-        );
-
-        if (canonicalId !== null) {
-          ids.add(canonicalId);
-        }
-      });
-    }
-
-    if (ids.size > 0 || canonicalOptions.length === 0) {
-      return ids;
-    }
-
-    const canonicalWithSelections = this.overlaySnapshotOntoCanonicalOptions(
-      canonicalOptions,
-      snapshot,
-    );
-
-    canonicalWithSelections.forEach((option, idx) => {
-      if (!this.coerceToBoolean(option?.selected)) {
-        return;
-      }
-
-      const canonicalId = this.resolveCanonicalOptionId(
-        questionIndex,
-        option?.optionId,
-        idx,
-      );
-
-      if (canonicalId !== null) {
-        ids.add(canonicalId);
-      }
-    });
-
-    return ids;
-  }
-
-  private resolveExpectedCorrectAnswerCount(questionIndex: number): number {
-    let maxCorrectCount = 0;
-
-    const questionText = this.resolveQuestionText(questionIndex);
-
-    if (questionText) {
-      const trimmedText = questionText.trim();
-      const mappedAnswers = this.quizService.correctAnswers?.get(trimmedText);
-
-      if (Array.isArray(mappedAnswers)) {
-        maxCorrectCount = Math.max(maxCorrectCount, mappedAnswers.length);
-      }
-    }
-
-    const candidateOptionSets: Array<Option[] | undefined | null> = [
-      this.quizService.questions?.[questionIndex]?.options,
-      this.quizService.selectedQuiz?.questions?.[questionIndex]?.options,
-      this.quizService.activeQuiz?.questions?.[questionIndex]?.options,
-      this.quizService.correctOptions,
-      this.quizService.currentOptions?.getValue?.(),
-      this.quizService.data?.currentOptions,
-      this.optionSnapshotByQuestion.get(questionIndex),
-    ];
-
-    for (const options of candidateOptionSets) {
-      const normalized = Array.isArray(options) ? options.filter(Boolean) : [];
-
-      if (normalized.length === 0) {
-        continue;
-      }
-
-      const correctCount = normalized.reduce(
-        (count, option) =>
-          count + (this.coerceToBoolean(option?.correct) ? 1 : 0),
-        0,
-      );
-
-      if (correctCount > 0) {
-        maxCorrectCount = Math.max(maxCorrectCount, correctCount);
-      }
-    }
-
-    return maxCorrectCount;
   }
 
   private resolveQuestionText(questionIndex: number): string | null {
@@ -1622,54 +1503,6 @@ export class SelectedOptionService {
     return typeof fallbackText === 'string' && fallbackText.trim().length > 0
       ? fallbackText.trim()
       : null;
-  }
-
-  private overlaySnapshotOntoCanonicalOptions(
-    canonicalOptions: Option[],
-    snapshot: Option[],
-  ): Option[] {
-    if (!Array.isArray(canonicalOptions) || canonicalOptions.length === 0) {
-      return [];
-    }
-
-    const overlaysByIndex = new Map<number, Option>();
-
-    snapshot.forEach((option) => {
-      const resolvedIdx = this.resolveOptionIndexFromSelection(
-        canonicalOptions,
-        option,
-      );
-      if (resolvedIdx != null) {
-        overlaysByIndex.set(resolvedIdx, option);
-      }
-    });
-
-    return canonicalOptions.map((option, idx) => {
-      const overlay = overlaysByIndex.get(idx);
-      if (!overlay) {
-        return option;
-      }
-
-      return {
-        ...option,
-        selected: this.coerceToBoolean(overlay.selected ?? option.selected),
-      };
-    });
-  }
-
-  private collectSelectedCorrectOptionIndexes(options: Option[]): Set<number> {
-    const indexes = new Set<number>();
-
-    options.forEach((option, idx) => {
-      if (
-        this.coerceToBoolean(option?.correct) &&
-        this.coerceToBoolean(option?.selected)
-      ) {
-        indexes.add(idx);
-      }
-    });
-
-    return indexes;
   }
 
   private coerceToBoolean(value: unknown): boolean {
