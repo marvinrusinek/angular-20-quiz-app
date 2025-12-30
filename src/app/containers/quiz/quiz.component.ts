@@ -4184,7 +4184,14 @@ get quizQuestionComponent(): QuizQuestionComponent {
     this.question = question;
   }
 
-  selectedAnswer(option: Option): void {
+  selectedAnswer(optionIndex: number): void {
+    // Look up the Option from the index
+    const option = this.question?.options?.[optionIndex] ?? this.optionsToDisplay?.[optionIndex];
+    if (!option) {
+      console.warn(`[selectedAnswer] No option found at index ${optionIndex}`);
+      return;
+    }
+
     // Mark the question as answered
     this.answered = true;
 
