@@ -1912,6 +1912,15 @@ export class QuizService {
   // 🔑 State tracking for scoring (Index -> IsCorrect)
   private questionCorrectness = new Map<number, boolean>();
 
+  resetScore(): void {
+    this.questionCorrectness.clear();
+    this.correctAnswersCountSubject.next(0);
+    this.correctCount = 0;
+    this.sendCorrectCountToResults(0); // sync with results component if needed
+    localStorage.setItem('correctAnswersCount', '0');
+    console.log('[QuizService] Score fully reset.');
+  }
+
   incrementScore(
     answers: number[],
     correctAnswerFound: boolean,

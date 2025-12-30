@@ -4854,6 +4854,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
   restartQuiz(): void {
     console.log('[RESTART] Triggered quiz restart.');
+    this.quizService.resetScore(); // ⚡ Reset score immediately before clearing state to prevent decrements
 
     // PRE-RESET: wipe all reactive quiz state and gates
     // (Prevents Q2/Q3 flickering and stale FET frames)
@@ -4923,6 +4924,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
     // Reset progress bar to 0%
     this.progressBarService.updateProgress(0, this.totalQuestions);
+
 
     // Navigate to Q1
     this.router
