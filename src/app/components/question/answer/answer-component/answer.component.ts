@@ -560,10 +560,10 @@ export class AnswerComponent
     );
 
     // Patch shared references
-    for (const b of rebuilt) {
+    rebuilt.forEach((b) => {
       b.allOptions = cloned;
       b.optionsToDisplay = cloned;
-    }
+    });
 
     // Gate rendering
     this.renderReady = false;

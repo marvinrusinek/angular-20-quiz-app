@@ -96,19 +96,6 @@ export class QuizDataService implements OnDestroy {
   }
 
   /**
-   * Ensure quiz metadata is available before performing operations that rely on it.
-   * If quizzes have already been loaded, returns the cached list; otherwise triggers a load.
-   */
-  ensureQuizzesLoaded(): Observable<Quiz[]> {
-    const cached = this.quizzesSubject.value;
-    if (Array.isArray(cached) && cached.length > 0) {
-      return of(cached);
-    }
-
-    return this.loadQuizzes();
-  }
-
-  /**
    * Returns a synchronously cached quiz instance, if available.
    * Falls back to `null` when the quizzes list has not been populated yet
    * or when the requested quiz cannot be found.
@@ -438,6 +425,15 @@ export class QuizDataService implements OnDestroy {
         quizId,
         workingSet,
       );
+      console.log(`[buildSessionQuestions] ✅ Shuffled ${shuffled.length} questions. Order:`,
+        shuffled.map((q, i) => `Q${i + 1}="${q.questionText?.substring(0, 20)}..."`).join(', '));
+
+      // 🔍 DEBUG: Log question-option correspondence after shuffle
+      console.log('[QuizDataService] 🔀 SHUFFLED QUESTIONS:');
+      shuffled.forEach((q, idx) => {
+        const firstOption = q.options?.[0]?.text?.substring(0, 30) ?? 'N/A';
+        console.log(`  Q${idx + 1}: "${q.questionText?.substring(0, 40)}..." → Option1: "${firstOption}..."`);
+      });
 
       return this.cloneQuestions(shuffled);
     }

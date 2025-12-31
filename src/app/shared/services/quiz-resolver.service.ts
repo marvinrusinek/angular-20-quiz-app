@@ -7,7 +7,7 @@ import {
   UrlTree,
 } from '@angular/router';
 import { Observable, of } from 'rxjs';
-import { catchError, map, switchMap } from 'rxjs/operators';
+import { catchError, map } from 'rxjs/operators';
 
 import { Quiz } from '../../shared/models/Quiz.model';
 import { QuizService } from './quiz.service';
@@ -35,8 +35,7 @@ export class QuizResolverService implements Resolve<Quiz | UrlTree | null> {
       return of(activeQuiz);
     }
 
-    return this.quizDataService.ensureQuizzesLoaded().pipe(
-      switchMap(() => this.quizDataService.getQuiz(quizId)),
+    return this.quizDataService.getQuiz(quizId).pipe(
       map((quiz) => {
         if (!quiz) {
           console.error(`[❌ QuizResolver] Quiz not found for ID: ${quizId}`);

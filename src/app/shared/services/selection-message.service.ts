@@ -145,9 +145,7 @@ export class SelectionMessageService {
     const rawSel =
       this.selectedOptionService?.selectedOptionsMap?.get(questionIndex);
     const extraKeys = this.collectSelectedKeys(rawSel, keyOf);
-    for (const k of extraKeys) {
-      selectedKeys.add(k);
-    }
+    extraKeys.forEach((k) => selectedKeys.add(k));
 
     // Ensure canonical and UI snapshot share the same optionId space, enriching snapshot with canonical fields like text
     const canonical = Array.isArray(q?.options) ? (q!.options as Option[]) : [];
@@ -624,35 +622,25 @@ export class SelectionMessageService {
     if (!fwd) fwd = new Map<string, string | number>();
 
     // Seed/update mapping from canonical
-    let i = 0;
-    for (const c of canon) {
+    canon.forEach((c, i) => {
       const k = keyOf(c as any, i);
-
       let cid = (c as any).optionId ?? (c as any).id;
-      if (cid == null) {
-        cid = `q${index}o${i}`; // deterministic fallback id
-      }
-
+      if (cid == null) cid = `q${index}o${i}`; // deterministic fallback id
       (c as any).optionId = cid; // stamp canonical
-      fwd!.set(k, cid);          // key match
-      fwd!.set(`ix:${i}`, cid);  // index alignment fallback
-
-      i++;
-    }
+      fwd!.set(k, cid); // key match
+      fwd!.set(`ix:${i}`, cid); // index alignment fallback
+    });
     this.idMapByIndex.set(index, fwd!);
 
     // Stamp ids onto any provided UI lists using key → id, then fall back to index
     for (const list of uiLists) {
       if (!Array.isArray(list)) continue;
-    
-      let i = 0;
-      for (const o of list) {
+      list.forEach((o, i) => {
         const k = keyOf(o as any, i);
         let cid = fwd!.get(k);
-        if (cid == null) cid = fwd!.get(`ix:${i}`);  // index fallback saves "first option" cases
+        if (cid == null) cid = fwd!.get(`ix:${i}`); // index fallback saves "first option" cases
         if (cid != null) (o as any).optionId = cid;
-        i++;
-      }
+      });
     }
   }
 
@@ -709,7 +697,7 @@ export class SelectionMessageService {
         id: s.id,
         selected: s.selected,
         // keep 'correct' only if it's a boolean; otherwise omit/undefined
-        correct: typeof s.correct === 'boolean' ? s.correct : undefined
+        correct: typeof s.correct === 'boolean' ? s.correct : undefined,
       }));
     }
 

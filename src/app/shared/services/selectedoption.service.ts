@@ -413,21 +413,21 @@ export class SelectedOptionService {
 
     const combinedSelections: SelectedOption[] = [];
 
-    for (const [questionIndex, selections] of groupedSelections) {
+    groupedSelections.forEach((selections, questionIndex) => {
       // Commit selections for this question
       const committed = this.commitSelections(questionIndex, selections);
-    
+
       // Always overwrite the map entry with ALL committed selections
       this.selectedOptionsMap.set(questionIndex, committed);
-    
+
       // Aggregate globally
       if (committed.length > 0) {
         combinedSelections.push(...committed);
       }
-    
+
       // Update answered state
       this.updateAnsweredState(committed, questionIndex);
-    }
+    });
 
     if (combinedSelections.length === 0) {
       this.updateAnsweredState([], this.getFallbackQuestionIndex());
@@ -476,31 +476,46 @@ export class SelectedOptionService {
 
   getSelectedOptions(): SelectedOption[] {
     const combined: SelectedOption[] = [];
-  
-    for (const [, opts] of this.selectedOptionsMap) {
+
+    this.selectedOptionsMap.forEach((opts, qIndex) => {
       if (Array.isArray(opts)) {
         combined.push(...opts);
       }
-    }
-  
+    });
+
     return combined;
   }
 
+  /* getSelectedOptionsForQuestion(questionIndex: number): SelectedOption[] {
+    return this.selectedOptionsMap.get(questionIndex) || [];
+  } */
   public getSelectedOptionsForQuestion(
     questionIndex: number,
   ): SelectedOption[] {
     const options = this.selectedOptionsMap.get(questionIndex) || [];
 
-    return options;  // return as-is — no cloning, no canonicalization 
+    console.log(
+      `[SelectedOptionService] getSelectedOptionsForQuestion(${questionIndex}):`,
+      {
+        selectedOptions: options.map((o) => o.optionId),
+        mapSize: this.selectedOptionsMap.size,
+        allEntries: Array.from(this.selectedOptionsMap.entries()).map(
+          ([idx, opts]) => [idx, opts.map((o) => o.optionId)],
+        ),
+      },
+    );
+
+    // RETURN AS-IS — NO CLONING, NO CANONICALIZATION
+    return options;
   }
 
   public areAllCorrectAnswersSelected(
     question: QuizQuestion,
     selectedOptionIds: Set<number>
   ): boolean {
-    // Only get CORRECT option IDs, not ALL options
+    // FIXED: Only get CORRECT option IDs, not ALL options
     const correctIds = question.options
-      .filter(o => o.correct === true)  // filter for correct options first
+      .filter(o => o.correct === true)  // <-- BUG FIX: filter for correct options first
       .map(o => o.optionId)
       .filter((id): id is number => typeof id === 'number');
 
@@ -632,7 +647,7 @@ export class SelectedOptionService {
     if (Array.isArray(source) && source.length > 0) {
       this.optionSnapshotByQuestion.set(
         questionIndex,
-        source.map((option) => ({ ...option }))
+        source.map((option) => ({ ...option })),
       );
     } else {
       console.warn(
@@ -668,14 +683,14 @@ export class SelectedOptionService {
       'title',
       'displayText',
       'description',
-      'html'
+      'html',
     ];
 
     const directMatch = this.matchOptionFromSource(
       source,
       optionId,
       text,
-      aliasFields
+      aliasFields,
     );
 
     // Try to find a concrete index in the chosen source by matching text/value/aliases
@@ -703,7 +718,7 @@ export class SelectedOptionService {
       }
     }
 
-    // Prefer a concrete index hint (from id or text) over raw text
+    // ⚠️ IMPORTANT: prefer a concrete index hint (from id or text) over raw text
     const resolverHint: number | string | undefined =
       indexFromId >= 0
         ? indexFromId
@@ -714,7 +729,7 @@ export class SelectedOptionService {
     let canonicalOptionId = this.resolveCanonicalOptionId(
       questionIndex,
       optionId,
-      resolverHint
+      resolverHint,
     );
 
     // Last-resort fallbacks: if resolver failed but we have a concrete index from the source, use it.
@@ -726,7 +741,7 @@ export class SelectedOptionService {
             questionIndex,
             optionId,
             text,
-            indexFromId
+            indexFromId,
           },
         );
         canonicalOptionId = indexFromId;
@@ -737,7 +752,7 @@ export class SelectedOptionService {
             questionIndex,
             optionId,
             text,
-            fallbackIndexFromText
+            fallbackIndexFromText,
           },
         );
         canonicalOptionId = fallbackIndexFromText;
@@ -750,8 +765,8 @@ export class SelectedOptionService {
               questionIndex,
               optionId,
               text,
-              resolved
-            }
+              resolved,
+            },
           );
           canonicalOptionId = resolved;
         } else {
@@ -774,7 +789,7 @@ export class SelectedOptionService {
           label: o?.label,
           name: o?.name,
           title: o?.title,
-          displayText: o?.displayText
+          displayText: o?.displayText,
         })),
       });
       return;
@@ -818,7 +833,7 @@ export class SelectedOptionService {
     const currentSelections = this.selectedOptionsMap.get(questionIndex) || [];
     const canonicalCurrent = this.canonicalizeSelectionsForQuestion(
       questionIndex,
-      currentSelections
+      currentSelections,
     );
     const filteredSelections = canonicalCurrent.filter(
       (s) =>
@@ -829,7 +844,7 @@ export class SelectedOptionService {
     const updatedSelections = [...filteredSelections, newSelection];
     const committedSelections = this.commitSelections(
       questionIndex,
-      updatedSelections
+      updatedSelections,
     );
 
     if (!Array.isArray(this.selectedOptionIndices[questionIndex])) {
@@ -843,7 +858,8 @@ export class SelectedOptionService {
 
     this.selectedOptionSubject.next(committedSelections);
 
-    // Emit to isAnsweredSubject so NextButtonStateService enables the button
+    // CRITICAL FIX: Emit to isAnsweredSubject so NextButtonStateService enables the button
+    // This was the missing link - selectOption was updating isOptionSelectedSubject but not isAnsweredSubject
     this.isAnsweredSubject.next(true);
     console.log('[SelectedOptionService] isAnsweredSubject emitted TRUE');
 
@@ -947,9 +963,9 @@ export class SelectedOptionService {
   // Observable to get the current option selected state
   isOptionSelected$(): Observable<boolean> {
     return this.selectedOption$.pipe(
-      startWith(this.selectedOptionSubject.getValue()),  // emit the current state immediately when subscribed
+      startWith(this.selectedOptionSubject.getValue()), // emit the current state immediately when subscribed
       map((option) => option !== null), // determine if an option is selected
-      distinctUntilChanged(),  // emit only when the selection state changes
+      distinctUntilChanged(), // emit only when the selection state changes
     );
   }
 
@@ -970,11 +986,11 @@ export class SelectedOptionService {
   addSelectedOptionIndex(questionIndex: number, optionIndex: number): void {
     const options = this.canonicalizeSelectionsForQuestion(
       questionIndex,
-      this.selectedOptionsMap.get(questionIndex) || []
+      this.selectedOptionsMap.get(questionIndex) || [],
     );
     const canonicalId = this.resolveCanonicalOptionId(
       questionIndex,
-      optionIndex
+      optionIndex,
     );
     const existingOption = options.find((o) => o.optionId === canonicalId);
 
@@ -1002,12 +1018,12 @@ export class SelectedOptionService {
       const newOption: SelectedOption = {
         ...baseOption,
         optionId: canonicalId ?? baseOption.optionId ?? optionIndex,
-        questionIndex,   // ensure the questionIndex is set correctly
-        selected: true,  // mark as selected since it's being added
+        questionIndex, // ensure the questionIndex is set correctly
+        selected: true, // mark as selected since it's being added
       };
 
-      options.push(newOption);  // add the new option
-      this.commitSelections(questionIndex, options);  // update the map
+      options.push(newOption); // add the new option
+      this.commitSelections(questionIndex, options); // update the map
     }
   }
 
@@ -1022,14 +1038,14 @@ export class SelectedOptionService {
 
     const canonicalId = this.resolveCanonicalOptionId(
       questionIndex,
-      optionIndex
+      optionIndex,
     );
     if (canonicalId == null) {
       console.warn(
         '[removeSelectedOptionIndex] Unable to resolve canonical optionId',
         {
           optionIndex,
-          questionIndex
+          questionIndex,
         },
       );
       return;
@@ -1037,7 +1053,7 @@ export class SelectedOptionService {
 
     const currentOptions = this.canonicalizeSelectionsForQuestion(
       questionIndex,
-      this.selectedOptionsMap.get(questionIndex) || []
+      this.selectedOptionsMap.get(questionIndex) || [],
     );
 
     const updatedOptions = currentOptions.filter(
@@ -1050,14 +1066,14 @@ export class SelectedOptionService {
 
   // Add (and persist) one option for a question
   public addSelection(questionIndex: number, option: SelectedOption): void {
-    // Get or initialize the list for this question
+    // 1) Get or initialize the list for this question
     const list = this.canonicalizeSelectionsForQuestion(
       questionIndex,
-      this.selectedOptionsMap.get(questionIndex) || []
+      this.selectedOptionsMap.get(questionIndex) || [],
     );
     const canonicalOption = this.canonicalizeOptionForQuestion(
       questionIndex,
-      option
+      option,
     );
 
     if (
@@ -1071,12 +1087,12 @@ export class SelectedOptionService {
       return;
     }
 
-    // If this optionId is already in the list, skip
+    // 2) If this optionId is already in the list, skip
     if (list.some((sel) => sel.optionId === canonicalOption.optionId)) {
       return;
     }
 
-    // Enrich the option object with flags
+    // 3) Enrich the option object with your flags
     const enriched: SelectedOption = {
       ...canonicalOption,
       selected: true,
@@ -1085,7 +1101,7 @@ export class SelectedOptionService {
       questionIndex,
     };
 
-    // Append and persist
+    // 4) Append and persist
     list.push(enriched);
     const committed = this.commitSelections(questionIndex, list);
   }
@@ -1142,7 +1158,7 @@ export class SelectedOptionService {
         {
           optionIndex,
           questionIndex,
-          action
+          action,
         },
       );
       return;
@@ -1150,7 +1166,7 @@ export class SelectedOptionService {
 
     const options = this.canonicalizeSelectionsForQuestion(
       questionIndex,
-      this.selectedOptionsMap.get(questionIndex) || []
+      this.selectedOptionsMap.get(questionIndex) || [],
     );
 
     const option = options.find((opt) => opt.optionId === canonicalId);
@@ -1185,7 +1201,7 @@ export class SelectedOptionService {
     try {
       const resolvedIndex = this.resolveEffectiveQuestionIndex(
         questionIndex,
-        questionOptions
+        questionOptions,
       );
 
       if (resolvedIndex == null || resolvedIndex < 0) {
@@ -1197,7 +1213,7 @@ export class SelectedOptionService {
 
       const snapshot = this.buildCanonicalSelectionSnapshot(
         resolvedIndex,
-        questionOptions
+        questionOptions,
       );
 
       if (!Array.isArray(snapshot) || snapshot.length === 0) {
@@ -1208,9 +1224,24 @@ export class SelectedOptionService {
       }
 
       const isAnswered = snapshot.some((option) =>
-        this.coerceToBoolean(option.selected)
+        this.coerceToBoolean(option.selected),
       );
       this.isAnsweredSubject.next(isAnswered);
+
+      const canonicalOptions = this.resolveCanonicalOptionsFor(resolvedIndex);
+      const allCorrectAnswersSelected =
+        this.determineIfAllCorrectAnswersSelected(
+          resolvedIndex,
+          snapshot,
+          canonicalOptions,
+        );
+
+      // REMOVED: Timer stop is now handled in SharedOptionComponent.onOptionContentClick
+      // with proper multi-answer logic
+      // if (allCorrectAnswersSelected && !this.stopTimerEmitted) {
+      //   this.stopTimer$.next();
+      //   this.stopTimerEmitted = true;
+      // }
     } catch (error) {
       console.error('[updateAnsweredState] Unhandled error:', error);
     }
@@ -1254,7 +1285,7 @@ export class SelectedOptionService {
       : [];
     const mapSelections = this.canonicalizeSelectionsForQuestion(
       questionIndex,
-      this.selectedOptionsMap.get(questionIndex) || []
+      this.selectedOptionsMap.get(questionIndex) || [],
     );
 
     const overlaySelections = new Map<number, Option>();
@@ -1276,19 +1307,13 @@ export class SelectedOptionService {
       }
     };
 
-    let idx = 0;
-    for (const opt of normalizedOverrides) {
-      recordSelection(opt, idx);
-      idx++;
-    }
+    normalizedOverrides.forEach((opt, idx) => recordSelection(opt, idx));
+    mapSelections.forEach((opt) => recordSelection(opt));
 
-    for (const opt of mapSelections) {
-      recordSelection(opt);
-    }
-
-    const subjectOptions = this.quizService.currentOptions?.getValue();
+    const subjectOptions = this.quizService.currentOptions?.getValue?.();
     const dataOptions = Array.isArray(this.quizService.data?.currentOptions)
-      ? this.quizService.data.currentOptions : [];
+      ? this.quizService.data.currentOptions
+      : [];
 
     const baseOptions =
       [
@@ -1296,27 +1321,355 @@ export class SelectedOptionService {
         Array.isArray(subjectOptions) ? subjectOptions : [],
         dataOptions,
         normalizedOverrides,
-        mapSelections
+        mapSelections,
       ].find((options) => Array.isArray(options) && options.length > 0) || [];
 
     return baseOptions.map((option, idx) => {
       const overlay = overlaySelections.get(idx);
       const mergedOption = {
         ...option,
-        ...(overlay ?? {})
+        ...(overlay ?? {}),
       } as Option;
 
       return {
         ...mergedOption,
         optionId: overlay?.optionId ?? option?.optionId ?? idx,
         correct: this.coerceToBoolean(
-          (overlay as Option)?.correct ?? option?.correct
+          (overlay as Option)?.correct ?? option?.correct,
         ),
         selected: this.coerceToBoolean(
-          (overlay as Option)?.selected ?? option?.selected
+          (overlay as Option)?.selected ?? option?.selected,
         ),
       };
     });
+  }
+
+  private resolveCanonicalOptionsFor(questionIndex: number): Option[] {
+    const primaryOptions = this.quizService.questions?.[questionIndex]?.options;
+    const selectedQuizOptions =
+      this.quizService.selectedQuiz?.questions?.[questionIndex]?.options;
+    const activeQuizOptions =
+      this.quizService.activeQuiz?.questions?.[questionIndex]?.options;
+    const subjectOptions = this.quizService.currentOptions?.getValue?.();
+    const dataOptions = this.quizService.data?.currentOptions;
+
+    const snapshotOptions = this.optionSnapshotByQuestion.get(questionIndex);
+
+    const candidate = [
+      primaryOptions,
+      selectedQuizOptions,
+      activeQuizOptions,
+      subjectOptions,
+      dataOptions,
+      snapshotOptions,
+    ].find((options) => Array.isArray(options) && options.length > 0);
+
+    return Array.isArray(candidate)
+      ? candidate.map((option) => ({ ...option }))
+      : [];
+  }
+
+  private determineIfAllCorrectAnswersSelected(
+    questionIndex: number,
+    snapshot: Option[],
+    canonicalOptions: Option[],
+  ): boolean {
+    if (!canonicalOptions || canonicalOptions.length === 0) {
+      console.error('[CORRECTNESS] No canonical options');
+      return false;
+    }
+
+    const correctIds = canonicalOptions
+      .filter((o) => o.correct === true)
+      .map((o) => String(o.optionId));
+
+    // 🚨 No correct answers defined → NEVER auto-complete
+    if (correctIds.length === 0) {
+      console.error('[CORRECTNESS] Question has zero correct answers');
+      return false;
+    }
+
+    const selectedIds = snapshot.map((o) => String(o.optionId));
+
+    // ───────── SINGLE ANSWER ─────────
+    if (correctIds.length === 1) {
+      return selectedIds.length === 1 && selectedIds[0] === correctIds[0];
+    }
+
+    // ───────── MULTIPLE ANSWER ─────────
+    if (selectedIds.length !== correctIds.length) {
+      return false;
+    }
+
+    return correctIds.every((id) => selectedIds.includes(id));
+  }
+
+  public isSingleAnswerCorrectSync(questionIndex: number): boolean {
+    const idx = this.normalizeQuestionIndex(questionIndex);
+
+    const canonicalOptions = this.resolveCanonicalOptionsFor(idx);
+    if (!canonicalOptions?.length) return false;
+
+    const correct = canonicalOptions.find((o) => o.correct === true);
+    const correctId =
+      correct?.optionId != null ? String(correct.optionId) : null;
+    if (!correctId) return false;
+
+    const selected = this.getSelectedOptionsForQuestion(idx);
+    const selectedId =
+      selected?.[0]?.optionId != null ? String(selected[0].optionId) : null;
+
+    console.warn('[SINGLE CORRECT CHECK]', {
+      idx,
+      correctId,
+      selectedId,
+      selected,
+    });
+    return !!selectedId && selectedId === correctId;
+  }
+
+  private collectCorrectOptionIds(
+    questionIndex: number,
+    canonicalOptions: Option[],
+  ): Set<number> {
+    const ids = new Set<number>();
+
+    const recordFromOption = (option: Option, idx?: number): void => {
+      if (!this.coerceToBoolean(option?.correct)) {
+        return;
+      }
+
+      const canonicalId = this.resolveCanonicalOptionId(
+        questionIndex,
+        option?.optionId,
+        idx,
+      );
+
+      if (canonicalId !== null) {
+        ids.add(canonicalId);
+      }
+    };
+
+    canonicalOptions.forEach((option, idx) => recordFromOption(option, idx));
+
+    const questionText = this.resolveQuestionText(questionIndex);
+    const mappedAnswers = questionText
+      ? this.quizService.correctAnswers?.get(questionText)
+      : undefined;
+
+    if (Array.isArray(mappedAnswers)) {
+      mappedAnswers.forEach((rawId) => {
+        const canonicalId = this.resolveCanonicalOptionId(questionIndex, rawId);
+
+        if (canonicalId !== null) {
+          ids.add(canonicalId);
+        }
+      });
+    }
+
+    const candidateOptionSets: Array<Option[] | undefined | null> = [
+      this.quizService.questions?.[questionIndex]?.options,
+      this.quizService.selectedQuiz?.questions?.[questionIndex]?.options,
+      this.quizService.activeQuiz?.questions?.[questionIndex]?.options,
+      this.quizService.correctOptions,
+      this.quizService.currentOptions?.getValue?.(),
+      this.quizService.data?.currentOptions,
+      this.optionSnapshotByQuestion.get(questionIndex),
+    ];
+
+    for (const options of candidateOptionSets) {
+      const normalized = Array.isArray(options) ? options.filter(Boolean) : [];
+
+      normalized.forEach((option, idx) => recordFromOption(option, idx));
+    }
+
+    return ids;
+  }
+
+  private collectSelectedOptionIds(
+    questionIndex: number,
+    canonicalOptions: Option[],
+    snapshot: Option[],
+  ): Set<number> {
+    const ids = new Set<number>();
+    const selections = this.selectedOptionsMap.get(questionIndex) || [];
+
+    selections.forEach((selection, idx) => {
+      if (!selection) {
+        return;
+      }
+
+      const canonicalId = this.resolveCanonicalOptionId(
+        questionIndex,
+        selection.optionId,
+        idx,
+      );
+
+      if (canonicalId !== null) {
+        ids.add(canonicalId);
+      }
+    });
+
+    if (Array.isArray(snapshot) && snapshot.length > 0) {
+      snapshot.forEach((option, idx) => {
+        if (!this.coerceToBoolean(option?.selected)) {
+          return;
+        }
+
+        const canonicalId = this.resolveCanonicalOptionId(
+          questionIndex,
+          option?.optionId,
+          idx,
+        );
+
+        if (canonicalId !== null) {
+          ids.add(canonicalId);
+        }
+      });
+    }
+
+    if (ids.size > 0 || canonicalOptions.length === 0) {
+      return ids;
+    }
+
+    const canonicalWithSelections = this.overlaySnapshotOntoCanonicalOptions(
+      canonicalOptions,
+      snapshot,
+    );
+
+    canonicalWithSelections.forEach((option, idx) => {
+      if (!this.coerceToBoolean(option?.selected)) {
+        return;
+      }
+
+      const canonicalId = this.resolveCanonicalOptionId(
+        questionIndex,
+        option?.optionId,
+        idx,
+      );
+
+      if (canonicalId !== null) {
+        ids.add(canonicalId);
+      }
+    });
+
+    return ids;
+  }
+
+  private resolveExpectedCorrectAnswerCount(questionIndex: number): number {
+    let maxCorrectCount = 0;
+
+    const questionText = this.resolveQuestionText(questionIndex);
+
+    if (questionText) {
+      const trimmedText = questionText.trim();
+      const mappedAnswers = this.quizService.correctAnswers?.get(trimmedText);
+
+      if (Array.isArray(mappedAnswers)) {
+        maxCorrectCount = Math.max(maxCorrectCount, mappedAnswers.length);
+      }
+    }
+
+    const candidateOptionSets: Array<Option[] | undefined | null> = [
+      this.quizService.questions?.[questionIndex]?.options,
+      this.quizService.selectedQuiz?.questions?.[questionIndex]?.options,
+      this.quizService.activeQuiz?.questions?.[questionIndex]?.options,
+      this.quizService.correctOptions,
+      this.quizService.currentOptions?.getValue?.(),
+      this.quizService.data?.currentOptions,
+      this.optionSnapshotByQuestion.get(questionIndex),
+    ];
+
+    for (const options of candidateOptionSets) {
+      const normalized = Array.isArray(options) ? options.filter(Boolean) : [];
+
+      if (normalized.length === 0) {
+        continue;
+      }
+
+      const correctCount = normalized.reduce(
+        (count, option) =>
+          count + (this.coerceToBoolean(option?.correct) ? 1 : 0),
+        0,
+      );
+
+      if (correctCount > 0) {
+        maxCorrectCount = Math.max(maxCorrectCount, correctCount);
+      }
+    }
+
+    return maxCorrectCount;
+  }
+
+  private resolveQuestionText(questionIndex: number): string | null {
+    const candidateQuestions = [
+      this.quizService.questions?.[questionIndex],
+      this.quizService.selectedQuiz?.questions?.[questionIndex],
+      this.quizService.activeQuiz?.questions?.[questionIndex],
+      this.quizService.currentQuestion?.getValue?.(),
+    ];
+
+    for (const question of candidateQuestions) {
+      const text = question?.questionText;
+
+      if (typeof text === 'string' && text.trim().length > 0) {
+        return text.trim();
+      }
+    }
+
+    const fallbackText = this.quizService.data?.questionText;
+
+    return typeof fallbackText === 'string' && fallbackText.trim().length > 0
+      ? fallbackText.trim()
+      : null;
+  }
+
+  private overlaySnapshotOntoCanonicalOptions(
+    canonicalOptions: Option[],
+    snapshot: Option[],
+  ): Option[] {
+    if (!Array.isArray(canonicalOptions) || canonicalOptions.length === 0) {
+      return [];
+    }
+
+    const overlaysByIndex = new Map<number, Option>();
+
+    snapshot.forEach((option) => {
+      const resolvedIdx = this.resolveOptionIndexFromSelection(
+        canonicalOptions,
+        option,
+      );
+      if (resolvedIdx != null) {
+        overlaysByIndex.set(resolvedIdx, option);
+      }
+    });
+
+    return canonicalOptions.map((option, idx) => {
+      const overlay = overlaysByIndex.get(idx);
+      if (!overlay) {
+        return option;
+      }
+
+      return {
+        ...option,
+        selected: this.coerceToBoolean(overlay.selected ?? option.selected),
+      };
+    });
+  }
+
+  private collectSelectedCorrectOptionIndexes(options: Option[]): Set<number> {
+    const indexes = new Set<number>();
+
+    options.forEach((option, idx) => {
+      if (
+        this.coerceToBoolean(option?.correct) &&
+        this.coerceToBoolean(option?.selected)
+      ) {
+        indexes.add(idx);
+      }
+    });
+
+    return indexes;
   }
 
   private coerceToBoolean(value: unknown): boolean {
@@ -1519,8 +1872,7 @@ export class SelectedOptionService {
       return `${questionIndex}|${idPart}|${alias}`;
     };
 
-    let index = 0;
-    for (const option of options) {
+    options.forEach((option: any, index) => {
       if (option?.optionId !== null && option?.optionId !== undefined) {
         lookupById.set(option.optionId, index);
 
@@ -1532,17 +1884,15 @@ export class SelectedOptionService {
         lookupById.set(String(option.optionId), index);
       }
 
-      for (const field of aliasFields) {
-        const key = normalize((option as unknown as Record<string, unknown>)?.[field]);
+      aliasFields.forEach((field) => {
+        const key = normalize(option?.[field]);
         if (key) {
           lookupByAlias.set(key, index);
         }
-      }
+      });
 
       lookupByAlias.set(normalize(buildStableKey(option)), index);
-
-      index++;
-    }
+    });
 
     if (rawId !== undefined && rawId !== null) {
       const rawNumeric = toFiniteNumber(rawId);
@@ -1609,7 +1959,7 @@ export class SelectedOptionService {
     const canonicalId = this.resolveCanonicalOptionId(
       questionIndex,
       option.optionId,
-      fallbackIndex
+      fallbackIndex,
     );
 
     if (canonicalId === null || canonicalId === option.optionId) {
@@ -1618,7 +1968,7 @@ export class SelectedOptionService {
 
     return {
       ...option,
-      optionId: canonicalId
+      optionId: canonicalId,
     };
   }
 
@@ -1673,8 +2023,8 @@ export class SelectedOptionService {
     // Canonicalize and deep clone the selections
     const canonicalSelections = this.canonicalizeSelectionsForQuestion(
       idx,
-      selections
-    ).map((sel) => ({ ...sel }));  // ensure new object identity
+      selections,
+    ).map((sel) => ({ ...sel })); // ← ensure new object identity
 
     if (canonicalSelections.length > 0) {
       // Replace the old bucket completely
@@ -1686,9 +2036,10 @@ export class SelectedOptionService {
 
     this.syncFeedbackForQuestion(idx, canonicalSelections);
 
-    // Update the "Answered" state whenever selections change.
+    // CRITICAL FIX: Update the "Answered" state whenever selections change.
     // This drives the Next Button enablement.
     this.updateAnsweredState(canonicalSelections, idx);
+    console.log(`[commitSelections] Updated answered state for Q${idx}. Selections: ${canonicalSelections.length}`);
 
     return canonicalSelections;
   }
@@ -1716,7 +2067,7 @@ export class SelectedOptionService {
 
   private buildFeedbackMap(
     questionIndex: number,
-    selections: SelectedOption[]
+    selections: SelectedOption[],
   ): Record<string, boolean> {
     const feedbackMap: Record<string, boolean> = {};
 
@@ -1819,6 +2170,29 @@ export class SelectedOptionService {
     return Math.min(Math.max(normalized, 0), questions.length - 1);
   }
 
+  private evaluateAllCorrectSelections(snapshot: Option[]): boolean {
+    if (!Array.isArray(snapshot) || snapshot.length === 0) {
+      return false;
+    }
+
+    let totalCorrect = 0;
+    let selectedCorrect = 0;
+
+    for (const option of snapshot) {
+      const isCorrect = this.coerceToBoolean(option?.correct);
+      if (!isCorrect) {
+        continue;
+      }
+
+      totalCorrect++;
+      if (this.coerceToBoolean(option?.selected)) {
+        selectedCorrect++;
+      }
+    }
+
+    return totalCorrect > 0 && selectedCorrect === totalCorrect;
+  }
+
   private normalizeStr(x: unknown): string {
     return typeof x === 'string'
       ? x.trim().toLowerCase().replace(/\s+/g, ' ')
@@ -1886,6 +2260,40 @@ export class SelectedOptionService {
       'Unable to determine a canonical optionId for selection',
       selection,
     );
+    return null;
+  }
+
+  private resolveOptionIndexFromId(
+    options: Option[],
+    candidateId: unknown,
+  ): number | null {
+    if (!Array.isArray(options) || options.length === 0) {
+      return null;
+    }
+
+    const normalizedTarget = this.normalizeOptionId(candidateId);
+    if (normalizedTarget !== null) {
+      const metadataMatch = options.findIndex(
+        (opt) => this.normalizeOptionId(opt?.optionId) === normalizedTarget,
+      );
+
+      if (metadataMatch >= 0) {
+        return metadataMatch;
+      }
+    }
+
+    const numericId = this.extractNumericId(candidateId);
+    if (numericId !== null) {
+      if (numericId >= 0 && numericId < options.length) {
+        return numericId;
+      }
+
+      const zeroBased = numericId - 1;
+      if (zeroBased >= 0 && zeroBased < options.length) {
+        return zeroBased;
+      }
+    }
+
     return null;
   }
 
@@ -1963,12 +2371,12 @@ export class SelectedOptionService {
 
       // Also reset any visible array directly bound to the template
       if (Array.isArray(optionsToDisplay)) {
-        for (const o of optionsToDisplay) {
+        optionsToDisplay.forEach((o) => {
           o.selected = false;
           o.highlight = false;
           o.showIcon = false;
           (o as any).disabled = false;
-        }
+        });
       }
     } catch (err) {
       console.warn('[SelectedOptionService] ⚠️ resetOptionState failed:', err);
@@ -1986,6 +2394,18 @@ export class SelectedOptionService {
     } catch (err) {
       console.warn('[SelectedOptionService] ⚠️ resetAllStates failed', err);
     }
+  }
+
+  private getDefaultOptions(): Option[] {
+    const defaultOptions = Array(4)
+      .fill(null)
+      .map((_, index) => ({
+        optionId: index,
+        text: `Default Option ${index + 1}`,
+        correct: index === 0, // default to the first option as correct
+        selected: false,
+      }));
+    return defaultOptions;
   }
 
   private getFallbackQuestionIndex(): number {
@@ -2097,9 +2517,7 @@ export class SelectedOptionService {
       set = new Set<string | number>();
       this._lockedByQuestion.set(qIndex, set);
     }
-    for (const id of optIds) {
-      set!.add(id);
-    }
+    optIds.forEach((id) => set!.add(id));
   }
 
   lockQuestion(qIndex: number): void {
@@ -2151,7 +2569,7 @@ export class SelectedOptionService {
     }
   }
 
-  // Keep overlay (pure, returns a snapshot)
+  // --- keep your overlay (pure, returns a snapshot) ---
   public overlaySelectedByIdentity(
     canonical: Option[],
     ui: Option[],
@@ -2164,6 +2582,37 @@ export class SelectedOptionService {
     });
 
     return out;
+  }
+
+  // --- add sync (mutates canonical in-place) ---
+  public syncSelectionsToCanonical(questionIndex: number, ui: Option[]): void {
+    const canonical = this.getKnownOptions(questionIndex);
+    if (!Array.isArray(canonical) || canonical.length === 0) return;
+
+    // Clear previous selected flags (optional; remove if you want "sticky" selections)
+    for (const c of canonical as any[]) c.selected = !!c.selected && false;
+
+    this.forEachUiMatch(canonical, ui, (i, u) => {
+      (canonical[i] as any).selected = !!(u as any).selected;
+    });
+  }
+
+  public clearLockedOptions(): void {
+    try {
+      if (
+        (this as any)._lockedOptionsMap &&
+        typeof (this as any)._lockedOptionsMap.clear === 'function'
+      ) {
+        (this as any)._lockedOptionsMap.clear();
+        console.log('[SelectedOptionService] 🔓 Cleared all locked options');
+      } else {
+        console.log(
+          '[SelectedOptionService] ℹ️ No _lockedOptionsMap found — skipping',
+        );
+      }
+    } catch (err) {
+      console.warn('[SelectedOptionService] ⚠️ clearLockedOptions failed', err);
+    }
   }
 
   private ensureBucket(idx: number): SelectedOption[] {
