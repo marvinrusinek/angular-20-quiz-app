@@ -1186,16 +1186,17 @@ export class QuizService {
   setAnswers(answers: number[]): void {
     this.answersSubject.next(answers);
 
-    // ⚡ FIX: Populate selectedOptionsMap so isAnswered() works correctly!
-    // We Map numbers to partial SelectedOption objects to satisfy the type.
+    // Populate selectedOptionsMap so isAnswered() works correctly
+    // Map numbers to partial SelectedOption objects to satisfy the type.
     const selectedOptions = answers.map(id => ({ optionId: id } as any));
     this.selectedOptionsMap.set(this.currentQuestionIndex, selectedOptions);
 
-    // ⚡ FIX: Also update the main questions array so component checks work
-    if (this.questions[this.currentQuestionIndex]) {
-      this.questions[this.currentQuestionIndex].options.forEach(
-        (o: Option) => (o.selected = answers.includes(o.optionId as number))
-      );
+    // Also update the main questions array so component checks work
+    const q = this.questions[this.currentQuestionIndex];
+    if (q) {
+      for (const o of q.options) {
+        o.selected = answers.includes(o.optionId as number);
+      }
     }
   }
 
@@ -1687,16 +1688,21 @@ export class QuizService {
     }
 
     const textIndex = new Map<string, number>();
-    sanitized.forEach((question, idx) => {
+
+    let idx = 0;
+    for (const question of sanitized) {
       const key = this.normalizeQuestionText(question?.questionText);
       if (!key) {
-        return;
+        idx++;
+        continue;
       }
 
       if (!textIndex.has(key)) {
         textIndex.set(key, idx);
       }
-    });
+
+      idx++;
+    }
 
     this.canonicalQuestionsByQuiz.set(quizId, sanitized);
     this.canonicalQuestionIndexByText.set(quizId, textIndex);

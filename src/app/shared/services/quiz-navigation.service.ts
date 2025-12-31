@@ -1,9 +1,5 @@
 import { Injectable, NgZone } from '@angular/core';
-import {
-  ActivatedRoute,
-  ActivatedRouteSnapshot,
-  Router
-} from '@angular/router';
+import { ActivatedRoute, ActivatedRouteSnapshot, Router } from '@angular/router';
 import { BehaviorSubject, firstValueFrom, Observable, of, Subject } from 'rxjs';
 import { catchError, take } from 'rxjs/operators';
 
@@ -75,7 +71,7 @@ export class QuizNavigationService {
     private timerService: TimerService,
     private activatedRoute: ActivatedRoute,
     private router: Router,
-    private ngZone: NgZone,
+    private ngZone: NgZone
   ) { }
 
   public async advanceToNextQuestion(): Promise<boolean> {
@@ -121,7 +117,7 @@ export class QuizNavigationService {
   private async navigateWithOffset(offset: number): Promise<boolean> {
     console.log(`[NAV FORCE] navigateWithOffset START. Offset: ${offset}`);
 
-    // 1. Get Current Index (Robust URL Parsing)
+    // Get Current Index (Robust URL Parsing)
     const getUrlIndex = (): number => {
       try {
         const url = this.router.url;
@@ -149,14 +145,14 @@ export class QuizNavigationService {
 
     console.log(`[NAV FORCE] URL Index: ${currentRouteIndex} -> Target: ${targetRouteIndex}`);
 
-    // 2. Get Quiz ID (best effort, fallback to 'angular-quiz')
+    // Get Quiz ID (best effort, fallback to 'angular-quiz')
     let quizId = this.resolveEffectiveQuizId();
     if (!quizId) {
       console.warn('[NAV FORCE] No quizId found, defaulting to "angular-quiz"');
       quizId = 'angular-quiz';
     }
 
-    // 3. Simple Bounds Safety (only check min)
+    // Simple Bounds Safety (only check min)
     if (targetRouteIndex < 1) {
       console.warn('[NAV] Cannot navigate below Q1');
       return false;
@@ -170,53 +166,47 @@ export class QuizNavigationService {
       return true;
     }
 
-    console.log(`[NAV FORCE] Executing direct routing to Q${targetRouteIndex}`);
-    // NOTE: navigateToQuestion expects 0-based index, so sub 1
     return this.navigateToQuestion(targetRouteIndex - 1);
   }
 
   public async navigateToQuestion(index: number): Promise<boolean> {
-    // REMOVED _fetchInProgress guard to prevent zombie locks.
-    // The UI button state (nextButtonEnabled$) is the primary debounce mechanism.
     this._fetchInProgress = true;
 
-    console.log(`[NAV CHECKPOINT 5] navigateToQuestion START. Index: ${index}`);
-
     try {
-      // 1. Set navigating state
+      // Set navigating state
       this.isNavigating = true;
       this.quizStateService.setNavigating(true);
       this.quizStateService.setLoading(true);
 
-      // 2. Perform Router Navigation
+      // Perform Router Navigation
       const navSuccess = await this.performRouterNavigation(index);
       if (!navSuccess) {
         console.error('[NAV] Router navigation failed');
         return false;
       }
 
-      // 3. Update Service State (Index) - CRITICAL: Update AFTER router nav success
+      // Update Service State (Index) - Update AFTER router nav success
       this.quizService.setCurrentQuestionIndex(index);
       this.currentQuestionIndex = index;
 
-      // 4. Reset UI States for New Question
+      // Reset UI States for New Question
       this.resetExplanationAndState();
       this.selectedOptionService.setAnswered(false, true);
-      // 🔑 FIXED: Clear all option selections when navigating to new question
-      this.selectedOptionService.resetAllStates?.();
-      this.selectedOptionService.clearSelectionsForQuestion?.(index);
+
+      // Clear all option selections when navigating to new question
+      this.selectedOptionService.resetAllStates();
+      this.selectedOptionService.clearSelectionsForQuestion(index);
       this.nextButtonStateService.reset();
       this.quizQuestionLoaderService.resetUI();
 
-
-      // 5. Fetch New Question Data
+      // Fetch New Question Data
       const fresh = await this.fetchAndEmitQuestion(index);
       if (!fresh) {
         console.error('[NAV] Failed to fetch new question data');
         return false;
       }
 
-      // 6. Finalize
+      // Finalize
       this.notifyNavigationSuccess();
 
       return true;
@@ -232,179 +222,6 @@ export class QuizNavigationService {
     }
   }
 
-  private activateCrossServiceBarriers(
-    ets: any,
-    qqls: any,
-    targetIndex: number,
-  ): void {
-    console.log('[NAV] 🧱 Cross-service barriers enabled');
-
-    try {
-      ets._transitionLock = true;
-      ets._activeIndex = -1;
-      ets.latestExplanation = '';
-      ets.formattedExplanationSubject?.next('');
-      ets.setShouldDisplayExplanation(false);
-      ets.setIsExplanationTextDisplayed(false);
-      ets._byIndex?.forEach?.((s$: any) => s$?.next?.(null));
-      ets._gate?.forEach?.((g$: any) => g$?.next?.(false));
-
-      // Clear question text
-      const qqls = this.quizQuestionLoaderService;
-      qqls.questionToDisplaySubject?.next('');
-      qqls.emitQuestionTextSafely?.('', -1);
-
-      setTimeout(() => {
-        ets._transitionLock = false;
-        ets._activeIndex = targetIndex;
-        console.log(`[NAV] ✅ Released quarantine for Q${targetIndex + 1}`);
-      }, 200);
-    } catch (e) {
-      console.warn('[NAV] ⚠️ Hard quarantine failed', e);
-    }
-  }
-
-  private applyPreNavigationQuarantines(
-    index: number,
-    targetIndex: number,
-    ets: any,
-    qqls: any,
-  ): void {
-    try {
-      ets.formattedExplanationSubject?.next('');
-      ets.latestExplanation = '';
-      ets.setShouldDisplayExplanation(false);
-      ets.setIsExplanationTextDisplayed(false);
-
-      ets.purgeAndDefer(index);
-      ets.lockDuringTransition(140);
-    } catch (err) {
-      console.warn(
-        '[NAV] ⚠️ purgeAndDefer or lockDuringTransition failed',
-        err,
-      );
-    }
-
-    // Also quarantine question text
-    try {
-      if (qqls?.questionToDisplaySubject) {
-        qqls.questionToDisplaySubject.next('');
-      } else if ((this as any).questionToDisplaySubject) {
-        (this as any).questionToDisplaySubject.next('');
-      }
-      console.log('[NAV] 🧱 Quarantined question text before navigation');
-    } catch (err) {
-      console.warn('[NAV] ⚠️ Failed to clear question text', err);
-    }
-  }
-
-  private applyQuietPatch(ets: any, qqls: any): void {
-    try {
-      const now = performance.now();
-      const freezeMs = 200;
-      const quietMs = 180;
-
-      qqls._frozen = true;
-      qqls._isVisualFrozen = true;
-      qqls._renderFreezeUntil = now + freezeMs;
-      qqls._quietZoneUntil = now + quietMs;
-
-      ets._quietZoneUntil = now + quietMs;
-      ets._hardMuteUntil = now + quietMs;
-
-      qqls.quietZoneUntil$?.next(qqls._quietZoneUntil);
-      if (typeof ets.setQuietZone === 'function') ets.setQuietZone(quietMs);
-
-      requestAnimationFrame(() => {
-        try {
-          ets._activeIndex = -1;
-          ets.latestExplanation = '';
-          qqls.emitQuestionTextSafely('', -1);
-          this.quizService.updateCorrectAnswersText('');
-
-          ets.formattedExplanationSubject?.next('');
-          ets.setShouldDisplayExplanation(false);
-          ets.setIsExplanationTextDisplayed(false);
-
-          ets.lockDuringTransition(140);
-          console.log('[NAV] 🔒 Quiet patch frame-flush applied');
-        } catch (flushErr) {
-          console.warn('[NAV] ⚠️ Quiet patch flush failed', flushErr);
-        }
-      });
-
-      console.log(
-        '[NAV] 🧱 Quiet patch initialized — full freeze+mute window active',
-      );
-    } catch (err) {
-      console.warn('[NAV] ⚠️ Failed to apply quiet patch', err);
-    }
-  }
-
-  private applyFetBlackout(ets: any, qqls: any): void {
-    try {
-      const now = performance.now();
-      const freezeMs = 200;
-
-      ets._hardMuteUntil = now + freezeMs;
-      ets._quietZoneUntil = now + freezeMs;
-      qqls._quietZoneUntil = now + freezeMs;
-
-      ets.formattedExplanationSubject?.next('');
-      ets.shouldDisplayExplanationSubject?.next(false);
-      ets.isExplanationTextDisplayedSubject?.next(false);
-
-      if (ets._byIndex?.values) {
-        for (const subj of ets._byIndex.values()) subj?.next?.(null);
-      }
-      if (ets._gate?.values) {
-        for (const gate of ets._gate.values()) gate?.next?.(false);
-      }
-
-      ets._activeIndex = -1;
-      ets._fetGateLockUntil = now + freezeMs;
-
-      console.log(`[NAV] 🚫 Full FET blackout for ${freezeMs}ms`);
-    } catch (err) {
-      console.warn('[NAV] ⚠️ Failed FET blackout init', err);
-    }
-  }
-
-  private applyHardMuteAndGatePrep(ets: any, qqls: any): void {
-    try {
-      qqls._frozen = true;
-      qqls._isVisualFrozen = true;
-
-      const now = performance.now();
-      const quietDuration = 160;
-
-      qqls._quietZoneUntil = now + quietDuration;
-      ets._quietZoneUntil = now + quietDuration;
-
-      qqls.quietZoneUntil$?.next(qqls._quietZoneUntil);
-      ets.setQuietZone(quietDuration);
-
-      ets._hardMuteUntil = now + 100;
-      ets._fetGateLockUntil = now + 140;
-      ets._activeIndex = -1;
-
-      ets.formattedExplanationSubject?.next('');
-      ets.setShouldDisplayExplanation(false);
-      ets.setIsExplanationTextDisplayed(false);
-
-      if (ets._byIndex) {
-        for (const subj of ets._byIndex.values()) subj?.next?.(null);
-      }
-      if (ets._gate) {
-        for (const gate of ets._gate.values()) gate?.next?.(false);
-      }
-
-      console.log('[NAV] 🔇 Global ETS hard-mute applied (quiet zone 120ms)');
-    } catch (err) {
-      console.warn('[NAV] ⚠️ Failed to pre-mute ETS', err);
-    }
-  }
-
   private async prepareNavigationState(index: number): Promise<void> {
     this.quizStateService.isNavigatingSubject.next(true);
     const prevIndex = this.quizService.getCurrentQuestionIndex() - 1;
@@ -413,7 +230,12 @@ export class QuizNavigationService {
     try {
       const ets: any = this.explanationTextService;
       if (prevIndex >= 0) ets.closeGateForIndex(prevIndex);
-      ets._byIndex?.forEach?.((s$: any) => s$?.next?.(null));
+      for (const s$ of Array.from(((ets as any)._byIndex ?? []) as unknown[])) {
+        const nextFn = (s$ as any)?.next;
+        if (typeof nextFn === 'function') {
+          nextFn.call(s$, null);
+        }
+      }
       ets.formattedExplanationSubject.next('');
       ets.setShouldDisplayExplanation(false);
       ets.setIsExplanationTextDisplayed(false);
@@ -558,7 +380,7 @@ export class QuizNavigationService {
     const banner = isMulti
       ? this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
         numCorrect,
-        totalOpts,
+        totalOpts
       )
       : '';
 

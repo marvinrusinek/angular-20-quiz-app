@@ -151,6 +151,8 @@ export class CodelabQuizContentComponent
       this._lastQuestionTextByIndex?.delete(idx);
       // CRITICAL: Clear stale selectedOptionsMap entry so isAnswered() returns false
       this.quizService.selectedOptionsMap?.delete(idx);
+      // CRITICAL: Clear session tracking so stale FET won't persist
+      this._fetDisplayedThisSession?.delete(idx);
       ets.setShouldDisplayExplanation(false, { force: true });
       ets.setIsExplanationTextDisplayed(false, { force: true });
       this.quizStateService.setDisplayState({ mode: 'question', answered: false });
@@ -210,6 +212,8 @@ export class CodelabQuizContentComponent
   isNavigatingToPrevious = false;
   currentQuestionType: QuestionType | undefined = undefined;
   private _lastQuestionTextByIndex = new Map<number, string>();
+  // Session-based tracking: which questions have had FET displayed this session
+  private _fetDisplayedThisSession = new Set<number>();
 
   private overrideSubject = new BehaviorSubject<{ idx: number; html: string }>({
     idx: -1,
@@ -340,18 +344,7 @@ export class CodelabQuizContentComponent
 
     // Resolve the correct question object (respecting shuffle) for the current index
     const questionForIndex$ = this.quizService.currentQuestionIndex$.pipe(
-      switchMap((idx) => {
-        // 🛡️ RACE CONDITION FIX: If shuffle is enabled, wait for shuffledQuestions to be ready
-        // This prevents Q1 from loading unshuffled data if the shuffle logic is slightly delayed
-        if (this.quizService.isShuffleEnabled()) {
-          return this.quizService.questions$.pipe(
-            filter(() => this.quizService.shuffledQuestions && this.quizService.shuffledQuestions.length > 0),
-            take(1),
-            switchMap(() => this.quizService.getQuestionByIndex(idx))
-          );
-        }
-        return this.quizService.getQuestionByIndex(idx);
-      }),
+      switchMap((idx) => this.quizService.getQuestionByIndex(idx)),
       startWith(null),
     );
 
@@ -359,9 +352,10 @@ export class CodelabQuizContentComponent
     this.displayText$ = combineLatest([
       this.displayState$ || of({ mode: 'question' as const, answered: false }),
       this.questionToDisplay$ || of(''),
-      this.explanationTextService.getFormattedExplanationByIndex().pipe(startWith(null)),
+      this.formattedExplanation$,
       this.currentIndex$,
       this.quizService.questions$.pipe(
+        filter((q) => Array.isArray(q) && q.length > 0),
         startWith(this.quizService.questions || []),
       ),
       questionForIndex$,
@@ -378,28 +372,22 @@ export class CodelabQuizContentComponent
         // Check if this is a multiple-answer question (use resolved object first, then fallback)
         const qObj =
           questionObj ||
-          (this.quizService.isShuffleEnabled() && this.quizService.shuffledQuestions && this.quizService.shuffledQuestions.length > safeIdx
-            ? this.quizService.shuffledQuestions[safeIdx]
-            : undefined) ||
           (Array.isArray(questions) ? questions[safeIdx] : undefined) ||
           (Array.isArray(this.quizService.questions)
             ? this.quizService.questions[safeIdx]
             : undefined);
 
-        console.log(`[CQCC displayText$] idx=${safeIdx} | qObj Text="${(qObj?.questionText ?? '').substring(0, 20)}..." | Sources: questionObj=${!!questionObj}, shuffled=${this.quizService.shuffledQuestions?.length}, questions=${this.quizService.questions?.length}, default=${this.quizService.questions?.[safeIdx]?.questionText?.substring(0, 10)}`);
-
-        // ⚡ FIX: Reactive "Is Answered" Check
+        // DEBUG: Log values to trace Q3 issue
+        console.log(`[displayText$ DEBUG] idx=${idx}, safeIdx=${safeIdx}, qText="${(qText as string)?.substring(0, 50)}", qObj.questionText="${qObj?.questionText?.substring(0, 50)}"`);
 
         // ⚡ FIX: Reactive "Is Answered" Check
         // Now that selectedOptionsMap is reliable, we use the observable to determine status.
         return this.quizService.isAnswered(safeIdx).pipe(
           map((isAnswered) => {
 
+            // CRITICAL FIX: Always show question text if NOT answered, regardless of mode
             const mode = isAnswered ? (state?.mode || 'question') : 'question';
-            // PRIORITIZE qObj.questionText to avoid stale stream flashes
-            // ⚡ FIX: Remove qText fallback. If qObj is missing, it's better to show nothing/loading 
-            // than to show the WRONG question text (e.g. Q4 text for Q1).
-            const trimmedQText = (qObj?.questionText ?? '').trim();
+            const trimmedQText = (qText ?? '').trim();
             const numCorrect =
               qObj?.options?.filter((o: Option) => o.correct).length || 0;
             const isMulti = numCorrect > 1;
@@ -425,16 +413,11 @@ export class CodelabQuizContentComponent
             // DEBUG: Log decision values
             console.log(`[displayText$ DECISION] safeIdx=${safeIdx}, isAnswered=${isAnswered}, hasFetStored=${hasFetStored}, actuallyAnswered=${actuallyAnswered}, effectiveQText="${(trimmedQText || qObj?.questionText)?.substring(0, 50)}"`);
 
-            // CRITICAL: If NOT answered, OR if mode is NOT 'explanation', 
-            // ALWAYS return question text (never FET or "No explanation")
-            // This prevents the header from swapping to Explanation text just because the user answered.
-            if (!actuallyAnswered || (state?.mode !== 'explanation')) {
+            // CRITICAL: If NOT answered, ALWAYS return question text (never FET or "No explanation")
+            if (!actuallyAnswered) {
               // Use qObj.questionText as fallback if stream hasn't emitted yet
-              const effectiveQText = (qObj?.questionText ?? trimmedQText ?? '').trim();
-              if (state?.mode !== 'explanation') {
-                // console.log(`[displayText$] FORCE QUESTION MODE. Mode=${state?.mode}`);
-              }
-
+              const effectiveQText = trimmedQText || (qObj?.questionText ?? '').trim();
+              console.log(`[displayText$ RETURN] Q${safeIdx + 1} NOT ANSWERED → returning question text: "${effectiveQText?.substring(0, 50)}"`);
               if (!effectiveQText) return '';
               if (isMulti && bannerText) {
                 return `${effectiveQText} <span class="correct-count">${bannerText}</span>`;
@@ -442,7 +425,7 @@ export class CodelabQuizContentComponent
               return effectiveQText;
             }
 
-            // Check if FET belongs to current question (only matters if answered AND mode is explanation)
+            // Check if FET belongs to current question (only matters if answered)
             const belongsToIndex = fetPayload?.idx === safeIdx;
             const trimmedFet = belongsToIndex
               ? (fetPayload?.text ?? '').trim()
@@ -519,15 +502,27 @@ export class CodelabQuizContentComponent
 
               console.log(`[CQCC SUB] hasFetForCurrentIdx=${hasFetForCurrentIdx}, fetByIndex keys=[${Array.from(this.explanationTextService.fetByIndex?.keys() || [])}]`);
 
-              // AGGRESSIVE FIX: If question is unanswered, ALWAYS use question text from array
-              // This completely ignores any stale FET that might be in the stream
-              if (!hasFetForCurrentIdx) {
+              // VISIBILITY FIX: If FET was displayed this session for this question, preserve it
+              // This prevents StackBlitz visibility events from reverting FET to question text
+              const fetShownThisSession = this._fetDisplayedThisSession.has(currentIndex);
+              const storedFet = this.explanationTextService.fetByIndex?.get(currentIndex)?.trim() || '';
+
+              if (fetShownThisSession && storedFet.length > 10) {
+                // FET was shown this session - preserve it even if mode changed
+                console.log(`[CQCC Display] Q${currentIndex + 1} FET preserved (shown this session)`);
+                incoming = storedFet;
+              } else if (!hasFetForCurrentIdx) {
+                // Question is unanswered - show question text
                 const q = this.quizService.questions?.[currentIndex];
                 const questionText = q?.questionText ?? '';
                 if (questionText) {
                   console.log(`[CQCC Display] Q${currentIndex + 1} UNANSWERED: Forcing question text: "${questionText.substring(0, 50)}..."`);
                   incoming = questionText;
                 }
+              } else {
+                // FET is available - mark as shown this session
+                this._fetDisplayedThisSession.add(currentIndex);
+                console.log(`[CQCC Display] Q${currentIndex + 1} FET newly displayed, tracking for session`);
               }
 
               console.log(

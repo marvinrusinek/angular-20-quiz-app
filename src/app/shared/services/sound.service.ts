@@ -20,14 +20,14 @@ export class SoundService {
       src: [
         'https://raw.githubusercontent.com/marvinrusinek/angular-10-quiz-app/master/src/assets/sounds/correct.mp3',
       ],
-      html5: true,
+      html5: true
     });
 
     this.sounds['incorrect'] = new Howl({
       src: [
         'https://raw.githubusercontent.com/marvinrusinek/angular-10-quiz-app/master/src/assets/sounds/incorrect.mp3',
       ],
-      html5: true,
+      html5: true
     });
   }
 
@@ -55,7 +55,7 @@ export class SoundService {
   }
 
   play(soundName: string): void {
-    this.resumeAudioContextIfSuspended(); // ensure audio context is active
+    this.resumeAudioContextIfSuspended();  // ensure audio context is active
 
     const sound = this.sounds[soundName];
     if (!sound) {
@@ -66,8 +66,8 @@ export class SoundService {
     }
 
     try {
-      sound.stop(); // stop any current playback
-      const soundId = sound.play(); // returns a numeric sound ID
+      sound.stop();  // stop any current playback
+      const soundId = sound.play();  // returns a numeric sound ID
       console.log(
         `[✅ "${soundName}" triggered successfully with soundId: ${soundId}]`,
       );
@@ -91,14 +91,14 @@ export class SoundService {
     this.playedSoundOptions.clear();
 
     // Stop and unload all existing Howl instances FIRST
-    Object.values(this.sounds).forEach((sound) => {
+    for (const sound of Object.values(this.sounds)) {
       try {
         sound.stop();
         sound.unload();
       } catch (error) {
         console.warn('[SoundService] Error stopping/unloading sound:', error);
       }
-    });
+    }
 
     this.sounds = {};
 
@@ -109,7 +109,7 @@ export class SoundService {
 
     // Small delay to ensure audio context is ready
     setTimeout(() => {
-      this.initializeSounds(); // recreate fresh Howl instances
+      this.initializeSounds();  // recreate fresh Howl instances
     }, 100);
   }
 
@@ -141,8 +141,10 @@ export class SoundService {
 
   clearPlayedOptionsForQuestion(questionIndex: number): void {
     const keysToDelete = [...this.playedSoundOptions].filter((key) =>
-      key.startsWith(`${questionIndex}-`),
+      key.startsWith(`${questionIndex}-`)
     );
-    keysToDelete.forEach((key) => this.playedSoundOptions.delete(key));
+    for (const key of keysToDelete) {
+      this.playedSoundOptions.delete(key);
+    }
   }
 }
