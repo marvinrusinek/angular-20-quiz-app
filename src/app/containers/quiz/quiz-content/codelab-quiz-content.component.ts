@@ -606,7 +606,7 @@ export class CodelabQuizContentComponent
     this.correctAnswersTextSource.complete();
     this.correctAnswersDisplaySubject.complete();
     this.pendingExplanationRequests.forEach((subscription) =>
-      subscription.unsubscribe(),
+      subscription.unsubscribe()
     );
     this.pendingExplanationRequests.clear();
     this.combinedTextSubject.complete();
