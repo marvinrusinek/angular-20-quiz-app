@@ -23,6 +23,7 @@
               [value]="b.option.optionId"
               [ngClass]="getOptionClasses(b)"
               [disabled]="isDisabled(b, i)"
+              [disableRipple]="true"
               (change)="onOptionChanged(b, i, $event)"
               (click)="onOptionInteraction(b, i, $event)"
             >
@@ -55,6 +56,7 @@
               [checked]="b.isSelected"
               [ngClass]="getOptionClasses(b)"
               [disabled]="isDisabled(b, i)"
+              [disableRipple]="true"
               (change)="onOptionChanged(b, i, $event)"
               (click)="onOptionInteraction(b, i, $event)"
             >
