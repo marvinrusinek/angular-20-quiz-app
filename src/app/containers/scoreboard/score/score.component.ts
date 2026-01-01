@@ -163,7 +163,7 @@ export class ScoreComponent implements OnInit, OnDestroy {
     this.percentageScore = `${(
       (this.correctAnswersCount / this.totalQuestions) *
       totalPossibleScore
-    ).toFixed(2)}%`;
+    ).toFixed(0)}%`;
 
     this.currentScore$.next(this.percentageScore);
   }
