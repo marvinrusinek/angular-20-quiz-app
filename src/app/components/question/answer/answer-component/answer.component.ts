@@ -158,12 +158,10 @@ export class AnswerComponent
         this.optionBindings = [];
         this.renderReady = false;
 
-        // Defer rebuild and update bindings
-        Promise.resolve().then(() => {
-          this.resetSelectionState();
-          this.applyIncomingOptions(this.incomingOptions, {
-            resetSelection: false,
-          });
+        // Apply options synchronously (removed Promise.resolve to fix StackBlitz timing)
+        this.resetSelectionState();
+        this.applyIncomingOptions(this.incomingOptions, {
+          resetSelection: false,
         });
       });
   }
