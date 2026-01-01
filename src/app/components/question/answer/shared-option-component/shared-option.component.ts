@@ -516,18 +516,12 @@ export class SharedOptionComponent
       this.updateResolvedQuestionIndex(changes['config'].currentValue.idx);
     }
 
+    // Simplified check: regenerate if any relevant input changes
     const shouldRegenerate =
-      (changes['optionsToDisplay'] &&
-        Array.isArray(this.optionsToDisplay) &&
-        this.optionsToDisplay.length > 0 &&
-        this.optionsToDisplay.every(
-          (opt) => opt && typeof opt === 'object' && 'optionId' in opt
-        )) ||
+      (changes['optionsToDisplay'] && Array.isArray(this.optionsToDisplay) && this.optionsToDisplay.length > 0) ||
       (changes['config'] && this.config != null) ||
-      (changes['currentQuestionIndex'] &&
-        typeof changes['currentQuestionIndex'].currentValue === 'number') ||
-      (changes['questionIndex'] &&
-        typeof changes['questionIndex'].currentValue === 'number');
+      (changes['currentQuestionIndex'] && typeof changes['currentQuestionIndex'].currentValue === 'number') ||
+      (changes['questionIndex'] && typeof changes['questionIndex'].currentValue === 'number');
 
     if (changes['currentQuestionIndex']) {
       console.log(
@@ -3283,14 +3277,16 @@ export class SharedOptionComponent
       const options = this.optionsToDisplay;
 
       if (!options?.length) {
-        console.warn('[⚠️ No options available]');
+        console.warn('[⚠️ No options available on init - will be set by ngOnChanges]');
         this.optionBindingsInitialized = false;
         return;
       }
 
-      this.processOptionBindings();
+      // Use generateOptionBindings for consistency (handles deduplication, showOptions, etc.)
+      this.generateOptionBindings();
     } catch (error) {
       console.error('[❌ initializeOptionBindings error]', error);
+      this.optionBindingsInitialized = false;
     } finally {
       console.timeEnd('[🔧 initializeOptionBindings]');
     }
