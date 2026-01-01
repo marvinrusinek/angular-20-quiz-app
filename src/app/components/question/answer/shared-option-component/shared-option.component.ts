@@ -3103,9 +3103,24 @@ export class SharedOptionComponent
     const currentIndex = this.getActiveQuestionIndex() ?? 0;
 
     // Always start from a fresh clone of options
-    const localOpts = Array.isArray(this.optionsToDisplay)
+    const rawOpts = Array.isArray(this.optionsToDisplay)
       ? this.optionsToDisplay.map((o) => ({ ...JSON.parse(JSON.stringify(o)) }))
       : [];
+
+    // Deduplicate options by ID to prevent "A B C D A B C D" double-render
+    const seenIds = new Set<number | string>();
+    const localOpts: Option[] = [];
+
+    for (const opt of rawOpts) {
+      // Ensure we have a stable ID to check against
+      const id = opt.optionId ?? -1; 
+      if (!seenIds.has(id)) {
+        seenIds.add(id);
+        localOpts.push(opt);
+      } else {
+        console.warn(`[SOC] ⚠️ Duplicate Option ID detected and filtered:`, id);
+      }
+    }
 
     // Defensive clone: eliminate any shared references
     this.optionsToDisplay = localOpts.map((opt, i) => ({
@@ -3828,6 +3843,24 @@ export class SharedOptionComponent
     const hasOptions = (this.optionsToDisplay?.length ?? 0) > 0;
     return this.canDisplayOptions && this.renderReady && hasOptions;
   }
+ /* canShowOptions(): boolean {
+    const len = this.optionsToDisplay?.length ?? 0;
+    const hasOptions = len > 0;
+
+    console.log(
+      '%c[SOC] canShowOptions() CHECK',
+      'color:#ff00ff; font-weight:bold;',
+      {
+        canDisplayOptions: this.canDisplayOptions,
+        renderReady: this.renderReady,
+        optionsToDisplayLength: len,
+        hasOptions,
+        final: this.canDisplayOptions && this.renderReady && hasOptions,
+      },
+    );
+
+    return this.canDisplayOptions && this.renderReady && hasOptions;
+  } */
 
   private normalizeQuestionIndex(candidate: unknown): number | null {
     if (typeof candidate !== 'number' || !Number.isFinite(candidate)) {

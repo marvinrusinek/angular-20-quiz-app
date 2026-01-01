@@ -9,14 +9,3 @@
     </div>
   }
 </form>
-
-<!-- Options section -->
-@if (shouldRenderOptions && questionToDisplay) {
-  <codelab-question-answer
-    [questionData]="questionToDisplay"
-    [optionsToDisplay]="optionsToDisplay"
-    [currentQuestionIndex]="currentQuestionIndex"
-    (optionClicked)="onOptionClicked($event)"
-  >
-  </codelab-question-answer>
-}
