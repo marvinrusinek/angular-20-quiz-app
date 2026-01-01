@@ -337,11 +337,13 @@ get quizQuestionComponent(): QuizQuestionComponent {
           this.explanationTextService.setShouldDisplayExplanation(showingExplanation);
           this.explanationTextService.setIsExplanationTextDisplayed(showingExplanation);
 
-          // Force re-emit of question data to ensure UI renders
+          // ⚡ STACKBLITZ FIX: Force re-emit of question data to ensure UI renders
+          // In some environments, the view might have been cleared or the subject stream interrupted.
           if (this.currentQuestion) {
             console.log('[VISIBILITY] 🔄 Re-emitting question data to force re-render');
             const currentPayload = this.combinedQuestionDataSubject.getValue();
             
+            // Prefer existing payload if available, otherwise reconstruct it
             const payloadToEmit: QuestionPayload = currentPayload || {
               question: this.currentQuestion,
               options: this.optionsToDisplay || [],
