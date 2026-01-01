@@ -3181,6 +3181,8 @@ export class SharedOptionComponent
     }
 
     this.markRenderReady?.('bindings refreshed');
+    this.showOptions = true;
+    this.optionsReady = true;
   }
 
   public hydrateOptionsFromSelectionState(): void {
