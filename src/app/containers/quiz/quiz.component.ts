@@ -337,6 +337,27 @@ get quizQuestionComponent(): QuizQuestionComponent {
           this.explanationTextService.setShouldDisplayExplanation(showingExplanation);
           this.explanationTextService.setIsExplanationTextDisplayed(showingExplanation);
 
+          // ⚡ STACKBLITZ FIX: Force re-emit of question data to ensure UI renders
+          // In some environments, the view might have been cleared or the subject stream interrupted.
+          if (this.currentQuestion) {
+            console.log('[VISIBILITY] 🔄 Re-emitting question data to force re-render');
+            const currentPayload = this.combinedQuestionDataSubject.getValue();
+            
+            // Prefer existing payload if available, otherwise reconstruct it
+            const payloadToEmit: QuestionPayload = currentPayload || {
+              question: this.currentQuestion,
+              options: this.optionsToDisplay || [],
+              explanation: this.explanationToDisplay || ''
+            };
+            
+            this.combinedQuestionDataSubject.next(payloadToEmit);
+            
+            // Ensure options are also re-pushed to optionsToDisplay$
+            if (this.optionsToDisplay && this.optionsToDisplay.length > 0) {
+              this.optionsToDisplay$.next(this.optionsToDisplay);
+            }
+          }
+
           this.cdRef.markForCheck();
         }
       }
@@ -1110,10 +1131,26 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
   private async restoreSelectionState(): Promise<void> {
     try {
-      const selectedOptions =
+      let selectedOptions =
         this.selectedOptionService.getSelectedOptionIndices(
           this.currentQuestionIndex,
         );
+
+      // ⚡ STACKBLITZ FIX: If memory is empty (e.g. reload), check storage
+      if (!selectedOptions || selectedOptions.length === 0) {
+        const stored = sessionStorage.getItem(`quiz_selection_${this.currentQuestionIndex}`);
+        if (stored) {
+          try {
+            const ids = JSON.parse(stored);
+            if (Array.isArray(ids)) {
+              selectedOptions = ids;
+              console.log(`[restoreSelectionState] ♻️ Restored selections from storage for Q${this.currentQuestionIndex}:`, ids);
+            }
+          } catch (e) {
+            console.error('[restoreSelectionState] Error parsing stored selections', e);
+          }
+        }
+      }
 
       // Re-apply selected states to options
       for (const optionId of selectedOptions) {
@@ -1291,6 +1328,11 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
     // Persist state in sessionStorage
     sessionStorage.setItem('isAnswered', 'true');
+    
+    // ⚡ FIX: Save selection indices for persistence
+    const currentIndices = this.selectedOptionService.getSelectedOptionIndices(normalizedQuestionIndex);
+    sessionStorage.setItem(`quiz_selection_${normalizedQuestionIndex}`, JSON.stringify(currentIndices));
+
     sessionStorage.setItem(
       `displayMode_${normalizedQuestionIndex}`,
       'explanation',
@@ -4401,6 +4443,27 @@ get quizQuestionComponent(): QuizQuestionComponent {
       this.resetQuestionDisplayState();
       this.explanationTextService.resetExplanationState();
       this.resetComplete = false;
+
+      // ⚡ STACKBLITZ FIX: Restore persistency from storage if service is empty (e.g. reload)
+      if (!this.selectedOptionService.isQuestionAnswered(questionIndex)) {
+        const storedSel = sessionStorage.getItem(`quiz_selection_${questionIndex}`);
+        if (storedSel) {
+          try {
+            const ids = JSON.parse(storedSel);
+            if (Array.isArray(ids) && ids.length > 0) {
+              console.log(`[fetchAndSetQuestionData] ♻️ Restoring stored selections for Q${questionIndex}`);
+              ids.forEach(id => this.selectedOptionService.addSelectedOptionIndex(questionIndex, id));
+              // Force update the answered state in service
+              this.selectedOptionService.updateAnsweredState(
+                this.selectedOptionService.getSelectedOptionsForQuestion(questionIndex),
+                questionIndex
+              );
+            }
+          } catch (e) {
+            console.error('Error restoring selections:', e);
+          }
+        }
+      }
 
       // Parallel Fetch
       const isAnswered =
