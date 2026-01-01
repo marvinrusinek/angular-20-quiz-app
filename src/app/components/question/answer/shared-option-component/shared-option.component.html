@@ -1,106 +1,115 @@
 @let opts = optionBindings || [];
 
 @if (canShowOptions()) {
+  <!-- OPTIONS ARE READY -->
+  <form
+    [formGroup]="form"
+    class="options-form"
+  >
+    @switch (type) {
+      <!-- SINGLE-ANSWER (RADIO) -->
+      @case ('single') {
+        <mat-radio-group
+          class="options-group options"
+          formControlName="selectedOptionId"
+        >
+          @for (b of optionBindings; track trackByOptionId(b, i); let i = $index) {
+            <mat-radio-button
+              class="option-row single-option"
+              appHighlightOption
+              [appHighlightInputType]="'radio'"
+              [appHighlightReset]="shouldResetBackground"
+              [sharedOptionConfig]="getSharedOptionConfig(b, i)"
+              [value]="b.option.optionId"
+              [ngClass]="getOptionClasses(b)"
+              [disabled]="isDisabled(b, i)"
+              (change)="onOptionChanged(b, i, $event)"
+              (click)="onOptionInteraction(b, i, $event)"
+            >
+              <ng-container
+                *ngTemplateOutlet="optionContent; context: { $implicit: b, index: i }"
+              ></ng-container>
+            </mat-radio-button>
 
-<!-- OPTIONS ARE READY -->
-<form [formGroup]="form" class="options-form">
-
-  <!-- Hidden element to force OnPush re-render when disabled state changes -->
-  <span style="display:none">{{ disableRenderTrigger }}</span>
-
-  @switch (type) {
-
-  <!-- SINGLE-ANSWER (RADIO) -->
-  @case ('single') {
-
-  <mat-radio-group class="options-group options" formControlName="selectedOptionId">
-
-    @for (b of optionBindings; let i = $index; track trackByOptionId(b, i)) {
-
-    <mat-radio-button class="option-row single-option" appHighlightOption [appHighlightInputType]="'radio'"
-      [appHighlightReset]="shouldResetBackground" [sharedOptionConfig]="getSharedOptionConfig(b, i)"
-      [value]="b.option.optionId" [ngClass]="getOptionClasses(b)" [disabled]="isDisabled(b, i)"
-      (change)="onOptionChanged(b, i, $event)" (click)="onOptionInteraction(b, i, $event)">
-
-      <ng-container *ngTemplateOutlet="optionContent;
-                context: { $implicit: b, index: i }">
-      </ng-container>
-
-    </mat-radio-button>
-
-    <ng-container *ngTemplateOutlet="optionFeedback;
-              context: { $implicit: b }">
-    </ng-container>
-
-    }
-
-  </mat-radio-group>
-  }
-
-  <!-- MULTIPLE-ANSWER (CHECKBOX) -->
-  @case ('multiple') {
-
-  <div class="options-group options" role="group" aria-label="Select one or more options">
-    @for (b of optionBindings; let i = $index; track trackByOptionId(b, i)) {
-
-    <mat-checkbox class="option-row multiple-option" appHighlightOption [appHighlightInputType]="'checkbox'"
-      [appHighlightReset]="shouldResetBackground" [sharedOptionConfig]="getSharedOptionConfig(b, i)"
-      [checked]="b.isSelected" [ngClass]="getOptionClasses(b)" [disabled]="isDisabled(b, i)"
-      (change)="onOptionChanged(b, i, $event)" (click)="onOptionInteraction(b, i, $event)">
-
-      <ng-container *ngTemplateOutlet="optionContent;
-              context: { $implicit: b, index: i }">
-      </ng-container>
-
-    </mat-checkbox>
-
-    <ng-container *ngTemplateOutlet="optionFeedback;
-            context: { $implicit: b }">
-    </ng-container>
-
-    }
-  </div>
-  }
-
-  } <!-- end @switch -->
-
-  <!-- OPTION CONTENT -->
-  <ng-template #optionContent let-b let-i="index">
-    <div class="option-wrapper" (click)="onOptionContentClick(b, i, $event)">
-
-      <span class="option-text">
-        {{ getOptionDisplayText(b.option, i) }}
-      </span>
-
-      @if (shouldShowIcon(b.option, i)) {
-      <mat-icon class="opt-icon">
-        {{ getOptionIcon(b.option, i) }}
-      </mat-icon>
+            <ng-container
+              *ngTemplateOutlet="optionFeedback; context: { $implicit: b }"
+            ></ng-container>
+          }
+        </mat-radio-group>
       }
 
-    </div>
-  </ng-template>
+      <!-- MULTIPLE-ANSWER (CHECKBOX) -->
+      @case ('multiple') {
+        <div
+          class="options-group options"
+          role="group"
+          aria-label="Select one or more options"
+        >
+          @for (b of optionBindings; track trackByOptionId(b, i); let i = $index) {
+            <mat-checkbox
+              class="option-row multiple-option"
+              appHighlightOption
+              [appHighlightInputType]="'checkbox'"
+              [appHighlightReset]="shouldResetBackground"
+              [sharedOptionConfig]="getSharedOptionConfig(b, i)"
+              [checked]="b.isSelected"
+              [ngClass]="getOptionClasses(b)"
+              [disabled]="isDisabled(b, i)"
+              (change)="onOptionChanged(b, i, $event)"
+              (click)="onOptionInteraction(b, i, $event)"
+            >
+              <ng-container
+                *ngTemplateOutlet="optionContent; context: { $implicit: b, index: i }"
+              ></ng-container>
+            </mat-checkbox>
 
-  <!-- OPTION FEEDBACK (ANIMATED HERE) -->
-  <ng-template #optionFeedback let-b>
-
-    @if (shouldShowFeedbackFor(b)) {
-
-    <div class="feedback-wrapper" @correctAnswer>
-
-      <codelab-quiz-feedback [feedbackConfig]="feedbackConfigs[b.option.optionId]">
-      </codelab-quiz-feedback>
-
-    </div>
-
+            <ng-container
+              *ngTemplateOutlet="optionFeedback; context: { $implicit: b }"
+            ></ng-container>
+          }
+        </div>
+      }
     }
 
-  </ng-template>
+    <!-- OPTION CONTENT -->
+    <ng-template
+      #optionContent
+      let-b
+      let-i="index"
+    >
+      <div
+        class="option-wrapper"
+        (click)="onOptionContentClick(b, i, $event)"
+      >
+        <span class="option-text">
+          {{ getOptionDisplayText(b.option, i) }}
+        </span>
 
-</form>
+        @if (shouldShowIcon(b.option, i)) {
+          <mat-icon class="opt-icon">
+            {{ getOptionIcon(b.option, i) }}
+          </mat-icon>
+        }
+      </div>
+    </ng-template>
 
+    <!-- OPTION FEEDBACK (ANIMATED HERE) -->
+    <ng-template
+      #optionFeedback
+      let-b
+    >
+      @if (shouldShowFeedbackFor(b)) {
+        <div
+          class="feedback-wrapper"
+          @correctAnswer
+        >
+          <codelab-quiz-feedback
+            [feedbackConfig]="feedbackConfigs[b.option.optionId]"
+          ></codelab-quiz-feedback>
+        </div>
+      }
+    </ng-template>
+  </form>
 } @else if (opts.length === 0) {
-
-<span>Options not ready&hellip;</span>
-
+  <span>Options not ready&hellip;</span>
 }
