@@ -1182,7 +1182,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
       map(([isSelected, isEnabled]) => {
         console.log('Combined Tooltip State:', { isSelected, isEnabled });
         return isSelected && isEnabled
-          ? 'Next Question >>'
+          ? 'Next Question »'
           : 'Please click an option to continue...';
       }),
       distinctUntilChanged(),
