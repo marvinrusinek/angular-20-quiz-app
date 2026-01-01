@@ -176,6 +176,22 @@ mat-card {
           font-size: 72px;
           color: vars.$dodger-blue;
           line-height: 1;
+          height: 72px;
+          width: 72px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .restart-nav i {
+          font-size: 56px;
+          color: vars.$dodger-blue;
+          line-height: 1;
+          height: 72px;
+          width: 72px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
 
         .restart-nav {
@@ -183,12 +199,6 @@ mat-card {
           grid-row: 1;
           justify-self: center;
           display: flex;
-        }
-
-        .restart-nav i {
-          font-size: 60px;
-          color: vars.$dodger-blue;
-          line-height: 1;
         }
 
         .next-question-nav {
@@ -204,7 +214,7 @@ mat-card {
           display: block;
           width: 100%;
           text-align: center;
-          padding-top: 30px;
+          padding-top: 10px;
 
           button {
             width: 180px;
