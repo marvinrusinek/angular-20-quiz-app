@@ -3822,26 +3822,8 @@ export class SharedOptionComponent
     return Number(this.currentQuestionIndex) || 0;
   }
 
-  /* canShowOptions(): boolean {
-    const hasOptions = (this.optionsToDisplay?.length ?? 0) > 0;
-    return this.canDisplayOptions && this.renderReady && hasOptions;
-  } */
   canShowOptions(): boolean {
-    const len = this.optionsToDisplay?.length ?? 0;
-    const hasOptions = len > 0;
-
-    console.log(
-      '%c[SOC] canShowOptions() CHECK',
-      'color:#ff00ff; font-weight:bold;',
-      {
-        canDisplayOptions: this.canDisplayOptions,
-        renderReady: this.renderReady,
-        optionsToDisplayLength: len,
-        hasOptions,
-        final: this.canDisplayOptions && this.renderReady && hasOptions,
-      },
-    );
-
+    const hasOptions = (this.optionsToDisplay?.length ?? 0) > 0;
     return this.canDisplayOptions && this.renderReady && hasOptions;
   }
 
