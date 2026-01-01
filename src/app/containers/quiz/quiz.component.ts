@@ -1451,7 +1451,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
   public get shouldShowRestartButton(): boolean {
     return (
       this.currentQuestionIndex > 0 &&
-      this.currentQuestionIndex <= this.totalQuestions - 1
+      this.currentQuestionIndex < this.totalQuestions - 1
     );
   }
 
