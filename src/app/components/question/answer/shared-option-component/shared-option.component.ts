@@ -3444,7 +3444,7 @@ export class SharedOptionComponent
     return (
       !!this.form &&
       this.renderReady &&
-      this.showOptions &&
+      // this.showOptions && // REMOVED: Caused restart render issues in StackBlitz
       Array.isArray(this.optionBindings) &&
       this.optionBindings.length > 0 &&
       this.optionBindings.every((b) => !!b.option)
