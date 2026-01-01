@@ -64,6 +64,7 @@
 :host ::ng-deep mat-card.quiz-card {
   border: 1.5px solid #000 !important;
   border-right-width: 3px !important;   /* thick on RHS */
+  border-bottom-width: 3px !important;  /* thick on bottom */
   box-shadow: 10px 10px 5px #888 !important;
   border-radius: 10px !important;
   background: #fff !important;
