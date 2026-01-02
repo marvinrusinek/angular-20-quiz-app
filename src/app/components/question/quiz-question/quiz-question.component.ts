@@ -2290,6 +2290,9 @@ export class QuizQuestionComponent
         this.updateShouldRenderOptions(instance.optionsToDisplay);
         this.shouldRenderOptions = true;
         this._canRenderFinalOptions = true;
+        
+        // CRITICAL: Set renderReady on AnswerComponent so SharedOptionComponent displays
+        instance.renderReady = true;
       } else {
         this.updateShouldRenderOptions(instance.optionsToDisplay);
         console.warn('[⚠️ Skipping render — options not ready]', {
