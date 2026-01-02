@@ -1,5 +1,32 @@
 @use '../../../../../variables' as vars;
 
+/* 🚫 CURSOR WRAPPER - Forces cursor on all children */
+.option-cursor-wrapper {
+  cursor: pointer;
+  
+  &.cursor-not-allowed {
+    cursor: not-allowed !important;
+    
+    // Force cursor on ALL nested elements
+    &,
+    & *,
+    & ::ng-deep *,
+    & label,
+    & input,
+    & span,
+    & div,
+    & .mat-mdc-radio-button,
+    & .mat-mdc-checkbox,
+    & .mdc-form-field,
+    & .mdc-radio,
+    & .mdc-checkbox,
+    & .option-text,
+    & .option-wrapper {
+      cursor: not-allowed !important;
+    }
+  }
+}
+
 * {
   outline: 1px solid rgba(255, 0, 0, 0.2);
 }

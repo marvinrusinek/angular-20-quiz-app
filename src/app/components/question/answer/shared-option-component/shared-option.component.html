@@ -14,28 +14,29 @@
           formControlName="selectedOptionId"
         >
           @for (b of optionBindings; track trackByOptionId(b, i); let i = $index) {
-            <mat-radio-button
-              class="option-row single-option"
-              appHighlightOption
-              [appHighlightInputType]="'radio'"
-              [appHighlightReset]="shouldResetBackground"
-              [sharedOptionConfig]="getSharedOptionConfig(b, i)"
-              [value]="b.option.optionId"
-              [ngClass]="getOptionClasses(b)"
-              [disabled]="isDisabled(b, i)"
-              [disableRipple]="true"
-              [style.cursor]="getOptionCursor(b, i)"
-              (change)="onOptionChanged(b, i, $event)"
-              (click)="onOptionInteraction(b, i, $event)"
-            >
-              <ng-container
-                *ngTemplateOutlet="optionContent; context: { $implicit: b, index: i }"
-              ></ng-container>
-            </mat-radio-button>
+            <div class="option-cursor-wrapper" [class.cursor-not-allowed]="getOptionCursor(b, i) === 'not-allowed'">
+              <mat-radio-button
+                class="option-row single-option"
+                appHighlightOption
+                [appHighlightInputType]="'radio'"
+                [appHighlightReset]="shouldResetBackground"
+                [sharedOptionConfig]="getSharedOptionConfig(b, i)"
+                [value]="b.option.optionId"
+                [ngClass]="getOptionClasses(b)"
+                [disabled]="isDisabled(b, i)"
+                [disableRipple]="true"
+                (change)="onOptionChanged(b, i, $event)"
+                (click)="onOptionInteraction(b, i, $event)"
+              >
+                <ng-container
+                  *ngTemplateOutlet="optionContent; context: { $implicit: b, index: i }"
+                ></ng-container>
+              </mat-radio-button>
 
-            <ng-container
-              *ngTemplateOutlet="optionFeedback; context: { $implicit: b }"
-            ></ng-container>
+              <ng-container
+                *ngTemplateOutlet="optionFeedback; context: { $implicit: b }"
+              ></ng-container>
+            </div>
           }
         </mat-radio-group>
       }
@@ -48,28 +49,29 @@
           aria-label="Select one or more options"
         >
           @for (b of optionBindings; track trackByOptionId(b, i); let i = $index) {
-            <mat-checkbox
-              class="option-row multiple-option"
-              appHighlightOption
-              [appHighlightInputType]="'checkbox'"
-              [appHighlightReset]="shouldResetBackground"
-              [sharedOptionConfig]="getSharedOptionConfig(b, i)"
-              [checked]="b.isSelected"
-              [ngClass]="getOptionClasses(b)"
-              [disabled]="isDisabled(b, i)"
-              [disableRipple]="true"
-              [style.cursor]="getOptionCursor(b, i)"
-              (change)="onOptionChanged(b, i, $event)"
-              (click)="onOptionInteraction(b, i, $event)"
-            >
-              <ng-container
-                *ngTemplateOutlet="optionContent; context: { $implicit: b, index: i }"
-              ></ng-container>
-            </mat-checkbox>
+            <div class="option-cursor-wrapper" [class.cursor-not-allowed]="getOptionCursor(b, i) === 'not-allowed'">
+              <mat-checkbox
+                class="option-row multiple-option"
+                appHighlightOption
+                [appHighlightInputType]="'checkbox'"
+                [appHighlightReset]="shouldResetBackground"
+                [sharedOptionConfig]="getSharedOptionConfig(b, i)"
+                [checked]="b.isSelected"
+                [ngClass]="getOptionClasses(b)"
+                [disabled]="isDisabled(b, i)"
+                [disableRipple]="true"
+                (change)="onOptionChanged(b, i, $event)"
+                (click)="onOptionInteraction(b, i, $event)"
+              >
+                <ng-container
+                  *ngTemplateOutlet="optionContent; context: { $implicit: b, index: i }"
+                ></ng-container>
+              </mat-checkbox>
 
-            <ng-container
-              *ngTemplateOutlet="optionFeedback; context: { $implicit: b }"
-            ></ng-container>
+              <ng-container
+                *ngTemplateOutlet="optionFeedback; context: { $implicit: b }"
+              ></ng-container>
+            </div>
           }
         </div>
       }
