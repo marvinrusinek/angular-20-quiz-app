@@ -24,6 +24,7 @@
               [ngClass]="getOptionClasses(b)"
               [disabled]="isDisabled(b, i)"
               [disableRipple]="true"
+              [style.cursor]="getOptionCursor(b, i)"
               (change)="onOptionChanged(b, i, $event)"
               (click)="onOptionInteraction(b, i, $event)"
             >
@@ -57,6 +58,7 @@
               [ngClass]="getOptionClasses(b)"
               [disabled]="isDisabled(b, i)"
               [disableRipple]="true"
+              [style.cursor]="getOptionCursor(b, i)"
               (change)="onOptionChanged(b, i, $event)"
               (click)="onOptionInteraction(b, i, $event)"
             >

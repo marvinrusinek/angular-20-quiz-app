@@ -1236,6 +1236,25 @@ export class SharedOptionComponent
     };
   }
 
+  /** Returns cursor style for option - 'not-allowed' when disabled/locked, 'pointer' otherwise */
+  public getOptionCursor(binding: OptionBindings, index: number): string {
+    if (this.isDisabled(binding, index)) {
+      return 'not-allowed';
+    }
+    
+    const qIndex = this.resolveCurrentQuestionIndex();
+    try {
+      const isQuestionAnswered = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex)?.length > 0;
+      const isExplanationShowing = this.explanationTextService.shouldDisplayExplanationSource.getValue();
+      
+      if (isQuestionAnswered || isExplanationShowing) {
+        return 'not-allowed';
+      }
+    } catch { }
+    
+    return 'pointer';
+  }
+
   public isIconVisible(option: Option): boolean {
     return option.showIcon === true;
   }
