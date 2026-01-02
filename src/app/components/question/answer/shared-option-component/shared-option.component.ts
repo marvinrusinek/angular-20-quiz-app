@@ -1220,8 +1220,11 @@ export class SharedOptionComponent
     // Check if options should be locked (show not-allowed cursor)
     let isLocked = false;
     try {
-      isLocked = this.selectedOptionService.isQuestionLocked(qIndex) || 
-                 this.explanationTextService.shouldDisplayExplanationSource.getValue();
+      const isQuestionAnswered = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex)?.length > 0;
+      const isExplanationShowing = this.explanationTextService.shouldDisplayExplanationSource.getValue();
+      const isQuestionLockedByService = this.selectedOptionService.isQuestionLocked(qIndex);
+      
+      isLocked = isQuestionAnswered || isExplanationShowing || isQuestionLockedByService;
     } catch { }
 
     return {

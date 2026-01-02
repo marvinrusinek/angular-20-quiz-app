@@ -184,10 +184,18 @@
 }
 
 /* 🔒 LOCKED OPTION - Shows not-allowed cursor but keeps pointer-events for visual feedback */
+:host ::ng-deep .locked-option,
 .locked-option {
   cursor: not-allowed !important;
   
-  * {
+  &,
+  & *,
+  & label,
+  & .mat-mdc-radio-button,
+  & .mat-mdc-checkbox,
+  & .mdc-form-field,
+  & .mdc-form-field > label,
+  & input {
     cursor: not-allowed !important;
   }
   
