@@ -1215,9 +1215,18 @@ export class SharedOptionComponent
 
   public getOptionClasses(binding: OptionBindings): { [key: string]: boolean } {
     const option = binding.option;
+    const qIndex = this.resolveCurrentQuestionIndex();
+    
+    // Check if options should be locked (show not-allowed cursor)
+    let isLocked = false;
+    try {
+      isLocked = this.selectedOptionService.isQuestionLocked(qIndex) || 
+                 this.explanationTextService.shouldDisplayExplanationSource.getValue();
+    } catch { }
 
     return {
       'disabled-option': this.shouldDisableOption(binding),
+      'locked-option': isLocked && !this.shouldDisableOption(binding),
       'correct-option': !!option.selected && !!option.correct,
       'incorrect-option': !!option.selected && !option.correct,
       'flash-red': this.flashDisabledSet.has(option.optionId ?? -1),

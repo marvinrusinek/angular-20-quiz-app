@@ -183,6 +183,19 @@
   border-color: #9e9e9e !important;
 }
 
+/* 🔒 LOCKED OPTION - Shows not-allowed cursor but keeps pointer-events for visual feedback */
+.locked-option {
+  cursor: not-allowed !important;
+  
+  * {
+    cursor: not-allowed !important;
+  }
+  
+  &:hover {
+    border-color: vars.$medium-gray !important; // Don't show hover effect
+  }
+}
+
 /* ────────────────────────────────────────────────
    3. OPTION CONTENT (TEXT + ICONS)
 ──────────────────────────────────────────────────*/
