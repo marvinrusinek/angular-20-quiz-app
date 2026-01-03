@@ -16,6 +16,7 @@ import { JoinPipe } from '../../../pipes/join.pipe';
 import { QuizQuestion } from '../../../shared/models/QuizQuestion.model';
 import { Result } from '../../../shared/models/Result.model';
 import { QuizService } from '../../../shared/services/quiz.service';
+import { QuizDataService } from '../../../shared/services/quizdata.service';
 import { TimerService } from '../../../shared/services/timer.service';
 
 @Component({
@@ -44,6 +45,7 @@ export class AccordionComponent implements OnInit, OnDestroy {
 
   constructor(
     private quizService: QuizService,
+    private quizDataService: QuizDataService,
     private timerService: TimerService,
     private cdr: ChangeDetectorRef
   ) {}
@@ -65,7 +67,18 @@ export class AccordionComponent implements OnInit, OnDestroy {
          // Use a small timeout to let other initializations settle
          setTimeout(() => {
            const id = this.quizService.quizId || 'dependency-injection';
-           this.quizService.fetchQuizQuestions(id);
+           // Fallback to QuizDataService to ensure clarity (bypasses shuffling/state complexity)
+           this.quizDataService.getQuestionsForQuiz(id).pipe(takeUntil(this.destroy$)).subscribe((qs) => {
+             if (qs && qs.length > 0) {
+               console.log('[ACCORDION] Loaded questions via QuizDataService fallback:', qs.length);
+               this.questions = qs;
+               
+               // Re-calculate correct answers if needed? 
+               // QuizService.correctAnswers might be map of indexes. 
+               // We assume indexes match the fetched questions.
+               this.cdr.markForCheck();
+             }
+           });
          }, 100);
       }
       
