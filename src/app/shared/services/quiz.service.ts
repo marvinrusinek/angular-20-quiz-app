@@ -163,7 +163,7 @@ export class QuizService {
   correctOptions: Option[] = [];
   selectedOption$ = new BehaviorSubject<string | null>(null);
 
-  userAnswers = [];
+  userAnswers: any[] = [];
   previousAnswers: string[] = [];
 
   optionsSource: Subject<Option[]> = new Subject<Option[]>();
@@ -1472,6 +1472,14 @@ export class QuizService {
       .map((answer: Option) => answer.optionId)
       .filter((id): id is number => id !== undefined);
     this.answersSubject.next(answerIds);
+    
+    // Update the persistent userAnswers array for the current question
+    if (this.currentQuestionIndex >= 0) {
+      if (!this.userAnswers) this.userAnswers = [];
+      this.userAnswers[this.currentQuestionIndex] = answerIds;
+      console.log(`[updateAnswersForOption] 💾 Saved userAnswers[${this.currentQuestionIndex}] = ${JSON.stringify(answerIds)}`);
+    }
+
     console.log(`[updateAnswersForOption] Final answers array: ${JSON.stringify(this.answers.map(a => a.text?.substring(0, 15)))}`);
   }
 
@@ -2194,11 +2202,12 @@ export class QuizService {
     // this.shuffledQuestions = [];
 
     this.quizId = ''; // ⚡ Clear quizId for fresh shuffle on restart
-    // 🔧 FIXED: Clear questions to prevent stale data on restart
-    // This ensures getQuestionByIndex waits for the NEW shuffle instead of emitting old data
-    this.questions = [];
-    this.questionsList = [];
-    this.questionsSubject.next([]);
+    // 🔧 FIXED: Do NOT clear questions here. Clearing them breaks results display if this method 
+    // is called during navigation or cleanup before results are fully rendered.
+    // Explicit resets (like resetQuestions or setCheckedShuffle) should handle clearing if needed.
+    // this.questions = [];
+    // this.questionsList = [];
+    // this.questionsSubject.next([]);
     console.log(`[QuizService] ⏭️ resetQuizSessionState called (cleared shuffle & questions)`);
 
     this.currentQuestionSource.next(null);

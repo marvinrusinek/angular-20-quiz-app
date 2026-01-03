@@ -47,6 +47,8 @@ export class SummaryReportComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    console.log('[SUMMARY] 🚀 SummaryReportComponent ngOnInit STARTED');
+    
     // Initialize quizMetadata in ngOnInit when service data is available
     this.quizMetadata = {
       totalQuestions: this.quizService.totalQuestions,
