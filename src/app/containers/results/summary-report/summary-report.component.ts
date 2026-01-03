@@ -86,6 +86,8 @@ export class SummaryReportComponent implements OnInit {
       totalQuestions: this.quizService.totalQuestions,
     };
     
+    console.log('[SUMMARY] currentScore:', this.currentScore);
+    console.log('[SUMMARY] highScores:', this.highScores);
     console.log('QMP', this.quizMetadata.percentage);
   }
 
