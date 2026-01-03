@@ -155,7 +155,14 @@ export class QuizService {
 
   private readonly shuffleEnabledSubject = new BehaviorSubject<boolean>(false);
   checkedShuffle$ = this.shuffleEnabledSubject.asObservable();
-  public shuffledQuestions: QuizQuestion[] = [];
+  public shuffledQuestions: QuizQuestion[] = (() => {
+    try {
+      const stored = localStorage.getItem('shuffledQuestions');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  })();
   private canonicalQuestionsByQuiz = new Map<string, QuizQuestion[]>();
   private canonicalQuestionIndexByText = new Map<string, Map<string, number>>();
 
@@ -1782,6 +1789,11 @@ export class QuizService {
     }
 
     this.shuffledQuestions = sanitizedQuestions;
+    try {
+      localStorage.setItem('shuffledQuestions', JSON.stringify(this.shuffledQuestions));
+    } catch (e) {
+      console.warn('Failed to persist shuffledQuestions:', e);
+    }
     this.questions = sanitizedQuestions;
     this.questionsList = sanitizedQuestions;
     console.log('[QuizService] applySessionQuestions: Setting questionsSubject to SHUFFLED list. First Q:', sanitizedQuestions[0]?.questionText);
@@ -2226,7 +2238,10 @@ export class QuizService {
     // ⚡ FIX: Do NOT clear shuffledQuestions here.
     // It should only be cleared when explicitly toggling shuffle or starting a BRAND NEW quiz config.
     // Clearing it here breaks persistence during navigation/reloads.
-    // this.shuffledQuestions = [];
+    this.shuffledQuestions = [];
+    try {
+      localStorage.removeItem('shuffledQuestions');
+    } catch {}
 
     // this.quizId = ''; // ⚡ Clear quizId for fresh shuffle on restart
     // 🔧 FIXED: Do NOT clear questions here. Clearing them breaks results display if this method 
