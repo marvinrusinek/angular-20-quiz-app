@@ -36,6 +36,7 @@ export class SummaryReportComponent implements OnInit {
   checkedShuffle = false;
   checkedShuffle$: Observable<boolean> = of(false);
   highScores: QuizScore[] = [];
+  currentScore: QuizScore | null = null; // The current quiz attempt score
   codelabUrl = 'https://www.codelab.fun';
 
   constructor(
@@ -76,6 +77,15 @@ export class SummaryReportComponent implements OnInit {
     this.calculateElapsedTime();
     this.quizService.saveHighScores();
     this.highScores = this.quizService.highScores;
+    
+    // Create current score object for display
+    this.currentScore = {
+      quizId: this.quizId,
+      attemptDateTime: new Date(),
+      score: this.quizMetadata.percentage ?? 0,
+      totalQuestions: this.quizService.totalQuestions,
+    };
+    
     console.log('QMP', this.quizMetadata.percentage);
   }
 
