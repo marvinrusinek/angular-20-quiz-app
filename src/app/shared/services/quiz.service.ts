@@ -1518,6 +1518,14 @@ export class QuizService {
       return dateB.getTime() - dateA.getTime();
     });
     // this.highScoresLocal.reverse(); // Removed to ensure most recent is first
+    // Filter out scores older than 7 days
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    this.highScoresLocal = this.highScoresLocal.filter((score: any) => {
+      const scoreDate = new Date(score.attemptDateTime);
+      return scoreDate >= oneWeekAgo;
+    });
+
     this.highScoresLocal.splice(MAX_HIGH_SCORES);
     localStorage.setItem(
       'highScoresLocal',
