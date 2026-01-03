@@ -2243,7 +2243,7 @@ export class QuizService {
     this.correctAnswersSubject.next(new Map<string, number[]>());
     this.correctAnswersLoadedSubject.next(false);
 
-    this.userAnswers = [];
+    // this.userAnswers = [];
     this.previousAnswers = [];
 
     this.badgeTextSource.next('');

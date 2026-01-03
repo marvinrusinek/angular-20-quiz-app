@@ -20,6 +20,11 @@ mat-accordion {
       font-weight: vars.$font-weight-max;
       color: vars.$darker-blue;
       white-space: nowrap;
+      margin-right: 15px;
+    }
+    
+    .summary-header {
+      margin-bottom: 10px;
     }
     .question-text {
       font-weight: 700;

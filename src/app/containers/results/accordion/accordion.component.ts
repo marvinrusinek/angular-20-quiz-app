@@ -29,7 +29,7 @@ import { TimerService } from '../../../shared/services/timer.service';
 })
 export class AccordionComponent implements OnInit, OnDestroy {
   questions: QuizQuestion[] = [];
-  correctAnswers: number[] = [];
+  // correctAnswers removed - we derive it per question
   results: Result = {
     userAnswers: [],
     elapsedTimes: [],
@@ -82,10 +82,6 @@ export class AccordionComponent implements OnInit, OnDestroy {
          }, 100);
       }
       
-      this.correctAnswers = Array.from(
-        this.quizService.correctAnswers.values(),
-      ).flat();
-      
       console.log('[ACCORDION] questions updated:', this.questions?.length);
     });
 
@@ -112,10 +108,11 @@ export class AccordionComponent implements OnInit, OnDestroy {
     );
   } */
   checkIfAnswersAreCorrect(
-    correctAnswers: number[],
+    question: QuizQuestion,
     userAnswers: any[],
     index: number,
   ): boolean {
+    const correctAnswers = this.getCorrectOptionIndices(question);
     const user = userAnswers[index];
 
     // Handle no answers case
@@ -146,6 +143,13 @@ export class AccordionComponent implements OnInit, OnDestroy {
   closeAllPanels(): void {
     this.isOpen = false;
     (this.accordion as any).closeAll();
+  }
+
+  getCorrectOptionIndices(question: QuizQuestion): number[] {
+    if (!question || !question.options) return [];
+    return question.options
+      .map((opt, index) => (opt.correct ? index + 1 : -1))
+      .filter((idx) => idx !== -1);
   }
 
   ngOnDestroy(): void {

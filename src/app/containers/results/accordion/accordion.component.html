@@ -2,7 +2,7 @@
 @if (questions.length === 0) {
   <p>No questions available to display. Please verify quiz data.</p>
 }
-<mat-accordion #accordion="matAccordion">
+<mat-accordion multi="true" #accordion="matAccordion">
   @for (question of questions; track $index; let i = $index) {
     <mat-expansion-panel
       class="quiz-summary-question"
@@ -17,96 +17,100 @@
           </i>
         </mat-panel-description>
 
-        <mat-panel-title>
-          <span class="question-leader">Question #{{ i + 1 }}:</span
-          >&nbsp;&nbsp;
+        <mat-panel-title class="accordion-title">
+          <span class="question-leader">Question #{{ i + 1 }}:</span>
           <span class="question-text">{{ question.questionText }}</span>
         </mat-panel-title>
 
         <ng-template matExpansionPanelContent>
-          @if ((correctAnswers.length || 0) > 0) {
-            <ul class="quiz-summary-fields">
-              <!-- USER ANSWERS -->
-              <li>
-                <span class="leader">Your Answer(s):</span>
+          <ul class="quiz-summary-fields">
+            <!-- USER ANSWERS -->
+            <li>
+              <span class="leader">Your Answer(s):</span>
 
-                @if (results.userAnswers[i]) {
-                  {{
-                    results.userAnswers[i].length === 1 ? 'Option' : 'Options'
-                  }}
-                  {{ results.userAnswers[i] | join }} &mdash;
+              @if (results.userAnswers[i] && results.userAnswers[i].length > 0) {
+                {{
+                  results.userAnswers[i].length === 1 ? 'Option' : 'Options'
+                }}
+                {{ results.userAnswers[i] | join }} &mdash;
 
-                  @for (
-                    item of results.userAnswers[i];
-                    track $index;
-                    let isLast = $last
-                  ) {
+                @for (
+                  item of results.userAnswers[i];
+                  track $index;
+                  let isLast = $last
+                ) {
+                  <!-- Handle potential boundary issues with option index -->
+                  @if (item > 0 && item <= question.options.length) {
                     {{ question.options[item - 1].text }}
-                    @if (!isLast) {
-                      <span> AND </span>
-                    }
-                  }
-
-                  <!-- Correct / Incorrect Icons -->
-                  @if (
-                    !checkIfAnswersAreCorrect(
-                      correctAnswers,
-                      results.userAnswers,
-                      i
-                    )
-                  ) {
-                    <mat-icon class="incorrect">clear</mat-icon>
                   } @else {
-                    <mat-icon class="correct">done</mat-icon>
+                    (Invalid Option)
                   }
-                } @else {
-                  <span>(no answer provided)</span>
-                }
-              </li>
-
-              <!-- CORRECT ANSWERS -->
-              <li>
-                <span class="leader">Correct Answer(s):</span>
-                {{ correctAnswers.length === 1 ? 'Option' : 'Options' }}
-
-                @if (correctAnswers.length === 1) {
-                  {{ correctAnswers[0] }} &mdash;
-                  {{ question.options[correctAnswers[0] - 1].text }}
-                } @else {
-                  @for (
-                    item of correctAnswers;
-                    track $index;
-                    let isLast = $last
-                  ) {
-                    {{ question.options[item - 1].text }}
-                    @if (!isLast) {
-                      <span> AND </span>
-                    }
+                  @if (!isLast) {
+                    <span>, </span>
                   }
-                  &mdash; were correct because {{ question.explanation }}.
                 }
-              </li>
 
-              <!-- EXPLANATION -->
-              <li>
-                <span class="leader">Explanation:</span>
-
-                @if (correctAnswers.length === 1) {
-                  Option {{ correctAnswers[0] }} was correct because
-                  {{ question.explanation }}.
+                <!-- Correct / Incorrect Icons -->
+                @if (
+                  !checkIfAnswersAreCorrect(
+                    question,
+                    results.userAnswers,
+                    i
+                  )
+                ) {
+                  <mat-icon class="incorrect">clear</mat-icon>
                 } @else {
-                  Options {{ correctAnswers | join }} were correct because
-                  {{ question.explanation }}.
+                  <mat-icon class="correct">done</mat-icon>
                 }
-              </li>
+              } @else {
+                <span>(no answer provided)</span>
+              }
+            </li>
 
-              <!-- ELAPSED TIME -->
-              <li>
-                <span class="leader">Elapsed Time:</span>
-                <span>{{ results.elapsedTimes[i] }} seconds</span>
-              </li>
-            </ul>
-          }
+            <!-- CORRECT ANSWERS -->
+            <li>
+              <span class="leader">Correct Answer(s):</span>
+              @let correctIndices = getCorrectOptionIndices(question);
+              {{ correctIndices.length === 1 ? 'Option' : 'Options' }}
+
+              @if (correctIndices.length === 1) {
+                {{ correctIndices[0] }} &mdash;
+                {{ question.options[correctIndices[0] - 1].text }}
+              } @else {
+                @for (
+                  item of correctIndices;
+                  track $index;
+                  let isLast = $last
+                ) {
+                  {{ question.options[item - 1].text }}
+                  @if (!isLast) {
+                    <span>, </span>
+                  }
+                }
+              }
+              &mdash; were correct because {{ question.explanation }}.
+            </li>
+
+            <!-- EXPLANATION -->
+            <li>
+              <span class="leader">Explanation:</span>
+              @let correctIndicesExp = getCorrectOptionIndices(question);
+
+              @if (correctIndicesExp.length === 1) {
+                Option {{ correctIndicesExp[0] }} was correct because
+                {{ question.explanation }}.
+              } @else {
+                Options {{ correctIndicesExp | join }} were correct because
+                {{ question.explanation }}.
+              }
+            </li>
+
+            <!-- ELAPSED TIME -->
+            <li>
+              <span class="leader">Elapsed Time:</span>
+              <span>{{ results.elapsedTimes[i] }} {{ results.elapsedTimes[i] === 1 ? 'second' : 'seconds' }}</span>
+            </li>
+          </ul>
         </ng-template>
       </mat-expansion-panel-header>
     </mat-expansion-panel>
