@@ -163,7 +163,14 @@ export class QuizService {
   correctOptions: Option[] = [];
   selectedOption$ = new BehaviorSubject<string | null>(null);
 
-  userAnswers: any[] = [];
+  userAnswers: any[] = (() => {
+    try {
+      const stored = localStorage.getItem('userAnswers');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  })();
   previousAnswers: string[] = [];
 
   optionsSource: Subject<Option[]> = new Subject<Option[]>();
@@ -2200,6 +2207,11 @@ export class QuizService {
 
   updateUserAnswer(questionIndex: number, answerIds: number[]): void {
     this.userAnswers[questionIndex] = answerIds;
+    try {
+      localStorage.setItem('userAnswers', JSON.stringify(this.userAnswers));
+    } catch (e) {
+      console.warn('Failed to persist userAnswers:', e);
+    }
   }
 
   resetQuizSessionState(): void {
@@ -2247,7 +2259,10 @@ export class QuizService {
     this.correctAnswersSubject.next(new Map<string, number[]>());
     this.correctAnswersLoadedSubject.next(false);
 
-    // this.userAnswers = [];
+    this.userAnswers = [];
+    try {
+      localStorage.removeItem('userAnswers');
+    } catch {}
     this.previousAnswers = [];
 
     this.badgeTextSource.next('');
