@@ -1236,10 +1236,18 @@ export class SharedOptionComponent
     };
   }
 
-  /** Returns cursor style for option - 'not-allowed' when disabled/locked, 'pointer' otherwise */
+  /** Returns cursor style for option - 'not-allowed' only for disabled/incorrect options */
   public getOptionCursor(binding: OptionBindings, index: number): string {
+    const option = binding?.option;
+    const isCorrect = option?.correct === true;
+    
+    // Correct options always keep pointer cursor
+    if (isCorrect) {
+      return 'pointer';
+    }
+    
+    // Check if this specific option is disabled
     if (this.isDisabled(binding, index)) {
-      console.log('[CURSOR] Option disabled, returning not-allowed');
       return 'not-allowed';
     }
     
@@ -1248,8 +1256,7 @@ export class SharedOptionComponent
       const isQuestionAnswered = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex)?.length > 0;
       const isExplanationShowing = this.explanationTextService.shouldDisplayExplanationSource.getValue();
       
-      console.log('[CURSOR]', { qIndex, isQuestionAnswered, isExplanationShowing });
-      
+      // If question is answered or explanation showing, incorrect options get not-allowed
       if (isQuestionAnswered || isExplanationShowing) {
         return 'not-allowed';
       }
