@@ -2221,6 +2221,13 @@ export class QuizQuestionComponent
       try {
         (instance as any).questionData = { ...question };
         instance.optionsToDisplay = clonedOptions;
+        
+        // CRITICAL FIX: Set renderReady immediately after assigning options
+        // This fixes StackBlitz first-load timing issue
+        if (clonedOptions.length > 0) {
+          instance.renderReady = true;
+          console.log('[QQC] ✅ Set instance.renderReady = true after assigning options');
+        }
       } catch (error) {
         console.error('[❌ Assignment failed in loadDynamicComponent]', error, {
           question,
