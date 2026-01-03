@@ -1,3 +1,7 @@
+<h3 class="summary-header">Detailed Summary ({{ questions.length }} questions)</h3>
+@if (questions.length === 0) {
+  <p>No questions available to display. Please verify quiz data.</p>
+}
 <mat-accordion #accordion="matAccordion">
   @for (question of questions; track $index; let i = $index) {
     <mat-expansion-panel
