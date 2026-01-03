@@ -51,23 +51,32 @@ export class StatisticsComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    // Calculate elapsed time from array or use completionTime as fallback
+    let totalElapsedTime = this.timerService.calculateTotalElapsedTime(
+      this.timerService.elapsedTimes,
+    );
+    
+    // Fallback: if elapsedTimes is empty, use the direct completionTime property
+    if (totalElapsedTime === 0 && this.timerService.completionTime > 0) {
+      totalElapsedTime = this.timerService.completionTime;
+    }
+
     // Initialize quizMetadata in ngOnInit when service data is available
     this.quizMetadata = {
       totalQuestions: this.quizService.totalQuestions,
       totalQuestionsAttempted: this.quizService.totalQuestions,
       correctAnswersCount$: this.quizService.correctAnswersCountSubject,
       percentage: this.calculatePercentageOfCorrectlyAnsweredQuestions(),
-      completionTime: this.timerService.calculateTotalElapsedTime(
-        this.timerService.elapsedTimes,
-      ),
+      completionTime: totalElapsedTime,
     };
 
     console.log('[RESULTS] StatisticsComponent ngOnInit:', {
       totalQuestions: this.quizService.totalQuestions,
       correctAnswers: this.quizService.correctAnswersCountSubject.getValue(),
       elapsedTimes: this.timerService.elapsedTimes,
+      completionTime: this.timerService.completionTime,
+      calculatedTotal: totalElapsedTime,
       quizId: this.quizService.quizId,
-      quizMetadata: this.quizMetadata,
     });
 
     this.quizzes$ = this.quizDataService.getQuizzes();

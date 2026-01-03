@@ -82,6 +82,17 @@ export class QuizNavigationService {
       return false;
     }
 
+    // RECORD ELAPSED TIME FOR CURRENT QUESTION BEFORE NAVIGATING
+    const currentIndex = this.quizService.getCurrentQuestionIndex();
+    if (currentIndex >= 0) {
+      // Get elapsed time from the timer's current value if not already stored
+      const currentElapsed = (this.timerService as any).elapsedTime ?? 0;
+      if (!this.timerService.elapsedTimes[currentIndex] && currentElapsed > 0) {
+        this.timerService.elapsedTimes[currentIndex] = currentElapsed;
+        console.log(`[NAV] ⏱️ Recorded elapsed time for Q${currentIndex + 1}: ${currentElapsed}s`);
+      }
+    }
+
     // DO NOT aggressively reset flags here unless we are sure we are stuck.
     // overly aggressive resetting (setting isNavigating = false immediately) causes race conditions
     // where the button becomes clickable again too soon or state is inconsistent.
