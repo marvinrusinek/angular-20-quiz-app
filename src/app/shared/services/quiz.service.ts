@@ -153,7 +153,15 @@ export class QuizService {
   displayExplanation = false;
   shouldDisplayExplanation = false;
 
-  private readonly shuffleEnabledSubject = new BehaviorSubject<boolean>(false);
+  private readonly shuffleEnabledSubject = new BehaviorSubject<boolean>(
+    (() => {
+      try {
+        return localStorage.getItem('checkedShuffle') === 'true';
+      } catch {
+        return false;
+      }
+    })()
+  );
   checkedShuffle$ = this.shuffleEnabledSubject.asObservable();
   public shuffledQuestions: QuizQuestion[] = (() => {
     try {
@@ -1571,8 +1579,11 @@ export class QuizService {
 
   setCheckedShuffle(isChecked: boolean): void {
     console.log(`[QuizService] 🔍 setCheckedShuffle(${isChecked})`);
-    // console.trace(); // Optional: trace this if needed
     this.shuffleEnabledSubject.next(isChecked);
+    try {
+      localStorage.setItem('checkedShuffle', String(isChecked));
+    } catch {}
+    
     // ⚡ Clear shuffle state on toggle to ensure fresh shuffle
     // This prevents stale shuffled data from being used when toggling
     this.shuffledQuestions = [];

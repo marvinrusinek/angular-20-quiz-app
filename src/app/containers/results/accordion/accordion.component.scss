@@ -32,6 +32,8 @@ mat-accordion {
     }
     
     .question-text {
+      flex: 1;
+      min-width: 0;
       font-weight: 700;
       font-style: italic;
       color: vars.$black;
