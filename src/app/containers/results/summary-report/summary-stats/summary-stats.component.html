@@ -45,7 +45,7 @@
 
     @if (score?.attemptDateTime) {
       <span class="result">
-        {{ score.attemptDateTime | date: 'medium' }}
+        {{ score?.attemptDateTime | date: 'medium' }}
       </span>
     } @else {
       <span class="result">N/A</span>
