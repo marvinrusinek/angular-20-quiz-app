@@ -72,8 +72,13 @@ export class AccordionComponent implements OnInit, OnDestroy {
            if (!id || id === '') {
              id = this.route.snapshot.paramMap.get('quizId') || 
                   this.route.parent?.snapshot.paramMap.get('quizId') || 
-                  'dependency-injection';
-             if (id !== 'dependency-injection') this.quizService.quizId = id;
+                  '';
+             if (id) this.quizService.quizId = id;
+           }
+
+           if (!id) {
+             console.error('[ACCORDION] Could not determine quizId from route params.');
+             return;
            }
 
            // Fallback to QuizDataService to ensure clarity (bypasses shuffling/state complexity)
