@@ -1510,11 +1510,14 @@ export class QuizService {
     const MAX_HIGH_SCORES = 10; // show results of the last 10 quizzes
     this.highScoresLocal = this.highScoresLocal ?? [];
     this.highScoresLocal.push(this.quizScore);
-    this.highScoresLocal.sort(
-      (a: QuizScore, b: QuizScore) =>
-        b.attemptDateTime.getTime() - a.attemptDateTime.getTime(),
-    );
-    this.highScoresLocal.reverse(); // show high scores from most recent to latest
+    
+    // Sort descending by date
+    this.highScoresLocal.sort((a: any, b: any) => {
+      const dateA = new Date(a.attemptDateTime);
+      const dateB = new Date(b.attemptDateTime);
+      return dateB.getTime() - dateA.getTime();
+    });
+    // this.highScoresLocal.reverse(); // Removed to ensure most recent is first
     this.highScoresLocal.splice(MAX_HIGH_SCORES);
     localStorage.setItem(
       'highScoresLocal',
