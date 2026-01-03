@@ -30,16 +30,7 @@ export class SummaryReportComponent implements OnInit {
   quizzes$: Observable<Quiz[]> = of([]);
   quizName$: Observable<string> = of('');
   quizId = '';
-  quizMetadata: Partial<QuizMetadata> = {
-    totalQuestions: this.quizService.totalQuestions,
-    totalQuestionsAttempted: this.quizService.totalQuestions,
-    correctAnswersCount$: this.quizService.correctAnswersCountSubject,
-    percentage:
-      this.quizService.calculatePercentageOfCorrectlyAnsweredQuestions(),
-    completionTime: this.timerService.calculateTotalElapsedTime(
-      this.timerService.elapsedTimes,
-    ),
-  };
+  quizMetadata: Partial<QuizMetadata> = {};
   elapsedMinutes = 0;
   elapsedSeconds = 0;
   checkedShuffle = false;
@@ -55,11 +46,32 @@ export class SummaryReportComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    // Initialize quizMetadata in ngOnInit when service data is available
+    this.quizMetadata = {
+      totalQuestions: this.quizService.totalQuestions,
+      totalQuestionsAttempted: this.quizService.totalQuestions,
+      correctAnswersCount$: this.quizService.correctAnswersCountSubject,
+      percentage:
+        this.quizService.calculatePercentageOfCorrectlyAnsweredQuestions(),
+      completionTime: this.timerService.calculateTotalElapsedTime(
+        this.timerService.elapsedTimes,
+      ),
+    };
+
+    console.log('[SUMMARY] SummaryReportComponent ngOnInit:', {
+      totalQuestions: this.quizService.totalQuestions,
+      correctAnswers: this.quizService.correctAnswersCountSubject.getValue(),
+      elapsedTimes: this.timerService.elapsedTimes,
+      quizId: this.quizService.quizId,
+      quizMetadata: this.quizMetadata,
+    });
+
     this.quizzes$ = this.quizDataService.getQuizzes();
-    this.quizName$ = this.activatedRoute.url.pipe(
-      map((segments) => this.quizService.getQuizName(segments)),
-    );
     this.quizId = this.quizService.quizId;
+    
+    // Use the quizId from service, not from URL segments
+    this.quizName$ = of(this.quizId);
+    
     this.checkedShuffle$ = this.quizService.checkedShuffle$;
     this.calculateElapsedTime();
     this.quizService.saveHighScores();
