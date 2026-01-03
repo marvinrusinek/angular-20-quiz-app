@@ -48,49 +48,57 @@ export class SummaryReportComponent implements OnInit {
 
   ngOnInit(): void {
     console.log('[SUMMARY] 🚀 SummaryReportComponent ngOnInit STARTED');
-    
-    // Initialize quizMetadata in ngOnInit when service data is available
-    this.quizMetadata = {
-      totalQuestions: this.quizService.totalQuestions,
-      totalQuestionsAttempted: this.quizService.totalQuestions,
-      correctAnswersCount$: this.quizService.correctAnswersCountSubject,
-      percentage:
-        this.quizService.calculatePercentageOfCorrectlyAnsweredQuestions(),
-      completionTime: this.timerService.calculateTotalElapsedTime(
-        this.timerService.elapsedTimes,
-      ),
-    };
 
-    console.log('[SUMMARY] SummaryReportComponent ngOnInit:', {
-      totalQuestions: this.quizService.totalQuestions,
-      correctAnswers: this.quizService.correctAnswersCountSubject.getValue(),
-      elapsedTimes: this.timerService.elapsedTimes,
-      quizId: this.quizService.quizId,
-      quizMetadata: this.quizMetadata,
-    });
+    try {
+      // Initialize quizMetadata in ngOnInit when service data is available
+      this.quizMetadata = {
+        totalQuestions: this.quizService.totalQuestions,
+        totalQuestionsAttempted: this.quizService.totalQuestions,
+        correctAnswersCount$: this.quizService.correctAnswersCountSubject,
+        percentage:
+          this.quizService.calculatePercentageOfCorrectlyAnsweredQuestions(),
+        completionTime: this.timerService.calculateTotalElapsedTime(
+          this.timerService.elapsedTimes,
+        ),
+      };
 
-    this.quizzes$ = this.quizDataService.getQuizzes();
-    this.quizId = this.quizService.quizId;
-    
-    // Use the quizId from service, not from URL segments
-    this.quizName$ = of(this.quizId);
-    
-    this.checkedShuffle$ = this.quizService.checkedShuffle$;
-    this.calculateElapsedTime();
-    this.quizService.saveHighScores();
-    this.highScores = this.quizService.highScores;
-    
-    // Create current score object for display
-    this.currentScore = {
-      quizId: this.quizId,
-      attemptDateTime: new Date(),
-      score: this.quizMetadata.percentage ?? 0,
-      totalQuestions: this.quizService.totalQuestions,
-    };
-    
-    console.log('[SUMMARY] currentScore:', this.currentScore);
-    console.log('[SUMMARY] highScores:', this.highScores);
-    console.log('QMP', this.quizMetadata.percentage);
+      console.log('[SUMMARY] SummaryReportComponent ngOnInit:', {
+        totalQuestions: this.quizService.totalQuestions,
+        correctAnswers: this.quizService.correctAnswersCountSubject.getValue(),
+        elapsedTimes: this.timerService.elapsedTimes,
+        quizId: this.quizService.quizId,
+        quizMetadata: this.quizMetadata,
+      });
+
+      this.quizzes$ = this.quizDataService.getQuizzes();
+      this.quizId = this.quizService.quizId;
+
+      this.quizName$ = of(this.quizId);
+      this.checkedShuffle$ = this.quizService.checkedShuffle$;
+      this.calculateElapsedTime();
+      this.quizService.saveHighScores();
+      this.highScores = this.quizService.highScores;
+
+      // Create current score object for display
+      this.currentScore = {
+        quizId: this.quizId,
+        attemptDateTime: new Date(),
+        score: this.quizMetadata.percentage ?? 0,
+        totalQuestions: this.quizService.totalQuestions,
+      };
+
+      console.log('[SUMMARY] currentScore:', this.currentScore);
+      console.log('[SUMMARY] highScores:', this.highScores);
+    } catch (error) {
+      console.error('[SUMMARY] ❌ Error in ngOnInit:', error);
+      // Fallback to ensure UI doesn't look broken
+      this.currentScore = {
+        quizId: this.quizService.quizId || 'Unknown',
+        attemptDateTime: new Date(),
+        score: 0,
+        totalQuestions: 0
+      };
+    }
   }
 
   calculateElapsedTime(): void {
