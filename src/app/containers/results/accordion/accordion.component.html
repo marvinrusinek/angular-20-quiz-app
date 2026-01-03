@@ -29,26 +29,20 @@
               <span class="leader">Your Answer(s):</span>
 
               @if (results.userAnswers[i] && results.userAnswers[i].length > 0) {
-                {{
-                  results.userAnswers[i].length === 1 ? 'Option' : 'Options'
-                }}
-                {{ results.userAnswers[i] | join }} &mdash;
-
-                @for (
-                  item of results.userAnswers[i];
-                  track $index;
-                  let isLast = $last
-                ) {
-                  <!-- Handle potential boundary issues with option index -->
-                  @if (item > 0 && item <= question.options.length) {
-                    {{ question.options[item - 1].text }}
-                  } @else {
-                    (Invalid Option)
-                  }
-                  @if (!isLast) {
-                    <span>, </span>
-                  }
-                }
+                <!-- Converting user answers to array of numbers if they aren't already -->
+                 @let userAns = results.userAnswers[i]; 
+                 <!-- If userAns is array of numbers, use formatOptionList? 
+                      But we might just list them to support text too if needed -->
+                 
+                 <!-- Simple list logic for now to match user expectation of "showing selected answers" -->
+                 @for (item of userAns; track $index; let isLast = $last) {
+                    @if (item > 0 && item <= question.options.length) {
+                       Option {{ item }} ({{ question.options[item - 1].text }})
+                    } @else {
+                       (Invalid Option {{ item }})
+                    }
+                    @if (!isLast) { <span>, </span> }
+                 }
 
                 <!-- Correct / Incorrect Icons -->
                 @if (
@@ -71,22 +65,13 @@
             <li>
               <span class="leader">Correct Answer(s):</span>
               @let correctIndices = getCorrectOptionIndices(question);
-              {{ correctIndices.length === 1 ? 'Option' : 'Options' }}
-
-              @if (correctIndices.length === 1) {
-                {{ correctIndices[0] }} &mdash;
-                {{ question.options[correctIndices[0] - 1].text }}
-              } @else {
-                @for (
-                  item of correctIndices;
-                  track $index;
-                  let isLast = $last
-                ) {
+              {{ formatOptionList(correctIndices) }}
+              
+              <!-- Append text for clarity -->
+               &mdash; 
+              @for (item of correctIndices; track $index; let isLast = $last) {
                   {{ question.options[item - 1].text }}
-                  @if (!isLast) {
-                    <span>, </span>
-                  }
-                }
+                  @if (!isLast) { <span>, </span> }
               }
               &mdash; were correct because {{ question.explanation }}.
             </li>
@@ -95,20 +80,14 @@
             <li>
               <span class="leader">Explanation:</span>
               @let correctIndicesExp = getCorrectOptionIndices(question);
-
-              @if (correctIndicesExp.length === 1) {
-                Option {{ correctIndicesExp[0] }} was correct because
-                {{ question.explanation }}.
-              } @else {
-                Options {{ correctIndicesExp | join }} were correct because
-                {{ question.explanation }}.
-              }
+              {{ formatOptionList(correctIndicesExp) }}
+              {{ correctIndicesExp.length === 1 ? 'was' : 'were' }} correct because {{ question.explanation }}.
             </li>
 
             <!-- ELAPSED TIME -->
             <li>
               <span class="leader">Elapsed Time:</span>
-              <span>{{ results.elapsedTimes[i] }} {{ results.elapsedTimes[i] === 1 ? 'second' : 'seconds' }}</span>
+              <span>{{ results.elapsedTimes[i] || 0 }} {{ (results.elapsedTimes[i] || 0) === 1 ? 'second' : 'seconds' }}</span>
             </li>
           </ul>
         </ng-template>

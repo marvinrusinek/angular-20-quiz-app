@@ -12,26 +12,36 @@ mat-accordion {
     }
   }
 
+  mat-expansion-panel-header {
+    height: auto !important;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
   mat-panel-title {
     background-color: vars.$light-gray;
     color: vars.$black;
+    display: flex;
+    align-items: baseline;
 
     .question-leader {
       font-weight: vars.$font-weight-max;
       color: vars.$darker-blue;
       white-space: nowrap;
-      margin-right: 15px;
+      margin-right: 5px;
     }
     
-    .summary-header {
-      margin-bottom: 10px;
-    }
     .question-text {
       font-weight: 700;
       font-style: italic;
       color: vars.$black;
+      white-space: normal;
+      line-height: 1.4;
     }
   }
+
+
+
 
   .accordion-icon {
     position: absolute;
@@ -98,4 +108,9 @@ mat-accordion {
   button {
     margin-right: 10px;
   }
+}
+
+.summary-header {
+  margin-bottom: 15px;
+  font-family: vars.$font-stack; 
 }

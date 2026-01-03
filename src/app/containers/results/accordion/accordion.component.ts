@@ -152,6 +152,15 @@ export class AccordionComponent implements OnInit, OnDestroy {
       .filter((idx) => idx !== -1);
   }
 
+  formatOptionList(indices: number[]): string {
+    if (!indices || indices.length === 0) return '';
+    if (indices.length === 1) return `Option ${indices[0]}`;
+    if (indices.length === 2) return `Options ${indices[0]} and ${indices[1]}`;
+    const last = indices[indices.length - 1];
+    const rest = indices.slice(0, -1).join(', ');
+    return `Options ${rest}, and ${last}`;
+  }
+
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
