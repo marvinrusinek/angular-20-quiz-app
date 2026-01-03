@@ -1694,6 +1694,7 @@ export class SelectedOptionService {
     const ids = canonicalSelections
       .map((o) => o.optionId)
       .filter((id): id is number => typeof id === 'number');
+    console.log(`[SOS DEBUG] commitSelections Q${idx} syncing to QS. IDs:`, ids);
     this.quizService.updateUserAnswer(idx, ids);
 
     return canonicalSelections;

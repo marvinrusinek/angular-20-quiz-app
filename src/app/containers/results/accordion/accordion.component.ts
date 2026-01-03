@@ -55,6 +55,7 @@ export class AccordionComponent implements OnInit, OnDestroy {
       userAnswers: this.quizService.userAnswers,
       elapsedTimes: this.timerService.elapsedTimes,
     };
+    console.log('[ACCORDION] Init userAnswers:', JSON.stringify(this.quizService.userAnswers));
 
     this.quizService.questions$.pipe(takeUntil(this.destroy$)).subscribe((questions) => {
       this.questions = questions;
