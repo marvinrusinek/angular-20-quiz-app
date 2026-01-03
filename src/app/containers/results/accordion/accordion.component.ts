@@ -6,6 +6,7 @@ import {
   OnInit,
   ViewChild,
 } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
@@ -46,7 +47,8 @@ export class AccordionComponent implements OnInit, OnDestroy {
     private quizService: QuizService,
     private quizDataService: QuizDataService,
     private timerService: TimerService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private route: ActivatedRoute
   ) {}
 
   ngOnInit(): void {
@@ -66,16 +68,19 @@ export class AccordionComponent implements OnInit, OnDestroy {
          this.hasRetried = true;
          // Use a small timeout to let other initializations settle
          setTimeout(() => {
-           const id = this.quizService.quizId || 'dependency-injection';
+           let id = this.quizService.quizId;
+           if (!id || id === '') {
+             id = this.route.snapshot.paramMap.get('quizId') || 
+                  this.route.parent?.snapshot.paramMap.get('quizId') || 
+                  'dependency-injection';
+             if (id !== 'dependency-injection') this.quizService.quizId = id;
+           }
+
            // Fallback to QuizDataService to ensure clarity (bypasses shuffling/state complexity)
            this.quizDataService.getQuestionsForQuiz(id).pipe(takeUntil(this.destroy$)).subscribe((qs) => {
              if (qs && qs.length > 0) {
                console.log('[ACCORDION] Loaded questions via QuizDataService fallback:', qs.length);
                this.questions = qs;
-               
-               // Re-calculate correct answers if needed? 
-               // QuizService.correctAnswers might be map of indexes. 
-               // We assume indexes match the fetched questions.
                this.cdr.markForCheck();
              }
            });
@@ -98,15 +103,6 @@ export class AccordionComponent implements OnInit, OnDestroy {
     }
   }
 
-  /* checkIfAnswersAreCorrect(correctAnswers: any, userAnswers: any, index: number): boolean {
-    return !(
-      !userAnswers[index] ||
-      userAnswers[index].length === 0 ||
-      userAnswers[index].find((answer: string) =>
-        correctAnswers[index].answers[0].indexOf(answer) === -1
-      )
-    );
-  } */
   checkIfAnswersAreCorrect(
     question: QuizQuestion,
     userAnswers: any[],
