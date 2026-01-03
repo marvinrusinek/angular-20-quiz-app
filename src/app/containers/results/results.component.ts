@@ -83,6 +83,7 @@ export class ResultsComponent implements OnInit, OnDestroy {
   private setCompletedQuiz(): void {
     if (this.quizId) {
       this.quizService.setCompletedQuizId(this.quizId);
+      this.quizService.quizId = this.quizId; // Ensure service has correct ID for high scores
     }
   }
 
