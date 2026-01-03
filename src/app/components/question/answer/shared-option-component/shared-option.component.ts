@@ -1293,6 +1293,14 @@ export class SharedOptionComponent
     const optionId = option.optionId;
     const qIndex = this.resolveCurrentQuestionIndex();
 
+    // 🛑 PREVENT RESELECTION: Disable correct options that are already selected in multiple-answer questions
+    const correctCount = (this.optionBindings ?? []).filter(b => b.option?.correct).length;
+    const isMultipleAnswer = correctCount > 1;
+    if (isMultipleAnswer && binding.isSelected && option.correct) {
+      console.log(`[SOC] 🔒 Option ${optionId} is a selected correct answer - disabling to prevent reselection`);
+      return true;
+    }
+
     // 🔑 CHECK PERSISTENT DISABLED STATE - THIS IS THE ONLY SOURCE OF TRUTH
     const disabledSet = this.disabledOptionsPerQuestion.get(qIndex);
     if (disabledSet && typeof optionId === 'number' && disabledSet.has(optionId)) {
