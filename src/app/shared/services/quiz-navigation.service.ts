@@ -824,15 +824,7 @@ export class QuizNavigationService {
     }
 
     // Ensure we have a robust quizId
-    let targetQuizId = this.quizId || this.resolveEffectiveQuizId() || this.quizService.quizId;
-
-    // Fallback: Parse from URL if logic failed
-    if (!targetQuizId || targetQuizId === 'typescript') {
-      const match = this.router.url.match(/\/quiz\/question\/([^/]+)\//);
-      if (match && match[1]) {
-        targetQuizId = match[1];
-      }
-    }
+    const targetQuizId = this.quizId || this.resolveEffectiveQuizId() || this.quizService.quizId;
 
     this.quizCompleted = true;
     this.router.navigate([QuizRoutes.RESULTS, targetQuizId]).catch((error) => {

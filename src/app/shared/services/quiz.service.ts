@@ -2212,7 +2212,7 @@ export class QuizService {
     // Clearing it here breaks persistence during navigation/reloads.
     // this.shuffledQuestions = [];
 
-    this.quizId = ''; // ⚡ Clear quizId for fresh shuffle on restart
+    // this.quizId = ''; // ⚡ Clear quizId for fresh shuffle on restart
     // 🔧 FIXED: Do NOT clear questions here. Clearing them breaks results display if this method 
     // is called during navigation or cleanup before results are fully rendered.
     // Explicit resets (like resetQuestions or setCheckedShuffle) should handle clearing if needed.
