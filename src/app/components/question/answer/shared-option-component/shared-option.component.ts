@@ -1236,12 +1236,17 @@ export class SharedOptionComponent
     };
   }
 
-  /** Returns cursor style for option - 'not-allowed' only for disabled/incorrect options */
+  /** Returns cursor style for option - 'not-allowed' for disabled/incorrect options or when timer expired */
   public getOptionCursor(binding: OptionBindings, index: number): string {
     const option = binding?.option;
     const isCorrect = option?.correct === true;
     
-    // Correct options always keep pointer cursor
+    // If ALL options are force-disabled (timer expired), show not-allowed on ALL including correct
+    if (this.forceDisableAll) {
+      return 'not-allowed';
+    }
+    
+    // Correct options keep pointer cursor (when user answered correctly)
     if (isCorrect) {
       return 'pointer';
     }
