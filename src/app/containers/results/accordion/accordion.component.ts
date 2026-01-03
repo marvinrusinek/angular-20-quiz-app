@@ -135,6 +135,9 @@ export class AccordionComponent implements OnInit, OnDestroy {
       .map(id => {
          // Find index of option with this optionId
          const idx = question.options.findIndex(opt => opt.optionId === id);
+         if (idx === -1) {
+             console.warn(`[getUserAnswerIndices] ID mismatch for Q "${question.questionText?.substring(0, 15)}...". Looking for ID: ${id}. Available Options:`, question.options.map(o => o.optionId));
+         }
          return idx >= 0 ? idx + 1 : -1;
       })
       .filter(idx => idx !== -1)
