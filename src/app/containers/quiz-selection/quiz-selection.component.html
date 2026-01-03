@@ -47,8 +47,23 @@
       </span>
 
       @for (quiz of quizzes$ | async; track quiz?.quizId) {
-        <button mat-menu-item [routerLink]="['/intro/', quiz?.quizId]">
-          {{ quiz?.milestone || 'Milestone not found' }}
+        <button 
+          mat-menu-item 
+          [routerLink]="quiz?.status === 'completed' ? ['/results/', quiz?.quizId] : ['/intro/', quiz?.quizId]" 
+          class="milestone-menu-item"
+        >
+          <div class="milestone-content">
+            @if (quiz?.status === 'completed') {
+              <span class="milestone-text" style="text-decoration: line-through; opacity: 0.7;">
+                {{ quiz?.milestone || 'Milestone not found' }}
+              </span>
+              <mat-icon class="completed-check">done</mat-icon>
+            } @else {
+              <span class="milestone-text">
+                {{ quiz?.milestone || 'Milestone not found' }}
+              </span>
+            }
+          </div>
         </button>
       }
     </mat-menu>
@@ -59,6 +74,7 @@
     @for (quiz of quizzes$ | async; let i = $index; track quiz?.quizId) {
       <div
         class="quiz-tile"
+        [class.completed]="quiz.status === 'completed'"
         [@slideLeftToRight]="animationState$ | async"
         (@slideLeftToRight.done)="animationDoneHandler()"
         (click)="onSelect(quiz.quizId, i)"

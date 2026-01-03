@@ -1395,6 +1395,22 @@ get quizQuestionComponent(): QuizQuestionComponent {
   }
 
   ngOnDestroy(): void {
+    // Set CONTINUE status if quiz is in progress (not completed, but started)
+    if (this.quizId && !this.quizService.quizCompleted) {
+      const hasAnsweredAny = this.currentQuestionIndex > 0 || 
+        this.selectedOptionService.isQuestionAnswered(0);
+      
+      if (hasAnsweredAny) {
+        // Store the current question index for resume
+        this.quizService.currentQuestionIndex = this.currentQuestionIndex;
+        
+        // Set CONTINUE status
+        this.quizDataService.updateQuizStatus(this.quizId, QuizStatus.CONTINUE);
+        this.quizService.setQuizStatus(QuizStatus.CONTINUE);
+        console.log(`[QuizComponent] Set CONTINUE status for quiz ${this.quizId} at Q${this.currentQuestionIndex}`);
+      }
+    }
+    
     this.subs.unsubscribe();
     this.destroy$.next();
     this.destroy$.complete();

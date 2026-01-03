@@ -21,7 +21,9 @@ import { SummaryReportComponent } from './summary-report/summary-report.componen
 
 import { QUIZ_DATA } from '../../shared/quiz';
 import { Quiz } from '../../shared/models/Quiz.model';
+import { QuizStatus } from '../../shared/models/quiz-status.enum';
 import { QuizService } from '../../shared/services/quiz.service';
+import { QuizDataService } from '../../shared/services/quizdata.service';
 
 @Component({
   selector: 'codelab-quiz-results',
@@ -50,6 +52,7 @@ export class ResultsComponent implements OnInit, OnDestroy {
 
   constructor(
     private quizService: QuizService,
+    private quizDataService: QuizDataService,
     private activatedRoute: ActivatedRoute,
     private router: Router,
   ) {
@@ -84,6 +87,10 @@ export class ResultsComponent implements OnInit, OnDestroy {
     if (this.quizId) {
       this.quizService.setCompletedQuizId(this.quizId);
       this.quizService.quizId = this.quizId; // Ensure service has correct ID for high scores
+      this.quizService.setQuizStatus(QuizStatus.COMPLETED);
+      
+      // Update the quiz object's status so QuizSelectionComponent can show the icon
+      this.quizDataService.updateQuizStatus(this.quizId, QuizStatus.COMPLETED);
     }
   }
 

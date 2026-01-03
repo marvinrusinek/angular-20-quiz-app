@@ -84,9 +84,25 @@ export class QuizDataService implements OnDestroy {
   loadQuizzes(): Observable<Quiz[]> {
     return this.http.get<Quiz[]>(this.quizUrl).pipe(
       tap((quizzes) => {
-        this.quizzes = Array.isArray(quizzes) ? [...quizzes] : [];
-        this.quizzesSubject.next(quizzes);
-        console.log('[QuizDataService] Loaded quizzes:', quizzes);
+        // Preserve existing statuses from previously loaded quizzes
+        const existingStatuses = new Map<string, string>();
+        for (const quiz of this.quizzesSubject.value) {
+          if (quiz.status) {
+            existingStatuses.set(quiz.quizId, quiz.status);
+          }
+        }
+
+        // Merge statuses into new data
+        const mergedQuizzes = Array.isArray(quizzes) 
+          ? quizzes.map(q => ({
+              ...q,
+              status: existingStatuses.get(q.quizId) || q.status
+            }))
+          : [];
+
+        this.quizzes = mergedQuizzes;
+        this.quizzesSubject.next(mergedQuizzes);
+        console.log('[QuizDataService] Loaded quizzes (with preserved statuses):', mergedQuizzes);
       }),
       catchError((err) => {
         console.error('[QuizDataService] Failed:', err);
@@ -128,6 +144,29 @@ export class QuizDataService implements OnDestroy {
     }
 
     return source.find((q) => q.quizId === quizId) ?? null;
+  }
+
+  /**
+   * Update the status of a quiz (e.g., to 'completed') and persist it.
+   * This updates both the local array and the BehaviorSubject so subscribers see the change.
+   */
+  updateQuizStatus(quizId: string, status: string): void {
+    if (!quizId) return;
+
+    // Update in the local array
+    const quizIndex = this.quizzes.findIndex(q => q.quizId === quizId);
+    if (quizIndex >= 0) {
+      this.quizzes[quizIndex] = { ...this.quizzes[quizIndex], status };
+    }
+
+    // Update in the BehaviorSubject
+    const currentQuizzes = this.quizzesSubject.value;
+    const updatedQuizzes = currentQuizzes.map(q => 
+      q.quizId === quizId ? { ...q, status } : q
+    );
+    this.quizzesSubject.next(updatedQuizzes);
+
+    console.log(`[QuizDataService] Updated quiz ${quizId} status to: ${status}`);
   }
 
   async loadQuizById(quizId: string): Promise<Quiz | null> {

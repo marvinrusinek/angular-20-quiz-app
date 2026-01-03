@@ -77,12 +77,14 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
   private initializeQuizSelection(): void {
     this.currentQuestionIndex = this.quizService.currentQuestionIndex;
     this.selectionParams = this.quizService.returnQuizSelectionParams();
+    
+    console.log('[QuizSelection] selectionParams:', this.selectionParams);
 
     // Load quizzes once – replaces constructor side-effect
     this.quizDataService.loadQuizzes().subscribe();
 
-    // Consume cached quizzes
-    this.quizzes$ = this.quizDataService.getQuizzes();
+    // Use live observable to receive status updates
+    this.quizzes$ = this.quizDataService.quizzes$;
 
     this.subscribeToSelectedQuiz();
   }
@@ -114,6 +116,21 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
 
       this.quizService.quizId = quizId;
       this.quizService.setIndexOfQuizId(index);
+      
+      const currentQuiz = this.quizDataService.getCachedQuizById(quizId);
+      
+      // If quiz is completed, go to results instead of intro
+      if (currentQuiz?.status === QuizStatus.COMPLETED) {
+        await this.router.navigate([QuizRoutes.RESULTS, quizId]);
+        return;
+      }
+      
+      // Set status to STARTED if not already CONTINUE or COMPLETED
+      if (!currentQuiz?.status || currentQuiz.status === QuizStatus.STARTED) {
+        this.quizDataService.updateQuizStatus(quizId, QuizStatus.STARTED);
+        this.quizService.setQuizStatus(QuizStatus.STARTED);
+      }
+      
       await this.router.navigate([QuizRoutes.INTRO, quizId]);
     } catch (error) {
       if (error instanceof Error) {
@@ -162,22 +179,15 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
   }
 
   shouldShowLink(quiz: Quiz): boolean {
-    switch (quiz.status) {
-      case QuizStatus.STARTED:
-        return (
-          !this.selectionParams.quizCompleted ||
-          quiz.quizId === this.selectionParams.startedQuizId
-        );
-
-      case QuizStatus.CONTINUE:
-        return quiz.quizId === this.selectionParams.continueQuizId;
-
-      case QuizStatus.COMPLETED:
-        return quiz.quizId === this.selectionParams.completedQuizId;
-
-      default:
-        return false;
-    }
+    // Show the status icon if the quiz has any status set
+    // OR if it's the completed quiz (based on selectionParams)
+    const hasStatus = !!quiz.status;
+    const isCompletedQuiz = quiz.quizId === this.selectionParams.completedQuizId;
+    
+    console.log(`[shouldShowLink] quiz=${quiz.quizId}, status=${quiz.status}, hasStatus=${hasStatus}, isCompletedQuiz=${isCompletedQuiz}`);
+    
+    // Show icon if quiz has a status OR if it matches the completed quiz ID
+    return hasStatus || isCompletedQuiz;
   }
 
   getLinkRouterLink(quiz: Quiz): string[] {
@@ -199,13 +209,13 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
   getIconClass(quiz: Quiz): string {
     switch (quiz.status) {
       case QuizStatus.STARTED:
-        return 'material-icons start-icon';
+        return 'play_arrow';  // Start icon
       case QuizStatus.CONTINUE:
-        return 'material-icons continue-icon';
+        return 'fast_forward';  // Continue icon
       case QuizStatus.COMPLETED:
-        return 'material-icons completed-icon';
+        return 'done';  // Completed checkmark
       default:
-        return 'material-icons default-icon';
+        return 'help_outline';  // Unknown state
     }
   }
 

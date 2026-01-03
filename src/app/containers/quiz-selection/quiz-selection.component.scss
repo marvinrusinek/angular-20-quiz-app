@@ -83,6 +83,37 @@
     }
   }
 
+  // Milestone menu item styling (::ng-deep needed for mat-menu overlay)
+  ::ng-deep .milestone-menu-item {
+    // Flex container for the button content
+    .milestone-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+    }
+
+    // Direct targeting of the span
+    .milestone-text {
+      text-align: left;
+      flex-grow: 1; // Ensure text takes available space
+    }
+    
+    // Explicit targeting for the completed class
+    .completed-text {
+      text-decoration: line-through !important;
+      opacity: 0.7;
+    }
+
+    .completed-check {
+      color: vars.$green-angular-leaf;
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+      margin-left: 12px;
+    }
+  }
+
   .quiz-grid {
     margin: 10px 0 0 15px;
     display: grid;
@@ -91,6 +122,7 @@
     grid-row-gap: 20px;
 
     .quiz-tile {
+      position: relative;
       margin: 0 10px 20px 0;
       width: 320px;
       height: 375px;
@@ -143,13 +175,31 @@
       }
 
       .status-icon {
-        position: relative;
-        top: -310px;
-        left: 285px;
+        position: absolute;
+        top: 10px;
+        right: 10px;
 
-        i {
-          font-size: 24px;
-          color: vars.$green-angular-leaf;
+        mat-card-actions {
+          padding: 0;
+          margin: 0;
+        }
+
+        a {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          background-color: vars.$green-angular-leaf;
+          color: vars.$white;
+          text-decoration: none;
+          
+          mat-icon {
+            font-size: 24px;
+            width: 24px;
+            height: 24px;
+          }
         }
       }
     }
