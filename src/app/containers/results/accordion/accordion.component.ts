@@ -40,6 +40,7 @@ export class AccordionComponent implements OnInit, OnDestroy {
   isOpen = false;
   
   private destroy$ = new Subject<void>();
+  private hasRetried = false;
 
   constructor(
     private quizService: QuizService,
@@ -58,8 +59,16 @@ export class AccordionComponent implements OnInit, OnDestroy {
       this.questions = questions;
       this.cdr.markForCheck();
       
-      // Update correct answers based on new questions
-      // (This logic implies correct answers are static in QuizService or derived from questions)
+      if (this.questions.length === 0 && !this.hasRetried) {
+         console.warn('[ACCORDION] Questions empty, attempting force fetch...');
+         this.hasRetried = true;
+         // Use a small timeout to let other initializations settle
+         setTimeout(() => {
+           const id = this.quizService.quizId || 'dependency-injection';
+           this.quizService.fetchQuizQuestions(id);
+         }, 100);
+      }
+      
       this.correctAnswers = Array.from(
         this.quizService.correctAnswers.values(),
       ).flat();
