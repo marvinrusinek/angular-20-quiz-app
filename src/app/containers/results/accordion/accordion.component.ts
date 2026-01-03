@@ -12,7 +12,7 @@ import { CommonModule } from '@angular/common';
 import { MatAccordion, MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
 
-import { JoinPipe } from '../../../pipes/join.pipe';
+
 import { QuizQuestion } from '../../../shared/models/QuizQuestion.model';
 import { Result } from '../../../shared/models/Result.model';
 import { QuizService } from '../../../shared/services/quiz.service';
@@ -22,7 +22,7 @@ import { TimerService } from '../../../shared/services/timer.service';
 @Component({
   selector: 'codelab-results-accordion',
   standalone: true,
-  imports: [CommonModule, MatExpansionModule, MatIconModule, JoinPipe],
+  imports: [CommonModule, MatExpansionModule, MatIconModule],
   templateUrl: './accordion.component.html',
   styleUrls: ['./accordion.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
