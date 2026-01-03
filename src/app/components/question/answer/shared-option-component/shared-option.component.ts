@@ -186,6 +186,7 @@ export class SharedOptionComponent
   public allCorrectPersistedForLock = false;
   private resolvedTypeForLock: QuestionType = QuestionType.SingleAnswer;
   private forceDisableAll = false;
+  private timerExpiredForQuestion = false; // Track timer expiration
   private pendingExplanationIndex = -1;
   private resolvedQuestionIndex: number | null = null;
 
@@ -230,7 +231,15 @@ export class SharedOptionComponent
     this.disabledOptionsPerQuestion.clear();
     this.lockedIncorrectOptionIds.clear();
     this.flashDisabledSet.clear();
+    this.timerExpiredForQuestion = false; // Reset timer flag
     console.log('[SOC INIT] 🔄 Cleared disabledOptionsPerQuestion, lockedIncorrectOptionIds, flashDisabledSet');
+
+    // 🕐 Subscribe to timer expiration
+    this.timerService.expired$.pipe(takeUntil(this.destroy$)).subscribe(() => {
+      console.log('[SOC] ⏰ Timer expired - setting timerExpiredForQuestion = true');
+      this.timerExpiredForQuestion = true;
+      this.cdRef.markForCheck();
+    });
 
     // ─── Fallback Rendering ────────────────────────────────────────────────
     setTimeout(() => {
@@ -1242,7 +1251,7 @@ export class SharedOptionComponent
     const isCorrect = option?.correct === true;
     
     // If ALL options are force-disabled (timer expired), show not-allowed on ALL including correct
-    if (this.forceDisableAll) {
+    if (this.forceDisableAll || this.timerExpiredForQuestion) {
       return 'not-allowed';
     }
     
