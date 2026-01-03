@@ -14,7 +14,7 @@ import { QuizScore } from '../../../../shared/models/QuizScore.model';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SummaryStatsComponent {
-  @Input() quizMetadata: QuizMetadata | null = {
+  @Input() quizMetadata: Partial<QuizMetadata> | null = {
     correctAnswersCount$: of(0),
     totalQuestions: 0,
     totalQuestionsAttempted: 0,
