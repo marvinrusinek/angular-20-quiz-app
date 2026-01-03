@@ -29,15 +29,7 @@ export class StatisticsComponent implements OnInit {
   quizzes$: Observable<Quiz[]> = of([]);
   quizName$: Observable<string> = of('');
   quizId = '';
-  quizMetadata: Partial<QuizMetadata> = {
-    totalQuestions: this.quizService.totalQuestions,
-    totalQuestionsAttempted: this.quizService.totalQuestions,
-    correctAnswersCount$: this.quizService.correctAnswersCountSubject,
-    percentage: this.calculatePercentageOfCorrectlyAnsweredQuestions(),
-    completionTime: this.timerService.calculateTotalElapsedTime(
-      this.timerService.elapsedTimes,
-    ),
-  };
+  quizMetadata: Partial<QuizMetadata> = {};
   resources: Resource[] = [];
   status: Status = Status.Started;
   elapsedMinutes = 0;
@@ -59,11 +51,33 @@ export class StatisticsComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    // Initialize quizMetadata in ngOnInit when service data is available
+    this.quizMetadata = {
+      totalQuestions: this.quizService.totalQuestions,
+      totalQuestionsAttempted: this.quizService.totalQuestions,
+      correctAnswersCount$: this.quizService.correctAnswersCountSubject,
+      percentage: this.calculatePercentageOfCorrectlyAnsweredQuestions(),
+      completionTime: this.timerService.calculateTotalElapsedTime(
+        this.timerService.elapsedTimes,
+      ),
+    };
+
+    console.log('[RESULTS] StatisticsComponent ngOnInit:', {
+      totalQuestions: this.quizService.totalQuestions,
+      correctAnswers: this.quizService.correctAnswersCountSubject.getValue(),
+      elapsedTimes: this.timerService.elapsedTimes,
+      quizId: this.quizService.quizId,
+      quizMetadata: this.quizMetadata,
+    });
+
     this.quizzes$ = this.quizDataService.getQuizzes();
-    this.quizName$ = this.activatedRoute.url.pipe(
-      map((segments) => this.quizService.getQuizName(segments)),
-    );
     this.quizId = this.quizService.quizId;
+    
+    // Use the quizId from service, not from URL segments
+    this.quizName$ = of(this.quizId);
+    
+    console.log('[RESULTS] quizId:', this.quizId);
+    
     this.resources = this.quizService.resources;
     this.status = Status.Completed;
     this.percentage = this.quizMetadata?.percentage ?? 0;
