@@ -1508,6 +1508,13 @@ export class SharedOptionComponent
     const isMultipleForScore = correctCountForScore > 1;
     const qIndexForScore = this.resolveCurrentQuestionIndex();
 
+    // 🛑 GUARD: Prevent deselection of correct answers in multiple-answer questions
+    if (isMultipleForScore && binding.isSelected && binding.option?.correct) {
+      console.log('[SOC] 🛑 Blocking deselection of correct answer:', binding.option?.optionId);
+      event.preventDefault();
+      return;
+    }
+
     // 1. Calculate Current Selected Set (prior to this click)
     let currentSelectedOptions = bindingsForScore
       .filter(b => b.isSelected)
