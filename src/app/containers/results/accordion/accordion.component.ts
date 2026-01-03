@@ -1,9 +1,13 @@
 import {
   ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
+  OnDestroy,
   OnInit,
   ViewChild,
 } from '@angular/core';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
 import { MatAccordion, MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
@@ -22,7 +26,7 @@ import { TimerService } from '../../../shared/services/timer.service';
   styleUrls: ['./accordion.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class AccordionComponent implements OnInit {
+export class AccordionComponent implements OnInit, OnDestroy {
   questions: QuizQuestion[] = [];
   correctAnswers: number[] = [];
   results: Result = {
@@ -34,10 +38,13 @@ export class AccordionComponent implements OnInit {
   accordion!: MatAccordion;
   panelOpenState = false;
   isOpen = false;
+  
+  private destroy$ = new Subject<void>();
 
   constructor(
     private quizService: QuizService,
     private timerService: TimerService,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -47,16 +54,22 @@ export class AccordionComponent implements OnInit {
       elapsedTimes: this.timerService.elapsedTimes,
     };
 
-    this.questions = this.quizService.questions;
-    this.correctAnswers = Array.from(
-      this.quizService.correctAnswers.values(),
-    ).flat();
+    this.quizService.questions$.pipe(takeUntil(this.destroy$)).subscribe((questions) => {
+      this.questions = questions;
+      this.cdr.markForCheck();
+      
+      // Update correct answers based on new questions
+      // (This logic implies correct answers are static in QuizService or derived from questions)
+      this.correctAnswers = Array.from(
+        this.quizService.correctAnswers.values(),
+      ).flat();
+      
+      console.log('[ACCORDION] questions updated:', this.questions?.length);
+    });
 
-    console.log('[ACCORDION] ngOnInit:', {
-      questions: this.questions?.length,
+    console.log('[ACCORDION] ngOnInit initial:', {
       userAnswers: this.results?.userAnswers,
       elapsedTimes: this.results?.elapsedTimes,
-      correctAnswers: this.correctAnswers,
     });
 
     // Normalize userAnswers so Angular can always iterate
@@ -111,5 +124,10 @@ export class AccordionComponent implements OnInit {
   closeAllPanels(): void {
     this.isOpen = false;
     (this.accordion as any).closeAll();
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 }
