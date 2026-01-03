@@ -333,3 +333,26 @@ button.mat-mdc-menu-trigger {
   --mdc-text-button-container-color: transparent !important;
   --mdc-text-button-disabled-container-color: transparent !important;
 }
+
+/* ─────────────────────────────────────────────
+   GLOBAL CURSOR STYLES FOR DISABLED OPTIONS
+───────────────────────────────────────────────*/
+.option-cursor-wrapper.cursor-not-allowed {
+  cursor: not-allowed !important;
+}
+
+.option-cursor-wrapper.cursor-not-allowed *,
+.option-cursor-wrapper.cursor-not-allowed label,
+.option-cursor-wrapper.cursor-not-allowed input,
+.option-cursor-wrapper.cursor-not-allowed span,
+.option-cursor-wrapper.cursor-not-allowed div,
+.option-cursor-wrapper.cursor-not-allowed .mat-mdc-radio-button,
+.option-cursor-wrapper.cursor-not-allowed .mat-mdc-checkbox,
+.option-cursor-wrapper.cursor-not-allowed .mdc-form-field,
+.option-cursor-wrapper.cursor-not-allowed .mdc-radio,
+.option-cursor-wrapper.cursor-not-allowed .mdc-checkbox,
+.option-cursor-wrapper.cursor-not-allowed .mdc-label,
+.option-cursor-wrapper.cursor-not-allowed .option-text,
+.option-cursor-wrapper.cursor-not-allowed .option-wrapper {
+  cursor: not-allowed !important;
+}
