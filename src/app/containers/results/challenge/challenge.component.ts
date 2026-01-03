@@ -21,6 +21,7 @@ import { TimerService } from '../../../shared/services/timer.service';
 export class ChallengeComponent implements OnInit {
   quizzes$: Observable<Quiz[]> = of([]);
   quizName$: Observable<string> = of('');
+  currentQuizId = '';
   quizMetadata: Partial<QuizMetadata> = {
     totalQuestions: this.quizService.totalQuestions,
     totalQuestionsAttempted: this.quizService.totalQuestions,
@@ -41,9 +42,15 @@ export class ChallengeComponent implements OnInit {
 
   ngOnInit(): void {
     this.quizzes$ = this.quizDataService.getQuizzes();
-    this.quizName$ = this.activatedRoute.url.pipe(
-      map((segments) => this.quizService.getQuizName(segments)),
-    );
+    
+    // Get quizId from service (most reliable) or from route params
+    this.currentQuizId = this.quizService.quizId || 
+      this.activatedRoute.snapshot.paramMap.get('quizId') || 
+      this.activatedRoute.parent?.snapshot.paramMap.get('quizId') || '';
+    
+    console.log('[ChallengeComponent] currentQuizId:', this.currentQuizId);
+    
+    this.quizName$ = of(this.currentQuizId);
   }
 
   calculatePercentageOfCorrectlyAnsweredQuestions(): number {

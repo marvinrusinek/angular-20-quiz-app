@@ -4,6 +4,23 @@
   clear: left;
   text-align: center;
   margin-top: 10px;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+
+  mat-card-actions {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+  }
+
+  mat-nav-list {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    padding: 0;
+  }
 
   a.btn {
     margin-right: 15px;

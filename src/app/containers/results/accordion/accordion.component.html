@@ -28,8 +28,22 @@
             <li>
               <span class="leader">Your Answer(s):</span>
 
-              @if (results.userAnswers[i] && results.userAnswers[i].length > 0) {
-                 <!-- Convert IDs to Visual Indices using our new helper -->
+              <!-- Try to get selections from SelectedOptionService first -->
+              @if (hasSelectionsFromService(i)) {
+                 @let selectedOpts = getSelectedOptionsForQuestion(i);
+                 @for (opt of selectedOpts; track $index; let isLast = $last) {
+                    Option {{ opt.visualIndex }}: {{ opt.text }}
+                    @if (!isLast) { <span>, </span> }
+                 }
+
+                <!-- Correct / Incorrect Icons -->
+                @if (!checkIfAnswersAreCorrectFromService(question, i)) {
+                  <i class="material-icons incorrect">clear</i>
+                } @else {
+                  <i class="material-icons correct">done</i>
+                }
+              } @else if (results.userAnswers[i] && results.userAnswers[i].length > 0) {
+                 <!-- Fallback to localStorage data -->
                  @let userIndices = getUserAnswerIndices(question, results.userAnswers[i]);
                  
                  {{ formatOptionList(userIndices) }} &mdash;

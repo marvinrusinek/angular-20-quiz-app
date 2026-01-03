@@ -13,6 +13,8 @@ import { QuizService } from '../../shared/services/quiz.service';
 export class SelectedOptionService {
   selectedOption: SelectedOption[] = [];
   selectedOptionsMap = new Map<number, SelectedOption[]>();
+  // Direct storage without canonicalization - more reliable for results display
+  rawSelectionsMap = new Map<number, { optionId: number; text: string }[]>();
   selectedOptionIndices: { [key: number]: number[] } = {};
 
   selectedOptionSubject = new BehaviorSubject<SelectedOption[]>([]);
@@ -462,6 +464,30 @@ export class SelectedOptionService {
 
     // Overwrite the question entry completely
     this.selectedOptionsMap.set(questionIndex, committed);
+
+    // Also store in rawSelectionsMap for results display
+    if (committed.length > 0) {
+      const rawSelections = committed
+        .filter(s => s)
+        .map(s => ({
+          optionId: typeof s.optionId === 'number' ? s.optionId : -1,
+          text: s.text || ''
+        }))
+        .filter(s => s.optionId >= 0 || s.text);
+      
+      this.rawSelectionsMap.set(questionIndex, rawSelections);
+      console.log(`[SOS] Stored raw selections for Q${questionIndex}:`, rawSelections);
+    } else {
+      this.rawSelectionsMap.delete(questionIndex);
+    }
+
+    // Sync to QuizService for localStorage persistence
+    const ids = committed
+      .map(o => o.optionId)
+      .filter((id): id is number => typeof id === 'number');
+    
+    console.log(`[SOS] setSelectedOptionsForQuestion Q${questionIndex} syncing IDs:`, ids);
+    this.quizService.updateUserAnswer(questionIndex, ids);
 
     // Emit ONLY current question selections
     this.selectedOptionSubject.next(committed);
@@ -1698,6 +1724,24 @@ export class SelectedOptionService {
 
     console.log(`[SOS DEBUG] commitSelections Q${idx} syncing to QS. IDs:`, ids);
     this.quizService.updateUserAnswer(idx, ids);
+
+    // Store FINAL selections in rawSelectionsMap for reliable results display
+    // Use canonicalSelections (the processed final state), not the input
+    if (canonicalSelections.length > 0) {
+      const rawSelections = canonicalSelections
+        .filter(s => s)
+        .map(s => ({
+          optionId: typeof s.optionId === 'number' ? s.optionId : -1,
+          text: s.text || ''
+        }))
+        .filter(s => s.optionId >= 0 || s.text);
+      
+      this.rawSelectionsMap.set(idx, rawSelections);
+      console.log(`[SOS DEBUG] Stored raw selections for Q${idx}:`, rawSelections);
+    } else {
+      // Clear when no selections
+      this.rawSelectionsMap.delete(idx);
+    }
 
     return canonicalSelections;
   }
