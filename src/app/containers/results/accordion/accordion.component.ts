@@ -68,13 +68,19 @@ export class AccordionComponent implements OnInit, OnDestroy {
          this.hasRetried = true;
          // Use a small timeout to let other initializations settle
          setTimeout(() => {
-           let id = this.quizService.quizId;
-           if (!id || id === '') {
-             id = this.route.snapshot.paramMap.get('quizId') || 
-                  this.route.parent?.snapshot.paramMap.get('quizId') || 
-                  '';
-             if (id) this.quizService.quizId = id;
-           }
+            // Priority: URL params > Service State
+            let id = this.route.snapshot.paramMap.get('quizId') || 
+                     this.route.parent?.snapshot.paramMap.get('quizId');
+            
+            if (!id) {
+              id = this.quizService.quizId;
+            } else {
+              // Sync service state if it's currently empty or different
+              if (this.quizService.quizId !== id) {
+                console.log(`[ACCORDION] Syncing service quizId to URL param: ${id}`);
+                this.quizService.quizId = id;
+              }
+            }
 
            if (!id) {
              console.error('[ACCORDION] Could not determine quizId from route params.');
@@ -103,7 +109,7 @@ export class AccordionComponent implements OnInit, OnDestroy {
     // Normalize userAnswers so Angular can always iterate
     if (this.results?.userAnswers) {
       this.results.userAnswers = this.results.userAnswers.map((ans) =>
-        Array.isArray(ans) ? ans : [ans],
+        Array.isArray(ans) ? ans : (ans !== null && ans !== undefined ? [ans] : []),
       );
     }
   }
@@ -134,7 +140,8 @@ export class AccordionComponent implements OnInit, OnDestroy {
     return ids
       .map(id => {
          // Find index of option with this optionId
-         const idx = question.options.findIndex(opt => opt.optionId === id);
+         // Find index of option with this optionId, safe-matching strings or numbers
+         const idx = question.options.findIndex(opt => String(opt.optionId) === String(id));
          if (idx === -1) {
              console.warn(`[getUserAnswerIndices] ID mismatch for Q "${question.questionText?.substring(0, 15)}...". Looking for ID: ${id}. Available Options:`, question.options.map(o => o.optionId));
          }

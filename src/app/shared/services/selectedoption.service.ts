@@ -1693,7 +1693,9 @@ export class SelectedOptionService {
     // Sync user answers to QuizService
     const ids = canonicalSelections
       .map((o) => o.optionId)
-      .filter((id): id is number => typeof id === 'number');
+      .filter((id) => id !== null && id !== undefined)
+      .map(id => typeof id === 'string' ? parseInt(id, 10) : id as number);
+
     console.log(`[SOS DEBUG] commitSelections Q${idx} syncing to QS. IDs:`, ids);
     this.quizService.updateUserAnswer(idx, ids);
 

@@ -54,7 +54,13 @@ export class QuizService {
       correctAnswersText: '',
       currentOptions: [],
     };
-  quizId = '';
+  quizId = (() => {
+    try {
+      return localStorage.getItem('quizId') || '';
+    } catch {
+      return '';
+    }
+  })();
   quizResources: QuizResource[] = [];
   question: QuizQuestion | null = null;
   private _questions: QuizQuestion[] = [];
@@ -1831,10 +1837,7 @@ export class QuizService {
     this.currentQuestion.next(currentQuestion);
 
     const normalizedOptions = Array.isArray(currentQuestion?.options)
-      ? this.assignOptionIds(
-        [...currentQuestion.options],
-        this.currentQuestionIndex,
-      )
+      ? [...currentQuestion.options]
       : [];
 
     if (currentQuestion) {
@@ -2171,6 +2174,9 @@ export class QuizService {
     if (!this.quizId) {
       this.quizId =
         this.activatedRoute.snapshot.paramMap.get('quizId') || this.quizId;
+      if (this.quizId) {
+        localStorage.setItem('quizId', this.quizId);
+      }
     }
     return !!this.quizId;
   }
@@ -2217,9 +2223,8 @@ export class QuizService {
       return [];
     }
 
-    return options.map((opt, index) => ({
+    return options.map((opt) => ({
       ...opt,
-      optionId: index,
       active: correctOptionSelected ? opt.correct : true, // keep only correct options active
       feedback: correctOptionSelected && !opt.correct ? 'x' : undefined, // add feedback for incorrect options
       showIcon: correctOptionSelected
@@ -2229,6 +2234,7 @@ export class QuizService {
   }
 
   updateUserAnswer(questionIndex: number, answerIds: number[]): void {
+    console.log(`[QuizService] 💾 updateUserAnswer(idx=${questionIndex}, ids=${JSON.stringify(answerIds)})`);
     this.userAnswers[questionIndex] = answerIds;
     try {
       localStorage.setItem('userAnswers', JSON.stringify(this.userAnswers));

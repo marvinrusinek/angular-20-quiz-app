@@ -22,24 +22,27 @@ mat-accordion {
     background-color: vars.$light-gray;
     color: vars.$black;
     display: flex;
-    align-items: baseline;
+    flex: 1 1 auto;
+    align-items: flex-start;
+    max-width: 100%;
 
     .question-leader {
       font-weight: vars.$font-weight-max;
       color: vars.$darker-blue;
       white-space: nowrap;
       margin-right: 5px;
+      flex: 0 0 auto;
     }
     
     .question-text {
-      flex: 1;
+      flex: 1 1 auto;
       min-width: 0;
       font-weight: 700;
       font-style: italic;
       color: vars.$black;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      white-space: normal;
+      overflow-wrap: break-word;
+      word-wrap: break-word;
       line-height: 1.4;
     }
   }
