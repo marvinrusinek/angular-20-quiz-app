@@ -252,7 +252,22 @@ mat-icon.opt-icon {
 }
 
 codelab-quiz-feedback {
-  margin-top: -12px;
+  width: 100%;
+  display: block;
+}
+
+// Feedback wrapper styling - centers text vertically/horizontally in the gap
+.feedback-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  
+  // Create space above the feedback (adjusted to be smaller than before)
+  margin-top: 5px !important; 
+  padding-top: 5px !important;
+  
+  margin-bottom: 20px !important;
 }
 
 .option-feedback.correct {
