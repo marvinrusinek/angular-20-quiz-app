@@ -26,8 +26,8 @@ export class AccordionComponent implements OnInit {
   questions: QuizQuestion[] = [];
   correctAnswers: number[] = [];
   results: Result = {
-    userAnswers: this.quizService.userAnswers,
-    elapsedTimes: this.timerService.elapsedTimes,
+    userAnswers: [],
+    elapsedTimes: [],
   };
 
   @ViewChild('accordion', { static: false })
@@ -41,10 +41,23 @@ export class AccordionComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    // Initialize results in ngOnInit when service data is available
+    this.results = {
+      userAnswers: this.quizService.userAnswers,
+      elapsedTimes: this.timerService.elapsedTimes,
+    };
+
     this.questions = this.quizService.questions;
     this.correctAnswers = Array.from(
       this.quizService.correctAnswers.values(),
     ).flat();
+
+    console.log('[ACCORDION] ngOnInit:', {
+      questions: this.questions?.length,
+      userAnswers: this.results?.userAnswers,
+      elapsedTimes: this.results?.elapsedTimes,
+      correctAnswers: this.correctAnswers,
+    });
 
     // Normalize userAnswers so Angular can always iterate
     if (this.results?.userAnswers) {

@@ -43,10 +43,12 @@
   <li>
     <span class="summary-stats-leader">Date/Time Completed:</span>
 
-    @if (score) {
+    @if (score?.attemptDateTime) {
       <span class="result">
         {{ score.attemptDateTime | date: 'medium' }}
       </span>
+    } @else {
+      <span class="result">N/A</span>
     }
   </li>
 </ul>
