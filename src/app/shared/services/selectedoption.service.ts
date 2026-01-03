@@ -1690,6 +1690,12 @@ export class SelectedOptionService {
     // This drives the Next Button enablement.
     this.updateAnsweredState(canonicalSelections, idx);
 
+    // Sync user answers to QuizService
+    const ids = canonicalSelections
+      .map((o) => o.optionId)
+      .filter((id): id is number => typeof id === 'number');
+    this.quizService.updateUserAnswer(idx, ids);
+
     return canonicalSelections;
   }
 

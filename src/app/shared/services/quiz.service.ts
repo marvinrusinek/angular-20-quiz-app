@@ -2198,6 +2198,10 @@ export class QuizService {
     }));
   }
 
+  updateUserAnswer(questionIndex: number, answerIds: number[]): void {
+    this.userAnswers[questionIndex] = answerIds;
+  }
+
   resetQuizSessionState(): void {
     console.log(`[QuizService] ⏭️ resetQuizSessionState called. Stack:`);
     console.trace(); // 🔍 LOG STACK TRACE

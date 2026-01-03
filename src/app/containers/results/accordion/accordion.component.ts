@@ -12,7 +12,6 @@ import { CommonModule } from '@angular/common';
 import { MatAccordion, MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
 
-
 import { QuizQuestion } from '../../../shared/models/QuizQuestion.model';
 import { Result } from '../../../shared/models/Result.model';
 import { QuizService } from '../../../shared/services/quiz.service';
@@ -112,28 +111,32 @@ export class AccordionComponent implements OnInit, OnDestroy {
     userAnswers: any[],
     index: number,
   ): boolean {
-    const correctAnswers = this.getCorrectOptionIndices(question);
-    const user = userAnswers[index];
+    const userIds = userAnswers[index];
+    if (!userIds || (Array.isArray(userIds) && userIds.length === 0)) return false;
 
-    // Handle no answers case
-    if (!user || (Array.isArray(user) && user.length === 0)) {
-      return false;
-    }
+    // Convert IDs to visual indices for comparison
+    const userIndices = this.getUserAnswerIndices(question, userIds);
+    const correctIndices = this.getCorrectOptionIndices(question);
 
-    // Normalize user answers to an array
-    const userArr = Array.isArray(user) ? user : [user];
+    if (userIndices.length !== correctIndices.length) return false;
 
-    // Normalize correct answers to an array
-    const correctArr = Array.isArray(correctAnswers)
-      ? correctAnswers
-      : [correctAnswers];
+    // Check if every user index is in correct indices
+    return userIndices.every((ui) => correctIndices.includes(ui));
+  }
 
-    // Check if every user-selected answer is in the correct set,
-    // and if counts match (no extra guesses)
-    const allMatch = userArr.every((ans: number) => correctArr.includes(ans));
-    const sameLength = userArr.length === correctArr.length;
-
-    return allMatch && sameLength;
+  getUserAnswerIndices(question: QuizQuestion, userIds: number | number[]): number[] {
+    if (!question || !question.options || !userIds) return [];
+    
+    const ids = Array.isArray(userIds) ? userIds : [userIds];
+    
+    return ids
+      .map(id => {
+         // Find index of option with this optionId
+         const idx = question.options.findIndex(opt => opt.optionId === id);
+         return idx >= 0 ? idx + 1 : -1;
+      })
+      .filter(idx => idx !== -1)
+      .sort((a, b) => a - b);
   }
 
   openAllPanels(): void {

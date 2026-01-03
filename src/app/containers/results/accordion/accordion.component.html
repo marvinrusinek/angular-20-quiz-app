@@ -29,17 +29,16 @@
               <span class="leader">Your Answer(s):</span>
 
               @if (results.userAnswers[i] && results.userAnswers[i].length > 0) {
-                <!-- Converting user answers to array of numbers if they aren't already -->
-                 @let userAns = results.userAnswers[i]; 
-                 <!-- If userAns is array of numbers, use formatOptionList? 
-                      But we might just list them to support text too if needed -->
+                 <!-- Convert IDs to Visual Indices using our new helper -->
+                 @let userIndices = getUserAnswerIndices(question, results.userAnswers[i]);
                  
-                 <!-- Simple list logic for now to match user expectation of "showing selected answers" -->
-                 @for (item of userAns; track $index; let isLast = $last) {
+                 {{ formatOptionList(userIndices) }} &mdash;
+
+                 @for (item of userIndices; track $index; let isLast = $last) {
                     @if (item > 0 && item <= question.options.length) {
-                       Option {{ item }} ({{ question.options[item - 1].text }})
+                       {{ question.options[item - 1].text }}
                     } @else {
-                       (Invalid Option {{ item }})
+                       (Invalid Option)
                     }
                     @if (!isLast) { <span>, </span> }
                  }
@@ -74,7 +73,6 @@
                   {{ question.options[item - 1].text }}
                   @if (!isLast) { <span>, </span> }
               }
-              &mdash; were correct because {{ question.explanation }}.
             </li>
 
             <!-- EXPLANATION -->
