@@ -823,8 +823,11 @@ export class QuizNavigationService {
       return;
     }
 
+    // Ensure we have a robust quizId
+    const targetQuizId = this.quizId || this.resolveEffectiveQuizId() || this.quizService.quizId;
+
     this.quizCompleted = true;
-    this.router.navigate([QuizRoutes.RESULTS, this.quizId]).catch((error) => {
+    this.router.navigate([QuizRoutes.RESULTS, targetQuizId]).catch((error) => {
       console.error('Navigation to results failed:', error);
     });
   }
