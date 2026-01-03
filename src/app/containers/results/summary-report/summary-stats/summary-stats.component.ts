@@ -21,7 +21,7 @@ export class SummaryStatsComponent {
     percentage: 0,
     completionTime: 0,
   };
-  @Input() score!: QuizScore;
+  @Input() score: QuizScore | null = null;
   @Input() elapsedMinutes = 0;
   @Input() elapsedSeconds = 0;
 }
