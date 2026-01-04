@@ -192,6 +192,19 @@ export class SharedOptionComponent
 
   destroy$ = new Subject<void>();
 
+  // FIX: Robust Multi-Mode Detection (Infers from Data if Type is missing)
+  get isMultiMode(): boolean {
+    // 1. Explicit Check
+    if (this.type === 'multiple' || this.config?.type === 'multiple') return true;
+    
+    // 2. Data Inference (Fixes Q2/Q4)
+    if (this.currentQuestion?.options) {
+        const count = this.currentQuestion.options.filter(o => o.correct).length;
+        if (count > 1) return true;
+    }
+    return false;
+  }
+
   constructor(
     private explanationTextService: ExplanationTextService,
     private feedbackService: FeedbackService,
@@ -628,7 +641,9 @@ export class SharedOptionComponent
       for (const d of this.highlightDirectives ?? []) {
         d.updateHighlight();
       }
-      this.updateSelections(-1);
+      // ⚡ FIX: Do NOT reset selections with -1. Hydration handles the state.
+      // this.updateSelections(-1);
+      this.updateHighlighting();
       this.cdRef.detectChanges();
     }
 
@@ -664,6 +679,34 @@ export class SharedOptionComponent
 
   ngAfterViewInit(): void {
     console.time('[⏱️ SOC ngAfterViewInit]');
+    
+    // ⚡ FIX: Force Hydration from persistence
+    setTimeout(() => {
+        const qIndex = this.resolveCurrentQuestionIndex();
+        const saved = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) || [];
+        if (saved.length > 0) {
+            console.log('[SOC] 🔄 Force Hydration ngAfterViewInit:', saved);
+            const savedIds = new Set(saved.map(s => s.optionId));
+            
+            // Update bindings
+            if (this.optionBindings) {
+                this.optionBindings.forEach(b => {
+                    if (savedIds.has(b.option.optionId!)) {
+                        b.isSelected = true;
+                        b.option.selected = true;
+                    }
+                });
+            }
+             if (this.optionsToDisplay) {
+                this.optionsToDisplay.forEach(o => {
+                    if (savedIds.has(o.optionId!)) o.selected = true;
+                });
+            }
+            this.updateHighlighting();
+            this.cdRef.detectChanges();
+        }
+    }, 100);
+
     if (this.form) {
       console.log('form value:', this.form.value);
     } else {
@@ -1095,6 +1138,19 @@ export class SharedOptionComponent
       return;
     }
 
+    // ⚡ FIX: Rehydrate selection state from Service (Persistence)
+    // This ensures that when navigating back, the options show as selected (Green/Red).
+    const qIndex = this.resolveCurrentQuestionIndex();
+    const saved = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex);
+    if (saved?.length > 0) {
+         const savedIds = new Set(saved.map(s => s.optionId));
+         this.optionsToDisplay.forEach(opt => {
+             if (opt.optionId !== undefined && savedIds.has(opt.optionId)) {
+                 opt.selected = true;
+             }
+         });
+    }
+
     // Determine question type based on options, but Respect explicit input first!
     if (this.type !== 'multiple') {
       this.type = this.determineQuestionType(this.currentQuestion);
@@ -1285,9 +1341,14 @@ export class SharedOptionComponent
     const optionId = option.optionId;
     const qIndex = this.resolveCurrentQuestionIndex();
 
+    // ⚡ FORCE UNLOCK for Multi-Select (Fix "Green to Red" Lock)
+    if (this.isMultiMode) {
+        if (this.forceDisableAll) return true;
+        return false; 
+    }
+
     // PREVENT RESELECTION: Disable correct options that are already selected in multiple-answer questions
-    const correctCount = (this.optionBindings ?? []).filter(b => b.option?.correct).length;
-    const isMultipleAnswer = correctCount > 1;
+    const isMultipleAnswer = this.isMultiMode; // Use robust getter
     if (isMultipleAnswer && binding.isSelected && option.correct) {
       console.log(`[SOC] 🔒 Option ${optionId} is a selected correct answer - disabling to prevent reselection`);
       return true;
@@ -1546,21 +1607,22 @@ export class SharedOptionComponent
     // Check current option status in stored selection
     const existingIdx = simulatedSelection.findIndex(o => o.optionId === binding.option.optionId);
 
-    // Toggle Logic
-    if (isMultipleForScore) {
-      if (existingIdx > -1) {
-        simulatedSelection.splice(existingIdx, 1);
-      } else {
-        simulatedSelection.push({ ...binding.option, selected: true, questionIndex: qIndexForScore } as SelectedOption);
-      }
+    // 🔑 FIX: Enforce "History Mode" (Accumulation) for ALL types per user request
+    // This keeps incorrect answers highlighted even after selecting the correct one.
+    if (existingIdx > -1) {
+       simulatedSelection.splice(existingIdx, 1);
     } else {
-      simulatedSelection = [{ ...binding.option, selected: true, questionIndex: qIndexForScore } as SelectedOption];
+       simulatedSelection.push({ ...binding.option, selected: true, questionIndex: qIndexForScore } as SelectedOption);
     }
 
     // 5. Update Service & Check Score
     this.quizService.answers = simulatedSelection;
+    
+    // FIX: Must Sync to SelectedOptionService for Dots to update!
+    this.selectedOptionService.syncSelectionState(qIndexForScore, simulatedSelection);
+
     this.quizService.checkIfAnsweredCorrectly().then((isCorrect) => {
-      console.log(`[SOC V2] Score check: isCorrect=${isCorrect}`);
+       console.log(`[SOC] Score Verified: ${isCorrect}`);
     });
 
 
@@ -1595,12 +1657,14 @@ export class SharedOptionComponent
 
     // Count correct options FROM BINDINGS (they're local and available)
     // quizService.questions was returning undefined, so use optionBindings instead
+    // quizService.questions was returning undefined, so use optionBindings instead
     const bindings = this.optionBindings ?? [];
-    const correctOptionCount = bindings.filter((b: OptionBindings) => b.option?.correct === true).length;
-    const isMultipleAnswer = correctOptionCount > 1;
+    
+    // FIX: Use Centralized Getter
+    const isMultipleAnswer = this.isMultiMode;
     const isSingle = !isMultipleAnswer;
 
-    console.log(`[SOC] 🔥 Timer check: qIndex=${questionIndex}, correctOptionCount=${correctOptionCount} (from bindings), isMultipleAnswer=${isMultipleAnswer}, isSingle=${isSingle}, clickedIsCorrect=${clickedIsCorrect}`);
+    console.log(`[SOC] 🔥 Timer check: qIndex=${questionIndex}, isMultipleAnswer=${isMultipleAnswer} (Inferred), isSingle=${isSingle}, clickedIsCorrect=${clickedIsCorrect}`);
 
     if (isSingle) {
       // SINGLE-ANSWER: Track correct click and stop timer when correct option is clicked

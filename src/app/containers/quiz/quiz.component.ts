@@ -157,6 +157,39 @@ get quizQuestionComponent(): QuizQuestionComponent {
     const selected = this.selectedOptionService.selectedOptionsMap.get(index);
     if (!selected || selected.length === 0) return 'pending';
 
+    // 🚀 PRIORITY: Last Answer Wins (Matches immediate User Interaction)
+    // This logic handles both Single Answer (Replacement) and Multi-Correction (Red->Green)
+    if (selected.length > 0) {
+        const last = selected[selected.length - 1];
+        let lastIsCorrect = last.correct === true;
+          
+        const displayQuestion = this.questionsArray[index] || this.quizService.questions[index];
+
+        // 🚀 FAST PATH: Check Display Question (Matches UI Highlighting Source)
+        if (!lastIsCorrect && displayQuestion?.options) {
+             // Try strict index match first for speed
+             if (typeof last.optionId === 'number' && displayQuestion.options[last.optionId]) {
+                  if (displayQuestion.options[last.optionId].correct === true) lastIsCorrect = true;
+             }
+             // Fallback to text match
+             if (!lastIsCorrect) {
+                 const normalize = (str: string) => (str || '').replace(/\s/g, '').toLowerCase();
+                 const dOpt = displayQuestion.options.find(o => normalize(o.text) === normalize(last.text));
+                 if (dOpt && dOpt.correct === true) lastIsCorrect = true;
+             }
+        }
+        
+        // If last action was correct, show Green immediately.
+        if (lastIsCorrect) return 'correct';
+        
+        // If last action was WRONG, and we are in strict mode (which "Green to Red" implies),
+        // we could arguably return 'wrong' here too.
+        // But let's let it fall through in case lenient logic applies?
+        // NO. User implies Strict Accumulation (Green->Red).
+        // So if Last is Wrong, we should probably show Red?
+        // But let's stick to ONLY returning Correct early to solve the "Red to Green" blocker.
+    }
+
     // 1. Direct Trust (Fast Path): If flag exists, trust it.
     if (selected.every(s => s.correct === true)) {
         return 'correct';
@@ -217,7 +250,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
     }
 
     // 4. Verify Correctness (Standard)
-    const isAnyCorrect = selected.some((s) => {
+    const isAnyCorrect = (selectedToCheck || selected).some((s) => {
        if (s.correct === true) return true;
        const matchedOption = rawQuestion?.options.find((o: any) => 
           o.text === s.text || normalize(o.text) === normalize(s.text)
@@ -228,7 +261,8 @@ get quizQuestionComponent(): QuizQuestionComponent {
     // 4b. Reverse Check (Fail-Safe logic)
     // Does the canonical question have a correct option that matches our selection?
     if (!isAnyCorrect && rawQuestion && rawQuestion.options) {
-        const selectedTexts = new Set(selected.map(s => normalize(s.text)));
+         const list = selectedToCheck || selected;
+         const selectedTexts = new Set(list.map(s => normalize(s.text)));
         const foundCorrect = rawQuestion.options.some((o: any) => 
             o.correct === true && selectedTexts.has(normalize(o.text))
         );
@@ -236,6 +270,36 @@ get quizQuestionComponent(): QuizQuestionComponent {
     }
 
     // 5. Binary Status (Green/Red)
+    // 5. Binary Status (Green/Red)
+    // FIX: Last Answer Wins (Prioritize most recent user action for Dot Color)
+    if (selected.length > 0) {
+        const last = selected[selected.length - 1];
+        // Check Last correctness (Trust Flag, or Lookup)
+        let lastIsCorrect = last.correct === true;
+        
+        // 🚀 FAST PATH: Check Display Question (Matches UI Highlighting Source)
+        if (!lastIsCorrect && displayQuestion?.options) {
+             // Try strict index match first for speed
+             if (typeof last.optionId === 'number' && displayQuestion.options[last.optionId]) {
+                  if (displayQuestion.options[last.optionId].correct === true) lastIsCorrect = true;
+             }
+             // Fallback to text match
+             if (!lastIsCorrect) {
+                 const dOpt = displayQuestion.options.find(o => normalize(o.text) === normalize(last.text));
+                 if (dOpt && dOpt.correct === true) lastIsCorrect = true;
+             }
+        }
+
+        // Lookup correction if flag missing
+        if (!lastIsCorrect && rawQuestion?.options) {
+             const normText = normalize(last.text);
+             lastIsCorrect = rawQuestion.options.some((o: any) => o.correct === true && normalize(o.text) === normText);
+        }
+        
+        // If last action was correct, show Green (Optimization for "Correction" scenario)
+        if (lastIsCorrect) return 'correct';
+    }
+
     return isAnyCorrect ? 'correct' : 'wrong';
   }
 
@@ -5251,4 +5315,3 @@ get quizQuestionComponent(): QuizQuestionComponent {
   }
 
 }
-

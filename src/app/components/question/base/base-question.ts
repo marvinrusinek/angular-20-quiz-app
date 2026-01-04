@@ -24,6 +24,7 @@ import { FeedbackService } from '../../../shared/services/feedback.service';
 import { QuizService } from '../../../shared/services/quiz.service';
 import { QuizStateService } from '../../../shared/services/quizstate.service';
 import { SelectedOptionService } from '../../../shared/services/selectedoption.service';
+import { QuestionType } from '../../../shared/models/question-type.enum';
 
 @Directive()
 export abstract class BaseQuestion<
@@ -295,7 +296,7 @@ export abstract class BaseQuestion<
 
     this.sharedOptionConfig = {
       ...this.getDefaultSharedOptionConfig(),
-      type: 'single', // overridden if needed
+      type: this.type, // FIX: Use the actual type (which might be 'multiple') to configure Option behavior
       optionsToDisplay: clonedOptions,
       currentQuestion: { ...this.question },
       shouldResetBackground: this.shouldResetBackground || false,
@@ -499,6 +500,14 @@ export abstract class BaseQuestion<
   private handleQuestionChange(change: SimpleChange): void {
     if (change.currentValue) {
       this.question = change.currentValue;
+
+      // FIX: Sync internal type with question type to enable Multi-Select logic
+      if (this.question?.type === QuestionType.MultipleAnswer) {
+        this.type = 'multiple';
+      } else {
+        this.type = 'single';
+      }
+      
       this.updateQuizStateService();
 
       if (

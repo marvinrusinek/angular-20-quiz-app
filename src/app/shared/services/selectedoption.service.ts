@@ -87,6 +87,17 @@ export class SelectedOptionService {
     );
   }
 
+  // Helper to sync state from external components (like SharedOptionComponent)
+  syncSelectionState(questionIndex: number, options: SelectedOption[]): void {
+    this.selectedOptionsMap.set(questionIndex, options);
+    this.selectedOptionsMap.set(String(questionIndex) as any, options); // Duplicate key fix if needed
+    
+    this.selectedOption = options; // helper Sync
+    this.selectedOptionSubject.next(options);
+    this.isOptionSelectedSubject.next(options.length > 0);
+    this.isAnsweredSubject.next(true); // Ensure answered state is tracked
+  }
+
   deselectOption(): void {
     this.selectedOptionSubject.next([]);
     this.isOptionSelectedSubject.next(false);
