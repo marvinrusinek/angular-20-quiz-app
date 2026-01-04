@@ -205,8 +205,9 @@ export class QuizNavigationService {
       this.selectedOptionService.setAnswered(false, true);
 
       // Clear all option selections when navigating to new question
-      this.selectedOptionService.resetAllStates();
-      this.selectedOptionService.clearSelectionsForQuestion(index);
+      // Clear all option selections when navigating to new question
+      // this.selectedOptionService.resetAllStates(); // DO NOT CLEAR PERSISTENCE
+      // this.selectedOptionService.clearSelectionsForQuestion(index); // DO NOT CLEAR PERSISTENCE
       this.nextButtonStateService.reset();
       this.quizQuestionLoaderService.resetUI();
 
@@ -321,13 +322,13 @@ export class QuizNavigationService {
 
   private async resetPostNavigationState(index: number): Promise<void> {
     // RESET SELECTIONS
-    this.selectedOptionService.resetAllStates?.();
-    (this.selectedOptionService as any)._lockedOptionsMap?.clear?.();
-    (this.selectedOptionService as any).optionStates?.clear?.();
-    this.selectedOptionService.selectedOptionsMap?.clear?.();
-    this.selectedOptionService.clearSelectionsForQuestion(
-      this.currentQuestionIndex,
-    );
+    // this.selectedOptionService.resetAllStates?.(); // DO NOT CLEAR PERSISTENCE
+    // (this.selectedOptionService as any)._lockedOptionsMap?.clear?.();
+    // (this.selectedOptionService as any).optionStates?.clear?.();
+    // this.selectedOptionService.selectedOptionsMap?.clear?.(); // DO NOT CLEAR PERSISTENCE
+    // this.selectedOptionService.clearSelectionsForQuestion(
+    //   this.currentQuestionIndex,
+    // );
 
     // Silence ETS
     const ets: any = this.explanationTextService;

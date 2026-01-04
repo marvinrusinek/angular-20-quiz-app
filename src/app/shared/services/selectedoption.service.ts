@@ -946,10 +946,15 @@ export class SelectedOptionService {
 
   clearSelectedOption(): void {
     if (this.currentQuestionType === QuestionType.MultipleAnswer) {
-      // Clear all selected options for multiple-answer questions
-      this.selectedOptionsMap.clear();
-      this.feedbackByQuestion.clear();
-      this.optionSnapshotByQuestion.clear();
+      // Clear all selected options for multiple-answer questions (Question scoped)
+      const idx = this.quizService.currentQuestionIndex;
+      if (typeof idx === 'number') {
+        this.selectedOptionsMap.delete(idx);
+        this.feedbackByQuestion.delete(idx);
+        this.optionSnapshotByQuestion.delete(idx);
+      } else {
+        console.warn('[SOS] clearSelectedOption: No valid index to delete');
+      }
     } else {
       // Clear the single selected option for single-answer questions
       this.selectedOption = [];
@@ -972,6 +977,13 @@ export class SelectedOptionService {
 
     // Only clear feedback state here — do NOT touch answered state
     this.showFeedbackForOptionSubject.next({});
+  }
+
+  // Resets the internal selection state for the current view, but DOES NOT wipe persistence/history.
+  resetCurrentSelection(): void {
+    this.selectedOption = [];
+    this.selectedOptionSubject.next([]);
+    // Do not clear the Map.
   }
 
   clearOptions(): void {

@@ -338,8 +338,8 @@ export class QuizQuestionLoaderService {
     }
 
     // Clear all legacy or leaked state
-    this.selectedOptionService.clearSelectionsForQuestion?.(index);
-    this.selectedOptionService.resetAllStates?.();
+    // this.selectedOptionService.clearSelectionsForQuestion?.(index); // DO NOT CLEAR HISTORY ON LOAD
+    // this.selectedOptionService.resetAllStates?.(); // DO NOT CLEAR HISTORY ON LOAD
     (this.explanationTextService as any)._fetLocked = false;
     this.explanationTextService.setShouldDisplayExplanation(false);
     this.explanationTextService.setIsExplanationTextDisplayed(false);
@@ -1003,7 +1003,7 @@ export class QuizQuestionLoaderService {
 
     // Reset internal selected options tracking
     this.selectedOptionService.stopTimerEmitted = false;
-    this.selectedOptionService.selectedOptionsMap.clear();
+    // this.selectedOptionService.selectedOptionsMap.clear(); // DO NOT CLEAR HISTORY ON QUESTION LOAD
 
     this.seedSelectionBaseline(index);
   }

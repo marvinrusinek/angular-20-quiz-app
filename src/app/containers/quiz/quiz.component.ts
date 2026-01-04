@@ -1559,7 +1559,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
     // Reset internal selected options tracking
     this.selectedOptionService.stopTimerEmitted = false;
-    this.selectedOptionService.selectedOptionsMap.clear();
+    // this.selectedOptionService.selectedOptionsMap.clear(); // DO NOT CLEAR HISTORY ON NAV
 
     this.cdRef.detectChanges();
   }
@@ -1567,7 +1567,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
   private resetOptionState(): void {
     const idx = this.currentQuestionIndex ?? 0;
     const options = this.questions[idx].options ?? [];
-    this.selectedOptionService.resetOptionState(idx, options);
+    // this.selectedOptionService.resetOptionState(idx, options); // DO NOT WIPE HISTORY
   }
 
   ngOnDestroy(): void {

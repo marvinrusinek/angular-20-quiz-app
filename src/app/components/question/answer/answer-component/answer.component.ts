@@ -159,7 +159,6 @@ export class AnswerComponent
         this.renderReady = false;
 
         // Apply options synchronously (removed Promise.resolve to fix StackBlitz timing)
-        this.resetSelectionState();
         this.applyIncomingOptions(this.incomingOptions, {
           resetSelection: false,
         });
@@ -237,7 +236,7 @@ export class AnswerComponent
     this.selectedOptions = [];
     this.selectedOptionIndex = -1;
     this.showFeedbackForOption = {};
-    this.selectedOptionService.clearSelectedOption();
+    // this.selectedOptionService.clearSelectedOption(); // DO NOT CLEAR SERVICE STATE ON COMPONENT RESET
   }
 
   private normalizeOptions(options: Option[]): Option[] {

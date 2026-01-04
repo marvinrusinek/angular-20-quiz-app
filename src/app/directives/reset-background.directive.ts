@@ -42,6 +42,6 @@ export class ResetBackgroundDirective implements OnDestroy {
   }
 
   private clearFeedbackIcons(): void {
-    this.selectedOptionService.clearSelectedOption();
+    // this.selectedOptionService.clearSelectedOption(); // Visual reset only; do not wipe logic state.
   }
 }

@@ -5479,8 +5479,8 @@ export class QuizQuestionComponent
     this.isOptionSelected = false;
     this.explanationToDisplayChange.emit('');
     this.showExplanationChange.emit(false);
-    this.selectedOptionService.clearOptions();
-    this.selectedOptionService.clearSelectedOption();
+    this.selectedOptionService.clearOptions(); // Clears Feedback/Subjects (Safe)
+    this.selectedOptionService.resetCurrentSelection(); // Clears Current UI Selection (Safe) - PRESERVES MAP
     this.selectedOptionService.setOptionSelected(false);
   }
 
