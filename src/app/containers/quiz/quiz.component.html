@@ -87,13 +87,16 @@
             }
 
             <!-- Progress Bar -->
-            <section class="quiz-progress">
-              <div class="custom-bar">
-                <div class="custom-bar-fill" [style.width.%]="(progress$ | async) || 0"></div>
-              </div>
-              <div class="progress-label">
-                {{ (progress$ | async)?.toFixed(0) }}% complete
-              </div>
+            <!-- Pagination Dots (Replaces Progress Bar) -->
+            <section class="paging-dots">
+              @for (q of questions$ | async; track $index) {
+                <div 
+                  class="dot" 
+                  [ngClass]="getDotClass($index)"
+                  (click)="navigateToDot($index)" 
+                  [attr.aria-label]="'Go to question ' + ($index + 1)">
+                </div>
+              }
             </section>
           </mat-card-footer>
         </mat-card>

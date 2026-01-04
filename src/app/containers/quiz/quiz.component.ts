@@ -150,7 +150,108 @@ get quizQuestionComponent(): QuizQuestionComponent {
   question: QuizQuestion | null = null;
   questions: QuizQuestion[] = [];
   questionsArray: QuizQuestion[] = [];
-  questions$: Observable<QuizQuestion[]> = of([]);
+  questions$: Observable<QuizQuestion[]> = this.quizService.questions$;
+
+  // Helper to determine dot class
+  getQuestionStatus(index: number): string {
+    const selected = this.selectedOptionService.selectedOptionsMap.get(index);
+    if (!selected || selected.length === 0) return 'pending';
+
+    // 1. Direct Trust (Fast Path): If flag exists, trust it.
+    if (selected.every(s => s.correct === true)) {
+        return 'correct';
+    }
+
+    // 2. Raw Lookup (Slow Path for Sanitized Data)
+    const displayQuestion = this.questionsArray[index] || this.quizService.questions[index];
+    
+    // 0. Robust Normalization (Remove Whitespace, Keep Punctuation/Symbols)
+    // Allows matching ":" and "number[]" while ignoring spaces.
+    const normalize = (str: string) => (str || '').replace(/\s/g, '').toLowerCase();
+
+    // 1. Check Display Data Flags First (Fastest if preserved)
+    if (displayQuestion?.options) {
+        const hasCorrectFlagInDisplay = selected.some(s => {
+             // Try Index Match first (if available and valid)
+             if (typeof s.optionId === 'number' && displayQuestion.options![s.optionId]) {
+                 if (displayQuestion.options![s.optionId].correct === true) return true;
+             }
+
+             // Fallback to Text Match
+             const o = displayQuestion.options!.find(opt => normalize(opt.text) === normalize(s.text));
+             return o && o.correct === true;
+        });
+        if (hasCorrectFlagInDisplay) return 'correct';
+    }
+
+    if (!displayQuestion) return 'wrong'; // Guard clause
+    
+    // 2. Global Canonical Lookup (Bypasses QuizId mismatch/stale data)
+    // Search ALL questions in the entire app to find the matching logic source.
+    const allCanonicalQuestions = (this.quizService.quizData || []).flatMap(q => q.questions || []);
+        
+    let rawQuestion = allCanonicalQuestions.find(q => q.questionText === displayQuestion.questionText);
+    if (!rawQuestion) {
+       rawQuestion = allCanonicalQuestions.find(q => normalize(q.questionText) === normalize(displayQuestion.questionText));
+    }
+
+    // Fallback: Match by First Option Text (Stable Key)
+    if (!rawQuestion && displayQuestion.options?.[0]) {
+       const dispOpt0 = normalize(displayQuestion.options[0].text);
+       rawQuestion = allCanonicalQuestions.find(q => normalize(q.options?.[0]?.text) === dispOpt0);
+    }
+    
+    // Fallback: Global Search (Aggressive) by Selected Text
+    if (!rawQuestion && selected.length > 0) {
+       const sText = normalize(selected[0].text);
+       rawQuestion = allCanonicalQuestions.find(q => q.options?.some((o: any) => normalize(o.text) === sText));
+    }
+        
+    // 3. Handle Single Answer Behavior (if type missing or Single)
+    // If accidental multi-select occurred, respect only the LAST selection.
+    let selectedToCheck = selected;
+    if (rawQuestion && (!rawQuestion.type || rawQuestion.type === QuestionType.SingleAnswer)) {
+        if (selected.length > 1) {
+            selectedToCheck = [selected[selected.length - 1]];
+        }
+    }
+
+    // 4. Verify Correctness (Standard)
+    const isAnyCorrect = selected.some((s) => {
+       if (s.correct === true) return true;
+       const matchedOption = rawQuestion?.options.find((o: any) => 
+          o.text === s.text || normalize(o.text) === normalize(s.text)
+       );
+       return !!(matchedOption && matchedOption.correct);
+    });
+
+    // 4b. Reverse Check (Fail-Safe logic)
+    // Does the canonical question have a correct option that matches our selection?
+    if (!isAnyCorrect && rawQuestion && rawQuestion.options) {
+        const selectedTexts = new Set(selected.map(s => normalize(s.text)));
+        const foundCorrect = rawQuestion.options.some((o: any) => 
+            o.correct === true && selectedTexts.has(normalize(o.text))
+        );
+        if (foundCorrect) return 'correct';
+    }
+
+    // 5. Binary Status (Green/Red)
+    return isAnyCorrect ? 'correct' : 'wrong';
+  }
+
+  getDotClass(index: number): string {
+    const status = this.getQuestionStatus(index);
+    return (index === this.currentQuestionIndex) ? `${status} current` : status;
+  }
+
+  navigateToDot(index: number): void {
+    this.quizService.currentQuestionIndex = index;
+    this.quizService.currentQuestionIndexSource.next(index);
+    // Force update question logic (simplified, usually service handles this)
+    // Using simple index update might not be enough if logic is split.
+    // Better to use the navigation service if available or router.
+    this.router.navigate(['/question', this.quizService.quizId, index + 1]); 
+  }
   questionPayload: QuestionPayload | null = null;
   questionVersion = 0;
   currentQuestion$: Observable<QuizQuestion | null> =
@@ -414,6 +515,12 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
     this.selectedOptionService.isOptionSelected$().subscribe((isSelected) => {
       this.isCurrentQuestionAnswered = isSelected;
+      this.cdRef.markForCheck();
+    });
+
+    // Fix: Trigger CD on any selection change (e.g. Red -> Green transition)
+    this.selectedOptionService.selectedOption$.subscribe(() => {
+       this.cdRef.detectChanges();
     });
 
     this.quizService.currentQuestion.subscribe({
@@ -541,6 +648,11 @@ get quizQuestionComponent(): QuizQuestionComponent {
   }
 
   async ngOnInit(): Promise<void> {
+    // Subscribe to questions stream to keep local array in sync for pagination dots
+    this.questions$ = this.quizService.questions$;
+    this.quizService.questions$.pipe(takeUntil(this.destroy$)).subscribe((q) => {
+      this.questionsArray = q;
+    });
     // this.initializeRouteParameters();
 
     // CRITICAL FIX: React to URL parameter changes (Q1 -> Q2)
