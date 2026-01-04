@@ -1245,37 +1245,29 @@ export class SharedOptionComponent
     };
   }
 
-  /** Returns cursor style for option - 'not-allowed' for disabled/incorrect options or when timer expired */
+    /** Returns cursor style for option - 'not-allowed' for disabled/incorrect options or when timer expired */
   public getOptionCursor(binding: OptionBindings, index: number): string {
     const option = binding?.option;
     const isCorrect = option?.correct === true;
-    
+
     // If ALL options are force-disabled (timer expired), show not-allowed on ALL including correct
     if (this.forceDisableAll || this.timerExpiredForQuestion) {
       return 'not-allowed';
     }
-    
-    // Correct options keep pointer cursor (when user answered correctly)
-    if (isCorrect) {
-      return 'pointer';
-    }
-    
+
     // Check if this specific option is disabled
     if (this.isDisabled(binding, index)) {
       return 'not-allowed';
     }
-    
-    const qIndex = this.resolveCurrentQuestionIndex();
-    try {
-      const isQuestionAnswered = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex)?.length > 0;
-      const isExplanationShowing = this.explanationTextService.shouldDisplayExplanationSource.getValue();
-      
-      // If question is answered or explanation showing, incorrect options get not-allowed
-      if (isQuestionAnswered || isExplanationShowing) {
-        return 'not-allowed';
-      }
-    } catch { }
-    
+
+    // Correct options keep pointer cursor (when user answered correctly)
+    if (isCorrect) {
+      return 'pointer';
+    }
+
+    // NOTE: Removed global lockout logic based on isSolved/isExplanationShowing
+    // per user request to only show not-allowed when options are EXPLICITLY disabled.
+
     return 'pointer';
   }
 
@@ -1293,7 +1285,7 @@ export class SharedOptionComponent
     const optionId = option.optionId;
     const qIndex = this.resolveCurrentQuestionIndex();
 
-    // 🛑 PREVENT RESELECTION: Disable correct options that are already selected in multiple-answer questions
+    // PREVENT RESELECTION: Disable correct options that are already selected in multiple-answer questions
     const correctCount = (this.optionBindings ?? []).filter(b => b.option?.correct).length;
     const isMultipleAnswer = correctCount > 1;
     if (isMultipleAnswer && binding.isSelected && option.correct) {
