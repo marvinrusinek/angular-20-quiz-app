@@ -58,8 +58,7 @@ export class ScoreComponent implements OnInit, OnDestroy {
   private unsubscribeTrigger$: Subject<void> = new Subject<void>();
 
   constructor(private quizService: QuizService) {
-    // ⚡ FIX: Derive total questions dynamically from the questions stream
-    // This avoids issues where quizId is empty at construction time
+    // ⚡ FIX: Derive total questions dynamically from the questions stream (Reverted to working solution)
     this.totalQuestions$ = this.quizService.getAllQuestions().pipe(
       map((questions) => questions.length),
       distinctUntilChanged()

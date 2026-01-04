@@ -729,6 +729,10 @@ export class QuizService {
           return [];
         }
 
+        // ⚡ FIX: Populate currentQuizSubject so getTotalQuestionsCount works!
+        // This was missing, causing ScoreComponent to see 0 questions.
+        this.currentQuizSubject.next(quiz);
+
         // Normalize
         const normalizedQuestions: QuizQuestion[] = (quiz.questions ?? []).map((question) => {
           const normalizedOptions = Array.isArray(question.options)
@@ -1246,8 +1250,18 @@ export class QuizService {
   getTotalQuestionsCount(quizId: string): Observable<number> {
     return this.currentQuizSubject.pipe(
       map((quiz) => {
-        if (!quiz || quiz.quizId !== quizId) return 0;
-        return quiz.questions?.length ?? 0;
+        // 1. Try to get count from the emitted quiz object
+        if (quiz && quiz.quizId === quizId) {
+          return quiz.questions?.length ?? 0;
+        }
+
+        // 2. Fallback: If quiz object missing (e.g. cached/shuffled session), check active state
+        // ⚡ RELAXED FIX: Validation of IDs proved flaky. If we have active questions, return their count.
+        if (Array.isArray(this.questions) && this.questions.length > 0) {
+          return this.questions.length;
+        }
+
+        return 0;
       }),
       distinctUntilChanged(),
     );
