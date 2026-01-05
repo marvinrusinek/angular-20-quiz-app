@@ -152,155 +152,77 @@ get quizQuestionComponent(): QuizQuestionComponent {
   questionsArray: QuizQuestion[] = [];
   questions$: Observable<QuizQuestion[]> = this.quizService.questions$;
 
-  // Helper to determine dot class
+  // 🔒 PERSISTENT DOT STATUS CACHE - survives navigation and resets
+  private dotStatusCache = new Map<number, 'correct' | 'wrong'>();
+
+  // Helper to determine dot class - NOW WITH CACHING
   getQuestionStatus(index: number): string {
+    // 1. CHECK CACHE FIRST - if we've already determined the status, use it
+    if (this.dotStatusCache.has(index)) {
+      const cached = this.dotStatusCache.get(index)!;
+      console.log(`[DOT] Q${index} → ${cached.toUpperCase()} (from cache)`);
+      return cached;
+    }
+
+    // 2. Try to compute from current selections
     const selected = this.selectedOptionService.selectedOptionsMap.get(index);
-    if (!selected || selected.length === 0) return 'pending';
-
-    // 🚀 PRIORITY: Last Answer Wins (Matches immediate User Interaction)
-    // This logic handles both Single Answer (Replacement) and Multi-Correction (Red->Green)
-    if (selected.length > 0) {
-        const last = selected[selected.length - 1];
-        let lastIsCorrect = last.correct === true;
-          
-        const displayQuestion = this.questionsArray[index] || this.quizService.questions[index];
-
-        // 🚀 FAST PATH: Check Display Question (Matches UI Highlighting Source)
-        if (!lastIsCorrect && displayQuestion?.options) {
-             // Try strict index match first for speed
-             if (typeof last.optionId === 'number' && displayQuestion.options[last.optionId]) {
-                  if (displayQuestion.options[last.optionId].correct === true) lastIsCorrect = true;
-             }
-             // Fallback to text match
-             if (!lastIsCorrect) {
-                 const normalize = (str: string) => (str || '').replace(/\s/g, '').toLowerCase();
-                 const dOpt = displayQuestion.options.find(o => normalize(o.text) === normalize(last.text));
-                 if (dOpt && dOpt.correct === true) lastIsCorrect = true;
-             }
-        }
-        
-        // If last action was correct, show Green immediately.
-        if (lastIsCorrect) return 'correct';
-        
-        // If last action was WRONG, and we are in strict mode (which "Green to Red" implies),
-        // we could arguably return 'wrong' here too.
-        // But let's let it fall through in case lenient logic applies?
-        // NO. User implies Strict Accumulation (Green->Red).
-        // So if Last is Wrong, we should probably show Red?
-        // But let's stick to ONLY returning Correct early to solve the "Red to Green" blocker.
+    
+    if (!selected || selected.length === 0) {
+      console.log(`[DOT] Q${index} → PENDING (no selections, no cache)`);
+      return 'pending';
     }
 
-    // 1. Direct Trust (Fast Path): If flag exists, trust it.
-    if (selected.every(s => s.correct === true)) {
-        return 'correct';
-    }
-
-    // 2. Raw Lookup (Slow Path for Sanitized Data)
     const displayQuestion = this.questionsArray[index] || this.quizService.questions[index];
     
-    // 0. Robust Normalization (Remove Whitespace, Keep Punctuation/Symbols)
-    // Allows matching ":" and "number[]" while ignoring spaces.
+    // Fallback Context Logic
     const normalize = (str: string) => (str || '').replace(/\s/g, '').toLowerCase();
-
-    // 1. Check Display Data Flags First (Fastest if preserved)
-    if (displayQuestion?.options) {
-        const hasCorrectFlagInDisplay = selected.some(s => {
-             // Try Index Match first (if available and valid)
-             if (typeof s.optionId === 'number' && displayQuestion.options![s.optionId]) {
-                 if (displayQuestion.options![s.optionId].correct === true) return true;
-             }
-
-             // Fallback to Text Match
-             const o = displayQuestion.options!.find(opt => normalize(opt.text) === normalize(s.text));
-             return o && o.correct === true;
-        });
-        if (hasCorrectFlagInDisplay) return 'correct';
-    }
-
-    if (!displayQuestion) return 'wrong'; // Guard clause
+    let questionContext = displayQuestion;
     
-    // 2. Global Canonical Lookup (Bypasses QuizId mismatch/stale data)
-    // Search ALL questions in the entire app to find the matching logic source.
-    const allCanonicalQuestions = (this.quizService.quizData || []).flatMap(q => q.questions || []);
+    if (!questionContext || !questionContext.options || !questionContext.options.some(o => o.correct)) {
+        const allQuestions = (this.quizService.quizData || []).flatMap(q => q.questions || []);
+        const found = allQuestions.find(q => normalize(q.questionText) === normalize(displayQuestion?.questionText));
+        if (found) questionContext = found;
+    }
+
+    // Evaluate Correctness
+    if (questionContext && questionContext.options) {
+        const correctIds = new Set(questionContext.options.filter((o: any) => o.correct).map((o: any) => o.optionId));
+        const correctTexts = new Set(questionContext.options.filter((o: any) => o.correct).map((o: any) => normalize(o.text)));
         
-    let rawQuestion = allCanonicalQuestions.find(q => q.questionText === displayQuestion.questionText);
-    if (!rawQuestion) {
-       rawQuestion = allCanonicalQuestions.find(q => normalize(q.questionText) === normalize(displayQuestion.questionText));
-    }
-
-    // Fallback: Match by First Option Text (Stable Key)
-    if (!rawQuestion && displayQuestion.options?.[0]) {
-       const dispOpt0 = normalize(displayQuestion.options[0].text);
-       rawQuestion = allCanonicalQuestions.find(q => normalize(q.options?.[0]?.text) === dispOpt0);
-    }
-    
-    // Fallback: Global Search (Aggressive) by Selected Text
-    if (!rawQuestion && selected.length > 0) {
-       const sText = normalize(selected[0].text);
-       rawQuestion = allCanonicalQuestions.find(q => q.options?.some((o: any) => normalize(o.text) === sText));
-    }
-        
-    // 3. Handle Single Answer Behavior (if type missing or Single)
-    // If accidental multi-select occurred, respect only the LAST selection.
-    let selectedToCheck = selected;
-    if (rawQuestion && (!rawQuestion.type || rawQuestion.type === QuestionType.SingleAnswer)) {
-        if (selected.length > 1) {
-            selectedToCheck = [selected[selected.length - 1]];
-        }
-    }
-
-    // 4. Verify Correctness (Standard)
-    const isAnyCorrect = (selectedToCheck || selected).some((s) => {
-       if (s.correct === true) return true;
-       const matchedOption = rawQuestion?.options.find((o: any) => 
-          o.text === s.text || normalize(o.text) === normalize(s.text)
-       );
-       return !!(matchedOption && matchedOption.correct);
-    });
-
-    // 4b. Reverse Check (Fail-Safe logic)
-    // Does the canonical question have a correct option that matches our selection?
-    if (!isAnyCorrect && rawQuestion && rawQuestion.options) {
-         const list = selectedToCheck || selected;
-         const selectedTexts = new Set(list.map(s => normalize(s.text)));
-        const foundCorrect = rawQuestion.options.some((o: any) => 
-            o.correct === true && selectedTexts.has(normalize(o.text))
-        );
-        if (foundCorrect) return 'correct';
-    }
-
-    // 5. Binary Status (Green/Red)
-    // 5. Binary Status (Green/Red)
-    // FIX: Last Answer Wins (Prioritize most recent user action for Dot Color)
-    if (selected.length > 0) {
         const last = selected[selected.length - 1];
-        // Check Last correctness (Trust Flag, or Lookup)
-        let lastIsCorrect = last.correct === true;
-        
-        // 🚀 FAST PATH: Check Display Question (Matches UI Highlighting Source)
-        if (!lastIsCorrect && displayQuestion?.options) {
-             // Try strict index match first for speed
-             if (typeof last.optionId === 'number' && displayQuestion.options[last.optionId]) {
-                  if (displayQuestion.options[last.optionId].correct === true) lastIsCorrect = true;
-             }
-             // Fallback to text match
-             if (!lastIsCorrect) {
-                 const dOpt = displayQuestion.options.find(o => normalize(o.text) === normalize(last.text));
-                 if (dOpt && dOpt.correct === true) lastIsCorrect = true;
-             }
+        let isLastCorrect = correctIds.has(last.optionId) || correctTexts.has(normalize(last.text)) || last.correct === true;
+
+        // Index-based fallback
+        if (!isLastCorrect && typeof last.optionId === 'number') {
+            const indexOpt = questionContext.options[last.optionId];
+            if (indexOpt && indexOpt.correct === true) {
+                 isLastCorrect = true;
+            }
         }
 
-        // Lookup correction if flag missing
-        if (!lastIsCorrect && rawQuestion?.options) {
-             const normText = normalize(last.text);
-             lastIsCorrect = rawQuestion.options.some((o: any) => o.correct === true && normalize(o.text) === normText);
-        }
+        const result = isLastCorrect ? 'correct' : 'wrong';
         
-        // If last action was correct, show Green (Optimization for "Correction" scenario)
-        if (lastIsCorrect) return 'correct';
+        // 🔒 CACHE THE RESULT for persistence
+        this.dotStatusCache.set(index, result);
+        console.log(`[DOT] Q${index} → ${result.toUpperCase()} (computed & cached)`);
+        return result;
     }
 
-    return isAnyCorrect ? 'correct' : 'wrong';
+    // Default Fallback
+    const last = selected[selected.length - 1];
+    const result: 'correct' | 'wrong' = last.correct ? 'correct' : 'wrong';
+    this.dotStatusCache.set(index, result);
+    console.log(`[DOT] Q${index} → ${result.toUpperCase()} (fallback & cached)`);
+    return result;
+  }
+
+  // Call this when user selects an answer to update the cache
+  updateDotStatus(index: number): void {
+    // Force re-evaluation by temporarily removing from cache
+    this.dotStatusCache.delete(index);
+    // Now call getQuestionStatus which will re-compute and cache
+    this.getQuestionStatus(index);
+    this.cdRef.detectChanges();
   }
 
   getDotClass(index: number): string {
@@ -309,12 +231,16 @@ get quizQuestionComponent(): QuizQuestionComponent {
   }
 
   navigateToDot(index: number): void {
-    this.quizService.currentQuestionIndex = index;
-    this.quizService.currentQuestionIndexSource.next(index);
-    // Force update question logic (simplified, usually service handles this)
-    // Using simple index update might not be enough if logic is split.
-    // Better to use the navigation service if available or router.
-    this.router.navigate(['/question', this.quizService.quizId, index + 1]); 
+    // Simple navigation - update index and use router
+    // The quizId is needed for the route
+    const quizId = this.quizService.quizId || this.quizService.getCurrentQuizId();
+    console.log(`[DOT NAV] Navigating to Q${index + 1} for quiz ${quizId}`);
+    
+    // Update the service state
+    this.quizService.setCurrentQuestionIndex(index);
+    
+    // Navigate via router (route change triggers question loading)
+    this.router.navigate(['/quiz/question', quizId, index + 1]);
   }
   questionPayload: QuestionPayload | null = null;
   questionVersion = 0;
@@ -583,7 +509,13 @@ get quizQuestionComponent(): QuizQuestionComponent {
     });
 
     // Fix: Trigger CD on any selection change (e.g. Red -> Green transition)
-    this.selectedOptionService.selectedOption$.subscribe(() => {
+    // Also update the dot status cache for persistence
+    this.selectedOptionService.selectedOption$.subscribe((selections) => {
+       // Update cache for the current question whenever selection changes
+       if (selections && selections.length > 0) {
+         const qIndex = selections[0]?.questionIndex ?? this.currentQuestionIndex;
+         this.updateDotStatus(qIndex);
+       }
        this.cdRef.detectChanges();
     });
 
@@ -2685,8 +2617,8 @@ get quizQuestionComponent(): QuizQuestionComponent {
     // Reset all transient UI and selection state
     this.resetExplanationText();
     try {
-      this.selectedOptionService.resetAllStates();
-      this.selectedOptionService.clearSelectionsForQuestion(adjustedIndex);
+      // this.selectedOptionService.resetAllStates(); // DO NOT WIPE HISTORY ON NAV
+      // this.selectedOptionService.clearSelectionsForQuestion(adjustedIndex); // DO NOT WIPE HISTORY ON NAV
       for (const q of this.quizService.questions ?? []) {
         for (const o of q.options ?? []) {
           o.selected = false;
