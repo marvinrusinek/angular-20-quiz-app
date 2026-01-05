@@ -465,7 +465,7 @@ export class QuizQuestionLoaderService {
       mode: 'question',
       answered: false,
     });
-    this.selectedOptionService.resetAllStates();
+    // this.selectedOptionService.resetAllStates(); // DO NOT WIPE HISTORY (Fixes Gray Dots on Nav)
     this.resetStateService.triggerResetState();
     this.explanationTextService.resetExplanationState();
 

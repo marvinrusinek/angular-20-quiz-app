@@ -2512,10 +2512,11 @@ export class QuizQuestionComponent
 
       // ───────────── Update Component State ─────────────
       // Purge all previous state before touching new data
-      this.selectedOptionService.resetAllStates?.();
-      this.selectedOptionService.selectedOptionsMap?.clear?.();
-      this.selectedOptionService._lockedOptionsMap?.clear?.();
-      this.selectedOptionService.optionStates?.clear?.();
+      // DO NOT WIPE HISTORY ON NAV - Preserve pagination dot colors
+      // this.selectedOptionService.resetAllStates?.();
+      // this.selectedOptionService.selectedOptionsMap?.clear?.();
+      // this.selectedOptionService._lockedOptionsMap?.clear?.();
+      // this.selectedOptionService.optionStates?.clear?.();
 
       // Defensive clone of question data
       this.currentQuestion = { ...potentialQuestion };

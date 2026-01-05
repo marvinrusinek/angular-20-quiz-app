@@ -20,6 +20,7 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import {
   catchError,
   distinctUntilChanged,
+  filter,
   map,
   startWith,
   takeUntil,
@@ -58,8 +59,10 @@ export class ScoreComponent implements OnInit, OnDestroy {
   private unsubscribeTrigger$: Subject<void> = new Subject<void>();
 
   constructor(private quizService: QuizService) {
-    // ⚡ FIX: Derive total questions dynamically from the questions stream (Reverted to working solution)
+    // ⚡ FIX: Derive total questions dynamically from the questions stream
+    // Filter out empty arrays to avoid showing X/0 while loading
     this.totalQuestions$ = this.quizService.getAllQuestions().pipe(
+      filter((questions) => Array.isArray(questions) && questions.length > 0),
       map((questions) => questions.length),
       distinctUntilChanged()
     );

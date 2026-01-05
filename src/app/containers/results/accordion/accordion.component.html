@@ -32,7 +32,7 @@
               @if (hasSelectionsFromService(i)) {
                  @let selectedOpts = getSelectedOptionsForQuestion(i);
                  @for (opt of selectedOpts; track $index; let isLast = $last) {
-                    Option {{ opt.visualIndex }}: {{ opt.text }}
+                    Option {{ opt.visualIndex }}: {{ opt.text }}&nbsp;
                     @if (!isLast) { <span>, </span> }
                  }
 
