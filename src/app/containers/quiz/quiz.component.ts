@@ -671,18 +671,23 @@ get quizQuestionComponent(): QuizQuestionComponent {
   }
 
   checkScrollIndicator(): void {
-    const scrollTop = window.scrollY || document.documentElement.scrollTop;
-    const windowHeight = window.innerHeight;
-    const documentHeight = document.documentElement.scrollHeight;
+    // Find the quiz card element
+    const quizCard = document.querySelector('.quiz-card');
+    if (!quizCard) {
+      this.showScrollIndicator = false;
+      return;
+    }
 
-    // Show indicator if there's more than 100px of content below the fold
-    // and user hasn't scrolled to the bottom yet
-    const distanceToBottom = documentHeight - (scrollTop + windowHeight);
-    const shouldShow = distanceToBottom > 100;
+    const cardRect = quizCard.getBoundingClientRect();
+    const windowHeight = window.innerHeight;
+
+    // Show indicator if the card's bottom extends more than 80px below the viewport
+    const cardBottomBelowViewport = cardRect.bottom - windowHeight;
+    const shouldShow = cardBottomBelowViewport > 80;
 
     if (this.showScrollIndicator !== shouldShow) {
       this.showScrollIndicator = shouldShow;
-      console.log(`[Scroll Indicator] ${shouldShow ? 'SHOW' : 'HIDE'} - Distance to bottom: ${distanceToBottom.toFixed(0)}px`);
+      console.log(`[Scroll Indicator] ${shouldShow ? 'SHOW' : 'HIDE'} - Card extends ${cardBottomBelowViewport.toFixed(0)}px below viewport`);
       this.cdRef.detectChanges();
     }
   }
