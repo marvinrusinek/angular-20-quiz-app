@@ -1080,14 +1080,40 @@ get quizQuestionComponent(): QuizQuestionComponent {
   private registerVisibilityChangeHandler(): void {
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
-        // Only update badge — no UI restore, no question restore,
-        // no explanation restore, no component injection.
         const idx = this.quizService.getCurrentQuestionIndex();
-        if (idx >= 0 && idx < this.totalQuestions) {
-          this.ngZone.run(() => {
+        
+        this.ngZone.run(() => {
+          // 1. Update Badge
+          if (idx >= 0 && idx < this.totalQuestions) {
             this.quizService.updateBadgeText(idx + 1, this.totalQuestions);
+          }
+          
+          // 2. ⚡ HEALING LOGIC: Check if answered in background (e.g. Timer Expired)
+          // This restores FET and Feedback Icons if they were missed during background execution.
+          this.quizService.isAnswered(idx).pipe(take(1)).subscribe(isAnswered => {
+             if (isAnswered) {
+                console.log('[QuizComponent] 👁️ Visibility Check: Question IS answered. Verifying UI state...');
+                
+                // Restore selections (fixes missing feedback icons)
+                this.restoreSelectedOptions();
+                
+                // Force display mode to 'explanation'/answered (ensures child components know)
+                this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
+                
+                // Ensure explanation is displayed (fixes missing FET)
+                // We re-fetch or re-trigger the explanation text to be safe
+                const q = this.currentQuestion; // using synced currentQuestion
+                if (q && q.explanation) {
+                    this.explanationTextService.updateExplanationText(q);
+                    // trigger formatting if needed
+                    this.explanationTextService.formatExplanationText(q, idx).subscribe();
+                }
+                
+                this.explanationTextService.setShouldDisplayExplanation(true, { force: true });
+                this.explanationTextService.setIsExplanationTextDisplayed(true, { force: true });
+             }
           });
-        }
+        });
       }
     });
   }
@@ -2777,10 +2803,15 @@ get quizQuestionComponent(): QuizQuestionComponent {
       this.timerService.resetTimer();
       this.timerService.startTimer();
 
-      this.quizService.updateBadgeText(
-        questionIndex + 1,
-        this.quiz.questions.length,
-      );
+      const totalCount = this.totalQuestions > 0 ? this.totalQuestions : (this.quiz?.questions?.length || 0);
+      
+      // Safety guard: Prevent "0 of 6" or "1 of 0" display glitches
+      if (totalCount > 0 && questionIndex >= 0) {
+        this.quizService.updateBadgeText(
+          questionIndex + 1,
+          totalCount,
+        );
+      }
 
       this.resetFeedbackState();
 

@@ -1043,11 +1043,17 @@ export class QuizService {
   }
 
   setCurrentQuestionIndex(idx: number) {
+    console.log('[QuizService] 🔄 setCurrentQuestionIndex:', idx);
     const safeIndex = Number.isFinite(idx) ? Math.max(0, Math.trunc(idx)) : 0;
 
     this.currentQuestionIndex = safeIndex;
     this.currentQuestionIndexSource.next(safeIndex);
     this.currentQuestionIndexSubject.next(safeIndex);
+
+    // ⚡ FIX: Clear transient answers state when changing questions
+    // This prevents Q1 answers from polluting Q2 validation
+    this.answers = [];
+    this.answersSubject.next([]);
   }
 
   getCurrentQuestionIndex(): number {
@@ -1933,9 +1939,11 @@ export class QuizService {
     this.setSelectedQuiz(selectedQuiz);
   }
 
-  async checkIfAnsweredCorrectly(): Promise<boolean> {
-    console.log(`[checkIfAnsweredCorrectly] 🎯 Called! quizId=${this.quizId}, currentQuestionIndex=${this.currentQuestionIndex}`);
-    console.log(`[checkIfAnsweredCorrectly] 🎯 STARTING CHECK for Q${this.currentQuestionIndex}`);
+  async checkIfAnsweredCorrectly(index: number = -1): Promise<boolean> {
+    const qIndex = index >= 0 ? index : this.currentQuestionIndex;
+    
+    console.log(`[checkIfAnsweredCorrectly] 🎯 Called! quizId=${this.quizId}, effectiveIndex=${qIndex} (passed=${index}, service=${this.currentQuestionIndex})`);
+    console.log(`[checkIfAnsweredCorrectly] 🎯 STARTING CHECK for Q${qIndex}`);
     try {
       const foundQuiz = this.currentQuizSubject.getValue();
       if (!foundQuiz) {
@@ -1948,10 +1956,11 @@ export class QuizService {
 
       // ⚡ FIX: In shuffled mode, currentQuestionSubject might be stale (pointing to prev question).
       // Force resolution by index to ensure we validate against the ACTUAL question on screen.
-      if (this.isShuffleEnabled()) {
-        const resolved = this.resolveCanonicalQuestion(this.currentQuestionIndex, null);
+      if (this.isShuffleEnabled() || (index >= 0 && index !== this.currentQuestionIndex)) {
+        // Resolve using the effective index
+        const resolved = this.resolveCanonicalQuestion(qIndex, null);
         if (resolved) {
-          console.log('[checkIfAnsweredCorrectly] 🔀 Shuffled mode: Resolved question by index', this.currentQuestionIndex);
+          console.log('[checkIfAnsweredCorrectly] 🔀 Shuffled/Indexed mode: Resolved question by index', qIndex);
           currentQuestionValue = resolved;
         }
       }
@@ -1997,7 +2006,7 @@ export class QuizService {
 
       // Update score
       console.log(`[checkIfAnsweredCorrectly] 🚀 CALLING incrementScore with isCorrect=${isCorrect}`);
-      this.incrementScore(answerIds, isCorrect, this.multipleAnswer);
+      this.incrementScore(answerIds, isCorrect, this.multipleAnswer, qIndex);
 
       return isCorrect;
     } catch (error) {
@@ -2023,8 +2032,18 @@ export class QuizService {
     answers: number[],
     correctAnswerFound: boolean,
     isMultipleAnswer: boolean,
+    questionIndex: number = -1, // Use passed index
   ): void {
-    const qIndex = this.currentQuestionIndex;
+    const qIndex = questionIndex >= 0 ? questionIndex : this.currentQuestionIndex;
+
+    // 🛡️ GUARD: Prevent "Ghost" updates for previous questions while on a different question
+    // This fixes the issue where Q2 interactions might be evaluated against Q1 (Index 0) due to race conditions.
+    // We only allow score updates for the currently active question.
+    if (qIndex !== this.currentQuestionIndex) {
+      console.warn(`[incrementScore] 🛡️ BLOCKED update for Q${qIndex} while active question is Q${this.currentQuestionIndex}`);
+      return;
+    }
+
     const wasCorrect = this.questionCorrectness.get(qIndex) || false;
 
     // Determine strict correctness for this attempt
@@ -2042,12 +2061,12 @@ export class QuizService {
       // Gained a point
       this.updateCorrectCountForResults(this.correctCount + 1);
       this.questionCorrectness.set(qIndex, true);
-      console.log(`[Score] 📈 Gained point for Q${qIndex}. Total: ${this.correctCount}`);
+      console.log(`[Score] � Gained point for Q${qIndex}. Total: ${this.correctCount}`);
     } else if (!isNowCorrect && wasCorrect) {
       // Lost a point
       this.updateCorrectCountForResults(this.correctCount - 1);
       this.questionCorrectness.set(qIndex, false);
-      console.log(`[Score] 📉 Lost point for Q${qIndex}. Total: ${this.correctCount}`);
+      console.log(`[Score] � Lost point for Q${qIndex}. Total: ${this.correctCount}`);
     } else {
       // No change
       console.log(`[Score] 😐 No change for Q${qIndex}. Total: ${this.correctCount}`);
@@ -2332,6 +2351,9 @@ export class QuizService {
     this.explanationText.next('');
     this.displayExplanation = false;
     this.shouldDisplayExplanation = false;
+    
+    // ⚡ FIX: Clear internal scoring state map to prevent stale "wasCorrect" flags
+    this.questionCorrectness.clear();
   }
 
   resetAll(): void {

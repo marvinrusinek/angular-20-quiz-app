@@ -684,7 +684,7 @@ export class QuizQuestionLoaderService {
 
     // Push into QuizService and QuizStateService
     this.quizService.setCurrentQuestion(question);
-    this.quizService.setCurrentQuestionIndex(index);
+    // this.quizService.setCurrentQuestionIndex(index); // ⚡ DISABLE: Let QuizComponent manage index via Router
     this.quizStateService.updateCurrentQuestion(question);
 
     // Broadcast QA for any external listener (progressbar, etc.)
@@ -760,7 +760,7 @@ export class QuizQuestionLoaderService {
     this.quizService.questionPayloadSubject.next(payloadForBroadcast);
 
     this.quizService.setCurrentQuestion({ ...q, options: opts });
-    this.quizService.setCurrentQuestionIndex(idx);
+    // this.quizService.setCurrentQuestionIndex(idx); // ⚡ DISABLE: Let QuizComponent manage index
     this.quizStateService.updateCurrentQuestion({ ...q, options: opts });
 
     if (q.questionText && opts.length) {

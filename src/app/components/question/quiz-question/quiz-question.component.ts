@@ -593,7 +593,14 @@ export class QuizQuestionComponent
       this.explanationText = '';
       this._expl$.next(null);
 
-      const questionIndex = Number(params.get('questionIndex'));
+      const rawIndex = Number(params.get('questionIndex'));
+      // Convert 1-based route index to 0-based internal index
+      const questionIndex = (rawIndex > 0 ? rawIndex : 1) - 1;
+
+      // ⚡ SYNC: Explicitly set service index to ensure it matches visual state
+      // This is a failsafe in case QuizComponent didn't update it yet or we are in a different routing context
+      this.quizService.setCurrentQuestionIndex(questionIndex);
+      this.currentQuestionIndex = questionIndex;
 
       // ⚡ FIX: Prioritize Input Data ("Prop Drilling")
       // If the parent (CodelabQuizContentComponent) passed us a question that matches the requested index,
@@ -1870,7 +1877,7 @@ export class QuizQuestionComponent
 
       try {
         // Single source of index truth
-        this.quizService.setCurrentQuestionIndex(zeroIndex);
+        // this.quizService.setCurrentQuestionIndex(zeroIndex);
         this.currentQuestionIndex = zeroIndex;
 
         // Reset per-question UI state
@@ -2111,6 +2118,7 @@ export class QuizQuestionComponent
   public override async loadDynamicComponent(
     question: QuizQuestion,
     options: Option[],
+    questionIndex: number = -1,
   ): Promise<void> {
     try {
       // Guard –- missing question or options
@@ -2173,12 +2181,29 @@ export class QuizQuestionComponent
         return;
       }
 
-      instance.questionIndex = this.currentQuestionIndex;
-      instance.currentQuestionIndex = this.currentQuestionIndex;
+      // ⚡ ROBUST INDEX RESOLUTION:
+      // Priority: 1. Passed argument (if valid) which comes from authoritative source
+      //           2. Component @Input currentQuestionIndex (if > 0, ensuring it's not default)
+      //           3. Service currentQuestionIndex (most up-to-date global state)
+      //           4. Default to 0
+      let effectiveIndex = 0;
+      if (questionIndex >= 0) {
+        effectiveIndex = questionIndex;
+      } else if (this.currentQuestionIndex > 0) {
+        effectiveIndex = this.currentQuestionIndex;
+      } else {
+        effectiveIndex = this.quizService.currentQuestionIndex;
+      }
+      
+      console.log(`[QQC] 🔢 loadDynamicComponent Index Resolution: Effective=${effectiveIndex} (Arg=${questionIndex}, Input=${this.currentQuestionIndex}, Service=${this.quizService.currentQuestionIndex})`);
+
+      // Use setInput to trigger Change Detection properly
+      componentRef.setInput('questionIndex', effectiveIndex);
+      componentRef.setInput('currentQuestionIndex', effectiveIndex);
+      componentRef.setInput('quizId', this.quizService.quizId);
 
       if ((instance as any)?.hasOwnProperty('isNavigatingBackwards')) {
-        (instance as any).isNavigatingBackwards =
-          this.navigatingBackwards ?? false;
+        componentRef.setInput('isNavigatingBackwards', this.navigatingBackwards ?? false);
       }
 
       // WIRE: AnswerComponent → QQC
@@ -2198,8 +2223,7 @@ export class QuizQuestionComponent
 
       // Set backward nav flag if supported
       if ((instance as any)?.hasOwnProperty('isNavigatingBackwards')) {
-        (instance as any).isNavigatingBackwards =
-          this.navigatingBackwards ?? false;
+        componentRef.setInput('isNavigatingBackwards', this.navigatingBackwards ?? false);
       }
       this.navigatingBackwards = false;
 
@@ -2219,8 +2243,8 @@ export class QuizQuestionComponent
       }
 
       try {
-        (instance as any).questionData = { ...question };
-        instance.optionsToDisplay = clonedOptions;
+        componentRef.setInput('questionData', { ...question });
+        componentRef.setInput('optionsToDisplay', clonedOptions);
         
         // CRITICAL FIX: Set renderReady immediately after assigning options
         // This fixes StackBlitz first-load timing issue
@@ -7061,7 +7085,13 @@ export class QuizQuestionComponent
 
     let isCorrect = false;
     try {
-      isCorrect = await this.quizService.checkIfAnsweredCorrectly();
+      // ⚡ ROBUST INDEX RESOLUTION: Prefer Service Index if > 0, else Input Index
+      const effectiveIndex = this.quizService.currentQuestionIndex > 0 
+          ? this.quizService.currentQuestionIndex 
+          : this.currentQuestionIndex;
+
+      console.log(`[QQC] processAnswer sending check for Q${effectiveIndex}`);
+      isCorrect = await this.quizService.checkIfAnsweredCorrectly(effectiveIndex);
 
     } catch (error) {
       console.error('Error checking answer correctness:', error);

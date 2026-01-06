@@ -1035,7 +1035,12 @@ export class SharedOptionComponent
     // ... your existing code ...
 
     // 🔽 ADD THIS AT THE VERY END 🔽
-    const activeQuestionIndex = this.getActiveQuestionIndex() ?? 0;
+    // ⚡ FIX: Robust Index Resolution - Fallback to Service if Local is default/0
+    let activeQuestionIndex = this.getActiveQuestionIndex();
+    if (activeQuestionIndex === null || activeQuestionIndex === undefined || (activeQuestionIndex === 0 && this.quizService.currentQuestionIndex > 0)) {
+        activeQuestionIndex = this.quizService.currentQuestionIndex;
+    }
+    activeQuestionIndex = activeQuestionIndex ?? 0;
 
     const enrichedOption: SelectedOption = {
       ...binding.option,
@@ -1049,15 +1054,6 @@ export class SharedOptionComponent
       checked: enrichedOption.selected === true,
     };
 
-    // 🔑 FIX: Force update answers and trigger score
-    this.quizService.answers = [enrichedOption];
-    this.quizService.updateAnswersForOption(enrichedOption);
-
-    this.quizService.checkIfAnsweredCorrectly().then((isCorrect) => {
-      console.log(`[SOC] Score check result: ${isCorrect}`);
-    });
-
-
     console.log(
       '%c[SOC] EMITTING optionClicked →',
       'color:#00e5ff;font-weight:bold;',
@@ -1065,6 +1061,27 @@ export class SharedOptionComponent
     );
 
     this.optionClicked.emit(payload);
+
+    // ⚡ FIX: Run score check AFTER parent updates service (Next Tick)
+    setTimeout(() => {
+        // Construct complete answers list for Multiple Choice
+        let currentAnswers: any[] = [];
+        if (this.type === 'multiple') {
+            const stored = this.selectedOptionService.getSelectedOptionsForQuestion(activeQuestionIndex);
+            currentAnswers = stored ? [...stored] : [];
+            // If stored is empty (race condition), fallback to current enriched
+            if (currentAnswers.length === 0) currentAnswers = [enrichedOption]; 
+        } else {
+            currentAnswers = [enrichedOption];
+        }
+
+        this.quizService.answers = currentAnswers;
+        this.quizService.updateAnswersForOption(enrichedOption);
+
+        console.log(`[SOC] 📊 Updated Answers for Q${activeQuestionIndex}. Type=${this.type}, Answers=${currentAnswers.length}`);
+        
+        // Removed explicit score check to avoid double-call with QQC.processAnswer
+    }, 0);
 
   }
 
