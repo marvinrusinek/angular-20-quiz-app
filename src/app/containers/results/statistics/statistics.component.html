@@ -6,7 +6,7 @@
         <span class="result">{{
           quizMetadata.correctAnswersCount$ | async
         }}</span>
-        out of <span class="result">{{ quizMetadata.totalQuestions }}</span>
+        out of <span class="result">{{ quizMetadata.totalQuestions }}</span>&nbsp;
         <span class="result">({{ quizMetadata.percentage }}%)</span>
         {{ quizMetadata.totalQuestions === 1 ? 'question' : 'questions' }}
         correctly.
@@ -54,12 +54,12 @@
 
             <ul>
               @for (resource of resources; track resource.url) {
-                <li i18n>
+                <li i18n style="padding-bottom: 5px">
                   <a [href]="resource.url" target="_blank">
                     <span class="resource-title">{{ resource.title }}</span> </a
                   >,&nbsp;
                   <span class="resource-host">{{ resource.host }}</span>
-                </li>
+                </li><br />
               }
             </ul>
           }

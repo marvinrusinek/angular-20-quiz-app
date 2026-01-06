@@ -1,110 +1,101 @@
 <h3 class="summary-header">Detailed Summary ({{ questions.length }} questions)</h3>
 @if (questions.length === 0) {
-  <p>No questions available to display. Please verify quiz data.</p>
+<p>No questions available to display. Please verify quiz data.</p>
 }
 <mat-accordion multi="true" #accordion="matAccordion">
   @for (question of questions; track $index; let i = $index) {
-    <mat-expansion-panel
-      class="quiz-summary-question"
-      (opened)="panelOpenState = true"
-      (closed)="panelOpenState = false"
-      hideToggle="true"
-    >
-      <mat-expansion-panel-header>
-        <mat-panel-description>
-          <i class="material-icons accordion-icon">
-            {{ panelOpenState ? 'remove' : 'add' }}
-          </i>
-        </mat-panel-description>
+  <mat-expansion-panel class="quiz-summary-question" (opened)="panelOpenState = true" (closed)="panelOpenState = false"
+    hideToggle="true">
+    <mat-expansion-panel-header>
+      <mat-panel-description>
+        <i class="material-icons accordion-icon">
+          {{ panelOpenState ? 'remove' : 'add' }}
+        </i>
+      </mat-panel-description>
 
-        <mat-panel-title class="accordion-title">
-          <span class="question-leader">Question #{{ i + 1 }}:</span>
-          <span class="question-text">{{ question.questionText }}</span>
-        </mat-panel-title>
+      <mat-panel-title class="accordion-title">
+        <span class="question-leader">Question #{{ i + 1 }}:</span>
+        <span class="question-text">{{ question.questionText }}</span>
+      </mat-panel-title>
 
-        <ng-template matExpansionPanelContent>
-          <ul class="quiz-summary-fields">
-            <!-- USER ANSWERS -->
-            <li>
-              <span class="leader">Your Answer(s):</span>
+      <ng-template matExpansionPanelContent>
+        <ul class="quiz-summary-fields">
+          <!-- USER ANSWERS -->
+          <li>
+            <span class="leader">Your Answer(s):</span>
 
-              <!-- Try to get selections from SelectedOptionService first -->
-              @if (hasSelectionsFromService(i)) {
-                 @let selectedOpts = getSelectedOptionsForQuestion(i);
-                 @for (opt of selectedOpts; track $index; let isLast = $last) {
-                    Option {{ opt.visualIndex }}: {{ opt.text }}&nbsp;
-                    @if (!isLast) { <span>, </span> }
-                 }
+            <!-- Try to get selections from SelectedOptionService first -->
+            @if (hasSelectionsFromService(i)) {
+            @let selectedOpts = getSelectedOptionsForQuestion(i);
+            @for (opt of selectedOpts; track $index; let isLast = $last) {
+            Option {{ opt.visualIndex }}: {{ opt.text }}&nbsp;
+            @if (!isLast) { <span>, </span> }
+            }
 
-                <!-- Correct / Incorrect Icons -->
-                @if (!checkIfAnswersAreCorrectFromService(question, i)) {
-                  <i class="material-icons incorrect">clear</i>
-                } @else {
-                  <i class="material-icons correct">done</i>
-                }
-              } @else if (results.userAnswers[i] && results.userAnswers[i].length > 0) {
-                 <!-- Fallback to localStorage data -->
-                 @let userIndices = getUserAnswerIndices(question, results.userAnswers[i]);
-                 
-                 {{ formatOptionList(userIndices) }} &mdash;
+            <!-- Correct / Incorrect Icons -->
+            @if (!checkIfAnswersAreCorrectFromService(question, i)) {
+            <i class="material-icons incorrect">clear</i>
+            } @else {
+            <i class="material-icons correct">done</i>
+            }
+            } @else if (results.userAnswers[i] && results.userAnswers[i].length > 0) {
+            <!-- Fallback to localStorage data -->
+            @let userIndices = getUserAnswerIndices(question, results.userAnswers[i]);
 
-                 @for (item of userIndices; track $index; let isLast = $last) {
-                    @if (item > 0 && item <= question.options.length) {
-                       {{ question.options[item - 1].text }}
-                    } @else {
-                       (Invalid Option)
-                    }
-                    @if (!isLast) { <span>, </span> }
-                 }
+            {{ formatOptionList(userIndices) }} &mdash;
 
-                <!-- Correct / Incorrect Icons -->
-                @if (
-                  !checkIfAnswersAreCorrect(
-                    question,
-                    results.userAnswers,
-                    i
-                  )
-                ) {
-                  <i class="material-icons incorrect">clear</i>
-                } @else {
-                  <i class="material-icons correct">done</i>
-                }
+            @for (item of userIndices; track $index; let isLast = $last) {
+            @if (item > 0 && item <= question.options.length) { {{ question.options[item - 1].text }} } @else { (Invalid
+              Option) } @if (!isLast) { <span>, </span> }
+              }
+
+              <!-- Correct / Incorrect Icons -->
+              @if (
+              !checkIfAnswersAreCorrect(
+              question,
+              results.userAnswers,
+              i
+              )
+              ) {
+              <i class="material-icons incorrect">clear</i>
               } @else {
-                <span>(no answer provided)</span>
-                <i class="material-icons incorrect">clear</i>
+              <i class="material-icons correct">done</i>
               }
-            </li>
-
-            <!-- CORRECT ANSWERS -->
-            <li>
-              <span class="leader">Correct Answer(s):</span>
-              @let correctIndices = getCorrectOptionIndices(question);
-              {{ formatOptionList(correctIndices) }}
-              
-              <!-- Append text for clarity -->
-               &mdash; 
-              @for (item of correctIndices; track $index; let isLast = $last) {
-                  {{ question.options[item - 1].text }}
-                  @if (!isLast) { <span>, </span> }
+              } @else {
+              <span>(no answer provided)</span>
+              <i class="material-icons incorrect">clear</i>
               }
-            </li>
+          </li>
 
-            <!-- EXPLANATION -->
-            <li>
-              <span class="leader">Explanation:</span>
-              @let correctIndicesExp = getCorrectOptionIndices(question);
-              {{ formatOptionList(correctIndicesExp) }}
-              {{ correctIndicesExp.length === 1 ? 'was' : 'were' }} correct because {{ question.explanation }}.
-            </li>
+          <!-- CORRECT ANSWERS -->
+          <li>
+            <span class="leader">Correct Answer(s):</span>
+            @let correctIndices = getCorrectOptionIndices(question);
+            {{ formatOptionList(correctIndices) }}
 
-            <!-- ELAPSED TIME -->
-            <li>
-              <span class="leader">Elapsed Time:</span>
-              <span>{{ results.elapsedTimes[i] || 0 }} {{ (results.elapsedTimes[i] || 0) === 1 ? 'second' : 'seconds' }}</span>
-            </li>
-          </ul>
-        </ng-template>
-      </mat-expansion-panel-header>
-    </mat-expansion-panel>
+            <!-- Append text for clarity -->
+            &mdash;
+            @for (item of correctIndices; track $index; let isLast = $last) {<span>{{ question.options[item - 1].text
+              }}</span>@if (!isLast) {, }}
+          </li>
+
+          <!-- EXPLANATION -->
+          <li>
+            <span class="leader">Explanation:</span>
+            @let correctIndicesExp = getCorrectOptionIndices(question);
+            {{ formatOptionList(correctIndicesExp) }}
+            {{ correctIndicesExp.length === 1 ? 'was' : 'were' }} correct because {{ question.explanation }}.
+          </li>
+
+          <!-- ELAPSED TIME -->
+          <li>
+            <span class="leader">Elapsed Time:</span>
+            <span>{{ results.elapsedTimes[i] || 0 }} {{ (results.elapsedTimes[i] || 0) === 1 ? 'second' : 'seconds'
+              }}</span>
+          </li>
+        </ul>
+      </ng-template>
+    </mat-expansion-panel-header>
+  </mat-expansion-panel>
   }
 </mat-accordion>

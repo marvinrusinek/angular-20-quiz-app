@@ -416,8 +416,18 @@ export class QuizService {
     this.questionsSubject.next(quiz.questions ?? []);
     this.questions = quiz.questions ?? [];
 
+    // Load resources for this quiz
+    this.loadResourcesForQuiz(quiz.quizId);
+
     // Push quiz into observable stream
     this.currentQuizSubject.next(quiz);
+  }
+
+  // Load resources for a specific quiz ID
+  loadResourcesForQuiz(quizId: string): void {
+    const quizResource = this.quizResources.find(r => r.quizId === quizId);
+    this.resources = quizResource?.resources ?? [];
+    console.log(`[QuizService] Loaded ${this.resources.length} resources for quiz: ${quizId}`);
   }
 
   getActiveQuiz(): Quiz | null {
@@ -1534,7 +1544,7 @@ export class QuizService {
       .map((answer: Option) => answer.optionId)
       .filter((id): id is number => id !== undefined);
     this.answersSubject.next(answerIds);
-    
+
     // Update the persistent userAnswers array for the current question
     if (this.currentQuestionIndex >= 0) {
       if (!this.userAnswers) this.userAnswers = [];
@@ -1572,7 +1582,7 @@ export class QuizService {
     const MAX_HIGH_SCORES = 10; // show results of the last 10 quizzes
     this.highScoresLocal = this.highScoresLocal ?? [];
     this.highScoresLocal.push(this.quizScore);
-    
+
     // Sort descending by date
     this.highScoresLocal.sort((a: any, b: any) => {
       const dateA = new Date(a.attemptDateTime);
@@ -1622,15 +1632,16 @@ export class QuizService {
     this.shuffleEnabledSubject.next(isChecked);
     try {
       localStorage.setItem('checkedShuffle', String(isChecked));
-      // 🔒 CRITICAL: Clear stale shuffledQuestions from localStorage to prevent mismatch
+
+      // Clear stale shuffledQuestions from localStorage to prevent mismatch
       localStorage.removeItem('shuffledQuestions');
-    } catch {}
-    
-    // ⚡ Clear shuffle state on toggle to ensure fresh shuffle
+    } catch { }
+
+    // Clear shuffle state on toggle to ensure fresh shuffle
     // This prevents stale shuffled data from being used when toggling
     this.shuffledQuestions = [];
 
-    // 🔒 FIX: Also clear basic questions to force a fresh fetch/shuffle cycle
+    // Also clear basic questions to force a fresh fetch/shuffle cycle
     this.questions = [];
     this.questionsSubject.next([]);
 
@@ -1941,7 +1952,7 @@ export class QuizService {
 
   async checkIfAnsweredCorrectly(index: number = -1): Promise<boolean> {
     const qIndex = index >= 0 ? index : this.currentQuestionIndex;
-    
+
     console.log(`[checkIfAnsweredCorrectly] 🎯 Called! quizId=${this.quizId}, effectiveIndex=${qIndex} (passed=${index}, service=${this.currentQuestionIndex})`);
     console.log(`[checkIfAnsweredCorrectly] 🎯 STARTING CHECK for Q${qIndex}`);
     try {
@@ -1954,14 +1965,17 @@ export class QuizService {
       this.quiz = foundQuiz;
       let currentQuestionValue = this.currentQuestion.getValue();
 
-      // ⚡ FIX: In shuffled mode, currentQuestionSubject might be stale (pointing to prev question).
-      // Force resolution by index to ensure we validate against the ACTUAL question on screen.
-      if (this.isShuffleEnabled() || (index >= 0 && index !== this.currentQuestionIndex)) {
-        // Resolve using the effective index
+      // ⚡ FIX: When an explicit index is passed, ALWAYS resolve the question by that index.
+      // The BehaviorSubject (this.currentQuestion) may be stale, especially in shuffled mode
+      // or when the service's internal currentQuestionIndex isn't synced with the route.
+      const shouldResolveByIndex = index >= 0 || this.isShuffleEnabled();
+      if (shouldResolveByIndex) {
         const resolved = this.resolveCanonicalQuestion(qIndex, null);
         if (resolved) {
-          console.log('[checkIfAnsweredCorrectly] 🔀 Shuffled/Indexed mode: Resolved question by index', qIndex);
+          console.log(`[checkIfAnsweredCorrectly] 🔀 Resolved question by index ${qIndex}: "${resolved.questionText?.substring(0, 30)}..."`);
           currentQuestionValue = resolved;
+        } else {
+          console.warn(`[checkIfAnsweredCorrectly] ⚠️ Could not resolve question at index ${qIndex}, using BehaviorSubject value`);
         }
       }
 
@@ -2036,11 +2050,12 @@ export class QuizService {
   ): void {
     const qIndex = questionIndex >= 0 ? questionIndex : this.currentQuestionIndex;
 
-    // 🛡️ GUARD: Prevent "Ghost" updates for previous questions while on a different question
-    // This fixes the issue where Q2 interactions might be evaluated against Q1 (Index 0) due to race conditions.
-    // We only allow score updates for the currently active question.
-    if (qIndex !== this.currentQuestionIndex) {
-      console.warn(`[incrementScore] 🛡️ BLOCKED update for Q${qIndex} while active question is Q${this.currentQuestionIndex}`);
+    // 🛡️ GUARD: Prevent "Ghost" updates ONLY when no explicit index was passed
+    // If an explicit index WAS passed (questionIndex >= 0), trust the caller.
+    // This was blocking legitimate Q2, Q3, etc. updates because the service's
+    // internal currentQuestionIndex wasn't always synchronized with the route.
+    if (questionIndex < 0 && qIndex !== this.currentQuestionIndex) {
+      console.warn(`[incrementScore] 🛡️ BLOCKED update for Q${qIndex} (no explicit index passed, service at Q${this.currentQuestionIndex})`);
       return;
     }
 
@@ -2308,7 +2323,7 @@ export class QuizService {
     try {
       localStorage.removeItem('shuffledQuestions');
       localStorage.removeItem('selectedOptions'); // Clear stale selection data too
-    } catch {}
+    } catch { }
 
     // this.quizId = ''; // ⚡ Clear quizId for fresh shuffle on restart
     // 🔧 FIXED: Do NOT clear questions here. Clearing them breaks results display if this method 
@@ -2344,14 +2359,14 @@ export class QuizService {
     this.userAnswers = [];
     try {
       localStorage.removeItem('userAnswers');
-    } catch {}
+    } catch { }
     this.previousAnswers = [];
 
     this.badgeTextSource.next('');
     this.explanationText.next('');
     this.displayExplanation = false;
     this.shouldDisplayExplanation = false;
-    
+
     // ⚡ FIX: Clear internal scoring state map to prevent stale "wasCorrect" flags
     this.questionCorrectness.clear();
   }

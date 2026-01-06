@@ -48,14 +48,14 @@ export class StatisticsComponent implements OnInit {
     private quizDataService: QuizDataService,
     private timerService: TimerService,
     private activatedRoute: ActivatedRoute,
-  ) {}
+  ) { }
 
   ngOnInit(): void {
     // Calculate elapsed time from array or use completionTime as fallback
     let totalElapsedTime = this.timerService.calculateTotalElapsedTime(
       this.timerService.elapsedTimes,
     );
-    
+
     // Fallback: if elapsedTimes is empty, use the direct completionTime property
     if (totalElapsedTime === 0 && this.timerService.completionTime > 0) {
       totalElapsedTime = this.timerService.completionTime;
@@ -81,12 +81,16 @@ export class StatisticsComponent implements OnInit {
 
     this.quizzes$ = this.quizDataService.getQuizzes();
     this.quizId = this.quizService.quizId;
-    
+
     // Use the quizId from service, not from URL segments
     this.quizName$ = of(this.quizId);
-    
+
     console.log('[RESULTS] quizId:', this.quizId);
-    
+
+    // Ensure resources are loaded for this quiz
+    if (this.quizId) {
+      this.quizService.loadResourcesForQuiz(this.quizId);
+    }
     this.resources = this.quizService.resources;
     this.status = Status.Completed;
     this.percentage = this.quizMetadata?.percentage ?? 0;
@@ -103,7 +107,7 @@ export class StatisticsComponent implements OnInit {
   calculatePercentageOfCorrectlyAnsweredQuestions(): number {
     return Math.round(
       (100 * this.quizService.correctAnswersCountSubject.getValue()) /
-        this.quizService.totalQuestions,
+      this.quizService.totalQuestions,
     );
   }
 

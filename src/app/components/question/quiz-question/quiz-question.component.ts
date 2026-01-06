@@ -2194,7 +2194,7 @@ export class QuizQuestionComponent
       } else {
         effectiveIndex = this.quizService.currentQuestionIndex;
       }
-      
+
       console.log(`[QQC] 🔢 loadDynamicComponent Index Resolution: Effective=${effectiveIndex} (Arg=${questionIndex}, Input=${this.currentQuestionIndex}, Service=${this.quizService.currentQuestionIndex})`);
 
       // Use setInput to trigger Change Detection properly
@@ -2245,7 +2245,7 @@ export class QuizQuestionComponent
       try {
         componentRef.setInput('questionData', { ...question });
         componentRef.setInput('optionsToDisplay', clonedOptions);
-        
+
         // CRITICAL FIX: Set renderReady immediately after assigning options
         // This fixes StackBlitz first-load timing issue
         if (clonedOptions.length > 0) {
@@ -2321,7 +2321,7 @@ export class QuizQuestionComponent
         this.updateShouldRenderOptions(instance.optionsToDisplay);
         this.shouldRenderOptions = true;
         this._canRenderFinalOptions = true;
-        
+
         // CRITICAL: Set renderReady on AnswerComponent so SharedOptionComponent displays
         instance.renderReady = true;
       } else {
@@ -3448,7 +3448,7 @@ export class QuizQuestionComponent
           o.selected = true;
         }
       }
-      
+
       for (const o of this.optionsToDisplay ?? []) {
         if (o.selected) {
           o.selected = true;
@@ -6145,7 +6145,7 @@ export class QuizQuestionComponent
 
       // 🔑 FIX: Update score immediately when correct answer is selected
       try {
-        await this.quizService.checkIfAnsweredCorrectly();
+        await this.quizService.checkIfAnsweredCorrectly(this.currentQuestionIndex);
       } catch (err) {
         console.error('[handleOptionSelection] Error checking correctness:', err);
       }
@@ -7086,9 +7086,9 @@ export class QuizQuestionComponent
     let isCorrect = false;
     try {
       // ⚡ ROBUST INDEX RESOLUTION: Prefer Service Index if > 0, else Input Index
-      const effectiveIndex = this.quizService.currentQuestionIndex > 0 
-          ? this.quizService.currentQuestionIndex 
-          : this.currentQuestionIndex;
+      const effectiveIndex = this.quizService.currentQuestionIndex > 0
+        ? this.quizService.currentQuestionIndex
+        : this.currentQuestionIndex;
 
       console.log(`[QQC] processAnswer sending check for Q${effectiveIndex}`);
       isCorrect = await this.quizService.checkIfAnsweredCorrectly(effectiveIndex);
@@ -7246,7 +7246,7 @@ export class QuizQuestionComponent
       const match = selectedOptions.find(
         sel => sel.optionId === opt.optionId
       );
-      
+
       opt.selected = !!match;
       opt.showIcon = !!match?.showIcon;
     }
