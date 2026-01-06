@@ -157,6 +157,25 @@ get quizQuestionComponent(): QuizQuestionComponent {
   // 🔒 PERSISTENT DOT STATUS CACHE - survives navigation and resets
   private dotStatusCache = new Map<number, 'correct' | 'wrong'>();
 
+  // Calculate percentage based on ANSWERED questions
+  calculateAnsweredCount(): number {
+    let count = 0;
+    const total = this.totalQuestions || 0;
+    for (let i = 0; i < total; i++) {
+      const status = this.getQuestionStatus(i);
+      if (status === 'correct' || status === 'wrong') {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  updateProgressBar(): void {
+    const answeredCount = this.calculateAnsweredCount();
+    const total = this.totalQuestions > 0 ? this.totalQuestions : (this.quiz?.questions?.length || 0);
+    this.progressBarService.updateProgress(answeredCount, total);
+  }
+
   // Helper to determine dot class - NOW WITH CACHING
   getQuestionStatus(index: number): string {
     // 1. CHECK CACHE FIRST - if we've already determined the status, use it
@@ -568,6 +587,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
       if (selections && selections.length > 0) {
         const qIndex = selections[0]?.questionIndex ?? this.currentQuestionIndex;
         this.updateDotStatus(qIndex);
+        this.updateProgressBar();
       }
       this.cdRef.detectChanges();
     });
@@ -2100,7 +2120,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
           console.log(`[subscribeToRouteParams] ✅ Updated combinedQuestionDataSubject for Q${index + 1}`);
 
           // Progress Bar
-          this.progressBarService.updateProgress(index, totalQuestions);
+          this.updateProgressBar();
           localStorage.setItem('savedQuestionIndex', index.toString());
         } catch (err) {
           console.error('[❌ Error in paramMap subscribe]', err);
@@ -2908,7 +2928,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
           totalCount,
         );
         // ⚡ Update Progress Bar
-        this.progressBarService.updateProgress(questionIndex, totalCount);
+        this.updateProgressBar();
       }
 
       this.resetFeedbackState();
@@ -5263,7 +5283,8 @@ get quizQuestionComponent(): QuizQuestionComponent {
     this.timerService.stopTimer?.(undefined, { force: true });
 
     // Reset progress bar to 0%
-    this.progressBarService.updateProgress(0, this.totalQuestions);
+    this.dotStatusCache.clear();
+    this.updateProgressBar();
 
 
     // Navigate to Q1
