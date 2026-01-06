@@ -233,6 +233,12 @@ get quizQuestionComponent(): QuizQuestionComponent {
   }
 
   navigateToDot(index: number): void {
+    // Only allow navigation to questions that have been answered (or current question)
+    if (!this.isDotClickable(index)) {
+      console.log(`[DOT NAV] ⛔ Blocked navigation to Q${index + 1} - question not yet answered`);
+      return;
+    }
+
     // Simple navigation - update index and use router
     // The quizId is needed for the route
     const quizId = this.quizService.quizId || this.quizService.getCurrentQuizId();
@@ -243,6 +249,17 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
     // Navigate via router (route change triggers question loading)
     this.router.navigate(['/quiz/question', quizId, index + 1]);
+  }
+
+  // Check if a dot is clickable (answered or current question)
+  isDotClickable(index: number): boolean {
+    // Always allow clicking current question
+    if (index === this.currentQuestionIndex) {
+      return true;
+    }
+    // Allow clicking if question has been answered (correct or wrong, not pending)
+    const status = this.getQuestionStatus(index);
+    return status === 'correct' || status === 'wrong';
   }
   questionPayload: QuestionPayload | null = null;
   questionVersion = 0;
@@ -5317,5 +5334,4 @@ get quizQuestionComponent(): QuizQuestionComponent {
       });
     }
   }
-
 }

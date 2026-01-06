@@ -75,8 +75,8 @@
             <section class="footer-row-2">
               <div class="paging-dots">
                 @for (q of questions$ | async; track $index) {
-                <div class="dot" [ngClass]="getDotClass($index)" (click)="navigateToDot($index)"
-                  [attr.aria-label]="'Go to question ' + ($index + 1)">
+                <div class="dot" [ngClass]="getDotClass($index)" [class.disabled]="!isDotClickable($index)"
+                  (click)="navigateToDot($index)" [attr.aria-label]="'Go to question ' + ($index + 1)">
                 </div>
                 }
               </div>
