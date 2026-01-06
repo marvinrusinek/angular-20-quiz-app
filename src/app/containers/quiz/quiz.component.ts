@@ -678,7 +678,13 @@ get quizQuestionComponent(): QuizQuestionComponent {
     // Show indicator if there's more than 100px of content below the fold
     // and user hasn't scrolled to the bottom yet
     const distanceToBottom = documentHeight - (scrollTop + windowHeight);
-    this.showScrollIndicator = distanceToBottom > 100;
+    const shouldShow = distanceToBottom > 100;
+
+    if (this.showScrollIndicator !== shouldShow) {
+      this.showScrollIndicator = shouldShow;
+      console.log(`[Scroll Indicator] ${shouldShow ? 'SHOW' : 'HIDE'} - Distance to bottom: ${distanceToBottom.toFixed(0)}px`);
+      this.cdRef.detectChanges();
+    }
   }
 
   scrollToBottom(): void {
@@ -3010,6 +3016,9 @@ get quizQuestionComponent(): QuizQuestionComponent {
       this.feedbackText = 'Error loading question details.';
       this.cdRef.markForCheck();
     }
+
+    // Check if new question content requires scroll indicator
+    setTimeout(() => this.checkScrollIndicator(), 300);
   }
 
   // TODO: Remove if correct-answers hint is fully deprecated from UI
