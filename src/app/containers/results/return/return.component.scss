@@ -24,10 +24,15 @@
 
   a.btn {
     margin-right: 15px;
+    padding: 5px 10px;
     background-color: vars.$light-sea-green;
     color: vars.$white;
     border: 1px solid vars.$black;
     border-radius: 5px;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 4px;
   }
 
   .mdc-button {
@@ -60,6 +65,7 @@ a.btn {
     animation: ripple 1s;
     opacity: 0;
   }
+
   &:focus:not(:active)::after {
     display: block;
   }
@@ -70,6 +76,7 @@ a.btn {
     opacity: 1;
     transform: scale(0);
   }
+
   to {
     opacity: 0;
     transform: scale(10);
