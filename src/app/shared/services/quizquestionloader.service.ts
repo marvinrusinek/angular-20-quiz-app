@@ -1,7 +1,9 @@
 import { Injectable } from '@angular/core';
 import { ActivatedRouteSnapshot, Router } from '@angular/router';
-import { BehaviorSubject, firstValueFrom, forkJoin, lastValueFrom, of,
-  ReplaySubject } from 'rxjs';
+import {
+  BehaviorSubject, firstValueFrom, forkJoin, lastValueFrom, of,
+  ReplaySubject
+} from 'rxjs';
 import { catchError, filter, take, timeout } from 'rxjs/operators';
 
 import { QuestionType } from '../models/question-type.enum';
@@ -316,7 +318,7 @@ export class QuizQuestionLoaderService {
     let cloned: Option[] = [];
     try {
       cloned = JSON.parse(JSON.stringify(opts));
-  
+
       let i = 0;
       for (const opt of cloned) {
         opt.optionId = opt.optionId ?? i + 1;
@@ -779,7 +781,7 @@ export class QuizQuestionLoaderService {
     }
 
     await this.loadQuestionContents(idx);
-    await this.quizService.checkIfAnsweredCorrectly();
+    await this.quizService.checkIfAnsweredCorrectly(idx);
 
     // Final flags
     this.questionTextLoaded = true;

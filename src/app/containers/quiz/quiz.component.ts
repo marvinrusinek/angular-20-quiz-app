@@ -168,46 +168,46 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
     // 2. Try to compute from current selections
     const selected = this.selectedOptionService.selectedOptionsMap.get(index);
-    
+
     if (!selected || selected.length === 0) {
       console.log(`[DOT] Q${index} → PENDING (no selections, no cache)`);
       return 'pending';
     }
 
     const displayQuestion = this.questionsArray[index] || this.quizService.questions[index];
-    
+
     // Fallback Context Logic
     const normalize = (str: string) => (str || '').replace(/\s/g, '').toLowerCase();
     let questionContext = displayQuestion;
-    
+
     if (!questionContext || !questionContext.options || !questionContext.options.some(o => o.correct)) {
-        const allQuestions = (this.quizService.quizData || []).flatMap(q => q.questions || []);
-        const found = allQuestions.find(q => normalize(q.questionText) === normalize(displayQuestion?.questionText));
-        if (found) questionContext = found;
+      const allQuestions = (this.quizService.quizData || []).flatMap(q => q.questions || []);
+      const found = allQuestions.find(q => normalize(q.questionText) === normalize(displayQuestion?.questionText));
+      if (found) questionContext = found;
     }
 
     // Evaluate Correctness
     if (questionContext && questionContext.options) {
-        const correctIds = new Set(questionContext.options.filter((o: any) => o.correct).map((o: any) => o.optionId));
-        const correctTexts = new Set(questionContext.options.filter((o: any) => o.correct).map((o: any) => normalize(o.text)));
-        
-        const last = selected[selected.length - 1];
-        let isLastCorrect = correctIds.has(last.optionId) || correctTexts.has(normalize(last.text)) || last.correct === true;
+      const correctIds = new Set(questionContext.options.filter((o: any) => o.correct).map((o: any) => o.optionId));
+      const correctTexts = new Set(questionContext.options.filter((o: any) => o.correct).map((o: any) => normalize(o.text)));
 
-        // Index-based fallback
-        if (!isLastCorrect && typeof last.optionId === 'number') {
-            const indexOpt = questionContext.options[last.optionId];
-            if (indexOpt && indexOpt.correct === true) {
-                 isLastCorrect = true;
-            }
+      const last = selected[selected.length - 1];
+      let isLastCorrect = correctIds.has(last.optionId) || correctTexts.has(normalize(last.text)) || last.correct === true;
+
+      // Index-based fallback
+      if (!isLastCorrect && typeof last.optionId === 'number') {
+        const indexOpt = questionContext.options[last.optionId];
+        if (indexOpt && indexOpt.correct === true) {
+          isLastCorrect = true;
         }
+      }
 
-        const result = isLastCorrect ? 'correct' : 'wrong';
-        
-        // 🔒 CACHE THE RESULT for persistence
-        this.dotStatusCache.set(index, result);
-        console.log(`[DOT] Q${index} → ${result.toUpperCase()} (computed & cached)`);
-        return result;
+      const result = isLastCorrect ? 'correct' : 'wrong';
+
+      // 🔒 CACHE THE RESULT for persistence
+      this.dotStatusCache.set(index, result);
+      console.log(`[DOT] Q${index} → ${result.toUpperCase()} (computed & cached)`);
+      return result;
     }
 
     // Default Fallback
@@ -237,10 +237,10 @@ get quizQuestionComponent(): QuizQuestionComponent {
     // The quizId is needed for the route
     const quizId = this.quizService.quizId || this.quizService.getCurrentQuizId();
     console.log(`[DOT NAV] Navigating to Q${index + 1} for quiz ${quizId}`);
-    
+
     // Update the service state
     this.quizService.setCurrentQuestionIndex(index);
-    
+
     // Navigate via router (route change triggers question loading)
     this.router.navigate(['/quiz/question', quizId, index + 1]);
   }
@@ -435,16 +435,16 @@ get quizQuestionComponent(): QuizQuestionComponent {
           if (this.currentQuestion) {
             console.log('[VISIBILITY] 🔄 Re-emitting question data to force re-render');
             const currentPayload = this.combinedQuestionDataSubject.getValue();
-            
+
             // Prefer existing payload if available, otherwise reconstruct it
             const payloadToEmit: QuestionPayload = currentPayload || {
               question: this.currentQuestion,
               options: this.optionsToDisplay || [],
               explanation: this.explanationToDisplay || ''
             };
-            
+
             this.combinedQuestionDataSubject.next(payloadToEmit);
-            
+
             // Ensure options are also re-pushed to optionsToDisplay$
             if (this.optionsToDisplay && this.optionsToDisplay.length > 0) {
               this.optionsToDisplay$.next(this.optionsToDisplay);
@@ -513,12 +513,12 @@ get quizQuestionComponent(): QuizQuestionComponent {
     // Fix: Trigger CD on any selection change (e.g. Red -> Green transition)
     // Also update the dot status cache for persistence
     this.selectedOptionService.selectedOption$.subscribe((selections) => {
-       // Update cache for the current question whenever selection changes
-       if (selections && selections.length > 0) {
-         const qIndex = selections[0]?.questionIndex ?? this.currentQuestionIndex;
-         this.updateDotStatus(qIndex);
-       }
-       this.cdRef.detectChanges();
+      // Update cache for the current question whenever selection changes
+      if (selections && selections.length > 0) {
+        const qIndex = selections[0]?.questionIndex ?? this.currentQuestionIndex;
+        this.updateDotStatus(qIndex);
+      }
+      this.cdRef.detectChanges();
     });
 
     this.quizService.currentQuestion.subscribe({
@@ -1083,37 +1083,37 @@ get quizQuestionComponent(): QuizQuestionComponent {
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
         const idx = this.quizService.getCurrentQuestionIndex();
-        
+
         this.ngZone.run(() => {
           // 1. Update Badge
           if (idx >= 0 && idx < this.totalQuestions) {
             this.quizService.updateBadgeText(idx + 1, this.totalQuestions);
           }
-          
+
           // 2. ⚡ HEALING LOGIC: Check if answered in background (e.g. Timer Expired)
           // This restores FET and Feedback Icons if they were missed during background execution.
           this.quizService.isAnswered(idx).pipe(take(1)).subscribe(isAnswered => {
-             if (isAnswered) {
-                console.log('[QuizComponent] 👁️ Visibility Check: Question IS answered. Verifying UI state...');
-                
-                // Restore selections (fixes missing feedback icons)
-                this.restoreSelectedOptions();
-                
-                // Force display mode to 'explanation'/answered (ensures child components know)
-                this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
-                
-                // Ensure explanation is displayed (fixes missing FET)
-                // We re-fetch or re-trigger the explanation text to be safe
-                const q = this.currentQuestion; // using synced currentQuestion
-                if (q && q.explanation) {
-                    this.explanationTextService.updateExplanationText(q);
-                    // trigger formatting if needed
-                    this.explanationTextService.formatExplanationText(q, idx).subscribe();
-                }
-                
-                this.explanationTextService.setShouldDisplayExplanation(true, { force: true });
-                this.explanationTextService.setIsExplanationTextDisplayed(true, { force: true });
-             }
+            if (isAnswered) {
+              console.log('[QuizComponent] 👁️ Visibility Check: Question IS answered. Verifying UI state...');
+
+              // Restore selections (fixes missing feedback icons)
+              this.restoreSelectedOptions();
+
+              // Force display mode to 'explanation'/answered (ensures child components know)
+              this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
+
+              // Ensure explanation is displayed (fixes missing FET)
+              // We re-fetch or re-trigger the explanation text to be safe
+              const q = this.currentQuestion; // using synced currentQuestion
+              if (q && q.explanation) {
+                this.explanationTextService.updateExplanationText(q);
+                // trigger formatting if needed
+                this.explanationTextService.formatExplanationText(q, idx).subscribe();
+              }
+
+              this.explanationTextService.setShouldDisplayExplanation(true, { force: true });
+              this.explanationTextService.setIsExplanationTextDisplayed(true, { force: true });
+            }
           });
         });
       }
@@ -1464,7 +1464,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
     // Persist state in sessionStorage
     sessionStorage.setItem('isAnswered', 'true');
-    
+
     // ⚡ FIX: Save selection indices for persistence
     const currentIndices = this.selectedOptionService.getSelectedOptionIndices(normalizedQuestionIndex);
     sessionStorage.setItem(`quiz_selection_${normalizedQuestionIndex}`, JSON.stringify(currentIndices));
@@ -1533,20 +1533,20 @@ get quizQuestionComponent(): QuizQuestionComponent {
   ngOnDestroy(): void {
     // Set CONTINUE status if quiz is in progress (not completed, but started)
     if (this.quizId && !this.quizService.quizCompleted) {
-      const hasAnsweredAny = this.currentQuestionIndex > 0 || 
+      const hasAnsweredAny = this.currentQuestionIndex > 0 ||
         this.selectedOptionService.isQuestionAnswered(0);
-      
+
       if (hasAnsweredAny) {
         // Store the current question index for resume
         this.quizService.currentQuestionIndex = this.currentQuestionIndex;
-        
+
         // Set CONTINUE status
         this.quizDataService.updateQuizStatus(this.quizId, QuizStatus.CONTINUE);
         this.quizService.setQuizStatus(QuizStatus.CONTINUE);
         console.log(`[QuizComponent] Set CONTINUE status for quiz ${this.quizId} at Q${this.currentQuestionIndex}`);
       }
     }
-    
+
     this.subs.unsubscribe();
     this.destroy$.next();
     this.destroy$.complete();
@@ -2806,7 +2806,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
       this.timerService.startTimer();
 
       const totalCount = this.totalQuestions > 0 ? this.totalQuestions : (this.quiz?.questions?.length || 0);
-      
+
       // Safety guard: Prevent "0 of 6" or "1 of 0" display glitches
       if (totalCount > 0 && questionIndex >= 0) {
         this.quizService.updateBadgeText(
@@ -2830,7 +2830,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
       // ⚡ SYNC FIX: Update component state with the correct shuffled question
       this.currentQuestion = question;
-      
+
       // Update combined data immediately so children get the correct object
       this.combinedQuestionDataSubject.next({
         question: question,
@@ -4445,7 +4445,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
     this.answered = true;
 
     // Check if the answer is correct
-    void this.quizService.checkIfAnsweredCorrectly();
+    void this.quizService.checkIfAnsweredCorrectly(this.currentQuestionIndex);
 
     // Get all correct answers for the question
     this.correctAnswers =
@@ -4564,7 +4564,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
     // Check if all answers were completed before navigating
     if (!this.quizService.quizCompleted) {
       this.quizService
-        .checkIfAnsweredCorrectly()
+        .checkIfAnsweredCorrectly(this.currentQuestionIndex)
         .then(() => {
           console.log('All answers checked, navigating to results...');
           this.handleQuizCompletion();
@@ -4808,7 +4808,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
       this.quizService.setCurrentQuestionIndex(questionIndex);
       this.quizStateService.updateCurrentQuestion(this.currentQuestion);
 
-      await this.quizService.checkIfAnsweredCorrectly();
+      await this.quizService.checkIfAnsweredCorrectly(questionIndex);
 
       // Mark question ready
       this.resetComplete = true;
