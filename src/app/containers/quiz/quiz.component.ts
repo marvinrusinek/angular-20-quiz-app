@@ -188,25 +188,51 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
     // Evaluate Correctness
     if (questionContext && questionContext.options) {
-      const correctIds = new Set(questionContext.options.filter((o: any) => o.correct).map((o: any) => o.optionId));
-      const correctTexts = new Set(questionContext.options.filter((o: any) => o.correct).map((o: any) => normalize(o.text)));
+      const correctOptions = questionContext.options.filter((o: any) => o.correct);
+      const correctIds = new Set(correctOptions.map((o: any) => o.optionId));
+      const correctTexts = new Set(correctOptions.map((o: any) => normalize(o.text)));
+      const isMultiAnswer = correctOptions.length > 1;
 
-      const last = selected[selected.length - 1];
-      let isLastCorrect = correctIds.has(last.optionId) || correctTexts.has(normalize(last.text)) || last.correct === true;
+      // Check if any wrong answer was selected
+      const hasWrongSelection = selected.some((sel: any) => {
+        const isCorrect = correctIds.has(sel.optionId) ||
+          correctTexts.has(normalize(sel.text)) ||
+          sel.correct === true;
+        return !isCorrect;
+      });
 
-      // Index-based fallback
-      if (!isLastCorrect && typeof last.optionId === 'number') {
-        const indexOpt = questionContext.options[last.optionId];
-        if (indexOpt && indexOpt.correct === true) {
-          isLastCorrect = true;
+      if (hasWrongSelection) {
+        this.dotStatusCache.set(index, 'wrong');
+        console.log(`[DOT] Q${index} → WRONG (wrong answer selected)`);
+        return 'wrong';
+      }
+
+      // For multi-answer: check if ALL correct answers are selected
+      if (isMultiAnswer) {
+        const selectedIds = new Set(selected.map((s: any) => s.optionId));
+        const selectedTexts = new Set(selected.map((s: any) => normalize(s.text)));
+
+        const allCorrectSelected = correctOptions.every((opt: any) =>
+          selectedIds.has(opt.optionId) || selectedTexts.has(normalize(opt.text))
+        );
+
+        if (allCorrectSelected) {
+          this.dotStatusCache.set(index, 'correct');
+          console.log(`[DOT] Q${index} → CORRECT (all ${correctOptions.length} correct answers selected)`);
+          return 'correct';
+        } else {
+          // Multi-answer but not all selected yet - don't cache, return pending
+          console.log(`[DOT] Q${index} → PENDING (multi-answer: ${selected.length}/${correctOptions.length} selected)`);
+          return 'pending';
         }
       }
 
+      // Single answer question - just check the last selection
+      const last = selected[selected.length - 1];
+      const isLastCorrect = correctIds.has(last.optionId) || correctTexts.has(normalize(last.text)) || last.correct === true;
       const result = isLastCorrect ? 'correct' : 'wrong';
-
-      // 🔒 CACHE THE RESULT for persistence
       this.dotStatusCache.set(index, result);
-      console.log(`[DOT] Q${index} → ${result.toUpperCase()} (computed & cached)`);
+      console.log(`[DOT] Q${index} → ${result.toUpperCase()} (single-answer, computed & cached)`);
       return result;
     }
 
