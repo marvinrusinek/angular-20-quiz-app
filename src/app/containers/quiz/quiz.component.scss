@@ -1,6 +1,14 @@
 @use '../../../variables' as vars;
 @use 'sass:color';
 
+:host {
+  display: block;
+  min-height: 100vh;
+  /* Gradient background to showcase glassmorphism */
+  background: linear-gradient(135deg, #74ebd5 0%, #9face6 100%);
+  padding: 20px 0;
+}
+
 /* ============================================================
    OUTER ANIMATION CLIP WRAPPER
    (prevents ghost overflow)
@@ -33,15 +41,14 @@
   margin: 12px auto;
   max-width: 680px;
 
-  box-shadow:
-    10px 10px 5px rgba(0, 0, 0, 0.35),
-    6px 6px 0 rgba(0, 0, 0, 0.25); // Added 6px Y-offset to match Right side (symmetric)
+  /* Glassmorphism subtle shadow */
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
 
-  border-radius: 10px;
+  border-radius: 16px;
 
   /* 🔑 create visual separation */
-  padding-right: 2px;
-  padding-bottom: 2px;
+  padding-right: 0;
+  padding-bottom: 0;
 
   background: transparent;
   overflow: visible;
@@ -51,24 +58,30 @@
   width: 100%;
   padding: 16px;
 
-  background: #fff;
-  border: 1.5px solid vars.$black;
-  border-radius: 10px;
+  /* Basic fallback if ng-deep fails or for standard usage */
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 16px;
 
   box-shadow: none;
   margin: 0;
 }
 
 /* FORCE OVERRIDE Angular Material's card styling */
+/* FORCE OVERRIDE Angular Material's card styling */
 :host ::ng-deep mat-card.quiz-card {
-  border: 1.5px solid #000 !important;
-  border-right-width: 3px !important;
-  /* thick on RHS */
-  border-bottom-width: 3px !important;
-  /* thick on bottom */
-  box-shadow: 10px 10px 5px #888 !important;
-  border-radius: 10px !important;
-  background: #fff !important;
+  /* Glassmorphism Effect */
+  background: rgba(255, 255, 255, 0.75) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  box-shadow: none !important;
+  /* Wrapper handles the shadow */
+
+  border-right-width: 1px !important;
+  border-bottom-width: 1px !important;
+
+  border-radius: 16px !important;
   padding: 16px !important;
   overflow: visible !important;
 }
@@ -337,4 +350,8 @@ mat-card {
       }
     }
   }
+
+  // End mat-card-footer
 }
+
+// End mat-card
