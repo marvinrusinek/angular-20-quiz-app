@@ -571,29 +571,30 @@ get quizQuestionComponent(): QuizQuestionComponent {
       .pipe(debounceTime(300), shareReplay(1));
 
     // Subscribe to the isNextButtonEnabled$ observable
-    this.selectedOptionService.isNextButtonEnabled$.subscribe((enabled) => {
+    this.selectedOptionService.isNextButtonEnabled$.subscribe((enabled: boolean) => {
       this.isNextButtonEnabled = enabled;
     });
 
-    this.selectedOptionService.isOptionSelected$().subscribe((isSelected) => {
+    this.selectedOptionService.isOptionSelected$().subscribe((isSelected: boolean) => {
       this.isCurrentQuestionAnswered = isSelected;
       this.cdRef.markForCheck();
     });
 
     // Fix: Trigger CD on any selection change (e.g. Red -> Green transition)
     // Also update the dot status cache for persistence
-    this.selectedOptionService.selectedOption$.subscribe((selections) => {
-      // Update cache for the current question whenever selection changes
-      if (selections && selections.length > 0) {
-        const qIndex = selections[0]?.questionIndex ?? this.currentQuestionIndex;
-        this.updateDotStatus(qIndex);
-        this.updateProgressBar();
-      }
+    this.selectedOptionService.selectedOption$.subscribe((selections: SelectedOption[]) => {
+      // Update cache for the current question whenever selection changes (even if cleared)
+      const qIndex = (selections && selections.length > 0 && typeof selections[0].questionIndex === 'number')
+        ? selections[0].questionIndex
+        : this.currentQuestionIndex;
+
+      this.updateDotStatus(qIndex);
+      this.updateProgressBar();
       this.cdRef.detectChanges();
     });
 
     this.quizService.currentQuestion.subscribe({
-      next: (newQuestion) => {
+      next: (newQuestion: QuizQuestion | null) => {
         if (!newQuestion) return;
 
         this.currentQuestion = null;
@@ -607,7 +608,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
       complete: () => console.log('currentQuestion subscription completed.'),
     });
 
-    this.quizDataService.isContentAvailable$.subscribe((isAvailable) =>
+    this.quizDataService.isContentAvailable$.subscribe((isAvailable: boolean) =>
       console.log('isContentAvailable$ in QuizComponent:::>>>', isAvailable),
     );
     this.isContentAvailable$ = this.quizDataService.isContentAvailable$;
