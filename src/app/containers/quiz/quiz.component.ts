@@ -52,6 +52,7 @@ import {
 } from 'rxjs/operators';
 import { MatCardModule } from '@angular/material/card';
 import { MatTooltip, MatTooltipModule } from '@angular/material/tooltip';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 
 import { QuizQuestionComponent } from '../../components/question/quiz-question/quiz-question.component';
 import { SharedOptionComponent } from '../../components/question/answer/shared-option-component/shared-option.component';
@@ -108,6 +109,7 @@ interface Override {
     AsyncPipe,
     MatCardModule,
     MatTooltipModule,
+    MatProgressBarModule,
     QuizQuestionComponent,
     CodelabQuizHeaderComponent,
     CodelabQuizContentComponent,
@@ -2811,6 +2813,8 @@ get quizQuestionComponent(): QuizQuestionComponent {
           questionIndex + 1,
           totalCount,
         );
+        // ⚡ Update Progress Bar
+        this.progressBarService.updateProgress(questionIndex + 1, totalCount);
       }
 
       this.resetFeedbackState();
