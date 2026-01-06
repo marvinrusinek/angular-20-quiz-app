@@ -251,15 +251,28 @@ get quizQuestionComponent(): QuizQuestionComponent {
     this.router.navigate(['/quiz/question', quizId, index + 1]);
   }
 
-  // Check if a dot is clickable (answered or current question)
+  // Check if a dot is clickable (answered, current question, or next after answering current)
   isDotClickable(index: number): boolean {
     // Always allow clicking current question
     if (index === this.currentQuestionIndex) {
       return true;
     }
-    // Allow clicking if question has been answered (correct or wrong, not pending)
+
+    // Allow clicking if this specific question has been answered
     const status = this.getQuestionStatus(index);
-    return status === 'correct' || status === 'wrong';
+    if (status === 'correct' || status === 'wrong') {
+      return true;
+    }
+
+    // Allow clicking the NEXT question if the CURRENT question has been answered
+    if (index === this.currentQuestionIndex + 1) {
+      const currentStatus = this.getQuestionStatus(this.currentQuestionIndex);
+      if (currentStatus === 'correct' || currentStatus === 'wrong') {
+        return true;
+      }
+    }
+
+    return false;
   }
   questionPayload: QuestionPayload | null = null;
   questionVersion = 0;
@@ -5334,4 +5347,5 @@ get quizQuestionComponent(): QuizQuestionComponent {
       });
     }
   }
+
 }
