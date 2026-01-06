@@ -290,15 +290,9 @@ get quizQuestionComponent(): QuizQuestionComponent {
       return true;
     }
 
-    // Allow clicking the NEXT question if the CURRENT question has been answered
-    if (index === this.currentQuestionIndex + 1) {
-      const currentStatus = this.getQuestionStatus(this.currentQuestionIndex);
-      if (currentStatus === 'correct' || currentStatus === 'wrong') {
-        return true;
-      }
-    }
-
-    return false;
+    // Allow free navigation to any question (even unanswered ones)
+    // Visual styling still shows answered/unanswered state
+    return true;
   }
   questionPayload: QuestionPayload | null = null;
   questionVersion = 0;
