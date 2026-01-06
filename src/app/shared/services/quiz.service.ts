@@ -1618,24 +1618,23 @@ export class QuizService {
   }
 
   setCheckedShuffle(isChecked: boolean): void {
-    console.log(`[QuizService] 🔍 setCheckedShuffle(${isChecked})`);
     this.shuffleEnabledSubject.next(isChecked);
+
     try {
       localStorage.setItem('checkedShuffle', String(isChecked));
-      // 🔒 CRITICAL: Clear stale shuffledQuestions from localStorage to prevent mismatch
+
+      // Clear stale shuffledQuestions from localStorage to prevent mismatch
       localStorage.removeItem('shuffledQuestions');
     } catch { }
 
-    // ⚡ Clear shuffle state on toggle to ensure fresh shuffle
+    // Clear shuffle state on toggle to ensure fresh shuffle
     // This prevents stale shuffled data from being used when toggling
     this.shuffledQuestions = [];
 
-    // 🔒 FIX: Also clear basic questions to force a fresh fetch/shuffle cycle
+    // Also clear basic questions to force a fresh fetch/shuffle cycle
     this.questions = [];
     this.questionsSubject.next([]);
-
     this.quizId = '';
-    console.log(`[setCheckedShuffle] Shuffle=${isChecked}, cleared shuffle state & questions for fresh start`);
   }
 
   getShuffledQuestions(): Observable<QuizQuestion[]> {
