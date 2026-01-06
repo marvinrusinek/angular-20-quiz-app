@@ -4680,23 +4680,25 @@ get quizQuestionComponent(): QuizQuestionComponent {
       this.explanationTextService.resetExplanationState();
       this.resetComplete = false;
 
-      // ⚡ STACKBLITZ FIX: Restore persistency from storage if service is empty (e.g. reload)
+      // Restore persistency from storage if service is empty (e.g. reload)
       if (!this.selectedOptionService.isQuestionAnswered(questionIndex)) {
         const storedSel = sessionStorage.getItem(`quiz_selection_${questionIndex}`);
         if (storedSel) {
           try {
             const ids = JSON.parse(storedSel);
             if (Array.isArray(ids) && ids.length > 0) {
-              console.log(`[fetchAndSetQuestionData] ♻️ Restoring stored selections for Q${questionIndex}`);
-              ids.forEach(id => this.selectedOptionService.addSelectedOptionIndex(questionIndex, id));
+              for (const id of ids) {
+                this.selectedOptionService.addSelectedOptionIndex(questionIndex, id);
+              }
+            
               // Force update the answered state in service
               this.selectedOptionService.updateAnsweredState(
                 this.selectedOptionService.getSelectedOptionsForQuestion(questionIndex),
                 questionIndex
               );
             }
-          } catch (e) {
-            console.error('Error restoring selections:', e);
+          } catch (err) {
+            console.error('Error restoring selections:', err);
           }
         }
       }

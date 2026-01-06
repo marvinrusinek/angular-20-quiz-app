@@ -690,18 +690,22 @@ export class SharedOptionComponent
 
         // Update bindings
         if (this.optionBindings) {
-          this.optionBindings.forEach(b => {
+          for (const b of this.optionBindings) {
             if (savedIds.has(b.option.optionId!)) {
               b.isSelected = true;
               b.option.selected = true;
             }
-          });
+          }
         }
+        
         if (this.optionsToDisplay) {
-          this.optionsToDisplay.forEach(o => {
-            if (savedIds.has(o.optionId!)) o.selected = true;
-          });
+          for (const o of this.optionsToDisplay) {
+            if (savedIds.has(o.optionId!)) {
+              o.selected = true;
+            }
+          }
         }
+        
         this.updateHighlighting();
         this.cdRef.detectChanges();
       }
@@ -1161,11 +1165,12 @@ export class SharedOptionComponent
     const saved = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex);
     if (saved?.length > 0) {
       const savedIds = new Set(saved.map(s => s.optionId));
-      this.optionsToDisplay.forEach(opt => {
+    
+      for (const opt of this.optionsToDisplay) {
         if (opt.optionId !== undefined && savedIds.has(opt.optionId)) {
           opt.selected = true;
         }
-      });
+      }
     }
 
     // Determine question type based on options, but Respect explicit input first!
