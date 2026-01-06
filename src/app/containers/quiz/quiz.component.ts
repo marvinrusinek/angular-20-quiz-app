@@ -2814,12 +2814,12 @@ get quizQuestionComponent(): QuizQuestionComponent {
           totalCount,
         );
         // ⚡ Update Progress Bar
-        this.progressBarService.updateProgress(questionIndex + 1, totalCount);
+        this.progressBarService.updateProgress(questionIndex, totalCount);
       }
 
       this.resetFeedbackState();
 
-      // ⚡ CRITICAL FIX: Use quizService.getQuestionByIndex to respect shuffle!
+      // Use quizService.getQuestionByIndex to respect shuffle!
       // Direct access (this.quiz.questions[questionIndex]) uses the ORIGINAL order, causing mismatches.
       const question = await firstValueFrom(this.quizService.getQuestionByIndex(questionIndex));
 
@@ -2828,7 +2828,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
         return;
       }
 
-      // ⚡ SYNC FIX: Update component state with the correct shuffled question
+      // Update component state with the correct shuffled question
       this.currentQuestion = question;
 
       // Update combined data immediately so children get the correct object
