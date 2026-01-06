@@ -25,6 +25,13 @@
               (showExplanationChange)="onShowExplanationChanged($event)" />
           </mat-card-content>
 
+          <!-- Scroll Indicator -->
+          @if (showScrollIndicator) {
+          <div class="scroll-indicator" (click)="scrollToBottom()">
+            <i class="material-icons">keyboard_arrow_down</i>
+          </div>
+          }
+
           <mat-card-footer [ngClass]="cardFooterClass">
             <!-- ROW 1: Selection Message (left) + Navigation (right) -->
             <section class="footer-row-1">

@@ -334,6 +334,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
   correctAnswers: any[] = [];
   correctAnswersText = '';
   cardFooterClass = '';
+  showScrollIndicator = false;
 
   showExplanation = false;
   displayExplanation = false;
@@ -656,6 +657,35 @@ get quizQuestionComponent(): QuizQuestionComponent {
       }
       this.cdRef.markForCheck();
     }
+  }
+
+  // Scroll indicator - detect if content overflows the viewport
+  @HostListener('window:scroll')
+  onScroll(): void {
+    this.checkScrollIndicator();
+  }
+
+  @HostListener('window:resize')
+  onResize(): void {
+    this.checkScrollIndicator();
+  }
+
+  checkScrollIndicator(): void {
+    const scrollTop = window.scrollY || document.documentElement.scrollTop;
+    const windowHeight = window.innerHeight;
+    const documentHeight = document.documentElement.scrollHeight;
+
+    // Show indicator if there's more than 100px of content below the fold
+    // and user hasn't scrolled to the bottom yet
+    const distanceToBottom = documentHeight - (scrollTop + windowHeight);
+    this.showScrollIndicator = distanceToBottom > 100;
+  }
+
+  scrollToBottom(): void {
+    window.scrollTo({
+      top: document.documentElement.scrollHeight,
+      behavior: 'smooth'
+    });
   }
 
   private async restoreStateAfterFocus(): Promise<void> {
@@ -1209,6 +1239,9 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
       observer.observe(host, { childList: true, subtree: true });
     }, 0);
+
+    // Check scroll indicator on initial load
+    setTimeout(() => this.checkScrollIndicator(), 500);
 
     void this.quizQuestionLoaderService.loadQuestionContents(
       this.currentQuestionIndex,
@@ -4680,25 +4713,23 @@ get quizQuestionComponent(): QuizQuestionComponent {
       this.explanationTextService.resetExplanationState();
       this.resetComplete = false;
 
-      // Restore persistency from storage if service is empty (e.g. reload)
+      // ⚡ STACKBLITZ FIX: Restore persistency from storage if service is empty (e.g. reload)
       if (!this.selectedOptionService.isQuestionAnswered(questionIndex)) {
         const storedSel = sessionStorage.getItem(`quiz_selection_${questionIndex}`);
         if (storedSel) {
           try {
             const ids = JSON.parse(storedSel);
             if (Array.isArray(ids) && ids.length > 0) {
-              for (const id of ids) {
-                this.selectedOptionService.addSelectedOptionIndex(questionIndex, id);
-              }
-            
+              console.log(`[fetchAndSetQuestionData] ♻️ Restoring stored selections for Q${questionIndex}`);
+              ids.forEach(id => this.selectedOptionService.addSelectedOptionIndex(questionIndex, id));
               // Force update the answered state in service
               this.selectedOptionService.updateAnsweredState(
                 this.selectedOptionService.getSelectedOptionsForQuestion(questionIndex),
                 questionIndex
               );
             }
-          } catch (err) {
-            console.error('Error restoring selections:', err);
+          } catch (e) {
+            console.error('Error restoring selections:', e);
           }
         }
       }

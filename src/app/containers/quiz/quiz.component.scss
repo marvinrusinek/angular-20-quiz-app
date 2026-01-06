@@ -107,6 +107,49 @@
   inset: 0 !important;
 }
 
+/* ============================================================
+   SCROLL INDICATOR
+   ============================================================ */
+.scroll-indicator {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 8px 0;
+  cursor: pointer;
+  animation: bounce 2s infinite;
+
+  i {
+    font-size: 32px;
+    color: vars.$dodger-blue;
+    opacity: 0.8;
+    transition: all 0.3s ease;
+  }
+
+  &:hover i {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+@keyframes bounce {
+
+  0%,
+  20%,
+  50%,
+  80%,
+  100% {
+    transform: translateY(0);
+  }
+
+  40% {
+    transform: translateY(-8px);
+  }
+
+  60% {
+    transform: translateY(-4px);
+  }
+}
+
 mat-card {
   margin: 0 !important;
 
