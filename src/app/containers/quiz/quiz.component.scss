@@ -4,18 +4,18 @@
 :host {
   display: block;
   min-height: 100vh;
-  /* Gradient background to showcase glassmorphism */
+  
+  // Gradient background to showcase glassmorphism
   background: linear-gradient(135deg, #74ebd5 0%, #9face6 100%);
   padding: 20px 0;
 }
 
 /* ============================================================
-   OUTER ANIMATION CLIP WRAPPER
-   (prevents ghost overflow)
+   OUTER ANIMATION CLIP WRAPPER (prevents ghost overflow)
    ============================================================ */
 .animation-shell {
   position: relative;
-  overflow: visible; // Allow shadows to spill out
+  overflow: visible;  // allow shadows to spill out
   width: 100%;
   max-width: 680px;
   margin: 12px auto;
@@ -29,7 +29,7 @@
   transform-origin: center;
 }
 
-/* Ghost clone (Angular animation clone) */
+// Ghost clone (Angular animation clone)
 :host ::ng-deep .anim-host.ng-animating {
   opacity: 0 !important;
   position: absolute !important;
@@ -41,12 +41,12 @@
   margin: 12px auto;
   max-width: 680px;
 
-  /* Glassmorphism subtle shadow */
+  // Glassmorphism subtle shadow
   box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
 
   border-radius: 16px;
 
-  /* 🔑 create visual separation */
+  // Create visual separation
   padding-right: 0;
   padding-bottom: 0;
 
@@ -58,7 +58,7 @@
   width: 100%;
   padding: 16px;
 
-  /* Basic fallback if ng-deep fails or for standard usage */
+  // Basic fallback if ng-deep fails or for standard usage
   background: rgba(255, 255, 255, 0.8);
   border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: 16px;
@@ -67,16 +67,14 @@
   margin: 0;
 }
 
-/* FORCE OVERRIDE Angular Material's card styling */
-/* FORCE OVERRIDE Angular Material's card styling */
+// FORCE OVERRIDE Angular Material's card styling
 :host ::ng-deep mat-card.quiz-card {
-  /* Glassmorphism Effect */
+  // Glassmorphism Effect
   background: rgba(255, 255, 255, 0.75) !important;
   backdrop-filter: blur(16px) !important;
   -webkit-backdrop-filter: blur(16px) !important;
   border: 1px solid rgba(255, 255, 255, 0.6) !important;
   box-shadow: none !important;
-  /* Wrapper handles the shadow */
 
   border-right-width: 1px !important;
   border-bottom-width: 1px !important;
@@ -87,14 +85,13 @@
 }
 
 
-
-/* Material card fix */
+// Material card fix
 :host ::ng-deep .mdc-card,
 :host ::ng-deep .mdc-card * {
   overflow: visible !important;
 }
 
-/* Angular animation clones */
+// Angular animation clones
 :host ::ng-deep .ng-animating {
   opacity: 0 !important;
   border: none !important;
@@ -104,15 +101,15 @@
   pointer-events: none !important;
 }
 
-/* Duplicate protection: hide extra clones */
-.animation-shell>.anim-target:not(:first-child) {
+// Duplicate protection: hide extra clones
+.animation-shell > .anim-target:not(:first-child) {
   opacity: 0 !important;
   pointer-events: none !important;
   position: absolute !important;
   inset: 0 !important;
 }
 
-/* Ghost clone (secondary) */
+// Ghost clone (secondary)
 .anim-target.ng-animating {
   opacity: 0 !important;
   pointer-events: none !important;
@@ -158,7 +155,6 @@
 }
 
 @keyframes bounce {
-
   0%,
   20%,
   50%,
@@ -317,7 +313,7 @@ mat-card {
           width: 12px;
           height: 12px;
           border-radius: 50%;
-          background-color: #616161;
+          background-color: vars.$gray;
           cursor: pointer;
           transition: all 0.3s ease;
           box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -333,11 +329,11 @@ mat-card {
           }
 
           &.correct {
-            background-color: #28a745;
+            background-color: vars.$green;
           }
 
           &.wrong {
-            background-color: #dc3545;
+            background-color: vars.$fire-red;
           }
         }
       }
@@ -345,13 +341,9 @@ mat-card {
       .progress-inline {
         font-size: 13px;
         font-weight: 500;
-        color: #888;
+        color: vars.$gray;
         white-space: nowrap;
       }
     }
   }
-
-  // End mat-card-footer
 }
-
-// End mat-card
