@@ -163,7 +163,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
     const total = this.totalQuestions || 0;
     for (let i = 0; i < total; i++) {
       const status = this.getQuestionStatus(i);
-      if (status === 'correct' || status === 'wrong') {
+      if (status === 'correct') {
         count++;
       }
     }
