@@ -1,11 +1,11 @@
 <ul class="summary-stats">
   <li>
-    <span class="summary-stats-leader">Your Score:</span>
+    <span class="summary-stats-leader">Your Score: </span>
     <span class="result">{{ quizMetadata?.correctAnswersCount$ | async }}</span>
   </li>
 
   <li>
-    <span class="summary-stats-leader">Total Questions:</span>
+    <span class="summary-stats-leader">Total Questions: </span>
     <span class="result">{{ quizMetadata?.totalQuestions ?? 0 }}</span>
   </li>
 
@@ -15,17 +15,17 @@
   </li>
 
   <li>
-    <span class="summary-stats-leader">Your Score (percentage):</span>
+    <span class="summary-stats-leader">Your Score (percentage): </span>
     <span class="result">{{ quizMetadata?.percentage ?? 0 }}%</span>
   </li>
 
   <li>
-    <span class="summary-stats-leader">Passing Score:</span>
+    <span class="summary-stats-leader">Passing Score: </span>
     <span class="result">60%</span>
   </li>
 
   <li>
-    <span class="summary-stats-leader">Test Status:</span>
+    <span class="summary-stats-leader">Test Status: </span>
     <span class="result">
       {{ (quizMetadata?.percentage ?? 0) > 60 ? 'Passed' : 'Failed' }}
     </span>
