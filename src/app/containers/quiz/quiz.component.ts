@@ -2643,6 +2643,8 @@ get quizQuestionComponent(): QuizQuestionComponent {
     try {
       await this.loadQuestionByRouteIndex(index);
 
+      /* 
+      // 🔒 Removed redundant overwrite. loadQuestionByRouteIndex now handles this correctly using getQuestionByIndex.
       // Immediately seed the question text (always first visual)
       const q = this.quizService.questions?.[adjustedIndex];
       const qText = (q?.questionText ?? '').trim();
@@ -2652,6 +2654,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
           `[updateContentBasedOnIndex] 🪄 Seeded fresh Q${adjustedIndex + 1} text`,
         );
       }
+      */
 
       // Keep gate closed while feedback renders
       ets._fetLocked = true;
@@ -2781,10 +2784,28 @@ get quizQuestionComponent(): QuizQuestionComponent {
 
       this.resetFeedbackState();
 
-      const question = this.quiz.questions[questionIndex];
+      // ⚡ CRITICAL FIX: Use quizService.getQuestionByIndex to respect shuffle!
+      // Direct access (this.quiz.questions[questionIndex]) uses the ORIGINAL order, causing mismatches.
+      const question = await firstValueFrom(this.quizService.getQuestionByIndex(questionIndex));
+
+      if (!question) {
+        console.error(`[loadQuestionByRouteIndex] ❌ Failed to load Q${questionIndex}`);
+        return;
+      }
+
+      // ⚡ SYNC FIX: Update component state with the correct shuffled question
+      this.currentQuestion = question;
+      
+      // Update combined data immediately so children get the correct object
+      this.combinedQuestionDataSubject.next({
+        question: question,
+        options: question.options ?? [],
+        explanation: question.explanation ?? ''
+      });
 
       this.questionToDisplay =
         question.questionText?.trim() ?? 'No question available';
+      this.questionToDisplaySource.next(this.questionToDisplay); // Sync observable
 
       const optionsWithIds = this.quizService.assignOptionIds(
         question.options || [],
@@ -5026,6 +5047,22 @@ get quizQuestionComponent(): QuizQuestionComponent {
   restartQuiz(): void {
     console.log('[RESTART] Triggered quiz restart.');
     this.quizService.resetScore(); // ⚡ Reset score immediately before clearing state to prevent decrements
+
+    // 🔒 CRITICAL: Clear stale localStorage data on restart to prevent question/option mismatches
+    try {
+      localStorage.removeItem('shuffledQuestions');
+      localStorage.removeItem('selectedOptions');
+      localStorage.removeItem('correctAnswersCount');
+      console.log('[RESTART] Cleared stale localStorage data.');
+    } catch (e) {
+      console.warn('[RESTART] Failed to clear localStorage:', e);
+    }
+
+    // 🔒 Clear the dot status cache for fresh pagination
+    this.dotStatusCache.clear();
+
+    // Clear the shuffled questions in the service
+    this.quizService.shuffledQuestions = [];
 
     // PRE-RESET: wipe all reactive quiz state and gates
     // (Prevents Q2/Q3 flickering and stale FET frames)

@@ -607,6 +607,20 @@ export class QuizService {
     const resolvedQuestion = this.resolveCanonicalQuestion(index, null);
 
     if (resolvedQuestion) {
+      // ⚡ FIX: Strict Shuffle Mismatch Guard
+      // If shuffle is active, verify that the resolved question matches the shuffledQuestions at this index
+      if (this.isShuffleEnabled() && this.shuffledQuestions && this.shuffledQuestions.length > index) {
+        const strictShuffled = this.shuffledQuestions[index];
+        if (strictShuffled && strictShuffled.questionText !== resolvedQuestion.questionText) {
+          console.warn(`[getQuestionByIndex] ⚠️ MISMATCH DETECTED for Q${index + 1}! Resolved="${resolvedQuestion.questionText.substring(0, 15)}...", Shuffled="${strictShuffled.questionText.substring(0, 15)}..."`);
+          console.log(`[getQuestionByIndex] 🛡️ Overriding with STRICT shuffled question.`);
+          return of({
+            ...strictShuffled,
+            options: (strictShuffled.options ?? []).map((o) => ({ ...o })),
+          });
+        }
+      }
+
       // 🔍 DIAGNOSTIC: What is being returned?
       console.log(`[getQuestionByIndex] 🛡️ Q${index + 1}: "${resolvedQuestion.questionText?.substring(0, 30)}..." | Opt[0]="${resolvedQuestion.options?.[0]?.text?.substring(0, 20)}..."`);
       return of({
@@ -1602,6 +1616,8 @@ export class QuizService {
     this.shuffleEnabledSubject.next(isChecked);
     try {
       localStorage.setItem('checkedShuffle', String(isChecked));
+      // 🔒 CRITICAL: Clear stale shuffledQuestions from localStorage to prevent mismatch
+      localStorage.removeItem('shuffledQuestions');
     } catch {}
     
     // ⚡ Clear shuffle state on toggle to ensure fresh shuffle
@@ -2272,6 +2288,7 @@ export class QuizService {
     this.shuffledQuestions = [];
     try {
       localStorage.removeItem('shuffledQuestions');
+      localStorage.removeItem('selectedOptions'); // Clear stale selection data too
     } catch {}
 
     // this.quizId = ''; // ⚡ Clear quizId for fresh shuffle on restart

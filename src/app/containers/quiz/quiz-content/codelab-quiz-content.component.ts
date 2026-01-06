@@ -157,24 +157,12 @@ export class CodelabQuizContentComponent
       ets.setIsExplanationTextDisplayed(false, { force: true });
       this.quizStateService.setDisplayState({ mode: 'question', answered: false });
 
-      // CRITICAL FIX: Directly update DOM with question text for unanswered questions
-      // Run multiple times at different intervals to ensure it sticks despite other updates
-      const updateDom = () => {
-        const el = this.qText?.nativeElement;
-        if (el) {
-          const q = this.quizService.questions[idx];
-          const questionText = q?.questionText ?? '';
-          if (questionText) {
-            el.innerHTML = questionText;
-          }
-        }
-      };
-
-      // Multiple attempts to ensure correct text displays
-      setTimeout(updateDom, 50);
-      setTimeout(updateDom, 150);
-      setTimeout(updateDom, 300);
-      setTimeout(updateDom, 500);
+      /*
+      // 🔒 Removed aggressive DOM overwrite. 
+      // This was using quizService.questions[idx] directly (potentially unshuffled) 
+      // and overwriting the correct shuffled text from displayText$.
+      // The reactive stream is now the single source of truth.
+      */
     } else {
       // Has valid FET: preserve state for persistence
     }
@@ -345,7 +333,7 @@ export class CodelabQuizContentComponent
     // Resolve the correct question object (respecting shuffle) for the current index
     const questionForIndex$ = this.quizService.currentQuestionIndex$.pipe(
       switchMap((idx) => this.quizService.getQuestionByIndex(idx)),
-      startWith(null),
+      // startWith(null) // ⚡ FIX: Don't emit null! Wait for the real question.
     );
 
     // Initialize displayText$ - handles both question text with banner and FET display
@@ -368,7 +356,12 @@ export class CodelabQuizContentComponent
           : Number.isFinite(this.currentIndex)
             ? this.currentIndex
             : 0;
-
+            
+        // ⚡ CRITICAL FIX: Prioritize PARENT provided text (qText)
+        // Do NOT fetch text from questions array as it might be unshuffled.
+        // references from questions array should ONLY be used for metadata (options count).
+        const rawQText = (qText as string)?.trim();
+        
         // Check if this is a multiple-answer question (use resolved object first, then fallback)
         const qObj =
           questionObj ||
@@ -387,7 +380,9 @@ export class CodelabQuizContentComponent
 
             // CRITICAL FIX: Always show question text if NOT answered, regardless of mode
             const mode = isAnswered ? (state?.mode || 'question') : 'question';
-            const trimmedQText = (qText ?? '').trim();
+            const dummyQText = (qText ?? '').trim(); // kept for interface compatibility if needed
+            const trimmedQText = dummyQText; // Restore variable for downstream usage
+            
             const numCorrect =
               qObj?.options?.filter((o: Option) => o.correct).length || 0;
             const isMulti = numCorrect > 1;
@@ -404,21 +399,29 @@ export class CodelabQuizContentComponent
             }
 
             // CRITICAL FIX: Double-check using fetByIndex as source of truth
-            // selectedOptionsMap can have stale data; if no FET is stored for this index,
-            // the question wasn't actually answered in this session
             const hasFetStored = this.explanationTextService.fetByIndex?.has(safeIdx) &&
               (this.explanationTextService.fetByIndex?.get(safeIdx)?.trim()?.length ?? 0) > 10;
             const actuallyAnswered = isAnswered && hasFetStored;
 
             // DEBUG: Log decision values
-            console.log(`[displayText$ DECISION] safeIdx=${safeIdx}, isAnswered=${isAnswered}, hasFetStored=${hasFetStored}, actuallyAnswered=${actuallyAnswered}, effectiveQText="${(trimmedQText || qObj?.questionText)?.substring(0, 50)}"`);
+            console.log(`[displayText$ DECISION] safeIdx=${safeIdx}, isAnswered=${isAnswered}, hasFetStored=${hasFetStored}, actuallyAnswered=${actuallyAnswered}, rawQText="${rawQText.substring(0, 50)}"`);
 
             // CRITICAL: If NOT answered, ALWAYS return question text (never FET or "No explanation")
             if (!actuallyAnswered) {
-              // Use qObj.questionText as fallback if stream hasn't emitted yet
-              const effectiveQText = trimmedQText || (qObj?.questionText ?? '').trim();
+              // ⚡ STRICT PRIORITY FIX:
+              // Prioritize questionObj (from Service) because we verified it correctly respects shuffle.
+              // rawQText (from Parent) was found to be stale (stuck on previous question) during navigation.
+              const serviceQText = (questionObj?.questionText ?? '').trim();
+              const effectiveQText = serviceQText || rawQText;
+              
+              if (!effectiveQText) {
+                  // If we have nothing safe, wait. Don't show wrong text.
+                  console.warn(`[displayText$] ⚠️ Q${safeIdx+1} No safe text available yet.`);
+                  return '';
+              }
+              
               console.log(`[displayText$ RETURN] Q${safeIdx + 1} NOT ANSWERED → returning question text: "${effectiveQText?.substring(0, 50)}"`);
-              if (!effectiveQText) return '';
+              
               if (isMulti && bannerText) {
                 return `${effectiveQText} <span class="correct-count">${bannerText}</span>`;
               }
