@@ -416,8 +416,18 @@ export class QuizService {
     this.questionsSubject.next(quiz.questions ?? []);
     this.questions = quiz.questions ?? [];
 
+    // Load resources for this quiz
+    this.loadResourcesForQuiz(quiz.quizId);
+
     // Push quiz into observable stream
     this.currentQuizSubject.next(quiz);
+  }
+
+  // Load resources for a specific quiz ID
+  loadResourcesForQuiz(quizId: string): void {
+    const quizResource = this.quizResources.find(r => r.quizId === quizId);
+    this.resources = quizResource?.resources ?? [];
+    console.log(`[QuizService] Loaded ${this.resources.length} resources for quiz: ${quizId}`);
   }
 
   getActiveQuiz(): Quiz | null {
@@ -1618,8 +1628,8 @@ export class QuizService {
   }
 
   setCheckedShuffle(isChecked: boolean): void {
+    console.log(`[QuizService] 🔍 setCheckedShuffle(${isChecked})`);
     this.shuffleEnabledSubject.next(isChecked);
-
     try {
       localStorage.setItem('checkedShuffle', String(isChecked));
 
@@ -1634,7 +1644,9 @@ export class QuizService {
     // Also clear basic questions to force a fresh fetch/shuffle cycle
     this.questions = [];
     this.questionsSubject.next([]);
+
     this.quizId = '';
+    console.log(`[setCheckedShuffle] Shuffle=${isChecked}, cleared shuffle state & questions for fresh start`);
   }
 
   getShuffledQuestions(): Observable<QuizQuestion[]> {
