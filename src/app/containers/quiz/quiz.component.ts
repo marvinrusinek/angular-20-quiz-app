@@ -15,7 +15,6 @@ import {
 } from 'rxjs/operators';
 import { MatCardModule } from '@angular/material/card';
 import { MatTooltip, MatTooltipModule } from '@angular/material/tooltip';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
 
 import { QuizQuestionComponent } from '../../components/question/quiz-question/quiz-question.component';
 import { SharedOptionComponent } from '../../components/question/answer/shared-option-component/shared-option.component';
@@ -49,7 +48,7 @@ import { RenderStateService } from '../../shared/services/render-state.service';
 import { SelectedOptionService } from '../../shared/services/selectedoption.service';
 import { SelectionMessageService } from '../../shared/services/selection-message.service';
 import { TimerService } from '../../shared/services/timer.service';
-import { ProgressBarService } from '../../shared/services/progress-bar.service';
+
 import { ResetStateService } from '../../shared/services/reset-state.service';
 import { ResetBackgroundService } from '../../shared/services/reset-background.service';
 import { SharedVisibilityService } from '../../shared/services/shared-visibility.service';
@@ -72,7 +71,7 @@ interface Override {
     AsyncPipe,
     MatCardModule,
     MatTooltipModule,
-    MatProgressBarModule,
+
     QuizQuestionComponent,
     CodelabQuizHeaderComponent,
     CodelabQuizContentComponent,
@@ -169,7 +168,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   currentQuestionIndex = 0;
   lastLoggedIndex = -1;
   totalQuestions = 0;
-  progress$ = this.progressBarService.progress$;
+  progress = 0;
+
   correctCount = 0;
   numberOfCorrectAnswers = 0;
   score = 0;
@@ -264,7 +264,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     private resetBackgroundService: ResetBackgroundService,
     private sharedVisibilityService: SharedVisibilityService,
     private soundService: SoundService,
-    private progressBarService: ProgressBarService,
+
     private activatedRoute: ActivatedRoute,
     private router: Router,
     private ngZone: NgZone,
@@ -386,7 +386,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         : this.currentQuestionIndex;
 
       this.updateDotStatus(qIndex);
-      this.updateProgressBar();
+      this.updateProgressValue();
       this.cdRef.detectChanges();
     });
 
@@ -1123,7 +1123,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     event: SelectedOption,
     isUserAction: boolean = true,
   ): Promise<void> {
-    this.updateProgressBar();
+    this.updateProgressValue();
+
     // Guards and de-duplication
     if (!isUserAction || (!this.resetComplete && !this.hasOptionsLoaded)) return;
 
@@ -1709,7 +1710,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           this.shouldRenderOptions = true;
 
           // Progress Bar
-          this.updateProgressBar();
+          this.updateProgressValue();
           localStorage.setItem('savedQuestionIndex', index.toString());
         } catch (err) {
           console.error('[❌ Error in paramMap subscribe]', err);
@@ -2434,7 +2435,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       // Safety guard: Prevent "0 of 6" or "1 of 0" display glitches
       if (totalCount > 0 && questionIndex >= 0) {
         this.quizService.updateBadgeText(questionIndex + 1, totalCount);
-        this.updateProgressBar();
+        this.updateProgressValue();
       }
 
       this.resetFeedbackState();
@@ -3942,7 +3943,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
   selectedAnswer(optionIndex: number): void {
     // UPDATE PROGRESS BAR on selection
-    this.updateProgressBar();
+    this.updateProgressValue();
 
     // Look up the Option from the index
     const option = this.question?.options?.[optionIndex] ?? this.optionsToDisplay?.[optionIndex];
@@ -4629,7 +4630,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     // Reset progress bar to 0%
     this.dotStatusCache.clear();
-    this.updateProgressBar();
+    this.updateProgressValue();
 
 
     // Navigate to Q1
@@ -4760,10 +4761,15 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   }
 
   onShowExplanationChanged(shouldShow: boolean): void {
-    console.log('[QC] onShowExplanationChanged called with:', shouldShow);
     if (shouldShow) {
       this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
     }
+  }
+
+  updateProgressValue(): void {
+    const answeredCount = this.calculateAnsweredCount();
+    const total = this.totalQuestions > 0 ? this.totalQuestions : (this.quiz?.questions?.length || 0);
+    this.progress = total > 0 ? Math.round((answeredCount / total) * 100) : 0;
   }
 
   // Calculate percentage based on ANSWERED questions
@@ -4780,11 +4786,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     return count;
   }
 
-  updateProgressBar(): void {
-    const answeredCount = this.calculateAnsweredCount();
-    const total = this.totalQuestions > 0 ? this.totalQuestions : (this.quiz?.questions?.length || 0);
-    this.progressBarService.updateProgress(answeredCount, total);
-  }
+
 
   // Helper to determine dot class - NOW WITH CACHING
   getQuestionStatus(index: number): string {
