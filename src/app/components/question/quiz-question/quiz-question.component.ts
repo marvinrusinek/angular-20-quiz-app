@@ -5035,7 +5035,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
     this.quizStateService.displayStateSubject.next({
       mode: 'explanation',
-      answered: true,
+      answered: true
     });
 
     return next;
@@ -5179,8 +5179,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
             // Re-query for the clamped index
             question = await firstValueFrom(
-              this.quizService
-                .getQuestionByIndex(this.currentQuestionIndex)
+              this.quizService.getQuestionByIndex(this.currentQuestionIndex)
                 .pipe(take(1))
             );
 
@@ -5230,7 +5229,7 @@ export class QuizQuestionComponent extends BaseQuestion
           console.error(
             `[waitForQuestionData] ❌ Error loading question data for index ${this.currentQuestionIndex}:`,
             error
-          ),
+          )
       });
   }
 
@@ -5250,7 +5249,7 @@ export class QuizQuestionComponent extends BaseQuestion
         acc[option.optionId] = new FormControl(false);
         return acc;
       },
-      {} as Record<number, FormControl>,
+      {} as Record<number, FormControl>
     );
 
     this.questionForm = this.fb.group(controls);
@@ -5261,9 +5260,7 @@ export class QuizQuestionComponent extends BaseQuestion
   private updateRenderComponentState(): void {
     // Check if both the form is valid and question data is available
     if (this.isFormValid()) {
-      console.info(
-        'Both form and question data are ready, rendering component.',
-      );
+      console.info('Both form and question data are ready, rendering component.');
       this.shouldRenderComponent = true;
     } else {
       console.log('Form or question data is not ready yet');
@@ -5327,14 +5324,14 @@ export class QuizQuestionComponent extends BaseQuestion
 
       // Ensure the UI reflects the changes
       this.cdRef.markForCheck();
-    } catch (error) {
+    } catch (error: any) {
       console.error('[handleOptionClicked] Unhandled error:', error);
     }
   }
 
   private resolveStableOptionId(
     option: Option | null | undefined,
-    fallbackIndex: number,
+    fallbackIndex: number
   ): number {
     const coerce = (value: unknown): number | null => {
       if (typeof value === 'number' && Number.isFinite(value)) {
@@ -5368,7 +5365,7 @@ export class QuizQuestionComponent extends BaseQuestion
   async selectOption(
     currentQuestion: QuizQuestion,
     option: SelectedOption,
-    optionIndex: number,
+    optionIndex: number
   ): Promise<void> {
     if (optionIndex < 0) {
       console.error(`Invalid optionIndex ${optionIndex}.`);
@@ -5396,8 +5393,7 @@ export class QuizQuestionComponent extends BaseQuestion
     // Prefer your identity overlay if you have it; otherwise use UI list
     const snapshot: Option[] =
       this.selectedOptionService.overlaySelectedByIdentity?.(canonical, ui) ??
-      ui ??
-      canonical;
+        ui ?? canonical;
 
     // Coerce optionId safely (0 is valid)
     this.selectedOption = selectedOption;
@@ -5476,7 +5472,7 @@ export class QuizQuestionComponent extends BaseQuestion
     const qIndex = this.fixedQuestionIndex ?? this.currentQuestionIndex ?? 0;
 
     // If lock exists, only skip when *not* forced
-    const locked = this.explanationTextService.isExplanationLocked(); // fallback to legacy
+    const locked = this.explanationTextService.isExplanationLocked();  // fallback to legacy
     if (!force && locked) {
       console.log('[🛡️ resetExplanation] Blocked — lock is active.', { qIndex });
       return;
@@ -5561,9 +5557,7 @@ export class QuizQuestionComponent extends BaseQuestion
     return this.explanationToDisplay;
   }
 
-  public async fetchAndSetExplanationText(
-    questionIndex: number
-  ): Promise<void> {
+  public async fetchAndSetExplanationText(questionIndex: number): Promise<void> {
     this.resetExplanation();  // clear any previous explanation state
 
     try {
@@ -5956,7 +5950,7 @@ export class QuizQuestionComponent extends BaseQuestion
         normalizedOptions
       );
       console.warn(
-        'QuizQuestionComponent - ngOnChanges - Question is undefined after change.',
+        'QuizQuestionComponent - ngOnChanges - Question is undefined after change.'
       );
     }
 
@@ -6228,8 +6222,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
       // Guard: skip empty or placeholder text, but wait one frame before giving up
       if (
-        !formattedNow ||
-        formattedNow === 'No explanation available for this question.'
+        !formattedNow || formattedNow === 'No explanation available for this question.'
       ) {
         console.log(
           `[QQC] 💤 Explanation not ready for Q${i0 + 1} — deferring emit by one frame.`,
@@ -6272,9 +6265,7 @@ export class QuizQuestionComponent extends BaseQuestion
       // If no formatted text exists, fall back to the best available raw value to keep the UI stable
       const rawBest =
         ((this.questions[i0]?.explanation ?? '') as string).toString().trim() ||
-        ((ets.formattedExplanations[i0].explanation ?? '') as string)
-          .toString()
-          .trim() ||
+        ((ets.formattedExplanations[i0].explanation ?? '') as string).toString().trim() ||
         'Explanation not available.';
 
       this.ngZone.run(() => {
@@ -6305,7 +6296,7 @@ export class QuizQuestionComponent extends BaseQuestion
           });
         })
         .catch(() => { });
-    } catch (err) {
+    } catch (err: any) {
       console.warn('[onTimerExpiredFor] failed; using raw', err);
     } finally {
       this.fixedQuestionIndex = prevFixed;
@@ -6385,9 +6376,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
       // Final check — only emit real explanation text
       if (!text || text === 'No explanation available for this question.') {
-        console.log(
-          `[QQC] 💤 Explanation not ready for Q${i0 + 1} — skipping emit.`,
-        );
+        console.log(`[QQC] 💤 Explanation not ready for Q${i0 + 1} — skipping emit.`);
         return '';
       }
 
