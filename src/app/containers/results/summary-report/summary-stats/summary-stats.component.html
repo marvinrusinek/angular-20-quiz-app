@@ -32,16 +32,15 @@
   </li>
 
   <li>
-    <span class="summary-stats-leader">Time Elapsed:</span>
+    <span class="summary-stats-leader">Time Elapsed: </span>
     <span class="result">
-      {{ elapsedMinutes }}
-      {{ elapsedMinutes === 1 ? 'minute' : 'minutes' }}
+      {{ elapsedMinutes }} {{ elapsedMinutes === 1 ? 'minute' : 'minutes' }}
       and {{ elapsedSeconds }} seconds
     </span>
   </li>
 
   <li>
-    <span class="summary-stats-leader">Date/Time Completed:</span>
+    <span class="summary-stats-leader">Date/Time Completed: </span>
 
     @if (score?.attemptDateTime) {
       <span class="result">
