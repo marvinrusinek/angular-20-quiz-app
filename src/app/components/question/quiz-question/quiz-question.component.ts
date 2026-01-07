@@ -3023,7 +3023,7 @@ export class QuizQuestionComponent extends BaseQuestion
         const qSafe = this.currentQuestion;
         if (!qSafe) {
           this.feedbackText = '';
-          return;  // prevent crash + keeps behavior unchanged
+          return;  // prevent crash and keeps behavior unchanged
         }
 
         this.feedbackText = await this.generateFeedbackText(qSafe);
@@ -3211,9 +3211,6 @@ export class QuizQuestionComponent extends BaseQuestion
 
       // ───────────── Unlock BEFORE emission ─────────────
       ets._fetLocked = false;
-
-      // CORRECTED EMISSION CHAIN
-      // explanation is now tied to its origin index
       
       // Guard: ensure we're still on the same question
       const finalActiveIndex = this.quizService.getCurrentQuestionIndex();
@@ -3257,7 +3254,7 @@ export class QuizQuestionComponent extends BaseQuestion
     const activeIndex = targetIndex ?? this.currentQuestionIndex ?? 0;
     const i0 = this.normalizeIndex(activeIndex);
     const q =
-      this.questions?.[i0] ??
+      this.questions[i0] ??
       (this.currentQuestionIndex === i0 ? this.currentQuestion : undefined);
 
     // Collect canonical snapshot and robust lock keys
@@ -3704,9 +3701,7 @@ export class QuizQuestionComponent extends BaseQuestion
       console.log('[📢 Triggering Explanation Evaluation]');
       this.explanationTextService.triggerExplanationEvaluation();
     } else {
-      console.warn(
-        '[⏭️ Explanation trigger skipped – not ready or not set to display]'
-      );
+      console.warn('[⏭️ Explanation trigger skipped – not ready or not set to display]');
     }
 
     // Ensure change detection
@@ -3742,10 +3737,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
     await this.finalizeSelection(option, index, wasPreviouslySelected);
 
-    const sel: SelectedOption = {
-      ...option,
-      questionIndex: lockedIndex
-    };
+    const sel: SelectedOption = { ...option, questionIndex: lockedIndex};
     this.optionSelected.emit(sel);
 
     this.selectedOptionService.setAnswered(true);
@@ -3785,9 +3777,7 @@ export class QuizQuestionComponent extends BaseQuestion
         this.applyExplanation(cachedExplanation);
 
         // Store in session storage for future use
-        sessionStorage.setItem(
-          `explanationText_${questionIndex}`, cachedExplanation
-        );
+        sessionStorage.setItem(`explanationText_${questionIndex}`, cachedExplanation);
         return cachedExplanation;  // return the cached explanation text
       }
 
@@ -3848,7 +3838,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
   private syncExplanationService(
     questionIndex: number,
-    explanation: string,
+    explanation: string
   ): void {
     const ets: any = this.explanationTextService;
 
@@ -4125,8 +4115,6 @@ export class QuizQuestionComponent extends BaseQuestion
 
     console.warn('[INDEX NORMALIZED]', { routeIndex, effectiveIdx });
 
-    const safeQuizId = this.quizId ?? '';
-
     if (this.currentQuestion.type === QuestionType.MultipleAnswer) {
       await this.handleMultipleAnswerTimerLogic(option, effectiveIdx);
     }
@@ -4135,12 +4123,12 @@ export class QuizQuestionComponent extends BaseQuestion
     const timerExpired =
       !this.timerService.isTimerRunning &&
       !allCorrectSelected &&
-      !(this.quizStateService as any).hasUserInteracted?.(effectiveIdx);
+      !this.quizStateService.hasUserInteracted(effectiveIdx);
 
     if (timerExpired) {
       console.warn(
         '[TIMER EXPIRED] Triggering FET via timeout path for Q',
-        effectiveIdx,
+        effectiveIdx
       );
 
       // Treat timeout as virtual interaction
@@ -4382,10 +4370,7 @@ export class QuizQuestionComponent extends BaseQuestion
         this.currentQuestionIndex
       );
 
-      this.selectedOptionService.storeQuestion(
-        this.currentQuestionIndex,
-        questionData
-      );
+      this.selectedOptionService.storeQuestion(this.currentQuestionIndex, questionData);
 
       // AUTHORITATIVE clicked option (NEVER trust event.option.optionId)
       const clickedFromQuestion = questionData.options?.[index];
@@ -4435,10 +4420,10 @@ export class QuizQuestionComponent extends BaseQuestion
         let shouldStop = false;
 
         if (this.type === 'single') {
-          // SINGLE: only stop if the clicked *canonical* option is correct
+          // SINGLE: only stop if the clicked canonical option is correct
           shouldStop = clickedFromQuestion.correct === true;
 
-          // if correct, wipe any stale garbage that could interfere later
+          // If correct, wipe any stale garbage that could interfere later
           if (shouldStop) {
             this.selectedOptionService.clearAllSelectionsForQuestion(idx);
             this.selectedOptionService.setSelectedOption(
