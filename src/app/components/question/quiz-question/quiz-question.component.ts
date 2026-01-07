@@ -13,8 +13,6 @@ import { MatRadioButton } from '@angular/material/radio';
 
 import { QuestionType } from '../../../shared/models/question-type.enum';
 import { Utils } from '../../../shared/utils/utils';
-import { CanonicalOption } from '../../../shared/models/CanonicalOption.model';
-import { FormattedExplanation } from '../../../shared/models/FormattedExplanation.model';
 import { FeedbackProps } from '../../../shared/models/FeedbackProps.model';
 import { Option } from '../../../shared/models/Option.model';
 import { OptionBindings } from '../../../shared/models/OptionBindings.model';
