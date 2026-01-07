@@ -556,7 +556,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     });
 
     this.router.events
-      .pipe(filter((event: Event) => event instanceof NavigationEnd))
+      .pipe(filter((event) => event instanceof NavigationEnd))
       .subscribe(() => {
         const raw = this.activatedRoute.snapshot.paramMap.get('questionIndex');
         const idx = Math.max(0, (Number(raw) || 1) - 1);
@@ -784,11 +784,10 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         this.questionToDisplaySource.next(qText ?? 'No question available');
       });
 
-    this.quizService
-      .getCurrentQuestionObservable()
+    this.quizService.getCurrentQuestionObservable()
       .pipe(
         takeUntil(this.destroy$),
-        filter((question: QuizQuestion): question is QuizQuestion => !!question),
+        filter((question: QuizQuestion | null): question is QuizQuestion => !!question),
         map((question: QuizQuestion) => (question.questionText ?? '').trim()),
         filter((questionText: string) => questionText.length > 0),
         distinctUntilChanged()
@@ -875,7 +874,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   }
 
   private initializeExplanationText(): void {
-    this.explanationTextService.explanationText$.subscribe((text: string) => {
+    this.explanationTextService.explanationText$.subscribe((text) => {
       this.explanationToDisplay = text || '';
     });
   }
@@ -1814,8 +1813,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
             console.error('Error fetching quiz:', err);
             return of(null);  // return null to handle the empty case
           }),
-          filter((quiz: Quiz) => !!quiz),  // ensure that only valid, non-null quizzes are passed
-        ),
+          filter((quiz: Quiz | null): quiz is Quiz => !!quiz)  // ensure that only valid, non-null quizzes are passed
+        )
       );
 
       if (!selectedQuiz) {
@@ -2308,7 +2307,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         `[updateContentBasedOnIndex] 🔄 Cleared option states for Q${adjustedIndex + 1}`
 
       );
-    } catch (err: Error) {
+    } catch (err: any) {
       console.warn('[updateContentBasedOnIndex] ⚠️ State reset failed', err);
     }
 
@@ -2363,7 +2362,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           (btn as HTMLElement).style.pointerEvents = 'auto';
         }
       }, 200);
-    } catch (err: any {
+    } catch (err: any) {
       console.error('[updateContentBasedOnIndex] ❌ Failed to load question', err);
     } finally {
       this.isNavigatedByUrl = false;
@@ -2525,12 +2524,12 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         this.feedbackText = feedback;
 
         console.log('[loadQuestionByRouteIndex] 🧠 Feedback Text:', feedback);
-      } catch (error: Error) {
+      } catch (error: any) {
         console.error('[loadQuestionByRouteIndex] ❌ Feedback generation failed:', error);
 
         this.feedbackText = 'Could not generate feedback. Please try again.';
       }
-    } catch (error: Error) {
+    } catch (error: any) {
       console.error('[loadQuestionByRouteIndex] ❌ Unexpected error:', error);
 
       this.feedbackText = 'Error loading question details.';
@@ -2678,7 +2677,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           );
         }
       }
-    } catch (error: Error) {
+    } catch (error: any) {
       console.error('[restoreSelectedOptions] ❌ Error parsing selected options:', error);
     }
   }
@@ -2863,7 +2862,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       this.cdRef.detectChanges();
 
       console.log('[displayFeedback] Feedback successfully prepared for options:', this.optionsToDisplay);
-    } catch (error: Error) {
+    } catch (error: any) {
       console.error('[displayFeedback] Error while applying feedback:', error);
     }
   }
@@ -2918,7 +2917,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         }),
       )
       .subscribe({
-        next: async (question: QuizQuestion) => {
+        next: async (question) => {
           if (!question) {
             console.error('[Route Init] ❌ No question returned.');
             return;
@@ -3006,7 +3005,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
               ets.setIsExplanationTextDisplayed(false);
             }, 100);
           }
-        } catch (err: Error) {
+        } catch (err: any) {
           console.warn('[QUIZ INIT] ⚠️ Could not seed initial question text', err);
         }
 
@@ -3041,10 +3040,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           correct: option.correct ?? false // default `correct` to false if undefined
         }));
 
-        this.quizService
-          .getCurrentQuiz()
+        this.quizService.getCurrentQuiz()
           .pipe(
-            filter((quiz: Quiz): quiz is Quiz => !!quiz),
+            filter((quiz: Quiz | null): quiz is Quiz => !!quiz),
             take(1)
           )
           .subscribe(async () => {
@@ -3064,7 +3062,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
                   this.currentQuestionIndex,
                 );
               }
-            } catch (err: Error) {
+            } catch (err: any) {
               console.error('Error fetching question:', err);
             }
 
@@ -3085,7 +3083,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
               } else {
                 console.warn('No options found at index', this.currentQuestionIndex);
               }
-            } catch (err: Error) {
+            } catch (err: any) {
               console.error('Error fetching options:', err);
             }
           });
@@ -3126,7 +3124,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     const combinedSub = this.quizService.questionPayload$
       .pipe(
-        map((payload: QuestionPayload) => {
+        map((payload) => {
           const baseQuestion = payload?.question ?? fallbackQuestion;
           const safeOptions = Array.isArray(payload?.options)
             ? payload.options.map((option: Option) => ({
@@ -3217,7 +3215,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           correct: option.correct ?? false
         }))
       });
-    } catch (error: Error) {
+    } catch (error: any) {
       console.error('Error fetching question and options:', error);
       return null;
     }
@@ -3234,8 +3232,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
   getContentAvailability(): Observable<boolean> {
     return combineLatest([
-      this.currentQuestion$, // ensure this is initialized
-      this.options$,
+      this.currentQuestion$,  // ensure this is initialized
+      this.options$
     ]).pipe(
       map(([question, options]) => !!question && options.length > 0),
       distinctUntilChanged()
@@ -3257,7 +3255,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
             'Error subscribing to current question from quizService:',
             error,
           );
-          return of(null); // emit null to continue the stream
+          return of(null);  // emit null to continue the stream
         }),
       ),
       this.quizStateService.currentQuestion$,
@@ -3328,7 +3326,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       // Emit the correct answers text to subscribers
       this.correctAnswersTextSource.next(correctAnswersText);
       this.quizService.updateCorrectAnswersText('');
-    } catch (error: Error) {
+    } catch (error: any) {
       console.error('Error updating correct answers text:', error);
       const fallback = '';
       this.correctAnswersTextSource.next(fallback);  // clear text on error
@@ -3354,12 +3352,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       return;
     }
 
-    if (
-      !this.quizService.isValidQuestionIndex(
-        questionIndex,
-        selectedQuiz.questions,
-      )
-    ) {
+    if (!this.quizService.isValidQuestionIndex(questionIndex, selectedQuiz.questions)) {
       console.error(`Invalid question index: ${questionIndex} for Quiz ID ${this.quizId}`);
       return;
     }
@@ -3372,7 +3365,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   private initializeQuizState(): void {
     // Call findQuizByQuizId and subscribe to the observable to get the quiz data
     this.quizService.findQuizByQuizId(this.quizId).subscribe({
-      next: (currentQuiz: Quiz) => {
+      next: (currentQuiz) => {
         // Validate the quiz object
         if (!currentQuiz) {
           console.error(`Quiz not found: Quiz ID ${this.quizId}`);
@@ -3459,7 +3452,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       );
 
       this.applyQuestionPayloadToDisplay(payload, questionIndex);
-    } catch (error: Error) {
+    } catch (error: any) {
       console.error(`[updateQuestionDisplay] Failed to resolve payload for index ${questionIndex}:`,
         error
       );
@@ -3754,7 +3747,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         console.warn('No questions available for this quiz.');
         this.handleNoQuestionsAvailable();
       }
-    } catch (err: Error) {
+    } catch (err: any) {
       console.error('Error initializing first question:', err);
     }
   }
@@ -3777,7 +3770,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
       // Log undefined optionIds if any
       const undefinedOptionIds = this.optionsToDisplay.filter(
-        (o: Option) => o.optionId === undefined,
+        (o: Option) => o.optionId === undefined
       );
       if (undefinedOptionIds.length > 0) {
         console.error(
@@ -3822,7 +3815,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
       // Return UI-level result only (used for display, NOT correctness)
       callback(isAnyOptionSelected);
-    } catch (error: Error) {
+    } catch (error: any) {
       console.error('[checkIfAnswered] Error checking answer state:', error);
       try {
         this.nextButtonStateService.setNextButtonState(false);
@@ -3861,16 +3854,14 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         ),
       );
 
-      if (!payload) {
-        return null;
-      }
+      if (!payload) return null;
 
       return {
         question: payload.question,
         options: [...payload.options],
         index: payload.index,
       };
-    } catch (error: Error) {
+    } catch (error: any) {
       console.warn('[resolveInitialQaPayload] Unable to resolve QA payload:', error);
       return null;
     }
@@ -3907,7 +3898,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
   // REMOVE!!
   handleRouteParams(
-    params: ParamMap,
+    params: ParamMap
   ): Observable<{ quizId: string; questionIndex: number; quizData: Quiz }> {
     const quizId = params.get('quizId');
     const questionIndex = Number(params.get('questionIndex'));
@@ -4148,7 +4139,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
                 questionIndex
               );
             }
-          } catch (err: Error) {
+          } catch (err: any) {
             console.error('Error restoring selections:', err);
           }
         }
@@ -4310,7 +4301,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       this.resetComplete = true;
 
       return true;
-    } catch (error: Error) {
+    } catch (error: any) {
       console.error(`[❌ fetchAndSetQuestionData] Error at Q${questionIndex}:`, error);
       return false;
     }
@@ -4378,7 +4369,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       // Sync type with service
       this.quizDataService.setQuestionType(question);
       return question;
-    } catch (error: Error) {
+    } catch (error: any) {
       console.error(`[❌ fetchQuestionDetails] Error loading Q${questionIndex}:`, error);
       throw error;
     }
@@ -4425,7 +4416,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       this.currentQuestion = null;
 
       await this.handleQuestionLoad(questionIndex);
-    } catch (error: Error) {
+    } catch (error: any) {
       console.error('Error during acquireAndNavigateToQuestion():', error);
     }
   }
@@ -4566,7 +4557,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       localStorage.removeItem('selectedOptions');
       localStorage.removeItem('correctAnswersCount');
       console.log('[RESTART] Cleared stale localStorage data.');
-    } catch (error: Error) {
+    } catch (error: any) {
       console.warn('[RESTART] Failed to clear localStorage:', error);
     }
 
