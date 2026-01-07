@@ -154,165 +154,9 @@ get quizQuestionComponent(): QuizQuestionComponent {
   questionsArray: QuizQuestion[] = [];
   questions$: Observable<QuizQuestion[]> = this.quizService.questions$;
 
-  // 🔒 PERSISTENT DOT STATUS CACHE - survives navigation and resets
+  // Persistent Dot Status Cache - survives navigation and resets
   private dotStatusCache = new Map<number, 'correct' | 'wrong'>();
 
-  // Calculate percentage based on ANSWERED questions
-  calculateAnsweredCount(): number {
-    let count = 0;
-    const total = this.totalQuestions || 0;
-    for (let i = 0; i < total; i++) {
-      const status = this.getQuestionStatus(i);
-      if (status === 'correct') {
-        count++;
-      }
-    }
-    return count;
-  }
-
-  updateProgressBar(): void {
-    const answeredCount = this.calculateAnsweredCount();
-    const total = this.totalQuestions > 0 ? this.totalQuestions : (this.quiz?.questions?.length || 0);
-    this.progressBarService.updateProgress(answeredCount, total);
-  }
-
-  // Helper to determine dot class - NOW WITH CACHING
-  getQuestionStatus(index: number): string {
-    // 1. CHECK CACHE FIRST - if we've already determined the status, use it
-    if (this.dotStatusCache.has(index)) {
-      const cached = this.dotStatusCache.get(index)!;
-      console.log(`[DOT] Q${index} → ${cached.toUpperCase()} (from cache)`);
-      return cached;
-    }
-
-    // 2. Try to compute from current selections
-    const selected = this.selectedOptionService.selectedOptionsMap.get(index);
-
-    if (!selected || selected.length === 0) {
-      console.log(`[DOT] Q${index} → PENDING (no selections, no cache)`);
-      return 'pending';
-    }
-
-    const displayQuestion = this.questionsArray[index] || this.quizService.questions[index];
-
-    // Fallback Context Logic
-    const normalize = (str: string) => (str || '').replace(/\s/g, '').toLowerCase();
-    let questionContext = displayQuestion;
-
-    if (!questionContext || !questionContext.options || !questionContext.options.some(o => o.correct)) {
-      const allQuestions = (this.quizService.quizData || []).flatMap(q => q.questions || []);
-      const found = allQuestions.find(q => normalize(q.questionText) === normalize(displayQuestion?.questionText));
-      if (found) questionContext = found;
-    }
-
-    // Evaluate Correctness
-    if (questionContext && questionContext.options) {
-      const correctOptions = questionContext.options.filter((o: any) => o.correct);
-      const correctIds = new Set(correctOptions.map((o: any) => o.optionId));
-      const correctTexts = new Set(correctOptions.map((o: any) => normalize(o.text)));
-      const isMultiAnswer = correctOptions.length > 1;
-
-      // Check if any wrong answer was selected
-      const hasWrongSelection = selected.some((sel: any) => {
-        const isCorrect = correctIds.has(sel.optionId) ||
-          correctTexts.has(normalize(sel.text)) ||
-          sel.correct === true;
-        return !isCorrect;
-      });
-
-      if (hasWrongSelection) {
-        this.dotStatusCache.set(index, 'wrong');
-        console.log(`[DOT] Q${index} → WRONG (wrong answer selected)`);
-        return 'wrong';
-      }
-
-      // For multi-answer: check if ALL correct answers are selected
-      if (isMultiAnswer) {
-        const selectedIds = new Set(selected.map((s: any) => s.optionId));
-        const selectedTexts = new Set(selected.map((s: any) => normalize(s.text)));
-
-        const allCorrectSelected = correctOptions.every((opt: any) =>
-          selectedIds.has(opt.optionId) || selectedTexts.has(normalize(opt.text))
-        );
-
-        if (allCorrectSelected) {
-          this.dotStatusCache.set(index, 'correct');
-          console.log(`[DOT] Q${index} → CORRECT (all ${correctOptions.length} correct answers selected)`);
-          return 'correct';
-        } else {
-          // Multi-answer but not all selected yet - don't cache, return pending
-          console.log(`[DOT] Q${index} → PENDING (multi-answer: ${selected.length}/${correctOptions.length} selected)`);
-          return 'pending';
-        }
-      }
-
-      // Single answer question - just check the last selection
-      const last = selected[selected.length - 1];
-      const isLastCorrect = correctIds.has(last.optionId) || correctTexts.has(normalize(last.text)) || last.correct === true;
-      const result = isLastCorrect ? 'correct' : 'wrong';
-      this.dotStatusCache.set(index, result);
-      console.log(`[DOT] Q${index} → ${result.toUpperCase()} (single-answer, computed & cached)`);
-      return result;
-    }
-
-    // Default Fallback
-    const last = selected[selected.length - 1];
-    const result: 'correct' | 'wrong' = last.correct ? 'correct' : 'wrong';
-    this.dotStatusCache.set(index, result);
-    console.log(`[DOT] Q${index} → ${result.toUpperCase()} (fallback & cached)`);
-    return result;
-  }
-
-  // Call this when user selects an answer to update the cache
-  updateDotStatus(index: number): void {
-    // Force re-evaluation by temporarily removing from cache
-    this.dotStatusCache.delete(index);
-    // Now call getQuestionStatus which will re-compute and cache
-    this.getQuestionStatus(index);
-    this.cdRef.detectChanges();
-  }
-
-  getDotClass(index: number): string {
-    const status = this.getQuestionStatus(index);
-    return (index === this.currentQuestionIndex) ? `${status} current` : status;
-  }
-
-  navigateToDot(index: number): void {
-    // Only allow navigation to questions that have been answered (or current question)
-    if (!this.isDotClickable(index)) {
-      console.log(`[DOT NAV] ⛔ Blocked navigation to Q${index + 1} - question not yet answered`);
-      return;
-    }
-
-    // Simple navigation - update index and use router
-    // The quizId is needed for the route
-    const quizId = this.quizService.quizId || this.quizService.getCurrentQuizId();
-    console.log(`[DOT NAV] Navigating to Q${index + 1} for quiz ${quizId}`);
-
-    // Update the service state
-    this.quizService.setCurrentQuestionIndex(index);
-
-    // Navigate via router (route change triggers question loading)
-    this.router.navigate(['/quiz/question', quizId, index + 1]);
-  }
-
-  // Check if a dot is clickable (answered, current question, or next after answering current)
-  isDotClickable(index: number): boolean {
-    // Always allow clicking current question
-    if (index === this.currentQuestionIndex) {
-      return true;
-    }
-
-    // Allow clicking if this specific question has been answered
-    const status = this.getQuestionStatus(index);
-    if (status === 'correct' || status === 'wrong') {
-      return true;
-    }
-
-    // Allow free navigation to any question (even unanswered ones)
-    // Visual styling still shows answered/unanswered state
-    return true;
-  }
   questionPayload: QuestionPayload | null = null;
   questionVersion = 0;
   currentQuestion$: Observable<QuizQuestion | null> =
@@ -1496,6 +1340,7 @@ get quizQuestionComponent(): QuizQuestionComponent {
     event: SelectedOption,
     isUserAction: boolean = true,
   ): Promise<void> {
+    this.updateProgressBar();
     // Guards and de-duplication
     if (!isUserAction || (!this.resetComplete && !this.hasOptionsLoaded))
       return;
@@ -4552,6 +4397,9 @@ get quizQuestionComponent(): QuizQuestionComponent {
   }
 
   selectedAnswer(optionIndex: number): void {
+    // ⚡ UPDATE PROGRESS BAR on selection
+    this.updateProgressBar();
+
     // Look up the Option from the index
     const option = this.question?.options?.[optionIndex] ?? this.optionsToDisplay?.[optionIndex];
     if (!option) {
@@ -5437,4 +5285,155 @@ get quizQuestionComponent(): QuizQuestionComponent {
     }
   }
 
+  // Calculate percentage based on ANSWERED questions
+  calculateAnsweredCount(): number {
+    let count = 0;
+    const total = this.totalQuestions || 0;
+    for (let i = 0; i < total; i++) {
+      const status = this.getQuestionStatus(i);
+      // Count as answered if it's correct OR wrong (anything but pending)
+      if (status === 'correct' || status === 'wrong') {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  updateProgressBar(): void {
+    const answeredCount = this.calculateAnsweredCount();
+    const total = this.totalQuestions > 0 ? this.totalQuestions : (this.quiz?.questions?.length || 0);
+    this.progressBarService.updateProgress(answeredCount, total);
+  }
+
+  // Helper to determine dot class - NOW WITH CACHING
+  getQuestionStatus(index: number): string {
+    // Check Cache First - if already determined the status, use it
+    if (this.dotStatusCache.has(index)) {
+      const cached = this.dotStatusCache.get(index)!;
+      console.log(`[DOT] Q${index} → ${cached.toUpperCase()} (from cache)`);
+      return cached;
+    }
+
+    // Try to compute from current selections
+    const selected = this.selectedOptionService.selectedOptionsMap.get(index);
+
+    if (!selected || selected.length === 0) {
+      console.log(`[DOT] Q${index} → PENDING (no selections, no cache)`);
+      return 'pending';
+    }
+
+    const displayQuestion = this.questionsArray[index] || this.quizService.questions[index];
+
+    // Fallback Context Logic
+    const normalize = (str: string) => (str || '').replace(/\s/g, '').toLowerCase();
+    let questionContext = displayQuestion;
+
+    if (!questionContext || !questionContext.options || !questionContext.options.some(o => o.correct)) {
+      const allQuestions = (this.quizService.quizData || []).flatMap(q => q.questions || []);
+      const found = allQuestions.find(q => normalize(q.questionText) === normalize(displayQuestion?.questionText));
+      if (found) questionContext = found;
+    }
+
+    // Evaluate Correctness
+    if (questionContext && questionContext.options) {
+      const correctOptions = questionContext.options.filter((o: any) => o.correct);
+      const correctIds = new Set(correctOptions.map((o: any) => o.optionId));
+      const correctTexts = new Set(correctOptions.map((o: any) => normalize(o.text)));
+      const isMultiAnswer = correctOptions.length > 1;
+
+      // Check if any wrong answer was selected
+      const hasWrongSelection = selected.some((sel: any) => {
+        const isCorrect = correctIds.has(sel.optionId) ||
+          correctTexts.has(normalize(sel.text)) ||
+          sel.correct === true;
+        return !isCorrect;
+      });
+
+      if (hasWrongSelection) {
+        this.dotStatusCache.set(index, 'wrong');
+        console.log(`[DOT] Q${index} → WRONG (wrong answer selected)`);
+        return 'wrong';
+      }
+
+      // For multi-answer: check if ALL correct answers are selected
+      if (isMultiAnswer) {
+        const selectedIds = new Set(selected.map((s: any) => s.optionId));
+        const selectedTexts = new Set(selected.map((s: any) => normalize(s.text)));
+
+        const allCorrectSelected = correctOptions.every((opt: any) =>
+          selectedIds.has(opt.optionId) || selectedTexts.has(normalize(opt.text))
+        );
+
+        if (allCorrectSelected) {
+          this.dotStatusCache.set(index, 'correct');
+          console.log(`[DOT] Q${index} → CORRECT (all ${correctOptions.length} correct answers selected)`);
+          return 'correct';
+        } else {
+          // Multi-answer but not all selected yet - don't cache, return pending
+          console.log(`[DOT] Q${index} → PENDING (multi-answer: ${selected.length}/${correctOptions.length} selected)`);
+          return 'pending';
+        }
+      }
+
+      // Single answer question - just check the last selection
+      const last = selected[selected.length - 1];
+      const isLastCorrect = correctIds.has(last.optionId) || correctTexts.has(normalize(last.text)) || last.correct === true;
+      const result = isLastCorrect ? 'correct' : 'wrong';
+      this.dotStatusCache.set(index, result);
+      return result;
+    }
+
+    // Default Fallback
+    const last = selected[selected.length - 1];
+    const result: 'correct' | 'wrong' = last.correct ? 'correct' : 'wrong';
+    this.dotStatusCache.set(index, result);
+    return result;
+  }
+
+  // Call this when user selects an answer to update the cache
+  updateDotStatus(index: number): void {
+    // Force re-evaluation by temporarily removing from cache
+    this.dotStatusCache.delete(index);
+    // Now call getQuestionStatus which will re-compute and cache
+    this.getQuestionStatus(index);
+    this.cdRef.detectChanges();
+  }
+
+  getDotClass(index: number): string {
+    const status = this.getQuestionStatus(index);
+    return (index === this.currentQuestionIndex) ? `${status} current` : status;
+  }
+
+  navigateToDot(index: number): void {
+    // Only allow navigation to questions that have been answered (or current question)
+    if (!this.isDotClickable(index)) {
+      console.log(`[DOT NAV] ⛔ Blocked navigation to Q${index + 1} - question not yet answered`);
+      return;
+    }
+
+    // Simple navigation - update index and use router
+    // The quizId is needed for the route
+    const quizId = this.quizService.quizId || this.quizService.getCurrentQuizId();
+    console.log(`[DOT NAV] Navigating to Q${index + 1} for quiz ${quizId}`);
+
+    // Update the service state
+    this.quizService.setCurrentQuestionIndex(index);
+
+    // Navigate via router (route change triggers question loading)
+    this.router.navigate(['/quiz/question', quizId, index + 1]);
+  }
+
+  // Check if a dot is clickable (answered, current question, or next after answering current)
+  isDotClickable(index: number): boolean {
+    // Always allow clicking current question
+    if (index === this.currentQuestionIndex) return true;
+
+    // Allow clicking if this specific question has been answered
+    const status = this.getQuestionStatus(index);
+    if (status === 'correct' || status === 'wrong') return true;
+
+    // Allow free navigation to any question (even unanswered ones)
+    // Visual styling still shows answered/unanswered state
+    return true;
+  }
 }
