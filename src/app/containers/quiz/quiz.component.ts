@@ -1,13 +1,19 @@
-import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef,
+import {
+  AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef,
   Component, EventEmitter, HostListener, Input, NgZone, OnChanges, OnDestroy, OnInit,
-  Output, SimpleChanges, ViewChild, ViewEncapsulation } from '@angular/core';
+  Output, SimpleChanges, ViewChild, ViewEncapsulation
+} from '@angular/core';
 import { CommonModule, AsyncPipe } from '@angular/common';
 import { FormGroup } from '@angular/forms';
 import { ActivatedRoute, NavigationEnd, ParamMap, Params, Router } from '@angular/router';
-import { BehaviorSubject, combineLatest, EMPTY, firstValueFrom, forkJoin, merge, Observable,
-  of, Subject, Subscription, throwError } from 'rxjs';
-import { catchError, debounceTime, distinctUntilChanged, filter, map, retry, shareReplay,
-  startWith, switchMap, take, takeUntil, tap } from 'rxjs/operators';
+import {
+  BehaviorSubject, combineLatest, EMPTY, firstValueFrom, forkJoin, merge, Observable,
+  of, Subject, Subscription, throwError
+} from 'rxjs';
+import {
+  catchError, debounceTime, distinctUntilChanged, filter, map, retry, shareReplay,
+  startWith, switchMap, take, takeUntil, tap
+} from 'rxjs/operators';
 import { MatCardModule } from '@angular/material/card';
 import { MatTooltip, MatTooltipModule } from '@angular/material/tooltip';
 
@@ -496,12 +502,41 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   }
 
   async ngOnInit(): Promise<void> {
-    // Subscribe to questions stream to keep local array in sync for pagination dots
+    this.subscribeToQuestions();
+    this.subscribeToRouteEvents();
+
+    const quizId = await this.initializeQuizId();
+    if (!quizId) {
+      return;
+    }
+    this.quizId = quizId;
+
+    this.resetQuizState();
+    this.initializeQuestionIndex();
+    this.fetchTotalQuestions();
+    this.subscribeToQuestionIndex();
+
+    await this.loadQuestions();
+
+    // Common logic after loading (reusing existing continuation logic)
+    const initialIndex = this.currentQuestionIndex || 0;
+    this.quizService.setCurrentQuestionIndex(initialIndex);
+    Promise.resolve().then(() => this.cdRef.detectChanges());
+
+    this.initializeCorrectExpectedCounts();
+    this.subscribeToQuestionText();
+    this.subscribeToNextButtonState();
+    this.initializeServices();
+  }
+
+  private subscribeToQuestions(): void {
     this.questions$ = this.quizService.questions$;
     this.quizService.questions$.pipe(takeUntil(this.destroy$)).subscribe((q) => {
       this.questionsArray = q;
     });
+  }
 
+  private subscribeToRouteEvents(): void {
     this.router.events
       .pipe(filter((event) => event instanceof NavigationEnd))
       .subscribe(() => {
@@ -509,11 +544,12 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         const idx = Math.max(0, (Number(raw) || 1) - 1);
         this.quizService.setCurrentQuestionIndex(idx);
       });
+  }
 
+  private async initializeQuizId(): Promise<string | null> {
     let quizId = this.quizService.getCurrentQuizId();
     if (!quizId) {
-      const routeQuizId =
-        this.activatedRoute.snapshot.paramMap.get('quizId');
+      const routeQuizId = this.activatedRoute.snapshot.paramMap.get('quizId');
       if (routeQuizId) {
         quizId = routeQuizId;
         this.quizService.setQuizId(routeQuizId);
@@ -524,31 +560,34 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     if (!quizId) {
       console.error('[❌ QuizComponent] Missing quizId.');
       await this.router.navigate(['/select']);
-      return;
+      return null;
     }
+    return quizId;
+  }
 
-    this.quizId = quizId;
-
+  private resetQuizState(): void {
     this.quizService.resetQuestionPayload();
-
     this.quizQuestionLoaderService.resetUI();
     localStorage.removeItem('savedQuestionIndex');
+  }
 
-    // Set index from route params early
-    const routeParamIndex =
-      this.activatedRoute.snapshot.paramMap.get('questionIndex');
+  private initializeQuestionIndex(): void {
+    const routeParamIndex = this.activatedRoute.snapshot.paramMap.get('questionIndex');
     const idx = Math.max(0, (Number(routeParamIndex) || 1) - 1);
     this.currentQuestionIndex = idx;
     this.quizService.setCurrentQuestionIndex(idx);
     localStorage.setItem('savedQuestionIndex', JSON.stringify(idx));
+  }
 
-    // Get total question count once for this quiz
+  private fetchTotalQuestions(): void {
     this.quizService.getTotalQuestionsCount(this.quizId)
       .pipe(take(1))
       .subscribe((total: number) => {
         this.totalQuestions = total;
       });
+  }
 
+  private subscribeToQuestionIndex(): void {
     this.indexSubscription = this.quizService.currentQuestionIndex$
       .pipe(distinctUntilChanged())
       .subscribe((idx: number) => {
@@ -629,8 +668,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           console.warn('[✅ NAVIGATION COMPLETE]', idx + 1);
         }
       });
+  }
 
-
+  private async loadQuestions(): Promise<void> {
     // Reuse existing loaded questions if they match the current quiz AND shuffle state
     const shouldShuffle = this.quizService.isShuffleEnabled();
     const hasShuffled =
@@ -642,11 +682,11 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       (!shouldShuffle && this.quizService.questions &&
         this.quizService.questions.length > 0);
 
-    if (canReuse && this.quizService.quizId === quizId) {
+    if (canReuse && this.quizService.quizId === this.quizId) {
       const source = shouldShuffle ?
         this.quizService.shuffledQuestions : this.quizService.questions;
-      console.log(`[QuizComponent] ♻️ Reusing existing ${shouldShuffle ? 
-        'SHUFFLED' : 'standard'} questions (${source.length}) for quiz ${quizId}`);
+      console.log(`[QuizComponent] ♻️ Reusing existing ${shouldShuffle ?
+        'SHUFFLED' : 'standard'} questions (${source.length}) for quiz ${this.quizId}`);
 
       // Propagate existing questions to local array
       this.questionsArray = source;
@@ -656,7 +696,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       Promise.resolve().then(() => this.cdRef.detectChanges());
     } else {
       try {
-        const questions = await this.quizService.fetchQuizQuestions(quizId);
+        const questions = await this.quizService.fetchQuizQuestions(this.quizId);
         if (!questions?.length) {
           console.error('[❌ QuizComponent] No quiz questions returned.');
           return;
@@ -671,14 +711,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         console.error('[❌ QuizComponent] Failed to fetch questions:', err);
       }
     }
+  }
 
-    // Common logic after loading (reusing existing continuation logic)
-    // Use the index we got from the route earlier (or 0 if not set)
-    const initialIndex = this.currentQuestionIndex || 0;
-    this.quizService.setCurrentQuestionIndex(initialIndex);
-    Promise.resolve().then(() => this.cdRef.detectChanges());
-
-    // Continue processing questions
+  private initializeCorrectExpectedCounts(): void {
     this.questionsArray.forEach((qq: any, idx: number) => {
       // Prefer explicit expectedCorrect when valid (>0)
       const fromMeta =
@@ -727,7 +762,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         }
       }
     });
+  }
 
+  private subscribeToQuestionText(): void {
     this.quizService.questionToDisplay$
       .pipe(takeUntil(this.destroy$))
       .subscribe((qText: string) => {
@@ -747,14 +784,18 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         this.questionToDisplay = questionText;
         this.questionToDisplaySource.next(questionText);
       });
+  }
 
+  private subscribeToNextButtonState(): void {
     this.nextButtonStateService.isButtonEnabled$
       .pipe(takeUntil(this.destroy$))
       .subscribe((enabled: boolean) => {
         this.isNextButtonEnabled = enabled;
         this.cdRef.markForCheck();  // force UI update when button state changes
       });
+  }
 
+  private initializeServices(): void {
     this.setupQuiz();
     this.initializeRouteParameters();
     this.initializeDisplayVariables();
@@ -782,7 +823,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   }
 
   private initializeExplanationText(): void {
-    this.explanationTextService.explanationText$.subscribe((text) => {
+    this.explanationTextService.explanationText$.subscribe((text: string | null) => {
       this.explanationToDisplay = text || '';
     });
   }
@@ -1582,20 +1623,20 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // Format each explanation with "Option X is correct because..." prefix
     const formattedExplanations =
       hydratedQuestions.map((question, index) => {
-      const rawExplanation = (question.explanation ?? '').trim();
+        const rawExplanation = (question.explanation ?? '').trim();
 
-      // Get correct option indices for this question
-      const correctIndices = this.explanationTextService.getCorrectOptionIndices(question);
+        // Get correct option indices for this question
+        const correctIndices = this.explanationTextService.getCorrectOptionIndices(question);
 
-      // Format the explanation with the prefix
-      const formattedText = this.explanationTextService.formatExplanation(
-        question,
-        correctIndices,
-        rawExplanation
-      );
+        // Format the explanation with the prefix
+        const formattedText = this.explanationTextService.formatExplanation(
+          question,
+          correctIndices,
+          rawExplanation
+        );
 
-      return { questionIndex: index, explanation: formattedText };
-    });
+        return { questionIndex: index, explanation: formattedText };
+      });
 
     this.explanationTextService.initializeFormattedExplanations(formattedExplanations);
 
@@ -2147,7 +2188,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           } else {
             console.log(
               '[loadQuestionByRouteIndex] ℹ️ No previously selected option. ' +
-                'Skipping feedback replay.'
+              'Skipping feedback replay.'
             );
           }
         }, 50);
@@ -2677,7 +2718,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
                   options.map((opt: Option) => ({
                     ...opt,
                     correct: opt.correct ?? false
-                }));
+                  }));
                 console.log('Options with correct property:', updatedOptions);
               } else {
                 console.warn('No options found at index', this.currentQuestionIndex);
