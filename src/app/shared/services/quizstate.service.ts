@@ -55,40 +55,32 @@ export class QuizStateService {
   isAnswered$: Observable<boolean> = this.answeredSubject.asObservable();
 
   // Tracks when the explanation text (FET) is fully formatted & ready
-  private explanationReadySubject = new BehaviorSubject<boolean>(false);
+  private explanationReadySubject =
+    new BehaviorSubject<boolean>(false);
   public explanationReady$ = this.explanationReadySubject.asObservable();
-
-  // Single source of truth: should the UI show explanation text?
-  // showExplanation = user has answered AND explanation is ready
-  public readonly shouldShowExplanation$ = combineLatest([
-    this.isAnswered$,
-    this.explanationReady$,
-  ]).pipe(
-    map(([answered, ready]) => answered && ready),
-    distinctUntilChanged(),
-  );
 
   public displayStateSubject = new BehaviorSubject<{
     mode: 'question' | 'explanation';
     answered: boolean;
   }>({
     mode: 'question',
-    answered: false,
+    answered: false
   });
-  public displayState$ = this.displayStateSubject.asObservable();
+  public displayState$ =
+    this.displayStateSubject.asObservable();
 
   qaSubject = new ReplaySubject<QAPayload>(1);
   qa$ = this.qaSubject.asObservable();
 
-  private interactionReadySubject = new BehaviorSubject<boolean>(true);
+  private interactionReadySubject =
+    new BehaviorSubject<boolean>(true);
   public interactionReady$ = this.interactionReadySubject.asObservable();
 
   // Tracks whether the quiz state has completed at least one full restoration
   public hasRestoredOnce = false;
 
-  private _hasUserInteracted = new Set<number>();
-
-  private _answeredQuestionIndices = new Set<number>();
+  public _hasUserInteracted = new Set<number>();
+  public _answeredQuestionIndices = new Set<number>();
 
   constructor() {
     this.questionStates = new Map<number, QuestionState>();
