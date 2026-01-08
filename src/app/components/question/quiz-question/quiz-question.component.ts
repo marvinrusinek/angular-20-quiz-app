@@ -1,13 +1,19 @@
-import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ComponentRef,
+import {
+  AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ComponentRef,
   EventEmitter, HostListener, Input, NgZone, OnChanges, OnDestroy, OnInit, Output, SimpleChange,
-  SimpleChanges, ViewChild, ViewContainerRef } from '@angular/core';
+  SimpleChanges, ViewChild, ViewContainerRef
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
-import { BehaviorSubject, firstValueFrom, from, Observable, of, ReplaySubject, Subject,
-  Subscription } from 'rxjs';
-import { catchError, debounceTime, distinctUntilChanged, filter, map, skip, switchMap, take,
-  takeUntil, tap, timeout } from 'rxjs/operators';
+import {
+  BehaviorSubject, firstValueFrom, from, Observable, of, ReplaySubject, Subject,
+  Subscription
+} from 'rxjs';
+import {
+  catchError, debounceTime, distinctUntilChanged, filter, map, skip, switchMap, take,
+  takeUntil, tap, timeout
+} from 'rxjs/operators';
 import { MatCheckbox } from '@angular/material/checkbox';
 import { MatRadioButton } from '@angular/material/radio';
 
@@ -357,6 +363,28 @@ export class QuizQuestionComponent extends BaseQuestion
   }
 
   override async ngOnInit(): Promise<void> {
+    this.checkForSharedOptions();
+    this.clearSoundFlagsForCurrentQuestion(0);
+
+    this.subscribeToCurrentQuestionIndex();
+    this.logQuestionIndexObservations();
+    this.initializeLatestQuestionText();
+    this.subscribeToQuestionPayload();
+    this.subscribeToShuffleChanges();
+    this.subscribeToNavigationEvents();
+    this.subscribeToEventsAndResets();
+    this.subscribeToRouteParams();
+
+    const loaded = await this.initializeInitialQuestion();
+    if (!loaded) {
+      return;
+    }
+
+    this.subscribeToTimerEvents();
+    await this.initializeComponentAndPipelines();
+  }
+
+  private checkForSharedOptions(): void {
     const qIndex = this.quizService.getCurrentQuestionIndex();
     const current = this.quizService.questions?.[qIndex];
     const next = this.quizService.questions?.[qIndex + 1];
@@ -367,9 +395,9 @@ export class QuizQuestionComponent extends BaseQuestion
       );
       console.log(`[REF TRACE] Shared option refs between Q${qIndex} and Q${qIndex + 1}:`, shared);
     }
+  }
 
-    this.clearSoundFlagsForCurrentQuestion(0);
-
+  private subscribeToCurrentQuestionIndex(): void {
     this.idxSub = this.quizService.currentQuestionIndex$
       .pipe(
         map((i: number) => this.normalizeIndex(i)),
@@ -413,7 +441,9 @@ export class QuizQuestionComponent extends BaseQuestion
         ),
       )
       .subscribe((i0: number) => this.onTimerExpiredFor(i0));
+  }
 
+  private logQuestionIndexObservations(): void {
     this.quizService.currentQuestionIndex$
       .pipe(distinctUntilChanged())
       .subscribe((index) => {
@@ -422,14 +452,18 @@ export class QuizQuestionComponent extends BaseQuestion
           serviceIndex: this.quizService.getCurrentQuestionIndex()
         });
       });
+  }
 
+  private initializeLatestQuestionText(): void {
     if (this.questionToDisplay$) {
       this.latestQuestionText$ = this.questionToDisplay$.pipe(
         map((value) => value ?? ''),  // ensure it's always a string
         distinctUntilChanged(),
       );
     }
+  }
 
+  private subscribeToQuestionPayload(): void {
     this.quizService.questionPayload$
       .pipe(
         filter((payload): payload is QuestionPayload => !!payload),
@@ -443,14 +477,18 @@ export class QuizQuestionComponent extends BaseQuestion
       .subscribe((payload) => {
         console.log('[📥 QQC got payload]', payload);
       });
+  }
 
+  private subscribeToShuffleChanges(): void {
     this.quizService.checkedShuffle$.subscribe((shouldShuffle) => {
       this.shuffleOptions = shouldShuffle;
       // Clear local cache to force re-fetch of correct (shuffled/unshuffled) questions
       this.questionsArray = [];
       console.log('[QQC] Shuffle changed, cleared questionsArray');
     });
+  }
 
+  private subscribeToNavigationEvents(): void {
     this.quizNavigationService.navigationSuccess$.subscribe(() => {
       console.info('[QQC] 📦 navigationSuccess$ received — general navigation');
       this.resetUIForNewQuestion();
@@ -486,7 +524,9 @@ export class QuizQuestionComponent extends BaseQuestion
         }
       },
     );
+  }
 
+  private subscribeToEventsAndResets(): void {
     this.quizNavigationService.explanationReset$.subscribe(() => {
       this.resetExplanation();
     });
@@ -509,7 +549,9 @@ export class QuizQuestionComponent extends BaseQuestion
       .subscribe((idx) => {
         this.resetPerQuestionState(idx as number);  // reset for the incoming question
       });
+  }
 
+  private subscribeToRouteParams(): void {
     this.activatedRoute.paramMap.subscribe(async (params) => {
       this.explanationVisible = false;
       this.explanationText = '';
@@ -551,7 +593,9 @@ export class QuizQuestionComponent extends BaseQuestion
         console.error('[❌ Error during question fetch]', err);
       }
     });
+  }
 
+  private async initializeInitialQuestion(): Promise<boolean> {
     const routeIndex = +(this.activatedRoute.snapshot.paramMap.get('questionIndex') ?? 0);
     this.currentQuestionIndex = routeIndex;  // ensures correct index
     this.fixedQuestionIndex = isNaN(routeIndex) ? 0 : routeIndex - 1;
@@ -559,9 +603,12 @@ export class QuizQuestionComponent extends BaseQuestion
     const loaded = await this.loadQuestion();
     if (!loaded) {
       console.error('[❌ Failed to load initial question]');
-      return;
+      return false;
     }
+    return true;
+  }
 
+  private subscribeToTimerEvents(): void {
     this.timerService.expired$.pipe(takeUntil(this.destroy$)).subscribe(() => {
       const idx = this.normalizeIndex(this.currentQuestionIndex ?? 0);
       this.onQuestionTimedOut(idx);
@@ -575,7 +622,9 @@ export class QuizQuestionComponent extends BaseQuestion
           this.handleTimerStoppedForActiveQuestion(reason);
         });
       });
+  }
 
+  private async initializeComponentAndPipelines(): Promise<void> {
     try {
       this.populateOptionsToDisplay();
 
@@ -924,7 +973,7 @@ export class QuizQuestionComponent extends BaseQuestion
         console.log(`[VISIBILITY] ✅ Restoring explanation view for Q${idx + 1}`);
 
         // Restore only – do NOT regenerate explanation text here
-        const stored = qState?.explanationText || 
+        const stored = qState?.explanationText ||
           this.explanationTextService.latestExplanation || '';
 
         if (stored && stored.trim().length > 0) {
@@ -948,15 +997,17 @@ export class QuizQuestionComponent extends BaseQuestion
         this.explanationTextService.setShouldDisplayExplanation(true);
         this.explanationTextService.setIsExplanationTextDisplayed(true);
 
-        this.quizStateService.setDisplayState({ mode: 'explanation', answered: true }, 
+        this.quizStateService.setDisplayState({ mode: 'explanation', answered: true },
           { force: true });
       } else {
         this.displayExplanation = false;
         this.explanationTextService.setShouldDisplayExplanation(false);
         this.explanationTextService.setIsExplanationTextDisplayed(false);
 
-        this.quizStateService.setDisplayState({ mode: 'question', 
-          answered: qState?.isAnswered ?? false }, { force: true });
+        this.quizStateService.setDisplayState({
+          mode: 'question',
+          answered: qState?.isAnswered ?? false
+        }, { force: true });
 
         // Explanation is not considered "ready to show" in pure question mode
         this.quizStateService.setExplanationReady(false);
@@ -1173,7 +1224,7 @@ export class QuizQuestionComponent extends BaseQuestion
       this.displayState.mode = displayMode === 'explanation' ? 'explanation' : 'question';
 
       // Restore options
-      const optionsData = sessionStorage.getItem(optionsKey) || 
+      const optionsData = sessionStorage.getItem(optionsKey) ||
         sessionStorage.getItem(`options`);
       if (optionsData) {
         try {
@@ -1357,7 +1408,7 @@ export class QuizQuestionComponent extends BaseQuestion
     this.initializeForm();
     this.initializeForm();
     this.quizStateService.setLoading(true);
-    
+
     // Ensure shuffling is enabled by default to address "not shuffling" report
     this.shuffleOptions = true;
   }
@@ -1668,7 +1719,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
       // Clamp currentQuestionIndex to valid range
       if (this.currentQuestionIndex < 0) this.currentQuestionIndex = 0;  // floor
-      
+
       const lastIndex = this.questionsArray.length - 1;
       if (this.currentQuestionIndex > lastIndex) {
         console.warn(
@@ -1695,7 +1746,7 @@ export class QuizQuestionComponent extends BaseQuestion
       try {
         this.feedbackText = await this.generateFeedbackText(this.currentQuestion);
         console.info(
-          '[initializeComponent] Feedback text generated for the first question:', 
+          '[initializeComponent] Feedback text generated for the first question:',
           this.feedbackText
         );
       } catch (feedbackError: any) {
@@ -3197,7 +3248,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
       // ───────────── Unlock BEFORE emission ─────────────
       ets._fetLocked = false;
-      
+
       // Guard: ensure we're still on the same question
       const finalActiveIndex = this.quizService.getCurrentQuestionIndex();
       if (lockedIndex !== finalActiveIndex) {
@@ -3723,7 +3774,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
     await this.finalizeSelection(option, index, wasPreviouslySelected);
 
-    const sel: SelectedOption = { ...option, questionIndex: lockedIndex};
+    const sel: SelectedOption = { ...option, questionIndex: lockedIndex };
     this.optionSelected.emit(sel);
 
     this.selectedOptionService.setAnswered(true);
@@ -4284,7 +4335,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
     // Retrieve existing state for the given index
     let questionState = this.quizStateService.getQuestionState(
-      this.quizId, 
+      this.quizId,
       questionIndex
     );
 
@@ -4359,7 +4410,7 @@ export class QuizQuestionComponent extends BaseQuestion
       // AUTHORITATIVE clicked option (NEVER trust event.option.optionId)
       const clickedFromQuestion = questionData.options?.[index];
       if (!clickedFromQuestion || clickedFromQuestion.optionId == null) {
-        console.warn('[QQC] clicked option missing in questionData', 
+        console.warn('[QQC] clicked option missing in questionData',
           { idx: this.currentQuestionIndex, index });
         return;
       }
@@ -4467,7 +4518,7 @@ export class QuizQuestionComponent extends BaseQuestion
     try {
       // Fetch correct answers asynchronously
       this.correctAnswers = await this.getCorrectAnswers();
-      
+
       // Check if the correct answers are available
       if (!this.correctAnswers || this.correctAnswers.length === 0) {
         console.warn('No correct answers available for this question.');
@@ -4928,7 +4979,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
     // Allow FET building even if we just switched questions.
     // DO NOT check _fetLocked here. Purge happens elsewhere now.
-    
+
     // Wait a frame so UI stabilizes before formatting
     await new Promise((resolve) => requestAnimationFrame(resolve));
 
@@ -5075,7 +5126,7 @@ export class QuizQuestionComponent extends BaseQuestion
       }
 
       const totalCorrectAnswers =
-       this.quizService.getTotalCorrectAnswers(currentQuestion);
+        this.quizService.getTotalCorrectAnswers(currentQuestion);
 
       // Update the question state in the QuizStateService
       if (!this.quizId) {
@@ -5363,7 +5414,7 @@ export class QuizQuestionComponent extends BaseQuestion
     // Prefer your identity overlay if you have it; otherwise use UI list
     const snapshot: Option[] =
       this.selectedOptionService.overlaySelectedByIdentity?.(canonical, ui) ??
-        ui ?? canonical;
+      ui ?? canonical;
 
     // Coerce optionId safely (0 is valid)
     this.selectedOption = selectedOption;
@@ -6182,7 +6233,7 @@ export class QuizQuestionComponent extends BaseQuestion
       // Wait if the explanation gate is still locked
       if (ets._fetLocked) {
         console.log(
-          `[onOptionClicked] Waiting for FET unlock before processing Q${this.currentQuestionIndex + 1}`,
+          `[onOptionClicked] Waiting for FET unlock before processing Q${this.currentQuestionIndex + 1}`
         );
         await new Promise((res) => setTimeout(res, 60));
       }
@@ -6333,7 +6384,7 @@ export class QuizQuestionComponent extends BaseQuestion
           filter(
             (s: unknown): s is string => typeof s === 'string' && s.trim().length > 0
           ),
-          map((s) => s.trim()),
+          map((s: any) => s.trim()),
           timeout(timeoutMs),
           take(1)
         );
