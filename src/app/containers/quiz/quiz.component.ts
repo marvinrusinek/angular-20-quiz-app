@@ -2978,7 +2978,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   }
 
   private getCorrectAnswersText(options: Option[]): string {
-    const numCorrectAnswers = this.quizQuestionManagerService.calculateNumberOfCorrectAnswers(options);
+    const numCorrectAnswers = 
+      this.quizQuestionManagerService.calculateNumberOfCorrectAnswers(options);
     const totalOptions = Array.isArray(options) ? options.length : 0;
     return this.quizQuestionManagerService.getNumberOfCorrectAnswersText(numCorrectAnswers, totalOptions);
   }
@@ -3045,8 +3046,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         }
 
         // Retrieve the current question using the valid index
-        const currentQuestion =
-          currentQuiz.questions[this.currentQuestionIndex];
+        const currentQuestion = currentQuiz.questions[this.currentQuestionIndex];
 
         // Check if the currentQuestion is defined before proceeding
         if (!currentQuestion) {
@@ -3085,9 +3085,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     /**
      * 🛑 CRITICAL GUARD:
-     * If the user has NOT interacted with this question,
-     * DO NOT touch the explanation streams at all.
-     * This prevents Q1 from inheriting stale text from QN.
+     * If the user has NOT interacted with this question, DO NOT touch the 
+     * explanation streams at all. This prevents Q1 from inheriting stale text from QN.
      */
     if (!hasUserSelected) {
       console.log('[NO USER SELECTION] Skipping explanation processing for Q', questionIndex);
@@ -3120,7 +3119,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         }
       } else {
         console.warn(
-          `[⚠️ Skipping explanation fetch — invalid index or explanations not ready] index: ${questionIndex}`,
+          `[⚠️ Skipping explanation fetch — invalid index or explanations not ready] index: ${questionIndex}`
         );
         this.explanationToDisplay = 'No explanation available';
         this.explanationTextService.setExplanationText(
@@ -3855,7 +3854,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.quizQuestionComponent?.selectedIndices?.clear();
 
     // Reset sounds/timer
-    this.soundService.reset?.();
+    this.soundService.reset();
     this.timerService.stopTimer?.(undefined, { force: true });
 
     // Reset progress bar to 0%
@@ -4003,7 +4002,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
   updateProgressValue(): void {
     const answeredCount = this.calculateAnsweredCount();
-    const total = this.totalQuestions > 0 ? this.totalQuestions : (this.quiz?.questions?.length || 0);
+    const total = 
+      this.totalQuestions > 0 ? 
+        this.totalQuestions : (this.quiz?.questions?.length || 0);
     this.progress = total > 0 ? Math.round((answeredCount / total) * 100) : 0;
   }
 
@@ -4140,8 +4141,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       return;
     }
 
-    // Simple navigation -- update index and use router
-    // quizId is needed for the route
+    // Simple navigation - update index and use router, quizId needed for route
     const quizId = this.quizService.quizId || this.quizService.getCurrentQuizId();
     console.log(`[DOT NAV] Navigating to Q${index + 1} for quiz ${quizId}`);
 

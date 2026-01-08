@@ -928,6 +928,7 @@ export class QuizQuestionComponent extends BaseQuestion
           console.log('[VISIBILITY] ⏰ Timer expired while hidden, forcing expiry handler');
           this.timerService.stopTimer?.(undefined, { force: true });
           this.ngZone.run(() => this.onTimerExpiredFor(i0));
+          this._savedDisplayMode = 'explanation';
         }
       }
     } catch (err: any) {
