@@ -1,14 +1,17 @@
 import {
   AfterViewChecked, AfterViewInit, ApplicationRef, ChangeDetectionStrategy, ChangeDetectorRef,
   Component, EventEmitter, HostListener, Input, NgZone, OnChanges, OnDestroy, OnInit,
-  Output, QueryList, SimpleChanges, ViewChildren } from '@angular/core';
+  Output, QueryList, SimpleChanges, ViewChildren
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule, MatCheckboxChange } from '@angular/material/checkbox';
 import { MatRadioModule, MatRadioChange } from '@angular/material/radio';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { animationFrameScheduler, BehaviorSubject, Observable, Subject, 
-  Subscription } from 'rxjs';
+import {
+  animationFrameScheduler, BehaviorSubject, Observable, Subject,
+  Subscription
+} from 'rxjs';
 import { distinctUntilChanged, observeOn, take, takeUntil } from 'rxjs/operators';
 
 import { FeedbackProps } from '../../../../shared/models/FeedbackProps.model';
@@ -186,7 +189,7 @@ export class SharedOptionComponent
   get isMultiMode(): boolean {
     // Explicit Check
     if (this.type === 'multiple' || this.config?.type === 'multiple') return true;
-  
+
     // Data Inference (Fixes multiple-answer questions)
     if (this.currentQuestion?.options) {
       const count = this.currentQuestion.options.filter(o => o.correct).length;
@@ -196,36 +199,52 @@ export class SharedOptionComponent
   }
 
   ngOnInit(): void {
+    this.initializeQuestionIndex();
+    this.resetStateForNewQuestion();
+    this.subscribeToTimerExpiration();
+    this.setupFallbackRendering();
+    this.initializeConfiguration();
+    this.initializeOptionDisplayWithFeedback();
+    this.setupSubscriptions();
+    this.initializePreferencesAndFeedback();
+    this.subscribeToSelectionChanges();
+    this.subscribeToFormChanges();
+  }
+
+  private initializeQuestionIndex(): void {
     this.updateResolvedQuestionIndex(
       this.questionIndex ??
       this.currentQuestionIndex ??
       this.config?.idx ??
       this.quizService?.currentQuestionIndex
     );
+  }
 
-    // RESET DISABLED STATE ON INIT
+  private resetStateForNewQuestion(): void {
     this.disabledOptionsPerQuestion.clear();
     this.lockedIncorrectOptionIds.clear();
     this.flashDisabledSet.clear();
-    this.timerExpiredForQuestion = false;  // reset timer flag
-    console.log('[SOC INIT] 🔄 Cleared disabledOptionsPerQuestion, lockedIncorrectOptionIds, flashDisabledSet');
+    this.timerExpiredForQuestion = false;
+  }
 
-    // 🕐 Subscribe to timer expiration
+  private subscribeToTimerExpiration(): void {
     this.timerService.expired$.pipe(takeUntil(this.destroy$)).subscribe(() => {
       console.log('[SOC] ⏰ Timer expired - setting timerExpiredForQuestion = true');
       this.timerExpiredForQuestion = true;
       this.cdRef.markForCheck();
     });
+  }
 
-    // ─── Fallback Rendering ────────────────────────────────────────────────
+  private setupFallbackRendering(): void {
     setTimeout(() => {
       if (!this.renderReady || !this.optionsToDisplay?.length) {
         this.showNoOptionsFallback = true;
         this.cdRef.markForCheck();
       }
     }, 150);
+  }
 
-    // ─── Config and Options Initialization ───────────────────────────────────
+  private initializeConfiguration(): void {
     this.initializeFromConfig();
 
     if (this.config && this.config.optionsToDisplay?.length > 0) {
@@ -237,8 +256,9 @@ export class SharedOptionComponent
     }
 
     this.renderReady = this.optionsToDisplay?.length > 0;
+  }
 
-    // ─── Option Bindings and Display ───────────────────────────────────────
+  private initializeOptionDisplayWithFeedback(): void {
     this.initializeOptionBindings();
     this.synchronizeOptionBindings();
     this.initializeDisplay();
@@ -249,13 +269,13 @@ export class SharedOptionComponent
     }
 
     setTimeout(() => {
-      // this.initializeOptionBindings();
       this.renderReady = this.optionsToDisplay?.length > 0;
     }, 100);
+  }
 
-    // ─── Subscriptions ─────────────────────────────────────────────────────
+  private setupSubscriptions(): void {
     if (this.finalRenderReady$) {
-      this.finalRenderReadySub = this.finalRenderReady$.subscribe((ready) => {
+      this.finalRenderReadySub = this.finalRenderReady$.subscribe((ready: boolean) => {
         this.finalRenderReady = ready;
       });
     }
@@ -263,18 +283,15 @@ export class SharedOptionComponent
     // Regenerate feedback when quizService index changes
     this.quizService.currentQuestionIndex$
       .pipe(distinctUntilChanged(), takeUntil(this.destroy$))
-      .subscribe((idx) => {
+      .subscribe((idx: number) => {
         console.log(
           `[SOC 🔄] currentQuestionIndex$ fired: idx=${idx}, optionsToDisplay.length=${this.optionsToDisplay?.length}`
         );
 
         if (idx >= 0 && this.optionsToDisplay?.length > 0) {
-          // Get fresh question from service
           const question = this.quizService.questions?.[idx];
 
           if (question?.options) {
-            // Get correct options from optionsToDisplay (matches UI order)
-            // Don't use question from quizService as it may have different option order
             const correctOptions = this.optionsToDisplay.filter(
               (o: Option) => o.correct === true
             );
@@ -283,7 +300,6 @@ export class SharedOptionComponent
               correctOptions?.map((o) => o.optionId)
             );
 
-            // Log displayOrder comparison
             const serviceDisplayOrders = question.options
               ?.map((o: Option) => o.displayOrder)
               .join(',');
@@ -294,31 +310,22 @@ export class SharedOptionComponent
               `[SOC 🔄] Service DisplayOrders: [${serviceDisplayOrders}] | Input DisplayOrders: [${inputDisplayOrders}]`
             );
 
-            // FIX: Use this.optionsToDisplay to match what the UI renders, NOT question.options
-            // This ensures the "Option X" numbers match what the user sees on screen
             const freshFeedback =
               this.feedbackService.generateFeedbackForOptions(
                 correctOptions,
-                this.optionsToDisplay  // use the Input options that match UI order
+                this.optionsToDisplay
               );
 
-            // Clear and update feedbackConfigs
             this.feedbackConfigs = {};
 
-            // Update all option bindings with fresh feedback
             for (const b of this.optionBindings ?? []) {
-              if (!b.option) {
-                continue;
-              }
+              if (!b.option) continue;
 
               b.option.feedback = freshFeedback;
               b.feedback = freshFeedback;
 
-              // Also update feedbackConfigs which is what the template reads
               const optId = b.option.optionId ?? -1;
-              if (optId < 0) {
-                continue;
-              }
+              if (optId < 0) continue;
 
               this.feedbackConfigs[optId] = {
                 feedback: freshFeedback,
@@ -334,7 +341,9 @@ export class SharedOptionComponent
         }
         this.cdRef.markForCheck();
       });
+  }
 
+  private subscribeToFormChanges(): void {
     this.click$.pipe(takeUntil(this.destroy$)).subscribe(({ b, i }) => {
       this.form
         .get('selectedOptionId')
@@ -343,13 +352,15 @@ export class SharedOptionComponent
         value: b.option.optionId,
       } as MatRadioChange);
     });
+  }
 
+  private subscribeToSelectionChanges(): void {
     this.selectionSub = this.selectedOptionService.selectedOption$
       .pipe(
         distinctUntilChanged(
           (prev, curr) => JSON.stringify(prev) === JSON.stringify(curr)
         ),
-        observeOn(animationFrameScheduler)  // defer processing until next animation frame
+        observeOn(animationFrameScheduler)
       )
       .subscribe((incoming) => {
         const selList: SelectedOption[] = Array.isArray(incoming)
@@ -360,21 +371,19 @@ export class SharedOptionComponent
 
         this.applySelectionsUI(selList);
 
-        // Extract just the numeric IDs
         const selectedIds = selList.map((s) => s.optionId);
 
-        // Now compare against this row’s @Input() optionId
         if (this.selectedOptionId != null) {
           this.isSelected = selectedIds.includes(this.selectedOptionId);
         } else {
           this.isSelected = false;
         }
 
-        // Trigger OnPush check
         this.cdRef.markForCheck();
       });
+  }
 
-    // ─── Preferences and IDs ─────────────────────────────────────────────────
+  private initializePreferencesAndFeedback(): void {
     this.highlightCorrectAfterIncorrect =
       this.userPreferenceService.getHighlightPreference();
 
@@ -383,7 +392,6 @@ export class SharedOptionComponent
     }
     this.ensureOptionIds();
 
-    // ─── Feedback Logic ────────────────────────────────────────────────────
     const initialQuestionIndex = this.getActiveQuestionIndex() ?? 0;
     this.generateFeedbackConfig(
       this.selectedOption as SelectedOption,
@@ -655,7 +663,7 @@ export class SharedOptionComponent
             }
           }
         }
-        
+
         if (this.optionsToDisplay) {
           for (const o of this.optionsToDisplay) {
             if (savedIds.has(o.optionId!)) {
@@ -663,7 +671,7 @@ export class SharedOptionComponent
             }
           }
         }
-        
+
         this.updateHighlighting();
         this.cdRef.detectChanges();
       }
@@ -1123,7 +1131,7 @@ export class SharedOptionComponent
     const saved = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex);
     if (saved?.length > 0) {
       const savedIds = new Set(saved.map(s => s.optionId));
-    
+
       for (const opt of this.optionsToDisplay) {
         if (opt.optionId !== undefined && savedIds.has(opt.optionId)) {
           opt.selected = true;
@@ -4039,7 +4047,7 @@ export class SharedOptionComponent
 
       if (isCorrectSelected) {
         console.log(
-          `[SharedOptionComponent] 🎯 SINGLE-answer correct → STOPPING TIMER`,
+          `[SharedOptionComponent] 🎯 SINGLE-answer correct → STOPPING TIMER`
         );
         this.timerService.allowAuthoritativeStop();
         this.timerService.stopTimer(undefined, { force: true });
@@ -4049,16 +4057,16 @@ export class SharedOptionComponent
 
     // For MULTIPLE-answer: check if ALL correct options are now selected
     const allCorrectSelected = correctOptionIds.every((id: number) =>
-      selectedSet.has(id),
+      selectedSet.has(id)
     );
 
     console.log(
-      `[SharedOptionComponent] MULTI-answer check: allCorrectSelected=${allCorrectSelected}`,
+      `[SharedOptionComponent] MULTI-answer check: allCorrectSelected=${allCorrectSelected}`
     );
 
     if (allCorrectSelected) {
       console.log(
-        `[SharedOptionComponent] 🎯 ALL correct answers selected → STOPPING TIMER`,
+        `[SharedOptionComponent] 🎯 ALL correct answers selected → STOPPING TIMER`
       );
       this.timerService.allowAuthoritativeStop();
       this.timerService.stopTimer(undefined, { force: true });
