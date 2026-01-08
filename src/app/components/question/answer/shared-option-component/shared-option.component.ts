@@ -1,52 +1,15 @@
 import {
-  AfterViewChecked,
-  AfterViewInit,
-  ApplicationRef,
-  ChangeDetectionStrategy,
-  ChangeDetectorRef,
-  Component,
-  EventEmitter,
-  HostListener,
-  Input,
-  NgZone,
-  OnChanges,
-  OnDestroy,
-  OnInit,
-  Output,
-  QueryList,
-  SimpleChanges,
-  ViewChildren,
-} from '@angular/core';
+  AfterViewChecked, AfterViewInit, ApplicationRef, ChangeDetectionStrategy, ChangeDetectorRef,
+  Component, EventEmitter, HostListener, Input, NgZone, OnChanges, OnDestroy, OnInit,
+  Output, QueryList, SimpleChanges, ViewChildren } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
-import {
-  MatCheckboxModule,
-  MatCheckboxChange,
-} from '@angular/material/checkbox';
-import {
-  MatRadioButton,
-  MatRadioModule,
-  MatRadioChange,
-} from '@angular/material/radio';
-import {
-  FormBuilder,
-  FormGroup,
-  ReactiveFormsModule,
-  Validators,
-} from '@angular/forms';
-import {
-  animationFrameScheduler,
-  BehaviorSubject,
-  Observable,
-  Subject,
-  Subscription,
-} from 'rxjs';
-import {
-  distinctUntilChanged,
-  observeOn,
-  take,
-  takeUntil,
-} from 'rxjs/operators';
+import { MatCheckboxModule, MatCheckboxChange } from '@angular/material/checkbox';
+import { MatRadioModule, MatRadioChange } from '@angular/material/radio';
+import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { animationFrameScheduler, BehaviorSubject, Observable, Subject, 
+  Subscription } from 'rxjs';
+import { distinctUntilChanged, observeOn, take, takeUntil } from 'rxjs/operators';
 
 import { FeedbackProps } from '../../../../shared/models/FeedbackProps.model';
 import { Option } from '../../../../shared/models/Option.model';
@@ -88,7 +51,7 @@ import { isValidOption } from '../../../../shared/utils/option-utils';
   templateUrl: './shared-option.component.html',
   styleUrls: ['../../quiz-question/quiz-question.component.scss'],
   animations: [correctAnswerAnim],
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SharedOptionComponent
   implements OnInit, OnChanges, OnDestroy, AfterViewInit, AfterViewChecked {
@@ -114,7 +77,7 @@ export class SharedOptionComponent
   @Input() highlightCorrectAfterIncorrect = false;
   @Input() quizQuestionComponentOnOptionClicked!: (
     option: SelectedOption,
-    index: number,
+    index: number
   ) => void;
   @Input() optionBindings: OptionBindings[] = [];
   @Input() selectedOptionId: number | null = null;
@@ -122,7 +85,7 @@ export class SharedOptionComponent
   @Input() isNavigatingBackwards = false;
   @Input() renderReady = false;
   @Input() finalRenderReady$: Observable<boolean> | null = null;
-  @Input() questionVersion = 0; // increments every time questionIndex changes
+  @Input() questionVersion = 0;  // increments every time questionIndex changes
   @Input() sharedOptionConfig!: SharedOptionConfig;
   public finalRenderReady = false;
   private finalRenderReadySub?: Subscription;
@@ -149,11 +112,11 @@ export class SharedOptionComponent
   lastSelectedOptionId = -1;
   highlightedOptionIds: Set<number> = new Set();
 
-  // 🔒 Counter to force OnPush re-render when disabled state changes
+  // Counter to force OnPush re-render when disabled state changes
   disableRenderTrigger = 0;
 
   isOptionSelected = false;
-  private optionsRestored = false; // tracks if options are restored
+  private optionsRestored = false;  // tracks if options are restored
   viewInitialized = false;
   viewReady = false;
   optionsReady = false;
@@ -174,7 +137,7 @@ export class SharedOptionComponent
 
   private click$ = new Subject<{ b: OptionBindings; i: number }>();
 
-  // 🔑 Include disableRenderTrigger to force re-render when disabled state changes
+  // Include disableRenderTrigger to force re-render when disabled state changes
   trackByOptionId = (b: OptionBindings, idx: number) =>
     `${b.option.optionId ?? idx}_${this.disableRenderTrigger}`;
 
@@ -191,19 +154,6 @@ export class SharedOptionComponent
   private resolvedQuestionIndex: number | null = null;
 
   destroy$ = new Subject<void>();
-
-  // FIX: Robust Multi-Mode Detection (Infers from Data if Type is missing)
-  get isMultiMode(): boolean {
-    // 1. Explicit Check
-    if (this.type === 'multiple' || this.config?.type === 'multiple') return true;
-
-    // 2. Data Inference (Fixes Q2/Q4)
-    if (this.currentQuestion?.options) {
-      const count = this.currentQuestion.options.filter(o => o.correct).length;
-      if (count > 1) return true;
-    }
-    return false;
-  }
 
   constructor(
     private explanationTextService: ExplanationTextService,
@@ -232,6 +182,19 @@ export class SharedOptionComponent
       .subscribe((id: number | string) => this.updateSelections(id));
   }
 
+  // Robust Multi-Mode Detection (Infers from Data if Type is missing)
+  get isMultiMode(): boolean {
+    // Explicit Check
+    if (this.type === 'multiple' || this.config?.type === 'multiple') return true;
+  
+    // Data Inference (Fixes multiple-answer questions)
+    if (this.currentQuestion?.options) {
+      const count = this.currentQuestion.options.filter(o => o.correct).length;
+      if (count > 1) return true;
+    }
+    return false;
+  }
+
   ngOnInit(): void {
     this.updateResolvedQuestionIndex(
       this.questionIndex ??
@@ -240,11 +203,11 @@ export class SharedOptionComponent
       this.quizService?.currentQuestionIndex
     );
 
-    // 🛡️ RESET DISABLED STATE ON INIT
+    // RESET DISABLED STATE ON INIT
     this.disabledOptionsPerQuestion.clear();
     this.lockedIncorrectOptionIds.clear();
     this.flashDisabledSet.clear();
-    this.timerExpiredForQuestion = false; // Reset timer flag
+    this.timerExpiredForQuestion = false;  // reset timer flag
     console.log('[SOC INIT] 🔄 Cleared disabledOptionsPerQuestion, lockedIncorrectOptionIds, flashDisabledSet');
 
     // 🕐 Subscribe to timer expiration
@@ -280,7 +243,7 @@ export class SharedOptionComponent
     this.synchronizeOptionBindings();
     this.initializeDisplay();
 
-    // ⚡ Initial feedback generation for Q1
+    // Initial feedback generation for Q1
     if (this.currentQuestionIndex >= 0 && this.optionsToDisplay?.length > 0) {
       this.regenerateFeedback(this.currentQuestionIndex);
     }
@@ -297,7 +260,7 @@ export class SharedOptionComponent
       });
     }
 
-    // ⚡ CRITICAL FIX: Regenerate feedback when quizService index changes
+    // Regenerate feedback when quizService index changes
     this.quizService.currentQuestionIndex$
       .pipe(distinctUntilChanged(), takeUntil(this.destroy$))
       .subscribe((idx) => {
@@ -308,16 +271,12 @@ export class SharedOptionComponent
         if (idx >= 0 && this.optionsToDisplay?.length > 0) {
           // Get fresh question from service
           const question = this.quizService.questions?.[idx];
-          console.log(
-            `[SOC 🔄] Q${idx + 1} question:`,
-            question?.questionText?.slice(0, 50)
-          );
 
           if (question?.options) {
-            // 🔑 FIX: Get correct options from optionsToDisplay (matches UI order)
+            // Get correct options from optionsToDisplay (matches UI order)
             // Don't use question from quizService as it may have different option order
             const correctOptions = this.optionsToDisplay.filter(
-              (o) => o.correct === true
+              (o: Option) => o.correct === true
             );
             console.log(
               `[SOC 🔄] Q${idx + 1} correctOptions from optionsToDisplay:`,
@@ -335,16 +294,15 @@ export class SharedOptionComponent
               `[SOC 🔄] Service DisplayOrders: [${serviceDisplayOrders}] | Input DisplayOrders: [${inputDisplayOrders}]`
             );
 
-            // 🔑 FIX: Use this.optionsToDisplay to match what the UI renders, NOT question.options
+            // FIX: Use this.optionsToDisplay to match what the UI renders, NOT question.options
             // This ensures the "Option X" numbers match what the user sees on screen
             const freshFeedback =
               this.feedbackService.generateFeedbackForOptions(
                 correctOptions,
-                this.optionsToDisplay // Use the Input options that match UI order
+                this.optionsToDisplay  // use the Input options that match UI order
               );
-            console.log(`[SOC 🔄] Q${idx + 1} freshFeedback:`, freshFeedback);
 
-            // Clear and update feedbackConfigs - THIS IS WHAT THE TEMPLATE USES
+            // Clear and update feedbackConfigs
             this.feedbackConfigs = {};
 
             // Update all option bindings with fresh feedback
@@ -391,7 +349,7 @@ export class SharedOptionComponent
         distinctUntilChanged(
           (prev, curr) => JSON.stringify(prev) === JSON.stringify(curr)
         ),
-        observeOn(animationFrameScheduler) // defer processing until next animation frame
+        observeOn(animationFrameScheduler)  // defer processing until next animation frame
       )
       .subscribe((incoming) => {
         const selList: SelectedOption[] = Array.isArray(incoming)
