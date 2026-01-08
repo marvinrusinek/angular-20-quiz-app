@@ -2636,14 +2636,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           }
 
           // Delay reopening FET gates slightly so preload emissions don't leak
-          for (const ets of [this.explanationTextService]) {
-            ets.setShouldDisplayExplanation(false);
-            ets.setIsExplanationTextDisplayed(false);
-            setTimeout(() => {
-              ets.setShouldDisplayExplanation(false);
-              ets.setIsExplanationTextDisplayed(false);
-            }, 100);
-          }
+          this.explanationTextService.setShouldDisplayExplanation(false);
+          this.explanationTextService.setIsExplanationTextDisplayed(false);
         } catch (err: any) {
           console.warn('[QUIZ INIT] ⚠️ Could not seed initial question text', err);
         }
@@ -2955,7 +2949,10 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     console.warn('Resetting the current question state.');
   }
 
-  private async updateCorrectAnswersText(question: QuizQuestion, options: Option[]): Promise<void> {
+  private async updateCorrectAnswersText(
+    question: QuizQuestion, 
+    options: Option[]
+  ): Promise<void> {
     try {
       const [multipleAnswers, isExplanationDisplayed] = await Promise.all([
         this.isMultipleAnswer(question),
@@ -2981,7 +2978,11 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     const numCorrectAnswers = 
       this.quizQuestionManagerService.calculateNumberOfCorrectAnswers(options);
     const totalOptions = Array.isArray(options) ? options.length : 0;
-    return this.quizQuestionManagerService.getNumberOfCorrectAnswersText(numCorrectAnswers, totalOptions);
+
+    return this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
+      numCorrectAnswers,
+      totalOptions
+    );
   }
 
   private processQuizData(questionIndex: number, selectedQuiz: Quiz): void {
