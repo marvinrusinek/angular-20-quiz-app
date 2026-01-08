@@ -7,8 +7,8 @@ import { CommonModule, AsyncPipe } from '@angular/common';
 import { FormGroup } from '@angular/forms';
 import { ActivatedRoute, NavigationEnd, ParamMap, Params, Router } from '@angular/router';
 import {
-  BehaviorSubject, combineLatest, EMPTY, firstValueFrom, forkJoin, merge, Observable,
-  of, Subject, Subscription, throwError
+  BehaviorSubject, combineLatest, EMPTY, firstValueFrom, merge, Observable, of,
+  Subject, Subscription, throwError
 } from 'rxjs';
 import {
   catchError, debounceTime, distinctUntilChanged, filter, map, retry, shareReplay,
@@ -44,16 +44,11 @@ import { QuizQuestionManagerService } from '../../shared/services/quizquestionmg
 import { ExplanationTextService } from '../../shared/services/explanation-text.service';
 import { NextButtonStateService } from '../../shared/services/next-button-state.service';
 import { RenderStateService } from '../../shared/services/render-state.service';
-
-
 import { SelectedOptionService } from '../../shared/services/selectedoption.service';
 import { SelectionMessageService } from '../../shared/services/selection-message.service';
 import { TimerService } from '../../shared/services/timer.service';
 import { ResetStateService } from '../../shared/services/reset-state.service';
 import { ResetBackgroundService } from '../../shared/services/reset-background.service';
-
-
-
 import { SharedVisibilityService } from '../../shared/services/shared-visibility.service';
 import { SoundService } from '../../shared/services/sound.service';
 import { UserPreferenceService } from '../../shared/services/user-preference.service';
@@ -253,8 +248,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     private renderStateService: RenderStateService,
     private resetStateService: ResetStateService,
     private resetBackgroundService: ResetBackgroundService,
-
-
     private sharedVisibilityService: SharedVisibilityService,
     private soundService: SoundService,
     private activatedRoute: ActivatedRoute,
