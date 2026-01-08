@@ -458,7 +458,7 @@ export class QuizQuestionComponent extends BaseQuestion
     if (this.questionToDisplay$) {
       this.latestQuestionText$ = this.questionToDisplay$.pipe(
         map((value) => value ?? ''),  // ensure it's always a string
-        distinctUntilChanged(),
+        distinctUntilChanged()
       );
     }
   }
