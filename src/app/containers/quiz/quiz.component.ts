@@ -4060,10 +4060,10 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     // Evaluate Correctness
     if (questionContext && questionContext.options) {
-      const correctOptions = questionContext.options.filter((o: any) =>
+      const correctOptions = questionContext.options.filter((o: Option) =>
         o.correct);
-      const correctIds = new Set(correctOptions.map((o: any) => o.optionId));
-      const correctTexts = new Set(correctOptions.map((o: any) =>
+      const correctIds = new Set(correctOptions.map((o: Option) => o.optionId));
+      const correctTexts = new Set(correctOptions.map((o: Option) =>
         normalize(o.text)));
       const isMultiAnswer = correctOptions.length > 1;
 
@@ -4142,8 +4142,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     // Simple navigation -- update index and use router
     // quizId is needed for the route
-    const quizId =
-      this.quizService.quizId || this.quizService.getCurrentQuizId();
+    const quizId = this.quizService.quizId || this.quizService.getCurrentQuizId();
     console.log(`[DOT NAV] Navigating to Q${index + 1} for quiz ${quizId}`);
 
     // Update the service state
