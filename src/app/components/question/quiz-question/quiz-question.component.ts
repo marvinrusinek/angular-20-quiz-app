@@ -62,10 +62,7 @@ export interface FeedbackConfig {
 })
 export class QuizQuestionComponent extends BaseQuestion
   implements OnInit, OnChanges, OnDestroy, AfterViewInit {
-  @ViewChild('dynamicAnswerContainer', {
-    read: ViewContainerRef,
-    static: false
-  })
+  @ViewChild('dynamicAnswerContainer', { read: ViewContainerRef, static: false })
   dynamicAnswerContainer!: ViewContainerRef;
   @ViewChild(SharedOptionComponent, { static: false })
   sharedOptionComponent!: SharedOptionComponent;
@@ -102,9 +99,7 @@ export class QuizQuestionComponent extends BaseQuestion
   };
   @Input() override question!: QuizQuestion;
   @Input() question$!: Observable<QuizQuestion>;
-  @Input() questions$: Observable<QuizQuestion[]> = new Observable<
-    QuizQuestion[]
-  >();
+  @Input() questions$: Observable<QuizQuestion[]> = new Observable<QuizQuestion[]>();
   @Input() options!: Option[];
   @Input() override optionsToDisplay: Option[] = [];
   @Input() currentQuestion: QuizQuestion | null = null;
@@ -283,9 +278,6 @@ export class QuizQuestionComponent extends BaseQuestion
   private isUserClickInProgress = false;
 
   private _abortController: AbortController | null = null;
-
-  private _visibilityRestoreInProgress = false;
-  private _suppressDisplayStateUntil = 0;
 
   private destroy$: Subject<void> = new Subject<void>();
 
