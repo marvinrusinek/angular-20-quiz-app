@@ -829,28 +829,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   }
 
   async ngAfterViewInit(): Promise<void> {
-    setTimeout(() => {
-      const host = document.querySelector('.animation-host');
-      if (!host) return;
-
-      const observer = new MutationObserver((mutations) => {
-        for (const m of mutations) {
-          for (const node of Array.from(m.addedNodes)) {
-            if (node instanceof HTMLElement) {
-              console.log(
-                '%c[GHOST CANDIDATE]',
-                'color: magenta; font-weight: bold;',
-                node.tagName,
-                node.className
-              );
-            }
-          }
-        }
-      });
-
-      observer.observe(host, { childList: true, subtree: true });
-    }, 0);
-
     // Check scroll indicator on initial load
     setTimeout(() => this.checkScrollIndicator(), 500);
 
