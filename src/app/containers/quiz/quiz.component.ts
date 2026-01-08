@@ -38,12 +38,16 @@ import { QuizQuestionManagerService } from '../../shared/services/quizquestionmg
 import { ExplanationTextService } from '../../shared/services/explanation-text.service';
 import { NextButtonStateService } from '../../shared/services/next-button-state.service';
 import { RenderStateService } from '../../shared/services/render-state.service';
+
+
 import { SelectedOptionService } from '../../shared/services/selectedoption.service';
 import { SelectionMessageService } from '../../shared/services/selection-message.service';
 import { TimerService } from '../../shared/services/timer.service';
-
 import { ResetStateService } from '../../shared/services/reset-state.service';
 import { ResetBackgroundService } from '../../shared/services/reset-background.service';
+
+
+
 import { SharedVisibilityService } from '../../shared/services/shared-visibility.service';
 import { SoundService } from '../../shared/services/sound.service';
 import { UserPreferenceService } from '../../shared/services/user-preference.service';
@@ -115,7 +119,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   optionSelectedSubscription!: Subscription;
   indexSubscription!: Subscription;
   subscriptions: Subscription = new Subscription();
-  private subs = new Subscription();
+
   answers: Option[] = [];
   answered = false;
   multipleAnswer = false;
@@ -243,6 +247,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     private renderStateService: RenderStateService,
     private resetStateService: ResetStateService,
     private resetBackgroundService: ResetBackgroundService,
+
+
     private sharedVisibilityService: SharedVisibilityService,
     private soundService: SoundService,
     private activatedRoute: ActivatedRoute,
@@ -1039,10 +1045,11 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     sessionStorage.setItem('displayExplanation', 'true');
   }
 
-  // REMOVE!!
   private resetQuestionState(): void {
     // Remove stale question so template can’t render old text
     this.currentQuestion = null;
+    this.question = null; // also clear this for consistency
+    this.optionsToDisplay = [];
 
     // Clear local UI state
     this.questionInitialized = false;  // block during reset
@@ -1053,31 +1060,36 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.isButtonEnabled = false;
     this.nextButtonStateService.reset();
 
-    // Only reset options if current question exists
-    if (!this.currentQuestion) {
-      console.warn('[loop] No currentQuestion yet');
-      return;
-    }
-    const q = this.currentQuestion as QuizQuestion;
-    if (q?.options?.length) {
-      for (const option of q.options) {
-        if (option.selected || option.highlight || !option.active) {
-          console.log(
-            `[resetQuestionState] Clearing state for optionId: ${option.optionId}`
-          );
-        }
+    // Reset visual selection state
+    this.showFeedbackForOption = {};
 
-        // Reset all option UI-related flags
-        option.selected = false;
-        option.highlight = false;
-        option.active = true;
-        option.showIcon = false;
-        option.feedback = undefined;
+    // Reset question component state only if method exists
+    if (this.quizQuestionComponent) {
+      if (typeof this.quizQuestionComponent.resetFeedback === 'function') {
+        this.quizQuestionComponent.resetFeedback();
+      }
+      if (typeof this.quizQuestionComponent.resetState === 'function') {
+        this.quizQuestionComponent.resetState();
       }
     } else {
       console.warn(
-        '[resetQuestionState] ⚠️ No current question options found to reset.'
+        '[resetQuestionState] ⚠️ quizQuestionComponent not initialized or dynamically loaded.'
       );
+    }
+
+    // Trigger global reset events and background reset
+    this.resetBackgroundService.setShouldResetBackground(true);
+    this.resetStateService.triggerResetFeedback();
+    this.resetStateService.triggerResetState();
+
+    // Clear selected options tracking
+    this.selectedOptionService.clearOptions();
+
+    // Reset explanation state if not locked
+    if (!this.explanationTextService.isExplanationLocked()) {
+      this.explanationTextService.resetExplanationState();
+    } else {
+      console.log('[resetQuestionState] 🛡️ Skipping explanation reset — lock is active.');
     }
 
     // Reset internal selected options tracking
@@ -1104,7 +1116,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       }
     }
 
-    this.subs.unsubscribe();
+
     this.destroy$.next();
     this.destroy$.complete();
     this.unsubscribe$.next();
@@ -3625,7 +3637,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         );
       }
 
-      this.resetUI();
+      this.resetQuestionState();
 
       this.explanationTextService.unlockExplanation();
       this.explanationTextService.resetStateBetweenQuestions();
@@ -3716,48 +3728,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     void this.quizQuestionComponent.loadDynamicComponent(this.currentQuestion, this.optionsToDisplay);
   }
 
-  // REMOVE!!
-  // Reset UI immediately before navigating
-  private resetUI(): void {
-    // Clear current question reference and options
-    this.question = null;
-    this.currentQuestion = null;
-    this.optionsToDisplay = [];
-
-    // Reset question component state only if method exists
-    if (this.quizQuestionComponent) {
-      if (typeof this.quizQuestionComponent.resetFeedback === 'function') {
-        this.quizQuestionComponent.resetFeedback();
-      }
-      if (typeof this.quizQuestionComponent.resetState === 'function') {
-        this.quizQuestionComponent.resetState();
-      }
-    } else {
-      console.warn(
-        '[resetUI] ⚠️ quizQuestionComponent not initialized or dynamically ' +
-        'loaded.'
-      );
-    }
-
-    // Reset visual selection state
-    this.showFeedbackForOption = {};
-
-    // Background reset
-    this.resetBackgroundService.setShouldResetBackground(true);
-
-    // Trigger global reset events
-    this.resetStateService.triggerResetFeedback();
-    this.resetStateService.triggerResetState();
-
-    // Clear selected options tracking
-    this.selectedOptionService.clearOptions();
-
-    if (!this.explanationTextService.isExplanationLocked()) {
-      this.explanationTextService.resetExplanationState();
-    } else {
-      console.log('[resetUI] 🛡️ Skipping explanation reset — lock is active.');
-    }
-  }
 
   private resetQuestionDisplayState(): void {
     this.questionToDisplay = '';
