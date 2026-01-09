@@ -1,18 +1,6 @@
-import {
-  AfterViewInit,
-  ChangeDetectionStrategy,
-  ChangeDetectorRef,
-  Component,
-  EventEmitter,
-  Input,
-  OnChanges,
-  OnInit,
-  Output,
-  QueryList,
-  SimpleChanges,
-  ViewChild,
-  ViewContainerRef,
-} from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, 
+  EventEmitter, Input, OnChanges, OnInit, Output, QueryList, SimpleChanges,
+  ViewChild, ViewContainerRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder } from '@angular/forms';
 import { Subject } from 'rxjs';
@@ -41,10 +29,9 @@ import { SharedOptionComponent } from '../shared-option-component/shared-option.
   standalone: true,
   imports: [CommonModule, SharedOptionComponent],
   templateUrl: './answer.component.html',
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class AnswerComponent
-  extends BaseQuestion<OptionClickedPayload>
+export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
   implements OnInit, OnChanges, AfterViewInit {
 
   viewContainerRefs!: QueryList<ViewContainerRef>;
@@ -52,14 +39,11 @@ export class AnswerComponent
   @ViewChild(SharedOptionComponent)
   sharedOptionComponent!: SharedOptionComponent;
 
-  //@Output() componentLoaded = new EventEmitter<QuizQuestionComponent>();
   @Output() componentLoaded = new EventEmitter<any>();
-  // quizQuestionComponent?: InstanceType<ReturnType<typeof forwardRef>>;
-  //quizQuestionComponent: QuizQuestionComponent | undefined;
   @Output() optionSelected = new EventEmitter<{
-    option: SelectedOption;
-    index: number;
-    checked: boolean;
+    option: SelectedOption,
+    index: number,
+    checked: boolean
   }>();
   @Output() override optionClicked =
     new EventEmitter<OptionClickedPayload>() as any;
@@ -67,7 +51,7 @@ export class AnswerComponent
   @Input() isNavigatingBackwards: boolean = false;
   override quizQuestionComponentOnOptionClicked!: (
     option: SelectedOption,
-    index: number,
+    index: number
   ) => void;
   @Input() currentQuestionIndex!: number;
   @Input() quizId!: string;
@@ -81,7 +65,7 @@ export class AnswerComponent
   incomingOptions: Option[] = [];
   override sharedOptionConfig!: SharedOptionConfig;
   hasComponentLoaded = false;
-  override type: 'single' | 'multiple' = 'single'; // store the type (single/multiple answer)
+  override type: 'single' | 'multiple' = 'single';  // store the type (single/multiple answer)
   override selectedOptionIndex = -1;
   renderReady = false;
 
@@ -94,10 +78,6 @@ export class AnswerComponent
   @Input()
   set questionIndex(v: number | null) {
     this._questionIndex = v;
-    console.log(
-      '%c[AC] questionIndex input = ' + v,
-      'background:#333;color:#0f0',
-    );
   }
 
   get questionIndex(): number | null {
@@ -114,7 +94,7 @@ export class AnswerComponent
     protected override quizStateService: QuizStateService,
     protected override selectedOptionService: SelectedOptionService,
     protected override fb: FormBuilder,
-    protected override cdRef: ChangeDetectorRef,
+    protected override cdRef: ChangeDetectorRef
   ) {
     super(
       fb,
@@ -123,7 +103,7 @@ export class AnswerComponent
       quizService,
       quizStateService,
       selectedOptionService,
-      cdRef,
+      cdRef
     );
   }
 
@@ -137,15 +117,12 @@ export class AnswerComponent
       this.applyIncomingOptions(this.optionsToDisplay);
     }
 
-    this.quizService
-      .getCurrentQuestion(this.quizService.currentQuestionIndex)
+    this.quizService.getCurrentQuestion(this.quizService.currentQuestionIndex)
       .subscribe((currentQuestion: QuizQuestion | null) => {
         if (!currentQuestion) return;
-        // ⚡ FIX: Calculate synchronously. Service returns Observable which caused bugs.
         const correctCount = currentQuestion.options?.filter(o => o.correct).length ?? 0;
         const isMultipleAnswer = correctCount > 1;
         this.type = isMultipleAnswer ? 'multiple' : 'single';
-        console.log(`[AC] Question Type Resolved: ${this.type} (Correct Options: ${correctCount})`);
       });
 
     // Displays the unique options to the UI
@@ -160,7 +137,7 @@ export class AnswerComponent
 
         // Apply options synchronously (removed Promise.resolve to fix StackBlitz timing)
         this.applyIncomingOptions(this.incomingOptions, {
-          resetSelection: false,
+          resetSelection: false
         });
       });
   }
@@ -168,17 +145,16 @@ export class AnswerComponent
   override async ngOnChanges(changes: SimpleChanges): Promise<void> {
     let shouldMark = false;
 
-    // RESET ONLY WHEN QUESTION CHANGES
+    // Reset only when question changes
     if (changes['questionData']) {
       const q = changes['questionData'].currentValue;
       console.log(`[AC] 🔄 Input 'questionData' changed:`,
         q ? `ID=${q.questionId} Text="${q.questionText?.substring(0, 20)}..."` : 'NULL');
 
       if (q) {
-        // ⚡ FIX: Calculate synchronously from INPUT, not async service
+        // Calculate synchronously from INPUT, not async service
         const correctCount = q.options?.filter((o: Option) => o.correct).length ?? 0;
         this.type = correctCount > 1 ? 'multiple' : 'single';
-        console.log(`[AC] ⚡ Sync Type Resolution: ${this.type} (Correct: ${correctCount})`);
       }
 
       this._wasComplete = false;
@@ -192,11 +168,9 @@ export class AnswerComponent
 
       if (refChanged) {
         if (Array.isArray(next) && next.length) {
-          console.log('[📥 AnswerComponent] optionsToDisplay changed:', change);
-
-          this.optionBindingsSource = next.map((o) => ({ ...o }));
+          this.optionBindingsSource = next.map((o: Option) => ({ ...o }));
           this.optionBindings = this.rebuildOptionBindings(
-            this.optionBindingsSource,
+            this.optionBindingsSource
           );
           this.applyIncomingOptions(next);
           this.cdRef.markForCheck();
@@ -223,7 +197,7 @@ export class AnswerComponent
       console.error('viewContainerRefs is undefined or not initialized.');
     }
 
-    this.cdRef.detectChanges(); // ensure change detection runs
+    this.cdRef.detectChanges();  // ensure change detection runs
   }
 
   override ngOnDestroy(): void {
@@ -236,22 +210,21 @@ export class AnswerComponent
     this.selectedOptions = [];
     this.selectedOptionIndex = -1;
     this.showFeedbackForOption = {};
-    // this.selectedOptionService.clearSelectedOption(); // DO NOT CLEAR SERVICE STATE ON COMPONENT RESET
   }
 
   private normalizeOptions(options: Option[]): Option[] {
     return (options ?? []).map((option, index) => ({
       ...option,
-      optionId: option.optionId ?? index,
+      optionId: option.optionId ?? index
     }));
   }
 
   private applyIncomingOptions(
     options: Option[],
-    config: { resetSelection?: boolean } = {},
+    config: { resetSelection?: boolean } = {}
   ): void {
     const normalized = this.normalizeOptions(options);
-    const nextOptions = normalized.map((option) => ({ ...option }));
+    const nextOptions = normalized.map((option: Option) => ({ ...option }));
 
     if (config.resetSelection ?? true) this.resetSelectionState();
 
@@ -261,7 +234,7 @@ export class AnswerComponent
     if (this.sharedOptionConfig) {
       this.sharedOptionConfig = {
         ...this.sharedOptionConfig,
-        optionsToDisplay: nextOptions.map((option) => ({ ...option })),
+        optionsToDisplay: nextOptions.map((option: Option) => ({ ...option }))
       };
     }
 
@@ -279,7 +252,7 @@ export class AnswerComponent
     if (this.viewContainerRefs && this.viewContainerRefs.length > 0) {
       console.log(
         'viewContainerRefs available in handleViewContainerRef:',
-        this.viewContainerRefs,
+        this.viewContainerRefs
       );
       this.viewContainerRef = this.viewContainerRefs.first;  // assign the first available ViewContainerRef
       this.loadQuizQuestionComponent();
@@ -305,24 +278,19 @@ export class AnswerComponent
     }
 
     // Get the current question and determine the component to load
-    this.quizService
-      .getCurrentQuestion(this.quizService.currentQuestionIndex)
+    this.quizService.getCurrentQuestion(this.quizService.currentQuestionIndex)
       .subscribe((currentQuestion: QuizQuestion | null) => {
         if (!currentQuestion) return;
         const isMultipleAnswer =
-          this.quizQuestionManagerService.isMultipleAnswerQuestion(
-            currentQuestion
-          );
+          this.quizQuestionManagerService.isMultipleAnswerQuestion(currentQuestion);
 
         if (isMultipleAnswer) {
           this.type = isMultipleAnswer ? 'multiple' : 'single';
-          this.hasComponentLoaded = true; // prevent further attempts to load
-          this.quizQuestionComponentLoaded.emit(); // notify listeners that the component is loaded
+          this.hasComponentLoaded = true;  // prevent further attempts to load
+          this.quizQuestionComponentLoaded.emit();  // notify listeners that component is loaded
           this.cdRef.markForCheck();
         } else {
-          console.error(
-            'Could not determine whether question is multiple answer.',
-          );
+          console.error('Could not determine whether question is multiple answer.');
         }
       });
   }
@@ -334,15 +302,9 @@ export class AnswerComponent
 
     if (this.sharedOptionConfig) {
       this.sharedOptionConfig.type = this.type;
-      //this.sharedOptionConfig.quizQuestionComponentOnOptionClicked =
-      //this.quizQuestionComponentOnOptionClicked;
     } else {
-      console.error(
-        'Failed to initialize sharedOptionConfig in AnswerComponent',
-      );
+      console.error('Failed to initialize sharedOptionConfig in AnswerComponent');
     }
-
-    console.log('AnswerComponent sharedOptionConfig:', this.sharedOptionConfig);
   }
 
   public override async initializeSharedOptionConfig(): Promise<void> {
@@ -355,16 +317,9 @@ export class AnswerComponent
   public override async onOptionClicked(
     event: OptionClickedPayload,
   ): Promise<void> {
-    console.log(
-      '%c[AnswerComponent] onOptionClicked RECEIVED',
-      'background:#8b00ff;color:white;font-size:14px;',
-      event,
-    );
-
     if (!event || !event.option) {
       console.error(
-        '[AnswerComponent] INVALID event passed into onOptionClicked:',
-        event,
+        '[AnswerComponent] INVALID event passed into onOptionClicked:', event
       );
       return;
     }
@@ -390,12 +345,10 @@ export class AnswerComponent
       questionIndex: activeQuestionIndex,
       selected: wasChecked === true,
       highlight: true,
-      showIcon: true,
+      showIcon: true
     };
 
-    // ──────────────────────────────────────────────
     // INTERNAL STATE UPDATE
-    // ──────────────────────────────────────────────
     if (this.type === 'single') {
       this.selectedOption = enrichedOption;
       this.selectedOptions = [enrichedOption];
@@ -403,7 +356,7 @@ export class AnswerComponent
       this.selectedOptions ??= [];
 
       const i = this.selectedOptions.findIndex(
-        (o) => o.optionId === enrichedOption.optionId,
+        (o: Option) => o.optionId === enrichedOption.optionId
       );
 
       if (enrichedOption.selected) {
@@ -417,9 +370,7 @@ export class AnswerComponent
       }
     }
 
-    // ──────────────────────────────────────────────
-    // PUSH TO SelectedOptionService (MERGE, NOT REPLACE)
-    // ──────────────────────────────────────────────
+    // Push to SelectedOptionService (merge, not replace)
     this.selectedOptionService.currentQuestionType =
       this.type === 'single' ? QuestionType.SingleAnswer : QuestionType.MultipleAnswer;
 
@@ -431,51 +382,24 @@ export class AnswerComponent
       );
     } else {
       // Multiple-answer: MERGE selection
-      this.selectedOptionService.addOption(
-        activeQuestionIndex,
-        enrichedOption
-      );
+      this.selectedOptionService.addOption(activeQuestionIndex, enrichedOption);
     }
 
     // Resolve canonical question by INDEX (never trust @Input here)
-    const question =
-      this.quizService.questions?.[activeQuestionIndex];
+    const question = this.quizService.questions?.[activeQuestionIndex];
 
     if (!question) {
       console.error(
-        '[AC][INVARIANT] Missing question for index',
-        activeQuestionIndex
+        '[AC][INVARIANT] Missing question for index', activeQuestionIndex
       );
       return;
     }
 
-    // ──────────────────────────────────────────────
     // AUTHORITATIVE COMPLETE CHECK (AFTER SOS UPDATE)
-    // ──────────────────────────────────────────────
     const selectedNow =
       this.selectedOptionService.getSelectedOptionsForQuestion(
         activeQuestionIndex,
       ) ?? [];
-
-    console.log(
-      `%c[DIAG][SELECTED NOW] Q${activeQuestionIndex + 1}`,
-      'color:#ff00ff;font-weight:bold;',
-      selectedNow.map(o => ({
-        id: o.optionId,
-        correct: o.correct,
-        selected: o.selected,
-        q: o.questionIndex,
-      })),
-    );
-
-    console.log(
-      `%c[DIAG][QUESTION OPTIONS] Q${activeQuestionIndex + 1}`,
-      'color:#00ffff;font-weight:bold;',
-      this.questionData.options.map(o => ({
-        id: o.optionId,
-        correct: o.correct,
-      })),
-    );
 
     if (this.questionIndex == null) {
       console.warn('[onOptionClicked] questionIndex is null — skipping completion check');
@@ -486,51 +410,19 @@ export class AnswerComponent
       this.selectedOptionService.getSelectedOptionsForQuestion(this.questionIndex);
 
     const complete =
-      this.selectedOptionService.isQuestionComplete(
-        question,
-        //selectedNow
-        allSelected
-      );
-
-    console.log(
-      `%c[DIAG][COMPLETE RESULT] Q${activeQuestionIndex + 1} = ${complete}`,
-      'color:red;font-weight:bold;',
-    );
-
-    console.log(
-      `%c[AC][INVARIANT] Q${activeQuestionIndex + 1}`,
-      'color:#00ffaa;font-weight:bold;',
-      {
-        selectedIds: selectedNow.map(o => o.optionId),
-        complete,
-      },
-    );
-
-    // REMOVED: Timer stop handled in SharedOptionComponent.onOptionContentClick
-    // console.log(`[AC][DEBUG] complete=${complete}, _wasComplete=${this._wasComplete}, question.type=${question.type}`);
-    // if (complete && !this._wasComplete) {
-    //   console.log(
-    //     `%c[AC][TIMER STOP] Q${activeQuestionIndex + 1} COMPLETE → stopping timer`,
-    //     'color:red;font-weight:bold;'
-    //   );
-    //   this.timerService.allowAuthoritativeStop();
-    //   this.timerService.stopTimer(undefined, { force: true });
-    //   // show formatted explanation
-    // }
+      this.selectedOptionService.isQuestionComplete(question, allSelected);
 
     this._wasComplete = complete;
 
     // Mark answered ONLY when invariant is satisfied
     this.quizStateService.setAnswerSelected(complete);
 
-    // ──────────────────────────────────────────────
     // FORWARD CLEAN PAYLOAD UPWARD
-    // ──────────────────────────────────────────────
     const cleanPayload: OptionClickedPayload = {
       option: enrichedOption,
       index: event.index,
       checked: enrichedOption.selected === true,
-      wasReselected: event.wasReselected ?? false,
+      wasReselected: event.wasReselected ?? false
     };
 
     this.optionClicked.emit(cleanPayload);
@@ -564,16 +456,13 @@ export class AnswerComponent
 
     // Gate rendering
     this.renderReady = false;
-    console.time('[🕐 renderReady false]');
     this.optionBindings = rebuilt;
 
     Promise.resolve().then(() => {
-      console.timeEnd('[🕐 renderReady false]');
       this.renderReady = true;
       this.cdRef.markForCheck();
     });
 
-    console.timeEnd('[⏱️ Rebuild OptionBindings]');
     return rebuilt;
   }
 
@@ -612,7 +501,7 @@ export class AnswerComponent
       optionsToDisplay: [], // will be replaced below
       checked: !!opt.selected,
       change: () => { },
-      active: true,
+      active: true
     } as OptionBindings;
   }
 
@@ -626,15 +515,5 @@ export class AnswerComponent
     return;
     // If the base implementation does something essential, call:
     // return super.loadDynamicComponent(_question, _options, _questionIndex);
-  }
-
-  private getActiveQuestionIndex(): number {
-    if (typeof this._questionIndex === 'number') {
-      return this._questionIndex;
-    }
-    if (typeof this.currentQuestionIndex === 'number') {
-      return this.currentQuestionIndex;
-    }
-    return 0;
   }
 }
