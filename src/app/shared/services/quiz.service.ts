@@ -154,7 +154,7 @@ export class QuizService {
 
   private readonly shuffleEnabledSubject = new BehaviorSubject<boolean>(false);
   checkedShuffle$ = this.shuffleEnabledSubject.asObservable();
-  private shuffledQuestions: QuizQuestion[] = [];
+  public shuffledQuestions: QuizQuestion[] = [];
   private canonicalQuestionsByQuiz = new Map<string, QuizQuestion[]>();
   private canonicalQuestionIndexByText = new Map<string, Map<string, number>>();
 
