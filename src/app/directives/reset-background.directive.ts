@@ -1,18 +1,11 @@
-import {
-  Directive,
-  Input,
-  ElementRef,
-  Renderer2,
-  OnDestroy,
-} from '@angular/core';
+import { Directive, Input, ElementRef, Renderer2, OnDestroy } from '@angular/core';
 import { Subscription } from 'rxjs';
 
 import { ResetBackgroundService } from '../shared/services/reset-background.service';
-import { SelectedOptionService } from '../shared/services/selectedoption.service';
 
 @Directive({
   selector: '[appResetBackground]',
-  standalone: true,
+  standalone: true
 })
 export class ResetBackgroundDirective implements OnDestroy {
   @Input() appResetBackground = false;
@@ -21,14 +14,12 @@ export class ResetBackgroundDirective implements OnDestroy {
   constructor(
     private el: ElementRef,
     private renderer: Renderer2,
-    private resetBackgroundService: ResetBackgroundService,
-    private selectedOptionService: SelectedOptionService,
+    private resetBackgroundService: ResetBackgroundService
   ) {
     this.resetBackgroundSubscription =
       this.resetBackgroundService.shouldResetBackground$.subscribe((value) => {
         if (value) {
           this.resetBackground();
-          this.clearFeedbackIcons();
         }
       });
   }
@@ -39,9 +30,5 @@ export class ResetBackgroundDirective implements OnDestroy {
 
   private resetBackground(): void {
     this.renderer.setStyle(this.el.nativeElement, 'background-color', 'white');
-  }
-
-  private clearFeedbackIcons(): void {
-    // this.selectedOptionService.clearSelectedOption(); // Visual reset only; do not wipe logic state.
   }
 }
