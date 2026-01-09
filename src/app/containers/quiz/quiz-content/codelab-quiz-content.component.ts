@@ -1,51 +1,21 @@
 import {
-  ChangeDetectionStrategy,
-  ChangeDetectorRef,
-  Component,
-  ElementRef,
-  EventEmitter,
-  Input,
-  OnChanges,
-  OnDestroy,
-  OnInit,
-  Output,
-  SimpleChanges,
-  ViewChild,
+  ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter,
+  Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges, ViewChild
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, ParamMap } from '@angular/router';
+import { ActivatedRoute, ParamMap, Params } from '@angular/router';
 import {
-  animationFrameScheduler,
-  BehaviorSubject,
-  combineLatest,
-  firstValueFrom,
-  forkJoin,
-  merge,
-  Observable,
-  of,
-  Subject,
-  Subscription,
+  animationFrameScheduler, BehaviorSubject, combineLatest, firstValueFrom,
+  forkJoin, merge, Observable, of, Subject, Subscription
 } from 'rxjs';
 import {
-  auditTime,
-  catchError,
-  debounceTime,
-  distinctUntilChanged,
-  filter,
-  map,
-  observeOn,
-  shareReplay,
-  skip,
-  skipUntil,
-  startWith,
-  switchMap,
-  take,
-  takeUntil,
-  tap,
-  withLatestFrom,
+  auditTime, catchError, debounceTime, distinctUntilChanged, filter, map,
+  observeOn, shareReplay, skip, skipUntil, startWith, switchMap, take, takeUntil,
+  tap, withLatestFrom
 } from 'rxjs/operators';
 
-import { CombinedQuestionDataType } from '../../../shared/models/CombinedQuestionDataType.model';
+import { CombinedQuestionDataType } from
+  '../../../shared/models/CombinedQuestionDataType.model';
 import { Option } from '../../../shared/models/Option.model';
 import { QuestionType } from '../../../shared/models/question-type.enum';
 import { QuestionPayload } from '../../../shared/models/QuestionPayload.model';
@@ -53,14 +23,14 @@ import { QuizQuestion } from '../../../shared/models/QuizQuestion.model';
 import { QuizService } from '../../../shared/services/quiz.service';
 import { QuizDataService } from '../../../shared/services/quizdata.service';
 import { QuizNavigationService } from '../../../shared/services/quiz-navigation.service';
-import { QuizQuestionLoaderService } from '../../../shared/services/quizquestionloader.service';
+import { QuizQuestionLoaderService } from
+  '../../../shared/services/quizquestionloader.service';
 import { QuizQuestionManagerService } from '../../../shared/services/quizquestionmgr.service';
 import { QuizStateService } from '../../../shared/services/quizstate.service';
-import {
-  ExplanationTextService,
-  FETPayload,
-} from '../../../shared/services/explanation-text.service';
-import { QuizQuestionComponent } from '../../../components/question/quiz-question/quiz-question.component';
+import { ExplanationTextService, FETPayload } from
+  '../../../shared/services/explanation-text.service';
+import { QuizQuestionComponent } from
+  '../../../components/question/quiz-question/quiz-question.component';
 
 interface QuestionViewState {
   index: number;
@@ -76,16 +46,16 @@ interface QuestionViewState {
   imports: [CommonModule],
   templateUrl: './codelab-quiz-content.component.html',
   styleUrls: ['./codelab-quiz-content.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class CodelabQuizContentComponent
-  implements OnInit, OnChanges, OnDestroy {
+export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy {
   @ViewChild(QuizQuestionComponent, { static: false })
   quizQuestionComponent!: QuizQuestionComponent;
   @ViewChild('qText', { static: true })
   qText!: ElementRef<HTMLHeadingElement>;
 
   @Output() isContentAvailableChange = new EventEmitter<boolean>();
+
   @Input() combinedQuestionData$: Observable<CombinedQuestionDataType> | null =
     null;
   @Input() currentQuestion = new BehaviorSubject<QuizQuestion | null>(null);
@@ -123,20 +93,12 @@ export class CodelabQuizContentComponent
     // replay the previous question's FET (e.g., Q1 on Q4's first click).
     const ets = this.explanationTextService;
     ets._activeIndex = idx;
-    // REMOVED AGGRESSIVE RESET LOGIC:
-    // Calling ets.resetForIndex(idx), clearing subjects, and hiding explanation here
-    // destroys persisting state when the user navigates back to this tab/route.
-    // The service handles resetting internally via activeIndex$ subscription if needed.
 
-    // ⚡ FIX: Conditional Reset Logic
-    // Only reset the ExplanationTextService state if the question is UNANSWERED.
-    // - For new Q3 (unanswered): We WANT to wipe the state so no stale FET from Q2 shows up.
-    // - For visited Q1 (answered): We DO NOT want to wipe state, so persistence works.
-
-    // CRITICAL FIX: Check if ANY option in this question has been selected
+    // Check if ANY option in this question has been selected
     // This is the most reliable check - options are the source of truth
     const currentQuestion = this.quizService.questions?.[idx];
-    const hasSelectedOption = currentQuestion?.options?.some((o: Option) => o.selected) ?? false;
+    const hasSelectedOption =
+      currentQuestion?.options?.some((o: Option) => o.selected) ?? false;
 
     if (!hasSelectedOption) {
       // No valid FET for this question = it wasn't answered, clear everything
@@ -145,29 +107,22 @@ export class CodelabQuizContentComponent
       ets.latestExplanationIndex = idx;
       ets.formattedExplanationSubject.next('');
       ets.explanationText$.next('');
-      // CRITICAL: Clear any cached FET for this index to prevent stale FET display
+      // Clear any cached FET for this index to prevent stale FET display
       ets.fetByIndex?.delete(idx);
-      // CRITICAL: Also clear the local question text cache which may have stale FET
+      // Also clear the local question text cache which may have stale FET
       this._lastQuestionTextByIndex?.delete(idx);
-      // CRITICAL: Clear stale selectedOptionsMap entry so isAnswered() returns false
+      // Clear stale selectedOptionsMap entry so isAnswered() returns false
       this.quizService.selectedOptionsMap?.delete(idx);
-      // CRITICAL: Clear session tracking so stale FET won't persist
+      // Clear session tracking so stale FET won't persist
       this._fetDisplayedThisSession?.delete(idx);
       ets.setShouldDisplayExplanation(false, { force: true });
       ets.setIsExplanationTextDisplayed(false, { force: true });
       this.quizStateService.setDisplayState({ mode: 'question', answered: false });
-
-      /*
-      // 🔒 Removed aggressive DOM overwrite. 
-      // This was using quizService.questions[idx] directly (potentially unshuffled) 
-      // and overwriting the correct shuffled text from displayText$.
-      // The reactive stream is now the single source of truth.
-      */
     } else {
       // Has valid FET: preserve state for persistence
     }
 
-    // Reset local view flags (Component level)
+    // Reset local view flags (component-level)
     this.resetExplanationView();
     if (this._showExplanation) this._showExplanation = false;
 
@@ -182,7 +137,6 @@ export class CodelabQuizContentComponent
   private combinedTextSubject = new BehaviorSubject<string>('');
   combinedText$ = this.combinedTextSubject.asObservable();
 
-
   private shouldDisplayCorrectAnswersSubject: BehaviorSubject<boolean> =
     new BehaviorSubject<boolean>(false);
   shouldDisplayCorrectAnswers$ =
@@ -191,22 +145,20 @@ export class CodelabQuizContentComponent
   currentQuestionIndexValue = 0;
   currentQuestion$: BehaviorSubject<QuizQuestion | null> =
     new BehaviorSubject<QuizQuestion | null>(null);
-  currentOptions$: BehaviorSubject<Option[] | null> = new BehaviorSubject<
-    Option[] | null
-  >([]);
+  currentOptions$: BehaviorSubject<Option[] | null> =
+    new BehaviorSubject<Option[] | null>([]);
   currentQuestionIndex$!: Observable<number>;
   nextQuestion$: Observable<QuizQuestion | null>;
   previousQuestion$: Observable<QuizQuestion | null>;
   isNavigatingToPrevious = false;
 
   private _lastQuestionTextByIndex = new Map<number, string>();
+
   // Session-based tracking: which questions have had FET displayed this session
   private _fetDisplayedThisSession = new Set<number>();
 
-  private overrideSubject = new BehaviorSubject<{ idx: number; html: string }>({
-    idx: -1,
-    html: '',
-  });
+  private overrideSubject =
+    new BehaviorSubject<{ idx: number; html: string }>({ idx: -1, html: '' });
   private currentIndex = -1;
   currentIndex$ = this.quizService.currentQuestionIndex$;
   private explanationCache = new Map<string, string>();
@@ -227,6 +179,7 @@ export class CodelabQuizContentComponent
   isExplanationTextDisplayed$: Observable<boolean>;
   private isExplanationDisplayed$ = new BehaviorSubject<boolean>(false);
   private _showExplanation = false;
+
   // Use the service's indexed formattedExplanation$ so we can ignore stale payloads
   // that belong to previous questions (e.g., Q1 showing while on Q4).
   formattedExplanation$: Observable<FETPayload> = this.explanationTextService
@@ -234,16 +187,17 @@ export class CodelabQuizContentComponent
     .pipe(
       startWith<FETPayload>({ idx: -1, text: '', token: 0 }),
       distinctUntilChanged(
-        (a: FETPayload, b: FETPayload) => a.idx === b.idx && a.text === b.text,
-      ),
+        (a: FETPayload, b: FETPayload) => a.idx === b.idx && a.text === b.text
+      )
     );
 
   public activeFetText$: Observable<string> = this.formattedExplanation$.pipe(
     withLatestFrom(this.quizService.currentQuestionIndex$),
     map(([payload, idx]) => (payload?.idx === idx ? (payload.text ?? '') : '')),
     startWith(''),
-    distinctUntilChanged(),
+    distinctUntilChanged()
   );
+
   // SIMPLE: One observable that switches between question text and FET
   // Will be initialized in ngOnInit after inputs are set
   displayText$!: Observable<string>;
@@ -262,10 +216,8 @@ export class CodelabQuizContentComponent
 
   private correctAnswersDisplaySubject = new Subject<boolean>();
 
-  questionRendered: BehaviorSubject<boolean> = new BehaviorSubject<boolean>(
-    false,
-  );
-
+  questionRendered: BehaviorSubject<boolean> =
+    new BehaviorSubject<boolean>(false);
 
   isContentAvailable$!: Observable<boolean>;
 
@@ -282,10 +234,11 @@ export class CodelabQuizContentComponent
     private quizQuestionLoaderService: QuizQuestionLoaderService,
     private quizQuestionManagerService: QuizQuestionManagerService,
     private activatedRoute: ActivatedRoute,
-    private cdRef: ChangeDetectorRef,
+    private cdRef: ChangeDetectorRef
   ) {
     this.nextQuestion$ = this.quizService.nextQuestion$;
     this.previousQuestion$ = this.quizService.previousQuestion$;
+    this.displayState$ = this.quizStateService.displayState$;
 
     this.quizNavigationService
       .getIsNavigatingToPrevious()
@@ -298,285 +251,15 @@ export class CodelabQuizContentComponent
   }
 
   async ngOnInit(): Promise<void> {
-    console.log('[CQCC] ngOnInit STARTED');
-    this.isExplanationDisplayed = false;
-    this.explanationTextService.setIsExplanationTextDisplayed(false);
-
-    if (this.questionToDisplay$) {
-      combineLatest([
-        this.questionToDisplay$.pipe(startWith(''), distinctUntilChanged()),
-        this.quizService.currentQuestionIndex$.pipe(
-          startWith(this.quizService?.currentQuestionIndex ?? 0),
-        ),
-      ])
-        .pipe(takeUntil(this.destroy$))
-        .subscribe(([, index]) => {
-          if (this.lastQuestionIndexForReset !== index) {
-            this.explanationTextService.setShouldDisplayExplanation(false);
-            this.lastQuestionIndexForReset = index;
-
-            // ⚡ FIX: Reset display state for NEW questions only
-            // If the question is NOT answered, we must force 'question' mode.
-            // If it IS answered, we leave it alone (persisting explanation if set).
-            this.quizService.isAnswered(index).pipe(take(1)).subscribe(isAnswered => {
-              if (!isAnswered) {
-                this.quizStateService.setDisplayState({ mode: 'question', answered: false });
-                this.explanationTextService.setIsExplanationTextDisplayed(false, { force: true });
-              }
-            });
-          }
-        });
-    }
-
-    this.displayState$ = this.quizStateService.displayState$;
-
-    // Resolve the correct question object (respecting shuffle) for the current index
-    const questionForIndex$ = this.quizService.currentQuestionIndex$.pipe(
-      switchMap((idx) => this.quizService.getQuestionByIndex(idx)),
-      // startWith(null) // ⚡ FIX: Don't emit null! Wait for the real question.
-    );
-
-    // Initialize displayText$ - handles both question text with banner and FET display
-    this.displayText$ = combineLatest([
-      this.displayState$ || of({ mode: 'question' as const, answered: false }),
-      this.questionToDisplay$ || of(''),
-      this.formattedExplanation$,
-      this.currentIndex$,
-      this.quizService.questions$.pipe(
-        filter((q) => Array.isArray(q) && q.length > 0),
-        startWith(this.quizService.questions || []),
-      ),
-      questionForIndex$,
-    ]).pipe(
-      debounceTime(50), // Allow time for questions to load
-      switchMap(([state, qText, fetPayload, idx, questions, questionObj]) => {
-        // ⚡ FIX: Sync Safeguard
-        const safeIdx = Number.isFinite(idx)
-          ? idx
-          : Number.isFinite(this.currentIndex)
-            ? this.currentIndex
-            : 0;
-
-        // ⚡ CRITICAL FIX: Prioritize PARENT provided text (qText)
-        // Do NOT fetch text from questions array as it might be unshuffled.
-        // references from questions array should ONLY be used for metadata (options count).
-        const rawQText = (qText as string)?.trim();
-
-        // Check if this is a multiple-answer question (use resolved object first, then fallback)
-        const qObj =
-          questionObj ||
-          (Array.isArray(questions) ? questions[safeIdx] : undefined) ||
-          (Array.isArray(this.quizService.questions)
-            ? this.quizService.questions[safeIdx]
-            : undefined);
-
-        // DEBUG: Log values to trace Q3 issue
-        console.log(`[displayText$ DEBUG] idx=${idx}, safeIdx=${safeIdx}, qText="${(qText as string)?.substring(0, 50)}", qObj.questionText="${qObj?.questionText?.substring(0, 50)}"`);
-
-        // ⚡ FIX: Reactive "Is Answered" Check
-        // Now that selectedOptionsMap is reliable, we use the observable to determine status.
-        return this.quizService.isAnswered(safeIdx).pipe(
-          map((isAnswered) => {
-
-            // CRITICAL FIX: Always show question text if NOT answered, regardless of mode
-            const mode = isAnswered ? (state?.mode || 'question') : 'question';
-            const dummyQText = (qText ?? '').trim(); // kept for interface compatibility if needed
-            const trimmedQText = dummyQText; // Restore variable for downstream usage
-
-            const numCorrect =
-              qObj?.options?.filter((o: Option) => o.correct).length || 0;
-            const isMulti = numCorrect > 1;
-
-            // Generate banner text for multiple-answer questions
-            let bannerText = '';
-            if (isMulti && qObj) {
-              const totalOpts = qObj.options?.length || 0;
-              bannerText =
-                this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
-                  numCorrect,
-                  totalOpts,
-                );
-            }
-
-            // CRITICAL FIX: Double-check using fetByIndex as source of truth
-            const hasFetStored = this.explanationTextService.fetByIndex?.has(safeIdx) &&
-              (this.explanationTextService.fetByIndex?.get(safeIdx)?.trim()?.length ?? 0) > 10;
-            const actuallyAnswered = isAnswered && hasFetStored;
-
-            // DEBUG: Log decision values
-            console.log(`[displayText$ DECISION] safeIdx=${safeIdx}, isAnswered=${isAnswered}, hasFetStored=${hasFetStored}, actuallyAnswered=${actuallyAnswered}, rawQText="${rawQText.substring(0, 50)}"`);
-
-            // CRITICAL: If NOT answered, ALWAYS return question text (never FET or "No explanation")
-            if (!actuallyAnswered) {
-              // ⚡ STRICT PRIORITY FIX:
-              // Prioritize questionObj (from Service) because we verified it correctly respects shuffle.
-              // rawQText (from Parent) was found to be stale (stuck on previous question) during navigation.
-              const serviceQText = (questionObj?.questionText ?? '').trim();
-              const effectiveQText = serviceQText || rawQText;
-
-              if (!effectiveQText) {
-                // If we have nothing safe, wait. Don't show wrong text.
-                console.warn(`[displayText$] ⚠️ Q${safeIdx + 1} No safe text available yet.`);
-                return '';
-              }
-
-              console.log(`[displayText$ RETURN] Q${safeIdx + 1} NOT ANSWERED → returning question text: "${effectiveQText?.substring(0, 50)}"`);
-
-              if (isMulti && bannerText) {
-                return `${effectiveQText} <span class="correct-count">${bannerText}</span>`;
-              }
-              return effectiveQText;
-            }
-
-            // Check if FET belongs to current question (only matters if answered)
-            const belongsToIndex = fetPayload?.idx === safeIdx;
-            const trimmedFet = belongsToIndex
-              ? (fetPayload?.text ?? '').trim()
-              : '';
-
-            const isValidFet =
-              belongsToIndex &&
-              trimmedFet !== 'No explanation available' &&
-              trimmedFet !== 'No explanation available for this question.' &&
-              trimmedFet.length > 10;
-
-            if (mode === 'explanation') {
-              if (isValidFet) {
-                if (isMulti && bannerText) {
-                  return `${trimmedFet}`;
-                }
-                return trimmedFet;
-              }
-              // If in explanation mode but no FET, fall back to "No explanation available"
-              return 'No explanation available.';
-            }
-
-            // QUESTION MODE (answered case)
-            if (!trimmedQText) return '';
-
-            if (isMulti && bannerText) {
-              return `${trimmedQText} <span class="correct-count">${bannerText}</span>`;
-            }
-
-            return trimmedQText;
-          })
-        );
-      }),
-      distinctUntilChanged(),
-    );
-
-    this.resetExplanationView();
-
-    this.explanationTextService.setShouldDisplayExplanation(false);
-    this.explanationTextService.explanationText$.next('');
-
-    this.explanationTextService.resetForIndex(0);
-    this.explanationTextService.setShouldDisplayExplanation(false, {
-      force: true,
-    });
-
-    // Build the stream only once globally
-    this.combinedText$ = this.getCombinedDisplayTextStream();
-
-    // Subscribe to displayText$ to update the DOM (works alongside template binding)
-    // This ensures the question text and explanations are displayed
-    // Wait for displayText$ to be initialized in ngOnInit
-    setTimeout(() => {
-      console.log(`[CQCC TIMEOUT] displayText$=${!!this.displayText$}, combinedSub=${!!this.combinedSub}`);
-      if (this.displayText$ && !this.combinedSub) {
-        console.log(`[CQCC TIMEOUT] Setting up subscription...`);
-        this.combinedSub = this.displayText$
-          .pipe(distinctUntilChanged())
-          .subscribe({
-            next: (v) => {
-              const el = this.qText?.nativeElement;
-              console.log(`[CQCC SUB ENTRY] v="${(v as string)?.substring(0, 30)}", el=${!!el}`);
-              if (!el) return;
-
-              const currentIndex = this.quizService.getCurrentQuestionIndex();
-              let incoming = v ?? '';
-
-              // ALWAYS LOG: Trace subscription execution
-              console.log(`[CQCC SUB] Q${currentIndex + 1} triggered, incoming="${incoming.substring(0, 60)}..."`);
-
-              // CRITICAL FIX: Check if question is actually answered using fetByIndex
-              const hasFetForCurrentIdx = this.explanationTextService.fetByIndex?.has(currentIndex) &&
-                (this.explanationTextService.fetByIndex?.get(currentIndex)?.trim()?.length ?? 0) > 10;
-
-              console.log(`[CQCC SUB] hasFetForCurrentIdx=${hasFetForCurrentIdx}, fetByIndex keys=[${Array.from(this.explanationTextService.fetByIndex?.keys() || [])}]`);
-
-              // VISIBILITY FIX: If FET was displayed this session for this question, preserve it
-              // This prevents StackBlitz visibility events from reverting FET to question text
-              const fetShownThisSession = this._fetDisplayedThisSession.has(currentIndex);
-              const storedFet = this.explanationTextService.fetByIndex?.get(currentIndex)?.trim() || '';
-
-              if (fetShownThisSession && storedFet.length > 10) {
-                // FET was shown this session - preserve it even if mode changed
-                console.log(`[CQCC Display] Q${currentIndex + 1} FET preserved (shown this session)`);
-                incoming = storedFet;
-              } else if (!hasFetForCurrentIdx) {
-                // Question is unanswered - show question text
-                const q = this.quizService.questions?.[currentIndex];
-                const questionText = q?.questionText ?? '';
-                if (questionText) {
-                  console.log(`[CQCC Display] Q${currentIndex + 1} UNANSWERED: Forcing question text: "${questionText.substring(0, 50)}..."`);
-                  incoming = questionText;
-                }
-              } else {
-                // FET is available - mark as shown this session
-                this._fetDisplayedThisSession.add(currentIndex);
-                console.log(`[CQCC Display] Q${currentIndex + 1} FET newly displayed, tracking for session`);
-              }
-
-              console.log(
-                `[CQCC Display] Q${currentIndex + 1}: "${incoming.slice(0, 100)}"`,
-              );
-
-              // Update the DOM with the text
-              el.style.transition = 'opacity 0.12s linear';
-              el.style.opacity = '0.4';
-              el.innerHTML = incoming;
-
-              requestAnimationFrame(() => {
-                el.style.opacity = '1';
-              });
-            },
-            error: (err) => console.error('[CQCC displayText$ error]', err),
-          });
-      }
-    }, 50); // slightly longer delay to ensure displayText$ is initialized
-
-    this.isContentAvailable$ = this.combineCurrentQuestionAndOptions().pipe(
-      map(({ currentQuestion, currentOptions }) => {
-        return !!currentQuestion && currentOptions.length > 0;
-      }),
-      distinctUntilChanged(),
-      catchError((error) => {
-        console.error('Error in isContentAvailable$:', error);
-        return of(false); // fallback to `false` in case of errors
-      }),
-      startWith(false),
-    );
-
-    this.isContentAvailable$
-      .pipe(distinctUntilChanged())
-      .subscribe((isAvailable) => {
-        if (isAvailable) {
-          console.log('Content is available. Setting up state subscription.');
-
-        } else {
-          console.log('Content is not yet available.');
-        }
-      });
-
-    this.emitContentAvailableState(); // start emitting the content availability state
-
-    // Load quiz data from the route first
+    this.resetInitialState();
+    this.setupQuestionResetSubscription();
+    this.initDisplayTextPipeline();
+    this.resetExplanationService();
+    this.subscribeToDisplayText();
+    this.setupContentAvailability();
+    this.emitContentAvailableState();
     this.loadQuizDataFromRoute();
-
-    // Initialize other component states and subscriptions
     await this.initializeComponent();
-
     this.setupCorrectAnswersTextDisplay();
   }
 
@@ -616,6 +299,246 @@ export class CodelabQuizContentComponent
     this.combinedSub?.unsubscribe();
   }
 
+  private resetInitialState(): void {
+    this.isExplanationDisplayed = false;
+    this.explanationTextService.setIsExplanationTextDisplayed(false);
+  }
+
+  private setupQuestionResetSubscription(): void {
+    if (this.questionToDisplay$) {
+      combineLatest([
+        this.questionToDisplay$.pipe(startWith(''), distinctUntilChanged()),
+        this.quizService.currentQuestionIndex$.pipe(
+          startWith(this.quizService?.currentQuestionIndex ?? 0)
+        )
+      ])
+        .pipe(takeUntil(this.destroy$))
+        .subscribe(([_, index]: [string | null, number]) => {
+          if (this.lastQuestionIndexForReset !== index) {
+            this.explanationTextService.setShouldDisplayExplanation(false);
+            this.lastQuestionIndexForReset = index;
+
+            this.quizService.isAnswered(index).pipe(take(1))
+              .subscribe((isAnswered: boolean) => {
+                if (!isAnswered) {
+                  this.quizStateService.setDisplayState(
+                    { mode: 'question', answered: false }
+                  );
+                  this.explanationTextService.setIsExplanationTextDisplayed(
+                    false, { force: true }
+                  );
+                }
+              });
+          }
+        });
+    }
+  }
+
+  private initDisplayTextPipeline(): void {
+    // Resolve the correct question object (respecting shuffle) for the current index
+    const questionForIndex$ = this.quizService.currentQuestionIndex$.pipe(
+      switchMap((idx: number) => this.quizService.getQuestionByIndex(idx))
+    );
+
+    this.displayText$ = combineLatest([
+      this.displayState$ || of({ mode: 'question' as const, answered: false }),
+      this.questionToDisplay$ || of(''),
+      this.formattedExplanation$,
+      this.currentIndex$,
+      this.quizService.questions$.pipe(
+        filter((q: QuizQuestion[]) => Array.isArray(q) && q.length > 0),
+        startWith(this.quizService.questions || [])
+      ),
+      questionForIndex$,
+    ]).pipe(
+      debounceTime(50),
+      switchMap(([state, qText, fetPayload, idx, questions, questionObj]: [
+        { mode: 'question' | 'explanation'; answered: boolean },
+        string | null,
+        FETPayload,
+        number,
+        QuizQuestion[],
+        QuizQuestion | null
+      ]) => {
+        const safeIdx = Number.isFinite(idx)
+          ? idx
+          : Number.isFinite(this.currentIndex)
+            ? this.currentIndex
+            : 0;
+
+        const rawQText = (qText as string)?.trim();
+
+        const qObj =
+          questionObj ||
+          (Array.isArray(questions) ? questions[safeIdx] : undefined) ||
+          (Array.isArray(this.quizService.questions)
+            ? this.quizService.questions[safeIdx]
+            : undefined);
+
+        return this.quizService.isAnswered(safeIdx).pipe(
+          map((isAnswered: boolean) => {
+            const mode = isAnswered ? (state?.mode || 'question') : 'question';
+            const dummyQText = (qText ?? '').trim();
+            const trimmedQText = dummyQText;
+
+            const numCorrect =
+              qObj?.options?.filter((o: Option) => o.correct).length || 0;
+            const isMulti = numCorrect > 1;
+
+            let bannerText = '';
+            if (isMulti && qObj) {
+              const totalOpts = qObj.options?.length || 0;
+              bannerText =
+                this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
+                  numCorrect,
+                  totalOpts
+                );
+            }
+
+            const hasFetStored = this.explanationTextService.fetByIndex?.has(safeIdx) &&
+              (this.explanationTextService.fetByIndex?.get(safeIdx)?.trim()?.length ?? 0) > 10;
+            const actuallyAnswered = isAnswered && hasFetStored;
+
+            if (!actuallyAnswered) {
+              const serviceQText = (questionObj?.questionText ?? '').trim();
+              const effectiveQText = serviceQText || rawQText;
+
+              if (!effectiveQText) {
+                console.warn(`[displayText$] ⚠️ Q${safeIdx + 1} No safe text available yet.`);
+                return '';
+              }
+
+              if (isMulti && bannerText) {
+                return `${effectiveQText} <span class="correct-count">${bannerText}</span>`;
+              }
+              return effectiveQText;
+            }
+
+            const belongsToIndex = fetPayload?.idx === safeIdx;
+            const trimmedFet = belongsToIndex
+              ? (fetPayload?.text ?? '').trim()
+              : '';
+
+            const isValidFet =
+              belongsToIndex &&
+              trimmedFet !== 'No explanation available' &&
+              trimmedFet !== 'No explanation available for this question.' &&
+              trimmedFet.length > 10;
+
+            if (mode === 'explanation') {
+              if (isValidFet) {
+                if (isMulti && bannerText) {
+                  return `${trimmedFet}`;
+                }
+                return trimmedFet;
+              }
+              return 'No explanation available.';
+            }
+
+            if (!trimmedQText) return '';
+
+            if (isMulti && bannerText) {
+              return `${trimmedQText} <span class="correct-count">${bannerText}</span>`;
+            }
+
+            return trimmedQText;
+          })
+        );
+      }),
+      distinctUntilChanged()
+    );
+  }
+
+  private resetExplanationService(): void {
+    this.resetExplanationView();
+
+    this.explanationTextService.setShouldDisplayExplanation(false);
+    this.explanationTextService.explanationText$.next('');
+
+    this.explanationTextService.resetForIndex(0);
+    this.explanationTextService.setShouldDisplayExplanation(false, {
+      force: true
+    });
+  }
+
+  private subscribeToDisplayText(): void {
+    this.combinedText$ = this.getCombinedDisplayTextStream();
+
+    setTimeout(() => {
+      if (this.displayText$ && !this.combinedSub) {
+        console.log(`[CQCC TIMEOUT] Setting up subscription...`);
+        this.combinedSub = this.displayText$
+          .pipe(distinctUntilChanged())
+          .subscribe({
+            next: (v: string) => {
+              const el = this.qText?.nativeElement;
+              if (!el) return;
+
+              const currentIndex = this.quizService.getCurrentQuestionIndex();
+              let incoming = v ?? '';
+
+              const hasFetForCurrentIdx = this.explanationTextService.fetByIndex?.has(currentIndex) &&
+                (this.explanationTextService.fetByIndex?.get(currentIndex)?.trim()?.length ?? 0) > 10;
+
+              const fetShownThisSession = this._fetDisplayedThisSession.has(currentIndex);
+              const storedFet = this.explanationTextService.fetByIndex?.get(currentIndex)?.trim() || '';
+
+              if (fetShownThisSession && storedFet.length > 10) {
+                console.log(`[CQCC Display] Q${currentIndex + 1} FET preserved (shown this session)`);
+                incoming = storedFet;
+              } else if (!hasFetForCurrentIdx) {
+                const q = this.quizService.questions?.[currentIndex];
+                const questionText = q?.questionText ?? '';
+                if (questionText) {
+                  console.log(`[CQCC Display] Q${currentIndex + 1} UNANSWERED: Forcing question text: 
+                    "${questionText.substring(0, 50)}..."`);
+                  incoming = questionText;
+                }
+              } else {
+                this._fetDisplayedThisSession.add(currentIndex);
+                console.log(`[CQCC Display] Q${currentIndex + 1} FET newly displayed, tracking for session`);
+              }
+
+              el.style.transition = 'opacity 0.12s linear';
+              el.style.opacity = '0.4';
+              el.innerHTML = incoming;
+
+              requestAnimationFrame(() => {
+                el.style.opacity = '1';
+              });
+            },
+            error: (err: Error) => console.error('[CQCC displayText$ error]', err)
+          });
+      }
+    }, 50);
+  }
+
+  private setupContentAvailability(): void {
+    this.isContentAvailable$ = this.combineCurrentQuestionAndOptions().pipe(
+      map(({ currentQuestion, currentOptions }:
+        { currentQuestion: QuizQuestion | null; currentOptions: Option[] }) => {
+        return !!currentQuestion && currentOptions.length > 0;
+      }
+      ),
+      distinctUntilChanged(),
+      catchError((error: Error) => {
+        console.error('Error in isContentAvailable$:', error);
+        return of(false);
+      }),
+      startWith(false)
+    );
+
+    this.isContentAvailable$
+      .pipe(distinctUntilChanged())
+      .subscribe((isAvailable: boolean) => {
+        if (isAvailable) {
+          console.log('Content is available. Setting up state subscription.');
+        } else {
+          console.log('Content is not yet available.');
+        }
+      });
+  }
+
   private resetExplanationView(): void {
     this.explanationTextService.setShouldDisplayExplanation(false);
     this.explanationTextService.setExplanationText('');
@@ -627,7 +550,7 @@ export class CodelabQuizContentComponent
 
     const pruneMap = <T>(
       store: Map<string, T>,
-      onRemove?: (value: T, key: string) => void,
+      onRemove?: (value: T, key: string) => void
     ) => {
       for (const key of Array.from(store.keys())) {
         if (key.startsWith(keyPrefix)) {
@@ -643,7 +566,7 @@ export class CodelabQuizContentComponent
     pruneMap(this.explanationCache);
     pruneMap(this.lastExplanationMarkupByKey);
     pruneMap(this.renderModeByKey);
-    pruneMap(this.pendingExplanationRequests, (subscription) => {
+    pruneMap(this.pendingExplanationRequests, (subscription: Subscription) => {
       subscription?.unsubscribe();
     });
 
@@ -668,7 +591,7 @@ export class CodelabQuizContentComponent
     const index$ = this.quizService.currentQuestionIndex$.pipe(
       startWith(this.currentQuestionIndexValue ?? 0),
       distinctUntilChanged(),
-      tap((newIdx) => {
+      tap((newIdx: number) => {
         const ets = this.explanationTextService;
 
         // Don't clear if FET is locked (user has clicked and explanation is showing)
@@ -690,20 +613,18 @@ export class CodelabQuizContentComponent
 
         ets.setShouldDisplayExplanation(false);
         ets.setIsExplanationTextDisplayed(false);
-        ets.setGate?.(newIdx, false);
+        ets.setGate(newIdx, false);
 
         if (ets._activeIndex !== null && ets._activeIndex !== newIdx) {
-          ets.setGate?.(ets._activeIndex, false);
+          ets.setGate(ets._activeIndex, false);
         }
-
-        console.log(`[INDEX] 🔄 Reset FET streams for new index → ${newIdx}`);
       }),
       debounceTime(50),
       shareReplay({ bufferSize: 1, refCount: true }),
     );
 
     const serviceQuestionText$ = (this.questionToDisplay$ || of('')).pipe(
-      tap((q) =>
+      tap((q: string | null) =>
         console.log(
           `[questionText$] 🔵 Raw input (service): "${(q ?? '').slice(0, 80)}"`,
         ),
@@ -713,32 +634,32 @@ export class CodelabQuizContentComponent
     );
 
     const fallbackQuestionText$ = this.currentQuestion$.pipe(
-      map((question) => (question?.questionText ?? '').trim()),
-      filter((text) => text.length > 0),
-      tap((text) =>
+      map((question: QuizQuestion | null) => (question?.questionText ?? '').trim()),
+      filter((text: string) => text.length > 0),
+      tap((text: string) =>
         console.log(
-          `[questionText$] 🟣 Fallback from payload: "${text.slice(0, 80)}"`,
-        ),
-      ),
+          `[questionText$] 🟣 Fallback from payload: "${text.slice(0, 80)}"`
+        )
+      )
     );
 
     const questionText$ = merge(
       serviceQuestionText$,
-      fallbackQuestionText$,
+      fallbackQuestionText$
     ).pipe(
-      tap((q) =>
-        console.log(`[questionText$] 🟢 After merge: "${q.slice(0, 80)}"`),
+      tap((q: string) =>
+        console.log(`[questionText$] 🟢 After merge: "${q.slice(0, 80)}"`)
       ),
       distinctUntilChanged(),
-      tap((q) => console.log(`[questionText$] ✅ Final: "${q.slice(0, 80)}"`)),
+      tap((q: string) => console.log(`[questionText$] ✅ Final: "${q.slice(0, 80)}"`))
     );
 
     const correctText$ = this.quizService.correctAnswersText$.pipe(
-      map((v) => v?.trim() || ''),
+      map((v: string | null) => v?.trim() || ''),
       startWith(''),
       debounceTime(25),
       distinctUntilChanged(),
-      shareReplay({ bufferSize: 1, refCount: true }),
+      shareReplay({ bufferSize: 1, refCount: true })
     );
 
     const fetForIndex$ = combineLatest([
@@ -751,15 +672,17 @@ export class CodelabQuizContentComponent
       (this.explanationTextService.activeIndex$ ?? of(-1)).pipe(startWith(-1)),
     ]).pipe(
       auditTime(0),
-      map(([text, gate, idx]) => ({
+      map(([payload, gate, idx]: [FETPayload | string, boolean, number]) => ({
         idx,
-        text: (text ?? '').trim(),
-        gate: !!gate,
+        text: (typeof payload === 'string' ? payload : payload?.text ?? '').trim(),
+        gate: !!gate
       })),
       distinctUntilChanged(
-        (a, b) => a.idx === b.idx && a.gate === b.gate && a.text === b.text,
+        (a: { idx: number; text: string; gate: boolean },
+          b: { idx: number; text: string; gate: boolean }) =>
+          a.idx === b.idx && a.gate === b.gate && a.text === b.text
       ),
-      shareReplay({ bufferSize: 1, refCount: true }),
+      shareReplay({ bufferSize: 1, refCount: true })
     );
 
     const shouldShow$ =
@@ -768,26 +691,26 @@ export class CodelabQuizContentComponent
         startWith(false),
         distinctUntilChanged(),
         auditTime(16),
-        shareReplay({ bufferSize: 1, refCount: true }),
+        shareReplay({ bufferSize: 1, refCount: true })
       );
 
     const navigating$ = this.quizStateService.isNavigatingSubject.pipe(
       startWith(false),
       distinctUntilChanged(),
-      shareReplay({ bufferSize: 1, refCount: true }),
+      shareReplay({ bufferSize: 1, refCount: true })
     );
 
     const qQuiet$ = this.quizQuestionLoaderService.quietZoneUntil$
       ? this.quizQuestionLoaderService.quietZoneUntil$.pipe(
         startWith(0),
-        distinctUntilChanged(),
+        distinctUntilChanged()
       )
       : of(0);
 
     const eQuiet$ = this.explanationTextService.quietZoneUntil$
       ? this.explanationTextService.quietZoneUntil$.pipe(
         startWith(0),
-        distinctUntilChanged(),
+        distinctUntilChanged()
       )
       : of(0);
 
@@ -796,15 +719,15 @@ export class CodelabQuizContentComponent
     const explanationReady$ = this.quizStateService.explanationReady$;
 
     type CombinedTuple = [
-      number, // index$
-      string, // questionText$
-      string, // correctText$
-      { idx: number; text: string; gate: boolean }, // fetForIndex$
-      boolean, // shouldShow$
-      boolean, // navigating$
-      number, // qQuiet$
-      number, // eQuiet$
-      QuizQuestion[], // questions$
+      number,  // index$
+      string,  // questionText$
+      string,  // correctText$
+      { idx: number; text: string; gate: boolean },  // fetForIndex$
+      boolean,  // shouldShow$
+      boolean,  // navigating$
+      number,  // qQuiet$
+      number,  // eQuiet$
+      QuizQuestion[],  // questions$
     ];
 
     // Base stream: existing logic
@@ -819,7 +742,7 @@ export class CodelabQuizContentComponent
       eQuiet$,
       this.quizService.questions$.pipe(
         startWith([]),
-        map(() => this.quizService.questions || []),
+        map(() => this.quizService.questions || [])
       ),
     ]).pipe(
       startWith([
@@ -868,12 +791,12 @@ export class CodelabQuizContentComponent
 
       skipUntil(
         index$.pipe(
-          filter((idx) => Number.isFinite(idx)),
+          filter((idx: number) => Number.isFinite(idx)),
           take(1),
         ),
       ),
 
-      filter(([idx, , , fet]) => {
+      filter(([idx, , , fet]: CombinedTuple) => {
         const isMatch = fet?.idx === idx || !fet?.text?.trim();
 
         if (!isMatch) {
@@ -890,15 +813,15 @@ export class CodelabQuizContentComponent
       filter(
         ([
           [idx, question, banner, fet, shouldShow, navigating, qQuiet, eQuiet],
-          liveIdx,
-        ]) => {
+          liveIdx
+        ]: [CombinedTuple, number]) => {
           const valid = idx === liveIdx;
 
           if (!valid) {
             console.warn('[INDEX GATE] Dropping stale emission', {
               streamIndex: idx,
               liveIndex: liveIdx,
-              fetIdx: fet?.idx,
+              fetIdx: fet?.idx
             });
           }
 
@@ -917,9 +840,9 @@ export class CodelabQuizContentComponent
             navigating,
             qQuiet,
             eQuiet,
-            questions,
-          ],
-        ]) =>
+            questions
+          ]
+        ]: [CombinedTuple, number]) =>
           [
             idx,
             question,
@@ -930,18 +853,13 @@ export class CodelabQuizContentComponent
             qQuiet,
             eQuiet,
             questions,
-          ] as CombinedTuple,
+          ] as CombinedTuple
       ),
 
       auditTime(32),
       filter(
-        ([, question]) =>
-          typeof question === 'string' && question.trim().length > 0,
-      ),
-      auditTime(32),
-      filter(
-        ([, question]) =>
-          typeof question === 'string' && question.trim().length > 0,
+        ([, question]: CombinedTuple) =>
+          typeof question === 'string' && question.trim().length > 0
       ),
 
       map(
@@ -954,15 +872,15 @@ export class CodelabQuizContentComponent
           navigating,
           qQuiet,
           eQuiet,
-          questions,
-        ]) => {
+          questions
+        ]: CombinedTuple) => {
           console.log(
             `[getCombinedDisplayTextStream] Q${idx + 1} before resolveTextToDisplay:`,
             {
               questionsLength: questions?.length,
               serviceQuestionsLength: this.quizService.questions?.length,
               banner,
-              idx,
+              idx
             },
           );
           return this.resolveTextToDisplay(
@@ -971,7 +889,7 @@ export class CodelabQuizContentComponent
             banner,
             fet,
             shouldShow,
-            questions,
+            questions
           );
         },
       ),
@@ -988,29 +906,25 @@ export class CodelabQuizContentComponent
       this.explanationTextService.formattedExplanation$.pipe(startWith('')),
       this.quizService.currentQuestionIndex$,
     ]).pipe(
-      map(([baseText, displayState, explanationReady, formatted, idx]) => {
-        const fet = String(
-          formatted ?? this.explanationTextService.latestExplanation ?? '',
-        ).trim();
-
+      map(([baseText, displayState, explanationReady, formatted, idx]:
+        [string, any, boolean, any, number]) => {
         const mode = displayState?.mode ?? 'question';
         const base = String(baseText ?? '') as string;
 
         // Normal explanation-mode override
-        // IMPORTANT: Must also verify that THIS question (idx) was actually answered.
+        // Important: Must also verify that THIS question (idx) was actually answered.
         // Otherwise, if mode stays 'explanation' after navigating from an answered question,
         // Q3 (unanswered) would show stale FET instead of its question text.
         if (mode === 'explanation') {
           const quizId = this.quizId ?? '';
-          const qState = quizId
-            ? this.quizStateService.getQuestionState(quizId, idx)
-            : null;
+          const qState = quizId ?
+            this.quizStateService.getQuestionState(quizId, idx) : null;
           const isThisQuestionAnswered =
             qState?.isAnswered || qState?.explanationDisplayed;
 
           // Only show FET if THIS question was actually answered
           if (isThisQuestionAnswered) {
-            // CRITICAL FIX: ONLY use index-specific FET, not global fet/latestExplanation
+            // ONLY use index-specific FET, not global fet/latestExplanation
             // Global values could be stale from a different question (e.g., Q2's FET showing on Q3)
             const indexFet = this.explanationTextService.fetByIndex?.get(idx)?.trim() || '';
 
@@ -1025,16 +939,15 @@ export class CodelabQuizContentComponent
           // If question not answered but mode is 'explanation', fall through to default (question text)
         }
 
-        // HARD OVERRIDE: once answered, FET wins if it exists
+        // Hard Override: once answered, FET wins if it exists
         try {
           const quizId = this.quizId ?? '';
           if (quizId) {
             const qState = this.quizStateService.getQuestionState(quizId, idx);
-            const isAnswered =
-              qState?.isAnswered || qState?.explanationDisplayed;
+            const isAnswered = qState?.isAnswered || qState?.explanationDisplayed;
 
             if (isAnswered) {
-              // CRITICAL FIX: ONLY use index-specific FET, not global values
+              // ONLY use index-specific FET, not global values
               const indexFet = this.explanationTextService.fetByIndex?.get(idx)?.trim() || '';
 
               if (indexFet) {
@@ -1053,7 +966,7 @@ export class CodelabQuizContentComponent
       }),
       distinctUntilChanged((a: string, b: string) => a.trim() === b.trim()),
       observeOn(animationFrameScheduler),
-      shareReplay({ bufferSize: 1, refCount: true }),
+      shareReplay({ bufferSize: 1, refCount: true })
     );
   }
 
@@ -1063,7 +976,7 @@ export class CodelabQuizContentComponent
     banner: string,
     fet: { idx: number; text: string; gate: boolean } | null,
     shouldShow: boolean,
-    questions: QuizQuestion[] = [],
+    questions: QuizQuestion[] = []
   ): string {
     const qText = (question ?? '').trim();
     const bannerText = (banner ?? '').trim();
@@ -1071,7 +984,7 @@ export class CodelabQuizContentComponent
     const active = this.quizService.getCurrentQuestionIndex();
 
     // Use service questions as primary source (loaded synchronously)
-    const qObj = this.quizService.questions?.[idx] || questions?.[idx];
+    const qObj = this.quizService.questions[idx] || questions[idx];
 
     // Calculate isMulti early for use throughout the function
     const numCorrectForMultiCheck =
@@ -1083,7 +996,7 @@ export class CodelabQuizContentComponent
     const mode = this.quizStateService.displayStateSubject?.value?.mode;
 
     const hasUserInteracted =
-      (this.quizStateService as any).hasUserInteracted?.(idx) ?? false;
+      this.quizStateService.hasUserInteracted(idx) ?? false;
 
     // Ensure we have index-scoped cache map
     if (!this._lastQuestionTextByIndex) {
@@ -1095,17 +1008,8 @@ export class CodelabQuizContentComponent
       this._lastQuestionTextByIndex.set(idx, qText);
     }
 
-    const explanationGate = ets.shouldDisplayExplanationSource?.value === true;
-
-    // FET DISPLAY GATE — only allow in explanation mode
-    // STRICT GUARD: Explanation index MUST match current index
-    // NOTE: Use _activeIndex as fallback since latestExplanationIndex may be null initially
-    const explanationIndexMatches =
-      explanationIndex === idx ||
-      (explanationIndex === null && ets._activeIndex === idx);
-
     // Use fetByIndex Map as primary source - bypasses stream timing issues
-    // CRITICAL FIX: Only use index-specific FET, NOT latestExplanation (could be stale from different question)
+    // Only use index-specific FET, NOT latestExplanation (could be stale from different question)
     const storedFet = ets.fetByIndex?.get(idx)?.trim() || '';
     const hasValidFet = storedFet.length > 0;
 
@@ -1162,7 +1066,7 @@ export class CodelabQuizContentComponent
     }
 
     // DEFAULT: QUESTION + BANNER
-    const effectiveQObj = questions?.[idx] || this.quizService.questions?.[idx];
+    const effectiveQObj = questions[idx] || this.quizService.questions[idx];
 
     // SAFETY: never reuse Q1's cache for other questions
     const cachedForThisIndex = this._lastQuestionTextByIndex.get(idx);
@@ -1187,25 +1091,26 @@ export class CodelabQuizContentComponent
             totalOpts,
           );
         console.log(
-          `[resolveTextToDisplay] 🛠️ Calculated fallback banner for Q${idx + 1}: "${finalBanner}"`,
+          `[resolveTextToDisplay] 🛠️ Calculated fallback banner for Q${idx + 1}: "${finalBanner}"`
         );
       } else {
         console.warn(
-          `[resolveTextToDisplay] ⚠️ Banner fallback failed: numCorrect=${numCorrect} for Q${idx + 1}`,
+          `[resolveTextToDisplay] ⚠️ Banner fallback failed: numCorrect=${numCorrect} for Q${idx + 1}`
         );
       }
     }
 
-    // FIXED: Show banner in question mode for multi-answer questions
+    // Show banner in question mode for multi-answer questions
     // Trust finalBanner if it exists (it implies multi-answer if it came from the service)
     const shouldShowBanner =
       (isMulti || !!finalBanner) && !!finalBanner && mode === 'question';
 
     // Only show banner when we have multi-answer question with banner text IN QUESTION MODE
     if (shouldShowBanner) {
-      const merged = `${fallbackQuestion} <span class="correct-count">${finalBanner}</span>`;
+      const merged =
+        `${fallbackQuestion} <span class="correct-count">${finalBanner}</span>`;
       console.log(
-        `[resolveTextToDisplay] 🎯 Question+banner for Q${idx + 1} (mode: ${mode})`,
+        `[resolveTextToDisplay] 🎯 Question+banner for Q${idx + 1} (mode: ${mode})`
       );
       this._lastQuestionTextByIndex.set(idx, merged);
       return merged;
@@ -1224,18 +1129,12 @@ export class CodelabQuizContentComponent
         this.isContentAvailableChange.emit(isAvailable);
         this.quizDataService.updateContentAvailableState(isAvailable);
       },
-      error: (error) => console.error('Error in isContentAvailable$:', error),
+      error: (error: Error) => console.error('Error in isContentAvailable$:', error),
     });
   }
 
-
-
-
-
-
-
   private loadQuizDataFromRoute(): void {
-    this.activatedRoute.paramMap.subscribe(async (params) => {
+    this.activatedRoute.paramMap.subscribe(async (params: Params) => {
       const quizId = params.get('quizId');
       const questionIndex = Number(params?.get('questionIndex') ?? 1);
       const zeroBasedIndex = questionIndex - 1;
@@ -1243,7 +1142,7 @@ export class CodelabQuizContentComponent
       if (quizId) {
         this.quizId = quizId;
         this.quizService.quizId = quizId;
-        localStorage.setItem('quizId', quizId); // store quizId in localStorage
+        localStorage.setItem('quizId', quizId);  // store quizId in localStorage
         this.currentQuestionIndexValue = zeroBasedIndex;
         await this.loadQuestion(quizId, zeroBasedIndex);
       } else {
@@ -1256,14 +1155,14 @@ export class CodelabQuizContentComponent
         debounceTime(200),
         tap((question: QuizQuestion | null) => {
           if (question) this.updateCorrectAnswersDisplay(question).subscribe();
-        }),
+        })
       )
       .subscribe();
   }
 
   private async loadQuestion(
     quizId: string,
-    zeroBasedIndex: number,
+    zeroBasedIndex: number
   ): Promise<void> {
     if (zeroBasedIndex == null || isNaN(zeroBasedIndex)) {
       console.error('Question index is null or undefined');
@@ -1272,7 +1171,7 @@ export class CodelabQuizContentComponent
 
     try {
       const questions = await firstValueFrom(
-        this.quizDataService.getQuestionsForQuiz(quizId),
+        this.quizDataService.getQuestionsForQuiz(quizId)
       );
       if (
         questions &&
@@ -1281,8 +1180,8 @@ export class CodelabQuizContentComponent
         zeroBasedIndex < questions.length
       ) {
         const question = questions[zeroBasedIndex];
-        this.currentQuestion.next(question); // use 'next' to update BehaviorSubject
-        this.isExplanationDisplayed = false; // reset explanation display state
+        this.currentQuestion.next(question);  // use 'next' to update BehaviorSubject
+        this.isExplanationDisplayed = false;  // reset explanation display state
         this.explanationToDisplay = '';
 
         // Reset explanation state
@@ -1295,7 +1194,7 @@ export class CodelabQuizContentComponent
       } else {
         console.error('Invalid question index:', zeroBasedIndex);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching questions for quiz:', error);
     }
   }
@@ -1308,12 +1207,12 @@ export class CodelabQuizContentComponent
   private async initializeQuestionData(): Promise<void> {
     try {
       const params: ParamMap = await firstValueFrom(
-        this.activatedRoute.paramMap.pipe(take(1)),
+        this.activatedRoute.paramMap.pipe(take(1))
       );
 
       const data: [QuizQuestion[], string[]] = await firstValueFrom(
         this.fetchQuestionsAndExplanationTexts(params).pipe(
-          takeUntil(this.destroy$),
+          takeUntil(this.destroy$)
         ),
       );
 
@@ -1333,7 +1232,7 @@ export class CodelabQuizContentComponent
           this.explanationTextService.storeFormattedExplanation(
             index,
             explanation,
-            question,
+            question
           );
         }),
       );
@@ -1342,7 +1241,7 @@ export class CodelabQuizContentComponent
       this.explanationTextService.explanationsInitialized = true;
 
       this.initializeCurrentQuestionIndex();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error in initializeQuestionData:', error);
     }
   }
@@ -1358,20 +1257,20 @@ export class CodelabQuizContentComponent
 
     return forkJoin([
       this.quizDataService.getQuestionsForQuiz(this.quizId).pipe(
-        catchError((error) => {
+        catchError((error: Error) => {
           console.error('Error fetching questions:', error);
           return of([] as QuizQuestion[]);
         }),
       ),
       this.quizDataService.getAllExplanationTextsForQuiz(this.quizId).pipe(
-        catchError((error) => {
+        catchError((error: Error) => {
           console.error('Error fetching explanation texts:', error);
           return of([] as string[]);
         }),
       ),
     ]).pipe(
-      map(([questions, explanationTexts]) => {
-        return [questions, explanationTexts] as [QuizQuestion[], string[]];
+      map(([questions, explanationTexts]: [QuizQuestion[], string[]]) => {
+        return [questions, explanationTexts];
       }),
     );
   }
@@ -1392,9 +1291,9 @@ export class CodelabQuizContentComponent
     return this.quizQuestionManagerService
       .isMultipleAnswerQuestion(question)
       .pipe(
-        tap((isMultipleAnswer) => {
+        tap((isMultipleAnswer: boolean) => {
           const correctAnswers = question.options.filter(
-            (option) => option.correct,
+            (option) => option.correct
           ).length;
           const explanationDisplayed =
             this.explanationTextService.isExplanationTextDisplayedSource.getValue();
@@ -1402,7 +1301,7 @@ export class CodelabQuizContentComponent
             isMultipleAnswer && !explanationDisplayed
               ? this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
                 correctAnswers,
-                question.options?.length ?? 0,
+                question.options?.length ?? 0
               )
               : '';
 
@@ -1419,26 +1318,23 @@ export class CodelabQuizContentComponent
             shouldDisplayCorrectAnswers
           ) {
             this.shouldDisplayCorrectAnswersSubject.next(
-              shouldDisplayCorrectAnswers,
+              shouldDisplayCorrectAnswers
             );
           }
         }),
-        map(() => void 0),
+        map(() => void 0)
       );
   }
 
-
-
   private initializeCombinedQuestionData(): void {
-    const questionIndex = this.quizService.getCurrentQuestionIndex();
     const currentQuizAndOptions$ = this.combineCurrentQuestionAndOptions();
 
     currentQuizAndOptions$.pipe(takeUntil(this.destroy$)).subscribe({
-      next: (data) => {
+      next: (data: any) => {
         console.log('Current Quiz and Options Data', data);
       },
-      error: (err) =>
-        console.error('Error combining current quiz and options:', err),
+      error: (err: any) =>
+        console.error('Error combining current quiz and options:', err)
     });
 
     this.combinedQuestionData$ = combineLatest([
@@ -1448,26 +1344,36 @@ export class CodelabQuizContentComponent
           currentOptions: Option[];
           explanation: string;
           currentIndex: number;
-        } | null>(null),
+        } | null>(null)
       ),
       this.numberOfCorrectAnswers$.pipe(startWith(0)),
       this.isExplanationTextDisplayed$.pipe(startWith(false)),
-      this.activeFetText$.pipe(startWith('')),
+      this.activeFetText$.pipe(startWith(''))
     ]).pipe(
       map(
         ([
           quiz,
           numberOfCorrectAnswers,
           isExplanationDisplayed,
-          formattedExplanation,
-        ]) => {
+          formattedExplanation
+        ]: [
+            {
+              currentQuestion: QuizQuestion | null;
+              currentOptions: Option[];
+              explanation: string;
+              currentIndex: number;
+            } | null,
+            number,
+            boolean,
+            string
+          ]): CombinedQuestionDataType => {
           const safeQuizData = quiz?.currentQuestion
             ? quiz
             : {
               currentQuestion: null,
               currentOptions: [],
               explanation: '',
-              currentIndex: 0,
+              currentIndex: 0
             };
 
           const selectionMessage =
@@ -1486,7 +1392,7 @@ export class CodelabQuizContentComponent
             correctAnswersText: '',
             isExplanationDisplayed: !!isExplanationDisplayed,
             isNavigatingToPrevious: false,
-            selectionMessage,
+            selectionMessage
           };
 
           return this.calculateCombinedQuestionData(
@@ -1497,7 +1403,8 @@ export class CodelabQuizContentComponent
           );
         },
       ),
-      filter((data): data is CombinedQuestionDataType => data !== null),
+      filter((data: CombinedQuestionDataType | null):
+        data is CombinedQuestionDataType => data !== null),
       catchError((error: Error) => {
         console.error('Error combining quiz data:', error);
         const fallback: CombinedQuestionDataType = {
@@ -1509,7 +1416,7 @@ export class CodelabQuizContentComponent
             answer: [],
             selectedOptionIds: [],
             type: undefined,
-            maxSelections: 0,
+            maxSelections: 0
           },
           currentOptions: [],
           options: [],
@@ -1518,7 +1425,7 @@ export class CodelabQuizContentComponent
           correctAnswersText: '',
           isExplanationDisplayed: false,
           isNavigatingToPrevious: false,
-          selectionMessage: '',
+          selectionMessage: ''
         };
 
         // Explicit generic keeps the observable type consistent
@@ -1537,7 +1444,7 @@ export class CodelabQuizContentComponent
       withLatestFrom(this.quizService.currentQuestionIndex$),
       filter(
         (
-          value: [QuestionPayload | null, number],
+          value: [QuestionPayload | null, number]
         ): value is [QuestionPayload, number] => {
           const [payload] = value;
           return (
@@ -1546,17 +1453,17 @@ export class CodelabQuizContentComponent
             Array.isArray(payload.options) &&
             payload.options.length > 0
           );
-        },
+        }
       ),
-      map(([payload, index]) => ({
+      map(([payload, index]: [QuestionPayload, number]) => ({
         payload,
         index: Number.isFinite(index)
           ? index
           : this.currentIndex >= 0
             ? this.currentIndex
-            : 0,
+            : 0
       })),
-      filter(({ payload, index }) => {
+      filter(({ payload, index }: { payload: QuestionPayload; index: number }) => {
         const expected =
           Array.isArray(this.questions) && index >= 0
             ? (this.questions[index] ?? null)
@@ -1564,11 +1471,9 @@ export class CodelabQuizContentComponent
 
         if (!expected) return true;
 
-        const normalizedExpected = this.normalizeKeySource(
-          expected.questionText,
-        );
+        const normalizedExpected = this.normalizeKeySource(expected.questionText);
         const normalizedIncoming = this.normalizeKeySource(
-          payload.question?.questionText,
+          payload.question?.questionText
         );
 
         if (
@@ -1581,15 +1486,15 @@ export class CodelabQuizContentComponent
             {
               index,
               normalizedExpected,
-              normalizedIncoming,
-            },
+              normalizedIncoming
+            }
           );
           return false;
         }
 
         return true;
       }),
-      map(({ payload, index }) => {
+      map(({ payload, index }: { payload: QuestionPayload; index: number }) => {
         const normalizedOptions = payload.options
           .map((option, optionIndex) => ({
             ...option,
@@ -1600,13 +1505,13 @@ export class CodelabQuizContentComponent
             displayOrder:
               typeof option.displayOrder === 'number'
                 ? option.displayOrder
-                : optionIndex,
+                : optionIndex
           }))
           .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
 
         const normalizedQuestion: QuizQuestion = {
           ...payload.question,
-          options: normalizedOptions,
+          options: normalizedOptions
         };
 
         this.currentQuestion$.next(normalizedQuestion);
@@ -1619,47 +1524,55 @@ export class CodelabQuizContentComponent
             payload.explanation?.trim() ||
             payload.question.explanation?.trim() ||
             '',
-          currentIndex: index,
+          currentIndex: index
         };
       }),
-      distinctUntilChanged((prev, curr) => {
-        const norm = (s?: string) =>
-          (s ?? '')
-            .replace(/<[^>]*>/g, ' ') // strip HTML
-            .replace(/&nbsp;/g, ' ')
-            .trim()
-            .toLowerCase()
-            .replace(/\s+/g, ' ');
+      distinctUntilChanged(
+        (prev: {
+          currentQuestion: QuizQuestion; currentOptions: Option[]; explanation: string;
+          currentIndex: number
+        },
+          curr: {
+            currentQuestion: QuizQuestion; currentOptions: Option[]; explanation: string;
+            currentIndex: number
+          }) => {
+          const norm = (s?: string) =>
+            (s ?? '')
+              .replace(/<[^>]*>/g, ' ') // strip HTML
+              .replace(/&nbsp;/g, ' ')
+              .trim()
+              .toLowerCase()
+              .replace(/\s+/g, ' ');
 
-        const questionKey = (
-          q: QuizQuestion | null | undefined,
-          idx?: number,
-        ) => {
-          // Prefer a stable id if it exists in the model; fallback to normalized text and index
-          const textKey = norm(q?.questionText);
-          return `${textKey}#${Number.isFinite(idx) ? idx : -1}`;
-        };
+          const questionKey = (
+            q: QuizQuestion | null | undefined,
+            idx?: number
+          ) => {
+            // Prefer a stable id if it exists in the model; fallback to normalized text and index
+            const textKey = norm(q?.questionText);
+            return `${textKey}#${Number.isFinite(idx) ? idx : -1}`;
+          };
 
-        const sameQuestion =
-          questionKey(prev.currentQuestion, prev.currentIndex) ===
-          questionKey(curr.currentQuestion, curr.currentIndex);
-        if (!sameQuestion) return false;
+          const sameQuestion =
+            questionKey(prev.currentQuestion, prev.currentIndex) ===
+            questionKey(curr.currentQuestion, curr.currentIndex);
+          if (!sameQuestion) return false;
 
-        if (prev.explanation !== curr.explanation) return false;
+          if (prev.explanation !== curr.explanation) return false;
 
-        return this.haveSameOptionOrder(
-          prev.currentOptions,
-          curr.currentOptions,
-        );
-      }),
+          return this.haveSameOptionOrder(
+            prev.currentOptions,
+            curr.currentOptions,
+          );
+        }),
       shareReplay({ bufferSize: 1, refCount: true }),
-      catchError((error) => {
+      catchError((error: Error) => {
         console.error('Error in combineCurrentQuestionAndOptions:', error);
         return of({
           currentQuestion: null,
           currentOptions: [],
           explanation: '',
-          currentIndex: -1,
+          currentIndex: -1
         });
       }),
     );
@@ -1667,7 +1580,7 @@ export class CodelabQuizContentComponent
 
   private haveSameOptionOrder(
     left: Option[] = [],
-    right: Option[] = [],
+    right: Option[] = []
   ): boolean {
     if (!Array.isArray(left) || !Array.isArray(right)) {
       return false;
@@ -1694,7 +1607,7 @@ export class CodelabQuizContentComponent
     currentQuizData: CombinedQuestionDataType,
     numberOfCorrectAnswers: number,
     isExplanationDisplayed: boolean,
-    formattedExplanation: string,
+    formattedExplanation: string
   ): CombinedQuestionDataType {
     const { currentQuestion, currentOptions } = currentQuizData;
 
@@ -1709,7 +1622,7 @@ export class CodelabQuizContentComponent
         correctAnswersText: '',
         isExplanationDisplayed: false,
         isNavigatingToPrevious: false,
-        selectionMessage: '',
+        selectionMessage: ''
       };
     }
 
@@ -1733,7 +1646,7 @@ export class CodelabQuizContentComponent
       isMultipleAnswerQuestion && normalizedCorrectCount > 0
         ? this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
           normalizedCorrectCount,
-          totalOptions,
+          totalOptions
         )
         : '';
 
@@ -1753,51 +1666,46 @@ export class CodelabQuizContentComponent
       correctAnswersText,
       isExplanationDisplayed: isExplanationDisplayed,
       isNavigatingToPrevious: false,
-      selectionMessage: '',
+      selectionMessage: ''
     };
     return combinedQuestionData;
   }
-
-
 
   private setupCorrectAnswersTextDisplay(): void {
     // Combining the logic to determine if the correct answers text should be displayed
     this.shouldDisplayCorrectAnswers$ = combineLatest([
       this.shouldDisplayCorrectAnswers$.pipe(
-        startWith(false), // ensuring it has an initial value
-        map((value) => value ?? false), // fallback to false if value is undefined
-        distinctUntilChanged(),
+        startWith(false),  // ensuring it has an initial value
+        map((value: boolean) => value ?? false),  // fallback to false if value is undefined
+        distinctUntilChanged()
       ),
       this.isExplanationDisplayed$.pipe(
-        startWith(false), // ensuring it has an initial value
-        map((value) => value ?? false), // fallback to false if value is undefined
-        distinctUntilChanged(),
+        startWith(false),  // ensuring it has an initial value
+        map((value: boolean) => value ?? false),  // fallback to false if value is undefined
+        distinctUntilChanged()
       ),
     ]).pipe(
       map(
-        ([shouldDisplayCorrectAnswers, isExplanationDisplayed]) =>
-          shouldDisplayCorrectAnswers && !isExplanationDisplayed,
+        ([shouldDisplayCorrectAnswers, isExplanationDisplayed]: [boolean, boolean]) =>
+          shouldDisplayCorrectAnswers && !isExplanationDisplayed
       ),
       distinctUntilChanged(),
-      catchError((error) => {
-        console.error(
-          'Error in shouldDisplayCorrectAnswers$ observable:',
-          error,
-        );
-        return of(false); // default to not displaying correct answers in case of error
+      catchError((error: Error) => {
+        console.error('Error in shouldDisplayCorrectAnswers$ observable:', error);
+        return of(false);  // default to not displaying correct answers in case of error
       }),
     );
 
     // Display correctAnswersText only if the above conditions are met
     this.displayCorrectAnswersText$ = this.shouldDisplayCorrectAnswers$.pipe(
-      switchMap((shouldDisplay) => {
+      switchMap((shouldDisplay: boolean) => {
         return shouldDisplay ? this.correctAnswersText$ : of(null);
       }),
       distinctUntilChanged(),
-      catchError((error) => {
+      catchError((error: Error) => {
         console.error('Error in displayCorrectAnswersText$ observable:', error);
-        return of(null); // default to null in case of error
-      }),
+        return of(null);  // default to null in case of error
+      })
     );
   }
 
