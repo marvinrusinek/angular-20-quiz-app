@@ -3,7 +3,7 @@ import {
   Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges, ViewChild
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, ParamMap, Params } from '@angular/router';
+import { ActivatedRoute, ParamMap } from '@angular/router';
 import {
   animationFrameScheduler, BehaviorSubject, combineLatest, firstValueFrom,
   forkJoin, merge, Observable, of, Subject, Subscription
@@ -71,8 +71,8 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   @Input() questionText = '';
   @Input() quizData: CombinedQuestionDataType | null = null;
   @Input() displayState$!: Observable<{
-    mode: 'question' | 'explanation';
-    answered: boolean;
+    mode: 'question' | 'explanation',
+    answered: boolean
   }>;
   @Input() displayVariables!: { question: string; explanation: string };
   @Input() localExplanationText = '';
@@ -518,8 +518,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       map(({ currentQuestion, currentOptions }:
         { currentQuestion: QuizQuestion | null; currentOptions: Option[] }) => {
         return !!currentQuestion && currentOptions.length > 0;
-      }
-      ),
+      }),
       distinctUntilChanged(),
       catchError((error: Error) => {
         console.error('Error in isContentAvailable$:', error);
@@ -626,8 +625,8 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     const serviceQuestionText$ = (this.questionToDisplay$ || of('')).pipe(
       tap((q: string | null) =>
         console.log(
-          `[questionText$] 🔵 Raw input (service): "${(q ?? '').slice(0, 80)}"`,
-        ),
+          `[questionText$] 🔵 Raw input (service): "${(q ?? '').slice(0, 80)}"`
+        )
       ),
       map((q) => (q ?? '').trim()),
       filter((q) => q.length > 0)
@@ -743,7 +742,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       this.quizService.questions$.pipe(
         startWith([]),
         map(() => this.quizService.questions || [])
-      ),
+      )
     ]).pipe(
       startWith([
         0,
@@ -792,7 +791,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       skipUntil(
         index$.pipe(
           filter((idx: number) => Number.isFinite(idx)),
-          take(1),
+          take(1)
         ),
       ),
 
@@ -881,7 +880,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
               serviceQuestionsLength: this.quizService.questions?.length,
               banner,
               idx
-            },
+            }
           );
           return this.resolveTextToDisplay(
             idx,
@@ -1072,7 +1071,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
     const fallbackQuestion =
       qText ||
-      cachedForThisIndex || // index scoped
+      cachedForThisIndex ||  // index scoped
       '[Recovery: question still loading…]';
 
     // Robust Banner Logic: Use stream banner OR calculate fallback
@@ -1188,8 +1187,6 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         this.explanationTextService.resetExplanationText();
 
         this.quizService.setCurrentQuestion(question);
-
-
       } else {
         console.error('Invalid question index:', zeroBasedIndex);
       }
@@ -1270,7 +1267,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     ]).pipe(
       map(([questions, explanationTexts]: [QuizQuestion[], string[]]) => {
         return [questions, explanationTexts];
-      }),
+      })
     );
   }
 
