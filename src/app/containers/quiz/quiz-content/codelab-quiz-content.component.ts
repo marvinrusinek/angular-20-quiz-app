@@ -727,7 +727,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       boolean,  // navigating$
       number,  // qQuiet$
       number,  // eQuiet$
-      QuizQuestion[],  // questions$
+      QuizQuestion[]  // questions$
     ];
 
     // Base stream: existing logic
@@ -793,7 +793,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         index$.pipe(
           filter((idx: number) => Number.isFinite(idx)),
           take(1)
-        ),
+        )
       ),
 
       filter(([idx, , , fet]: CombinedTuple) => {
@@ -826,7 +826,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           }
 
           return valid;
-        },
+        }
       ),
 
       map(
@@ -891,7 +891,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             shouldShow,
             questions
           );
-        },
+        }
       ),
 
       auditTime(16),
@@ -1398,7 +1398,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             !!isExplanationDisplayed,
             formattedExplanation ?? ''
           );
-        },
+        }
       ),
       filter((data: CombinedQuestionDataType | null):
         data is CombinedQuestionDataType => data !== null),
