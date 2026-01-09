@@ -1,10 +1,6 @@
 import { Injectable } from '@angular/core';
 import {
-  ActivatedRouteSnapshot,
-  CanActivate,
-  Router,
-  RouterStateSnapshot,
-  UrlTree,
+  ActivatedRouteSnapshot, CanActivate, Router, RouterStateSnapshot, UrlTree
 } from '@angular/router';
 
 import { Quiz } from '../../shared/models/Quiz.model';
@@ -14,12 +10,12 @@ import { QuizDataService } from '../../shared/services/quizdata.service';
 export class QuizGuard implements CanActivate {
   constructor(
     private quizDataService: QuizDataService,
-    private router: Router,
+    private router: Router
   ) { }
 
   canActivate(
     route: ActivatedRouteSnapshot,
-    _state: RouterStateSnapshot,
+    _state: RouterStateSnapshot
   ): boolean | UrlTree {
     const quizId = route.params['quizId'];
     const questionParam = route.params['questionIndex'];
@@ -43,7 +39,7 @@ export class QuizGuard implements CanActivate {
 
   private normalizeQuestionIndex(
     questionParam: unknown,
-    quizId: string,
+    quizId: string
   ): number | UrlTree {
     if (questionParam == null) {
       console.warn('[🛡️ QuizGuard] No index → redirect to #1');
@@ -73,10 +69,11 @@ export class QuizGuard implements CanActivate {
   private evaluateQuestionRequest(
     quiz: Quiz,
     questionIndex: number,
-    quizId: string,
+    quizId: string
   ): boolean | UrlTree {
     const total = quiz.questions?.length ?? 0;
-    console.log(`[🛡️ QuizGuard] Eval: Q${questionIndex} of ${total} (quizId=${quizId})`);
+    console.log(`[🛡️ QuizGuard] Eval: Q${questionIndex} of ${total} 
+      (quizId=${quizId})`);
 
     if (total <= 0) {
       console.warn(`[❌ QuizId=${quizId}] No questions.`);
@@ -84,9 +81,6 @@ export class QuizGuard implements CanActivate {
     }
 
     const zeroIdx = questionIndex - 1;
-    // CRITICAL DEBUG LOG
-    console.log(`[🛡️ QuizGuard] ZeroIdx=${zeroIdx}, Total=${total}, Valid?=${zeroIdx >= 0 && zeroIdx < total}`);
-
     if (zeroIdx >= 0 && zeroIdx < total) return true;
 
     const fallback = Math.min(total, Math.max(1, questionIndex));
