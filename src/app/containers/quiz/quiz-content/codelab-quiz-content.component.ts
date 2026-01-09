@@ -193,7 +193,8 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
   public activeFetText$: Observable<string> = this.formattedExplanation$.pipe(
     withLatestFrom(this.quizService.currentQuestionIndex$),
-    map(([payload, idx]) => (payload?.idx === idx ? (payload.text ?? '') : '')),
+    map(([payload, idx]:
+      [FETPayload, number]) => (payload?.idx === idx ? (payload.text ?? '') : '')),
     startWith(''),
     distinctUntilChanged()
   );
