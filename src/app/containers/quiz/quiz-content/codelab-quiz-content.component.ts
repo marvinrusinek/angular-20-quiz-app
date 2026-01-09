@@ -629,8 +629,8 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           `[questionText$] 🔵 Raw input (service): "${(q ?? '').slice(0, 80)}"`
         )
       ),
-      map((q) => (q ?? '').trim()),
-      filter((q) => q.length > 0)
+      map((q: string | null) => (q ?? '').trim()),
+      filter((q: string) => q.length > 0)
     );
 
     const fallbackQuestionText$ = this.currentQuestion$.pipe(
