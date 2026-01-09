@@ -98,7 +98,7 @@ export interface FeedbackConfig {
 @Component({
   selector: 'codelab-quiz-question',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, AnswerComponent],
+  imports: [CommonModule, ReactiveFormsModule],
   templateUrl: './quiz-question.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
