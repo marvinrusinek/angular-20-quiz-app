@@ -96,7 +96,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
     // Check if ANY option in this question has been selected
     // This is the most reliable check - options are the source of truth
-    const currentQuestion = this.quizService.questions?.[idx];
+    const currentQuestion = this.quizService.questions[idx];
     const hasSelectedOption =
       currentQuestion?.options?.some((o: Option) => o.selected) ?? false;
 
@@ -108,7 +108,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       ets.formattedExplanationSubject.next('');
       ets.explanationText$.next('');
       // Clear any cached FET for this index to prevent stale FET display
-      ets.fetByIndex?.delete(idx);
+      ets.fetByIndex.delete(idx);
       // Also clear the local question text cache which may have stale FET
       this._lastQuestionTextByIndex?.delete(idx);
       // Clear stale selectedOptionsMap entry so isAnswered() returns false
@@ -487,7 +487,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
                 console.log(`[CQCC Display] Q${currentIndex + 1} FET preserved (shown this session)`);
                 incoming = storedFet;
               } else if (!hasFetForCurrentIdx) {
-                const q = this.quizService.questions?.[currentIndex];
+                const q = this.quizService.questions[currentIndex];
                 const questionText = q?.questionText ?? '';
                 if (questionText) {
                   console.log(`[CQCC Display] Q${currentIndex + 1} UNANSWERED: Forcing question text: 
@@ -620,7 +620,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         }
       }),
       debounceTime(50),
-      shareReplay({ bufferSize: 1, refCount: true }),
+      shareReplay({ bufferSize: 1, refCount: true })
     );
 
     const serviceQuestionText$ = (this.questionToDisplay$ || of('')).pipe(
@@ -630,7 +630,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         ),
       ),
       map((q) => (q ?? '').trim()),
-      filter((q) => q.length > 0),
+      filter((q) => q.length > 0)
     );
 
     const fallbackQuestionText$ = this.currentQuestion$.pipe(
@@ -664,12 +664,12 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
     const fetForIndex$ = combineLatest([
       (this.explanationTextService.formattedExplanation$ ?? of('')).pipe(
-        startWith(''),
+        startWith('')
       ),
       (this.explanationTextService.shouldDisplayExplanation$ ?? of(false)).pipe(
-        startWith(false),
+        startWith(false)
       ),
-      (this.explanationTextService.activeIndex$ ?? of(-1)).pipe(startWith(-1)),
+      (this.explanationTextService.activeIndex$ ?? of(-1)).pipe(startWith(-1))
     ]).pipe(
       auditTime(0),
       map(([payload, gate, idx]: [FETPayload | string, boolean, number]) => ({
@@ -754,7 +754,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         false,
         0,
         0,
-        [],
+        []
       ] as CombinedTuple),
       skip(1),
       auditTime(16),
@@ -773,7 +773,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           // shouldShow
           navigating,
           qQuiet,
-          eQuiet,
+          eQuiet
         ] = tuple;
         const hold =
           navigating || performance.now() < Math.max(qQuiet || 0, eQuiet || 0);
@@ -801,7 +801,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
         if (!isMatch) {
           console.log(
-            `[DisplayGate] 🚫 Suppressing mismatched FET (fet.idx=${fet?.idx}, current=${idx})`,
+            `[DisplayGate] 🚫 Suppressing mismatched FET (fet.idx=${fet?.idx}, current=${idx})`
           );
         }
 
@@ -852,7 +852,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             navigating,
             qQuiet,
             eQuiet,
-            questions,
+            questions
           ] as CombinedTuple
       ),
 
@@ -895,7 +895,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       ),
 
       auditTime(16),
-      distinctUntilChanged((a: string, b: string) => a.trim() === b.trim()),
+      distinctUntilChanged((a: string, b: string) => a.trim() === b.trim())
     );
 
     // FINAL LAYER: explanation wins
@@ -957,7 +957,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
               return base;
             }
           }
-        } catch (err) {
+        } catch (err: any) {
           console.warn('[CQCC] ⚠️ Answered override check failed', err);
         }
 
@@ -992,7 +992,6 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     const isMulti = numCorrectForMultiCheck > 1;
 
     const ets = this.explanationTextService;
-    const explanationIndex = (ets as any).latestExplanationIndex;
     const mode = this.quizStateService.displayStateSubject?.value?.mode;
 
     const hasUserInteracted =
@@ -1036,7 +1035,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           const banner =
             this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
               numCorrect,
-              totalOpts,
+              totalOpts
             );
           // Prepend the banner before the FET so it shows at the top
           finalFet = `<div class="correct-count-header">${banner}</div>${safe}`;
@@ -1088,7 +1087,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         finalBanner =
           this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
             numCorrect,
-            totalOpts,
+            totalOpts
           );
         console.log(
           `[resolveTextToDisplay] 🛠️ Calculated fallback banner for Q${idx + 1}: "${finalBanner}"`
@@ -1129,7 +1128,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         this.isContentAvailableChange.emit(isAvailable);
         this.quizDataService.updateContentAvailableState(isAvailable);
       },
-      error: (error: Error) => console.error('Error in isContentAvailable$:', error),
+      error: (error: Error) => console.error('Error in isContentAvailable$:', error)
     });
   }
 
@@ -1213,7 +1212,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       const data: [QuizQuestion[], string[]] = await firstValueFrom(
         this.fetchQuestionsAndExplanationTexts(params).pipe(
           takeUntil(this.destroy$)
-        ),
+        )
       );
 
       const [questions, explanationTexts] = data;
@@ -1247,7 +1246,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   }
 
   private fetchQuestionsAndExplanationTexts(
-    params: ParamMap,
+    params: ParamMap
   ): Observable<[QuizQuestion[], string[]]> {
     this.quizId = params.get('quizId') ?? '';
     if (!this.quizId) {
@@ -1260,13 +1259,13 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         catchError((error: Error) => {
           console.error('Error fetching questions:', error);
           return of([] as QuizQuestion[]);
-        }),
+        })
       ),
       this.quizDataService.getAllExplanationTextsForQuiz(this.quizId).pipe(
         catchError((error: Error) => {
           console.error('Error fetching explanation texts:', error);
           return of([] as string[]);
-        }),
+        })
       ),
     ]).pipe(
       map(([questions, explanationTexts]: [QuizQuestion[], string[]]) => {
@@ -1399,7 +1398,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             currentQuizData,
             +(numberOfCorrectAnswers ?? 0),
             !!isExplanationDisplayed,
-            formattedExplanation ?? '',
+            formattedExplanation ?? ''
           );
         },
       ),
@@ -1562,7 +1561,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
           return this.haveSameOptionOrder(
             prev.currentOptions,
-            curr.currentOptions,
+            curr.currentOptions
           );
         }),
       shareReplay({ bufferSize: 1, refCount: true }),
@@ -1574,7 +1573,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           explanation: '',
           currentIndex: -1
         });
-      }),
+      })
     );
   }
 
