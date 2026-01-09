@@ -907,7 +907,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       this.quizService.currentQuestionIndex$,
     ]).pipe(
       map(([baseText, displayState, explanationReady, formatted, idx]:
-        [string, any, boolean, any, number]) => {
+        [unknown, any, boolean, any, number]) => {
         const mode = displayState?.mode ?? 'question';
         const base = String(baseText ?? '') as string;
 
@@ -1134,7 +1134,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   }
 
   private loadQuizDataFromRoute(): void {
-    this.activatedRoute.paramMap.subscribe(async (params: Params) => {
+    this.activatedRoute.paramMap.subscribe(async (params: ParamMap) => {
       const quizId = params.get('quizId');
       const questionIndex = Number(params?.get('questionIndex') ?? 1);
       const zeroBasedIndex = questionIndex - 1;
@@ -1363,7 +1363,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
               explanation: string;
               currentIndex: number;
             } | null,
-            number,
+            number | string,
             boolean,
             string
           ]): CombinedQuestionDataType => {
