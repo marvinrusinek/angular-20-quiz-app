@@ -1,25 +1,11 @@
-import {
-  ChangeDetectorRef,
-  Directive,
-  ElementRef,
-  EventEmitter,
-  HostBinding,
-  HostListener,
-  Input,
-  OnChanges,
-  OnInit,
-  Output,
-  Renderer2,
-  SimpleChanges,
+import { ChangeDetectorRef, Directive, ElementRef, EventEmitter, HostBinding,
+  HostListener, Input, OnChanges, OnInit, Output, Renderer2, SimpleChanges
 } from '@angular/core';
 
 import { Option } from '../shared/models/Option.model';
 import { OptionBindings } from '../shared/models/OptionBindings.model';
 import { SharedOptionConfig } from '../shared/models/SharedOptionConfig.model';
-import { QuizService } from '../shared/services/quiz.service';
-import { SelectedOptionService } from '../shared/services/selectedoption.service';
 import { UserPreferenceService } from '../shared/services/user-preference.service';
-
 
 @Directive({
   selector: '[appHighlightOption]',
@@ -39,23 +25,20 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
   @Input() allOptions: Option[] = []; // to access all options directly
   @Input() optionsToDisplay: Option[] = [];
   @Input() optionBinding: OptionBindings | undefined;
-  @Input() isSelected: boolean = false;
-  @Input() isCorrect = false;
-  @Input() showFeedback = false;
-  @Input() isAnswered = false;
   @Input() selectedOptionHistory: number[] = [];
+  @Input() isSelected = false;
+  @Input() isCorrect = false;
+  @Input() isAnswered = false;
+  @Input() showFeedback = false;
   @Input() renderReady = false;
   @Input() sharedOptionConfig!: SharedOptionConfig;
-  public areAllCorrectAnswersSelected = false;
 
   constructor(
-    private quizService: QuizService,
-    private selectedOptionService: SelectedOptionService,
     private el: ElementRef,
     private renderer: Renderer2,
     private cdRef: ChangeDetectorRef,
-    private userPreferenceService: UserPreferenceService,
-  ) { }
+    private userPreferenceService: UserPreferenceService
+  ) {}
 
   ngOnInit(): void {
     if (this.optionBinding) {
@@ -64,29 +47,23 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    // ─────────────────────────────────────────────
     // NEW SOURCE OF TRUTH:
     // Highlighting is now driven by SharedOptionConfig
-    // ─────────────────────────────────────────────
     if (changes['sharedOptionConfig']) {
       // Immediate highlight update (keeps old UX)
       this.updateHighlightFromConfig();
       return;
     }
 
-    // ─────────────────────────────────────────────
     // LEGACY FALLBACK (kept for safety / parity)
     // These inputs may still fire during transition
-    // ─────────────────────────────────────────────
     const optionBindingChanged = changes['optionBinding'] || changes['option'];
     const isSelectedChanged = changes['isSelected'];
     const showFeedbackChanged = changes['showFeedback'];
     const resetChanged = changes['appHighlightReset'];
 
     const highlightRelevant =
-      optionBindingChanged ||
-      isSelectedChanged ||
-      showFeedbackChanged ||
+      optionBindingChanged || isSelectedChanged || showFeedbackChanged ||
       resetChanged;
 
     // If something worth reacting to changed, run the full logic
@@ -97,36 +74,29 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
       // Immediate highlight update (keeps old UX)
       this.updateHighlight();
     } else {
-      console.log(
-        '[🛑 HighlightOptionDirective] ngOnChanges — no relevant changes detected',
-      );
+      console.log('[🛑 HighlightOptionDirective] ngOnChanges — no relevant changes detected');
     }
   }
 
   @HostBinding('style.background-color')
   backgroundColor: string = '';
 
-  @HostListener('click', ['$event'])
-  onClick(event: Event): void {
+  @HostListener('click')
+  onClick(): void {
     try {
-      // event.stopPropagation(); // ⚠️ REMOVED: Potentially blocking component click handlers
-
       // Check if the option is deactivated (highlighted or inactive)
       if (this.option?.highlight || this.option?.active === false) {
-        console.info(
-          'Deactivated option clicked. No action taken:',
-          this.option,
-        );
+        console.info('Deactivated option clicked. No action taken:', this.option);
         return;
       }
 
       // Emit the event and update visuals
       if (this.option) {
-        this.optionClicked.emit(this.option); // notify parent
-        this.updateHighlight(); // update UI
-        this.cdRef.detectChanges(); // ensure re-render
+        this.optionClicked.emit(this.option);  // notify parent
+        this.updateHighlight();  // update UI
+        this.cdRef.detectChanges();  // ensure re-render
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error in onClick:', error);
     }
   }
@@ -136,24 +106,24 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
 
     setTimeout(() => {
       const opt = this.optionBinding?.option;
-      if (!opt) return; // null guard for strict mode
+      if (!opt) return;  // null guard for strict mode
 
       const host = this.el.nativeElement as HTMLElement;
 
-      // RESET styles
+      // Reset styles
       this.renderer.removeStyle(host, 'background-color');
       this.renderer.removeClass(host, 'deactivated-option');
       this.renderer.setStyle(host, 'cursor', 'pointer');
       this.setPointerEvents(host, 'auto');
 
-      // SELECTED
+      // Selected
       if (opt.highlight) {
         this.setBackgroundColor(host, opt.correct ? '#43f756' : '#ff0000');
-        opt.showIcon = true; // keep ✓/✗
+        opt.showIcon = true;  // keep ✓/✗
         return;
       }
 
-      // DISABLED
+      // Disabled
       if (!opt.correct && opt.active === false) {
         this.setBackgroundColor(host, '#a3a3a3');
         this.renderer.addClass(host, 'deactivated-option');
@@ -161,71 +131,41 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
         this.setPointerEvents(host, 'none');
       }
 
-      opt.showIcon = false; // FALLBACK: no highlight and not disabled — no icon
+      opt.showIcon = false;  // fallback: no highlight and not disabled — no icon
     }, 0);
   }
 
   private updateHighlightFromConfig(): void {
     const cfg = this.sharedOptionConfig;
     if (!cfg || !cfg.option) return;
-    console.log(`[HighlightDirective] 🎨 Config Update for ${cfg.option.optionId}: Selected=${cfg.isOptionSelected}/${cfg.option.selected}, Highlight=${cfg.highlight}`);
 
     const host = this.el.nativeElement as HTMLElement;
     const opt = cfg.option;
 
-    // RESET
+    // Reset
     this.renderer.removeStyle(host, 'background-color');
     this.renderer.removeClass(host, 'deactivated-option');
     this.renderer.setStyle(host, 'cursor', 'pointer');
     this.setPointerEvents(host, 'auto');
     opt.showIcon = false;
 
-    // SELECTED (robust against Angular timing) - check ALL possible selection indicators
+    // Selected (robust against Angular timing) - check all possible selection indicators
     const isSelectedNow =
-      cfg.highlight === true ||
-      cfg.isOptionSelected === true ||
-      cfg.option.selected === true ||
-      cfg.option.highlight === true;
+      cfg.highlight === true || cfg.isOptionSelected ||
+      cfg.option.selected === true;
 
     if (isSelectedNow) {
-      this.setBackgroundColor(
-        host,
-        cfg.isAnswerCorrect ? '#43f756' : '#ff0000'
-      );
+      this.setBackgroundColor(host, cfg.isAnswerCorrect ? '#43f756' : '#ff0000');
       opt.showIcon = true;
       return;
     }
 
-    // RESET BETWEEN QUESTIONS
+    // Reset between questions
     if (cfg.shouldResetBackground) {
       this.setBackgroundColor(host, 'transparent');
       opt.showIcon = false;
     }
   }
-
-  /* private highlightCorrectAnswers(): void {
-    if (!Array.isArray(this.allOptions)) {
-      console.error('All options are not defined');
-      return;
-    }
-  
-    for (const opt of this.allOptions) {
-      if (opt.correct) {
-        if (opt.optionId !== undefined) {
-          this.showFeedbackForOption[opt.optionId] = true;
-        }
-        if (opt.optionId === this.option?.optionId) {
-          this.setBackgroundColor(this.paintTarget, '#43f756'); // green
-        }
-      } else if (opt.optionId === this.option?.optionId) {
-        this.setBackgroundColor(this.paintTarget, '#ff0000'); // red
-      }
-    }
-  } */
-
-  /* private get paintTarget(): HTMLElement {
-    return this.el.nativeElement.firstElementChild as HTMLElement ?? this.el.nativeElement;
-  } */
 
   private setBackgroundColor(element: HTMLElement, color: string): void {
     this.renderer.setStyle(element, 'background-color', color);
@@ -234,21 +174,4 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
   private setPointerEvents(el: HTMLElement, value: string): void {
     this.renderer.setStyle(el, 'pointer-events', value);
   }
-
-  /* public paintNow(): void {
-    this.updateHighlight();
-  } */
-
-  // Reset the state in-between questions
-  /* public reset(): void {
-    this.isAnswered = false;
-    if (this.allOptions) {
-      for (const opt of this.allOptions) {
-        opt.active = true;  // reset all options to active
-      }
-    }
-    this.setBackgroundColor(this.paintTarget, 'transparent');
-    this.renderer.setStyle(this.el.nativeElement, 'background-color', 'white');
-    this.resetBackground.emit(true);  // emit event to notify the reset
-  } */
 }
