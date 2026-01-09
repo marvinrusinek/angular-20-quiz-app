@@ -1,13 +1,27 @@
 import {
+<<<<<<< HEAD
   AfterViewInit, ApplicationRef, ChangeDetectionStrategy, ChangeDetectorRef,
   Component, EventEmitter, HostListener, Input, NgZone, OnChanges, OnDestroy, OnInit,
   Output, QueryList, SimpleChanges, ViewChildren } from '@angular/core';
+=======
+  AfterViewChecked, AfterViewInit, ApplicationRef, ChangeDetectionStrategy, ChangeDetectorRef,
+  Component, EventEmitter, HostListener, Input, NgZone, OnChanges, OnDestroy, OnInit,
+  Output, QueryList, SimpleChanges, ViewChildren
+} from '@angular/core';
+>>>>>>> 9d00b2ffcc807957515ac6ff088a59edaa4b17c4
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule, MatCheckboxChange } from '@angular/material/checkbox';
 import { MatRadioModule, MatRadioChange } from '@angular/material/radio';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+<<<<<<< HEAD
 import { animationFrameScheduler, BehaviorSubject, Observable, Subject, Subscription } from 'rxjs';
+=======
+import {
+  animationFrameScheduler, BehaviorSubject, Observable, Subject,
+  Subscription
+} from 'rxjs';
+>>>>>>> 9d00b2ffcc807957515ac6ff088a59edaa4b17c4
 import { distinctUntilChanged, observeOn, take, takeUntil } from 'rxjs/operators';
 
 import { FeedbackProps } from '../../../../shared/models/FeedbackProps.model';
@@ -76,7 +90,13 @@ export class SharedOptionComponent
   @Input() shouldResetBackground = false;
   @Input() highlightCorrectAfterIncorrect = false;
   @Input() quizQuestionComponentOnOptionClicked!: (
+<<<<<<< HEAD
     option: SelectedOption, index: number) => void;
+=======
+    option: SelectedOption,
+    index: number
+  ) => void;
+>>>>>>> 9d00b2ffcc807957515ac6ff088a59edaa4b17c4
   @Input() optionBindings: OptionBindings[] = [];
   @Input() selectedOptionId: number | null = null;
   @Input() selectedOptionIndex: number | null = null;
@@ -180,10 +200,17 @@ export class SharedOptionComponent
 
   // Robust Multi-Mode Detection (Infers from Data if Type is missing)
   get isMultiMode(): boolean {
+<<<<<<< HEAD
     // Explicit check
     if (this.type === 'multiple' || this.config?.type === 'multiple') return true;
 
     // Data inference (fixes multiple-answer questions)
+=======
+    // Explicit Check
+    if (this.type === 'multiple' || this.config?.type === 'multiple') return true;
+
+    // Data Inference (Fixes multiple-answer questions)
+>>>>>>> 9d00b2ffcc807957515ac6ff088a59edaa4b17c4
     if (this.currentQuestion?.options) {
       const count = this.currentQuestion.options.filter(o => o.correct).length;
       if (count > 1) return true;
@@ -282,7 +309,11 @@ export class SharedOptionComponent
         );
 
         if (idx >= 0 && this.optionsToDisplay?.length > 0) {
+<<<<<<< HEAD
           const question = this.quizService.questions[idx];
+=======
+          const question = this.quizService.questions?.[idx];
+>>>>>>> 9d00b2ffcc807957515ac6ff088a59edaa4b17c4
 
           if (question?.options) {
             const correctOptions = this.optionsToDisplay.filter(
@@ -365,8 +396,12 @@ export class SharedOptionComponent
 
         this.applySelectionsUI(selList);
 
+<<<<<<< HEAD
         const selectedIds =
           selList.map((s) => s.optionId);
+=======
+        const selectedIds = selList.map((s) => s.optionId);
+>>>>>>> 9d00b2ffcc807957515ac6ff088a59edaa4b17c4
 
         if (this.selectedOptionId != null) {
           this.isSelected = selectedIds.includes(this.selectedOptionId);
@@ -3183,6 +3218,13 @@ export class SharedOptionComponent
       const freshFeedback = this.feedbackService.generateFeedbackForOptions(
         correctOptions,
         this.optionsToDisplay
+<<<<<<< HEAD
+=======
+      );
+
+      console.log(
+        `[regenerateFeedback] For Q${idx + 1}, new feedback: ${freshFeedback}`
+>>>>>>> 9d00b2ffcc807957515ac6ff088a59edaa4b17c4
       );
 
       this.feedbackConfigs = {};
@@ -3231,8 +3273,12 @@ export class SharedOptionComponent
     }
 
     console.warn(
+<<<<<<< HEAD
       `[⚠️ determineQuestionType] No valid options or input detected. 
       Defaulting to 'single'.`
+=======
+      `[⚠️ determineQuestionType] No valid options or input detected. Defaulting to 'single'.`
+>>>>>>> 9d00b2ffcc807957515ac6ff088a59edaa4b17c4
     );
 
     // Final fallback based on explicit type property
@@ -3257,6 +3303,13 @@ export class SharedOptionComponent
     }
   }
 
+<<<<<<< HEAD
+=======
+  public triggerViewRefresh(): void {
+    this.cdRef.markForCheck();
+  }
+
+>>>>>>> 9d00b2ffcc807957515ac6ff088a59edaa4b17c4
   public forceDisableAllOptions(): void {
     this.forceDisableAll = true;
     for (const binding of this.optionBindings ?? []) {
@@ -3412,6 +3465,7 @@ export class SharedOptionComponent
     }
     return this.shouldDisableOption(binding) || this.isLocked(binding, idx);
   }
+
 
   // Use the same key shape everywhere (STRING so we don't lose non-numeric ids)
   // Stable per-row key: prefer numeric optionId; fallback to stableKey + index
