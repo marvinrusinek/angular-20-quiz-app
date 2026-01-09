@@ -150,29 +150,6 @@ export class ExplanationTextService {
       this.setShouldDisplayExplanation(false, { force: true });
       this.setIsExplanationTextDisplayed(false, { force: true });
     });
-
-    // ⚡ FIX: Listen to global quiz reset event to clear state
-    // This avoids circular dependency injection issues in QuizService
-    // We already inject QuizService here, so we can subscribe to it.
-    const quizService = this.injector.get(QuizService, null);
-    if (quizService) {
-      quizService.quizReset$.subscribe(() => {
-        this.resetState();
-      });
-    }
-  }
-
-  // ⚡ FIX: Added resetState to clear cached FETs when quiz resets/shuffles
-  public resetState(): void {
-    console.log('[ETS] 🔄 resetState called - clearing all cached explanations');
-    this.formattedExplanations = {};
-    this.formattedExplanationByQuestionText.clear();
-    this.explanationTexts = {};
-    this.latestExplanation = '';
-    this._fetLocked = false;
-    this.processedQuestions.clear();
-    this.formattedExplanations$ = [];
-    this.explanationsUpdated.next({});
   }
 
   private _qss!: QuizStateService;
@@ -303,13 +280,8 @@ export class ExplanationTextService {
           // We use a token approach to avoid importing QuizService directly
           const quizService = this.injector.get(QuizService, null);
 
-          // ✅ FIX: Prioritize shuffledQuestions if available to ensure indices match the visual order
-          // This resolves the mismatch between the visual "Option X" and the explanation text in shuffled mode.
-          const questions = (quizService?.shuffledQuestions && quizService.shuffledQuestions.length > 0)
-            ? quizService.shuffledQuestions
-            : quizService?.questions;
-
-          console.log(`[ETS DEBUG] Formatting Q${this._activeIndexValue + 1}. shuffledQuestions.length=${quizService?.shuffledQuestions?.length ?? 0}, usingShuffled=${questions === quizService?.shuffledQuestions}`);
+          // ✅ Use the public questions cache instead of relying on questionsArray
+          const questions = quizService?.questions;
 
           if (quizService && Array.isArray(questions)) {
             // Get question synchronously from the service's cache
@@ -317,8 +289,6 @@ export class ExplanationTextService {
 
             if (questionData) {
               const correctIndices = this.getCorrectOptionIndices(questionData);
-              console.log(`[ETS DEBUG] Q${this._activeIndexValue + 1} ("${questionData.questionText?.substring(0, 20)}...") Correct Indices: ${correctIndices?.join(',')}`);
-
               finalExplanation = this.formatExplanation(
                 questionData,
                 correctIndices,
@@ -681,7 +651,7 @@ export class ExplanationTextService {
     }
 
     const sanitizedExplanation = explanation.trim();
-    const correctOptionIndices = this.getCorrectOptionIndices(question); // This now returns number[] or null
+    const correctOptionIndices = this.getCorrectOptionIndices(question);
     const formattedExplanation = this.formatExplanation(
       question,
       correctOptionIndices,
@@ -727,79 +697,10 @@ export class ExplanationTextService {
   getCorrectOptionIndices(
     question: QuizQuestion,
     options?: Option[],
-  ): number[] { // Changed return type to number[] | null
+  ): number[] {
     // 🔑 VISUAL ALIGNMENT: Sync with FeedbackService logic
     // We must filter the options to match the visual "valid only" count.
-
-    // ⚡ FIX: Use the question's options if no explicit options provided
-    // When called with just (question), we should use question.options which are already shuffled
-    let effectiveOptions = options ?? question.options;
-
-    // Only try to resolve via shuffle lookup if we have absolutely nothing
-    if (!effectiveOptions || effectiveOptions.length === 0) {
-      // Will fall through to shuffle lookup below
-    }
-
-    // 🔑 VISUAL ALIGNMENT:
-    // If we have effectiveOptions (which are the shuffled ones), the "Option X" text
-    // MUST refer to the visual position in this list (i + 1).
-    // We CANNOT use `displayOrder` or map back to the original index, because the user
-    // sees "Option 1" as the first item in the list, regardless of its original ID.
-    if (effectiveOptions && effectiveOptions.length > 0) {
-      console.log(`[ETS] ⚡ Calculating indices based on visual position. Q: "${question?.questionText?.substring(0, 10)}..."`);
-      // Verify indices
-      const indices = effectiveOptions
-        .map((o, i) => (o.correct ? i + 1 : -1))
-        .filter((i) => i !== -1);
-
-      if (indices.length === 0) {
-        console.warn('[getCorrectOptionIndices] No correct options found.');
-        return [];
-      }
-
-      // Logic for multiple answers
-      // If we have [1, 2], return both or handle wording
-      // For now, returning the array is what we typically do if the caller handles it.
-      // But this function returns `number | null`. It likely needs to change signature or return just the first?
-      // The previous implementation returned `indices[0] ?? null`.
-      // If the FET logic relies on "Option X", it handles one.
-      // We should probably return indices[0] but log if multiple.
-      if (indices.length > 1) {
-        console.log(`[getCorrectOptionIndices] Multiple correct options found: ${indices.join(', ')}`);
-        return indices; // Return all correct indices
-      }
-
-      return indices; // Return all (which will be just one if length is 1)
-    }
-
-    // New Strategy: Check if we are in shuffle mode and have stored shuffled questions
-    if (!effectiveOptions) {
-      try {
-        const quizService = this.injector.get(QuizService, null);
-        if (quizService && quizService.isShuffleEnabled() && quizService.shuffledQuestions) {
-          // ⚡ FIX: Find the exact shuffled instance for this question text
-          // This ensures we get the options in their visual order (1, 2, 3...)
-          // matching what the user sees and what FeedbackService uses.
-          const normalize = (s: string) => (s || '').trim().toLowerCase().replace(/\s+/g, ' ');
-          const targetText = normalize(question.questionText);
-
-          const match = quizService.shuffledQuestions.find(
-            q => normalize(q.questionText) === targetText
-          );
-
-          if (match && match.options && match.options.length > 0) {
-            console.log(`[ETS Lookup] Match found for Q: "${question.questionText?.substring(0, 20)}...". Visual Options[0]: "${match.options[0]?.text.substring(0, 10)}..."`);
-            effectiveOptions = match.options;
-          } else {
-            // Fallback: If we can't find it by text, maybe look by index if provided?
-            // But text is safer. If not found, warn.
-            console.warn(`[ETS Lookup] Match NOT found for Q: "${question.questionText?.substring(0, 20)}..." in shuffled array.`);
-          }
-        }
-      } catch (e) { }
-    }
-
-    const rawOpts = effectiveOptions || question?.options;
+    const rawOpts = options || question?.options;
     const opts = (rawOpts || []).filter(isValidOption);
 
     if (!Array.isArray(opts) || opts.length === 0) {
@@ -853,10 +754,13 @@ export class ExplanationTextService {
           if (!opt?.correct) {
             return -1;
           }
-          // ⚡ FIX: Always use the array index for "Option X" labeling
-          // This ensures the explanation matches the VISUAL order of options (whether shuffled or not)
-          // displayOrder tracks the ORIGINAL position, which is confusing in a shuffled context
-          return i + 1; // 1-based visual index
+          const hasValidDisplayOrder =
+            typeof opt.displayOrder === 'number' &&
+            Number.isFinite(opt.displayOrder) &&
+            opt.displayOrder >= 0;
+
+          const displayIndex = hasValidDisplayOrder ? opt.displayOrder : i;
+          return (displayIndex ?? 0) + 1;
         })
         .filter((n) => n > 0);
     }
