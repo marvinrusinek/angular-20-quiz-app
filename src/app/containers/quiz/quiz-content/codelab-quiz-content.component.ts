@@ -182,7 +182,7 @@ export class CodelabQuizContentComponent
   private combinedTextSubject = new BehaviorSubject<string>('');
   combinedText$ = this.combinedTextSubject.asObservable();
 
-  shouldDisplayCorrectAnswers = false;
+
   private shouldDisplayCorrectAnswersSubject: BehaviorSubject<boolean> =
     new BehaviorSubject<boolean>(false);
   shouldDisplayCorrectAnswers$ =
@@ -198,7 +198,7 @@ export class CodelabQuizContentComponent
   nextQuestion$: Observable<QuizQuestion | null>;
   previousQuestion$: Observable<QuizQuestion | null>;
   isNavigatingToPrevious = false;
-  currentQuestionType: QuestionType | undefined = undefined;
+
   private _lastQuestionTextByIndex = new Map<number, string>();
   // Session-based tracking: which questions have had FET displayed this session
   private _fetDisplayedThisSession = new Set<number>();
@@ -266,7 +266,7 @@ export class CodelabQuizContentComponent
     false,
   );
 
-  isQuizQuestionComponentInitialized = new BehaviorSubject<boolean>(false);
+
   isContentAvailable$!: Observable<boolean>;
 
   private combinedSub?: Subscription;
@@ -356,12 +356,12 @@ export class CodelabQuizContentComponent
           : Number.isFinite(this.currentIndex)
             ? this.currentIndex
             : 0;
-            
+
         // ⚡ CRITICAL FIX: Prioritize PARENT provided text (qText)
         // Do NOT fetch text from questions array as it might be unshuffled.
         // references from questions array should ONLY be used for metadata (options count).
         const rawQText = (qText as string)?.trim();
-        
+
         // Check if this is a multiple-answer question (use resolved object first, then fallback)
         const qObj =
           questionObj ||
@@ -382,7 +382,7 @@ export class CodelabQuizContentComponent
             const mode = isAnswered ? (state?.mode || 'question') : 'question';
             const dummyQText = (qText ?? '').trim(); // kept for interface compatibility if needed
             const trimmedQText = dummyQText; // Restore variable for downstream usage
-            
+
             const numCorrect =
               qObj?.options?.filter((o: Option) => o.correct).length || 0;
             const isMulti = numCorrect > 1;
@@ -413,15 +413,15 @@ export class CodelabQuizContentComponent
               // rawQText (from Parent) was found to be stale (stuck on previous question) during navigation.
               const serviceQText = (questionObj?.questionText ?? '').trim();
               const effectiveQText = serviceQText || rawQText;
-              
+
               if (!effectiveQText) {
-                  // If we have nothing safe, wait. Don't show wrong text.
-                  console.warn(`[displayText$] ⚠️ Q${safeIdx+1} No safe text available yet.`);
-                  return '';
+                // If we have nothing safe, wait. Don't show wrong text.
+                console.warn(`[displayText$] ⚠️ Q${safeIdx + 1} No safe text available yet.`);
+                return '';
               }
-              
+
               console.log(`[displayText$ RETURN] Q${safeIdx + 1} NOT ANSWERED → returning question text: "${effectiveQText?.substring(0, 50)}"`);
-              
+
               if (isMulti && bannerText) {
                 return `${effectiveQText} <span class="correct-count">${bannerText}</span>`;
               }
@@ -563,7 +563,7 @@ export class CodelabQuizContentComponent
       .subscribe((isAvailable) => {
         if (isAvailable) {
           console.log('Content is available. Setting up state subscription.');
-          this.setupDisplayStateSubscription();
+
         } else {
           console.log('Content is not yet available.');
         }
@@ -576,7 +576,7 @@ export class CodelabQuizContentComponent
 
     // Initialize other component states and subscriptions
     await this.initializeComponent();
-    this.configureDisplayLogic();
+
     this.setupCorrectAnswersTextDisplay();
   }
 
@@ -1228,65 +1228,11 @@ export class CodelabQuizContentComponent
     });
   }
 
-  private setupDisplayStateSubscription(): void {
-    combineLatest([
-      this.displayState$.pipe(distinctUntilChanged()), // ensure state changes trigger updates
-      this.isQuizQuestionComponentInitialized.pipe(distinctUntilChanged()), // check initialization status
-    ])
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(([state, isInitialized]) => {
-        if (isInitialized) {
-          if (this.quizQuestionComponent) {
-            if (state.mode === 'explanation' && state.answered) {
-              console.log('Displaying explanation text.', {
-                mode: state.mode,
-                answered: state.answered,
-              });
-            } else {
-              console.log('Displaying question text.', {
-                mode: state.mode,
-                answered: state.answered,
-              });
-            }
-          } else {
-            console.error(
-              'QuizQuestionComponent is unexpectedly null during display update.',
-            );
-          }
-        } else {
-          console.info(
-            'QuizQuestionComponent not ready. Skipping display update.',
-            {
-              state,
-              isInitialized,
-            },
-          );
-        }
-      });
-  }
 
-  private fetchExplanationTextAfterRendering(
-    question: QuizQuestion,
-  ): Observable<string> {
-    return new Observable<string>((observer) => {
-      setTimeout(() => {
-        this.fetchExplanationText(question).subscribe((explanation: string) => {
-          observer.next(explanation);
-          observer.complete();
-        });
-      }, 100); // delay to ensure rendering order
-    });
-  }
 
-  configureDisplayLogic(): void {
-    this.handleQuestionDisplayLogic().subscribe(({ isMultipleAnswer }) => {
-      if (this.currentQuestionType === QuestionType.SingleAnswer) {
-        this.shouldDisplayCorrectAnswers = false;
-      } else {
-        this.shouldDisplayCorrectAnswers = isMultipleAnswer;
-      }
-    });
-  }
+
+
+
 
   private loadQuizDataFromRoute(): void {
     this.activatedRoute.paramMap.subscribe(async (params) => {
@@ -1345,9 +1291,7 @@ export class CodelabQuizContentComponent
 
         this.quizService.setCurrentQuestion(question);
 
-        setTimeout(() => {
-          this.fetchExplanationTextAfterRendering(question);
-        }, 300);
+
       } else {
         console.error('Invalid question index:', zeroBasedIndex);
       }
@@ -1483,52 +1427,7 @@ export class CodelabQuizContentComponent
       );
   }
 
-  private fetchExplanationText(question: QuizQuestion): Observable<string> {
-    if (!question || !question.questionText) {
-      console.error('Question is undefined or missing questionText');
-      return of('No explanation available');
-    }
 
-    return this.quizDataService.getQuestionsForQuiz(this.quizId).pipe(
-      switchMap((questions: QuizQuestion[] | null): Observable<string> => {
-        // Defensive guard: ensure questions is non-null and not empty
-        if (!questions || questions.length === 0) {
-          console.error('No questions received from service.');
-          return of('No explanation available');
-        }
-
-        // Find the index of the current question based on its text
-        const questionIndex = questions.findIndex(
-          (q) =>
-            q.questionText.trim().toLowerCase() ===
-            question.questionText.trim().toLowerCase(),
-        );
-
-        if (questionIndex < 0) {
-          console.error('Current question not found in the questions array.');
-          return of('No explanation available');
-        }
-
-        // Check if explanations are initialized
-        if (!this.explanationTextService.explanationsInitialized) {
-          console.warn(
-            `[fetchExplanationText] ⏳ Explanations not initialized — returning fallback for Q${questionIndex}`,
-          );
-          return of('No explanation available');
-        }
-
-        // Safely return the formatted explanation text for the given question index
-        return this.explanationTextService
-          .getFormattedExplanationTextForQuestion(questionIndex)
-          .pipe(map((text) => text ?? 'No explanation available'));
-      }),
-      catchError((error) => {
-        // Catch any unexpected runtime errors
-        console.error('Error fetching explanation text:', error);
-        return of('No explanation available');
-      }),
-    );
-  }
 
   private initializeCombinedQuestionData(): void {
     const questionIndex = this.quizService.getCurrentQuestionIndex();
@@ -1859,62 +1758,7 @@ export class CodelabQuizContentComponent
     return combinedQuestionData;
   }
 
-  handleQuestionDisplayLogic(): Observable<{
-    combinedData: CombinedQuestionDataType;
-    isMultipleAnswer: boolean;
-  }> {
-    // Ensure combinedQuestionData$ is always defined with a safe fallback
-    const safeCombined$ =
-      this.combinedQuestionData$ ??
-      of<CombinedQuestionDataType>({
-        currentQuestion: {
-          questionText: 'No question available',
-          options: [],
-          explanation: '',
-          selectedOptions: [],
-          answer: [],
-          selectedOptionIds: [],
-          type: undefined,
-          maxSelections: 0,
-        },
-        currentOptions: [],
-        options: [],
-        questionText: 'No question available',
-        explanation: '',
-        correctAnswersText: '',
-        isExplanationDisplayed: false,
-        isNavigatingToPrevious: false,
-        selectionMessage: '',
-      });
 
-    // Main observable pipeline
-    return safeCombined$.pipe(
-      takeUntil(this.destroy$),
-      switchMap((combinedData) => {
-        // Ensure currentQuestion exists before proceeding
-        if (combinedData && combinedData.currentQuestion) {
-          this.currentQuestionType = combinedData.currentQuestion.type;
-
-          // Use QuizQuestionManagerService to check question type
-          return this.quizQuestionManagerService
-            .isMultipleAnswerQuestion(combinedData.currentQuestion)
-            .pipe(
-              map((isMultipleAnswer) => ({
-                combinedData,
-                isMultipleAnswer,
-              })),
-            );
-        } else {
-          // Handle case where currentQuestion is missing
-          this.currentQuestionType = undefined;
-          return of({
-            combinedData,
-            isMultipleAnswer: false,
-          });
-        }
-      }),
-    );
-  }
 
   private setupCorrectAnswersTextDisplay(): void {
     // Combining the logic to determine if the correct answers text should be displayed
