@@ -1,12 +1,5 @@
-import {
-  ChangeDetectorRef,
-  ChangeDetectionStrategy,
-  Component,
-  Input,
-  OnInit,
-  OnChanges,
-  SimpleChanges,
-} from '@angular/core';
+import { ChangeDetectorRef, ChangeDetectionStrategy, Component, Input, OnInit,
+  OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 
@@ -20,7 +13,7 @@ import { QuizService } from '../../../../shared/services/quiz.service';
   imports: [CommonModule, MatIconModule],
   templateUrl: './feedback.component.html',
   styleUrls: ['./feedback.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class FeedbackComponent implements OnInit, OnChanges {
   @Input() feedbackConfig?: FeedbackProps | null;
@@ -31,7 +24,7 @@ export class FeedbackComponent implements OnInit, OnChanges {
   constructor(
     private feedbackService: FeedbackService,
     private quizService: QuizService,
-    private cdRef: ChangeDetectorRef,
+    private cdRef: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -46,7 +39,7 @@ export class FeedbackComponent implements OnInit, OnChanges {
       console.log('[🧪 ngOnChanges] feedbackConfig changed:', feedbackChange);
       console.log(
         '[🧪 ngOnChanges] new feedbackConfig:',
-        feedbackChange.currentValue,
+        feedbackChange.currentValue
       );
     }
 
@@ -106,11 +99,12 @@ export class FeedbackComponent implements OnInit, OnChanges {
     // Otherwise generate it via the service
     const opts = this.feedbackConfig.options ?? [];
     const correct =
-      this.quizService.correctOptions ?? opts.filter((o) => o.correct);
+      this.quizService.correctOptions ??
+        opts.filter((o) => o.correct);
 
     const sentence = this.feedbackService.generateFeedbackForOptions(
       correct,
-      opts,
+      opts
     );
 
     this.displayMessage = `${prefix}${sentence}`;
