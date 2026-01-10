@@ -23,6 +23,8 @@ import { QuestionPayload } from '../../../shared/models/QuestionPayload.model';
 import { QuestionState } from '../../../shared/models/QuestionState.model';
 import { Quiz } from '../../../shared/models/Quiz.model';
 import { QuizQuestion } from '../../../shared/models/QuizQuestion.model';
+import { QuizQuestionConfig } from '../../../shared/models/QuizQuestionConfig.interface';
+import { QuizQuestionEvent } from '../../../shared/models/QuizQuestionEvent.type';
 import { SelectedOption } from '../../../shared/models/SelectedOption.model';
 import { SharedOptionConfig } from '../../../shared/models/SharedOptionConfig.model';
 import { FeedbackService } from '../../../shared/services/feedback.service';
@@ -92,6 +94,32 @@ export class QuizQuestionComponent extends BaseQuestion
   @Output() feedbackApplied = new EventEmitter<number>();
   @Output() nextButtonState = new EventEmitter<boolean>();
   @Output() questionAndOptionsReady = new EventEmitter<void>();
+
+  /**
+   * Unified event output - combines all child events into a single stream.
+   * Use this instead of individual outputs for cleaner template bindings.
+   */
+  @Output() events = new EventEmitter<QuizQuestionEvent>();
+
+  /**
+   * Config input setter - hydrates all properties from a single config object.
+   * Use this instead of individual inputs for cleaner template bindings.
+   */
+  @Input() set quizConfig(cfg: QuizQuestionConfig | null) {
+    if (!cfg) return;
+
+    // Hydrate individual properties from config
+    this.currentQuestionIndex = cfg.currentQuestionIndex;
+    this.displayState$ = cfg.displayState$;
+    this.shouldRenderOptions = cfg.shouldRenderOptions;
+    this.questionToDisplay$ = cfg.questionToDisplay$;
+    this.explanationToDisplay = cfg.explanationToDisplay;
+
+    // Set questionPayload directly since it's already in the right format (QuestionPayload)
+    if (cfg.questionPayload) {
+      this.questionPayload = cfg.questionPayload;
+    }
+  }
 
   @Input() data!: {
     questionText: string,
@@ -350,6 +378,36 @@ export class QuizQuestionComponent extends BaseQuestion
   get questionPayload(): QuestionPayload | null {
     return this._questionPayload;
   }
+
+  // ============ Unified Event Emission Helpers ============
+  // These methods emit through both individual outputs (backwards compatibility)
+  // and the unified `events` output (new pattern)
+
+  private emitOptionSelected(option: SelectedOption): void {
+    this.optionSelected.emit(option);
+    this.events.emit({ type: 'optionSelected', payload: option });
+  }
+
+  private emitExplanationToDisplayChange(explanation: string): void {
+    this.explanationToDisplayChange.emit(explanation);
+    this.events.emit({ type: 'explanationToDisplayChange', payload: explanation });
+  }
+
+  private emitShowExplanationChange(show: boolean): void {
+    this.showExplanationChange.emit(show);
+    this.events.emit({ type: 'showExplanationChange', payload: show });
+  }
+
+  private emitSelectionMessageChange(message: string): void {
+    this.selectionMessageChange.emit(message);
+    this.events.emit({ type: 'selectionMessageChange', payload: message });
+  }
+
+  private emitAnswer(optionIndex: number): void {
+    this.answer.emit(optionIndex);
+    this.events.emit({ type: 'answer', payload: optionIndex });
+  }
+  // ============ End Unified Event Emission Helpers ============
 
   private resetUIForNewQuestion(): void {
     this.sharedOptionComponent?.resetUIForNewQuestion();
@@ -1118,6 +1176,10 @@ export class QuizQuestionComponent extends BaseQuestion
 
     const { question, options, explanation } = payload;
 
+    // Set both the direct input properties and internal properties
+    this.question = question;
+    this.options = options;
+    this.explanation = explanation ?? '';
     this.currentQuestion = question;
     this.optionsToDisplay = structuredClone(options);
     this.updateShouldRenderOptions(this.optionsToDisplay);
@@ -1483,7 +1545,7 @@ export class QuizQuestionComponent extends BaseQuestion
           await this.fetchAndUpdateExplanationText(zeroBasedIndex);
 
           if (this.shouldDisplayExplanation) {
-            this.showExplanationChange.emit(true);
+            this.emitShowExplanationChange(true);
             this.updateDisplayStateToExplanation();
           }
         }
@@ -1549,8 +1611,8 @@ export class QuizQuestionComponent extends BaseQuestion
     ) {
       const explanationText = this.explanationTextService.prepareExplanationText(question);
       this.explanationToDisplay = explanationText;
-      this.explanationToDisplayChange.emit(this.explanationToDisplay);
-      this.showExplanationChange.emit(true);
+      this.emitExplanationToDisplayChange(this.explanationToDisplay);
+      this.emitShowExplanationChange(true);
 
       this.updateCombinedQuestionData(question, explanationText);
       this.isAnswerSelectedChange.emit(true);
@@ -1601,8 +1663,8 @@ export class QuizQuestionComponent extends BaseQuestion
 
     // Additional cleanup logic
     this.explanationToDisplay = '';  // clear any currently displayed explanation text
-    this.explanationToDisplayChange.emit('');  // emit empty string to reset UI elements
-    this.showExplanationChange.emit(false);  // ensure explanation display is hidden
+    this.emitExplanationToDisplayChange('');  // emit empty string to reset UI elements
+    this.emitShowExplanationChange(false);  // ensure explanation display is hidden
   }
 
   private async initializeComponent(): Promise<void> {
@@ -2985,7 +3047,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
       (async () => {
         try {
-          if (evtOpt) this.optionSelected.emit(evtOpt);
+          if (evtOpt) this.emitOptionSelected(evtOpt);
         } catch { }
 
         const qSafe = this.currentQuestion;
@@ -3206,7 +3268,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
       // Do NOT touch displayMode here – let content decide based on latestExplanation
       this.explanationToDisplay = formatted;
-      this.explanationToDisplayChange.emit(formatted);
+      this.emitExplanationToDisplayChange(formatted);
     } catch (err: any) {
       console.warn('[QQC ❌] FET trigger failed:', err);
       this.explanationTextService._fetLocked = false;
@@ -3253,7 +3315,7 @@ export class QuizQuestionComponent extends BaseQuestion
     try {
       this.explanationTextService.setShouldDisplayExplanation(true);
       this.displayExplanation = true;
-      this.showExplanationChange.emit(true);
+      this.emitShowExplanationChange(true);
 
       const cached = this._formattedByIndex.get(i0);
       const rawTrue = (
@@ -3707,7 +3769,7 @@ export class QuizQuestionComponent extends BaseQuestion
     await this.finalizeSelection(option, index, wasPreviouslySelected);
 
     const sel: SelectedOption = { ...option, questionIndex: lockedIndex };
-    this.optionSelected.emit(sel);
+    this.emitOptionSelected(sel);
 
     this.selectedOptionService.setAnswered(true);
     this.nextButtonStateService.setNextButtonState(true);
@@ -3801,8 +3863,8 @@ export class QuizQuestionComponent extends BaseQuestion
     this.explanationToDisplay = explanation;
 
     if (this.shouldDisplayExplanation && this.isAnswered) {
-      this.explanationToDisplayChange.emit(explanation);
-      this.showExplanationChange.emit(true);
+      this.emitExplanationToDisplayChange(explanation);
+      this.emitShowExplanationChange(true);
     }
 
     this.cdRef.detectChanges();
@@ -4430,7 +4492,7 @@ export class QuizQuestionComponent extends BaseQuestion
     } catch (error: any) {
       console.error('[handleOptionProcessingAndFeedback] ❌ Error:', error);
       this.explanationToDisplay = 'Error processing question. Please try again.';
-      this.explanationToDisplayChange.emit(this.explanationToDisplay);
+      this.emitExplanationToDisplayChange(this.explanationToDisplay);
     }
   }
 
@@ -4550,8 +4612,8 @@ export class QuizQuestionComponent extends BaseQuestion
     this.correctMessage = '';
     this.selectedOption = null;
     this.isOptionSelected = false;
-    this.explanationToDisplayChange.emit('');
-    this.showExplanationChange.emit(false);
+    this.emitExplanationToDisplayChange('');
+    this.emitShowExplanationChange(false);
     this.selectedOptionService.clearOptions();  // clears Feedback/Subjects (Safe)
     this.selectedOptionService.resetCurrentSelection();  // clears Current UI Selection (Safe) - PRESERVES MAP
     this.selectedOptionService.setOptionSelected(false);
@@ -4716,14 +4778,14 @@ export class QuizQuestionComponent extends BaseQuestion
 
       // Reset explanation
       this.explanationToDisplay = '';
-      this.explanationToDisplayChange.emit('');
+      this.emitExplanationToDisplayChange('');
       this.explanationTextService.explanationText$.next('');
       this.explanationTextService.setExplanationText('');
       this.explanationTextService.setResetComplete(false);
       this.explanationTextService.unlockExplanation();
       this.explanationTextService.setShouldDisplayExplanation(false);
       this.explanationTextService.setIsExplanationTextDisplayed(false);
-      this.showExplanationChange.emit(false);
+      this.emitShowExplanationChange(false);
     }
 
     if (!preserveVisualState) {
@@ -4832,7 +4894,7 @@ export class QuizQuestionComponent extends BaseQuestion
     if (!normalized) return;
 
     this.explanationToDisplay = normalized;
-    this.explanationToDisplayChange.emit(normalized);
+    this.emitExplanationToDisplayChange(normalized);
 
     const ets = this.explanationTextService;
     ets.setExplanationText(normalized);
@@ -4858,7 +4920,7 @@ export class QuizQuestionComponent extends BaseQuestion
     this.shouldDisplayExplanation = true;
     this.isExplanationTextDisplayed = true;
 
-    this.showExplanationChange.emit(true);
+    this.emitShowExplanationChange(true);
 
     const quizId =
       [
@@ -5401,7 +5463,7 @@ export class QuizQuestionComponent extends BaseQuestion
     this.isOptionSelected = true;
     this.isAnswered = this.selectedOptions.length > 0;
     this.isAnswerSelectedChange.emit(this.isAnswered);
-    this.optionSelected.emit(selectedOption);
+    this.emitOptionSelected(selectedOption);
 
     this.selectionChanged.emit({
       question: currentQuestion,
@@ -5449,8 +5511,8 @@ export class QuizQuestionComponent extends BaseQuestion
     this.quizStateService.setAnswerSelected(false);
 
     // Emit cleared states to parent components
-    this.explanationToDisplayChange.emit('');  // inform parent: explanation cleared
-    this.showExplanationChange.emit(false);  // inform parent: hide explanation
+    this.emitExplanationToDisplayChange('');  // inform parent: explanation cleared
+    this.emitShowExplanationChange(false);  // inform parent: hide explanation
 
     // Mark reset complete (true, not false) so listeners don’t wait forever
     this.explanationTextService.setResetComplete(true);
@@ -5563,7 +5625,7 @@ export class QuizQuestionComponent extends BaseQuestion
             this.explanationTextService.setExplanationText(finalExplanation);
             this.explanationTextService.setShouldDisplayExplanation(true);
             this.shouldDisplayExplanation = true;
-            this.explanationToDisplayChange.emit(finalExplanation);
+            this.emitExplanationToDisplayChange(finalExplanation);
           } else {
             console.log(
               `Skipping explanation for unanswered question ${questionIndex}.`
@@ -5589,8 +5651,8 @@ export class QuizQuestionComponent extends BaseQuestion
   private handleExplanationError(): void {
     this.explanationToDisplay = 'Error fetching explanation. Please try again.';
     if (this.isAnswered && this.shouldDisplayExplanation) {
-      this.explanationToDisplayChange.emit(this.explanationToDisplay);
-      this.showExplanationChange.emit(true);
+      this.emitExplanationToDisplayChange(this.explanationToDisplay);
+      this.emitShowExplanationChange(true);
     }
   }
 
@@ -5712,8 +5774,8 @@ export class QuizQuestionComponent extends BaseQuestion
             // Clear any previous explanation state
             this.clearExplanationState();
             this.explanationToDisplay = explanationText;
-            this.explanationToDisplayChange.emit(this.explanationToDisplay);
-            this.showExplanationChange.emit(true);
+            this.emitExplanationToDisplayChange(this.explanationToDisplay);
+            this.emitShowExplanationChange(true);
 
             // Update combined question data with the current explanation
             this.updateCombinedQuestionData(currentQuestion, explanationText);
@@ -5737,8 +5799,8 @@ export class QuizQuestionComponent extends BaseQuestion
   }
 
   private clearExplanationState(): void {
-    this.explanationToDisplayChange.emit('');
-    this.showExplanationChange.emit(false);
+    this.emitExplanationToDisplayChange('');
+    this.emitShowExplanationChange(false);
   }
 
   updateCombinedQuestionData(
@@ -6207,7 +6269,7 @@ export class QuizQuestionComponent extends BaseQuestion
         ets.emitFormatted(i0, retry);
         this.ngZone.run(() => {
           this.explanationToDisplay = retry;
-          this.explanationToDisplayChange.emit(retry);
+          this.emitExplanationToDisplayChange(retry);
           this.cdRef.markForCheck();
           this.cdRef.detectChanges();
         });
@@ -6220,7 +6282,7 @@ export class QuizQuestionComponent extends BaseQuestion
       // but ensure the local mirrors are updated too.
       this.ngZone.run(() => {
         this.explanationToDisplay = formattedNow;
-        this.explanationToDisplayChange.emit(formattedNow);
+        this.emitExplanationToDisplayChange(formattedNow);
         this.cdRef.markForCheck();
         this.cdRef.detectChanges();
       });
@@ -6234,7 +6296,7 @@ export class QuizQuestionComponent extends BaseQuestion
       this.ngZone.run(() => {
         ets.setExplanationText(rawBest);
         this.explanationToDisplay = rawBest;
-        this.explanationToDisplayChange.emit(rawBest);
+        this.emitExplanationToDisplayChange(rawBest);
         this.cdRef.markForCheck();
         this.cdRef.detectChanges();
       });
@@ -6253,7 +6315,7 @@ export class QuizQuestionComponent extends BaseQuestion
           this.ngZone.run(() => {
             ets.setExplanationText(out);
             this.explanationToDisplay = out;
-            this.explanationToDisplayChange.emit(out);
+            this.emitExplanationToDisplayChange(out);
             this.cdRef.markForCheck();
             this.cdRef.detectChanges();
           });

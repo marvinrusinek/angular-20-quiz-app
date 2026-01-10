@@ -33,6 +33,8 @@ import { QuestionData } from '../../shared/models/QuestionData.type';
 import { Quiz } from '../../shared/models/Quiz.model';
 import { QuizComponentData } from '../../shared/models/QuizComponentData.model';
 import { QuizQuestion } from '../../shared/models/QuizQuestion.model';
+import { QuizQuestionConfig } from '../../shared/models/QuizQuestionConfig.interface';
+import { QuizQuestionEvent } from '../../shared/models/QuizQuestionEvent.type';
 import { SelectedOption } from '../../shared/models/SelectedOption.model';
 import { QuizService } from '../../shared/services/quiz.service';
 import { QuizDataService } from '../../shared/services/quizdata.service';
@@ -1192,6 +1194,47 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     return this.currentQuestionIndex === this.totalQuestions - 1;
   }
 
+  /**
+   * Creates the unified config object for QuizQuestionComponent.
+   * This getter encapsulates all the individual input bindings.
+   */
+  public get quizQuestionConfig(): QuizQuestionConfig | null {
+    const qa = this.combinedQuestionDataSubject?.getValue();
+    if (!qa) return null;
+
+    return {
+      questionPayload: qa,
+      currentQuestionIndex: this.currentQuestionIndex,
+      displayState$: this.displayState$,
+      shouldRenderOptions: this.shouldRenderOptions,
+      questionToDisplay$: this.questionToDisplay$,
+      explanationToDisplay: this.explanationToDisplay
+    };
+  }
+
+  /**
+   * Unified event handler for QuizQuestionComponent events.
+   * Dispatches to existing individual handlers based on event type.
+   */
+  public handleQuizQuestionEvent(event: QuizQuestionEvent): void {
+    switch (event.type) {
+      case 'answer':
+        this.selectedAnswer(event.payload);
+        break;
+      case 'optionSelected':
+        void this.onOptionSelected(event.payload);
+        break;
+      case 'selectionMessageChange':
+        this.onSelectionMessageChange(event.payload);
+        break;
+      case 'explanationToDisplayChange':
+        this.onExplanationChanged(event.payload);
+        break;
+      case 'showExplanationChange':
+        this.onShowExplanationChanged(event.payload);
+        break;
+    }
+  }
 
   /*************** Shuffle and initialize questions ******************/
   /*************** ngOnInit barrel functions ******************/

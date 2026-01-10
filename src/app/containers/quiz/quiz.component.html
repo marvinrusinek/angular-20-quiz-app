@@ -15,25 +15,20 @@
 
               <codelab-quiz-content
                 [questionToDisplay$]="questionToDisplay$"
-                [questionIndex]="currentQuestionIndex"
                 [explanationToDisplay]="explanationToDisplay"
                 [displayState$]="displayState$" />
 
               <codelab-quiz-question
                 [questionPayload]="qa"
                 [question]="qa.question"
-                [currentQuestionIndex]="currentQuestionIndex"
                 [options]="qa.options"
                 [explanation]="qa.explanation ?? ''"
+                [currentQuestionIndex]="currentQuestionIndex"
                 [displayState$]="displayState$"
                 [shouldRenderOptions]="shouldRenderOptions"
                 [questionToDisplay$]="questionToDisplay$"
                 [explanationToDisplay]="explanationToDisplay"
-                (answer)="selectedAnswer($event)"
-                (optionSelected)="onOptionSelected($event)"
-                (selectionMessageChange)="onSelectionMessageChange($event)"
-                (explanationToDisplayChange)="onExplanationChanged($event)"
-                (showExplanationChange)="onShowExplanationChanged($event)" />
+                (events)="handleQuizQuestionEvent($event)" />
             </mat-card-content>
 
             <!-- Scroll Indicator -->
