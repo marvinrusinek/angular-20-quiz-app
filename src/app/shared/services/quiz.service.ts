@@ -361,6 +361,14 @@ export class QuizService {
         selectedQuiz.questions.length > 0
       ) {
         this.questions = [...selectedQuiz.questions]; // create a new array to avoid reference issues
+        
+        // ⚡ FIX: Populate canonical map immediately from source
+        if (this.quizId && !this.canonicalQuestionsByQuiz.has(this.quizId)) {
+          this.canonicalQuestionsByQuiz.set(
+            this.quizId, 
+            JSON.parse(JSON.stringify(selectedQuiz.questions))
+          );
+        }
       } else {
         console.error(
           `Selected quiz (ID: ${this.quizId}) does not have a valid questions array:`,
@@ -715,15 +723,22 @@ export class QuizService {
         ) {
           console.log(`[QuizService] 🔄 fetchQuizQuestions: Cache hit. shouldShuffle=${this.shouldShuffle()}, cachedSize=${cachedQuestions.length}`);
           if (this.shouldShuffle()) {
-            // 🔒 FIX: Reuse ALREADY SHUFFLED session data if available
+            // 🔒 FIX: Reuse ALREADY SHUFFLED session data ONLY if ShuffleService has matching state AND Integrity Passes!
             if (
               this.shuffledQuestions &&
               this.shuffledQuestions.length > 0 &&
-              this.quizId === quizId
+              this.quizId === quizId &&
+              this.quizShuffleService.hasShuffleState(quizId)
             ) {
-              console.log('[QuizService] ♻️ Reusing ALREADY SHUFFLED session data.');
-              this.questionsSubject.next(this.shuffledQuestions); // ⚡ SYNC FIX
-              return this.shuffledQuestions;
+              // Integrity Check: ensure our cached shuffled questions actually match the ShuffleService's map
+              // This defends against corrupted LocalStorage states or stale variables.
+              if (this.validateShuffleIntegrity(quizId, this.shuffledQuestions)) {
+                  console.log('[QuizService] ♻️ Reusing ALREADY SHUFFLED session data (Integrity Verified).');
+                  this.questionsSubject.next(this.shuffledQuestions);
+                  return this.shuffledQuestions;
+              } else {
+                  console.warn('[QuizService] ⚠️ Integrity Check Failed! Discarding cached shuffle and re-shuffling.');
+              }
             }
 
             console.log('[QuizService] 🔀 Shuffle requested on CACHED data - re-shuffling...');
@@ -2407,6 +2422,45 @@ export class QuizService {
     this.questionsList = [];
     this.questionsSubject.next([]);
     this.quizResetSource.next();
+  }
+
+  private validateShuffleIntegrity(quizId: string, candidates: QuizQuestion[]): boolean {
+    const state = this.quizShuffleService.getShuffleState(quizId);
+    if (!state || !state.questionOrder) {
+      console.warn('[validateShuffleIntegrity] Validate failed: No shuffle state.');
+      return false;
+    }
+
+    const canonical = this.canonicalQuestionsByQuiz.get(quizId);
+    if (!canonical || canonical.length === 0) {
+      console.warn('[validateShuffleIntegrity] Validate failed: No canonical questions.');
+      // If we don't have canonical, we can't verify.
+      // Safest is to fail and let it re-shuffle (which repopulates canonical).
+      return false;
+    }
+
+    if (candidates.length !== state.questionOrder.length) {
+      console.warn(`[validateShuffleIntegrity] Length mismatch. Cached: ${candidates.length}, Expected: ${state.questionOrder.length}`);
+      return false;
+    }
+
+    for (let i = 0; i < candidates.length; i++) {
+      const originalIndex = state.questionOrder[i];
+      const candidate = candidates[i];
+      const expected = canonical[originalIndex];
+
+      if (!candidate || !expected) return false;
+
+      const text1 = this.normalizeQuestionText(candidate.questionText);
+      const text2 = this.normalizeQuestionText(expected.questionText);
+
+      if (text1 !== text2) {
+        console.warn(`[validateShuffleIntegrity] Mismatch at index ${i}. Cached: "${text1.slice(0, 15)}...", Expected: "${text2.slice(0, 15)}..."`);
+        return false;
+      }
+    }
+
+    return true;
   }
 
   private normalizeQuestionText(value: string | null | undefined): string {

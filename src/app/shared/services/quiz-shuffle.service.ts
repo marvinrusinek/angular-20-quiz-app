@@ -48,6 +48,13 @@ export class QuizShuffleService {
     this.shuffleByQuizId.set(quizId, { questionOrder, optionOrder });
   }
 
+  public hasShuffleState(quizId: string): boolean {
+    return this.shuffleByQuizId.has(quizId);
+  }
+
+  public getShuffleState(quizId: string): ShuffleState | undefined {
+    return this.shuffleByQuizId.get(quizId);
+  }
 
   private reorderOptions(options: Option[], order?: number[]): Option[] {
     if (!Array.isArray(options) || options.length === 0) {
