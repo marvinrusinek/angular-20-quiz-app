@@ -2,99 +2,110 @@
 
 <ng-container>
   @if (qa) {
-  <div class="animation-shell">
-    <div class="anim-host" [@changeRoute]="currentQuestionIndex">
-      <div class="quiz-card-wrapper">
-        <mat-card class="quiz-card">
-          <codelab-quiz-header />
+    <div class="animation-shell">
+      <div class="anim-host" [@changeRoute]="currentQuestionIndex">
+        <div class="quiz-card-wrapper">
+          <mat-card class="quiz-card">
+            <codelab-quiz-header />
 
-          <mat-card-content>
-            <codelab-scoreboard />
+            <mat-card-content>
+              <codelab-scoreboard />
 
-            <ng-content></ng-content>
+              <ng-content></ng-content>
 
-            <codelab-quiz-content [questionToDisplay$]="questionToDisplay$" [questionIndex]="currentQuestionIndex"
-              [explanationToDisplay]="explanationToDisplay" [displayState$]="displayState$" />
+              <codelab-quiz-content
+                [questionToDisplay$]="questionToDisplay$"
+                [questionIndex]="currentQuestionIndex"
+                [explanationToDisplay]="explanationToDisplay"
+                [displayState$]="displayState$" />
 
-            <codelab-quiz-question [questionPayload]="qa" [question]="qa.question"
-              [currentQuestionIndex]="currentQuestionIndex" [options]="qa.options" [explanation]="qa.explanation"
-              [displayState$]="displayState$" [shouldRenderOptions]="shouldRenderOptions"
-              [questionToDisplay$]="questionToDisplay$" [explanationToDisplay]="explanationToDisplay"
-              (answer)="selectedAnswer($event)" (optionSelected)="onOptionSelected($event)" (selectionMessageChange)="
-                  onSelectionMessageChange($event)" (explanationToDisplayChange)="onExplanationChanged($event)"
-              (showExplanationChange)="onShowExplanationChanged($event)" />
-          </mat-card-content>
+              <codelab-quiz-question
+                [questionPayload]="qa"
+                [question]="qa.question"
+                [currentQuestionIndex]="currentQuestionIndex"
+                [options]="qa.options"
+                [explanation]="qa.explanation ?? ''"
+                [displayState$]="displayState$"
+                [shouldRenderOptions]="shouldRenderOptions"
+                [questionToDisplay$]="questionToDisplay$"
+                [explanationToDisplay]="explanationToDisplay"
+                (answer)="selectedAnswer($event)"
+                (optionSelected)="onOptionSelected($event)"
+                (selectionMessageChange)="onSelectionMessageChange($event)"
+                (explanationToDisplayChange)="onExplanationChanged($event)"
+                (showExplanationChange)="onShowExplanationChanged($event)" />
+            </mat-card-content>
 
-          <!-- Scroll Indicator -->
-          @if (showScrollIndicator) {
-            <div class="scroll-indicator" (click)="scrollToBottom()">
-              <i class="material-icons">keyboard_arrow_down</i>
-            </div>
-          }
-
-          <mat-card-footer [ngClass]="cardFooterClass">
-            <!-- ROW 1: Selection Message (left) + Navigation (right) -->
-            <section class="footer-row-1">
-              <div class="message-area">
-                @if (selectionMessage$ | async; as message) {
-                <span class="instructions-message">{{ message }}</span>
-                }
+            <!-- Scroll Indicator -->
+            @if (showScrollIndicator) {
+              <div class="scroll-indicator" (click)="scrollToBottom()">
+                <i class="material-icons">keyboard_arrow_down</i>
               </div>
-
-              @if (showPaging) {
-              <div class="nav-buttons">
-                @if (shouldShowPrevButton) {
-                <button type="button" class="nav-btn" (click)="advanceToPreviousQuestion()"
-                  matTooltip="« Previous Question" matTooltipPosition="above" aria-label="Previous Question">
-                  <i class="material-icons">navigate_before</i>
-                </button>
-                }
-
-                @if (shouldShowRestartButton) {
-                <button type="button" class="nav-btn restart-btn" (click)="restartQuiz()" matTooltip="Restart Quiz"
-                  matTooltipPosition="above" aria-label="Restart Quiz">
-                  <i class="material-icons">replay</i>
-                </button>
-                }
-
-                @if (shouldShowNextButton) {
-                <button type="button" class="nav-btn" #nextButton="matTooltip"
-                  [disabled]="!(nextButtonEnabled$ | async)" (click)="advanceToNextQuestion()"
-                  [matTooltip]="nextButtonTooltip$ | async" matTooltipPosition="above" aria-label="Next Question">
-                  <i class="material-icons">navigate_next</i>
-                </button>
-                }
-              </div>
-              }
-            </section>
-
-            <!-- Show Results Button (when applicable) -->
-            @if (shouldShowResultsButton) {
-            <section class="show-results-section">
-              <button type="submit" (click)="advanceToResults()" class="show-results-btn" aria-label="Show Results">
-                <i class="material-icons">score</i>
-                <strong>Show Results</strong>
-              </button>
-            </section>
             }
 
-            <!-- ROW 2: Pagination Dots (center) + Progress (right) -->
-            <section class="footer-row-2">
-              <div class="paging-dots">
-                @for (q of questions$ | async; track $index) {
-                <div class="dot" [ngClass]="getDotClass($index)" [class.disabled]="!isDotClickable($index)"
-                  (click)="navigateToDot($index)" [attr.aria-label]="'Go to question ' + ($index + 1)">
+            <mat-card-footer [ngClass]="cardFooterClass">
+              <!-- Row 1: Selection Message (left) + Navigation (right) -->
+              <section class="footer-row-1">
+                <div class="message-area">
+                  @if (selectionMessage$ | async; as message) {
+                    <span class="instructions-message">{{ message }}</span>
+                  }
                 </div>
+
+                @if (showPaging) {
+                  <div class="nav-buttons">
+                    @if (shouldShowPrevButton) {
+                      <button type="button" class="nav-btn" (click)="advanceToPreviousQuestion()"
+                        matTooltip="« Previous Question" matTooltipPosition="above" aria-label="Previous Question">
+                        <i class="material-icons">navigate_before</i>
+                      </button>
+                    }
+
+                    @if (shouldShowRestartButton) {
+                      <button type="button" class="nav-btn restart-btn" (click)="restartQuiz()" matTooltip="Restart Quiz"
+                        matTooltipPosition="above" aria-label="Restart Quiz">
+                        <i class="material-icons">replay</i>
+                      </button>
+                    }
+
+                    @if (shouldShowNextButton) {
+                      <button type="button" class="nav-btn" #nextButton="matTooltip"
+                        [disabled]="!(nextButtonEnabled$ | async)" (click)="advanceToNextQuestion()"
+                        [matTooltip]="nextButtonTooltip$ | async" matTooltipPosition="above" aria-label="Next Question">
+                        <i class="material-icons">navigate_next</i>
+                      </button>
+                    }
+                  </div>
                 }
-              </div>
-              <span class="progress-inline">({{ progress }}% complete)</span>
-            </section>
-          </mat-card-footer>
-        </mat-card>
+              </section>
+
+              <!-- Show Results Button (when applicable) -->
+              @if (shouldShowResultsButton) {
+                <section class="show-results-section">
+                  <button type="submit" (click)="advanceToResults()" class="show-results-btn" aria-label="Show Results">
+                    <i class="material-icons">score</i>
+                    <strong>Show Results</strong>
+                  </button>
+                </section>
+              }
+
+              <!-- Row 2: Pagination Dots (center) + Progress (right) -->
+              <section class="footer-row-2">
+                <div class="paging-dots">
+                  @for (q of questions$ | async; track $index) {
+                    <div class="dot" [ngClass]="getDotClass($index)" [class.disabled]="!isDotClickable($index)"
+                      (click)="navigateToDot($index)" [attr.aria-label]="'Go to question ' + ($index + 1)">
+                    </div>
+                  }
+                </div>
+                <span class="progress-inline">({{ progress }}% complete)</span>
+              </section>
+            </mat-card-footer>
+          </mat-card>
+        </div>
       </div>
     </div>
-  </div>
   } @else {
-  <p>Loading…</p>
+    <p>Loading&hellip;</p>
   }
 </ng-container>
