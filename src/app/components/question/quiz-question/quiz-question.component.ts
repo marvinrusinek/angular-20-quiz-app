@@ -1,19 +1,15 @@
 import {
-  AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ComponentRef,
-  EventEmitter, HostListener, Input, NgZone, OnChanges, OnDestroy, OnInit, Output, SimpleChange,
-  SimpleChanges, ViewChild, ViewContainerRef
+  AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component,
+  ComponentRef, EventEmitter, HostListener, Input, NgZone, OnChanges, OnDestroy,
+  OnInit, Output, SimpleChange, SimpleChanges, ViewChild, ViewContainerRef
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
-import {
-  BehaviorSubject, firstValueFrom, from, Observable, of, ReplaySubject, Subject,
-  Subscription
-} from 'rxjs';
-import {
-  catchError, debounceTime, distinctUntilChanged, filter, map, skip, switchMap, take,
-  takeUntil, tap, timeout
-} from 'rxjs/operators';
+import { BehaviorSubject, firstValueFrom, from, Observable, of, ReplaySubject,
+  Subject, Subscription } from 'rxjs';
+import { catchError, debounceTime, distinctUntilChanged, filter, map, skip,
+  switchMap, take, takeUntil, tap, timeout } from 'rxjs/operators';
 import { MatCheckbox } from '@angular/material/checkbox';
 import { MatRadioButton } from '@angular/material/radio';
 
@@ -53,10 +49,10 @@ import { SharedOptionComponent } from '../answer/shared-option-component/shared-
 type FeedbackKey = number | string;
 
 export interface FeedbackConfig {
-  showFeedback: boolean;
-  isCorrect?: boolean;
-  icon?: string;
-  text?: string;
+  showFeedback: boolean,
+  isCorrect?: boolean,
+  icon?: string,
+  text?: string
 }
 
 @Component({
@@ -76,8 +72,8 @@ export class QuizQuestionComponent extends BaseQuestion
   @Output() answer = new EventEmitter<number>();
   @Output() answeredChange = new EventEmitter<boolean>();
   @Output() selectionChanged: EventEmitter<{
-    question: QuizQuestion;
-    selectedOptions: Option[];
+    question: QuizQuestion,
+    selectedOptions: Option[]
   }> = new EventEmitter();
   @Output() questionAnswered = new EventEmitter<QuizQuestion>();
   @Output() isAnswerSelectedChange = new EventEmitter<boolean>();
@@ -98,10 +94,10 @@ export class QuizQuestionComponent extends BaseQuestion
   @Output() questionAndOptionsReady = new EventEmitter<void>();
 
   @Input() data!: {
-    questionText: string;
-    explanationText?: string;
-    correctAnswersText?: string;
-    options: Option[];
+    questionText: string,
+    explanationText?: string,
+    correctAnswersText?: string,
+    options: Option[]
   };
   @Input() override question!: QuizQuestion;
   @Input() question$!: Observable<QuizQuestion>;
@@ -112,21 +108,21 @@ export class QuizQuestionComponent extends BaseQuestion
   @Input() currentQuestion$: Observable<QuizQuestion | null> = of(null);
   @Input() currentQuestionIndex = 0;
   @Input() previousQuestionIndex = 0;
-  @Input() quizId: string | null | undefined = '';
+  @Input() quizId = '';
   @Input() multipleAnswer: BehaviorSubject<boolean> =
     new BehaviorSubject<boolean>(false);
-  @Input() explanation: string | null | undefined = '';
-  @Input() explanationText: string | null = '';
+  @Input() explanation = '';
+  @Input() explanationText = '';
   @Input() isOptionSelected = false;
   @Input() override showFeedback = false;
-  @Input() selectionMessage: string = '';
+  @Input() selectionMessage = '';
   @Input() reset = false;
   @Input() override explanationToDisplay: string | null = null;
   @Input() passedOptions: Option[] | null = null;
   @Input() questionToDisplay$!: Observable<string | null>;
   @Input() displayState$!: Observable<{
-    mode: 'question' | 'explanation';
-    answered: boolean;
+    mode: 'question' | 'explanation',
+    answered: boolean
   }>;
   @Input() shouldRenderOptions = false;
   private quiz: Quiz | null = null;
@@ -169,7 +165,6 @@ export class QuizQuestionComponent extends BaseQuestion
   optionChecked: { [optionId: number]: boolean } = {};
   answers: any[] = [];
   shuffleOptions = true;
-  shuffledOptions: Option[] = [];
   override optionBindings: OptionBindings[] = [];
   override showFeedbackForOption: { [optionId: string | number]: boolean } = {};
   isFeedbackApplied = false;
@@ -254,10 +249,10 @@ export class QuizQuestionComponent extends BaseQuestion
 
   waitingForReady = false;
   deferredClick?: {
-    option: SelectedOption | null;
-    index: number;
-    checked: boolean;
-    wasReselected?: boolean;
+    option: SelectedOption | null,
+    index: number,
+    checked: boolean,
+    wasReselected?: boolean
   };
 
   private _wasHidden = false;
@@ -268,7 +263,6 @@ export class QuizQuestionComponent extends BaseQuestion
   private _msgTok = 0;
 
   private questionFresh = true;
-  private flashDisabledSet: Set<FeedbackKey> = new Set();
   public feedbackConfigs: Record<FeedbackKey, FeedbackConfig> = {};
   public lastFeedbackOptionId: FeedbackKey = -1 as const;
   private lastResetFor = -1;
@@ -391,9 +385,10 @@ export class QuizQuestionComponent extends BaseQuestion
 
     if (current && next && current.options && next.options) {
       const shared = current.options.some(
-        (o: Option, i: number) => o === next.options[i],
+        (o: Option, i: number) => o === next.options[i]
       );
-      console.log(`[REF TRACE] Shared option refs between Q${qIndex} and Q${qIndex + 1}:`, shared);
+      console.log(`[REF TRACE] Shared option refs between Q${qIndex} and 
+        Q${qIndex + 1}:`, shared);
     }
   }
 
@@ -406,24 +401,24 @@ export class QuizQuestionComponent extends BaseQuestion
         // On every question: hard reset view and restart visible countdown
         tap((i0: number) => {
           this.currentQuestionIndex = i0;
-          this.resetPerQuestionState(i0); // this must NOT arm any expiry
-          this.handledOnExpiry.delete(i0); // clear any one-shot guards
+          this.resetPerQuestionState(i0);  // this must NOT arm any expiry
+          this.handledOnExpiry.delete(i0);  // clear any one-shot guards
           requestAnimationFrame(() => this.applyPassiveWriteGate(i0));
 
           // Prewarm formatted text for THIS question (non-blocking; no UI writes)
           // Cache hit → no-op; miss → compute & store for first-click
           try {
-            const hasCache = this._formattedByIndex?.has?.(i0);
+            const hasCache = this._formattedByIndex?.has(i0);
             if (!hasCache) {
               // Don’t await—keep nav snappy
               this.resolveFormatted(i0, {
                 useCache: true,
                 setCache: true
               }).catch((err: Error) =>
-                console.warn('[prewarm resolveFormatted]', err),
+                console.warn('[prewarm resolveFormatted]', err)
               );
             }
-          } catch (err) {
+          } catch (err: any) {
             console.warn('[prewarm] skipped', err);
           }
         }),
@@ -433,12 +428,12 @@ export class QuizQuestionComponent extends BaseQuestion
         switchMap((i0: number) =>
           this.timerService.elapsedTime$.pipe(
             filter(
-              (elapsed: number) => elapsed >= this.timerService.timePerQuestion,
+              (elapsed: number) => elapsed >= this.timerService.timePerQuestion
             ),
             take(1),
             map((): number => i0)
-          ),
-        ),
+          )
+        )
       )
       .subscribe((i0: number) => this.onTimerExpiredFor(i0));
   }
@@ -509,9 +504,10 @@ export class QuizQuestionComponent extends BaseQuestion
 
           // ALWAYS load dynamic component to ensure fresh data
           if (this.dynamicAnswerContainer) {
-            this.loadDynamicComponent(question, options);
+            void this.loadDynamicComponent(question, options);
             this.containerInitialized = true;
-            console.log('[✅ Component injected dynamically from navigation (FORCE REFRESH)]');
+            console.log('[✅ Component injected dynamically from navigation ' +
+              '(FORCE REFRESH)]');
           }
 
           this.sharedOptionConfig = null;
@@ -522,7 +518,7 @@ export class QuizQuestionComponent extends BaseQuestion
             optionsLength: options?.length
           });
         }
-      },
+      }
     );
   }
 
@@ -562,20 +558,23 @@ export class QuizQuestionComponent extends BaseQuestion
       const questionIndex = (rawIndex > 0 ? rawIndex : 1) - 1;
 
       // SYNC: Explicitly set service index to ensure it matches visual state
-      // This is a failsafe in case QuizComponent didn't update it yet or we are in a different routing context
+      // This is a failsafe in case QuizComponent didn't update it yet or we are
+      // in a different routing context
       this.quizService.setCurrentQuestionIndex(questionIndex);
       this.currentQuestionIndex = questionIndex;
 
       // Prioritize Input Data ("Prop Drilling")
-      // If the parent (CodelabQuizContentComponent) passed us a question that matches the requested index,
-      // USE IT. Do not re-fetch from service, which might return stale/unshuffled data.
+      // If the parent (CodelabQuizContentComponent) passed us a question that
+      // matches the requested index, USE IT. Do not re-fetch from service, which
+      // might return stale/unshuffled data.
       if (
         this.question &&
         this.questionToDisplay &&
-        (this.currentQuestionIndex === questionIndex || this.quizService.currentQuestionIndex === questionIndex)
+        (this.currentQuestionIndex === questionIndex ||
+          this.quizService.currentQuestionIndex === questionIndex)
       ) {
         console.log('[QQC] ⚡ Using INPUT question (preventing double-fetch mismatch). Text:', this.question.questionText?.substring(0, 20));
-        await this.hydrateFromPayload({
+        this.hydrateFromPayload({
           question: this.question,
           options: this.optionsToDisplay || this.question.options,
           explanation: this.explanationToDisplay || this.question.explanation
@@ -584,7 +583,9 @@ export class QuizQuestionComponent extends BaseQuestion
       }
 
       try {
-        const question = await firstValueFrom(this.quizService.getQuestionByIndex(questionIndex));
+        const question = await firstValueFrom(
+          this.quizService.getQuestionByIndex(questionIndex)
+        );
         if (!question) {
           console.warn(`[⚠️ No valid question returned for index ${questionIndex}]`);
           return;
@@ -596,7 +597,8 @@ export class QuizQuestionComponent extends BaseQuestion
   }
 
   private async initializeInitialQuestion(): Promise<boolean> {
-    const routeIndex = +(this.activatedRoute.snapshot.paramMap.get('questionIndex') ?? 0);
+    const routeIndex =
+      +(this.activatedRoute.snapshot.paramMap.get('questionIndex') ?? 0);
     this.currentQuestionIndex = routeIndex;  // ensures correct index
     this.fixedQuestionIndex = isNaN(routeIndex) ? 0 : routeIndex - 1;
 
@@ -664,7 +666,7 @@ export class QuizQuestionComponent extends BaseQuestion
       // Initialize questions
       this.initializeQuizQuestion();
       this.initializeFirstQuestion();
-      await this.loadInitialQuestionAndMessage();
+      await this.handleQuestionState();
 
       // Setup for visibility and routing
       this.setupVisibilitySubscription();
@@ -702,7 +704,9 @@ export class QuizQuestionComponent extends BaseQuestion
     this.payloadSubject
       .pipe(
         filter((payload): payload is QuestionPayload => !!payload),
-        distinctUntilChanged((a, b) => JSON.stringify(a) === JSON.stringify(b))
+        distinctUntilChanged(
+          (a, b) =>
+            JSON.stringify(a) === JSON.stringify(b))
       )
       .subscribe((payload: QuestionPayload) => {
         if (this.hydrationInProgress) return;
@@ -739,7 +743,8 @@ export class QuizQuestionComponent extends BaseQuestion
 
     // Wait until questions are available
     if (!this.questionsArray || this.questionsArray.length <= index) {
-      setTimeout(() => this.ngAfterViewInit(), 50);  // retry after a short delay
+      // Retry after a short delay
+      setTimeout(() => this.ngAfterViewInit(), 50);
       return;
     }
 
@@ -845,10 +850,12 @@ export class QuizQuestionComponent extends BaseQuestion
       this._wasHidden = true;
 
       // Save the current display mode to restore it later
-      const currentDisplayState = this.quizStateService.displayStateSubject?.value;
+      const currentDisplayState =
+        this.quizStateService.displayStateSubject?.value;
       if (currentDisplayState) {
         this._savedDisplayMode = currentDisplayState.mode;
-        console.log('[VISIBILITY] 💾 QQC saved display mode on hide:', this._savedDisplayMode);
+        console.log('[VISIBILITY] 💾 QQC saved display mode on hide:',
+          this._savedDisplayMode);
       }
 
       try {
@@ -857,7 +864,8 @@ export class QuizQuestionComponent extends BaseQuestion
         if (!this.quizId) {
           console.warn('[VISIBILITY] ⚠️ Missing quizId on hide');
         } else {
-          const qState = this.quizStateService.getQuestionState(this.quizId, idx);
+          const qState =
+            this.quizStateService.getQuestionState(this.quizId, idx);
 
           const totalCorrectAnswers = Array.isArray(qState?.selectedOptions)
             ? qState.selectedOptions.filter((o) => o.correct).length
@@ -908,7 +916,8 @@ export class QuizQuestionComponent extends BaseQuestion
     try {
       const duration = this.timerService.timePerQuestion ?? 30;
 
-      let candidate = Number(await firstValueFrom(this.timerService.elapsedTime$.pipe(take(1))));
+      let candidate =
+        Number(await firstValueFrom(this.timerService.elapsedTime$.pipe(take(1))));
 
       if (this._hiddenAt != null && this._elapsedAtHide != null) {
         const hiddenDeltaSec = Math.floor(
@@ -927,7 +936,7 @@ export class QuizQuestionComponent extends BaseQuestion
         if (!alreadyShowing) {
           console.log('[VISIBILITY] ⏰ Timer expired while hidden, forcing expiry handler');
           this.timerService.stopTimer?.(undefined, { force: true });
-          this.ngZone.run(() => this.onTimerExpiredFor(i0));
+          this.ngZone.run(() => void this.onTimerExpiredFor(i0));
         }
       }
     } catch (err: any) {
@@ -951,7 +960,7 @@ export class QuizQuestionComponent extends BaseQuestion
         );
       } else {
         console.warn(
-          '[VISIBILITY] ⚠️ No options available to repopulate optionsToDisplay',
+          '[VISIBILITY] ⚠️ No options available to repopulate optionsToDisplay'
         );
       }
     }
@@ -965,7 +974,8 @@ export class QuizQuestionComponent extends BaseQuestion
         return;
       }
 
-      const qState = this.quizStateService.getQuestionState(this.quizId, idx);
+      const qState =
+        this.quizStateService.getQuestionState(this.quizId, idx);
 
       // Use the saved display mode, not assumptions based on answered state
       const shouldShowExplanation = this._savedDisplayMode === 'explanation';
@@ -1055,7 +1065,8 @@ export class QuizQuestionComponent extends BaseQuestion
 
       // Set renderReady in next microtask to avoid sync paint conflicts
       setTimeout(() => {
-        const ready = Array.isArray(this.optionsToDisplay) && this.optionsToDisplay.length > 0;
+        const ready =
+          Array.isArray(this.optionsToDisplay) && this.optionsToDisplay.length > 0;
         if (!ready) {
           console.warn('[🛠️ Skipping renderReady — options not ready]');
           return;
@@ -1069,7 +1080,8 @@ export class QuizQuestionComponent extends BaseQuestion
       }, 0);
     } else {
       // No option change, but render was not previously marked ready
-      const ready = Array.isArray(this.optionsToDisplay) && this.optionsToDisplay.length > 0;
+      const ready =
+        Array.isArray(this.optionsToDisplay) && this.optionsToDisplay.length > 0;
 
       if (ready && !this.finalRenderReady) {
         this.internalBufferReady = true;
@@ -1112,7 +1124,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
     this.explanationToDisplay = explanation?.trim() || '';
 
-    // ALWAYS load component for each question to ensure fresh data
+    // Always load component for each question to ensure fresh data
     if (this.dynamicAnswerContainer) {
       void this.loadDynamicComponent(this.currentQuestion, this.optionsToDisplay);
       this.containerInitialized = true;
@@ -1188,7 +1200,7 @@ export class QuizQuestionComponent extends BaseQuestion
       if (selectedOptions.length > 0) {
         sessionStorage.setItem(
           `selectedOptions_${this.currentQuestionIndex}`,
-          JSON.stringify(selectedOptions),
+          JSON.stringify(selectedOptions)
         );
       }
 
@@ -1198,117 +1210,6 @@ export class QuizQuestionComponent extends BaseQuestion
       }
     } catch (error: any) {
       console.error('[saveQuizState] Error saving quiz state:', error);
-    }
-  }
-
-  private restoreQuizState(): void {
-    try {
-      const storageIndex = Number.isFinite(this.currentQuestionIndex)
-        ? this.currentQuestionIndex
-        : 0;
-
-      const explanationKey = `explanationText_${storageIndex}`;
-      const displayModeKey = `displayMode_${storageIndex}`;
-      const optionsKey = `options_${storageIndex}`;
-      const selectedOptionsKey = `selectedOptions_${storageIndex}`;
-      const feedbackKey = `feedbackText_${storageIndex}`;
-
-      // Restore explanation text
-      this.currentExplanationText =
-        sessionStorage.getItem(explanationKey) ||
-        sessionStorage.getItem(`explanationText`) ||
-        '';
-      const displayMode =
-        sessionStorage.getItem(displayModeKey) ||
-        sessionStorage.getItem(`displayMode`);
-      this.displayState.mode = displayMode === 'explanation' ? 'explanation' : 'question';
-
-      // Restore options
-      const optionsData = sessionStorage.getItem(optionsKey) ||
-        sessionStorage.getItem(`options`);
-      if (optionsData) {
-        try {
-          const parsedOptions = JSON.parse(optionsData);
-          if (Array.isArray(parsedOptions) && parsedOptions.length > 0) {
-            this.optionsToDisplay = this.quizService.assignOptionIds(
-              parsedOptions,
-              storageIndex,
-            );
-          } else {
-            console.warn('[restoreQuizState] ⚠️ Parsed options data is empty or invalid.');
-          }
-        } catch (error: any) {
-          console.error('[restoreQuizState] ❌ Error parsing options data:', error);
-        }
-      }
-
-      // Only reset if options are already empty or need updating
-      if (!this.optionsToDisplay || this.optionsToDisplay.length === 0) {
-        const lastKnownOptions = this.quizService.getLastKnownOptions();
-        if (lastKnownOptions && lastKnownOptions.length > 0) {
-          this.optionsToDisplay = [...lastKnownOptions];
-        }
-      }
-
-      // Restore selected options safely and apply feedback
-      const selectedOptionsData =
-        sessionStorage.getItem(selectedOptionsKey) ||
-        sessionStorage.getItem(`selectedOptions`);
-      if (selectedOptionsData) {
-        try {
-          const selectedOptions = JSON.parse(selectedOptionsData);
-          if (Array.isArray(selectedOptions) && selectedOptions.length > 0) {
-            for (const option of selectedOptions) {
-              if (option.optionId !== undefined) {
-                this.selectedOptionService.setSelectedOption(option.optionId);
-
-                // Apply feedback for restored option immediately
-                const restoredOption = this.optionsToDisplay.find(
-                  (opt: Option) => opt.optionId === option.optionId,
-                );
-                if (restoredOption) {
-                  void this.applyOptionFeedback(restoredOption);
-                }
-              }
-            }
-          }
-        } catch (error: any) {
-          console.error('[restoreQuizState] ❌ Error parsing selected options data:', error);
-        }
-      }
-
-      // Restore feedback text
-      this.feedbackText =
-        sessionStorage.getItem(feedbackKey) || sessionStorage.getItem(`feedbackText`) || '';
-
-      // Mark that at least one full restore has occurred
-      this.quizStateService.hasRestoredOnce = true;
-      console.log('[restoreQuizState] ✅ hasRestoredOnce set → true');
-
-      // Force feedback to be applied even if state wasn't restored properly
-      setTimeout(() => {
-        // Recheck if options are available
-        if (!this.optionsToDisplay || this.optionsToDisplay.length === 0) {
-          console.warn('[restoreQuizState] ⚠️ optionsToDisplay is still empty! Attempting repopulation...');
-          this.populateOptionsToDisplay();
-        }
-
-        // Backup recheck: Ensure feedback is applied after restoring selected options
-        setTimeout(() => {
-          const previouslySelectedOption = this.optionsToDisplay.find(
-            (opt: Option) => opt.selected
-          );
-          if (previouslySelectedOption) {
-            void this.applyOptionFeedback(previouslySelectedOption);
-          } else {
-            console.log(
-              '[restoreQuizState] ⚠️ No previously selected option found. Skipping feedback reapply.mmm',
-            );
-          }
-        }, 50);  // extra delay ensures selections are fully restored before applying feedback
-      }, 100);  // slight delay to ensure UI updates correctly
-    } catch (error: any) {
-      console.error('[restoreQuizState] ❌ Error restoring quiz state:', error);
     }
   }
 
@@ -1345,7 +1246,8 @@ export class QuizQuestionComponent extends BaseQuestion
     this.router.events
       .pipe(filter((event) => event instanceof NavigationEnd))
       .subscribe(() => {
-        const paramIndex = this.activatedRoute.snapshot.paramMap.get('questionIndex');
+        const paramIndex =
+          this.activatedRoute.snapshot.paramMap.get('questionIndex');
         const index = paramIndex ? +paramIndex : 0;  // fallback to 0 if param is missing or invalid
 
         // Check if questions are available to avoid out-of-bounds access
@@ -1354,7 +1256,8 @@ export class QuizQuestionComponent extends BaseQuestion
           return;
         }
 
-        const adjustedIndex = Math.max(0, Math.min(index - 1, this.questions.length - 1));
+        const adjustedIndex =
+          Math.max(0, Math.min(index - 1, this.questions.length - 1));
         this.quizService.updateCurrentQuestionIndex(adjustedIndex);
 
         // Use the adjusted index for explanation text to ensure sync
@@ -1428,14 +1331,16 @@ export class QuizQuestionComponent extends BaseQuestion
         if (loaded) {
           this.handleRouteChanges();  // handle route changes after questions are loaded
         } else {
-          console.warn('Questions are not loaded yet. Skipping explanation update.....');
+          console.warn('Questions are not loaded yet. Skipping explanation ' +
+            'update.');
         }
       });
   }
 
   private initializeFirstQuestion(): void {
     // Retrieve the question index from the route parameters and parse it as a number
-    const index = +(this.activatedRoute.snapshot.paramMap.get('questionIndex') ?? 0);
+    const index =
+      +(this.activatedRoute.snapshot.paramMap.get('questionIndex') ?? 0);
 
     // Set the initial question and load options
     this.setQuestionFirst(index);
@@ -1475,7 +1380,7 @@ export class QuizQuestionComponent extends BaseQuestion
         console.error('No questions loaded.');
         return false;
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading questions:', error);
       return false;
     }
@@ -1490,7 +1395,8 @@ export class QuizQuestionComponent extends BaseQuestion
       let questionIndex = isNaN(parsedParam) ? 1 : parsedParam;
 
       if (questionIndex < 1 || questionIndex > this.totalQuestions) {
-        console.warn(`[⚠️ Invalid questionIndex param: ${rawParam}. Defaulting to Q1]`);
+        console.warn(`[⚠️ Invalid questionIndex param: ${rawParam}. Defaulting 
+          to Q1]`);
         questionIndex = 1;
       }
 
@@ -1509,7 +1415,8 @@ export class QuizQuestionComponent extends BaseQuestion
         // Load the question using correct index
         const loaded = await this.loadQuestion();  // now uses new index
         if (!loaded) {
-          console.error(`[handleRouteChanges] ❌ Failed to load data for Q${questionIndex}`);
+          console.error(`[handleRouteChanges] ❌ Failed to load data for 
+            Q${questionIndex}`);
 
           // SAFETY: fall back to last known good question instead of poisoning state
           if (this._lastGoodQuestion) {
@@ -1531,9 +1438,10 @@ export class QuizQuestionComponent extends BaseQuestion
           : null;
 
         if (!fromArray) {
-          console.warn(`[handleRouteChanges] ⚠️ questionsArray has no entry for index ${zeroBasedIndex}`);
+          console.warn(`[handleRouteChanges] ⚠️ questionsArray has no entry for index 
+            ${zeroBasedIndex}`);
 
-          // SAFETY: again, fall back to last good instead of "No question available"
+          // Safety: again, fall back to last good instead of "No question available"
           if (this._lastGoodQuestion) {
             console.warn('[handleRouteChanges] 🛟 Using _lastGoodQuestion (array-miss)');
             this.currentQuestion = this._lastGoodQuestion;
@@ -1560,7 +1468,8 @@ export class QuizQuestionComponent extends BaseQuestion
         }));
 
         // Cache safe copy of options for fallback
-        this._lastGoodOptions = this.optionsToDisplay.map((o) => ({ ...o }));
+        this._lastGoodOptions =
+          this.optionsToDisplay.map((o) => ({ ...o }));
 
         if (!this.optionsToDisplay.length) {
           console.warn(`[⚠️ Q${questionIndex}] No options to display.`);
@@ -1585,7 +1494,8 @@ export class QuizQuestionComponent extends BaseQuestion
         if (this._lastGoodQuestion) {
           console.warn('[handleRouteChanges] 🛟 Error fallback → _lastGoodQuestion');
           this.currentQuestion = this._lastGoodQuestion;
-          this.optionsToDisplay = this._lastGoodOptions.map((o: Option) => ({ ...o }));
+          this.optionsToDisplay =
+            this._lastGoodOptions.map((o: Option) => ({ ...o }));
         }
       }
     });
@@ -1679,7 +1589,7 @@ export class QuizQuestionComponent extends BaseQuestion
   }
 
   private clearDisplaySubscriptions(): void {
-    // Unsubscribe from any active subscriptions to avoid memory leaks / unnecessary processing
+    // Unsubscribe from any active subscriptions to avoid memory leaks
     if (this.displaySubscriptions) {
       for (const sub of this.displaySubscriptions) {
         sub.unsubscribe();
@@ -1689,7 +1599,7 @@ export class QuizQuestionComponent extends BaseQuestion
     // Reset the array to prepare for new subscriptions when the page becomes visible again
     this.displaySubscriptions = [];
 
-    // Additional clean-up logic
+    // Additional cleanup logic
     this.explanationToDisplay = '';  // clear any currently displayed explanation text
     this.explanationToDisplayChange.emit('');  // emit empty string to reset UI elements
     this.showExplanationChange.emit(false);  // ensure explanation display is hidden
@@ -1702,18 +1612,21 @@ export class QuizQuestionComponent extends BaseQuestion
       // Ensure questions are loaded before proceeding
       if (!this.questionsArray || this.questionsArray.length === 0) {
         if (!quizId) {
-          console.error('[initializeComponent] No active quiz ID found. Aborting initialization.');
+          console.error('[initializeComponent] No active quiz ID found. Aborting ' +
+            'initialization.');
           return;
         }
 
         this.questionsArray = await this.quizService.fetchQuizQuestions(quizId);
         if (!this.questionsArray || this.questionsArray.length === 0) {
-          console.error('[initializeComponent] Failed to fetch questions. Aborting initialization.');
+          console.error('[initializeComponent] Failed to fetch questions. Aborting ' +
+            'initialization.');
           return;
         }
 
         console.info(
-          '[initializeComponent] Questions array successfully fetched:', this.questionsArray
+          '[initializeComponent] Questions array successfully fetched:',
+          this.questionsArray
         );
       }
 
@@ -1783,9 +1696,8 @@ export class QuizQuestionComponent extends BaseQuestion
       let isMultipleAnswer = false;
       try {
         if (!question || !('questionText' in question)) {
-          console.warn('[⚠️ Early return C] Invalid question object before isMultipleAnswer',
-            question
-          );
+          console.warn('[⚠️ Early return C] Invalid question object before ' +
+            'isMultipleAnswer', question);
           return;
         }
 
@@ -1872,7 +1784,8 @@ export class QuizQuestionComponent extends BaseQuestion
         componentRef.setInput('questionData', { ...question });
         componentRef.setInput('optionsToDisplay', clonedOptions);
 
-        // Set renderReady immediately after assigning options, fixes StackBlitz first-load timing issue
+        // Set renderReady immediately after assigning options, fixes StackBlitz
+        // first-load timing issue
         if (clonedOptions.length > 0) {
           instance.renderReady = true;
           console.log('[QQC] ✅ Set instance.renderReady = true after assigning options');
@@ -1979,13 +1892,8 @@ export class QuizQuestionComponent extends BaseQuestion
     return this.handleOptionClicked(q, idx);
   }
 
-  // rename
-  private async loadInitialQuestionAndMessage(): Promise<void> {
-    await this.handleQuestionState();
-  }
-
   public async loadQuestion(signal?: AbortSignal): Promise<boolean> {
-    // ABSOLUTE LOCK: prevent stale FET display
+    // Absolute Lock: prevent stale FET display
     this.explanationTextService.setShouldDisplayExplanation(false);
     this.explanationTextService.setIsExplanationTextDisplayed(false);
     this.explanationTextService.setExplanationText('', { force: true });
@@ -2089,7 +1997,8 @@ export class QuizQuestionComponent extends BaseQuestion
       // Set totalQuestions before selection messages are computed
       if (this.questionsArray?.length > 0) {
         this.quizService.totalQuestions = this.questionsArray.length;
-        console.log('[loadQuestion] ✅ totalQuestions set', this.quizService.totalQuestions);
+        console.log('[loadQuestion] ✅ totalQuestions set',
+          this.quizService.totalQuestions);
       }
 
       // If questionsArray still empty, bail out gracefully
@@ -2160,7 +2069,8 @@ export class QuizQuestionComponent extends BaseQuestion
       try {
         const q = this.currentQuestion;
         if (q?.options?.length) {
-          const numCorrect = q.options.filter((o: Option) => o.correct).length;
+          const numCorrect =
+            q.options.filter((o: Option) => o.correct).length;
           const totalOpts = q.options.length;
           const msg =
             this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
@@ -2170,10 +2080,12 @@ export class QuizQuestionComponent extends BaseQuestion
 
           if (numCorrect > 1) {
             this.quizService.updateCorrectAnswersText(msg);
-            console.log(`[BANNER] Set multi-answer banner for Q${this.currentQuestionIndex + 1}:`, msg);
+            console.log(`[BANNER] Set multi-answer banner for 
+              Q${this.currentQuestionIndex + 1}:`, msg);
           } else {
             this.quizService.updateCorrectAnswersText('');
-            console.log(`[BANNER] Cleared single-answer banner for Q${this.currentQuestionIndex + 1}`);
+            console.log(`[BANNER] Cleared single-answer banner for 
+              Q${this.currentQuestionIndex + 1}`);
           }
         }
       } catch (err: any) {
@@ -2215,7 +2127,8 @@ export class QuizQuestionComponent extends BaseQuestion
             );
             const q = this.questions[this.currentQuestionIndex];
             if (q) {
-              const totalCorrect = q.options.filter((o: Option) => !!o.correct).length;
+              const totalCorrect =
+                q.options.filter((o: Option) => !!o.correct).length;
 
               // Push the baseline immediately
               if (!q.type) {
@@ -2233,7 +2146,8 @@ export class QuizQuestionComponent extends BaseQuestion
               );
             }
           } else {
-            console.warn('[loadQuestion] Skipped baseline recompute (no options yet)');
+            console.warn('[loadQuestion] Skipped baseline recompute (no options ' +
+              'yet)');
           }
         });
       });
@@ -2265,7 +2179,9 @@ export class QuizQuestionComponent extends BaseQuestion
     if (this.isLoadingInProgress) {
       console.info('Waiting for ongoing loading process...');
       while (this.isLoadingInProgress) {
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await new Promise(
+          (resolve) => setTimeout(resolve, 100)
+        );
       }
       return this.isQuizLoaded;
     }
@@ -2303,10 +2219,12 @@ export class QuizQuestionComponent extends BaseQuestion
 
         // Log and validate the restored options
         if (!this.optionsToDisplay || this.optionsToDisplay.length === 0) {
-          console.error('[generateFeedbackText] Failed to restore valid optionsToDisplay.');
+          console.error('[generateFeedbackText] Failed to restore valid ' +
+            'optionsToDisplay.');
           return 'No options available to generate feedback.';
         } else {
-          console.log('[generateFeedbackText] Fallback optionsToDisplay:', this.optionsToDisplay);
+          console.log('[generateFeedbackText] Fallback optionsToDisplay:',
+            this.optionsToDisplay);
         }
       }
 
@@ -2315,12 +2233,14 @@ export class QuizQuestionComponent extends BaseQuestion
         (option: Option) => option.correct
       );
       if (correctOptions.length === 0) {
-        console.info('[generateFeedbackText] No correct options found for the question.');
+        console.info('[generateFeedbackText] No correct options found for the ' +
+          'question.');
         return 'No correct answers defined for this question.';
       }
 
       // Generate feedback using the feedback service
-      const feedbackText = this.feedbackService.setCorrectMessage(this.optionsToDisplay);
+      const feedbackText =
+        this.feedbackService.setCorrectMessage(this.optionsToDisplay);
 
       // Emit the feedback text
       this.feedbackText = feedbackText || 'No feedback generated for the current question.';
@@ -2443,7 +2363,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
   private async initializeQuizQuestionsAndAnswers(): Promise<void> {
     try {
-      this.quizId = this.activatedRoute.snapshot.paramMap.get('quizId');
+      this.quizId = this.activatedRoute.snapshot.paramMap.get('quizId') ?? '';
       if (!this.quizId) {
         console.error('Quiz ID is empty after initialization.');
         return;
@@ -2472,7 +2392,8 @@ export class QuizQuestionComponent extends BaseQuestion
     }
   }
 
-  private async fetchAndProcessQuizQuestions(quizId: string): Promise<QuizQuestion[]> {
+  private async fetchAndProcessQuizQuestions(quizId: string):
+    Promise<QuizQuestion[]> {
     if (!quizId) {
       console.error('Quiz ID is not provided or is empty.');
       return [];
@@ -2532,7 +2453,8 @@ export class QuizQuestionComponent extends BaseQuestion
             explanation: explanationText || 'No explanation provided.'
           };
         } catch (explanationError: any) {
-          console.error(`❌ Failed to fetch explanation for Q${index}:`, explanationError);
+          console.error(`❌ Failed to fetch explanation for Q${index}:`,
+            explanationError);
 
           this.explanationTextService.formattedExplanations[index] = {
             questionIndex: index,
@@ -2541,7 +2463,8 @@ export class QuizQuestionComponent extends BaseQuestion
         }
       }
     } catch (fatalError: any) {
-      console.error(`Unexpected error during prepareQuestion for Q${index}:`, fatalError);
+      console.error(`Unexpected error during prepareQuestion for Q${index}:`,
+        fatalError);
     }
   }
 
@@ -2557,7 +2480,7 @@ export class QuizQuestionComponent extends BaseQuestion
   }
 
   private async shouldUpdateMessageOnAnswer(
-    isAnswered: boolean,
+    isAnswered: boolean
   ): Promise<boolean> {
     const newMessage = this.selectionMessageService.determineSelectionMessage(
       this.currentQuestionIndex,
@@ -2654,16 +2577,18 @@ export class QuizQuestionComponent extends BaseQuestion
         }));
         this.updateShouldRenderOptions(this.optionsToDisplay);
         this.quizService.nextOptionsSubject.next(
-          this.optionsToDisplay.map((option: Option) => ({ ...option }))
+          this.optionsToDisplay.map((option: Option) =>
+            ({ ...option }))
         );
 
         // Now that optionsToDisplay is set, refresh explanation text if needed
         // This ensures the FET is calculated using the SHUFFLED options we just set.
         if (this.currentQuestionIndex >= 0) {
-          console.log('[QQC] 🔄 triggering explanation usage/refresh with NEW options');
+          console.log('[QQC] 🔄 triggering explanation usage/refresh with new options');
           if (this.currentQuestionIndex >= 0) {
-            // Recalculate AND push to service to ensure all subscribers see the correct text
-            // AND update the cache map so SharedOptionComponent finds the correct text
+            // Recalculate AND push to service to ensure all subscribers see the
+            // correct text AND update the cache map so SharedOptionComponent
+            // finds the correct text
             this.prepareAndSetExplanationText(this.currentQuestionIndex).then(
               (fet) => {
                 if (this.currentQuestion) {
@@ -2674,7 +2599,7 @@ export class QuizQuestionComponent extends BaseQuestion
                   );
                 }
                 this.explanationTextService.setExplanationText(fet);
-              },
+              }
             );
           }
         }
@@ -2718,9 +2643,9 @@ export class QuizQuestionComponent extends BaseQuestion
 
   // Called when a user clicks an option row
   public override async onOptionClicked(
-    event: OptionClickedPayload,
+    event: OptionClickedPayload
   ): Promise<void> {
-    // HARD GUARD: event / option must be valid
+    // Hard Guard: event / option must be valid
     if (!event || !event.option) {
       console.error('[QQC] ❌ onOptionClicked received invalid event:', event);
       return;
@@ -2749,7 +2674,8 @@ export class QuizQuestionComponent extends BaseQuestion
     if (!q || !q.options?.length) q = this.quizService.questions?.[idx];
 
     if (!q || !q.options?.length) {
-      console.error('[QQC] ❌ Unable to resolve question for index', idx, ' → aborting click handler');
+      console.error('[QQC] ❌ Unable to resolve question for index', idx, ' ' +
+        '→ aborting click handler');
       return;
     }
 
@@ -2825,7 +2751,9 @@ export class QuizQuestionComponent extends BaseQuestion
   private async waitForInteractionReady(): Promise<void> {
     if (!this.quizStateService.isInteractionReady()) {
       console.warn('[onOptionClicked] Interaction not ready, waiting…');
-      await firstValueFrom(this.quizStateService.interactionReady$.pipe(filter(Boolean), take(1)));
+      await firstValueFrom(
+        this.quizStateService.interactionReady$.pipe(filter(Boolean), take(1))
+      );
     }
   }
 
@@ -2905,8 +2833,6 @@ export class QuizQuestionComponent extends BaseQuestion
         isMultipleAnswer
       );
     } catch { }
-
-    (this.quizStateService as any).setUserInteracted?.(idx);
   }
 
   private buildCanonicalOptions(q: QuizQuestion, idx: number, evtOpt: Option, evtIdx: number): Option[] {
@@ -2974,13 +2900,15 @@ export class QuizQuestionComponent extends BaseQuestion
     evtOpt: Option,
     idx: number
   ): boolean {
-    const getKey = (o: Option) => this.selectionMessageService.stableKey(o as Option);
+    const getKey =
+      (o: Option) => this.selectionMessageService.stableKey(o as Option);
 
     // All correct options
     const correctOpts = canonicalOpts.filter((o: Option) => !!o.correct);
 
     // Pull selected options from SOS
-    const selOpts = this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
+    const selOpts =
+      this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
 
     // Convert to canonical comparable keys
     const selKeys = new Set(selOpts.map((o: Option) => getKey(o)));
@@ -3068,7 +2996,9 @@ export class QuizQuestionComponent extends BaseQuestion
 
         this.feedbackText = await this.generateFeedbackText(qSafe);
 
-        await this.postClickTasks(evtOpt ?? undefined, evtIdx, true, false);
+        await this.postClickTasks(
+          evtOpt ?? undefined, evtIdx, true, false
+        );
 
         this.handleCoreSelection({
           option: evtOpt,
@@ -3093,7 +3023,7 @@ export class QuizQuestionComponent extends BaseQuestion
           ? !!evtOpt?.correct
           : this._lastAllCorrect;
 
-      this.selectionMessageService.setSelectionMessage(selectionComplete);
+      void this.selectionMessageService.setSelectionMessage(selectionComplete);
     });
   }
 
@@ -3510,8 +3440,8 @@ export class QuizQuestionComponent extends BaseQuestion
     }
 
     try {
-      this.sharedOptionComponent?.forceDisableAllOptions?.();
-      this.sharedOptionComponent?.triggerViewRefresh?.();
+      this.sharedOptionComponent?.forceDisableAllOptions();
+      this.sharedOptionComponent?.triggerViewRefresh();
     } catch { }
 
     try {
@@ -3577,7 +3507,8 @@ export class QuizQuestionComponent extends BaseQuestion
     // Rebuild selectedKeys from the service map for current question
     const currentSelected =
       this.selectedOptionService.selectedOptionsMap.get(this.currentQuestionIndex) ?? [];
-    const selectedKeys = new Set(currentSelected.map((o) => o.optionId));
+    const selectedKeys =
+      new Set(currentSelected.map((o) => o.optionId));
 
     const b = this.optionBindings.find(
       (x) => x.option.optionId === opt.optionId
@@ -3670,7 +3601,7 @@ export class QuizQuestionComponent extends BaseQuestion
       const idx = this.currentQuestionIndex;
       const optId = Number(option.optionId);
 
-      // Use fields that actually exist on your model
+      // Use fields that exist on model
       const wasCorrect =
         option.correct === true ||
         (typeof option.feedback === 'string' &&
@@ -3708,7 +3639,8 @@ export class QuizQuestionComponent extends BaseQuestion
   private async applyFeedbackIfNeeded(option: SelectedOption): Promise<void> {
     if (!this.optionsToDisplay?.length) {
       console.warn(
-        '[⚠️ applyFeedbackIfNeeded] Options not populated. Attempting to repopulate...',
+        '[⚠️ applyFeedbackIfNeeded] Options not populated. Attempting to ' +
+        'repopulate...'
       );
       await new Promise((res) => setTimeout(res, 50));
       this.optionsToDisplay = this.populateOptionsToDisplay();
@@ -3790,14 +3722,16 @@ export class QuizQuestionComponent extends BaseQuestion
     // Early exit if question index has changed
     if (lockedQuestionIndex !== questionIndex) {
       console.warn(
-        `[fetchAndUpdateExplanationText] ⚠️ Mismatch detected! Skipping explanation update for Q${questionIndex}.`
+        `[fetchAndUpdateExplanationText] ⚠️ Mismatch detected! Skipping 
+        explanation update for Q${questionIndex}.`
       );
       return '';
     }
 
     try {
       // Check session storage
-      const storedExplanation = sessionStorage.getItem(`explanationText_${questionIndex}`
+      const storedExplanation = sessionStorage.getItem(
+        `explanationText_${questionIndex}`
       );
       if (storedExplanation) {
         this.applyExplanation(storedExplanation);
@@ -3814,7 +3748,8 @@ export class QuizQuestionComponent extends BaseQuestion
         this.applyExplanation(cachedExplanation);
 
         // Store in session storage for future use
-        sessionStorage.setItem(`explanationText_${questionIndex}`, cachedExplanation);
+        sessionStorage.setItem(`explanationText_${questionIndex}`,
+          cachedExplanation);
         return cachedExplanation;  // return the cached explanation text
       }
 
@@ -3853,7 +3788,7 @@ export class QuizQuestionComponent extends BaseQuestion
       this.applyExplanation(explanationText);
 
       return explanationText;  // return the fetched explanation text
-    } catch (error) {
+    } catch (error: any) {
       console.error(
         `[fetchAndUpdateExplanationText] ❌ Error fetching explanation for Q${questionIndex}:`,
         error
@@ -3881,7 +3816,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
     ets.latestExplanation = explanation;
     ets.latestExplanationIndex = questionIndex;
-    ets.formattedExplanationSubject?.next(explanation);
+    ets.formattedExplanationSubject.next(explanation);
     ets.updateFormattedExplanation(explanation);
     ets.setShouldDisplayExplanation(true);
     ets.setIsExplanationTextDisplayed(true);
@@ -3896,7 +3831,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
     try {
       const normalizedIndex = this.normalizeIndex(
-        typeof questionIndex === 'number' && questionIndex >= 0
+        questionIndex >= 0
           ? questionIndex
           : (this.quizService.getCurrentQuestionIndex() ?? 0)
       );
@@ -3931,7 +3866,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
       // Check if all correct options are selected
       // Update options state
-      const updatedOptions = this.optionsToDisplay.map((opt: Option) => {
+      this.optionsToDisplay = this.optionsToDisplay.map((opt: Option) => {
         const isSelected = opt.optionId === option.optionId;
 
         return {
@@ -3943,8 +3878,6 @@ export class QuizQuestionComponent extends BaseQuestion
           active: true  // keep all options active
         };
       });
-
-      this.optionsToDisplay = updatedOptions;
     } catch (error: any) {
       console.error('[handleMultipleAnswerTimerLogic] Error:', error);
     }
@@ -3963,7 +3896,8 @@ export class QuizQuestionComponent extends BaseQuestion
       this.currentQuestion.options.length === 0
     ) {
       console.warn(
-        '[⚠️ populateOptionsToDisplay] currentQuestion.options is not a valid array. Returning empty array.'
+        '[⚠️ populateOptionsToDisplay] currentQuestion.options is not a valid ' +
+        'array. Returning empty array.'
       );
       return [];
     }
@@ -4055,7 +3989,9 @@ export class QuizQuestionComponent extends BaseQuestion
     this.feedbackApplied.emit(selectedOption.optionId);
 
     // Add a slight delay to ensure UI refreshes properly
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await new Promise(
+      (resolve) => setTimeout(resolve, 50)
+    );
 
     // Ensure UI updates after applying feedback
     // Ensure the flag is initialized if missing
@@ -4190,7 +4126,7 @@ export class QuizQuestionComponent extends BaseQuestion
       });
     }
 
-    // NORMAL CORRECT-ANSWER PATH
+    // Normal correct answer path
     if (allCorrectSelected) {
       // Mark interaction using the SAME 0-based index the streams use
       this.quizStateService.markUserInteracted(effectiveIdx);
@@ -4205,7 +4141,7 @@ export class QuizQuestionComponent extends BaseQuestion
       // Enable explanation gate
       this.explanationTextService.shouldDisplayExplanationSource.next(true);
 
-      // CLEAN FET TRIGGER — no UI mutation here
+      // Clean FET trigger — no UI mutation here
       requestAnimationFrame(() => {
         this.quizStateService.displayStateSubject.next({
           mode: 'explanation',
@@ -4280,7 +4216,11 @@ export class QuizQuestionComponent extends BaseQuestion
       questionState.isAnswered = true;
       questionState.explanationDisplayed = true;
 
-      this.quizStateService.setQuestionState(this.quizId, questionIndex, questionState);
+      this.quizStateService.setQuestionState(
+        this.quizId,
+        questionIndex,
+        questionState
+      );
     } else {
       console.error(
         `[markQuestionAsAnswered] ❌ Question state not found for Q${questionIndex}`
@@ -4309,7 +4249,8 @@ export class QuizQuestionComponent extends BaseQuestion
     index: number,
     wasPreviouslySelected: boolean
   ): Promise<void> {
-    const questionState = this.initializeQuestionState(this.currentQuestionIndex);
+    const questionState =
+      this.initializeQuestionState(this.currentQuestionIndex);
 
     this.answerSelected.emit(true);
 
@@ -4383,7 +4324,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
       this.showFeedbackForOption[option.optionId] = true;
 
-      // SINGLE-ANSWER HARD RESET
+      // Single-Answer Hard Reset
       if (this.type === 'single') {
         this.selectedOptionService.clearAllSelectionsForQuestion(
           this.currentQuestionIndex
@@ -4405,10 +4346,13 @@ export class QuizQuestionComponent extends BaseQuestion
         this.currentQuestionIndex
       );
 
-      this.selectedOptionService.storeQuestion(this.currentQuestionIndex, questionData);
+      this.selectedOptionService.storeQuestion(
+        this.currentQuestionIndex,
+        questionData
+      );
 
-      // AUTHORITATIVE clicked option (NEVER trust event.option.optionId)
-      const clickedFromQuestion = questionData.options?.[index];
+      // Authoritative clicked option (NEVER trust event.option.optionId)
+      const clickedFromQuestion = questionData.options[index];
       if (!clickedFromQuestion || clickedFromQuestion.optionId == null) {
         console.warn('[QQC] clicked option missing in questionData',
           { idx: this.currentQuestionIndex, index });
@@ -4476,8 +4420,6 @@ export class QuizQuestionComponent extends BaseQuestion
               .getSelectedOptionsForQuestion(idx)
               .map(o => String(o.optionId))
           );
-
-          shouldStop = [...correctIds].every(id => selectedIds.has(id));
         }
       });
 
@@ -4652,7 +4594,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
       // Use the ONLY valid API now
       const currentQuestion = await firstValueFrom(
-        this.quizService.getQuestionByIndex(this.currentQuestionIndex),
+        this.quizService.getQuestionByIndex(this.currentQuestionIndex)
       );
 
       if (!currentQuestion) {
@@ -4690,7 +4632,7 @@ export class QuizQuestionComponent extends BaseQuestion
   private processCurrentQuestionState(
     currentQuestion: QuizQuestion,
     option: SelectedOption,
-    index: number,
+    index: number
   ): void {
     if (!this.quizId) {
       console.error('[processCurrentQuestionState] quizId is missing or invalid');
@@ -4847,7 +4789,7 @@ export class QuizQuestionComponent extends BaseQuestion
         this.quizId,
         this.quizService.getCurrentQuizId(),
         this.quizService.quizId
-      ].find((id) => typeof id === 'string' && id.trim().length > 0) ?? null;
+      ].find((id) => id?.trim().length > 0) ?? null;
 
     const questionState = activeQuizId
       ? this.quizStateService.getQuestionState(activeQuizId, index)
@@ -6096,7 +6038,6 @@ export class QuizQuestionComponent extends BaseQuestion
     this.timerService.resetTimerFlagsFor(i0);
 
     // Reset disable/feedback maps
-    this.flashDisabledSet.clear();
     this.feedbackConfigs = {};
     this.lastFeedbackOptionId = -1;
 
@@ -6481,6 +6422,9 @@ export class QuizQuestionComponent extends BaseQuestion
 
   private applyDisplayOrder(options: Option[] | null | undefined): Option[] {
     if (!Array.isArray(options)) return [];
-    return options.map((option, index) => ({ ...option, displayOrder: index }));
+    return options.map((option, index) => ({
+      ...option,
+      displayOrder: index
+    }));
   }
 }
