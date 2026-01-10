@@ -1,16 +1,24 @@
 <mat-card>
   <mat-card-header>
-    <img
-      mat-card-avatar
-      class="header-image"
-      loading="lazy"
-      alt="Back to Quiz Selection"
-      (click)="selectQuiz()"
-      matTooltip="Back to Codelab Quiz Selection"
-      matTooltipPosition="left"
-    />
+    <div class="logo">
+      <a href="https://www.codelab.fun" title="Angular Codelab" target="_blank">
+        <img
+          mat-card-avatar
+          class="header-image"
+          src="assets/images/codelab_logo.jpeg"
+          width="120"
+          height="60"
+          alt="Angular Codelab logo"
+          loading="lazy"
+          (click)="selectQuiz()"
+          matTooltip="Back to Codelab Quiz Selection"
+          matTooltipPosition="left"
+        />
+      </a>
+    </div>
     <mat-card-title i18n>Results</mat-card-title>
   </mat-card-header>
+
 
   <mat-card-content>
     <section class="results">

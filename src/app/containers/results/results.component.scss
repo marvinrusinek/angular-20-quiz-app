@@ -9,17 +9,33 @@ mat-card {
 }
 
 mat-card-header {
-
-  display: block;
+  display: flex;
+  justify-content: space-between; /* Push items to far left and right */
+  align-items: center;
   margin-top: 20px !important;
 
+  .logo {
+    flex-shrink: 0;
+
+    img {
+      border-radius: 8px;
+      cursor: pointer;
+      transition: transform 0.2s ease;
+
+      &:hover {
+        transform: scale(1.05);
+      }
+    }
+  }
+
+  /* No explicit left margin needed with space-between */
   .header-image {
-    margin-left: 10px;
+    margin-left: 0; 
   }
 
   mat-card-title {
     font-family: 'Roboto', arial, sans-serif;
-    font-size: 48px !important;
+    font-size: 110px !important;
     font-style: italic;
     font-weight: 900;
     color: vars.$green-angular-leaf;
@@ -30,6 +46,7 @@ mat-card-header {
       -1px 0 0 vars.$black;
   }
 }
+
 
 .results {
   display: block;
