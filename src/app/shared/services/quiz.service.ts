@@ -728,13 +728,37 @@ export class QuizService {
 
             console.log('[QuizService] 🔀 Shuffle requested on CACHED data - re-shuffling...');
 
+            // ⚡ FIX: Use CANONICAL questions for shuffling, never the cached (potentially already shuffled) ones!
+            let sourceQuestions = this.canonicalQuestionsByQuiz.get(quizId);
+            if (!sourceQuestions || sourceQuestions.length === 0) {
+               console.warn('[QuizService] ⚠️ Canonical questions missing during re-shuffle! Falling back to cached.');
+               sourceQuestions = cachedQuestions;
+            } else {
+               // Clone to be safe
+               sourceQuestions = JSON.parse(JSON.stringify(sourceQuestions));
+            }
+
+            if (!sourceQuestions || sourceQuestions.length === 0) {
+              console.error('[QuizService] ❌ Cannot shuffle: No questions available.');
+              return [];
+            }
+
             // ⚡ SYNC FIX: Delegate cached shuffle to QuizShuffleService
-            this.quizShuffleService.prepareShuffle(quizId, cachedQuestions);
-            const syncedShuffled = this.quizShuffleService.buildShuffledQuestions(quizId, cachedQuestions);
+            this.quizShuffleService.prepareShuffle(quizId, sourceQuestions);
+            const syncedShuffled = this.quizShuffleService.buildShuffledQuestions(quizId, sourceQuestions);
 
             this.shuffledQuestions = syncedShuffled;
             this.questions = syncedShuffled;
             return syncedShuffled;
+          }
+
+          // If NOT shuffling, we should return the canonical order
+          const canonical = this.canonicalQuestionsByQuiz.get(quizId);
+          if (canonical && canonical.length > 0) {
+             console.log('[QuizService] 🔙 Restoring canonical order from cache.');
+             const restored = JSON.parse(JSON.stringify(canonical));
+             this.questions = restored;
+             return restored;
           }
 
           return cachedQuestions.map(
