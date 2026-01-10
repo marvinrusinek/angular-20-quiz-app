@@ -403,10 +403,10 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             if (!actuallyAnswered) {
               const serviceQText = (questionObj?.questionText ?? '').trim();
               
-              // 🛡️ RACE CONDITION GUARD:
-              // If qText (from Input) and serviceQText (from Service) mismatch, 
-              // it means one stream is faster than the other (usually Input is faster).
-              // In this case, rely on qText for text, but DO NOT use stale questionObj for logic like banners.
+              // Race Condition Guard: if qText (from Input) and serviceQText
+              // (from Service) mismatch, it means one stream is faster than the
+              // other (usually Input is faster). In this case, rely on qText for
+              // text, but DO NOT use stale questionObj for logic like banners.
               const isMismatch = rawQText && serviceQText && rawQText !== serviceQText;
               
               const effectiveQText = isMismatch ? rawQText : (serviceQText || rawQText);
