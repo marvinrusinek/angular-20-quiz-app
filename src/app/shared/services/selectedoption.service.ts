@@ -362,6 +362,14 @@ export class SelectedOptionService {
 
     const committed = this.commitSelections(qIndex, canonicalCurrent);
 
+    // Sync to QuizService for persistence & scoring
+    if (this.quizService) {
+        const ids = committed
+            .map(o => o.optionId)
+            .filter((id): id is number => typeof id === 'number');
+        this.quizService.updateUserAnswer(qIndex, ids);
+    }
+
     // Synchronously emit the full updated list
     this.selectedOption = committed;
     this.selectedOptionSubject.next(committed);
