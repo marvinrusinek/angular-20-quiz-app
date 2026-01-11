@@ -1573,8 +1573,24 @@ export class SharedOptionComponent
     }
 
     // Update service and check score
-    this.quizService.answers = simulatedSelection;
-    this.quizService.updateUserAnswer(qIndexForScore, simulatedSelection.map(o => o.optionId).filter((id): id is number => id !== undefined));
+    // If options lack IDs (unshuffled raw mode), generate the expected numeric ID
+    // ⚡ FIX: Use the FULL options list (this.optionBindings) to find the correct index for generation
+    // Relying on simulatedSelection index was incorrect because it only contains SELECTED options.
+    const allBindings = this.optionBindings ?? [];
+    
+    const validIds = simulatedSelection.map((o) => {
+        if (typeof o.optionId === 'number') return o.optionId;
+
+        // Fallback: Find True Index in the full list
+        const trueIndex = allBindings.findIndex(b => b.option === o || (b.option?.text === o.text));
+        
+        // If found, generate ID. If not found, use 0 (which will likely fail but is safer than random)
+        const idxToUse = trueIndex >= 0 ? trueIndex : 0;
+        
+        return Number(`${qIndexForScore + 1}${(idxToUse + 1).toString().padStart(2, '0')}`);
+    }).filter((id): id is number => Number.isFinite(id));
+
+    this.quizService.updateUserAnswer(qIndexForScore, validIds);
 
     // Must sync to SelectedOptionService for dots to update
     this.selectedOptionService.syncSelectionState(

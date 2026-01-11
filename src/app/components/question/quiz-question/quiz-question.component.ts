@@ -2287,10 +2287,9 @@ export class QuizQuestionComponent extends BaseQuestion
         console.warn(
           '[generateFeedbackText] optionsToDisplay is not set. Falling back to question options.',
         );
-        this.optionsToDisplay = this.quizService.assignOptionIds(
-          question.options,
-          this.currentQuestionIndex
-        );
+        // ⚡ FIX: Use existing options but do NOT overwrite IDs!
+        // this.quizService.assignOptionIds(...) would destroy shuffled option mappings.
+        this.optionsToDisplay = question.options.map(opt => ({ ...opt }));
 
         // Log and validate the restored options
         if (!this.optionsToDisplay || this.optionsToDisplay.length === 0) {
@@ -5310,11 +5309,13 @@ export class QuizQuestionComponent extends BaseQuestion
         return;
       }
 
-      // Ensure optionId is assigned to all options in the current question
-      currentQuestion.options = this.quizService.assignOptionIds(
-        currentQuestion.options,
-        this.currentQuestionIndex
-      );
+      // ⚡ FIX: Do NOT overwrite option IDs with display-index based IDs!
+      // In shuffled mode, IDs must match the original question IDs stored in Slice/Service.
+      // Re-assigning them here using 'currentQuestionIndex' validates against the WRONG question.
+      // currentQuestion.options = this.quizService.assignOptionIds(
+      //   currentQuestion.options,
+      //   this.currentQuestionIndex
+      // );
 
       // Get selected options, but only include those with a valid optionId
       const selectedOptions: Option[] = this.selectedOptionService

@@ -290,6 +290,8 @@ export class QuizDataService implements OnDestroy {
     const cachedQuestions = this.quizQuestionCache.get(quizId);
     if (Array.isArray(cachedQuestions) && cachedQuestions.length > 0) {
       console.log(`[QuizDataService] ✅ Returning CACHED questions for quiz ${quizId} (${cachedQuestions.length} questions)`);
+      // ⚡ FIX: Sync cache hit with QuizService so standard subscribers (like ScoreComponent) get the update
+      this.quizService.questions = this.cloneQuestions(cachedQuestions);
       return of(this.cloneQuestions(cachedQuestions));
     }
 
@@ -334,6 +336,13 @@ export class QuizDataService implements OnDestroy {
         // Assign questions to QuizService so UI can access them
         console.log(`[QuizDataService] 🔄 OVERWRITING quizService.questions with ${sessionQuestions.length} questions. Q1: "${sessionQuestions[0]?.questionText?.substring(0, 40)}..."`);
         this.quizService.questions = this.cloneQuestions(sessionQuestions);
+        
+        // ⚡ FIX: Explicitly refresh the current question text now that data is loaded.
+        // This ensures Index 0 (Q1) gets populated immediately.
+        const currentIdx = this.quizService.currentQuestionIndex;
+        if (sessionQuestions[currentIdx]) {
+           this.quizService.updateCurrentQuestion(sessionQuestions[currentIdx]);
+        }
 
         // Stamp multi-answer flag for each question
         for (const [qIndex, question] of this.quizService.questions.entries()) {

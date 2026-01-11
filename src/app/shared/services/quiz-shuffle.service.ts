@@ -26,6 +26,12 @@ export class QuizShuffleService {
       console.log(`[QuizShuffleService] ⚡ REUSING existing shuffle for quiz ${quizId} - NOT re-shuffling!`);
       return;
     }
+    
+    // Check persistence
+    if (this.loadState(quizId)) {
+        console.log(`[QuizShuffleService] 💾 Loaded PERSISTED shuffle for quiz ${quizId}`);
+        return;
+    }
 
     // Question shuffling enabled, but option shuffling disabled for stability
     const { shuffleQuestions = true, shuffleOptions = false } = opts;
@@ -46,14 +52,56 @@ export class QuizShuffleService {
     }
 
     this.shuffleByQuizId.set(quizId, { questionOrder, optionOrder });
+    this.saveState(quizId);
   }
 
   public hasShuffleState(quizId: string): boolean {
-    return this.shuffleByQuizId.has(quizId);
+    return this.shuffleByQuizId.has(quizId) || !!localStorage.getItem(`shuffleState:${quizId}`);
   }
 
   public getShuffleState(quizId: string): ShuffleState | undefined {
+    if (!this.shuffleByQuizId.has(quizId)) {
+        this.loadState(quizId);
+    }
     return this.shuffleByQuizId.get(quizId);
+  }
+  
+  // Persistence Utilities
+  private saveState(quizId: string): void {
+      const state = this.shuffleByQuizId.get(quizId);
+      if (!state) return;
+      
+      try {
+          // Convert Map to Array for JSON serialization
+          const serializedState = {
+              questionOrder: state.questionOrder,
+              optionOrder: Array.from(state.optionOrder.entries())
+          };
+          localStorage.setItem(`shuffleState:${quizId}`, JSON.stringify(serializedState));
+      } catch (e) {
+          console.warn('[QuizShuffleService] Failed to persist shuffle state:', e);
+      }
+  }
+  
+  private loadState(quizId: string): boolean {
+      try {
+          const raw = localStorage.getItem(`shuffleState:${quizId}`);
+          if (!raw) return false;
+          
+          const parsed = JSON.parse(raw);
+          if (!parsed || !parsed.questionOrder || !Array.isArray(parsed.optionOrder)) return false;
+          
+          const state: ShuffleState = {
+              questionOrder: parsed.questionOrder,
+              optionOrder: new Map(parsed.optionOrder)
+          };
+          
+          this.shuffleByQuizId.set(quizId, state);
+          return true;
+      } catch (e) {
+          console.warn('[QuizShuffleService] Failed to load shuffle state:', e);
+          return false;
+      }
   }
 
   private reorderOptions(options: Option[], order?: number[]): Option[] {
@@ -180,6 +228,9 @@ export class QuizShuffleService {
 
   // Map display index -> original index (for scoring, persistence, timers)
   public toOriginalIndex(quizId: string, displayIdx: number): number | null {
+    if (!this.shuffleByQuizId.has(quizId)) {
+        this.loadState(quizId);
+    }
     const state = this.shuffleByQuizId.get(quizId);
     if (!state) return null;
     return state.questionOrder[displayIdx] ?? null;
@@ -283,7 +334,7 @@ export class QuizShuffleService {
   // Clear when the session ends
   public clear(quizId: string): void {
     this.shuffleByQuizId.delete(quizId);
-    localStorage.removeItem(`shuffle:${quizId}`);
+    localStorage.removeItem(`shuffleState:${quizId}`);
   }
 
   private toNum(v: unknown): number | null {

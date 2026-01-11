@@ -59,11 +59,10 @@ export class ScoreComponent implements OnInit, OnDestroy {
   private unsubscribeTrigger$: Subject<void> = new Subject<void>();
 
   constructor(private quizService: QuizService) {
-    // ⚡ FIX: Derive total questions dynamically from the questions stream
+    // ⚡ FIX: Derive total questions dynamically from the questions stream (Replaced getAllQuestions with questions$)
     // Filter out empty arrays to avoid showing X/0 while loading
-    this.totalQuestions$ = this.quizService.getAllQuestions().pipe(
-      filter((questions) => Array.isArray(questions) && questions.length > 0),
-      map((questions) => questions.length),
+    this.totalQuestions$ = this.quizService.questions$.pipe(
+      map((questions) => Array.isArray(questions) ? questions.length : 0),
       distinctUntilChanged()
     );
   }
@@ -91,7 +90,7 @@ export class ScoreComponent implements OnInit, OnDestroy {
         startWith(0), // Provide a default value to ensure it's never undefined
         distinctUntilChanged(),
       ),
-      this.quizService.getAllQuestions().pipe(startWith([])),
+      this.quizService.questions$.pipe(startWith([])),
     ])
       .pipe(
         map(this.processScoreData),
@@ -131,6 +130,7 @@ export class ScoreComponent implements OnInit, OnDestroy {
     totalQuestions: number;
     questions: any[];
   }): void => {
+    console.log(`[ScoreComponent] 📊 Update: Correct=${correctAnswersCount}, Total=${totalQuestions}`);
     this.correctAnswersCount = correctAnswersCount;
     this.updateScoreDisplay();
   };

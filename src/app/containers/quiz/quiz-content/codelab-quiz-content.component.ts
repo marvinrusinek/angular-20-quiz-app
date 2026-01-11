@@ -369,9 +369,12 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
         const rawQText = (qText as string)?.trim();
 
+        // ⚡ FIX: ALWAYS prioritize questionObj (from getQuestionByIndex via questionForIndex$)
+        // This is the ONLY source that correctly respects shuffle state and matches the options.
+        // The questions array from questions$ can be stale and cause text/options mismatch.
         const qObj =
-          (Array.isArray(questions) ? questions[safeIdx] : undefined) ||
           questionObj ||
+          (Array.isArray(questions) ? questions[safeIdx] : undefined) ||
           (Array.isArray(this.quizService.questions)
             ? this.quizService.questions[safeIdx]
             : undefined);
@@ -403,21 +406,19 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             if (!actuallyAnswered) {
               const serviceQText = (questionObj?.questionText ?? '').trim();
               
-              // Race Condition Guard: if qText (from Input) and serviceQText
-              // (from Service) mismatch, it means one stream is faster than the
-              // other (usually Input is faster). In this case, rely on qText for
-              // text, but DO NOT use stale questionObj for logic like banners.
-              const isMismatch = rawQText && serviceQText && rawQText !== serviceQText;
-              
-              const effectiveQText = isMismatch ? rawQText : (serviceQText || rawQText);
+              // ⚡ FIX: ALWAYS prefer question text from questionObj (via getQuestionByIndex)
+              // The questionToDisplay$ input is often stale and lags behind navigation.
+              // questionObj comes from getQuestionByIndex which respects shuffle and
+              // is the same source as options, ensuring text and options are synchronized.
+              const effectiveQText = serviceQText || rawQText || '';
 
               if (!effectiveQText) {
                 console.warn(`[displayText$] ⚠️ Q${safeIdx + 1} No safe text available yet.`);
                 return '';
               }
 
-              // Only show banner if we have a consistent object or if there is no mismatch
-              if (isMulti && bannerText && !isMismatch) {
+              // Show banner for multi-answer questions when we have valid text
+              if (isMulti && bannerText && effectiveQText) {
                 return `${effectiveQText} <span class="correct-count">${bannerText}</span>`;
               }
               return effectiveQText;
@@ -473,10 +474,51 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   private subscribeToDisplayText(): void {
     this.combinedText$ = this.getCombinedDisplayTextStream();
 
+    // ⚡ FIX: Create a PERSISTENT subscription that updates question text on EVERY index change
+    // This is the authoritative mechanism that ensures question text matches options.
+    // getQuestionByIndex is the same source used for options, guaranteeing synchronization.
+    this.quizService.currentQuestionIndex$.pipe(
+      switchMap((idx: number) => {
+        console.log(`[CQCC] 📍 Index changed to ${idx}, fetching question text...`);
+        return this.quizService.getQuestionByIndex(idx);
+      }),
+      filter((question: QuizQuestion | null): question is QuizQuestion => 
+        question !== null && !!question.questionText?.trim()
+      )
+    ).subscribe({
+      next: (question: QuizQuestion) => {
+        const el = this.qText?.nativeElement;
+        if (el) {
+          let text = question.questionText.trim();
+          
+          // Calculate if this is a multi-answer question and add the banner
+          const numCorrect = question.options?.filter((o: Option) => o.correct).length ?? 0;
+          const isMulti = numCorrect > 1;
+          
+          if (isMulti) {
+            const totalOpts = question.options?.length ?? 0;
+            const banner = this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
+              numCorrect,
+              totalOpts
+            );
+            if (banner) {
+              text = `${text} <span class="correct-count">${banner}</span>`;
+              console.log(`[CQCC] ⚡ Multi-answer Q: Adding banner "${banner}"`);
+            }
+          }
+          
+          console.log(`[CQCC] ⚡ Setting text for Q: "${text.slice(0, 50)}..."`);
+          el.innerHTML = text;
+        }
+      },
+      error: (err: Error) => console.error('[CQCC] Error in index subscription:', err)
+    });
+
+    // Still set up combinedText$ for FET (explanation text) handling
     setTimeout(() => {
-      if (this.displayText$ && !this.combinedSub) {
-        console.log(`[CQCC TIMEOUT] Setting up subscription...`);
-        this.combinedSub = this.displayText$
+      if (this.combinedText$ && !this.combinedSub) {
+        console.log(`[CQCC TIMEOUT] Setting up subscription to combinedText$...`);
+        this.combinedSub = this.combinedText$
           .pipe(distinctUntilChanged())
           .subscribe({
             next: (v: string) => {
@@ -484,37 +526,20 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
               if (!el) return;
 
               const currentIndex = this.quizService.getCurrentQuestionIndex();
-              let incoming = v ?? '';
 
+              // Only handle FET (explanation text) updates here
+              // Question text is handled by the index$ subscription above
               const hasFetForCurrentIdx = this.explanationTextService.fetByIndex?.has(currentIndex) &&
                 (this.explanationTextService.fetByIndex?.get(currentIndex)?.trim()?.length ?? 0) > 10;
 
               const fetShownThisSession = this._fetDisplayedThisSession.has(currentIndex);
               const storedFet = this.explanationTextService.fetByIndex?.get(currentIndex)?.trim() || '';
 
+              // Only override with FET if it's been shown this session (i.e., user has answered)
               if (fetShownThisSession && storedFet.length > 10) {
                 console.log(`[CQCC Display] Q${currentIndex + 1} FET preserved (shown this session)`);
-                incoming = storedFet;
-              } else if (!hasFetForCurrentIdx) {
-                const q = this.quizService.questions[currentIndex];
-                const questionText = q?.questionText ?? '';
-                if (questionText) {
-                  console.log(`[CQCC Display] Q${currentIndex + 1} UNANSWERED: Forcing question text: 
-                    "${questionText.substring(0, 50)}..."`);
-                  incoming = questionText;
-                }
-              } else {
-                this._fetDisplayedThisSession.add(currentIndex);
-                console.log(`[CQCC Display] Q${currentIndex + 1} FET newly displayed, tracking for session`);
+                el.innerHTML = storedFet;
               }
-
-              el.style.transition = 'opacity 0.12s linear';
-              el.style.opacity = '0.4';
-              el.innerHTML = incoming;
-
-              requestAnimationFrame(() => {
-                el.style.opacity = '1';
-              });
             },
             error: (err: Error) => console.error('[CQCC displayText$ error]', err)
           });
@@ -631,43 +656,52 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       shareReplay({ bufferSize: 1, refCount: true })
     );
 
-    const serviceQuestionText$ = (this.questionToDisplay$ || of('')).pipe(
-      tap((q: string | null) =>
-        console.log(
-          `[questionText$] 🔵 Raw input (service): "${(q ?? '').slice(0, 80)}"`
-        )
-      ),
-      map((q: string | null) => (q ?? '').trim()),
-      filter((q: string) => q.length > 0)
-    );
-
-    const fallbackQuestionText$ = this.currentQuestion$.pipe(
-      map((question: QuizQuestion | null) => (question?.questionText ?? '').trim()),
+    // ⚡ FIX: Create an AUTHORITATIVE observable that gets question text directly from
+    // getQuestionByIndex every time the index changes. This is the SAME source as options,
+    // guaranteeing absolute synchronization between question text and answer options.
+    // 
+    // IMPORTANT: The ONLY source of truth for question text must be getQuestionByIndex.
+    // However, we also need to handle Q1's initial load when questions might not be ready.
+    
+    // Primary source: getQuestionByIndex (authoritative, same as options)
+    const authoritativeText$ = index$.pipe(
+      switchMap((idx: number) => {
+        console.log(`[questionText$] 🔄 Index changed to ${idx}, fetching from getQuestionByIndex...`);
+        return this.quizService.getQuestionByIndex(idx);
+      }),
+      filter((question: QuizQuestion | null): question is QuizQuestion => question !== null && !!question.questionText),
+      map((question: QuizQuestion) => (question.questionText ?? '').trim()),
       filter((text: string) => text.length > 0),
       tap((text: string) =>
         console.log(
-          `[questionText$] 🟣 Fallback from payload: "${text.slice(0, 80)}"`
+          `[questionText$] 🔑 AUTHORITATIVE: "${text.slice(0, 80)}"`
         )
       )
     );
+    
+    // Fallback for Q1 initial load: try to get text from quizService.questions directly
+    const initialFallback$ = this.quizService.questions$.pipe(
+      filter((questions: QuizQuestion[]) => Array.isArray(questions) && questions.length > 0),
+      take(1),
+      switchMap((questions: QuizQuestion[]) => {
+        const idx = this.currentQuestionIndexValue ?? 0;
+        const question = questions[idx];
+        if (question && question.questionText?.trim()) {
+          console.log(`[questionText$] 🔶 FALLBACK Q${idx + 1}: "${question.questionText.slice(0, 80)}"`);
+          return of(question.questionText.trim());
+        }
+        return of('');
+      }),
+      filter((text: string) => text.length > 0)
+    );
 
-    // ⚡ FIX: Prioritize the Object-Derived Text!
-    // The user reports that 'questionToDisplay$' (service text) is getting stuck on Q1.
-    // However, the object (question + options) IS updating (options change).
-    // Therefore, we should trust the TEXT on the OBJECT that brought us the options.
+    // Merge: Authoritative source wins after initial, fallback provides Q1 initial display
     const questionText$ = merge(
-      // Put fallback (Object) LAST so it wins if both emit?
-      // actually merge doesn't work like that, it's chronological.
-      // But if serviceText is "stuck" it won't emit new values.
-      // If objectText emits new values, they will pass through.
-      serviceQuestionText$, 
-      fallbackQuestionText$
+      initialFallback$,      // Emits once for Q1 initial load
+      authoritativeText$     // Takes over for all subsequent changes
     ).pipe(
-      tap((q: string) =>
-        console.log(`[questionText$] 🟢 Combined emission: "${q.slice(0, 80)}"`)
-      ),
       distinctUntilChanged(),
-      tap((q: string) => console.log(`[questionText$] ✅ Final: "${q.slice(0, 80)}"`))
+      shareReplay({ bufferSize: 1, refCount: true })
     );
 
     const correctText$ = this.quizService.correctAnswersText$.pipe(
