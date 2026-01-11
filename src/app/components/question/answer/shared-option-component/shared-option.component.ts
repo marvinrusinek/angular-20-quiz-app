@@ -1574,6 +1574,7 @@ export class SharedOptionComponent
 
     // Update service and check score
     this.quizService.answers = simulatedSelection;
+    this.quizService.updateUserAnswer(qIndexForScore, simulatedSelection.map(o => o.optionId).filter((id): id is number => id !== undefined));
 
     // Must sync to SelectedOptionService for dots to update
     this.selectedOptionService.syncSelectionState(

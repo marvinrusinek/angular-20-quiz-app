@@ -35,6 +35,7 @@ import { Quiz } from '../../shared/models/Quiz.model';
 import { QuizQuestion } from '../../shared/models/QuizQuestion.model';
 import { QuizService } from '../../shared/services/quiz.service';
 import { QuizDataService } from '../../shared/services/quizdata.service';
+import { QuizShuffleService } from '../../shared/services/quiz-shuffle.service';
 import { QuizNavigationService } from '../../shared/services/quiz-navigation.service';
 import { UserPreferenceService } from '../../shared/services/user-preference.service';
 
@@ -79,6 +80,7 @@ export class IntroductionComponent implements OnInit, OnDestroy {
   constructor(
     private quizService: QuizService,
     private quizDataService: QuizDataService,
+    private quizShuffleService: QuizShuffleService,
     private quizNavigationService: QuizNavigationService,
     private userPreferenceService: UserPreferenceService,
     private activatedRoute: ActivatedRoute,
@@ -245,6 +247,7 @@ export class IntroductionComponent implements OnInit, OnDestroy {
 
       // 🔑 CLEAR CACHE before starting to ensure fresh shuffle with correct flag
       this.quizDataService.clearQuizQuestionCache(targetQuizId);
+      this.quizShuffleService.clear(targetQuizId); // ⚡ Clear shuffle state to force fresh shuffle
 
       this.quizService.resetQuizSessionState();
 
