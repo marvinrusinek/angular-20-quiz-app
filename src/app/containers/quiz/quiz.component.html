@@ -14,6 +14,7 @@
               <ng-content></ng-content>
 
               <codelab-quiz-content
+                [questionIndex]="currentQuestionIndex"
                 [questionToDisplay$]="questionToDisplay$"
                 [explanationToDisplay]="explanationToDisplay"
                 [displayState$]="displayState$" />

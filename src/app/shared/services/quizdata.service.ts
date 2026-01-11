@@ -376,14 +376,14 @@ export class QuizDataService implements OnDestroy {
 
     // ⚡ GUARD: Return existing shuffled questions if already prepared
     // This prevents multiple shuffle calls from creating different orders
-    if (
+    /* if (
       this.quizService.shuffledQuestions &&
       this.quizService.shuffledQuestions.length > 0 &&
       this.quizService.quizId === quizId
     ) {
       console.log(`[prepareQuizSession] ⏭️ SKIPPING - returning existing ${this.quizService.shuffledQuestions.length} questions`);
       return of(this.quizService.shuffledQuestions);
-    }
+    } */
 
     const shouldShuffle = this.quizService.isShuffleEnabled();
     const cached = this.quizQuestionCache.get(quizId);

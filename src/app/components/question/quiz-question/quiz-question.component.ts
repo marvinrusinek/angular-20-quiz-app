@@ -427,6 +427,15 @@ export class QuizQuestionComponent extends BaseQuestion
     this.subscribeToEventsAndResets();
     this.subscribeToRouteParams();
 
+    // Sync local questionsArray with Service!
+    // This ensures that when Shuffle is toggled, this component sees the new order immediately.
+    this.quizService.questions$.pipe(takeUntil(this.destroy$)).subscribe(questions => {
+      if (questions && questions.length > 0) {
+        this.questionsArray = questions;
+        console.log(`[QuizQuestionComponent] 🔄 Synced questionsArray (${questions.length} items). Shuffle active? ${this.quizService.isShuffleEnabled()}`);
+      }
+    });
+
     const loaded = await this.initializeInitialQuestion();
     if (!loaded) {
       return;
@@ -2107,7 +2116,11 @@ export class QuizQuestionComponent extends BaseQuestion
 
       this.optionsToDisplay = rawOpts.map((opt: Option, i: number) => ({
         ...opt,
-        optionId: this.currentQuestionIndex * 100 + (i + 1),  // globally unique
+        // ⚡ FIX: Should NOT overwrite optionId with display-index based ID.
+        // For shuffled quizzes, the Service provides an ID that maps to the ORIGINAL question index.
+        // Overwriting this destroys correctness checks.
+        // optionId: this.currentQuestionIndex * 100 + (i + 1),
+        optionId: opt.optionId, 
         selected: false,
         highlight: false,
         showIcon: false,
@@ -2384,20 +2397,10 @@ export class QuizQuestionComponent extends BaseQuestion
             for (const quizQuestion of questions) {
               quizQuestion.selectedOptions = undefined;
 
-              // Check if options exist and are an array before mapping
-              if (Array.isArray(quizQuestion.options)) {
-                quizQuestion.options = quizQuestion.options.map(
-                  (option, index) => ({
-                    ...option,
-                    optionId: index
-                  })
-                );
-              } else {
-                console.error(
-                  `Options are not properly defined for question: ${quizQuestion.questionText}`,
-                );
-                quizQuestion.options = [];  // initialize as an empty array to prevent further errors
-              }
+              // ⚡ FIX: Do NOT mutate option IDs here!
+              // quizQuestion.options is a reference to the global state (Shuffled or Canonical).
+              // Overwriting optionId destroys the mapping that QuizShuffleService relies on.
+              // IDs should be handled at the display level (loadQuestion) or by the Service.
             }
             return questions;
           }),
@@ -2491,14 +2494,11 @@ export class QuizQuestionComponent extends BaseQuestion
 
   private async prepareQuestion(quizId: string, question: QuizQuestion, index: number): Promise<void> {
     try {
-      // Assign option IDs
+      // ⚡ FIX: Do NOT mutate option IDs here!
+      // This overwrites unique IDs assigned by QuizShuffleService (e.g. based on original Q index)
+      // with generic 0, 1, 2... which breaks tracking and integrity.
       if (question.options?.length) {
-        let oIndex = 0;
-
-        for (const option of question.options) {
-          option.optionId = oIndex;
-          oIndex++;
-        }
+          // Verify options exist but do not modify them
       } else {
         console.error(`❌ No options found for Q${index}: ${question.questionText}`);
       }

@@ -111,6 +111,10 @@ export class SharedOptionComponent
 
   // Counter to force OnPush re-render when disabled state changes
   disableRenderTrigger = 0;
+  
+  // ⚡ FIX: Internal tracker for last processed question index
+  // This is separate from the @Input currentQuestionIndex to handle timing issues
+  private lastProcessedQuestionIndex: number = -1;
 
   isOptionSelected = false;
   private optionsRestored = false;  // tracks if options are restored
@@ -205,12 +209,16 @@ export class SharedOptionComponent
   }
 
   private initializeQuestionIndex(): void {
-    this.updateResolvedQuestionIndex(
-      this.questionIndex ??
+    const qIndex = this.questionIndex ??
       this.currentQuestionIndex ??
       this.config?.idx ??
-      this.quizService?.currentQuestionIndex
-    );
+      this.quizService?.currentQuestionIndex ?? 0;
+      
+    // ⚡ FIX: Also initialize lastProcessedQuestionIndex to prevent -1 value
+    // during first render before the subscription fires
+    this.lastProcessedQuestionIndex = qIndex;
+    
+    this.updateResolvedQuestionIndex(qIndex);
   }
 
   private resetStateForNewQuestion(): void {
@@ -280,6 +288,43 @@ export class SharedOptionComponent
         console.log(
           `[SOC 🔄] currentQuestionIndex$ fired: idx=${idx}, optionsToDisplay.length=${this.optionsToDisplay?.length}`
         );
+
+        // ⚡ FIX: Reset all state when question index changes
+        // This fixes highlighting/disabled state persisting from previous questions
+        // Use lastProcessedQuestionIndex (internal tracker) instead of @Input currentQuestionIndex
+        // because the @Input might not have been updated yet when this subscription fires
+        if (this.lastProcessedQuestionIndex !== idx) {
+          console.log(`[SOC 🔄] Question changed from ${this.lastProcessedQuestionIndex} to ${idx} - RESETTING STATE`);
+          this.resetStateForNewQuestion();
+          
+          // Clear highlighting state
+          this.highlightedOptionIds.clear();
+          this.showFeedback = false;
+          this.showFeedbackForOption = {};
+          
+          // Reset option bindings to clear visual state
+          for (const b of this.optionBindings ?? []) {
+            b.isSelected = false;
+            b.showFeedback = false;
+            b.highlightCorrect = false;
+            b.highlightIncorrect = false;
+            b.highlightCorrectAfterIncorrect = false;
+            b.disabled = false;
+            if (b.option) {
+              b.option.selected = false;
+              b.option.showIcon = false;
+            }
+          }
+          
+          // Update the internal tracker
+          this.lastProcessedQuestionIndex = idx;
+          // Also update currentQuestionIndex if it's stale
+          if (this.currentQuestionIndex !== idx) {
+            this.currentQuestionIndex = idx;
+          }
+          
+          this.cdRef.markForCheck();
+        }
 
         if (idx >= 0 && this.optionsToDisplay?.length > 0) {
           const question = this.quizService.questions[idx];
@@ -500,6 +545,20 @@ export class SharedOptionComponent
         '[🔍 currentQuestionIndex changed]',
         changes['currentQuestionIndex']
       );
+
+      // ⚡ FIX: Update lastProcessedQuestionIndex when input changes
+      // This is critical for the verified selection state logic
+      const newIndex = changes['currentQuestionIndex'].currentValue;
+      if (typeof newIndex === 'number') {
+        console.log(`[ngOnChanges] Updating lastProcessedQuestionIndex from ${this.lastProcessedQuestionIndex} to ${newIndex}`);
+        this.lastProcessedQuestionIndex = newIndex;
+        
+        // Reset state for new question
+        this.resetStateForNewQuestion();
+        this.highlightedOptionIds.clear();
+        this.showFeedback = false;
+        this.showFeedbackForOption = {};
+      }
 
       if (!changes['currentQuestionIndex'].firstChange) {
         this.flashDisabledSet.clear();
@@ -809,14 +868,17 @@ export class SharedOptionComponent
       return;
     }
 
-    // Hard Guard: optionBindings already matches incoming options
-    // (prevents StackBlitz double-render race condition)
+    // REVERTED: This optimization was preventing updates when moving between questions
+    // that have the same number of options (e.g. Q2 -> Q3).
+    // The content is different even if the length is the same.
+    /*
     if (this.optionBindings.length === this.optionsToDisplay.length) {
       console.warn(
         '[SOC] ⚠️ synchronizeOptionBindings() skipped — counts match'
       );
       return;
     }
+    */
 
     // Guard: user clicked recently → freeze updates
     if (this.freezeOptionBindings) {
@@ -872,14 +934,51 @@ export class SharedOptionComponent
   }
 
   buildSharedOptionConfig(b: OptionBindings, i: number): SharedOptionConfig {
+    // ⚡ FIX: Verify selection state from service, not from potentially stale binding
+    // ⚡ FIX: Use lastProcessedQuestionIndex which is synchronized with Input in ngOnChanges.
+    // Preferring quizService.currentQuestionIndex caused a race condition where we fetched 
+    // selections for the PREVIOUS question because the service hadn't updated yet.
+    const qIndex = this.lastProcessedQuestionIndex ?? this.resolveCurrentQuestionIndex();
+    const currentSelections = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
+    const isActuallySelected = currentSelections.some(s => s.optionId === b.option.optionId);
+    
+    // Also check if we're on the correct question (prevent Q2 state showing on Q3)
+    const isOnCorrectQuestion = this.lastProcessedQuestionIndex === qIndex;
+    
+    // ⚡ FIX: STRICTLY trust the service.
+    // 'b.isSelected' comes from inputs that may contain stale option objects from the previous question.
+    // By ignoring b.isSelected and relying only on isActuallySelected (which checks the service for the specific qIndex),
+    // we ensure we never show stale selections.
+    const showAsSelected = isActuallySelected;
+
+
+
+    // ⚡ FIX: Create a copy of the option with verified selected state
+    // This prevents the directive from reading stale option.selected values
+    const verifiedOption = {
+      ...b.option,
+      selected: showAsSelected,  // Override with verified state
+      highlight: showAsSelected, // Also update highlight flag
+      showIcon: showAsSelected   // Ensure the copy has the icon state
+    };
+
+    // ⚡ FIX: Vital to update the ORIGINAL option's showIcon property
+    // because the template reads 'b.option.showIcon' to display the mat-icon.
+    // Since this method is called during change detection before the icon check,
+    // this effectively syncs the visual state.
+    b.option.showIcon = showAsSelected;
+
     return {
-      option: b.option,
+      option: verifiedOption,  // Use verified option, not original
       idx: i,
       type: this.type,
-      isOptionSelected: b.isSelected,
+      isOptionSelected: showAsSelected, // ⚡ Use verified selection state
       isAnswerCorrect: b.isCorrect,
       highlightCorrectAfterIncorrect: this.highlightCorrectAfterIncorrect,
-      shouldResetBackground: this.shouldResetBackground,
+      // ⚡ FIX: Only force reset when:
+      // 1. The component's shouldResetBackground is true (explicit reset), OR
+      // 2. We're on a different question AND there are no current selections (fresh navigation)
+      shouldResetBackground: this.shouldResetBackground || (!isOnCorrectQuestion && currentSelections.length === 0),
       feedback: b.feedback ?? '',
       showFeedbackForOption: this.showFeedbackForOption,
       optionsToDisplay: this.optionsToDisplay,
@@ -890,7 +989,8 @@ export class SharedOptionComponent
       showCorrectMessage: !!this.correctMessage,
       explanationText: '',
       showExplanation: false,
-      selectedOptionIndex: this.selectedOptionIndex
+      selectedOptionIndex: this.selectedOptionIndex,
+      highlight: showAsSelected  // ⚡ FIX: Explicitly set top-level highlight on config
     };
   }
 
@@ -1023,17 +1123,33 @@ export class SharedOptionComponent
     // Rehydrate selection state from Service (persistence)
     // This ensures that when navigating back, the options show as selected
     // (Green/Red).
-    const qIndex = this.resolveCurrentQuestionIndex();
+    // ⚡ FIX: Use quizService.currentQuestionIndex (authoritative) instead of 
+    // resolveCurrentQuestionIndex() which may return stale @Input value
+    const qIndex = this.quizService.currentQuestionIndex ?? this.resolveCurrentQuestionIndex();
+    const inputIndex = this.resolveCurrentQuestionIndex();
+    
+    // ⚡ MISMATCH GUARD: If service index differs from input, use service index
+    // This prevents Q2 selections from being applied to Q3
+    if (qIndex !== inputIndex) {
+      console.warn(`[initializeFromConfig] ⚠️ INDEX MISMATCH: Service says ${qIndex}, Input says ${inputIndex}. Using ${qIndex}.`);
+    }
+    
+    console.log(`[initializeFromConfig] 🔍 Rehydrating for Q${qIndex + 1} (service: ${this.quizService.currentQuestionIndex}, input: ${inputIndex})`);
+    
     const saved =
       this.selectedOptionService.getSelectedOptionsForQuestion(qIndex);
     if (saved?.length > 0) {
       const savedIds = new Set(saved.map(s => s.optionId));
 
       for (const opt of this.optionsToDisplay) {
+
         if (opt.optionId !== undefined && savedIds.has(opt.optionId)) {
           opt.selected = true;
+          opt.showIcon = true;
         }
       }
+    } else {
+      console.log(`[initializeFromConfig] No saved selections for Q${qIndex + 1} - starting clean`);
     }
 
     // Determine question type based on options, but Respect explicit input first!
@@ -1099,7 +1215,8 @@ export class SharedOptionComponent
   }
 
   public getOptionIcon(option: Option, i: number): string {
-    if (!this.showFeedback) return '';  // ensure feedback is enabled
+    // ⚡ FIX: Allow icon if globally enabled OR local option requests it (e.g. immediate feedback)
+    if (!this.showFeedback && !(option as any).showIcon) return '';
 
     // Return 'close' if feedback explicitly marks it incorrect
     if ((option as any).feedback === 'x') return 'close';
@@ -1118,7 +1235,9 @@ export class SharedOptionComponent
 
   public getOptionClasses(binding: OptionBindings): { [key: string]: boolean } {
     const option = binding.option;
-    const qIndex = this.resolveCurrentQuestionIndex();
+    // ⚡ FIX: Use quizService.currentQuestionIndex (authoritative) instead of 
+    // resolveCurrentQuestionIndex() which may return stale @Input value
+    const qIndex = this.quizService.currentQuestionIndex ?? this.resolveCurrentQuestionIndex();
 
     // Check if options should be locked (show not-allowed cursor)
     let isLocked = false;
@@ -1134,11 +1253,19 @@ export class SharedOptionComponent
         isQuestionAnswered || isExplanationShowing || isQuestionLockedByService;
     } catch { }
 
+    // ⚡ FIX: Only highlight if this option is ACTUALLY selected for the CURRENT question
+    // This prevents Q2's selected options from highlighting on Q3
+    const currentSelections = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
+    const isActuallySelected = currentSelections.some(s => s.optionId === option.optionId);
+    
+    // Use verified selection state, not the potentially stale option.selected flag
+    const showAsSelected = isActuallySelected || (binding.isSelected && this.lastProcessedQuestionIndex === qIndex);
+
     return {
       'disabled-option': this.shouldDisableOption(binding),
       'locked-option': isLocked && !this.shouldDisableOption(binding),
-      'correct-option': !!option.selected && !!option.correct,
-      'incorrect-option': !!option.selected && !option.correct,
+      'correct-option': showAsSelected && !!option.correct,
+      'incorrect-option': showAsSelected && !option.correct,
       'flash-red': this.flashDisabledSet.has(option.optionId ?? -1)
     };
   }
@@ -1175,7 +1302,9 @@ export class SharedOptionComponent
 
     const option = binding.option;
     const optionId = option.optionId;
-    const qIndex = this.resolveCurrentQuestionIndex();
+    // ⚡ FIX: Use quizService.currentQuestionIndex (authoritative) instead of 
+    // resolveCurrentQuestionIndex() which may return stale @Input value
+    const qIndex = this.quizService.currentQuestionIndex ?? this.resolveCurrentQuestionIndex();
 
     // Force unlock for Multi-Select (fix "green to red" lock)
     if (this.isMultiMode) {
@@ -1195,7 +1324,7 @@ export class SharedOptionComponent
     // Check persistent disabled state - this is the only source of truth
     const disabledSet = this.disabledOptionsPerQuestion.get(qIndex);
     if (disabledSet && typeof optionId === 'number' && disabledSet.has(optionId)) {
-      console.log(`[SOC] 🚫 Option ${optionId} DISABLED by persistent set for Q${qIndex}`);
+      console.log(`[SOC] 🚫 Option ${optionId} DISABLED by persistent set for Q${qIndex + 1}`);
       return true;
     }
 

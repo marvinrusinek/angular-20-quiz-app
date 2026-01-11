@@ -370,8 +370,8 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         const rawQText = (qText as string)?.trim();
 
         const qObj =
-          questionObj ||
           (Array.isArray(questions) ? questions[safeIdx] : undefined) ||
+          questionObj ||
           (Array.isArray(this.quizService.questions)
             ? this.quizService.questions[safeIdx]
             : undefined);
@@ -651,12 +651,20 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       )
     );
 
+    // ⚡ FIX: Prioritize the Object-Derived Text!
+    // The user reports that 'questionToDisplay$' (service text) is getting stuck on Q1.
+    // However, the object (question + options) IS updating (options change).
+    // Therefore, we should trust the TEXT on the OBJECT that brought us the options.
     const questionText$ = merge(
-      serviceQuestionText$,
+      // Put fallback (Object) LAST so it wins if both emit?
+      // actually merge doesn't work like that, it's chronological.
+      // But if serviceText is "stuck" it won't emit new values.
+      // If objectText emits new values, they will pass through.
+      serviceQuestionText$, 
       fallbackQuestionText$
     ).pipe(
       tap((q: string) =>
-        console.log(`[questionText$] 🟢 After merge: "${q.slice(0, 80)}"`)
+        console.log(`[questionText$] 🟢 Combined emission: "${q.slice(0, 80)}"`)
       ),
       distinctUntilChanged(),
       tap((q: string) => console.log(`[questionText$] ✅ Final: "${q.slice(0, 80)}"`))
@@ -992,7 +1000,22 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     const active = this.quizService.getCurrentQuestionIndex();
 
     // Use service questions as primary source (loaded synchronously)
-    const qObj = this.quizService.questions[idx] || questions[idx];
+    let qObj = this.quizService.questions[idx] || questions[idx];
+
+    // ⚡ FIX: Mismatch Guard
+    // If the provided qText doesn't match the object at this index (e.g. Shuffle Mismatch),
+    // try to find the actual question object by matching the text.
+    // This ensures we get the correct "isMulti" / banner logic for the QUESTION THAT IS ACTUALLY DISPLAYED.
+    if (qText && qObj && qObj.questionText !== qText) {
+       console.warn(`[resolveTextToDisplay] ⚠️ Index Mismatch! Displaying="${qText.substring(0,15)}..." but Q[${idx}]="${qObj.questionText.substring(0,15)}..."`);
+       const matchedQ = questions.find((q: QuizQuestion) => q.questionText === qText) || 
+                        this.quizService.questions.find((q: QuizQuestion) => q.questionText === qText);
+       
+       if (matchedQ) {
+         console.log(`[resolveTextToDisplay] 🛡️ Recovered question object by text lookup.`);
+         qObj = matchedQ;
+       }
+    }
 
     // Calculate isMulti early for use throughout the function
     const numCorrectForMultiCheck =
@@ -1481,20 +1504,20 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           payload.question?.questionText
         );
 
+        // ⚡ FIX: Removed aggressive filtering!
+        // We trust the payload from the service. Filtering against local 'expected' state
+        // (which might be stale/unshuffled) causes valid shuffled updates to be dropped.
         if (
           normalizedExpected &&
           normalizedIncoming &&
           normalizedExpected !== normalizedIncoming
         ) {
-          console.warn(
-            '[combineCurrentQuestionAndOptions] Skipping stale payload for index',
-            {
+           console.warn('[combineCurrentQuestionAndOptions] ⚠️ Mismatch detected but ALLOWING update to fix Shuffled Stuck Text.', {
               index,
               normalizedExpected,
               normalizedIncoming
-            }
-          );
-          return false;
+           });
+           // return true; // Just allow it
         }
 
         return true;

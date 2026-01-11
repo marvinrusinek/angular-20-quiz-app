@@ -361,14 +361,6 @@ export class QuizService {
         selectedQuiz.questions.length > 0
       ) {
         this.questions = [...selectedQuiz.questions]; // create a new array to avoid reference issues
-        
-        // ⚡ FIX: Populate canonical map immediately from source
-        if (this.quizId && !this.canonicalQuestionsByQuiz.has(this.quizId)) {
-          this.canonicalQuestionsByQuiz.set(
-            this.quizId, 
-            JSON.parse(JSON.stringify(selectedQuiz.questions))
-          );
-        }
       } else {
         console.error(
           `Selected quiz (ID: ${this.quizId}) does not have a valid questions array:`,
@@ -723,22 +715,15 @@ export class QuizService {
         ) {
           console.log(`[QuizService] 🔄 fetchQuizQuestions: Cache hit. shouldShuffle=${this.shouldShuffle()}, cachedSize=${cachedQuestions.length}`);
           if (this.shouldShuffle()) {
-            // 🔒 FIX: Reuse ALREADY SHUFFLED session data ONLY if ShuffleService has matching state AND Integrity Passes!
+            // 🔒 FIX: Reuse ALREADY SHUFFLED session data if available
             if (
               this.shuffledQuestions &&
               this.shuffledQuestions.length > 0 &&
-              this.quizId === quizId &&
-              this.quizShuffleService.hasShuffleState(quizId)
+              this.quizId === quizId
             ) {
-              // Integrity Check: ensure our cached shuffled questions actually match the ShuffleService's map
-              // This defends against corrupted LocalStorage states or stale variables.
-              if (this.validateShuffleIntegrity(quizId, this.shuffledQuestions)) {
-                  console.log('[QuizService] ♻️ Reusing ALREADY SHUFFLED session data (Integrity Verified).');
-                  this.questionsSubject.next(this.shuffledQuestions);
-                  return this.shuffledQuestions;
-              } else {
-                  console.warn('[QuizService] ⚠️ Integrity Check Failed! Discarding cached shuffle and re-shuffling.');
-              }
+              console.log('[QuizService] ♻️ Reusing ALREADY SHUFFLED session data.');
+              this.questionsSubject.next(this.shuffledQuestions); // ⚡ SYNC FIX
+              return this.shuffledQuestions;
             }
 
             console.log('[QuizService] 🔀 Shuffle requested on CACHED data - re-shuffling...');
@@ -871,8 +856,8 @@ export class QuizService {
   }
 
   getAllQuestions(): Observable<QuizQuestion[]> {
-    // ⚡ FIX: Prioritize shuffled questions if they exist!
-    if (this.shuffledQuestions && this.shuffledQuestions.length > 0) {
+    // ⚡ FIX: Prioritize shuffled questions ONLY if shuffle is enabled!
+    if (this.isShuffleEnabled() && this.shuffledQuestions && this.shuffledQuestions.length > 0) {
       console.log('[getAllQuestions] 🛡️ Returning active SHUFFLED questions');
       return of(this.shuffledQuestions);
     }
@@ -2424,45 +2409,6 @@ export class QuizService {
     this.quizResetSource.next();
   }
 
-  private validateShuffleIntegrity(quizId: string, candidates: QuizQuestion[]): boolean {
-    const state = this.quizShuffleService.getShuffleState(quizId);
-    if (!state || !state.questionOrder) {
-      console.warn('[validateShuffleIntegrity] Validate failed: No shuffle state.');
-      return false;
-    }
-
-    const canonical = this.canonicalQuestionsByQuiz.get(quizId);
-    if (!canonical || canonical.length === 0) {
-      console.warn('[validateShuffleIntegrity] Validate failed: No canonical questions.');
-      // If we don't have canonical, we can't verify.
-      // Safest is to fail and let it re-shuffle (which repopulates canonical).
-      return false;
-    }
-
-    if (candidates.length !== state.questionOrder.length) {
-      console.warn(`[validateShuffleIntegrity] Length mismatch. Cached: ${candidates.length}, Expected: ${state.questionOrder.length}`);
-      return false;
-    }
-
-    for (let i = 0; i < candidates.length; i++) {
-      const originalIndex = state.questionOrder[i];
-      const candidate = candidates[i];
-      const expected = canonical[originalIndex];
-
-      if (!candidate || !expected) return false;
-
-      const text1 = this.normalizeQuestionText(candidate.questionText);
-      const text2 = this.normalizeQuestionText(expected.questionText);
-
-      if (text1 !== text2) {
-        console.warn(`[validateShuffleIntegrity] Mismatch at index ${i}. Cached: "${text1.slice(0, 15)}...", Expected: "${text2.slice(0, 15)}..."`);
-        return false;
-      }
-    }
-
-    return true;
-  }
-
   private normalizeQuestionText(value: string | null | undefined): string {
     return (value ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
   }
@@ -2490,160 +2436,32 @@ export class QuizService {
     currentQuestion?: QuizQuestion | null,
   ): QuizQuestion | null {
     const quizId = this.resolveShuffleQuizId();
-    if (!quizId) return null;
 
-    // ⚡ FIX: Strict Shuffle Priority
-    // If shuffle is enabled, the "canonical" question for this session IS the shuffled question.
-    // We should NOT look up the original quiz index 0, because that's a completely different question.
-    if (this.isShuffleEnabled() && this.shuffledQuestions && this.shuffledQuestions.length > 0) {
-      if (index >= 0 && index < this.shuffledQuestions.length) {
-        // Validation: If currentQuestion is provided, ensure it matches the text of the shuffled question
-        const shuffledQ = this.shuffledQuestions[index];
-        if (currentQuestion && currentQuestion.questionText !== shuffledQ.questionText) {
-          console.warn(`[resolveCanonicalQuestion] ⚠️ Index ${index} Mismatch! Shuffled="${shuffledQ.questionText.substring(0, 10)}", Current="${currentQuestion.questionText.substring(0, 10)}"`);
-        }
-        return shuffledQ;
-      }
+    // 1. If Shuffle Enabled, Use Shuffled Questions Check First
+    if (this.isShuffleEnabled() && this.shuffledQuestions && this.shuffledQuestions.length > index) {
+       // Debug check for mismatch if current passed
+       if (currentQuestion && currentQuestion.questionText !== this.shuffledQuestions[index].questionText) {
+          console.warn(`[resolveCanonicalQuestion] ⚠️ Shuffle Mismatch at ${index}. Returning stored shuffled instance.`);
+       }
+       return this.cloneQuestionForSession(this.shuffledQuestions[index]);
     }
 
-    const canonical = this.canonicalQuestionsByQuiz.get(quizId) ?? [];
-    const source = Array.isArray(this.questions) ? this.questions : [];
-    const hasCanonical = canonical.length > 0;
-    const shuffleActive = this.shouldShuffle();
-
-    const cloneCandidate = (
-      question: QuizQuestion | null | undefined,
-      reason: string,
-    ): QuizQuestion | null => {
-      if (!question) return null;
-
-      const clone = this.cloneQuestionForSession(question);
-      if (!clone) return null;
-
-      // Ensure 'type' always exists
-      if (!clone.type) {
-        // Use the original question's type if present, otherwise default
-        clone.type = question.type ?? QuestionType.SingleAnswer;
-      }
-
-      if (currentQuestion) {
-        const incomingText = this.normalizeQuestionText(clone.questionText);
-        const currentText = this.normalizeQuestionText(
-          currentQuestion.questionText,
-        );
-        if (incomingText && currentText && incomingText !== currentText) {
-          console.debug(
-            '[resolveCanonicalQuestion] Replacing mismatched question text',
-            {
-              reason,
-              currentText,
-              incomingText,
-              index,
-            },
-          );
+    // 2. If Unshuffled (or Shuffle data missing), use Canonical Map
+    // This fixes the "Q2 text on Q1" bug by enforcing original order.
+    if (quizId) {
+        const canonical = this.canonicalQuestionsByQuiz.get(quizId);
+        if (canonical && canonical.length > index) {
+            console.log(`[resolveCanonicalQuestion] 🛡️ Unshuffled -> returning canonical[${index}]`);
+            return this.cloneQuestionForSession(canonical[index]);
         }
-      }
-
-      return clone;
-    };
-
-    if (shuffleActive) {
-      // ⚡ FIX: Direct Session Return
-      // If we have a prepared shuffle session, return the exact instance from it.
-      // Do not attempt to map back to canonical indices, which returns original (unshuffled) data.
-      if (
-        Array.isArray(this.shuffledQuestions) &&
-        this.shuffledQuestions.length > index &&
-        this.shuffledQuestions[index]
-      ) {
-        // console.log(`[resolveCanonicalQuestion] ⚡ Direct return from shuffledQuestions[${index}]`);
-        return this.shuffledQuestions[index];
-      }
-
-      const base = hasCanonical ? canonical : source;
-      if (!Array.isArray(base) || base.length === 0) {
-        return cloneCandidate(currentQuestion, 'shuffle-no-base');
-      }
-
-      if (hasCanonical) {
-        const originalIndex = this.quizShuffleService.toOriginalIndex(
-          quizId,
-          index,
-        );
-
-        if (
-          typeof originalIndex === 'number' &&
-          Number.isInteger(originalIndex) &&
-          originalIndex >= 0 &&
-          originalIndex < canonical.length
-        ) {
-          const canonicalClone = cloneCandidate(
-            canonical[originalIndex],
-            'canonical-original-index',
-          );
-          if (canonicalClone) return canonicalClone;
-        }
-      }
-
-      const fromShuffle = this.quizShuffleService.getQuestionAtDisplayIndex(
-        quizId,
-        index,
-        base,
-      );
-      const shuffleClone = cloneCandidate(fromShuffle, 'shuffle-display-index');
-      if (shuffleClone) return shuffleClone;
-
-      const baseClone = cloneCandidate(base[index], 'shuffle-base-index');
-      if (baseClone) return baseClone;
-
-      // Post-shuffle fallbacks
-      if (hasCanonical) {
-        const canonicalClone = cloneCandidate(
-          canonical[index],
-          'canonical-index',
-        );
-        if (canonicalClone) return canonicalClone;
-      }
-
-      if (currentQuestion) {
-        const currentKey = this.normalizeQuestionText(
-          currentQuestion.questionText,
-        );
-        if (currentKey) {
-          const textIndexMap = this.canonicalQuestionIndexByText.get(quizId);
-          const mappedIndex = textIndexMap?.get(currentKey);
-          if (
-            Number.isInteger(mappedIndex) &&
-            mappedIndex! >= 0 &&
-            mappedIndex! < canonical.length
-          ) {
-            const mappedClone = cloneCandidate(
-              canonical[mappedIndex!],
-              'canonical-text-index',
-            );
-            if (mappedClone) return mappedClone;
-          }
-
-          const fallbackMatch = canonical.find(
-            (q) => this.normalizeQuestionText(q?.questionText) === currentKey,
-          );
-          const fallbackClone = cloneCandidate(
-            fallbackMatch,
-            'canonical-text-scan',
-          );
-          if (fallbackClone) return fallbackClone;
-        }
-      }
-
-      return cloneCandidate(
-        currentQuestion ?? source[index] ?? null,
-        'current-fallback',
-      );
     }
 
-    // Non-shuffle path
-    const sourceClone = cloneCandidate(source[index], 'source-index');
-    return sourceClone ?? null;
+    // 3. Fallback to Source (this.questions)
+    if (this.questions && this.questions.length > index) {
+        return this.cloneQuestionForSession(this.questions[index]);
+    }
+
+    return null;
   }
 
   private mergeOptionsWithCanonical(

@@ -767,18 +767,27 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         this.questionToDisplaySource.next(qText ?? 'No question available');
       });
 
-    this.quizService.getCurrentQuestionObservable()
-      .pipe(
-        takeUntil(this.destroy$),
-        filter((question: QuizQuestion | null): question is QuizQuestion => !!question),
-        map((question: QuizQuestion) => (question.questionText ?? '').trim()),
-        filter((questionText: string) => questionText.length > 0),
-        distinctUntilChanged()
-      )
-      .subscribe((questionText: string) => {
-        this.questionToDisplay = questionText;
-        this.questionToDisplaySource.next(questionText);
-      });
+    // ⚡ FIX: REMOVED DUPLICATE SUBSCRIPTION
+    // The second subscription to getCurrentQuestionObservable() was causing
+    // the Q&A mismatch bug for shuffled quizzes. The currentQuestion BehaviorSubject
+    // was being updated from multiple sources, some of which used UNSHUFFLED data.
+    // This caused the question text to be overwritten with text from the wrong question.
+    // The SINGLE source of truth for question text should be quizService.questionToDisplay$
+    // which is updated correctly by the shuffled question loader.
+    // 
+    // Original problematic code:
+    // this.quizService.getCurrentQuestionObservable()
+    //   .pipe(
+    //     takeUntil(this.destroy$),
+    //     filter((question: QuizQuestion | null): question is QuizQuestion => !!question),
+    //     map((question: QuizQuestion) => (question.questionText ?? '').trim()),
+    //     filter((questionText: string) => questionText.length > 0),
+    //     distinctUntilChanged()
+    //   )
+    //   .subscribe((questionText: string) => {
+    //     this.questionToDisplay = questionText;
+    //     this.questionToDisplaySource.next(questionText);
+    //   });
   }
 
   private subscribeToNextButtonState(): void {
