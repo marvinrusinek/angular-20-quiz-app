@@ -2011,17 +2011,22 @@ export class QuizService {
 
       this.quiz = foundQuiz;
       // Resolve the question, prioritizing the index if provided or if shuffle is enabled
+      // Resolve the question, prioritizing the index if provided or if shuffle is enabled
       let currentQuestionValue: QuizQuestion | null = null;
-      const shouldResolveByIndex = index >= 0 || this.shouldShuffle();
-
-      if (shouldResolveByIndex) {
+      
+      // ⚡ REVERT: Only use resolveCanonicalQuestion if shuffle is ON
+      // For standard quizzes, direct index access is safer and synced
+      if (this.shouldShuffle()) {
         const resolved = this.resolveCanonicalQuestion(qIndex, null);
         if (resolved) {
           console.log(`[checkIfAnsweredCorrectly] 🔀 Resolved question by index ${qIndex}: "${resolved.questionText?.substring(0, 30)}..."`);
           currentQuestionValue = resolved;
-        } else {
-          console.warn(`[checkIfAnsweredCorrectly] ⚠️ Could not resolve question at index ${qIndex}, using BehaviorSubject value`);
         }
+      } 
+      
+      if (!currentQuestionValue) {
+        // Fallback for UNSHUFFLED (standard) mode
+        currentQuestionValue = this.questions[qIndex] ?? this.currentQuestionSubject.getValue();
       }
 
       if (!currentQuestionValue) {
