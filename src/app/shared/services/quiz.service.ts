@@ -2394,8 +2394,25 @@ export class QuizService {
     }
 
     // Live Scoring & Correctness Check
-    // Map IDs to partial Option objects so determineCorrectAnswer can match by ID
-    this.answers = answerIds.map((id) => ({ optionId: id } as Option));
+    // Retrieve the question to get the full Option objects (with text)
+    // This ensures legacy text-based matching in determineCorrectAnswer works if IDs aren't perfect
+    let question = this.questions[questionIndex];
+    if (this.shouldShuffle() && this.quizId) {
+       // If shuffled, try to resolve the actual question being displayed
+       const resolved = this.resolveCanonicalQuestion(questionIndex, null);
+       if (resolved) question = resolved;
+    }
+
+    if (question && Array.isArray(question.options)) {
+        // Map IDs to full Option objects using loose equality for safety
+        this.answers = answerIds
+            .map((id) => question.options.find((o) => o.optionId == id))
+            .filter((o): o is Option => !!o);
+    } else {
+        // Fallback (should rarely happen if index is valid)
+        console.warn(`[QuizService] ⚠️ Could not find question/options for Q${questionIndex} during update`);
+        this.answers = answerIds.map(id => ({ optionId: id } as Option));
+    }
     
     // Verify correctness immediately to update score
     this.checkIfAnsweredCorrectly(questionIndex);
