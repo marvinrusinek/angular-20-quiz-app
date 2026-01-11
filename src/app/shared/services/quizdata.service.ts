@@ -337,12 +337,9 @@ export class QuizDataService implements OnDestroy {
         console.log(`[QuizDataService] 🔄 OVERWRITING quizService.questions with ${sessionQuestions.length} questions. Q1: "${sessionQuestions[0]?.questionText?.substring(0, 40)}..."`);
         this.quizService.questions = this.cloneQuestions(sessionQuestions);
         
-        // ⚡ FIX: Explicitly refresh the current question text now that data is loaded.
-        // This ensures Index 0 (Q1) gets populated immediately.
-        const currentIdx = this.quizService.currentQuestionIndex;
-        if (sessionQuestions[currentIdx]) {
-           this.quizService.updateCurrentQuestion(sessionQuestions[currentIdx]);
-        }
+        // NOTE: Do NOT call updateCurrentQuestion here.
+        // QuizComponent's loadQuestion flow handles question text updates through
+        // its synchronized pipeline that keeps text and options together.
 
         // Stamp multi-answer flag for each question
         for (const [qIndex, question] of this.quizService.questions.entries()) {

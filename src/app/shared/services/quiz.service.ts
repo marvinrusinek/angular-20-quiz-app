@@ -1090,32 +1090,11 @@ export class QuizService {
 
     this.answers = [];
     this.answersSubject.next([]);
-
-    // ⚡ FIX: Use getQuestionByIndex to ensure consistency between question text and options
-    // This method properly resolves shuffle state and returns the CORRECT question for this index.
-    // Using this.questions[safeIndex] directly could return stale or mismatched data.
-    this.getQuestionByIndex(safeIndex).pipe(take(1)).subscribe({
-      next: (question: QuizQuestion | null) => {
-        if (question) {
-          this.updateCurrentQuestion(question);
-        } else {
-          // Fallback to direct access only if getQuestionByIndex fails
-          const fallbackQuestion = this.questions?.[safeIndex];
-          if (fallbackQuestion) {
-            console.warn(`[setCurrentQuestionIndex] Using fallback for Q${safeIndex + 1}`);
-            this.updateCurrentQuestion(fallbackQuestion);
-          }
-        }
-      },
-      error: (err: any) => {
-        console.error('[setCurrentQuestionIndex] Error getting question:', err);
-        // Fallback to direct access on error
-        const fallbackQuestion = this.questions?.[safeIndex];
-        if (fallbackQuestion) {
-          this.updateCurrentQuestion(fallbackQuestion);
-        }
-      }
-    });
+    
+    // NOTE: Do NOT call updateCurrentQuestion here.
+    // QuizComponent's loadQuestion flow handles question text updates through 
+    // its synchronized pipeline that keeps text and options together.
+    // Calling updateCurrentQuestion here causes race conditions and Q&A mismatches.
   }
 
   getCurrentQuestionIndex(): number {

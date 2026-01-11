@@ -519,7 +519,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     Promise.resolve().then(() => this.cdRef.detectChanges());
 
     this.initializeCorrectExpectedCounts();
-    this.subscribeToQuestionText();
     this.subscribeToNextButtonState();
     this.initializeServices();
   }
@@ -759,36 +758,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     });
   }
 
-  private subscribeToQuestionText(): void {
-    this.quizService.questionToDisplay$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe((qText: string) => {
-        // Push it into the source that CodelabQuizContentComponent consumes 
-        this.questionToDisplaySource.next(qText ?? 'No question available');
-      });
-
-    // ⚡ FIX: REMOVED DUPLICATE SUBSCRIPTION
-    // The second subscription to getCurrentQuestionObservable() was causing
-    // the Q&A mismatch bug for shuffled quizzes. The currentQuestion BehaviorSubject
-    // was being updated from multiple sources, some of which used UNSHUFFLED data.
-    // This caused the question text to be overwritten with text from the wrong question.
-    // The SINGLE source of truth for question text should be quizService.questionToDisplay$
-    // which is updated correctly by the shuffled question loader.
-    // 
-    // Original problematic code:
-    // this.quizService.getCurrentQuestionObservable()
-    //   .pipe(
-    //     takeUntil(this.destroy$),
-    //     filter((question: QuizQuestion | null): question is QuizQuestion => !!question),
-    //     map((question: QuizQuestion) => (question.questionText ?? '').trim()),
-    //     filter((questionText: string) => questionText.length > 0),
-    //     distinctUntilChanged()
-    //   )
-    //   .subscribe((questionText: string) => {
-    //     this.questionToDisplay = questionText;
-    //     this.questionToDisplaySource.next(questionText);
-    //   });
-  }
+  /* method removed */
 
   private subscribeToNextButtonState(): void {
     this.nextButtonStateService.isButtonEnabled$
@@ -1468,6 +1438,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           this.combinedQuestionDataSubject.next(payload);
 
           // Also update related state for consistency
+          this.quizService.updateCurrentQuestion(question);
           this.questionToDisplaySource.next(question.questionText?.trim() ?? '');
           this.optionsToDisplay = [...options];
           this.optionsToDisplay$.next([...options]);
