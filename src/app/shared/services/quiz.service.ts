@@ -2086,30 +2086,7 @@ export class QuizService {
   }
 
 
-  updateUserAnswer(questionIndex: number, answerIds: number[]): void {
-    console.log(`[QuizService] 💾 updateUserAnswer(idx=${questionIndex}, ids=${JSON.stringify(answerIds)})`);
 
-    if (!this.userAnswers) this.userAnswers = [];
-    this.userAnswers[questionIndex] = answerIds;
-
-    try {
-      localStorage.setItem('userAnswers', JSON.stringify(this.userAnswers));
-    } catch (e) {
-      console.warn('Failed to persist userAnswers:', e);
-    }
-
-    // Live Scoring & Correctness Check
-    // Map IDs to partial Option objects so determineCorrectAnswer can match by ID
-    this.answers = answerIds.map((id) => ({ optionId: id } as Option));
-
-    // Verify correctness immediately to update score
-    this.checkIfAnsweredCorrectly(questionIndex);
-  }
-
-  loadResourcesForQuiz(quizId: string): void {
-    console.log(`[QuizService] loadResourcesForQuiz: ${quizId}`);
-    // Placeholder for resource loading logic
-  }
 
   public resetScore(): void {
     this.questionCorrectness.clear();
