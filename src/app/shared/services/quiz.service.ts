@@ -2343,28 +2343,108 @@ export class QuizService {
     }
 
     // Live Scoring & Correctness Check
-    // Retrieve the question to get the full Option objects (with text)
-    // This ensures legacy text-based matching in determineCorrectAnswer works if IDs aren't perfect
     let question = this.questions[questionIndex];
+    
+    // Debug info
+    // console.log(`[QuizService] updateUserAnswer: Default Question [${questionIndex}]:`, question?.questionText);
+
     if (this.shouldShuffle() && this.quizId) {
-       // If shuffled, try to resolve the actual question being displayed
        const resolved = this.resolveCanonicalQuestion(questionIndex, null);
-       if (resolved) question = resolved;
+       if (resolved) {
+           question = resolved;
+           // console.log(`[QuizService] updateUserAnswer: Resolved Shuffled Question [${questionIndex}]:`, question?.questionText);
+       }
     }
 
     if (question && Array.isArray(question.options)) {
-        // Map IDs to full Option objects using loose equality for safety
         this.answers = answerIds
             .map((id) => question.options.find((o) => o.optionId == id))
             .filter((o): o is Option => !!o);
+        
+        console.log(`[QuizService] updateUserAnswer: Populated answers:`, this.answers.map(a => a.text));
     } else {
-        // Fallback (should rarely happen if index is valid)
-        console.warn(`[QuizService] ⚠️ Could not find question/options for Q${questionIndex} during update`);
+        console.warn(`[QuizService] ⚠️ Could not find question/options for Q${questionIndex} during update. questions.length=${this.questions?.length}`);
         this.answers = answerIds.map(id => ({ optionId: id } as Option));
     }
     
-    // Verify correctness immediately to update score
     this.checkIfAnsweredCorrectly(questionIndex);
+  }
+
+  // ... (resetQuizSessionState omitted for brevity) ...
+
+  async checkIfAnsweredCorrectly(index: number = -1): Promise<boolean> {
+      const qIndex = index >= 0 ? index : this.currentQuestionIndex;
+      console.log(`[checkIfAnsweredCorrectly] Starting for Q${qIndex}`);
+
+      // ... (Rest of resolution logic logic similar to before, ensuring fallback to this.questions for unshuffled) ...
+      // Manual Re-Implementation to ensure it's correct context
+      
+      let currentQuestionValue: QuizQuestion | null = null;
+      if (this.shouldShuffle()) {
+          const resolved = this.resolveCanonicalQuestion(qIndex, null);
+          if (resolved) currentQuestionValue = resolved;
+      } else {
+          currentQuestionValue = this.questions[qIndex] ?? this.currentQuestionSubject.getValue();
+      }
+
+      if (!currentQuestionValue) {
+          console.error(`[checkIfAnsweredCorrectly] ❌ No Question Found for Q${qIndex}`);
+          return false;
+      }
+
+      this.numberOfCorrectAnswers = currentQuestionValue.options.filter(
+        (option) => !!option.correct && String(option.correct) !== 'false'
+      ).length;
+      this.multipleAnswer = this.numberOfCorrectAnswers > 1;
+
+      console.log(`[checkIfAnsweredCorrectly] Q${qIndex} State: CorrectOpts=${this.numberOfCorrectAnswers}, IsMulti=${this.multipleAnswer}, UserAnswers=${this.answers.length}`);
+
+      if (!this.answers || this.answers.length === 0) {
+        console.log(`[checkIfAnsweredCorrectly] ❌ Answers empty for Q${qIndex} -> exiting false`);
+        return false;
+      }
+
+      const correctnessArray = await this.determineCorrectAnswer(currentQuestionValue, this.answers);
+      const correctFoundCount = correctnessArray.filter((v) => v === true).length;
+      const isCorrect = correctFoundCount === this.numberOfCorrectAnswers;
+
+      console.log(`[checkIfAnsweredCorrectly] 🧮 Result: Found=${correctFoundCount}/${this.numberOfCorrectAnswers} -> correct=${isCorrect}`);
+
+      const answerIds = this.answers.map((a) => a.optionId).filter((id): id is number => id !== undefined);
+      this.incrementScore(answerIds, isCorrect, this.multipleAnswer, qIndex);
+
+      return isCorrect;
+  }
+  
+  // (resetScore omitted)
+
+  incrementScore(
+    answers: number[],
+    correctAnswerFound: boolean,
+    isMultipleAnswer: boolean,
+    questionIndex: number = -1,
+  ): void {
+    const qIndex = questionIndex >= 0 ? questionIndex : this.currentQuestionIndex;
+
+    // 🔒 SCORING KEY RESOLUTION
+    let scoringKey = qIndex;
+    if (this.shouldShuffle() && this.quizId) {
+        const originalIndex = this.quizShuffleService.toOriginalIndex(this.quizId, qIndex);
+        if (originalIndex !== null) scoringKey = originalIndex;
+    }
+
+    const wasCorrect = this.questionCorrectness.get(scoringKey) || false;
+    const isNowCorrect = correctAnswerFound; // Simplified
+
+    console.log(`[incrementScore] 📊 Update Q${qIndex} (Key=${scoringKey}): Now=${isNowCorrect}, Was=${wasCorrect}, Score=${this.correctCount}`);
+
+    if (isNowCorrect && !wasCorrect) {
+      this.updateCorrectCountForResults(this.correctCount + 1);
+      this.questionCorrectness.set(scoringKey, true);
+    } else if (!isNowCorrect && wasCorrect) {
+      this.updateCorrectCountForResults(this.correctCount - 1);
+      this.questionCorrectness.set(scoringKey, false);
+    }
   }
 
   resetQuizSessionState(): void {
