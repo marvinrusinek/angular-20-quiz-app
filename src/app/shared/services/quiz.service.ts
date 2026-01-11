@@ -2039,12 +2039,11 @@ export class QuizService {
 
       console.log(`[checkIfAnsweredCorrectly] 📊 Updated state: correctOptions=${this.numberOfCorrectAnswers}, isMultiple=${this.multipleAnswer}`);
 
-
       // 🔑 DEBUG: Print answers
       console.log(`[checkIfAnsweredCorrectly] 🔍 Answers Array:`, JSON.stringify(this.answers));
 
       // 🚨 FIX: Do NOT exit early if answers are empty. This prevents score decrementing when deselecting.
-      // If answers are empty, isCorrect will naturally be false below, which allows incrementScore 
+      // If answers are empty, isCorrect will naturally be false below, which allows incrementScore
       // to handle the "point lost" transition if needed.
       /* if (!this.answers || this.answers.length === 0) {
         console.info('[checkIfAnsweredCorrectly] ❌ EXIT 4: Answers EMPTY');
@@ -2052,10 +2051,10 @@ export class QuizService {
       } */
 
       // 🔍 DEBUG: Log Question Options for Verification
-      console.log(`[checkIfAnsweredCorrectly] 🧐 Question Options for Q${qIndex}:`);
-      currentQuestionValue.options.forEach((o, i) => {
-          console.log(`   [${i}] "${o.text}" (correct=${o.correct})`);
-      });
+      // console.log(`[checkIfAnsweredCorrectly] 🧐 Question Options for Q${qIndex}:`);
+      // currentQuestionValue.options.forEach((o, i) => {
+      //     console.log(`   [${i}] "${o.text}" (correct=${o.correct})`);
+      // });
 
       // Determine correctness
       const correctnessArray = await this.determineCorrectAnswer(
@@ -2067,6 +2066,8 @@ export class QuizService {
 
       const correctFoundCount = correctnessArray.filter((v) => v === true).length;
       const isCorrect = correctFoundCount === this.numberOfCorrectAnswers;
+
+      console.log(`[checkIfAnsweredCorrectly] 🧮 Calculation: Found=${correctFoundCount} / Required=${this.numberOfCorrectAnswers} -> isCorrect=${isCorrect}`);
 
       const answerIds = this.answers
         .map((a) => a.optionId)
@@ -2085,8 +2086,30 @@ export class QuizService {
   }
 
 
+  updateUserAnswer(questionIndex: number, answerIds: number[]): void {
+    console.log(`[QuizService] 💾 updateUserAnswer(idx=${questionIndex}, ids=${JSON.stringify(answerIds)})`);
 
+    if (!this.userAnswers) this.userAnswers = [];
+    this.userAnswers[questionIndex] = answerIds;
 
+    try {
+      localStorage.setItem('userAnswers', JSON.stringify(this.userAnswers));
+    } catch (e) {
+      console.warn('Failed to persist userAnswers:', e);
+    }
+
+    // Live Scoring & Correctness Check
+    // Map IDs to partial Option objects so determineCorrectAnswer can match by ID
+    this.answers = answerIds.map((id) => ({ optionId: id } as Option));
+
+    // Verify correctness immediately to update score
+    this.checkIfAnsweredCorrectly(questionIndex);
+  }
+
+  loadResourcesForQuiz(quizId: string): void {
+    console.log(`[QuizService] loadResourcesForQuiz: ${quizId}`);
+    // Placeholder for resource loading logic
+  }
 
   public resetScore(): void {
     this.questionCorrectness.clear();
@@ -2106,18 +2129,16 @@ export class QuizService {
   ): void {
     const displayIndex = questionIndex >= 0 ? questionIndex : this.currentQuestionIndex;
 
-    // 🔒 SCORING KEY RESOLUTION (Fix for Shuffled Mode)
-    // We must act on the ORIGINAL question index to ensure the score is tied to the CONTENT,
-    // not its random position on the screen.
-    let scoringKey = displayIndex; 
+    // 🔒 SCORING KEY RESOLUTION
+    // If we are shuffling, use the original index. If not, use the display index directly (which maps 1:1).
+    let scoringKey = displayIndex;
     
+    // Only attempt to remap if shuffle is actively enabled
     if (this.shouldShuffle() && this.quizId) {
         const originalIndex = this.quizShuffleService.toOriginalIndex(this.quizId, displayIndex);
         if (originalIndex !== null) {
             scoringKey = originalIndex;
             console.log(`[incrementScore] 🔀 Mapped Display Index ${displayIndex} -> Original Index ${scoringKey} for scoring.`);
-        } else {
-            console.warn(`[incrementScore] ⚠️ Could not map Display Index ${displayIndex} to Original Index. Using ${displayIndex} as fallback.`);
         }
     }
 
@@ -2131,12 +2152,7 @@ export class QuizService {
     const wasCorrect = this.questionCorrectness.get(scoringKey) || false;
 
     // Determine strict correctness for this attempt
-    let isNowCorrect = false;
-    if (isMultipleAnswer) {
-      isNowCorrect = correctAnswerFound;
-    } else {
-      isNowCorrect = correctAnswerFound;
-    }
+    let isNowCorrect = correctAnswerFound;
 
     console.log(`[incrementScore] 📊 Score Key Q${scoringKey} (Display Q${displayIndex}) Check: Now=${isNowCorrect}, Was=${wasCorrect}, Multi=${isMultipleAnswer}`);
 
@@ -2148,6 +2164,8 @@ export class QuizService {
       console.log(`[Score] 📈 Gained point for Q${scoringKey}. Total: ${this.correctCount}`);
     } else if (!isNowCorrect && wasCorrect) {
       // Lost a point
+      // Only decrement if we are strictly correcting a previously correct state to incorrect
+      // (e.g. unchecking a box in a multi-select that was previously fully correct)
       this.updateCorrectCountForResults(this.correctCount - 1);
       this.questionCorrectness.set(scoringKey, false);
       console.log(`[Score] 📉 Lost point for Q${scoringKey}. Total: ${this.correctCount}`);
