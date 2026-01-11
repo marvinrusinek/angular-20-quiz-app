@@ -2301,6 +2301,10 @@ export class QuizService {
     if (isNowCorrect && !wasCorrect) {
       this.updateCorrectCountForResults(this.correctCount + 1);
       this.questionCorrectness.set(scoringKey, true);
+    } else if (!isNowCorrect && wasCorrect) {
+      this.updateCorrectCountForResults(this.correctCount - 1);
+      this.questionCorrectness.set(scoringKey, false);
+      console.log(`[incrementScore] 🔻 Decremented score for Q${qIndex} (Key=${scoringKey})`);
     }
   }
 
