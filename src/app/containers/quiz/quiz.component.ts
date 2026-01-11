@@ -629,14 +629,26 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         this.currentQuestionIndex = idx;
 
         // URL Navigation Sync. Manually update currentQuestion when index changes.
-        if (this.questionsArray[idx]) {
-          this.currentQuestion = this.questionsArray[idx];
-          console.log(`[QuizComponent] 🔄 Synced currentQuestion to Q${idx + 1} 
-            from URL/Index update`);
-          // Ensure QuizStateService is also aligned
-          this.quizStateService.updateCurrentQuestion(this.currentQuestion);
-        }
+      if (this.questionsArray[idx]) {
+        const question = this.questionsArray[idx];
+        this.currentQuestion = question;
+        console.log(`[QuizComponent] 🔄 Synced currentQuestion to Q${idx + 1} from URL/Index update`);
 
+        // ⚡ FIX: Update Display Source so the UI receives the new text!
+        this.questionToDisplaySource.next(question.questionText?.trim() ?? '');
+
+        // ⚡ FIX: Update Combined Data for the template (options, etc.)
+        this.combinedQuestionDataSubject.next({
+          question: question,
+          options: question.options,
+          explanation: question.explanation
+        });
+
+        // Ensure QuizStateService is also aligned
+        this.quizStateService.updateCurrentQuestion(this.currentQuestion);
+        // Ensure QuizService is also aligned
+        this.quizService.updateCurrentQuestion(this.currentQuestion); // Sync Service too
+      }
         this.cdRef.markForCheck();
 
         // ONLY reset display mode when NAVIGATING to a NEW question
