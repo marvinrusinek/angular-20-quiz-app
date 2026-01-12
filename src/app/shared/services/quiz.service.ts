@@ -248,6 +248,25 @@ export class QuizService {
 
   destroy$ = new Subject<void>();
 
+  constructor(
+    private quizShuffleService: QuizShuffleService,
+    private quizStateService: QuizStateService,
+    private activatedRoute: ActivatedRoute,
+    private http: HttpClient
+  ) {
+    this.http = http;
+    this.loadQuestionCorrectness(); // Load persisted correctness state
+    this.initializeData();
+
+    // ⚡ FIX: Reset State Sync
+    // When quizReset$ emits (e.g. on Shuffle Toggle), we must clear the internal state cache
+    // in QuizStateService. Otherwise, "isAnswered" state for Index 0 persists across shuffles.
+    this.quizReset$.subscribe(() => {
+      console.log('[QuizService] 🧹 Triggering QuizStateService RESET via quizReset$');
+      this.quizStateService.reset();
+    });
+  }
+
 
 
   get questions() {
@@ -2295,24 +2314,7 @@ export class QuizService {
   // 🔑 State tracking for scoring (Index -> IsCorrect)
   private questionCorrectness = new Map<number, boolean>();
 
-  constructor(
-    private quizShuffleService: QuizShuffleService,
-    private quizStateService: QuizStateService,
-    private activatedRoute: ActivatedRoute,
-    private http: HttpClient
-  ) {
-    this.http = http;
-    this.loadQuestionCorrectness(); // Load persisted correctness state
-    this.initializeData();
 
-    // ⚡ FIX: Reset State Sync
-    // When quizReset$ emits (e.g. on Shuffle Toggle), we must clear the internal state cache
-    // in QuizStateService. Otherwise, "isAnswered" state for Index 0 persists across shuffles.
-    this.quizReset$.subscribe(() => {
-      console.log('[QuizService] 🧹 Triggering QuizStateService RESET via quizReset$');
-      this.quizStateService.reset();
-    });
-  }
 
   resetScore(): void {
     this.questionCorrectness.clear();
