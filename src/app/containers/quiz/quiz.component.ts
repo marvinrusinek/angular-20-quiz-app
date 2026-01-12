@@ -629,26 +629,26 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         this.currentQuestionIndex = idx;
 
         // URL Navigation Sync. Manually update currentQuestion when index changes.
-      if (this.questionsArray[idx]) {
-        const question = this.questionsArray[idx];
-        this.currentQuestion = question;
-        console.log(`[QuizComponent] 🔄 Synced currentQuestion to Q${idx + 1} from URL/Index update`);
+        if (this.questionsArray[idx]) {
+          const question = this.questionsArray[idx];
+          this.currentQuestion = question;
+          console.log(`[QuizComponent] 🔄 Synced currentQuestion to Q${idx + 1} from URL/Index update`);
 
-        // ⚡ FIX: Update Display Source so the UI receives the new text!
-        this.questionToDisplaySource.next(question.questionText?.trim() ?? '');
+          // ⚡ FIX: Update Display Source so the UI receives the new text!
+          this.questionToDisplaySource.next(question.questionText?.trim() ?? '');
 
-        // ⚡ FIX: Update Combined Data for the template (options, etc.)
-        this.combinedQuestionDataSubject.next({
-          question: question,
-          options: question.options,
-          explanation: question.explanation
-        });
+          // ⚡ FIX: Update Combined Data for the template (options, etc.)
+          this.combinedQuestionDataSubject.next({
+            question: question,
+            options: question.options,
+            explanation: question.explanation
+          });
 
-        // Ensure QuizStateService is also aligned
-        this.quizStateService.updateCurrentQuestion(this.currentQuestion);
-        // Ensure QuizService is also aligned
-        this.quizService.updateCurrentQuestion(this.currentQuestion); // Sync Service too
-      }
+          // Ensure QuizStateService is also aligned
+          this.quizStateService.updateCurrentQuestion(this.currentQuestion);
+          // Ensure QuizService is also aligned
+          this.quizService.updateCurrentQuestion(this.currentQuestion); // Sync Service too
+        }
         this.cdRef.markForCheck();
 
         // ONLY reset display mode when NAVIGATING to a NEW question
@@ -1024,6 +1024,10 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         selectedOptions: prev.selectedOptions ?? []
       }
     );
+
+    // ⚡ CRITICAL FIX: Trigger scoring logic
+    // This was missing! Without this call, incrementScore is never triggered.
+    void this.quizService.checkIfAnsweredCorrectly(normalizedQuestionIndex);
 
     // Selection message / next-button logic
     try {
@@ -2956,7 +2960,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   }
 
   private async updateCorrectAnswersText(
-    question: QuizQuestion, 
+    question: QuizQuestion,
     options: Option[]
   ): Promise<void> {
     try {
@@ -2981,7 +2985,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   }
 
   private getCorrectAnswersText(options: Option[]): string {
-    const numCorrectAnswers = 
+    const numCorrectAnswers =
       this.quizQuestionManagerService.calculateNumberOfCorrectAnswers(options);
     const totalOptions = Array.isArray(options) ? options.length : 0;
 
@@ -4009,8 +4013,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
   updateProgressValue(): void {
     const answeredCount = this.calculateAnsweredCount();
-    const total = 
-      this.totalQuestions > 0 ? 
+    const total =
+      this.totalQuestions > 0 ?
         this.totalQuestions : (this.quiz?.questions?.length || 0);
     this.progress = total > 0 ? Math.round((answeredCount / total) * 100) : 0;
   }
