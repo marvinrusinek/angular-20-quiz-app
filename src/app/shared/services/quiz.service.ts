@@ -2202,22 +2202,32 @@ export class QuizService {
     if (question && Array.isArray(question.options)) {
         this.answers = answerIds
             .map((id) => {
-                // 1. Try direct ID match
-                let match = question.options.find((o: Option) => o.optionId == id);
-                
-                // 2. Fallback: Match by computing expected ID or Index
-                if (!match) {
-                     match = question.options.find((o: Option, idx: number) => {
-                         const generatedId = Number(`${questionIndex + 1}${(idx + 1).toString().padStart(2, '0')}`);
-                       return generatedId === id || idx === id || (idx + 1) === id;
-                     });
-                }
+                // 1. Try direct ID match (Property Match)
+              let match = question.options.find((o: Option) => o.optionId == id);
+              
+              if (!match) {
+                   // 2. Generated ID Match (e.g. 101 for Q1 Opt 1)
+                   const qPrefix = (questionIndex + 1).toString();
+                   const strId = id.toString();
+                   if (strId.length > qPrefix.length && strId.startsWith(qPrefix)) {
+                       const suffix = parseInt(strId.substring(qPrefix.length), 10);
+                       const optIdx = suffix - 1;
+                       if (question.options[optIdx]) match = question.options[optIdx];
+                   }
+              }
 
-                // 3. Fallback: Direct Index (Unshuffled ID assumption)
-                if (!match && !this.shouldShuffle() && typeof id === 'number' && id > 0 && id <= question.options.length) {
-                    match = question.options[id - 1];
-                }
-                return match;
+              if (!match && !this.shouldShuffle()) {
+                  // 3. Fallback: Direct Index Matching for Unshuffled
+                  // Priority: 1-based index (Loader standard: 1 -> Option 0)
+                  if (typeof id === 'number' && id > 0 && question.options[id - 1]) {
+                      match = question.options[id - 1];
+                  }
+                  // Fallback: 0-based index (if some component sends 0)
+                  else if (typeof id === 'number' && question.options[id]) {
+                       match = question.options[id];
+                  }
+              }
+              return match;
             })
             .filter((o): o is Option => !!o);
         
