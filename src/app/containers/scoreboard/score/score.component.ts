@@ -60,10 +60,17 @@ export class ScoreComponent implements OnInit, OnDestroy {
   private unsubscribeTrigger$: Subject<void> = new Subject<void>();
 
   constructor(private quizService: QuizService, private cdRef: ChangeDetectorRef) {
-    // ⚡ FIX: Derive total questions dynamically from the questions stream (Replaced getAllQuestions with questions$)
-    // Filter out empty arrays to avoid showing X/0 while loading
+    // ⚡ FIX: Derive total questions dynamically from the questions stream
+    // Fall back to quizService.totalQuestions if questions$ is empty (e.g., after navigation)
     this.totalQuestions$ = this.quizService.questions$.pipe(
-      map((questions) => Array.isArray(questions) ? questions.length : 0),
+      map((questions: QuizQuestion[]) => {
+        const fromStream = Array.isArray(questions) ? questions.length : 0;
+        // If stream is empty but service has totalQuestions set, use that
+        if (fromStream === 0 && this.quizService.totalQuestions > 0) {
+          return this.quizService.totalQuestions;
+        }
+        return fromStream;
+      }),
       distinctUntilChanged()
     );
   }
