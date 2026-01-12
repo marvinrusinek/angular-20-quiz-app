@@ -958,8 +958,8 @@ export class QuizService {
       options: updatedOptions,
     };
 
-    // 🔑 FIX: Clear stale answers
-    this.answers = [];
+    // NOTE: Do NOT clear this.answers here - it breaks scoring!
+    // Answers should only be cleared in setCurrentQuestionIndex during navigation.
 
     // Emit the new question
     this.currentQuestion.next(updatedQuestion);
