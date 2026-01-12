@@ -1455,7 +1455,7 @@ export class QuizService {
   ): Promise<boolean[]> {
     return answers.map((answer) => {
       const found = question.options.find(
-        (option) =>
+        (option) => option === answer ||
           option.text.trim().toLowerCase() ===
           answer.text.trim().toLowerCase(),
       );
@@ -2202,7 +2202,7 @@ export class QuizService {
     if (question && Array.isArray(question.options)) {
         this.answers = answerIds
             .map((id) => {
-                // 1. Try direct ID match (Property Match)
+                // 1. NO Try direct ID match (Property Match)
               let match = question.options.find((o: Option) => o.optionId == id);
               
               if (!match) {
