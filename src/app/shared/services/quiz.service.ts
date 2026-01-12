@@ -2209,7 +2209,7 @@ export class QuizService {
                 if (!match) {
                      match = question.options.find((o: Option, idx: number) => {
                          const generatedId = Number(`${questionIndex + 1}${(idx + 1).toString().padStart(2, '0')}`);
-                         return generatedId === id || idx === id;
+                       return generatedId === id || idx === id || (idx + 1) === id;
                      });
                 }
                 return match;
