@@ -1,5 +1,6 @@
 import {
   ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   Input,
   OnInit,
@@ -58,7 +59,7 @@ export class ScoreComponent implements OnInit, OnDestroy {
 
   private unsubscribeTrigger$: Subject<void> = new Subject<void>();
 
-  constructor(private quizService: QuizService) {
+  constructor(private quizService: QuizService, private cdRef: ChangeDetectorRef) {
     // ⚡ FIX: Derive total questions dynamically from the questions stream (Replaced getAllQuestions with questions$)
     // Filter out empty arrays to avoid showing X/0 while loading
     this.totalQuestions$ = this.quizService.questions$.pipe(
@@ -133,6 +134,7 @@ export class ScoreComponent implements OnInit, OnDestroy {
     console.log(`[ScoreComponent] 📊 Update: Correct=${correctAnswersCount}, Total=${totalQuestions}`);
     this.correctAnswersCount = correctAnswersCount;
     this.updateScoreDisplay();
+    this.cdRef.markForCheck();
   };
 
   private handleError = (error: Error) => {
