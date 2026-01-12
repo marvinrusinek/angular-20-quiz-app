@@ -1,7 +1,8 @@
 ﻿import {
   AfterViewInit, ApplicationRef, ChangeDetectionStrategy, ChangeDetectorRef,
   Component, EventEmitter, HostListener, Input, NgZone, OnChanges, OnDestroy, OnInit,
-  Output, QueryList, SimpleChanges, ViewChildren } from '@angular/core';
+  Output, QueryList, SimpleChanges, ViewChildren
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule, MatCheckboxChange } from '@angular/material/checkbox';
@@ -111,7 +112,7 @@ export class SharedOptionComponent
 
   // Counter to force OnPush re-render when disabled state changes
   disableRenderTrigger = 0;
-  
+
   // ⚡ FIX: Internal tracker for last processed question index
   // This is separate from the @Input currentQuestionIndex to handle timing issues
   private lastProcessedQuestionIndex: number = -1;
@@ -213,11 +214,11 @@ export class SharedOptionComponent
       this.currentQuestionIndex ??
       this.config?.idx ??
       this.quizService?.currentQuestionIndex ?? 0;
-      
+
     // ⚡ FIX: Also initialize lastProcessedQuestionIndex to prevent -1 value
     // during first render before the subscription fires
     this.lastProcessedQuestionIndex = qIndex;
-    
+
     this.updateResolvedQuestionIndex(qIndex);
   }
 
@@ -296,12 +297,12 @@ export class SharedOptionComponent
         if (this.lastProcessedQuestionIndex !== idx) {
           console.log(`[SOC 🔄] Question changed from ${this.lastProcessedQuestionIndex} to ${idx} - RESETTING STATE`);
           this.resetStateForNewQuestion();
-          
+
           // Clear highlighting state
           this.highlightedOptionIds.clear();
           this.showFeedback = false;
           this.showFeedbackForOption = {};
-          
+
           // Reset option bindings to clear visual state
           for (const b of this.optionBindings ?? []) {
             b.isSelected = false;
@@ -315,14 +316,14 @@ export class SharedOptionComponent
               b.option.showIcon = false;
             }
           }
-          
+
           // Update the internal tracker
           this.lastProcessedQuestionIndex = idx;
           // Also update currentQuestionIndex if it's stale
           if (this.currentQuestionIndex !== idx) {
             this.currentQuestionIndex = idx;
           }
-          
+
           this.cdRef.markForCheck();
         }
 
@@ -552,7 +553,7 @@ export class SharedOptionComponent
       if (typeof newIndex === 'number') {
         console.log(`[ngOnChanges] Updating lastProcessedQuestionIndex from ${this.lastProcessedQuestionIndex} to ${newIndex}`);
         this.lastProcessedQuestionIndex = newIndex;
-        
+
         // Reset state for new question
         this.resetStateForNewQuestion();
         this.highlightedOptionIds.clear();
@@ -941,10 +942,10 @@ export class SharedOptionComponent
     const qIndex = this.lastProcessedQuestionIndex ?? this.resolveCurrentQuestionIndex();
     const currentSelections = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
     const isActuallySelected = currentSelections.some(s => s.optionId === b.option.optionId);
-    
+
     // Also check if we're on the correct question (prevent Q2 state showing on Q3)
     const isOnCorrectQuestion = this.lastProcessedQuestionIndex === qIndex;
-    
+
     // ⚡ FIX: STRICTLY trust the service.
     // 'b.isSelected' comes from inputs that may contain stale option objects from the previous question.
     // By ignoring b.isSelected and relying only on isActuallySelected (which checks the service for the specific qIndex),
@@ -1127,15 +1128,15 @@ export class SharedOptionComponent
     // resolveCurrentQuestionIndex() which may return stale @Input value
     const qIndex = this.quizService.currentQuestionIndex ?? this.resolveCurrentQuestionIndex();
     const inputIndex = this.resolveCurrentQuestionIndex();
-    
+
     // ⚡ MISMATCH GUARD: If service index differs from input, use service index
     // This prevents Q2 selections from being applied to Q3
     if (qIndex !== inputIndex) {
       console.warn(`[initializeFromConfig] ⚠️ INDEX MISMATCH: Service says ${qIndex}, Input says ${inputIndex}. Using ${qIndex}.`);
     }
-    
+
     console.log(`[initializeFromConfig] 🔍 Rehydrating for Q${qIndex + 1} (service: ${this.quizService.currentQuestionIndex}, input: ${inputIndex})`);
-    
+
     const saved =
       this.selectedOptionService.getSelectedOptionsForQuestion(qIndex);
     if (saved?.length > 0) {
@@ -1257,7 +1258,7 @@ export class SharedOptionComponent
     // This prevents Q2's selected options from highlighting on Q3
     const currentSelections = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
     const isActuallySelected = currentSelections.some(s => s.optionId === option.optionId);
-    
+
     // Use verified selection state, not the potentially stale option.selected flag
     const showAsSelected = isActuallySelected || (binding.isSelected && this.lastProcessedQuestionIndex === qIndex);
 
@@ -1568,7 +1569,8 @@ export class SharedOptionComponent
       simulatedSelection.push({
         ...binding.option,
         selected: true,
-        questionIndex: qIndexForScore } as SelectedOption
+        questionIndex: qIndexForScore
+      } as SelectedOption
       );
     }
 
@@ -1577,17 +1579,17 @@ export class SharedOptionComponent
     // ⚡ FIX: Use the FULL options list (this.optionBindings) to find the correct index for generation
     // Relying on simulatedSelection index was incorrect because it only contains SELECTED options.
     const allBindings = this.optionBindings ?? [];
-    
-    const validIds = simulatedSelection.map((o) => {
-        if (typeof o.optionId === 'number') return o.optionId;
 
-        // Fallback: Find True Index in the full list
-        const trueIndex = allBindings.findIndex(b => b.option === o || (b.option?.text === o.text));
-        
-        // If found, generate ID. If not found, use 0 (which will likely fail but is safer than random)
-        const idxToUse = trueIndex >= 0 ? trueIndex : 0;
-        
-        return Number(`${qIndexForScore + 1}${(idxToUse + 1).toString().padStart(2, '0')}`);
+    const validIds = simulatedSelection.map((o) => {
+      if (typeof o.optionId === 'number') return o.optionId;
+
+      // Fallback: Find True Index in the full list
+      const trueIndex = allBindings.findIndex(b => b.option === o || (b.option?.text === o.text));
+
+      // If found, generate ID. If not found, use 0 (which will likely fail but is safer than random)
+      const idxToUse = trueIndex >= 0 ? trueIndex : 0;
+
+      return Number(`${qIndexForScore + 1}${(idxToUse + 1).toString().padStart(2, '0')}`);
     }).filter((id): id is number => Number.isFinite(id));
 
     this.quizService.updateUserAnswer(qIndexForScore, validIds);
@@ -1635,6 +1637,9 @@ export class SharedOptionComponent
         console.log(`[SOC] 🎯 SINGLE-ANSWER: Correct option clicked → STOPPING TIMER`);
         this.timerService.allowAuthoritativeStop();
         this.timerService.stopTimer(undefined, { force: true });
+
+        // ⚡ DIRECT SCORING: Bypass complex answer matching - we KNOW it's correct!
+        this.quizService.scoreDirectly(questionIndex, true, false);
 
         // DIRECTLY DISABLE ALL INCORRECT OPTIONS
         console.log('[SOC] 🔒 About to disable incorrect options. optionBindings count:', this.optionBindings?.length);
@@ -1689,7 +1694,7 @@ export class SharedOptionComponent
       // NOT from bindings, which may not have correct property propagated
       const correctIdsFromQuestion = (question?.options ?? [])
         .filter((o: Option) => o.correct === true)
-        .map((o: Option, idx: number) => 
+        .map((o: Option, idx: number) =>
           // Option ID might not be set, use index-based fallback matching binding
           // assignment
           o.optionId ?? (questionIndex * 100 + (idx + 1))
@@ -1755,6 +1760,9 @@ export class SharedOptionComponent
 
         this.timerService.allowAuthoritativeStop();
         this.timerService.stopTimer(undefined, { force: true });
+
+        // ⚡ DIRECT SCORING: Bypass complex answer matching - we KNOW it's correct!
+        this.quizService.scoreDirectly(questionIndex, true, true);
 
         // DISABLE ALL INCORRECT OPTIONS FOR MULTI-ANSWER
         if (!this.disabledOptionsPerQuestion.has(questionIndex)) {
@@ -1933,7 +1941,7 @@ export class SharedOptionComponent
         optionBinding.option.text,
         this.type === 'multiple',
         this.optionsToDisplay
-      ).then(() => {});
+      ).then(() => { });
 
       // Guaranteed failsafe: directly set answered state to enable Next button
       // This ensures the button enables even if selectOption has internal issues
@@ -2944,14 +2952,14 @@ export class SharedOptionComponent
     // Apply stored state immutably
     const patched =
       this.optionsToDisplay.map((opt) => {
-      const match = storedSelections.find((s) => s.optionId === opt.optionId);
-      return {
-        ...opt,
-        selected: match?.selected ?? false,
-        highlight: match?.highlight ?? false,
-        showIcon: match?.showIcon ?? false
-      };
-    });
+        const match = storedSelections.find((s) => s.optionId === opt.optionId);
+        return {
+          ...opt,
+          selected: match?.selected ?? false,
+          highlight: match?.highlight ?? false,
+          showIcon: match?.showIcon ?? false
+        };
+      });
 
     // Replace with fresh cloned array to break identity chain
     this.optionsToDisplay =
