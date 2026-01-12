@@ -2212,6 +2212,11 @@ export class QuizService {
                        return generatedId === id || idx === id || (idx + 1) === id;
                      });
                 }
+
+                // 3. Fallback: Direct Index (Unshuffled ID assumption)
+                if (!match && !this.shouldShuffle() && typeof id === 'number' && id > 0 && id <= question.options.length) {
+                    match = question.options[id - 1];
+                }
                 return match;
             })
             .filter((o): o is Option => !!o);
