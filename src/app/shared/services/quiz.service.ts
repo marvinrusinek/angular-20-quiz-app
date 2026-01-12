@@ -2293,6 +2293,18 @@ export class QuizService {
 
   // (resetScore omitted)
 
+  /**
+   * ⚡ SIMPLE SCORING: Direct scoring method that bypasses complex answer matching.
+   * Call this when you ALREADY KNOW whether the user's selection is correct.
+   * @param questionIndex The display index of the question
+   * @param isCorrect Whether the user's current answer state is correct
+   * @param isMultipleAnswer Whether this is a multi-answer question
+   */
+  public scoreDirectly(questionIndex: number, isCorrect: boolean, isMultipleAnswer: boolean): void {
+    console.log(`[scoreDirectly] 🎯 Q${questionIndex}: isCorrect=${isCorrect}, isMulti=${isMultipleAnswer}`);
+    this.incrementScore([], isCorrect, isMultipleAnswer, questionIndex);
+  }
+
   incrementScore(
     answers: number[],
     correctAnswerFound: boolean,
