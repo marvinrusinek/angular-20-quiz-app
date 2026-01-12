@@ -2303,9 +2303,17 @@ export class QuizService {
 
     // 🔒 SCORING KEY RESOLUTION
     let scoringKey = qIndex;
+
+    // ⚡ FIX: Strict Shuffle Guard
+    // Only use the shuffle service mapping if shuffle is explicitly ENABLED.
+    // If we rely on valid ID checks alone, a stale map in QuizShuffleService (from a prev session)
+    // might incorrectly remap an unshuffled question (0->3), updating the wrong score key.
     if (this.shouldShuffle() && this.quizId) {
       const originalIndex = this.quizShuffleService.toOriginalIndex(this.quizId, qIndex);
-      if (originalIndex !== null) scoringKey = originalIndex;
+      // Valid original index is >= 0
+      if (typeof originalIndex === 'number' && originalIndex >= 0) {
+        scoringKey = originalIndex;
+      }
     }
 
     const wasCorrect = this.questionCorrectness.get(scoringKey) || false;
