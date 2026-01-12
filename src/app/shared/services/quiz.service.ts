@@ -92,7 +92,7 @@ export class QuizService {
   answersSubject = new Subject<number[]>();
 
   totalQuestions = 0;
-  correctCount = 0;
+  correctCount = Number(localStorage.getItem('correctAnswersCount')) || 0;
 
   selectedQuiz: Quiz | null = null;
   selectedQuiz$ = new BehaviorSubject<Quiz | null>(null);
@@ -248,40 +248,7 @@ export class QuizService {
 
   destroy$ = new Subject<void>();
 
-  constructor(
-    private quizShuffleService: QuizShuffleService,
-    private quizStateService: QuizStateService,
-    private activatedRoute: ActivatedRoute,
-    private http: HttpClient
-  ) {
-    this.http = http;
-    this.initializeData();
 
-    // ⚠️ DISABLED: This subscription was causing question text to lag behind options
-    // When questionsSubject emits, currentQuestionIndex may still be from the PREVIOUS index,
-    // causing Q1's text to show for Q2, Q2's text for Q3, etc.
-    // The question text should ONLY be updated via setCurrentQuestionIndex -> getQuestionByIndex
-    // which properly resolves the correct question for the given index.
-    /*
-    this.questionsSubject.subscribe((questions) => {
-      if (Array.isArray(questions) && questions.length > 0) {
-        const currentIdx = this.currentQuestionIndex ?? 0;
-        if (questions[currentIdx]) {
-          // console.log(`[QuizService] 🔄 Syncing QuizStateService with new Q${currentIdx+1}: "${questions[currentIdx].questionText.substring(0,15)}..."`);
-          this.quizStateService.updateCurrentQuestion(questions[currentIdx]);
-        }
-      }
-    });
-    */
-
-    // ⚡ FIX: Reset State Sync
-    // When quizReset$ emits (e.g. on Shuffle Toggle), we must clear the internal state cache
-    // in QuizStateService. Otherwise, "isAnswered" state for Index 0 persists across shuffles.
-    this.quizReset$.subscribe(() => {
-      console.log('[QuizService] 🧹 Triggering QuizStateService RESET via quizReset$');
-      this.quizStateService.reset();
-    });
-  }
 
   get questions() {
     // ⚡ FIX: Sync Safeguard
@@ -735,11 +702,11 @@ export class QuizService {
             // ⚡ FIX: Use CANONICAL questions for shuffling, never the cached (potentially already shuffled) ones!
             let sourceQuestions = this.canonicalQuestionsByQuiz.get(quizId);
             if (!sourceQuestions || sourceQuestions.length === 0) {
-               console.warn('[QuizService] ⚠️ Canonical questions missing during re-shuffle! Falling back to cached.');
-               sourceQuestions = cachedQuestions;
+              console.warn('[QuizService] ⚠️ Canonical questions missing during re-shuffle! Falling back to cached.');
+              sourceQuestions = cachedQuestions;
             } else {
-               // Clone to be safe
-               sourceQuestions = JSON.parse(JSON.stringify(sourceQuestions));
+              // Clone to be safe
+              sourceQuestions = JSON.parse(JSON.stringify(sourceQuestions));
             }
 
             if (!sourceQuestions || sourceQuestions.length === 0) {
@@ -759,10 +726,10 @@ export class QuizService {
           // If NOT shuffling, we should return the canonical order
           const canonical = this.canonicalQuestionsByQuiz.get(quizId);
           if (canonical && canonical.length > 0) {
-             console.log('[QuizService] 🔙 Restoring canonical order from cache.');
-             const restored = JSON.parse(JSON.stringify(canonical));
-             this.questions = restored;
-             return restored;
+            console.log('[QuizService] 🔙 Restoring canonical order from cache.');
+            const restored = JSON.parse(JSON.stringify(canonical));
+            this.questions = restored;
+            return restored;
           }
 
           return cachedQuestions.map(
@@ -1090,7 +1057,7 @@ export class QuizService {
 
     this.answers = [];
     this.answersSubject.next([]);
-    
+
     // NOTE: Do NOT call updateCurrentQuestion here.
     // QuizComponent's loadQuestion flow handles question text updates through 
     // its synchronized pipeline that keeps text and options together.
@@ -2187,110 +2154,110 @@ export class QuizService {
 
     // Live Scoring & Correctness Check
     let question = this.questions[questionIndex];
-    
+
     // Debug info
     // console.log(`[QuizService] updateUserAnswer: Default Question [${questionIndex}]:`, question?.questionText);
 
     if (this.shouldShuffle() && this.quizId) {
-       const resolved = this.resolveCanonicalQuestion(questionIndex, null);
-       if (resolved) {
-           question = resolved;
-           // console.log(`[QuizService] updateUserAnswer: Resolved Shuffled Question [${questionIndex}]:`, question?.questionText);
-       }
+      const resolved = this.resolveCanonicalQuestion(questionIndex, null);
+      if (resolved) {
+        question = resolved;
+        // console.log(`[QuizService] updateUserAnswer: Resolved Shuffled Question [${questionIndex}]:`, question?.questionText);
+      }
     }
 
     if (question && Array.isArray(question.options)) {
-        this.answers = answerIds
-            .map((id) => {
-                // 1. NO Try direct ID match (Property Match)
-              let match = question.options.find((o: Option) => o.optionId == id);
-              
-              if (!match) {
-                   // 2. Generated ID Match (e.g. 101 for Q1 Opt 1)
-                   const qPrefix = (questionIndex + 1).toString();
-                   const strId = id.toString();
-                   if (strId.length > qPrefix.length && strId.startsWith(qPrefix)) {
-                       const suffix = parseInt(strId.substring(qPrefix.length), 10);
-                       const optIdx = suffix - 1;
-                       if (question.options[optIdx]) match = question.options[optIdx];
-                   }
-              }
+      this.answers = answerIds
+        .map((id) => {
+          // 1. NO Try direct ID match (Property Match)
+          let match = question.options.find((o: Option) => o.optionId == id);
 
-              if (!match && !this.shouldShuffle()) {
-                  // 3. Fallback: Direct Index Matching for Unshuffled
-                  // Priority: 1-based index (Loader standard: 1 -> Option 0)
-                  if (typeof id === 'number' && id > 0 && question.options[id - 1]) {
-                      match = question.options[id - 1];
-                  }
-                  // Fallback: 0-based index (if some component sends 0)
-                  else if (typeof id === 'number' && question.options[id]) {
-                       match = question.options[id];
-                  }
-              }
-              return match;
-            })
-            .filter((o): o is Option => !!o);
-        
-        console.log(`[QuizService] updateUserAnswer: Populated answers:`, this.answers.map(a => a.text));
+          if (!match) {
+            // 2. Generated ID Match (e.g. 101 for Q1 Opt 1)
+            const qPrefix = (questionIndex + 1).toString();
+            const strId = id.toString();
+            if (strId.length > qPrefix.length && strId.startsWith(qPrefix)) {
+              const suffix = parseInt(strId.substring(qPrefix.length), 10);
+              const optIdx = suffix - 1;
+              if (question.options[optIdx]) match = question.options[optIdx];
+            }
+          }
+
+          if (!match && !this.shouldShuffle()) {
+            // 3. Fallback: Direct Index Matching for Unshuffled
+            // Priority: 1-based index (Loader standard: 1 -> Option 0)
+            if (typeof id === 'number' && id > 0 && question.options[id - 1]) {
+              match = question.options[id - 1];
+            }
+            // Fallback: 0-based index (if some component sends 0)
+            else if (typeof id === 'number' && question.options[id]) {
+              match = question.options[id];
+            }
+          }
+          return match;
+        })
+        .filter((o): o is Option => !!o);
+
+      console.log(`[QuizService] updateUserAnswer: Populated answers:`, this.answers.map(a => a.text));
     } else {
-        console.warn(`[QuizService] ⚠️ Could not find question/options for Q${questionIndex} during update. questions.length=${this.questions?.length}`);
-        this.answers = answerIds.map(id => ({ optionId: id } as Option));
+      console.warn(`[QuizService] ⚠️ Could not find question/options for Q${questionIndex} during update. questions.length=${this.questions?.length}`);
+      this.answers = answerIds.map(id => ({ optionId: id } as Option));
     }
-    
+
     this.checkIfAnsweredCorrectly(questionIndex);
   }
 
   // ... (resetQuizSessionState omitted for brevity) ...
 
   async checkIfAnsweredCorrectly(index: number = -1): Promise<boolean> {
-      const qIndex = index >= 0 ? index : this.currentQuestionIndex;
-      console.log(`[checkIfAnsweredCorrectly] 🎯 Called for Q${qIndex}. IndexParam=${index}, ServiceIndex=${this.currentQuestionIndex}`);
+    const qIndex = index >= 0 ? index : this.currentQuestionIndex;
+    console.log(`[checkIfAnsweredCorrectly] 🎯 Called for Q${qIndex}. IndexParam=${index}, ServiceIndex=${this.currentQuestionIndex}`);
 
-      let currentQuestionValue: QuizQuestion | null = null;
-      if (this.shouldShuffle()) {
-          const resolved = this.resolveCanonicalQuestion(qIndex, null);
-          if (resolved) currentQuestionValue = resolved;
-      } else {
-          currentQuestionValue = this.questions[qIndex] ?? this.currentQuestionSubject.getValue();
-      }
+    let currentQuestionValue: QuizQuestion | null = null;
+    if (this.shouldShuffle()) {
+      const resolved = this.resolveCanonicalQuestion(qIndex, null);
+      if (resolved) currentQuestionValue = resolved;
+    } else {
+      currentQuestionValue = this.questions[qIndex] ?? this.currentQuestionSubject.getValue();
+    }
 
-      if (!currentQuestionValue) {
-          console.error(`[checkIfAnsweredCorrectly] ❌ No Question Found for Q${qIndex}`);
-          return false;
-      }
+    if (!currentQuestionValue) {
+      console.error(`[checkIfAnsweredCorrectly] ❌ No Question Found for Q${qIndex}`);
+      return false;
+    }
 
-      // 🔍 DEBUG: Log Option Details
-      console.log(`[checkIfAnsweredCorrectly] 🔍 Question: "${currentQuestionValue.questionText?.substring(0, 30)}..."`);
-      currentQuestionValue.options.forEach((o, i) => {
-         console.log(`   - Option[${i}]: ID=${o.optionId}, Correct=${o.correct}, Text="${o.text?.substring(0, 15)}"`);
-      });
+    // 🔍 DEBUG: Log Option Details
+    console.log(`[checkIfAnsweredCorrectly] 🔍 Question: "${currentQuestionValue.questionText?.substring(0, 30)}..."`);
+    currentQuestionValue.options.forEach((o, i) => {
+      console.log(`   - Option[${i}]: ID=${o.optionId}, Correct=${o.correct}, Text="${o.text?.substring(0, 15)}"`);
+    });
 
-      this.numberOfCorrectAnswers = currentQuestionValue.options.filter(
-        (option) => !!option.correct && String(option.correct) !== 'false'
-      ).length;
-      this.multipleAnswer = this.numberOfCorrectAnswers > 1;
+    this.numberOfCorrectAnswers = currentQuestionValue.options.filter(
+      (option) => !!option.correct && String(option.correct) !== 'false'
+    ).length;
+    this.multipleAnswer = this.numberOfCorrectAnswers > 1;
 
-      console.log(`[checkIfAnsweredCorrectly] 📊 Expected Correct Count: ${this.numberOfCorrectAnswers}. User Answers Count: ${this.answers?.length}`);
-      
-      if (!this.answers || this.answers.length === 0) {
-        console.log(`[checkIfAnsweredCorrectly] ❌ Answers empty for Q${qIndex} -> exiting false`);
-        return false;
-      }
+    console.log(`[checkIfAnsweredCorrectly] 📊 Expected Correct Count: ${this.numberOfCorrectAnswers}. User Answers Count: ${this.answers?.length}`);
 
-      console.log(`[checkIfAnsweredCorrectly] 🔍 User Answers:`, this.answers.map(a => `ID=${a.optionId}, Text="${a.text}"`));
+    if (!this.answers || this.answers.length === 0) {
+      console.log(`[checkIfAnsweredCorrectly] ❌ Answers empty for Q${qIndex} -> exiting false`);
+      return false;
+    }
 
-      const correctnessArray = await this.determineCorrectAnswer(currentQuestionValue, this.answers);
-      const correctFoundCount = correctnessArray.filter((v) => v === true).length;
-      const isCorrect = correctFoundCount === this.numberOfCorrectAnswers;
+    console.log(`[checkIfAnsweredCorrectly] 🔍 User Answers:`, this.answers.map(a => `ID=${a.optionId}, Text="${a.text}"`));
 
-      console.log(`[checkIfAnsweredCorrectly] 🧮 Result: Found=${correctFoundCount}, Required=${this.numberOfCorrectAnswers}, correctnessArray=${JSON.stringify(correctnessArray)} -> isCorrect=${isCorrect}`);
+    const correctnessArray = await this.determineCorrectAnswer(currentQuestionValue, this.answers);
+    const correctFoundCount = correctnessArray.filter((v) => v === true).length;
+    const isCorrect = correctFoundCount === this.numberOfCorrectAnswers;
 
-      const answerIds = this.answers.map((a) => a.optionId).filter((id): id is number => id !== undefined);
-      this.incrementScore(answerIds, isCorrect, this.multipleAnswer, qIndex);
+    console.log(`[checkIfAnsweredCorrectly] 🧮 Result: Found=${correctFoundCount}, Required=${this.numberOfCorrectAnswers}, correctnessArray=${JSON.stringify(correctnessArray)} -> isCorrect=${isCorrect}`);
 
-      return isCorrect;
+    const answerIds = this.answers.map((a) => a.optionId).filter((id): id is number => id !== undefined);
+    this.incrementScore(answerIds, isCorrect, this.multipleAnswer, qIndex);
+
+    return isCorrect;
   }
-  
+
   // (resetScore omitted)
 
   incrementScore(
@@ -2304,8 +2271,8 @@ export class QuizService {
     // 🔒 SCORING KEY RESOLUTION
     let scoringKey = qIndex;
     if (this.shouldShuffle() && this.quizId) {
-        const originalIndex = this.quizShuffleService.toOriginalIndex(this.quizId, qIndex);
-        if (originalIndex !== null) scoringKey = originalIndex;
+      const originalIndex = this.quizShuffleService.toOriginalIndex(this.quizId, qIndex);
+      if (originalIndex !== null) scoringKey = originalIndex;
     }
 
     const wasCorrect = this.questionCorrectness.get(scoringKey) || false;
@@ -2321,16 +2288,38 @@ export class QuizService {
       this.questionCorrectness.set(scoringKey, false);
       console.log(`[incrementScore] 🔻 Decremented score for Q${qIndex} (Key=${scoringKey})`);
     }
+
+    this.saveQuestionCorrectness();
   }
 
   // 🔑 State tracking for scoring (Index -> IsCorrect)
   private questionCorrectness = new Map<number, boolean>();
 
+  constructor(
+    private quizShuffleService: QuizShuffleService,
+    private quizStateService: QuizStateService,
+    private activatedRoute: ActivatedRoute,
+    private http: HttpClient
+  ) {
+    this.http = http;
+    this.loadQuestionCorrectness(); // Load persisted correctness state
+    this.initializeData();
+
+    // ⚡ FIX: Reset State Sync
+    // When quizReset$ emits (e.g. on Shuffle Toggle), we must clear the internal state cache
+    // in QuizStateService. Otherwise, "isAnswered" state for Index 0 persists across shuffles.
+    this.quizReset$.subscribe(() => {
+      console.log('[QuizService] 🧹 Triggering QuizStateService RESET via quizReset$');
+      this.quizStateService.reset();
+    });
+  }
+
   resetScore(): void {
     this.questionCorrectness.clear();
+    this.saveQuestionCorrectness(); // Clear persistence
     this.correctAnswersCountSubject.next(0);
     this.correctCount = 0;
-    this.sendCorrectCountToResults(0); 
+    this.sendCorrectCountToResults(0);
     localStorage.setItem('correctAnswersCount', '0');
     console.log('[QuizService] Score fully reset.');
   }
@@ -2342,6 +2331,31 @@ export class QuizService {
 
   sendCorrectCountToResults(value: number): void {
     this.correctAnswersCountSubject.next(value);
+    localStorage.setItem('correctAnswersCount', String(value));
+  }
+
+  private loadQuestionCorrectness(): void {
+    try {
+      const stored = localStorage.getItem('questionCorrectness');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        this.questionCorrectness = new Map(
+          Object.entries(parsed).map(([k, v]) => [Number(k), Boolean(v)])
+        );
+        console.log('[QuizService] 💾 Loaded questionCorrectness:', this.questionCorrectness);
+      }
+    } catch (e) {
+      console.warn('Failed to load questionCorrectness:', e);
+    }
+  }
+
+  private saveQuestionCorrectness(): void {
+    try {
+      const obj = Object.fromEntries(this.questionCorrectness);
+      localStorage.setItem('questionCorrectness', JSON.stringify(obj));
+    } catch (e) {
+      console.warn('Failed to save questionCorrectness:', e);
+    }
   }
 
   resetQuizSessionState(): void {
