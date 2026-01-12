@@ -2118,6 +2118,20 @@ export class QuizService {
     }
 
     return options.map((option, localIdx) => {
+      // ⚡ FIX: Sync Safeguard
+      // If the option ALREADY has a computed ID (e.g. from ShuffleService, usually > 100),
+      // DO NOT overwrite it with an ID based on the (potentially shuffled) "questionIndex".
+      // This ensures scoring uses the canonical ID (e.g. 301) instead of the display ID (e.g. 101).
+      // We assume raw JSON IDs are small (< 100) or undefined.
+      if (option.optionId && typeof option.optionId === 'number' && option.optionId >= 100) {
+        return {
+          ...option,
+          selected: false,
+          highlight: false,
+          showIcon: false,
+        };
+      }
+
       // Build a globally unique numeric ID like 1001, 1002, 2001, 2002, etc.
       const uniqueId = Number(
         `${questionIndex + 1}${(localIdx + 1).toString().padStart(2, '0')}`,
