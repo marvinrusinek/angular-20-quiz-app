@@ -1943,9 +1943,16 @@ export class SharedOptionComponent
         .map((o: Option) => o.optionId)
         .filter((id: number | undefined): id is number => typeof id === 'number');
 
-      // ⚡ FIX: Use isMultipleAnswer (already calculated from getter) instead of recalculating
-      // The finalCorrectIds might be wrong for shuffled questions if correct flags aren't set
-      const finalIsMulti = isMultipleAnswer; // Use the getter-based check from earlier
+      // ⚡ FIX: Always use finalCorrectIds to determine multi - this is the ACTUAL question data
+      // If finalCorrectIds is empty, fall back to isMultipleAnswer (getter-based)
+      let finalIsMulti: boolean;
+      if (finalCorrectIds.length > 0) {
+        finalIsMulti = finalCorrectIds.length > 1;
+      } else {
+        // Fallback to getter if we couldn't get correct IDs
+        finalIsMulti = isMultipleAnswer;
+        console.warn(`[SOC] ⚠️ FINAL SCORE CHECK: No correctIds found, using isMultipleAnswer=${isMultipleAnswer}`);
+      }
 
       // ⚡ FIX: Use simulatedSelection directly (already updated above) instead of service
       // The service might have stale data due to async timing
