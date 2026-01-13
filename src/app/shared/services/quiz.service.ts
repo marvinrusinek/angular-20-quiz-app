@@ -913,12 +913,22 @@ export class QuizService {
       const isGoingBack = prevIndex > this.currentQuestionIndex;
 
       if (prevIndex > -1 && isGoingBack) {
-        const wasCorrect = this.questionCorrectness.get(prevIndex);
+        // ⚡ FIX: Use correct scoring key for shuffled quizzes
+        // The questionCorrectness map is keyed by ORIGINAL index, not shuffled index
+        let scoringKey = prevIndex;
+        if (this.shouldShuffle() && this.quizId) {
+          const originalIndex = this.quizShuffleService.toOriginalIndex(this.quizId, prevIndex);
+          if (typeof originalIndex === 'number' && originalIndex >= 0) {
+            scoringKey = originalIndex;
+          }
+        }
+
+        const wasCorrect = this.questionCorrectness.get(scoringKey);
         if (wasCorrect) {
           this.updateCorrectCountForResults(this.correctCount - 1);
-          this.questionCorrectness.set(prevIndex, false);
+          this.questionCorrectness.set(scoringKey, false);
           console.log(
-            `[QuizService] 📉 Decremented score for Leaving Q${prevIndex} (Backwards)`,
+            `[QuizService] 📉 Decremented score for Leaving Q${prevIndex} (Key=${scoringKey}, Backwards)`,
           );
         }
       }
