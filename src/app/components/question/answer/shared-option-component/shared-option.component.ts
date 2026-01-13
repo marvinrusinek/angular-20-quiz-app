@@ -1634,6 +1634,18 @@ export class SharedOptionComponent
     const isMultipleAnswer = this.isMultiMode;
     const isSingle = !isMultipleAnswer;
 
+    // 🔍 DEBUG: Comprehensive logging for Q4 issue
+    console.log(`[SOC] 🔍 DEBUG Q${questionIndex}: clickedIsCorrect=${clickedIsCorrect}, isSingle=${isSingle}, isMulti=${isMultipleAnswer}`);
+    console.log(`[SOC] 🔍 DEBUG binding.option:`, {
+      optionId: binding.option.optionId,
+      correct: binding.option.correct,
+      text: binding.option.text?.substring(0, 30)
+    });
+    console.log(`[SOC] 🔍 DEBUG question?.options:`, question?.options?.map((o: Option) => ({
+      optionId: o.optionId,
+      correct: o.correct
+    })));
+
     if (isSingle) {
       // Single-answer: track correct click and stop timer when correct option is
       // clicked
