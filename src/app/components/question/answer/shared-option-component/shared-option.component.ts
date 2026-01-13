@@ -1632,6 +1632,8 @@ export class SharedOptionComponent
     // ⚡ FIX: Cross-check correct flag against source question options
     // The binding.option.correct may be stale or not properly propagated
     let clickedIsCorrect = binding.option.correct === true;
+
+    // Fallback 1: Check question.options from quizService
     if (!clickedIsCorrect && question?.options) {
       // Try to find the matching option by optionId or text
       const matchingOpt = question.options.find((o: Option) =>
@@ -1640,7 +1642,31 @@ export class SharedOptionComponent
       );
       if (matchingOpt?.correct === true) {
         clickedIsCorrect = true;
-        console.log(`[SOC] ⚡ Corrected clickedIsCorrect via question lookup for optionId=${binding.option.optionId}`);
+        console.log(`[SOC] ⚡ Corrected clickedIsCorrect via question.options lookup for optionId=${binding.option.optionId}`);
+      }
+    }
+
+    // Fallback 2: Check optionBindings (the displayed options) - for shuffled mode
+    if (!clickedIsCorrect && this.optionBindings?.length) {
+      const matchingBinding = this.optionBindings.find((b: OptionBindings) =>
+        b.option?.optionId === binding.option.optionId ||
+        (b.option?.text && b.option.text.trim().toLowerCase() === (binding.option.text ?? '').trim().toLowerCase())
+      );
+      if (matchingBinding?.option?.correct === true) {
+        clickedIsCorrect = true;
+        console.log(`[SOC] ⚡ Corrected clickedIsCorrect via optionBindings lookup for optionId=${binding.option.optionId}`);
+      }
+    }
+
+    // Fallback 3: Check optionsToDisplay - another source of truth
+    if (!clickedIsCorrect && this.optionsToDisplay?.length) {
+      const matchingOption = this.optionsToDisplay.find((o: Option) =>
+        o.optionId === binding.option.optionId ||
+        (o.text && o.text.trim().toLowerCase() === (binding.option.text ?? '').trim().toLowerCase())
+      );
+      if (matchingOption?.correct === true) {
+        clickedIsCorrect = true;
+        console.log(`[SOC] ⚡ Corrected clickedIsCorrect via optionsToDisplay lookup for optionId=${binding.option.optionId}`);
       }
     }
 
