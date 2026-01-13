@@ -1646,11 +1646,11 @@ export class SharedOptionComponent
       correct: o.correct
     })));
 
-    // ⚡ UNIVERSAL SCORING FALLBACK: Score immediately if correct option clicked
-    // This ensures scoring happens even if isSingle/isMulti detection fails
-    if (clickedIsCorrect) {
-      console.log(`[SOC] ⚡ UNIVERSAL FALLBACK: Correct option clicked on Q${questionIndex}, triggering score`);
-      this.quizService.scoreDirectly(questionIndex, true, isMultipleAnswer);
+    // ⚡ UNIVERSAL SCORING FALLBACK: Score immediately if correct option clicked (SINGLE-ANSWER ONLY)
+    // For multi-answer, we need to wait until ALL correct options are selected
+    if (clickedIsCorrect && isSingle) {
+      console.log(`[SOC] ⚡ UNIVERSAL FALLBACK: Correct option clicked on Q${questionIndex} (single-answer), triggering score`);
+      this.quizService.scoreDirectly(questionIndex, true, false);
     }
 
     if (isSingle) {
