@@ -1508,6 +1508,10 @@ export class SharedOptionComponent
     index: number,
     event: MouseEvent
   ): void {
+    // 🔍 DEBUG: Log at the very start
+    const qIdx = this.resolveCurrentQuestionIndex();
+    console.log(`[SOC] 🔍 ENTRY onOptionContentClick Q${qIdx}, optionIndex=${index}, optionId=${binding.option?.optionId}`);
+
     // Prevent the click from bubbling up to the mat-radio-button/mat-checkbox
     event.stopPropagation();
 
