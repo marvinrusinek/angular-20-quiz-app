@@ -1945,9 +1945,11 @@ export class SharedOptionComponent
 
       const finalIsMulti = finalCorrectIds.length > 1;
 
-      // Get current selection - use getSelectedOptionsForQuestion (correct method name)
-      const currentSelection = this.selectedOptionService?.getSelectedOptionsForQuestion(questionIndex) ?? [];
-      const selectedIds = currentSelection.map((o: SelectedOption) => o.optionId).filter((id: number | undefined): id is number => typeof id === 'number');
+      // ⚡ FIX: Use simulatedSelection directly (already updated above) instead of service
+      // The service might have stale data due to async timing
+      const selectedIds = simulatedSelection
+        .map((o: SelectedOption) => o.optionId)
+        .filter((id: number | undefined): id is number => typeof id === 'number');
 
       console.log(`[SOC] ⚡ FINAL SCORE CHECK Q${questionIndex}: isMulti=${finalIsMulti}, correctIds=${JSON.stringify(finalCorrectIds)}, selectedIds=${JSON.stringify(selectedIds)}`);
 
