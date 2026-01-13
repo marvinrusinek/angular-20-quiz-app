@@ -1479,6 +1479,33 @@ export class SharedOptionComponent
 
   onOptionChanged(b: OptionBindings, i: number, event: MatRadioChange | MatCheckboxChange) {
     console.log(`[🎯 onOptionChanged] optionId=${b?.option?.optionId}, index=${i}, Q${(this.currentQuestionIndex ?? 0) + 1}`);
+
+    // ⚡ SCORING: Also trigger scoring from this handler
+    const questionIndex = this.resolveCurrentQuestionIndex();
+    const question = this.quizService?.questions?.[questionIndex];
+
+    // Determine if clicked option is correct
+    let isCorrect = b.option?.correct === true;
+    if (!isCorrect && question?.options) {
+      const matchingOpt = question.options.find((o: Option) =>
+        o.optionId === b.option?.optionId ||
+        (o.text && o.text.trim().toLowerCase() === (b.option?.text ?? '').trim().toLowerCase())
+      );
+      isCorrect = matchingOpt?.correct === true;
+    }
+
+    if (isCorrect) {
+      const correctCount = question?.options?.filter((o: Option) => o.correct).length ?? 1;
+      const isMulti = correctCount > 1;
+      console.log(`[onOptionChanged] ⚡ Correct option clicked, triggering score. isMulti=${isMulti}`);
+
+      if (!isMulti) {
+        // Single-answer: score immediately
+        this.quizService.scoreDirectly(questionIndex, true, false);
+      }
+      // For multi-answer, scoring happens in onOptionContentClick when all are selected
+    }
+
     this.updateOptionAndUI(b, i, event);
   }
 
