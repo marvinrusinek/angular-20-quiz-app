@@ -1494,17 +1494,16 @@ export class SharedOptionComponent
       isCorrect = matchingOpt?.correct === true;
     }
 
-    if (isCorrect) {
-      const correctCount = question?.options?.filter((o: Option) => o.correct).length ?? 1;
-      const isMulti = correctCount > 1;
-      console.log(`[onOptionChanged] ⚡ Correct option clicked, triggering score. isMulti=${isMulti}`);
+    // ⚡ FIX: Use the isMultiMode getter which properly checks question data
+    const isMulti = this.isMultiMode;
+    console.log(`[onOptionChanged] isCorrect=${isCorrect}, isMulti=${isMulti} (from getter)`);
 
-      if (!isMulti) {
-        // Single-answer: score immediately
-        this.quizService.scoreDirectly(questionIndex, true, false);
-      }
-      // For multi-answer, scoring happens in onOptionContentClick when all are selected
+    if (isCorrect && !isMulti) {
+      // Single-answer ONLY: score immediately
+      console.log(`[onOptionChanged] ⚡ Single-answer correct option clicked, triggering score.`);
+      this.quizService.scoreDirectly(questionIndex, true, false);
     }
+    // For multi-answer, scoring happens in onOptionContentClick when all are selected
 
     this.updateOptionAndUI(b, i, event);
   }
