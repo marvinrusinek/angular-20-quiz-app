@@ -1941,13 +1941,13 @@ export class SharedOptionComponent
       const finalCorrectIds = (finalQuestion?.options ?? [])
         .filter((o: Option) => o.correct === true)
         .map((o: Option) => o.optionId)
-        .filter((id): id is number => typeof id === 'number');
+        .filter((id: number | undefined): id is number => typeof id === 'number');
 
       const finalIsMulti = finalCorrectIds.length > 1;
 
-      // Get current selection
-      const currentSelection = this.selectedOptionService?.getCurrentSelection(questionIndex) ?? [];
-      const selectedIds = currentSelection.map(o => o.optionId).filter((id): id is number => typeof id === 'number');
+      // Get current selection - use getSelectedOptionsForQuestion (correct method name)
+      const currentSelection = this.selectedOptionService?.getSelectedOptionsForQuestion(questionIndex) ?? [];
+      const selectedIds = currentSelection.map((o: SelectedOption) => o.optionId).filter((id: number | undefined): id is number => typeof id === 'number');
 
       console.log(`[SOC] ⚡ FINAL SCORE CHECK Q${questionIndex}: isMulti=${finalIsMulti}, correctIds=${JSON.stringify(finalCorrectIds)}, selectedIds=${JSON.stringify(selectedIds)}`);
 
