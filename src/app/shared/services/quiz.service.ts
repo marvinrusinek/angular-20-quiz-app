@@ -1672,6 +1672,10 @@ export class QuizService {
     this.questions = [];
     this.questionsSubject.next([]);
 
+    // ⚡ FIX: Reset score when shuffle is toggled to clear stale questionCorrectness
+    // Otherwise, questions might be marked as "already correct" from previous sessions
+    this.resetScore();
+
     this.quizId = '';
     console.log(`[setCheckedShuffle] Shuffle=${isChecked}, cleared shuffle state & questions for fresh start`);
   }
