@@ -1816,12 +1816,16 @@ export class SharedOptionComponent
       const allCorrectClicked =
         correctIds.every((id: number) => clickedCorrectSet.has(id));
 
-      // Validation: check strictly if CURRENT state is perfect (All correct AND
-      // no incorrect)
+      // ⚡ FIX: Check if ALL correct options are now in the selection
+      // Don't rely on a.correct flag which may not be set on simulatedSelection
       const currentAnswersForLock = simulatedSelection || [];
-      const correctSelectedCount =
-        currentAnswersForLock.filter(a => a.correct).length;
-      const isPerfectState = correctSelectedCount === correctIds.length;
+      const selectedOptionIds = currentAnswersForLock.map(a => a.optionId).filter((id): id is number => typeof id === 'number');
+
+      // Perfect state: Every correct option ID is in the selected set
+      const allCorrectSelected = correctIds.every((id: number) => selectedOptionIds.includes(id));
+      const isPerfectState = allCorrectSelected && selectedOptionIds.length >= correctIds.length;
+
+      console.log(`[SOC] 🔍 MULTI-ANSWER DEBUG: correctIds=${JSON.stringify(correctIds)}, selectedIds=${JSON.stringify(selectedOptionIds)}, allCorrectSelected=${allCorrectSelected}, isPerfectState=${isPerfectState}`);
 
       if (isPerfectState) {
         console.log(`[SOC] 🎯 MULTI-ANSWER: PERFECTION ACHIEVED → STOPPING TIMER`);
