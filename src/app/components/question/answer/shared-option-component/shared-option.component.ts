@@ -1607,10 +1607,24 @@ export class SharedOptionComponent
     // TIMER STOP LOGIC (FIXED - THE ONLY LOCATION!)
     // Single-answer: stop when correct option is clicked
     // Multi-answer: stop when ALL correct options are selected
-    const clickedIsCorrect = binding.option.correct === true;
     // Use same index method as isDisabled for consistency
     const questionIndex = this.resolveCurrentQuestionIndex();
     const question = this.quizService?.questions[questionIndex];
+
+    // ⚡ FIX: Cross-check correct flag against source question options
+    // The binding.option.correct may be stale or not properly propagated
+    let clickedIsCorrect = binding.option.correct === true;
+    if (!clickedIsCorrect && question?.options) {
+      // Try to find the matching option by optionId or text
+      const matchingOpt = question.options.find((o: Option) =>
+        o.optionId === binding.option.optionId ||
+        (o.text && o.text.trim().toLowerCase() === (binding.option.text ?? '').trim().toLowerCase())
+      );
+      if (matchingOpt?.correct === true) {
+        clickedIsCorrect = true;
+        console.log(`[SOC] ⚡ Corrected clickedIsCorrect via question lookup for optionId=${binding.option.optionId}`);
+      }
+    }
 
     // Count correct options FROM BINDINGS (they're local and available)
     // quizService.questions was returning undefined, so use optionBindings instead
