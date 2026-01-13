@@ -1937,25 +1937,33 @@ export class SharedOptionComponent
     // For single-answer: if correct option was clicked, score immediately
     // For multi-answer: check if all correct options are now selected
     try {
+      // ⚡ FIX: Use optionBindings (the actually displayed options) to determine multi-answer
+      // This is the most reliable source because it's what's actually being rendered
+      const bindingsCorrectCount = (this.optionBindings ?? [])
+        .filter((b: OptionBindings) => b.option?.correct === true).length;
+
+      // Also try from finalQuestion as backup
       const finalQuestion = this.quizService?.questions?.[questionIndex];
       const finalCorrectIds = (finalQuestion?.options ?? [])
         .filter((o: Option) => o.correct === true)
         .map((o: Option) => o.optionId)
         .filter((id: number | undefined): id is number => typeof id === 'number');
 
-      // ⚡ FIX: Always use finalCorrectIds to determine multi - this is the ACTUAL question data
-      // If finalCorrectIds is empty, fall back to isMultipleAnswer (getter-based)
+      // Use bindings count if available, otherwise fall back to finalCorrectIds
       let finalIsMulti: boolean;
-      if (finalCorrectIds.length > 0) {
+      if (bindingsCorrectCount > 0) {
+        finalIsMulti = bindingsCorrectCount > 1;
+        console.log(`[SOC] ⚡ Using bindingsCorrectCount=${bindingsCorrectCount} → finalIsMulti=${finalIsMulti}`);
+      } else if (finalCorrectIds.length > 0) {
         finalIsMulti = finalCorrectIds.length > 1;
+        console.log(`[SOC] ⚡ Using finalCorrectIds.length=${finalCorrectIds.length} → finalIsMulti=${finalIsMulti}`);
       } else {
-        // Fallback to getter if we couldn't get correct IDs
+        // Last resort fallback
         finalIsMulti = isMultipleAnswer;
-        console.warn(`[SOC] ⚠️ FINAL SCORE CHECK: No correctIds found, using isMultipleAnswer=${isMultipleAnswer}`);
+        console.warn(`[SOC] ⚠️ No correct options found, using isMultipleAnswer=${isMultipleAnswer}`);
       }
 
       // ⚡ FIX: Use simulatedSelection directly (already updated above) instead of service
-      // The service might have stale data due to async timing
       const selectedIds = simulatedSelection
         .map((o: SelectedOption) => o.optionId)
         .filter((id: number | undefined): id is number => typeof id === 'number');
