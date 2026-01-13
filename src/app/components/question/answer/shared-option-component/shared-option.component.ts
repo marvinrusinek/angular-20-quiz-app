@@ -1931,63 +1931,11 @@ export class SharedOptionComponent
     } catch (err: any) {
       console.error('[SOC] ❌ Failed to play sound:', err);
     }
-
-    // ⚡ GUARANTEED FINAL SCORING CHECK
-    // This runs at the END regardless of which code path was taken above
-    // For single-answer: if correct option was clicked, score immediately
-    // For multi-answer: check if all correct options are now selected
-    try {
-      // ⚡ FIX: Use optionBindings (the actually displayed options) to determine multi-answer
-      // This is the most reliable source because it's what's actually being rendered
-      const bindingsCorrectCount = (this.optionBindings ?? [])
-        .filter((b: OptionBindings) => b.option?.correct === true).length;
-
-      // Also try from finalQuestion as backup
-      const finalQuestion = this.quizService?.questions?.[questionIndex];
-      const finalCorrectIds = (finalQuestion?.options ?? [])
-        .filter((o: Option) => o.correct === true)
-        .map((o: Option) => o.optionId)
-        .filter((id: number | undefined): id is number => typeof id === 'number');
-
-      // Use bindings count if available, otherwise fall back to finalCorrectIds
-      let finalIsMulti: boolean;
-      if (bindingsCorrectCount > 0) {
-        finalIsMulti = bindingsCorrectCount > 1;
-        console.log(`[SOC] ⚡ Using bindingsCorrectCount=${bindingsCorrectCount} → finalIsMulti=${finalIsMulti}`);
-      } else if (finalCorrectIds.length > 0) {
-        finalIsMulti = finalCorrectIds.length > 1;
-        console.log(`[SOC] ⚡ Using finalCorrectIds.length=${finalCorrectIds.length} → finalIsMulti=${finalIsMulti}`);
-      } else {
-        // Last resort fallback
-        finalIsMulti = isMultipleAnswer;
-        console.warn(`[SOC] ⚠️ No correct options found, using isMultipleAnswer=${isMultipleAnswer}`);
-      }
-
-      // ⚡ FIX: Use simulatedSelection directly (already updated above) instead of service
-      const selectedIds = simulatedSelection
-        .map((o: SelectedOption) => o.optionId)
-        .filter((id: number | undefined): id is number => typeof id === 'number');
-
-      console.log(`[SOC] ⚡ FINAL SCORE CHECK Q${questionIndex}: isMulti=${finalIsMulti}, correctIds=${JSON.stringify(finalCorrectIds)}, selectedIds=${JSON.stringify(selectedIds)}`);
-
-      if (finalIsMulti) {
-        // Multi-answer: check if ALL correct options are selected
-        const allCorrectSelected = finalCorrectIds.every((id: number) => selectedIds.includes(id));
-        if (allCorrectSelected) {
-          console.log(`[SOC] ⚡ FINAL: Multi-answer ALL CORRECT → scoring`);
-          this.quizService.scoreDirectly(questionIndex, true, true);
-        }
-      } else {
-        // Single-answer: check if THE correct option is in selection
-        const correctSelected = finalCorrectIds.some((id: number) => selectedIds.includes(id));
-        if (correctSelected) {
-          console.log(`[SOC] ⚡ FINAL: Single-answer CORRECT → scoring`);
-          this.quizService.scoreDirectly(questionIndex, true, false);
-        }
-      }
-    } catch (err) {
-      console.error('[SOC] ❌ Final score check failed:', err);
-    }
+    // NOTE: REMOVED "GUARANTEED FINAL SCORING CHECK" 
+    // The scoring is now handled by:
+    // 1. Single-answer: inline scoring when correct option is clicked (see "DIRECT SCORING" comment above)
+    // 2. Multi-answer: scoring when isPerfectState is achieved (see "MULTI-ANSWER: PERFECTION ACHIEVED" above)
+    // The final check was causing premature scoring for multi-answer questions.
   }
 
   public updateOptionAndUI(
