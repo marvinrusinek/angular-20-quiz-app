@@ -186,7 +186,10 @@ export class SharedOptionComponent
   // Robust Multi-Mode Detection (Infers from Data if Type is missing)
   get isMultiMode(): boolean {
     // Explicit check
-    if (this.type === 'multiple' || this.config?.type === 'multiple') return true;
+    if (this.type === 'multiple' || this.config?.type === 'multiple') {
+      console.log(`[isMultiMode] Returning TRUE due to explicit type='multiple'`);
+      return true;
+    }
 
     // ⚡ FIX: Use quizService.questions (respects shuffle) instead of potentially stale this.currentQuestion
     const idx = this.resolveCurrentQuestionIndex();
@@ -195,7 +198,10 @@ export class SharedOptionComponent
     // Data inference (fixes multiple-answer questions)
     if (currentQ?.options) {
       const count = currentQ.options.filter((o: Option) => o.correct).length;
+      console.log(`[isMultiMode] Q${idx}: correctCount=${count}, returning ${count > 1}`);
       if (count > 1) return true;
+    } else {
+      console.log(`[isMultiMode] Q${idx}: No options found, returning false`);
     }
     return false;
   }
@@ -1924,6 +1930,44 @@ export class SharedOptionComponent
       this.soundService.playOnceForOption(enrichedOption);
     } catch (err: any) {
       console.error('[SOC] ❌ Failed to play sound:', err);
+    }
+
+    // ⚡ GUARANTEED FINAL SCORING CHECK
+    // This runs at the END regardless of which code path was taken above
+    // For single-answer: if correct option was clicked, score immediately
+    // For multi-answer: check if all correct options are now selected
+    try {
+      const finalQuestion = this.quizService?.questions?.[questionIndex];
+      const finalCorrectIds = (finalQuestion?.options ?? [])
+        .filter((o: Option) => o.correct === true)
+        .map((o: Option) => o.optionId)
+        .filter((id): id is number => typeof id === 'number');
+
+      const finalIsMulti = finalCorrectIds.length > 1;
+
+      // Get current selection
+      const currentSelection = this.selectedOptionService?.getCurrentSelection(questionIndex) ?? [];
+      const selectedIds = currentSelection.map(o => o.optionId).filter((id): id is number => typeof id === 'number');
+
+      console.log(`[SOC] ⚡ FINAL SCORE CHECK Q${questionIndex}: isMulti=${finalIsMulti}, correctIds=${JSON.stringify(finalCorrectIds)}, selectedIds=${JSON.stringify(selectedIds)}`);
+
+      if (finalIsMulti) {
+        // Multi-answer: check if ALL correct options are selected
+        const allCorrectSelected = finalCorrectIds.every((id: number) => selectedIds.includes(id));
+        if (allCorrectSelected) {
+          console.log(`[SOC] ⚡ FINAL: Multi-answer ALL CORRECT → scoring`);
+          this.quizService.scoreDirectly(questionIndex, true, true);
+        }
+      } else {
+        // Single-answer: check if THE correct option is in selection
+        const correctSelected = finalCorrectIds.some((id: number) => selectedIds.includes(id));
+        if (correctSelected) {
+          console.log(`[SOC] ⚡ FINAL: Single-answer CORRECT → scoring`);
+          this.quizService.scoreDirectly(questionIndex, true, false);
+        }
+      }
+    } catch (err) {
+      console.error('[SOC] ❌ Final score check failed:', err);
     }
   }
 
