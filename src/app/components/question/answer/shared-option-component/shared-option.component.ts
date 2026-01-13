@@ -1943,7 +1943,9 @@ export class SharedOptionComponent
         .map((o: Option) => o.optionId)
         .filter((id: number | undefined): id is number => typeof id === 'number');
 
-      const finalIsMulti = finalCorrectIds.length > 1;
+      // ⚡ FIX: Use isMultipleAnswer (already calculated from getter) instead of recalculating
+      // The finalCorrectIds might be wrong for shuffled questions if correct flags aren't set
+      const finalIsMulti = isMultipleAnswer; // Use the getter-based check from earlier
 
       // ⚡ FIX: Use simulatedSelection directly (already updated above) instead of service
       // The service might have stale data due to async timing
