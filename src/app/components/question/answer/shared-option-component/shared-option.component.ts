@@ -1664,12 +1664,8 @@ export class SharedOptionComponent
       correct: o.correct
     })));
 
-    // ⚡ UNIVERSAL SCORING FALLBACK: Score immediately if correct option clicked (SINGLE-ANSWER ONLY)
-    // For multi-answer, we need to wait until ALL correct options are selected
-    if (clickedIsCorrect && isSingle) {
-      console.log(`[SOC] ⚡ UNIVERSAL FALLBACK: Correct option clicked on Q${questionIndex} (single-answer), triggering score`);
-      this.quizService.scoreDirectly(questionIndex, true, false);
-    }
+    // NOTE: REMOVED "UNIVERSAL SCORING FALLBACK" - scoring is handled by DIRECT SCORING below for single-answer
+    // and by PERFECTION ACHIEVED for multi-answer. The fallback was causing double-scoring.
 
     if (isSingle) {
       // Single-answer: track correct click and stop timer when correct option is
