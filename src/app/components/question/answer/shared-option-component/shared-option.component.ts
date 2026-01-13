@@ -188,9 +188,13 @@ export class SharedOptionComponent
     // Explicit check
     if (this.type === 'multiple' || this.config?.type === 'multiple') return true;
 
+    // ⚡ FIX: Use quizService.questions (respects shuffle) instead of potentially stale this.currentQuestion
+    const idx = this.resolveCurrentQuestionIndex();
+    const currentQ = this.quizService?.questions?.[idx] ?? this.currentQuestion;
+
     // Data inference (fixes multiple-answer questions)
-    if (this.currentQuestion?.options) {
-      const count = this.currentQuestion.options.filter(o => o.correct).length;
+    if (currentQ?.options) {
+      const count = currentQ.options.filter((o: Option) => o.correct).length;
       if (count > 1) return true;
     }
     return false;
