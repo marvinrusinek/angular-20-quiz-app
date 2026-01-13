@@ -2337,12 +2337,33 @@ export class QuizService {
     // Only use the shuffle service mapping if shuffle is explicitly ENABLED.
     // If we rely on valid ID checks alone, a stale map in QuizShuffleService (from a prev session)
     // might incorrectly remap an unshuffled question (0->3), updating the wrong score key.
-    if (this.shouldShuffle() && this.quizId) {
-      const originalIndex = this.quizShuffleService.toOriginalIndex(this.quizId, qIndex);
-      console.log(`[incrementScore] 🔍 DEBUG: toOriginalIndex(${this.quizId}, ${qIndex}) = ${originalIndex}`);
-      // Valid original index is >= 0
-      if (typeof originalIndex === 'number' && originalIndex >= 0) {
-        scoringKey = originalIndex;
+    if (this.shouldShuffle()) {
+      // Try to get quizId from various sources if it's empty
+      let effectiveQuizId = this.quizId;
+      if (!effectiveQuizId) {
+        // Try localStorage
+        try {
+          effectiveQuizId = localStorage.getItem('lastQuizId') || '';
+        } catch { }
+      }
+      if (!effectiveQuizId) {
+        // Try to find any active shuffle state
+        const shuffleKeys = Object.keys(localStorage).filter(k => k.startsWith('shuffleState:'));
+        if (shuffleKeys.length > 0) {
+          effectiveQuizId = shuffleKeys[0].replace('shuffleState:', '');
+          console.log(`[incrementScore] 🔍 Found shuffle state for quizId: ${effectiveQuizId}`);
+        }
+      }
+
+      if (effectiveQuizId) {
+        const originalIndex = this.quizShuffleService.toOriginalIndex(effectiveQuizId, qIndex);
+        console.log(`[incrementScore] 🔍 DEBUG: toOriginalIndex(${effectiveQuizId}, ${qIndex}) = ${originalIndex}`);
+        // Valid original index is >= 0
+        if (typeof originalIndex === 'number' && originalIndex >= 0) {
+          scoringKey = originalIndex;
+        }
+      } else {
+        console.warn(`[incrementScore] ⚠️ Shuffle enabled but no quizId found - using display index as scoringKey`);
       }
     }
 
