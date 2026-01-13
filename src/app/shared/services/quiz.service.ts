@@ -2330,12 +2330,16 @@ export class QuizService {
     // 🔒 SCORING KEY RESOLUTION
     let scoringKey = qIndex;
 
+    // 🔍 DEBUG
+    console.log(`[incrementScore] 🔍 DEBUG: qIndex=${qIndex}, shouldShuffle=${this.shouldShuffle()}, quizId=${this.quizId}`);
+
     // ⚡ FIX: Strict Shuffle Guard
     // Only use the shuffle service mapping if shuffle is explicitly ENABLED.
     // If we rely on valid ID checks alone, a stale map in QuizShuffleService (from a prev session)
     // might incorrectly remap an unshuffled question (0->3), updating the wrong score key.
     if (this.shouldShuffle() && this.quizId) {
       const originalIndex = this.quizShuffleService.toOriginalIndex(this.quizId, qIndex);
+      console.log(`[incrementScore] 🔍 DEBUG: toOriginalIndex(${this.quizId}, ${qIndex}) = ${originalIndex}`);
       // Valid original index is >= 0
       if (typeof originalIndex === 'number' && originalIndex >= 0) {
         scoringKey = originalIndex;
@@ -2346,14 +2350,18 @@ export class QuizService {
     const isNowCorrect = correctAnswerFound; // Simplified
 
     console.log(`[incrementScore] 📊 Update Q${qIndex} (Key=${scoringKey}): Now=${isNowCorrect}, Was=${wasCorrect}, Score=${this.correctCount}`);
+    console.log(`[incrementScore] 🔍 DEBUG: questionCorrectness map:`, Object.fromEntries(this.questionCorrectness));
 
     if (isNowCorrect && !wasCorrect) {
       this.updateCorrectCountForResults(this.correctCount + 1);
       this.questionCorrectness.set(scoringKey, true);
+      console.log(`[incrementScore] ✅ INCREMENTED score to ${this.correctCount}`);
     } else if (!isNowCorrect && wasCorrect) {
       this.updateCorrectCountForResults(this.correctCount - 1);
       this.questionCorrectness.set(scoringKey, false);
       console.log(`[incrementScore] 🔻 Decremented score for Q${qIndex} (Key=${scoringKey})`);
+    } else {
+      console.log(`[incrementScore] ⚠️ NO CHANGE: isNowCorrect=${isNowCorrect}, wasCorrect=${wasCorrect}`);
     }
 
     this.saveQuestionCorrectness();
