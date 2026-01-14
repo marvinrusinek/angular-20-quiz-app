@@ -191,18 +191,27 @@ export class SharedOptionComponent
       return true;
     }
 
-    // ⚡ FIX: Use quizService.questions (respects shuffle) instead of potentially stale this.currentQuestion
-    const idx = this.resolveCurrentQuestionIndex();
-    const currentQ = this.quizService?.questions?.[idx] ?? this.currentQuestion;
+    // ⚡ FIX: Use getActiveQuestionIndex for most reliable index
+    // Then use getQuestionAtDisplayIndex for shuffle-aware question lookup
+    const idx = this.getActiveQuestionIndex();
+    const currentQ = this.getQuestionAtDisplayIndex(idx) ?? this.currentQuestion;
 
     // Data inference (fixes multiple-answer questions)
     if (currentQ?.options) {
       const count = currentQ.options.filter((o: Option) => o.correct).length;
-      console.log(`[isMultiMode] Q${idx}: correctCount=${count}, returning ${count > 1}`);
+      console.log(`[isMultiMode] Q${idx + 1} from question: correctCount=${count}, returning ${count > 1}`);
       if (count > 1) return true;
-    } else {
-      console.log(`[isMultiMode] Q${idx}: No options found, returning false`);
     }
+
+    // ⚡ Fallback: Check optionsToDisplay (most reliable for shuffled mode)
+    // This is what's actually being shown to the user
+    if (this.optionsToDisplay?.length > 0) {
+      const displayCount = this.optionsToDisplay.filter((o: Option) => o.correct === true).length;
+      console.log(`[isMultiMode] Q${idx + 1} from optionsToDisplay: correctCount=${displayCount}, returning ${displayCount > 1}`);
+      if (displayCount > 1) return true;
+    }
+
+    console.log(`[isMultiMode] Q${idx + 1}: No multi-answer detected, returning false`);
     return false;
   }
 
