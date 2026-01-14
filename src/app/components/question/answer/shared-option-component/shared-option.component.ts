@@ -1714,8 +1714,20 @@ export class SharedOptionComponent
     // quizService.questions was returning undefined, so use optionBindings instead
     const bindings = this.optionBindings ?? [];
 
-    // Use centralized getter
-    const isMultipleAnswer = this.isMultiMode;
+    // Use centralized getter, but also double-check with optionsToDisplay
+    // This ensures multi-answer detection works even for edge cases like Q4 SHUFFLED
+    let isMultipleAnswer = this.isMultiMode;
+
+    // ⚡ FIX: Direct fallback check on optionsToDisplay (most reliable for current question)
+    // This catches cases where isMultiMode fails to detect multi-answer due to question lookup issues
+    if (!isMultipleAnswer && this.optionsToDisplay?.length > 0) {
+      const correctCountInDisplay = this.optionsToDisplay.filter((o: Option) => o.correct === true).length;
+      if (correctCountInDisplay > 1) {
+        isMultipleAnswer = true;
+        console.log(`[SOC] ⚡ OVERRIDE: Detected multi-answer from optionsToDisplay (${correctCountInDisplay} correct options)`);
+      }
+    }
+
     const isSingle = !isMultipleAnswer;
 
     // 🔍 DEBUG: Comprehensive logging for scoring issues
