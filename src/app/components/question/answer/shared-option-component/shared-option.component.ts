@@ -1629,9 +1629,9 @@ export class SharedOptionComponent
       simulatedSelection
     );
 
-    // NOTE: Removed duplicate checkIfAnsweredCorrectly call here.
-    // updateUserAnswer already calls checkIfAnsweredCorrectly internally,
-    // so calling it again here was causing double scoring.
+    this.quizService.checkIfAnsweredCorrectly(qIndexForScore).then((isCorrect) => {
+      console.log(`[SOC] Score Verified for Q${qIndexForScore + 1}: ${isCorrect}`);
+    });
 
     // TIMER STOP LOGIC (FIXED - THE ONLY LOCATION!)
     // Single-answer: stop when correct option is clicked
@@ -1754,9 +1754,8 @@ export class SharedOptionComponent
         this.timerService.allowAuthoritativeStop();
         this.timerService.stopTimer(undefined, { force: true });
 
-        // NOTE: Removed scoreDirectly call here.
-        // updateUserAnswer already calls checkIfAnsweredCorrectly which handles scoring,
-        // so calling scoreDirectly here was causing double scoring.
+        // ⚡ DIRECT SCORING: Bypass complex answer matching - we KNOW it's correct!
+        this.quizService.scoreDirectly(questionIndex, true, false);
 
         // DIRECTLY DISABLE ALL INCORRECT OPTIONS
         console.log('[SOC] 🔒 About to disable incorrect options. optionBindings count:', this.optionBindings?.length);
@@ -1892,9 +1891,9 @@ export class SharedOptionComponent
         this.timerService.allowAuthoritativeStop();
         this.timerService.stopTimer(undefined, { force: true });
 
-        // NOTE: Removed scoreDirectly call here.
-        // updateUserAnswer already calls checkIfAnsweredCorrectly which handles scoring,
-        // so calling scoreDirectly here was causing double scoring.
+        // ⚡ DIRECT SCORING: Bypass complex answer matching - we KNOW it's correct!
+        this.quizService.scoreDirectly(questionIndex, true, true);
+
 
         // DISABLE ALL INCORRECT OPTIONS FOR MULTI-ANSWER
         if (!this.disabledOptionsPerQuestion.has(questionIndex)) {
