@@ -2251,7 +2251,14 @@ export class QuizService {
       this.answers = answerIds.map(id => ({ optionId: id } as Option));
     }
 
-    this.checkIfAnsweredCorrectly(questionIndex);
+    // ⚡ FIX: For SHUFFLED mode, skip checkIfAnsweredCorrectly here
+    // Scoring is handled by scoreDirectly calls in SharedOptionComponent to avoid race conditions
+    // For UNSHUFFLED mode, call checkIfAnsweredCorrectly for score verification
+    if (!this.shouldShuffle()) {
+      this.checkIfAnsweredCorrectly(questionIndex);
+    } else {
+      console.log(`[QuizService] 🔀 SHUFFLED mode: Skipping checkIfAnsweredCorrectly in updateUserAnswer (scoreDirectly handles scoring)`);
+    }
   }
 
   // ... (resetQuizSessionState omitted for brevity) ...
