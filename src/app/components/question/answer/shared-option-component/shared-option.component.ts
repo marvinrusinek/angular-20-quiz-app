@@ -1754,8 +1754,15 @@ export class SharedOptionComponent
         this.timerService.allowAuthoritativeStop();
         this.timerService.stopTimer(undefined, { force: true });
 
-        // ⚡ DIRECT SCORING: Bypass complex answer matching - we KNOW it's correct!
-        this.quizService.scoreDirectly(questionIndex, true, false);
+        // ⚡ DIRECT SCORING: Only for UNSHUFFLED mode
+        // For SHUFFLED mode, checkIfAnsweredCorrectly (called by updateUserAnswer) already handles scoring
+        // Calling scoreDirectly in SHUFFLED mode causes double-scoring due to async race conditions
+        const isShuffledSingle = this.quizService?.isShuffleEnabled?.();
+        if (!isShuffledSingle) {
+          this.quizService.scoreDirectly(questionIndex, true, false);
+        } else {
+          console.log(`[SOC] 🔀 SHUFFLED mode: Skipping scoreDirectly for single-answer`);
+        }
 
         // DIRECTLY DISABLE ALL INCORRECT OPTIONS
         console.log('[SOC] 🔒 About to disable incorrect options. optionBindings count:', this.optionBindings?.length);
@@ -1891,8 +1898,15 @@ export class SharedOptionComponent
         this.timerService.allowAuthoritativeStop();
         this.timerService.stopTimer(undefined, { force: true });
 
-        // ⚡ DIRECT SCORING: Bypass complex answer matching - we KNOW it's correct!
-        this.quizService.scoreDirectly(questionIndex, true, true);
+        // ⚡ DIRECT SCORING: Only for UNSHUFFLED mode
+        // For SHUFFLED mode, checkIfAnsweredCorrectly (called by updateUserAnswer) already handles scoring
+        // Calling scoreDirectly in SHUFFLED mode causes double-scoring due to async race conditions
+        const isShuffled = this.quizService?.isShuffleEnabled?.();
+        if (!isShuffled) {
+          this.quizService.scoreDirectly(questionIndex, true, true);
+        } else {
+          console.log(`[SOC] 🔀 SHUFFLED mode: Skipping scoreDirectly (checkIfAnsweredCorrectly handles scoring)`);
+        }
 
 
         // DISABLE ALL INCORRECT OPTIONS FOR MULTI-ANSWER
