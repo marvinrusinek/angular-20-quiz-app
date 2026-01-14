@@ -338,7 +338,8 @@ export class SharedOptionComponent
         }
 
         if (idx >= 0 && this.optionsToDisplay?.length > 0) {
-          const question = this.quizService.questions[idx];
+          // ⚡ FIX: Use helper method that respects shuffle state
+          const question = this.getQuestionAtDisplayIndex(idx);
 
           if (question?.options) {
             const correctOptions = this.optionsToDisplay.filter(
@@ -1372,7 +1373,8 @@ export class SharedOptionComponent
 
     const candidateIndex = this.getActiveQuestionIndex();
 
-    const question = this.quizService.questions[candidateIndex];
+    // ⚡ FIX: Use helper method that respects shuffle state
+    const question = this.getQuestionAtDisplayIndex(candidateIndex);
     if (question?.type) {
       return question.type;
     }
@@ -1627,7 +1629,8 @@ export class SharedOptionComponent
     // Multi-answer: stop when ALL correct options are selected
     // Use same index method as isDisabled for consistency
     const questionIndex = this.resolveCurrentQuestionIndex();
-    const question = this.quizService?.questions[questionIndex];
+    // ⚡ FIX: Use helper method that respects shuffle state
+    const question = this.getQuestionAtDisplayIndex(questionIndex);
 
     // ⚡ FIX: Cross-check correct flag against source question options
     // The binding.option.correct may be stale or not properly propagated
@@ -2122,7 +2125,8 @@ export class SharedOptionComponent
         this.resolvedQuestionIndex ??
         this.quizService.getCurrentQuestionIndex();
 
-      const currentQuestion = this.quizService.questions[currentIdx];
+      // ⚡ FIX: Use helper method that respects shuffle state
+      const currentQuestion = this.getQuestionAtDisplayIndex(currentIdx);
       const freshOptions = currentQuestion?.options ?? this.optionsToDisplay;
       const correctOptions = freshOptions.filter((opt: Option) => opt.correct);
 
@@ -2227,11 +2231,12 @@ export class SharedOptionComponent
     // Prefer component input (ground truth) > config > resolved index > service
     // index. The `currentQuestion` input or `config.currentQuestion` is passed
     // directly from parent and is the most reliable source.
+    // ⚡ FIX: Use getQuestionAtDisplayIndex for shuffle-aware question lookup
     const question = this.currentQuestion
       || this.config?.currentQuestion
-      || this.quizService.questions?.[this.currentQuestionIndex]
-      || this.quizService.questions?.[this.resolvedQuestionIndex ?? 0]
-      || this.quizService.questions?.[this.quizService.getCurrentQuestionIndex()];
+      || this.getQuestionAtDisplayIndex(this.currentQuestionIndex)
+      || this.getQuestionAtDisplayIndex(this.resolvedQuestionIndex ?? 0)
+      || this.getQuestionAtDisplayIndex(this.quizService.getCurrentQuestionIndex());
 
     if (!question) {
       console.warn('[applyFeedback] ❌ No question found. Feedback generation skipped.');
@@ -2479,7 +2484,8 @@ export class SharedOptionComponent
       (questionIndex === this.currentQuestionIndex ||
         questionIndex === this.resolvedQuestionIndex);
 
-    const question = this.quizService.questions[questionIndex];
+    // ⚡ FIX: Use helper method that respects shuffle state
+    const question = this.getQuestionAtDisplayIndex(questionIndex);
 
     if (useLocalOptions && question) {
       console.log(
@@ -2593,8 +2599,9 @@ export class SharedOptionComponent
 
     // Format the Explanation with "Option X is correct because..."
     try {
+      // ⚡ FIX: Use getQuestionAtDisplayIndex for shuffle-aware question lookup
       const question =
-        this.currentQuestion || this.quizService.questions?.[questionIndex];
+        this.currentQuestion || this.getQuestionAtDisplayIndex(questionIndex);
 
       if (question) {
         console.log(`[🔍 Question object for formatting]:`, {
@@ -3411,7 +3418,8 @@ export class SharedOptionComponent
   private regenerateFeedback(idx: number): void {
     if (idx < 0 || !this.optionsToDisplay?.length) return;
 
-    const question = this.quizService.questions?.[idx];
+    // ⚡ FIX: Use getQuestionAtDisplayIndex for shuffle-aware question lookup
+    const question = this.getQuestionAtDisplayIndex(idx);
     if (question?.options) {
       const correctOptions = this.optionsToDisplay.filter(
         (o: Option) => o.correct === true
@@ -3660,6 +3668,20 @@ export class SharedOptionComponent
 
   private resolveCurrentQuestionIndex(): number {
     return Number(this.currentQuestionIndex) || 0;
+  }
+
+  /**
+   * ⚡ FIX: Helper to get question at a display index, respecting shuffle state.
+   * When shuffle is enabled, uses shuffledQuestions (display order).
+   * When shuffle is disabled, uses questions (original order).
+   */
+  private getQuestionAtDisplayIndex(displayIndex: number): QuizQuestion | null {
+    const isShuffled = this.quizService?.isShuffleEnabled?.() &&
+      this.quizService?.shuffledQuestions?.length > 0;
+    const questionSource = isShuffled
+      ? this.quizService.shuffledQuestions
+      : this.quizService?.questions;
+    return questionSource?.[displayIndex] ?? null;
   }
 
   canShowOptions(): boolean {
