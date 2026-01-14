@@ -1629,9 +1629,17 @@ export class SharedOptionComponent
       simulatedSelection
     );
 
-    this.quizService.checkIfAnsweredCorrectly(qIndexForScore).then((isCorrect) => {
-      console.log(`[SOC] Score Verified for Q${qIndexForScore + 1}: ${isCorrect}`);
-    });
+    // ⚡ FIX: For UNSHUFFLED mode, call checkIfAnsweredCorrectly for score verification
+    // For SHUFFLED mode, skip this call - rely on scoreDirectly calls which are more reliable
+    // The duplicate async calls were causing race conditions in SHUFFLED mode
+    const isShuffledForScoring = this.quizService?.isShuffleEnabled?.();
+    if (!isShuffledForScoring) {
+      this.quizService.checkIfAnsweredCorrectly(qIndexForScore).then((isCorrect) => {
+        console.log(`[SOC] Score Verified for Q${qIndexForScore + 1}: ${isCorrect}`);
+      });
+    } else {
+      console.log(`[SOC] 🔀 SHUFFLED mode: Skipping duplicate checkIfAnsweredCorrectly (scoreDirectly will handle scoring)`);
+    }
 
     // TIMER STOP LOGIC (FIXED - THE ONLY LOCATION!)
     // Single-answer: stop when correct option is clicked
@@ -1754,15 +1762,9 @@ export class SharedOptionComponent
         this.timerService.allowAuthoritativeStop();
         this.timerService.stopTimer(undefined, { force: true });
 
-        // ⚡ DIRECT SCORING: Only for UNSHUFFLED mode
-        // For SHUFFLED mode, checkIfAnsweredCorrectly (called by updateUserAnswer) already handles scoring
-        // Calling scoreDirectly in SHUFFLED mode causes double-scoring due to async race conditions
-        const isShuffledSingle = this.quizService?.isShuffleEnabled?.();
-        if (!isShuffledSingle) {
-          this.quizService.scoreDirectly(questionIndex, true, false);
-        } else {
-          console.log(`[SOC] 🔀 SHUFFLED mode: Skipping scoreDirectly for single-answer`);
-        }
+        // ⚡ DIRECT SCORING: Always call scoreDirectly for single-answer questions
+        // The duplicate checkIfAnsweredCorrectly call is now skipped for SHUFFLED mode to prevent race conditions
+        this.quizService.scoreDirectly(questionIndex, true, false);
 
         // DIRECTLY DISABLE ALL INCORRECT OPTIONS
         console.log('[SOC] 🔒 About to disable incorrect options. optionBindings count:', this.optionBindings?.length);
@@ -1898,15 +1900,9 @@ export class SharedOptionComponent
         this.timerService.allowAuthoritativeStop();
         this.timerService.stopTimer(undefined, { force: true });
 
-        // ⚡ DIRECT SCORING: Only for UNSHUFFLED mode
-        // For SHUFFLED mode, checkIfAnsweredCorrectly (called by updateUserAnswer) already handles scoring
-        // Calling scoreDirectly in SHUFFLED mode causes double-scoring due to async race conditions
-        const isShuffled = this.quizService?.isShuffleEnabled?.();
-        if (!isShuffled) {
-          this.quizService.scoreDirectly(questionIndex, true, true);
-        } else {
-          console.log(`[SOC] 🔀 SHUFFLED mode: Skipping scoreDirectly (checkIfAnsweredCorrectly handles scoring)`);
-        }
+        // ⚡ DIRECT SCORING: Always call scoreDirectly for multi-answer when all correct answers are selected
+        // The duplicate checkIfAnsweredCorrectly call is now skipped for SHUFFLED mode to prevent race conditions
+        this.quizService.scoreDirectly(questionIndex, true, true);
 
 
         // DISABLE ALL INCORRECT OPTIONS FOR MULTI-ANSWER
