@@ -1673,6 +1673,26 @@ export class SharedOptionComponent
       }
     }
 
+    // ⚡ Fallback 4: Use binding index directly (most reliable for shuffled mode)
+    // The `index` passed to this method corresponds to the position in optionsToDisplay/optionBindings
+    // This bypasses any optionId/text matching issues
+    if (!clickedIsCorrect && typeof index === 'number' && this.optionsToDisplay?.[index]) {
+      const optionAtIndex = this.optionsToDisplay[index];
+      if (optionAtIndex?.correct === true) {
+        clickedIsCorrect = true;
+        console.log(`[SOC] ⚡ Corrected clickedIsCorrect via index-based lookup: index=${index}, optionId=${optionAtIndex.optionId}`);
+      }
+    }
+
+    // ⚡ Fallback 5: Check optionBindings by index (ultimate fallback)
+    if (!clickedIsCorrect && typeof index === 'number' && this.optionBindings?.[index]) {
+      const bindingAtIndex = this.optionBindings[index];
+      if (bindingAtIndex?.option?.correct === true) {
+        clickedIsCorrect = true;
+        console.log(`[SOC] ⚡ Corrected clickedIsCorrect via optionBindings index: index=${index}`);
+      }
+    }
+
     // Count correct options FROM BINDINGS (they're local and available)
     // quizService.questions was returning undefined, so use optionBindings instead
     const bindings = this.optionBindings ?? [];
@@ -1681,17 +1701,28 @@ export class SharedOptionComponent
     const isMultipleAnswer = this.isMultiMode;
     const isSingle = !isMultipleAnswer;
 
-    // 🔍 DEBUG: Comprehensive logging for Q4 issue
-    console.log(`[SOC] 🔍 DEBUG Q${questionIndex}: clickedIsCorrect=${clickedIsCorrect}, isSingle=${isSingle}, isMulti=${isMultipleAnswer}`);
+    // 🔍 DEBUG: Comprehensive logging for scoring issues
+    console.log(`[SOC] 🔍 DEBUG Q${questionIndex + 1} (idx=${questionIndex}): clickedIsCorrect=${clickedIsCorrect}, isSingle=${isSingle}, isMulti=${isMultipleAnswer}`);
     console.log(`[SOC] 🔍 DEBUG binding.option:`, {
       optionId: binding.option.optionId,
       correct: binding.option.correct,
-      text: binding.option.text?.substring(0, 30)
+      text: binding.option.text?.substring(0, 30),
+      clickIndex: index
     });
     console.log(`[SOC] 🔍 DEBUG question?.options:`, question?.options?.map((o: Option) => ({
       optionId: o.optionId,
       correct: o.correct
     })));
+    console.log(`[SOC] 🔍 DEBUG optionsToDisplay:`, this.optionsToDisplay?.map((o: Option, i: number) => ({
+      idx: i,
+      optionId: o.optionId,
+      correct: o.correct
+    })));
+    console.log(`[SOC] 🔍 DEBUG shuffle state:`, {
+      isShuffleEnabled: this.quizService?.isShuffleEnabled?.(),
+      shuffledQuestionsLength: this.quizService?.shuffledQuestions?.length,
+      questionsLength: this.quizService?.questions?.length
+    });
 
     // NOTE: REMOVED "UNIVERSAL SCORING FALLBACK" - scoring is handled by DIRECT SCORING below for single-answer
     // and by PERFECTION ACHIEVED for multi-answer. The fallback was causing double-scoring.
@@ -1783,9 +1814,19 @@ export class SharedOptionComponent
         .map((b: OptionBindings) => b.option?.optionId)
         .filter((id: number | undefined): id is number => typeof id === 'number');
 
-      // Use binding IDs if they exist (same source as what user clicks), otherwise fall back to question IDs
-      const correctIds = bindingCorrectIds.length > 0 ?
-        bindingCorrectIds : correctIdsFromQuestion;
+      // ⚡ FIX: Also check optionsToDisplay for correct IDs (more reliable for shuffled mode)
+      const optionsToDisplayCorrectIds = (this.optionsToDisplay ?? [])
+        .filter((o: Option) => o.correct === true)
+        .map((o: Option) => o.optionId)
+        .filter((id: number | undefined): id is number => typeof id === 'number');
+
+      // Use the best available source: bindings > optionsToDisplay > question
+      const correctIds = bindingCorrectIds.length > 0
+        ? bindingCorrectIds
+        : (optionsToDisplayCorrectIds.length > 0
+          ? optionsToDisplayCorrectIds
+          : correctIdsFromQuestion);
+
 
       // Initialize clicks set for this question if needed
       if (!this.correctClicksPerQuestion.has(questionIndex)) {
