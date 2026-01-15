@@ -1028,6 +1028,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // ⚡ CRITICAL FIX: Trigger scoring logic
     // This was missing! Without this call, incrementScore is never triggered.
     void this.quizService.checkIfAnsweredCorrectly(normalizedQuestionIndex);
+  this.updateDotStatus(normalizedQuestionIndex);
 
     // Selection message / next-button logic
     try {
