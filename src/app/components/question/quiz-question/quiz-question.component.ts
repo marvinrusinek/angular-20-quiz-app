@@ -2829,6 +2829,19 @@ export class QuizQuestionComponent extends BaseQuestion
       // ⚡ FIX: Synchronously format and emit FET to ensure it's ready BEFORE display state changes
       this.optionsToDisplay = canonicalOpts; // Keep local state in sync
 
+      // ⚡ FIX: Generate and emit FET synchronously using visual options (canonicalOpts)
+      // This ensures fetByIndex is populated BEFORE CodelabQuizContent evaluates
+      const rawExplanation = q!.explanation || '';
+      const correctIndices = this.explanationTextService.getCorrectOptionIndices(q!, canonicalOpts);
+      const fet = this.explanationTextService.formatExplanation(q!, correctIndices, rawExplanation);
+
+      if (fet) {
+        console.log(`[QQC] ⚡ Sync FET for Q${idx + 1}: "${fet.substring(0, 40)}..."`);
+        this.explanationTextService.emitFormatted(idx, fet);
+      } else {
+        console.warn(`[QQC] ⚠️ No FET generated for Q${idx + 1}`);
+      }
+
       // ⚡ FIX: Update QuizStateService state so CodelabQuizContent display logic passes
       // CodelabQuizContent checks getQuestionState(idx).isAnswered !!
       this.quizStateService.updateQuestionState(this.quizId, idx, { isAnswered: true }, 0);
