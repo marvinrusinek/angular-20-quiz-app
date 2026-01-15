@@ -1084,8 +1084,29 @@ export class QuizService {
     this.currentQuestionIndexSource.next(safeIndex);
     this.currentQuestionIndexSubject.next(safeIndex);
 
-    this.answers = [];
-    this.answersSubject.next([]);
+    // ⚡ FIX: Restore answers from persistence if available to prevent score decrement on navigation
+    const prevSelected = this.selectedOptionsMap.get(safeIndex);
+    
+    if (prevSelected && prevSelected.length > 0) {
+      // Re-hydrate full Option objects (needing .correct flag) from the source question
+      const question = this.questions[safeIndex]; // Use getter (handles shuffle)
+      if (question && question.options) {
+        const selectedIds = new Set(prevSelected.map(s => s.optionId));
+        // text-match fallback for robustness
+        const restoredAnswers = question.options.filter((o: Option) => 
+          selectedIds.has(o.optionId) || 
+          prevSelected.some(s => (s.text || '').trim() === (o.text || '').trim())
+        );
+        this.answers = restoredAnswers;
+        console.log(`[QuizService] ♻️ Restored ${restoredAnswers.length} answers for Q${safeIndex} (preventing score drop)`);
+      } else {
+        this.answers = [];
+      }
+    } else {
+      this.answers = [];
+    }
+
+    this.answersSubject.next(this.answers.map(a => a.optionId).filter((id): id is number => typeof id === 'number'));
 
     // NOTE: Do NOT call updateCurrentQuestion here.
     // QuizComponent's loadQuestion flow handles question text updates through 
