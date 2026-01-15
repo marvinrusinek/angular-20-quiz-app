@@ -281,15 +281,11 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         // Get the index that the service thinks this FET belongs to
         const fetIdx = this.explanationTextService.latestExplanationIndex;
 
-        console.log(`[CQCC] 🔍 Checking FET match: CurrentQ=${currentIdx} | FET_Index=${fetIdx} | FET_Length=${fet?.length}`);
-
         // Only display if indices match and we have text
         if (fet?.trim() && fetIdx === currentIdx) {
-          console.log(`[CQCC] 🎯 MATCH! Displaying FET for Q${currentIdx + 1}`);
           const el = this.qText?.nativeElement;
           if (el) {
             el.innerHTML = fet;
-            console.log(`[CQCC] ✅ Updated h3 with FET`);
             this.cdRef.markForCheck();
           }
         }
