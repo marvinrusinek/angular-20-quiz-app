@@ -2060,6 +2060,7 @@ export class SharedOptionComponent
     index: number,
     event: MatCheckboxChange | MatRadioChange
   ): void {
+    console.log(`[updateOptionAndUI] CALLED for optionId=${optionBinding?.option?.optionId}, index=${index}`);
     const currentIndex = this.getActiveQuestionIndex() ?? 0;
 
     if (this.lastFeedbackQuestionIndex !== currentIndex) {
@@ -2599,6 +2600,8 @@ export class SharedOptionComponent
   }
 
   private resolveExplanationText(questionIndex: number): string {
+    console.log(`[resolveExplanationText] Q${questionIndex + 1} | optionsToDisplay.len=${this.optionsToDisplay?.length || 0} | currentQuestionIndex=${this.currentQuestionIndex} | resolvedQuestionIndex=${this.resolvedQuestionIndex}`);
+
     // If we have local options and this is the active question, ignore the service
     // cache validation because the service cache might hold unshuffled "default" text.
     const useLocalOptions =
@@ -2636,7 +2639,7 @@ export class SharedOptionComponent
 
     // Try to get pre-formatted explanation first
     const formatted =
-      this.explanationTextService.formattedExplanations[questionIndex].explanation.trim();
+      this.explanationTextService.formattedExplanations?.[questionIndex]?.explanation?.trim() || '';
     if (formatted) {
       console.log(
         `[✅ Using pre-formatted FET for Q${questionIndex + 1}]:`,
