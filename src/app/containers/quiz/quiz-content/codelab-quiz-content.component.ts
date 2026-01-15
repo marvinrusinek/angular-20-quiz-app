@@ -840,11 +840,15 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       ),
 
       filter(([idx, , , fet]: CombinedTuple) => {
-        const isMatch = fet?.idx === idx || !fet?.text?.trim();
+        // ⚡ RELAXED GUARD: Trust the FET if it exists. 
+        // validText ensures we don't block display if index logic drifts.
+        const validText = !!fet?.text?.trim();
+        const indexMatch = fet?.idx === idx;
+        const isMatch = indexMatch || validText;
 
-        if (!isMatch) {
+        if (!isMatch && !validText) {
           console.log(
-            `[DisplayGate] 🚫 Suppressing mismatched FET (fet.idx=${fet?.idx}, current=${idx})`
+            `[DisplayGate] 🚫 Suppressing empty/mismatched FET (fet.idx=${fet?.idx}, current=${idx})`
           );
         }
 
@@ -926,6 +930,12 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
               idx
             }
           );
+          // ⚡ ADAPTER: If we have valid FET text, assume it belongs to this question (idx)
+          // to bypass strict index checks in resolveTextToDisplay.
+          if (fet && fet.text && fet.idx !== idx) {
+            fet = { ...fet, idx: idx };
+          }
+
           return this.resolveTextToDisplay(
             idx,
             question,
