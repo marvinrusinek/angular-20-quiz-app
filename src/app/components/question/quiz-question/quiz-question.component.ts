@@ -2810,6 +2810,18 @@ export class QuizQuestionComponent extends BaseQuestion
         selectedIds.add(currentOptId);
       }
 
+      // ⚡ FIX: Synchronize QuizService.selectedOptionsMap
+      // The display logic relies on quizService.isAnswered(), which checks quizService.selectedOptionsMap.
+      // We must ensure this map is populated so isAnswered returns true.
+      const currentSelectedOptions = this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
+      // If the current option is new/checked and not yet in the service list, add it for the sync
+      // (Though addOption above should have handled it, there might be a race or we want to be sure)
+      if (evtChecked && typeof currentOptId === 'number' && !currentSelectedOptions.some(o => o.optionId === currentOptId)) {
+        currentSelectedOptions.push(evtOpt as any);
+      }
+      this.quizService.selectedOptionsMap.set(idx, currentSelectedOptions);
+      console.log(`[QQC] 🔄 Synced QuizService.selectedOptionsMap using index ${idx}`, currentSelectedOptions);
+
       // EXISTING UI / FEEDBACK LOGIC
       this.emitSelectionMessage(idx, q!, optionsNow, canonicalOpts);
       this.syncCanonicalOptionsIntoQuestion(q!, canonicalOpts);
