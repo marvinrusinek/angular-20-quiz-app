@@ -724,15 +724,36 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     if (this.questionsArray?.length > 0) {
       const initialIdx = this.currentQuestionIndex || 0;
       const initialQuestion = this.questionsArray[initialIdx];
-      if (initialQuestion) {
+      if (initialQuestion && initialQuestion.options?.length > 0) {
         console.log(`[QuizComponent] 📤 Pushing initial Q${initialIdx + 1} to combinedQuestionDataSubject`);
         this.currentQuestion = initialQuestion;
         this.questionToDisplaySource.next(initialQuestion.questionText?.trim() ?? '');
-        this.combinedQuestionDataSubject.next({
+
+        const payload = {
           question: initialQuestion,
           options: initialQuestion.options,
           explanation: initialQuestion.explanation
+        };
+
+        // Push synchronously
+        this.combinedQuestionDataSubject.next(payload);
+
+        // ⚡ FIX: Force synchronous change detection to ensure template updates
+        this.cdRef.detectChanges();
+        console.log('[QuizComponent] ✅ Forced detectChanges after initial push');
+
+        // ⚡ FIX: Also schedule a microtask push as backup for Stackblitz
+        Promise.resolve().then(() => {
+          // Re-emit in case the first one was missed
+          if (this.combinedQuestionDataSubject.getValue()?.options?.length === 0 ||
+            !this.combinedQuestionDataSubject.getValue()) {
+            console.log('[QuizComponent] 🔄 Re-emitting payload in microtask');
+            this.combinedQuestionDataSubject.next(payload);
+            this.cdRef.detectChanges();
+          }
         });
+      } else {
+        console.warn('[QuizComponent] ⚠️ Initial question has no options!', initialQuestion);
       }
     }
   }

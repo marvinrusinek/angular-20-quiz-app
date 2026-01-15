@@ -1203,6 +1203,24 @@ export class QuizQuestionComponent extends BaseQuestion
     if (this.dynamicAnswerContainer) {
       void this.loadDynamicComponent(this.currentQuestion, this.optionsToDisplay);
       this.containerInitialized = true;
+    } else {
+      // ⚡ FIX: Container not ready yet (ngOnChanges fires before ngAfterViewInit)
+      // Defer component loading until view is initialized
+      console.log('[QQC] ⏳ dynamicAnswerContainer not ready, deferring loadDynamicComponent');
+
+      const deferredLoad = () => {
+        if (this.dynamicAnswerContainer) {
+          console.log('[QQC] ✅ dynamicAnswerContainer now ready, loading component');
+          void this.loadDynamicComponent(this.currentQuestion!, this.optionsToDisplay);
+          this.containerInitialized = true;
+        } else {
+          // Still not ready, try again
+          requestAnimationFrame(deferredLoad);
+        }
+      };
+
+      // Use requestAnimationFrame to wait for view initialization
+      requestAnimationFrame(deferredLoad);
     }
 
     if (this.sharedOptionComponent) {
