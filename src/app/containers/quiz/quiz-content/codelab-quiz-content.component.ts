@@ -264,11 +264,19 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     this.setupCorrectAnswersTextDisplay();
 
     // ⚡ FIX: Direct subscription to formattedExplanation$ for guaranteed FET display
+    // Only update if fetByIndex has an entry for the current question (meaning user clicked an option)
     this.explanationTextService.formattedExplanation$
       .pipe(takeUntil(this.destroy$))
       .subscribe((fet: string) => {
-        if (fet?.trim()) {
-          console.log(`[CQCC] 🎯 formattedExplanation$ received: "${fet.substring(0, 50)}..."`);
+        const idx = this.quizService.getCurrentQuestionIndex();
+        const storedFet = this.explanationTextService.fetByIndex?.get(idx)?.trim();
+
+        // Only display FET if:
+        // 1. We received valid FET text
+        // 2. fetByIndex has an entry for this question (meaning emitFormatted was called for this Q)
+        // 3. The received FET matches what's stored (prevents showing stale FET from other questions)
+        if (fet?.trim() && storedFet && fet.trim() === storedFet) {
+          console.log(`[CQCC] 🎯 formattedExplanation$ received for Q${idx + 1}: "${fet.substring(0, 50)}..."`);
           const el = this.qText?.nativeElement;
           if (el) {
             el.innerHTML = fet;
