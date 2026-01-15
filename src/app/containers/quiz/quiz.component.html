@@ -1,7 +1,7 @@
 @let qa = combinedQuestionData$ | async;
 
 <ng-container>
-  @if (qa) {
+  @if (qa && qa.options && qa.options.length > 0) {
     <div class="animation-shell">
       <div class="anim-host" [@changeRoute]="currentQuestionIndex">
         <div class="quiz-card-wrapper">
