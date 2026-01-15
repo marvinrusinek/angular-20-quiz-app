@@ -4082,9 +4082,13 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
       // Check if any wrong answer was selected
       const hasWrongSelection = selected.some((sel: any) => {
-        const isCorrect = correctIds.has(sel.optionId) ||
-          correctTexts.has(normalize(sel.text)) ||
-          sel.correct === true;
+        const idMatch = correctIds.has(sel.optionId);
+        const textMatch = correctTexts.has(normalize(sel.text));
+        const propMatch = sel.correct === true;
+        const isCorrect = idMatch || textMatch || propMatch;
+        
+        console.log(`[DOT DEBUG] Q${index} Sel "${sel.text}" (ID:${sel.optionId}) -> Correct? ${isCorrect}. Matches: ID=${idMatch}, Text=${textMatch}, Prop=${propMatch}`);
+        
         return !isCorrect;
       });
 
