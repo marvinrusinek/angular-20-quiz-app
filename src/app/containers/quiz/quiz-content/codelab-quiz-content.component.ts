@@ -267,20 +267,16 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     await this.initializeComponent();
     this.setupCorrectAnswersTextDisplay();
 
-    // ⚡ FIX: Reset latestExplanationIndex on init to prevent stale FET on reload
-    this.explanationTextService.latestExplanationIndex = null;
-
-    // ⚡ FIX: Restore Manual Subscription. 
-    // combinedText$ stream can be blocked/filtered. We guarantee display here.
+    // ⚡ FIX: Manual Subscription for Immediate Display
     this.explanationTextService.formattedExplanation$
-      .pipe(
-        takeUntil(this.destroy$),
-        withLatestFrom(this.quizService.currentQuestionIndex$)
-      )
-      .subscribe(([fet, currentIdx]: [string, number]) => {
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((fet: string) => {
+        const currentIdx = this.quizService.getCurrentQuestionIndex();
         const fetIdx = this.explanationTextService.latestExplanationIndex;
-        // Only display if indices match and we have text (prevents Stale Q1)
-        if (fet?.trim() && fetIdx === currentIdx) {
+        const hasInteracted = this.quizStateService.hasUserInteracted(currentIdx);
+
+        // Only display if indices match, we have text, AND user interacted
+        if (fet?.trim() && fetIdx === currentIdx && hasInteracted) {
           const el = this.qText?.nativeElement;
           if (el) {
             el.innerHTML = fet;
@@ -560,8 +556,9 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
                 const fet = this.explanationTextService.formattedExplanationSubject.value;
                 const fetIdx = this.explanationTextService.latestExplanationIndex;
                 const currentIdx = this.quizService.getCurrentQuestionIndex();
+                const hasInteracted = this.quizStateService.hasUserInteracted(currentIdx);
 
-                if (fet?.trim() && fetIdx === currentIdx && fet !== v) {
+                if (fet?.trim() && fetIdx === currentIdx && hasInteracted && fet !== v) {
                   el.innerHTML = fet;
                   this.cdRef.markForCheck();
                 } else {
