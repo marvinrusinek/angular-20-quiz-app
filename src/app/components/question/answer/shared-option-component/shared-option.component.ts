@@ -2697,26 +2697,18 @@ export class SharedOptionComponent
       }
     }
 
-    // Try questions array
+    // Try questions array using direct index lookup as fallback
     if (!rawExplanation) {
-      const questionsFromService =
-        (Array.isArray(this.quizService.questions) &&
-          this.quizService.questions) ||
-        (Array.isArray((this.quizService as any).questionsArray) &&
-          (this.quizService as any).questionsArray) ||
-        (Array.isArray(this.quizService.questionsList) &&
-          this.quizService.questionsList) ||
+      const allQuestions =
+        (Array.isArray(this.quizService.questions) && this.quizService.questions) ||
+        (Array.isArray(this.quizService.questionsList) && this.quizService.questionsList) ||
         [];
 
-      const fallbackQuestion =
-        questionsFromService[activeIndex] ??
-        questionsFromService[questionIndex];
-      rawExplanation = fallbackQuestion?.explanation?.trim() || '';
-      console.log(
-        `[📝 From questions array [${activeIndex}]]:`,
-        rawExplanation.slice(0, 100)
-      );
-      console.log(`[📝 Full question object]:`, fallbackQuestion);
+      const q = allQuestions[questionIndex];
+      if (q?.explanation) {
+        rawExplanation = q.explanation.trim();
+        console.log(`[📝 Direct lookup from questions[${questionIndex}]]:`, rawExplanation.slice(0, 50));
+      }
     }
 
     if (!rawExplanation) {
