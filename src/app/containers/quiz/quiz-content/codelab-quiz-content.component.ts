@@ -262,6 +262,20 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     this.loadQuizDataFromRoute();
     await this.initializeComponent();
     this.setupCorrectAnswersTextDisplay();
+
+    // ⚡ FIX: Direct subscription to formattedExplanation$ for guaranteed FET display
+    this.explanationTextService.formattedExplanation$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((fet: string) => {
+        if (fet?.trim()) {
+          console.log(`[CQCC] 🎯 formattedExplanation$ received: "${fet.substring(0, 50)}..."`);
+          const el = this.qText?.nativeElement;
+          if (el) {
+            el.innerHTML = fet;
+            console.log(`[CQCC] ✅ Updated h3 with FET`);
+          }
+        }
+      });
   }
 
   ngOnChanges(changes: SimpleChanges) {
