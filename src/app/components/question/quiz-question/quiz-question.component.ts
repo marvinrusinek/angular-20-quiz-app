@@ -2951,7 +2951,7 @@ export class QuizQuestionComponent extends BaseQuestion
     const getKey = (o: any, i?: number) =>
       this.selectionMessageService.stableKey(o as Option, i);
 
-    const canonicalOpts = (q?.options ?? []).map((o, i) => ({
+    const canonicalOpts = (this.optionsToDisplay?.length > 0 ? this.optionsToDisplay : q?.options ?? []).map((o, i) => ({
       ...o,
       optionId: Number(o.optionId ?? getKey(o, i)),
       selected: (
