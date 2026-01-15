@@ -267,22 +267,30 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     await this.initializeComponent();
     this.setupCorrectAnswersTextDisplay();
 
-    // ⚡ FIX: Direct subscription to formattedExplanation$ for guaranteed FET display
-    // Use QuizStateService to know if user has interacted with current question
+    // ⚡ FIX: Reset latestExplanationIndex on init to prevent stale FET on reload
+    this.explanationTextService.latestExplanationIndex = null;
+
+    // ⚡ FIX: Direct subscription to formattedExplanation$ with Robust Index Matching
+    // This guarantees FET display ONLY when it belongs to the current question
     this.explanationTextService.formattedExplanation$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe((fet: string) => {
-        const idx = this.quizService.getCurrentQuestionIndex();
+      .pipe(
+        takeUntil(this.destroy$),
+        withLatestFrom(this.quizService.currentQuestionIndex$)
+      )
+      .subscribe(([fet, currentIdx]: [string, number]) => {
+        // Get the index that the service thinks this FET belongs to
+        const fetIdx = this.explanationTextService.latestExplanationIndex;
 
-        // Only display FET if user has interacted with this question
-        const hasInteracted = this.quizStateService.hasUserInteracted(idx);
+        console.log(`[CQCC] 🔍 Checking FET match: CurrentQ=${currentIdx} | FET_Index=${fetIdx} | FET_Length=${fet?.length}`);
 
-        if (fet?.trim() && hasInteracted) {
-          console.log(`[CQCC] 🎯 User interacted with Q${idx + 1}, displaying FET`);
+        // Only display if indices match and we have text
+        if (fet?.trim() && fetIdx === currentIdx) {
+          console.log(`[CQCC] 🎯 MATCH! Displaying FET for Q${currentIdx + 1}`);
           const el = this.qText?.nativeElement;
           if (el) {
             el.innerHTML = fet;
             console.log(`[CQCC] ✅ Updated h3 with FET`);
+            this.cdRef.markForCheck();
           }
         }
       });
