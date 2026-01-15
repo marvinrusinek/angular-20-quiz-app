@@ -717,6 +717,24 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         console.error('[❌ QuizComponent] Failed to fetch questions:', err);
       }
     }
+
+    // ⚡ FIX: Push initial question data immediately after questions are loaded
+    // This fixes Stackblitz timing issue where options weren't displaying because
+    // subscribeToQuestionIndex subscription wasn't triggered for initial question
+    if (this.questionsArray?.length > 0) {
+      const initialIdx = this.currentQuestionIndex || 0;
+      const initialQuestion = this.questionsArray[initialIdx];
+      if (initialQuestion) {
+        console.log(`[QuizComponent] 📤 Pushing initial Q${initialIdx + 1} to combinedQuestionDataSubject`);
+        this.currentQuestion = initialQuestion;
+        this.questionToDisplaySource.next(initialQuestion.questionText?.trim() ?? '');
+        this.combinedQuestionDataSubject.next({
+          question: initialQuestion,
+          options: initialQuestion.options,
+          explanation: initialQuestion.explanation
+        });
+      }
+    }
   }
 
   private initializeCorrectExpectedCounts(): void {
@@ -1028,7 +1046,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // ⚡ CRITICAL FIX: Trigger scoring logic
     // This was missing! Without this call, incrementScore is never triggered.
     void this.quizService.checkIfAnsweredCorrectly(normalizedQuestionIndex);
-  this.updateDotStatus(normalizedQuestionIndex);
+    this.updateDotStatus(normalizedQuestionIndex);
 
     // Selection message / next-button logic
     try {
@@ -4086,9 +4104,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         const textMatch = correctTexts.has(normalize(sel.text));
         const propMatch = sel.correct === true;
         const isCorrect = idMatch || textMatch || propMatch;
-        
+
         console.log(`[DOT DEBUG] Q${index} Sel "${sel.text}" (ID:${sel.optionId}) -> Correct? ${isCorrect}. Matches: ID=${idMatch}, Text=${textMatch}, Prop=${propMatch}`);
-        
+
         return !isCorrect;
       });
 
