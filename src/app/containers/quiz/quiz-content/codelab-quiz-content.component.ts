@@ -270,26 +270,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     // ⚡ FIX: Reset latestExplanationIndex on init to prevent stale FET on reload
     this.explanationTextService.latestExplanationIndex = null;
 
-    // ⚡ FIX: Direct subscription to formattedExplanation$ with Robust Index Matching
-    // This guarantees FET display ONLY when it belongs to the current question
-    this.explanationTextService.formattedExplanation$
-      .pipe(
-        takeUntil(this.destroy$),
-        withLatestFrom(this.quizService.currentQuestionIndex$)
-      )
-      .subscribe(([fet, currentIdx]: [string, number]) => {
-        // Get the index that the service thinks this FET belongs to
-        const fetIdx = this.explanationTextService.latestExplanationIndex;
 
-        // Only display if indices match and we have text
-        if (fet?.trim() && fetIdx === currentIdx) {
-          const el = this.qText?.nativeElement;
-          if (el) {
-            el.innerHTML = fet;
-            this.cdRef.markForCheck();
-          }
-        }
-      });
   }
 
   ngOnChanges(changes: SimpleChanges) {
@@ -564,15 +545,20 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           .subscribe({
             next: (v: string) => {
               const el = this.qText?.nativeElement;
-              const idx = this.quizService.getCurrentQuestionIndex();
-              const stored = this.explanationTextService.fetByIndex?.get(idx);
-              console.log(`[CQCC Display DEBUG] Q${idx + 1} Stream Value v="${v ? v.substring(0, 50) + '...' : ''}" | el=${!!el} | storedFET=${stored ? 'YES' : 'NO'}`);
 
               if (el && v) {
-                // ⚡ FIX: Trust the emitted value 'v' from combinedText$
-                // The upstream logic (getCombinedDisplayTextStream) already determines
-                // whether to show Question Text or FET based on state.
-                el.innerHTML = v;
+                // Hard Override: Force verified FET display if it exists for this question
+                // This solves issues where combinedText$ might revert to question text due to logic complexity
+                const fet = this.explanationTextService.formattedExplanationSubject.value;
+                const fetIdx = this.explanationTextService.latestExplanationIndex;
+                const currentIdx = this.quizService.getCurrentQuestionIndex();
+
+                if (fet?.trim() && fetIdx === currentIdx && fet !== v) {
+                  el.innerHTML = fet;
+                  this.cdRef.markForCheck();
+                } else {
+                  el.innerHTML = v;
+                }
               }
             },
             error: (err: Error) => console.error('[CQCC displayText$ error]', err)
