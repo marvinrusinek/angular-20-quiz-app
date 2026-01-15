@@ -3282,6 +3282,11 @@ export class QuizQuestionComponent extends BaseQuestion
       ets.latestExplanation = formatted;
       (ets as any).latestExplanationIndex = lockedIndex;
 
+      // ⚡ FIX: Call emitFormatted to populate fetByIndex
+      // The display logic in codelab-quiz-content checks fetByIndex.has(idx) to determine
+      // whether to show FET. Without this call, fetByIndex was never populated and FET never displayed.
+      ets.emitFormatted(lockedIndex, formatted);
+
       ets.formattedExplanationSubject?.next(formatted);
       ets.updateFormattedExplanation(formatted);
 
