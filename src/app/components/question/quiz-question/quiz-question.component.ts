@@ -2827,17 +2827,6 @@ export class QuizQuestionComponent extends BaseQuestion
       this.syncCanonicalOptionsIntoQuestion(q!, canonicalOpts);
 
       // ⚡ FIX: Synchronously format and emit FET to ensure it's ready BEFORE display state changes
-      const rawExplanation = q!.explanation || '';
-      const correctIndices = this.explanationTextService.getCorrectOptionIndices(q!, canonicalOpts);
-      const fet = this.explanationTextService.formatExplanation(q!, correctIndices, rawExplanation);
-
-      if (fet) {
-        console.log(`[QQC] ⚡ Sync FET emission for Q${idx + 1} (QuizID: ${this.quizId}) | FET="${fet.substring(0, 30)}..."`);
-        this.explanationTextService.emitFormatted(idx, fet);
-      } else {
-        console.warn(`[QQC] ⚠️ No FET generated for Q${idx + 1}`);
-      }
-
       this.optionsToDisplay = canonicalOpts; // Keep local state in sync
 
       // ⚡ FIX: Update QuizStateService state so CodelabQuizContent display logic passes
