@@ -1,6 +1,0 @@
-﻿src/app/components/question/answer/shared-option-component/shared-option.component.scss
-src/app/components/question/quiz-question/quiz-question.component.ts
-src/app/containers/quiz/quiz-content/codelab-quiz-content.component.ts
-src/app/shared/services/explanation-text.service.ts
-src/app/shared/services/quiz.service.ts
-src/app/shared/services/selectedoption.service.ts
