@@ -488,6 +488,19 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     ).subscribe({
       next: (question: QuizQuestion) => {
         const el = this.qText?.nativeElement;
+        const idx = this.quizService.getCurrentQuestionIndex();
+
+        // ⚡ FIX: Check if FET is already stored for this question
+        // If so, don't overwrite it with question text
+        const storedFet = this.explanationTextService.fetByIndex?.get(idx)?.trim();
+        if (storedFet) {
+          console.log(`[CQCC] ⚡ Skipping question text - FET already exists for Q${idx + 1}`);
+          if (el) {
+            el.innerHTML = storedFet;
+          }
+          return;
+        }
+
         if (el) {
           let text = question.questionText.trim();
 
