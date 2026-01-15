@@ -2106,6 +2106,10 @@ export class SharedOptionComponent
         this.cdRef.detectChanges();
       }
 
+      // ⚡ FIX: STILL emit explanation even for already-selected options
+      const activeIndex = this.getActiveQuestionIndex() ?? 0;
+      this.emitExplanation(activeIndex);
+
       return;
     }
 
@@ -2213,6 +2217,11 @@ export class SharedOptionComponent
         const cfg = this.feedbackConfigs[this.lastFeedbackOptionId];
         if (cfg) cfg.showFeedback = true;
       }
+
+      // ⚡ FIX: STILL emit explanation even for reselected options
+      // This ensures FET displays when user clicks an already-selected option
+      const activeIndex = this.getActiveQuestionIndex() ?? 0;
+      this.emitExplanation(activeIndex);
 
       this.cdRef.detectChanges();
       return;
