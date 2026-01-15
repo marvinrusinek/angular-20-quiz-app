@@ -405,7 +405,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
             if (!actuallyAnswered) {
               const serviceQText = (questionObj?.questionText ?? '').trim();
-              
+
               // ⚡ FIX: ALWAYS prefer question text from questionObj (via getQuestionByIndex)
               // The questionToDisplay$ input is often stale and lags behind navigation.
               // questionObj comes from getQuestionByIndex which respects shuffle and
@@ -482,7 +482,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         console.log(`[CQCC] 📍 Index changed to ${idx}, fetching question text...`);
         return this.quizService.getQuestionByIndex(idx);
       }),
-      filter((question: QuizQuestion | null): question is QuizQuestion => 
+      filter((question: QuizQuestion | null): question is QuizQuestion =>
         question !== null && !!question.questionText?.trim()
       )
     ).subscribe({
@@ -490,11 +490,11 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         const el = this.qText?.nativeElement;
         if (el) {
           let text = question.questionText.trim();
-          
+
           // Calculate if this is a multi-answer question and add the banner
           const numCorrect = question.options?.filter((o: Option) => o.correct).length ?? 0;
           const isMulti = numCorrect > 1;
-          
+
           if (isMulti) {
             const totalOpts = question.options?.length ?? 0;
             const banner = this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
@@ -506,7 +506,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
               console.log(`[CQCC] ⚡ Multi-answer Q: Adding banner "${banner}"`);
             }
           }
-          
+
           console.log(`[CQCC] ⚡ Setting text for Q: "${text.slice(0, 50)}..."`);
           el.innerHTML = text;
         }
@@ -523,22 +523,12 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           .subscribe({
             next: (v: string) => {
               const el = this.qText?.nativeElement;
-              if (!el) return;
-
-              const currentIndex = this.quizService.getCurrentQuestionIndex();
-
-              // Only handle FET (explanation text) updates here
-              // Question text is handled by the index$ subscription above
-              const hasFetForCurrentIdx = this.explanationTextService.fetByIndex?.has(currentIndex) &&
-                (this.explanationTextService.fetByIndex?.get(currentIndex)?.trim()?.length ?? 0) > 10;
-
-              const fetShownThisSession = this._fetDisplayedThisSession.has(currentIndex);
-              const storedFet = this.explanationTextService.fetByIndex?.get(currentIndex)?.trim() || '';
-
-              // Only override with FET if it's been shown this session (i.e., user has answered)
-              if (fetShownThisSession && storedFet.length > 10) {
-                console.log(`[CQCC Display] Q${currentIndex + 1} FET preserved (shown this session)`);
-                el.innerHTML = storedFet;
+              if (el && v) {
+                // ⚡ FIX: Trust the emitted value 'v' from combinedText$
+                // The upstream logic (getCombinedDisplayTextStream) already determines
+                // whether to show Question Text or FET based on state.
+                // Previous logic relied on _fetDisplayedThisSession which was broken/empty.
+                el.innerHTML = v;
               }
             },
             error: (err: Error) => console.error('[CQCC displayText$ error]', err)
@@ -662,7 +652,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     // 
     // IMPORTANT: The ONLY source of truth for question text must be getQuestionByIndex.
     // However, we also need to handle Q1's initial load when questions might not be ready.
-    
+
     // Primary source: getQuestionByIndex (authoritative, same as options)
     const authoritativeText$ = index$.pipe(
       switchMap((idx: number) => {
@@ -678,7 +668,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         )
       )
     );
-    
+
     // Fallback for Q1 initial load: try to get text from quizService.questions directly
     const initialFallback$ = this.quizService.questions$.pipe(
       filter((questions: QuizQuestion[]) => Array.isArray(questions) && questions.length > 0),
@@ -1041,14 +1031,14 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     // try to find the actual question object by matching the text.
     // This ensures we get the correct "isMulti" / banner logic for the QUESTION THAT IS ACTUALLY DISPLAYED.
     if (qText && qObj && qObj.questionText !== qText) {
-       console.warn(`[resolveTextToDisplay] ⚠️ Index Mismatch! Displaying="${qText.substring(0,15)}..." but Q[${idx}]="${qObj.questionText.substring(0,15)}..."`);
-       const matchedQ = questions.find((q: QuizQuestion) => q.questionText === qText) || 
-                        this.quizService.questions.find((q: QuizQuestion) => q.questionText === qText);
-       
-       if (matchedQ) {
-         console.log(`[resolveTextToDisplay] 🛡️ Recovered question object by text lookup.`);
-         qObj = matchedQ;
-       }
+      console.warn(`[resolveTextToDisplay] ⚠️ Index Mismatch! Displaying="${qText.substring(0, 15)}..." but Q[${idx}]="${qObj.questionText.substring(0, 15)}..."`);
+      const matchedQ = questions.find((q: QuizQuestion) => q.questionText === qText) ||
+        this.quizService.questions.find((q: QuizQuestion) => q.questionText === qText);
+
+      if (matchedQ) {
+        console.log(`[resolveTextToDisplay] 🛡️ Recovered question object by text lookup.`);
+        qObj = matchedQ;
+      }
     }
 
     // Calculate isMulti early for use throughout the function
@@ -1546,12 +1536,12 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           normalizedIncoming &&
           normalizedExpected !== normalizedIncoming
         ) {
-           console.warn('[combineCurrentQuestionAndOptions] ⚠️ Mismatch detected but ALLOWING update to fix Shuffled Stuck Text.', {
-              index,
-              normalizedExpected,
-              normalizedIncoming
-           });
-           // return true; // Just allow it
+          console.warn('[combineCurrentQuestionAndOptions] ⚠️ Mismatch detected but ALLOWING update to fix Shuffled Stuck Text.', {
+            index,
+            normalizedExpected,
+            normalizedIncoming
+          });
+          // return true; // Just allow it
         }
 
         return true;
