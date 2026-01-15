@@ -270,7 +270,24 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     // ⚡ FIX: Reset latestExplanationIndex on init to prevent stale FET on reload
     this.explanationTextService.latestExplanationIndex = null;
 
-
+    // ⚡ FIX: Restore Manual Subscription. 
+    // combinedText$ stream can be blocked/filtered. We guarantee display here.
+    this.explanationTextService.formattedExplanation$
+      .pipe(
+        takeUntil(this.destroy$),
+        withLatestFrom(this.quizService.currentQuestionIndex$)
+      )
+      .subscribe(([fet, currentIdx]: [string, number]) => {
+        const fetIdx = this.explanationTextService.latestExplanationIndex;
+        // Only display if indices match and we have text (prevents Stale Q1)
+        if (fet?.trim() && fetIdx === currentIdx) {
+          const el = this.qText?.nativeElement;
+          if (el) {
+            el.innerHTML = fet;
+            this.cdRef.markForCheck();
+          }
+        }
+      });
   }
 
   ngOnChanges(changes: SimpleChanges) {
