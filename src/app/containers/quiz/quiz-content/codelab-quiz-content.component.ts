@@ -253,6 +253,10 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
   async ngOnInit(): Promise<void> {
     this.resetInitialState();
+
+    // ⚡ FIX: Clear user interaction state to ensure question text shows first
+    this.quizStateService._hasUserInteracted?.clear();
+
     this.setupQuestionResetSubscription();
     this.initDisplayTextPipeline();
     this.resetExplanationService();
