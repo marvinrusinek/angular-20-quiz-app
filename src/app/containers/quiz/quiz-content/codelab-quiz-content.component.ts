@@ -263,30 +263,21 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     await this.initializeComponent();
     this.setupCorrectAnswersTextDisplay();
 
-    // ⚡ FIX: Clear fetByIndex entry when navigating to a new question
-    // This prevents stale FET from showing for Q1 on page load
-    this.quizService.currentQuestionIndex$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe((idx: number) => {
-        // Clear the entry for this index to start fresh
-        this.explanationTextService.fetByIndex?.delete(idx);
-        console.log(`[CQCC] 🧹 Cleared fetByIndex for Q${idx + 1}`);
-      });
-
     // ⚡ FIX: Direct subscription to formattedExplanation$ for guaranteed FET display
-    // Only update if fetByIndex has an entry for the current question (meaning user clicked an option)
+    // Use QuizStateService to know if user has interacted with current question
     this.explanationTextService.formattedExplanation$
       .pipe(takeUntil(this.destroy$))
       .subscribe((fet: string) => {
         const idx = this.quizService.getCurrentQuestionIndex();
-        const storedFet = this.explanationTextService.fetByIndex?.get(idx)?.trim();
 
-        // Only display FET if fetByIndex has an entry for THIS question
-        if (storedFet) {
-          console.log(`[CQCC] 🎯 Displaying FET for Q${idx + 1}: "${storedFet.substring(0, 50)}..."`);
+        // Only display FET if user has interacted with this question
+        const hasInteracted = this.quizStateService.hasUserInteracted(idx);
+
+        if (fet?.trim() && hasInteracted) {
+          console.log(`[CQCC] 🎯 User interacted with Q${idx + 1}, displaying FET`);
           const el = this.qText?.nativeElement;
           if (el) {
-            el.innerHTML = storedFet;
+            el.innerHTML = fet;
             console.log(`[CQCC] ✅ Updated h3 with FET`);
           }
         }
