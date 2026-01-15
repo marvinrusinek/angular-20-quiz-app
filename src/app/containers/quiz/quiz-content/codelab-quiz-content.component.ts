@@ -263,6 +263,16 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     await this.initializeComponent();
     this.setupCorrectAnswersTextDisplay();
 
+    // ⚡ FIX: Clear fetByIndex entry when navigating to a new question
+    // This prevents stale FET from showing for Q1 on page load
+    this.quizService.currentQuestionIndex$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((idx: number) => {
+        // Clear the entry for this index to start fresh
+        this.explanationTextService.fetByIndex?.delete(idx);
+        console.log(`[CQCC] 🧹 Cleared fetByIndex for Q${idx + 1}`);
+      });
+
     // ⚡ FIX: Direct subscription to formattedExplanation$ for guaranteed FET display
     // Only update if fetByIndex has an entry for the current question (meaning user clicked an option)
     this.explanationTextService.formattedExplanation$
@@ -271,15 +281,12 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         const idx = this.quizService.getCurrentQuestionIndex();
         const storedFet = this.explanationTextService.fetByIndex?.get(idx)?.trim();
 
-        // Only display FET if:
-        // 1. We received valid FET text
-        // 2. fetByIndex has an entry for this question (meaning emitFormatted was called for this Q)
-        // 3. The received FET matches what's stored (prevents showing stale FET from other questions)
-        if (fet?.trim() && storedFet && fet.trim() === storedFet) {
-          console.log(`[CQCC] 🎯 formattedExplanation$ received for Q${idx + 1}: "${fet.substring(0, 50)}..."`);
+        // Only display FET if fetByIndex has an entry for THIS question
+        if (storedFet) {
+          console.log(`[CQCC] 🎯 Displaying FET for Q${idx + 1}: "${storedFet.substring(0, 50)}..."`);
           const el = this.qText?.nativeElement;
           if (el) {
-            el.innerHTML = fet;
+            el.innerHTML = storedFet;
             console.log(`[CQCC] ✅ Updated h3 with FET`);
           }
         }
