@@ -523,11 +523,14 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           .subscribe({
             next: (v: string) => {
               const el = this.qText?.nativeElement;
+              const idx = this.quizService.getCurrentQuestionIndex();
+              const stored = this.explanationTextService.fetByIndex?.get(idx);
+              console.log(`[CQCC Display DEBUG] Q${idx + 1} Stream Value v="${v ? v.substring(0, 50) + '...' : ''}" | el=${!!el} | storedFET=${stored ? 'YES' : 'NO'}`);
+
               if (el && v) {
                 // ⚡ FIX: Trust the emitted value 'v' from combinedText$
                 // The upstream logic (getCombinedDisplayTextStream) already determines
                 // whether to show Question Text or FET based on state.
-                // Previous logic relied on _fetDisplayedThisSession which was broken/empty.
                 el.innerHTML = v;
               }
             },
