@@ -1110,9 +1110,8 @@ export class ExplanationTextService {
 
     if (index !== this._activeIndex) {
       console.log(
-        `[emitFormatted] Index mismatch: active=${this._activeIndex}, requested=${index} -> SYNCING activeIndex`,
+        `[emitFormatted] Index mismatch: active=${this._activeIndex}, requested=${index}`,
       );
-      this._activeIndex = index;
     }
 
     const trimmed = (value ?? '').trim();
