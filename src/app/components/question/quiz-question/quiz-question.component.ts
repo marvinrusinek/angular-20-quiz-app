@@ -2772,6 +2772,10 @@ export class QuizQuestionComponent extends BaseQuestion
     this.resetExplanationBeforeClick(idx);
     this.prepareClickCycle();
 
+    // ⚡ FIX: Mark user interaction EARLY so hasUserInteracted guard passes in fireAndForgetExplanationUpdate
+    // This was missing and caused FET to be blocked with "[FET SKIP] User has not interacted yet"
+    this.quizStateService.markUserInteracted(idx);
+
     try {
       await this.waitForInteractionReady();
 
