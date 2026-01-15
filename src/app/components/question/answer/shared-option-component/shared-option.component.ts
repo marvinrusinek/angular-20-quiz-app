@@ -2486,6 +2486,10 @@ export class SharedOptionComponent
     explanationText: string,
     questionIndex: number
   ): void {
+    // ⚡ FIX: Mark interaction FIRST so that when emitFormatted triggers the subscriber,
+    // the 'hasUserInteracted' check passes immediately.
+    this.quizStateService.markUserInteracted(questionIndex);
+
     const contextKey = this.buildExplanationContext(questionIndex);
 
     // Set active index and emit FET before locking
@@ -2521,9 +2525,6 @@ export class SharedOptionComponent
       mode: 'explanation',
       answered: true
     });
-
-    // Mark question as having user interaction
-    this.quizStateService.markUserInteracted(questionIndex);
   }
 
   private buildExplanationContext(questionIndex: number): string {
