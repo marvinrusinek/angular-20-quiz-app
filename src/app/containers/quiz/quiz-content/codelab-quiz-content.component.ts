@@ -993,26 +993,26 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         }
 
         // Hard Override: once answered, FET wins if it exists
+        // ⚡ FIX: Check fetByIndex directly without relying on quizId matching
+        // (quizId may differ between QuizQuestionComponent and this component)
         try {
-          const quizId = this.quizId ?? '';
-          if (quizId) {
-            const qState = this.quizStateService.getQuestionState(quizId, idx);
-            const isAnswered = qState?.isAnswered || qState?.explanationDisplayed;
+          const indexFet = this.explanationTextService.fetByIndex?.get(idx)?.trim() || '';
 
-            if (isAnswered) {
-              // ONLY use index-specific FET, not global values
-              const indexFet = this.explanationTextService.fetByIndex?.get(idx)?.trim() || '';
-              console.log(`[CQCC Final] idx=${idx} isAnswered=true. FetByIndex="${indexFet.substring(0, 30)}..."`);
+          if (indexFet) {
+            console.log(`[CQCC Final] Direct FET check for idx=${idx}: "${indexFet.substring(0, 30)}..."`);
+            return indexFet as string;
+          }
 
-              if (indexFet) {
-                return indexFet as string;
-              }
-              // no FET? fall back to whatever base decided
-              return base;
-            }
+          // Also check quizStateService for isAnswered (with fallback quizId)
+          const quizId = this.quizId || this.quizService?.quizId || 'default';
+          const qState = this.quizStateService.getQuestionState(quizId, idx);
+          const isAnswered = qState?.isAnswered || qState?.explanationDisplayed;
+
+          if (isAnswered) {
+            console.log(`[CQCC Final] isAnswered=true but no FET for idx=${idx}, using base`);
           }
         } catch (err: any) {
-          console.warn('[CQCC] ⚠️ Answered override check failed', err);
+          console.warn('[CQCC] ⚠️ Hard Override check failed', err);
         }
 
         // Default: use base text (usually question)
