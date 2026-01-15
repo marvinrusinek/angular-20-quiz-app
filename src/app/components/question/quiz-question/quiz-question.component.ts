@@ -2838,6 +2838,10 @@ export class QuizQuestionComponent extends BaseQuestion
 
       this.optionsToDisplay = canonicalOpts; // Keep local state in sync
 
+      // ⚡ FIX: Update QuizStateService state so CodelabQuizContent display logic passes
+      // CodelabQuizContent checks getQuestionState(idx).isAnswered !!
+      this.quizStateService.updateQuestionState(this.quizId, idx, { isAnswered: true }, 0);
+
       const allCorrect = this.computeCorrectness(q!, canonicalOpts, evtOpt, idx);
       this._lastAllCorrect = allCorrect;
 
