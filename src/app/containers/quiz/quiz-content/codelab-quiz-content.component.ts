@@ -273,10 +273,9 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       .subscribe((fet: string) => {
         const currentIdx = this.quizService.getCurrentQuestionIndex();
         const fetIdx = this.explanationTextService.latestExplanationIndex;
-        const hasInteracted = this.quizStateService.hasUserInteracted(currentIdx);
 
-        // Only display if indices match, we have text, AND user interacted
-        if (fet?.trim() && fetIdx === currentIdx && hasInteracted) {
+        // Only display if indices match and we have text
+        if (fet?.trim() && fetIdx === currentIdx) {
           const el = this.qText?.nativeElement;
           if (el) {
             el.innerHTML = fet;
