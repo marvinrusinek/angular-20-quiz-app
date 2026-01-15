@@ -257,12 +257,50 @@ export class SharedOptionComponent
   }
 
   private setupFallbackRendering(): void {
-    setTimeout(() => {
-      if (!this.renderReady || !this.optionsToDisplay?.length) {
-        this.showNoOptionsFallback = true;
-        this.cdRef.markForCheck();
-      }
-    }, 150);
+    // ⚡ FIX: Stackblitz can be slower, so we retry at multiple intervals
+    // before showing the fallback message
+    const checkAndRetry = (attempt: number) => {
+      const maxAttempts = 5;  // Increased for Stackblitz
+      const delays = [100, 200, 400, 800, 1500]; // Progressive delays for retries
+
+      setTimeout(() => {
+        // If options are now ready, try to initialize them
+        if (this.optionsToDisplay?.length && !this.optionBindings?.length) {
+          console.log(`[SOC] 🔄 Fallback retry ${attempt}: Options arrived, generating bindings`);
+          this.generateOptionBindings();
+          this.cdRef.markForCheck();
+          return;
+        }
+
+        // If we have options and bindings but display flags aren't set, fix them
+        if (this.optionsToDisplay?.length && this.optionBindings?.length) {
+          if (!this.showOptions || !this.renderReady) {
+            console.log(`[SOC] 🔧 Fallback retry ${attempt}: Fixing display flags`);
+            this.showOptions = true;
+            this.renderReady = true;
+            this.optionsReady = true;
+            this.showNoOptionsFallback = false;
+            this.cdRef.markForCheck();
+          }
+          return;
+        }
+
+        // If we've exhausted retries, show fallback
+        if (attempt >= maxAttempts) {
+          if (!this.renderReady || !this.optionsToDisplay?.length) {
+            console.warn('[SOC] ⚠️ Options still not ready after retries, showing fallback');
+            this.showNoOptionsFallback = true;
+            this.cdRef.markForCheck();
+          }
+          return;
+        }
+
+        // Try again
+        checkAndRetry(attempt + 1);
+      }, delays[attempt - 1] || 1500);
+    };
+
+    checkAndRetry(1);
   }
 
   private initializeConfiguration(): void {
@@ -746,6 +784,9 @@ export class SharedOptionComponent
       console.warn(
         '[⚠️ SOC] ngOnChanges not triggered, forcing optionBindings generation'
       );
+      // ⚡ FIX: Actually call generateOptionBindings() instead of just logging
+      // This ensures showOptions gets set to true and options render correctly
+      this.generateOptionBindings();
     }
 
     this.viewInitialized = true;

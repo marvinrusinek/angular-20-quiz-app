@@ -131,6 +131,13 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     this.quizQuestionLoaderService.optionsStream$
       .pipe(takeUntil(this.destroy$))
       .subscribe((opts: Option[]) => {
+        // ⚡ FIX: Skip empty arrays to prevent BehaviorSubject initial emission
+        // from clearing valid options that may have arrived via @Input
+        if (!opts?.length) {
+          console.log('[AC] ⏭️ Skipping empty optionsStream$ emission');
+          return;
+        }
+
         this.incomingOptions = this.normalizeOptions(structuredClone(opts));
 
         //  Clear prior icons and bindings (clean slate)

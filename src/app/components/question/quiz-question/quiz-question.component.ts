@@ -6,10 +6,14 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
-import { BehaviorSubject, firstValueFrom, from, Observable, of, ReplaySubject,
-  Subject, Subscription } from 'rxjs';
-import { catchError, debounceTime, distinctUntilChanged, filter, map, skip,
-  switchMap, take, takeUntil, tap, timeout } from 'rxjs/operators';
+import {
+  BehaviorSubject, firstValueFrom, from, Observable, of, ReplaySubject,
+  Subject, Subscription
+} from 'rxjs';
+import {
+  catchError, debounceTime, distinctUntilChanged, filter, map, skip,
+  switchMap, take, takeUntil, tap, timeout
+} from 'rxjs/operators';
 import { MatCheckbox } from '@angular/material/checkbox';
 import { MatRadioButton } from '@angular/material/radio';
 
@@ -1933,6 +1937,11 @@ export class QuizQuestionComponent extends BaseQuestion
 
         // Set renderReady on AnswerComponent so SharedOptionComponent displays
         instance.renderReady = true;
+
+        // ⚡ FIX: Trigger change detection after setting renderReady
+        // This ensures template updates in Stackblitz's slower environment
+        this.cdRef.detectChanges();
+        console.log('[QQC] ✅ Triggered change detection after setting renderReady');
       } else {
         this.updateShouldRenderOptions(instance.optionsToDisplay);
         console.warn('[⚠️ Skipping render — options not ready]', {
@@ -2120,7 +2129,7 @@ export class QuizQuestionComponent extends BaseQuestion
         // For shuffled quizzes, the Service provides an ID that maps to the ORIGINAL question index.
         // Overwriting this destroys correctness checks.
         // optionId: this.currentQuestionIndex * 100 + (i + 1),
-        optionId: opt.optionId, 
+        optionId: opt.optionId,
         selected: false,
         highlight: false,
         showIcon: false,
@@ -2497,7 +2506,7 @@ export class QuizQuestionComponent extends BaseQuestion
       // This overwrites unique IDs assigned by QuizShuffleService (e.g. based on original Q index)
       // with generic 0, 1, 2... which breaks tracking and integrity.
       if (question.options?.length) {
-          // Verify options exist but do not modify them
+        // Verify options exist but do not modify them
       } else {
         console.error(`❌ No options found for Q${index}: ${question.questionText}`);
       }
