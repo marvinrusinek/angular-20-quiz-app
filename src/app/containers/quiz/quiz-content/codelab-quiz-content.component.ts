@@ -1003,6 +1003,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             if (isAnswered) {
               // ONLY use index-specific FET, not global values
               const indexFet = this.explanationTextService.fetByIndex?.get(idx)?.trim() || '';
+              console.log(`[CQCC Final] idx=${idx} isAnswered=true. FetByIndex="${indexFet.substring(0, 30)}..."`);
 
               if (indexFet) {
                 return indexFet as string;

@@ -2832,8 +2832,10 @@ export class QuizQuestionComponent extends BaseQuestion
       const fet = this.explanationTextService.formatExplanation(q!, correctIndices, rawExplanation);
 
       if (fet) {
-        console.log(`[QQC] ⚡ Sync FET emission for Q${idx + 1}`);
+        console.log(`[QQC] ⚡ Sync FET emission for Q${idx + 1} (QuizID: ${this.quizId}) | FET="${fet.substring(0, 30)}..."`);
         this.explanationTextService.emitFormatted(idx, fet);
+      } else {
+        console.warn(`[QQC] ⚠️ No FET generated for Q${idx + 1}`);
       }
 
       this.optionsToDisplay = canonicalOpts; // Keep local state in sync
@@ -2841,6 +2843,7 @@ export class QuizQuestionComponent extends BaseQuestion
       // ⚡ FIX: Update QuizStateService state so CodelabQuizContent display logic passes
       // CodelabQuizContent checks getQuestionState(idx).isAnswered !!
       this.quizStateService.updateQuestionState(this.quizId, idx, { isAnswered: true }, 0);
+      console.log(`[QQC] Updated QState: idx=${idx}, isAnswered=true, QuizID=${this.quizId}`);
 
       const allCorrect = this.computeCorrectness(q!, canonicalOpts, evtOpt, idx);
       this._lastAllCorrect = allCorrect;
