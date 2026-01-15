@@ -2707,7 +2707,6 @@ export class SharedOptionComponent
       const q = allQuestions[questionIndex];
       if (q?.explanation) {
         rawExplanation = q.explanation.trim();
-        console.log(`[📝 Direct lookup from questions[${questionIndex}]]:`, rawExplanation.slice(0, 50));
       }
     }
 
