@@ -84,7 +84,14 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
   @Input() set questionIndex(idx: number) {
     // Remember the index and clear any old override
+    this.questionIndexSubject.next(idx);
     this.currentIndex = idx;
+    
+    // ⚡ FIX: Force clear view to prevent previous question's FET leaking (e.g. Q1 FET on Q2)
+    if (this.qText?.nativeElement) {
+      this.qText.nativeElement.innerHTML = '';
+    }
+
     this.overrideSubject.next({ idx, html: '' });
     this.clearCachedQuestionArtifacts(idx);
 
@@ -96,11 +103,18 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
     // Check if ANY option in this question has been selected
     // This is the most reliable check - options are the source of truth
-    const currentQuestion = this.quizService.questions[idx];
+    const isShuffled = this.quizService.isShuffleEnabled() && Array.isArray(this.quizService.shuffledQuestions) && this.quizService.shuffledQuestions.length > 0;
+    const currentQuestion = isShuffled 
+      ? this.quizService.shuffledQuestions[idx] 
+      : this.quizService.questions[idx];
+      
     const hasSelectedOption =
       currentQuestion?.options?.some((o: Option) => o.selected) ?? false;
 
-    if (!hasSelectedOption) {
+    // Verify against service state to prevent false positives from stale option objects
+    const isRecordedAsAnswered = this.quizService.selectedOptionsMap?.has(idx);
+
+    if (!hasSelectedOption || !isRecordedAsAnswered) {
       // No valid FET for this question = it wasn't answered, clear everything
       ets.resetForIndex(idx);
       ets.latestExplanation = '';
@@ -108,7 +122,8 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       ets.formattedExplanationSubject.next('');
       ets.explanationText$.next('');
       // Clear any cached FET for this index to prevent stale FET display
-      ets.fetByIndex.delete(idx);
+      // fetByIndex is NOT cleared here, so we can use it as a fallback cache
+
       // Also clear the local question text cache which may have stale FET
       this._lastQuestionTextByIndex?.delete(idx);
       // Clear stale selectedOptionsMap entry so isAnswered() returns false
@@ -160,7 +175,8 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   private overrideSubject =
     new BehaviorSubject<{ idx: number; html: string }>({ idx: -1, html: '' });
   private currentIndex = -1;
-  currentIndex$ = this.quizService.currentQuestionIndex$;
+  private questionIndexSubject = new BehaviorSubject<number>(0);
+  currentIndex$ = this.questionIndexSubject.asObservable();
   private explanationCache = new Map<string, string>();
   private lastExplanationMarkupByKey = new Map<string, string>();
   private pendingExplanationRequests = new Map<string, Subscription>();
@@ -253,6 +269,10 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
   async ngOnInit(): Promise<void> {
     this.resetInitialState();
+
+    // ⚡ FIX: Clear user interaction state to ensure question text shows first
+    this.quizStateService._hasUserInteracted?.clear();
+
     this.setupQuestionResetSubscription();
     this.initDisplayTextPipeline();
     this.resetExplanationService();
@@ -262,6 +282,50 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     this.loadQuizDataFromRoute();
     await this.initializeComponent();
     this.setupCorrectAnswersTextDisplay();
+
+
+
+    // ⚡ FIX: Manual Subscription for Immediate Display
+    // ⚡ FIX: Manual Subscription for Immediate Display
+    // ⚡ FIX: Manual Subscription for Immediate Display - ROBUST VERSION
+    // ⚡ FIX: Removed Manual Subscription to prevent race conditions.
+    // The robust displayText$ pipeline (via subscribeToDisplayText) is now the SINGLE source of truth.
+    // It correctly handles:
+    // 1. Unshuffled/Shuffled text resolution
+    // 2. Fallback to fetByIndex cache
+    // 3. Strict mode checking (Question vs Explanation)
+    // 4. Multi-answer banners
+    
+    // ⚡ FIX: Subscribe to quesitons$ to REGENERATE FETs when questions/shuffling changes
+
+    // ⚡ FIX: Subscribe to quesitons$ to REGENERATE FETs when questions/shuffling changes
+    // This ensures that "Option 1 is correct" matches the ACTUAL visual order of options
+    // if they have been shuffled.
+    this.quizService.questions$
+      .pipe(
+        takeUntil(this.destroy$),
+        filter(qs => Array.isArray(qs) && qs.length > 0)
+      )
+      .subscribe((questions) => {
+        console.log('[CQCC] ♻️ Questions updated - Regenerating FETs for synchronization...');
+        
+        // ⚡ FIX: Sync FET Cache with Shuffled Order
+        // If shuffling is active, we must store FETs based on the SHUFFLED questions array.
+        // Otherwise, fetByIndex[2] holds Unshuffled-Q3's FET, but we display Shuffled-Q2 (Orig-Q5).
+        const isShuffled = this.quizService.isShuffleEnabled();
+        const questionsToUse = isShuffled && this.quizService.shuffledQuestions && this.quizService.shuffledQuestions.length > 0
+          ? this.quizService.shuffledQuestions
+          : questions;
+
+        if (!Array.isArray(questionsToUse)) return;
+
+        questionsToUse.forEach((q, idx) => {
+          if (q && q.explanation) {
+            // Re-store/Format using the CURRENT/SHUFFLED question object 
+            this.explanationTextService.storeFormattedExplanation(idx, q.explanation, q);
+          }
+        });
+      });
   }
 
   ngOnChanges(changes: SimpleChanges) {
@@ -337,7 +401,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
   private initDisplayTextPipeline(): void {
     // Resolve the correct question object (respecting shuffle) for the current index
-    const questionForIndex$ = this.quizService.currentQuestionIndex$.pipe(
+    const questionForIndex$ = this.currentIndex$.pipe(
       switchMap((idx: number) => this.quizService.getQuestionByIndex(idx))
     );
 
@@ -347,19 +411,27 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       this.formattedExplanation$,
       this.currentIndex$,
       this.quizService.questions$.pipe(
-        filter((q: QuizQuestion[]) => Array.isArray(q) && q.length > 0),
+        map(() => {
+          const isShuffled = this.quizService.isShuffleEnabled();
+          const activeQuestions = isShuffled && this.quizService.shuffledQuestions?.length
+            ? this.quizService.shuffledQuestions
+            : this.quizService.questions;
+          return activeQuestions;
+        }),
         startWith(this.quizService.questions || [])
-      ),
-      questionForIndex$,
+      )
     ]).pipe(
+      // ⚡ FIX: Sync Guard - Block stale index emissions during transition
+      filter(([state, qText, fetPayload, idx, questions]) => {
+         return idx === this.currentIndex;
+      }),
       debounceTime(50),
-      switchMap(([state, qText, fetPayload, idx, questions, questionObj]: [
+      switchMap(([state, qText, fetPayload, idx, questions]: [
         { mode: 'question' | 'explanation'; answered: boolean },
         string | null,
         FETPayload,
         number,
-        QuizQuestion[],
-        QuizQuestion | null
+        QuizQuestion[]
       ]) => {
         const safeIdx = Number.isFinite(idx)
           ? idx
@@ -369,15 +441,15 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
         const rawQText = (qText as string)?.trim();
 
-        // ⚡ FIX: ALWAYS prioritize questionObj (from getQuestionByIndex via questionForIndex$)
-        // This is the ONLY source that correctly respects shuffle state and matches the options.
-        // The questions array from questions$ can be stale and cause text/options mismatch.
-        const qObj =
-          questionObj ||
-          (Array.isArray(questions) ? questions[safeIdx] : undefined) ||
-          (Array.isArray(this.quizService.questions)
-            ? this.quizService.questions[safeIdx]
-            : undefined);
+        // ⚡ FIX: Late Binding for Questions Array
+        // Pipeline argument 'questions' might be stale (from startWith empty).
+        // Check Service properties directly at execution time to guarantee latest data.
+        const isShuffled = this.quizService.isShuffleEnabled();
+        const latestQuestions = isShuffled 
+            ? (this.quizService.shuffledQuestions?.length ? this.quizService.shuffledQuestions : questions)
+            : (this.quizService.questions?.length ? this.quizService.questions : questions);
+            
+        const qObj = (latestQuestions && latestQuestions[safeIdx]) ? latestQuestions[safeIdx] : null;
 
         return this.quizService.isAnswered(safeIdx).pipe(
           map((isAnswered: boolean) => {
@@ -385,9 +457,17 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             const dummyQText = (qText ?? '').trim();
             const trimmedQText = dummyQText;
 
+            // DIAGNOSTIC LOGGING
+            const isShuffled = this.quizService.isShuffleEnabled();
+            console.log(`[displayText$] 🔍 Q${safeIdx+1} Shuffled=${isShuffled} hasQObj=${!!qObj} Opts=${qObj?.options?.length}`);
+
             const numCorrect =
               qObj?.options?.filter((o: Option) => o.correct).length || 0;
+            console.log(`[displayText$] 🔢 Q${safeIdx+1} numCorrect=${numCorrect}`);
+
             const isMulti = numCorrect > 1;
+            console.log(`[displayText$] 🚩 Q${safeIdx+1} isMulti=${isMulti}`);
+
 
             let bannerText = '';
             if (isMulti && qObj) {
@@ -401,16 +481,20 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
             const hasFetStored = this.explanationTextService.fetByIndex?.has(safeIdx) &&
               (this.explanationTextService.fetByIndex?.get(safeIdx)?.trim()?.length ?? 0) > 10;
-            const actuallyAnswered = isAnswered && hasFetStored;
+            const currentMode = state?.mode || this.quizStateService.displayStateSubject.getValue().mode;
+            const actuallyAnswered = isAnswered && hasFetStored && currentMode === 'explanation';
 
             if (!actuallyAnswered) {
-              const serviceQText = (questionObj?.questionText ?? '').trim();
-              
+              const serviceQText = (qObj?.questionText ?? '').trim();
+
               // ⚡ FIX: ALWAYS prefer question text from questionObj (via getQuestionByIndex)
               // The questionToDisplay$ input is often stale and lags behind navigation.
               // questionObj comes from getQuestionByIndex which respects shuffle and
               // is the same source as options, ensuring text and options are synchronized.
-              const effectiveQText = serviceQText || rawQText || '';
+              // ⚡ FIX: Definitively use qObj.questionText as primary source.
+              // qObj is already resolved to be the correct shuffled/unshuffled question for safeIdx.
+              // This bypasses any stale 'questionForIndex' or 'questionToDisplay' inputs.
+              const effectiveQText = qObj?.questionText?.trim() || serviceQText || rawQText || '';
 
               if (!effectiveQText) {
                 console.warn(`[displayText$] ⚠️ Q${safeIdx + 1} No safe text available yet.`);
@@ -425,15 +509,15 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             }
 
             const belongsToIndex = fetPayload?.idx === safeIdx;
-            const trimmedFet = belongsToIndex
-              ? (fetPayload?.text ?? '').trim()
-              : '';
-
-            const isValidFet =
-              belongsToIndex &&
+            // ⚡ FIX: Fallback to cached FET if stream payload is empty or mismatch
+            // This ensures we pick up the FET stored by storeFormattedExplanation even if the stream hasn't emitted yet
+            const trimmedFet = (belongsToIndex ? (fetPayload?.text ?? '') : '') || 
+                               (this.explanationTextService.fetByIndex.get(safeIdx) ?? '');
+            
+            const isValidFet = 
               trimmedFet !== 'No explanation available' &&
               trimmedFet !== 'No explanation available for this question.' &&
-              trimmedFet.length > 10;
+              trimmedFet.trim().length > 10;
 
             if (mode === 'explanation') {
               if (isValidFet) {
@@ -472,79 +556,26 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   }
 
   private subscribeToDisplayText(): void {
-    this.combinedText$ = this.getCombinedDisplayTextStream();
+    this.combinedText$ = this.displayText$;
 
-    // ⚡ FIX: Create a PERSISTENT subscription that updates question text on EVERY index change
-    // This is the authoritative mechanism that ensures question text matches options.
-    // getQuestionByIndex is the same source used for options, guaranteeing synchronization.
-    this.quizService.currentQuestionIndex$.pipe(
-      switchMap((idx: number) => {
-        console.log(`[CQCC] 📍 Index changed to ${idx}, fetching question text...`);
-        return this.quizService.getQuestionByIndex(idx);
-      }),
-      filter((question: QuizQuestion | null): question is QuizQuestion => 
-        question !== null && !!question.questionText?.trim()
-      )
-    ).subscribe({
-      next: (question: QuizQuestion) => {
-        const el = this.qText?.nativeElement;
-        if (el) {
-          let text = question.questionText.trim();
-          
-          // Calculate if this is a multi-answer question and add the banner
-          const numCorrect = question.options?.filter((o: Option) => o.correct).length ?? 0;
-          const isMulti = numCorrect > 1;
-          
-          if (isMulti) {
-            const totalOpts = question.options?.length ?? 0;
-            const banner = this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
-              numCorrect,
-              totalOpts
-            );
-            if (banner) {
-              text = `${text} <span class="correct-count">${banner}</span>`;
-              console.log(`[CQCC] ⚡ Multi-answer Q: Adding banner "${banner}"`);
-            }
+    if (this.combinedSub) {
+      this.combinedSub.unsubscribe();
+    }
+
+    this.combinedSub = this.combinedText$
+      .pipe(distinctUntilChanged())
+      .subscribe({
+        next: (text: string) => {
+          const el = this.qText?.nativeElement;
+          if (el) {
+            // Simple, single source of truth. Validated by displayText$ pipeline.
+            // Fast-path FET updates are handled by the manual subscription in ngOnInit.
+            el.innerHTML = text;
+            this.cdRef.markForCheck();
           }
-          
-          console.log(`[CQCC] ⚡ Setting text for Q: "${text.slice(0, 50)}..."`);
-          el.innerHTML = text;
-        }
-      },
-      error: (err: Error) => console.error('[CQCC] Error in index subscription:', err)
-    });
-
-    // Still set up combinedText$ for FET (explanation text) handling
-    setTimeout(() => {
-      if (this.combinedText$ && !this.combinedSub) {
-        console.log(`[CQCC TIMEOUT] Setting up subscription to combinedText$...`);
-        this.combinedSub = this.combinedText$
-          .pipe(distinctUntilChanged())
-          .subscribe({
-            next: (v: string) => {
-              const el = this.qText?.nativeElement;
-              if (!el) return;
-
-              const currentIndex = this.quizService.getCurrentQuestionIndex();
-
-              // Only handle FET (explanation text) updates here
-              // Question text is handled by the index$ subscription above
-              const hasFetForCurrentIdx = this.explanationTextService.fetByIndex?.has(currentIndex) &&
-                (this.explanationTextService.fetByIndex?.get(currentIndex)?.trim()?.length ?? 0) > 10;
-
-              const fetShownThisSession = this._fetDisplayedThisSession.has(currentIndex);
-              const storedFet = this.explanationTextService.fetByIndex?.get(currentIndex)?.trim() || '';
-
-              // Only override with FET if it's been shown this session (i.e., user has answered)
-              if (fetShownThisSession && storedFet.length > 10) {
-                console.log(`[CQCC Display] Q${currentIndex + 1} FET preserved (shown this session)`);
-                el.innerHTML = storedFet;
-              }
-            },
-            error: (err: Error) => console.error('[CQCC displayText$ error]', err)
-          });
-      }
-    }, 50);
+        },
+        error: (err: Error) => console.error('[CQCC displayText$ error]', err)
+      });
   }
 
   private setupContentAvailability(): void {
@@ -662,7 +693,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     // 
     // IMPORTANT: The ONLY source of truth for question text must be getQuestionByIndex.
     // However, we also need to handle Q1's initial load when questions might not be ready.
-    
+
     // Primary source: getQuestionByIndex (authoritative, same as options)
     const authoritativeText$ = index$.pipe(
       switchMap((idx: number) => {
@@ -678,7 +709,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         )
       )
     );
-    
+
     // Fallback for Q1 initial load: try to get text from quizService.questions directly
     const initialFallback$ = this.quizService.questions$.pipe(
       filter((questions: QuizQuestion[]) => Array.isArray(questions) && questions.length > 0),
@@ -847,11 +878,15 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       ),
 
       filter(([idx, , , fet]: CombinedTuple) => {
-        const isMatch = fet?.idx === idx || !fet?.text?.trim();
+        // ⚡ RELAXED GUARD: Trust the FET if it exists. 
+        // validText ensures we don't block display if index logic drifts.
+        const validText = !!fet?.text?.trim();
+        const indexMatch = fet?.idx === idx;
+        const isMatch = indexMatch || validText;
 
-        if (!isMatch) {
+        if (!isMatch && !validText) {
           console.log(
-            `[DisplayGate] 🚫 Suppressing mismatched FET (fet.idx=${fet?.idx}, current=${idx})`
+            `[DisplayGate] 🚫 Suppressing empty/mismatched FET (fet.idx=${fet?.idx}, current=${idx})`
           );
         }
 
@@ -933,6 +968,12 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
               idx
             }
           );
+          // ⚡ ADAPTER: If we have valid FET text, assume it belongs to this question (idx)
+          // to bypass strict index checks in resolveTextToDisplay.
+          if (fet && fet.text && fet.idx !== idx) {
+            fet = { ...fet, idx: idx };
+          }
+
           return this.resolveTextToDisplay(
             idx,
             question,
@@ -990,25 +1031,30 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         }
 
         // Hard Override: once answered, FET wins if it exists
-        try {
-          const quizId = this.quizId ?? '';
-          if (quizId) {
+        // ⚡ FIX: strictly respect mode === 'explanation' check
+        // We only check for Hard Override if we are in explanation mode OR
+        // if we are explicitly checking for an answered state that necessitates explanation.
+        // The previous unconditional check forced FET display even in question mode.
+        if (mode === 'explanation') {
+          try {
+            const indexFet = this.explanationTextService.fetByIndex?.get(idx)?.trim() || '';
+
+            if (indexFet) {
+              console.log(`[CQCC Final] Direct FET check for idx=${idx}: "${indexFet.substring(0, 30)}..."`);
+              return indexFet as string;
+            }
+
+            // Also check quizStateService for isAnswered (with fallback quizId)
+            const quizId = this.quizId || this.quizService?.quizId || 'default';
             const qState = this.quizStateService.getQuestionState(quizId, idx);
             const isAnswered = qState?.isAnswered || qState?.explanationDisplayed;
 
             if (isAnswered) {
-              // ONLY use index-specific FET, not global values
-              const indexFet = this.explanationTextService.fetByIndex?.get(idx)?.trim() || '';
-
-              if (indexFet) {
-                return indexFet as string;
-              }
-              // no FET? fall back to whatever base decided
-              return base;
+              console.log(`[CQCC Final] isAnswered=true but no FET for idx=${idx}, using base`);
             }
+          } catch (err: any) {
+            console.warn('[CQCC] ⚠️ Hard Override check failed', err);
           }
-        } catch (err: any) {
-          console.warn('[CQCC] ⚠️ Answered override check failed', err);
         }
 
         // Default: use base text (usually question)
@@ -1041,14 +1087,14 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     // try to find the actual question object by matching the text.
     // This ensures we get the correct "isMulti" / banner logic for the QUESTION THAT IS ACTUALLY DISPLAYED.
     if (qText && qObj && qObj.questionText !== qText) {
-       console.warn(`[resolveTextToDisplay] ⚠️ Index Mismatch! Displaying="${qText.substring(0,15)}..." but Q[${idx}]="${qObj.questionText.substring(0,15)}..."`);
-       const matchedQ = questions.find((q: QuizQuestion) => q.questionText === qText) || 
-                        this.quizService.questions.find((q: QuizQuestion) => q.questionText === qText);
-       
-       if (matchedQ) {
-         console.log(`[resolveTextToDisplay] 🛡️ Recovered question object by text lookup.`);
-         qObj = matchedQ;
-       }
+      console.warn(`[resolveTextToDisplay] ⚠️ Index Mismatch! Displaying="${qText.substring(0, 15)}..." but Q[${idx}]="${qObj.questionText.substring(0, 15)}..."`);
+      const matchedQ = questions.find((q: QuizQuestion) => q.questionText === qText) ||
+        this.quizService.questions.find((q: QuizQuestion) => q.questionText === qText);
+
+      if (matchedQ) {
+        console.log(`[resolveTextToDisplay] 🛡️ Recovered question object by text lookup.`);
+        qObj = matchedQ;
+      }
     }
 
     // Calculate isMulti early for use throughout the function
@@ -1208,6 +1254,12 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         this.quizService.quizId = quizId;
         localStorage.setItem('quizId', quizId);  // store quizId in localStorage
         this.currentQuestionIndexValue = zeroBasedIndex;
+        
+        // ⚡ FIX: Sync internal index state with Route immediately
+        // This ensures displayText$ pipeline gets the correct index even if Input binding lags
+        this.questionIndexSubject.next(zeroBasedIndex);
+        this.currentIndex = zeroBasedIndex;
+        
         await this.loadQuestion(quizId, zeroBasedIndex);
       } else {
         console.error('Quiz ID is missing from route parameters');
@@ -1243,7 +1295,15 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         zeroBasedIndex >= 0 &&
         zeroBasedIndex < questions.length
       ) {
-        const question = questions[zeroBasedIndex];
+        // ⚡ FIX: Use Suffled Question if enabled to ensure Options-Text Match
+        // This overrides the raw data fetch with the authoritative shuffled state
+        let question = questions[zeroBasedIndex];
+        if (this.quizService.isShuffleEnabled() && 
+            this.quizService.shuffledQuestions?.length > zeroBasedIndex) {
+          question = this.quizService.shuffledQuestions[zeroBasedIndex];
+          console.log(`[loadQuestion] 🔀 Using Shuffled Question for Q${zeroBasedIndex + 1}`);
+        }
+
         this.currentQuestion.next(question);  // use 'next' to update BehaviorSubject
         this.isExplanationDisplayed = false;  // reset explanation display state
         this.explanationToDisplay = '';
@@ -1286,6 +1346,14 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       }
 
       this.explanationTexts = explanationTexts;
+      
+      // ⚡ FIX: Populate Service State explicitly.
+      // The displayText$ pipeline relies on quizService.questions$ / quizService.questions.
+      // If we don't set this here, the pipeline sees empty array -> qObj null -> Banner missing.
+      this.quizService.questions = questions;
+      if (this.quizService.questions$ instanceof BehaviorSubject || this.quizService.questions$ instanceof Subject) {
+          (this.quizService.questions$ as unknown as Subject<QuizQuestion[]>).next(questions);
+      }
 
       await Promise.all(
         questions.map(async (question, index) => {
@@ -1338,7 +1406,10 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   }
 
   private initializeCurrentQuestionIndex(): void {
-    this.quizService.currentQuestionIndex = 0;
+    const idx = this.currentQuestionIndexValue ?? 0;
+    this.quizService.currentQuestionIndex = idx;
+    this.questionIndexSubject.next(idx);
+    this.currentIndex = idx;
     this.currentQuestionIndex$ =
       this.quizService.getCurrentQuestionIndexObservable();
   }
@@ -1546,12 +1617,12 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           normalizedIncoming &&
           normalizedExpected !== normalizedIncoming
         ) {
-           console.warn('[combineCurrentQuestionAndOptions] ⚠️ Mismatch detected but ALLOWING update to fix Shuffled Stuck Text.', {
-              index,
-              normalizedExpected,
-              normalizedIncoming
-           });
-           // return true; // Just allow it
+          console.warn('[combineCurrentQuestionAndOptions] ⚠️ Mismatch detected but ALLOWING update to fix Shuffled Stuck Text.', {
+            index,
+            normalizedExpected,
+            normalizedIncoming
+          });
+          // return true; // Just allow it
         }
 
         return true;

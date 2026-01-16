@@ -257,12 +257,50 @@ export class SharedOptionComponent
   }
 
   private setupFallbackRendering(): void {
-    setTimeout(() => {
-      if (!this.renderReady || !this.optionsToDisplay?.length) {
-        this.showNoOptionsFallback = true;
-        this.cdRef.markForCheck();
-      }
-    }, 150);
+    // ⚡ FIX: Stackblitz can be slower, so we retry at multiple intervals
+    // before showing the fallback message
+    const checkAndRetry = (attempt: number) => {
+      const maxAttempts = 5;  // Increased for Stackblitz
+      const delays = [100, 200, 400, 800, 1500]; // Progressive delays for retries
+
+      setTimeout(() => {
+        // If options are now ready, try to initialize them
+        if (this.optionsToDisplay?.length && !this.optionBindings?.length) {
+          console.log(`[SOC] 🔄 Fallback retry ${attempt}: Options arrived, generating bindings`);
+          this.generateOptionBindings();
+          this.cdRef.markForCheck();
+          return;
+        }
+
+        // If we have options and bindings but display flags aren't set, fix them
+        if (this.optionsToDisplay?.length && this.optionBindings?.length) {
+          if (!this.showOptions || !this.renderReady) {
+            console.log(`[SOC] 🔧 Fallback retry ${attempt}: Fixing display flags`);
+            this.showOptions = true;
+            this.renderReady = true;
+            this.optionsReady = true;
+            this.showNoOptionsFallback = false;
+            this.cdRef.markForCheck();
+          }
+          return;
+        }
+
+        // If we've exhausted retries, show fallback
+        if (attempt >= maxAttempts) {
+          if (!this.renderReady || !this.optionsToDisplay?.length) {
+            console.warn('[SOC] ⚠️ Options still not ready after retries, showing fallback');
+            this.showNoOptionsFallback = true;
+            this.cdRef.markForCheck();
+          }
+          return;
+        }
+
+        // Try again
+        checkAndRetry(attempt + 1);
+      }, delays[attempt - 1] || 1500);
+    };
+
+    checkAndRetry(1);
   }
 
   private initializeConfiguration(): void {
@@ -746,6 +784,9 @@ export class SharedOptionComponent
       console.warn(
         '[⚠️ SOC] ngOnChanges not triggered, forcing optionBindings generation'
       );
+      // ⚡ FIX: Actually call generateOptionBindings() instead of just logging
+      // This ensures showOptions gets set to true and options render correctly
+      this.generateOptionBindings();
     }
 
     this.viewInitialized = true;
@@ -2019,6 +2060,7 @@ export class SharedOptionComponent
     index: number,
     event: MatCheckboxChange | MatRadioChange
   ): void {
+    console.log(`[updateOptionAndUI] CALLED for optionId=${optionBinding?.option?.optionId}, index=${index}`);
     const currentIndex = this.getActiveQuestionIndex() ?? 0;
 
     if (this.lastFeedbackQuestionIndex !== currentIndex) {
@@ -2064,6 +2106,10 @@ export class SharedOptionComponent
 
         this.cdRef.detectChanges();
       }
+
+      // ⚡ FIX: STILL emit explanation even for already-selected options
+      const activeIndex = this.getActiveQuestionIndex() ?? 0;
+      this.emitExplanation(activeIndex);
 
       return;
     }
@@ -2172,6 +2218,11 @@ export class SharedOptionComponent
         const cfg = this.feedbackConfigs[this.lastFeedbackOptionId];
         if (cfg) cfg.showFeedback = true;
       }
+
+      // ⚡ FIX: STILL emit explanation even for reselected options
+      // This ensures FET displays when user clicks an already-selected option
+      const activeIndex = this.getActiveQuestionIndex() ?? 0;
+      this.emitExplanation(activeIndex);
 
       this.cdRef.detectChanges();
       return;
@@ -2435,6 +2486,10 @@ export class SharedOptionComponent
     explanationText: string,
     questionIndex: number
   ): void {
+    // ⚡ FIX: Mark interaction FIRST so that when emitFormatted triggers the subscriber,
+    // the 'hasUserInteracted' check passes immediately.
+    this.quizStateService.markUserInteracted(questionIndex);
+
     const contextKey = this.buildExplanationContext(questionIndex);
 
     // Set active index and emit FET before locking
@@ -2470,9 +2525,6 @@ export class SharedOptionComponent
       mode: 'explanation',
       answered: true
     });
-
-    // Mark question as having user interaction
-    this.quizStateService.markUserInteracted(questionIndex);
   }
 
   private buildExplanationContext(questionIndex: number): string {
@@ -2549,6 +2601,8 @@ export class SharedOptionComponent
   }
 
   private resolveExplanationText(questionIndex: number): string {
+    console.log(`[resolveExplanationText] Q${questionIndex + 1} | optionsToDisplay.len=${this.optionsToDisplay?.length || 0} | currentQuestionIndex=${this.currentQuestionIndex} | resolvedQuestionIndex=${this.resolvedQuestionIndex}`);
+
     // If we have local options and this is the active question, ignore the service
     // cache validation because the service cache might hold unshuffled "default" text.
     const useLocalOptions =
@@ -2586,7 +2640,7 @@ export class SharedOptionComponent
 
     // Try to get pre-formatted explanation first
     const formatted =
-      this.explanationTextService.formattedExplanations[questionIndex].explanation.trim();
+      this.explanationTextService.formattedExplanations?.[questionIndex]?.explanation?.trim() || '';
     if (formatted) {
       console.log(
         `[✅ Using pre-formatted FET for Q${questionIndex + 1}]:`,
@@ -2643,26 +2697,17 @@ export class SharedOptionComponent
       }
     }
 
-    // Try questions array
+    // Try questions array using direct index lookup as fallback
     if (!rawExplanation) {
-      const questionsFromService =
-        (Array.isArray(this.quizService.questions) &&
-          this.quizService.questions) ||
-        (Array.isArray((this.quizService as any).questionsArray) &&
-          (this.quizService as any).questionsArray) ||
-        (Array.isArray(this.quizService.questionsList) &&
-          this.quizService.questionsList) ||
+      const allQuestions =
+        (Array.isArray(this.quizService.questions) && this.quizService.questions) ||
+        (Array.isArray(this.quizService.questionsList) && this.quizService.questionsList) ||
         [];
 
-      const fallbackQuestion =
-        questionsFromService[activeIndex] ??
-        questionsFromService[questionIndex];
-      rawExplanation = fallbackQuestion?.explanation?.trim() || '';
-      console.log(
-        `[📝 From questions array [${activeIndex}]]:`,
-        rawExplanation.slice(0, 100)
-      );
-      console.log(`[📝 Full question object]:`, fallbackQuestion);
+      const q = allQuestions[questionIndex];
+      if (q?.explanation) {
+        rawExplanation = q.explanation.trim();
+      }
     }
 
     if (!rawExplanation) {

@@ -1,6 +1,8 @@
-import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, 
+import {
+  AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component,
   EventEmitter, Input, OnChanges, OnInit, Output, QueryList, SimpleChanges,
-  ViewChild, ViewContainerRef } from '@angular/core';
+  ViewChild, ViewContainerRef
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder } from '@angular/forms';
 import { Subject } from 'rxjs';
@@ -55,7 +57,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
   ) => void;
   @Input() currentQuestionIndex!: number;
   @Input() quizId!: string;
-  @Input() override optionsToDisplay!: Option[];
+  @Input() override optionsToDisplay: Option[] = [];
   @Input() override optionBindings: OptionBindings[] = [];
   private _questionIndex: number | null = null;
   private optionBindingsSource: Option[] = [];
@@ -129,6 +131,13 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     this.quizQuestionLoaderService.optionsStream$
       .pipe(takeUntil(this.destroy$))
       .subscribe((opts: Option[]) => {
+        // ⚡ FIX: Skip empty arrays to prevent BehaviorSubject initial emission
+        // from clearing valid options that may have arrived via @Input
+        if (!opts?.length) {
+          console.log('[AC] ⏭️ Skipping empty optionsStream$ emission');
+          return;
+        }
+
         this.incomingOptions = this.normalizeOptions(structuredClone(opts));
 
         //  Clear prior icons and bindings (clean slate)
@@ -454,12 +463,13 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
       b.optionsToDisplay = cloned;
     }
 
-    // Gate rendering
-    this.renderReady = false;
+    // ⚡ FIX: Set renderReady synchronously instead of in microtask
+    // to avoid race condition where template checks renderReady before Promise resolves
     this.optionBindings = rebuilt;
+    this.renderReady = true;
 
-    Promise.resolve().then(() => {
-      this.renderReady = true;
+    // Use requestAnimationFrame for change detection to ensure paint-synchronized update
+    requestAnimationFrame(() => {
       this.cdRef.markForCheck();
     });
 

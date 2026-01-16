@@ -119,7 +119,7 @@ export class ExplanationTextService {
   private _textMap: Map<number, { text$: ReplaySubject<string> }> = new Map();
   private readonly _instanceId: string = '';
   private _unlockRAFId: number | null = null;
-  public latestExplanationIndex: number | null = 0; // Start at 0 to match activeIndex$ initial value
+  public latestExplanationIndex: number | null = -1; // Start at -1 to ensure no accidental match with Q1 (index 0)
 
   // Convenience accessor to avoid template/type metadata mismatches.
   getFormattedExplanationByIndex(): Observable<FETPayload> {
@@ -662,6 +662,7 @@ export class ExplanationTextService {
       questionIndex: index,
       explanation: formattedExplanation,
     };
+    this.fetByIndex.set(index, formattedExplanation); // ⚡ FIX: Sync helper map for component fallback
 
     this.storeFormattedExplanationForQuestion(
       question,

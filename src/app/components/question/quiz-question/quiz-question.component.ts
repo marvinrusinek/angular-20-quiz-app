@@ -6,10 +6,14 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
-import { BehaviorSubject, firstValueFrom, from, Observable, of, ReplaySubject,
-  Subject, Subscription } from 'rxjs';
-import { catchError, debounceTime, distinctUntilChanged, filter, map, skip,
-  switchMap, take, takeUntil, tap, timeout } from 'rxjs/operators';
+import {
+  BehaviorSubject, firstValueFrom, from, Observable, of, ReplaySubject,
+  Subject, Subscription
+} from 'rxjs';
+import {
+  catchError, debounceTime, distinctUntilChanged, filter, map, skip,
+  switchMap, take, takeUntil, tap, timeout
+} from 'rxjs/operators';
 import { MatCheckbox } from '@angular/material/checkbox';
 import { MatRadioButton } from '@angular/material/radio';
 
@@ -1199,6 +1203,24 @@ export class QuizQuestionComponent extends BaseQuestion
     if (this.dynamicAnswerContainer) {
       void this.loadDynamicComponent(this.currentQuestion, this.optionsToDisplay);
       this.containerInitialized = true;
+    } else {
+      // ⚡ FIX: Container not ready yet (ngOnChanges fires before ngAfterViewInit)
+      // Defer component loading until view is initialized
+      console.log('[QQC] ⏳ dynamicAnswerContainer not ready, deferring loadDynamicComponent');
+
+      const deferredLoad = () => {
+        if (this.dynamicAnswerContainer) {
+          console.log('[QQC] ✅ dynamicAnswerContainer now ready, loading component');
+          void this.loadDynamicComponent(this.currentQuestion!, this.optionsToDisplay);
+          this.containerInitialized = true;
+        } else {
+          // Still not ready, try again
+          requestAnimationFrame(deferredLoad);
+        }
+      };
+
+      // Use requestAnimationFrame to wait for view initialization
+      requestAnimationFrame(deferredLoad);
     }
 
     if (this.sharedOptionComponent) {
@@ -1933,6 +1955,11 @@ export class QuizQuestionComponent extends BaseQuestion
 
         // Set renderReady on AnswerComponent so SharedOptionComponent displays
         instance.renderReady = true;
+
+        // ⚡ FIX: Trigger change detection after setting renderReady
+        // This ensures template updates in Stackblitz's slower environment
+        this.cdRef.detectChanges();
+        console.log('[QQC] ✅ Triggered change detection after setting renderReady');
       } else {
         this.updateShouldRenderOptions(instance.optionsToDisplay);
         console.warn('[⚠️ Skipping render — options not ready]', {
@@ -2120,7 +2147,7 @@ export class QuizQuestionComponent extends BaseQuestion
         // For shuffled quizzes, the Service provides an ID that maps to the ORIGINAL question index.
         // Overwriting this destroys correctness checks.
         // optionId: this.currentQuestionIndex * 100 + (i + 1),
-        optionId: opt.optionId, 
+        optionId: opt.optionId,
         selected: false,
         highlight: false,
         showIcon: false,
@@ -2497,7 +2524,7 @@ export class QuizQuestionComponent extends BaseQuestion
       // This overwrites unique IDs assigned by QuizShuffleService (e.g. based on original Q index)
       // with generic 0, 1, 2... which breaks tracking and integrity.
       if (question.options?.length) {
-          // Verify options exist but do not modify them
+        // Verify options exist but do not modify them
       } else {
         console.error(`❌ No options found for Q${index}: ${question.questionText}`);
       }
@@ -2745,6 +2772,10 @@ export class QuizQuestionComponent extends BaseQuestion
     this.resetExplanationBeforeClick(idx);
     this.prepareClickCycle();
 
+    // ⚡ FIX: Mark user interaction EARLY so hasUserInteracted guard passes in fireAndForgetExplanationUpdate
+    // This was missing and caused FET to be blocked with "[FET SKIP] User has not interacted yet"
+    this.quizStateService.markUserInteracted(idx);
+
     try {
       await this.waitForInteractionReady();
 
@@ -2779,9 +2810,42 @@ export class QuizQuestionComponent extends BaseQuestion
         selectedIds.add(currentOptId);
       }
 
+      // ⚡ FIX: Synchronize QuizService.selectedOptionsMap
+      // The display logic relies on quizService.isAnswered(), which checks quizService.selectedOptionsMap.
+      // We must ensure this map is populated so isAnswered returns true.
+      const currentSelectedOptions = this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
+      // If the current option is new/checked and not yet in the service list, add it for the sync
+      // (Though addOption above should have handled it, there might be a race or we want to be sure)
+      if (evtChecked && typeof currentOptId === 'number' && !currentSelectedOptions.some(o => o.optionId === currentOptId)) {
+        currentSelectedOptions.push(evtOpt as any);
+      }
+      this.quizService.selectedOptionsMap.set(idx, currentSelectedOptions);
+      console.log(`[QQC] 🔄 Synced QuizService.selectedOptionsMap using index ${idx}`, currentSelectedOptions);
+
       // EXISTING UI / FEEDBACK LOGIC
       this.emitSelectionMessage(idx, q!, optionsNow, canonicalOpts);
       this.syncCanonicalOptionsIntoQuestion(q!, canonicalOpts);
+
+      // ⚡ FIX: Synchronously format and emit FET to ensure it's ready BEFORE display state changes
+      this.optionsToDisplay = canonicalOpts; // Keep local state in sync
+
+      // ⚡ FIX: Generate and emit FET synchronously using visual options (canonicalOpts)
+      // This ensures fetByIndex is populated BEFORE CodelabQuizContent evaluates
+      const rawExplanation = q!.explanation || '';
+      const correctIndices = this.explanationTextService.getCorrectOptionIndices(q!, canonicalOpts);
+      const fet = this.explanationTextService.formatExplanation(q!, correctIndices, rawExplanation);
+
+      if (fet) {
+        console.log(`[QQC] ⚡ Sync FET for Q${idx + 1}: "${fet.substring(0, 40)}..."`);
+        this.explanationTextService.emitFormatted(idx, fet);
+      } else {
+        console.warn(`[QQC] ⚠️ No FET generated for Q${idx + 1}`);
+      }
+
+      // ⚡ FIX: Update QuizStateService state so CodelabQuizContent display logic passes
+      // CodelabQuizContent checks getQuestionState(idx).isAnswered !!
+      this.quizStateService.updateQuestionState(this.quizId, idx, { isAnswered: true }, 0);
+      console.log(`[QQC] Updated QState: idx=${idx}, isAnswered=true, QuizID=${this.quizId}`);
 
       const allCorrect = this.computeCorrectness(q!, canonicalOpts, evtOpt, idx);
       this._lastAllCorrect = allCorrect;
@@ -2900,7 +2964,7 @@ export class QuizQuestionComponent extends BaseQuestion
     const getKey = (o: any, i?: number) =>
       this.selectionMessageService.stableKey(o as Option, i);
 
-    const canonicalOpts = (q?.options ?? []).map((o, i) => ({
+    const canonicalOpts = (this.optionsToDisplay?.length > 0 ? this.optionsToDisplay : q?.options ?? []).map((o, i) => ({
       ...o,
       optionId: Number(o.optionId ?? getKey(o, i)),
       selected: (
@@ -3250,6 +3314,11 @@ export class QuizQuestionComponent extends BaseQuestion
 
       ets.latestExplanation = formatted;
       (ets as any).latestExplanationIndex = lockedIndex;
+
+      // ⚡ FIX: Call emitFormatted to populate fetByIndex
+      // The display logic in codelab-quiz-content checks fetByIndex.has(idx) to determine
+      // whether to show FET. Without this call, fetByIndex was never populated and FET never displayed.
+      ets.emitFormatted(lockedIndex, formatted);
 
       ets.formattedExplanationSubject?.next(formatted);
       ets.updateFormattedExplanation(formatted);
