@@ -502,11 +502,6 @@ export class QuizService {
       return;
     }
 
-    const values = options.map((opt) =>
-      typeof opt.value === 'number' ? opt.value : 0,
-    );
-    this.setAnswers(values);
-
     this.optionsSubject.next(options); // emit to options$
   }
 
@@ -1086,15 +1081,15 @@ export class QuizService {
 
     // ⚡ FIX: Restore answers from persistence if available to prevent score decrement on navigation
     const prevSelected = this.selectedOptionsMap.get(safeIndex);
-    
+
     if (prevSelected && prevSelected.length > 0) {
       // Re-hydrate full Option objects (needing .correct flag) from the source question
       const question = this.questions[safeIndex]; // Use getter (handles shuffle)
       if (question && question.options) {
         const selectedIds = new Set(prevSelected.map(s => s.optionId));
         // text-match fallback for robustness
-        const restoredAnswers = question.options.filter((o: Option) => 
-          selectedIds.has(o.optionId) || 
+        const restoredAnswers = question.options.filter((o: Option) =>
+          selectedIds.has(o.optionId) ||
           prevSelected.some(s => (s.text || '').trim() === (o.text || '').trim())
         );
         this.answers = restoredAnswers;
