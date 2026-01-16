@@ -284,10 +284,6 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     this.setupCorrectAnswersTextDisplay();
 
 
-
-    // ⚡ FIX: Manual Subscription for Immediate Display
-    // ⚡ FIX: Manual Subscription for Immediate Display
-    // ⚡ FIX: Manual Subscription for Immediate Display - ROBUST VERSION
     // ⚡ FIX: Removed Manual Subscription to prevent race conditions.
     // The robust displayText$ pipeline (via subscribeToDisplayText) is now the SINGLE source of truth.
     // It correctly handles:
@@ -296,8 +292,6 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     // 3. Strict mode checking (Question vs Explanation)
     // 4. Multi-answer banners
     
-    // ⚡ FIX: Subscribe to quesitons$ to REGENERATE FETs when questions/shuffling changes
-
     // ⚡ FIX: Subscribe to quesitons$ to REGENERATE FETs when questions/shuffling changes
     // This ensures that "Option 1 is correct" matches the ACTUAL visual order of options
     // if they have been shuffled.
@@ -576,6 +570,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         },
         error: (err: Error) => console.error('[CQCC displayText$ error]', err)
       });
+
   }
 
   private setupContentAvailability(): void {
