@@ -169,12 +169,18 @@ export class QuizNavigationService {
       return false;
     }
 
-    const maxQuestions = this.quizService.questions?.length || 99;
+    const maxQuestions = this.quizService.totalQuestions || this.quizService.questions?.length || 99;
+    
+    console.log(`[NAV DEBUG] navigateWithOffset: Current=${currentRouteIndex} Target=${targetRouteIndex} Max=${maxQuestions} (ServiceTotal=${this.quizService.totalQuestions})`);
 
+    // 🕵️ DEBUG: BYPASS CHECK
+    // if (targetRouteIndex > maxQuestions) {
+    //   console.log('[NAV FORCE] Target exceeds max known questions, going to Results');
+    //   await this.ngZone.run(() => this.router.navigate(['/quiz/results', quizId]));
+    //   return true;
+    // }
     if (targetRouteIndex > maxQuestions) {
-      console.log('[NAV FORCE] Target exceeds max known questions, going to Results');
-      await this.ngZone.run(() => this.router.navigate(['/quiz/results', quizId]));
-      return true;
+       console.warn(`[NAV FORCE] Target ${targetRouteIndex} > Max ${maxQuestions}. Proceeding anyway to verify existence.`);
     }
 
     return this.navigateToQuestion(targetRouteIndex - 1);

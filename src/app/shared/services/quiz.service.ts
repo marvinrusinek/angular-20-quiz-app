@@ -405,6 +405,8 @@ export class QuizService {
     this.questionsList = quiz.questions ?? [];
     this.questionsSubject.next(quiz.questions ?? []);
     this.questions = quiz.questions ?? [];
+    this.totalQuestions = (quiz.questions ?? []).length;
+    this.totalQuestionsSubject.next(this.totalQuestions);
 
     // Load resources for this quiz
     this.loadResourcesForQuiz(quiz.quizId);

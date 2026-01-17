@@ -336,6 +336,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           this.questions = questions;
           this.questionsArray = [...questions];
           this.totalQuestions = questions.length;
+          console.log(`[QUIZ COMPONENT] 📊 totalQuestions set to ${this.totalQuestions} from questions$.length`);
           this.cdRef.markForCheck();
         }
       })
@@ -1222,11 +1223,17 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   }
 
   public get shouldShowNextButton(): boolean {
-    return this.currentQuestionIndex < this.totalQuestions - 1;
+    // Use the maximum known question count from all sources
+    const serviceCount = this.quizService.questions?.length || 0;
+    const effectiveTotal = Math.max(this.totalQuestions, serviceCount);
+    return this.currentQuestionIndex < effectiveTotal - 1;
   }
 
   public get shouldShowResultsButton(): boolean {
-    return this.currentQuestionIndex === this.totalQuestions - 1;
+    // Only show results button if we're confirmed on the last question
+    const serviceCount = this.quizService.questions?.length || 0;
+    const effectiveTotal = Math.max(this.totalQuestions, serviceCount);
+    return effectiveTotal > 0 && this.currentQuestionIndex === effectiveTotal - 1;
   }
 
   /**
