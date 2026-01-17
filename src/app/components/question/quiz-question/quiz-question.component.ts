@@ -2105,7 +2105,14 @@ export class QuizQuestionComponent extends BaseQuestion
         return false;
       }
 
-      if (this.currentQuestionIndex === this.questionsArray.length) {
+      // Use maximum known count from all sources to prevent premature results redirect
+      const localCount = this.questionsArray?.length ?? 0;
+      const serviceCount = this.quizService.questions?.length ?? 0;
+      const effectiveTotal = Math.max(localCount, serviceCount);
+      
+      console.log(`[loadQuestion] 📊 Index Check: currentIndex=${this.currentQuestionIndex}, localCount=${localCount}, serviceCount=${serviceCount}, effectiveTotal=${effectiveTotal}`);
+      
+      if (effectiveTotal > 0 && this.currentQuestionIndex >= effectiveTotal) {
         console.log('[loadQuestion] End of quiz → /results');
         await this.router.navigate(['/results', this.quizId]);
         return false;

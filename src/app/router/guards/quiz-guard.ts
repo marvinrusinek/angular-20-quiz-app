@@ -5,11 +5,13 @@ import {
 
 import { Quiz } from '../../shared/models/Quiz.model';
 import { QuizDataService } from '../../shared/services/quizdata.service';
+import { QuizService } from '../../shared/services/quiz.service';
 
 @Injectable({ providedIn: 'root' })
 export class QuizGuard implements CanActivate {
   constructor(
     private quizDataService: QuizDataService,
+    private quizService: QuizService,
     private router: Router
   ) { }
 
@@ -71,9 +73,12 @@ export class QuizGuard implements CanActivate {
     questionIndex: number,
     quizId: string
   ): boolean | UrlTree {
-    const total = quiz.questions?.length ?? 0;
+    // Use the maximum known count from all sources to avoid false-negative blocks
+    const quizQuestionsCount = quiz.questions?.length ?? 0;
+    const serviceQuestionsCount = this.quizService.questions?.length ?? 0;
+    const total = Math.max(quizQuestionsCount, serviceQuestionsCount, 1);
     console.log(`[🛡️ QuizGuard] Eval: Q${questionIndex} of ${total} 
-      (quizId=${quizId})`);
+      (quizId=${quizId}, fromQuiz=${quizQuestionsCount}, fromService=${serviceQuestionsCount})`);
 
     if (total <= 0) {
       console.warn(`[❌ QuizId=${quizId}] No questions.`);
