@@ -405,8 +405,17 @@ export class QuizStateService {
     return this.interactionReadySubject.getValue();
   }
 
+  // ⚡ FIX: Emits the timestamp of the last user interaction
+  public lastInteractionTime$ = new BehaviorSubject<number>(0);
+
+  // ⚡ FIX: Emits the index of the question the user just interacted with
+  // Use BehaviorSubject to hold the latest interaction so tardy subscribers don't miss it
+  public userHasInteracted$ = new BehaviorSubject<number>(-1);
+
   markUserInteracted(idx: number): void {
     this._hasUserInteracted.add(idx);
+    this.userHasInteracted$.next(idx);
+    this.lastInteractionTime$.next(Date.now());
   }
 
   hasUserInteracted(idx: number): boolean {
@@ -419,6 +428,12 @@ export class QuizStateService {
 
   isQuestionAnswered(idx: number): boolean {
     return this._answeredQuestionIndices.has(idx);
+  }
+
+  // ⚡ FIX: Reset interaction state (called on Navigation)
+  resetInteraction(): void {
+    this.userHasInteracted$.next(-1);
+    this.lastInteractionTime$.next(0);
   }
 
   // ⚡ FIX: Reset all state (called on Shuffle Toggle or Quiz Reset)

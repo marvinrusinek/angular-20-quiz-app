@@ -1,6 +1,6 @@
 import {
   ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter,
-  Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges, ViewChild
+  Input, OnChanges, OnDestroy, OnInit, Output, Renderer2, SimpleChanges, ViewChild
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, ParamMap } from '@angular/router';
@@ -86,6 +86,10 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     // Remember the index and clear any old override
     this.questionIndexSubject.next(idx);
     this.currentIndex = idx;
+    
+    // ⚡ Reset FET lock when question changes
+    this._fetLocked = false;
+    this._lockedForIndex = -1;
     
     // ⚡ FIX: Force clear view to prevent previous question's FET leaking (e.g. Q1 FET on Q2)
     if (this.qText?.nativeElement) {
@@ -195,17 +199,27 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   isExplanationTextDisplayed$: Observable<boolean>;
   private isExplanationDisplayed$ = new BehaviorSubject<boolean>(false);
   private _showExplanation = false;
+  
+  // ⚡ FIX: Lock flag to prevent displayText$ from overwriting FET
+  private _fetLocked = false;
+  private _lockedForIndex = -1;
 
   // Use the service's indexed formattedExplanation$ so we can ignore stale payloads
   // that belong to previous questions (e.g., Q1 showing while on Q4).
-  formattedExplanation$: Observable<FETPayload> = this.explanationTextService
-    .getFormattedExplanationByIndex()
-    .pipe(
-      startWith<FETPayload>({ idx: -1, text: '', token: 0 }),
-      distinctUntilChanged(
-        (a: FETPayload, b: FETPayload) => a.idx === b.idx && a.text === b.text
-      )
-    );
+  // ⚡ FIX: Direct Access Reactive FET Logic
+  // Combines Current Index with Service Cache Updates to guarantee latest data.
+  // Re-emits automatically when cache populates (fixing Q1 Race Condition).
+  formattedExplanation$: Observable<FETPayload> = combineLatest([
+    this.currentIndex$,
+    this.explanationTextService.explanationsUpdated
+  ]).pipe(
+    map(([idx, explanations]) => {
+      const explanation = explanations[idx]?.explanation || '';
+      return { idx, text: explanation, token: 0 } as FETPayload;
+    }),
+    distinctUntilChanged((a, b) => a.idx === b.idx && a.text === b.text),
+    shareReplay(1)
+  );
 
   public activeFetText$: Observable<string> = this.formattedExplanation$.pipe(
     withLatestFrom(this.quizService.currentQuestionIndex$),
@@ -241,6 +255,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   private combinedSub?: Subscription;
 
   private destroy$ = new Subject<void>();
+  private navTime = 0; // ⚡ FIX: Track when we landed on this question
 
   constructor(
     private quizService: QuizService,
@@ -251,7 +266,8 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     private quizQuestionLoaderService: QuizQuestionLoaderService,
     private quizQuestionManagerService: QuizQuestionManagerService,
     private activatedRoute: ActivatedRoute,
-    private cdRef: ChangeDetectorRef
+    private cdRef: ChangeDetectorRef,
+    private renderer: Renderer2
   ) {
     this.nextQuestion$ = this.quizService.nextQuestion$;
     this.previousQuestion$ = this.quizService.previousQuestion$;
@@ -272,6 +288,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
     // ⚡ FIX: Clear user interaction state to ensure question text shows first
     this.quizStateService._hasUserInteracted?.clear();
+    this.quizStateService.resetInteraction(); // ⚡ FIX: Clear stream too
 
     this.setupQuestionResetSubscription();
     this.initDisplayTextPipeline();
@@ -320,6 +337,9 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           }
         });
       });
+
+    // NOTE: Removed fast-path FET subscription that was fighting with displayText$ pipeline.
+    // The FET display is now handled entirely by the displayText$ pipeline's shouldShowFet logic.
   }
 
   ngOnChanges(changes: SimpleChanges) {
@@ -328,12 +348,21 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       this.cdRef.markForCheck();
     }
 
+    // NOTE: Removed explanationToDisplay handler as it was unreliable
+    // The parent component doesn't reset this value when navigating, causing stale FET display
+    // FET should only be updated through the formattedExplanation$ stream which has index validation
+
     // Run only when the new questionText arrives
     if (!!this.questionText && !this.questionRendered.getValue()) {
       this.questionRendered.next(true);
     }
 
     if (changes['questionIndex'] && !changes['questionIndex'].firstChange) {
+      this.navTime = Date.now(); // ⚡ Capture navigation time baseline
+      // ⚡ Reset FET lock when question changes to allow question text to display
+      this._fetLocked = false;
+      this._lockedForIndex = -1;
+      
       // Clear out old explanation
       this.currentIndex = this.questionIndex;
       this.overrideSubject.next({ idx: this.currentIndex, html: '' });
@@ -394,148 +423,64 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   }
 
   private initDisplayTextPipeline(): void {
-    // Resolve the correct question object (respecting shuffle) for the current index
-    const questionForIndex$ = this.currentIndex$.pipe(
-      switchMap((idx: number) => this.quizService.getQuestionByIndex(idx))
-    );
+    this.displayText$ = this.currentIndex$.pipe(
+      filter(idx => idx >= 0),
+      switchMap(safeIdx => {
+        return combineLatest([
+          this.quizService.getQuestionByIndex(safeIdx),
+          this.formattedExplanation$,
+          this.quizStateService.displayState$,
+          this.quizStateService.userHasInteracted$
+        ]).pipe(
+          map(([qObj, fetPayload, state, interactionIdx]) => {
+            const rawQText = qObj?.questionText || '';
+            const serviceQText = (qObj?.questionText ?? '').trim();
+            const effectiveQText = serviceQText || rawQText || '';
 
-    this.displayText$ = combineLatest([
-      this.displayState$ || of({ mode: 'question' as const, answered: false }),
-      this.questionToDisplay$ || of(''),
-      this.formattedExplanation$,
-      this.currentIndex$,
-      this.quizService.questions$.pipe(
-        map(() => {
-          const isShuffled = this.quizService.isShuffleEnabled();
-          const activeQuestions = isShuffled && this.quizService.shuffledQuestions?.length
-            ? this.quizService.shuffledQuestions
-            : this.quizService.questions;
-          return activeQuestions;
-        }),
-        startWith(this.quizService.questions || [])
-      )
-    ]).pipe(
-      // ⚡ FIX: Sync Guard - Block stale index emissions during transition
-      filter(([state, qText, fetPayload, idx, questions]) => {
-         return idx === this.currentIndex;
-      }),
-      debounceTime(50),
-      switchMap(([state, qText, fetPayload, idx, questions]: [
-        { mode: 'question' | 'explanation'; answered: boolean },
-        string | null,
-        FETPayload,
-        number,
-        QuizQuestion[]
-      ]) => {
-        const safeIdx = Number.isFinite(idx)
-          ? idx
-          : Number.isFinite(this.currentIndex)
-            ? this.currentIndex
-            : 0;
+            // Agnostic Interaction Check:
+            // 1. Service Set (Persistence)
+            // 2. Stream (Fresh Click)
+            // 3. State Answered flag
+            const hasInteracted = 
+              this.quizStateService.hasUserInteracted(safeIdx) ||
+              (interactionIdx > -1) ||
+              (state && state.answered);
 
-        const rawQText = (qText as string)?.trim();
+            // console.log(`[displayText$] Q${safeIdx + 1} Interacted=${hasInteracted} Mode=${state?.mode}`);
 
-        // ⚡ FIX: Late Binding for Questions Array
-        // Pipeline argument 'questions' might be stale (from startWith empty).
-        // Check Service properties directly at execution time to guarantee latest data.
-        const isShuffled = this.quizService.isShuffleEnabled();
-        const latestQuestions = isShuffled 
-            ? (this.quizService.shuffledQuestions?.length ? this.quizService.shuffledQuestions : questions)
-            : (this.quizService.questions?.length ? this.quizService.questions : questions);
-            
-        const qObj = (latestQuestions && latestQuestions[safeIdx]) ? latestQuestions[safeIdx] : null;
+            if (hasInteracted) {
+               // Prioritize Active Payload > Service Cache > Question Object
+               let fetText = fetPayload?.text || '';
+               if (!fetText && this.explanationTextService.fetByIndex?.has(safeIdx)) {
+                   fetText = this.explanationTextService.fetByIndex.get(safeIdx) || '';
+               }
+               if (!fetText && qObj?.explanation) {
+                   fetText = qObj.explanation;
+               }
 
-        return this.quizService.isAnswered(safeIdx).pipe(
-          map((isAnswered: boolean) => {
-            const mode = isAnswered ? (state?.mode || 'question') : 'question';
-            const dummyQText = (qText ?? '').trim();
-            const trimmedQText = dummyQText;
-
-            // DIAGNOSTIC LOGGING
-            const isShuffled = this.quizService.isShuffleEnabled();
-            console.log(`[displayText$] 🔍 Q${safeIdx+1} Shuffled=${isShuffled} hasQObj=${!!qObj} Opts=${qObj?.options?.length}`);
-
-            const numCorrect =
-              qObj?.options?.filter((o: Option) => o.correct).length || 0;
-            console.log(`[displayText$] 🔢 Q${safeIdx+1} numCorrect=${numCorrect}`);
-
-            const isMulti = numCorrect > 1;
-            console.log(`[displayText$] 🚩 Q${safeIdx+1} isMulti=${isMulti}`);
-
-
-            let bannerText = '';
-            if (isMulti && qObj) {
-              const totalOpts = qObj.options?.length || 0;
-              bannerText =
-                this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
-                  numCorrect,
-                  totalOpts
-                );
+               if (fetText && fetText.trim().length > 0) {
+                   return fetText;
+               }
+               return 'No explanation available.';
             }
 
-            const hasFetStored = this.explanationTextService.fetByIndex?.has(safeIdx) &&
-              (this.explanationTextService.fetByIndex?.get(safeIdx)?.trim()?.length ?? 0) > 10;
-            const currentMode = state?.mode || this.quizStateService.displayStateSubject.getValue().mode;
-            const actuallyAnswered = isAnswered && hasFetStored && currentMode === 'explanation';
-
-            if (!actuallyAnswered) {
-              const serviceQText = (qObj?.questionText ?? '').trim();
-
-              // ⚡ FIX: ALWAYS prefer question text from questionObj (via getQuestionByIndex)
-              // The questionToDisplay$ input is often stale and lags behind navigation.
-              // questionObj comes from getQuestionByIndex which respects shuffle and
-              // is the same source as options, ensuring text and options are synchronized.
-              // ⚡ FIX: Definitively use qObj.questionText as primary source.
-              // qObj is already resolved to be the correct shuffled/unshuffled question for safeIdx.
-              // This bypasses any stale 'questionForIndex' or 'questionToDisplay' inputs.
-              const effectiveQText = qObj?.questionText?.trim() || serviceQText || rawQText || '';
-
-              if (!effectiveQText) {
-                console.warn(`[displayText$] ⚠️ Q${safeIdx + 1} No safe text available yet.`);
-                return '';
-              }
-
-              // Show banner for multi-answer questions when we have valid text
-              if (isMulti && bannerText && effectiveQText) {
-                return `${effectiveQText} <span class="correct-count">${bannerText}</span>`;
-              }
-              return effectiveQText;
+            // Default: Question Text with Multi-Answer Banner if needed
+            const numCorrect = qObj?.options?.filter(o => o.correct)?.length || 0;
+            if (numCorrect > 1 && qObj?.options) {
+                const banner = this.quizQuestionManagerService.getNumberOfCorrectAnswersText(numCorrect, qObj.options.length);
+                return `${effectiveQText} <span class="correct-count">${banner}</span>`;
             }
 
-            const belongsToIndex = fetPayload?.idx === safeIdx;
-            // ⚡ FIX: Fallback to cached FET if stream payload is empty or mismatch
-            // This ensures we pick up the FET stored by storeFormattedExplanation even if the stream hasn't emitted yet
-            const trimmedFet = (belongsToIndex ? (fetPayload?.text ?? '') : '') || 
-                               (this.explanationTextService.fetByIndex.get(safeIdx) ?? '');
-            
-            const isValidFet = 
-              trimmedFet !== 'No explanation available' &&
-              trimmedFet !== 'No explanation available for this question.' &&
-              trimmedFet.trim().length > 10;
-
-            if (mode === 'explanation') {
-              if (isValidFet) {
-                if (isMulti && bannerText) {
-                  return `${trimmedFet}`;
-                }
-                return trimmedFet;
-              }
-              return 'No explanation available.';
-            }
-
-            if (!trimmedQText) return '';
-
-            if (isMulti && bannerText) {
-              return `${trimmedQText} <span class="correct-count">${bannerText}</span>`;
-            }
-
-            return trimmedQText;
+            return effectiveQText;
           })
         );
       }),
       distinctUntilChanged()
     );
   }
+
+
+
 
   private resetExplanationService(): void {
     this.resetExplanationView();
@@ -556,21 +501,30 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       this.combinedSub.unsubscribe();
     }
 
+    console.log('[subscribeToDisplayText] 🔄 Setting up subscription...');
+    
     this.combinedSub = this.combinedText$
-      .pipe(distinctUntilChanged())
+      .pipe(
+        tap((text: string) => console.log(`[subscribeToDisplayText] 🔔 RAW emission (${text?.length || 0} chars): "${text?.substring(0, 50)}..."`)),
+        takeUntil(this.destroy$)
+      )
       .subscribe({
         next: (text: string) => {
+          console.log(`[subscribeToDisplayText] 📝 Processing text (${text?.length || 0} chars)`);
+          
           const el = this.qText?.nativeElement;
           if (el) {
-            // Simple, single source of truth. Validated by displayText$ pipeline.
-            // Fast-path FET updates are handled by the manual subscription in ngOnInit.
-            el.innerHTML = text;
-            this.cdRef.markForCheck();
+            this.renderer.setProperty(el, 'innerHTML', text);
+            console.log(`[subscribeToDisplayText] ✅ Updated innerHTML using Renderer2: "${text?.substring(0, 50)}..."`);
+          } else {
+            console.warn(`[subscribeToDisplayText] ⚠️ qText.nativeElement not available!`);
           }
         },
-        error: (err: Error) => console.error('[CQCC displayText$ error]', err)
+        error: (err: Error) => console.error('[subscribeToDisplayText] ❌ Error:', err),
+        complete: () => console.log('[subscribeToDisplayText] 🏁 Subscription completed')
       });
 
+    console.log('[subscribeToDisplayText] ✅ Subscription active');
   }
 
   private setupContentAvailability(): void {

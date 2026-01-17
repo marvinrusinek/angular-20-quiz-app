@@ -47,7 +47,7 @@ export class ExplanationTextService {
   private shouldDisplayByContext = new Map<string, boolean>();
   private displayedByContext = new Map<string, boolean>();
 
-  private explanationsUpdated = new BehaviorSubject<
+  public explanationsUpdated = new BehaviorSubject<
     Record<number, FormattedExplanation>
   >(this.formattedExplanations);
 

@@ -1072,6 +1072,17 @@ export class SharedOptionComponent
     }
     activeQuestionIndex = activeQuestionIndex ?? 0;
 
+    // ⚡ FIX: Mark that user has interacted with this question this session
+    // This is required for the displayText$ pipeline's shouldShowFet logic
+    this.quizStateService.markUserInteracted(activeQuestionIndex);
+    console.log(`[SOC] 🖱️ Marked user interaction for Q${activeQuestionIndex + 1}`);
+
+    // ⚡ FIX: Set display mode to 'explanation' - THIS IS CRITICAL FOR FET DISPLAY!
+    // The displayText$ pipeline checks: shouldShowFet = hasInteractedThisSession && currentMode === 'explanation'
+    // Without this call, currentMode stays 'question' and FET never displays.
+    this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
+    console.log(`[SOC] 📝 Set display mode to 'explanation' for Q${activeQuestionIndex + 1}`);
+
     const enrichedOption: SelectedOption = {
       ...binding.option,
       selected: binding.option.selected === true,
@@ -1573,6 +1584,10 @@ export class SharedOptionComponent
     // 🔍 DEBUG: Log at the very start
     const qIdx = this.resolveCurrentQuestionIndex();
     console.log(`[SOC] 🔍 ENTRY onOptionContentClick Q${qIdx}, optionIndex=${index}, optionId=${binding.option?.optionId}`);
+    
+    // ⚡ FIX: Mark interaction IMMEDIATELY
+    this.quizStateService.markUserInteracted(qIdx);
+    console.log(`[SOC] 🖱️ Marked user interaction for Q${qIdx + 1}`);
 
     // Prevent the click from bubbling up to the mat-radio-button/mat-checkbox
     event.stopPropagation();
@@ -2476,7 +2491,9 @@ export class SharedOptionComponent
   }
 
   private emitExplanation(questionIndex: number): void {
+    console.log(`[SOC] 📣 emitExplanation called for Q${questionIndex + 1}`);
     const explanationText = this.resolveExplanationText(questionIndex);
+    console.log(`[SOC] 📝 Resolved explanation for Q${questionIndex + 1}: "${explanationText?.substring(0, 50)}..."`);
     this.pendingExplanationIndex = questionIndex;
     this.applyExplanationText(explanationText, questionIndex);
     this.scheduleExplanationVerification(questionIndex, explanationText);
@@ -3831,12 +3848,17 @@ export class SharedOptionComponent
   }
 
   private getActiveQuestionIndex(): number {
-    // Highest Priority: quizService.currentQuestionIndex (always up-to-date)
+    // Highest Priority: Local Input (most specific to this option instance)
+    if (typeof this.questionIndex === 'number') {
+      return this.questionIndex;
+    }
+
+    // Secondary: quizService.currentQuestionIndex (fallback)
     if (typeof this.quizService?.currentQuestionIndex === 'number') {
       return this.quizService.currentQuestionIndex;
     }
 
-    // Secondary: quizService.getCurrentQuestionIndex() method
+    // Tertiary: quizService.getCurrentQuestionIndex() method
     const svcIndex = this.quizService?.getCurrentQuestionIndex?.();
     if (typeof svcIndex === 'number') {
       return svcIndex;
@@ -3847,9 +3869,6 @@ export class SharedOptionComponent
       return this.currentQuestionIndex;
     }
 
-    if (typeof this.questionIndex === 'number') {
-      return this.questionIndex;
-    }
 
     return 0;  // emergency fallback
   }

@@ -3319,6 +3319,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   private async advanceQuestion(direction: 'next' | 'previous'): Promise<void> {
     this.triggerAnimation();
     this.selectedOptionService.setAnswered(false);
+    this.quizStateService.resetInteraction(); // ⚡ FIX: Clear interaction on nav
+
 
     // Wrap in NgZone.run to ensure Angular detects navigation changes
     // This fixes the bug where navigation only works when DevTools console is open
