@@ -1598,6 +1598,16 @@ export class SharedOptionComponent
       return;
     }
 
+    // ⚡ FIX: Immediately disable this option after click to prevent re-clicking
+    const optionIdToDisable = binding.option?.optionId;
+    if (typeof optionIdToDisable === 'number') {
+      if (!this.disabledOptionsPerQuestion.has(qIdx)) {
+        this.disabledOptionsPerQuestion.set(qIdx, new Set<number>());
+      }
+      this.disabledOptionsPerQuestion.get(qIdx)!.add(optionIdToDisable);
+      console.log(`[SOC] 🔒 Disabled option ${optionIdToDisable} for Q${qIdx + 1} to prevent re-click`);
+    }
+
     // Force update answers and trigger score logic here (multi-answer support)
     const bindingsForScore = this.optionBindings ?? [];
     const correctCountForScore =
