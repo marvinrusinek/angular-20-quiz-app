@@ -2123,16 +2123,21 @@ export class QuizQuestionComponent extends BaseQuestion
         // Do NOT redirect - let navigation continue for debugging
       }
 
-      // Validate current index
+      // Validate current index - use effectiveTotal for robust validation
       if (
         this.currentQuestionIndex < 0 ||
-        this.currentQuestionIndex >= this.questionsArray.length
+        this.currentQuestionIndex >= effectiveTotal
       ) {
-        console.error(`Invalid question index: ${this.currentQuestionIndex}`);
+        console.error(`Invalid question index: ${this.currentQuestionIndex} (effectiveTotal=${effectiveTotal})`);
         return false;
       }
 
-      const potentialQuestion = this.questionsArray[this.currentQuestionIndex];
+      // Try local array first, then service questions as fallback
+      let potentialQuestion = this.questionsArray?.[this.currentQuestionIndex];
+      if (!potentialQuestion && this.quizService.questions?.length > this.currentQuestionIndex) {
+        potentialQuestion = this.quizService.questions[this.currentQuestionIndex];
+        console.log(`[loadQuestion] ⚡ Used service questions fallback for index ${this.currentQuestionIndex}`);
+      }
       if (!potentialQuestion) {
         console.error(`No question found for index ${this.currentQuestionIndex}`);
         return false;
@@ -3381,14 +3386,11 @@ export class QuizQuestionComponent extends BaseQuestion
     try {
       this.selectionMessageService.releaseBaseline(activeIndex);
 
-      const anySelected = canonicalOpts.some((opt: Option) => !!opt?.selected);
-      if (!anySelected) {
-        const total = this.totalQuestions ?? this.quizService?.totalQuestions ?? 0;
-        const isLastQuestion = total > 0 && i0 === total - 1;
-        this.selectionMessageService.forceNextButtonMessage(i0, { isLastQuestion });
-      } else {
-        void this.selectionMessageService.setSelectionMessage(true);
-      }
+      // ⚡ FIX: When timer expires, ALWAYS show Next/Results message
+      // regardless of selection state
+      const total = this.totalQuestions ?? this.quizService?.totalQuestions ?? 0;
+      const isLastQuestion = total > 0 && i0 === total - 1;
+      this.selectionMessageService.forceNextButtonMessage(i0, { isLastQuestion });
     } catch { }
 
     // Show explanation immediately
