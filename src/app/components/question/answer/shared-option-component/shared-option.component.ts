@@ -246,6 +246,7 @@ export class SharedOptionComponent
     this.lockedIncorrectOptionIds.clear();
     this.flashDisabledSet.clear();
     this.timerExpiredForQuestion = false;
+    this.forceDisableAll = false;  // ⚡ FIX: Reset forceDisableAll for new question
   }
 
   private subscribeToTimerExpiration(): void {
