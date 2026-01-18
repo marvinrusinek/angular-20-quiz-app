@@ -234,15 +234,73 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   private dotStatusCache =
     new Map<number, 'correct' | 'wrong'>();
 
+  public forceResetCurrentQuestion(): void {
+    const idx = this.currentQuestionIndex;
+    console.log('[FORCE RESET] Resetting Q', idx);
+    this.selectedOptionService.clearAllSelectionsForQuestion(idx);
+    this.quizStateService.setAnswered(false);
+    this.timerService.stopTimer(undefined, { force: true });
+    this.timerService.resetTimerFlagsFor(idx);
+    setTimeout(() => {
+        this.timerService.startTimer(this.timerService.timePerQuestion || 30, true);
+    }, 100);
+  }
+
+  // ☢️ STANDALONE BACKUP TIMER FOR Q6 - completely bypasses TimerService
+  public q6BackupTimer = 30;
+  private q6BackupIntervalId: any = null;
+  
+  public startQ6BackupTimer(): void {
+    console.log('[Q6 BACKUP TIMER] Starting standalone timer!');
+    this.stopQ6BackupTimer();
+    this.q6BackupTimer = 30;
+    
+    // Mark TimerService as running so UI shows correct state
+    this.timerService.isTimerRunning = true;
+    this.timerService.elapsedTime = 0;
+    
+    // Run inside NgZone to ensure Angular picks up changes
+    this.ngZone.run(() => {
+      this.q6BackupIntervalId = window.setInterval(() => {
+        this.ngZone.run(() => {
+          this.q6BackupTimer--;
+          const elapsed = 30 - this.q6BackupTimer;
+          
+          // Update both backup timer AND TimerService
+          this.timerService.elapsedTime = elapsed;
+          (this.timerService as any).elapsedTimeSubject.next(elapsed);
+          
+          console.log('[Q6 BACKUP TIMER] Tick:', this.q6BackupTimer, 'Elapsed:', elapsed);
+          this.cdRef.detectChanges();
+          
+          if (this.q6BackupTimer <= 0) {
+            console.log('[Q6 BACKUP TIMER] Expired!');
+            this.stopQ6BackupTimer();
+            this.timerService.isTimerRunning = false;
+            this.explanationTextService.setShouldDisplayExplanation(true);
+            this.quizStateService.setAnswered(true);
+          }
+        });
+      }, 1000);
+    });
+  }
+  
+  public stopQ6BackupTimer(): void {
+    if (this.q6BackupIntervalId) {
+      window.clearInterval(this.q6BackupIntervalId);
+      this.q6BackupIntervalId = null;
+    }
+  }
+
   constructor(
     public quizService: QuizService,
     private quizDataService: QuizDataService,
     private quizInitializationService: QuizInitializationService,
     private quizNavigationService: QuizNavigationService,
     private quizQuestionLoaderService: QuizQuestionLoaderService,
-    private quizQuestionManagerService: QuizQuestionManagerService,
-    private quizStateService: QuizStateService,
-    private timerService: TimerService,
+    public quizQuestionManagerService: QuizQuestionManagerService,
+    public quizStateService: QuizStateService,
+    public timerService: TimerService,
     private explanationTextService: ExplanationTextService,
     private nextButtonStateService: NextButtonStateService,
     private selectionMessageService: SelectionMessageService,
@@ -673,6 +731,14 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           this.explanationVisibleLocal = false;
 
           console.warn('[✅ NAVIGATION COMPLETE]', idx + 1);
+          
+          // ☢️ AUTO-START BACKUP TIMER FOR Q6
+          if (idx >= 5) {
+            console.warn('[☢️ Q6 AUTO-TIMER] Detected Q6! Auto-starting backup timer...');
+            setTimeout(() => {
+              this.startQ6BackupTimer();
+            }, 500);
+          }
         }
       });
   }
@@ -3346,10 +3412,26 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     });
   }
 
-  public advanceToNextQuestion(): Promise<void> {
+  public async advanceToNextQuestion(): Promise<void> {
     console.log('[QUIZ COMPONENT] advanceToNextQuestion triggered ' +
       '(Simplified)');
-    return this.advanceQuestion('next');
+    await this.advanceQuestion('next');
+    
+    // ⚡ FIX: Explicitly start timer after Next navigation
+    const newIndex = this.quizService.getCurrentQuestionIndex();
+    console.log(`[NEXT BTN] 🔄 About to start timer for Q${newIndex + 1}, isTimerRunning=${this.timerService.isTimerRunning}`);
+    
+    setTimeout(() => {
+      // Force stop any running timer first
+      if (this.timerService.isTimerRunning) {
+        console.log(`[NEXT BTN] ⏹️ Force stopping running timer before restart`);
+        this.timerService.stopTimer(undefined, { force: true });
+      }
+      
+      this.timerService.resetTimerFlagsFor(newIndex);
+      this.timerService.startTimer(this.timerService.timePerQuestion, true);
+      console.log(`[NEXT BTN] ⏱️ Timer started for Q${newIndex + 1}, isTimerRunning=${this.timerService.isTimerRunning}`);
+    }, 150);
   }
 
   public advanceToPreviousQuestion(): Promise<void> {
@@ -4214,6 +4296,13 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     // Navigate via router (route change triggers question loading)
     this.router.navigate(['/quiz/question', quizId, index + 1]);
+
+    // ⚡ FIX: Explicitly start timer after dot navigation
+    setTimeout(() => {
+      this.timerService.resetTimerFlagsFor(index);
+      this.timerService.startTimer(this.timerService.timePerQuestion, true);
+      console.log(`[DOT NAV] ⏱️ Timer started for Q${index + 1}`);
+    }, 100);
   }
 
   // Check if a dot is clickable (answered, current question, or next after answering

@@ -18,9 +18,18 @@ interface StopTimerAttemptOptions {
 @Injectable({ providedIn: 'root' })
 export class TimerService implements OnDestroy {
   timePerQuestion = 30;
-  private elapsedTime = 0;
+  private _elapsedTime = 0;
+  get elapsedTime(): number {
+    return this._elapsedTime;
+  }
+  set elapsedTime(value: number) {
+    this._elapsedTime = value;
+  }
+
   completionTime = 0;
   elapsedTimes: number[] = [];
+
+
 
   isTimerRunning = false; // tracks whether the timer is currently running
   isCountdown = true; // tracks the timer mode (true = countdown, false = stopwatch)
@@ -41,6 +50,7 @@ export class TimerService implements OnDestroy {
 
   private timerSubscription: Subscription | null = null;
   private stopTimerSignalSubscription: Subscription | null = null;
+  public intervalId: any;
 
   private expiredSubject = new Subject<void>();
   public expired$ = this.expiredSubject.asObservable();
@@ -52,6 +62,7 @@ export class TimerService implements OnDestroy {
     private selectedOptionService: SelectedOptionService,
     private quizService: QuizService,
   ) {
+    console.log('[TimerService] 🐣 Created instance:', Math.random());
     this.setupTimer();
     this.listenForCorrectSelections();
   }
@@ -73,6 +84,9 @@ export class TimerService implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+    }
     this.timerSubscription?.unsubscribe();
     this.stopTimerSignalSubscription?.unsubscribe();
   }
@@ -135,69 +149,60 @@ export class TimerService implements OnDestroy {
 
   // Starts the timer
   startTimer(
-    duration: number = this.timePerQuestion,
+    durationInput: number = this.timePerQuestion,
     isCountdown: boolean = true,
   ): void {
-    if (this.isTimerStoppedForCurrentQuestion) {
-      console.log(`[TimerService] ⚠️ Timer restart prevented.`);
-      return;
-    }
+    const duration = Number(durationInput);
+    console.log(`[TimerService] 🚀 startTimer called. isTimerStoppedForCurrentQuestion=${this.isTimerStoppedForCurrentQuestion}, isTimerRunning=${this.isTimerRunning}`);
 
     if (this.isTimerRunning) {
       console.info('[TimerService] Timer is already running. Start ignored.');
-      return; // prevent restarting an already running timer
+      return; 
     }
 
-    this.isTimerRunning = true; // mark timer as running
+    this.isTimerRunning = true; 
     this.isCountdown = isCountdown;
     this.elapsedTime = 0;
 
-    // Show initial value immediately (inside Angular so UI updates right away)
+    // Show initial value immediately
     this.ngZone.run(() => {
       this.elapsedTimeSubject.next(0);
     });
 
-    // Start ticking after 1s so the initial value stays visible for a second
-    const timer$ = timer(1000, 1000).pipe(
-      tap((tick) => {
-        // Tick starts at 0 after 1s → elapsed = tick + 1 (1,2,3,…)
-        const elapsed = tick + 1;
+    // Clear any existing interval just in case
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+    }
 
-        // Internal state can be outside Angular
-        this.elapsedTime = elapsed;
-
-        // Re-enter Angular so async pipes trigger change detection on every tick
+    // ⚡ FIX: Wrap the entire setInterval creation in NgZone.run()
+    // This ensures the interval callback runs inside Angular's zone
+    this.ngZone.run(() => {
+      this.intervalId = setInterval(() => {
         this.ngZone.run(() => {
-          this.elapsedTimeSubject.next(this.elapsedTime);
-        });
+          // Tick logic
+          this.elapsedTime++;
+          const elapsed = this.elapsedTime;
+          console.log(`[TimerService] ⏱️ TICK ${elapsed}`);
 
-        // If in countdown mode and reached the duration, stop automatically
-        if (isCountdown && elapsed >= duration) {
-          console.log('[TimerService] Time expired. Stopping timer.');
-          this.ngZone.run(() => this.expiredSubject.next());
-          this.stopTimer(undefined, { force: true });
-        }
-      }),
-      takeUntil(this.isStop),
-      finalize(() => {
-        console.log('[TimerService] Timer finalized.');
-        // Reset running state when timer completes (inside Angular)
-        this.ngZone.run(() => {
-          this.isTimerRunning = false;
-        });
-      }),
-    );
+          this.elapsedTimeSubject.next(elapsed);
 
-    this.timerSubscription = timer$.subscribe();
-    console.log('[TimerService] Timer started successfully.');
+          if (isCountdown && elapsed >= duration) {
+            console.log('[TimerService] Time expired. Stopping timer.');
+            this.expiredSubject.next();
+            this.stopTimer(undefined, { force: true });
+          }
+        });
+      }, 1000);
+    });
+
+    console.log('[TimerService] Timer started successfully (setInterval).');
   }
 
   // Stops the timer
   stopTimer(
     callback?: (elapsedTime: number) => void,
-    options: { force?: boolean } = {}, // future use
+    options: { force?: boolean } = {}, 
   ): void {
-    // AUTHORITATIVE STOP GUARD (blocks rogue direct calls)
     if (!options.force && !this._authoritativeStop) {
       console.error('🛑 ILLEGAL stopTimer() CALL — BLOCKED', {
         elapsedTime: this.elapsedTime,
@@ -206,29 +211,26 @@ export class TimerService implements OnDestroy {
       return;
     }
 
-    // Reset authority immediately to prevent re-entry / double stop paths
+    console.log('[TimerService] 🛑 stopTimer executing', { force: options.force, stack: new Error().stack });
+
+    // Reset authority
     this._authoritativeStop = false;
 
-    void options; // prevent unused-parameter warning (intentional)
-
-    if (!this.isTimerRunning) {
-      console.log('Timer is not running. Nothing to stop.');
-      return;
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
     }
 
-    // End the ticking subscription
+    // Also unsubscribe RxJS just in case (legacy cleanup)
     if (this.timerSubscription) {
       this.timerSubscription.unsubscribe();
       this.timerSubscription = null;
-      console.log('Timer subscription cleared.');
-    } else {
-      console.warn('No active timer subscription to unsubscribe.');
     }
 
-    this.isTimerRunning = false; // mark the timer as stopped
-    this.isTimerStoppedForCurrentQuestion = true; // prevent restart for current question
-    this.stopSubject.next(); // emit stop signal to stop the timer
-    this.isStop.next();
+    this.isTimerRunning = false; 
+    this.isTimerStoppedForCurrentQuestion = true; 
+    this.stopSubject.next(); 
+    this.isStop.next(); // Keep for compatibility if used elsewhere
 
     if (callback) {
       callback(this.elapsedTime);
@@ -553,7 +555,7 @@ export class TimerService implements OnDestroy {
 
     this.stoppedForQuestion.delete(questionIndex);
 
-    console.log(`[TimerService] Reset timer flags for Q${questionIndex + 1}`);
+    console.log(`[TimerService] Reset timer flags for Q${questionIndex + 1}. isTimerStoppedForCurrentQuestion=${this.isTimerStoppedForCurrentQuestion}`);
   }
 
   public async requestStopEvaluationFromClick(
@@ -633,7 +635,18 @@ export class TimerService implements OnDestroy {
       return potentialOneBased;
     }
 
-    return Math.min(Math.max(normalized, 0), questions.length - 1);
+    // ⚡ FIX: Do NOT clamp to questions.length - 1. 
+    // If we are on Q6 (index 5) and questions has 5 items (indices 0-4) due to async load,
+    // clamping returns 4 (Q5). If Q5 is answered, the timer stops for Q6 thinking it's Q5.
+    // Ensure we return the requested index if it looks like a valid positive integer.
+    if (normalized >= 0) {
+        if (normalized >= questions.length) {
+             console.warn(`[TimerService] Index ${normalized} out of bounds (length ${questions.length}). Allowing it.`);
+        }
+        return normalized;
+    }
+
+    return -1;
   }
 
   public allowAuthoritativeStop(): void {

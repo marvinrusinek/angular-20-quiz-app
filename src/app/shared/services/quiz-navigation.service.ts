@@ -227,6 +227,11 @@ export class QuizNavigationService {
       // Finalize
       this.notifyNavigationSuccess();
 
+      // ⚡ FIX: Start timer for the new question after successful navigation
+      this.timerService.resetTimerFlagsFor(index);
+      this.timerService.startTimer(this.timerService.timePerQuestion, true);
+      console.log(`[NAV] ⏱️ Timer started for Q${index + 1}`);
+
       return true;
     } catch (err) {
       console.error('[❌ navigateToQuestion error]', err);

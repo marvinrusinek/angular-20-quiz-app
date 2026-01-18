@@ -229,6 +229,9 @@ export class QuizService {
   private quizResetSource = new Subject<void>();
   quizReset$ = this.quizResetSource.asObservable();
 
+  private answersResetSource = new Subject<void>();
+  answersReset$ = this.answersResetSource.asObservable();
+
   lock = false;
 
   score = 0;
@@ -2472,6 +2475,14 @@ export class QuizService {
     this.currentQuestionIndexSource.next(0);
     this.currentQuestionIndexSubject.next(0);
 
+    // ⚡ FIX: Explicitly clear answers when resetting session state
+    this.answers = [];
+    this.userAnswers = [];
+    localStorage.removeItem('userAnswers');
+
+    // Notify subscribers (like SelectedOptionService) to wipe their state
+    this.answersResetSource.next();
+
     // ⚡ FIX: Do NOT clear shuffledQuestions here.
     // It should only be cleared when explicitly toggling shuffle or starting a BRAND NEW quiz config.
     // Clearing it here breaks persistence during navigation/reloads.
@@ -2532,6 +2543,11 @@ export class QuizService {
 
   resetAll(): void {
     this.answers = [];
+    this.userAnswers = []; // ⚡ FIX: Clear user answers
+    localStorage.removeItem('userAnswers'); // ⚡ FIX: Clear persistence
+    localStorage.removeItem('startedQuizId');
+    localStorage.removeItem('currentQuestionIndex');
+    
     // this.correctAnswersForEachQuestion = [];
     this.correctAnswerOptions = [];
     this.correctOptions = [];
@@ -2539,9 +2555,12 @@ export class QuizService {
     this.currentQuestionIndex = 0;
     this.questions = [];
     this.shuffledQuestions = [];
+    localStorage.removeItem('shuffledQuestions'); // ⚡ FIX: Clear shuffled persistence
+    
     this.questionsList = [];
     this.questionsSubject.next([]);
     this.quizResetSource.next();
+    this.answersResetSource.next(); // ⚡ FIX: Sync clearance
   }
 
   private normalizeQuestionText(value: string | null | undefined): string {

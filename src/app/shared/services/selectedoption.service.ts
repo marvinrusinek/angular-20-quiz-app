@@ -78,6 +78,12 @@ export class SelectedOptionService {
         this.publishFeedbackForQuestion(index);
       });
     }
+
+    // ⚡ FIX: clear state on quiz reset
+    this.quizService.quizReset$.subscribe(() => this.resetAll());
+    if (this.quizService.answersReset$) {
+        this.quizService.answersReset$.subscribe(() => this.resetAll());
+    }
   }
 
   isSelectedOption(option: Option): boolean {
@@ -224,6 +230,23 @@ export class SelectedOptionService {
       questionIndex,
       current.filter(o => o.optionId === keepOptionId)
     );
+  }
+
+  public resetAll(): void {
+    this.selectedOption = [];
+    this.selectedOptionsMap.clear();
+    this.rawSelectionsMap.clear();
+    this.selectedOptionIndices = {};
+    this.selectedOptionSubject.next([]);
+    this.isOptionSelectedSubject.next(false);
+    this.isAnsweredSubject.next(false);
+    this.feedbackByQuestion.clear();
+    this.optionSnapshotByQuestion.clear();
+    this._lockedByQuestion.clear();
+    this._questionLocks.clear();
+    this._lockedOptionsMap.clear();
+    this.optionStates.clear();
+    console.log('[SelectedOptionService] 🧹 Fully reset all state.');
   }
 
   public clearAllSelectionsForQuestion(questionIndex: number): void {
@@ -1900,7 +1923,18 @@ export class SelectedOptionService {
       return potentialOneBased;
     }
 
-    return Math.min(Math.max(normalized, 0), questions.length - 1);
+    // ⚡ FIX: Do NOT clamp to questions.length - 1.
+    // If we are on Q6 (index 5) and questions has 5 items due to async load,
+    // clamping returns 4. This causes clearAllSelectionsForQuestion(5) to clear Q4 instead of Q5/Q6.
+    // Return the requested index if valid positive integer.
+    if (normalized >= 0) {
+        if (normalized >= questions.length) {
+             console.warn(`[SelectedOptionService] Index ${normalized} out of bounds (length ${questions.length}). Allowing it.`);
+        }
+        return normalized;
+    }
+
+    return -1;
   }
 
   private normalizeStr(x: unknown): string {

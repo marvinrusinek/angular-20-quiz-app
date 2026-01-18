@@ -38,6 +38,7 @@ import { QuizDataService } from '../../shared/services/quizdata.service';
 import { QuizShuffleService } from '../../shared/services/quiz-shuffle.service';
 import { QuizNavigationService } from '../../shared/services/quiz-navigation.service';
 import { UserPreferenceService } from '../../shared/services/user-preference.service';
+import { QuizStateService } from '../../shared/services/quizstate.service';
 
 @Component({
   selector: 'codelab-quiz-intro',
@@ -83,6 +84,7 @@ export class IntroductionComponent implements OnInit, OnDestroy {
     private quizShuffleService: QuizShuffleService,
     private quizNavigationService: QuizNavigationService,
     private userPreferenceService: UserPreferenceService,
+    private quizStateService: QuizStateService,
     private activatedRoute: ActivatedRoute,
     private router: Router,
     private fb: FormBuilder,
@@ -250,6 +252,7 @@ export class IntroductionComponent implements OnInit, OnDestroy {
       this.quizShuffleService.clear(targetQuizId); // ⚡ Clear shuffle state to force fresh shuffle
 
       this.quizService.resetQuizSessionState();
+      this.quizStateService.reset(); // ⚡ FIX: Reset answer states (isAnswered flags)
 
       const activeQuiz = await this.resolveActiveQuiz(targetQuizId);
       if (!activeQuiz) {

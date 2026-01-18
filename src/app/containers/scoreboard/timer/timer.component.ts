@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { AsyncPipe, CommonModule, DecimalPipe } from '@angular/common';
 import { MatMenuModule } from '@angular/material/menu';
 import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { map, tap, shareReplay } from 'rxjs/operators';
 
 import { TimerService } from '../../../shared/services/timer.service';
 
@@ -26,15 +26,20 @@ export class TimerComponent implements OnInit {
 
   timeLeft$!: Observable<number>;
 
-  constructor(private timerService: TimerService) {}
+  constructor(public timerService: TimerService) {
+    console.log('[TimerComponent] Constructor - TimerService instance:', (timerService as any).constructor.name);
+  }
 
   ngOnInit(): void {
+    console.log('[TimerComponent] ngOnInit - Setting up timeLeft$ observable');
     this.timeLeft$ = this.timerService.elapsedTime$.pipe(
+      tap((elapsed) => console.log('[TimerComponent] elapsedTime$ emitted:', elapsed)),
       map((elapsedTime) =>
         this.currentTimerType === TimerType.Countdown
           ? Math.max(this.timePerQuestion - elapsedTime, 0)
           : elapsedTime,
       ),
+      shareReplay(1),
     );
   }
 

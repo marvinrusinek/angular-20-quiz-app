@@ -277,6 +277,9 @@ export class QuizQuestionComponent extends BaseQuestion
   public renderReady$ = this.renderReadySubject.asObservable();
   private renderReadySubscription?: Subscription;
 
+  private watchdogInterval: any;
+  private lastElapsed = -1;
+
   private timerSub!: Subscription;
 
   waitingForReady = false;
@@ -341,6 +344,7 @@ export class QuizQuestionComponent extends BaseQuestion
     super(fb, dynamicComponentService, feedbackService, quizService, quizStateService,
       selectedOptionService, cdRef
     );
+    console.log('[QuizQuestionComponent] 🐣 Created instance:', Math.random());
   }
 
   @Input() set questionIndex(value: number) {
@@ -429,7 +433,35 @@ export class QuizQuestionComponent extends BaseQuestion
     this.subscribeToShuffleChanges();
     this.subscribeToNavigationEvents();
     this.subscribeToEventsAndResets();
+    this.subscribeToTimerEvents(); // ⚡ FIX: Ensure timer expiry events are handled
     this.subscribeToRouteParams();
+
+    // 🛡️ WATCHDOG: Last Question Timer Enforcer
+    this.watchdogInterval = setInterval(() => {
+        if (this.currentQuestionIndex < 0) return;
+        // 🛡️ WATCHDOG: Universal Check (Run for ALL questions, not just last)
+        // This avoids dependency on totalQuestions being accurate during initialization
+        if (this.currentQuestionIndex >= 0) {
+            const isAnswered = this.quizStateService.answeredSubject.getValue();
+            const explanationShown = this.explanationTextService.isExplanationTextDisplayedSource.getValue();
+            
+            if (this.timerService.isTimerRunning) {
+                const current = this.timerService.elapsedTime;
+                if (current === this.lastElapsed && current < this.timerService.timePerQuestion) {
+                     console.warn('[WATCHDOG 🛡️] Timer STUCK! Forcing restart.');
+                     this.timerService.stopTimer(undefined, {force: true});
+                     this.timerService.resetTimerFlagsFor(this.currentQuestionIndex);
+                     this.timerService.startTimer(this.timerService.timePerQuestion, true);
+                }
+                this.lastElapsed = current;
+            } else if (!isAnswered && !explanationShown) {
+                 console.warn('[WATCHDOG 🛡️] Timer STOPPED on Q6. Restarting.');
+                 this.timerService.resetTimerFlagsFor(this.currentQuestionIndex);
+                 this.timerService.startTimer(this.timerService.timePerQuestion, true);
+                 this.lastElapsed = -1;
+            }
+        }
+    }, 2000);
 
     // Sync local questionsArray with Service!
     // This ensures that when Shuffle is toggled, this component sees the new order immediately.
@@ -602,6 +634,32 @@ export class QuizQuestionComponent extends BaseQuestion
       this.renderReady = false;
     });
 
+    // ☢️ NUCLEAR OPTION: Force timer start on ANY navigation end event
+    this.router.events.pipe(
+      filter(event => event instanceof NavigationEnd),
+      filter((event: NavigationEnd) => event.url.includes('/quiz/question/'))
+    ).subscribe((event: NavigationEnd) => {
+      console.log('[NUCLEAR ☢️] NavigationEnd detected:', event.url);
+      
+      // Extract index from URL
+      const matches = event.url.match(/\/quiz\/question\/[^\/]+\/(\d+)/);
+      if (matches && matches[1]) {
+        const index = parseInt(matches[1], 10) - 1;
+        console.log(`[NUCLEAR ☢️] Forcing timer start for index ${index}`);
+        
+        // Wait a tick for view to settle
+        setTimeout(() => {
+           if (this.timerService.isTimerRunning) {
+             this.timerService.stopTimer(undefined, { force: true });
+           }
+           this.timerService.resetTimerFlagsFor(index);
+           // Force start regardless of state
+           this.timerService.startTimer(this.timerService.timePerQuestion, true);
+           console.log(`[NUCLEAR ☢️] Timer forced for Q${index + 1}`);
+        }, 1000);
+      }
+    });
+
     this.quizNavigationService.resetUIForNewQuestion$.subscribe(() => {
       this.resetUIForNewQuestion();
     });
@@ -661,6 +719,14 @@ export class QuizQuestionComponent extends BaseQuestion
           console.warn(`[⚠️ No valid question returned for index ${questionIndex}]`);
           return;
         }
+
+        // ⚡ FIX: Use the fetched question to hydrate the view
+        console.log('[QQC] 🔄 Route fallback: Fetched question from service via index', question.questionText?.substring(0, 20));
+        this.hydrateFromPayload({
+          question: question,
+          options: question.options,
+          explanation: question.explanation
+        });
       } catch (err: any) {
         console.error('[❌ Error during question fetch]', err);
       }
@@ -747,6 +813,47 @@ export class QuizQuestionComponent extends BaseQuestion
       this.setupSubscriptions();
       this.subscribeToNavigationFlags();
       this.subscribeToTotalQuestions();
+      
+      // ☢️ NUCLEAR Q6 FIX - Moved here because ngAfterViewInit has early return that blocks Q6
+      // This runs after 2 seconds to ensure everything is loaded
+      setTimeout(() => {
+          const index = this.currentQuestionIndex;
+          console.log('[NUCLEAR Q6 FIX - ngOnInit] Checking index:', index);
+          
+          // Check if this is Q6 (index 5) - hardcoded check because totalQuestions may not be reliable
+          if (index === 5 || index >= 5) { 
+               console.warn('[NUCLEAR Q6 FIX] Force starting timer for Q6! Index:', index);
+               this.selectedOptionService.clearAllSelectionsForQuestion(index);
+               this.quizStateService.setAnswered(false);
+               this.timerService.stopTimer(undefined, {force: true});
+               this.timerService.resetTimerFlagsFor(index);
+               this.timerService.startTimer(30, true);
+               
+               // Keep checking every 500ms for 10 seconds
+               let checkCount = 0;
+               const bulletproofInterval = setInterval(() => {
+                   checkCount++;
+                   const isStillQ6 = this.currentQuestionIndex >= 5;
+                   const isAnswered = this.quizStateService.answeredSubject.getValue();
+                   const isRunning = this.timerService.isTimerRunning;
+                   const elapsed = this.timerService.elapsedTime;
+                   
+                   console.log(`[BULLETPROOF #${checkCount}] Q${index+1}: Running=${isRunning}, Elapsed=${elapsed}, Answered=${isAnswered}`);
+                   
+                   if (!isStillQ6 || checkCount >= 20) {
+                       clearInterval(bulletproofInterval);
+                       return;
+                   }
+                   
+                   if (!isRunning && !isAnswered) {
+                       console.warn('[BULLETPROOF] Timer stopped! Force restarting...');
+                       this.timerService.resetTimerFlagsFor(index);
+                       this.timerService.startTimer(30, true);
+                   }
+               }, 500);
+          }
+      }, 2000);
+      
     } catch (error: any) {
       console.error('Error in ngOnInit:', error);
     }
@@ -830,6 +937,67 @@ export class QuizQuestionComponent extends BaseQuestion
     } else {
       console.error(`[ngAfterViewInit] ❌ No question found at index ${index}`);
     }
+
+    // ☢️ NUCLEAR CHECK (ViewInit Phase) - General
+    setTimeout(() => {
+        const currentIndex = this.currentQuestionIndex;
+        if (currentIndex >= 0) {
+             const isAnswered = this.quizStateService.answeredSubject.getValue();
+             const explanationShown = this.explanationTextService.isExplanationTextDisplayedSource.getValue();
+
+             if (!isAnswered && !explanationShown && !this.timerService.isTimerRunning) {
+                  // Standard restart
+                  this.timerService.stopTimer(undefined, { force: true });
+                  this.timerService.resetTimerFlagsFor(currentIndex);
+                  this.timerService.startTimer(this.timerService.timePerQuestion, true);
+             }
+        }
+    }, 1000);
+
+    // ☢️ NUCLEAR OVERRIDE FOR Q6 (Fix Persistent Stuck State)
+    // Always clear Q6 on load to ensure timer starts, bypassing any persistence glitches
+    setTimeout(() => {
+        const index = this.currentQuestionIndex;
+        const serviceCount = this.quizService.questions?.length || 0;
+        const total = Math.max(this.quizService.totalQuestions, serviceCount, 6); // Assume at least 6 questions
+        
+        // If it is the LAST QUESTION (e.g. Q6) - also check hardcoded index 5 as fallback
+        const isLastQuestion = (total > 0 && index === total - 1) || index === 5;
+        
+        if (isLastQuestion) { 
+             console.warn('[NUCLEAR Q6 FIX] Clearing state to force Timer Start. Index:', index, 'Total:', total);
+             this.selectedOptionService.clearAllSelectionsForQuestion(index);
+             this.quizStateService.setAnswered(false);
+             this.timerService.stopTimer(undefined, {force: true});
+             this.timerService.resetTimerFlagsFor(index);
+             this.timerService.startTimer(this.timerService.timePerQuestion || 30, true);
+             
+             // ☢️ BULLETPROOF: Keep checking every 500ms for 10 seconds
+             let checkCount = 0;
+             const bulletproofInterval = setInterval(() => {
+                 checkCount++;
+                 const isStillQ6 = this.currentQuestionIndex === index;
+                 const isAnswered = this.quizStateService.answeredSubject.getValue();
+                 const isRunning = this.timerService.isTimerRunning;
+                 const elapsed = this.timerService.elapsedTime;
+                 
+                 console.log(`[BULLETPROOF #${checkCount}] Q${index+1}: Running=${isRunning}, Elapsed=${elapsed}, Answered=${isAnswered}`);
+                 
+                 if (!isStillQ6 || checkCount >= 20) {
+                     console.log('[BULLETPROOF] Stopping checks - navigated away or max checks reached');
+                     clearInterval(bulletproofInterval);
+                     return;
+                 }
+                 
+                 // If timer stopped and question not answered, FORCE RESTART
+                 if (!isRunning && !isAnswered) {
+                     console.warn('[BULLETPROOF] Timer stopped unexpectedly! Force restarting...');
+                     this.timerService.resetTimerFlagsFor(index);
+                     this.timerService.startTimer(30, true);
+                 }
+             }, 500);
+        }
+    }, 1500); // Wait 1.5s to override any persistence loading
   }
 
   override async ngOnChanges(changes: SimpleChanges): Promise<void> {
@@ -843,6 +1011,43 @@ export class QuizQuestionComponent extends BaseQuestion
     ) {
       this._fetEarlyShown.delete(prevIndex);  // only clear the last one, not all
       console.log(`[QQC] 🔄 Reset _fetEarlyShown for transition ${prevIndex + 1} → ${newIndex + 1}`);
+      
+      // ☢️ NUCLEAR Q6 FIX - Trigger when navigating TO Q6 (index 5)
+      if (newIndex >= 5) {
+        console.warn('[NUCLEAR Q6 FIX - ngOnChanges] Detected navigation to Q6! Index:', newIndex);
+        
+        // Run after a short delay to let other change handlers settle
+        setTimeout(() => {
+          console.warn('[NUCLEAR Q6 FIX] Forcing timer start for Q6!');
+          this.selectedOptionService.clearAllSelectionsForQuestion(newIndex);
+          this.quizStateService.setAnswered(false);
+          this.timerService.stopTimer(undefined, {force: true});
+          this.timerService.resetTimerFlagsFor(newIndex);
+          this.timerService.startTimer(30, true);
+          
+          // Bulletproof monitoring
+          let checkCount = 0;
+          const bulletproofInterval = setInterval(() => {
+            checkCount++;
+            const isRunning = this.timerService.isTimerRunning;
+            const elapsed = this.timerService.elapsedTime;
+            const isAnswered = this.quizStateService.answeredSubject.getValue();
+            
+            console.log(`[BULLETPROOF ngOnChanges #${checkCount}] Q${newIndex+1}: Running=${isRunning}, Elapsed=${elapsed}, Answered=${isAnswered}`);
+            
+            if (this.currentQuestionIndex !== newIndex || checkCount >= 20) {
+              clearInterval(bulletproofInterval);
+              return;
+            }
+            
+            if (!isRunning && !isAnswered) {
+              console.warn('[BULLETPROOF] Timer stopped! Restarting...');
+              this.timerService.resetTimerFlagsFor(newIndex);
+              this.timerService.startTimer(30, true);
+            }
+          }, 500);
+        }, 500);
+      }
     }
 
     if (changes['questionPayload'] && this.questionPayload) {
@@ -895,6 +1100,9 @@ export class QuizQuestionComponent extends BaseQuestion
   }
 
   override ngOnDestroy(): void {
+    if (this.watchdogInterval) {
+      clearInterval(this.watchdogInterval);
+    }
     this.destroy$.next();
     this.destroy$.complete();
     this.idxSub?.unsubscribe();
@@ -1198,6 +1406,21 @@ export class QuizQuestionComponent extends BaseQuestion
     this.updateShouldRenderOptions(this.optionsToDisplay);
 
     this.explanationToDisplay = explanation?.trim() || '';
+
+    // ⚡ FIX: Ensure timer is started for the new question during hydration
+    // This is critical for navigation when loadQuestion() is skipped
+    if (this.currentQuestionIndex >= 0) {
+      console.log(`[hydrateFromPayload] ⏱️ Starting timer for Q${this.currentQuestionIndex + 1}`);
+      
+      // Force stop effectively resets isTimerRunning so startTimer works
+      if (this.timerService.isTimerRunning) {
+         console.log('[hydrateFromPayload] 🛑 Stopping stale timer before start');
+         this.timerService.stopTimer(undefined, { force: true });
+      }
+
+      this.timerService.resetTimerFlagsFor(this.currentQuestionIndex);
+      this.timerService.startTimer(this.timerService.timePerQuestion, true);
+    }
 
     // Always load component for each question to ensure fresh data
     if (this.dynamicAnswerContainer) {
@@ -1991,6 +2214,7 @@ export class QuizQuestionComponent extends BaseQuestion
   }
 
   public async loadQuestion(signal?: AbortSignal): Promise<boolean> {
+    console.log(`[loadQuestion] 🚀 ENTER for Q${this.currentQuestionIndex + 1}`);
     // Absolute Lock: prevent stale FET display
     this.explanationTextService.setShouldDisplayExplanation(false);
     this.explanationTextService.setIsExplanationTextDisplayed(false);
@@ -2074,7 +2298,8 @@ export class QuizQuestionComponent extends BaseQuestion
         });
       }
 
-      // Start fresh timer
+      // Start fresh timer (reset flags first to allow restart)
+      this.timerService.resetTimerFlagsFor(this.currentQuestionIndex);
       this.timerService.startTimer(this.timerService.timePerQuestion, true);
 
       // Fetch questions if not already available
@@ -3397,6 +3622,7 @@ export class QuizQuestionComponent extends BaseQuestion
     try {
       this.explanationTextService.setShouldDisplayExplanation(true);
       this.displayExplanation = true;
+      this.explanationTextService.setIsExplanationTextDisplayed(true); // ⚡ FIX: Sync service state
       this.emitShowExplanationChange(true);
 
       const cached = this._formattedByIndex.get(i0);
