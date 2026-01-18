@@ -2112,10 +2112,15 @@ export class QuizQuestionComponent extends BaseQuestion
       
       console.log(`[loadQuestion] 📊 Index Check: currentIndex=${this.currentQuestionIndex}, localCount=${localCount}, serviceCount=${serviceCount}, effectiveTotal=${effectiveTotal}`);
       
+      // 🕵️ TEMPORARILY DISABLED FOR DEBUGGING
+      // if (effectiveTotal > 0 && this.currentQuestionIndex >= effectiveTotal) {
+      //   console.log('[loadQuestion] End of quiz → /results');
+      //   await this.router.navigate(['/results', this.quizId]);
+      //   return false;
+      // }
       if (effectiveTotal > 0 && this.currentQuestionIndex >= effectiveTotal) {
-        console.log('[loadQuestion] End of quiz → /results');
-        await this.router.navigate(['/results', this.quizId]);
-        return false;
+        console.warn(`[loadQuestion] ⚠️ WOULD REDIRECT to /results but BYPASSED. Index=${this.currentQuestionIndex} >= Total=${effectiveTotal}`);
+        // Do NOT redirect - let navigation continue for debugging
       }
 
       // Validate current index
