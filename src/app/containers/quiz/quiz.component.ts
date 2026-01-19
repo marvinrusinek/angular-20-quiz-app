@@ -3447,8 +3447,21 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     this.navigatingToResults = true;  // prevent multiple clicks
 
-    // Reset quiz state
-    this.quizService.resetAll();
+    // Record elapsed time for the current (last) question before resetting state
+    const currentIndex =
+      this.quizService.getCurrentQuestionIndex?.() ?? this.currentQuestionIndex;
+    const currentElapsed = (this.timerService as any).elapsedTime ?? 0;
+    if (
+      currentIndex != null &&
+      currentIndex >= 0 &&
+      !this.timerService.elapsedTimes[currentIndex] &&
+      currentElapsed > 0
+    ) {
+      this.timerService.elapsedTimes[currentIndex] = currentElapsed;
+      console.log(
+        `[QUIZ COMPONENT] ⏱️ Recorded elapsed time for Q${currentIndex + 1}: ${currentElapsed}s`,
+      );
+    }
 
     // Stop the timer and record elapsed time
     if (this.timerService.isTimerRunning) {
@@ -3462,6 +3475,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     } else {
       console.log('Timer was not running, skipping stopTimer.');
     }
+
+    // Reset quiz state
+    this.quizService.resetAll();
 
     // Check if all answers were completed before navigating
     if (!this.quizService.quizCompleted) {
@@ -3672,6 +3688,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
       // Explanation/Timer/Badge Logic
       let explanationText = '';
+      this.timerService.stopTimer?.(undefined, { force: true });
+      this.timerService.resetTimer();
+      this.timerService.resetTimerFlagsFor(questionIndex);
 
       if (isAnswered) {
         // Already answered: restore explanation state and stop timer
