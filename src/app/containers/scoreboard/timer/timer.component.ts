@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { AsyncPipe, CommonModule, DecimalPipe } from '@angular/common';
 import { MatMenuModule } from '@angular/material/menu';
 import { Observable } from 'rxjs';
@@ -26,14 +26,21 @@ export class TimerComponent implements OnInit {
 
   timeLeft$!: Observable<number>;
 
-  constructor(public timerService: TimerService) {
-    console.log('[TimerComponent] Constructor - TimerService instance:', (timerService as any).constructor.name);
+  constructor(
+    public timerService: TimerService,
+    private cdRef: ChangeDetectorRef
+  ) {
+    console.log('[TimerComponent] Constructor');
   }
 
   ngOnInit(): void {
     console.log('[TimerComponent] ngOnInit - Setting up timeLeft$ observable');
     this.timeLeft$ = this.timerService.elapsedTime$.pipe(
-      tap((elapsed) => console.log('[TimerComponent] elapsedTime$ emitted:', elapsed)),
+      tap((elapsed) => {
+        console.log('[TimerComponent] elapsedTime$ emitted:', elapsed);
+        // Force OnPush change detection to update the view
+        this.cdRef.markForCheck();
+      }),
       map((elapsedTime) =>
         this.currentTimerType === TimerType.Countdown
           ? Math.max(this.timePerQuestion - elapsedTime, 0)
