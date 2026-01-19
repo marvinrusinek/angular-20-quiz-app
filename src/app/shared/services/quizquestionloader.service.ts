@@ -729,7 +729,7 @@ export class QuizQuestionLoaderService {
       explanationText = q.explanation?.trim() || 'No explanation available';
       this.explanationTextService.setExplanationTextForQuestionIndex(
         idx,
-        explanationText,
+        explanationText
       );
 
       this.quizStateService.setDisplayState({
@@ -738,7 +738,14 @@ export class QuizQuestionLoaderService {
       });
       this.timerService.isTimerRunning = false;
     } else {
-      this.timerService.startTimer(this.timerService.timePerQuestion);
+      // For Q6 (index 5), let the backup timer in QuizComponent handle it
+      if (idx < 5) {
+        this.timerService.resetTimerFlagsFor(idx);
+        this.timerService.resetTimer();
+        this.timerService.startTimer(this.timerService.timePerQuestion);
+      } else {
+        console.log('[QuizQuestionLoaderService] Skipping timer start for Q6 - backup timer will handle it');
+      }
     }
 
     // Down-stream state updates
