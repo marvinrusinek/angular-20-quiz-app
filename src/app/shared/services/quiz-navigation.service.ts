@@ -202,6 +202,11 @@ export class QuizNavigationService {
         return false;
       }
 
+      // Reset timer state before emitting the new index to avoid immediate expiry
+      this.timerService.stopTimer?.(undefined, { force: true });
+      this.timerService.resetTimer();
+      this.timerService.resetTimerFlagsFor(index);
+
       // Update Service State (Index) - Update AFTER router nav success
       this.quizService.setCurrentQuestionIndex(index);
       this.currentQuestionIndex = index;
@@ -226,11 +231,6 @@ export class QuizNavigationService {
 
       // Finalize
       this.notifyNavigationSuccess();
-
-      // ⚡ FIX: Start timer for the new question after successful navigation
-      this.timerService.resetTimerFlagsFor(index);
-      this.timerService.startTimer(this.timerService.timePerQuestion, true);
-      console.log(`[NAV] ⏱️ Timer started for Q${index + 1}`);
 
       return true;
     } catch (err) {

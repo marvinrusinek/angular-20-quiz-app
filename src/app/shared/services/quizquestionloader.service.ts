@@ -718,18 +718,54 @@ export class QuizQuestionLoaderService {
     idx: number,
   ): Promise<void> {
     // Explanation text and timers
-    const isAnswered = this.selectedOptionService.isQuestionAnswered(idx);
+    //const isAnswered = this.selectedOptionService.isQuestionAnswered(idx);
+
+    const optionIdSet = new Set(
+      opts
+        .map((opt) => opt.optionId)
+        .filter((id): id is number => typeof id === 'number'),
+    );
+    const selectedOptions =
+      this.selectedOptionService.getSelectedOptionsForQuestion(idx);
+    const validSelections = (selectedOptions ?? []).filter((opt) =>
+      optionIdSet.has(opt.optionId ?? -1),
+    );
+    const quizIdForState = this.quizService.quizId ?? this.activeQuizId ?? 'default-quiz';
+    const questionState = this.quizStateService.getQuestionState(quizIdForState, idx);
+
+    let isAnswered = validSelections.length > 0;
+    if (!isAnswered && questionState?.isAnswered) {
+      this.quizStateService.setQuestionState(quizIdForState, idx, {
+        ...questionState,
+        isAnswered: false,
+        explanationDisplayed: false,
+      });
+      this.selectedOptionService.clearSelectionsForQuestion(idx);
+      this.selectedOptionService.setAnswered(false, true);
+    }
+
+    if (isAnswered) {
+      this.quizStateService.setAnswered(true);
+      this.selectedOptionService.setAnswered(true, true);
+    } else {
+      this.quizStateService.setAnswered(false);
+      this.selectedOptionService.setAnswered(false, true);
+    }
 
     this.explanationTextService.setResetComplete(false);
     this.explanationTextService.setShouldDisplayExplanation(false);
     this.explanationTextService.explanationText$.next('');
 
     let explanationText = '';
+    this.timerService.stopTimer?.(undefined, { force: true });
+    this.timerService.resetTimer();
+    this.timerService.resetTimerFlagsFor(idx);
+    
     if (isAnswered) {
       explanationText = q.explanation?.trim() || 'No explanation available';
       this.explanationTextService.setExplanationTextForQuestionIndex(
         idx,
-        explanationText
+        explanationText,
       );
 
       this.quizStateService.setDisplayState({
@@ -738,14 +774,7 @@ export class QuizQuestionLoaderService {
       });
       this.timerService.isTimerRunning = false;
     } else {
-      // For Q6 (index 5), let the backup timer in QuizComponent handle it
-      if (idx < 5) {
-        this.timerService.resetTimerFlagsFor(idx);
-        this.timerService.resetTimer();
-        this.timerService.startTimer(this.timerService.timePerQuestion);
-      } else {
-        console.log('[QuizQuestionLoaderService] Skipping timer start for Q6 - backup timer will handle it');
-      }
+      this.timerService.startTimer(this.timerService.timePerQuestion);
     }
 
     // Down-stream state updates

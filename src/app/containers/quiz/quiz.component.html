@@ -104,27 +104,4 @@
   } @else {
     <p>Loading&hellip;</p>
   }
-
-  <!-- VISUAL DEBUGGER FOR TIMER -->
-  <div style="position: fixed; top: 60px; right: 10px; z-index: 99999; background: rgba(0,0,0,0.85); color: #0f0; padding: 10px; font-family: monospace; border: 1px solid #0f0; border-radius: 4px; font-size: 12px;">
-    <strong>🔍 DEBUG Q{{ currentQuestionIndex + 1 }}</strong><br>
-    Index: {{ currentQuestionIndex }}<br>
-    <hr style="border-color: #333">
-    Timer Run: <strong [style.color]="timerService.isTimerRunning ? '#0f0' : '#f00'">{{ timerService.isTimerRunning }}</strong><br>
-    Elapsed (prop): {{ timerService.elapsedTime }}<br>
-    Elapsed (obs): {{ timerService.elapsedTime$ | async }}s<br>
-    Interval ID: {{ timerService.intervalId ? 'EXISTS' : 'NULL' }}<br>
-    <hr style="border-color: #333">
-    IsAnswered: <strong [style.color]="(quizStateService.isAnswered$ | async) ? '#f00' : '#0f0'">{{ quizStateService.isAnswered$ | async }}</strong><br>
-    
-    <button (click)="forceResetCurrentQuestion()" style="margin-top: 5px; background: #f00; color: #fff; border: none; padding: 4px; border-radius: 3px; cursor: pointer;">
-      FORCE RESET
-    </button>
-    
-    <hr style="border-color: #ff0; margin: 8px 0;">
-    <strong style="color: #ff0;">☢️ BACKUP TIMER: {{ q6BackupTimer }}s</strong><br>
-    <button (click)="startQ6BackupTimer()" style="margin-top: 5px; background: #0f0; color: #000; border: none; padding: 6px 12px; border-radius: 3px; cursor: pointer; font-weight: bold;">
-      START BACKUP TIMER
-    </button>
-  </div>
 </ng-container>

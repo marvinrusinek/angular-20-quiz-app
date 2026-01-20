@@ -234,73 +234,15 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   private dotStatusCache =
     new Map<number, 'correct' | 'wrong'>();
 
-  public forceResetCurrentQuestion(): void {
-    const idx = this.currentQuestionIndex;
-    console.log('[FORCE RESET] Resetting Q', idx);
-    this.selectedOptionService.clearAllSelectionsForQuestion(idx);
-    this.quizStateService.setAnswered(false);
-    this.timerService.stopTimer(undefined, { force: true });
-    this.timerService.resetTimerFlagsFor(idx);
-    setTimeout(() => {
-        this.timerService.startTimer(this.timerService.timePerQuestion || 30, true);
-    }, 100);
-  }
-
-  // ☢️ STANDALONE BACKUP TIMER FOR Q6 - completely bypasses TimerService
-  public q6BackupTimer = 30;
-  private q6BackupIntervalId: any = null;
-  
-  public startQ6BackupTimer(): void {
-    console.log('[Q6 BACKUP TIMER] Starting standalone timer!');
-    this.stopQ6BackupTimer();
-    this.q6BackupTimer = 30;
-    
-    // Mark TimerService as running so UI shows correct state
-    this.timerService.isTimerRunning = true;
-    this.timerService.elapsedTime = 0;
-    
-    // Run inside NgZone to ensure Angular picks up changes
-    this.ngZone.run(() => {
-      this.q6BackupIntervalId = window.setInterval(() => {
-        this.ngZone.run(() => {
-          this.q6BackupTimer--;
-          const elapsed = 30 - this.q6BackupTimer;
-          
-          // Update both backup timer AND TimerService
-          this.timerService.elapsedTime = elapsed;
-          (this.timerService as any).elapsedTimeSubject.next(elapsed);
-          
-          console.log('[Q6 BACKUP TIMER] Tick:', this.q6BackupTimer, 'Elapsed:', elapsed);
-          this.cdRef.detectChanges();
-          
-          if (this.q6BackupTimer <= 0) {
-            console.log('[Q6 BACKUP TIMER] Expired!');
-            this.stopQ6BackupTimer();
-            this.timerService.isTimerRunning = false;
-            this.explanationTextService.setShouldDisplayExplanation(true);
-            this.quizStateService.setAnswered(true);
-          }
-        });
-      }, 1000);
-    });
-  }
-  
-  public stopQ6BackupTimer(): void {
-    if (this.q6BackupIntervalId) {
-      window.clearInterval(this.q6BackupIntervalId);
-      this.q6BackupIntervalId = null;
-    }
-  }
-
   constructor(
     public quizService: QuizService,
     private quizDataService: QuizDataService,
     private quizInitializationService: QuizInitializationService,
     private quizNavigationService: QuizNavigationService,
     private quizQuestionLoaderService: QuizQuestionLoaderService,
-    public quizQuestionManagerService: QuizQuestionManagerService,
-    public quizStateService: QuizStateService,
-    public timerService: TimerService,
+    private quizQuestionManagerService: QuizQuestionManagerService,
+    private quizStateService: QuizStateService,
+    private timerService: TimerService,
     private explanationTextService: ExplanationTextService,
     private nextButtonStateService: NextButtonStateService,
     private selectionMessageService: SelectionMessageService,
@@ -731,14 +673,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           this.explanationVisibleLocal = false;
 
           console.warn('[✅ NAVIGATION COMPLETE]', idx + 1);
-          
-          // ☢️ AUTO-START BACKUP TIMER FOR Q6
-          if (idx >= 5) {
-            console.warn('[☢️ Q6 AUTO-TIMER] Detected Q6! Auto-starting backup timer...');
-            setTimeout(() => {
-              this.startQ6BackupTimer();
-            }, 500);
-          }
         }
       });
   }
@@ -1505,6 +1439,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         this.currentQuestionIndex = index;
         this.quizService.quizId = quizId;
         this.quizService.setCurrentQuestionIndex(index);
+        this.timerService.stopTimer?.(undefined, { force: true });
+        this.timerService.resetTimer();
+        this.timerService.resetTimerFlagsFor(index);
 
         try {
           // Fetch current quiz meta (unchanged)
@@ -3370,6 +3307,15 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
               next: (options: Option[]) => {
                 this.optionsToDisplay = options || [];
                 console.log('Loaded options:', this.optionsToDisplay);
+
+                const answered =
+                  this.selectedOptionService.isQuestionAnswered(this.currentQuestionIndex);
+                if (!answered) {
+                  this.timerService.stopTimer?.(undefined, { force: true });
+                  this.timerService.resetTimer();
+                  this.timerService.resetTimerFlagsFor(this.currentQuestionIndex);
+                  this.timerService.startTimer(this.timerService.timePerQuestion);
+                }
               },
               error: (error: Error) => {
                 console.error('Error fetching options:', error);
@@ -3412,26 +3358,10 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     });
   }
 
-  public async advanceToNextQuestion(): Promise<void> {
+  public advanceToNextQuestion(): Promise<void> {
     console.log('[QUIZ COMPONENT] advanceToNextQuestion triggered ' +
       '(Simplified)');
-    await this.advanceQuestion('next');
-    
-    // ⚡ FIX: Explicitly start timer after Next navigation
-    const newIndex = this.quizService.getCurrentQuestionIndex();
-    console.log(`[NEXT BTN] 🔄 About to start timer for Q${newIndex + 1}, isTimerRunning=${this.timerService.isTimerRunning}`);
-    
-    setTimeout(() => {
-      // Force stop any running timer first
-      if (this.timerService.isTimerRunning) {
-        console.log(`[NEXT BTN] ⏹️ Force stopping running timer before restart`);
-        this.timerService.stopTimer(undefined, { force: true });
-      }
-      
-      this.timerService.resetTimerFlagsFor(newIndex);
-      this.timerService.startTimer(this.timerService.timePerQuestion, true);
-      console.log(`[NEXT BTN] ⏱️ Timer started for Q${newIndex + 1}, isTimerRunning=${this.timerService.isTimerRunning}`);
-    }, 150);
+    return this.advanceQuestion('next');
   }
 
   public advanceToPreviousQuestion(): Promise<void> {
@@ -3566,9 +3496,25 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       }
 
       // Parallel Fetch
-      const isAnswered = this.selectedOptionService.isQuestionAnswered(questionIndex);
+      /* const selectedOptions =
+        this.selectedOptionService.getSelectedOptionsForQuestion(questionIndex);
+      const hasSelections = Array.isArray(selectedOptions) &&
+        selectedOptions.length > 0;
+      const quizIdForState = this.quizId ?? this.quizService.quizId ?? 'default-quiz';
+      const questionState =
+        this.quizStateService.getQuestionState(quizIdForState, questionIndex);
 
-      // Only set false if it's actually unanswered
+      let isAnswered = hasSelections || !!questionState?.isAnswered;
+      if (!hasSelections && questionState?.isAnswered) {
+        this.quizStateService.setQuestionState(quizIdForState, questionIndex, {
+          ...questionState,
+          isAnswered: false,
+          explanationDisplayed: false
+        });
+        this.selectedOptionService.setAnswered(false, true);
+        isAnswered = false;
+      }
+
       if (isAnswered) {
         this.quizStateService.setAnswered(true);
         this.selectedOptionService.setAnswered(true, true);
@@ -3577,7 +3523,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       this.quizStateService.setDisplayState({
         mode: isAnswered ? 'explanation' : 'question',
         answered: isAnswered
-      });
+      }); */
 
       // Parallel fetch for question and options
       const [fetchedQuestion, fetchedOptions] = await Promise.all([
@@ -3626,6 +3572,47 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       const clonedOptions =
         structuredClone?.(finalOptions) ??
         JSON.parse(JSON.stringify(finalOptions));
+
+      const quizIdForState = this.quizId ?? this.quizService.quizId ?? 'default-quiz';
+      const questionState =
+        this.quizStateService.getQuestionState(quizIdForState, questionIndex);
+      const optionIdSet = new Set(
+        clonedOptions
+          .map((opt) => opt.optionId)
+          .filter((id): id is number => typeof id === 'number'),
+      );
+      const selectedOptions =
+        this.selectedOptionService.getSelectedOptionsForQuestion(questionIndex);
+      const validSelections = (selectedOptions ?? []).filter((opt) =>
+        optionIdSet.has(opt.optionId ?? -1),
+      );
+  
+      let isAnswered = validSelections.length > 0;
+      if (!isAnswered && questionState?.isAnswered) {
+        this.quizStateService.setQuestionState(quizIdForState, questionIndex, {
+          ...questionState,
+          isAnswered: false,
+          explanationDisplayed: false
+        });
+        this.selectedOptionService.clearSelectionsForQuestion(questionIndex);
+        this.selectedOptionService.setAnswered(false, true);
+      }
+  
+      if (isAnswered) {
+        this.quizStateService.setAnswered(true);
+        this.selectedOptionService.setAnswered(true, true);
+      } else {
+        this.quizStateService.setAnswered(false);
+        this.selectedOptionService.setAnswered(false, true);
+      }
+  
+      this.isAnswered = isAnswered;
+  
+      this.quizStateService.setDisplayState({
+        mode: this.isAnswered ? 'explanation' : 'question',
+        answered: this.isAnswered
+      });
+  
 
       // Defer header and options assignment so Angular renders them together
       Promise.resolve().then(() => {
@@ -3692,7 +3679,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       this.timerService.resetTimer();
       this.timerService.resetTimerFlagsFor(questionIndex);
 
-      if (isAnswered) {
+      if (this.isAnswered) {
         // Already answered: restore explanation state and stop timer
         explanationText =
           fetchedQuestion.explanation?.trim() || 'No explanation available';
@@ -4315,13 +4302,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     // Navigate via router (route change triggers question loading)
     this.router.navigate(['/quiz/question', quizId, index + 1]);
-
-    // ⚡ FIX: Explicitly start timer after dot navigation
-    setTimeout(() => {
-      this.timerService.resetTimerFlagsFor(index);
-      this.timerService.startTimer(this.timerService.timePerQuestion, true);
-      console.log(`[DOT NAV] ⏱️ Timer started for Q${index + 1}`);
-    }, 100);
   }
 
   // Check if a dot is clickable (answered, current question, or next after answering
