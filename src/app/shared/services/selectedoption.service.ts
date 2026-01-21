@@ -2360,4 +2360,30 @@ export class SelectedOptionService {
     // MULTIPLE-ANSWER: complete only when ALL correct options are selected
     return correctIds.every(id => selectedIds.has(id));
   }
+
+  public isQuestionResolvedCorrectly(
+    question: QuizQuestion,
+    selectedOptions: Array<SelectedOption | Option>
+  ): boolean {
+    if (!question || !Array.isArray(question.options)) return false;
+  
+    const correctIds = question.options
+      .filter(o => o.correct)
+      .map(o => String(o.optionId));
+  
+    if (correctIds.length === 0) return false;
+  
+    const selectedIds = selectedOptions.map(o =>
+      String((o as any).optionId)
+    );
+  
+    // SINGLE
+    if (correctIds.length === 1) {
+      return selectedIds.includes(correctIds[0]);
+    }
+  
+    // MULTIPLE: all correct selected (ignore wrong picks if you allow that)
+    const selectedSet = new Set(selectedIds);
+    return correctIds.every(id => selectedSet.has(id));
+  }
 }
