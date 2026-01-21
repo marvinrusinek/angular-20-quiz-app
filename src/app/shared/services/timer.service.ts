@@ -137,6 +137,7 @@ export class TimerService implements OnDestroy {
   startTimer(
     duration: number = this.timePerQuestion,
     isCountdown: boolean = true,
+    forceRestart: boolean = false,
   ): void {
     const questionIdx = this.quizService?.getCurrentQuestionIndex?.() ?? 'unknown';
     console.log(`[TimerService] 🚀 startTimer called for Q${typeof questionIdx === 'number' ? questionIdx + 1 : questionIdx}`, {
@@ -145,14 +146,17 @@ export class TimerService implements OnDestroy {
       duration
     });
     
-    if (this.isTimerStoppedForCurrentQuestion) {
+    if (this.isTimerStoppedForCurrentQuestion && !forceRestart) {
       console.log(`[TimerService] ⚠️ Timer restart prevented for Q${typeof questionIdx === 'number' ? questionIdx + 1 : questionIdx}.`);
       return;
     }
 
     if (this.isTimerRunning) {
-      console.info(`[TimerService] Timer is already running for Q${typeof questionIdx === 'number' ? questionIdx + 1 : questionIdx}. Start ignored.`);
-      return; // prevent restarting an already running timer
+      if (!forceRestart) {
+        console.info(`[TimerService] Timer is already running. Start ignored.`);
+        return; // prevent restarting an already running timer
+      }
+      this.stopTimer(undefined, { force: true });
     }
 
     console.log(`[TimerService] ✅ Starting timer for Q${typeof questionIdx === 'number' ? questionIdx + 1 : questionIdx}...`);

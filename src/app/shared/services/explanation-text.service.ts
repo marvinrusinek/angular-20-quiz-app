@@ -498,11 +498,15 @@ export class ExplanationTextService {
       this.latestExplanationIndex = questionIndex;
     } catch { }
 
-    // ✅ Open the gate and set display flags
+    // ⚡ FIX: Do NOT auto-trigger explanation display here!
+    // This method should only retrieve the FET, not display it.
+    // Display should only be triggered after the user answers the question.
+    // Previously, this was causing the timer to stop for Q6 because the 
+    // explanation was being displayed immediately on navigation.
     try {
       this.setGate(questionIndex, true);
-      this.setShouldDisplayExplanation(true);
-      this.setIsExplanationTextDisplayed(true);
+      // ❌ REMOVED: this.setShouldDisplayExplanation(true);
+      // ❌ REMOVED: this.setIsExplanationTextDisplayed(true);
     } catch { }
 
     return of(explanation);

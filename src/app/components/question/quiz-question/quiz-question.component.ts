@@ -499,7 +499,9 @@ export class QuizQuestionComponent extends BaseQuestion
         switchMap((i0: number) =>
           this.timerService.elapsedTime$.pipe(
             filter(
-              (elapsed: number) => elapsed >= this.timerService.timePerQuestion
+              (elapsed: number) =>
+                this.timerService.isTimerRunning &&
+                elapsed >= this.timerService.timePerQuestion
             ),
             take(1),
             map((): number => i0)
@@ -2075,7 +2077,11 @@ export class QuizQuestionComponent extends BaseQuestion
       }
 
       // Start fresh timer
+      this.timerService.stopTimer?.(undefined, { force: true });
+      this.timerService.resetTimer();
+      this.timerService.resetTimerFlagsFor(this.currentQuestionIndex);
       this.timerService.startTimer(this.timerService.timePerQuestion, true);
+      this.timerService.startTimer(this.timerService.timePerQuestion, true, true);
 
       // Fetch questions if not already available
       if (!this.questionsArray || this.questionsArray.length === 0) {
@@ -6245,7 +6251,7 @@ export class QuizQuestionComponent extends BaseQuestion
     this.timerService.stopTimer(undefined, { force: true });
     this.timerService.resetTimer();
     requestAnimationFrame(() =>
-      this.timerService.startTimer(this.timerService.timePerQuestion, true)
+      this.timerService.startTimer(this.timerService.timePerQuestion, true, true)
     );
     queueMicrotask(() => this.applyPassiveWriteGate(index));
 

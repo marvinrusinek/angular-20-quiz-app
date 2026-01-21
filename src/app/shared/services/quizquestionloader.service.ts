@@ -774,7 +774,7 @@ export class QuizQuestionLoaderService {
       });
       this.timerService.isTimerRunning = false;
     } else {
-      this.timerService.startTimer(this.timerService.timePerQuestion);
+      this.timerService.startTimer(this.timerService.timePerQuestion, true, true);
     }
 
     // Down-stream state updates
