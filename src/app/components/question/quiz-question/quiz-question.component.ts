@@ -672,8 +672,6 @@ export class QuizQuestionComponent extends BaseQuestion
   private async initializeInitialQuestion(): Promise<boolean> {
     const routeIndex =
       +(this.activatedRoute.snapshot.paramMap.get('questionIndex') ?? 0);
-    //this.currentQuestionIndex = routeIndex;  // ensures correct index
-    //this.fixedQuestionIndex = isNaN(routeIndex) ? 0 : routeIndex - 1;
     const zeroBasedIndex = Number.isFinite(routeIndex) && routeIndex > 0
       ? routeIndex - 1
       : 0;
