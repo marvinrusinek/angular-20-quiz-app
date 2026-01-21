@@ -297,12 +297,15 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     this.quizStateService.resetInteraction();  // clear stream too
 
     this.setupQuestionResetSubscription();
-    this.initDisplayTextPipeline();
     this.resetExplanationService();
-    this.subscribeToDisplayText();
-    this.setupContentAvailability();
+
     this.setupShouldShowFet();
     this.setupFetToDisplay();
+
+    this.initDisplayTextPipeline();
+    this.subscribeToDisplayText();
+    this.setupContentAvailability();
+
     this.emitContentAvailableState();
     this.loadQuizDataFromRoute();
     await this.initializeComponent();
@@ -436,15 +439,19 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       switchMap(safeIdx => {
         return combineLatest([
           this.quizService.getQuestionByIndex(safeIdx),
-          this.formattedExplanation$,
+  
+          // ✅ STEP 5: Use gated FET stream (only non-empty when correct answer(s) selected)
+          // This prevents explanation from showing on first click / interaction.
+          this.fetToDisplay$,
+  
           this.quizStateService.displayState$,
           this.quizStateService.userHasInteracted$
         ]).pipe(
-          map(([qObj, fetPayload, state, interactionIdx]) => {
+          map(([qObj, fetTextGated, state, interactionIdx]) => {
             const rawQText = qObj?.questionText || '';
             const serviceQText = (qObj?.questionText ?? '').trim();
             const effectiveQText = serviceQText || rawQText || '';
-
+  
             // Agnostic Interaction Check:
             // 1. Service Set (Persistence)
             // 2. Stream (Fresh Click)
@@ -453,32 +460,30 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
               this.quizStateService.hasUserInteracted(safeIdx) ||
               (interactionIdx > -1) ||
               (state && state.answered);
-
+  
             // console.log(`[displayText$] Q${safeIdx + 1} Interacted=${hasInteracted} Mode=${state?.mode}`);
-
-            if (hasInteracted) {
-               // Prioritize Active Payload > Service Cache > Question Object
-               let fetText = fetPayload?.text || '';
-               if (!fetText && this.explanationTextService.fetByIndex?.has(safeIdx)) {
-                   fetText = this.explanationTextService.fetByIndex.get(safeIdx) || '';
-               }
-               if (!fetText && qObj?.explanation) {
-                   fetText = qObj.explanation;
-               }
-
-               if (fetText && fetText.trim().length > 0) {
-                   return fetText;
-               }
-               return 'No explanation available.';
+  
+            // ✅ STEP 5 CHANGE:
+            // Show FET ONLY when gated stream provides it (correct answer(s) selected).
+            // Interaction alone should NOT force explanation display.
+            const fetText = (fetTextGated ?? '').trim();
+            if (fetText.length > 0) {
+              return fetText;
             }
-
+  
+            // If the user has interacted but the correct-answer condition is NOT met,
+            // keep showing the question text (and banner) instead of forcing
+            // "No explanation available." prematurely.
+            // (Old behavior was: any interaction => show explanation/fallback.)
+            // if (hasInteracted) { ... old explanation fallback removed intentionally ... }
+  
             // Default: Question Text with Multi-Answer Banner if needed
             const numCorrect = qObj?.options?.filter(o => o.correct)?.length || 0;
             if (numCorrect > 1 && qObj?.options) {
                 const banner = this.quizQuestionManagerService.getNumberOfCorrectAnswersText(numCorrect, qObj.options.length);
                 return `${effectiveQText} <span class="correct-count">${banner}</span>`;
             }
-
+  
             return effectiveQText;
           })
         );
@@ -486,9 +491,6 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       distinctUntilChanged()
     );
   }
-
-
-
 
   private resetExplanationService(): void {
     this.resetExplanationView();
