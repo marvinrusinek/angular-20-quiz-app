@@ -2080,7 +2080,6 @@ export class QuizQuestionComponent extends BaseQuestion
       this.timerService.stopTimer?.(undefined, { force: true });
       this.timerService.resetTimer();
       this.timerService.resetTimerFlagsFor(this.currentQuestionIndex);
-      this.timerService.startTimer(this.timerService.timePerQuestion, true);
       this.timerService.startTimer(this.timerService.timePerQuestion, true, true);
 
       // Fetch questions if not already available

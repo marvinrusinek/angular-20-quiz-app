@@ -139,15 +139,15 @@ export class TimerService implements OnDestroy {
     isCountdown: boolean = true,
     forceRestart: boolean = false,
   ): void {
-    const questionIdx = this.quizService?.getCurrentQuestionIndex?.() ?? 'unknown';
+    /* const questionIdx = this.quizService?.getCurrentQuestionIndex?.() ?? 'unknown';
     console.log(`[TimerService] 🚀 startTimer called for Q${typeof questionIdx === 'number' ? questionIdx + 1 : questionIdx}`, {
       isTimerStoppedForCurrentQuestion: this.isTimerStoppedForCurrentQuestion,
       isTimerRunning: this.isTimerRunning,
       duration
-    });
+    }); */
     
     if (this.isTimerStoppedForCurrentQuestion && !forceRestart) {
-      console.log(`[TimerService] ⚠️ Timer restart prevented for Q${typeof questionIdx === 'number' ? questionIdx + 1 : questionIdx}.`);
+      console.log(`[TimerService] ⚠️ Timer restart prevented.`);
       return;
     }
 
@@ -159,7 +159,6 @@ export class TimerService implements OnDestroy {
       this.stopTimer(undefined, { force: true });
     }
 
-    console.log(`[TimerService] ✅ Starting timer for Q${typeof questionIdx === 'number' ? questionIdx + 1 : questionIdx}...`);
     this.isTimerRunning = true; // mark timer as running
     this.isCountdown = isCountdown;
     this.elapsedTime = 0;

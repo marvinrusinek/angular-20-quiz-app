@@ -1512,6 +1512,22 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           this.qaToDisplay = { question, options };
           this.shouldRenderOptions = true;
 
+          const optionIdSet = new Set(
+            options
+              .map((opt) => opt.optionId)
+              .filter((id): id is number => typeof id === 'number'),
+          );
+          const validSelections =
+            (this.selectedOptionService.getSelectedOptionsForQuestion(index) ?? [])
+              .filter((opt) => optionIdSet.has(opt.optionId ?? -1));
+
+          if (validSelections.length === 0) {
+            this.timerService.stopTimer?.(undefined, { force: true });
+            this.timerService.resetTimer();
+            this.timerService.resetTimerFlagsFor(index);
+            this.timerService.startTimer(this.timerService.timePerQuestion, true, true);
+          }
+
           this.updateProgressValue();
           localStorage.setItem('savedQuestionIndex', index.toString());
         } catch (err) {
@@ -3495,36 +3511,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         }
       }
 
-      // Parallel Fetch
-      /* const selectedOptions =
-        this.selectedOptionService.getSelectedOptionsForQuestion(questionIndex);
-      const hasSelections = Array.isArray(selectedOptions) &&
-        selectedOptions.length > 0;
-      const quizIdForState = this.quizId ?? this.quizService.quizId ?? 'default-quiz';
-      const questionState =
-        this.quizStateService.getQuestionState(quizIdForState, questionIndex);
-
-      let isAnswered = hasSelections || !!questionState?.isAnswered;
-      if (!hasSelections && questionState?.isAnswered) {
-        this.quizStateService.setQuestionState(quizIdForState, questionIndex, {
-          ...questionState,
-          isAnswered: false,
-          explanationDisplayed: false
-        });
-        this.selectedOptionService.setAnswered(false, true);
-        isAnswered = false;
-      }
-
-      if (isAnswered) {
-        this.quizStateService.setAnswered(true);
-        this.selectedOptionService.setAnswered(true, true);
-      }
-
-      this.quizStateService.setDisplayState({
-        mode: isAnswered ? 'explanation' : 'question',
-        answered: isAnswered
-      }); */
-
       // Parallel fetch for question and options
       const [fetchedQuestion, fetchedOptions] = await Promise.all([
         this.fetchQuestionDetails(questionIndex),
@@ -3612,7 +3598,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         mode: this.isAnswered ? 'explanation' : 'question',
         answered: this.isAnswered
       });
-  
 
       // Defer header and options assignment so Angular renders them together
       Promise.resolve().then(() => {
