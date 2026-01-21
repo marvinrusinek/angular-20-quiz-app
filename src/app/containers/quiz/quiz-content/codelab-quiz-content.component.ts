@@ -258,6 +258,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   private navTime = 0;  // track when we landed on this question
 
   public shouldShowFet$!: Observable<boolean>;
+  public fetToDisplay$!: Observable<string>;
 
   private destroy$ = new Subject<void>();
 
@@ -301,6 +302,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     this.subscribeToDisplayText();
     this.setupContentAvailability();
     this.setupShouldShowFet();
+    this.setupFetToDisplay();
     this.emitContentAvailableState();
     this.loadQuizDataFromRoute();
     await this.initializeComponent();
@@ -1808,6 +1810,17 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           selected
         )
       ),
+      distinctUntilChanged(),
+      shareReplay({ bufferSize: 1, refCount: true }),
+    );
+  }
+
+  private setupFetToDisplay(): void {
+    this.fetToDisplay$ = combineLatest([
+      this.formattedExplanation$,   // string
+      this.shouldShowFet$,           // boolean
+    ]).pipe(
+      map(([fet, show]) => (show ? fet : '')),
       distinctUntilChanged(),
       shareReplay({ bufferSize: 1, refCount: true }),
     );
