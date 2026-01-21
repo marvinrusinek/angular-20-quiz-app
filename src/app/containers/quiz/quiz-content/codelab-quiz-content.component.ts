@@ -27,6 +27,7 @@ import { QuizQuestionLoaderService } from
   '../../../shared/services/quizquestionloader.service';
 import { QuizQuestionManagerService } from '../../../shared/services/quizquestionmgr.service';
 import { QuizStateService } from '../../../shared/services/quizstate.service';
+import { SelectedOptionService } from '../../../shared/services/selectedoption.service';
 import { ExplanationTextService, FETPayload } from
   '../../../shared/services/explanation-text.service';
 import { QuizQuestionComponent } from
@@ -254,8 +255,11 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
   private combinedSub?: Subscription;
 
+  private navTime = 0;  // track when we landed on this question
+
+  public shouldShowFet$!: Observable<boolean>;
+
   private destroy$ = new Subject<void>();
-  private navTime = 0; // ⚡ FIX: Track when we landed on this question
 
   constructor(
     private quizService: QuizService,
@@ -265,6 +269,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     private explanationTextService: ExplanationTextService,
     private quizQuestionLoaderService: QuizQuestionLoaderService,
     private quizQuestionManagerService: QuizQuestionManagerService,
+    private selectedOptionService: SelectedOptionService,
     private activatedRoute: ActivatedRoute,
     private cdRef: ChangeDetectorRef,
     private renderer: Renderer2
@@ -286,15 +291,16 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   async ngOnInit(): Promise<void> {
     this.resetInitialState();
 
-    // ⚡ FIX: Clear user interaction state to ensure question text shows first
+    // Clear user interaction state to ensure question text shows first
     this.quizStateService._hasUserInteracted?.clear();
-    this.quizStateService.resetInteraction(); // ⚡ FIX: Clear stream too
+    this.quizStateService.resetInteraction();  // clear stream too
 
     this.setupQuestionResetSubscription();
     this.initDisplayTextPipeline();
     this.resetExplanationService();
     this.subscribeToDisplayText();
     this.setupContentAvailability();
+    this.setupShouldShowFet();
     this.emitContentAvailableState();
     this.loadQuizDataFromRoute();
     await this.initializeComponent();
@@ -1788,6 +1794,22 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         console.error('Error in displayCorrectAnswersText$ observable:', error);
         return of(null);  // default to null in case of error
       })
+    );
+  }
+
+  private setupShouldShowFet(): void {
+    this.shouldShowFet$ = combineLatest([
+      this.quizService.currentQuestion$,                  // QuizQuestion
+      this.selectedOptionService.selectedOptionsForActiveQuestion$
+    ]).pipe(
+      map(([question, selected]) =>
+        this.selectedOptionService.isQuestionResolvedCorrectly(
+          question,
+          selected
+        )
+      ),
+      distinctUntilChanged(),
+      shareReplay({ bufferSize: 1, refCount: true }),
     );
   }
 
