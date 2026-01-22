@@ -1011,11 +1011,13 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     // Use optionId or displayOrder for deduplication
     const optionIdentifier = event?.optionId ?? event?.displayOrder ?? -1;
-    if (optionIdentifier === this.lastLoggedIndex) {
+    if (optionIdentifier !== -1 && optionIdentifier === this.lastLoggedIndex) {
       console.warn('[🟡 Skipping duplicate event]', event);
       return;
     }
-    this.lastLoggedIndex = optionIdentifier;
+    if (optionIdentifier !== -1) {
+      this.lastLoggedIndex = optionIdentifier;
+    }
 
     // Show the explanation on first click
     const emittedQuestionIndex = event?.questionIndex;
