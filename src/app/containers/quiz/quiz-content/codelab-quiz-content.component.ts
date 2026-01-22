@@ -453,7 +453,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           // ✅ Cold-start bulletproofing:
           // displayState$ and userHasInteracted$ must emit at least once or combineLatest will stall.
           // We provide safe defaults so question text can render immediately on Q1.
-          this.quizStateService.displayState$.pipe(startWith({ answered: false } as any)),
+          this.displayState$.pipe(startWith({ mode: 'question', answered: false })),
           this.quizStateService.userHasInteracted$.pipe(startWith(-1))
         ]).pipe(
           map(([qObj, fetTextGated, state, interactionIdx]) => {
@@ -468,7 +468,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             const hasInteracted =
               this.quizStateService.hasUserInteracted(safeIdx) ||
               (interactionIdx > -1) ||
-              (state && (state as any).answered);
+              (state && state.answered);
   
             // console.log(`[displayText$] Q${safeIdx + 1} Interacted=${hasInteracted} Mode=${state?.mode}`);
   
@@ -502,7 +502,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       }),
       distinctUntilChanged()
     );
-  }    
+  }
 
   private resetExplanationService(): void {
     this.resetExplanationView();
