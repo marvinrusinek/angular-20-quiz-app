@@ -115,8 +115,8 @@ export class SelectedOptionService {
       return;
     }
   
-    // Normalize index ON WRITE (fixes Q1-only mismatches)
-    const idx = this.normalizeIdx(questionIndex);
+    // ✅ TRUST: questionIndex is 0-based (QQC is the source of truth now)
+    const idx = Number.isFinite(questionIndex) ? Math.trunc(questionIndex) : -1;
     if (idx < 0) {
       console.error('[SOS] Invalid questionIndex passed to addOption:', { questionIndex });
       return;
@@ -134,8 +134,8 @@ export class SelectedOptionService {
     // Canonicalize the incoming option
     const newCanonical = this.canonicalizeOptionForQuestion(idx, {
       ...option,
-      questionIndex: idx,               // ✅ keep stored option consistent with normalized index
-      selected: option.selected ?? true, // respect unchecked if ever passed
+      questionIndex: idx,                 // keep stored option consistent
+      selected: option.selected ?? true,  // respect unchecked if ever passed
       highlight: true,
       showIcon: true
     });
@@ -188,7 +188,7 @@ export class SelectedOptionService {
   
     console.log('[SOS] addOption → final stored selection:', {
       qIndex: idx,
-      incomingQIndex: questionIndex,  // temp visibility (keep or remove later)
+      incomingQIndex: questionIndex,
       stored: committed.map((o) => o.optionId)
     });
   }
