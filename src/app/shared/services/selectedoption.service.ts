@@ -2386,9 +2386,24 @@ export class SelectedOptionService {
   }
 
   public getSelectedOptionsForQuestion$(idx: number): Observable<any[]> {
+    const normalizedIdx = this.normalizeIdx(idx);
+  
     return this.selectedOption$.pipe(
-      map(() => this.getSelectedOptionsForQuestion(idx) ?? []),
+      map(() => this.getSelectedOptionsForQuestion(normalizedIdx) ?? []),
       distinctUntilChanged((a, b) => JSON.stringify(a) === JSON.stringify(b))
     );
+  }
+
+  private normalizeIdx(idx: number): number {
+    if (!Number.isFinite(idx)) return -1;
+  
+    const n = Math.trunc(idx);
+  
+    // If caller gives 1-based (Q1 = 1), convert to 0-based (Q1 = 0).
+    // This is the most common source of "Q1 only" bugs.
+    if (n >= 1) return n - 1;
+  
+    // Already 0-based (Q1 = 0)
+    return n;
   }
 }
