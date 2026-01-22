@@ -2763,20 +2763,16 @@ export class QuizQuestionComponent extends BaseQuestion
 
     const evtOpt = event.option;
 
-    // Prefer the questionIndex on the option if present, otherwise fall back
-    const payloadQuestionIndex =
-      typeof (evtOpt as any).questionIndex === 'number'
-        ? (evtOpt as any).questionIndex
-        : null;
-    
+    // SOURCE OF TRUTH: component/service current index (0-based)
+    // Do NOT trust evtOpt.questionIndex (it can be 1-based and breaks Q1)
     const rawIdx =
-      payloadQuestionIndex ??
-      this.quizService.getCurrentQuestionIndex() ??
       this.currentQuestionIndex ??
+      this.quizService.getCurrentQuestionIndex?.() ??
+      this.quizService.currentQuestionIndex ??
       0;
 
-    // Normalize once (fixes Q1 storing under the wrong bucket)
     const idx = this.normalizeQuestionIndex(rawIdx);
+    console.log('[QQC] idx source', { rawIdx, idx, payloadIdx: (evtOpt as any)?.questionIndex });
 
     const evtChecked = event?.checked ?? true;
 
