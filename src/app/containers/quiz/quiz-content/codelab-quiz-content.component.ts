@@ -1797,20 +1797,23 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   }
 
   private setupShouldShowFet(): void {
-    this.shouldShowFet$ = combineLatest([
-      this.quizService.currentQuestion$.pipe(
-        filter((question): question is QuizQuestion => !!question)
-      ),
-      this.currentIndex$.pipe(
-        filter(idx => idx >= 0),
-        distinctUntilChanged()
-      ),
-    ]).pipe(
-      switchMap(([question, idx]) =>
-        this.selectedOptionService.getSelectedOptionsForQuestion$(idx).pipe(
-          startWith([]),
-          map((selected) =>
-            this.selectedOptionService.isQuestionResolvedCorrectly(question, selected ?? [])
+    this.shouldShowFet$ = this.currentIndex$.pipe(
+      filter(idx => idx >= 0),
+      distinctUntilChanged(),
+      switchMap((idx) =>
+        combineLatest([
+          this.quizService.getQuestionByIndex(idx).pipe(startWith(null)),
+          this.selectedOptionService.getSelectedOptionsForQuestion$(idx).pipe(
+            startWith([])
+          )
+        ]).pipe(
+          map(([question, selected]) =>
+            question
+              ? this.selectedOptionService.isQuestionResolvedCorrectly(
+                question,
+                selected ?? []
+              )
+              : false
           )
         )
       ),
