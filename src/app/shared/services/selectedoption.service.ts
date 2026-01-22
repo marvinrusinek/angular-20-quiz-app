@@ -2363,7 +2363,7 @@ export class SelectedOptionService {
 
   public isQuestionResolvedCorrectly(
     question: QuizQuestion,
-    selectedOptions: Array<SelectedOption | Option>
+    selected: Array<SelectedOption | Option> | null
   ): boolean {
     if (!question || !Array.isArray(question.options)) return false;
   
@@ -2372,18 +2372,16 @@ export class SelectedOptionService {
       .map(o => String(o.optionId));
   
     if (correctIds.length === 0) return false;
-  
-    const selectedIds = selectedOptions.map(o =>
-      String((o as any).optionId)
-    );
-  
-    // SINGLE
-    if (correctIds.length === 1) {
-      return selectedIds.includes(correctIds[0]);
-    }
-  
-    // MULTIPLE: all correct selected (ignore wrong picks if you allow that)
+
+    const selectedIds = (selected ?? []).map(o => String((o as any).optionId ?? ''));
     const selectedSet = new Set(selectedIds);
+  
+    // Single: stop/show when correct option selected
+    if (correctIds.length === 1) {
+      return selectedSet.has(correctIds[0]);
+    }
+
+    // Multi: show when ALL correct options selected
     return correctIds.every(id => selectedSet.has(id));
   }
 }
