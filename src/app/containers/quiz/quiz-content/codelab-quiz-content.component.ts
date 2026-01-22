@@ -1818,12 +1818,17 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       this.quizService.currentQuestion$.pipe(
         filter((question): question is QuizQuestion => !!question)
       ),
-      this.selectedOptionService.selectedOption$.pipe(startWith([]))
+      this.currentIndex$.pipe(
+        filter(idx => idx >= 0),
+        distinctUntilChanged()
+      ),
     ]).pipe(
-      map(([question, selected]) =>
-        this.selectedOptionService.isQuestionResolvedCorrectly(
-          question,
-          selected ?? []
+      switchMap(([question, idx]) =>
+        this.selectedOptionService.getSelectedOptionsForQuestion$(idx).pipe(
+          startWith([]),
+          map((selected) =>
+            this.selectedOptionService.isQuestionResolvedCorrectly(question, selected ?? [])
+          )
         )
       ),
       distinctUntilChanged(),

@@ -2384,4 +2384,11 @@ export class SelectedOptionService {
     // Multi: show when ALL correct options selected
     return correctIds.every(id => selectedSet.has(id));
   }
+
+  public getSelectedOptionsForQuestion$(idx: number): Observable<any[]> {
+    return this.selectedOption$.pipe(
+      map(() => this.getSelectedOptionsForQuestion(idx) ?? []),
+      distinctUntilChanged((a, b) => JSON.stringify(a) === JSON.stringify(b))
+    );
+  }
 }
