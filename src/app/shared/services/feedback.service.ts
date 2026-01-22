@@ -1,11 +1,18 @@
 import { Injectable } from '@angular/core';
 
 import { Option } from '../models/Option.model';
+import { QuizQuestion } from '../models/QuizQuestion.model';
+import { SelectedOption } from '../models/SelectedOption.model';
+import { SelectedOptionService } from '../services/selectedoption.service';
 import { isValidOption } from '../utils/option-utils';
 
 @Injectable({ providedIn: 'root' })
 export class FeedbackService {
   lastKnownOptions: Option[] = [];
+
+  constructor(
+    private selectedOptionService: SelectedOptionService
+  ) {}
 
   public generateFeedbackForOptions(
     correctOptions: Option[],
@@ -13,7 +20,7 @@ export class FeedbackService {
   ): string {
     const validCorrectOptions = (correctOptions || []).filter(isValidOption);
     const validOptionsToDisplay = (optionsToDisplay || []).filter(
-      isValidOption,
+      isValidOption
     );
 
     if (validCorrectOptions.length === 0) {
@@ -40,6 +47,39 @@ export class FeedbackService {
 
     return correctFeedback;
   }
+
+  public buildFeedbackMessage(
+    question: QuizQuestion,
+    selected: Array<SelectedOption | Option> | null,
+    strict: boolean = false
+  ): string {
+    const status = this.selectedOptionService.getResolutionStatus(question, selected, strict);
+  
+    // No selection yet: let your selection message handle it
+    const hasAnySelection = (selected ?? []).some((o: any) => o && o.selected !== false);
+    if (!hasAnySelection) return '';
+  
+    // Single-answer
+    if (status.correctTotal <= 1) {
+      return status.resolved ? '✅ Correct.' : '❌ Not quite. Try again.';
+    }
+  
+    // Multi-answer
+    if (status.resolved) {
+      return '✅ Correct! You found all the right answers.';
+    }
+  
+    if (strict && status.remainingCorrect === 0 && status.incorrectSelected > 0) {
+      return 'Almost. Remove the incorrect selection(s).';
+    }
+  
+    if (status.incorrectSelected > 0) {
+      return `❌ Not that one. Keep going.`;
+    }
+  
+    return `✅ Good pick. Select ${status.remainingCorrect} more.`;
+  }
+  
 
   public setCorrectMessage(optionsToDisplay?: Option[]): string {
     // Store the last known options
