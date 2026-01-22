@@ -2386,10 +2386,11 @@ export class SelectedOptionService {
   }
 
   public getSelectedOptionsForQuestion$(idx: number): Observable<any[]> {
-    const normalizedIdx = this.normalizeIdx(idx);
-  
     return this.selectedOption$.pipe(
-      map(() => this.getSelectedOptionsForQuestion(normalizedIdx) ?? []),
+      map(() => {
+        const normalizedIdx = this.normalizeIdx(idx);
+        return this.getSelectedOptionsForQuestion(normalizedIdx) ?? [];
+      }),
       distinctUntilChanged((a, b) => JSON.stringify(a) === JSON.stringify(b))
     );
   }
@@ -2399,11 +2400,25 @@ export class SelectedOptionService {
   
     const n = Math.trunc(idx);
   
-    // If caller gives 1-based (Q1 = 1), convert to 0-based (Q1 = 0).
-    // This is the most common source of "Q1 only" bugs.
-    if (n >= 1) return n - 1;
+    // Most of your app uses 0-based indices already.
+    // Only convert to 0-based when we can *prove* it's 1-based.
+    const qs = this.quizService?.questions;
   
-    // Already 0-based (Q1 = 0)
+    if (Array.isArray(qs) && qs.length > 0) {
+      const len = qs.length;
+  
+      // If idx is out of bounds but idx-1 is valid, assume 1-based.
+      // Example: len=6 and caller passes 6 (meaning Q6) -> convert to 5.
+      if (n >= len && n - 1 >= 0 && n - 1 < len) return n - 1;
+  
+      // If idx points to "missing" but idx-1 exists, assume 1-based.
+      if (n > 0 && qs[n] == null && qs[n - 1] != null) return n - 1;
+  
+      // Otherwise, treat as correct 0-based.
+      return n;
+    }
+  
+    // If we don't know questions length yet (cold start), DON'T guess.
     return n;
-  }
+  }  
 }
