@@ -2768,12 +2768,15 @@ export class QuizQuestionComponent extends BaseQuestion
       typeof (evtOpt as any).questionIndex === 'number'
         ? (evtOpt as any).questionIndex
         : null;
-
-    const idx =
+    
+    const rawIdx =
       payloadQuestionIndex ??
       this.quizService.getCurrentQuestionIndex() ??
       this.currentQuestionIndex ??
       0;
+
+    // Normalize once (fixes Q1 storing under the wrong bucket)
+    const idx = this.normalizeQuestionIndex(rawIdx);
 
     const evtChecked = event?.checked ?? true;
 
@@ -6580,5 +6583,17 @@ export class QuizQuestionComponent extends BaseQuestion
       ...option,
       displayOrder: index
     }));
+  }
+
+  private normalizeQuestionIndex(idx: number): number {
+    if (!Number.isFinite(idx as number)) return 0;
+  
+    const n = Math.trunc(idx as number);
+  
+    // If something passes 1-based (Q1 = 1), convert to 0-based (Q1 = 0)
+    // This prevents Q1-only mismatches between storage/read pipelines.
+    if (n >= 1) return n - 1;
+  
+    return n;
   }
 }
