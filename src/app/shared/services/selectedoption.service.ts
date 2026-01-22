@@ -2374,66 +2374,67 @@ export class SelectedOptionService {
     question: QuizQuestion,
     selected: Array<SelectedOption | Option> | null
   ): boolean {
-    if (!question || !Array.isArray(question.options)) return false;
-  
-    const normalizeText = (value: string | undefined | null): string =>
-      (value ?? '').trim().toLowerCase();
-  
-    // Build correct "key groups" (id preferred, text as fallback)
-    const correctKeyGroups = question.options
-      .filter(o => o.correct)
-      .map((o) => {
-        const keys: string[] = [];
-  
-        const id = (o as any).optionId;
-        if (typeof id === 'number' || typeof id === 'string') {
-          keys.push(String(id));
-        }
-  
-        // Keep text key as fallback (useful if ids ever mismatch)
-        const textKey = normalizeText((o as any).text);
-        if (textKey) {
-          keys.push(`text:${textKey}`);
-        }
-  
-        return keys;
-      })
-      .filter((keys) => keys.length > 0);
-  
-    if (correctKeyGroups.length === 0) return false;
-  
-    // Build SELECTED set
-    // - Ignore anything explicitly unselected
-    // - Prefer IDs; keep text fallback
-    const selectedKeys = (selected ?? [])
-      .filter((o: any) => o && o.selected !== false) // ✅ important
-      .flatMap((o: any) => {
-        const keySet: string[] = [];
-  
-        const id = o.optionId;
-        if (typeof id === 'number' || typeof id === 'string') {
-          keySet.push(String(id));
-        }
-  
-        const textKey = normalizeText(o.text);
-        if (textKey) {
-          keySet.push(`text:${textKey}`);
-        }
-  
-        return keySet;
-      });
-  
-    const selectedSet = new Set(selectedKeys);
-  
-    // Single: resolved when the correct option is selected
-    if (correctKeyGroups.length === 1) {
-      return correctKeyGroups[0].some((key) => selectedSet.has(key));
+    return this.getResolutionStatus(question, selected, false).resolved;
+  }
+
+  public getResolutionStatus(
+    question: QuizQuestion,
+    selected: Array<SelectedOption | Option> | null,
+    strict: boolean = false
+  ): {
+    resolved: boolean;
+    correctTotal: number;
+    correctSelected: number;
+    incorrectSelected: number;
+    remainingCorrect: number;
+  } {
+    if (!question || !Array.isArray(question.options)) {
+      return {
+        resolved: false,
+        correctTotal: 0,
+        correctSelected: 0,
+        incorrectSelected: 0,
+        remainingCorrect: 0
+      };
     }
   
-    // Multi: resolved when ALL correct options are selected
-    return correctKeyGroups.every((keys) =>
-      keys.some((key) => selectedSet.has(key))
+    const correctIds = new Set(
+      question.options.filter(o => o.correct).map(o => String((o as any).optionId))
     );
+  
+    const selectedIds = new Set(
+      (selected ?? [])
+        .filter((o: any) => o && o.selected !== false)
+        .map((o: any) => String(o.optionId))
+        .filter(Boolean)
+    );
+  
+    const correctTotal = correctIds.size;
+  
+    let correctSelected = 0;
+    for (const id of selectedIds) {
+      if (correctIds.has(id)) correctSelected++;
+    }
+  
+    const incorrectSelected = Math.max(selectedIds.size - correctSelected, 0);
+  
+    const remainingCorrect = Math.max(correctTotal - correctSelected, 0);
+  
+    // Lenient: resolved when all correct are selected
+    let resolved = correctTotal > 0 && remainingCorrect === 0;
+  
+    // Strict: also require no incorrect selections
+    if (strict) {
+      resolved = resolved && incorrectSelected === 0;
+    }
+  
+    return {
+      resolved,
+      correctTotal,
+      correctSelected,
+      incorrectSelected,
+      remainingCorrect
+    };
   }
 
   public getSelectedOptionsForQuestion$(idx: number): Observable<any[]> {
