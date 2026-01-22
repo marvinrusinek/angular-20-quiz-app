@@ -2763,16 +2763,15 @@ export class QuizQuestionComponent extends BaseQuestion
 
     const evtOpt = event.option;
 
-    // SOURCE OF TRUTH: component/service current index (0-based)
-    // Do NOT trust evtOpt.questionIndex (it can be 1-based and breaks Q1)
-    const rawIdx =
-      this.currentQuestionIndex ??
-      this.quizService.getCurrentQuestionIndex?.() ??
-      this.quizService.currentQuestionIndex ??
+    // SOURCE OF TRUTH: component/service index (0-based)
+    // Do NOT trust evtOpt.questionIndex (often 1-based and breaks Q1)
+    const idx =
+      (typeof this.currentQuestionIndex === 'number' ? this.currentQuestionIndex : null) ??
+      (this.quizService.getCurrentQuestionIndex?.() ?? null) ??
+      (typeof (this.quizService as any).currentQuestionIndex === 'number' ? (this.quizService as any).currentQuestionIndex : null) ??
       0;
 
-    const idx = this.normalizeQuestionIndex(rawIdx);
-    console.log('[QQC] idx source', { rawIdx, idx, payloadIdx: (evtOpt as any)?.questionIndex });
+    console.log('[QQC] idx used for click', { idx, payloadIdx: (evtOpt as any)?.questionIndex });
 
     const evtChecked = event?.checked ?? true;
 
