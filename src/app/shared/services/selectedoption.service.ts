@@ -2375,23 +2375,44 @@ export class SelectedOptionService {
     selected: Array<SelectedOption | Option> | null
   ): boolean {
     if (!question || !Array.isArray(question.options)) return false;
-  
-    const correctIds = question.options
-      .filter(o => o.correct)
-      .map(o => String(o.optionId));
-  
-    if (correctIds.length === 0) return false;
+    
+    const normalizeText = (value: string | undefined | null): string =>
+      (value ?? '').trim().toLowerCase();
 
-    const selectedIds = (selected ?? []).map(o => String((o as any).optionId ?? ''));
-    const selectedSet = new Set(selectedIds);
+    const correctKeys = question.options
+      .filter(o => o.correct)
+      .map((o) => {
+        const id = o.optionId;
+        if (typeof id === 'number' || typeof id === 'string') {
+          return String(id);
+        }
+        const textKey = normalizeText(o.text);
+        return textKey ? `text:${textKey}` : '';
+      })
+      .filter(Boolean);
+
+    const selectedKeys = (selected ?? []).flatMap((o) => {
+      const keySet: string[] = [];
+      const id = (o as any).optionId;
+      if (typeof id === 'number' || typeof id === 'string') {
+        keySet.push(String(id));
+      }
+      const textKey = normalizeText((o as any).text);
+      if (textKey) {
+        keySet.push(`text:${textKey}`);
+      }
+      return keySet;
+    });
+  
+    const selectedSet = new Set(selectedKeys);
   
     // Single: stop/show when correct option selected
-    if (correctIds.length === 1) {
-      return selectedSet.has(correctIds[0]);
+    if (correctKeys.length === 1) {
+      return selectedSet.has(correctKeys[0]);
     }
 
     // Multi: show when ALL correct options selected
-    return correctIds.every(id => selectedSet.has(id));
+    return correctKeys.every(key => selectedSet.has(key));
   }
 
   public getSelectedOptionsForQuestion$(idx: number): Observable<any[]> {
