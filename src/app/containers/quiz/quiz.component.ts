@@ -1231,12 +1231,49 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     return this.currentQuestionIndex < effectiveTotal - 1;
   }
 
-  public get shouldShowResultsButton(): boolean {
+  /* public get shouldShowResultsButton(): boolean {
     // Only show results button if we're confirmed on the last question
     const serviceCount = this.quizService.questions?.length || 0;
     const effectiveTotal = Math.max(this.totalQuestions, serviceCount);
     return effectiveTotal > 0 && this.currentQuestionIndex === effectiveTotal - 1;
+  } */
+  public get shouldShowResultsButton(): boolean {
+    // Must be last question
+    const serviceCount = this.quizService.questions?.length || 0;
+    const effectiveTotal = Math.max(this.totalQuestions, serviceCount);
+  
+    const isLast =
+      effectiveTotal > 0 &&
+      this.currentQuestionIndex === effectiveTotal - 1;
+  
+    if (!isLast) return false;
+  
+    // Resolve question + selections
+    const question =
+      this.quizService.questions?.[this.currentQuestionIndex];
+  
+    if (!question) return false;
+  
+    const selected =
+      this.selectedOptionService.getSelectedOptionsForQuestion(
+        this.currentQuestionIndex
+      ) ?? [];
+  
+    // Single-answer: any selection is enough
+    const correctCount =
+      question.options?.filter((o: Option) => o.correct)?.length ?? 0;
+  
+    if (correctCount === 1) {
+      return selected.length > 0;
+    }
+  
+    // Multi-answer: must be resolved correctly
+    return this.selectedOptionService.isQuestionResolvedCorrectly(
+      question,
+      selected
+    );
   }
+  
 
   /**
    * Creates the unified config object for QuizQuestionComponent.
