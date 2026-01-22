@@ -1238,7 +1238,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     return effectiveTotal > 0 && this.currentQuestionIndex === effectiveTotal - 1;
   } */
   public get shouldShowResultsButton(): boolean {
-    // Must be last question
     const serviceCount = this.quizService.questions?.length || 0;
     const effectiveTotal = Math.max(this.totalQuestions, serviceCount);
   
@@ -1248,31 +1247,27 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   
     if (!isLast) return false;
   
-    // Resolve question + selections
-    const question =
-      this.quizService.questions?.[this.currentQuestionIndex];
+    const question: QuizQuestion | null =
+      (this.question as QuizQuestion | null) ??
+      ((this.quizService as any).currentQuestion?.value as QuizQuestion | null) ??
+      (this.quizService.questions?.[this.currentQuestionIndex] ?? null) ??
+      ((this.quizService as any).shuffledQuestions?.[this.currentQuestionIndex] ?? null);
   
     if (!question) return false;
   
     const selected =
-      this.selectedOptionService.getSelectedOptionsForQuestion(
-        this.currentQuestionIndex
-      ) ?? [];
+      this.selectedOptionService.getSelectedOptionsForQuestion(this.currentQuestionIndex) ?? [];
   
-    // Single-answer: any selection is enough
-    const correctCount =
-      question.options?.filter((o: Option) => o.correct)?.length ?? 0;
+    const correctCount = question.options?.filter(o => o.correct)?.length ?? 0;
   
-    if (correctCount === 1) {
+    if (correctCount <= 1) {
       return selected.length > 0;
     }
   
-    // Multi-answer: must be resolved correctly
-    return this.selectedOptionService.isQuestionResolvedCorrectly(
-      question,
-      selected
-    );
+    return this.selectedOptionService.isQuestionResolvedCorrectly(question, selected);
   }
+  
+  
   
 
   /**
