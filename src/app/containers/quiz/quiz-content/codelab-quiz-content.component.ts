@@ -438,7 +438,9 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       filter(idx => idx >= 0),
       switchMap(safeIdx => {
         return combineLatest([
-          this.quizService.getQuestionByIndex(safeIdx),
+          // ✅ IMPORTANT: ensure combineLatest can emit immediately on cold start,
+          // even if getQuestionByIndex is async (qObj is safely handled as optional below).
+          this.quizService.getQuestionByIndex(safeIdx).pipe(startWith(null)),
   
           // ✅ STEP 5: Use gated FET stream (only non-empty when correct answer(s) selected)
           // This prevents explanation from showing on first click / interaction.
@@ -448,8 +450,11 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           // startWith('') guarantees an initial emission so Q1 question text displays.
           this.fetToDisplay$.pipe(startWith('')),
   
-          this.quizStateService.displayState$,
-          this.quizStateService.userHasInteracted$
+          // ✅ Cold-start bulletproofing:
+          // displayState$ and userHasInteracted$ must emit at least once or combineLatest will stall.
+          // We provide safe defaults so question text can render immediately on Q1.
+          this.quizStateService.displayState$.pipe(startWith({ answered: false } as any)),
+          this.quizStateService.userHasInteracted$.pipe(startWith(-1))
         ]).pipe(
           map(([qObj, fetTextGated, state, interactionIdx]) => {
             const rawQText = qObj?.questionText || '';
@@ -463,7 +468,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             const hasInteracted =
               this.quizStateService.hasUserInteracted(safeIdx) ||
               (interactionIdx > -1) ||
-              (state && state.answered);
+              (state && (state as any).answered);
   
             // console.log(`[displayText$] Q${safeIdx + 1} Interacted=${hasInteracted} Mode=${state?.mode}`);
   
@@ -497,7 +502,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       }),
       distinctUntilChanged()
     );
-  }
+  }    
 
   private resetExplanationService(): void {
     this.resetExplanationView();
