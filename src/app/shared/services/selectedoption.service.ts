@@ -2379,17 +2379,23 @@ export class SelectedOptionService {
     const normalizeText = (value: string | undefined | null): string =>
       (value ?? '').trim().toLowerCase();
 
-    const correctKeys = question.options
+    const correctKeyGroups = question.options
       .filter(o => o.correct)
       .map((o) => {
+        const keys: string[] = [];
         const id = o.optionId;
         if (typeof id === 'number' || typeof id === 'string') {
-          return String(id);
+          keys.push(String(id));
         }
         const textKey = normalizeText(o.text);
-        return textKey ? `text:${textKey}` : '';
+        if (textKey) {
+          keys.push(`text:${textKey}`);
+        }
+        return keys;
       })
-      .filter(Boolean);
+      .filter((keys) => keys.length > 0);
+    
+    if (correctKeyGroups.length === 0) return false;
 
     const selectedKeys = (selected ?? []).flatMap((o) => {
       const keySet: string[] = [];
@@ -2405,14 +2411,16 @@ export class SelectedOptionService {
     });
   
     const selectedSet = new Set(selectedKeys);
-  
+       
     // Single: stop/show when correct option selected
-    if (correctKeys.length === 1) {
-      return selectedSet.has(correctKeys[0]);
+    if (correctKeyGroups.length === 1) {
+      return correctKeyGroups[0].some((key) => selectedSet.has(key));
     }
 
     // Multi: show when ALL correct options selected
-    return correctKeys.every(key => selectedSet.has(key));
+    return correctKeyGroups.every((keys) =>
+      keys.some((key) => selectedSet.has(key))
+    );
   }
 
   public getSelectedOptionsForQuestion$(idx: number): Observable<any[]> {
