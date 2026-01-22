@@ -34,10 +34,10 @@ import { QuizQuestionComponent } from
   '../../../components/question/quiz-question/quiz-question.component';
 
 interface QuestionViewState {
-  index: number;
-  key: string;
-  markup: string;
-  fallbackExplanation: string;
+  index: number,
+  key: string,
+  markup: string,
+  fallbackExplanation: string,
   question: QuizQuestion | null;
 }
 
@@ -1838,12 +1838,15 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
   private setupFetToDisplay(): void {
     this.fetToDisplay$ = combineLatest([
-      this.activeFetText$,          // string
-      this.shouldShowFet$           // boolean
+      this.activeFetText$.pipe(startWith('')),    // ensure initial emission for cold start
+      this.shouldShowFet$.pipe(startWith(false))  // ensure initial emission for cold start
     ]).pipe(
-      map(([fet, show]) => (show ? fet : '')),
+      map(([fet, show]) => {
+        const text = (fet ?? '').trim();
+        return show ? text : '';
+      }),
       distinctUntilChanged(),
-      shareReplay({ bufferSize: 1, refCount: true }),
+      shareReplay({ bufferSize: 1, refCount: true })
     );
   }
 
