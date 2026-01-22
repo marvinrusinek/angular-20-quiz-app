@@ -442,7 +442,11 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   
           // ✅ STEP 5: Use gated FET stream (only non-empty when correct answer(s) selected)
           // This prevents explanation from showing on first click / interaction.
-          this.fetToDisplay$,
+          //
+          // ✅ IMPORTANT: combineLatest will NOT emit until ALL sources emit at least once.
+          // If fetToDisplay$ doesn't emit immediately on Q1 load, question text will never render.
+          // startWith('') guarantees an initial emission so Q1 question text displays.
+          this.fetToDisplay$.pipe(startWith('')),
   
           this.quizStateService.displayState$,
           this.quizStateService.userHasInteracted$
@@ -456,7 +460,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             // 1. Service Set (Persistence)
             // 2. Stream (Fresh Click)
             // 3. State Answered flag
-            const hasInteracted = 
+            const hasInteracted =
               this.quizStateService.hasUserInteracted(safeIdx) ||
               (interactionIdx > -1) ||
               (state && state.answered);
@@ -480,8 +484,11 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             // Default: Question Text with Multi-Answer Banner if needed
             const numCorrect = qObj?.options?.filter(o => o.correct)?.length || 0;
             if (numCorrect > 1 && qObj?.options) {
-                const banner = this.quizQuestionManagerService.getNumberOfCorrectAnswersText(numCorrect, qObj.options.length);
-                return `${effectiveQText} <span class="correct-count">${banner}</span>`;
+              const banner = this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
+                numCorrect,
+                qObj.options.length
+              );
+              return `${effectiveQText} <span class="correct-count">${banner}</span>`;
             }
   
             return effectiveQText;
