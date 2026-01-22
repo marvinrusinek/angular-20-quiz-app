@@ -38,7 +38,7 @@ interface QuestionViewState {
   key: string,
   markup: string,
   fallbackExplanation: string,
-  question: QuizQuestion | null;
+  question: QuizQuestion | null
 }
 
 @Component({
@@ -88,11 +88,11 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     this.questionIndexSubject.next(idx);
     this.currentIndex = idx;
     
-    // ⚡ Reset FET lock when question changes
+    // Reset FET lock when question changes
     this._fetLocked = false;
     this._lockedForIndex = -1;
     
-    // ⚡ FIX: Force clear view to prevent previous question's FET leaking (e.g. Q1 FET on Q2)
+    // Force clear view to prevent previous question's FET leaking (e.g. Q1 FET on Q2)
     if (this.qText?.nativeElement) {
       this.qText.nativeElement.innerHTML = '';
     }
@@ -201,13 +201,13 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   private isExplanationDisplayed$ = new BehaviorSubject<boolean>(false);
   private _showExplanation = false;
   
-  // ⚡ FIX: Lock flag to prevent displayText$ from overwriting FET
+  // Lock flag to prevent displayText$ from overwriting FET
   private _fetLocked = false;
   private _lockedForIndex = -1;
 
   // Use the service's indexed formattedExplanation$ so we can ignore stale payloads
   // that belong to previous questions (e.g., Q1 showing while on Q4).
-  // ⚡ FIX: Direct Access Reactive FET Logic
+  // Direct Access Reactive FET Logic
   // Combines Current Index with Service Cache Updates to guarantee latest data.
   // Re-emits automatically when cache populates (fixing Q1 Race Condition).
   formattedExplanation$: Observable<FETPayload> = combineLatest([
@@ -231,7 +231,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   );
 
   // SIMPLE: One observable that switches between question text and FET
-  // Will be initialized in ngOnInit after inputs are set
+  // will be initialized in ngOnInit after inputs are set
   displayText$!: Observable<string>;
 
   numberOfCorrectAnswers$: BehaviorSubject<string> =
@@ -312,7 +312,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     this.setupCorrectAnswersTextDisplay();
 
 
-    // ⚡ FIX: Removed Manual Subscription to prevent race conditions.
+    // Removed manual subscription to prevent race conditions.
     // The robust displayText$ pipeline (via subscribeToDisplayText) is now the SINGLE source of truth.
     // It correctly handles:
     // 1. Unshuffled/Shuffled text resolution
@@ -320,7 +320,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     // 3. Strict mode checking (Question vs Explanation)
     // 4. Multi-answer banners
     
-    // ⚡ FIX: Subscribe to quesitons$ to REGENERATE FETs when questions/shuffling changes
+    // Subscribe to questions$ to REGENERATE FETs when questions/shuffling changes
     // This ensures that "Option 1 is correct" matches the ACTUAL visual order of options
     // if they have been shuffled.
     this.quizService.questions$
@@ -331,7 +331,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       .subscribe((questions) => {
         console.log('[CQCC] ♻️ Questions updated - Regenerating FETs for synchronization...');
         
-        // ⚡ FIX: Sync FET Cache with Shuffled Order
+        // Sync FET Cache with Shuffled Order
         // If shuffling is active, we must store FETs based on the SHUFFLED questions array.
         // Otherwise, fetByIndex[2] holds Unshuffled-Q3's FET, but we display Shuffled-Q2 (Orig-Q5).
         const isShuffled = this.quizService.isShuffleEnabled();
@@ -369,8 +369,8 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     }
 
     if (changes['questionIndex'] && !changes['questionIndex'].firstChange) {
-      this.navTime = Date.now(); // ⚡ Capture navigation time baseline
-      // ⚡ Reset FET lock when question changes to allow question text to display
+      this.navTime = Date.now();  // capture navigation time baseline
+      // Reset FET lock when question changes to allow question text to display
       this._fetLocked = false;
       this._lockedForIndex = -1;
       
@@ -438,53 +438,36 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       filter(idx => idx >= 0),
       switchMap(safeIdx => {
         return combineLatest([
-          // ✅ IMPORTANT: ensure combineLatest can emit immediately on cold start,
+          // Ensure combineLatest can emit immediately on cold start,
           // even if getQuestionByIndex is async (qObj is safely handled as optional below).
           this.quizService.getQuestionByIndex(safeIdx).pipe(startWith(null)),
   
-          // ✅ STEP 5: Use gated FET stream (only non-empty when correct answer(s) selected)
+          // Use gated FET stream (only non-empty when correct answer(s) selected)
           // This prevents explanation from showing on first click / interaction.
           //
-          // ✅ IMPORTANT: combineLatest will NOT emit until ALL sources emit at least once.
+          // combineLatest will NOT emit until ALL sources emit at least once.
           // If fetToDisplay$ doesn't emit immediately on Q1 load, question text will never render.
           // startWith('') guarantees an initial emission so Q1 question text displays.
           this.fetToDisplay$.pipe(startWith('')),
   
-          // ✅ Cold-start bulletproofing:
-          // displayState$ and userHasInteracted$ must emit at least once or combineLatest will stall.
-          // We provide safe defaults so question text can render immediately on Q1.
-          this.displayState$.pipe(startWith({ mode: 'question', answered: false })),
-          this.quizStateService.userHasInteracted$.pipe(startWith(-1))
+          // Cold-start bulletproofing:
+          // displayState$ must emit at least once or combineLatest will stall.
+          // We provide a safe default so question text can render immediately on Q1.
+          this.displayState$.pipe(startWith({ mode: 'question', answered: false }))
         ]).pipe(
-          map(([qObj, fetTextGated, state, interactionIdx]) => {
+          map(([qObj, fetTextGated, state]) => {
             const rawQText = qObj?.questionText || '';
             const serviceQText = (qObj?.questionText ?? '').trim();
             const effectiveQText = serviceQText || rawQText || '';
   
-            // Agnostic Interaction Check:
-            // 1. Service Set (Persistence)
-            // 2. Stream (Fresh Click)
-            // 3. State Answered flag
-            const hasInteracted =
-              this.quizStateService.hasUserInteracted(safeIdx) ||
-              (interactionIdx > -1) ||
-              (state && state.answered);
+            // console.log(`[displayText$] Q${safeIdx + 1} Mode=${state?.mode}`);
   
-            // console.log(`[displayText$] Q${safeIdx + 1} Interacted=${hasInteracted} Mode=${state?.mode}`);
-  
-            // ✅ STEP 5 CHANGE:
             // Show FET ONLY when gated stream provides it (correct answer(s) selected).
             // Interaction alone should NOT force explanation display.
             const fetText = (fetTextGated ?? '').trim();
             if (fetText.length > 0) {
               return fetText;
             }
-  
-            // If the user has interacted but the correct-answer condition is NOT met,
-            // keep showing the question text (and banner) instead of forcing
-            // "No explanation available." prematurely.
-            // (Old behavior was: any interaction => show explanation/fallback.)
-            // if (hasInteracted) { ... old explanation fallback removed intentionally ... }
   
             // Default: Question Text with Multi-Answer Banner if needed
             const numCorrect = qObj?.options?.filter(o => o.correct)?.length || 0;
