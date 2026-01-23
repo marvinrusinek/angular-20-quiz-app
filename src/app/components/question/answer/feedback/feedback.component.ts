@@ -124,28 +124,35 @@ export class FeedbackComponent implements OnInit, OnChanges {
       this.displayMessage = '';
       return;
     }
+
+    const idx = Number.isFinite(this.feedbackConfig.idx) ? this.feedbackConfig.idx : 0;
+    const question = this.feedbackConfig.question;
   
-    const { question, options, selectedOption } = this.feedbackConfig;
+    //const { question, options, selectedOption } = this.feedbackConfig;
   
     // 1️⃣ PRIMARY SOURCE OF TRUTH
-    const selected = selectedOption ? [selectedOption] : [];
+    //const selected = selectedOption ? [selectedOption] : [];
+    // ✅ MULTI-ANSWER FIX: use ALL selections for this question
+    const selected = this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
 
-    const msg = this.feedbackService.buildFeedbackMessage(
-      question!,
-      selected,
-      false,
-      this.feedbackConfig?.timedOut === true
-    );
+    const msg = question
+      ? this.feedbackService.buildFeedbackMessage(
+          question,
+          selected,
+          false,
+          this.feedbackConfig?.timedOut === true
+        )
+      : '';
   
     // ✅ If feedbackService decided on a message, USE IT and STOP
-    if (msg) {
+    if (msg && msg.trim()) {
       this.displayMessage = msg;
-      return;
+      return; // ✅ STOP: do NOT fall through to “correct option reveal” generator
     }
   
     // 2️⃣ FALLBACK — ONLY when explanation mode is active
     // (Never during retry flows)
-    const correct =
+    /* const correct =
       this.quizService.correctOptions ??
       options?.filter(o => o.correct) ??
       [];
@@ -158,8 +165,9 @@ export class FeedbackComponent implements OnInit, OnChanges {
     const sentence = this.feedbackService.generateFeedbackForOptions(
       correct,
       options
-    );
+    ); */
   
-    this.displayMessage = sentence;
+    //this.displayMessage = sentence;
+    this.displayMessage = '';
   }  
 }
