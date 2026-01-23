@@ -130,15 +130,11 @@ export class FeedbackComponent implements OnInit, OnChanges {
     // 1️⃣ PRIMARY SOURCE OF TRUTH
     const selected = selectedOption ? [selectedOption] : [];
 
-    const isTimedOut = this.quizStateService.isTimedOutForQuestion(
-      this.feedbackConfig?.idx ?? -1
-    );
-  
     const msg = this.feedbackService.buildFeedbackMessage(
       question!,
       selected,
       false,
-      isTimedOut
+      this.feedbackConfig?.timedOut === true
     );
   
     // ✅ If feedbackService decided on a message, USE IT and STOP
