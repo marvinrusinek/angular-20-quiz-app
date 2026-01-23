@@ -51,11 +51,13 @@ export class FeedbackService {
   public buildFeedbackMessage(
     question: QuizQuestion,
     selected: Array<SelectedOption | Option> | null,
-    strict: boolean = false
+    strict: boolean = false,
+    timedOut: boolean = false
   ): string {
+    if (timedOut) return "⏰ Time’s up — here’s the explanation.";
+  
     const status = this.selectedOptionService.getResolutionStatus(question, selected, strict);
   
-    // No selection yet: let your selection message handle it
     const hasAnySelection = (selected ?? []).some((o: any) => o && o.selected !== false);
     if (!hasAnySelection) return '';
   
@@ -74,12 +76,11 @@ export class FeedbackService {
     }
   
     if (status.incorrectSelected > 0) {
-      return `❌ Not that one. Keep going.`;
+      return '❌ Not that one. Keep going.';
     }
   
     return `✅ Good pick. Select ${status.remainingCorrect} more.`;
   }
-  
 
   public setCorrectMessage(optionsToDisplay?: Option[]): string {
     // Store the last known options

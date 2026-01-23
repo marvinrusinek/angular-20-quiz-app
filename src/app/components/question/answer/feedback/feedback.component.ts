@@ -5,6 +5,7 @@ import { MatIconModule } from '@angular/material/icon';
 
 import { FeedbackProps } from '../../../../shared/models/FeedbackProps.model';
 import { FeedbackService } from '../../../../shared/services/feedback.service';
+import { SelectedOptionService } from '../../../../shared/services/selectedoption.service';
 import { QuizService } from '../../../../shared/services/quiz.service';
 
 @Component({
@@ -24,6 +25,7 @@ export class FeedbackComponent implements OnInit, OnChanges {
   constructor(
     private feedbackService: FeedbackService,
     private quizService: QuizService,
+    private selectedOptionService: SelectedOptionService,
     private cdRef: ChangeDetectorRef
   ) {}
 
@@ -62,23 +64,23 @@ export class FeedbackComponent implements OnInit, OnChanges {
 
   private updateFeedback(): void {
     if (this.feedbackConfig?.showFeedback) {
+      this.updateDisplayMessage();
       this.feedbackMessageClass = this.determineFeedbackMessageClass();
       this.feedbackPrefix = this.determineFeedbackPrefix();
-      this.updateDisplayMessage();
     } else {
-      console.log('Feedback is not set to be shown');
       this.displayMessage = '';
     }
   }
 
   private determineFeedbackPrefix(): string {
-    const isCorrect = this.feedbackConfig?.selectedOption?.correct ?? false;
-    return isCorrect ? "You're right! " : "That's wrong. ";
+    return '';  // ✅/❌ already included
   }
 
   private determineFeedbackMessageClass(): string {
-    const isCorrect = this.feedbackConfig?.selectedOption?.correct ?? false;
-    return isCorrect ? 'correct-message' : 'wrong-message';
+    const msg = (this.displayMessage ?? '').trim();
+    if (msg.startsWith('✅')) return 'correct-message';
+    if (msg.startsWith('❌') || msg.startsWith('⏰')) return 'wrong-message';
+    return '';
   }
 
   private updateDisplayMessage(): void {
@@ -86,27 +88,33 @@ export class FeedbackComponent implements OnInit, OnChanges {
       this.displayMessage = '';
       return;
     }
-
-    const prefix = this.determineFeedbackPrefix();
-
-    // If feedback text already present, use it
+  
+    const idx = Number.isFinite(this.feedbackConfig.idx) ? this.feedbackConfig.idx : 0;
+  
+    const question = this.feedbackConfig.question;
+    const selected = this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
+  
+    // ✅ NEW SOURCE OF TRUTH
+    if (question) {
+      const msg = this.feedbackService.buildFeedbackMessage(question, selected, false /* strict */);
+  
+      if (msg && msg.trim().length > 0) {
+        this.displayMessage = msg;
+        return;
+      }
+    }
+  
+    // ─────────────────────────────────────────────
+    // FALLBACKS (keep, but they should rarely run now)
+    // ─────────────────────────────────────────────
     const supplied = this.feedbackConfig.feedback?.trim();
     if (supplied) {
-      this.displayMessage = `${prefix}${supplied}`;
+      this.displayMessage = supplied;
       return;
     }
-
-    // Otherwise generate it via the service
+  
     const opts = this.feedbackConfig.options ?? [];
-    const correct =
-      this.quizService.correctOptions ??
-        opts.filter((o) => o.correct);
-
-    const sentence = this.feedbackService.generateFeedbackForOptions(
-      correct,
-      opts
-    );
-
-    this.displayMessage = `${prefix}${sentence}`;
-  }
+    const correct = this.quizService.correctOptions ?? opts.filter(o => o.correct);
+    this.displayMessage = this.feedbackService.generateFeedbackForOptions(correct, opts);
+  }  
 }
