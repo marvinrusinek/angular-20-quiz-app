@@ -7,6 +7,7 @@ import { FeedbackProps } from '../../../../shared/models/FeedbackProps.model';
 import { FeedbackService } from '../../../../shared/services/feedback.service';
 import { SelectedOptionService } from '../../../../shared/services/selectedoption.service';
 import { QuizService } from '../../../../shared/services/quiz.service';
+import { QuizStateService } from '../../../../shared/services/quizstate.service';
 
 @Component({
   selector: 'codelab-quiz-feedback',
@@ -25,6 +26,7 @@ export class FeedbackComponent implements OnInit, OnChanges {
   constructor(
     private feedbackService: FeedbackService,
     private quizService: QuizService,
+    private quizStateService: QuizStateService,
     private selectedOptionService: SelectedOptionService,
     private cdRef: ChangeDetectorRef
   ) {}
@@ -83,7 +85,7 @@ export class FeedbackComponent implements OnInit, OnChanges {
     return '';
   }
 
-  private updateDisplayMessage(): void {
+  /* private updateDisplayMessage(): void {
     if (!this.feedbackConfig) {
       this.displayMessage = '';
       return;
@@ -96,7 +98,7 @@ export class FeedbackComponent implements OnInit, OnChanges {
   
     // ✅ NEW SOURCE OF TRUTH
     if (question) {
-      const msg = this.feedbackService.buildFeedbackMessage(question, selected, false /* strict */);
+      //const msg = this.feedbackService.buildFeedbackMessage(question, selected, false  strict );
   
       if (msg && msg.trim().length > 0) {
         this.displayMessage = msg;
@@ -116,5 +118,52 @@ export class FeedbackComponent implements OnInit, OnChanges {
     const opts = this.feedbackConfig.options ?? [];
     const correct = this.quizService.correctOptions ?? opts.filter(o => o.correct);
     this.displayMessage = this.feedbackService.generateFeedbackForOptions(correct, opts);
+  }  */
+  private updateDisplayMessage(): void {
+    if (!this.feedbackConfig) {
+      this.displayMessage = '';
+      return;
+    }
+  
+    const { question, options, selectedOption } = this.feedbackConfig;
+  
+    // 1️⃣ PRIMARY SOURCE OF TRUTH
+    const selected = selectedOption ? [selectedOption] : [];
+
+    const isTimedOut = this.quizStateService.isTimedOutForQuestion(
+      this.feedbackConfig?.idx ?? -1
+    );
+  
+    const msg = this.feedbackService.buildFeedbackMessage(
+      question!,
+      selected,
+      false,
+      isTimedOut
+    );
+  
+    // ✅ If feedbackService decided on a message, USE IT and STOP
+    if (msg) {
+      this.displayMessage = msg;
+      return;
+    }
+  
+    // 2️⃣ FALLBACK — ONLY when explanation mode is active
+    // (Never during retry flows)
+    const correct =
+      this.quizService.correctOptions ??
+      options?.filter(o => o.correct) ??
+      [];
+  
+    if (!correct.length || !options?.length) {
+      this.displayMessage = '';
+      return;
+    }
+  
+    const sentence = this.feedbackService.generateFeedbackForOptions(
+      correct,
+      options
+    );
+  
+    this.displayMessage = sentence;
   }  
 }
