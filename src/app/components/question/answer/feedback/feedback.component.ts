@@ -93,7 +93,17 @@ export class FeedbackComponent implements OnInit, OnChanges {
   
     const idx = Number.isFinite(this.feedbackConfig.idx) ? this.feedbackConfig.idx : 0;
   
-    const question = this.feedbackConfig.question;
+    const question =
+      this.feedbackConfig.question ??
+      this.quizService.questions?.[idx] ??
+      (this.feedbackConfig.options
+        ? {
+            questionText: '',
+            options: this.feedbackConfig.options,
+            explanation: '',
+            type: undefined
+          }
+        : null);
     const selected = this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
   
     // ✅ NEW SOURCE OF TRUTH
