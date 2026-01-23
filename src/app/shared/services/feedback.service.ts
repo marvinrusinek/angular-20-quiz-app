@@ -94,7 +94,11 @@ export class FeedbackService {
     }
   
     // Correct so far, but not finished
-    return `Good choice. Select ${status.remainingCorrect} more.`;
+    const remainingText =
+      status.remainingCorrect === 1
+        ? '1 more correct answer'
+        : `${status.remainingCorrect} more correct answers`;
+    return `That's correct! Please select ${remainingText} to continue.`;
   }
 
   public setCorrectMessage(optionsToDisplay?: Option[]): string {
