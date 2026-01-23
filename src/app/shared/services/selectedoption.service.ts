@@ -2397,26 +2397,44 @@ export class SelectedOptionService {
         remainingCorrect: 0
       };
     }
+
+    const normalizeText = (value: unknown): string =>
+      typeof value === 'string'
+        ? value.trim().toLowerCase().replace(/\s+/g, ' ')
+        : '';
+
+    const correctOptions = (question.options ?? []).filter(o => o.correct);
   
     const correctIds = new Set(
-      question.options.filter(o => o.correct).map(o => String((o as any).optionId))
+      correctOptions.map(o => String((o as any).optionId))
     );
   
-    const selectedIds = new Set(
-      (selected ?? [])
-        .filter((o: any) => o && o.selected !== false)
-        .map((o: any) => String(o.optionId))
-        .filter(Boolean)
+    const correctText = new Set(
+      correctOptions.map(o => normalizeText((o as any).text))
     );
   
-    const correctTotal = correctIds.size;
+    const selections = (selected ?? []).filter(
+      (o: any) => o && o.selected !== false
+    );
   
     let correctSelected = 0;
-    for (const id of selectedIds) {
-      if (correctIds.has(id)) correctSelected++;
+    let incorrectSelected = 0;
+
+    for (const sel of selections) {
+      const selId = String((sel as any).optionId ?? '');
+      const selText = normalizeText((sel as any).text);
+      const isCorrect =
+        (selId && correctIds.has(selId)) ||
+        (selText && correctText.has(selText));
+
+      if (isCorrect) {
+        correctSelected++;
+      } else {
+        incorrectSelected++;
+      }
     }
   
-    const incorrectSelected = Math.max(selectedIds.size - correctSelected, 0);
+    const correctTotal = correctIds.size;
   
     const remainingCorrect = Math.max(correctTotal - correctSelected, 0);
   
