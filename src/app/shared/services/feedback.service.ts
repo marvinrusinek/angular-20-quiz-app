@@ -54,32 +54,40 @@ export class FeedbackService {
     strict: boolean = false,
     timedOut: boolean = false
   ): string {
-    if (timedOut) return "⏰ Time’s up — here’s the explanation.";
+    if (timedOut) {
+      return 'Time’s up. Review the explanation below.';
+    }
   
-    const status = this.selectedOptionService.getResolutionStatus(question, selected, strict);
+    const status = this.selectedOptionService.getResolutionStatus(
+      question,
+      selected,
+      strict
+    );
   
-    const hasAnySelection = (selected ?? []).some((o: any) => o && o.selected !== false);
+    const hasAnySelection = (selected ?? []).some(
+      (o: any) => o && o.selected !== false
+    );
     if (!hasAnySelection) return '';
   
+    // ─────────────────────────
     // Single-answer
+    // ─────────────────────────
     if (status.correctTotal <= 1) {
-      return status.resolved ? '✅ Correct.' : '❌ Not quite. Try again.';
+      return status.resolved ? 'Correct.' : 'Try again.';
     }
   
+    // ─────────────────────────
     // Multi-answer
+    // ─────────────────────────
     if (status.resolved) {
-      return '✅ Correct! You found all the right answers.';
-    }
-  
-    if (strict && status.remainingCorrect === 0 && status.incorrectSelected > 0) {
-      return 'Almost. Remove the incorrect selection(s).';
+      return 'Correct. You found all the right answers.';
     }
   
     if (status.incorrectSelected > 0) {
-      return '❌ Not that one. Keep going.';
+      return 'Try again.';
     }
   
-    return `✅ Good pick. Select ${status.remainingCorrect} more.`;
+    return `Good choice. Select ${status.remainingCorrect} more.`;
   }
 
   public setCorrectMessage(optionsToDisplay?: Option[]): string {
