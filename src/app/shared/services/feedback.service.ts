@@ -86,7 +86,7 @@ export class FeedbackService {
   
     // Incorrect option chosen
     if (status.incorrectSelected > 0) {
-      return 'Not that one. Keep going.';
+      return 'Not this one. Keep going...';
     }
   
     // Correct so far, but not finished
