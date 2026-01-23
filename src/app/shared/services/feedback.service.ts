@@ -75,8 +75,13 @@ export class FeedbackService {
     }
   
     // Multi-answer
-    if (status.resolved) {
+    /* if (status.resolved) {
       return 'Correct. You found all the right answers.';
+    } */
+    if (status.resolved) {
+      // Reveal correct options ONLY when fully resolved
+      const reveal = this.setCorrectMessage(question.options);
+      return reveal || 'Correct. You found all the right answers.';
     }
   
     // Incorrect option chosen
