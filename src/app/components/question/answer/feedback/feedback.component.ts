@@ -125,25 +125,34 @@ export class FeedbackComponent implements OnInit, OnChanges {
       return;
     }
 
-    const fallbackIndex = Number.isFinite(this.feedbackConfig.idx)
-      ? this.feedbackConfig.idx
-      : 0;
-    const selectedQuestionIndex = Number.isFinite(
-      (this.feedbackConfig.selectedOption as { questionIndex?: number } | null)
-        ?.questionIndex
-    )
-      ? ((this.feedbackConfig.selectedOption as { questionIndex?: number })
-          .questionIndex as number)
-      : undefined;
-    const activeQuestionIndex = Number.isFinite(
-      this.quizService.currentQuestionIndex
-    )
-      ? (this.quizService.currentQuestionIndex as number)
-      : undefined;
-    const idx =
-      selectedQuestionIndex ?? activeQuestionIndex ?? fallbackIndex;
-
-    const question = this.feedbackConfig.question;
+  const fallbackIndex = Number.isFinite(this.feedbackConfig.idx)
+    ? this.feedbackConfig.idx
+    : 0;
+  const selectedQuestionIndex = Number.isFinite(
+    (this.feedbackConfig.selectedOption as { questionIndex?: number } | null)
+      ?.questionIndex
+  )
+    ? ((this.feedbackConfig.selectedOption as { questionIndex?: number })
+        .questionIndex as number)
+    : undefined;
+  const activeQuestionIndex = Number.isFinite(
+    this.quizService.currentQuestionIndex
+  )
+    ? (this.quizService.currentQuestionIndex as number)
+    : undefined;
+  const idx =
+    selectedQuestionIndex ?? activeQuestionIndex ?? fallbackIndex;
+  const question =
+    this.feedbackConfig.question ??
+    this.quizService.questions?.[idx] ??
+    (this.feedbackConfig.options
+      ? {
+          questionText: '',
+          options: this.feedbackConfig.options,
+          explanation: '',
+          type: undefined
+        }
+      : null);
   
     //const { question, options, selectedOption } = this.feedbackConfig;
   
