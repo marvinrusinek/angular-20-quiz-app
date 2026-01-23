@@ -55,7 +55,7 @@ export class FeedbackService {
     timedOut: boolean = false
   ): string {
     if (timedOut) {
-      return 'Time’s up. Review the explanation below.';
+      return 'Time’s up. Review the explanation above.';
     }
   
     const status = this.selectedOptionService.getResolutionStatus(
@@ -69,24 +69,22 @@ export class FeedbackService {
     );
     if (!hasAnySelection) return '';
   
-    // ─────────────────────────
     // Single-answer
-    // ─────────────────────────
     if (status.correctTotal <= 1) {
       return status.resolved ? 'Correct.' : 'Try again.';
     }
   
-    // ─────────────────────────
     // Multi-answer
-    // ─────────────────────────
     if (status.resolved) {
       return 'Correct. You found all the right answers.';
     }
   
+    // Incorrect option chosen
     if (status.incorrectSelected > 0) {
-      return 'Try again.';
+      return 'Not that one. Keep going.';
     }
   
+    // Correct so far, but not finished
     return `Good choice. Select ${status.remainingCorrect} more.`;
   }
 
