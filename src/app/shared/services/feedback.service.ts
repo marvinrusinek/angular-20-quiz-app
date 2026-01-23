@@ -71,7 +71,11 @@ export class FeedbackService {
   
     // Single-answer
     if (status.correctTotal <= 1) {
-      return status.resolved ? 'Correct.' : 'Your selection is incorrect. Try again.';
+      if (status.resolved) {
+        return this.setCorrectMessage(question.options);
+      }
+
+      return 'Your selection is incorrect. Try again.';
     }
   
     // Multi-answer
