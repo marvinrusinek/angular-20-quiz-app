@@ -150,8 +150,19 @@ export class FeedbackComponent implements OnInit, OnChanges {
     // 1️⃣ PRIMARY SOURCE OF TRUTH
     //const selected = selectedOption ? [selectedOption] : [];
     // ✅ MULTI-ANSWER FIX: use ALL selections for this question
-    const selected =
+    const selectedFromMap =
       this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
+    const fallbackSelected = this.feedbackConfig.selectedOption
+      ? [
+          {
+            ...this.feedbackConfig.selectedOption,
+            selected: true,
+            questionIndex: idx
+          }
+        ]
+      : [];
+    const selected =
+      selectedFromMap.length > 0 ? selectedFromMap : fallbackSelected;
 
     const msg = question
       ? this.feedbackService.buildFeedbackMessage(
