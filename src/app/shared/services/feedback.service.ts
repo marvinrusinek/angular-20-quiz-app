@@ -71,7 +71,7 @@ export class FeedbackService {
   
     // Single-answer
     if (status.correctTotal <= 1) {
-      return status.resolved ? 'Correct.' : 'Try again.';
+      return status.resolved ? 'Correct.' : 'Your selection is incorrect. Try again.';
     }
   
     // Multi-answer
