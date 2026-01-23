@@ -125,7 +125,24 @@ export class FeedbackComponent implements OnInit, OnChanges {
       return;
     }
 
-    const idx = Number.isFinite(this.feedbackConfig.idx) ? this.feedbackConfig.idx : 0;
+    const fallbackIndex = Number.isFinite(this.feedbackConfig.idx)
+      ? this.feedbackConfig.idx
+      : 0;
+    const selectedQuestionIndex = Number.isFinite(
+      (this.feedbackConfig.selectedOption as { questionIndex?: number } | null)
+        ?.questionIndex
+    )
+      ? ((this.feedbackConfig.selectedOption as { questionIndex?: number })
+          .questionIndex as number)
+      : undefined;
+    const activeQuestionIndex = Number.isFinite(
+      this.quizService.currentQuestionIndex
+    )
+      ? (this.quizService.currentQuestionIndex as number)
+      : undefined;
+    const idx =
+      selectedQuestionIndex ?? activeQuestionIndex ?? fallbackIndex;
+
     const question = this.feedbackConfig.question;
   
     //const { question, options, selectedOption } = this.feedbackConfig;
@@ -133,7 +150,8 @@ export class FeedbackComponent implements OnInit, OnChanges {
     // 1️⃣ PRIMARY SOURCE OF TRUTH
     //const selected = selectedOption ? [selectedOption] : [];
     // ✅ MULTI-ANSWER FIX: use ALL selections for this question
-    const selected = this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
+    const selected =
+      this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
 
     const msg = question
       ? this.feedbackService.buildFeedbackMessage(
