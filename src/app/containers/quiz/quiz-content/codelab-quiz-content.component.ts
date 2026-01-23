@@ -32,6 +32,7 @@ import { ExplanationTextService, FETPayload } from
   '../../../shared/services/explanation-text.service';
 import { QuizQuestionComponent } from
   '../../../components/question/quiz-question/quiz-question.component';
+import { TimerService } from '../../../shared/services/timer.service';
 
 interface QuestionViewState {
   index: number,
@@ -260,6 +261,10 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   public shouldShowFet$!: Observable<boolean>;
   public fetToDisplay$!: Observable<string>;
 
+  private timedOutForIdx = new Set<number>();
+  private timedOutIdxSubject = new BehaviorSubject<number>(-1);
+  public timedOutIdx$ = this.timedOutIdxSubject.asObservable();
+
   private destroy$ = new Subject<void>();
 
   constructor(
@@ -271,6 +276,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     private quizQuestionLoaderService: QuizQuestionLoaderService,
     private quizQuestionManagerService: QuizQuestionManagerService,
     private selectedOptionService: SelectedOptionService,
+    private timerService: TimerService,
     private activatedRoute: ActivatedRoute,
     private cdRef: ChangeDetectorRef,
     private renderer: Renderer2
@@ -349,8 +355,26 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         });
       });
 
-    // NOTE: Removed fast-path FET subscription that was fighting with displayText$ pipeline.
-    // The FET display is now handled entirely by the displayText$ pipeline's shouldShowFet logic.
+    this.timerService.expired$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        const idx = this.quizService.getCurrentQuestionIndex?.() ?? this.currentQuestionIndexValue ?? 0;
+
+        console.warn(`[CQCC] ⏰ Timer expired for Q${idx + 1} → allow FET display`);
+        this.timedOutIdxSubject.next(idx);
+
+        // Safety: ensure we have a formatted explanation for this idx
+        const q =
+          (this.quizService as any)?.questions?.[idx] ??
+          ((this.quizService as any)?.currentQuestion?.value ?? null);
+
+        if (q?.explanation) {
+          this.explanationTextService.storeFormattedExplanation(idx, q.explanation, q);
+        }
+
+        // OnPush safety
+        this.cdRef.markForCheck();
+      });
   }
 
   ngOnChanges(changes: SimpleChanges) {
@@ -1823,13 +1847,23 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   }
 
   private setupFetToDisplay(): void {
-    this.fetToDisplay$ = combineLatest([
-      this.activeFetText$.pipe(startWith('')),    // ensure initial emission for cold start
-      this.shouldShowFet$.pipe(startWith(false))  // ensure initial emission for cold start
+    const showOnTimeout$ = combineLatest([
+      this.currentIndex$.pipe(startWith(-1)),
+      this.timedOutIdx$.pipe(startWith(-1))
     ]).pipe(
-      map(([fet, show]) => {
+      map(([idx, timedOutIdx]) => idx >= 0 && idx === timedOutIdx),
+      distinctUntilChanged(),
+      shareReplay({ bufferSize: 1, refCount: true })
+    );
+
+    this.fetToDisplay$ = combineLatest([
+      this.activeFetText$.pipe(startWith('')),        // ensure initial emission for cold start
+      this.shouldShowFet$.pipe(startWith(false)),     // resolved-correctly gate
+      showOnTimeout$.pipe(startWith(false))           // timeout override
+    ]).pipe(
+      map(([fet, resolved, timedOut]) => {
         const text = (fet ?? '').trim();
-        return show ? text : '';
+        return (resolved || timedOut) ? text : '';
       }),
       distinctUntilChanged(),
       shareReplay({ bufferSize: 1, refCount: true })
