@@ -31,12 +31,13 @@ mat-card {
   border-radius: 20px;
   padding: 20px 24px; // Reduced top padding to move header up
   
-  // Glassmorphism effect - Blended deeply
-  background: rgba(255, 255, 255, 0.15) !important;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+  // Glassmorphism - Consistent with QuizComponent
+  background: rgba(255, 255, 255, 0.75) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
   
   animation: slideUp 0.5s ease-out;
 }
