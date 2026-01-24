@@ -126,4 +126,8 @@ export class ResultsComponent implements OnInit, OnDestroy {
     this.indexOfQuizId = 0;
     this.router.navigate(['/select/']);
   }
+
+  scrollDown(): void {
+    window.scrollBy({ top: 500, behavior: 'smooth' });
+  }
 }

@@ -256,8 +256,15 @@ mat-card {
   align-items: center;
   gap: 4px;
   opacity: 0.6;
+  opacity: 0.6;
   transition: opacity 0.3s ease;
-  pointer-events: none; // Don't block clicks
+  pointer-events: auto; // Enable clicks
+  cursor: pointer; // Show pointer
+
+  &:hover {
+    opacity: 1;
+    transform: translateX(-50%) scale(1.1);
+  }
 
   i {
     font-size: 32px;

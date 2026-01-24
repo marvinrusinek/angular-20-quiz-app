@@ -172,7 +172,7 @@
   font-size: 24px;
   font-weight: 700;
   display: inline;
-  color: vars.$dodger-blue;
+  color: color.scale(vars.$dodger-blue, $lightness: -25%); // Darker blue
 }
 
 // ============================================================
