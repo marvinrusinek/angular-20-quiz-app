@@ -51,17 +51,18 @@ mat-card {
     opacity: 1;
     transform: translateY(0);
   }
-}// ============================================================
+}
+// ============================================================
 // CARD HEADER - Hamburger (left), Title (center), Logo (right)
 // ============================================================
 mat-card-header {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  // Allocation: Hamburger | Title (Flexible) | Logo
+  grid-template-columns: 80px 1fr 120px; 
   align-items: center;
   margin-top: 16px !important;
   margin-bottom: 24px; // Increased bottom margin
   padding: 0 12px;
-  position: relative;  // keep relative for safety, but use flex for layout
 
   // ============================================================
   // HAMBURGER MENU (Left)
@@ -69,7 +70,7 @@ mat-card-header {
   .hamburger-menu {
     position: relative;
     z-index: 100;
-    flex: 0 0 auto; // Don't shrink
+    justify-self: start; // Grid alignment
     
     .hamburger-btn {
       display: flex;
@@ -200,10 +201,10 @@ mat-card-header {
     font-style: italic;
     font-weight: 900;
     
-    // Flexbox centering instead of absolute to prevent overlap
-    flex: 1; 
+    // Grid alignment
+    justify-self: center;
+    width: 100%;
     text-align: center;
-    margin: 0 10px;
     
     // Gradient text effect
     background: linear-gradient(135deg, vars.$green-angular-leaf, vars.$dodger-blue);
@@ -219,7 +220,7 @@ mat-card-header {
   // LOGO (Right)
   // ============================================================
   .logo {
-    flex: 0 0 auto;
+    justify-self: end; // Grid alignment
     padding-right: 0; // Removed extra padding to align better
 
     img {
@@ -334,8 +335,8 @@ mat-card-header {
     font-weight: 700;
     text-align: center;
     color: vars.$dark-blue;
-    // Move UP as requested
-    margin: -10px 0 20px 0; 
+    // Move UP further as requested (was -10px, now -25px)
+    margin: -25px 0 20px 0; 
     padding-bottom: 12px;
     border-bottom: 2px solid rgba(vars.$dodger-blue, 0.2);
     animation: fadeIn 0.5s ease-out;
