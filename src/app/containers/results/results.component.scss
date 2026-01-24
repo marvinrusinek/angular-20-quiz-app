@@ -51,9 +51,8 @@ mat-card {
     opacity: 1;
     transform: translateY(0);
   }
-}
-// ============================================================
-// CARD HEADER - Logo left, Title right
+}// ============================================================
+// CARD HEADER - Hamburger (left), Title (center), Logo (right)
 // ============================================================
 mat-card-header {
   display: flex;
@@ -61,36 +60,144 @@ mat-card-header {
   align-items: center;
   margin-top: 16px !important;
   margin-bottom: 16px;
-  padding: 0 16px;
-  gap: 32px;  // Gap between logo and title
+  padding: 0 12px;
+  position: relative;
 
-  .logo {
-    flex-shrink: 0;
-    order: 1;  // Ensure logo is first (left)
-
-    img {
-      border-radius: 12px;
+  // ============================================================
+  // HAMBURGER MENU (Left)
+  // ============================================================
+  .hamburger-menu {
+    position: relative;
+    z-index: 100;
+    
+    .hamburger-btn {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-around;
+      width: 36px;
+      height: 32px;
+      padding: 6px;
+      background: rgba(255, 255, 255, 0.8);
+      border: 1px solid rgba(0, 0, 0, 0.1);
+      border-radius: 8px;
       cursor: pointer;
       transition: all 0.3s ease;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      width: 100px;
-      height: auto;
-
+      
       &:hover {
-        transform: scale(1.08);
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+        background: rgba(255, 255, 255, 1);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      }
+      
+      .hamburger-line {
+        display: block;
+        width: 100%;
+        height: 3px;
+        background: vars.$dodger-blue;
+        border-radius: 2px;
+        transition: all 0.3s ease;
+      }
+      
+      // Animated X when open
+      &.open {
+        .hamburger-line:nth-child(1) {
+          transform: rotate(45deg) translate(5px, 5px);
+        }
+        .hamburger-line:nth-child(2) {
+          opacity: 0;
+        }
+        .hamburger-line:nth-child(3) {
+          transform: rotate(-45deg) translate(6px, -6px);
+        }
+      }
+    }
+    
+    // Dropdown navigation
+    .nav-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      margin-top: 8px;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+      min-width: 200px;
+      overflow: hidden;
+      animation: dropdownSlide 0.2s ease-out;
+      
+      .nav-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+        text-align: left;
+        padding: 14px 18px;
+        color: vars.$dark-blue;
+        background: none;
+        border: none;
+        text-decoration: none;
+        font-family: 'Roboto', sans-serif;
+        font-size: 15px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        
+        &:last-child {
+          border-bottom: none;
+        }
+        
+        .nav-icon {
+          font-size: 18px;
+        }
+        
+        &:hover {
+          background: rgba(vars.$dodger-blue, 0.08);
+          color: vars.$dodger-blue;
+          padding-left: 22px;
+        }
+
+        &.active {
+          background: rgba(vars.$dodger-blue, 0.12);
+          color: vars.$dodger-blue;
+          font-weight: 700;
+          border-left: 4px solid vars.$dodger-blue;
+          padding-left: 14px; // Compensate for border
+        }
+      }
+
+      .nav-divider {
+        height: 1px;
+        background: rgba(0,0,0,0.1);
+        margin: 4px 0;
+      }
+    }
+    
+    @keyframes dropdownSlide {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
       }
     }
   }
 
+  // ============================================================
+  // TITLE (Center)
+  // ============================================================
   mat-card-title {
     font-family: 'Roboto', arial, sans-serif;
-    font-size: 110px !important;
+    font-size: 100px !important;
     font-style: italic;
     font-weight: 900;
-    order: 2;  // Ensure title is second (right)
-    margin-left: auto;  // Push to right
-    padding-right: 16px;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
     
     // Gradient text effect
     background: linear-gradient(135deg, vars.$green-angular-leaf, vars.$dodger-blue);
@@ -100,6 +207,29 @@ mat-card-header {
     
     text-shadow: none;
     animation: titlePulse 2s ease-in-out infinite alternate;
+  }
+
+  // ============================================================
+  // LOGO (Right)
+  // ============================================================
+  .logo {
+    flex-shrink: 0;
+    margin-left: auto;
+    padding-right: 12px;
+
+    img {
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      width: 90px;
+      height: auto;
+
+      &:hover {
+        transform: scale(1.08);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+      }
+    }
   }
 }
 
@@ -146,6 +276,18 @@ mat-card-header {
       opacity: 1;
       transform: scale(1);
     }
+  }
+
+  .section-heading {
+    font-family: vars.$font-stack;
+    font-size: 28px;
+    font-weight: 700;
+    text-align: center;
+    color: vars.$dark-blue;
+    margin: 20px 0;
+    padding-bottom: 12px;
+    border-bottom: 2px solid rgba(vars.$dodger-blue, 0.2);
+    animation: fadeIn 0.5s ease-out;
   }
 
   // ============================================================

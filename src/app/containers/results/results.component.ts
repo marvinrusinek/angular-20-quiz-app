@@ -48,6 +48,8 @@ export class ResultsComponent implements OnInit, OnDestroy {
   quizData: Quiz[] = QUIZ_DATA;
   quizId = '';
   indexOfQuizId = 0;
+  menuOpen = false;
+  activeSection: 'score' | 'summary' | 'highscores' | 'resources' = 'score';
   unsubscribe$ = new Subject<void>();
 
   constructor(
@@ -71,6 +73,20 @@ export class ResultsComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.unsubscribe$.next();
     this.unsubscribe$.complete();
+  }
+
+  toggleMenu(): void {
+    this.menuOpen = !this.menuOpen;
+  }
+
+  closeMenu(): void {
+    this.menuOpen = false;
+  }
+
+  setActiveSection(section: 'score' | 'summary' | 'highscores' | 'resources'): void {
+    this.activeSection = section;
+    this.closeMenu();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   private fetchQuizIdFromParams(): void {

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Observable, of } from 'rxjs';
 
@@ -33,6 +33,7 @@ export class StatisticsComponent implements OnInit {
   elapsedMinutes = 0;
   elapsedSeconds = 0;
   percentage = 0;
+  @Input() viewMode: 'score' | 'resources' | 'all' = 'all';
 
   CONGRATULATIONS =
     'https://raw.githubusercontent.com/marvinrusinek/angular-9-quiz-app/master/src/assets/images/congratulations.jpg';

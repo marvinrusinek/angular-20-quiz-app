@@ -1,13 +1,87 @@
 <mat-card>
   <mat-card-header>
+    <!-- HAMBURGER MENU (Left) -->
+    <div class="hamburger-menu">
+      <button 
+        class="hamburger-btn" 
+        (click)="toggleMenu()"
+        [class.open]="menuOpen"
+        aria-label="Toggle navigation menu"
+      >
+        <span class="hamburger-line"></span>
+        <span class="hamburger-line"></span>
+        <span class="hamburger-line"></span>
+      </button>
+
+      <!-- Dropdown Menu -->
+      @if (menuOpen) {
+        <nav class="nav-dropdown" (click)="$event.stopPropagation()">
+          <button 
+            type="button" 
+            class="nav-item" 
+            (click)="setActiveSection('score')"
+            [class.active]="activeSection === 'score'"
+          >
+            <span class="nav-icon">📊</span>
+            <span>Score Analysis</span>
+          </button>
+          
+          <button 
+            type="button" 
+            class="nav-item" 
+            (click)="setActiveSection('summary')"
+            [class.active]="activeSection === 'summary'"
+          >
+            <span class="nav-icon">📋</span>
+            <span>Detailed Summary</span>
+          </button>
+          
+          <button 
+            type="button" 
+            class="nav-item" 
+            (click)="setActiveSection('highscores')"
+            [class.active]="activeSection === 'highscores'"
+          >
+            <span class="nav-icon">🏆</span>
+            <span>High Scores</span>
+          </button>
+          
+          <button 
+            type="button" 
+            class="nav-item" 
+            (click)="setActiveSection('resources')"
+            [class.active]="activeSection === 'resources'"
+          >
+            <span class="nav-icon">📚</span>
+            <span>Resources</span>
+          </button>
+
+          <div class="nav-divider"></div>
+
+          <button 
+            type="button" 
+            class="nav-item" 
+            (click)="selectQuiz()"
+          >
+            <span class="nav-icon">🔙</span>
+            <span>Return to Quiz Selection</span>
+          </button>
+        </nav>
+      }
+    </div>
+
+    <!-- TITLE (Center) -->
+    <mat-card-title i18n>Results</mat-card-title>
+
+    <!-- LOGO (Right) -->
     <div class="logo">
       <a href="https://www.codelab.fun" title="Angular Codelab" target="_blank">
         <img
           mat-card-avatar
           class="header-image"
           src="assets/images/codelab_logo.jpeg"
-          width="120"
-          height="60"
+          width="100"
+          height="50"
           alt="Angular Codelab logo"
           loading="lazy"
           (click)="selectQuiz()"
@@ -16,42 +90,44 @@
         />
       </a>
     </div>
-    <mat-card-title i18n>Results</mat-card-title>
   </mat-card-header>
-
 
   <mat-card-content>
     <section class="results">
-      <h3 i18n>Congratulations! You've completed the quiz!</h3>
+      @if (activeSection === 'score') {
+        <h3 class="section-heading" i18n>Score Analysis</h3>
+        
+        <!-- Statistics (Score only) -->
+        <codelab-results-statistics [viewMode]="'score'" />
+        
+        <!-- Summary Stats -->
+        <codelab-results-summary [viewMode]="'summary'" />
 
-      <!-- Immediate -->
-      <codelab-results-statistics />
-
-      <!-- Deferred summary -->
-      @defer {
-        <section class="quiz-summary">
-          <details>
-            <summary role="button" i18n>
-              Click to view a more detailed summary of your quiz&hellip;
-            </summary>
-
-            <codelab-results-summary />
-            <codelab-results-accordion />
-          </details>
-        </section>
-      } @placeholder {
-        <p class="loading-muted">Preparing detailed results…</p>
+        <!-- Next Step / Return -->
+        <div class="action-buttons">
+          <codelab-results-return />
+        </div>
       }
 
-      <!-- Immediate -->
-      <codelab-results-return />
-      <hr />
+      @if (activeSection === 'summary') {
+        <h3 class="section-heading" i18n>Detailed Summary</h3>
+        
+        <!-- Accordion (Questions Review) -->
+        <section class="quiz-summary">
+           <codelab-results-accordion />
+        </section>
+      }
 
-      <!-- Deferred challenge -->
-      @defer {
-        <codelab-results-challenge />
-      } @placeholder {
-        <p class="loading-muted">Loading…</p>
+      @if (activeSection === 'highscores') {
+        <!-- High Scores Table -->
+        <codelab-results-summary [viewMode]="'highscores'" />
+      }
+
+      @if (activeSection === 'resources') {
+        <h3 class="section-heading" i18n>Learning Resources</h3>
+        
+        <!-- Resources List -->
+        <codelab-results-statistics [viewMode]="'resources'" />
       }
     </section>
   </mat-card-content>

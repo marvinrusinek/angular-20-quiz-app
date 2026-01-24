@@ -1,57 +1,86 @@
 <div class="summary-report">
-  <h2>Summary Report</h2>
-
-  <codelab-summary-icons
-    [quizPercentage]="quizMetadata.percentage ?? 0"
-    [quizMetadata]="quizMetadata"
-    [codelabUrl]="codelabUrl"
-  >
-  </codelab-summary-icons>
-
-  <codelab-summary-stats
-    [quizMetadata]="quizMetadata"
-    [score]="currentScore"
-    [elapsedMinutes]="elapsedMinutes"
-    [elapsedSeconds]="elapsedSeconds"
-  >
-  </codelab-summary-stats>
-
-  <br />
-
-  @if (checkedShuffle) {
-    <span class="quiz-note">
-      <i
-        class="material-icons"
-        matTooltip="quiz note"
-        matTooltipPosition="left"
-      >
-        announcement
-      </i>
-      &nbsp;<strong><em>Note:</em></strong
-      >&nbsp; Questions and answers were shuffled prior to the start of the
-      quiz.
-    </span>
+  @if (viewMode === 'all') {
+    <h2>Summary Report</h2>
   }
 
-  <details>
-    <summary i18n>View High Scores</summary>
-
-    <h2 class="high-scores-heading">High Scores</h2>
-
-    <table data-i18n="High Scores">
-      <tr i18n>
-        <th>Milestone</th>
-        <th>Score (%)</th>
-        <th>Date/Time</th>
-      </tr>
-
-      @for (highScore of highScores; track highScore.attemptDateTime) {
-        <tr i18n>
-          <td>{{ highScore.quizId }}</td>
-          <td>{{ highScore.score }}</td>
-          <td>{{ highScore.attemptDateTime | date: 'medium' }}</td>
-        </tr>
+  <!-- === SUMMARY STATS SECTION === -->
+  @if (viewMode === 'all' || viewMode === 'summary') {
+    <div class="summary-stats-view">
+      @if (viewMode === 'summary') {
+        <h2>Summary Stats</h2>
       }
-    </table>
-  </details>
+
+      <codelab-summary-icons
+        [quizPercentage]="quizMetadata.percentage ?? 0"
+        [quizMetadata]="quizMetadata"
+        [codelabUrl]="codelabUrl"
+      >
+      </codelab-summary-icons>
+
+      <codelab-summary-stats
+        [quizMetadata]="quizMetadata"
+        [score]="currentScore"
+        [elapsedMinutes]="elapsedMinutes"
+        [elapsedSeconds]="elapsedSeconds"
+      >
+      </codelab-summary-stats>
+
+      <br />
+
+      @if (checkedShuffle) {
+        <span class="quiz-note">
+          <i
+            class="material-icons"
+            matTooltip="quiz note"
+            matTooltipPosition="left"
+          >
+            announcement
+          </i>
+          &nbsp;<strong><em>Note:</em></strong
+          >&nbsp; Questions and answers were shuffled prior to the start of the
+          quiz.
+        </span>
+      }
+    </div>
+  }
+
+  <!-- === HIGH SCORES SECTION === -->
+  @if (viewMode === 'all' || viewMode === 'highscores') {
+    <div class="high-scores-view">
+      <!-- Use DETAILS wrapper only in 'all' or 'summary' mode to keep it compact -->
+      @if (viewMode === 'all') {
+        <details>
+          <summary i18n>View High Scores</summary>
+          <ng-container *ngTemplateOutlet="highScoresTable"></ng-container>
+        </details>
+      } @else {
+        <!-- In dedicated 'highscores' mode, show table directly -->
+        <h2 class="high-scores-heading">High Scores</h2>
+        <ng-container *ngTemplateOutlet="highScoresTable"></ng-container>
+      }
+    </div>
+  }
 </div>
+
+<!-- === REUSABLE TABLE TEMPLATE === -->
+<ng-template #highScoresTable>
+  @if (viewMode === 'all') {
+    <h2 class="high-scores-heading">High Scores</h2>
+  }
+
+  <table data-i18n="High Scores">
+    <tr i18n>
+      <th>Milestone</th>
+      <th>Score (%)</th>
+      <th>Date/Time</th>
+    </tr>
+
+    @for (highScore of highScores; track highScore.attemptDateTime) {
+      <tr i18n>
+        <td>{{ highScore.quizId }}</td>
+        <td>{{ highScore.score }}</td>
+        <td>{{ highScore.attemptDateTime | date: 'medium' }}</td>
+      </tr>
+    }
+  </table>
+</ng-template>

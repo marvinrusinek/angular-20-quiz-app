@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnInit } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { Observable, of } from 'rxjs';
 
@@ -36,6 +36,7 @@ export class SummaryReportComponent implements OnInit {
   highScores: QuizScore[] = [];
   currentScore: QuizScore | null = null; // The current quiz attempt score
   codelabUrl = 'https://www.codelab.fun';
+  @Input() viewMode: 'summary' | 'highscores' | 'all' = 'all';
 
   constructor(
     private quizService: QuizService,
