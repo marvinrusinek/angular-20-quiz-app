@@ -37,11 +37,11 @@
   align-items: center;
   justify-content: center;
   
-  // Apply the original card styling here to unify them
+  // Removed card styling to avoid nested card look
   margin-bottom: 24px;
-  padding: 32px;
-  background: linear-gradient(135deg, rgba(vars.$dodger-blue, 0.08), rgba(vars.$green, 0.08));
-  border-radius: 20px;
+  padding: 0; 
+  background: none;
+  border-radius: 0;
   animation: slideInUp 0.5s ease-out 0.2s both;
 
 

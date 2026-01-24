@@ -121,10 +121,12 @@ mat-card {
       top: 100%;
       left: 0;
       margin-top: 12px;
-      background: rgba(255, 255, 255, 0.98);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255, 255, 255, 0.9);
+      margin-top: 12px;
+      // Match card background (glassmorphism)
+      background: rgba(255, 255, 255, 0.25); 
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.4);
       border-radius: 16px;
       box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
       min-width: 240px;
@@ -229,10 +231,12 @@ mat-card {
       height: 80px; // Match Title height
       width: auto;
       
-      // Make logo white to match glass card
-      filter: invert(1); 
-      mix-blend-mode: screen;
-      opacity: 0.9; 
+      height: 80px; // Match Title height
+      width: auto;
+      
+      // Separate background blending
+      mix-blend-mode: multiply; 
+      opacity: 1; 
 
       &:hover {
         transform: scale(1.08);
