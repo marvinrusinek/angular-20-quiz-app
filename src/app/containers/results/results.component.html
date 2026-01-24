@@ -110,13 +110,6 @@
         <!-- Statistics (Score only) -->
         <codelab-results-statistics [viewMode]="'score'" />
         
-        <!-- Next Step / Return -->
-        <div class="action-buttons">
-          <codelab-results-return />
-        </div>
-
-        <!-- Social Share / Challenge -->
-        <codelab-results-challenge />
       }
 
       @if (activeSection === 'report') {
@@ -144,6 +137,14 @@
         <!-- Resources List -->
         <codelab-results-statistics [viewMode]="'resources'" />
       }
+
+      <!-- Next Step / Return (Global) -->
+      <div class="action-buttons">
+        <codelab-results-return />
+      </div>
+
+      <!-- Social Share / Challenge (Global) -->
+      <codelab-results-challenge />
     </section>
   </mat-card-content>
 
