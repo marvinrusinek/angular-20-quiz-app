@@ -19,7 +19,7 @@ mat-accordion {
   }
 
   mat-panel-title {
-    background-color: vars.$light-gray;
+    background-color: transparent; // Blend with card
     color: vars.$black;
     display: flex;
     flex: 1 1 auto;
@@ -63,10 +63,10 @@ mat-accordion {
   .quiz-summary-question {
     font-family: vars.$font-stack;
     font-size: 14px;
-    border: 2px solid vars.$chambray-blue;
+    border: 1px solid rgba(0, 0, 0, 0.1); // Subtle border
     border-radius: 5px;
     color: vars.$black;
-    background-color: vars.$light-gray;
+    background-color: rgba(255, 255, 255, 0.1); // Semi-transparent
     margin-bottom: 15px;
     padding: 10px;
     text-align: left;
