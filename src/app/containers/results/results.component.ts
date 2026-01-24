@@ -3,6 +3,7 @@ import {
   Component,
   OnDestroy,
   OnInit,
+  HostListener
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -51,6 +52,7 @@ export class ResultsComponent implements OnInit, OnDestroy {
   menuOpen = false;
   activeSection: 'score' | 'report' | 'summary' | 'highscores' | 'resources' = 'score';
   unsubscribe$ = new Subject<void>();
+  showScrollIndicator = true;
 
   constructor(
     private quizService: QuizService,
@@ -74,6 +76,11 @@ export class ResultsComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.unsubscribe$.next();
     this.unsubscribe$.complete();
+  }
+
+  @HostListener('window:scroll', [])
+  onWindowScroll(): void {
+    this.showScrollIndicator = window.scrollY < 100;
   }
 
   toggleMenu(): void {

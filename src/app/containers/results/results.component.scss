@@ -264,6 +264,11 @@ mat-card {
   pointer-events: auto; // Enable clicks
   cursor: pointer; // Show pointer
 
+  &.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+
   &:hover {
     opacity: 1;
     transform: translateX(-50%) scale(1.1);
