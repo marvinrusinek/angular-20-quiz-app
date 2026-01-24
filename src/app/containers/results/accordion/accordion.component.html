@@ -6,12 +6,11 @@
 
 <mat-accordion multi="true" #accordion="matAccordion">
   @for (question of questions; track $index; let i = $index) {
-    <mat-expansion-panel class="quiz-summary-question" (opened)="panelOpenState = true" (closed)="panelOpenState = false"
-      hideToggle="true">
+    <mat-expansion-panel #panel class="quiz-summary-question" hideToggle="true">
       <mat-expansion-panel-header>
         <mat-panel-description>
           <i class="material-icons accordion-icon">
-            {{ panelOpenState ? 'remove' : 'add' }}
+            {{ panel.expanded ? 'remove' : 'add' }}
           </i>
         </mat-panel-description>
 

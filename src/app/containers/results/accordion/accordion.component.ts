@@ -1,16 +1,10 @@
-import {
-  ChangeDetectionStrategy,
-  ChangeDetectorRef,
-  Component,
-  OnDestroy,
-  OnInit,
-  ViewChild,
-} from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component,
+  OnDestroy, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
-import { MatAccordion, MatExpansionModule } from '@angular/material/expansion';
+import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
 
 import { QuizQuestion } from '../../../shared/models/QuizQuestion.model';
@@ -26,30 +20,24 @@ import { SelectedOptionService } from '../../../shared/services/selectedoption.s
   imports: [CommonModule, MatExpansionModule, MatIconModule],
   templateUrl: './accordion.component.html',
   styleUrls: ['./accordion.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AccordionComponent implements OnInit, OnDestroy {
   questions: QuizQuestion[] = [];
-  // correctAnswers removed - we derive it per question
   results: Result = {
     userAnswers: [],
-    elapsedTimes: [],
+    elapsedTimes: []
   };
 
-  @ViewChild('accordion', { static: false })
-  accordion!: MatAccordion;
-  panelOpenState = false;
-  isOpen = false;
-  
-  private destroy$ = new Subject<void>();
   private hasRetried = false;
+  private destroy$ = new Subject<void>();
 
   constructor(
     private quizService: QuizService,
     private quizDataService: QuizDataService,
     private timerService: TimerService,
     private selectedOptionService: SelectedOptionService,
-    private cdr: ChangeDetectorRef,
+    private cdRef: ChangeDetectorRef,
     private route: ActivatedRoute
   ) {}
 
@@ -59,9 +47,8 @@ export class AccordionComponent implements OnInit, OnDestroy {
     try {
       const stored = localStorage.getItem('userAnswers');
       storedAnswers = stored ? JSON.parse(stored) : [];
-      console.log('[ACCORDION] Raw localStorage userAnswers:', stored);
-    } catch (e) {
-      console.error('[ACCORDION] Failed to parse userAnswers from localStorage:', e);
+    } catch (err) {
+      console.error('[ACCORDION] Failed to parse userAnswers from localStorage:', err);
     }
 
     // Use localStorage data as primary source, fallback to service
@@ -70,13 +57,12 @@ export class AccordionComponent implements OnInit, OnDestroy {
     // Initialize results in ngOnInit when service data is available
     this.results = {
       userAnswers: userAnswersData,
-      elapsedTimes: this.timerService.elapsedTimes,
+      elapsedTimes: this.timerService.elapsedTimes
     };
-    console.log('[ACCORDION] Init userAnswers (final):', JSON.stringify(this.results.userAnswers));
-
+ 
     this.quizService.questions$.pipe(takeUntil(this.destroy$)).subscribe((questions) => {
       this.questions = questions;
-      this.cdr.markForCheck();
+      this.cdRef.markForCheck();
       
       if (this.questions.length === 0 && !this.hasRetried) {
          console.warn('[ACCORDION] Questions empty, attempting force fetch...');
@@ -107,18 +93,11 @@ export class AccordionComponent implements OnInit, OnDestroy {
              if (qs && qs.length > 0) {
                console.log('[ACCORDION] Loaded questions via QuizDataService fallback:', qs.length);
                this.questions = qs;
-               this.cdr.markForCheck();
+               this.cdRef.markForCheck();
              }
            });
          }, 100);
       }
-      
-      console.log('[ACCORDION] questions updated:', this.questions?.length);
-    });
-
-    console.log('[ACCORDION] ngOnInit initial:', {
-      userAnswers: this.results?.userAnswers,
-      elapsedTimes: this.results?.elapsedTimes,
     });
 
     // Normalize userAnswers so Angular can always iterate
@@ -132,7 +111,7 @@ export class AccordionComponent implements OnInit, OnDestroy {
   checkIfAnswersAreCorrect(
     question: QuizQuestion,
     userAnswers: any[],
-    index: number,
+    index: number
   ): boolean {
     const userIds = userAnswers[index];
     if (!userIds || (Array.isArray(userIds) && userIds.length === 0)) return false;
@@ -166,15 +145,6 @@ export class AccordionComponent implements OnInit, OnDestroy {
       .sort((a, b) => a - b);
   }
 
-  openAllPanels(): void {
-    this.isOpen = true;
-    (this.accordion as any).openAll();
-  }
-  closeAllPanels(): void {
-    this.isOpen = false;
-    (this.accordion as any).closeAll();
-  }
-
   getCorrectOptionIndices(question: QuizQuestion): number[] {
     if (!question || !question.options) return [];
     return question.options
@@ -200,7 +170,6 @@ export class AccordionComponent implements OnInit, OnDestroy {
     // Try rawSelectionsMap first (more reliable)
     const rawSelections = this.selectedOptionService.rawSelectionsMap.get(questionIndex);
     if (rawSelections && rawSelections.length > 0) {
-      console.log(`[ACCORDION] Using rawSelectionsMap for Q${questionIndex}:`, rawSelections);
       return rawSelections.map(sel => {
         // Find the visual index (1-based) of this option in the question
         const visualIdx = question.options.findIndex(opt => 
@@ -210,7 +179,7 @@ export class AccordionComponent implements OnInit, OnDestroy {
           text: sel.text || `Option ${visualIdx + 1}`,
           visualIndex: visualIdx >= 0 ? visualIdx + 1 : 0
         };
-      }).filter(o => o.visualIndex > 0);  // Removed .sort() - preserve selection order
+      }).filter(o => o.visualIndex > 0);  // removed .sort() - preserve selection order
     }
 
     // Fallback to selectedOptionsMap
@@ -227,7 +196,7 @@ export class AccordionComponent implements OnInit, OnDestroy {
         text: sel.text || `Option ${visualIdx + 1}`,
         visualIndex: visualIdx >= 0 ? visualIdx + 1 : 0
       };
-    }).filter(o => o.visualIndex > 0);  // Removed .sort() - preserve selection order
+    }).filter(o => o.visualIndex > 0);  // removed .sort() - preserve selection order
   }
 
   // Check if we have any selections from the service for this question
@@ -254,15 +223,9 @@ export class AccordionComponent implements OnInit, OnDestroy {
     const selectedTexts = selectedOpts
       .map(o => (o.text || '').trim().toLowerCase());
     
-    console.log(`[ACCORDION CHECK] Q${questionIndex}:`, {
-      correctTexts,
-      selectedTexts
-    });
-    
     // Check if ALL correct answers are included in selections
     const allCorrectSelected = correctTexts.every(ct => selectedTexts.includes(ct));
     
-    console.log(`[ACCORDION CHECK] Q${questionIndex}: allCorrectSelected=${allCorrectSelected}`);
     return allCorrectSelected;
   }
 
