@@ -223,19 +223,22 @@ mat-card {
   // LOGO (Right)
   // ============================================================
   .logo {
-    justify-self: end; // Grid alignment
-    padding-right: 0; // Removed extra padding to align better
-
+    display: flex;
+    align-items: center;
+    justify-content: flex-end; // Grid pushes to right, but flex-end for internal content
+    
+    // Same gradient as page so logo blends naturally
+    background: linear-gradient(135deg, #74ebd5 0%, #9face6 100%);
+    border-radius: 12px;
+    padding: 4px 8px;
+    
     img {
       cursor: pointer;
       transition: all 0.3s ease;
-      height: 80px; // Match Title height
+      height: 80px;
       width: auto;
       
-      height: 80px; // Match Title height
-      width: auto;
-      
-      // Separate background blending
+      // Blend logo white bg with gradient
       mix-blend-mode: multiply; 
       opacity: 1; 
 
