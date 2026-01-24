@@ -116,23 +116,7 @@
             </div>
           </div>
 
-          <!-- PROGRESS BAR -->
-          @if (status === 'Completed') {
-            <div class="progress-section">
-              <div class="progress">
-                <div
-                  class="progress-bar bg-success"
-                  role="progressbar"
-                  [attr.aria-valuenow]="quizMetadata.percentage"
-                  aria-valuemin="0"
-                  aria-valuemax="100"
-                  [style.width.%]="quizMetadata.percentage ?? 0"
-                >
-                  <strong>{{ quizMetadata.percentage }}%</strong>
-                </div>
-              </div>
-            </div>
-          }
+
 
           <!-- TIME SECTION -->
           <div class="time-section">
