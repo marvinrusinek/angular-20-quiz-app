@@ -103,11 +103,11 @@
               title="Try Again"
             />
 
-            <div class="resources-section">
-              <div class="resources-header">
+            <details class="resources-section" open>
+              <summary class="resources-header">
                 <span class="resources-icon">📚</span>
-                <h4 i18n>Brush up your knowledge of {{ quiz.milestone }} with these resources:</h4>
-              </div>
+                <span i18n>Brush up your knowledge of {{ quiz.milestone }} with these resources</span>
+              </summary>
 
               <ul>
                 @for (resource of resources; track resource.url) {
@@ -119,7 +119,7 @@
                   </li>
                 }
               </ul>
-            </div>
+            </details>
           }
         }
       </div>

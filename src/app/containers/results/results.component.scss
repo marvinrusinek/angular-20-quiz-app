@@ -52,25 +52,29 @@ mat-card {
     transform: translateY(0);
   }
 }
-
 // ============================================================
-// CARD HEADER
+// CARD HEADER - Logo left, Title right
 // ============================================================
 mat-card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-top: 16px !important;
-  margin-bottom: 8px;
+  margin-bottom: 16px;
+  padding: 0 16px;
+  gap: 32px;  // Gap between logo and title
 
   .logo {
     flex-shrink: 0;
+    order: 1;  // Ensure logo is first (left)
 
     img {
       border-radius: 12px;
       cursor: pointer;
       transition: all 0.3s ease;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      width: 100px;
+      height: auto;
 
       &:hover {
         transform: scale(1.08);
@@ -81,9 +85,12 @@ mat-card-header {
 
   mat-card-title {
     font-family: 'Roboto', arial, sans-serif;
-    font-size: 72px !important;
+    font-size: 110px !important;
     font-style: italic;
     font-weight: 900;
+    order: 2;  // Ensure title is second (right)
+    margin-left: auto;  // Push to right
+    padding-right: 16px;
     
     // Gradient text effect
     background: linear-gradient(135deg, vars.$green-angular-leaf, vars.$dodger-blue);
@@ -165,10 +172,16 @@ mat-card-header {
 
       &[open] {
         background: rgba(255, 255, 255, 0.8);
+        padding-bottom: 20px;  // Added padding when open
         
         summary {
           border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-          margin-bottom: 16px;
+          margin-bottom: 20px;
+        }
+        
+        // Content padding
+        > *:not(summary) {
+          padding: 0 20px;
         }
       }
 
@@ -268,8 +281,16 @@ mat-card-header {
 // RESPONSIVE ADJUSTMENTS
 // ============================================================
 @media (max-width: 768px) {
-  mat-card-header mat-card-title {
-    font-size: 48px !important;
+  mat-card-header {
+    gap: 16px;
+    
+    .logo img {
+      width: 70px;
+    }
+    
+    mat-card-title {
+      font-size: 64px !important;
+    }
   }
 
   .results h3 {
@@ -278,8 +299,20 @@ mat-card-header {
 }
 
 @media (max-width: 480px) {
-  mat-card-header mat-card-title {
-    font-size: 36px !important;
+  mat-card-header {
+    flex-direction: column;
+    gap: 12px;
+    
+    .logo {
+      order: 1;
+    }
+    
+    mat-card-title {
+      font-size: 48px !important;
+      margin-left: 0;
+      padding-right: 0;
+      order: 2;
+    }
   }
 
   mat-card {
