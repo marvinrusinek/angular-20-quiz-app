@@ -4,6 +4,11 @@
 // ============================================================
 // SUMMARY REPORT - Glassmorphism Container
 // ============================================================
+:host {
+  display: block;
+  width: 100%;
+}
+
 .summary-report {
   // Glassmorphism effect matching the card
   background: rgba(255, 255, 255, 0.5);
