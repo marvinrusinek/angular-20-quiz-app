@@ -219,28 +219,19 @@ mat-card {
     animation: titlePulse 2s ease-in-out infinite alternate;
   }
 
-  // ============================================================
-  // LOGO (Right)
-  // ============================================================
   .logo {
     display: flex;
     align-items: center;
-    justify-content: flex-end; // Grid pushes to right, but flex-end for internal content
-    
-    // Same gradient as page so logo blends naturally
-    background: linear-gradient(135deg, #74ebd5 0%, #9face6 100%);
-    border-radius: 12px;
-    padding: 4px 8px;
+    justify-content: flex-end;
     
     img {
       cursor: pointer;
       transition: all 0.3s ease;
       height: 80px;
       width: auto;
-      
-      // Blend logo white bg with gradient
-      mix-blend-mode: multiply; 
-      opacity: 1; 
+      border-radius: 8px;
+      // Clean white background (JPEG limitation)
+      background: white;
 
       &:hover {
         transform: scale(1.08);
