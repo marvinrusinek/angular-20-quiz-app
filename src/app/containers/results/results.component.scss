@@ -55,7 +55,7 @@ mat-card {
 // ============================================================
 // CARD HEADER - Hamburger (left), Title (center), Logo (right)
 // ============================================================
-mat-card-header {
+.results-header {
   display: grid;
   // Allocation: Hamburger | Title (Flexible) | Logo
   grid-template-columns: 80px 1fr 120px; 
@@ -197,7 +197,7 @@ mat-card-header {
   // ============================================================
   // TITLE (Center)
   // ============================================================
-  mat-card-title {
+  .results-title {
     font-family: 'Roboto', arial, sans-serif;
     // Massive font size as requested
     font-size: 140px !important; 
@@ -477,22 +477,22 @@ mat-card-header {
 // RESPONSIVE ADJUSTMENTS
 // ============================================================
 @media (max-width: 900px) {
-  mat-card-header {
-    mat-card-title {
+  .results-header {
+    .results-title {
       font-size: 100px !important;
     }
   }
 }
 
 @media (max-width: 768px) {
-  mat-card-header {
+  .results-header {
     gap: 16px;
     
     .logo img {
       width: 70px;
     }
     
-    mat-card-title {
+    .results-title {
       font-size: 80px !important;
     }
   }
@@ -503,7 +503,7 @@ mat-card-header {
 }
 
 @media (max-width: 550px) {
-  mat-card-header {
+  .results-header {
     // Switch to 2-row grid layout
     grid-template-columns: 1fr 1fr;
     grid-template-rows: auto auto;
@@ -521,7 +521,7 @@ mat-card-header {
       justify-self: end;
     }
     
-    mat-card-title {
+    .results-title {
       grid-column: 1 / -1; // Span full width
       grid-row: 2;
       width: 100%;

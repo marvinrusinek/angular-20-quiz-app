@@ -1,5 +1,7 @@
 <mat-card>
-  <mat-card-header>
+<mat-card>
+  <!-- Custom Header to ensure Grid Layout works perfectly -->
+  <div class="results-header">
     <!-- HAMBURGER MENU (Left) -->
     <div class="hamburger-menu">
       <button 
@@ -81,13 +83,12 @@
     </div>
 
     <!-- TITLE (Center) -->
-    <mat-card-title i18n>Results</mat-card-title>
+    <h1 class="results-title" i18n>Results</h1>
 
     <!-- LOGO (Right) -->
     <div class="logo">
       <a href="https://www.codelab.fun" title="Angular Codelab" target="_blank">
         <img
-          mat-card-avatar
           class="header-image"
           src="assets/images/codelab_logo.jpeg"
           width="100"
@@ -100,7 +101,7 @@
         />
       </a>
     </div>
-  </mat-card-header>
+  </div>
 
   <mat-card-content>
     <section class="results">
