@@ -1,6 +1,14 @@
 @use '../../../../variables' as vars;
+@use 'sass:color';
+@use 'sass:math';
 
+// ============================================================
+// STATISTICS CONTAINER
+// ============================================================
 .statistics {
+  text-align: center;
+  animation: fadeIn 0.5s ease-out;
+
   h3,
   span,
   .quiz-feedback {
@@ -10,69 +18,433 @@
   span {
     display: block;
   }
+}
 
-  .your-score,
-  .elapsed-time {
-    font-size: 18px;
-    font-weight: bold;
+@keyframes fadeIn {
+  from {
+    opacity: 0;
   }
-
-  .result {
-    font-family: vars.$font-stack;
-    font-size: 26px;
-    display: inline;
+  to {
+    opacity: 1;
   }
+}
 
-  // Progress bar container
-  .progress {
+// ============================================================
+// SCORE SECTION with Icon
+// ============================================================
+.score-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding: 24px;
+  background: linear-gradient(135deg, rgba(vars.$dodger-blue, 0.08), rgba(vars.$green, 0.08));
+  border-radius: 20px;
+  animation: slideInUp 0.5s ease-out 0.2s both;
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.section-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+// ============================================================
+// CIRCULAR SCORE INDICATOR
+// ============================================================
+.circular-score {
+  position: relative;
+  width: 160px;
+  height: 160px;
+  margin: 0 auto 16px auto;
+  
+  .score-ring {
     width: 100%;
-    max-width: 500px;
-    margin: 16px auto;
-    background-color: transparent;  // transparency fixes "gray sides"
-    border-radius: 12px;
-  }
-
-  .progress-bar {
-    border-radius: 12px;
-    transition: width 0.6s ease;
-  }
-
-  .quiz-feedback {
-    margin-top: 20px;
-
-    img {
-      width: 200px;
-      height: 200px;
-      border-radius: 50%;
-      margin: 0 auto;
-      display: flex;
-      justify-content: center;
-      text-align: center;
-      padding-bottom: 10px;
+    height: 100%;
+    transform: rotate(-90deg);
+    
+    .ring-bg {
+      fill: none;
+      stroke: rgba(0, 0, 0, 0.1);
+      stroke-width: 12;
     }
+    
+    .ring-progress {
+      fill: none;
+      stroke-width: 12;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 1.5s ease-out, stroke 0.5s ease;
+      // Circumference = 2 * PI * 60 ≈ 377
+    }
+    
+    // Color based on score (set via ngClass or style in template)
+    .ring-excellent { stroke: vars.$green; }
+    .ring-good { stroke: #f0a121; }
+    .ring-poor { stroke: vars.$red; }
+  }
+  
+  .score-value {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    
+    .percentage {
+      font-size: 42px;
+      font-weight: 800;
+      color: vars.$dark-blue;
+      line-height: 1;
+      
+      // Animated count-up effect handled by component
+      animation: scorePopIn 0.5s ease-out 0.8s both;
+    }
+    
+    .label {
+      font-size: 12px;
+      font-weight: 600;
+      color: vars.$gray;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+  }
+}
 
-    /* Left-aligned, natural flow for resources */
-    ul {
-      line-height: 1.05;
-      padding-left: 40px;
-      margin-left: 40px;
-      text-align: left;
+@keyframes scorePopIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
 
-      li {
-        list-style-type: square;
-        margin-bottom: 4px;
+// ============================================================
+// SCORE TEXT
+// ============================================================
+.your-score,
+.elapsed-time {
+  font-size: 18px;
+  font-weight: 500;
+  color: #444;
+  line-height: 1.6;
+}
+
+.result {
+  font-family: vars.$font-stack;
+  font-size: 24px;
+  font-weight: 700;
+  display: inline;
+  color: vars.$dodger-blue;
+}
+
+// ============================================================
+// STAR RATING
+// ============================================================
+.star-rating {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 16px 0;
+  
+  .star {
+    font-size: 32px;
+    transition: transform 0.3s ease;
+    animation: starReveal 0.3s ease-out both;
+    
+    &:nth-child(1) { animation-delay: 0.6s; }
+    &:nth-child(2) { animation-delay: 0.7s; }
+    &:nth-child(3) { animation-delay: 0.8s; }
+    &:nth-child(4) { animation-delay: 0.9s; }
+    &:nth-child(5) { animation-delay: 1s; }
+    
+    &.filled {
+      filter: drop-shadow(0 2px 4px rgba(240, 161, 33, 0.4));
+    }
+    
+    &.empty {
+      opacity: 0.3;
+      filter: grayscale(1);
+    }
+  }
+}
+
+@keyframes starReveal {
+  from {
+    opacity: 0;
+    transform: scale(0) rotate(-30deg);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+  }
+}
+
+// ============================================================
+// PROGRESS BAR (enhanced)
+// ============================================================
+.progress-section {
+  margin: 24px auto;
+  max-width: 400px;
+  animation: slideInUp 0.5s ease-out 0.4s both;
+}
+
+.progress {
+  width: 100%;
+  height: 24px;
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.progress-bar {
+  height: 100%;
+  border-radius: 12px;
+  transition: width 1.2s ease-out;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  // Animated stripes
+  background-size: 30px 30px;
+  animation: progressStripes 1s linear infinite;
+  
+  strong {
+    color: white;
+    font-size: 14px;
+    font-weight: 700;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  }
+  
+  &.bg-success {
+    background-color: vars.$green;
+    background-image: linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.15) 25%,
+      transparent 25%,
+      transparent 50%,
+      rgba(255, 255, 255, 0.15) 50%,
+      rgba(255, 255, 255, 0.15) 75%,
+      transparent 75%,
+      transparent
+    );
+  }
+}
+
+@keyframes progressStripes {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 30px 0;
+  }
+}
+
+// ============================================================
+// TIME SECTION with Icon
+// ============================================================
+.time-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px 24px;
+  background: rgba(vars.$dodger-blue, 0.06);
+  border-radius: 12px;
+  margin: 24px auto;
+  max-width: 400px;
+  animation: slideInUp 0.5s ease-out 0.6s both;
+  
+  .time-icon {
+    font-size: 28px;
+  }
+  
+  .elapsed-time {
+    margin: 0;
+    font-size: 16px;
+  }
+}
+
+// ============================================================
+// QUIZ FEEDBACK SECTION
+// ============================================================
+.quiz-feedback {
+  margin-top: 24px;
+  animation: fadeIn 0.5s ease-out 0.4s both;
+
+  img {
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    margin: 0 auto 16px auto;
+    display: block;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    border: 4px solid white;
+    transition: transform 0.3s ease;
+    
+    &:hover {
+      transform: scale(1.05);
+    }
+  }
+
+  p {
+    font-size: 16px;
+    color: #555;
+    margin: 16px 0;
+  }
+
+  // Resources Section
+  .resources-section {
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 16px;
+    text-align: left;
+    
+    .resources-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      
+      .resources-icon {
+        font-size: 24px;
+      }
+      
+      h4 {
+        margin: 0;
+        font-size: 16px;
+        color: vars.$dark-blue;
       }
     }
+  }
 
+  ul {
+    line-height: 1.5;
+    padding-left: 24px;
+    margin: 0;
 
-    .resource-title {
-      font-weight: bold;
-      font-style: italic;
-      display: inline;
+    li {
+      list-style-type: none;
+      margin-bottom: 12px;
+      padding: 8px 12px;
+      background: white;
+      border-radius: 8px;
+      border-left: 3px solid vars.$dodger-blue;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      
+      &:hover {
+        transform: translateX(4px);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+      
+      a {
+        color: vars.$dodger-blue;
+        text-decoration: none;
+        
+        &:hover {
+          text-decoration: underline;
+        }
+      }
     }
-    .resource-host {
-      font-style: italic;
-      display: inline;
+  }
+
+  .resource-title {
+    font-weight: 600;
+    display: inline;
+  }
+  
+  .resource-host {
+    font-style: italic;
+    color: vars.$gray;
+    display: inline;
+  }
+}
+
+// ============================================================
+// ACHIEVEMENT BADGES
+// ============================================================
+.achievement-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 12px;
+  animation: badgePopIn 0.5s ease-out 1.2s both;
+  
+  &.excellent {
+    background: linear-gradient(135deg, #ffd700, #ffb700);
+    color: #5a4500;
+    box-shadow: 0 4px 12px rgba(255, 183, 0, 0.4);
+  }
+  
+  &.good {
+    background: linear-gradient(135deg, #c0c0c0, #a0a0a0);
+    color: #444;
+    box-shadow: 0 4px 12px rgba(160, 160, 160, 0.4);
+  }
+  
+  &.needs-work {
+    background: linear-gradient(135deg, #cd7f32, #a66528);
+    color: white;
+    box-shadow: 0 4px 12px rgba(166, 101, 40, 0.4);
+  }
+  
+  .badge-icon {
+    font-size: 20px;
+  }
+}
+
+@keyframes badgePopIn {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  70% {
+    transform: scale(1.1);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+// ============================================================
+// RESPONSIVE
+// ============================================================
+@media (max-width: 480px) {
+  .circular-score {
+    width: 140px;
+    height: 140px;
+    
+    .score-value .percentage {
+      font-size: 32px;
     }
+  }
+  
+  .star-rating .star {
+    font-size: 24px;
+  }
+  
+  .score-section {
+    padding: 16px;
   }
 }

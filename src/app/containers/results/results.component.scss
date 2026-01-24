@@ -1,79 +1,289 @@
 @use '../../../variables' as vars;
+@use 'sass:color';
 
-mat-card {
-  max-width: 680px;
-  margin: 20px auto;
-  border-radius: 10px;
-  padding: 16px;
-  box-shadow: 10px 10px 5px rgba(0, 0, 0, 0.35);
+// ============================================================
+// HOST: Gradient background for consistency with Quiz page
+// ============================================================
+:host {
+  display: block;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #74ebd5 0%, #9face6 100%);
+  padding: 20px 0;
+  animation: fadeIn 0.6s ease-out;
 }
 
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// ============================================================
+// GLASSMORPHISM CARD
+// ============================================================
+mat-card {
+  max-width: 720px;
+  margin: 20px auto;
+  border-radius: 20px;
+  padding: 24px;
+  
+  // Glassmorphism effect
+  background: rgba(255, 255, 255, 0.75) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.2);
+  
+  animation: slideUp 0.5s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// ============================================================
+// CARD HEADER
+// ============================================================
 mat-card-header {
   display: flex;
-  justify-content: space-between; /* Push items to far left and right */
+  justify-content: space-between;
   align-items: center;
-  margin-top: 20px !important;
+  margin-top: 16px !important;
+  margin-bottom: 8px;
 
   .logo {
     flex-shrink: 0;
 
     img {
-      border-radius: 8px;
+      border-radius: 12px;
       cursor: pointer;
-      transition: transform 0.2s ease;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 
       &:hover {
-        transform: scale(1.05);
+        transform: scale(1.08);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
       }
     }
-  }
-
-  /* No explicit left margin needed with space-between */
-  .header-image {
-    margin-left: 0; 
   }
 
   mat-card-title {
     font-family: 'Roboto', arial, sans-serif;
-    font-size: 110px !important;
+    font-size: 72px !important;
     font-style: italic;
     font-weight: 900;
-    color: vars.$green-angular-leaf;
-    text-shadow:
-      1px 0 0 vars.$black,
-      0 -1px 0 vars.$black,
-      0 1px 0 vars.$black,
-      -1px 0 0 vars.$black;
+    
+    // Gradient text effect
+    background: linear-gradient(135deg, vars.$green-angular-leaf, vars.$dodger-blue);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    
+    text-shadow: none;
+    animation: titlePulse 2s ease-in-out infinite alternate;
   }
 }
 
+@keyframes titlePulse {
+  from {
+    filter: brightness(1);
+  }
+  to {
+    filter: brightness(1.1);
+  }
+}
 
+// ============================================================
+// RESULTS CONTENT
+// ============================================================
 .results {
   display: block;
   clear: both;
+  padding: 16px 0;
 
+  // Congratulations Header - Gradient Text
   h3 {
-    font-family: vars.$congratulations-font;
-    font-size: 32px;
+    font-family: 'Georgia', serif;
+    font-size: 28px;
     font-style: italic;
     text-align: center;
+    margin-bottom: 24px;
+    
+    // Gradient text
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    
+    animation: congratsReveal 0.8s ease-out 0.3s both;
   }
 
+  @keyframes congratsReveal {
+    from {
+      opacity: 0;
+      transform: scale(0.9);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  // ============================================================
+  // QUIZ SUMMARY - Styled Details/Accordion
+  // ============================================================
   .quiz-summary {
     display: flex;
     flex-direction: column;
-    margin-top: 20px;
+    margin-top: 24px;
+    animation: fadeInUp 0.5s ease-out 0.5s both;
 
     details {
-      display: block;
+      background: rgba(255, 255, 255, 0.6);
+      border-radius: 16px;
+      padding: 0;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+      transition: all 0.3s ease;
+
+      &:hover {
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+      }
+
+      &[open] {
+        background: rgba(255, 255, 255, 0.8);
+        
+        summary {
+          border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+          margin-bottom: 16px;
+        }
+      }
 
       summary {
         font-size: 16px;
-        color: vars.$vivid-blue;
-        font-weight: vars.$font-weight-max;
+        font-weight: 600;
+        color: vars.$dodger-blue;
         outline: none;
         text-align: center;
+        padding: 16px 20px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        
+        // Custom marker
+        list-style: none;
+        
+        &::-webkit-details-marker {
+          display: none;
+        }
+
+        &::before {
+          content: '📋';
+          font-size: 20px;
+        }
+
+        &::after {
+          content: '▼';
+          font-size: 12px;
+          transition: transform 0.3s ease;
+          margin-left: 8px;
+        }
+
+        &:hover {
+          background: rgba(vars.$dodger-blue, 0.08);
+          color: color.scale(vars.$dodger-blue, $lightness: -15%);
+        }
+      }
+
+      &[open] summary::after {
+        transform: rotate(180deg);
       }
     }
+  }
+
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  // ============================================================
+  // DIVIDER
+  // ============================================================
+  hr {
+    border: none;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(vars.$dodger-blue, 0.3),
+      transparent
+    );
+    margin: 24px 0;
+  }
+
+  // ============================================================
+  // LOADING STATES
+  // ============================================================
+  .loading-muted {
+    text-align: center;
+    color: vars.$gray;
+    font-style: italic;
+    padding: 20px;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 0.6;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+}
+
+// ============================================================
+// RESPONSIVE ADJUSTMENTS
+// ============================================================
+@media (max-width: 768px) {
+  mat-card-header mat-card-title {
+    font-size: 48px !important;
+  }
+
+  .results h3 {
+    font-size: 22px;
+  }
+}
+
+@media (max-width: 480px) {
+  mat-card-header mat-card-title {
+    font-size: 36px !important;
+  }
+
+  mat-card {
+    margin: 12px;
+    padding: 16px;
   }
 }
