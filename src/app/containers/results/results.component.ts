@@ -49,7 +49,7 @@ export class ResultsComponent implements OnInit, OnDestroy {
   quizId = '';
   indexOfQuizId = 0;
   menuOpen = false;
-  activeSection: 'score' | 'summary' | 'highscores' | 'resources' = 'score';
+  activeSection: 'score' | 'report' | 'summary' | 'highscores' | 'resources' = 'score';
   unsubscribe$ = new Subject<void>();
 
   constructor(
@@ -65,6 +65,7 @@ export class ResultsComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    window.scrollTo(0, 0);
     this.fetchQuizIdFromParams();
     this.setCompletedQuiz();
     this.findQuizIndex();
@@ -83,7 +84,7 @@ export class ResultsComponent implements OnInit, OnDestroy {
     this.menuOpen = false;
   }
 
-  setActiveSection(section: 'score' | 'summary' | 'highscores' | 'resources'): void {
+  setActiveSection(section: 'score' | 'report' | 'summary' | 'highscores' | 'resources'): void {
     this.activeSection = section;
     this.closeMenu();
     window.scrollTo({ top: 0, behavior: 'smooth' });

@@ -25,6 +25,16 @@
             <span class="nav-icon">📊</span>
             <span>Score Analysis</span>
           </button>
+
+          <button 
+            type="button" 
+            class="nav-item" 
+            (click)="setActiveSection('report')"
+            [class.active]="activeSection === 'report'"
+          >
+            <span class="nav-icon">📈</span>
+            <span>Summary Report</span>
+          </button>
           
           <button 
             type="button" 
@@ -100,9 +110,6 @@
         <!-- Statistics (Score only) -->
         <codelab-results-statistics [viewMode]="'score'" />
         
-        <!-- Summary Stats -->
-        <codelab-results-summary [viewMode]="'summary'" />
-
         <!-- Next Step / Return -->
         <div class="action-buttons">
           <codelab-results-return />
@@ -110,6 +117,11 @@
 
         <!-- Social Share / Challenge -->
         <codelab-results-challenge />
+      }
+
+      @if (activeSection === 'report') {
+        <!-- Summary Stats Report -->
+        <codelab-results-summary [viewMode]="'summary'" />
       }
 
       @if (activeSection === 'summary') {
