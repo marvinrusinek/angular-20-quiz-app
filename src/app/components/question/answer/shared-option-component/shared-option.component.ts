@@ -269,7 +269,7 @@ export class SharedOptionComponent
         if (this.optionsToDisplay?.length && !this.optionBindings?.length) {
           console.log(`[SOC] 🔄 Fallback retry ${attempt}: Options arrived, generating bindings`);
           this.generateOptionBindings();
-          this.cdRef.markForCheck();
+          this.cdRef.detectChanges();  // Force immediate update for OnPush
           return;
         }
 
@@ -281,7 +281,7 @@ export class SharedOptionComponent
             this.renderReady = true;
             this.optionsReady = true;
             this.showNoOptionsFallback = false;
-            this.cdRef.markForCheck();
+            this.cdRef.detectChanges();  // Force immediate update for OnPush
           }
           return;
         }
@@ -291,7 +291,7 @@ export class SharedOptionComponent
           if (!this.renderReady || !this.optionsToDisplay?.length) {
             console.warn('[SOC] ⚠️ Options still not ready after retries, showing fallback');
             this.showNoOptionsFallback = true;
-            this.cdRef.markForCheck();
+            this.cdRef.detectChanges();  // Force immediate update for OnPush
           }
           return;
         }
@@ -988,7 +988,9 @@ export class SharedOptionComponent
     // Defer assignment to next microtask
     queueMicrotask(() => {
       this.optionBindings = bindings;
-      this.cdRef.markForCheck();
+      this.showOptions = true;  // Ensure showOptions is set
+      this.renderReady = true;  // Ensure renderReady is set
+      this.cdRef.detectChanges();  // Force immediate update for OnPush
       console.warn('[SOC] ✅ optionBindings REASSIGNED', bindings);
     });
 
