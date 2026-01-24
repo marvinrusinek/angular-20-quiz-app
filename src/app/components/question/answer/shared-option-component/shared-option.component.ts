@@ -328,9 +328,23 @@ export class SharedOptionComponent
       this.regenerateFeedback(this.currentQuestionIndex);
     }
 
+    // ⚡ FIX: Immediately set display flags if options are available
+    if (this.optionsToDisplay?.length > 0) {
+      this.renderReady = true;
+      this.showOptions = true;
+      this.optionsReady = true;
+      this.cdRef.detectChanges();
+    }
+
+    // Fallback: retry after short delay for Stackblitz timing issues
     setTimeout(() => {
-      this.renderReady = this.optionsToDisplay?.length > 0;
-    }, 100);
+      if (this.optionsToDisplay?.length > 0 && !this.showOptions) {
+        this.renderReady = true;
+        this.showOptions = true;
+        this.optionsReady = true;
+        this.cdRef.detectChanges();
+      }
+    }, 50);
   }
 
   private setupSubscriptions(): void {
@@ -3232,6 +3246,11 @@ export class SharedOptionComponent
     // Reset UI lock state
     this.updateLockedIncorrectOptions?.();
 
+    // ⚡ FIX: Set display flags BEFORE detectChanges so canDisplayOptions returns true
+    this.showOptions = true;
+    this.optionsReady = true;
+    this.renderReady = true;
+
     // Force change detection and highlight refresh
     this.cdRef.detectChanges();
     let i = 0;
@@ -3246,8 +3265,9 @@ export class SharedOptionComponent
     }
 
     this.markRenderReady('Bindings refreshed');
-    this.showOptions = true;
-    this.optionsReady = true;
+    
+    // Final detectChanges to ensure template updates after all state is set
+    this.cdRef.detectChanges();
   }
 
   public hydrateOptionsFromSelectionState(): void {
