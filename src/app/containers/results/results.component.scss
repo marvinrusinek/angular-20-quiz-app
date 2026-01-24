@@ -72,23 +72,26 @@ mat-card-header {
     z-index: 100;
     justify-self: start; // Grid alignment
     
-    .hamburger-btn {
+      .hamburger-btn {
       display: flex;
       flex-direction: column;
       justify-content: space-around;
-      width: 48px;  // Bigger (was 36px)
-      height: 42px; // Bigger (was 32px)
+      width: 48px;  
+      height: 42px; 
       padding: 8px;
-      background: rgba(255, 255, 255, 0.9);
-      border: 1px solid rgba(0, 0, 0, 0.1);
+      // Subtler background to blend in
+      background: rgba(255, 255, 255, 0.25);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      border: 1px solid rgba(255, 255, 255, 0.3);
       border-radius: 12px;
       cursor: pointer;
       transition: all 0.3s ease;
       
       &:hover {
-        background: rgba(255, 255, 255, 1);
+        background: rgba(255, 255, 255, 0.4);
         transform: scale(1.05);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
       }
       
       .hamburger-line {
@@ -335,7 +338,6 @@ mat-card-header {
     font-weight: 700;
     text-align: center;
     color: vars.$dark-blue;
-    // Move UP further as requested (was -10px, now -25px)
     margin: -25px 0 20px 0; 
     padding-bottom: 12px;
     border-bottom: 2px solid rgba(vars.$dodger-blue, 0.2);
@@ -502,10 +504,26 @@ mat-card-header {
 
 @media (max-width: 550px) {
   mat-card-header {
-    flex-wrap: wrap; // Allow wrapping if needed
+    // Switch to 2-row grid layout
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
+    gap: 12px;
+    
+    .hamburger-menu {
+      grid-column: 1;
+      grid-row: 1;
+      justify-self: start;
+    }
+    
+    .logo {
+      grid-column: 2;
+      grid-row: 1;
+      justify-self: end;
+    }
     
     mat-card-title {
-      order: 3; // Push title to bottom row on mobile? No, let's keep row but smaller font
+      grid-column: 1 / -1; // Span full width
+      grid-row: 2;
       width: 100%;
       font-size: 60px !important;
       margin-top: 10px;
