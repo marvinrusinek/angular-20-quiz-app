@@ -9,4 +9,5 @@ export interface FeedbackProps {
   feedback: string;
   showFeedback: boolean;
   idx: number;
+  timedOut?: boolean;
 }

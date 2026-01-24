@@ -58,7 +58,8 @@ export interface FeedbackConfig {
   showFeedback: boolean,
   isCorrect?: boolean,
   icon?: string,
-  text?: string
+  text?: string,
+  timedOut?: boolean
 }
 
 @Component({
@@ -3382,7 +3383,8 @@ export class QuizQuestionComponent extends BaseQuestion
 
     // Reveal feedback, lock, and disable options now that the timer has ended
     this.applyLocksAndDisableForQuestion(i0, canonicalOpts, lockKeys, {
-      revealFeedback: true
+      revealFeedback: true,
+      timedOut: true
     });
 
     // Announce completion to any listeners (progress, gating, etc.)
@@ -3440,7 +3442,8 @@ export class QuizQuestionComponent extends BaseQuestion
     const { canonicalOpts, lockKeys } = this.collectLockContextForQuestion(i0);
 
     this.applyLocksAndDisableForQuestion(i0, canonicalOpts, lockKeys, {
-      revealFeedback: reason === 'timeout'
+      revealFeedback: reason === 'timeout',
+      timedOut: reason === 'timeout'
     });
 
     if (reason !== 'timeout') {
@@ -3571,11 +3574,11 @@ export class QuizQuestionComponent extends BaseQuestion
     i0: number,
     canonicalOpts: Option[],
     lockKeys: Set<string | number>,
-    options: { revealFeedback: boolean }
+    options: { revealFeedback: boolean; timedOut?: boolean }
   ): void {
     if (options.revealFeedback) {
       try {
-        this.revealFeedbackForAllOptions(canonicalOpts);
+        this.revealFeedbackForAllOptions(canonicalOpts, options.timedOut ?? false);
       } catch { }
     }
 
@@ -6513,7 +6516,7 @@ export class QuizQuestionComponent extends BaseQuestion
     this.selectionMessageService.beginWrite(i0, 200);
   }
 
-  public revealFeedbackForAllOptions(canonicalOpts: Option[]): void {
+  public revealFeedbackForAllOptions(canonicalOpts: Option[], timedOut = false): void {
     // Reveal feedback for EVERY option before any locking/disable runs
     for (let i = 0; i < canonicalOpts.length; i++) {
       const o = canonicalOpts[i];
@@ -6529,10 +6532,20 @@ export class QuizQuestionComponent extends BaseQuestion
           ...(this.feedbackConfigs[key] ?? {}),
           showFeedback: true,
           icon: o.correct ? 'check_circle' : 'cancel',
-          isCorrect: !!o.correct
+          isCorrect: !!o.correct,
+          timedOut
         };
 
         this.showFeedbackForOption[key] = true;
+
+        // Also update sharedOptionComponent.feedbackConfigs for FeedbackComponent
+        if (this.sharedOptionComponent?.feedbackConfigs) {
+          this.sharedOptionComponent.feedbackConfigs[key] = {
+            ...(this.sharedOptionComponent.feedbackConfigs[key] ?? {}),
+            showFeedback: true,
+            timedOut
+          } as any;
+        }
       } else {
         // Fallback: non-numeric key path
         const sk = String(rawKey);
@@ -6542,17 +6555,28 @@ export class QuizQuestionComponent extends BaseQuestion
           ...(this.feedbackConfigs[sk] ?? {}),
           showFeedback: true,
           icon: o.correct ? 'check_circle' : 'cancel',
-          isCorrect: !!o.correct
+          isCorrect: !!o.correct,
+          timedOut
         };
 
         this.showFeedbackForOption[sk] = true;
+
+        // Also update sharedOptionComponent.feedbackConfigs for FeedbackComponent
+        if (this.sharedOptionComponent?.feedbackConfigs) {
+          this.sharedOptionComponent.feedbackConfigs[sk] = {
+            ...(this.sharedOptionComponent.feedbackConfigs[sk] ?? {}),
+            showFeedback: true,
+            timedOut
+          } as any;
+        }
       }
 
       this.feedbackConfigs[key] = {
         ...(this.feedbackConfigs[key] ?? {}),
         showFeedback: true,
         icon: o.correct ? 'check_circle' : 'cancel',
-        isCorrect: !!o.correct
+        isCorrect: !!o.correct,
+        timedOut
       };
       this.showFeedbackForOption[key] = true;
     }

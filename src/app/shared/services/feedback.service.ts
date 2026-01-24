@@ -51,35 +51,56 @@ export class FeedbackService {
   public buildFeedbackMessage(
     question: QuizQuestion,
     selected: Array<SelectedOption | Option> | null,
-    strict: boolean = false
+    strict: boolean = false,
+    timedOut: boolean = false
   ): string {
-    const status = this.selectedOptionService.getResolutionStatus(question, selected, strict);
+    if (timedOut) {
+      return 'Time’s up. Review the explanation above.';
+    }
   
-    // No selection yet: let your selection message handle it
-    const hasAnySelection = (selected ?? []).some((o: any) => o && o.selected !== false);
+    const status = this.selectedOptionService.getResolutionStatus(
+      question,
+      selected,
+      strict
+    );
+  
+    const hasAnySelection = (selected ?? []).some(
+      (o: any) => o && o.selected !== false
+    );
     if (!hasAnySelection) return '';
   
     // Single-answer
     if (status.correctTotal <= 1) {
-      return status.resolved ? '✅ Correct.' : '❌ Not quite. Try again.';
+      if (status.resolved) {
+        return this.setCorrectMessage(question.options);
+      }
+
+      return 'Your selection is incorrect, try again!';
     }
   
     // Multi-answer
     if (status.resolved) {
-      return '✅ Correct! You found all the right answers.';
+      // Reveal correct options ONLY when fully resolved
+      const reveal = this.setCorrectMessage(question.options);
+      return reveal || 'Correct. You found all the right answers.';
+    }
+
+    // Correct so far, but not finished
+    if (status.correctSelected > 0 && status.remainingCorrect > 0) {
+      const remainingText =
+        status.remainingCorrect === 1
+          ? '1 more correct answer'
+          : `${status.remainingCorrect} more correct answers`;
+      return `That's correct! Select ${remainingText}.`;
     }
   
-    if (strict && status.remainingCorrect === 0 && status.incorrectSelected > 0) {
-      return 'Almost. Remove the incorrect selection(s).';
-    }
-  
+    // Incorrect option chosen
     if (status.incorrectSelected > 0) {
-      return `❌ Not that one. Keep going.`;
+      return 'Not this one. Keep going...';
     }
   
-    return `✅ Good pick. Select ${status.remainingCorrect} more.`;
+  return '';
   }
-  
 
   public setCorrectMessage(optionsToDisplay?: Option[]): string {
     // Store the last known options
@@ -140,6 +161,6 @@ export class FeedbackService {
         ? `${indices.slice(0, -1).join(', ')} and ${indices.slice(-1)}`
         : `${indices[0]}`;
 
-    return `The correct ${optionsText} ${optionStrings}.`;
+    return `You're right! The correct ${optionsText} ${optionStrings}.`;
   }
 }
