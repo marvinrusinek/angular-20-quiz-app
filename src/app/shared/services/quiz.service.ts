@@ -377,6 +377,9 @@ export class QuizService {
 
     // Additional check for question structure
     if (this.questions.length > 0) {
+      this.totalQuestions = this.questions.length;
+      this.totalQuestionsSubject.next(this.totalQuestions);
+      
       const firstQuestion = this.questions[0];
       if (!this.isValidQuestionStructure(firstQuestion)) {
         console.error(
