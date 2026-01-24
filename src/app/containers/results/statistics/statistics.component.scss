@@ -32,16 +32,49 @@
 // ============================================================
 // SCORE SECTION with Icon
 // ============================================================
-.score-section {
-  display: flex;
-  flex-direction: column;
+// ============================================================
+// SCORE GRID (2-Column Layout)
+// ============================================================
+.score-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr; // Equal columns
+  gap: 32px;
   align-items: center;
-  gap: 16px;
+  justify-content: center;
+  
+  // Apply the original card styling here to unify them
   margin-bottom: 24px;
-  padding: 24px;
+  padding: 32px;
   background: linear-gradient(135deg, rgba(vars.$dodger-blue, 0.08), rgba(vars.$green, 0.08));
   border-radius: 20px;
   animation: slideInUp 0.5s ease-out 0.2s both;
+
+  // Left Column: Visual Stats
+  .score-col-left {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  // Right Column: Feedback & Text
+  .score-col-right {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 20px; // Spacing between Image and Text
+  }
+}
+
+// Mobile Responsiveness for Grid
+@media (max-width: 650px) {
+  .score-grid {
+    grid-template-columns: 1fr; // Stack vertically on small screens
+    gap: 24px;
+    padding: 24px;
+  }
 }
 
 @keyframes slideInUp {
@@ -53,11 +86,6 @@
     opacity: 1;
     transform: translateY(0);
   }
-}
-
-.section-icon {
-  font-size: 32px;
-  margin-bottom: 8px;
 }
 
 // ============================================================
@@ -284,7 +312,7 @@
 // QUIZ FEEDBACK SECTION
 // ============================================================
 .quiz-feedback {
-  margin-top: 24px;
+  // margin-top: 24px; // Removed as it is now inside flex container
   animation: fadeIn 0.5s ease-out 0.4s both;
 
   img {

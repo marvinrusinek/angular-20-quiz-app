@@ -5,113 +5,115 @@
       <!-- === SCORE ANALYSIS SECTION === -->
       @if (viewMode === 'all' || viewMode === 'score') {
         <div class="score-view">
-          <div class="score-section">
-            <span class="section-icon">📊</span>
-            
-            <!-- Circular Score Ring -->
-            <div class="circular-score">
-              <svg class="score-ring" viewBox="0 0 140 140">
-                <circle class="ring-bg" cx="70" cy="70" r="60" />
-                <circle 
-                  class="ring-progress"
-                  [class.ring-excellent]="percentage >= 80"
-                  [class.ring-good]="percentage >= 60 && percentage < 80"
-                  [class.ring-poor]="percentage < 60"
-                  cx="70" 
-                  cy="70" 
-                  r="60"
-                  [style.stroke-dasharray]="377"
-                  [style.stroke-dashoffset]="377 - (377 * (percentage / 100))"
-                />
-              </svg>
-              <div class="score-value">
-                <div class="percentage">{{ percentage }}%</div>
-                <div class="label">Score</div>
+          <div class="score-grid">
+            <!-- LEFT COLUMN: Circle, Stars, Badge -->
+            <div class="score-col-left">
+              <!-- Circular Score Ring -->
+              <div class="circular-score">
+                <svg class="score-ring" viewBox="0 0 140 140">
+                  <circle class="ring-bg" cx="70" cy="70" r="60" />
+                  <circle 
+                    class="ring-progress"
+                    [class.ring-excellent]="percentage >= 80"
+                    [class.ring-good]="percentage >= 60 && percentage < 80"
+                    [class.ring-poor]="percentage < 60"
+                    cx="70" 
+                    cy="70" 
+                    r="60"
+                    [style.stroke-dasharray]="377"
+                    [style.stroke-dashoffset]="377 - (377 * (percentage / 100))"
+                  />
+                </svg>
+                <div class="score-value">
+                  <div class="percentage">{{ percentage }}%</div>
+                  <div class="label">Score</div>
+                </div>
               </div>
-            </div>
 
-            <!-- Star Rating -->
-            <div class="star-rating" aria-label="Score rating">
-              @for (star of [1, 2, 3, 4, 5]; track star) {
-                <span 
-                  class="star" 
-                  [class.filled]="star <= (percentage >= 90 ? 5 : percentage >= 75 ? 4 : percentage >= 60 ? 3 : percentage >= 40 ? 2 : 1)"
-                  [class.empty]="star > (percentage >= 90 ? 5 : percentage >= 75 ? 4 : percentage >= 60 ? 3 : percentage >= 40 ? 2 : 1)"
-                >
-                  ⭐
-                </span>
-              }
-            </div>
-
-            <!-- Achievement Badge -->
-            @if (percentage >= 80) {
-              <div class="achievement-badge excellent">
-                <span class="badge-icon">🏆</span>
-                <span>Excellent Performance!</span>
-              </div>
-            } @else if (percentage >= 60) {
-              <div class="achievement-badge good">
-                <span class="badge-icon">🥈</span>
-                <span>Good Job!</span>
-              </div>
-            } @else {
-              <div class="achievement-badge needs-work">
-                <span class="badge-icon">💪</span>
-                <span>Keep Practicing!</span>
-              </div>
-            }
-
-            <!-- Score Text -->
-            <span class="your-score" i18n>
-              You scored
-              <span class="result">{{ quizMetadata.correctAnswersCount$ | async }}</span>
-              out of <span class="result">{{ quizMetadata.totalQuestions }}</span>
-              {{ quizMetadata.totalQuestions === 1 ? 'question' : 'questions' }}
-              correctly.
-            </span>
-          </div>
-
-          <!-- FEEDBACK IMAGE & CONDITIONAL RESOURCES -->
-          <div class="quiz-feedback">
-            @switch (percentage) {
-              @case (percentage >= 80 ? percentage : null) {
-                <img
-                  mat-card-image
-                  loading="lazy"
-                  [src]="CONGRATULATIONS"
-                  alt="Photo of 'Congratulations'"
-                  i18n-title
-                  title="Congratulations"
-                />
-              }
-
-              @case (percentage >= 60 && percentage < 80 ? percentage : null) {
-                <img
-                  mat-card-image
-                  loading="lazy"
-                  [src]="NOT_BAD"
-                  alt="Photo of 'Not Bad'"
-                  i18n-title
-                  title="Not Bad"
-                />
-              }
-
-              @default {
-                <img
-                  mat-card-image
-                  loading="lazy"
-                  [src]="TRY_AGAIN"
-                  alt="Photo of 'Try Again'"
-                  i18n-title
-                  title="Try Again"
-                />
-                
-                <!-- If viewMode is 'all', show resources here for low scores -->
-                @if (viewMode === 'all') {
-                  <ng-container *ngTemplateOutlet="resourcesTemplate"></ng-container>
+              <!-- Star Rating -->
+              <div class="star-rating" aria-label="Score rating">
+                @for (star of [1, 2, 3, 4, 5]; track star) {
+                  <span 
+                    class="star" 
+                    [class.filled]="star <= (percentage >= 90 ? 5 : percentage >= 75 ? 4 : percentage >= 60 ? 3 : percentage >= 40 ? 2 : 1)"
+                    [class.empty]="star > (percentage >= 90 ? 5 : percentage >= 75 ? 4 : percentage >= 60 ? 3 : percentage >= 40 ? 2 : 1)"
+                  >
+                    ⭐
+                  </span>
                 }
+              </div>
+
+              <!-- Achievement Badge -->
+              @if (percentage >= 80) {
+                <div class="achievement-badge excellent">
+                  <span class="badge-icon">🏆</span>
+                  <span>Excellent Performance!</span>
+                </div>
+              } @else if (percentage >= 60) {
+                <div class="achievement-badge good">
+                  <span class="badge-icon">🥈</span>
+                  <span>Good Job!</span>
+                </div>
+              } @else {
+                <div class="achievement-badge needs-work">
+                  <span class="badge-icon">💪</span>
+                  <span>Keep Practicing!</span>
+                </div>
               }
-            }
+            </div>
+
+            <!-- RIGHT COLUMN: Feedback Image, Score Text -->
+            <div class="score-col-right">
+              <div class="quiz-feedback">
+                @switch (percentage) {
+                  @case (percentage >= 80 ? percentage : null) {
+                    <img
+                      mat-card-image
+                      loading="lazy"
+                      [src]="CONGRATULATIONS"
+                      alt="Photo of 'Congratulations'"
+                      i18n-title
+                      title="Congratulations"
+                    />
+                  }
+                  @case (percentage >= 60 && percentage < 80 ? percentage : null) {
+                    <img
+                      mat-card-image
+                      loading="lazy"
+                      [src]="NOT_BAD"
+                      alt="Photo of 'Not Bad'"
+                      i18n-title
+                      title="Not Bad"
+                    />
+                  }
+                  @default {
+                    <img
+                      mat-card-image
+                      loading="lazy"
+                      [src]="TRY_AGAIN"
+                      alt="Photo of 'Try Again'"
+                      i18n-title
+                      title="Try Again"
+                    />
+                    <!-- If viewMode is 'all', show resources here for low scores -->
+                    @if (viewMode === 'all') {
+                      <ng-container *ngTemplateOutlet="resourcesTemplate"></ng-container>
+                    }
+                  }
+                }
+              </div>
+
+              <!-- Score Text -->
+              <div class="score-text-container">
+                <span class="your-score" i18n>
+                  You scored
+                  <span class="result">{{ quizMetadata.correctAnswersCount$ | async }}</span>
+                  out of <span class="result">{{ quizMetadata.totalQuestions }}</span>
+                  {{ quizMetadata.totalQuestions === 1 ? 'question' : 'questions' }}
+                  correctly.
+                </span>
+              </div>
+            </div>
           </div>
 
           <!-- PROGRESS BAR -->
