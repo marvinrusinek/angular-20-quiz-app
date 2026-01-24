@@ -49,22 +49,23 @@
   border-radius: 20px;
   animation: slideInUp 0.5s ease-out 0.2s both;
 
-  // Left Column: Visual Stats
-  .score-col-left {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-  }
 
-  // Right Column: Feedback & Text
-  .score-col-right {
+  // Left Column: Feedback & Text
+  .score-col-feedback {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     text-align: center;
-    gap: 20px; // Spacing between Image and Text
+    gap: 20px;
+  }
+  
+  // Right Column: Visual Stats
+  .score-col-visuals {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
   }
 }
 

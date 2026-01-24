@@ -6,8 +6,61 @@
       @if (viewMode === 'all' || viewMode === 'score') {
         <div class="score-view">
           <div class="score-grid">
-            <!-- LEFT COLUMN: Circle, Stars, Badge -->
-            <div class="score-col-left">
+            <!-- LEFT COLUMN: Feedback Image, Score Text -->
+            <div class="score-col-feedback">
+              <div class="quiz-feedback">
+                @switch (percentage) {
+                  @case (percentage >= 80 ? percentage : null) {
+                    <img
+                      mat-card-image
+                      loading="lazy"
+                      [src]="CONGRATULATIONS"
+                      alt="Photo of 'Congratulations'"
+                      i18n-title
+                      title="Congratulations"
+                    />
+                  }
+                  @case (percentage >= 60 && percentage < 80 ? percentage : null) {
+                    <img
+                      mat-card-image
+                      loading="lazy"
+                      [src]="NOT_BAD"
+                      alt="Photo of 'Not Bad'"
+                      i18n-title
+                      title="Not Bad"
+                    />
+                  }
+                  @default {
+                    <img
+                      mat-card-image
+                      loading="lazy"
+                      [src]="TRY_AGAIN"
+                      alt="Photo of 'Try Again'"
+                      i18n-title
+                      title="Try Again"
+                    />
+                    <!-- If viewMode is 'all', show resources here for low scores -->
+                    @if (viewMode === 'all') {
+                      <ng-container *ngTemplateOutlet="resourcesTemplate"></ng-container>
+                    }
+                  }
+                }
+              </div>
+
+              <!-- Score Text -->
+              <div class="score-text-container">
+                <span class="your-score" i18n>
+                  You scored
+                  <span class="result">{{ quizMetadata.correctAnswersCount$ | async }}</span>
+                  out of <span class="result">{{ quizMetadata.totalQuestions }}</span>
+                  {{ quizMetadata.totalQuestions === 1 ? 'question' : 'questions' }}
+                  correctly.
+                </span>
+              </div>
+            </div>
+
+            <!-- RIGHT COLUMN: Circle, Stars, Badge -->
+            <div class="score-col-visuals">
               <!-- Circular Score Ring -->
               <div class="circular-score">
                 <svg class="score-ring" viewBox="0 0 140 140">
@@ -60,59 +113,6 @@
                   <span>Keep Practicing!</span>
                 </div>
               }
-            </div>
-
-            <!-- RIGHT COLUMN: Feedback Image, Score Text -->
-            <div class="score-col-right">
-              <div class="quiz-feedback">
-                @switch (percentage) {
-                  @case (percentage >= 80 ? percentage : null) {
-                    <img
-                      mat-card-image
-                      loading="lazy"
-                      [src]="CONGRATULATIONS"
-                      alt="Photo of 'Congratulations'"
-                      i18n-title
-                      title="Congratulations"
-                    />
-                  }
-                  @case (percentage >= 60 && percentage < 80 ? percentage : null) {
-                    <img
-                      mat-card-image
-                      loading="lazy"
-                      [src]="NOT_BAD"
-                      alt="Photo of 'Not Bad'"
-                      i18n-title
-                      title="Not Bad"
-                    />
-                  }
-                  @default {
-                    <img
-                      mat-card-image
-                      loading="lazy"
-                      [src]="TRY_AGAIN"
-                      alt="Photo of 'Try Again'"
-                      i18n-title
-                      title="Try Again"
-                    />
-                    <!-- If viewMode is 'all', show resources here for low scores -->
-                    @if (viewMode === 'all') {
-                      <ng-container *ngTemplateOutlet="resourcesTemplate"></ng-container>
-                    }
-                  }
-                }
-              </div>
-
-              <!-- Score Text -->
-              <div class="score-text-container">
-                <span class="your-score" i18n>
-                  You scored
-                  <span class="result">{{ quizMetadata.correctAnswersCount$ | async }}</span>
-                  out of <span class="result">{{ quizMetadata.totalQuestions }}</span>
-                  {{ quizMetadata.totalQuestions === 1 ? 'question' : 'questions' }}
-                  correctly.
-                </span>
-              </div>
             </div>
           </div>
 
