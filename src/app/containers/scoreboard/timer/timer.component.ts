@@ -2,7 +2,7 @@ import {
   ChangeDetectionStrategy, ChangeDetectorRef, Component, 
   NgZone, OnDestroy, OnInit 
 } from '@angular/core';
-import { AsyncPipe, CommonModule, DecimalPipe } from '@angular/common';
+import { CommonModule, DecimalPipe } from '@angular/common';
 import { MatMenuModule } from '@angular/material/menu';
 import { Observable, Subscription } from 'rxjs';
 import { map } from 'rxjs/operators';
@@ -52,8 +52,7 @@ export class TimerComponent implements OnInit, OnDestroy {
     
     // Subscribe to elapsed time and update display directly
     this.elapsedSub = this.timerService.elapsedTime$.subscribe((elapsed) => {
-      this.displayTime = Math.max(this.timePerQuestion - elapsed, 0);
-      this.cdRef.markForCheck();
+      this.updateDisplayTime(elapsed);
     });
     
     // Fallback: Poll TimerService every 500ms to ensure UI stays in sync
@@ -61,7 +60,7 @@ export class TimerComponent implements OnInit, OnDestroy {
       this.uiUpdateInterval = setInterval(() => {
         this.ngZone.run(() => {
           const elapsed = this.timerService.elapsedTime || 0;
-          const newDisplayTime = Math.max(this.timePerQuestion - elapsed, 0);
+          const newDisplayTime = this.getDisplayTime(elapsed);
           
           if (this.displayTime !== newDisplayTime) {
             this.displayTime = newDisplayTime;
@@ -84,8 +83,21 @@ export class TimerComponent implements OnInit, OnDestroy {
   setTimerType(type: TimerType): void {
     if (this.currentTimerType !== type) {
       this.currentTimerType = type;
+      const elapsed = this.timerService.elapsedTime || 0;
+      this.updateDisplayTime(elapsed);
     } else {
       console.log(`[TimerComponent] Timer type is already set to ${type}`);
     }
+  }
+
+  private updateDisplayTime(elapsed: number): void {
+    this.displayTime = this.getDisplayTime(elapsed);
+    this.cdRef.markForCheck();
+  }
+
+  private getDisplayTime(elapsed: number): number {
+    return this.currentTimerType === TimerType.Countdown
+      ? Math.max(this.timePerQuestion - elapsed, 0)
+      : elapsed;
   }
 }
