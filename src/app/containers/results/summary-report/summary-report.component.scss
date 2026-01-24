@@ -10,14 +10,13 @@
 }
 
 .summary-report {
-  // Glassmorphism effect matching the card
-  background: rgba(255, 255, 255, 0.5);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  border-radius: 16px;
+  // Integrated style - removed glassmorphism card effect
+  background: transparent;
+  backdrop-filter: none;
+  border: none;
+  box-shadow: none;
   
-  margin: 20px auto;
+  margin: 0 auto;
   width: 100%;
   max-width: 560px;
   padding: 24px;
