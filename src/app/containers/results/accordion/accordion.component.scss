@@ -75,6 +75,8 @@ mat-accordion {
       display: block !important;
       margin-bottom: 10px;
       text-align: left;
+      list-style-type: none; // Remove bullets
+      padding-left: 0; // Remove default padding
 
       li {
         display: block;
