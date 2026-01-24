@@ -1,8 +1,6 @@
-import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute } from '@angular/router';
 import { Observable, of } from 'rxjs';
-import { map } from 'rxjs/operators';
 
 import { Quiz } from '../../../shared/models/Quiz.model';
 import { QuizMetadata } from '../../../shared/models/QuizMetadata.model';
@@ -14,7 +12,7 @@ import { TimerService } from '../../../shared/services/timer.service';
 enum Status {
   Started = 'Started',
   Continue = 'Continue',
-  Completed = 'Completed',
+  Completed = 'Completed'
 }
 
 @Component({
@@ -23,7 +21,7 @@ enum Status {
   imports: [CommonModule],
   templateUrl: './statistics.component.html',
   styleUrls: ['./statistics.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class StatisticsComponent implements OnInit {
   quizzes$: Observable<Quiz[]> = of([]);
@@ -47,13 +45,13 @@ export class StatisticsComponent implements OnInit {
     private quizService: QuizService,
     private quizDataService: QuizDataService,
     private timerService: TimerService,
-    private activatedRoute: ActivatedRoute,
+    private cdRef: ChangeDetectorRef
   ) { }
 
   ngOnInit(): void {
     // Calculate elapsed time from array or use completionTime as fallback
     let totalElapsedTime = this.timerService.calculateTotalElapsedTime(
-      this.timerService.elapsedTimes,
+      this.timerService.elapsedTimes
     );
 
     // Fallback: if elapsedTimes is empty, use the direct completionTime property
@@ -67,25 +65,14 @@ export class StatisticsComponent implements OnInit {
       totalQuestionsAttempted: this.quizService.totalQuestions,
       correctAnswersCount$: this.quizService.correctAnswersCountSubject,
       percentage: this.calculatePercentageOfCorrectlyAnsweredQuestions(),
-      completionTime: totalElapsedTime,
+      completionTime: totalElapsedTime
     };
-
-    console.log('[RESULTS] StatisticsComponent ngOnInit:', {
-      totalQuestions: this.quizService.totalQuestions,
-      correctAnswers: this.quizService.correctAnswersCountSubject.getValue(),
-      elapsedTimes: this.timerService.elapsedTimes,
-      completionTime: this.timerService.completionTime,
-      calculatedTotal: totalElapsedTime,
-      quizId: this.quizService.quizId,
-    });
 
     this.quizzes$ = this.quizDataService.getQuizzes();
     this.quizId = this.quizService.quizId;
 
     // Use the quizId from service, not from URL segments
     this.quizName$ = of(this.quizId);
-
-    console.log('[RESULTS] quizId:', this.quizId);
 
     // Ensure resources are loaded for this quiz
     if (this.quizId) {
@@ -96,6 +83,9 @@ export class StatisticsComponent implements OnInit {
     this.percentage = this.quizMetadata?.percentage ?? 0;
     this.calculateElapsedTime();
     this.sendQuizStatusToQuizService();
+
+    // Force change detection for OnPush when navigating back
+    this.cdRef.detectChanges();
   }
 
   calculateElapsedTime(): void {

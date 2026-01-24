@@ -59,10 +59,17 @@ export class AccordionComponent implements OnInit, OnDestroy {
       userAnswers: userAnswersData,
       elapsedTimes: this.timerService.elapsedTimes
     };
+
+    // Try to load questions immediately from service state first (for navigation back scenarios)
+    const currentQuestions = this.quizService.questions;
+    if (currentQuestions && currentQuestions.length > 0) {
+      this.questions = currentQuestions;
+      this.cdRef.detectChanges();  // force immediate update for OnPush
+    }
  
     this.quizService.questions$.pipe(takeUntil(this.destroy$)).subscribe((questions) => {
       this.questions = questions;
-      this.cdRef.markForCheck();
+      this.cdRef.detectChanges(); // Force immediate update for OnPush
       
       if (this.questions.length === 0 && !this.hasRetried) {
          console.warn('[ACCORDION] Questions empty, attempting force fetch...');
@@ -93,7 +100,7 @@ export class AccordionComponent implements OnInit, OnDestroy {
              if (qs && qs.length > 0) {
                console.log('[ACCORDION] Loaded questions via QuizDataService fallback:', qs.length);
                this.questions = qs;
-               this.cdRef.markForCheck();
+               this.cdRef.detectChanges(); // Force immediate update for OnPush
              }
            });
          }, 100);

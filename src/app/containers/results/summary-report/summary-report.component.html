@@ -1,7 +1,11 @@
 <div class="summary-report">
   <h2>Summary Report</h2>
 
-  <codelab-summary-icons [quizPercentage]="quizMetadata.percentage ?? 0">
+  <codelab-summary-icons
+    [quizPercentage]="quizMetadata.percentage ?? 0"
+    [quizMetadata]="quizMetadata"
+    [codelabUrl]="codelabUrl"
+  >
   </codelab-summary-icons>
 
   <codelab-summary-stats

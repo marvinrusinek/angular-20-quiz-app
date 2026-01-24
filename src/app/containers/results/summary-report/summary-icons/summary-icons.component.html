@@ -13,11 +13,7 @@
       target="_blank"
       matTooltip="E-mail"
       aria-labelledby="E-mail"
-      href="mailto:?subject=Try to beat my quiz score!&amp;body=I scored {{
-        quizMetadata?.percentage ?? 0
-      }}% on this awesome quiz about Angular {{
-        quiz?.milestone
-      }}. Try to beat my score at {{ codelabUrl }}"
+      [href]="mailtoHref"
     >
       <i class="material-icons">email</i>
     </a>
@@ -27,13 +23,7 @@
       target="_blank"
       matTooltip="Share on Twitter"
       aria-labelledby="Twitter"
-      href="https://twitter.com/intent/tweet?text=I%20scored%20{{
-        quizMetadata?.percentage ?? 0
-      }}/100%20on%20this%20awesome%20quiz%20about%20Angular%20{{
-        quiz?.milestone
-      }}.%20Try%20to%20beat%20my%20score%20at%20&amp;hashtag=quiz&amp;url={{
-        codelabUrl
-      }}!"
+      [href]="twitterHref"
     >
       <i class="material-icons">share</i>
     </a>

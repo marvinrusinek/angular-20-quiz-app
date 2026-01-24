@@ -1,8 +1,6 @@
-import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
-import { ActivatedRoute } from '@angular/router';
 import { Observable, of } from 'rxjs';
-import { map } from 'rxjs/operators';
 
 import { Quiz } from '../../../shared/models/Quiz.model';
 import { QuizMetadata } from '../../../shared/models/QuizMetadata.model';
@@ -20,11 +18,11 @@ import { TimerService } from '../../../shared/services/timer.service';
     CommonModule,
     DatePipe,
     SummaryIconsComponent,
-    SummaryStatsComponent,
+    SummaryStatsComponent
   ],
   templateUrl: './summary-report.component.html',
   styleUrls: ['./summary-report.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SummaryReportComponent implements OnInit {
   quizzes$: Observable<Quiz[]> = of([]);
@@ -43,12 +41,10 @@ export class SummaryReportComponent implements OnInit {
     private quizService: QuizService,
     private quizDataService: QuizDataService,
     private timerService: TimerService,
-    private activatedRoute: ActivatedRoute,
+    private cdRef: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
-    console.log('[SUMMARY] 🚀 SummaryReportComponent ngOnInit STARTED');
-
     try {
       // Initialize quizMetadata in ngOnInit when service data is available
       this.quizMetadata = {
@@ -58,17 +54,9 @@ export class SummaryReportComponent implements OnInit {
         percentage:
           this.quizService.calculatePercentageOfCorrectlyAnsweredQuestions(),
         completionTime: this.timerService.calculateTotalElapsedTime(
-          this.timerService.elapsedTimes,
-        ),
+          this.timerService.elapsedTimes
+        )
       };
-
-      console.log('[SUMMARY] SummaryReportComponent ngOnInit:', {
-        totalQuestions: this.quizService.totalQuestions,
-        correctAnswers: this.quizService.correctAnswersCountSubject.getValue(),
-        elapsedTimes: this.timerService.elapsedTimes,
-        quizId: this.quizService.quizId,
-        quizMetadata: this.quizMetadata,
-      });
 
       this.quizzes$ = this.quizDataService.getQuizzes();
       this.quizId = this.quizService.quizId;
@@ -86,9 +74,6 @@ export class SummaryReportComponent implements OnInit {
         score: this.quizMetadata.percentage ?? 0,
         totalQuestions: this.quizService.totalQuestions,
       };
-
-      console.log('[SUMMARY] currentScore:', this.currentScore);
-      console.log('[SUMMARY] highScores:', this.highScores);
     } catch (error) {
       console.error('[SUMMARY] ❌ Error in ngOnInit:', error);
       // Fallback to ensure UI doesn't look broken
@@ -99,6 +84,9 @@ export class SummaryReportComponent implements OnInit {
         totalQuestions: 0
       };
     }
+
+    // Force change detection for OnPush when navigating back
+    this.cdRef.detectChanges();
   }
 
   calculateElapsedTime(): void {
