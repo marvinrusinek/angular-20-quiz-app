@@ -60,9 +60,8 @@ mat-card {
   // Allocation: Hamburger | Title (Flexible) | Logo
   grid-template-columns: 80px 1fr 120px; 
   align-items: center;
-  margin-top: 16px !important;
-  margin-bottom: 24px; // Increased bottom margin
-  padding: 0 12px;
+  margin-top: 0 !important; // Moved up
+  padding: 20px 12px 10px 12px; // Top padding 20px as requested
 
   // ============================================================
   // HAMBURGER MENU (Left)
@@ -199,8 +198,7 @@ mat-card {
   // ============================================================
   .results-title {
     font-family: 'Roboto', arial, sans-serif;
-    // Massive font size as requested
-    font-size: 140px !important; 
+    font-size: 80px !important; // Reduced from 140px 
     font-style: italic;
     font-weight: 900;
     
