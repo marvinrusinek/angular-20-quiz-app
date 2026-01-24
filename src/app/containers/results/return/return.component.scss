@@ -3,7 +3,8 @@
 .return {
   clear: left;
   text-align: center;
-  margin-top: 0; // Compact layout
+  margin-top: 0;
+  padding-top: 20px; // Added top padding
   display: flex;
   justify-content: center;
   width: 100%;
