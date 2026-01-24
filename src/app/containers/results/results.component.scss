@@ -6,6 +6,7 @@
 // ============================================================
 :host {
   display: block;
+  width: 100%; // Ensure full width in flex container
   min-height: 100vh;
   background: linear-gradient(135deg, #74ebd5 0%, #9face6 100%);
   padding: 20px 0;
