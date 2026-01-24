@@ -30,7 +30,7 @@ mat-card {
   max-width: 720px;
   margin: 20px auto;
   border-radius: 20px;
-  padding: 24px;
+  padding: 20px 24px; // Reduced top padding to move header up
   
   // Glassmorphism effect
   background: rgba(255, 255, 255, 0.75) !important;
@@ -82,7 +82,8 @@ mat-card {
       background: rgba(255, 255, 255, 0.25);
       backdrop-filter: blur(4px);
       -webkit-backdrop-filter: blur(4px);
-      border: 1px solid rgba(255, 255, 255, 0.3);
+      // Visible border
+      border: 2px solid vars.$dodger-blue;
       border-radius: 12px;
       cursor: pointer;
       transition: all 0.3s ease;
@@ -227,8 +228,8 @@ mat-card {
     img {
       cursor: pointer;
       transition: all 0.3s ease;
-      width: 100px;
-      height: auto;
+      height: 80px; // Match Title height
+      width: auto;
       
       // BLEND MODE to remove background box
       mix-blend-mode: multiply; 
