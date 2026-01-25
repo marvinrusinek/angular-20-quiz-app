@@ -5,11 +5,14 @@
 // HOST: Gradient background for consistency with Quiz page
 // ============================================================
 :host {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%; // Ensure full width in flex container
   min-height: 100vh;
   background: linear-gradient(135deg, #74ebd5 0%, #9face6 100%);
-  padding: 20px 0;
+  padding: 20px;
+  box-sizing: border-box;
   animation: fadeIn 0.6s ease-out;
 }
 
