@@ -641,6 +641,7 @@ export class ExplanationTextService {
     index: number,
     explanation: string,
     question: QuizQuestion,
+    options?: Option[]
   ): void {
     if (index < 0) {
       console.error(
@@ -655,7 +656,7 @@ export class ExplanationTextService {
     }
 
     const sanitizedExplanation = explanation.trim();
-    const correctOptionIndices = this.getCorrectOptionIndices(question);
+    const correctOptionIndices = this.getCorrectOptionIndices(question, options);
     const formattedExplanation = this.formatExplanation(
       question,
       correctOptionIndices,

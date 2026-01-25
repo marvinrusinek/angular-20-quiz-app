@@ -2706,7 +2706,8 @@ export class QuizQuestionComponent extends BaseQuestion
                   this.explanationTextService.storeFormattedExplanation(
                     this.currentQuestionIndex,
                     fet,
-                    this.currentQuestion
+                    this.currentQuestion,
+                    this.optionsToDisplay
                   );
                 }
                 this.explanationTextService.setExplanationText(fet);
@@ -5659,7 +5660,8 @@ export class QuizQuestionComponent extends BaseQuestion
       this.explanationTextService.storeFormattedExplanation(
         questionIndex,
         formattedExplanation,
-        questionData
+        questionData,
+        useLocalOptions ? this.optionsToDisplay : undefined
       );
 
       return formattedExplanation;
