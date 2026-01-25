@@ -1231,12 +1231,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     return this.currentQuestionIndex < effectiveTotal - 1;
   }
 
-  /* public get shouldShowResultsButton(): boolean {
-    // Only show results button if we're confirmed on the last question
-    const serviceCount = this.quizService.questions?.length || 0;
-    const effectiveTotal = Math.max(this.totalQuestions, serviceCount);
-    return effectiveTotal > 0 && this.currentQuestionIndex === effectiveTotal - 1;
-  } */
   public get shouldShowResultsButton(): boolean {
     const serviceCount = this.quizService.questions?.length || 0;
     const effectiveTotal = Math.max(this.totalQuestions, serviceCount);
@@ -1258,13 +1252,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     const selected =
       this.selectedOptionService.getSelectedOptionsForQuestion(this.currentQuestionIndex) ?? [];
   
-    const correctCount = question.options?.filter(o => o.correct)?.length ?? 0;
-  
-    if (correctCount <= 1) {
-      return selected.length > 0;
-    }
-  
-    return this.selectedOptionService.isQuestionResolvedCorrectly(question, selected);
+    return selected.length > 0;
   }
   
   
