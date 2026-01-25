@@ -2293,7 +2293,10 @@ export class SharedOptionComponent
 
       // ⚡ FIX: Use helper method that respects shuffle state
       const currentQuestion = this.getQuestionAtDisplayIndex(currentIdx);
-      const freshOptions = currentQuestion?.options ?? this.optionsToDisplay;
+      const freshOptions =
+        this.optionsToDisplay?.length > 0
+          ? this.optionsToDisplay
+          : currentQuestion?.options ?? [];
       const correctOptions = freshOptions.filter((opt: Option) => opt.correct);
 
       const dynamicFeedback = this.feedbackService.generateFeedbackForOptions(
@@ -2649,14 +2652,26 @@ export class SharedOptionComponent
 
     // If we have local options and this is the active question, ignore the service
     // cache validation because the service cache might hold unshuffled "default" text.
-    const useLocalOptions =
+    /* const useLocalOptions =
       Array.isArray(this.optionsToDisplay) &&
       this.optionsToDisplay.length > 0 &&
       (questionIndex === this.currentQuestionIndex ||
-        questionIndex === this.resolvedQuestionIndex);
+        questionIndex === this.resolvedQuestionIndex); */
+    const activeIndex = this.getActiveQuestionIndex();
+    const displayIndex =
+      activeIndex ??
+      this.currentQuestionIndex ??
+      this.resolvedQuestionIndex ??
+      questionIndex;
+    const useLocalOptions =
+      Array.isArray(this.optionsToDisplay) &&
+      this.optionsToDisplay.length > 0 &&
+      questionIndex === displayIndex;
 
     // ⚡ FIX: Use helper method that respects shuffle state
     const question = this.getQuestionAtDisplayIndex(questionIndex);
+
+    const shuffleActive = this.quizService?.isShuffleEnabled?.();
 
     if (useLocalOptions && question) {
       console.log(
@@ -2664,28 +2679,33 @@ export class SharedOptionComponent
         match]`
       );
 
-      // Sync with FeedbackService: filter invalid options first so indices match
-      // FeedbackService filters options using isValidOption, so we must do the same
-      // to ensure "Option 1" here refers to the same option as "Option 1" in feedback.
-      const validOptions = this.optionsToDisplay.filter(isValidOption);
+      // Sync with FeedbackService: use display order as-is to match "Option N" labels.
+      const validOptions = this.optionsToDisplay;
 
       const correctIndices =
         this.explanationTextService.getCorrectOptionIndices(
           question,
           validOptions
         );
-      const raw = question.explanation || '';
-      return this.explanationTextService.formatExplanation(
+      const raw = (question.explanation || '').trim();
+      const formatted = this.explanationTextService.formatExplanation(
         question,
         correctIndices,
         raw
       );
+      this.explanationTextService.storeFormattedExplanation(
+        questionIndex,
+        formatted,
+        question,
+        validOptions
+      );
+      return formatted;
     }
 
     // Try to get pre-formatted explanation first
     const formatted =
       this.explanationTextService.formattedExplanations?.[questionIndex]?.explanation?.trim() || '';
-    if (formatted) {
+    if (formatted && !(shuffleActive && this.optionsToDisplay?.length)) {
       console.log(
         `[✅ Using pre-formatted FET for Q${questionIndex + 1}]:`,
         formatted.slice(0, 80)
@@ -2705,21 +2725,27 @@ export class SharedOptionComponent
           questionIndex === this.currentQuestionIndex
           ? this.optionsToDisplay
           : (question.options || []);
-      const opts = rawOpts.filter(isValidOption);
+      const opts = rawOpts.filter(Boolean);
 
       const correctIndices =
         this.explanationTextService.getCorrectOptionIndices(question, opts);
-      const raw = question.explanation || '';
-      return this.explanationTextService.formatExplanation(
+      const raw = (question.explanation || '').trim();
+      const formatted = this.explanationTextService.formatExplanation(
         question,
         correctIndices,
         raw
       );
+      this.explanationTextService.storeFormattedExplanation(
+        questionIndex,
+        formatted,
+        question,
+        opts
+      );
+      return formatted;
     }
 
     // Get the raw explanation text
-    const activeIndex = this.getActiveQuestionIndex() ?? questionIndex;
-    const matchesCurrentInput = this.currentQuestionIndex === activeIndex;
+    const matchesCurrentInput = this.currentQuestionIndex === displayIndex;
 
     let rawExplanation = '';
 
@@ -2732,7 +2758,7 @@ export class SharedOptionComponent
     if (!rawExplanation) {
       const serviceQuestion =
         this.quizService.currentQuestion?.getValue();
-      if (serviceQuestion?.explanation && activeIndex === questionIndex) {
+      if (serviceQuestion?.explanation && displayIndex === questionIndex) {
         rawExplanation = serviceQuestion.explanation.trim();
         console.log(
           `[📝 From quizService.currentQuestion]:`,
@@ -2781,7 +2807,7 @@ export class SharedOptionComponent
             questionIndex === this.currentQuestionIndex
             ? this.optionsToDisplay
             : (question.options || []);
-        const opts = rawOpts.filter(isValidOption);
+        const opts = rawOpts.filter(Boolean);
 
         const correctIndices =
           this.explanationTextService.getCorrectOptionIndices(question, opts);
@@ -2789,9 +2815,14 @@ export class SharedOptionComponent
           this.explanationTextService.formatExplanation(
             question,
             correctIndices,
-            rawExplanation
+            rawExplanation.trim()
           );
-
+this.explanationTextService.storeFormattedExplanation(
+          questionIndex,
+          formattedExplanation,
+          question,
+          opts
+        );
         console.log(
           `[✅ Formatted FET for Q${questionIndex + 1}]:`,
           formattedExplanation.slice(0, 100)
