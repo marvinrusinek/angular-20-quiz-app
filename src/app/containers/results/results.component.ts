@@ -5,7 +5,7 @@ import {
   OnInit,
   HostListener
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, NgOptimizedImage } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatExpansionModule } from '@angular/material/expansion';
@@ -34,12 +34,13 @@ import { QuizDataService } from '../../shared/services/quizdata.service';
     MatCardModule,
     MatExpansionModule,
     MatIconModule,
+    NgOptimizedImage, 
     BackToTopComponent,
     AccordionComponent,
     ChallengeComponent,
     ReturnComponent,
     StatisticsComponent,
-    SummaryReportComponent,
+    SummaryReportComponent
   ],
   templateUrl: './results.component.html',
   styleUrls: ['./results.component.scss'],
