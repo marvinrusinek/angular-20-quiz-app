@@ -51,6 +51,7 @@ export class ScoreComponent implements OnInit, OnDestroy {
   percentageScore = '';
   isPercentage = false;
   percentage = 0;
+  private readonly scoreDisplayStorageKey = 'scoreDisplayType';
 
   currentScore$: BehaviorSubject<string> = new BehaviorSubject<string>(
     this.numericalScore,
@@ -76,6 +77,7 @@ export class ScoreComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.restoreScoreDisplayPreference();
     this.setupScoreSubscription();
   }
 
@@ -160,6 +162,7 @@ export class ScoreComponent implements OnInit, OnDestroy {
 
     // Call updateScoreDisplay only if the display type has actually changed
     if (this.isPercentage !== previousIsPercentage) {
+      this.persistScoreDisplayPreference();
       this.updateScoreDisplay();
     }
   }
@@ -186,5 +189,25 @@ export class ScoreComponent implements OnInit, OnDestroy {
   displayNumericalScore(): void {
     this.numericalScore = `${this.correctAnswersCount}/${this.totalQuestions}`;
     this.currentScore$.next(this.numericalScore);
+  }
+
+  private restoreScoreDisplayPreference(): void {
+    try {
+      this.isPercentage =
+        localStorage.getItem(this.scoreDisplayStorageKey) === 'percentage';
+    } catch {
+      this.isPercentage = false;
+    }
+  }
+
+  private persistScoreDisplayPreference(): void {
+    try {
+      localStorage.setItem(
+        this.scoreDisplayStorageKey,
+        this.isPercentage ? 'percentage' : 'numerical',
+      );
+    } catch {
+      // ignore storage failures
+    }
   }
 }

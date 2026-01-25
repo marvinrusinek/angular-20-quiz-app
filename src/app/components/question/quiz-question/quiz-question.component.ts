@@ -2086,7 +2086,11 @@ export class QuizQuestionComponent extends BaseQuestion
       this.timerService.stopTimer?.(undefined, { force: true });
       this.timerService.resetTimer();
       this.timerService.resetTimerFlagsFor(this.currentQuestionIndex);
-      this.timerService.startTimer(this.timerService.timePerQuestion, true, true);
+      this.timerService.startTimer(
+        this.timerService.timePerQuestion,
+        this.timerService.isCountdown,
+        true
+      );
 
       // Fetch questions if not already available
       if (!this.questionsArray || this.questionsArray.length === 0) {
@@ -6258,7 +6262,11 @@ export class QuizQuestionComponent extends BaseQuestion
     this.timerService.stopTimer(undefined, { force: true });
     this.timerService.resetTimer();
     requestAnimationFrame(() =>
-      this.timerService.startTimer(this.timerService.timePerQuestion, true, true)
+      this.timerService.startTimer(
+        this.timerService.timePerQuestion,
+        this.timerService.isCountdown,
+        true
+      )
     );
     queueMicrotask(() => this.applyPassiveWriteGate(index));
 

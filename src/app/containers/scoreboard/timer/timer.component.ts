@@ -33,6 +33,7 @@ export class TimerComponent implements OnInit, OnDestroy {
   displayTime = 30;
   private uiUpdateInterval: any = null;
   private elapsedSub: Subscription | null = null;
+  private timerTypeSub: Subscription | null = null;
 
   constructor(
     private timerService: TimerService,
@@ -41,6 +42,10 @@ export class TimerComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    this.currentTimerType = this.timerService.isCountdown
+      ? TimerType.Countdown
+      : TimerType.Stopwatch;
+      
     // Standard observable for async pipe
     this.timeLeft$ = this.timerService.elapsedTime$.pipe(
       map((elapsedTime) =>
@@ -53,6 +58,15 @@ export class TimerComponent implements OnInit, OnDestroy {
     // Subscribe to elapsed time and update display directly
     this.elapsedSub = this.timerService.elapsedTime$.subscribe((elapsed) => {
       this.updateDisplayTime(elapsed);
+    });
+
+    this.timerTypeSub = this.timerService.timerType$.subscribe((type) => {
+      const nextType =
+        type === 'countdown' ? TimerType.Countdown : TimerType.Stopwatch;
+      if (this.currentTimerType !== nextType) {
+        this.currentTimerType = nextType;
+        this.updateDisplayTime(this.timerService.elapsedTime || 0);
+      }
     });
     
     // Fallback: Poll TimerService every 500ms to ensure UI stays in sync
@@ -78,11 +92,17 @@ export class TimerComponent implements OnInit, OnDestroy {
     if (this.elapsedSub) {
       this.elapsedSub.unsubscribe();
     }
+    if (this.timerTypeSub) {
+      this.timerTypeSub.unsubscribe();
+    }
   }
 
   setTimerType(type: TimerType): void {
     if (this.currentTimerType !== type) {
       this.currentTimerType = type;
+      this.timerService.setTimerType(
+        type === TimerType.Countdown ? 'countdown' : 'stopwatch',
+      );
       const elapsed = this.timerService.elapsedTime || 0;
       this.updateDisplayTime(elapsed);
     } else {

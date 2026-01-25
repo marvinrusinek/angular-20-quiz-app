@@ -1559,7 +1559,11 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
             this.timerService.stopTimer?.(undefined, { force: true });
             this.timerService.resetTimer();
             this.timerService.resetTimerFlagsFor(index);
-            this.timerService.startTimer(this.timerService.timePerQuestion, true, true);
+            this.timerService.startTimer(
+              this.timerService.timePerQuestion,
+              this.timerService.isCountdown,
+              true
+            );
           }
 
           this.updateProgressValue();
@@ -2210,7 +2214,11 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       this.quizService.setCurrentQuestionIndex(questionIndex);
 
       this.timerService.resetTimer();
-      this.timerService.startTimer(this.timerService.timePerQuestion, true, true);
+      this.timerService.startTimer(
+        this.timerService.timePerQuestion,
+        this.timerService.isCountdown,
+        true
+      );
 
       const totalCount = this.totalQuestions > 0 ?
         this.totalQuestions : (this.quiz?.questions?.length || 0);
@@ -3364,7 +3372,11 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
                   this.timerService.stopTimer?.(undefined, { force: true });
                   this.timerService.resetTimer();
                   this.timerService.resetTimerFlagsFor(this.currentQuestionIndex);
-                  this.timerService.startTimer(this.timerService.timePerQuestion, true, true);
+                  this.timerService.startTimer(
+                    this.timerService.timePerQuestion,
+                    this.timerService.isCountdown,
+                    true
+                  );
                 }
               },
               error: (error: Error) => {
@@ -3712,7 +3724,11 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         // Not answered yet: force baseline selection message exactly once
         this.selectionMessageService.forceBaseline(questionIndex);
         await this.selectionMessageService.setSelectionMessage(false);
-        this.timerService.startTimer(this.timerService.timePerQuestion, true, true);
+        this.timerService.startTimer(
+          this.timerService.timePerQuestion,
+          this.timerService.isCountdown,
+          true
+        );
       }
 
       this.setQuestionDetails(trimmedText, finalOptions, explanationText);
@@ -4052,7 +4068,11 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           // Start timer on next frame after paint
           requestAnimationFrame(() => {
             this.timerService.resetTimer();
-            this.timerService.startTimer(this.timerService.timePerQuestion, true, true);
+            this.timerService.startTimer(
+              this.timerService.timePerQuestion,
+              this.timerService.isCountdown,
+              true
+            );
           });
         });
 

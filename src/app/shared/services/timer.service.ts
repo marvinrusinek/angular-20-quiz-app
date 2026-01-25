@@ -35,6 +35,19 @@ export class TimerService implements OnDestroy {
   private elapsedTimeSubject = new BehaviorSubject<number>(0);
   public elapsedTime$ = this.elapsedTimeSubject.asObservable();
 
+  private readonly timerTypeSubject = new BehaviorSubject<'countdown' | 'stopwatch'>(
+    (() => {
+      try {
+        return localStorage.getItem('timerType') === 'stopwatch'
+          ? 'stopwatch'
+          : 'countdown';
+      } catch {
+        return 'countdown';
+      }
+    })(),
+  );
+  public timerType$ = this.timerTypeSubject.asObservable();
+
   // Consolidated stop/reset using BehaviorSubjects
   private stopSubject = new BehaviorSubject<void>(undefined);
   public stop$ = this.stopSubject.asObservable().pipe(map(() => 0));
@@ -52,6 +65,7 @@ export class TimerService implements OnDestroy {
     private selectedOptionService: SelectedOptionService,
     private quizService: QuizService,
   ) {
+    this.isCountdown = this.timerTypeSubject.value === 'countdown';
     this.setupTimer();
     this.listenForCorrectSelections();
   }
@@ -130,6 +144,20 @@ export class TimerService implements OnDestroy {
         '[TimerService] Stop signal received but automatic stop was rejected. Forcing timer stop.',
       );
       this.stopTimer(undefined, { force: true });
+    }
+  }
+
+  setTimerType(type: 'countdown' | 'stopwatch'): void {
+    if (this.timerTypeSubject.value === type) {
+      return;
+    }
+
+    this.timerTypeSubject.next(type);
+    this.isCountdown = type === 'countdown';
+    try {
+      localStorage.setItem('timerType', type);
+    } catch {
+      // ignore storage failures
     }
   }
 
