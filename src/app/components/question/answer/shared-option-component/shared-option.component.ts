@@ -152,6 +152,7 @@ export class SharedOptionComponent
   private resolvedTypeForLock: QuestionType = QuestionType.SingleAnswer;
   private forceDisableAll = false;
   private timerExpiredForQuestion = false;  // track timer expiration
+  private timeoutCorrectOptionKeys = new Set<string>();
   private pendingExplanationIndex = -1;
   private resolvedQuestionIndex: number | null = null;
 
@@ -246,6 +247,7 @@ export class SharedOptionComponent
     this.lockedIncorrectOptionIds.clear();
     this.flashDisabledSet.clear();
     this.timerExpiredForQuestion = false;
+    this.timeoutCorrectOptionKeys.clear();
     this.forceDisableAll = false;  // ⚡ FIX: Reset forceDisableAll for new question
   }
 
@@ -253,6 +255,48 @@ export class SharedOptionComponent
     this.timerService.expired$.pipe(takeUntil(this.destroy$)).subscribe(() => {
       console.log('[SOC] ⏰ Timer expired - setting timerExpiredForQuestion = true');
       this.timerExpiredForQuestion = true;
+      const question = this.currentQuestion
+        || this.config?.currentQuestion
+        || this.getQuestionAtDisplayIndex(this.currentQuestionIndex)
+        || this.getQuestionAtDisplayIndex(this.quizService.getCurrentQuestionIndex());
+      const displayOptions = this.optionsToDisplay?.length
+        ? this.optionsToDisplay
+        : question?.options ?? [];
+      const correctFromDisplay = displayOptions.filter((option) => option?.correct);
+      const correctOptions = question
+        ? this.quizService.getCorrectOptionsForCurrentQuestion(question)
+        : [];
+      const keys = new Set<string>();
+
+      if (correctFromDisplay.length > 0) {
+        displayOptions.forEach((option, index) => {
+          if (option?.correct) {
+            keys.add(this.keyOf(option, index));
+          }
+        });
+      } else if (correctOptions.length > 0) {
+        correctOptions.forEach((correctOption, fallbackIndex) => {
+          const displayIndex = displayOptions.findIndex((option) =>
+            option?.optionId != null && option.optionId === correctOption.optionId
+          );
+          if (displayIndex >= 0) {
+            keys.add(this.keyOf(displayOptions[displayIndex], displayIndex));
+            return;
+          }
+
+          const textMatchIndex = displayOptions.findIndex((option) =>
+            option?.text && correctOption.text && option.text === correctOption.text
+          );
+          if (textMatchIndex >= 0) {
+            keys.add(this.keyOf(displayOptions[textMatchIndex], textMatchIndex));
+            return;
+          }
+
+          keys.add(this.keyOf(correctOption, fallbackIndex));
+        });
+      }
+
+      this.timeoutCorrectOptionKeys = keys;
       this.cdRef.markForCheck();
     });
   }
@@ -1029,23 +1073,24 @@ export class SharedOptionComponent
     // By ignoring b.isSelected and relying only on isActuallySelected (which checks the service for the specific qIndex),
     // we ensure we never show stale selections.
     const showAsSelected = isActuallySelected;
-
-
+    const optionKey = this.keyOf(b.option, i);
+    const showCorrectOnTimeout = this.timerExpiredForQuestion
+      && (this.timeoutCorrectOptionKeys.has(optionKey) || !!b.option.correct);
 
     // ⚡ FIX: Create a copy of the option with verified selected state
     // This prevents the directive from reading stale option.selected values
     const verifiedOption = {
       ...b.option,
-      selected: showAsSelected,  // Override with verified state
-      highlight: showAsSelected, // Also update highlight flag
-      showIcon: showAsSelected   // Ensure the copy has the icon state
+      selected: showAsSelected,  // override with verified state
+      highlight: showAsSelected || showCorrectOnTimeout,  // also update highlight flag
+      showIcon: showAsSelected || showCorrectOnTimeout   // ensure the copy has the icon state
     };
 
     // ⚡ FIX: Vital to update the ORIGINAL option's showIcon property
     // because the template reads 'b.option.showIcon' to display the mat-icon.
     // Since this method is called during change detection before the icon check,
     // this effectively syncs the visual state.
-    b.option.showIcon = showAsSelected;
+    b.option.showIcon = showAsSelected || showCorrectOnTimeout;
 
     return {
       option: verifiedOption,  // Use verified option, not original
@@ -1069,7 +1114,7 @@ export class SharedOptionComponent
       explanationText: '',
       showExplanation: false,
       selectedOptionIndex: this.selectedOptionIndex,
-      highlight: showAsSelected  // ⚡ FIX: Explicitly set top-level highlight on config
+      highlight: showAsSelected || showCorrectOnTimeout  // explicitly set top-level highlight on config
     };
   }
 
@@ -1351,10 +1396,14 @@ export class SharedOptionComponent
     // Use verified selection state, not the potentially stale option.selected flag
     const showAsSelected = isActuallySelected || (binding.isSelected && this.lastProcessedQuestionIndex === qIndex);
 
+    const optionKey = this.keyOf(option, binding.index);
+    const showCorrectOnTimeout = this.timerExpiredForQuestion
+      && (this.timeoutCorrectOptionKeys.has(optionKey) || !!option.correct);
+
     return {
       'disabled-option': this.shouldDisableOption(binding),
       'locked-option': isLocked && !this.shouldDisableOption(binding),
-      'correct-option': showAsSelected && !!option.correct,
+      'correct-option': (showAsSelected && !!option.correct) || showCorrectOnTimeout,
       'incorrect-option': showAsSelected && !option.correct,
       'flash-red': this.flashDisabledSet.has(option.optionId ?? -1)
     };
