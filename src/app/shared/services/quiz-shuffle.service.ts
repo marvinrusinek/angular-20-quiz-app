@@ -6,8 +6,8 @@ import { ShuffleState } from '../models/ShuffleState.model';
 import { Utils } from '../utils/utils';
 
 export interface PrepareShuffleOpts {
-  shuffleQuestions?: boolean;
-  shuffleOptions?: boolean;
+  shuffleQuestions?: boolean,
+  shuffleOptions?: boolean
 }
 
 @Injectable({ providedIn: 'root' })
@@ -18,9 +18,9 @@ export class QuizShuffleService {
   public prepareShuffle(
     quizId: string,
     questions: QuizQuestion[],
-    opts: PrepareShuffleOpts = { shuffleQuestions: true, shuffleOptions: false }, // 🔒 Question shuffle ON, Option shuffle OFF
+    opts: PrepareShuffleOpts = { shuffleQuestions: true, shuffleOptions: false }  // Question shuffle ON, Option shuffle OFF
   ): void {
-    // 🔒 CRITICAL FIX: Only shuffle ONCE per quiz session
+    // Only shuffle ONCE per quiz session.
     // If we already have a shuffle order for this quiz, DO NOT recreate it!
     if (this.shuffleByQuizId.has(quizId)) {
       console.log(`[QuizShuffleService] ⚡ REUSING existing shuffle for quiz ${quizId} - NOT re-shuffling!`);
@@ -47,7 +47,7 @@ export class QuizShuffleService {
       const base = Array.from({ length: len }, (_, i) => i);
       optionOrder.set(
         origIdx,
-        shuffleOptions ? Utils.shuffleArray(base) : base,
+        shuffleOptions ? Utils.shuffleArray(base) : base
       );
     }
 
@@ -56,7 +56,8 @@ export class QuizShuffleService {
   }
 
   public hasShuffleState(quizId: string): boolean {
-    return this.shuffleByQuizId.has(quizId) || !!localStorage.getItem(`shuffleState:${quizId}`);
+    return this.shuffleByQuizId.has(quizId) || 
+      !!localStorage.getItem(`shuffleState:${quizId}`);
   }
 
   public getShuffleState(quizId: string): ShuffleState | undefined {
@@ -78,8 +79,8 @@ export class QuizShuffleService {
         optionOrder: Array.from(state.optionOrder.entries())
       };
       localStorage.setItem(`shuffleState:${quizId}`, JSON.stringify(serializedState));
-    } catch (e) {
-      console.warn('[QuizShuffleService] Failed to persist shuffle state:', e);
+    } catch (err) {
+      console.warn('[QuizShuffleService] Failed to persist shuffle state:', err);
     }
   }
 
@@ -98,8 +99,8 @@ export class QuizShuffleService {
 
       this.shuffleByQuizId.set(quizId, state);
       return true;
-    } catch (e) {
-      console.warn('[QuizShuffleService] Failed to load shuffle state:', e);
+    } catch (err) {
+      console.warn('[QuizShuffleService] Failed to load shuffle state:', err);
       return false;
     }
   }
@@ -122,9 +123,9 @@ export class QuizShuffleService {
         return {
           ...option,
           optionId: id,
-          displayOrder: index, // if this isn't in Option, you can keep it as an extension or drop it
-          value: numericValue, // always number
-        } as Option; // if displayOrder isn't in Option, use a local type if you need it
+          displayOrder: index,  // if this isn't in Option, you can keep it as an extension or drop it
+          value: numericValue   // always number
+        } as Option;  // if displayOrder isn't in Option, use a local type if you need it
       });
 
     if (!Array.isArray(order) || order.length !== options.length) {
@@ -148,7 +149,7 @@ export class QuizShuffleService {
 
   private normalizeAnswerReference(
     answer: Option | null | undefined,
-    options: Option[],
+    options: Option[]
   ): Option | null {
     if (!answer) {
       return null;
@@ -157,7 +158,7 @@ export class QuizShuffleService {
     const byId = this.toNum(answer.optionId);
     if (byId != null) {
       const matchById = options.find(
-        (option) => this.toNum(option.optionId) === byId,
+        (option) => this.toNum(option.optionId) === byId
       );
       if (matchById) {
         return matchById;
@@ -167,7 +168,7 @@ export class QuizShuffleService {
     const byValue = this.toNum(answer.value);
     if (byValue != null) {
       const matchByValue = options.find(
-        (option) => this.toNum(option.value) === byValue,
+        (option) => this.toNum(option.value) === byValue
       );
       if (matchByValue) {
         return matchByValue;
@@ -177,7 +178,7 @@ export class QuizShuffleService {
     const normalizedText = (answer.text ?? '').trim().toLowerCase();
     if (normalizedText) {
       const matchByText = options.find(
-        (option) => (option.text ?? '').trim().toLowerCase() === normalizedText,
+        (option) => (option.text ?? '').trim().toLowerCase() === normalizedText
       );
       if (matchByText) {
         return matchByText;
@@ -237,7 +238,7 @@ export class QuizShuffleService {
       return null;
     }
     const result = state.questionOrder[displayIdx] ?? null;
-    console.log(`[toOriginalIndex] 🔍 quizId=${quizId}, displayIdx=${displayIdx}, questionOrder.length=${state.questionOrder.length}, result=${result}`);
+
     return result;
   }
 
@@ -245,7 +246,7 @@ export class QuizShuffleService {
   public getQuestionAtDisplayIndex(
     quizId: string,
     displayIdx: number,
-    allQuestions: QuizQuestion[],
+    allQuestions: QuizQuestion[]
   ): QuizQuestion | null {
     const state = this.shuffleByQuizId.get(quizId);
     if (!state) return null;
@@ -257,7 +258,7 @@ export class QuizShuffleService {
     // Ensure numeric, stable optionId before reordering
     const normalizedOpts = this.cloneAndNormalizeOptions(
       src.options ?? [],
-      origIdx,
+      origIdx
     );
     const order = state.optionOrder.get(origIdx);
     const safeOptions = this.reorderOptions(normalizedOpts, order);
@@ -267,7 +268,7 @@ export class QuizShuffleService {
 
   public buildShuffledQuestions(
     quizId: string,
-    questions: QuizQuestion[],
+    questions: QuizQuestion[]
   ): QuizQuestion[] {
     if (!Array.isArray(questions) || questions.length === 0) {
       return [];
@@ -278,15 +279,15 @@ export class QuizShuffleService {
       return questions.map((question, index) => {
         const normalizedOptions = this.cloneAndNormalizeOptions(
           question.options ?? [],
-          index, // Use loop index as question index
+          index,  // use loop index as question index
         );
         return {
           ...question,
           options: normalizedOptions.map((option) => ({ ...option })),
           answer: this.alignAnswersWithOptions(
             question.answer,
-            normalizedOptions,
-          ),
+            normalizedOptions
+          )
         };
       });
     }
@@ -298,20 +299,17 @@ export class QuizShuffleService {
 
         const normalizedOptions = this.cloneAndNormalizeOptions(
           source.options ?? [],
-          originalIndex,
+          originalIndex
         );
         const orderedOptions = this.reorderOptions(
           normalizedOptions,
-          state.optionOrder.get(originalIndex),
+          state.optionOrder.get(originalIndex)
         );
-
-        // DEBUG LOGGING
-        // console.log(`[Shuffle] Index ${originalIndex} -> ${source.questionText?.substring(0, 15)}... | Opts: ${orderedOptions[0]?.text?.substring(0, 10)}...`);
 
         return {
           ...source,
           options: orderedOptions.map((option) => ({ ...option })),
-          answer: this.alignAnswersWithOptions(source.answer, orderedOptions),
+          answer: this.alignAnswersWithOptions(source.answer, orderedOptions)
         } as QuizQuestion;
       })
       .filter((question): question is QuizQuestion => question !== null);
@@ -320,15 +318,15 @@ export class QuizShuffleService {
       return questions.map((question, index) => {
         const normalizedOptions = this.cloneAndNormalizeOptions(
           question.options ?? [],
-          index,
+          index
         );
         return {
           ...question,
           options: normalizedOptions.map((option) => ({ ...option })),
           answer: this.alignAnswersWithOptions(
             question.answer,
-            normalizedOptions,
-          ),
+            normalizedOptions
+          )
         };
       });
     }
@@ -356,21 +354,21 @@ export class QuizShuffleService {
       // Build a globally unique numeric ID like 1001, 1002, 2001, 2002, etc.
       // Format: (QuestionIndex + 1) + (OptionIndex + 1 padded to 2 digits)
       const uniqueId = Number(
-        `${questionIndex + 1}${(i + 1).toString().padStart(2, '0')}`,
+        `${questionIndex + 1}${(i + 1).toString().padStart(2, '0')}`
       );
 
       return {
         ...o,
         optionId: uniqueId,
-        // fallback so selectedOptions.includes(option.value) remains viable
-        value: (o as any).value ?? (o as any).text ?? uniqueId,
+        // Fallback so selectedOptions.includes(option.value) remains viable
+        value: (o as any).value ?? (o as any).text ?? uniqueId
       } as Option;
     });
   }
 
   private cloneAndNormalizeOptions(
     options: Option[] = [],
-    questionIndex: number,
+    questionIndex: number
   ): Option[] {
     const withIds = this.assignOptionIds(options, questionIndex);
     return withIds.map((option, index) => ({
@@ -379,7 +377,7 @@ export class QuizShuffleService {
       correct: option.correct === true,
       selected: option.selected === true,
       highlight: option.highlight ?? false,
-      showIcon: option.showIcon ?? false,
+      showIcon: option.showIcon ?? false
     }));
   }
 }
