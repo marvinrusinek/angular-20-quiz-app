@@ -16,7 +16,7 @@ export class FeedbackService {
 
   public generateFeedbackForOptions(
     correctOptions: Option[],
-    optionsToDisplay: Option[],
+    optionsToDisplay: Option[]
   ): string {
     const validCorrectOptions = (correctOptions || []).filter(isValidOption);
     const validOptionsToDisplay = (optionsToDisplay || []).filter(
@@ -25,13 +25,13 @@ export class FeedbackService {
 
     if (validCorrectOptions.length === 0) {
       console.warn(
-        '[generateFeedbackForOptions] ❌ No valid correct options provided.',
+        '[generateFeedbackForOptions] ❌ No valid correct options provided.'
       );
       return 'No correct answers available for this question.';
     }
     if (validOptionsToDisplay.length === 0) {
       console.warn(
-        '[generateFeedbackForOptions] ❌ No valid options to display. STOPPING BEFORE CALLING setCorrectMessage.',
+        '[generateFeedbackForOptions] ❌ No valid options to display. STOPPING BEFORE CALLING setCorrectMessage.'
       );
       return 'Feedback unavailable.';
     }
@@ -40,7 +40,7 @@ export class FeedbackService {
     const correctFeedback = this.setCorrectMessage(validOptionsToDisplay);
     if (!correctFeedback?.trim()) {
       console.warn(
-        '[generateFeedbackForOptions] ❌ setCorrectMessage returned empty or invalid feedback. Falling back...',
+        '[generateFeedbackForOptions] ❌ setCorrectMessage returned empty or invalid feedback. Falling back...'
       );
       return 'Feedback unavailable.';
     }
@@ -113,26 +113,17 @@ export class FeedbackService {
       return 'Feedback unavailable.';
     }
 
-    // ⚡ FIX: Use array INDEX for visual position, NOT displayOrder
+    // Use array INDEX for visual position, NOT displayOrder.
     // The UI renders options based on their position in optionsToDisplay array.
     // "Option 1" is optionsToDisplay[0], "Option 2" is optionsToDisplay[1], etc.
     // displayOrder may be stale or from a different source, so we use idx directly.
-
-    // 🔍 DIAGNOSTIC: Log ALL options to compare with ETS array
-    console.log('[FeedbackService] 📋 ALL options in order:');
-    optionsToDisplay.forEach((opt, i) => {
-      console.log(`  [${i}] "${opt.text?.slice(0, 25)}..." correct=${opt.correct}`);
-    });
 
     const indices = optionsToDisplay
       .map((option, idx) => {
         if (!option.correct) return null;
 
         // Use array index directly - this is the visual position in the UI
-        const visualPosition = idx + 1; // 1-based for "Option N"
-
-        // ⚡ DEBUG LOG
-        console.log(`[FeedbackService] Opt ID ${option.optionId}: idx=${idx}, visualPos=${visualPosition}, text="${option.text?.slice(0, 15)}..."`);
+        const visualPosition = idx + 1;  // 1-based for "Option N"
 
         return visualPosition;
       })
@@ -140,16 +131,13 @@ export class FeedbackService {
 
     // Dedupe + sort for stable, readable "Options 1 and 2" strings (matches FET)
     const deduped = Array.from(new Set(indices)).sort((a, b) => a - b);
-
-    console.log(`[FeedbackService] setCorrectMessage. Options Count: ${optionsToDisplay.length}. Indices: ${JSON.stringify(deduped)}`);
-
     if (deduped.length === 0) {
       console.warn(`[FeedbackService] ❌ No matching correct options found.`);
       return 'No correct options found for this question.';
     }
 
     const msg = this.formatFeedbackMessage(deduped);
-    console.log(`[FeedbackService] Returning msg: "${msg}"`);
+    
     return msg;
   }
 
