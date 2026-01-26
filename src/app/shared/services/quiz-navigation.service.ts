@@ -41,8 +41,8 @@ export class QuizNavigationService {
   navigatingBack$ = this.navigatingBackSubject.asObservable();
 
   private navigationToQuestionSubject = new Subject<{
-    question: QuizQuestion;
-    options: Option[];
+    question: QuizQuestion,
+    options: Option[]
   }>();
   public navigationToQuestion$ =
     this.navigationToQuestionSubject.asObservable();
@@ -87,7 +87,6 @@ export class QuizNavigationService {
       const currentElapsed = (this.timerService as any).elapsedTime ?? 0;
       if (!this.timerService.elapsedTimes[currentIndex] && currentElapsed > 0) {
         this.timerService.elapsedTimes[currentIndex] = currentElapsed;
-        console.log(`[NAV] ⏱️ Recorded elapsed time for Q${currentIndex + 1}: ${currentElapsed}s`);
       }
     }
 
@@ -119,8 +118,6 @@ export class QuizNavigationService {
   }
 
   private async navigateWithOffset(offset: number): Promise<boolean> {
-    console.log(`[NAV FORCE] navigateWithOffset START. Offset: ${offset}`);
-
     // Get Current Index (Robust URL Parsing)
     const getUrlIndex = (): number => {
       try {
@@ -503,24 +500,6 @@ export class QuizNavigationService {
     this.quizQuestionLoaderService.clearQA();
   }
 
-  /**
-   * TODO: Re-enable when results/score submission flow is finalized.
-   * Currently unused, but will be required when integrating full results routing.
-   */
-  /* private handleQuizCompletion(): void {
-    const quizId = this.quizService.quizId;
-    
-    this.quizService.submitQuizScore(this.answers).subscribe({
-      next: () => {
-        console.log('Score submitted.');
-        this.ngZone.run(() => this.router.navigate(['results', quizId]));
-      },
-      error: (err) => {
-        console.error('[❌ Error submitting score]', err);
-      }
-    });
-  } */
-
   public notifyNavigationSuccess(): void {
     this.navigationSuccessSubject.next();
   }
@@ -546,7 +525,7 @@ export class QuizNavigationService {
       force: true
     });
     this.explanationTextService.setIsExplanationTextDisplayed(false);
-    this.explanationTextService.closeAllGates?.();
+    this.explanationTextService.closeAllGates();
 
     // Drop any lingering question text
     try {
@@ -559,10 +538,6 @@ export class QuizNavigationService {
       answered: false
     });
     this.quizStateService.setExplanationReady(false);
-
-    console.log(
-      `[RESET] Render state cleared before navigating → Q${targetIndex + 1}`
-    );
   }
 
   navigateToResults(): void {
