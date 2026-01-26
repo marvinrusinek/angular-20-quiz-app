@@ -57,7 +57,7 @@ export class QuizNavigationService {
   private renderResetSubject = new Subject<void>();
   renderReset$ = this.renderResetSubject.asObservable();
 
-  private _fetchInProgress = false; // prevents overlapping question fetches
+  private _fetchInProgress = false;  // prevents overlapping question fetches
 
   constructor(
     private explanationTextService: ExplanationTextService,
@@ -75,14 +75,12 @@ export class QuizNavigationService {
   ) { }
 
   public async advanceToNextQuestion(): Promise<boolean> {
-    console.log('[NAV CHECKPOINT 1] QuizNavigationService.advanceToNextQuestion called');
-
     if (this.isNavigating) {
       console.warn('[NAV] ⚠️ advanceToNextQuestion ignored - isNavigating is TRUE');
       return false;
     }
 
-    // RECORD ELAPSED TIME FOR CURRENT QUESTION BEFORE NAVIGATING
+    // Record elapsed time for current question before navigating
     const currentIndex = this.quizService.getCurrentQuestionIndex();
     if (currentIndex >= 0) {
       // Get elapsed time from the timer's current value if not already stored
@@ -93,22 +91,18 @@ export class QuizNavigationService {
       }
     }
 
-    // DO NOT aggressively reset flags here unless we are sure we are stuck.
-    // overly aggressive resetting (setting isNavigating = false immediately) causes race conditions
-    // where the button becomes clickable again too soon or state is inconsistent.
-
     try {
       this.resetExplanationAndState();
     } catch (err) {
       console.warn('[NAV DEBUG] resetExplanationAndState failed, but proceeding', err);
     }
 
-    return await this.navigateWithOffset(1); // defer navigation until state is clean
+    return await this.navigateWithOffset(1);  // defer navigation until state is clean
   }
 
   public async advanceToPreviousQuestion(): Promise<boolean> {
-    // Do not wipe everything; only clear transient display flags if necessary
     try {
+      // Do not wipe everything; only clear transient display flags if necessary
       this.quizStateService.setLoading(false);
 
       // Clear only ephemeral fields (no deep reset)
@@ -117,8 +111,7 @@ export class QuizNavigationService {
       this.explanationTextService.setShouldDisplayExplanation(false);
     } catch (err) {
       console.warn(
-        '[NAV] ⚠️ partial reset before previous question failed',
-        err,
+        '[NAV] ⚠️ partial reset before previous question failed', err
       );
     }
 
@@ -173,12 +166,6 @@ export class QuizNavigationService {
     
     console.log(`[NAV DEBUG] navigateWithOffset: Current=${currentRouteIndex} Target=${targetRouteIndex} Max=${maxQuestions} (ServiceTotal=${this.quizService.totalQuestions})`);
 
-    // 🕵️ DEBUG: BYPASS CHECK
-    // if (targetRouteIndex > maxQuestions) {
-    //   console.log('[NAV FORCE] Target exceeds max known questions, going to Results');
-    //   await this.ngZone.run(() => this.router.navigate(['/quiz/results', quizId]));
-    //   return true;
-    // }
     if (targetRouteIndex > maxQuestions) {
        console.warn(`[NAV FORCE] Target ${targetRouteIndex} > Max ${maxQuestions}. Proceeding anyway to verify existence.`);
     }
@@ -188,6 +175,9 @@ export class QuizNavigationService {
 
   public async navigateToQuestion(index: number): Promise<boolean> {
     this._fetchInProgress = true;
+
+    // HARD reset render state before route change
+    this.resetRenderStateBeforeNavigation(index);
 
     try {
       // Set navigating state
@@ -216,9 +206,6 @@ export class QuizNavigationService {
       this.selectedOptionService.setAnswered(false, true);
 
       // Clear all option selections when navigating to new question
-      // Clear all option selections when navigating to new question
-      // this.selectedOptionService.resetAllStates(); // DO NOT CLEAR PERSISTENCE
-      // this.selectedOptionService.clearSelectionsForQuestion(index); // DO NOT CLEAR PERSISTENCE
       this.nextButtonStateService.reset();
       this.quizQuestionLoaderService.resetUI();
 
@@ -245,61 +232,6 @@ export class QuizNavigationService {
     }
   }
 
-  private async prepareNavigationState(index: number): Promise<void> {
-    this.quizStateService.isNavigatingSubject.next(true);
-    const prevIndex = this.quizService.getCurrentQuestionIndex() - 1;
-
-    // RESET & LOCK FET GATES
-    try {
-      const ets: any = this.explanationTextService;
-      if (prevIndex >= 0) ets.closeGateForIndex(prevIndex);
-      for (const s$ of Array.from(((ets as any)._byIndex ?? []) as unknown[])) {
-        const nextFn = (s$ as any)?.next;
-        if (typeof nextFn === 'function') {
-          nextFn.call(s$, null);
-        }
-      }
-      ets.formattedExplanationSubject.next('');
-      ets.setShouldDisplayExplanation(false);
-      ets.setIsExplanationTextDisplayed(false);
-
-      ets._fetGateLockUntil = performance.now() + 120;
-      console.log(`[NAV] 🧱 FET gates locked for 120 ms (prev=${prevIndex})`);
-    } catch (err) {
-      console.warn('[NAV] ⚠️ FET lock reset failed', err);
-    }
-
-    // FREEZE BEFORE CLEARING ANYTHING
-    this.quizQuestionLoaderService.freezeQuestionStream(96);
-    this.quizQuestionLoaderService._lastNavTime = performance.now();
-    this.quizQuestionLoaderService.clearQuestionTextBeforeNavigation();
-    this.resetRenderStateBeforeNavigation(index);
-
-    // Allow Angular to paint first
-    await new Promise<void>((r) => requestAnimationFrame(() => r()));
-    await new Promise<void>((r) => setTimeout(r, 32));
-
-    // Reinforce mute briefly after Angular repaint
-    const ets2: any = this.explanationTextService;
-    ets2._hardMuteUntil = performance.now() + 48;
-    ets2.formattedExplanationSubject.next('');
-    ets2.setShouldDisplayExplanation(false);
-    ets2.setIsExplanationTextDisplayed(false);
-
-    // Validate quizId
-    const quizIdFromRoute = this.activatedRoute.snapshot.paramMap.get('quizId');
-    const fallbackQuizId = localStorage.getItem('quizId');
-    const quizId = quizIdFromRoute || fallbackQuizId;
-
-    if (!quizId || quizId === 'fallback-id')
-      console.error('[❌ Invalid quizId – fallback used]', quizId);
-
-    // Timer flags, locks
-    const currentIndex = this.quizService.getCurrentQuestionIndex();
-    this.quizQuestionLoaderService.resetQuestionLocksForIndex(currentIndex);
-    this.timerService.resetTimerFlagsFor(index);
-  }
-
   private async performRouterNavigation(index: number): Promise<boolean> {
     const quizIdFromRoute = this.activatedRoute.snapshot.paramMap.get('quizId');
     const fallbackQuizId = localStorage.getItem('quizId');
@@ -314,12 +246,12 @@ export class QuizNavigationService {
     if (currentIndex === index && currentUrl === routeUrl) {
       console.log('[NAV DEBUG] Same URL detected. Reloading root first.');
       await this.ngZone.run(() =>
-        this.router.navigateByUrl('/', { skipLocationChange: true }),
+        this.router.navigateByUrl('/', { skipLocationChange: true })
       );
     }
 
     const navSuccess = await this.ngZone.run(() =>
-      this.router.navigateByUrl(routeUrl),
+      this.router.navigateByUrl(routeUrl)
     );
     console.log(`[NAV DEBUG] router.navigateByUrl result: ${navSuccess}`);
 
@@ -331,33 +263,9 @@ export class QuizNavigationService {
     return true;
   }
 
-  private async resetPostNavigationState(index: number): Promise<void> {
-    // RESET SELECTIONS
-    // this.selectedOptionService.resetAllStates?.(); // DO NOT CLEAR PERSISTENCE
-    // (this.selectedOptionService as any)._lockedOptionsMap?.clear?.();
-    // (this.selectedOptionService as any).optionStates?.clear?.();
-    // this.selectedOptionService.selectedOptionsMap?.clear?.(); // DO NOT CLEAR PERSISTENCE
-    // this.selectedOptionService.clearSelectionsForQuestion(
-    //   this.currentQuestionIndex,
-    // );
-
-    // Silence ETS
-    const ets: any = this.explanationTextService;
-    ets._activeIndex = -1;
-    ets._transitionLock = true;
-    ets.latestExplanation = '';
-    ets.setShouldDisplayExplanation(false);
-    ets.setIsExplanationTextDisplayed(false);
-    ets.formattedExplanationSubject.next('');
-
-    setTimeout(() => {
-      ets._transitionLock = false;
-    }, 180);
-  }
-
   private async fetchAndEmitQuestion(index: number): Promise<any> {
     const fresh = await firstValueFrom(
-      this.quizService.getQuestionByIndex(index),
+      this.quizService.getQuestionByIndex(index)
     );
     if (!fresh) {
       console.warn(`[NAV] ⚠️ getQuestionByIndex(${index}) returned null`);
@@ -381,10 +289,6 @@ export class QuizNavigationService {
       if (ets._gate) {
         for (const gate of ets._gate.values()) gate?.next?.(false);
       }
-
-      console.log(
-        `[NAV] 🚿 Purged all stale FET for old indices — aligned to Q${index + 1}`,
-      );
     } catch (err) {
       console.warn('[NAV] ⚠️ Failed to purge FET cache', err);
     }
@@ -445,47 +349,6 @@ export class QuizNavigationService {
     return { fresh, explanationRaw };
   }
 
-  private armExplanationText(index: number, data: any): void {
-    const { fresh, explanationRaw } = data;
-    const ets: any = this.explanationTextService;
-
-    if (!explanationRaw) return;
-
-    const correctIdxs = ets.getCorrectOptionIndices(fresh as any);
-    const formatted = ets
-      .formatExplanation(fresh as any, correctIdxs, explanationRaw)
-      .trim();
-
-    setTimeout(() => {
-      const nowAfter = performance.now();
-      const stillQuiet = nowAfter < (ets._quietZoneUntil ?? 0);
-
-      if (!stillQuiet) {
-        ets.openExclusive(index, formatted);
-        ets.setShouldDisplayExplanation(false, { force: false });
-        console.log(`[NAV] 🧩 FET armed post-paint for Q${index + 1}`);
-      } else {
-        console.log('[NAV] ⏸ FET skipped due to quiet zone still active');
-      }
-    }, 120);
-  }
-
-  private async finalizeNavigation(ets: any, qqls: any): Promise<void> {
-    await new Promise<void>((resolve) =>
-      requestAnimationFrame(() => {
-        this.quizStateService.isNavigatingSubject.next(false);
-        resolve();
-      }),
-    );
-
-    const endNow = performance.now();
-    qqls._quietZoneUntil = endNow + 40;
-    ets._quietZoneUntil = endNow + 40;
-
-    ets.markLastNavTime?.(endNow);
-    qqls._lastNavTime = endNow;
-  }
-
   public async resetUIAndNavigate(
     index: number,
     quizIdOverride?: string,
@@ -522,7 +385,7 @@ export class QuizNavigationService {
         }
       } else {
         console.warn(
-          `[resetUIAndNavigate] ⚠️ Proceeding without a cached question for index ${index}.`,
+          `[resetUIAndNavigate] ⚠️ Proceeding without a cached question for index ${index}.`
         );
       }
 
@@ -533,17 +396,17 @@ export class QuizNavigationService {
       }
 
       const navSuccess = await this.ngZone.run(() =>
-        this.router.navigateByUrl(routeUrl),
+        this.router.navigateByUrl(routeUrl)
       );
       if (!navSuccess) {
         console.error(
-          `[resetUIAndNavigate] ❌ Navigation failed for index ${index}`,
+          `[resetUIAndNavigate] ❌ Navigation failed for index ${index}`
         );
         return false;
       }
 
       console.log(
-        `[resetUIAndNavigate] ✅ Navigation and UI reset complete for Q${index + 1}`,
+        `[resetUIAndNavigate] ✅ Navigation and UI reset complete for Q${index + 1}`
       );
       return true;
     } catch (err) {
@@ -593,17 +456,15 @@ export class QuizNavigationService {
           take(1),
           catchError((error: Error) => {
             console.error(
-              '[resetUIAndNavigate] ❌ Failed to prepare quiz session:',
-              error,
+              '[resetUIAndNavigate] ❌ Failed to prepare quiz session:', error
             );
             return of([]);
-          }),
-        ),
+          })
+        )
       );
     } catch (error) {
       console.error(
-        '[resetUIAndNavigate] ❌ Error while ensuring session questions:',
-        error,
+        '[resetUIAndNavigate] ❌ Error while ensuring session questions:', error
       );
     }
   }
@@ -615,28 +476,27 @@ export class QuizNavigationService {
           catchError((error: Error) => {
             console.error(
               `[resetUIAndNavigate] ❌ Failed to resolve question at index ${index}:`,
-              error,
+              error
             );
             return of(null);
-          }),
-        ),
+          })
+        )
       );
     } catch (error) {
       console.error(
         `[resetUIAndNavigate] ❌ Question stream did not emit for index ${index}:`,
-        error,
+        error
       );
       return null;
     }
   }
 
   private resetExplanationAndState(): void {
-    console.log('[NAV DEBUG] resetExplanationAndState called');
     // Immediately reset explanation-related state to avoid stale data
     this.explanationTextService.resetExplanationState();
     this.quizStateService.setDisplayState({
       mode: 'question',
-      answered: false,
+      answered: false
     });
 
     // Clear the old Q&A state before starting navigation
@@ -665,84 +525,6 @@ export class QuizNavigationService {
     this.navigationSuccessSubject.next();
   }
 
-  private notifyNavigatingBackwards(): void {
-    this.navigatingBackSubject.next(true);
-  }
-
-  private notifyResetExplanation(): void {
-    this.explanationResetSubject.next();
-  }
-
-  /**
-   * TODO: Keep for future navigation/analytics/event-bus integration.
-   * Currently unused, but will be required when emitting question-navigation events.
-   */
-  /* emitNavigationToQuestion(question: QuizQuestion, options: Option[]): void {
-    this.navigationToQuestionSubject.next({ question, options });
-  } */
-
-  /**
-   * TODO: Keep for future navigation synchronization.
-   * This will be needed when coordinating async route changes,
-   * dynamic component loading, and explanation/option rendering.
-   * Currently unused, but intentionally preserved.
-   */
-  /* private waitForUrl(url: string): Promise<string> {
-    const target = this.normalizeUrl(url);
-  
-    return new Promise<string>((resolve, reject) => {
-      const timeoutId = setTimeout(() => {
-        subscription.unsubscribe();
-        console.warn(`[waitForUrl] ⏰ Timeout waiting for ${target}`);
-        resolve(target);  // fallback resolve after 1s to prevent hang
-      }, 1000);
-  
-      const subscription = this.router.events.subscribe({
-        next: (event) => {
-          if (event instanceof NavigationEnd) {
-            const finalUrl = this.normalizeUrl(event.urlAfterRedirects || event.url);
-  
-            if (finalUrl.includes(target)) {
-              clearTimeout(timeoutId);
-              subscription.unsubscribe();
-              console.log(`[waitForUrl] ✅ Resolved: ${finalUrl}`);
-              resolve(finalUrl);
-            }
-          }
-  
-          if (event instanceof NavigationCancel || event instanceof NavigationError) {
-            clearTimeout(timeoutId);
-            subscription.unsubscribe();
-            console.warn(`[waitForUrl] ⚠️ Navigation failed/cancelled for ${target}`);
-            reject(new Error(`Navigation to ${target} failed.`));
-          }
-        },
-        error: (err) => {
-          clearTimeout(timeoutId);
-          subscription.unsubscribe();
-          reject(err);
-        }
-      });
-    });
-  } */
-
-  /**
-   * TODO: Remains intentionally unused for now.
-   * Required by future route-sync helpers (e.g., waitForUrl).
-   * Normalizes and safely parses router URLs to prevent
-   * mismatch during async navigation events.
-   */
-  /* private normalizeUrl(url: string): string {
-    if (!url) return '';
-
-    try {
-      const serialized = this.router.serializeUrl(this.router.parseUrl(url));
-      return serialized.startsWith('/') ? serialized : `/${serialized}`;
-    } catch {
-      return url.startsWith('/') ? url : `/${url}`;
-    }
-  } */
-
   private readQuizIdFromRouterSnapshot(): string | null {
     const direct = this.activatedRoute.snapshot.paramMap.get('quizId');
     if (direct) return direct;
@@ -758,56 +540,10 @@ export class QuizNavigationService {
     return null;
   }
 
-  private async resolveTotalQuestions(quizId: string): Promise<number> {
-    const loaderCount = this.quizQuestionLoaderService.totalQuestions;
-    if (Number.isFinite(loaderCount) && loaderCount > 0) return loaderCount;
-
-    const cachedArrayCount =
-      this.quizQuestionLoaderService.questionsArray?.length ?? 0;
-    if (cachedArrayCount > 0) {
-      this.quizQuestionLoaderService.totalQuestions = cachedArrayCount;
-      return cachedArrayCount;
-    }
-
-    try {
-      const cachedCount = await firstValueFrom(
-        this.quizService.totalQuestions$.pipe(take(1)),
-      );
-      if (Number.isFinite(cachedCount) && cachedCount > 0) return cachedCount;
-    } catch {
-      // ignore and fall through to fetch
-    }
-
-    try {
-      const fetchedCount = await firstValueFrom(
-        this.quizService.getTotalQuestionsCount(quizId).pipe(take(1)),
-      );
-      if (Number.isFinite(fetchedCount) && fetchedCount > 0) {
-        this.quizQuestionLoaderService.totalQuestions = fetchedCount;
-        this.quizService.setTotalQuestions(fetchedCount);
-        return fetchedCount;
-      }
-    } catch (error) {
-      console.error('[❌ resolveTotalQuestions] Failed to fetch count', {
-        quizId,
-        error,
-      });
-    }
-
-    return 0;
-  }
-
-  private setQuestionReadyAfterDelay(): void {
-    this.questionReady = false;
-    requestAnimationFrame(() => {
-      this.questionReady = true; // question reveal triggered
-    });
-  }
-
   public resetRenderStateBeforeNavigation(targetIndex: number): void {
     // Shut down all explanation display state immediately
     this.explanationTextService.setShouldDisplayExplanation(false, {
-      force: true,
+      force: true
     });
     this.explanationTextService.setIsExplanationTextDisplayed(false);
     this.explanationTextService.closeAllGates?.();
@@ -820,12 +556,12 @@ export class QuizNavigationService {
     // Reset to question mode so next frame starts clean
     this.quizStateService.displayStateSubject?.next({
       mode: 'question',
-      answered: false,
+      answered: false
     });
     this.quizStateService.setExplanationReady(false);
 
     console.log(
-      `[RESET] Render state cleared before navigating → Q${targetIndex + 1}`,
+      `[RESET] Render state cleared before navigating → Q${targetIndex + 1}`
     );
   }
 
