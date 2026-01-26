@@ -1,7 +1,6 @@
 /* GLOBAL RESET / CUSTOM VARIABLES */
 @use '_variables' as vars;
 @use '_mixins' as mix;
-@use './progressbar.scss';
 
 /* MATERIAL BASELINE IMPORT  */
 @import '@angular/material/prebuilt-themes/indigo-pink.css';
