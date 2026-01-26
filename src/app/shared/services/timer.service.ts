@@ -59,6 +59,7 @@ export class TimerService implements OnDestroy {
   public expired$ = this.expiredSubject.asObservable();
 
   private _authoritativeStop = false;
+  private hasExpiredForRun = false;
 
   constructor(
     private ngZone: NgZone,
@@ -194,6 +195,7 @@ export class TimerService implements OnDestroy {
     this.isTimerRunning = true; // mark timer as running
     this.isCountdown = isCountdown;
     this.elapsedTime = 0;
+    this.hasExpiredForRun = false;
 
     // Show initial value immediately (inside Angular so UI updates right away)
     this.ngZone.run(() => {
@@ -214,11 +216,16 @@ export class TimerService implements OnDestroy {
           this.elapsedTimeSubject.next(this.elapsedTime);
         });
 
-        // If in countdown mode and reached the duration, stop automatically
-        if (isCountdown && elapsed >= duration) {
-          console.log('[TimerService] Time expired. Stopping timer.');
+        // If reached the duration, emit expiration once (stop only for countdown)
+        if (elapsed >= duration && !this.hasExpiredForRun) {
+          this.hasExpiredForRun = true;
+          console.log(
+            `[TimerService] Time expired${isCountdown ? '. Stopping timer.' : '.'}`,
+          );
           this.ngZone.run(() => this.expiredSubject.next());
-          this.stopTimer(undefined, { force: true });
+          if (isCountdown) {
+            this.stopTimer(undefined, { force: true });
+          }
         }
       }),
       takeUntil(this.isStop),
@@ -294,6 +301,7 @@ export class TimerService implements OnDestroy {
     this.elapsedTime = 0;
     this.isTimerRunning = false;
     this.isTimerStoppedForCurrentQuestion = false; // allow restart for the new question
+    this.hasExpiredForRun = false;
 
     this.isReset.next(); // signal to reset
     this.elapsedTimeSubject.next(0); // reset elapsed time for observers
