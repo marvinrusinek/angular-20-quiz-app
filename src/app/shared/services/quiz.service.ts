@@ -2,23 +2,11 @@ import { Injectable } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import {
-  BehaviorSubject,
-  firstValueFrom,
-  from,
-  Observable,
-  of,
-  Subject,
+  BehaviorSubject, firstValueFrom, from, Observable, of, Subject 
 } from 'rxjs';
 import {
-  auditTime,
-  catchError,
-  distinctUntilChanged,
-  filter,
-  map,
-  shareReplay,
-  switchMap,
-  take,
-  tap,
+  auditTime, catchError, distinctUntilChanged, filter, map, shareReplay,
+  take, tap
 } from 'rxjs/operators';
 import _, { isEqual } from 'lodash';
 
@@ -46,25 +34,21 @@ export class QuizService {
   quizData: Quiz[] | null = this.quizInitialState;
   private _quizData$ = new BehaviorSubject<Quiz[]>([]);
   data: {
-    questionText: string;
-    correctAnswersText?: string;
-    currentOptions: Option[];
+    questionText: string,
+    correctAnswersText?: string,
+    currentOptions: Option[]
   } = {
       questionText: '',
       correctAnswersText: '',
-      currentOptions: [],
+      currentOptions: []
     };
   quizId = (() => {
-    try {
-      return localStorage.getItem('quizId') || '';
-    } catch {
-      return '';
-    }
+    try { return localStorage.getItem('quizId') ?? ''; }
+    catch { return ''; }
   })();
   quizResources: QuizResource[] = [];
   question: QuizQuestion | null = null;
   private _questions: QuizQuestion[] = [];
-  // questions: QuizQuestion[] = [];
   questionsList: QuizQuestion[] = [];
   isNavigating = false;
 
@@ -73,10 +57,7 @@ export class QuizService {
   private questionsSubject = new BehaviorSubject<QuizQuestion[]>([]);
   questions$ = this.questionsSubject.asObservable();
 
-  // Inside the class definition (near other fields)
   private questionToDisplaySource = new BehaviorSubject<string>('');
-
-  // PUBLIC observable that other components can subscribe to
   public readonly questionToDisplay$: Observable<string> =
     this.questionToDisplaySource.asObservable();
 
@@ -104,15 +85,11 @@ export class QuizService {
   status = '';
 
   correctAnswers: Map<string, number[]> = new Map<string, number[]>();
-  /* private correctAnswersForEachQuestion: {
-    questionId: string;
-    answers: number[];
-  }[] = []; */ // potentially use later
   correctAnswerOptions: Option[] = [];
   numberOfCorrectAnswers = 0;
 
   public correctAnswersCountSubject = new BehaviorSubject<number>(
-    Number(localStorage.getItem('correctAnswersCount')) || 0,
+    Number(localStorage.getItem('correctAnswersCount')) || 0
   );
 
   private correctAnswersCountTextSource = new BehaviorSubject<string>(
@@ -130,11 +107,11 @@ export class QuizService {
       auditTime(0),
       // Drop accidental rapid double-emits
       distinctUntilChanged(),
-      shareReplay({ bufferSize: 1, refCount: true }),
+      shareReplay({ bufferSize: 1, refCount: true })
     );
 
   // Guards to prevent banner flicker during nav
-  private _lastBanner = ''; // last text we emitted
+  private _lastBanner = '';  // last text we emitted
   private _pendingBannerTimer: any = null;
 
   currentQuestionIndexSubject = new BehaviorSubject<number>(0);
@@ -160,15 +137,10 @@ export class QuizService {
   shouldDisplayExplanation = false;
 
   private readonly shuffleEnabledSubject = new BehaviorSubject<boolean>(
-    (() => {
-      try {
-        return localStorage.getItem('checkedShuffle') === 'true';
-      } catch {
-        return false;
-      }
-    })()
+    localStorage.getItem('checkedShuffle') === 'true'
   );
   checkedShuffle$ = this.shuffleEnabledSubject.asObservable();
+
   public shuffledQuestions: QuizQuestion[] = (() => {
     try {
       const stored = localStorage.getItem('shuffledQuestions');
@@ -177,6 +149,7 @@ export class QuizService {
       return [];
     }
   })();
+
   private canonicalQuestionsByQuiz = new Map<string, QuizQuestion[]>();
   private canonicalQuestionIndexByText = new Map<string, Map<string, number>>();
 
@@ -185,12 +158,8 @@ export class QuizService {
   selectedOption$ = new BehaviorSubject<string | null>(null);
 
   userAnswers: any[] = (() => {
-    try {
-      const stored = localStorage.getItem('userAnswers');
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
+    try { return JSON.parse(localStorage.getItem('userAnswers') ?? '[]'); }
+    catch { return []; }
   })();
   previousAnswers: string[] = [];
 
@@ -246,6 +215,8 @@ export class QuizService {
   // Emitted with the target question index just before navigation hydrates it
   readonly preReset$ = this._preReset$.asObservable();
 
+  private fetchPromise: Promise<QuizQuestion[]> | null = null;
+
   destroy$ = new Subject<void>();
 
   constructor(
@@ -255,22 +226,20 @@ export class QuizService {
     private http: HttpClient
   ) {
     this.http = http;
-    this.loadQuestionCorrectness(); // Load persisted correctness state
+    this.loadQuestionCorrectness();  // load persisted correctness state
     this.initializeData();
 
-    // ⚡ FIX: Reset State Sync
-    // When quizReset$ emits (e.g. on Shuffle Toggle), we must clear the internal state cache
-    // in QuizStateService. Otherwise, "isAnswered" state for Index 0 persists across shuffles.
+    // Reset State Sync
+    // When quizReset$ emits (e.g. on Shuffle Toggle), clear the internal state cache
+    // in QuizStateService. Otherwise, "isAnswered" state for index 0 persists across shuffles.
     this.quizReset$.subscribe(() => {
       console.log('[QuizService] 🧹 Triggering QuizStateService RESET via quizReset$');
       this.quizStateService.reset();
     });
   }
 
-
-
   get questions() {
-    // ⚡ FIX: Sync Safeguard
+    // Sync Safeguard
     // Direct access to .questions should ALSO return shuffled data if active.
     // This fixes components (like CodelabQuizContentComponent) that read array indices directly.
     if (this.isShuffleEnabled() && this.shuffledQuestions.length > 0) {
@@ -284,7 +253,7 @@ export class QuizService {
       console.trace();
     }
 
-    // ⚡ FIX: Prevent shuffled data from overwriting canonical _questions
+    // Prevent shuffled data from overwriting canonical _questions
     // Check if the incoming data IS the shuffled array to prevent pollution
     const isIncomingShuffledData =
       this.shuffledQuestions.length > 0 &&
@@ -302,7 +271,7 @@ export class QuizService {
 
     this._questions = value;
 
-    // ⚡ FIX: Sync Safeguard
+    // Sync Safeguard
     // If shuffle is active and we have shuffled questions, DO NOT overwrite with incoming (likely unshuffled) data.
     // Instead, re-emit the shuffled questions to keep everyone in sync.
     // Use isShuffleEnabled() instead of checkedShuffle property
@@ -337,7 +306,7 @@ export class QuizService {
         );
         if (!selectedQuiz) {
           console.warn(
-            `No quiz found with ID: ${this.quizId}. Falling back to the first quiz.`,
+            `No quiz found with ID: ${this.quizId}. Falling back to the first quiz.`
           );
         }
       }
@@ -350,11 +319,12 @@ export class QuizService {
         Array.isArray(selectedQuiz.questions) &&
         selectedQuiz.questions.length > 0
       ) {
-        this.questions = [...selectedQuiz.questions]; // create a new array to avoid reference issues
+        // Create a new array to avoid reference issues
+        this.questions = [...selectedQuiz.questions];
       } else {
         console.error(
           `Selected quiz (ID: ${this.quizId}) does not have a valid questions array:`,
-          selectedQuiz.questions,
+          selectedQuiz.questions
         );
         this.questions = [];
       }
@@ -368,9 +338,7 @@ export class QuizService {
     this.currentQuestion$ = this.currentQuestionSource.asObservable();
 
     if (!this.questions || this.questions.length === 0) {
-      console.warn(
-        'Questions array is empty or undefined after initialization',
-      );
+      console.warn('Questions array is empty or undefined after initialization');
     } else {
       console.log('Final questions state:', this.questions);
     }
@@ -383,23 +351,10 @@ export class QuizService {
       const firstQuestion = this.questions[0];
       if (!this.isValidQuestionStructure(firstQuestion)) {
         console.error(
-          'First question does not have a valid structure:',
-          firstQuestion,
+          'First question does not have a valid structure:', firstQuestion
         );
       }
     }
-  }
-
-  // Helper method to check question structure
-  private isValidQuestionStructure(question: any): boolean {
-    return (
-      question &&
-      typeof question === 'object' &&
-      typeof question.questionText === 'string' &&
-      Array.isArray(question.options) &&
-      question.options.length > 0 &&
-      question.options.every((opt: any) => opt && typeof opt.text === 'string')
-    );
   }
 
   public setActiveQuiz(quiz: Quiz): void {
@@ -475,31 +430,9 @@ export class QuizService {
     this.status = value;
   }
 
-  /* setStartedQuizId(value: string) {
-    // TODO: Integrate with QuizSelectionComponent "Start" workflow
-    // TODO: Persist to local/session storage if resume logic is added
-    this.startedQuizId = value;
-  }
-
-  setContinueQuizId(value: string) {
-    // TODO: Hook into resume-quiz UI state in QuizSelectionComponent
-    this.continueQuizId = value;
-  }
-
-  setQuizCompleted(completed: boolean) {
-    // TODO: Drive results/resume logic in selection screen
-    // TODO: Consider persistence if quizzes become resumable across sessions
-    this.quizCompleted = completed;
-  } */
-
   setCompletedQuizId(value: string) {
     this.completedQuizId = value;
   }
-
-  // TODO: Keep only if future features need to replace the full question set
-  /* setQuestions(questions: QuizQuestion[]): void {
-    this.questionsSubject.next(questions);
-  } */
 
   setOptions(options: Option[]): void {
     if (!Array.isArray(options) || options.length === 0) {
@@ -507,7 +440,7 @@ export class QuizService {
       return;
     }
 
-    this.optionsSubject.next(options); // emit to options$
+    this.optionsSubject.next(options);  // emit to options$
   }
 
   // Return a sanitized array of options for the given question index.
@@ -532,7 +465,7 @@ export class QuizService {
       catchError((err) => {
         console.error(`[getOptions ❌] Failed for index ${index}`, err);
         return of([]);
-      }),
+      })
     );
   }
 
@@ -572,7 +505,7 @@ export class QuizService {
         showFeedback:
           typeof opt?.showFeedback === 'boolean' ? opt.showFeedback : false,
         feedback: (opt?.feedback ?? 'No feedback available').trim(),
-        styleClass: opt?.styleClass ?? '',
+        styleClass: opt?.styleClass ?? ''
       };
 
       if (typeof opt?.displayOrder === 'number') {
@@ -607,12 +540,14 @@ export class QuizService {
     const resolvedQuestion = this.resolveCanonicalQuestion(index, null);
 
     if (resolvedQuestion) {
-      // ⚡ FIX: Strict Shuffle Mismatch Guard
-      // If shuffle is active, verify that the resolved question matches the shuffledQuestions at this index
+      // Strict Shuffle Mismatch Guard - if shuffle is active, verify that the 
+      // resolved question matches the shuffledQuestions at this index
       if (this.isShuffleEnabled() && this.shuffledQuestions && this.shuffledQuestions.length > index) {
         const strictShuffled = this.shuffledQuestions[index];
         if (strictShuffled && strictShuffled.questionText !== resolvedQuestion.questionText) {
-          console.warn(`[getQuestionByIndex] ⚠️ MISMATCH DETECTED for Q${index + 1}! Resolved="${resolvedQuestion.questionText.substring(0, 15)}...", Shuffled="${strictShuffled.questionText.substring(0, 15)}..."`);
+          console.warn(`[getQuestionByIndex] ⚠️ MISMATCH DETECTED for Q${index + 1}! 
+            Resolved="${resolvedQuestion.questionText.substring(0, 15)}...", 
+            Shuffled="${strictShuffled.questionText.substring(0, 15)}..."`);
           console.log(`[getQuestionByIndex] 🛡️ Overriding with STRICT shuffled question.`);
           return of({
             ...strictShuffled,
@@ -621,14 +556,11 @@ export class QuizService {
         }
       }
 
-      // 🔍 DIAGNOSTIC: What is being returned?
-      console.log(`[getQuestionByIndex] 🛡️ Q${index + 1}: "${resolvedQuestion.questionText?.substring(0, 30)}..." | Opt[0]="${resolvedQuestion.options?.[0]?.text?.substring(0, 20)}..."`);
       return of({
         ...resolvedQuestion,
-        options: (resolvedQuestion.options ?? []).map((o) => ({ ...o })),
+        options: (resolvedQuestion.options ?? []).map((o) => ({ ...o }))
       });
     }
-
 
     // Fallback to legacy behavior if resolution fails (should rarely happen)
     return this.questions$.pipe(
@@ -639,7 +571,7 @@ export class QuizService {
         const q = questions[index];
         return {
           ...q,
-          options: (q.options ?? []).map((o) => ({ ...o })),
+          options: (q.options ?? []).map((o) => ({ ...o }))
         };
       })
     );
@@ -650,11 +582,9 @@ export class QuizService {
   ): Observable<QuestionPayload | null> {
     return this.questionPayload$.pipe(
       map(() => this.questionPayloadMap.get(index) ?? null),
-      distinctUntilChanged(),
+      distinctUntilChanged()
     );
   }
-
-  private fetchPromise: Promise<QuizQuestion[]> | null = null;
 
   async fetchQuizQuestions(quizId: string): Promise<QuizQuestion[]> {
     console.log(`[QuizService] fetchQuizQuestions(${quizId}). hasShuffle=${this.shuffledQuestions?.length}, quizId=${this.quizId}, shouldShuffle=${this.shouldShuffle()}`);
@@ -2939,5 +2869,17 @@ export class QuizService {
   resetQuestionPayload(): void {
     this.questionPayloadSubject.next(null);
     this.questionPayloadMap.clear();
+  }
+
+  // Helper method to check question structure
+  private isValidQuestionStructure(question: any): boolean {
+    return (
+      question &&
+      typeof question === 'object' &&
+      typeof question.questionText === 'string' &&
+      Array.isArray(question.options) &&
+      question.options.length > 0 &&
+      question.options.every((opt: any) => opt && typeof opt.text === 'string')
+    );
   }
 }
