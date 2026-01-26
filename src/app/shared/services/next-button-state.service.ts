@@ -1,11 +1,5 @@
 import { Injectable, NgZone, OnDestroy } from '@angular/core';
-import {
-  BehaviorSubject,
-  combineLatest,
-  Observable,
-  of,
-  Subscription,
-} from 'rxjs';
+import { BehaviorSubject, combineLatest, Observable, of, Subscription } from 'rxjs';
 import { distinctUntilChanged } from 'rxjs/operators';
 
 @Injectable({ providedIn: 'root' })
@@ -16,7 +10,7 @@ export class NextButtonStateService implements OnDestroy {
   public nextButtonStyle: { [key: string]: string } = {
     opacity: '0.5',
     cursor: 'not-allowed',
-    'pointer-events': 'auto', // always allow click events
+    'pointer-events': 'auto'  // always allow click events
   };
 
   private nextButtonStateSubscription?: Subscription;
@@ -33,7 +27,7 @@ export class NextButtonStateService implements OnDestroy {
     isAnswered$: Observable<boolean>,
     isLoading$: Observable<boolean>,
     isNavigating$: Observable<boolean>,
-    interactionReady$?: Observable<boolean>,
+    interactionReady$?: Observable<boolean>
   ): void {
     if (this.initialized) {
       console.warn('[🛑 initializeNextButtonStateStream] Already initialized');
@@ -47,12 +41,12 @@ export class NextButtonStateService implements OnDestroy {
       isAnswered$,
       isLoading$,
       isNavigating$,
-      ready$,
+      ready$
     ])
       .pipe(
         distinctUntilChanged(
           ([a1, b1, c1, d1], [a2, b2, c2, d2]) =>
-            a1 === a2 && b1 === b2 && c1 === c2 && d1 === d2,
+            a1 === a2 && b1 === b2 && c1 === c2 && d1 === d2
         ),
       )
       .subscribe(([isAnswered, isLoading, isNavigating, ready]) => {
@@ -88,14 +82,14 @@ export class NextButtonStateService implements OnDestroy {
       this.nextButtonStyle = {
         opacity: effective ? '1' : '0.5',
         cursor: effective ? 'pointer' : 'not-allowed',
-        'pointer-events': 'auto',
+        'pointer-events': 'auto'
       };
     });
   }
 
   public setNextButtonState(enabled: boolean): void {
-    this.manualOverride = enabled; // store override
-    this.updateAndSyncNextButtonState(enabled); // reuse consistent logic
+    this.manualOverride = enabled;  // store override
+    this.updateAndSyncNextButtonState(enabled);  // reuse consistent logic
   }
 
   reset(): void {
