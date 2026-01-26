@@ -51,7 +51,7 @@ export class QuizInitializationService {
     onNextButtonEnabled: (enabled: boolean) => void,
     onOptionSelected: (selected: boolean) => void,
     onSelectionMessageChanged: (message: string) => void,
-    destroy$: Subject<void>,
+    destroy$: Subject<void>
   ): void {
     this.subscribeToOptionSelection();
 
@@ -60,7 +60,7 @@ export class QuizInitializationService {
       this.selectedOptionService.isAnswered$,
       this.quizStateService.isLoading$,
       this.quizStateService.isNavigating$,
-      this.quizStateService.interactionReady$,
+      this.quizStateService.interactionReady$
     );
 
     // Next button enabled state
@@ -96,7 +96,7 @@ export class QuizInitializationService {
     this.selectionMessageService.selectionMessage$
       .pipe(
         debounceTime(300),
-        distinctUntilChanged(), // added distinctUntilChanged to prevent redundant updates
+        distinctUntilChanged(),  // prevent redundant updates
         takeUntil(this.destroy$),
       )
       .subscribe((message: string) => {
@@ -109,18 +109,16 @@ export class QuizInitializationService {
   public updateQuizUIForNewQuestion(
     question: QuizQuestion | null = this.currentQuestion,
   ): void {
-    console.trace('[TRACE] updateQuizUIForNewQuestion called');
-
     if (!question) {
       console.error(
-        '🚨 [updateQuizUIForNewQuestion] Invalid question (null or undefined).',
+        '🚨 [updateQuizUIForNewQuestion] Invalid question (null or undefined).'
       );
       return;
     }
 
     if (!this.selectedQuiz || !Array.isArray(this.selectedQuiz.questions)) {
       console.warn(
-        '🚧 selectedQuiz or questions not ready yet – skipping UI update',
+        '🚧 selectedQuiz or questions not ready yet – skipping UI update'
       );
       return;
     }
@@ -132,7 +130,7 @@ export class QuizInitializationService {
     ) {
       console.error(
         '🚨 [updateQuizUIForNewQuestion] Invalid question index:',
-        questionIndex,
+        questionIndex
       );
       return;
     }
