@@ -190,7 +190,7 @@ export class QuizNavigationService {
       }
 
       // Reset timer state before emitting the new index to avoid immediate expiry
-      this.timerService.stopTimer?.(undefined, { force: true });
+      this.timerService.stopTimer(undefined, { force: true });
       this.timerService.resetTimer();
       this.timerService.resetTimerFlagsFor(index);
 
@@ -235,7 +235,6 @@ export class QuizNavigationService {
     const quizId = quizIdFromRoute || fallbackQuizId;
 
     const routeUrl = `/quiz/question/${quizId}/${index + 1}`;
-    console.log(`[NAV DEBUG] performRouterNavigation START. Target: ${routeUrl}`);
     const currentUrl = this.router.url;
     const currentIndex = this.quizService.getCurrentQuestionIndex();
 
@@ -250,8 +249,6 @@ export class QuizNavigationService {
     const navSuccess = await this.ngZone.run(() =>
       this.router.navigateByUrl(routeUrl)
     );
-    console.log(`[NAV DEBUG] router.navigateByUrl result: ${navSuccess}`);
-
     if (!navSuccess) {
       console.warn('[⚠️ Router navigateByUrl returned false]', routeUrl);
       return false;
@@ -348,7 +345,7 @@ export class QuizNavigationService {
 
   public async resetUIAndNavigate(
     index: number,
-    quizIdOverride?: string,
+    quizIdOverride?: string
   ): Promise<boolean> {
     try {
       const effectiveQuizId = this.resolveEffectiveQuizId(quizIdOverride);
@@ -453,7 +450,7 @@ export class QuizNavigationService {
           take(1),
           catchError((error: Error) => {
             console.error(
-              '[resetUIAndNavigate] ❌ Failed to prepare quiz session:', error
+              '[resetUIAndNavigate] Failed to prepare quiz session:', error
             );
             return of([]);
           })
@@ -461,7 +458,7 @@ export class QuizNavigationService {
       );
     } catch (error) {
       console.error(
-        '[resetUIAndNavigate] ❌ Error while ensuring session questions:', error
+        '[resetUIAndNavigate] Error while ensuring session questions:', error
       );
     }
   }
@@ -472,7 +469,7 @@ export class QuizNavigationService {
         this.quizService.getQuestionByIndex(index).pipe(
           catchError((error: Error) => {
             console.error(
-              `[resetUIAndNavigate] ❌ Failed to resolve question at index ${index}:`,
+              `[resetUIAndNavigate] Failed to resolve question at index ${index}:`,
               error
             );
             return of(null);
@@ -481,7 +478,7 @@ export class QuizNavigationService {
       );
     } catch (error) {
       console.error(
-        `[resetUIAndNavigate] ❌ Question stream did not emit for index ${index}:`,
+        `[resetUIAndNavigate] Question stream did not emit for index ${index}:`,
         error
       );
       return null;
@@ -533,7 +530,7 @@ export class QuizNavigationService {
     } catch { }
 
     // Reset to question mode so next frame starts clean
-    this.quizStateService.displayStateSubject?.next({
+    this.quizStateService.displayStateSubject.next({
       mode: 'question',
       answered: false
     });
