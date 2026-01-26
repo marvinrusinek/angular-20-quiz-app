@@ -1,10 +1,6 @@
 import { Injectable } from '@angular/core';
-import {
-  Resolve,
-  ActivatedRouteSnapshot,
-  RouterStateSnapshot,
-  Router,
-  UrlTree,
+import { 
+  Resolve, ActivatedRouteSnapshot, RouterStateSnapshot, Router, UrlTree
 } from '@angular/router';
 import { Observable, of } from 'rxjs';
 import { catchError, map, switchMap } from 'rxjs/operators';
@@ -18,7 +14,7 @@ export class QuizResolverService implements Resolve<Quiz | UrlTree | null> {
   constructor(
     private quizDataService: QuizDataService,
     private quizService: QuizService,
-    private router: Router,
+    private router: Router
   ) { }
 
   resolve(
@@ -27,7 +23,7 @@ export class QuizResolverService implements Resolve<Quiz | UrlTree | null> {
   ): Observable<Quiz | UrlTree | null> {
     const quizId = route.params['quizId'];
 
-    // 🚀 FAST PATH: If we already have the quiz loaded, don't re-fetch.
+    // Fast Path: If we already have the quiz loaded, don't re-fetch.
     // This prevents "cold observable" stutter or "waiting for data" hangs during Q1->Q2 nav.
     const activeQuiz = this.quizService.selectedQuiz;
     if (activeQuiz && activeQuiz.quizId === quizId) {
