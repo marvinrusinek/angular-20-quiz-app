@@ -1,18 +1,10 @@
 import {
-  ChangeDetectionStrategy,
-  ChangeDetectorRef,
-  Component,
-  NgZone,
-  OnDestroy,
-  OnInit,
+  ChangeDetectionStrategy, ChangeDetectorRef, Component, NgZone, OnDestroy, OnInit
 } from '@angular/core';
 import { CommonModule, NgOptimizedImage } from '@angular/common';
 import { ActivatedRoute, Params, Router } from '@angular/router';
 import {
-  FormBuilder,
-  FormGroup,
-  FormsModule,
-  ReactiveFormsModule,
+  FormBuilder, FormGroup, FormsModule, ReactiveFormsModule
 } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -22,12 +14,7 @@ import {
   MatSlideToggleModule,
 } from '@angular/material/slide-toggle';
 import {
-  BehaviorSubject,
-  combineLatest,
-  EMPTY,
-  firstValueFrom,
-  of,
-  Subject,
+  BehaviorSubject, combineLatest, EMPTY, firstValueFrom, of, Subject
 } from 'rxjs';
 import { catchError, filter, switchMap, takeUntil, tap } from 'rxjs/operators';
 
@@ -48,12 +35,12 @@ import { QuizNavigationService } from '../../shared/services/quiz-navigation.ser
     MatCardModule,
     MatIconModule,
     MatSlideToggleModule,
-    ReactiveFormsModule,
     NgOptimizedImage,
+    ReactiveFormsModule
   ],
   templateUrl: './introduction.component.html',
   styleUrls: ['./introduction.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class IntroductionComponent implements OnInit, OnDestroy {
   quiz!: Quiz;
@@ -85,25 +72,24 @@ export class IntroductionComponent implements OnInit, OnDestroy {
     private router: Router,
     private fb: FormBuilder,
     private ngZone: NgZone,
-    private cdRef: ChangeDetectorRef,
+    private cdRef: ChangeDetectorRef
   ) {
     // Initialize the form group with default values
     this.preferencesForm = this.fb.group({
       shouldShuffleOptions: [false],
-      isImmediateFeedback: [false],
+      isImmediateFeedback: [false]
     });
   }
 
   ngOnInit(): void {
     this.quizService.clearStoredCorrectAnswersText();
-
     this.subscribeToRouteParameters();
     this.handleQuizSelectionAndFetchQuestions();
 
     this.selectedQuiz$
       .pipe(
         takeUntil(this.destroy$),
-        filter((quiz) => quiz !== null), // ensure we proceed only if there's a valid quiz
+        filter((quiz) => quiz !== null),  // ensure we proceed only if there's a valid quiz
       )
       .subscribe(() => {
         this.cdRef.markForCheck();
@@ -147,13 +133,13 @@ export class IntroductionComponent implements OnInit, OnDestroy {
     const quizId = params['quizId'];
     if (!quizId) {
       console.error('No quiz ID found in route parameters');
-      return EMPTY; // return EMPTY if no quizId is available
+      return EMPTY;  // return EMPTY if no quizId is available
     }
 
     return this.quizDataService.getQuiz(quizId).pipe(
       catchError((error) => {
         console.error('Error fetching quiz:', error);
-        return EMPTY; // handle the error by returning EMPTY to keep the Observable flow intact
+        return EMPTY;  // handle the error by returning EMPTY to keep the Observable flow intact
       }),
     );
   }
@@ -170,7 +156,7 @@ export class IntroductionComponent implements OnInit, OnDestroy {
       this.quiz = quiz;
       this.introImg = this.imagePath + quiz.image;
       this.questionLabel = this.getPluralizedQuestionLabel(
-        quiz.questions?.length ?? 0,
+        quiz.questions?.length ?? 0
       );
       this.cdRef.markForCheck();
     } else {
@@ -191,7 +177,7 @@ export class IntroductionComponent implements OnInit, OnDestroy {
         tap(([quiz, checked]) => {
           this.shouldShuffleOptions = checked;
           this.fetchAndHandleQuestions(quiz.quizId);
-        }),
+        })
       )
       .subscribe();
   }
@@ -209,7 +195,7 @@ export class IntroductionComponent implements OnInit, OnDestroy {
           console.error('Failed to load questions for quiz:', error);
           return of([]);
         }),
-        takeUntil(this.destroy$),
+        takeUntil(this.destroy$)
       )
       .subscribe((questions: QuizQuestion[]) => {
         this.shuffledQuestions = questions;
@@ -240,16 +226,16 @@ export class IntroductionComponent implements OnInit, OnDestroy {
         return;
       }
 
-      // 🔑 CLEAR CACHE before starting to ensure fresh shuffle with correct flag
+      // Clear cache before starting to ensure fresh shuffle with correct flag
       this.quizDataService.clearQuizQuestionCache(targetQuizId);
-      this.quizShuffleService.clear(targetQuizId); // ⚡ Clear shuffle state to force fresh shuffle
+      this.quizShuffleService.clear(targetQuizId);  // clear shuffle state to force fresh shuffle
 
       this.quizService.resetQuizSessionState();
 
       const activeQuiz = await this.resolveActiveQuiz(targetQuizId);
       if (!activeQuiz) {
         console.error(
-          'Unable to start quiz because quiz data could not be loaded.',
+          'Unable to start quiz because quiz data could not be loaded.'
         );
         return;
       }
@@ -263,7 +249,6 @@ export class IntroductionComponent implements OnInit, OnDestroy {
       const isImmediateFeedback = preferences.isImmediateFeedback;
 
       this.quizDataService.setSelectedQuiz(activeQuiz);
-      // NOTE: setCurrentQuiz is called AFTER prepareQuizSession to ensure shuffled questions
       this.quizService.setSelectedQuiz(activeQuiz);
       this.quizService.setActiveQuiz(activeQuiz);
       this.quizService.setQuizId(targetQuizId);
@@ -276,13 +261,13 @@ export class IntroductionComponent implements OnInit, OnDestroy {
           this.quizDataService.prepareQuizSession(targetQuizId),
         );
 
-        // 🔑 NOW set current quiz with the SHUFFLED questions
+        // Now set current quiz with the SHUFFLED questions
         const quizWithShuffledQuestions = {
           ...activeQuiz,
-          questions: preparedQuestions ?? activeQuiz.questions,
+          questions: preparedQuestions ?? activeQuiz.questions
         };
         this.quizDataService.setCurrentQuiz(quizWithShuffledQuestions);
-        console.log(`[IntroComponent] ✅ Set currentQuiz with ${preparedQuestions?.length ?? 0} shuffled questions`);
+        console.log(`[IntroComponent] Set currentQuiz with ${preparedQuestions?.length ?? 0} shuffled questions`);
       } catch (error) {
         console.error('Failed to prepare quiz session:', error);
         // Fallback: set with original questions if shuffle fails
@@ -294,7 +279,7 @@ export class IntroductionComponent implements OnInit, OnDestroy {
 
       if (!navigationSucceeded) {
         console.error('Navigation to first question was prevented.', {
-          quizId: targetQuizId,
+          quizId: targetQuizId
         });
       }
     } finally {
@@ -304,7 +289,7 @@ export class IntroductionComponent implements OnInit, OnDestroy {
   }
 
   private async navigateToFirstQuestion(
-    targetQuizId: string,
+    targetQuizId: string
   ): Promise<boolean> {
     // Resolve the effective quiz id (override → service → component → localStorage)
     const quizId =
@@ -322,8 +307,8 @@ export class IntroductionComponent implements OnInit, OnDestroy {
         '[navigateToFirstQuestion] Q0 could not be resolved pre-nav (continuing anyway).',
         {
           quizId,
-          index: 0,
-        },
+          index: 0
+        }
       );
     }
 
@@ -331,17 +316,17 @@ export class IntroductionComponent implements OnInit, OnDestroy {
       // Preferred path: let the service reset UI and navigate to Q1 (index 0)
       const viaService = await this.quizNavigationService.resetUIAndNavigate(
         0,
-        quizId,
+        quizId
       );
-      if (viaService) return true; // if the service explicitly succeeded, we’re done
+      if (viaService) return true;  // if the service explicitly succeeded, we’re done
 
       // Service returned false/undefined/non-boolean – fall back to direct navigation
       console.warn(
         '[navigateToFirstQuestion] resetUIAndNavigate did not confirm success; falling back.',
-        { viaService },
+        { viaService }
       );
-    } catch (err) {
-      console.error('[navigateToFirstQuestion] resetUIAndNavigate threw.', err);
+    } catch (error) {
+      console.error('[navigateToFirstQuestion] resetUIAndNavigate threw.', error);
     }
 
     // Fallback to direct router navigation
@@ -354,15 +339,14 @@ export class IntroductionComponent implements OnInit, OnDestroy {
       if (!fallbackSucceeded) {
         console.error(
           '[navigateToFirstQuestion] Fallback navigation returned false.',
-          { quizId },
+          { quizId }
         );
       }
 
       return fallbackSucceeded;
     } catch (fallbackErr) {
       console.error(
-        '[navigateToFirstQuestion] Fallback navigation threw.',
-        fallbackErr,
+        '[navigateToFirstQuestion] Fallback navigation threw.', fallbackErr
       );
       return false;
     }
