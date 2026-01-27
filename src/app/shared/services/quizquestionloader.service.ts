@@ -577,10 +577,6 @@ export class QuizQuestionLoaderService {
     return { q: question, opts };
   }
 
-  /**
-   * TODO: Keep this. Will be used to unify option hydration, cloning,
-   * and deep state resets across the quiz flows. Not yet wired in.
-   */
   // Hydrate flags then deep-clone
   private hydrateAndClone(
     q: QuizQuestion,
@@ -632,7 +628,7 @@ export class QuizQuestionLoaderService {
     const questionForPayload: QuizQuestion = {
       ...question,
       options: optionsForPayload,
-      explanation: explanationForPayload,
+      explanation: explanationForPayload
     };
 
     // Streams for the template
@@ -644,40 +640,39 @@ export class QuizQuestionLoaderService {
       options: optionsForPayload,
       explanation: explanationForPayload,
       question: questionForPayload,
-      selectionMessage: this.selectionMessageService.getCurrentMessage(),
+      selectionMessage: this.selectionMessageService.getCurrentMessage()
     });
 
     // State shared across services/components
     this.setQuestionDetails(
       question.questionText.trim(),
       optionsForPayload,
-      explanationForPayload,
+      explanationForPayload
     );
     this.currentQuestionIndex = index;
     this.shouldRenderQuestionComponent = true;
 
     // Push into QuizService and QuizStateService
     this.quizService.setCurrentQuestion(question);
-    // this.quizService.setCurrentQuestionIndex(index); // ⚡ DISABLE: Let QuizComponent manage index via Router
     this.quizStateService.updateCurrentQuestion(question);
 
     // Broadcast QA for any external listener (progressbar, etc.)
     const selMsg = this.selectionMessageService.determineSelectionMessage(
       index,
       this.totalQuestions,
-      false,
+      false
     );
     this.quizStateService.emitQA(
       questionForPayload,
       selMsg,
       this.quizService.quizId!,
-      index,
+      index
     );
 
     this.quizService.questionPayloadSubject.next({
       question: questionForPayload,
       options: optionsForPayload,
-      explanation: explanationForPayload,
+      explanation: explanationForPayload
     });
   }
 
@@ -687,20 +682,17 @@ export class QuizQuestionLoaderService {
   private async postEmitUpdates(
     q: QuizQuestion,
     opts: Option[],
-    idx: number,
+    idx: number
   ): Promise<void> {
-    // Explanation text and timers
-    //const isAnswered = this.selectedOptionService.isQuestionAnswered(idx);
-
     const optionIdSet = new Set(
       opts
         .map((opt) => opt.optionId)
-        .filter((id): id is number => typeof id === 'number'),
+        .filter((id): id is number => typeof id === 'number')
     );
     const selectedOptions =
       this.selectedOptionService.getSelectedOptionsForQuestion(idx);
     const validSelections = (selectedOptions ?? []).filter((opt) =>
-      optionIdSet.has(opt.optionId ?? -1),
+      optionIdSet.has(opt.optionId ?? -1)
     );
     const quizIdForState = this.quizService.quizId ?? this.activeQuizId ?? 'default-quiz';
     const questionState = this.quizStateService.getQuestionState(quizIdForState, idx);
@@ -710,7 +702,7 @@ export class QuizQuestionLoaderService {
       this.quizStateService.setQuestionState(quizIdForState, idx, {
         ...questionState,
         isAnswered: false,
-        explanationDisplayed: false,
+        explanationDisplayed: false
       });
       this.selectedOptionService.clearSelectionsForQuestion(idx);
       this.selectedOptionService.setAnswered(false, true);
@@ -737,12 +729,12 @@ export class QuizQuestionLoaderService {
       explanationText = q.explanation?.trim() || 'No explanation available';
       this.explanationTextService.setExplanationTextForQuestionIndex(
         idx,
-        explanationText,
+        explanationText
       );
 
       this.quizStateService.setDisplayState({
         mode: 'explanation',
-        answered: true,
+        answered: true
       });
       this.timerService.isTimerRunning = false;
     } else {
@@ -763,10 +755,10 @@ export class QuizQuestionLoaderService {
       question: {
         ...q,
         options: [...opts],
-        explanation: explanationText,
+        explanation: explanationText
       },
       options: [...opts],
-      explanation: explanationText,
+      explanation: explanationText
     };
     this.questionPayload = payloadForBroadcast;
     this.shouldRenderQuestionComponent = true;
@@ -774,21 +766,20 @@ export class QuizQuestionLoaderService {
     this.quizService.questionPayloadSubject.next(payloadForBroadcast);
 
     this.quizService.setCurrentQuestion({ ...q, options: opts });
-    // this.quizService.setCurrentQuestionIndex(idx); // ⚡ DISABLE: Let QuizComponent manage index
     this.quizStateService.updateCurrentQuestion({ ...q, options: opts });
 
     if (q.questionText && opts.length) {
       const selMsg = this.selectionMessageService.determineSelectionMessage(
         idx,
         this.totalQuestions,
-        false,
+        false
       );
 
       this.quizStateService.emitQA(
-        { ...q, options: opts }, // question object
-        selMsg, // selection message
+        { ...q, options: opts },  // question object
+        selMsg,  // selection message
         this.quizService.quizId!, // quiz id (non-null assertion)
-        idx, // question index
+        idx  // question index
       );
     }
 
@@ -805,114 +796,10 @@ export class QuizQuestionLoaderService {
     this.optionsStream$.next([...opts]);
   }
 
-  /** Load a single QuizQuestion for the active quiz.
-   *  Tries the quiz already cached in QuizService first (synchronous).
-   *  Falls back to the full async path only if the cache is missing.
-   *  Keeps all validation / type-detection logic and emits QA.
-   */
-  /**
-   * TODO: Keep for future integration.
-   * Full question-hydration + explanation-fetch pipeline.
-   * Not currently wired in, but essential for upcoming refactors
-   * (QA stream, dynamic component rendering, explanation sync, etc).
-   */
-  /* private async fetchQuestionDetails(
-    questionIndex: number
-  ): Promise<QuizQuestion> {
-    // ── FAST-PATH  ───────────────────────────────────────────────
-    const cachedQuiz: Quiz | null = this.quizService.activeQuiz;
-    if (cachedQuiz?.questions?.length) {
-      const cachedQ = cachedQuiz.questions[questionIndex];
-      if (cachedQ) {
-        console.log('[FETCH-Q] (cached) hit for index', questionIndex);
-        return cachedQ;
-      }
-    }
-
-    // ── ORIGINAL ASYNC PATH  ────────────────────────────────────
-    try {
-      // Fetch and validate question text
-      const resolvedQuestion = (await firstValueFrom(
-        this.quizService.getQuestionByIndex(questionIndex)
-      )) as QuizQuestion | null;
-
-      const rq = resolvedQuestion as QuizQuestion;
-
-      if (!rq || !rq.questionText?.trim()) {
-        throw new Error(`Invalid question payload for index ${questionIndex}`);
-      }
-
-      const trimmedText = rq.questionText.trim();
-
-      const options = Array.isArray(rq.options)
-        ? rq.options.map((option: Option, idx: number) => ({
-          ...option,
-          optionId: option.optionId ?? idx,
-        }))
-        : [];
-
-      if (!options.length) {
-        throw new Error(`No options found for Q${questionIndex}`);
-      }
-
-      // Fetch explanation (if the service is ready)
-      let explanation = 'No explanation available';
-      if (this.explanationTextService.explanationsInitialized) {
-        const fetched = await firstValueFrom(
-          this.explanationTextService.getFormattedExplanationTextForQuestion(questionIndex)
-        );
-        explanation = fetched?.trim() || explanation;
-      } else {
-        console.warn(`[⚠️ Q${questionIndex}] Explanations not initialized`);
-      }
-
-      if (!explanation && rq.explanation) {
-        explanation = rq.explanation.trim();
-      }
-
-      // Determine question type
-      const correctCount = options.filter((opt: Option) => opt.correct).length;
-      const type =
-        correctCount > 1
-          ? QuestionType.MultipleAnswer
-          : QuestionType.SingleAnswer;
-
-      // Assemble the question object
-      const question: QuizQuestion = {
-        questionText: trimmedText,
-        options,
-        explanation,
-        type
-      };
-
-      const quizId = this.quizService.quizId ?? 'unknown-id';
-      const index = this.quizService.currentQuestionIndexSource.value ?? 0;
-      const selectionMessage = this.selectionMessageService.getCurrentMessage();
-
-      // Emit QA payload for downstream bindings
-      this.qaSubject.next({
-        quizId,
-        index,
-        heading: question.questionText,
-        options: [...question.options],
-        explanation: question.explanation,
-        question,
-        selectionMessage
-      });
-
-      // Sync type with data-service cache
-      this.quizDataService.setQuestionType(question);
-      return question;
-    } catch (error) {
-      console.error(`[❌ fetchQuestionDetails] Error loading Q${questionIndex}:`, error);
-      throw error;  // propagate to loader
-    }
-  } */
-
   public setQuestionDetails(
     questionText: string,
     options: Option[],
-    explanationText: string,
+    explanationText: string
   ): void {
     // Use fallback if question text is empty
     this.questionToDisplay =
@@ -956,7 +843,7 @@ export class QuizQuestionLoaderService {
       }
     } else {
       console.warn(
-        '[resetUI] ⚠️ quizQuestionComponent not initialized or dynamically loaded.',
+        '[resetUI] ⚠️ quizQuestionComponent not initialized or dynamically loaded.'
       );
     }
 
@@ -998,7 +885,7 @@ export class QuizQuestionLoaderService {
       for (const option of this.currentQuestion.options) {
         if (option.selected || option.highlight || !option.active) {
           console.log(
-            `[resetQuestionState] Clearing state for optionId: ${option.optionId}`,
+            `[resetQuestionState] Clearing state for optionId: ${option.optionId}`
           );
         }
 
@@ -1011,13 +898,12 @@ export class QuizQuestionLoaderService {
       }
     } else {
       console.warn(
-        '[resetQuestionState] ⚠️ No current question options found to reset.',
+        '[resetQuestionState] No current question options found to reset.'
       );
     }
 
     // Reset internal selected options tracking
     this.selectedOptionService.stopTimerEmitted = false;
-    // this.selectedOptionService.selectedOptionsMap.clear(); // DO NOT CLEAR HISTORY ON QUESTION LOAD
 
     this.seedSelectionBaseline(index);
   }
@@ -1050,7 +936,7 @@ export class QuizQuestionLoaderService {
     const options = question.options;
     const correctCount = options.reduce(
       (total, option) => (option?.correct ? total + 1 : total),
-      0,
+      0
     );
     const totalCorrect = Math.max(correctCount, 1);
 
@@ -1122,14 +1008,14 @@ export class QuizQuestionLoaderService {
         selected: !!o.selected,
         correct: !!o.correct,
         feedback:
-          o.feedback ?? `You're right! The correct answer is Option ${i + 1}.`,
+          o.feedback ?? `You're right! The correct answer is Option ${i + 1}.`
       }));
 
       // ─── Synthesize the selection message ──────────────────────────
       const msg = this.selectionMessageService.determineSelectionMessage(
         index,
         this.totalQuestions,
-        false,
+        false
       );
 
       // ─── Clone question and attach quizId and index ────────────────
@@ -1137,7 +1023,7 @@ export class QuizQuestionLoaderService {
         JSON.stringify({
           ...q,
           options: finalOpts,
-        }),
+        })
       );
 
       const effectiveQuizId = this.quizService.quizId;
@@ -1166,7 +1052,7 @@ export class QuizQuestionLoaderService {
     // Guard: skip stale resets from previous questions
     if (index != null && index !== activeIndex) {
       console.log(
-        `[SKIP stale resetHeadlineStreams] tried Q${index + 1}, active Q${activeIndex + 1}`,
+        `[SKIP stale resetHeadlineStreams] tried Q${index + 1}, active Q${activeIndex + 1}`
       );
       return;
     }
@@ -1174,12 +1060,12 @@ export class QuizQuestionLoaderService {
     console.log('[RESET HEADLINES] clearing for active index', activeIndex);
 
     // Clear streams only for the current question
-    this.questionToDisplaySubject.next(''); // clears question text
-    this.explanationTextService.explanationText$.next(''); // clears explanation
-    this.clearQA(); // clears question and options
+    this.questionToDisplaySubject.next('');  // clears question text
+    this.explanationTextService.explanationText$.next('');  // clears explanation
+    this.clearQA();  // clears question and options
     this.quizStateService.setDisplayState({
-      mode: 'question', // force "question" mode
-      answered: false,
+      mode: 'question',  // force "question" mode
+      answered: false
     });
   }
 
@@ -1191,13 +1077,13 @@ export class QuizQuestionLoaderService {
       question: null as unknown as QuizQuestion,
       options: [],
       explanation: '',
-      selectionMessage: '',
+      selectionMessage: ''
     });
   }
 
   public emitQuestionTextSafely(text: string, index: number): void {
     if (this.isNavBarrierActive()) {
-      console.log('[Loader] 🚫 Blocked emission: navigation barrier active');
+      console.log('[Loader] Blocked emission: navigation barrier active');
       return;
     }
 
@@ -1207,7 +1093,7 @@ export class QuizQuestionLoaderService {
     if (now < (this._quietZoneUntil ?? 0)) {
       const remain = (this._quietZoneUntil ?? 0) - now;
       console.log(
-        `[Loader] 🚫 Blocked question emission during quiet zone (${remain.toFixed(1)}ms left)`,
+        `[Loader] 🚫 Blocked question emission during quiet zone (${remain.toFixed(1)}ms left)`
       );
       return;
     }
@@ -1221,7 +1107,7 @@ export class QuizQuestionLoaderService {
     const activeIndex = this.quizService.getCurrentQuestionIndex();
     if (index !== activeIndex) {
       console.log(
-        `[SKIP] stale emission for Q${index + 1} (active is Q${activeIndex + 1})`,
+        `[SKIP] stale emission for Q${index + 1} (active is Q${activeIndex + 1})`
       );
       return;
     }
@@ -1240,18 +1126,18 @@ export class QuizQuestionLoaderService {
     // Safe to emit
     this._lastQuestionText = trimmed;
     this.questionToDisplaySubject.next(trimmed);
-    console.log(`[Loader] ✅ Emitted question text safely for Q${index + 1}`);
+    console.log(`[Loader] Emitted question text safely for Q${index + 1}`);
   }
 
   public clearQuestionTextBeforeNavigation(): void {
     try {
-      this._frozen = true; // extra safeguard
-      this.questionToDisplaySubject.next(''); // emit empty to flush template
+      this._frozen = true;  // extra safeguard
+      this.questionToDisplaySubject.next('');  // emit empty to flush template
       this._lastQuestionText = '';
       this._lastRenderedIndex = -1;
       console.log('[Loader] Cleared question text before navigation');
-    } catch (e) {
-      console.warn('[Loader] clearQuestionTextBeforeNavigation error', e);
+    } catch (error) {
+      console.warn('[Loader] clearQuestionTextBeforeNavigation error', error);
     }
   }
 
@@ -1272,7 +1158,6 @@ export class QuizQuestionLoaderService {
 
     // Hide content DOM-side without touching Angular templates
     const el = document.querySelector('h3[i18n]');
-    // if (el) (el as HTMLElement).style.visibility = 'hidden';
     if (el) (el as HTMLElement).style.opacity = '0';
 
     clearTimeout(this._freezeTimer);
@@ -1280,7 +1165,7 @@ export class QuizQuestionLoaderService {
       () => {
         this.unfreezeQuestionStream();
       },
-      durationMs + EXTENSION_MS + 8,
+      durationMs + EXTENSION_MS + 8
     );
   }
 
@@ -1293,26 +1178,25 @@ export class QuizQuestionLoaderService {
     // If still within freeze window, schedule a delayed unfreeze
     if (now < this._renderFreezeUntil) {
       const delay = this._renderFreezeUntil - now;
-      console.log(`[Loader] 🕒 Delaying unfreeze ${delay.toFixed(1)} ms`);
+      console.log(`[Loader] Delaying unfreeze ${delay.toFixed(1)} ms`);
 
       // keep question text hidden visually during this delay
       this._isVisualFrozen = true;
       const el = document.querySelector('h3[i18n]');
-      // if (el) (el as HTMLElement).style.visibility = 'hidden';
       if (el) (el as HTMLElement).style.opacity = '0';
 
       clearTimeout(this._freezeTimer);
       this._freezeTimer = setTimeout(() => {
         this._isVisualFrozen = false;
         this._frozen = false;
-        this._quietUntil = performance.now() + QUIET_WINDOW_MS; // add quiet zone
+        this._quietUntil = performance.now() + QUIET_WINDOW_MS;  // add quiet zone
 
         // Restore visibility one frame after Angular repaint
         requestAnimationFrame(() => {
           const el2 = document.querySelector('h3[i18n]');
           if (el2) (el2 as HTMLElement).style.visibility = 'visible';
           console.log(
-            `[Loader] 🔓 Stream unfrozen (delayed) + quiet ${QUIET_WINDOW_MS} ms`,
+            `[Loader] Stream unfrozen (delayed) + quiet ${QUIET_WINDOW_MS} ms`
           );
         });
       }, delay + 12);
@@ -1328,10 +1212,9 @@ export class QuizQuestionLoaderService {
     // Show the element again right after frame stabilization
     requestAnimationFrame(() => {
       const el = document.querySelector('h3[i18n]');
-      // if (el) (el as HTMLElement).style.visibility = 'visible';
       if (el) (el as HTMLElement).style.opacity = '1';
       console.log(
-        `[Loader] 🔓 Stream unfrozen (immediate) + quiet ${QUIET_WINDOW_MS} ms`,
+        `[Loader] Stream unfrozen (immediate) + quiet ${QUIET_WINDOW_MS} ms`
       );
     });
   }
