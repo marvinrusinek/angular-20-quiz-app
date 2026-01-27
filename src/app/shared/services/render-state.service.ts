@@ -11,8 +11,8 @@ export class RenderStateService {
   public optionsToDisplay$ = new BehaviorSubject<Option[]>([]);
 
   private combinedQuestionDataSubject = new BehaviorSubject<{
-    question: QuizQuestion;
-    options: Option[];
+    question: QuizQuestion,
+    options: Option[]
   } | null>(null);
 
   private renderGateSubject = new BehaviorSubject<boolean>(false);
@@ -23,7 +23,7 @@ export class RenderStateService {
     combineLatest([
       this.quizService.currentQuestionIndex$,
       this.quizService.questionData$,
-      this.optionsToDisplay$,
+      this.optionsToDisplay$
     ])
       .pipe(
         filter(
@@ -31,20 +31,20 @@ export class RenderStateService {
             !!question &&
             Array.isArray(options) &&
             options.length > 0 &&
-            question.questionIndex === index,
+            question.questionIndex === index
         ),
-        take(1), // only care about first render (Q1)
+        take(1),  // only care about first render (Q1)
         tap(([index, question, options]) => {
-          console.log('[✅ RenderGate Triggered]', {
+          console.log('[RenderGate Triggered]', {
             index,
             question,
-            options,
+            options
           });
           this.combinedQuestionDataSubject.next({ question, options });
-          this.renderGateSubject.next(true); // tells the template it's safe to render
+          this.renderGateSubject.next(true);  // tells the template it's safe to render
         }),
-        catchError((err) => {
-          console.error('[❌ RenderGateSync Error]', err);
+        catchError((error) => {
+          console.error('[RenderGateSync Error]', error);
           return of(null);
         }),
       )
