@@ -2040,8 +2040,11 @@ export class QuizQuestionComponent extends BaseQuestion
       this.selectedOptionService.setAnswered(false);
       this.nextButtonStateService.reset();
     } else {
-      this.selectedOptionService.setAnswered(true, true);
-      this.nextButtonStateService.setNextButtonState(true);
+      // Restore display ONLY. Do NOT treat as answered.
+      const restoredAnswered = !!explanationSnapshot?.questionState?.isAnswered;
+    
+      this.selectedOptionService.setAnswered(restoredAnswered, true);
+      this.nextButtonStateService.setNextButtonState(restoredAnswered);
     }
 
     try {
@@ -2182,6 +2185,9 @@ export class QuizQuestionComponent extends BaseQuestion
         disabled: false,
         feedback: opt.feedback ?? `Default feedback for Q${this.currentQuestionIndex} Opt${i}`
       }));
+
+      // Reset per-binding disabled flags ONLY if bindings exist here and really have .disabled
+      this.optionBindings?.forEach(b => b.disabled = false);
 
       // Push early payload to services (all fresh data)
       this.quizService.questionPayloadSubject.next({
