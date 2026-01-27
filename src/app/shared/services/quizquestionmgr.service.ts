@@ -44,7 +44,7 @@ export class QuizQuestionManagerService {
     const validOptions = options ?? [];
     return validOptions.reduce(
       (count, option) => count + (option.correct ? 1 : 0),
-      0,
+      0
     );
   }
 
@@ -61,8 +61,7 @@ export class QuizQuestionManagerService {
       }
     } catch (error) {
       console.error(
-        'Error determining if it is a multiple-answer question:',
-        error,
+        'Error determining if it is a multiple-answer question:', error
       );
       return of(false);
     }
