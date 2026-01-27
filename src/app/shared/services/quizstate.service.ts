@@ -1,13 +1,8 @@
 import { Injectable } from '@angular/core';
 import {
-  BehaviorSubject,
-  combineLatest,
-  EMPTY,
-  Observable,
-  ReplaySubject,
-  Subject,
+  BehaviorSubject, EMPTY, Observable, ReplaySubject, Subject
 } from 'rxjs';
-import { catchError, distinctUntilChanged, filter, map } from 'rxjs/operators';
+import { catchError, distinctUntilChanged, filter } from 'rxjs/operators';
 
 import { Option } from '../models/Option.model';
 import { QAPayload } from '../models/QAPayload.model';
@@ -54,26 +49,24 @@ export class QuizStateService {
   answeredSubject = new BehaviorSubject<boolean>(false);
   isAnswered$: Observable<boolean> = this.answeredSubject.asObservable();
 
-  // Tracks when the explanation text (FET) is fully formatted & ready
+  // Tracks when the explanation text (FET) is fully formatted and ready
   private explanationReadySubject =
     new BehaviorSubject<boolean>(false);
   public explanationReady$ = this.explanationReadySubject.asObservable();
 
   public displayStateSubject = new BehaviorSubject<{
-    mode: 'question' | 'explanation';
-    answered: boolean;
+    mode: 'question' | 'explanation',
+    answered: boolean
   }>({
     mode: 'question',
     answered: false
   });
-  public displayState$ =
-    this.displayStateSubject.asObservable();
+  public displayState$ = this.displayStateSubject.asObservable();
 
   qaSubject = new ReplaySubject<QAPayload>(1);
   qa$ = this.qaSubject.asObservable();
 
-  private interactionReadySubject =
-    new BehaviorSubject<boolean>(true);
+  private interactionReadySubject = new BehaviorSubject<boolean>(true);
   public interactionReady$ = this.interactionReadySubject.asObservable();
 
   // Tracks whether the quiz state has completed at least one full restoration
@@ -92,7 +85,7 @@ export class QuizStateService {
   }, options?: { force?: boolean }): void {
     // If visibility restore lock is active, block state changes unless forced
     if (this._visibilityRestoreLock && !options?.force) {
-      console.log('[QSS] 🔒 setDisplayState blocked by visibility restore lock:', state);
+      console.log('[QSS] setDisplayState blocked by visibility restore lock:', state);
       return;
     }
     this.displayStateSubject.next(state);
@@ -101,7 +94,7 @@ export class QuizStateService {
   // Lock display state changes (used during tab visibility restoration)
   lockDisplayStateForVisibilityRestore(durationMs: number = 500): void {
     this._visibilityRestoreLock = true;
-    console.log('[QSS] 🔐 Visibility restore lock ENABLED');
+    console.log('[QSS] Visibility restore lock ENABLED');
 
     // Clear any existing timeout
     if (this._visibilityRestoreLockTimeout) {
@@ -112,7 +105,7 @@ export class QuizStateService {
     this._visibilityRestoreLockTimeout = setTimeout(() => {
       this._visibilityRestoreLock = false;
       this._visibilityRestoreLockTimeout = null;
-      console.log('[QSS] 🔓 Visibility restore lock RELEASED');
+      console.log('[QSS] Visibility restore lock RELEASED');
     }, durationMs);
   }
 
@@ -122,7 +115,7 @@ export class QuizStateService {
       this._visibilityRestoreLockTimeout = null;
     }
     this._visibilityRestoreLock = false;
-    console.log('[QSS] 🔓 Visibility restore lock manually RELEASED');
+    console.log('[QSS] Visibility restore lock manually RELEASED');
   }
 
   getStoredState(quizId: string): Map<number, QuestionState> | null {
@@ -147,7 +140,7 @@ export class QuizStateService {
                   return [parsedKey, value as QuestionState];
                 } else {
                   throw new Error(
-                    `Invalid question state format for questionId ${key}`,
+                    `Invalid question state format for questionId ${key}`
                   );
                 }
               },
@@ -171,7 +164,7 @@ export class QuizStateService {
   setQuestionState(
     quizId: string,
     questionId: number,
-    state: QuestionState,
+    state: QuestionState
   ): void {
     // Check if the quizId already exists in the quizStates map, if not, create a new Map for it
     if (!this.quizStates[quizId]) {
@@ -195,7 +188,7 @@ export class QuizStateService {
     let state =
       this.quizStates[quizId].get(questionId) ??
       this.createDefaultQuestionState();
-    this.quizStates[quizId].set(questionId, state); // store the default state in the quiz's state map
+    this.quizStates[quizId].set(questionId, state);  // store the default state in the quiz's state map
 
     return state;
   }
@@ -204,13 +197,13 @@ export class QuizStateService {
     quizId: string,
     questionIndex: number,
     stateUpdates: Partial<QuestionState>,
-    totalCorrectAnswers: number,
+    totalCorrectAnswers: number
   ): void {
     // Retrieve the current state for the question or initialize if not present
     let currentState = this.getQuestionState(quizId, questionIndex) || {
       isAnswered: false,
       selectedOptions: [],
-      numberOfCorrectAnswers: 0, // ensure this property is properly initialized
+      numberOfCorrectAnswers: 0  // ensure this property is properly initialized
     };
 
     // If updating selected options and the question has correct answers to track
@@ -223,7 +216,7 @@ export class QuizStateService {
       for (const option of stateUpdates.selectedOptions) {
         if (
           !currentState.selectedOptions.some(
-            (selectedOption) => selectedOption.optionId === option.optionId,
+            (selectedOption) => selectedOption.optionId === option.optionId
           )
         ) {
           currentState.selectedOptions.push(option);
@@ -254,7 +247,7 @@ export class QuizStateService {
       questionState = {
         isAnswered: false,
         explanationDisplayed: false,
-        selectedOptions: [],
+        selectedOptions: []
       };
     }
 
@@ -270,7 +263,7 @@ export class QuizStateService {
       isAnswered: false,
       numberOfCorrectAnswers: 0,
       selectedOptions: [],
-      explanationDisplayed: false,
+      explanationDisplayed: false
     };
   }
 
@@ -295,11 +288,11 @@ export class QuizStateService {
     question$
       .pipe(
         filter((q): q is QuizQuestion => q !== null),
-        distinctUntilChanged((a, b) => a === b), // object reference check
+        distinctUntilChanged((a, b) => a === b),  // object reference check
         catchError((err) => {
           console.error('[QuizState] Error in question$ stream:', err);
-          return EMPTY; // safest fallback
-        }),
+          return EMPTY;  // safest fallback
+        })
       )
       .subscribe((question: QuizQuestion) => {
         this.currentQuestion.next(question);
@@ -366,7 +359,7 @@ export class QuizStateService {
     index: number,
   ): void {
     if (!question?.options?.length) {
-      console.warn('[❌ emitQA] Question or options missing', { question });
+      console.warn('[emitQA] Question or options missing', { question });
       return;
     }
 
@@ -379,7 +372,7 @@ export class QuizStateService {
       correct: Boolean(opt.correct),
       selected: Boolean(opt.selected),
       feedback:
-        typeof opt.feedback === 'string' ? opt.feedback.trim() : 'No feedback',
+        typeof opt.feedback === 'string' ? opt.feedback.trim() : 'No feedback'
     }));
 
     // Emit the complete QA object as a single payload
@@ -393,7 +386,7 @@ export class QuizStateService {
       options: normalizedOptions,
       selectionMessage,
       heading: question.questionText ?? 'No question available',
-      explanation: question.explanation ?? 'No explanation available',
+      explanation: question.explanation ?? 'No explanation available'
     });
   }
 
@@ -405,10 +398,10 @@ export class QuizStateService {
     return this.interactionReadySubject.getValue();
   }
 
-  // ⚡ FIX: Emits the timestamp of the last user interaction
+  // Emits the timestamp of the last user interaction
   public lastInteractionTime$ = new BehaviorSubject<number>(0);
 
-  // ⚡ FIX: Emits the index of the question the user just interacted with
+  // Emits the index of the question the user just interacted with
   // Use BehaviorSubject to hold the latest interaction so tardy subscribers don't miss it
   public userHasInteracted$ = new BehaviorSubject<number>(-1);
 
@@ -430,15 +423,15 @@ export class QuizStateService {
     return this._answeredQuestionIndices.has(idx);
   }
 
-  // ⚡ FIX: Reset interaction state (called on Navigation)
+  // Reset interaction state (called on Navigation)
   resetInteraction(): void {
     this.userHasInteracted$.next(-1);
     this.lastInteractionTime$.next(0);
   }
 
-  // ⚡ FIX: Reset all state (called on Shuffle Toggle or Quiz Reset)
+  // Reset all state (called on Shuffle Toggle or Quiz Reset)
   reset(): void {
-    console.log('[QuizStateService] ♻️ Resetting all state.');
+    console.log('[QuizStateService] Resetting all state.');
     this.questionStates.clear();
     this.quizStates = {};
     this._hasUserInteracted.clear();
@@ -446,6 +439,6 @@ export class QuizStateService {
     this.currentQuestionSubject.next(null);
     this.explanationReadySubject.next(false);
     this.answeredSubject.next(false);
-    this.qaSubject.next(null as any); // Clear replay subject
+    this.qaSubject.next(null as any);  // clear replay subject
   }
 }
