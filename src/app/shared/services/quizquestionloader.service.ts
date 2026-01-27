@@ -35,9 +35,9 @@ export class QuizQuestionLoaderService {
   currentQuestionAnswered = false;
 
   questionToDisplay = '';
+
   // Source subject (can be written to from outside)
   public readonly questionToDisplaySubject = new ReplaySubject<string>(1);
-
   // Observable stream for safe external subscription
   public readonly questionToDisplay$ = this.questionToDisplaySubject.asObservable();
 
@@ -127,14 +127,14 @@ export class QuizQuestionLoaderService {
       const quizId = this.quizService.getCurrentQuizId();
       if (!quizId) {
         console.warn(
-          `[QuizQuestionLoaderService] ❌ No quiz ID available. Cannot load question contents.`,
+          `[QuizQuestionLoaderService] No quiz ID available. Cannot load question contents.`
         );
         return;
       }
 
       const hasCachedQuestion = this.quizService.hasCachedQuestion(
         quizId,
-        questionIndex,
+        questionIndex
       );
 
       // Reset visual/UI state before rendering
@@ -178,17 +178,17 @@ export class QuizQuestionLoaderService {
           forkJoin({
             question: question$,
             options: options$,
-            explanation: explanation$,
+            explanation: explanation$
           }).pipe(
             catchError((error) => {
               console.error(
-                `[QuizQuestionLoaderService] ❌ Error in forkJoin for Q${questionIndex}:`,
-                error,
+                `[QuizQuestionLoaderService] Error in forkJoin for Q${questionIndex}:`,
+                error
               );
               return of({
                 question: null,
                 options: [],
-                explanation: '',
+                explanation: ''
               } as FetchedData);
             }),
           ),
@@ -201,7 +201,7 @@ export class QuizQuestionLoaderService {
           data.options.length === 0
         ) {
           console.warn(
-            `[QuizQuestionLoaderService] ⚠️ Missing question or options for Q${questionIndex}. Aborting render.`,
+            `[QuizQuestionLoaderService] Missing question or options for Q${questionIndex}. Aborting render.`
           );
           this.isLoading = false;
           return;
@@ -211,13 +211,13 @@ export class QuizQuestionLoaderService {
         const correctOptions = data.options.filter((opt) => opt.correct);
         const feedbackMessage = this.feedbackService.generateFeedbackForOptions(
           correctOptions,
-          data.options,
+          data.options
         );
 
         // Apply feedback to each option
         const updatedOptions = data.options.map((opt) => ({
           ...opt,
-          feedback: feedbackMessage,
+          feedback: feedbackMessage
         }));
 
         // Apply loaded values to local state
@@ -234,7 +234,7 @@ export class QuizQuestionLoaderService {
       } catch (error) {
         console.error(
           `[QuizQuestionLoaderService] ❌ Error loading question contents for Q${questionIndex}:`,
-          error,
+          error
         );
         this.isLoading = false;
       }
@@ -247,49 +247,6 @@ export class QuizQuestionLoaderService {
 
   // Fetch a question and its options and emit a single payload so the
   // heading and list paint in the same change-detection pass (no flicker).
-  /* async loadQuestionAndOptions(index: number): Promise<boolean> {
-    // quizId & cache handling
-    if (!this.ensureRouteQuizId()) {
-      return false;
-    }
-
-    // Index Validation and Count Fetch
-    const isCountValid = await this.ensureQuestionCount();
-    const isIndexValid = this.validateIndex(index);
-
-    if (!isCountValid || !isIndexValid) {
-      console.warn('[⚠️ Invalid index or quiz length]', { index });
-      return false;
-    }
-
-    // UI reset for a new question
-    await this.resetUiForNewQuestion(index);
-
-    // Fetch question and options for this quiz
-    const { q, opts } = await this.fetchQuestionAndOptions(index);
-    if (!q || !opts.length) {
-      return false;
-    }
-
-    // Clone options and hydrate State
-    const cloned = this.hydrateAndClone(opts);
-    this.currentQuestion = { ...q, options: cloned };
-    this.optionsToDisplay = [...cloned];
-    this.optionBindingsSrc = [...cloned];
-
-    this.currentQuestionIndex = index;
-
-    // Explanation fallback
-    const explanation = q.explanation?.trim() || 'No explanation available';
-
-    // Emit to observers downstream
-    this.emitQaPayload(q, cloned, index, explanation);
-
-    // Explanation / timers / final flags
-    await this.postEmitUpdates(q, cloned, index);
-
-    return true;
-  } */
   async loadQuestionAndOptions(index: number): Promise<boolean> {
     // quizId & cache handling
     if (!this.ensureRouteQuizId()) {
@@ -301,7 +258,7 @@ export class QuizQuestionLoaderService {
     const isIndexValid = this.validateIndex(index);
 
     if (!isCountValid || !isIndexValid) {
-      console.warn('[⚠️ Invalid index or quiz length]', { index });
+      console.warn('[Invalid index or quiz length]', { index });
       return false;
     }
 
@@ -328,10 +285,10 @@ export class QuizQuestionLoaderService {
         opt.active = true;
         i++;
       }
-    } catch (err) {
+    } catch (error) {
       console.warn(
-        '[QQ Loader] ⚠️ Deep clone failed, falling back to structuredClone',
-        err,
+        '[QQ Loader] Deep clone failed, falling back to structuredClone',
+        error
       );
       cloned =
         typeof structuredClone === 'function'
@@ -340,8 +297,6 @@ export class QuizQuestionLoaderService {
     }
 
     // Clear all legacy or leaked state
-    // this.selectedOptionService.clearSelectionsForQuestion?.(index); // DO NOT CLEAR HISTORY ON LOAD
-    // this.selectedOptionService.resetAllStates?.(); // DO NOT CLEAR HISTORY ON LOAD
     (this.explanationTextService as any)._fetLocked = false;
     this.explanationTextService.setShouldDisplayExplanation(false);
     this.explanationTextService.setIsExplanationTextDisplayed(false);
@@ -389,7 +344,7 @@ export class QuizQuestionLoaderService {
       return true;
     }
     const qs = await firstValueFrom(
-      this.quizDataService.getQuestionsForQuiz(this.activeQuizId),
+      this.quizDataService.getQuestionsForQuiz(this.activeQuizId)
     );
     this.totalQuestions = qs.length;
     this.questionsArray = qs;
@@ -462,16 +417,13 @@ export class QuizQuestionLoaderService {
     // Parent-level reset
     this.resetQuestionState(index);
 
-    // 🔑 ALWAYS reset display state when navigating to new question (not conditional)
+    // Always reset display state when navigating to new question (not conditional)
     this.quizStateService.displayStateSubject.next({
       mode: 'question',
-      answered: false,
+      answered: false
     });
-    // this.selectedOptionService.resetAllStates(); // DO NOT WIPE HISTORY (Fixes Gray Dots on Nav)
     this.resetStateService.triggerResetState();
     this.explanationTextService.resetExplanationState();
-
-    console.log(`[QQLoader] 🔄 Reset display state to 'question' mode for Q${index + 1}`);
 
     this.quizService.questionPayloadSubject.next(null);
     this.questionPayloadReadySource.next(false);
@@ -517,7 +469,7 @@ export class QuizQuestionLoaderService {
 
   // Fetch a single question and its options
   private async fetchQuestionAndOptions(
-    index: number,
+    index: number
   ): Promise<{ q: QuizQuestion | null; opts: Option[] }> {
     // Which quiz is in the URL right now?
     const quizId =
@@ -525,45 +477,43 @@ export class QuizQuestionLoaderService {
       this.activeQuizId ??
       this.quizService.quizId;
     if (!quizId) {
-      console.error('[Loader] ❌ No quizId in route');
+      console.error('[Loader] No quizId in route');
       return { q: null, opts: [] };
     }
 
     // Reset cache if user switched quizzes
     if (quizId !== this.lastQuizId) {
-      this.questionsArray = []; // discard stale TypeScript list
+      this.questionsArray = [];  // discard stale TypeScript list
       this.lastQuizId = quizId;
     }
 
     // Ensure questions are loaded in QuizService
-    // 🔒 FIX: Strictly prioritize shuffledQuestions if shuffle is enabled!
+    // Strictly prioritize shuffledQuestions if shuffle is enabled
     if (this.quizService.isShuffleEnabled() && this.quizService.shuffledQuestions?.length > 0) {
       console.log(`[QQLoader] 🛡️ Using SHUFFLED questions source (${this.quizService.shuffledQuestions.length})`);
       this.questionsArray = [...this.quizService.shuffledQuestions];
-      // ⚡ FIX: DO NOT overwrite (poison) QuizService.questions with shuffled data.
-      // this.quizService.questions = this.questionsArray; 
     } else {
       let questions = this.quizService.questions;
 
-      // 🔒 FIX: Don't overwrite existing questions if they are already loaded (and potentially shuffled!)
+      // Don't overwrite existing questions if they are already loaded (and potentially shuffled!)
       // Only fetch raw if we truly have NOTHING.
       if (!Array.isArray(questions) || questions.length === 0) {
 
-        // ⚡ RACE CONDITION FIX: If shuffle is enabled but we don't have shuffled questions YET,
-        // we MUST NOT fetch raw data from QuizDataService. We must wait for QuizService to finish its shuffle.
+        // Race Condition Fix: If shuffle is enabled but we don't have shuffled questions YET,
+        // we must not fetch raw data from QuizDataService. We must wait for QuizService to finish its shuffle.
         if (this.quizService.isShuffleEnabled()) {
-          console.log(`[QQLoader] ⏳ Shuffle enabled but no questions yet. WAITING for QuizService...`);
+          console.log(`[QQLoader] Shuffle enabled but no questions yet. WAITING for QuizService...`);
           try {
             // Wait for QuizService to populate questions (it handles the fetch + shuffle)
             const fetched = await firstValueFrom(this.quizService.getAllQuestions().pipe(
               filter(q => Array.isArray(q) && q.length > 0),
               take(1),
-              timeout(5000) // Safety timeout
+              timeout(5000)  // safety timeout
             ));
 
             // Re-check shuffled questions
             if (this.quizService.shuffledQuestions?.length > 0) {
-              console.log(`[QQLoader] ♻️ Shuffle ready! Loading shuffled questions.`);
+              console.log(`[QQLoader] Shuffle ready! Loading shuffled questions.`);
               this.questionsArray = [...this.quizService.shuffledQuestions];
               // this.quizService.questions = this.questionsArray; // DO NOT POISON
             } else {
@@ -573,14 +523,14 @@ export class QuizQuestionLoaderService {
               // But 'fetched' came from getAllQuestions() which returns shuffled if enabled.
               // So we should NOT assign.
             }
-          } catch (err) {
-            console.error(`[QQLoader] ❌ Error waiting for shuffle:`, err);
+          } catch (error) {
+            console.error(`[QQLoader] ❌ Error waiting for shuffle:`, error);
             // Fallback only on error
             this.questionsArray = await firstValueFrom(this.quizDataService.getQuestionsForQuiz(quizId));
             this.quizService.questions = [...this.questionsArray];
           }
         } else {
-          console.log(`[QQLoader fetchQO] ⚠️ quizService.questions EMPTY - fetching from getQuestionsForQuiz`);
+          console.log(`[QQLoader fetchQO] quizService.questions EMPTY - fetching from getQuestionsForQuiz`);
           this.questionsArray = await firstValueFrom(
             this.quizDataService.getQuestionsForQuiz(quizId),
           );
@@ -588,7 +538,7 @@ export class QuizQuestionLoaderService {
           this.quizService.questions = [...this.questionsArray];
         }
       } else {
-        console.log(`[QQLoader fetchQO] ✅ reusing existing quizService.questions (Length: ${questions.length})`);
+        console.log(`[QQLoader fetchQO] reusing existing quizService.questions (Length: ${questions.length})`);
       }
     }
 
@@ -596,26 +546,23 @@ export class QuizQuestionLoaderService {
     this.activeQuizId = quizId;
     this.quizService.quizId = quizId;
 
-    // 🔑 CONSISTENCY FIX: Use getQuestionByIndex to respect shuffle state
+    // Consistency Fix: Use getQuestionByIndex to respect shuffle state
     // Previously, we accessed this.quizService.questions[index] directly,
     // which bypassed 'shuffledQuestions' if they were different.
     const q = await firstValueFrom(this.quizService.getQuestionByIndex(index));
     const opts = q?.options ?? [];
-
-    // 🔍 DEBUG: Verify question matches
-    console.log(`[QQLoader] Q${index + 1} Resolved via getQuestionByIndex: "${q?.questionText?.substring(0, 40)}..."`);
 
     // Hydrate the full quiz metadata if needed (optional, kept for safety)
     if (this.quizService.questions?.length) {
       const fullQuiz: Quiz = await firstValueFrom(
         this.quizDataService.getQuiz(quizId).pipe(
           filter((quiz): quiz is Quiz => quiz !== null),
-          take(1),
+          take(1)
         ),
       );
       this.quizService.setCurrentQuiz({
         ...fullQuiz,
-        questions: this.quizService.questions,
+        questions: this.quizService.questions
       });
     }
 
@@ -652,7 +599,7 @@ export class QuizQuestionLoaderService {
     question: QuizQuestion,
     options: Option[],
     index: number,
-    explanation: string,
+    explanation: string
   ): void {
     const isAnswered = this.selectedOptionService.isQuestionAnswered(index);
     const explanationForPayload = isAnswered ? explanation : '';
