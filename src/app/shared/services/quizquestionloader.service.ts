@@ -550,7 +550,14 @@ export class QuizQuestionLoaderService {
     // Previously, we accessed this.quizService.questions[index] directly,
     // which bypassed 'shuffledQuestions' if they were different.
     const q = await firstValueFrom(this.quizService.getQuestionByIndex(index));
-    const opts = q?.options ?? [];
+    if (!q) {
+      throw new Error(`No question found for index ${index}`);
+    }
+
+    // Call hydrateAndClone immediately
+    const { question, options } = this.hydrateAndClone(q, index);
+
+    const opts = options;
 
     // Hydrate the full quiz metadata if needed (optional, kept for safety)
     if (this.quizService.questions?.length) {
@@ -558,15 +565,16 @@ export class QuizQuestionLoaderService {
         this.quizDataService.getQuiz(quizId).pipe(
           filter((quiz): quiz is Quiz => quiz !== null),
           take(1)
-        ),
+        )
       );
+
       this.quizService.setCurrentQuiz({
         ...fullQuiz,
         questions: this.quizService.questions
       });
     }
 
-    return { q, opts };
+    return { q: question, opts };
   }
 
   /**
@@ -574,23 +582,40 @@ export class QuizQuestionLoaderService {
    * and deep state resets across the quiz flows. Not yet wired in.
    */
   // Hydrate flags then deep-clone
-  /* private hydrateAndClone(opts: Option[]): Option[] {
-    const hydrated = opts.map((o, i) => ({
+  private hydrateAndClone(
+    q: QuizQuestion,
+    qIndex: number
+  ): { question: QuizQuestion; options: Option[] } {
+    // Clone the question object (no mutation of source)
+    const question: QuizQuestion = { ...q };
+  
+    // Get options safely
+    const baseOpts: Option[] = Array.isArray(q?.options) ? q.options : [];
+  
+    // Hydrate UI fields + normalize
+    const hydrated: Option[] = baseOpts.map((o: Option, i: number) => ({
       ...o,
-      optionId: o.optionId ?? i,
+      optionId: o.optionId ?? i,     // keep fallback
       correct: !!o.correct,
       feedback: o.feedback ?? '',
       selected: false,
       highlight: false,
-      showIcon: false
+      showIcon: false,
+      active: true,                 // if Option supports it
+      // disabled: false            // only if Option supports it
     }));
-
-    const active = this.quizService.assignOptionActiveStates(hydrated, false);
-
-    return typeof structuredClone === 'function'
-      ? structuredClone(active)
-      : JSON.parse(JSON.stringify(active));
-  } */
+  
+    // Apply your active-state logic (returns Option[])
+    const active: Option[] = this.quizService.assignOptionActiveStates(hydrated, false);
+  
+    // Deep clone to guarantee fresh references
+    const options: Option[] =
+      typeof structuredClone === 'function'
+        ? structuredClone(active)
+        : JSON.parse(JSON.stringify(active));
+  
+    return { question, options };
+  }
 
   // Push options and heading downstream
   // Emits heading, options, and explanation through the BehaviourSubjects and
