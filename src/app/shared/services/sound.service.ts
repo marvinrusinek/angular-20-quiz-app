@@ -60,7 +60,7 @@ export class SoundService {
     const sound = this.sounds[soundName];
     if (!sound) {
       console.warn(
-        `[❌ Sound "${soundName}" not found. Sounds may not be initialized yet.]`,
+        `[Sound "${soundName}" not found. Sounds may not be initialized yet.]`
       );
       return;
     }
@@ -69,7 +69,7 @@ export class SoundService {
       sound.stop();  // stop any current playback
       const soundId = sound.play();  // returns a numeric sound ID
       console.log(
-        `[✅ "${soundName}" triggered successfully with soundId: ${soundId}]`,
+        `["${soundName}" triggered successfully with soundId: ${soundId}]`
       );
     } catch (error) {
       console.error(`[❌ Error playing sound "${soundName}"]:`, error);
@@ -123,12 +123,12 @@ export class SoundService {
           .then(() => {
             console.log('[🔊 AudioContext resumed]');
           })
-          .catch((err) => {
-            console.error('[❌ Failed to resume AudioContext]', err);
+          .catch((error) => {
+            console.error('[Failed to resume AudioContext]', error);
           });
       }
     } catch (error) {
-      console.warn('[⚠️ Error accessing AudioContext]:', error);
+      console.warn('[Error accessing AudioContext]:', error);
     }
   }
 
