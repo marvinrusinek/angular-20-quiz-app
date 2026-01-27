@@ -9,10 +9,10 @@ import { SelectedOptionService } from './selectedoption.service';
 import { QuizService } from './quiz.service';
 
 interface StopTimerAttemptOptions {
-  questionIndex?: number;
-  optionsSnapshot?: Option[];
-  onBeforeStop?: () => void;
-  onStop?: (elapsedMs?: number) => void;  // allow elapsed to be delivered
+  questionIndex?: number,
+  optionsSnapshot?: Option[],
+  onBeforeStop?: () => void,
+  onStop?: (elapsedMs?: number) => void  // allow elapsed to be delivered
 }
 
 @Injectable({ providedIn: 'root' })
@@ -114,7 +114,7 @@ export class TimerService implements OnDestroy {
     }
 
     const activeQuestionIndex = this.normalizeQuestionIndex(
-      this.quizService?.currentQuestionIndex,
+      this.quizService?.currentQuestionIndex
     );
     if (activeQuestionIndex < 0) {
       console.warn(
@@ -133,10 +133,10 @@ export class TimerService implements OnDestroy {
         if (elapsed != null && activeQuestionIndex != null) {
           this.elapsedTimes[activeQuestionIndex] = elapsed;
           console.log(
-            `[TimerService] 💾 Stored elapsed time for Q${activeQuestionIndex + 1}: ${elapsed}s`
+            `[TimerService] Stored elapsed time for Q${activeQuestionIndex + 1}: ${elapsed}s`
           );
         }
-      },
+      }
     });
 
     if (!stopped) {
@@ -165,10 +165,10 @@ export class TimerService implements OnDestroy {
   startTimer(
     duration: number = this.timePerQuestion,
     isCountdown: boolean = true,
-    forceRestart: boolean = false,
+    forceRestart: boolean = false
   ): void {    
     if (this.isTimerStoppedForCurrentQuestion && !forceRestart) {
-      console.log(`[TimerService] ⚠️ Timer restart prevented.`);
+      console.log(`[TimerService] Timer restart prevented.`);
       return;
     }
 
@@ -239,9 +239,9 @@ export class TimerService implements OnDestroy {
     callback?: (elapsedTime: number) => void,
     options: { force?: boolean } = {}  // future use
   ): void {
-    // AUTHORITATIVE STOP GUARD (blocks rogue direct calls)
+    // Authoritative Stop Guard: Blocks rogue direct calls
     if (!options.force && !this._authoritativeStop) {
-      console.error('🛑 ILLEGAL stopTimer() CALL — BLOCKED', {
+      console.error('ILLEGAL stopTimer() CALL — BLOCKED', {
         elapsedTime: this.elapsedTime,
         stack: new Error().stack
       });
@@ -278,7 +278,7 @@ export class TimerService implements OnDestroy {
     }
 
     console.log(
-      `[TimerService] 🛑 Timer stopped successfully. Elapsed: ${this.elapsedTime}s`
+      `[TimerService] Timer stopped successfully. Elapsed: ${this.elapsedTime}s`
     );
   }
 
@@ -305,7 +305,7 @@ export class TimerService implements OnDestroy {
   ): boolean {
     // Guard: NOTHING may stop the timer without authority
     if (!this._authoritativeStop) {
-      console.error('🛑 ILLEGAL attemptStopTimerForQuestion — BLOCKED', {
+      console.error('ILLEGAL attemptStopTimerForQuestion — BLOCKED', {
         questionIndex: options.questionIndex,
         stack: new Error().stack
       });
@@ -340,7 +340,7 @@ export class TimerService implements OnDestroy {
       console.log(
         '[TimerService] attemptStopTimerForQuestion — all correct selected but timer is not running.'
       );
-      return true; // Return true since the answer is correct, even if timer isn't running
+      return true;  // return true since the answer is correct, even if timer isn't running
     }
 
     // Fire sound (or any UX) BEFORE stopping so teardown doesn't stop it
@@ -357,14 +357,11 @@ export class TimerService implements OnDestroy {
       this.isTimerStoppedForCurrentQuestion = true;
       this.stoppedForQuestion.add(questionIndex);
 
-      console.log(
-        `[TimerService] ✅ Timer stopped for Q${questionIndex + 1} (all correct answers selected)`
-      );
       return true;
-    } catch (err: any) {
+    } catch (error: any) {
       console.error(
         '[TimerService] stopTimer failed in attemptStopTimerForQuestion:',
-        err
+        error
       );
       return false;
     }
@@ -490,8 +487,8 @@ export class TimerService implements OnDestroy {
         console.warn('[TimerService] Stop rejected → FORCING TIMER STOP.');
         this.stopTimer(undefined, { force: true });
       }
-    } catch (err) {
-      console.error('[TimerService] Error in stopTimerIfApplicable:', err);
+    } catch (error) {
+      console.error('[TimerService] Error in stopTimerIfApplicable:', error);
     }
   }
 
@@ -540,7 +537,7 @@ export class TimerService implements OnDestroy {
 
   public async requestStopEvaluationFromClick(
     questionIndex: number,
-    selectedOption: SelectedOption | null,
+    selectedOption: SelectedOption | null
   ): Promise<void> {
     const normalizedIndex = this.normalizeQuestionIndex(questionIndex);
     const q = this.quizService?.questions?.[normalizedIndex];
@@ -575,8 +572,7 @@ export class TimerService implements OnDestroy {
       return total;
     } catch (error) {
       console.error(
-        '[TimerService] Error calculating total elapsed time:',
-        error
+        '[TimerService] Error calculating total elapsed time:', error
       );
       return 0;
     }
