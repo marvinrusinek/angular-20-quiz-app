@@ -57,8 +57,8 @@ import { ChangeRouteAnimation } from '../../animations/animations';
 type AnimationState = 'animationStarted' | 'none';
 
 interface Override {
-  idx: number;
-  html: string;
+  idx: number,
+  html: string
 }
 
 @Component({
@@ -266,13 +266,13 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           this.quizStateService.displayStateSubject?.value;
         if (currentDisplayState) {
           this._savedDisplayState = { ...currentDisplayState };
-          console.log('[VISIBILITY] 💾 Saved display state on hide:',
+          console.log('[VISIBILITY] Saved display state on hide:',
             this._savedDisplayState);
         }
       } else {
         // Tab visible: Lock display state changes, then restore the saved state
         if (this._savedDisplayState) {
-          console.log('[VISIBILITY] ♻️ Restoring saved display state:',
+          console.log('[VISIBILITY] Restoring saved display state:',
             this._savedDisplayState);
 
           // Lock display state changes for 500ms to prevent other components from
@@ -289,7 +289,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
           // Force re-emit of question data to ensure UI renders
           if (this.currentQuestion) {
-            console.log('[VISIBILITY] 🔄 Re-emitting question data to force ' +
+            console.log('[VISIBILITY] Re-emitting question data to force ' +
               're-render');
             const currentPayload =
               this.combinedQuestionDataSubject.getValue();
@@ -333,7 +333,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           this.questions = questions;
           this.questionsArray = [...questions];
           this.totalQuestions = questions.length;
-          console.log(`[QUIZ COMPONENT] 📊 totalQuestions set to ${this.totalQuestions} from questions$.length`);
+          console.log(`[QUIZ COMPONENT] totalQuestions set to ${this.totalQuestions} from questions$.length`);
           this.cdRef.markForCheck();
         }
       })
@@ -368,7 +368,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       this.cdRef.markForCheck();
     });
 
-    // Fix: Trigger CD on any selection change (e.g. Red -> Green transition)
+    // Trigger CD on any selection change (e.g. Red -> Green transition)
     // Also update the dot status cache for persistence
     this.selectedOptionService.selectedOption$.subscribe((selections: SelectedOption[]) => {
       // Update cache for the current question whenever selection changes (even if cleared)
@@ -432,7 +432,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           event.preventDefault();
           await this.advanceToPreviousQuestion();
         } else {
-          console.warn('[⛔] Already at first question — cannot go back');
+          console.warn('Already at first question — cannot go back');
         }
         break;
       }
