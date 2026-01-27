@@ -37,7 +37,6 @@ import { QuizService } from '../../shared/services/quiz.service';
 import { QuizDataService } from '../../shared/services/quizdata.service';
 import { QuizShuffleService } from '../../shared/services/quiz-shuffle.service';
 import { QuizNavigationService } from '../../shared/services/quiz-navigation.service';
-import { UserPreferenceService } from '../../shared/services/user-preference.service';
 
 @Component({
   selector: 'codelab-quiz-intro',
@@ -82,7 +81,6 @@ export class IntroductionComponent implements OnInit, OnDestroy {
     private quizDataService: QuizDataService,
     private quizShuffleService: QuizShuffleService,
     private quizNavigationService: QuizNavigationService,
-    private userPreferenceService: UserPreferenceService,
     private activatedRoute: ActivatedRoute,
     private router: Router,
     private fb: FormBuilder,
@@ -115,7 +113,6 @@ export class IntroductionComponent implements OnInit, OnDestroy {
       .get('shouldShuffleOptions')!
       .valueChanges.pipe(takeUntil(this.destroy$))
       .subscribe((isChecked: boolean) => {
-        this.userPreferenceService.setHighlightPreference(isChecked);
         this.highlightPreference = isChecked;
         this.shouldShuffleOptions = isChecked;
         this.quizService.setCheckedShuffle(isChecked);
@@ -222,8 +219,6 @@ export class IntroductionComponent implements OnInit, OnDestroy {
 
   onSlideToggleChange(event: MatSlideToggleChange): void {
     const isChecked = event.checked;
-
-    this.userPreferenceService.setHighlightPreference(isChecked);
     this.highlightPreference = isChecked;
     this.shouldShuffleOptions = isChecked;
     this.quizService.setCheckedShuffle(isChecked);
@@ -266,10 +261,6 @@ export class IntroductionComponent implements OnInit, OnDestroy {
       // Access individual preferences from the form
       const shouldShuffleOptions = preferences.shouldShuffleOptions;
       const isImmediateFeedback = preferences.isImmediateFeedback;
-
-      // Set feedback mode in UserPreferenceService
-      const feedbackMode = isImmediateFeedback ? 'immediate' : 'lenient';
-      this.userPreferenceService.setFeedbackMode(feedbackMode);
 
       this.quizDataService.setSelectedQuiz(activeQuiz);
       // NOTE: setCurrentQuiz is called AFTER prepareQuizSession to ensure shuffled questions

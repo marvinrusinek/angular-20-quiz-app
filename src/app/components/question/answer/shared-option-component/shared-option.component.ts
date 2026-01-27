@@ -29,7 +29,6 @@ import { SelectionMessageService } from '../../../../shared/services/selection-m
 import { NextButtonStateService } from '../../../../shared/services/next-button-state.service';
 import { TimerService } from '../../../../shared/services/timer.service';
 import { SoundService } from '../../../../shared/services/sound.service';
-import { UserPreferenceService } from '../../../../shared/services/user-preference.service';
 import { HighlightOptionDirective } from '../../../../directives/highlight-option.directive';
 import { SharedOptionConfigDirective } from '../../../../directives/shared-option-config.directive';
 import { correctAnswerAnim } from '../../../../animations/animations';
@@ -166,7 +165,6 @@ export class SharedOptionComponent
     private selectedOptionService: SelectedOptionService,
     private selectionMessageService: SelectionMessageService,
     private soundService: SoundService,
-    private userPreferenceService: UserPreferenceService,
     private nextButtonStateService: NextButtonStateService,
     private timerService: TimerService,
     private cdRef: ChangeDetectorRef,

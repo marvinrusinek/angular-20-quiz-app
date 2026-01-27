@@ -47,7 +47,6 @@ import { SelectionMessageService } from '../../../shared/services/selection-mess
 import { SharedVisibilityService } from '../../../shared/services/shared-visibility.service';
 import { SoundService } from '../../../shared/services/sound.service';
 import { TimerService } from '../../../shared/services/timer.service';
-import { UserPreferenceService } from '../../../shared/services/user-preference.service';
 import { BaseQuestion } from '../base/base-question';
 import { AnswerComponent } from '../answer/answer-component/answer.component';
 import { SharedOptionComponent } from '../answer/shared-option-component/shared-option.component';
@@ -326,7 +325,6 @@ export class QuizQuestionComponent extends BaseQuestion
     protected sharedVisibilityService: SharedVisibilityService,
     protected soundService: SoundService,
     protected timerService: TimerService,
-    protected userPreferenceService: UserPreferenceService,
     protected activatedRoute: ActivatedRoute,
     protected router: Router,
     protected ngZone: NgZone,
