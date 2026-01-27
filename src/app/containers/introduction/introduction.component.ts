@@ -10,8 +10,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import {
-  MatSlideToggleChange,
-  MatSlideToggleModule,
+  MatSlideToggleChange, MatSlideToggleModule
 } from '@angular/material/slide-toggle';
 import {
   BehaviorSubject, combineLatest, EMPTY, firstValueFrom, of, Subject
