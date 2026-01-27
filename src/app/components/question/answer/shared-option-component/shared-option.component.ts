@@ -224,7 +224,6 @@ export class SharedOptionComponent
     this.initializeConfiguration();
     this.initializeOptionDisplayWithFeedback();
     this.setupSubscriptions();
-    this.initializePreferencesAndFeedback();
     this.subscribeToSelectionChanges();
     this.subscribeToFormChanges();
   }
@@ -539,22 +538,6 @@ export class SharedOptionComponent
 
         this.cdRef.markForCheck();
       });
-  }
-
-  private initializePreferencesAndFeedback(): void {
-    this.highlightCorrectAfterIncorrect =
-      this.userPreferenceService.getHighlightPreference();
-
-    if (!this.showFeedbackForOption) {
-      this.showFeedbackForOption = {};
-    }
-    this.ensureOptionIds();
-
-    const initialQuestionIndex = this.getActiveQuestionIndex() ?? 0;
-    this.generateFeedbackConfig(
-      this.selectedOption as SelectedOption,
-      initialQuestionIndex
-    );
   }
 
   async ngOnChanges(changes: SimpleChanges): Promise<void> {
