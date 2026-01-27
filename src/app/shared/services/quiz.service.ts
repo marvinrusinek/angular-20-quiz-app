@@ -589,13 +589,13 @@ export class QuizService {
   async fetchQuizQuestions(quizId: string): Promise<QuizQuestion[]> {
     console.log(`[QuizService] fetchQuizQuestions(${quizId}). hasShuffle=${this.shuffledQuestions?.length}, quizId=${this.quizId}, shouldShuffle=${this.shouldShuffle()}`);
 
-    // 🔒 CRITICAL FIX: ALWAYS return existing shuffledQuestions if available
+    // ALWAYS return existing shuffledQuestions if available.
     // This prevents re-shuffling on every call which causes option order instability
     if (this.shuffledQuestions && this.shuffledQuestions.length > 0) {
       // If quiz IDs don't match, only then we might need to re-fetch
       // But if they DO match (or quizId is empty), return the cached shuffle
       if (!quizId || this.quizId === quizId || !this.quizId) {
-        console.log(`[fetchQuizQuestions] ✅ Returning EXISTING shuffledQuestions (${this.shuffledQuestions.length} questions) - NO RE-SHUFFLE`);
+        console.log(`[fetchQuizQuestions] Returning EXISTING shuffledQuestions (${this.shuffledQuestions.length} questions) - NO RE-SHUFFLE`);
         if (this.shuffledQuestions.length > 0) {
           console.log(`[fetchQuizQuestions] Q1 Preview: Text="${this.shuffledQuestions[0].questionText.substring(0, 20)}..." | Options[0]="${this.shuffledQuestions[0].options?.[0]?.text.substring(0, 10)}..."`);
         }
@@ -603,19 +603,18 @@ export class QuizService {
         if (quizId && !this.quizId) {
           this.quizId = quizId;
         }
-        // ⚡ SYNC FIX: Ensure subscribers get the shuffled version!
+        // Ensure subscribers get the shuffled version!
         this.questionsSubject.next(this.shuffledQuestions);
         return this.shuffledQuestions;
       } else {
-        console.log(`[fetchQuizQuestions] ⚠️ Quiz ID changed from ${this.quizId} to ${quizId} - will re-fetch`);
+        console.log(`[fetchQuizQuestions] Quiz ID changed from ${this.quizId} to ${quizId} - will re-fetch`);
         // Clear old shuffle for new quiz
         this.shuffledQuestions = [];
       }
     }
 
-
     if (this.fetchPromise) {
-      console.log('[QuizService] 🔄 Reuse in-flight fetch promise.');
+      console.log('[QuizService] Reuse in-flight fetch promise.');
       return this.fetchPromise;
     }
 
@@ -633,25 +632,25 @@ export class QuizService {
           cachedQuestions.length > 0 &&
           this.quizId === quizId
         ) {
-          console.log(`[QuizService] 🔄 fetchQuizQuestions: Cache hit. shouldShuffle=${this.shouldShuffle()}, cachedSize=${cachedQuestions.length}`);
+          console.log(`[QuizService] fetchQuizQuestions: Cache hit. shouldShuffle=${this.shouldShuffle()}, cachedSize=${cachedQuestions.length}`);
           if (this.shouldShuffle()) {
-            // 🔒 FIX: Reuse ALREADY SHUFFLED session data if available
+            // Reuse ALREADY SHUFFLED session data if available
             if (
               this.shuffledQuestions &&
               this.shuffledQuestions.length > 0 &&
               this.quizId === quizId
             ) {
-              console.log('[QuizService] ♻️ Reusing ALREADY SHUFFLED session data.');
+              console.log('[QuizService] Reusing ALREADY SHUFFLED session data.');
               this.questionsSubject.next(this.shuffledQuestions); // ⚡ SYNC FIX
               return this.shuffledQuestions;
             }
 
-            console.log('[QuizService] 🔀 Shuffle requested on CACHED data - re-shuffling...');
+            console.log('[QuizService] Shuffle requested on CACHED data - re-shuffling...');
 
-            // ⚡ FIX: Use CANONICAL questions for shuffling, never the cached (potentially already shuffled) ones!
+            // Use CANONICAL questions for shuffling, never the cached (potentially already shuffled) ones!
             let sourceQuestions = this.canonicalQuestionsByQuiz.get(quizId);
             if (!sourceQuestions || sourceQuestions.length === 0) {
-              console.warn('[QuizService] ⚠️ Canonical questions missing during re-shuffle! Falling back to cached.');
+              console.warn('[QuizService] Canonical questions missing during re-shuffle! Falling back to cached.');
               sourceQuestions = cachedQuestions;
             } else {
               // Clone to be safe
@@ -659,11 +658,11 @@ export class QuizService {
             }
 
             if (!sourceQuestions || sourceQuestions.length === 0) {
-              console.error('[QuizService] ❌ Cannot shuffle: No questions available.');
+              console.error('[QuizService] Cannot shuffle: No questions available.');
               return [];
             }
 
-            // ⚡ SYNC FIX: Delegate cached shuffle to QuizShuffleService
+            // Delegate cached shuffle to QuizShuffleService
             this.quizShuffleService.prepareShuffle(quizId, sourceQuestions);
             const syncedShuffled = this.quizShuffleService.buildShuffledQuestions(quizId, sourceQuestions);
 
@@ -675,20 +674,20 @@ export class QuizService {
           // If NOT shuffling, we should return the canonical order
           const canonical = this.canonicalQuestionsByQuiz.get(quizId);
           if (canonical && canonical.length > 0) {
-            console.log('[QuizService] 🔙 Restoring canonical order from cache.');
+            console.log('[QuizService] Restoring canonical order from cache.');
             const restored = JSON.parse(JSON.stringify(canonical));
             this.questions = restored;
             return restored;
           }
 
           return cachedQuestions.map(
-            (question) => this.cloneQuestionForSession(question) ?? question,
+            (question) => this.cloneQuestionForSession(question) ?? question
           );
         }
 
         // Fetch quizzes from the API
         const quizzes = await firstValueFrom<Quiz[]>(
-          this.http.get<Quiz[]>(this.quizUrl),
+          this.http.get<Quiz[]>(this.quizUrl)
         );
 
         const quiz = quizzes.find((q) => String(q.quizId) === String(quizId));
@@ -697,8 +696,7 @@ export class QuizService {
           return [];
         }
 
-        // ⚡ FIX: Populate currentQuizSubject so getTotalQuestionsCount works!
-        // This was missing, causing ScoreComponent to see 0 questions.
+        // Populate currentQuizSubject so getTotalQuestionsCount works
         this.currentQuizSubject.next(quiz);
 
         // Normalize
@@ -708,29 +706,32 @@ export class QuizService {
               ...option,
               correct: !!option.correct,
               optionId: option.optionId ?? index + 1,
-              displayOrder: index,
+              displayOrder: index
             }))
             : [];
 
           return { ...question, options: normalizedOptions };
         });
 
-        // ⚡ CRITICAL FIX: Store canonical (original) order BEFORE shuffling!
+        // Store canonical (original) order BEFORE shuffling!
         // valid 'canonical' base allows resolveCanonicalQuestion to working correctly
         // instead of falling back to the ALREADY shuffled 'this.questions' (double shuffle).
-        this.canonicalQuestionsByQuiz.set(quizId, JSON.parse(JSON.stringify(normalizedQuestions)));
+        this.canonicalQuestionsByQuiz.set(
+          quizId, 
+          JSON.parse(JSON.stringify(normalizedQuestions))
+        );
 
         // Shuffle if needed, OR if we already have shuffled data we should preserve
         const effectivelyShuffling = this.shouldShuffle();
 
         if (effectivelyShuffling) {
           if (!this.shouldShuffle()) {
-            console.warn('[fetchQuizQuestions] ⚠️ shouldShuffle is false, but restoring from existing shuffledQuestions.');
+            console.warn('[fetchQuizQuestions] shouldShuffle is false, but restoring from existing shuffledQuestions.');
           }
 
-          // ⚡ SYNC FIX: Delegate shuffling to QuizShuffleService!
+          // Delegate shuffling to QuizShuffleService
           // This ensures the internal map (used by resolveCanonicalQuestion) matches the array we return.
-          console.log('[QuizService] 🔀 Generating NEW shuffle via QuizShuffleService...');
+          console.log('[QuizService] Generating NEW shuffle via QuizShuffleService...');
           this.quizShuffleService.prepareShuffle(quizId, normalizedQuestions);
 
           // Re-generate the array from the authoritative map
@@ -757,12 +758,12 @@ export class QuizService {
         }
 
         const broadcastQuestions = sanitizedQuestions.map(
-          (question) => this.cloneQuestionForSession(question) ?? question,
+          (question) => this.cloneQuestionForSession(question) ?? question
         );
         this.questions = broadcastQuestions;
 
         return sanitizedQuestions.map(
-          (question) => this.cloneQuestionForSession(question) ?? question,
+          (question) => this.cloneQuestionForSession(question) ?? question
         );
       } catch (error) {
         console.error('Error in fetchQuizQuestions:', error);
@@ -776,15 +777,14 @@ export class QuizService {
   }
 
   getAllQuestions(): Observable<QuizQuestion[]> {
-    // ⚡ FIX: Prioritize shuffled questions if they exist!
+    // Prioritize shuffled questions if they exist!
     if (this.shuffledQuestions && this.shuffledQuestions.length > 0) {
-      console.log('[getAllQuestions] 🛡️ Returning active SHUFFLED questions');
+      console.log('[getAllQuestions] Returning active SHUFFLED questions');
       return of(this.shuffledQuestions);
     }
 
-
     if (this.questionsSubject.getValue().length === 0) {
-      // ⚡ FIX: Delegate to fetchQuizQuestions which handles normalization AND shuffling!
+      // Delegate to fetchQuizQuestions which handles normalization AND shuffling!
       // This prevents getAllQuestions from returning raw/unshuffled data that bypasses the shuffle logic.
       return from(this.fetchQuizQuestions(this.quizId));
     }
@@ -797,13 +797,13 @@ export class QuizService {
 
   getQuestionData(
     quizId: string,
-    questionIndex: number,
+    questionIndex: number
   ): {
     questionText: string;
     currentOptions: Option[];
   } | null {
     const currentQuiz = (this.quizData ?? []).find(
-      (quiz) => quiz.quizId === quizId,
+      (quiz) => quiz.quizId === quizId
     );
 
     const questions = currentQuiz?.questions ?? [];
@@ -812,7 +812,7 @@ export class QuizService {
 
       return {
         questionText: currentQuestion.questionText ?? '',
-        currentOptions: currentQuestion.options,
+        currentOptions: currentQuestion.options
       };
     }
 
@@ -822,7 +822,7 @@ export class QuizService {
   public setCurrentQuestion(question: QuizQuestion): void {
     if (!question) {
       console.error(
-        '[QuizService] Attempted to set a null or undefined question.',
+        '[QuizService] Attempted to set a null or undefined question.'
       );
       return;
     }
@@ -837,13 +837,13 @@ export class QuizService {
           (q: QuizQuestion) =>
             q === previousQuestion ||
             (q.questionText === previousQuestion.questionText &&
-              q.questionText),
+              q.questionText)
         );
       }
       const isGoingBack = prevIndex > this.currentQuestionIndex;
 
       if (prevIndex > -1 && isGoingBack) {
-        // ⚡ FIX: Use correct scoring key for shuffled quizzes
+        // Use correct scoring key for shuffled quizzes
         // The questionCorrectness map is keyed by ORIGINAL index, not shuffled index
         let scoringKey = prevIndex;
         if (this.shouldShuffle() && this.quizId) {
@@ -858,7 +858,7 @@ export class QuizService {
           this.updateCorrectCountForResults(this.correctCount - 1);
           this.questionCorrectness.set(scoringKey, false);
           console.log(
-            `[QuizService] 📉 Decremented score for Leaving Q${prevIndex} (Key=${scoringKey}, Backwards)`,
+            `[QuizService] Decremented score for Leaving Q${prevIndex} (Key=${scoringKey}, Backwards)`
           );
         }
       }
@@ -889,27 +889,23 @@ export class QuizService {
       correct: option.correct ?? false,
       selected: option.selected ?? false,
       active: option.active ?? true,
-      showIcon: option.showIcon ?? false,
+      showIcon: option.showIcon ?? false
     }));
 
     // Construct the updated question object
     const updatedQuestion: QuizQuestion = {
       ...question,
-      options: updatedOptions,
+      options: updatedOptions
     };
-
-    // NOTE: Do NOT clear this.answers here - it breaks scoring!
-    // Answers should only be cleared in setCurrentQuestionIndex during navigation.
 
     // Emit the new question
     this.currentQuestion.next(updatedQuestion);
-
   }
 
   public getCurrentQuestion(
     questionIndex: number,
   ): Observable<QuizQuestion | null> {
-    // 🔑 FIXED: Use this.questions (shuffled) instead of fetching from findQuizByQuizId (unshuffled)
+    // Use this.questions (shuffled) instead of fetching from findQuizByQuizId (unshuffled)
     // This ensures the question text matches the options which also come from this.questions
     return of(null).pipe(
       map(() => {
@@ -929,35 +925,28 @@ export class QuizService {
         }
 
         const question = questions[questionIndex];
-        console.log(`[QuizService] 🔄 getCurrentQuestion(${questionIndex}): "${question?.questionText?.substring(0, 40)}..."`);
+
         return question;
       }),
       distinctUntilChanged(),
       catchError((error: Error) => {
         console.error('Error fetching current question:', error);
         return of(null);
-      }),
+      })
     );
   }
 
   public getLastKnownOptions(): Option[] {
-    const lastKnown = this.currentQuestion.getValue()?.options || [];
-
-    console.log(
-      '[QuizService] 🔍 getLastKnownOptions() returning:',
-      JSON.stringify(lastKnown, null, 2),
-    );
-
-    return lastKnown;
+    return this.currentQuestion.getValue()?.options || [];
   }
 
   // Get the current options for the current quiz and question
   getCurrentOptions(
-    questionIndex: number = this.currentQuestionIndex ?? 0,
+    questionIndex: number = this.currentQuestionIndex ?? 0
   ): Observable<Option[]> {
     if (!Number.isInteger(questionIndex) || questionIndex < 0) {
       console.error(
-        `Invalid questionIndex: ${questionIndex}. Returning empty options.`,
+        `Invalid questionIndex: ${questionIndex}. Returning empty options.`
       );
       return of([]);
     }
@@ -970,7 +959,7 @@ export class QuizService {
           question.options.length === 0
         ) {
           console.warn(
-            `No options found for Q${questionIndex}. Returning empty array.`,
+            `No options found for Q${questionIndex}. Returning empty array.`
           );
           return [];
         }
@@ -987,11 +976,11 @@ export class QuizService {
           correct: opt.correct ?? false,
           feedback:
             opt.feedback ??
-            `Generated feedback for Q${questionIndex} Option ${index}`,
+            `Generated feedback for Q${questionIndex} Option ${index}`
         }));
 
         console.log(
-          `[✅ getCurrentOptions] Q${questionIndex} returning ${sanitized.length} options`,
+          `[getCurrentOptions] Q${questionIndex} returning ${sanitized.length} options`
         );
         return sanitized;
       }),
@@ -1007,19 +996,18 @@ export class QuizService {
   }
 
   setCurrentQuestionIndex(idx: number) {
-    console.log('[QuizService] 🔄 setCurrentQuestionIndex:', idx);
     const safeIndex = Number.isFinite(idx) ? Math.max(0, Math.trunc(idx)) : 0;
 
     this.currentQuestionIndex = safeIndex;
     this.currentQuestionIndexSource.next(safeIndex);
     this.currentQuestionIndexSubject.next(safeIndex);
 
-    // ⚡ FIX: Restore answers from persistence if available to prevent score decrement on navigation
+    // Restore answers from persistence if available to prevent score decrement on navigation
     const prevSelected = this.selectedOptionsMap.get(safeIndex);
 
     if (prevSelected && prevSelected.length > 0) {
       // Re-hydrate full Option objects (needing .correct flag) from the source question
-      const question = this.questions[safeIndex]; // Use getter (handles shuffle)
+      const question = this.questions[safeIndex];  // use getter (handles shuffle)
       if (question && question.options) {
         const selectedIds = new Set(prevSelected.map(s => s.optionId));
         // text-match fallback for robustness
@@ -1028,7 +1016,7 @@ export class QuizService {
           prevSelected.some(s => (s.text || '').trim() === (o.text || '').trim())
         );
         this.answers = restoredAnswers;
-        console.log(`[QuizService] ♻️ Restored ${restoredAnswers.length} answers for Q${safeIndex} (preventing score drop)`);
+        console.log(`[QuizService] Restored ${restoredAnswers.length} answers for Q${safeIndex} (preventing score drop)`);
       } else {
         this.answers = [];
       }
@@ -1037,11 +1025,6 @@ export class QuizService {
     }
 
     this.answersSubject.next(this.answers.map(a => a.optionId).filter((id): id is number => typeof id === 'number'));
-
-    // NOTE: Do NOT call updateCurrentQuestion here.
-    // QuizComponent's loadQuestion flow handles question text updates through 
-    // its synchronized pipeline that keeps text and options together.
-    // Calling updateCurrentQuestion here causes race conditions and Q&A mismatches.
   }
 
   getCurrentQuestionIndex(): number {
@@ -1052,10 +1035,10 @@ export class QuizService {
     return this.currentQuestionIndexSubject.asObservable();
   }
 
-  // set the text of the previous user answers in an array to show in the following quiz
+  // Set the text of the previous user answers in an array to show in the following quiz
   setPreviousUserAnswersText(
     questions: QuizQuestion[],
-    previousAnswers: string[],
+    previousAnswers: string[]
   ): void {
     this.previousAnswers = previousAnswers.map((answer) => {
       const index = previousAnswers.indexOf(answer);
@@ -1080,7 +1063,7 @@ export class QuizService {
       if (question?.options) {
         // Use flatMap to build a clean number[] directly
         const correctOptionNumbers = question.options.flatMap((opt, idx) =>
-          opt.correct ? [idx + 1] : [],
+          opt.correct ? [idx + 1] : []
         );
 
         correctAnswers.set(question.questionText, correctOptionNumbers);
@@ -1095,15 +1078,14 @@ export class QuizService {
   getCorrectOptionsForCurrentQuestion(question: QuizQuestion): Option[] {
     if (!question) {
       console.error(
-        'No question provided to getCorrectOptionsForCurrentQuestion.',
+        'No question provided to getCorrectOptionsForCurrentQuestion.'
       );
       return [];
     }
 
     if (!Array.isArray(question.options)) {
       console.error(
-        'No options available for the provided question:',
-        question,
+        'No options available for the provided question:', question
       );
       return [];
     }
@@ -1125,9 +1107,9 @@ export class QuizService {
 
   updateBadgeText(questionIndex: number, totalQuestions: number): void {
     try {
-      console.warn('[🛠 updateBadgeText input]', {
+      console.warn('[updateBadgeText input]', {
         questionIndex,
-        totalQuestions,
+        totalQuestions
       });
 
       // Validate inputs
@@ -1138,7 +1120,7 @@ export class QuizService {
 
       if (!isValidIndex || !isValidTotal || questionIndex > totalQuestions) {
         console.error(
-          `[❌ updateBadgeText] Invalid question number: ${questionIndex} of ${totalQuestions}`,
+          `[❌ updateBadgeText] Invalid question number: ${questionIndex} of ${totalQuestions}`
         );
         return;
       }
@@ -1154,7 +1136,7 @@ export class QuizService {
       this.badgeTextSource.next(newBadgeText);
       localStorage.setItem(
         'savedQuestionIndex',
-        JSON.stringify(questionIndex - 1),
+        JSON.stringify(questionIndex - 1)
       );
     } catch (error) {
       console.error('[updateBadgeText] Exception:', error);
