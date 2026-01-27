@@ -1,11 +1,11 @@
-import { ChangeDetectorRef, Directive, ElementRef, EventEmitter, HostBinding,
+import { 
+  ChangeDetectorRef, Directive, ElementRef, EventEmitter, HostBinding,
   HostListener, Input, OnChanges, OnInit, Output, Renderer2, SimpleChanges
 } from '@angular/core';
 
 import { Option } from '../shared/models/Option.model';
 import { OptionBindings } from '../shared/models/OptionBindings.model';
 import { SharedOptionConfig } from '../shared/models/SharedOptionConfig.model';
-import { UserPreferenceService } from '../shared/services/user-preference.service';
 
 @Directive({
   selector: '[appHighlightOption]',
@@ -22,7 +22,7 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
   @Input() option!: Option;
   @Input() showFeedbackForOption: { [key: number]: boolean } = {};
   @Input() highlightCorrectAfterIncorrect = false;
-  @Input() allOptions: Option[] = []; // to access all options directly
+  @Input() allOptions: Option[] = [];  // to access all options directly
   @Input() optionsToDisplay: Option[] = [];
   @Input() optionBinding: OptionBindings | undefined;
   @Input() selectedOptionHistory: number[] = [];
@@ -36,8 +36,7 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
   constructor(
     private el: ElementRef,
     private renderer: Renderer2,
-    private cdRef: ChangeDetectorRef,
-    private userPreferenceService: UserPreferenceService
+    private cdRef: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -47,7 +46,7 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    // NEW SOURCE OF TRUTH:
+    // New Source Of Truth:
     // Highlighting is now driven by SharedOptionConfig
     if (changes['sharedOptionConfig']) {
       // Immediate highlight update (keeps old UX)
@@ -55,7 +54,7 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
       return;
     }
 
-    // LEGACY FALLBACK (kept for safety / parity)
+    // Legacy Fallback (kept for safety/parity)
     // These inputs may still fire during transition
     const optionBindingChanged = changes['optionBinding'] || changes['option'];
     const isSelectedChanged = changes['isSelected'];
@@ -74,7 +73,7 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
       // Immediate highlight update (keeps old UX)
       this.updateHighlight();
     } else {
-      console.log('[🛑 HighlightOptionDirective] ngOnChanges — no relevant changes detected');
+      console.log('[HighlightOptionDirective] ngOnChanges — no relevant changes detected');
     }
   }
 
@@ -116,7 +115,7 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
       this.renderer.setStyle(host, 'cursor', 'pointer');
       this.setPointerEvents(host, 'auto');
 
-      // ⚡ FIX: If sharedOptionConfig is available, use IT as the source of truth
+      // If sharedOptionConfig is available, use it as the source of truth
       // This prevents re-applying stale highlighting from optionBinding after
       // updateHighlightFromConfig has already cleared it
       if (this.sharedOptionConfig?.option) {
@@ -132,10 +131,10 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
         } else {
           opt.showIcon = false;
         }
-        return;  // Exit early - use config as source of truth
+        return;  // exit early - use config as source of truth
       }
 
-      // LEGACY PATH: Only used if sharedOptionConfig is not available
+      // Legacy Path: only used if sharedOptionConfig is not available
       // Selected
       if (opt.highlight) {
         this.setBackgroundColor(host, opt.correct ? '#43f756' : '#ff0000');
@@ -169,15 +168,15 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
     this.setPointerEvents(host, 'auto');
     opt.showIcon = false;
 
-    // ⚡ FIX: Check shouldResetBackground FIRST, before selection state
+    // Check shouldResetBackground FIRST, before selection state
     // This ensures new questions always start clean, regardless of stale state
     if (cfg.shouldResetBackground) {
       this.setBackgroundColor(host, 'transparent');
       opt.showIcon = false;
-      return;  // Exit early - don't apply any stale highlighting
+      return;  // exit early - don't apply any stale highlighting
     }
 
-    // Only apply highlighting if NOT resetting and actually selected
+    // Only apply highlighting if not resetting and actually selected
     const isSelectedNow =
       cfg.highlight === true || cfg.isOptionSelected ||
       cfg.option.selected === true;
