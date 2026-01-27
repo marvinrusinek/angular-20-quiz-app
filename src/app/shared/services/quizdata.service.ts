@@ -1,40 +1,25 @@
 import { Injectable, OnDestroy } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import {
-  BehaviorSubject,
-  firstValueFrom,
-  Observable,
-  of,
-  Subject,
-  throwError,
+  BehaviorSubject, firstValueFrom, Observable, of, Subject, throwError
 } from 'rxjs';
 import {
-  catchError,
-  distinctUntilChanged,
-  filter,
-  map,
-  switchMap,
-  take,
-  takeUntil,
-  tap,
+  catchError, distinctUntilChanged, filter, map, switchMap, take,
+  takeUntil, tap
 } from 'rxjs/operators';
 
-import { QUIZ_DATA } from '../../shared/quiz';
 import { QuestionType } from '../../shared/models/question-type.enum';
 import { Option } from '../../shared/models/Option.model';
 import { Quiz } from '../../shared/models/Quiz.model';
 import { QuizQuestion } from '../../shared/models/QuizQuestion.model';
 import { QuizService } from '../../shared/services/quiz.service';
 import { QuizShuffleService } from '../../shared/services/quiz-shuffle.service';
-import { Utils } from '../../shared/utils/utils';
 
 @Injectable({ providedIn: 'root' })
 export class QuizDataService implements OnDestroy {
   private quizUrl = 'assets/data/quiz.json';
   question: QuizQuestion | null = null;
   questionType: string | null = null;
-
-  private destroy$ = new Subject<void>();
 
   private quizzesSubject = new BehaviorSubject<Quiz[]>([]);
   quizzes$ = this.quizzesSubject.asObservable();
@@ -51,23 +36,22 @@ export class QuizDataService implements OnDestroy {
   public isContentAvailable$: Observable<boolean> =
     this.isContentAvailableSubject.asObservable();
 
+  private destroy$ = new Subject<void>();
+
   constructor(
     private quizService: QuizService,
     private quizShuffleService: QuizShuffleService,
-    private http: HttpClient,
-  ) {
-    // this.loadQuizzesData();
-  }
+    private http: HttpClient
+  ) { }
 
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
   }
 
-  /**
-   * Clear the question cache for a quiz to force fresh shuffle on next load.
-   * Call this when starting a quiz to ensure shuffle flag is applied correctly.
-   */
+  
+  // Clear the question cache for a quiz to force fresh shuffle on next load.
+  // Call this when starting a quiz to ensure shuffle flag is applied correctly.
   clearQuizQuestionCache(quizId: string): void {
     this.quizQuestionCache.delete(quizId);
     this.baseQuizQuestionCache.delete(quizId);
@@ -76,8 +60,8 @@ export class QuizDataService implements OnDestroy {
 
   getQuizzes(): Observable<Quiz[]> {
     return this.quizzes$.pipe(
-      filter((quizzes) => quizzes.length > 0), // ensure data is loaded
-      take(1), // ensure it emits only once
+      filter((quizzes) => quizzes.length > 0),  // ensure data is loaded
+      take(1)  // ensure it emits only once
     );
   }
 
@@ -111,10 +95,8 @@ export class QuizDataService implements OnDestroy {
     );
   }
 
-  /**
-   * Ensure quiz metadata is available before performing operations that rely on it.
-   * If quizzes have already been loaded, returns the cached list; otherwise triggers a load.
-   */
+  // Ensure quiz metadata is available before performing operations that rely on it.
+  // If quizzes have already been loaded, returns the cached list; otherwise triggers a load.
   ensureQuizzesLoaded(): Observable<Quiz[]> {
     const cached = this.quizzesSubject.value;
     if (Array.isArray(cached) && cached.length > 0) {
@@ -124,11 +106,9 @@ export class QuizDataService implements OnDestroy {
     return this.loadQuizzes();
   }
 
-  /**
-   * Returns a synchronously cached quiz instance, if available.
-   * Falls back to `null` when the quizzes list has not been populated yet
-   * or when the requested quiz cannot be found.
-   */
+  // Returns a synchronously cached quiz instance, if available.
+  // Falls back to `null` when the quizzes list has not been populated yet
+  // or when the requested quiz cannot be found.
   getCachedQuizById(quizId: string): Quiz | null {
     if (!quizId) return null;
 
@@ -146,10 +126,8 @@ export class QuizDataService implements OnDestroy {
     return source.find((q) => q.quizId === quizId) ?? null;
   }
 
-  /**
-   * Update the status of a quiz (e.g., to 'completed') and persist it.
-   * This updates both the local array and the BehaviorSubject so subscribers see the change.
-   */
+  //  Update the status of a quiz (e.g., to 'completed') and persist it.
+  // This updates both the local array and the BehaviorSubject so subscribers see the change.
   updateQuizStatus(quizId: string, status: string): void {
     if (!quizId) return;
 
@@ -174,7 +152,7 @@ export class QuizDataService implements OnDestroy {
       const quiz = await firstValueFrom(
         this.getQuiz(quizId).pipe(
           filter((q): q is Quiz => q !== null),
-          take(1),
+          take(1)
         ),
       );
 
@@ -198,7 +176,7 @@ export class QuizDataService implements OnDestroy {
           `Error validating quiz ID "${quizId}":`,
           error.message || error,
         );
-        return of(false); // return `false` to indicate an invalid quiz
+        return of(false);  // return `false` to indicate an invalid quiz
       }),
     );
   }
@@ -232,7 +210,7 @@ export class QuizDataService implements OnDestroy {
         console.error('Error retrieving quizzes:', error.message || error);
         return throwError(() => new Error('Error retrieving quizzes'));
       }),
-      takeUntil(this.destroy$),
+      takeUntil(this.destroy$)
     );
   }
 
@@ -251,16 +229,16 @@ export class QuizDataService implements OnDestroy {
         const quiz = quizzes.find((q) => q.quizId === quizId);
         if (!quiz) {
           throw new Error(
-            `[QuizDataService] ❌ Quiz with ID ${quizId} not found.`,
+            `[QuizDataService] Quiz with ID ${quizId} not found.`
           );
         }
         return quiz;
       }),
       take(1),
       catchError((error) => {
-        console.error(`[QuizDataService] ❌ Error fetching quiz:`, error);
+        console.error(`[QuizDataService] Error fetching quiz:`, error);
         return of(null);
-      }),
+      })
     );
   }
 
@@ -270,7 +248,7 @@ export class QuizDataService implements OnDestroy {
 
   // Return a brand-new array of questions with fully-cloned options.
   getQuestionsForQuiz(quizId: string): Observable<QuizQuestion[]> {
-    // ⚡ FIX: When shuffle is ON, ALWAYS delegate to prepareQuizSession
+    //  When shuffle is ON, ALWAYS delegate to prepareQuizSession
     // This ensures ONE consistent shuffle regardless of which code path calls this
     if (this.quizService.isShuffleEnabled()) {
       // If we already have shuffled questions for this quiz, return them
@@ -278,19 +256,19 @@ export class QuizDataService implements OnDestroy {
         this.quizService.shuffledQuestions?.length > 0 &&
         this.quizService.quizId === quizId
       ) {
-        console.log(`[getQuestionsForQuiz] ✅ Returning existing SHUFFLED questions (${this.quizService.shuffledQuestions.length})`);
+        console.log(`[getQuestionsForQuiz] Returning existing SHUFFLED questions (${this.quizService.shuffledQuestions.length})`);
         return of(this.cloneQuestions(this.quizService.shuffledQuestions));
       }
       // Otherwise, delegate to prepareQuizSession to create the shuffle
-      console.log(`[getQuestionsForQuiz] ⚡ Shuffle ON but no data - delegating to prepareQuizSession`);
+      console.log(`[getQuestionsForQuiz] Shuffle ON but no data - delegating to prepareQuizSession`);
       return this.prepareQuizSession(quizId);
     }
 
-    // 🔑 CACHE CHECK: Return cached questions if already built for this quiz (unshuffled case)
+    // Cache Check: Return cached questions if already built for this quiz (unshuffled case)
     const cachedQuestions = this.quizQuestionCache.get(quizId);
     if (Array.isArray(cachedQuestions) && cachedQuestions.length > 0) {
-      console.log(`[QuizDataService] ✅ Returning CACHED questions for quiz ${quizId} (${cachedQuestions.length} questions)`);
-      // ⚡ FIX: Sync cache hit with QuizService so standard subscribers (like ScoreComponent) get the update
+      console.log(`[QuizDataService] Returning CACHED questions for quiz ${quizId} (${cachedQuestions.length} questions)`);
+      // Sync cache hit with QuizService so standard subscribers (like ScoreComponent) get the update
       this.quizService.questions = this.cloneQuestions(cachedQuestions);
       return of(this.cloneQuestions(cachedQuestions));
     }
@@ -306,12 +284,12 @@ export class QuizDataService implements OnDestroy {
 
         // Build normalized base questions (clone options per question)
         const baseQuestions: QuizQuestion[] = (quiz.questions ?? []).map(
-          (question, index) => this.normalizeQuestion(question, index),
+          (question, index) => this.normalizeQuestion(question, index)
         );
 
         this.baseQuizQuestionCache.set(
           quizId,
-          this.cloneQuestions(baseQuestions),
+          this.cloneQuestions(baseQuestions)
         );
         this.quizService.setCanonicalQuestions(quizId, baseQuestions);
 
@@ -320,27 +298,23 @@ export class QuizDataService implements OnDestroy {
         const sessionQuestions = this.buildSessionQuestions(
           quizId,
           baseQuestions,
-          shouldShuffle,
+          shouldShuffle
         );
 
         this.quizQuestionCache.set(
           quizId,
-          this.cloneQuestions(sessionQuestions),
+          this.cloneQuestions(sessionQuestions)
         );
         this.quizService.applySessionQuestions(
           quizId,
-          this.cloneQuestions(sessionQuestions),
+          this.cloneQuestions(sessionQuestions)
         );
         this.syncSelectedQuizState(quizId, sessionQuestions, quiz);
 
         // Assign questions to QuizService so UI can access them
-        console.log(`[QuizDataService] 🔄 OVERWRITING quizService.questions with ${sessionQuestions.length} questions. Q1: "${sessionQuestions[0]?.questionText?.substring(0, 40)}..."`);
+        console.log(`[QuizDataService] OVERWRITING quizService.questions with ${sessionQuestions.length} questions. Q1: "${sessionQuestions[0]?.questionText?.substring(0, 40)}..."`);
         this.quizService.questions = this.cloneQuestions(sessionQuestions);
         
-        // NOTE: Do NOT call updateCurrentQuestion here.
-        // QuizComponent's loadQuestion flow handles question text updates through
-        // its synchronized pipeline that keeps text and options together.
-
         // Stamp multi-answer flag for each question
         for (const [qIndex, question] of this.quizService.questions.entries()) {
           (question as any).isMulti =
@@ -351,45 +325,27 @@ export class QuizDataService implements OnDestroy {
 
           console.log(
             `[QuizDataService] Q${qIndex + 1} isMulti =`,
-            (question as any).isMulti,
+            (question as any).isMulti
           );
         }
-
-        // Debug logs for confirmation
-        console.log(
-          `[QuizDataService] ✅ Assigned ${this.quizService.questions.length} questions to QuizService`,
-        );
 
         return this.cloneQuestions(sessionQuestions);
       }),
       catchError((error) => {
         console.error('[QuizDataService] getQuestionsForQuiz:', error);
         return throwError(() => error);
-      }),
+      })
     );
   }
 
-  /**
-   * Ensure the quiz session questions are available before starting a quiz.
-   * Reuses any cached clone for the quiz and re-applies it to the quiz service
-   * so downstream consumers receive a consistent question set.
-   */
+  // Ensure the quiz session questions are available before starting a quiz.
+  // Reuses any cached clone for the quiz and re-applies it to the quiz service
+  // so downstream consumers receive a consistent question set.
   prepareQuizSession(quizId: string): Observable<QuizQuestion[]> {
     if (!quizId) {
       console.error('[prepareQuizSession] quizId is required.');
       return of([]);
     }
-
-    // ⚡ GUARD: Return existing shuffled questions if already prepared
-    // This prevents multiple shuffle calls from creating different orders
-    /* if (
-      this.quizService.shuffledQuestions &&
-      this.quizService.shuffledQuestions.length > 0 &&
-      this.quizService.quizId === quizId
-    ) {
-      console.log(`[prepareQuizSession] ⏭️ SKIPPING - returning existing ${this.quizService.shuffledQuestions.length} questions`);
-      return of(this.quizService.shuffledQuestions);
-    } */
 
     const shouldShuffle = this.quizService.isShuffleEnabled();
     const cached = this.quizQuestionCache.get(quizId);
@@ -399,18 +355,18 @@ export class QuizDataService implements OnDestroy {
       this.quizService.setCanonicalQuestions(quizId, baseForCanonical);
     }
 
-    // 🛑 CACHE POLICY: Only use cache if NOT shuffling.
+    // Cache Policy: Only use cache if NOT shuffling.
     // If shuffling is enabled, we MUST regenerate to ensure the user gets a shuffled set.
     // (Future improvement: Store 'isShuffled' metadata in cache to allow resuming shuffled sessions correctly)
     if (!shouldShuffle && Array.isArray(cached) && cached.length > 0) {
-      console.log('[QuizDataService] 📦 Cache Hit (Unshuffled) - reusing session');
+      console.log('[QuizDataService] Cache Hit (Unshuffled) - reusing session');
       const sessionReadyQuestions = this.cloneQuestions(cached);
       this.quizService.applySessionQuestions(quizId, sessionReadyQuestions);
       this.syncSelectedQuizState(quizId, sessionReadyQuestions);
       return of(this.cloneQuestions(sessionReadyQuestions));
     } else if (shouldShuffle && Array.isArray(cached) && cached.length > 0) {
-      console.log('[QuizDataService] ⚠️ Cache Exists but Shuffle is ON. Regenerating fresh shuffle from Base to avoid stale order.');
-      // We intentionally fall through to the buildSessionQuestions logic below
+      console.log('[QuizDataService] Cache Exists but Shuffle is ON. Regenerating fresh shuffle from Base to avoid stale order.');
+      // Intentionally fall through to the buildSessionQuestions logic below
     }
 
     const baseQuestions = this.baseQuizQuestionCache.get(quizId);
@@ -419,7 +375,7 @@ export class QuizDataService implements OnDestroy {
       const sessionQuestions = this.buildSessionQuestions(
         quizId,
         baseQuestions,
-        shouldShuffle,
+        shouldShuffle
       );
 
       this.quizQuestionCache.set(quizId, this.cloneQuestions(sessionQuestions));
@@ -437,12 +393,12 @@ export class QuizDataService implements OnDestroy {
         const sessionQuestions = this.buildSessionQuestions(
           quizId,
           base,
-          shouldShuffle,
+          shouldShuffle
         );
 
         this.quizQuestionCache.set(
           quizId,
-          this.cloneQuestions(sessionQuestions),
+          this.cloneQuestions(sessionQuestions)
         );
         const sessionClone = this.cloneQuestions(sessionQuestions);
         this.quizService.setCanonicalQuestions(quizId, base);
@@ -454,34 +410,23 @@ export class QuizDataService implements OnDestroy {
       catchError((error: Error) => {
         console.error('[prepareQuizSession] Failed to fetch questions:', error);
         return of([]);
-      }),
-    );
-  }
-
-  private createBaseQuestions(quiz: Quiz): QuizQuestion[] {
-    const questions = Array.isArray(quiz?.questions) ? quiz.questions : [];
-    if (!questions.length) {
-      return [];
-    }
-
-    return questions.map((question, index) =>
-      this.normalizeQuestion(question, index),
+      })
     );
   }
 
   private buildSessionQuestions(
     quizId: string,
     baseQuestions: QuizQuestion[],
-    shouldShuffle: boolean,
+    shouldShuffle: boolean
   ): QuizQuestion[] {
     const workingSet = this.cloneQuestions(baseQuestions);
 
     if (shouldShuffle) {
-      console.log('[buildSessionQuestions] 🔀 Starting shuffle...');
+      console.log('[buildSessionQuestions] Starting shuffle...');
       this.quizShuffleService.prepareShuffle(quizId, workingSet);
       const shuffled = this.quizShuffleService.buildShuffledQuestions(
         quizId,
-        workingSet,
+        workingSet
       );
 
       return this.cloneQuestions(shuffled);
@@ -493,12 +438,12 @@ export class QuizDataService implements OnDestroy {
 
   private sanitizeOptions(
     options: Option[] = [],
-    questionIndex: number,
+    questionIndex: number
   ): Option[] {
-    // ensure numeric IDs (idempotent)
+    // Ensure numeric IDs (idempotent)
     const withIds = this.quizShuffleService.assignOptionIds(
       options,
-      questionIndex,
+      questionIndex
     );
 
     const toNum = (v: unknown): number | null => {
@@ -508,10 +453,10 @@ export class QuizDataService implements OnDestroy {
     };
 
     return withIds.map((option, index): Option => {
-      // keep value strictly numeric per Option type
+      // Keep value strictly numeric per Option type
       const numericValue =
         toNum(option.value) ??
-        toNum((option as any).text) ?? // in case text is "3"
+        toNum((option as any).text) ??  // in case text is "3"
         index + 1;
 
       return {
@@ -520,22 +465,22 @@ export class QuizDataService implements OnDestroy {
         correct: option.correct === true,
         selected: option.selected === true,
         highlight: option.highlight ?? false,
-        showIcon: option.showIcon ?? false,
+        showIcon: option.showIcon ?? false
       };
     });
   }
 
   private normalizeQuestion(
     question: QuizQuestion,
-    questionIndex: number,
+    questionIndex: number
   ): QuizQuestion {
     const sanitizedOptions = this.sanitizeOptions(
       question.options ?? [],
-      questionIndex,
+      questionIndex
     );
     const alignedAnswers = this.quizShuffleService.alignAnswersWithOptions(
       question.answer,
-      sanitizedOptions,
+      sanitizedOptions
     );
 
     return {
@@ -547,7 +492,7 @@ export class QuizDataService implements OnDestroy {
         : undefined,
       selectedOptionIds: Array.isArray(question.selectedOptionIds)
         ? [...question.selectedOptionIds]
-        : undefined,
+        : undefined
     };
   }
 
@@ -565,12 +510,12 @@ export class QuizDataService implements OnDestroy {
         : undefined,
       selectedOptionIds: Array.isArray(question.selectedOptionIds)
         ? [...question.selectedOptionIds]
-        : undefined,
+        : undefined
     }));
   }
 
   private cloneQuestion(
-    question: QuizQuestion | undefined | null,
+    question: QuizQuestion | undefined | null
   ): QuizQuestion | null {
     if (!question) {
       return null;
@@ -581,7 +526,7 @@ export class QuizDataService implements OnDestroy {
 
   private ensureBaseQuestions(
     quizId: string,
-    quiz: Quiz | null,
+    quiz: Quiz | null
   ): QuizQuestion[] {
     const cached = this.baseQuizQuestionCache.get(quizId);
     if (Array.isArray(cached) && cached.length > 0) {
@@ -596,7 +541,7 @@ export class QuizDataService implements OnDestroy {
     const normalizedClone = this.cloneQuestions(normalized);
     this.baseQuizQuestionCache.set(
       quizId,
-      this.cloneQuestions(normalizedClone),
+      this.cloneQuestions(normalizedClone)
     );
     this.quizService.setCanonicalQuestions(quizId, normalizedClone);
 
@@ -605,7 +550,7 @@ export class QuizDataService implements OnDestroy {
 
   getQuestionAndOptions(
     quizId: string,
-    questionIndex: number,
+    questionIndex: number
   ): Observable<[QuizQuestion | null, Option[] | null]> {
     if (typeof questionIndex !== 'number' || isNaN(questionIndex)) {
       console.error(`❌ Invalid questionIndex: ${questionIndex}`);
@@ -616,7 +561,7 @@ export class QuizDataService implements OnDestroy {
       map((quiz) => {
         if (!quiz) {
           console.error(
-            `[getQuestionAndOptions] No quiz found for ID: ${quizId}`,
+            `[getQuestionAndOptions] No quiz found for ID: ${quizId}`
           );
           return [null, null] as [QuizQuestion | null, Option[] | null];
         }
@@ -628,12 +573,12 @@ export class QuizDataService implements OnDestroy {
           const sessionQuestions = this.buildSessionQuestions(
             quizId,
             base,
-            this.quizService.isShuffleEnabled(),
+            this.quizService.isShuffleEnabled()
           );
 
           this.quizQuestionCache.set(
             quizId,
-            this.cloneQuestions(sessionQuestions),
+            this.cloneQuestions(sessionQuestions)
           );
           questionsToUse = sessionQuestions;
         }
@@ -658,13 +603,13 @@ export class QuizDataService implements OnDestroy {
           correct: option.correct === true,
           selected: option.selected === true,
           highlight: option.highlight ?? false,
-          showIcon: option.showIcon ?? false,
+          showIcon: option.showIcon ?? false
         }));
 
         question.options = [...options];
         question.answer = this.quizShuffleService.alignAnswersWithOptions(
           question.answer,
-          options,
+          options
         );
 
         return [question, options] as [QuizQuestion | null, Option[] | null];
@@ -678,7 +623,7 @@ export class QuizDataService implements OnDestroy {
 
   fetchQuizQuestionByIdAndIndex(
     quizId: string,
-    questionIndex: number,
+    questionIndex: number
   ): Observable<QuizQuestion | null> {
     if (!quizId) {
       console.error('Quiz ID is required but not provided.');
@@ -700,7 +645,7 @@ export class QuizDataService implements OnDestroy {
         const maxIndex = totalQuestions - 1;
         if (questionIndex < 0 || questionIndex > maxIndex) {
           console.warn(
-            `[fetchQuizQuestionByIdAndIndex] Index ${questionIndex} out of range (0-${maxIndex}).`,
+            `[fetchQuizQuestionByIdAndIndex] Index ${questionIndex} out of range (0-${maxIndex}).`
           );
           return of(null);
         }
@@ -710,7 +655,7 @@ export class QuizDataService implements OnDestroy {
           switchMap((result) => {
             if (!result) {
               console.error(
-                `Expected a tuple with QuizQuestion and Options from getQuestionAndOptions but received null for index ${questionIndex}`,
+                `Expected a tuple with QuizQuestion and Options from getQuestionAndOptions but received null for index ${questionIndex}`
               );
               return of(null);
             }
@@ -718,15 +663,14 @@ export class QuizDataService implements OnDestroy {
             const [question, options] = result;
             if (!question || !options) {
               console.error(
-                'Received incomplete data from getQuestionAndOptions:',
-                result,
+                'Received incomplete data from getQuestionAndOptions:', result
               );
               return of(null);
             }
 
             question.options = options;
             return of(question);
-          }),
+          })
         );
       }),
       // Unchanged operators
@@ -735,21 +679,21 @@ export class QuizDataService implements OnDestroy {
         console.error('Error getting quiz question:', err);
         return throwError(
           () =>
-            new Error('An error occurred while fetching data: ' + err.message),
+            new Error('An error occurred while fetching data: ' + err.message)
         );
-      }),
+      })
     );
   }
 
   async fetchQuestionAndOptionsFromAPI(
     quizId: string,
-    currentQuestionIndex: number,
+    currentQuestionIndex: number
   ): Promise<[QuizQuestion, Option[]] | null> {
     try {
       const questionAndOptions = await firstValueFrom(
         this.getQuestionAndOptions(quizId, currentQuestionIndex).pipe(
           filter((v): v is [QuizQuestion, Option[]] => v !== null),
-          take(1),
+          take(1)
         ),
       );
 
@@ -767,7 +711,7 @@ export class QuizDataService implements OnDestroy {
         if (cachedQuestions) {
           if (questionIndex < 0 || questionIndex >= cachedQuestions.length) {
             console.warn(
-              `Question at index ${questionIndex} not found in cached quiz "${quizId}".`,
+              `Question at index ${questionIndex} not found in cached quiz "${quizId}".`
             );
             return [];
           }
@@ -786,7 +730,7 @@ export class QuizDataService implements OnDestroy {
       catchError((error: HttpErrorResponse) => {
         console.error(
           `Error fetching options for quiz ID "${quizId}", question index ${questionIndex}:`,
-          error.message,
+          error.message
         );
         return throwError(() => new Error('Failed to fetch question options.'));
       }),
@@ -796,7 +740,7 @@ export class QuizDataService implements OnDestroy {
   private extractOptions(quiz: Quiz, questionIndex: number): Option[] {
     if (!quiz?.questions || quiz.questions.length <= questionIndex) {
       console.warn(
-        `Question at index ${questionIndex} not found in quiz "${quiz.quizId}".`,
+        `Question at index ${questionIndex} not found in quiz "${quiz.quizId}".`
       );
       return [];
     }
@@ -812,7 +756,7 @@ export class QuizDataService implements OnDestroy {
           this.quizQuestionCache.get(quizId) ?? quiz.questions ?? [];
 
         const explanationTexts = sourceQuestions.map((q) =>
-          typeof q.explanation === 'string' ? q.explanation : '',
+          typeof q.explanation === 'string' ? q.explanation : ''
         );
 
         return of(explanationTexts);
@@ -826,7 +770,7 @@ export class QuizDataService implements OnDestroy {
 
   async asyncOperationToSetQuestion(
     quizId: string,
-    currentQuestionIndex: number,
+    currentQuestionIndex: number
   ): Promise<void> {
     try {
       if (!quizId || currentQuestionIndex < 0) {
@@ -836,7 +780,7 @@ export class QuizDataService implements OnDestroy {
 
       const observable = this.fetchQuizQuestionByIdAndIndex(
         quizId,
-        currentQuestionIndex,
+        currentQuestionIndex
       );
       if (!observable) {
         console.error(
@@ -869,17 +813,13 @@ export class QuizDataService implements OnDestroy {
     }
 
     const numCorrectAnswers = question.options.filter(
-      (option) => option?.correct ?? false,
+      (option) => option?.correct ?? false
     ).length;
     question.type =
       numCorrectAnswers > 1
         ? QuestionType.MultipleAnswer
         : QuestionType.SingleAnswer;
     this.questionType = question.type;
-  }
-
-  private mapQuestionType(type: QuestionType): 'single' | 'multiple' {
-    return type === QuestionType.MultipleAnswer ? 'multiple' : 'single';
   }
 
   submitQuiz(quiz: Quiz): Observable<any> {
@@ -889,16 +829,16 @@ export class QuizDataService implements OnDestroy {
         throwError(
           () =>
             new Error(`Error submitting quiz ${quiz.quizId}: ` + error.message),
-        ),
+        )
       ),
-      distinctUntilChanged(),
+      distinctUntilChanged()
     );
   }
 
   private syncSelectedQuizState(
     quizId: string,
     questions: QuizQuestion[],
-    sourceQuiz?: Quiz | null,
+    sourceQuiz?: Quiz | null
   ): void {
     if (!Array.isArray(questions) || questions.length === 0) return;
 
@@ -914,13 +854,13 @@ export class QuizDataService implements OnDestroy {
       ...question,
       options: Array.isArray(question.options)
         ? question.options.map((option) => ({ ...option }))
-        : [],
+        : []
     }));
 
     const syncedQuiz: Quiz = {
       ...baseQuiz,
       quizId: baseQuiz.quizId ?? quizId,
-      questions: sanitizedQuestions,
+      questions: sanitizedQuestions
     };
 
     this.setSelectedQuiz(syncedQuiz);
