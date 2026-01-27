@@ -22,7 +22,6 @@ import { SharedOptionComponent } from '../../components/question/answer/shared-o
 import { CodelabQuizContentComponent } from './quiz-content/codelab-quiz-content.component';
 import { CodelabQuizHeaderComponent } from './quiz-header/quiz-header.component';
 import { ScoreboardComponent } from '../scoreboard/scoreboard.component';
-// import { Utils } from '../../shared/utils/utils';
 import { QuizStatus } from '../../shared/models/quiz-status.enum';
 import { QuestionType } from '../../shared/models/question-type.enum';
 import { QuestionPayload } from '../../shared/models/QuestionPayload.model';
