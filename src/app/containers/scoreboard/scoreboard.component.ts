@@ -1,38 +1,18 @@
 import {
-  ChangeDetectionStrategy,
-  Component,
-  OnChanges,
-  OnDestroy,
-  OnInit,
-  SimpleChanges,
+  ChangeDetectionStrategy, Component, OnChanges, OnDestroy, OnInit,
+  SimpleChanges
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import {
-  ActivatedRoute,
-  ActivatedRouteSnapshot,
-  NavigationEnd,
-  Params,
-  Router,
+  ActivatedRoute, ActivatedRouteSnapshot, NavigationEnd, Params, Router
 } from '@angular/router';
 import {
-  combineLatest,
-  fromEvent,
-  merge,
-  Observable,
-  of,
-  ReplaySubject,
-  Subject,
+  combineLatest, fromEvent, merge, Observable, of, ReplaySubject, Subject 
 } from 'rxjs';
 import {
-  catchError,
-  distinctUntilChanged,
-  filter,
-  map,
-  shareReplay,
-  startWith,
-  switchMap,
-  takeUntil,
+  catchError, distinctUntilChanged, filter, map, shareReplay, startWith,
+  switchMap, takeUntil 
 } from 'rxjs/operators';
 
 import { ScoreComponent } from './score/score.component';
@@ -45,7 +25,7 @@ import { QuizService } from '../../shared/services/quiz.service';
   imports: [CommonModule, MatCardModule, ScoreComponent, TimerComponent],
   templateUrl: './scoreboard.component.html',
   styleUrls: ['./scoreboard.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ScoreboardComponent implements OnInit, OnChanges, OnDestroy {
   private readonly routeIsOneBased = true;
@@ -59,7 +39,7 @@ export class ScoreboardComponent implements OnInit, OnChanges, OnDestroy {
   private coerceIndex = (raw: string | null): number => {
     let n = Number(raw);
     if (!Number.isFinite(n)) n = 0;
-    if (this.routeIsOneBased) n -= 1; // normalize to 0-based internally
+    if (this.routeIsOneBased) n -= 1;  // normalize to 0-based internally
     return n < 0 ? 0 : n;
   };
 
@@ -81,29 +61,29 @@ export class ScoreboardComponent implements OnInit, OnChanges, OnDestroy {
     // Navigation completions → re-read from snapshot (fixes router timing)
     this.router.events.pipe(
       filter((e): e is NavigationEnd => e instanceof NavigationEnd),
-      map(() => this.readIndexFromSnapshot()),
+      map(() => this.readIndexFromSnapshot())
     ),
 
     // Tab becomes visible again → re-read from snapshot (fixes "Question 1" flash)
     fromEvent(document, 'visibilitychange').pipe(
       filter(() => document.visibilityState === 'visible'),
-      map(() => this.readIndexFromSnapshot()),
+      map(() => this.readIndexFromSnapshot())
     ),
     // Handle bfcache resume (Safari/iOS, some Chrome cases)
-    fromEvent(window, 'pageshow').pipe(map(() => this.readIndexFromSnapshot())),
+    fromEvent(window, 'pageshow').pipe(map(() => this.readIndexFromSnapshot()))
   ).pipe(distinctUntilChanged(), shareReplay(1));
 
   // 1-based for display
   readonly displayIndex$: Observable<number> = this.routeIndex$.pipe(
-    map((i) => i + 1),
+    map((i) => i + 1)
   );
 
   // Service badge stream. Seed with '' so combineLatest emits.
   private readonly serviceBadgeText$: Observable<string> = (
     this.quizService.badgeText as Observable<string>
   ).pipe(
-    startWith(''), // ensures immediate emission
-    map((s) => (s ?? '').trim()), // normalize
+    startWith(''),  // ensures immediate emission
+    map((s) => (s ?? '').trim())  // normalize
   );
 
   // Computed fallback badge (pure function of route index and totalQuestions)
@@ -111,30 +91,30 @@ export class ScoreboardComponent implements OnInit, OnChanges, OnDestroy {
     this.displayIndex$,
     this.quizService.totalQuestions$.pipe(
       map((t) => Number(t)),
-      startWith(-1), // sentinel → emit immediately
-    ),
+      startWith(-1) // sentinel → emit immediately
+    )
   ]).pipe(
     map(([n, total]) =>
-      Number.isFinite(total) && total > 0 ? `Question ${n} of ${total}` : '',
+      Number.isFinite(total) && total > 0 ? `Question ${n} of ${total}` : ''
     ),
     distinctUntilChanged(),
-    shareReplay(1),
+    shareReplay(1)
   );
 
   // Final badge: prefer service text if non-empty; otherwise show computed fallback
   public readonly badgeText$: Observable<string> = combineLatest([
     this.serviceBadgeText$,
-    this.computedBadgeText$,
+    this.computedBadgeText$
   ]).pipe(
     map(([svc, cmp]) => (svc !== '' ? svc : cmp)),
     distinctUntilChanged(),
-    shareReplay(1),
+    shareReplay(1)
   );
 
   constructor(
     private readonly quizService: QuizService,
     private readonly activatedRoute: ActivatedRoute,
-    private readonly router: Router,
+    private readonly router: Router
   ) {}
 
   ngOnInit(): void {
@@ -172,7 +152,7 @@ export class ScoreboardComponent implements OnInit, OnChanges, OnDestroy {
             error,
           );
           return of(null);
-        }),
+        })
       )
       .subscribe((totalQuestions: number | null) => {
         if (totalQuestions !== null) {
@@ -188,9 +168,9 @@ export class ScoreboardComponent implements OnInit, OnChanges, OnDestroy {
               totalQuestions,
             );
           } else {
-            console.warn('[⚠️ Skipping badge update] Invalid questionNumber:', {
+            console.warn('[Skipping badge update] Invalid questionNumber:', {
               validQuestionNumber,
-              totalQuestions,
+              totalQuestions
             });
           }
         }
@@ -204,14 +184,14 @@ export class ScoreboardComponent implements OnInit, OnChanges, OnDestroy {
           ? String(params['questionIndex'])
           : null;
       const normalizedIndex = this.coerceIndex(rawIndex);
-      const updatedQuestionNumber = normalizedIndex + 1; // convert to 1-based for display/badge
+      const updatedQuestionNumber = normalizedIndex + 1;  // convert to 1-based for display/badge
 
       // Only update if the number actually changes
       if (this.questionNumber !== updatedQuestionNumber) {
         this.questionNumber = updatedQuestionNumber;
       } else {
         console.log(
-          'No change in questionNumber. Keeping: ${this.questionNumber}',
+          'No change in questionNumber. Keeping: ${this.questionNumber}'
         );
       }
 
@@ -227,18 +207,18 @@ export class ScoreboardComponent implements OnInit, OnChanges, OnDestroy {
       this.displayIndex$,
       this.quizService.totalQuestions$.pipe(
         map((total) => Number(total)),
-        filter((total) => Number.isFinite(total) && total > 0),
-      ),
+        filter((total) => Number.isFinite(total) && total > 0)
+      )
     ])
       .pipe(
         takeUntil(this.unsubscribe$),
         filter(
-          ([displayIndex]) => Number.isFinite(displayIndex) && displayIndex > 0,
+          ([displayIndex]) => Number.isFinite(displayIndex) && displayIndex > 0
         ),
         distinctUntilChanged(
           ([prevIndex, prevTotal], [currIndex, currTotal]) =>
-            prevIndex === currIndex && prevTotal === currTotal,
-        ),
+            prevIndex === currIndex && prevTotal === currTotal
+        )
       )
       .subscribe(([displayIndex, totalQuestions]) => {
         this.quizService.updateBadgeText(displayIndex, totalQuestions);
@@ -250,7 +230,7 @@ export class ScoreboardComponent implements OnInit, OnChanges, OnDestroy {
       .pipe(
         takeUntil(this.unsubscribe$),
         map((s) => (s ?? '').trim()),
-        filter((s) => s !== ''), // ignore empty/placeholder emissions
+        filter((s) => s !== ''),  // ignore empty/placeholder emissions
       )
       .subscribe((updatedText: string) => {
         this.badgeText = updatedText;
@@ -259,7 +239,7 @@ export class ScoreboardComponent implements OnInit, OnChanges, OnDestroy {
 
   private getParamDeep(
     snap: ActivatedRouteSnapshot,
-    key: string,
+    key: string
   ): string | null {
     let cur: ActivatedRouteSnapshot | null = snap;
     while (cur) {
@@ -272,9 +252,8 @@ export class ScoreboardComponent implements OnInit, OnChanges, OnDestroy {
 
   private readIndexFromSnapshot(): number {
     const raw = this.getParamDeep(
-      this.router.routerState.snapshot.root,
-      'questionIndex',
+      this.router.routerState.snapshot.root, 'questionIndex'
     );
-    return this.coerceIndex(raw); // uses existing coerceIndex and routeIsOneBased
+    return this.coerceIndex(raw);  // uses existing coerceIndex and routeIsOneBased
   }
 }
