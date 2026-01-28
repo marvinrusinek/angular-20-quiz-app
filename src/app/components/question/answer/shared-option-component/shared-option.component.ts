@@ -116,6 +116,7 @@ export class SharedOptionComponent
   // This is separate from the @Input currentQuestionIndex to handle timing issues
   private lastProcessedQuestionIndex: number = -1;
 
+  private readonly optionsToDisplay$ = new BehaviorSubject<Option[]>([]);
   isOptionSelected = false;
   private optionsRestored = false;  // tracks if options are restored
   viewInitialized = false;
@@ -581,6 +582,12 @@ export class SharedOptionComponent
         this.optionsToDisplay = JSON.parse(
           JSON.stringify(this.optionsToDisplay)
         );
+
+        // Publish the latest options snapshot for SOC reactive logic
+        this.optionsToDisplay$.next(
+          Array.isArray(this.optionsToDisplay) ? [...this.optionsToDisplay] : []
+        );
+
         this.optionBindings = [];
         for (const d of this.highlightDirectives ?? []) {
           // Gracefully handle if the directive doesn’t have updateHighlight
