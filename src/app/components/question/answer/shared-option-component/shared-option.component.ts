@@ -395,15 +395,20 @@ export class SharedOptionComponent
         this.finalRenderReady = ready;
       });
     }
-
+  
     // Regenerate feedback when quizService index changes
-    this.quizService.currentQuestionIndex$
-      .pipe(distinctUntilChanged(), takeUntil(this.destroy$))
-      .subscribe((idx: number) => {
+    // ✅ FIX: combine index + latest @Input options to avoid race conditions
+    combineLatest([
+      this.quizService.currentQuestionIndex$.pipe(distinctUntilChanged()),
+      this.optionsToDisplay$
+    ])
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(([idx, opts]: [number, Option[]]) => {
+        // ✅ Use opts (synced latest options) for logging/logic
         console.log(
-          `[SOC 🔄] currentQuestionIndex$ fired: idx=${idx}, optionsToDisplay.length=${this.optionsToDisplay?.length}`
+          `[SOC 🔄] currentQuestionIndex$ fired: idx=${idx}, optionsToDisplay.length=${opts?.length}`
         );
-
+  
         // ⚡ FIX: Reset all state when question index changes
         // This fixes highlighting/disabled state persisting from previous questions
         // Use lastProcessedQuestionIndex (internal tracker) instead of @Input currentQuestionIndex
@@ -411,12 +416,12 @@ export class SharedOptionComponent
         if (this.lastProcessedQuestionIndex !== idx) {
           console.log(`[SOC 🔄] Question changed from ${this.lastProcessedQuestionIndex} to ${idx} - RESETTING STATE`);
           this.resetStateForNewQuestion();
-
+  
           // Clear highlighting state
           this.highlightedOptionIds.clear();
           this.showFeedback = false;
           this.showFeedbackForOption = {};
-
+  
           // Reset option bindings to clear visual state
           for (const b of this.optionBindings ?? []) {
             b.isSelected = false;
@@ -430,62 +435,63 @@ export class SharedOptionComponent
               b.option.showIcon = false;
             }
           }
-
+  
           // Update the internal tracker
           this.lastProcessedQuestionIndex = idx;
           // Also update currentQuestionIndex if it's stale
           if (this.currentQuestionIndex !== idx) {
             this.currentQuestionIndex = idx;
           }
-
+  
           this.cdRef.markForCheck();
         }
-
-        if (idx >= 0 && this.optionsToDisplay?.length > 0) {
+  
+        // ✅ IMPORTANT: Use opts (synced) instead of this.optionsToDisplay (may be stale)
+        if (idx >= 0 && Array.isArray(opts) && opts.length > 0) {
           // ⚡ FIX: Use helper method that respects shuffle state
           const question = this.getQuestionAtDisplayIndex(idx);
-
+  
           if (question?.options) {
-            const correctOptions = this.optionsToDisplay.filter(
+            const correctOptions = opts.filter(
               (o: Option) => o.correct === true
             );
             console.log(
               `[SOC 🔄] Q${idx + 1} correctOptions from optionsToDisplay:`,
               correctOptions?.map((o) => o.optionId)
             );
-
+  
             const serviceDisplayOrders = question.options
               ?.map((o: Option) => o.displayOrder)
               .join(',');
-            const inputDisplayOrders = this.optionsToDisplay
+            const inputDisplayOrders = opts
               ?.map((o) => o.displayOrder)
               .join(',');
             console.log(
               `[SOC 🔄] Service DisplayOrders: [${serviceDisplayOrders}] | 
-               Input DisplayOrders: [${inputDisplayOrders}]`
+                 Input DisplayOrders: [${inputDisplayOrders}]`
             );
-
+  
             const freshFeedback =
               this.feedbackService.generateFeedbackForOptions(
                 correctOptions,
-                this.optionsToDisplay
+                opts
               );
-
+  
             this.feedbackConfigs = {};
-
+  
             for (const b of this.optionBindings ?? []) {
               if (!b.option) continue;
-
+  
               b.option.feedback = freshFeedback;
               b.feedback = freshFeedback;
-
+  
               const optId = b.option.optionId ?? -1;
               if (optId < 0) continue;
-
+  
               this.feedbackConfigs[optId] = {
                 feedback: freshFeedback,
                 showFeedback: b.showFeedback ?? false,
-                options: this.optionsToDisplay,
+                options: opts,
                 question: question,
                 selectedOption: b.option,
                 correctMessage: freshFeedback,
@@ -494,6 +500,7 @@ export class SharedOptionComponent
             }
           }
         }
+  
         this.cdRef.markForCheck();
       });
   }
