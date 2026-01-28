@@ -25,6 +25,7 @@ import { TimerService } from '../../../shared/services/timer.service';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SummaryReportComponent implements OnInit {
+  @Input() viewMode: 'summary' | 'highscores' | 'all' = 'all';
   quizzes$: Observable<Quiz[]> = of([]);
   quizName$: Observable<string> = of('');
   quizId = '';
@@ -34,9 +35,8 @@ export class SummaryReportComponent implements OnInit {
   checkedShuffle = false;
   checkedShuffle$: Observable<boolean> = of(false);
   highScores: QuizScore[] = [];
-  currentScore: QuizScore | null = null; // The current quiz attempt score
+  currentScore: QuizScore | null = null;  // the current quiz attempt score
   codelabUrl = 'https://www.codelab.fun';
-  @Input() viewMode: 'summary' | 'highscores' | 'all' = 'all';
 
   constructor(
     private quizService: QuizService,
@@ -73,10 +73,10 @@ export class SummaryReportComponent implements OnInit {
         quizId: this.quizId,
         attemptDateTime: new Date(),
         score: this.quizMetadata.percentage ?? 0,
-        totalQuestions: this.quizService.totalQuestions,
+        totalQuestions: this.quizService.totalQuestions
       };
     } catch (error) {
-      console.error('[SUMMARY] ❌ Error in ngOnInit:', error);
+      console.error('[SUMMARY] Error in ngOnInit:', error);
       // Fallback to ensure UI doesn't look broken
       this.currentScore = {
         quizId: this.quizService.quizId || 'Unknown',
