@@ -1,9 +1,5 @@
 import {
-  ChangeDetectionStrategy,
-  Component,
-  OnDestroy,
-  OnInit,
-  ViewEncapsulation,
+  ChangeDetectionStrategy, Component, OnDestroy, OnInit, ViewEncapsulation 
 } from '@angular/core';
 import { CommonModule, NgOptimizedImage } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
@@ -12,12 +8,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import {
-  BehaviorSubject,
-  EMPTY,
-  Observable,
-  Subject,
-  Subscription,
-  of,
+  BehaviorSubject, EMPTY, Observable, of, Subject, Subscription 
 } from 'rxjs';
 import { catchError, takeUntil } from 'rxjs/operators';
 
@@ -47,7 +38,7 @@ import { QuizDataService } from '../../shared/services/quizdata.service';
   styleUrls: ['./quiz-selection.component.scss'],
   animations: [SlideLeftToRightAnimation.slideLeftToRight],
   encapsulation: ViewEncapsulation.None,
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class QuizSelectionComponent implements OnInit, OnDestroy {
   quizzes$: Observable<Quiz[]> = of([]);
@@ -61,7 +52,7 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
   constructor(
     private quizService: QuizService,
     private quizDataService: QuizDataService,
-    private router: Router,
+    private router: Router
   ) {}
 
   ngOnInit(): void {
@@ -78,8 +69,6 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
     this.currentQuestionIndex = this.quizService.currentQuestionIndex;
     this.selectionParams = this.quizService.returnQuizSelectionParams();
     
-    console.log('[QuizSelection] selectionParams:', this.selectionParams);
-
     // Load quizzes once – replaces constructor side-effect
     this.quizDataService.loadQuizzes().subscribe();
 
@@ -99,7 +88,7 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
           } else {
             console.error('Unexpected error fetching selected quiz:', error);
           }
-          return EMPTY; // completes the stream safely
+          return EMPTY;  // completes the stream safely
         }),
       )
       .subscribe((quiz: Quiz | null) => {
@@ -110,7 +99,7 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
   async onSelect(quizId: string, index: number): Promise<void> {
     try {
       if (!quizId) {
-        console.error('[❌ navigateToQuestion] quizId is null or undefined');
+        console.error('[navigateToQuestion] quizId is null or undefined');
         return;
       }
 
@@ -144,7 +133,7 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
   getQuizTileStyles(quiz: Quiz): QuizTileStyles {
     return {
       background: 'url(' + quiz.image + ') no-repeat center 10px',
-      'background-size': '300px 210px',
+      'background-size': '300px 210px'
     };
   }
 
@@ -183,8 +172,6 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
     // OR if it's the completed quiz (based on selectionParams)
     const hasStatus = !!quiz.status;
     const isCompletedQuiz = quiz.quizId === this.selectionParams.completedQuizId;
-    
-    console.log(`[shouldShowLink] quiz=${quiz.quizId}, status=${quiz.status}, hasStatus=${hasStatus}, isCompletedQuiz=${isCompletedQuiz}`);
     
     // Show icon if quiz has a status OR if it matches the completed quiz ID
     return hasStatus || isCompletedQuiz;
