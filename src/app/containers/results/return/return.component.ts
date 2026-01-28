@@ -13,7 +13,7 @@ import { TimerService } from '../../../shared/services/timer.service';
   imports: [CommonModule, MatCardModule, MatListModule],
   templateUrl: './return.component.html',
   styleUrls: ['./return.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ReturnComponent implements OnInit {
   quizId = '';
@@ -23,7 +23,7 @@ export class ReturnComponent implements OnInit {
   constructor(
     private quizService: QuizService,
     private timerService: TimerService,
-    private router: Router,
+    private router: Router
   ) {}
 
   ngOnInit(): void {
