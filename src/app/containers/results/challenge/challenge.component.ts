@@ -2,7 +2,6 @@ import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { Observable, of } from 'rxjs';
-import { map } from 'rxjs/operators';
 
 import { Quiz } from '../../../shared/models/Quiz.model';
 import { QuizMetadata } from '../../../shared/models/QuizMetadata.model';
@@ -16,7 +15,7 @@ import { TimerService } from '../../../shared/services/timer.service';
   imports: [CommonModule],
   templateUrl: './challenge.component.html',
   styleUrls: ['./challenge.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ChallengeComponent implements OnInit {
   quizzes$: Observable<Quiz[]> = of([]);
@@ -28,7 +27,7 @@ export class ChallengeComponent implements OnInit {
     correctAnswersCount$: this.quizService.correctAnswersCountSubject,
     percentage: this.calculatePercentageOfCorrectlyAnsweredQuestions(),
     completionTime: this.timerService.calculateTotalElapsedTime(
-      this.timerService.elapsedTimes,
+      this.timerService.elapsedTimes
     ),
   };
   codelabUrl = 'https://www.codelab.fun';
@@ -37,7 +36,7 @@ export class ChallengeComponent implements OnInit {
     private quizService: QuizService,
     private quizDataService: QuizDataService,
     private timerService: TimerService,
-    private activatedRoute: ActivatedRoute,
+    private activatedRoute: ActivatedRoute
   ) {}
 
   ngOnInit(): void {
@@ -56,7 +55,7 @@ export class ChallengeComponent implements OnInit {
   calculatePercentageOfCorrectlyAnsweredQuestions(): number {
     return Math.round(
       (100 * this.quizService.correctAnswersCountSubject.getValue()) /
-        this.quizService.totalQuestions,
+        this.quizService.totalQuestions
     );
   }
 }
