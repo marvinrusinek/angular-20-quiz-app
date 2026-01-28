@@ -1,5 +1,6 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component,
-  OnDestroy, OnInit } from '@angular/core';
+import { 
+  ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit 
+} from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
@@ -47,12 +48,15 @@ export class AccordionComponent implements OnInit, OnDestroy {
     try {
       const stored = localStorage.getItem('userAnswers');
       storedAnswers = stored ? JSON.parse(stored) : [];
-    } catch (err) {
-      console.error('[ACCORDION] Failed to parse userAnswers from localStorage:', err);
+    } catch (error) {
+      console.error(
+        '[ACCORDION] Failed to parse userAnswers from localStorage:', error
+      );
     }
 
     // Use localStorage data as primary source, fallback to service
-    const userAnswersData = storedAnswers.length > 0 ? storedAnswers : this.quizService.userAnswers;
+    const userAnswersData = 
+      storedAnswers.length > 0 ? storedAnswers : this.quizService.userAnswers;
     
     // Initialize results in ngOnInit when service data is available
     this.results = {
@@ -69,7 +73,7 @@ export class AccordionComponent implements OnInit, OnDestroy {
  
     this.quizService.questions$.pipe(takeUntil(this.destroy$)).subscribe((questions) => {
       this.questions = questions;
-      this.cdRef.detectChanges(); // Force immediate update for OnPush
+      this.cdRef.detectChanges();  // force immediate update for OnPush
       
       if (this.questions.length === 0 && !this.hasRetried) {
          console.warn('[ACCORDION] Questions empty, attempting force fetch...');
@@ -100,7 +104,7 @@ export class AccordionComponent implements OnInit, OnDestroy {
              if (qs && qs.length > 0) {
                console.log('[ACCORDION] Loaded questions via QuizDataService fallback:', qs.length);
                this.questions = qs;
-               this.cdRef.detectChanges(); // Force immediate update for OnPush
+               this.cdRef.detectChanges();  // force immediate update for OnPush
              }
            });
          }, 100);
@@ -110,7 +114,7 @@ export class AccordionComponent implements OnInit, OnDestroy {
     // Normalize userAnswers so Angular can always iterate
     if (this.results?.userAnswers) {
       this.results.userAnswers = this.results.userAnswers.map((ans) =>
-        Array.isArray(ans) ? ans : (ans !== null && ans !== undefined ? [ans] : []),
+        Array.isArray(ans) ? ans : (ans !== null && ans !== undefined ? [ans] : [])
       );
     }
   }
@@ -140,11 +144,10 @@ export class AccordionComponent implements OnInit, OnDestroy {
     
     return ids
       .map(id => {
-         // Find index of option with this optionId
          // Find index of option with this optionId, safe-matching strings or numbers
          const idx = question.options.findIndex(opt => String(opt.optionId) === String(id));
          if (idx === -1) {
-             console.warn(`[getUserAnswerIndices] ID mismatch for Q "${question.questionText?.substring(0, 15)}...". Looking for ID: ${id}. Available Options:`, question.options.map(o => o.optionId));
+          console.warn(`[getUserAnswerIndices] ID mismatch for Q "${question.questionText?.substring(0, 15)}...". Looking for ID: ${id}. Available Options:`, question.options.map(o => o.optionId));
          }
          return idx >= 0 ? idx + 1 : -1;
       })
@@ -208,30 +211,36 @@ export class AccordionComponent implements OnInit, OnDestroy {
 
   // Check if we have any selections from the service for this question
   hasSelectionsFromService(questionIndex: number): boolean {
-    const rawSelections = this.selectedOptionService.rawSelectionsMap.get(questionIndex);
+    const rawSelections = 
+      this.selectedOptionService.rawSelectionsMap.get(questionIndex);
     if (rawSelections && rawSelections.length > 0) return true;
     
-    const selections = this.selectedOptionService.selectedOptionsMap.get(questionIndex);
+    const selections = 
+      this.selectedOptionService.selectedOptionsMap.get(questionIndex);
     return !!selections && selections.length > 0;
   }
 
   // Check if user selections match correct answers for a question (using service data)
   // Returns true if ALL correct answers are INCLUDED in the user's selections
-  checkIfAnswersAreCorrectFromService(question: QuizQuestion, questionIndex: number): boolean {
+  checkIfAnswersAreCorrectFromService(
+    question: QuizQuestion, 
+    questionIndex: number
+  ): boolean {
     if (!question || !question.options) return false;
     
-    // Get correct option TEXTS
+    // Get correct option texts
     const correctTexts = question.options
       .filter(opt => opt.correct)
       .map(opt => (opt.text || '').trim().toLowerCase());
     
-    // Get selected option TEXTS
+    // Get selected option texts
     const selectedOpts = this.getSelectedOptionsForQuestion(questionIndex);
     const selectedTexts = selectedOpts
       .map(o => (o.text || '').trim().toLowerCase());
     
     // Check if ALL correct answers are included in selections
-    const allCorrectSelected = correctTexts.every(ct => selectedTexts.includes(ct));
+    const allCorrectSelected = 
+      correctTexts.every(ct => selectedTexts.includes(ct));
     
     return allCorrectSelected;
   }
