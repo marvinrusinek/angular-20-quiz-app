@@ -11,7 +11,7 @@ import { QuizScore } from '../../../../shared/models/QuizScore.model';
   imports: [CommonModule, DatePipe],
   templateUrl: './summary-stats.component.html',
   styleUrls: ['./summary-stats.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SummaryStatsComponent {
   @Input() quizMetadata: Partial<QuizMetadata> | null = {
@@ -19,7 +19,7 @@ export class SummaryStatsComponent {
     totalQuestions: 0,
     totalQuestionsAttempted: 0,
     percentage: 0,
-    completionTime: 0,
+    completionTime: 0
   };
   @Input() score: QuizScore | null = null;
   @Input() elapsedMinutes = 0;
