@@ -1648,15 +1648,6 @@ export class QuizService {
     return questions;
   }
 
-  shuffleAnswers(answers: Option[]): Option[] {
-    if (this.shouldShuffle() && answers && answers.length > 0) {
-      const shuffled = Utils.shuffleArray([...answers]);
-      return this.normalizeOptionDisplayOrder(shuffled);
-    }
-    console.log('[shuffleAnswers] Skipping shuffle or no answers available.');
-    return answers;
-  }
-
   public hasCachedQuestion(quizId: string, questionIndex: number): boolean {
     const quiz = this.currentQuizSubject.getValue();
     if (!quiz || quiz.quizId !== quizId) return false;
