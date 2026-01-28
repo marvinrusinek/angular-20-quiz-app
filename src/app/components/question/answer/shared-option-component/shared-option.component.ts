@@ -2137,7 +2137,10 @@ export class SharedOptionComponent
     index: number,
     event: MatCheckboxChange | MatRadioChange
   ): void {
-    console.log(`[updateOptionAndUI] CALLED for optionId=${optionBinding?.option?.optionId}, index=${index}`);
+    console.log(
+      `[updateOptionAndUI] CALLED for optionId=${optionBinding?.option?.optionId}, 
+      index=${index}`
+    );
     const currentIndex = this.getActiveQuestionIndex() ?? 0;
 
     if (this.lastFeedbackQuestionIndex !== currentIndex) {
@@ -2157,8 +2160,7 @@ export class SharedOptionComponent
     // Always set the selection state first
     optionBinding.option.selected = checked;
     console.log(
-      '[🧪 updateOptionAndUI] option.selected:',
-      optionBinding.option.selected
+      '[updateOptionAndUI] option.selected:', optionBinding.option.selected
     );
 
     // KEEP CANONICAL SELECTED FLAGS IN SYNC
@@ -2184,7 +2186,7 @@ export class SharedOptionComponent
         this.cdRef.detectChanges();
       }
 
-      // ⚡ FIX: STILL emit explanation even for already-selected options
+      // STILL emit explanation even for already-selected options
       const activeIndex = this.getActiveQuestionIndex() ?? 0;
       this.emitExplanation(activeIndex);
 
@@ -2198,7 +2200,7 @@ export class SharedOptionComponent
       now - this.lastClickTimestamp < 150 &&
       !checked
     ) {
-      console.warn('[⛔ Duplicate false event]', optionId);
+      console.warn('[Duplicate false event]', optionId);
       return;
     }
 
@@ -2211,10 +2213,12 @@ export class SharedOptionComponent
     optionBinding.option.selected = checked;
     this.perQuestionHistory.add(optionId ?? -1);
 
-    // FORCE UPDATE SERVICE STATE DIRECTLY
+    // Force Update Service State Directly
     // This bypasses flaky form listeners and ensures "Next" button enables immediately.
     if (checked && optionId !== undefined && optionId !== null) {
-      console.log('[SharedOptionComponent] 🚀 Forcing service update for option:', optionId);
+      console.log(
+        '[SharedOptionComponent] Forcing service update for option:', optionId
+      );
       // We don't await this to keep UI snappy, but it triggers the subject emissions
       this.selectedOptionService.selectOption(
         optionId,
@@ -2231,7 +2235,9 @@ export class SharedOptionComponent
       // Double failsafe: directly set the button state via NextButtonStateService
       // This bypasses ALL stream logic and directly enables the button
       this.nextButtonStateService.setNextButtonState(true);
-      console.log('[SharedOptionComponent] ✅ FORCED setNextButtonState(true) - Button should now enable');
+      console.log(
+        '[SharedOptionComponent] FORCED setNextButtonState(true) - Button should now enable'
+      );
     }
 
     if (this.type === 'single') {
@@ -2281,8 +2287,8 @@ export class SharedOptionComponent
 
     if (alreadySelected || isAlreadyVisited) {
       console.log(
-        '[↩️ Reselected existing option — preserving feedback anchor on ' +
-        'previous option]'
+        '[Reselected existing option — preserving feedback anchor on previous '
+        + 'option]'
       );
 
       for (const key of Object.keys(this.showFeedbackForOption)) {
@@ -2296,7 +2302,7 @@ export class SharedOptionComponent
         if (cfg) cfg.showFeedback = true;
       }
 
-      // ⚡ FIX: STILL emit explanation even for reselected options
+      // STILL emit explanation even for reselected options
       // This ensures FET displays when user clicks an already-selected option
       const activeIndex = this.getActiveQuestionIndex() ?? 0;
       this.emitExplanation(activeIndex);
@@ -2326,7 +2332,7 @@ export class SharedOptionComponent
         this.resolvedQuestionIndex ??
         this.quizService.getCurrentQuestionIndex();
 
-      // ⚡ FIX: Use helper method that respects shuffle state
+      // Use helper method that respects shuffle state
       const currentQuestion = this.getQuestionAtDisplayIndex(currentIdx);
       const freshOptions =
         this.optionsToDisplay?.length > 0
@@ -2339,7 +2345,7 @@ export class SharedOptionComponent
         freshOptions
       );
 
-      // ALWAYS update feedbackConfigs
+      // Always update feedbackConfigs
       this.feedbackConfigs[optionId] = {
         feedback: dynamicFeedback,
         showFeedback: true,
@@ -2379,10 +2385,6 @@ export class SharedOptionComponent
     this.cdRef.detectChanges();
 
     const activeIndex = this.getActiveQuestionIndex() ?? 0;
-    console.log(
-      `[🔧 FIX] Using activeIndex: ${activeIndex} instead of 
-      quizService.currentQuestionIndex: ${this.quizService.currentQuestionIndex}`
-    );
     this.emitExplanation(activeIndex);
 
     // Force Update Selection Message: Ensure the selection message service knows
@@ -2425,9 +2427,9 @@ export class SharedOptionComponent
           isCorrect ? 'highlight-correct' : 'highlight-incorrect'
         );
       }
-      console.log(`[✅ DOM class applied for Option ${optionId}]`);
+      console.log(`[DOM class applied for Option ${optionId}]`);
     } else {
-      console.warn(`[⚠️ DOM element not found for Option ${optionId}]`);
+      console.warn(`[DOM element not found for Option ${optionId}]`);
     }
   }
 
@@ -2435,7 +2437,7 @@ export class SharedOptionComponent
     // Prefer component input (ground truth) > config > resolved index > service
     // index. The `currentQuestion` input or `config.currentQuestion` is passed
     // directly from parent and is the most reliable source.
-    // ⚡ FIX: Use getQuestionAtDisplayIndex for shuffle-aware question lookup
+    // Use getQuestionAtDisplayIndex for shuffle-aware question lookup
     const question = this.currentQuestion
       || this.config?.currentQuestion
       || this.getQuestionAtDisplayIndex(this.currentQuestionIndex)
@@ -2443,7 +2445,7 @@ export class SharedOptionComponent
       || this.getQuestionAtDisplayIndex(this.quizService.getCurrentQuestionIndex());
 
     if (!question) {
-      console.warn('[applyFeedback] ❌ No question found. Feedback generation skipped.');
+      console.warn('[applyFeedback] No question found. Feedback generation skipped.');
       return;
     }
 
@@ -2451,7 +2453,7 @@ export class SharedOptionComponent
 
     if (question.options) {
       const correctOptions = this.quizService.getCorrectOptionsForCurrentQuestion(question);
-      // ⚡ FIX: Use optionsToDisplay (shuffled visual order) instead of question.options (original order)
+      // Use optionsToDisplay (shuffled visual order) instead of question.options (original order)
       // This ensures feedback option numbers match what the user sees on screen
       const visualOptions = this.optionsToDisplay?.length > 0 ? this.optionsToDisplay : question.options;
       freshFeedback = this.feedbackService.generateFeedbackForOptions(
@@ -2489,7 +2491,7 @@ export class SharedOptionComponent
           this.showFeedbackForOption[id] = true;
           this.updateFeedbackState(id);
         } else {
-          console.warn('[⚠️ Missing optionId for binding]', binding);
+          console.warn('[Missing optionId for binding]', binding);
         }
       }
     }
@@ -2506,7 +2508,7 @@ export class SharedOptionComponent
 
   updateHighlighting(): void {
     if (!this.highlightDirectives?.length) {
-      console.warn('[❌ updateHighlighting] No highlightDirectives available.');
+      console.warn('[updateHighlighting] No highlightDirectives available.');
       return;
     }
 
@@ -2516,9 +2518,7 @@ export class SharedOptionComponent
       const binding = this.optionBindings[index];
 
       if (!binding) {
-        console.warn(
-          `[❌ updateHighlighting] No binding found for index ${index}`
-        );
+        console.warn(`[updateHighlighting] No binding found for index ${index}`);
         index++;
         continue;
       }
@@ -2556,9 +2556,7 @@ export class SharedOptionComponent
   }
 
   private emitExplanation(questionIndex: number): void {
-    console.log(`[SOC] 📣 emitExplanation called for Q${questionIndex + 1}`);
     const explanationText = this.resolveExplanationText(questionIndex);
-    console.log(`[SOC] 📝 Resolved explanation for Q${questionIndex + 1}: "${explanationText?.substring(0, 50)}..."`);
     this.pendingExplanationIndex = questionIndex;
     this.applyExplanationText(explanationText, questionIndex);
     this.scheduleExplanationVerification(questionIndex, explanationText);
@@ -2568,7 +2566,7 @@ export class SharedOptionComponent
     explanationText: string,
     questionIndex: number
   ): void {
-    // ⚡ FIX: Mark interaction FIRST so that when emitFormatted triggers the subscriber,
+    // Mark interaction FIRST so that when emitFormatted triggers the subscriber,
     // the 'hasUserInteracted' check passes immediately.
     this.quizStateService.markUserInteracted(questionIndex);
 
@@ -2653,7 +2651,7 @@ export class SharedOptionComponent
         }
 
         this.ngZone.run(() => {
-          console.warn('[🔁 Re-applying explanation text after mismatch]', {
+          console.warn('[Re-applying explanation text after mismatch]', {
             expected: explanationText,
             latest,
             questionIndex
@@ -2683,15 +2681,6 @@ export class SharedOptionComponent
   }
 
   private resolveExplanationText(questionIndex: number): string {
-    console.log(`[resolveExplanationText] Q${questionIndex + 1} | optionsToDisplay.len=${this.optionsToDisplay?.length || 0} | currentQuestionIndex=${this.currentQuestionIndex} | resolvedQuestionIndex=${this.resolvedQuestionIndex}`);
-
-    // If we have local options and this is the active question, ignore the service
-    // cache validation because the service cache might hold unshuffled "default" text.
-    /* const useLocalOptions =
-      Array.isArray(this.optionsToDisplay) &&
-      this.optionsToDisplay.length > 0 &&
-      (questionIndex === this.currentQuestionIndex ||
-        questionIndex === this.resolvedQuestionIndex); */
     const activeIndex = this.getActiveQuestionIndex();
     const displayIndex =
       activeIndex ??
@@ -2703,15 +2692,14 @@ export class SharedOptionComponent
       this.optionsToDisplay.length > 0 &&
       questionIndex === displayIndex;
 
-    // ⚡ FIX: Use helper method that respects shuffle state
+    // Use helper method that respects shuffle state
     const question = this.getQuestionAtDisplayIndex(questionIndex);
 
-    const shuffleActive = this.quizService?.isShuffleEnabled?.();
+    const shuffleActive = this.quizService?.isShuffleEnabled();
 
     if (useLocalOptions && question) {
       console.log(
-        `[⚡ Using LOCAL OPTIONS for Q${questionIndex + 1} to ensure visual 
-        match]`
+        `[Using LOCAL OPTIONS for Q${questionIndex + 1} to ensure visual match]`
       );
 
       // Sync with FeedbackService: use display order as-is to match "Option N" labels.
@@ -2742,7 +2730,7 @@ export class SharedOptionComponent
       this.explanationTextService.formattedExplanations?.[questionIndex]?.explanation?.trim() || '';
     if (formatted && !(shuffleActive && this.optionsToDisplay?.length)) {
       console.log(
-        `[✅ Using pre-formatted FET for Q${questionIndex + 1}]:`,
+        `[Using pre-formatted FET for Q${questionIndex + 1}]:`,
         formatted.slice(0, 80)
       );
       return formatted;
@@ -2750,7 +2738,7 @@ export class SharedOptionComponent
 
     // Fallback: Generate on the fly if missing
     console.warn(
-      `[⚠️ FET missing for Q${questionIndex + 1}] - Generating on the fly...`
+      `[FET missing for Q${questionIndex + 1}] - Generating on the fly...`
     );
 
     if (question) {
@@ -2796,8 +2784,7 @@ export class SharedOptionComponent
       if (serviceQuestion?.explanation && displayIndex === questionIndex) {
         rawExplanation = serviceQuestion.explanation.trim();
         console.log(
-          `[📝 From quizService.currentQuestion]:`,
-          rawExplanation.slice(0, 100),
+          `[From quizService.currentQuestion]:`, rawExplanation.slice(0, 100)
         );
       }
     }
@@ -2816,18 +2803,18 @@ export class SharedOptionComponent
     }
 
     if (!rawExplanation) {
-      console.warn(`[⚠️ No explanation found for Q${questionIndex + 1}]`);
+      console.warn(`[No explanation found for Q${questionIndex + 1}]`);
       return 'No explanation available';
     }
 
     // Format the Explanation with "Option X is correct because..."
     try {
-      // ⚡ FIX: Use getQuestionAtDisplayIndex for shuffle-aware question lookup
+      // Use getQuestionAtDisplayIndex for shuffle-aware question lookup
       const question =
         this.currentQuestion || this.getQuestionAtDisplayIndex(questionIndex);
 
       if (question) {
-        console.log(`[🔍 Question object for formatting]:`, {
+        console.log(`[Question object for formatting]:`, {
           questionText: question.questionText?.slice(0, 80),
           explanation: question.explanation?.slice(0, 80),
           options: question.options?.map((o: Option) => ({
@@ -2852,20 +2839,20 @@ export class SharedOptionComponent
             correctIndices,
             rawExplanation.trim()
           );
-this.explanationTextService.storeFormattedExplanation(
+        this.explanationTextService.storeFormattedExplanation(
           questionIndex,
           formattedExplanation,
           question,
           opts
         );
         console.log(
-          `[✅ Formatted FET for Q${questionIndex + 1}]:`,
+          `[Formatted FET for Q${questionIndex + 1}]:`,
           formattedExplanation.slice(0, 100)
         );
         return formattedExplanation;
       }
-    } catch (err: any) {
-      console.warn('[⚠️ Failed to format explanation, using raw]:', err);
+    } catch (error: any) {
+      console.warn('[Failed to format explanation, using raw]:', error);
     }
 
     return rawExplanation;
@@ -2873,7 +2860,7 @@ this.explanationTextService.storeFormattedExplanation(
 
   private forceHighlightRefresh(optionId: number): void {
     if (!this.highlightDirectives?.length) {
-      console.warn('[⚠️ No highlightDirectives available]');
+      console.warn('[No highlightDirectives available]');
       return;
     }
 
@@ -2885,10 +2872,7 @@ this.explanationTextService.storeFormattedExplanation(
           (b) => b.option.optionId === optionId
         );
         if (!binding) {
-          console.warn(
-            '[⚠️ No binding found to sync with directive for]',
-            optionId
-          );
+          console.warn('[No binding found to sync with directive for]', optionId);
           continue;
         }
 
@@ -2912,7 +2896,7 @@ this.explanationTextService.storeFormattedExplanation(
     }
 
     if (!found) {
-      console.warn('[⚠️ No matching directive found for optionId]', optionId);
+      console.warn('[No matching directive found for optionId]', optionId);
     }
   }
 
@@ -2923,8 +2907,7 @@ this.explanationTextService.storeFormattedExplanation(
     // Validate the option object immediately
     if (!option || typeof option !== 'object') {
       console.error(
-        `Invalid or undefined option at index ${index}. Option:`,
-        option
+        `Invalid or undefined option at index ${index}. Option:`, option
       );
       return;
     }
@@ -2968,7 +2951,7 @@ this.explanationTextService.storeFormattedExplanation(
     // Generate feedbackConfig per option using hydrated data
     const hydratedOption = this.optionsToDisplay[index];
     if (!hydratedOption) {
-      console.warn(`[⚠️ Feedback] No hydrated option found at index ${index}`);
+      console.warn(`[Feedback] No hydrated option found at index ${index}`);
     } else {
       const activeQuestionIndex = this.getActiveQuestionIndex() ?? 0;
       const selectedHydratedOption: SelectedOption = {
@@ -3008,8 +2991,6 @@ this.explanationTextService.storeFormattedExplanation(
     optionBinding.option.showIcon = true;
     this.iconVisibility[optionId] = true;
     this.clickedOptionIds.add(optionId);
-
-    console.log(`Updated option state for optionId ${optionId}`);
   }
 
   private handleSelection(
@@ -3050,7 +3031,7 @@ this.explanationTextService.storeFormattedExplanation(
 
     // Confirm feedback function is triggered
     const currentQuestionIndex = this.getActiveQuestionIndex() ?? 0;
-    console.log('[🚨 Feedback Fired]', { currentQuestionIndex });
+    console.log('[Feedback Fired]', { currentQuestionIndex });
     this.lastFeedbackOptionMap[currentQuestionIndex] = optionId;
 
     // Set the last option selected (used to show only one feedback block)
@@ -3061,7 +3042,7 @@ this.explanationTextService.storeFormattedExplanation(
     this.showFeedbackForOption[optionId] = true;
 
     // Log that we're emitting answered=true for this question
-    console.log('[🔥 Q2 setAnswered call]', {
+    console.log('[Q2 setAnswered call]', {
       questionIndex: currentQuestionIndex,
       value: true
     });
@@ -3070,7 +3051,7 @@ this.explanationTextService.storeFormattedExplanation(
     // Verify we retrieved a valid hydrated option
     const hydratedOption = this.optionsToDisplay?.[index];
     if (!hydratedOption) {
-      console.warn('[⚠️ FeedbackGen] No option found at index', index);
+      console.warn('[FeedbackGen] No option found at index', index);
       return;
     }
 
@@ -3089,7 +3070,7 @@ this.explanationTextService.storeFormattedExplanation(
     );
     this.feedbackConfigs[optionId] = this.currentFeedbackConfig;
 
-    console.log('[🧪 Storing Feedback Config]', {
+    console.log('[Storing Feedback Config]', {
       optionId,
       feedbackConfig: this.feedbackConfigs[optionId]
     });
@@ -3098,7 +3079,7 @@ this.explanationTextService.storeFormattedExplanation(
     this.selectedOptionService.updateAnsweredState();
 
     // Final debug state
-    console.log('[✅ displayFeedbackForOption]', {
+    console.log('[displayFeedbackForOption]', {
       optionId,
       feedback: this.currentFeedbackConfig.feedback,
       showFeedbackForOption: this.showFeedbackForOption,
@@ -3112,7 +3093,7 @@ this.explanationTextService.storeFormattedExplanation(
     selectedIndex: number,
   ): FeedbackProps {
     if (!option) {
-      console.warn('[⚠️ generateFeedbackConfig] option is null or undefined');
+      console.warn('[generateFeedbackConfig] option is null or undefined');
       return {
         selectedOption: null,
         correctMessage: '',
@@ -3179,7 +3160,7 @@ this.explanationTextService.storeFormattedExplanation(
     this.showFeedback = true;
     this.updateHighlighting();
 
-    // Explicitly emit explanation since we removed it from updateHighlighting
+    // Explicitly emit explanation since removed from updateHighlighting
     this.emitExplanation(this.resolvedQuestionIndex ?? 0);
 
     this.cdRef.detectChanges();
@@ -3218,7 +3199,7 @@ this.explanationTextService.storeFormattedExplanation(
       },
       index: idx,
       feedback: option.feedback ?? 'No feedback available',  // never undefined
-      isCorrect: option.correct ?? false, // always boolean
+      isCorrect: option.correct ?? false,  // always boolean
       showFeedback: this.showFeedback,
       showFeedbackForOption: this.showFeedbackForOption,
       highlightCorrectAfterIncorrect: this.highlightCorrectAfterIncorrect,
@@ -3310,9 +3291,9 @@ this.explanationTextService.storeFormattedExplanation(
     this.showFeedbackForOption = { ...showMap };
 
     // Reset UI lock state
-    this.updateLockedIncorrectOptions?.();
+    this.updateLockedIncorrectOptions();
 
-    // ⚡ FIX: Set display flags BEFORE detectChanges so canDisplayOptions returns true
+    // Set display flags before detectChanges so canDisplayOptions returns true
     this.showOptions = true;
     this.optionsReady = true;
     this.renderReady = true;
@@ -3324,8 +3305,8 @@ this.explanationTextService.storeFormattedExplanation(
     for (const d of this.highlightDirectives ?? []) {
       try {
         d.updateHighlight();
-      } catch (err) {
-        console.warn(`[⚠️ Highlight update failed on index ${i}]`, err);
+      } catch (error) {
+        console.warn(`[⚠️ Highlight update failed on index ${i}]`, error);
       }
       i++;
     }
@@ -3425,7 +3406,7 @@ this.explanationTextService.storeFormattedExplanation(
   initializeOptionBindings(): void {
     try {
       if (this.optionBindingsInitialized) {
-        console.warn('[🛑 Already initialized]');
+        console.warn('[Already initialized]');
         return;
       }
 
@@ -3434,7 +3415,7 @@ this.explanationTextService.storeFormattedExplanation(
       const options = this.optionsToDisplay;
 
       if (!options?.length) {
-        console.warn('[⚠️ No options available on init - will be set by ngOnChanges]');
+        console.warn('[No options available on init - will be set by ngOnChanges]');
         this.optionBindingsInitialized = false;
         return;
       }
@@ -3442,10 +3423,10 @@ this.explanationTextService.storeFormattedExplanation(
       // Use generateOptionBindings for consistency (handles deduplication, showOptions, etc.)
       this.generateOptionBindings();
     } catch (error) {
-      console.error('[❌ initializeOptionBindings error]', error);
+      console.error('[initializeOptionBindings error]', error);
       this.optionBindingsInitialized = false;
     } finally {
-      console.timeEnd('[🔧 initializeOptionBindings]');
+      console.timeEnd('[initializeOptionBindings]');
     }
   }
 
@@ -3454,14 +3435,12 @@ this.explanationTextService.storeFormattedExplanation(
 
     // Pre-checks
     if (!options.length) {
-      console.warn(
-        '[⚠️ processOptionBindings] No options to process. Exiting.'
-      );
+      console.warn('[processOptionBindings] No options to process. Exiting.');
       this.optionBindingsInitialized = false;
       return;
     }
     if (this.freezeOptionBindings) {
-      console.warn('[💣 ABORTED optionBindings reassignment after user click]');
+      console.warn('[ABORTED optionBindings reassignment after user click]');
       return;
     }
     if (!this.currentQuestion) return;
@@ -3472,7 +3451,7 @@ this.explanationTextService.storeFormattedExplanation(
           const id = b.option.optionId ?? -1;  // fallback for undefined ids
           return [id, b.isSelected] as [number, boolean];
         })
-        .filter(([id]) => id !== -1),  // drop any undefined/fallback ids
+        .filter(([id]) => id !== -1)  // drop any undefined/fallback ids
     );
 
     // Use this.currentQuestion which should match optionsToDisplay
@@ -3522,7 +3501,7 @@ this.explanationTextService.storeFormattedExplanation(
 
   initializeFeedbackBindings(): void {
     if (this.optionBindings?.some((b) => b.isSelected)) {
-      console.warn('[🛡️ Skipped reassignment — already selected]');
+      console.warn('[Skipped reassignment — already selected]');
       return;
     }
 
@@ -3543,8 +3522,7 @@ this.explanationTextService.storeFormattedExplanation(
       // Validate the generated feedback binding
       if (!feedbackBinding || !feedbackBinding.selectedOption) {
         console.warn(
-          `Invalid feedback binding at index ${idx}:`,
-          feedbackBinding
+          `Invalid feedback binding at index ${idx}:`, feedbackBinding
         );
       }
 
@@ -3618,7 +3596,7 @@ this.explanationTextService.storeFormattedExplanation(
       this.viewReady = true;
       this.displayReady = true;
     } else {
-      console.warn('[🛑 Display init skipped — not ready]');
+      console.warn('[Display init skipped — not ready]');
     }
   }
 
@@ -3632,7 +3610,7 @@ this.explanationTextService.storeFormattedExplanation(
     if (bindingsReady && optionsReady) {
       this.ngZone.run(() => {
         if (reason) {
-          console.log(`[✅ renderReady]: ${reason}`);
+          console.log(`[renderReady]: ${reason}`);
         }
 
         this.renderReady = true;
@@ -3640,7 +3618,7 @@ this.explanationTextService.storeFormattedExplanation(
         this.renderReadySubject.next(true);
       });
     } else {
-      console.warn(`[❌ markRenderReady skipped] Incomplete state:`, {
+      console.warn(`[markRenderReady skipped] Incomplete state:`, {
         bindingsReady,
         optionsReady,
         reason
@@ -3652,7 +3630,7 @@ this.explanationTextService.storeFormattedExplanation(
   private regenerateFeedback(idx: number): void {
     if (idx < 0 || !this.optionsToDisplay?.length) return;
 
-    // ⚡ FIX: Use getQuestionAtDisplayIndex for shuffle-aware question lookup
+    // Use getQuestionAtDisplayIndex for shuffle-aware question lookup
     const question = this.getQuestionAtDisplayIndex(idx);
     if (question?.options) {
       const correctOptions = this.optionsToDisplay.filter(
@@ -3709,7 +3687,7 @@ this.explanationTextService.storeFormattedExplanation(
     }
 
     console.warn(
-      `[⚠️ determineQuestionType] No valid options or input detected. 
+      `[determineQuestionType] No valid options or input detected. 
       Defaulting to 'single'.`
     );
 
@@ -3719,7 +3697,7 @@ this.explanationTextService.storeFormattedExplanation(
 
   private finalizeOptionPopulation(): void {
     if (!this.optionsToDisplay?.length) {
-      console.warn('[🚨 No options to display. Skipping type determination.');
+      console.warn('[No options to display. Skipping type determination.');
       return;
     }
 
@@ -3730,7 +3708,7 @@ this.explanationTextService.storeFormattedExplanation(
         : 'single';
     } else {
       console.log(
-        '[SOC] 🛡️ finalizeOptionPopulation preserved type="multiple"'
+        '[SOC] finalizeOptionPopulation preserved type="multiple"'
       );
     }
   }
@@ -3849,8 +3827,7 @@ this.explanationTextService.storeFormattedExplanation(
     if (!this.optionsToDisplay?.length) return;
 
     // Build a Set for fast lookups
-    const selIds =
-      new Set(selectedOptions.map((s) => s.optionId));
+    const selIds = new Set(selectedOptions.map((s) => s.optionId));
 
     // Sync all three flags in one pass
     for (const opt of this.optionsToDisplay) {
@@ -3879,13 +3856,12 @@ this.explanationTextService.storeFormattedExplanation(
     // Check persistent disabled state first
     const qIndex = this.resolveCurrentQuestionIndex();
     const optionId = binding?.option?.optionId;
-    const disabledSet =
-      this.disabledOptionsPerQuestion.get(qIndex);
+    const disabledSet = this.disabledOptionsPerQuestion.get(qIndex);
     const isInSet =
       disabledSet && typeof optionId === 'number' && disabledSet.has(optionId);
 
     if (isInSet) {
-      console.log(`[isDisabled] ✅ RETURNING TRUE for option ${optionId}`);
+      console.log(`[isDisabled] RETURNING TRUE for option ${optionId}`);
       return true;
     }
     return this.shouldDisableOption(binding) || this.isLocked(binding, idx);
@@ -3905,7 +3881,7 @@ this.explanationTextService.storeFormattedExplanation(
   }
 
   /**
-   * ⚡ FIX: Helper to get question at a display index, respecting shuffle state.
+   * Helper to get question at a display index, respecting shuffle state.
    * When shuffle is enabled, uses shuffledQuestions (display order).
    * When shuffle is disabled, uses questions (original order).
    */
