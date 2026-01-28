@@ -1,9 +1,5 @@
 import {
-  ChangeDetectionStrategy,
-  Component,
-  OnDestroy,
-  OnInit,
-  HostListener
+  ChangeDetectionStrategy, Component, OnDestroy, OnInit, HostListener
 } from '@angular/core';
 import { CommonModule, NgOptimizedImage } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -44,7 +40,7 @@ import { QuizDataService } from '../../shared/services/quizdata.service';
   ],
   templateUrl: './results.component.html',
   styleUrls: ['./results.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ResultsComponent implements OnInit, OnDestroy {
   quizData: Quiz[] = QUIZ_DATA;
@@ -59,11 +55,11 @@ export class ResultsComponent implements OnInit, OnDestroy {
     private quizService: QuizService,
     private quizDataService: QuizDataService,
     private activatedRoute: ActivatedRoute,
-    private router: Router,
+    private router: Router
   ) {
     this.quizService.setPreviousUserAnswersText(
       this.quizService.questions,
-      this.quizService.userAnswers,
+      this.quizService.userAnswers
     );
   }
 
@@ -111,7 +107,7 @@ export class ResultsComponent implements OnInit, OnDestroy {
   private setCompletedQuiz(): void {
     if (this.quizId) {
       this.quizService.setCompletedQuizId(this.quizId);
-      this.quizService.quizId = this.quizId; // Ensure service has correct ID for high scores
+      this.quizService.quizId = this.quizId;  // ensure service has correct ID for high scores
       this.quizService.setQuizStatus(QuizStatus.COMPLETED);
       
       // Update the quiz object's status so QuizSelectionComponent can show the icon
@@ -122,7 +118,7 @@ export class ResultsComponent implements OnInit, OnDestroy {
   private findQuizIndex(): void {
     if (this.quizId) {
       this.indexOfQuizId = this.quizData.findIndex(
-        (elem) => elem.quizId === this.quizId,
+        (elem) => elem.quizId === this.quizId
       );
     }
   }
