@@ -2,18 +2,13 @@ import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnInit } 
 import { CommonModule } from '@angular/common';
 import { Observable, of } from 'rxjs';
 
+import { Status } from '../../../shared/models/Status.enum'
 import { Quiz } from '../../../shared/models/Quiz.model';
 import { QuizMetadata } from '../../../shared/models/QuizMetadata.model';
 import { Resource } from '../../../shared/models/Resource.model';
 import { QuizService } from '../../../shared/services/quiz.service';
 import { QuizDataService } from '../../../shared/services/quizdata.service';
 import { TimerService } from '../../../shared/services/timer.service';
-
-enum Status {
-  Started = 'Started',
-  Continue = 'Continue',
-  Completed = 'Completed'
-}
 
 @Component({
   selector: 'codelab-results-statistics',
