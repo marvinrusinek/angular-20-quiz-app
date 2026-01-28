@@ -8,7 +8,10 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule, MatCheckboxChange } from '@angular/material/checkbox';
 import { MatRadioModule, MatRadioChange } from '@angular/material/radio';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { animationFrameScheduler, BehaviorSubject, Observable, Subject, Subscription } from 'rxjs';
+import { 
+  animationFrameScheduler, BehaviorSubject, combineLatest, Observable, Subject, 
+  Subscription 
+} from 'rxjs';
 import { distinctUntilChanged, observeOn, take, takeUntil } from 'rxjs/operators';
 
 import { FeedbackProps } from '../../../../shared/models/FeedbackProps.model';
