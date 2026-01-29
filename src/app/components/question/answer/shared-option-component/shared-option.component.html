@@ -13,7 +13,7 @@
           class="options-group options"
           formControlName="selectedOptionId"
         >
-          @for (b of optionBindings; track trackByOptionId(b, i); let i = $index) {
+          @for (b of opts; let i = $index; track trackByOptionId(b, i)) {
             <div class="option-cursor-wrapper" [class.cursor-not-allowed]="getOptionCursor(b, i) === 'not-allowed'">
               <mat-radio-button
                 class="option-row single-option"
@@ -48,7 +48,7 @@
           role="group"
           aria-label="Select one or more options"
         >
-          @for (b of optionBindings; track trackByOptionId(b, i); let i = $index) {
+          @for (b of opts; let i = $index; track trackByOptionId(b, i)) {
             <div class="option-cursor-wrapper" [class.cursor-not-allowed]="getOptionCursor(b, i) === 'not-allowed'">
               <mat-checkbox
                 class="option-row multiple-option"
