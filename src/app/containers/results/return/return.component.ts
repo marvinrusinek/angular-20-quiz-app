@@ -5,6 +5,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatListModule } from '@angular/material/list';
 
 import { QuizService } from '../../../shared/services/quiz.service';
+import { SelectedOptionService } from '../../../shared/services/selectedoption.service';
 import { TimerService } from '../../../shared/services/timer.service';
 
 @Component({
@@ -22,6 +23,7 @@ export class ReturnComponent implements OnInit {
 
   constructor(
     private quizService: QuizService,
+    private selectedOptionService: SelectedOptionService,
     private timerService: TimerService,
     private router: Router
   ) {}
@@ -48,12 +50,19 @@ export class ReturnComponent implements OnInit {
   }
 
   selectQuiz(): void {
-    this.quizService.clearFinalResult();
+    // Reset progress for THIS quiz first (before quizId becomes '')
+    const id = this.quizId;
+    if (id) {
+      this.quizService.resetQuizSessionForNewRun(id);
   
-    if (this.quizId) {
-      this.quizService.resetQuizSessionForNewRun(this.quizId);
+      // Clear option/answered state
+      this.selectedOptionService.clearAllSelectionsForQuiz(id);
     }
   
+    // Clear frozen results snapshot (leaving results intentionally)
+    this.quizService.clearFinalResult();
+  
+    // Now it’s safe to clear quiz id + navigate
     this.quizService.resetAll();
     this.quizService.resetQuestions();
   
