@@ -4267,18 +4267,20 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   }
 
   private persistContinueStatusIfNeeded(): void {
-    // Set CONTINUE status if quiz is in progress (not completed, but started)
-    if (!this.quizId || this.quizService.quizCompleted) {
+    if (!this.quizId) return;
+  
+    // Hard Block: never persist CONTINUE after completion
+    if (this.quizService.quizCompleted === true) {
+      console.log('[QuizComponent] Quiz completed. Skipping CONTINUE persist.');
       return;
     }
   
+    // Only persist if the user actually answered something
     const hasAnsweredAny =
       this.currentQuestionIndex > 0 ||
-      this.selectedOptionService.isQuestionAnswered(0);
+      this.selectedOptionService.isQuestionAnswered(0) === true;
   
-    if (!hasAnsweredAny) {
-      return;
-    }
+    if (!hasAnsweredAny) return;
   
     // Store the current question index for resume
     this.quizService.currentQuestionIndex = this.currentQuestionIndex;
@@ -4286,9 +4288,5 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // Set CONTINUE status
     this.quizDataService.updateQuizStatus(this.quizId, QuizStatus.CONTINUE);
     this.quizService.setQuizStatus(QuizStatus.CONTINUE);
-  
-    console.log(
-      `[QuizComponent] Set CONTINUE status for quiz ${this.quizId} at Q${this.currentQuestionIndex}`
-    );
   }  
 }
