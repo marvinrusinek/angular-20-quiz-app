@@ -24,6 +24,7 @@ import { CodelabQuizHeaderComponent } from './quiz-header/quiz-header.component'
 import { ScoreboardComponent } from '../scoreboard/scoreboard.component';
 import { QuizStatus } from '../../shared/models/quiz-status.enum';
 import { QuestionType } from '../../shared/models/question-type.enum';
+import { ScoreAnalysisItem, FinalResult } from '../../shared/models/Final-Result.model';
 import { QuestionPayload } from '../../shared/models/QuestionPayload.model';
 import { QuestionState } from '../../shared/models/QuestionState.model';
 import { CombinedQuestionDataType } from '../../shared/models/CombinedQuestionDataType.model';
@@ -4288,5 +4289,65 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // Set CONTINUE status
     this.quizDataService.updateQuizStatus(this.quizId, QuizStatus.CONTINUE);
     this.quizService.setQuizStatus(QuizStatus.CONTINUE);
+  }
+
+  private finalizeAndGoToResults(): void {
+    const analysis = this.buildScoreAnalysisSnapshot();
+  
+    const correct = analysis.filter(a => a.wasCorrect).length;
+    const total = analysis.length;
+  
+    const finalResult: FinalResult = {
+      quizId: this.quizId!,
+      correct,
+      total,
+      percentage: total > 0 ? Math.round((correct / total) * 100) : 0,
+      analysis,
+      completedAt: Date.now(),
+    };
+  
+    this.quizService.quizCompleted = true;
+    this.quizService.setQuizStatus(QuizStatus.COMPLETED);
+  
+    this.quizService.setFinalResult(finalResult);
+  
+    this.router.navigate(['/results', this.quizId]);
+  }
+
+  private buildScoreAnalysisSnapshot(): ScoreAnalysisItem[] {
+    const questions = this.quizService.activeQuiz?.questions ?? this.quizService.questions ?? [];
+    const analysis: ScoreAnalysisItem[] = [];
+  
+    for (let i = 0; i < questions.length; i++) {
+      const q = questions[i];
+      if (!q) continue;
+  
+      const selected = this.selectedOptionService.getSelectedOptionsForQuestion(i) ?? [];
+      const selectedIds = selected.map(o => String(o?.optionId ?? '')).filter(Boolean);
+  
+      const correctIds = (q.options ?? [])
+        .filter((o: Option) => o.correct === true)
+        .map((o: Option) => String(o.optionId))
+        .filter(Boolean);
+  
+      // "wasCorrect" logic: selected set equals correct set
+      const selectedSet: Set<string> = new Set<string>(selectedIds);
+      const correctSet: Set<string> = new Set<string>(correctIds);
+  
+      const wasCorrect =
+        correctSet.size > 0 &&
+        correctSet.size === selectedSet.size &&
+        Array.from(correctSet).every((id: string) => selectedSet.has(id));
+  
+      analysis.push({
+        questionIndex: i,
+        questionText: String(q.questionText ?? ''),
+        wasCorrect,
+        selectedOptionIds: selectedIds,
+        correctOptionIds: correctIds,
+      });
+    }
+  
+    return analysis;
   }  
 }

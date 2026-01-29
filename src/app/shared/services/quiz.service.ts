@@ -14,6 +14,7 @@ import { QUIZ_DATA, QUIZ_RESOURCES } from '../quiz';
 import { Utils } from '../utils/utils';
 import { QuestionType } from '../models/question-type.enum';
 import { QuizStatus } from '../models/quiz-status.enum';
+import { FinalResult } from '../models/Final-Result.model';
 import { Option } from '../models/Option.model';
 import { QuestionPayload } from '../models/QuestionPayload.model';
 import { Quiz } from '../models/Quiz.model';
@@ -215,6 +216,9 @@ export class QuizService {
   questionPayloadSubject = new BehaviorSubject<QuestionPayload | null>(null);
   questionPayload$ = this.questionPayloadSubject.asObservable();
   private questionPayloadMap = new Map<number, QuestionPayload>();
+
+  private finalResultSource = new BehaviorSubject<FinalResult | null>(null);
+  finalResult$ = this.finalResultSource.asObservable();
 
   private readonly _preReset$ = new Subject<number>();
   // Emitted with the target question index just before navigation hydrates it
@@ -2824,4 +2828,36 @@ export class QuizService {
       question.options.every((opt: any) => opt && typeof opt.text === 'string')
     );
   }
+
+  setFinalResult(result: FinalResult): void {
+    this.finalResultSource.next(result);
+  
+    try {
+      sessionStorage.setItem('finalResult', JSON.stringify(result));
+    } catch (err) {
+      console.warn('[QuizService] Unable to persist finalResult', err);
+    }
+  }
+  
+  getFinalResultSnapshot(): FinalResult | null {
+    // Prefer in-memory snapshot
+    const live = this.finalResultSource.value;
+    if (live) return live;
+  
+    // Fallback to sessionStorage (tab switch / reload safe)
+    try {
+      const raw = sessionStorage.getItem('finalResult');
+      return raw ? (JSON.parse(raw) as FinalResult) : null;
+    } catch (err) {
+      console.warn('[QuizService] Unable to restore finalResult', err);
+      return null;
+    }
+  }
+  
+  clearFinalResult(): void {
+    this.finalResultSource.next(null);
+    try {
+      sessionStorage.removeItem('finalResult');
+    } catch {}
+  }  
 }
