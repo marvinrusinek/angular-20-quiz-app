@@ -31,28 +31,37 @@ export class ReturnComponent implements OnInit {
   }
 
   restartQuiz(): void {
+    if (this.quizId) {
+      this.quizService.resetQuizSessionForNewRun(this.quizId);
+    }
+  
     this.quizService.resetAll();
     this.quizService.resetQuestions();
-
+  
     // Clear frozen Results snapshot (fresh run)
     this.quizService.clearFinalResult();
-
+  
     this.timerService.elapsedTimes = [];
     this.timerService.completionTime = 0;
-
+  
     this.router.navigate(['/intro/', this.quizId]);
   }
 
   selectQuiz(): void {
+    // Reset session for this quiz before wiping quizId
+    if (this.quizId) {
+      this.quizService.resetQuizSessionForNewRun(this.quizId);
+    }
+  
     this.quizService.resetAll();
     this.quizService.resetQuestions();
-
-    // Clear frozen Results snapshot (leaving results)
+  
+    // 🧊 Clear frozen Results snapshot
     this.quizService.clearFinalResult();
-
+  
     this.quizId = '';
     this.indexOfQuizId = 0;
-    
+  
     this.router.navigate(['/select/']);
   }
 }
