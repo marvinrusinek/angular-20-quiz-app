@@ -31,15 +31,15 @@ export class ReturnComponent implements OnInit {
   }
 
   restartQuiz(): void {
+    // Clear “results snapshot”
+    this.quizService.clearFinalResult();
+  
+    // Clear session state (answered, selections, resume index, completion flags)
     if (this.quizId) {
       this.quizService.resetQuizSessionForNewRun(this.quizId);
     }
   
     this.quizService.resetAll();
-    this.quizService.resetQuestions();
-  
-    // Clear frozen Results snapshot (fresh run)
-    this.quizService.clearFinalResult();
   
     this.timerService.elapsedTimes = [];
     this.timerService.completionTime = 0;
@@ -48,16 +48,14 @@ export class ReturnComponent implements OnInit {
   }
 
   selectQuiz(): void {
-    // Reset session for this quiz before wiping quizId
+    this.quizService.clearFinalResult();
+  
     if (this.quizId) {
       this.quizService.resetQuizSessionForNewRun(this.quizId);
     }
   
     this.quizService.resetAll();
     this.quizService.resetQuestions();
-  
-    // 🧊 Clear frozen Results snapshot
-    this.quizService.clearFinalResult();
   
     this.quizId = '';
     this.indexOfQuizId = 0;
