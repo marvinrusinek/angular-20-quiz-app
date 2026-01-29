@@ -3919,11 +3919,6 @@ export class SharedOptionComponent
     return questionSource?.[displayIndex] ?? null;
   }
 
-  /* canShowOptions(): boolean {
-    const hasBindings = (this.optionBindings?.length ?? 0) > 0;
-    const hasOptions = (this.optionsToDisplay?.length ?? 0) > 0;
-    return this.canDisplayOptions && this.renderReady && (hasBindings || hasOptions);
-  } */
   canShowOptions(): boolean {
     // Data readiness is the primary gate
     const hasBindings = (this.optionBindings?.length ?? 0) > 0;
