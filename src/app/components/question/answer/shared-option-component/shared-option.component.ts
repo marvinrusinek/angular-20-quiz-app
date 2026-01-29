@@ -3921,7 +3921,8 @@ export class SharedOptionComponent
 
   canShowOptions(): boolean {
     const hasBindings = (this.optionBindings?.length ?? 0) > 0;
-    return this.canDisplayOptions && this.renderReady && hasBindings;
+    const hasOptions = (this.optionsToDisplay?.length ?? 0) > 0;
+    return this.canDisplayOptions && this.renderReady && (hasBindings || hasOptions);
   }
 
   private normalizeQuestionIndex(candidate: unknown): number | null {
