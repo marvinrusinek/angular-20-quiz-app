@@ -9,6 +9,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { Subject } from 'rxjs';
 import { take, takeUntil } from 'rxjs/operators';
 
+import { FinalResult, ScoreAnalysisItem } from '../../shared/models/Final-Result.model';
 import { BackToTopComponent } from '../../components/back-to-top/back-to-top.component';
 import { AccordionComponent } from './accordion/accordion.component';
 import { ChallengeComponent } from './challenge/challenge.component';
@@ -48,8 +49,13 @@ export class ResultsComponent implements OnInit, OnDestroy {
   indexOfQuizId = 0;
   menuOpen = false;
   activeSection: 'score' | 'report' | 'summary' | 'highscores' | 'resources' = 'score';
-  unsubscribe$ = new Subject<void>();
+  
+  finalResult: FinalResult | null = null;
+  scoreAnalysis: ScoreAnalysisItem[] = [];
+
   showScrollIndicator = true;
+
+  unsubscribe$ = new Subject<void>();
 
   constructor(
     private quizService: QuizService,
