@@ -7,7 +7,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
 import { Subject } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
+import { take, takeUntil } from 'rxjs/operators';
 
 import { BackToTopComponent } from '../../components/back-to-top/back-to-top.component';
 import { AccordionComponent } from './accordion/accordion.component';
@@ -68,6 +68,21 @@ export class ResultsComponent implements OnInit, OnDestroy {
     this.fetchQuizIdFromParams();
     this.setCompletedQuiz();
     this.findQuizIndex();
+
+    const snapshot = this.quizService.getFinalResultSnapshot();
+    if (snapshot) {
+      this.finalResult = snapshot;
+      this.scoreAnalysis = snapshot.analysis;
+      return;
+    }
+
+    // optional fallback
+    this.quizService.finalResult$
+      .pipe(take(1))
+      .subscribe(r => {
+        this.finalResult = r;
+        this.scoreAnalysis = r?.analysis ?? [];
+      });
   }
 
   ngOnDestroy(): void {

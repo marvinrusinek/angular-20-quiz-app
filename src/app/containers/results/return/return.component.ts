@@ -33,16 +33,26 @@ export class ReturnComponent implements OnInit {
   restartQuiz(): void {
     this.quizService.resetAll();
     this.quizService.resetQuestions();
+
+    // Clear frozen Results snapshot (fresh run)
+    this.quizService.clearFinalResult();
+
     this.timerService.elapsedTimes = [];
     this.timerService.completionTime = 0;
+
     this.router.navigate(['/intro/', this.quizId]);
   }
 
   selectQuiz(): void {
     this.quizService.resetAll();
     this.quizService.resetQuestions();
+
+    // Clear frozen Results snapshot (leaving results)
+    this.quizService.clearFinalResult();
+
     this.quizId = '';
     this.indexOfQuizId = 0;
+    
     this.router.navigate(['/select/']);
   }
 }
