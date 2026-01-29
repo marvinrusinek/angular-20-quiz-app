@@ -435,7 +435,7 @@ export class QuizService {
     // Hard lock: once completed, status is immutable
     if (this.quizCompleted === true && value === Status.Continue) {
       console.warn(
-        '[QuizService] Ignoring CONTINUE status after quiz completion'
+        '[QuizService] Ignoring Continue status after quiz completion'
       );
       return;
     }
