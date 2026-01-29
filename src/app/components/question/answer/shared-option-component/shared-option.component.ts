@@ -3919,10 +3919,16 @@ export class SharedOptionComponent
     return questionSource?.[displayIndex] ?? null;
   }
 
-  canShowOptions(): boolean {
+  /* canShowOptions(): boolean {
     const hasBindings = (this.optionBindings?.length ?? 0) > 0;
     const hasOptions = (this.optionsToDisplay?.length ?? 0) > 0;
     return this.canDisplayOptions && this.renderReady && (hasBindings || hasOptions);
+  } */
+  canShowOptions(): boolean {
+    const hasBindings = (this.optionBindings?.length ?? 0) > 0;
+    if (!hasBindings) return false;
+  
+    return this.canDisplayOptions && this.renderReady;
   }
 
   private normalizeQuestionIndex(candidate: unknown): number | null {
