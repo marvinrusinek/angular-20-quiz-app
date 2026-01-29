@@ -3925,9 +3925,11 @@ export class SharedOptionComponent
     return this.canDisplayOptions && this.renderReady && (hasBindings || hasOptions);
   } */
   canShowOptions(): boolean {
+    // Data readiness is the primary gate
     const hasBindings = (this.optionBindings?.length ?? 0) > 0;
     if (!hasBindings) return false;
   
+    // UI flags are secondary
     return this.canDisplayOptions && this.renderReady;
   }
 
