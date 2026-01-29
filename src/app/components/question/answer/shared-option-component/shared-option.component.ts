@@ -589,30 +589,55 @@ export class SharedOptionComponent
     // when options change
     if (changes['optionsToDisplay'] && Array.isArray(this.optionsToDisplay)) {
       try {
-        // Hard clone & purge any reference identity leaks
+        // Hard clone and purge any reference identity leaks
         this.optionsToDisplay = JSON.parse(
           JSON.stringify(this.optionsToDisplay)
         );
-
+    
         // Publish the latest options snapshot for SOC reactive logic
         this.optionsToDisplay$.next(
           Array.isArray(this.optionsToDisplay) ? [...this.optionsToDisplay] : []
         );
-
-        this.optionBindings = [];
+    
+        // DO NOT clear optionBindings array (can cause blank options on first load)
+        // Instead, clear visual state on existing bindings
+        for (const b of this.optionBindings ?? []) {
+          b.isSelected = false;
+          b.showFeedback = false;
+          b.highlightCorrect = false;
+          b.highlightIncorrect = false;
+          b.highlightCorrectAfterIncorrect = false;
+          b.disabled = false;
+          if (b.option) {
+            b.option.selected = false;
+            b.option.showIcon = false;
+          }
+        }
+    
         for (const d of this.highlightDirectives ?? []) {
           // Gracefully handle if the directive doesn’t have updateHighlight
           if ('updateHighlight' in d) {
             d.updateHighlight();  // force visual reset
           }
         }
+    
         this.highlightedOptionIds.clear();
         this.selectedOption = null;
         console.log(
           '[HARD RESET] optionsToDisplay deep-cloned and state cleared'
         );
-      } catch (err: any) {
-        console.warn('[HARD RESET] deep clone failed', err);
+    
+        // Help first paint with OnPush
+        this.cdRef.markForCheck();
+      } catch (error: any) {
+        console.warn('[HARD RESET] deep clone failed', error);
+    
+        // Still push something predictable so combineLatest doesn't stall
+        this.optionsToDisplay$.next(
+          Array.isArray(this.optionsToDisplay) ? [...this.optionsToDisplay] : []
+        );
+    
+        this.cdRef.markForCheck();
       }
     }
 
