@@ -2859,5 +2859,26 @@ export class QuizService {
     try {
       sessionStorage.removeItem('finalResult');
     } catch {}
-  }  
+  }
+
+  resetQuizSessionForNewRun(quizId: string): void {
+    // In-memory flags
+    this.quizCompleted = false;
+    this.currentQuestionIndex = 0;
+    this.setQuizStatus(QuizStatus.STARTED);
+
+    // Remove any stored resume/index/session leftovers
+    try {
+      localStorage.removeItem('currentQuestionIndex');
+      localStorage.removeItem('savedQuestionIndex');
+      localStorage.removeItem('userAnswers');
+      localStorage.removeItem('selectedOptionsMap');
+      localStorage.removeItem('answeredMap');
+      localStorage.removeItem('currentQuestionType');
+
+      // If you store per-quiz keys, also remove those patterns:
+      localStorage.removeItem(`quizState_${quizId}`);
+      localStorage.removeItem(`quizResumeIndex_${quizId}`);
+    } catch {}
+  }
 }
