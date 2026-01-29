@@ -13,7 +13,7 @@ import _, { isEqual } from 'lodash';
 import { QUIZ_DATA, QUIZ_RESOURCES } from '../quiz';
 import { Utils } from '../utils/utils';
 import { QuestionType } from '../models/question-type.enum';
-import { Status } from '../models/Status.enum';
+import { QuizStatus } from '../models/quiz-status.enum';
 import { Option } from '../models/Option.model';
 import { QuestionPayload } from '../models/QuestionPayload.model';
 import { Quiz } from '../models/Quiz.model';
@@ -431,17 +431,17 @@ export class QuizService {
     this.indexOfQuizId = index;
   }
 
-  setQuizStatus(value: Status): void {
-    // Hard lock: once completed, status is immutable
-    if (this.quizCompleted === true && value === Status.Continue) {
+  setQuizStatus(value: QuizStatus): void {
+    // 🔒 Hard lock: once completed, status is immutable
+    if (this.quizCompleted === true && value === QuizStatus.CONTINUE) {
       console.warn(
-        '[QuizService] Ignoring Continue status after quiz completion'
+        '[QuizService] ⚠️ Ignoring CONTINUE status after quiz completion'
       );
       return;
     }
   
     this.status = value;
-  }
+  }  
 
   setCompletedQuizId(value: string) {
     this.completedQuizId = value;

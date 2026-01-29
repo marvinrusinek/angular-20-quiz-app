@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnInit } 
 import { CommonModule } from '@angular/common';
 import { Observable, of } from 'rxjs';
 
-import { Status } from '../../../shared/models/Status.enum'
+import { QuizStatus } from '../../../shared/models/quiz-status.enum'
 import { Quiz } from '../../../shared/models/Quiz.model';
 import { QuizMetadata } from '../../../shared/models/QuizMetadata.model';
 import { Resource } from '../../../shared/models/Resource.model';
@@ -24,7 +24,7 @@ export class StatisticsComponent implements OnInit {
   quizId = '';
   quizMetadata: Partial<QuizMetadata> = {};
   resources: Resource[] = [];
-  status: Status = Status.Started;
+  status: QuizStatus = QuizStatus.STARTED;
   elapsedMinutes = 0;
   elapsedSeconds = 0;
   percentage = 0;
@@ -75,7 +75,7 @@ export class StatisticsComponent implements OnInit {
       this.quizService.loadResourcesForQuiz(this.quizId);
     }
     this.resources = this.quizService.resources;
-    this.status = Status.Completed;
+    this.status = QuizStatus.COMPLETED;
     this.percentage = this.quizMetadata?.percentage ?? 0;
     this.calculateElapsedTime();
     this.sendQuizStatusToQuizService();
