@@ -96,7 +96,7 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
       });
   }
 
-  /* async onSelect(quizId: string, index: number): Promise<void> {
+  async onSelect(quizId: string, index: number): Promise<void> {
     try {
       if (!quizId) {
         console.error('[navigateToQuestion] quizId is null or undefined');
@@ -107,9 +107,13 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
       this.quizService.setIndexOfQuizId(index);
       
       const currentQuiz = this.quizDataService.getCachedQuizById(quizId);
+      const isCompleted = currentQuiz?.status === QuizStatus.COMPLETED;
+      this.quizService.quizCompleted = isCompleted;
       
       // If quiz is completed, go to results instead of intro
-      if (currentQuiz?.status === QuizStatus.COMPLETED) {
+      if (isCompleted) {
+        this.quizService.setQuizStatus(QuizStatus.COMPLETED);
+        this.quizService.setCompletedQuizId(quizId);
         await this.router.navigate([QuizRoutes.RESULTS, quizId]);
         return;
       }
@@ -128,29 +132,7 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
         console.error('Unexpected error:', error);
       }
     }
-  } */
-  onSelect(quiz: any, i: number): void {
-    const quizId = quiz?.quizId;
-    if (!quizId) return;
-  
-    const status = String(quiz?.status ?? '').toLowerCase();
-  
-    // ✅ Completed quizzes should navigate to Results
-    if (status === 'completed') {
-      this.router.navigate(['/results/', quizId]);
-      return;
-    }
-  
-    // Optional: if you have a continue state
-    if (status === 'continue') {
-      // route to resume OR intro, depending on your app
-      this.router.navigate(['/intro/', quizId]);
-      return;
-    }
-  
-    // Default: start flow
-    this.router.navigate(['/intro/', quizId]);
-  }  
+  }
 
   getQuizTileStyles(quiz: Quiz): QuizTileStyles {
     return {
