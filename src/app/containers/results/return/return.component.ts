@@ -4,9 +4,7 @@ import { Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatListModule } from '@angular/material/list';
 
-import { QuizStatus } from '../../../shared/models/quiz-status.enum';
 import { QuizService } from '../../../shared/services/quiz.service';
-import { QuizDataService } from '../../../shared/services/quizdata.service';
 import { SelectedOptionService } from '../../../shared/services/selectedoption.service';
 import { TimerService } from '../../../shared/services/timer.service';
 
@@ -25,7 +23,6 @@ export class ReturnComponent implements OnInit {
 
   constructor(
     private quizService: QuizService,
-    private quizDataService: QuizDataService,
     private selectedOptionService: SelectedOptionService,
     private timerService: TimerService,
     private router: Router
@@ -55,15 +52,7 @@ export class ReturnComponent implements OnInit {
   selectQuiz(): void {
     const id = this.quizId;
   
-    // Force selection screen to NOT treat it as completed/continue
-    if (id) {
-      this.quizService.quizCompleted = false;
-      this.quizService.setQuizStatus(QuizStatus.STARTED); // or a NOT_STARTED if you have one
-      this.quizDataService.updateQuizStatus(id, QuizStatus.STARTED);
-    }
-  
     this.selectedOptionService.clearAllSelectionsForQuiz(id);
-    this.quizService.clearFinalResult();
   
     this.quizService.resetAll();
     this.quizService.resetQuestions();
