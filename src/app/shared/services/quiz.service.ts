@@ -603,6 +603,13 @@ export class QuizService {
     );
   }
 
+  getQuestionsInDisplayOrder(): QuizQuestion[] {
+    const shuffled = this.shuffledQuestions ?? [];
+    return this.isShuffleEnabled() && shuffled.length
+      ? shuffled
+      : (this.questions ?? []);
+  }
+
   async fetchQuizQuestions(quizId: string): Promise<QuizQuestion[]> {
     console.log(`[QuizService] fetchQuizQuestions(${quizId}). hasShuffle=${this.shuffledQuestions?.length}, quizId=${this.quizId}, shouldShuffle=${this.shouldShuffle()}`);
 
