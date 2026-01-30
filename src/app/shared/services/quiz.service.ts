@@ -292,6 +292,10 @@ export class QuizService {
     }
   }
 
+  get shuffleEnabled(): boolean {
+    return this.isShuffleEnabled();
+  }
+
   getQuizName(segments: any[]): string {
     return segments[1].toString();
   }
@@ -605,7 +609,7 @@ export class QuizService {
 
   getQuestionsInDisplayOrder(): QuizQuestion[] {
     const shuffled = this.shuffledQuestions ?? [];
-    return this.isShuffleEnabled() && shuffled.length
+    return this.shuffleEnabled && shuffled.length
       ? shuffled
       : (this.questions ?? []);
   }
