@@ -49,7 +49,7 @@
       @for (quiz of quizzes$ | async; track quiz?.quizId) {
         <button 
           mat-menu-item 
-          [routerLink]="quiz?.status === 'completed' ? ['/results/', quiz?.quizId] : ['/intro/', quiz?.quizId]" 
+          [routerLink]="isCompleted(quiz) ? ['/results/', quiz?.quizId] : ['/intro/', quiz?.quizId]"
           class="milestone-menu-item"
         >
           <div class="milestone-content">
@@ -74,10 +74,10 @@
     @for (quiz of quizzes$ | async; let i = $index; track quiz?.quizId) {
       <div
         class="quiz-tile"
-        [class.completed]="quiz.status === 'completed'"
+        [class.completed]="isCompleted(quiz)"
         [@slideLeftToRight]="animationState$ | async"
         (@slideLeftToRight.done)="animationDoneHandler()"
-        (click)="onSelect(quiz.quizId, i)"
+        (click)="onSelect(quiz, i)"
         routerLinkActive="active"
         [ngStyle]="getQuizTileStyles(quiz)"
       >
@@ -95,6 +95,7 @@
           <mat-card-actions>
             @if (shouldShowLink(quiz)) {
               <a
+                (click)="$event.stopPropagation()"
                 [ngClass]="getLinkClass(quiz)"
                 [matTooltip]="getTooltip(quiz)"
                 [routerLink]="getLinkRouterLink(quiz)"

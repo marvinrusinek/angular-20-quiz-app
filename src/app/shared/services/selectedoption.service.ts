@@ -2452,23 +2452,15 @@ export class SelectedOptionService {
   }
 
   clearAllSelectionsForQuiz(quizId: string): void {
-    // If your maps are keyed only by questionIndex (not quizId),
-    // then this should be a full clear.
-    this.selectedOptionsMap?.clear?.();
-    //this.answeredMap?.clear?.();
-    //this.selectedOptionHistory?.clear?.();
+    this.selectedOptionsMap.clear();
   
     try {
       localStorage.removeItem('selectedOptionsMap');
-      localStorage.removeItem('answeredMap');
       localStorage.removeItem('userAnswers');
       localStorage.removeItem('savedQuestionIndex');
       localStorage.removeItem('currentQuestionIndex');
-  
-      // if you use per-quiz keys:
       localStorage.removeItem(`quizState_${quizId}`);
       localStorage.removeItem(`selectedOptions_${quizId}`);
-      localStorage.removeItem(`answered_${quizId}`);
     } catch {}
-  }  
+  }    
 }

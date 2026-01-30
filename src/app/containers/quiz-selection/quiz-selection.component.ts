@@ -96,7 +96,7 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
       });
   }
 
-  async onSelect(quizId: string, index: number): Promise<void> {
+  /* async onSelect(quizId: string, index: number): Promise<void> {
     try {
       if (!quizId) {
         console.error('[navigateToQuestion] quizId is null or undefined');
@@ -128,7 +128,29 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
         console.error('Unexpected error:', error);
       }
     }
-  }
+  } */
+  onSelect(quiz: any, i: number): void {
+    const quizId = quiz?.quizId;
+    if (!quizId) return;
+  
+    const status = String(quiz?.status ?? '').toLowerCase();
+  
+    // ✅ Completed quizzes should navigate to Results
+    if (status === 'completed') {
+      this.router.navigate(['/results/', quizId]);
+      return;
+    }
+  
+    // Optional: if you have a continue state
+    if (status === 'continue') {
+      // route to resume OR intro, depending on your app
+      this.router.navigate(['/intro/', quizId]);
+      return;
+    }
+  
+    // Default: start flow
+    this.router.navigate(['/intro/', quizId]);
+  }  
 
   getQuizTileStyles(quiz: Quiz): QuizTileStyles {
     return {
@@ -177,7 +199,7 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
     return hasStatus || isCompletedQuiz;
   }
 
-  getLinkRouterLink(quiz: Quiz): string[] {
+  /* getLinkRouterLink(quiz: Quiz): string[] {
     const quizId = quiz.quizId;
     const currentQuestionIndexStr = `${this.currentQuestionIndex}`;
 
@@ -191,6 +213,14 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
       default:
         return [];
     }
+  } */
+  getLinkRouterLink(quiz: any): any[] {
+    const quizId = quiz?.quizId;
+    const status = String(quiz?.status ?? '').toLowerCase();
+  
+    if (status === 'completed') return ['/results/', quizId];
+    if (status === 'continue') return ['/intro/', quizId]; // or resume route
+    return ['/intro/', quizId];
   }
 
   getIconClass(quiz: Quiz): string {
@@ -209,4 +239,36 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
   animationDoneHandler(): void {
     this.animationState$.next('none');
   }
+
+  onSelectQuiz(quiz: any, index: number): void {
+    const quizId = quiz?.quizId;
+    if (!quizId) return;
+  
+    const status = String(quiz?.status ?? '').toLowerCase();
+  
+    // ✅ Completed quizzes go to Results (matches Milestones menu behavior)
+    if (status === 'completed') {
+      this.router.navigate(['/results/', quizId]);
+      return;
+    }
+  
+    // ✅ Continue quizzes resume (optional — only keep if you support this state)
+    if (status === 'continue') {
+      // If you store a resume index somewhere, use it here.
+      // Otherwise, sending them to intro is fine.
+      this.router.navigate(['/intro/', quizId]);
+      return;
+    }
+  
+    // Default: Start/Intro
+    this.router.navigate(['/intro/', quizId]);
+  }
+
+  public isCompleted(quiz: any): boolean {
+    return (quiz?.status ?? '').toString().toLowerCase() === 'completed';
+  }
+
+  public isContinue(quiz: any): boolean {
+    return (quiz?.status ?? '').toString().toLowerCase() === 'continue';
+  }  
 }

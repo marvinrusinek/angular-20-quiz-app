@@ -49,7 +49,7 @@ export class ReturnComponent implements OnInit {
     this.timerService.elapsedTimes = [];
     this.timerService.completionTime = 0;
   
-    this.router.navigate(['/intro/', this.quizId]);
+    // this.router.navigate(['/intro/', this.quizId]);
   }
 
   selectQuiz(): void {
