@@ -79,6 +79,7 @@ export class ResultsComponent implements OnInit, OnDestroy {
     if (snapshot) {
       this.finalResult = snapshot;
       this.scoreAnalysis = snapshot.analysis;
+      this.applyFinalResultSnapshot(snapshot);
       return;
     }
 
@@ -88,6 +89,9 @@ export class ResultsComponent implements OnInit, OnDestroy {
       .subscribe(r => {
         this.finalResult = r;
         this.scoreAnalysis = r?.analysis ?? [];
+        if (r) {
+          this.applyFinalResultSnapshot(r);
+        }
       });
   }
 
@@ -142,6 +146,11 @@ export class ResultsComponent implements OnInit, OnDestroy {
         (elem) => elem.quizId === this.quizId
       );
     }
+  }
+
+  private applyFinalResultSnapshot(snapshot: FinalResult): void {
+    this.quizService.totalQuestions = snapshot.total;
+    this.quizService.sendCorrectCountToResults(snapshot.correct);
   }
 
   selectQuiz(): void {

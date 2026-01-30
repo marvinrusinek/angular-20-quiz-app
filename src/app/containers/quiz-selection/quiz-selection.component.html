@@ -77,7 +77,7 @@
         [class.completed]="isCompleted(quiz)"
         [@slideLeftToRight]="animationState$ | async"
         (@slideLeftToRight.done)="animationDoneHandler()"
-        (click)="onSelect(quiz, i)"
+        (click)="onSelect(quiz.quizId, i)"
         routerLinkActive="active"
         [ngStyle]="getQuizTileStyles(quiz)"
       >
