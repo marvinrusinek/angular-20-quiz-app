@@ -18,11 +18,13 @@
 
         <mat-panel-title class="accordion-title">
           <span class="question-leader">Question #{{ i + 1 }}:</span>
-          <span class="question-text">{{ question.questionText }}</span>
-          @let correctCount = getCorrectOptionIndices(question).length;
-          @if (correctCount > 1) {
-            <span class="question-correct-count">({{ correctCount }} correct answers)</span>
-          }
+          <span class="question-text">
+            {{ question.questionText }}
+            @let correctCount = getCorrectOptionIndices(question).length;
+            @if (correctCount > 1) {
+              <span class="question-correct-count">({{ correctCount }} correct answers)</span>
+            }
+          </span>
         </mat-panel-title>
 
         <ng-template matExpansionPanelContent>
