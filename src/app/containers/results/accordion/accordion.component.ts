@@ -1,5 +1,6 @@
 import { 
-  ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit 
+  ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnDestroy, 
+  OnInit 
 } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { Subject } from 'rxjs';
@@ -24,7 +25,9 @@ import { SelectedOptionService } from '../../../shared/services/selectedoption.s
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AccordionComponent implements OnInit, OnDestroy {
-  questions: QuizQuestion[] = [];
+  @Input() questions: QuizQuestion[] = [];
+  @Input() headerLabel = '';
+  
   results: Result = {
     userAnswers: [],
     elapsedTimes: []

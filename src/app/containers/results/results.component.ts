@@ -19,6 +19,7 @@ import { SummaryReportComponent } from './summary-report/summary-report.componen
 
 import { QUIZ_DATA } from '../../shared/quiz';
 import { Quiz } from '../../shared/models/Quiz.model';
+import { QuizQuestion } from '../../shared/models/QuizQuestion.model';
 import { QuizStatus } from '../../shared/models/quiz-status.enum';
 import { QuizService } from '../../shared/services/quiz.service';
 import { QuizDataService } from '../../shared/services/quizdata.service';
@@ -47,6 +48,9 @@ export class ResultsComponent implements OnInit, OnDestroy {
   quizData: Quiz[] = QUIZ_DATA;
   quizId = '';
   indexOfQuizId = 0;
+  detailedSummaryQuestions: QuizQuestion[] = [];
+  headerLabel = '';
+
   menuOpen = false;
   activeSection: 'score' | 'report' | 'summary' | 'highscores' | 'resources' = 'score';
   
@@ -74,6 +78,13 @@ export class ResultsComponent implements OnInit, OnDestroy {
     this.fetchQuizIdFromParams();
     this.setCompletedQuiz();
     this.findQuizIndex();
+
+    this.detailedSummaryQuestions =
+      this.quizService.getQuestionsInDisplayOrder();
+
+    this.headerLabel = this.quizService.isShuffleEnabled()
+      ? `${this.detailedSummaryQuestions.length} questions, SHUFFLED`
+      : `${this.detailedSummaryQuestions.length} questions`;
 
     const snapshot = this.quizService.getFinalResultSnapshot();
     if (snapshot) {
