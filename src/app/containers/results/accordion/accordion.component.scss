@@ -46,10 +46,15 @@ mat-accordion {
       word-wrap: break-word;
       line-height: 1.4;
     }
+
+    .question-correct-count {
+      margin-left: 8px;
+      font-weight: 600;
+      color: vars.$dark-blue;
+      white-space: nowrap;
+      flex: 0 0 auto;
+    }
   }
-
-
-
 
   .accordion-icon {
     position: absolute;
