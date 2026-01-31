@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Observable, of } from 'rxjs';
+import { map } from 'rxjs/operators';
 
 import { QuizStatus } from '../../../shared/models/quiz-status.enum'
 import { Quiz } from '../../../shared/models/Quiz.model';
@@ -20,7 +21,7 @@ import { TimerService } from '../../../shared/services/timer.service';
 })
 export class StatisticsComponent implements OnInit {
   quizzes$: Observable<Quiz[]> = of([]);
-  quizName$: Observable<string> = of('');
+  milestoneName$: Observable<string> = of('');
   quizId = '';
   quizMetadata: Partial<QuizMetadata> = {};
   resources: Resource[] = [];
@@ -67,8 +68,17 @@ export class StatisticsComponent implements OnInit {
     this.quizzes$ = this.quizDataService.getQuizzes();
     this.quizId = this.quizService.quizId;
 
-    // Use the quizId from service, not from URL segments
-    this.quizName$ = of(this.quizId);
+    const cachedQuiz = this.quizDataService.getCachedQuizById(this.quizId);
+
+    // Use milestone name when available.
+    this.milestoneName$ = cachedQuiz?.milestone
+      ? of(cachedQuiz.milestone)
+      : this.quizzes$.pipe(
+          map((quizzes) =>
+            quizzes.find((quiz) => quiz.quizId === this.quizId)?.milestone ??
+            this.quizId
+          )
+        );
 
     // Ensure resources are loaded for this quiz
     if (this.quizId) {

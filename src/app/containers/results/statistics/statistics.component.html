@@ -1,5 +1,5 @@
 @for (quiz of quizzes$ | async; track quiz.quizId) {
-  @if (quiz.quizId === (quizName$ | async)) {
+  @if (quiz.quizId === quizId) {
     <div class="statistics">
       
       <!-- === SCORE ANALYSIS SECTION === -->
@@ -147,7 +147,7 @@
   <details class="resources-section" open>
     <summary class="resources-header">
       <span class="resources-icon">📚</span>
-      <span i18n>Brush up your knowledge of {{ quizName$ | async }} with these resources</span>
+      <span i18n>Brush up your knowledge of {{ milestoneName$ | async }} with these resources</span>
     </summary>
 
     <ul>
