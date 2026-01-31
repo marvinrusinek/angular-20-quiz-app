@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnInit } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { Observable, of } from 'rxjs';
+import { take } from 'rxjs/operators';
 
 import { Quiz } from '../../../shared/models/Quiz.model';
 import { QuizMetadata } from '../../../shared/models/QuizMetadata.model';
@@ -35,6 +36,7 @@ export class SummaryReportComponent implements OnInit {
   checkedShuffle = false;
   checkedShuffle$: Observable<boolean> = of(false);
   highScores: QuizScore[] = [];
+  quizMilestones: Record<string, string> = {};
   currentScore: QuizScore | null = null;  // the current quiz attempt score
   codelabUrl = 'https://www.codelab.fun';
 
@@ -60,6 +62,13 @@ export class SummaryReportComponent implements OnInit {
       };
 
       this.quizzes$ = this.quizDataService.getQuizzes();
+      this.quizzes$.pipe(take(1)).subscribe((quizzes) => {
+        this.quizMilestones = quizzes.reduce<Record<string, string>>((acc, quiz) => {
+          acc[quiz.quizId] = quiz.milestone;
+          return acc;
+        }, {});
+        this.cdRef.markForCheck();
+      });
       this.quizId = this.quizService.quizId;
 
       this.quizName$ = of(this.quizId);
@@ -95,5 +104,9 @@ export class SummaryReportComponent implements OnInit {
     const completionTime = this.quizMetadata?.completionTime ?? 0;
     this.elapsedMinutes = Math.floor(completionTime / 60);
     this.elapsedSeconds = completionTime % 60;
+  }
+
+  getMilestoneLabel(quizId: string): string {
+    return this.quizMilestones[quizId] ?? quizId;
   }
 }

@@ -78,7 +78,7 @@
 
     @for (highScore of highScores; track highScore.attemptDateTime) {
       <tr i18n>
-        <td>{{ highScore.quizId }}</td>
+        <td>{{ getMilestoneLabel(highScore.quizId) }}</td>
         <td>{{ highScore.score }}</td>
         <td>{{ highScore.attemptDateTime | date: 'medium' }}</td>
       </tr>
