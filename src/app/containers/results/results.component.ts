@@ -52,7 +52,8 @@ export class ResultsComponent implements OnInit, OnDestroy {
   headerLabel = '';
 
   menuOpen = false;
-  activeSection: 'score' | 'report' | 'summary' | 'highscores' | 'resources' = 'score';
+  activeSection: 
+    'score' | 'report' | 'summary' | 'highscores' | 'resources' = 'score';
   
   finalResult: FinalResult | null = null;
   scoreAnalysis: ScoreAnalysisItem[] = [];

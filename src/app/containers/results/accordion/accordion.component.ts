@@ -26,8 +26,9 @@ import { SelectedOptionService } from '../../../shared/services/selectedoption.s
 })
 export class AccordionComponent implements OnInit, OnDestroy {
   @Input() questions: QuizQuestion[] = [];
-  @Input() headerLabel = '';
-  
+  @Input() isShuffled = false;
+  @Input({alias: "headerLabel"}) accordionHeaderLabel = '';
+
   results: Result = {
     userAnswers: [],
     elapsedTimes: []
@@ -44,6 +45,13 @@ export class AccordionComponent implements OnInit, OnDestroy {
     private cdRef: ChangeDetectorRef,
     private route: ActivatedRoute
   ) {}
+
+  get headerLabel(): string {
+    const count = this.questions?.length ?? 0;
+    return this.isShuffled
+      ? `${count} questions, SHUFFLED`
+      : `${count} questions`;
+  }
 
   ngOnInit(): void {
     // Read userAnswers directly from localStorage to ensure we have the latest data
