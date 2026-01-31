@@ -64,6 +64,7 @@ export class SummaryReportComponent implements OnInit {
 
       this.quizName$ = of(this.quizId);
       this.checkedShuffle$ = this.quizService.checkedShuffle$;
+      this.checkedShuffle = this.quizService.isShuffleEnabled();
       this.calculateElapsedTime();
       this.quizService.saveHighScores();
       this.highScores = this.quizService.highScores;

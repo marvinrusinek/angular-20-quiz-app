@@ -32,6 +32,11 @@
   </li>
 
   <li>
+    <span class="summary-stats-leader">Test Mode: </span>
+    <span class="result">{{ isShuffled ? 'Shuffled' : 'Unshuffled' }}</span>
+  </li>
+
+  <li>
     <span class="summary-stats-leader">Time Elapsed: </span>
     <span class="result">
       {{ elapsedMinutes }} {{ elapsedMinutes === 1 ? 'minute' : 'minutes' }}

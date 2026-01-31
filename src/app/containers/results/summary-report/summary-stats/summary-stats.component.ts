@@ -24,4 +24,5 @@ export class SummaryStatsComponent {
   @Input() score: QuizScore | null = null;
   @Input() elapsedMinutes = 0;
   @Input() elapsedSeconds = 0;
+  @Input() isShuffled = false;
 }
