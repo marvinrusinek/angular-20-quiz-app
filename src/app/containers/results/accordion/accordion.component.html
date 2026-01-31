@@ -20,9 +20,9 @@
           <span class="question-leader">Question #{{ i + 1 }}:</span>
           <span class="question-text">{{ question.questionText }}</span>
           @let correctCount = getCorrectOptionIndices(question).length;
-          <span class="question-correct-count">
-            ({{ correctCount }} correct {{ correctCount === 1 ? 'answer' : 'answers' }})
-          </span>
+          @if (correctCount > 1) {
+            <span class="question-correct-count">({{ correctCount }} correct answers)</span>
+          }
         </mat-panel-title>
 
         <ng-template matExpansionPanelContent>
