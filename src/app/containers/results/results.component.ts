@@ -83,15 +83,19 @@ export class ResultsComponent implements OnInit, OnDestroy {
     this.detailedSummaryQuestions =
       this.quizService.getQuestionsInDisplayOrder();
 
-    this.headerLabel = this.quizService.isShuffleEnabled()
+    /* this.headerLabel = this.quizService.isShuffleEnabled()
       ? `${this.detailedSummaryQuestions.length} questions, SHUFFLED`
-      : `${this.detailedSummaryQuestions.length} questions`;
+      : `${this.detailedSummaryQuestions.length} questions`; */
+    this.updateHeaderLabel(
+      this.quizService.totalQuestions || this.detailedSummaryQuestions.length
+    );
 
     const snapshot = this.quizService.getFinalResultSnapshot();
     if (snapshot) {
       this.finalResult = snapshot;
       this.scoreAnalysis = snapshot.analysis;
       this.applyFinalResultSnapshot(snapshot);
+      this.updateHeaderLabel(snapshot.total);
       return;
     }
 
@@ -103,6 +107,7 @@ export class ResultsComponent implements OnInit, OnDestroy {
         this.scoreAnalysis = r?.analysis ?? [];
         if (r) {
           this.applyFinalResultSnapshot(r);
+          this.updateHeaderLabel(r.total);
         }
       });
   }
@@ -163,6 +168,16 @@ export class ResultsComponent implements OnInit, OnDestroy {
   private applyFinalResultSnapshot(snapshot: FinalResult): void {
     this.quizService.totalQuestions = snapshot.total;
     this.quizService.sendCorrectCountToResults(snapshot.correct);
+  }
+
+  private updateHeaderLabel(totalQuestions: number): void {
+    const questionCount = Number.isFinite(totalQuestions) && totalQuestions > 0
+      ? totalQuestions
+      : this.detailedSummaryQuestions.length;
+
+    this.headerLabel = this.quizService.isShuffleEnabled()
+      ? `${questionCount} questions, SHUFFLED`
+      : `${questionCount} questions`;
   }
 
   selectQuiz(): void {
