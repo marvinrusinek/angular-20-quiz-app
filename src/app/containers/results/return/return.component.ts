@@ -33,20 +33,28 @@ export class ReturnComponent implements OnInit {
   }
 
   restartQuiz(): void {
+    if (!this.quizId) {
+      this.quizId = this.quizService.quizId;
+    }
+
     // Clear “results snapshot”
     this.quizService.clearFinalResult();
   
     // Clear session state (answered, selections, resume index, completion flags)
     if (this.quizId) {
       this.quizService.resetQuizSessionForNewRun(this.quizId);
+      this.selectedOptionService.clearAllSelectionsForQuiz(this.quizId);
     }
   
     this.quizService.resetAll();
+    this.quizService.resetQuestions();
   
     this.timerService.elapsedTimes = [];
     this.timerService.completionTime = 0;
   
-    // this.router.navigate(['/intro/', this.quizId]);
+    if (this.quizId) {
+      void this.router.navigate(['/quiz/question', this.quizId, 1]);
+    }
   }
 
   selectQuiz(): void {
