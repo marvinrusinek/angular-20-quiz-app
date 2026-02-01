@@ -1354,6 +1354,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         return false;
       }
 
+      this.quiz = quiz;
+
       // Initialize session properly to generate correct FETs for shuffled order
       // This calculates "Option X is correct" based on the SHUFFLED array index,
       // matching the UI.
