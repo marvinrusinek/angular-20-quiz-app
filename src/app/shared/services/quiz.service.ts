@@ -400,6 +400,16 @@ export class QuizService {
   setCurrentQuiz(q: Quiz): void {
     this.activeQuiz = q;
     this.currentQuizSubject.next(q);
+    if (q?.quizId) {
+      this.quizId = q.quizId;
+    }
+    if (Array.isArray(q?.questions)) {
+      this.questionsList = q.questions;
+      this.questionsSubject.next(q.questions);
+      this.questions = q.questions;
+      this.totalQuestions = q.questions.length;
+      this.totalQuestionsSubject.next(this.totalQuestions);
+    }
   }
 
   getCurrentQuiz(): Observable<Quiz | null> {
