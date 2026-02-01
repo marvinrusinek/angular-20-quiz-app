@@ -1265,27 +1265,51 @@ export class QuizQuestionComponent extends BaseQuestion
 
   private saveQuizState(): void {
     try {
+      const explanationKey = this.getSessionStorageKey(
+        'explanationText',
+        this.currentQuestionIndex
+      );
+      const displayModeKey = this.getSessionStorageKey(
+        'displayMode',
+        this.currentQuestionIndex
+      );
+      const optionsKey = this.getSessionStorageKey(
+        'options',
+        this.currentQuestionIndex
+      );
+      const selectedOptionsKey = this.getSessionStorageKey(
+        'selectedOptions',
+        this.currentQuestionIndex
+      );
+      const feedbackKey = this.getSessionStorageKey(
+        'feedbackText',
+        this.currentQuestionIndex
+      );
+
       // Save explanation text
       if (this.currentExplanationText) {
-        sessionStorage.setItem(`explanationText_${this.currentQuestionIndex}`,
+        /* sessionStorage.setItem(`explanationText_${this.currentQuestionIndex}`,
           this.currentExplanationText
-        );
+        ); */
+        sessionStorage.setItem(explanationKey, this.currentExplanationText);
       }
 
       // Save display mode
       if (this.displayState.mode) {
-        sessionStorage.setItem(
+        /* sessionStorage.setItem(
           `displayMode_${this.currentQuestionIndex}`, this.displayState.mode
-        );
+        ); */
+        sessionStorage.setItem(displayModeKey, this.displayState.mode);
         console.log('[saveQuizState] Saved display mode:', this.displayState.mode);
       }
 
       // Save options
       const optionsToSave = this.optionsToDisplay || [];
       if (optionsToSave.length > 0) {
-        sessionStorage.setItem(
+        /* sessionStorage.setItem(
           `options_${this.currentQuestionIndex}`, JSON.stringify(optionsToSave)
-        );
+        ); */
+        sessionStorage.setItem(optionsKey, JSON.stringify(optionsToSave));
       }
 
       // Save selected options
@@ -1299,11 +1323,17 @@ export class QuizQuestionComponent extends BaseQuestion
 
       // Save feedback text
       if (this.feedbackText) {
-        sessionStorage.setItem(`feedbackText_${this.currentQuestionIndex}`, this.feedbackText);
+        // sessionStorage.setItem(`feedbackText_${this.currentQuestionIndex}`, this.feedbackText);
+        sessionStorage.setItem(feedbackKey, this.feedbackText);
       }
     } catch (error: any) {
       console.error('[saveQuizState] Error saving quiz state:', error);
     }
+  }
+
+  private getSessionStorageKey(prefix: string, questionIndex: number): string {
+    const quizKey = (this.quizId || this.quizService.quizId || '').trim();
+    return quizKey ? `${prefix}_${quizKey}_${questionIndex}` : `${prefix}_${questionIndex}`;
   }
 
   // Method to initialize `displayMode$` and control the display reactively
@@ -3891,7 +3921,8 @@ export class QuizQuestionComponent extends BaseQuestion
     try {
       // Check session storage
       const storedExplanation = sessionStorage.getItem(
-        `explanationText_${questionIndex}`
+        // `explanationText_${questionIndex}
+        this.getSessionStorageKey('explanationText', questionIndex)`
       );
       if (storedExplanation) {
         this.applyExplanation(storedExplanation);
@@ -3908,8 +3939,12 @@ export class QuizQuestionComponent extends BaseQuestion
         this.applyExplanation(cachedExplanation);
 
         // Store in session storage for future use
-        sessionStorage.setItem(`explanationText_${questionIndex}`,
-          cachedExplanation);
+        //sessionStorage.setItem(`explanationText_${questionIndex}`,
+        //  cachedExplanation);
+        sessionStorage.setItem(
+          this.getSessionStorageKey('explanationText', questionIndex),
+          cachedExplanation
+        );
         return cachedExplanation;  // return the cached explanation text
       }
 
@@ -3943,7 +3978,11 @@ export class QuizQuestionComponent extends BaseQuestion
         questionIndex,
         explanation: explanationText
       };
-      sessionStorage.setItem(`explanationText_${questionIndex}`, explanationText);
+      //sessionStorage.setItem(`explanationText_${questionIndex}`, explanationText);
+      sessionStorage.setItem(
+        this.getSessionStorageKey('explanationText', questionIndex),
+        explanationText
+      );
       this.syncExplanationService(questionIndex, explanationText);
       this.applyExplanation(explanationText);
 
