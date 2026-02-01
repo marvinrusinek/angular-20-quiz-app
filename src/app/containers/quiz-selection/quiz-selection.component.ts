@@ -103,7 +103,8 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
         return;
       }
 
-      this.quizService.quizId = quizId;
+      // this.quizService.quizId = quizId;
+      this.quizService.setQuizId(quizId);
       this.quizService.setIndexOfQuizId(index);
       
       const currentQuiz = this.quizDataService.getCachedQuizById(quizId);
