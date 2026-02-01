@@ -334,7 +334,8 @@ export class QuizQuestionLoaderService {
       this.lastQuizId = routeId;
     }
     this.activeQuizId = routeId;
-    this.quizService.quizId = routeId;
+    // this.quizService.quizId = routeId;
+    this.quizService.setQuizId(routeId);
     return true;
   }
 
@@ -544,7 +545,8 @@ export class QuizQuestionLoaderService {
 
     // Keep other services in sync
     this.activeQuizId = quizId;
-    this.quizService.quizId = quizId;
+    // this.quizService.quizId = quizId;
+    this.quizService.setQuizId(quizId);
 
     // Consistency Fix: Use getQuestionByIndex to respect shuffle state
     // Previously, we accessed this.quizService.questions[index] directly,

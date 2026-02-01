@@ -101,7 +101,8 @@ export class AccordionComponent implements OnInit, OnDestroy {
               // Sync service state if it's currently empty or different
               if (this.quizService.quizId !== id) {
                 console.log(`[ACCORDION] Syncing service quizId to URL param: ${id}`);
-                this.quizService.quizId = id;
+                // this.quizService.quizId = id;
+                this.quizService.setQuizId(id);
               }
             }
 

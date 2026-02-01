@@ -149,7 +149,8 @@ export class ResultsComponent implements OnInit, OnDestroy {
   private setCompletedQuiz(): void {
     if (this.quizId) {
       this.quizService.setCompletedQuizId(this.quizId);
-      this.quizService.quizId = this.quizId;  // ensure service has correct ID for high scores
+      // this.quizService.quizId = this.quizId;  // ensure service has correct ID for high scores
+      this.quizService.setQuizId(this.quizId);  // ensure service has correct ID for high scores
       this.quizService.setQuizStatus(QuizStatus.COMPLETED);
       
       // Update the quiz object's status so QuizSelectionComponent can show the icon
