@@ -250,9 +250,10 @@ export class IntroductionComponent implements OnInit, OnDestroy {
       this.quizDataService.setSelectedQuiz(activeQuiz);
       this.quizService.setSelectedQuiz(activeQuiz);
       this.quizService.setActiveQuiz(activeQuiz);
-      this.quizService.setQuizId(targetQuizId);
+      // this.quizService.setQuizId(targetQuizId);
       this.persistQuizId(targetQuizId);
       this.quizService.setCheckedShuffle(shouldShuffleOptions);
+      this.quizService.setQuizId(targetQuizId);
       this.quizService.setCurrentQuestionIndex(0);
 
       try {
