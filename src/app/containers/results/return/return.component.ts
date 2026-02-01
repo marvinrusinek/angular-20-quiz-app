@@ -5,6 +5,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatListModule } from '@angular/material/list';
 
 import { QuizService } from '../../../shared/services/quiz.service';
+import { ExplanationTextService } from '../../../shared/services/explanation-text.service';
 import { SelectedOptionService } from '../../../shared/services/selectedoption.service';
 import { TimerService } from '../../../shared/services/timer.service';
 
@@ -24,6 +25,7 @@ export class ReturnComponent implements OnInit {
   constructor(
     private quizService: QuizService,
     private selectedOptionService: SelectedOptionService,
+    private explanationTextService: ExplanationTextService,
     private timerService: TimerService,
     private router: Router
   ) {}
@@ -48,6 +50,7 @@ export class ReturnComponent implements OnInit {
   
     this.quizService.resetAll();
     this.quizService.resetQuestions();
+    this.explanationTextService.resetExplanationState();
   
     this.timerService.elapsedTimes = [];
     this.timerService.completionTime = 0;
@@ -64,6 +67,7 @@ export class ReturnComponent implements OnInit {
   
     this.quizService.resetAll();
     this.quizService.resetQuestions();
+    this.explanationTextService.resetExplanationState();
   
     this.quizId = '';
     this.indexOfQuizId = 0;

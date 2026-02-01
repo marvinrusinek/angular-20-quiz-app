@@ -231,6 +231,7 @@ export class QuizService {
   constructor(
     private quizShuffleService: QuizShuffleService,
     private quizStateService: QuizStateService,
+    private explanationTextService: ExplanationTextService,
     private activatedRoute: ActivatedRoute,
     private http: HttpClient
   ) {
