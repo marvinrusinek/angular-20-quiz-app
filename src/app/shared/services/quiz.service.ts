@@ -62,6 +62,7 @@ export class QuizService {
 
   private questionsSubject = new BehaviorSubject<QuizQuestion[]>([]);
   questions$ = this.questionsSubject.asObservable();
+  private questionsQuizId: string | null = null;
 
   private questionToDisplaySource = new BehaviorSubject<string>('');
   public readonly questionToDisplay$: Observable<string> =
@@ -287,8 +288,10 @@ export class QuizService {
     if (this.isShuffleEnabled() && this.shuffledQuestions.length > 0) {
       console.log('[QuizService] 🔒 Shuffle active: Emitting shuffledQuestions instead of incoming value.');
       this.questionsSubject.next(this.shuffledQuestions);
+      this.questionsQuizId = this.quizId ?? null;
     } else {
       this.questionsSubject.next(value);
+      this.questionsQuizId = this.quizId ?? null;
     }
   }
 
@@ -375,6 +378,7 @@ export class QuizService {
     this.quizId = quiz.quizId;
     this.questionsList = quiz.questions ?? [];
     this.questionsSubject.next(quiz.questions ?? []);
+    this.questionsQuizId = quiz.quizId;
     this.questions = quiz.questions ?? [];
     this.totalQuestions = (quiz.questions ?? []).length;
     this.totalQuestionsSubject.next(this.totalQuestions);
@@ -406,6 +410,7 @@ export class QuizService {
     if (Array.isArray(q?.questions)) {
       this.questionsList = q.questions;
       this.questionsSubject.next(q.questions);
+      this.questionsQuizId = q.quizId;
       this.questions = q.questions;
       this.totalQuestions = q.questions.length;
       this.totalQuestionsSubject.next(this.totalQuestions);
@@ -442,6 +447,12 @@ export class QuizService {
   }
 
   setQuizId(id: string): void {
+    if (id && this.questionsQuizId && this.questionsQuizId !== id) {
+      this.questionsSubject.next([]);
+      this.questionsQuizId = null;
+      this.questions = [];
+      this.shuffledQuestions = [];
+    }
     this.quizId = id;
   }
 
@@ -646,6 +657,7 @@ export class QuizService {
 
         // Ensure subscribers get the shuffled version
         this.questionsSubject.next(this.shuffledQuestions);
+        this.questionsQuizId = this.quizId ?? quizId ?? null;
         return this.shuffledQuestions;
       } else {
         console.log(`[fetchQuizQuestions] Quiz ID changed from ${this.quizId} to ${quizId} - will re-fetch`);
@@ -671,7 +683,8 @@ export class QuizService {
         if (
           Array.isArray(cachedQuestions) &&
           cachedQuestions.length > 0 &&
-          this.quizId === quizId
+          // this.quizId === quizId
+          this.questionsQuizId === quizId
         ) {
           console.log(`[QuizService] fetchQuizQuestions: Cache hit. shouldShuffle=${this.shouldShuffle()}, cachedSize=${cachedQuestions.length}`);
           if (this.shouldShuffle()) {
@@ -679,10 +692,12 @@ export class QuizService {
             if (
               this.shuffledQuestions &&
               this.shuffledQuestions.length > 0 &&
-              this.quizId === quizId
+              // this.quizId === quizId
+              this.questionsQuizId === quizId
             ) {
               console.log('[QuizService] Reusing ALREADY SHUFFLED session data.');
               this.questionsSubject.next(this.shuffledQuestions);  // sync fix
+              this.questionsQuizId = quizId;
               return this.shuffledQuestions;
             }
 
@@ -709,6 +724,7 @@ export class QuizService {
 
             this.shuffledQuestions = syncedShuffled;
             this.questions = syncedShuffled;
+            this.questionsQuizId = quizId;
             return syncedShuffled;
           }
 
@@ -718,9 +734,11 @@ export class QuizService {
             console.log('[QuizService] Restoring canonical order from cache.');
             const restored = JSON.parse(JSON.stringify(canonical));
             this.questions = restored;
+            this.questionsQuizId = quizId;
             return restored;
           }
 
+          this.questionsQuizId = quizId;
           return cachedQuestions.map(
             (question) => this.cloneQuestionForSession(question) ?? question
           );
@@ -802,6 +820,7 @@ export class QuizService {
           (question) => this.cloneQuestionForSession(question) ?? question
         );
         this.questions = broadcastQuestions;
+        this.questionsQuizId = quizId;
 
         return sanitizedQuestions.map(
           (question) => this.cloneQuestionForSession(question) ?? question
@@ -1633,6 +1652,7 @@ export class QuizService {
     // Also clear basic questions to force a fresh fetch/shuffle cycle
     this.questions = [];
     this.questionsSubject.next([]);
+    this.questionsQuizId = null;
 
     // Reset score when shuffle is toggled to clear stale questionCorrectness.
     // Otherwise, questions might be marked as "already correct" from previous sessions.
@@ -1844,6 +1864,7 @@ export class QuizService {
     this.questionsList = sanitizedQuestions;
     console.log('[QuizService] applySessionQuestions: Setting questionsSubject to SHUFFLED list. First Q:', sanitizedQuestions[0]?.questionText);
     this.questionsSubject.next(sanitizedQuestions);
+    this.questionsQuizId = quizId;
 
     this.totalQuestions = sanitizedQuestions.length;
     this.totalQuestionsSubject.next(this.totalQuestions);
@@ -2441,6 +2462,7 @@ export class QuizService {
     this.shuffledQuestions = [];
     this.questionsList = [];
     this.questionsSubject.next([]);
+    this.questionsQuizId = null;
     this.quizResetSource.next();
   }
 
