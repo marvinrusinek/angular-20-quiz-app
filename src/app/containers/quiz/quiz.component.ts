@@ -534,9 +534,30 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   private subscribeToRouteEvents(): void {
     this.router.events
       .pipe(filter((event) => event instanceof NavigationEnd))
-      .subscribe(() => {
-        const raw = this.activatedRoute.snapshot.paramMap.get('questionIndex');
+      .subscribe(async () => {
+        const params = this.activatedRoute.snapshot.paramMap;
+        const routeQuizId = params.get('quizId');
+        const raw = params.get('questionIndex');
         const idx = Math.max(0, (Number(raw) || 1) - 1);
+
+        console.log(`[DEBUG] NavigationEnd: routeQuizId=${routeQuizId}, this.quizId=${this.quizId}`);
+
+        // Detect quiz change and reload if needed
+        if (routeQuizId && routeQuizId !== this.quizId) {
+          console.log(`[QuizComponent] Quiz changed: ${this.quizId} -> ${routeQuizId}`);
+          
+          // CRITICAL: Clear ALL question data - both service and local
+          this.quizService.resetAll();
+          this.questionsArray = [];
+          try { localStorage.removeItem('shuffledQuestions'); } catch {}
+          
+          // Update quiz ID and fetch new questions
+          this.quizId = routeQuizId;
+          this.quizService.setQuizId(routeQuizId);
+          await this.loadQuestions();
+          console.log(`[DEBUG] After loadQuestions, questionsArray[0]=${this.questionsArray[0]?.questionText?.substring(0,30)}`);
+        }
+
         this.quizService.setCurrentQuestionIndex(idx);
       });
   }
