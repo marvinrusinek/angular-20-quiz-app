@@ -2453,6 +2453,20 @@ export class SelectedOptionService {
 
   clearAllSelectionsForQuiz(quizId: string): void {
     this.selectedOptionsMap.clear();
+
+    this.rawSelectionsMap.clear();
+    this.selectedOptionIndices = {};
+    this._questionCache.clear();
+    this.feedbackByQuestion.clear();
+    this.optionSnapshotByQuestion.clear();
+    this._lockedByQuestion.clear();
+    this._questionLocks.clear();
+    this._lockedOptionsMap.clear();
+    this.optionStates.clear();
+    this.selectedOption = [];
+    this.selectedOptionSubject.next([]);
+    this.isOptionSelectedSubject.next(false);
+    this.isAnsweredSubject.next(false);
   
     try {
       localStorage.removeItem('selectedOptionsMap');
