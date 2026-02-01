@@ -2872,12 +2872,12 @@ export class QuizQuestionComponent extends BaseQuestion
       }
       this.quizService.selectedOptionsMap.set(idx, currentSelectedOptions);
       console.log(
-        `[QQC] Synced QuizService.selectedOptionsMap using index ${idx}`, 
+        '[QQC] Synced QuizService.selectedOptionsMap using index ' + idx, 
         currentSelectedOptions
       );
 
       // EXISTING UI / FEEDBACK LOGIC
-      this.emitSelectionMessage(idx, q!, optionsNow, canonicalOpts);
+      // this.emitSelectionMessage(idx, q!, optionsNow, canonicalOpts);
       this.syncCanonicalOptionsIntoQuestion(q!, canonicalOpts);
 
       // Synchronously format and emit FET to ensure it's ready BEFORE display state changes
@@ -3046,6 +3046,7 @@ export class QuizQuestionComponent extends BaseQuestion
     return canonicalOpts;
   }
 
+  /*
   private emitSelectionMessage(
     idx: number,
     q: QuizQuestion,
@@ -3064,6 +3065,7 @@ export class QuizQuestionComponent extends BaseQuestion
       token: this._msgTok
     });
   }
+  */
 
   private syncCanonicalOptionsIntoQuestion(
     q: QuizQuestion,
@@ -3313,7 +3315,7 @@ export class QuizQuestionComponent extends BaseQuestion
       // Guard: Prevent stale explanation updates
       if (lockedIndex !== currentActiveIndex) {
         console.warn(
-          `[QQC] Index mismatch: locked=${lockedIndex}, active=${currentActiveIndex}. Aborting FET.`
+          '[QQC] Index mismatch: locked=' + lockedIndex + ', active=' + currentActiveIndex + '. Aborting FET.'
         );
         return;
       }
@@ -3342,7 +3344,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
       const canonicalRaw = (canonicalQ?.explanation ?? '').trim();
       if (!canonicalRaw) {
-        console.warn(`[QQC] No explanation text for Q${lockedIndex + 1}`);
+        console.warn('[QQC] No explanation text for Q' + (lockedIndex + 1));
         ets._fetLocked = false;
         return;
       }
@@ -3354,7 +3356,7 @@ export class QuizQuestionComponent extends BaseQuestion
         .trim();
 
       if (!formatted) {
-        console.warn(`[QQC] Formatter stripped explanation text`);
+        console.warn('[QQC] Formatter stripped explanation text');
         ets._fetLocked = false;
         return;
       }
@@ -3365,7 +3367,7 @@ export class QuizQuestionComponent extends BaseQuestion
       // Guard: ensure we're still on the same question
       const finalActiveIndex = this.quizService.getCurrentQuestionIndex();
       if (lockedIndex !== finalActiveIndex) {
-        console.warn(`[QQC] Question changed during FET generation. Aborting emission.`);
+        console.warn('[QQC] Question changed during FET generation. Aborting emission.');
         ets._fetLocked = false;
         return;
       }
@@ -3912,8 +3914,7 @@ export class QuizQuestionComponent extends BaseQuestion
     // Early exit if question index has changed
     if (lockedQuestionIndex !== questionIndex) {
       console.warn(
-        `[fetchAndUpdateExplanationText] Mismatch detected! Skipping 
-        explanation update for Q${questionIndex}.`
+        '[fetchAndUpdateExplanationText] Mismatch detected! Skipping explanation update for Q' + questionIndex + '.'
       );
       return '';
     }
@@ -3921,8 +3922,7 @@ export class QuizQuestionComponent extends BaseQuestion
     try {
       // Check session storage
       const storedExplanation = sessionStorage.getItem(
-        // `explanationText_${questionIndex}
-        this.getSessionStorageKey('explanationText', questionIndex)`
+        this.getSessionStorageKey('explanationText', questionIndex)
       );
       if (storedExplanation) {
         this.applyExplanation(storedExplanation);
@@ -3939,8 +3939,7 @@ export class QuizQuestionComponent extends BaseQuestion
         this.applyExplanation(cachedExplanation);
 
         // Store in session storage for future use
-        //sessionStorage.setItem(`explanationText_${questionIndex}`,
-        //  cachedExplanation);
+        // Store in session storage for future use
         sessionStorage.setItem(
           this.getSessionStorageKey('explanationText', questionIndex),
           cachedExplanation
@@ -3960,16 +3959,14 @@ export class QuizQuestionComponent extends BaseQuestion
 
       if (!explanationText?.trim()) {
         console.warn(
-          `[fetchAndUpdateExplanationText] No explanation text found for Q${questionIndex}`
+          '[fetchAndUpdateExplanationText] No explanation text found for Q' + questionIndex
         );
         return '';  // return empty string to ensure consistent return type
       }
 
       // Confirm the question index hasn’t changed during async fetch
       if (lockedQuestionIndex !== this.currentQuestionIndex) {
-        console.warn(
-          `[fetchAndUpdateExplanationText] Explanation index mismatch after fetch! Skipping update.`
-        );
+        console.warn('[fetchAndUpdateExplanationText] Index mismatch. Skipping update.');
         return '';
       }
 
@@ -3978,7 +3975,7 @@ export class QuizQuestionComponent extends BaseQuestion
         questionIndex,
         explanation: explanationText
       };
-      //sessionStorage.setItem(`explanationText_${questionIndex}`, explanationText);
+
       sessionStorage.setItem(
         this.getSessionStorageKey('explanationText', questionIndex),
         explanationText
@@ -3989,7 +3986,7 @@ export class QuizQuestionComponent extends BaseQuestion
       return explanationText;  // return the fetched explanation text
     } catch (error: any) {
       console.error(
-        `[fetchAndUpdateExplanationText] ❌ Error fetching explanation for Q${questionIndex}:`,
+        '[fetchAndUpdateExplanationText] Error fetching explanation for Q' + questionIndex + ':',
         error
       );
       return '';  // return empty string in case of error
@@ -4165,8 +4162,7 @@ export class QuizQuestionComponent extends BaseQuestion
     );
     if (this.selectedOptionIndex === -1) {
       console.error(
-        `[applyOptionFeedback] ERROR: selectedOptionIndex not found for optionId: 
-        ${selectedOption.optionId}`
+        '[applyOptionFeedback] ERROR: selectedOptionIndex not found for optionId: ' + selectedOption.optionId
       );
       return;
     }
@@ -5180,7 +5176,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
     // Drop duplicate emits
     if (ets.latestExplanation?.trim() === next.trim()) {
-      console.log(`[FET] ⏸ Skip duplicate emit for Q${i0 + 1}`);
+      console.log('[FET] Skip duplicate emit for Q' + (i0 + 1));
       return next;
     }
 
@@ -5210,9 +5206,7 @@ export class QuizQuestionComponent extends BaseQuestion
     // Ensure that the option and optionIndex are valid
     if (!option || optionIndex < 0) {
       console.error(
-        `Invalid option or optionIndex: ${JSON.stringify(
-          option
-        )}, index: ${optionIndex}`
+        'Invalid option or optionIndex: ' + JSON.stringify(option) + ', index: ' + optionIndex
       );
       return;
     }
@@ -5325,8 +5319,7 @@ export class QuizQuestionComponent extends BaseQuestion
         switchMap(async (question) => {
           if (!question) {
             console.warn(
-              `[waitForQuestionData] Index ${this.currentQuestionIndex} out of 
-              range — clamping to last question`
+              '[waitForQuestionData] Index ' + this.currentQuestionIndex + ' out of range - clamping to last question'
             );
 
             // Get the total-question count (single emission)
@@ -5354,8 +5347,7 @@ export class QuizQuestionComponent extends BaseQuestion
           // Existing validity check
           if (!question.options?.length) {
             console.error(
-              `[waitForQuestionData] Invalid question data or options missing for index: 
-              ${this.currentQuestionIndex}`
+              '[waitForQuestionData] Invalid question data or options missing for index: ' + this.currentQuestionIndex
             );
             return;
           }
@@ -5387,10 +5379,10 @@ export class QuizQuestionComponent extends BaseQuestion
       )
       .subscribe({
         error: (error: Error) =>
-          console.error(
-            `[waitForQuestionData] Error loading question data for index ${this.currentQuestionIndex}:`,
-            error
-          )
+            console.error(
+              '[waitForQuestionData] Error loading question data for index ' + this.currentQuestionIndex + ':',
+              error
+            )
       });
   }
 
@@ -5523,7 +5515,7 @@ export class QuizQuestionComponent extends BaseQuestion
     optionIndex: number
   ): Promise<void> {
     if (optionIndex < 0) {
-      console.error(`Invalid optionIndex ${optionIndex}.`);
+      console.error('Invalid optionIndex ' + optionIndex + '.');
       return;
     }
 
@@ -5662,7 +5654,7 @@ export class QuizQuestionComponent extends BaseQuestion
       );
       if (!questionData) {
         console.error(
-          `[getQuestionByIndex] No question found for index ${questionIndex}`
+          '[getQuestionByIndex] No question found for index ' + questionIndex
         );
         return '';
       }
@@ -5730,7 +5722,7 @@ export class QuizQuestionComponent extends BaseQuestion
       // Check if the specified question index is valid in the array
       if (!this.questionsArray[questionIndex]) {
         console.error(
-          `Questions array is not properly populated or invalid index: ${questionIndex}`
+          'Questions array is not properly populated or invalid index: ' + questionIndex
         );
         return;
       }
@@ -5764,14 +5756,14 @@ export class QuizQuestionComponent extends BaseQuestion
         },
         error: (error: Error) => {
           console.error(
-            `Error fetching explanation for question ${questionIndex}:`, error
+            'Error fetching explanation for question ' + questionIndex + ':', error
           );
           this.handleExplanationError();
         },
       });
     } catch (error: any) {
       console.error(
-        `Error fetching explanation for question ${questionIndex}:`,
+        'Error fetching explanation for question ' + questionIndex + ':',
         error
       );
       this.handleExplanationError();
@@ -5800,10 +5792,9 @@ export class QuizQuestionComponent extends BaseQuestion
 
     if (index < 0 || index >= this.questionsArray.length) {
       console.error(
-        `Invalid index ${index}. Must be between 0 and ${this.questionsArray.length - 1
-        }.`
+        'Invalid index ' + index + '. Must be between 0 and ' + (this.questionsArray.length - 1) + '.'
       );
-      throw new Error(`Invalid index ${index}. No such question exists.`);
+      throw new Error('Invalid index ' + index + '. No such question exists.');
     }
 
     return new Promise((resolve, reject) => {
@@ -5813,15 +5804,15 @@ export class QuizQuestionComponent extends BaseQuestion
         subscription = this.quizService.getQuestionByIndex(index).subscribe({
           next: (question) => {
             if (question && question.questionText) {
-              console.log(`Question loaded for index ${index}:`, question);
+              console.log('Question loaded for index ' + index + ':', question);
               subscription?.unsubscribe();
               resolve();  // successfully loaded
             } else {
-              reject(new Error(`No valid question at index ${index}`));
+              reject(new Error('No valid question at index ' + index));
             }
           },
           error: (err: Error) => {
-            console.error(`Error loading question at index ${index}:`, err);
+            console.error('Error loading question at index ' + index + ':', err);
             subscription?.unsubscribe();
             reject(err);
           },
@@ -5835,9 +5826,7 @@ export class QuizQuestionComponent extends BaseQuestion
   public async getExplanationText(questionIndex: number): Promise<string> {
     try {
       if (!this.explanationTextService.explanationsInitialized) {
-        console.warn(
-          `[getExplanationText] Explanations not initialized — returning fallback for Q${questionIndex}`
-        );
+
         return 'No explanation available for this question.';
       }
 
@@ -5849,19 +5838,13 @@ export class QuizQuestionComponent extends BaseQuestion
 
       const trimmed = explanationText?.trim();
       if (!trimmed) {
-        console.warn(
-          `[getExplanationText] Empty or undefined explanation for 
-          Q${questionIndex}. Using fallback.`
-        );
+
         return 'No explanation available for this question.';
       }
 
       return trimmed;
     } catch (error: any) {
-      console.error(
-        `[getExplanationText] Error fetching explanation for Q${questionIndex}:`,
-        error
-      );
+      console.error('Error fetching explanation:', error);
       return 'Error loading explanation.';
     }
   }
@@ -5885,7 +5868,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
     // Validate that the current question exists
     if (!currentQuestion) {
-      console.error(`Question not found at index: ${adjustedIndex}`);
+      console.error('Question not found at index: ' + adjustedIndex);
       return;
     }
 
@@ -5912,9 +5895,7 @@ export class QuizQuestionComponent extends BaseQuestion
             this.updateCombinedQuestionData(currentQuestion, explanationText);
             this.isAnswerSelectedChange.emit(true);
           } else {
-            console.log(
-              `Question ${adjustedIndex} is not answered. Skipping explanation update.`,
-            );
+            console.log('Question not answered. Skipping explanation update.');
           }
         })
         .catch((renderError: Error) => {
@@ -6372,7 +6353,7 @@ export class QuizQuestionComponent extends BaseQuestion
       // Wait if the explanation gate is still locked
       if (ets._fetLocked) {
         console.log(
-          `[onOptionClicked] Waiting for FET unlock before processing Q${this.currentQuestionIndex + 1}`
+          '[onOptionClicked] Waiting for FET unlock...'
         );
         await new Promise((res) => setTimeout(res, 60));
       }
@@ -6385,9 +6366,7 @@ export class QuizQuestionComponent extends BaseQuestion
       if (
         !formattedNow || formattedNow === 'No explanation available for this question.'
       ) {
-        console.log(
-          `[QQC] Explanation not ready for Q${i0 + 1} — deferring emit by one frame.`
-        );
+
 
         // Wait one paint frame before re-checking
         await new Promise(requestAnimationFrame);
@@ -6395,9 +6374,6 @@ export class QuizQuestionComponent extends BaseQuestion
         const retry =
           (await this.updateExplanationText(i0))?.toString().trim() ?? '';
         if (!retry || retry === 'No explanation available for this question.') {
-          console.log(
-            `[QQC] Still no explanation for Q${i0 + 1} — skipping emit.`
-          );
           return;  // don’t emit placeholder
         }
 
@@ -6537,7 +6513,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
       // Final check — only emit real explanation text
       if (!text || text === 'No explanation available for this question.') {
-        console.log(`[QQC] Explanation not ready for Q${i0 + 1} — skipping emit.`);
+
         return '';
       }
 
