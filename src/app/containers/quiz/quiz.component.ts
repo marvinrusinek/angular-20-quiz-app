@@ -1439,7 +1439,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         // Update indices (local and services) before async calls
         this.quizId = quizId;
         this.currentQuestionIndex = index;
-        this.quizService.quizId = quizId;
+        // this.quizService.quizId = quizId;
+        this.quizService.setQuizId(quizId);
         this.quizService.setCurrentQuestionIndex(index);
         this.timerService.stopTimer?.(undefined, { force: true });
         this.timerService.resetTimer();
