@@ -1020,6 +1020,18 @@ export class ExplanationTextService {
     this.unlockExplanation();
     this.clearExplanationCaches();
 
+    this.fetByIndex.clear();
+    this._byIndex.clear();
+    this._gate.clear();
+    this._gatesByIndex.clear();
+    this._textMap?.clear?.();
+    this.formattedExplanations$ = [];
+    this._fetLocked = null;
+    this._gateToken = 0;
+    this._currentGateToken = 0;
+    this._activeIndex = null;
+    this.latestExplanationIndex = -1;
+
     this.explanationTextSubject.next('');
     this.explanationText$.next('');
     this.formattedExplanationSubject.next('');
