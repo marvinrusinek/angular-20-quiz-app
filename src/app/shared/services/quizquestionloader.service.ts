@@ -1002,7 +1002,7 @@ export class QuizQuestionLoaderService {
       // ─── Normalize / add fallback feedback once ───────────────────
       const finalOpts = opts.map((o, i) => ({
         ...o,
-        optionId: o.optionId ?? i,
+        optionId: o.optionId ?? i + 1,
         active: o.active ?? true,
         showIcon: !!o.showIcon,
         selected: !!o.selected,
