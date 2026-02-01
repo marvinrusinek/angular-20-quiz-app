@@ -1230,6 +1230,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       if (quizId) {
         this.quizId = quizId;
         this.quizService.quizId = quizId;
+        this.quizService.setQuizId(quizId);
         localStorage.setItem('quizId', quizId);  // store quizId in localStorage
         this.currentQuestionIndexValue = zeroBasedIndex;
         
