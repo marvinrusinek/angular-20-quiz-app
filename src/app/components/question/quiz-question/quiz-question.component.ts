@@ -2877,7 +2877,7 @@ export class QuizQuestionComponent extends BaseQuestion
       );
 
       // EXISTING UI / FEEDBACK LOGIC
-      // this.emitSelectionMessage(idx, q!, optionsNow, canonicalOpts);
+      this.emitSelectionMessage(idx, q!, optionsNow, canonicalOpts);
       this.syncCanonicalOptionsIntoQuestion(q!, canonicalOpts);
 
       // Synchronously format and emit FET to ensure it's ready BEFORE display state changes
@@ -3046,14 +3046,13 @@ export class QuizQuestionComponent extends BaseQuestion
     return canonicalOpts;
   }
 
-  /*
   private emitSelectionMessage(
     idx: number,
     q: QuizQuestion,
     optionsNow: Option[],
     canonicalOpts: Option[]
   ): void {
-    this.selectionMessageService.setOptionsSnapshot(canonicalOpts);
+    this.selectionMessageService.setOptionsSnapshot(canonicalOpts as any);
     this._msgTok = (this._msgTok ?? 0) + 1;
 
     this.selectionMessageService.emitFromClick({
@@ -3065,7 +3064,6 @@ export class QuizQuestionComponent extends BaseQuestion
       token: this._msgTok
     });
   }
-  */
 
   private syncCanonicalOptionsIntoQuestion(
     q: QuizQuestion,
