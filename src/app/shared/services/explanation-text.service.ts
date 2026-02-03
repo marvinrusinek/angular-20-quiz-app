@@ -241,8 +241,8 @@ export class ExplanationTextService {
 
     // Auto-Format: Check if explanation needs formatting and format it
     let finalExplanation = trimmed;
+    /*
     if (
-      false && // DISABLE AUTO-FORMAT: Trust the component's explicit formatting to ensure option sync
       trimmed &&
       this._activeIndexValue !== null &&
       trimmed !== 'No explanation available'
@@ -311,6 +311,7 @@ export class ExplanationTextService {
         }
       }
     }
+    */
 
     // Clear old explanation when we're NOT setting new text.
     // This prevents Q1's explanation from showing for Q2.
