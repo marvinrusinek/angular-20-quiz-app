@@ -196,7 +196,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   private navigatingToResults = false;
 
   private nextButtonTooltipSubject = new BehaviorSubject<string>(
-    'Please click an option to continue...',
+    'Please click an option to continue...'
   );
   nextButtonTooltip$ = this.nextButtonTooltipSubject.asObservable();
 
@@ -772,7 +772,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         }
 
         this.questionsArray = questions;
-        console.log('[QuizComponent] Questions fetched.');
+        this.totalQuestions = questions.length;  // Ensure totalQuestions is updated
+        console.log(`[QuizComponent] Questions fetched. totalQuestions=${this.totalQuestions}`);
 
         // Set quiz as loaded and sync index after questions are ready
         this.isQuizDataLoaded = true;
@@ -3440,27 +3441,13 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       console.log('Timer was not running, skipping stopTimer.');
     }
 
-    // Reset quiz state
-    this.quizService.resetAll();
+    // NOTE: Do NOT call resetAll() here - it clears state needed for navigation
+    // The reset will happen when starting a new quiz
 
-    // Check if all answers were completed before navigating
-    if (!this.quizService.quizCompleted) {
-      this.quizService.checkIfAnsweredCorrectly(this.currentQuestionIndex)
-        .then(() => {
-          console.log('All answers checked, navigating to results...');
-          this.handleQuizCompletion();
-          this.quizNavigationService.navigateToResults();
-        })
-        .catch((error: Error) => {
-          console.error('Error during checkIfAnsweredCorrectly:', error);
-        })
-        .finally(() => {
-          this.navigatingToResults = false;  // allow navigation again after the process
-        });
-    } else {
-      console.warn('Quiz already marked as completed.');
-      this.navigatingToResults = false;
-    }
+    // Navigate directly to results
+    console.log('[advanceToResults] Navigating to results...');
+    this.quizNavigationService.navigateToResults();
+    this.navigatingToResults = false;
   }
 
   // REMOVE??
