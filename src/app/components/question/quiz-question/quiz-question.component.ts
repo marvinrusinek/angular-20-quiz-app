@@ -5661,12 +5661,10 @@ export class QuizQuestionComponent extends BaseQuestion
       const rawExplanation = questionData.explanation || 'No explanation available';
 
       // Use locally displayed options if available and indices match
-      // AND verify the question text matches to avoid using Q1 options for Q2 FET
-      // Relaxed check: trust optionsToDisplay if they exist and we are arguably on the same question context
+      // Relaxed check: trust optionsToDisplay if indices match
       const useLocalOptions =
         this.optionsToDisplay?.length > 0 &&
-        (questionIndex === (this.currentQuestionIndex ?? -1) ||
-          this.currentQuestion?.questionText === questionData.questionText);
+        questionIndex === (this.currentQuestionIndex ?? -1);
 
       const correctIndices =
         this.explanationTextService.getCorrectOptionIndices(
