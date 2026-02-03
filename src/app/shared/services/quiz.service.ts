@@ -641,28 +641,28 @@ export class QuizService {
     // ALWAYS return existing shuffledQuestions if available.
     // This prevents re-shuffling on every call which causes option order instability
     if (this.shuffledQuestions && this.shuffledQuestions.length > 0) {
-      // If quiz IDs don't match, only then we might need to re-fetch
-      // But if they DO match (or quizId is empty), return the cached shuffle
-      if (!quizId || this.quizId === quizId || !this.quizId) {
-        console.log(`[fetchQuizQuestions] Returning EXISTING shuffledQuestions (${this.shuffledQuestions.length} questions) - NO RE-SHUFFLE`);
+      // CRITICAL: Only return cached shuffle if it belongs to the SAME quiz
+      // Check both quizId AND questionsQuizId to prevent cross-quiz data leakage
+      const isSameQuiz = quizId &&
+        this.quizId === quizId &&
+        this.questionsQuizId === quizId;
+
+      if (isSameQuiz) {
+        console.log(`[fetchQuizQuestions] Returning EXISTING shuffledQuestions (${this.shuffledQuestions.length} questions) for quiz ${quizId}`);
 
         if (this.shuffledQuestions.length > 0) {
-          console.log(`[fetchQuizQuestions] Q1 Preview: Text="${this.shuffledQuestions[0].questionText.substring(0, 20)}..." | Options[0]="${this.shuffledQuestions[0].options?.[0]?.text.substring(0, 10)}..."`);
-        }
-
-        // Ensure the quizId is set if it wasn't
-        if (quizId && !this.quizId) {
-          this.quizId = quizId;
+          console.log(`[fetchQuizQuestions] Q1 Preview: Text="${this.shuffledQuestions[0].questionText.substring(0, 20)}..."`);
         }
 
         // Ensure subscribers get the shuffled version
         this.questionsSubject.next(this.shuffledQuestions);
-        this.questionsQuizId = this.quizId ?? quizId ?? null;
         return this.shuffledQuestions;
       } else {
-        console.log(`[fetchQuizQuestions] Quiz ID changed from ${this.quizId} to ${quizId} - will re-fetch`);
+        console.log(`[fetchQuizQuestions] Quiz mismatch - clearing old shuffle. quizId=${quizId}, this.quizId=${this.quizId}, questionsQuizId=${this.questionsQuizId}`);
         // Clear old shuffle for new quiz
         this.shuffledQuestions = [];
+        this._questions = [];
+        this.questionsQuizId = null;
       }
     }
 
@@ -2459,17 +2459,27 @@ export class QuizService {
   }
 
   resetAll(): void {
-    console.log('[QuizService] resetAll() called');
+    console.log('[QuizService] resetAll() called - full state reset');
     this.answers = [];
     this.correctAnswerOptions = [];
     this.correctOptions = [];
     this.correctMessage = '';
     this.currentQuestionIndex = 0;
-    this.questions = [];
+
+    // IMPORTANT: Clear shuffledQuestions FIRST to prevent questions setter
+    // from re-setting questionsQuizId based on shuffle state
     this.shuffledQuestions = [];
+    this._questions = [];  // Direct assignment to avoid setter side effects
     this.questionsList = [];
     this.questionsSubject.next([]);
     this.questionsQuizId = null;
+
+    // Also clear the quizId to prevent stale ID matching
+    this.quizId = '';
+
+    // Clear any in-flight fetch promise to prevent stale data
+    this.fetchPromise = null;
+
     this.quizResetSource.next();
   }
 
