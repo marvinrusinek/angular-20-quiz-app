@@ -5666,6 +5666,12 @@ export class QuizQuestionComponent extends BaseQuestion
         this.optionsToDisplay?.length > 0 &&
         questionIndex === (this.currentQuestionIndex ?? -1);
 
+      // Debugging Q2 mismatch
+      console.log(`[DEBUG_FET] Q${questionIndex + 1} useLocal=${useLocalOptions} optsLen=${this.optionsToDisplay?.length} curIdx=${this.currentQuestionIndex}`);
+      if (useLocalOptions && this.optionsToDisplay.length > 0) {
+        console.log(`[DEBUG_FET] Opt[0]=${this.optionsToDisplay[0].text.substring(0, 10)}.. corr=${this.optionsToDisplay[0].correct}`);
+      }
+
       const correctIndices =
         this.explanationTextService.getCorrectOptionIndices(
           questionData,
