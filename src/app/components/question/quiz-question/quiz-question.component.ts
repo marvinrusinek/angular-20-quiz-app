@@ -6094,6 +6094,10 @@ export class QuizQuestionComponent extends BaseQuestion
     // This bypasses unreliable QuizNavigationService events
     if (effectiveQuestion && normalizedOptions?.length) {
       void this.loadDynamicComponent(effectiveQuestion, normalizedOptions);
+
+      // Force recalculation of explanation text now that optionsToDisplay is populated
+      // This ensures FET matches visual option order
+      void this.prepareAndSetExplanationText(this.currentQuestionIndex);
     }
   }
 
