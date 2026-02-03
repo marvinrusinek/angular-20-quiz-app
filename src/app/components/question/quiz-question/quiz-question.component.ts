@@ -5739,7 +5739,9 @@ export class QuizQuestionComponent extends BaseQuestion
           if (await this.isAnyOptionSelected(questionIndex)) {
             this.currentQuestionIndex = questionIndex;
 
-            const finalExplanation = explanationText || 'No explanation available';
+            // Recalculate to ensure we have the latest version (fixing race condition with options loading)
+            const freshText = await this.prepareAndSetExplanationText(questionIndex);
+            const finalExplanation = freshText || explanationText || 'No explanation available';
             this.explanationToDisplay = finalExplanation;
             this.explanationTextService.setExplanationText(finalExplanation);
             this.explanationTextService.setShouldDisplayExplanation(true);
