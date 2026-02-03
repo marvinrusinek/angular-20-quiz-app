@@ -1625,7 +1625,7 @@ export class QuizService {
     return Math.round((correctAnswers / totalQuestions) * 100);
   }
 
-  private shouldShuffle(): boolean {
+  public shouldShuffle(): boolean {
     const should = this.shuffleEnabledSubject.getValue();
     console.log(`[QuizService] shouldShuffle? ${should}`);
     return should;
