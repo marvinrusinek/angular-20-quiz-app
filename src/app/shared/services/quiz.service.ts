@@ -2480,6 +2480,9 @@ export class QuizService {
     // Clear any in-flight fetch promise to prevent stale data
     this.fetchPromise = null;
 
+    // Reset quiz completion flag for new quiz
+    this.quizCompleted = false;
+
     this.quizResetSource.next();
   }
 
