@@ -3407,49 +3407,39 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
   // REMOVE!!
   advanceToResults(): void {
+    console.log('[advanceToResults] CALLED - quizId:', this.quizId);
+
     if (this.navigatingToResults) {
-      console.warn('Navigation to results already in progress.');
+      console.warn('[advanceToResults] BLOCKED - navigatingToResults is true');
       return;
     }
 
-    this.navigatingToResults = true;  // prevent multiple clicks
+    this.navigatingToResults = true;
 
-    // Record elapsed time for the current (last) question before resetting state
-    const currentIndex =
-      this.quizService.getCurrentQuestionIndex?.() ?? this.currentQuestionIndex;
+    // Record elapsed time
+    const currentIndex = this.quizService.getCurrentQuestionIndex?.() ?? this.currentQuestionIndex;
     const currentElapsed = (this.timerService as any).elapsedTime ?? 0;
-    if (
-      currentIndex != null &&
-      currentIndex >= 0 &&
-      !this.timerService.elapsedTimes[currentIndex] &&
-      currentElapsed > 0
-    ) {
+    if (currentIndex != null && currentIndex >= 0 &&
+      !this.timerService.elapsedTimes[currentIndex] && currentElapsed > 0) {
       this.timerService.elapsedTimes[currentIndex] = currentElapsed;
-      console.log(
-        `[QUIZ COMPONENT] Recorded elapsed time for Q${currentIndex + 1}: ${currentElapsed}s`
-      );
     }
 
-    // Stop the timer and record elapsed time
+    // Stop timer
     if (this.timerService.isTimerRunning) {
-      this.timerService.stopTimer(
-        (elapsedTime: number) => {
-          this.elapsedTimeDisplay = elapsedTime;
-          console.log('Elapsed time recorded for results:', elapsedTime);
-        },
-        { force: true }
-      );
-    } else {
-      console.log('Timer was not running, skipping stopTimer.');
+      this.timerService.stopTimer(() => { }, { force: true });
     }
 
-    // NOTE: Do NOT call resetAll() here - it clears state needed for navigation
-    // The reset will happen when starting a new quiz
+    // Navigate DIRECTLY to results - bypass navigation service
+    const targetQuizId = this.quizId || this.quizService.quizId || this.quizService.getCurrentQuizId();
+    console.log('[advanceToResults] Navigating to /quiz/results/' + targetQuizId);
 
-    // Navigate directly to results
-    console.log('[advanceToResults] Navigating to results...');
-    this.quizNavigationService.navigateToResults();
-    this.navigatingToResults = false;
+    this.router.navigate(['/quiz', 'results', targetQuizId]).then((success: boolean) => {
+      console.log('[advanceToResults] Navigation result:', success);
+      this.navigatingToResults = false;
+    }).catch((err: Error) => {
+      console.error('[advanceToResults] Navigation error:', err);
+      this.navigatingToResults = false;
+    });
   }
 
   // REMOVE??
