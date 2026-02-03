@@ -1384,7 +1384,7 @@ export class QuizQuestionComponent extends BaseQuestion
         this.quizService.updateCurrentQuestionIndex(adjustedIndex);
 
         // Use the adjusted index for explanation text to ensure sync
-        void this.fetchAndSetExplanationText(adjustedIndex);
+        // void this.fetchAndSetExplanationText(adjustedIndex);
       });
   }
 
