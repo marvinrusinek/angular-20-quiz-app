@@ -1625,7 +1625,7 @@ export class QuizService {
     return Math.round((correctAnswers / totalQuestions) * 100);
   }
 
-  public shouldShuffle(): boolean {
+  private shouldShuffle(): boolean {
     const should = this.shuffleEnabledSubject.getValue();
     console.log(`[QuizService] shouldShuffle? ${should}`);
     return should;
@@ -1647,6 +1647,7 @@ export class QuizService {
 
     // Clear shuffle state on toggle to ensure fresh shuffle
     // This prevents stale shuffled data from being used when toggling
+    this.quizShuffleService.clearAll();
     this.shuffledQuestions = [];
 
     // Also clear basic questions to force a fresh fetch/shuffle cycle

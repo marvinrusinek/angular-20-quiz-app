@@ -340,6 +340,20 @@ export class QuizShuffleService {
     localStorage.removeItem(`shuffleState:${quizId}`);
   }
 
+  public clearAll(): void {
+    this.shuffleByQuizId.clear();
+    try {
+      const keys = Object.keys(localStorage);
+      for (const key of keys) {
+        if (key.startsWith('shuffleState:')) {
+          localStorage.removeItem(key);
+        }
+      }
+    } catch (e) {
+      console.warn('[QuizShuffleService] Failed to clear localStorage', e);
+    }
+  }
+
   private toNum(v: unknown): number | null {
     if (typeof v === 'number' && Number.isFinite(v)) return v;
     const n = Number(String(v));
