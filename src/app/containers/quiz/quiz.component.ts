@@ -563,6 +563,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
             this.quizService.resetAll();
             this.quizStateService.reset();  // Reset quiz state service
             this.explanationTextService.resetExplanationState();  // Clear explanation caches
+            this.quizNavigationService.resetForNewQuiz();  // Reset navigation state (quizCompleted flag)
 
             // Clear local component state
             this.questionsArray = [];
@@ -581,6 +582,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
             // Reset display mode to question (not explanation)
             this.quizStateService.setDisplayState({ mode: 'question', answered: false });
             this.showExplanation = false;
+            this.navigatingToResults = false;
 
             try { localStorage.removeItem('shuffledQuestions'); } catch { }
           } else {
