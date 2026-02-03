@@ -18,7 +18,7 @@ export class QuizShuffleService {
   public prepareShuffle(
     quizId: string,
     questions: QuizQuestion[],
-    opts: PrepareShuffleOpts = { shuffleQuestions: true, shuffleOptions: false }  // Question shuffle ON, Option shuffle OFF
+    opts: PrepareShuffleOpts = { shuffleQuestions: true, shuffleOptions: true }  // Question shuffle ON, Option shuffle ON
   ): void {
     // Only shuffle ONCE per quiz session.
     // If we already have a shuffle order for this quiz, DO NOT recreate it!
@@ -56,7 +56,7 @@ export class QuizShuffleService {
   }
 
   public hasShuffleState(quizId: string): boolean {
-    return this.shuffleByQuizId.has(quizId) || 
+    return this.shuffleByQuizId.has(quizId) ||
       !!localStorage.getItem(`shuffleState:${quizId}`);
   }
 
