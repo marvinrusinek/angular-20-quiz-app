@@ -160,11 +160,11 @@ export class QuizNavigationService {
     }
 
     const maxQuestions = this.quizService.totalQuestions || this.quizService.questions?.length || 99;
-    
+
     console.log(`[NAV DEBUG] navigateWithOffset: Current=${currentRouteIndex} Target=${targetRouteIndex} Max=${maxQuestions} (ServiceTotal=${this.quizService.totalQuestions})`);
 
     if (targetRouteIndex > maxQuestions) {
-       console.warn(`[NAV FORCE] Target ${targetRouteIndex} > Max ${maxQuestions}. Proceeding anyway to verify existence.`);
+      console.warn(`[NAV FORCE] Target ${targetRouteIndex} > Max ${maxQuestions}. Proceeding anyway to verify existence.`);
     }
 
     return this.navigateToQuestion(targetRouteIndex - 1);
@@ -558,5 +558,13 @@ export class QuizNavigationService {
 
   getIsNavigatingToPrevious(): Observable<boolean> {
     return this.isNavigatingToPrevious.asObservable();
+  }
+
+  // Reset navigation state when switching quizzes
+  resetForNewQuiz(): void {
+    console.log('[QuizNavigationService] Resetting for new quiz');
+    this.quizCompleted = false;
+    this.isNavigating = false;
+    this.currentQuestionIndex = 0;
   }
 }
