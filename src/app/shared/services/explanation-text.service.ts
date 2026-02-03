@@ -1,5 +1,5 @@
 import { Injectable, Injector } from '@angular/core';
-import { 
+import {
   BehaviorSubject, firstValueFrom, Observable, of, ReplaySubject, Subject
 } from 'rxjs';
 import {
@@ -69,7 +69,7 @@ export class ExplanationTextService {
   public _byIndex = new Map<number, BehaviorSubject<string | null>>();
   public _gate = new Map<number, BehaviorSubject<boolean>>();
   private _activeIndexValue: number | null = 0; // Start at 0 to match activeIndex$ initial value
-  
+
   public readonly activeIndex$ = new BehaviorSubject<number>(0);
 
   private _readyForExplanation$ = new BehaviorSubject<boolean>(false);
@@ -262,32 +262,42 @@ export class ExplanationTextService {
           // We use a token approach to avoid importing QuizService directly
           const quizService = this.injector.get(QuizService, null);
 
-          // Use the public questions cache instead of relying on questionsArray
-          const questions = quizService?.questions;
+          if (quizService) {
+            // CRITICAL: Use shuffled questions when in shuffle mode to get correct display order
+            const shouldShuffle = quizService.shouldShuffle?.() ?? false;
+            const questions = shouldShuffle && quizService.shuffledQuestions?.length > 0
+              ? quizService.shuffledQuestions
+              : quizService.questions;
 
-          if (quizService && Array.isArray(questions)) {
-            // Get question synchronously from the service's cache
-            const questionData = questions[this._activeIndexValue];
+            if (Array.isArray(questions) && questions.length > 0) {
+              // Get question from the appropriate source (shuffled or canonical)
+              const questionData = questions[this._activeIndexValue];
 
-            if (questionData) {
-              const correctIndices = this.getCorrectOptionIndices(questionData);
-              finalExplanation = this.formatExplanation(
-                questionData,
-                correctIndices,
-                trimmed
-              );
-              console.log(
-                '[ETS] ✅ Auto-formatted:',
-                finalExplanation.slice(0, 80)
-              );
+              if (questionData) {
+                // Use the question's options directly - they'll be in display order
+                const correctIndices = this.getCorrectOptionIndices(questionData, questionData.options);
+                finalExplanation = this.formatExplanation(
+                  questionData,
+                  correctIndices,
+                  trimmed
+                );
+                console.log(
+                  '[ETS] ✅ Auto-formatted (shuffle=' + shouldShuffle + '):',
+                  finalExplanation.slice(0, 80)
+                );
+              } else {
+                console.warn(
+                  '[ETS] ⚠️ Question data not available for auto-formatting'
+                );
+              }
             } else {
               console.warn(
-                '[ETS] ⚠️ Question data not available for auto-formatting'
+                '[ETS] ⚠️ QuizService questions not loaded for auto-formatting'
               );
             }
           } else {
             console.warn(
-              '[ETS] ⚠️ QuizService not available or questions not loaded for auto-formatting'
+              '[ETS] ⚠️ QuizService not available for auto-formatting'
             );
           }
         } catch (err) {
@@ -897,7 +907,7 @@ export class ExplanationTextService {
 
     const contextKey = this.normalizeContext(options.context);
     const signature = `${options.context ?? 'global'}:::${shouldDisplay}`;
-    
+
     if (!options.force) {
       const previous = this.shouldDisplayByContext.get(contextKey);
       if (
