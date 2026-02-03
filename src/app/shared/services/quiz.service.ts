@@ -2474,8 +2474,8 @@ export class QuizService {
     this.questionsSubject.next([]);
     this.questionsQuizId = null;
 
-    // Also clear the quizId to prevent stale ID matching
-    this.quizId = '';
+    // NOTE: Do NOT clear this.quizId here - it's needed for in-quiz navigation (pagination dots)
+    // The questionsQuizId = null above is sufficient for cache invalidation
 
     // Clear any in-flight fetch promise to prevent stale data
     this.fetchPromise = null;
