@@ -264,9 +264,14 @@ export class ExplanationTextService {
 
           if (quizService) {
             // CRITICAL: Use shuffled questions when in shuffle mode to get correct display order
-            const shouldShuffle = quizService.shouldShuffle?.() ?? false;
-            const questions = shouldShuffle && quizService.shuffledQuestions?.length > 0
-              ? quizService.shuffledQuestions
+            // Use public isShuffleEnabled instead of private shouldShuffle
+            const shouldShuffle = quizService.isShuffleEnabled?.() ?? false;
+
+            // Access shuffledQuestions carefully (cast to any to allow access if private/protected)
+            const shuffledQs = (quizService as any).shuffledQuestions;
+
+            const questions = shouldShuffle && shuffledQs?.length > 0
+              ? shuffledQs
               : quizService.questions;
 
             if (Array.isArray(questions) && questions.length > 0) {
