@@ -196,7 +196,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   private navigatingToResults = false;
 
   private nextButtonTooltipSubject = new BehaviorSubject<string>(
-    'Please click an option to continue...'
+    'Please click an option to continue...',
   );
   nextButtonTooltip$ = this.nextButtonTooltipSubject.asObservable();
 
@@ -556,6 +556,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         if (routeQuizId && routeQuizId !== this.quizId) {
           const isQuizSwitch = this.quizId && this.quizId.length > 0;
 
+          // ALWAYS reset navigation service on any quiz load (it's a singleton that persists)
+          this.quizNavigationService.resetForNewQuiz();
+
           if (isQuizSwitch) {
             console.log(`[QuizComponent] Quiz SWITCH: ${this.quizId} -> ${routeQuizId}`);
 
@@ -563,7 +566,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
             this.quizService.resetAll();
             this.quizStateService.reset();  // Reset quiz state service
             this.explanationTextService.resetExplanationState();  // Clear explanation caches
-            this.quizNavigationService.resetForNewQuiz();  // Reset navigation state (quizCompleted flag)
 
             // Clear local component state
             this.questionsArray = [];
