@@ -557,7 +557,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           // CRITICAL: Clear ALL question data - both service and local
           this.quizService.resetAll();
           this.quizStateService.reset();  // Reset quiz state service
-          
+          this.explanationTextService.resetExplanationState();  // Clear explanation caches
+
           // Clear local component state
           this.questionsArray = [];
           this.currentQuestion = null;
@@ -568,14 +569,14 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           this.explanationToDisplay = '';
           this.currentQuestionIndex = 0;
           this.lastLoggedIndex = -1;
-          
+
           // Clear dot status cache for the new quiz
           this.dotStatusCache.clear();
-          
+
           // Reset display mode to question (not explanation)
           this.quizStateService.setDisplayState({ mode: 'question', answered: false });
           this.showExplanation = false;
-          
+
           try { localStorage.removeItem('shuffledQuestions'); } catch { }
 
           // Update quiz ID and fetch new questions
