@@ -538,6 +538,8 @@ export class QuizNavigationService {
   }
 
   navigateToResults(): void {
+    console.log(`[navigateToResults] Called. quizCompleted=${this.quizCompleted}`);
+
     if (this.quizCompleted) {
       console.warn('Navigation to results already completed.');
       return;
@@ -545,9 +547,20 @@ export class QuizNavigationService {
 
     // Ensure we have a robust quizId
     const targetQuizId = this.quizId || this.resolveEffectiveQuizId() || this.quizService.quizId;
+    console.log(`[navigateToResults] targetQuizId=${targetQuizId}`);
+
+    if (!targetQuizId) {
+      console.error('[navigateToResults] No quizId available for navigation!');
+      return;
+    }
 
     this.quizCompleted = true;
-    this.router.navigate([QuizRoutes.RESULTS, targetQuizId]).catch((error) => {
+
+    // Use correct route path: /quiz/results/:quizId (not just results/)
+    const routePath = ['/quiz', 'results', targetQuizId];
+    console.log(`[navigateToResults] Navigating to:`, routePath);
+
+    this.router.navigate(routePath).catch((error) => {
       console.error('Navigation to results failed:', error);
     });
   }
