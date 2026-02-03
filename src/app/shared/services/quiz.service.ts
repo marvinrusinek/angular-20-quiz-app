@@ -2459,7 +2459,7 @@ export class QuizService {
   }
 
   resetAll(): void {
-    console.log('[QuizService] resetAll() called - clearing all quiz state');
+    console.log('[QuizService] resetAll() called');
     this.answers = [];
     this.correctAnswerOptions = [];
     this.correctOptions = [];
@@ -2470,24 +2470,6 @@ export class QuizService {
     this.questionsList = [];
     this.questionsSubject.next([]);
     this.questionsQuizId = null;
-
-    // Clear current question state to prevent cross-quiz leakage
-    this.currentQuestionSubject.next(null);
-    this.currentQuestionSource.next(null);
-    this.currentQuestion.next(null);
-
-    // Clear question payload to ensure fresh data on next quiz load
-    this.questionPayloadSubject.next(null);
-    this.questionPayloadMap.clear();
-
-    // Clear options subjects
-    this.optionsSubject.next([]);
-    this.optionsSource.next([]);
-    this.currentOptionsSubject.next([]);
-
-    // Clear question text display
-    this.questionToDisplaySource.next('');
-
     this.quizResetSource.next();
   }
 

@@ -551,33 +551,41 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         console.log(`[DEBUG] NavigationEnd: routeQuizId=${routeQuizId}, this.quizId=${this.quizId}`);
 
         // Detect quiz change and reload if needed
+        // Only run full cleanup when SWITCHING between quizzes (this.quizId has a value)
+        // Skip cleanup on initial load (this.quizId is empty)
         if (routeQuizId && routeQuizId !== this.quizId) {
-          console.log(`[QuizComponent] Quiz changed: ${this.quizId} -> ${routeQuizId}`);
+          const isQuizSwitch = this.quizId && this.quizId.length > 0;
 
-          // CRITICAL: Clear ALL question data - both service and local
-          this.quizService.resetAll();
-          this.quizStateService.reset();  // Reset quiz state service
-          this.explanationTextService.resetExplanationState();  // Clear explanation caches
+          if (isQuizSwitch) {
+            console.log(`[QuizComponent] Quiz SWITCH: ${this.quizId} -> ${routeQuizId}`);
 
-          // Clear local component state
-          this.questionsArray = [];
-          this.currentQuestion = null;
-          this.optionsToDisplay = [];
-          this.optionsToDisplay$.next([]);
-          this.combinedQuestionDataSubject.next(null);
-          this.questionToDisplaySource.next('');
-          this.explanationToDisplay = '';
-          this.currentQuestionIndex = 0;
-          this.lastLoggedIndex = -1;
+            // CRITICAL: Clear ALL question data - both service and local
+            this.quizService.resetAll();
+            this.quizStateService.reset();  // Reset quiz state service
+            this.explanationTextService.resetExplanationState();  // Clear explanation caches
 
-          // Clear dot status cache for the new quiz
-          this.dotStatusCache.clear();
+            // Clear local component state
+            this.questionsArray = [];
+            this.currentQuestion = null;
+            this.optionsToDisplay = [];
+            this.optionsToDisplay$.next([]);
+            this.combinedQuestionDataSubject.next(null);
+            this.questionToDisplaySource.next('');
+            this.explanationToDisplay = '';
+            this.currentQuestionIndex = 0;
+            this.lastLoggedIndex = -1;
 
-          // Reset display mode to question (not explanation)
-          this.quizStateService.setDisplayState({ mode: 'question', answered: false });
-          this.showExplanation = false;
+            // Clear dot status cache for the new quiz
+            this.dotStatusCache.clear();
 
-          try { localStorage.removeItem('shuffledQuestions'); } catch { }
+            // Reset display mode to question (not explanation)
+            this.quizStateService.setDisplayState({ mode: 'question', answered: false });
+            this.showExplanation = false;
+
+            try { localStorage.removeItem('shuffledQuestions'); } catch { }
+          } else {
+            console.log(`[QuizComponent] Initial quiz load: ${routeQuizId}`);
+          }
 
           // Update quiz ID and fetch new questions
           this.quizId = routeQuizId;
