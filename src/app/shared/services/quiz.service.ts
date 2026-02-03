@@ -2404,6 +2404,12 @@ export class QuizService {
       localStorage.removeItem('selectedOptions');  // clear stale selection data too
     } catch { }
 
+    // Clear shuffled questions to prevent stale data when switching quizzes
+    this.shuffledQuestions = [];
+    // Also clear regular questions for unshuffled mode
+    this.questions = [];
+    this.questionsQuizId = null;
+
     // this.quizId = ''; // clear quizId for fresh shuffle on restart
     // Do NOT clear questions here. Clearing them breaks results display if this method 
     // is called during navigation or cleanup before results are fully rendered.
