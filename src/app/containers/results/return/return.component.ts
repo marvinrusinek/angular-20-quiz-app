@@ -45,15 +45,14 @@ export class ReturnComponent implements OnInit {
     // Clear session state (answered, selections, resume index, completion flags)
     if (this.quizId) {
       this.quizService.resetQuizSessionForNewRun(this.quizId);
-      this.selectedOptionService.clearAllSelectionsForQuiz(this.quizId);
+      this.selectedOptionService.clearState();
     }
   
     this.quizService.resetAll();
     this.quizService.resetQuestions();
     this.explanationTextService.resetExplanationState();
   
-    this.timerService.elapsedTimes = [];
-    this.timerService.completionTime = 0;
+    this.timerService.clearTimerState();
   
     if (this.quizId) {
       void this.router.navigate(['/quiz/question', this.quizId, 1]);
@@ -63,11 +62,12 @@ export class ReturnComponent implements OnInit {
   selectQuiz(): void {
     const id = this.quizId;
   
-    this.selectedOptionService.clearAllSelectionsForQuiz(id);
+    this.selectedOptionService.clearState();
   
     this.quizService.resetAll();
     this.quizService.resetQuestions();
     this.explanationTextService.resetExplanationState();
+    this.timerService.clearTimerState();
   
     this.quizId = '';
     this.indexOfQuizId = 0;

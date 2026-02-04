@@ -17,6 +17,49 @@ export class SelectedOptionService {
   rawSelectionsMap = new Map<number, { optionId: number; text: string }[]>();
   selectedOptionIndices: { [key: number]: number[] } = {};
 
+  private loadState(): void {
+    try {
+      const raw = sessionStorage.getItem('rawSelectionsMap');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        this.rawSelectionsMap = new Map(Object.entries(parsed).map(([k, v]) => [Number(k), v as any]));
+      }
+
+      const selected = sessionStorage.getItem('selectedOptionsMap');
+      if (selected) {
+        const parsed = JSON.parse(selected);
+        this.selectedOptionsMap = new Map(Object.entries(parsed).map(([k, v]) => [Number(k), v as any]));
+      }
+    } catch (e) {
+      console.warn('[SelectedOptionService] Failed to load state from sessionStorage', e);
+    }
+  }
+
+  private saveState(): void {
+    try {
+      const rawObj = Object.fromEntries(this.rawSelectionsMap);
+      sessionStorage.setItem('rawSelectionsMap', JSON.stringify(rawObj));
+
+      const selectedObj = Object.fromEntries(this.selectedOptionsMap);
+      sessionStorage.setItem('selectedOptionsMap', JSON.stringify(selectedObj));
+    } catch (e) {
+      console.warn('[SelectedOptionService] Failed to save state to sessionStorage', e);
+    }
+  }
+
+  public clearState(): void {
+    this.selectedOptionsMap.clear();
+    this.rawSelectionsMap.clear();
+    this.selectedOption = [];
+    this.selectedOptionIndices = {};
+    try {
+      sessionStorage.removeItem('rawSelectionsMap');
+      sessionStorage.removeItem('selectedOptionsMap');
+    } catch (e) {
+      // ignore
+    }
+  }
+
   selectedOptionSubject = new BehaviorSubject<SelectedOption[]>([]);
   selectedOption$ = this.selectedOptionSubject.asObservable();
 
@@ -66,6 +109,7 @@ export class SelectedOptionService {
     private quizService: QuizService,
     private nextButtonStateService: NextButtonStateService
   ) {
+    this.loadState();
     const index$ = this.quizService?.currentQuestionIndex$;
     if (index$) {
       index$.pipe(distinctUntilChanged()).subscribe((index) => {
@@ -167,6 +211,7 @@ export class SelectedOptionService {
     const mergedList = Array.from(merged.values());
     const committed = mergedList;
     this.selectedOptionsMap.set(idx, committed);
+    this.saveState();
   
     // Emit observable updates
     this.selectedOption = committed;
@@ -198,6 +243,7 @@ export class SelectedOptionService {
     } else {
       this.selectedOptionsMap.delete(questionIndex);
     }
+    this.saveState();
   }
 
   setNextButtonEnabled(enabled: boolean): void {
@@ -239,6 +285,7 @@ export class SelectedOptionService {
       this.isOptionSelectedSubject.next(false);
     } catch { }
 
+    this.saveState();
     console.log('[SelectedOptionService] Cleared all selections for Q', idx);
   }
 
@@ -338,6 +385,7 @@ export class SelectedOptionService {
     }
 
     const committed = this.commitSelections(qIndex, canonicalCurrent);
+    this.saveState();
 
     // Sync to QuizService for persistence & scoring
     if (this.quizService) {
@@ -416,6 +464,7 @@ export class SelectedOptionService {
     
       // Always overwrite the map entry with ALL committed selections
       this.selectedOptionsMap.set(questionIndex, committed);
+      this.saveState();
     
       // Aggregate globally
       if (committed.length > 0) {
@@ -474,6 +523,7 @@ export class SelectedOptionService {
     } else {
       this.rawSelectionsMap.delete(questionIndex);
     }
+    this.saveState();
 
     // Sync to QuizService for localStorage persistence
     const ids = committed

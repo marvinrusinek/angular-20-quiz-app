@@ -19,8 +19,14 @@ interface StopTimerAttemptOptions {
 export class TimerService implements OnDestroy {
   timePerQuestion = 30;
   public elapsedTime = 0;
-  completionTime = 0;
-  elapsedTimes: number[] = [];
+  completionTime = Number(sessionStorage.getItem('completionTime')) || 0;
+  elapsedTimes: number[] = (() => {
+    try {
+      return JSON.parse(sessionStorage.getItem('elapsedTimes') || '[]');
+    } catch {
+      return [];
+    }
+  })();
 
   isTimerRunning = false;  // tracks whether the timer is currently running
   isCountdown = true;  // tracks the timer mode (true = countdown, false = stopwatch)
@@ -132,6 +138,7 @@ export class TimerService implements OnDestroy {
       onStop: (elapsed?: number) => {
         if (elapsed != null && activeQuestionIndex != null) {
           this.elapsedTimes[activeQuestionIndex] = elapsed;
+          this.saveTimerState();
           console.log(
             `[TimerService] Stored elapsed time for Q${activeQuestionIndex + 1}: ${elapsed}s`
           );
@@ -476,6 +483,7 @@ export class TimerService implements OnDestroy {
         onStop: (elapsed?: number) => {
           if (elapsed != null) {
             this.elapsedTimes[normalizedIndex] = elapsed;
+            this.saveTimerState();
             console.log(
               `[TimerService] Saved elapsed time for Q${normalizedIndex + 1}: ${elapsed}s`
             );
@@ -510,6 +518,7 @@ export class TimerService implements OnDestroy {
       onStop: (elapsed?: number) => {
         if (elapsed != null) {
           this.elapsedTimes[idx] = elapsed;
+          this.saveTimerState();
         }
       }
     });
@@ -568,6 +577,7 @@ export class TimerService implements OnDestroy {
       }, 0);
 
       this.completionTime = total;
+      this.saveTimerState();
       console.log(`[TimerService] Calculated total elapsed time: ${total}s`);
       return total;
     } catch (error) {
@@ -608,5 +618,25 @@ export class TimerService implements OnDestroy {
 
   public allowAuthoritativeStop(): void {
     this._authoritativeStop = true;
+  }
+
+  private saveTimerState(): void {
+    try {
+      sessionStorage.setItem('elapsedTimes', JSON.stringify(this.elapsedTimes));
+      sessionStorage.setItem('completionTime', String(this.completionTime));
+    } catch {
+      // ignore
+    }
+  }
+
+  public clearTimerState(): void {
+    this.elapsedTimes = [];
+    this.completionTime = 0;
+    try {
+      sessionStorage.removeItem('elapsedTimes');
+      sessionStorage.removeItem('completionTime');
+    } catch {
+      // ignore
+    }
   }
 }

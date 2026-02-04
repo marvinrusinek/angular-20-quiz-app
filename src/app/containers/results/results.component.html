@@ -108,13 +108,13 @@
         <h3 class="section-heading" i18n>Score Analysis</h3>
         
         <!-- Statistics (Score only) -->
-        <codelab-results-statistics [viewMode]="'score'" />
+        <codelab-results-statistics [viewMode]="'score'" [quizId]="quizId" />
         
       }
 
       @if (activeSection === 'report') {
         <!-- Summary Stats Report -->
-        <codelab-results-summary [viewMode]="'summary'" />
+        <codelab-results-summary [viewMode]="'summary'" [quizId]="quizId" />
       }
 
       @if (activeSection === 'summary') {
@@ -131,14 +131,14 @@
 
       @if (activeSection === 'highscores') {
         <!-- High Scores Table -->
-        <codelab-results-summary [viewMode]="'highscores'" />
+        <codelab-results-summary [viewMode]="'highscores'" [quizId]="quizId" />
       }
 
       @if (activeSection === 'resources') {
         <h3 class="section-heading" i18n>Learning Resources</h3>
         
         <!-- Resources List -->
-        <codelab-results-statistics [viewMode]="'resources'" />
+        <codelab-results-statistics [viewMode]="'resources'" [quizId]="quizId" />
       }
 
       <!-- Next Step / Return (Global) -->

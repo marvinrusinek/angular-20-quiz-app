@@ -1,5 +1,5 @@
 import {
-  ChangeDetectionStrategy, Component, OnDestroy, OnInit, HostListener
+  ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit, HostListener
 } from '@angular/core';
 import { CommonModule, NgOptimizedImage } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -66,7 +66,8 @@ export class ResultsComponent implements OnInit, OnDestroy {
     private quizService: QuizService,
     private quizDataService: QuizDataService,
     private activatedRoute: ActivatedRoute,
-    private router: Router
+    private router: Router,
+    private cdRef: ChangeDetectorRef
   ) {
     this.quizService.setPreviousUserAnswersText(
       this.quizService.questions,
@@ -92,23 +93,31 @@ export class ResultsComponent implements OnInit, OnDestroy {
 
     const snapshot = this.quizService.getFinalResultSnapshot();
     if (snapshot) {
+      if (snapshot.quizId) {
+        this.quizId = snapshot.quizId;
+      }
       this.finalResult = snapshot;
       this.scoreAnalysis = snapshot.analysis;
       this.applyFinalResultSnapshot(snapshot);
       this.updateHeaderLabel(snapshot.total);
+      this.cdRef.markForCheck();
       return;
     }
 
     // optional fallback
     this.quizService.finalResult$
-      .pipe(take(1))
+      .pipe(takeUntil(this.unsubscribe$))
       .subscribe(r => {
+        if (r?.quizId) {
+          this.quizId = r.quizId;
+        }
         this.finalResult = r;
         this.scoreAnalysis = r?.analysis ?? [];
         if (r) {
           this.applyFinalResultSnapshot(r);
           this.updateHeaderLabel(r.total);
         }
+        this.cdRef.markForCheck();
       });
   }
 
@@ -134,15 +143,20 @@ export class ResultsComponent implements OnInit, OnDestroy {
     this.activeSection = section;
     this.closeMenu();
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    this.cdRef.markForCheck();
   }
 
   private fetchQuizIdFromParams(): void {
     this.activatedRoute.paramMap
       .pipe(takeUntil(this.unsubscribe$))
       .subscribe((params) => {
-        this.quizId = params.get('quizId') ?? '';
-        this.setCompletedQuiz();
-        this.findQuizIndex();
+        const routeQuizId = params.get('quizId');
+        if (routeQuizId) {
+          this.quizId = routeQuizId;
+          this.setCompletedQuiz();
+          this.findQuizIndex();
+          this.cdRef.markForCheck();
+        }
       });
   }
 

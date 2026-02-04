@@ -1,7 +1,7 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnChanges, OnInit, SimpleChanges } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { Observable, of } from 'rxjs';
-import { take } from 'rxjs/operators';
+import { take, takeUntil } from 'rxjs/operators';
 
 import { Quiz } from '../../../shared/models/Quiz.model';
 import { QuizMetadata } from '../../../shared/models/QuizMetadata.model';
@@ -25,11 +25,11 @@ import { TimerService } from '../../../shared/services/timer.service';
   styleUrls: ['./summary-report.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class SummaryReportComponent implements OnInit {
+export class SummaryReportComponent implements OnInit, OnChanges {
+  @Input() quizId = '';
   @Input() viewMode: 'summary' | 'highscores' | 'all' = 'all';
   quizzes$: Observable<Quiz[]> = of([]);
   quizName$: Observable<string> = of('');
-  quizId = '';
   quizMetadata: Partial<QuizMetadata> = {};
   elapsedMinutes = 0;
   elapsedSeconds = 0;
@@ -48,8 +48,22 @@ export class SummaryReportComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.initComponent();
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['quizId'] && !changes['quizId'].firstChange) {
+      this.initComponent();
+    }
+  }
+
+  private initComponent(): void {
+    if (!this.quizId) {
+      this.quizId = this.quizService.quizId || localStorage.getItem('quizId') || '';
+    }
+
     try {
-      // Initialize quizMetadata in ngOnInit when service data is available
+      // Initialize quizMetadata in initComponent when service data is available
       this.quizMetadata = {
         totalQuestions: this.quizService.totalQuestions,
         totalQuestionsAttempted: this.quizService.totalQuestions,
@@ -69,7 +83,6 @@ export class SummaryReportComponent implements OnInit {
         }, {});
         this.cdRef.markForCheck();
       });
-      this.quizId = this.quizService.quizId;
 
       this.quizName$ = of(this.quizId);
       this.checkedShuffle$ = this.quizService.checkedShuffle$;
@@ -86,17 +99,18 @@ export class SummaryReportComponent implements OnInit {
         totalQuestions: this.quizService.totalQuestions
       };
     } catch (error) {
-      console.error('[SUMMARY] Error in ngOnInit:', error);
+      console.error('[SUMMARY] Error in initComponent:', error);
       // Fallback to ensure UI doesn't look broken
       this.currentScore = {
-        quizId: this.quizService.quizId || 'Unknown',
+        quizId: this.quizId || 'Unknown',
         attemptDateTime: new Date(),
         score: 0,
         totalQuestions: 0
       };
     }
 
-    // Force change detection for OnPush when navigating back
+    // Force change detection for OnPush when navigating back or tab switching
+    this.cdRef.markForCheck();
     this.cdRef.detectChanges();
   }
 
