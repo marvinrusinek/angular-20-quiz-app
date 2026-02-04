@@ -1,18 +1,29 @@
-import { Injectable } from '@angular/core';
+import { Injectable, Inject, forwardRef } from '@angular/core';
 
 import { Option } from '../models/Option.model';
 import { QuizQuestion } from '../models/QuizQuestion.model';
 import { SelectedOption } from '../models/SelectedOption.model';
 import { SelectedOptionService } from '../services/selectedoption.service';
+import { ExplanationTextService } from './explanation-text.service';
 import { isValidOption } from '../utils/option-utils';
 
 @Injectable({ providedIn: 'root' })
 export class FeedbackService {
   lastKnownOptions: Option[] = [];
+  // Track the last computed indices for synchronization with FET
+  private lastCorrectIndices: number[] = [];
 
   constructor(
-    private selectedOptionService: SelectedOptionService
+    private selectedOptionService: SelectedOptionService,
+    @Inject(forwardRef(() => ExplanationTextService))
+    private explanationTextService: ExplanationTextService
   ) {}
+
+  // Get the last computed correct indices for synchronization
+  getLastCorrectIndices(): number[] {
+    return this.lastCorrectIndices.slice();
+  }
+
 
   public generateFeedbackForOptions(
     correctOptions: Option[],
@@ -135,6 +146,9 @@ export class FeedbackService {
       console.warn(`[FeedbackService] ❌ No matching correct options found.`);
       return 'No correct options found for this question.';
     }
+
+    // Store for synchronization with FET
+    this.lastCorrectIndices = deduped;
 
     const msg = this.formatFeedbackMessage(deduped);
     

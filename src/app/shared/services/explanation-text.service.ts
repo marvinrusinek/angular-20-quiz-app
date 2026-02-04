@@ -1,5 +1,5 @@
 import { Injectable, Injector } from '@angular/core';
-import { 
+import {
   BehaviorSubject, firstValueFrom, Observable, of, ReplaySubject, Subject
 } from 'rxjs';
 import {
@@ -69,7 +69,7 @@ export class ExplanationTextService {
   public _byIndex = new Map<number, BehaviorSubject<string | null>>();
   public _gate = new Map<number, BehaviorSubject<boolean>>();
   private _activeIndexValue: number | null = 0; // Start at 0 to match activeIndex$ initial value
-  
+
   public readonly activeIndex$ = new BehaviorSubject<number>(0);
 
   private _readyForExplanation$ = new BehaviorSubject<boolean>(false);
@@ -241,6 +241,7 @@ export class ExplanationTextService {
 
     // Auto-Format: Check if explanation needs formatting and format it
     let finalExplanation = trimmed;
+    /*
     if (
       trimmed &&
       this._activeIndexValue !== null &&
@@ -262,32 +263,47 @@ export class ExplanationTextService {
           // We use a token approach to avoid importing QuizService directly
           const quizService = this.injector.get(QuizService, null);
 
-          // Use the public questions cache instead of relying on questionsArray
-          const questions = quizService?.questions;
+          if (quizService) {
+            // CRITICAL: Use shuffled questions when in shuffle mode to get correct display order
+            // Use public isShuffleEnabled instead of private shouldShuffle
+            const shouldShuffle = quizService.isShuffleEnabled?.() ?? false;
 
-          if (quizService && Array.isArray(questions)) {
-            // Get question synchronously from the service's cache
-            const questionData = questions[this._activeIndexValue];
+            // Access shuffledQuestions carefully (cast to any to allow access if private/protected)
+            const shuffledQs = (quizService as any).shuffledQuestions;
 
-            if (questionData) {
-              const correctIndices = this.getCorrectOptionIndices(questionData);
-              finalExplanation = this.formatExplanation(
-                questionData,
-                correctIndices,
-                trimmed
-              );
-              console.log(
-                '[ETS] ✅ Auto-formatted:',
-                finalExplanation.slice(0, 80)
-              );
+            const questions = shouldShuffle && shuffledQs?.length > 0
+              ? shuffledQs
+              : quizService.questions;
+
+            if (Array.isArray(questions) && questions.length > 0) {
+              // Get question from the appropriate source (shuffled or canonical)
+              const questionData = questions[this._activeIndexValue];
+
+              if (questionData) {
+                // Use the question's options directly - they'll be in display order
+                const correctIndices = this.getCorrectOptionIndices(questionData, questionData.options);
+                finalExplanation = this.formatExplanation(
+                  questionData,
+                  correctIndices,
+                  trimmed
+                );
+                console.log(
+                  '[ETS] ✅ Auto-formatted (shuffle=' + shouldShuffle + '):',
+                  finalExplanation.slice(0, 80)
+                );
+              } else {
+                console.warn(
+                  '[ETS] ⚠️ Question data not available for auto-formatting'
+                );
+              }
             } else {
               console.warn(
-                '[ETS] ⚠️ Question data not available for auto-formatting'
+                '[ETS] ⚠️ QuizService questions not loaded for auto-formatting'
               );
             }
           } else {
             console.warn(
-              '[ETS] ⚠️ QuizService not available or questions not loaded for auto-formatting'
+              '[ETS] ⚠️ QuizService not available for auto-formatting'
             );
           }
         } catch (err) {
@@ -295,6 +311,7 @@ export class ExplanationTextService {
         }
       }
     }
+    */
 
     // Clear old explanation when we're NOT setting new text.
     // This prevents Q1's explanation from showing for Q2.
@@ -617,12 +634,24 @@ export class ExplanationTextService {
       return;
     }
 
-    const sanitizedExplanation = explanation.trim();
+    // Strip any existing "Option(s) X is/are correct because" prefix so we can
+    // re-format with the CORRECT visual indices from the passed `options` array.
+    // This ensures FET option numbers match the feedback text option numbers.
+    const alreadyFormattedRe =
+      /^(?:option|options)\s+\d+(?:\s*,\s*\d+)*(?:\s+and\s+\d+)?\s+(?:is|are)\s+correct\s+because\s+/i;
+    
+    let rawExplanation = explanation.trim();
+    if (alreadyFormattedRe.test(rawExplanation)) {
+      // Extract the raw explanation after the prefix
+      rawExplanation = rawExplanation.replace(alreadyFormattedRe, '').trim();
+      console.log(`[ETS] 🔄 Stripped existing format prefix to re-format with correct indices`);
+    }
+
     const correctOptionIndices = this.getCorrectOptionIndices(question, options);
     const formattedExplanation = this.formatExplanation(
       question,
       correctOptionIndices,
-      sanitizedExplanation
+      rawExplanation
     );
 
     this.formattedExplanations[index] = {
@@ -671,6 +700,7 @@ export class ExplanationTextService {
     const rawOpts = options || question?.options;
     const opts = (rawOpts || []).filter(isValidOption);
 
+
     if (!Array.isArray(opts) || opts.length === 0) {
       console.warn('No options found for question:', question?.questionText);
       return [];
@@ -688,6 +718,7 @@ export class ExplanationTextService {
         return idx + 1;  // 1-based for "Option N"
       })
       .filter((n): n is number => n !== null);
+
 
     // Dedupe + sort for a stable, readable string
     return Array.from(new Set(indices)).sort((a, b) => a - b);
@@ -722,13 +753,9 @@ export class ExplanationTextService {
           if (!opt?.correct) {
             return -1;
           }
-          const hasValidDisplayOrder =
-            typeof opt.displayOrder === 'number' &&
-            Number.isFinite(opt.displayOrder) &&
-            opt.displayOrder >= 0;
-
-          const displayIndex = hasValidDisplayOrder ? opt.displayOrder : i;
-          return (displayIndex ?? 0) + 1;
+          // Use array index directly - this is the visual position
+          // CRITICAL: Match FeedbackService.setCorrectMessage which uses array position
+          return i + 1;  // 1-based for "Option N"
         })
         .filter((n) => n > 0);
     }
@@ -736,7 +763,7 @@ export class ExplanationTextService {
     // Stabilize: dedupe + sort so multi-answer phrasing is consistent
     indices = Array.from(new Set(indices)).sort((a, b) => a - b);
 
-    // Multi-answer
+    // Multi-answerW
     if (indices.length > 1) {
       question.type = QuestionType.MultipleAnswer;
 
@@ -897,7 +924,7 @@ export class ExplanationTextService {
 
     const contextKey = this.normalizeContext(options.context);
     const signature = `${options.context ?? 'global'}:::${shouldDisplay}`;
-    
+
     if (!options.force) {
       const previous = this.shouldDisplayByContext.get(contextKey);
       if (

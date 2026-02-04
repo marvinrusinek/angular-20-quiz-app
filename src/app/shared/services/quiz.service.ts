@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import {
-  BehaviorSubject, firstValueFrom, from, Observable, of, Subject 
+  BehaviorSubject, firstValueFrom, from, Observable, of, Subject
 } from 'rxjs';
 import {
   auditTime, catchError, distinctUntilChanged, filter, map, shareReplay,
@@ -55,7 +55,7 @@ export class QuizService {
 
   // State tracking for scoring (Index -> IsCorrect)
   private questionCorrectness = new Map<number, boolean>();
-  
+
   isNavigating = false;
 
   private currentQuizSubject = new BehaviorSubject<Quiz | null>(null);
@@ -363,7 +363,7 @@ export class QuizService {
     if (this.questions.length > 0) {
       this.totalQuestions = this.questions.length;
       this.totalQuestionsSubject.next(this.totalQuestions);
-      
+
       const firstQuestion = this.questions[0];
       if (!this.isValidQuestionStructure(firstQuestion)) {
         console.error(
@@ -468,9 +468,9 @@ export class QuizService {
       );
       return;
     }
-  
+
     this.status = value;
-  }  
+  }
 
   setCompletedQuizId(value: string) {
     this.completedQuizId = value;
@@ -641,28 +641,28 @@ export class QuizService {
     // ALWAYS return existing shuffledQuestions if available.
     // This prevents re-shuffling on every call which causes option order instability
     if (this.shuffledQuestions && this.shuffledQuestions.length > 0) {
-      // If quiz IDs don't match, only then we might need to re-fetch
-      // But if they DO match (or quizId is empty), return the cached shuffle
-      if (!quizId || this.quizId === quizId || !this.quizId) {
-        console.log(`[fetchQuizQuestions] Returning EXISTING shuffledQuestions (${this.shuffledQuestions.length} questions) - NO RE-SHUFFLE`);
-        
-        if (this.shuffledQuestions.length > 0) {
-          console.log(`[fetchQuizQuestions] Q1 Preview: Text="${this.shuffledQuestions[0].questionText.substring(0, 20)}..." | Options[0]="${this.shuffledQuestions[0].options?.[0]?.text.substring(0, 10)}..."`);
-        }
+      // CRITICAL: Only return cached shuffle if it belongs to the SAME quiz
+      // Check both quizId AND questionsQuizId to prevent cross-quiz data leakage
+      const isSameQuiz = quizId &&
+        this.quizId === quizId &&
+        this.questionsQuizId === quizId;
 
-        // Ensure the quizId is set if it wasn't
-        if (quizId && !this.quizId) {
-          this.quizId = quizId;
+      if (isSameQuiz) {
+        console.log(`[fetchQuizQuestions] Returning EXISTING shuffledQuestions (${this.shuffledQuestions.length} questions) for quiz ${quizId}`);
+
+        if (this.shuffledQuestions.length > 0) {
+          console.log(`[fetchQuizQuestions] Q1 Preview: Text="${this.shuffledQuestions[0].questionText.substring(0, 20)}..."`);
         }
 
         // Ensure subscribers get the shuffled version
         this.questionsSubject.next(this.shuffledQuestions);
-        this.questionsQuizId = this.quizId ?? quizId ?? null;
         return this.shuffledQuestions;
       } else {
-        console.log(`[fetchQuizQuestions] Quiz ID changed from ${this.quizId} to ${quizId} - will re-fetch`);
+        console.log(`[fetchQuizQuestions] Quiz mismatch - clearing old shuffle. quizId=${quizId}, this.quizId=${this.quizId}, questionsQuizId=${this.questionsQuizId}`);
         // Clear old shuffle for new quiz
         this.shuffledQuestions = [];
+        this._questions = [];
+        this.questionsQuizId = null;
       }
     }
 
@@ -776,7 +776,7 @@ export class QuizService {
         // valid 'canonical' base allows resolveCanonicalQuestion to working correctly
         // instead of falling back to the ALREADY shuffled 'this.questions' (double shuffle).
         this.canonicalQuestionsByQuiz.set(
-          quizId, 
+          quizId,
           JSON.parse(JSON.stringify(normalizedQuestions))
         );
 
@@ -905,10 +905,10 @@ export class QuizService {
         // Use correct scoring key for shuffled quizzes
         // The questionCorrectness map is keyed by ORIGINAL index, not shuffled index
         let scoringKey = prevIndex;
-        
+
         if (this.shouldShuffle() && this.quizId) {
           const originalIndex = this.quizShuffleService.toOriginalIndex(this.quizId, prevIndex);
-          
+
           if (typeof originalIndex === 'number' && originalIndex >= 0) {
             scoringKey = originalIndex;
           }
@@ -1647,6 +1647,7 @@ export class QuizService {
 
     // Clear shuffle state on toggle to ensure fresh shuffle
     // This prevents stale shuffled data from being used when toggling
+    this.quizShuffleService.clearAll();
     this.shuffledQuestions = [];
 
     // Also clear basic questions to force a fresh fetch/shuffle cycle
@@ -2459,16 +2460,30 @@ export class QuizService {
   }
 
   resetAll(): void {
+    console.log('[QuizService] resetAll() called - full state reset');
     this.answers = [];
     this.correctAnswerOptions = [];
     this.correctOptions = [];
     this.correctMessage = '';
     this.currentQuestionIndex = 0;
-    this.questions = [];
+
+    // IMPORTANT: Clear shuffledQuestions FIRST to prevent questions setter
+    // from re-setting questionsQuizId based on shuffle state
     this.shuffledQuestions = [];
+    this._questions = [];  // Direct assignment to avoid setter side effects
     this.questionsList = [];
     this.questionsSubject.next([]);
     this.questionsQuizId = null;
+
+    // NOTE: Do NOT clear this.quizId here - it's needed for in-quiz navigation (pagination dots)
+    // The questionsQuizId = null above is sufficient for cache invalidation
+
+    // Clear any in-flight fetch promise to prevent stale data
+    this.fetchPromise = null;
+
+    // Reset quiz completion flag for new quiz
+    this.quizCompleted = false;
+
     this.quizResetSource.next();
   }
 
@@ -2880,19 +2895,19 @@ export class QuizService {
 
   setFinalResult(result: FinalResult): void {
     this.finalResultSource.next(result);
-  
+
     try {
       sessionStorage.setItem('finalResult', JSON.stringify(result));
     } catch (err) {
       console.warn('[QuizService] Unable to persist finalResult', err);
     }
   }
-  
+
   getFinalResultSnapshot(): FinalResult | null {
     // Prefer in-memory snapshot
     const live = this.finalResultSource.value;
     if (live) return live;
-  
+
     // Fallback to sessionStorage (tab switch / reload safe)
     try {
       const raw = sessionStorage.getItem('finalResult');
@@ -2902,12 +2917,12 @@ export class QuizService {
       return null;
     }
   }
-  
+
   clearFinalResult(): void {
     this.finalResultSource.next(null);
     try {
       sessionStorage.removeItem('finalResult');
-    } catch {}
+    } catch { }
   }
 
   resetQuizSessionForNewRun(quizId: string): void {
@@ -2928,6 +2943,6 @@ export class QuizService {
       // If you store per-quiz keys, also remove those patterns:
       localStorage.removeItem(`quizState_${quizId}`);
       localStorage.removeItem(`quizResumeIndex_${quizId}`);
-    } catch {}
+    } catch { }
   }
 }

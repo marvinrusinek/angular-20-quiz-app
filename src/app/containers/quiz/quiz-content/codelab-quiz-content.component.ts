@@ -347,10 +347,11 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
         if (!Array.isArray(questionsToUse)) return;
 
+        // Pre-generate FETs for all questions. Note: These may be regenerated
+        // on click with more accurate indices from the visual options array.
         questionsToUse.forEach((q, idx) => {
           if (q && q.explanation) {
-            // Re-store/Format using the CURRENT/SHUFFLED question object 
-            this.explanationTextService.storeFormattedExplanation(idx, q.explanation, q);
+            this.explanationTextService.storeFormattedExplanation(idx, q.explanation, q, q.options);
           }
         });
       });
@@ -369,7 +370,8 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           ((this.quizService as any)?.currentQuestion?.value ?? null);
 
         if (q?.explanation) {
-          this.explanationTextService.storeFormattedExplanation(idx, q.explanation, q);
+          // Pass q.options explicitly to ensure correct option indices
+          this.explanationTextService.storeFormattedExplanation(idx, q.explanation, q, q.options);
         }
 
         // OnPush safety

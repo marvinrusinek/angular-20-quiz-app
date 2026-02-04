@@ -1,5 +1,5 @@
 import {
-  AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, 
+  AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component,
   EventEmitter, HostListener, Input, NgZone, OnChanges, OnDestroy, OnInit,
   Output, SimpleChanges, ViewChild, ViewEncapsulation
 } from '@angular/core';
@@ -329,15 +329,23 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // Keep local questions in sync with service (handles shuffle toggle)
     this.subscriptions.add(
       this.quizService.questions$.subscribe((questions: QuizQuestion[]) => {
-        if (questions && questions.length > 0) {
+        // Only update if questions are for the current quiz (prevent stale cross-quiz data)
+        const serviceQuizId = this.quizService.getCurrentQuizId();
+        if (questions && questions.length > 0 &&
+          (!this.quizId || serviceQuizId === this.quizId)) {
           this.questions = questions;
           this.questionsArray = [...questions];
           this.totalQuestions = questions.length;
           console.log(
             `[QUIZ COMPONENT] totalQuestions set to ${this.totalQuestions} from 
-            questions$.length`
+            questions$.length for quiz ${this.quizId}`
           );
           this.cdRef.markForCheck();
+        } else if (questions && questions.length > 0 && serviceQuizId !== this.quizId) {
+          console.warn(
+            `[QUIZ COMPONENT] Ignoring questions$ emission - quiz mismatch: ` +
+            `service=${serviceQuizId}, component=${this.quizId}`
+          );
         }
       })
     );
@@ -543,19 +551,51 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         console.log(`[DEBUG] NavigationEnd: routeQuizId=${routeQuizId}, this.quizId=${this.quizId}`);
 
         // Detect quiz change and reload if needed
+        // Only run full cleanup when SWITCHING between quizzes (this.quizId has a value)
+        // Skip cleanup on initial load (this.quizId is empty)
         if (routeQuizId && routeQuizId !== this.quizId) {
-          console.log(`[QuizComponent] Quiz changed: ${this.quizId} -> ${routeQuizId}`);
-          
-          // CRITICAL: Clear ALL question data - both service and local
-          this.quizService.resetAll();
-          this.questionsArray = [];
-          try { localStorage.removeItem('shuffledQuestions'); } catch {}
-          
+          const isQuizSwitch = this.quizId && this.quizId.length > 0;
+
+          // ALWAYS reset navigation service on any quiz load (it's a singleton that persists)
+          this.quizNavigationService.resetForNewQuiz();
+
+          if (isQuizSwitch) {
+            console.log(`[QuizComponent] Quiz SWITCH: ${this.quizId} -> ${routeQuizId}`);
+
+            // CRITICAL: Clear ALL question data - both service and local
+            this.quizService.resetAll();
+            this.quizStateService.reset();  // Reset quiz state service
+            this.explanationTextService.resetExplanationState();  // Clear explanation caches
+
+            // Clear local component state
+            this.questionsArray = [];
+            this.currentQuestion = null;
+            this.optionsToDisplay = [];
+            this.optionsToDisplay$.next([]);
+            this.combinedQuestionDataSubject.next(null);
+            this.questionToDisplaySource.next('');
+            this.explanationToDisplay = '';
+            this.currentQuestionIndex = 0;
+            this.lastLoggedIndex = -1;
+
+            // Clear dot status cache for the new quiz
+            this.dotStatusCache.clear();
+
+            // Reset display mode to question (not explanation)
+            this.quizStateService.setDisplayState({ mode: 'question', answered: false });
+            this.showExplanation = false;
+            this.navigatingToResults = false;
+
+            try { localStorage.removeItem('shuffledQuestions'); } catch { }
+          } else {
+            console.log(`[QuizComponent] Initial quiz load: ${routeQuizId}`);
+          }
+
           // Update quiz ID and fetch new questions
           this.quizId = routeQuizId;
           this.quizService.setQuizId(routeQuizId);
           await this.loadQuestions();
-          console.log(`[DEBUG] After loadQuestions, questionsArray[0]=${this.questionsArray[0]?.questionText?.substring(0,30)}`);
+          console.log(`[DEBUG] After loadQuestions, questionsArray[0]=${this.questionsArray[0]?.questionText?.substring(0, 30)}`);
         }
 
         this.quizService.setCurrentQuestionIndex(idx);
@@ -734,7 +774,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         }
 
         this.questionsArray = questions;
-        console.log('[QuizComponent] Questions fetched.');
+        this.totalQuestions = questions.length;  // Ensure totalQuestions is updated
+        console.log(`[QuizComponent] Questions fetched. totalQuestions=${this.totalQuestions}`);
 
         // Set quiz as loaded and sync index after questions are ready
         this.isQuizDataLoaded = true;
@@ -957,7 +998,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
       // Update the answered state
       this.selectedOptionService.updateAnsweredState(
-        questionOptions, 
+        questionOptions,
         this.currentQuestionIndex
       );
     } catch (error) {
@@ -1247,24 +1288,24 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   public get shouldShowResultsButton(): boolean {
     const serviceCount = this.quizService.questions?.length || 0;
     const effectiveTotal = Math.max(this.totalQuestions, serviceCount);
-  
+
     const isLast =
       effectiveTotal > 0 &&
       this.currentQuestionIndex === effectiveTotal - 1;
-  
+
     if (!isLast) return false;
-  
+
     const question: QuizQuestion | null =
       (this.question as QuizQuestion | null) ??
       ((this.quizService as any).currentQuestion?.value as QuizQuestion | null) ??
       (this.quizService.questions?.[this.currentQuestionIndex] ?? null) ??
       ((this.quizService as any).shuffledQuestions?.[this.currentQuestionIndex] ?? null);
-  
+
     if (!question) return false;
-  
+
     const selected =
       this.selectedOptionService.getSelectedOptionsForQuestion(this.currentQuestionIndex) ?? [];
-  
+
     return selected.length > 0;
   }
 
@@ -2972,7 +3013,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         this.correctAnswersText = text;
         this.correctAnswersTextSource.next(text);
       });
-  }  
+  }
 
   private async handleNewQuestion(question: QuizQuestion): Promise<void> {
     try {
@@ -3366,63 +3407,39 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
   // REMOVE!!
   advanceToResults(): void {
+    console.log('[advanceToResults] CALLED - quizId:', this.quizId);
+
     if (this.navigatingToResults) {
-      console.warn('Navigation to results already in progress.');
+      console.warn('[advanceToResults] BLOCKED - navigatingToResults is true');
       return;
     }
 
-    this.navigatingToResults = true;  // prevent multiple clicks
+    this.navigatingToResults = true;
 
-    // Record elapsed time for the current (last) question before resetting state
-    const currentIndex =
-      this.quizService.getCurrentQuestionIndex?.() ?? this.currentQuestionIndex;
+    // Record elapsed time
+    const currentIndex = this.quizService.getCurrentQuestionIndex?.() ?? this.currentQuestionIndex;
     const currentElapsed = (this.timerService as any).elapsedTime ?? 0;
-    if (
-      currentIndex != null &&
-      currentIndex >= 0 &&
-      !this.timerService.elapsedTimes[currentIndex] &&
-      currentElapsed > 0
-    ) {
+    if (currentIndex != null && currentIndex >= 0 &&
+      !this.timerService.elapsedTimes[currentIndex] && currentElapsed > 0) {
       this.timerService.elapsedTimes[currentIndex] = currentElapsed;
-      console.log(
-        `[QUIZ COMPONENT] Recorded elapsed time for Q${currentIndex + 1}: ${currentElapsed}s`
-      );
     }
 
-    // Stop the timer and record elapsed time
+    // Stop timer
     if (this.timerService.isTimerRunning) {
-      this.timerService.stopTimer(
-        (elapsedTime: number) => {
-          this.elapsedTimeDisplay = elapsedTime;
-          console.log('Elapsed time recorded for results:', elapsedTime);
-        },
-        { force: true }
-      );
-    } else {
-      console.log('Timer was not running, skipping stopTimer.');
+      this.timerService.stopTimer(() => { }, { force: true });
     }
 
-    // Reset quiz state
-    this.quizService.resetAll();
+    // Navigate DIRECTLY to results - bypass navigation service
+    const targetQuizId = this.quizId || this.quizService.quizId || this.quizService.getCurrentQuizId();
+    console.log('[advanceToResults] Navigating to /quiz/results/' + targetQuizId);
 
-    // Check if all answers were completed before navigating
-    if (!this.quizService.quizCompleted) {
-      this.quizService.checkIfAnsweredCorrectly(this.currentQuestionIndex)
-        .then(() => {
-          console.log('All answers checked, navigating to results...');
-          this.handleQuizCompletion();
-          this.quizNavigationService.navigateToResults();
-        })
-        .catch((error: Error) => {
-          console.error('Error during checkIfAnsweredCorrectly:', error);
-        })
-        .finally(() => {
-          this.navigatingToResults = false;  // allow navigation again after the process
-        });
-    } else {
-      console.warn('Quiz already marked as completed.');
+    this.router.navigate(['/quiz', 'results', targetQuizId]).then((success: boolean) => {
+      console.log('[advanceToResults] Navigation result:', success);
       this.navigatingToResults = false;
-    }
+    }).catch((err: Error) => {
+      console.error('[advanceToResults] Navigation error:', err);
+      this.navigatingToResults = false;
+    });
   }
 
   // REMOVE??
@@ -3552,7 +3569,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       const validSelections = (selectedOptions ?? []).filter((opt) =>
         optionIdSet.has(opt.optionId ?? -1)
       );
-  
+
       let isAnswered = validSelections.length > 0;
       if (!isAnswered && questionState?.isAnswered) {
         this.quizStateService.setQuestionState(quizIdForState, questionIndex, {
@@ -3563,7 +3580,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         this.selectedOptionService.clearSelectionsForQuestion(questionIndex);
         this.selectedOptionService.setAnswered(false, true);
       }
-  
+
       if (isAnswered) {
         this.quizStateService.setAnswered(true);
         this.selectedOptionService.setAnswered(true, true);
@@ -3571,9 +3588,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         this.quizStateService.setAnswered(false);
         this.selectedOptionService.setAnswered(false, true);
       }
-  
+
       this.isAnswered = isAnswered;
-  
+
       this.quizStateService.setDisplayState({
         mode: this.isAnswered ? 'explanation' : 'question',
         answered: this.isAnswered
@@ -4293,23 +4310,23 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
   private persistContinueStatusIfNeeded(): void {
     if (!this.quizId) return;
-  
+
     // Hard Block: never persist CONTINUE after completion
     if (this.quizService.quizCompleted === true) {
       console.log('[QuizComponent] Quiz completed. Skipping CONTINUE persist.');
       return;
     }
-  
+
     // Only persist if the user actually answered something
     const hasAnsweredAny =
       this.currentQuestionIndex > 0 ||
       this.selectedOptionService.isQuestionAnswered(0) === true;
-  
+
     if (!hasAnsweredAny) return;
-  
+
     // Store the current question index for resume
     this.quizService.currentQuestionIndex = this.currentQuestionIndex;
-  
+
     // Set CONTINUE status
     this.quizDataService.updateQuizStatus(this.quizId, QuizStatus.CONTINUE);
     this.quizService.setQuizStatus(QuizStatus.CONTINUE);
@@ -4317,10 +4334,10 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
   private finalizeAndGoToResults(): void {
     const analysis = this.buildScoreAnalysisSnapshot();
-  
+
     const correct = analysis.filter(a => a.wasCorrect).length;
     const total = analysis.length;
-  
+
     const finalResult: FinalResult = {
       quizId: this.quizId!,
       correct,
@@ -4329,40 +4346,40 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       analysis,
       completedAt: Date.now(),
     };
-  
+
     this.quizService.quizCompleted = true;
     this.quizService.setQuizStatus(QuizStatus.COMPLETED);
-  
+
     this.quizService.setFinalResult(finalResult);
-  
+
     this.router.navigate(['/results', this.quizId]);
   }
 
   private buildScoreAnalysisSnapshot(): ScoreAnalysisItem[] {
     const questions = this.quizService.activeQuiz?.questions ?? this.quizService.questions ?? [];
     const analysis: ScoreAnalysisItem[] = [];
-  
+
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i];
       if (!q) continue;
-  
+
       const selected = this.selectedOptionService.getSelectedOptionsForQuestion(i) ?? [];
       const selectedIds = selected.map(o => String(o?.optionId ?? '')).filter(Boolean);
-  
+
       const correctIds = (q.options ?? [])
         .filter((o: Option) => o.correct === true)
         .map((o: Option) => String(o.optionId))
         .filter(Boolean);
-  
+
       // "wasCorrect" logic: selected set equals correct set
       const selectedSet: Set<string> = new Set<string>(selectedIds);
       const correctSet: Set<string> = new Set<string>(correctIds);
-  
+
       const wasCorrect =
         correctSet.size > 0 &&
         correctSet.size === selectedSet.size &&
         Array.from(correctSet).every((id: string) => selectedSet.has(id));
-  
+
       analysis.push({
         questionIndex: i,
         questionText: String(q.questionText ?? ''),
@@ -4371,7 +4388,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         correctOptionIds: correctIds,
       });
     }
-  
+
     return analysis;
-  }  
+  }
 }

@@ -2712,10 +2712,12 @@ export class SharedOptionComponent
       this.currentQuestionIndex ??
       this.resolvedQuestionIndex ??
       questionIndex;
+    // CRITICAL FIX: Always use optionsToDisplay when available to ensure FET option numbers
+    // match feedback text. The previous check (questionIndex === displayIndex) was too restrictive
+    // and caused Q3+ to use cached FET with wrong indices in unshuffled mode.
     const useLocalOptions =
       Array.isArray(this.optionsToDisplay) &&
-      this.optionsToDisplay.length > 0 &&
-      questionIndex === displayIndex;
+      this.optionsToDisplay.length > 0;
 
     // Use helper method that respects shuffle state
     const question = this.getQuestionAtDisplayIndex(questionIndex);
@@ -2727,14 +2729,23 @@ export class SharedOptionComponent
         `[Using LOCAL OPTIONS for Q${questionIndex + 1} to ensure visual match]`
       );
 
-      // Sync with FeedbackService: use display order as-is to match "Option N" labels.
-      const validOptions = this.optionsToDisplay;
-
-      const correctIndices =
-        this.explanationTextService.getCorrectOptionIndices(
+      // CRITICAL: Use the SAME indices that FeedbackService computed to ensure
+      // perfect synchronization between feedback text and FET option numbers.
+      // FeedbackService computes indices when setCorrectMessage is called, which happens
+      // BEFORE emitExplanation. So getLastCorrectIndices() should have the correct values.
+      let correctIndices = this.feedbackService.getLastCorrectIndices();
+      
+      // Fallback: if FeedbackService hasn't computed indices yet, calculate locally
+      if (!correctIndices || correctIndices.length === 0) {
+        correctIndices = this.explanationTextService.getCorrectOptionIndices(
           question,
-          validOptions
+          this.optionsToDisplay
         );
+        console.log(`[FET] Using locally computed indices: ${JSON.stringify(correctIndices)}`);
+      } else {
+        console.log(`[FET] Using FeedbackService indices for sync: ${JSON.stringify(correctIndices)}`);
+      }
+
       const raw = (question.explanation || '').trim();
       const formatted = this.explanationTextService.formatExplanation(
         question,
@@ -2745,21 +2756,15 @@ export class SharedOptionComponent
         questionIndex,
         formatted,
         question,
-        validOptions
+        this.optionsToDisplay
       );
       return formatted;
     }
 
-    // Try to get pre-formatted explanation first
-    const formatted =
-      this.explanationTextService.formattedExplanations?.[questionIndex]?.explanation?.trim() || '';
-    if (formatted && !(shuffleActive && this.optionsToDisplay?.length)) {
-      console.log(
-        `[Using pre-formatted FET for Q${questionIndex + 1}]:`,
-        formatted.slice(0, 80)
-      );
-      return formatted;
-    }
+    // NOTE: We intentionally do NOT return cached FET here anymore.
+    // The cached FET may have been pre-generated with incorrect option indices
+    // (before the correct optionsToDisplay was available).
+    // Instead, we fall through to regenerate with the correct indices.
 
     // Fallback: Generate on the fly if missing
     console.warn(

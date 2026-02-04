@@ -502,7 +502,7 @@ export class QuizQuestionComponent extends BaseQuestion
       .pipe(distinctUntilChanged())
       .subscribe((index) => {
         console.warn('[QQC INDEX OBSERVED]', index, {
-          routeIndex: 
+          routeIndex:
             Number(this.activatedRoute.snapshot.paramMap.get('questionIndex')) - 1,
           serviceIndex: this.quizService.getCurrentQuestionIndex()
         });
@@ -1384,7 +1384,7 @@ export class QuizQuestionComponent extends BaseQuestion
         this.quizService.updateCurrentQuestionIndex(adjustedIndex);
 
         // Use the adjusted index for explanation text to ensure sync
-        void this.fetchAndSetExplanationText(adjustedIndex);
+        // void this.fetchAndSetExplanationText(adjustedIndex);
       });
   }
 
@@ -1885,7 +1885,7 @@ export class QuizQuestionComponent extends BaseQuestion
       // Set backward nav flag if supported
       if ((instance as any)?.hasOwnProperty('isNavigatingBackwards')) {
         componentRef.setInput(
-          'isNavigatingBackwards', 
+          'isNavigatingBackwards',
           this.navigatingBackwards ?? false
         );
       }
@@ -2067,7 +2067,7 @@ export class QuizQuestionComponent extends BaseQuestion
     } else {
       // Restore display ONLY. Do NOT treat as answered.
       const restoredAnswered = !!explanationSnapshot?.questionState?.isAnswered;
-    
+
       this.selectedOptionService.setAnswered(restoredAnswered, true);
       this.nextButtonStateService.setNextButtonState(restoredAnswered);
     }
@@ -2152,7 +2152,7 @@ export class QuizQuestionComponent extends BaseQuestion
       const localCount = this.questionsArray?.length ?? 0;
       const serviceCount = this.quizService.questions?.length ?? 0;
       const effectiveTotal = Math.max(localCount, serviceCount);
-      
+
       if (effectiveTotal > 0 && this.currentQuestionIndex >= effectiveTotal) {
         console.warn(`[loadQuestion] WOULD REDIRECT to /results but BYPASSED. Index=${this.currentQuestionIndex} >= Total=${effectiveTotal}`);
         // Do NOT redirect - let navigation continue for debugging
@@ -2375,7 +2375,7 @@ export class QuizQuestionComponent extends BaseQuestion
           return 'No options available to generate feedback.';
         } else {
           console.log(
-            '[generateFeedbackText] Fallback optionsToDisplay:', 
+            '[generateFeedbackText] Fallback optionsToDisplay:',
             this.optionsToDisplay
           );
         }
@@ -2864,15 +2864,15 @@ export class QuizQuestionComponent extends BaseQuestion
       const currentSelectedOptions = this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
       // If the current option is new/checked and not yet in the service list, add it for the sync
       // (Though addOption above should have handled it, there might be a race or we want to be sure)
-      if (evtChecked && 
-          typeof currentOptId === 'number' && 
-          !currentSelectedOptions.some(o => o.optionId === currentOptId)
+      if (evtChecked &&
+        typeof currentOptId === 'number' &&
+        !currentSelectedOptions.some(o => o.optionId === currentOptId)
       ) {
         currentSelectedOptions.push(evtOpt as any);
       }
       this.quizService.selectedOptionsMap.set(idx, currentSelectedOptions);
       console.log(
-        '[QQC] Synced QuizService.selectedOptionsMap using index ' + idx, 
+        '[QQC] Synced QuizService.selectedOptionsMap using index ' + idx,
         currentSelectedOptions
       );
 
@@ -3018,14 +3018,14 @@ export class QuizQuestionComponent extends BaseQuestion
     const getKey = (o: any, i?: number) =>
       this.selectionMessageService.stableKey(o as Option, i);
 
-    const canonicalOpts = 
+    const canonicalOpts =
       (this.optionsToDisplay?.length > 0 ? this.optionsToDisplay : q?.options ?? []).map((o, i) => ({
         ...o,
         optionId: Number(o.optionId ?? getKey(o, i)),
         selected: (
           this.selectedOptionService.selectedOptionsMap?.get(idx) ?? []
         ).some((sel) => getKey(sel) === getKey(o))
-    }));
+      }));
 
     if (q?.type === QuestionType.SingleAnswer) {
       let i = 0;
@@ -3244,7 +3244,7 @@ export class QuizQuestionComponent extends BaseQuestion
     }
 
     // Guard: user must have interacted first
-    const hasUserInteracted = 
+    const hasUserInteracted =
       (this.quizStateService as any).hasUserInteracted?.(lockedIndex) ?? false;
     if (!hasUserInteracted) {
       console.warn('[FET SKIP] User has not interacted yet, blocking FET');
@@ -5377,10 +5377,10 @@ export class QuizQuestionComponent extends BaseQuestion
       )
       .subscribe({
         error: (error: Error) =>
-            console.error(
-              '[waitForQuestionData] Error loading question data for index ' + this.currentQuestionIndex + ':',
-              error
-            )
+          console.error(
+            '[waitForQuestionData] Error loading question data for index ' + this.currentQuestionIndex + ':',
+            error
+          )
       });
   }
 
@@ -5661,11 +5661,16 @@ export class QuizQuestionComponent extends BaseQuestion
       const rawExplanation = questionData.explanation || 'No explanation available';
 
       // Use locally displayed options if available and indices match
-      // AND verify the question text matches to avoid using Q1 options for Q2 FET
+      // Relaxed check: trust optionsToDisplay if indices match
       const useLocalOptions =
         this.optionsToDisplay?.length > 0 &&
-        questionIndex === (this.currentQuestionIndex ?? -1) &&
-        this.currentQuestion?.questionText === questionData.questionText;
+        questionIndex === (this.currentQuestionIndex ?? -1);
+
+      // Debugging Q2 mismatch
+      console.log(`[DEBUG_FET] Q${questionIndex + 1} useLocal=${useLocalOptions} optsLen=${this.optionsToDisplay?.length} curIdx=${this.currentQuestionIndex}`);
+      if (useLocalOptions && this.optionsToDisplay.length > 0) {
+        console.log(`[DEBUG_FET] Opt[0]=${this.optionsToDisplay[0].text.substring(0, 10)}.. corr=${this.optionsToDisplay[0].correct}`);
+      }
 
       const correctIndices =
         this.explanationTextService.getCorrectOptionIndices(
@@ -5740,7 +5745,9 @@ export class QuizQuestionComponent extends BaseQuestion
           if (await this.isAnyOptionSelected(questionIndex)) {
             this.currentQuestionIndex = questionIndex;
 
-            const finalExplanation = explanationText || 'No explanation available';
+            // Recalculate to ensure we have the latest version (fixing race condition with options loading)
+            const freshText = await this.prepareAndSetExplanationText(questionIndex);
+            const finalExplanation = freshText || explanationText || 'No explanation available';
             this.explanationToDisplay = finalExplanation;
             this.explanationTextService.setExplanationText(finalExplanation);
             this.explanationTextService.setShouldDisplayExplanation(true);
@@ -6093,6 +6100,10 @@ export class QuizQuestionComponent extends BaseQuestion
     // This bypasses unreliable QuizNavigationService events
     if (effectiveQuestion && normalizedOptions?.length) {
       void this.loadDynamicComponent(effectiveQuestion, normalizedOptions);
+
+      // Force recalculation of explanation text now that optionsToDisplay is populated
+      // This ensures FET matches visual option order
+      void this.prepareAndSetExplanationText(this.currentQuestionIndex);
     }
   }
 

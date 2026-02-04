@@ -160,11 +160,11 @@ export class QuizNavigationService {
     }
 
     const maxQuestions = this.quizService.totalQuestions || this.quizService.questions?.length || 99;
-    
+
     console.log(`[NAV DEBUG] navigateWithOffset: Current=${currentRouteIndex} Target=${targetRouteIndex} Max=${maxQuestions} (ServiceTotal=${this.quizService.totalQuestions})`);
 
     if (targetRouteIndex > maxQuestions) {
-       console.warn(`[NAV FORCE] Target ${targetRouteIndex} > Max ${maxQuestions}. Proceeding anyway to verify existence.`);
+      console.warn(`[NAV FORCE] Target ${targetRouteIndex} > Max ${maxQuestions}. Proceeding anyway to verify existence.`);
     }
 
     return this.navigateToQuestion(targetRouteIndex - 1);
@@ -538,6 +538,8 @@ export class QuizNavigationService {
   }
 
   navigateToResults(): void {
+    console.log(`[navigateToResults] Called. quizCompleted=${this.quizCompleted}`);
+
     if (this.quizCompleted) {
       console.warn('Navigation to results already completed.');
       return;
@@ -545,9 +547,20 @@ export class QuizNavigationService {
 
     // Ensure we have a robust quizId
     const targetQuizId = this.quizId || this.resolveEffectiveQuizId() || this.quizService.quizId;
+    console.log(`[navigateToResults] targetQuizId=${targetQuizId}`);
+
+    if (!targetQuizId) {
+      console.error('[navigateToResults] No quizId available for navigation!');
+      return;
+    }
 
     this.quizCompleted = true;
-    this.router.navigate([QuizRoutes.RESULTS, targetQuizId]).catch((error) => {
+
+    // Use correct route path: /quiz/results/:quizId (not just results/)
+    const routePath = ['/quiz', 'results', targetQuizId];
+    console.log(`[navigateToResults] Navigating to:`, routePath);
+
+    this.router.navigate(routePath).catch((error) => {
       console.error('Navigation to results failed:', error);
     });
   }
@@ -558,5 +571,13 @@ export class QuizNavigationService {
 
   getIsNavigatingToPrevious(): Observable<boolean> {
     return this.isNavigatingToPrevious.asObservable();
+  }
+
+  // Reset navigation state when switching quizzes
+  resetForNewQuiz(): void {
+    console.log('[QuizNavigationService] Resetting for new quiz');
+    this.quizCompleted = false;
+    this.isNavigating = false;
+    this.currentQuestionIndex = 0;
   }
 }
