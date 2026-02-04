@@ -2729,6 +2729,7 @@ export class SharedOptionComponent
         `[Using LOCAL OPTIONS for Q${questionIndex + 1} to ensure visual match]`
       );
 
+      // FIX: FET and feedback option number synchronization (2026-02-03)
       // CRITICAL: Use the SAME indices that FeedbackService computed to ensure
       // perfect synchronization between feedback text and FET option numbers.
       // FeedbackService computes indices when setCorrectMessage is called, which happens
