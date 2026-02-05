@@ -36,6 +36,9 @@ import { HighlightOptionDirective } from '../../../../directives/highlight-optio
 import { SharedOptionConfigDirective } from '../../../../directives/shared-option-config.directive';
 import { correctAnswerAnim } from '../../../../animations/animations';
 import { isValidOption } from '../../../../shared/utils/option-utils';
+import { OptionItemComponent } from './option-item/option-item.component';
+import { OptionService } from '../../../../shared/services/option.service';
+import { OptionInteractionService, OptionInteractionState } from '../../../../shared/services/option-interaction.service';
 
 @Component({
   selector: 'app-shared-option',
@@ -46,9 +49,8 @@ import { isValidOption } from '../../../../shared/utils/option-utils';
     MatCheckboxModule,
     MatRadioModule,
     MatIconModule,
-    FeedbackComponent,
-    HighlightOptionDirective,
-    SharedOptionConfigDirective
+    SharedOptionConfigDirective,
+    OptionItemComponent
   ],
   templateUrl: './shared-option.component.html',
   styleUrls: ['../../quiz-question/quiz-question.component.scss'],
@@ -57,8 +59,7 @@ import { isValidOption } from '../../../../shared/utils/option-utils';
 })
 export class SharedOptionComponent
   implements OnInit, OnChanges, OnDestroy, AfterViewInit {
-  @ViewChildren(HighlightOptionDirective)
-  highlightDirectives!: QueryList<HighlightOptionDirective>;
+
 
   @Output() optionClicked =
     new EventEmitter<OptionClickedPayload>();
@@ -103,7 +104,7 @@ export class SharedOptionComponent
   // Track CORRECT option clicks per question for timer stop logic
   private correctClicksPerQuestion: Map<number, Set<number>> = new Map();
   // Track DISABLED option IDs per question - persists across binding recreations
-  private disabledOptionsPerQuestion: Map<number, Set<number>> = new Map();
+  public disabledOptionsPerQuestion: Map<number, Set<number>> = new Map();
   iconVisibility: boolean[] = []; // array to store visibility state of icons
   showIconForOption: { [optionId: number]: boolean } = {};
   lastSelectedOptionIndex = -1;
@@ -147,14 +148,14 @@ export class SharedOptionComponent
   trackByOptionId = (b: OptionBindings, idx: number) =>
     `${b.option.optionId ?? idx}_${this.disableRenderTrigger}`;
 
-  private flashDisabledSet = new Set<number>();
+  public flashDisabledSet = new Set<number>();
   private lockedIncorrectOptionIds = new Set<number>();
   private shouldLockIncorrectOptions = false;
   public hasCorrectSelectionForLock = false;
   public allCorrectSelectedForLock = false;
   private resolvedTypeForLock: QuestionType = QuestionType.SingleAnswer;
-  private forceDisableAll = false;
-  private timerExpiredForQuestion = false;  // track timer expiration
+  public forceDisableAll = false;
+  public timerExpiredForQuestion = false;  // track timer expiration
   private timeoutCorrectOptionKeys = new Set<string>();
   private pendingExplanationIndex = -1;
   private resolvedQuestionIndex: number | null = null;
@@ -171,6 +172,8 @@ export class SharedOptionComponent
     private soundService: SoundService,
     private nextButtonStateService: NextButtonStateService,
     private timerService: TimerService,
+    private optionService: OptionService,
+    private optionInteractionService: OptionInteractionService,
     private cdRef: ChangeDetectorRef,
     private fb: FormBuilder,
     private ngZone: NgZone,
@@ -614,12 +617,8 @@ export class SharedOptionComponent
           }
         }
     
-        for (const d of this.highlightDirectives ?? []) {
-          // Gracefully handle if the directive doesn’t have updateHighlight
-          if ('updateHighlight' in d) {
-            d.updateHighlight();  // force visual reset
-          }
-        }
+        // Highlight directives are now handled in OptionItemComponent
+
     
         this.highlightedOptionIds.clear();
         this.selectedOption = null;
@@ -783,9 +782,8 @@ export class SharedOptionComponent
       this.processOptionBindings();
 
       this.cdRef.detectChanges();
-      for (const d of this.highlightDirectives ?? []) {
-        d.updateHighlight();
-      }
+      // Highlight directives are now handled in OptionItemComponent
+
 
       this.updateHighlighting();
       this.cdRef.detectChanges();
@@ -1349,94 +1347,27 @@ export class SharedOptionComponent
   }
 
   getOptionDisplayText(option: Option, idx: number): string {
-    return `${idx + 1}. ${option?.text ?? ''}`;
+    return this.optionService.getOptionDisplayText(option, idx);
   }
 
   public getOptionIcon(option: Option, i: number): string {
-    // Allow icon if globally enabled OR local option requests it (e.g. immediate feedback)
-    if (!this.showFeedback && !(option as any).showIcon) return '';
-
-    // Return 'close' if feedback explicitly marks it incorrect
-    if ((option as any).feedback === 'x') return 'close';
-
-    // Primary: if reveal-for-all placed feedback in the child map, use that
-    const cfg = this.feedbackConfigs[this.keyOf(option, i)];
-    if (cfg?.showFeedback) {
-      // Keep icon set: 'check' for correct, 'close' for incorrect
-      const isCorrect = (cfg as any)?.isCorrect ?? !!option.correct;
-      return isCorrect ? 'check' : 'close';
-    }
-
-    // Fallback: derive from the option itself
-    return option.correct ? 'check' : 'close';
+    return this.optionService.getOptionIcon(option, i);
   }
 
   public getOptionClasses(binding: OptionBindings): { [key: string]: boolean } {
-    const option = binding.option;
-    // Use quizService.currentQuestionIndex (authoritative) instead of 
-    // resolveCurrentQuestionIndex() which may return stale @Input value
-    const qIndex = this.quizService.currentQuestionIndex ?? this.resolveCurrentQuestionIndex();
-
-    // Check if options should be locked (show not-allowed cursor)
-    let isLocked = false;
-    try {
-      const isQuestionAnswered =
-        this.selectedOptionService.getSelectedOptionsForQuestion(qIndex)?.length > 0;
-      const isExplanationShowing =
-        this.explanationTextService.shouldDisplayExplanationSource.getValue();
-      const isQuestionLockedByService =
-        this.selectedOptionService.isQuestionLocked(qIndex);
-
-      isLocked =
-        isQuestionAnswered || isExplanationShowing || isQuestionLockedByService;
-    } catch { }
-
-    // Only highlight if this option is actually selected for the CURRENT question
-    // This prevents Q2's selected options from highlighting on Q3
-    const currentSelections = 
-      this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
-    const isActuallySelected = currentSelections.some(s => s.optionId === option.optionId);
-
-    // Use verified selection state, not the potentially stale option.selected flag
-    const showAsSelected = isActuallySelected || 
-      (binding.isSelected && this.lastProcessedQuestionIndex === qIndex);
-
-    const optionKey = this.keyOf(option, binding.index);
-    const showCorrectOnTimeout = this.timerExpiredForQuestion
-      && (this.timeoutCorrectOptionKeys.has(optionKey) || !!option.correct);
-
-    return {
-      'disabled-option': this.shouldDisableOption(binding),
-      'locked-option': isLocked && !this.shouldDisableOption(binding),
-      'correct-option': (showAsSelected && !!option.correct) || showCorrectOnTimeout,
-      'incorrect-option': showAsSelected && !option.correct,
-      'flash-red': this.flashDisabledSet.has(option.optionId ?? -1)
-    };
+    return this.optionService.getOptionClasses(
+      binding,
+      this.highlightedOptionIds,
+      this.flashDisabledSet,
+      this.isLocked(binding, binding.index),
+      this.timerExpiredForQuestion
+    );
   }
 
   // Returns cursor style for option - 'not-allowed' for disabled/incorrect
   // options or when timer expired
   public getOptionCursor(binding: OptionBindings, index: number): string {
-    const option = binding?.option;
-    const isCorrect = option?.correct === true;
-
-    // If ALL options are force-disabled (timer expired), show not-allowed on ALL
-    // including correct
-    if (this.forceDisableAll || this.timerExpiredForQuestion) {
-      return 'not-allowed';
-    }
-
-    // Check if this specific option is disabled
-    if (this.isDisabled(binding, index)) {
-      return 'not-allowed';
-    }
-
-    // Correct options keep pointer cursor (when user answered correctly)
-    if (isCorrect) {
-      return 'pointer';
-    }
-
-    return 'pointer';
+    return this.optionService.getOptionCursor(binding, index, this.isDisabled(binding, index), this.timerExpiredForQuestion);
   }
 
   // Decide if an option should be disabled, only checks disabledOptionsPerQuestion
@@ -1616,14 +1547,6 @@ export class SharedOptionComponent
     return false;
   }
 
-  onOptionChanged(b: OptionBindings, i: number, event: MatRadioChange | MatCheckboxChange) {
-    console.log(`
-      [onOptionChanged] optionId=${b?.option?.optionId}, index=${i}, 
-      Q${(this.currentQuestionIndex ?? 0) + 1}`
-    );
-
-    this.updateOptionAndUI(b, i, event);
-  }
 
   public onOptionInteraction(binding: OptionBindings, index: number, event: MouseEvent): void {
     // Guard: Skip if this option is disabled (check persistent Map)
@@ -1651,510 +1574,60 @@ export class SharedOptionComponent
     index: number,
     event: MouseEvent
   ): void {
-    const qIdx = this.resolveCurrentQuestionIndex();
-      
-    // Mark interaction immediately
-    this.quizStateService.markUserInteracted(qIdx);
-    console.log(`[SOC] 🖱️ Marked user interaction for Q${qIdx + 1}`);
+    const state: OptionInteractionState = {
+      optionBindings: this.optionBindings,
+      optionsToDisplay: this.optionsToDisplay,
+      currentQuestionIndex: this.currentQuestionIndex,
+      selectedOptionHistory: this.selectedOptionHistory,
+      disabledOptionsPerQuestion: this.disabledOptionsPerQuestion,
+      correctClicksPerQuestion: this.correctClicksPerQuestion,
+      feedbackConfigs: this.feedbackConfigs,
+      showFeedbackForOption: this.showFeedbackForOption,
+      lastFeedbackOptionId: this.lastFeedbackOptionId,
+      lastFeedbackQuestionIndex: this.lastFeedbackQuestionIndex,
+      lastClickedOptionId: this.lastClickedOptionId,
+      lastClickTimestamp: this.lastClickTimestamp,
+      hasUserClicked: this.hasUserClicked,
+      freezeOptionBindings: this.freezeOptionBindings,
+      showFeedback: this.showFeedback,
+      disableRenderTrigger: this.disableRenderTrigger,
+      type: this.type,
+      currentQuestion: this.currentQuestion
+    };
 
-    // Prevent the click from bubbling up to the mat-radio-button/mat-checkbox
-    event.stopPropagation();
-
-    // Guard: Skip if this option is disabled (check persistent Map)
-    if (this.isDisabled(binding, index)) {
-      console.log(
-        '[SOC] onOptionContentClick: Option is disabled, blocking click:', 
-        binding.option?.optionId
-      );
-      return;
-    }
-
-    // Immediately disable this option after click to prevent re-clicking
-    const optionIdToDisable = binding.option?.optionId;
-    if (typeof optionIdToDisable === 'number') {
-      if (!this.disabledOptionsPerQuestion.has(qIdx)) {
-        this.disabledOptionsPerQuestion.set(qIdx, new Set<number>());
-      }
-      this.disabledOptionsPerQuestion.get(qIdx)!.add(optionIdToDisable);
-      console.log(
-        `[SOC] Disabled option ${optionIdToDisable} for Q${qIdx + 1} to prevent re-click`
-      );
-    }
-
-    // Force update answers and trigger score logic here (multi-answer support)
-    const bindingsForScore = this.optionBindings ?? [];
-    const correctCountForScore =
-      bindingsForScore.filter(b => b.option?.correct).length;
-    const isMultipleForScore = correctCountForScore > 1;
-    const qIndexForScore = this.resolveCurrentQuestionIndex();
-
-    // Guard: prevent deselection of correct answers in multiple-answer questions
-    if (isMultipleForScore && binding.isSelected && binding.option?.correct) {
-      console.log('[SOC] Blocking deselection of correct answer:',
-        binding.option?.optionId);
-      event.preventDefault();
-      return;
-    }
-
-    // Calculate Current Selected Set (prior to this click)
-    let currentSelectedOptions = bindingsForScore
-      .filter(b => b.isSelected)
-      .map(b => b.option);
-
-    // Determine Action
-    const willBeSelected = isMultipleForScore ? !binding.isSelected : true;
-
-    // Update Set
-    if (isMultipleForScore) {
-      if (willBeSelected) {
-        // Add if not present
-        if (!currentSelectedOptions.find(
-          o => o.optionId === binding.option.optionId)
-        ) {
-          currentSelectedOptions.push(binding.option);
-        }
-      } else {
-        // Remove
-        currentSelectedOptions = 
-          currentSelectedOptions.filter(o => o.optionId !== binding.option.optionId);
-      }
-    } else {
-      // Single: just this option
-      currentSelectedOptions = [binding.option];
-    }
-
-    // Use SelectedOptionService as source of truth
-    const storedSelection = 
-      this.selectedOptionService.getSelectedOptionsForQuestion(qIndexForScore) || [];
-    let simulatedSelection = [...storedSelection];
-
-    // Check current option status in stored selection
-    const existingIdx = 
-      simulatedSelection.findIndex(o => o.optionId === binding.option.optionId);
-
-    // Enforce "history mode" (accumulation) for ALL types per user request
-    // This keeps incorrect answers highlighted even after selecting the correct one.
-    if (existingIdx > -1) {
-      simulatedSelection.splice(existingIdx, 1);
-    } else {
-      simulatedSelection.push({
-        ...binding.option,
-        selected: true,
-        questionIndex: qIndexForScore
-      } as SelectedOption
-      );
-    }
-
-    // Update service and check score
-    // If options lack IDs (unshuffled raw mode), generate the expected numeric ID
-    // Use the FULL options list (this.optionBindings) to find the correct index for generation
-    // Relying on simulatedSelection index was incorrect because it only contains SELECTED options.
-    const allBindings = this.optionBindings ?? [];
-
-    const validIds = simulatedSelection.map((o) => {
-      if (typeof o.optionId === 'number') return o.optionId;
-
-      // Fallback: Find True Index in the full list
-      const trueIndex = 
-        allBindings.findIndex(b => b.option === o || (b.option?.text === o.text));
-
-      // If found, generate ID. If not found, use 0 (which will likely fail 
-      // but is safer than random)
-      const idxToUse = trueIndex >= 0 ? trueIndex : 0;
-
-      return Number(
-        `${qIndexForScore + 1}${(idxToUse + 1).toString().padStart(2, '0')}`
-      );
-    }).filter((id): id is number => Number.isFinite(id));
-
-    this.quizService.updateUserAnswer(qIndexForScore, validIds);
-
-    // Must sync to SelectedOptionService for dots to update
-    this.selectedOptionService.syncSelectionState(
-      qIndexForScore,
-      simulatedSelection
+    this.optionInteractionService.handleOptionClick(
+      binding,
+      index,
+      event,
+      state,
+      (idx) => this.getQuestionAtDisplayIndex(idx),
+      (idx) => this.emitExplanation(idx),
+      (b, i, ev) => this.updateOptionAndUI(b, i, ev)
     );
 
-    // For UNSHUFFLED mode, call checkIfAnsweredCorrectly for score verification
-    // For SHUFFLED mode, skip this call - rely on scoreDirectly calls which are more reliable
-    // The duplicate async calls were causing race conditions in SHUFFLED mode
-    const isShuffledForScoring = this.quizService?.isShuffleEnabled?.();
-    if (!isShuffledForScoring) {
-      this.quizService.checkIfAnsweredCorrectly(qIndexForScore).then((isCorrect) => {
-        console.log(`[SOC] Score Verified for Q${qIndexForScore + 1}: ${isCorrect}`);
-      });
-    } else {
-      console.log(
-        `[SOC] SHUFFLED mode: Skipping duplicate checkIfAnsweredCorrectly 
-        (scoreDirectly will handle scoring)`
-      );
-    }
-
-    // TIMER STOP LOGIC (FIXED - THE ONLY LOCATION!)
-    // Single-answer: stop when correct option is clicked
-    // Multi-answer: stop when ALL correct options are selected
-    // Use same index method as isDisabled for consistency
-    const questionIndex = this.resolveCurrentQuestionIndex();
-    // Use helper method that respects shuffle state
-    const question = this.getQuestionAtDisplayIndex(questionIndex);
-
-    // Cross-check correct flag against source question options
-    // The binding.option.correct may be stale or not properly propagated
-    let clickedIsCorrect = binding.option.correct === true;
-
-    // Fallback 1: Check question.options from quizService
-    if (!clickedIsCorrect && question?.options) {
-      // Try to find the matching option by optionId or text
-      const matchingOpt = question.options.find((o: Option) =>
-        o.optionId === binding.option.optionId ||
-        (o.text && o.text.trim().toLowerCase() === (binding.option.text ?? '').trim().toLowerCase())
-      );
-      if (matchingOpt?.correct === true) {
-        clickedIsCorrect = true;
-        console.log(
-          `[SOC] Corrected clickedIsCorrect via question.options lookup for 
-          optionId=${binding.option.optionId}`
-        );
-      }
-    }
-
-    // Fallback 2: Check optionBindings (the displayed options) - for shuffled mode
-    if (!clickedIsCorrect && this.optionBindings?.length) {
-      const matchingBinding = this.optionBindings.find((b: OptionBindings) =>
-        b.option?.optionId === binding.option.optionId ||
-        (b.option?.text && b.option.text.trim().toLowerCase() === (binding.option.text ?? '').trim().toLowerCase())
-      );
-      if (matchingBinding?.option?.correct === true) {
-        clickedIsCorrect = true;
-        console.log(
-          `[SOC] Corrected clickedIsCorrect via optionBindings lookup for 
-          optionId=${binding.option.optionId}`
-        );
-      }
-    }
-
-    // Fallback 3: Check optionsToDisplay - another source of truth
-    if (!clickedIsCorrect && this.optionsToDisplay?.length) {
-      const matchingOption = this.optionsToDisplay.find((o: Option) =>
-        o.optionId === binding.option.optionId ||
-        (o.text && o.text.trim().toLowerCase() === (binding.option.text ?? '').trim().toLowerCase())
-      );
-      if (matchingOption?.correct === true) {
-        clickedIsCorrect = true;
-        console.log(
-          `[SOC] Corrected clickedIsCorrect via optionsToDisplay lookup for 
-          optionId=${binding.option.optionId}`
-        );
-      }
-    }
-
-    // Fallback 4: Use binding index directly (most reliable for shuffled mode)
-    // The `index` passed to this method corresponds to the position in optionsToDisplay/optionBindings
-    // This bypasses any optionId/text matching issues
-    if (!clickedIsCorrect && typeof index === 'number' && this.optionsToDisplay?.[index]) {
-      const optionAtIndex = this.optionsToDisplay[index];
-      if (optionAtIndex?.correct === true) {
-        clickedIsCorrect = true;
-        console.log(
-          `[SOC] Corrected clickedIsCorrect via index-based lookup: index=${index}, 
-          optionId=${optionAtIndex.optionId}`
-        );
-      }
-    }
-
-    // Fallback 5: Check optionBindings by index (ultimate fallback)
-    if (!clickedIsCorrect && typeof index === 'number' && this.optionBindings?.[index]) {
-      const bindingAtIndex = this.optionBindings[index];
-      if (bindingAtIndex?.option?.correct === true) {
-        clickedIsCorrect = true;
-        console.log(`[SOC] Corrected clickedIsCorrect via optionBindings index: index=${index}`);
-      }
-    }
-
-    // Count correct options FROM BINDINGS (they're local and available)
-    // quizService.questions was returning undefined, so use optionBindings instead
-    const bindings = this.optionBindings ?? [];
-
-    // Use centralized getter, but also double-check with optionsToDisplay
-    // This ensures multi-answer detection works even for edge cases like Q4 SHUFFLED
-    let isMultipleAnswer = this.isMultiMode;
-
-    // ⚡ FIX: Direct fallback check on optionsToDisplay (most reliable for current question)
-    // This catches cases where isMultiMode fails to detect multi-answer due to question lookup issues
-    if (!isMultipleAnswer && this.optionsToDisplay?.length > 0) {
-      const correctCountInDisplay = 
-        this.optionsToDisplay.filter((o: Option) => o.correct === true).length;
-      if (correctCountInDisplay > 1) {
-        isMultipleAnswer = true;
-        console.log(
-          `[SOC] OVERRIDE: Detected multi-answer from optionsToDisplay 
-          (${correctCountInDisplay} correct options)`
-        );
-      }
-    }
-
-    const isSingle = !isMultipleAnswer;
-
-    if (isSingle) {
-      // Single-answer: track correct click and stop timer when correct option is
-      // clicked
-      if (clickedIsCorrect) {
-        // TRACK CORRECT CLICK FOR SINGLE-ANSWER (needed for disable logic)
-        if (!this.correctClicksPerQuestion.has(questionIndex)) {
-          this.correctClicksPerQuestion.set(questionIndex, new Set<number>());
-        }
-        const clickedCorrectSet = this.correctClicksPerQuestion.get(questionIndex)!;
-        const currentOptionId = binding.option.optionId;
-        if (typeof currentOptionId === 'number') {
-          clickedCorrectSet.add(currentOptionId);
-        }
-
-        console.log(`[SOC] SINGLE-ANSWER: Correct option clicked → STOPPING TIMER`);
-        this.timerService.allowAuthoritativeStop();
-        this.timerService.stopTimer(undefined, { force: true });
-
-        // DIRECT SCORING: Always call scoreDirectly for single-answer questions
-        // The duplicate checkIfAnsweredCorrectly call is now skipped for SHUFFLED mode to prevent race conditions
-        this.quizService.scoreDirectly(questionIndex, true, false);
-
-        // DIRECTLY DISABLE ALL INCORRECT OPTIONS
-        console.log(
-          '[SOC] About to disable incorrect options. optionBindings count:', 
-          this.optionBindings?.length
-        );
-
-        // PERSISTENT DISABLE: Add incorrect options to disabledOptionsPerQuestion Map
-        if (!this.disabledOptionsPerQuestion.has(questionIndex)) {
-          this.disabledOptionsPerQuestion.set(questionIndex, new Set<number>());
-        }
-        const disabledSet = this.disabledOptionsPerQuestion.get(questionIndex)!;
-
-        // Modify this.optionBindings directly (not the local bindings const)
-        for (const b of this.optionBindings ?? []) {
-          if (!b.option?.correct) {
-            b.disabled = true;
-            const optId = b.option?.optionId;
-            if (typeof optId === 'number') {
-              disabledSet.add(optId);
-            }
-            console.log(`[SOC] DISABLED incorrect option:`, optId);
-          }
-        }
-
-        // Force Angular to see the change by creating NEW binding objects (not just spread)
-        // This is key for OnPush - we need object identity to change, not just array reference
-        this.optionBindings = this.optionBindings.map(b => ({
-          ...b,
-          disabled: !b.option?.correct  // set disabled on new object
-        }));
-
-        // Force global change detection
-        this.disableRenderTrigger++;
-
-        // First mark for check
-        this.cdRef.markForCheck();
-
-        // Then run NgZone to ensure Angular picks up changes
-        this.ngZone.run(() => {
-          // Force global app change detection tick
-          this.appRef.tick();
-          this.cdRef.detectChanges();
-          console.log('[SOC] Angular appRef.tick() and detectChanges() called');
-        });
-      } else {
-        // User clicked an incorrect option for single-answer
-        console.log('[SOC] Single-answer: INCORRECT option clicked, not disabling others');
-      }
-    } else {
-      // MULTI-ANSWER: Check if ALL correct options have been CLICKED (not just isSelected)
-      // Using correctClicksPerQuestion Map as source of truth for actual user clicks
-
-      // Get correct option IDs from question.options (source of truth)
-      // NOT from bindings, which may not have correct property propagated
-      const correctIdsFromQuestion = (question?.options ?? [])
-        .filter((o: Option) => o.correct === true)
-        .map((o: Option, idx: number) =>
-          // Option ID might not be set, use index-based fallback matching binding
-          // assignment
-          o.optionId ?? (questionIndex * 100 + (idx + 1))
-        );
-
-      // Also get IDs from bindings to map which binding corresponds to which
-      // correct option
-      const bindingCorrectIds = (this.optionBindings ?? [])
-        .filter((b: OptionBindings) => b.option?.correct === true)
-        .map((b: OptionBindings) => b.option?.optionId)
-        .filter((id: number | undefined): id is number => typeof id === 'number');
-
-      // Also check optionsToDisplay for correct IDs (more reliable for shuffled mode)
-      const optionsToDisplayCorrectIds = (this.optionsToDisplay ?? [])
-        .filter((o: Option) => o.correct === true)
-        .map((o: Option) => o.optionId)
-        .filter((id: number | undefined): id is number => typeof id === 'number');
-
-      // Use the best available source: bindings > optionsToDisplay > question
-      const correctIds = bindingCorrectIds.length > 0
-        ? bindingCorrectIds
-        : (optionsToDisplayCorrectIds.length > 0
-          ? optionsToDisplayCorrectIds
-          : correctIdsFromQuestion);
-
-      // Initialize clicks set for this question if needed
-      if (!this.correctClicksPerQuestion.has(questionIndex)) {
-        this.correctClicksPerQuestion.set(questionIndex, new Set<number>());
-      }
-      const clickedCorrectSet =
-        this.correctClicksPerQuestion.get(questionIndex)!;
-
-      // If current click is on a correct option, add it to the clicked set
-      const currentOptionId = binding.option.optionId;
-      if (clickedIsCorrect && typeof currentOptionId === 'number') {
-        clickedCorrectSet.add(currentOptionId);
-        // Trigger change detection to update disabled state for incorrect options
-        this.cdRef.detectChanges();
-      }
-
-      // Strict validation: For multi-answer, we MUST have at least 2 correct options
-      if (correctIds.length < 2) {
-        console.error(`[SOC] MULTI-ANSWER ERROR: correctIds.length=${correctIds.length}, expected >= 2! Data issue detected.`);
-        console.error(`[SOC] Debug data:`, {
-          questionOptions: question?.options?.length,
-          correctFromQuestion: correctIdsFromQuestion,
-          correctFromBindings: bindingCorrectIds,
-          bindingsCount: (this.optionBindings ?? []).length,
-          bindingsData: (this.optionBindings ?? []).map((b: OptionBindings) => ({
-            optionId: b.option?.optionId,
-            correct: b.option?.correct,
-            text: b.option?.text?.slice(0, 20)
-          }))
-        });
-        // DON'T stop timer - this is a data error
-        return;
-      }
-
-      // Check if ALL correct options are now in the selection
-      // Don't rely on a.correct flag which may not be set on simulatedSelection
-      const currentAnswersForLock = simulatedSelection || [];
-      const selectedOptionIds = 
-        currentAnswersForLock.map(a => a.optionId).filter((id): id is number => typeof id === 'number');
-
-      // Perfect state: Every correct option ID is in the selected set
-      const allCorrectSelected = correctIds.every((id: number) => selectedOptionIds.includes(id));
-      const isPerfectState = allCorrectSelected && selectedOptionIds.length >= correctIds.length;
-
-      console.log(
-        `[SOC] MULTI-ANSWER DEBUG: correctIds=${JSON.stringify(correctIds)}, 
-        selectedIds=${JSON.stringify(selectedOptionIds)}, 
-        allCorrectSelected=${allCorrectSelected}, isPerfectState=${isPerfectState}`
-      );
-
-      if (isPerfectState) {
-        console.log(`[SOC] MULTI-ANSWER: PERFECTION ACHIEVED → STOPPING TIMER`);
-
-        this.timerService.allowAuthoritativeStop();
-        this.timerService.stopTimer(undefined, { force: true });
-
-        // DIRECT SCORING: Always call scoreDirectly for multi-answer when all correct answers are selected
-        // The duplicate checkIfAnsweredCorrectly call is now skipped for SHUFFLED mode to prevent race conditions
-        this.quizService.scoreDirectly(questionIndex, true, true);
-
-        // DISABLE ALL INCORRECT OPTIONS FOR MULTI-ANSWER
-        if (!this.disabledOptionsPerQuestion.has(questionIndex)) {
-          this.disabledOptionsPerQuestion.set(questionIndex, new Set<number>());
-        }
-        const disabledSet = this.disabledOptionsPerQuestion.get(questionIndex)!;
-
-        for (const b of this.optionBindings ?? []) {
-          if (!b.option?.correct) {
-            const optId = b.option?.optionId;
-            if (typeof optId === 'number') {
-              disabledSet.add(optId);
-              console.log(`[SOC] MULTI-ANSWER: DISABLED incorrect option:`, optId);
-            }
-          }
-        }
-
-        // Force re-render
-        this.disableRenderTrigger++;
-        this.cdRef.markForCheck();
-        this.ngZone.run(() => {
-          this.appRef.tick();
-          this.cdRef.detectChanges();
-        });
-      } else {
-        console.log(
-          `[SOC] MULTI-ANSWER: Not all correct options clicked yet 
-          (${clickedCorrectSet.size}/${correctIds.length}), timer continues`);
-      }
-    }
-
-    // For radio: always select. For checkbox: toggle.
-    const newState = isSingle ? true : !binding.isSelected;
-
-    // Construct a mock event to match what onOptionChanged expects
-    const mockEvent = isSingle
-      ? { source: null, value: binding.option.optionId }
-      : { source: null, checked: newState };
-
-    // 1. Run logic (generate feedback, set local flags)
-    // We do this first so that updateOptionAndUI sees the "old" state and runs the
-    // feedback generator.
-    this.updateOptionAndUI(binding, index, mockEvent as any);
-
-    // 2. Sync Form (Update Visuals)
-    // We do this SECOND so the mat-radio-group UI updates to show the circle selected.
-    // emitEvent: false ensures we don't trigger the valueChanges subscriber again.
-    if (isSingle) {
-      this.form.get('selectedOptionId')
-        ?.setValue(binding.option.optionId, { emitEvent: false });
-    }
+    // Sync back modified state if necessary
+    // Sync back modified state if necessary
+    this.optionBindings = state.optionBindings;
+    this.disableRenderTrigger = state.disableRenderTrigger;
+    this.feedbackConfigs = state.feedbackConfigs;
+    this.showFeedbackForOption = state.showFeedbackForOption;
+    this.lastFeedbackOptionId = state.lastFeedbackOptionId;
+    this.lastFeedbackQuestionIndex = state.lastFeedbackQuestionIndex;
+    this.lastClickedOptionId = state.lastClickedOptionId;
+    this.lastClickTimestamp = state.lastClickTimestamp;
+    this.hasUserClicked = state.hasUserClicked;
+    this.freezeOptionBindings = state.freezeOptionBindings;
+    this.showFeedback = state.showFeedback;
 
     this.cdRef.detectChanges();
+  }
 
-    // SELECTION MESSAGE UPDATE (using centralized computeFinalMessage)
-    try {
-      // Build options array with correct selection state for computeFinalMessage
-      const clickedCorrectSet =
-        this.correctClicksPerQuestion.get(questionIndex) ?? new Set<number>();
-      const opts = bindings.map((b: OptionBindings) => ({
-        ...b.option,
-        selected: isSingle
-          ? (b.option?.optionId === binding.option?.optionId)  // single: only clicked option is selected
-          : clickedCorrectSet.has(b.option?.optionId as number)  // multi: all clicked correct options
-      }));
-
-      const message = this.selectionMessageService.computeFinalMessage({
-        index: questionIndex,
-        total: this.quizService?.totalQuestions,
-        qType: isSingle ? QuestionType.SingleAnswer : QuestionType.MultipleAnswer,
-        opts: opts as Option[]
-      });
-
-      // Push the message to the service
-      if (this.selectionMessageService) {
-        this.selectionMessageService.selectionMessageSubject.next(message);
-      }
-    } catch (error) {
-      console.error('[SOC] ❌ Failed to update selection message:', error);
-    }
-
-    // Direct sound playback
-    try {
-      const enrichedOption: SelectedOption = {
-        ...binding.option,
-        questionIndex: questionIndex,
-        optionId: binding.option.optionId,
-        correct: binding.option.correct
-      };
-      this.soundService.playOnceForOption(enrichedOption);
-    } catch (err: any) {
-      console.error('[SOC] ❌ Failed to play sound:', err);
-    }
-    // NOTE: REMOVED "GUARANTEED FINAL SCORING CHECK" 
-    // The scoring is now handled by:
-    // 1. Single-answer: inline scoring when correct option is clicked (see "DIRECT SCORING" comment above)
-    // 2. Multi-answer: scoring when isPerfectState is achieved (see "MULTI-ANSWER: PERFECTION ACHIEVED" above)
-    // The final check was causing premature scoring for multi-answer questions.
+  public onOptionChanged(
+    binding: OptionBindings,
+    index: number,
+    event: MatCheckboxChange | MatRadioChange
+  ): void {
+    this.updateOptionAndUI(binding, index, event);
   }
 
   public updateOptionAndUI(
@@ -2371,7 +1844,8 @@ export class SharedOptionComponent
       );
 
       // Always update feedbackConfigs
-      this.feedbackConfigs[optionId] = {
+      const key = this.keyOf(optionBinding.option, index);
+      this.feedbackConfigs[key] = {
         feedback: dynamicFeedback,
         showFeedback: true,
         options: freshOptions,
@@ -2401,9 +1875,8 @@ export class SharedOptionComponent
       }
     }
     this.syncSelectedFlags();
-    for (const d of this.highlightDirectives ?? []) {
-      d.updateHighlight();
-    }
+    // Highlight directives are now handled in OptionItemComponent
+
 
     // Force UI refresh: ensure feedback icons and class changes are rendered
     // immediately.
@@ -2532,52 +2005,7 @@ export class SharedOptionComponent
   }
 
   updateHighlighting(): void {
-    if (!this.highlightDirectives?.length) {
-      console.warn('[updateHighlighting] No highlightDirectives available.');
-      return;
-    }
-
-    let index = 0;
-
-    for (const directive of this.highlightDirectives) {
-      const binding = this.optionBindings[index];
-
-      if (!binding) {
-        console.warn(`[updateHighlighting] No binding found for index ${index}`);
-        index++;
-        continue;
-      }
-
-      const option = binding.option;
-
-      // Sync state flags to directive
-      directive.option = option;
-      directive.isSelected = binding.isSelected || !!option.selected;
-      directive.isCorrect = !!option.correct;
-
-      const feedbackMap: Record<string | number, boolean> =
-        this.showFeedbackForOption ?? {};
-      const optionKey = option?.optionId ?? index;
-
-      directive.showFeedback = Boolean(
-        feedbackMap[optionKey] ??
-        feedbackMap[String(optionKey)] ??
-        feedbackMap[index] ??
-        feedbackMap[String(index)]
-      );
-
-      directive.highlightCorrectAfterIncorrect =
-        this.highlightCorrectAfterIncorrect;
-
-      // Apply highlight and icon state
-      option.highlight = binding.isSelected || option.selected;
-      option.showIcon = directive.isSelected && this.showFeedback;
-
-      // Trigger directive update
-      directive.updateHighlight();
-
-      index++;
-    }
+    // Moved to OptionItemComponent
   }
 
   private emitExplanation(questionIndex: number): void {
@@ -2890,45 +2318,7 @@ export class SharedOptionComponent
   }
 
   private forceHighlightRefresh(optionId: number): void {
-    if (!this.highlightDirectives?.length) {
-      console.warn('[No highlightDirectives available]');
-      return;
-    }
-
-    let found = false;
-
-    for (const directive of this.highlightDirectives) {
-      if (directive.optionBinding?.option?.optionId === optionId) {
-        const binding = this.optionBindings.find(
-          (b) => b.option.optionId === optionId
-        );
-        if (!binding) {
-          console.warn('[No binding found to sync with directive for]', optionId);
-          continue;
-        }
-
-        // Sync critical directive inputs from the current binding
-        directive.option = binding.option;
-        directive.isSelected = binding.isSelected;
-        directive.isCorrect = binding.option.correct ?? false;
-        directive.showFeedback = this.showFeedbackForOption[optionId] ?? false;
-
-        // Ensure highlight flag is enabled for this refresh
-        directive.option.highlight = true;
-
-        // Defer update to after current rendering phase
-        this.deferHighlightUpdate(() => {
-          directive.updateHighlight();
-        });
-
-        found = true;
-        break;  // stop after first match
-      }
-    }
-
-    if (!found) {
-      console.warn('[No matching directive found for optionId]', optionId);
-    }
+     // Moved to OptionItemComponent
   }
 
   async handleOptionClick(
@@ -3331,16 +2721,8 @@ export class SharedOptionComponent
 
     // Force change detection and highlight refresh
     this.cdRef.detectChanges();
-    let i = 0;
+    // Highlight directives are now handled in OptionItemComponent
 
-    for (const d of this.highlightDirectives ?? []) {
-      try {
-        d.updateHighlight();
-      } catch (error) {
-        console.warn(`[⚠️ Highlight update failed on index ${i}]`, error);
-      }
-      i++;
-    }
 
     this.markRenderReady('Bindings refreshed');
     
@@ -3803,10 +3185,8 @@ export class SharedOptionComponent
     this.lockedIncorrectOptionIds.clear();
 
     // Force every directive to repaint now
-    for (const d of this.highlightDirectives ?? []) {
-      d.isSelected = false;
-      d.updateHighlight();
-    }
+    // Highlight directives are now handled in OptionItemComponent
+
   }
 
   // Only (de)select the clicked option, leave others untouched
@@ -3884,27 +3264,21 @@ export class SharedOptionComponent
 
   // Single place to decide disabled
   public isDisabled(binding: OptionBindings, idx: number): boolean {
-    // Check persistent disabled state first
-    const qIndex = this.resolveCurrentQuestionIndex();
-    const optionId = binding?.option?.optionId;
-    const disabledSet = this.disabledOptionsPerQuestion.get(qIndex);
-    const isInSet =
-      disabledSet && typeof optionId === 'number' && disabledSet.has(optionId);
-
-    if (isInSet) {
-      console.log(`[isDisabled] RETURNING TRUE for option ${optionId}`);
-      return true;
-    }
-    return this.shouldDisableOption(binding) || this.isLocked(binding, idx);
+    return this.optionService.isDisabled(
+      binding,
+      idx,
+      this.disabledOptionsPerQuestion,
+      this.currentQuestionIndex,
+      this.forceDisableAll,
+      this.timerExpiredForQuestion,
+      this.isLocked(binding, idx)
+    );
   }
 
   // Use the same key shape everywhere (STRING so we don't lose non-numeric ids)
   // Stable per-row key: prefer numeric optionId; fallback to stableKey + index
-  private keyOf(o: Option, i: number): string {
-    const raw =
-      o?.optionId ?? this.selectionMessageService.stableKey(o, i);
-    // Normalize to string to use mixed keys safely
-    return Number.isFinite(Number(raw)) ? String(Number(raw)) : String(raw);
+  public keyOf(o: Option, i: number): string {
+    return this.optionService.keyOf(o, i);
   }
 
   private resolveCurrentQuestionIndex(): number {

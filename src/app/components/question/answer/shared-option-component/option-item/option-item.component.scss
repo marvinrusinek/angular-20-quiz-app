@@ -1,0 +1,49 @@
+@use '../../../../../../variables' as vars;
+
+/* Ensure variables are used even without shared style penetration */
+.option-text {
+  font-family: 'Space Mono', monospace !important;
+  font-size: 20px !important;
+  color: vars.$dark-brown !important;
+}
+
+.opt-icon {
+  position: absolute;
+  right: 15px;
+  top: 50%;
+  transform: translateY(-50%) !important;
+}
+
+mat-checkbox, mat-radio-button, .mdc-label {
+  font-family: vars.$font-stack !important;
+  font-size: 20px !important;
+  color: vars.$dark-brown !important;
+}
+
+// Redundant label styling removed - handled by main block below
+// ::ng-deep .mdc-form-field > label { ... }
+// ::ng-deep .mdc-label { ... }
+
+// Aggressive structural reset for Material MDC Radio/Checkbox
+:host ::ng-deep mat-radio-button,
+:host ::ng-deep mat-checkbox {
+    display: block !important;
+    width: 100% !important;
+
+    // The internal flex container
+    .mdc-form-field {
+        display: flex !important;
+        width: 100% !important;
+        align-items: stretch !important;
+    }
+
+    // The label element that wraps our custom content
+    label {
+        display: block !important;
+        width: 100% !important;
+        flex: 1 1 auto !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+}
+

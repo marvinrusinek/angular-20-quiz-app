@@ -1,3 +1,4 @@
+@use 'sass:color';
 @use '../../../../../variables' as vars;
 
 /* 🚫 CURSOR WRAPPER - Forces cursor on all children */
@@ -27,9 +28,7 @@
   }
 }
 
-* {
-  outline: 1px solid rgba(255, 0, 0, 0.2);
-}
+
 
 /* Make entire option row clickable */
 .mat-radio-button,
@@ -156,48 +155,48 @@
 ──────────────────────────────────────────────────*/
 .options {
   width: 100%;
+}
 
-  mat-checkbox,
-  mat-radio-button {
-    cursor: pointer;
-    display: inline-block;
-    width: 100% !important;
-    height: auto;
+mat-checkbox,
+mat-radio-button {
+  cursor: pointer;
+  display: inline-block;
+  width: 100% !important;
+  height: auto;
 
-    font-family: vars.$font-stack;
-    font-size: 20px;
-    color: vars.$dark-brown;
+  font-family: vars.$font-stack;
+  font-size: 20px;
+  color: vars.$dark-brown;
 
-    background-color: vars.$light-gray;
-    border: 2px solid vars.$medium-gray;
-    border-radius: 4px;
-    padding: 10px;
-    margin-left: -5px;
-    margin-bottom: 20px;
+  background-color: vars.$light-gray;
+  border: 2px solid vars.$medium-gray;
+  border-radius: 4px;
+  padding: 10px;
+  margin-left: -5px;
+  margin-bottom: 20px;
 
-    transition:
-      border-color 0.25s ease,
-      background-color 0.25s ease;
+  transition:
+    border-color 0.25s ease,
+    background-color 0.25s ease;
 
-    &:hover {
-      border-color: vars.$vivid-blue;
-    }
+  &:hover {
+    border-color: vars.$vivid-blue;
+  }
 
-    /* selected styling (before validation) */
-    &.selected-option {
-      background-color: lighten(vars.$vivid-blue, 40%);
-      border-color: vars.$vivid-blue;
-    }
+  /* selected styling (before validation) */
+  &.selected-option {
+    background-color: color.adjust(vars.$vivid-blue, $lightness: 40%);
+    border-color: vars.$vivid-blue;
+  }
 
-    /* disabled styling */
-    &.disabled-option,
-    &[disabled] {
-      opacity: 0.5;
-      cursor: not-allowed;
-      pointer-events: none;
-      background-color: lighten(vars.$light-gray, 10%);
-      border-color: vars.$medium-gray;
-    }
+  /* disabled styling */
+  &.disabled-option,
+  &[disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+    background-color: color.adjust(vars.$light-gray, $lightness: 10%);
+    border-color: vars.$medium-gray;
   }
 }
 
@@ -259,6 +258,7 @@ codelab-quiz-feedback {
 // Feedback wrapper styling - centers text vertically/horizontally in the gap
 .feedback-wrapper {
   display: flex;
+  width: 100%;
   align-items: center;
   justify-content: center;
   min-height: 24px;
@@ -316,7 +316,7 @@ codelab-quiz-feedback {
   }
 
   50% {
-    background-color: lighten(vars.$red, 15%);
+    background-color: color.adjust(vars.$red, $lightness: 15%);
   }
 
   100% {

@@ -14,29 +14,25 @@
           formControlName="selectedOptionId"
         >
           @for (b of opts; let i = $index; track trackByOptionId(b, i)) {
-            <div class="option-cursor-wrapper" [class.cursor-not-allowed]="getOptionCursor(b, i) === 'not-allowed'">
-              <mat-radio-button
-                class="option-row single-option"
-                appHighlightOption
-                [appHighlightInputType]="'radio'"
-                [appHighlightReset]="shouldResetBackground"
-                [sharedOptionConfig]="getSharedOptionConfig(b, i)"
-                [value]="b.option.optionId"
-                [ngClass]="getOptionClasses(b)"
-                [disabled]="isDisabled(b, i)"
-                [disableRipple]="true"
-                (change)="onOptionChanged(b, i, $event)"
-                (click)="onOptionInteraction(b, i, $event)"
-              >
-                <ng-container
-                  *ngTemplateOutlet="optionContent; context: { $implicit: b, index: i }"
-                ></ng-container>
-              </mat-radio-button>
-
-              <ng-container
-                *ngTemplateOutlet="optionFeedback; context: { $implicit: b }"
-              ></ng-container>
-            </div>
+            <app-option-item
+              [b]="b"
+              [i]="i"
+              [type]="'single'"
+              [form]="form"
+              [shouldResetBackground]="shouldResetBackground"
+              [feedbackConfig]="feedbackConfigs[keyOf(b.option, i)]"
+              [sharedOptionConfig]="getSharedOptionConfig(b, i)"
+              [highlightedOptionIds]="highlightedOptionIds"
+              [flashDisabledSet]="flashDisabledSet"
+              [forceDisableAll]="forceDisableAll"
+              [timerExpiredForQuestion]="timerExpiredForQuestion"
+              [isLocked]="isLocked(b, i)"
+              [currentQuestionIndex]="currentQuestionIndex"
+              [disabledOptionsPerQuestion]="disabledOptionsPerQuestion"
+              (optionChanged)="onOptionChanged($event.b, $event.i, $event.event)"
+              (optionInteraction)="onOptionInteraction($event.b, $event.i, $event.event)"
+              (contentClick)="onOptionContentClick($event.b, $event.i, $event.event)"
+            />
           }
         </mat-radio-group>
       }
@@ -49,72 +45,29 @@
           aria-label="Select one or more options"
         >
           @for (b of opts; let i = $index; track trackByOptionId(b, i)) {
-            <div class="option-cursor-wrapper" [class.cursor-not-allowed]="getOptionCursor(b, i) === 'not-allowed'">
-              <mat-checkbox
-                class="option-row multiple-option"
-                appHighlightOption
-                [appHighlightInputType]="'checkbox'"
-                [appHighlightReset]="shouldResetBackground"
-                [sharedOptionConfig]="getSharedOptionConfig(b, i)"
-                [checked]="b.isSelected"
-                [ngClass]="getOptionClasses(b)"
-                [disabled]="isDisabled(b, i)"
-                [disableRipple]="true"
-                (change)="onOptionChanged(b, i, $event)"
-                (click)="onOptionInteraction(b, i, $event)"
-              >
-                <ng-container
-                  *ngTemplateOutlet="optionContent; context: { $implicit: b, index: i }"
-                ></ng-container>
-              </mat-checkbox>
-
-              <ng-container
-                *ngTemplateOutlet="optionFeedback; context: { $implicit: b }"
-              ></ng-container>
-            </div>
+            <app-option-item
+              [b]="b"
+              [i]="i"
+              [type]="'multiple'"
+              [form]="form"
+              [shouldResetBackground]="shouldResetBackground"
+              [feedbackConfig]="feedbackConfigs[keyOf(b.option, i)]"
+              [sharedOptionConfig]="getSharedOptionConfig(b, i)"
+              [highlightedOptionIds]="highlightedOptionIds"
+              [flashDisabledSet]="flashDisabledSet"
+              [forceDisableAll]="forceDisableAll"
+              [timerExpiredForQuestion]="timerExpiredForQuestion"
+              [isLocked]="isLocked(b, i)"
+              [currentQuestionIndex]="currentQuestionIndex"
+              [disabledOptionsPerQuestion]="disabledOptionsPerQuestion"
+              (optionChanged)="onOptionChanged($event.b, $event.i, $event.event)"
+              (optionInteraction)="onOptionInteraction($event.b, $event.i, $event.event)"
+              (contentClick)="onOptionContentClick($event.b, $event.i, $event.event)"
+            />
           }
         </div>
       }
     }
-
-    <!-- OPTION CONTENT -->
-    <ng-template
-      #optionContent
-      let-b
-      let-i="index"
-    >
-      <div
-        class="option-wrapper"
-        (click)="onOptionContentClick(b, i, $event)"
-      >
-        <span class="option-text">
-          {{ getOptionDisplayText(b.option, i) }}
-        </span>
-
-        @if (shouldShowIcon(b.option, i)) {
-          <mat-icon class="opt-icon">
-            {{ getOptionIcon(b.option, i) }}
-          </mat-icon>
-        }
-      </div>
-    </ng-template>
-
-    <!-- OPTION FEEDBACK (ANIMATED HERE) -->
-    <ng-template
-      #optionFeedback
-      let-b
-    >
-      @if (shouldShowFeedbackFor(b)) {
-        <div
-          class="feedback-wrapper"
-          style="margin-top: 10px; padding-top: 5px;"
-          @correctAnswer
-        >
-          <codelab-quiz-feedback
-            [feedbackConfig]="feedbackConfigs[b.option.optionId]" />
-        </div>
-      }
-    </ng-template>
   </form>
 } @else if (opts.length === 0) {
   <span>Options not ready&hellip;</span>

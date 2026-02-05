@@ -1,0 +1,62 @@
+<div class="option-cursor-wrapper" [class.cursor-not-allowed]="getOptionCursor() === 'not-allowed'">
+  @if (type === 'single') {
+    <mat-radio-button
+      class="option-row single-option"
+      appHighlightOption
+      [appHighlightInputType]="'radio'"
+      [appHighlightReset]="shouldResetBackground"
+      [sharedOptionConfig]="sharedOptionConfig"
+      [value]="b.option.optionId"
+      [ngClass]="getOptionClasses()"
+      [disabled]="isDisabled()"
+      [disableRipple]="true"
+      (change)="onChanged($event)"
+      (click)="onInteraction($event)"
+    >
+      <ng-container *ngTemplateOutlet="optionContent"></ng-container>
+    </mat-radio-button>
+  } @else {
+    <mat-checkbox
+      class="option-row multiple-option"
+      appHighlightOption
+      [appHighlightInputType]="'checkbox'"
+      [appHighlightReset]="shouldResetBackground"
+      [sharedOptionConfig]="sharedOptionConfig"
+      [checked]="b.isSelected"
+      [ngClass]="getOptionClasses()"
+      [disabled]="isDisabled()"
+      [disableRipple]="true"
+      (change)="onChanged($event)"
+      (click)="onInteraction($event)"
+    >
+      <ng-container *ngTemplateOutlet="optionContent"></ng-container>
+    </mat-checkbox>
+  }
+
+  @if (shouldShowFeedback()) {
+    <div
+      class="feedback-wrapper"
+      style="margin-top: 10px; padding-top: 5px;"
+      @correctAnswer
+    >
+      <codelab-quiz-feedback [feedbackConfig]="feedbackConfig" />
+    </div>
+  }
+</div>
+
+<ng-template #optionContent>
+  <div
+    class="option-wrapper"
+    (click)="onContentClick($event)"
+  >
+    <span class="option-text">
+      {{ getOptionDisplayText() }}
+    </span>
+
+    @if (shouldShowIcon()) {
+      <mat-icon class="opt-icon">
+        {{ getOptionIcon() }}
+      </mat-icon>
+    }
+  </div>
+</ng-template>
