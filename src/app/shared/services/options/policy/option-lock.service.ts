@@ -16,7 +16,8 @@ export class OptionLockService {
     questionIndex: number
   ): boolean {
     try {
-      const id = this.selectionMessageService.stableKey(binding.option, displayIndex);
+      // Prefer stable optionId; fallback to display index
+      const id = binding.option.optionId ?? displayIndex;
       return this.selectedOptionService.isOptionLocked(questionIndex, id);
     } catch {
       return false;

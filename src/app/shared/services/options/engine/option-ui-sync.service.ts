@@ -52,6 +52,7 @@ export interface OptionUiSyncContext {
   enforceSingleSelection: (b: OptionBindings) => void;
   syncSelectedFlags: () => void;
   toggleSelectedOption: (opt: Option) => void;
+  onSelect?: (binding: OptionBindings) => void;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -112,36 +113,44 @@ export class OptionUiSyncService {
     ctx.perQuestionHistory.add(optionId ?? -1);
 
     // Force service update to keep Next button snappy
-    this.forceSelectIntoServices(optionBinding, optionId, currentIndex, checked, ctx);
+    // Force service update call moved down to ensure map is updated first
 
     if (ctx.type === 'single') {
       this.applySingleSelectionPainting(optionId, optionBinding, ctx);
     }
 
     // mark selected/highlight/icon for current binding
-    optionBinding.isSelected = true;
-    optionBinding.option.highlight = true;
-    optionBinding.option.showIcon = true;
+    optionBinding.isSelected = checked;
+    optionBinding.option.highlight = checked;
+    optionBinding.option.showIcon = checked;
 
     if (optionId != null) {
-      ctx.selectedOptionMap.set(optionId, true);
+      if (checked) {
+        ctx.selectedOptionMap.set(optionId, true);
+      } else {
+        ctx.selectedOptionMap.delete(optionId);
+      }
     }
+
+    // Force service update to keep Next button snappy (now that map is updated)
+    this.forceSelectIntoServices(optionBinding, optionId, currentIndex, checked, ctx);
 
     ctx.showFeedback = true;
 
-    const wasVisited = this.trackVisited(optionId, ctx);
-
-    if (wasVisited) {
-      this.preservePreviousFeedbackAnchor(optionId, ctx);
-      ctx.emitExplanation(currentIndex);
-      return;
+    // RESTORE: Let the component know a selection occurred (for sounds/events)
+    // Move this BEFORE wasVisited check to ensure sound/events run on every interaction
+    if (ctx.onSelect) {
+      ctx.onSelect(optionBinding);
     }
 
-    // new anchor
+    this.trackVisited(optionId, ctx);
+
+    // new anchor (always update feedback anchor to current click)
     ctx.showFeedbackForOption = { [optionId ?? -1]: true };
     ctx.lastFeedbackOptionId = optionId ?? -1;
 
-    this.toggleSelectedOption(optionBinding.option, ctx);
+    // Apply strict state (checked/unchecked) instead of toggle
+    this.toggleSelectedOption(optionBinding.option, checked, ctx);
 
     // Build feedback config for clicked option
     this.refreshFeedbackConfigForClicked(optionBinding, index, optionId, ctx);
@@ -186,8 +195,12 @@ export class OptionUiSyncService {
 
     this.syncSelectedFlags(ctx);
 
-    // Emit explanation + selection messages (kept)
-    ctx.emitExplanation(currentIndex);
+    console.log(`[OptionUiSyncService] Interaction finalized for Option ${optionId}. Emitting onSelect...`);
+    // RESTORE: Let the component know a selection occurred (for sounds/events)
+    // Move this BEFORE wasVisited check to ensure sound/events run on every interaction
+    if (ctx.onSelect) {
+      ctx.onSelect(optionBinding);
+    }
 
     this.selectionMessageService.notifySelectionMutated(ctx.optionsToDisplay);
     this.selectionMessageService.setSelectionMessage(false);
@@ -244,7 +257,9 @@ export class OptionUiSyncService {
     checked: boolean,
     ctx: OptionUiSyncContext
   ): void {
-    if (checked && optionId != null) {
+    if (optionId == null) return;
+
+    if (checked) {
       this.selectedOptionService
         .selectOption(
           optionId,
@@ -256,8 +271,14 @@ export class OptionUiSyncService {
         .then(() => {});
 
       this.selectedOptionService.setAnswered(true, true);
-      this.nextButtonStateService.setNextButtonState(true);
+    } else {
+      // Unselection: Remove from service
+      this.selectedOptionService.removeOption(currentIndex, optionId);
     }
+
+    // Update Next Button State based on ACTUAL selection count
+    const hasSelection = ctx.selectedOptionMap.size > 0;
+    this.nextButtonStateService.setNextButtonState(hasSelection);
   }
 
   private applySingleSelectionPainting(
@@ -360,28 +381,31 @@ export class OptionUiSyncService {
     }
     }
 
-  private toggleSelectedOption(clicked: Option, ctx: OptionUiSyncContext): void {
+  private toggleSelectedOption(clicked: Option, checked: boolean, ctx: OptionUiSyncContext): void {
     const isMultiple = ctx.type === 'multiple';
 
     for (const o of ctx.optionsToDisplay ?? []) {
         const isClicked = o.optionId === clicked.optionId;
 
         if (isMultiple) {
-        if (isClicked) {
-            o.selected = !o.selected;
-            o.showIcon = o.selected;
-            o.highlight = o.selected;
-        }
+          // Multi: Set specific option to 'checked' value
+          if (isClicked) {
+            o.selected = checked;
+            o.showIcon = checked;
+            o.highlight = checked;
+          }
         } else {
-        o.selected = isClicked;
-        o.showIcon = isClicked;
-        o.highlight = isClicked;
+          // Single: The clicked one becomes true, others false (if checked is true)
+          // If checked is false (unselect), then it becomes false.
+          o.selected = isClicked ? checked : false;
+          o.showIcon = isClicked ? checked : false;
+          o.highlight = isClicked ? checked : false;
         }
     }
 
     // keep array ref refresh if your UI depends on it
     ctx.optionsToDisplay = [...ctx.optionsToDisplay];
-}
+  }
 
   private applyHighlighting(optionBinding: OptionBindings): void {
     const optionId = optionBinding.option.optionId;

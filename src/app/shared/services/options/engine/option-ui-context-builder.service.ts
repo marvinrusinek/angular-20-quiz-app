@@ -22,6 +22,22 @@ export class OptionUiContextBuilderService {
       ...src,
       toggleSelectedOption: (opt: any) =>
         src.optionVisualEffectsService.toggleSelectedOption(opt, src.selectedOptionMap),
+      
+      onSelect: (binding: any) => {
+        // 🔊 RESTORE SOUNDS: Play sound for the selected option
+        src.soundService.playOnceForOption({
+          ...binding.option,
+          questionIndex: src.currentQuestionIndex
+        });
+
+        // 🚀 RESTORE NAVIGATION: Notify parent component
+        src.optionClicked.emit({
+          option: binding.option,
+          index: binding.index,
+          checked: binding.isSelected,
+          wasReselected: false
+        });
+      }
     };
   }
 }

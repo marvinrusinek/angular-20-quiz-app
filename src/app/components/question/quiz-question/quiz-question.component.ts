@@ -2020,7 +2020,7 @@ export class QuizQuestionComponent extends BaseQuestion
       return;
     }
 
-    return this.handleOptionClicked(q, idx);
+    return this.onOptionClicked(ev);
   }
 
   public async loadQuestion(signal?: AbortSignal): Promise<boolean> {

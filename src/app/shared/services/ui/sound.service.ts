@@ -38,8 +38,14 @@ export class SoundService {
     const key = `${qIndex}-${optId}`;
     const alreadyPlayed = this.playedSoundOptions.has(key);
 
+    // Only play if it's being SELECTED and hasn't played yet
+    if (option.selected === false) {
+      console.log(`[⏸️ Sound skip: option is being unselected]`);
+      return;
+    }
+
     if (alreadyPlayed) {
-      console.log(`[⏸️ Sound already played for Q${qIndex}, Option ${optId}]`);
+      console.log(`[⏸️ Sound skip: already played for Q${qIndex}, Option ${optId}]`);
       return;
     }
 

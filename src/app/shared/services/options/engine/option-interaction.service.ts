@@ -86,15 +86,17 @@ export class OptionInteractionService {
       return;
     }
 
-    // Immediately disable this option after click to prevent re-clicking
+    // OPTIONAL: Skip if you prefer to allow re-clicking the same option
+    /*
     const optionIdToDisable = binding.option?.optionId;
     if (typeof optionIdToDisable === 'number') {
       if (!state.disabledOptionsPerQuestion.has(qIdx)) {
         state.disabledOptionsPerQuestion.set(qIdx, new Set<number>());
       }
       state.disabledOptionsPerQuestion.get(qIdx)!.add(optionIdToDisable);
-      console.log(`[OIS] Disabled option ${optionIdToDisable} for Q${qIdx + 1} to prevent re-click`);
+      console.log(`[OIS] Disabled option ${optionIdToDisable} for Q${qIdx + 1}`);
     }
+    */
 
     // Determine type for scoring
     const bindingsForScore = state.optionBindings ?? [];
@@ -282,8 +284,7 @@ export class OptionInteractionService {
       console.error('[OIS] Selection message update failed', e);
     }
 
-    try {
-      this.soundService.playOnceForOption({...binding.option, questionIndex: qIdx});
-    } catch (e) {}
+    // 🔊 Sound now handled by OptionUiSyncService via onSelect callback
+    // this.soundService.playOnceForOption({...binding.option, questionIndex: qIdx});
   }
 }

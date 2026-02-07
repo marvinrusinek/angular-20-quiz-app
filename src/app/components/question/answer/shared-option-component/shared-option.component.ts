@@ -1,5 +1,5 @@
 ﻿import {
-  AfterViewInit, ApplicationRef, ChangeDetectionStrategy, ChangeDetectorRef,
+  AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef,
   Component, EventEmitter, HostListener, Input, NgZone, OnChanges, OnDestroy, OnInit,
   Output, QueryList, SimpleChanges, ViewChildren
 } from '@angular/core';
@@ -8,11 +8,11 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxChange } from '@angular/material/checkbox';
 import { MatRadioChange } from '@angular/material/radio';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { 
-  animationFrameScheduler, BehaviorSubject, combineLatest, Observable, Subject, 
+import {
+  animationFrameScheduler, BehaviorSubject, combineLatest, defer, Observable, of, Subject, 
   Subscription 
 } from 'rxjs';
-import { distinctUntilChanged, observeOn, take, takeUntil } from 'rxjs/operators';
+import { distinctUntilChanged, filter, observeOn, take, takeUntil } from 'rxjs/operators';
 
 import { FeedbackProps } from '../../../../shared/models/FeedbackProps.model';
 import { Option } from '../../../../shared/models/Option.model';
@@ -42,12 +42,15 @@ import { OptionService } from '../../../../shared/services/options/view/option.s
 import { OptionInteractionService, OptionInteractionState } from '../../../../shared/services/options/engine/option-interaction.service';
 import { SharedOptionStateAdapterService } from '../../../../shared/services/state/shared-option-state-adapter.service';
 import { OptionUiContextBuilderService } from '../../../../shared/services/options/engine/option-ui-context-builder.service';
+import { OptionHydrationService } from '../../../../shared/services/options/engine/option-hydration.service';
 import { OptionUiSyncContext, OptionUiSyncService } from '../../../../shared/services/options/engine/option-ui-sync.service';
 import { OptionLockService } from '../../../../shared/services/options/policy/option-lock.service';
 import { OptionLockPolicyService } from '../../../../shared/services/options/policy/option-lock-policy.service';
 import { OptionSelectionPolicyService } from '../../../../shared/services/options/policy/option-selection-policy.service';
+import { OptionSelectionUiService } from '../../../../shared/services/options/engine/option-selection-ui.service';
 import { OptionVisualEffectsService } from '../../../../shared/services/options/view/option-visual-effects.service';
 import { SharedOptionUiState } from '../../../../shared/services/state/shared-option-state-adapter.service';
+import { OptionBindingFactoryService } from '../../../../shared/services/options/engine/option-binding-factory.service';
 
 @Component({
   selector: 'app-shared-option',
@@ -159,10 +162,6 @@ export class SharedOptionComponent
 
   public flashDisabledSet = new Set<number>();
   private lockedIncorrectOptionIds = new Set<number>();
-  private shouldLockIncorrectOptions = false;
-  public hasCorrectSelectionForLock = false;
-  public allCorrectSelectedForLock = false;
-  private resolvedTypeForLock: QuestionType = QuestionType.SingleAnswer;
   public forceDisableAll = false;
   public timerExpiredForQuestion = false;  // track timer expiration
   private timeoutCorrectOptionKeys = new Set<string>();
@@ -182,19 +181,20 @@ export class SharedOptionComponent
     private nextButtonStateService: NextButtonStateService,
     private timerService: TimerService,
     private optionService: OptionService,
+    private optionHydrationService: OptionHydrationService,
     private optionInteractionService: OptionInteractionService,
-    private sharedOptionStateAdapter: SharedOptionStateAdapterService,
     private optionUiContextBuilder: OptionUiContextBuilderService,
     private optionUiSyncService: OptionUiSyncService,
     private optionLockService: OptionLockService,
     private optionLockPolicyService: OptionLockPolicyService,
     private optionSelectionPolicyService: OptionSelectionPolicyService,
+    private optionSelectionUiService: OptionSelectionUiService,
     private optionVisualEffectsService: OptionVisualEffectsService,
     private sharedOptionStateAdapterService: SharedOptionStateAdapterService,
+    private optionBindingFactory: OptionBindingFactoryService,
     private cdRef: ChangeDetectorRef,
     private fb: FormBuilder,
-    private ngZone: NgZone,
-    private appRef: ApplicationRef
+    private ngZone: NgZone
   ) {
     this.ui = this.sharedOptionStateAdapterService.createInitialUiState();
     this.form = this.fb.group({
@@ -203,10 +203,13 @@ export class SharedOptionComponent
 
     // React to form-control changes, capturing id into updateSelections which 
     // highlights any option that has been chosen
-    this.form.get('selectedOptionId')!
-      .valueChanges.pipe(distinctUntilChanged())
-      .subscribe((id: number | string) => this.updateSelections(id));
-  }
+    this.form.get('selectedOptionId')!.valueChanges
+      .pipe(
+        distinctUntilChanged(),
+        takeUntil(this.destroy$)
+      )
+      .subscribe((id: number | string) => this.onSelectionControlChanged(id));
+    }
 
   // Robust Multi-Mode Detection (Infers from Data if Type is missing)
   get isMultiMode(): boolean {
@@ -839,35 +842,10 @@ export class SharedOptionComponent
   }
 
   ngAfterViewInit(): void {
-    // Force hydration from persistence
-    setTimeout(() => {
-      const qIndex = this.resolveCurrentQuestionIndex();
-      const saved = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) || [];
-      if (saved.length > 0) {
-        const savedIds = new Set(saved.map(s => s.optionId));
+    this.viewInitialized = true;
+    this.viewReady = true;
 
-        // Update bindings
-        if (this.optionBindings) {
-          for (const b of this.optionBindings) {
-            if (savedIds.has(b.option.optionId!)) {
-              b.isSelected = true;
-              b.option.selected = true;
-            }
-          }
-        }
-
-        if (this.optionsToDisplay) {
-          for (const o of this.optionsToDisplay) {
-            if (savedIds.has(o.optionId!)) {
-              o.selected = true;
-            }
-          }
-        }
-
-        this.updateHighlighting();
-        this.cdRef.detectChanges();
-      }
-    }, 100);
+    this.setupRehydrateTriggers();
 
     if (this.form) {
       console.log('form value:', this.form.value);
@@ -876,16 +854,9 @@ export class SharedOptionComponent
     }
 
     if (!this.optionBindings?.length && this.optionsToDisplay?.length) {
-      console.warn(
-        '[SOC] ngOnChanges not triggered, forcing optionBindings generation'
-      );
-      // Call generateOptionBindings() instead of just logging
-      // This ensures showOptions gets set to true and options render correctly
+      console.warn('[SOC] ngOnChanges not triggered, forcing optionBindings generation');
       this.generateOptionBindings();
     }
-
-    this.viewInitialized = true;
-    this.viewReady = true;
   }
 
   ngOnDestroy(): void {
@@ -893,6 +864,92 @@ export class SharedOptionComponent
     this.destroy$.complete();
     this.selectionSub?.unsubscribe();
     this.finalRenderReadySub?.unsubscribe();
+  }
+
+  private rehydrateUiFromState(reason: string): void {
+    const qIndex = this.resolveCurrentQuestionIndex();
+    const saved = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
+    if (!saved.length) return;
+
+    const savedIds = this.optionHydrationService.toIdSet(saved) as Set<string | number>;
+
+    // Single truth: bindings selection
+    if (this.optionBindings?.length) {
+      this.optionHydrationService.applySavedSelections(this.optionBindings, savedIds);
+    }
+
+    // Visuals should derive from bindings state
+    this.updateHighlighting();
+    this.cdRef.markForCheck();
+  }
+
+  private setupRehydrateTriggers(): void {
+    const renderReady$ =
+      this.finalRenderReady$ ??
+      this.renderReadySubject.asObservable();
+
+    const qIndex$ =
+      this.quizService?.currentQuestionIndex$ ?? of(0);
+
+    combineLatest([renderReady$, qIndex$])
+      .pipe(
+        filter(([ready, _index]: [boolean, number]) => ready === true),
+        takeUntil(this.destroy$)
+      )
+      .subscribe(() => {
+        // Ensure bindings exist
+        if (!this.optionBindings?.length && this.optionsToDisplay?.length) {
+          this.generateOptionBindings();
+        }
+
+        // Hydrate selection + highlighting from persisted state
+        this.rehydrateUiFromState('renderReady/qIndex');
+      });
+  }
+
+  private rebuildShowFeedbackMapFromBindings(): void {
+    const showMap: Record<number, boolean> = {};
+
+    // NOTE: For multi-select, we want feedback to display ONLY for the most recently
+    // selected (or toggled) option row, not for every selected option — otherwise
+    // feedback can appear under the wrong row after hydration/back nav.
+    const lastClickedId: number | undefined =
+      Array.isArray(this.selectedOptionHistory) && this.selectedOptionHistory.length > 0
+        ? this.selectedOptionHistory[this.selectedOptionHistory.length - 1]
+        : undefined;
+
+    let fallbackSelectedId: number | undefined;
+
+    for (const b of this.optionBindings ?? []) {
+      const id = b?.option?.optionId;
+      if (id == null) continue;
+
+      // Default off for every row until we pick the target row below
+      showMap[id] = false;
+
+      // Capture a stable fallback id in case we don't have a last-clicked id
+      if (fallbackSelectedId === undefined && b.isSelected === true) {
+        fallbackSelectedId = id;
+      }
+    }
+
+    // Prefer the last-clicked id when available; otherwise fall back to the first selected binding
+    const targetId =
+      typeof lastClickedId === 'number' && Number.isFinite(lastClickedId)
+        ? lastClickedId
+        : fallbackSelectedId;
+
+    if (targetId !== undefined) {
+      showMap[targetId] = true;
+    }
+
+    // Assign brand-new object to avoid shared reference bleed
+    this.showFeedbackForOption = { ...showMap };
+
+    // If your bindings store the ref, update them too:
+    for (const b of this.optionBindings ?? []) {
+      b.showFeedbackForOption = this.showFeedbackForOption;
+    }
   }
 
   // Handle visibility changes to restore state
@@ -920,59 +977,19 @@ export class SharedOptionComponent
   // Push the newly‐clicked option into history, then synchronize every binding’s
   // visual state (selected, highlight, icon, feedback) in one synchronous pass.
   private updateSelections(rawSelectedId: number | string): void {
-    const parsedId =
-      typeof rawSelectedId === 'string'
-        ? Number.parseInt(rawSelectedId, 10)
-        : rawSelectedId;
+    this.optionSelectionUiService.applySingleSelectClick(
+      this.optionBindings,
+      rawSelectedId,
+      this.selectedOptionHistory
+    );
 
-    if (!Number.isFinite(parsedId)) {
-      console.warn(
-        '[SharedOptionComponent] Ignoring non-numeric selection id',
-        { rawSelectedId }
-      );
-      return;
+    // Keep feedback targeted to the correct row (especially for multi-select/back-nav)
+    if (this.showFeedback === true) {
+      this.rebuildShowFeedbackMapFromBindings();
     }
 
-    // Ignore the synthetic “-1 repaint” that runs right after question load
-    if (parsedId === -1) return;
-
-    const selectedId = parsedId;
-
-    // Remember every id that has ever been clicked in this question
-    if (!this.selectedOptionHistory.includes(selectedId)) {
-      this.selectedOptionHistory.push(selectedId);
-    }
-
-    for (const b of this.optionBindings) {
-      const id = b.option.optionId;
-      if (id === undefined) {
-        continue;
-      }
-
-      const everClicked = this.selectedOptionHistory.includes(id);
-      const isCurrent = id === selectedId;
-
-      // Color stays ON for anything ever clicked
-      b.option.highlight = everClicked;
-
-      // Icon only on the row that was just clicked
-      b.option.showIcon = isCurrent;
-
-      // Native control state
-      b.isSelected = isCurrent;
-      b.option.selected = isCurrent;
-
-      // Feedback – only current row is true
-      if (!b.showFeedbackForOption) {
-        b.showFeedbackForOption = {};
-      }
-      b.showFeedbackForOption[id] = isCurrent;
-
-      // Repaint row
-      b.directiveInstance?.updateHighlight();
-    }
-
-    this.cdRef.detectChanges();
+    // Prefer OnPush-friendly invalidation; avoid forcing sync CD unless necessary
+    this.cdRef.markForCheck();
   }
 
   private ensureOptionsToDisplay(): void {
@@ -2095,9 +2112,10 @@ export class SharedOptionComponent
     if (this.type === 'single') {
       // For single-select, clear all selections and select only the clicked option
       for (const binding of this.optionBindings) {
-        binding.isSelected = binding === optionBinding;
-        binding.option.selected = binding === optionBinding;
-        binding.option.showIcon = binding === optionBinding;
+        const isThis = binding === optionBinding;
+        binding.isSelected = isThis;
+        // binding.option.selected = isThis; // ❌ removed (bindings are the truth)
+        binding.option.showIcon = isThis;
       }
       this.selectedOption = option;
       this.selectedOptions.clear();
@@ -2107,7 +2125,7 @@ export class SharedOptionComponent
     } else {
       // For multiple-select, toggle the selection
       optionBinding.isSelected = !optionBinding.isSelected;
-      optionBinding.option.selected = optionBinding.isSelected;
+      // optionBinding.option.selected = optionBinding.isSelected; // ❌ removed
       optionBinding.option.showIcon = optionBinding.isSelected;
 
       const id = option.optionId;
@@ -2126,7 +2144,8 @@ export class SharedOptionComponent
     // Explicitly emit explanation since removed from updateHighlighting
     this.emitExplanation(this.resolvedQuestionIndex ?? 0);
 
-    this.cdRef.detectChanges();
+    // Prefer OnPush-friendly invalidation; avoid forcing sync CD unless necessary
+    this.cdRef.markForCheck();
 
     // Reset the backward navigation flag
     this.isNavigatingBackwards = false;
@@ -2153,12 +2172,16 @@ export class SharedOptionComponent
     // Calculate the type based on the number of correct options
     const correctOptionsCount =
       this.optionsToDisplay?.filter((opt) => opt.correct).length ?? 0;
-    const type = correctOptionsCount > 1 ? 'multiple' : 'single';
+    const inferredType = correctOptionsCount > 1 ? 'multiple' : 'single';
+
+    // Single truth for selection in the binding
+    const selected = isSelected;
 
     return {
       option: {
         ...structuredClone(option),
         feedback: option.feedback ?? 'No feedback available',  // default string
+        // NOTE: do NOT rely on option.selected going forward
       },
       index: idx,
       feedback: option.feedback ?? 'No feedback available',  // never undefined
@@ -2166,107 +2189,82 @@ export class SharedOptionComponent
       showFeedback: this.showFeedback,
       showFeedbackForOption: this.showFeedbackForOption,
       highlightCorrectAfterIncorrect: this.highlightCorrectAfterIncorrect,
-      highlightIncorrect: isSelected && !option.correct,
-      highlightCorrect: isSelected && !!option.correct,
+      highlightIncorrect: selected && !option.correct,
+      highlightCorrect: selected && !!option.correct,
       allOptions: this.optionsToDisplay,
+
+      // Use the component's resolved type if it's trustworthy; otherwise use inferredType.
       type: this.type,
+
       appHighlightOption: false,
-      appHighlightInputType: type === 'multiple' ? 'checkbox' : 'radio',
+      appHighlightInputType: inferredType === 'multiple' ? 'checkbox' : 'radio',
       appHighlightReset: this.shouldResetBackground,
       appResetBackground: this.shouldResetBackground,
       optionsToDisplay: this.optionsToDisplay,
-      isSelected: this.isSelectedOption(option),
-      active: option.active ?? false, // always a boolean
+
+      isSelected: selected,
+      active: option.active ?? true,  // always a boolean
       change: () => this.handleOptionClick(option as SelectedOption, idx),
-      disabled: option.selected ?? false,  // always a boolean
+
+      // Do not derive disabled from option.selected
+      disabled: false,
+
       ariaLabel: 'Option ' + (idx + 1),
-      checked: this.isSelectedOption(option)
+      checked: selected
     };
   }
 
   public generateOptionBindings(): void {
     const currentIndex = this.getActiveQuestionIndex() ?? 0;
 
-    // Always start from a fresh clone of options
+    // Always start from a fresh clone of options (defensive)
     const localOpts = Array.isArray(this.optionsToDisplay)
-      ? this.optionsToDisplay.map((o) =>
-        ({ ...JSON.parse(JSON.stringify(o)) }))
+      ? this.optionsToDisplay.map((o) => structuredClone(o))
       : [];
 
-    // Defensive clone: eliminate any shared references
+    // Normalize optionIds and reset UI-ish flags on the option model
+    // NOTE: selection is now stored on bindings (binding.isSelected), NOT option.selected
     this.optionsToDisplay = localOpts.map((opt, i) => ({
       ...opt,
       optionId:
         typeof opt.optionId === 'number' && Number.isFinite(opt.optionId)
           ? opt.optionId
           : currentIndex * 100 + (i + 1),
-      selected: false,
+      // Keep these if your UI still relies on them; otherwise we’ll move them next
       highlight: false,
       showIcon: false
     }));
 
-    // Get stored selections for this specific question only
-    const storedSelections =
-      this.selectedOptionService.getSelectedOptionsForQuestion(currentIndex) ??
-      [];
+    // Build bindings via factory (single place that constructs the VM)
+    this.optionBindings = this.optionBindingFactory.createBindings({
+      optionsToDisplay: this.optionsToDisplay,
+      type: this.type,
+      showFeedback: this.showFeedback,
+      showFeedbackForOption: {}, // placeholder; we rebuild immediately after hydration
+      highlightCorrectAfterIncorrect: this.highlightCorrectAfterIncorrect,
+      shouldResetBackground: this.shouldResetBackground,
+      ariaLabelPrefix: 'Option',
+      onChange: (opt, idx) => this.handleOptionClick(opt, idx),
+      // During migration, safest is to rely on rehydrate as the single truth:
+      isSelected: () => false,
+      isDisabled: () => false
+    });
 
-    // Apply stored state immutably
-    const patched =
-      this.optionsToDisplay.map((opt) => {
-        const match = storedSelections.find((s) => s.optionId === opt.optionId);
-        return {
-          ...opt,
-          selected: match?.selected ?? false,
-          highlight: match?.highlight ?? false,
-          showIcon: match?.showIcon ?? false
-        };
-      });
+    // Apply persisted selection to bindings (bindings-only)
+    this.rehydrateUiFromState('generateOptionBindings');
 
-    // Replace with fresh cloned array to break identity chain
-    this.optionsToDisplay =
-      patched.map((o) => ({ ...o }));
+    // Now rebuild the feedback visibility map based on bindings selection
+    this.rebuildShowFeedbackMapFromBindings();
 
-    // Build the feedback map
-    const showMap: Record<number, boolean> = {};
-    const newBindings =
-      this.optionsToDisplay.map((opt, idx) => {
-        const selected = !!opt.selected;
-        const enriched: SelectedOption = {
-          ...(opt as SelectedOption),
-          questionIndex: currentIndex,
-          selected,
-          highlight: opt.highlight ?? selected,
-          showIcon: opt.showIcon
-        };
-
-        if (enriched.selected && enriched.optionId != null) {
-          showMap[enriched.optionId] = true;
-        }
-
-        const binding = this.getOptionBindings(enriched, idx, selected);
-        binding.option = enriched;
-        binding.showFeedbackForOption = showMap;
-        return binding;
-      });
-
-    // Assign brand-new objects to inputs (no mutation)
-    this.optionBindings = [...newBindings];
-    this.showFeedbackForOption = { ...showMap };
-
-    // Set display flags before detectChanges so canDisplayOptions returns true
+    // Set display flags before CD so canDisplayOptions returns true
     this.showOptions = true;
     this.optionsReady = true;
     this.renderReady = true;
 
-    // Force change detection and highlight refresh
-    this.cdRef.detectChanges();
-    // Highlight directives are now handled in OptionItemComponent
-
-
     this.markRenderReady('Bindings refreshed');
-    
-    // Final detectChanges to ensure template updates after all state is set
-    this.cdRef.detectChanges();
+
+    // Avoid forcing sync CD unless you have a proven need
+    this.cdRef.markForCheck();
   }
 
   public hydrateOptionsFromSelectionState(): void {
@@ -2968,5 +2966,40 @@ isLocked(b: OptionBindings, i: number): boolean {
 
   public triggerViewRefresh(): void {
     this.cdRef.markForCheck();
+  }
+
+  private onSelectionControlChanged(rawId: number | string): void {
+    const parsedId =
+      typeof rawId === 'string' ? Number.parseInt(rawId, 10) : rawId;
+
+    if (!Number.isFinite(parsedId)) return;
+
+    // Ignore the synthetic “-1 repaint” that runs right after question load
+    if (parsedId === -1) return;
+
+    const selectedId = parsedId as number;
+
+    const binding = (this.optionBindings ?? []).find(
+      (b) => b?.option?.optionId === selectedId
+    );
+
+    if (!binding?.option) return;
+
+    // ✅ Single source of truth: this MUST be the path that triggers:
+    // - sounds
+    // - SelectedOptionService updates / answered state
+    // - emits to parent
+    // - next button enabling
+    this.handleOptionClick(binding.option as any, binding.index);
+
+    // If handleOptionClick no longer paints UI (because you refactored it out),
+    // keep the paint here. Otherwise, remove this to avoid double-painting.
+    // this.optionSelectionUiService.applySingleSelectClick(
+    //   this.optionBindings,
+    //   selectedId,
+    //   this.selectedOptionHistory
+    // );
+    // if (this.showFeedback === true) this.rebuildShowFeedbackMapFromBindings();
+    // this.cdRef.markForCheck();
   }
 }

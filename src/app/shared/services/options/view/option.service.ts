@@ -53,29 +53,19 @@ export class OptionService {
   ): { [key: string]: boolean } {
     const option = binding.option;
     const optId = option.optionId ?? -1;
-    const isSelected = binding.isSelected || option.selected;
-    // const isCorrect = option.correct; // Logic in original was more complex for correct-option
-
-    // Replicate logic for showing correct status (e.g. timeout)
-    // Note: timeoutCorrectOptionKeys logic was in component, need to approximate or pass it in?
-    // For now, assume if timerExpiredForQuestion is true, we might show correct.
-    // Original: 
-    // const showCorrectOnTimeout = this.timerExpiredForQuestion && (this.timeoutCorrectOptionKeys.has(optionKey) || !!option.correct);
-    
-    // We will assume simpler logic or that option.correct is trustworthy here if timer expired
+    const isSelected = binding.isSelected === true;
     const showCorrectOnTimeout = timerExpiredForQuestion && !!option.correct;
-
-    const showAsSelected = isSelected; // Simplified for service, caller handles syncing
+    const showAsSelected = isSelected;
 
     return {
-      'selected': !!isSelected, // Kept for compatibility if used
-      'selected-option': !!isSelected, // RESTORED: Needed for SCSS styling
+      'selected': isSelected, // Kept for compatibility if used
+      'selected-option': isSelected, // RESTORED: Needed for SCSS styling
       'correct-option': (showAsSelected && !!option.correct) || showCorrectOnTimeout,
       'incorrect-option': !!(showAsSelected && !option.correct),
       'highlighted': highlightedOptionIds.has(optId),
-      'flash-red': flashDisabledSet.has(optId), // Match original 'flash-red'
-      'disabled-option': !!binding.disabled,     // Match original 'disabled-option'
-      'locked-option': isLocked && !binding.disabled // Match original 'locked-option'
+      'flash-red': flashDisabledSet.has(optId),  // match original 'flash-red'
+      'disabled-option': !!binding.disabled,     // match original 'disabled-option'
+      'locked-option': isLocked && !binding.disabled  // match original 'locked-option'
     };
   }
 

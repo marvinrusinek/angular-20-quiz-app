@@ -242,6 +242,11 @@ export class SelectedOptionService {
       this.commitSelections(questionIndex, updatedOptions);
     } else {
       this.selectedOptionsMap.delete(questionIndex);
+      this.selectedOption = [];
+      this.selectedOptionSubject.next([]);
+      this.isOptionSelectedSubject.next(false);
+      this.setAnswered(false, true); // Update answered state
+      this.setNextButtonEnabled(false); // Explicitly disable next button
     }
     this.saveState();
   }

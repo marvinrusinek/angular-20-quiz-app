@@ -1077,15 +1077,18 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // Guards and de-duplication
     if (!isUserAction || (!this.resetComplete && !this.hasOptionsLoaded)) return;
 
-    // Use optionId or displayOrder for deduplication
-    const optionIdentifier = event?.optionId ?? event?.displayOrder ?? -1;
-    if (optionIdentifier !== -1 && optionIdentifier === this.lastLoggedIndex) {
-      console.warn('[Skipping duplicate event]', event);
+    // Use optionId or displayOrder for deduplication - allow if time has passed or ID is different
+    const optionIdentifier = event?.optionId ?? (event as any)?.id ?? (event as any)?.displayOrder ?? -1;
+    const now = Date.now();
+    const lastClickTime = (this as any)._lastClickTime ?? 0;
+    
+    if (optionIdentifier !== -1 && optionIdentifier === this.lastLoggedIndex && (now - lastClickTime) < 100) {
+      console.warn('[Skipping duplicate event - too rapid]', event);
       return;
     }
-    if (optionIdentifier !== -1) {
-      this.lastLoggedIndex = optionIdentifier;
-    }
+    
+    this.lastLoggedIndex = optionIdentifier;
+    (this as any)._lastClickTime = now;
 
     // Show the explanation on first click
     const emittedQuestionIndex = event?.questionIndex;
@@ -1106,12 +1109,12 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.showExplanationForQuestion(normalizedQuestionIndex);
     await firstValueFrom(this.quizService.getOptions(normalizedQuestionIndex));
 
-    let isAnswered!: boolean;
-    if (isAnswered) {
-      // Mark as answered and enable Next
-      this.selectedOptionService.setAnswered(true);
-      this.nextButtonStateService.setNextButtonState(isAnswered);
-    }
+    // Check authoritative answered state from service
+    const isAnswered = this.selectedOptionService.isQuestionAnswered(normalizedQuestionIndex);
+
+    // Sync button state (redundant but safe)
+    this.nextButtonStateService.setNextButtonState(isAnswered);
+
     this.cdRef.markForCheck();
     console.log('[PARENT] onOptionSelected → about to enable Next');
 
@@ -1333,7 +1336,11 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         this.selectedAnswer(event.payload);
         break;
       case 'optionSelected':
-        void this.onOptionSelected(event.payload);
+        if (event.payload && (event.payload as any).option) {
+          void this.onOptionSelected((event.payload as any).option);
+        } else {
+          void this.onOptionSelected(event.payload as any);
+        }
         break;
       case 'selectionMessageChange':
         this.onSelectionMessageChange(event.payload);
