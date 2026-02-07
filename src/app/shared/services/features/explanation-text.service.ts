@@ -6,13 +6,13 @@ import {
   distinctUntilChanged, filter, map, skip, take, timeout
 } from 'rxjs/operators';
 
-import { QuestionType } from '../models/question-type.enum';
-import { FormattedExplanation } from '../models/FormattedExplanation.model';
-import { Option } from '../models/Option.model';
-import { QuizQuestion } from '../models/QuizQuestion.model';
-import { QuizService } from '../services/quiz.service';
-import { QuizStateService } from '../services/quizstate.service';
-import { isValidOption } from '../utils/option-utils';
+import { QuestionType } from '../../models/question-type.enum';
+import { FormattedExplanation } from '../../models/FormattedExplanation.model';
+import { Option } from '../../models/Option.model';
+import { QuizQuestion } from '../../models/QuizQuestion.model';
+import { QuizService } from '../data/quiz.service';
+import { QuizStateService } from '../state/quizstate.service';
+import { isValidOption } from '../../utils/option-utils';
 
 export type FETPayload = { idx: number; text: string; token: number };
 

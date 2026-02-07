@@ -2,12 +2,12 @@ import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, Subject } from 'rxjs';
 import { distinctUntilChanged, map, startWith } from 'rxjs/operators';
 
-import { QuestionType } from '../../shared/models/question-type.enum';
-import { Option } from '../../shared/models/Option.model';
-import { QuizQuestion } from '../../shared/models/QuizQuestion.model';
-import { SelectedOption } from '../../shared/models/SelectedOption.model';
-import { NextButtonStateService } from '../../shared/services/next-button-state.service';
-import { QuizService } from '../../shared/services/quiz.service';
+import { QuestionType } from '../../models/question-type.enum';
+import { Option } from '../../models/Option.model';
+import { QuizQuestion } from '../../models/QuizQuestion.model';
+import { SelectedOption } from '../../models/SelectedOption.model';
+import { NextButtonStateService } from './next-button-state.service';
+import { QuizService } from '../data/quiz.service';
 
 @Injectable({ providedIn: 'root' })
 export class SelectedOptionService {

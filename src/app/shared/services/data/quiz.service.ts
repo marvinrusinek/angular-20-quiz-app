@@ -10,22 +10,22 @@ import {
 } from 'rxjs/operators';
 import _, { isEqual } from 'lodash';
 
-import { QUIZ_DATA, QUIZ_RESOURCES } from '../quiz';
-import { Utils } from '../utils/utils';
-import { QuestionType } from '../models/question-type.enum';
-import { QuizStatus } from '../models/quiz-status.enum';
-import { FinalResult } from '../models/Final-Result.model';
-import { Option } from '../models/Option.model';
-import { QuestionPayload } from '../models/QuestionPayload.model';
-import { Quiz } from '../models/Quiz.model';
-import { QuizQuestion } from '../models/QuizQuestion.model';
-import { QuizResource } from '../models/QuizResource.model';
-import { QuizScore } from '../models/QuizScore.model';
-import { QuizSelectionParams } from '../models/QuizSelectionParams.model';
-import { Resource } from '../models/Resource.model';
-import { SelectedOption } from '../models/SelectedOption.model';
-import { QuizStateService } from './quizstate.service';
-import { QuizShuffleService } from './quiz-shuffle.service';
+import { QUIZ_DATA, QUIZ_RESOURCES } from '../../quiz';
+import { Utils } from '../../utils/utils';
+import { QuestionType } from '../../models/question-type.enum';
+import { QuizStatus } from '../../models/quiz-status.enum';
+import { FinalResult } from '../../models/Final-Result.model';
+import { Option } from '../../models/Option.model';
+import { QuestionPayload } from '../../models/QuestionPayload.model';
+import { Quiz } from '../../models/Quiz.model';
+import { QuizQuestion } from '../../models/QuizQuestion.model';
+import { QuizResource } from '../../models/QuizResource.model';
+import { QuizScore } from '../../models/QuizScore.model';
+import { QuizSelectionParams } from '../../models/QuizSelectionParams.model';
+import { Resource } from '../../models/Resource.model';
+import { SelectedOption } from '../../models/SelectedOption.model';
+import { QuizStateService } from '../state/quizstate.service';
+import { QuizShuffleService } from '../flow/quiz-shuffle.service';
 
 @Injectable({ providedIn: 'root' })
 export class QuizService {

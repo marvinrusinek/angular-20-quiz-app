@@ -2,12 +2,12 @@ import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { distinctUntilChanged } from 'rxjs/operators';
 
-import { QuestionType } from '../models/question-type.enum';
-import { CanonicalOption } from '../models/CanonicalOption.model';
-import { Option } from '../models/Option.model';
-import { QuizQuestion } from '../models/QuizQuestion.model';
-import { QuizService } from './quiz.service';
-import { SelectedOptionService } from './selectedoption.service';
+import { QuestionType } from '../../models/question-type.enum';
+import { CanonicalOption } from '../../models/CanonicalOption.model';
+import { Option } from '../../models/Option.model';
+import { QuizQuestion } from '../../models/QuizQuestion.model';
+import { QuizService } from '../data/quiz.service';
+import { SelectedOptionService } from '../state/selectedoption.service';
 
 const START_MSG = 'Please start the quiz by selecting an option.';
 const CONTINUE_MSG = 'Please click an option to continue...';

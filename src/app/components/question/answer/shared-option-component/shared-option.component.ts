@@ -23,28 +23,28 @@ import { QuestionType } from '../../../../shared/models/question-type.enum';
 import { SelectedOption } from '../../../../shared/models/SelectedOption.model';
 import { SharedOptionConfig } from '../../../../shared/models/SharedOptionConfig.model';
 import { FeedbackComponent } from '../feedback/feedback.component';
-import { ExplanationTextService } from '../../../../shared/services/explanation-text.service';
-import { FeedbackService } from '../../../../shared/services/feedback.service';
-import { QuizService } from '../../../../shared/services/quiz.service';
-import { QuizStateService } from '../../../../shared/services/quizstate.service';
-import { SelectedOptionService } from '../../../../shared/services/selectedoption.service';
-import { SelectionMessageService } from '../../../../shared/services/selection-message.service';
-import { NextButtonStateService } from '../../../../shared/services/next-button-state.service';
-import { TimerService } from '../../../../shared/services/timer.service';
-import { SoundService } from '../../../../shared/services/sound.service';
+import { ExplanationTextService } from '../../../../shared/services/features/explanation-text.service';
+import { FeedbackService } from '../../../../shared/services/features/feedback.service';
+import { QuizService } from '../../../../shared/services/data/quiz.service';
+import { QuizStateService } from '../../../../shared/services/state/quizstate.service';
+import { SelectedOptionService } from '../../../../shared/services/state/selectedoption.service';
+import { SelectionMessageService } from '../../../../shared/services/features/selection-message.service';
+import { NextButtonStateService } from '../../../../shared/services/state/next-button-state.service';
+import { TimerService } from '../../../../shared/services/features/timer.service';
+import { SoundService } from '../../../../shared/services/ui/sound.service';
 import { HighlightOptionDirective } from '../../../../directives/highlight-option.directive';
 import { SharedOptionConfigDirective } from '../../../../directives/shared-option-config.directive';
 import { correctAnswerAnim } from '../../../../animations/animations';
 import { isValidOption } from '../../../../shared/utils/option-utils';
 import { OptionItemComponent } from './option-item/option-item.component';
 import type { OptionUIEvent } from './option-item/option-item.component';
-import { OptionService } from '../../../../shared/services/option.service';
-import { OptionInteractionService, OptionInteractionState } from '../../../../shared/services/option-interaction.service';
-import { SharedOptionStateAdapterService } from '../../../../shared/services/shared-option-state-adapter.service';
-import { OptionUiSyncContext, OptionUiSyncService } from '../../../../shared/services/option-ui-sync.service';
-import { OptionLockService } from '../../../../shared/services/option-lock.service';
-import { OptionLockPolicyService } from '../../../../shared/services/option-lock-policy.service';
-import { OptionSelectionPolicyService } from '../../../../shared/services/option-selection-policy.service';
+import { OptionService } from '../../../../shared/services/options/view/option.service';
+import { OptionInteractionService, OptionInteractionState } from '../../../../shared/services/options/engine/option-interaction.service';
+import { SharedOptionStateAdapterService } from '../../../../shared/services/state/shared-option-state-adapter.service';
+import { OptionUiSyncContext, OptionUiSyncService } from '../../../../shared/services/options/engine/option-ui-sync.service';
+import { OptionLockService } from '../../../../shared/services/options/policy/option-lock.service';
+import { OptionLockPolicyService } from '../../../../shared/services/options/policy/option-lock-policy.service';
+import { OptionSelectionPolicyService } from '../../../../shared/services/options/policy/option-selection-policy.service';
 
 @Component({
   selector: 'app-shared-option',
@@ -1457,27 +1457,6 @@ export class SharedOptionComponent
       : QuestionType.SingleAnswer;
   }
 
-  private updateLockedIncorrectOptions(): void {
-    const result = this.optionLockPolicyService.updateLockedIncorrectOptions({
-      bindings: this.optionBindings ?? [],
-      forceDisableAll: this.forceDisableAll,
-      resolvedType: this.resolveQuestionType(),
-      computeShouldLockIncorrectOptions: (t, has, all) =>
-        this.computeShouldLockIncorrectOptions(t, has, all),
-    });
-
-    this.shouldLockIncorrectOptions = result.shouldLockIncorrectOptions;
-    this.lockedIncorrectOptionIds = result.lockedIncorrectOptionIds;
-
-    // keep your debug mirrors if you still use them
-    this.resolvedTypeForLock = result.resolvedTypeForLock;
-    this.hasCorrectSelectionForLock = result.hasCorrectSelectionForLock;
-    this.allCorrectSelectedForLock = result.allCorrectSelectedForLock;
-
-    this.cdRef.markForCheck();
-  }
-
-
   private computeShouldLockIncorrectOptions(
     resolvedType: QuestionType,
     hasCorrectSelection: boolean,
@@ -1562,15 +1541,13 @@ export class SharedOptionComponent
       selectedOptionHistory: this.selectedOptionHistory,
       selectedOptionMap: this.selectedOptionMap,
       perQuestionHistory: this.perQuestionHistory,
+      forceDisableAll: this.forceDisableAll,
 
       // helpers SOC still owns
       keyOf: (opt, i) => this.keyOf(opt, i),
       getActiveQuestionIndex: () => this.getActiveQuestionIndex() ?? 0,
       getQuestionAtDisplayIndex: (idx) => this.getQuestionAtDisplayIndex(idx),
-      emitExplanation: (idx) => this.emitExplanation(idx),
-
-      // policies still in SOC (for now)
-      updateLockedIncorrectOptions: () => this.updateLockedIncorrectOptions()
+      emitExplanation: (idx) => this.emitExplanation(idx)
     };
   }
 
@@ -2295,9 +2272,6 @@ export class SharedOptionComponent
     this.optionBindings = [...newBindings];
     this.showFeedbackForOption = { ...showMap };
 
-    // Reset UI lock state
-    this.updateLockedIncorrectOptions();
-
     // Set display flags before detectChanges so canDisplayOptions returns true
     this.showOptions = true;
     this.optionsReady = true;
@@ -2487,7 +2461,6 @@ export class SharedOptionComponent
 
     this.updateSelections(-1);
     this.updateHighlighting();
-    this.updateLockedIncorrectOptions();
 
     // Flag updates with minimal delay
     this.optionsReady = true;

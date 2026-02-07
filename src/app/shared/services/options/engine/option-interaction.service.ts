@@ -1,23 +1,20 @@
-import { Injectable, NgZone, ApplicationRef } from '@angular/core';
-import { Subject } from 'rxjs';
-import { MatCheckboxChange } from '@angular/material/checkbox';
-import { MatRadioChange } from '@angular/material/radio';
+import { ApplicationRef, Injectable, NgZone } from '@angular/core';
 
-import { Option } from '../models/Option.model';
-import { OptionBindings } from '../models/OptionBindings.model';
-import { SelectedOption } from '../models/SelectedOption.model';
-import { QuizQuestion } from '../models/QuizQuestion.model';
-import { QuestionType } from '../models/question-type.enum';
-import { FeedbackProps } from '../models/FeedbackProps.model';
+import { Option } from '../../../models/Option.model';
+import { OptionBindings } from '../../../models/OptionBindings.model';
+import { SelectedOption } from '../../../models/SelectedOption.model';
+import { QuizQuestion } from '../../../models/QuizQuestion.model';
+import { QuestionType } from '../../../models/question-type.enum';
+import { FeedbackProps } from '../../../models/FeedbackProps.model';
 
-import { QuizService } from './quiz.service';
-import { QuizStateService } from './quizstate.service';
-import { SelectedOptionService } from './selectedoption.service';
-import { TimerService } from './timer.service';
-import { FeedbackService } from './feedback.service';
-import { SelectionMessageService } from './selection-message.service';
-import { SoundService } from './sound.service';
-import { NextButtonStateService } from './next-button-state.service';
+import { QuizService } from '../../data/quiz.service';
+import { QuizStateService } from '../../state/quizstate.service';
+import { SelectedOptionService } from '../../state/selectedoption.service';
+import { TimerService } from '../../features/timer.service';
+import { FeedbackService } from '../../features/feedback.service';
+import { SelectionMessageService } from '../../features/selection-message.service';
+import { SoundService } from '../../ui/sound.service';
+import { NextButtonStateService } from '../../state/next-button-state.service';
 
 export interface OptionInteractionState {
   optionBindings: OptionBindings[];

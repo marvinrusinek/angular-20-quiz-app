@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Howl, Howler } from 'howler';
 
-import { SelectedOption } from '../models/SelectedOption.model';
+import { SelectedOption } from '../../models/SelectedOption.model';
 
 @Injectable({ providedIn: 'root' })
 export class SoundService {

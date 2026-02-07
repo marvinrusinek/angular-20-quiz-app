@@ -11,7 +11,7 @@ import { HighlightOptionDirective } from '../../../../../directives/highlight-op
 import { SharedOptionConfigDirective } from '../../../../../directives/shared-option-config.directive';
 import { FeedbackComponent } from '../../feedback/feedback.component';
 import { correctAnswerAnim } from '../../../../../animations/animations';
-import { OptionService } from '../../../../../shared/services/option.service';
+import { OptionService } from '../../../../../shared/services/options/view/option.service';
 import { SharedOptionConfig } from '../../../../../shared/models/SharedOptionConfig.model';
 
 export type OptionUIEventKind = 'change' | 'interaction' | 'contentClick';

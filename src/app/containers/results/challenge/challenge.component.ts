@@ -5,9 +5,9 @@ import { Observable, of } from 'rxjs';
 
 import { Quiz } from '../../../shared/models/Quiz.model';
 import { QuizMetadata } from '../../../shared/models/QuizMetadata.model';
-import { QuizService } from '../../../shared/services/quiz.service';
-import { QuizDataService } from '../../../shared/services/quizdata.service';
-import { TimerService } from '../../../shared/services/timer.service';
+import { QuizService } from '../../../shared/services/data/quiz.service';
+import { QuizDataService } from '../../../shared/services/data/quizdata.service';
+import { TimerService } from '../../../shared/services/features/timer.service';
 
 @Component({
   selector: 'codelab-results-challenge',

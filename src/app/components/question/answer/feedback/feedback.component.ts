@@ -4,9 +4,9 @@ import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 
 import { FeedbackProps } from '../../../../shared/models/FeedbackProps.model';
-import { FeedbackService } from '../../../../shared/services/feedback.service';
-import { SelectedOptionService } from '../../../../shared/services/selectedoption.service';
-import { QuizService } from '../../../../shared/services/quiz.service';
+import { FeedbackService } from '../../../../shared/services/features/feedback.service';
+import { SelectedOptionService } from '../../../../shared/services/state/selectedoption.service';
+import { QuizService } from '../../../../shared/services/data/quiz.service';
 
 @Component({
   selector: 'codelab-quiz-feedback',

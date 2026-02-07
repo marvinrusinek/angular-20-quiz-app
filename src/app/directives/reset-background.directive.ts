@@ -1,7 +1,7 @@
 import { Directive, Input, ElementRef, Renderer2, OnDestroy } from '@angular/core';
 import { Subscription } from 'rxjs';
 
-import { ResetBackgroundService } from '../shared/services/reset-background.service';
+import { ResetBackgroundService } from '../shared/services/ui/reset-background.service';
 
 @Directive({
   selector: '[appResetBackground]',

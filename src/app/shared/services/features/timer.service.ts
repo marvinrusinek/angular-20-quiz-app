@@ -2,11 +2,11 @@ import { Injectable, NgZone, OnDestroy } from '@angular/core';
 import { BehaviorSubject, Subject, Subscription, timer } from 'rxjs';
 import { finalize, map, takeUntil, tap } from 'rxjs/operators';
 
-import { Option } from '../models/Option.model';
-import { QuizQuestion } from '../models/QuizQuestion.model';
-import { SelectedOption } from '../models/SelectedOption.model';
-import { SelectedOptionService } from './selectedoption.service';
-import { QuizService } from './quiz.service';
+import { Option } from '../../models/Option.model';
+import { QuizQuestion } from '../../models/QuizQuestion.model';
+import { SelectedOption } from '../../models/SelectedOption.model';
+import { SelectedOptionService } from '../state/selectedoption.service';
+import { QuizService } from '../data/quiz.service';
 
 interface StopTimerAttemptOptions {
   questionIndex?: number,

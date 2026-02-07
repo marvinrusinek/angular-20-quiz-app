@@ -4,10 +4,10 @@ import {
 } from 'rxjs';
 import { catchError, distinctUntilChanged, filter } from 'rxjs/operators';
 
-import { Option } from '../models/Option.model';
-import { QAPayload } from '../models/QAPayload.model';
-import { QuestionState } from '../models/QuestionState.model';
-import { QuizQuestion } from '../models/QuizQuestion.model';
+import { Option } from '../../models/Option.model';
+import { QAPayload } from '../../models/QAPayload.model';
+import { QuestionState } from '../../models/QuestionState.model';
+import { QuizQuestion } from '../../models/QuizQuestion.model';
 
 @Injectable({ providedIn: 'root' })
 export class QuizStateService {

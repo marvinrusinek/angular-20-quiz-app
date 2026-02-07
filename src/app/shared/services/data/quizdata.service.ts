@@ -8,12 +8,12 @@ import {
   takeUntil, tap
 } from 'rxjs/operators';
 
-import { QuestionType } from '../../shared/models/question-type.enum';
-import { Option } from '../../shared/models/Option.model';
-import { Quiz } from '../../shared/models/Quiz.model';
-import { QuizQuestion } from '../../shared/models/QuizQuestion.model';
-import { QuizService } from '../../shared/services/quiz.service';
-import { QuizShuffleService } from '../../shared/services/quiz-shuffle.service';
+import { QuestionType } from '../../models/question-type.enum';
+import { Option } from '../../models/Option.model';
+import { Quiz } from '../../models/Quiz.model';
+import { QuizQuestion } from '../../models/QuizQuestion.model';
+import { QuizService } from './quiz.service';
+import { QuizShuffleService } from '../flow/quiz-shuffle.service';
 
 @Injectable({ providedIn: 'root' })
 export class QuizDataService implements OnDestroy {

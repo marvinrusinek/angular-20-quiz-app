@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 
-import { QuestionType } from '../models/question-type.enum';
-import { OptionBindings } from '../models/OptionBindings.model';
+import { QuestionType } from '../../../models/question-type.enum';
+import { OptionBindings } from '../../../models/OptionBindings.model';
 
 export interface LockIncorrectResult {
   shouldLockIncorrectOptions: boolean;

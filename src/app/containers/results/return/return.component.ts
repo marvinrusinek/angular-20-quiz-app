@@ -4,10 +4,10 @@ import { Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatListModule } from '@angular/material/list';
 
-import { QuizService } from '../../../shared/services/quiz.service';
-import { ExplanationTextService } from '../../../shared/services/explanation-text.service';
-import { SelectedOptionService } from '../../../shared/services/selectedoption.service';
-import { TimerService } from '../../../shared/services/timer.service';
+import { QuizService } from '../../../shared/services/data/quiz.service';
+import { ExplanationTextService } from '../../../shared/services/features/explanation-text.service';
+import { SelectedOptionService } from '../../../shared/services/state/selectedoption.service';
+import { TimerService } from '../../../shared/services/features/timer.service';
 
 @Component({
   selector: 'codelab-results-return',

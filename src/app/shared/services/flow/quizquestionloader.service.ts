@@ -6,23 +6,23 @@ import {
 } from 'rxjs';
 import { catchError, filter, take, timeout } from 'rxjs/operators';
 
-import { QuestionType } from '../models/question-type.enum';
-import { Option } from '../models/Option.model';
-import { QAPayload } from '../models/QAPayload.model';
-import { QuestionPayload } from '../models/QuestionPayload.model';
-import { Quiz } from '../models/Quiz.model';
-import { QuizQuestion } from '../models/QuizQuestion.model';
-import { ExplanationTextService } from './explanation-text.service';
-import { FeedbackService } from './feedback.service';
-import { QuizService } from './quiz.service';
-import { QuizDataService } from './quizdata.service';
-import { QuizStateService } from './quizstate.service';
-import { ResetBackgroundService } from './reset-background.service';
-import { ResetStateService } from './reset-state.service';
-import { SelectedOptionService } from './selectedoption.service';
-import { SelectionMessageService } from './selection-message.service';
-import { TimerService } from './timer.service';
-import { QuizQuestionComponent } from '../../components/question/quiz-question/quiz-question.component';
+import { QuestionType } from '../../models/question-type.enum';
+import { Option } from '../../models/Option.model';
+import { QAPayload } from '../../models/QAPayload.model';
+import { QuestionPayload } from '../../models/QuestionPayload.model';
+import { Quiz } from '../../models/Quiz.model';
+import { QuizQuestion } from '../../models/QuizQuestion.model';
+import { ExplanationTextService } from '../features/explanation-text.service';
+import { FeedbackService } from '../features/feedback.service';
+import { QuizService } from '../data/quiz.service';
+import { QuizDataService } from '../data/quizdata.service';
+import { QuizStateService } from '../state/quizstate.service';
+import { ResetBackgroundService } from '../ui/reset-background.service';
+import { ResetStateService } from '../state/reset-state.service';
+import { SelectedOptionService } from '../state/selectedoption.service';
+import { SelectionMessageService } from '../features/selection-message.service';
+import { TimerService } from '../features/timer.service';
+import { QuizQuestionComponent } from '../../../components/question/quiz-question/quiz-question.component';
 
 @Injectable({ providedIn: 'root' })
 export class QuizQuestionLoaderService {

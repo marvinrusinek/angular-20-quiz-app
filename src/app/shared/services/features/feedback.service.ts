@@ -1,11 +1,11 @@
 import { Injectable, Inject, forwardRef } from '@angular/core';
 
-import { Option } from '../models/Option.model';
-import { QuizQuestion } from '../models/QuizQuestion.model';
-import { SelectedOption } from '../models/SelectedOption.model';
-import { SelectedOptionService } from '../services/selectedoption.service';
+import { Option } from '../../models/Option.model';
+import { QuizQuestion } from '../../models/QuizQuestion.model';
+import { SelectedOption } from '../../models/SelectedOption.model';
+import { SelectedOptionService } from '../state/selectedoption.service';
 import { ExplanationTextService } from './explanation-text.service';
-import { isValidOption } from '../utils/option-utils';
+import { isValidOption } from '../../utils/option-utils';
 
 @Injectable({ providedIn: 'root' })
 export class FeedbackService {

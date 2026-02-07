@@ -28,7 +28,7 @@ import {
 } from 'rxjs/operators';
 
 import { QuizQuestion } from '../../../shared/models/QuizQuestion.model';
-import { QuizService } from '../../../shared/services/quiz.service';
+import { QuizService } from '../../../shared/services/data/quiz.service';
 
 @Component({
   selector: 'codelab-scoreboard-score',

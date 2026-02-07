@@ -1,9 +1,9 @@
 import { Injectable } from '@angular/core';
-import { Option } from '../models/Option.model';
-import { OptionBindings } from '../models/OptionBindings.model';
-import { QuizQuestion } from '../models/QuizQuestion.model';
-import { FeedbackProps } from '../models/FeedbackProps.model';
-import { OptionInteractionState } from './option-interaction.service';
+import { Option } from '../../models/Option.model';
+import { OptionBindings } from '../../models/OptionBindings.model';
+import { QuizQuestion } from '../../models/QuizQuestion.model';
+import { FeedbackProps } from '../../models/FeedbackProps.model';
+import { OptionInteractionState } from '../options/engine/option-interaction.service';
 
 export interface SharedOptionHost {
   optionBindings: OptionBindings[];

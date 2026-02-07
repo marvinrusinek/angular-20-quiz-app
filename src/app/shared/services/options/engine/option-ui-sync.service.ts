@@ -3,18 +3,21 @@ import { MatCheckboxChange } from '@angular/material/checkbox';
 import { MatRadioChange } from '@angular/material/radio';
 import { FormGroup } from '@angular/forms';
 
-import { Option } from '../models/Option.model';
-import { OptionBindings } from '../models/OptionBindings.model';
-import { FeedbackProps } from '../models/FeedbackProps.model';
-import { QuizQuestion } from '../models/QuizQuestion.model';
+import { QuestionType } from '../../../models/question-type.enum';
+import { Option } from '../../../models/Option.model';
+import { OptionBindings } from '../../../models/OptionBindings.model';
+import { FeedbackProps } from '../../../models/FeedbackProps.model';
+import { QuizQuestion } from '../../../models/QuizQuestion.model';
 
-import { SelectedOptionService } from './selectedoption.service';
-import { NextButtonStateService } from './next-button-state.service';
-import { FeedbackService } from './feedback.service';
-import { OptionVisualEffectsService } from './option-visual-effects.service';
-import { SelectionMessageService } from './selection-message.service';
-import { QuizService } from './quiz.service';
-import { OptionSelectionPolicyService } from './option-selection-policy.service';
+import { SelectedOptionService } from '../../state/selectedoption.service';
+import { NextButtonStateService } from '../../state/next-button-state.service';
+import { FeedbackService } from '../../features/feedback.service';
+import { OptionVisualEffectsService } from '../view/option-visual-effects.service';
+import { SelectionMessageService } from '../../features/selection-message.service';
+import { QuizService } from '../../data/quiz.service';
+import { OptionSelectionPolicyService } from '../policy/option-selection-policy.service';
+import { OptionLockPolicyService } from '../policy/option-lock-policy.service';
+import { OptionLockRulesService } from '../policy/option-lock-rules.service';
 
 export interface OptionUiSyncContext {
   // core
@@ -41,14 +44,13 @@ export interface OptionUiSyncContext {
   selectedOptionMap: Map<number, boolean>;
   perQuestionHistory: Set<number>;
 
+  forceDisableAll: boolean;
+
   // functions to keep behavior identical
   keyOf: (opt: Option, index: number) => string;
   getActiveQuestionIndex: () => number;
   getQuestionAtDisplayIndex: (idx: number) => QuizQuestion | null;
   emitExplanation: (idx: number) => void;
-
-  // existing SOC helpers we don’t want to rewrite yet
-  updateLockedIncorrectOptions: () => void;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -60,7 +62,9 @@ export class OptionUiSyncService {
     private selectionMessageService: SelectionMessageService,
     private quizService: QuizService,
     private optionVisualEffectsService: OptionVisualEffectsService,
-    private optionSelectionPolicyService: OptionSelectionPolicyService
+    private optionSelectionPolicyService: OptionSelectionPolicyService,
+    private optionLockPolicyService: OptionLockPolicyService,
+    private optionLockRulesService: OptionLockRulesService
   ) {}
   
   updateOptionAndUI(
@@ -150,7 +154,16 @@ export class OptionUiSyncService {
     // feedback generation (if you add my applyFeedback method inside OptionUiSyncService)
     this.applyFeedback(optionBinding, index, ctx);
 
-    ctx.updateLockedIncorrectOptions();
+    const resolvedType =
+        ctx.type === 'multiple' ? QuestionType.MultipleAnswer : QuestionType.SingleAnswer;
+
+    this.optionLockPolicyService.updateLockedIncorrectOptions({
+    bindings: ctx.optionBindings ?? [],
+    forceDisableAll: ctx.forceDisableAll, // see ctx note below
+    resolvedType,
+    computeShouldLockIncorrectOptions: (t, has, all) =>
+        this.optionLockRulesService.computeShouldLockIncorrectOptions(t, has, all)
+    });
 
     if (ctx.type === 'single') {
       this.optionSelectionPolicyService.enforceSingleSelection({

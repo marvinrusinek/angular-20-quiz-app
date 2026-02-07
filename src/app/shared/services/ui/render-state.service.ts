@@ -2,9 +2,9 @@ import { Injectable } from '@angular/core';
 import { BehaviorSubject, combineLatest, of } from 'rxjs';
 import { catchError, filter, take, tap } from 'rxjs/operators';
 
-import { Option } from '../models/Option.model';
-import { QuizQuestion } from '../models/QuizQuestion.model';
-import { QuizService } from './quiz.service';
+import { Option } from '../../models/Option.model';
+import { QuizQuestion } from '../../models/QuizQuestion.model';
+import { QuizService } from '../data/quiz.service';
 
 @Injectable({ providedIn: 'root' })
 export class RenderStateService {

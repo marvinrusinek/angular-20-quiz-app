@@ -6,8 +6,8 @@ import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 
 import { Quiz } from '../../../shared/models/Quiz.model';
-import { QuizService } from '../../../shared/services/quiz.service';
-import { QuizDataService } from '../../../shared/services/quizdata.service';
+import { QuizService } from '../../../shared/services/data/quiz.service';
+import { QuizDataService } from '../../../shared/services/data/quizdata.service';
 
 @Component({
   selector: 'codelab-quiz-header',

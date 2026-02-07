@@ -21,8 +21,8 @@ import { QUIZ_DATA } from '../../shared/quiz';
 import { Quiz } from '../../shared/models/Quiz.model';
 import { QuizQuestion } from '../../shared/models/QuizQuestion.model';
 import { QuizStatus } from '../../shared/models/quiz-status.enum';
-import { QuizService } from '../../shared/services/quiz.service';
-import { QuizDataService } from '../../shared/services/quizdata.service';
+import { QuizService } from '../../shared/services/data/quiz.service';
+import { QuizDataService } from '../../shared/services/data/quizdata.service';
 
 @Component({
   selector: 'codelab-quiz-results',

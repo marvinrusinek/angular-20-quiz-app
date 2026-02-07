@@ -11,10 +11,10 @@ import { MatIconModule } from '@angular/material/icon';
 
 import { QuizQuestion } from '../../../shared/models/QuizQuestion.model';
 import { Result } from '../../../shared/models/Result.model';
-import { QuizService } from '../../../shared/services/quiz.service';
-import { QuizDataService } from '../../../shared/services/quizdata.service';
-import { TimerService } from '../../../shared/services/timer.service';
-import { SelectedOptionService } from '../../../shared/services/selectedoption.service';
+import { QuizService } from '../../../shared/services/data/quiz.service';
+import { QuizDataService } from '../../../shared/services/data/quizdata.service';
+import { TimerService } from '../../../shared/services/features/timer.service';
+import { SelectedOptionService } from '../../../shared/services/state/selectedoption.service';
 
 @Component({
   selector: 'codelab-results-accordion',

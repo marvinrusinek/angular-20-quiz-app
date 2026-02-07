@@ -1,11 +1,11 @@
 import { Injectable } from '@angular/core';
-import { Option } from '../models/Option.model';
-import { OptionBindings } from '../models/OptionBindings.model';
-import { QuestionType } from '../models/question-type.enum';
-import { SharedOptionConfig } from '../models/SharedOptionConfig.model';
-import { SelectedOption } from '../models/SelectedOption.model';
-import { QuizQuestion } from '../models/QuizQuestion.model';
-import { FeedbackProps } from '../models/FeedbackProps.model';
+import { Option } from '../../../models/Option.model';
+import { OptionBindings } from '../../../models/OptionBindings.model';
+import { QuestionType } from '../../../models/question-type.enum';
+import { SharedOptionConfig } from '../../../models/SharedOptionConfig.model';
+import { SelectedOption } from '../../../models/SelectedOption.model';
+import { QuizQuestion } from '../../../models/QuizQuestion.model';
+import { FeedbackProps } from '../../../models/FeedbackProps.model';
 
 @Injectable({
   providedIn: 'root'

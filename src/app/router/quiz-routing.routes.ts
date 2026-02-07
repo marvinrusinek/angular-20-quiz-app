@@ -7,7 +7,7 @@ import { QuizSelectionComponent } from
     '../containers/quiz-selection/quiz-selection.component';
 import { ResultsComponent } from '../containers/results/results.component';
 
-import { QuizResolverService } from '../shared/services/quiz-resolver.service';
+import { QuizResolverService } from '../shared/services/flow/quiz-resolver.service';
 import { QuizGuard } from './guards/quiz-guard';
 
 export const routes: Routes = [

@@ -20,19 +20,19 @@ import { Option } from '../../../shared/models/Option.model';
 import { QuestionType } from '../../../shared/models/question-type.enum';
 import { QuestionPayload } from '../../../shared/models/QuestionPayload.model';
 import { QuizQuestion } from '../../../shared/models/QuizQuestion.model';
-import { QuizService } from '../../../shared/services/quiz.service';
-import { QuizDataService } from '../../../shared/services/quizdata.service';
-import { QuizNavigationService } from '../../../shared/services/quiz-navigation.service';
+import { QuizService } from '../../../shared/services/data/quiz.service';
+import { QuizDataService } from '../../../shared/services/data/quizdata.service';
+import { QuizNavigationService } from '../../../shared/services/flow/quiz-navigation.service';
 import { QuizQuestionLoaderService } from
-  '../../../shared/services/quizquestionloader.service';
-import { QuizQuestionManagerService } from '../../../shared/services/quizquestionmgr.service';
-import { QuizStateService } from '../../../shared/services/quizstate.service';
-import { SelectedOptionService } from '../../../shared/services/selectedoption.service';
+  '../../../shared/services/flow/quizquestionloader.service';
+import { QuizQuestionManagerService } from '../../../shared/services/flow/quizquestionmgr.service';
+import { QuizStateService } from '../../../shared/services/state/quizstate.service';
+import { SelectedOptionService } from '../../../shared/services/state/selectedoption.service';
 import { ExplanationTextService, FETPayload } from
-  '../../../shared/services/explanation-text.service';
+  '../../../shared/services/features/explanation-text.service';
 import { QuizQuestionComponent } from
   '../../../components/question/quiz-question/quiz-question.component';
-import { TimerService } from '../../../shared/services/timer.service';
+import { TimerService } from '../../../shared/services/features/timer.service';
 
 interface QuestionViewState {
   index: number,

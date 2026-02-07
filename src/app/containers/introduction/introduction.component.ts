@@ -19,10 +19,10 @@ import { catchError, filter, switchMap, takeUntil, tap } from 'rxjs/operators';
 
 import { Quiz } from '../../shared/models/Quiz.model';
 import { QuizQuestion } from '../../shared/models/QuizQuestion.model';
-import { QuizService } from '../../shared/services/quiz.service';
-import { QuizDataService } from '../../shared/services/quizdata.service';
-import { QuizShuffleService } from '../../shared/services/quiz-shuffle.service';
-import { QuizNavigationService } from '../../shared/services/quiz-navigation.service';
+import { QuizService } from '../../shared/services/data/quiz.service';
+import { QuizDataService } from '../../shared/services/data/quizdata.service';
+import { QuizShuffleService } from '../../shared/services/flow/quiz-shuffle.service';
+import { QuizNavigationService } from '../../shared/services/flow/quiz-navigation.service';
 
 @Component({
   selector: 'codelab-quiz-intro',

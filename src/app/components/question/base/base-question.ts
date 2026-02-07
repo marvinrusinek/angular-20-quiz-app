@@ -9,11 +9,11 @@ import { OptionBindings } from '../../../shared/models/OptionBindings.model';
 import { QuizQuestion } from '../../../shared/models/QuizQuestion.model';
 import { SelectedOption } from '../../../shared/models/SelectedOption.model';
 import { SharedOptionConfig } from '../../../shared/models/SharedOptionConfig.model';
-import { DynamicComponentService } from '../../../shared/services/dynamic-component.service';
-import { FeedbackService } from '../../../shared/services/feedback.service';
-import { QuizService } from '../../../shared/services/quiz.service';
-import { QuizStateService } from '../../../shared/services/quizstate.service';
-import { SelectedOptionService } from '../../../shared/services/selectedoption.service';
+import { DynamicComponentService } from '../../../shared/services/ui/dynamic-component.service';
+import { FeedbackService } from '../../../shared/services/features/feedback.service';
+import { QuizService } from '../../../shared/services/data/quiz.service';
+import { QuizStateService } from '../../../shared/services/state/quizstate.service';
+import { SelectedOptionService } from '../../../shared/services/state/selectedoption.service';
 import { QuestionType } from '../../../shared/models/question-type.enum';
 
 /** Event payload emitted when an option is clicked */

@@ -17,7 +17,7 @@ import {
 
 import { ScoreComponent } from './score/score.component';
 import { TimerComponent } from './timer/timer.component';
-import { QuizService } from '../../shared/services/quiz.service';
+import { QuizService } from '../../shared/services/data/quiz.service';
 
 @Component({
   selector: 'codelab-scoreboard',

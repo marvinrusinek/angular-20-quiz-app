@@ -8,9 +8,9 @@ import { QuizMetadata } from '../../../shared/models/QuizMetadata.model';
 import { QuizScore } from '../../../shared/models/QuizScore.model';
 import { SummaryIconsComponent } from './summary-icons/summary-icons.component';
 import { SummaryStatsComponent } from './summary-stats/summary-stats.component';
-import { QuizService } from '../../../shared/services/quiz.service';
-import { QuizDataService } from '../../../shared/services/quizdata.service';
-import { TimerService } from '../../../shared/services/timer.service';
+import { QuizService } from '../../../shared/services/data/quiz.service';
+import { QuizDataService } from '../../../shared/services/data/quizdata.service';
+import { TimerService } from '../../../shared/services/features/timer.service';
 
 @Component({
   selector: 'codelab-results-summary',

@@ -7,7 +7,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { Observable, Subscription } from 'rxjs';
 import { map } from 'rxjs/operators';
 
-import { TimerService } from '../../../shared/services/timer.service';
+import { TimerService } from '../../../shared/services/features/timer.service';
 
 enum TimerType {
   Countdown = 'countdown',

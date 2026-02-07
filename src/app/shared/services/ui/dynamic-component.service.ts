@@ -20,7 +20,7 @@ export class DynamicComponentService {
 
     // First load (real one)
     this.loadingPromise =
-      import('../../components/question/answer/answer-component/answer.component').then(
+      import('../../../components/question/answer/answer-component/answer.component').then(
         (module) => {
           if (!module?.AnswerComponent) {
             throw new Error(

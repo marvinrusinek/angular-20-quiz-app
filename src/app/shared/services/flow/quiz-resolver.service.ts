@@ -5,9 +5,9 @@ import {
 import { Observable, of } from 'rxjs';
 import { catchError, map, switchMap } from 'rxjs/operators';
 
-import { Quiz } from '../../shared/models/Quiz.model';
-import { QuizService } from './quiz.service';
-import { QuizDataService } from './quizdata.service';
+import { Quiz } from '../../models/Quiz.model';
+import { QuizService } from '../data/quiz.service';
+import { QuizDataService } from '../data/quizdata.service';
 
 @Injectable({ providedIn: 'root' })
 export class QuizResolverService implements Resolve<Quiz | UrlTree | null> {
