@@ -41,10 +41,13 @@ import type { OptionUIEvent } from './option-item/option-item.component';
 import { OptionService } from '../../../../shared/services/options/view/option.service';
 import { OptionInteractionService, OptionInteractionState } from '../../../../shared/services/options/engine/option-interaction.service';
 import { SharedOptionStateAdapterService } from '../../../../shared/services/state/shared-option-state-adapter.service';
+import { OptionUiContextBuilderService } from '../../../../shared/services/options/engine/option-ui-context-builder.service';
 import { OptionUiSyncContext, OptionUiSyncService } from '../../../../shared/services/options/engine/option-ui-sync.service';
 import { OptionLockService } from '../../../../shared/services/options/policy/option-lock.service';
 import { OptionLockPolicyService } from '../../../../shared/services/options/policy/option-lock-policy.service';
 import { OptionSelectionPolicyService } from '../../../../shared/services/options/policy/option-selection-policy.service';
+import { OptionVisualEffectsService } from '../../../../shared/services/options/view/option-visual-effects.service';
+import { SharedOptionUiState } from '../../../../shared/services/state/shared-option-state-adapter.service';
 
 @Component({
   selector: 'app-shared-option',
@@ -94,6 +97,7 @@ export class SharedOptionComponent
   @Input() finalRenderReady$: Observable<boolean> | null = null;
   @Input() questionVersion = 0;  // increments every time questionIndex changes
   @Input() sharedOptionConfig!: SharedOptionConfig;
+  public ui!: SharedOptionUiState;
   public finalRenderReady = false;
   private finalRenderReadySub?: Subscription;
   private selectionSub!: Subscription;
@@ -180,15 +184,19 @@ export class SharedOptionComponent
     private optionService: OptionService,
     private optionInteractionService: OptionInteractionService,
     private sharedOptionStateAdapter: SharedOptionStateAdapterService,
+    private optionUiContextBuilder: OptionUiContextBuilderService,
     private optionUiSyncService: OptionUiSyncService,
     private optionLockService: OptionLockService,
     private optionLockPolicyService: OptionLockPolicyService,
     private optionSelectionPolicyService: OptionSelectionPolicyService,
+    private optionVisualEffectsService: OptionVisualEffectsService,
+    private sharedOptionStateAdapterService: SharedOptionStateAdapterService,
     private cdRef: ChangeDetectorRef,
     private fb: FormBuilder,
     private ngZone: NgZone,
     private appRef: ApplicationRef
   ) {
+    this.ui = this.sharedOptionStateAdapterService.createInitialUiState();
     this.form = this.fb.group({
       selectedOptionId: [null, Validators.required]
     });
@@ -1518,38 +1526,7 @@ export class SharedOptionComponent
     this.cdRef.detectChanges();
   }
 
-  private buildOptionUiSyncContext(): OptionUiSyncContext {
-    return {
-      form: this.form,
-      type: this.type,
-      optionBindings: this.optionBindings,
-      optionsToDisplay: this.optionsToDisplay,
-      currentQuestionIndex: this.currentQuestionIndex,
-
-      feedbackConfigs: this.feedbackConfigs,
-      showFeedbackForOption: this.showFeedbackForOption,
-      lastFeedbackOptionId: this.lastFeedbackOptionId,
-      lastFeedbackQuestionIndex: this.lastFeedbackQuestionIndex,
-
-      lastClickedOptionId: this.lastClickedOptionId,
-      lastClickTimestamp: this.lastClickTimestamp,
-
-      freezeOptionBindings: this.freezeOptionBindings,
-      hasUserClicked: this.hasUserClicked,
-
-      showFeedback: this.showFeedback,
-      selectedOptionHistory: this.selectedOptionHistory,
-      selectedOptionMap: this.selectedOptionMap,
-      perQuestionHistory: this.perQuestionHistory,
-      forceDisableAll: this.forceDisableAll,
-
-      // helpers SOC still owns
-      keyOf: (opt, i) => this.keyOf(opt, i),
-      getActiveQuestionIndex: () => this.getActiveQuestionIndex() ?? 0,
-      getQuestionAtDisplayIndex: (idx) => this.getQuestionAtDisplayIndex(idx),
-      emitExplanation: (idx) => this.emitExplanation(idx)
-    };
-  }
+  
 
   private enforceSingleSelection(selectedBinding: OptionBindings): void {
     this.optionSelectionPolicyService.enforceSingleSelection({
@@ -1571,6 +1548,10 @@ export class SharedOptionComponent
 
   updateHighlighting(): void {
     // Moved to OptionItemComponent
+  }
+
+  private buildOptionUiSyncContext(): OptionUiSyncContext {
+    return this.optionUiContextBuilder.fromSharedOptionComponent(this);
   }
 
   private emitExplanation(questionIndex: number): void {

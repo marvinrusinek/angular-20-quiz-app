@@ -20,15 +20,15 @@ import { OptionLockPolicyService } from '../policy/option-lock-policy.service';
 import { OptionLockRulesService } from '../policy/option-lock-rules.service';
 
 export interface OptionUiSyncContext {
-  // core
-  form: FormGroup;
+  form: any;
   type: 'single' | 'multiple';
   optionBindings: OptionBindings[];
   optionsToDisplay: Option[];
   currentQuestionIndex: number;
 
-  // SOC state fields that were mutated
-  feedbackConfigs: Record<string, FeedbackProps>;
+  forceDisableAll: boolean;
+
+  feedbackConfigs: Record<string, any>;
   showFeedbackForOption: Record<number, boolean>;
   lastFeedbackOptionId: number;
   lastFeedbackQuestionIndex: number;
@@ -44,13 +44,14 @@ export interface OptionUiSyncContext {
   selectedOptionMap: Map<number, boolean>;
   perQuestionHistory: Set<number>;
 
-  forceDisableAll: boolean;
-
-  // functions to keep behavior identical
-  keyOf: (opt: Option, index: number) => string;
+  keyOf: (opt: Option, i: number) => string;
   getActiveQuestionIndex: () => number;
   getQuestionAtDisplayIndex: (idx: number) => QuizQuestion | null;
   emitExplanation: (idx: number) => void;
+
+  enforceSingleSelection: (b: OptionBindings) => void;
+  syncSelectedFlags: () => void;
+  toggleSelectedOption: (opt: Option) => void;
 }
 
 @Injectable({ providedIn: 'root' })

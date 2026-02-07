@@ -1,15 +1,12 @@
 import { Injectable } from '@angular/core';
+
+import { FeedbackProps } from '../../models/FeedbackProps.model';
 import { Option } from '../../models/Option.model';
 import { OptionBindings } from '../../models/OptionBindings.model';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
-import { FeedbackProps } from '../../models/FeedbackProps.model';
 import { OptionInteractionState } from '../options/engine/option-interaction.service';
 
-export interface SharedOptionHost {
-  optionBindings: OptionBindings[];
-  optionsToDisplay: Option[];
-  currentQuestionIndex: number;
-
+export interface SharedOptionUiState {
   selectedOptionHistory: number[];
   disabledOptionsPerQuestion: Map<number, Set<number>>;
   correctClicksPerQuestion: Map<number, Set<number>>;
@@ -27,38 +24,147 @@ export interface SharedOptionHost {
   freezeOptionBindings: boolean;
   showFeedback: boolean;
   disableRenderTrigger: number;
+}
+
+export interface SharedOptionHost {
+  optionBindings: OptionBindings[];
+  optionsToDisplay: Option[];
+  currentQuestionIndex: number;
 
   type: 'single' | 'multiple';
   currentQuestion: QuizQuestion | null;
+
+  ui?: SharedOptionUiState;
+
+  // Legacy fields
+  selectedOptionHistory: number[];
+  disabledOptionsPerQuestion: Map<number, Set<number>>;
+  correctClicksPerQuestion: Map<number, Set<number>>;
+
+  feedbackConfigs: { [key: string]: FeedbackProps };
+  showFeedbackForOption: { [optionId: number]: boolean };
+
+  lastFeedbackOptionId: number;
+  lastFeedbackQuestionIndex: number;
+
+  lastClickedOptionId: number | null;
+  lastClickTimestamp: number | null;
+
+  hasUserClicked: boolean;
+  freezeOptionBindings: boolean;
+  showFeedback: boolean;
+  disableRenderTrigger: number;
 }
 
 @Injectable({ providedIn: 'root' })
 export class SharedOptionStateAdapterService {
+  // UI STATE BUNDLE HELPERS
+
+  createInitialUiState(): SharedOptionUiState {
+    return {
+      selectedOptionHistory: [],
+      disabledOptionsPerQuestion: new Map<number, Set<number>>(),
+      correctClicksPerQuestion: new Map<number, Set<number>>(),
+
+      feedbackConfigs: {},
+      showFeedbackForOption: {},
+
+      lastFeedbackOptionId: -1,
+      lastFeedbackQuestionIndex: -1,
+
+      lastClickedOptionId: null,
+      lastClickTimestamp: null,
+
+      hasUserClicked: false,
+      freezeOptionBindings: false,
+      showFeedback: false,
+      disableRenderTrigger: 0
+    };
+  }
+
+  /**
+   * Ensure `host.ui` exists. Call this once in SOC constructor/ngOnInit,
+   * then migrate SOC fields to reference host.ui.*
+   */
+  ensureUi(host: SharedOptionHost): SharedOptionUiState {
+    if (!host.ui) host.ui = this.createInitialUiState();
+    return host.ui;
+  }
+
+  resetUiForQuestion(ui: SharedOptionUiState, qIdx: number): void {
+    ui.showFeedbackForOption = {};
+    ui.lastFeedbackOptionId = -1;
+    ui.lastFeedbackQuestionIndex = qIdx;
+    ui.hasUserClicked = false;
+    ui.showFeedback = false;
+    ui.freezeOptionBindings = false;
+  }
+
+  // OPTION INTERACTION STATE ADAPTER (your existing behavior)
+  
+  /**
+   * Build the state object needed by OptionInteractionService.
+   * Reads from host.ui if present, otherwise falls back to legacy fields.
+   */
   build(host: SharedOptionHost): OptionInteractionState {
+    const ui = host.ui;
+
     return {
       optionBindings: host.optionBindings,
       optionsToDisplay: host.optionsToDisplay,
       currentQuestionIndex: host.currentQuestionIndex,
-      selectedOptionHistory: host.selectedOptionHistory,
-      disabledOptionsPerQuestion: host.disabledOptionsPerQuestion,
-      correctClicksPerQuestion: host.correctClicksPerQuestion,
-      feedbackConfigs: host.feedbackConfigs,
-      showFeedbackForOption: host.showFeedbackForOption,
-      lastFeedbackOptionId: host.lastFeedbackOptionId,
-      lastFeedbackQuestionIndex: host.lastFeedbackQuestionIndex,
-      lastClickedOptionId: host.lastClickedOptionId,
-      lastClickTimestamp: host.lastClickTimestamp,
-      hasUserClicked: host.hasUserClicked,
-      freezeOptionBindings: host.freezeOptionBindings,
-      showFeedback: host.showFeedback,
-      disableRenderTrigger: host.disableRenderTrigger,
+
+      selectedOptionHistory: ui?.selectedOptionHistory ?? host.selectedOptionHistory,
+      disabledOptionsPerQuestion: ui?.disabledOptionsPerQuestion ?? host.disabledOptionsPerQuestion,
+      correctClicksPerQuestion: ui?.correctClicksPerQuestion ?? host.correctClicksPerQuestion,
+
+      feedbackConfigs: ui?.feedbackConfigs ?? host.feedbackConfigs,
+      showFeedbackForOption: ui?.showFeedbackForOption ?? host.showFeedbackForOption,
+
+      lastFeedbackOptionId: ui?.lastFeedbackOptionId ?? host.lastFeedbackOptionId,
+      lastFeedbackQuestionIndex: ui?.lastFeedbackQuestionIndex ?? host.lastFeedbackQuestionIndex,
+
+      lastClickedOptionId: ui?.lastClickedOptionId ?? host.lastClickedOptionId,
+      lastClickTimestamp: ui?.lastClickTimestamp ?? host.lastClickTimestamp,
+
+      hasUserClicked: ui?.hasUserClicked ?? host.hasUserClicked,
+      freezeOptionBindings: ui?.freezeOptionBindings ?? host.freezeOptionBindings,
+      showFeedback: ui?.showFeedback ?? host.showFeedback,
+      disableRenderTrigger: ui?.disableRenderTrigger ?? host.disableRenderTrigger,
+
       type: host.type,
       currentQuestion: host.currentQuestion
     };
   }
 
+  /**
+   * Sync changes from OptionInteractionService back to SOC.
+   * Writes into host.ui if present, otherwise legacy fields.
+   */
   syncBack(host: SharedOptionHost, state: OptionInteractionState): void {
+    // bindings can be replaced by the interaction engine
     host.optionBindings = state.optionBindings;
+
+    if (host.ui) {
+      host.ui.disableRenderTrigger = state.disableRenderTrigger;
+      host.ui.feedbackConfigs = state.feedbackConfigs;
+      host.ui.showFeedbackForOption = state.showFeedbackForOption;
+      host.ui.lastFeedbackOptionId = state.lastFeedbackOptionId;
+      host.ui.lastFeedbackQuestionIndex = state.lastFeedbackQuestionIndex;
+      host.ui.lastClickedOptionId = state.lastClickedOptionId;
+      host.ui.lastClickTimestamp = state.lastClickTimestamp;
+      host.ui.hasUserClicked = state.hasUserClicked;
+      host.ui.freezeOptionBindings = state.freezeOptionBindings;
+      host.ui.showFeedback = state.showFeedback;
+
+      // also keep these maps in sync (they're part of the state object)
+      host.ui.disabledOptionsPerQuestion = state.disabledOptionsPerQuestion;
+      host.ui.correctClicksPerQuestion = state.correctClicksPerQuestion;
+      host.ui.selectedOptionHistory = state.selectedOptionHistory;
+      return;
+    }
+
+    // Legacy fallback
     host.disableRenderTrigger = state.disableRenderTrigger;
     host.feedbackConfigs = state.feedbackConfigs;
     host.showFeedbackForOption = state.showFeedbackForOption;
@@ -69,5 +175,9 @@ export class SharedOptionStateAdapterService {
     host.hasUserClicked = state.hasUserClicked;
     host.freezeOptionBindings = state.freezeOptionBindings;
     host.showFeedback = state.showFeedback;
+
+    host.disabledOptionsPerQuestion = state.disabledOptionsPerQuestion;
+    host.correctClicksPerQuestion = state.correctClicksPerQuestion;
+    host.selectedOptionHistory = state.selectedOptionHistory;
   }
 }
