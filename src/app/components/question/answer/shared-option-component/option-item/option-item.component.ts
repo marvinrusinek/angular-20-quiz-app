@@ -14,6 +14,16 @@ import { correctAnswerAnim } from '../../../../../animations/animations';
 import { OptionService } from '../../../../../shared/services/option.service';
 import { SharedOptionConfig } from '../../../../../shared/models/SharedOptionConfig.model';
 
+export type OptionUIEventKind = 'change' | 'interaction' | 'contentClick';
+
+export interface OptionUIEvent {
+  optionId: number;
+  displayIndex: number;
+  kind: OptionUIEventKind;
+  inputType: 'radio' | 'checkbox';
+  nativeEvent: any;
+}
+
 @Component({
   selector: 'app-option-item',
   standalone: true,
@@ -48,11 +58,18 @@ export class OptionItemComponent {
   @Input() currentQuestionIndex = -1;
   @Input() disabledOptionsPerQuestion: Map<number, Set<number>> = new Map();
 
-  @Output() optionChanged = new EventEmitter<{ b: OptionBindings; i: number; event: any }>();
-  @Output() optionInteraction = new EventEmitter<{ b: OptionBindings; i: number; event: MouseEvent }>();
-  @Output() contentClick = new EventEmitter<{ b: OptionBindings; i: number; event: MouseEvent }>();
+  // ✅ ONE output
+  @Output() optionUI = new EventEmitter<OptionUIEvent>();
 
   constructor(private optionService: OptionService) {}
+
+  private get optionId(): number {
+    return Number(this.b?.option?.optionId ?? -1);
+  }
+
+  private get inputType(): 'radio' | 'checkbox' {
+    return this.type === 'multiple' ? 'checkbox' : 'radio';
+  }
 
   getOptionDisplayText(): string {
     return this.optionService.getOptionDisplayText(this.b.option, this.i);
@@ -64,8 +81,8 @@ export class OptionItemComponent {
 
   getOptionClasses(): { [key: string]: boolean } {
     return this.optionService.getOptionClasses(
-      this.b, 
-      this.highlightedOptionIds, 
+      this.b,
+      this.highlightedOptionIds,
       this.flashDisabledSet,
       this.isLocked,
       this.timerExpiredForQuestion
@@ -73,16 +90,21 @@ export class OptionItemComponent {
   }
 
   getOptionCursor(): string {
-    return this.optionService.getOptionCursor(this.b, this.i, this.isDisabled(), this.timerExpiredForQuestion);
+    return this.optionService.getOptionCursor(
+      this.b,
+      this.i,
+      this.isDisabled(),
+      this.timerExpiredForQuestion
+    );
   }
 
   isDisabled(): boolean {
     return this.optionService.isDisabled(
-      this.b, 
-      this.i, 
-      this.disabledOptionsPerQuestion, 
-      this.currentQuestionIndex, 
-      this.forceDisableAll, 
+      this.b,
+      this.i,
+      this.disabledOptionsPerQuestion,
+      this.currentQuestionIndex,
+      this.forceDisableAll,
       this.timerExpiredForQuestion,
       this.isLocked
     );
@@ -94,19 +116,41 @@ export class OptionItemComponent {
 
   shouldShowFeedback(): boolean {
     const fromConfig = !!this.feedbackConfig?.showFeedback;
-    const fromBinding = !!(this.b.showFeedback || (this.b.showFeedbackForOption && this.b.showFeedbackForOption[this.b.option.optionId!]));
+    const fromBinding = !!(
+      this.b.showFeedback ||
+      (this.b.showFeedbackForOption && this.b.showFeedbackForOption[this.optionId])
+    );
     return fromConfig || fromBinding;
   }
 
   onChanged(event: any): void {
-    this.optionChanged.emit({ b: this.b, i: this.i, event });
+    this.optionUI.emit({
+      optionId: this.optionId,
+      displayIndex: this.i,
+      kind: 'change',
+      inputType: this.inputType,
+      nativeEvent: event
+    });
   }
 
   onInteraction(event: MouseEvent): void {
-    this.optionInteraction.emit({ b: this.b, i: this.i, event });
+    this.optionUI.emit({
+      optionId: this.optionId,
+      displayIndex: this.i,
+      kind: 'interaction',
+      inputType: this.inputType,
+      nativeEvent: event
+    });
   }
 
   onContentClick(event: MouseEvent): void {
-    this.contentClick.emit({ b: this.b, i: this.i, event });
+    event.stopPropagation();  // prevents double firing with parent (click)
+    this.optionUI.emit({
+      optionId: this.optionId,
+      displayIndex: this.i,
+      kind: 'contentClick',
+      inputType: this.inputType,
+      nativeEvent: event
+    });
   }
 }

@@ -29,9 +29,7 @@
               [isLocked]="isLocked(b, i)"
               [currentQuestionIndex]="currentQuestionIndex"
               [disabledOptionsPerQuestion]="disabledOptionsPerQuestion"
-              (optionChanged)="onOptionChanged($event.b, $event.i, $event.event)"
-              (optionInteraction)="onOptionInteraction($event.b, $event.i, $event.event)"
-              (contentClick)="onOptionContentClick($event.b, $event.i, $event.event)"
+              (optionUI)="onOptionUI($event)"
             />
           }
         </mat-radio-group>
@@ -60,9 +58,7 @@
               [isLocked]="isLocked(b, i)"
               [currentQuestionIndex]="currentQuestionIndex"
               [disabledOptionsPerQuestion]="disabledOptionsPerQuestion"
-              (optionChanged)="onOptionChanged($event.b, $event.i, $event.event)"
-              (optionInteraction)="onOptionInteraction($event.b, $event.i, $event.event)"
-              (contentClick)="onOptionContentClick($event.b, $event.i, $event.event)"
+              (optionUI)="onOptionUI($event)"
             />
           }
         </div>
