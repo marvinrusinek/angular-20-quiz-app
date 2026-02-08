@@ -94,6 +94,12 @@ export class OptionUiSyncService {
     }
 
     if (alreadySelected) {
+      // Even when the option is already selected, this still came from a user click.
+      // Emit onSelect so caller-side side effects (like sound feedback) are not skipped.
+      if (ctx.onSelect) {
+        ctx.onSelect(optionBinding);
+      }
+
       this.preservePreviousFeedbackAnchor(optionId, ctx);
       ctx.emitExplanation(currentIndex);
       return;
@@ -137,8 +143,10 @@ export class OptionUiSyncService {
 
     ctx.showFeedback = true;
 
+    // Apply strict state (checked/unchecked) instead of toggle
+    this.toggleSelectedOption(optionBinding.option, checked, ctx);
+
     // RESTORE: Let the component know a selection occurred (for sounds/events)
-    // Move this BEFORE wasVisited check to ensure sound/events run on every interaction
     if (ctx.onSelect) {
       ctx.onSelect(optionBinding);
     }
@@ -148,9 +156,6 @@ export class OptionUiSyncService {
     // new anchor (always update feedback anchor to current click)
     ctx.showFeedbackForOption = { [optionId ?? -1]: true };
     ctx.lastFeedbackOptionId = optionId ?? -1;
-
-    // Apply strict state (checked/unchecked) instead of toggle
-    this.toggleSelectedOption(optionBinding.option, checked, ctx);
 
     // Build feedback config for clicked option
     this.refreshFeedbackConfigForClicked(optionBinding, index, optionId, ctx);
@@ -194,13 +199,6 @@ export class OptionUiSyncService {
     }
 
     this.syncSelectedFlags(ctx);
-
-    console.log(`[OptionUiSyncService] Interaction finalized for Option ${optionId}. Emitting onSelect...`);
-    // RESTORE: Let the component know a selection occurred (for sounds/events)
-    // Move this BEFORE wasVisited check to ensure sound/events run on every interaction
-    if (ctx.onSelect) {
-      ctx.onSelect(optionBinding);
-    }
 
     this.selectionMessageService.notifySelectionMutated(ctx.optionsToDisplay);
     this.selectionMessageService.setSelectionMessage(false);

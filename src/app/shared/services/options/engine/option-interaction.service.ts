@@ -13,7 +13,6 @@ import { SelectedOptionService } from '../../state/selectedoption.service';
 import { TimerService } from '../../features/timer.service';
 import { FeedbackService } from '../../features/feedback.service';
 import { SelectionMessageService } from '../../features/selection-message.service';
-import { SoundService } from '../../ui/sound.service';
 import { NextButtonStateService } from '../../state/next-button-state.service';
 
 export interface OptionInteractionState {
@@ -48,7 +47,6 @@ export class OptionInteractionService {
     private timerService: TimerService,
     private feedbackService: FeedbackService,
     private selectionMessageService: SelectionMessageService,
-    private soundService: SoundService,
     private nextButtonStateService: NextButtonStateService,
     private ngZone: NgZone,
     private appRef: ApplicationRef
@@ -283,8 +281,5 @@ export class OptionInteractionService {
     } catch (e) {
       console.error('[OIS] Selection message update failed', e);
     }
-
-    // 🔊 Sound now handled by OptionUiSyncService via onSelect callback
-    // this.soundService.playOnceForOption({...binding.option, questionIndex: qIdx});
   }
 }

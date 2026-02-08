@@ -118,40 +118,23 @@ export class QuizNavigationService {
   }
 
   private async navigateWithOffset(offset: number): Promise<boolean> {
-    // Get Current Index (Robust URL Parsing)
-    const getUrlIndex = (): number => {
-      try {
-        const url = this.router.url;
-        // Robust Regex: match /quiz/question/<quizId>/<number> anywhere in string
-        const match = url.match(/\/quiz\/question\/[^/]+\/(\d+)/);
-        if (match && match[1]) {
-          return parseInt(match[1], 10);
-        }
-        // Fallback: split logic
-        const segments = url.split('/');
-        const last = segments[segments.length - 1];
-        const n = parseInt(last, 10);
-        return isNaN(n) ? 0 : n;
-      } catch (e) {
-        return 0;
-      }
-    };
-
-    const currentRouteIndex = getUrlIndex();
+    const currentRouteIndex = this.readQuestionIndexFromRouterSnapshot();
+    
     const targetRouteIndex = currentRouteIndex + offset;
 
     // User requested logic: Check if answered.
     const isAnswered = this.selectedOptionService.isQuestionAnswered(currentRouteIndex - 1);
     console.log(`[NAV FORCE] Logic Check: Q${currentRouteIndex} Answered? ${isAnswered}`);
 
-    console.log(`[NAV FORCE] URL Index: ${currentRouteIndex} -> Target: ${targetRouteIndex}`);
+    /* console.log(`[NAV FORCE] URL Index: ${currentRouteIndex} -> Target: ${targetRouteIndex}`);
 
     // Get Quiz ID (best effort, fallback to 'angular-quiz')
     let quizId = this.resolveEffectiveQuizId();
     if (!quizId) {
       console.warn('[NAV FORCE] No quizId found, defaulting to "angular-quiz"');
       quizId = 'angular-quiz';
-    }
+    } */
+   console.log(`[NAV FORCE] Route Index: ${currentRouteIndex} -> Target: ${targetRouteIndex}`);   
 
     // Simple Bounds Safety (only check min)
     if (targetRouteIndex < 1) {
@@ -230,9 +213,18 @@ export class QuizNavigationService {
   }
 
   private async performRouterNavigation(index: number): Promise<boolean> {
-    const quizIdFromRoute = this.activatedRoute.snapshot.paramMap.get('quizId');
-    const fallbackQuizId = localStorage.getItem('quizId');
-    const quizId = quizIdFromRoute || fallbackQuizId;
+    //const quizIdFromRoute = this.activatedRoute.snapshot.paramMap.get('quizId');
+    //const fallbackQuizId = localStorage.getItem('quizId');
+    //const quizId = quizIdFromRoute || fallbackQuizId;
+
+    const quizId = this.resolveEffectiveQuizId();
+    if (!quizId) {
+      console.error('[NAV] Cannot navigate without a valid quizId');
+      return false;
+    }
+
+    this.quizId = quizId;
+    this.quizService.setQuizId(quizId);
 
     const routeUrl = `/quiz/question/${quizId}/${index + 1}`;
     const currentUrl = this.router.url;
@@ -514,6 +506,28 @@ export class QuizNavigationService {
     }
 
     return null;
+  }
+
+  private readQuestionIndexFromRouterSnapshot(): number {
+    const fromActiveRoute = this.activatedRoute.snapshot.paramMap.get('questionIndex');
+    const parsedFromActiveRoute = Number.parseInt(fromActiveRoute ?? '', 10);
+    if (Number.isFinite(parsedFromActiveRoute) && parsedFromActiveRoute > 0) {
+      return parsedFromActiveRoute;
+    }
+
+    let snapshot: ActivatedRouteSnapshot | null =
+      this.router.routerState.snapshot.root;
+    while (snapshot) {
+      const value = snapshot.paramMap?.get('questionIndex');
+      const parsed = Number.parseInt(value ?? '', 10);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        return parsed;
+      }
+      snapshot = snapshot.firstChild ?? null;
+    }
+
+    // Last-resort fallback to service index (0-based -> 1-based)
+    return (this.quizService.getCurrentQuestionIndex?.() ?? 0) + 1;
   }
 
   public resetRenderStateBeforeNavigation(targetIndex: number): void {

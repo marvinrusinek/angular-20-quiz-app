@@ -25,12 +25,18 @@ export class OptionUiContextBuilderService {
       
       onSelect: (binding: any) => {
         // 🔊 RESTORE SOUNDS: Play sound for the selected option
+        const qIndex = typeof src.getActiveQuestionIndex === 'function'
+          ? src.getActiveQuestionIndex()
+          : src.currentQuestionIndex;
+
+
+        
         src.soundService.playOnceForOption({
           ...binding.option,
-          questionIndex: src.currentQuestionIndex
+          questionIndex: qIndex
         });
 
-        // 🚀 RESTORE NAVIGATION: Notify parent component
+        // Notify parent component
         src.optionClicked.emit({
           option: binding.option,
           index: binding.index,

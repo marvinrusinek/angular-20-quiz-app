@@ -16,18 +16,27 @@ export class SoundService {
   }
 
   initializeSounds(): void {
+    const commonConfig = {
+      html5: false, // Use Web Audio API (low latency) - works great with jsDelivr
+      format: ['mp3'],
+      preload: true,
+      onload: () => console.log('[SoundService] ✅ Sound loaded successfully'),
+      onloaderror: (_id: number, err: any) => console.error('[SoundService] ❌ Load Error:', err),
+      onplay: (_id: number) => console.log('[SoundService] ▶️ Sound playing (id:', _id, ')'),
+      onplayerror: (_id: number, err: any) => console.error('[SoundService] ⚠️ Play Error:', _id, err)
+    };
+
+    // Use jsDelivr CDN to serve proper MIME types (audio/mpeg) and CORS headers for GitHub files
+    const baseUrl = 'https://cdn.jsdelivr.net/gh/marvinrusinek/angular-10-quiz-app@master/src/assets/sounds';
+
     this.sounds['correct'] = new Howl({
-      src: [
-        'https://raw.githubusercontent.com/marvinrusinek/angular-10-quiz-app/master/src/assets/sounds/correct.mp3',
-      ],
-      html5: true
+      src: [`${baseUrl}/correct.mp3`],
+      ...commonConfig
     });
 
     this.sounds['incorrect'] = new Howl({
-      src: [
-        'https://raw.githubusercontent.com/marvinrusinek/angular-10-quiz-app/master/src/assets/sounds/incorrect.mp3',
-      ],
-      html5: true
+      src: [`${baseUrl}/incorrect.mp3`],
+      ...commonConfig
     });
   }
 
@@ -35,50 +44,38 @@ export class SoundService {
   playOnceForOption(option: SelectedOption): void {
     const qIndex = option.questionIndex ?? -1;
     const optId = option.optionId;
-    const key = `${qIndex}-${optId}`;
-    const alreadyPlayed = this.playedSoundOptions.has(key);
+    
+    console.log(`[SoundService] playOnceForOption: Q${qIndex} Opt=${optId} Selected=${option.selected}`);
 
-    // Only play if it's being SELECTED and hasn't played yet
+    // Only play if it's being SELECTED
     if (option.selected === false) {
-      console.log(`[⏸️ Sound skip: option is being unselected]`);
-      return;
-    }
-
-    if (alreadyPlayed) {
-      console.log(`[⏸️ Sound skip: already played for Q${qIndex}, Option ${optId}]`);
+      console.log(`[SoundService] Skipping unselect.`);
       return;
     }
 
     // Determine which sound to play and play the correct sound
     const soundName = option.correct ? 'correct' : 'incorrect';
     this.play(soundName);
-
-    // Track that this option has been played
-    const playedSet = this.playedMap.get(qIndex) ?? new Set<number>();
-    playedSet.add(optId!);
-    this.playedMap.set(qIndex, playedSet);
-    this.playedSoundOptions.add(key);
   }
 
   play(soundName: string): void {
-    this.resumeAudioContextIfSuspended();  // ensure audio context is active
+    console.log(`[SoundService] Requesting: ${soundName}`);
+    this.resumeAudioContextIfSuspended();
 
     const sound = this.sounds[soundName];
     if (!sound) {
-      console.warn(
-        `[Sound "${soundName}" not found. Sounds may not be initialized yet.]`
-      );
+      console.warn(`[SoundService] ⚠️ Sound "${soundName}" not initialized.`);
       return;
     }
+    
+    console.log(`[SoundService] Sound State: ${sound.state()}`);
 
     try {
-      sound.stop();  // stop any current playback
-      const soundId = sound.play();  // returns a numeric sound ID
-      console.log(
-        `["${soundName}" triggered successfully with soundId: ${soundId}]`
-      );
+      sound.stop();
+      const id = sound.play();
+      console.log(`[SoundService] ✅ Play triggered, ID: ${id}`);
     } catch (error) {
-      console.error(`[❌ Error playing sound "${soundName}"]:`, error);
+      console.error(`[SoundService] ❌ Play exception:`, error);
     }
   }
 

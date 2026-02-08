@@ -15,7 +15,6 @@ export class NextButtonStateService implements OnDestroy {
 
   private nextButtonStateSubscription?: Subscription;
   private initialized = false;
-  private manualOverride: boolean | null = null;
 
   constructor(private ngZone: NgZone) { }
 
@@ -74,21 +73,17 @@ export class NextButtonStateService implements OnDestroy {
 
   public updateAndSyncNextButtonState(isEnabled: boolean): void {
     this.ngZone.run(() => {
-      const effective =
-        this.manualOverride !== null ? this.manualOverride : isEnabled;
-
-      this.isButtonEnabledSubject.next(effective);
+      this.isButtonEnabledSubject.next(isEnabled);
 
       this.nextButtonStyle = {
-        opacity: effective ? '1' : '0.5',
-        cursor: effective ? 'pointer' : 'not-allowed',
-        'pointer-events': 'auto'
+        opacity: isEnabled ? '1' : '0.5',
+        cursor: isEnabled ? 'pointer' : 'not-allowed',
+          'pointer-events': 'auto'
       };
     });
   }
 
   public setNextButtonState(enabled: boolean): void {
-    this.manualOverride = enabled;  // store override
     this.updateAndSyncNextButtonState(enabled);  // reuse consistent logic
   }
 

@@ -29,10 +29,8 @@ import { QuizService } from '../../../../shared/services/data/quiz.service';
 import { QuizStateService } from '../../../../shared/services/state/quizstate.service';
 import { SelectedOptionService } from '../../../../shared/services/state/selectedoption.service';
 import { SelectionMessageService } from '../../../../shared/services/features/selection-message.service';
-import { NextButtonStateService } from '../../../../shared/services/state/next-button-state.service';
 import { TimerService } from '../../../../shared/services/features/timer.service';
 import { SoundService } from '../../../../shared/services/ui/sound.service';
-import { HighlightOptionDirective } from '../../../../directives/highlight-option.directive';
 import { SharedOptionConfigDirective } from '../../../../directives/shared-option-config.directive';
 import { correctAnswerAnim } from '../../../../animations/animations';
 import { isValidOption } from '../../../../shared/utils/option-utils';
@@ -177,8 +175,7 @@ export class SharedOptionComponent
     private quizStateService: QuizStateService,
     private selectedOptionService: SelectedOptionService,
     private selectionMessageService: SelectionMessageService,
-    private soundService: SoundService,
-    private nextButtonStateService: NextButtonStateService,
+    public soundService: SoundService,
     private timerService: TimerService,
     private optionService: OptionService,
     private optionHydrationService: OptionHydrationService,
@@ -189,7 +186,7 @@ export class SharedOptionComponent
     private optionLockPolicyService: OptionLockPolicyService,
     private optionSelectionPolicyService: OptionSelectionPolicyService,
     private optionSelectionUiService: OptionSelectionUiService,
-    private optionVisualEffectsService: OptionVisualEffectsService,
+    public optionVisualEffectsService: OptionVisualEffectsService,
     private sharedOptionStateAdapterService: SharedOptionStateAdapterService,
     private optionBindingFactory: OptionBindingFactoryService,
     private cdRef: ChangeDetectorRef,
@@ -1928,6 +1925,7 @@ export class SharedOptionComponent
     this.handleSelection(clonedOption, index, optionId);
     this.displayFeedbackForOption(clonedOption, index, optionId);
 
+
     // Generate feedbackConfig per option using hydrated data
     const hydratedOption = this.optionsToDisplay[index];
     if (!hydratedOption) {
@@ -1972,6 +1970,8 @@ export class SharedOptionComponent
     this.iconVisibility[optionId] = true;
     this.clickedOptionIds.add(optionId);
   }
+
+
 
   private handleSelection(
     option: SelectedOption,
@@ -2839,7 +2839,7 @@ isLocked(b: OptionBindings, i: number): boolean {
     if (normalized !== null) this.resolvedQuestionIndex = normalized;
   }
 
-  private getActiveQuestionIndex(): number {
+  public getActiveQuestionIndex(): number {
     // Highest Priority: Local Input (most specific to this option instance)
     if (typeof this.questionIndex === 'number') {
       return this.questionIndex;
