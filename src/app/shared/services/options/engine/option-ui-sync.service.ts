@@ -52,7 +52,7 @@ export interface OptionUiSyncContext {
   enforceSingleSelection: (b: OptionBindings) => void;
   syncSelectedFlags: () => void;
   toggleSelectedOption: (opt: Option) => void;
-  onSelect?: (binding: OptionBindings) => void;
+  onSelect?: (binding: OptionBindings, checked: boolean, questionIndex: number) => void;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -97,7 +97,7 @@ export class OptionUiSyncService {
       // Even when the option is already selected, this still came from a user click.
       // Emit onSelect so caller-side side effects (like sound feedback) are not skipped.
       if (ctx.onSelect) {
-        ctx.onSelect(optionBinding);
+        ctx.onSelect(optionBinding, checked, currentIndex);
       }
 
       this.preservePreviousFeedbackAnchor(optionId, ctx);
@@ -148,7 +148,7 @@ export class OptionUiSyncService {
 
     // RESTORE: Let the component know a selection occurred (for sounds/events)
     if (ctx.onSelect) {
-      ctx.onSelect(optionBinding);
+      ctx.onSelect(optionBinding, checked, currentIndex);
     }
 
     this.trackVisited(optionId, ctx);

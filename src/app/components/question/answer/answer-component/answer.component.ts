@@ -22,6 +22,7 @@ import { QuizQuestionLoaderService } from '../../../../shared/services/flow/quiz
 import { QuizQuestionManagerService } from '../../../../shared/services/flow/quizquestionmgr.service';
 import { QuizStateService } from '../../../../shared/services/state/quizstate.service';
 import { SelectedOptionService } from '../../../../shared/services/state/selectedoption.service';
+
 import { TimerService } from '../../../../shared/services/features/timer.service';
 import { BaseQuestion } from '../../base/base-question';
 import { SharedOptionComponent } from '../shared-option-component/shared-option.component';
@@ -95,6 +96,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     protected override quizService: QuizService,
     protected override quizStateService: QuizStateService,
     protected override selectedOptionService: SelectedOptionService,
+
     protected override fb: FormBuilder,
     protected override cdRef: ChangeDetectorRef
   ) {

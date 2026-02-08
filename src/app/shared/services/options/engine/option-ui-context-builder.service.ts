@@ -23,24 +23,16 @@ export class OptionUiContextBuilderService {
       toggleSelectedOption: (opt: any) =>
         src.optionVisualEffectsService.toggleSelectedOption(opt, src.selectedOptionMap),
       
-      onSelect: (binding: any) => {
-        // 🔊 RESTORE SOUNDS: Play sound for the selected option
-        const qIndex = typeof src.getActiveQuestionIndex === 'function'
-          ? src.getActiveQuestionIndex()
-          : src.currentQuestionIndex;
+      onSelect: (binding: any, checked: boolean, questionIndex: number) => {
 
-
-        
-        src.soundService.playOnceForOption({
-          ...binding.option,
-          questionIndex: qIndex
-        });
-
-        // Notify parent component
+      
         src.optionClicked.emit({
-          option: binding.option,
+          option: {
+            ...binding.option,
+            selected: checked
+          },
           index: binding.index,
-          checked: binding.isSelected,
+          checked,
           wasReselected: false
         });
       }

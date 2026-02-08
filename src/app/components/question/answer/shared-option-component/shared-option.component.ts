@@ -2875,6 +2875,16 @@ isLocked(b: OptionBindings, i: number): boolean {
 
     const { b: binding, i: index } = found;
 
+
+    if (!this.isDisabled(binding, index)) {
+      this.cdRef.markForCheck();  // ensure UI updates
+      this.soundService.playOnceForOption({
+        ...binding.option,
+        selected: true,
+        questionIndex: this.currentQuestionIndex
+      });
+    }
+
     if (ev.kind === 'change') {
       // Keep your existing “change → sync UI/form” path
       this.updateOptionAndUI(binding, index, ev.nativeEvent as MatCheckboxChange | MatRadioChange);
@@ -2991,15 +3001,5 @@ isLocked(b: OptionBindings, i: number): boolean {
     // - emits to parent
     // - next button enabling
     this.handleOptionClick(binding.option as any, binding.index);
-
-    // If handleOptionClick no longer paints UI (because you refactored it out),
-    // keep the paint here. Otherwise, remove this to avoid double-painting.
-    // this.optionSelectionUiService.applySingleSelectClick(
-    //   this.optionBindings,
-    //   selectedId,
-    //   this.selectedOptionHistory
-    // );
-    // if (this.showFeedback === true) this.rebuildShowFeedbackMapFromBindings();
-    // this.cdRef.markForCheck();
   }
 }

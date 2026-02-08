@@ -45,7 +45,7 @@ import { ResetStateService } from '../../../shared/services/state/reset-state.se
 import { SelectedOptionService } from '../../../shared/services/state/selectedoption.service';
 import { SelectionMessageService } from '../../../shared/services/features/selection-message.service';
 import { SharedVisibilityService } from '../../../shared/services/ui/shared-visibility.service';
-import { SoundService } from '../../../shared/services/ui/sound.service';
+
 import { TimerService } from '../../../shared/services/features/timer.service';
 import { BaseQuestion } from '../base/base-question';
 import { AnswerComponent } from '../answer/answer-component/answer.component';
@@ -317,7 +317,7 @@ export class QuizQuestionComponent extends BaseQuestion
     protected resetStateService: ResetStateService,
     protected selectionMessageService: SelectionMessageService,
     protected sharedVisibilityService: SharedVisibilityService,
-    protected soundService: SoundService,
+
     protected timerService: TimerService,
     protected activatedRoute: ActivatedRoute,
     protected router: Router,
@@ -4352,7 +4352,7 @@ export class QuizQuestionComponent extends BaseQuestion
     this.selectedOptionService.setSelectedOption(option);
 
     // Play sound based on correctness
-    if (!wasPreviouslySelected) {
+    /* if (!wasPreviouslySelected) {
       const enrichedOption: SelectedOption = {
         ...option,
         questionIndex: effectiveIdx
@@ -4361,7 +4361,7 @@ export class QuizQuestionComponent extends BaseQuestion
       this.soundService.playOnceForOption(enrichedOption);
     } else {
       console.log('[No sound - reselection]');
-    }
+    } */
 
     setTimeout(() => {
       const shouldEnableNext =
@@ -6154,10 +6154,10 @@ export class QuizQuestionComponent extends BaseQuestion
     return normalizedOptions;
   }
 
-  clearSoundFlagsForCurrentQuestion(index: number): void {
-    this.soundService.clearPlayedOptionsForQuestion(index);
-  }
 
+  clearSoundFlagsForCurrentQuestion(index: number): void {
+    // No-op: SoundService is now stateless and doesn't require clearing flags.
+  }
   private clearOptionStateForQuestion(index: number): void {
     this.selectedOptionService.clearSelectionsForQuestion(index);
 

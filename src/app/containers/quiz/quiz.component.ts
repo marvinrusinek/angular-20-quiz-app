@@ -52,7 +52,7 @@ import { TimerService } from '../../shared/services/features/timer.service';
 import { ResetStateService } from '../../shared/services/state/reset-state.service';
 import { ResetBackgroundService } from '../../shared/services/ui/reset-background.service';
 import { SharedVisibilityService } from '../../shared/services/ui/shared-visibility.service';
-import { SoundService } from '../../shared/services/ui/sound.service';
+
 import { ChangeRouteAnimation } from '../../animations/animations';
 
 type AnimationState = 'animationStarted' | 'none';
@@ -248,7 +248,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     private resetStateService: ResetStateService,
     private resetBackgroundService: ResetBackgroundService,
     private sharedVisibilityService: SharedVisibilityService,
-    private soundService: SoundService,
+
     private activatedRoute: ActivatedRoute,
     private router: Router,
     private ngZone: NgZone,
@@ -1538,7 +1538,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           const success =
             await this.quizQuestionLoaderService.loadQuestionAndOptions(index);
           if (success) {
-            this.soundService.clearPlayedOptionsForQuestion(index);
+
           } else {
             console.warn(`[Failed to load Q${index}]`);
           }
@@ -3995,7 +3995,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.quizQuestionComponent?.selectedIndices?.clear();
 
     // Reset sounds/timer
-    this.soundService.reset();
+
     this.timerService.stopTimer?.(undefined, { force: true });
 
     // Reset progress bar to 0%
