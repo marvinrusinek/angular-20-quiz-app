@@ -1081,12 +1081,12 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     const optionIdentifier = event?.optionId ?? (event as any)?.id ?? (event as any)?.displayOrder ?? -1;
     const now = Date.now();
     const lastClickTime = (this as any)._lastClickTime ?? 0;
-    
+
     if (optionIdentifier !== -1 && optionIdentifier === this.lastLoggedIndex && (now - lastClickTime) < 100) {
       console.warn('[Skipping duplicate event - too rapid]', event);
       return;
     }
-    
+
     this.lastLoggedIndex = optionIdentifier;
     (this as any)._lastClickTime = now;
 
@@ -2281,8 +2281,30 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         return;
       }
 
-      // Update component state with the correct shuffled question
       this.currentQuestion = question;
+
+      // Force-update the explanation text to ensure it matches the SHUFFLED options
+      // This corrects any mismatch from the initial calculation which might have used stale/unshuffled data.
+      // We pass force=true to override the lock set during initialization.
+      if (question && question.options) {
+        const correctIndices = this.explanationTextService.getCorrectOptionIndices(
+          question,
+          question.options,
+          questionIndex
+        );
+        const formattedExplanation = this.explanationTextService.formatExplanation(
+          question,
+          correctIndices,
+          question.explanation
+        );
+        this.explanationTextService.storeFormattedExplanation(
+          questionIndex,
+          formattedExplanation,
+          question,
+          question.options,
+          true
+        );
+      }
 
       // Update combined data immediately so children get the correct object
       this.combinedQuestionDataSubject.next({
