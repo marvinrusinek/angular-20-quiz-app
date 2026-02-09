@@ -797,7 +797,7 @@ export class ExplanationTextService {
         // and match by text
         console.warn('[ETS] Shuffle mode: No correct flags found on options, trying shuffledQuestions text match...');
         const shuffledQuestions = quizSvc.shuffledQuestions;
-        if (Array.isArray(shuffledQuestions) && shuffledQuestions.length > qIdx) {
+        if (qIdx !== null && Array.isArray(shuffledQuestions) && shuffledQuestions.length > qIdx) {
           const shuffledQ = shuffledQuestions[qIdx];
           if (shuffledQ && Array.isArray(shuffledQ.options)) {
             const correctTexts = new Set<string>();
