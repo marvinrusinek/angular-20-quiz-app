@@ -746,21 +746,29 @@ export class ExplanationTextService {
     let correctIds = new Set<string | number>();
     
     try {
-      const quizSvc = this.injector.get(QuizService);
-      const shuffleSvc = this.injector.get(QuizShuffleService);
+      const quizSvc = this.injector.get(QuizService, null);
+      const shuffleSvc = this.injector.get(QuizShuffleService, null);
       
-      if (typeof qIdx === 'number' && quizSvc.quizId) {
+      if (quizSvc && shuffleSvc && typeof qIdx === 'number' && quizSvc.quizId) {
         const origIdx = shuffleSvc.toOriginalIndex(quizSvc.quizId, qIdx);
         if (origIdx !== null) {
           const pristine = quizSvc.getPristineQuestion(origIdx);
-          if (pristine && Array.isArray(pristine.answer) && pristine.answer.length > 0) {
-            pristine.answer.forEach(a => {
-              if (a) {
-                if (a.text) correctTexts.add(normalize(a.text));
-                if (a.optionId !== undefined) correctIds.add(a.optionId);
-              }
-            });
-            console.log(`[ETS] ✅ Attempt 1 (PRISTINE) SUCCESS for Q${qIdx + 1}. IDs:`, [...correctIds], `Texts:`, [...correctTexts]);
+          if (pristine) {
+            // Check both answer (if populated) and options (standard raw data)
+            const correctPristine = [
+              ...(Array.isArray(pristine.answer) ? pristine.answer : []),
+              ...(Array.isArray(pristine.options) ? pristine.options.filter(o => o.correct) : [])
+            ];
+            
+            if (correctPristine.length > 0) {
+              correctPristine.forEach(a => {
+                if (a) {
+                  if (a.text) correctTexts.add(normalize(a.text));
+                  if (a.optionId !== undefined) correctIds.add(a.optionId);
+                }
+              });
+              console.log(`[ETS] ✅ Attempt 1 (PRISTINE) SUCCESS for Q${qIdx + 1}. IDs:`, [...correctIds], `Texts:`, [...correctTexts]);
+            }
           }
         }
       }

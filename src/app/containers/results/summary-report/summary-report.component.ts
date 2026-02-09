@@ -8,6 +8,7 @@ import { QuizMetadata } from '../../../shared/models/QuizMetadata.model';
 import { QuizScore } from '../../../shared/models/QuizScore.model';
 import { SummaryIconsComponent } from './summary-icons/summary-icons.component';
 import { SummaryStatsComponent } from './summary-stats/summary-stats.component';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { QuizService } from '../../../shared/services/data/quiz.service';
 import { QuizDataService } from '../../../shared/services/data/quizdata.service';
 import { TimerService } from '../../../shared/services/features/timer.service';
@@ -19,7 +20,8 @@ import { TimerService } from '../../../shared/services/features/timer.service';
     CommonModule,
     DatePipe,
     SummaryIconsComponent,
-    SummaryStatsComponent
+    SummaryStatsComponent,
+    MatTooltipModule
   ],
   templateUrl: './summary-report.component.html',
   styleUrls: ['./summary-report.component.scss'],

@@ -6,6 +6,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { Subject } from 'rxjs';
 import { take, takeUntil } from 'rxjs/operators';
 
@@ -32,6 +33,7 @@ import { QuizDataService } from '../../shared/services/data/quizdata.service';
     MatCardModule,
     MatExpansionModule,
     MatIconModule,
+    MatTooltipModule,
     NgOptimizedImage, 
     BackToTopComponent,
     AccordionComponent,
