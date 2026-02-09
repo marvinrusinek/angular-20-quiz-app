@@ -731,11 +731,6 @@ export class ExplanationTextService {
       if (typeof s !== 'string') return '';
       return s
         .replace(/&nbsp;/gi, ' ')
-        .replace(/&quot;/gi, '"')
-        .replace(/&apos;/gi, "'")
-        .replace(/&lt;/gi, '<')
-        .replace(/&gt;/gi, '>')
-        .replace(/&amp;/gi, '&')
         .replace(/\u00A0/g, ' ') // raw non-breaking space
         .replace(/<[^>]*>/g, ' ') // strip HTML
         .trim()
@@ -912,17 +907,17 @@ export class ExplanationTextService {
 
     console.log(`🔴🔴🔴 [formatExplanation] FINAL indices: ${JSON.stringify(indices)} for Q: "${question?.questionText?.slice(0, 40)}..."`);
 
-    // Multi-answer
+    // Multi-answerW
     if (indices.length > 1) {
       question.type = QuestionType.MultipleAnswer;
 
       const optionsText =
         indices.length > 2
-          ? `${indices.slice(0, -1).join(', ')} and ${indices[indices.length - 1]}`
+          ? `${indices.slice(0, -1).join(', ')} and ${indices.slice(-1)}`
           : indices.join(' and ');
 
       const result = `Options ${optionsText} are correct because ${e}`;
-      console.log(`[ETS.formatExplanation] Result: "${result.slice(0, 60)}..."`);
+      console.log(`🔴🔴🔴 [formatExplanation] RESULT: "${result.slice(0, 60)}..."`);
       return result;
     }
 
