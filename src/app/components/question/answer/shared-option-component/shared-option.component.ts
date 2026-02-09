@@ -9,8 +9,8 @@ import { MatCheckboxChange } from '@angular/material/checkbox';
 import { MatRadioChange } from '@angular/material/radio';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import {
-  animationFrameScheduler, BehaviorSubject, combineLatest, defer, Observable, of, Subject, 
-  Subscription 
+  animationFrameScheduler, BehaviorSubject, combineLatest, defer, Observable, of, Subject,
+  Subscription
 } from 'rxjs';
 import { distinctUntilChanged, filter, observeOn, take, takeUntil } from 'rxjs/operators';
 
@@ -67,8 +67,8 @@ import { OptionBindingFactoryService } from '../../../../shared/services/options
 })
 export class SharedOptionComponent
   implements OnInit, OnChanges, OnDestroy, AfterViewInit {
-  
-  
+
+
   @Output() optionClicked =
     new EventEmitter<OptionClickedPayload>();
   @Output() optionEvent = new EventEmitter<OptionUIEvent>();
@@ -206,7 +206,7 @@ export class SharedOptionComponent
         takeUntil(this.destroy$)
       )
       .subscribe((id: number | string) => this.onSelectionControlChanged(id));
-    }
+  }
 
   // Robust Multi-Mode Detection (Infers from Data if Type is missing)
   get isMultiMode(): boolean {
@@ -420,7 +420,7 @@ export class SharedOptionComponent
         this.finalRenderReady = ready;
       });
     }
-  
+
     // Regenerate feedback when quizService index changes
     // Combine index + latest @Input options to avoid race conditions
     combineLatest([
@@ -433,7 +433,7 @@ export class SharedOptionComponent
         console.log(
           `[SOC] currentQuestionIndex$ fired: idx=${idx}, optionsToDisplay.length=${opts?.length}`
         );
-  
+
         // Reset all state when question index changes
         // This fixes highlighting/disabled state persisting from previous questions
         // Use lastProcessedQuestionIndex (internal tracker) instead of @Input currentQuestionIndex
@@ -441,12 +441,12 @@ export class SharedOptionComponent
         if (this.lastProcessedQuestionIndex !== idx) {
           console.log(`[SOC] Question changed from ${this.lastProcessedQuestionIndex} to ${idx} - RESETTING STATE`);
           this.resetStateForNewQuestion();
-  
+
           // Clear highlighting state
           this.highlightedOptionIds.clear();
           this.showFeedback = false;
           this.showFeedbackForOption = {};
-  
+
           // Reset option bindings to clear visual state
           for (const b of this.optionBindings ?? []) {
             b.isSelected = false;
@@ -460,22 +460,22 @@ export class SharedOptionComponent
               b.option.showIcon = false;
             }
           }
-  
+
           // Update the internal tracker
           this.lastProcessedQuestionIndex = idx;
           // Also update currentQuestionIndex if it's stale
           if (this.currentQuestionIndex !== idx) {
             this.currentQuestionIndex = idx;
           }
-  
+
           this.cdRef.markForCheck();
         }
-  
+
         // Use opts (synced) instead of this.optionsToDisplay (may be stale)
         if (idx >= 0 && Array.isArray(opts) && opts.length > 0) {
           //  Use helper method that respects shuffle state
           const question = this.getQuestionAtDisplayIndex(idx);
-  
+
           if (question?.options) {
             const correctOptions = opts.filter(
               (o: Option) => o.correct === true
@@ -484,7 +484,7 @@ export class SharedOptionComponent
               `[SOC] Q${idx + 1} correctOptions from optionsToDisplay:`,
               correctOptions?.map((o) => o.optionId)
             );
-  
+
             const serviceDisplayOrders = question.options
               ?.map((o: Option) => o.displayOrder)
               .join(',');
@@ -495,24 +495,24 @@ export class SharedOptionComponent
               `[SOC] Service DisplayOrders: [${serviceDisplayOrders}] | 
                  Input DisplayOrders: [${inputDisplayOrders}]`
             );
-  
+
             const freshFeedback =
               this.feedbackService.generateFeedbackForOptions(
                 correctOptions,
                 opts
               );
-  
+
             this.feedbackConfigs = {};
-  
+
             for (const b of this.optionBindings ?? []) {
               if (!b.option) continue;
-  
+
               b.option.feedback = freshFeedback;
               b.feedback = freshFeedback;
-  
+
               const optId = b.option.optionId ?? -1;
               if (optId < 0) continue;
-  
+
               this.feedbackConfigs[optId] = {
                 feedback: freshFeedback,
                 showFeedback: b.showFeedback ?? false,
@@ -525,7 +525,7 @@ export class SharedOptionComponent
             }
           }
         }
-  
+
         this.cdRef.markForCheck();
       });
   }
@@ -614,12 +614,12 @@ export class SharedOptionComponent
         this.optionsToDisplay = JSON.parse(
           JSON.stringify(this.optionsToDisplay)
         );
-    
+
         // Publish the latest options snapshot for SOC reactive logic
         this.optionsToDisplay$.next(
           Array.isArray(this.optionsToDisplay) ? [...this.optionsToDisplay] : []
         );
-    
+
         // DO NOT clear optionBindings array (can cause blank options on first load)
         // Instead, clear visual state on existing bindings
         for (const b of this.optionBindings ?? []) {
@@ -634,26 +634,26 @@ export class SharedOptionComponent
             b.option.showIcon = false;
           }
         }
-    
+
         // Highlight directives are now handled in OptionItemComponent
 
-    
+
         this.highlightedOptionIds.clear();
         this.selectedOption = null;
         console.log(
           '[HARD RESET] optionsToDisplay deep-cloned and state cleared'
         );
-    
+
         // Help first paint with OnPush
         this.cdRef.markForCheck();
       } catch (error: any) {
         console.warn('[HARD RESET] deep clone failed', error);
-    
+
         // Still push something predictable so combineLatest doesn't stall
         this.optionsToDisplay$.next(
           Array.isArray(this.optionsToDisplay) ? [...this.optionsToDisplay] : []
         );
-    
+
         this.cdRef.markForCheck();
       }
     }
@@ -1136,7 +1136,7 @@ export class SharedOptionComponent
       // Only force reset when:
       // 1. The component's shouldResetBackground is true (explicit reset), OR
       // 2. We're on a different question AND there are no current selections (fresh navigation)
-      shouldResetBackground: 
+      shouldResetBackground:
         this.shouldResetBackground || (!isOnCorrectQuestion && currentSelections.length === 0),
       feedback: b.feedback ?? '',
       showFeedbackForOption: this.showFeedbackForOption,
@@ -1540,7 +1540,7 @@ export class SharedOptionComponent
     this.cdRef.detectChanges();
   }
 
-  
+
 
   private enforceSingleSelection(selectedBinding: OptionBindings): void {
     this.optionSelectionPolicyService.enforceSingleSelection({
@@ -1714,16 +1714,64 @@ export class SharedOptionComponent
 
     if (useLocalOptions && question) {
       console.log(
-        `[Using LOCAL OPTIONS for Q${questionIndex + 1} to ensure visual match]`
+        `[Using LOCAL OPTIONS for Q${questionIndex + 1} to ensure visual match, shuffleActive=${shuffleActive}]`
       );
 
-      const correctIndices = this.explanationTextService.getCorrectOptionIndices(
-        question,
-        this.optionsToDisplay,
-        questionIndex
-      );
+      let correctIndices: number[];
 
-      console.log(`[FET] Computed indices for Q${questionIndex + 1}: ${JSON.stringify(correctIndices)}`);
+      // SHUFFLE MODE DIRECT FIX: Use shuffledQuestions directly to find correct indices
+      // This bypasses any issues with the correct flag not being present on optionsToDisplay
+      if (shuffleActive) {
+        const shuffledQuestions = this.quizService.shuffledQuestions;
+        if (Array.isArray(shuffledQuestions) && shuffledQuestions.length > questionIndex) {
+          const shuffledQ = shuffledQuestions[questionIndex];
+          if (shuffledQ && Array.isArray(shuffledQ.options)) {
+            // Build a set of correct option texts from shuffledQuestions
+            const correctTexts = new Set<string>();
+            shuffledQ.options.forEach((o: any) => {
+              if (o.correct === true && o.text) {
+                correctTexts.add(o.text.trim().toLowerCase());
+              }
+            });
+
+            // Match against optionsToDisplay by text to find visual indices
+            correctIndices = this.optionsToDisplay
+              .map((option, idx) => {
+                if (!option || !option.text) return null;
+                if (correctTexts.has(option.text.trim().toLowerCase())) {
+                  return idx + 1; // 1-based index
+                }
+                return null;
+              })
+              .filter((n): n is number => n !== null);
+
+            console.log(`[FET SHUFFLE FIX] Q${questionIndex + 1} correctIndices from shuffledQuestions text match: ${JSON.stringify(correctIndices)}`);
+          } else {
+            // Fallback if shuffledQ is not available
+            correctIndices = this.explanationTextService.getCorrectOptionIndices(
+              question,
+              this.optionsToDisplay,
+              questionIndex
+            );
+          }
+        } else {
+          // Fallback if shuffledQuestions is not available
+          correctIndices = this.explanationTextService.getCorrectOptionIndices(
+            question,
+            this.optionsToDisplay,
+            questionIndex
+          );
+        }
+      } else {
+        // Not shuffled - use normal path
+        correctIndices = this.explanationTextService.getCorrectOptionIndices(
+          question,
+          this.optionsToDisplay,
+          questionIndex
+        );
+      }
+
+      console.log(`[FET] Final computed indices for Q${questionIndex + 1}: ${JSON.stringify(correctIndices)}`);
 
       const raw = (question.explanation || '').trim();
       const formatted = this.explanationTextService.formatExplanation(
@@ -2722,7 +2770,7 @@ export class SharedOptionComponent
 
       // Safely skip bindings with undefined IDs
       if (id === undefined) {
-      continue;
+        continue;
       }
 
       const chosen =
@@ -2753,9 +2801,9 @@ export class SharedOptionComponent
     this.cdRef.markForCheck();
   }
 
-isLocked(b: OptionBindings, i: number): boolean {
-  return this.optionLockService.isLocked(b, i, this.resolveCurrentQuestionIndex());
-}
+  isLocked(b: OptionBindings, i: number): boolean {
+    return this.optionLockService.isLocked(b, i, this.resolveCurrentQuestionIndex());
+  }
 
   // Single place to decide disabled
   public isDisabled(binding: OptionBindings, idx: number): boolean {
@@ -2801,7 +2849,7 @@ isLocked(b: OptionBindings, i: number): boolean {
     // Data readiness is the primary gate
     const hasBindings = (this.optionBindings?.length ?? 0) > 0;
     if (!hasBindings) return false;
-  
+
     // UI flags are secondary
     return this.canDisplayOptions && this.renderReady;
   }
