@@ -2741,7 +2741,8 @@ export class QuizQuestionComponent extends BaseQuestion
                     this.currentQuestionIndex,
                     fet,
                     this.currentQuestion,
-                    this.optionsToDisplay
+                    this.optionsToDisplay,
+                    true
                   );
                 }
                 this.explanationTextService.setExplanationText(fet);
