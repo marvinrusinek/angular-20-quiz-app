@@ -2704,16 +2704,16 @@ export class QuizQuestionComponent extends BaseQuestion
           displayOrder: index
         }));
 
-        // ONLY shuffle options if:
-        // 1. shuffleOptions is true (local flag), AND
-        // 2. QuizService shuffle is NOT enabled (options haven't been pre-shuffled)
-        // If QuizService shuffle is enabled, the options from shuffledQuestions are 
-        // already shuffled. Shuffling again would cause order mismatch and wrong FET option numbers!
-        const globalShuffleActive = this.quizService.isShuffleEnabled();
-        if (this.shuffleOptions && !globalShuffleActive) {
+        // Check for global shuffle data directly to avoid race conditions with Observables
+        // using shuffledQuestions.length is reliable because it's loaded synchronously from storage
+        const globalShuffleDataLen = this.quizService.shuffledQuestions?.length ?? 0;
+        const hasGlobalShuffleData = globalShuffleDataLen > 0;
+        console.log(`[QQC setQuestionOptions] Shuffle check: local=${this.shuffleOptions}, globalLen=${globalShuffleDataLen}`);
+
+        if (this.shuffleOptions && !hasGlobalShuffleData) {
           Utils.shuffleArray(this.currentOptions);
-        } else if (globalShuffleActive) {
-          console.log('[QQC setQuestionOptions] SKIPPING local shuffle - global shuffle already active');
+        } else if (hasGlobalShuffleData) {
+          console.log('[QQC setQuestionOptions] SKIPPING local shuffle - global shuffle data detected');
         }
 
         this.currentOptions = this.applyDisplayOrder(this.currentOptions);
