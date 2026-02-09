@@ -2413,6 +2413,33 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     }
   }
 
+  /**
+   * Helper to force-regenerate the FET for a specific question.
+   * Ensures the explanation text matches the currently shuffled option order.
+   */
+  private forceRegenerateExplanation(question: QuizQuestion, index: number): void {
+    if (question && question.options) {
+      const correctIndices = this.explanationTextService.getCorrectOptionIndices(
+        question,
+        question.options,
+        index
+      );
+      const formattedExplanation = this.explanationTextService.formatExplanation(
+        question,
+        correctIndices,
+        question.explanation
+      );
+      this.explanationTextService.storeFormattedExplanation(
+        index,
+        formattedExplanation,
+        question,
+        question.options,
+        true // FORCE update to override any locked FET
+      );
+      console.log(`[forceRegenerateExplanation] Updated FET for Q${index + 1}`);
+    }
+  }
+
   private resetFeedbackState(): void {
     this.showFeedback = false;
     this.showFeedbackForOption = {};
