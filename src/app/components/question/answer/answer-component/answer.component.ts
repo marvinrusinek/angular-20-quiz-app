@@ -140,7 +140,31 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
           return;
         }
 
-        this.incomingOptions = this.normalizeOptions(structuredClone(opts));
+        const freshOpts = this.normalizeOptions(structuredClone(opts));
+
+        // 🛡️ MERGE LOGIC: If we have existing visual options (e.g. from Parent Input),
+        // try to preserve their order (e.g. Shuffled) while updating their content (e.g. Feedback).
+        // This fixes Q1 Shuffled Visual Revert while allowing Q2 Unshuffled updates.
+        let mergedOptions: Option[] = [];
+
+        if (this.optionsToDisplay?.length > 0 && freshOpts.length === this.optionsToDisplay.length) {
+          const freshMap = new Map(freshOpts.map(o => [String(o.optionId), o]));
+          const allMatch = this.optionsToDisplay.every(o => freshMap.has(String(o.optionId)));
+
+          if (allMatch) {
+            console.log('[AC] 🔄 Merging fresh options data while preserving existing visual order');
+            mergedOptions = this.optionsToDisplay.map(current => {
+              const fresh = freshMap.get(String(current.optionId))!;
+              return { ...fresh, optionId: current.optionId };
+            });
+          } else {
+            mergedOptions = freshOpts;
+          }
+        } else {
+          mergedOptions = freshOpts;
+        }
+
+        this.incomingOptions = mergedOptions;
 
         //  Clear prior icons and bindings (clean slate)
         this.optionBindings = [];
