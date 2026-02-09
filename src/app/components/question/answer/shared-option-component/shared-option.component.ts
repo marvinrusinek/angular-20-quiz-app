@@ -1,4 +1,4 @@
-﻿﻿import {
+﻿import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef,
   Component, EventEmitter, HostListener, Input, NgZone, OnChanges, OnDestroy, OnInit,
   Output, QueryList, SimpleChanges, ViewChildren
@@ -1700,11 +1700,11 @@ export class SharedOptionComponent
     // Use helper method that respects shuffle state
     const question = this.getQuestionAtDisplayIndex(questionIndex);
 
-    const shuffleActive = this.quizService?.isShuffleEnabled();
+    const initialShuffleState = this.quizService?.isShuffleEnabled();
 
     if (useLocalOptions && question) {
       console.log(
-        `[Using LOCAL OPTIONS for Q${questionIndex + 1} to ensure visual match, shuffleActive=${shuffleActive}]`
+        `[Using LOCAL OPTIONS for Q${questionIndex + 1} to ensure visual match, shuffleActive=${initialShuffleState}]`
       );
 
       let correctIndices: number[];
@@ -3027,7 +3027,7 @@ export class SharedOptionComponent
 
     if (!binding?.option) return;
 
-    // ✅ Single source of truth: this MUST be the path that triggers:
+    // Single source of truth: this MUST be the path that triggers:
     // - sounds
     // - SelectedOptionService updates / answered state
     // - emits to parent
