@@ -778,6 +778,7 @@ export class ExplanationTextService {
     try {
       const quizSvc = this.injector.get(QuizService, null);
       if (quizSvc?.isShuffleEnabled()) {
+        // First, try direct correct flags
         const shuffleIndices = opts
           .map((option, idx) => {
             if (!option || typeof option !== 'object') return null;
@@ -791,7 +792,41 @@ export class ExplanationTextService {
           console.log(`[ETS.getCorrectOptionIndices] --- COMPLETE (SHUFFLE MODE - Direct Flags) --- Result: ${JSON.stringify(result)}`);
           return result;
         }
-        console.warn('[ETS] Shuffle mode: No correct flags found on options, falling through to other attempts...');
+
+        // FALLBACK for shuffle mode: If no correct flags, use shuffledQuestions to find correct answers
+        // and match by text
+        console.warn('[ETS] Shuffle mode: No correct flags found on options, trying shuffledQuestions text match...');
+        const shuffledQuestions = quizSvc.shuffledQuestions;
+        if (Array.isArray(shuffledQuestions) && shuffledQuestions.length > qIdx) {
+          const shuffledQ = shuffledQuestions[qIdx];
+          if (shuffledQ && Array.isArray(shuffledQ.options)) {
+            const correctTexts = new Set<string>();
+            shuffledQ.options.forEach((o: any) => {
+              if (o.correct === true && o.text) {
+                correctTexts.add(normalize(o.text));
+              }
+            });
+
+            if (correctTexts.size > 0) {
+              const matchedIndices = opts
+                .map((option, idx) => {
+                  if (!option || !option.text) return null;
+                  if (correctTexts.has(normalize(option.text))) {
+                    return idx + 1;
+                  }
+                  return null;
+                })
+                .filter((n): n is number => n !== null);
+
+              if (matchedIndices.length > 0) {
+                const result = Array.from(new Set(matchedIndices)).sort((a, b) => a - b);
+                console.log(`[ETS.getCorrectOptionIndices] --- COMPLETE (SHUFFLE MODE - Text Match) --- Result: ${JSON.stringify(result)}`);
+                return result;
+              }
+            }
+          }
+        }
+        console.warn('[ETS] Shuffle mode text match also failed, falling through to pristine lookup...');
       }
     } catch (e) {
       console.warn('[ETS] Shuffle mode check failed:', e);
