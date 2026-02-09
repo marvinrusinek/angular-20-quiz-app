@@ -1,4 +1,4 @@
-﻿import {
+﻿﻿import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef,
   Component, EventEmitter, HostListener, Input, NgZone, OnChanges, OnDestroy, OnInit,
   Output, QueryList, SimpleChanges, ViewChildren
@@ -1683,16 +1683,6 @@ export class SharedOptionComponent
     this.pendingExplanationIndex = -1;
   }
 
-  private deferHighlightUpdate(callback: () => void): void {
-    this.ngZone.runOutsideAngular(() => {
-      requestAnimationFrame(() => {
-        this.ngZone.run(() => {
-          callback();
-        });
-      });
-    });
-  }
-
   private resolveExplanationText(questionIndex: number): string {
     const activeIndex = this.getActiveQuestionIndex();
     const displayIndex =
@@ -1710,9 +1700,7 @@ export class SharedOptionComponent
     // Use helper method that respects shuffle state
     const question = this.getQuestionAtDisplayIndex(questionIndex);
 
-    // Check data directly to avoid race conditions
-    const hasGlobalShuffleData = this.quizService.shuffledQuestions && this.quizService.shuffledQuestions.length > 0;
-    const shuffleActive = this.quizService?.isShuffleEnabled() || hasGlobalShuffleData;
+    const shuffleActive = this.quizService?.isShuffleEnabled();
 
     if (useLocalOptions && question) {
       console.log(
@@ -1723,6 +1711,10 @@ export class SharedOptionComponent
 
       // SHUFFLE MODE DIRECT FIX: Use shuffledQuestions directly to find correct indices
       // This bypasses any issues with the correct flag not being present on optionsToDisplay
+      // Check data directly to avoid race conditions
+      const hasGlobalShuffleData = this.quizService.shuffledQuestions && this.quizService.shuffledQuestions.length > 0;
+      const shuffleActive = this.quizService?.isShuffleEnabled() || hasGlobalShuffleData;
+
       if (shuffleActive) {
         const shuffledQuestions = this.quizService.shuffledQuestions;
         if (Array.isArray(shuffledQuestions) && shuffledQuestions.length > questionIndex) {
