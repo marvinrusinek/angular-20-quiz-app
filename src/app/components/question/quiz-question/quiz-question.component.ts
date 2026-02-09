@@ -5703,7 +5703,9 @@ export class QuizQuestionComponent extends BaseQuestion
 
       // SHUFFLE MODE DIRECT FIX: Use shuffledQuestions to find correct indices
       let correctIndices: number[];
-      const shuffleActive = this.quizService.isShuffleEnabled();
+      // Check data directly to avoid race conditions
+      const hasGlobalShuffleData = this.quizService.shuffledQuestions && this.quizService.shuffledQuestions.length > 0;
+      const shuffleActive = this.quizService.isShuffleEnabled() || hasGlobalShuffleData;
 
       if (shuffleActive) {
         const shuffledQuestions = this.quizService.shuffledQuestions;
