@@ -1808,6 +1808,24 @@ export class QuizService {
     this.canonicalQuestionIndexByText.set(quizId, textIndex);
   }
 
+  /**
+   * Returns a PRISTINE version of the question from the canonical cache.
+   * This version has not been shuffled or mutated by user interactions.
+   * @param index The original (unshuffled) index of the question.
+   */
+  public getPristineQuestion(index: number): QuizQuestion | null {
+    const qId = this.quizId;
+    if (!qId) return null;
+    
+    const canonical = this.canonicalQuestionsByQuiz.get(qId);
+    if (!Array.isArray(canonical) || index < 0 || index >= canonical.length) {
+      return null;
+    }
+    
+    // Return a clone to be safe
+    return this.cloneQuestionForSession(canonical[index]);
+  }
+
   applySessionQuestions(quizId: string, questions: QuizQuestion[]): void {
     if (!quizId) {
       console.warn('[applySessionQuestions] quizId missing.');

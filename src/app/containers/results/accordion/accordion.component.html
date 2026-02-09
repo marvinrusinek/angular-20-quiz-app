@@ -20,7 +20,7 @@
           <span class="question-leader">Question #{{ i + 1 }}:</span>
           <span class="question-text">
             {{ question.questionText }}
-            @let correctCount = getCorrectOptionIndices(question).length;
+            @let correctCount = getCorrectOptionIndices(question, i).length;
             @if (correctCount > 1) {
               <span class="question-correct-count">({{ correctCount }} correct answers)</span>
             }
@@ -79,7 +79,7 @@
           <!-- CORRECT ANSWERS -->
           <li>
             <span class="leader">Correct Answer(s):</span>
-            @let correctIndices = getCorrectOptionIndices(question);
+            @let correctIndices = getCorrectOptionIndices(question, i);
             {{ formatOptionList(correctIndices) }}
 
             <!-- Append text for clarity -->
@@ -91,7 +91,7 @@
           <!-- EXPLANATION -->
           <li>
             <span class="leader">Explanation:</span>
-            @let correctIndicesExp = getCorrectOptionIndices(question);
+            @let correctIndicesExp = getCorrectOptionIndices(question, i);
             {{ formatOptionList(correctIndicesExp) }}
             {{ correctIndicesExp.length === 1 ? 'was' : 'were' }} correct because {{ question.explanation }}.
           </li>

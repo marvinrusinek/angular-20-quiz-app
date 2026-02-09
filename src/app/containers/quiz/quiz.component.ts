@@ -1778,7 +1778,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         const rawExplanation = (question.explanation ?? '').trim();
 
         // Get correct option indices for this question
-        const correctIndices = this.explanationTextService.getCorrectOptionIndices(question);
+        const correctIndices = this.explanationTextService.getCorrectOptionIndices(question, undefined, index);
 
         // Format the explanation with the prefix
         const formattedText = this.explanationTextService.formatExplanation(

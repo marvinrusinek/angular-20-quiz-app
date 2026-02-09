@@ -1717,23 +1717,13 @@ export class SharedOptionComponent
         `[Using LOCAL OPTIONS for Q${questionIndex + 1} to ensure visual match]`
       );
 
-      // FIX: FET and feedback option number synchronization (2026-02-03)
-      // CRITICAL: Use the SAME indices that FeedbackService computed to ensure
-      // perfect synchronization between feedback text and FET option numbers.
-      // FeedbackService computes indices when setCorrectMessage is called, which happens
-      // BEFORE emitExplanation. So getLastCorrectIndices() should have the correct values.
-      let correctIndices = this.feedbackService.getLastCorrectIndices();
-      
-      // Fallback: if FeedbackService hasn't computed indices yet, calculate locally
-      if (!correctIndices || correctIndices.length === 0) {
-        correctIndices = this.explanationTextService.getCorrectOptionIndices(
-          question,
-          this.optionsToDisplay
-        );
-        console.log(`[FET] Using locally computed indices: ${JSON.stringify(correctIndices)}`);
-      } else {
-        console.log(`[FET] Using FeedbackService indices for sync: ${JSON.stringify(correctIndices)}`);
-      }
+      const correctIndices = this.explanationTextService.getCorrectOptionIndices(
+        question,
+        this.optionsToDisplay,
+        questionIndex
+      );
+
+      console.log(`[FET] Computed indices for Q${questionIndex + 1}: ${JSON.stringify(correctIndices)}`);
 
       const raw = (question.explanation || '').trim();
       const formatted = this.explanationTextService.formatExplanation(
@@ -1761,16 +1751,13 @@ export class SharedOptionComponent
     );
 
     if (question) {
-      // Sync indices with visual options
-      const rawOpts =
-        this.optionsToDisplay?.length &&
-          questionIndex === this.currentQuestionIndex
-          ? this.optionsToDisplay
-          : (question.options || []);
-      const opts = rawOpts.filter(Boolean);
+      const opts = question.options || [];
+      const correctIndices = this.explanationTextService.getCorrectOptionIndices(
+        question,
+        opts,
+        questionIndex
+      );
 
-      const correctIndices =
-        this.explanationTextService.getCorrectOptionIndices(question, opts);
       const raw = (question.explanation || '').trim();
       const formatted = this.explanationTextService.formatExplanation(
         question,
@@ -1851,7 +1838,7 @@ export class SharedOptionComponent
         const opts = rawOpts.filter(Boolean);
 
         const correctIndices =
-          this.explanationTextService.getCorrectOptionIndices(question, opts);
+          this.explanationTextService.getCorrectOptionIndices(question, opts, questionIndex);
         const formattedExplanation =
           this.explanationTextService.formatExplanation(
             question,
@@ -2087,7 +2074,7 @@ export class SharedOptionComponent
 
     // Sync indices with visual options
     const validOptions = (this.optionsToDisplay || []).filter(isValidOption);
-    const correctMessage = this.feedbackService.setCorrectMessage(validOptions);
+    const correctMessage = this.feedbackService.setCorrectMessage(validOptions, this.currentQuestion!);
     const isCorrect = option.correct ?? false;
     const rawFeedback = option.feedback?.trim();
 
@@ -2345,7 +2332,7 @@ export class SharedOptionComponent
       question,
       selectedOption: option,
       correctMessage:
-        this.feedbackService.setCorrectMessage(this.optionsToDisplay) ??
+        this.feedbackService.setCorrectMessage(this.optionsToDisplay, this.currentQuestion!) ??
         'No correct message available',
       feedback: option.feedback ?? 'No feedback available',
       showFeedback,

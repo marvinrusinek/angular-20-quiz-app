@@ -2393,7 +2393,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
       // Generate feedback using the feedback service
       const feedbackText =
-        this.feedbackService.setCorrectMessage(this.optionsToDisplay);
+        this.feedbackService.setCorrectMessage(this.optionsToDisplay, this.currentQuestion!);
 
       // Emit the feedback text
       this.feedbackText = feedbackText || 'No feedback generated for the current question.';
@@ -2885,8 +2885,16 @@ export class QuizQuestionComponent extends BaseQuestion
 
       // Generate and emit FET synchronously using visual options (canonicalOpts)
       // This ensures fetByIndex is populated BEFORE CodelabQuizContent evaluates
+      // CRITICAL FIX: Use text-matching to avoid corrupted `correct` property in canonicalOpts
       const rawExplanation = q!.explanation || '';
-      const correctIndices = this.explanationTextService.getCorrectOptionIndices(q!, canonicalOpts);
+      
+      const correctIndices = this.explanationTextService.getCorrectOptionIndices(
+        q!,
+        canonicalOpts,
+        this.currentQuestionIndex
+      );
+      console.log(`[QQC] Computed FET indices for Q${this.currentQuestionIndex + 1}: ${JSON.stringify(correctIndices)}`);
+      
       const fet = this.explanationTextService.formatExplanation(q!, correctIndices, rawExplanation);
 
       if (fet) {
@@ -3347,7 +3355,15 @@ export class QuizQuestionComponent extends BaseQuestion
         return;
       }
 
-      const correctIdxs = ets.getCorrectOptionIndices(canonicalQ);
+      // CRITICAL FIX: Use text-matching to avoid corrupted `correct` property
+      // Get correct answer texts from canonicalQ.options
+      const visualOpts = this.optionsToDisplay?.length ? this.optionsToDisplay : (canonicalQ?.options || []);
+      const correctIdxs = ets.getCorrectOptionIndices(
+        canonicalQ!,
+        visualOpts,
+        this.currentQuestionIndex
+      );
+      console.log(`[QQC forceExplanation] Computed indices for Q${this.currentQuestionIndex + 1}: ${JSON.stringify(correctIdxs)}`);
 
       const formatted = ets
         .formatExplanation(canonicalQ, correctIdxs, canonicalRaw)
@@ -4618,7 +4634,8 @@ export class QuizQuestionComponent extends BaseQuestion
 
       // Feedback + messages
       this.correctMessage = this.feedbackService.setCorrectMessage(
-        this.optionsToDisplay
+        this.optionsToDisplay,
+        this.currentQuestion!
       );
     } catch (error: any) {
       console.error('[handleOptionProcessingAndFeedback] ❌ Error:', error);
@@ -5590,7 +5607,7 @@ export class QuizQuestionComponent extends BaseQuestion
     });
 
     // Set correct message
-    this.feedbackService.setCorrectMessage(this.optionsToDisplay);
+    this.feedbackService.setCorrectMessage(this.optionsToDisplay, this.currentQuestion!);
   }
 
   unselectOption(): void {
@@ -5672,11 +5689,14 @@ export class QuizQuestionComponent extends BaseQuestion
         console.log(`[DEBUG_FET] Opt[0]=${this.optionsToDisplay[0].text.substring(0, 10)}.. corr=${this.optionsToDisplay[0].correct}`);
       }
 
-      const correctIndices =
-        this.explanationTextService.getCorrectOptionIndices(
-          questionData,
-          useLocalOptions ? this.optionsToDisplay : undefined
-        );
+      const visualOpts = useLocalOptions ? this.optionsToDisplay : (questionData?.options || []);
+      const correctIndices = this.explanationTextService.getCorrectOptionIndices(
+        questionData!,
+        visualOpts,
+        questionIndex
+      );
+      console.log(`[prepareAndSetExplanation] Computed indices for Q${questionIndex + 1}: ${JSON.stringify(correctIndices)}`);
+
       const formattedExplanation =
         this.explanationTextService.formatExplanation(
           questionData,

@@ -12,7 +12,8 @@ import { Option } from '../../models/Option.model';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
 import { QuizService } from '../data/quiz.service';
 import { QuizStateService } from '../state/quizstate.service';
-import { isValidOption } from '../../utils/option-utils';
+import { QuizShuffleService } from '../flow/quiz-shuffle.service';
+
 
 export type FETPayload = { idx: number; text: string; token: number };
 
@@ -59,6 +60,8 @@ export class ExplanationTextService {
 
   // FET cache by index - reliable storage that won't be cleared by stream timing issues
   public fetByIndex = new Map<number, string>();
+  // Track which FET indices have been locked to prevent regeneration with wrong options
+  private lockedFetIndices = new Set<number>();
   explanationsInitialized = false;
   private explanationLocked = false;
   private lockedContext: string | null = null;
@@ -281,7 +284,7 @@ export class ExplanationTextService {
 
               if (questionData) {
                 // Use the question's options directly - they'll be in display order
-                const correctIndices = this.getCorrectOptionIndices(questionData, questionData.options);
+                const correctIndices = this.getCorrectOptionIndices(questionData, questionData.options, this._activeIndexValue!);
                 finalExplanation = this.formatExplanation(
                   questionData,
                   correctIndices,
@@ -580,7 +583,7 @@ export class ExplanationTextService {
       /^(?:option|options)\s+\d+(?:\s*,\s*\d+)*(?:\s+and\s+\d+)?\s+(?:is|are)\s+correct\s+because\s+/i;
 
     // Format explanation (only if not already formatted)
-    const correctOptionIndices = this.getCorrectOptionIndices(question);
+    const correctOptionIndices = this.getCorrectOptionIndices(question, undefined, questionIndex);
     const formattedExplanation = alreadyFormattedRe.test(rawExplanation)
       ? rawExplanation
       : this.formatExplanation(question, correctOptionIndices, rawExplanation);
@@ -629,6 +632,14 @@ export class ExplanationTextService {
       return;
     }
 
+    // CRITICAL FIX: Prevent regeneration with wrong options
+    // Once FET is correctly computed and stored, lock it to prevent
+    // subsequent calls (which may have corrupted options) from overwriting
+    if (this.lockedFetIndices.has(index)) {
+      console.log(`[ETS] 🔒 FET for Q${index + 1} is LOCKED - skipping regeneration`);
+      return;
+    }
+
     if (!explanation || explanation.trim() === '') {
       console.error(`Invalid explanation: "${explanation}"`);
       return;
@@ -647,7 +658,7 @@ export class ExplanationTextService {
       console.log(`[ETS] 🔄 Stripped existing format prefix to re-format with correct indices`);
     }
 
-    const correctOptionIndices = this.getCorrectOptionIndices(question, options);
+    const correctOptionIndices = this.getCorrectOptionIndices(question, options, index);
     const formattedExplanation = this.formatExplanation(
       question,
       correctOptionIndices,
@@ -659,6 +670,10 @@ export class ExplanationTextService {
       explanation: formattedExplanation
     };
     this.fetByIndex.set(index, formattedExplanation);  // sync helper map for component fallback
+
+    // LOCK this index to prevent future overwrites with wrong options
+    this.lockedFetIndices.add(index);
+    console.log(`[ETS] 🔒 Locked FET for Q${index + 1}: "${formattedExplanation.slice(0, 50)}..."`);
 
     this.storeFormattedExplanationForQuestion(
       question,
@@ -691,37 +706,125 @@ export class ExplanationTextService {
   }
 
 
+  /**
+   * Identifies 1-based indices of correct options within the provided `options` array.
+   * Priority:
+   * 1. Pristine question lookup from QuizService (best)
+   * 2. provided question.answer texts (very good)
+   * 3. provided options[].correct flags (fallback)
+   */
   getCorrectOptionIndices(
     question: QuizQuestion,
-    options?: Option[]
+    options?: Option[],
+    displayIndex?: number
   ): number[] {
-    // Visual Alignment: Sync with FeedbackService logic
-    // We must filter the options to match the visual "valid only" count.
-    const rawOpts = options || question?.options;
-    const opts = (rawOpts || []).filter(isValidOption);
+    const opts = options || question?.options || [];
 
+    const normalize = (s: any) => {
+      if (typeof s !== 'string') return '';
+      return s
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/\u00A0/g, ' ') // raw non-breaking space
+        .replace(/<[^>]*>/g, ' ') // strip HTML
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, ' '); // collapse spaces
+    };
+
+    const qText = question?.questionText?.slice(0, 50);
+    const qIdx = Number.isFinite(displayIndex) ? displayIndex : this.latestExplanationIndex;
+    
+    console.log(`[ETS.getCorrectOptionIndices] --- START --- Q: "${qText}...", DisplayIdx: ${qIdx}, Options: ${opts.length}`);
 
     if (!Array.isArray(opts) || opts.length === 0) {
-      console.warn('No options found for question:', question?.questionText);
+      console.warn('[ETS.getCorrectOptionIndices] No options found!');
       return [];
     }
 
-    const indices = opts
-      .map((option, idx) => {
-        // Skip invalid/null options visually, but preserve their index slot
-        // if they take up space? No, usually isValidOption checks if it's a real option.
-        // But if the UI displays it, we count it.
-        if (!option || !option.correct) return null;
+    // ATTEMPT 1: Get PRISTINE correct texts/IDs from QuizService
+    let correctTexts = new Set<string>();
+    let correctIds = new Set<string | number>();
+    
+    try {
+      const quizSvc = this.injector.get(QuizService);
+      const shuffleSvc = this.injector.get(QuizShuffleService);
+      
+      if (typeof qIdx === 'number' && quizSvc.quizId) {
+        const origIdx = shuffleSvc.toOriginalIndex(quizSvc.quizId, qIdx);
+        if (origIdx !== null) {
+          const pristine = quizSvc.getPristineQuestion(origIdx);
+          if (pristine && Array.isArray(pristine.answer) && pristine.answer.length > 0) {
+            pristine.answer.forEach(a => {
+              if (a) {
+                if (a.text) correctTexts.add(normalize(a.text));
+                if (a.optionId !== undefined) correctIds.add(a.optionId);
+              }
+            });
+            console.log(`[ETS] ✅ Attempt 1 (PRISTINE) SUCCESS for Q${qIdx + 1}. IDs:`, [...correctIds], `Texts:`, [...correctTexts]);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[ETS] ❌ Attempt 1 failed:', e);
+    }
 
-        // Use the array index directly.
-        // This assumes 'opts' aligns 1:1 with the rendered list.
-        return idx + 1;  // 1-based for "Option N"
+    // ATTEMPT 2: Use provided question.answer
+    if (correctTexts.size === 0 && correctIds.size === 0) {
+      const answers = question?.answer || [];
+      if (Array.isArray(answers) && answers.length > 0) {
+        answers.forEach(a => {
+          if (a) {
+            if (a.text) correctTexts.add(normalize(a.text));
+            if (a.optionId !== undefined) correctIds.add(a.optionId);
+          }
+        });
+        console.log(`[ETS] ✅ Attempt 2 (question.answer) SUCCESS. IDs:`, [...correctIds], `Texts:`, [...correctTexts]);
+      }
+    }
+
+    if (correctTexts.size > 0 || correctIds.size > 0) {
+      const indices = opts
+        .map((option, idx) => {
+          if (!option) return null;
+          
+          // Match by ID if both have it
+          if (option.optionId !== undefined && correctIds.has(option.optionId)) {
+             console.log(`[ETS]   ID Match: ID=${option.optionId} -> Option ${idx + 1}`);
+             return idx + 1;
+          }
+          
+          // Fallback to text matching
+          const normalizedInput = normalize(option.text);
+          if (correctTexts.has(normalizedInput)) {
+            console.log(`[ETS]   Text Match: "${option.text.slice(0, 20)}" -> Option ${idx + 1}`);
+            return idx + 1;
+          }
+          return null;
+        })
+        .filter((n): n is number => n !== null);
+
+      if (indices.length > 0) {
+        const result = Array.from(new Set(indices)).sort((a, b) => a - b);
+        console.log(`[ETS.getCorrectOptionIndices] --- COMPLETE (TextMatch) --- Result: ${JSON.stringify(result)}`);
+        return result;
+      } else {
+        console.warn(`[ETS] ⚠️ Text matching failed to find any matches! Expected:`, [...correctTexts], `Available:`, opts.map(o => normalize(o.text)));
+      }
+    }
+
+    // FALLBACK: Use the correct property directly (may be unreliable if mutated)
+    console.log(`[ETS.getCorrectOptionIndices] Attempting Fallback (correct property)...`);
+    const fallbackIndices = opts
+      .map((option, idx) => {
+        if (!option || typeof option !== 'object') return null;
+        if (!option.correct) return null;
+        return idx + 1;
       })
       .filter((n): n is number => n !== null);
 
-
-    // Dedupe + sort for a stable, readable string
-    return Array.from(new Set(indices)).sort((a, b) => a - b);
+    const finalResult = Array.from(new Set(fallbackIndices)).sort((a, b) => a - b);
+    console.log(`[ETS.getCorrectOptionIndices] --- COMPLETE (Fallback) --- Result: ${JSON.stringify(finalResult)}`);
+    return finalResult;
   }
 
   formatExplanation(
@@ -729,39 +832,35 @@ export class ExplanationTextService {
     correctOptionIndices: number[] | null | undefined,
     explanation: string
   ): string {
-    // Idempotency: if already in "Option(s) ... correct because ..." form, return as-is.
     const alreadyFormattedRe =
       /^(?:option|options)\s+\d+(?:\s*,\s*\d+)*(?:\s+and\s+\d+)?\s+(?:is|are)\s+correct\s+because\s+/i;
 
-    const e = (explanation ?? '').trim();
+    let e = (explanation ?? '').trim();
     if (!e) return '';
 
+    // If it's already formatted, strip the prefix so we can re-format with potentially better indices
     if (alreadyFormattedRe.test(e)) {
-      // Already formatted elsewhere; do not re-wrap (prevents "Option 1 is correct because Option 1 is correct because...")
-      return e;
+      const parts = e.split(/ because /i);
+      if (parts.length > 1) {
+        e = parts.slice(1).join(' because ').trim();
+        console.log(`[ETS] 🔄 Stripped existing prefix to re-format with new indices. Raw: "${e.slice(0, 30)}..."`);
+      }
     }
 
-    // Normalize incoming indices (might be null/undefined/empty on timeout)
+    // Normalize incoming indices
     let indices: number[] = Array.isArray(correctOptionIndices)
       ? correctOptionIndices.slice()
       : [];
 
-    // Fallback: derive from the question’s own option flags (use 1-based for display to match typical copy)
+    // Fallback: derive from the question’s own option flags
     if (indices.length === 0 && Array.isArray(question?.options)) {
-      indices = question.options
-        .map((opt, i) => {
-          if (!opt?.correct) {
-            return -1;
-          }
-          // Use array index directly - this is the visual position
-          // CRITICAL: Match FeedbackService.setCorrectMessage which uses array position
-          return i + 1;  // 1-based for "Option N"
-        })
-        .filter((n) => n > 0);
+      indices = this.getCorrectOptionIndices(question);
     }
 
     // Stabilize: dedupe + sort so multi-answer phrasing is consistent
     indices = Array.from(new Set(indices)).sort((a, b) => a - b);
+
+    console.log(`🔴🔴🔴 [formatExplanation] FINAL indices: ${JSON.stringify(indices)} for Q: "${question?.questionText?.slice(0, 40)}..."`);
 
     // Multi-answerW
     if (indices.length > 1) {
@@ -772,13 +871,17 @@ export class ExplanationTextService {
           ? `${indices.slice(0, -1).join(', ')} and ${indices.slice(-1)}`
           : indices.join(' and ');
 
-      return `Options ${optionsText} are correct because ${e}`;
+      const result = `Options ${optionsText} are correct because ${e}`;
+      console.log(`🔴🔴🔴 [formatExplanation] RESULT: "${result.slice(0, 60)}..."`);
+      return result;
     }
 
     // Single-answer
     if (indices.length === 1) {
       question.type = QuestionType.SingleAnswer;
-      return `Option ${indices[0]} is correct because ${e}`;
+      const result = `Option ${indices[0]} is correct because ${e}`;
+      console.log(`🔴🔴🔴 [formatExplanation] RESULT: "${result.slice(0, 60)}..."`);
+      return result;
     }
 
     // Zero derived indices → just return the explanation (no scolding)
@@ -1048,6 +1151,7 @@ export class ExplanationTextService {
     this.clearExplanationCaches();
 
     this.fetByIndex.clear();
+    this.lockedFetIndices.clear();  // Also clear locks when resetting
     this._byIndex.clear();
     this._gate.clear();
     this._gatesByIndex.clear();

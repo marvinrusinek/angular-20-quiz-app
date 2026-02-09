@@ -5,7 +5,7 @@ import { QuizQuestion } from '../../models/QuizQuestion.model';
 import { SelectedOption } from '../../models/SelectedOption.model';
 import { SelectedOptionService } from '../state/selectedoption.service';
 import { ExplanationTextService } from './explanation-text.service';
-import { isValidOption } from '../../utils/option-utils';
+
 
 @Injectable({ providedIn: 'root' })
 export class FeedbackService {
@@ -29,10 +29,11 @@ export class FeedbackService {
     correctOptions: Option[],
     optionsToDisplay: Option[]
   ): string {
-    const validCorrectOptions = (correctOptions || []).filter(isValidOption);
-    const validOptionsToDisplay = (optionsToDisplay || []).filter(
-      isValidOption
-    );
+    // CRITICAL: Do NOT use isValidOption filter here!
+    // isValidOption requires 'correct' in option, but raw JSON options don't have it for incorrect answers.
+    // Filtering shifts the array indices, causing wrong option numbers in feedback text.
+    const validCorrectOptions = (correctOptions || []).filter(opt => opt && typeof opt === 'object');
+    const validOptionsToDisplay = (optionsToDisplay || []).filter(opt => opt && typeof opt === 'object');
 
     if (validCorrectOptions.length === 0) {
       console.warn(
@@ -83,7 +84,7 @@ export class FeedbackService {
     // Single-answer
     if (status.correctTotal <= 1) {
       if (status.resolved) {
-        return this.setCorrectMessage(question.options);
+        return this.setCorrectMessage(question.options, question);
       }
 
       return 'Your selection is incorrect, try again!';
@@ -92,7 +93,7 @@ export class FeedbackService {
     // Multi-answer
     if (status.resolved) {
       // Reveal correct options ONLY when fully resolved
-      const reveal = this.setCorrectMessage(question.options);
+      const reveal = this.setCorrectMessage(question.options, question);
       return reveal || 'Correct. You found all the right answers.';
     }
 
@@ -113,7 +114,10 @@ export class FeedbackService {
   return '';
   }
 
-  public setCorrectMessage(optionsToDisplay?: Option[]): string {
+  public setCorrectMessage(
+    optionsToDisplay?: Option[],
+    question?: QuizQuestion
+  ): string {
     // Store the last known options
     if (optionsToDisplay && optionsToDisplay.length > 0) {
       this.lastKnownOptions = [...optionsToDisplay];
@@ -124,24 +128,18 @@ export class FeedbackService {
       return 'Feedback unavailable.';
     }
 
-    // Use array INDEX for visual position, NOT displayOrder.
-    // The UI renders options based on their position in optionsToDisplay array.
-    // "Option 1" is optionsToDisplay[0], "Option 2" is optionsToDisplay[1], etc.
-    // displayOrder may be stale or from a different source, so we use idx directly.
-
-    const indices = optionsToDisplay
-      .map((option, idx) => {
-        if (!option.correct) return null;
-
-        // Use array index directly - this is the visual position in the UI
-        const visualPosition = idx + 1;  // 1-based for "Option N"
-
-        return visualPosition;
-      })
-      .filter((n): n is number => n !== null);
+    // Use the robust logic from ExplanationTextService to find correct indices.
+    // This avoids relying on the potentially corrupted 'correct' property in optionsToDisplay.
+    const indices = this.explanationTextService.getCorrectOptionIndices(
+      question!,
+      optionsToDisplay
+    );
 
     // Dedupe + sort for stable, readable "Options 1 and 2" strings (matches FET)
     const deduped = Array.from(new Set(indices)).sort((a, b) => a - b);
+    
+    console.log(`[FeedbackService.setCorrectMessage] Computed indices: ${JSON.stringify(deduped)}`);
+    
     if (deduped.length === 0) {
       console.warn(`[FeedbackService] ❌ No matching correct options found.`);
       return 'No correct options found for this question.';

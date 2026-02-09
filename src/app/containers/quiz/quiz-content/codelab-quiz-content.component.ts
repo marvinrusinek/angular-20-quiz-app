@@ -335,25 +335,23 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         filter(qs => Array.isArray(qs) && qs.length > 0)
       )
       .subscribe((questions) => {
-        console.log('[CQCC] ♻️ Questions updated - Regenerating FETs for synchronization...');
+        console.log('[CQCC] ♻️ Questions updated - FET will be generated on-demand when user clicks');
         
-        // Sync FET Cache with Shuffled Order
-        // If shuffling is active, we must store FETs based on the SHUFFLED questions array.
-        // Otherwise, fetByIndex[2] holds Unshuffled-Q3's FET, but we display Shuffled-Q2 (Orig-Q5).
-        const isShuffled = this.quizService.isShuffleEnabled();
-        const questionsToUse = isShuffled && this.quizService.shuffledQuestions && this.quizService.shuffledQuestions.length > 0
-          ? this.quizService.shuffledQuestions
-          : questions;
-
-        if (!Array.isArray(questionsToUse)) return;
-
-        // Pre-generate FETs for all questions. Note: These may be regenerated
-        // on click with more accurate indices from the visual options array.
-        questionsToUse.forEach((q, idx) => {
-          if (q && q.explanation) {
-            this.explanationTextService.storeFormattedExplanation(idx, q.explanation, q, q.options);
-          }
-        });
+        // DISABLED: Pre-generation was using q.options which may not match the visual optionsToDisplay
+        // This caused wrong option numbers (e.g., "Option 3" when it should be "Option 1")
+        // FET is now generated on-demand in SharedOptionComponent.resolveExplanationText()
+        // with the correct optionsToDisplay that matches what the user sees.
+        //
+        // const isShuffled = this.quizService.isShuffleEnabled();
+        // const questionsToUse = isShuffled && this.quizService.shuffledQuestions && this.quizService.shuffledQuestions.length > 0
+        //   ? this.quizService.shuffledQuestions
+        //   : questions;
+        // if (!Array.isArray(questionsToUse)) return;
+        // questionsToUse.forEach((q, idx) => {
+        //   if (q && q.explanation) {
+        //     this.explanationTextService.storeFormattedExplanation(idx, q.explanation, q, q.options);
+        //   }
+        // });
       });
 
     this.timerService.expired$
