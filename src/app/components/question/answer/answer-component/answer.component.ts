@@ -130,31 +130,27 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
       });
 
     // Displays the unique options to the UI
-    if (!this.optionsToDisplay?.length) {
-      this.quizQuestionLoaderService.optionsStream$
-        .pipe(takeUntil(this.destroy$))
-        .subscribe((opts: Option[]) => {
-          // ⚡ FIX: Skip empty arrays to prevent BehaviorSubject initial emission
-          // from clearing valid options that may have arrived via @Input
-          if (!opts?.length) {
-            console.log('[AC] ⏭️ Skipping empty optionsStream$ emission');
-            return;
-          }
+    this.quizQuestionLoaderService.optionsStream$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((opts: Option[]) => {
+        // ⚡ FIX: Skip empty arrays to prevent BehaviorSubject initial emission
+        // from clearing valid options that may have arrived via @Input
+        if (!opts?.length) {
+          console.log('[AC] ⏭️ Skipping empty optionsStream$ emission');
+          return;
+        }
 
-          this.incomingOptions = this.normalizeOptions(structuredClone(opts));
+        this.incomingOptions = this.normalizeOptions(structuredClone(opts));
 
-          //  Clear prior icons and bindings (clean slate)
-          this.optionBindings = [];
-          this.renderReady = false;
+        //  Clear prior icons and bindings (clean slate)
+        this.optionBindings = [];
+        this.renderReady = false;
 
-          // Apply options synchronously (removed Promise.resolve to fix StackBlitz timing)
-          this.applyIncomingOptions(this.incomingOptions, {
-            resetSelection: false
-          });
+        // Apply options synchronously (removed Promise.resolve to fix StackBlitz timing)
+        this.applyIncomingOptions(this.incomingOptions, {
+          resetSelection: false
         });
-    } else {
-      console.log('[AC] 🛡️ Options provided via Input - ignoring global optionsStream$ to prevent Canonical override');
-    }
+      });
   }
 
   override async ngOnChanges(changes: SimpleChanges): Promise<void> {
