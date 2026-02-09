@@ -1721,6 +1721,10 @@ export class SharedOptionComponent
 
       // SHUFFLE MODE DIRECT FIX: Use shuffledQuestions directly to find correct indices
       // This bypasses any issues with the correct flag not being present on optionsToDisplay
+      // Check data directly to avoid race conditions
+      const hasGlobalShuffleData = this.quizService.shuffledQuestions && this.quizService.shuffledQuestions.length > 0;
+      const shuffleActive = this.quizService?.isShuffleEnabled() || hasGlobalShuffleData;
+
       if (shuffleActive) {
         const shuffledQuestions = this.quizService.shuffledQuestions;
         if (Array.isArray(shuffledQuestions) && shuffledQuestions.length > questionIndex) {
