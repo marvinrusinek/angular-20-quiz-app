@@ -1616,7 +1616,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   resolveQuizData(): void {
     this.activatedRoute.data
       .pipe(takeUntil(this.unsubscribe$))
-      .subscribe((data: any) => {
+      .subscribe(async (data: any) => {
         const quizData = data['quizData'];
 
         if (quizData && Array.isArray(quizData.questions) &&
@@ -1624,11 +1624,32 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           this.selectedQuiz = quizData;
 
           this.quizService.setSelectedQuiz(quizData);
-          this.explanationTextService.initializeExplanationTexts(
-            quizData.questions.map((q: QuizQuestion) => q.explanation)
-          );
 
-          void this.initializeQuiz();
+          // CRITICAL FIX: For shuffled quizzes, defer FET initialization until AFTER
+          // the shuffle is applied in initializeQuiz(). This ensures FET indices
+          // match the shuffled question order, not the original order.
+          const isShuffled = this.quizService.isShuffleEnabled();
+
+          if (!isShuffled) {
+            // Unshuffled: Initialize FET immediately with original order
+            this.explanationTextService.initializeExplanationTexts(
+              quizData.questions.map((q: QuizQuestion) => q.explanation)
+            );
+          }
+
+          await this.initializeQuiz();
+
+          if (isShuffled) {
+            // Shuffled: Initialize FET AFTER shuffle is applied
+            // Use the shuffled questions array which is now ready
+            const shuffledQuestions = this.quizService.questions ?? [];
+            if (shuffledQuestions.length > 0) {
+              this.explanationTextService.initializeExplanationTexts(
+                shuffledQuestions.map((q: QuizQuestion) => q.explanation)
+              );
+              console.log('[resolveQuizData] FET initialized with SHUFFLED question order');
+            }
+          }
         } else {
           console.error('Quiz data is undefined, or there are no questions');
           this.router.navigate(['/select']).then(() => {
