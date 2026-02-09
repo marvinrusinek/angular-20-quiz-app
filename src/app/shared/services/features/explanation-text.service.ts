@@ -651,19 +651,29 @@ export class ExplanationTextService {
     const alreadyFormattedRe =
       /^(?:option|options)\s+\d+(?:\s*,\s*\d+)*(?:\s+and\s+\d+)?\s+(?:is|are)\s+correct\s+because\s+/i;
 
-    let rawExplanation = explanation.trim();
-    if (alreadyFormattedRe.test(rawExplanation)) {
-      // Extract the raw explanation after the prefix
-      rawExplanation = rawExplanation.replace(alreadyFormattedRe, '').trim();
-      console.log(`[ETS] 🔄 Stripped existing format prefix to re-format with correct indices`);
-    }
+    let formattedExplanation: string;
 
-    const correctOptionIndices = this.getCorrectOptionIndices(question, options, index);
-    const formattedExplanation = this.formatExplanation(
-      question,
-      correctOptionIndices,
-      rawExplanation
-    );
+    // When force=true and the explanation is already formatted, use it directly.
+    // The caller (forceRegenerateExplanation) has already calculated correct indices.
+    // This prevents double-calculation with potentially different/wrong options.
+    if (force && alreadyFormattedRe.test(explanation.trim())) {
+      formattedExplanation = explanation.trim();
+      console.log(`[ETS] ⚡ Force mode: Using pre-formatted explanation directly`);
+    } else {
+      // Normal path: Strip prefix and recalculate
+      let rawExplanation = explanation.trim();
+      if (alreadyFormattedRe.test(rawExplanation)) {
+        rawExplanation = rawExplanation.replace(alreadyFormattedRe, '').trim();
+        console.log(`[ETS] 🔄 Stripped existing format prefix to re-format with correct indices`);
+      }
+
+      const correctOptionIndices = this.getCorrectOptionIndices(question, options, index);
+      formattedExplanation = this.formatExplanation(
+        question,
+        correctOptionIndices,
+        rawExplanation
+      );
+    }
 
     this.formattedExplanations[index] = {
       questionIndex: index,
