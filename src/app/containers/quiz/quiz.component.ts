@@ -1715,7 +1715,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.quizAlreadyInitialized = true;
 
     // Initialize quiz session, dependencies, and routing
-    void this.prepareQuizSession();
+    // CRITICAL: Await prepareQuizSession to ensure shuffle state is ready before loading Q1
+    await this.prepareQuizSession();
     this.initializeQuizDependencies();
     this.initializeQuizBasedOnRouteParams();
 
@@ -1723,7 +1724,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     const initialIndex = 0;
     this.quizService.setCurrentQuestionIndex(initialIndex);
 
-    // Load the first question
+    // Load the first question (now shuffle is guaranteed to be ready)
     const firstQuestion: QuizQuestion | null = await firstValueFrom(
       this.quizService.getQuestionByIndex(initialIndex)
     );
