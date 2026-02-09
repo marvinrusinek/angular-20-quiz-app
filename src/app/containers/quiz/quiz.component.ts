@@ -3740,11 +3740,26 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
       if (this.isAnswered) {
         // Already answered: restore explanation state and stop timer
-        explanationText =
-          fetchedQuestion.explanation?.trim() || 'No explanation available';
-        this.explanationTextService.setExplanationTextForQuestionIndex(
+        // CRITICAL FIX: Use properly formatted explanation with correct option indices
+        // instead of raw explanation. This ensures FET option numbers match visual positions.
+        const correctIndices = this.explanationTextService.getCorrectOptionIndices(
+          fetchedQuestion,
+          finalOptions,  // Use the hydrated options which have correct flags
+          questionIndex
+        );
+        const rawExplanation = fetchedQuestion.explanation?.trim() || 'No explanation available';
+        explanationText = this.explanationTextService.formatExplanation(
+          fetchedQuestion,
+          correctIndices,
+          rawExplanation
+        );
+
+        this.explanationTextService.storeFormattedExplanation(
           questionIndex,
-          explanationText
+          explanationText,
+          fetchedQuestion,
+          finalOptions,
+          true  // Force update
         );
         this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
         this.timerService.isTimerRunning = false;
