@@ -2441,16 +2441,30 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
    */
   private forceRegenerateExplanation(question: QuizQuestion, index: number): void {
     if (question && question.options) {
+      // DEBUG: Log the options to see their correct flags
+      console.log(`[forceRegenerateExplanation] Q${index + 1} options:`,
+        question.options.map((o, i) => ({
+          idx: i + 1,
+          text: o.text?.substring(0, 20),
+          correct: o.correct,
+          optionId: o.optionId
+        }))
+      );
+
       const correctIndices = this.explanationTextService.getCorrectOptionIndices(
         question,
         question.options,
         index
       );
+      console.log(`[forceRegenerateExplanation] Q${index + 1} correctIndices:`, correctIndices);
+
       const formattedExplanation = this.explanationTextService.formatExplanation(
         question,
         correctIndices,
         question.explanation
       );
+      console.log(`[forceRegenerateExplanation] Q${index + 1} formattedExplanation:`, formattedExplanation?.substring(0, 80));
+
       this.explanationTextService.storeFormattedExplanation(
         index,
         formattedExplanation,
@@ -2459,6 +2473,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         true // FORCE update to override any locked FET
       );
       console.log(`[forceRegenerateExplanation] Updated FET for Q${index + 1}`);
+    } else {
+      console.warn(`[forceRegenerateExplanation] Q${index + 1} has no options!`);
     }
   }
 
