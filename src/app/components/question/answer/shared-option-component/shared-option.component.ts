@@ -1683,16 +1683,6 @@ export class SharedOptionComponent
     this.pendingExplanationIndex = -1;
   }
 
-  private deferHighlightUpdate(callback: () => void): void {
-    this.ngZone.runOutsideAngular(() => {
-      requestAnimationFrame(() => {
-        this.ngZone.run(() => {
-          callback();
-        });
-      });
-    });
-  }
-
   private resolveExplanationText(questionIndex: number): string {
     const activeIndex = this.getActiveQuestionIndex();
     const displayIndex =
