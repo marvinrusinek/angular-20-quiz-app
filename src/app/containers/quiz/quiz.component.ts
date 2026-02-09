@@ -1802,8 +1802,17 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       hydratedQuestions.map((question, index) => {
         const rawExplanation = (question.explanation ?? '').trim();
 
+        // DIAGNOSTIC LOGGING - understand what's happening during FET pre-generation
+        console.log(`\n=== FET PRE-GEN Q${index + 1} ===`);
+        console.log(`  Question: "${question.questionText?.slice(0, 50)}..."`);
+        console.log(`  Options:`);
+        question.options?.forEach((opt, i) => {
+          console.log(`    [${i}] "${opt.text?.slice(0, 30)}..." correct=${opt.correct}`);
+        });
+
         // Get correct option indices for this question
         const correctIndices = this.explanationTextService.getCorrectOptionIndices(question, undefined, index);
+        console.log(`  Calculated correctIndices: ${JSON.stringify(correctIndices)}`);
 
         // Format the explanation with the prefix
         const formattedText = this.explanationTextService.formatExplanation(
@@ -1811,6 +1820,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           correctIndices,
           rawExplanation
         );
+        console.log(`  Formatted FET: "${formattedText?.slice(0, 60)}..."`);
+        console.log(`=== END Q${index + 1} ===\n`);
 
         return { questionIndex: index, explanation: formattedText };
       });
