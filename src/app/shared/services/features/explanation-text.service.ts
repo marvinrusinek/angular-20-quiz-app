@@ -122,11 +122,20 @@ export class ExplanationTextService {
     this._instanceId = `ETS-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     console.log(`[${this._instanceId}] ExplanationTextService initialized`);
 
+    // Listen for quiz resets (session changes/restarts)
+    try {
+      const quizSvc = this.injector.get(QuizService, null);
+      if (quizSvc) {
+        quizSvc.quizReset$.subscribe(() => {
+          console.log(`[ETS] 🔄 Quiz RESET detected - clearing all FET state and locks.`);
+          this.resetExplanationState();
+        });
+      }
+    } catch (e) {
+      console.warn('[ETS] Could not subscribe to quizReset$:', e);
+    }
+
     // Always clear stale FET payloads when switching to a new question index.
-    // Without this, the previous question's formatted explanation (e.g., Q1)
-    // can remain in the global subject and be rendered for later questions
-    // such as Q4 before their own FET is ready.
-    // NOTE: skip(1) prevents the initial BehaviorSubject emission from clearing state during init.
     this.activeIndex$.pipe(
       distinctUntilChanged()
     ).subscribe((idx: number) => {
@@ -136,7 +145,7 @@ export class ExplanationTextService {
         return;
       }
       this.latestExplanation = '';
-      this.latestExplanationIndex = idx;  // set to new index instead of null
+      this.latestExplanationIndex = idx;
       this.formattedExplanationSubject.next('');
       this.setShouldDisplayExplanation(false, { force: true });
       this.setIsExplanationTextDisplayed(false, { force: true });
@@ -731,6 +740,11 @@ export class ExplanationTextService {
       if (typeof s !== 'string') return '';
       return s
         .replace(/&nbsp;/gi, ' ')
+        .replace(/&quot;/gi, '"')
+        .replace(/&apos;/gi, "'")
+        .replace(/&lt;/gi, '<')
+        .replace(/&gt;/gi, '>')
+        .replace(/&amp;/gi, '&')
         .replace(/\u00A0/g, ' ') // raw non-breaking space
         .replace(/<[^>]*>/g, ' ') // strip HTML
         .trim()
@@ -740,7 +754,7 @@ export class ExplanationTextService {
 
     const qText = question?.questionText?.slice(0, 50);
     let qIdx = Number.isFinite(displayIndex) ? (displayIndex as number) : this.latestExplanationIndex;
-    
+
     // Final fallback for qIdx: check QuizService
     if (qIdx === null || qIdx === -1 || qIdx === undefined) {
       try {
@@ -753,7 +767,7 @@ export class ExplanationTextService {
         // ignore
       }
     }
-    
+
     console.log(`[ETS.getCorrectOptionIndices] --- START --- Q: "${qText}...", DisplayIdx: ${qIdx}, Options: ${opts.length}`);
 
     if (!Array.isArray(opts) || opts.length === 0) {
@@ -761,14 +775,41 @@ export class ExplanationTextService {
       return [];
     }
 
+    // SHUFFLE MODE FIX: For shuffled quizzes, prioritize the options' own `correct` flags.
+    // The shuffled options already have reliable `correct` flags set by QuizShuffleService.
+    try {
+      const quizSvc = this.injector.get(QuizService, null);
+      if (quizSvc?.isShuffleEnabled()) {
+        if (qIdx === 0) {
+          console.log(`[ETS] [Q1 SHUFFLE DEBUG] Verifying Q1 shuffle state. shuffledQuestions length: ${quizSvc.shuffledQuestions?.length}`);
+        }
+
+        const shuffleIndices = opts
+          .map((option, idx) => {
+            if (!option || typeof option !== 'object') return null;
+            if (!option.correct) return null;
+            return idx + 1;
+          })
+          .filter((n): n is number => n !== null);
+
+        if (shuffleIndices.length > 0) {
+          const result = Array.from(new Set(shuffleIndices)).sort((a, b) => a - b);
+          console.log(`[ETS.getCorrectOptionIndices] --- COMPLETE (SHUFFLE MODE - Direct Flags) --- Result: ${JSON.stringify(result)}`);
+          return result;
+        }
+      }
+    } catch (e) {
+      console.warn('[ETS] Shuffle mode check failed:', e);
+    }
+
     // ATTEMPT 1: Get PRISTINE correct texts/IDs from QuizService
     let correctTexts = new Set<string>();
     let correctIds = new Set<string | number>();
-    
+
     try {
       const quizSvc = this.injector.get(QuizService, null);
       const shuffleSvc = this.injector.get(QuizShuffleService, null);
-      
+
       if (quizSvc && shuffleSvc && typeof qIdx === 'number' && quizSvc.quizId) {
         let origIdx = shuffleSvc.toOriginalIndex(quizSvc.quizId, qIdx);
         

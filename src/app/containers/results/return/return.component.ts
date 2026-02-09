@@ -28,7 +28,7 @@ export class ReturnComponent implements OnInit {
     private explanationTextService: ExplanationTextService,
     private timerService: TimerService,
     private router: Router
-  ) {}
+  ) { }
 
   ngOnInit(): void {
     this.quizId = this.quizService.quizId;
@@ -39,21 +39,26 @@ export class ReturnComponent implements OnInit {
       this.quizId = this.quizService.quizId;
     }
 
+    // CRITICAL: Reset score FIRST before anything else
+    this.quizService.resetScore();
+    localStorage.removeItem('correctAnswersCount');
+    localStorage.removeItem('questionCorrectness');
+
     // Clear “results snapshot”
     this.quizService.clearFinalResult();
-  
+
     // Clear session state (answered, selections, resume index, completion flags)
     if (this.quizId) {
       this.quizService.resetQuizSessionForNewRun(this.quizId);
       this.selectedOptionService.clearState();
     }
-  
+
     this.quizService.resetAll();
     this.quizService.resetQuestions();
     this.explanationTextService.resetExplanationState();
-  
+
     this.timerService.clearTimerState();
-  
+
     if (this.quizId) {
       void this.router.navigate(['/quiz/question', this.quizId, 1]);
     }
@@ -61,16 +66,16 @@ export class ReturnComponent implements OnInit {
 
   selectQuiz(): void {
     const id = this.quizId;
-  
+
     this.selectedOptionService.clearState();
-  
+
     this.quizService.resetAll();
     this.quizService.resetQuestions();
     this.explanationTextService.resetExplanationState();
     this.timerService.clearTimerState();
-  
+
     this.quizId = '';
     this.indexOfQuizId = 0;
     this.router.navigate(['/select/']);
-  }  
+  }
 }

@@ -1081,12 +1081,12 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     const optionIdentifier = event?.optionId ?? (event as any)?.id ?? (event as any)?.displayOrder ?? -1;
     const now = Date.now();
     const lastClickTime = (this as any)._lastClickTime ?? 0;
-    
+
     if (optionIdentifier !== -1 && optionIdentifier === this.lastLoggedIndex && (now - lastClickTime) < 100) {
       console.warn('[Skipping duplicate event - too rapid]', event);
       return;
     }
-    
+
     this.lastLoggedIndex = optionIdentifier;
     (this as any)._lastClickTime = now;
 
@@ -1616,7 +1616,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   resolveQuizData(): void {
     this.activatedRoute.data
       .pipe(takeUntil(this.unsubscribe$))
-      .subscribe((data: any) => {
+      .subscribe(async (data: any) => {
         const quizData = data['quizData'];
 
         if (quizData && Array.isArray(quizData.questions) &&
@@ -1624,11 +1624,32 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           this.selectedQuiz = quizData;
 
           this.quizService.setSelectedQuiz(quizData);
-          this.explanationTextService.initializeExplanationTexts(
-            quizData.questions.map((q: QuizQuestion) => q.explanation)
-          );
 
-          void this.initializeQuiz();
+          // CRITICAL FIX: For shuffled quizzes, defer FET initialization until AFTER
+          // the shuffle is applied in initializeQuiz(). This ensures FET indices
+          // match the shuffled question order, not the original order.
+          const isShuffled = this.quizService.isShuffleEnabled();
+
+          if (!isShuffled) {
+            // Unshuffled: Initialize FET immediately with original order
+            this.explanationTextService.initializeExplanationTexts(
+              quizData.questions.map((q: QuizQuestion) => q.explanation)
+            );
+          }
+
+          await this.initializeQuiz();
+
+          if (isShuffled) {
+            // Shuffled: Initialize FET AFTER shuffle is applied
+            // Use the shuffled questions array which is now ready
+            const shuffledQuestions = this.quizService.questions ?? [];
+            if (shuffledQuestions.length > 0) {
+              this.explanationTextService.initializeExplanationTexts(
+                shuffledQuestions.map((q: QuizQuestion) => q.explanation)
+              );
+              console.log('[resolveQuizData] FET initialized with SHUFFLED question order');
+            }
+          }
         } else {
           console.error('Quiz data is undefined, or there are no questions');
           this.router.navigate(['/select']).then(() => {
@@ -1715,7 +1736,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.quizAlreadyInitialized = true;
 
     // Initialize quiz session, dependencies, and routing
-    void this.prepareQuizSession();
+    // CRITICAL: Await prepareQuizSession to ensure shuffle state is ready before loading Q1
+    await this.prepareQuizSession();
     this.initializeQuizDependencies();
     this.initializeQuizBasedOnRouteParams();
 
@@ -1723,12 +1745,15 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     const initialIndex = 0;
     this.quizService.setCurrentQuestionIndex(initialIndex);
 
-    // Load the first question
+    // Load the first question (now shuffle is guaranteed to be ready)
     const firstQuestion: QuizQuestion | null = await firstValueFrom(
       this.quizService.getQuestionByIndex(initialIndex)
     );
     if (firstQuestion) {
       this.quizService.setCurrentQuestion(firstQuestion);
+
+      // FIX: Force-regenerate explanation for the initial question to ensure correct option #s
+      this.forceRegenerateExplanation(firstQuestion, initialIndex);
     } else {
       console.warn(`[No question found at index ${initialIndex}]`);
     }
@@ -2281,8 +2306,10 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         return;
       }
 
-      // Update component state with the correct shuffled question
       this.currentQuestion = question;
+
+      // Force-update the explanation text using the helper method
+      this.forceRegenerateExplanation(question, questionIndex);
 
       // Update combined data immediately so children get the correct object
       this.combinedQuestionDataSubject.next({
@@ -2348,7 +2375,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
             );
           }
         }, 50);
-      }, 150);
+      }, 50);
 
       try {
         const feedback =
@@ -2405,6 +2432,49 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       }
     } catch (error: any) {
       console.error('[restoreSelectedOptions] Error parsing selected options:', error);
+    }
+  }
+
+  /**
+   * Helper to force-regenerate the FET for a specific question.
+   * Ensures the explanation text matches the currently shuffled option order.
+   */
+  private forceRegenerateExplanation(question: QuizQuestion, index: number): void {
+    if (question && question.options) {
+      // DEBUG: Log the options to see their correct flags
+      console.log(`[forceRegenerateExplanation] Q${index + 1} options:`,
+        question.options.map((o, i) => ({
+          idx: i + 1,
+          text: o.text?.substring(0, 20),
+          correct: o.correct,
+          optionId: o.optionId
+        }))
+      );
+
+      const correctIndices = this.explanationTextService.getCorrectOptionIndices(
+        question,
+        question.options,
+        index
+      );
+      console.log(`[forceRegenerateExplanation] Q${index + 1} correctIndices:`, correctIndices);
+
+      const formattedExplanation = this.explanationTextService.formatExplanation(
+        question,
+        correctIndices,
+        question.explanation
+      );
+      console.log(`[forceRegenerateExplanation] Q${index + 1} formattedExplanation:`, formattedExplanation?.substring(0, 80));
+
+      this.explanationTextService.storeFormattedExplanation(
+        index,
+        formattedExplanation,
+        question,
+        question.options,
+        true // FORCE update to override any locked FET
+      );
+      console.log(`[forceRegenerateExplanation] Updated FET for Q${index + 1}`);
+    } else {
+      console.warn(`[forceRegenerateExplanation] Q${index + 1} has no options!`);
     }
   }
 
@@ -3670,11 +3740,26 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
       if (this.isAnswered) {
         // Already answered: restore explanation state and stop timer
-        explanationText =
-          fetchedQuestion.explanation?.trim() || 'No explanation available';
-        this.explanationTextService.setExplanationTextForQuestionIndex(
+        // CRITICAL FIX: Use properly formatted explanation with correct option indices
+        // instead of raw explanation. This ensures FET option numbers match visual positions.
+        const correctIndices = this.explanationTextService.getCorrectOptionIndices(
+          fetchedQuestion,
+          finalOptions,  // Use the hydrated options which have correct flags
+          questionIndex
+        );
+        const rawExplanation = fetchedQuestion.explanation?.trim() || 'No explanation available';
+        explanationText = this.explanationTextService.formatExplanation(
+          fetchedQuestion,
+          correctIndices,
+          rawExplanation
+        );
+
+        this.explanationTextService.storeFormattedExplanation(
           questionIndex,
-          explanationText
+          explanationText,
+          fetchedQuestion,
+          finalOptions,
+          true  // Force update
         );
         this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
         this.timerService.isTimerRunning = false;

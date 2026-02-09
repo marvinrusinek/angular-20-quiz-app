@@ -2887,14 +2887,14 @@ export class QuizQuestionComponent extends BaseQuestion
       // This ensures fetByIndex is populated BEFORE CodelabQuizContent evaluates
       // CRITICAL FIX: Use text-matching to avoid corrupted `correct` property in canonicalOpts
       const rawExplanation = q!.explanation || '';
-      
+
       const correctIndices = this.explanationTextService.getCorrectOptionIndices(
         q!,
         canonicalOpts,
         this.currentQuestionIndex
       );
       console.log(`[QQC] Computed FET indices for Q${this.currentQuestionIndex + 1}: ${JSON.stringify(correctIndices)}`);
-      
+
       const fet = this.explanationTextService.formatExplanation(q!, correctIndices, rawExplanation);
 
       if (fet) {
@@ -5690,12 +5690,61 @@ export class QuizQuestionComponent extends BaseQuestion
       }
 
       const visualOpts = useLocalOptions ? this.optionsToDisplay : (questionData?.options || []);
-      const correctIndices = this.explanationTextService.getCorrectOptionIndices(
-        questionData!,
-        visualOpts,
-        questionIndex
-      );
-      console.log(`[prepareAndSetExplanation] Computed indices for Q${questionIndex + 1}: ${JSON.stringify(correctIndices)}`);
+
+      // SHUFFLE MODE DIRECT FIX: Use shuffledQuestions to find correct indices
+      let correctIndices: number[];
+      const shuffleActive = this.quizService.isShuffleEnabled();
+
+      if (shuffleActive) {
+        const shuffledQuestions = this.quizService.shuffledQuestions;
+        if (Array.isArray(shuffledQuestions) && shuffledQuestions.length > questionIndex) {
+          const shuffledQ = shuffledQuestions[questionIndex];
+          if (shuffledQ && Array.isArray(shuffledQ.options)) {
+            // Build a set of correct option texts from shuffledQuestions
+            const correctTexts = new Set<string>();
+            shuffledQ.options.forEach((o: any) => {
+              if (o.correct === true && o.text) {
+                correctTexts.add(o.text.trim().toLowerCase());
+              }
+            });
+
+            // Match against visualOpts by text to find visual indices
+            correctIndices = visualOpts
+              .map((option: any, idx: number) => {
+                if (!option || !option.text) return null;
+                if (correctTexts.has(option.text.trim().toLowerCase())) {
+                  return idx + 1; // 1-based index
+                }
+                return null;
+              })
+              .filter((n: number | null): n is number => n !== null);
+
+            console.log(`[prepareAndSetExplanation SHUFFLE FIX] Q${questionIndex + 1} correctIndices from text match: ${JSON.stringify(correctIndices)}`);
+          } else {
+            // Fallback if shuffledQ is not available
+            correctIndices = this.explanationTextService.getCorrectOptionIndices(
+              questionData!,
+              visualOpts,
+              questionIndex
+            );
+          }
+        } else {
+          // Fallback if shuffledQuestions is not available
+          correctIndices = this.explanationTextService.getCorrectOptionIndices(
+            questionData!,
+            visualOpts,
+            questionIndex
+          );
+        }
+      } else {
+        // Not shuffled - use normal path
+        correctIndices = this.explanationTextService.getCorrectOptionIndices(
+          questionData!,
+          visualOpts,
+          questionIndex
+        );
+      }
+      console.log(`[prepareAndSetExplanation] Final computed indices for Q${questionIndex + 1}: ${JSON.stringify(correctIndices)}`);
 
       const formattedExplanation =
         this.explanationTextService.formatExplanation(
