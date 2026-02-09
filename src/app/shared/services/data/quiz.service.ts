@@ -759,15 +759,18 @@ export class QuizService {
         this.currentQuizSubject.next(quiz);
 
         // Normalize
-        const normalizedQuestions: QuizQuestion[] = (quiz.questions ?? []).map((question) => {
-          const normalizedOptions = Array.isArray(question.options)
-            ? question.options.map((option, index) => ({
-              ...option,
-              correct: !!option.correct,
-              optionId: option.optionId ?? index + 1,
-              displayOrder: index
-            }))
-            : [];
+        const normalizedQuestions: QuizQuestion[] = (quiz.questions ?? []).map((question, qIndex) => {
+          // Use centralized ID generation to ensure consistency with QuizShuffleService
+          // This ensures that canonical questions (IDs 101, 102...) match shuffled questions,
+          // allowing getCorrectOptionIndices to correctly identify answers by ID.
+          const optionsWithIds = this.quizShuffleService.assignOptionIds(question.options ?? [], qIndex);
+
+          const normalizedOptions = optionsWithIds.map((option, index) => ({
+            ...option,
+            correct: !!option.correct,
+            // optionId is already assigned by service
+            displayOrder: index
+          }));
 
           return { ...question, options: normalizedOptions };
         });
@@ -1816,12 +1819,12 @@ export class QuizService {
   public getPristineQuestion(index: number): QuizQuestion | null {
     const qId = this.quizId;
     if (!qId) return null;
-    
+
     const canonical = this.canonicalQuestionsByQuiz.get(qId);
     if (!Array.isArray(canonical) || index < 0 || index >= canonical.length) {
       return null;
     }
-    
+
     // Return a clone to be safe
     return this.cloneQuestionForSession(canonical[index]);
   }
