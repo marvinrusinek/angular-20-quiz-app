@@ -1,10 +1,11 @@
-import { Injectable, Inject, forwardRef } from '@angular/core';
+import { Injectable, Inject, forwardRef, Injector } from '@angular/core';
 
 import { Option } from '../../models/Option.model';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
 import { SelectedOption } from '../../models/SelectedOption.model';
 import { SelectedOptionService } from '../state/selectedoption.service';
 import { ExplanationTextService } from './explanation-text.service';
+import { QuizService } from '../data/quiz.service';
 
 
 @Injectable({ providedIn: 'root' })
@@ -16,7 +17,8 @@ export class FeedbackService {
   constructor(
     private selectedOptionService: SelectedOptionService,
     @Inject(forwardRef(() => ExplanationTextService))
-    private explanationTextService: ExplanationTextService
+    private explanationTextService: ExplanationTextService,
+    private injector: Injector
   ) {}
 
   // Get the last computed correct indices for synchronization
@@ -128,11 +130,15 @@ export class FeedbackService {
       return 'Feedback unavailable.';
     }
 
+    const quizSvc = this.injector.get(QuizService, null);
+    const currentIndex = quizSvc?.currentQuestionIndex;
+
     // Use the robust logic from ExplanationTextService to find correct indices.
     // This avoids relying on the potentially corrupted 'correct' property in optionsToDisplay.
     const indices = this.explanationTextService.getCorrectOptionIndices(
       question!,
-      optionsToDisplay
+      optionsToDisplay,
+      typeof currentIndex === 'number' ? currentIndex : undefined
     );
 
     // Dedupe + sort for stable, readable "Options 1 and 2" strings (matches FET)

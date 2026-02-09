@@ -1735,7 +1735,8 @@ export class SharedOptionComponent
         questionIndex,
         formatted,
         question,
-        this.optionsToDisplay
+        this.optionsToDisplay,
+        true
       );
       return formatted;
     }
@@ -1768,7 +1769,8 @@ export class SharedOptionComponent
         questionIndex,
         formatted,
         question,
-        opts
+        opts,
+        true
       );
       return formatted;
     }
@@ -1817,7 +1819,7 @@ export class SharedOptionComponent
     try {
       // Use getQuestionAtDisplayIndex for shuffle-aware question lookup
       const question =
-        this.currentQuestion || this.getQuestionAtDisplayIndex(questionIndex);
+        this.getQuestionAtDisplayIndex(questionIndex) || this.currentQuestion;
 
       if (question) {
         console.log(`[Question object for formatting]:`, {
@@ -1849,7 +1851,8 @@ export class SharedOptionComponent
           questionIndex,
           formattedExplanation,
           question,
-          opts
+          opts,
+          true
         );
         console.log(
           `[Formatted FET for Q${questionIndex + 1}]:`,

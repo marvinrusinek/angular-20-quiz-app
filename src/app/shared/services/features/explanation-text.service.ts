@@ -128,7 +128,6 @@ export class ExplanationTextService {
     // such as Q4 before their own FET is ready.
     // NOTE: skip(1) prevents the initial BehaviorSubject emission from clearing state during init.
     this.activeIndex$.pipe(
-      skip(1),  // skip the initial value (0) so Q1's FET isn't cleared during initialization
       distinctUntilChanged()
     ).subscribe((idx: number) => {
       // Don't clear if FET has already been set for this index (user clicked)
@@ -623,7 +622,8 @@ export class ExplanationTextService {
     index: number,
     explanation: string,
     question: QuizQuestion,
-    options?: Option[]
+    options?: Option[],
+    force = false
   ): void {
     if (index < 0) {
       console.error(
@@ -635,8 +635,8 @@ export class ExplanationTextService {
     // CRITICAL FIX: Prevent regeneration with wrong options
     // Once FET is correctly computed and stored, lock it to prevent
     // subsequent calls (which may have corrupted options) from overwriting
-    if (this.lockedFetIndices.has(index)) {
-      console.log(`[ETS] 🔒 FET for Q${index + 1} is LOCKED - skipping regeneration`);
+    if (!force && this.lockedFetIndices.has(index)) {
+      console.log(`[ETS] 🔒 FET for Q${index + 1} is LOCKED - skipping regeneration (use force=true to override)`);
       return;
     }
 
@@ -713,6 +713,13 @@ export class ExplanationTextService {
    * 2. provided question.answer texts (very good)
    * 3. provided options[].correct flags (fallback)
    */
+  /**
+   * Identifies 1-based indices of correct options within the provided `options` array.
+   * Priority:
+   * 1. Pristine question lookup from QuizService (best)
+   * 2. provided question.answer texts (very good)
+   * 3. provided options[].correct flags (fallback)
+   */
   getCorrectOptionIndices(
     question: QuizQuestion,
     options?: Option[],
@@ -732,7 +739,20 @@ export class ExplanationTextService {
     };
 
     const qText = question?.questionText?.slice(0, 50);
-    const qIdx = Number.isFinite(displayIndex) ? displayIndex : this.latestExplanationIndex;
+    let qIdx = Number.isFinite(displayIndex) ? (displayIndex as number) : this.latestExplanationIndex;
+    
+    // Final fallback for qIdx: check QuizService
+    if (qIdx === null || qIdx === -1 || qIdx === undefined) {
+      try {
+        const quizSvc = this.injector.get(QuizService, null);
+        if (quizSvc && typeof quizSvc.currentQuestionIndex === 'number') {
+           qIdx = quizSvc.currentQuestionIndex;
+           console.log(`[ETS] qIdx resolved from QuizService.currentQuestionIndex: ${qIdx}`);
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
     
     console.log(`[ETS.getCorrectOptionIndices] --- START --- Q: "${qText}...", DisplayIdx: ${qIdx}, Options: ${opts.length}`);
 
@@ -751,6 +771,7 @@ export class ExplanationTextService {
       
       if (quizSvc && shuffleSvc && typeof qIdx === 'number' && quizSvc.quizId) {
         const origIdx = shuffleSvc.toOriginalIndex(quizSvc.quizId, qIdx);
+        console.log(`[ETS] Mapping DisplayIdx ${qIdx} -> OriginalIdx ${origIdx}`);
         if (origIdx !== null) {
           const pristine = quizSvc.getPristineQuestion(origIdx);
           if (pristine) {
@@ -763,14 +784,21 @@ export class ExplanationTextService {
             if (correctPristine.length > 0) {
               correctPristine.forEach(a => {
                 if (a) {
-                  if (a.text) correctTexts.add(normalize(a.text));
+                  const norm = normalize(a.text);
+                  if (norm) correctTexts.add(norm);
                   if (a.optionId !== undefined) correctIds.add(a.optionId);
                 }
               });
               console.log(`[ETS] ✅ Attempt 1 (PRISTINE) SUCCESS for Q${qIdx + 1}. IDs:`, [...correctIds], `Texts:`, [...correctTexts]);
+            } else {
+              console.warn(`[ETS] Attempt 1: Pristine question ${origIdx} has NO correct answers!`);
             }
+          } else {
+            console.warn(`[ETS] Attempt 1: Could not find pristine question for origIdx ${origIdx}`);
           }
         }
+      } else {
+        console.warn(`[ETS] Attempt 1 skipped: Missing dependencies or quizId. qIdx=${qIdx}, quizId=${quizSvc?.quizId}`);
       }
     } catch (e) {
       console.warn('[ETS] ❌ Attempt 1 failed:', e);
@@ -782,7 +810,8 @@ export class ExplanationTextService {
       if (Array.isArray(answers) && answers.length > 0) {
         answers.forEach(a => {
           if (a) {
-            if (a.text) correctTexts.add(normalize(a.text));
+            const norm = normalize(a.text);
+            if (norm) correctTexts.add(norm);
             if (a.optionId !== undefined) correctIds.add(a.optionId);
           }
         });
@@ -791,20 +820,21 @@ export class ExplanationTextService {
     }
 
     if (correctTexts.size > 0 || correctIds.size > 0) {
+      console.log(`[ETS] Matching against ${opts.length} options...`);
       const indices = opts
         .map((option, idx) => {
           if (!option) return null;
           
           // Match by ID if both have it
           if (option.optionId !== undefined && correctIds.has(option.optionId)) {
-             console.log(`[ETS]   ID Match: ID=${option.optionId} -> Option ${idx + 1}`);
+             console.log(`[ETS]   Match Found: ID=${option.optionId} -> Option ${idx + 1}`);
              return idx + 1;
           }
           
           // Fallback to text matching
           const normalizedInput = normalize(option.text);
           if (correctTexts.has(normalizedInput)) {
-            console.log(`[ETS]   Text Match: "${option.text.slice(0, 20)}" -> Option ${idx + 1}`);
+            console.log(`[ETS]   Match Found: Text="${option.text.slice(0, 20)}" -> Option ${idx + 1}`);
             return idx + 1;
           }
           return null;
@@ -813,15 +843,16 @@ export class ExplanationTextService {
 
       if (indices.length > 0) {
         const result = Array.from(new Set(indices)).sort((a, b) => a - b);
-        console.log(`[ETS.getCorrectOptionIndices] --- COMPLETE (TextMatch) --- Result: ${JSON.stringify(result)}`);
+        console.log(`[ETS.getCorrectOptionIndices] --- COMPLETE (Robust Match) --- Result: ${JSON.stringify(result)}`);
         return result;
       } else {
-        console.warn(`[ETS] ⚠️ Text matching failed to find any matches! Expected:`, [...correctTexts], `Available:`, opts.map(o => normalize(o.text)));
+        console.warn(`[ETS] ⚠️ Matching failed to find any matches! Expected IDs:`, [...correctIds], `Expected Texts:`, [...correctTexts]);
+        console.warn(`[ETS]   Available Options:`, opts.map(o => ({ id: o.optionId, text: o.text, norm: normalize(o.text) })));
       }
     }
 
     // FALLBACK: Use the correct property directly (may be unreliable if mutated)
-    console.log(`[ETS.getCorrectOptionIndices] Attempting Fallback (correct property)...`);
+    console.log(`[ETS.getCorrectOptionIndices] Attempting Fallback (correct property on provided options)...`);
     const fallbackIndices = opts
       .map((option, idx) => {
         if (!option || typeof option !== 'object') return null;

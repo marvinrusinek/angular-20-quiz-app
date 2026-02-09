@@ -251,16 +251,28 @@ export class QuizDataService implements OnDestroy {
     //  When shuffle is ON, ALWAYS delegate to prepareQuizSession
     // This ensures ONE consistent shuffle regardless of which code path calls this
     if (this.quizService.isShuffleEnabled()) {
-      // If we already have shuffled questions for this quiz, return them
-      if (
-        this.quizService.shuffledQuestions?.length > 0 &&
-        this.quizService.quizId === quizId
-      ) {
-        console.log(`[getQuestionsForQuiz] Returning existing SHUFFLED questions (${this.quizService.shuffledQuestions.length})`);
-        return of(this.cloneQuestions(this.quizService.shuffledQuestions));
+      const hasShuffled = this.quizService.shuffledQuestions?.length > 0 && this.quizService.quizId === quizId;
+      const baseCached = this.baseQuizQuestionCache.get(quizId);
+
+      if (hasShuffled && baseCached && baseCached.length > 0) {
+        console.log(`[getQuestionsForQuiz] Returning shuffled data + sync canonical cache (Full Hit)`);
+        this.quizService.setCanonicalQuestions(quizId, baseCached);
+        return of(this.cloneQuestions(this.quizService.shuffledQuestions!));
+      } 
+      
+      if (hasShuffled && (!baseCached || baseCached.length === 0)) {
+        console.log(`[getQuestionsForQuiz] Shuffled data exists but canonical cache empty. Fetching quiz to restore...`);
+        return this.getQuiz(quizId).pipe(
+          map(quiz => {
+            const base = (quiz?.questions ?? []).map((q, i) => this.normalizeQuestion(q, i));
+            this.baseQuizQuestionCache.set(quizId, base);
+            this.quizService.setCanonicalQuestions(quizId, base);
+            return this.cloneQuestions(this.quizService.shuffledQuestions!);
+          })
+        );
       }
-      // Otherwise, delegate to prepareQuizSession to create the shuffle
-      console.log(`[getQuestionsForQuiz] Shuffle ON but no data - delegating to prepareQuizSession`);
+
+      console.log(`[getQuestionsForQuiz] Delegating to prepareQuizSession (No shuffled data)`);
       return this.prepareQuizSession(quizId);
     }
 
