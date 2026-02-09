@@ -2952,6 +2952,9 @@ export class QuizService {
     this.currentQuestionIndex = 0;
     this.setQuizStatus(QuizStatus.STARTED);
 
+    // CRITICAL: Reset the score to 0 for the new quiz run
+    this.resetScore();
+
     // Remove any stored resume/index/session leftovers
     try {
       localStorage.removeItem('currentQuestionIndex');
