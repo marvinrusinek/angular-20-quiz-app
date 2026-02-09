@@ -650,7 +650,7 @@ export class ExplanationTextService {
     // This ensures FET option numbers match the feedback text option numbers.
     const alreadyFormattedRe =
       /^(?:option|options)\s+\d+(?:\s*,\s*\d+)*(?:\s+and\s+\d+)?\s+(?:is|are)\s+correct\s+because\s+/i;
-    
+
     let rawExplanation = explanation.trim();
     if (alreadyFormattedRe.test(rawExplanation)) {
       // Extract the raw explanation after the prefix
@@ -740,20 +740,21 @@ export class ExplanationTextService {
 
     const qText = question?.questionText?.slice(0, 50);
     let qIdx = Number.isFinite(displayIndex) ? (displayIndex as number) : this.latestExplanationIndex;
-    
+
     // Final fallback for qIdx: check QuizService
     if (qIdx === null || qIdx === -1 || qIdx === undefined) {
       try {
         const quizSvc = this.injector.get(QuizService, null);
         if (quizSvc && typeof quizSvc.currentQuestionIndex === 'number') {
-           qIdx = quizSvc.currentQuestionIndex;
-           console.log(`[ETS] qIdx resolved from QuizService.currentQuestionIndex: ${qIdx}`);
+          qIdx = quizSvc.currentQuestionIndex;
+          console.log(`[ETS] qIdx resolved from QuizService.currentQuestionIndex: ${qIdx}`);
         }
       } catch (e) {
         // ignore
       }
     }
-    
+
+
     console.log(`[ETS.getCorrectOptionIndices] --- START --- Q: "${qText}...", DisplayIdx: ${qIdx}, Options: ${opts.length}`);
 
     if (!Array.isArray(opts) || opts.length === 0) {
@@ -761,17 +762,42 @@ export class ExplanationTextService {
       return [];
     }
 
+    // SHUFFLE MODE FIX: For shuffled quizzes, prioritize the options' own `correct` flags.
+    // The shuffled options already have reliable `correct` flags set by QuizShuffleService.cloneAndNormalizeOptions.
+    // This avoids issues with pristine lookup timing or ID mismatches.
+    try {
+      const quizSvc = this.injector.get(QuizService, null);
+      if (quizSvc?.isShuffleEnabled()) {
+        const shuffleIndices = opts
+          .map((option, idx) => {
+            if (!option || typeof option !== 'object') return null;
+            if (!option.correct) return null;
+            return idx + 1;
+          })
+          .filter((n): n is number => n !== null);
+
+        if (shuffleIndices.length > 0) {
+          const result = Array.from(new Set(shuffleIndices)).sort((a, b) => a - b);
+          console.log(`[ETS.getCorrectOptionIndices] --- COMPLETE (SHUFFLE MODE - Direct Flags) --- Result: ${JSON.stringify(result)}`);
+          return result;
+        }
+        console.warn('[ETS] Shuffle mode: No correct flags found on options, falling through to other attempts...');
+      }
+    } catch (e) {
+      console.warn('[ETS] Shuffle mode check failed:', e);
+    }
+
     // ATTEMPT 1: Get PRISTINE correct texts/IDs from QuizService
     let correctTexts = new Set<string>();
     let correctIds = new Set<string | number>();
-    
+
     try {
       const quizSvc = this.injector.get(QuizService, null);
       const shuffleSvc = this.injector.get(QuizShuffleService, null);
-      
+
       if (quizSvc && shuffleSvc && typeof qIdx === 'number' && quizSvc.quizId) {
         let origIdx = shuffleSvc.toOriginalIndex(quizSvc.quizId, qIdx);
-        
+
         // Fallback: If shuffle is disabled, display index IS the original index
         if (origIdx === null && !quizSvc.isShuffleEnabled()) {
           origIdx = qIdx;
@@ -786,7 +812,7 @@ export class ExplanationTextService {
               ...(Array.isArray(pristine.answer) ? pristine.answer : []),
               ...(Array.isArray(pristine.options) ? pristine.options.filter(o => o.correct) : [])
             ];
-            
+
             if (correctPristine.length > 0) {
               correctPristine.forEach(a => {
                 if (a) {
@@ -830,13 +856,13 @@ export class ExplanationTextService {
       const indices = opts
         .map((option, idx) => {
           if (!option) return null;
-          
+
           // Match by ID if both have it
           if (option.optionId !== undefined && correctIds.has(option.optionId)) {
-             console.log(`[ETS]   Match Found: ID=${option.optionId} -> Option ${idx + 1}`);
-             return idx + 1;
+            console.log(`[ETS]   Match Found: ID=${option.optionId} -> Option ${idx + 1}`);
+            return idx + 1;
           }
-          
+
           // Fallback to text matching
           const normalizedInput = normalize(option.text);
           if (correctTexts.has(normalizedInput)) {
