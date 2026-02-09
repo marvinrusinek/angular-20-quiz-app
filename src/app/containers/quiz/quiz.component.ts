@@ -2283,28 +2283,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
       this.currentQuestion = question;
 
-      // Force-update the explanation text to ensure it matches the SHUFFLED options
-      // This corrects any mismatch from the initial calculation which might have used stale/unshuffled data.
-      // We pass force=true to override the lock set during initialization.
-      if (question && question.options) {
-        const correctIndices = this.explanationTextService.getCorrectOptionIndices(
-          question,
-          question.options,
-          questionIndex
-        );
-        const formattedExplanation = this.explanationTextService.formatExplanation(
-          question,
-          correctIndices,
-          question.explanation
-        );
-        this.explanationTextService.storeFormattedExplanation(
-          questionIndex,
-          formattedExplanation,
-          question,
-          question.options,
-          true
-        );
-      }
+      // Force-update the explanation text using the helper method
+      this.forceRegenerateExplanation(question, questionIndex);
 
       // Update combined data immediately so children get the correct object
       this.combinedQuestionDataSubject.next({
@@ -2370,7 +2350,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
             );
           }
         }, 50);
-      }, 150);
+      }, 50);
 
       try {
         const feedback =
