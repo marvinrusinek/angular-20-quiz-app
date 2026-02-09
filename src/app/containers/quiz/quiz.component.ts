@@ -1729,6 +1729,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     );
     if (firstQuestion) {
       this.quizService.setCurrentQuestion(firstQuestion);
+
+      // FIX: Force-regenerate explanation for the initial question to ensure correct option #s
+      this.forceRegenerateExplanation(firstQuestion, initialIndex);
     } else {
       console.warn(`[No question found at index ${initialIndex}]`);
     }
