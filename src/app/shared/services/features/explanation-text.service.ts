@@ -122,20 +122,11 @@ export class ExplanationTextService {
     this._instanceId = `ETS-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     console.log(`[${this._instanceId}] ExplanationTextService initialized`);
 
-    // Listen for quiz resets (session changes/restarts)
-    try {
-      const quizSvc = this.injector.get(QuizService, null);
-      if (quizSvc) {
-        quizSvc.quizReset$.subscribe(() => {
-          console.log(`[ETS] 🔄 Quiz RESET detected - clearing all FET state and locks.`);
-          this.resetExplanationState();
-        });
-      }
-    } catch (e) {
-      console.warn('[ETS] Could not subscribe to quizReset$:', e);
-    }
-
     // Always clear stale FET payloads when switching to a new question index.
+    // Without this, the previous question's formatted explanation (e.g., Q1)
+    // can remain in the global subject and be rendered for later questions
+    // such as Q4 before their own FET is ready.
+    // NOTE: skip(1) prevents the initial BehaviorSubject emission from clearing state during init.
     this.activeIndex$.pipe(
       distinctUntilChanged()
     ).subscribe((idx: number) => {
@@ -145,7 +136,7 @@ export class ExplanationTextService {
         return;
       }
       this.latestExplanation = '';
-      this.latestExplanationIndex = idx;
+      this.latestExplanationIndex = idx;  // set to new index instead of null
       this.formattedExplanationSubject.next('');
       this.setShouldDisplayExplanation(false, { force: true });
       this.setIsExplanationTextDisplayed(false, { force: true });
@@ -659,20 +650,30 @@ export class ExplanationTextService {
     // This ensures FET option numbers match the feedback text option numbers.
     const alreadyFormattedRe =
       /^(?:option|options)\s+\d+(?:\s*,\s*\d+)*(?:\s+and\s+\d+)?\s+(?:is|are)\s+correct\s+because\s+/i;
-    
-    let rawExplanation = explanation.trim();
-    if (alreadyFormattedRe.test(rawExplanation)) {
-      // Extract the raw explanation after the prefix
-      rawExplanation = rawExplanation.replace(alreadyFormattedRe, '').trim();
-      console.log(`[ETS] 🔄 Stripped existing format prefix to re-format with correct indices`);
-    }
 
-    const correctOptionIndices = this.getCorrectOptionIndices(question, options, index);
-    const formattedExplanation = this.formatExplanation(
-      question,
-      correctOptionIndices,
-      rawExplanation
-    );
+    let formattedExplanation: string;
+
+    // When force=true and the explanation is already formatted, use it directly.
+    // The caller (forceRegenerateExplanation) has already calculated correct indices.
+    // This prevents double-calculation with potentially different/wrong options.
+    if (force && alreadyFormattedRe.test(explanation.trim())) {
+      formattedExplanation = explanation.trim();
+      console.log(`[ETS] ⚡ Force mode: Using pre-formatted explanation directly`);
+    } else {
+      // Normal path: Strip prefix and recalculate
+      let rawExplanation = explanation.trim();
+      if (alreadyFormattedRe.test(rawExplanation)) {
+        rawExplanation = rawExplanation.replace(alreadyFormattedRe, '').trim();
+        console.log(`[ETS] 🔄 Stripped existing format prefix to re-format with correct indices`);
+      }
+
+      const correctOptionIndices = this.getCorrectOptionIndices(question, options, index);
+      formattedExplanation = this.formatExplanation(
+        question,
+        correctOptionIndices,
+        rawExplanation
+      );
+    }
 
     this.formattedExplanations[index] = {
       questionIndex: index,
@@ -740,11 +741,6 @@ export class ExplanationTextService {
       if (typeof s !== 'string') return '';
       return s
         .replace(/&nbsp;/gi, ' ')
-        .replace(/&quot;/gi, '"')
-        .replace(/&apos;/gi, "'")
-        .replace(/&lt;/gi, '<')
-        .replace(/&gt;/gi, '>')
-        .replace(/&amp;/gi, '&')
         .replace(/\u00A0/g, ' ') // raw non-breaking space
         .replace(/<[^>]*>/g, ' ') // strip HTML
         .trim()
@@ -753,19 +749,29 @@ export class ExplanationTextService {
     };
 
     const qText = question?.questionText?.slice(0, 50);
+    // ⚡ SYNC FIX: Ensure qIdx is NEVER null/undefined for Q1.
+    // If displayIndex is 0, Number.isFinite(0) is true.
     let qIdx = Number.isFinite(displayIndex) ? (displayIndex as number) : this.latestExplanationIndex;
 
     // Final fallback for qIdx: check QuizService
     if (qIdx === null || qIdx === -1 || qIdx === undefined) {
       try {
         const quizSvc = this.injector.get(QuizService, null);
-        if (quizSvc && typeof quizSvc.currentQuestionIndex === 'number') {
-           qIdx = quizSvc.currentQuestionIndex;
-           console.log(`[ETS] qIdx resolved from QuizService.currentQuestionIndex: ${qIdx}`);
+        if (quizSvc) {
+          const svcIdx = quizSvc.getCurrentQuestionIndex();
+          if (typeof svcIdx === 'number' && svcIdx >= 0) {
+            qIdx = svcIdx;
+            console.log(`[ETS] qIdx resolved from QuizService: ${qIdx}`);
+          }
         }
       } catch (e) {
         // ignore
       }
+    }
+
+    // Default to 0 if still missing (emergency fallback for Q1)
+    if (qIdx === null || qIdx === undefined) {
+      qIdx = 0;
     }
 
     console.log(`[ETS.getCorrectOptionIndices] --- START --- Q: "${qText}...", DisplayIdx: ${qIdx}, Options: ${opts.length}`);
@@ -776,27 +782,80 @@ export class ExplanationTextService {
     }
 
     // SHUFFLE MODE FIX: For shuffled quizzes, prioritize the options' own `correct` flags.
-    // The shuffled options already have reliable `correct` flags set by QuizShuffleService.
     try {
       const quizSvc = this.injector.get(QuizService, null);
-      if (quizSvc?.isShuffleEnabled()) {
-        if (qIdx === 0) {
-          console.log(`[ETS] [Q1 SHUFFLE DEBUG] Verifying Q1 shuffle state. shuffledQuestions length: ${quizSvc.shuffledQuestions?.length}`);
-        }
+      if (!quizSvc) {
+        console.warn('[ETS.getCorrectOptionIndices] QuizService missing.');
+        return [];
+      }
 
+      const isActuallyShuffled = quizSvc.isShuffleEnabled() || (quizSvc.shuffledQuestions && quizSvc.shuffledQuestions.length > 0);
+      
+      if (isActuallyShuffled) {
+        // First, try direct correct flags on the options passed in
         const shuffleIndices = opts
           .map((option, idx) => {
             if (!option || typeof option !== 'object') return null;
-            if (!option.correct) return null;
+            const isCorrect = option.correct === true || 
+                              (option as any).correct === "true" || 
+                              (option as any).isCorrect === true ||
+                              (option as any).answer === true;
+            if (!isCorrect) return null;
             return idx + 1;
           })
           .filter((n): n is number => n !== null);
 
         if (shuffleIndices.length > 0) {
           const result = Array.from(new Set(shuffleIndices)).sort((a, b) => a - b);
-          console.log(`[ETS.getCorrectOptionIndices] --- COMPLETE (SHUFFLE MODE - Direct Flags) --- Result: ${JSON.stringify(result)}`);
+          console.log(`[ETS.getCorrectOptionIndices] --- COMPLETE (PHASE 1 - Direct Flags) --- Result: ${JSON.stringify(result)}`);
           return result;
         }
+
+        // FALLBACK for shuffle mode: Use authoritative service source to find correct answers
+        console.warn(`[ETS] Phase 1 failed for Q${qIdx + 1}, trying authoritative service data...`);
+        const shuffledList = quizSvc.shuffledQuestions || [];
+        const fallbackList = quizSvc.questions || [];
+        const authQuestions = shuffledList.length > 0 ? shuffledList : fallbackList;
+
+        if (qIdx !== null && Array.isArray(authQuestions) && authQuestions.length > 0) {
+          let authQ = authQuestions.length > qIdx ? authQuestions[qIdx] : null;
+          
+          // RECOVERY: If current index doesn't match, or is out of bounds, search by text
+          const currentTextNorm = normalize(question?.questionText);
+          if (authQuestions.length > 0 && (!authQ || normalize(authQ.questionText) !== currentTextNorm)) {
+             console.warn(`[ETS] Index mismatch in auth source for Q${qIdx + 1}. Searching authoritative list...`);
+             authQ = authQuestions.find(q => normalize(q.questionText) === currentTextNorm) || null;
+          }
+
+          if (authQ && Array.isArray(authQ.options)) {
+            const correctTexts = new Set<string>();
+            const correctIds = new Set<number>();
+            authQ.options.forEach((o: any) => {
+              if (o.correct === true || o.correct === "true" || o.isCorrect === true) {
+                if (o.text) correctTexts.add(normalize(o.text));
+                if (o.optionId !== undefined) correctIds.add(Number(o.optionId));
+              }
+            });
+
+            if (correctTexts.size > 0 || correctIds.size > 0) {
+              const matchedIndices = opts
+                .map((option, idx) => {
+                  if (!option) return null;
+                  if (option.optionId !== undefined && correctIds.has(Number(option.optionId))) return idx + 1;
+                  if (option.text && correctTexts.has(normalize(option.text))) return idx + 1;
+                  return null;
+                })
+                .filter((n): n is number => n !== null);
+
+              if (matchedIndices.length > 0) {
+                const result = Array.from(new Set(matchedIndices)).sort((a, b) => a - b);
+                console.log(`[ETS.getCorrectOptionIndices] --- COMPLETE (PHASE 2 - Service Sync) --- Result: ${JSON.stringify(result)}`);
+                return result;
+              }
+            }
+          }
+        }
+        console.warn('[ETS] Shuffle mode mapping failed, falling through to pristine lookup (Phase 3)...');
       }
     } catch (e) {
       console.warn('[ETS] Shuffle mode check failed:', e);
@@ -812,40 +871,50 @@ export class ExplanationTextService {
 
       if (quizSvc && shuffleSvc && typeof qIdx === 'number' && quizSvc.quizId) {
         let origIdx = shuffleSvc.toOriginalIndex(quizSvc.quizId, qIdx);
-        
+        let pristine = (origIdx !== null) ? quizSvc.getPristineQuestion(origIdx) : null;
+
+        // 🛡️ SYNC VALIDATION: If the pristine question text doesn't match the displayed text,
+        // the index mapping is out of sync. Search for the correct pristine question by text.
+        const currentTextNorm = normalize(question?.questionText);
+        const pristineTextNorm = normalize(pristine?.questionText);
+
+        if (currentTextNorm && pristineTextNorm && currentTextNorm !== pristineTextNorm) {
+            console.warn(`[ETS] Index Sync Failure! DisplayIdx ${qIdx} mapped to OrigIdx ${origIdx} (Text Mismatch). Searching canonical cache...`);
+            const canonical = quizSvc.getCanonicalQuestions(quizSvc.quizId);
+            const foundIdx = canonical.findIndex(q => normalize(q.questionText) === currentTextNorm);
+            if (foundIdx !== -1) {
+                origIdx = foundIdx;
+                pristine = quizSvc.getPristineQuestion(origIdx);
+                console.log(`[ETS] ✅ Found correct match at OriginalIdx ${origIdx}`);
+            }
+        }
+
         // Fallback: If shuffle is disabled, display index IS the original index
         if (origIdx === null && !quizSvc.isShuffleEnabled()) {
           origIdx = qIdx;
+          pristine = quizSvc.getPristineQuestion(origIdx);
         }
 
-        console.log(`[ETS] Mapping DisplayIdx ${qIdx} -> OriginalIdx ${origIdx}`);
-        if (origIdx !== null) {
-          const pristine = quizSvc.getPristineQuestion(origIdx);
-          if (pristine) {
-            // Check both answer (if populated) and options (standard raw data)
-            const correctPristine = [
-              ...(Array.isArray(pristine.answer) ? pristine.answer : []),
-              ...(Array.isArray(pristine.options) ? pristine.options.filter(o => o.correct) : [])
-            ];
-            
-            if (correctPristine.length > 0) {
-              correctPristine.forEach(a => {
-                if (a) {
-                  const norm = normalize(a.text);
-                  if (norm) correctTexts.add(norm);
-                  if (a.optionId !== undefined) correctIds.add(a.optionId);
-                }
-              });
-              console.log(`[ETS] ✅ Attempt 1 (PRISTINE) SUCCESS for Q${qIdx + 1}. IDs:`, [...correctIds], `Texts:`, [...correctTexts]);
-            } else {
-              console.warn(`[ETS] Attempt 1: Pristine question ${origIdx} has NO correct answers!`);
-            }
+        if (pristine) {
+          // Check both answer (if populated) and options (standard raw data)
+          const correctPristine = [
+            ...(Array.isArray(pristine.answer) ? pristine.answer : []),
+            ...(Array.isArray(pristine.options) ? pristine.options.filter(o => o.correct) : [])
+          ];
+
+          if (correctPristine.length > 0) {
+            correctPristine.forEach(a => {
+              if (a) {
+                const norm = normalize(a.text);
+                if (norm) correctTexts.add(norm);
+                if (a.optionId !== undefined) correctIds.add(a.optionId);
+              }
+            });
+            console.log(`[ETS] ✅ Attempt 1 (PRISTINE) SUCCESS for Q${qIdx + 1}. IDs:`, [...correctIds], `Texts:`, [...correctTexts]);
           } else {
-            console.warn(`[ETS] Attempt 1: Could not find pristine question for origIdx ${origIdx}`);
+            console.warn(`[ETS] Attempt 1: Pristine question ${origIdx} has NO correct answers!`);
           }
         }
-      } else {
-        console.warn(`[ETS] Attempt 1 skipped: Missing dependencies or quizId. qIdx=${qIdx}, quizId=${quizSvc?.quizId}`);
       }
     } catch (e) {
       console.warn('[ETS] ❌ Attempt 1 failed:', e);
@@ -871,13 +940,13 @@ export class ExplanationTextService {
       const indices = opts
         .map((option, idx) => {
           if (!option) return null;
-          
+
           // Match by ID if both have it
           if (option.optionId !== undefined && correctIds.has(option.optionId)) {
-             console.log(`[ETS]   Match Found: ID=${option.optionId} -> Option ${idx + 1}`);
-             return idx + 1;
+            console.log(`[ETS]   Match Found: ID=${option.optionId} -> Option ${idx + 1}`);
+            return idx + 1;
           }
-          
+
           // Fallback to text matching
           const normalizedInput = normalize(option.text);
           if (correctTexts.has(normalizedInput)) {

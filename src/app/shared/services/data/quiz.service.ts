@@ -1811,6 +1811,11 @@ export class QuizService {
     this.canonicalQuestionIndexByText.set(quizId, textIndex);
   }
 
+  public getCanonicalQuestions(quizId: string): QuizQuestion[] {
+    if (!quizId) return [];
+    return this.canonicalQuestionsByQuiz.get(quizId) || [];
+  }
+
   /**
    * Returns a PRISTINE version of the question from the canonical cache.
    * This version has not been shuffled or mutated by user interactions.
@@ -1821,7 +1826,7 @@ export class QuizService {
     if (!qId) return null;
 
     const canonical = this.canonicalQuestionsByQuiz.get(qId);
-    if (!Array.isArray(canonical) || index < 0 || index >= canonical.length) {
+    if (!canonical || canonical.length <= index) {
       return null;
     }
 

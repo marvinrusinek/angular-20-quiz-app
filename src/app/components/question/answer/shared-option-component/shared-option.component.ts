@@ -1,6 +1,6 @@
 ﻿import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef,
-  Component, EventEmitter, HostListener, Injector, Input, NgZone, OnChanges, OnDestroy, OnInit,
+  Component, EventEmitter, HostListener, Input, NgZone, OnChanges, OnDestroy, OnInit,
   Output, QueryList, SimpleChanges, ViewChildren
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -26,7 +26,6 @@ import { FeedbackComponent } from '../feedback/feedback.component';
 import { ExplanationTextService } from '../../../../shared/services/features/explanation-text.service';
 import { FeedbackService } from '../../../../shared/services/features/feedback.service';
 import { QuizService } from '../../../../shared/services/data/quiz.service';
-import { QuizShuffleService } from '../../../../shared/services/flow/quiz-shuffle.service';
 import { QuizStateService } from '../../../../shared/services/state/quizstate.service';
 import { SelectedOptionService } from '../../../../shared/services/state/selectedoption.service';
 import { SelectionMessageService } from '../../../../shared/services/features/selection-message.service';
@@ -192,8 +191,7 @@ export class SharedOptionComponent
     private optionBindingFactory: OptionBindingFactoryService,
     private cdRef: ChangeDetectorRef,
     private fb: FormBuilder,
-    private ngZone: NgZone,
-    private injector: Injector
+    private ngZone: NgZone
   ) {
     this.ui = this.sharedOptionStateAdapterService.createInitialUiState();
     this.form = this.fb.group({
@@ -1711,42 +1709,87 @@ export class SharedOptionComponent
 
     // Use helper method that respects shuffle state
     const question = this.getQuestionAtDisplayIndex(questionIndex);
+
     const shuffleActive = this.quizService?.isShuffleEnabled();
-
-    // SHUFFLE READINESS GUARD: If shuffle is enabled but we don't have shuffled questions OR 
-    // the shuffle mapping for this index is null, then the quiz hasn't fully initialized yet.
-    // Delaying FET generation prevents "lock-in" with wrong (unshuffled) options.
-    if (shuffleActive) {
-      const hasShuffledData = Array.isArray(this.quizService.shuffledQuestions) && 
-                              this.quizService.shuffledQuestions.length > 0;
-      
-      // Check if we can map back to original index. If not, we aren't ready.
-      let origIdx: number | null = null;
-      try {
-        const shuffleSvc = this.injector.get(QuizShuffleService, null);
-        if (shuffleSvc && this.quizService.quizId) {
-          origIdx = shuffleSvc.toOriginalIndex(this.quizService.quizId, questionIndex);
-        }
-      } catch(e) {}
-
-      if (!hasShuffledData || (questionIndex >= 0 && origIdx === null)) {
-         console.log(`[resolveExplanationText] ⏸ Q${questionIndex + 1} shuffled state NOT ready (Data: ${!!hasShuffledData}, Map: ${origIdx}). Delaying FET.`);
-         return '';
-      }
-    }
 
     if (useLocalOptions && question) {
       console.log(
         `[Using LOCAL OPTIONS for Q${questionIndex + 1} to ensure visual match, shuffleActive=${shuffleActive}]`
       );
 
-      const correctIndices = this.explanationTextService.getCorrectOptionIndices(
-        question,
-        this.optionsToDisplay,
-        questionIndex
-      );
+      let correctIndices: number[];
 
-      console.log(`[FET] Computed indices for Q${questionIndex + 1}: ${JSON.stringify(correctIndices)}`);
+      // --- PHASE 1: Direct Visual Check ---
+      // If the options being displayed already have the correct flag, use them.
+      // We check for truthiness across multiple common property names.
+      correctIndices = this.optionsToDisplay
+        .map((opt, idx) => {
+          const isCorrect = opt.correct === true || 
+                            (opt as any).correct === "true" || 
+                            (opt as any).isCorrect === true ||
+                            (opt as any).answer === true;
+          return isCorrect ? idx + 1 : null;
+        })
+        .filter((n): n is number => n !== null);
+
+      if (correctIndices.length > 0) {
+        console.log(`[FET] ✅ Phase 1: Visual match for Q${questionIndex + 1}: ${JSON.stringify(correctIndices)}`);
+      } 
+      // --- PHASE 2: Authoritative Data Mapping (with exhaustive text-search recovery) ---
+      else if (shuffleActive || (this.quizService.shuffledQuestions && this.quizService.shuffledQuestions.length > 0)) {
+        const shuffledList = this.quizService.shuffledQuestions || [];
+        const fallbackList = this.quizService.questions || [];
+        const sourceList = shuffledList.length > 0 ? shuffledList : fallbackList;
+
+        if (Array.isArray(sourceList) && sourceList.length > 0) {
+          // Attempt direct index match first
+          let authQ = sourceList.length > questionIndex ? sourceList[questionIndex] : null;
+          
+          // RECOVERY: If direct index doesn't match question text, search entire list
+          const currentQText = (question.questionText || '').trim().toLowerCase();
+          if (authQ && (authQ.questionText || '').trim().toLowerCase() !== currentQText) {
+            console.warn(`[FET] Index mismatch! Q${questionIndex + 1} text doesn't match service at this index. Searching...`);
+            authQ = sourceList.find(q => (q.questionText || '').trim().toLowerCase() === currentQText) || null;
+            if (authQ) console.log(`[FET] ✅ Recovered correct question from service via text search.`);
+          }
+
+          if (authQ && Array.isArray(authQ.options)) {
+            const correctTexts = new Set<string>();
+            const correctIds = new Set<number>();
+            authQ.options.forEach((o: any) => {
+              if (o.correct === true || o.correct === "true" || o.isCorrect === true) {
+                if (o.text) correctTexts.add(o.text.trim().toLowerCase());
+                if (o.optionId !== undefined) correctIds.add(Number(o.optionId));
+              }
+            });
+
+            correctIndices = this.optionsToDisplay
+              .map((option, idx) => {
+                if (!option) return null;
+                if (option.optionId !== undefined && correctIds.has(Number(option.optionId))) return idx + 1;
+                if (option.text && correctTexts.has(option.text.trim().toLowerCase())) return idx + 1;
+                return null;
+              })
+              .filter((n): n is number => n !== null);
+
+            if (correctIndices.length > 0) {
+              console.log(`[FET] ✅ Phase 2: Auth match for Q${questionIndex + 1}: ${JSON.stringify(correctIndices)}`);
+            }
+          }
+        }
+      }
+
+      // --- PHASE 3: Service-Level Robust Fallback ---
+      if (!correctIndices || correctIndices.length === 0) {
+        console.warn(`[FET] ⚠️ No direct indices found for Q${questionIndex + 1}, falling back to ETS.getCorrectOptionIndices`);
+        correctIndices = this.explanationTextService.getCorrectOptionIndices(
+          question,
+          this.optionsToDisplay,
+          questionIndex
+        );
+      }
+
+      console.log(`[FET] Final result for Q${questionIndex + 1}: ${JSON.stringify(correctIndices)}`);
 
       const raw = (question.explanation || '').trim();
       const formatted = this.explanationTextService.formatExplanation(
