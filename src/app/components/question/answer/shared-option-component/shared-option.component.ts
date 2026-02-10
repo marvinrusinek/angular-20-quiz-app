@@ -3057,7 +3057,7 @@ export class SharedOptionComponent
 
     if (!binding?.option) return;
 
-    // ✅ Single source of truth: this MUST be the path that triggers:
+    // Single source of truth: this MUST be the path that triggers:
     // - sounds
     // - SelectedOptionService updates / answered state
     // - emits to parent
