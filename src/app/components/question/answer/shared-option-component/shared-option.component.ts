@@ -1700,12 +1700,18 @@ export class SharedOptionComponent
       this.currentQuestionIndex ??
       this.resolvedQuestionIndex ??
       questionIndex;
-    // CRITICAL FIX: Always use optionsToDisplay when available to ensure FET option numbers
-    // match feedback text. The previous check (questionIndex === displayIndex) was too restrictive
-    // and caused Q3+ to use cached FET with wrong indices in unshuffled mode.
-    const useLocalOptions =
-      Array.isArray(this.optionsToDisplay) &&
-      this.optionsToDisplay.length > 0;
+    // CRITICAL FIX: Robustly resolve options to ensure FET option numbers match feedback text.
+    // If local optionsToDisplay is missing (e.g., Q1 race condition), fallback to service.
+    let visualOptions = this.optionsToDisplay;
+    if (!visualOptions || visualOptions.length === 0) {
+      const qs = this.quizService.getQuestionsInDisplayOrder();
+      if (qs && qs[questionIndex] && qs[questionIndex].options) {
+        console.warn(`[FET] optionsToDisplay missing for Q${questionIndex + 1}. Recovered from QuizService.`);
+        visualOptions = qs[questionIndex].options;
+      }
+    }
+
+    const useLocalOptions = Array.isArray(visualOptions) && visualOptions.length > 0;
 
     // Use helper method that respects shuffle state
     const question = this.getQuestionAtDisplayIndex(questionIndex);
@@ -1722,19 +1728,19 @@ export class SharedOptionComponent
       // --- PHASE 1: Direct Visual Check ---
       // If the options being displayed already have the correct flag, use them.
       // We check for truthiness across multiple common property names.
-      correctIndices = this.optionsToDisplay
+      correctIndices = visualOptions
         .map((opt, idx) => {
-          const isCorrect = opt.correct === true || 
-                            (opt as any).correct === "true" || 
-                            (opt as any).isCorrect === true ||
-                            (opt as any).answer === true;
+          const isCorrect = opt.correct === true ||
+            (opt as any).correct === "true" ||
+            (opt as any).isCorrect === true ||
+            (opt as any).answer === true;
           return isCorrect ? idx + 1 : null;
         })
         .filter((n): n is number => n !== null);
 
       if (correctIndices.length > 0) {
         console.log(`[FET] ✅ Phase 1: Visual match for Q${questionIndex + 1}: ${JSON.stringify(correctIndices)}`);
-      } 
+      }
       // --- PHASE 2: Authoritative Data Mapping (with exhaustive text-search recovery) ---
       else if (shuffleActive || (this.quizService.shuffledQuestions && this.quizService.shuffledQuestions.length > 0)) {
         const shuffledList = this.quizService.shuffledQuestions || [];
@@ -1744,7 +1750,7 @@ export class SharedOptionComponent
         if (Array.isArray(sourceList) && sourceList.length > 0) {
           // Attempt direct index match first
           let authQ = sourceList.length > questionIndex ? sourceList[questionIndex] : null;
-          
+
           // RECOVERY: If direct index doesn't match question text, search entire list
           const currentQText = (question.questionText || '').trim().toLowerCase();
           if (authQ && (authQ.questionText || '').trim().toLowerCase() !== currentQText) {
@@ -1763,7 +1769,7 @@ export class SharedOptionComponent
               }
             });
 
-            correctIndices = this.optionsToDisplay
+            correctIndices = visualOptions
               .map((option, idx) => {
                 if (!option) return null;
                 if (option.optionId !== undefined && correctIds.has(Number(option.optionId))) return idx + 1;
@@ -1784,7 +1790,7 @@ export class SharedOptionComponent
         console.warn(`[FET] ⚠️ No direct indices found for Q${questionIndex + 1}, falling back to ETS.getCorrectOptionIndices`);
         correctIndices = this.explanationTextService.getCorrectOptionIndices(
           question,
-          this.optionsToDisplay,
+          visualOptions,
           questionIndex
         );
       }
@@ -1801,7 +1807,7 @@ export class SharedOptionComponent
         questionIndex,
         formatted,
         question,
-        this.optionsToDisplay,
+        visualOptions,
         true
       );
       return formatted;
