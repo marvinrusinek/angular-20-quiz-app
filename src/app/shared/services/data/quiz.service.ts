@@ -641,28 +641,45 @@ export class QuizService {
     // ALWAYS return existing shuffledQuestions if available.
     // This prevents re-shuffling on every call which causes option order instability
     if (this.shuffledQuestions && this.shuffledQuestions.length > 0) {
-      // CRITICAL: Only return cached shuffle if it belongs to the SAME quiz
-      // Check both quizId AND questionsQuizId to prevent cross-quiz data leakage
-      const isSameQuiz = quizId &&
-        this.quizId === quizId &&
-        this.questionsQuizId === quizId;
+      // CRITICAL: Cache Validation
+      // Check for stale data where 'correct' flags might be missing (all false) due to previous bugs.
+      // If a question has options but NONE are correct, the data is likely corrupted/stale.
+      const hasBadData = this.shuffledQuestions.some(q =>
+        Array.isArray(q.options) &&
+        q.options.length > 1 && // ignore single/zero option edge cases
+        !q.options.some(o => o.correct === true)
+      );
 
-      if (isSameQuiz) {
-        console.log(`[fetchQuizQuestions] Returning EXISTING shuffledQuestions (${this.shuffledQuestions.length} questions) for quiz ${quizId}`);
-
-        if (this.shuffledQuestions.length > 0) {
-          console.log(`[fetchQuizQuestions] Q1 Preview: Text="${this.shuffledQuestions[0].questionText.substring(0, 20)}..."`);
-        }
-
-        // Ensure subscribers get the shuffled version
-        this.questionsSubject.next(this.shuffledQuestions);
-        return this.shuffledQuestions;
-      } else {
-        console.log(`[fetchQuizQuestions] Quiz mismatch - clearing old shuffle. quizId=${quizId}, this.quizId=${this.quizId}, questionsQuizId=${this.questionsQuizId}`);
-        // Clear old shuffle for new quiz
+      if (hasBadData) {
+        console.warn('[QuizService] 🧹 Cache Eviction: Detected stale shuffledQuestions (missing correct flags). Purging cache.');
         this.shuffledQuestions = [];
         this._questions = [];
         this.questionsQuizId = null;
+        try { localStorage.removeItem('shuffledQuestions'); } catch { }
+      } else {
+        // CRITICAL: Only return cached shuffle if it belongs to the SAME quiz
+        // Check both quizId AND questionsQuizId to prevent cross-quiz data leakage
+        const isSameQuiz = quizId &&
+          this.quizId === quizId &&
+          this.questionsQuizId === quizId;
+
+        if (isSameQuiz) {
+          console.log(`[fetchQuizQuestions] Returning EXISTING shuffledQuestions (${this.shuffledQuestions.length} questions) for quiz ${quizId}`);
+
+          if (this.shuffledQuestions.length > 0) {
+            console.log(`[fetchQuizQuestions] Q1 Preview: Text="${this.shuffledQuestions[0].questionText.substring(0, 20)}..."`);
+          }
+
+          // Ensure subscribers get the shuffled version
+          this.questionsSubject.next(this.shuffledQuestions);
+          return this.shuffledQuestions;
+        } else {
+          console.log(`[fetchQuizQuestions] Quiz mismatch - clearing old shuffle. quizId=${quizId}, this.quizId=${this.quizId}, questionsQuizId=${this.questionsQuizId}`);
+          // Clear old shuffle for new quiz
+          this.shuffledQuestions = [];
+          this._questions = [];
+          this.questionsQuizId = null;
+        }
       }
     }
 
