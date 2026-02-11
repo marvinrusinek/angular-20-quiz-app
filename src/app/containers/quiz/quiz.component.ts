@@ -1768,7 +1768,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       options: Array.isArray(question.options)
         ? question.options.map((option) => ({
           ...option,
-          correct: option.correct ?? false
+          correct: (option.correct as any) === true || (option.correct as any) === 'true',
         }))
         : []
     }));
@@ -1891,7 +1891,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       )
       .map((option) => ({
         ...option,
-        correct: option.correct ?? false,
+        correct: (option.correct as any) === true || (option.correct as any) === 'true',
         selected: option.selected ?? false,
         active: option.active ?? true,
         showIcon: option.showIcon ?? false
