@@ -1752,22 +1752,42 @@ export class QuizService {
     }
 
     const deepClone = JSON.parse(JSON.stringify(question)) as QuizQuestion;
+
+    // Sync 'correct' flags from answer array into options for Phase 1 FET matching reliability
+    const correctTexts = new Set<string>();
+    const correctIds = new Set<number>();
+    if (Array.isArray(deepClone.answer)) {
+      deepClone.answer.forEach(a => {
+        if (!a) return;
+        if (a.text) correctTexts.add(a.text.trim().toLowerCase());
+        const id = Number(a.optionId);
+        if (!isNaN(id)) correctIds.add(id);
+      });
+    }
+
     const normalizedOptions = Array.isArray(deepClone.options)
-      ? deepClone.options.map((option, optionIdx) => ({
-        ...option,
-        optionId:
-          typeof option.optionId === 'number'
-            ? option.optionId
-            : optionIdx + 1,
-        displayOrder:
-          typeof option.displayOrder === 'number'
-            ? option.displayOrder
-            : optionIdx,
-        correct: option.correct === true,
-        selected: option.selected ?? false,
-        highlight: option.highlight ?? false,
-        showIcon: option.showIcon ?? false
-      }))
+      ? deepClone.options.map((option, optionIdx) => {
+        const oId = typeof option.optionId === 'number' ? option.optionId : optionIdx + 1;
+        const oText = (option.text ?? '').trim().toLowerCase();
+
+        // An option is correct if it says so, OR if it matches an entry in the answer array
+        const isCorrect = option.correct === true ||
+          (oId !== undefined && correctIds.has(oId)) ||
+          (oText !== '' && correctTexts.has(oText));
+
+        return {
+          ...option,
+          optionId: oId,
+          displayOrder:
+            typeof option.displayOrder === 'number'
+              ? option.displayOrder
+              : optionIdx,
+          correct: isCorrect,
+          selected: option.selected ?? false,
+          highlight: option.highlight ?? false,
+          showIcon: option.showIcon ?? false
+        };
+      })
       : [];
 
     return {

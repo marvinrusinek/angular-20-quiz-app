@@ -306,10 +306,19 @@ export class QuizShuffleService {
           state.optionOrder.get(originalIndex)
         );
 
+        const alignedAnswers = this.alignAnswersWithOptions(source.answer, orderedOptions);
+        const correctIds = new Set(alignedAnswers.map(a => Number(a.optionId)));
+        const correctTexts = new Set(alignedAnswers.map(a => (a.text ?? '').trim().toLowerCase()));
+
         return {
           ...source,
-          options: orderedOptions.map((option) => ({ ...option })),
-          answer: this.alignAnswersWithOptions(source.answer, orderedOptions)
+          options: orderedOptions.map((option) => ({
+            ...option,
+            correct: option.correct === true ||
+              (option.optionId !== undefined && correctIds.has(Number(option.optionId))) ||
+              (option.text !== undefined && correctTexts.has((option.text ?? '').trim().toLowerCase()))
+          })),
+          answer: alignedAnswers
         } as QuizQuestion;
       })
       .filter((question): question is QuizQuestion => question !== null);
@@ -320,13 +329,22 @@ export class QuizShuffleService {
           question.options ?? [],
           index
         );
+        const alignedAnswers = this.alignAnswersWithOptions(
+          question.answer,
+          normalizedOptions
+        );
+        const correctIds = new Set(alignedAnswers.map(a => Number(a.optionId)));
+        const correctTexts = new Set(alignedAnswers.map(a => (a.text ?? '').trim().toLowerCase()));
+
         return {
           ...question,
-          options: normalizedOptions.map((option) => ({ ...option })),
-          answer: this.alignAnswersWithOptions(
-            question.answer,
-            normalizedOptions
-          )
+          options: normalizedOptions.map((option) => ({
+            ...option,
+            correct: option.correct === true ||
+              (option.optionId !== undefined && correctIds.has(Number(option.optionId))) ||
+              (option.text !== undefined && correctTexts.has((option.text ?? '').trim().toLowerCase()))
+          })),
+          answer: alignedAnswers
         };
       });
     }
