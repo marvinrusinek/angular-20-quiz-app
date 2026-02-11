@@ -2561,7 +2561,7 @@ export class QuizService {
     const quizId = this.resolveShuffleQuizId();
     if (!quizId) return null;
 
-    // FIX: Strict Shuffle Priority
+    // ⚡ FIX: Strict Shuffle Priority
     // If shuffle is enabled, the "canonical" question for this session IS the shuffled question.
     // We should NOT look up the original quiz index 0, because that's a completely different question.
     if (this.isShuffleEnabled() && this.shuffledQuestions && this.shuffledQuestions.length > 0) {
@@ -2727,7 +2727,7 @@ export class QuizService {
           ...option,
           optionId: this.toNumericId(option.optionId, index + 1),
           displayOrder: index,
-          correct: option.correct === true,
+          correct: (option.correct as any) === true || (option.correct as any) === 'true',
           selected: option.selected === true,
           highlight: option.highlight ?? false,
           showIcon: option.showIcon ?? false
