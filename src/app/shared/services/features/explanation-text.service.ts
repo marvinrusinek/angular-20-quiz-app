@@ -582,7 +582,7 @@ export class ExplanationTextService {
       /^(?:option|options)\s+\d+(?:\s*,\s*\d+)*(?:\s+and\s+\d+)?\s+(?:is|are)\s+correct\s+because\s+/i;
 
     // Format explanation (only if not already formatted)
-    const correctOptionIndices = this.getCorrectOptionIndices(question, undefined, questionIndex);
+    const correctOptionIndices = this.getCorrectOptionIndices(question, question.options, questionIndex);
     const formattedExplanation = alreadyFormattedRe.test(rawExplanation)
       ? rawExplanation
       : this.formatExplanation(question, correctOptionIndices, rawExplanation);
@@ -790,16 +790,16 @@ export class ExplanationTextService {
       }
 
       const isActuallyShuffled = quizSvc.isShuffleEnabled() || (quizSvc.shuffledQuestions && quizSvc.shuffledQuestions.length > 0);
-      
+
       if (isActuallyShuffled) {
         // First, try direct correct flags on the options passed in
         const shuffleIndices = opts
           .map((option, idx) => {
             if (!option || typeof option !== 'object') return null;
-            const isCorrect = option.correct === true || 
-                              (option as any).correct === "true" || 
-                              (option as any).isCorrect === true ||
-                              (option as any).answer === true;
+            const isCorrect = option.correct === true ||
+              (option as any).correct === "true" ||
+              (option as any).isCorrect === true ||
+              (option as any).answer === true;
             if (!isCorrect) return null;
             return idx + 1;
           })
@@ -819,12 +819,12 @@ export class ExplanationTextService {
 
         if (qIdx !== null && Array.isArray(authQuestions) && authQuestions.length > 0) {
           let authQ = authQuestions.length > qIdx ? authQuestions[qIdx] : null;
-          
+
           // RECOVERY: If current index doesn't match, or is out of bounds, search by text
           const currentTextNorm = normalize(question?.questionText);
           if (authQuestions.length > 0 && (!authQ || normalize(authQ.questionText) !== currentTextNorm)) {
-             console.warn(`[ETS] Index mismatch in auth source for Q${qIdx + 1}. Searching authoritative list...`);
-             authQ = authQuestions.find(q => normalize(q.questionText) === currentTextNorm) || null;
+            console.warn(`[ETS] Index mismatch in auth source for Q${qIdx + 1}. Searching authoritative list...`);
+            authQ = authQuestions.find(q => normalize(q.questionText) === currentTextNorm) || null;
           }
 
           if (authQ && Array.isArray(authQ.options)) {
@@ -879,14 +879,14 @@ export class ExplanationTextService {
         const pristineTextNorm = normalize(pristine?.questionText);
 
         if (currentTextNorm && pristineTextNorm && currentTextNorm !== pristineTextNorm) {
-            console.warn(`[ETS] Index Sync Failure! DisplayIdx ${qIdx} mapped to OrigIdx ${origIdx} (Text Mismatch). Searching canonical cache...`);
-            const canonical = quizSvc.getCanonicalQuestions(quizSvc.quizId);
-            const foundIdx = canonical.findIndex(q => normalize(q.questionText) === currentTextNorm);
-            if (foundIdx !== -1) {
-                origIdx = foundIdx;
-                pristine = quizSvc.getPristineQuestion(origIdx);
-                console.log(`[ETS] ✅ Found correct match at OriginalIdx ${origIdx}`);
-            }
+          console.warn(`[ETS] Index Sync Failure! DisplayIdx ${qIdx} mapped to OrigIdx ${origIdx} (Text Mismatch). Searching canonical cache...`);
+          const canonical = quizSvc.getCanonicalQuestions(quizSvc.quizId);
+          const foundIdx = canonical.findIndex(q => normalize(q.questionText) === currentTextNorm);
+          if (foundIdx !== -1) {
+            origIdx = foundIdx;
+            pristine = quizSvc.getPristineQuestion(origIdx);
+            console.log(`[ETS] ✅ Found correct match at OriginalIdx ${origIdx}`);
+          }
         }
 
         // Fallback: If shuffle is disabled, display index IS the original index
