@@ -398,7 +398,7 @@ export class QuizShuffleService {
     return withIds.map((option, index) => ({
       ...option,
       displayOrder: index,
-      correct: option.correct === true,
+      correct: (option.correct as any) === true || (option.correct as any) === 'true',
       selected: option.selected === true,
       highlight: option.highlight ?? false,
       showIcon: option.showIcon ?? false

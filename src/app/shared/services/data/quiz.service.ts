@@ -537,7 +537,7 @@ export class QuizService {
         ...opt,
         optionId: safeId,
         text: safeText,
-        correct: opt?.correct === true,
+        correct: (opt?.correct as any) === true || (opt?.correct as any) === 'true',
         value: typeof opt?.value === 'number' ? opt.value : safeId,
         answer: opt?.answer ?? undefined,
         selected: opt?.selected === true,
