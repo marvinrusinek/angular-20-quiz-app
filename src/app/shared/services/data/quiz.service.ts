@@ -2133,10 +2133,12 @@ export class QuizService {
       // If the option ALREADY has a computed ID (e.g. from ShuffleService, usually > 100),
       // DO NOT overwrite it with an ID based on the (potentially shuffled) "questionIndex".
       // This ensures scoring uses the canonical ID (e.g. 301) instead of the display ID (e.g. 101).
-      // We assume raw JSON IDs are small (< 100) or undefined.
-      if (option.optionId && typeof option.optionId === 'number' && option.optionId >= 100) {
+      // We also handle string IDs (e.g. "101") by normalizing them.
+      const existingId = Number(option.optionId);
+      if (option.optionId !== undefined && !isNaN(existingId) && existingId >= 100) {
         return {
           ...option,
+          optionId: existingId, // Ensure it is a number
           selected: false,
           highlight: false,
           showIcon: false
