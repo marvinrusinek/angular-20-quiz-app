@@ -653,27 +653,20 @@ export class ExplanationTextService {
 
     let formattedExplanation: string;
 
-    // When force=true and the explanation is already formatted, use it directly.
-    // The caller (forceRegenerateExplanation) has already calculated correct indices.
-    // This prevents double-calculation with potentially different/wrong options.
-    if (force && alreadyFormattedRe.test(explanation.trim())) {
-      formattedExplanation = explanation.trim();
-      console.log(`[ETS] ⚡ Force mode: Using pre-formatted explanation directly`);
-    } else {
-      // Normal path: Strip prefix and recalculate
-      let rawExplanation = explanation.trim();
-      if (alreadyFormattedRe.test(rawExplanation)) {
-        rawExplanation = rawExplanation.replace(alreadyFormattedRe, '').trim();
-        console.log(`[ETS] 🔄 Stripped existing format prefix to re-format with correct indices`);
-      }
-
-      const correctOptionIndices = this.getCorrectOptionIndices(question, options, index);
-      formattedExplanation = this.formatExplanation(
-        question,
-        correctOptionIndices,
-        rawExplanation
-      );
+    // ALWAYS strip existing prefix and re-calculate indices.
+    // This is critical because an "already formatted" explanation might have the WRONG index (e.g. from canonical order).
+    // We must regenerate it using the current visual options.
+    let rawExplanation = explanation.trim();
+    if (alreadyFormattedRe.test(rawExplanation)) {
+      rawExplanation = rawExplanation.replace(alreadyFormattedRe, '').trim();
     }
+
+    const correctOptionIndices = this.getCorrectOptionIndices(question, options, index);
+    formattedExplanation = this.formatExplanation(
+      question,
+      correctOptionIndices,
+      rawExplanation
+    );
 
     this.formattedExplanations[index] = {
       questionIndex: index,
