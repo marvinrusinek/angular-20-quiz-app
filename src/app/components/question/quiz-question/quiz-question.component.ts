@@ -5702,9 +5702,24 @@ export class QuizQuestionComponent extends BaseQuestion
           if (shuffledQ && Array.isArray(shuffledQ.options)) {
             // Build a set of correct option texts from shuffledQuestions
             const correctTexts = new Set<string>();
+            const correctOptionIds = new Set<number>();
             shuffledQ.options.forEach((o: any) => {
-              if (o.correct === true && o.text) {
+              const isCorrect =
+                o?.correct === true ||
+                o?.correct === 'true' ||
+                o?.isCorrect === true ||
+                o?.answer === true;
+
+              if (!isCorrect) {
+                return;
+              }
+
+              if (o.text) {
                 correctTexts.add(o.text.trim().toLowerCase());
+              }
+
+              if (o.optionId !== undefined && o.optionId !== null) {
+                correctOptionIds.add(Number(o.optionId));
               }
             });
 
@@ -5712,12 +5727,28 @@ export class QuizQuestionComponent extends BaseQuestion
             correctIndices = visualOpts
               .map((option: any, idx: number) => {
                 if (!option || !option.text) return null;
+                if (
+                  option.optionId !== undefined &&
+                  option.optionId !== null &&
+                  correctOptionIds.has(Number(option.optionId))
+                ) {
+                  return idx + 1;
+                }
                 if (correctTexts.has(option.text.trim().toLowerCase())) {
                   return idx + 1; // 1-based index
                 }
                 return null;
               })
               .filter((n: number | null): n is number => n !== null);
+
+            if (correctIndices.length === 0) {
+              // Fallback to shared robust resolver so Q1 shuffled still gets visual index mapping.
+              correctIndices = this.explanationTextService.getCorrectOptionIndices(
+                questionData!,
+                visualOpts,
+                questionIndex
+              );
+            }
 
             console.log(`[prepareAndSetExplanation SHUFFLE FIX] Q${questionIndex + 1} correctIndices from text match: ${JSON.stringify(correctIndices)}`);
           } else {
