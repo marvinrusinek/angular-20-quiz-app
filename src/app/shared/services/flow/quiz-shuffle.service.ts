@@ -365,9 +365,9 @@ export class QuizShuffleService {
   // Make optionId numeric & stable; idempotent. Uses questionIndex to ensure global uniqueness.
   public assignOptionIds(options: Option[], questionIndex: number): Option[] {
     return (options ?? []).map((o, i) => {
-      // ⚡ FIX: Sync Safeguard - Preserve existing IDs (especially >100)
+      // ⚡ FIX: Sync Safeguard - Preserve existing IDs
       const existingId = Number((o as any).optionId);
-      if (!isNaN(existingId) && existingId >= 100) {
+      if (!isNaN(existingId)) {
         return {
           ...o,
           optionId: existingId,
