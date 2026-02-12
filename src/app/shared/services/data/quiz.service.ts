@@ -339,7 +339,7 @@ export class QuizService {
         this.questions = [...selectedQuiz.questions];
       } else {
         console.error(
-          `Selected quiz (ID: ${this.quizId}) does not have a valid questions array:`,
+          `Selected quiz(ID: ${this.quizId}) does not have a valid questions array: `,
           selectedQuiz.questions
         );
         this.questions = [];
@@ -394,7 +394,7 @@ export class QuizService {
   loadResourcesForQuiz(quizId: string): void {
     const quizResource = this.quizResources.find(r => r.quizId === quizId);
     this.resources = quizResource?.resources ?? [];
-    console.log(`[QuizService] Loaded ${this.resources.length} resources for quiz: ${quizId}`);
+    console.log(`[QuizService] Loaded ${this.resources.length} resources for quiz: ${quizId} `);
   }
 
   getActiveQuiz(): Quiz | null {
@@ -427,7 +427,7 @@ export class QuizService {
       : null;
 
     if (!quiz) {
-      console.warn(`No quiz found for quizId: ${this.quizId}`);
+      console.warn(`No quiz found for quizId: ${this.quizId} `);
     }
 
     return of(quiz ?? null);
@@ -527,7 +527,7 @@ export class QuizService {
           ? (opt.optionId as number)
           : idx + 1;
 
-      const safeText = (opt?.text ?? '').trim() || `Option ${idx + 1}`;
+      const safeText = (opt?.text ?? '').trim() || `Option ${idx + 1} `;
       const normalizedHighlight =
         typeof opt?.highlight === 'boolean' ? opt.highlight : !!opt?.highlight;
       const normalizedActive =
@@ -565,7 +565,7 @@ export class QuizService {
     }
 
     console.warn(
-      `Invalid or missing optionId. Falling back to index: ${index}`
+      `Invalid or missing optionId.Falling back to index: ${index} `
     );
     return index;
   }
@@ -587,9 +587,9 @@ export class QuizService {
       if (this.isShuffleEnabled() && this.shuffledQuestions && this.shuffledQuestions.length > index) {
         const strictShuffled = this.shuffledQuestions[index];
         if (strictShuffled && strictShuffled.questionText !== resolvedQuestion.questionText) {
-          console.warn(`[getQuestionByIndex] ⚠️ MISMATCH DETECTED for Q${index + 1}! 
-            Resolved="${resolvedQuestion.questionText.substring(0, 15)}...", 
-            Shuffled="${strictShuffled.questionText.substring(0, 15)}..."`);
+          console.warn(`[getQuestionByIndex] ⚠️ MISMATCH DETECTED for Q${index + 1}!
+  Resolved="${resolvedQuestion.questionText.substring(0, 15)}...",
+    Shuffled = "${strictShuffled.questionText.substring(0, 15)}..."`);
           console.log(`[getQuestionByIndex] 🛡️ Overriding with STRICT shuffled question.`);
           return of({
             ...strictShuffled,
@@ -636,7 +636,7 @@ export class QuizService {
   }
 
   async fetchQuizQuestions(quizId: string): Promise<QuizQuestion[]> {
-    console.log(`[QuizService] fetchQuizQuestions(${quizId}). hasShuffle=${this.shuffledQuestions?.length}, quizId=${this.quizId}, shouldShuffle=${this.shouldShuffle()}`);
+    console.log(`[QuizService] fetchQuizQuestions(${quizId}).hasShuffle = ${this.shuffledQuestions?.length}, quizId = ${this.quizId}, shouldShuffle = ${this.shouldShuffle()} `);
 
     // ALWAYS return existing shuffledQuestions if available.
     // This prevents re-shuffling on every call which causes option order instability
@@ -664,17 +664,17 @@ export class QuizService {
           this.questionsQuizId === quizId;
 
         if (isSameQuiz) {
-          console.log(`[fetchQuizQuestions] Returning EXISTING shuffledQuestions (${this.shuffledQuestions.length} questions) for quiz ${quizId}`);
+          console.log(`[fetchQuizQuestions] Returning EXISTING shuffledQuestions(${this.shuffledQuestions.length} questions) for quiz ${quizId}`);
 
           if (this.shuffledQuestions.length > 0) {
-            console.log(`[fetchQuizQuestions] Q1 Preview: Text="${this.shuffledQuestions[0].questionText.substring(0, 20)}..."`);
+            console.log(`[fetchQuizQuestions] Q1 Preview: Text = "${this.shuffledQuestions[0].questionText.substring(0, 20)}..."`);
           }
 
           // Ensure subscribers get the shuffled version
           this.questionsSubject.next(this.shuffledQuestions);
           return this.shuffledQuestions;
         } else {
-          console.log(`[fetchQuizQuestions] Quiz mismatch - clearing old shuffle. quizId=${quizId}, this.quizId=${this.quizId}, questionsQuizId=${this.questionsQuizId}`);
+          console.log(`[fetchQuizQuestions] Quiz mismatch - clearing old shuffle.quizId = ${quizId}, this.quizId = ${this.quizId}, questionsQuizId = ${this.questionsQuizId} `);
           // Clear old shuffle for new quiz
           this.shuffledQuestions = [];
           this._questions = [];
@@ -703,7 +703,7 @@ export class QuizService {
           // this.quizId === quizId
           this.questionsQuizId === quizId
         ) {
-          console.log(`[QuizService] fetchQuizQuestions: Cache hit. shouldShuffle=${this.shouldShuffle()}, cachedSize=${cachedQuestions.length}`);
+          console.log(`[QuizService] fetchQuizQuestions: Cache hit.shouldShuffle = ${this.shouldShuffle()}, cachedSize = ${cachedQuestions.length} `);
           if (this.shouldShuffle()) {
             // Reuse already shuffled session data if available
             if (
@@ -940,7 +940,7 @@ export class QuizService {
           this.updateCorrectCountForResults(this.correctCount - 1);
           this.questionCorrectness.set(scoringKey, false);
           console.log(
-            `[QuizService] Decremented score for Leaving Q${prevIndex} (Key=${scoringKey}, Backwards)`
+            `[QuizService] Decremented score for Leaving Q${prevIndex}(Key = ${scoringKey}, Backwards)`
           );
         }
       }
@@ -1001,7 +1001,7 @@ export class QuizService {
 
         if (questionIndex < 0 || questionIndex >= questions.length) {
           console.warn(
-            `[QuizService] Index ${questionIndex} out of bounds (0-${questions.length - 1}). Returning null.`
+            `[QuizService] Index ${questionIndex} out of bounds(0 - ${questions.length - 1}).Returning null.`
           );
           return null;
         }
@@ -1041,7 +1041,7 @@ export class QuizService {
           question.options.length === 0
         ) {
           console.warn(
-            `No options found for Q${questionIndex}. Returning empty array.`
+            `No options found for Q${questionIndex}.Returning empty array.`
           );
           return [];
         }
@@ -1058,7 +1058,7 @@ export class QuizService {
           correct: opt.correct ?? false,
           feedback:
             opt.feedback ??
-            `Generated feedback for Q${questionIndex} Option ${index}`
+            `Generated feedback for Q${questionIndex} Option ${index} `
         }));
 
         console.log(
@@ -1067,7 +1067,7 @@ export class QuizService {
         return sanitized;
       }),
       catchError((error) => {
-        console.error(`Error fetching options for Q${questionIndex}:`, error);
+        console.error(`Error fetching options for Q${questionIndex}: `, error);
         return of([]);
       }),
     );
@@ -1098,7 +1098,7 @@ export class QuizService {
           prevSelected.some(s => (s.text || '').trim() === (o.text || '').trim())
         );
         this.answers = restoredAnswers;
-        console.log(`[QuizService] Restored ${restoredAnswers.length} answers for Q${safeIndex} (preventing score drop)`);
+        console.log(`[QuizService] Restored ${restoredAnswers.length} answers for Q${safeIndex}(preventing score drop)`);
       } else {
         this.answers = [];
       }
@@ -1200,12 +1200,12 @@ export class QuizService {
 
       if (!isValidIndex || !isValidTotal || questionIndex > totalQuestions) {
         console.error(
-          `[❌ updateBadgeText] Invalid question number: ${questionIndex} of ${totalQuestions}`
+          `[❌ updateBadgeText] Invalid question number: ${questionIndex} of ${totalQuestions} `
         );
         return;
       }
 
-      const newBadgeText = `Question ${questionIndex} of ${totalQuestions}`;
+      const newBadgeText = `Question ${questionIndex} of ${totalQuestions} `;
       const currentBadgeText = this.badgeTextSource.getValue();
 
       // Avoid unnecessary UI updates
@@ -1234,7 +1234,7 @@ export class QuizService {
       return parseInt(match[1], 10);  // return parsed badge number
     }
 
-    console.warn(`Unable to extract badge number from: ${currentBadgeText}`);
+    console.warn(`Unable to extract badge number from: ${currentBadgeText} `);
     return 1;  // default to Question 1 if parsing fails
   }
 
@@ -1480,9 +1480,9 @@ export class QuizService {
       const isValid = Number.isInteger(option.optionId);
 
       if (!isValid) {
-        console.warn(`Invalid option at index ${idx}:`, option);
+        console.warn(`Invalid option at index ${idx}: `, option);
       } else if (option.correct) {
-        console.log(`Correct option found at index ${idx}:`, option);
+        console.log(`Correct option found at index ${idx}: `, option);
       }
       return isValid && option.correct;
     });
@@ -1581,7 +1581,7 @@ export class QuizService {
     }
 
     console.log(`[updateAnswersForOption] Final answers array: 
-      ${JSON.stringify(this.answers.map(a => a.text?.substring(0, 15)))}`);
+      ${JSON.stringify(this.answers.map(a => a.text?.substring(0, 15)))} `);
   }
 
 
@@ -1650,17 +1650,20 @@ export class QuizService {
     const fromSubject = this.shuffleEnabledSubject.getValue();
     const fromUrl = this.activatedRoute.snapshot.queryParamMap.get('shuffle') === 'true';
     const result = fromSubject || fromUrl;
-    console.log(`[QuizService] shouldShuffle? ${result} (Sub: ${fromSubject}, URL: ${fromUrl})`);
+    console.log(`[QuizService] shouldShuffle ? ${result} (Sub: ${fromSubject}, URL: ${fromUrl})`);
     return result;
   }
 
   isShuffleEnabled(): boolean {
     const fromSubject = this.shuffleEnabledSubject.getValue();
-    const fromUrl = this.activatedRoute.snapshot.queryParamMap.get('shuffle') === 'true';
-    if (fromUrl && !fromSubject) {
-      console.log('[QuizService] ⚡ Shuffle state discrepancy: URL has true but subject is false. Trusting URL.');
+    const fromUrl = this.activatedRoute.snapshot.queryParamMap.get('shuffle') === 'true' ||
+      window.location.search.includes('shuffle=true');
+    const fromStorage = localStorage.getItem('checkedShuffle') === 'true';
+
+    if ((fromUrl || fromStorage) && !fromSubject) {
+      console.log(`[QuizService] ⚡ Shuffle enabled via ${fromUrl ? 'URL' : 'Storage'} but subject was false.Correcting.`);
     }
-    return fromSubject || fromUrl;
+    return fromSubject || fromUrl || fromStorage;
   }
 
   setCheckedShuffle(isChecked: boolean): void {
@@ -1688,11 +1691,11 @@ export class QuizService {
     this.resetScore();
 
     this.quizId = '';
-    console.log(`[setCheckedShuffle] Shuffle=${isChecked}, cleared shuffle state & questions for fresh start`);
+    console.log(`[setCheckedShuffle] Shuffle = ${isChecked}, cleared shuffle state & questions for fresh start`);
   }
 
   getShuffledQuestions(): Observable<QuizQuestion[]> {
-    console.log(`[QuizService] getShuffledQuestions called. stored=${this.shuffledQuestions?.length}`);
+    console.log(`[QuizService] getShuffledQuestions called.stored = ${this.shuffledQuestions?.length} `);
     // If we have a stored shuffled session, return it to maintain consistency
     if (this.shuffledQuestions && this.shuffledQuestions.length > 0) {
       console.log('[getShuffledQuestions] Returning stored SHUFFLED session. First ID:', this.shuffledQuestions[0]?.questionText?.substring(0, 10));
@@ -2048,7 +2051,7 @@ export class QuizService {
       totalQuestions: this.questions.length
     };
     this.quizScore = quizScore;
-    return this.http.post<void>(`${this.quizUrl}/quiz/scores`, quizScore);
+    return this.http.post<void>(`${this.quizUrl} /quiz/scores`, quizScore);
   }
 
   // Helper function to find a quiz by quizId
@@ -2191,7 +2194,7 @@ export class QuizService {
 
       // Build a globally unique numeric ID like 1001, 1002, 2001, 2002, etc.
       const uniqueId = Number(
-        `${questionIndex + 1}${(localIdx + 1).toString().padStart(2, '0')}`
+        `${questionIndex + 1}${(localIdx + 1).toString().padStart(2, '0')} `
       );
       return {
         ...option,
@@ -2234,7 +2237,7 @@ export class QuizService {
   }
 
   updateUserAnswer(questionIndex: number, answerIds: number[]): void {
-    console.log(`[QuizService] 💾 updateUserAnswer(idx=${questionIndex}, ids=${JSON.stringify(answerIds)})`);
+    console.log(`[QuizService] 💾 updateUserAnswer(idx = ${questionIndex}, ids = ${JSON.stringify(answerIds)})`);
     this.userAnswers[questionIndex] = answerIds;
     try {
       localStorage.setItem('userAnswers', JSON.stringify(this.userAnswers));
@@ -2284,9 +2287,9 @@ export class QuizService {
         })
         .filter((o): o is Option => !!o);
 
-      console.log(`[QuizService] updateUserAnswer: Populated answers:`, this.answers.map(a => a.text));
+      console.log(`[QuizService] updateUserAnswer: Populated answers: `, this.answers.map(a => a.text));
     } else {
-      console.warn(`[QuizService] Could not find question/options for Q${questionIndex} during update. questions.length=${this.questions?.length}`);
+      console.warn(`[QuizService] Could not find question / options for Q${questionIndex} during update.questions.length = ${this.questions?.length} `);
       this.answers = answerIds.map(id => ({ optionId: id } as Option));
     }
 
@@ -2296,13 +2299,13 @@ export class QuizService {
     if (!this.shouldShuffle()) {
       this.checkIfAnsweredCorrectly(questionIndex);
     } else {
-      console.log(`[QuizService] SHUFFLED mode: Skipping checkIfAnsweredCorrectly in updateUserAnswer (scoreDirectly handles scoring)`);
+      console.log(`[QuizService] SHUFFLED mode: Skipping checkIfAnsweredCorrectly in updateUserAnswer(scoreDirectly handles scoring)`);
     }
   }
 
   async checkIfAnsweredCorrectly(index: number = -1): Promise<boolean> {
     const qIndex = index >= 0 ? index : this.currentQuestionIndex;
-    console.log(`[checkIfAnsweredCorrectly] Called for Q${qIndex}. IndexParam=${index}, ServiceIndex=${this.currentQuestionIndex}`);
+    console.log(`[checkIfAnsweredCorrectly] Called for Q${qIndex}.IndexParam = ${index}, ServiceIndex = ${this.currentQuestionIndex} `);
 
     let currentQuestionValue: QuizQuestion | null = null;
     if (this.shouldShuffle()) {
@@ -2322,20 +2325,20 @@ export class QuizService {
     ).length;
     this.multipleAnswer = this.numberOfCorrectAnswers > 1;
 
-    console.log(`[checkIfAnsweredCorrectly] 📊 Expected Correct Count: ${this.numberOfCorrectAnswers}. User Answers Count: ${this.answers?.length}`);
+    console.log(`[checkIfAnsweredCorrectly] 📊 Expected Correct Count: ${this.numberOfCorrectAnswers}. User Answers Count: ${this.answers?.length} `);
 
     if (!this.answers || this.answers.length === 0) {
       console.log(`[checkIfAnsweredCorrectly] Answers empty for Q${qIndex} -> exiting false`);
       return false;
     }
 
-    console.log(`[checkIfAnsweredCorrectly] User Answers:`, this.answers.map(a => `ID=${a.optionId}, Text="${a.text}"`));
+    console.log(`[checkIfAnsweredCorrectly] User Answers: `, this.answers.map(a => `ID = ${a.optionId}, Text = "${a.text}"`));
 
     const correctnessArray = await this.determineCorrectAnswer(currentQuestionValue, this.answers);
     const correctFoundCount = correctnessArray.filter((v) => v === true).length;
     const isCorrect = correctFoundCount === this.numberOfCorrectAnswers;
 
-    console.log(`[checkIfAnsweredCorrectly] Result: Found=${correctFoundCount}, Required=${this.numberOfCorrectAnswers}, correctnessArray=${JSON.stringify(correctnessArray)} -> isCorrect=${isCorrect}`);
+    console.log(`[checkIfAnsweredCorrectly] Result: Found = ${correctFoundCount}, Required = ${this.numberOfCorrectAnswers}, correctnessArray = ${JSON.stringify(correctnessArray)} -> isCorrect=${isCorrect} `);
 
     const answerIds = this.answers.map((a) => a.optionId).filter((id): id is number => id !== undefined);
     this.incrementScore(answerIds, isCorrect, this.multipleAnswer, qIndex);
@@ -2351,7 +2354,7 @@ export class QuizService {
    * @param isMultipleAnswer Whether this is a multi-answer question
    */
   public scoreDirectly(questionIndex: number, isCorrect: boolean, isMultipleAnswer: boolean): void {
-    console.log(`[scoreDirectly] 🎯 Q${questionIndex}: isCorrect=${isCorrect}, isMulti=${isMultipleAnswer}`);
+    console.log(`[scoreDirectly] 🎯 Q${questionIndex}: isCorrect = ${isCorrect}, isMulti = ${isMultipleAnswer} `);
     this.incrementScore([], isCorrect, isMultipleAnswer, questionIndex);
   }
 
@@ -2384,7 +2387,7 @@ export class QuizService {
         const shuffleKeys = Object.keys(localStorage).filter(k => k.startsWith('shuffleState:'));
         if (shuffleKeys.length > 0) {
           effectiveQuizId = shuffleKeys[0].replace('shuffleState:', '');
-          console.log(`[incrementScore] Found shuffle state for quizId: ${effectiveQuizId}`);
+          console.log(`[incrementScore] Found shuffle state for quizId: ${effectiveQuizId} `);
         }
       }
 
@@ -2406,13 +2409,13 @@ export class QuizService {
     if (isNowCorrect && !wasCorrect) {
       this.updateCorrectCountForResults(this.correctCount + 1);
       this.questionCorrectness.set(scoringKey, true);
-      console.log(`[incrementScore] INCREMENTED score to ${this.correctCount}`);
+      console.log(`[incrementScore] INCREMENTED score to ${this.correctCount} `);
     } else if (!isNowCorrect && wasCorrect) {
       this.updateCorrectCountForResults(this.correctCount - 1);
       this.questionCorrectness.set(scoringKey, false);
-      console.log(`[incrementScore] Decremented score for Q${qIndex} (Key=${scoringKey})`);
+      console.log(`[incrementScore] Decremented score for Q${qIndex}(Key = ${scoringKey})`);
     } else {
-      console.log(`[incrementScore] NO CHANGE: isNowCorrect=${isNowCorrect}, wasCorrect=${wasCorrect}`);
+      console.log(`[incrementScore] NO CHANGE: isNowCorrect = ${isNowCorrect}, wasCorrect = ${wasCorrect} `);
     }
 
     this.saveQuestionCorrectness();
@@ -2464,7 +2467,7 @@ export class QuizService {
 
   resetQuizSessionState(): void {
     this.resetScore();
-    console.log(`[QuizService] resetQuizSessionState called. Stack:`);
+    console.log(`[QuizService] resetQuizSessionState called.Stack: `);
     console.trace();
     this.isNavigating = false;
 
@@ -2490,7 +2493,7 @@ export class QuizService {
     // this.questions = [];
     // this.questionsList = [];
     // this.questionsSubject.next([]);
-    console.log(`[QuizService] resetQuizSessionState called (cleared shuffle & questions)`);
+    console.log(`[QuizService] resetQuizSessionState called(cleared shuffle & questions)`);
 
     this.currentQuestionSource.next(null);
     this.currentQuestion.next(null);
@@ -2596,7 +2599,7 @@ export class QuizService {
         // Validation: If currentQuestion is provided, ensure it matches the text of the shuffled question
         const shuffledQ = this.shuffledQuestions[index];
         if (currentQuestion && currentQuestion.questionText !== shuffledQ.questionText) {
-          console.warn(`[resolveCanonicalQuestion] ⚠️ Index ${index} Mismatch! Shuffled="${shuffledQ.questionText.substring(0, 10)}", Current="${currentQuestion.questionText.substring(0, 10)}"`);
+          console.warn(`[resolveCanonicalQuestion] ⚠️ Index ${index} Mismatch! Shuffled = "${shuffledQ.questionText.substring(0, 10)}", Current = "${currentQuestion.questionText.substring(0, 10)}"`);
         }
         return shuffledQ;
       }
@@ -2652,7 +2655,7 @@ export class QuizService {
         this.shuffledQuestions.length > index &&
         this.shuffledQuestions[index]
       ) {
-        // console.log(`[resolveCanonicalQuestion] Direct return from shuffledQuestions[${index}]`);
+        // console.log(`[resolveCanonicalQuestion] Direct return from shuffledQuestions[${ index }]`);
         return this.shuffledQuestions[index];
       }
 
@@ -2823,7 +2826,7 @@ export class QuizService {
 
     // Log what we are trying to emit
     if (this.isShuffleEnabled()) {
-      console.log(`[emitQA] ⚡ Shuffle Active. Emitting from currentQuestion directly.`);
+      console.log(`[emitQA] ⚡ Shuffle Active.Emitting from currentQuestion directly.`);
       console.log(`[emitQA] Question: "${currentQuestion?.questionText?.substring(0, 20)}..."`);
       console.log(`[emitQA] Options[0]: "${currentQuestion?.options?.[0]?.text?.substring(0, 20)}..."`);
     }
@@ -3016,8 +3019,8 @@ export class QuizService {
       localStorage.removeItem('currentQuestionType');
 
       // If you store per-quiz keys, also remove those patterns:
-      localStorage.removeItem(`quizState_${quizId}`);
-      localStorage.removeItem(`quizResumeIndex_${quizId}`);
+      localStorage.removeItem(`quizState_${quizId} `);
+      localStorage.removeItem(`quizResumeIndex_${quizId} `);
     } catch { }
   }
 }

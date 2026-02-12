@@ -1,5 +1,4 @@
 import { Injectable, Injector } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
 import {
   BehaviorSubject, firstValueFrom, from, Observable, of, ReplaySubject, Subject
 } from 'rxjs';
