@@ -1801,7 +1801,8 @@ export class SharedOptionComponent
       const formatted = this.explanationTextService.formatExplanation(
         question,
         correctIndices,
-        raw
+        raw,
+        questionIndex
       );
       this.explanationTextService.storeFormattedExplanation(
         questionIndex,
@@ -1835,7 +1836,8 @@ export class SharedOptionComponent
       const formatted = this.explanationTextService.formatExplanation(
         question,
         correctIndices,
-        raw
+        raw,
+        questionIndex
       );
       this.explanationTextService.storeFormattedExplanation(
         questionIndex,
@@ -1917,7 +1919,8 @@ export class SharedOptionComponent
           this.explanationTextService.formatExplanation(
             question,
             correctIndices,
-            rawExplanation.trim()
+            rawExplanation.trim(),
+            questionIndex
           );
         this.explanationTextService.storeFormattedExplanation(
           questionIndex,

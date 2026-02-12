@@ -745,7 +745,7 @@ export class ExplanationTextService {
     const qText = question?.questionText?.slice(0, 50);
     // ⚡ SYNC FIX: Ensure qIdx is NEVER null/undefined for Q1.
     // If displayIndex is 0, Number.isFinite(0) is true.
-    let qIdx = Number.isFinite(displayIndex) ? (displayIndex as number) : this.latestExplanationIndex;
+    let qIdx = (displayIndex !== undefined && Number.isFinite(displayIndex)) ? (displayIndex as number) : this.latestExplanationIndex;
 
     // Final fallback for qIdx: check QuizService
     if (qIdx === null || qIdx === -1 || qIdx === undefined) {
@@ -764,7 +764,7 @@ export class ExplanationTextService {
     }
 
     // Default to 0 if still missing (emergency fallback for Q1)
-    if (qIdx === null || qIdx === undefined || qIdx < 0) {
+    if (qIdx === null || qIdx === undefined) {
       qIdx = 0;
     }
 
@@ -779,12 +779,11 @@ export class ExplanationTextService {
     try {
       const quizSvc = this.injector.get(QuizService, null);
       if (!quizSvc) {
-        console.warn('[ETS.getCorrectOptionIndices] QuizService missing. Falling back to non-service matching.');
+        console.warn('[ETS.getCorrectOptionIndices] QuizService missing.');
+        return [];
       }
 
-      const isActuallyShuffled = !!quizSvc && (
-        quizSvc.isShuffleEnabled() || (quizSvc.shuffledQuestions && quizSvc.shuffledQuestions.length > 0)
-      );
+      const isActuallyShuffled = quizSvc.isShuffleEnabled() || (quizSvc.shuffledQuestions && quizSvc.shuffledQuestions.length > 0);
 
       if (isActuallyShuffled) {
         // First, try direct correct flags on the options passed in
@@ -1286,6 +1285,9 @@ export class ExplanationTextService {
     this.displayedByContext.clear();
 
     this.explanationTexts = {};
+    this.formattedExplanations = {};
+    this.explanationsUpdated.next({});
+    this.formattedExplanationSubject.next('');
   }
 
   resetExplanationText(): void {
@@ -1314,12 +1316,15 @@ export class ExplanationTextService {
     this._gate.clear();
     this._gatesByIndex.clear();
     this._textMap?.clear?.();
+    this.formattedExplanations = {};
+    this.explanationsUpdated.next({});
     this.formattedExplanations$ = [];
     this._fetLocked = null;
     this._gateToken = 0;
     this._currentGateToken = 0;
-    this._activeIndex = null;
+    this._activeIndex = -1;
     this.latestExplanationIndex = -1;
+    this.activeIndex$.next(-1);
 
     this.explanationTextSubject.next('');
     this.explanationText$.next('');
