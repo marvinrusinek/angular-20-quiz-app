@@ -1655,15 +1655,20 @@ export class QuizService {
   }
 
   isShuffleEnabled(): boolean {
-    const fromSubject = this.shuffleEnabledSubject.getValue();
-    const fromUrl = this.activatedRoute.snapshot.queryParamMap.get('shuffle') === 'true' ||
-      window.location.search.includes('shuffle=true');
-    const fromStorage = localStorage.getItem('checkedShuffle') === 'true';
-
-    if ((fromUrl || fromStorage) && !fromSubject) {
-      console.log(`[QuizService] ⚡ Shuffle enabled via ${fromUrl ? 'URL' : 'Storage'} but subject was false.Correcting.`);
+    // ⚡ PRIORITY 1: Direct URL check (most reliable during init)
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('shuffle')) {
+      return urlParams.get('shuffle') === 'true';
     }
-    return fromSubject || fromUrl || fromStorage;
+
+    // ⚡ PRIORITY 2: Route Snapshot (if URL check failed)
+    const fromUrl = this.activatedRoute.snapshot.queryParamMap.get('shuffle');
+    if (fromUrl !== null) {
+      return fromUrl === 'true';
+    }
+
+    // ⚡ FALLBACK: Internal subject (initialized from localStorage in constructor)
+    return this.shuffleEnabledSubject.getValue();
   }
 
   setCheckedShuffle(isChecked: boolean): void {

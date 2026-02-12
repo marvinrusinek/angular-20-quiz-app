@@ -564,6 +564,7 @@ export class ExplanationTextService {
     }
 
     // Notify subscribers about the updated explanations
+    this.explanationsInitialized = true;
     this.explanationsUpdated.next(this.formattedExplanations);
   }
 
