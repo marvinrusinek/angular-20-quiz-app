@@ -840,6 +840,7 @@ export class QuizService {
           (question) => this.cloneQuestionForSession(question) ?? question
         );
         this.questions = broadcastQuestions;
+        this.questionsSubject.next(broadcastQuestions); // ⚡ SYNC FIX: Ensure stream emits for reactive subscribers
         this.questionsQuizId = quizId;
 
         return sanitizedQuestions.map(
@@ -1646,13 +1647,20 @@ export class QuizService {
   }
 
   private shouldShuffle(): boolean {
-    const should = this.shuffleEnabledSubject.getValue();
-    console.log(`[QuizService] shouldShuffle? ${should}`);
-    return should;
+    const fromSubject = this.shuffleEnabledSubject.getValue();
+    const fromUrl = this.activatedRoute.snapshot.queryParamMap.get('shuffle') === 'true';
+    const result = fromSubject || fromUrl;
+    console.log(`[QuizService] shouldShuffle? ${result} (Sub: ${fromSubject}, URL: ${fromUrl})`);
+    return result;
   }
 
   isShuffleEnabled(): boolean {
-    return this.shuffleEnabledSubject.getValue();
+    const fromSubject = this.shuffleEnabledSubject.getValue();
+    const fromUrl = this.activatedRoute.snapshot.queryParamMap.get('shuffle') === 'true';
+    if (fromUrl && !fromSubject) {
+      console.log('[QuizService] ⚡ Shuffle state discrepancy: URL has true but subject is false. Trusting URL.');
+    }
+    return fromSubject || fromUrl;
   }
 
   setCheckedShuffle(isChecked: boolean): void {

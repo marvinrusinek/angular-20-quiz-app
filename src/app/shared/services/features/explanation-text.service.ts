@@ -783,7 +783,10 @@ export class ExplanationTextService {
         return [];
       }
 
-      const isActuallyShuffled = quizSvc.isShuffleEnabled() || (quizSvc.shuffledQuestions && quizSvc.shuffledQuestions.length > 0);
+      const isActuallyShuffled =
+        quizSvc.isShuffleEnabled() ||
+        (quizSvc.shuffledQuestions && quizSvc.shuffledQuestions.length > 0) ||
+        this.injector.get(ActivatedRoute).snapshot.queryParamMap.get('shuffle') === 'true';
 
       if (isActuallyShuffled) {
         // First, try direct correct flags on the options passed in
