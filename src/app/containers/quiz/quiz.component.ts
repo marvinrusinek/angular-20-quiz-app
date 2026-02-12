@@ -1975,11 +1975,14 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
               explanationTextObservable
             );
 
-            this.explanationTextService.storeFormattedExplanation(
-              +questionId,
-              explanationText,
-              question
-            );
+            const q = this.questions[+questionId];
+            if (q) {
+              this.explanationTextService.storeFormattedExplanation(
+                +questionId,
+                explanationText,
+                q
+              );
+            }
           }
         }
 
@@ -4162,10 +4165,11 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // Get the formatted explanation text string (unwrap the Observable)
     let formatted = this.explanationTextService.getFormattedSync(qIdx);
     if (!formatted) {
-      const correctIndices = question.options
-        .filter((o: Option) => o.correct)
-        .map((o: Option) => o.optionId)
-        .filter((id): id is number => id !== undefined);
+      const correctIndices = this.explanationTextService.getCorrectOptionIndices(
+        question,
+        question.options,
+        qIdx
+      );
 
       formatted = this.explanationTextService.formatExplanation(
         question,

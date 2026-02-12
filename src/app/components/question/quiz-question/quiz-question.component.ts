@@ -5151,9 +5151,7 @@ export class QuizQuestionComponent extends BaseQuestion
         typeof ets.formatExplanation === 'function'
           ? ets.formatExplanation(
             q,
-            q.options
-              ?.map((o, i) => (o.correct ? i + 1 : -1))
-              .filter((n) => n > 0),
+            ets.getCorrectOptionIndices(q, q.options, i0),
             baseRaw,
             i0
           )

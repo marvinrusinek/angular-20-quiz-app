@@ -1367,7 +1367,11 @@ export class ExplanationTextService {
     return false;
   }
 
-  // Emit per-index formatted text; coalesces duplicates and broadcasts event
+  public isLocked(index: number): boolean {
+    return this.lockedFetIndices.has(index);
+  }
+
+  // Set per-index formatted text; coalesces duplicates and broadcasts event
   public emitFormatted(index: number, value: string | null): void {
     // Lock immediately to prevent race conditions with reactive streams
     this._fetLocked = true;
