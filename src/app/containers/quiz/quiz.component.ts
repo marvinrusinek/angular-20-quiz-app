@@ -1778,6 +1778,10 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     const hydratedQuestions = this.hydrateQuestionSet(questions);
     this.questions = hydratedQuestions;
 
+    // Clear all previous FET state (locks, caches, etc.) to ensure fresh start
+    // This fixes the issue where switching from Shuffled -> Unshuffled keeps stale data
+    this.explanationTextService.resetState();
+
     if (hydratedQuestions.length === 0) {
       this.explanationTextService.initializeExplanationTexts([]);
       this.explanationTextService.initializeFormattedExplanations([]);

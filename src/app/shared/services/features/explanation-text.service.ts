@@ -143,6 +143,31 @@ export class ExplanationTextService {
     });
   }
 
+  resetState(): void {
+    console.log('[ETS] 🔄 Resetting Service State (clearing locks, caches, and subjects)');
+
+    // Clear locks and flags
+    this.lockedFetIndices.clear();
+    this.explanationsInitialized = false;
+    this._fetLocked = false;
+    this.explanationLocked = false;
+    this.lockedContext = null;
+    this.latestExplanationIndex = -1;
+    this.latestExplanation = '';
+
+    // Clear data caches
+    this.explanationTexts = {};
+    this.formattedExplanations = {};
+    this.fetByIndex.clear();
+    this.explanationByContext.clear();
+    this.formattedExplanationByQuestionText.clear();
+    this.processedQuestions.clear();
+
+    // Reset Subjects
+    this.explanationTextSubject.next('');
+    this.formattedExplanationSubject.next('');
+  }
+
   private _qss!: QuizStateService;
   private get qss(): QuizStateService {
     if (!this._qss) {
