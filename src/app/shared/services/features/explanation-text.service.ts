@@ -1,6 +1,7 @@
 import { Injectable, Injector } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import {
-  BehaviorSubject, firstValueFrom, Observable, of, ReplaySubject, Subject
+  BehaviorSubject, firstValueFrom, from, Observable, of, ReplaySubject, Subject
 } from 'rxjs';
 import {
   distinctUntilChanged, filter, map, skip, take, timeout
@@ -549,6 +550,12 @@ export class ExplanationTextService {
         continue;
       }
 
+      // ⚡ SYNC FIX: Do NOT overwrite a LOCKED FET (like the one generated for Q1 in shuffled mode)
+      if (this.lockedFetIndices.has(idx)) {
+        console.log(`[ETS] Skipping initialize for Q${idx + 1} - already LOCKED`);
+        continue;
+      }
+
       const trimmed = String(text).trim();
 
       this.formattedExplanations[idx] = {
@@ -679,6 +686,9 @@ export class ExplanationTextService {
     this.lockedFetIndices.add(index);
     console.log(`[ETS] 🔒 Locked FET for Q${index + 1}: "${formattedExplanation.slice(0, 50)}..."`);
 
+    // ⚡ FIX: Mark state as initialized once a locked FET is stored
+    this.explanationsInitialized = true;
+
     this.storeFormattedExplanationForQuestion(
       question,
       index,
@@ -783,10 +793,11 @@ export class ExplanationTextService {
         return [];
       }
 
+      // ⚡ ROBUST SHUFFLE CHECK: Use service state + direct URL check if needed
       const isActuallyShuffled =
         quizSvc.isShuffleEnabled() ||
         (quizSvc.shuffledQuestions && quizSvc.shuffledQuestions.length > 0) ||
-        this.injector.get(ActivatedRoute).snapshot.queryParamMap.get('shuffle') === 'true';
+        window.location.search.includes('shuffle=true');
 
       if (isActuallyShuffled) {
         // First, try direct correct flags on the options passed in
