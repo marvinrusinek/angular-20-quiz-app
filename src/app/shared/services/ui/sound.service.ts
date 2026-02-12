@@ -50,4 +50,15 @@ export class SoundService {
       console.warn(`[SoundService] Sound not found: ${soundName}`);
     }
   }
+
+  clearPlayedOptionsForQuestion(questionIndex: number): void {
+    // Placeholder - implement logic if needed, but for now just prevent crash
+    console.log(`[SoundService] clearPlayedOptionsForQuestion called for Q${questionIndex + 1}`);
+  }
+
+  reset(): void {
+    // Stop all sounds
+    Object.values(this.sounds).forEach(s => s.stop());
+    console.log('[SoundService] All sounds reset');
+  }
 }

@@ -1,12 +1,11 @@
 import {
-  ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit, HostListener
+  ChangeDetectionStrategy, Component, OnDestroy, OnInit, HostListener
 } from '@angular/core';
 import { CommonModule, NgOptimizedImage } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { Subject } from 'rxjs';
 import { take, takeUntil } from 'rxjs/operators';
 
@@ -33,7 +32,6 @@ import { QuizDataService } from '../../shared/services/data/quizdata.service';
     MatCardModule,
     MatExpansionModule,
     MatIconModule,
-    MatTooltipModule,
     NgOptimizedImage, 
     BackToTopComponent,
     AccordionComponent,
@@ -68,8 +66,7 @@ export class ResultsComponent implements OnInit, OnDestroy {
     private quizService: QuizService,
     private quizDataService: QuizDataService,
     private activatedRoute: ActivatedRoute,
-    private router: Router,
-    private cdRef: ChangeDetectorRef
+    private router: Router
   ) {
     this.quizService.setPreviousUserAnswersText(
       this.quizService.questions,
@@ -95,31 +92,23 @@ export class ResultsComponent implements OnInit, OnDestroy {
 
     const snapshot = this.quizService.getFinalResultSnapshot();
     if (snapshot) {
-      if (snapshot.quizId) {
-        this.quizId = snapshot.quizId;
-      }
       this.finalResult = snapshot;
       this.scoreAnalysis = snapshot.analysis;
       this.applyFinalResultSnapshot(snapshot);
       this.updateHeaderLabel(snapshot.total);
-      this.cdRef.markForCheck();
       return;
     }
 
     // optional fallback
     this.quizService.finalResult$
-      .pipe(takeUntil(this.unsubscribe$))
+      .pipe(take(1))
       .subscribe(r => {
-        if (r?.quizId) {
-          this.quizId = r.quizId;
-        }
         this.finalResult = r;
         this.scoreAnalysis = r?.analysis ?? [];
         if (r) {
           this.applyFinalResultSnapshot(r);
           this.updateHeaderLabel(r.total);
         }
-        this.cdRef.markForCheck();
       });
   }
 
@@ -145,20 +134,15 @@ export class ResultsComponent implements OnInit, OnDestroy {
     this.activeSection = section;
     this.closeMenu();
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    this.cdRef.markForCheck();
   }
 
   private fetchQuizIdFromParams(): void {
     this.activatedRoute.paramMap
       .pipe(takeUntil(this.unsubscribe$))
       .subscribe((params) => {
-        const routeQuizId = params.get('quizId');
-        if (routeQuizId) {
-          this.quizId = routeQuizId;
-          this.setCompletedQuiz();
-          this.findQuizIndex();
-          this.cdRef.markForCheck();
-        }
+        this.quizId = params.get('quizId') ?? '';
+        this.setCompletedQuiz();
+        this.findQuizIndex();
       });
   }
 

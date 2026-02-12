@@ -335,23 +335,21 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         filter(qs => Array.isArray(qs) && qs.length > 0)
       )
       .subscribe((questions) => {
-        console.log('[CQCC] ♻️ Questions updated - FET will be generated on-demand when user clicks');
+        // Shuffled quizzes MUST generate FET on-the-fly in QuizQuestionComponent 
+        // to ensure option numbering (1, 2, 3...) matches what the user sees.
+        if (this.quizService.isShuffleEnabled()) {
+          console.log('[CodelabQuizContent] ♻️ Shuffle mode active - deferring FET generation to QuizQuestionComponent');
+          return;
+        }
 
-        // DISABLED: Pre-generation was using q.options which may not match the visual optionsToDisplay
-        // This caused wrong option numbers (e.g., "Option 3" when it should be "Option 1")
-        // FET is now generated on-demand in SharedOptionComponent.resolveExplanationText()
-        // with the correct optionsToDisplay that matches what the user sees.
-        //
-        // const isShuffled = this.quizService.isShuffleEnabled();
-        // const questionsToUse = isShuffled && this.quizService.shuffledQuestions && this.quizService.shuffledQuestions.length > 0
-        //   ? this.quizService.shuffledQuestions
-        //   : questions;
-        // if (!Array.isArray(questionsToUse)) return;
-        // questionsToUse.forEach((q, idx) => {
-        //   if (q && q.explanation) {
-        //     this.explanationTextService.storeFormattedExplanation(idx, q.explanation, q, q.options);
-        //   }
-        // });
+        console.log('[CodelabQuizContent] ♻️ Questions updated - pre-generating FETs for unshuffled quiz');
+        if (!Array.isArray(questions)) return;
+
+        questions.forEach((q, idx) => {
+          if (q && q.explanation) {
+            this.explanationTextService.storeFormattedExplanation(idx, q.explanation, q);
+          }
+        });
       });
 
     this.timerService.expired$
@@ -368,8 +366,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           ((this.quizService as any)?.currentQuestion?.value ?? null);
 
         if (q?.explanation) {
-          // Pass q.options explicitly to ensure correct option indices
-          this.explanationTextService.storeFormattedExplanation(idx, q.explanation, q, q.options);
+          this.explanationTextService.storeFormattedExplanation(idx, q.explanation, q);
         }
 
         // OnPush safety
@@ -1337,15 +1334,12 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         console.log('[CodelabQuizContent] Skipping questions overwrite - data already present (might be shuffled)');
       }
 
-      await Promise.all(
-        questions.map(async (question, index) => {
-          // ⚡ SYNC FIX: If shuffle is enabled, we MUST NOT store explanations using RAW questions,
-          // as it would lock incorrect option numbers (canonical instead of visual).
-          // QuizComponent handles the shuffled FET initialization.
-          const isShuffled = this.quizService.isShuffleEnabled();
-          const isLocked = this.explanationTextService.isLocked(index);
-
-          if (!isShuffled && !isLocked) {
+      // ⚡ Only pre-populate if NOT shuffling. 
+      // Shuffled quizzes MUST generate FET on-the-fly in QuizQuestionComponent 
+      // to ensure option numbering (1, 2, 3...) matches the visual order.
+      if (!this.quizService.isShuffleEnabled()) {
+        await Promise.all(
+          questions.map(async (question, index) => {
             const explanation =
               this.explanationTexts[index] ?? 'No explanation available';
             this.explanationTextService.storeFormattedExplanation(
@@ -1353,16 +1347,13 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
               explanation,
               question
             );
-          } else if (isShuffled) {
-            console.log(`[CodelabQuizContent] Skipping FET store for Q${index + 1} - Shuffle is ACTIVE (deferring to QuizComponent)`);
-          } else {
-            console.log(`[CodelabQuizContent] Skipping FET store for Q${index + 1} - already LOCKED`);
-          }
-        })
-      );
-
-      // Set before test fetch
-      this.explanationTextService.explanationsInitialized = true;
+          }),
+        );
+        this.explanationTextService.explanationsInitialized = true;
+      } else {
+        console.log('[CodelabQuizContentComponent] Shuffle enabled via Service. Skipping pre-population of FET.');
+        this.explanationTextService.explanationsInitialized = true;
+      }
 
       this.initializeCurrentQuestionIndex();
     } catch (error: any) {

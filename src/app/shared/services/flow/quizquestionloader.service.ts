@@ -344,7 +344,7 @@ export class QuizQuestionLoaderService {
     if (this.totalQuestions) {
       return true;
     }
-    const qs = await firstValueFrom(
+    const qs: QuizQuestion[] = await firstValueFrom(
       this.quizDataService.getQuestionsForQuiz(this.activeQuizId)
     );
     this.totalQuestions = qs.length;
@@ -693,7 +693,7 @@ export class QuizQuestionLoaderService {
     );
     const selectedOptions =
       this.selectedOptionService.getSelectedOptionsForQuestion(idx);
-    const validSelections = (selectedOptions ?? []).filter((opt) =>
+    const validSelections = (selectedOptions ?? []).filter((opt: any) =>
       optionIdSet.has(opt.optionId ?? -1)
     );
     const quizIdForState = this.quizService.quizId ?? this.activeQuizId ?? 'default-quiz';
@@ -980,7 +980,7 @@ export class QuizQuestionLoaderService {
 
     try {
       // ─── Fetch all questions once ──────────────────────────────────
-      const allQuestions = await firstValueFrom(
+      const allQuestions: QuizQuestion[] = await firstValueFrom(
         this.quizDataService.getQuestionsForQuiz(this.activeQuizId),
       );
       const q: QuizQuestion | undefined = allQuestions[index];
