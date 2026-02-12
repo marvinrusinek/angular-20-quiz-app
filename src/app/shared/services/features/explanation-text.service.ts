@@ -900,7 +900,10 @@ export class ExplanationTextService {
               if (a) {
                 const norm = normalize(a.text);
                 if (norm) correctTexts.add(norm);
-                if (a.optionId !== undefined) correctIds.add(a.optionId);
+                if (a.optionId !== undefined) {
+                  correctIds.add(a.optionId);
+                  correctIds.add(Number(a.optionId));
+                }
               }
             });
             console.log(`[ETS] ✅ Attempt 1 (PRISTINE) SUCCESS for Q${qIdx + 1}. IDs:`, [...correctIds], `Texts:`, [...correctTexts]);
@@ -921,7 +924,10 @@ export class ExplanationTextService {
           if (a) {
             const norm = normalize(a.text);
             if (norm) correctTexts.add(norm);
-            if (a.optionId !== undefined) correctIds.add(a.optionId);
+            if (a.optionId !== undefined) {
+              correctIds.add(a.optionId);
+              correctIds.add(Number(a.optionId));
+            }
           }
         });
         console.log(`[ETS] ✅ Attempt 2 (question.answer) SUCCESS. IDs:`, [...correctIds], `Texts:`, [...correctTexts]);
@@ -935,8 +941,9 @@ export class ExplanationTextService {
           if (!option) return null;
 
           // Match by ID if both have it
-          if (option.optionId !== undefined && correctIds.has(option.optionId)) {
-            console.log(`[ETS]   Match Found: ID=${option.optionId} -> Option ${idx + 1}`);
+          const oid = option.optionId !== undefined ? Number(option.optionId) : null;
+          if (oid !== null && correctIds.has(oid)) {
+            console.log(`[ETS]   Match Found: ID=${oid} -> Option ${idx + 1}`);
             return idx + 1;
           }
 
@@ -978,7 +985,8 @@ export class ExplanationTextService {
   formatExplanation(
     question: QuizQuestion,
     correctOptionIndices: number[] | null | undefined,
-    explanation: string
+    explanation: string,
+    displayIndex?: number
   ): string {
     const alreadyFormattedRe =
       /^(?:option|options)\s+\d+(?:\s*,\s*\d+)*(?:\s+and\s+\d+)?\s+(?:is|are)\s+correct\s+because\s+/i;
@@ -1002,7 +1010,7 @@ export class ExplanationTextService {
 
     // Fallback: derive from the question’s own option flags
     if (indices.length === 0 && Array.isArray(question?.options)) {
-      indices = this.getCorrectOptionIndices(question);
+      indices = this.getCorrectOptionIndices(question, question.options, displayIndex);
     }
 
     // Stabilize: dedupe + sort so multi-answer phrasing is consistent

@@ -2895,7 +2895,7 @@ export class QuizQuestionComponent extends BaseQuestion
       );
       console.log(`[QQC] Computed FET indices for Q${this.currentQuestionIndex + 1}: ${JSON.stringify(correctIndices)}`);
 
-      const fet = this.explanationTextService.formatExplanation(q!, correctIndices, rawExplanation);
+      const fet = this.explanationTextService.formatExplanation(q!, correctIndices, rawExplanation, this.currentQuestionIndex);
 
       if (fet) {
         console.log(`[QQC] Sync FET for Q${idx + 1}: "${fet.substring(0, 40)}..."`);
