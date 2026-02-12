@@ -1814,6 +1814,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         // Get correct option indices for this question
         const correctIndices = this.explanationTextService.getCorrectOptionIndices(question, question.options, index);
 
+        console.log(`[applyQuestionsFromSession] Generating FET for Q${index + 1}. Indices found: ${JSON.stringify(correctIndices)}`);
+
         // Format the explanation with the prefix
         const formattedText = this.explanationTextService.formatExplanation(
           question,
@@ -1821,6 +1823,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           rawExplanation,
           index
         );
+
+        console.log(`[applyQuestionsFromSession] Formatted FET for Q${index + 1}: "${formattedText.slice(0, 40)}..."`);
 
         return { questionIndex: index, explanation: formattedText };
       });

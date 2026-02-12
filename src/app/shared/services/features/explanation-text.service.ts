@@ -586,6 +586,15 @@ export class ExplanationTextService {
         questionIndex: idx,
         explanation: trimmed || 'No explanation available'
       };
+
+      // Sync helpers for component access
+      this.fetByIndex.set(idx, trimmed || 'No explanation available');
+
+      // LOCKING: Once initialized with correct data (from applyQuestionsFromSession),
+      // lock it to prevent accidental overwrites by stale async processes.
+      this.lockedFetIndices.add(idx);
+
+      console.log(`[ETS] Initialized & LOCKED FET for Q${idx + 1}: "${trimmed.slice(0, 40)}..."`);
     }
 
     // Notify subscribers about the updated explanations
