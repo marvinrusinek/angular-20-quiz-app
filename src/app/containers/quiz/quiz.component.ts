@@ -1809,7 +1809,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         const formattedText = this.explanationTextService.formatExplanation(
           question,
           correctIndices,
-          rawExplanation
+          rawExplanation,
+          index
         );
 
         return { questionIndex: index, explanation: formattedText };
@@ -2461,7 +2462,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       const formattedExplanation = this.explanationTextService.formatExplanation(
         question,
         correctIndices,
-        question.explanation
+        question.explanation,
+        index
       );
       console.log(`[forceRegenerateExplanation] Q${index + 1} formattedExplanation:`, formattedExplanation?.substring(0, 80));
 
@@ -3751,7 +3753,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         explanationText = this.explanationTextService.formatExplanation(
           fetchedQuestion,
           correctIndices,
-          rawExplanation
+          rawExplanation,
+          questionIndex
         );
 
         this.explanationTextService.storeFormattedExplanation(
@@ -4167,7 +4170,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       formatted = this.explanationTextService.formatExplanation(
         question,
         correctIndices,
-        rawExpl
+        rawExpl,
+        qIdx
       );
       this.explanationTextService.setExplanationTextForQuestionIndex(qIdx, formatted);
     }

@@ -585,7 +585,7 @@ export class ExplanationTextService {
     const correctOptionIndices = this.getCorrectOptionIndices(question, question.options, questionIndex);
     const formattedExplanation = alreadyFormattedRe.test(rawExplanation)
       ? rawExplanation
-      : this.formatExplanation(question, correctOptionIndices, rawExplanation);
+      : this.formatExplanation(question, correctOptionIndices, rawExplanation, questionIndex);
 
     // Store and sync (but coalesce to avoid redundant emits)
     const prev =
@@ -665,7 +665,8 @@ export class ExplanationTextService {
     formattedExplanation = this.formatExplanation(
       question,
       correctOptionIndices,
-      rawExplanation
+      rawExplanation,
+      index
     );
 
     this.formattedExplanations[index] = {
@@ -763,7 +764,7 @@ export class ExplanationTextService {
     }
 
     // Default to 0 if still missing (emergency fallback for Q1)
-    if (qIdx === null || qIdx === undefined) {
+    if (qIdx === null || qIdx === undefined || qIdx < 0) {
       qIdx = 0;
     }
 
@@ -778,11 +779,12 @@ export class ExplanationTextService {
     try {
       const quizSvc = this.injector.get(QuizService, null);
       if (!quizSvc) {
-        console.warn('[ETS.getCorrectOptionIndices] QuizService missing.');
-        return [];
+        console.warn('[ETS.getCorrectOptionIndices] QuizService missing. Falling back to non-service matching.');
       }
 
-      const isActuallyShuffled = quizSvc.isShuffleEnabled() || (quizSvc.shuffledQuestions && quizSvc.shuffledQuestions.length > 0);
+      const isActuallyShuffled = !!quizSvc && (
+        quizSvc.isShuffleEnabled() || (quizSvc.shuffledQuestions && quizSvc.shuffledQuestions.length > 0)
+      );
 
       if (isActuallyShuffled) {
         // First, try direct correct flags on the options passed in
