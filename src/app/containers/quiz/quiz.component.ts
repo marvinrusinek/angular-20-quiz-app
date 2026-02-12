@@ -336,6 +336,11 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           this.questions = questions;
           this.questionsArray = [...questions];
           this.totalQuestions = questions.length;
+
+          // REGENERATE FETs: Ensure we always have correct explanations when questions update
+          // This fixes the issue where shuffling logic updates questions but FETs remain stale
+          this.applyQuestionsFromSession(questions);
+
           console.log(
             `[QUIZ COMPONENT] totalQuestions set to ${this.totalQuestions} from 
             questions$.length for quiz ${this.quizId}`
