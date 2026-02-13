@@ -2704,7 +2704,7 @@ export class QuizQuestionComponent extends BaseQuestion
           displayOrder: index
         }));
 
-        if (this.shuffleOptions) Utils.shuffleArray(this.currentOptions);
+        // if (this.shuffleOptions) Utils.shuffleArray(this.currentOptions);
 
         this.currentOptions = this.applyDisplayOrder(this.currentOptions);
         this.optionsToDisplay = this.currentOptions.map((option) => ({
