@@ -3366,7 +3366,7 @@ export class QuizQuestionComponent extends BaseQuestion
       console.log(`[QQC forceExplanation] Computed indices for Q${this.currentQuestionIndex + 1}: ${JSON.stringify(correctIdxs)}`);
 
       const formatted = ets
-        .formatExplanation(canonicalQ, correctIdxs, canonicalRaw, this.currentQuestionIndex)
+        .formatExplanation(canonicalQ, correctIdxs, canonicalRaw)
         .trim();
 
       if (!formatted) {
@@ -5151,9 +5151,10 @@ export class QuizQuestionComponent extends BaseQuestion
         typeof ets.formatExplanation === 'function'
           ? ets.formatExplanation(
             q,
-            ets.getCorrectOptionIndices(q, q.options, i0),
-            baseRaw,
-            i0
+            q.options
+              ?.map((o, i) => (o.correct ? i + 1 : -1))
+              .filter((n) => n > 0),
+            baseRaw
           )
           : baseRaw;
     } catch (error: any) {
@@ -5780,8 +5781,7 @@ export class QuizQuestionComponent extends BaseQuestion
         this.explanationTextService.formatExplanation(
           questionData,
           correctIndices,
-          rawExplanation,
-          questionIndex
+          rawExplanation
         );
 
       this.explanationToDisplay = formattedExplanation;

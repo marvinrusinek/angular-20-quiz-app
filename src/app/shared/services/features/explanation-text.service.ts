@@ -1,6 +1,6 @@
 import { Injectable, Injector } from '@angular/core';
 import {
-  BehaviorSubject, firstValueFrom, from, Observable, of, ReplaySubject, Subject
+  BehaviorSubject, firstValueFrom, Observable, of, ReplaySubject, Subject
 } from 'rxjs';
 import {
   distinctUntilChanged, filter, map, skip, take, timeout
@@ -141,31 +141,6 @@ export class ExplanationTextService {
       this.setShouldDisplayExplanation(false, { force: true });
       this.setIsExplanationTextDisplayed(false, { force: true });
     });
-  }
-
-  resetState(): void {
-    console.log('[ETS] 🔄 Resetting Service State (clearing locks, caches, and subjects)');
-
-    // Clear locks and flags
-    this.lockedFetIndices.clear();
-    this.explanationsInitialized = false;
-    this._fetLocked = false;
-    this.explanationLocked = false;
-    this.lockedContext = null;
-    this.latestExplanationIndex = -1;
-    this.latestExplanation = '';
-
-    // Clear data caches
-    this.explanationTexts = {};
-    this.formattedExplanations = {};
-    this.fetByIndex.clear();
-    this.explanationByContext.clear();
-    this.formattedExplanationByQuestionText.clear();
-    this.processedQuestions.clear();
-
-    // Reset Subjects
-    this.explanationTextSubject.next('');
-    this.formattedExplanationSubject.next('');
   }
 
   private _qss!: QuizStateService;
@@ -574,31 +549,15 @@ export class ExplanationTextService {
         continue;
       }
 
-      // ⚡ SYNC FIX: Do NOT overwrite a LOCKED FET (like the one generated for Q1 in shuffled mode)
-      if (this.lockedFetIndices.has(idx)) {
-        console.log(`[ETS] Skipping initialize for Q${idx + 1} - already LOCKED`);
-        continue;
-      }
-
       const trimmed = String(text).trim();
 
       this.formattedExplanations[idx] = {
         questionIndex: idx,
         explanation: trimmed || 'No explanation available'
       };
-
-      // Sync helpers for component access
-      this.fetByIndex.set(idx, trimmed || 'No explanation available');
-
-      // LOCKING: Once initialized with correct data (from applyQuestionsFromSession),
-      // lock it to prevent accidental overwrites by stale async processes.
-      this.lockedFetIndices.add(idx);
-
-      console.log(`[ETS] Initialized & LOCKED FET for Q${idx + 1}: "${trimmed.slice(0, 40)}..."`);
     }
 
     // Notify subscribers about the updated explanations
-    this.explanationsInitialized = true;
     this.explanationsUpdated.next(this.formattedExplanations);
   }
 
@@ -626,7 +585,7 @@ export class ExplanationTextService {
     const correctOptionIndices = this.getCorrectOptionIndices(question, question.options, questionIndex);
     const formattedExplanation = alreadyFormattedRe.test(rawExplanation)
       ? rawExplanation
-      : this.formatExplanation(question, correctOptionIndices, rawExplanation, questionIndex);
+      : this.formatExplanation(question, correctOptionIndices, rawExplanation);
 
     // Store and sync (but coalesce to avoid redundant emits)
     const prev =
@@ -706,8 +665,7 @@ export class ExplanationTextService {
     formattedExplanation = this.formatExplanation(
       question,
       correctOptionIndices,
-      rawExplanation,
-      index
+      rawExplanation
     );
 
     this.formattedExplanations[index] = {
@@ -719,9 +677,6 @@ export class ExplanationTextService {
     // LOCK this index to prevent future overwrites with wrong options
     this.lockedFetIndices.add(index);
     console.log(`[ETS] 🔒 Locked FET for Q${index + 1}: "${formattedExplanation.slice(0, 50)}..."`);
-
-    // ⚡ FIX: Mark state as initialized once a locked FET is stored
-    this.explanationsInitialized = true;
 
     this.storeFormattedExplanationForQuestion(
       question,
@@ -789,7 +744,7 @@ export class ExplanationTextService {
     const qText = question?.questionText?.slice(0, 50);
     // ⚡ SYNC FIX: Ensure qIdx is NEVER null/undefined for Q1.
     // If displayIndex is 0, Number.isFinite(0) is true.
-    let qIdx = (displayIndex !== undefined && Number.isFinite(displayIndex)) ? (displayIndex as number) : this.latestExplanationIndex;
+    let qIdx = Number.isFinite(displayIndex) ? (displayIndex as number) : this.latestExplanationIndex;
 
     // Final fallback for qIdx: check QuizService
     if (qIdx === null || qIdx === -1 || qIdx === undefined) {
@@ -827,11 +782,7 @@ export class ExplanationTextService {
         return [];
       }
 
-      // ⚡ ROBUST SHUFFLE CHECK: Use service state + direct URL check if needed
-      const isActuallyShuffled =
-        quizSvc.isShuffleEnabled() ||
-        (quizSvc.shuffledQuestions && quizSvc.shuffledQuestions.length > 0) ||
-        window.location.search.includes('shuffle=true');
+      const isActuallyShuffled = quizSvc.isShuffleEnabled() || (quizSvc.shuffledQuestions && quizSvc.shuffledQuestions.length > 0);
 
       if (isActuallyShuffled) {
         // First, try direct correct flags on the options passed in
@@ -1333,9 +1284,6 @@ export class ExplanationTextService {
     this.displayedByContext.clear();
 
     this.explanationTexts = {};
-    this.formattedExplanations = {};
-    this.explanationsUpdated.next({});
-    this.formattedExplanationSubject.next('');
   }
 
   resetExplanationText(): void {
@@ -1364,15 +1312,12 @@ export class ExplanationTextService {
     this._gate.clear();
     this._gatesByIndex.clear();
     this._textMap?.clear?.();
-    this.formattedExplanations = {};
-    this.explanationsUpdated.next({});
     this.formattedExplanations$ = [];
     this._fetLocked = null;
     this._gateToken = 0;
     this._currentGateToken = 0;
-    this._activeIndex = -1;
+    this._activeIndex = null;
     this.latestExplanationIndex = -1;
-    this.activeIndex$.next(-1);
 
     this.explanationTextSubject.next('');
     this.explanationText$.next('');
@@ -1415,11 +1360,7 @@ export class ExplanationTextService {
     return false;
   }
 
-  public isLocked(index: number): boolean {
-    return this.lockedFetIndices.has(index);
-  }
-
-  // Set per-index formatted text; coalesces duplicates and broadcasts event
+  // Emit per-index formatted text; coalesces duplicates and broadcasts event
   public emitFormatted(index: number, value: string | null): void {
     // Lock immediately to prevent race conditions with reactive streams
     this._fetLocked = true;

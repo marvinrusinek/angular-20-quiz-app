@@ -336,11 +336,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           this.questions = questions;
           this.questionsArray = [...questions];
           this.totalQuestions = questions.length;
-
-          // REGENERATE FETs: Ensure we always have correct explanations when questions update
-          // This fixes the issue where shuffling logic updates questions but FETs remain stale
-          this.applyQuestionsFromSession(questions);
-
           console.log(
             `[QUIZ COMPONENT] totalQuestions set to ${this.totalQuestions} from 
             questions$.length for quiz ${this.quizId}`
@@ -1783,10 +1778,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     const hydratedQuestions = this.hydrateQuestionSet(questions);
     this.questions = hydratedQuestions;
 
-    // Clear all previous FET state (locks, caches, etc.) to ensure fresh start
-    // This fixes the issue where switching from Shuffled -> Unshuffled keeps stale data
-    this.explanationTextService.resetState();
-
     if (hydratedQuestions.length === 0) {
       this.explanationTextService.initializeExplanationTexts([]);
       this.explanationTextService.initializeFormattedExplanations([]);
@@ -1814,17 +1805,12 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         // Get correct option indices for this question
         const correctIndices = this.explanationTextService.getCorrectOptionIndices(question, question.options, index);
 
-        console.log(`[applyQuestionsFromSession] Generating FET for Q${index + 1}. Indices found: ${JSON.stringify(correctIndices)}`);
-
         // Format the explanation with the prefix
         const formattedText = this.explanationTextService.formatExplanation(
           question,
           correctIndices,
-          rawExplanation,
-          index
+          rawExplanation
         );
-
-        console.log(`[applyQuestionsFromSession] Formatted FET for Q${index + 1}: "${formattedText.slice(0, 40)}..."`);
 
         return { questionIndex: index, explanation: formattedText };
       });
@@ -1988,14 +1974,11 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
               explanationTextObservable
             );
 
-            const q = this.questions[+questionId];
-            if (q) {
-              this.explanationTextService.storeFormattedExplanation(
-                +questionId,
-                explanationText,
-                q
-              );
-            }
+            this.explanationTextService.storeFormattedExplanation(
+              +questionId,
+              explanationText,
+              question
+            );
           }
         }
 
@@ -2478,8 +2461,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       const formattedExplanation = this.explanationTextService.formatExplanation(
         question,
         correctIndices,
-        question.explanation,
-        index
+        question.explanation
       );
       console.log(`[forceRegenerateExplanation] Q${index + 1} formattedExplanation:`, formattedExplanation?.substring(0, 80));
 
@@ -3769,8 +3751,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         explanationText = this.explanationTextService.formatExplanation(
           fetchedQuestion,
           correctIndices,
-          rawExplanation,
-          questionIndex
+          rawExplanation
         );
 
         this.explanationTextService.storeFormattedExplanation(
@@ -4178,17 +4159,15 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // Get the formatted explanation text string (unwrap the Observable)
     let formatted = this.explanationTextService.getFormattedSync(qIdx);
     if (!formatted) {
-      const correctIndices = this.explanationTextService.getCorrectOptionIndices(
-        question,
-        question.options,
-        qIdx
-      );
+      const correctIndices = question.options
+        .filter((o: Option) => o.correct)
+        .map((o: Option) => o.optionId)
+        .filter((id): id is number => id !== undefined);
 
       formatted = this.explanationTextService.formatExplanation(
         question,
         correctIndices,
-        rawExpl,
-        qIdx
+        rawExpl
       );
       this.explanationTextService.setExplanationTextForQuestionIndex(qIdx, formatted);
     }

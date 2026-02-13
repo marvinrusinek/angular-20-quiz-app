@@ -15,6 +15,7 @@ import { QuizService } from '../../../shared/services/data/quiz.service';
 import { QuizDataService } from '../../../shared/services/data/quizdata.service';
 import { TimerService } from '../../../shared/services/features/timer.service';
 import { SelectedOptionService } from '../../../shared/services/state/selectedoption.service';
+import { ExplanationTextService } from '../../../shared/services/features/explanation-text.service';
 
 @Component({
   selector: 'codelab-results-accordion',
@@ -42,6 +43,7 @@ export class AccordionComponent implements OnInit, OnDestroy {
     private quizDataService: QuizDataService,
     private timerService: TimerService,
     private selectedOptionService: SelectedOptionService,
+    private explanationTextService: ExplanationTextService,
     private cdRef: ChangeDetectorRef,
     private route: ActivatedRoute
   ) {}
@@ -141,7 +143,7 @@ export class AccordionComponent implements OnInit, OnDestroy {
 
     // Convert IDs to visual indices for comparison
     const userIndices = this.getUserAnswerIndices(question, userIds);
-    const correctIndices = this.getCorrectOptionIndices(question);
+    const correctIndices = this.getCorrectOptionIndices(question, index);
 
     if (userIndices.length !== correctIndices.length) return false;
 
@@ -168,10 +170,7 @@ export class AccordionComponent implements OnInit, OnDestroy {
   }
 
   getCorrectOptionIndices(question: QuizQuestion, index?: number): number[] {
-    if (!question || !question.options) return [];
-    return question.options
-      .map((opt, index) => (opt.correct ? index + 1 : -1))
-      .filter((idx) => idx !== -1);
+    return this.explanationTextService.getCorrectOptionIndices(question, undefined, index);
   }
 
   formatOptionList(indices: number[]): string {
