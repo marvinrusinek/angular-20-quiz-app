@@ -1000,6 +1000,11 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
           // Only show FET if THIS question was actually answered
           if (isThisQuestionAnswered) {
+            const regenerated = this.regenerateFetForIndex(idx);
+            if (regenerated) {
+              return regenerated as string;
+            }
+
             // ONLY use index-specific FET, not global fet/latestExplanation
             // Global values could be stale from a different question (e.g., Q2's FET showing on Q3)
             const indexFet = this.explanationTextService.fetByIndex?.get(idx)?.trim() || '';
@@ -1105,7 +1110,14 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
     // Use fetByIndex Map as primary source - bypasses stream timing issues
     // Only use index-specific FET, NOT latestExplanation (could be stale from different question)
-    const storedFet = ets.fetByIndex?.get(idx)?.trim() || '';
+    let storedFet = ets.fetByIndex?.get(idx)?.trim() || '';
+
+    if (idx === active && hasUserInteracted && mode === 'explanation') {
+      const regenerated = this.regenerateFetForIndex(idx);
+      if (regenerated) {
+        storedFet = regenerated;
+      }
+    }
     const hasValidFet = storedFet.length > 0;
 
     // Show FET if: we have content stored for this index, we're on the active question,
@@ -1216,6 +1228,31 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     }
 
     return fallbackQuestion;
+  }
+
+  private regenerateFetForIndex(idx: number): string {
+    try {
+      const displayQuestions = this.quizService.getQuestionsInDisplayOrder?.() ?? [];
+      const question = displayQuestions[idx] ?? this.quizService.questions?.[idx];
+      if (!question || !Array.isArray(question.options) || question.options.length === 0) {
+        return '';
+      }
+
+      const rawExplanation = (question.explanation ?? '').trim();
+      if (!rawExplanation) return '';
+
+      this.explanationTextService.storeFormattedExplanation(
+        idx,
+        rawExplanation,
+        question,
+        question.options,
+        true
+      );
+
+      return this.explanationTextService.fetByIndex?.get(idx)?.trim() || '';
+    } catch {
+      return '';
+    }
   }
 
   private emitContentAvailableState(): void {
