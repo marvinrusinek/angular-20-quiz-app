@@ -662,10 +662,15 @@ export class ExplanationTextService {
     }
 
     const correctOptionIndices = this.getCorrectOptionIndices(question, options, index);
+    const questionForFormatting =
+      Array.isArray(options) && options.length > 0
+        ? { ...question, options }
+        : question;
     formattedExplanation = this.formatExplanation(
-      question,
+      questionForFormatting,
       correctOptionIndices,
-      rawExplanation
+      rawExplanation,
+      index
     );
 
     this.formattedExplanations[index] = {
