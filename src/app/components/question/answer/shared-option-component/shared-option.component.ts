@@ -990,7 +990,12 @@ export class SharedOptionComponent
   }
 
   private ensureOptionsToDisplay(): void {
-    const fallbackOptions = this.currentQuestion?.options;
+    const activeIdx = this.getActiveQuestionIndex();
+    const displayQuestion = this.getQuestionAtDisplayIndex(activeIdx);
+    const fallbackOptions =
+      displayQuestion?.options?.length
+        ? displayQuestion.options
+        : this.currentQuestion?.options;
 
     if (
       Array.isArray(this.optionsToDisplay) &&
@@ -1007,7 +1012,7 @@ export class SharedOptionComponent
         showIcon: option.showIcon ?? false
       }));
       console.info(
-        '[SharedOptionComponent] Restored optionsToDisplay from currentQuestion.options'
+        '[SharedOptionComponent] Restored optionsToDisplay from display-order question/options fallback'
       );
     } else {
       console.warn(
