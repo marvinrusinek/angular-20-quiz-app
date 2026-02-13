@@ -975,8 +975,8 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       this.explanationTextService.formattedExplanation$.pipe(startWith('')),
       this.quizService.currentQuestionIndex$,
     ]).pipe(
-      map(([baseText, displayState, explanationReady, formatted, idx]:
-        [unknown, any, boolean, any, number]) => {
+      map((results: any) => {
+        const [baseText, displayState, explanationReady, formatted, idx] = results;
         const mode = displayState?.mode ?? 'question';
         const base = String(baseText ?? '') as string;
 
@@ -1265,9 +1265,9 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     }
 
     try {
-      const questions = await firstValueFrom(
+      const questions = (await firstValueFrom(
         this.quizDataService.getQuestionsForQuiz(quizId)
-      );
+      )) as QuizQuestion[];
       if (
         questions &&
         questions.length > 0 &&
@@ -1378,8 +1378,9 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         })
       ),
     ]).pipe(
-      map(([questions, explanationTexts]: [QuizQuestion[], string[]]) => {
-        return [questions, explanationTexts];
+      map((results: any) => {
+        const [questions, explanationTexts] = results;
+        return [questions as QuizQuestion[], explanationTexts as string[]];
       })
     );
   }
@@ -1832,7 +1833,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             startWith([])
           )
         ]).pipe(
-          map(([question, selected]) =>
+          map(([question, selected]: [QuizQuestion | null, any[]]) =>
             question
               ? this.selectedOptionService.isQuestionResolvedCorrectly(
                 question,

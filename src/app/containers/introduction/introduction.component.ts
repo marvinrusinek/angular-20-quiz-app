@@ -257,9 +257,9 @@ export class IntroductionComponent implements OnInit, OnDestroy {
       this.quizService.setCurrentQuestionIndex(0);
 
       try {
-        const preparedQuestions = await firstValueFrom(
+        const preparedQuestions = (await firstValueFrom(
           this.quizDataService.prepareQuizSession(targetQuizId),
-        );
+        )) as QuizQuestion[];
 
         // Now set current quiz with the SHUFFLED questions
         const quizWithShuffledQuestions = {

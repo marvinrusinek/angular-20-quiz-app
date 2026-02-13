@@ -344,9 +344,9 @@ export class QuizQuestionLoaderService {
     if (this.totalQuestions) {
       return true;
     }
-    const qs = await firstValueFrom(
+    const qs = (await firstValueFrom(
       this.quizDataService.getQuestionsForQuiz(this.activeQuizId)
-    );
+    )) as QuizQuestion[];
     this.totalQuestions = qs.length;
     this.questionsArray = qs;
     return qs.length > 0;
@@ -693,7 +693,7 @@ export class QuizQuestionLoaderService {
     );
     const selectedOptions =
       this.selectedOptionService.getSelectedOptionsForQuestion(idx);
-    const validSelections = (selectedOptions ?? []).filter((opt) =>
+    const validSelections = (selectedOptions ?? []).filter((opt: any) =>
       optionIdSet.has(opt.optionId ?? -1)
     );
     const quizIdForState = this.quizService.quizId ?? this.activeQuizId ?? 'default-quiz';
@@ -980,9 +980,9 @@ export class QuizQuestionLoaderService {
 
     try {
       // ─── Fetch all questions once ──────────────────────────────────
-      const allQuestions = await firstValueFrom(
+      const allQuestions = (await firstValueFrom(
         this.quizDataService.getQuestionsForQuiz(this.activeQuizId),
-      );
+      )) as QuizQuestion[];
       const q: QuizQuestion | undefined = allQuestions[index];
 
       if (!q) {
@@ -994,7 +994,7 @@ export class QuizQuestionLoaderService {
       let opts = q.options ?? [];
       if (opts.length === 0) {
         // Fallback: recheck question structure
-        opts = allQuestions?.[index]?.options ?? [];
+        opts = (allQuestions as QuizQuestion[])?.[index]?.options ?? [];
         if (opts.length === 0) {
           console.error('[loadQA] no options for Q', index);
           return false;

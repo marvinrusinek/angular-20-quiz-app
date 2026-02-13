@@ -938,7 +938,7 @@ export class QuizQuestionComponent extends BaseQuestion
             this.quizStateService.getQuestionState(this.quizId, idx);
 
           const totalCorrectAnswers = Array.isArray(qState?.selectedOptions)
-            ? qState.selectedOptions.filter((o) => o.correct).length
+            ? qState.selectedOptions.filter((o: Option) => o.correct).length
             : 0;
 
           this.quizStateService.updateQuestionState(this.quizId, idx,
@@ -2848,8 +2848,8 @@ export class QuizQuestionComponent extends BaseQuestion
       const selectedIds = new Set<number>(
         this.selectedOptionService
           .getSelectedOptionsForQuestion(idx)
-          ?.map(o => o.optionId)
-          .filter((id): id is number => typeof id === 'number') ?? []
+          ?.map((o: SelectedOption) => o.optionId)
+          .filter((id: any): id is number => typeof id === 'number') ?? []
       );
 
       // Add the current optionId being clicked (may not be in service yet)
@@ -2866,7 +2866,7 @@ export class QuizQuestionComponent extends BaseQuestion
       // (Though addOption above should have handled it, there might be a race or we want to be sure)
       if (evtChecked &&
         typeof currentOptId === 'number' &&
-        !currentSelectedOptions.some(o => o.optionId === currentOptId)
+        !currentSelectedOptions.some((o: SelectedOption) => o.optionId === currentOptId)
       ) {
         currentSelectedOptions.push(evtOpt as any);
       }
@@ -5152,8 +5152,8 @@ export class QuizQuestionComponent extends BaseQuestion
           ? ets.formatExplanation(
             q,
             q.options
-              ?.map((o, i) => (o.correct ? i + 1 : -1))
-              .filter((n) => n > 0),
+              ?.map((o: Option, i: number) => (o.correct ? i + 1 : -1))
+              .filter((n: number) => n > 0),
             baseRaw
           )
           : baseRaw;

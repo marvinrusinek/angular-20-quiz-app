@@ -9,6 +9,7 @@ import { CommonModule } from '@angular/common';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
 
+import { Option } from '../../../shared/models/Option.model';
 import { QuizQuestion } from '../../../shared/models/QuizQuestion.model';
 import { Result } from '../../../shared/models/Result.model';
 import { QuizService } from '../../../shared/services/data/quiz.service';
@@ -114,7 +115,7 @@ export class AccordionComponent implements OnInit, OnDestroy {
            }
 
            // Fallback to QuizDataService to ensure clarity (bypasses shuffling/state complexity)
-           this.quizDataService.getQuestionsForQuiz(id).pipe(takeUntil(this.destroy$)).subscribe((qs) => {
+           this.quizDataService.getQuestionsForQuiz(id).pipe(takeUntil(this.destroy$)).subscribe((qs: QuizQuestion[]) => {
              if (qs && qs.length > 0) {
                console.log('[ACCORDION] Loaded questions via QuizDataService fallback:', qs.length);
                this.questions = qs;
@@ -157,15 +158,15 @@ export class AccordionComponent implements OnInit, OnDestroy {
     const ids = Array.isArray(userIds) ? userIds : [userIds];
     
     return ids
-      .map(id => {
+      .map((id: number) => {
          // Find index of option with this optionId, safe-matching strings or numbers
-         const idx = question.options.findIndex(opt => String(opt.optionId) === String(id));
+         const idx = question.options.findIndex((opt: Option) => String(opt.optionId) === String(id));
          if (idx === -1) {
           console.warn(`[getUserAnswerIndices] ID mismatch for Q "${question.questionText?.substring(0, 15)}...". Looking for ID: ${id}. Available Options:`, question.options.map(o => o.optionId));
          }
          return idx >= 0 ? idx + 1 : -1;
       })
-      .filter(idx => idx !== -1)
+      .filter((idx: number) => idx !== -1)
       .sort((a, b) => a - b);
   }
 
@@ -191,16 +192,16 @@ export class AccordionComponent implements OnInit, OnDestroy {
     // Try rawSelectionsMap first (more reliable)
     const rawSelections = this.selectedOptionService.rawSelectionsMap.get(questionIndex);
     if (rawSelections && rawSelections.length > 0) {
-      return rawSelections.map(sel => {
+      return rawSelections.map((sel: any) => {
         // Find the visual index (1-based) of this option in the question
-        const visualIdx = question.options.findIndex(opt => 
+        const visualIdx = question.options.findIndex((opt: Option) => 
           String(opt.optionId) === String(sel.optionId) || opt.text === sel.text
         );
         return {
           text: sel.text || `Option ${visualIdx + 1}`,
           visualIndex: visualIdx >= 0 ? visualIdx + 1 : 0
         };
-      }).filter(o => o.visualIndex > 0);  // removed .sort() - preserve selection order
+      }).filter((o: any) => o.visualIndex > 0);  // removed .sort() - preserve selection order
     }
 
     // Fallback to selectedOptionsMap
@@ -209,15 +210,15 @@ export class AccordionComponent implements OnInit, OnDestroy {
       return [];
     }
     console.log(`[ACCORDION] Using selectedOptionsMap for Q${questionIndex}:`, selections);
-    return selections.map(sel => {
-      const visualIdx = question.options.findIndex(opt => 
+    return selections.map((sel: any) => {
+      const visualIdx = question.options.findIndex((opt: Option) => 
         String(opt.optionId) === String(sel.optionId) || opt.text === sel.text
       );
       return {
         text: sel.text || `Option ${visualIdx + 1}`,
         visualIndex: visualIdx >= 0 ? visualIdx + 1 : 0
       };
-    }).filter(o => o.visualIndex > 0);  // removed .sort() - preserve selection order
+    }).filter((o: any) => o.visualIndex > 0);  // removed .sort() - preserve selection order
   }
 
   // Check if we have any selections from the service for this question
