@@ -676,7 +676,10 @@ export class QuizService {
         this.shuffledQuestions = [];
         this._questions = [];
         this.questionsQuizId = null;
-        try { localStorage.removeItem('shuffledQuestions'); } catch { }
+        try {
+          localStorage.removeItem('shuffledQuestions');
+          localStorage.removeItem('shuffledQuestionsQuizId');
+        } catch { }
       } else {
         // CRITICAL: Only return cached shuffle if it belongs to the SAME quiz
         // Check both quizId AND questionsQuizId to prevent cross-quiz data leakage
@@ -1684,6 +1687,7 @@ export class QuizService {
 
       // Clear stale shuffledQuestions from localStorage to prevent mismatch
       localStorage.removeItem('shuffledQuestions');
+      localStorage.removeItem('shuffledQuestionsQuizId');
     } catch { }
 
     // Clear shuffle state on toggle to ensure fresh shuffle
@@ -1942,6 +1946,7 @@ export class QuizService {
     this.shuffledQuestions = sanitizedQuestions;
     try {
       localStorage.setItem('shuffledQuestions', JSON.stringify(this.shuffledQuestions));
+      localStorage.setItem('shuffledQuestionsQuizId', String(this.quizId ?? ''));
     } catch (err) {
       console.warn('Failed to persist shuffledQuestions:', err);
     }
@@ -2487,6 +2492,7 @@ export class QuizService {
 
     try {
       localStorage.removeItem('shuffledQuestions');
+      localStorage.removeItem('shuffledQuestionsQuizId');
       localStorage.removeItem('selectedOptions');  // clear stale selection data too
     } catch { }
 
