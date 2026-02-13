@@ -638,6 +638,27 @@ export class QuizService {
   async fetchQuizQuestions(quizId: string): Promise<QuizQuestion[]> {
     console.log(`[QuizService] fetchQuizQuestions(${quizId}). hasShuffle=${this.shuffledQuestions?.length}, quizId=${this.quizId}, shouldShuffle=${this.shouldShuffle()}`);
 
+    // Restore persisted shuffled order for THIS quiz on fresh app/tab start.
+    // Without this, shuffle can be regenerated with a different order while
+    // state/explanations remain index-based, causing Q1 FET index mismatches.
+    if (this.shouldShuffle() && (!this.shuffledQuestions || this.shuffledQuestions.length === 0)) {
+      try {
+        const persistedQuizId = localStorage.getItem('shuffledQuestionsQuizId');
+        const persisted = localStorage.getItem('shuffledQuestions');
+        if (persistedQuizId === quizId && persisted) {
+          const parsed = JSON.parse(persisted);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            this.shuffledQuestions = parsed;
+            this.questionsQuizId = quizId;
+            this.quizId = quizId;
+            console.log(`[QuizService] Restored persisted shuffledQuestions for quiz ${quizId} (${parsed.length} questions).`);
+          }
+        }
+      } catch {
+        // ignore invalid persisted shuffle payloads
+      }
+    }
+
     // ALWAYS return existing shuffledQuestions if available.
     // This prevents re-shuffling on every call which causes option order instability
     if (this.shuffledQuestions && this.shuffledQuestions.length > 0) {
