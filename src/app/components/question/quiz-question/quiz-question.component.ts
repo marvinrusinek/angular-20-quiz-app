@@ -2891,11 +2891,17 @@ export class QuizQuestionComponent extends BaseQuestion
       const correctIndices = this.explanationTextService.getCorrectOptionIndices(
         q!,
         canonicalOpts,
-        this.currentQuestionIndex
+        idx
       );
       console.log(`[QQC] Computed FET indices for Q${this.currentQuestionIndex + 1}: ${JSON.stringify(correctIndices)}`);
 
-      const fet = this.explanationTextService.formatExplanation(q!, correctIndices, rawExplanation, this.currentQuestionIndex);
+      const questionForFormatting = { ...q!, options: canonicalOpts };
+      const fet = this.explanationTextService.formatExplanation(
+        questionForFormatting,
+        correctIndices,
+        rawExplanation,
+        idx
+      );
 
       if (fet) {
         console.log(`[QQC] Sync FET for Q${idx + 1}: "${fet.substring(0, 40)}..."`);
@@ -5777,11 +5783,13 @@ export class QuizQuestionComponent extends BaseQuestion
       }
       console.log(`[prepareAndSetExplanation] Final computed indices for Q${questionIndex + 1}: ${JSON.stringify(correctIndices)}`);
 
+      const questionForFormatting = { ...questionData, options: visualOpts };
       const formattedExplanation =
         this.explanationTextService.formatExplanation(
-          questionData,
+          questionForFormatting,
           correctIndices,
-          rawExplanation
+          rawExplanation,
+          questionIndex
         );
 
       this.explanationToDisplay = formattedExplanation;
