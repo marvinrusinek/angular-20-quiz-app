@@ -1791,17 +1791,19 @@ export class SharedOptionComponent
         correctIndices = this.explanationTextService.getCorrectOptionIndices(
           question,
           visualOptions,
-          questionIndex
+          displayIndex
         );
       }
 
       console.log(`[FET] Final result for Q${questionIndex + 1}: ${JSON.stringify(correctIndices)}`);
 
       const raw = (question.explanation || '').trim();
+      const questionForFormatting = { ...question, options: visualOptions };
       const formatted = this.explanationTextService.formatExplanation(
-        question,
+        questionForFormatting,
         correctIndices,
-        raw
+        raw,
+        displayIndex
       );
       this.explanationTextService.storeFormattedExplanation(
         questionIndex,
@@ -1840,10 +1842,12 @@ export class SharedOptionComponent
       );
 
       const raw = (question.explanation || '').trim();
+      const questionForFormatting = { ...question, options: opts };
       const formatted = this.explanationTextService.formatExplanation(
-        question,
+        questionForFormatting,
         correctIndices,
-        raw
+        raw,
+        displayIndex
       );
       this.explanationTextService.storeFormattedExplanation(
         questionIndex,
