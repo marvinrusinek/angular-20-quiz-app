@@ -1956,7 +1956,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
       this.applyQuestionsFromSession(questions);
 
-      const question = this.questions[this.currentQuestionIndex];
+      // const question = this.questions[this.currentQuestionIndex];
 
       // Check for stored states after ensuring we have the questions
       const storedStates =
@@ -1968,16 +1968,21 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           this.quizStateService.setQuestionState(this.quizId, questionId, state);
 
           if (state.isAnswered && state.explanationDisplayed) {
-            const explanationTextObservable =
-              this.explanationTextService.getFormattedExplanation(+questionId);
-            const explanationText: string = await firstValueFrom(
-              explanationTextObservable
-            );
+            const restoredIndex = Number(questionId);
+            const restoredQuestion = this.questions[restoredIndex];
+
+            if (!restoredQuestion) {
+              continue;
+            }
+
+            const rawExplanation = (restoredQuestion.explanation ?? '').trim();
 
             this.explanationTextService.storeFormattedExplanation(
-              +questionId,
-              explanationText,
-              question
+              restoredIndex,
+              rawExplanation,
+              restoredQuestion,
+              restoredQuestion.options,
+              true
             );
           }
         }
