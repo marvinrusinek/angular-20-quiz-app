@@ -1824,11 +1824,19 @@ export class SharedOptionComponent
     );
 
     if (question) {
-      const opts = question.options || [];
+      // Keep FET numbering aligned with what is rendered.
+      // In shuffle mode, question/options timing can race on Q1, so always prefer
+      // the display-order options snapshot first.
+      const displayOrderQuestion = this.getQuestionAtDisplayIndex(displayIndex);
+      const opts =
+        (Array.isArray(visualOptions) && visualOptions.length > 0 && visualOptions) ||
+        displayOrderQuestion?.options ||
+        question.options ||
+        [];
       const correctIndices = this.explanationTextService.getCorrectOptionIndices(
         question,
         opts,
-        questionIndex
+        displayIndex
       );
 
       const raw = (question.explanation || '').trim();
