@@ -127,8 +127,15 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       ets.latestExplanationIndex = idx;
       ets.formattedExplanationSubject.next('');
       ets.explanationText$.next('');
-      // Clear any cached FET for this index to prevent stale FET display
-      // fetByIndex is NOT cleared here, so we can use it as a fallback cache
+      // Clear any cached FET for this index to prevent stale FET display.
+      // Keeping stale index cache here can leak a previous Q1 explanation after
+      // restart/rehydration races before fresh FET is regenerated.
+      try {
+        ets.fetByIndex?.delete(idx);
+      } catch { }
+      try {
+        delete (ets.formattedExplanations as any)[idx];
+      } catch { }
 
       // Also clear the local question text cache which may have stale FET
       this._lastQuestionTextByIndex?.delete(idx);
