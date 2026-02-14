@@ -955,9 +955,9 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           );
           // ⚡ ADAPTER: If we have valid FET text, assume it belongs to this question (idx)
           // to bypass strict index checks in resolveTextToDisplay.
-          if (fet && fet.text && fet.idx !== idx) {
+          /* if (fet && fet.text && fet.idx !== idx) {
             fet = { ...fet, idx: idx };
-          }
+          } */
 
           return this.resolveTextToDisplay(
             idx,
@@ -1378,7 +1378,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           (this.quizService.questions$ as unknown as Subject<QuizQuestion[]>).next(questions);
       }
 
-      await Promise.all(
+      /* await Promise.all(
         questions.map(async (question, index) => {
           const explanation =
             this.explanationTexts[index] ?? 'No explanation available';
@@ -1388,7 +1388,19 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             question
           );
         }),
-      );
+      ); */
+      // Do NOT pre-generate/store formatted explanations during boot.
+      // In shuffle mode this runs before the final visual option order is stable,
+      // which can lock in wrong "Option #" prefixes (most visible on Q1).
+      // FET is generated on-demand from the rendered options snapshot.
+      questions.forEach((_, index) => {
+        const explanation =
+          this.explanationTexts[index] ?? 'No explanation available';
+        this.explanationTextService.setExplanationTextForQuestionIndex(
+          index,
+          explanation
+        );
+      });
 
       // Set before test fetch
       this.explanationTextService.explanationsInitialized = true;

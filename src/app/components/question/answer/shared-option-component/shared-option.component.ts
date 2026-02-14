@@ -1505,7 +1505,6 @@ export class SharedOptionComponent
     return false;
   }
 
-
   public onOptionInteraction(binding: OptionBindings, index: number, event: MouseEvent): void {
     // Guard: Skip if this option is disabled (check persistent Map)
     if (this.isDisabled(binding, index)) {
@@ -1710,16 +1709,16 @@ export class SharedOptionComponent
     let visualOptions = this.optionsToDisplay;
     if (!visualOptions || visualOptions.length === 0) {
       const qs = this.quizService.getQuestionsInDisplayOrder();
-      if (qs && qs[questionIndex] && qs[questionIndex].options) {
+      if (qs && qs[displayIndex] && qs[displayIndex].options) {
         console.warn(`[FET] optionsToDisplay missing for Q${questionIndex + 1}. Recovered from QuizService.`);
-        visualOptions = qs[questionIndex].options;
+        visualOptions = qs[displayIndex].options;
       }
     }
 
     const useLocalOptions = Array.isArray(visualOptions) && visualOptions.length > 0;
 
     // Use helper method that respects shuffle state
-    const question = this.getQuestionAtDisplayIndex(questionIndex);
+    const question = this.getQuestionAtDisplayIndex(displayIndex);
 
     const shuffleActive = this.quizService?.isShuffleEnabled();
 
@@ -1754,7 +1753,7 @@ export class SharedOptionComponent
 
         if (Array.isArray(sourceList) && sourceList.length > 0) {
           // Attempt direct index match first
-          let authQ = sourceList.length > questionIndex ? sourceList[questionIndex] : null;
+          let authQ = sourceList.length > displayIndex ? sourceList[displayIndex] : null;
 
           // RECOVERY: If direct index doesn't match question text, search entire list
           const currentQText = (question.questionText || '').trim().toLowerCase();
@@ -1878,7 +1877,7 @@ export class SharedOptionComponent
     if (!rawExplanation) {
       const serviceQuestion =
         this.quizService.currentQuestion?.getValue();
-      if (serviceQuestion?.explanation && displayIndex === questionIndex) {
+      if (serviceQuestion?.explanation && displayIndex === this.currentQuestionIndex) {
         rawExplanation = serviceQuestion.explanation.trim();
         console.log(
           `[From quizService.currentQuestion]:`, rawExplanation.slice(0, 100)
@@ -1893,7 +1892,7 @@ export class SharedOptionComponent
         (Array.isArray(this.quizService.questionsList) && this.quizService.questionsList) ||
         [];
 
-      const q = allQuestions[questionIndex];
+      const q = allQuestions[displayIndex];
       if (q?.explanation) {
         rawExplanation = q.explanation.trim();
       }
@@ -1908,7 +1907,7 @@ export class SharedOptionComponent
     try {
       // Use getQuestionAtDisplayIndex for shuffle-aware question lookup
       const question =
-        this.getQuestionAtDisplayIndex(questionIndex) || this.currentQuestion;
+        this.getQuestionAtDisplayIndex(displayIndex) || this.currentQuestion;
 
       if (question) {
         console.log(`[Question object for formatting]:`, {
@@ -1929,15 +1928,16 @@ export class SharedOptionComponent
         const opts = rawOpts.filter(Boolean);
 
         const correctIndices =
-          this.explanationTextService.getCorrectOptionIndices(question, opts, questionIndex);
+          this.explanationTextService.getCorrectOptionIndices(question, opts, displayIndex);
         const formattedExplanation =
           this.explanationTextService.formatExplanation(
             question,
             correctIndices,
-            rawExplanation.trim()
+            rawExplanation.trim(),
+            displayIndex
           );
         this.explanationTextService.storeFormattedExplanation(
-          questionIndex,
+          displayIndex,
           formattedExplanation,
           question,
           opts,

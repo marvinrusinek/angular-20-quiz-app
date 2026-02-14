@@ -62,7 +62,11 @@ export class QuizService {
 
   private questionsSubject = new BehaviorSubject<QuizQuestion[]>([]);
   questions$ = this.questionsSubject.asObservable();
-  private questionsQuizId: string | null = null;
+
+  private questionsQuizId: string | null = (() => {
+    try { return localStorage.getItem('shuffledQuestionsQuizId'); }
+    catch { return null; }
+  })();
 
   private questionToDisplaySource = new BehaviorSubject<string>('');
   public readonly questionToDisplay$: Observable<string> =
@@ -683,9 +687,7 @@ export class QuizService {
       } else {
         // CRITICAL: Only return cached shuffle if it belongs to the SAME quiz
         // Check both quizId AND questionsQuizId to prevent cross-quiz data leakage
-        const isSameQuiz = quizId &&
-          this.quizId === quizId &&
-          this.questionsQuizId === quizId;
+        const isSameQuiz = quizId && this.questionsQuizId === quizId;
 
         if (isSameQuiz) {
           console.log(`[fetchQuizQuestions] Returning EXISTING shuffledQuestions (${this.shuffledQuestions.length} questions) for quiz ${quizId}`);
@@ -703,6 +705,10 @@ export class QuizService {
           this.shuffledQuestions = [];
           this._questions = [];
           this.questionsQuizId = null;
+          try {
+            localStorage.removeItem('shuffledQuestions');
+            localStorage.removeItem('shuffledQuestionsQuizId');
+          } catch { }
         }
       }
     }
