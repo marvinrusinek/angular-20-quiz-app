@@ -1573,29 +1573,30 @@ export class SharedOptionComponent
   }
 
   private emitExplanation(questionIndex: number): void {
-    const explanationText = this.resolveExplanationText(questionIndex);
-    this.pendingExplanationIndex = questionIndex;
-    this.applyExplanationText(explanationText, questionIndex);
-    this.scheduleExplanationVerification(questionIndex, explanationText);
+    const displayIndex = this.resolveDisplayIndex(questionIndex);
+    const explanationText = this.resolveExplanationText(displayIndex);
+    this.pendingExplanationIndex = displayIndex;
+    this.applyExplanationText(explanationText, displayIndex);
+    this.scheduleExplanationVerification(displayIndex, explanationText);
   }
 
   private applyExplanationText(
     explanationText: string,
-    questionIndex: number
+    displayIndex: number
   ): void {
     // Mark interaction FIRST so that when emitFormatted triggers the subscriber,
     // the 'hasUserInteracted' check passes immediately.
-    this.quizStateService.markUserInteracted(questionIndex);
+    this.quizStateService.markUserInteracted(displayIndex);
 
-    const contextKey = this.buildExplanationContext(questionIndex);
+    const contextKey = this.buildExplanationContext(displayIndex);
 
     // Set active index and emit FET before locking
-    this.explanationTextService._activeIndex = questionIndex;
+    this.explanationTextService._activeIndex = displayIndex;
     this.explanationTextService.latestExplanation = explanationText;
-    this.explanationTextService.latestExplanationIndex = questionIndex;
+    this.explanationTextService.latestExplanationIndex = displayIndex;
 
     // Emit the formatted explanation to the _fetSubject stream
-    this.explanationTextService.emitFormatted(questionIndex, explanationText);
+    this.explanationTextService.emitFormatted(displayIndex, explanationText);
 
     // Now set the explanation text in the service
     this.explanationTextService.setExplanationText(explanationText, {
@@ -1633,7 +1634,7 @@ export class SharedOptionComponent
   }
 
   private scheduleExplanationVerification(
-    questionIndex: number,
+    displayIndex: number,
     explanationText: string
   ): void {
     this.ngZone.runOutsideAngular(() => {
@@ -1658,7 +1659,7 @@ export class SharedOptionComponent
           latest = null;
         }
 
-        if (this.pendingExplanationIndex !== questionIndex) {
+        if (this.pendingExplanationIndex !== displayIndex) {
           return;
         }
 
@@ -1671,16 +1672,25 @@ export class SharedOptionComponent
           console.warn('[Re-applying explanation text after mismatch]', {
             expected: explanationText,
             latest,
-            questionIndex
+            displayIndex
           });
 
           this.explanationTextService.unlockExplanation();
-          this.applyExplanationText(explanationText, questionIndex);
+          this.applyExplanationText(explanationText, displayIndex);
           this.cdRef.markForCheck();
           this.clearPendingExplanation();
         });
       });
     });
+  }
+
+  private resolveDisplayIndex(questionIndex: number): number {
+    const resolved =
+      this.getActiveQuestionIndex() ??
+      this.currentQuestionIndex ??
+      this.resolvedQuestionIndex ??
+      questionIndex;
+    return Number.isFinite(resolved) ? Math.max(0, Math.floor(resolved)) : 0;
   }
 
   private clearPendingExplanation(): void {
@@ -1698,12 +1708,7 @@ export class SharedOptionComponent
   }
 
   private resolveExplanationText(questionIndex: number): string {
-    const activeIndex = this.getActiveQuestionIndex();
-    const displayIndex =
-      activeIndex ??
-      this.currentQuestionIndex ??
-      this.resolvedQuestionIndex ??
-      questionIndex;
+    const displayIndex = this.resolveDisplayIndex(questionIndex);
     // CRITICAL FIX: Robustly resolve options to ensure FET option numbers match feedback text.
     // If local optionsToDisplay is missing (e.g., Q1 race condition), fallback to service.
     let visualOptions = this.optionsToDisplay;
@@ -1810,7 +1815,7 @@ export class SharedOptionComponent
         displayIndex
       );
       this.explanationTextService.storeFormattedExplanation(
-        questionIndex,
+        displayIndex,
         formatted,
         question,
         visualOptions,
@@ -1854,7 +1859,7 @@ export class SharedOptionComponent
         displayIndex
       );
       this.explanationTextService.storeFormattedExplanation(
-        questionIndex,
+        displayIndex,
         formatted,
         question,
         opts,
@@ -1922,7 +1927,7 @@ export class SharedOptionComponent
         // Sync indices with visual options
         const rawOpts =
           this.optionsToDisplay?.length &&
-            questionIndex === this.currentQuestionIndex
+            displayIndex === this.currentQuestionIndex
             ? this.optionsToDisplay
             : (question.options || []);
         const opts = rawOpts.filter(Boolean);
@@ -3008,7 +3013,9 @@ export class SharedOptionComponent
     const state: OptionInteractionState = {
       optionBindings: this.optionBindings,
       optionsToDisplay: this.optionsToDisplay,
-      currentQuestionIndex: this.currentQuestionIndex,
+      // Use the active display-aligned index to avoid hydration races where
+      // currentQuestionIndex can be stale (notably on Q1 after new-tab restore).
+      currentQuestionIndex: this.getActiveQuestionIndex(),
       selectedOptionHistory: this.selectedOptionHistory,
       disabledOptionsPerQuestion: this.disabledOptionsPerQuestion,
       correctClicksPerQuestion: this.correctClicksPerQuestion,
