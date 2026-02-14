@@ -1240,6 +1240,10 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     this.nextButtonStateService.cleanupNextButtonStateStream();
 
+    // Route-exit cleanup: clear FET caches/locks so re-entering from QuizSelection
+    // cannot reuse stale Q1 formatted explanation with old option numbers.
+    this.explanationTextService.resetExplanationState();
+
     if (this.nextButtonTooltip) {
       this.nextButtonTooltip.disabled = true;  // disable tooltips
       this.nextButtonTooltip.hide();  // hide any active tooltip
@@ -4072,8 +4076,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.selectedOptionService.setAnswered(false);
     this.quizStateService.setAnswerSelected(false);
 
-    // Reset explanation to hidden + question mode
-    this.explanationTextService.resetExplanationText();
+    // Reset explanation/FET state fully on restart so stale cached indices
+    // (especially Q1 after URL restart) cannot be reused.
+    this.explanationTextService.resetExplanationState();
     this.explanationTextService.unlockExplanation();
     this.explanationTextService.setShouldDisplayExplanation(false);
     this.quizStateService.setDisplayState({ mode: 'question', answered: false });

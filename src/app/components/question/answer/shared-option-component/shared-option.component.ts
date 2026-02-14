@@ -1707,23 +1707,90 @@ export class SharedOptionComponent
     });
   }
 
+  private cacheResolvedFormattedExplanation(index: number, formatted: string): void {
+    const text = (formatted ?? '').trim();
+    if (!text) return;
+
+    this.explanationTextService.formattedExplanations[index] = {
+      questionIndex: index,
+      explanation: text
+    };
+    this.explanationTextService.fetByIndex.set(index, text);
+    this.explanationTextService.updateFormattedExplanation(text);
+  }
+
   private resolveExplanationText(questionIndex: number): string {
-    const displayIndex = this.resolveDisplayIndex(questionIndex);
-    // CRITICAL FIX: Robustly resolve options to ensure FET option numbers match feedback text.
-    // If local optionsToDisplay is missing (e.g., Q1 race condition), fallback to service.
-    let visualOptions = this.optionsToDisplay;
+    // IMPORTANT: `emitExplanation` already resolves a stable display index.
+    // Re-resolving here can race against async index updates (notably Q1 in shuffle mode)
+    // and pull options from the wrong question, producing incorrect "Option #" values.
+    const displayIndex = Number.isFinite(questionIndex)
+      ? Math.max(0, Math.floor(questionIndex))
+      : 0;
+
+    // Guard against stale bindings from a previous question/session (common on Q1 re-entry).
+    const normalizeOptionText = (value: unknown): string =>
+      String(value ?? '')
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/\u00A0/g, ' ')
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, ' ');
+
+    const areOptionSnapshotsAligned = (left: Option[], right: Option[]): boolean => {
+      if (!Array.isArray(left) || !Array.isArray(right)) return false;
+      if (left.length === 0 || right.length === 0) return false;
+      if (left.length !== right.length) return false;
+      return left.every((option, idx) =>
+        normalizeOptionText(option?.text) === normalizeOptionText(right[idx]?.text)
+      );
+    };
+
+    const bindingOptions =
+      Array.isArray(this.optionBindings) && this.optionBindings.length > 0
+        ? this.optionBindings
+            .map((binding) => binding?.option)
+            .filter((option): option is Option => !!option)
+        : [];
+
+    const inputOptions = Array.isArray(this.optionsToDisplay) ? this.optionsToDisplay : [];
+    const currentQuestionOptions = Array.isArray(this.currentQuestion?.options)
+      ? this.currentQuestion.options
+      : [];
+
+    const bindingOptionsMatchCurrentView =
+      (inputOptions.length > 0 && areOptionSnapshotsAligned(bindingOptions, inputOptions)) ||
+      (currentQuestionOptions.length > 0 && areOptionSnapshotsAligned(bindingOptions, currentQuestionOptions));
+
+    // Prefer rendered binding order only when it matches the current question snapshot.
+    let visualOptions =
+      bindingOptions.length > 0 && bindingOptionsMatchCurrentView
+        ? bindingOptions
+        : inputOptions;
+
+    if (bindingOptions.length > 0 && !bindingOptionsMatchCurrentView) {
+      console.warn(`[FET] Ignoring stale optionBindings for Q${questionIndex + 1}; using current inputs.`);
+    }  
+
+
     if (!visualOptions || visualOptions.length === 0) {
-      const qs = this.quizService.getQuestionsInDisplayOrder();
-      if (qs && qs[displayIndex] && qs[displayIndex].options) {
-        console.warn(`[FET] optionsToDisplay missing for Q${questionIndex + 1}. Recovered from QuizService.`);
-        visualOptions = qs[displayIndex].options;
+      if (this.currentQuestion?.options?.length) {
+        console.warn(`[FET] optionsToDisplay missing for Q${questionIndex + 1}. Recovered from currentQuestion.`);
+        visualOptions = this.currentQuestion.options;
+      } else {
+        const qs = this.quizService.getQuestionsInDisplayOrder();
+        if (qs && qs[displayIndex] && qs[displayIndex].options) {
+          console.warn(`[FET] optionsToDisplay missing for Q${questionIndex + 1}. Recovered from QuizService.`);
+          visualOptions = qs[displayIndex].options;
+        }
       }
     }
 
     const useLocalOptions = Array.isArray(visualOptions) && visualOptions.length > 0;
 
-    // Use helper method that respects shuffle state
-    const question = this.getQuestionAtDisplayIndex(displayIndex);
+    // Prefer the currently bound question instance (what user is actually viewing).
+    // In Q1 shuffle hydration races, service lookups can briefly point at a different question.
+    const question = this.currentQuestion ?? this.getQuestionAtDisplayIndex(displayIndex);
 
     const shuffleActive = this.quizService?.isShuffleEnabled();
 
@@ -1734,65 +1801,70 @@ export class SharedOptionComponent
 
       let correctIndices: number[];
 
-      // --- PHASE 1: Direct Visual Check ---
-      // If the options being displayed already have the correct flag, use them.
-      // We check for truthiness across multiple common property names.
+      // --- PHASE 1: Authoritative text-based mapping from current question payload ---
+      // Prefer stable answer text matching over mutable `correct` flags/IDs which can drift
+      // across route restores/re-entry (observed on shuffled Q1).
+      const authoritativeTexts = new Set<string>();
+      const addText = (text: unknown) => {
+        const normalized = normalizeOptionText(text);
+        if (normalized) authoritativeTexts.add(normalized);
+      };
+
+      for (const answer of (question.answer ?? [])) {
+        addText((answer as any)?.text);
+      }
+      for (const option of (question.options ?? [])) {
+        const flagged = option?.correct === true ||
+          (option as any)?.correct === 'true' ||
+          (option as any)?.isCorrect === true;
+        if (flagged) addText(option?.text);
+      }
+
       correctIndices = visualOptions
-        .map((opt, idx) => {
-          const isCorrect = opt.correct === true ||
-            (opt as any).correct === "true" ||
-            (opt as any).isCorrect === true ||
-            (opt as any).answer === true;
-          return isCorrect ? idx + 1 : null;
+        .map((option, idx) => {
+          if (!option) return null;
+          return authoritativeTexts.has(normalizeOptionText(option.text))
+            ? idx + 1
+            : null;
         })
         .filter((n): n is number => n !== null);
 
       if (correctIndices.length > 0) {
-        console.log(`[FET] ✅ Phase 1: Visual match for Q${questionIndex + 1}: ${JSON.stringify(correctIndices)}`);
+        console.log(`[FET] ✅ Phase 1: Authoritative text match for Q${questionIndex + 1}: ${JSON.stringify(correctIndices)}`);
       }
-      // --- PHASE 2: Authoritative Data Mapping (with exhaustive text-search recovery) ---
+      // --- PHASE 2: Service-level recovery by question-text lookup ---
       else if (shuffleActive || (this.quizService.shuffledQuestions && this.quizService.shuffledQuestions.length > 0)) {
         const shuffledList = this.quizService.shuffledQuestions || [];
         const fallbackList = this.quizService.questions || [];
         const sourceList = shuffledList.length > 0 ? shuffledList : fallbackList;
 
         if (Array.isArray(sourceList) && sourceList.length > 0) {
-          // Attempt direct index match first
-          let authQ = sourceList.length > displayIndex ? sourceList[displayIndex] : null;
-
-          // RECOVERY: If direct index doesn't match question text, search entire list
-          const currentQText = (question.questionText || '').trim().toLowerCase();
-          if (authQ && (authQ.questionText || '').trim().toLowerCase() !== currentQText) {
-            console.warn(`[FET] Index mismatch! Q${questionIndex + 1} text doesn't match service at this index. Searching...`);
-            authQ = sourceList.find(q => (q.questionText || '').trim().toLowerCase() === currentQText) || null;
-            if (authQ) console.log(`[FET] ✅ Recovered correct question from service via text search.`);
-          }
+          const currentQText = normalizeOptionText(question.questionText);
+          const authQ = sourceList.find(q => normalizeOptionText(q?.questionText) === currentQText) || null;
 
           if (authQ && Array.isArray(authQ.options)) {
-            const correctTexts = new Set<string>();
-            const correctIds = new Set<number>();
+            const serviceTexts = new Set<string>();
             authQ.options.forEach((o: any) => {
-              if (o.correct === true || o.correct === "true" || o.isCorrect === true) {
-                if (o.text) correctTexts.add(o.text.trim().toLowerCase());
-                if (o.optionId !== undefined) correctIds.add(Number(o.optionId));
+              const flagged = o?.correct === true || o?.correct === 'true' || o?.isCorrect === true;
+              if (flagged) {
+                const normalized = normalizeOptionText(o?.text);
+                if (normalized) serviceTexts.add(normalized);
               }
             });
 
             correctIndices = visualOptions
               .map((option, idx) => {
                 if (!option) return null;
-                if (option.optionId !== undefined && correctIds.has(Number(option.optionId))) return idx + 1;
-                if (option.text && correctTexts.has(option.text.trim().toLowerCase())) return idx + 1;
-                return null;
+                return serviceTexts.has(normalizeOptionText(option.text)) ? idx + 1 : null;
               })
               .filter((n): n is number => n !== null);
 
             if (correctIndices.length > 0) {
-              console.log(`[FET] ✅ Phase 2: Auth match for Q${questionIndex + 1}: ${JSON.stringify(correctIndices)}`);
+              console.log(`[FET] ✅ Phase 2: Service text recovery for Q${questionIndex + 1}: ${JSON.stringify(correctIndices)}`);
             }
           }
         }
-      }
+      } 
 
       // --- PHASE 3: Service-Level Robust Fallback ---
       if (!correctIndices || correctIndices.length === 0) {
@@ -1865,6 +1937,7 @@ export class SharedOptionComponent
         opts,
         true
       );
+      this.cacheResolvedFormattedExplanation(displayIndex, formatted);
       return formatted;
     }
 

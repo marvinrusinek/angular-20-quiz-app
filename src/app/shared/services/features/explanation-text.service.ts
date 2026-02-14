@@ -251,7 +251,7 @@ export class ExplanationTextService {
     ) {
       // Check if already formatted
       const alreadyFormattedRe =
-        /^(?:option|options)\s+\d+(?:\s*,\s*\d+)*(?:\s+and\s+\d+)?\s+(?:is|are)\s+correct\s+because\s+/i;
+        /^(?:option|options)\s+#?\d+(?:\s*,\s*#?\d+)*(?:\s+and\s+#?\d+)?\s+(?:is|are)\s+correct\s+because\s+/i;
 
       if (!alreadyFormattedRe.test(trimmed)) {
         console.log(
@@ -579,7 +579,7 @@ export class ExplanationTextService {
 
     // Idempotency detector (same as in formatExplanation)
     const alreadyFormattedRe =
-      /^(?:option|options)\s+\d+(?:\s*,\s*\d+)*(?:\s+and\s+\d+)?\s+(?:is|are)\s+correct\s+because\s+/i;
+      /^(?:option|options)\s+#?\d+(?:\s*,\s*#?\d+)*(?:\s+and\s+#?\d+)?\s+(?:is|are)\s+correct\s+because\s+/i;
 
     // Format explanation (only if not already formatted)
     const correctOptionIndices = this.getCorrectOptionIndices(question, question.options, questionIndex);
@@ -649,7 +649,7 @@ export class ExplanationTextService {
     // re-format with the CORRECT visual indices from the passed `options` array.
     // This ensures FET option numbers match the feedback text option numbers.
     const alreadyFormattedRe =
-      /^(?:option|options)\s+\d+(?:\s*,\s*\d+)*(?:\s+and\s+\d+)?\s+(?:is|are)\s+correct\s+because\s+/i;
+      /^(?:option|options)\s+#?\d+(?:\s*,\s*#?\d+)*(?:\s+and\s+#?\d+)?\s+(?:is|are)\s+correct\s+because\s+/i;
 
     let formattedExplanation: string;
 
@@ -994,7 +994,7 @@ export class ExplanationTextService {
     displayIndex?: number
   ): string {
     const alreadyFormattedRe =
-      /^(?:option|options)\s+\d+(?:\s*,\s*\d+)*(?:\s+and\s+\d+)?\s+(?:is|are)\s+correct\s+because\s+/i;
+      /^(?:option|options)\s+#?\d+(?:\s*,\s*#?\d+)*(?:\s+and\s+#?\d+)?\s+(?:is|are)\s+correct\s+because\s+/i;
 
     let e = (explanation ?? '').trim();
     if (!e) return '';
@@ -1634,6 +1634,14 @@ export class ExplanationTextService {
     this.setShouldDisplayExplanation(false);
     this.setIsExplanationTextDisplayed(false);
     this._textMap?.clear?.();
+
+    // Prevent stale cached FET from being reused after URL restarts/navigation.
+    // Q1 is especially sensitive: stale index-0 text can survive and show wrong Option #.
+    this.fetByIndex.delete(newIndex);
+    this.lockedFetIndices.delete(newIndex);
+    if (this.latestExplanationIndex === newIndex) {
+      this.latestExplanationIndex = -1;
+    }
 
     // Navigation in progress → explanation not ready
     try {
