@@ -635,10 +635,10 @@ export class ExplanationTextService {
     // CRITICAL FIX: Prevent regeneration with wrong options
     // Once FET is correctly computed and stored, lock it to prevent
     // subsequent calls (which may have corrupted options) from overwriting
-    if (!force && this.lockedFetIndices.has(index)) {
+    /* if (!force && this.lockedFetIndices.has(index)) {
       console.log(`[ETS] 🔒 FET for Q${index + 1} is LOCKED - skipping regeneration (use force=true to override)`);
       return;
-    }
+    } */
 
     if (!explanation || explanation.trim() === '') {
       console.error(`Invalid explanation: "${explanation}"`);
@@ -651,12 +651,14 @@ export class ExplanationTextService {
     const alreadyFormattedRe =
       /^(?:option|options)\s+#?\d+(?:\s*,\s*#?\d+)*(?:\s+and\s+#?\d+)?\s+(?:is|are)\s+correct\s+because\s+/i;
 
-    let formattedExplanation: string;
+    const trimmedExplanation = explanation.trim();
+    const incomingAlreadyFormatted = alreadyFormattedRe.test(trimmedExplanation);
+      let formattedExplanation: string;
 
     // ALWAYS strip existing prefix and re-calculate indices.
     // This is critical because an "already formatted" explanation might have the WRONG index (e.g. from canonical order).
     // We must regenerate it using the current visual options.
-    let rawExplanation = explanation.trim();
+    /* let rawExplanation = explanation.trim();
     if (alreadyFormattedRe.test(rawExplanation)) {
       rawExplanation = rawExplanation.replace(alreadyFormattedRe, '').trim();
     }
@@ -671,7 +673,46 @@ export class ExplanationTextService {
       correctOptionIndices,
       rawExplanation,
       index
-    );
+    ); */
+    // If caller already formatted and explicitly forced storage, trust that text.
+    // Shared option flows compute indices from visual options first, then call this
+    // method with force=true. Re-formatting here can reintroduce canonical numbering,
+    // especially on Q1 during shuffle hydration races.
+    if (force && incomingAlreadyFormatted) {
+      formattedExplanation = trimmedExplanation;
+    } else {
+      // Default path: strip any existing prefix and regenerate with current options.
+      let rawExplanation = trimmedExplanation;
+      if (incomingAlreadyFormatted) {
+        rawExplanation = rawExplanation.replace(alreadyFormattedRe, '').trim();
+      }
+
+      const correctOptionIndices = this.getCorrectOptionIndices(question, options, index);
+      const questionForFormatting =
+        Array.isArray(options) && options.length > 0
+          ? { ...question, options }
+          : question;
+      formattedExplanation = this.formatExplanation(
+        questionForFormatting,
+        correctOptionIndices,
+        rawExplanation,
+        index
+      );
+    }
+
+    // Keep lock protection, but allow replacement when regenerated text differs.
+    // In shuffled mode, early calls can lock in canonical numbering (wrong for UI),
+    // so a later pass using the visual option order must be able to correct it.
+    if (!force && this.lockedFetIndices.has(index)) {
+      const existing = this.fetByIndex.get(index)
+        ?? this.formattedExplanations[index]?.explanation
+        ?? '';
+      if (existing.trim() === formattedExplanation.trim()) {
+        console.log(`[ETS] 🔒 FET for Q${index + 1} is LOCKED - skipping duplicate regeneration`);
+        return;
+      }
+      console.warn(`[ETS] 🔓 Replacing locked FET for Q${index + 1} because option numbering changed`);
+    }
 
     this.formattedExplanations[index] = {
       questionIndex: index,
