@@ -3396,10 +3396,9 @@ export class QuizQuestionComponent extends BaseQuestion
 
       console.error(`🔴🔴🔴 [QQC-performUpdate] Q${lockedIndex + 1} | Source: ${source} | Opts: ${visualOpts.length}`);
       if (visualOpts.length > 0) {
-         console.error(`    - Opt 1: ${visualOpts[0]?.text?.slice(0, 20)} (Correct: ${visualOpts[0]?.correct})`);
+         console.error(`   - Opt 1: ${visualOpts[0]?.text?.slice(0, 20)} (Correct: ${visualOpts[0]?.correct})`);
          if (visualOpts.length > 2) console.error(`    - Opt 3: ${visualOpts[2]?.text?.slice(0, 20)} (Correct: ${visualOpts[2]?.correct})`);
       }
-
       const correctIdxs = ets.getCorrectOptionIndices(
         canonicalQ!,
         visualOpts,
@@ -5196,8 +5195,13 @@ export class QuizQuestionComponent extends BaseQuestion
     let formatted: string;
 
     try {
-      const correctIndices = ets.getCorrectOptionIndices(q, q.options, i0);
-      console.error(`🔴🔴🔴 [FET-QQC] Q${i0 + 1} | CORRECT INDICES: ${JSON.stringify(correctIndices)}`);
+      // Use visual options (this.optionsToDisplay) when available for the current question,
+      // consistent with performExplanationUpdate fix
+      const visualOpts = (this.currentQuestionIndex === i0 && this.optionsToDisplay?.length > 0)
+        ? this.optionsToDisplay
+        : q.options;
+      const correctIndices = ets.getCorrectOptionIndices(q, visualOpts, i0);
+      console.error(`🔴🔴🔴 [FET-QQC] Q${i0 + 1} | CORRECT INDICES: ${JSON.stringify(correctIndices)} | Source: ${this.currentQuestionIndex === i0 && this.optionsToDisplay?.length > 0 ? 'Display' : 'Q-Input'}`);
       formatted =
         typeof ets.formatExplanation === 'function'
           ? ets.formatExplanation(q, correctIndices, baseRaw, i0)

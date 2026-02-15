@@ -1777,53 +1777,92 @@ export class QuizService {
     return hasOptions && hasText;
   }
 
-  private cloneQuestionForSession(question: QuizQuestion): QuizQuestion | null {
+  private cloneQuestionForSession(question: QuizQuestion, qIndex?: number): QuizQuestion | null {
     if (!question) {
       return null;
     }
 
     const deepClone = JSON.parse(JSON.stringify(question)) as QuizQuestion;
 
-    // Sync 'correct' flags from answer array into options for Phase 1 FET matching reliability
-    const correctTexts = new Set<string>();
-    const correctIds = new Set<number>();
-    if (Array.isArray(deepClone.answer)) {
-      deepClone.answer.forEach(a => {
-        if (!a) return;
-        if (a.text) correctTexts.add(a.text.trim().toLowerCase());
-        const id = Number(a.optionId);
-        if (!isNaN(id)) correctIds.add(id);
-      });
-    }
+    const normalize = (val: unknown): string =>
+      String(val ?? '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\u00A0/g, ' ').trim().toLowerCase().replace(/\s+/g, ' ');
 
+    // Phase 1: Normalize Options and enforce stable, unique numeric IDs
     const normalizedOptions = Array.isArray(deepClone.options)
       ? deepClone.options.map((option, optionIdx) => {
-        const oId = typeof option.optionId === 'number' ? option.optionId : optionIdx + 1;
-        const oText = (option.text ?? '').trim().toLowerCase();
-
-        // An option is correct if it says so, OR if it matches an entry in the answer array
-        const isCorrect = option.correct === true ||
-          (oId !== undefined && correctIds.has(oId)) ||
-          (oText !== '' && correctTexts.has(oText));
-
+        const rawOId = (option as any).optionId;
+        // If qIndex is provided, we STRICTLY enforce the (qIndex+1)*100 format for stability.
+        // Otherwise, we reuse the existing numeric ID if it looks valid, or fallback to optionIdx+1.
+        const oId = (typeof qIndex === 'number')
+          ? (qIndex + 1) * 100 + (optionIdx + 1)
+          : (!isNaN(Number(rawOId)) && Number(rawOId) > 0 ? Number(rawOId) : optionIdx + 1);
+        
         return {
           ...option,
           optionId: oId,
-          displayOrder:
-            typeof option.displayOrder === 'number'
-              ? option.displayOrder
-              : optionIdx,
-          correct: isCorrect,
-          selected: option.selected ?? false,
+          displayOrder: typeof option.displayOrder === 'number' ? option.displayOrder : optionIdx,
+          selected: option.selected === true || (option as any).selected === 'true',
           highlight: option.highlight ?? false,
           showIcon: option.showIcon ?? false
         };
       })
       : [];
 
+    // Phase 2: Build an authoritative 'answer' array by matching against normalized options.
+    // This fixes cases where the raw answer array has stale IDs or only text.
+    const finalAnswers: Option[] = [];
+    if (Array.isArray(deepClone.answer)) {
+      deepClone.answer.forEach(rawAns => {
+        if (!rawAns) return;
+        const normAnsText = normalize(rawAns.text);
+        const ansId = Number(rawAns.optionId);
+        
+        // Find corresponding option using text (robust) or ID (fallback)
+        const match = normalizedOptions.find(o => {
+          const normOptText = normalize(o.text);
+          return (normOptText && normAnsText && normOptText === normAnsText) ||
+                 (!isNaN(ansId) && Number(o.optionId) === ansId);
+        });
+
+        if (match) {
+          finalAnswers.push({
+            ...rawAns,
+            optionId: match.optionId,
+            text: match.text,
+            correct: true
+          });
+        }
+      });
+    }
+
+    // Fallback Phase 2: If answer array is still empty, trust the 'correct' flag on options
+    if (finalAnswers.length === 0) {
+      normalizedOptions.forEach(o => {
+        if (o.correct === true || (o as any).correct === "true") {
+          finalAnswers.push({
+            optionId: o.optionId,
+            text: o.text,
+            correct: true
+          } as Option);
+        }
+      });
+    }
+
+    // Phase 3: Synchronize 'correct' flag on options based on the authoritative finalAnswers
+    const correctIds = new Set(finalAnswers.map(a => Number(a.optionId)));
+    const finalOptions = normalizedOptions.map(o => ({
+      ...o,
+      correct: correctIds.has(Number(o.optionId))
+    }));
+
+    if (qIndex !== undefined) {
+      console.log(`[QuizService] Normalized Q${qIndex + 1}: ${finalAnswers.length} answers, ids: ${Array.from(correctIds)}`);
+    }
+
     return {
       ...deepClone,
-      options: normalizedOptions
+      options: finalOptions,
+      answer: finalAnswers
     };
   }
 
@@ -1843,7 +1882,7 @@ export class QuizService {
     }
 
     const sanitized = questions
-      .map((question) => this.cloneQuestionForSession(question))
+      .map((question, idx) => this.cloneQuestionForSession(question, idx))
       .filter((question): question is QuizQuestion => !!question)
       .map((question) => ({
         ...question,
@@ -1899,7 +1938,7 @@ export class QuizService {
     }
 
     // Return a clone to be safe
-    return this.cloneQuestionForSession(canonical[index]);
+    return this.cloneQuestionForSession(canonical[index], index);
   }
 
   applySessionQuestions(quizId: string, questions: QuizQuestion[]): void {

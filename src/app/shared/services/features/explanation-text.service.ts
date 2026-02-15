@@ -691,7 +691,24 @@ export class ExplanationTextService {
     };
 
     const getVisualIndicesFromSnapshot = (): number[] => {
-      const opts = Array.isArray(options) ? options : [];
+      let opts = Array.isArray(options) ? options : [];
+
+      // If no options were passed, try to get them from the shuffled question data
+      if (opts.length === 0) {
+        try {
+          const quizSvc = this.injector.get(QuizService, null);
+          if (quizSvc) {
+            const shuffledQs = (quizSvc as any).shuffledQuestions;
+            const isShuffled = quizSvc.isShuffleEnabled?.() ?? false;
+            const questions = isShuffled && shuffledQs?.length > 0
+              ? shuffledQs
+              : quizSvc.questions;
+            if (Array.isArray(questions) && questions[index]) {
+              opts = questions[index].options ?? [];
+            }
+          }
+        } catch (e) { /* ignore */ }
+      }
       if (opts.length === 0) return [];
 
       const normalize = (s: unknown): string =>
@@ -782,6 +799,33 @@ export class ExplanationTextService {
       );
     }
 
+    // ── FINAL GUARDRAIL: Validate generated FET against visual snapshot ──
+    // Regardless of which path produced formattedExplanation, verify that
+    // the option numbers in the prefix actually match the visual options.
+    // This catches cases where any caller passed stale/canonical options.
+    const finalPrefixIndices = parseLeadingOptionIndices(formattedExplanation);
+    const finalVisualIndices = getVisualIndicesFromSnapshot();
+    if (
+      finalPrefixIndices.length > 0 &&
+      finalVisualIndices.length > 0 &&
+      (finalPrefixIndices.length !== finalVisualIndices.length ||
+       !finalPrefixIndices.every((num, idx) => num === finalVisualIndices[idx]))
+    ) {
+      console.warn(`[ETS] 🔧 GUARDRAIL: Q${index + 1} FET prefix [${finalPrefixIndices}] != visual [${finalVisualIndices}]. Correcting...`);
+      let rawExplanation = formattedExplanation.replace(alreadyFormattedRe, '').trim();
+      if (!rawExplanation) rawExplanation = trimmedExplanation;
+      const questionForFormatting =
+        Array.isArray(options) && options.length > 0
+          ? { ...question, options }
+          : question;
+      formattedExplanation = this.formatExplanation(
+        questionForFormatting,
+        finalVisualIndices,
+        rawExplanation,
+        index
+      );
+    }
+
     // Keep lock protection, but allow replacement when regenerated text differs.
     // In shuffled mode, early calls can lock in canonical numbering (wrong for UI),
     // so a later pass using the visual option order must be able to correct it.
@@ -801,6 +845,12 @@ export class ExplanationTextService {
       explanation: formattedExplanation
     };
     this.fetByIndex.set(index, formattedExplanation);  // sync helper map for component fallback
+
+    // DIAGNOSTIC: Log stack trace when writing Q1 FET
+    if (index === 0) {
+      const stack = new Error().stack?.split('\n').slice(1, 6).map(l => l.trim()).join(' <- ') ?? 'no stack';
+      console.error(`🔴🔴🔴 [storeFormattedExplanation] Q1 | STORED: "${formattedExplanation.slice(0, 60)}" | STACK: ${stack}`);
+    }
 
     // LOCK this index to prevent future overwrites with wrong options
     this.lockedFetIndices.add(index);
@@ -1016,19 +1066,24 @@ export class ExplanationTextService {
         .map((option, idx) => {
           if (!option) return null;
 
-          // Match by ID if both have it
-          const oid = option.optionId !== undefined ? Number(option.optionId) : null;
-          if (oid !== null && correctIds.has(oid)) {
-            console.log(`[ETS]   Match Found: ID=${oid} -> Option ${idx + 1}`);
+          // PRIORITY 1: Match by TEXT (stable across ID reassignments)
+          const normalizedInput = normalize(option.text);
+          if (correctTexts.size > 0 && normalizedInput && correctTexts.has(normalizedInput)) {
+            console.log(`[ETS]   Match Found (TEXT): "${option.text?.slice(0, 20)}" -> Option ${idx + 1}`);
             return idx + 1;
           }
 
-          // Fallback to text matching
-          const normalizedInput = normalize(option.text);
-          if (correctTexts.has(normalizedInput)) {
-            console.log(`[ETS]   Match Found: Text="${option.text.slice(0, 20)}" -> Option ${idx + 1}`);
-            return idx + 1;
+          // PRIORITY 2: Match by ID (only if text matching didn't find anything)
+          // IDs can be re-assigned by assignOptionIds with different question indices,
+          // so they are less reliable than text matching.
+          if (correctTexts.size === 0) {
+            const oid = option.optionId !== undefined ? Number(option.optionId) : null;
+            if (oid !== null && correctIds.has(oid)) {
+              console.log(`[ETS]   Match Found (ID): ID=${oid} -> Option ${idx + 1}`);
+              return idx + 1;
+            }
           }
+
           return null;
         })
         .filter((n): n is number => n !== null);
@@ -1089,6 +1144,11 @@ export class ExplanationTextService {
     // Stabilize: dedupe + sort so multi-answer phrasing is consistent
     indices = Array.from(new Set(indices)).sort((a, b) => a - b);
 
+    // DIAGNOSTIC: Log stack trace for Q1 to identify which caller produces wrong indices
+    if ((displayIndex ?? 0) === 0) {
+      const stack = new Error().stack?.split('\n').slice(1, 6).map(l => l.trim()).join(' <- ') ?? 'no stack';
+      console.error(`🔴🔴🔴 [formatExplanation] Q1 | INDICES: ${JSON.stringify(indices)} | STACK: ${stack}`);
+    }
     console.error(`🔴🔴🔴 [formatExplanation] Q${(displayIndex ?? 0) + 1} | FINAL INDICES: ${JSON.stringify(indices)} | TEXT: "${e.slice(0, 50)}..."`);
 
     if (indices.length === 0) {
@@ -1472,23 +1532,84 @@ export class ExplanationTextService {
       );
     }
 
-    this.latestExplanation = trimmed;
     this.latestExplanationIndex = index;
 
+    // ── GUARDRAIL: Validate prefix option numbers against visual data ──
+    let validatedText = trimmed;
+    try {
+      const alreadyFormattedRe =
+        /^(?:option|options)\s+#?\d+(?:\s*,\s*#?\d+)*(?:\s+and\s+#?\d+)?\s+(?:is|are)\s+correct\s+because\s+/i;
+      const prefixMatch = trimmed.match(
+        /^(?:option|options)\s+([^]*?)\s+(?:is|are)\s+correct\s+because\s+/i
+      );
+      if (prefixMatch?.[1]) {
+        const prefixNums = (prefixMatch[1].match(/\d+/g) || []).map(Number).filter(n => n > 0);
+        if (prefixNums.length > 0) {
+          const quizSvc = this.injector.get(QuizService, null);
+          if (quizSvc) {
+            const shuffledQs = (quizSvc as any).shuffledQuestions;
+            const isShuffled = quizSvc.isShuffleEnabled?.() ?? false;
+            const questions = isShuffled && shuffledQs?.length > 0
+              ? shuffledQs : quizSvc.questions;
+            const qData = Array.isArray(questions) ? questions[index] : null;
+            if (qData?.options?.length > 0) {
+              const normalize = (s: unknown): string =>
+                String(s ?? '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/gi, ' ')
+                  .replace(/\u00A0/g, ' ').trim().toLowerCase().replace(/\s+/g, ' ');
+              const answerTexts = new Set<string>();
+              for (const a of (qData.answer ?? [])) {
+                const n = normalize((a as any)?.text);
+                if (n) answerTexts.add(n);
+              }
+              let visualIndices: number[] = [];
+              if (answerTexts.size > 0) {
+                visualIndices = qData.options
+                  .map((o: any, i: number) => answerTexts.has(normalize(o?.text)) ? i + 1 : null)
+                  .filter((n: number | null): n is number => n !== null);
+              }
+              if (visualIndices.length === 0) {
+                visualIndices = qData.options
+                  .map((o: any, i: number) => (o?.correct === true || o?.correct === 'true') ? i + 1 : null)
+                  .filter((n: number | null): n is number => n !== null);
+              }
+              if (visualIndices.length > 0) {
+                const sortedPrefix = [...prefixNums].sort((a, b) => a - b);
+                const sortedVisual = [...visualIndices].sort((a, b) => a - b);
+                const matches = sortedPrefix.length === sortedVisual.length &&
+                  sortedPrefix.every((n, i) => n === sortedVisual[i]);
+                if (!matches) {
+                  console.warn(`[emitFormatted] 🔧 GUARDRAIL: Q${index + 1} prefix [${sortedPrefix}] != visual [${sortedVisual}]. Correcting...`);
+                  let raw = trimmed.replace(alreadyFormattedRe, '').trim();
+                  if (!raw) raw = trimmed;
+                  validatedText = this.formatExplanation(
+                    qData, sortedVisual, raw, index
+                  );
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      // If validation fails, emit as-is
+    }
+
+    this.latestExplanation = validatedText;
+
     // Store in Map by index for reliable retrieval
-    this.fetByIndex.set(index, trimmed);
+    this.fetByIndex.set(index, validatedText);
 
     // Also emit to formattedExplanationSubject for FINAL LAYER.
     // This ensures getCombinedDisplayTextStream's combineLatest re-evaluates.
-    this.formattedExplanationSubject.next(trimmed);
+    this.formattedExplanationSubject.next(validatedText);
 
     // Emit immediately without waiting for requestAnimationFrame.
     // This ensures the FET is available synchronously for the display stream.
     console.log(
       `[emitFormatted] ✅ Emitting FET for Q${index + 1}:`,
-      trimmed.slice(0, 80)
+      validatedText.slice(0, 80)
     );
-    this.safeNext(this._fetSubject, { idx: index, text: trimmed, token });
+    this.safeNext(this._fetSubject, { idx: index, text: validatedText, token });
     this.safeNext(this.shouldDisplayExplanationSource, true);
     this.safeNext(this.isExplanationTextDisplayedSource, true);
 

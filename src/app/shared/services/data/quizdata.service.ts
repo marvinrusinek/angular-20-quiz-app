@@ -495,9 +495,16 @@ export class QuizDataService implements OnDestroy {
       sanitizedOptions
     );
 
+    // Sync correct flag on options based on the newly aligned answers
+    const correctIds = new Set(alignedAnswers.map(a => Number(a.optionId)));
+    const finalOptions = sanitizedOptions.map(o => ({
+      ...o,
+      correct: correctIds.has(Number(o.optionId))
+    }));
+
     return {
       ...question,
-      options: sanitizedOptions.map((option) => ({ ...option })),
+      options: finalOptions.map((option) => ({ ...option })),
       answer: alignedAnswers.map((option) => ({ ...option })),
       selectedOptions: Array.isArray(question.selectedOptions)
         ? question.selectedOptions.map((option) => ({ ...option }))

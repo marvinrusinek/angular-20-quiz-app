@@ -18,19 +18,29 @@ export class QuizShuffleService {
   public prepareShuffle(
     quizId: string,
     questions: QuizQuestion[],
-    opts: PrepareShuffleOpts = { shuffleQuestions: true, shuffleOptions: true }  // Question shuffle ON, Option shuffle ON
+    opts: PrepareShuffleOpts = { shuffleQuestions: true, shuffleOptions: false }  // Question shuffle ON, Option shuffle OFF for stability
   ): void {
     // Only shuffle ONCE per quiz session.
     // If we already have a shuffle order for this quiz, DO NOT recreate it!
     if (this.shuffleByQuizId.has(quizId)) {
       console.log(`[QuizShuffleService] ⚡ REUSING existing shuffle for quiz ${quizId} - NOT re-shuffling!`);
+      // Fix any pre-existing option shuffling: normalize option orders to identity
+      this.normalizeOptionOrders(quizId, questions);
       return;
     }
 
     // Check persistence
     if (this.loadState(quizId)) {
-      console.log(`[QuizShuffleService] 💾 Loaded PERSISTED shuffle for quiz ${quizId}`);
-      return;
+      const state = this.shuffleByQuizId.get(quizId);
+      if (state && state.questionOrder.length === questions.length) {
+        console.log(`[QuizShuffleService] 💾 Loaded VALID PERSISTED shuffle for quiz ${quizId}`);
+        // Fix any pre-existing option shuffling: normalize option orders to identity
+        this.normalizeOptionOrders(quizId, questions);
+        return;
+      }
+      console.warn(`[QuizShuffleService] ⚠️ Persisted shuffle length mismatch (${state?.questionOrder.length} vs ${questions.length}). Regenerating...`);
+      this.shuffleByQuizId.delete(quizId);
+      localStorage.removeItem(`shuffleState:${quizId}`);
     }
 
     // Question shuffling enabled, but option shuffling disabled for stability
@@ -53,6 +63,31 @@ export class QuizShuffleService {
 
     this.shuffleByQuizId.set(quizId, { questionOrder, optionOrder });
     this.saveState(quizId);
+  }
+
+  /**
+   * Resets all option orders to identity (no option shuffling).
+   * Called to fix pre-existing shuffle states that had option shuffling enabled.
+   */
+  private normalizeOptionOrders(quizId: string, questions: QuizQuestion[]): void {
+    const state = this.shuffleByQuizId.get(quizId);
+    if (!state) return;
+
+    let changed = false;
+    for (const [origIdx, order] of state.optionOrder.entries()) {
+      const identity = Array.from({ length: order.length }, (_, i) => i);
+      const isIdentity = order.length === identity.length &&
+        order.every((v, i) => v === i);
+      if (!isIdentity) {
+        state.optionOrder.set(origIdx, identity);
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      console.warn(`[QuizShuffleService] 🔧 Normalized option orders to identity for quiz ${quizId} (option shuffle disabled)`);
+      this.saveState(quizId);
+    }
   }
 
   public hasShuffleState(quizId: string): boolean {
@@ -147,6 +182,16 @@ export class QuizShuffleService {
     return normalizeForDisplay(reordered);
   }
 
+  private normalize(val: unknown): string {
+    return String(val ?? '')
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/\u00A0/g, ' ')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ' ');
+  }
+
   private normalizeAnswerReference(
     answer: Option | null | undefined,
     options: Option[]
@@ -175,10 +220,10 @@ export class QuizShuffleService {
       }
     }
 
-    const normalizedText = (answer.text ?? '').trim().toLowerCase();
-    if (normalizedText) {
+    const normAnsText = this.normalize(answer.text);
+    if (normAnsText) {
       const matchByText = options.find(
-        (option) => (option.text ?? '').trim().toLowerCase() === normalizedText
+        (option) => this.normalize(option.text) === normAnsText
       );
       if (matchByText) {
         return matchByText;
@@ -263,7 +308,13 @@ export class QuizShuffleService {
     const order = state.optionOrder.get(origIdx);
     const safeOptions = this.reorderOptions(normalizedOpts, order);
 
-    return { ...src, options: safeOptions.map((option) => ({ ...option })) };
+    const alignedAnswers = this.alignAnswersWithOptions(src.answer, safeOptions);
+
+    return { 
+      ...src, 
+      options: safeOptions.map((option) => ({ ...option })),
+      answer: alignedAnswers
+    };
   }
 
   public buildShuffledQuestions(
@@ -383,21 +434,10 @@ export class QuizShuffleService {
   // Make optionId numeric & stable; idempotent. Uses questionIndex to ensure global uniqueness.
   public assignOptionIds(options: Option[], questionIndex: number): Option[] {
     return (options ?? []).map((o, i) => {
-      // ⚡ FIX: Sync Safeguard - Preserve existing IDs
-      const existingId = Number((o as any).optionId);
-      if (!isNaN(existingId)) {
-        return {
-          ...o,
-          optionId: existingId,
-          value: (o as any).value ?? (o as any).text ?? existingId
-        } as Option;
-      }
-
-      // Build a globally unique numeric ID like 1001, 1002, 2001, 2002, etc.
-      // Format: (QuestionIndex + 1) + (OptionIndex + 1 padded to 2 digits)
-      const uniqueId = Number(
-        `${questionIndex + 1}${(i + 1).toString().padStart(2, '0')}`
-      );
+      // Build a globally unique numeric ID like 101, 102, 201, 202, etc.
+      // Format: (QuestionIndex + 1) * 100 + (OptionIndex + 1)
+      // This is stable and idempotent.
+      const uniqueId = (questionIndex + 1) * 100 + (i + 1);
 
       return {
         ...o,

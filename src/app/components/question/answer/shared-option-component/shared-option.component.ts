@@ -1763,353 +1763,100 @@ export class SharedOptionComponent
   }
 
   private resolveExplanationText(questionIndex: number): string {
-    // IMPORTANT: `emitExplanation` already resolves a stable display index.
-    // Re-resolving here can race against async index updates (notably Q1 in shuffle mode)
-    // and pull options from the wrong question, producing incorrect "Option #" values.
-    const displayIndex = Number.isFinite(questionIndex)
-      ? Math.max(0, Math.floor(questionIndex))
-      : 0;
+    const displayIndex = Number.isFinite(questionIndex) ? Math.max(0, Math.floor(questionIndex)) : 0;
 
-    // Guard against stale bindings from a previous question/session (common on Q1 re-entry).
-    const normalizeOptionText = (value: unknown): string =>
-      String(value ?? '')
-        .replace(/<[^>]*>/g, ' ')
-        .replace(/&nbsp;/gi, ' ')
-        .replace(/\u00A0/g, ' ')
-        .trim()
-        .toLowerCase()
-        .replace(/\s+/g, ' ');
+    const normalize = (value: unknown): string =>
+      String(value ?? '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\u00A0/g, ' ').trim().toLowerCase().replace(/\s+/g, ' ');
 
-    const areOptionSnapshotsAligned = (left: Option[], right: Option[]): boolean => {
-      if (!Array.isArray(left) || !Array.isArray(right)) return false;
-      if (left.length === 0 || right.length === 0) return false;
-      if (left.length !== right.length) return false;
-      return left.every((option, idx) =>
-        normalizeOptionText(option?.text) === normalizeOptionText(right[idx]?.text)
-      );
-    };
+    console.error(`🔴🔴🔴 [FET-SOC] Q${displayIndex + 1} | Resolving for display...`);
 
-    const bindingOptions =
-      Array.isArray(this.optionBindings) && this.optionBindings.length > 0
-        ? this.optionBindings
-            .map((binding) => binding?.option)
-            .filter((option): option is Option => !!option)
+    // 1. Determine which options are ACTUALLY displayed right now
+    // Priority 1: optionBindings (what's on screen)
+    // Priority 2: optionsToDisplay (input property)
+    const displayOptions = (Array.isArray(this.optionBindings) && this.optionBindings.length > 0)
+      ? this.optionBindings.map(b => b.option)
+      : (Array.isArray(this.optionsToDisplay) && this.optionsToDisplay.length > 0)
+        ? this.optionsToDisplay
         : [];
 
-    const inputOptions = Array.isArray(this.optionsToDisplay) ? this.optionsToDisplay : [];
-    const currentQuestionOptions = Array.isArray(this.currentQuestion?.options)
-      ? this.currentQuestion.options
-      : [];
-
-    const bindingOptionsMatchCurrentView =
-      (inputOptions.length > 0 && areOptionSnapshotsAligned(bindingOptions, inputOptions)) ||
-      (currentQuestionOptions.length > 0 && areOptionSnapshotsAligned(bindingOptions, currentQuestionOptions));
-
-    // Prefer rendered binding order only when it matches the current question snapshot.
-    let visualOptions =
-      bindingOptions.length > 0 && bindingOptionsMatchCurrentView
-        ? bindingOptions
-        : inputOptions;
-
-    if (bindingOptions.length > 0 && !bindingOptionsMatchCurrentView) {
-      console.warn(`[FET] Ignoring stale optionBindings for Q${questionIndex + 1}; using current inputs.`);
-    }  
-
-
-    if (!visualOptions || visualOptions.length === 0) {
-      if (this.currentQuestion?.options?.length) {
-        console.warn(`[FET] optionsToDisplay missing for Q${questionIndex + 1}. Recovered from currentQuestion.`);
-        visualOptions = this.currentQuestion.options;
-      } else {
-        const qs = this.quizService.getQuestionsInDisplayOrder();
-        if (qs && qs[displayIndex] && qs[displayIndex].options) {
-          console.warn(`[FET] optionsToDisplay missing for Q${questionIndex + 1}. Recovered from QuizService.`);
-          visualOptions = qs[displayIndex].options;
-        }
-      }
+    if (displayOptions.length === 0) {
+      console.warn(`[FET-SOC] Q${displayIndex + 1} | No visual options found! Falling back to raw.`);
+      return (this.currentQuestion?.explanation || '').trim();
     }
 
-    const useLocalOptions = Array.isArray(visualOptions) && visualOptions.length > 0;
+    // 2. Identify the authoritative canonical question for "truth" data
+    // We search the canonical quiz data for a text match to avoid any index-out-of-sync issues.
+    const currentQText = normalize(this.currentQuestion?.questionText);
+    const allCanonical = this.quizService.getCanonicalQuestions(this.quizId) || [];
+    const authQ = allCanonical.find(q => normalize(q.questionText) === currentQText) || this.currentQuestion;
 
-    const displayOrderQuestion = this.getQuestionAtDisplayIndex(displayIndex);
-
-    // Prefer a question object whose option snapshot matches what is currently rendered.
-    // This avoids using a stale `currentQuestion` payload during Q1 shuffle hydration.
-    const currentMatchesVisual =
-      !!this.currentQuestion?.options?.length &&
-      !!visualOptions?.length &&
-      areOptionSnapshotsAligned(this.currentQuestion.options, visualOptions);
-    const displayMatchesVisual =
-      !!displayOrderQuestion?.options?.length &&
-      !!visualOptions?.length &&
-      areOptionSnapshotsAligned(displayOrderQuestion.options, visualOptions);
-
-    const question =
-      (displayMatchesVisual && displayOrderQuestion) ||
-      (currentMatchesVisual && this.currentQuestion) ||
-      this.currentQuestion ||
-      displayOrderQuestion;
-
-    const shuffleActive = this.quizService?.isShuffleEnabled();
-
-    if (useLocalOptions && question) {
-      console.log(
-        `[Using LOCAL OPTIONS for Q${questionIndex + 1} to ensure visual match, shuffleActive=${shuffleActive}]`
-      );
-
-      let correctIndices: number[];
-
-      // --- PHASE 0: Visual Options Flags (Primary Truth) ---
-      // If the options we are displaying to the user carry "correct=true", TRUST THEM.
-      // This is critical for Q1 hydration/shuffle where the 'question' object might be stale (canonical order),
-      // but the component has already received the correctly shuffled 'optionsToDisplay' via input.
-      correctIndices = visualOptions
-        .map((opt, idx) => {
-          const isCorrect = opt.correct === true ||
-            (opt as any).correct === "true" ||
-            (opt as any).isCorrect === true ||
-            (opt as any).answer === true;
-          return isCorrect ? idx + 1 : null;
-        })
-        .filter((n): n is number => n !== null);
-
-      if (correctIndices.length > 0) {
-        console.log(`[FET] ✅ Phase 0: Visual Flags for Q${questionIndex + 1}: ${JSON.stringify(correctIndices)}`);
-      } else {
-        // --- PHASE 1: Authoritative text-based mapping from current question payload ---
-        // Fallback: If visual options lack flags (e.g. strict view models), match by text against the question.
-        const authoritativeTexts = new Set<string>();
-        const addText = (text: unknown) => {
-          const normalized = normalizeOptionText(text);
-          if (normalized) authoritativeTexts.add(normalized);
-        };
-
-        for (const answer of (question.answer ?? [])) {
-          addText((answer as any)?.text);
-        }
-        for (const option of (question.options ?? [])) {
-          const flagged = option?.correct === true ||
-            (option as any)?.correct === 'true' ||
-            (option as any)?.isCorrect === true;
-          if (flagged) addText(option?.text);
-        }
-
-        correctIndices = visualOptions
-          .map((option, idx) => {
-            if (!option) return null;
-            return authoritativeTexts.has(normalizeOptionText(option.text))
-              ? idx + 1
-              : null;
-          })
-          .filter((n): n is number => n !== null);
-          
-        if (correctIndices.length > 0) {
-           console.log(`[FET] ✅ Phase 1: Authoritative text match for Q${questionIndex + 1}: ${JSON.stringify(correctIndices)}`);
-        }
-      }
-      // --- PHASE 2: Service-level recovery by question-text lookup ---
-      }
-
-      // --- PHASE 2: Service-level recovery by question-text lookup ---
-      if ((!correctIndices || correctIndices.length === 0) && (shuffleActive || (this.quizService.shuffledQuestions && this.quizService.shuffledQuestions.length > 0))) {
-        const shuffledList = this.quizService.shuffledQuestions || [];
-        const fallbackList = this.quizService.questions || [];
-        const sourceList = shuffledList.length > 0 ? shuffledList : fallbackList;
-
-        if (Array.isArray(sourceList) && sourceList.length > 0) {
-          const currentQText = normalizeOptionText(question.questionText);
-          const authQ = sourceList.find(q => normalizeOptionText(q?.questionText) === currentQText) || null;
-
-          if (authQ && Array.isArray(authQ.options)) {
-            const serviceTexts = new Set<string>();
-            authQ.options.forEach((o: any) => {
-              const flagged = o?.correct === true || o?.correct === 'true' || o?.isCorrect === true;
-              if (flagged) {
-                const normalized = normalizeOptionText(o?.text);
-                if (normalized) serviceTexts.add(normalized);
-              }
-            });
-
-            correctIndices = visualOptions
-              .map((option, idx) => {
-                if (!option) return null;
-                return serviceTexts.has(normalizeOptionText(option.text)) ? idx + 1 : null;
-              })
-              .filter((n): n is number => n !== null);
-
-            if (correctIndices.length > 0) {
-              console.log(`[FET] ✅ Phase 2: Service text recovery for Q${questionIndex + 1}: ${JSON.stringify(correctIndices)}`);
-            }
-          }
-        }
-      } 
-
-      // --- PHASE 3: Service-Level Robust Fallback ---
-      if (!correctIndices || correctIndices.length === 0) {
-        console.warn(`[FET] ⚠️ No direct indices found for Q${questionIndex + 1}, falling back to ETS.getCorrectOptionIndices`);
-        correctIndices = this.explanationTextService.getCorrectOptionIndices(
-          question,
-          visualOptions,
-          displayIndex
-        );
-      }
-
-      console.log(`[FET] Final result for Q${questionIndex + 1}: ${JSON.stringify(correctIndices)}`);
-
-      const raw = (question.explanation || '').trim();
-      const questionForFormatting = { ...question, options: visualOptions };
-      const formatted = this.explanationTextService.formatExplanation(
-        questionForFormatting,
-        correctIndices,
-        raw,
-        displayIndex
-      );
-      this.explanationTextService.storeFormattedExplanation(
-        displayIndex,
-        formatted,
-        question,
-        visualOptions,
-        true
-      );
-      return formatted;
+    if (!authQ) {
+       console.warn(`[FET-SOC] Q${displayIndex + 1} | No auth question found. Using raw.`);
+       return (this.currentQuestion?.explanation || '').trim();
     }
 
-    // NOTE: We intentionally do NOT return cached FET here anymore.
-    // The cached FET may have been pre-generated with incorrect option indices
-    // (before the correct optionsToDisplay was available).
-    // Instead, we fall through to regenerate with the correct indices.
+    // 3. Build sets of correct identifiers from the authoritative source
+    const correctIds = new Set<number>();
+    const correctTexts = new Set<string>();
 
-    // Fallback: Generate on the fly if missing
-    console.warn(
-      `[FET missing for Q${questionIndex + 1}] - Generating on the fly...`
+    // Check answers array
+    if (Array.isArray(authQ.answer)) {
+      authQ.answer.forEach(a => {
+        if (!a) return;
+        const id = Number(a.optionId);
+        if (!isNaN(id)) correctIds.add(id);
+        const t = normalize(a.text);
+        if (t) correctTexts.add(t);
+      });
+    }
+    // Check options array (if answers array is insufficient)
+    if (correctIds.size === 0 && Array.isArray(authQ.options)) {
+      authQ.options.forEach(o => {
+        if (!o || !o.correct) return;
+        const id = Number(o.optionId);
+        if (!isNaN(id)) correctIds.add(id);
+        const t = normalize(o.text);
+        if (t) correctTexts.add(t);
+      });
+    }
+
+    // 4. Calculate indices based on VISUAL POSITIONS
+    const correctIndices = displayOptions
+      .map((opt, i) => {
+        const id = Number(opt.optionId);
+        const text = normalize(opt.text);
+        const isCorrect = (!isNaN(id) && correctIds.has(id)) || 
+                          (text && correctTexts.has(text)) || 
+                          (opt.correct === true);
+        
+        if (isCorrect) {
+          console.log(`[FET-SOC] Q${displayIndex + 1} | Found Match: Option ${i + 1} (ID=${id}, Text="${opt.text?.slice(0, 20)}...")`);
+        }
+        return isCorrect ? i + 1 : null;
+      })
+      .filter((n): n is number => n !== null);
+
+    console.error(`🔴🔴🔴 [FET-SOC] Q${displayIndex + 1} | CORRECT INDICES: ${JSON.stringify(correctIndices)}`);
+
+    // 5. Format and Emit
+    const rawExplanation = (authQ.explanation || '').trim();
+    const formatted = this.explanationTextService.formatExplanation(
+      { ...authQ, options: displayOptions }, // Use visual options for labeling
+      correctIndices,
+      rawExplanation,
+      displayIndex
     );
 
-    if (question) {
-      // Keep FET numbering aligned with what is rendered.
-      // In shuffle mode, question/options timing can race on Q1, so always prefer
-      // the display-order options snapshot first.
-      //const displayOrderQuestion = this.getQuestionAtDisplayIndex(displayIndex);
-      const opts =
-        (Array.isArray(visualOptions) && visualOptions.length > 0 && visualOptions) ||
-        displayOrderQuestion?.options ||
-        question.options ||
-        [];
-      const correctIndices = this.explanationTextService.getCorrectOptionIndices(
-        question,
-        opts,
-        displayIndex
-      );
+    // Cache the result in the service for other components to use
+    this.explanationTextService.storeFormattedExplanation(
+      displayIndex,
+      formatted,
+      authQ,
+      displayOptions,
+      true
+    );
 
-      const raw = (question.explanation || '').trim();
-      const questionForFormatting = { ...question, options: opts };
-      const formatted = this.explanationTextService.formatExplanation(
-        questionForFormatting,
-        correctIndices,
-        raw,
-        displayIndex
-      );
-      this.explanationTextService.storeFormattedExplanation(
-        displayIndex,
-        formatted,
-        question,
-        opts,
-        true
-      );
-      
-      return formatted;
-    }
-
-    // Get the raw explanation text
-    const matchesCurrentInput = this.currentQuestionIndex === displayIndex;
-
-    let rawExplanation = '';
-
-    // Try current question first
-    if (matchesCurrentInput && this.currentQuestion?.explanation?.trim()) {
-      rawExplanation = this.currentQuestion.explanation.trim();
-    }
-
-    // Try service question
-    if (!rawExplanation) {
-      const serviceQuestion =
-        this.quizService.currentQuestion?.getValue();
-      if (serviceQuestion?.explanation && displayIndex === this.currentQuestionIndex) {
-        rawExplanation = serviceQuestion.explanation.trim();
-        console.log(
-          `[From quizService.currentQuestion]:`, rawExplanation.slice(0, 100)
-        );
-      }
-    }
-
-    // Try questions array using direct index lookup as fallback
-    if (!rawExplanation) {
-      const allQuestions =
-        (Array.isArray(this.quizService.questions) && this.quizService.questions) ||
-        (Array.isArray(this.quizService.questionsList) && this.quizService.questionsList) ||
-        [];
-
-      const q = allQuestions[displayIndex];
-      if (q?.explanation) {
-        rawExplanation = q.explanation.trim();
-      }
-    }
-
-    if (!rawExplanation) {
-      console.warn(`[No explanation found for Q${questionIndex + 1}]`);
-      return 'No explanation available';
-    }
-
-    // Format the Explanation with "Option X is correct because..."
-    try {
-      // Use getQuestionAtDisplayIndex for shuffle-aware question lookup
-      const question =
-        this.getQuestionAtDisplayIndex(displayIndex) || this.currentQuestion;
-
-      if (question) {
-        console.log(`[Question object for formatting]:`, {
-          questionText: question.questionText?.slice(0, 80),
-          explanation: question.explanation?.slice(0, 80),
-          options: question.options?.map((o: Option) => ({
-            text: o.text,
-            correct: o.correct
-          }))
-        });
-
-        // Sync indices with visual options
-        const rawOpts =
-          this.optionsToDisplay?.length &&
-            displayIndex === this.currentQuestionIndex
-            ? this.optionsToDisplay
-            : (question.options || []);
-        const opts = rawOpts.filter(Boolean);
-
-        const correctIndices =
-          this.explanationTextService.getCorrectOptionIndices(question, opts, displayIndex);
-        const formattedExplanation =
-          this.explanationTextService.formatExplanation(
-            question,
-            correctIndices,
-            rawExplanation.trim(),
-            displayIndex
-          );
-        this.explanationTextService.storeFormattedExplanation(
-          displayIndex,
-          formattedExplanation,
-          question,
-          opts,
-          true
-        );
-        console.log(
-          `[Formatted FET for Q${questionIndex + 1}]:`,
-          formattedExplanation.slice(0, 100)
-        );
-        return formattedExplanation;
-      }
-    } catch (error: any) {
-      console.warn('[Failed to format explanation, using raw]:', error);
-    }
-
-    return rawExplanation;
+    return formatted;
   }
 
   async handleOptionClick(
@@ -2457,18 +2204,39 @@ export class SharedOptionComponent
       ? this.optionsToDisplay.map((o) => structuredClone(o))
       : [];
 
+    // Build a set of correct texts/IDs from the question's answers for robust matching
+    const correctTexts = new Set<string>();
+    const correctIds = new Set<number>();
+    if (this.currentQuestion && Array.isArray(this.currentQuestion.answer)) {
+      this.currentQuestion.answer.forEach(a => {
+        if (!a) return;
+        if (a.text) correctTexts.add(a.text.trim().toLowerCase());
+        const id = Number(a.optionId);
+        if (!isNaN(id)) correctIds.add(id);
+      });
+    }
+
     // Normalize optionIds and reset UI-ish flags on the option model
-    // NOTE: selection is now stored on bindings (binding.isSelected), NOT option.selected
-    this.optionsToDisplay = localOpts.map((opt, i) => ({
-      ...opt,
-      optionId:
-        typeof opt.optionId === 'number' && Number.isFinite(opt.optionId)
-          ? opt.optionId
-          : currentIndex * 100 + (i + 1),
-      // Keep these if your UI still relies on them; otherwise we’ll move them next
-      highlight: false,
-      showIcon: false
-    }));
+    this.optionsToDisplay = localOpts.map((opt, i) => {
+      const oIdNum = Number(opt.optionId);
+      const oId = !isNaN(oIdNum) ? oIdNum : (currentIndex + 1) * 100 + (i + 1);
+      const oText = (opt.text ?? '').trim().toLowerCase();
+      
+      const isCorrect = opt.correct === true || 
+                        (opt as any).correct === "true" ||
+                        (!isNaN(oIdNum) && correctIds.has(oIdNum)) || 
+                        !!(oText && correctTexts.has(oText));
+
+      return {
+        ...opt,
+        optionId: oId,
+        correct: isCorrect,
+        highlight: false,
+        showIcon: false,
+        active: opt.active ?? true,
+        disabled: false
+      };
+    });
 
     // Build bindings via factory (single place that constructs the VM)
     this.optionBindings = this.optionBindingFactory.createBindings({
@@ -2534,7 +2302,7 @@ export class SharedOptionComponent
         optionId:
           typeof opt.optionId === 'number' && Number.isFinite(opt.optionId)
             ? opt.optionId
-            : currentIndex * 100 + (i + 1),
+            : (currentIndex + 1) * 100 + (i + 1),
         selected: !!match?.selected,
         highlight: !!match?.highlight,
         showIcon: !!match?.showIcon,
@@ -3230,106 +2998,6 @@ export class SharedOptionComponent
     // - next button enabling
     this.handleOptionClick(binding.option as any, binding.index);
   }
-
-  // --- Internals ---
-
-  private handleOptionClick(option: Option, index: number): void {
-    // Delegate to interaction service or handle local logic
-    // Restoring basic click handling logic if it was missing:
-    this.optionClicked.emit({ option, index });
-  }
-
-  // --- Missing Methods Restoration ---
-
-  public resetUIForNewQuestion(): void {
-    this.resetStateForNewQuestion();
-    this.optionBindings = [];
-    this.feedbackConfigs = {};
-    this.renderReady = false;
-    this.viewReady = false;
-    this.optionsReady = false;
-    this.displayReady = false;
-    this.showOptions = false;
-    this.showNoOptionsFallback = false;
-    this.lastClickedOptionId = null;
-    this.lastClickTimestamp = null;
-    this.hasUserClicked = false;
-    this.freezeOptionBindings = false;
-    this.showFeedback = false;
-    this.cdRef.markForCheck();
-  }
-
-  public initializeOptionBindings(): void {
-    if (!this.optionsToDisplay) return;
-    
-    this.optionBindings = this.optionBindingFactory.createOptionBindings(
-      this.optionsToDisplay,
-      this.questionIndex,
-      this.quizService.isShuffleEnabled()
-    );
-    this.initializeFeedbackBindings();
-    this.optionsRestored = true;
-  }
-
-  public forceDisableAllOptions(): void {
-    this.forceDisableAll = true;
-    this.cdRef.markForCheck();
-  }
-
-  public clearForceDisableAllOptions(): void {
-    this.forceDisableAll = false;
-    this.cdRef.markForCheck();
-  }
-
-  public generateOptionBindings(): void {
-    this.initializeOptionBindings();
-  }
-
-  // --- Additional Internal Helpers ---
-
-  public keyOf(option: Option, index: number): string {
-    return `${option.optionId ?? index}`;
-  }
-
-  private applySelectionsUI(selectedOptions: SelectedOption[]): void {
-    if (!this.optionBindings) return;
-    const selectedIds = new Set(selectedOptions.map(s => s.optionId));
-    this.optionBindings.forEach(b => {
-      if (b.option) b.isSelected = selectedIds.has(b.option.optionId);
-    });
-    this.cdRef.markForCheck();
-  }
-
-  public hydrateOptionsFromSelectionState(): void {
-    const qIndex = this.getActiveQuestionIndex();
-    const selections = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex);
-    if (selections && selections.length > 0) {
-      this.applySelectionsUI(selections);
-    }
-  }
-
-  public fullyResetRows(): void {
-    this.optionBindings?.forEach(b => {
-      b.isSelected = false;
-      b.disabled = false;
-      b.highlight = false; 
-    });
-    this.cdRef.markForCheck();
-  }
-
-  private resolveCurrentQuestionIndex(): number {
-    return this.getActiveQuestionIndex();
-  }
-
-  private isLocked(binding: OptionBindings, index: number): boolean {
-    return this.optionLockService.isLocked(
-      binding, 
-      index, 
-      this.getActiveQuestionIndex()
-    );
-  }
-
-  private isDisabled(binding: OptionBindings, index: number): boolean {
-    return this.shouldDisableOption(binding);
-  }
 }
+
+
