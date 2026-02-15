@@ -1381,6 +1381,18 @@ export class SharedOptionComponent
     // Immediate update instead of deferring
     this.optionsReady = true;
     this.showOptions = true;
+
+    // FIX: If options have shifted (e.g. Canonical -> Shuffled) while an explanation is active,
+    // we MUST regenerate the explanation to ensure "Option #" references match the new visual order.
+    // Q1 hydration is the common culprit.
+    if (this.explanationTextService.latestExplanation) {
+      const currentIdx = this.resolveDisplayIndex(this.currentQuestionIndex);
+      // Only if this component is actively showing the explanation for the current question
+      if (this.explanationTextService.latestExplanationIndex === currentIdx) {
+        console.log(`[SOC] Option bindings changed for Q${currentIdx + 1} with active explanation - regenerating FET...`);
+        this.deferHighlightUpdate(() => this.emitExplanation(currentIdx));
+      }
+    }
   }
 
   getOptionDisplayText(option: Option, idx: number): string {
@@ -1685,11 +1697,18 @@ export class SharedOptionComponent
   }
 
   private resolveDisplayIndex(questionIndex: number): number {
+    const explicit = Number.isFinite(questionIndex)
+      ? Math.max(0, Math.floor(questionIndex))
+      : null;
+
+    // Prefer the explicit index supplied by the caller for this interaction.
+    // Falling back to service state first can pick a stale index during shuffle hydration
+    // and misalign Q1 explanation numbering.
     const resolved =
+    explicit ??
       this.getActiveQuestionIndex() ??
       this.currentQuestionIndex ??
-      this.resolvedQuestionIndex ??
-      questionIndex;
+      this.resolvedQuestionIndex;
     return Number.isFinite(resolved) ? Math.max(0, Math.floor(resolved)) : 0;
   }
 
@@ -1788,9 +1807,24 @@ export class SharedOptionComponent
 
     const useLocalOptions = Array.isArray(visualOptions) && visualOptions.length > 0;
 
-    // Prefer the currently bound question instance (what user is actually viewing).
-    // In Q1 shuffle hydration races, service lookups can briefly point at a different question.
-    const question = this.currentQuestion ?? this.getQuestionAtDisplayIndex(displayIndex);
+    const displayOrderQuestion = this.getQuestionAtDisplayIndex(displayIndex);
+
+    // Prefer a question object whose option snapshot matches what is currently rendered.
+    // This avoids using a stale `currentQuestion` payload during Q1 shuffle hydration.
+    const currentMatchesVisual =
+      !!this.currentQuestion?.options?.length &&
+      !!visualOptions?.length &&
+      areOptionSnapshotsAligned(this.currentQuestion.options, visualOptions);
+    const displayMatchesVisual =
+      !!displayOrderQuestion?.options?.length &&
+      !!visualOptions?.length &&
+      areOptionSnapshotsAligned(displayOrderQuestion.options, visualOptions);
+
+    const question =
+      (displayMatchesVisual && displayOrderQuestion) ||
+      (currentMatchesVisual && this.currentQuestion) ||
+      this.currentQuestion ||
+      displayOrderQuestion;
 
     const shuffleActive = this.quizService?.isShuffleEnabled();
 
@@ -1910,7 +1944,7 @@ export class SharedOptionComponent
       // Keep FET numbering aligned with what is rendered.
       // In shuffle mode, question/options timing can race on Q1, so always prefer
       // the display-order options snapshot first.
-      const displayOrderQuestion = this.getQuestionAtDisplayIndex(displayIndex);
+      //const displayOrderQuestion = this.getQuestionAtDisplayIndex(displayIndex);
       const opts =
         (Array.isArray(visualOptions) && visualOptions.length > 0 && visualOptions) ||
         displayOrderQuestion?.options ||
@@ -1937,7 +1971,7 @@ export class SharedOptionComponent
         opts,
         true
       );
-      this.cacheResolvedFormattedExplanation(displayIndex, formatted);
+      
       return formatted;
     }
 

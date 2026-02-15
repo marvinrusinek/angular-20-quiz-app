@@ -674,12 +674,94 @@ export class ExplanationTextService {
       rawExplanation,
       index
     ); */
-    // If caller already formatted and explicitly forced storage, trust that text.
-    // Shared option flows compute indices from visual options first, then call this
-    // method with force=true. Re-formatting here can reintroduce canonical numbering,
-    // especially on Q1 during shuffle hydration races.
+    const parseLeadingOptionIndices = (text: string): number[] => {
+      const prefixMatch = text.match(
+        /^(?:option|options)\s+([^]*?)\s+(?:is|are)\s+correct\s+because\s+/i
+      );
+      if (!prefixMatch || !prefixMatch[1]) return [];
+
+      const rawNumbers = prefixMatch[1].match(/\d+/g) || [];
+      return Array.from(
+        new Set(
+          rawNumbers
+            .map((n) => Number(n))
+            .filter((n) => Number.isFinite(n) && n > 0)
+        )
+      ).sort((a, b) => a - b);
+    };
+
+    const getVisualIndicesFromSnapshot = (): number[] => {
+      const opts = Array.isArray(options) ? options : [];
+      if (opts.length === 0) return [];
+
+      const normalize = (s: unknown): string =>
+        String(s ?? '')
+          .replace(/<[^>]*>/g, ' ')
+          .replace(/&nbsp;/gi, ' ')
+          .replace(/ /g, ' ')
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, ' ');
+
+      const answerTexts = new Set<string>();
+      for (const answer of (question?.answer ?? [])) {
+        const normalized = normalize((answer as any)?.text);
+        if (normalized) answerTexts.add(normalized);
+      }
+
+      const byAnswerText = opts
+        .map((option, idx) =>
+          answerTexts.has(normalize(option?.text)) ? idx + 1 : null
+        )
+        .filter((n): n is number => n !== null);
+      if (byAnswerText.length > 0) {
+        return Array.from(new Set(byAnswerText)).sort((a, b) => a - b);
+      }
+
+      const byFlags = opts
+        .map((option, idx) => {
+          const flagged =
+            option?.correct === true ||
+            (option as any)?.correct === 'true' ||
+            (option as any)?.isCorrect === true;
+          return flagged ? idx + 1 : null;
+        })
+        .filter((n): n is number => n !== null);
+
+      return Array.from(new Set(byFlags)).sort((a, b) => a - b);
+    };
+
+    // If caller already formatted and explicitly forced storage, usually trust that text.
+    // But verify the leading option numbers still match the current visual options.
+    // This specifically protects shuffled Q1, where a pre-formatted canonical prefix can
+    // slip in during hydration and show incorrect numbering.
     if (force && incomingAlreadyFormatted) {
-      formattedExplanation = trimmedExplanation;
+      //formattedExplanation = trimmedExplanation;
+      const prefixIndices = parseLeadingOptionIndices(trimmedExplanation);
+      const visualSnapshotIndices = getVisualIndicesFromSnapshot();
+      const hasComparableData = prefixIndices.length > 0 && visualSnapshotIndices.length > 0;
+      const prefixMatchesSnapshot =
+        hasComparableData &&
+        prefixIndices.length === visualSnapshotIndices.length &&
+        prefixIndices.every((num, idx) => num === visualSnapshotIndices[idx]);
+
+      if (!hasComparableData || prefixMatchesSnapshot) {
+        formattedExplanation = trimmedExplanation;
+      } else {
+        let rawExplanation = trimmedExplanation.replace(alreadyFormattedRe, '').trim();
+        if (!rawExplanation) rawExplanation = trimmedExplanation;
+
+        const questionForFormatting =
+          Array.isArray(options) && options.length > 0
+            ? { ...question, options }
+            : question;
+        formattedExplanation = this.formatExplanation(
+          questionForFormatting,
+          visualSnapshotIndices,
+          rawExplanation,
+          index
+        );
+      }
     } else {
       // Default path: strip any existing prefix and regenerate with current options.
       let rawExplanation = trimmedExplanation;
