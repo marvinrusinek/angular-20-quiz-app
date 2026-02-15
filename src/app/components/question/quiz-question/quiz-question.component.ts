@@ -2188,20 +2188,39 @@ export class QuizQuestionComponent extends BaseQuestion
         ? JSON.parse(JSON.stringify(potentialQuestion.options))
         : [];
 
-      this.optionsToDisplay = rawOpts.map((opt: Option, i: number) => ({
-        ...opt,
-        // Should NOT overwrite optionId with display-index based ID.
-        // For shuffled quizzes, the Service provides an ID that maps to the ORIGINAL question index.
-        // Overwriting this destroys correctness checks.
-        // optionId: this.currentQuestionIndex * 100 + (i + 1),
-        optionId: opt.optionId,
-        selected: false,
-        highlight: false,
-        showIcon: false,
-        active: true,
-        disabled: false,
-        feedback: opt.feedback ?? `Default feedback for Q${this.currentQuestionIndex} Opt${i}`
-      }));
+      // Build a set of correct texts/IDs from the question's answers for robust matching
+      const correctTexts = new Set<string>();
+      const correctIds = new Set<number>();
+      if (Array.isArray(potentialQuestion.answer)) {
+        potentialQuestion.answer.forEach(a => {
+          if (!a) return;
+          if (a.text) correctTexts.add(a.text.trim().toLowerCase());
+          const id = Number(a.optionId);
+          if (!isNaN(id)) correctIds.add(id);
+        });
+      }
+
+      this.optionsToDisplay = rawOpts.map((opt: Option, i: number) => {
+        const oId = Number(opt.optionId);
+        const oText = (opt.text ?? '').trim().toLowerCase();
+        const isCorrect = opt.correct === true || 
+                          (opt as any).correct === "true" ||
+                          (!isNaN(oId) && correctIds.has(oId)) || 
+                          !!(oText && correctTexts.has(oText));
+
+        return {
+          ...opt,
+          optionId: isNaN(oId) ? opt.optionId : oId,
+          correct: isCorrect,
+          selected: false,
+          highlight: false,
+          showIcon: false,
+          active: opt.active ?? true,
+          disabled: false,
+          displayOrder: typeof opt.displayOrder === 'number' ? opt.displayOrder : i,
+          feedback: opt.feedback ?? `Default feedback for Q${this.currentQuestionIndex} Opt${i}`
+        };
+      });
 
       // Reset per-binding disabled flags ONLY if bindings exist here and really have .disabled
       this.optionBindings?.forEach(b => b.disabled = false);
@@ -3352,7 +3371,7 @@ export class QuizQuestionComponent extends BaseQuestion
       // Now bind explanation to this question index (after clearing)
       (ets as any).latestExplanationIndex = lockedIndex;
 
-      const canonicalQ = this.quizService.questions?.[lockedIndex] ?? q;
+      const canonicalQ = q || this.quizService.getQuestionByIndex(lockedIndex) || this.quizService.questions?.[lockedIndex];
 
       const canonicalRaw = (canonicalQ?.explanation ?? '').trim();
       if (!canonicalRaw) {
@@ -3361,18 +3380,36 @@ export class QuizQuestionComponent extends BaseQuestion
         return;
       }
 
-      // CRITICAL FIX: Use text-matching to avoid corrupted `correct` property
-      // Get correct answer texts from canonicalQ.options
-      const visualOpts = this.optionsToDisplay?.length ? this.optionsToDisplay : (canonicalQ?.options || []);
+      let source = 'unknown';
+      let visualOpts: Option[] = [];
+
+      if (this.currentQuestionIndex === lockedIndex && this.optionsToDisplay?.length > 0) {
+        visualOpts = this.optionsToDisplay;
+        source = 'Display';
+      } else if (q && Array.isArray(q.options) && q.options.length > 0) {
+        visualOpts = q.options;
+        source = 'Q-Input';
+      } else {
+        visualOpts = canonicalQ?.options || [];
+        source = 'Canonical/Service';
+      }
+
+      console.error(`🔴🔴🔴 [QQC-performUpdate] Q${lockedIndex + 1} | Source: ${source} | Opts: ${visualOpts.length}`);
+      if (visualOpts.length > 0) {
+         console.error(`    - Opt 1: ${visualOpts[0]?.text?.slice(0, 20)} (Correct: ${visualOpts[0]?.correct})`);
+         if (visualOpts.length > 2) console.error(`    - Opt 3: ${visualOpts[2]?.text?.slice(0, 20)} (Correct: ${visualOpts[2]?.correct})`);
+      }
+
       const correctIdxs = ets.getCorrectOptionIndices(
         canonicalQ!,
         visualOpts,
-        this.currentQuestionIndex
+        lockedIndex
       );
-      console.log(`[QQC forceExplanation] Computed indices for Q${this.currentQuestionIndex + 1}: ${JSON.stringify(correctIdxs)}`);
+
+      console.error(`🔴🔴🔴 [QQC-performUpdate] Q${lockedIndex + 1} | FINAL INDICES: ${JSON.stringify(correctIdxs)}`);
 
       const formatted = ets
-        .formatExplanation(canonicalQ, correctIdxs, canonicalRaw)
+        .formatExplanation(canonicalQ, correctIdxs, canonicalRaw, lockedIndex)
         .trim();
 
       if (!formatted) {
@@ -5130,7 +5167,13 @@ export class QuizQuestionComponent extends BaseQuestion
     // for questions other than the one it last saw. Without this, the
     // formatted explanation stream may only emit for the previously active
     // index (e.g., Q2) and skip all others.
-    if (ets._activeIndex !== i0) {
+    if (ets._activeIndex !== i0 || i0 === 0) {
+      if (i0 === 0) {
+        console.error(`🔴🔴🔴 [FET-QQC] Forcing clear of Q1 stale explanation state`);
+        ets.latestExplanation = '';
+        ets._fetLocked = false;
+        ets.updateFormattedExplanation('');
+      }
       ets._activeIndex = i0;
       ets.latestExplanation = '';
     }
@@ -5153,15 +5196,11 @@ export class QuizQuestionComponent extends BaseQuestion
     let formatted: string;
 
     try {
+      const correctIndices = ets.getCorrectOptionIndices(q, q.options, i0);
+      console.error(`🔴🔴🔴 [FET-QQC] Q${i0 + 1} | CORRECT INDICES: ${JSON.stringify(correctIndices)}`);
       formatted =
         typeof ets.formatExplanation === 'function'
-          ? ets.formatExplanation(
-            q,
-            q.options
-              ?.map((o: Option, i: number) => (o.correct ? i + 1 : -1))
-              .filter((n: number) => n > 0),
-            baseRaw
-          )
+          ? ets.formatExplanation(q, correctIndices, baseRaw, i0)
           : baseRaw;
     } catch (error: any) {
       console.warn('[updateExplanationText] formatter failed, using raw', error);
@@ -5697,90 +5736,11 @@ export class QuizQuestionComponent extends BaseQuestion
 
       const visualOpts = useLocalOptions ? this.optionsToDisplay : (questionData?.options || []);
 
-      // SHUFFLE MODE DIRECT FIX: Use shuffledQuestions to find correct indices
-      let correctIndices: number[];
-      const shuffleActive = this.quizService.isShuffleEnabled();
-
-      if (shuffleActive) {
-        const shuffledQuestions = this.quizService.shuffledQuestions;
-        if (Array.isArray(shuffledQuestions) && shuffledQuestions.length > questionIndex) {
-          const shuffledQ = shuffledQuestions[questionIndex];
-          if (shuffledQ && Array.isArray(shuffledQ.options)) {
-            // Build a set of correct option texts from shuffledQuestions
-            const correctTexts = new Set<string>();
-            const correctOptionIds = new Set<number>();
-            shuffledQ.options.forEach((o: any) => {
-              const isCorrect =
-                o?.correct === true ||
-                o?.correct === 'true' ||
-                o?.isCorrect === true ||
-                o?.answer === true;
-
-              if (!isCorrect) {
-                return;
-              }
-
-              if (o.text) {
-                correctTexts.add(o.text.trim().toLowerCase());
-              }
-
-              if (o.optionId !== undefined && o.optionId !== null) {
-                correctOptionIds.add(Number(o.optionId));
-              }
-            });
-
-            // Match against visualOpts by text to find visual indices
-            correctIndices = visualOpts
-              .map((option: any, idx: number) => {
-                if (!option || !option.text) return null;
-                if (
-                  option.optionId !== undefined &&
-                  option.optionId !== null &&
-                  correctOptionIds.has(Number(option.optionId))
-                ) {
-                  return idx + 1;
-                }
-                if (correctTexts.has(option.text.trim().toLowerCase())) {
-                  return idx + 1; // 1-based index
-                }
-                return null;
-              })
-              .filter((n: number | null): n is number => n !== null);
-
-            if (correctIndices.length === 0) {
-              // Fallback to shared robust resolver so Q1 shuffled still gets visual index mapping.
-              correctIndices = this.explanationTextService.getCorrectOptionIndices(
-                questionData!,
-                visualOpts,
-                questionIndex
-              );
-            }
-
-            console.log(`[prepareAndSetExplanation SHUFFLE FIX] Q${questionIndex + 1} correctIndices from text match: ${JSON.stringify(correctIndices)}`);
-          } else {
-            // Fallback if shuffledQ is not available
-            correctIndices = this.explanationTextService.getCorrectOptionIndices(
-              questionData!,
-              visualOpts,
-              questionIndex
-            );
-          }
-        } else {
-          // Fallback if shuffledQuestions is not available
-          correctIndices = this.explanationTextService.getCorrectOptionIndices(
-            questionData!,
-            visualOpts,
-            questionIndex
-          );
-        }
-      } else {
-        // Not shuffled - use normal path
-        correctIndices = this.explanationTextService.getCorrectOptionIndices(
-          questionData!,
-          visualOpts,
-          questionIndex
-        );
-      }
+      const correctIndices = this.explanationTextService.getCorrectOptionIndices(
+        questionData!,
+        visualOpts,
+        questionIndex
+      );
       console.log(`[prepareAndSetExplanation] Final computed indices for Q${questionIndex + 1}: ${JSON.stringify(correctIndices)}`);
 
       const questionForFormatting = { ...questionData, options: visualOpts };

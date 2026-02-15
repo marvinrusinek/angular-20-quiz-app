@@ -902,84 +902,32 @@ export class ExplanationTextService {
       return [];
     }
 
-    // SHUFFLE MODE FIX: For shuffled quizzes, prioritize the options' own `correct` flags.
+    console.error(`🔴🔴🔴 [getCorrectOptionIndices] Q${(qIdx ?? 0) + 1} | OPTS COUNT: ${opts.length}`);
+    opts.forEach((o, i) => console.error(`   - Opt ${i + 1}: ID=${o.optionId}, CORRECT=${o.correct}, TEXT="${o.text?.slice(0, 30)}..."`));
+
+    // 1. TRUST THE VISUAL OPTIONS FIRST
+    // The user sees these on screen. If one is marked `correct: true` (Green),
+    // the text MUST match that index, or the UI is lying.
+    const visualCorrectIndices = opts
+      .map((opt, i) => (opt.correct === true || (opt as any).correct === 'true' ? i + 1 : null))
+      .filter((n): n is number => n !== null);
+
+    if (visualCorrectIndices.length > 0) {
+      const result = Array.from(new Set(visualCorrectIndices)).sort((a, b) => a - b);
+      console.log(`[ETS.getCorrectOptionIndices] ✅ Using Visual Options (correct=true). Result: ${JSON.stringify(result)}`);
+      return result;
+    }
+
+    // 2. Fallback to service/pristine data if visual options lack flags
+    console.warn('[ETS] Visual options have no correct flag. Falling back to pristine/canonical lookup...');
+
     try {
       const quizSvc = this.injector.get(QuizService, null);
-      if (!quizSvc) {
-        console.warn('[ETS.getCorrectOptionIndices] QuizService missing.');
-        return [];
-      }
-
-      const isActuallyShuffled = quizSvc.isShuffleEnabled() || (quizSvc.shuffledQuestions && quizSvc.shuffledQuestions.length > 0);
-
-      if (isActuallyShuffled) {
-        // First, try direct correct flags on the options passed in
-        const shuffleIndices = opts
-          .map((option, idx) => {
-            if (!option || typeof option !== 'object') return null;
-            const isCorrect = option.correct === true ||
-              (option as any).correct === "true" ||
-              (option as any).isCorrect === true ||
-              (option as any).answer === true;
-            if (!isCorrect) return null;
-            return idx + 1;
-          })
-          .filter((n): n is number => n !== null);
-
-        if (shuffleIndices.length > 0) {
-          const result = Array.from(new Set(shuffleIndices)).sort((a, b) => a - b);
-          console.log(`[ETS.getCorrectOptionIndices] --- COMPLETE (PHASE 1 - Direct Flags) --- Result: ${JSON.stringify(result)}`);
-          return result;
-        }
-
-        // FALLBACK for shuffle mode: Use authoritative service source to find correct answers
-        console.warn(`[ETS] Phase 1 failed for Q${qIdx + 1}, trying authoritative service data...`);
-        const shuffledList = quizSvc.shuffledQuestions || [];
-        const fallbackList = quizSvc.questions || [];
-        const authQuestions = shuffledList.length > 0 ? shuffledList : fallbackList;
-
-        if (qIdx !== null && Array.isArray(authQuestions) && authQuestions.length > 0) {
-          let authQ = authQuestions.length > qIdx ? authQuestions[qIdx] : null;
-
-          // RECOVERY: If current index doesn't match, or is out of bounds, search by text
-          const currentTextNorm = normalize(question?.questionText);
-          if (authQuestions.length > 0 && (!authQ || normalize(authQ.questionText) !== currentTextNorm)) {
-            console.warn(`[ETS] Index mismatch in auth source for Q${qIdx + 1}. Searching authoritative list...`);
-            authQ = authQuestions.find(q => normalize(q.questionText) === currentTextNorm) || null;
-          }
-
-          if (authQ && Array.isArray(authQ.options)) {
-            const correctTexts = new Set<string>();
-            const correctIds = new Set<number>();
-            authQ.options.forEach((o: any) => {
-              if (o.correct === true || o.correct === "true" || o.isCorrect === true) {
-                if (o.text) correctTexts.add(normalize(o.text));
-                if (o.optionId !== undefined) correctIds.add(Number(o.optionId));
-              }
-            });
-
-            if (correctTexts.size > 0 || correctIds.size > 0) {
-              const matchedIndices = opts
-                .map((option, idx) => {
-                  if (!option) return null;
-                  if (option.optionId !== undefined && correctIds.has(Number(option.optionId))) return idx + 1;
-                  if (option.text && correctTexts.has(normalize(option.text))) return idx + 1;
-                  return null;
-                })
-                .filter((n): n is number => n !== null);
-
-              if (matchedIndices.length > 0) {
-                const result = Array.from(new Set(matchedIndices)).sort((a, b) => a - b);
-                console.log(`[ETS.getCorrectOptionIndices] --- COMPLETE (PHASE 2 - Service Sync) --- Result: ${JSON.stringify(result)}`);
-                return result;
-              }
-            }
-          }
-        }
-        console.warn('[ETS] Shuffle mode mapping failed, falling through to pristine lookup (Phase 3)...');
+      if (quizSvc) {
+        // ... (rest of the detailed lookup logic is handled in the next block)
       }
     } catch (e) {
-      console.warn('[ETS] Shuffle mode check failed:', e);
+      console.warn('[ETS] Service access failed:', e);
     }
 
     // ATTEMPT 1: Get PRISTINE correct texts/IDs from QuizService
@@ -1136,17 +1084,19 @@ export class ExplanationTextService {
       ? correctOptionIndices.slice()
       : [];
 
-    // Fallback: derive from the question’s own option flags
-    if (indices.length === 0 && Array.isArray(question?.options)) {
-      indices = this.getCorrectOptionIndices(question, question.options, displayIndex);
-    }
+
 
     // Stabilize: dedupe + sort so multi-answer phrasing is consistent
     indices = Array.from(new Set(indices)).sort((a, b) => a - b);
 
-    console.log(`🔴🔴🔴 [formatExplanation] FINAL indices: ${JSON.stringify(indices)} for Q: "${question?.questionText?.slice(0, 40)}..."`);
+    console.error(`🔴🔴🔴 [formatExplanation] Q${(displayIndex ?? 0) + 1} | FINAL INDICES: ${JSON.stringify(indices)} | TEXT: "${e.slice(0, 50)}..."`);
 
-    // Multi-answerW
+    if (indices.length === 0) {
+      console.warn(`[formatExplanation] ⚠️ No indices! Fallback to raw.`);
+      return e;
+    }
+
+    // Multi-answer
     if (indices.length > 1) {
       question.type = QuestionType.MultipleAnswer;
 
