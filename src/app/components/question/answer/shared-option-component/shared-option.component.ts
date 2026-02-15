@@ -2136,10 +2136,7 @@ export class SharedOptionComponent
     // Safely access optionId, or fallback to index
     const optionId = this.quizService.getSafeOptionId(clonedOption, index);
     if (optionId === undefined) {
-      console.error(
-        `Failed to access optionId. Option data: 
-        ${JSON.stringify(clonedOption, null, 2)}`
-      );
+      console.error('Failed to access optionId. Option data:', JSON.stringify(clonedOption, null, 2));
       return;
     }
 
@@ -2164,7 +2161,7 @@ export class SharedOptionComponent
     // Generate feedbackConfig per option using hydrated data
     const hydratedOption = this.optionsToDisplay[index];
     if (!hydratedOption) {
-      console.warn(`[Feedback] No hydrated option found at index ${index}`);
+      console.warn('[Feedback] No hydrated option found at index ' + index);
     } else {
       const activeQuestionIndex = this.getActiveQuestionIndex() ?? 0;
       const selectedHydratedOption: SelectedOption = {
@@ -2326,9 +2323,12 @@ export class SharedOptionComponent
     const isCorrect = option.correct ?? false;
     const rawFeedback = option.feedback?.trim();
 
-    const finalFeedback = rawFeedback
-      ? `${isCorrect ? "You're right! " : "That's wrong. "}${rawFeedback}`
-      : `${isCorrect ? "You're right! " : "That's wrong. "}${correctMessage || 'No feedback available.'}`;
+    let finalFeedback = '';
+    if (rawFeedback) {
+      finalFeedback = (isCorrect ? "You're right! " : "That's wrong. ") + rawFeedback;
+    } else {
+      finalFeedback = (isCorrect ? "You're right! " : "That's wrong. ") + (correctMessage || 'No feedback available.');
+    }
 
     return {
       selectedOption: option,
@@ -2691,7 +2691,7 @@ export class SharedOptionComponent
 
     this.feedbackBindings = this.optionBindings.map((optionBinding, idx) => {
       if (!optionBinding || !optionBinding.option) {
-        console.warn(`Option binding at index ${idx} is null or undefined. Using default feedback properties.`);
+        console.warn('Option binding at index ' + idx + ' is null or undefined. Using default feedback properties.');
         return this.getDefaultFeedbackProps(idx);  // return default values when binding is invalid
       }
 
@@ -2702,7 +2702,7 @@ export class SharedOptionComponent
 
       // Validate the generated feedback binding
       if (!feedbackBinding || !feedbackBinding.selectedOption) {
-        console.warn(`Invalid feedback binding at index ${idx}:`, feedbackBinding);
+        console.warn('Invalid feedback binding at index ' + idx + ':', feedbackBinding);
       }
 
       return feedbackBinding;
@@ -2789,7 +2789,7 @@ export class SharedOptionComponent
     if (bindingsReady && optionsReady) {
       this.ngZone.run(() => {
         if (reason) {
-          console.log(`[renderReady]: ${reason}`);
+          console.log('[renderReady]: ' + reason);
         }
 
         this.renderReady = true;
@@ -2797,7 +2797,7 @@ export class SharedOptionComponent
         this.renderReadySubject.next(true);
       });
     } else {
-      console.warn(`[markRenderReady skipped] Incomplete state:`, {
+      console.warn('[markRenderReady skipped] Incomplete state:', {
         bindingsReady,
         optionsReady,
         reason
@@ -2866,7 +2866,7 @@ export class SharedOptionComponent
     }
 
     console.warn(
-      `[determineQuestionType] No valid options or input detected. Defaulting to 'single'.`
+      "[determineQuestionType] No valid options or input detected. Defaulting to 'single'."
     );
 
     // Final fallback based on explicit type property
@@ -3057,7 +3057,7 @@ export class SharedOptionComponent
 
   private updateResolvedQuestionIndex(candidate: unknown): void {
     if (typeof candidate !== 'number' && candidate !== null) {
-      console.warn(`[SharedOption] Invalid candidate for updateResolvedQuestionIndex: ${candidate}`);
+      console.warn('[SharedOption] Invalid candidate for updateResolvedQuestionIndex:', candidate);
       return;
     }
     const normalized = this.normalizeQuestionIndex(candidate);
@@ -3231,6 +3231,14 @@ export class SharedOptionComponent
     this.handleOptionClick(binding.option as any, binding.index);
   }
 
+  // --- Internals ---
+
+  private handleOptionClick(option: Option, index: number): void {
+    // Delegate to interaction service or handle local logic
+    // Restoring basic click handling logic if it was missing:
+    this.optionClicked.emit({ option, index });
+  }
+
   // --- Missing Methods Restoration ---
 
   public resetUIForNewQuestion(): void {
@@ -3275,5 +3283,53 @@ export class SharedOptionComponent
 
   public generateOptionBindings(): void {
     this.initializeOptionBindings();
+  }
+
+  // --- Additional Internal Helpers ---
+
+  public keyOf(option: Option, index: number): string {
+    return `${option.optionId ?? index}`;
+  }
+
+  private applySelectionsUI(selectedOptions: SelectedOption[]): void {
+    if (!this.optionBindings) return;
+    const selectedIds = new Set(selectedOptions.map(s => s.optionId));
+    this.optionBindings.forEach(b => {
+      if (b.option) b.isSelected = selectedIds.has(b.option.optionId);
+    });
+    this.cdRef.markForCheck();
+  }
+
+  public hydrateOptionsFromSelectionState(): void {
+    const qIndex = this.getActiveQuestionIndex();
+    const selections = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex);
+    if (selections && selections.length > 0) {
+      this.applySelectionsUI(selections);
+    }
+  }
+
+  public fullyResetRows(): void {
+    this.optionBindings?.forEach(b => {
+      b.isSelected = false;
+      b.disabled = false;
+      b.highlight = false; 
+    });
+    this.cdRef.markForCheck();
+  }
+
+  private resolveCurrentQuestionIndex(): number {
+    return this.getActiveQuestionIndex();
+  }
+
+  private isLocked(binding: OptionBindings, index: number): boolean {
+    return this.optionLockService.isLocked(
+      binding, 
+      index, 
+      this.getActiveQuestionIndex()
+    );
+  }
+
+  private isDisabled(binding: OptionBindings, index: number): boolean {
+    return this.shouldDisableOption(binding);
   }
 }
