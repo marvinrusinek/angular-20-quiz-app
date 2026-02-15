@@ -1908,7 +1908,10 @@ export class SharedOptionComponent
         }
       }
       // --- PHASE 2: Service-level recovery by question-text lookup ---
-      else if (shuffleActive || (this.quizService.shuffledQuestions && this.quizService.shuffledQuestions.length > 0)) {
+      }
+
+      // --- PHASE 2: Service-level recovery by question-text lookup ---
+      if ((!correctIndices || correctIndices.length === 0) && (shuffleActive || (this.quizService.shuffledQuestions && this.quizService.shuffledQuestions.length > 0))) {
         const shuffledList = this.quizService.shuffledQuestions || [];
         const fallbackList = this.quizService.questions || [];
         const sourceList = shuffledList.length > 0 ? shuffledList : fallbackList;
