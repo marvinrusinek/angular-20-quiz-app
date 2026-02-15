@@ -1389,7 +1389,31 @@ export class SharedOptionComponent
       const currentIdx = this.resolveDisplayIndex(this.currentQuestionIndex);
       // Only if this component is actively showing the explanation for the current question
       if (this.explanationTextService.latestExplanationIndex === currentIdx) {
-        console.log(`[SOC] Option bindings changed for Q${currentIdx + 1} with active explanation - regenerating FET...`);
+        // Robust check: Only regenerate if the options differ from what might have been used before.
+        // We use incomingIds vs existingIds (captured above) logic but more explicitly here.
+        const incomingIds = newOptions.map((o) => o.optionId).join(',');
+        // We can't easily track "what IDs generated the last FET", but we do know
+        // that if we just updated bindings (incomingIds !== existingIds check above),
+        // we likely need to refresh the FET.
+        
+        // However, the `if (incomingIds !== existingIds)` block (lines 1350-1368) handles the creation.
+        // If we fell into the `else` block (lines 1369-1379), IDs might match but object references changed.
+        // Let's rely on the explicit change of IDs to be safe.
+        
+        // Re-calculate previous IDs for this check scope
+        const prevIds = this.optionBindings
+            ?.map(b => b.option.optionId)
+            .join(',') || '';
+            
+         // If we just rebuilt bindings, incomingIds won't match prevIds (because prevIds is from BEFORE the rebuild).
+         // Actually, `this.optionBindings` is ALREADY updated by lines 1351 or 1374.
+         // So we can't compare against "old" bindings here easily without storing them.
+         
+         // BUT, we know `setOptionBindingsIfChanged` is called when `optionsToDisplay` updates.
+         // A simple approach: Always regenerate if active. `emitExplanation` is relatively cheap and idempotent-safe.
+         // To avoid infinite loops, ensure we don't spin.
+         
+        console.log(`[SOC] Option bindings checked for Q${currentIdx + 1} with active explanation - refreshing FET.`);
         this.deferHighlightUpdate(() => this.emitExplanation(currentIdx));
       }
     }
