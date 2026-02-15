@@ -2163,6 +2163,7 @@ export class SharedOptionComponent
 
     // Generate feedbackConfig per option using hydrated data
     const hydratedOption = this.optionsToDisplay[index];
+    const hydratedOption = this.optionsToDisplay[index];
     if (!hydratedOption) {
       console.warn(`[Feedback] No hydrated option found at index ${index}`);
     } else {
@@ -2691,10 +2692,7 @@ export class SharedOptionComponent
 
     this.feedbackBindings = this.optionBindings.map((optionBinding, idx) => {
       if (!optionBinding || !optionBinding.option) {
-        console.warn(
-          `Option binding at index ${idx} is null or undefined. Using default
-           feedback properties.`
-        );
+        console.warn(`Option binding at index ${idx} is null or undefined. Using default feedback properties.`);
         return this.getDefaultFeedbackProps(idx);  // return default values when binding is invalid
       }
 
@@ -2705,9 +2703,7 @@ export class SharedOptionComponent
 
       // Validate the generated feedback binding
       if (!feedbackBinding || !feedbackBinding.selectedOption) {
-        console.warn(
-          `Invalid feedback binding at index ${idx}:`, feedbackBinding
-        );
+        console.warn(`Invalid feedback binding at index ${idx}:`, feedbackBinding);
       }
 
       return feedbackBinding;
@@ -2871,8 +2867,7 @@ export class SharedOptionComponent
     }
 
     console.warn(
-      `[determineQuestionType] No valid options or input detected. 
-      Defaulting to 'single'.`
+      `[determineQuestionType] No valid options or input detected. Defaulting to 'single'.`
     );
 
     // Final fallback based on explicit type property
