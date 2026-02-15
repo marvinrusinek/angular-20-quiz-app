@@ -2163,7 +2163,6 @@ export class SharedOptionComponent
 
     // Generate feedbackConfig per option using hydrated data
     const hydratedOption = this.optionsToDisplay[index];
-    const hydratedOption = this.optionsToDisplay[index];
     if (!hydratedOption) {
       console.warn(`[Feedback] No hydrated option found at index ${index}`);
     } else {
@@ -3058,10 +3057,7 @@ export class SharedOptionComponent
 
   private updateResolvedQuestionIndex(candidate: unknown): void {
     if (typeof candidate !== 'number' && candidate !== null) {
-      console.warn(
-        `[SharedOption] Invalid candidate for updateResolvedQuestionIndex: 
-        ${candidate}`
-      );
+      console.warn(`[SharedOption] Invalid candidate for updateResolvedQuestionIndex: ${candidate}`);
       return;
     }
     const normalized = this.normalizeQuestionIndex(candidate);
@@ -3233,5 +3229,51 @@ export class SharedOptionComponent
     // - emits to parent
     // - next button enabling
     this.handleOptionClick(binding.option as any, binding.index);
+  }
+
+  // --- Missing Methods Restoration ---
+
+  public resetUIForNewQuestion(): void {
+    this.resetStateForNewQuestion();
+    this.optionBindings = [];
+    this.feedbackConfigs = {};
+    this.renderReady = false;
+    this.viewReady = false;
+    this.optionsReady = false;
+    this.displayReady = false;
+    this.showOptions = false;
+    this.showNoOptionsFallback = false;
+    this.lastClickedOptionId = null;
+    this.lastClickTimestamp = null;
+    this.hasUserClicked = false;
+    this.freezeOptionBindings = false;
+    this.showFeedback = false;
+    this.cdRef.markForCheck();
+  }
+
+  public initializeOptionBindings(): void {
+    if (!this.optionsToDisplay) return;
+    
+    this.optionBindings = this.optionBindingFactory.createOptionBindings(
+      this.optionsToDisplay,
+      this.questionIndex,
+      this.quizService.isShuffleEnabled()
+    );
+    this.initializeFeedbackBindings();
+    this.optionsRestored = true;
+  }
+
+  public forceDisableAllOptions(): void {
+    this.forceDisableAll = true;
+    this.cdRef.markForCheck();
+  }
+
+  public clearForceDisableAllOptions(): void {
+    this.forceDisableAll = false;
+    this.cdRef.markForCheck();
+  }
+
+  public generateOptionBindings(): void {
+    this.initializeOptionBindings();
   }
 }
