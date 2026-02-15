@@ -1859,36 +1859,53 @@ export class SharedOptionComponent
 
       let correctIndices: number[];
 
-      // --- PHASE 1: Authoritative text-based mapping from current question payload ---
-      // Prefer stable answer text matching over mutable `correct` flags/IDs which can drift
-      // across route restores/re-entry (observed on shuffled Q1).
-      const authoritativeTexts = new Set<string>();
-      const addText = (text: unknown) => {
-        const normalized = normalizeOptionText(text);
-        if (normalized) authoritativeTexts.add(normalized);
-      };
-
-      for (const answer of (question.answer ?? [])) {
-        addText((answer as any)?.text);
-      }
-      for (const option of (question.options ?? [])) {
-        const flagged = option?.correct === true ||
-          (option as any)?.correct === 'true' ||
-          (option as any)?.isCorrect === true;
-        if (flagged) addText(option?.text);
-      }
-
+      // --- PHASE 0: Visual Options Flags (Primary Truth) ---
+      // If the options we are displaying to the user carry "correct=true", TRUST THEM.
+      // This is critical for Q1 hydration/shuffle where the 'question' object might be stale (canonical order),
+      // but the component has already received the correctly shuffled 'optionsToDisplay' via input.
       correctIndices = visualOptions
-        .map((option, idx) => {
-          if (!option) return null;
-          return authoritativeTexts.has(normalizeOptionText(option.text))
-            ? idx + 1
-            : null;
+        .map((opt, idx) => {
+          const isCorrect = opt.correct === true ||
+            (opt as any).correct === "true" ||
+            (opt as any).isCorrect === true ||
+            (opt as any).answer === true;
+          return isCorrect ? idx + 1 : null;
         })
         .filter((n): n is number => n !== null);
 
       if (correctIndices.length > 0) {
-        console.log(`[FET] ✅ Phase 1: Authoritative text match for Q${questionIndex + 1}: ${JSON.stringify(correctIndices)}`);
+        console.log(`[FET] ✅ Phase 0: Visual Flags for Q${questionIndex + 1}: ${JSON.stringify(correctIndices)}`);
+      } else {
+        // --- PHASE 1: Authoritative text-based mapping from current question payload ---
+        // Fallback: If visual options lack flags (e.g. strict view models), match by text against the question.
+        const authoritativeTexts = new Set<string>();
+        const addText = (text: unknown) => {
+          const normalized = normalizeOptionText(text);
+          if (normalized) authoritativeTexts.add(normalized);
+        };
+
+        for (const answer of (question.answer ?? [])) {
+          addText((answer as any)?.text);
+        }
+        for (const option of (question.options ?? [])) {
+          const flagged = option?.correct === true ||
+            (option as any)?.correct === 'true' ||
+            (option as any)?.isCorrect === true;
+          if (flagged) addText(option?.text);
+        }
+
+        correctIndices = visualOptions
+          .map((option, idx) => {
+            if (!option) return null;
+            return authoritativeTexts.has(normalizeOptionText(option.text))
+              ? idx + 1
+              : null;
+          })
+          .filter((n): n is number => n !== null);
+          
+        if (correctIndices.length > 0) {
+           console.log(`[FET] ✅ Phase 1: Authoritative text match for Q${questionIndex + 1}: ${JSON.stringify(correctIndices)}`);
+        }
       }
       // --- PHASE 2: Service-level recovery by question-text lookup ---
       else if (shuffleActive || (this.quizService.shuffledQuestions && this.quizService.shuffledQuestions.length > 0)) {
