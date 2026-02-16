@@ -1,6 +1,6 @@
 ﻿import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef,
-  Component, EventEmitter, HostListener, Input, NgZone, OnChanges, OnDestroy, OnInit,
+  Component, DoCheck, EventEmitter, HostListener, Input, NgZone, OnChanges, OnDestroy, OnInit,
   Output, QueryList, SimpleChanges, ViewChildren
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -67,7 +67,7 @@ import { OptionBindingFactoryService } from '../../../../shared/services/options
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SharedOptionComponent
-  implements OnInit, OnChanges, OnDestroy, AfterViewInit {
+  implements OnInit, OnChanges, DoCheck, OnDestroy, AfterViewInit {
 
 
   @Output() optionClicked =
@@ -1102,6 +1102,10 @@ export class SharedOptionComponent
 
     // Restore highlights after binding reassignment
     this.updateHighlighting();
+  }
+
+  ngDoCheck(): void {
+    this.updateBindingSnapshots();
   }
 
   buildSharedOptionConfig(b: OptionBindings, i: number): SharedOptionConfig {
