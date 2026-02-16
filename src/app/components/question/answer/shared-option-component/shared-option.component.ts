@@ -1605,6 +1605,29 @@ export class SharedOptionComponent
     this.lastFeedbackQuestionIndex = ctx.lastFeedbackQuestionIndex;
     this.lastSelectedOptionIndex = index;
 
+    // FORCE SYNC FROM SERVICE (Source of Truth)
+    const qIndex = this.resolveCurrentQuestionIndex();
+    const selections = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) || [];
+    const selectionIds = new Set(selections.map(s => s.optionId));
+
+    this.optionBindings.forEach(b => {
+      const shouldBeSelected = selectionIds.has(b.option.optionId);
+      b.isSelected = shouldBeSelected;
+      if (b.option) {
+        b.option.selected = shouldBeSelected;
+        b.option.showIcon = shouldBeSelected;
+        b.option.highlight = shouldBeSelected;
+      }
+
+      if (shouldBeSelected) {
+        b.styleClass = b.isCorrect ? 'highlight-correct' : 'highlight-incorrect';
+      } else {
+        if (b.styleClass === 'highlight-correct' || b.styleClass === 'highlight-incorrect') {
+          b.styleClass = '';
+        }
+      }
+    });
+
     // Force reference update for ALL bindings to trigger child OnPush CD for
     // every option (needed for single-answer unselects and general state correctness)
     this.optionBindings = this.optionBindings.map(b => ({ ...b }));
