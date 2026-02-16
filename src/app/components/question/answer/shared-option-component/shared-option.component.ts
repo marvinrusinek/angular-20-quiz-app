@@ -1105,11 +1105,10 @@ export class SharedOptionComponent
   }
 
   buildSharedOptionConfig(b: OptionBindings, i: number): SharedOptionConfig {
-    // Verify selection state from service, not from potentially stale binding
-    // Use lastProcessedQuestionIndex which is synchronized with Input in ngOnChanges.
-    // Preferring quizService.currentQuestionIndex caused a race condition where we fetched 
-    // selections for the PREVIOUS question because the service hadn't updated yet.
-    const qIndex = this.lastProcessedQuestionIndex ?? this.resolveCurrentQuestionIndex();
+    // Verify selection state from service.
+    // We use resolveCurrentQuestionIndex() to ensure we are checking the correct question's state.
+    // relying on lastProcessedQuestionIndex caused synchronization issues.
+    const qIndex = this.resolveCurrentQuestionIndex();
     const currentSelections = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
     const isActuallySelected = currentSelections.some(s => s.optionId === b.option.optionId);
 
