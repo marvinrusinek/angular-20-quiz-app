@@ -16,10 +16,12 @@
       [disabledOptionsPerQuestion]="disabledOptionsPerQuestion" (optionUI)="onOptionUI($event)" />
 
     <!-- FEEDBACK: displayed below the last selected option -->
-    @if (activeFeedbackConfig && i === lastSelectedOptionIndex) {
+    @if (shouldShowFeedbackAfter(b, i)) {
+    @if (getInlineFeedbackConfig(b, i); as inlineFeedback) {
     <div class="feedback-below-option" @correctAnswer>
-      <codelab-quiz-feedback [feedbackConfig]="activeFeedbackConfig" />
+      <codelab-quiz-feedback [feedbackConfig]="inlineFeedback" />
     </div>
+    }
     }
     }
   </mat-radio-group>
@@ -37,10 +39,12 @@
       [disabledOptionsPerQuestion]="disabledOptionsPerQuestion" (optionUI)="onOptionUI($event)" />
 
     <!-- FEEDBACK: displayed below the last selected option -->
-    @if (activeFeedbackConfig && i === lastSelectedOptionIndex) {
+    @if (shouldShowFeedbackAfter(b, i)) {
+    @if (getInlineFeedbackConfig(b, i); as inlineFeedback) {
     <div class="feedback-below-option" @correctAnswer>
-      <codelab-quiz-feedback [feedbackConfig]="activeFeedbackConfig" />
+      <codelab-quiz-feedback [feedbackConfig]="inlineFeedback" />
     </div>
+    }
     }
     }
   </div>

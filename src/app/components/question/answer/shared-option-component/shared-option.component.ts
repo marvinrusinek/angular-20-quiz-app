@@ -1586,12 +1586,15 @@ export class SharedOptionComponent
 
     this.optionUiSyncService.updateOptionAndUI(optionBinding, index, event, ctx);
 
-    // Sync primitive feedback state back from ctx.
-    // The ctx is a shallow spread of `this`, so object refs (feedbackConfigs,
-    // showFeedbackForOption) are mutated in-place, but primitives must be
-    // manually copied back.
+    // Sync ALL feedback state back from ctx.
+    // resetFeedbackAnchorIfQuestionChanged may REPLACE ctx.feedbackConfigs and
+    // ctx.showFeedbackForOption with new empty objects, disconnecting from the
+    // component's references. We must sync EVERYTHING back, not just primitives.
+    this.feedbackConfigs = ctx.feedbackConfigs;
+    this.showFeedbackForOption = ctx.showFeedbackForOption;
     this.showFeedback = ctx.showFeedback;
     this.lastFeedbackOptionId = ctx.lastFeedbackOptionId;
+    this.lastFeedbackQuestionIndex = ctx.lastFeedbackQuestionIndex;
     this.lastSelectedOptionIndex = index;
 
     // DEBUG: trace inline feedback state
@@ -3017,16 +3020,16 @@ export class SharedOptionComponent
       (b, i, ev) => this.updateOptionAndUI(b, i, ev)
     );
 
-    // Sync back mutated state
+    // Sync back mutated state (non-feedback fields only).
+    // IMPORTANT: Do NOT sync feedback-related fields (feedbackConfigs,
+    // showFeedbackForOption, lastFeedbackOptionId, showFeedback,
+    // lastFeedbackQuestionIndex) from state here. The state object captured
+    // initial values BEFORE the callback ran. updateOptionAndUI (called via
+    // callback above) already synced the correct values from the
+    // OptionUiSyncContext, which may have REPLACED these object refs
+    // (e.g. resetFeedbackAnchorIfQuestionChanged replaces feedbackConfigs).
     this.optionBindings = state.optionBindings;
-    this.disableRenderTrigger = state.disableRenderTrigger;
-    this.feedbackConfigs = state.feedbackConfigs;
-    this.showFeedbackForOption = state.showFeedbackForOption;
-    // NOTE: Do NOT sync lastFeedbackOptionId and showFeedback from state here.
-    // updateOptionAndUI (called via callback above) already synced the correct
-    // values from the OptionUiSyncContext. The state object only has the STALE
-    // initial primitives captured before the callback ran.
-    this.lastFeedbackQuestionIndex = state.lastFeedbackQuestionIndex;
+    this.disableRenderTriggers = state.disableRenderTrigger;
     this.lastClickedOptionId = state.lastClickedOptionId;
     this.lastClickTimestamp = state.lastClickTimestamp;
     this.hasUserClicked = state.hasUserClicked;
@@ -3064,5 +3067,3 @@ export class SharedOptionComponent
     this.handleOptionClick(binding.option as any, binding.index);
   }
 }
-
-
