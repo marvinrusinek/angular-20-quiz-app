@@ -1594,6 +1594,15 @@ export class SharedOptionComponent
     this.lastFeedbackOptionId = ctx.lastFeedbackOptionId;
     this.lastSelectedOptionIndex = index;
 
+    // DEBUG: trace inline feedback state
+    const optId = optionBinding?.option?.optionId;
+    const key = this.keyOf(optionBinding.option, index);
+    const cfgKeys = Object.keys(this.feedbackConfigs);
+    const hasCfg = !!this.feedbackConfigs[key];
+    console.log(`[SOC updateOptionAndUI] optId=${optId}, index=${index}, key="${key}", ` +
+      `lastFeedbackOptionId=${this.lastFeedbackOptionId}, showFeedback=${this.showFeedback}, ` +
+      `feedbackConfigs keys=[${cfgKeys.join(',')}], hasCfgForKey=${hasCfg}`);
+
     this.cdRef.detectChanges();
   }
 
@@ -3013,13 +3022,15 @@ export class SharedOptionComponent
     this.disableRenderTrigger = state.disableRenderTrigger;
     this.feedbackConfigs = state.feedbackConfigs;
     this.showFeedbackForOption = state.showFeedbackForOption;
-    this.lastFeedbackOptionId = state.lastFeedbackOptionId;
+    // NOTE: Do NOT sync lastFeedbackOptionId and showFeedback from state here.
+    // updateOptionAndUI (called via callback above) already synced the correct
+    // values from the OptionUiSyncContext. The state object only has the STALE
+    // initial primitives captured before the callback ran.
     this.lastFeedbackQuestionIndex = state.lastFeedbackQuestionIndex;
     this.lastClickedOptionId = state.lastClickedOptionId;
     this.lastClickTimestamp = state.lastClickTimestamp;
     this.hasUserClicked = state.hasUserClicked;
     this.freezeOptionBindings = state.freezeOptionBindings;
-    this.showFeedback = state.showFeedback;
 
     this.cdRef.detectChanges();
   }
