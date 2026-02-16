@@ -67,8 +67,8 @@ export class OptionUiSyncService {
     private optionSelectionPolicyService: OptionSelectionPolicyService,
     private optionLockPolicyService: OptionLockPolicyService,
     private optionLockRulesService: OptionLockRulesService
-  ) {}
-  
+  ) { }
+
   updateOptionAndUI(
     optionBinding: OptionBindings,
     index: number,
@@ -170,13 +170,13 @@ export class OptionUiSyncService {
     this.applyFeedback(optionBinding, index, ctx);
 
     const resolvedType =
-        ctx.type === 'multiple' ? QuestionType.MultipleAnswer : QuestionType.SingleAnswer;
+      ctx.type === 'multiple' ? QuestionType.MultipleAnswer : QuestionType.SingleAnswer;
 
     this.optionLockPolicyService.updateLockedIncorrectOptions({
-    bindings: ctx.optionBindings ?? [],
-    forceDisableAll: ctx.forceDisableAll, // see ctx note below
-    resolvedType,
-    computeShouldLockIncorrectOptions: (t, has, all) =>
+      bindings: ctx.optionBindings ?? [],
+      forceDisableAll: ctx.forceDisableAll, // see ctx note below
+      resolvedType,
+      computeShouldLockIncorrectOptions: (t, has, all) =>
         this.optionLockRulesService.computeShouldLockIncorrectOptions(t, has, all)
     });
 
@@ -258,15 +258,20 @@ export class OptionUiSyncService {
     if (optionId == null) return;
 
     if (checked) {
-      this.selectedOptionService
-        .selectOption(
-          optionId,
-          currentIndex,
-          optionBinding.option.text,
-          ctx.type === 'multiple',
-          ctx.optionsToDisplay
-        )
-        .then(() => {});
+      // Use synchronous setSelectedOption to update service state IMMEDIATELY.
+      // This ensures that subsequent feedback generation (which runs synchronously)
+      // sees the correct selection state. Only async selectOption caused race conditions.
+      const selOpt: any = {
+        ...optionBinding.option,
+        questionIndex: currentIndex,
+        selected: true
+      };
+      this.selectedOptionService.setSelectedOption(
+        selOpt,
+        currentIndex,
+        ctx.optionsToDisplay,
+        ctx.type === 'multiple'
+      );
 
       this.selectedOptionService.setAnswered(true, true);
     } else {
@@ -367,38 +372,38 @@ export class OptionUiSyncService {
 
   private syncSelectedFlags(ctx: OptionUiSyncContext): void {
     for (const b of ctx.optionBindings ?? []) {
-        const id = b?.option?.optionId;
-        if (typeof id !== 'number') continue;
+      const id = b?.option?.optionId;
+      if (typeof id !== 'number') continue;
 
-        const chosen =
+      const chosen =
         ctx.selectedOptionMap.get(id) === true ||
         (ctx.selectedOptionHistory ?? []).includes(id);
 
-        b.option.selected = chosen;
-        b.isSelected = chosen;
+      b.option.selected = chosen;
+      b.isSelected = chosen;
     }
-    }
+  }
 
   private toggleSelectedOption(clicked: Option, checked: boolean, ctx: OptionUiSyncContext): void {
     const isMultiple = ctx.type === 'multiple';
 
     for (const o of ctx.optionsToDisplay ?? []) {
-        const isClicked = o.optionId === clicked.optionId;
+      const isClicked = o.optionId === clicked.optionId;
 
-        if (isMultiple) {
-          // Multi: Set specific option to 'checked' value
-          if (isClicked) {
-            o.selected = checked;
-            o.showIcon = checked;
-            o.highlight = checked;
-          }
-        } else {
-          // Single: The clicked one becomes true, others false (if checked is true)
-          // If checked is false (unselect), then it becomes false.
-          o.selected = isClicked ? checked : false;
-          o.showIcon = isClicked ? checked : false;
-          o.highlight = isClicked ? checked : false;
+      if (isMultiple) {
+        // Multi: Set specific option to 'checked' value
+        if (isClicked) {
+          o.selected = checked;
+          o.showIcon = checked;
+          o.highlight = checked;
         }
+      } else {
+        // Single: The clicked one becomes true, others false (if checked is true)
+        // If checked is false (unselect), then it becomes false.
+        o.selected = isClicked ? checked : false;
+        o.showIcon = isClicked ? checked : false;
+        o.highlight = isClicked ? checked : false;
+      }
     }
 
     // keep array ref refresh if your UI depends on it
@@ -447,47 +452,47 @@ export class OptionUiSyncService {
     optionBinding: OptionBindings,
     displayIndex: number,
     ctx: OptionUiSyncContext
-    ): void {
+  ): void {
     const qIdx = ctx.getActiveQuestionIndex() ?? 0;
 
     const question =
-        ctx.getQuestionAtDisplayIndex(qIdx) ??
-        ctx.getQuestionAtDisplayIndex(ctx.currentQuestionIndex ?? qIdx) ??
-        null;
+      ctx.getQuestionAtDisplayIndex(qIdx) ??
+      ctx.getQuestionAtDisplayIndex(ctx.currentQuestionIndex ?? qIdx) ??
+      null;
 
     if (!question) {
-        console.warn('[applyFeedback] No question found. Feedback generation skipped.');
-        return;
+      console.warn('[applyFeedback] No question found. Feedback generation skipped.');
+      return;
     }
 
     const visualOptions =
-        (ctx.optionsToDisplay?.length ?? 0) > 0
+      (ctx.optionsToDisplay?.length ?? 0) > 0
         ? ctx.optionsToDisplay
         : (question.options ?? []);
 
     const correctOptions = visualOptions.filter(o => o.correct === true);
 
     const freshFeedback = this.feedbackService.generateFeedbackForOptions(
-        correctOptions,
-        visualOptions
+      correctOptions,
+      visualOptions
     );
 
     const key = ctx.keyOf(optionBinding.option, displayIndex);
 
     ctx.feedbackConfigs[key] = {
-        feedback: freshFeedback,
-        showFeedback: true,
-        options: visualOptions,              // ✅ use visual order
-        question,
-        selectedOption: optionBinding.option,
-        correctMessage: freshFeedback,
-        idx: displayIndex
+      feedback: freshFeedback,
+      showFeedback: true,
+      options: visualOptions,              // ✅ use visual order
+      question,
+      selectedOption: optionBinding.option,
+      correctMessage: freshFeedback,
+      idx: displayIndex
     } as any;
 
     const optId = optionBinding.option?.optionId;
     if (typeof optId === 'number') {
-        ctx.showFeedbackForOption[optId] = true;
-        ctx.lastFeedbackOptionId = optId;
+      ctx.showFeedbackForOption[optId] = true;
+      ctx.lastFeedbackOptionId = optId;
     }
   }
 }
