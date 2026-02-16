@@ -1339,10 +1339,12 @@ export class SharedOptionComponent
     }
 
     // Determine question type based on options, but Respect explicit input first!
-    if (this.type !== 'multiple') {
-      this.type = this.determineQuestionType(this.currentQuestion);
+    // Use authoritative question from service to ensure 'correct' flags are present for type determination
+    const authoritativeQuestion = this.quizService.questions[qIndex] || this.currentQuestion;
+    if (this.type !== 'multiple' && authoritativeQuestion) {
+      this.type = this.determineQuestionType(authoritativeQuestion);
     } else {
-      console.log('[SOC] Preserving type="multiple" from Input');
+      console.log('[SOC] Preserving type="multiple" from Input or missing question');
     }
 
     // Initialize bindings and feedback maps
