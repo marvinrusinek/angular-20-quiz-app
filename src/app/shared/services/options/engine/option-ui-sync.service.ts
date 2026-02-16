@@ -259,19 +259,21 @@ export class OptionUiSyncService {
 
     if (checked) {
       // Use synchronous setSelectedOption to update service state IMMEDIATELY.
-      // This ensures that subsequent feedback generation (which runs synchronously)
-      // sees the correct selection state. Only async selectOption caused race conditions.
-      const selOpt: any = {
-        ...optionBinding.option,
-        questionIndex: currentIndex,
-        selected: true
-      };
-      this.selectedOptionService.setSelectedOption(
-        selOpt,
-        currentIndex,
-        ctx.optionsToDisplay,
-        ctx.type === 'multiple'
-      );
+      try {
+        const selOpt: any = {
+          ...optionBinding.option,
+          questionIndex: currentIndex,
+          selected: true
+        };
+        this.selectedOptionService.setSelectedOption(
+          selOpt,
+          currentIndex,
+          ctx.optionsToDisplay,
+          ctx.type === 'multiple'
+        );
+      } catch (err) {
+        console.error('[OptionUiSyncService] Error in setSelectedOption:', err);
+      }
 
       this.selectedOptionService.setAnswered(true, true);
     } else {
