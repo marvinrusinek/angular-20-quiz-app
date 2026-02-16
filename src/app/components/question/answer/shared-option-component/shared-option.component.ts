@@ -1589,9 +1589,11 @@ export class SharedOptionComponent
     // Sync ALL feedback state back from ctx.
     // resetFeedbackAnchorIfQuestionChanged may REPLACE ctx.feedbackConfigs and
     // ctx.showFeedbackForOption with new empty objects, disconnecting from the
-    // component's references. We must sync EVERYTHING back, not just primitives.
-    this.feedbackConfigs = ctx.feedbackConfigs;
-    this.showFeedbackForOption = ctx.showFeedbackForOption;
+    // component's references. We must sync EVERYTHING back.
+    // IMPT: We strictly clone the objects to force OnPush change detection to
+    // notice the update (in-place mutation of the same ref might be ignored).
+    this.feedbackConfigs = { ...ctx.feedbackConfigs };
+    this.showFeedbackForOption = { ...ctx.showFeedbackForOption };
     this.showFeedback = ctx.showFeedback;
     this.lastFeedbackOptionId = ctx.lastFeedbackOptionId;
     this.lastFeedbackQuestionIndex = ctx.lastFeedbackQuestionIndex;
