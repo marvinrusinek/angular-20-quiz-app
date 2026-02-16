@@ -1697,6 +1697,10 @@ export class SharedOptionComponent
     // Resolve explanation directly from Canonical source to avoid shuffle index confusion
     const explanationText = this.quizService.questions[questionIndex]?.explanation || '';
 
+    // Force display flags to TRUE to ensure visibility
+    this.explanationTextService.setIsExplanationTextDisplayed(true);
+    this.explanationTextService.shouldDisplayExplanationSource.next(true);
+
     // Use canonical index for logic tracking
     this.pendingExplanationIndex = questionIndex;
     this.applyExplanationText(explanationText, questionIndex);
