@@ -1498,14 +1498,12 @@ export class SharedOptionComponent
   }
 
 
-  public isDisabled(binding: OptionBindings, index: number): boolean {
-    const option = binding.option;
+  public computeDisabledState(option: Option, index: number): boolean {
     const optionId = option.optionId;
     const qIndex = this.quizService.currentQuestionIndex ?? 0;
 
     const disabledSet = this.disabledOptionsPerQuestion.get(qIndex);
     if (disabledSet && typeof optionId === 'number' && disabledSet.has(optionId)) {
-
       return true;
     }
 
@@ -1517,8 +1515,6 @@ export class SharedOptionComponent
         return true;
       }
     } catch { }
-
-    if (binding.disabled) return true;
 
     try {
       if (
@@ -1533,6 +1529,13 @@ export class SharedOptionComponent
       return true;
 
     return optionId != null && this.flashDisabledSet.has(optionId);
+  }
+
+  // Wrapper for template compatibility or legacy calls
+  public isDisabled(binding: OptionBindings, index: number): boolean {
+    // Return the pre-computed state from the binding snapshot if available/trusted,
+    // otherwise re-compute for robust click guarding.
+    return this.computeDisabledState(binding.option, index);
   }
 
   private resolveQuestionType(): QuestionType {
@@ -2345,7 +2348,7 @@ export class SharedOptionComponent
       onChange: (opt, idx) => this.handleOptionClick(opt, idx),
       // During migration, safest is to rely on rehydrate as the single truth:
       isSelected: () => false,
-      isDisabled: () => false
+      isDisabled: (opt, idx) => this.computeDisabledState(opt, idx)
     });
 
     // Apply persisted selection to bindings (bindings-only)
@@ -2756,13 +2759,13 @@ export class SharedOptionComponent
 
   public forceDisableAllOptions(): void {
     this.forceDisableAll = true;
+    // Update active flag explicitly if needed, but rely on snapshot for disabled
     for (const binding of this.optionBindings ?? []) {
-      binding.disabled = true;
-
       if (binding.option) {
         binding.option.active = false;
       }
     }
+    this.updateBindingSnapshots();
     for (const opt of this.optionsToDisplay ?? []) {
       if (opt) {
         opt.active = false;
@@ -2773,8 +2776,9 @@ export class SharedOptionComponent
 
   public clearForceDisableAllOptions(): void {
     this.forceDisableAll = false;
+    // Update active flag explicitly if needed, but rely on snapshot for disabled
     for (const binding of this.optionBindings ?? []) {
-      binding.disabled = false;
+      // binding.disabled = false; // handled by updateBindingSnapshots
 
       if (binding.option) {
         binding.option.active = true;
@@ -2790,6 +2794,17 @@ export class SharedOptionComponent
       this.selectedOptionService.unlockQuestion(qIndex);
     } catch { }
 
+    this.updateBindingSnapshots();
+  }
+
+  private updateBindingSnapshots(): void {
+    if (!this.optionBindings?.length) return;
+
+    for (const binding of this.optionBindings) {
+      if (binding && binding.option) {
+        binding.disabled = this.computeDisabledState(binding.option, binding.index);
+      }
+    }
     this.cdRef.markForCheck();
   }
 

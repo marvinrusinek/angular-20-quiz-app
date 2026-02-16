@@ -61,7 +61,7 @@ export class OptionItemComponent {
   // ✅ ONE output
   @Output() optionUI = new EventEmitter<OptionUIEvent>();
 
-  constructor(private optionService: OptionService) {}
+  constructor(private optionService: OptionService) { }
 
   private get optionId(): number {
     return Number(this.b?.option?.optionId ?? -1);
@@ -99,15 +99,7 @@ export class OptionItemComponent {
   }
 
   isDisabled(): boolean {
-    return this.optionService.isDisabled(
-      this.b,
-      this.i,
-      this.disabledOptionsPerQuestion,
-      this.currentQuestionIndex,
-      this.forceDisableAll,
-      this.timerExpiredForQuestion,
-      this.isLocked
-    );
+    return !!this.b.disabled;
   }
 
   shouldShowIcon(): boolean {
