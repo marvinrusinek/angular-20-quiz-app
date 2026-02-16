@@ -1197,6 +1197,7 @@ export class SharedOptionComponent
     // shouldShowFet = hasInteractedThisSession && currentMode === 'explanation'
     // Without this call, currentMode stays 'question' and FET never displays.
     this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
+    this.emitExplanation(activeQuestionIndex);
     console.log(`[SOC] Set display mode to 'explanation' for Q${activeQuestionIndex + 1}`);
 
     const enrichedOption: SelectedOption = {
@@ -1308,15 +1309,31 @@ export class SharedOptionComponent
     // Rehydrate selection state from Service (persistence)
     // This ensures that when navigating back, the options show as selected
     // (Green/Red).
-    // Use quizService.currentQuestionIndex (authoritative) instead of 
-    // resolveCurrentQuestionIndex() which may return stale @Input value
-    const qIndex = this.quizService.currentQuestionIndex ?? this.resolveCurrentQuestionIndex();
+    // Resolve index via content matching to avoid race conditions between Service and Input
+    // We search the QuizService for the question that actually contains these options.
+    let qIndex = this.quizService.currentQuestionIndex ?? 0;
     const inputIndex = this.resolveCurrentQuestionIndex();
 
-    // Mismatch Guard: If service index differs from input, use service index
-    // This prevents Q2 selections from being applied to Q3
-    if (qIndex !== inputIndex) {
-      console.warn(`[initializeFromConfig] INDEX MISMATCH: Service says ${qIndex}, Input says ${inputIndex}. Using ${qIndex}.`);
+    if (this.quizService.questions && this.optionsToDisplay?.length > 0) {
+      const firstOptId = this.optionsToDisplay[0].optionId;
+      const matchIdx = this.quizService.questions.findIndex(q =>
+        q.options?.some(o => o.optionId === firstOptId)
+      );
+
+      if (matchIdx !== -1) {
+        qIndex = matchIdx; // Found authentic index via content match
+        if (qIndex !== inputIndex && Number.isFinite(inputIndex)) {
+          console.log(`[SOC] Corrected index via content match: Input=${inputIndex} -> Found=${qIndex}`);
+        }
+      } else {
+        // No match found? Fallback to input index if valid
+        if (Number.isFinite(inputIndex)) qIndex = inputIndex;
+      }
+    }
+
+    // Mismatch Guard logging only
+    if (qIndex !== inputIndex && Number.isFinite(inputIndex)) {
+      console.warn(`[initializeFromConfig] Index divergence noted: Service/Calculated says ${qIndex}, Input says ${inputIndex}. Using ${qIndex}.`);
     }
 
     console.log(`[initializeFromConfig] Rehydrating for Q${qIndex + 1} (service: ${this.quizService.currentQuestionIndex}, input: ${inputIndex})`);
