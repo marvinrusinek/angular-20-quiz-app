@@ -2860,20 +2860,7 @@ export class SharedOptionComponent
   }
 
   // Single place to decide disabled
-  public isDisabled(binding: OptionBindings, idx: number): boolean {
-    const qIndex = this.resolveCurrentQuestionIndex();
-    const locked = this.optionLockService.isLocked(binding, idx, qIndex);
 
-    return this.optionService.isDisabled(
-      binding,
-      idx,
-      this.disabledOptionsPerQuestion,
-      this.currentQuestionIndex,
-      this.forceDisableAll,
-      this.timerExpiredForQuestion,
-      locked
-    );
-  }
 
   // Use the same key shape everywhere (STRING so we don't lose non-numeric ids)
   // Stable per-row key: prefer numeric optionId; fallback to stableKey + index
@@ -3138,5 +3125,3 @@ export class SharedOptionComponent
     this.handleOptionClick(binding.option as any, binding.index);
   }
 }
-
-
