@@ -3029,7 +3029,7 @@ export class SharedOptionComponent
     // OptionUiSyncContext, which may have REPLACED these object refs
     // (e.g. resetFeedbackAnchorIfQuestionChanged replaces feedbackConfigs).
     this.optionBindings = state.optionBindings;
-    this.disableRenderTriggers = state.disableRenderTrigger;
+    this.disableRenderTrigger = state.disableRenderTrigger;
     this.lastClickedOptionId = state.lastClickedOptionId;
     this.lastClickTimestamp = state.lastClickTimestamp;
     this.hasUserClicked = state.hasUserClicked;
