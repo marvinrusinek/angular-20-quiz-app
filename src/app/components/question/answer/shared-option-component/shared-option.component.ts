@@ -1190,7 +1190,7 @@ export class SharedOptionComponent
     // Mark that user has interacted with this question this session
     // This is required for the displayText$ pipeline's shouldShowFet logic
     this.quizStateService.markUserInteracted(activeQuestionIndex);
-    console.log(`[SOC] Marked user interaction for Q${activeQuestionIndex + 1}`);
+
 
     // Set display mode to 'explanation' - critical for FET display!
     // The displayText$ pipeline checks: 
@@ -1198,7 +1198,7 @@ export class SharedOptionComponent
     // Without this call, currentMode stays 'question' and FET never displays.
     this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
     this.emitExplanation(activeQuestionIndex);
-    console.log(`[SOC] Set display mode to 'explanation' for Q${activeQuestionIndex + 1}`);
+
 
     const enrichedOption: SelectedOption = {
       ...binding.option,
@@ -1234,8 +1234,7 @@ export class SharedOptionComponent
       this.quizService.answers = currentAnswers;
       this.quizService.updateAnswersForOption(enrichedOption);
 
-      console.log(`[SOC] Updated Answers for Q${activeQuestionIndex}. 
-        Type=${this.type}, Answers=${currentAnswers.length}`);
+
     }, 0);
   }
 
@@ -1267,7 +1266,7 @@ export class SharedOptionComponent
     this.currentQuestion = null;
     this.optionsToDisplay = [];
 
-    console.info('[State Reset Completed]');
+
 
     // Guard: Config or options missing
     if (!this.config || !this.config.optionsToDisplay?.length) {
@@ -1324,7 +1323,7 @@ export class SharedOptionComponent
         this.resolvedQuestionIndex = matchIdx;
         qIndex = matchIdx; // Found authentic index via content match
         if (qIndex !== inputIndex && Number.isFinite(inputIndex)) {
-          console.log(`[SOC] Corrected index via content match: Input=${inputIndex} -> Found=${qIndex}`);
+
         }
       } else {
         // No match found? Fallback to input index if valid
@@ -1340,7 +1339,7 @@ export class SharedOptionComponent
       console.warn(`[initializeFromConfig] Index divergence noted: Service/Calculated says ${qIndex}, Input says ${inputIndex}. Using ${qIndex}.`);
     }
 
-    console.log(`[initializeFromConfig] Rehydrating for Q${qIndex + 1} (service: ${this.quizService.currentQuestionIndex}, input: ${inputIndex})`);
+
 
     const saved = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex);
     if (saved?.length > 0) {
@@ -1693,1129 +1692,1130 @@ export class SharedOptionComponent
     return this.optionUiContextBuilder.fromSharedOptionComponent(this);
   }
 
-  // Resolve explanation directly from Canonical source to avoid shuffle index confusion
-  const explanationText = this.quizService.questions[questionIndex]?.explanation || '';
+  private emitExplanation(questionIndex: number): void {
+    // Resolve explanation directly from Canonical source to avoid shuffle index confusion
+    const explanationText = this.quizService.questions[questionIndex]?.explanation || '';
 
     // BRUTE FORCE: Clear locks and pulse stream to bypass distinctUntilChanged/duplicate checks
     // This handles the "Back and Forth" requirement reported by user
     try {
-  (this.explanationTextService as any)._fetLocked = false;
-  this.explanationTextService.unlockExplanation();
-  this.explanationTextService.explanationText$.next('');
-} catch (e) { console.warn('[SOC] Failed to unlock/pulse FET', e); }
+      (this.explanationTextService as any)._fetLocked = false;
+      this.explanationTextService.unlockExplanation();
+      this.explanationTextService.explanationText$.next('');
+    } catch (e) { console.warn('[SOC] Failed to unlock/pulse FET', e); }
 
-// Force display flags to TRUE to ensure visibility
-this.explanationTextService.setIsExplanationTextDisplayed(true);
-this.explanationTextService.shouldDisplayExplanationSource.next(true);
+    // Force display flags to TRUE to ensure visibility
+    this.explanationTextService.setIsExplanationTextDisplayed(true);
+    this.explanationTextService.shouldDisplayExplanationSource.next(true);
 
-// Use canonical index for logic tracking
-this.pendingExplanationIndex = questionIndex;
-this.applyExplanationText(explanationText, questionIndex);
-this.scheduleExplanationVerification(questionIndex, explanationText);
+    // Use canonical index for logic tracking
+    this.pendingExplanationIndex = questionIndex;
+    this.applyExplanationText(explanationText, questionIndex);
+    this.scheduleExplanationVerification(questionIndex, explanationText);
   }
 
   private applyExplanationText(
-  explanationText: string,
-  displayIndex: number
-): void {
-  // Mark interaction FIRST so that when emitFormatted triggers the subscriber,
-  // the 'hasUserInteracted' check passes immediately.
-  this.quizStateService.markUserInteracted(displayIndex);
+    explanationText: string,
+    displayIndex: number
+  ): void {
+    // Mark interaction FIRST so that when emitFormatted triggers the subscriber,
+    // the 'hasUserInteracted' check passes immediately.
+    this.quizStateService.markUserInteracted(displayIndex);
 
-  const contextKey = this.buildExplanationContext(displayIndex);
+    const contextKey = this.buildExplanationContext(displayIndex);
 
-  // Set active index and emit FET before locking
-  this.explanationTextService._activeIndex = displayIndex;
-  this.explanationTextService.latestExplanation = explanationText;
-  this.explanationTextService.latestExplanationIndex = displayIndex;
+    // Set active index and emit FET before locking
+    this.explanationTextService._activeIndex = displayIndex;
+    this.explanationTextService.latestExplanation = explanationText;
+    this.explanationTextService.latestExplanationIndex = displayIndex;
 
-  // Emit the formatted explanation to the _fetSubject stream
-  this.explanationTextService.emitFormatted(displayIndex, explanationText);
+    // Emit the formatted explanation to the _fetSubject stream
+    this.explanationTextService.emitFormatted(displayIndex, explanationText);
 
-  // Now set the explanation text in the service
-  this.explanationTextService.setExplanationText(explanationText, {
-    force: true,
-    context: contextKey
-  });
+    // Now set the explanation text in the service
+    this.explanationTextService.setExplanationText(explanationText, {
+      force: true,
+      context: contextKey
+    });
 
-  const displayOptions = { context: contextKey, force: true } as const;
-  this.explanationTextService.setShouldDisplayExplanation(
-    true,
-    displayOptions
-  );
-  this.explanationTextService.setIsExplanationTextDisplayed(
-    true,
-    displayOptions
-  );
-  this.explanationTextService.setResetComplete(true);
+    const displayOptions = { context: contextKey, force: true } as const;
+    this.explanationTextService.setShouldDisplayExplanation(
+      true,
+      displayOptions
+    );
+    this.explanationTextService.setIsExplanationTextDisplayed(
+      true,
+      displayOptions
+    );
+    this.explanationTextService.setResetComplete(true);
 
-  // Lock after emitting to prevent race conditions
-  this.explanationTextService.lockExplanation();
+    // Lock after emitting to prevent race conditions
+    this.explanationTextService.lockExplanation();
 
-  // Switch to explanation mode so FET displays
-  this.quizStateService.setDisplayState({
-    mode: 'explanation',
-    answered: true
-  });
-}
+    // Switch to explanation mode so FET displays
+    this.quizStateService.setDisplayState({
+      mode: 'explanation',
+      answered: true
+    });
+  }
 
   private buildExplanationContext(questionIndex: number): string {
-  const normalized = Number.isFinite(questionIndex)
-    ? Math.max(0, Math.floor(questionIndex))
-    : 0;
+    const normalized = Number.isFinite(questionIndex)
+      ? Math.max(0, Math.floor(questionIndex))
+      : 0;
 
-  return `question:${normalized}`;
-}
+    return `question:${normalized}`;
+  }
 
   private scheduleExplanationVerification(
-  displayIndex: number,
-  explanationText: string
-): void {
-  this.ngZone.runOutsideAngular(() => {
-    requestAnimationFrame(() => {
-      let latest: string | null = null;
+    displayIndex: number,
+    explanationText: string
+  ): void {
+    this.ngZone.runOutsideAngular(() => {
+      requestAnimationFrame(() => {
+        let latest: string | null = null;
 
-      // Try to synchronously grab the last emission if available
-      const subj = this.explanationTextService
-        .formattedExplanationSubject as any;
+        // Try to synchronously grab the last emission if available
+        const subj = this.explanationTextService
+          .formattedExplanationSubject as any;
 
-      try {
-        // For BehaviorSubject → safe synchronous read
-        if (typeof subj.getValue === 'function') {
-          latest = subj.getValue();
-        } else {
-          // For ReplaySubject → use a one-time subscription to peek
-          subj.pipe(take(1)).subscribe((val: string) => {
-            latest = val;
-          });
+        try {
+          // For BehaviorSubject → safe synchronous read
+          if (typeof subj.getValue === 'function') {
+            latest = subj.getValue();
+          } else {
+            // For ReplaySubject → use a one-time subscription to peek
+            subj.pipe(take(1)).subscribe((val: string) => {
+              latest = val;
+            });
+          }
+        } catch {
+          latest = null;
         }
-      } catch {
-        latest = null;
-      }
 
-      if (this.pendingExplanationIndex !== displayIndex) {
-        return;
-      }
+        if (this.pendingExplanationIndex !== displayIndex) {
+          return;
+        }
 
-      if (latest?.trim() === explanationText.trim()) {
-        this.clearPendingExplanation();
-        return;
-      }
+        if (latest?.trim() === explanationText.trim()) {
+          this.clearPendingExplanation();
+          return;
+        }
 
-      this.ngZone.run(() => {
-        console.warn('[Re-applying explanation text after mismatch]', {
-          expected: explanationText,
-          latest,
-          displayIndex
+        this.ngZone.run(() => {
+          console.warn('[Re-applying explanation text after mismatch]', {
+            expected: explanationText,
+            latest,
+            displayIndex
+          });
+
+          this.explanationTextService.unlockExplanation();
+          this.applyExplanationText(explanationText, displayIndex);
+          this.cdRef.markForCheck();
+          this.clearPendingExplanation();
         });
-
-        this.explanationTextService.unlockExplanation();
-        this.applyExplanationText(explanationText, displayIndex);
-        this.cdRef.markForCheck();
-        this.clearPendingExplanation();
       });
     });
-  });
-}
+  }
 
   private resolveDisplayIndex(questionIndex: number): number {
-  const explicit = Number.isFinite(questionIndex)
-    ? Math.max(0, Math.floor(questionIndex))
-    : null;
+    const explicit = Number.isFinite(questionIndex)
+      ? Math.max(0, Math.floor(questionIndex))
+      : null;
 
-  // Prefer the explicit index supplied by the caller for this interaction.
-  // Falling back to service state first can pick a stale index during shuffle hydration
-  // and misalign Q1 explanation numbering.
-  const resolved =
-    explicit ??
-    this.getActiveQuestionIndex() ??
-    this.currentQuestionIndex ??
-    this.resolvedQuestionIndex;
-  return Number.isFinite(resolved) ? Math.max(0, Math.floor(resolved)) : 0;
-}
+    // Prefer the explicit index supplied by the caller for this interaction.
+    // Falling back to service state first can pick a stale index during shuffle hydration
+    // and misalign Q1 explanation numbering.
+    const resolved =
+      explicit ??
+      this.getActiveQuestionIndex() ??
+      this.currentQuestionIndex ??
+      this.resolvedQuestionIndex;
+    return Number.isFinite(resolved) ? Math.max(0, Math.floor(resolved)) : 0;
+  }
 
   private clearPendingExplanation(): void {
-  this.pendingExplanationIndex = -1;
-}
+    this.pendingExplanationIndex = -1;
+  }
 
   private deferHighlightUpdate(callback: () => void): void {
-  this.ngZone.runOutsideAngular(() => {
-    requestAnimationFrame(() => {
-      this.ngZone.run(() => {
-        callback();
+    this.ngZone.runOutsideAngular(() => {
+      requestAnimationFrame(() => {
+        this.ngZone.run(() => {
+          callback();
+        });
       });
     });
-  });
-}
+  }
 
   private cacheResolvedFormattedExplanation(index: number, formatted: string): void {
-  const text = (formatted ?? '').trim();
-  if(!text) return;
+    const text = (formatted ?? '').trim();
+    if (!text) return;
 
-  this.explanationTextService.formattedExplanations[index] = {
-    questionIndex: index,
-    explanation: text
-  };
-  this.explanationTextService.fetByIndex.set(index, text);
-  this.explanationTextService.updateFormattedExplanation(text);
-}
+    this.explanationTextService.formattedExplanations[index] = {
+      questionIndex: index,
+      explanation: text
+    };
+    this.explanationTextService.fetByIndex.set(index, text);
+    this.explanationTextService.updateFormattedExplanation(text);
+  }
 
   private resolveExplanationText(questionIndex: number): string {
-  const displayIndex = Number.isFinite(questionIndex) ? Math.max(0, Math.floor(questionIndex)) : 0;
+    const displayIndex = Number.isFinite(questionIndex) ? Math.max(0, Math.floor(questionIndex)) : 0;
 
-  const normalize = (value: unknown): string =>
-    String(value ?? '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\u00A0/g, ' ').trim().toLowerCase().replace(/\s+/g, ' ');
+    const normalize = (value: unknown): string =>
+      String(value ?? '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\u00A0/g, ' ').trim().toLowerCase().replace(/\s+/g, ' ');
 
-  console.error(`🔴🔴🔴 [FET-SOC] Q${displayIndex + 1} | Resolving for display...`);
+    console.error(`🔴🔴🔴 [FET-SOC] Q${displayIndex + 1} | Resolving for display...`);
 
-  // 1. Determine which options are ACTUALLY displayed right now
-  // Priority 1: optionBindings (what's on screen)
-  // Priority 2: optionsToDisplay (input property)
-  const displayOptions = (Array.isArray(this.optionBindings) && this.optionBindings.length > 0)
-    ? this.optionBindings.map(b => b.option)
-    : (Array.isArray(this.optionsToDisplay) && this.optionsToDisplay.length > 0)
-      ? this.optionsToDisplay
-      : [];
+    // 1. Determine which options are ACTUALLY displayed right now
+    // Priority 1: optionBindings (what's on screen)
+    // Priority 2: optionsToDisplay (input property)
+    const displayOptions = (Array.isArray(this.optionBindings) && this.optionBindings.length > 0)
+      ? this.optionBindings.map(b => b.option)
+      : (Array.isArray(this.optionsToDisplay) && this.optionsToDisplay.length > 0)
+        ? this.optionsToDisplay
+        : [];
 
-  if (displayOptions.length === 0) {
-    console.warn(`[FET-SOC] Q${displayIndex + 1} | No visual options found! Falling back to raw.`);
-    return (this.currentQuestion?.explanation || '').trim();
+    if (displayOptions.length === 0) {
+      console.warn(`[FET-SOC] Q${displayIndex + 1} | No visual options found! Falling back to raw.`);
+      return (this.currentQuestion?.explanation || '').trim();
+    }
+
+    // 2. Identify the authoritative canonical question for "truth" data
+    // We search the canonical quiz data for a text match to avoid any index-out-of-sync issues.
+    const currentQText = normalize(this.currentQuestion?.questionText);
+    const allCanonical = this.quizService.getCanonicalQuestions(this.quizId) || [];
+    const authQ = allCanonical.find(q => normalize(q.questionText) === currentQText) || this.currentQuestion;
+
+    if (!authQ) {
+      console.warn(`[FET-SOC] Q${displayIndex + 1} | No auth question found. Using raw.`);
+      return (this.currentQuestion?.explanation || '').trim();
+    }
+
+    // 3. Build sets of correct identifiers from the authoritative source
+    const correctIds = new Set<number>();
+    const correctTexts = new Set<string>();
+
+    // Check answers array
+    if (Array.isArray(authQ.answer)) {
+      authQ.answer.forEach(a => {
+        if (!a) return;
+        const id = Number(a.optionId);
+        if (!isNaN(id)) correctIds.add(id);
+        const t = normalize(a.text);
+        if (t) correctTexts.add(t);
+      });
+    }
+    // Check options array (if answers array is insufficient)
+    if (correctIds.size === 0 && Array.isArray(authQ.options)) {
+      authQ.options.forEach(o => {
+        if (!o || !o.correct) return;
+        const id = Number(o.optionId);
+        if (!isNaN(id)) correctIds.add(id);
+        const t = normalize(o.text);
+        if (t) correctTexts.add(t);
+      });
+    }
+
+    // 4. Calculate indices based on VISUAL POSITIONS
+    const correctIndices = displayOptions
+      .map((opt, i) => {
+        const id = Number(opt.optionId);
+        const text = normalize(opt.text);
+        const isCorrect = (!isNaN(id) && correctIds.has(id)) ||
+          (text && correctTexts.has(text)) ||
+          (opt.correct === true);
+
+        if (isCorrect) {
+          console.log(`[FET-SOC] Q${displayIndex + 1} | Found Match: Option ${i + 1} (ID=${id}, Text="${opt.text?.slice(0, 20)}...")`);
+        }
+        return isCorrect ? i + 1 : null;
+      })
+      .filter((n): n is number => n !== null);
+
+    console.error(`🔴🔴🔴 [FET-SOC] Q${displayIndex + 1} | CORRECT INDICES: ${JSON.stringify(correctIndices)}`);
+
+    // 5. Format and Emit
+    const rawExplanation = (authQ.explanation || '').trim();
+    const formatted = this.explanationTextService.formatExplanation(
+      { ...authQ, options: displayOptions }, // Use visual options for labeling
+      correctIndices,
+      rawExplanation,
+      displayIndex
+    );
+
+    // Cache the result in the service for other components to use
+    this.explanationTextService.storeFormattedExplanation(
+      displayIndex,
+      formatted,
+      authQ,
+      displayOptions,
+      true
+    );
+
+    return formatted;
   }
-
-  // 2. Identify the authoritative canonical question for "truth" data
-  // We search the canonical quiz data for a text match to avoid any index-out-of-sync issues.
-  const currentQText = normalize(this.currentQuestion?.questionText);
-  const allCanonical = this.quizService.getCanonicalQuestions(this.quizId) || [];
-  const authQ = allCanonical.find(q => normalize(q.questionText) === currentQText) || this.currentQuestion;
-
-  if (!authQ) {
-    console.warn(`[FET-SOC] Q${displayIndex + 1} | No auth question found. Using raw.`);
-    return (this.currentQuestion?.explanation || '').trim();
-  }
-
-  // 3. Build sets of correct identifiers from the authoritative source
-  const correctIds = new Set<number>();
-  const correctTexts = new Set<string>();
-
-  // Check answers array
-  if (Array.isArray(authQ.answer)) {
-    authQ.answer.forEach(a => {
-      if (!a) return;
-      const id = Number(a.optionId);
-      if (!isNaN(id)) correctIds.add(id);
-      const t = normalize(a.text);
-      if (t) correctTexts.add(t);
-    });
-  }
-  // Check options array (if answers array is insufficient)
-  if (correctIds.size === 0 && Array.isArray(authQ.options)) {
-    authQ.options.forEach(o => {
-      if (!o || !o.correct) return;
-      const id = Number(o.optionId);
-      if (!isNaN(id)) correctIds.add(id);
-      const t = normalize(o.text);
-      if (t) correctTexts.add(t);
-    });
-  }
-
-  // 4. Calculate indices based on VISUAL POSITIONS
-  const correctIndices = displayOptions
-    .map((opt, i) => {
-      const id = Number(opt.optionId);
-      const text = normalize(opt.text);
-      const isCorrect = (!isNaN(id) && correctIds.has(id)) ||
-        (text && correctTexts.has(text)) ||
-        (opt.correct === true);
-
-      if (isCorrect) {
-        console.log(`[FET-SOC] Q${displayIndex + 1} | Found Match: Option ${i + 1} (ID=${id}, Text="${opt.text?.slice(0, 20)}...")`);
-      }
-      return isCorrect ? i + 1 : null;
-    })
-    .filter((n): n is number => n !== null);
-
-  console.error(`🔴🔴🔴 [FET-SOC] Q${displayIndex + 1} | CORRECT INDICES: ${JSON.stringify(correctIndices)}`);
-
-  // 5. Format and Emit
-  const rawExplanation = (authQ.explanation || '').trim();
-  const formatted = this.explanationTextService.formatExplanation(
-    { ...authQ, options: displayOptions }, // Use visual options for labeling
-    correctIndices,
-    rawExplanation,
-    displayIndex
-  );
-
-  // Cache the result in the service for other components to use
-  this.explanationTextService.storeFormattedExplanation(
-    displayIndex,
-    formatted,
-    authQ,
-    displayOptions,
-    true
-  );
-
-  return formatted;
-}
 
   async handleOptionClick(
-  option: SelectedOption | undefined,
-  index: number
-): Promise < void> {
-  // Validate the option object immediately
-  if(!option || typeof option !== 'object') {
-  console.error(
-    `Invalid or undefined option at index ${index}. Option:`, option
-  );
-  return;
-}
+    option: SelectedOption | undefined,
+    index: number
+  ): Promise<void> {
+    // Validate the option object immediately
+    if (!option || typeof option !== 'object') {
+      console.error(
+        `Invalid or undefined option at index ${index}. Option:`, option
+      );
+      return;
+    }
 
-// Clone the option to prevent mutations
-const clonedOption = { ...option };
+    // Clone the option to prevent mutations
+    const clonedOption = { ...option };
 
-// Set last selected index for feedback targeting
-this.lastSelectedOptionIndex = index;
+    // Set last selected index for feedback targeting
+    this.lastSelectedOptionIndex = index;
 
-// Emit the explanation update event
-this.explanationUpdate.emit(index);
+    // Emit the explanation update event
+    this.explanationUpdate.emit(index);
 
-// Safely access optionId, or fallback to index
-const optionId = this.quizService.getSafeOptionId(clonedOption, index);
-if (optionId === undefined) {
-  console.error('Failed to access optionId. Option data:', JSON.stringify(clonedOption, null, 2));
-  return;
-}
+    // Safely access optionId, or fallback to index
+    const optionId = this.quizService.getSafeOptionId(clonedOption, index);
+    if (optionId === undefined) {
+      console.error('Failed to access optionId. Option data:', JSON.stringify(clonedOption, null, 2));
+      return;
+    }
 
-// Check if the click should be ignored
-if (this.shouldIgnoreClick(optionId)) {
-  console.warn(`Ignoring click for optionId: ${optionId}`);
-  return;
-}
+    // Check if the click should be ignored
+    if (this.shouldIgnoreClick(optionId)) {
+      console.warn(`Ignoring click for optionId: ${optionId}`);
+      return;
+    }
 
-// Handle navigation reversal scenario
-if (this.isNavigatingBackwards) {
-  this.handleBackwardNavigationOptionClick(clonedOption, index);
-  return;
-}
+    // Handle navigation reversal scenario
+    if (this.isNavigatingBackwards) {
+      this.handleBackwardNavigationOptionClick(clonedOption, index);
+      return;
+    }
 
-// Update option state, handle selection, and display feedback
-this.updateOptionState(index, optionId);
-this.handleSelection(clonedOption, index, optionId);
-this.displayFeedbackForOption(clonedOption, index, optionId);
+    // Update option state, handle selection, and display feedback
+    this.updateOptionState(index, optionId);
+    this.handleSelection(clonedOption, index, optionId);
+    this.displayFeedbackForOption(clonedOption, index, optionId);
 
 
-// Generate feedbackConfig per option using hydrated data
-const hydratedOption = this.optionsToDisplay[index];
-if (!hydratedOption) {
-  console.warn('[Feedback] No hydrated option found at index ' + index);
-} else {
-  const activeQuestionIndex = this.getActiveQuestionIndex() ?? 0;
-  const selectedHydratedOption: SelectedOption = {
-    ...hydratedOption,
-    selected: true,
-    questionIndex: activeQuestionIndex
-  };
+    // Generate feedbackConfig per option using hydrated data
+    const hydratedOption = this.optionsToDisplay[index];
+    if (!hydratedOption) {
+      console.warn('[Feedback] No hydrated option found at index ' + index);
+    } else {
+      const activeQuestionIndex = this.getActiveQuestionIndex() ?? 0;
+      const selectedHydratedOption: SelectedOption = {
+        ...hydratedOption,
+        selected: true,
+        questionIndex: activeQuestionIndex
+      };
 
-  // Ensure feedbackConfigs exists and assign the new config
-  this.feedbackConfigs = this.feedbackConfigs ?? [];
-  this.feedbackConfigs[index] = this.generateFeedbackConfig(
-    selectedHydratedOption,
-    index
-  );
+      // Ensure feedbackConfigs exists and assign the new config
+      this.feedbackConfigs = this.feedbackConfigs ?? [];
+      this.feedbackConfigs[index] = this.generateFeedbackConfig(
+        selectedHydratedOption,
+        index
+      );
 
-  // Build final payload
-  const payload: OptionClickedPayload = {
-    option: clonedOption,  // never mutate on the way out
-    index,  // option index
-    checked: clonedOption.selected === true
-  };
+      // Build final payload
+      const payload: OptionClickedPayload = {
+        option: clonedOption,  // never mutate on the way out
+        index,  // option index
+        checked: clonedOption.selected === true
+      };
 
-  this.optionClicked.emit(payload);
-}
+      this.optionClicked.emit(payload);
+    }
   }
 
   private shouldIgnoreClick(optionId: number): boolean {
-  if (this.clickedOptionIds.has(optionId)) {
-    console.log('Option already selected, ignoring click');
-    return true;
+    if (this.clickedOptionIds.has(optionId)) {
+      console.log('Option already selected, ignoring click');
+      return true;
+    }
+    return false;
   }
-  return false;
-}
 
   private updateOptionState(index: number, optionId: number): void {
-  const optionBinding = this.optionBindings[index];
-  optionBinding.option.showIcon = true;
-  this.iconVisibility[optionId] = true;
-  this.clickedOptionIds.add(optionId);
-}
+    const optionBinding = this.optionBindings[index];
+    optionBinding.option.showIcon = true;
+    this.iconVisibility[optionId] = true;
+    this.clickedOptionIds.add(optionId);
+  }
 
 
 
   private handleSelection(
-  option: SelectedOption,
-  index: number,
-  optionId: number
-): void {
-  if(this.config.type === 'single') {
-  for (const opt of this.config.optionsToDisplay) {
-    opt.selected = false;
+    option: SelectedOption,
+    index: number,
+    optionId: number
+  ): void {
+    if (this.config.type === 'single') {
+      for (const opt of this.config.optionsToDisplay) {
+        opt.selected = false;
+      }
+
+      option.selected = true;
+      this.config.selectedOptionIndex = index;
+      this.selectedOption = option;
+
+      this.selectedOptions.clear();
+      this.selectedOptions.add(optionId);
+      this.selectedOptionService.setSelectedOption(option);
+    } else {
+      option.selected = !option.selected;
+      option.selected
+        ? this.selectedOptions.add(optionId)
+        : this.selectedOptions.delete(optionId);
+    }
+
+    const optionBinding = this.optionBindings[index];
+    optionBinding.isSelected = option.selected;
+    this.showIconForOption[optionId] = option.selected;
   }
 
-  option.selected = true;
-  this.config.selectedOptionIndex = index;
-  this.selectedOption = option;
+  displayFeedbackForOption(
+    option: SelectedOption,
+    index: number,
+    optionId: number
+  ): void {
+    if (!option) return;
 
-  this.selectedOptions.clear();
-  this.selectedOptions.add(optionId);
-  this.selectedOptionService.setSelectedOption(option);
-} else {
-  option.selected = !option.selected;
-  option.selected
-    ? this.selectedOptions.add(optionId)
-    : this.selectedOptions.delete(optionId);
-}
+    // Confirm feedback function is triggered
+    const currentQuestionIndex = this.getActiveQuestionIndex() ?? 0;
+    console.log('[Feedback Fired]', { currentQuestionIndex });
+    this.lastFeedbackOptionMap[currentQuestionIndex] = optionId;
 
-const optionBinding = this.optionBindings[index];
-optionBinding.isSelected = option.selected;
-this.showIconForOption[optionId] = option.selected;
-  }
+    // Set the last option selected (used to show only one feedback block)
+    this.lastFeedbackOptionId = option.optionId ?? -1;
 
-displayFeedbackForOption(
-  option: SelectedOption,
-  index: number,
-  optionId: number
-): void {
-  if(!option) return;
+    // Ensure feedback visibility state is updated
+    this.showFeedback = true;
+    this.showFeedbackForOption[optionId] = true;
 
-  // Confirm feedback function is triggered
-  const currentQuestionIndex = this.getActiveQuestionIndex() ?? 0;
-  console.log('[Feedback Fired]', { currentQuestionIndex });
-  this.lastFeedbackOptionMap[currentQuestionIndex] = optionId;
+    // Log that we're emitting answered=true for this question
+    console.log('[Q2 setAnswered call]', {
+      questionIndex: currentQuestionIndex,
+      value: true
+    });
+    this.selectedOptionService.setAnswered(true, true);
 
-  // Set the last option selected (used to show only one feedback block)
-  this.lastFeedbackOptionId = option.optionId ?? -1;
-
-  // Ensure feedback visibility state is updated
-  this.showFeedback = true;
-  this.showFeedbackForOption[optionId] = true;
-
-  // Log that we're emitting answered=true for this question
-  console.log('[Q2 setAnswered call]', {
-    questionIndex: currentQuestionIndex,
-    value: true
-  });
-  this.selectedOptionService.setAnswered(true, true);
-
-  // Verify we retrieved a valid hydrated option
-  const hydratedOption = this.optionsToDisplay?.[index];
-  if(!hydratedOption) {
-    console.warn('[FeedbackGen] No option found at index', index);
-    return;
-  }
+    // Verify we retrieved a valid hydrated option
+    const hydratedOption = this.optionsToDisplay?.[index];
+    if (!hydratedOption) {
+      console.warn('[FeedbackGen] No option found at index', index);
+      return;
+    }
 
     // Construct SelectedOption object
     const selectedOption: SelectedOption = {
-    ...hydratedOption,
-    selected: true,
-    questionIndex: currentQuestionIndex,
-    feedback: hydratedOption.feedback ?? ''
-  };
+      ...hydratedOption,
+      selected: true,
+      questionIndex: currentQuestionIndex,
+      feedback: hydratedOption.feedback ?? ''
+    };
 
-  // Confirm feedback config is generated properly
-  this.currentFeedbackConfig = this.generateFeedbackConfig(
-    selectedOption,
-    index
-  );
-  this.feedbackConfigs[optionId] = this.currentFeedbackConfig;
-  this.activeFeedbackConfig = this.currentFeedbackConfig;
-  this.cdRef.markForCheck();
+    // Confirm feedback config is generated properly
+    this.currentFeedbackConfig = this.generateFeedbackConfig(
+      selectedOption,
+      index
+    );
+    this.feedbackConfigs[optionId] = this.currentFeedbackConfig;
+    this.activeFeedbackConfig = this.currentFeedbackConfig;
+    this.cdRef.markForCheck();
 
-  console.log('[Storing Feedback Config]', {
-    optionId,
-    feedbackConfig: this.feedbackConfigs[optionId]
-  });
+    console.log('[Storing Feedback Config]', {
+      optionId,
+      feedbackConfig: this.feedbackConfigs[optionId]
+    });
 
-  // Update the answered state
-  this.selectedOptionService.updateAnsweredState();
+    // Update the answered state
+    this.selectedOptionService.updateAnsweredState();
 
-  // Final debug state
-  console.log('[displayFeedbackForOption]', {
-    optionId,
-    feedback: this.currentFeedbackConfig.feedback,
-    showFeedbackForOption: this.showFeedbackForOption,
-    lastFeedbackOptionId: this.lastFeedbackOptionId,
-    selectedOptions: this.selectedOptionService.selectedOptionsMap
-  });
-}
+    // Final debug state
+    console.log('[displayFeedbackForOption]', {
+      optionId,
+      feedback: this.currentFeedbackConfig.feedback,
+      showFeedbackForOption: this.showFeedbackForOption,
+      lastFeedbackOptionId: this.lastFeedbackOptionId,
+      selectedOptions: this.selectedOptionService.selectedOptionsMap
+    });
+  }
 
-generateFeedbackConfig(
-  option: SelectedOption,
-  selectedIndex: number,
-): FeedbackProps {
-  if (!option) {
-    console.warn('[generateFeedbackConfig] option is null or undefined');
+  generateFeedbackConfig(
+    option: SelectedOption,
+    selectedIndex: number,
+  ): FeedbackProps {
+    if (!option) {
+      console.warn('[generateFeedbackConfig] option is null or undefined');
+      return {
+        selectedOption: null,
+        correctMessage: '',
+        feedback: 'Feedback unavailable.',
+        showFeedback: false,
+        idx: selectedIndex,
+        options: this.optionsToDisplay ?? [],
+        question: this.currentQuestion ?? null
+      };
+    }
+
+    // Sync indices with visual options
+    const validOptions = (this.optionsToDisplay || []).filter(isValidOption);
+    const correctMessage = this.feedbackService.setCorrectMessage(validOptions, this.currentQuestion!);
+    const isCorrect = option.correct ?? false;
+    const rawFeedback = option.feedback?.trim();
+
+    let finalFeedback = '';
+    if (rawFeedback) {
+      finalFeedback = (isCorrect ? "You're right! " : "That's wrong. ") + rawFeedback;
+    } else {
+      finalFeedback = (isCorrect ? "You're right! " : "That's wrong. ") + (correctMessage || 'No feedback available.');
+    }
+
     return {
-      selectedOption: null,
-      correctMessage: '',
-      feedback: 'Feedback unavailable.',
-      showFeedback: false,
+      selectedOption: option,
+      correctMessage,
+      feedback: finalFeedback,
+      showFeedback: true,
       idx: selectedIndex,
       options: this.optionsToDisplay ?? [],
       question: this.currentQuestion ?? null
-    };
+    } as FeedbackProps;
   }
 
-  // Sync indices with visual options
-  const validOptions = (this.optionsToDisplay || []).filter(isValidOption);
-  const correctMessage = this.feedbackService.setCorrectMessage(validOptions, this.currentQuestion!);
-  const isCorrect = option.correct ?? false;
-  const rawFeedback = option.feedback?.trim();
+  handleBackwardNavigationOptionClick(option: Option, index: number): void {
+    const optionBinding = this.optionBindings[index];
 
-  let finalFeedback = '';
-  if (rawFeedback) {
-    finalFeedback = (isCorrect ? "You're right! " : "That's wrong. ") + rawFeedback;
-  } else {
-    finalFeedback = (isCorrect ? "You're right! " : "That's wrong. ") + (correctMessage || 'No feedback available.');
-  }
+    if (this.type === 'single') {
+      // For single-select, clear all selections and select only the clicked option
+      for (const binding of this.optionBindings) {
+        const isThis = binding === optionBinding;
+        binding.isSelected = isThis;
+        // binding.option.selected = isThis; // ❌ removed (bindings are the truth)
+        binding.option.showIcon = isThis;
+      }
+      this.selectedOption = option;
+      this.selectedOptions.clear();
 
-  return {
-    selectedOption: option,
-    correctMessage,
-    feedback: finalFeedback,
-    showFeedback: true,
-    idx: selectedIndex,
-    options: this.optionsToDisplay ?? [],
-    question: this.currentQuestion ?? null
-  } as FeedbackProps;
-}
-
-handleBackwardNavigationOptionClick(option: Option, index: number): void {
-  const optionBinding = this.optionBindings[index];
-
-  if(this.type === 'single') {
-  // For single-select, clear all selections and select only the clicked option
-  for (const binding of this.optionBindings) {
-    const isThis = binding === optionBinding;
-    binding.isSelected = isThis;
-    // binding.option.selected = isThis; // ❌ removed (bindings are the truth)
-    binding.option.showIcon = isThis;
-  }
-  this.selectedOption = option;
-  this.selectedOptions.clear();
-
-  const optId = option.optionId ?? -1;
-  this.selectedOptions.add(optId);
-} else {
-  // For multiple-select, toggle the selection
-  optionBinding.isSelected = !optionBinding.isSelected;
-  // optionBinding.option.selected = optionBinding.isSelected; // ❌ removed
-  optionBinding.option.showIcon = optionBinding.isSelected;
-
-  const id = option.optionId;
-  if (id !== undefined) {
-    if (optionBinding.isSelected) {
-      this.selectedOptions.add(id);
+      const optId = option.optionId ?? -1;
+      this.selectedOptions.add(optId);
     } else {
-      this.selectedOptions.delete(id);
+      // For multiple-select, toggle the selection
+      optionBinding.isSelected = !optionBinding.isSelected;
+      // optionBinding.option.selected = optionBinding.isSelected; // ❌ removed
+      optionBinding.option.showIcon = optionBinding.isSelected;
+
+      const id = option.optionId;
+      if (id !== undefined) {
+        if (optionBinding.isSelected) {
+          this.selectedOptions.add(id);
+        } else {
+          this.selectedOptions.delete(id);
+        }
+      }
     }
-  }
-}
 
-this.showFeedback = true;
-this.updateHighlighting();
+    this.showFeedback = true;
+    this.updateHighlighting();
 
-// Explicitly emit explanation since removed from updateHighlighting
-this.emitExplanation(this.resolvedQuestionIndex ?? 0);
+    // Explicitly emit explanation since removed from updateHighlighting
+    this.emitExplanation(this.resolvedQuestionIndex ?? 0);
 
-// Prefer OnPush-friendly invalidation; avoid forcing sync CD unless necessary
-this.cdRef.markForCheck();
+    // Prefer OnPush-friendly invalidation; avoid forcing sync CD unless necessary
+    this.cdRef.markForCheck();
 
-// Reset the backward navigation flag
-this.isNavigatingBackwards = false;
+    // Reset the backward navigation flag
+    this.isNavigatingBackwards = false;
   }
 
   public resetUIForNewQuestion(): void {
-  this.hasUserClicked = false;
-  this.highlightedOptionIds.clear();
-  this.selectedOptionMap.clear();
-  this.showFeedbackForOption = {};
-  this.lastFeedbackOptionId = -1;
-  this.lastSelectedOptionId = -1;
-  this.selectedOptionHistory = [];
-  this.feedbackConfigs = {};
-  this.iconVisibility = [];
-  this.lockedIncorrectOptionIds.clear();
-}
+    this.hasUserClicked = false;
+    this.highlightedOptionIds.clear();
+    this.selectedOptionMap.clear();
+    this.showFeedbackForOption = {};
+    this.lastFeedbackOptionId = -1;
+    this.lastSelectedOptionId = -1;
+    this.selectedOptionHistory = [];
+    this.feedbackConfigs = {};
+    this.iconVisibility = [];
+    this.lockedIncorrectOptionIds.clear();
+  }
 
-getOptionBindings(
-  option: Option,
-  idx: number,
-  isSelected: boolean = false
-): OptionBindings {
-  // Calculate the type based on the number of correct options
-  const correctOptionsCount =
-    this.optionsToDisplay?.filter((opt) => opt.correct).length ?? 0;
-  const inferredType = correctOptionsCount > 1 ? 'multiple' : 'single';
+  getOptionBindings(
+    option: Option,
+    idx: number,
+    isSelected: boolean = false
+  ): OptionBindings {
+    // Calculate the type based on the number of correct options
+    const correctOptionsCount =
+      this.optionsToDisplay?.filter((opt) => opt.correct).length ?? 0;
+    const inferredType = correctOptionsCount > 1 ? 'multiple' : 'single';
 
-  // Single truth for selection in the binding
-  const selected = isSelected;
+    // Single truth for selection in the binding
+    const selected = isSelected;
 
-  return {
-    option: {
-      ...structuredClone(option),
-      feedback: option.feedback ?? 'No feedback available',  // default string
-      // NOTE: do NOT rely on option.selected going forward
-    },
-    index: idx,
-    feedback: option.feedback ?? 'No feedback available',  // never undefined
-    isCorrect: option.correct ?? false,  // always boolean
-    showFeedback: this.showFeedback,
-    showFeedbackForOption: this.showFeedbackForOption,
-    highlightCorrectAfterIncorrect: this.highlightCorrectAfterIncorrect,
-    highlightIncorrect: selected && !option.correct,
-    highlightCorrect: selected && !!option.correct,
-    allOptions: this.optionsToDisplay,
+    return {
+      option: {
+        ...structuredClone(option),
+        feedback: option.feedback ?? 'No feedback available',  // default string
+        // NOTE: do NOT rely on option.selected going forward
+      },
+      index: idx,
+      feedback: option.feedback ?? 'No feedback available',  // never undefined
+      isCorrect: option.correct ?? false,  // always boolean
+      showFeedback: this.showFeedback,
+      showFeedbackForOption: this.showFeedbackForOption,
+      highlightCorrectAfterIncorrect: this.highlightCorrectAfterIncorrect,
+      highlightIncorrect: selected && !option.correct,
+      highlightCorrect: selected && !!option.correct,
+      allOptions: this.optionsToDisplay,
 
-    // Use the component's resolved type if it's trustworthy; otherwise use inferredType.
-    type: this.type,
+      // Use the component's resolved type if it's trustworthy; otherwise use inferredType.
+      type: this.type,
 
-    appHighlightOption: false,
-    appHighlightInputType: inferredType === 'multiple' ? 'checkbox' : 'radio',
-    appHighlightReset: this.shouldResetBackground,
-    appResetBackground: this.shouldResetBackground,
-    optionsToDisplay: this.optionsToDisplay,
+      appHighlightOption: false,
+      appHighlightInputType: inferredType === 'multiple' ? 'checkbox' : 'radio',
+      appHighlightReset: this.shouldResetBackground,
+      appResetBackground: this.shouldResetBackground,
+      optionsToDisplay: this.optionsToDisplay,
 
-    isSelected: selected,
-    active: option.active ?? true,  // always a boolean
-    change: () => this.handleOptionClick(option as SelectedOption, idx),
+      isSelected: selected,
+      active: option.active ?? true,  // always a boolean
+      change: () => this.handleOptionClick(option as SelectedOption, idx),
 
-    // Do not derive disabled from option.selected
-    disabled: false,
+      // Do not derive disabled from option.selected
+      disabled: false,
 
-    ariaLabel: 'Option ' + (idx + 1),
-    checked: selected
-  };
-}
+      ariaLabel: 'Option ' + (idx + 1),
+      checked: selected
+    };
+  }
 
   public generateOptionBindings(): void {
-  const currentIndex = this.getActiveQuestionIndex() ?? 0;
+    const currentIndex = this.getActiveQuestionIndex() ?? 0;
 
-  // Always start from a fresh clone of options (defensive)
-  const localOpts = Array.isArray(this.optionsToDisplay)
-    ? this.optionsToDisplay.map((o) => structuredClone(o))
-    : [];
+    // Always start from a fresh clone of options (defensive)
+    const localOpts = Array.isArray(this.optionsToDisplay)
+      ? this.optionsToDisplay.map((o) => structuredClone(o))
+      : [];
 
-  // Build a set of correct texts/IDs from the question's answers for robust matching
-  const correctTexts = new Set<string>();
-  const correctIds = new Set<number>();
-  if(this.currentQuestion && Array.isArray(this.currentQuestion.answer)) {
-  this.currentQuestion.answer.forEach(a => {
-    if (!a) return;
-    if (a.text) correctTexts.add(a.text.trim().toLowerCase());
-    const id = Number(a.optionId);
-    if (!isNaN(id)) correctIds.add(id);
-  });
-}
+    // Build a set of correct texts/IDs from the question's answers for robust matching
+    const correctTexts = new Set<string>();
+    const correctIds = new Set<number>();
+    if (this.currentQuestion && Array.isArray(this.currentQuestion.answer)) {
+      this.currentQuestion.answer.forEach(a => {
+        if (!a) return;
+        if (a.text) correctTexts.add(a.text.trim().toLowerCase());
+        const id = Number(a.optionId);
+        if (!isNaN(id)) correctIds.add(id);
+      });
+    }
 
-// Normalize optionIds and reset UI-ish flags on the option model
-this.optionsToDisplay = localOpts.map((opt, i) => {
-  const oIdNum = Number(opt.optionId);
-  const oId = !isNaN(oIdNum) ? oIdNum : (currentIndex + 1) * 100 + (i + 1);
-  const oText = (opt.text ?? '').trim().toLowerCase();
+    // Normalize optionIds and reset UI-ish flags on the option model
+    this.optionsToDisplay = localOpts.map((opt, i) => {
+      const oIdNum = Number(opt.optionId);
+      const oId = !isNaN(oIdNum) ? oIdNum : (currentIndex + 1) * 100 + (i + 1);
+      const oText = (opt.text ?? '').trim().toLowerCase();
 
-  const isCorrect = opt.correct === true ||
-    (opt as any).correct === "true" ||
-    (!isNaN(oIdNum) && correctIds.has(oIdNum)) ||
-    !!(oText && correctTexts.has(oText));
+      const isCorrect = opt.correct === true ||
+        (opt as any).correct === "true" ||
+        (!isNaN(oIdNum) && correctIds.has(oIdNum)) ||
+        !!(oText && correctTexts.has(oText));
 
-  return {
-    ...opt,
-    optionId: oId,
-    correct: isCorrect,
-    highlight: false,
-    showIcon: false,
-    active: opt.active ?? true,
-    disabled: false
-  };
-});
+      return {
+        ...opt,
+        optionId: oId,
+        correct: isCorrect,
+        highlight: false,
+        showIcon: false,
+        active: opt.active ?? true,
+        disabled: false
+      };
+    });
 
-// Build bindings via factory (single place that constructs the VM)
-this.optionBindings = this.optionBindingFactory.createBindings({
-  optionsToDisplay: this.optionsToDisplay,
-  type: this.type,
-  showFeedback: this.showFeedback,
-  showFeedbackForOption: {}, // placeholder; we rebuild immediately after hydration
-  highlightCorrectAfterIncorrect: this.highlightCorrectAfterIncorrect,
-  shouldResetBackground: this.shouldResetBackground,
-  ariaLabelPrefix: 'Option',
-  onChange: (opt, idx) => this.handleOptionClick(opt, idx),
-  // During migration, safest is to rely on rehydrate as the single truth:
-  isSelected: () => false,
-  isDisabled: () => false
-});
+    // Build bindings via factory (single place that constructs the VM)
+    this.optionBindings = this.optionBindingFactory.createBindings({
+      optionsToDisplay: this.optionsToDisplay,
+      type: this.type,
+      showFeedback: this.showFeedback,
+      showFeedbackForOption: {}, // placeholder; we rebuild immediately after hydration
+      highlightCorrectAfterIncorrect: this.highlightCorrectAfterIncorrect,
+      shouldResetBackground: this.shouldResetBackground,
+      ariaLabelPrefix: 'Option',
+      onChange: (opt, idx) => this.handleOptionClick(opt, idx),
+      // During migration, safest is to rely on rehydrate as the single truth:
+      isSelected: () => false,
+      isDisabled: () => false
+    });
 
-// Apply persisted selection to bindings (bindings-only)
-this.rehydrateUiFromState('generateOptionBindings');
+    // Apply persisted selection to bindings (bindings-only)
+    this.rehydrateUiFromState('generateOptionBindings');
 
-// Now rebuild the feedback visibility map based on bindings selection
-this.rebuildShowFeedbackMapFromBindings();
+    // Now rebuild the feedback visibility map based on bindings selection
+    this.rebuildShowFeedbackMapFromBindings();
 
-// Set display flags before CD so canDisplayOptions returns true
-this.showOptions = true;
-this.optionsReady = true;
-this.renderReady = true;
+    // Set display flags before CD so canDisplayOptions returns true
+    this.showOptions = true;
+    this.optionsReady = true;
+    this.renderReady = true;
 
-this.markRenderReady('Bindings refreshed');
+    this.markRenderReady('Bindings refreshed');
 
-// Avoid forcing sync CD unless you have a proven need
-this.cdRef.markForCheck();
+    // Avoid forcing sync CD unless you have a proven need
+    this.cdRef.markForCheck();
   }
 
   public hydrateOptionsFromSelectionState(): void {
-  // If no options yet → bail out safely
-  if(
+    // If no options yet → bail out safely
+    if (
       !Array.isArray(this.optionsToDisplay) ||
-    this.optionsToDisplay.length === 0
+      this.optionsToDisplay.length === 0
     ) {
-  return;
-}
+      return;
+    }
 
-const currentIndex =
-  this.getActiveQuestionIndex() ??
-  this.currentQuestionIndex ??
-  this.questionIndex ??
-  0;
+    const currentIndex =
+      this.getActiveQuestionIndex() ??
+      this.currentQuestionIndex ??
+      this.questionIndex ??
+      0;
 
-const storedSelections =
-  this.selectedOptionService.getSelectedOptionsForQuestion(currentIndex) ??
-  [];
+    const storedSelections =
+      this.selectedOptionService.getSelectedOptionsForQuestion(currentIndex) ??
+      [];
 
-// Now it's safe to map
-this.optionsToDisplay = this.optionsToDisplay.map((opt, i) => {
-  const match = storedSelections.find(
-    (s) =>
-      Number(s.optionId) === Number(opt.optionId) &&
-      Number(s.questionIndex) === Number(currentIndex)
-  );
+    // Now it's safe to map
+    this.optionsToDisplay = this.optionsToDisplay.map((opt, i) => {
+      const match = storedSelections.find(
+        (s) =>
+          Number(s.optionId) === Number(opt.optionId) &&
+          Number(s.questionIndex) === Number(currentIndex)
+      );
 
-  return {
-    ...opt,
-    optionId:
-      typeof opt.optionId === 'number' && Number.isFinite(opt.optionId)
-        ? opt.optionId
-        : (currentIndex + 1) * 100 + (i + 1),
-    selected: !!match?.selected,
-    highlight: !!match?.highlight,
-    showIcon: !!match?.showIcon,
-    active: opt.active ?? true,
-    disabled: false
-  };
-});
+      return {
+        ...opt,
+        optionId:
+          typeof opt.optionId === 'number' && Number.isFinite(opt.optionId)
+            ? opt.optionId
+            : (currentIndex + 1) * 100 + (i + 1),
+        selected: !!match?.selected,
+        highlight: !!match?.highlight,
+        showIcon: !!match?.showIcon,
+        active: opt.active ?? true,
+        disabled: false
+      };
+    });
 
-this.cdRef.markForCheck();
+    this.cdRef.markForCheck();
   }
 
-getFeedbackBindings(option: Option, idx: number): FeedbackProps {
-  // Check if the option is selected (fallback to false if undefined or null)
-  const isSelected = this.isSelectedOption(option) ?? false;
+  getFeedbackBindings(option: Option, idx: number): FeedbackProps {
+    // Check if the option is selected (fallback to false if undefined or null)
+    const isSelected = this.isSelectedOption(option) ?? false;
 
-  const feedbackMap: Record<string | number, boolean> =
-    this.showFeedbackForOption ?? {};
-  const optionKey = option?.optionId ?? idx;
-  const fallbackKey = idx;
+    const feedbackMap: Record<string | number, boolean> =
+      this.showFeedbackForOption ?? {};
+    const optionKey = option?.optionId ?? idx;
+    const fallbackKey = idx;
 
-  const showFeedback =
-    isSelected &&
-    (feedbackMap[optionKey] ??
-      feedbackMap[String(optionKey)] ??
-      feedbackMap[fallbackKey] ??
-      feedbackMap[String(fallbackKey)]);
+    const showFeedback =
+      isSelected &&
+      (feedbackMap[optionKey] ??
+        feedbackMap[String(optionKey)] ??
+        feedbackMap[fallbackKey] ??
+        feedbackMap[String(fallbackKey)]);
 
-  // Safeguard to ensure options array and question exist
-  const options = this.optionsToDisplay ?? [];
+    // Safeguard to ensure options array and question exist
+    const options = this.optionsToDisplay ?? [];
 
-  const fallbackQuestion: QuizQuestion = {
-    questionText: 'No question available',
-    options: [],
-    explanation: '',
-    type: QuestionType.SingleAnswer
-  };
+    const fallbackQuestion: QuizQuestion = {
+      questionText: 'No question available',
+      options: [],
+      explanation: '',
+      type: QuestionType.SingleAnswer
+    };
 
-  const question = this.currentQuestion ?? fallbackQuestion;
+    const question = this.currentQuestion ?? fallbackQuestion;
 
-  // Prepare the feedback properties
-  return {
-    options,
-    question,
-    selectedOption: option,
-    correctMessage:
-      this.feedbackService.setCorrectMessage(this.optionsToDisplay, this.currentQuestion!) ??
-      'No correct message available',
-    feedback: option.feedback ?? 'No feedback available',
-    showFeedback,
-    idx
-  } as FeedbackProps;
-}
+    // Prepare the feedback properties
+    return {
+      options,
+      question,
+      selectedOption: option,
+      correctMessage:
+        this.feedbackService.setCorrectMessage(this.optionsToDisplay, this.currentQuestion!) ??
+        'No correct message available',
+      feedback: option.feedback ?? 'No feedback available',
+      showFeedback,
+      idx
+    } as FeedbackProps;
+  }
 
-initializeOptionBindings(): void {
-  try {
-    if(this.optionBindingsInitialized) {
-  console.warn('[Already initialized]');
-  return;
-}
+  initializeOptionBindings(): void {
+    try {
+      if (this.optionBindingsInitialized) {
+        console.warn('[Already initialized]');
+        return;
+      }
 
-this.optionBindingsInitialized = true;
+      this.optionBindingsInitialized = true;
 
-const options = this.optionsToDisplay;
+      const options = this.optionsToDisplay;
 
-if (!options?.length) {
-  console.warn('[No options available on init - will be set by ngOnChanges]');
-  this.optionBindingsInitialized = false;
-  return;
-}
+      if (!options?.length) {
+        console.warn('[No options available on init - will be set by ngOnChanges]');
+        this.optionBindingsInitialized = false;
+        return;
+      }
 
-// Use generateOptionBindings for consistency (handles deduplication, showOptions, etc.)
-this.generateOptionBindings();
+      // Use generateOptionBindings for consistency (handles deduplication, showOptions, etc.)
+      this.generateOptionBindings();
     } catch (error) {
-  console.error('[initializeOptionBindings error]', error);
-  this.optionBindingsInitialized = false;
-} finally {
-  console.timeEnd('[initializeOptionBindings]');
-}
+      console.error('[initializeOptionBindings error]', error);
+      this.optionBindingsInitialized = false;
+    } finally {
+      console.timeEnd('[initializeOptionBindings]');
+    }
   }
 
   private processOptionBindings(): void {
-  const options = this.optionsToDisplay ?? [];
+    const options = this.optionsToDisplay ?? [];
 
-  // Pre-checks
-  if(!options.length) {
-  console.warn('[processOptionBindings] No options to process. Exiting.');
-  this.optionBindingsInitialized = false;
-  return;
-}
-if (this.freezeOptionBindings) {
-  console.warn('[ABORTED optionBindings reassignment after user click]');
-  return;
-}
-if (!this.currentQuestion) return;
+    // Pre-checks
+    if (!options.length) {
+      console.warn('[processOptionBindings] No options to process. Exiting.');
+      this.optionBindingsInitialized = false;
+      return;
+    }
+    if (this.freezeOptionBindings) {
+      console.warn('[ABORTED optionBindings reassignment after user click]');
+      return;
+    }
+    if (!this.currentQuestion) return;
 
-const selectionMap = new Map<number, boolean>(
-  (this.optionBindings ?? [])
-    .map((b) => {
-      const id = b.option.optionId ?? -1;  // fallback for undefined ids
-      return [id, b.isSelected] as [number, boolean];
-    })
-    .filter(([id]) => id !== -1)  // drop any undefined/fallback ids
-);
+    const selectionMap = new Map<number, boolean>(
+      (this.optionBindings ?? [])
+        .map((b) => {
+          const id = b.option.optionId ?? -1;  // fallback for undefined ids
+          return [id, b.isSelected] as [number, boolean];
+        })
+        .filter(([id]) => id !== -1)  // drop any undefined/fallback ids
+    );
 
-// Use this.currentQuestion which should match optionsToDisplay
-// Don't fetch from quizService.questions as it may have different option order
-const effectiveQuestion = this.currentQuestion;
-if (!effectiveQuestion) {
-  console.warn('[processOptionBindings] No currentQuestion available');
-  return;
-}
-
-// Get correct options from the same source as optionsToDisplay
-const correctOptions = options.filter(o => o.correct === true);
-const feedbackSentence =
-  this.feedbackService.generateFeedbackForOptions(
-    correctOptions,
-    options
-  ) || 'No feedback available.';
-
-const highlightSet = this.highlightedOptionIds;
-const getBindings =
-  this.getOptionBindings.bind(this);
-
-this.optionBindings = options
-  .filter((o: Option) => o.optionId !== undefined)
-  .map((opt, idx) => {
-    const id = opt.optionId as number;
-    const isSelected = selectionMap.get(id) ?? !!opt.selected;
-    opt.feedback = feedbackSentence;
-
-    if (isSelected || highlightSet.has(id)) {
-      opt.highlight = true;
+    // Use this.currentQuestion which should match optionsToDisplay
+    // Don't fetch from quizService.questions as it may have different option order
+    const effectiveQuestion = this.currentQuestion;
+    if (!effectiveQuestion) {
+      console.warn('[processOptionBindings] No currentQuestion available');
+      return;
     }
 
-    return getBindings(opt, idx, isSelected);
-  });
+    // Get correct options from the same source as optionsToDisplay
+    const correctOptions = options.filter(o => o.correct === true);
+    const feedbackSentence =
+      this.feedbackService.generateFeedbackForOptions(
+        correctOptions,
+        options
+      ) || 'No feedback available.';
 
-this.updateSelections(-1);
-this.updateHighlighting();
+    const highlightSet = this.highlightedOptionIds;
+    const getBindings =
+      this.getOptionBindings.bind(this);
 
-// Flag updates with minimal delay
-this.optionsReady = true;
-this.renderReady = true;
-this.viewReady = true;
-this.cdRef.detectChanges();  // ensure view is in sync
+    this.optionBindings = options
+      .filter((o: Option) => o.optionId !== undefined)
+      .map((opt, idx) => {
+        const id = opt.optionId as number;
+        const isSelected = selectionMap.get(id) ?? !!opt.selected;
+        opt.feedback = feedbackSentence;
+
+        if (isSelected || highlightSet.has(id)) {
+          opt.highlight = true;
+        }
+
+        return getBindings(opt, idx, isSelected);
+      });
+
+    this.updateSelections(-1);
+    this.updateHighlighting();
+
+    // Flag updates with minimal delay
+    this.optionsReady = true;
+    this.renderReady = true;
+    this.viewReady = true;
+    this.cdRef.detectChanges();  // ensure view is in sync
   }
 
-initializeFeedbackBindings(): void {
-  if(this.optionBindings?.some((b) => b.isSelected)) {
-  console.warn('[Skipped reassignment — already selected]');
-  return;
-}
+  initializeFeedbackBindings(): void {
+    if (this.optionBindings?.some((b) => b.isSelected)) {
+      console.warn('[Skipped reassignment — already selected]');
+      return;
+    }
 
-this.feedbackBindings = this.optionBindings.map((optionBinding, idx) => {
-  if (!optionBinding || !optionBinding.option) {
-    console.warn('Option binding at index ' + idx + ' is null or undefined. Using default feedback properties.');
-    return this.getDefaultFeedbackProps(idx);  // return default values when binding is invalid
-  }
+    this.feedbackBindings = this.optionBindings.map((optionBinding, idx) => {
+      if (!optionBinding || !optionBinding.option) {
+        console.warn('Option binding at index ' + idx + ' is null or undefined. Using default feedback properties.');
+        return this.getDefaultFeedbackProps(idx);  // return default values when binding is invalid
+      }
 
-  const feedbackBinding = this.getFeedbackBindings(
-    optionBinding.option,
-    idx
-  );
+      const feedbackBinding = this.getFeedbackBindings(
+        optionBinding.option,
+        idx
+      );
 
-  // Validate the generated feedback binding
-  if (!feedbackBinding || !feedbackBinding.selectedOption) {
-    console.warn('Invalid feedback binding at index ' + idx + ':', feedbackBinding);
-  }
+      // Validate the generated feedback binding
+      if (!feedbackBinding || !feedbackBinding.selectedOption) {
+        console.warn('Invalid feedback binding at index ' + idx + ':', feedbackBinding);
+      }
 
-  return feedbackBinding;
-});
+      return feedbackBinding;
+    });
   }
 
   // Helper method to return default FeedbackProps
   private getDefaultFeedbackProps(idx: number): FeedbackProps {
-  const defaultQuestion: QuizQuestion = {
-    questionText: '',
-    options: [],
-    explanation: '',
-    type: QuestionType.SingleAnswer
-  };
+    const defaultQuestion: QuizQuestion = {
+      questionText: '',
+      options: [],
+      explanation: '',
+      type: QuestionType.SingleAnswer
+    };
 
-  return {
-    correctMessage: 'No correct message available',
-    feedback: 'No feedback available',
-    showFeedback: false,
-    selectedOption: null,
-    options: this.optionsToDisplay ?? [],
-    question: this.currentQuestion ?? defaultQuestion,
-    idx: idx
-  };
-}
+    return {
+      correctMessage: 'No correct message available',
+      feedback: 'No feedback available',
+      showFeedback: false,
+      selectedOption: null,
+      options: this.optionsToDisplay ?? [],
+      question: this.currentQuestion ?? defaultQuestion,
+      idx: idx
+    };
+  }
 
-isSelectedOption(option: Option): boolean {
-  return this.selectedOptionId === option.optionId;
-}
+  isSelectedOption(option: Option): boolean {
+    return this.selectedOptionId === option.optionId;
+  }
 
-ensureOptionIds(): void {
-  for(const [index, option] of this.optionsToDisplay.entries()) {
-  option.optionId = option.optionId ?? index;
-}
+  ensureOptionIds(): void {
+    for (const [index, option] of this.optionsToDisplay.entries()) {
+      option.optionId = option.optionId ?? index;
+    }
   }
 
   public shouldShowIcon(option: Option, i: number): boolean {
-  const k = this.keyOf(option, i);
-  const showFromCfg = !!this.feedbackConfigs[k]?.showFeedback;
-  const showLegacy = !!(option as any).showIcon;
-  return showFromCfg || showLegacy;
-}
+    const k = this.keyOf(option, i);
+    const showFromCfg = !!this.feedbackConfigs[k]?.showFeedback;
+    const showLegacy = !!(option as any).showIcon;
+    return showFromCfg || showLegacy;
+  }
 
-shouldShowFeedbackFor(b: OptionBindings): boolean {
-  const id = b.option.optionId;
-  return (
-    id === this.lastFeedbackOptionId &&
-    !!this.feedbackConfigs[id]?.showFeedback
-  );
-}
+  shouldShowFeedbackFor(b: OptionBindings): boolean {
+    const id = b.option.optionId;
+    return (
+      id === this.lastFeedbackOptionId &&
+      !!this.feedbackConfigs[id]?.showFeedback
+    );
+  }
 
   public get canDisplayOptions(): boolean {
-  return (
-    !!this.form &&
-    this.renderReady &&
-    this.showOptions &&
-    Array.isArray(this.optionBindings) &&
-    this.optionBindings.length > 0 &&
-    this.optionBindings.every((b) => !!b.option)
-  );
-}
+    return (
+      !!this.form &&
+      this.renderReady &&
+      this.showOptions &&
+      Array.isArray(this.optionBindings) &&
+      this.optionBindings.length > 0 &&
+      this.optionBindings.every((b) => !!b.option)
+    );
+  }
 
   private initializeDisplay(): void {
-  if(
-    this.form &&
+    if (
+      this.form &&
       this.optionBindings?.length > 0 &&
       this.optionsToDisplay?.length > 0
     ) {
-  this.renderReady = true;
-  this.viewReady = true;
-  this.displayReady = true;
-} else {
-  console.warn('[Display init skipped — not ready]');
-}
+      this.renderReady = true;
+      this.viewReady = true;
+      this.displayReady = true;
+    } else {
+      console.warn('[Display init skipped — not ready]');
+    }
   }
 
   public markRenderReady(reason: string = ''): void {
-  const bindingsReady =
-    Array.isArray(this.optionBindings) && this.optionBindings.length > 0;
+    const bindingsReady =
+      Array.isArray(this.optionBindings) && this.optionBindings.length > 0;
 
-  const optionsReady =
-    Array.isArray(this.optionsToDisplay) && this.optionsToDisplay.length > 0;
+    const optionsReady =
+      Array.isArray(this.optionsToDisplay) && this.optionsToDisplay.length > 0;
 
-  if(bindingsReady && optionsReady) {
-  this.ngZone.run(() => {
-    if (reason) {
-      console.log('[renderReady]: ' + reason);
+    if (bindingsReady && optionsReady) {
+      this.ngZone.run(() => {
+        if (reason) {
+          console.log('[renderReady]: ' + reason);
+        }
+
+        this.renderReady = true;
+        this.renderReadyChange.emit(true);
+        this.renderReadySubject.next(true);
+      });
+    } else {
+      console.warn('[markRenderReady skipped] Incomplete state:', {
+        bindingsReady,
+        optionsReady,
+        reason
+      });
     }
-
-    this.renderReady = true;
-    this.renderReadyChange.emit(true);
-    this.renderReadySubject.next(true);
-  });
-} else {
-  console.warn('[markRenderReady skipped] Incomplete state:', {
-    bindingsReady,
-    optionsReady,
-    reason
-  });
-}
   }
 
   // Helper to regenerate feedback for a specific question index
   private regenerateFeedback(idx: number): void {
-  if(idx < 0 || !this.optionsToDisplay?.length) return;
+    if (idx < 0 || !this.optionsToDisplay?.length) return;
 
-// Use getQuestionAtDisplayIndex for shuffle-aware question lookup
-const question = this.getQuestionAtDisplayIndex(idx);
-if (question?.options) {
-  const correctOptions = this.optionsToDisplay.filter(
-    (o: Option) => o.correct === true
-  );
-  const freshFeedback = this.feedbackService.generateFeedbackForOptions(
-    correctOptions,
-    this.optionsToDisplay
-  );
+    // Use getQuestionAtDisplayIndex for shuffle-aware question lookup
+    const question = this.getQuestionAtDisplayIndex(idx);
+    if (question?.options) {
+      const correctOptions = this.optionsToDisplay.filter(
+        (o: Option) => o.correct === true
+      );
+      const freshFeedback = this.feedbackService.generateFeedbackForOptions(
+        correctOptions,
+        this.optionsToDisplay
+      );
 
-  this.feedbackConfigs = {};
-  for (const b of this.optionBindings ?? []) {
-    if (!b.option) {
-      continue;
+      this.feedbackConfigs = {};
+      for (const b of this.optionBindings ?? []) {
+        if (!b.option) {
+          continue;
+        }
+
+        b.option.feedback = freshFeedback;
+        b.feedback = freshFeedback;
+
+        const optId = b.option.optionId ?? -1;
+        if (optId < 0) {
+          continue;
+        }
+
+        this.feedbackConfigs[optId] = {
+          feedback: freshFeedback,
+          showFeedback: b.showFeedback ?? false,
+          options: this.optionsToDisplay,
+          question: question,
+          selectedOption: b.option,
+          correctMessage: freshFeedback,
+          idx: b.index
+        };
+      }
+
+      // Force change detection
+      this.cdRef.markForCheck();
     }
-
-    b.option.feedback = freshFeedback;
-    b.feedback = freshFeedback;
-
-    const optId = b.option.optionId ?? -1;
-    if (optId < 0) {
-      continue;
-    }
-
-    this.feedbackConfigs[optId] = {
-      feedback: freshFeedback,
-      showFeedback: b.showFeedback ?? false,
-      options: this.optionsToDisplay,
-      question: question,
-      selectedOption: b.option,
-      correctMessage: freshFeedback,
-      idx: b.index
-    };
-  }
-
-  // Force change detection
-  this.cdRef.markForCheck();
-}
   }
 
   // Determine relative component logic for Q-type
   private determineQuestionType(input: QuizQuestion): 'single' | 'multiple' {
-  if (Array.isArray(input.options)) {
-    const correctOptionsCount = input.options.filter(
-      (opt: Option) => opt.correct
-    ).length;
+    if (Array.isArray(input.options)) {
+      const correctOptionsCount = input.options.filter(
+        (opt: Option) => opt.correct
+      ).length;
 
-    if (correctOptionsCount > 1) {
-      return 'multiple';
+      if (correctOptionsCount > 1) {
+        return 'multiple';
+      }
+      if (correctOptionsCount === 1) {
+        return 'single';
+      }
     }
-    if (correctOptionsCount === 1) {
-      return 'single';
-    }
+
+    console.warn(
+      "[determineQuestionType] No valid options or input detected. Defaulting to 'single'."
+    );
+
+    // Final fallback based on explicit type property
+    return input.type === QuestionType.MultipleAnswer ? 'multiple' : 'single';
   }
 
-  console.warn(
-    "[determineQuestionType] No valid options or input detected. Defaulting to 'single'."
-  );
-
-  // Final fallback based on explicit type property
-  return input.type === QuestionType.MultipleAnswer ? 'multiple' : 'single';
-}
-
   private finalizeOptionPopulation(): void {
-  if(!this.optionsToDisplay?.length) {
-  console.warn('[No options to display. Skipping type determination.');
-  return;
-}
+    if (!this.optionsToDisplay?.length) {
+      console.warn('[No options to display. Skipping type determination.');
+      return;
+    }
 
-// Determine type based on the populated options (if not already set correctly)
-if (this.type !== 'multiple') {
-  this.type = this.currentQuestion
-    ? this.determineQuestionType(this.currentQuestion)
-    : 'single';
-} else {
-  console.log(
-    '[SOC] finalizeOptionPopulation preserved type="multiple"'
-  );
-}
+    // Determine type based on the populated options (if not already set correctly)
+    if (this.type !== 'multiple') {
+      this.type = this.currentQuestion
+        ? this.determineQuestionType(this.currentQuestion)
+        : 'single';
+    } else {
+      console.log(
+        '[SOC] finalizeOptionPopulation preserved type="multiple"'
+      );
+    }
   }
 
   public forceDisableAllOptions(): void {
-  this.forceDisableAll = true;
-  for(const binding of this.optionBindings ?? []) {
-  binding.disabled = true;
+    this.forceDisableAll = true;
+    for (const binding of this.optionBindings ?? []) {
+      binding.disabled = true;
 
-  if (binding.option) {
-    binding.option.active = false;
-  }
-}
-for (const opt of this.optionsToDisplay ?? []) {
-  if (opt) {
-    opt.active = false;
-  }
-}
-this.cdRef.markForCheck();
+      if (binding.option) {
+        binding.option.active = false;
+      }
+    }
+    for (const opt of this.optionsToDisplay ?? []) {
+      if (opt) {
+        opt.active = false;
+      }
+    }
+    this.cdRef.markForCheck();
   }
 
   public clearForceDisableAllOptions(): void {
-  this.forceDisableAll = false;
-  for(const binding of this.optionBindings ?? []) {
-  binding.disabled = false;
+    this.forceDisableAll = false;
+    for (const binding of this.optionBindings ?? []) {
+      binding.disabled = false;
 
-  if (binding.option) {
-    binding.option.active = true;
-  }
-}
+      if (binding.option) {
+        binding.option.active = true;
+      }
+    }
 
-for (const opt of this.optionsToDisplay ?? []) {
-  if (opt) opt.active = true;
-}
+    for (const opt of this.optionsToDisplay ?? []) {
+      if (opt) opt.active = true;
+    }
 
-try {
-  const qIndex = this.currentQuestionIndex;
-  this.selectedOptionService.unlockQuestion(qIndex);
-} catch { }
+    try {
+      const qIndex = this.currentQuestionIndex;
+      this.selectedOptionService.unlockQuestion(qIndex);
+    } catch { }
 
-this.cdRef.markForCheck();
+    this.cdRef.markForCheck();
   }
 
   // Hard-reset every row (flags and visual DOM) for a brand-new question
   private fullyResetRows(): void {
-  // Zero every binding flag …
-  for(const b of this.optionBindings) {
-  b.isSelected = false;
-  b.option.selected = false;
-  b.option.highlight = false;
-  b.option.showIcon = false;
-  b.disabled = false;
+    // Zero every binding flag …
+    for (const b of this.optionBindings) {
+      b.isSelected = false;
+      b.option.selected = false;
+      b.option.highlight = false;
+      b.option.showIcon = false;
+      b.disabled = false;
 
-  const id = b.option.optionId;
-  if (id !== undefined) {
-    b.showFeedbackForOption[id] = false;
-  }
-}
+      const id = b.option.optionId;
+      if (id !== undefined) {
+        b.showFeedbackForOption[id] = false;
+      }
+    }
 
-this.perQuestionHistory.clear();  // forget old clicks
-this.lockedIncorrectOptionIds.clear();
+    this.perQuestionHistory.clear();  // forget old clicks
+    this.lockedIncorrectOptionIds.clear();
 
     // Force every directive to repaint now
     // Highlight directives are now handled in OptionItemComponent
@@ -2824,81 +2824,81 @@ this.lockedIncorrectOptionIds.clear();
 
   // Ensure every binding’s option.selected matches the map / history
   private syncSelectedFlags(): void {
-  for(const b of this.optionBindings) {
-  const id = b.option.optionId;
+    for (const b of this.optionBindings) {
+      const id = b.option.optionId;
 
-  // Safely skip bindings with undefined IDs
-  if (id === undefined) {
-    continue;
-  }
+      // Safely skip bindings with undefined IDs
+      if (id === undefined) {
+        continue;
+      }
 
-  const chosen =
-    this.selectedOptionMap.get(id) === true ||
-    this.selectedOptionHistory.includes(id);
+      const chosen =
+        this.selectedOptionMap.get(id) === true ||
+        this.selectedOptionHistory.includes(id);
 
-  b.option.selected = chosen;
-  b.isSelected = chosen;
-}
+      b.option.selected = chosen;
+      b.isSelected = chosen;
+    }
   }
 
   // Immediately updates all icons for the given array of selected options.
   public applySelectionsUI(selectedOptions: SelectedOption[]): void {
-  if(!this.optionsToDisplay?.length) return;
+    if (!this.optionsToDisplay?.length) return;
 
-  // Build a Set for fast lookups
-  const selIds = new Set(selectedOptions.map((s) => s.optionId));
+    // Build a Set for fast lookups
+    const selIds = new Set(selectedOptions.map((s) => s.optionId));
 
-  // Sync all three flags in one pass
-  for(const opt of this.optionsToDisplay) {
-  const isSelected = selIds.has(opt.optionId);
-  opt.selected = isSelected;
-  opt.showIcon = isSelected;
-  opt.highlight = isSelected;
-}
+    // Sync all three flags in one pass
+    for (const opt of this.optionsToDisplay) {
+      const isSelected = selIds.has(opt.optionId);
+      opt.selected = isSelected;
+      opt.showIcon = isSelected;
+      opt.highlight = isSelected;
+    }
 
-this.generateOptionBindings();
-this.cdRef.markForCheck();
+    this.generateOptionBindings();
+    this.cdRef.markForCheck();
   }
 
-isLocked(b: OptionBindings, i: number): boolean {
-  return this.optionLockService.isLocked(b, i, this.resolveCurrentQuestionIndex());
-}
+  isLocked(b: OptionBindings, i: number): boolean {
+    return this.optionLockService.isLocked(b, i, this.resolveCurrentQuestionIndex());
+  }
 
   // Single place to decide disabled
   public isDisabled(binding: OptionBindings, idx: number): boolean {
-  const qIndex = this.resolveCurrentQuestionIndex();
-  const locked = this.optionLockService.isLocked(binding, idx, qIndex);
+    const qIndex = this.resolveCurrentQuestionIndex();
+    const locked = this.optionLockService.isLocked(binding, idx, qIndex);
 
-  return this.optionService.isDisabled(
-    binding,
-    idx,
-    this.disabledOptionsPerQuestion,
-    this.currentQuestionIndex,
-    this.forceDisableAll,
-    this.timerExpiredForQuestion,
-    locked
-  );
-}
+    return this.optionService.isDisabled(
+      binding,
+      idx,
+      this.disabledOptionsPerQuestion,
+      this.currentQuestionIndex,
+      this.forceDisableAll,
+      this.timerExpiredForQuestion,
+      locked
+    );
+  }
 
   // Use the same key shape everywhere (STRING so we don't lose non-numeric ids)
   // Stable per-row key: prefer numeric optionId; fallback to stableKey + index
   public keyOf(o: Option, i: number): string {
-  return this.optionService.keyOf(o, i);
-}
+    return this.optionService.keyOf(o, i);
+  }
 
   /**
    * Determines if inline feedback should be shown after the option at display index i.
    * Uses lastFeedbackOptionId which is reliably synced across all code paths.
    */
   public shouldShowFeedbackAfter(b: OptionBindings, i: number): boolean {
-  if (this.lastFeedbackOptionId < 0) return false;
-  if (!this.showFeedback) return false;
+    if (this.lastFeedbackOptionId < 0) return false;
+    if (!this.showFeedback) return false;
 
-  // Check if this option IS the last one that received feedback
-  const optId = b?.option?.optionId;
-  if (optId == null) return false;
-  return Number(optId) === Number(this.lastFeedbackOptionId);
-}
+    // Check if this option IS the last one that received feedback
+    const optId = b?.option?.optionId;
+    if (optId == null) return false;
+    return Number(optId) === Number(this.lastFeedbackOptionId);
+  }
 
   /**
    * Gets the feedback config to show inline below the last selected option.
@@ -2906,24 +2906,24 @@ isLocked(b: OptionBindings, i: number): boolean {
    * rather than activeFeedbackConfig (which was not always synced).
    */
   public getInlineFeedbackConfig(b: OptionBindings, i: number): FeedbackProps | null {
-  const key = this.keyOf(b.option, i);
-  const cfg = this.feedbackConfigs[key];
-  if (cfg?.showFeedback) return cfg;
+    const key = this.keyOf(b.option, i);
+    const cfg = this.feedbackConfigs[key];
+    if (cfg?.showFeedback) return cfg;
 
-  // Also try by optionId directly (some paths store by optionId number)
-  const optId = b?.option?.optionId;
-  if (optId != null) {
-    const cfgById = this.feedbackConfigs[String(optId)] ?? this.feedbackConfigs[optId];
-    if (cfgById?.showFeedback) return cfgById;
+    // Also try by optionId directly (some paths store by optionId number)
+    const optId = b?.option?.optionId;
+    if (optId != null) {
+      const cfgById = this.feedbackConfigs[String(optId)] ?? this.feedbackConfigs[optId];
+      if (cfgById?.showFeedback) return cfgById;
+    }
+
+    return null;
   }
-
-  return null;
-}
 
 
   private resolveCurrentQuestionIndex(): number {
-  return Number(this.currentQuestionIndex) || 0;
-}
+    return Number(this.currentQuestionIndex) || 0;
+  }
 
   /**
    * Helper to get question at a display index, respecting shuffle state.
@@ -2931,217 +2931,215 @@ isLocked(b: OptionBindings, i: number): boolean {
    * When shuffle is disabled, uses questions (original order).
    */
   private getQuestionAtDisplayIndex(displayIndex: number): QuizQuestion | null {
-  const isShuffled = this.quizService?.isShuffleEnabled?.() &&
-    this.quizService?.shuffledQuestions?.length > 0;
-  const questionSource = isShuffled
-    ? this.quizService.shuffledQuestions
-    : this.quizService?.questions;
-  return questionSource?.[displayIndex] ?? null;
-}
-
-canShowOptions(): boolean {
-  // Data readiness is the primary gate
-  const hasBindings = (this.optionBindings?.length ?? 0) > 0;
-  if (!hasBindings) return false;
-
-  // UI flags are secondary
-  return this.canDisplayOptions && this.renderReady;
-}
-
-  private normalizeQuestionIndex(candidate: unknown): number | null {
-  if (typeof candidate !== 'number' || !Number.isFinite(candidate)) {
-    return null;
+    const isShuffled = this.quizService?.isShuffleEnabled?.() &&
+      this.quizService?.shuffledQuestions?.length > 0;
+    const questionSource = isShuffled
+      ? this.quizService.shuffledQuestions
+      : this.quizService?.questions;
+    return questionSource?.[displayIndex] ?? null;
   }
 
-  if (candidate < 0) return 0;
+  canShowOptions(): boolean {
+    // Data readiness is the primary gate
+    const hasBindings = (this.optionBindings?.length ?? 0) > 0;
+    if (!hasBindings) return false;
 
-  return Math.floor(candidate);
-}
+    // UI flags are secondary
+    return this.canDisplayOptions && this.renderReady;
+  }
+
+  private normalizeQuestionIndex(candidate: unknown): number | null {
+    if (typeof candidate !== 'number' || !Number.isFinite(candidate)) {
+      return null;
+    }
+
+    if (candidate < 0) return 0;
+
+    return Math.floor(candidate);
+  }
 
   private updateResolvedQuestionIndex(candidate: unknown): void {
-  if(typeof candidate !== 'number' && candidate !== null) {
-  console.warn('[SharedOption] Invalid candidate for updateResolvedQuestionIndex:', candidate);
-  return;
-}
-const normalized = this.normalizeQuestionIndex(candidate);
+    if (typeof candidate !== 'number' && candidate !== null) {
+      console.warn('[SharedOption] Invalid candidate for updateResolvedQuestionIndex:', candidate);
+      return;
+    }
+    const normalized = this.normalizeQuestionIndex(candidate);
 
-if (normalized !== null) this.resolvedQuestionIndex = normalized;
+    if (normalized !== null) this.resolvedQuestionIndex = normalized;
   }
 
   public getActiveQuestionIndex(): number {
-  // Corrected Index from Content Match (Highest Reliability)
-  // This value is computed in initializeFromConfig by matching Option IDs to Questions,
-  // bypassing potential race conditions in Inputs or Service state.
-  if (Number.isFinite(this.resolvedQuestionIndex)) {
-    return this.resolvedQuestionIndex!;
+    // Corrected Index from Content Match (Highest Reliability)
+    // This value is computed in initializeFromConfig by matching Option IDs to Questions,
+    // bypassing potential race conditions in Inputs or Service state.
+    if (Number.isFinite(this.resolvedQuestionIndex)) {
+      return this.resolvedQuestionIndex!;
+    }
+
+    // Highest Priority: Local Input (most specific to this option instance)
+    if (typeof this.questionIndex === 'number') {
+      return this.questionIndex;
+    }
+
+    // Secondary: quizService.currentQuestionIndex (fallback)
+    if (typeof this.quizService?.currentQuestionIndex === 'number') {
+      return this.quizService.currentQuestionIndex;
+    }
+
+    // Tertiary: quizService.getCurrentQuestionIndex() method
+    const svcIndex = this.quizService?.getCurrentQuestionIndex?.();
+    if (typeof svcIndex === 'number') {
+      return svcIndex;
+    }
+
+    // Fallback: component properties (may be stale)
+    if (typeof (this.currentQuestionIndex as any) === 'number') {
+      return this.currentQuestionIndex;
+    }
+
+
+    return 0;  // emergency fallback
   }
-
-  // Highest Priority: Local Input (most specific to this option instance)
-  if (typeof this.questionIndex === 'number') {
-    return this.questionIndex;
-  }
-
-  // Secondary: quizService.currentQuestionIndex (fallback)
-  if (typeof this.quizService?.currentQuestionIndex === 'number') {
-    return this.quizService.currentQuestionIndex;
-  }
-
-  // Tertiary: quizService.getCurrentQuestionIndex() method
-  const svcIndex = this.quizService?.getCurrentQuestionIndex?.();
-  if (typeof svcIndex === 'number') {
-    return svcIndex;
-  }
-
-  // Fallback: component properties (may be stale)
-  if (typeof (this.currentQuestionIndex as any) === 'number') {
-    return this.currentQuestionIndex;
-  }
-
-
-  return 0;  // emergency fallback
-}
 
   public onOptionUI(ev: OptionUIEvent): void {
-  // Guard: ignore bad IDs
-  if(!Number.isFinite(ev?.optionId) || ev.optionId < 0) return;
+    // Guard: ignore bad IDs
+    if (!Number.isFinite(ev?.optionId) || ev.optionId < 0) return;
 
-  // Find binding + index (SOC still owns bindings list for now)
-  const found = this.findBindingByOptionId(ev.optionId);
-  if(!found) return;
+    // Find binding + index (SOC still owns bindings list for now)
+    const found = this.findBindingByOptionId(ev.optionId);
+    if (!found) return;
 
-  const { b: binding, i: index } = found;
+    const { b: binding, i: index } = found;
 
 
-  if(!this.isDisabled(binding, index)) {
-  this.cdRef.markForCheck();  // ensure UI updates
-  this.soundService.playOnceForOption({
-    ...binding.option,
-    selected: true,
-    questionIndex: this.currentQuestionIndex
-  });
-}
+    if (!this.isDisabled(binding, index)) {
+      this.cdRef.markForCheck();  // ensure UI updates
+      this.soundService.playOnceForOption({
+        ...binding.option,
+        selected: true,
+        questionIndex: this.currentQuestionIndex
+      });
+    }
 
-if (ev.kind === 'change') {
-  // Keep your existing “change → sync UI/form” path
-  this.updateOptionAndUI(binding, index, ev.nativeEvent as MatCheckboxChange | MatRadioChange);
-  return;
-}
+    if (ev.kind === 'change') {
+      // Keep your existing “change → sync UI/form” path
+      this.updateOptionAndUI(binding, index, ev.nativeEvent as MatCheckboxChange | MatRadioChange);
+      return;
+    }
 
-if (ev.kind === 'interaction') {
-  // Preserve your “interaction guard” behavior exactly
-  const event = ev.nativeEvent as MouseEvent;
+    if (ev.kind === 'interaction') {
+      // Preserve your “interaction guard” behavior exactly
+      const event = ev.nativeEvent as MouseEvent;
 
-  if (this.isDisabled(binding, index)) {
-    console.log('[SOC] onOptionInteraction: Option is disabled, blocking click:', binding.option?.optionId);
-    event.preventDefault();
-    event.stopPropagation();
-    return;
-  }
+      if (this.isDisabled(binding, index)) {
+        console.log('[SOC] onOptionInteraction: Option is disabled, blocking click:', binding.option?.optionId);
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
 
-  const target = event.target as HTMLElement;
-  if (target?.tagName === 'INPUT') {
-    return; // let native input handle it
-  }
+      const target = event.target as HTMLElement;
+      if (target?.tagName === 'INPUT') {
+        return; // let native input handle it
+      }
 
-  // treat as content click
-  this.runOptionContentClick(binding, index, event);
-  return;
-}
+      // treat as content click
+      this.runOptionContentClick(binding, index, event);
+      return;
+    }
 
-if (ev.kind === 'contentClick') {
-  this.runOptionContentClick(binding, index, ev.nativeEvent as MouseEvent);
-  return;
-}
+    if (ev.kind === 'contentClick') {
+      this.runOptionContentClick(binding, index, ev.nativeEvent as MouseEvent);
+      return;
+    }
   }
 
   private findBindingByOptionId(optionId: number): { b: OptionBindings; i: number } | null {
-  const opts = this.optionBindings ?? [];
-  const i = opts.findIndex(x => Number(x?.option?.optionId) === Number(optionId));
-  if (i < 0) return null;
-  return { b: opts[i], i };
-}
+    const opts = this.optionBindings ?? [];
+    const i = opts.findIndex(x => Number(x?.option?.optionId) === Number(optionId));
+    if (i < 0) return null;
+    return { b: opts[i], i };
+  }
 
   private runOptionContentClick(binding: OptionBindings, index: number, event: MouseEvent): void {
-  const state: OptionInteractionState = {
-    optionBindings: this.optionBindings,
-    optionsToDisplay: this.optionsToDisplay,
-    // Use the active display-aligned index to avoid hydration races where
-    // currentQuestionIndex can be stale (notably on Q1 after new-tab restore).
-    currentQuestionIndex: this.getActiveQuestionIndex(),
-    selectedOptionHistory: this.selectedOptionHistory,
-    disabledOptionsPerQuestion: this.disabledOptionsPerQuestion,
-    correctClicksPerQuestion: this.correctClicksPerQuestion,
-    feedbackConfigs: this.feedbackConfigs,
-    showFeedbackForOption: this.showFeedbackForOption,
-    lastFeedbackOptionId: this.lastFeedbackOptionId,
-    lastFeedbackQuestionIndex: this.lastFeedbackQuestionIndex,
-    lastClickedOptionId: this.lastClickedOptionId,
-    lastClickTimestamp: this.lastClickTimestamp,
-    hasUserClicked: this.hasUserClicked,
-    freezeOptionBindings: this.freezeOptionBindings,
-    showFeedback: this.showFeedback,
-    disableRenderTrigger: this.disableRenderTrigger,
-    type: this.type,
-    currentQuestion: this.currentQuestion
-  };
+    const state: OptionInteractionState = {
+      optionBindings: this.optionBindings,
+      optionsToDisplay: this.optionsToDisplay,
+      // Use the active display-aligned index to avoid hydration races where
+      // currentQuestionIndex can be stale (notably on Q1 after new-tab restore).
+      currentQuestionIndex: this.getActiveQuestionIndex(),
+      selectedOptionHistory: this.selectedOptionHistory,
+      disabledOptionsPerQuestion: this.disabledOptionsPerQuestion,
+      correctClicksPerQuestion: this.correctClicksPerQuestion,
+      feedbackConfigs: this.feedbackConfigs,
+      showFeedbackForOption: this.showFeedbackForOption,
+      lastFeedbackOptionId: this.lastFeedbackOptionId,
+      lastFeedbackQuestionIndex: this.lastFeedbackQuestionIndex,
+      lastClickedOptionId: this.lastClickedOptionId,
+      lastClickTimestamp: this.lastClickTimestamp,
+      hasUserClicked: this.hasUserClicked,
+      freezeOptionBindings: this.freezeOptionBindings,
+      showFeedback: this.showFeedback,
+      disableRenderTrigger: this.disableRenderTrigger,
+      type: this.type,
+      currentQuestion: this.currentQuestion
+    };
 
-  // Call handleOptionClick as-is (no behavior change)
-  this.optionInteractionService.handleOptionClick(
-    binding,
-    index,
-    event,
-    state,
-    (idx) => this.getQuestionAtDisplayIndex(idx),
-    (idx) => this.emitExplanation(idx),
-    (b, i, ev) => this.updateOptionAndUI(b, i, ev)
-  );
+    // Call handleOptionClick as-is (no behavior change)
+    this.optionInteractionService.handleOptionClick(
+      binding,
+      index,
+      event,
+      state,
+      (idx) => this.getQuestionAtDisplayIndex(idx),
+      (idx) => this.emitExplanation(idx),
+      (b, i, ev) => this.updateOptionAndUI(b, i, ev)
+    );
 
-  // Sync back mutated state (non-feedback fields only).
-  // IMPORTANT: Do NOT sync feedback-related fields (feedbackConfigs,
-  // showFeedbackForOption, lastFeedbackOptionId, showFeedback,
-  // lastFeedbackQuestionIndex) from state here. The state object captured
-  // initial values BEFORE the callback ran. updateOptionAndUI (called via
-  // callback above) already synced the correct values from the
-  // OptionUiSyncContext, which may have REPLACED these object refs
-  // (e.g. resetFeedbackAnchorIfQuestionChanged replaces feedbackConfigs).
-  this.optionBindings = state.optionBindings;
-  this.disableRenderTrigger = state.disableRenderTrigger;
-  this.lastClickedOptionId = state.lastClickedOptionId;
-  this.lastClickTimestamp = state.lastClickTimestamp;
-  this.hasUserClicked = state.hasUserClicked;
-  this.freezeOptionBindings = state.freezeOptionBindings;
+    // Sync back mutated state (non-feedback fields only).
+    // IMPORTANT: Do NOT sync feedback-related fields (feedbackConfigs,
+    // showFeedbackForOption, lastFeedbackOptionId, showFeedback,
+    // lastFeedbackQuestionIndex) from state here. The state object captured
+    // initial values BEFORE the callback ran. updateOptionAndUI (called via
+    // callback above) already synced the correct values from the
+    // OptionUiSyncContext, which may have REPLACED these object refs
+    // (e.g. resetFeedbackAnchorIfQuestionChanged replaces feedbackConfigs).
+    this.optionBindings = state.optionBindings;
+    this.disableRenderTrigger = state.disableRenderTrigger;
+    this.lastClickedOptionId = state.lastClickedOptionId;
+    this.lastClickTimestamp = state.lastClickTimestamp;
+    this.hasUserClicked = state.hasUserClicked;
+    this.freezeOptionBindings = state.freezeOptionBindings;
 
-  this.cdRef.detectChanges();
-}
+    this.cdRef.detectChanges();
+  }
 
   public triggerViewRefresh(): void {
-  this.cdRef.markForCheck();
-}
+    this.cdRef.markForCheck();
+  }
 
   private onSelectionControlChanged(rawId: number | string): void {
-  const parsedId =
-    typeof rawId === 'string' ? Number.parseInt(rawId, 10) : rawId;
+    const parsedId =
+      typeof rawId === 'string' ? Number.parseInt(rawId, 10) : rawId;
 
-  if(!Number.isFinite(parsedId)) return;
+    if (!Number.isFinite(parsedId)) return;
 
-  // Ignore the synthetic “-1 repaint” that runs right after question load
-  if(parsedId === -1) return;
+    // Ignore the synthetic “-1 repaint” that runs right after question load
+    if (parsedId === -1) return;
 
-const selectedId = parsedId as number;
+    const selectedId = parsedId as number;
 
-const binding = (this.optionBindings ?? []).find(
-  (b) => b?.option?.optionId === selectedId
-);
+    const binding = (this.optionBindings ?? []).find(
+      (b) => b?.option?.optionId === selectedId
+    );
 
-if (!binding?.option) return;
+    if (!binding?.option) return;
 
-// ✅ Single source of truth: this MUST be the path that triggers:
-// - sounds
-// - SelectedOptionService updates / answered state
-// - emits to parent
-// - next button enabling
-this.handleOptionClick(binding.option as any, binding.index);
+    // ✅ Single source of truth: this MUST be the path that triggers:
+    // - sounds
+    // - SelectedOptionService updates / answered state
+    // - emits to parent
+    // - next button enabling
+    this.handleOptionClick(binding.option as any, binding.index);
   }
 }
-
-
