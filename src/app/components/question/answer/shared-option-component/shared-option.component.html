@@ -1,77 +1,52 @@
 @let opts = optionBindings || [];
 
 @if (canShowOptions()) {
-  <!-- OPTIONS ARE READY -->
-  <form
-    [formGroup]="form"
-    class="options-form"
-  >
-    @switch (type) {
-      <!-- SINGLE-ANSWER (RADIO) -->
-      @case ('single') {
-        <mat-radio-group
-          class="options-group options"
-          formControlName="selectedOptionId"
-        >
-          @for (b of opts; let i = $index; track trackByOptionId(b, i)) {
-            <app-option-item
-              [b]="b"
-              [i]="i"
-              [type]="'single'"
-              [form]="form"
-              [shouldResetBackground]="shouldResetBackground"
-              [feedbackConfig]="feedbackConfigs[keyOf(b.option, i)]"
-              [sharedOptionConfig]="getSharedOptionConfig(b, i)"
-              [highlightedOptionIds]="highlightedOptionIds"
-              [flashDisabledSet]="flashDisabledSet"
-              [forceDisableAll]="forceDisableAll"
-              [timerExpiredForQuestion]="timerExpiredForQuestion"
-              [isLocked]="isLocked(b, i)"
-              [currentQuestionIndex]="currentQuestionIndex"
-              [disabledOptionsPerQuestion]="disabledOptionsPerQuestion"
-              (optionUI)="onOptionUI($event)"
-            />
-          }
-        </mat-radio-group>
-      }
+<!-- OPTIONS ARE READY -->
+<form [formGroup]="form" class="options-form">
+  @switch (type) {
+  <!-- SINGLE-ANSWER (RADIO) -->
+  @case ('single') {
+  <mat-radio-group class="options-group options" formControlName="selectedOptionId">
+    @for (b of opts; let i = $index; track trackByOptionId(b, i)) {
+    <app-option-item [b]="b" [i]="i" [type]="'single'" [form]="form" [shouldResetBackground]="shouldResetBackground"
+      [feedbackConfig]="feedbackConfigs[keyOf(b.option, i)]" [sharedOptionConfig]="getSharedOptionConfig(b, i)"
+      [highlightedOptionIds]="highlightedOptionIds" [flashDisabledSet]="flashDisabledSet"
+      [forceDisableAll]="forceDisableAll" [timerExpiredForQuestion]="timerExpiredForQuestion"
+      [isLocked]="isLocked(b, i)" [currentQuestionIndex]="currentQuestionIndex"
+      [disabledOptionsPerQuestion]="disabledOptionsPerQuestion" (optionUI)="onOptionUI($event)" />
 
-      <!-- MULTIPLE-ANSWER (CHECKBOX) -->
-      @case ('multiple') {
-        <div
-          class="options-group options"
-          role="group"
-          aria-label="Select one or more options"
-        >
-          @for (b of opts; let i = $index; track trackByOptionId(b, i)) {
-            <app-option-item
-              [b]="b"
-              [i]="i"
-              [type]="'multiple'"
-              [form]="form"
-              [shouldResetBackground]="shouldResetBackground"
-              [feedbackConfig]="feedbackConfigs[keyOf(b.option, i)]"
-              [sharedOptionConfig]="getSharedOptionConfig(b, i)"
-              [highlightedOptionIds]="highlightedOptionIds"
-              [flashDisabledSet]="flashDisabledSet"
-              [forceDisableAll]="forceDisableAll"
-              [timerExpiredForQuestion]="timerExpiredForQuestion"
-              [isLocked]="isLocked(b, i)"
-              [currentQuestionIndex]="currentQuestionIndex"
-              [disabledOptionsPerQuestion]="disabledOptionsPerQuestion"
-              (optionUI)="onOptionUI($event)"
-            />
-          }
-        </div>
-      }
-    }
-  </form>
-
-  <!-- FEEDBACK: displayed below all options -->
-  @if (activeFeedbackConfig) {
-    <div class="feedback-below-options" @correctAnswer>
+    <!-- FEEDBACK: displayed below the last selected option -->
+    @if (activeFeedbackConfig && i === lastSelectedOptionIndex) {
+    <div class="feedback-below-option" @correctAnswer>
       <codelab-quiz-feedback [feedbackConfig]="activeFeedbackConfig" />
     </div>
+    }
+    }
+  </mat-radio-group>
   }
+
+  <!-- MULTIPLE-ANSWER (CHECKBOX) -->
+  @case ('multiple') {
+  <div class="options-group options" role="group" aria-label="Select one or more options">
+    @for (b of opts; let i = $index; track trackByOptionId(b, i)) {
+    <app-option-item [b]="b" [i]="i" [type]="'multiple'" [form]="form" [shouldResetBackground]="shouldResetBackground"
+      [feedbackConfig]="feedbackConfigs[keyOf(b.option, i)]" [sharedOptionConfig]="getSharedOptionConfig(b, i)"
+      [highlightedOptionIds]="highlightedOptionIds" [flashDisabledSet]="flashDisabledSet"
+      [forceDisableAll]="forceDisableAll" [timerExpiredForQuestion]="timerExpiredForQuestion"
+      [isLocked]="isLocked(b, i)" [currentQuestionIndex]="currentQuestionIndex"
+      [disabledOptionsPerQuestion]="disabledOptionsPerQuestion" (optionUI)="onOptionUI($event)" />
+
+    <!-- FEEDBACK: displayed below the last selected option -->
+    @if (activeFeedbackConfig && i === lastSelectedOptionIndex) {
+    <div class="feedback-below-option" @correctAnswer>
+      <codelab-quiz-feedback [feedbackConfig]="activeFeedbackConfig" />
+    </div>
+    }
+    }
+  </div>
+  }
+  }
+</form>
 } @else if (opts.length === 0) {
-  <span>Options not ready&hellip;</span>
+<span>Options not ready&hellip;</span>
 }
