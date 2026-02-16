@@ -1404,24 +1404,24 @@ export class SharedOptionComponent
         // We can't easily track "what IDs generated the last FET", but we do know
         // that if we just updated bindings (incomingIds !== existingIds check above),
         // we likely need to refresh the FET.
-        
+
         // However, the `if (incomingIds !== existingIds)` block (lines 1350-1368) handles the creation.
         // If we fell into the `else` block (lines 1369-1379), IDs might match but object references changed.
         // Let's rely on the explicit change of IDs to be safe.
-        
+
         // Re-calculate previous IDs for this check scope
         const prevIds = this.optionBindings
-            ?.map(b => b.option.optionId)
-            .join(',') || '';
-            
-         // If we just rebuilt bindings, incomingIds won't match prevIds (because prevIds is from BEFORE the rebuild).
-         // Actually, `this.optionBindings` is ALREADY updated by lines 1351 or 1374.
-         // So we can't compare against "old" bindings here easily without storing them.
-         
-         // BUT, we know `setOptionBindingsIfChanged` is called when `optionsToDisplay` updates.
-         // A simple approach: Always regenerate if active. `emitExplanation` is relatively cheap and idempotent-safe.
-         // To avoid infinite loops, ensure we don't spin.
-         
+          ?.map(b => b.option.optionId)
+          .join(',') || '';
+
+        // If we just rebuilt bindings, incomingIds won't match prevIds (because prevIds is from BEFORE the rebuild).
+        // Actually, `this.optionBindings` is ALREADY updated by lines 1351 or 1374.
+        // So we can't compare against "old" bindings here easily without storing them.
+
+        // BUT, we know `setOptionBindingsIfChanged` is called when `optionsToDisplay` updates.
+        // A simple approach: Always regenerate if active. `emitExplanation` is relatively cheap and idempotent-safe.
+        // To avoid infinite loops, ensure we don't spin.
+
         console.log(`[SOC] Option bindings checked for Q${currentIdx + 1} with active explanation - refreshing FET.`);
         this.deferHighlightUpdate(() => this.emitExplanation(currentIdx));
       }
@@ -1586,6 +1586,15 @@ export class SharedOptionComponent
 
     this.optionUiSyncService.updateOptionAndUI(optionBinding, index, event, ctx);
 
+    // Sync activeFeedbackConfig from the feedbackConfigs that were updated
+    // by the UI sync service (which sets feedbackConfigs but not activeFeedbackConfig)
+    this.lastSelectedOptionIndex = index;
+    const clickedKey = this.keyOf(optionBinding.option, index);
+    const clickedFeedback = this.feedbackConfigs[clickedKey];
+    if (clickedFeedback?.showFeedback) {
+      this.activeFeedbackConfig = clickedFeedback;
+    }
+
     this.cdRef.detectChanges();
   }
 
@@ -1738,7 +1747,7 @@ export class SharedOptionComponent
     // Falling back to service state first can pick a stale index during shuffle hydration
     // and misalign Q1 explanation numbering.
     const resolved =
-    explicit ??
+      explicit ??
       this.getActiveQuestionIndex() ??
       this.currentQuestionIndex ??
       this.resolvedQuestionIndex;
@@ -1800,8 +1809,8 @@ export class SharedOptionComponent
     const authQ = allCanonical.find(q => normalize(q.questionText) === currentQText) || this.currentQuestion;
 
     if (!authQ) {
-       console.warn(`[FET-SOC] Q${displayIndex + 1} | No auth question found. Using raw.`);
-       return (this.currentQuestion?.explanation || '').trim();
+      console.warn(`[FET-SOC] Q${displayIndex + 1} | No auth question found. Using raw.`);
+      return (this.currentQuestion?.explanation || '').trim();
     }
 
     // 3. Build sets of correct identifiers from the authoritative source
@@ -1834,10 +1843,10 @@ export class SharedOptionComponent
       .map((opt, i) => {
         const id = Number(opt.optionId);
         const text = normalize(opt.text);
-        const isCorrect = (!isNaN(id) && correctIds.has(id)) || 
-                          (text && correctTexts.has(text)) || 
-                          (opt.correct === true);
-        
+        const isCorrect = (!isNaN(id) && correctIds.has(id)) ||
+          (text && correctTexts.has(text)) ||
+          (opt.correct === true);
+
         if (isCorrect) {
           console.log(`[FET-SOC] Q${displayIndex + 1} | Found Match: Option ${i + 1} (ID=${id}, Text="${opt.text?.slice(0, 20)}...")`);
         }
@@ -2232,11 +2241,11 @@ export class SharedOptionComponent
       const oIdNum = Number(opt.optionId);
       const oId = !isNaN(oIdNum) ? oIdNum : (currentIndex + 1) * 100 + (i + 1);
       const oText = (opt.text ?? '').trim().toLowerCase();
-      
-      const isCorrect = opt.correct === true || 
-                        (opt as any).correct === "true" ||
-                        (!isNaN(oIdNum) && correctIds.has(oIdNum)) || 
-                        !!(oText && correctTexts.has(oText));
+
+      const isCorrect = opt.correct === true ||
+        (opt as any).correct === "true" ||
+        (!isNaN(oIdNum) && correctIds.has(oIdNum)) ||
+        !!(oText && correctTexts.has(oText));
 
       return {
         ...opt,
@@ -3012,5 +3021,3 @@ export class SharedOptionComponent
     this.handleOptionClick(binding.option as any, binding.index);
   }
 }
-
-
