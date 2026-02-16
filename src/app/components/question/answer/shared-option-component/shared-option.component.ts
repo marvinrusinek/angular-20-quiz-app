@@ -784,7 +784,7 @@ export class SharedOptionComponent
     // Handle TYPE changes explicitly
     if (changes['type']) {
       this.type = changes['type'].currentValue;
-      console.log(`[SOC] 🔄 Type changed to: ${this.type}`);
+
     }
 
     // UI cleanup can happen on both question and options changes
@@ -1114,7 +1114,7 @@ export class SharedOptionComponent
 
     // DEBUG: trace for Option 1 (assuming index 1 for second option)
     if (i === 1 && this.type === 'multiple') {
-      console.log(`[SOC buildConfig i=${i}] optId=${b.option.optionId}, qIndex=${qIndex}, isActuallySelected=${isActuallySelected}, serviceHas=${currentSelections.length}`);
+
     }
 
     // Also check if we're on the correct question (prevent Q2 state showing on Q3)
@@ -1364,7 +1364,7 @@ export class SharedOptionComponent
     if (this.type !== 'multiple' && authoritativeQuestion) {
       this.type = this.determineQuestionType(authoritativeQuestion);
     } else {
-      console.log('[SOC] Preserving type="multiple" from Input or missing question');
+
     }
 
     // Initialize bindings and feedback maps
@@ -1448,7 +1448,7 @@ export class SharedOptionComponent
         // A simple approach: Always regenerate if active. `emitExplanation` is relatively cheap and idempotent-safe.
         // To avoid infinite loops, ensure we don't spin.
 
-        console.log(`[SOC] Option bindings checked for Q${currentIdx + 1} with active explanation - refreshing FET.`);
+
         this.deferHighlightUpdate(() => this.emitExplanation(currentIdx));
       }
     }
@@ -1494,20 +1494,18 @@ export class SharedOptionComponent
       if (this.forceDisableAll) return true;
       return false;
     }
+    return true;
+  }
 
-    // Prevent reselection: disable correct options that are already selected in
-    // multiple-answer questions
-    const isMultipleAnswer = this.isMultiMode;  // use robust getter
-    if (isMultipleAnswer && binding.isSelected && option.correct) {
-      console.log(`[SOC] Option ${optionId} is a selected correct answer - 
-        disabling to prevent reselection`);
-      return true;
-    }
 
-    // Check persistent disabled state - this is the only source of truth
+  public isDisabled(binding: OptionBindings, index: number): boolean {
+    const option = binding.option;
+    const optionId = option.optionId;
+    const qIndex = this.quizService.currentQuestionIndex ?? 0;
+
     const disabledSet = this.disabledOptionsPerQuestion.get(qIndex);
     if (disabledSet && typeof optionId === 'number' && disabledSet.has(optionId)) {
-      console.log(`[SOC] 🚫 Option ${optionId} DISABLED by persistent set for Q${qIndex + 1}`);
+
       return true;
     }
 
@@ -1579,7 +1577,7 @@ export class SharedOptionComponent
   public onOptionInteraction(binding: OptionBindings, index: number, event: MouseEvent): void {
     // Guard: Skip if this option is disabled (check persistent Map)
     if (this.isDisabled(binding, index)) {
-      console.log('[SOC] onOptionInteraction: Option is disabled, blocking click:', binding.option?.optionId);
+
       event.preventDefault();
       event.stopPropagation();
       return;
@@ -1657,9 +1655,6 @@ export class SharedOptionComponent
     const key = this.keyOf(optionBinding.option, index);
     const cfgKeys = Object.keys(this.feedbackConfigs);
     const hasCfg = !!this.feedbackConfigs[key];
-    console.log(`[SOC updateOptionAndUI] optId=${optId}, index=${index}, key="${key}", ` +
-      `lastFeedbackOptionId=${this.lastFeedbackOptionId}, showFeedback=${this.showFeedback}, ` +
-      `feedbackConfigs keys=[${cfgKeys.join(',')}], hasCfgForKey=${hasCfg}`);
 
     this.cdRef.detectChanges();
   }
@@ -1928,7 +1923,7 @@ export class SharedOptionComponent
           (opt.correct === true);
 
         if (isCorrect) {
-          console.log(`[FET-SOC] Q${displayIndex + 1} | Found Match: Option ${i + 1} (ID=${id}, Text="${opt.text?.slice(0, 20)}...")`);
+
         }
         return isCorrect ? i + 1 : null;
       })
@@ -3135,7 +3130,7 @@ export class SharedOptionComponent
 
     if (!binding?.option) return;
 
-    // Single source of truth: this MUST be the path that triggers:
+    // ✅ Single source of truth: this MUST be the path that triggers:
     // - sounds
     // - SelectedOptionService updates / answered state
     // - emits to parent
@@ -3143,3 +3138,5 @@ export class SharedOptionComponent
     this.handleOptionClick(binding.option as any, binding.index);
   }
 }
+
+
