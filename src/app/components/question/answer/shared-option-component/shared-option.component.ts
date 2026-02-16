@@ -1694,11 +1694,13 @@ export class SharedOptionComponent
   }
 
   private emitExplanation(questionIndex: number): void {
-    const displayIndex = this.resolveDisplayIndex(questionIndex);
-    const explanationText = this.resolveExplanationText(displayIndex);
-    this.pendingExplanationIndex = displayIndex;
-    this.applyExplanationText(explanationText, displayIndex);
-    this.scheduleExplanationVerification(displayIndex, explanationText);
+    // Resolve explanation directly from Canonical source to avoid shuffle index confusion
+    const explanationText = this.quizService.questions[questionIndex]?.explanation || '';
+
+    // Use canonical index for logic tracking
+    this.pendingExplanationIndex = questionIndex;
+    this.applyExplanationText(explanationText, questionIndex);
+    this.scheduleExplanationVerification(questionIndex, explanationText);
   }
 
   private applyExplanationText(
