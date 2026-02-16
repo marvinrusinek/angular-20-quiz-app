@@ -1316,8 +1316,8 @@ export class SharedOptionComponent
 
     if (this.quizService.questions && this.optionsToDisplay?.length > 0) {
       const firstOptId = this.optionsToDisplay[0].optionId;
-      const matchIdx = this.quizService.questions.findIndex(q =>
-        q.options?.some(o => o.optionId === firstOptId)
+      const matchIdx = this.quizService.questions.findIndex((q: QuizQuestion) =>
+        q.options?.some((o: Option) => o.optionId === firstOptId)
       );
 
       if (matchIdx !== -1) {
