@@ -1321,13 +1321,17 @@ export class SharedOptionComponent
       );
 
       if (matchIdx !== -1) {
+        this.resolvedQuestionIndex = matchIdx;
         qIndex = matchIdx; // Found authentic index via content match
         if (qIndex !== inputIndex && Number.isFinite(inputIndex)) {
           console.log(`[SOC] Corrected index via content match: Input=${inputIndex} -> Found=${qIndex}`);
         }
       } else {
         // No match found? Fallback to input index if valid
-        if (Number.isFinite(inputIndex)) qIndex = inputIndex;
+        if (Number.isFinite(inputIndex)) {
+          this.resolvedQuestionIndex = inputIndex;
+          qIndex = inputIndex;
+        }
       }
     }
 
@@ -2952,6 +2956,13 @@ export class SharedOptionComponent
   }
 
   public getActiveQuestionIndex(): number {
+    // Corrected Index from Content Match (Highest Reliability)
+    // This value is computed in initializeFromConfig by matching Option IDs to Questions,
+    // bypassing potential race conditions in Inputs or Service state.
+    if (Number.isFinite(this.resolvedQuestionIndex)) {
+      return this.resolvedQuestionIndex!;
+    }
+
     // Highest Priority: Local Input (most specific to this option instance)
     if (typeof this.questionIndex === 'number') {
       return this.questionIndex;
