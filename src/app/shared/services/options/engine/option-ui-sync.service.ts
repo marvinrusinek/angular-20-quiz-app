@@ -276,6 +276,9 @@ export class OptionUiSyncService {
       }
 
       this.selectedOptionService.setAnswered(true, true);
+      // Ensure explanation is emitted for ALL types (including multiple), 
+      // not just single (which handled it in applySingleSelectionPainting).
+      ctx.emitExplanation(currentIndex);
     } else {
       // Unselection: Remove from service
       this.selectedOptionService.removeOption(currentIndex, optionId);
