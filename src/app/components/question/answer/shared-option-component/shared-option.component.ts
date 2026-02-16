@@ -1586,14 +1586,13 @@ export class SharedOptionComponent
 
     this.optionUiSyncService.updateOptionAndUI(optionBinding, index, event, ctx);
 
-    // Sync activeFeedbackConfig from the feedbackConfigs that were updated
-    // by the UI sync service (which sets feedbackConfigs but not activeFeedbackConfig)
+    // Sync primitive feedback state back from ctx.
+    // The ctx is a shallow spread of `this`, so object refs (feedbackConfigs,
+    // showFeedbackForOption) are mutated in-place, but primitives must be
+    // manually copied back.
+    this.showFeedback = ctx.showFeedback;
+    this.lastFeedbackOptionId = ctx.lastFeedbackOptionId;
     this.lastSelectedOptionIndex = index;
-    const clickedKey = this.keyOf(optionBinding.option, index);
-    const clickedFeedback = this.feedbackConfigs[clickedKey];
-    if (clickedFeedback?.showFeedback) {
-      this.activeFeedbackConfig = clickedFeedback;
-    }
 
     this.cdRef.detectChanges();
   }
@@ -2806,6 +2805,39 @@ export class SharedOptionComponent
     return this.optionService.keyOf(o, i);
   }
 
+  /**
+   * Determines if inline feedback should be shown after the option at display index i.
+   * Uses lastFeedbackOptionId which is reliably synced across all code paths.
+   */
+  public shouldShowFeedbackAfter(b: OptionBindings, i: number): boolean {
+    if (this.lastFeedbackOptionId < 0) return false;
+    if (!this.showFeedback) return false;
+
+    // Check if this option IS the last one that received feedback
+    const optId = b?.option?.optionId;
+    if (optId == null) return false;
+    return Number(optId) === Number(this.lastFeedbackOptionId);
+  }
+
+  /**
+   * Gets the feedback config to show inline below the last selected option.
+   * Derives from feedbackConfigs (reliably set by all interaction paths)
+   * rather than activeFeedbackConfig (which was not always synced).
+   */
+  public getInlineFeedbackConfig(b: OptionBindings, i: number): FeedbackProps | null {
+    const key = this.keyOf(b.option, i);
+    const cfg = this.feedbackConfigs[key];
+    if (cfg?.showFeedback) return cfg;
+
+    // Also try by optionId directly (some paths store by optionId number)
+    const optId = b?.option?.optionId;
+    if (optId != null) {
+      const cfgById = this.feedbackConfigs[String(optId)] ?? this.feedbackConfigs[optId];
+      if (cfgById?.showFeedback) return cfgById;
+    }
+
+    return null;
+  }
 
 
   private resolveCurrentQuestionIndex(): number {
@@ -3021,3 +3053,5 @@ export class SharedOptionComponent
     this.handleOptionClick(binding.option as any, binding.index);
   }
 }
+
+
