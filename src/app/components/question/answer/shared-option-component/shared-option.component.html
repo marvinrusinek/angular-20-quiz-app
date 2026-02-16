@@ -10,10 +10,7 @@
     @for (b of opts; let i = $index; track trackByOptionId(b, i)) {
     <app-option-item [b]="b" [i]="i" [type]="'single'" [form]="form" [shouldResetBackground]="shouldResetBackground"
       [feedbackConfig]="feedbackConfigs[keyOf(b.option, i)]" [sharedOptionConfig]="getSharedOptionConfig(b, i)"
-      [highlightedOptionIds]="highlightedOptionIds" [flashDisabledSet]="flashDisabledSet"
-      [forceDisableAll]="forceDisableAll" [timerExpiredForQuestion]="timerExpiredForQuestion"
-      [isLocked]="isLocked(b, i)" [currentQuestionIndex]="currentQuestionIndex"
-      [disabledOptionsPerQuestion]="disabledOptionsPerQuestion" (optionUI)="onOptionUI($event)" />
+      (optionUI)="onOptionUI($event)" />
 
     <!-- FEEDBACK: displayed below the last selected option -->
     @if (shouldShowFeedbackAfter(b, i)) {
@@ -33,10 +30,7 @@
     @for (b of opts; let i = $index; track trackByOptionId(b, i)) {
     <app-option-item [b]="b" [i]="i" [type]="'multiple'" [form]="form" [shouldResetBackground]="shouldResetBackground"
       [feedbackConfig]="feedbackConfigs[keyOf(b.option, i)]" [sharedOptionConfig]="getSharedOptionConfig(b, i)"
-      [highlightedOptionIds]="highlightedOptionIds" [flashDisabledSet]="flashDisabledSet"
-      [forceDisableAll]="forceDisableAll" [timerExpiredForQuestion]="timerExpiredForQuestion"
-      [isLocked]="isLocked(b, i)" [currentQuestionIndex]="currentQuestionIndex"
-      [disabledOptionsPerQuestion]="disabledOptionsPerQuestion" (optionUI)="onOptionUI($event)" />
+      (optionUI)="onOptionUI($event)" />
 
     <!-- FEEDBACK: displayed below the last selected option -->
     @if (shouldShowFeedbackAfter(b, i)) {
