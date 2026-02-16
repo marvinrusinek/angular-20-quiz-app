@@ -58,7 +58,8 @@ import { OptionBindingFactoryService } from '../../../../shared/services/options
     ReactiveFormsModule,
     MatIconModule,
     SharedOptionConfigDirective,
-    OptionItemComponent
+    OptionItemComponent,
+    FeedbackComponent
   ],
   templateUrl: './shared-option.component.html',
   styleUrls: ['../../quiz-question/quiz-question.component.scss'],
@@ -108,6 +109,7 @@ export class SharedOptionComponent
   feedbackBindings: FeedbackProps[] = [];
   currentFeedbackConfig!: FeedbackProps;
   feedbackConfigs: { [key: string]: FeedbackProps } = {};
+  activeFeedbackConfig: FeedbackProps | null = null;
   selectedOptions: Set<number> = new Set();
   clickedOptionIds: Set<number> = new Set();
   private readonly perQuestionHistory = new Set<number>();
@@ -503,6 +505,7 @@ export class SharedOptionComponent
               );
 
             this.feedbackConfigs = {};
+            this.activeFeedbackConfig = null;
 
             for (const b of this.optionBindings ?? []) {
               if (!b.option) continue;
@@ -522,6 +525,10 @@ export class SharedOptionComponent
                 correctMessage: freshFeedback,
                 idx: b.index
               };
+
+              if (this.feedbackConfigs[optId].showFeedback) {
+                this.activeFeedbackConfig = this.feedbackConfigs[optId];
+              }
             }
           }
         }
@@ -591,8 +598,10 @@ export class SharedOptionComponent
     ) {
       // Clear all disabled options - new question starts fresh
       this.disabledOptionsPerQuestion.clear();
+      this.activeFeedbackConfig = null;
+      this.feedbackConfigs = {};
       console.log(
-        '[ngOnChanges] Cleared disabledOptionsPerQuestion for new question'
+        '[ngOnChanges] Cleared disabledOptionsPerQuestion and feedback for new question'
       );
 
       this.disableRenderTrigger++;
@@ -2028,6 +2037,8 @@ export class SharedOptionComponent
       index
     );
     this.feedbackConfigs[optionId] = this.currentFeedbackConfig;
+    this.activeFeedbackConfig = this.currentFeedbackConfig;
+    this.cdRef.markForCheck();
 
     console.log('[Storing Feedback Config]', {
       optionId,
@@ -2785,6 +2796,8 @@ export class SharedOptionComponent
   public keyOf(o: Option, i: number): string {
     return this.optionService.keyOf(o, i);
   }
+
+
 
   private resolveCurrentQuestionIndex(): number {
     return Number(this.currentQuestionIndex) || 0;

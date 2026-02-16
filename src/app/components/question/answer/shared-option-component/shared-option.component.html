@@ -65,6 +65,13 @@
       }
     }
   </form>
+
+  <!-- FEEDBACK: displayed below all options -->
+  @if (activeFeedbackConfig) {
+    <div class="feedback-below-options" @correctAnswer>
+      <codelab-quiz-feedback [feedbackConfig]="activeFeedbackConfig" />
+    </div>
+  }
 } @else if (opts.length === 0) {
   <span>Options not ready&hellip;</span>
 }

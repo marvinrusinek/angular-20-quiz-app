@@ -9,7 +9,7 @@ import { OptionBindings } from '../../../../../shared/models/OptionBindings.mode
 import { FeedbackProps } from '../../../../../shared/models/FeedbackProps.model';
 import { HighlightOptionDirective } from '../../../../../directives/highlight-option.directive';
 import { SharedOptionConfigDirective } from '../../../../../directives/shared-option-config.directive';
-import { FeedbackComponent } from '../../feedback/feedback.component';
+
 import { correctAnswerAnim } from '../../../../../animations/animations';
 import { OptionService } from '../../../../../shared/services/options/view/option.service';
 import { SharedOptionConfig } from '../../../../../shared/models/SharedOptionConfig.model';
@@ -33,7 +33,7 @@ export interface OptionUIEvent {
     MatCheckboxModule,
     MatRadioModule,
     MatIconModule,
-    FeedbackComponent,
+
     HighlightOptionDirective,
     SharedOptionConfigDirective
   ],

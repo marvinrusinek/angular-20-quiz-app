@@ -33,15 +33,7 @@
     </mat-checkbox>
   }
 
-  @if (shouldShowFeedback()) {
-    <div
-      class="feedback-wrapper"
-      style="margin-top: 10px; padding-top: 5px;"
-      @correctAnswer
-    >
-      <codelab-quiz-feedback [feedbackConfig]="feedbackConfig" />
-    </div>
-  }
+
 </div>
 
 <ng-template #optionContent>

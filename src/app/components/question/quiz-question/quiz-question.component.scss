@@ -151,3 +151,14 @@ mat-icon {
   align-items: center !important;
   width: 100%;
 }
+
+/* ────────────────────────────────────────────────
+   FEEDBACK AREA (below all options)
+──────────────────────────────────────────────────*/
+.feedback-below-options {
+  margin-top: 12px;
+  margin-left: -15px;
+  width: 615px;
+  display: flex;
+  justify-content: center;
+}
