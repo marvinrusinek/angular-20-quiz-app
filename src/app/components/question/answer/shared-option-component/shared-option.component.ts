@@ -1113,6 +1113,11 @@ export class SharedOptionComponent
     const currentSelections = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
     const isActuallySelected = currentSelections.some(s => s.optionId === b.option.optionId);
 
+    // DEBUG: trace for Option 1 (assuming index 1 for second option)
+    if (i === 1 && this.type === 'multiple') {
+      console.log(`[SOC buildConfig i=${i}] optId=${b.option.optionId}, qIndex=${qIndex}, isActuallySelected=${isActuallySelected}, serviceHas=${currentSelections.length}`);
+    }
+
     // Also check if we're on the correct question (prevent Q2 state showing on Q3)
     const isOnCorrectQuestion = this.lastProcessedQuestionIndex === qIndex;
 
