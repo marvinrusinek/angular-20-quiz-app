@@ -1500,7 +1500,7 @@ export class SharedOptionComponent
 
   public computeDisabledState(option: Option, index: number): boolean {
     const optionId = option.optionId;
-    const qIndex = this.quizService.currentQuestionIndex ?? 0;
+    const qIndex = this.currentQuestionIndex;
 
     const disabledSet = this.disabledOptionsPerQuestion.get(qIndex);
     if (disabledSet && typeof optionId === 'number' && disabledSet.has(optionId)) {
@@ -2802,7 +2802,31 @@ export class SharedOptionComponent
 
     for (const binding of this.optionBindings) {
       if (binding && binding.option) {
+        // 1. Calculate Disabled State
         binding.disabled = this.computeDisabledState(binding.option, binding.index);
+
+        // 2. Prepare context for OptionService
+        // Need isLocked(binding, index).
+        const qIndex = this.currentQuestionIndex;
+        const isLocked = this.optionLockService.isLocked(binding, binding.index, qIndex);
+
+        // 3. Calculate Visual State
+        binding.cssClasses = this.optionService.getOptionClasses(
+          binding,
+          this.highlightedOptionIds,
+          this.flashDisabledSet,
+          isLocked,
+          this.timerExpiredForQuestion
+        );
+
+        binding.optionIcon = this.optionService.getOptionIcon(binding.option, binding.index);
+
+        binding.optionCursor = this.optionService.getOptionCursor(
+          binding,
+          binding.index,
+          binding.disabled,
+          this.timerExpiredForQuestion
+        );
       }
     }
     this.cdRef.markForCheck();
