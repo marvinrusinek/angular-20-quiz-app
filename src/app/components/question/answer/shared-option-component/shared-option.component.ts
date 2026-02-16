@@ -1599,6 +1599,10 @@ export class SharedOptionComponent
     this.lastFeedbackQuestionIndex = ctx.lastFeedbackQuestionIndex;
     this.lastSelectedOptionIndex = index;
 
+    // Force reference update for ALL bindings to trigger child OnPush CD for
+    // every option (needed for single-answer unselects and general state correctness)
+    this.optionBindings = this.optionBindings.map(b => ({ ...b }));
+
     // DEBUG: trace inline feedback state
     const optId = optionBinding?.option?.optionId;
     const key = this.keyOf(optionBinding.option, index);
@@ -3069,3 +3073,5 @@ export class SharedOptionComponent
     this.handleOptionClick(binding.option as any, binding.index);
   }
 }
+
+
