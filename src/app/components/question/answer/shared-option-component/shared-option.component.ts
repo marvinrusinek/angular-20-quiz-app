@@ -278,7 +278,7 @@ export class SharedOptionComponent
 
   private subscribeToTimerExpiration(): void {
     this.timerService.expired$.pipe(takeUntil(this.destroy$)).subscribe(() => {
-      console.log('[SOC] Timer expired - setting timerExpiredForQuestion = true');
+
       this.timerExpiredForQuestion = true;
       const question = this.currentQuestion
         || this.config?.currentQuestion
@@ -336,7 +336,7 @@ export class SharedOptionComponent
       setTimeout(() => {
         // If options are now ready, try to initialize them
         if (this.optionsToDisplay?.length && !this.optionBindings?.length) {
-          console.log(`[SOC] 🔄 Fallback retry ${attempt}: Options arrived, generating bindings`);
+
           this.generateOptionBindings();
           this.cdRef.detectChanges();  // force immediate update for OnPush
           return;
@@ -345,7 +345,7 @@ export class SharedOptionComponent
         // If we have options and bindings but display flags aren't set, fix them
         if (this.optionsToDisplay?.length && this.optionBindings?.length) {
           if (!this.showOptions || !this.renderReady) {
-            console.log(`[SOC] Fallback retry ${attempt}: Fixing display flags`);
+
             this.showOptions = true;
             this.renderReady = true;
             this.optionsReady = true;
@@ -441,7 +441,7 @@ export class SharedOptionComponent
         // Use lastProcessedQuestionIndex (internal tracker) instead of @Input currentQuestionIndex
         // because the @Input might not have been updated yet when this subscription fires
         if (this.lastProcessedQuestionIndex !== idx) {
-          console.log(`[SOC] Question changed from ${this.lastProcessedQuestionIndex} to ${idx} - RESETTING STATE`);
+
           this.resetStateForNewQuestion();
 
           // Clear highlighting state
@@ -3027,7 +3027,7 @@ export class SharedOptionComponent
       const event = ev.nativeEvent as MouseEvent;
 
       if (this.isDisabled(binding, index)) {
-        console.log('[SOC] onOptionInteraction: Option is disabled, blocking click:', binding.option?.optionId);
+
         event.preventDefault();
         event.stopPropagation();
         return;
