@@ -1204,9 +1204,25 @@ export class SharedOptionComponent
       this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
       this.emitExplanation(activeQuestionIndex);
     } else {
-      console.log(`[SharedOptionComponent] Multi-mode click: keeping mode='question' for Q${activeQuestionIndex + 1} until completion.`);
-    }
+      console.log(`[SharedOptionComponent] Multi-mode click: checking completion for Q${activeQuestionIndex + 1}`);
 
+      // Check if all correct options are now selected
+      setTimeout(() => {
+        const qIndex = activeQuestionIndex;
+        const selected = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
+        const selectedIds = new Set(selected.map(s => s.optionId));
+
+        const correctOptions = (this.optionsToDisplay ?? []).filter(o => o.correct === true);
+        const allCorrectSelected = correctOptions.length > 0 &&
+          correctOptions.every(o => selectedIds.has(o.optionId));
+
+        if (allCorrectSelected) {
+          console.log(`[SharedOptionComponent] All correct selected for Q${qIndex + 1} — emitting explanation`);
+          this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
+          this.emitExplanation(qIndex);
+        }
+      }, 0); // setTimeout(0) ensures addOption() in QQC has committed to the service first
+    }
 
     const enrichedOption: SelectedOption = {
       ...binding.option,
