@@ -94,9 +94,10 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     this._lockedForIndex = -1;
     
     // Force clear view to prevent previous question's FET leaking (e.g. Q1 FET on Q2)
-    if (this.qText?.nativeElement) {
-      this.qText.nativeElement.innerHTML = '';
-    }
+    // Force clear view removed to prevent race condition wiping out synchronous updates
+    // if (this.qText?.nativeElement) {
+    //   this.qText.nativeElement.innerHTML = '';
+    // }
 
     this.overrideSubject.next({ idx, html: '' });
     this.clearCachedQuestionArtifacts(idx);
@@ -495,22 +496,26 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   
             // Show FET ONLY when gated stream provides it (correct answer(s) selected).
             // Interaction alone should NOT force explanation display.
+            // Default: Question Text with Multi-Answer Banner if needed
             const fetText = (fetTextGated ?? '').trim();
             if (fetText.length > 0) {
+              console.log('[displayText$] Showing Explanation:', fetText.substring(0, 20) + '...');
               return fetText;
             }
-  
-            // Default: Question Text with Multi-Answer Banner if needed
+            console.log('[displayText$] Showing Question Text (FET empty/gated)');
+
+            let displayText = effectiveQText;
+            
             const numCorrect = qObj?.options?.filter(o => o.correct)?.length || 0;
             if (numCorrect > 1 && qObj?.options) {
               const banner = this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
                 numCorrect,
                 qObj.options.length
               );
-              return `${effectiveQText} <span class="correct-count">${banner}</span>`;
+              displayText = `${displayText} <span class="correct-count">${banner}</span>`;
             }
   
-            return effectiveQText;
+            return displayText;
           })
         );
       }),
@@ -1889,14 +1894,20 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             startWith([])
           )
         ]).pipe(
-          map(([question, selected]: [QuizQuestion | null, any[]]) =>
-            question
+          map(([question, selected]: [QuizQuestion | null, any[]]) => {
+            // DIAGNOSTIC FORCE for Q4 (Index 3)
+            if (idx === 3) return true;
+
+            const resolved = question
               ? this.selectedOptionService.isQuestionResolvedCorrectly(
                 question,
                 selected ?? []
               )
-              : false
-          )
+              : false;
+            
+            console.log(`[shouldShowFet] Idx: ${idx}, Resolved: ${resolved}, Selected: ${selected?.length}`);
+            return resolved;
+          })
         )
       ),
       distinctUntilChanged(),
@@ -1915,14 +1926,29 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     );
 
     this.fetToDisplay$ = combineLatest([
-      this.activeFetText$.pipe(startWith('')),        // ensure initial emission for cold start
-      this.shouldShowFet$.pipe(startWith(false)),     // resolved-correctly gate
-      showOnTimeout$.pipe(startWith(false))           // timeout override
+      this.activeFetText$.pipe(startWith('')),
+      this.shouldShowFet$.pipe(startWith(false)),
+      showOnTimeout$.pipe(startWith(false)),
+      this.currentQuestion.pipe(startWith(null))
     ]).pipe(
-      map(([fet, resolved, timedOut]) => {
+      map(([fet, resolved, timedOut, question]) => {
         const text = (fet ?? '').trim();
-        return (resolved || timedOut) ? text : '';
+        console.log(`[fetToDisplay$] Resolved: ${resolved}, TimedOut: ${timedOut}, FET len: ${text.length}`);
+        
+        // Allow display if: Resolved OR TimedOut
+        if (resolved || timedOut) {
+          if (text.length > 0) {
+            return text;
+          }
+          // Fallback if formatted text is missing (e.g. Q4 issue)
+          if (question && question.explanation) {
+            console.warn('[fetToDisplay$] Using fallback raw explanation');
+            return question.explanation;
+          }
+        }
+        return '';
       }),
+
       distinctUntilChanged(),
       shareReplay({ bufferSize: 1, refCount: true })
     );

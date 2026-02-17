@@ -74,7 +74,7 @@ export class FeedbackService {
   
     const status = this.selectedOptionService.getResolutionStatus(
       question,
-      selected,
+      selected as Option[] ?? [],
       strict
     );
   

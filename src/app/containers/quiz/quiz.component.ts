@@ -912,9 +912,14 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   }
 
   private initializeExplanationText(): void {
-    this.explanationTextService.explanationText$.subscribe((text: string | null) => {
-      this.explanationToDisplay = text || '';
-    });
+    this.explanationTextService.explanationText$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((text: string | null) => {
+        this.explanationToDisplay = text || '';
+        // Force change detection because this update comes from a service (child component action)
+        // and QuizComponent is OnPush. Without this, the bound input to QuizContentComponent won't update.
+        this.cdRef.markForCheck();
+      });
   }
 
   async ngAfterViewInit(): Promise<void> {

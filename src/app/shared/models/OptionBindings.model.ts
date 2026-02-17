@@ -30,4 +30,7 @@ export interface OptionBindings {
   disabled: boolean;
   ariaLabel: string;
   directiveInstance?: HighlightOptionDirective;
+  cssClasses?: { [key: string]: boolean };
+  optionIcon?: string;
+  optionCursor?: string;
 }

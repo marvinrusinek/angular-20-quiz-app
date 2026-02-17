@@ -99,6 +99,9 @@ export class OptionBindingFactoryService {
 
         ariaLabel: `${ariaPrefix} ${idx + 1}`,
         checked: selected,
+        cssClasses: {},
+        optionIcon: '',
+        optionCursor: 'default',
       } as OptionBindings);
     }
 

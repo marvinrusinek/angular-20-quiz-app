@@ -20,12 +20,18 @@ export class OptionUiContextBuilderService {
   fromSharedOptionComponent(src: any): OptionUiSyncContext {
     return {
       ...src,
+      // Explicitly bind methods that are on the prototype (spread doesn't copy them)
+      keyOf: (o: Option, i: number) => src.keyOf(o, i),
+      getActiveQuestionIndex: () => src.getActiveQuestionIndex(),
+      getQuestionAtDisplayIndex: (idx: number) => src.getQuestionAtDisplayIndex(idx),
+      emitExplanation: (idx: number) => src.emitExplanation(idx),
+
       toggleSelectedOption: (opt: any) =>
         src.optionVisualEffectsService.toggleSelectedOption(opt, src.selectedOptionMap),
-      
+
       onSelect: (binding: any, checked: boolean, questionIndex: number) => {
 
-      
+
         src.optionClicked.emit({
           option: {
             ...binding.option,

@@ -584,8 +584,11 @@ export class SelectedOptionService {
 
     if (correctIds.length === 0) return false;
 
+    // Convert Set<number> to Set<string> for robust comparison
+    const selectedStrings = new Set(Array.from(selectedOptionIds).map(id => String(id)));
+
     for (const id of correctIds) {
-      if (!selectedOptionIds.has(id)) {
+      if (!selectedStrings.has(String(id))) {
         return false;
       }
     }
@@ -1189,6 +1192,7 @@ export class SelectedOptionService {
       idx,
       selectedOption
     );
+
     if (canonicalSelected?.optionId == null) {
       console.warn(
         '[updateSelectionState] Unable to resolve canonical optionId',
@@ -1535,6 +1539,15 @@ export class SelectedOptionService {
     const parseFallbackNumber = (): number | null => {
       const rawNumeric = toFiniteNumber(rawId);
       if (rawNumeric !== null) {
+        // Detect Synthetic IDs: (QuestionIndex + 1) * 100 + (OptionIndex + 1)
+        // If rawNumeric looks synthetic for THIS question, treat it as null/invalid
+        // to force downstream logic (matchOptionFromSource) to fallback to Text Matching.
+        if (rawNumeric > 100) {
+            const syntheticQIdx = Math.floor(rawNumeric / 100) - 1;
+            if (syntheticQIdx === questionIndex) {
+                 return null;
+            }
+        }
         return rawNumeric;
       }
 
@@ -2353,46 +2366,61 @@ export class SelectedOptionService {
   ): boolean {
     if (!question || !Array.isArray(question.options)) return false;
 
-    const selectedIds = new Set<number>(
-      (selected ?? [])
-        .map(o => o.optionId)
-        .filter((id): id is number => typeof id === 'number')
-    );
+    // Verify using 'correct' boolean flag on the selected objects directly.
+    // This avoids all ID mismatch issues (string vs number vs undefined).
+    
+    // 1. Must have selected at least one option
+    if (!selected || selected.length === 0) return false;
 
-    if (selectedIds.size === 0) return false;
+    // 2. Identify total expected correct options
+    const totalCorrect = question.options.filter(o => o.correct === true).length;
+    if (totalCorrect === 0) return false;
 
-    // Get correct option IDs
-    const correctIds = question.options
-      .filter(o => o.correct === true)
-      .map(o => o.optionId)
-      .filter((id): id is number => typeof id === 'number');
+    // 3. Count how many of the SELECTED options are actually correct.
+    // robust verification by looking up in the source 'question.options'
+    const selectedCorrectCount = selected.filter(sel => {
+        // A. Trusted flag (if available)
+        if (sel.correct === true) return true;
 
-    if (correctIds.length === 0) return false;
+        const selIdStr = String(sel.optionId);
 
-    // Infer question type from data if not explicitly set
-    const isMultipleAnswer =
-      question.type === QuestionType.MultipleAnswer ||
-      correctIds.length > 1;
+        // B. ID Match
+        const matchById = question.options.find(o => 
+           (o.optionId !== undefined && o.optionId !== null) && String(o.optionId) === selIdStr
+        );
+        if (matchById) return !!matchById.correct;
 
-    // SINGLE-ANSWER: complete after one selection
-    if (!isMultipleAnswer) {
-      return selectedIds.size === 1;
-    }
+        // C. Index Fallback (for quizzes without IDs)
+        // Assume optionId is 1-based index
+        const numericId = Number(sel.optionId);
+        if (Number.isInteger(numericId)) {
+             const index = numericId - 1;
+             if (index >= 0 && index < question.options.length) {
+                // Only use index if the target option doesn't have an explicit conflicting ID
+                const target = question.options[index];
+                if (target.optionId === undefined || target.optionId === null) {
+                    return !!target.correct;
+                }
+             }
+        }
+        return false;
+    }).length;
 
-    // MULTIPLE-ANSWER: complete only when ALL correct options are selected
-    return correctIds.every(id => selectedIds.has(id));
+    const selectedIncorrectCount = selected.length - selectedCorrectCount;
+
+    return selectedCorrectCount === totalCorrect && selectedIncorrectCount === 0;
   }
 
   public isQuestionResolvedCorrectly(
     question: QuizQuestion,
     selected: Array<SelectedOption | Option> | null
   ): boolean {
-    return this.getResolutionStatus(question, selected, false).resolved;
+    return this.getResolutionStatus(question, selected as Option[], false).resolved;
   }
 
   public getResolutionStatus(
     question: QuizQuestion,
-    selected: Array<SelectedOption | Option> | null,
+    selected: Option[],
     strict: boolean = false
   ): {
     resolved: boolean;
@@ -2401,7 +2429,7 @@ export class SelectedOptionService {
     incorrectSelected: number;
     remainingCorrect: number;
   } {
-    if (!question || !Array.isArray(question.options)) {
+    if (!question || !question.options) {
       return {
         resolved: false,
         correctTotal: 0,
@@ -2411,44 +2439,56 @@ export class SelectedOptionService {
       };
     }
 
-    const normalizeText = (value: unknown): string =>
-      typeof value === 'string'
-        ? value.trim().toLowerCase().replace(/\s+/g, ' ')
-        : '';
-
-    const correctOptions = (question.options ?? []).filter(o => o.correct);
-  
-    const correctIds = new Set(
-      correctOptions.map(o => String((o as any).optionId))
-    );
-  
-    const correctText = new Set(
-      correctOptions.map(o => normalizeText((o as any).text))
-    );
-  
-    const selections = (selected ?? []).filter(
-      (o: any) => o && o.selected !== false
-    );
-  
+    const correctTotal = question.options.filter(o => this.coerceToBoolean(o.correct)).length;
     let correctSelected = 0;
     let incorrectSelected = 0;
 
-    for (const sel of selections) {
-      const selId = String((sel as any).optionId ?? '');
-      const selText = normalizeText((sel as any).text);
-      const isCorrect =
-      (sel as any)?.correct === true ||
-        (selId && correctIds.has(selId)) ||
-        (selText && correctText.has(selText));
+    const seenIds = new Set<string>();
 
-      if (isCorrect) {
-        correctSelected++;
-      } else {
-        incorrectSelected++;
-      }
+    for (const sel of (selected ?? [])) {
+       const selIdStr = String(sel.optionId);
+       if (seenIds.has(selIdStr)) continue;
+       seenIds.add(selIdStr);
+
+       let isCorrect = false;
+
+       // A. Trusted flag
+       if (this.coerceToBoolean(sel.correct)) {
+         isCorrect = true;
+       } else {
+         // B. Lookup by ID
+         const matchById = question.options.find(o =>
+             (o.optionId !== undefined && o.optionId !== null) && String(o.optionId) === selIdStr
+         );
+
+         if (matchById) {
+           isCorrect = this.coerceToBoolean(matchById.correct);
+         } else {
+            // C. Match by Text (Robust against Shuffling + Missing IDs)
+            const matchByText = question.options.find(o => 
+                o.text && sel.text && 
+                o.text.trim().toLowerCase() === sel.text.trim().toLowerCase()
+            );
+
+            if (matchByText) {
+                isCorrect = this.coerceToBoolean(matchByText.correct);
+            } else {
+                // D. Lookup by Index (Relaxed guard & Modulo Fix)
+                const numericId = Number(sel.optionId);
+                if (Number.isInteger(numericId)) {
+                   const index = (numericId % 100) - 1;
+                   if (index >= 0 && index < question.options.length) {
+                       const target = question.options[index];
+                       isCorrect = this.coerceToBoolean(target.correct);
+                   }
+                }
+            }
+         }
+       }
+
+       if (isCorrect) correctSelected++;
+       else incorrectSelected++;
     }
-  
-    const correctTotal = correctIds.size;
   
     const remainingCorrect = Math.max(correctTotal - correctSelected, 0);
   

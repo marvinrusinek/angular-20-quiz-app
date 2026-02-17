@@ -1,6 +1,6 @@
 ﻿import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef,
-  Component, EventEmitter, HostListener, Input, NgZone, OnChanges, OnDestroy, OnInit,
+  Component, DoCheck, EventEmitter, HostListener, Input, NgZone, OnChanges, OnDestroy, OnInit,
   Output, QueryList, SimpleChanges, ViewChildren
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -67,7 +67,7 @@ import { OptionBindingFactoryService } from '../../../../shared/services/options
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SharedOptionComponent
-  implements OnInit, OnChanges, OnDestroy, AfterViewInit {
+  implements OnInit, OnChanges, DoCheck, OnDestroy, AfterViewInit {
 
 
   @Output() optionClicked =
@@ -278,7 +278,7 @@ export class SharedOptionComponent
 
   private subscribeToTimerExpiration(): void {
     this.timerService.expired$.pipe(takeUntil(this.destroy$)).subscribe(() => {
-      console.log('[SOC] Timer expired - setting timerExpiredForQuestion = true');
+
       this.timerExpiredForQuestion = true;
       const question = this.currentQuestion
         || this.config?.currentQuestion
@@ -336,7 +336,7 @@ export class SharedOptionComponent
       setTimeout(() => {
         // If options are now ready, try to initialize them
         if (this.optionsToDisplay?.length && !this.optionBindings?.length) {
-          console.log(`[SOC] 🔄 Fallback retry ${attempt}: Options arrived, generating bindings`);
+
           this.generateOptionBindings();
           this.cdRef.detectChanges();  // force immediate update for OnPush
           return;
@@ -345,7 +345,7 @@ export class SharedOptionComponent
         // If we have options and bindings but display flags aren't set, fix them
         if (this.optionsToDisplay?.length && this.optionBindings?.length) {
           if (!this.showOptions || !this.renderReady) {
-            console.log(`[SOC] Fallback retry ${attempt}: Fixing display flags`);
+
             this.showOptions = true;
             this.renderReady = true;
             this.optionsReady = true;
@@ -441,7 +441,7 @@ export class SharedOptionComponent
         // Use lastProcessedQuestionIndex (internal tracker) instead of @Input currentQuestionIndex
         // because the @Input might not have been updated yet when this subscription fires
         if (this.lastProcessedQuestionIndex !== idx) {
-          console.log(`[SOC] Question changed from ${this.lastProcessedQuestionIndex} to ${idx} - RESETTING STATE`);
+
           this.resetStateForNewQuestion();
 
           // Clear highlighting state
@@ -784,7 +784,7 @@ export class SharedOptionComponent
     // Handle TYPE changes explicitly
     if (changes['type']) {
       this.type = changes['type'].currentValue;
-      console.log(`[SOC] 🔄 Type changed to: ${this.type}`);
+
     }
 
     // UI cleanup can happen on both question and options changes
@@ -1104,14 +1104,22 @@ export class SharedOptionComponent
     this.updateHighlighting();
   }
 
+  ngDoCheck(): void {
+    this.updateBindingSnapshots();
+  }
+
   buildSharedOptionConfig(b: OptionBindings, i: number): SharedOptionConfig {
-    // Verify selection state from service, not from potentially stale binding
-    // Use lastProcessedQuestionIndex which is synchronized with Input in ngOnChanges.
-    // Preferring quizService.currentQuestionIndex caused a race condition where we fetched 
-    // selections for the PREVIOUS question because the service hadn't updated yet.
-    const qIndex = this.lastProcessedQuestionIndex ?? this.resolveCurrentQuestionIndex();
+    // Verify selection state from service.
+    // We use resolveCurrentQuestionIndex() to ensure we are checking the correct question's state.
+    // relying on lastProcessedQuestionIndex caused synchronization issues.
+    const qIndex = this.resolveCurrentQuestionIndex();
     const currentSelections = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
     const isActuallySelected = currentSelections.some(s => s.optionId === b.option.optionId);
+
+    // DEBUG: trace for Option 1 (assuming index 1 for second option)
+    if (i === 1 && this.type === 'multiple') {
+
+    }
 
     // Also check if we're on the correct question (prevent Q2 state showing on Q3)
     const isOnCorrectQuestion = this.lastProcessedQuestionIndex === qIndex;
@@ -1186,14 +1194,15 @@ export class SharedOptionComponent
     // Mark that user has interacted with this question this session
     // This is required for the displayText$ pipeline's shouldShowFet logic
     this.quizStateService.markUserInteracted(activeQuestionIndex);
-    console.log(`[SOC] Marked user interaction for Q${activeQuestionIndex + 1}`);
+
 
     // Set display mode to 'explanation' - critical for FET display!
     // The displayText$ pipeline checks: 
     // shouldShowFet = hasInteractedThisSession && currentMode === 'explanation'
     // Without this call, currentMode stays 'question' and FET never displays.
     this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
-    console.log(`[SOC] Set display mode to 'explanation' for Q${activeQuestionIndex + 1}`);
+    this.emitExplanation(activeQuestionIndex);
+
 
     const enrichedOption: SelectedOption = {
       ...binding.option,
@@ -1229,8 +1238,7 @@ export class SharedOptionComponent
       this.quizService.answers = currentAnswers;
       this.quizService.updateAnswersForOption(enrichedOption);
 
-      console.log(`[SOC] Updated Answers for Q${activeQuestionIndex}. 
-        Type=${this.type}, Answers=${currentAnswers.length}`);
+
     }, 0);
   }
 
@@ -1262,7 +1270,7 @@ export class SharedOptionComponent
     this.currentQuestion = null;
     this.optionsToDisplay = [];
 
-    console.info('[State Reset Completed]');
+
 
     // Guard: Config or options missing
     if (!this.config || !this.config.optionsToDisplay?.length) {
@@ -1304,18 +1312,38 @@ export class SharedOptionComponent
     // Rehydrate selection state from Service (persistence)
     // This ensures that when navigating back, the options show as selected
     // (Green/Red).
-    // Use quizService.currentQuestionIndex (authoritative) instead of 
-    // resolveCurrentQuestionIndex() which may return stale @Input value
-    const qIndex = this.quizService.currentQuestionIndex ?? this.resolveCurrentQuestionIndex();
+    // Resolve index via content matching to avoid race conditions between Service and Input
+    // We search the QuizService for the question that actually contains these options.
+    let qIndex = this.quizService.currentQuestionIndex ?? 0;
     const inputIndex = this.resolveCurrentQuestionIndex();
 
-    // Mismatch Guard: If service index differs from input, use service index
-    // This prevents Q2 selections from being applied to Q3
-    if (qIndex !== inputIndex) {
-      console.warn(`[initializeFromConfig] INDEX MISMATCH: Service says ${qIndex}, Input says ${inputIndex}. Using ${qIndex}.`);
+    if (this.quizService.questions && this.optionsToDisplay?.length > 0) {
+      const firstOptId = this.optionsToDisplay[0].optionId;
+      const matchIdx = this.quizService.questions.findIndex((q: QuizQuestion) =>
+        q.options?.some((o: Option) => o.optionId === firstOptId)
+      );
+
+      if (matchIdx !== -1) {
+        this.resolvedQuestionIndex = matchIdx;
+        qIndex = matchIdx; // Found authentic index via content match
+        if (qIndex !== inputIndex && Number.isFinite(inputIndex)) {
+
+        }
+      } else {
+        // No match found? Fallback to input index if valid
+        if (Number.isFinite(inputIndex)) {
+          this.resolvedQuestionIndex = inputIndex;
+          qIndex = inputIndex;
+        }
+      }
     }
 
-    console.log(`[initializeFromConfig] Rehydrating for Q${qIndex + 1} (service: ${this.quizService.currentQuestionIndex}, input: ${inputIndex})`);
+    // Mismatch Guard logging only
+    if (qIndex !== inputIndex && Number.isFinite(inputIndex)) {
+      console.warn(`[initializeFromConfig] Index divergence noted: Service/Calculated says ${qIndex}, Input says ${inputIndex}. Using ${qIndex}.`);
+    }
+
+
 
     const saved = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex);
     if (saved?.length > 0) {
@@ -1335,10 +1363,12 @@ export class SharedOptionComponent
     }
 
     // Determine question type based on options, but Respect explicit input first!
-    if (this.type !== 'multiple') {
-      this.type = this.determineQuestionType(this.currentQuestion);
+    // Use authoritative question from service to ensure 'correct' flags are present for type determination
+    const authoritativeQuestion = this.quizService.questions[qIndex] || this.currentQuestion;
+    if (this.type !== 'multiple' && authoritativeQuestion) {
+      this.type = this.determineQuestionType(authoritativeQuestion);
     } else {
-      console.log('[SOC] Preserving type="multiple" from Input');
+
     }
 
     // Initialize bindings and feedback maps
@@ -1404,25 +1434,25 @@ export class SharedOptionComponent
         // We can't easily track "what IDs generated the last FET", but we do know
         // that if we just updated bindings (incomingIds !== existingIds check above),
         // we likely need to refresh the FET.
-        
+
         // However, the `if (incomingIds !== existingIds)` block (lines 1350-1368) handles the creation.
         // If we fell into the `else` block (lines 1369-1379), IDs might match but object references changed.
         // Let's rely on the explicit change of IDs to be safe.
-        
+
         // Re-calculate previous IDs for this check scope
         const prevIds = this.optionBindings
-            ?.map(b => b.option.optionId)
-            .join(',') || '';
-            
-         // If we just rebuilt bindings, incomingIds won't match prevIds (because prevIds is from BEFORE the rebuild).
-         // Actually, `this.optionBindings` is ALREADY updated by lines 1351 or 1374.
-         // So we can't compare against "old" bindings here easily without storing them.
-         
-         // BUT, we know `setOptionBindingsIfChanged` is called when `optionsToDisplay` updates.
-         // A simple approach: Always regenerate if active. `emitExplanation` is relatively cheap and idempotent-safe.
-         // To avoid infinite loops, ensure we don't spin.
-         
-        console.log(`[SOC] Option bindings checked for Q${currentIdx + 1} with active explanation - refreshing FET.`);
+          ?.map(b => b.option.optionId)
+          .join(',') || '';
+
+        // If we just rebuilt bindings, incomingIds won't match prevIds (because prevIds is from BEFORE the rebuild).
+        // Actually, `this.optionBindings` is ALREADY updated by lines 1351 or 1374.
+        // So we can't compare against "old" bindings here easily without storing them.
+
+        // BUT, we know `setOptionBindingsIfChanged` is called when `optionsToDisplay` updates.
+        // A simple approach: Always regenerate if active. `emitExplanation` is relatively cheap and idempotent-safe.
+        // To avoid infinite loops, ensure we don't spin.
+
+
         this.deferHighlightUpdate(() => this.emitExplanation(currentIdx));
       }
     }
@@ -1468,20 +1498,16 @@ export class SharedOptionComponent
       if (this.forceDisableAll) return true;
       return false;
     }
+    return true;
+  }
 
-    // Prevent reselection: disable correct options that are already selected in
-    // multiple-answer questions
-    const isMultipleAnswer = this.isMultiMode;  // use robust getter
-    if (isMultipleAnswer && binding.isSelected && option.correct) {
-      console.log(`[SOC] Option ${optionId} is a selected correct answer - 
-        disabling to prevent reselection`);
-      return true;
-    }
 
-    // Check persistent disabled state - this is the only source of truth
+  public computeDisabledState(option: Option, index: number): boolean {
+    const optionId = option.optionId;
+    const qIndex = this.currentQuestionIndex;
+
     const disabledSet = this.disabledOptionsPerQuestion.get(qIndex);
     if (disabledSet && typeof optionId === 'number' && disabledSet.has(optionId)) {
-      console.log(`[SOC] 🚫 Option ${optionId} DISABLED by persistent set for Q${qIndex + 1}`);
       return true;
     }
 
@@ -1493,8 +1519,6 @@ export class SharedOptionComponent
         return true;
       }
     } catch { }
-
-    if (binding.disabled) return true;
 
     try {
       if (
@@ -1509,6 +1533,13 @@ export class SharedOptionComponent
       return true;
 
     return optionId != null && this.flashDisabledSet.has(optionId);
+  }
+
+  // Wrapper for template compatibility or legacy calls
+  public isDisabled(binding: OptionBindings, index: number): boolean {
+    // Return the pre-computed state from the binding snapshot if available/trusted,
+    // otherwise re-compute for robust click guarding.
+    return this.computeDisabledState(binding.option, index);
   }
 
   private resolveQuestionType(): QuestionType {
@@ -1553,7 +1584,7 @@ export class SharedOptionComponent
   public onOptionInteraction(binding: OptionBindings, index: number, event: MouseEvent): void {
     // Guard: Skip if this option is disabled (check persistent Map)
     if (this.isDisabled(binding, index)) {
-      console.log('[SOC] onOptionInteraction: Option is disabled, blocking click:', binding.option?.optionId);
+
       event.preventDefault();
       event.stopPropagation();
       return;
@@ -1585,6 +1616,52 @@ export class SharedOptionComponent
     const ctx = this.buildOptionUiSyncContext();
 
     this.optionUiSyncService.updateOptionAndUI(optionBinding, index, event, ctx);
+
+    // Sync ALL feedback state back from ctx.
+    // resetFeedbackAnchorIfQuestionChanged may REPLACE ctx.feedbackConfigs and
+    // ctx.showFeedbackForOption with new empty objects, disconnecting from the
+    // component's references. We must sync EVERYTHING back.
+    // IMPT: We strictly clone the objects to force OnPush change detection to
+    // notice the update (in-place mutation of the same ref might be ignored).
+    this.feedbackConfigs = { ...ctx.feedbackConfigs };
+    this.showFeedbackForOption = { ...ctx.showFeedbackForOption };
+    this.showFeedback = ctx.showFeedback;
+    this.lastFeedbackOptionId = ctx.lastFeedbackOptionId;
+    this.lastFeedbackQuestionIndex = ctx.lastFeedbackQuestionIndex;
+    this.lastSelectedOptionIndex = index;
+
+    // FORCE SYNC FROM SERVICE (Source of Truth)
+    const qIndex = this.resolveCurrentQuestionIndex();
+    const selections = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) || [];
+    const selectionIds = new Set(selections.map(s => s.optionId));
+
+    this.optionBindings.forEach(b => {
+      const shouldBeSelected = selectionIds.has(b.option.optionId);
+      b.isSelected = shouldBeSelected;
+      if (b.option) {
+        b.option.selected = shouldBeSelected;
+        b.option.showIcon = shouldBeSelected;
+        b.option.highlight = shouldBeSelected;
+      }
+
+      if (shouldBeSelected) {
+        b.styleClass = b.isCorrect ? 'highlight-correct' : 'highlight-incorrect';
+      } else {
+        if (b.styleClass === 'highlight-correct' || b.styleClass === 'highlight-incorrect') {
+          b.styleClass = '';
+        }
+      }
+    });
+
+    // Force reference update for ALL bindings to trigger child OnPush CD for
+    // every option (needed for single-answer unselects and general state correctness)
+    this.optionBindings = this.optionBindings.map(b => ({ ...b }));
+
+    // DEBUG: trace inline feedback state
+    const optId = optionBinding?.option?.optionId;
+    const key = this.keyOf(optionBinding.option, index);
+    const cfgKeys = Object.keys(this.feedbackConfigs);
+    const hasCfg = !!this.feedbackConfigs[key];
 
     this.cdRef.detectChanges();
   }
@@ -1618,11 +1695,26 @@ export class SharedOptionComponent
   }
 
   private emitExplanation(questionIndex: number): void {
-    const displayIndex = this.resolveDisplayIndex(questionIndex);
-    const explanationText = this.resolveExplanationText(displayIndex);
-    this.pendingExplanationIndex = displayIndex;
-    this.applyExplanationText(explanationText, displayIndex);
-    this.scheduleExplanationVerification(displayIndex, explanationText);
+    // Resolve explanation using the robust helper that ensures proper formatting
+    // and handles visual index mapping for both shuffled and multiple-answer scenarios
+    const explanationText = this.resolveExplanationText(questionIndex);
+
+    // BRUTE FORCE: Clear locks and pulse stream to bypass distinctUntilChanged/duplicate checks
+    // This handles the "Back and Forth" requirement reported by user
+    try {
+      (this.explanationTextService as any)._fetLocked = false;
+      this.explanationTextService.unlockExplanation();
+      this.explanationTextService.explanationText$.next('');
+    } catch (e) { console.warn('[SOC] Failed to unlock/pulse FET', e); }
+
+    // Force display flags to TRUE to ensure visibility
+    this.explanationTextService.setIsExplanationTextDisplayed(true);
+    this.explanationTextService.shouldDisplayExplanationSource.next(true);
+
+    // Use canonical index for logic tracking
+    this.pendingExplanationIndex = questionIndex;
+    this.applyExplanationText(explanationText, questionIndex);
+    this.scheduleExplanationVerification(questionIndex, explanationText);
   }
 
   private applyExplanationText(
@@ -1738,7 +1830,7 @@ export class SharedOptionComponent
     // Falling back to service state first can pick a stale index during shuffle hydration
     // and misalign Q1 explanation numbering.
     const resolved =
-    explicit ??
+      explicit ??
       this.getActiveQuestionIndex() ??
       this.currentQuestionIndex ??
       this.resolvedQuestionIndex;
@@ -1800,8 +1892,8 @@ export class SharedOptionComponent
     const authQ = allCanonical.find(q => normalize(q.questionText) === currentQText) || this.currentQuestion;
 
     if (!authQ) {
-       console.warn(`[FET-SOC] Q${displayIndex + 1} | No auth question found. Using raw.`);
-       return (this.currentQuestion?.explanation || '').trim();
+      console.warn(`[FET-SOC] Q${displayIndex + 1} | No auth question found. Using raw.`);
+      return (this.currentQuestion?.explanation || '').trim();
     }
 
     // 3. Build sets of correct identifiers from the authoritative source
@@ -1834,12 +1926,12 @@ export class SharedOptionComponent
       .map((opt, i) => {
         const id = Number(opt.optionId);
         const text = normalize(opt.text);
-        const isCorrect = (!isNaN(id) && correctIds.has(id)) || 
-                          (text && correctTexts.has(text)) || 
-                          (opt.correct === true);
-        
+        const isCorrect = (!isNaN(id) && correctIds.has(id)) ||
+          (text && correctTexts.has(text)) ||
+          (opt.correct === true);
+
         if (isCorrect) {
-          console.log(`[FET-SOC] Q${displayIndex + 1} | Found Match: Option ${i + 1} (ID=${id}, Text="${opt.text?.slice(0, 20)}...")`);
+
         }
         return isCorrect ? i + 1 : null;
       })
@@ -2232,11 +2324,11 @@ export class SharedOptionComponent
       const oIdNum = Number(opt.optionId);
       const oId = !isNaN(oIdNum) ? oIdNum : (currentIndex + 1) * 100 + (i + 1);
       const oText = (opt.text ?? '').trim().toLowerCase();
-      
-      const isCorrect = opt.correct === true || 
-                        (opt as any).correct === "true" ||
-                        (!isNaN(oIdNum) && correctIds.has(oIdNum)) || 
-                        !!(oText && correctTexts.has(oText));
+
+      const isCorrect = opt.correct === true ||
+        (opt as any).correct === "true" ||
+        (!isNaN(oIdNum) && correctIds.has(oIdNum)) ||
+        !!(oText && correctTexts.has(oText));
 
       return {
         ...opt,
@@ -2261,7 +2353,7 @@ export class SharedOptionComponent
       onChange: (opt, idx) => this.handleOptionClick(opt, idx),
       // During migration, safest is to rely on rehydrate as the single truth:
       isSelected: () => false,
-      isDisabled: () => false
+      isDisabled: (opt, idx) => this.computeDisabledState(opt, idx)
     });
 
     // Apply persisted selection to bindings (bindings-only)
@@ -2672,13 +2764,13 @@ export class SharedOptionComponent
 
   public forceDisableAllOptions(): void {
     this.forceDisableAll = true;
+    // Update active flag explicitly if needed, but rely on snapshot for disabled
     for (const binding of this.optionBindings ?? []) {
-      binding.disabled = true;
-
       if (binding.option) {
         binding.option.active = false;
       }
     }
+    this.updateBindingSnapshots();
     for (const opt of this.optionsToDisplay ?? []) {
       if (opt) {
         opt.active = false;
@@ -2689,8 +2781,9 @@ export class SharedOptionComponent
 
   public clearForceDisableAllOptions(): void {
     this.forceDisableAll = false;
+    // Update active flag explicitly if needed, but rely on snapshot for disabled
     for (const binding of this.optionBindings ?? []) {
-      binding.disabled = false;
+      // binding.disabled = false; // handled by updateBindingSnapshots
 
       if (binding.option) {
         binding.option.active = true;
@@ -2706,6 +2799,41 @@ export class SharedOptionComponent
       this.selectedOptionService.unlockQuestion(qIndex);
     } catch { }
 
+    this.updateBindingSnapshots();
+  }
+
+  private updateBindingSnapshots(): void {
+    if (!this.optionBindings?.length) return;
+
+    for (const binding of this.optionBindings) {
+      if (binding && binding.option) {
+        // 1. Calculate Disabled State
+        binding.disabled = this.computeDisabledState(binding.option, binding.index);
+
+        // 2. Prepare context for OptionService
+        // Need isLocked(binding, index).
+        const qIndex = this.currentQuestionIndex;
+        const isLocked = this.optionLockService.isLocked(binding, binding.index, qIndex);
+
+        // 3. Calculate Visual State
+        binding.cssClasses = this.optionService.getOptionClasses(
+          binding,
+          this.highlightedOptionIds,
+          this.flashDisabledSet,
+          isLocked,
+          this.timerExpiredForQuestion
+        );
+
+        binding.optionIcon = this.optionService.getOptionIcon(binding.option, binding.index);
+
+        binding.optionCursor = this.optionService.getOptionCursor(
+          binding,
+          binding.index,
+          binding.disabled,
+          this.timerExpiredForQuestion
+        );
+      }
+    }
     this.cdRef.markForCheck();
   }
 
@@ -2776,20 +2904,7 @@ export class SharedOptionComponent
   }
 
   // Single place to decide disabled
-  public isDisabled(binding: OptionBindings, idx: number): boolean {
-    const qIndex = this.resolveCurrentQuestionIndex();
-    const locked = this.optionLockService.isLocked(binding, idx, qIndex);
 
-    return this.optionService.isDisabled(
-      binding,
-      idx,
-      this.disabledOptionsPerQuestion,
-      this.currentQuestionIndex,
-      this.forceDisableAll,
-      this.timerExpiredForQuestion,
-      locked
-    );
-  }
 
   // Use the same key shape everywhere (STRING so we don't lose non-numeric ids)
   // Stable per-row key: prefer numeric optionId; fallback to stableKey + index
@@ -2797,6 +2912,39 @@ export class SharedOptionComponent
     return this.optionService.keyOf(o, i);
   }
 
+  /**
+   * Determines if inline feedback should be shown after the option at display index i.
+   * Uses lastFeedbackOptionId which is reliably synced across all code paths.
+   */
+  public shouldShowFeedbackAfter(b: OptionBindings, i: number): boolean {
+    if (this.lastFeedbackOptionId < 0) return false;
+    if (!this.showFeedback) return false;
+
+    // Check if this option IS the last one that received feedback
+    const optId = b?.option?.optionId;
+    if (optId == null) return false;
+    return Number(optId) === Number(this.lastFeedbackOptionId);
+  }
+
+  /**
+   * Gets the feedback config to show inline below the last selected option.
+   * Derives from feedbackConfigs (reliably set by all interaction paths)
+   * rather than activeFeedbackConfig (which was not always synced).
+   */
+  public getInlineFeedbackConfig(b: OptionBindings, i: number): FeedbackProps | null {
+    const key = this.keyOf(b.option, i);
+    const cfg = this.feedbackConfigs[key];
+    if (cfg?.showFeedback) return cfg;
+
+    // Also try by optionId directly (some paths store by optionId number)
+    const optId = b?.option?.optionId;
+    if (optId != null) {
+      const cfgById = this.feedbackConfigs[String(optId)] ?? this.feedbackConfigs[optId];
+      if (cfgById?.showFeedback) return cfgById;
+    }
+
+    return null;
+  }
 
 
   private resolveCurrentQuestionIndex(): number {
@@ -2847,6 +2995,13 @@ export class SharedOptionComponent
   }
 
   public getActiveQuestionIndex(): number {
+    // Corrected Index from Content Match (Highest Reliability)
+    // This value is computed in initializeFromConfig by matching Option IDs to Questions,
+    // bypassing potential race conditions in Inputs or Service state.
+    if (Number.isFinite(this.resolvedQuestionIndex)) {
+      return this.resolvedQuestionIndex!;
+    }
+
     // Highest Priority: Local Input (most specific to this option instance)
     if (typeof this.questionIndex === 'number') {
       return this.questionIndex;
@@ -2895,6 +3050,9 @@ export class SharedOptionComponent
     if (ev.kind === 'change') {
       // Keep your existing “change → sync UI/form” path
       this.updateOptionAndUI(binding, index, ev.nativeEvent as MatCheckboxChange | MatRadioChange);
+      // Ensure explanation is emitted/generated for checkbox interactions too
+      const qIndex = this.getActiveQuestionIndex();
+      this.emitExplanation(qIndex);
       return;
     }
 
@@ -2903,7 +3061,7 @@ export class SharedOptionComponent
       const event = ev.nativeEvent as MouseEvent;
 
       if (this.isDisabled(binding, index)) {
-        console.log('[SOC] onOptionInteraction: Option is disabled, blocking click:', binding.option?.optionId);
+
         event.preventDefault();
         event.stopPropagation();
         return;
@@ -2967,18 +3125,20 @@ export class SharedOptionComponent
       (b, i, ev) => this.updateOptionAndUI(b, i, ev)
     );
 
-    // Sync back mutated state
+    // Sync back mutated state (non-feedback fields only).
+    // IMPORTANT: Do NOT sync feedback-related fields (feedbackConfigs,
+    // showFeedbackForOption, lastFeedbackOptionId, showFeedback,
+    // lastFeedbackQuestionIndex) from state here. The state object captured
+    // initial values BEFORE the callback ran. updateOptionAndUI (called via
+    // callback above) already synced the correct values from the
+    // OptionUiSyncContext, which may have REPLACED these object refs
+    // (e.g. resetFeedbackAnchorIfQuestionChanged replaces feedbackConfigs).
     this.optionBindings = state.optionBindings;
     this.disableRenderTrigger = state.disableRenderTrigger;
-    this.feedbackConfigs = state.feedbackConfigs;
-    this.showFeedbackForOption = state.showFeedbackForOption;
-    this.lastFeedbackOptionId = state.lastFeedbackOptionId;
-    this.lastFeedbackQuestionIndex = state.lastFeedbackQuestionIndex;
     this.lastClickedOptionId = state.lastClickedOptionId;
     this.lastClickTimestamp = state.lastClickTimestamp;
     this.hasUserClicked = state.hasUserClicked;
     this.freezeOptionBindings = state.freezeOptionBindings;
-    this.showFeedback = state.showFeedback;
 
     this.cdRef.detectChanges();
   }
@@ -3012,5 +3172,3 @@ export class SharedOptionComponent
     this.handleOptionClick(binding.option as any, binding.index);
   }
 }
-
-

@@ -50,18 +50,14 @@ export class OptionItemComponent {
   @Input() shouldResetBackground = false;
   @Input() feedbackConfig?: FeedbackProps;
   @Input() sharedOptionConfig!: SharedOptionConfig;
-  @Input() highlightedOptionIds: Set<number> = new Set();
-  @Input() flashDisabledSet: Set<number> = new Set();
-  @Input() forceDisableAll = false;
-  @Input() timerExpiredForQuestion = false;
-  @Input() isLocked = false;
-  @Input() currentQuestionIndex = -1;
-  @Input() disabledOptionsPerQuestion: Map<number, Set<number>> = new Map();
+
+  // inputs removed in favor of OptionBindings snapshot
+
 
   // ✅ ONE output
   @Output() optionUI = new EventEmitter<OptionUIEvent>();
 
-  constructor(private optionService: OptionService) {}
+  constructor(private optionService: OptionService) { }
 
   private get optionId(): number {
     return Number(this.b?.option?.optionId ?? -1);
@@ -76,38 +72,19 @@ export class OptionItemComponent {
   }
 
   getOptionIcon(): string {
-    return this.optionService.getOptionIcon(this.b.option, this.i);
+    return this.b.optionIcon || '';
   }
 
   getOptionClasses(): { [key: string]: boolean } {
-    return this.optionService.getOptionClasses(
-      this.b,
-      this.highlightedOptionIds,
-      this.flashDisabledSet,
-      this.isLocked,
-      this.timerExpiredForQuestion
-    );
+    return this.b.cssClasses || {};
   }
 
   getOptionCursor(): string {
-    return this.optionService.getOptionCursor(
-      this.b,
-      this.i,
-      this.isDisabled(),
-      this.timerExpiredForQuestion
-    );
+    return this.b.optionCursor || 'default';
   }
 
   isDisabled(): boolean {
-    return this.optionService.isDisabled(
-      this.b,
-      this.i,
-      this.disabledOptionsPerQuestion,
-      this.currentQuestionIndex,
-      this.forceDisableAll,
-      this.timerExpiredForQuestion,
-      this.isLocked
-    );
+    return !!this.b.disabled;
   }
 
   shouldShowIcon(): boolean {
