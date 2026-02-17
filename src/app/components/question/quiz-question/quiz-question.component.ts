@@ -3259,13 +3259,9 @@ export class QuizQuestionComponent extends BaseQuestion
     const correctOpts = canonicalOpts.filter((o: Option) => !!o.correct);
     const selectedOpts = canonicalOpts.filter((o: Option) => !!o.selected);
 
-    const keyOf = (o: Option): string | number => {
-      if (o?.optionId != null) return o.optionId;
-      if ((o as any)?.id != null) return (o as any).id;
-      const text = (o?.text ?? '').toString().trim().toLowerCase();
-      const value = (o?.value ?? '').toString().trim().toLowerCase();
-      return `${value}|${text}`;
-    };
+    // Use stable key logic from the service to ensure match
+    const keyOf = (o: Option): string =>
+      this.selectionMessageService.stableKey(o);
 
     const correctKeys = new Set(correctOpts.map((o: Option) => keyOf(o)));
     const selectedKeys = new Set(selectedOpts.map((o: Option) => keyOf(o)));
