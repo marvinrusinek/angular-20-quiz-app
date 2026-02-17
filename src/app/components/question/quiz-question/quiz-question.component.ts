@@ -2856,7 +2856,11 @@ export class QuizQuestionComponent extends BaseQuestion
       );
 
       // Commit selection into local + state
-      this.persistSelection(evtOpt, idx, optionsNow, q?.type === QuestionType.MultipleAnswer);
+      const isMultipleAnswerQuestion =
+        q?.type === QuestionType.MultipleAnswer ||
+        canonicalOpts.filter((opt) => !!opt.correct).length > 1;
+
+      this.persistSelection(evtOpt, idx, optionsNow, isMultipleAnswerQuestion);
 
       // ALSO push into SelectedOptionService using the *question index*
       const enrichedForSOS = {
