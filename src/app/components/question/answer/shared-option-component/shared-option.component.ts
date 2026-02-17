@@ -1,7 +1,7 @@
 ﻿import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef,
   Component, DoCheck, EventEmitter, HostListener, Input, NgZone, OnChanges, OnDestroy, OnInit,
-  Output, QueryList, SimpleChanges, ViewChildren
+  Output, SimpleChanges
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
@@ -68,10 +68,7 @@ import { OptionBindingFactoryService } from '../../../../shared/services/options
 })
 export class SharedOptionComponent
   implements OnInit, OnChanges, DoCheck, OnDestroy, AfterViewInit {
-
-
-  @Output() optionClicked =
-    new EventEmitter<OptionClickedPayload>();
+  @Output() optionClicked = new EventEmitter<OptionClickedPayload>();
   @Output() optionEvent = new EventEmitter<OptionUIEvent>();
   @Output() reselectionDetected = new EventEmitter<boolean>();
   @Output() explanationUpdate = new EventEmitter<number>();
