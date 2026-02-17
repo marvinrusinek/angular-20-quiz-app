@@ -2847,7 +2847,13 @@ export class QuizQuestionComponent extends BaseQuestion
       await this.waitForInteractionReady();
 
       const optionsNow = this.cloneOptionsForUi(q!, idx, evtIdx, event);
-      const canonicalOpts = this.buildCanonicalOptions(q!, idx, evtOpt, evtIdx);
+      const canonicalOpts = this.buildCanonicalOptions(
+        q!,
+        idx,
+        evtOpt,
+        evtIdx,
+        evtChecked
+      );
 
       // Commit selection into local + state
       this.persistSelection(evtOpt, idx, optionsNow, q?.type === QuestionType.MultipleAnswer);
@@ -3059,7 +3065,13 @@ export class QuizQuestionComponent extends BaseQuestion
     } catch { }
   }
 
-  private buildCanonicalOptions(q: QuizQuestion, idx: number, evtOpt: Option, evtIdx: number): Option[] {
+  private buildCanonicalOptions(
+    q: QuizQuestion,
+    idx: number,
+    evtOpt: Option,
+    evtIdx: number,
+    isChecked: boolean
+  ): Option[] {
     const getKey = (o: any, i?: number) =>
       this.selectionMessageService.stableKey(o as Option, i);
 
@@ -3087,7 +3099,7 @@ export class QuizQuestionComponent extends BaseQuestion
         this.selectionMessageService._singleAnswerIncorrectLock.delete(idx);
       }
     } else if (canonicalOpts[evtIdx]) {
-      canonicalOpts[evtIdx].selected = true;
+      canonicalOpts[evtIdx].selected = isChecked;
     }
 
     return canonicalOpts;
@@ -3207,6 +3219,15 @@ export class QuizQuestionComponent extends BaseQuestion
     const isMultipleAnswerQuestion =
       q?.type === QuestionType.MultipleAnswer || correctOpts.length > 1;
 
+    console.log('[shouldShowExplanation] Debug:', {
+      qType: q?.type,
+      isMulti: isMultipleAnswerQuestion,
+      correctKeys: Array.from(correctKeys),
+      selectedKeys: Array.from(selectedKeys),
+      correctOptsLength: correctOpts.length,
+      selectedOptsLength: selectedOpts.length
+    });
+
     if (!isMultipleAnswerQuestion) {
       if (selectedKeys.size === 0 || correctKeys.size === 0) return false;
       // Single-answer: show only when a selected option is the correct one.
@@ -3216,8 +3237,13 @@ export class QuizQuestionComponent extends BaseQuestion
     if (correctKeys.size === 0) return false;
 
     // Multi-answer: show only on exact completion (all and only correct selected).
-    if (selectedKeys.size !== correctKeys.size) return false;
-    return Array.from(correctKeys).every((key) => selectedKeys.has(key));
+    if (selectedKeys.size !== correctKeys.size) {
+      console.log('[shouldShowExplanation] Size mismatch', selectedKeys.size, correctKeys.size);
+      return false;
+    }
+    const result = Array.from(correctKeys).every((key) => selectedKeys.has(key));
+    console.log('[shouldShowExplanation] Result match:', result);
+    return result;
   }
 
   private async maybeTriggerExplanation(
@@ -3227,6 +3253,12 @@ export class QuizQuestionComponent extends BaseQuestion
     allCorrect: boolean,
     shouldShowExplanation: boolean
   ): Promise<void> {
+    console.log('[maybeTriggerExplanation] Called with:', {
+      allCorrect,
+      shouldShowExplanation,
+      hasUserInteracted: this.quizStateService.hasUserInteracted(idx)
+    });
+
     if (allCorrect && this.quizStateService.hasUserInteracted(idx)) {
       this.quizStateService.displayStateSubject.next({ mode: 'explanation', answered: true });
       this.displayExplanation = true;
