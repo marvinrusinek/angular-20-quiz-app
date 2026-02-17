@@ -3277,7 +3277,7 @@ export class QuizQuestionComponent extends BaseQuestion
   }
 
   private async maybeTriggerExplanation(
-    _q: QuizQuestion,
+    q: QuizQuestion,
     _evtOpt: Option,
     idx: number,
     allCorrect: boolean,
@@ -3295,6 +3295,31 @@ export class QuizQuestionComponent extends BaseQuestion
 
     if (shouldTrigger) {
       console.log('[maybeTriggerExplanation] Triggering explanation display mode.');
+
+      // Ensure FET text is available. If shouldShowExplanation was false, it wasn't generated in onOptionClicked.
+      // We must generate and emit it now.
+      if (!shouldShowExplanation && allCorrect) {
+        const rawExplanation = q.explanation || '';
+        const correctIndices = this.explanationTextService.getCorrectOptionIndices(
+          q,
+          this.optionsToDisplay,
+          idx
+        );
+        const questionForFormatting = { ...q, options: this.optionsToDisplay };
+        const fet = this.explanationTextService.formatExplanation(
+          questionForFormatting,
+          correctIndices,
+          rawExplanation,
+          idx
+        );
+        if (fet) {
+          console.log(`[maybeTriggerExplanation] Late-generating FET for Q${idx + 1}: "${fet.substring(0, 40)}..."`);
+          this.explanationTextService.emitFormatted(idx, fet);
+          this.explanationToDisplay = fet;
+          this.emitExplanationToDisplayChange(fet);
+        }
+      }
+
       this.explanationTextService.setShouldDisplayExplanation(true);
       this.quizStateService.displayStateSubject.next({ mode: 'explanation', answered: true });
       this.displayExplanation = true;
