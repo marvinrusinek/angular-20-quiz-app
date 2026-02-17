@@ -88,11 +88,11 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     // Remember the index and clear any old override
     this.questionIndexSubject.next(idx);
     this.currentIndex = idx;
-    
+
     // Reset FET lock when question changes
     this._fetLocked = false;
     this._lockedForIndex = -1;
-    
+
     // Force clear view to prevent previous question's FET leaking (e.g. Q1 FET on Q2)
     // Force clear view removed to prevent race condition wiping out synchronous updates
     // if (this.qText?.nativeElement) {
@@ -111,10 +111,10 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     // Check if ANY option in this question has been selected
     // This is the most reliable check - options are the source of truth
     const isShuffled = this.quizService.isShuffleEnabled() && Array.isArray(this.quizService.shuffledQuestions) && this.quizService.shuffledQuestions.length > 0;
-    const currentQuestion = isShuffled 
-      ? this.quizService.shuffledQuestions[idx] 
+    const currentQuestion = isShuffled
+      ? this.quizService.shuffledQuestions[idx]
       : this.quizService.questions[idx];
-      
+
     const hasSelectedOption =
       currentQuestion?.options?.some((o: Option) => o.selected) ?? false;
 
@@ -209,7 +209,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   isExplanationTextDisplayed$: Observable<boolean>;
   private isExplanationDisplayed$ = new BehaviorSubject<boolean>(false);
   private _showExplanation = false;
-  
+
   // Lock flag to prevent displayText$ from overwriting FET
   private _fetLocked = false;
   private _lockedForIndex = -1;
@@ -333,7 +333,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     // 2. Fallback to fetByIndex cache
     // 3. Strict mode checking (Question vs Explanation)
     // 4. Multi-answer banners
-    
+
     // Subscribe to questions$ to REGENERATE FETs when questions/shuffling changes
     // This ensures that "Option 1 is correct" matches the ACTUAL visual order of options
     // if they have been shuffled.
@@ -344,7 +344,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       )
       .subscribe((questions) => {
         console.log('[CQCC] ♻️ Questions updated - FET will be generated on-demand when user clicks');
-        
+
         // DISABLED: Pre-generation was using q.options which may not match the visual optionsToDisplay
         // This caused wrong option numbers (e.g., "Option 3" when it should be "Option 1")
         // FET is now generated on-demand in SharedOptionComponent.resolveExplanationText()
@@ -405,7 +405,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       // Reset FET lock when question changes to allow question text to display
       this._fetLocked = false;
       this._lockedForIndex = -1;
-      
+
       // Clear out old explanation
       this.currentIndex = this.questionIndex;
       this.overrideSubject.next({ idx: this.currentIndex, html: '' });
@@ -473,7 +473,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           // Ensure combineLatest can emit immediately on cold start,
           // even if getQuestionByIndex is async (qObj is safely handled as optional below).
           this.quizService.getQuestionByIndex(safeIdx).pipe(startWith(null)),
-  
+
           // Use gated FET stream (only non-empty when correct answer(s) selected)
           // This prevents explanation from showing on first click / interaction.
           //
@@ -481,7 +481,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           // If fetToDisplay$ doesn't emit immediately on Q1 load, question text will never render.
           // startWith('') guarantees an initial emission so Q1 question text displays.
           this.fetToDisplay$.pipe(startWith('')),
-  
+
           // Cold-start bulletproofing:
           // displayState$ must emit at least once or combineLatest will stall.
           // We provide a safe default so question text can render immediately on Q1.
@@ -491,9 +491,9 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             const rawQText = qObj?.questionText || '';
             const serviceQText = (qObj?.questionText ?? '').trim();
             const effectiveQText = serviceQText || rawQText || '';
-  
+
             // console.log(`[displayText$] Q${safeIdx + 1} Mode=${state?.mode}`);
-  
+
             // Show FET ONLY when gated stream provides it (correct answer(s) selected).
             // Interaction alone should NOT force explanation display.
             // Default: Question Text with Multi-Answer Banner if needed
@@ -505,7 +505,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             console.log('[displayText$] Showing Question Text (FET empty/gated)');
 
             let displayText = effectiveQText;
-            
+
             const numCorrect = qObj?.options?.filter(o => o.correct)?.length || 0;
             if (numCorrect > 1 && qObj?.options) {
               const banner = this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
@@ -514,7 +514,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
               );
               displayText = `${displayText} <span class="correct-count">${banner}</span>`;
             }
-  
+
             return displayText;
           })
         );
@@ -543,7 +543,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     }
 
     console.log('[subscribeToDisplayText] 🔄 Setting up subscription...');
-    
+
     this.combinedSub = this.combinedText$
       .pipe(
         tap((text: string) => console.log(`[subscribeToDisplayText] 🔔 RAW emission (${text?.length || 0} chars): "${text?.substring(0, 50)}..."`)),
@@ -552,7 +552,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       .subscribe({
         next: (text: string) => {
           console.log(`[subscribeToDisplayText] 📝 Processing text (${text?.length || 0} chars)`);
-          
+
           const el = this.qText?.nativeElement;
           if (el) {
             this.renderer.setProperty(el, 'innerHTML', text);
@@ -1129,6 +1129,20 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     // AND the user has actually interacted with this question (answered it) in explanation mode.
     // Without hasUserInteracted check, unanswered questions like Q3 would display cached FET
     // instead of the question text.
+
+    // DETAILED DIAGNOSTIC LOGGING
+    if (idx === active && mode === 'explanation') {
+      console.log(`[resolveTextToDisplay] Q${idx + 1} evaluation:`, {
+        idx,
+        active,
+        hasUserInteracted,
+        mode,
+        hasValidFet,
+        storedFetLength: storedFet.length,
+        storedFetPreview: storedFet.slice(0, 30)
+      });
+    }
+
     if (
       hasValidFet &&
       idx === active &&
@@ -1282,12 +1296,12 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         this.quizService.setQuizId(quizId);
         localStorage.setItem('quizId', quizId);  // store quizId in localStorage
         this.currentQuestionIndexValue = zeroBasedIndex;
-        
+
         // ⚡ FIX: Sync internal index state with Route immediately
         // This ensures displayText$ pipeline gets the correct index even if Input binding lags
         this.questionIndexSubject.next(zeroBasedIndex);
         this.currentIndex = zeroBasedIndex;
-        
+
         await this.loadQuestion(quizId, zeroBasedIndex);
       } else {
         console.error('Quiz ID is missing from route parameters');
@@ -1326,8 +1340,8 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         // ⚡ FIX: Use Suffled Question if enabled to ensure Options-Text Match
         // This overrides the raw data fetch with the authoritative shuffled state
         let question = questions[zeroBasedIndex];
-        if (this.quizService.isShuffleEnabled() && 
-            this.quizService.shuffledQuestions?.length > zeroBasedIndex) {
+        if (this.quizService.isShuffleEnabled() &&
+          this.quizService.shuffledQuestions?.length > zeroBasedIndex) {
           question = this.quizService.shuffledQuestions[zeroBasedIndex];
           console.log(`[loadQuestion] 🔀 Using Shuffled Question for Q${zeroBasedIndex + 1}`);
         }
@@ -1374,13 +1388,13 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       }
 
       this.explanationTexts = explanationTexts;
-      
+
       // ⚡ FIX: Populate Service State explicitly.
       // The displayText$ pipeline relies on quizService.questions$ / quizService.questions.
       // If we don't set this here, the pipeline sees empty array -> qObj null -> Banner missing.
       this.quizService.questions = questions;
       if (this.quizService.questions$ instanceof BehaviorSubject || this.quizService.questions$ instanceof Subject) {
-          (this.quizService.questions$ as unknown as Subject<QuizQuestion[]>).next(questions);
+        (this.quizService.questions$ as unknown as Subject<QuizQuestion[]>).next(questions);
       }
 
       /* await Promise.all(
@@ -1904,7 +1918,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
                 selected ?? []
               )
               : false;
-            
+
             console.log(`[shouldShowFet] Idx: ${idx}, Resolved: ${resolved}, Selected: ${selected?.length}`);
             return resolved;
           })
@@ -1934,7 +1948,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       map(([fet, resolved, timedOut, question]) => {
         const text = (fet ?? '').trim();
         console.log(`[fetToDisplay$] Resolved: ${resolved}, TimedOut: ${timedOut}, FET len: ${text.length}`);
-        
+
         // Allow display if: Resolved OR TimedOut
         if (resolved || timedOut) {
           if (text.length > 0) {
