@@ -1695,9 +1695,8 @@ export class SharedOptionComponent
   }
 
   private emitExplanation(questionIndex: number): void {
-    // Resolve explanation using the robust helper that ensures proper formatting
-    // and handles visual index mapping for both shuffled and multiple-answer scenarios
-    const explanationText = this.resolveExplanationText(questionIndex);
+    // Resolve explanation directly from Canonical source to avoid shuffle index confusion
+    const explanationText = this.quizService.questions[questionIndex]?.explanation || '';
 
     // BRUTE FORCE: Clear locks and pulse stream to bypass distinctUntilChanged/duplicate checks
     // This handles the "Back and Forth" requirement reported by user
