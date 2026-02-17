@@ -3139,34 +3139,22 @@ export class QuizQuestionComponent extends BaseQuestion
     evtOpt: Option,
     idx: number
   ): boolean {
-    const getKey =
-      (o: Option) => this.selectionMessageService.stableKey(o as Option);
+    const getKey = (o: Option) =>
+      this.selectionMessageService.stableKey(o as Option);
 
-    // All correct options
     const correctOpts = canonicalOpts.filter((o: Option) => !!o.correct);
+    const selectedOpts = canonicalOpts.filter((o: Option) => !!o.selected);
 
-    // Pull selected options from SOS
-    const selOpts =
-      this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
-
-    // Convert to canonical comparable keys
-    const selKeys = new Set(selOpts.map((o: Option) => getKey(o)));
-
-    const selectedCorrectCount = correctOpts.filter((o: Option) =>
-      selKeys.has(getKey(o))
-    ).length;
+    const correctKeys = new Set(correctOpts.map((o) => getKey(o)));
+    const selectedKeys = new Set(selectedOpts.map((o) => getKey(o)));
 
     const isMultipleAnswerQuestion =
       q?.type === QuestionType.MultipleAnswer || correctOpts.length > 1;
 
     // MULTIPLE-ANSWER logic
     if (isMultipleAnswerQuestion) {
-      // EXACT match required
-      return (
-        correctOpts.length > 0 &&
-        selectedCorrectCount === correctOpts.length &&
-        selKeys.size === correctOpts.length
-      );
+      if (selectedKeys.size !== correctKeys.size) return false;
+      return Array.from(correctKeys).every((key) => selectedKeys.has(key));
     }
 
     // SINGLE-ANSWER logic
