@@ -1117,7 +1117,8 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     // Only use index-specific FET, NOT latestExplanation (could be stale from different question)
     let storedFet = ets.fetByIndex?.get(idx)?.trim() || '';
 
-    if (idx === active && hasUserInteracted && mode === 'explanation') {
+    if (idx === active && hasUserInteracted && mode === 'explanation' && !storedFet) {
+      console.log(`[resolveTextToDisplay] ♻️ Regenerating missing FET for Q${idx + 1}`);
       const regenerated = this.regenerateFetForIndex(idx);
       if (regenerated) {
         storedFet = regenerated;
