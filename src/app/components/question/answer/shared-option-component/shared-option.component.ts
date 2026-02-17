@@ -168,6 +168,8 @@ export class SharedOptionComponent
   private pendingExplanationIndex = -1;
   private resolvedQuestionIndex: number | null = null;
 
+  private _isMultiModeCache: boolean | null = null;
+
   destroy$ = new Subject<void>();
 
   constructor(
@@ -212,34 +214,46 @@ export class SharedOptionComponent
 
   // Robust Multi-Mode Detection (Infers from Data if Type is missing)
   get isMultiMode(): boolean {
+    // Return cached result to avoid repeated computation on every CD cycle
+    if (this._isMultiModeCache !== null) return this._isMultiModeCache;
+  
+    let result = false;
+  
     // Explicit check
     if (this.type === 'multiple' || this.config?.type === 'multiple') {
       console.log(`[isMultiMode] Returning TRUE due to explicit type='multiple'`);
-      return true;
+      result = true;
     }
-
-    // Use getActiveQuestionIndex for most reliable index
-    // Then use getQuestionAtDisplayIndex for shuffle-aware question lookup
-    const idx = this.getActiveQuestionIndex();
-    const currentQ = this.getQuestionAtDisplayIndex(idx) ?? this.currentQuestion;
-
-    // Data inference (fixes multiple-answer questions)
-    if (currentQ?.options) {
-      const count = currentQ.options.filter((o: Option) => o.correct).length;
-      console.log(`[isMultiMode] Q${idx + 1} from question: correctCount=${count}, returning ${count > 1}`);
-      if (count > 1) return true;
+  
+    if (!result) {
+      // Use getActiveQuestionIndex for most reliable index
+      // Then use getQuestionAtDisplayIndex for shuffle-aware question lookup
+      const idx = this.getActiveQuestionIndex();
+      const currentQ = this.getQuestionAtDisplayIndex(idx) ?? this.currentQuestion;
+  
+      // Data inference (fixes multiple-answer questions)
+      if (currentQ?.options) {
+        const count = currentQ.options.filter((o: Option) => o.correct).length;
+        console.log(`[isMultiMode] Q${idx + 1} from question: correctCount=${count}, returning ${count > 1}`);
+        if (count > 1) result = true;
+      }
+  
+      // Fallback: Check optionsToDisplay (most reliable for shuffled mode)
+      // This is what's actually being shown to the user
+      if (!result && this.optionsToDisplay?.length > 0) {
+        const displayCount = this.optionsToDisplay.filter((o: Option) => o.correct === true).length;
+        console.log(`[isMultiMode] Q${idx + 1} from optionsToDisplay: correctCount=${displayCount}, returning ${displayCount > 1}`);
+        if (displayCount > 1) result = true;
+      }
+  
+      if (!result) {
+        console.log(`[isMultiMode] Q${idx + 1}: No multi-answer detected, returning false`);
+      }
     }
-
-    // Fallback: Check optionsToDisplay (most reliable for shuffled mode)
-    // This is what's actually being shown to the user
-    if (this.optionsToDisplay?.length > 0) {
-      const displayCount = this.optionsToDisplay.filter((o: Option) => o.correct === true).length;
-      console.log(`[isMultiMode] Q${idx + 1} from optionsToDisplay: correctCount=${displayCount}, returning ${displayCount > 1}`);
-      if (displayCount > 1) return true;
-    }
-
-    console.log(`[isMultiMode] Q${idx + 1}: No multi-answer detected, returning false`);
-    return false;
+  
+    // Cache result to prevent redundant computation across CD cycles
+    this._isMultiModeCache = result;
+    return result;
   }
 
   ngOnInit(): void {
@@ -268,6 +282,7 @@ export class SharedOptionComponent
   }
 
   private resetStateForNewQuestion(): void {
+    this._isMultiModeCache = null; // invalidate: new question may have different answer count
     this.disabledOptionsPerQuestion.clear();
     this.lockedIncorrectOptionIds.clear();
     this.flashDisabledSet.clear();
