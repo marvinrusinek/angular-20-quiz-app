@@ -3075,58 +3075,58 @@ export class QuizQuestionComponent extends BaseQuestion
     const getKey = (o: any, i?: number) =>
       this.selectionMessageService.stableKey(o as Option, i);
 
-    // Helper to resolve correctness dynamically, just in case properties are stale
+    // 1. Resolve Correctness Robustly
     const answerValues = (q.answer ?? [])
       .map((answer) => answer?.value)
       .filter((value): value is Option['value'] => value !== undefined && value !== null);
 
     const resolveCorrect = (option: Option): boolean => {
       if (option.correct === true) return true;
-      // String check for "true" (some APIs return strings)
       if ((option as any).correct === 'true') return true;
 
       if (Array.isArray(answerValues) && answerValues.length > 0) {
-        // Loose comparison for values (string vs number)
-        const optVal = String(option.value);
-        return answerValues.some(v => String(v) === optVal);
+        const optVal = String(option.value).trim().toLowerCase();
+        return answerValues.some(v => String(v).trim().toLowerCase() === optVal);
       }
       return false;
     };
 
+    // 2. Resolve Selection State
+    // We must merge the *current* click (evtIdx/isChecked) with the *existing* service state for other options.
+    // Relying solely on 'this.optionsToDisplay' is risky if the UI update lags.
+    // Relying solely on 'selectedOptionService' is risky because it doesn't have the current click yet.
+    const serviceSelections = this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
+    const serviceSelectedKeys = new Set(serviceSelections.map(s => getKey(s)));
+
     const canonicalOpts =
       (this.optionsToDisplay?.length > 0 ? this.optionsToDisplay : q?.options ?? []).map((o, i) => {
-        const isCorrect = resolveCorrect(o);
-        /* 
-        console.log(`[QQC.buildCanonicalOptions] Q${idx + 1} Opt${i+1} Correct=${isCorrect}`, {
-            val: o.value,
-            correctProp: o.correct,
-            answerValues
-        }); 
-        */
+        const key = getKey(o, i);
+        let isSelected = serviceSelectedKeys.has(key);
+
+        // Override with the current event
+        if (i === evtIdx) {
+          isSelected = isChecked;
+        }
+
         return {
           ...o,
-          optionId: Number(o.optionId ?? getKey(o, i)),
-          correct: isCorrect,
-          // Use current UI selection state for this question to avoid stale cross-question map reads.
-          selected: !!o.selected
+          optionId: Number(o.optionId ?? key),
+          correct: resolveCorrect(o),
+          selected: isSelected
         };
       });
 
+    // Single Answer: Enforce exclusivity
     if (q?.type === QuestionType.SingleAnswer) {
-      let i = 0;
-      for (const opt of canonicalOpts) {
-        opt.selected = i === evtIdx;
-        i++;
-      }
+      canonicalOpts.forEach((o, i) => {
+        o.selected = (i === evtIdx);
+      });
 
-      // Force correct selection if the clicked option IS correct (immediate lock)
       if (canonicalOpts[evtIdx] && resolveCorrect(evtOpt)) {
         canonicalOpts[evtIdx].selected = true;
         this.selectionMessageService._singleAnswerCorrectLock.add(idx);
         this.selectionMessageService._singleAnswerIncorrectLock.delete(idx);
       }
-    } else if (canonicalOpts[evtIdx]) {
-      canonicalOpts[evtIdx].selected = isChecked;
     }
 
     return canonicalOpts;
