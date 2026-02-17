@@ -3386,12 +3386,16 @@ export class QuizQuestionComponent extends BaseQuestion
     }
 
     // Guard: user must have interacted first
+    // REMOVED GUARD: Race condition with markUserInteracted led to skipped updates.
+    // The caller (onOptionClicked) guarantees interaction.
+    /*
     const hasUserInteracted =
       (this.quizStateService as any).hasUserInteracted?.(lockedIndex) ?? false;
     if (!hasUserInteracted) {
       console.warn('[FET SKIP] User has not interacted yet, blocking FET');
       return;
     }
+    */
 
     console.error(
       '[FET PIPELINE] Calling performExplanationUpdate for Q' + (lockedIndex + 1)
