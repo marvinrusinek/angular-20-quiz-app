@@ -2856,11 +2856,7 @@ export class QuizQuestionComponent extends BaseQuestion
       );
 
       // Commit selection into local + state
-      const isMultipleAnswerQuestion =
-        q?.type === QuestionType.MultipleAnswer ||
-        canonicalOpts.filter((opt) => !!opt.correct).length > 1;
-
-      this.persistSelection(evtOpt, idx, optionsNow, isMultipleAnswerQuestion);
+      this.persistSelection(evtOpt, idx, optionsNow, q?.type === QuestionType.MultipleAnswer);
 
       // ALSO push into SelectedOptionService using the *question index*
       const enrichedForSOS = {
@@ -3101,20 +3097,44 @@ export class QuizQuestionComponent extends BaseQuestion
     };
 
     // 2. Resolve Selection State
+    // Robust Strategy: Index service selections by BOTH ID and Content Key
     const serviceSelections = this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
-    const serviceSelectedKeys = new Set(serviceSelections.map(s => getKey(s)));
+
+    const serviceSelectedIds = new Set<string>();
+    const serviceSelectedContentKeys = new Set<string>();
+
+    const contentKeyOf = (o: any) => {
+      const val = String(o.value ?? '').trim().toLowerCase();
+      const txt = String(o.text ?? '').trim().toLowerCase();
+      return `${val}|${txt}`;
+    };
+
+    for (const s of serviceSelections) {
+      if (s.optionId != null) serviceSelectedIds.add(String(s.optionId));
+      serviceSelectedContentKeys.add(contentKeyOf(s));
+    }
 
     // Debug log for selection state
-    console.log(`[buildCanonicalOptions] Q${idx + 1} ServiceSelections count: ${serviceSelections.length}`, {
-      keys: Array.from(serviceSelectedKeys),
+    console.log(`[buildCanonicalOptions] Q${idx + 1} ServiceSelections: ${serviceSelections.length}`, {
+      ids: Array.from(serviceSelectedIds),
+      contentKeys: Array.from(serviceSelectedContentKeys),
       evtIdx,
       isChecked
     });
 
     const canonicalOpts =
       (this.optionsToDisplay?.length > 0 ? this.optionsToDisplay : q?.options ?? []).map((o, i) => {
-        const key = getKey(o, i);
-        let isSelected = serviceSelectedKeys.has(key);
+        const key = getKey(o, i); // This might be an ID or a content key
+        const cKey = contentKeyOf(o);
+        const oId = o.optionId != null ? String(o.optionId) : null;
+
+        // Check ID match OR Content match
+        let isSelected = false;
+        if (oId && serviceSelectedIds.has(oId)) {
+          isSelected = true;
+        } else if (serviceSelectedContentKeys.has(cKey)) {
+          isSelected = true;
+        }
 
         // Override with the current event
         if (i === evtIdx) {
@@ -3124,7 +3144,7 @@ export class QuizQuestionComponent extends BaseQuestion
         const isCorrect = resolveCorrect(o);
         // Trace individual option state
         if (isSelected || isCorrect) {
-          console.log(`[buildCanonicalOptions] Opt${i + 1} (${key}): selected=${isSelected}, correct=${isCorrect}`);
+          console.log(`[buildCanonicalOptions] Opt${i} ("${cKey}"): selected=${isSelected}, correct=${isCorrect}`);
         }
 
         return {
