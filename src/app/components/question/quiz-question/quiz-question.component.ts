@@ -2914,35 +2914,8 @@ export class QuizQuestionComponent extends BaseQuestion
         canonicalOpts
       );
 
-      // Generate FET but only emit/cache it when this click should actually reveal explanation.
-      // This prevents unanswered/partial multi-answer questions (e.g. Q4) from rendering FET
-      // instead of question text due to early fetByIndex population.
-      if (shouldShowExplanation) {
-        const rawExplanation = q!.explanation || '';
-        const correctIndices = this.explanationTextService.getCorrectOptionIndices(
-          q!,
-          canonicalOpts,
-          idx
-        );
-        console.log(`[QQC] Computed FET indices for Q${this.currentQuestionIndex + 1}: ${JSON.stringify(correctIndices)}`);
-
-        const questionForFormatting = { ...q!, options: canonicalOpts };
-        const fet = this.explanationTextService.formatExplanation(
-          questionForFormatting,
-          correctIndices,
-          rawExplanation,
-          idx
-        );
-
-        if (fet) {
-          console.log(`[QQC] Sync FET for Q${idx + 1}: "${fet.substring(0, 40)}..."`);
-          this.explanationTextService.emitFormatted(idx, fet);
-        } else {
-          console.warn(`[QQC] No FET generated for Q${idx + 1}`);
-        }
-      } else {
-        console.warn(`[QQC] No FET generated for Q${idx + 1}`);
-      }
+      // FET generation is now handled centrally in maybeTriggerExplanation to avoid redundancy and race conditions.
+      // This prevents multi-answer questions from clearing their FET during partial completion.
 
       // Update QuizStateService state so CodelabQuizContent display logic passes
       // CodelabQuizContent checks getQuestionState(idx).isAnswered !!
@@ -2963,10 +2936,6 @@ export class QuizQuestionComponent extends BaseQuestion
 
       await this.maybeTriggerExplanation(q!, evtOpt, idx, allCorrect, shouldShowExplanation);
       this.updateNextButtonAndState(allCorrect);
-
-      if (shouldShowExplanation) {
-        this.forceExplanationUpdate(idx, q!);
-      }
 
       this.scheduleAsyncUiFinalization(evtOpt, evtIdx, evtChecked);
     } catch (error: any) {
@@ -3567,14 +3536,15 @@ export class QuizQuestionComponent extends BaseQuestion
       // Lock only during formatting
       ets._fetLocked = true;
 
-      // Clear old text BEFORE setting new index
+      // REMOVED CLEARING BLOCKS: Prevent flicker and "temporarily working" FETs.
+      // If we clear here, the UI goes blank during the await requestAnimationFrame below.
+      /*
       ets.latestExplanation = '';
       ets.latestExplanationIndex = null;
       ets.updateFormattedExplanation('');
       ets.formattedExplanationSubject?.next('');
-
-      // Remove stale per-index cache
       ets.purgeAndDefer(lockedIndex);
+      */
 
       // Give one clean frame to stop stale renders
       await new Promise((res) => requestAnimationFrame(res));
