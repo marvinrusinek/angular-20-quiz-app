@@ -1196,6 +1196,11 @@ export class QuizQuestionComponent extends BaseQuestion
     this.optionsToDisplay = structuredClone(options);
     this.updateShouldRenderOptions(this.optionsToDisplay);
 
+    // CRITICAL: Determine correctly if this is a multiple-answer question
+    // json data may lack 'type: MultipleAnswer' but have multiple correct:true options.
+    this.type = this.isMultipleAnswerQuestion(this.currentQuestion) ? 'multiple' : 'single';
+    console.log(`[hydrateFromPayload] Question type set to: ${this.type} for Q${this.currentQuestionIndex + 1}`);
+
     this.explanationToDisplay = explanation?.trim() || '';
 
     // Always load component for each question to ensure fresh data
@@ -1827,6 +1832,9 @@ export class QuizQuestionComponent extends BaseQuestion
         isMultipleAnswer = await firstValueFrom(
           this.quizQuestionManagerService.isMultipleAnswerQuestion(question)
         );
+        // Ensure this.type stays in sync with the visual component being loaded
+        this.type = isMultipleAnswer ? 'multiple' : 'single';
+        console.log(`[loadDynamicComponent] Q${this.currentQuestionIndex + 1} type set to: ${this.type}`);
       } catch (error: any) {
         console.error('[isMultipleAnswerQuestion failed]', error);
         console.warn('[Early return D] Failed to get isMultipleAnswer');
@@ -4079,7 +4087,9 @@ export class QuizQuestionComponent extends BaseQuestion
       (opt: Option) => opt.optionId === option.optionId
     );
     if (index === -1) {
-      console.warn(`[Option ${option.optionId} not found in optionsToDisplay`);
+      console.error(
+        '[applyFeedbackIfNeeded] ERROR: selectedOptionIndex not found for optionId: ' + option.optionId
+      );
       return;
     }
 
@@ -4353,6 +4363,9 @@ export class QuizQuestionComponent extends BaseQuestion
     );
 
     this.lastOptionsQuestionSignature = signature;
+
+    // Sync type for consistency
+    this.type = this.isMultipleAnswerQuestion(this.currentQuestion) ? 'multiple' : 'single';
 
     return this.optionsToDisplay;
   }
@@ -4740,6 +4753,11 @@ export class QuizQuestionComponent extends BaseQuestion
   ): Promise<void> {
     try {
       const event = { option, index, checked };
+      // SMARTER TYPE CHECK: ensure this.type is correct before processing the click
+      const questionForCheck = this.currentQuestion ?? this.questionData ?? null;
+      this.type = this.isMultipleAnswerQuestion(questionForCheck) ? 'multiple' : 'single';
+
+      // Now call super with the CORRECTED type so it doesn't clear other options in multi-mode
       await super.onOptionClicked(event);
 
       // Update selected option state ONLY
@@ -4798,6 +4816,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
       // Update SelectedOptionService
       const isMultiple = this.type === 'multiple';
+      console.log(`[QQC] Processing click for Q${this.currentQuestionIndex + 1}: isMultiple=${isMultiple}, type=${this.type}`);
 
       // Store canonical selection (from questionData), not raw event.option
       const canonicalSelected: SelectedOption = {
@@ -6306,7 +6325,12 @@ export class QuizQuestionComponent extends BaseQuestion
       (currentQuestionChange
         ? (currentQuestionChange.currentValue as QuizQuestion) : null) ?? null;
 
-    if (nextQuestion) this.currentQuestion = nextQuestion;
+    if (nextQuestion) {
+      this.currentQuestion = nextQuestion;
+      // Ensure type is updated correctly for multi-answer questions without explicit type field
+      this.type = this.isMultipleAnswerQuestion(nextQuestion) ? 'multiple' : 'single';
+      console.log(`[handleQuestionAndOptionsChange] Q${this.currentQuestionIndex + 1} type set to: ${this.type}`);
+    }
 
     const incomingOptions =
       (optionsChange?.currentValue as Option[]) ??
