@@ -3328,7 +3328,7 @@ export class QuizQuestionComponent extends BaseQuestion
       }
 
       this.explanationTextService.setShouldDisplayExplanation(true);
-      this.quizStateService.displayStateSubject.next({ mode: 'explanation', answered: true });
+      this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
       this.displayExplanation = true;
 
       // Force immediate update to ensuring binding propagation
