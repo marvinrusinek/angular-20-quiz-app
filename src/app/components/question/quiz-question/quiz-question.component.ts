@@ -3219,8 +3219,21 @@ export class QuizQuestionComponent extends BaseQuestion
 
     // MULTIPLE-ANSWER logic
     if (isMultipleAnswerQuestion) {
-      if (selectedKeys.size !== correctKeys.size) return false;
-      return Array.from(correctKeys).every((key) => selectedKeys.has(key));
+      if (selectedKeys.size !== correctKeys.size) {
+        console.log(`[computeCorrectness] Q${idx + 1} Mismatch Sizes: Selected=${selectedKeys.size} Correct=${correctKeys.size}`, {
+          selected: Array.from(selectedKeys),
+          correct: Array.from(correctKeys)
+        });
+        return false;
+      }
+      const allMatch = Array.from(correctKeys).every((key) => selectedKeys.has(key));
+      if (!allMatch) {
+        console.log(`[computeCorrectness] Q${idx + 1} Key Mismatch`, {
+          selected: Array.from(selectedKeys),
+          correct: Array.from(correctKeys)
+        });
+      }
+      return allMatch;
     }
 
     // SINGLE-ANSWER logic
