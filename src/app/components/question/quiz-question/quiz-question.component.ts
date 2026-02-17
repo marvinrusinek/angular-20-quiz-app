@@ -3274,13 +3274,18 @@ export class QuizQuestionComponent extends BaseQuestion
       hasUserInteracted: this.quizStateService.hasUserInteracted(idx)
     });
 
-    const shouldTrigger = (allCorrect || shouldShowExplanation) && this.quizStateService.hasUserInteracted(idx);
+    // Race condition fix: Trust the caller (onOptionClicked) which implies interaction.
+    // Do not check quizStateService.hasUserInteracted here.
+    const shouldTrigger = allCorrect || shouldShowExplanation;
 
     if (shouldTrigger) {
       console.log('[maybeTriggerExplanation] Triggering explanation display mode.');
       this.explanationTextService.setShouldDisplayExplanation(true);
       this.quizStateService.displayStateSubject.next({ mode: 'explanation', answered: true });
       this.displayExplanation = true;
+
+      // Force immediate update to ensuring binding propagation
+      this.cdRef.detectChanges();
     } else {
       console.log('[maybeTriggerExplanation] Not triggering. Conditions not met.');
     }
