@@ -3084,20 +3084,33 @@ export class QuizQuestionComponent extends BaseQuestion
       if (option.correct === true) return true;
       // String check for "true" (some APIs return strings)
       if ((option as any).correct === 'true') return true;
+
       if (Array.isArray(answerValues) && answerValues.length > 0) {
-        return answerValues.includes(option.value);
+        // Loose comparison for values (string vs number)
+        const optVal = String(option.value);
+        return answerValues.some(v => String(v) === optVal);
       }
       return false;
     };
 
     const canonicalOpts =
-      (this.optionsToDisplay?.length > 0 ? this.optionsToDisplay : q?.options ?? []).map((o, i) => ({
-        ...o,
-        optionId: Number(o.optionId ?? getKey(o, i)),
-        correct: resolveCorrect(o),
-        // Use current UI selection state for this question to avoid stale cross-question map reads.
-        selected: !!o.selected
-      }));
+      (this.optionsToDisplay?.length > 0 ? this.optionsToDisplay : q?.options ?? []).map((o, i) => {
+        const isCorrect = resolveCorrect(o);
+        /* 
+        console.log(`[QQC.buildCanonicalOptions] Q${idx + 1} Opt${i+1} Correct=${isCorrect}`, {
+            val: o.value,
+            correctProp: o.correct,
+            answerValues
+        }); 
+        */
+        return {
+          ...o,
+          optionId: Number(o.optionId ?? getKey(o, i)),
+          correct: isCorrect,
+          // Use current UI selection state for this question to avoid stale cross-question map reads.
+          selected: !!o.selected
+        };
+      });
 
     if (q?.type === QuestionType.SingleAnswer) {
       let i = 0;
