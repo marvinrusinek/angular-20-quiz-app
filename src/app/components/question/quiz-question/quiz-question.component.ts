@@ -3237,13 +3237,8 @@ export class QuizQuestionComponent extends BaseQuestion
     const selected =
       this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
 
-    const keyOf = (o: Option): string | number => {
-      if (o?.optionId != null) return o.optionId;
-      if ((o as any)?.id != null) return (o as any).id;
-      const text = (o?.text ?? '').toString().trim().toLowerCase();
-      const value = (o?.value ?? '').toString().trim().toLowerCase();
-      return `${value}|${text}`;
-    };
+    const keyOf = (o: Option): string =>
+      this.selectionMessageService.stableKey(o);
 
     const selectedKeys = new Set(selected.map((o: Option) => keyOf(o)));
     const correctKeys = correctOpts.map((o: Option) => keyOf(o));
