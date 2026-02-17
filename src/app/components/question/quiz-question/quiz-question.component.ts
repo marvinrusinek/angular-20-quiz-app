@@ -3259,17 +3259,15 @@ export class QuizQuestionComponent extends BaseQuestion
       hasUserInteracted: this.quizStateService.hasUserInteracted(idx)
     });
 
-    if (allCorrect && this.quizStateService.hasUserInteracted(idx)) {
-      this.quizStateService.displayStateSubject.next({ mode: 'explanation', answered: true });
-      this.displayExplanation = true;
-    }
+    const shouldTrigger = (allCorrect || shouldShowExplanation) && this.quizStateService.hasUserInteracted(idx);
 
-    // For multi-answer questions we only show explanation when the full answer set is complete.
-    // For single-answer questions we can show immediately after a correct click.
-    if (shouldShowExplanation) {
+    if (shouldTrigger) {
+      console.log('[maybeTriggerExplanation] Triggering explanation display mode.');
       this.explanationTextService.setShouldDisplayExplanation(true);
       this.quizStateService.displayStateSubject.next({ mode: 'explanation', answered: true });
       this.displayExplanation = true;
+    } else {
+      console.log('[maybeTriggerExplanation] Not triggering. Conditions not met.');
     }
   }
 
