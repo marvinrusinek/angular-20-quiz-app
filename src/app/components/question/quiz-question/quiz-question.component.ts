@@ -3075,13 +3075,26 @@ export class QuizQuestionComponent extends BaseQuestion
     const getKey = (o: any, i?: number) =>
       this.selectionMessageService.stableKey(o as Option, i);
 
+    // Helper to resolve correctness dynamically, just in case properties are stale
+    const answerValues = (q.answer ?? [])
+      .map((answer) => answer?.value)
+      .filter((value): value is Option['value'] => value !== undefined && value !== null);
+
+    const resolveCorrect = (option: Option): boolean => {
+      if (option.correct === true) return true;
+      // String check for "true" (some APIs return strings)
+      if ((option as any).correct === 'true') return true;
+      if (Array.isArray(answerValues) && answerValues.length > 0) {
+        return answerValues.includes(option.value);
+      }
+      return false;
+    };
+
     const canonicalOpts =
       (this.optionsToDisplay?.length > 0 ? this.optionsToDisplay : q?.options ?? []).map((o, i) => ({
         ...o,
         optionId: Number(o.optionId ?? getKey(o, i)),
-        /* selected: (
-          this.selectedOptionService.selectedOptionsMap?.get(idx) ?? []
-        ).some((sel) => getKey(sel) === getKey(o)) */
+        correct: resolveCorrect(o),
         // Use current UI selection state for this question to avoid stale cross-question map reads.
         selected: !!o.selected
       }));
@@ -3093,7 +3106,8 @@ export class QuizQuestionComponent extends BaseQuestion
         i++;
       }
 
-      if (evtOpt?.correct && canonicalOpts[evtIdx]) {
+      // Force correct selection if the clicked option IS correct (immediate lock)
+      if (canonicalOpts[evtIdx] && resolveCorrect(evtOpt)) {
         canonicalOpts[evtIdx].selected = true;
         this.selectionMessageService._singleAnswerCorrectLock.add(idx);
         this.selectionMessageService._singleAnswerIncorrectLock.delete(idx);
