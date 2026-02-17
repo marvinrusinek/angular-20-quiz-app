@@ -2203,10 +2203,10 @@ export class QuizQuestionComponent extends BaseQuestion
       this.optionsToDisplay = rawOpts.map((opt: Option, i: number) => {
         const oId = Number(opt.optionId);
         const oText = (opt.text ?? '').trim().toLowerCase();
-        const isCorrect = opt.correct === true || 
-                          (opt as any).correct === "true" ||
-                          (!isNaN(oId) && correctIds.has(oId)) || 
-                          !!(oText && correctTexts.has(oText));
+        const isCorrect = opt.correct === true ||
+          (opt as any).correct === "true" ||
+          (!isNaN(oId) && correctIds.has(oId)) ||
+          !!(oText && correctTexts.has(oText));
 
         return {
           ...opt,
@@ -2899,32 +2899,41 @@ export class QuizQuestionComponent extends BaseQuestion
       this.emitSelectionMessage(idx, q!, optionsNow, canonicalOpts);
       this.syncCanonicalOptionsIntoQuestion(q!, canonicalOpts);
 
-      // Synchronously format and emit FET to ensure it's ready BEFORE display state changes
-      this.optionsToDisplay = canonicalOpts; // Keep local state in sync
+      // Keep local state in sync before explanation gating checks.
+      this.optionsToDisplay = canonicalOpts;
 
-      // Generate and emit FET synchronously using visual options (canonicalOpts)
-      // This ensures fetByIndex is populated BEFORE CodelabQuizContent evaluates
-      // CRITICAL FIX: Use text-matching to avoid corrupted `correct` property in canonicalOpts
-      const rawExplanation = q!.explanation || '';
-
-      const correctIndices = this.explanationTextService.getCorrectOptionIndices(
+      const shouldShowExplanation = this.shouldShowExplanationAfterSelection(
         q!,
-        canonicalOpts,
-        idx
-      );
-      console.log(`[QQC] Computed FET indices for Q${this.currentQuestionIndex + 1}: ${JSON.stringify(correctIndices)}`);
-
-      const questionForFormatting = { ...q!, options: canonicalOpts };
-      const fet = this.explanationTextService.formatExplanation(
-        questionForFormatting,
-        correctIndices,
-        rawExplanation,
-        idx
+        evtOpt,
+        canonicalOpts
       );
 
-      if (fet) {
-        console.log(`[QQC] Sync FET for Q${idx + 1}: "${fet.substring(0, 40)}..."`);
-        this.explanationTextService.emitFormatted(idx, fet);
+      // Generate FET but only emit/cache it when this click should actually reveal explanation.
+      // This prevents unanswered/partial multi-answer questions (e.g. Q4) from rendering FET
+      // instead of question text due to early fetByIndex population.
+      if (shouldShowExplanation) {
+        const rawExplanation = q!.explanation || '';
+        const correctIndices = this.explanationTextService.getCorrectOptionIndices(
+          q!,
+          canonicalOpts,
+          idx
+        );
+        console.log(`[QQC] Computed FET indices for Q${this.currentQuestionIndex + 1}: ${JSON.stringify(correctIndices)}`);
+
+        const questionForFormatting = { ...q!, options: canonicalOpts };
+        const fet = this.explanationTextService.formatExplanation(
+          questionForFormatting,
+          correctIndices,
+          rawExplanation,
+          idx
+        );
+
+        if (fet) {
+          console.log(`[QQC] Sync FET for Q${idx + 1}: "${fet.substring(0, 40)}..."`);
+          this.explanationTextService.emitFormatted(idx, fet);
+        } else {
+          console.warn(`[QQC] No FET generated for Q${idx + 1}`);
+        }
       } else {
         console.warn(`[QQC] No FET generated for Q${idx + 1}`);
       }
@@ -2937,16 +2946,9 @@ export class QuizQuestionComponent extends BaseQuestion
       const allCorrect = this.computeCorrectness(q!, canonicalOpts, evtOpt, idx);
       this._lastAllCorrect = allCorrect;
 
-      //await this.maybeTriggerExplanation(q!, evtOpt, idx, allCorrect);
-      const shouldShowExplanation = this.shouldShowExplanationAfterSelection(
-        q!,
-        evtOpt,
-        canonicalOpts
-      );
-
       await this.maybeTriggerExplanation(q!, evtOpt, idx, allCorrect, shouldShowExplanation);
       this.updateNextButtonAndState(allCorrect);
-      //this.forceExplanationUpdate(idx, q!);
+
       if (shouldShowExplanation) {
         this.forceExplanationUpdate(idx, q!);
       }
@@ -3473,8 +3475,8 @@ export class QuizQuestionComponent extends BaseQuestion
 
       console.error(`🔴🔴🔴 [QQC-performUpdate] Q${lockedIndex + 1} | Source: ${source} | Opts: ${visualOpts.length}`);
       if (visualOpts.length > 0) {
-         console.error(`   - Opt 1: ${visualOpts[0]?.text?.slice(0, 20)} (Correct: ${visualOpts[0]?.correct})`);
-         if (visualOpts.length > 2) console.error(`    - Opt 3: ${visualOpts[2]?.text?.slice(0, 20)} (Correct: ${visualOpts[2]?.correct})`);
+        console.error(`   - Opt 1: ${visualOpts[0]?.text?.slice(0, 20)} (Correct: ${visualOpts[0]?.correct})`);
+        if (visualOpts.length > 2) console.error(`    - Opt 3: ${visualOpts[2]?.text?.slice(0, 20)} (Correct: ${visualOpts[2]?.correct})`);
       }
       const correctIdxs = ets.getCorrectOptionIndices(
         canonicalQ!,
