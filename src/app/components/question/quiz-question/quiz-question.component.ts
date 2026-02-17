@@ -3313,6 +3313,12 @@ export class QuizQuestionComponent extends BaseQuestion
     return result;
   }
 
+  private isMultipleAnswerQuestion(q: QuizQuestion | null): boolean {
+    if (!q) return false;
+    const correctCount = (q.options?.filter((o: Option) => !!o.correct).length || 0);
+    return q.type === QuestionType.MultipleAnswer || correctCount > 1;
+  }
+
   private async maybeTriggerExplanation(
     q: QuizQuestion,
     _evtOpt: Option,
