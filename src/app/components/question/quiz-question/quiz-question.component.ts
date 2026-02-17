@@ -3104,7 +3104,7 @@ export class QuizQuestionComponent extends BaseQuestion
     console.log(`[buildCanonicalOptions] Q${idx + 1} ServiceSelections count: ${serviceSelections.length}`, {
       keys: Array.from(serviceSelectedKeys),
       evtIdx,
-      evtChecked
+      isChecked
     });
 
     const canonicalOpts =
