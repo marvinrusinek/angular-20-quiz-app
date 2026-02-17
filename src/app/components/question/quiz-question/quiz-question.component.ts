@@ -3084,19 +3084,28 @@ export class QuizQuestionComponent extends BaseQuestion
       if (option.correct === true) return true;
       if ((option as any).correct === 'true') return true;
 
+      // Also allow text match as fallback if value is missing/weird
       if (Array.isArray(answerValues) && answerValues.length > 0) {
         const optVal = String(option.value).trim().toLowerCase();
-        return answerValues.some(v => String(v).trim().toLowerCase() === optVal);
+        const optTxt = String(option.text).trim().toLowerCase();
+        return answerValues.some(v => {
+          const s = String(v).trim().toLowerCase();
+          return s === optVal || s === optTxt;
+        });
       }
       return false;
     };
 
     // 2. Resolve Selection State
-    // We must merge the *current* click (evtIdx/isChecked) with the *existing* service state for other options.
-    // Relying solely on 'this.optionsToDisplay' is risky if the UI update lags.
-    // Relying solely on 'selectedOptionService' is risky because it doesn't have the current click yet.
     const serviceSelections = this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
     const serviceSelectedKeys = new Set(serviceSelections.map(s => getKey(s)));
+
+    // Debug log for selection state
+    console.log(`[buildCanonicalOptions] Q${idx + 1} ServiceSelections count: ${serviceSelections.length}`, {
+      keys: Array.from(serviceSelectedKeys),
+      evtIdx,
+      evtChecked
+    });
 
     const canonicalOpts =
       (this.optionsToDisplay?.length > 0 ? this.optionsToDisplay : q?.options ?? []).map((o, i) => {
@@ -3108,10 +3117,16 @@ export class QuizQuestionComponent extends BaseQuestion
           isSelected = isChecked;
         }
 
+        const isCorrect = resolveCorrect(o);
+        // Trace individual option state
+        if (isSelected || isCorrect) {
+          console.log(`[buildCanonicalOptions] Opt${i + 1} (${key}): selected=${isSelected}, correct=${isCorrect}`);
+        }
+
         return {
           ...o,
           optionId: Number(o.optionId ?? key),
-          correct: resolveCorrect(o),
+          correct: isCorrect,
           selected: isSelected
         };
       });
