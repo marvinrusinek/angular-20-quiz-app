@@ -1910,8 +1910,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           )
         ]).pipe(
           map(([question, selected]: [QuizQuestion | null, any[]]) => {
-            // DIAGNOSTIC FORCE for Q4 (Index 3)
-            if (idx === 3) return true;
+            // Removed hardcoded Q4 fix; now handled by robust type detection in QuizQuestionComponent
 
             const resolved = question
               ? this.selectedOptionService.isQuestionResolvedCorrectly(
