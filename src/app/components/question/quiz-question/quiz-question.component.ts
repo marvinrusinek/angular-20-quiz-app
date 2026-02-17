@@ -2937,9 +2937,19 @@ export class QuizQuestionComponent extends BaseQuestion
       const allCorrect = this.computeCorrectness(q!, canonicalOpts, evtOpt, idx);
       this._lastAllCorrect = allCorrect;
 
-      await this.maybeTriggerExplanation(q!, evtOpt, idx, allCorrect);
+      //await this.maybeTriggerExplanation(q!, evtOpt, idx, allCorrect);
+      const shouldShowExplanation = this.shouldShowExplanationAfterSelection(
+        q!,
+        evtOpt,
+        canonicalOpts
+      );
+
+      await this.maybeTriggerExplanation(q!, evtOpt, idx, allCorrect, shouldShowExplanation);
       this.updateNextButtonAndState(allCorrect);
-      this.forceExplanationUpdate(idx, q!);
+      //this.forceExplanationUpdate(idx, q!);
+      if (shouldShowExplanation) {
+        this.forceExplanationUpdate(idx, q!);
+      }
 
       this.scheduleAsyncUiFinalization(evtOpt, evtIdx, evtChecked);
     } catch (error: any) {
@@ -3055,9 +3065,11 @@ export class QuizQuestionComponent extends BaseQuestion
       (this.optionsToDisplay?.length > 0 ? this.optionsToDisplay : q?.options ?? []).map((o, i) => ({
         ...o,
         optionId: Number(o.optionId ?? getKey(o, i)),
-        selected: (
+        /* selected: (
           this.selectedOptionService.selectedOptionsMap?.get(idx) ?? []
-        ).some((sel) => getKey(sel) === getKey(o))
+        ).some((sel) => getKey(sel) === getKey(o)) */
+        // Use current UI selection state for this question to avoid stale cross-question map reads.
+        selected: !!o.selected
       }));
 
     if (q?.type === QuestionType.SingleAnswer) {
@@ -3130,8 +3142,11 @@ export class QuizQuestionComponent extends BaseQuestion
       selKeys.has(getKey(o))
     ).length;
 
+    const isMultipleAnswerQuestion =
+      q?.type === QuestionType.MultipleAnswer || correctOpts.length > 1;
+
     // MULTIPLE-ANSWER logic
-    if (q?.type === QuestionType.MultipleAnswer) {
+    if (isMultipleAnswerQuestion) {
       // EXACT match required
       return (
         correctOpts.length > 0 &&
@@ -3144,18 +3159,80 @@ export class QuizQuestionComponent extends BaseQuestion
     return !!evtOpt?.correct;
   }
 
-  private async maybeTriggerExplanation(
+  private hasSelectedAllCorrectOptions(
+    canonicalOpts: Option[],
+    idx: number
+  ): boolean {
+    const correctOpts = canonicalOpts.filter((o: Option) => !!o.correct);
+    if (correctOpts.length === 0) return false;
+
+    const selected =
+      this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
+
+    const keyOf = (o: Option): string | number => {
+      if (o?.optionId != null) return o.optionId;
+      if ((o as any)?.id != null) return (o as any).id;
+      const text = (o?.text ?? '').toString().trim().toLowerCase();
+      const value = (o?.value ?? '').toString().trim().toLowerCase();
+      return `${value}|${text}`;
+    };
+
+    const selectedKeys = new Set(selected.map((o: Option) => keyOf(o)));
+    const correctKeys = correctOpts.map((o: Option) => keyOf(o));
+
+    return correctKeys.every((key) => selectedKeys.has(key));
+  }
+
+  private shouldShowExplanationAfterSelection(
     q: QuizQuestion,
-    evtOpt: Option,
+    _evtOpt: Option,
+    canonicalOpts: Option[]
+  ): boolean {
+    const correctOpts = canonicalOpts.filter((o: Option) => !!o.correct);
+    const selectedOpts = canonicalOpts.filter((o: Option) => !!o.selected);
+
+    const keyOf = (o: Option): string | number => {
+      if (o?.optionId != null) return o.optionId;
+      if ((o as any)?.id != null) return (o as any).id;
+      const text = (o?.text ?? '').toString().trim().toLowerCase();
+      const value = (o?.value ?? '').toString().trim().toLowerCase();
+      return `${value}|${text}`;
+    };
+
+    const correctKeys = new Set(correctOpts.map((o: Option) => keyOf(o)));
+    const selectedKeys = new Set(selectedOpts.map((o: Option) => keyOf(o)));
+
+    const isMultipleAnswerQuestion =
+      q?.type === QuestionType.MultipleAnswer || correctOpts.length > 1;
+
+    if (!isMultipleAnswerQuestion) {
+      if (selectedKeys.size === 0 || correctKeys.size === 0) return false;
+      // Single-answer: show only when a selected option is the correct one.
+      return Array.from(selectedKeys).some((key) => correctKeys.has(key));
+    }
+
+    if (correctKeys.size === 0) return false;
+
+    // Multi-answer: show only on exact completion (all and only correct selected).
+    if (selectedKeys.size !== correctKeys.size) return false;
+    return Array.from(correctKeys).every((key) => selectedKeys.has(key));
+  }
+
+  private async maybeTriggerExplanation(
+    _q: QuizQuestion,
+    _evtOpt: Option,
     idx: number,
-    allCorrect: boolean
+    allCorrect: boolean,
+    shouldShowExplanation: boolean
   ): Promise<void> {
     if (allCorrect && this.quizStateService.hasUserInteracted(idx)) {
       this.quizStateService.displayStateSubject.next({ mode: 'explanation', answered: true });
       this.displayExplanation = true;
     }
 
-    if (evtOpt?.correct) {
+    // For multi-answer questions we only show explanation when the full answer set is complete.
+    // For single-answer questions we can show immediately after a correct click.
+    if (shouldShowExplanation) {
       this.explanationTextService.setShouldDisplayExplanation(true);
       this.quizStateService.displayStateSubject.next({ mode: 'explanation', answered: true });
       this.displayExplanation = true;
