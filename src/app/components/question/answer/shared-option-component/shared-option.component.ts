@@ -1197,11 +1197,15 @@ export class SharedOptionComponent
 
 
     // Set display mode to 'explanation' - critical for FET display!
-    // The displayText$ pipeline checks: 
-    // shouldShowFet = hasInteractedThisSession && currentMode === 'explanation'
-    // Without this call, currentMode stays 'question' and FET never displays.
-    this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
-    this.emitExplanation(activeQuestionIndex);
+    // For multi-answer, we DELAY this until QuizQuestionComponent confirms completion (all correct OR timeout).
+    // If we set it here for multi-answer, CodelabQuizContentComponent might show the FET prematurely or clear it.
+    if (!this.isMultiMode) {
+      console.log(`[SharedOptionComponent] Single-mode click: setting mode='explanation' for Q${activeQuestionIndex + 1}`);
+      this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
+      this.emitExplanation(activeQuestionIndex);
+    } else {
+      console.log(`[SharedOptionComponent] Multi-mode click: keeping mode='question' for Q${activeQuestionIndex + 1} until completion.`);
+    }
 
 
     const enrichedOption: SelectedOption = {

@@ -2949,8 +2949,17 @@ export class QuizQuestionComponent extends BaseQuestion
       this.quizStateService.updateQuestionState(this.quizId, idx, { isAnswered: true }, 0);
       console.log(`[QQC] Updated QState: idx=${idx}, isAnswered=true, QuizID=${this.quizId}`);
 
+      // Mark user interaction proactively for the display stream
+      this.quizStateService.markUserInteracted(idx);
+
       const allCorrect = this.computeCorrectness(q!, canonicalOpts, evtOpt, idx);
       this._lastAllCorrect = allCorrect;
+
+      console.log(`[onOptionClicked] Q${idx + 1} evaluation:`, {
+        allCorrect,
+        shouldShowExplanation,
+        isMulti: this.isMultipleAnswerQuestion(q!)
+      });
 
       await this.maybeTriggerExplanation(q!, evtOpt, idx, allCorrect, shouldShowExplanation);
       this.updateNextButtonAndState(allCorrect);
@@ -3311,41 +3320,36 @@ export class QuizQuestionComponent extends BaseQuestion
     allCorrect: boolean,
     shouldShowExplanation: boolean
   ): Promise<void> {
-    console.log('[maybeTriggerExplanation] Called with:', {
+    console.log('[maybeTriggerExplanation] Evaluating for Q' + (idx + 1), {
       allCorrect,
-      shouldShowExplanation,
-      hasUserInteracted: this.quizStateService.hasUserInteracted(idx)
+      shouldShowExplanation
     });
 
-    // Race condition fix: Trust the caller (onOptionClicked) which implies interaction.
-    // Do not check quizStateService.hasUserInteracted here.
     const shouldTrigger = allCorrect || shouldShowExplanation;
 
     if (shouldTrigger) {
-      console.log('[maybeTriggerExplanation] Triggering explanation display mode.');
+      console.log(`[maybeTriggerExplanation] ✅ TRIGGERING for Q${idx + 1}`);
 
-      // Ensure FET text is available. If shouldShowExplanation was false, it wasn't generated in onOptionClicked.
-      // We must generate and emit it now.
-      if (!shouldShowExplanation && allCorrect) {
-        const rawExplanation = q.explanation || '';
-        const correctIndices = this.explanationTextService.getCorrectOptionIndices(
-          q,
-          this.optionsToDisplay,
-          idx
-        );
-        const questionForFormatting = { ...q, options: this.optionsToDisplay };
-        const fet = this.explanationTextService.formatExplanation(
-          questionForFormatting,
-          correctIndices,
-          rawExplanation,
-          idx
-        );
-        if (fet) {
-          console.log(`[maybeTriggerExplanation] Late-generating FET for Q${idx + 1}: "${fet.substring(0, 40)}..."`);
-          this.explanationTextService.emitFormatted(idx, fet);
-          this.explanationToDisplay = fet;
-          this.emitExplanationToDisplayChange(fet);
-        }
+      // Ensure FET text is available. Force emission now that we are triggering.
+      const rawExplanation = q.explanation || '';
+      const correctIndices = this.explanationTextService.getCorrectOptionIndices(
+        q,
+        this.optionsToDisplay,
+        idx
+      );
+      const questionForFormatting = { ...q, options: this.optionsToDisplay };
+      const fet = this.explanationTextService.formatExplanation(
+        questionForFormatting,
+        correctIndices,
+        rawExplanation,
+        idx
+      );
+
+      if (fet) {
+        console.log(`[maybeTriggerExplanation] ⬆️ Emitting FET: "${fet.substring(0, 50)}..."`);
+        this.explanationTextService.emitFormatted(idx, fet);
+        this.explanationToDisplay = fet;
+        this.emitExplanationToDisplayChange(fet);
       }
 
       this.explanationTextService.setShouldDisplayExplanation(true);
@@ -3355,7 +3359,7 @@ export class QuizQuestionComponent extends BaseQuestion
       // Force immediate update to ensuring binding propagation
       this.cdRef.detectChanges();
     } else {
-      console.log('[maybeTriggerExplanation] Not triggering. Conditions not met.');
+      console.log(`[maybeTriggerExplanation] ⏸ Not triggering for Q${idx + 1} yet.`);
     }
   }
 
