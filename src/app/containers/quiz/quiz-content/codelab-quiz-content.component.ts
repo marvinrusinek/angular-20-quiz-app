@@ -231,7 +231,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     shareReplay(1)
   );
 
-  public activeFetText$: Observable<string> = this.formattedExplanation$.pipe(
+  public activeFetText$: Observable<string> = this.explanationTextService.fetPayload$.pipe(
     withLatestFrom(this.quizService.currentQuestionIndex$),
     map(([payload, idx]:
       [FETPayload, number]) => (payload?.idx === idx ? (payload.text ?? '') : '')),
