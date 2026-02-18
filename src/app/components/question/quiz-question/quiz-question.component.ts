@@ -2845,7 +2845,8 @@ export class QuizQuestionComponent extends BaseQuestion
     // Only reset if NOT already displaying explanation.
     // This allows FET to persist once shown (e.g. after finding one correct answer in multi-choice).
     if (!this.displayExplanation) {
-      this.resetExplanationBeforeClick(idx);
+      // 1. REMOVED resetExplanationBeforeClick(idx) to preventing flickering/hiding of FET.
+      // this.resetExplanationBeforeClick(idx);
     } else {
       console.log('[onOptionClicked] Skipping explanation reset - FET already displayed.');
     }
@@ -3326,6 +3327,11 @@ export class QuizQuestionComponent extends BaseQuestion
         this.explanationTextService.emitFormatted(idx, fet);
         this.explanationToDisplay = fet;
         this.emitExplanationToDisplayChange(fet);
+      } else {
+        console.warn(`[maybeTriggerExplanation] ⚠️ FET generation empty - using raw fallback`);
+        this.explanationTextService.emitFormatted(idx, rawExplanation);
+        this.explanationToDisplay = rawExplanation;
+        this.emitExplanationToDisplayChange(rawExplanation);
       }
 
       this.explanationTextService.setShouldDisplayExplanation(true);
