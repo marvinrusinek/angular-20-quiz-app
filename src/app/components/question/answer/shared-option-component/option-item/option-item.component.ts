@@ -88,7 +88,7 @@ export class OptionItemComponent {
   }
 
   shouldShowIcon(option?: any, i?: number): boolean {
-    return !!this.b.option.showIcon;
+    return !!(option?.showIcon ?? this.b.option.showIcon);
   }
 
   shouldShowFeedback(): boolean {
