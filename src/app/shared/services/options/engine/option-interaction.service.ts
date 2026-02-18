@@ -98,6 +98,7 @@ export class OptionInteractionService {
 
     // Determine type for scoring
     const bindingsForScore = state.optionBindings ?? [];
+    // Relaxed check for 'correct' (truthy)
     const correctCountForScore = bindingsForScore.filter(b => b.option?.correct).length;
     const isMultipleForScore = correctCountForScore > 1;
 
@@ -115,24 +116,13 @@ export class OptionInteractionService {
 
     const willBeSelected = isMultipleForScore ? !binding.isSelected : true;
 
-    // Update Set
-    if (isMultipleForScore) {
-      if (willBeSelected) {
-        if (!currentSelectedOptions.find(o => o.optionId === binding.option.optionId)) {
-          currentSelectedOptions.push(binding.option);
-        }
-      } else {
-        currentSelectedOptions = currentSelectedOptions.filter(o => o.optionId !== binding.option.optionId);
-      }
-    } else {
-      currentSelectedOptions = [binding.option];
-    }
-
     // Use SelectedOptionService as source of truth
     const storedSelection = this.selectedOptionService.getSelectedOptionsForQuestion(qIdx) || [];
     let simulatedSelection = [...storedSelection];
 
-    const existingIdx = simulatedSelection.findIndex(o => o.optionId === binding.option.optionId);
+    // NORMALIZE IDs for reliable lookups
+    const targetId = Number(binding.option.optionId);
+    const existingIdx = simulatedSelection.findIndex(o => Number(o.optionId) === targetId);
 
     if (existingIdx > -1) {
       simulatedSelection.splice(existingIdx, 1);
@@ -165,11 +155,11 @@ export class OptionInteractionService {
 
     // TIMER STOP LOGIC
     const question = getQuestionAtDisplayIndex(qIdx);
-    let clickedIsCorrect = binding.option.correct === true;
+    let clickedIsCorrect = !!binding.option.correct; // Relaxed bool check
 
     // Fallbacks for correctness detection
     if (!clickedIsCorrect) {
-      const match = (o: Option) => o.optionId === binding.option.optionId || 
+      const match = (o: Option) => Number(o.optionId) === targetId || 
         (o.text && o.text.trim().toLowerCase() === (binding.option.text ?? '').trim().toLowerCase());
       
       const matchingOpt = (question?.options?.find(match)) || 
@@ -183,22 +173,23 @@ export class OptionInteractionService {
 
     let isMultipleAnswer = state.type === 'multiple';
     if (!isMultipleAnswer && state.optionsToDisplay?.length > 0) {
-      const correctCount = state.optionsToDisplay.filter(o => o.correct === true).length;
+      const correctCount = state.optionsToDisplay.filter(o => !!o.correct).length;
       if (correctCount > 1) {
         isMultipleAnswer = true;
       }
     }
 
+    console.log(`[OIS] Q${qIdx + 1} Logic Mode: ${isMultipleAnswer ? 'MULTIPLE' : 'SINGLE'} | TargetID: ${targetId} | ClickCorrect: ${clickedIsCorrect}`);
+
     const isSingle = !isMultipleAnswer;
+    let isPerfect = false;
 
     if (isSingle) {
       if (clickedIsCorrect) {
         if (!state.correctClicksPerQuestion.has(qIdx)) {
           state.correctClicksPerQuestion.set(qIdx, new Set<number>());
         }
-        if (typeof binding.option.optionId === 'number') {
-          state.correctClicksPerQuestion.get(qIdx)!.add(binding.option.optionId);
-        }
+        state.correctClicksPerQuestion.get(qIdx)!.add(targetId);
 
         this.timerService.allowAuthoritativeStop();
         this.timerService.stopTimer(undefined, { force: true });
@@ -221,31 +212,64 @@ export class OptionInteractionService {
       }
     } else {
       // Multi-answer
-      const bindingCorrectIds = (state.optionBindings ?? [])
-        .filter(b => b.option?.correct === true)
-        .map(b => b.option?.optionId)
-        .filter((id): id is number => typeof id === 'number');
+      // Use relaxed correct check (truthy compatibility)
+      let correctIds: number[] = [];
 
-      const correctIds = bindingCorrectIds.length > 0 ? bindingCorrectIds : 
-        (state.optionsToDisplay ?? []).filter(o => o.correct).map(o => o.optionId).filter(id => id != null);
+      // Priority 1: Use question object from callback (Authoritative Source)
+      if (question && Array.isArray(question.options)) {
+        correctIds = question.options
+          .filter(o => !!o.correct)
+          .map(o => Number(o.optionId))
+          .filter(id => Number.isFinite(id));
+      }
+
+      // Priority 2: Fallback to bindings/display options
+      if (correctIds.length === 0) {
+        const bindingCorrectIds = (state.optionBindings ?? [])
+          .filter(b => !!b.option?.correct)
+          .map(b => Number(b.option?.optionId))
+          .filter((id): id is number => Number.isFinite(id));
+          
+        correctIds = bindingCorrectIds.length > 0 ? bindingCorrectIds : 
+          (state.optionsToDisplay ?? [])
+            .filter(o => !!o.correct)
+            .map(o => Number(o.optionId))
+            .filter(id => Number.isFinite(id));
+      }
 
       if (!state.correctClicksPerQuestion.has(qIdx)) {
         state.correctClicksPerQuestion.set(qIdx, new Set<number>());
       }
       const clickedCorrectSet = state.correctClicksPerQuestion.get(qIdx)!;
 
-      if (clickedIsCorrect && typeof binding.option.optionId === 'number') {
-        clickedCorrectSet.add(binding.option.optionId);
+      if (clickedIsCorrect) {
+        clickedCorrectSet.add(targetId);
       }
 
-      const selectedIds = simulatedSelection.map(a => a.optionId).filter((id): id is number => typeof id === 'number');
-      const allCorrectSelected = (correctIds as number[]).every(id => selectedIds.includes(id));
-      const isPerfect = allCorrectSelected && selectedIds.length >= correctIds.length;
+      const selectedIds = simulatedSelection
+        .map(a => Number(a.optionId))
+        .filter((id): id is number => Number.isFinite(id));
+      
+      const correctSet = new Set(correctIds);
+      const selectedSet = new Set(selectedIds);
+      
+      // Strict equality check: same size and every correct ID is selected
+      let allCorrectSelected = [...correctSet].every(id => selectedSet.has(id));
+      isPerfect = correctSet.size > 0 && correctSet.size === selectedSet.size && allCorrectSelected;
+
+      console.log(`[OIS] Multi-Answer Check Q${qIdx + 1}:`, {
+        correctIds: [...correctSet],
+        selectedIds: [...selectedSet],
+        allCorrectSelected,
+        isPerfect
+      });
 
       if (isPerfect) {
         this.timerService.allowAuthoritativeStop();
         this.timerService.stopTimer(undefined, { force: true });
         this.quizService.scoreDirectly(qIdx, true, true);
+        
+        console.log(`[OIS] PERFECT score detected for Q${qIdx + 1}`);
 
         if (!state.disabledOptionsPerQuestion.has(qIdx)) {
           state.disabledOptionsPerQuestion.set(qIdx, new Set<number>());
@@ -253,6 +277,7 @@ export class OptionInteractionService {
         const dSet = state.disabledOptionsPerQuestion.get(qIdx)!;
 
         for (const b of state.optionBindings ?? []) {
+          // Disable incorrect options to lock the state
           if (!b.option?.correct && typeof b.option?.optionId === 'number') {
             dSet.add(b.option.optionId);
           }
@@ -265,7 +290,16 @@ export class OptionInteractionService {
     const mockEvent = isSingle ? { source: null, value: binding.option.optionId } : { source: null, checked: newState };
 
     updateOptionAndUI(binding, index, mockEvent);
-    emitExplanation(qIdx);
+
+    // Only emit explanation if the question is "answered" fully.
+    // For Single: Answered on first click (since we select and disable or move on).
+    // For Multi: Answered when all correct options are selected (isPerfect).
+    if (isSingle || (isMultipleAnswer && typeof isPerfect !== 'undefined' && isPerfect)) {
+      console.log(`[OIS] Triggering emitExplanation for Q${qIdx + 1}`);
+      setTimeout(() => {
+        emitExplanation(qIdx);
+      }, 0);
+    }
 
     try {
       const message = this.selectionMessageService.computeFinalMessage({

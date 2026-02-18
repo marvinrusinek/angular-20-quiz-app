@@ -1,7 +1,7 @@
 ﻿import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef,
   Component, DoCheck, EventEmitter, HostListener, Input, NgZone, OnChanges, OnDestroy, OnInit,
-  Output, QueryList, SimpleChanges, ViewChildren
+  Output, SimpleChanges
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
@@ -68,10 +68,7 @@ import { OptionBindingFactoryService } from '../../../../shared/services/options
 })
 export class SharedOptionComponent
   implements OnInit, OnChanges, DoCheck, OnDestroy, AfterViewInit {
-
-
-  @Output() optionClicked =
-    new EventEmitter<OptionClickedPayload>();
+  @Output() optionClicked = new EventEmitter<OptionClickedPayload>();
   @Output() optionEvent = new EventEmitter<OptionUIEvent>();
   @Output() reselectionDetected = new EventEmitter<boolean>();
   @Output() explanationUpdate = new EventEmitter<number>();
@@ -168,6 +165,8 @@ export class SharedOptionComponent
   private pendingExplanationIndex = -1;
   private resolvedQuestionIndex: number | null = null;
 
+  private _isMultiModeCache: boolean | null = null;
+
   destroy$ = new Subject<void>();
 
   constructor(
@@ -212,34 +211,45 @@ export class SharedOptionComponent
 
   // Robust Multi-Mode Detection (Infers from Data if Type is missing)
   get isMultiMode(): boolean {
+    // Return cached result to avoid repeated computation on every CD cycle
+    if (this._isMultiModeCache !== null) return this._isMultiModeCache;
+  
+    let result = false;
+  
     // Explicit check
     if (this.type === 'multiple' || this.config?.type === 'multiple') {
       console.log(`[isMultiMode] Returning TRUE due to explicit type='multiple'`);
-      return true;
+      result = true;
     }
-
-    // Use getActiveQuestionIndex for most reliable index
-    // Then use getQuestionAtDisplayIndex for shuffle-aware question lookup
-    const idx = this.getActiveQuestionIndex();
-    const currentQ = this.getQuestionAtDisplayIndex(idx) ?? this.currentQuestion;
-
-    // Data inference (fixes multiple-answer questions)
-    if (currentQ?.options) {
-      const count = currentQ.options.filter((o: Option) => o.correct).length;
-      console.log(`[isMultiMode] Q${idx + 1} from question: correctCount=${count}, returning ${count > 1}`);
-      if (count > 1) return true;
+  
+    if (!result) {
+      // Use getActiveQuestionIndex for most reliable index
+      // Then use getQuestionAtDisplayIndex for shuffle-aware question lookup
+      const idx = this.getActiveQuestionIndex();
+      const currentQ = this.getQuestionAtDisplayIndex(idx) ?? this.currentQuestion;
+  
+      // Data inference (fixes multiple-answer questions)
+      if (currentQ?.options) {
+        const count = currentQ.options.filter((o: Option) => !!o.correct).length;
+        console.log(`[isMultiMode] Q${idx + 1} from question: correctCount=${count}, returning ${count > 1}`);
+        if (count > 1) result = true;
+      }
+  
+      // This is what's actually being shown to the user
+      if (!result && this.optionsToDisplay?.length > 0) {
+        const displayCount = this.optionsToDisplay.filter((o: Option) => !!o.correct).length;
+        console.log(`[isMultiMode] Q${idx + 1} from optionsToDisplay: correctCount=${displayCount}, returning ${displayCount > 1}`);
+        if (displayCount > 1) result = true;
+      }
+  
+      if (!result) {
+        console.log(`[isMultiMode] Q${idx + 1}: No multi-answer detected, returning false`);
+      }
     }
-
-    // Fallback: Check optionsToDisplay (most reliable for shuffled mode)
-    // This is what's actually being shown to the user
-    if (this.optionsToDisplay?.length > 0) {
-      const displayCount = this.optionsToDisplay.filter((o: Option) => o.correct === true).length;
-      console.log(`[isMultiMode] Q${idx + 1} from optionsToDisplay: correctCount=${displayCount}, returning ${displayCount > 1}`);
-      if (displayCount > 1) return true;
-    }
-
-    console.log(`[isMultiMode] Q${idx + 1}: No multi-answer detected, returning false`);
-    return false;
+  
+    // Cache result to prevent redundant computation across CD cycles
+    this._isMultiModeCache = result;
+    return result;
   }
 
   ngOnInit(): void {
@@ -268,6 +278,7 @@ export class SharedOptionComponent
   }
 
   private resetStateForNewQuestion(): void {
+    this._isMultiModeCache = null; // invalidate: new question may have different answer count
     this.disabledOptionsPerQuestion.clear();
     this.lockedIncorrectOptionIds.clear();
     this.flashDisabledSet.clear();
@@ -1182,65 +1193,7 @@ export class SharedOptionComponent
     return this.buildSharedOptionConfig(b, i);
   }
 
-  private handleClick(binding: OptionBindings, index: number): void {
-    // Robust index resolution - fallback to Service if local is default/0
-    let activeQuestionIndex = this.getActiveQuestionIndex();
-    if (activeQuestionIndex === null || activeQuestionIndex === undefined ||
-      (activeQuestionIndex === 0 && this.quizService.currentQuestionIndex > 0)) {
-      activeQuestionIndex = this.quizService.currentQuestionIndex;
-    }
-    activeQuestionIndex = activeQuestionIndex ?? 0;
 
-    // Mark that user has interacted with this question this session
-    // This is required for the displayText$ pipeline's shouldShowFet logic
-    this.quizStateService.markUserInteracted(activeQuestionIndex);
-
-
-    // Set display mode to 'explanation' - critical for FET display!
-    // The displayText$ pipeline checks: 
-    // shouldShowFet = hasInteractedThisSession && currentMode === 'explanation'
-    // Without this call, currentMode stays 'question' and FET never displays.
-    this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
-    this.emitExplanation(activeQuestionIndex);
-
-
-    const enrichedOption: SelectedOption = {
-      ...binding.option,
-      selected: binding.option.selected === true,
-      questionIndex: activeQuestionIndex
-    };
-
-    const payload: OptionClickedPayload = {
-      option: enrichedOption,
-      index,
-      checked: enrichedOption.selected === true
-    };
-
-    this.optionClicked.emit(payload);
-
-    // Run score check after parent updates service (next tick)
-    setTimeout(() => {
-      // Construct complete answers list for Multiple Choice
-      let currentAnswers: any[] = [];
-      if (this.type === 'multiple') {
-        const stored =
-          this.selectedOptionService.getSelectedOptionsForQuestion(
-            activeQuestionIndex
-          );
-        currentAnswers = stored ? [...stored] : [];
-
-        // If stored is empty (race condition), fallback to current enriched
-        if (currentAnswers.length === 0) currentAnswers = [enrichedOption];
-      } else {
-        currentAnswers = [enrichedOption];
-      }
-
-      this.quizService.answers = currentAnswers;
-      this.quizService.updateAnswersForOption(enrichedOption);
-
-
-    }, 0);
-  }
 
   preserveOptionHighlighting(): void {
     for (const option of this.optionsToDisplay) {
@@ -1695,11 +1648,30 @@ export class SharedOptionComponent
   }
 
   private emitExplanation(questionIndex: number): void {
-    // Resolve explanation directly from Canonical source to avoid shuffle index confusion
-    const explanationText = this.quizService.questions[questionIndex]?.explanation || '';
+    // Use resolveExplanationText so option numbering matches what the user
+    // sees (shuffle-safe, multi-answer aware) instead of raw canonical explanation.
+    // Falls back to canonical source if resolveExplanationText returns empty
+    // to avoid shuffle index confusion.
+    console.log(`[SharedOptionComponent] emitExplanation checking Q${questionIndex + 1}...`);
+    
+    const explanationText = this.resolveExplanationText(questionIndex)?.trim()
+      || this.quizService.questions[questionIndex]?.explanation
+      || '';
+
+    if (!explanationText) {
+      console.warn(`[emitExplanation] No explanation text resolved for Q${questionIndex + 1}`);
+      return;
+    }
+    
+    console.log(`[SharedOptionComponent] emitExplanation proceeding for Q${questionIndex + 1}: "${explanationText.substring(0, 30)}..."`);
+
+    // Cache the resolved formatted text so other components (e.g. Q4, post-restart)
+    // can find it without recomputing
+    this.cacheResolvedFormattedExplanation(questionIndex, explanationText);
 
     // BRUTE FORCE: Clear locks and pulse stream to bypass distinctUntilChanged/duplicate checks
     // This handles the "Back and Forth" requirement reported by user
+    // and the "displays once then stops on restart" issue
     try {
       (this.explanationTextService as any)._fetLocked = false;
       this.explanationTextService.unlockExplanation();
@@ -1714,12 +1686,15 @@ export class SharedOptionComponent
     this.pendingExplanationIndex = questionIndex;
     this.applyExplanationText(explanationText, questionIndex);
     this.scheduleExplanationVerification(questionIndex, explanationText);
+    
+    console.log(`[SharedOptionComponent] emitExplanation COMPLETED for Q${questionIndex + 1}`);
   }
 
   private applyExplanationText(
     explanationText: string,
     displayIndex: number
   ): void {
+    console.log(`[SharedOptionComponent] applyExplanationText displaying for Q${displayIndex + 1}`);
     // Mark interaction FIRST so that when emitFormatted triggers the subscriber,
     // the 'hasUserInteracted' check passes immediately.
     this.quizStateService.markUserInteracted(displayIndex);
@@ -1759,6 +1734,7 @@ export class SharedOptionComponent
       mode: 'explanation',
       answered: true
     });
+    console.log(`[SharedOptionComponent] DisplayState set to EXPLANATION for Q${displayIndex + 1}`);
   }
 
   private buildExplanationContext(questionIndex: number): string {
@@ -1885,10 +1861,15 @@ export class SharedOptionComponent
     }
 
     // 2. Identify the authoritative canonical question for "truth" data
-    // We search the canonical quiz data for a text match to avoid any index-out-of-sync issues.
     const currentQText = normalize(this.currentQuestion?.questionText);
     const allCanonical = this.quizService.getCanonicalQuestions(this.quizId) || [];
-    const authQ = allCanonical.find(q => normalize(q.questionText) === currentQText) || this.currentQuestion;
+    
+    // Improved matching: try Text (most reliable without ID)
+    let authQ = allCanonical.find(q => normalize(q.questionText) === currentQText);
+    
+    // Final fallback: use currentQuestion if no canonical match
+    // Cast to remove null from type union since we return early if not found
+    authQ = authQ || (this.currentQuestion as QuizQuestion);
 
     if (!authQ) {
       console.warn(`[FET-SOC] Q${displayIndex + 1} | No auth question found. Using raw.`);
@@ -1927,7 +1908,7 @@ export class SharedOptionComponent
         const text = normalize(opt.text);
         const isCorrect = (!isNaN(id) && correctIds.has(id)) ||
           (text && correctTexts.has(text)) ||
-          (opt.correct === true);
+          !!opt.correct;
 
         if (isCorrect) {
 
