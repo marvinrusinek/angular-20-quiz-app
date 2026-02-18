@@ -130,7 +130,7 @@ export class SelectedOptionService {
   syncSelectionState(questionIndex: number, options: SelectedOption[]): void {
     this.selectedOptionsMap.set(questionIndex, options);
     this.selectedOptionsMap.set(String(questionIndex) as any, options);  // duplicate key fix if needed
-    
+
     this.selectedOption = options;  // helper Sync
     this.selectedOptionSubject.next(options);
     this.isOptionSelectedSubject.next(options.length > 0);
@@ -148,28 +148,28 @@ export class SelectedOptionService {
       console.error('Option is undefined. Cannot add it to selectedOptionsMap.');
       return;
     }
-  
+
     if (option.optionId == null) {
       console.error('option.optionId is undefined:', option);
       return;
     }
-  
+
     // Trust: questionIndex is 0-based (QQC is the source of truth now)
     const idx = Number.isFinite(questionIndex) ? Math.trunc(questionIndex) : -1;
     if (idx < 0) {
       console.error('[SOS] Invalid questionIndex passed to addOption:', { questionIndex });
       return;
     }
-  
+
     // Get existing selections for this question
     const existing = this.selectedOptionsMap.get(idx) ?? [];
-  
+
     // Canonicalize existing options
     const existingCanonical = this.canonicalizeSelectionsForQuestion(
       idx,
       existing
     );
-  
+
     // Canonicalize the incoming option
     const newCanonical = this.canonicalizeOptionForQuestion(idx, {
       ...option,
@@ -178,24 +178,24 @@ export class SelectedOptionService {
       highlight: true,
       showIcon: true
     });
-  
+
     if (newCanonical.optionId == null) {
       console.error('[SOS] canonical option missing ID:', newCanonical);
       return;
     }
-  
+
     // AUTHORITATIVE MERGE (REPLACE BY optionId)
     // - Single-answer: newest selection replaces all previous
     // - Multi-answer: newest selection replaces same optionId
     const merged = new Map<number, SelectedOption>();
-  
+
     // Keep existing selections (as a base)
     for (const o of existingCanonical) {
       if (typeof o.optionId === 'number') {
         merged.set(o.optionId, o);
       }
     }
-  
+
     // Apply new selection (replace by optionId)
     if (typeof newCanonical.optionId === 'number') {
       if (newCanonical.selected === false) {
@@ -204,7 +204,7 @@ export class SelectedOptionService {
         merged.set(newCanonical.optionId, newCanonical);
       }
     }
-  
+
     // Commit selections and store the result
     // IMPORTANT: commitSelections must NOT be allowed to drop the latest click.
     // So we give it the already-merged, latest-truth list.
@@ -212,7 +212,7 @@ export class SelectedOptionService {
     const committed = mergedList;
     this.selectedOptionsMap.set(idx, committed);
     this.saveState();
-  
+
     // Emit observable updates
     this.selectedOption = committed;
     this.selectedOptionSubject.next(committed);
@@ -394,10 +394,10 @@ export class SelectedOptionService {
 
     // Sync to QuizService for persistence & scoring
     if (this.quizService) {
-        const ids = committed
-          .map(o => o.optionId)
-          .filter((id): id is number => typeof id === 'number');
-        this.quizService.updateUserAnswer(qIndex, ids);
+      const ids = committed
+        .map(o => o.optionId)
+        .filter((id): id is number => typeof id === 'number');
+      this.quizService.updateUserAnswer(qIndex, ids);
     }
 
     // Synchronously emit the full updated list
@@ -466,16 +466,16 @@ export class SelectedOptionService {
     for (const [questionIndex, selections] of groupedSelections) {
       // Commit selections for this question
       const committed = this.commitSelections(questionIndex, selections);
-    
+
       // Always overwrite the map entry with ALL committed selections
       this.selectedOptionsMap.set(questionIndex, committed);
       this.saveState();
-    
+
       // Aggregate globally
       if (committed.length > 0) {
         combinedSelections.push(...committed);
       }
-    
+
       // Update answered state
       this.updateAnsweredState(committed, questionIndex);
     }
@@ -523,7 +523,7 @@ export class SelectedOptionService {
           text: s.text || ''
         }))
         .filter(s => s.optionId >= 0 || s.text);
-      
+
       this.rawSelectionsMap.set(questionIndex, rawSelections);
     } else {
       this.rawSelectionsMap.delete(questionIndex);
@@ -534,7 +534,7 @@ export class SelectedOptionService {
     const ids = committed
       .map(o => o.optionId)
       .filter((id): id is number => typeof id === 'number');
-    
+
     console.log(`[SOS] setSelectedOptionsForQuestion Q${questionIndex} syncing IDs:`, ids);
     this.quizService.updateUserAnswer(questionIndex, ids);
 
@@ -551,13 +551,13 @@ export class SelectedOptionService {
 
   getSelectedOptions(): SelectedOption[] {
     const combined: SelectedOption[] = [];
-  
+
     for (const [, opts] of this.selectedOptionsMap) {
       if (Array.isArray(opts)) {
         combined.push(...opts);
       }
     }
-  
+
     return combined;
   }
 
@@ -579,7 +579,7 @@ export class SelectedOptionService {
       .map(o => o.optionId)
       .filter((id): id is number => typeof id === 'number');
 
-    console.log('[areAllCorrectAnswersSelected] correctIds:', correctIds, 
+    console.log('[areAllCorrectAnswersSelected] correctIds:', correctIds,
       'selectedIds:', Array.from(selectedOptionIds));
 
     if (correctIds.length === 0) return false;
@@ -1543,10 +1543,10 @@ export class SelectedOptionService {
         // If rawNumeric looks synthetic for THIS question, treat it as null/invalid
         // to force downstream logic (matchOptionFromSource) to fallback to Text Matching.
         if (rawNumeric > 100) {
-            const syntheticQIdx = Math.floor(rawNumeric / 100) - 1;
-            if (syntheticQIdx === questionIndex) {
-                 return null;
-            }
+          const syntheticQIdx = Math.floor(rawNumeric / 100) - 1;
+          if (syntheticQIdx === questionIndex) {
+            return null;
+          }
         }
         return rawNumeric;
       }
@@ -1806,7 +1806,7 @@ export class SelectedOptionService {
           text: s.text || ''
         }))
         .filter(s => s.optionId >= 0 || s.text);
-      
+
       this.rawSelectionsMap.set(idx, rawSelections);
     } else {
       // Clear when no selections
@@ -2368,7 +2368,7 @@ export class SelectedOptionService {
 
     // Verify using 'correct' boolean flag on the selected objects directly.
     // This avoids all ID mismatch issues (string vs number vs undefined).
-    
+
     // 1. Must have selected at least one option
     if (!selected || selected.length === 0) return false;
 
@@ -2379,31 +2379,31 @@ export class SelectedOptionService {
     // 3. Count how many of the SELECTED options are actually correct.
     // robust verification by looking up in the source 'question.options'
     const selectedCorrectCount = selected.filter(sel => {
-        // A. Trusted flag (if available)
-        if (sel.correct === true) return true;
+      // A. Trusted flag (if available)
+      if (sel.correct === true) return true;
 
-        const selIdStr = String(sel.optionId);
+      const selIdStr = String(sel.optionId);
 
-        // B. ID Match
-        const matchById = question.options.find(o => 
-           (o.optionId !== undefined && o.optionId !== null) && String(o.optionId) === selIdStr
-        );
-        if (matchById) return !!matchById.correct;
+      // B. ID Match
+      const matchById = question.options.find(o =>
+        (o.optionId !== undefined && o.optionId !== null) && String(o.optionId) === selIdStr
+      );
+      if (matchById) return !!matchById.correct;
 
-        // C. Index Fallback (for quizzes without IDs)
-        // Assume optionId is 1-based index
-        const numericId = Number(sel.optionId);
-        if (Number.isInteger(numericId)) {
-             const index = numericId - 1;
-             if (index >= 0 && index < question.options.length) {
-                // Only use index if the target option doesn't have an explicit conflicting ID
-                const target = question.options[index];
-                if (target.optionId === undefined || target.optionId === null) {
-                    return !!target.correct;
-                }
-             }
+      // C. Index Fallback (for quizzes without IDs)
+      // Assume optionId is 1-based index
+      const numericId = Number(sel.optionId);
+      if (Number.isInteger(numericId)) {
+        const index = numericId - 1;
+        if (index >= 0 && index < question.options.length) {
+          // Only use index if the target option doesn't have an explicit conflicting ID
+          const target = question.options[index];
+          if (target.optionId === undefined || target.optionId === null) {
+            return !!target.correct;
+          }
         }
-        return false;
+      }
+      return false;
     }).length;
 
     const selectedIncorrectCount = selected.length - selectedCorrectCount;
@@ -2416,6 +2416,14 @@ export class SelectedOptionService {
     selected: Array<SelectedOption | Option> | null
   ): boolean {
     return this.getResolutionStatus(question, selected as Option[], false).resolved;
+  }
+
+  public isAnyCorrectAnswerSelected(
+    question: QuizQuestion,
+    selected: Array<SelectedOption | Option> | null
+  ): boolean {
+    const status = this.getResolutionStatus(question, selected as Option[], false);
+    return status.correctSelected > 0;
   }
 
   public getResolutionStatus(
@@ -2446,60 +2454,60 @@ export class SelectedOptionService {
     const seenIds = new Set<string>();
 
     for (const sel of (selected ?? [])) {
-       const selIdStr = String(sel.optionId);
-       if (seenIds.has(selIdStr)) continue;
-       seenIds.add(selIdStr);
+      const selIdStr = String(sel.optionId);
+      if (seenIds.has(selIdStr)) continue;
+      seenIds.add(selIdStr);
 
-       let isCorrect = false;
+      let isCorrect = false;
 
-       // A. Trusted flag
-       if (this.coerceToBoolean(sel.correct)) {
-         isCorrect = true;
-       } else {
-         // B. Lookup by ID
-         const matchById = question.options.find(o =>
-             (o.optionId !== undefined && o.optionId !== null) && String(o.optionId) === selIdStr
-         );
+      // A. Trusted flag
+      if (this.coerceToBoolean(sel.correct)) {
+        isCorrect = true;
+      } else {
+        // B. Lookup by ID
+        const matchById = question.options.find(o =>
+          (o.optionId !== undefined && o.optionId !== null) && String(o.optionId) === selIdStr
+        );
 
-         if (matchById) {
-           isCorrect = this.coerceToBoolean(matchById.correct);
-         } else {
-            // C. Match by Text (Robust against Shuffling + Missing IDs)
-            const matchByText = question.options.find(o => 
-                o.text && sel.text && 
-                o.text.trim().toLowerCase() === sel.text.trim().toLowerCase()
-            );
+        if (matchById) {
+          isCorrect = this.coerceToBoolean(matchById.correct);
+        } else {
+          // C. Match by Text (Robust against Shuffling + Missing IDs)
+          const matchByText = question.options.find(o =>
+            o.text && sel.text &&
+            o.text.trim().toLowerCase() === sel.text.trim().toLowerCase()
+          );
 
-            if (matchByText) {
-                isCorrect = this.coerceToBoolean(matchByText.correct);
-            } else {
-                // D. Lookup by Index (Relaxed guard & Modulo Fix)
-                const numericId = Number(sel.optionId);
-                if (Number.isInteger(numericId)) {
-                   const index = (numericId % 100) - 1;
-                   if (index >= 0 && index < question.options.length) {
-                       const target = question.options[index];
-                       isCorrect = this.coerceToBoolean(target.correct);
-                   }
-                }
+          if (matchByText) {
+            isCorrect = this.coerceToBoolean(matchByText.correct);
+          } else {
+            // D. Lookup by Index (Relaxed guard & Modulo Fix)
+            const numericId = Number(sel.optionId);
+            if (Number.isInteger(numericId)) {
+              const index = (numericId % 100) - 1;
+              if (index >= 0 && index < question.options.length) {
+                const target = question.options[index];
+                isCorrect = this.coerceToBoolean(target.correct);
+              }
             }
-         }
-       }
+          }
+        }
+      }
 
-       if (isCorrect) correctSelected++;
-       else incorrectSelected++;
+      if (isCorrect) correctSelected++;
+      else incorrectSelected++;
     }
-  
+
     const remainingCorrect = Math.max(correctTotal - correctSelected, 0);
-  
+
     // Lenient: resolved when all correct are selected
     let resolved = correctTotal > 0 && remainingCorrect === 0;
-  
+
     // Strict: also require no incorrect selections
     if (strict) {
       resolved = resolved && incorrectSelected === 0;
     }
-  
+
     return {
       resolved,
       correctTotal,
@@ -2521,27 +2529,27 @@ export class SelectedOptionService {
 
   private normalizeIdx(idx: number): number {
     if (!Number.isFinite(idx)) return -1;
-  
+
     const n = Math.trunc(idx);
-  
+
     // Most of your app uses 0-based indices already.
     // Only convert to 0-based when we can *prove* it's 1-based.
     const qs = this.quizService?.questions;
-  
+
     if (Array.isArray(qs) && qs.length > 0) {
       const len = qs.length;
-  
+
       // If idx is out of bounds but idx-1 is valid, assume 1-based.
       // Example: len=6 and caller passes 6 (meaning Q6) -> convert to 5.
       if (n >= len && n - 1 >= 0 && n - 1 < len) return n - 1;
-  
+
       // If idx points to "missing" but idx-1 exists, assume 1-based.
       if (n > 0 && qs[n] == null && qs[n - 1] != null) return n - 1;
-  
+
       // Otherwise, treat as correct 0-based.
       return n;
     }
-  
+
     // If we don't know questions length yet (cold start), DON'T guess.
     return n;
   }
@@ -2562,7 +2570,7 @@ export class SelectedOptionService {
     this.selectedOptionSubject.next([]);
     this.isOptionSelectedSubject.next(false);
     this.isAnsweredSubject.next(false);
-  
+
     try {
       localStorage.removeItem('selectedOptionsMap');
       localStorage.removeItem('userAnswers');
@@ -2570,6 +2578,6 @@ export class SelectedOptionService {
       localStorage.removeItem('currentQuestionIndex');
       localStorage.removeItem(`quizState_${quizId}`);
       localStorage.removeItem(`selectedOptions_${quizId}`);
-    } catch {}
-  }    
+    } catch { }
+  }
 }
