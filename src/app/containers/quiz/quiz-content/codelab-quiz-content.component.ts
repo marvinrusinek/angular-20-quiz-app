@@ -1907,19 +1907,11 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           this.quizService.getQuestionByIndex(idx).pipe(startWith(null)),
           this.selectedOptionService.getSelectedOptionsForQuestion$(idx).pipe(
             startWith([])
-          ),
-          this.explanationTextService.shouldDisplayExplanation$.pipe(startWith(false))
+          )
         ]).pipe(
-          map(([question, selected, shouldShowService]: [QuizQuestion | null, any[], boolean]) => {
-            // HYBRID APPROACH:
-            // 1. Trust Interaction: If existing interaction triggered FET (Service Flag), show it.
-            //    This fixes "First Click" latency/race-conditions.
-            if (shouldShowService) {
-              return true;
-            }
+          map(([question, selected]: [QuizQuestion | null, any[]]) => {
+            // Removed hardcoded Q4 fix; now handled by robust type detection in QuizQuestionComponent
 
-            // 2. Trust Persistence: If reloading/navigating, check if we HAVE a correct selection.
-            //    This fixes "Persistence" issues where Service Flag is reset on nav.
             const resolved = question
               ? this.selectedOptionService.isAnyCorrectAnswerSelected(
                 question,
@@ -1927,7 +1919,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
               )
               : false;
 
-            console.log(`[shouldShowFet] Idx: ${idx}, ServiceFlag: ${shouldShowService}, Resolved: ${resolved}`);
+            console.log(`[shouldShowFet] Idx: ${idx}, Resolved: ${resolved}, Selected: ${selected?.length}`);
             return resolved;
           })
         )

@@ -1672,9 +1672,14 @@ export class QuizQuestionComponent extends BaseQuestion
 
   // Method to conditionally update the explanation when the question is answered
   private async updateExplanationIfAnswered(index: number, question: QuizQuestion): Promise<void> {
-    if (
-      (await this.isAnyOptionSelected(index)) && this.shouldDisplayExplanation
-    ) {
+    const selected = this.selectedOptionService.getSelectedOptionsForQuestion(index);
+    const hasCorrectSelection = this.selectedOptionService.isAnyCorrectAnswerSelected(question, selected);
+
+    if (hasCorrectSelection) {
+      console.log(`[updateExplanationIfAnswered] Q${index + 1} has correct selection -> Restoring Explanation State`);
+      this.explanationTextService.setShouldDisplayExplanation(true);
+      this.shouldDisplayExplanation = true;
+
       const explanationText = this.explanationTextService.prepareExplanationText(question);
       this.explanationToDisplay = explanationText;
       this.emitExplanationToDisplayChange(this.explanationToDisplay);
@@ -1683,7 +1688,7 @@ export class QuizQuestionComponent extends BaseQuestion
       this.updateCombinedQuestionData(question, explanationText);
       this.isAnswerSelectedChange.emit(true);
     } else {
-      console.log(`Question ${index} is not answered. Skipping explanation update.`);
+      console.log(`Question ${index} is not answered correctly. Skipping explanation update.`);
     }
   }
 
