@@ -1228,14 +1228,13 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   }
 
   ngOnDestroy(): void {
-    this.persistContinueStatusIfNeeded();
-
-    this.destroy$.next();
-    this.destroy$.complete();
     this.unsubscribe$.next();
     this.unsubscribe$.complete();
-
+    this.destroy$.next();
+    this.destroy$.complete();
     this.subscriptions.unsubscribe();
+    this.dotStatusCache.clear();
+    this.selectedOptionService.resetAllOptions();
     this.routeSubscription?.unsubscribe();
     this.routerSubscription?.unsubscribe();
     this.indexSubscription?.unsubscribe();
