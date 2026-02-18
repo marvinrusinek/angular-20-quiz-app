@@ -55,9 +55,16 @@ export class SelectedOptionService {
     try {
       sessionStorage.removeItem('rawSelectionsMap');
       sessionStorage.removeItem('selectedOptionsMap');
-    } catch (e) {
+    } catch (err) {
       // ignore
     }
+  }
+
+  public resetAllOptions(): void {
+    this.clearState();
+    this.selectedOptionSubject.next([]);
+    this.isOptionSelectedSubject.next(false);
+    this.isAnsweredSubject.next(false);
   }
 
   selectedOptionSubject = new BehaviorSubject<SelectedOption[]>([]);
@@ -2581,3 +2588,4 @@ export class SelectedOptionService {
     } catch { }
   }
 }
+
