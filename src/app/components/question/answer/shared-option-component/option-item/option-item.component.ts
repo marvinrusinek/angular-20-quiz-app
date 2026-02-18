@@ -96,6 +96,11 @@ export class OptionItemComponent {
     return showStandard || showFeedback;
   }
 
+  isPreviousSelection(): boolean {
+    // If we are disabled (answered), and explicitly marked incorrect or highlighted incorrect, we should show feedback
+    return this.b.disabled && (this.b.isCorrect === false || this.b.highlightIncorrect);
+  }
+
   shouldShowFeedback(): boolean {
     const fromConfig = !!this.feedbackConfig?.showFeedback;
     const fromBinding = !!(
@@ -104,7 +109,7 @@ export class OptionItemComponent {
     );
     const fromHighlight = this.b.highlightCorrect || this.b.highlightIncorrect;
     const fromLocked = this.b.disabled && this.b.isSelected;
-    return fromConfig || fromBinding || fromHighlight || fromLocked;
+    return fromConfig || fromBinding || fromHighlight || fromLocked || this.isPreviousSelection();
   }
 
   onChanged(event: any): void {
