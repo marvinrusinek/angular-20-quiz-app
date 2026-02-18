@@ -87,7 +87,15 @@ export class OptionItemComponent implements OnChanges {
   }
 
   getOptionClasses(): { [key: string]: boolean } {
-    return this.b.cssClasses || {};
+    const classes = { ...this.b.cssClasses };
+    if (this._wasSelected) {
+      if (this.b.option.correct) {
+        classes['correct-option'] = true;
+      } else {
+        classes['incorrect-option'] = true;
+      }
+    }
+    return classes;
   }
 
   getOptionCursor(): string {
@@ -105,8 +113,8 @@ export class OptionItemComponent implements OnChanges {
   }
 
   isPreviousSelection(): boolean {
-    // Show feedback if marked incorrect/highlighted, even if not currently selected or disabled
-    return this._wasSelected && !this.b.option.correct;
+    // Show feedback for ANY option that was selected (correct or incorrect)
+    return this._wasSelected;
   }
 
   shouldShowFeedback(): boolean {
