@@ -1899,33 +1899,16 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   }
 
   private setupShouldShowFet(): void {
-    this.shouldShowFet$ = this.currentIndex$.pipe(
-      filter(idx => idx >= 0),
+    // RE-SIMPLIFIED (Again): Trust the service flag.
+    // Logic:
+    // 1. QuizQuestionComponent sets flag=TRUE on ANY correct click (via Step 803).
+    // 2. This Container sees flag=TRUE and shows FET immediately.
+    // 3. This supports "First Click" (immediate) AND "2nd Click" (updates) AND "Persistence" (via QQC restore).
+    this.shouldShowFet$ = this.explanationTextService.shouldDisplayExplanation$.pipe(
+      tap((shouldShow: boolean) => console.log(`[shouldShowFet] Service flag says: ${shouldShow}`)),
+      startWith(false),
       distinctUntilChanged(),
-      switchMap((idx) =>
-        combineLatest([
-          this.quizService.getQuestionByIndex(idx).pipe(startWith(null)),
-          this.selectedOptionService.getSelectedOptionsForQuestion$(idx).pipe(
-            startWith([])
-          )
-        ]).pipe(
-          map(([question, selected]: [QuizQuestion | null, any[]]) => {
-            // Removed hardcoded Q4 fix; now handled by robust type detection in QuizQuestionComponent
-
-            const resolved = question
-              ? this.selectedOptionService.isQuestionResolvedCorrectly(
-                question,
-                selected ?? []
-              )
-              : false;
-
-            console.log(`[shouldShowFet] Idx: ${idx}, Resolved: ${resolved}, Selected: ${selected?.length}`);
-            return resolved;
-          })
-        )
-      ),
-      distinctUntilChanged(),
-      shareReplay({ bufferSize: 1, refCount: true }),
+      shareReplay({ bufferSize: 1, refCount: true })
     );
   }
 
