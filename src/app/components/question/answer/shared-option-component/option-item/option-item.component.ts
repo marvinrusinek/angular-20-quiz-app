@@ -87,9 +87,9 @@ export class OptionItemComponent {
     return !!this.b.disabled;
   }
 
-  shouldShowIcon(): boolean {
+  /* shouldShowIcon(): boolean {
     return !!this.b.option.showIcon;
-  }
+  } */
 
   shouldShowFeedback(): boolean {
     const fromConfig = !!this.feedbackConfig?.showFeedback;

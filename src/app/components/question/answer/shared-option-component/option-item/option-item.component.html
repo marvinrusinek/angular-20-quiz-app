@@ -22,7 +22,7 @@
       {{ getOptionDisplayText() }}
     </span>
 
-    @if (shouldShowIcon(b.option, i)) {
+    @if (b.isSelected && shouldShowIcon(b.option, i)) {
       <mat-icon class="opt-icon">
         {{ getOptionIcon(b.option, i) }}
       </mat-icon>
