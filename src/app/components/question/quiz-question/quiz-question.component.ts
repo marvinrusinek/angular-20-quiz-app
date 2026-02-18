@@ -1681,6 +1681,11 @@ export class QuizQuestionComponent extends BaseQuestion
       this.shouldDisplayExplanation = true;
 
       const explanationText = this.explanationTextService.prepareExplanationText(question);
+
+      // EMIT FORMATTED TEXT TO SERVICE so activeFetText$ receives it!
+      // This prevents fallback to raw explanation.
+      this.explanationTextService.emitFormatted(index, explanationText);
+
       this.explanationToDisplay = explanationText;
       this.emitExplanationToDisplayChange(this.explanationToDisplay);
       this.emitShowExplanationChange(true);
