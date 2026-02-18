@@ -1899,33 +1899,13 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   }
 
   private setupShouldShowFet(): void {
-    this.shouldShowFet$ = this.currentIndex$.pipe(
-      filter(idx => idx >= 0),
+    // Simplify: Just trust the service flag set by QuizQuestionComponent.
+    // This avoids race conditions where SelectedOptionService state isn't fully propagated yet
+    // when we try to recalculate "isAnyCorrectAnswerSelected".
+    this.shouldShowFet$ = this.explanationTextService.shouldDisplayExplanation$.pipe(
+      tap(shouldShow => console.log(`[shouldShowFet] Service flag says: ${shouldShow}`)),
       distinctUntilChanged(),
-      switchMap((idx) =>
-        combineLatest([
-          this.quizService.getQuestionByIndex(idx).pipe(startWith(null)),
-          this.selectedOptionService.getSelectedOptionsForQuestion$(idx).pipe(
-            startWith([])
-          )
-        ]).pipe(
-          map(([question, selected]: [QuizQuestion | null, any[]]) => {
-            // Removed hardcoded Q4 fix; now handled by robust type detection in QuizQuestionComponent
-
-            const resolved = question
-              ? this.selectedOptionService.isAnyCorrectAnswerSelected(
-                question,
-                selected ?? []
-              )
-              : false;
-
-            console.log(`[shouldShowFet] Idx: ${idx}, Resolved: ${resolved}, Selected: ${selected?.length}`);
-            return resolved;
-          })
-        )
-      ),
-      distinctUntilChanged(),
-      shareReplay({ bufferSize: 1, refCount: true }),
+      shareReplay({ bufferSize: 1, refCount: true })
     );
   }
 
