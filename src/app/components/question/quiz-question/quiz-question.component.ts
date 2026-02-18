@@ -3281,10 +3281,11 @@ export class QuizQuestionComponent extends BaseQuestion
     if (correctKeys.size === 0) return false;
 
     // Multi-answer: show only on exact completion (all and only correct selected).
-    if (selectedKeys.size !== correctKeys.size) {
+    // RELAXED: Show as long as ALL correct options are selected (superset allowed).
+    /* if (selectedKeys.size !== correctKeys.size) {
       console.log('[shouldShowExplanation] Size mismatch', selectedKeys.size, correctKeys.size);
       return false;
-    }
+    } */
     const result = Array.from(correctKeys).every((key) => selectedKeys.has(key));
     console.log('[shouldShowExplanation] Result match:', result);
     return result;
