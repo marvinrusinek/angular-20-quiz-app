@@ -1902,7 +1902,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     // RE-APPLIED FIX: Trust the service flag set by QuizQuestionComponent.
     // relying on 'isAnyCorrectAnswerSelected' caused race conditions/delays.
     this.shouldShowFet$ = this.explanationTextService.shouldDisplayExplanation$.pipe(
-      tap((shouldShow: boolean) => console.log(`[shouldShowFet] Service flag says: ${shouldShow}`)),
+      tap(shouldShow => console.log(`[shouldShowFet] Service flag says: ${shouldShow}`)),
       startWith(false),
       distinctUntilChanged(),
       shareReplay({ bufferSize: 1, refCount: true })
