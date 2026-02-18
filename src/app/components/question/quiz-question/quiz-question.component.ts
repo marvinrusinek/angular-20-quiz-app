@@ -3290,8 +3290,9 @@ export class QuizQuestionComponent extends BaseQuestion
 
     if (correctOptsCount === 0) return false;
 
-    // Multi: show if ANY correct option is selected
-    return anyCorrectAndSelected;
+    // Multi: show ONLY if ALL correct options are selected
+    const selectedCorrectOptsCount = canonicalOpts.filter(o => o.correct && o.selected).length;
+    return selectedCorrectOptsCount === correctOptsCount;
   }
 
   private isMultipleAnswerQuestion(q: QuizQuestion | null): boolean {
