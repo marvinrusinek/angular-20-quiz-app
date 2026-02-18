@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, ViewEncapsulation } from '@angular/core';
+import { Component, EventEmitter, Input, Output, OnChanges, SimpleChanges, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -42,7 +42,7 @@ export interface OptionUIEvent {
   encapsulation: ViewEncapsulation.None,
   animations: [correctAnswerAnim]
 })
-export class OptionItemComponent {
+export class OptionItemComponent implements OnChanges {
   @Input() b!: OptionBindings;
   @Input() i!: number;
   @Input() type: 'single' | 'multiple' = 'single';
@@ -51,6 +51,8 @@ export class OptionItemComponent {
   @Input() feedbackConfig?: FeedbackProps;
   @Input() sharedOptionConfig!: SharedOptionConfig;
 
+  private _wasSelected = false;
+
   // inputs removed in favor of OptionBindings snapshot
 
 
@@ -58,6 +60,12 @@ export class OptionItemComponent {
   @Output() optionUI = new EventEmitter<OptionUIEvent>();
 
   constructor(private optionService: OptionService) { }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['b'] && this.b?.isSelected) {
+      this._wasSelected = true;
+    }
+  }
 
   private get optionId(): number {
     return Number(this.b?.option?.optionId ?? -1);
@@ -97,8 +105,8 @@ export class OptionItemComponent {
   }
 
   isPreviousSelection(): boolean {
-    // Only show if explicitly highlighted as incorrect due to user interaction
-    return !!this.b.highlightIncorrect;
+    // Show feedback if marked incorrect/highlighted, even if not currently selected or disabled
+    return this._wasSelected && !this.b.option.correct;
   }
 
   shouldShowFeedback(): boolean {
