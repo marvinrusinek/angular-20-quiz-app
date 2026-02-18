@@ -71,7 +71,7 @@ export class OptionItemComponent {
     return this.optionService.getOptionDisplayText(this.b.option, this.i);
   }
 
-  getOptionIcon(): string {
+  getOptionIcon(option?: any, i?: number): string {
     return this.b.optionIcon || '';
   }
 
