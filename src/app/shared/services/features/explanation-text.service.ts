@@ -96,6 +96,7 @@ export class ExplanationTextService {
   public _quietZoneUntil = 0;
 
   private _fetSubject = new ReplaySubject<FETPayload>(1);
+  public fetPayload$ = this._fetSubject.asObservable();
   public _gateToken = 0;
   public _currentGateToken = 0;
   private _textMap: Map<number, { text$: ReplaySubject<string> }> = new Map();
@@ -653,7 +654,7 @@ export class ExplanationTextService {
 
     const trimmedExplanation = explanation.trim();
     const incomingAlreadyFormatted = alreadyFormattedRe.test(trimmedExplanation);
-      let formattedExplanation: string;
+    let formattedExplanation: string;
 
     // ALWAYS strip existing prefix and re-calculate indices.
     // This is critical because an "already formatted" explanation might have the WRONG index (e.g. from canonical order).
@@ -809,7 +810,7 @@ export class ExplanationTextService {
       finalPrefixIndices.length > 0 &&
       finalVisualIndices.length > 0 &&
       (finalPrefixIndices.length !== finalVisualIndices.length ||
-       !finalPrefixIndices.every((num, idx) => num === finalVisualIndices[idx]))
+        !finalPrefixIndices.every((num, idx) => num === finalVisualIndices[idx]))
     ) {
       console.warn(`[ETS] 🔧 GUARDRAIL: Q${index + 1} FET prefix [${finalPrefixIndices}] != visual [${finalVisualIndices}]. Correcting...`);
       let rawExplanation = formattedExplanation.replace(alreadyFormattedRe, '').trim();
