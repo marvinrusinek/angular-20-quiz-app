@@ -1928,7 +1928,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
               : false;
 
             console.log(`[shouldShowFet] Idx: ${idx}, SvcFlag: ${shouldShowService}, Resolved: ${resolved}`);
-            return resolved;
+            return shouldShowService || resolved;
           })
         )
       ),
