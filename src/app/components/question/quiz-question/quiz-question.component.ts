@@ -3281,20 +3281,16 @@ export class QuizQuestionComponent extends BaseQuestion
     if (correctKeys.size === 0) return false;
 
     // Multi-answer: show only on exact completion (all and only correct selected).
-    // RELAXED: Show as long as ALL correct options are selected (superset allowed).
-    /* if (selectedKeys.size !== correctKeys.size) {
-      console.log('[shouldShowExplanation] Size mismatch', selectedKeys.size, correctKeys.size);
-      return false;
-    } */
-
-    const allCorrectSelected = Array.from(correctKeys).every((key) => {
+    // RELAXED (Step 430): Show explanation if ANY correct option is selected.
+    // This addresses "not working on first click" feedback for multi-answer questions.
+    const anyCorrectSelected = Array.from(correctKeys).some((key) => {
       const has = selectedKeys.has(key);
-      if (!has) console.warn(`[shouldShowExplanation] Missing Key: ${key} in selections:`, Array.from(selectedKeys));
+      if (has) console.log(`[shouldShowExplanation] MATCH: Found correct key ${key} in selections.`);
       return has;
     });
 
-    console.log('[shouldShowExplanation] Result match:', allCorrectSelected);
-    return allCorrectSelected;
+    console.log('[shouldShowExplanation] Result (some):', anyCorrectSelected);
+    return anyCorrectSelected;
   }
 
   private isMultipleAnswerQuestion(q: QuizQuestion | null): boolean {
