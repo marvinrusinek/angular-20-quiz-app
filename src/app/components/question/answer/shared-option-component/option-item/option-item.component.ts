@@ -72,7 +72,7 @@ export class OptionItemComponent {
   }
 
   getOptionIcon(option?: any, i?: number): string {
-    if (this.shouldShowFeedback() && this.b.isSelected) {
+    if (this.shouldShowFeedback()) {
       return this.b.option.correct ? 'check' : 'close';
     }
     return this.b.optionIcon || '';
@@ -92,7 +92,7 @@ export class OptionItemComponent {
 
   shouldShowIcon(option?: any, i?: number): boolean {
     const showStandard = !!(option?.showIcon ?? this.b.option.showIcon);
-    const showFeedback = this.shouldShowFeedback() && this.b.isSelected;
+    const showFeedback = this.shouldShowFeedback();
     return showStandard || showFeedback;
   }
 
@@ -102,7 +102,7 @@ export class OptionItemComponent {
       this.b.showFeedback ||
       (this.b.showFeedbackForOption && this.b.showFeedbackForOption[this.optionId])
     );
-    const fromHighlight = this.b.isSelected && (this.b.highlightCorrect || this.b.highlightIncorrect);
+    const fromHighlight = this.b.highlightCorrect || this.b.highlightIncorrect;
     const fromLocked = this.b.disabled && this.b.isSelected;
     return fromConfig || fromBinding || fromHighlight || fromLocked;
   }
