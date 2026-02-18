@@ -3290,9 +3290,13 @@ export class QuizQuestionComponent extends BaseQuestion
 
     if (correctOptsCount === 0) return false;
 
-    // Multi: show ONLY if ALL correct options are selected
-    const selectedCorrectOptsCount = canonicalOpts.filter(o => o.correct && o.selected).length;
-    return selectedCorrectOptsCount === correctOptsCount;
+    // Multi: show if ANY correct option is selected
+    // User Feedback: "needs to display FET when ALL correct answers have been selected" resulted in revert.
+    // BUT subsequent feedback "NO STILL NOT DISPLAYING FET... ON 2ND CORRECT OPTION CLICK" implies
+    // we MUST trigger on partials to show updates.
+    //
+    // Reverting to relaxed check to allow updates on 2nd click.
+    return anyCorrectAndSelected;
   }
 
   private isMultipleAnswerQuestion(q: QuizQuestion | null): boolean {
