@@ -97,8 +97,8 @@ export class OptionItemComponent {
   }
 
   isPreviousSelection(): boolean {
-    // Show feedback if marked incorrect/highlighted, even if not currently selected or disabled
-    return this.b.isCorrect === false || this.b.highlightIncorrect;
+    // Only show if explicitly highlighted as incorrect due to user interaction
+    return !!this.b.highlightIncorrect;
   }
 
   shouldShowFeedback(): boolean {
