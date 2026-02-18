@@ -102,7 +102,9 @@ export class OptionItemComponent {
       this.b.showFeedback ||
       (this.b.showFeedbackForOption && this.b.showFeedbackForOption[this.optionId])
     );
-    return fromConfig || fromBinding;
+    const fromHighlight = this.b.isSelected && (this.b.highlightCorrect || this.b.highlightIncorrect);
+    const fromLocked = this.b.disabled && this.b.isSelected;
+    return fromConfig || fromBinding || fromHighlight || fromLocked;
   }
 
   onChanged(event: any): void {
