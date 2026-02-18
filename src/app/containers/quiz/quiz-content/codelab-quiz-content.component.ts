@@ -1907,25 +1907,33 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           this.quizService.getQuestionByIndex(idx).pipe(startWith(null)),
           this.selectedOptionService.getSelectedOptionsForQuestion$(idx).pipe(
             startWith([])
-          )
+          ),
+          this.explanationTextService.shouldDisplayExplanation$.pipe(startWith(false))
         ]).pipe(
-          map(([question, selected]: [QuizQuestion | null, any[]]) => {
-            // Removed hardcoded Q4 fix; now handled by robust type detection in QuizQuestionComponent
+          map(([question, selected, shouldShowService]: [QuizQuestion | null, any[], boolean]) => {
+            // HYBRID ROBUST STRATEGY:
+            // 1. Interaction: Trust the service flag for immediate feedback (1st, 2nd clicks).
+            //    This avoids race conditions on click.
+            if (shouldShowService) {
+              return true;
+            }
 
+            // 2. Persistence: Fallback to checking selections on load/nav.
+            //    Use RELAXED check to allow restoring partial explanation state.
             const resolved = question
-              ? this.selectedOptionService.isQuestionResolvedCorrectly(
+              ? this.selectedOptionService.isAnyCorrectAnswerSelected(
                 question,
                 selected ?? []
               )
               : false;
 
-            console.log(`[shouldShowFet] Idx: ${idx}, Resolved: ${resolved}, Selected: ${selected?.length}`);
-            return resolved;
+            console.log(`[shouldShowFet] Idx: ${idx}, SvcFlag: ${shouldShowService}, Resolved: ${resolved}`);
+            return shouldShowService || resolved;
           })
         )
       ),
       distinctUntilChanged(),
-      shareReplay({ bufferSize: 1, refCount: true }),
+      shareReplay({ bufferSize: 1, refCount: true })
     );
   }
 

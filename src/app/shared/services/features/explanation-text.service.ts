@@ -1461,6 +1461,7 @@ export class ExplanationTextService {
     this.explanationTextSubject.next('');
     this.explanationText$.next('');
     this.formattedExplanationSubject.next('');
+    this._fetSubject.next(undefined as any);
 
     this.shouldDisplayExplanationSource.next(false);
     this.isExplanationTextDisplayedSource.next(false);
