@@ -22,10 +22,13 @@
       {{ getOptionDisplayText() }}
     </span>
 
-    @if (b.isSelected && shouldShowIcon(b.option, i)) {
-      <mat-icon class="opt-icon">
-        {{ getOptionIcon(b.option, i) }}
+    @if (b.isSelected && (shouldShowFeedback() || shouldShowIcon(b.option, i))) {
+      <mat-icon class="opt-icon" [ngClass]="{
+          'correct-icon': shouldShowFeedback() && b.option.correct,
+          'incorrect-icon': shouldShowFeedback() && !b.option.correct
+        }">
+        {{ shouldShowFeedback() ? (b.option.correct ? 'check' : 'close') : getOptionIcon(b.option, i) }}
       </mat-icon>
-    }
+      }
   </div>
 </ng-template>

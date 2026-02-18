@@ -72,6 +72,9 @@ export class OptionItemComponent {
   }
 
   getOptionIcon(option?: any, i?: number): string {
+    if (this.shouldShowFeedback() && this.b.isSelected) {
+      return this.b.option.correct ? 'check' : 'close';
+    }
     return this.b.optionIcon || '';
   }
 
@@ -88,7 +91,9 @@ export class OptionItemComponent {
   }
 
   shouldShowIcon(option?: any, i?: number): boolean {
-    return !!(option?.showIcon ?? this.b.option.showIcon);
+    const showStandard = !!(option?.showIcon ?? this.b.option.showIcon);
+    const showFeedback = this.shouldShowFeedback() && this.b.isSelected;
+    return showStandard || showFeedback;
   }
 
   shouldShowFeedback(): boolean {
