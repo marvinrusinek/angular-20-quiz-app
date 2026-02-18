@@ -2842,7 +2842,13 @@ export class QuizQuestionComponent extends BaseQuestion
 
     const evtIdx = event.index;
 
-    this.resetExplanationBeforeClick(idx);
+    // Only reset if NOT already displaying explanation.
+    // This allows FET to persist once shown (e.g. after finding one correct answer in multi-choice).
+    if (!this.displayExplanation) {
+      this.resetExplanationBeforeClick(idx);
+    } else {
+      console.log('[onOptionClicked] Skipping explanation reset - FET already displayed.');
+    }
     this.prepareClickCycle();
 
     // Mark user interaction EARLY so hasUserInteracted guard passes in 
@@ -3330,6 +3336,14 @@ export class QuizQuestionComponent extends BaseQuestion
       this.cdRef.detectChanges();
     } else {
       console.log(`[maybeTriggerExplanation] ⏸ Not triggering for Q${idx + 1} yet.`);
+      // CRITICAL FIX: Do NOT hide explanation if it was already shown!
+      // If the user unchecks a box or makes a partial selection after success,
+      // we should KEEP the explanation visible if it was already there.
+      if (this.displayExplanation) {
+        console.log(`[maybeTriggerExplanation] Maintaining existing explanation state.`);
+        // Reinforce state just in case
+        this.explanationTextService.setShouldDisplayExplanation(true);
+      }
     }
   }
 
