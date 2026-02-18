@@ -235,6 +235,7 @@ export class SharedOptionComponent
         if (count > 1) result = true;
       }
   
+      // Fallback: Check optionsToDisplay (most reliable for shuffled mode)
       // This is what's actually being shown to the user
       if (!result && this.optionsToDisplay?.length > 0) {
         const displayCount = this.optionsToDisplay.filter((o: Option) => !!o.correct).length;
@@ -1192,6 +1193,7 @@ export class SharedOptionComponent
   ): SharedOptionConfig {
     return this.buildSharedOptionConfig(b, i);
   }
+
 
 
 
