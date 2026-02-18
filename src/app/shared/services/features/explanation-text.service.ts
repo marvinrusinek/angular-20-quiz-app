@@ -401,10 +401,10 @@ export class ExplanationTextService {
         this.latestExplanationIndex = null;  // force clear index
         this._fetLocked = false;
 
-        if (this.shouldDisplayExplanation$ instanceof BehaviorSubject)
-          this.shouldDisplayExplanation$.next(false);
-        if (this.isExplanationTextDisplayed$ instanceof BehaviorSubject)
-          this.isExplanationTextDisplayed$.next(false);
+        if (this.shouldDisplayExplanationSource instanceof BehaviorSubject)
+          this.shouldDisplayExplanationSource.next(false);
+        if (this.isExplanationTextDisplayedSource instanceof BehaviorSubject)
+          this.isExplanationTextDisplayedSource.next(false);
       } catch (err) {
         console.warn('[ETS] ⚠️ Failed to clear stale FET state', err);
       }
@@ -1662,8 +1662,8 @@ export class ExplanationTextService {
         return;
       }
       this.safeNext(this.formattedExplanationSubject, trimmed);
-      this.safeNext(this.shouldDisplayExplanation$, true);
-      this.safeNext(this.isExplanationTextDisplayed$, true);
+      this.safeNext(this.shouldDisplayExplanationSource, true);
+      this.safeNext(this.isExplanationTextDisplayedSource, true);
 
       // FET now open and visible for this index
       try {
