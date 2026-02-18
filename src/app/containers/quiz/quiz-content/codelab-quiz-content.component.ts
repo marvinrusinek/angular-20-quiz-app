@@ -1913,7 +1913,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             // Removed hardcoded Q4 fix; now handled by robust type detection in QuizQuestionComponent
 
             const resolved = question
-              ? this.selectedOptionService.isAnyCorrectAnswerSelected(
+              ? this.selectedOptionService.isQuestionResolvedCorrectly(
                 question,
                 selected ?? []
               )
