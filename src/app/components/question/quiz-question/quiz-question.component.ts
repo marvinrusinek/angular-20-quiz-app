@@ -3250,47 +3250,31 @@ export class QuizQuestionComponent extends BaseQuestion
     _evtOpt: Option,
     canonicalOpts: Option[]
   ): boolean {
-    const correctOpts = canonicalOpts.filter((o: Option) => !!o.correct);
-    const selectedOpts = canonicalOpts.filter((o: Option) => !!o.selected);
+    // Verify canonicalOpts state directly (bypassing key generation)
+    // This is the most robust check since canonicalOpts carries the resolved state.
+    const correctOptsCount = canonicalOpts.filter(o => o.correct).length;
+    const selectedOptsCount = canonicalOpts.filter(o => o.selected).length;
+    const anyCorrectAndSelected = canonicalOpts.some(o => o.correct && o.selected);
 
-    // Use stable key logic from the service to ensure match
-    const keyOf = (o: Option): string =>
-      this.selectionMessageService.stableKey(o);
-
-    const correctKeys = new Set(correctOpts.map((o: Option) => keyOf(o)));
-    const selectedKeys = new Set(selectedOpts.map((o: Option) => keyOf(o)));
-
-    const isMultipleAnswerQuestion =
-      q?.type === QuestionType.MultipleAnswer || correctOpts.length > 1;
-
-    console.log('[shouldShowExplanation] Debug:', {
-      qType: q?.type,
-      isMulti: isMultipleAnswerQuestion,
-      correctKeys: Array.from(correctKeys),
-      selectedKeys: Array.from(selectedKeys),
-      correctOptsLength: correctOpts.length,
-      selectedOptsLength: selectedOpts.length
+    console.log('[shouldShowExplanation] Direct Check:', {
+      correctOptsCount,
+      selectedOptsCount,
+      anyCorrectAndSelected,
+      details: canonicalOpts.map((o, i) => `[${i}] ${o.text?.substring(0, 10)}... (Sel:${o.selected}, Corr:${o.correct})`)
     });
+
+    // Use the helper function defined below
+    const isMultipleAnswerQuestion = this.isMultipleAnswerQuestion(q);
 
     if (!isMultipleAnswerQuestion) {
-      if (selectedKeys.size === 0 || correctKeys.size === 0) return false;
-      // Single-answer: show only when a selected option is the correct one.
-      return Array.from(selectedKeys).some((key) => correctKeys.has(key));
+      // Single: if selection is correct, show.
+      return anyCorrectAndSelected;
     }
 
-    if (correctKeys.size === 0) return false;
+    if (correctOptsCount === 0) return false;
 
-    // Multi-answer: show only on exact completion (all and only correct selected).
-    // RELAXED (Step 430): Show explanation if ANY correct option is selected.
-    // This addresses "not working on first click" feedback for multi-answer questions.
-    const anyCorrectSelected = Array.from(correctKeys).some((key) => {
-      const has = selectedKeys.has(key);
-      if (has) console.log(`[shouldShowExplanation] MATCH: Found correct key ${key} in selections.`);
-      return has;
-    });
-
-    console.log('[shouldShowExplanation] Result (some):', anyCorrectSelected);
-    return anyCorrectSelected;
+    // Multi: show if ANY correct option is selected
+    return anyCorrectAndSelected;
   }
 
   private isMultipleAnswerQuestion(q: QuizQuestion | null): boolean {
