@@ -1196,6 +1196,11 @@ export class QuizQuestionComponent extends BaseQuestion
     this.optionsToDisplay = structuredClone(options);
     this.updateShouldRenderOptions(this.optionsToDisplay);
 
+    // CRITICAL: Determine correctly if this is a multiple-answer question
+    // json data may lack 'type: MultipleAnswer' but have multiple correct:true options.
+    this.type = this.isMultipleAnswerQuestion(this.currentQuestion) ? 'multiple' : 'single';
+    console.log(`[hydrateFromPayload] Question type set to: ${this.type} for Q${this.currentQuestionIndex + 1}`);
+
     this.explanationToDisplay = explanation?.trim() || '';
 
     // Always load component for each question to ensure fresh data
@@ -1827,6 +1832,9 @@ export class QuizQuestionComponent extends BaseQuestion
         isMultipleAnswer = await firstValueFrom(
           this.quizQuestionManagerService.isMultipleAnswerQuestion(question)
         );
+        // Ensure this.type stays in sync with the visual component being loaded
+        this.type = isMultipleAnswer ? 'multiple' : 'single';
+        console.log(`[loadDynamicComponent] Q${this.currentQuestionIndex + 1} type set to: ${this.type}`);
       } catch (error: any) {
         console.error('[isMultipleAnswerQuestion failed]', error);
         console.warn('[Early return D] Failed to get isMultipleAnswer');
@@ -2203,10 +2211,10 @@ export class QuizQuestionComponent extends BaseQuestion
       this.optionsToDisplay = rawOpts.map((opt: Option, i: number) => {
         const oId = Number(opt.optionId);
         const oText = (opt.text ?? '').trim().toLowerCase();
-        const isCorrect = opt.correct === true || 
-                          (opt as any).correct === "true" ||
-                          (!isNaN(oId) && correctIds.has(oId)) || 
-                          !!(oText && correctTexts.has(oText));
+        const isCorrect = opt.correct === true ||
+          (opt as any).correct === "true" ||
+          (!isNaN(oId) && correctIds.has(oId)) ||
+          !!(oText && correctTexts.has(oText));
 
         return {
           ...opt,
@@ -2847,7 +2855,13 @@ export class QuizQuestionComponent extends BaseQuestion
       await this.waitForInteractionReady();
 
       const optionsNow = this.cloneOptionsForUi(q!, idx, evtIdx, event);
-      const canonicalOpts = this.buildCanonicalOptions(q!, idx, evtOpt, evtIdx);
+      const canonicalOpts = this.buildCanonicalOptions(
+        q!,
+        idx,
+        evtOpt,
+        evtIdx,
+        evtChecked
+      );
 
       // Commit selection into local + state
       this.persistSelection(evtOpt, idx, optionsNow, q?.type === QuestionType.MultipleAnswer);
@@ -2899,57 +2913,37 @@ export class QuizQuestionComponent extends BaseQuestion
       this.emitSelectionMessage(idx, q!, optionsNow, canonicalOpts);
       this.syncCanonicalOptionsIntoQuestion(q!, canonicalOpts);
 
-      // Synchronously format and emit FET to ensure it's ready BEFORE display state changes
-      this.optionsToDisplay = canonicalOpts; // Keep local state in sync
+      // Keep local state in sync before explanation gating checks.
+      this.optionsToDisplay = canonicalOpts;
 
-      // Generate and emit FET synchronously using visual options (canonicalOpts)
-      // This ensures fetByIndex is populated BEFORE CodelabQuizContent evaluates
-      // CRITICAL FIX: Use text-matching to avoid corrupted `correct` property in canonicalOpts
-      const rawExplanation = q!.explanation || '';
-
-      const correctIndices = this.explanationTextService.getCorrectOptionIndices(
-        q!,
-        canonicalOpts,
-        idx
-      );
-      console.log(`[QQC] Computed FET indices for Q${this.currentQuestionIndex + 1}: ${JSON.stringify(correctIndices)}`);
-
-      const questionForFormatting = { ...q!, options: canonicalOpts };
-      const fet = this.explanationTextService.formatExplanation(
-        questionForFormatting,
-        correctIndices,
-        rawExplanation,
-        idx
-      );
-
-      if (fet) {
-        console.log(`[QQC] Sync FET for Q${idx + 1}: "${fet.substring(0, 40)}..."`);
-        this.explanationTextService.emitFormatted(idx, fet);
-      } else {
-        console.warn(`[QQC] No FET generated for Q${idx + 1}`);
-      }
-
-      // Update QuizStateService state so CodelabQuizContent display logic passes
-      // CodelabQuizContent checks getQuestionState(idx).isAnswered !!
-      this.quizStateService.updateQuestionState(this.quizId, idx, { isAnswered: true }, 0);
-      console.log(`[QQC] Updated QState: idx=${idx}, isAnswered=true, QuizID=${this.quizId}`);
-
-      const allCorrect = this.computeCorrectness(q!, canonicalOpts, evtOpt, idx);
-      this._lastAllCorrect = allCorrect;
-
-      //await this.maybeTriggerExplanation(q!, evtOpt, idx, allCorrect);
       const shouldShowExplanation = this.shouldShowExplanationAfterSelection(
         q!,
         evtOpt,
         canonicalOpts
       );
 
+      // FET generation is now handled centrally in maybeTriggerExplanation to avoid redundancy and race conditions.
+      // This prevents multi-answer questions from clearing their FET during partial completion.
+
+      // Update QuizStateService state so CodelabQuizContent display logic passes
+      // CodelabQuizContent checks getQuestionState(idx).isAnswered !!
+      this.quizStateService.updateQuestionState(this.quizId, idx, { isAnswered: true }, 0);
+      console.log(`[QQC] Updated QState: idx=${idx}, isAnswered=true, QuizID=${this.quizId}`);
+
+      // Mark user interaction proactively for the display stream
+      this.quizStateService.markUserInteracted(idx);
+
+      const allCorrect = this.computeCorrectness(q!, canonicalOpts, evtOpt, idx);
+      this._lastAllCorrect = allCorrect;
+
+      console.log(`[onOptionClicked] Q${idx + 1} evaluation:`, {
+        allCorrect,
+        shouldShowExplanation,
+        isMulti: this.isMultipleAnswerQuestion(q!)
+      });
+
       await this.maybeTriggerExplanation(q!, evtOpt, idx, allCorrect, shouldShowExplanation);
       this.updateNextButtonAndState(allCorrect);
-      //this.forceExplanationUpdate(idx, q!);
-      if (shouldShowExplanation) {
-        this.forceExplanationUpdate(idx, q!);
-      }
 
       this.scheduleAsyncUiFinalization(evtOpt, evtIdx, evtChecked);
     } catch (error: any) {
@@ -3057,35 +3051,107 @@ export class QuizQuestionComponent extends BaseQuestion
     } catch { }
   }
 
-  private buildCanonicalOptions(q: QuizQuestion, idx: number, evtOpt: Option, evtIdx: number): Option[] {
+  private buildCanonicalOptions(
+    q: QuizQuestion,
+    idx: number,
+    evtOpt: Option,
+    evtIdx: number,
+    isChecked: boolean
+  ): Option[] {
     const getKey = (o: any, i?: number) =>
       this.selectionMessageService.stableKey(o as Option, i);
 
-    const canonicalOpts =
-      (this.optionsToDisplay?.length > 0 ? this.optionsToDisplay : q?.options ?? []).map((o, i) => ({
-        ...o,
-        optionId: Number(o.optionId ?? getKey(o, i)),
-        /* selected: (
-          this.selectedOptionService.selectedOptionsMap?.get(idx) ?? []
-        ).some((sel) => getKey(sel) === getKey(o)) */
-        // Use current UI selection state for this question to avoid stale cross-question map reads.
-        selected: !!o.selected
-      }));
+    // 1. Resolve Correctness Robustly
+    const answerValues = (q.answer ?? [])
+      .map((answer) => answer?.value)
+      .filter((value): value is Option['value'] => value !== undefined && value !== null);
 
-    if (q?.type === QuestionType.SingleAnswer) {
-      let i = 0;
-      for (const opt of canonicalOpts) {
-        opt.selected = i === evtIdx;
-        i++;
+    const resolveCorrect = (option: Option): boolean => {
+      if (option.correct === true) return true;
+      if ((option as any).correct === 'true') return true;
+
+      // Also allow text match as fallback if value is missing/weird
+      if (Array.isArray(answerValues) && answerValues.length > 0) {
+        const optVal = String(option.value).trim().toLowerCase();
+        const optTxt = String(option.text).trim().toLowerCase();
+        return answerValues.some(v => {
+          const s = String(v).trim().toLowerCase();
+          return s === optVal || s === optTxt;
+        });
       }
+      return false;
+    };
 
-      if (evtOpt?.correct && canonicalOpts[evtIdx]) {
+    // 2. Resolve Selection State
+    // Robust Strategy: Index service selections by BOTH ID and Content Key
+    const serviceSelections = this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
+
+    const serviceSelectedIds = new Set<string>();
+    const serviceSelectedContentKeys = new Set<string>();
+
+    const contentKeyOf = (o: any) => {
+      const val = String(o.value ?? '').trim().toLowerCase();
+      const txt = String(o.text ?? '').trim().toLowerCase();
+      return `${val}|${txt}`;
+    };
+
+    for (const s of serviceSelections) {
+      if (s.optionId != null) serviceSelectedIds.add(String(s.optionId));
+      serviceSelectedContentKeys.add(contentKeyOf(s));
+    }
+
+    // Debug log for selection state
+    console.log(`[buildCanonicalOptions] Q${idx + 1} ServiceSelections: ${serviceSelections.length}`, {
+      ids: Array.from(serviceSelectedIds),
+      contentKeys: Array.from(serviceSelectedContentKeys),
+      evtIdx,
+      isChecked
+    });
+
+    const canonicalOpts =
+      (this.optionsToDisplay?.length > 0 ? this.optionsToDisplay : q?.options ?? []).map((o, i) => {
+        const key = getKey(o, i); // This might be an ID or a content key
+        const cKey = contentKeyOf(o);
+        const oId = o.optionId != null ? String(o.optionId) : null;
+
+        // Check ID match OR Content match
+        let isSelected = false;
+        if (oId && serviceSelectedIds.has(oId)) {
+          isSelected = true;
+        } else if (serviceSelectedContentKeys.has(cKey)) {
+          isSelected = true;
+        }
+
+        // Override with the current event
+        if (i === evtIdx) {
+          isSelected = isChecked;
+        }
+
+        const isCorrect = resolveCorrect(o);
+        // Trace individual option state
+        if (isSelected || isCorrect) {
+          console.log(`[buildCanonicalOptions] Opt${i} ("${cKey}"): selected=${isSelected}, correct=${isCorrect}`);
+        }
+
+        return {
+          ...o,
+          optionId: Number(o.optionId ?? key),
+          correct: isCorrect,
+          selected: isSelected
+        };
+      });
+
+    // Single Answer: Enforce exclusivity
+    if (q?.type === QuestionType.SingleAnswer) {
+      canonicalOpts.forEach((o, i) => {
+        o.selected = (i === evtIdx);
+      });
+
+      if (canonicalOpts[evtIdx] && resolveCorrect(evtOpt)) {
         canonicalOpts[evtIdx].selected = true;
         this.selectionMessageService._singleAnswerCorrectLock.add(idx);
         this.selectionMessageService._singleAnswerIncorrectLock.delete(idx);
       }
-    } else if (canonicalOpts[evtIdx]) {
-      canonicalOpts[evtIdx].selected = true;
     }
 
     return canonicalOpts;
@@ -3125,34 +3191,35 @@ export class QuizQuestionComponent extends BaseQuestion
     evtOpt: Option,
     idx: number
   ): boolean {
-    const getKey =
-      (o: Option) => this.selectionMessageService.stableKey(o as Option);
+    const getKey = (o: Option) =>
+      this.selectionMessageService.stableKey(o as Option);
 
-    // All correct options
     const correctOpts = canonicalOpts.filter((o: Option) => !!o.correct);
+    const selectedOpts = canonicalOpts.filter((o: Option) => !!o.selected);
 
-    // Pull selected options from SOS
-    const selOpts =
-      this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
-
-    // Convert to canonical comparable keys
-    const selKeys = new Set(selOpts.map((o: Option) => getKey(o)));
-
-    const selectedCorrectCount = correctOpts.filter((o: Option) =>
-      selKeys.has(getKey(o))
-    ).length;
+    const correctKeys = new Set(correctOpts.map((o) => getKey(o)));
+    const selectedKeys = new Set(selectedOpts.map((o) => getKey(o)));
 
     const isMultipleAnswerQuestion =
       q?.type === QuestionType.MultipleAnswer || correctOpts.length > 1;
 
     // MULTIPLE-ANSWER logic
     if (isMultipleAnswerQuestion) {
-      // EXACT match required
-      return (
-        correctOpts.length > 0 &&
-        selectedCorrectCount === correctOpts.length &&
-        selKeys.size === correctOpts.length
-      );
+      if (selectedKeys.size !== correctKeys.size) {
+        console.log(`[computeCorrectness] Q${idx + 1} Mismatch Sizes: Selected=${selectedKeys.size} Correct=${correctKeys.size}`, {
+          selected: Array.from(selectedKeys),
+          correct: Array.from(correctKeys)
+        });
+        return false;
+      }
+      const allMatch = Array.from(correctKeys).every((key) => selectedKeys.has(key));
+      if (!allMatch) {
+        console.log(`[computeCorrectness] Q${idx + 1} Key Mismatch`, {
+          selected: Array.from(selectedKeys),
+          correct: Array.from(correctKeys)
+        });
+      }
+      return allMatch;
     }
 
     // SINGLE-ANSWER logic
@@ -3169,13 +3236,8 @@ export class QuizQuestionComponent extends BaseQuestion
     const selected =
       this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
 
-    const keyOf = (o: Option): string | number => {
-      if (o?.optionId != null) return o.optionId;
-      if ((o as any)?.id != null) return (o as any).id;
-      const text = (o?.text ?? '').toString().trim().toLowerCase();
-      const value = (o?.value ?? '').toString().trim().toLowerCase();
-      return `${value}|${text}`;
-    };
+    const keyOf = (o: Option): string =>
+      this.selectionMessageService.stableKey(o);
 
     const selectedKeys = new Set(selected.map((o: Option) => keyOf(o)));
     const correctKeys = correctOpts.map((o: Option) => keyOf(o));
@@ -3191,19 +3253,24 @@ export class QuizQuestionComponent extends BaseQuestion
     const correctOpts = canonicalOpts.filter((o: Option) => !!o.correct);
     const selectedOpts = canonicalOpts.filter((o: Option) => !!o.selected);
 
-    const keyOf = (o: Option): string | number => {
-      if (o?.optionId != null) return o.optionId;
-      if ((o as any)?.id != null) return (o as any).id;
-      const text = (o?.text ?? '').toString().trim().toLowerCase();
-      const value = (o?.value ?? '').toString().trim().toLowerCase();
-      return `${value}|${text}`;
-    };
+    // Use stable key logic from the service to ensure match
+    const keyOf = (o: Option): string =>
+      this.selectionMessageService.stableKey(o);
 
     const correctKeys = new Set(correctOpts.map((o: Option) => keyOf(o)));
     const selectedKeys = new Set(selectedOpts.map((o: Option) => keyOf(o)));
 
     const isMultipleAnswerQuestion =
       q?.type === QuestionType.MultipleAnswer || correctOpts.length > 1;
+
+    console.log('[shouldShowExplanation] Debug:', {
+      qType: q?.type,
+      isMulti: isMultipleAnswerQuestion,
+      correctKeys: Array.from(correctKeys),
+      selectedKeys: Array.from(selectedKeys),
+      correctOptsLength: correctOpts.length,
+      selectedOptsLength: selectedOpts.length
+    });
 
     if (!isMultipleAnswerQuestion) {
       if (selectedKeys.size === 0 || correctKeys.size === 0) return false;
@@ -3214,28 +3281,68 @@ export class QuizQuestionComponent extends BaseQuestion
     if (correctKeys.size === 0) return false;
 
     // Multi-answer: show only on exact completion (all and only correct selected).
-    if (selectedKeys.size !== correctKeys.size) return false;
-    return Array.from(correctKeys).every((key) => selectedKeys.has(key));
+    if (selectedKeys.size !== correctKeys.size) {
+      console.log('[shouldShowExplanation] Size mismatch', selectedKeys.size, correctKeys.size);
+      return false;
+    }
+    const result = Array.from(correctKeys).every((key) => selectedKeys.has(key));
+    console.log('[shouldShowExplanation] Result match:', result);
+    return result;
+  }
+
+  private isMultipleAnswerQuestion(q: QuizQuestion | null): boolean {
+    if (!q) return false;
+    const correctCount = (q.options?.filter((o: Option) => !!o.correct).length || 0);
+    return q.type === QuestionType.MultipleAnswer || correctCount > 1;
   }
 
   private async maybeTriggerExplanation(
-    _q: QuizQuestion,
+    q: QuizQuestion,
     _evtOpt: Option,
     idx: number,
     allCorrect: boolean,
     shouldShowExplanation: boolean
   ): Promise<void> {
-    if (allCorrect && this.quizStateService.hasUserInteracted(idx)) {
-      this.quizStateService.displayStateSubject.next({ mode: 'explanation', answered: true });
-      this.displayExplanation = true;
-    }
+    console.log('[maybeTriggerExplanation] Evaluating for Q' + (idx + 1), {
+      allCorrect,
+      shouldShowExplanation
+    });
 
-    // For multi-answer questions we only show explanation when the full answer set is complete.
-    // For single-answer questions we can show immediately after a correct click.
-    if (shouldShowExplanation) {
+    const shouldTrigger = allCorrect || shouldShowExplanation;
+
+    if (shouldTrigger) {
+      console.log(`[maybeTriggerExplanation] ✅ TRIGGERING for Q${idx + 1}`);
+
+      // Ensure FET text is available. Force emission now that we are triggering.
+      const rawExplanation = q.explanation || '';
+      const correctIndices = this.explanationTextService.getCorrectOptionIndices(
+        q,
+        this.optionsToDisplay,
+        idx
+      );
+      const questionForFormatting = { ...q, options: this.optionsToDisplay };
+      const fet = this.explanationTextService.formatExplanation(
+        questionForFormatting,
+        correctIndices,
+        rawExplanation,
+        idx
+      );
+
+      if (fet) {
+        console.log(`[maybeTriggerExplanation] ⬆️ Emitting FET: "${fet.substring(0, 50)}..."`);
+        this.explanationTextService.emitFormatted(idx, fet);
+        this.explanationToDisplay = fet;
+        this.emitExplanationToDisplayChange(fet);
+      }
+
       this.explanationTextService.setShouldDisplayExplanation(true);
-      this.quizStateService.displayStateSubject.next({ mode: 'explanation', answered: true });
+      this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
       this.displayExplanation = true;
+
+      // Force immediate update to ensuring binding propagation
+      this.cdRef.detectChanges();
+    } else {
+      console.log(`[maybeTriggerExplanation] ⏸ Not triggering for Q${idx + 1} yet.`);
     }
   }
 
@@ -3354,12 +3461,16 @@ export class QuizQuestionComponent extends BaseQuestion
     }
 
     // Guard: user must have interacted first
+    // REMOVED GUARD: Race condition with markUserInteracted led to skipped updates.
+    // The caller (onOptionClicked) guarantees interaction.
+    /*
     const hasUserInteracted =
       (this.quizStateService as any).hasUserInteracted?.(lockedIndex) ?? false;
     if (!hasUserInteracted) {
       console.warn('[FET SKIP] User has not interacted yet, blocking FET');
       return;
     }
+    */
 
     console.error(
       '[FET PIPELINE] Calling performExplanationUpdate for Q' + (lockedIndex + 1)
@@ -3433,14 +3544,15 @@ export class QuizQuestionComponent extends BaseQuestion
       // Lock only during formatting
       ets._fetLocked = true;
 
-      // Clear old text BEFORE setting new index
+      // REMOVED CLEARING BLOCKS: Prevent flicker and "temporarily working" FETs.
+      // If we clear here, the UI goes blank during the await requestAnimationFrame below.
+      /*
       ets.latestExplanation = '';
       ets.latestExplanationIndex = null;
       ets.updateFormattedExplanation('');
       ets.formattedExplanationSubject?.next('');
-
-      // Remove stale per-index cache
       ets.purgeAndDefer(lockedIndex);
+      */
 
       // Give one clean frame to stop stale renders
       await new Promise((res) => requestAnimationFrame(res));
@@ -3473,8 +3585,8 @@ export class QuizQuestionComponent extends BaseQuestion
 
       console.error(`🔴🔴🔴 [QQC-performUpdate] Q${lockedIndex + 1} | Source: ${source} | Opts: ${visualOpts.length}`);
       if (visualOpts.length > 0) {
-         console.error(`   - Opt 1: ${visualOpts[0]?.text?.slice(0, 20)} (Correct: ${visualOpts[0]?.correct})`);
-         if (visualOpts.length > 2) console.error(`    - Opt 3: ${visualOpts[2]?.text?.slice(0, 20)} (Correct: ${visualOpts[2]?.correct})`);
+        console.error(`   - Opt 1: ${visualOpts[0]?.text?.slice(0, 20)} (Correct: ${visualOpts[0]?.correct})`);
+        if (visualOpts.length > 2) console.error(`    - Opt 3: ${visualOpts[2]?.text?.slice(0, 20)} (Correct: ${visualOpts[2]?.correct})`);
       }
       const correctIdxs = ets.getCorrectOptionIndices(
         canonicalQ!,
@@ -3975,7 +4087,9 @@ export class QuizQuestionComponent extends BaseQuestion
       (opt: Option) => opt.optionId === option.optionId
     );
     if (index === -1) {
-      console.warn(`[Option ${option.optionId} not found in optionsToDisplay`);
+      console.error(
+        '[applyFeedbackIfNeeded] ERROR: selectedOptionIndex not found for optionId: ' + option.optionId
+      );
       return;
     }
 
@@ -4249,6 +4363,9 @@ export class QuizQuestionComponent extends BaseQuestion
     );
 
     this.lastOptionsQuestionSignature = signature;
+
+    // Sync type for consistency
+    this.type = this.isMultipleAnswerQuestion(this.currentQuestion) ? 'multiple' : 'single';
 
     return this.optionsToDisplay;
   }
@@ -4636,6 +4753,11 @@ export class QuizQuestionComponent extends BaseQuestion
   ): Promise<void> {
     try {
       const event = { option, index, checked };
+      // SMARTER TYPE CHECK: ensure this.type is correct before processing the click
+      const questionForCheck = this.currentQuestion ?? this.questionData ?? null;
+      this.type = this.isMultipleAnswerQuestion(questionForCheck) ? 'multiple' : 'single';
+
+      // Now call super with the CORRECTED type so it doesn't clear other options in multi-mode
       await super.onOptionClicked(event);
 
       // Update selected option state ONLY
@@ -4694,6 +4816,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
       // Update SelectedOptionService
       const isMultiple = this.type === 'multiple';
+      console.log(`[QQC] Processing click for Q${this.currentQuestionIndex + 1}: isMultiple=${isMultiple}, type=${this.type}`);
 
       // Store canonical selection (from questionData), not raw event.option
       const canonicalSelected: SelectedOption = {
@@ -6202,7 +6325,12 @@ export class QuizQuestionComponent extends BaseQuestion
       (currentQuestionChange
         ? (currentQuestionChange.currentValue as QuizQuestion) : null) ?? null;
 
-    if (nextQuestion) this.currentQuestion = nextQuestion;
+    if (nextQuestion) {
+      this.currentQuestion = nextQuestion;
+      // Ensure type is updated correctly for multi-answer questions without explicit type field
+      this.type = this.isMultipleAnswerQuestion(nextQuestion) ? 'multiple' : 'single';
+      console.log(`[handleQuestionAndOptionsChange] Q${this.currentQuestionIndex + 1} type set to: ${this.type}`);
+    }
 
     const incomingOptions =
       (optionsChange?.currentValue as Option[]) ??
