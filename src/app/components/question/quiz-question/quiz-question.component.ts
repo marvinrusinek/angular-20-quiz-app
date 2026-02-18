@@ -3314,8 +3314,10 @@ export class QuizQuestionComponent extends BaseQuestion
 
     const shouldTrigger = allCorrect || shouldShowExplanation;
 
+    // ALLOW RE-TRIGGER: Even if already displayed, update the text!
+    // This supports dynamic updates like "Option 1 is correct..." -> "Options 1 and 2 are correct..."
     if (shouldTrigger) {
-      console.log(`[maybeTriggerExplanation] ✅ TRIGGERING for Q${idx + 1}`);
+      console.log(`[maybeTriggerExplanation] ✅ TRIGGERING / UPDATING for Q${idx + 1}`);
 
       // Ensure FET text is available. Force emission now that we are triggering.
       const rawExplanation = q.explanation || '';
