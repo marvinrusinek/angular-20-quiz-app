@@ -96,7 +96,7 @@ export class ExplanationTextService {
   public _quietZoneUntil = 0;
 
   private _fetSubject = new ReplaySubject<FETPayload>(1);
-  public fetPayload$ = this._fetSubject.asObservable();
+  public fetPayload$: Observable<FETPayload> = this._fetSubject.asObservable();
   public _gateToken = 0;
   public _currentGateToken = 0;
   private _textMap: Map<number, { text$: ReplaySubject<string> }> = new Map();
