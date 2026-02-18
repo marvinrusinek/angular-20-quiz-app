@@ -3286,9 +3286,15 @@ export class QuizQuestionComponent extends BaseQuestion
       console.log('[shouldShowExplanation] Size mismatch', selectedKeys.size, correctKeys.size);
       return false;
     } */
-    const result = Array.from(correctKeys).every((key) => selectedKeys.has(key));
-    console.log('[shouldShowExplanation] Result match:', result);
-    return result;
+
+    const allCorrectSelected = Array.from(correctKeys).every((key) => {
+      const has = selectedKeys.has(key);
+      if (!has) console.warn(`[shouldShowExplanation] Missing Key: ${key} in selections:`, Array.from(selectedKeys));
+      return has;
+    });
+
+    console.log('[shouldShowExplanation] Result match:', allCorrectSelected);
+    return allCorrectSelected;
   }
 
   private isMultipleAnswerQuestion(q: QuizQuestion | null): boolean {
