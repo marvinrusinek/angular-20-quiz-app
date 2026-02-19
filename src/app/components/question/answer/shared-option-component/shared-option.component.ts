@@ -2171,7 +2171,7 @@ export class SharedOptionComponent
     }
 
     const question = this.currentQuestion;
-    const isMulti = question?.type === 'multiple' || (question as any)?.multipleAnswer;
+    const isMulti = question?.type === QuestionType.MultipleAnswer || (question as any)?.multipleAnswer;
 
     // For Multi-Answer: We must consider ALL selected options to return "Select 1 more" etc.
     // For Single-Answer: Just the current one is fine (since only one can be selected).
