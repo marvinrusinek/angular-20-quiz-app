@@ -156,7 +156,7 @@ export class FeedbackService {
 
       // 2. FULLY CORRECT
       if (status.resolved) {
-        return `You're right. ${revealMessage}`;
+        return `You're right! ${revealMessage}`;
       }
 
       // 3. PARTIALLY CORRECT
