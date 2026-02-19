@@ -2199,6 +2199,7 @@ export class SharedOptionComponent
       }
     }
 
+    // Ensure correct feedback message context
     const feedbackMessage = this.feedbackService.buildFeedbackMessage(
       question as QuizQuestion,
       optionsToCheck,
