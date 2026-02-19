@@ -1,4 +1,4 @@
-﻿import {
+﻿﻿import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef,
   Component, DoCheck, EventEmitter, HostListener, Input, NgZone, OnChanges, OnDestroy, OnInit,
   Output, SimpleChanges
