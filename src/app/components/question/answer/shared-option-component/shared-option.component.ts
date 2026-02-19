@@ -1,4 +1,4 @@
-﻿﻿import {
+﻿import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef,
   Component, DoCheck, EventEmitter, HostListener, Input, NgZone, OnChanges, OnDestroy, OnInit,
   Output, SimpleChanges
@@ -2920,9 +2920,8 @@ export class SharedOptionComponent
   public shouldShowFeedbackAfter(b: OptionBindings, i: number): boolean {
     if (!this.showFeedback) return false;
 
-    // Check if this option IS the last one that received feedback
-    const optId = b?.option?.optionId;
-    if (optId == null) return false;
+    // Consistency with handleOptionClick: use optionId if available, else index
+    const optId = b?.option?.optionId ?? i;
 
     // Allow ANY option that has been flagged for feedback
     // This supports showing feedback for multiple options simultaneously
@@ -3207,7 +3206,7 @@ export class SharedOptionComponent
 
     if (!binding?.option) return;
 
-    // ✅ Single source of truth: this MUST be the path that triggers:
+    // Single source of truth: this MUST be the path that triggers:
     // - sounds
     // - SelectedOptionService updates / answered state
     // - emits to parent
