@@ -2123,18 +2123,21 @@ export class SharedOptionComponent
       feedback: hydratedOption.feedback ?? ''
     };
 
+    // Use effective ID (fallback to index) for storage to match retrieval logic
+    const effectiveId = (optionId != null && optionId > -1) ? optionId : index;
+
     // Confirm feedback config is generated properly
     this.currentFeedbackConfig = this.generateFeedbackConfig(
       selectedOption,
       index
     );
-    this.feedbackConfigs[optionId] = this.currentFeedbackConfig;
+    this.feedbackConfigs[effectiveId] = this.currentFeedbackConfig;
     this.activeFeedbackConfig = this.currentFeedbackConfig;
     this.cdRef.markForCheck();
 
     console.log('[Storing Feedback Config]', {
-      optionId,
-      feedbackConfig: this.feedbackConfigs[optionId]
+      effectiveId,
+      feedbackConfig: this.feedbackConfigs[effectiveId]
     });
 
     // Update the answered state
@@ -2142,7 +2145,7 @@ export class SharedOptionComponent
 
     // Final debug state
     console.log('[displayFeedbackForOption]', {
-      optionId,
+      effectiveId,
       feedback: this.currentFeedbackConfig.feedback,
       showFeedbackForOption: this.showFeedbackForOption,
       lastFeedbackOptionId: this.lastFeedbackOptionId,
@@ -2167,23 +2170,50 @@ export class SharedOptionComponent
       };
     }
 
-    // Sync indices with visual options
+    const question = this.currentQuestion;
+    const isMulti = question?.type === 'multiple' || (question as any)?.multipleAnswer;
+
+    // For Multi-Answer: We must consider ALL selected options to return "Select 1 more" etc.
+    // For Single-Answer: Just the current one is fine (since only one can be selected).
+    let optionsToCheck: Option[] = [option];
+
+    if (isMulti) {
+      // Gather all currently selected options. 
+      // relying on this.selectedOptions (Set of IDs) and mapping back to objects from optionsToDisplay
+      // fallback to selectedIndex if IDs are missing
+      optionsToCheck = (this.optionsToDisplay || []).filter((opt, i) => {
+        const id = opt.optionId;
+        if (id != null && id > -1) {
+          return this.selectedOptions.has(id);
+        }
+        // Fallback: check if THIS index is the one we just clicked (since it might not be in the Set yet? 
+        // No, handleSelection should have added it. But if ID missing, Set might store 'undefined' or fail.)
+        // Let's assume if we are here, 'option' is selected. 
+        if (i === selectedIndex) return true;
+        return false;
+      });
+
+      // Safety: ensure the current option is included if not found above
+      if (!optionsToCheck.includes(option) && !optionsToCheck.find(o => o === option)) {
+        optionsToCheck.push(option);
+      }
+    }
+
+    const feedbackMessage = this.feedbackService.buildFeedbackMessage(
+      question as QuizQuestion,
+      optionsToCheck,
+      false, // strict
+      this.timerExpiredForQuestion,
+      this.getActiveQuestionIndex()
+    );
+
     const validOptions = (this.optionsToDisplay || []).filter(isValidOption);
     const correctMessage = this.feedbackService.setCorrectMessage(validOptions, this.currentQuestion!);
-    const isCorrect = option.correct ?? false;
-    const rawFeedback = option.feedback?.trim();
-
-    let finalFeedback = '';
-    if (rawFeedback) {
-      finalFeedback = (isCorrect ? "You're right! " : "That's wrong. ") + rawFeedback;
-    } else {
-      finalFeedback = (isCorrect ? "You're right! " : "That's wrong. ") + (correctMessage || 'No feedback available.');
-    }
 
     return {
       selectedOption: option,
       correctMessage,
-      feedback: finalFeedback,
+      feedback: feedbackMessage,
       showFeedback: true,
       idx: selectedIndex,
       options: this.optionsToDisplay ?? [],
