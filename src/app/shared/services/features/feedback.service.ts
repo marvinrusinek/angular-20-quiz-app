@@ -30,9 +30,6 @@ export class FeedbackService {
     correctOptions: Option[],
     optionsToDisplay: Option[]
   ): string {
-    // CRITICAL: Do NOT use isValidOption filter here!
-    // isValidOption requires 'correct' in option, but raw JSON options don't have it for incorrect answers.
-    // Filtering shifts the array indices, causing wrong option numbers in feedback text.
     const validCorrectOptions = (correctOptions || []).filter(opt => opt && typeof opt === 'object');
     const validOptionsToDisplay = (optionsToDisplay || []).filter(opt => opt && typeof opt === 'object');
 
@@ -122,10 +119,31 @@ export class FeedbackService {
       }))
     } as QuizQuestion;
 
+    // Also patch the selected options to ensure they carry the 'correct' flag
+    // matching their visual position. This helps getResolutionStatus reconcile them.
+    const patchedSelected = (selected ?? []).map(sel => {
+      const idx = (question.options || []).findIndex(o =>
+        o === sel ||
+        (o.optionId != null && sel.optionId === o.optionId) ||
+        (o.text && sel.text && String(o.text).trim() === String(sel.text).trim())
+      );
+      if (idx >= 0) {
+        return { ...sel, correct: correctIndices.includes(idx + 1) };
+      }
+      return sel;
+    });
+
     const status = this.selectedOptionService.getResolutionStatus(
       patchedQuestion,
-      selected as Option[] ?? [],
+      patchedSelected as Option[],
       strict
+    );
+
+    // Enhanced resolution check: if all known correct indices are accounted for, we are resolved
+    const trulyResolved = status.resolved || (
+      correctIndices.length > 0 &&
+      status.correctSelected === correctIndices.length &&
+      status.incorrectSelected === 0
     );
 
     const formatReveal = (indices: number[]) => {
@@ -155,7 +173,7 @@ export class FeedbackService {
       }
 
       // 2. FULLY CORRECT
-      if (status.resolved) {
+      if (trulyResolved) {
         return `You're right! ${revealMessage}`;
       }
 
@@ -170,7 +188,7 @@ export class FeedbackService {
       return revealMessage;
     } else {
       // Single-Answer Question
-      if (status.resolved) {
+      if (trulyResolved) {
         return `You're right! ${revealMessage}`;
       }
       return 'Incorrect selection, try again!';
