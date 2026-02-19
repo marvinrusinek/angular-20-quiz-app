@@ -8,8 +8,6 @@ import { SelectedOptionService } from '../state/selectedoption.service';
 import { ExplanationTextService } from './explanation-text.service';
 import { QuizService } from '../data/quiz.service';
 
-
-
 @Injectable({ providedIn: 'root' })
 export class FeedbackService {
   lastKnownOptions: Option[] = [];
@@ -21,13 +19,12 @@ export class FeedbackService {
     @Inject(forwardRef(() => ExplanationTextService))
     private explanationTextService: ExplanationTextService,
     private injector: Injector
-  ) {}
+  ) { }
 
   // Get the last computed correct indices for synchronization
   getLastCorrectIndices(): number[] {
     return this.lastCorrectIndices.slice();
   }
-
 
   public generateFeedbackForOptions(
     correctOptions: Option[],
@@ -176,7 +173,7 @@ export class FeedbackService {
       if (status.resolved) {
         return `You're right! ${revealMessage}`;
       }
-      return `Incorrect selection, try again! ${revealMessage}`;
+      return revealMessage;
     }
   }
 
@@ -230,6 +227,4 @@ export class FeedbackService {
 
     return `The correct ${optionsText} ${optionStrings}.`;
   }
-
-
 }
