@@ -2112,27 +2112,25 @@ export class SharedOptionComponent
     this.selectedOptionService.setAnswered(true, true);
 
     // CRITICAL: Re-generate configs for ALL options that are currently showing feedback
-    // This ensure that if the 2nd click solves the question, the 1st click's text
+    // This ensures that if the 2nd click solves the question, the 1st click's text
     // also updates from "Select 1 more" to "You're right!".
-    for (const [key, isShowing] of Object.entries(this.showFeedbackForOption)) {
-      if (isShowing === true) {
-        const id = Number(key);
-        const bindingInfo = this.findBindingByOptionId(id);
-
-        // If we found the binding, regenerate its config using its current index
-        if (bindingInfo) {
-          const hydrated = this.optionsToDisplay?.[bindingInfo.i];
+    if (this.optionBindings) {
+      this.optionBindings.forEach((b, i) => {
+        const id = (b.option?.optionId != null && b.option.optionId > -1) ? b.option.optionId : i;
+        if (this.showFeedbackForOption[id] === true) {
+          const hydrated = this.optionsToDisplay?.[i];
           if (hydrated) {
             const selOpt: SelectedOption = {
               ...hydrated,
               selected: true,
               questionIndex: currentQuestionIndex,
+              displayIndex: i,
               feedback: hydrated.feedback ?? ''
             };
-            this.feedbackConfigs[key] = this.generateFeedbackConfig(selOpt, bindingInfo.i);
+            this.feedbackConfigs[String(id)] = this.generateFeedbackConfig(selOpt, i);
           }
         }
-      }
+      });
     }
 
     // Update active reference and trigger change detection
