@@ -156,7 +156,7 @@ export class FeedbackService {
 
       // 2. FULLY CORRECT
       if (status.resolved) {
-        return `You're right! ${revealMessage}`;
+        return `You're right. ${revealMessage}`;
       }
 
       // 3. PARTIALLY CORRECT
@@ -164,7 +164,7 @@ export class FeedbackService {
         const remainingText = status.remainingCorrect === 1
           ? '1 more correct answer'
           : `${status.remainingCorrect} more correct answers`;
-        return `That's correct! Select ${remainingText}.`;
+        return `That's correct. Select ${remainingText}.`;
       }
 
       return revealMessage;
