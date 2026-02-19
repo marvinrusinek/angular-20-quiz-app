@@ -2097,9 +2097,12 @@ export class SharedOptionComponent
     // Set the last option selected (used to show only one feedback block)
     this.lastFeedbackOptionId = option.optionId ?? -1;
 
-    // Ensure feedback visibility state is updated
+    // Use consistent effective ID (fallback to index) for all storage/lookup
+    const effectiveId = (optionId != null && optionId > -1) ? optionId : index;
+
+    // Ensure feedback visibility state is updated for THIS option
     this.showFeedback = true;
-    this.showFeedbackForOption[optionId] = true;
+    this.showFeedbackForOption[effectiveId] = true;
 
     // Log that we're emitting answered=true for this question
     console.log('[Q2 setAnswered call]', {
@@ -2108,48 +2111,44 @@ export class SharedOptionComponent
     });
     this.selectedOptionService.setAnswered(true, true);
 
-    // Verify we retrieved a valid hydrated option
-    const hydratedOption = this.optionsToDisplay?.[index];
-    if (!hydratedOption) {
-      console.warn('[FeedbackGen] No option found at index', index);
-      return;
+    // CRITICAL: Re-generate configs for ALL options that are currently showing feedback
+    // This ensure that if the 2nd click solves the question, the 1st click's text
+    // also updates from "Select 1 more" to "You're right!".
+    for (const key of Object.keys(this.showFeedbackForOption)) {
+      if (this.showFeedbackForOption[key] === true) {
+        const id = Number(key);
+        const bindingInfo = this.findBindingByOptionId(id);
+
+        // If we found the binding, regenerate its config using its current index
+        if (bindingInfo) {
+          const hydrated = this.optionsToDisplay?.[bindingInfo.i];
+          if (hydrated) {
+            const selOpt: SelectedOption = {
+              ...hydrated,
+              selected: true,
+              questionIndex: currentQuestionIndex,
+              feedback: hydrated.feedback ?? ''
+            };
+            this.feedbackConfigs[key] = this.generateFeedbackConfig(selOpt, bindingInfo.i);
+          }
+        }
+      }
     }
 
-    // Construct SelectedOption object
-    const selectedOption: SelectedOption = {
-      ...hydratedOption,
-      selected: true,
-      questionIndex: currentQuestionIndex,
-      feedback: hydratedOption.feedback ?? ''
-    };
-
-    // Use effective ID (fallback to index) for storage to match retrieval logic
-    const effectiveId = (optionId != null && optionId > -1) ? optionId : index;
-
-    // Confirm feedback config is generated properly
-    this.currentFeedbackConfig = this.generateFeedbackConfig(
-      selectedOption,
-      index
-    );
-    this.feedbackConfigs[effectiveId] = this.currentFeedbackConfig;
+    // Update active reference and trigger change detection
+    this.currentFeedbackConfig = this.feedbackConfigs[effectiveId];
     this.activeFeedbackConfig = this.currentFeedbackConfig;
     this.cdRef.markForCheck();
 
-    console.log('[Storing Feedback Config]', {
-      effectiveId,
-      feedbackConfig: this.feedbackConfigs[effectiveId]
-    });
-
-    // Update the answered state
+    // Update the answered state in the service
     this.selectedOptionService.updateAnsweredState();
 
     // Final debug state
-    console.log('[displayFeedbackForOption]', {
+    console.log('[displayFeedbackForOption] Sync Complete', {
       effectiveId,
-      feedback: this.currentFeedbackConfig.feedback,
+      feedback: this.currentFeedbackConfig?.feedback,
       showFeedbackForOption: this.showFeedbackForOption,
-      lastFeedbackOptionId: this.lastFeedbackOptionId,
-      selectedOptions: this.selectedOptionService.selectedOptionsMap
+      activeQuestionIndex: currentQuestionIndex
     });
   }
 
@@ -2955,8 +2954,8 @@ export class SharedOptionComponent
   public shouldShowFeedbackAfter(b: OptionBindings, i: number): boolean {
     if (!this.showFeedback) return false;
 
-    // Consistency with handleOptionClick: use optionId if available, else index
-    const optId = b?.option?.optionId ?? i;
+    // Consistency with handleOptionClick: use optionId if available (and valid), else index
+    const optId = (b?.option?.optionId != null && b.option.optionId > -1) ? b.option.optionId : i;
 
     // Allow ANY option that has been flagged for feedback
     // This supports showing feedback for multiple options simultaneously
@@ -2974,7 +2973,7 @@ export class SharedOptionComponent
     if (cfg?.showFeedback) return cfg;
 
     // Also try by optionId directly (some paths store by optionId number)
-    const optId = b?.option?.optionId ?? i;
+    const optId = (b?.option?.optionId != null && b.option.optionId > -1) ? b.option.optionId : i;
     if (optId != null) {
       const cfgById = this.feedbackConfigs[String(optId)] ?? this.feedbackConfigs[optId];
       if (cfgById?.showFeedback) return { ...cfgById, questionIndex: this.currentQuestionIndex };
@@ -2982,7 +2981,7 @@ export class SharedOptionComponent
 
     return {
       feedback: b.feedback || '',
-      showFeedback: this.showFeedback && (this.showFeedbackForOption[b.option.optionId ?? i] === true),
+      showFeedback: this.showFeedback && (this.showFeedbackForOption[(b.option.optionId != null && b.option.optionId > -1) ? b.option.optionId : i] === true),
       options: this.optionsToDisplay,
       question: this.currentQuestion,
       selectedOption: b.option,
