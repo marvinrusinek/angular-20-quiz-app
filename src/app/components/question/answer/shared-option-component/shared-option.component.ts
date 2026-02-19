@@ -2183,11 +2183,18 @@ export class SharedOptionComponent
       // fallback to selectedIndex if IDs are missing
       optionsToCheck = (this.optionsToDisplay || []).filter((opt, i) => {
         const id = opt.optionId;
-        if (id != null && id > -1) {
-          return this.selectedOptions.has(id) || i === selectedIndex;
-        }
-        // Fallback: check if THIS index is the one we just clicked 
-        return i === selectedIndex;
+        // Check 1: ID is in local selectedOptions Set
+        if (id != null && id > -1 && this.selectedOptions.has(id)) return true;
+
+        // Check 2: Option object itself is marked selected
+        if (opt.selected) return true;
+
+        // Check 3: It is the option currently being processed (fallback)
+        if (i === selectedIndex) return true;
+        if (option && opt === option) return true;
+        if (option && id != null && id === option.optionId) return true;
+
+        return false;
       });
 
       // Safety: ensure the current option is included if not found above
@@ -3234,7 +3241,7 @@ export class SharedOptionComponent
 
     if (!binding?.option) return;
 
-    // ✅ Single source of truth: this MUST be the path that triggers:
+    // Single source of truth: this MUST be the path that triggers:
     // - sounds
     // - SelectedOptionService updates / answered state
     // - emits to parent
