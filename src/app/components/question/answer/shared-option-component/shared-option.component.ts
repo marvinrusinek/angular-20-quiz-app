@@ -215,28 +215,28 @@ export class SharedOptionComponent
   get isMultiMode(): boolean {
     // Return cached result to avoid repeated computation on every CD cycle
     if (this._isMultiModeCache !== null) return this._isMultiModeCache;
-  
+
     let result = false;
-  
+
     // Explicit check
     if (this.type === 'multiple' || this.config?.type === 'multiple') {
       console.log(`[isMultiMode] Returning TRUE due to explicit type='multiple'`);
       result = true;
     }
-  
+
     if (!result) {
       // Use getActiveQuestionIndex for most reliable index
       // Then use getQuestionAtDisplayIndex for shuffle-aware question lookup
       const idx = this.getActiveQuestionIndex();
       const currentQ = this.getQuestionAtDisplayIndex(idx) ?? this.currentQuestion;
-  
+
       // Data inference (fixes multiple-answer questions)
       if (currentQ?.options) {
         const count = currentQ.options.filter((o: Option) => !!o.correct).length;
         console.log(`[isMultiMode] Q${idx + 1} from question: correctCount=${count}, returning ${count > 1}`);
         if (count > 1) result = true;
       }
-  
+
       // Fallback: Check optionsToDisplay (most reliable for shuffled mode)
       // This is what's actually being shown to the user
       if (!result && this.optionsToDisplay?.length > 0) {
@@ -244,12 +244,12 @@ export class SharedOptionComponent
         console.log(`[isMultiMode] Q${idx + 1} from optionsToDisplay: correctCount=${displayCount}, returning ${displayCount > 1}`);
         if (displayCount > 1) result = true;
       }
-  
+
       if (!result) {
         console.log(`[isMultiMode] Q${idx + 1}: No multi-answer detected, returning false`);
       }
     }
-  
+
     // Cache result to prevent redundant computation across CD cycles
     this._isMultiModeCache = result;
     return result;
@@ -555,7 +555,17 @@ export class SharedOptionComponent
 
             if (hasSelection) {
               this.showFeedback = true;
-              this.lastFeedbackOptionId = lastSelectedId;
+
+              // Only overwrite lastFeedbackOptionId if it's invalid or no longer selected.
+              // This ensures feedback stays with the most recently clicked option (which 
+              // displayFeedbackForOption sets) rather than jumping to the last option in the list.
+              const isCurrentFeedbackSelected =
+                this.lastFeedbackOptionId !== -1 &&
+                this.selectedOptions.has(this.lastFeedbackOptionId);
+
+              if (!isCurrentFeedbackSelected) {
+                this.lastFeedbackOptionId = lastSelectedId;
+              }
             }
           }
         }
@@ -619,7 +629,7 @@ export class SharedOptionComponent
 
     // Force re-render when question changes to reset disabled state
     // Only reset state if the question index has actually changed (moving to a new question)
-    const qIdxChanged = 
+    const qIdxChanged =
       (changes['questionIndex'] && !changes['questionIndex'].firstChange && changes['questionIndex'].previousValue !== changes['questionIndex'].currentValue) ||
       (changes['currentQuestionIndex'] && !changes['currentQuestionIndex'].firstChange && changes['currentQuestionIndex'].previousValue !== changes['currentQuestionIndex'].currentValue);
 
@@ -941,49 +951,49 @@ export class SharedOptionComponent
   }
 
   private rebuildShowFeedbackMapFromBindings(): void {
-  const showMap: Record<number, boolean> = {};
+    const showMap: Record<number, boolean> = {};
 
-  // PREFER lastFeedbackOptionId for the anchor; it tracks the MOST RECENT click reliably
-  // Fall back to the last item in selectedOptionHistory if lastFeedbackOptionId is -1
-  const targetId =
-    typeof this.lastFeedbackOptionId === 'number' && this.lastFeedbackOptionId !== -1
-      ? this.lastFeedbackOptionId
-      : (Array.isArray(this.selectedOptionHistory) && this.selectedOptionHistory.length > 0)
-        ? this.selectedOptionHistory[this.selectedOptionHistory.length - 1]
-        : undefined;
+    // PREFER lastFeedbackOptionId for the anchor; it tracks the MOST RECENT click reliably
+    // Fall back to the last item in selectedOptionHistory if lastFeedbackOptionId is -1
+    const targetId =
+      typeof this.lastFeedbackOptionId === 'number' && this.lastFeedbackOptionId !== -1
+        ? this.lastFeedbackOptionId
+        : (Array.isArray(this.selectedOptionHistory) && this.selectedOptionHistory.length > 0)
+          ? this.selectedOptionHistory[this.selectedOptionHistory.length - 1]
+          : undefined;
 
-  let fallbackSelectedId: number | undefined;
+    let fallbackSelectedId: number | undefined;
 
-  for (const b of this.optionBindings ?? []) {
-    const id = b?.option?.optionId;
-    if (id == null) continue;
+    for (const b of this.optionBindings ?? []) {
+      const id = b?.option?.optionId;
+      if (id == null) continue;
 
-    showMap[id] = false;
+      showMap[id] = false;
 
-    if (fallbackSelectedId === undefined && b.isSelected === true) {
-      fallbackSelectedId = id;
+      if (fallbackSelectedId === undefined && b.isSelected === true) {
+        fallbackSelectedId = id;
+      }
     }
-  }
 
-  const finalTargetId = targetId !== undefined ? targetId : fallbackSelectedId;
+    const finalTargetId = targetId !== undefined ? targetId : fallbackSelectedId;
 
-  if (finalTargetId !== undefined) {
-    showMap[finalTargetId] = true;
-    // Ensure we are in "show feedback" mode if we have a valid anchor
-    this.showFeedback = true;
-  }
-
-  this.showFeedbackForOption = { ...showMap };
-
-  for (const b of this.optionBindings ?? []) {
-    b.showFeedbackForOption = this.showFeedbackForOption;
-    // ensure binding also knows to show feedback
-    if (this.showFeedback) {
-       b.showFeedback = true;
+    if (finalTargetId !== undefined) {
+      showMap[finalTargetId] = true;
+      // Ensure we are in "show feedback" mode if we have a valid anchor
+      this.showFeedback = true;
     }
+
+    this.showFeedbackForOption = { ...showMap };
+
+    for (const b of this.optionBindings ?? []) {
+      b.showFeedbackForOption = this.showFeedbackForOption;
+      // ensure binding also knows to show feedback
+      if (this.showFeedback) {
+        b.showFeedback = true;
+      }
+    }
+    this.cdRef.detectChanges();
   }
-  this.cdRef.detectChanges();
-}
 
   // Handle visibility changes to restore state
   @HostListener('window:visibilitychange', [])
@@ -1663,7 +1673,7 @@ export class SharedOptionComponent
     // Falls back to canonical source if resolveExplanationText returns empty
     // to avoid shuffle index confusion.
     console.log(`[SharedOptionComponent] emitExplanation checking Q${questionIndex + 1}...`);
-    
+
     const explanationText = this.resolveExplanationText(questionIndex)?.trim()
       || this.quizService.questions[questionIndex]?.explanation
       || '';
@@ -1672,7 +1682,7 @@ export class SharedOptionComponent
       console.warn(`[emitExplanation] No explanation text resolved for Q${questionIndex + 1}`);
       return;
     }
-    
+
     console.log(`[SharedOptionComponent] emitExplanation proceeding for Q${questionIndex + 1}: "${explanationText.substring(0, 30)}..."`);
 
     // Cache the resolved formatted text so other components (e.g. Q4, post-restart)
@@ -1696,7 +1706,7 @@ export class SharedOptionComponent
     this.pendingExplanationIndex = questionIndex;
     this.applyExplanationText(explanationText, questionIndex);
     this.scheduleExplanationVerification(questionIndex, explanationText);
-    
+
     console.log(`[SharedOptionComponent] emitExplanation COMPLETED for Q${questionIndex + 1}`);
   }
 
@@ -1873,10 +1883,10 @@ export class SharedOptionComponent
     // 2. Identify the authoritative canonical question for "truth" data
     const currentQText = normalize(this.currentQuestion?.questionText);
     const allCanonical = this.quizService.getCanonicalQuestions(this.quizId) || [];
-    
+
     // Improved matching: try Text (most reliable without ID)
     let authQ = allCanonical.find(q => normalize(q.questionText) === currentQText);
-    
+
     // Final fallback: use currentQuestion if no canonical match
     // Cast to remove null from type union since we return early if not found
     authQ = authQ || (this.currentQuestion as QuizQuestion);
