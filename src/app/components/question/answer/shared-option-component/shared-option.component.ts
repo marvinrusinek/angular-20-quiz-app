@@ -2939,7 +2939,7 @@ export class SharedOptionComponent
     if (cfg?.showFeedback) return cfg;
 
     // Also try by optionId directly (some paths store by optionId number)
-    const optId = b?.option?.optionId;
+    const optId = b?.option?.optionId ?? i;
     if (optId != null) {
       const cfgById = this.feedbackConfigs[String(optId)] ?? this.feedbackConfigs[optId];
       if (cfgById?.showFeedback) return { ...cfgById, questionIndex: this.currentQuestionIndex };
@@ -2947,7 +2947,7 @@ export class SharedOptionComponent
 
     return {
       feedback: b.feedback || '',
-      showFeedback: this.showFeedback && (this.showFeedbackForOption[b.option.optionId ?? -1] === true),
+      showFeedback: this.showFeedback && (this.showFeedbackForOption[b.option.optionId ?? i] === true),
       options: this.optionsToDisplay,
       question: this.currentQuestion,
       selectedOption: b.option,
@@ -3206,7 +3206,7 @@ export class SharedOptionComponent
 
     if (!binding?.option) return;
 
-    // Single source of truth: this MUST be the path that triggers:
+    // ✅ Single source of truth: this MUST be the path that triggers:
     // - sounds
     // - SelectedOptionService updates / answered state
     // - emits to parent
