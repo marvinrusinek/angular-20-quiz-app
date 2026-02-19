@@ -2184,13 +2184,10 @@ export class SharedOptionComponent
       optionsToCheck = (this.optionsToDisplay || []).filter((opt, i) => {
         const id = opt.optionId;
         if (id != null && id > -1) {
-          return this.selectedOptions.has(id);
+          return this.selectedOptions.has(id) || i === selectedIndex;
         }
-        // Fallback: check if THIS index is the one we just clicked (since it might not be in the Set yet? 
-        // No, handleSelection should have added it. But if ID missing, Set might store 'undefined' or fail.)
-        // Let's assume if we are here, 'option' is selected. 
-        if (i === selectedIndex) return true;
-        return false;
+        // Fallback: check if THIS index is the one we just clicked 
+        return i === selectedIndex;
       });
 
       // Safety: ensure the current option is included if not found above
