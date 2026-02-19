@@ -2099,7 +2099,7 @@ export class SharedOptionComponent
 
     // Ensure feedback visibility state is updated
     this.showFeedback = true;
-    this.showFeedbackForOption[optionId] = !!option.selected;
+    this.showFeedbackForOption[optionId] = true;
 
     // Log that we're emitting answered=true for this question
     console.log('[Q2 setAnswered call]', {
