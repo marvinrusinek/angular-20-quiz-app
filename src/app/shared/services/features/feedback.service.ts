@@ -173,7 +173,7 @@ export class FeedbackService {
       if (status.resolved) {
         return `You're right! ${revealMessage}`;
       }
-      return revealMessage;
+      return 'Incorrect selection, try again!';
     }
   }
 
