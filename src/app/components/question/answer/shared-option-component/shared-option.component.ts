@@ -2918,13 +2918,15 @@ export class SharedOptionComponent
    * Uses lastFeedbackOptionId which is reliably synced across all code paths.
    */
   public shouldShowFeedbackAfter(b: OptionBindings, i: number): boolean {
-    if (this.lastFeedbackOptionId < 0) return false;
     if (!this.showFeedback) return false;
 
     // Check if this option IS the last one that received feedback
     const optId = b?.option?.optionId;
     if (optId == null) return false;
-    return Number(optId) === Number(this.lastFeedbackOptionId);
+
+    // Allow ANY option that has been flagged for feedback
+    // This supports showing feedback for multiple options simultaneously
+    return this.showFeedbackForOption[optId] === true;
   }
 
   /**
