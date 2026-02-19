@@ -5,8 +5,8 @@
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
-import { MatCheckboxChange } from '@angular/material/checkbox';
-import { MatRadioChange } from '@angular/material/radio';
+import { MatCheckboxModule, MatCheckboxChange } from '@angular/material/checkbox';
+import { MatRadioModule, MatRadioChange } from '@angular/material/radio';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import {
   animationFrameScheduler, BehaviorSubject, combineLatest, defer, Observable, of, Subject,
@@ -57,12 +57,14 @@ import { OptionBindingFactoryService } from '../../../../shared/services/options
     CommonModule,
     ReactiveFormsModule,
     MatIconModule,
+    MatRadioModule,
+    MatCheckboxModule,
     SharedOptionConfigDirective,
     OptionItemComponent,
     FeedbackComponent
   ],
   templateUrl: './shared-option.component.html',
-  styleUrls: ['../../quiz-question/quiz-question.component.scss'],
+  styleUrls: ['../../quiz-question/quiz-question.component.scss', './shared-option.component.scss'],
   animations: [correctAnswerAnim],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
@@ -519,6 +521,9 @@ export class SharedOptionComponent
             this.feedbackConfigs = {};
             this.activeFeedbackConfig = null;
 
+            let lastSelectedId = -1;
+            let hasSelection = false;
+
             for (const b of this.optionBindings ?? []) {
               if (!b.option) continue;
 
@@ -528,9 +533,14 @@ export class SharedOptionComponent
               const optId = b.option.optionId ?? -1;
               if (optId < 0) continue;
 
+              if (b.isSelected) {
+                lastSelectedId = optId;
+                hasSelection = true;
+              }
+
               this.feedbackConfigs[optId] = {
                 feedback: freshFeedback,
-                showFeedback: b.showFeedback ?? false,
+                showFeedback: true, // Let SOC template control which row shows via shouldShowFeedbackAfter
                 options: opts,
                 question: question,
                 selectedOption: b.option,
@@ -541,6 +551,11 @@ export class SharedOptionComponent
               if (this.feedbackConfigs[optId].showFeedback) {
                 this.activeFeedbackConfig = this.feedbackConfigs[optId];
               }
+            }
+
+            if (hasSelection) {
+              this.showFeedback = true;
+              this.lastFeedbackOptionId = lastSelectedId;
             }
           }
         }
@@ -603,25 +618,25 @@ export class SharedOptionComponent
     this.currentQuestionIndex = fallbackIndex;
 
     // Force re-render when question changes to reset disabled state
-    if (
-      changes['questionIndex'] ||
-      changes['currentQuestionIndex'] ||
-      changes['optionsToDisplay']
-    ) {
+    // Only reset state if the question index has actually changed (moving to a new question)
+    const qIdxChanged = 
+      (changes['questionIndex'] && !changes['questionIndex'].firstChange && changes['questionIndex'].previousValue !== changes['questionIndex'].currentValue) ||
+      (changes['currentQuestionIndex'] && !changes['currentQuestionIndex'].firstChange && changes['currentQuestionIndex'].previousValue !== changes['currentQuestionIndex'].currentValue);
+
+    if (qIdxChanged) {
       // Clear all disabled options - new question starts fresh
       this.disabledOptionsPerQuestion.clear();
       this.activeFeedbackConfig = null;
       this.feedbackConfigs = {};
+      this.lastFeedbackOptionId = -1;
+      this.showFeedback = false;
       console.log(
-        '[ngOnChanges] Cleared disabledOptionsPerQuestion and feedback for new question'
+        '[ngOnChanges] Moving to NEW question: Cleared state'
       );
 
       this.disableRenderTrigger++;
-      console.log(
-        '[ngOnChanges] Question changed, disableRenderTrigger incremented to:',
-        this.disableRenderTrigger
-      );
     }
+
 
     console.log(
       `[HYDRATE-INDEX FIX] Resolved questionIndex=${this.currentQuestionIndex}`
@@ -642,28 +657,28 @@ export class SharedOptionComponent
         );
 
         // DO NOT clear optionBindings array (can cause blank options on first load)
-        // Instead, clear visual state on existing bindings
-        for (const b of this.optionBindings ?? []) {
-          b.isSelected = false;
-          b.showFeedback = false;
-          b.highlightCorrect = false;
-          b.highlightIncorrect = false;
-          b.highlightCorrectAfterIncorrect = false;
-          b.disabled = false;
-          if (b.option) {
-            b.option.selected = false;
-            b.option.showIcon = false;
+        // Instead, clear visual state on existing bindings ONLY if question changed
+        if (qIdxChanged) {
+          for (const b of this.optionBindings ?? []) {
+            b.isSelected = false;
+            b.showFeedback = false;
+            b.highlightCorrect = false;
+            b.highlightIncorrect = false;
+            b.highlightCorrectAfterIncorrect = false;
+            b.disabled = false;
+            if (b.option) {
+              b.option.selected = false;
+              b.option.showIcon = false;
+            }
           }
+
+          this.highlightedOptionIds.clear();
+          this.selectedOption = null;
+          console.log(
+            '[HARD RESET] Question changed: selection state cleared'
+          );
         }
 
-        // Highlight directives are now handled in OptionItemComponent
-
-
-        this.highlightedOptionIds.clear();
-        this.selectedOption = null;
-        console.log(
-          '[HARD RESET] optionsToDisplay deep-cloned and state cleared'
-        );
 
         // Help first paint with OnPush
         this.cdRef.markForCheck();
@@ -799,8 +814,8 @@ export class SharedOptionComponent
 
     }
 
-    // UI cleanup can happen on both question and options changes
-    if ((questionChanged || optionsChanged) && this.optionsToDisplay?.length) {
+    // UI cleanup ONLY when question index changes
+    if (questionChanged && this.optionsToDisplay?.length) {
       this.questionVersion++;
 
       // If the previous question forced every option disabled (e.g. after
@@ -828,8 +843,8 @@ export class SharedOptionComponent
       this.cdRef.detectChanges();
     }
 
-    // Full local visual reset to prevent ghost highlighting
-    if (questionChanged || optionsChanged) {
+    // Full local visual reset to prevent ghost highlighting ONLY when question changes
+    if (questionChanged) {
       console.log(
         `[SOC] Resetting local visual state for Q${this.resolvedQuestionIndex}`
       );
@@ -926,49 +941,49 @@ export class SharedOptionComponent
   }
 
   private rebuildShowFeedbackMapFromBindings(): void {
-    const showMap: Record<number, boolean> = {};
+  const showMap: Record<number, boolean> = {};
 
-    // NOTE: For multi-select, we want feedback to display ONLY for the most recently
-    // selected (or toggled) option row, not for every selected option — otherwise
-    // feedback can appear under the wrong row after hydration/back nav.
-    const lastClickedId: number | undefined =
-      Array.isArray(this.selectedOptionHistory) && this.selectedOptionHistory.length > 0
+  // PREFER lastFeedbackOptionId for the anchor; it tracks the MOST RECENT click reliably
+  // Fall back to the last item in selectedOptionHistory if lastFeedbackOptionId is -1
+  const targetId =
+    typeof this.lastFeedbackOptionId === 'number' && this.lastFeedbackOptionId !== -1
+      ? this.lastFeedbackOptionId
+      : (Array.isArray(this.selectedOptionHistory) && this.selectedOptionHistory.length > 0)
         ? this.selectedOptionHistory[this.selectedOptionHistory.length - 1]
         : undefined;
 
-    let fallbackSelectedId: number | undefined;
+  let fallbackSelectedId: number | undefined;
 
-    for (const b of this.optionBindings ?? []) {
-      const id = b?.option?.optionId;
-      if (id == null) continue;
+  for (const b of this.optionBindings ?? []) {
+    const id = b?.option?.optionId;
+    if (id == null) continue;
 
-      // Default off for every row until we pick the target row below
-      showMap[id] = false;
+    showMap[id] = false;
 
-      // Capture a stable fallback id in case we don't have a last-clicked id
-      if (fallbackSelectedId === undefined && b.isSelected === true) {
-        fallbackSelectedId = id;
-      }
-    }
-
-    // Prefer the last-clicked id when available; otherwise fall back to the first selected binding
-    const targetId =
-      typeof lastClickedId === 'number' && Number.isFinite(lastClickedId)
-        ? lastClickedId
-        : fallbackSelectedId;
-
-    if (targetId !== undefined) {
-      showMap[targetId] = true;
-    }
-
-    // Assign brand-new object to avoid shared reference bleed
-    this.showFeedbackForOption = { ...showMap };
-
-    // If your bindings store the ref, update them too:
-    for (const b of this.optionBindings ?? []) {
-      b.showFeedbackForOption = this.showFeedbackForOption;
+    if (fallbackSelectedId === undefined && b.isSelected === true) {
+      fallbackSelectedId = id;
     }
   }
+
+  const finalTargetId = targetId !== undefined ? targetId : fallbackSelectedId;
+
+  if (finalTargetId !== undefined) {
+    showMap[finalTargetId] = true;
+    // Ensure we are in "show feedback" mode if we have a valid anchor
+    this.showFeedback = true;
+  }
+
+  this.showFeedbackForOption = { ...showMap };
+
+  for (const b of this.optionBindings ?? []) {
+    b.showFeedbackForOption = this.showFeedbackForOption;
+    // ensure binding also knows to show feedback
+    if (this.showFeedback) {
+       b.showFeedback = true;
+    }
+  }
+  this.cdRef.detectChanges();
+}
 
   // Handle visibility changes to restore state
   @HostListener('window:visibilitychange', [])
@@ -1573,21 +1588,19 @@ export class SharedOptionComponent
     this.optionUiSyncService.updateOptionAndUI(optionBinding, index, event, ctx);
 
     // Sync ALL feedback state back from ctx.
-    // resetFeedbackAnchorIfQuestionChanged may REPLACE ctx.feedbackConfigs and
-    // ctx.showFeedbackForOption with new empty objects, disconnecting from the
-    // component's references. We must sync EVERYTHING back.
-    // IMPT: We strictly clone the objects to force OnPush change detection to
-    // notice the update (in-place mutation of the same ref might be ignored).
     this.feedbackConfigs = { ...ctx.feedbackConfigs };
     this.showFeedbackForOption = { ...ctx.showFeedbackForOption };
-    this.showFeedback = ctx.showFeedback;
+    this.showFeedback = true; // Use the truth that an interaction occurred
     this.lastFeedbackOptionId = ctx.lastFeedbackOptionId;
     this.lastFeedbackQuestionIndex = ctx.lastFeedbackQuestionIndex;
     this.lastSelectedOptionIndex = index;
 
     // FORCE SYNC FROM SERVICE (Source of Truth)
     const qIndex = this.resolveCurrentQuestionIndex();
+    this.regenerateFeedback(qIndex);
+
     const selections = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) || [];
+
     const selectionIds = new Set(selections.map(s => s.optionId));
 
     this.optionBindings.forEach(b => {
@@ -1612,12 +1625,7 @@ export class SharedOptionComponent
     // every option (needed for single-answer unselects and general state correctness)
     this.optionBindings = this.optionBindings.map(b => ({ ...b }));
 
-    // DEBUG: trace inline feedback state
-    const optId = optionBinding?.option?.optionId;
-    const key = this.keyOf(optionBinding.option, index);
-    const cfgKeys = Object.keys(this.feedbackConfigs);
-    const hasCfg = !!this.feedbackConfigs[key];
-
+    // Force CD
     this.cdRef.detectChanges();
   }
 
@@ -2689,12 +2697,13 @@ export class SharedOptionComponent
 
         this.feedbackConfigs[optId] = {
           feedback: freshFeedback,
-          showFeedback: b.showFeedback ?? false,
+          showFeedback: true, // Let SOC template control which row shows via shouldShowFeedbackAfter
           options: this.optionsToDisplay,
           question: question,
           selectedOption: b.option,
           correctMessage: freshFeedback,
-          idx: b.index
+          idx: b.index,
+          questionIndex: idx
         };
       }
 
@@ -2922,10 +2931,19 @@ export class SharedOptionComponent
     const optId = b?.option?.optionId;
     if (optId != null) {
       const cfgById = this.feedbackConfigs[String(optId)] ?? this.feedbackConfigs[optId];
-      if (cfgById?.showFeedback) return cfgById;
+      if (cfgById?.showFeedback) return { ...cfgById, questionIndex: this.currentQuestionIndex };
     }
 
-    return null;
+    return {
+      feedback: b.feedback || '',
+      showFeedback: this.showFeedback && (this.showFeedbackForOption[b.option.optionId ?? -1] === true),
+      options: this.optionsToDisplay,
+      question: this.currentQuestion,
+      selectedOption: b.option,
+      correctMessage: b.feedback || '',
+      idx: i,
+      questionIndex: this.currentQuestionIndex
+    };
   }
 
 
@@ -3030,11 +3048,27 @@ export class SharedOptionComponent
     }
 
     if (ev.kind === 'change') {
+      const native = ev.nativeEvent as MatCheckboxChange | MatRadioChange;
+      const isChecked = (native as MatCheckboxChange).checked ?? true;
+
       // Keep your existing “change → sync UI/form” path
-      this.updateOptionAndUI(binding, index, ev.nativeEvent as MatCheckboxChange | MatRadioChange);
-      // Ensure explanation is emitted/generated for checkbox interactions too
-      const qIndex = this.getActiveQuestionIndex();
-      this.emitExplanation(qIndex);
+      this.updateOptionAndUI(binding, index, native);
+
+      // find the REPLACED binding (ref might have changed due to OnPush map/cloning)
+      const freshBinding = this.optionBindings.find(b => b.option.optionId === binding.option.optionId) || binding;
+
+      // NAVIGATION FIX: Emit the selection event with ACTUAL checked state
+      const payload: OptionClickedPayload = {
+        option: freshBinding.option,
+        index: index,
+        checked: isChecked
+      };
+      this.optionClicked.emit(payload);
+
+      // Also call the input callback if it was provided
+      if (this.quizQuestionComponentOnOptionClicked) {
+        this.quizQuestionComponentOnOptionClicked(freshBinding.option as SelectedOption, index);
+      }
       return;
     }
 
@@ -3061,6 +3095,21 @@ export class SharedOptionComponent
 
     if (ev.kind === 'contentClick') {
       this.runOptionContentClick(binding, index, ev.nativeEvent as MouseEvent);
+
+      // find the REPLACED binding to get the NEW isSelected state
+      const freshBinding = this.optionBindings.find(b => b.option.optionId === binding.option.optionId) || binding;
+
+      // NAVIGATION FIX: Also emit for content clicks
+      const payload: OptionClickedPayload = {
+        option: freshBinding.option,
+        index: index,
+        checked: freshBinding.isSelected || false
+      };
+      this.optionClicked.emit(payload);
+
+      if (this.quizQuestionComponentOnOptionClicked) {
+        this.quizQuestionComponentOnOptionClicked(freshBinding.option as SelectedOption, index);
+      }
       return;
     }
   }

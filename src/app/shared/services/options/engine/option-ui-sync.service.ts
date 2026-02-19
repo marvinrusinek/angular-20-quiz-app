@@ -153,21 +153,48 @@ export class OptionUiSyncService {
 
     this.trackVisited(optionId, ctx);
 
-    // new anchor (always update feedback anchor to current click)
-    ctx.showFeedbackForOption = { [optionId ?? -1]: true };
-    ctx.lastFeedbackOptionId = optionId ?? -1;
+    // updated anchor logic: if unselecting, move back to last still-selected option
+    if (checked) {
+      ctx.showFeedback = true;
+      ctx.showFeedbackForOption = { [optionId ?? -1]: true };
+      ctx.lastFeedbackOptionId = optionId ?? -1;
+      this.refreshFeedbackConfigForClicked(optionBinding, index, optionId, ctx);
+    } else {
+      const stillSelectedId = [...(ctx.selectedOptionHistory || [])]
+        .reverse()
+        .find(id => ctx.selectedOptionMap.has(id));
 
-    // Build feedback config for clicked option
-    this.refreshFeedbackConfigForClicked(optionBinding, index, optionId, ctx);
+      if (stillSelectedId !== undefined) {
+        ctx.showFeedbackForOption = { [stillSelectedId]: true };
+        ctx.lastFeedbackOptionId = stillSelectedId;
+
+        const prevBindingIdx = ctx.optionBindings.findIndex(b => b.option.optionId === stillSelectedId);
+        if (prevBindingIdx !== -1) {
+          this.refreshFeedbackConfigForClicked(
+            ctx.optionBindings[prevBindingIdx],
+            prevBindingIdx,
+            stillSelectedId,
+            ctx
+          );
+        }
+      } else {
+        ctx.showFeedbackForOption = {};
+        ctx.lastFeedbackOptionId = -1;
+      }
+    }
+
 
     // optional: refresh directive highlighting after state changes
     this.optionVisualEffectsService.refreshHighlights(ctx.optionBindings);
 
-    // highlight flags (if you add my applyHighlighting method inside OptionUiSyncService)
+    // Apply styles to current binding
     this.applyHighlighting(optionBinding);
 
-    // feedback generation (if you add my applyFeedback method inside OptionUiSyncService)
-    this.applyFeedback(optionBinding, index, ctx);
+    // Only apply generic feedback if we haven't already anchored to a specific selection
+    // in the checked/unchecked blocks above.
+    if (ctx.lastFeedbackOptionId === -1 || ctx.lastFeedbackOptionId === optionId) {
+       this.applyFeedback(optionBinding, index, ctx);
+    }
 
     const resolvedType =
       ctx.type === 'multiple' ? QuestionType.MultipleAnswer : QuestionType.SingleAnswer;
@@ -367,8 +394,10 @@ export class OptionUiSyncService {
         question: currentQuestion ?? null,
         selectedOption: optionBinding.option,
         correctMessage: dynamicFeedback,
-        idx: index
+        idx: index,
+        questionIndex: currentIdx
       } as any;
+
 
       if (optionId != null) ctx.showFeedbackForOption[optionId] = true;
       ctx.lastFeedbackOptionId = optionId ?? -1;
@@ -491,7 +520,8 @@ export class OptionUiSyncService {
       question,
       selectedOption: optionBinding.option,
       correctMessage: freshFeedback,
-      idx: displayIndex
+      idx: displayIndex,
+      questionIndex: qIdx
     } as any;
 
     const optId = optionBinding.option?.optionId;

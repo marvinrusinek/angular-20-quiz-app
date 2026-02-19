@@ -1,5 +1,5 @@
 import { ChangeDetectorRef, ChangeDetectionStrategy, Component, Input, OnInit,
-  OnChanges, SimpleChanges } from '@angular/core';
+  OnChanges, SimpleChanges, Injector } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 
@@ -18,6 +18,7 @@ import { QuizService } from '../../../../shared/services/data/quiz.service';
 })
 export class FeedbackComponent implements OnInit, OnChanges {
   @Input() feedbackConfig?: FeedbackProps | null;
+  @Input() stylePreset: 'default' | 'inline' = 'default';
   feedbackMessageClass = '';
   displayMessage = '';
 
@@ -25,7 +26,8 @@ export class FeedbackComponent implements OnInit, OnChanges {
     private feedbackService: FeedbackService,
     private quizService: QuizService,
     private selectedOptionService: SelectedOptionService,
-    private cdRef: ChangeDetectorRef
+    private cdRef: ChangeDetectorRef,
+    private injector: Injector
   ) {}
 
   ngOnInit(): void {
@@ -68,10 +70,12 @@ export class FeedbackComponent implements OnInit, OnChanges {
     } else {
       this.displayMessage = '';
     }
+    this.cdRef.detectChanges();
   }
 
+
   private determineFeedbackMessageClass(): string {
-    const isCorrect = this.feedbackConfig?.selectedOption?.correct;
+    const isCorrect = !!this.feedbackConfig?.selectedOption?.correct;
     return isCorrect ? 'correct-message' : 'wrong-message';
   }
 
@@ -97,7 +101,8 @@ export class FeedbackComponent implements OnInit, OnChanges {
     ? (this.quizService.currentQuestionIndex as number)
     : undefined;
   const idx =
-    selectedQuestionIndex ?? activeQuestionIndex ?? fallbackIndex;
+    this.feedbackConfig.questionIndex ?? selectedQuestionIndex ?? activeQuestionIndex ?? fallbackIndex;
+
   const question =
     this.feedbackConfig.question ??
     this.quizService.questions?.[idx] ??
@@ -130,9 +135,11 @@ export class FeedbackComponent implements OnInit, OnChanges {
           question,
           selected,
           false,
-          this.feedbackConfig?.timedOut === true
+          this.feedbackConfig?.timedOut === true,
+          idx
         )
       : '';
+
   
     // If feedbackService decided on a message, USE IT and STOP
     if (msg && msg.trim()) {

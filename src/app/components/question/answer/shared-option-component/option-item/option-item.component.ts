@@ -38,7 +38,7 @@ export interface OptionUIEvent {
     SharedOptionConfigDirective
   ],
   templateUrl: './option-item.component.html',
-  styleUrls: ['./option-item.component.scss', '../shared-option.component.scss'],
+  styleUrls: ['./option-item.component.scss'],
   encapsulation: ViewEncapsulation.None,
   animations: [correctAnswerAnim]
 })

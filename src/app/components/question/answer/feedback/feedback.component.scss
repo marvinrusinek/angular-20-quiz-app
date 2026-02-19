@@ -65,3 +65,51 @@
   -moz-font-feature-settings: 'liga';
   -moz-osx-font-smoothing: grayscale;
 }
+
+// Default styles (centered, below options)
+// Existing .message styles here...
+
+// Inline variant for single-answer options
+.message.feedback-inline {
+  width: auto;
+  margin: 0;
+  display: inline-flex;
+  justify-content: flex-start;
+  align-items: center;
+
+  .feedback-message {
+    width: auto;
+    margin: 0;
+    padding: 4px 12px;
+    height: auto;
+    font-size: 16px;
+    border-radius: 4px;
+    
+    // Reset borders/margins for compact view
+    &.correct-message,
+    &.wrong-message {
+      margin: 0;
+      height: auto;
+    }
+
+    // Adjust icon spacing for inline
+    mat-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+      margin-right: 8px;
+      top: 0;
+    }
+
+    span {
+      display: inline-block;
+      white-space: nowrap;
+    }
+  }
+
+  // Remove specific negative margins from default
+  .correct-icon,
+  .wrong-icon {
+    margin-left: 0;
+  }
+}

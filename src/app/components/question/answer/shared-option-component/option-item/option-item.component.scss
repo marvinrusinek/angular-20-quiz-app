@@ -1,49 +1,127 @@
 @use '../../../../../../variables' as vars;
 
-/* Ensure variables are used even without shared style penetration */
+/* 
+   OPTION ITEM STYLES
+   With encapsulation: ViewEncapsulation.None, these styles become global.
+   Targeting .option-row which is applied to mat-radio-button/mat-checkbox in the template.
+*/
+
+:host {
+  display: block !important;
+  width: 100% !important;
+  margin-bottom: 0 !important;
+}
+
+
+.option-row {
+  display: flex !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  background-color: #f5f5f5 !important; /* Solid Gray */
+  border: 2px solid #979797 !important;
+  border-radius: 4px !important;
+  padding: 12px 15px !important;
+  transition: all 0.2s ease !important;
+  cursor: pointer !important;
+  margin-bottom: 0 !important;
+  margin-left: -10px !important;
+  position: relative !important;
+
+  &:hover:not(.mat-mdc-radio-disabled):not(.mat-mdc-checkbox-disabled) {
+    border-color: #3b98fd !important;
+  }
+}
+
+
+/* Internal structure overrides for Material components */
+.mdc-form-field {
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.mdc-label {
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  cursor: inherit !important;
+}
+
+/* Hide native circles/boxes and their containers to ensure zero layout impact */
+.mdc-radio,
+.mdc-checkbox,
+.mdc-checkbox__background,
+.mdc-checkbox__native-control,
+.mat-mdc-radio-ripple,
+.mat-mdc-checkbox-ripple {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+
+/* CONTENT ALIGNMENT */
+.option-wrapper {
+  width: 100% !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important; /* THE ICON FIX */
+  flex: 1 1 auto !important;
+}
+
 .option-text {
   font-family: 'Space Mono', monospace !important;
   font-size: 20px !important;
-  color: vars.$dark-brown !important;
+  color: #0f0900 !important;
+  flex-grow: 1;
+  padding-left: 25px !important;
 }
+
 
 .opt-icon {
-  position: absolute;
-  right: 15px;
-  top: 50%;
-  transform: translateY(-50%) !important;
+  margin-left: auto !important;
+  font-size: 28px !important;
+  width: 28px !important;
+  height: 28px !important;
+  color: #000000 !important; /* USER REQUESTED: Black */
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
-mat-checkbox, mat-radio-button, .mdc-label {
-  font-family: vars.$font-stack !important;
-  font-size: 20px !important;
-  color: vars.$dark-brown !important;
+
+/* VALIDATION STATES */
+.correct-option {
+  background-color: #43e756 !important;
+  border-color: #36a34a !important;
+  color: #000000 !important;
+  .option-text, .opt-icon { color: #000000 !important; }
 }
 
-// Redundant label styling removed - handled by main block below
-// ::ng-deep .mdc-form-field > label { ... }
-// ::ng-deep .mdc-label { ... }
+.incorrect-option {
+  background-color: #ff0000 !important;
+  border-color: #c62828 !important;
+  color: #000000 !important;
+  .option-text, .opt-icon { color: #000000 !important; }
+}
 
-// Aggressive structural reset for Material MDC Radio/Checkbox
-:host ::ng-deep mat-radio-button,
-:host ::ng-deep mat-checkbox {
-    display: block !important;
-    width: 100% !important;
 
-    // The internal flex container
-    .mdc-form-field {
-        display: flex !important;
-        width: 100% !important;
-        align-items: stretch !important;
+/* CURSOR FEEDBACK */
+.option-cursor-wrapper {
+  width: 100%;
+  display: block;
+  
+  &.cursor-not-allowed {
+    cursor: not-allowed !important;
+    &, * { cursor: not-allowed !important; }
+    
+    .mat-mdc-radio-button, .mat-mdc-checkbox {
+      pointer-events: auto !important;
     }
-
-    // The label element that wraps our custom content
-    label {
-        display: block !important;
-        width: 100% !important;
-        flex: 1 1 auto !important;
-        padding: 0 !important;
-        margin: 0 !important;
-    }
+  }
 }
-

@@ -1,4 +1,4 @@
-<section class="message">
+<section class="message" [class.feedback-inline]="stylePreset === 'inline'">
   @if (feedbackConfig?.showFeedback) {
     <div class="feedback-message" [ngClass]="feedbackMessageClass">
       @if (feedbackConfig?.selectedOption?.correct) {
@@ -10,7 +10,5 @@
       }
       <span>{{ displayMessage }}</span>
     </div>
-  } @else {
-    <p>Feedback is not being shown.</p>
   }
 </section>

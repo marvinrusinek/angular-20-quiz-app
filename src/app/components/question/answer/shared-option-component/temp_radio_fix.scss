@@ -1,0 +1,21 @@
+
+/* 
+   FIX FOR SINGLE-ANSWER ICON ALIGNMENT
+   Ensure the option-wrapper inside the radio button label takes up all available space.
+   This pushes the absolute positioned icon to the far right edge of the container.
+*/
+::ng-deep .mat-mdc-radio-button {
+  width: 100% !important;
+
+  label {
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    
+    .option-wrapper {
+      flex: 1 1 auto !important; /* Grow to fill space */
+      width: 100% !important;
+      max-width: 100%;
+    }
+  }
+}

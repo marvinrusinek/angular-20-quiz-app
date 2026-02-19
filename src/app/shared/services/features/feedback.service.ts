@@ -2,10 +2,12 @@ import { Injectable, Inject, forwardRef, Injector } from '@angular/core';
 
 import { Option } from '../../models/Option.model';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
+import { QuestionType } from '../../models/question-type.enum';
 import { SelectedOption } from '../../models/SelectedOption.model';
 import { SelectedOptionService } from '../state/selectedoption.service';
 import { ExplanationTextService } from './explanation-text.service';
 import { QuizService } from '../data/quiz.service';
+
 
 
 @Injectable({ providedIn: 'root' })
@@ -37,15 +39,9 @@ export class FeedbackService {
     const validCorrectOptions = (correctOptions || []).filter(opt => opt && typeof opt === 'object');
     const validOptionsToDisplay = (optionsToDisplay || []).filter(opt => opt && typeof opt === 'object');
 
-    if (validCorrectOptions.length === 0) {
-      console.warn(
-        '[generateFeedbackForOptions] ❌ No valid correct options provided.'
-      );
-      return 'No correct answers available for this question.';
-    }
     if (validOptionsToDisplay.length === 0) {
       console.warn(
-        '[generateFeedbackForOptions] ❌ No valid options to display. STOPPING BEFORE CALLING setCorrectMessage.'
+        '[generateFeedbackForOptions] ❌ No valid options to display.'
       );
       return 'Feedback unavailable.';
     }
@@ -66,55 +62,134 @@ export class FeedbackService {
     question: QuizQuestion,
     selected: Array<SelectedOption | Option> | null,
     strict: boolean = false,
-    timedOut: boolean = false
+    timedOut: boolean = false,
+    displayIndex?: number
   ): string {
     if (timedOut) {
       return 'Time’s up. Review the explanation above.';
     }
-  
-    const status = this.selectedOptionService.getResolutionStatus(
+
+    // Identify correct indices once
+    const quizSvc = this.injector.get(QuizService, null);
+    const qIdx =
+      displayIndex ?? (question as any).questionIndex ?? quizSvc?.currentQuestionIndex ?? 0;
+
+    let correctIndices = this.explanationTextService.getCorrectOptionIndices(
       question,
+      question.options,
+      qIdx
+    );
+
+    // ULTIMATE FALLBACK: If ETS failed, search the entire quiz for this question's correct answers
+    if ((!correctIndices || correctIndices.length === 0) && quizSvc) {
+      const qText = (question.questionText || '').trim().toLowerCase();
+      if (qText) {
+        const allQuestions = (quizSvc as any)._questions || quizSvc.questions || [];
+        const sourceQ = allQuestions.find(
+          (q: QuizQuestion) => (q.questionText || '').trim().toLowerCase() === qText
+        );
+        if (sourceQ?.options) {
+          const foundIndices = sourceQ.options
+            .map((o: Option, i: number) =>
+              o.correct === true || (o as any).correct === 'true' ? i + 1 : null
+            )
+            .filter((n: number | null): n is number => n !== null);
+
+          if (foundIndices.length > 0) {
+            correctIndices = foundIndices;
+            console.log(`[FeedbackService] ✅ Found ${foundIndices.length} correct answers via global text search fallback.`);
+          }
+        }
+      }
+    }
+
+    // Still empty? Try one last catch: Look at question.options themselves
+    if ((!correctIndices || correctIndices.length === 0) && question.options) {
+      correctIndices = question.options
+        .map((o, i) => (o.correct === true || (o as any).correct === 'true' ? i + 1 : null))
+        .filter((n): n is number => n !== null);
+    }
+
+    const isMultiMode =
+      correctIndices.length > 1 ||
+      question.type === QuestionType.MultipleAnswer ||
+      (question as any).multipleAnswer === true;
+
+    // Patch a local copy of the question for resolution status check
+    const patchedQuestion = {
+      ...question,
+      type: isMultiMode ? QuestionType.MultipleAnswer : QuestionType.SingleAnswer,
+      options: (question.options || []).map((o, i) => ({
+        ...o,
+        correct: correctIndices.includes(i + 1)
+      }))
+    } as QuizQuestion;
+
+    const status = this.selectedOptionService.getResolutionStatus(
+      patchedQuestion,
       selected as Option[] ?? [],
       strict
     );
-  
-    const hasAnySelection = (selected ?? []).some(
-      (o: any) => o && o.selected !== false
-    );
-    if (!hasAnySelection) return '';
-  
-    // Single-answer
-    if (status.correctTotal <= 1) {
-      if (status.resolved) {
-        return this.setCorrectMessage(question.options, question);
+
+    const formatReveal = (indices: number[]) => {
+      const deduped = Array.from(new Set(indices)).sort((a, b) => a - b);
+      if (deduped.length === 0) return '';
+      const optionsText = deduped.length === 1 ? 'answer is Option' : 'answers are Options';
+      const optionStrings = deduped.length > 1
+        ? `${deduped.slice(0, -1).join(', ')} and ${deduped.slice(-1)}`
+        : `${deduped[0]}`;
+      return `The correct ${optionsText} ${optionStrings}.`;
+    };
+
+    const revealMessage = formatReveal(correctIndices) || 'Check the correct answers below.';
+
+    if (!selected || (selected as Array<any>).length === 0) {
+      return '';
+    }
+
+    if (timedOut) {
+      return `Time’s up. ${revealMessage}`.trim();
+    }
+
+    if (isMultiMode) {
+      // 1. INCORRECT SELECTION (Priority)
+      if (status.incorrectSelected > 0) {
+        return `Not this one. ${revealMessage}`;
       }
 
-      return 'Your selection is incorrect, try again!';
-    }
-  
-    // Multi-answer
-    if (status.resolved) {
-      // Reveal correct options ONLY when fully resolved
-      const reveal = this.setCorrectMessage(question.options, question);
-      return reveal || 'Correct. You found all the right answers.';
-    }
+      // 2. FULLY CORRECT
+      if (status.resolved) {
+        return `You're right! ${revealMessage}`;
+      }
 
-    // Correct so far, but not finished
-    if (status.correctSelected > 0 && status.remainingCorrect > 0) {
-      const remainingText =
-        status.remainingCorrect === 1
+      // 3. PARTIALLY CORRECT
+      if (status.correctSelected > 0) {
+        const remainingText = status.remainingCorrect === 1
           ? '1 more correct answer'
           : `${status.remainingCorrect} more correct answers`;
-      return `That's correct! Select ${remainingText}.`;
+        return `That's correct! Select ${remainingText}.`;
+      }
+
+      return revealMessage;
+    } else {
+      // Single-Answer Question
+      if (status.resolved) {
+        return `You're right! ${revealMessage}`;
+      }
+      return `Incorrect selection, try again! ${revealMessage}`;
     }
-  
-    // Incorrect option chosen
-    if (status.incorrectSelected > 0) {
-      return 'Not this one. Keep going...';
-    }
-  
-  return '';
   }
+
+
+
+
+
+
+
+
+
+
+
 
   public setCorrectMessage(
     optionsToDisplay?: Option[],
@@ -133,40 +208,28 @@ export class FeedbackService {
     const quizSvc = this.injector.get(QuizService, null);
     const currentIndex = quizSvc?.currentQuestionIndex;
 
-    // Use the robust logic from ExplanationTextService to find correct indices.
-    // This avoids relying on the potentially corrupted 'correct' property in optionsToDisplay.
     const indices = this.explanationTextService.getCorrectOptionIndices(
       question!,
       optionsToDisplay,
       typeof currentIndex === 'number' ? currentIndex : undefined
     );
 
-    // Dedupe + sort for stable, readable "Options 1 and 2" strings (matches FET)
     const deduped = Array.from(new Set(indices)).sort((a, b) => a - b);
-    
-    console.log(`[FeedbackService.setCorrectMessage] Computed indices: ${JSON.stringify(deduped)}`);
-    
-    if (deduped.length === 0) {
-      console.warn(`[FeedbackService] ❌ No matching correct options found.`);
-      return 'No correct options found for this question.';
-    }
-
-    // Store for synchronization with FET
     this.lastCorrectIndices = deduped;
 
-    const msg = this.formatFeedbackMessage(deduped);
-    
-    return msg;
-  }
+    if (deduped.length === 0) {
+      return 'No correct options found.';
+    }
 
-  private formatFeedbackMessage(indices: number[]): string {
     const optionsText =
-      indices.length === 1 ? 'answer is Option' : 'answers are Options';
+      deduped.length === 1 ? 'answer is Option' : 'answers are Options';
     const optionStrings =
-      indices.length > 1
-        ? `${indices.slice(0, -1).join(', ')} and ${indices.slice(-1)}`
-        : `${indices[0]}`;
+      deduped.length > 1
+        ? `${deduped.slice(0, -1).join(', ')} and ${deduped.slice(-1)}`
+        : `${deduped[0]}`;
 
-    return `You're right! The correct ${optionsText} ${optionStrings}.`;
+    return `The correct ${optionsText} ${optionStrings}.`;
   }
+
+
 }

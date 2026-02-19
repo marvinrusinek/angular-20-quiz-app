@@ -1,0 +1,75 @@
+
+/* ────────────────────────────────────────────────
+   6. SINGLE OPTION LAYOUT (Feedback Side-by-Side)
+──────────────────────────────────────────────────*/
+.single-option-container {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start; /* Default to left-aligned start */
+  width: 100%;
+  position: relative;
+  margin-bottom: 20px;
+
+  /* The option item takes remaining space but can shrink if needed */
+  app-option-item {
+    flex: 1 1 auto;
+    min-width: 0;
+
+    /* Remove bottom margin from radio button so it aligns with feedback */
+    ::ng-deep mat-radio-button {
+      margin-bottom: 0 !important;
+    }
+  }
+}
+
+/* 
+  SIDE FEEDBACK STYLES
+  We must aggressively override the default feedback component styles 
+  because they are fixed width (760px) and centered with margins.
+*/
+.feedback-side-option {
+  flex-shrink: 0;
+  margin-left: 15px; /* Gap between option and feedback */
+  
+  /* Reset the container width */
+  ::ng-deep codelab-quiz-feedback {
+    width: auto !important;
+    display: inline-block !important;
+    min-width: 0 !important;
+  }
+
+  /* Reset the inner .message container */
+  ::ng-deep .message {
+    width: auto !important;
+    max-width: none !important;
+    margin: 0 !important; /* Remove negative margins */
+    display: flex !important;
+    justify-content: flex-start !important; /* Align left */
+    padding: 0 !important;
+  }
+
+  /* Reset the actual feedback bubble/pill */
+  ::ng-deep .feedback-message {
+    width: auto !important; /* No fixed 550px width */
+    min-width: 0 !important;
+    margin: 0 !important;
+    padding: 6px 12px !important; /* Tighter padding for side-alignment */
+    white-space: nowrap !important; /* Keep on one line */
+    
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    
+    font-size: 16px !important; /* Slightly smaller if needed */
+  }
+
+  /* Adjust icons inside feedback */
+  ::ng-deep mat-icon {
+    font-size: 20px !important; /* Smaller icon to fit line height */
+    width: 20px !important;
+    height: 20px !important;
+    margin-right: 8px !important;
+    position: static !important; /* Reset absolute positioning tricks */
+    top: auto !important;
+  }
+}
