@@ -151,7 +151,7 @@ export class FeedbackService {
     if (isMultiMode) {
       // 1. INCORRECT SELECTION (Priority)
       if (status.incorrectSelected > 0) {
-        return `Not this one. ${revealMessage}`;
+        return 'Not this one, try again!';
       }
 
       // 2. FULLY CORRECT
@@ -176,17 +176,6 @@ export class FeedbackService {
       return 'Incorrect selection, try again!';
     }
   }
-
-
-
-
-
-
-
-
-
-
-
 
   public setCorrectMessage(
     optionsToDisplay?: Option[],
