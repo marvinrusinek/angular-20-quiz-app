@@ -2114,8 +2114,8 @@ export class SharedOptionComponent
     // CRITICAL: Re-generate configs for ALL options that are currently showing feedback
     // This ensure that if the 2nd click solves the question, the 1st click's text
     // also updates from "Select 1 more" to "You're right!".
-    for (const key of Object.keys(this.showFeedbackForOption)) {
-      if (this.showFeedbackForOption[key] === true) {
+    for (const [key, isShowing] of Object.entries(this.showFeedbackForOption)) {
+      if (isShowing === true) {
         const id = Number(key);
         const bindingInfo = this.findBindingByOptionId(id);
 
@@ -3240,7 +3240,7 @@ export class SharedOptionComponent
 
     if (!binding?.option) return;
 
-    // Single source of truth: this MUST be the path that triggers:
+    // ✅ Single source of truth: this MUST be the path that triggers:
     // - sounds
     // - SelectedOptionService updates / answered state
     // - emits to parent
