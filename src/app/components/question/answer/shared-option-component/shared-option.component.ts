@@ -2132,20 +2132,39 @@ export class SharedOptionComponent
     this.showFeedback = true;
     this.showFeedbackForOption[effectiveId] = true;
 
-    // Log that we're emitting answered=true for this question
-    console.log('[Q2 setAnswered call]', {
-      questionIndex: currentQuestionIndex,
-      value: true
-    });
-    this.selectedOptionService.setAnswered(true, true);
+    // 🚀 CRITICAL FIX: Only set as "answered" (revealing the permanent FET explanation)
+    // if the question is TRULY resolved (success). Otherwise, it reveals the answer too early.
+    const feedbackConfig = this.generateFeedbackConfig(option, index);
+    const isResolved = feedbackConfig.feedback.startsWith("You're right!");
+
+    if (isResolved) {
+      console.log('[SharedOption] Question Resolved. Setting answered=true.', {
+        questionIndex: currentQuestionIndex,
+        feedback: feedbackConfig.feedback
+      });
+      this.selectedOptionService.setAnswered(true, true);
+    } else {
+      console.log('[SharedOption] Question not yet resolved. Staying in question mode.', {
+        feedback: feedbackConfig.feedback
+      });
+      // Ensure we don't accidentally reveal the explanation path
+      this.selectedOptionService.setAnswered(false, false);
+    }
+
+    // Update active reference and trigger change detection
+    this.currentFeedbackConfig = feedbackConfig;
+    this.activeFeedbackConfig = this.currentFeedbackConfig;
+
+    // Also update the cached config for this option
+    this.feedbackConfigs[effectiveId] = feedbackConfig;
 
     // CRITICAL: Re-generate configs for ALL options that are currently showing feedback
-    // This ensures that if the 2nd click solves the question, the 1st click's text
-    // also updates from "Select 1 more" to "You're right!".
+    // This ensures that if the latest click solves the question, any previous "Select 1 more"
+    // blocks also update to "You're right!" for consistency.
     if (this.optionBindings) {
       this.optionBindings.forEach((b, i) => {
         const id = (b.option?.optionId != null && b.option.optionId > -1) ? b.option.optionId : i;
-        if (this.showFeedbackForOption[id] === true) {
+        if (this.showFeedbackForOption[id] === true && id !== effectiveId) {
           const hydrated = this.optionsToDisplay?.[i];
           if (hydrated) {
             const selOpt: SelectedOption = {
@@ -2161,9 +2180,6 @@ export class SharedOptionComponent
       });
     }
 
-    // Update active reference and trigger change detection
-    this.currentFeedbackConfig = this.feedbackConfigs[effectiveId];
-    this.activeFeedbackConfig = this.currentFeedbackConfig;
     this.cdRef.markForCheck();
 
     // Update the answered state in the service
