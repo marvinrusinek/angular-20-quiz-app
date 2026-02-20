@@ -288,6 +288,8 @@ export class SharedOptionComponent
     this.timerExpiredForQuestion = false;
     this.timeoutCorrectOptionKeys.clear();
     this.forceDisableAll = false;  // reset forceDisableAll for new question
+    this.selectedOptions.clear();
+    this.feedbackConfigs = {};
   }
 
   private subscribeToTimerExpiration(): void {
@@ -460,6 +462,8 @@ export class SharedOptionComponent
 
           // Clear highlighting state
           this.highlightedOptionIds.clear();
+          this.selectedOptions.clear();
+          this.feedbackConfigs = {};
           this.showFeedback = false;
           this.showFeedbackForOption = {};
 
@@ -3052,36 +3056,26 @@ export class SharedOptionComponent
   }
 
   public getActiveQuestionIndex(): number {
-    // Corrected Index from Content Match (Highest Reliability)
-    // This value is computed in initializeFromConfig by matching Option IDs to Questions,
-    // bypassing potential race conditions in Inputs or Service state.
+    // 1. Highest Priority: Local Inputs (most specific)
+    if (typeof this.currentQuestionIndex === 'number' && Number.isFinite(this.currentQuestionIndex)) {
+      return this.currentQuestionIndex;
+    }
+    if (typeof this.questionIndex === 'number' && Number.isFinite(this.questionIndex)) {
+      return this.questionIndex;
+    }
+
+    // 2. Secondary: Resolved Index from Content Match
     if (Number.isFinite(this.resolvedQuestionIndex)) {
       return this.resolvedQuestionIndex!;
     }
 
-    // Highest Priority: Local Input (most specific to this option instance)
-    if (typeof this.questionIndex === 'number') {
-      return this.questionIndex;
-    }
-
-    // Secondary: quizService.currentQuestionIndex (fallback)
-    if (typeof this.quizService?.currentQuestionIndex === 'number') {
-      return this.quizService.currentQuestionIndex;
-    }
-
-    // Tertiary: quizService.getCurrentQuestionIndex() method
-    const svcIndex = this.quizService?.getCurrentQuestionIndex?.();
-    if (typeof svcIndex === 'number') {
+    // 3. Fallback: Service State
+    const svcIndex = this.quizService?.getCurrentQuestionIndex?.() ?? this.quizService?.currentQuestionIndex;
+    if (typeof svcIndex === 'number' && Number.isFinite(svcIndex)) {
       return svcIndex;
     }
 
-    // Fallback: component properties (may be stale)
-    if (typeof (this.currentQuestionIndex as any) === 'number') {
-      return this.currentQuestionIndex;
-    }
-
-
-    return 0;  // emergency fallback
+    return 0; // emergency fallback
   }
 
   public onOptionUI(ev: OptionUIEvent): void {
