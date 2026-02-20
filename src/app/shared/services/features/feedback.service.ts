@@ -125,6 +125,11 @@ export class FeedbackService {
     // Also patch the selected options to ensure they carry the 'correct' flag
     // matching their visual position. This helps getResolutionStatus reconcile them.
     const patchedSelected = (selected ?? []).map(sel => {
+      // Prioritize authoritative correct flag if it's already there
+      if (sel.correct === true || (sel as any).correct === 'true') {
+        return { ...sel, correct: true };
+      }
+
       let idx = (sel as any).displayIndex;
       if (idx === undefined || idx < 0) {
         idx = (question.options || []).findIndex(o =>
@@ -137,10 +142,6 @@ export class FeedbackService {
         return { ...sel, correct: correctIndices.includes(idx + 1) };
       }
 
-      // Final fallback: check if sel itself says it's correct
-      if ((sel as any).correct === true || (sel as any).correct === 'true') {
-        return { ...sel, correct: true };
-      }
       return sel;
     });
 
@@ -178,14 +179,18 @@ export class FeedbackService {
     }
 
     if (isMultiMode) {
-      // FAIL-SAFE: If we have exactly enough correct selections and zero incorrect, we are resolved.
-      // This bypasses issues where status.resolved might be false due to indexing mismatches.
-      const isActuallyResolved = status.incorrectSelected === 0 &&
-        status.correctSelected > 0 &&
-        status.correctSelected === correctIndices.length;
+      // ⚡ ULTIMATE RESOLUTION & REMAINING COUNT LOGIC:
+      const selectedArr = (patchedSelected ?? []) as any[];
+      const numCorrectSelected = selectedArr.filter(s => s.correct === true || s.correct === 'true').length;
+      const numIncorrectSelected = selectedArr.filter(s => s.correct === false || s.correct === 'false').length;
+      const totalCorrectRequired = correctIndices.length;
+
+      const isActuallyResolved = numIncorrectSelected === 0 &&
+        numCorrectSelected > 0 &&
+        numCorrectSelected === totalCorrectRequired;
 
       // 1. INCORRECT SELECTION (Priority)
-      if (status.incorrectSelected > 0) {
+      if (status.incorrectSelected > 0 || numIncorrectSelected > 0) {
         return 'Not this one, try again!';
       }
 
@@ -195,10 +200,11 @@ export class FeedbackService {
       }
 
       // 3. PARTIALLY CORRECT
-      if (status.correctSelected > 0) {
-        const remainingText = status.remainingCorrect === 1
+      if (numCorrectSelected > 0) {
+        const remainingTotal = Math.max(totalCorrectRequired - numCorrectSelected, 0);
+        const remainingText = remainingTotal === 1
           ? 'one more correct answer'
-          : `${status.remainingCorrect} more correct answers`;
+          : `${remainingTotal} more correct answers`;
         return `That's correct! Select ${remainingText}.`;
       }
 
