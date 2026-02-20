@@ -111,24 +111,18 @@ export class FeedbackService {
     const optionsRaw = (question.options || []);
     const totalCorrectInQ = optionsRaw.filter(o => o.correct === true || (o as any).correct === 'true').length;
 
-    // Explicitly treat as single if the source data only has 1 correct answer 
-    // AND it's not explicitly marked as multiple
-    const isSingleAnswer = totalCorrectInQ <= 1 &&
-      question.type !== QuestionType.MultipleAnswer &&
-      !(question as any).multipleAnswer;
-
-    const isMultiMode = !isSingleAnswer && (
+    // Auth: If we have multiple indices from ETS or multiple in data, it is multi-mode.
+    const isMultiMode =
       correctIndices.length > 1 ||
       totalCorrectInQ > 1 ||
       question.type === QuestionType.MultipleAnswer ||
-      (question as any).multipleAnswer === true
-    );
+      (question as any).multipleAnswer === true;
 
     // Patch a local copy of the question for resolution status check
     const patchedQuestion = {
       ...question,
       type: isMultiMode ? QuestionType.MultipleAnswer : QuestionType.SingleAnswer,
-      options: (question.options || []).map((o, i) => ({
+      options: optionsRaw.map((o, i) => ({
         ...o,
         correct: correctIndices.includes(i + 1)
       }))
@@ -141,10 +135,13 @@ export class FeedbackService {
       if (sel.correct === true || (sel as any).correct === 'true') {
         return { ...sel, correct: true };
       }
+      if (sel.correct === false || (sel as any).correct === 'false') {
+        return { ...sel, correct: false };
+      }
 
       let idx = (sel as any).displayIndex;
       if (idx === undefined || idx < 0) {
-        idx = (question.options || []).findIndex(o =>
+        idx = optionsRaw.findIndex(o =>
           o === sel ||
           (o.optionId != null && sel.optionId === o.optionId) ||
           (o.text && sel.text && String(o.text).trim() === String(sel.text).trim())
@@ -163,12 +160,17 @@ export class FeedbackService {
       strict
     );
 
-    // Enhanced resolution check: if all known correct indices are accounted for, we are resolved
-    const trulyResolved = status.resolved || (
-      correctIndices.length > 0 &&
-      status.correctSelected === correctIndices.length &&
-      status.incorrectSelected === 0
-    );
+    // Enhanced resolution check
+    // We trust correctIndices as the primary source for "how many correct answers" the UI expects.
+    const totalCorrectRequired = (correctIndices.length > 0) ? correctIndices.length : Math.max(totalCorrectInQ, 1);
+    const numCorrectSelected = (patchedSelected || []).filter(s => s.correct === true).length;
+    const numIncorrectSelected = (patchedSelected || []).filter(s => s.correct === false).length;
+
+    const isActuallyResolved = totalCorrectRequired > 0 &&
+      numCorrectSelected === totalCorrectRequired &&
+      numIncorrectSelected === 0;
+
+    const trulyResolved = status.resolved || isActuallyResolved;
 
     const formatReveal = (indices: number[]) => {
       const deduped = Array.from(new Set(indices)).sort((a, b) => a - b);
@@ -190,14 +192,6 @@ export class FeedbackService {
       return `Time’s up. ${revealMessage}`.trim();
     }
 
-    const totalCorrectRequired = (typeof totalCorrectInQ === 'number' && totalCorrectInQ > 0) ? totalCorrectInQ : (correctIndices?.length ?? 0);
-    const numCorrectSelected = (patchedSelected || []).filter(s => s.correct === true).length;
-    const numIncorrectSelected = (patchedSelected || []).filter(s => s.correct === false).length;
-
-    const isActuallyResolved = totalCorrectRequired > 0 &&
-      numCorrectSelected === totalCorrectRequired &&
-      numIncorrectSelected === 0;
-
     if (isMultiMode) {
       // 1. INCORRECT SELECTION (Priority)
       if (numIncorrectSelected > 0) {
@@ -205,7 +199,7 @@ export class FeedbackService {
       }
 
       // 2. FULLY CORRECT
-      if (trulyResolved || isActuallyResolved) {
+      if (trulyResolved) {
         return `You're right! ${revealMessage}`;
       }
 
@@ -218,11 +212,12 @@ export class FeedbackService {
         return `That's correct! Select ${remainingText}.`;
       }
 
-      // 4. Default if something was selected but not recognized as correct/incorrect
+      // 4. Default Fallback
       return 'Incorrect selection, try again!';
     } else {
       // Single-Answer Question
-      if (trulyResolved || (numCorrectSelected === 1 && numIncorrectSelected === 0)) {
+      // If we have any correct selection, it's a win
+      if (trulyResolved || (numCorrectSelected >= 1 && numIncorrectSelected === 0)) {
         return `You're right! ${revealMessage}`;
       }
       return 'Incorrect selection, try again!';
