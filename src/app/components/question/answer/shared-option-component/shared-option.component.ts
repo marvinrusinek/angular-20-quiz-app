@@ -1275,9 +1275,14 @@ export class SharedOptionComponent
 
     // Populate optionsToDisplay with structured data
     this.optionsToDisplay = this.currentQuestion.options.map((opt, idx) => {
+      // Ensure we have a unique and valid numeric optionId
+      // Fallback to index if source is missing ID or has placeholder -1
+      const rawId = opt.optionId;
+      const finalId = (rawId !== undefined && rawId !== null && rawId > -1) ? rawId : idx;
+
       return {
         ...opt,
-        optionId: opt.optionId ?? idx,
+        optionId: finalId,
         correct: opt.correct ?? false,
         feedback: typeof opt.feedback === 'string' ? opt.feedback.trim() : '',
         selected: opt.selected ?? false,
