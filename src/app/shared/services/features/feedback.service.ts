@@ -136,6 +136,11 @@ export class FeedbackService {
       if (idx >= 0) {
         return { ...sel, correct: correctIndices.includes(idx + 1) };
       }
+
+      // Final fallback: check if sel itself says it's correct
+      if ((sel as any).correct === true || (sel as any).correct === 'true') {
+        return { ...sel, correct: true };
+      }
       return sel;
     });
 
@@ -173,13 +178,19 @@ export class FeedbackService {
     }
 
     if (isMultiMode) {
+      // FAIL-SAFE: If we have exactly enough correct selections and zero incorrect, we are resolved.
+      // This bypasses issues where status.resolved might be false due to indexing mismatches.
+      const isActuallyResolved = status.incorrectSelected === 0 &&
+        status.correctSelected > 0 &&
+        status.correctSelected === correctIndices.length;
+
       // 1. INCORRECT SELECTION (Priority)
       if (status.incorrectSelected > 0) {
         return 'Not this one, try again!';
       }
 
       // 2. FULLY CORRECT
-      if (trulyResolved) {
+      if (trulyResolved || isActuallyResolved) {
         return `You're right! ${revealMessage}`;
       }
 
