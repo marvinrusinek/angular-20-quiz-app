@@ -1,5 +1,7 @@
-import { ChangeDetectorRef, ChangeDetectionStrategy, Component, Input, OnInit,
-  OnChanges, SimpleChanges, Injector } from '@angular/core';
+import {
+  ChangeDetectorRef, ChangeDetectionStrategy, Component, Input, OnInit,
+  OnChanges, SimpleChanges, Injector
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 
@@ -28,7 +30,7 @@ export class FeedbackComponent implements OnInit, OnChanges {
     private selectedOptionService: SelectedOptionService,
     private cdRef: ChangeDetectorRef,
     private injector: Injector
-  ) {}
+  ) { }
 
   ngOnInit(): void {
     this.updateFeedback();
@@ -85,68 +87,74 @@ export class FeedbackComponent implements OnInit, OnChanges {
       return;
     }
 
-  const fallbackIndex = Number.isFinite(this.feedbackConfig.idx)
-    ? this.feedbackConfig.idx
-    : 0;
-  const selectedQuestionIndex = Number.isFinite(
-    (this.feedbackConfig.selectedOption as { questionIndex?: number } | null)
-      ?.questionIndex
-  )
-    ? ((this.feedbackConfig.selectedOption as { questionIndex?: number })
-        .questionIndex as number)
-    : undefined;
-  const activeQuestionIndex = Number.isFinite(
-    this.quizService.currentQuestionIndex
-  )
-    ? (this.quizService.currentQuestionIndex as number)
-    : undefined;
-  const idx =
-    this.feedbackConfig.questionIndex ?? selectedQuestionIndex ?? activeQuestionIndex ?? fallbackIndex;
+    // 🚀 NEW: Prioritize the feedback message already computed by the Parent (SharedOptionComponent)
+    // This message has been carefully reconciled with authoritative correct flags and visual order.
+    if (this.feedbackConfig?.feedback && this.feedbackConfig.feedback.trim()) {
+      this.displayMessage = this.feedbackConfig.feedback;
+      return;
+    }
 
-  const question =
-    this.feedbackConfig.question ??
-    this.quizService.questions?.[idx] ??
-    (this.feedbackConfig.options
-      ? {
+    const fallbackIndex = Number.isFinite(this.feedbackConfig.idx)
+      ? this.feedbackConfig.idx
+      : 0;
+    const selectedQuestionIndex = Number.isFinite(
+      (this.feedbackConfig.selectedOption as { questionIndex?: number } | null)
+        ?.questionIndex
+    )
+      ? ((this.feedbackConfig.selectedOption as { questionIndex?: number })
+        .questionIndex as number)
+      : undefined;
+    const activeQuestionIndex = Number.isFinite(
+      this.quizService.currentQuestionIndex
+    )
+      ? (this.quizService.currentQuestionIndex as number)
+      : undefined;
+    const idx =
+      this.feedbackConfig.questionIndex ?? selectedQuestionIndex ?? activeQuestionIndex ?? fallbackIndex;
+
+    const question =
+      this.feedbackConfig.question ??
+      this.quizService.questions?.[idx] ??
+      (this.feedbackConfig.options
+        ? {
           questionText: '',
           options: this.feedbackConfig.options,
           explanation: '',
           type: undefined
         }
-      : null);
-  
+        : null);
+
     // MULTI-ANSWER: use ALL selections for this question
     const selectedFromMap =
       this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
     const fallbackSelected = this.feedbackConfig.selectedOption
       ? [
-          {
-            ...this.feedbackConfig.selectedOption,
-            selected: true,
-            questionIndex: idx
-          }
-        ]
+        {
+          ...this.feedbackConfig.selectedOption,
+          selected: true,
+          questionIndex: idx
+        }
+      ]
       : [];
     const selected =
       selectedFromMap.length > 0 ? selectedFromMap : fallbackSelected;
 
     const msg = question
       ? this.feedbackService.buildFeedbackMessage(
-          question,
-          selected,
-          false,
-          this.feedbackConfig?.timedOut === true,
-          idx
-        )
+        question,
+        selected,
+        false,
+        this.feedbackConfig?.timedOut === true,
+        idx
+      )
       : '';
 
-  
     // If feedbackService decided on a message, USE IT and STOP
     if (msg && msg.trim()) {
       this.displayMessage = msg;
-      return;  // STOP: do NOT fall through to “correct option reveal” generator
+      return;
     }
-  
+
     this.displayMessage = '';
-  }  
+  }
 }
