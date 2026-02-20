@@ -2068,7 +2068,14 @@ export class SharedOptionComponent
     optionId: number
   ): void {
     const effectiveId = (optionId != null && optionId > -1) ? optionId : index;
-    const isMultiMode = this.type === 'multiple' || this.config.type === 'multiple';
+
+    // Robust Multi-Answer Detection: Check component property, config type, OR count of correct options in current metadata
+    const correctCount = (this.currentQuestion?.options?.filter(o =>
+      o.correct === true || (o as any).correct === 'true'
+    ).length ?? 0);
+    const isMultiMode = this.type === 'multiple' ||
+      this.config.type === 'multiple' ||
+      correctCount > 1;
 
     if (!isMultiMode) {
       for (const opt of this.optionsToDisplay || []) {
