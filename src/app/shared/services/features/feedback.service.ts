@@ -125,11 +125,14 @@ export class FeedbackService {
     // Also patch the selected options to ensure they carry the 'correct' flag
     // matching their visual position. This helps getResolutionStatus reconcile them.
     const patchedSelected = (selected ?? []).map(sel => {
-      const idx = (question.options || []).findIndex(o =>
-        o === sel ||
-        (o.optionId != null && sel.optionId === o.optionId) ||
-        (o.text && sel.text && String(o.text).trim() === String(sel.text).trim())
-      );
+      let idx = (sel as any).displayIndex;
+      if (idx === undefined || idx < 0) {
+        idx = (question.options || []).findIndex(o =>
+          o === sel ||
+          (o.optionId != null && sel.optionId === o.optionId) ||
+          (o.text && sel.text && String(o.text).trim() === String(sel.text).trim())
+        );
+      }
       if (idx >= 0) {
         return { ...sel, correct: correctIndices.includes(idx + 1) };
       }
