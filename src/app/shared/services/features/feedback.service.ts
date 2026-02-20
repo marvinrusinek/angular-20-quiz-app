@@ -107,8 +107,14 @@ export class FeedbackService {
         .filter((n): n is number => n !== null);
     }
 
+    // Identify if this is a Multi-Answer question (Robust Detection)
+    const totalCorrectInSource = (question.options || []).filter(o =>
+      o.correct === true || (o as any).correct === 'true'
+    ).length;
+
     const isMultiMode =
       correctIndices.length > 1 ||
+      totalCorrectInSource > 1 ||
       question.type === QuestionType.MultipleAnswer ||
       (question as any).multipleAnswer === true;
 
