@@ -2167,18 +2167,23 @@ export class SharedOptionComponent
       };
     }
 
+    // Ensure the main option has a displayIndex
+    if (option.displayIndex === undefined) {
+      option.displayIndex = selectedIndex;
+    }
+
     const question = this.currentQuestion;
     const isMulti = question?.type === QuestionType.MultipleAnswer || (question as any)?.multipleAnswer;
 
     // For Multi-Answer: We must consider ALL selected options to return "Select 1 more" etc.
     // For Single-Answer: Just the current one is fine (since only one can be selected).
-    let optionsToCheck: Option[] = [option];
+    let optionsToCheck: SelectedOption[] = [option];
 
     if (isMulti) {
       // Gather all currently selected options. 
       // relying on this.selectedOptions (Set of IDs) and mapping back to objects from optionsToDisplay
       // fallback to selectedIndex if IDs are missing
-      optionsToCheck = (this.optionsToDisplay || []).filter((opt, i) => {
+      const selectedModels = (this.optionsToDisplay || []).filter((opt, i) => {
         const id = opt.optionId;
         // Check 1: ID is in local selectedOptions Set
         if (id != null && id > -1 && this.selectedOptions.has(id)) return true;
@@ -2194,8 +2199,17 @@ export class SharedOptionComponent
         return false;
       });
 
+      // Map to include displayIndex
+      optionsToCheck = selectedModels.map(m => {
+        const idx = (this.optionsToDisplay || []).indexOf(m);
+        return {
+          ...m,
+          displayIndex: idx >= 0 ? idx : undefined
+        } as SelectedOption;
+      });
+
       // Safety: ensure the current option is included if not found above
-      if (!optionsToCheck.includes(option) && !optionsToCheck.find(o => o === option)) {
+      if (!optionsToCheck.find(o => o === option || (o.optionId != null && o.optionId === option.optionId))) {
         optionsToCheck.push(option);
       }
     }
