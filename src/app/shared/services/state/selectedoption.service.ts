@@ -2458,12 +2458,16 @@ export class SelectedOptionService {
     let correctSelected = 0;
     let incorrectSelected = 0;
 
-    const seenIds = new Set<string>();
+    const seenKeys = new Set<string>();
+    const selectedArr = selected ?? [];
 
-    for (const sel of (selected ?? [])) {
-      const selIdStr = String(sel.optionId);
-      if (seenIds.has(selIdStr)) continue;
-      seenIds.add(selIdStr);
+    for (let i = 0; i < selectedArr.length; i++) {
+      const sel = selectedArr[i];
+      // Use displayIndex or loop index for uniqueness to avoid collapsing placeholder IDs
+      const visualIdx = (sel as any).displayIndex ?? i;
+      const selKey = `${visualIdx}_${sel.optionId}`;
+      if (seenKeys.has(selKey)) continue;
+      seenKeys.add(selKey);
 
       let isCorrect = false;
 
@@ -2588,4 +2592,3 @@ export class SelectedOptionService {
     } catch { }
   }
 }
-
