@@ -207,21 +207,8 @@ export class QuizQuestionLoaderService {
           return;
         }
 
-        // Generate feedback message for current question
-        const correctOptions = data.options.filter((opt) => opt.correct);
-        const feedbackMessage = this.feedbackService.generateFeedbackForOptions(
-          correctOptions,
-          data.options
-        );
-
-        // Apply feedback to each option
-        const updatedOptions = data.options.map((opt) => ({
-          ...opt,
-          feedback: feedbackMessage
-        }));
-
         // Apply loaded values to local state
-        this.optionsToDisplay = [...updatedOptions];
+        this.optionsToDisplay = [...data.options];
         this.optionsToDisplay$.next(this.optionsToDisplay);
         this.hasOptionsLoaded = true;
 
@@ -586,10 +573,10 @@ export class QuizQuestionLoaderService {
   ): { question: QuizQuestion; options: Option[] } {
     // Clone the question object (no mutation of source)
     const question: QuizQuestion = { ...q };
-  
+
     // Get options safely
     const baseOpts: Option[] = Array.isArray(q?.options) ? q.options : [];
-  
+
     // Hydrate UI fields + normalize
     const hydrated: Option[] = baseOpts.map((o: Option, i: number) => ({
       ...o,
@@ -602,16 +589,16 @@ export class QuizQuestionLoaderService {
       active: true,                 // if Option supports it
       // disabled: false            // only if Option supports it
     }));
-  
+
     // Apply your active-state logic (returns Option[])
     const active: Option[] = this.quizService.assignOptionActiveStates(hydrated, false);
-  
+
     // Deep clone to guarantee fresh references
     const options: Option[] =
       typeof structuredClone === 'function'
         ? structuredClone(active)
         : JSON.parse(JSON.stringify(active));
-  
+
     return { question, options };
   }
 
@@ -726,7 +713,7 @@ export class QuizQuestionLoaderService {
     this.timerService.stopTimer?.(undefined, { force: true });
     this.timerService.resetTimer();
     this.timerService.resetTimerFlagsFor(idx);
-    
+
     if (isAnswered) {
       explanationText = q.explanation?.trim() || 'No explanation available';
       this.explanationTextService.setExplanationTextForQuestionIndex(
