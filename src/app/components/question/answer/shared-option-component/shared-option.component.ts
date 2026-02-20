@@ -2063,8 +2063,9 @@ export class SharedOptionComponent
     optionId: number
   ): void {
     const effectiveId = (optionId != null && optionId > -1) ? optionId : index;
+    const isMultiMode = this.type === 'multiple' || this.config.type === 'multiple';
 
-    if (this.config.type === 'single') {
+    if (!isMultiMode) {
       for (const opt of this.optionsToDisplay || []) {
         opt.selected = false;
       }
