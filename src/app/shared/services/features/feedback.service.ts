@@ -108,15 +108,21 @@ export class FeedbackService {
     }
 
     // Identify if this is a Multi-Answer question (Robust Detection)
-    const totalCorrectInSource = (question.options || []).filter(o =>
-      o.correct === true || (o as any).correct === 'true'
-    ).length;
+    const optionsRaw = (question.options || []);
+    const totalCorrectInQ = optionsRaw.filter(o => o.correct === true || (o as any).correct === 'true').length;
 
-    const isMultiMode =
+    // Explicitly treat as single if the source data only has 1 correct answer 
+    // AND it's not explicitly marked as multiple
+    const isSingleAnswer = totalCorrectInQ <= 1 &&
+      question.type !== QuestionType.MultipleAnswer &&
+      !(question as any).multipleAnswer;
+
+    const isMultiMode = !isSingleAnswer && (
       correctIndices.length > 1 ||
-      totalCorrectInSource > 1 ||
+      totalCorrectInQ > 1 ||
       question.type === QuestionType.MultipleAnswer ||
-      (question as any).multipleAnswer === true;
+      (question as any).multipleAnswer === true
+    );
 
     // Patch a local copy of the question for resolution status check
     const patchedQuestion = {
@@ -184,23 +190,18 @@ export class FeedbackService {
       return `Time’s up. ${revealMessage}`.trim();
     }
 
+    const totalCorrectRequired = (typeof totalCorrectInQ === 'number' && totalCorrectInQ > 0) ? totalCorrectInQ : (correctIndices?.length ?? 0);
+    const numCorrectSelected = (patchedSelected || []).filter(s => s.correct === true).length;
+    const numIncorrectSelected = (patchedSelected || []).filter(s => s.correct === false).length;
+
+    const isActuallyResolved = totalCorrectRequired > 0 &&
+      numCorrectSelected === totalCorrectRequired &&
+      numIncorrectSelected === 0;
+
     if (isMultiMode) {
-      // ⚡ ULTIMATE RESOLUTION & REMAINING COUNT LOGIC:
-      const selectedArr = (patchedSelected ?? []) as any[];
-      const numCorrectSelected = selectedArr.filter(s => s.correct === true || s.correct === 'true').length;
-      const numIncorrectSelected = selectedArr.filter(s => s.correct === false || s.correct === 'false').length;
-
-      // Use direct count from question options if available, fallback to correctIndices
-      const totalCorrectInQ = (question.options || []).filter(o => o.correct === true || (o as any).correct === 'true').length;
-      const totalCorrectRequired = totalCorrectInQ > 0 ? totalCorrectInQ : (correctIndices?.length ?? 0);
-
-      const isActuallyResolved = numIncorrectSelected === 0 &&
-        numCorrectSelected > 0 &&
-        numCorrectSelected === totalCorrectRequired;
-
       // 1. INCORRECT SELECTION (Priority)
-      if (status.incorrectSelected > 0 || numIncorrectSelected > 0) {
-        return 'Not this one, try again!';
+      if (numIncorrectSelected > 0) {
+        return 'Incorrect selection, try again!';
       }
 
       // 2. FULLY CORRECT
@@ -212,15 +213,16 @@ export class FeedbackService {
       if (numCorrectSelected > 0) {
         const remainingTotal = Math.max(totalCorrectRequired - numCorrectSelected, 0);
         const remainingText = remainingTotal === 1
-          ? 'one more correct answer'
+          ? '1 more correct answer'
           : `${remainingTotal} more correct answers`;
         return `That's correct! Select ${remainingText}.`;
       }
 
-      return revealMessage;
+      // 4. Default if something was selected but not recognized as correct/incorrect
+      return 'Incorrect selection, try again!';
     } else {
       // Single-Answer Question
-      if (trulyResolved) {
+      if (trulyResolved || (numCorrectSelected === 1 && numIncorrectSelected === 0)) {
         return `You're right! ${revealMessage}`;
       }
       return 'Incorrect selection, try again!';
