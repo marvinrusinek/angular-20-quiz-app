@@ -2201,12 +2201,13 @@ export class SharedOptionComponent
 
     if (isMulti) {
       // Gather all currently selected options. 
-      // relying on this.selectedOptions (Set of IDs) and mapping back to objects from optionsToDisplay
-      // fallback to selectedIndex if IDs are missing
+      // Use consistent effectiveId (id || index) for Set lookups to match handleSelection
       const selectedModels = (this.optionsToDisplay || []).filter((opt, i) => {
         const id = opt.optionId;
+        const currentEffectiveId = (id != null && id > -1) ? id : i;
+
         // Check 1: ID is in local selectedOptions Set
-        if (id != null && id > -1 && this.selectedOptions.has(id)) return true;
+        if (this.selectedOptions.has(currentEffectiveId)) return true;
 
         // Check 2: Option object itself is marked selected
         if (opt.selected) return true;
@@ -2219,9 +2220,11 @@ export class SharedOptionComponent
         return false;
       });
 
-      // Map to include displayIndex
+      // Map to include displayIndex for FeedbackService reconciliation
       optionsToCheck = selectedModels.map(m => {
-        const idx = (this.optionsToDisplay || []).indexOf(m);
+        const idx = (this.optionsToDisplay || []).findIndex(orig =>
+          orig === m || (m.optionId != null && m.optionId > -1 && orig.optionId === m.optionId)
+        );
         return {
           ...m,
           displayIndex: idx >= 0 ? idx : undefined
@@ -2229,7 +2232,7 @@ export class SharedOptionComponent
       });
 
       // Safety: ensure the current option is included if not found above
-      if (!optionsToCheck.find(o => o === option || (o.optionId != null && o.optionId === option.optionId))) {
+      if (!optionsToCheck.find(o => o === option || (o.optionId != null && o.optionId > -1 && o.optionId === option.optionId))) {
         optionsToCheck.push(option);
       }
     }
