@@ -2466,6 +2466,7 @@ export class SelectedOptionService {
       // Use displayIndex or loop index for uniqueness to avoid collapsing placeholder IDs
       const visualIdx = (sel as any).displayIndex ?? i;
       const selKey = `${visualIdx}_${sel.optionId}`;
+      const selIdStr = String(sel.optionId);
       if (seenKeys.has(selKey)) continue;
       seenKeys.add(selKey);
 
@@ -2477,7 +2478,7 @@ export class SelectedOptionService {
       } else {
         // B. Lookup by ID
         const matchById = question.options.find(o =>
-          (o.optionId !== undefined && o.optionId !== null) && String(o.optionId) === String(sel.optionId)
+          (o.optionId !== undefined && o.optionId !== null) && String(o.optionId) === selIdStr
         );
 
         if (matchById) {
