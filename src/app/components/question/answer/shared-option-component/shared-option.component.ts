@@ -2062,28 +2062,39 @@ export class SharedOptionComponent
     index: number,
     optionId: number
   ): void {
+    const effectiveId = (optionId != null && optionId > -1) ? optionId : index;
+
     if (this.config.type === 'single') {
-      for (const opt of this.config.optionsToDisplay) {
+      for (const opt of this.optionsToDisplay || []) {
         opt.selected = false;
       }
 
       option.selected = true;
+      if (this.optionsToDisplay?.[index]) {
+        this.optionsToDisplay[index].selected = true;
+      }
       this.config.selectedOptionIndex = index;
       this.selectedOption = option;
 
       this.selectedOptions.clear();
-      this.selectedOptions.add(optionId);
+      this.selectedOptions.add(effectiveId);
       this.selectedOptionService.setSelectedOption(option);
     } else {
       option.selected = !option.selected;
+      if (this.optionsToDisplay?.[index]) {
+        this.optionsToDisplay[index].selected = option.selected;
+      }
+
       option.selected
-        ? this.selectedOptions.add(optionId)
-        : this.selectedOptions.delete(optionId);
+        ? this.selectedOptions.add(effectiveId)
+        : this.selectedOptions.delete(effectiveId);
     }
 
     const optionBinding = this.optionBindings[index];
-    optionBinding.isSelected = option.selected;
-    this.showIconForOption[optionId] = option.selected;
+    if (optionBinding) {
+      optionBinding.isSelected = option.selected;
+    }
+    this.showIconForOption[effectiveId] = option.selected;
   }
 
   displayFeedbackForOption(
