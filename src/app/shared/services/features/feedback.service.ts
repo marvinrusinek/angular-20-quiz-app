@@ -30,6 +30,9 @@ export class FeedbackService {
     correctOptions: Option[],
     optionsToDisplay: Option[]
   ): string {
+    // CRITICAL: Do NOT use isValidOption filter here!
+    // isValidOption requires 'correct' in option, but raw JSON options don't have it for incorrect answers.
+    // Filtering shifts the array indices, causing wrong option numbers in feedback text.
     const validCorrectOptions = (correctOptions || []).filter(opt => opt && typeof opt === 'object');
     const validOptionsToDisplay = (optionsToDisplay || []).filter(opt => opt && typeof opt === 'object');
 
@@ -180,9 +183,9 @@ export class FeedbackService {
       // 3. PARTIALLY CORRECT
       if (status.correctSelected > 0) {
         const remainingText = status.remainingCorrect === 1
-          ? '1 more correct answer'
+          ? 'one more correct answer'
           : `${status.remainingCorrect} more correct answers`;
-        return `That's correct. Select ${remainingText}.`;
+        return `That's correct! Select ${remainingText}.`;
       }
 
       return revealMessage;
