@@ -183,7 +183,10 @@ export class FeedbackService {
       const selectedArr = (patchedSelected ?? []) as any[];
       const numCorrectSelected = selectedArr.filter(s => s.correct === true || s.correct === 'true').length;
       const numIncorrectSelected = selectedArr.filter(s => s.correct === false || s.correct === 'false').length;
-      const totalCorrectRequired = correctIndices.length;
+
+      // Use direct count from question options if available, fallback to correctIndices
+      const totalCorrectInQ = (question.options || []).filter(o => o.correct === true || (o as any).correct === 'true').length;
+      const totalCorrectRequired = totalCorrectInQ > 0 ? totalCorrectInQ : (correctIndices?.length ?? 0);
 
       const isActuallyResolved = numIncorrectSelected === 0 &&
         numCorrectSelected > 0 &&
