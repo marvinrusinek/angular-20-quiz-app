@@ -2188,7 +2188,11 @@ export class SharedOptionComponent
     }
 
     const question = this.currentQuestion;
-    const isMulti = question?.type === QuestionType.MultipleAnswer || (question as any)?.multipleAnswer;
+    // Robust detection: check type OR count of correct answers in the raw question data
+    const isMulti = this.type === 'multiple' ||
+      question?.type === QuestionType.MultipleAnswer ||
+      (question as any)?.multipleAnswer ||
+      ((question?.options?.filter(o => o.correct === true || (o as any).correct === 'true').length ?? 0) > 1);
 
     // For Multi-Answer: We must consider ALL selected options to return "Select 1 more" etc.
     // For Single-Answer: Just the current one is fine (since only one can be selected).
