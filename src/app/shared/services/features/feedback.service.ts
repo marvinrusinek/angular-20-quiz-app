@@ -58,6 +58,7 @@ export class FeedbackService {
 
     const quizSvc = this.injector.get(QuizService, null);
     const qIdx = displayIndex ?? (question as any).questionIndex ?? quizSvc?.currentQuestionIndex ?? 0;
+    let correctIndices = this.explanationTextService.getCorrectOptionIndices(question, optionsToDisplay ?? question.options ?? [], qIdx);
 
     const isCorrectHelper = (val: any) => val === true || String(val) === 'true' || val === 1 || val === '1';
 
@@ -149,7 +150,7 @@ export class FeedbackService {
         return 'Not right, try again!';
       }
       if (isActuallyResolved) {
-        return `You're right! ${revealMessage}`;
+        return `You're right! ${finalRevealMessage}`;
       }
       if (numCorrectSelected > 0) {
         const remainingTotal = Math.max(totalCorrectRequired - numCorrectSelected, 0);
@@ -158,12 +159,12 @@ export class FeedbackService {
           : `${remainingTotal} more correct answers`;
         return `That's correct. Select ${remainingText}.`;
       }
-      return 'Not right, try again!';
+      return 'Not this one!';
     } else {
       if (isActuallyResolved || (numCorrectSelected >= 1 && numIncorrectSelected === 0)) {
-        return `You're right! ${revealMessage}`;
+        return `You're right! ${finalRevealMessage}`;
       }
-      return 'Not correct, try again!';
+      return 'Not this one!';
     }
   }
 
