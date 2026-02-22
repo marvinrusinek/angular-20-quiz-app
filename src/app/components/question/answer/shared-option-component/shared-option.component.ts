@@ -83,7 +83,7 @@ export class SharedOptionComponent
   @Input() type: 'single' | 'multiple' = 'single';
   @Input() config!: SharedOptionConfig;
   @Input() selectedOption: Option | null = null;
-  @Input() showFeedbackForOption!: { [optionId: number]: boolean };
+  @Input() showFeedbackForOption!: { [key: string | number]: boolean };
   @Input() correctMessage = '';
   @Input() showFeedback = false;
   @Input() shouldResetBackground = false;
@@ -232,15 +232,15 @@ export class SharedOptionComponent
 
       // Data inference (fixes multiple-answer questions)
       if (currentQ?.options) {
-        const count = currentQ.options.filter((o: Option) => !!o.correct).length;
+        // Robust count: handle boolean and string 'true'
+        const count = currentQ.options.filter((o: Option) => o.correct === true || (o.correct as any) === 'true').length;
         console.log(`[isMultiMode] Q${idx + 1} from question: correctCount=${count}, returning ${count > 1}`);
         if (count > 1) result = true;
       }
 
       // Fallback: Check optionsToDisplay (most reliable for shuffled mode)
-      // This is what's actually being shown to the user
       if (!result && this.optionsToDisplay?.length > 0) {
-        const displayCount = this.optionsToDisplay.filter((o: Option) => !!o.correct).length;
+        const displayCount = this.optionsToDisplay.filter((o: Option) => o.correct === true || (o.correct as any) === 'true').length;
         console.log(`[isMultiMode] Q${idx + 1} from optionsToDisplay: correctCount=${displayCount}, returning ${displayCount > 1}`);
         if (displayCount > 1) result = true;
       }
@@ -516,11 +516,15 @@ export class SharedOptionComponent
                  Input DisplayOrders: [${inputDisplayOrders}]`
             );
 
-            const freshFeedback =
-              this.feedbackService.generateFeedbackForOptions(
-                correctOptions,
-                opts
-              );
+            const selections = this.selectedOptionService.getSelectedOptionsForQuestion(idx) || [];
+            const freshFeedback = this.feedbackService.buildFeedbackMessage(
+              question,
+              selections,
+              false,
+              false,
+              idx,
+              this.optionsToDisplay
+            );
 
             this.feedbackConfigs = {};
             this.activeFeedbackConfig = null;
@@ -528,23 +532,23 @@ export class SharedOptionComponent
             let lastSelectedId = -1;
             let hasSelection = false;
 
-            for (const b of this.optionBindings ?? []) {
+            for (const [i, b] of (this.optionBindings ?? []).entries()) {
               if (!b.option) continue;
 
               b.option.feedback = freshFeedback;
               b.feedback = freshFeedback;
 
-              const optId = b.option.optionId ?? -1;
-              if (optId < 0) continue;
+              const key = this.keyOf(b.option, i);
+              const optId = (b.option.optionId != null && b.option.optionId > -1) ? b.option.optionId : i;
 
               if (b.isSelected) {
                 lastSelectedId = optId;
                 hasSelection = true;
               }
 
-              this.feedbackConfigs[optId] = {
+              this.feedbackConfigs[key] = {
                 feedback: freshFeedback,
-                showFeedback: true, // Let SOC template control which row shows via shouldShowFeedbackAfter
+                showFeedback: true, 
                 options: opts,
                 question: question,
                 selectedOption: b.option,
@@ -552,8 +556,8 @@ export class SharedOptionComponent
                 idx: b.index
               };
 
-              if (this.feedbackConfigs[optId].showFeedback) {
-                this.activeFeedbackConfig = this.feedbackConfigs[optId];
+              if (this.feedbackConfigs[key].showFeedback) {
+                this.activeFeedbackConfig = this.feedbackConfigs[key];
               }
             }
 
@@ -583,6 +587,8 @@ export class SharedOptionComponent
       this.form
         .get('selectedOptionId')
         ?.setValue(b.option.optionId, { emitEvent: false });
+      
+      this.ensureOptionIds(); // Fix IDs BEFORE processing interaction
       this.updateOptionAndUI(b, i, {
         value: b.option.optionId
       } as MatRadioChange);
@@ -620,6 +626,28 @@ export class SharedOptionComponent
   }
 
   async ngOnChanges(changes: SimpleChanges): Promise<void> {
+    const currentIdx = this.resolveCurrentQuestionIndex();
+    const hasIndexChanged = changes['currentQuestionIndex'] || this.lastProcessedQuestionIndex !== currentIdx;
+
+    if (hasIndexChanged) {
+      console.log(`[SharedOptionComponent] Question index changed from ${this.lastProcessedQuestionIndex} to ${currentIdx}. Performing full state reset.`);
+      
+      // AUTHORITATIVE RESET of all local tracking to prevent leakage
+      this.selectedOptions.clear();
+      this.clickedOptionIds.clear();
+      this.perQuestionHistory.clear();
+      this.selectedOptionMap.clear();
+      this.selectedOptionHistory = [];
+      this.showFeedbackForOption = {};
+      this.feedbackConfigs = {};
+      this.lastFeedbackOptionId = -1;
+      this.lastFeedbackQuestionIndex = currentIdx;
+      this.showFeedback = false;
+      this.isOptionSelected = false;
+      
+      this.lastProcessedQuestionIndex = currentIdx;
+    }
+
     // Always resolve a valid index
     const fallbackIndex =
       changes['questionIndex']?.currentValue ??
@@ -1070,6 +1098,8 @@ export class SharedOptionComponent
       );
       this.optionsToDisplay = [];
     }
+
+    this.ensureOptionIds(); // FORCE unique positive IDs immediately
   }
 
   private synchronizeOptionBindings(): void {
@@ -1606,43 +1636,29 @@ export class SharedOptionComponent
 
     this.optionUiSyncService.updateOptionAndUI(optionBinding, index, event, ctx);
 
-    // Sync ALL feedback state back from ctx.
+    // Sync ALL feedback and selection state back from ctx.
     this.feedbackConfigs = { ...ctx.feedbackConfigs };
     this.showFeedbackForOption = { ...ctx.showFeedbackForOption };
-    this.showFeedback = true; // Use the truth that an interaction occurred
-    this.lastFeedbackOptionId = ctx.lastFeedbackOptionId;
+    this.showFeedback = ctx.showFeedback; 
+    this.lastFeedbackOptionId = Number(ctx.lastFeedbackOptionId);
     this.lastFeedbackQuestionIndex = ctx.lastFeedbackQuestionIndex;
     this.lastSelectedOptionIndex = index;
+    this.lastSelectedOptionId = this.lastFeedbackOptionId;
 
-    // FORCE SYNC FROM SERVICE (Source of Truth)
-    const qIndex = this.resolveCurrentQuestionIndex();
-    this.regenerateFeedback(qIndex);
+    // Sync the internal selection Set to avoid jumping in reactive subscriptions
+    this.selectedOptions.clear();
+    for (const id of ctx.selectedOptionMap.keys()) {
+      this.selectedOptions.add(Number(id));
+    }
 
-    const selections = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) || [];
+    // Force reference update for ALL bindings to trigger child OnPush CD
+    this.optionBindings = this.optionBindings.map(b => ({ 
+      ...b,
+      showFeedbackForOption: { ...this.showFeedbackForOption }
+      // Removed: showFeedback: this.showFeedback
+    }));
 
-    const selectionIds = new Set(selections.map(s => s.optionId));
-
-    this.optionBindings.forEach(b => {
-      const shouldBeSelected = selectionIds.has(b.option.optionId);
-      b.isSelected = shouldBeSelected;
-      if (b.option) {
-        b.option.selected = shouldBeSelected;
-        b.option.showIcon = shouldBeSelected;
-        b.option.highlight = shouldBeSelected;
-      }
-
-      if (shouldBeSelected) {
-        b.styleClass = b.isCorrect ? 'highlight-correct' : 'highlight-incorrect';
-      } else {
-        if (b.styleClass === 'highlight-correct' || b.styleClass === 'highlight-incorrect') {
-          b.styleClass = '';
-        }
-      }
-    });
-
-    // Force reference update for ALL bindings to trigger child OnPush CD for
-    // every option (needed for single-answer unselects and general state correctness)
-    this.optionBindings = this.optionBindings.map(b => ({ ...b }));
+    this.updateBindingSnapshots();
 
     // Force CD
     this.cdRef.detectChanges();
@@ -2027,13 +2043,6 @@ export class SharedOptionComponent
         questionIndex: activeQuestionIndex
       };
 
-      // Ensure feedbackConfigs exists and assign the new config
-      this.feedbackConfigs = this.feedbackConfigs ?? [];
-      this.feedbackConfigs[index] = this.generateFeedbackConfig(
-        selectedHydratedOption,
-        index
-      );
-
       // Build final payload
       const payload: OptionClickedPayload = {
         option: clonedOption,  // never mutate on the way out
@@ -2081,7 +2090,12 @@ export class SharedOptionComponent
       for (const opt of this.optionsToDisplay || []) {
         opt.selected = false;
       }
+      for (const b of this.optionBindings || []) {
+        b.isSelected = false;
+        b.option.selected = false;
+      }
 
+      // 2. Set the new selection
       option.selected = true;
       if (this.optionsToDisplay?.[index]) {
         this.optionsToDisplay[index].selected = true;
@@ -2093,6 +2107,7 @@ export class SharedOptionComponent
       this.selectedOptions.add(effectiveId);
       this.selectedOptionService.setSelectedOption(option);
     } else {
+      // Multiple mode - toggle locally
       option.selected = !option.selected;
       if (this.optionsToDisplay?.[index]) {
         this.optionsToDisplay[index].selected = option.selected;
@@ -2119,7 +2134,14 @@ export class SharedOptionComponent
 
     // Confirm feedback function is triggered
     const currentQuestionIndex = this.getActiveQuestionIndex() ?? 0;
-    console.log('[Feedback Fired]', { currentQuestionIndex });
+
+    // Clear stale feedback anchors for different question
+    if (this.lastFeedbackQuestionIndex !== currentQuestionIndex) {
+      this.showFeedbackForOption = {};
+      this.feedbackConfigs = {};
+      this.lastFeedbackQuestionIndex = currentQuestionIndex;
+    }
+
     this.lastFeedbackOptionMap[currentQuestionIndex] = optionId;
 
     // Set the last option selected (used to show only one feedback block)
@@ -2351,7 +2373,6 @@ export class SharedOptionComponent
     idx: number,
     isSelected: boolean = false
   ): OptionBindings {
-    // Calculate the type based on the number of correct options
     const correctOptionsCount =
       this.optionsToDisplay?.filter((opt) => opt.correct).length ?? 0;
     const inferredType = correctOptionsCount > 1 ? 'multiple' : 'single';
@@ -2550,7 +2571,7 @@ export class SharedOptionComponent
       correctMessage:
         this.feedbackService.setCorrectMessage(this.optionsToDisplay, this.currentQuestion!) ??
         'No correct message available',
-      feedback: option.feedback ?? 'No feedback available',
+      feedback: option.feedback ?? '',
       showFeedback,
       idx
     } as FeedbackProps;
@@ -2586,70 +2607,67 @@ export class SharedOptionComponent
   private processOptionBindings(): void {
     const options = this.optionsToDisplay ?? [];
 
-    // Pre-checks
     if (!options.length) {
-      console.warn('[processOptionBindings] No options to process. Exiting.');
       this.optionBindingsInitialized = false;
       return;
     }
-    if (this.freezeOptionBindings) {
-      console.warn('[ABORTED optionBindings reassignment after user click]');
-      return;
-    }
+    if (this.freezeOptionBindings) return;
     if (!this.currentQuestion) return;
 
-    const selectionMap = new Map<number, boolean>(
-      (this.optionBindings ?? [])
-        .map((b) => {
-          const id = b.option.optionId ?? -1;  // fallback for undefined ids
-          return [id, b.isSelected] as [number, boolean];
-        })
-        .filter(([id]) => id !== -1)  // drop any undefined/fallback ids
-    );
+    const currentIdx = this.currentQuestionIndex ?? this.quizService.getCurrentQuestionIndex();
+    
+    // 1. Fetch AUTHORITATIVE selections for THIS question from the state service
+    const savedSelections = this.selectedOptionService.getSelectedOptionsForQuestion(currentIdx) || [];
+    const savedIds = this.optionHydrationService.toIdSet(savedSelections);
 
-    // Use this.currentQuestion which should match optionsToDisplay
-    // Don't fetch from quizService.questions as it may have different option order
-    const effectiveQuestion = this.currentQuestion;
-    if (!effectiveQuestion) {
-      console.warn('[processOptionBindings] No currentQuestion available');
-      return;
-    }
-
-    // Get correct options from the same source as optionsToDisplay
-    const correctOptions = options.filter(o => o.correct === true);
-    const feedbackSentence =
-      this.feedbackService.generateFeedbackForOptions(
-        correctOptions,
-        options
-      ) || 'No feedback available.';
-
+    const getBindings = this.getOptionBindings.bind(this);
     const highlightSet = this.highlightedOptionIds;
-    const getBindings =
-      this.getOptionBindings.bind(this);
 
-    this.optionBindings = options
-      .filter((o: Option) => o.optionId !== undefined)
-      .map((opt, idx) => {
-        const id = opt.optionId as number;
-        const isSelected = selectionMap.get(id) ?? !!opt.selected;
-        opt.feedback = feedbackSentence;
+    // 2. Generate the feedback sentence (needed for row-level feedback)
+    const feedbackSentence = this.feedbackService.buildFeedbackMessage(
+      this.currentQuestion,
+      savedSelections,
+      false,
+      false,
+      currentIdx,
+      this.optionsToDisplay
+    ) || '';
 
-        if (isSelected || highlightSet.has(id)) {
-          opt.highlight = true;
-        }
+    // 3. Map options to bindings, applying restored selection state
+    this.optionBindings = options.map((opt, idx) => {
+      // Prioritize stored ID, fallback to index
+      const oIdNum = Number(opt.optionId);
+      const effectiveId = (!isNaN(oIdNum) && oIdNum > -1) ? oIdNum : idx;
 
-        return getBindings(opt, idx, isSelected);
-      });
+      // Update the option object only if it lacks a valid ID
+      if (opt.optionId == null) {
+        opt.optionId = effectiveId;
+      }
+
+      // Ensure row feedback is populated
+      opt.feedback = feedbackSentence;
+
+      const isSelected = savedIds.has(effectiveId) || savedIds.has(String(effectiveId));
+      
+      if (isSelected || highlightSet.has(effectiveId)) {
+        opt.highlight = true;
+      }
+
+      return getBindings(opt, idx, isSelected);
+    });
+
+    // 4. Rebuild feedback visibility based on the restored selections
+    this.rebuildShowFeedbackMapFromBindings();
 
     this.updateSelections(-1);
     this.updateHighlighting();
 
-    // Flag updates with minimal delay
     this.optionsReady = true;
     this.renderReady = true;
     this.viewReady = true;
-    this.cdRef.detectChanges();  // ensure view is in sync
+    this.cdRef.detectChanges();
   }
+
 
   initializeFeedbackBindings(): void {
     if (this.optionBindings?.some((b) => b.isSelected)) {
@@ -2688,7 +2706,7 @@ export class SharedOptionComponent
 
     return {
       correctMessage: 'No correct message available',
-      feedback: 'No feedback available',
+      feedback: '',
       showFeedback: false,
       selectedOption: null,
       options: this.optionsToDisplay ?? [],
@@ -2702,8 +2720,11 @@ export class SharedOptionComponent
   }
 
   ensureOptionIds(): void {
-    for (const [index, option] of this.optionsToDisplay.entries()) {
-      option.optionId = option.optionId ?? index;
+    for (const [index, option] of (this.optionsToDisplay ?? []).entries()) {
+      const id = Number(option.optionId);
+      if (option.optionId == null || isNaN(id) || id < 0) {
+        option.optionId = index;
+      }
     }
   }
 
@@ -2722,7 +2743,7 @@ export class SharedOptionComponent
     );
   }
 
-  public get canDisplayOptions(): boolean {
+  public canDisplayOptions(): boolean {
     return (
       !!this.form &&
       this.renderReady &&
@@ -2783,28 +2804,29 @@ export class SharedOptionComponent
       const correctOptions = this.optionsToDisplay.filter(
         (o: Option) => o.correct === true
       );
-      const freshFeedback = this.feedbackService.generateFeedbackForOptions(
-        correctOptions,
+      const selections = this.selectedOptionService.getSelectedOptionsForQuestion(idx) || [];
+      const freshFeedback = this.feedbackService.buildFeedbackMessage(
+        question,
+        selections,
+        false,
+        false,
+        idx,
         this.optionsToDisplay
       );
 
       this.feedbackConfigs = {};
-      for (const b of this.optionBindings ?? []) {
-        if (!b.option) {
-          continue;
-        }
+      for (const [i, b] of (this.optionBindings ?? []).entries()) {
+        if (!b.option) continue;
 
         b.option.feedback = freshFeedback;
         b.feedback = freshFeedback;
 
-        const optId = b.option.optionId ?? -1;
-        if (optId < 0) {
-          continue;
-        }
+        const key = this.keyOf(b.option, i);
+        const optId = (b.option.optionId != null && b.option.optionId > -1) ? b.option.optionId : i;
 
-        this.feedbackConfigs[optId] = {
+        this.feedbackConfigs[key] = {
           feedback: freshFeedback,
-          showFeedback: true, // Let SOC template control which row shows via shouldShowFeedbackAfter
+          showFeedback: true,
           options: this.optionsToDisplay,
           question: question,
           selectedOption: b.option,
@@ -2986,8 +3008,12 @@ export class SharedOptionComponent
     const selIds = new Set(selectedOptions.map((s) => s.optionId));
 
     // Sync all three flags in one pass
-    for (const opt of this.optionsToDisplay) {
-      const isSelected = selIds.has(opt.optionId);
+    for (let i = 0; i < this.optionsToDisplay.length; i++) {
+      const opt = this.optionsToDisplay[i];
+      // Robust match: Check numeric ID OR fallback to index if missing (matches SelectedOptionService logic)
+      const effectiveId = (opt.optionId != null && Number(opt.optionId) > -1) ? opt.optionId : i;
+      const isSelected = selIds.has(Number(effectiveId));
+      
       opt.selected = isSelected;
       opt.showIcon = isSelected;
       opt.highlight = isSelected;
@@ -3010,10 +3036,6 @@ export class SharedOptionComponent
     return this.optionService.keyOf(o, i);
   }
 
-  /**
-   * Determines if inline feedback should be shown after the option at display index i.
-   * Uses lastFeedbackOptionId which is reliably synced across all code paths.
-   */
   public shouldShowFeedbackAfter(b: OptionBindings, i: number): boolean {
     if (!this.showFeedback) return false;
 
@@ -3024,7 +3046,7 @@ export class SharedOptionComponent
     // This supports showing feedback for multiple options simultaneously
     return this.showFeedbackForOption[optId] === true;
   }
-
+ 
   /**
    * Gets the feedback config to show inline below the last selected option.
    * Derives from feedbackConfigs (reliably set by all interaction paths)
@@ -3042,6 +3064,11 @@ export class SharedOptionComponent
       if (cfgById?.showFeedback) return { ...cfgById, questionIndex: this.currentQuestionIndex };
     }
 
+    if (cfg?.showFeedback) {
+      return { ...cfg, questionIndex: this.currentQuestionIndex };
+    }
+
+    // Final fallback: Use the binding's own feedback if nothing in the map matches
     return {
       feedback: b.feedback || '',
       showFeedback: this.showFeedback && (this.showFeedbackForOption[(b.option.optionId != null && b.option.optionId > -1) ? b.option.optionId : i] === true),
@@ -3051,7 +3078,7 @@ export class SharedOptionComponent
       correctMessage: b.feedback || '',
       idx: i,
       questionIndex: this.currentQuestionIndex
-    };
+    } as any;
   }
 
 
@@ -3079,7 +3106,7 @@ export class SharedOptionComponent
     if (!hasBindings) return false;
 
     // UI flags are secondary
-    return this.canDisplayOptions && this.renderReady;
+    return this.canDisplayOptions() && this.renderReady;
   }
 
   private normalizeQuestionIndex(candidate: unknown): number | null {
@@ -3126,8 +3153,8 @@ export class SharedOptionComponent
   }
 
   public onOptionUI(ev: OptionUIEvent): void {
-    // Guard: ignore bad IDs
-    if (!Number.isFinite(ev?.optionId) || ev.optionId < 0) return;
+    // Guard: ignore null/undefined
+    if (ev == null || ev.optionId == null) return;
 
     // Find binding + index (SOC still owns bindings list for now)
     const found = this.findBindingByOptionId(ev.optionId);
@@ -3147,26 +3174,8 @@ export class SharedOptionComponent
 
     if (ev.kind === 'change') {
       const native = ev.nativeEvent as MatCheckboxChange | MatRadioChange;
-      const isChecked = (native as MatCheckboxChange).checked ?? true;
-
-      // Keep your existing “change → sync UI/form” path
+      // updateOptionAndUI now triggers the emit via OptionUiSyncService -> ctx.onSelect
       this.updateOptionAndUI(binding, index, native);
-
-      // find the REPLACED binding (ref might have changed due to OnPush map/cloning)
-      const freshBinding = this.optionBindings.find(b => b.option.optionId === binding.option.optionId) || binding;
-
-      // NAVIGATION FIX: Emit the selection event with ACTUAL checked state
-      const payload: OptionClickedPayload = {
-        option: freshBinding.option,
-        index: index,
-        checked: isChecked
-      };
-      this.optionClicked.emit(payload);
-
-      // Also call the input callback if it was provided
-      if (this.quizQuestionComponentOnOptionClicked) {
-        this.quizQuestionComponentOnOptionClicked(freshBinding.option as SelectedOption, index);
-      }
       return;
     }
 
@@ -3186,28 +3195,14 @@ export class SharedOptionComponent
         return; // let native input handle it
       }
 
-      // treat as content click
+      // treat as content click; runOptionContentClick calls updateOptionAndUI internally
       this.runOptionContentClick(binding, index, event);
       return;
     }
 
     if (ev.kind === 'contentClick') {
+      // runOptionContentClick calls updateOptionAndUI internally
       this.runOptionContentClick(binding, index, ev.nativeEvent as MouseEvent);
-
-      // find the REPLACED binding to get the NEW isSelected state
-      const freshBinding = this.optionBindings.find(b => b.option.optionId === binding.option.optionId) || binding;
-
-      // NAVIGATION FIX: Also emit for content clicks
-      const payload: OptionClickedPayload = {
-        option: freshBinding.option,
-        index: index,
-        checked: freshBinding.isSelected || false
-      };
-      this.optionClicked.emit(payload);
-
-      if (this.quizQuestionComponentOnOptionClicked) {
-        this.quizQuestionComponentOnOptionClicked(freshBinding.option as SelectedOption, index);
-      }
       return;
     }
   }
@@ -3255,14 +3250,6 @@ export class SharedOptionComponent
     );
 
     // Sync back mutated state (non-feedback fields only).
-    // IMPORTANT: Do NOT sync feedback-related fields (feedbackConfigs,
-    // showFeedbackForOption, lastFeedbackOptionId, showFeedback,
-    // lastFeedbackQuestionIndex) from state here. The state object captured
-    // initial values BEFORE the callback ran. updateOptionAndUI (called via
-    // callback above) already synced the correct values from the
-    // OptionUiSyncContext, which may have REPLACED these object refs
-    // (e.g. resetFeedbackAnchorIfQuestionChanged replaces feedbackConfigs).
-    this.optionBindings = state.optionBindings;
     this.disableRenderTrigger = state.disableRenderTrigger;
     this.lastClickedOptionId = state.lastClickedOptionId;
     this.lastClickTimestamp = state.lastClickTimestamp;
@@ -3287,9 +3274,10 @@ export class SharedOptionComponent
 
     const selectedId = parsedId as number;
 
-    const binding = (this.optionBindings ?? []).find(
-      (b) => b?.option?.optionId === selectedId
-    );
+    const binding = (this.optionBindings ?? []).find((b, i) => {
+      const eId = (b.option.optionId != null && Number(b.option.optionId) > -1) ? b.option.optionId : i;
+      return Number(eId) === selectedId;
+    });
 
     if (!binding?.option) return;
 

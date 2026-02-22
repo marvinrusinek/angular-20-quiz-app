@@ -11,7 +11,6 @@ import { QuizService } from '../data/quiz.service';
 @Injectable({ providedIn: 'root' })
 export class FeedbackService {
   lastKnownOptions: Option[] = [];
-  // Track the last computed indices for synchronization with FET
   private lastCorrectIndices: number[] = [];
 
   constructor(
@@ -21,7 +20,6 @@ export class FeedbackService {
     private injector: Injector
   ) { }
 
-  // Get the last computed correct indices for synchronization
   getLastCorrectIndices(): number[] {
     return this.lastCorrectIndices.slice();
   }
@@ -52,20 +50,16 @@ export class FeedbackService {
     selected: Array<SelectedOption | Option> | null,
     strict: boolean = false,
     timedOut: boolean = false,
-    displayIndex?: number
+    displayIndex?: number,
+    optionsToDisplay?: Option[],
+    targetOption?: Option
   ): string {
-    if (timedOut) {
-      return 'Time’s up. Review the explanation above.';
-    }
+    if (timedOut) return 'Time\'s up. Review the explanation above.';
 
     const quizSvc = this.injector.get(QuizService, null);
     const qIdx = displayIndex ?? (question as any).questionIndex ?? quizSvc?.currentQuestionIndex ?? 0;
 
-    let correctIndices = this.explanationTextService.getCorrectOptionIndices(
-      question,
-      question.options,
-      qIdx
-    );
+    const isCorrectHelper = (val: any) => val === true || String(val) === 'true' || val === 1 || val === '1';
 
     if ((!correctIndices || correctIndices.length === 0) && quizSvc) {
       const qText = (question.questionText || '').trim().toLowerCase();
@@ -139,14 +133,12 @@ export class FeedbackService {
     const formatReveal = (indices: number[]) => {
       const deduped = Array.from(new Set(indices)).sort((a, b) => a - b);
       if (deduped.length === 0) return '';
-      const optionsText = deduped.length === 1 ? 'answer is Option' : 'answers are Options';
-      const optionStrings = deduped.length > 1
-        ? `${deduped.slice(0, -1).join(', ')} and ${deduped.slice(-1)}`
-        : `${deduped[0]}`;
-      return `The correct ${optionsText} ${optionStrings}.`;
+      if (deduped.length === 1) return `The correct answer is Option ${deduped[0]}.`;
+      const list = `${deduped.slice(0, -1).join(', ')} and ${deduped[deduped.length - 1]}`;
+      return `The correct answers are Options ${list}.`;
     };
 
-    const revealMessage = formatReveal(correctIndices) || 'Check the correct answers below.';
+    const finalRevealMessage = formatReveal(correctIndices);
 
     if (!selected || selectedArr.length === 0) {
       return '';
@@ -189,13 +181,7 @@ export class FeedbackService {
 
     const quizSvc = this.injector.get(QuizService, null);
     const currentIndex = quizSvc?.currentQuestionIndex;
-
-    const indices = this.explanationTextService.getCorrectOptionIndices(
-      question!,
-      optionsToDisplay,
-      typeof currentIndex === 'number' ? currentIndex : undefined
-    );
-
+    const indices = this.explanationTextService.getCorrectOptionIndices(question!, optionsToDisplay, typeof currentIndex === 'number' ? currentIndex : undefined);
     const deduped = Array.from(new Set(indices)).sort((a, b) => a - b);
     this.lastCorrectIndices = deduped;
 
