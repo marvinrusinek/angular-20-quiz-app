@@ -378,9 +378,28 @@ export class OptionUiSyncService {
           ? ctx.optionsToDisplay
           : currentQuestion?.options ?? [];
 
-      const correctOptions = freshOptions.filter((opt: Option) => opt.correct);
+      // Gather ALL currently selected options for accurate feedback
+      const selectedOptions: Option[] = ctx.optionBindings
+        .filter(b => ctx.selectedOptionMap.get(b.option.optionId ?? -1) === true)
+        .map(b => b.option);
 
-      const dynamicFeedback = this.feedbackService.generateFeedbackForOptions(
+      // Use buildFeedbackMessage for dynamic, context-aware feedback
+      // (not generateFeedbackForOptions which only returns the static reveal message)
+      const dynamicFeedback = currentQuestion
+        ? this.feedbackService.buildFeedbackMessage(
+            currentQuestion,
+            selectedOptions,
+            false,
+            false,
+            currentIdx,
+            freshOptions,
+            optionBinding.option
+          )
+        : '';
+
+      // Also get the reveal message for correctMessage field
+      const correctOptions = freshOptions.filter((opt: Option) => opt.correct);
+      const correctMessage = this.feedbackService.generateFeedbackForOptions(
         correctOptions,
         freshOptions
       );
@@ -393,7 +412,7 @@ export class OptionUiSyncService {
         options: freshOptions,
         question: currentQuestion ?? null,
         selectedOption: optionBinding.option,
-        correctMessage: dynamicFeedback,
+        correctMessage: correctMessage,
         idx: index,
         questionIndex: currentIdx
       } as any;
@@ -504,9 +523,25 @@ export class OptionUiSyncService {
         ? ctx.optionsToDisplay
         : (question.options ?? []);
 
-    const correctOptions = visualOptions.filter(o => o.correct === true);
+    // Gather ALL currently selected options for accurate feedback
+    const selectedOptions: Option[] = ctx.optionBindings
+      .filter(b => ctx.selectedOptionMap.get(b.option.optionId ?? -1) === true)
+      .map(b => b.option);
 
-    const freshFeedback = this.feedbackService.generateFeedbackForOptions(
+    // Use buildFeedbackMessage for dynamic, context-aware feedback
+    const freshFeedback = this.feedbackService.buildFeedbackMessage(
+      question,
+      selectedOptions,
+      false,
+      false,
+      qIdx,
+      visualOptions,
+      optionBinding.option
+    );
+
+    // Also get the reveal message for correctMessage field
+    const correctOptions = visualOptions.filter(o => o.correct === true);
+    const correctMessage = this.feedbackService.generateFeedbackForOptions(
       correctOptions,
       visualOptions
     );
@@ -519,7 +554,7 @@ export class OptionUiSyncService {
       options: visualOptions,              // ✅ use visual order
       question,
       selectedOption: optionBinding.option,
-      correctMessage: freshFeedback,
+      correctMessage: correctMessage,
       idx: displayIndex,
       questionIndex: qIdx
     } as any;

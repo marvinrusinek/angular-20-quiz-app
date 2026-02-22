@@ -147,7 +147,7 @@ export class FeedbackService {
 
     if (isMultiMode) {
       if (numIncorrectSelected > 0) {
-        return 'Not right, try again!';
+        return 'Not this one, try again!';
       }
       if (isActuallyResolved) {
         return `You're right! ${finalRevealMessage}`;
@@ -157,14 +157,14 @@ export class FeedbackService {
         const remainingText = remainingTotal === 1
           ? '1 more correct answer'
           : `${remainingTotal} more correct answers`;
-        return `That's correct. Select ${remainingText}.`;
+        return `That's correct. Please select ${remainingText}.`;
       }
-      return 'Not this one!';
+      return 'Not this one, try again!';
     } else {
       if (isActuallyResolved || (numCorrectSelected >= 1 && numIncorrectSelected === 0)) {
         return `You're right! ${finalRevealMessage}`;
       }
-      return 'Not this one!';
+      return 'Not this one, try again!';
     }
   }
 

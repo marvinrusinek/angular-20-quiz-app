@@ -2293,7 +2293,9 @@ export class SharedOptionComponent
       optionsToCheck,
       false, // strict
       this.timerExpiredForQuestion,
-      this.getActiveQuestionIndex()
+      this.getActiveQuestionIndex(),
+      this.optionsToDisplay,
+      option // targetOption
     );
 
     const validOptions = (this.optionsToDisplay || []).filter(isValidOption);
