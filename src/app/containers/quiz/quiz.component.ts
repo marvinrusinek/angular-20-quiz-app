@@ -536,6 +536,10 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.questions$ = this.quizService.questions$;
     this.quizService.questions$.pipe(takeUntil(this.destroy$)).subscribe((q) => {
       this.questionsArray = q;
+      if (Array.isArray(q) && q.length > 0) {
+        this.totalQuestions = q.length;
+        this.updateProgressValue();
+      }
     });
   }
 
@@ -1085,10 +1089,10 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     event: SelectedOption,
     isUserAction: boolean = true
   ): Promise<void> {
-    this.updateProgressValue();
-
     // Guards and de-duplication
     if (!isUserAction || (!this.resetComplete && !this.hasOptionsLoaded)) return;
+
+    this.updateProgressValue();
 
     // Use optionId or displayOrder for deduplication - allow if time has passed or ID is different
     const optionIdentifier = event?.optionId ?? (event as any)?.id ?? (event as any)?.displayOrder ?? -1;
@@ -4257,27 +4261,53 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   }
 
   updateProgressValue(): void {
+    const total = this.totalCount;
+    if (total <= 0) {
+      this.progress = 0;
+      this.cdRef.detectChanges();
+      return;
+    }
+
     const answeredCount = this.calculateAnsweredCount();
-    const total =
-      this.totalQuestions > 0 ?
-        this.totalQuestions : (this.quiz?.questions?.length || 0);
-    this.progress = total > 0 ? Math.round((answeredCount / total) * 100) : 0;
+    this.progress = Math.round((answeredCount / total) * 100);
     
     console.log(`[PROGRESS] answeredCount=${answeredCount}, total=${total}, progress=${this.progress}%`);
-    this.cdRef.markForCheck();
+    this.cdRef.detectChanges();
   }
 
-  // Calculate percentage based on ANSWERED questions
+  // Consistent total count getter
+  private get totalCount(): number {
+    return this.totalQuestions > 0 ?
+      this.totalQuestions : (this.quiz?.questions?.length || 0);
+  }
+
+  // Calculate percentage based on answered questions
+  // Includes questions that are fully correct/wrong, OR have active selections (interacted)
   calculateAnsweredCount(): number {
-    let count = 0;
-    const total = this.totalQuestions || 0;
-    for (let i = 0; i < total; i++) {
-      const status = this.getQuestionStatus(i);
-      // Count as answered if it's correct OR wrong (anything but pending)
-      if (status === 'correct' || status === 'wrong') {
-        count++;
+    const total = this.totalCount;
+    const answeredIndices = new Set<number>();
+    
+    // 1. Check dot status cache (definitely answered)
+    if (this.dotStatusCache) {
+      for (const [idx, status] of this.dotStatusCache.entries()) {
+        if (status === 'correct' || status === 'wrong') {
+          answeredIndices.add(idx);
+        }
       }
     }
+    
+    // 2. Check selected options map for any active selections
+    if (this.selectedOptionService?.selectedOptionsMap) {
+      for (const [key, value] of this.selectedOptionService.selectedOptionsMap.entries()) {
+        const idx = typeof key === 'string' ? parseInt(key, 10) : key;
+        if (!isNaN(idx) && idx >= 0 && idx < total && Array.isArray(value) && value.length > 0) {
+          answeredIndices.add(idx);
+        }
+      }
+    }
+    
+    const count = answeredIndices.size;
+    console.log(`[PROGRESS_CALC] answeredIndices=[${Array.from(answeredIndices).join(',')}], count=${count} out of ${total}`);
     return count;
   }
 
@@ -4387,7 +4417,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.dotStatusCache.delete(index);
     // Now call getQuestionStatus which will re-compute and cache
     this.getQuestionStatus(index);
-    this.cdRef.markForCheck(); // Use markForCheck for consistency with updateProgressValue
+    this.cdRef.detectChanges();
   }
 
   getDotClass(index: number): string {
