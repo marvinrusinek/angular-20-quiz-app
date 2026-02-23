@@ -643,6 +643,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       .pipe(take(1))
       .subscribe((total: number) => {
         this.totalQuestions = total;
+        this.updateProgressValue();
+        this.cdRef.markForCheck();
       });
   }
 
@@ -764,7 +766,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
       // Propagate existing questions to local array
       this.questionsArray = source;
+      this.totalQuestions = source.length;
       this.isQuizDataLoaded = true;
+      this.updateProgressValue();
 
       // Ensure UI knows about them
       Promise.resolve().then(() => this.cdRef.detectChanges());
@@ -782,6 +786,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
         // Set quiz as loaded and sync index after questions are ready
         this.isQuizDataLoaded = true;
+        this.updateProgressValue();
       } catch (error) {
         console.error('[QuizComponent] Failed to fetch questions:', error);
       }
@@ -1148,7 +1153,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     // Trigger scoring logic
     void this.quizService.checkIfAnsweredCorrectly(normalizedQuestionIndex);
-    this.updateDotStatus(normalizedQuestionIndex);
+    // this.updateDotStatus(normalizedQuestionIndex); // moved to end of method
 
     // Selection message / next-button logic
     try {
@@ -1173,6 +1178,11 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       JSON.stringify(currentIndices));
     sessionStorage.setItem(`displayMode_${normalizedQuestionIndex}`, 'explanation');
     sessionStorage.setItem('displayExplanation', 'true');
+
+    // EXPLICIT: Update progress and dot status after all state changes
+    this.updateDotStatus(normalizedQuestionIndex);
+    this.updateProgressValue();
+    this.cdRef.markForCheck();
   }
 
   private resetQuestionState(): void {
@@ -4252,6 +4262,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       this.totalQuestions > 0 ?
         this.totalQuestions : (this.quiz?.questions?.length || 0);
     this.progress = total > 0 ? Math.round((answeredCount / total) * 100) : 0;
+    
+    console.log(`[PROGRESS] answeredCount=${answeredCount}, total=${total}, progress=${this.progress}%`);
+    this.cdRef.markForCheck();
   }
 
   // Calculate percentage based on ANSWERED questions
@@ -4374,7 +4387,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.dotStatusCache.delete(index);
     // Now call getQuestionStatus which will re-compute and cache
     this.getQuestionStatus(index);
-    this.cdRef.detectChanges();
+    this.cdRef.markForCheck(); // Use markForCheck for consistency with updateProgressValue
   }
 
   getDotClass(index: number): string {
