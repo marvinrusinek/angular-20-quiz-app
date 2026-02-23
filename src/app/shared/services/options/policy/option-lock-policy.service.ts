@@ -54,10 +54,15 @@ export class OptionLockPolicyService {
       };
     }
 
+    const isCorrectBinding = (b: OptionBindings) => {
+      const v: any = b.option?.correct;
+      return v === true || String(v) === 'true' || v === 1 || v === '1';
+    };
+
     const hasCorrectSelection = bindings.some(
-      b => b.isSelected && b.option?.correct === true
+      b => b.isSelected && isCorrectBinding(b)
     );
-    const correctBindings = bindings.filter(b => b.option?.correct === true);
+    const correctBindings = bindings.filter(isCorrectBinding);
     const allCorrectSelected =
       correctBindings.length > 0 && correctBindings.every(b => b.isSelected);
 
@@ -86,14 +91,18 @@ export class OptionLockPolicyService {
 
     for (const b of bindings) {
       const optionId = b.option?.optionId;
-      const shouldDisable = b.option?.correct !== true;
+      const isActuallyCorrect = isCorrectBinding(b);
+      const shouldDisable = !isActuallyCorrect;
 
       b.disabled = shouldDisable;
       if (b.option) b.option.active = !shouldDisable;
 
-      if (typeof optionId === 'number') {
-        if (shouldDisable) locked.add(optionId);
-        else locked.delete(optionId);
+      if (optionId != null) {
+        const idNum = Number(optionId);
+        if (!isNaN(idNum)) {
+          if (shouldDisable) locked.add(idNum);
+          else locked.delete(idNum);
+        }
       }
     }
 

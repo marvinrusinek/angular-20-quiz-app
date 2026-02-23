@@ -61,7 +61,7 @@ export class FeedbackService {
     let correctIndices = this.explanationTextService.getCorrectOptionIndices(question, optionsToDisplay ?? question.options ?? [], qIdx);
 
     const isCorrectHelper = (val: any) => val === true || String(val) === 'true' || val === 1 || val === '1';
-
+    
     if ((!correctIndices || correctIndices.length === 0) && quizSvc) {
       const qText = (question.questionText || '').trim().toLowerCase();
       if (qText) {
@@ -83,19 +83,20 @@ export class FeedbackService {
       }
     }
 
-    if ((!correctIndices || correctIndices.length === 0) && question.options) {
-      correctIndices = question.options
-        .map((o, i) => (o.correct === true || (o as any).correct === 'true' ? i + 1 : null))
-        .filter((n): n is number => n !== null);
-    }
+    // Use provided optionsToDisplay (visual order) as the source of truth for indices
+    // This ensures indices match what the user sees even if shuffled.
+    const optionsRaw = optionsToDisplay || (question.options || []);
+    
+    // Always calculate visual correct indices from the actual options being displayed
+    correctIndices = optionsRaw
+      .map((o: Option, i: number) => isCorrectHelper(o.correct) ? i + 1 : null)
+      .filter((n: number | null): n is number => n !== null);
 
-    const optionsRaw = (question.options || []);
-    const totalCorrectInQ = optionsRaw.filter(o => o.correct === true || (o as any).correct === 'true').length;
+    const totalCorrectInQ = correctIndices.length;
 
     // Multi-Answer detection: trust multiple indices OR multiple database flags
     const isMultiMode =
       correctIndices.length > 1 ||
-      totalCorrectInQ > 1 ||
       question.type === QuestionType.MultipleAnswer ||
       (question as any).multipleAnswer === true;
 
@@ -103,33 +104,63 @@ export class FeedbackService {
     let numCorrectSelected = 0;
     let numIncorrectSelected = 0;
 
+    const normalizedSelected = new Map<string, any>();
     selectedArr.forEach(sel => {
+      const id = sel.optionId != null ? String(sel.optionId) : sel.text;
+      if (id) normalizedSelected.set(id, sel);
+    });
+    const dedupedSelected = Array.from(normalizedSelected.values());
+
+    dedupedSelected.forEach(sel => {
       let visualIdx = sel.displayIndex;
       if (visualIdx === undefined || visualIdx < 0) {
-        visualIdx = optionsRaw.findIndex(o =>
+        visualIdx = optionsRaw.findIndex((o: Option) =>
           o === sel ||
-          (o.optionId != null && sel.optionId === o.optionId) ||
+          (o.optionId != null && sel.optionId != null && String(o.optionId) === String(sel.optionId)) ||
           (o.text && sel.text && String(o.text).trim() === String(sel.text).trim())
         );
       }
 
-      if (visualIdx >= 0) {
-        if (correctIndices.includes(visualIdx + 1)) {
-          numCorrectSelected++;
-        } else {
-          numIncorrectSelected++;
-        }
+      // ROBUST EVALUATION: 
+      // An option is correct if its 'correct' flag is true OR if its visual position matches a correct index.
+      const isCorrect = sel.correct === true || (sel as any).correct === "true" || (sel as any).correct === 1 ||
+                        (visualIdx >= 0 && correctIndices.includes(visualIdx + 1));
+      
+      if (isCorrect) {
+        numCorrectSelected++;
       } else {
-        if (sel.correct === true || (sel as any).correct === 'true') numCorrectSelected++;
-        else numIncorrectSelected++;
+        numIncorrectSelected++;
       }
     });
 
-    const totalCorrectRequired = (correctIndices.length > 0) ? correctIndices.length : Math.max(totalCorrectInQ, 1);
+    const totalCorrectRequired = correctIndices.length > 0 ? correctIndices.length : 1;
+    
+    // Multi-Answer detection consistency: Resolved if counts match and no errors
+    const isMultiResolved = isMultiMode && numCorrectSelected >= totalCorrectRequired && numIncorrectSelected === 0;
 
-    const isActuallyResolved = totalCorrectRequired > 0 &&
-      numCorrectSelected === totalCorrectRequired &&
-      numIncorrectSelected === 0;
+    // Special safeguard: if it was truly perfectly resolved by our counts, override text right here.
+    if (isMultiResolved) {
+       const formatReveal = (indices: number[]) => {
+         const deduped = Array.from(new Set(indices)).sort((a, b) => a - b);
+         if (deduped.length === 0) return '';
+         if (deduped.length === 1) return `The correct answer is Option ${deduped[0]}.`;
+         const list = `${deduped.slice(0, -1).join(', ')} and ${deduped[deduped.length - 1]}`;
+         return `The correct answers are Options ${list}.`;
+       };
+       return `You're right! ${formatReveal(correctIndices)}`;
+    }
+
+    console.log(`[FeedbackService] Evaluation: Q${qIdx + 1}`, {
+      numCorrectSelected,
+      totalCorrectRequired,
+      numIncorrectSelected,
+      isMultiMode,
+      isMultiResolved,
+      dedupedCount: dedupedSelected.length,
+      correctIndices,
+      selectedIds: dedupedSelected.map(s => s.optionId),
+      selectedFlags: dedupedSelected.map(s => s.correct)
+    });
 
     const formatReveal = (indices: number[]) => {
       const deduped = Array.from(new Set(indices)).sort((a, b) => a - b);
@@ -141,7 +172,7 @@ export class FeedbackService {
 
     const finalRevealMessage = formatReveal(correctIndices);
 
-    if (!selected || selectedArr.length === 0) {
+    if (!selected || dedupedSelected.length === 0) {
       return '';
     }
 
@@ -149,9 +180,13 @@ export class FeedbackService {
       if (numIncorrectSelected > 0) {
         return 'Not this one, try again!';
       }
-      if (isActuallyResolved) {
+      
+      // If all required correct answers have been selected, show final message
+      if (numCorrectSelected >= totalCorrectRequired) {
         return `You're right! ${finalRevealMessage}`;
       }
+      
+      // At least one correct answer but not all yet → progress message
       if (numCorrectSelected > 0) {
         const remainingTotal = Math.max(totalCorrectRequired - numCorrectSelected, 0);
         const remainingText = remainingTotal === 1
@@ -161,7 +196,7 @@ export class FeedbackService {
       }
       return 'Not this one, try again!';
     } else {
-      if (isActuallyResolved || (numCorrectSelected >= 1 && numIncorrectSelected === 0)) {
+      if (numCorrectSelected >= 1 && numIncorrectSelected === 0) {
         return `You're right! ${finalRevealMessage}`;
       }
       return 'Not this one, try again!';

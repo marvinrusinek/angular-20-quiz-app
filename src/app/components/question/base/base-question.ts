@@ -381,17 +381,14 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
 
       this.sharedOptionConfig.selectedOption = option;
 
-      // Ensure showFeedbackForOption is initialized
-      if (!this.showFeedbackForOption) {
-        this.showFeedbackForOption = {};
+      // Ensure showFeedbackForOption is initialized and cleared (mutate)
+      if (!this.showFeedbackForOption) this.showFeedbackForOption = {};
+      for (const k of Object.keys(this.showFeedbackForOption)) {
+        delete (this.showFeedbackForOption as any)[k];
       }
 
-      // Update feedback display for each option
-      for (const opt of this.optionsToDisplay) {
-        if (opt.optionId) {
-          // Show feedback for clicked option
-          this.showFeedbackForOption[opt.optionId] = true;
-        }
+      if (option.optionId != null) {
+        this.showFeedbackForOption[option.optionId] = true;
       }
 
       this.selectedOption = option;

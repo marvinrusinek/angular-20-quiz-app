@@ -2881,7 +2881,13 @@ export class QuizQuestionComponent extends BaseQuestion
       );
 
       // Commit selection into local + state
-      this.persistSelection(evtOpt, idx, optionsNow, q?.type === QuestionType.MultipleAnswer);
+      // Detect multi-answer by checking BOTH q.type AND correct option count
+      // (quiz data often doesn't set q.type, so we count correct options as fallback)
+      const correctCount = q!.options?.filter((o: any) => o.correct === true || String(o.correct) === 'true').length ?? 0;
+      const isMultiAnswer = q?.type === QuestionType.MultipleAnswer || correctCount > 1;
+      
+
+      this.persistSelection(evtOpt, idx, optionsNow, isMultiAnswer);
 
       // ALSO push into SelectedOptionService using the *question index*
       const enrichedForSOS = {
@@ -4796,6 +4802,10 @@ export class QuizQuestionComponent extends BaseQuestion
         return;
       }
 
+      // Mutate to clear and reset (preserves reference for child components)
+      for (const k of Object.keys(this.showFeedbackForOption)) {
+        delete (this.showFeedbackForOption as any)[k];
+      }
       this.showFeedbackForOption[option.optionId] = true;
 
       // Single-Answer Hard Reset

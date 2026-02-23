@@ -19,7 +19,13 @@ export class OptionVisualEffectsService {
 
   toggleSelectedOption(option: Option, selectedOptionMap: Map<number, boolean>): void {
     const id = option?.optionId;
-    if (typeof id !== 'number') return;
-    selectedOptionMap.set(id, !selectedOptionMap.get(id));
+    if (id == null) return;
+    
+    // Support both numeric and string IDs by normalizing to number if possible, 
+    // or using as-is if the map supports mixed keys (it's typed Map<number, boolean> but runtime permits mixed)
+    const numId = Number(id);
+    const key = isNaN(numId) ? id : numId;
+    
+    selectedOptionMap.set(key as any, !selectedOptionMap.get(key as any));
   }
 }

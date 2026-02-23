@@ -155,7 +155,8 @@ export class OptionInteractionService {
 
     // TIMER STOP LOGIC
     const question = getQuestionAtDisplayIndex(qIdx);
-    let clickedIsCorrect = !!binding.option.correct; // Relaxed bool check
+    const isCorrectHelper = (v: any) => v === true || String(v) === 'true' || v === 1 || v === '1';
+    let clickedIsCorrect = isCorrectHelper(binding.option.correct);
 
     // Fallbacks for correctness detection
     if (!clickedIsCorrect) {
@@ -166,7 +167,7 @@ export class OptionInteractionService {
                           (state.optionBindings?.find(b => match(b.option))?.option) ||
                           (state.optionsToDisplay?.find(match));
       
-      if (matchingOpt?.correct) {
+      if (matchingOpt && isCorrectHelper(matchingOpt.correct)) {
         clickedIsCorrect = true;
       }
     }

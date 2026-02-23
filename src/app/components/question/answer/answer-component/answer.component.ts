@@ -381,21 +381,6 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
       }
     }
 
-    // Push to SelectedOptionService (merge, not replace)
-    this.selectedOptionService.currentQuestionType =
-      this.type === 'single' ? QuestionType.SingleAnswer : QuestionType.MultipleAnswer;
-
-    if (this.type === 'single') {
-      // Single-answer: REPLACE selection
-      this.selectedOptionService.setSelectedOptionsForQuestion(
-        activeQuestionIndex,
-        [enrichedOption]
-      );
-    } else {
-      // Multiple-answer: MERGE selection
-      this.selectedOptionService.addOption(activeQuestionIndex, enrichedOption);
-    }
-
     // Resolve canonical question by INDEX (never trust @Input here)
     const question = this.quizService.questions?.[activeQuestionIndex];
 
@@ -404,6 +389,25 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
         '[AC][INVARIANT] Missing question for index', activeQuestionIndex
       );
       return;
+    }
+
+    const optionsSource = this.optionsToDisplay?.length ? this.optionsToDisplay : question.options;
+    const correctCount = optionsSource?.filter((o: any) => o.correct === true || String(o.correct) === 'true').length ?? 0;
+    const isMultiAnswer = this.type === 'multiple' || question.type === QuestionType.MultipleAnswer || correctCount > 1;
+
+    // Push to SelectedOptionService (merge, not replace)
+    this.selectedOptionService.currentQuestionType =
+      !isMultiAnswer ? QuestionType.SingleAnswer : QuestionType.MultipleAnswer;
+
+    if (!isMultiAnswer) {
+      // Single-answer: REPLACE selection
+      this.selectedOptionService.setSelectedOptionsForQuestion(
+        activeQuestionIndex,
+        [enrichedOption]
+      );
+    } else {
+      // Multiple-answer: MERGE selection
+      this.selectedOptionService.addOption(activeQuestionIndex, enrichedOption);
     }
 
     // AUTHORITATIVE COMPLETE CHECK (AFTER SOS UPDATE)

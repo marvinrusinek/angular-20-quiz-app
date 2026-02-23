@@ -169,6 +169,11 @@ export class SharedOptionComponent
 
   private _isMultiModeCache: boolean | null = null;
 
+  // BULLETPROOF feedback tracker: set synchronously in handleOptionClick,
+  // NEVER cleared by ngOnChanges/generateOptionBindings/rebuild cycles.
+  // Only cleared on question change.
+  private _lastClickFeedback: { index: number; config: FeedbackProps; questionIdx: number } | null = null;
+
   destroy$ = new Subject<void>();
 
   constructor(
@@ -646,6 +651,7 @@ export class SharedOptionComponent
       this.isOptionSelected = false;
       
       this.lastProcessedQuestionIndex = currentIdx;
+      this._lastClickFeedback = null; // Clear feedback on question change
     }
 
     // Always resolve a valid index
@@ -948,9 +954,21 @@ export class SharedOptionComponent
 
     const savedIds = this.optionHydrationService.toIdSet(saved) as Set<string | number>;
 
-    // Single truth: bindings selection
+    // Unified Selection Source of Truth: populate local Set and bindings
+    this.selectedOptions.clear();
+    for (const id of savedIds) {
+      if (id != null) this.selectedOptions.add(Number(id));
+    }
+
     if (this.optionBindings?.length) {
       this.optionHydrationService.applySavedSelections(this.optionBindings, savedIds);
+      // Ensure b.option.selected is ALSO synced for generateFeedbackConfig
+      for (const b of this.optionBindings) {
+        const oId = b.option?.optionId;
+        if (oId != null && savedIds.has(oId)) {
+          b.option.selected = true;
+        }
+      }
     }
 
     // Visuals should derive from bindings state
@@ -983,10 +1001,9 @@ export class SharedOptionComponent
   }
 
   private rebuildShowFeedbackMapFromBindings(): void {
-    const showMap: Record<number, boolean> = {};
+    const showMap: Record<string | number, boolean> = {};
 
     // PREFER lastFeedbackOptionId for the anchor; it tracks the MOST RECENT click reliably
-    // Fall back to the last item in selectedOptionHistory if lastFeedbackOptionId is -1
     const targetId =
       typeof this.lastFeedbackOptionId === 'number' && this.lastFeedbackOptionId !== -1
         ? this.lastFeedbackOptionId
@@ -1001,6 +1018,7 @@ export class SharedOptionComponent
       if (id == null) continue;
 
       showMap[id] = false;
+      showMap[String(id)] = false;
 
       if (fallbackSelectedId === undefined && b.isSelected === true) {
         fallbackSelectedId = id;
@@ -1011,15 +1029,17 @@ export class SharedOptionComponent
 
     if (finalTargetId !== undefined) {
       showMap[finalTargetId] = true;
-      // Ensure we are in "show feedback" mode if we have a valid anchor
+      showMap[String(finalTargetId)] = true;
       this.showFeedback = true;
     }
 
+    // CRITICAL: Preserve the existing feedbackConfigs - do NOT clear them.
+    // They were set by displayFeedbackForOption() and contain the correct message.
+    // Only update the showFeedbackForOption map (which controls WHERE feedback shows).
     this.showFeedbackForOption = { ...showMap };
 
     for (const b of this.optionBindings ?? []) {
       b.showFeedbackForOption = this.showFeedbackForOption;
-      // ensure binding also knows to show feedback
       if (this.showFeedback) {
         b.showFeedback = true;
       }
@@ -1645,6 +1665,21 @@ export class SharedOptionComponent
     this.lastSelectedOptionIndex = index;
     this.lastSelectedOptionId = this.lastFeedbackOptionId;
 
+    // CRITICAL: Also sync _lastClickFeedback and activeFeedbackConfig
+    // so that shouldShowFeedbackAfter() and getInlineFeedbackConfig() work.
+    // The service stores configs by keyOf() key, so look it up.
+    const feedbackKey = this.keyOf(optionBinding.option, index);
+    const syncedConfig = this.feedbackConfigs[feedbackKey] as FeedbackProps | undefined;
+    if (syncedConfig?.showFeedback) {
+      this.activeFeedbackConfig = syncedConfig;
+      this.currentFeedbackConfig = syncedConfig;
+      this._lastClickFeedback = {
+        index,
+        config: syncedConfig,
+        questionIdx: this.resolveCurrentQuestionIndex()
+      };
+    }
+
     // Sync the internal selection Set to avoid jumping in reactive subscriptions
     this.selectedOptions.clear();
     for (const id of ctx.selectedOptionMap.keys()) {
@@ -2030,6 +2065,16 @@ export class SharedOptionComponent
     this.handleSelection(clonedOption, index, optionId);
     this.displayFeedbackForOption(clonedOption, index, optionId);
 
+    // BULLETPROOF: Store the feedback result in a property that NO rebuild cycle can wipe.
+    // This is the single source of truth for shouldShowFeedbackAfter/getInlineFeedbackConfig.
+    if (this.activeFeedbackConfig) {
+      this._lastClickFeedback = {
+        index,
+        config: this.activeFeedbackConfig,
+        questionIdx: this.resolveCurrentQuestionIndex()
+      };
+    }
+
 
     // Generate feedbackConfig per option using hydrated data
     const hydratedOption = this.optionsToDisplay[index];
@@ -2055,6 +2100,10 @@ export class SharedOptionComponent
   }
 
   private shouldIgnoreClick(optionId: number): boolean {
+    // For multi-answer questions, NEVER ignore re-clicks - toggling is allowed
+    if (this.isMultiMode) {
+      return false;
+    }
     if (this.clickedOptionIds.has(optionId)) {
       console.log('Option already selected, ignoring click');
       return true;
@@ -2076,7 +2125,8 @@ export class SharedOptionComponent
     index: number,
     optionId: number
   ): void {
-    const effectiveId = (optionId != null && optionId > -1) ? optionId : index;
+    const normalizedId = (optionId != null && !isNaN(Number(optionId))) ? Number(optionId) : null;
+    const effectiveId = (normalizedId !== null && normalizedId > -1) ? normalizedId : index;
 
     // Robust Multi-Answer Detection: Check component property, config type, OR count of correct options in current metadata
     const correctCount = (this.currentQuestion?.options?.filter(o =>
@@ -2147,12 +2197,22 @@ export class SharedOptionComponent
     // Set the last option selected (used to show only one feedback block)
     this.lastFeedbackOptionId = option.optionId ?? -1;
 
-    // Use consistent effective ID (fallback to index) for all storage/lookup
-    const effectiveId = (optionId != null && optionId > -1) ? optionId : index;
+    // Use consistent effective ID (matching shouldShowFeedbackAfter)
+    const normalizedIdForAnchor = (optionId != null && !isNaN(Number(optionId))) ? Number(optionId) : null;
+    const effectiveId = (normalizedIdForAnchor !== null && normalizedIdForAnchor > -1) ? normalizedIdForAnchor : index;
 
-    // Ensure feedback visibility state is updated for THIS option
+    // Ensure feedback visibility state is updated for JUST THIS option (mutate to clear others)
     this.showFeedback = true;
+    for (const k of Object.keys(this.showFeedbackForOption)) {
+      delete (this.showFeedbackForOption as any)[k];
+    }
+
+    // Set both number and string keys to be bulletproof for template lookups
     this.showFeedbackForOption[effectiveId] = true;
+    this.showFeedbackForOption[String(effectiveId)] = true;
+    if (typeof effectiveId === 'string' && !isNaN(Number(effectiveId))) {
+       this.showFeedbackForOption[Number(effectiveId)] = true;
+    }
 
     // 🚀 CRITICAL FIX: Only set as "answered" (revealing the permanent FET explanation)
     // if the question is TRULY resolved (success). Otherwise, it reveals the answer too early.
@@ -2177,8 +2237,20 @@ export class SharedOptionComponent
     this.currentFeedbackConfig = feedbackConfig;
     this.activeFeedbackConfig = this.currentFeedbackConfig;
 
-    // Also update the cached config for this option
+    // CRITICAL: Store config under BOTH the numeric effectiveId AND the string key
+    // that keyOf() returns. The template looks up feedbackConfigs[keyOf(b.option, i)]
+    // which returns String(optionId). If we only store under the number, JS treats
+    // feedbackConfigs[201] and feedbackConfigs["201"] as the same for arrays but
+    // NOT for plain objects, causing the template to miss the config.
     this.feedbackConfigs[effectiveId] = feedbackConfig;
+    this.feedbackConfigs[String(effectiveId)] = feedbackConfig;
+
+    // Also store under the canonical keyOf() key for the option at this index
+    const hydratedOpt = this.optionsToDisplay?.[index];
+    if (hydratedOpt) {
+      const canonicalKey = this.keyOf(hydratedOpt, index);
+      this.feedbackConfigs[canonicalKey] = feedbackConfig;
+    }
 
     // CRITICAL: Re-generate configs for ALL options that are currently showing feedback
     // This ensures that if the latest click solves the question, any previous "Select 1 more"
@@ -2186,7 +2258,7 @@ export class SharedOptionComponent
     if (this.optionBindings) {
       this.optionBindings.forEach((b, i) => {
         const id = (b.option?.optionId != null && b.option.optionId > -1) ? b.option.optionId : i;
-        if (this.showFeedbackForOption[id] === true && id !== effectiveId) {
+        if (this.showFeedbackForOption[id] === true && id !== effectiveId && String(id) !== String(effectiveId)) {
           const hydrated = this.optionsToDisplay?.[i];
           if (hydrated) {
             const selOpt: SelectedOption = {
@@ -2196,7 +2268,12 @@ export class SharedOptionComponent
               displayIndex: i,
               feedback: hydrated.feedback ?? ''
             };
-            this.feedbackConfigs[String(id)] = this.generateFeedbackConfig(selOpt, i);
+            const updatedCfg = this.generateFeedbackConfig(selOpt, i);
+            this.feedbackConfigs[id] = updatedCfg;
+            this.feedbackConfigs[String(id)] = updatedCfg;
+            // Also update under canonical key
+            const bKey = this.keyOf(hydrated, i);
+            this.feedbackConfigs[bKey] = updatedCfg;
           }
         }
       });
@@ -2254,7 +2331,8 @@ export class SharedOptionComponent
       // Use consistent effectiveId (id || index) for Set lookups to match handleSelection
       const selectedModels = (this.optionsToDisplay || []).filter((opt, i) => {
         const id = opt.optionId;
-        const currentEffectiveId = (id != null && id > -1) ? id : i;
+        const normIdForFilter = (id != null && !isNaN(Number(id))) ? Number(id) : null;
+        const currentEffectiveId = (normIdForFilter !== null && normIdForFilter > -1) ? normIdForFilter : i;
 
         // Check 1: ID is in local selectedOptions Set
         if (this.selectedOptions.has(currentEffectiveId)) return true;
@@ -2269,6 +2347,9 @@ export class SharedOptionComponent
 
         return false;
       });
+
+      console.log(`[SOC.generateFeedbackConfig] Q${this.getActiveQuestionIndex() + 1} | selectedOptionsSet:`, Array.from(this.selectedOptions));
+      console.log(`[SOC.generateFeedbackConfig] Q${this.getActiveQuestionIndex() + 1} | selectedModels:`, selectedModels.map(m => m.optionId));
 
       // Map to include displayIndex for FeedbackService reconciliation
       optionsToCheck = selectedModels.map(m => {
@@ -2285,6 +2366,7 @@ export class SharedOptionComponent
       if (!optionsToCheck.find(o => o === option || (o.optionId != null && o.optionId > -1 && o.optionId === option.optionId))) {
         optionsToCheck.push(option);
       }
+      console.log(`[SOC.generateFeedbackConfig] Q${this.getActiveQuestionIndex() + 1} | finalOptionsToCheck IDs:`, optionsToCheck.map(o => o.optionId));
     }
 
     // Ensure correct feedback message context
@@ -2480,7 +2562,12 @@ export class SharedOptionComponent
     this.rehydrateUiFromState('generateOptionBindings');
 
     // Now rebuild the feedback visibility map based on bindings selection
-    this.rebuildShowFeedbackMapFromBindings();
+    // BUT only if there are no active feedbackConfigs (otherwise we'd wipe
+    // the configs that were just set by displayFeedbackForOption)
+    const hasFreshFeedback = Object.keys(this.feedbackConfigs).length > 0;
+    if (!hasFreshFeedback) {
+      this.rebuildShowFeedbackMapFromBindings();
+    }
 
     // Set display flags before CD so canDisplayOptions returns true
     this.showOptions = true;
@@ -2845,25 +2932,16 @@ export class SharedOptionComponent
 
   // Determine relative component logic for Q-type
   private determineQuestionType(input: QuizQuestion): 'single' | 'multiple' {
-    if (Array.isArray(input.options)) {
-      const correctOptionsCount = input.options.filter(
-        (opt: Option) => opt.correct
-      ).length;
+    if (input && Array.isArray(input.options)) {
+      const isCorrectHelper = (v: any) => v === true || String(v) === 'true' || v === 1 || v === '1';
+      const correctOptionsCount = input.options.filter(o => isCorrectHelper(o.correct)).length;
 
-      if (correctOptionsCount > 1) {
+      if (correctOptionsCount > 1 || input.type === QuestionType.MultipleAnswer || (input as any).multipleAnswer === true) {
         return 'multiple';
-      }
-      if (correctOptionsCount === 1) {
-        return 'single';
       }
     }
 
-    console.warn(
-      "[determineQuestionType] No valid options or input detected. Defaulting to 'single'."
-    );
-
-    // Final fallback based on explicit type property
-    return input.type === QuestionType.MultipleAnswer ? 'multiple' : 'single';
+    return 'single';
   }
 
   private finalizeOptionPopulation(): void {
@@ -3039,15 +3117,23 @@ export class SharedOptionComponent
   }
 
   public shouldShowFeedbackAfter(b: OptionBindings, i: number): boolean {
-    if (!this.showFeedback) return false;
-
-    // Consistency with handleOptionClick: use optionId if available (and valid), else index
-    const optId = (b?.option?.optionId != null && b.option.optionId > -1) ? b.option.optionId : i;
-
-    // Allow ANY option that has been flagged for feedback
-    // This supports showing feedback for multiple options simultaneously
-    return this.showFeedbackForOption[optId] === true;
+  // BULLETPROOF PRIMARY CHECK: use the click feedback tracker
+  if (this._lastClickFeedback &&
+      this._lastClickFeedback.questionIdx === this.resolveCurrentQuestionIndex() &&
+      i === this._lastClickFeedback.index &&
+      this._lastClickFeedback.config?.showFeedback) {
+    return true;
   }
+
+  // FALLBACK: check the map and activeFeedbackConfig
+  if (!this.showFeedback && !this.activeFeedbackConfig?.showFeedback) return false;
+  if (i === this.lastSelectedOptionIndex && this.activeFeedbackConfig?.showFeedback) {
+    return true;
+  }
+  const optId = (b?.option?.optionId != null && b.option.optionId > -1) ? b.option.optionId : i;
+  const visible = this.showFeedbackForOption[optId] === true || this.showFeedbackForOption[String(optId)] === true;
+  return visible;
+}
  
   /**
    * Gets the feedback config to show inline below the last selected option.
@@ -3055,34 +3141,35 @@ export class SharedOptionComponent
    * rather than activeFeedbackConfig (which was not always synced).
    */
   public getInlineFeedbackConfig(b: OptionBindings, i: number): FeedbackProps | null {
-    const key = this.keyOf(b.option, i);
-    const cfg = this.feedbackConfigs[key];
-    if (cfg?.showFeedback) return cfg;
-
-    // Also try by optionId directly (some paths store by optionId number)
-    const optId = (b?.option?.optionId != null && b.option.optionId > -1) ? b.option.optionId : i;
-    if (optId != null) {
-      const cfgById = this.feedbackConfigs[String(optId)] ?? this.feedbackConfigs[optId];
-      if (cfgById?.showFeedback) return { ...cfgById, questionIndex: this.currentQuestionIndex };
-    }
-
-    if (cfg?.showFeedback) {
-      return { ...cfg, questionIndex: this.currentQuestionIndex };
-    }
-
-    // Final fallback: Use the binding's own feedback if nothing in the map matches
-    return {
-      feedback: b.feedback || '',
-      showFeedback: this.showFeedback && (this.showFeedbackForOption[(b.option.optionId != null && b.option.optionId > -1) ? b.option.optionId : i] === true),
-      options: this.optionsToDisplay,
-      question: this.currentQuestion,
-      selectedOption: b.option,
-      correctMessage: b.feedback || '',
-      idx: i,
-      questionIndex: this.currentQuestionIndex
-    } as any;
+  // BULLETPROOF PRIMARY: use the click feedback tracker
+  if (this._lastClickFeedback &&
+      this._lastClickFeedback.questionIdx === this.resolveCurrentQuestionIndex() &&
+      i === this._lastClickFeedback.index &&
+      this._lastClickFeedback.config?.showFeedback) {
+    return this._lastClickFeedback.config;
   }
 
+  // SECONDARY: activeFeedbackConfig for last selected index
+  if (i === this.lastSelectedOptionIndex && this.activeFeedbackConfig?.showFeedback) {
+    return this.activeFeedbackConfig;
+  }
+
+  // TERTIARY: look up by canonical key
+  const key = this.keyOf(b.option, i);
+  const cfg = this.feedbackConfigs[key];
+  if (cfg?.showFeedback) return cfg;
+
+  // QUATERNARY: try by optionId
+  const optId = (b?.option?.optionId != null && b.option.optionId > -1) ? b.option.optionId : i;
+  if (optId != null) {
+    const cfgById = this.feedbackConfigs[String(optId)] ?? this.feedbackConfigs[optId];
+    if (cfgById?.showFeedback) {
+      return cfgById;
+    }
+  }
+
+  return null;
+}
 
   private resolveCurrentQuestionIndex(): number {
     return Number(this.currentQuestionIndex) || 0;
