@@ -52,9 +52,21 @@ export class SelectedOptionService {
     this.rawSelectionsMap.clear();
     this.selectedOption = [];
     this.selectedOptionIndices = {};
+    this.feedbackByQuestion.clear();
+    this.optionSnapshotByQuestion.clear();
+    this._lockedOptionsMap.clear();
+    this.optionStates.clear();
+    this._questionLocks.clear();
+    this._lockedByQuestion.clear();
+    this.isAnsweredSubject.next(false);
+    this.isOptionSelectedSubject.next(false);
+    this.showFeedbackForOptionSubject.next({});
+    
     try {
       sessionStorage.removeItem('rawSelectionsMap');
       sessionStorage.removeItem('selectedOptionsMap');
+      sessionStorage.removeItem('answeredMap');
+      sessionStorage.removeItem('currentQuestionIndex');
     } catch (err) {
       // ignore
     }
@@ -124,6 +136,12 @@ export class SelectedOptionService {
         this.publishFeedbackForQuestion(index);
       });
     }
+
+    // Reset Sync: Automatically clear all selections when QuizService resets
+    this.quizService.quizReset$.subscribe(() => {
+      console.log('[SelectedOptionService] 🧹 Triggering resetAllOptions via QuizService.quizReset$');
+      this.resetAllOptions();
+    });
   }
 
   isSelectedOption(option: Option): boolean {

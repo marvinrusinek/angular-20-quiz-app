@@ -2589,6 +2589,7 @@ export class QuizService {
     this.displayExplanation = false;
     this.shouldDisplayExplanation = false;
     this.resetScore();
+    this.quizResetSource.next();
     console.log('[QuizService] resetQuizSessionState complete.');
 
     // Clear internal scoring state map to prevent stale "wasCorrect" flags
