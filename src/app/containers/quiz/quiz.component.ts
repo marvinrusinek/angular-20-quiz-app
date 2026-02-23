@@ -592,6 +592,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
             this.isQuizLoaded = false;
             this.isQuizDataLoaded = false;
             this.totalQuestions = 0;
+            this.progress = 0;
 
             try { localStorage.removeItem('shuffledQuestions'); } catch { }
           } else {
@@ -659,13 +660,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         const prevIdx = this.lastLoggedIndex;
         const ets = this.explanationTextService;
 
-        // Only purge the previous question
+        // Keep historical state for progress/dots
         if (prevIdx !== null && prevIdx !== idx) {
-          console.warn('[STATE CLEANUP] Purging Q', prevIdx + 1);
-
-          this.quizStateService._hasUserInteracted?.delete(prevIdx);
-          this.quizStateService._answeredQuestionIndices?.delete(prevIdx);
-
+          console.warn('[STATE SYNC] Moving from Q', prevIdx + 1);
           // Only clear FET belonging to the previous question
           if (ets.latestExplanationIndex === prevIdx) {
             ets.latestExplanation = '';
@@ -3498,6 +3495,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       }
 
       // Force change detection after navigation completes
+      this.updateProgressValue();
       this.cdRef.markForCheck();
     });
   }
@@ -4263,8 +4261,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   updateProgressValue(): void {
     const total = this.totalCount;
     if (total <= 0) {
-      this.progress = 0;
-      this.cdRef.detectChanges();
+      // Don't reset to 0% if total is temporarily missing during navigation
+      // This prevents the progress bar from "going back" to 0% between questions.
+      console.log('[PROGRESS] Skipping update - totalCount is 0');
       return;
     }
 
@@ -4298,16 +4297,20 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     
     // 2. Check selected options map for any active selections
     if (this.selectedOptionService?.selectedOptionsMap) {
-      for (const [key, value] of this.selectedOptionService.selectedOptionsMap.entries()) {
+      const mapKeys = Array.from(this.selectedOptionService.selectedOptionsMap.keys());
+      for (const key of mapKeys) {
+        const value = this.selectedOptionService.selectedOptionsMap.get(key);
         const idx = typeof key === 'string' ? parseInt(key, 10) : key;
-        if (!isNaN(idx) && idx >= 0 && idx < total && Array.isArray(value) && value.length > 0) {
+        
+        // Count as answered if it's within quiz bounds and has any selections
+        if (!isNaN(idx) && idx >= 0 && Array.isArray(value) && value.length > 0) {
           answeredIndices.add(idx);
         }
       }
     }
     
     const count = answeredIndices.size;
-    console.log(`[PROGRESS_CALC] answeredIndices=[${Array.from(answeredIndices).join(',')}], count=${count} out of ${total}`);
+    console.log(`[PROGRESS_CALC] TotalCount=${total}, AnsweredSet=[${Array.from(answeredIndices).sort((a,b)=>a-b).join(',')}], count=${count}`);
     return count;
   }
 
