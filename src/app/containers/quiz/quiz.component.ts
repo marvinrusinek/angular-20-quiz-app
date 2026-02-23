@@ -742,6 +742,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           this.explanationToDisplay = '';
           this.explanationVisibleLocal = false;
 
+          // Ensure progress is updated when arriving at new question
+          this.updateProgressValue();
+
           console.warn('[NAVIGATION COMPLETE]', idx + 1);
         }
       });
@@ -4268,9 +4271,18 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     }
 
     const answeredCount = this.calculateAnsweredCount();
-    this.progress = Math.round((answeredCount / total) * 100);
+    const newProgress = Math.round((answeredCount / total) * 100);
     
-    console.log(`[PROGRESS] answeredCount=${answeredCount}, total=${total}, progress=${this.progress}%`);
+    // Monotonically increasing progress (within a single quiz session)
+    // and cap at 100%. This prevents the progress bar from ever "going back" 
+    // unless the quiz is actually restarted or switched.
+    if (newProgress > this.progress) {
+      console.log(`[PROGRESS] Incrementing: ${this.progress}% -> ${newProgress}%`);
+      this.progress = Math.min(newProgress, 100);
+    } else if (newProgress < this.progress) {
+      console.log(`[PROGRESS] Persistence: holding at ${this.progress}% (new calc was ${newProgress}%)`);
+    }
+    
     this.cdRef.detectChanges();
   }
 
@@ -4286,7 +4298,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     const total = this.totalCount;
     const answeredIndices = new Set<number>();
     
-    // 1. Check dot status cache (definitely answered)
+    // 1. Check dot status cache (definitely answered/graded)
     if (this.dotStatusCache) {
       for (const [idx, status] of this.dotStatusCache.entries()) {
         if (status === 'correct' || status === 'wrong') {
@@ -4295,18 +4307,27 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       }
     }
     
-    // 2. Check selected options map for any active selections
+    // 2. Check selected options map for any active selections (interacted)
     if (this.selectedOptionService?.selectedOptionsMap) {
       const mapKeys = Array.from(this.selectedOptionService.selectedOptionsMap.keys());
       for (const key of mapKeys) {
         const value = this.selectedOptionService.selectedOptionsMap.get(key);
         const idx = typeof key === 'string' ? parseInt(key, 10) : key;
         
-        // Count as answered if it's within quiz bounds and has any selections
+        // Count as answered if it has any selections
         if (!isNaN(idx) && idx >= 0 && Array.isArray(value) && value.length > 0) {
           answeredIndices.add(idx);
         }
       }
+    }
+
+    // 3. Fallback: Check quizService.userAnswers (authoritative for results)
+    if (this.quizService?.userAnswers) {
+      this.quizService.userAnswers.forEach((ans, idx) => {
+        if (Array.isArray(ans) && ans.length > 0) {
+          answeredIndices.add(idx);
+        }
+      });
     }
     
     const count = answeredIndices.size;
