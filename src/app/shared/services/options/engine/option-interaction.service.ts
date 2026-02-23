@@ -98,8 +98,8 @@ export class OptionInteractionService {
 
     // Determine type for scoring
     const bindingsForScore = state.optionBindings ?? [];
-    // Relaxed check for 'correct' (truthy)
-    const correctCountForScore = bindingsForScore.filter(b => b.option?.correct).length;
+    const isCorrectHelper = (v: any) => v === true || String(v) === 'true' || v === 1 || v === '1';
+    const correctCountForScore = bindingsForScore.filter(b => isCorrectHelper(b.option?.correct)).length;
     const isMultipleForScore = correctCountForScore > 1;
 
     // Guard: prevent deselection of correct answers in multiple-answer questions

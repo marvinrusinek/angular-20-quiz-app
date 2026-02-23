@@ -3117,23 +3117,11 @@ export class SharedOptionComponent
   }
 
   public shouldShowFeedbackAfter(b: OptionBindings, i: number): boolean {
-  // BULLETPROOF PRIMARY CHECK: use the click feedback tracker
-  if (this._lastClickFeedback &&
-      this._lastClickFeedback.questionIdx === this.resolveCurrentQuestionIndex() &&
-      i === this._lastClickFeedback.index &&
-      this._lastClickFeedback.config?.showFeedback) {
-    return true;
+    const optId = (b?.option?.optionId != null && b.option.optionId > -1) ? b.option.optionId : i;
+    // Strictly only show if this specific optionId is the ONE current feedback target
+    // showFeedbackForOption is cleared and set to only ONE target in OptionUiSyncService.refreshFeedbackConfigForClicked
+    return !!(this.showFeedbackForOption[optId] === true || this.showFeedbackForOption[String(optId)] === true);
   }
-
-  // FALLBACK: check the map and activeFeedbackConfig
-  if (!this.showFeedback && !this.activeFeedbackConfig?.showFeedback) return false;
-  if (i === this.lastSelectedOptionIndex && this.activeFeedbackConfig?.showFeedback) {
-    return true;
-  }
-  const optId = (b?.option?.optionId != null && b.option.optionId > -1) ? b.option.optionId : i;
-  const visible = this.showFeedbackForOption[optId] === true || this.showFeedbackForOption[String(optId)] === true;
-  return visible;
-}
  
   /**
    * Gets the feedback config to show inline below the last selected option.
@@ -3141,35 +3129,33 @@ export class SharedOptionComponent
    * rather than activeFeedbackConfig (which was not always synced).
    */
   public getInlineFeedbackConfig(b: OptionBindings, i: number): FeedbackProps | null {
-  // BULLETPROOF PRIMARY: use the click feedback tracker
-  if (this._lastClickFeedback &&
-      this._lastClickFeedback.questionIdx === this.resolveCurrentQuestionIndex() &&
-      i === this._lastClickFeedback.index &&
-      this._lastClickFeedback.config?.showFeedback) {
-    return this._lastClickFeedback.config;
-  }
+    const optId = (b?.option?.optionId != null && b.option.optionId > -1) ? b.option.optionId : i;
+    const isTarget = this.showFeedbackForOption[optId] === true || this.showFeedbackForOption[String(optId)] === true;
+    
+    if (!isTarget) return null;
 
-  // SECONDARY: activeFeedbackConfig for last selected index
-  if (i === this.lastSelectedOptionIndex && this.activeFeedbackConfig?.showFeedback) {
-    return this.activeFeedbackConfig;
-  }
+    // Highest priority: check by canonical key
+    const key = this.keyOf(b.option, i);
+    const cfg = this.feedbackConfigs[key];
+    if (cfg?.showFeedback) return cfg;
 
-  // TERTIARY: look up by canonical key
-  const key = this.keyOf(b.option, i);
-  const cfg = this.feedbackConfigs[key];
-  if (cfg?.showFeedback) return cfg;
-
-  // QUATERNARY: try by optionId
-  const optId = (b?.option?.optionId != null && b.option.optionId > -1) ? b.option.optionId : i;
-  if (optId != null) {
-    const cfgById = this.feedbackConfigs[String(optId)] ?? this.feedbackConfigs[optId];
-    if (cfgById?.showFeedback) {
-      return cfgById;
+    // Second: search all keys for matching index
+    for (const k of Object.keys(this.feedbackConfigs)) {
+      const c = this.feedbackConfigs[k];
+      if (c && c.idx === i && c.showFeedback) return c;
     }
-  }
 
-  return null;
-}
+    // Third: search by optionId key
+    const cfgById = this.feedbackConfigs[String(optId)] ?? this.feedbackConfigs[optId];
+    if (cfgById?.showFeedback) return cfgById;
+
+    // Final fallback: activeFeedbackConfig
+    if (i === this.lastSelectedOptionIndex && this.activeFeedbackConfig?.showFeedback) {
+      return this.activeFeedbackConfig;
+    }
+
+    return null;
+  }
 
   private resolveCurrentQuestionIndex(): number {
     return Number(this.currentQuestionIndex) || 0;

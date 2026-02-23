@@ -122,11 +122,25 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     }
 
     this.quizService.getCurrentQuestion(this.quizService.currentQuestionIndex)
+      .pipe(takeUntil(this.destroy$))
       .subscribe((currentQuestion: QuizQuestion | null) => {
         if (!currentQuestion) return;
-        const correctCount = currentQuestion.options?.filter(o => o.correct).length ?? 0;
-        const isMultipleAnswer = correctCount > 1;
-        this.type = isMultipleAnswer ? 'multiple' : 'single';
+        
+        // ROBUST MULTI-ANSWER CHECK
+        const opts = currentQuestion.options || [];
+        const correctCount = opts.filter(o => 
+          o.correct === true || (o as any).correct === 'true' || (o as any).correct === 1
+        ).length;
+        
+        this.type = correctCount > 1 ? 'multiple' : 'single';
+        console.log(`[AnswerComponent] Q${this.currentQuestionIndex + 1} detected as ${this.type} (Correct count: ${correctCount})`);
+        
+        // Ensure component is marked as loaded
+        if (!this.hasComponentLoaded) {
+          this.hasComponentLoaded = true;
+          this.quizQuestionComponentLoaded.emit();
+        }
+        this.cdRef.markForCheck();
       });
 
     // Displays the unique options to the UI

@@ -156,23 +156,6 @@ export class OptionUiSyncService {
     // updated anchor logic: if unselecting, move back to last still-selected option
     if (checked) {
       ctx.showFeedback = true;
-      
-      // CLEAR all keys to ensure only one feedback block is visible (the most recent click)
-      // Note: Mutate the object instead of reassigning the reference
-      for (const k of Object.keys(ctx.showFeedbackForOption)) {
-        delete ctx.showFeedbackForOption[k];
-      }
-      
-      if (optionId != null) {
-        ctx.showFeedbackForOption[optionId] = true;
-        // Robustness: ensure numeric variant is also set if string-like
-        if (typeof optionId === 'string' && !isNaN(Number(optionId))) {
-           ctx.showFeedbackForOption[Number(optionId)] = true;
-        } else if (typeof optionId === 'number') {
-           ctx.showFeedbackForOption[String(optionId)] = true;
-        }
-      }
-      
       ctx.lastFeedbackOptionId = optionId ?? -1;
       this.refreshFeedbackConfigForClicked(optionBinding, index, optionId as any, ctx);
     } else {
@@ -181,7 +164,6 @@ export class OptionUiSyncService {
         .find(id => ctx.selectedOptionMap.has(id));
 
       if (stillSelectedId !== undefined) {
-        ctx.showFeedbackForOption = { [stillSelectedId]: true };
         ctx.lastFeedbackOptionId = stillSelectedId;
 
         const prevBindingIdx = ctx.optionBindings.findIndex(b => b.option.optionId === stillSelectedId);
@@ -393,81 +375,51 @@ export class OptionUiSyncService {
         ? ctx.optionsToDisplay
         : currentQuestion?.options ?? [];
 
-    // AUTHORITATIVE FIX: Restore selectedOptionMap from SelectedOptionService.
-    // The service is updated by AnswerComponent.onOptionClicked() (via ctx.onSelect)
-    // SYNCHRONOUSLY before this method runs, so it always has the complete picture.
-    // This bypasses ALL race conditions with map clearing and binding recreation.
+    // AUTHORITATIVE FIX: Sync selectedOptionMap from SelectedOptionService.
     const serviceSelections = this.selectedOptionService.getSelectedOptionsForQuestion(qIdx) ?? [];
-    console.log(`[SyncService.refresh] DIAG: qIdx=${qIdx}, serviceSelections=${serviceSelections.length}, serviceIds=${JSON.stringify(serviceSelections.map((s: any) => s.optionId))}, mapSize=${ctx.selectedOptionMap.size}, mapKeys=${JSON.stringify(Array.from(ctx.selectedOptionMap.keys()))}`);
+    
+    // Clear and rebuild the map to ensure it perfectly reflects the service truth
+    ctx.selectedOptionMap.clear();
     for (const sel of serviceSelections) {
       const selId = (sel as any).optionId;
       if (selId != null && selId !== -1) {
-        if (!ctx.selectedOptionMap.has(selId)) {
-          ctx.selectedOptionMap.set(selId, true);
-        }
-        if (!ctx.selectedOptionMap.has(Number(selId))) {
-          ctx.selectedOptionMap.set(Number(selId), true);
-        }
+        ctx.selectedOptionMap.set(selId, true);
+        ctx.selectedOptionMap.set(Number(selId), true);
+        ctx.selectedOptionMap.set(String(selId), true);
       }
     }
 
-    // Also restore from binding flags as an extra safety net
-    for (const binding of ctx.optionBindings) {
-      const id = binding.option.optionId;
-      if (id == null || id === -1) continue;
-      if (binding.isSelected || binding.option.selected) {
-        if (!ctx.selectedOptionMap.has(id)) {
-          ctx.selectedOptionMap.set(id, true);
-        }
-      }
+    // Clear ANY existing feedback configs/targets to ensure feedback only appears under the LAST selected option
+    for (const k of Object.keys(ctx.feedbackConfigs)) {
+      ctx.feedbackConfigs[k].showFeedback = false;
+    }
+    for (const k of Object.keys(ctx.showFeedbackForOption)) {
+      delete ctx.showFeedbackForOption[k];
     }
 
     // Sync selected flags on all bindings from the (now-complete) map
-    // CRITICAL: Use OR logic — never overwrite a true flag to false.
-    // The binding flags were correctly set at the top of updateOptionAndUI (lines 89-94),
-    // but the map may have been cleared by race conditions (QQC async handler).
     for (const binding of ctx.optionBindings) {
       const id = binding.option.optionId ?? -1;
-      const inMap = (ctx.selectedOptionMap as any).get(id) === true || 
-                         ctx.selectedOptionMap.get(Number(id)) === true ||
-                         (ctx.selectedOptionMap as any).get(String(id)) === true;
-      // Only SET to true, never clear to false (preserves state from lines 89-94)
-      if (inMap) {
-        binding.isSelected = true;
-        binding.option.selected = true;
-      }
+      const inMap = ctx.selectedOptionMap.has(id) || 
+                   ctx.selectedOptionMap.has(Number(id)) || 
+                   ctx.selectedOptionMap.has(String(id));
+      binding.isSelected = inMap;
+      binding.option.selected = inMap;
+
       if (binding.isSelected || !binding.option.correct) {
          binding.disabled = false;
       }
     }
 
     // Gather ALL currently selected options for accurate feedback calculation
-    const isCorrect = (o: any) => o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || o.correct === '1');
+    const isCorrectHelper = (o: any) => o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || o.correct === '1');
     const selectedOptions: Option[] = ctx.optionBindings
-      .filter(b => {
-        const id = b.option.optionId;
-        if (id == null) return false;
-
-        // Primary: check the map
-        if ((ctx.selectedOptionMap as any).get(id) === true || 
-               ctx.selectedOptionMap.get(Number(id)) === true || 
-               (ctx.selectedOptionMap as any).get(String(id)) === true) {
-          return true;
-        }
-
-        // Fallback: check binding/option flags (survive map clears from race conditions)
-        if (b.isSelected) return true;
-        if (b.option.selected) return true;
-
-        return false;
-      })
+      .filter(b => b.isSelected || b.option.selected)
       .map(b => b.option);
 
-    const correctSelectedCount = selectedOptions.filter(isCorrect).length;
-    const totalCorrect = freshOptions.filter(isCorrect).length;
-    console.log(`[SyncService.refresh] Q${qIdx+1} counts: selectedCorrect=${correctSelectedCount}, totalCorrect=${totalCorrect}`);
-    console.log(`[SyncService.refresh] Map Keys: ${JSON.stringify(Array.from(ctx.selectedOptionMap.entries()))}`);
-    console.log(`[SyncService.refresh] Selected Options: ${JSON.stringify(selectedOptions.map(o => ({id: o.optionId, correct: o.correct})))}`);
+    const correctSelectedCount = selectedOptions.filter(isCorrectHelper).length;
+    const totalCorrect = freshOptions.filter(isCorrectHelper).length;
+    const numIncorrect = selectedOptions.filter(o => !isCorrectHelper(o)).length;
 
     // Build dynamic feedback via FeedbackService
     const dynamicFeedback = currentQuestion
@@ -482,9 +434,9 @@ export class OptionUiSyncService {
         )
       : '';
 
-    // Generate the static reveal message (e.g., "The correct answers are Options 1 and 2.")
+    // Generate the static reveal message
     const correctMessage = this.feedbackService.generateFeedbackForOptions(
-      freshOptions.filter(isCorrect),
+      freshOptions.filter(isCorrectHelper),
       freshOptions
     );
 
@@ -500,21 +452,21 @@ export class OptionUiSyncService {
       questionIndex: qIdx
     } as any;
 
-    // Final-answer handling: If all correct answers are selected, override feedback and disable others
-    const numIncorrect = selectedOptions.filter(o => !isCorrect(o)).length;
-    if (totalCorrect > 0 && correctSelectedCount === totalCorrect) {
-      console.log(`[SyncService.refresh] Question resolved! Overriding feedback for key: ${key}`);
+    if (optionId != null) {
+      ctx.showFeedbackForOption[optionId] = true;
+      ctx.showFeedbackForOption[String(optionId)] = true;
+      ctx.showFeedbackForOption[Number(optionId)] = true;
+    }
+
+    // Final-answer handling: If all correct answers are selected AND no incorrect ones, show "You're right!"
+    if (totalCorrect > 0 && correctSelectedCount === totalCorrect && numIncorrect === 0) {
       ctx.feedbackConfigs[key].feedback = `You're right! ${correctMessage}`;
       // Disable any still‑unselected options (only incorrect ones)
       ctx.optionBindings.forEach(b => {
         const id = b.option.optionId ?? -1;
-        const isSel = (ctx.selectedOptionMap as any).get(id) === true || 
-                       ctx.selectedOptionMap.get(Number(id)) === true || 
-                       (ctx.selectedOptionMap as any).get(String(id)) === true;
-        if (!isSel) {
+        if (!ctx.selectedOptionMap.has(id)) {
           b.disabled = true;
           this.selectedOptionService.lockOption(qIdx, id);
-          console.log(`[SyncService.refresh] Disabling unselected option: ${id}`);
         }
       });
     }
