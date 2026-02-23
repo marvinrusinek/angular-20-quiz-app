@@ -114,9 +114,11 @@ export class OptionUiSyncService {
     ctx.freezeOptionBindings ??= true;
     ctx.hasUserClicked = true;
 
+    const effectiveId = (optionId != null && optionId !== -1) ? optionId : index;
+
     // Apply selection state + history
     optionBinding.option.selected = checked;
-    ctx.perQuestionHistory.add(optionId ?? -1);
+    ctx.perQuestionHistory.add(effectiveId);
 
     // Force service update to keep Next button snappy
     // Force service update call moved down to ensure map is updated first
@@ -130,12 +132,10 @@ export class OptionUiSyncService {
     optionBinding.option.highlight = checked;
     optionBinding.option.showIcon = checked;
 
-    if (optionId != null) {
-      if (checked) {
-        ctx.selectedOptionMap.set(optionId, true);
-      } else {
-        ctx.selectedOptionMap.delete(optionId);
-      }
+    if (checked) {
+      ctx.selectedOptionMap.set(effectiveId, true);
+    } else {
+      ctx.selectedOptionMap.delete(effectiveId);
     }
 
     // Force service update to keep Next button snappy (now that map is updated)
@@ -156,8 +156,8 @@ export class OptionUiSyncService {
     // updated anchor logic: if unselecting, move back to last still-selected option
     if (checked) {
       ctx.showFeedback = true;
-      ctx.lastFeedbackOptionId = optionId ?? -1;
-      this.refreshFeedbackConfigForClicked(optionBinding, index, optionId as any, ctx);
+      ctx.lastFeedbackOptionId = effectiveId;
+      this.refreshFeedbackConfigForClicked(optionBinding, index, effectiveId as any, ctx);
     } else {
       const stillSelectedId = [...(ctx.selectedOptionHistory || [])]
         .reverse()
@@ -190,7 +190,7 @@ export class OptionUiSyncService {
 
     // Only apply generic feedback if we haven't already anchored to a specific selection
     // in the checked/unchecked blocks above.
-    if (ctx.lastFeedbackOptionId === -1 || ctx.lastFeedbackOptionId === optionId) {
+    if (ctx.lastFeedbackOptionId === -1 || ctx.lastFeedbackOptionId === effectiveId) {
        this.applyFeedback(optionBinding, index, ctx);
     }
 
@@ -378,10 +378,10 @@ export class OptionUiSyncService {
     // AUTHORITATIVE FIX: Sync selectedOptionMap from SelectedOptionService.
     const serviceSelections = this.selectedOptionService.getSelectedOptionsForQuestion(qIdx) ?? [];
     
-    // Clear and rebuild the map to ensure it perfectly reflects the service truth
+    // Clear and rebuild the map up to the service's last known state
     ctx.selectedOptionMap.clear();
     for (const sel of serviceSelections) {
-      const selId = (sel as any).optionId;
+      const selId = (sel as any).optionId ?? (sel as any).index;
       if (selId != null && selId !== -1) {
         ctx.selectedOptionMap.set(selId, true);
         ctx.selectedOptionMap.set(Number(selId), true);
@@ -389,7 +389,23 @@ export class OptionUiSyncService {
       }
     }
 
-    // Clear ANY existing feedback configs/targets to ensure feedback only appears under the LAST selected option
+    // MANDATORY: Force current interaction state into the map to avoid race conditions.
+    // This ensures that even if the service hasn't fully updated yet, we calculate 
+    // feedback based on what the user just did.
+    const currentEffectiveId = (optionBinding.option.optionId != null && optionBinding.option.optionId !== -1) ? optionBinding.option.optionId : index;
+    const isCurrentlyChecked = optionBinding.isSelected || optionBinding.option.selected;
+    
+    if (isCurrentlyChecked) {
+      ctx.selectedOptionMap.set(currentEffectiveId, true);
+      ctx.selectedOptionMap.set(Number(currentEffectiveId), true);
+      ctx.selectedOptionMap.set(String(currentEffectiveId), true);
+    } else {
+      ctx.selectedOptionMap.delete(currentEffectiveId);
+      ctx.selectedOptionMap.delete(Number(currentEffectiveId));
+      ctx.selectedOptionMap.delete(String(currentEffectiveId));
+    }
+
+    // Sync selected flags on all bindings from the (now-complete) map
     for (const k of Object.keys(ctx.feedbackConfigs)) {
       ctx.feedbackConfigs[k].showFeedback = false;
     }
@@ -398,8 +414,10 @@ export class OptionUiSyncService {
     }
 
     // Sync selected flags on all bindings from the (now-complete) map
+    const effectiveTargetId = (optionId != null && optionId !== -1) ? optionId : index;
+    
     for (const binding of ctx.optionBindings) {
-      const id = binding.option.optionId ?? -1;
+      const id = binding.option.optionId ?? binding.index;
       const inMap = ctx.selectedOptionMap.has(id) || 
                    ctx.selectedOptionMap.has(Number(id)) || 
                    ctx.selectedOptionMap.has(String(id));
@@ -452,10 +470,12 @@ export class OptionUiSyncService {
       questionIndex: qIdx
     } as any;
 
-    if (optionId != null) {
-      ctx.showFeedbackForOption[optionId] = true;
-      ctx.showFeedbackForOption[String(optionId)] = true;
-      ctx.showFeedbackForOption[Number(optionId)] = true;
+    if (effectiveTargetId != null) {
+      ctx.showFeedbackForOption[effectiveTargetId] = true;
+      ctx.showFeedbackForOption[String(effectiveTargetId)] = true;
+      if (typeof effectiveTargetId === 'number') {
+        ctx.showFeedbackForOption[Number(effectiveTargetId)] = true;
+      }
     }
 
     // Final-answer handling: If all correct answers are selected AND no incorrect ones, show "You're right!"
@@ -471,22 +491,18 @@ export class OptionUiSyncService {
       });
     }
 
-    if (optionId != null) {
-      // CLEAR others first for completion logic too? 
-      // Usually completion shows under the LAST click that solved it.
+    if (effectiveTargetId != null) {
       for (const k of Object.keys(ctx.showFeedbackForOption)) {
         delete ctx.showFeedbackForOption[k];
       }
       
-      ctx.showFeedbackForOption[optionId] = true;
-      if (typeof optionId === 'string') {
-         const num = Number(optionId);
-         if (!isNaN(num)) (ctx.showFeedbackForOption as any)[num] = true;
-      } else if (typeof optionId === 'number') {
-         (ctx.showFeedbackForOption as any)[String(optionId)] = true;
+      ctx.showFeedbackForOption[effectiveTargetId] = true;
+      ctx.showFeedbackForOption[String(effectiveTargetId)] = true;
+      if (typeof effectiveTargetId === 'number') {
+         ctx.showFeedbackForOption[Number(effectiveTargetId)] = true;
       }
     }
-    ctx.lastFeedbackOptionId = optionId ?? -1;
+    ctx.lastFeedbackOptionId = effectiveTargetId ?? -1;
     ctx.showFeedback = true;
     ctx.hasUserClicked = true;
   }
@@ -600,11 +616,10 @@ export class OptionUiSyncService {
     const isCorrect = (o: any) => o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || o.correct === '1');
     const selectedOptions: Option[] = ctx.optionBindings
       .filter(b => {
-        const id = b.option.optionId;
-        if (id == null) return false;
-        return (ctx.selectedOptionMap as any).get(id) === true || 
-               ctx.selectedOptionMap.get(Number(id)) === true || 
-               (ctx.selectedOptionMap as any).get(String(id)) === true;
+        const id = (b.option.optionId != null && b.option.optionId !== -1) ? b.option.optionId : b.index;
+        return ctx.selectedOptionMap.has(id) || 
+               ctx.selectedOptionMap.has(Number(id)) || 
+               ctx.selectedOptionMap.has(String(id));
       })
       .map(b => b.option);
 
@@ -648,10 +663,10 @@ export class OptionUiSyncService {
       ctx.feedbackConfigs[key].feedback = `You're right! ${correctMessage}`;
       // Disable any still‑unselected options
       ctx.optionBindings.forEach(b => {
-        const id = b.option.optionId ?? -1;
-        const isSel = (ctx.selectedOptionMap as any).get(id) === true || 
-                       ctx.selectedOptionMap.get(Number(id)) === true ||
-                       (ctx.selectedOptionMap as any).get(String(id)) === true;
+        const id = (b.option.optionId != null && b.option.optionId !== -1) ? b.option.optionId : b.index;
+        const isSel = ctx.selectedOptionMap.has(id) || 
+                       ctx.selectedOptionMap.has(Number(id)) || 
+                       ctx.selectedOptionMap.has(String(id));
         if (!isSel) {
           b.disabled = true;
           console.log(`[SyncService.apply] Disabling unselected option: ${id}`);
@@ -659,11 +674,11 @@ export class OptionUiSyncService {
       });
     }
 
-    const optId = optionBinding.option?.optionId;
-    if (optId != null) {
-      ctx.showFeedbackForOption[Number(optId)] = true;
-      (ctx.showFeedbackForOption as any)[String(optId)] = true;
-      ctx.lastFeedbackOptionId = Number(optId);
+    const effectiveId = (optionBinding.option?.optionId != null && optionBinding.option?.optionId !== -1) ? optionBinding.option.optionId : displayIndex;
+    if (effectiveId != null) {
+      ctx.showFeedbackForOption[Number(effectiveId)] = true;
+      (ctx.showFeedbackForOption as any)[String(effectiveId)] = true;
+      ctx.lastFeedbackOptionId = Number(effectiveId);
       ctx.showFeedback = true;
     }
   }

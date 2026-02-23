@@ -65,64 +65,54 @@ export class OptionInteractionService {
     updateOptionAndUI: (b: OptionBindings, i: number, ev: any) => void
   ): void {
     const qIdx = state.currentQuestionIndex;
+    const effectiveId = (binding.option.optionId != null && binding.option.optionId !== -1) ? binding.option.optionId : index;
       
     // Mark interaction immediately
     this.quizStateService.markUserInteracted(qIdx);
     console.log(`[OIS] 🖱️ Marked user interaction for Q${qIdx + 1}`);
 
     // Prevent the click from bubbling up
-    event.stopPropagation();
+    if (event && event.stopPropagation) {
+      event.stopPropagation();
+    }
 
     // Guard: Skip if this option is disabled
     const disabledSet = state.disabledOptionsPerQuestion.get(qIdx);
-    if (disabledSet && binding.option.optionId != null && disabledSet.has(binding.option.optionId)) {
-      console.log('[OIS] Option is disabled, blocking click:', binding.option?.optionId);
+    if (disabledSet && effectiveId != null && disabledSet.has(effectiveId as any)) {
+      console.log('[OIS] Option is disabled, blocking click:', effectiveId);
       return;
     }
     if (binding.disabled) {
-      console.log('[OIS] Binding is disabled, blocking click:', binding.option?.optionId);
+      console.log('[OIS] Binding is disabled, blocking click:', effectiveId);
       return;
     }
 
-    // OPTIONAL: Skip if you prefer to allow re-clicking the same option
-    /*
-    const optionIdToDisable = binding.option?.optionId;
-    if (typeof optionIdToDisable === 'number') {
-      if (!state.disabledOptionsPerQuestion.has(qIdx)) {
-        state.disabledOptionsPerQuestion.set(qIdx, new Set<number>());
-      }
-      state.disabledOptionsPerQuestion.get(qIdx)!.add(optionIdToDisable);
-      console.log(`[OIS] Disabled option ${optionIdToDisable} for Q${qIdx + 1}`);
-    }
-    */
+    // Helper for truthy correctness check
+    const isCorrectHelper = (v: any) => v === true || String(v) === 'true' || v === 1 || v === '1';
 
     // Determine type for scoring
     const bindingsForScore = state.optionBindings ?? [];
-    const isCorrectHelper = (v: any) => v === true || String(v) === 'true' || v === 1 || v === '1';
     const correctCountForScore = bindingsForScore.filter(b => isCorrectHelper(b.option?.correct)).length;
     const isMultipleForScore = correctCountForScore > 1;
 
     // Guard: prevent deselection of correct answers in multiple-answer questions
-    if (isMultipleForScore && binding.isSelected && binding.option?.correct) {
-      console.log('[OIS] Blocking deselection of correct answer:', binding.option?.optionId);
-      event.preventDefault();
+    if (isMultipleForScore && binding.isSelected && isCorrectHelper(binding.option?.correct)) {
+      console.log('[OIS] Blocking deselection of correct answer:', effectiveId);
+      if (event && event.preventDefault) {
+        event.preventDefault();
+      }
       return;
     }
-
-    // Calculate Current Selected Set
-    let currentSelectedOptions = bindingsForScore
-      .filter(b => b.isSelected)
-      .map(b => b.option);
-
-    const willBeSelected = isMultipleForScore ? !binding.isSelected : true;
 
     // Use SelectedOptionService as source of truth
     const storedSelection = this.selectedOptionService.getSelectedOptionsForQuestion(qIdx) || [];
     let simulatedSelection = [...storedSelection];
 
     // NORMALIZE IDs for reliable lookups
-    const targetId = Number(binding.option.optionId);
-    const existingIdx = simulatedSelection.findIndex(o => Number(o.optionId) === targetId);
+    const existingIdx = simulatedSelection.findIndex(o => {
+        const oId = (o.optionId != null && o.optionId !== -1) ? o.optionId : (o as any).index;
+        return oId === effectiveId;
+    });
 
     if (existingIdx > -1) {
       simulatedSelection.splice(existingIdx, 1);
@@ -130,7 +120,8 @@ export class OptionInteractionService {
       simulatedSelection.push({
         ...binding.option,
         selected: true,
-        questionIndex: qIdx
+        questionIndex: qIdx,
+        index: index // ensure index is preserved for fallback
       } as SelectedOption);
     }
 
@@ -139,7 +130,7 @@ export class OptionInteractionService {
     const validIds = simulatedSelection.map((o) => {
       if (typeof o.optionId === 'number') return o.optionId;
       const trueIndex = allBindings.findIndex(b => b.option === o || (b.option?.text === o.text));
-      const idxToUse = trueIndex >= 0 ? trueIndex : 0;
+      const idxToUse = trueIndex >= 0 ? trueIndex : (o as any).index ?? 0;
       return Number(`${qIdx + 1}${(idxToUse + 1).toString().padStart(2, '0')}`);
     }).filter((id): id is number => Number.isFinite(id));
 
@@ -155,13 +146,14 @@ export class OptionInteractionService {
 
     // TIMER STOP LOGIC
     const question = getQuestionAtDisplayIndex(qIdx);
-    const isCorrectHelper = (v: any) => v === true || String(v) === 'true' || v === 1 || v === '1';
     let clickedIsCorrect = isCorrectHelper(binding.option.correct);
 
     // Fallbacks for correctness detection
     if (!clickedIsCorrect) {
-      const match = (o: Option) => Number(o.optionId) === targetId || 
-        (o.text && o.text.trim().toLowerCase() === (binding.option.text ?? '').trim().toLowerCase());
+      const match = (o: Option) => {
+        const oId = (o.optionId != null && o.optionId !== -1) ? o.optionId : undefined;
+        return (oId === effectiveId) || (o.text && o.text.trim().toLowerCase() === (binding.option.text ?? '').trim().toLowerCase());
+      };
       
       const matchingOpt = (question?.options?.find(match)) || 
                           (state.optionBindings?.find(b => match(b.option))?.option) ||
@@ -174,13 +166,13 @@ export class OptionInteractionService {
 
     let isMultipleAnswer = state.type === 'multiple';
     if (!isMultipleAnswer && state.optionsToDisplay?.length > 0) {
-      const correctCount = state.optionsToDisplay.filter(o => !!o.correct).length;
+      const correctCount = state.optionsToDisplay.filter(o => isCorrectHelper(o.correct)).length;
       if (correctCount > 1) {
         isMultipleAnswer = true;
       }
     }
 
-    console.log(`[OIS] Q${qIdx + 1} Logic Mode: ${isMultipleAnswer ? 'MULTIPLE' : 'SINGLE'} | TargetID: ${targetId} | ClickCorrect: ${clickedIsCorrect}`);
+    console.log(`[OIS] Q${qIdx + 1} Logic Mode: ${isMultipleAnswer ? 'MULTIPLE' : 'SINGLE'} | TargetID: ${effectiveId} | ClickCorrect: ${clickedIsCorrect}`);
 
     const isSingle = !isMultipleAnswer;
     let isPerfect = false;
@@ -190,7 +182,7 @@ export class OptionInteractionService {
         if (!state.correctClicksPerQuestion.has(qIdx)) {
           state.correctClicksPerQuestion.set(qIdx, new Set<number>());
         }
-        state.correctClicksPerQuestion.get(qIdx)!.add(targetId);
+        state.correctClicksPerQuestion.get(qIdx)!.add(effectiveId as any);
 
         this.timerService.allowAuthoritativeStop();
         this.timerService.stopTimer(undefined, { force: true });
@@ -201,10 +193,11 @@ export class OptionInteractionService {
         }
         const dSet = state.disabledOptionsPerQuestion.get(qIdx)!;
 
-        state.optionBindings = state.optionBindings.map(b => {
-          const isInc = !b.option?.correct;
-          if (isInc && typeof b.option?.optionId === 'number') {
-            dSet.add(b.option.optionId);
+        state.optionBindings = state.optionBindings.map((b, i) => {
+          const isInc = !isCorrectHelper(b.option?.correct);
+          if (isInc) {
+            const bId = (b.option?.optionId != null && b.option.optionId !== -1) ? b.option.optionId : i;
+            dSet.add(bId as any);
           }
           return { ...b, disabled: isInc };
         });
@@ -213,45 +206,43 @@ export class OptionInteractionService {
       }
     } else {
       // Multi-answer
-      // Use relaxed correct check (truthy compatibility)
-      let correctIds: number[] = [];
+      let correctIds: (number|string)[] = [];
 
       // Priority 1: Use question object from callback (Authoritative Source)
       if (question && Array.isArray(question.options)) {
         correctIds = question.options
-          .filter(o => !!o.correct)
-          .map(o => Number(o.optionId))
-          .filter(id => Number.isFinite(id));
+          .filter(o => isCorrectHelper(o.correct))
+          .map((o, i) => (o.optionId != null && o.optionId !== -1) ? o.optionId : i)
+          .filter(id => id !== undefined);
       }
 
       // Priority 2: Fallback to bindings/display options
       if (correctIds.length === 0) {
         const bindingCorrectIds = (state.optionBindings ?? [])
-          .filter(b => !!b.option?.correct)
-          .map(b => Number(b.option?.optionId))
-          .filter((id): id is number => Number.isFinite(id));
+          .filter(b => isCorrectHelper(b.option?.correct))
+          .map((b, i) => (b.option?.optionId != null && b.option.optionId !== -1) ? b.option.optionId : i);
           
         correctIds = bindingCorrectIds.length > 0 ? bindingCorrectIds : 
           (state.optionsToDisplay ?? [])
-            .filter(o => !!o.correct)
-            .map(o => Number(o.optionId))
-            .filter(id => Number.isFinite(id));
+            .filter(o => isCorrectHelper(o.correct))
+            .map((o, i) => (o.optionId != null && o.optionId !== -1) ? o.optionId : i);
       }
 
+      const correctSet = new Set(correctIds);
+      
       if (!state.correctClicksPerQuestion.has(qIdx)) {
         state.correctClicksPerQuestion.set(qIdx, new Set<number>());
       }
       const clickedCorrectSet = state.correctClicksPerQuestion.get(qIdx)!;
 
       if (clickedIsCorrect) {
-        clickedCorrectSet.add(targetId);
+        clickedCorrectSet.add(effectiveId as any);
       }
 
       const selectedIds = simulatedSelection
-        .map(a => Number(a.optionId))
-        .filter((id): id is number => Number.isFinite(id));
+        .map(a => (a.optionId != null && a.optionId !== -1) ? a.optionId : (a as any).index)
+        .filter(id => id !== undefined);
       
-      const correctSet = new Set(correctIds);
       const selectedSet = new Set(selectedIds);
       
       // Strict equality check: same size and every correct ID is selected
@@ -277,12 +268,13 @@ export class OptionInteractionService {
         }
         const dSet = state.disabledOptionsPerQuestion.get(qIdx)!;
 
-        for (const b of state.optionBindings ?? []) {
+        state.optionBindings.forEach((b, i) => {
           // Disable incorrect options to lock the state
-          if (!b.option?.correct && typeof b.option?.optionId === 'number') {
-            dSet.add(b.option.optionId);
+          if (!isCorrectHelper(b.option?.correct)) {
+            const bId = (b.option?.optionId != null && b.option.optionId !== -1) ? b.option.optionId : i;
+            dSet.add(bId as any);
           }
-        }
+        });
         state.disableRenderTrigger++;
       }
     }
@@ -292,9 +284,6 @@ export class OptionInteractionService {
 
     updateOptionAndUI(binding, index, mockEvent);
 
-    // Only emit explanation if the question is "answered" fully.
-    // For Single: Answered on first click (since we select and disable or move on).
-    // For Multi: Answered when all correct options are selected (isPerfect).
     if (isSingle || (isMultipleAnswer && typeof isPerfect !== 'undefined' && isPerfect)) {
       console.log(`[OIS] Triggering emitExplanation for Q${qIdx + 1}`);
       setTimeout(() => {
@@ -307,10 +296,13 @@ export class OptionInteractionService {
         index: qIdx,
         total: this.quizService?.totalQuestions,
         qType: isSingle ? QuestionType.SingleAnswer : QuestionType.MultipleAnswer,
-        opts: state.optionBindings.map(b => ({
-          ...b.option,
-          selected: isSingle ? (b.option?.optionId === binding.option?.optionId) : state.correctClicksPerQuestion.get(qIdx)?.has(b.option?.optionId as number)
-        })) as Option[]
+        opts: state.optionBindings.map((b, i) => {
+          const bId = (b.option?.optionId != null && b.option.optionId !== -1) ? b.option.optionId : i;
+          return {
+            ...b.option,
+            selected: isSingle ? (bId === effectiveId) : state.correctClicksPerQuestion.get(qIdx)?.has(bId as any)
+          };
+        }) as Option[]
       });
       this.selectionMessageService.selectionMessageSubject.next(message);
     } catch (e) {
