@@ -585,6 +585,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
             this.quizStateService.setDisplayState({ mode: 'question', answered: false });
             this.showExplanation = false;
             this.navigatingToResults = false;
+            this.isQuizLoaded = false;
+            this.isQuizDataLoaded = false;
+            this.totalQuestions = 0;
 
             try { localStorage.removeItem('shuffledQuestions'); } catch { }
           } else {
