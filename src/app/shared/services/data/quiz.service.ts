@@ -54,7 +54,7 @@ export class QuizService {
   questionsList: QuizQuestion[] = [];
 
   // State tracking for scoring (Index -> IsCorrect)
-  private questionCorrectness = new Map<number, boolean>();
+  public questionCorrectness = new Map<number, boolean>();
 
   isNavigating = false;
 
@@ -1490,14 +1490,17 @@ export class QuizService {
     question: QuizQuestion,
     answers: Option[]
   ): Promise<boolean[]> {
-    return answers.map((answer) => {
+    return (answers ?? []).map((answer) => {
+      if (!answer) return false;
+
       const found = question.options.find(
-        (option) => option === answer ||
-          option.text.trim().toLowerCase() ===
-          answer.text.trim().toLowerCase()
+        (option) => 
+          option === answer || // Reference match (fastest)
+          (option.optionId !== undefined && answer.optionId !== undefined && String(option.optionId) === String(answer.optionId)) || // ID match
+          (option.text && answer.text && option.text.trim().toLowerCase() === answer.text.trim().toLowerCase()) // Text match
       );
-      const correct = found?.correct as any;
-      return !!correct && String(correct) !== 'false';
+      const correct = found?.correct;
+      return correct === true || String(correct) === 'true';
     });
   }
 
@@ -2332,16 +2335,24 @@ export class QuizService {
             }
           }
 
+          if (!match) {
+            // Text Match (Reliable fallback for clones/disparate IDs)
+            const answerId = id;
+            match = question.options.find((o: Option) => 
+              (o.text && String(o.optionId) === String(answerId)) || 
+              (o.text && String(o.value) === String(answerId))
+            );
+          }
+
           if (!match && !this.shouldShuffle()) {
             // Fallback: Direct Index Matching for Unshuffled
-            // Priority: 1-based index (Loader standard: 1 -> Option 0)
-            if (typeof id === 'number' && id > 0 && question.options[id - 1]) {
-              match = question.options[id - 1];
+            if (typeof id === 'number' && id >= 0 && question.options[id]) {
+                match = question.options[id];
             }
-            // Fallback: 0-based index (if some component sends 0)
-            else if (typeof id === 'number' && question.options[id]) {
-              match = question.options[id];
-            }
+          }
+          
+          if (!match) {
+            console.warn(`[QuizService] ⚠️ No match found for Option ID ${id} in Q${questionIndex + 1}. Returning dummy.`);
           }
           return match;
         })
@@ -2598,11 +2609,15 @@ export class QuizService {
 
   resetAll(): void {
     console.log('[QuizService] resetAll() called - full state reset');
+    this.correctMessage = '';
+    this.currentQuestionIndex = 0;
+    this.questionCorrectness.clear();
+    this.selectedOptionsMap.clear();
+    this.userAnswers = [];
+    this.previousAnswers = [];
     this.answers = [];
     this.correctAnswerOptions = [];
     this.correctOptions = [];
-    this.correctMessage = '';
-    this.currentQuestionIndex = 0;
 
     // IMPORTANT: Clear shuffledQuestions FIRST to prevent questions setter
     // from re-setting questionsQuizId based on shuffle state
@@ -2620,6 +2635,15 @@ export class QuizService {
 
     // Reset quiz completion flag for new quiz
     this.quizCompleted = false;
+
+    try {
+      localStorage.removeItem('userAnswers');
+      localStorage.removeItem('questionCorrectness');
+      localStorage.removeItem('shuffledQuestions');
+      localStorage.removeItem('selectedOptionsMap');
+      localStorage.removeItem('highScore');
+      console.log('[QuizService] RESET: Storage cleared');
+    } catch { }
 
     this.quizResetSource.next();
   }

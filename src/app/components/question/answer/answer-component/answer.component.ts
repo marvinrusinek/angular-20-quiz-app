@@ -4,7 +4,7 @@ import {
   ViewChild, ViewContainerRef
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder } from '@angular/forms';
+import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 
@@ -30,7 +30,7 @@ import { SharedOptionComponent } from '../shared-option-component/shared-option.
 @Component({
   selector: 'codelab-question-answer',
   standalone: true,
-  imports: [CommonModule, SharedOptionComponent],
+  imports: [CommonModule, ReactiveFormsModule, SharedOptionComponent],
   templateUrl: './answer.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
@@ -70,6 +70,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
   hasComponentLoaded = false;
   override type: 'single' | 'multiple' = 'single';  // store the type (single/multiple answer)
   override selectedOptionIndex = -1;
+  @Input() form!: FormGroup;
   renderReady = false;
 
   public quizQuestionComponentLoaded = new EventEmitter<void>();
@@ -135,9 +136,9 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
         this.type = correctCount > 1 ? 'multiple' : 'single';
         console.log(`[AnswerComponent] Q${this.currentQuestionIndex + 1} detected as ${this.type} (Correct count: ${correctCount})`);
         
-        // Ensure component is marked as loaded
         if (!this.hasComponentLoaded) {
           this.hasComponentLoaded = true;
+          this.syncOptionsWithSelections();
           this.quizQuestionComponentLoaded.emit();
         }
         this.cdRef.markForCheck();
@@ -198,6 +199,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
             this.optionBindingsSource
           );
           this.applyIncomingOptions(next);
+          this.syncOptionsWithSelections();
           this.cdRef.markForCheck();
         } else {
           this.optionBindingsSource = [];
@@ -265,7 +267,57 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
 
     this.optionBindings = this.rebuildOptionBindings(this.optionBindingsSource);
     this.renderReady = true;
+    this.syncOptionsWithSelections();
     this.cdRef.markForCheck();
+  }
+
+  /**
+   * Hydrates the local 'optionsToDisplay' or Input options with state 
+   * from the SelectedOptionService.
+   */
+  private syncOptionsWithSelections(): void {
+    const idx = typeof this.currentQuestionIndex === 'number' ? this.currentQuestionIndex : this.questionIndex;
+    if (idx === null || idx === undefined || idx < 0) {
+      console.warn('[AC] ⏭️ Cannot sync options: valid question index not found');
+      return;
+    }
+
+    const savedSelections = this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
+    if (!savedSelections.length || !this.optionsToDisplay?.length) {
+      console.log(`[AC] 🧬 No saved selections or options to display for Q${idx + 1}. Skipping sync.`);
+      return;
+    }
+
+    console.log(`[AC] 🧬 Synchronizing ${this.optionsToDisplay.length} options with ${savedSelections.length} saved selections for Q${idx + 1}`);
+
+    const savedIds = new Set(savedSelections.map(s => String(s.optionId)));
+    const savedTexts = new Set(savedSelections.map(s => (s.text || '').trim().toLowerCase()));
+
+    for (const opt of this.optionsToDisplay) {
+      const idMatch = opt.optionId != null && savedIds.has(String(opt.optionId));
+      const textMatch = !!(opt.text && savedTexts.has(opt.text.trim().toLowerCase()));
+      opt.selected = !!(idMatch || textMatch);
+    }
+
+    // Also update bindings
+    if (this.optionBindings?.length) {
+      for (const b of this.optionBindings) {
+        const id = b.option?.optionId;
+        const text = b.option?.text;
+        const idMatch = id != null && savedIds.has(String(id));
+        const textMatch = !!(text && savedTexts.has(text.trim().toLowerCase()));
+        b.isSelected = !!(idMatch || textMatch);
+      }
+    }
+
+    // CRITICAL: Update FormGroup for single-answer (radio group sync)
+    if (this.type === 'single' && this.form) {
+      const selectedId = savedSelections[0]?.optionId;
+      if (selectedId != null) {
+        console.log(`[AC] 📻 Patching form for single-answer Q${idx+1} with ID=${selectedId}`);
+        this.form.patchValue({ selectedOptionId: selectedId }, { emitEvent: false });
+      }
+    }
   }
 
   private handleViewContainerRef(): void {
@@ -340,17 +392,17 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
   }
 
   public override async onOptionClicked(
-    event: OptionClickedPayload,
+    payload: OptionClickedPayload,
   ): Promise<void> {
-    if (!event || !event.option) {
+    if (!payload || !payload.option) {
       console.error(
-        '[AnswerComponent] INVALID event passed into onOptionClicked:', event
+        '[AnswerComponent] INVALID payload passed into onOptionClicked:', payload
       );
       return;
     }
 
-    const rawOption = event.option;
-    const wasChecked = event.checked ?? true;
+    const rawOption = payload.option;
+    const wasChecked = payload.checked ?? true;
 
     // Always get the QUESTION INDEX from QQC input
     const activeQuestionIndex =
@@ -395,14 +447,20 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
       }
     }
 
-    // Resolve canonical question by INDEX (never trust @Input here)
-    const question = this.quizService.questions?.[activeQuestionIndex];
+    // Resolve canonical question by INDEX (prefer service, fallback to @Input)
+    const serviceQuestion = this.quizService.questions?.[activeQuestionIndex];
+    const question = serviceQuestion ?? this.questionData;
 
     if (!question) {
       console.error(
-        '[AC][INVARIANT] Missing question for index', activeQuestionIndex
+        '[AC][INVARIANT] Missing question for index', activeQuestionIndex,
+        'ServiceQuestionsLength:', this.quizService.questions?.length
       );
       return;
+    }
+    
+    if (!serviceQuestion) {
+      console.warn(`[AC] ⚠️ Service question missing for Q${activeQuestionIndex + 1}. Using @Input fallback.`);
     }
 
     const optionsSource = this.optionsToDisplay?.length ? this.optionsToDisplay : question.options;
@@ -449,9 +507,9 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     // FORWARD CLEAN PAYLOAD UPWARD
     const cleanPayload: OptionClickedPayload = {
       option: enrichedOption,
-      index: event.index,
+      index: payload.index,
       checked: enrichedOption.selected === true,
-      wasReselected: event.wasReselected ?? false
+      wasReselected: payload.wasReselected ?? false
     };
 
     this.optionClicked.emit(cleanPayload);

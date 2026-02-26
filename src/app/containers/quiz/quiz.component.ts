@@ -45,6 +45,7 @@ import { QuizQuestionLoaderService } from '../../shared/services/flow/quizquesti
 import { QuizQuestionManagerService } from '../../shared/services/flow/quizquestionmgr.service';
 import { ExplanationTextService } from '../../shared/services/features/explanation-text.service';
 import { NextButtonStateService } from '../../shared/services/state/next-button-state.service';
+import { QuizShuffleService } from '../../shared/services/flow/quiz-shuffle.service';
 import { RenderStateService } from '../../shared/services/ui/render-state.service';
 import { SelectedOptionService } from '../../shared/services/state/selectedoption.service';
 import { SelectionMessageService } from '../../shared/services/features/selection-message.service';
@@ -229,7 +230,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   qaToDisplay?: { question: QuizQuestion; options: Option[] };
 
   // Persistent Dot Status Cache - survives navigation and resets
-  private dotStatusCache = new Map<number, 'correct' | 'wrong'>();
+  private dotStatusCache = new Map<number, 'correct' | 'wrong' | 'pending'>();
 
   constructor(
     public quizService: QuizService,
@@ -239,6 +240,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     private quizQuestionLoaderService: QuizQuestionLoaderService,
     private quizQuestionManagerService: QuizQuestionManagerService,
     private quizStateService: QuizStateService,
+    private quizShuffleService: QuizShuffleService,
     private timerService: TimerService,
     private explanationTextService: ExplanationTextService,
     private nextButtonStateService: NextButtonStateService,
@@ -515,16 +517,33 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     }
     this.quizId = quizId;
 
+    // Hard Reset for fresh starts / refreshes to satisfy "0% on start" requirement
+    // Hard Reset ONLY for fresh starts / full refreshes (NOT for within-quiz navigation)
+    // We check if questions are already in the service to determine if this is a navigation or a fresh load.
+    if (!this.isQuizLoaded && this.quizService.questions.length === 0) {
+      console.log('[QuizComponent] Fresh load - performing full reset');
+      this.quizService.resetAll();
+      this.quizNavigationService.resetForNewQuiz();
+      this.quizStateService.reset();
+      this.dotStatusCache.clear();
+    }
+
     this.resetQuizState();
     this.initializeQuestionIndex();
     this.fetchTotalQuestions();
     this.subscribeToQuestionIndex();
 
     await this.loadQuestions();
+    this.isQuizLoaded = true; // Mark as loaded AFTER first success
 
-    // Common logic after loading (reusing existing continuation logic)
+    // Common logic after loading
     const initialIndex = this.currentQuestionIndex || 0;
     this.quizService.setCurrentQuestionIndex(initialIndex);
+    
+    // Explicitly update progress and dots for Q1
+    this.updateProgressValue();
+    this.updateDotStatus(initialIndex);
+
     Promise.resolve().then(() => this.cdRef.detectChanges());
 
     this.initializeCorrectExpectedCounts();
@@ -554,59 +573,61 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
         console.log(`[DEBUG] NavigationEnd: routeQuizId=${routeQuizId}, this.quizId=${this.quizId}`);
 
-        // Detect quiz change and reload if needed
-        // Only run full cleanup when SWITCHING between quizzes (this.quizId has a value)
-        // Skip cleanup on initial load (this.quizId is empty)
         if (routeQuizId && routeQuizId !== this.quizId) {
-          const isQuizSwitch = this.quizId && this.quizId.length > 0;
-
           // ALWAYS reset navigation service on any quiz load (it's a singleton that persists)
           this.quizNavigationService.resetForNewQuiz();
 
-          if (isQuizSwitch) {
-            console.log(`[QuizComponent] Quiz SWITCH: ${this.quizId} -> ${routeQuizId}`);
+          console.log(`[QuizComponent] Quiz INIT/SWITCH: ${this.quizId} -> ${routeQuizId}. Resetting state for clean start.`);
 
-            // CRITICAL: Clear ALL question data - both service and local
-            this.quizService.resetAll();
-            this.quizStateService.reset();  // Reset quiz state service
-            this.explanationTextService.resetExplanationState();  // Clear explanation caches
+          // CRITICAL: Clear ALL question data - both service and local
+          this.quizService.resetAll();
+          this.quizStateService.reset();  // Reset quiz state service
+          this.explanationTextService.resetExplanationState();  // Clear explanation caches
+          this.selectedOptionService.clearAllSelectionsForQuiz(routeQuizId);
 
-            // Clear local component state
-            this.questionsArray = [];
-            this.currentQuestion = null;
-            this.optionsToDisplay = [];
-            this.optionsToDisplay$.next([]);
-            this.combinedQuestionDataSubject.next(null);
-            this.questionToDisplaySource.next('');
-            this.explanationToDisplay = '';
-            this.currentQuestionIndex = 0;
-            this.lastLoggedIndex = -1;
+          // Clear local component state
+          this.questionsArray = [];
+          this.currentQuestion = null;
+          this.optionsToDisplay = [];
+          this.optionsToDisplay$.next([]);
+          this.combinedQuestionDataSubject.next(null);
+          this.questionToDisplaySource.next('');
+          this.explanationToDisplay = '';
+          this.currentQuestionIndex = 0;
+          this.lastLoggedIndex = -1;
 
-            // Clear dot status cache for the new quiz
-            this.dotStatusCache.clear();
+          // Clear dot status cache (Important to get gray dots)
+          this.dotStatusCache.clear();
 
-            // Reset display mode to question (not explanation)
-            this.quizStateService.setDisplayState({ mode: 'question', answered: false });
-            this.showExplanation = false;
-            this.navigatingToResults = false;
-            this.isQuizLoaded = false;
-            this.isQuizDataLoaded = false;
-            this.totalQuestions = 0;
-            this.progress = 0;
+          // Reset display mode to question (not explanation)
+          this.quizStateService.setDisplayState({ mode: 'question', answered: false });
+          this.showExplanation = false;
+          this.navigatingToResults = false;
+          this.isQuizLoaded = false;
+          this.isQuizDataLoaded = false;
+          this.totalQuestions = 0;
+          this.progress = 0;
 
-            try { localStorage.removeItem('shuffledQuestions'); } catch { }
-          } else {
-            console.log(`[QuizComponent] Initial quiz load: ${routeQuizId}`);
-          }
+          try { 
+            localStorage.removeItem('shuffledQuestions'); 
+            localStorage.removeItem('userAnswers');
+            localStorage.removeItem('selectedOptionsMap');
+            localStorage.removeItem('questionCorrectness');
+            localStorage.setItem('savedQuestionIndex', '0');
+            sessionStorage.clear(); // CRITICAL: Clear session storage to reset dots
+          } catch { }
 
           // Update quiz ID and fetch new questions
           this.quizId = routeQuizId;
           this.quizService.setQuizId(routeQuizId);
           await this.loadQuestions();
+          this.isQuizLoaded = true; // Mark as loaded to prevent reset on within-quiz nav
           console.log(`[DEBUG] After loadQuestions, questionsArray[0]=${this.questionsArray[0]?.questionText?.substring(0, 30)}`);
         }
 
         this.quizService.setCurrentQuestionIndex(idx);
+        this.updateProgressValue(); // Ensure progress stays updated across navigations
+        this.updateDotStatus(idx);
       });
   }
 
@@ -742,8 +763,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           this.explanationToDisplay = '';
           this.explanationVisibleLocal = false;
 
-          // Ensure progress is updated when arriving at new question
+          // Ensure progress and dot colors are updated when arriving at new question
           this.updateProgressValue();
+          this.updateDotStatus(idx);
 
           console.warn('[NAVIGATION COMPLETE]', idx + 1);
         }
@@ -1086,107 +1108,89 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   }
 
   public async onOptionSelected(
-    event: SelectedOption,
+    option: SelectedOption,
     isUserAction: boolean = true
   ): Promise<void> {
-    // Guards and de-duplication
-    if (!isUserAction || (!this.resetComplete && !this.hasOptionsLoaded)) return;
+    if (!isUserAction) return;
 
-    this.updateProgressValue();
-
-    // Use optionId or displayOrder for deduplication - allow if time has passed or ID is different
-    const optionIdentifier = event?.optionId ?? (event as any)?.id ?? (event as any)?.displayOrder ?? -1;
+    // Use optionId or displayOrder for deduplication
+    const id = option?.optionId ?? (option as any)?.id ?? (option as any)?.displayOrder ?? -1;
     const now = Date.now();
-    const lastClickTime = (this as any)._lastClickTime ?? 0;
+    const lastTime = (this as any)._lastClickTime ?? 0;
+    const lastId = (this as any)._lastOptionId ?? -1;
 
-    if (optionIdentifier !== -1 && optionIdentifier === this.lastLoggedIndex && (now - lastClickTime) < 100) {
-      console.warn('[Skipping duplicate event - too rapid]', event);
+    if (id !== -1 && id === lastId && (now - lastTime) < 200) {
+      console.log('[onOptionSelected] Skipping duplicate.');
       return;
     }
-
-    this.lastLoggedIndex = optionIdentifier;
     (this as any)._lastClickTime = now;
+    (this as any)._lastOptionId = id;
 
-    // Show the explanation on first click
-    const emittedQuestionIndex = event?.questionIndex;
-    const normalizedQuestionIndex =
-      Number.isInteger(emittedQuestionIndex) &&
-        (emittedQuestionIndex as number) >= 0
-        ? (emittedQuestionIndex as number)
-        : this.currentQuestionIndex;
+    // Determine target question index
+    const idx = typeof option?.questionIndex === 'number' ? option.questionIndex : this.currentQuestionIndex;
 
-    if (!Number.isInteger(normalizedQuestionIndex) || normalizedQuestionIndex < 0) {
-      console.warn('[Invalid question index for explanation]', {
-        emittedQuestionIndex,
-        currentQuestionIndex: this.currentQuestionIndex
-      });
-      return;
-    }
+    console.log(`[onOptionSelected] Processing Q${idx + 1}`, option);
 
-    this.showExplanationForQuestion(normalizedQuestionIndex);
-    await firstValueFrom(this.quizService.getOptions(normalizedQuestionIndex));
-
-    // Check authoritative answered state from service
-    const isAnswered = this.selectedOptionService.isQuestionAnswered(normalizedQuestionIndex);
-
-    // Sync button state (redundant but safe)
+    // 1. PROACTIVE UI UPDATE
+    // Update dots and progress BEFORE any async work to ensure the app feels fast.
+    console.log(`[onOptionSelected] Proactive update for Q${idx + 1}`);
+    console.log(`[onOptionSelected] Service Map entry for Q${idx + 1}:`, this.selectedOptionService.selectedOptionsMap.get(idx));
+    
+    // 2. STATE PERSISTENCE & SERVICE SYNC
+    this.showExplanationForQuestion(idx);
+    
+    // Sync Answered State
+    const isAnswered = this.selectedOptionService.isQuestionAnswered(idx);
     this.nextButtonStateService.setNextButtonState(isAnswered);
 
-    this.cdRef.markForCheck();
-    console.log('[PARENT] onOptionSelected → about to enable Next');
-
-    // Persist per-question “seen” flag
-    const prev =
-      this.quizStateService.getQuestionState(this.quizId, normalizedQuestionIndex);
-    if (!prev) {
-      console.warn(
-        `[setQuestionState] No previous state found for index ${normalizedQuestionIndex}`
-      );
-      return;
+    // CRITICAL: Mark interaction in QuizStateService (this is used by calculateAnsweredCount)
+    if (this.quizStateService) {
+      this.quizStateService.markUserInteracted(idx);
+      if (isAnswered) this.quizStateService.markQuestionAnswered(idx);
     }
+    
+    // Now update progress AFTER state has been marked
+    this.updateProgressValue();
+    this.updateDotStatus(idx);
+    this.cdRef.markForCheck();
+    this.cdRef.detectChanges();
 
-    this.quizStateService.setQuestionState(this.quizId, normalizedQuestionIndex,
-      {
+    // Update QuizStateService QuestionState
+    const prev = this.quizStateService.getQuestionState(this.quizId, idx);
+    if (prev) {
+      this.quizStateService.setQuestionState(this.quizId, idx, {
         ...prev,
         isAnswered: true,
-        explanationDisplayed: true,
-        explanationText: this.explanationToDisplay,
-        selectedOptions: prev.selectedOptions ?? []
-      }
-    );
-
-    // Trigger scoring logic
-    void this.quizService.checkIfAnsweredCorrectly(normalizedQuestionIndex);
-    // this.updateDotStatus(normalizedQuestionIndex); // moved to end of method
-
-    // Selection message / next-button logic
-    try {
-      setTimeout(async () => {
-        this.nextButtonStateService.evaluateNextButtonState(
-          this.selectedOptionService.isAnsweredSubject.getValue(),
-          this.quizStateService.isLoadingSubject.getValue(),
-          this.quizStateService.isNavigatingSubject.getValue()
-        );
-      }, 50);
-    } catch (error: any) {
-      console.error('[setSelectionMessage failed]', error);
+        explanationText: this.explanationToDisplay || prev.explanationText || ''
+      });
     }
 
-    // Persist state in sessionStorage
-    sessionStorage.setItem('isAnswered', 'true');
+    // Trigger Scoring
+    void this.quizService.checkIfAnsweredCorrectly(idx);
+    
+    // Persist to session
+    try {
+      sessionStorage.setItem('isAnswered', 'true');
+      const currentIndices = this.selectedOptionService.getSelectedOptionIndices(idx);
+      sessionStorage.setItem(`quiz_selection_${idx}`, JSON.stringify(currentIndices));
+      sessionStorage.setItem(`displayMode_${idx}`, 'explanation');
+    } catch (e) {
+      console.warn('[onOptionSelected] Storage failed', e);
+    }
 
-    // Save selection indices for persistence
-    const currentIndices =
-      this.selectedOptionService.getSelectedOptionIndices(normalizedQuestionIndex);
-    sessionStorage.setItem(`quiz_selection_${normalizedQuestionIndex}`,
-      JSON.stringify(currentIndices));
-    sessionStorage.setItem(`displayMode_${normalizedQuestionIndex}`, 'explanation');
-    sessionStorage.setItem('displayExplanation', 'true');
-
-    // EXPLICIT: Update progress and dot status after all state changes
-    this.updateDotStatus(normalizedQuestionIndex);
-    this.updateProgressValue();
-    this.cdRef.markForCheck();
+    // 3. FINAL EVALUATION (Deferred to ensure service state has settled)
+    setTimeout(() => {
+      console.log(`[onOptionSelected] 🕒 DEFERRED UPDATE for Q${idx + 1}`);
+      this.nextButtonStateService.evaluateNextButtonState(
+        this.selectedOptionService.isAnsweredSubject.getValue(),
+        this.quizStateService.isLoadingSubject.getValue(),
+        this.quizStateService.isNavigatingSubject.getValue()
+      );
+      this.updateDotStatus(idx);
+      this.updateProgressValue();
+      this.cdRef.markForCheck();
+      this.cdRef.detectChanges();
+    }, 150);
   }
 
   private resetQuestionState(): void {
@@ -1251,7 +1255,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.destroy$.complete();
     this.subscriptions.unsubscribe();
     this.dotStatusCache.clear();
-    this.selectedOptionService.resetAllOptions();
+    // this.selectedOptionService.resetAllOptions(); // REMOVED: Breaks persistence on navigation
     this.routeSubscription?.unsubscribe();
     this.routerSubscription?.unsubscribe();
     this.indexSubscription?.unsubscribe();
@@ -1261,9 +1265,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     this.nextButtonStateService.cleanupNextButtonStateStream();
 
-    // Route-exit cleanup: clear FET caches/locks so re-entering from QuizSelection
-    // cannot reuse stale Q1 formatted explanation with old option numbers.
-    this.explanationTextService.resetExplanationState();
+    // Route-exit cleanup: NO LONGER force reset FET state here
+    // to allow persistence during router-outlet recreations.
+    // this.explanationTextService.resetExplanationState(); // REMOVED
 
     if (this.nextButtonTooltip) {
       this.nextButtonTooltip.disabled = true;  // disable tooltips
@@ -1504,7 +1508,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       });
   }
 
-  /******* Initialize route parameters functions *********/
+  /****       Initialize route parameters functions *********/
   private subscribeToRouteParams(): void {
     this.activatedRoute.paramMap
       .pipe(
@@ -1529,6 +1533,13 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         }
 
         this.cdRef.markForCheck();
+
+        if (this.quizId && this.quizId !== quizId) {
+          console.log(`[ROUTE] Quiz Changed: ${this.quizId} -> ${quizId}. Resetting progress & cache.`);
+          this.dotStatusCache.clear();
+          this.progress = 0;
+          this.quizStateService.reset();
+        }
 
         // Update indices (local and services) before async calls
         this.quizId = quizId;
@@ -1557,7 +1568,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
           // Set loader context
           this.quizQuestionLoaderService.activeQuizId = quizId;
-          this.quizQuestionLoaderService.totalQuestions = currentQuiz.questions?.length ?? 0;
+          const totalQ = currentQuiz.questions?.length ?? 0;
+          this.quizQuestionLoaderService.totalQuestions = totalQ;
+          this.totalQuestions = totalQ; // Ensure local total is updated immediately
 
           // Now let the loader fetch question + options and emit payload
           const success =
@@ -1617,6 +1630,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           const validSelections =
             (this.selectedOptionService.getSelectedOptionsForQuestion(index) ?? [])
               .filter((opt) => optionIdSet.has(opt.optionId ?? -1));
+
+          console.log(`[SOS] subscribeToRouteParams for Q${index + 1}: validSelections.length=${validSelections.length}`);
 
           if (validSelections.length === 0) {
             this.timerService.stopTimer?.(undefined, { force: true });
@@ -1822,7 +1837,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     console.log('[QuizComponent] Cleared FET cache (fetByIndex) before ' +
       'regenerating.');
 
-    // Format each explanation with "Option X is correct because..." prefix
+    // Format each explanation with "Option X is correct" based on the SHUFFLED array index,
+    // matching the UI.
     const formattedExplanations =
       hydratedQuestions.map((question, index) => {
         const rawExplanation = (question.explanation ?? '').trim();
@@ -4034,20 +4050,12 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   }
 
   restartQuiz(): void {
-    // Reset score immediately before clearing state to prevent decrements
-    this.quizService.resetScore();
-
-    // Clear stale localStorage data on restart to prevent question/option mismatches
-    try {
-      localStorage.removeItem('shuffledQuestions');
-      localStorage.removeItem('selectedOptions');
-      localStorage.removeItem('correctAnswersCount');
-      console.log('[RESTART] Cleared stale localStorage data.');
-    } catch (error: any) {
-      console.warn('[RESTART] Failed to clear localStorage:', error);
-    }
-
-    // Clear the dot status cache for fresh pagination
+    console.log('[QuizComponent] restartQuiz: performing full reset');
+    
+    // Use the authoritative service reset which clears maps, storage, and session
+    this.quizService.resetAll();
+    
+    // Clear the dot status cache locally for fresh pagination
     this.dotStatusCache.clear();
 
     // Clear the shuffled questions in the service
@@ -4073,6 +4081,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // Reset any internal locks / trackers
     this.explanationTextService._fetLocked = false;
 
+    // Fully reset reactive participation state
+    this.quizStateService.reset();
+
     // Reset question text BehaviorSubject (prevents “?” or old Q showing)
     try {
       this.quizQuestionLoaderService?.questionToDisplaySubject.next('');
@@ -4094,7 +4105,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.selectedOptionService.deselectOption();
     this.selectedOptionService.resetSelectionState();
     this.selectedOptionService.selectedOptionsMap.clear();
-
+    console.log('[SOS] restartQuiz() called - WIPING ALL SELECTIONS from map!');
     this.selectedOptionService.setAnswered(false);
     this.quizStateService.setAnswerSelected(false);
 
@@ -4116,6 +4127,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.timerService.stopTimer?.(undefined, { force: true });
 
     // Reset progress bar to 0%
+    this.progress = 0;
     this.dotStatusCache.clear();
     this.updateProgressValue();
 
@@ -4129,6 +4141,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         this.quizService.updateBadgeText(1, this.totalQuestions);
 
         // Ensure child resets itself for Q1
+        this.resetStateService.triggerResetFeedback();
         this.resetStateService.triggerResetState();
         this.quizService.setCurrentQuestionIndex(0);
 
@@ -4264,184 +4277,278 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   updateProgressValue(): void {
     const total = this.totalCount;
     if (total <= 0) {
-      // Don't reset to 0% if total is temporarily missing during navigation
-      // This prevents the progress bar from "going back" to 0% between questions.
-      console.log('[PROGRESS] Skipping update - totalCount is 0');
+      console.warn('[PROGRESS] updateProgressValue: totalCount is 0');
+      this.progress = 0;
+      this.cdRef.detectChanges();
       return;
     }
-
-    const answeredCount = this.calculateAnsweredCount();
-    const newProgress = Math.round((answeredCount / total) * 100);
     
-    // Monotonically increasing progress (within a single quiz session)
-    // and cap at 100%. This prevents the progress bar from ever "going back" 
-    // unless the quiz is actually restarted or switched.
-    if (newProgress > this.progress) {
-      console.log(`[PROGRESS] Incrementing: ${this.progress}% -> ${newProgress}%`);
-      this.progress = Math.min(newProgress, 100);
-    } else if (newProgress < this.progress) {
-      console.log(`[PROGRESS] Persistence: holding at ${this.progress}% (new calc was ${newProgress}%)`);
+    // 1. Refresh Dot Status Cache for all questions to ensure visual persistence
+    // This handles the "dots not changing color" and "persist when navigating" issues.
+    console.log(`[PROGRESS] REFRESHING ALL ${total} DOTS...`);
+    for (let i = 0; i < total; i++) {
+        const status = this.getQuestionStatus(i, { forceRecompute: true });
+        this.dotStatusCache.set(i, status);
     }
+
+    // 2. Calculate Answered Count across all sources
+    const answeredCount = this.calculateAnsweredCount();
+    
+    // 3. Update Progress Percentage
+    const newProgress = Math.round((answeredCount / total) * 100);
+    this.progress = newProgress;
+    
+    console.log(`[PROGRESS] Q${this.currentQuestionIndex + 1} SUMMARY: answeredCount=${answeredCount}/${total}, progress=${this.progress}%`);
     
     this.cdRef.detectChanges();
+    this.cdRef.markForCheck();
   }
 
   // Consistent total count getter
   private get totalCount(): number {
-    return this.totalQuestions > 0 ?
-      this.totalQuestions : (this.quiz?.questions?.length || 0);
+    const serviceCount = (this.quizService as any).questions?.length || 0;
+    if (this.totalQuestions > 0) return this.totalQuestions;
+    if (serviceCount > 0) return serviceCount;
+    return (this.quiz?.questions?.length || 0);
   }
 
   // Calculate percentage based on answered questions
   // Includes questions that are fully correct/wrong, OR have active selections (interacted)
   calculateAnsweredCount(): number {
-    const total = this.totalCount;
     const answeredIndices = new Set<number>();
-    
-    // 1. Check dot status cache (definitely answered/graded)
-    if (this.dotStatusCache) {
-      for (const [idx, status] of this.dotStatusCache.entries()) {
-        if (status === 'correct' || status === 'wrong') {
-          answeredIndices.add(idx);
+    const total = this.totalCount;
+    if (total <= 0) return 0;
+
+    // Source 1: Service Maps (The most immediate interactive source)
+    const mapsByRef = [
+      { name: 'SOS.Map', map: this.selectedOptionService?.selectedOptionsMap },
+      { name: 'QS.Map', map: this.quizService?.selectedOptionsMap }
+    ];
+    for (const item of mapsByRef) {
+      if (item.map) {
+        for (const [key, value] of item.map.entries()) {
+          const idx = Number(key);
+          if (!isNaN(idx) && idx >= 0 && idx < total) {
+              const hasData = Array.isArray(value) ? value.length > 0 : (value !== undefined);
+              if (hasData) answeredIndices.add(idx);
+          }
         }
       }
     }
     
-    // 2. Check selected options map for any active selections (interacted)
-    if (this.selectedOptionService?.selectedOptionsMap) {
-      const mapKeys = Array.from(this.selectedOptionService.selectedOptionsMap.keys());
-      for (const key of mapKeys) {
-        const value = this.selectedOptionService.selectedOptionsMap.get(key);
-        const idx = typeof key === 'string' ? parseInt(key, 10) : key;
-        
-        // Count as answered if it has any selections
-        if (!isNaN(idx) && idx >= 0 && Array.isArray(value) && value.length > 0) {
-          answeredIndices.add(idx);
+    // Explicitly check questionCorrectness
+    const qc = this.quizService.questionCorrectness;
+    if (qc instanceof Map) {
+        for (const [key, val] of qc.entries()) {
+            const idx = Number(key);
+            if (!isNaN(idx) && idx >= 0 && idx < total && val !== undefined) {
+                answeredIndices.add(idx);
+            }
         }
-      }
     }
 
-    // 3. Fallback: Check quizService.userAnswers (authoritative for results)
-    if (this.quizService?.userAnswers) {
-      this.quizService.userAnswers.forEach((ans, idx) => {
-        if (Array.isArray(ans) && ans.length > 0) {
-          answeredIndices.add(idx);
+    // Source 2: QuizStateService (Interaction Tracker)
+    if (this.quizStateService) {
+      this.quizStateService._answeredQuestionIndices?.forEach(idx => {
+        if (idx >= 0 && idx < total) answeredIndices.add(idx);
+      });
+      this.quizStateService._hasUserInteracted?.forEach(idx => {
+        if (idx >= 0 && idx < total) answeredIndices.add(idx);
+      });
+    }
+
+    // Source 3: User Answers Persistence
+    const userAnswers = this.quizService?.userAnswers;
+    if (Array.isArray(userAnswers)) {
+      userAnswers.forEach((ans, idx) => {
+        if (idx < total && Array.isArray(ans) && ans.length > 0) {
+            answeredIndices.add(idx);
         }
       });
     }
-    
+
     const count = answeredIndices.size;
-    console.log(`[PROGRESS_CALC] TotalCount=${total}, AnsweredSet=[${Array.from(answeredIndices).sort((a,b)=>a-b).join(',')}], count=${count}`);
+    const sortedIndices = Array.from(answeredIndices).sort((a,b)=>a-b);
+    console.log(`[PROGRESS] calculateAnsweredCount SUMMARY:
+      TotalAnswered: ${count}/${total}
+      AnsweredIndices: [${sortedIndices.map(i=>i+1).join(',')}]
+      TotalCountSource: ${total} (totalQuestions=${this.totalQuestions}, quizQuestions=${this.quiz?.questions?.length})
+    `);
     return count;
   }
 
   // Helper to determine dot class with caching
-  getQuestionStatus(index: number): string {
-    // Check Cache First - if already determined the status, use it
-    if (this.dotStatusCache.has(index)) {
-      const cached = this.dotStatusCache.get(index)!;
-      console.log(`[DOT] Q${index} → ${cached.toUpperCase()} (from cache)`);
-      return cached;
+  getQuestionStatus(index: number, options?: { forceRecompute?: boolean }): 'correct' | 'wrong' | 'pending' {
+    // 1. Cache Bypass Check
+    if (!options?.forceRecompute && this.dotStatusCache.has(index)) {
+      return this.dotStatusCache.get(index)!;
     }
 
-    // Try to compute from current selections
-    const selected = this.selectedOptionService.selectedOptionsMap.get(index);
+    // 2. Retrieval of authoritative selections (checking all known sources)
+    let selected = (this.selectedOptionService?.selectedOptionsMap?.get(index)) ?? 
+                     (this.quizService?.selectedOptionsMap?.get(index)) ?? [];
+    let sourceUsed = selected.length > 0 ? 'ServiceMaps' : '';
 
-    if (!selected || selected.length === 0) {
-      console.log(`[DOT] Q${index} → PENDING (no selections, no cache)`);
+    // Fallback 1: UserAnswers in QuizService
+    if (selected.length === 0) {
+        const ua = this.quizService?.userAnswers?.[index];
+        if (Array.isArray(ua) && ua.length > 0) {
+            selected = ua.map(id => ({ optionId: id, text: `Option ${id}` } as SelectedOption));
+            sourceUsed = 'UserAnswers';
+        }
+    }
+
+    // Fallback 2: SessionStorage
+    if (selected.length === 0) {
+        const stored = sessionStorage.getItem(`quiz_selection_${index}`);
+        if (stored) {
+            try {
+                const ids = JSON.parse(stored);
+                if (Array.isArray(ids) && ids.length > 0) {
+                    selected = ids.map((id: any) => ({ optionId: id, text: `Option ${id}` } as SelectedOption));
+                    sourceUsed = 'SessionStorage';
+                }
+            } catch {}
+        }
+    }
+
+    if (selected.length === 0) {
+      const qIdx = Number(index);
+      console.log(`[getQuestionStatus] Q${qIdx+1} PENDING (Reason: No selections found in any source)`);
+      return 'pending';
+    }
+    console.log(`[getQuestionStatus] Q${index+1} evaluating selections from ${sourceUsed}.`);
+
+    // 3. Retrieval of authoritative question/context
+    // Try index-based lookups first
+    let question: QuizQuestion | null | undefined = this.questionsArray?.[index] || 
+                   this.quizService.questions?.[index] ||
+                   (this.quizService.activeQuiz?.questions?.[index]);
+                   
+    // If not found by index, only use currentQuestion if the index matches
+    if (!question && (index === this.currentQuestionIndex || index === this.quizService.getCurrentQuestionIndex())) {
+      question = this.currentQuestion || this.quizService.currentQuestion?.getValue();
+    }
+                     
+    if (!question) {
+      console.warn(`[getQuestionStatus] Question Context MISSING for index ${index}`);
       return 'pending';
     }
 
-    const displayQuestion = this.questionsArray[index] ||
-      this.quizService.questions[index];
-
-    // Fallback Context Logic
-    const normalize =
-      (str: string) =>
-        (str || '').replace(/\s/g, '').toLowerCase();
-    let questionContext = displayQuestion;
-
-    if (!questionContext || !questionContext.options || !questionContext.options.some(o => o.correct)) {
-      const allQuestions =
-        (this.quizService.quizData || []).flatMap(q => q.questions || []);
-      const found =
-        allQuestions.find(
-          q => normalize(
-            q.questionText) === normalize(displayQuestion?.questionText)
-        );
-      if (found) questionContext = found;
-    }
-
-    // Evaluate Correctness
-    if (questionContext && questionContext.options) {
-      const correctOptions = questionContext.options.filter((o: Option) =>
-        o.correct);
-      const correctIds = new Set(correctOptions.map((o: Option) => o.optionId));
-      const correctTexts = new Set(correctOptions.map((o: Option) =>
-        normalize(o.text)));
-      const isMultiAnswer = correctOptions.length > 1;
-
-      // Check if any wrong answer was selected
-      const hasWrongSelection = selected.some((sel: any) => {
-        const idMatch = correctIds.has(sel.optionId);
-        const textMatch = correctTexts.has(normalize(sel.text));
-        const propMatch = sel.correct === true;
-        const isCorrect = idMatch || textMatch || propMatch;
-
-        return !isCorrect;
-      });
-
-      if (hasWrongSelection) {
-        this.dotStatusCache.set(index, 'wrong');
-        console.log(`[DOT] Q${index} → WRONG (wrong answer selected)`);
-        return 'wrong';
-      }
-
-      // For multi-answer: check if ALL correct answers are selected
-      if (isMultiAnswer) {
-        const selectedIds = new Set(selected.map((s: any) => s.optionId));
-        const selectedTexts = new Set(selected.map((s: any) => normalize(s.text)));
-
-        const allCorrectSelected = correctOptions.every((opt: Option) =>
-          selectedIds.has(opt.optionId) || selectedTexts.has(normalize(opt.text))
-        );
-
-        if (allCorrectSelected) {
-          this.dotStatusCache.set(index, 'correct');
-          console.log(`[DOT] Q${index} → CORRECT (all ${correctOptions.length} 
-            correct answers selected)`);
-          return 'correct';
+    // Robust normalization for text comparisons
+    const robustNormalize = (str: string) =>
+      (str || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    
+    // Fallback: If current question metadata lacks correct property, scan global data
+    let ctx = question;
+    const hasCorrectProp = ctx?.options?.some(o => (o as any).correct === true || String((o as any).correct) === 'true');
+    
+    if (!hasCorrectProp) {
+        console.log(`[getQuestionStatus] Q${index+1} lacks 'correct' property in metadata. Fallback active.`);
+        const globalQuestions = (this.quizService.quizData || []).flatMap(q => q.questions || []);
+        // Find by text match
+        const found = globalQuestions.find(q => robustNormalize(q.questionText) === robustNormalize(question.questionText));
+        if (found) {
+            console.log(`[getQuestionStatus] Q${index+1} found in global data via text match.`);
+            ctx = found;
         } else {
-          // Multi-answer but not all selected yet - don't cache, return pending
-          console.log(`[DOT] Q${index} → PENDING (multi-answer: 
-            ${selected.length}/${correctOptions.length} selected)`);
-          return 'pending';
+            console.warn(`[getQuestionStatus] Q${index+1} NOT found in global data either.`);
         }
-      }
-
-      // Single answer question - just check the last selection
-      const last = selected[selected.length - 1];
-      const isLastCorrect = correctIds.has(last.optionId) ||
-        correctTexts.has(normalize(last.text)) || last.correct === true;
-      const result = isLastCorrect ? 'correct' : 'wrong';
-      this.dotStatusCache.set(index, result);
-      return result;
     }
 
-    // Default fallback
-    const last = selected[selected.length - 1];
-    const result: 'correct' | 'wrong' = last.correct ? 'correct' : 'wrong';
-    this.dotStatusCache.set(index, result);
-    return result;
+    // 4. Correctness Evaluation
+    let opts = ctx?.options ?? [];
+    if (opts.length === 0) {
+        console.warn(`[getQuestionStatus] Q${index+1} has NO options in ctx.`);
+        return 'pending';
+    }
+    
+    // CRITICAL: Ensure options have stable IDs for evaluation using ORIGINAL index to match service storage
+    if (opts.some(o => o.optionId == null)) {
+        const origIdx = this.quizShuffleService.toOriginalIndex(this.quizId, index) ?? index;
+        opts = this.quizShuffleService.assignOptionIds([...opts], origIdx);
+    }
+
+    const correctOptions = opts.filter(o => o.correct === true || String(o.correct) === "true" || (o as any).correct === 1);
+    const correctIds = new Set(correctOptions.map(o => String(o.optionId)).filter(id => id != "null" && id != "undefined"));
+    const correctTexts = new Set(correctOptions.map(o => robustNormalize(o.text)));
+    const isMultiAnswer = correctOptions.length > 1;
+
+    console.log(`[getQuestionStatus] Q${index+1} DIAG:
+      Source: ${sourceUsed}
+      Ctx Question: "${ctx.questionText?.substring(0, 30)}..."
+      Correct IDs: [${Array.from(correctIds).join(',')}]
+      Correct Texts: [${Array.from(correctTexts).join('|')}]
+      Selected Count: ${selected.length}
+      isMultiAnswer: ${isMultiAnswer}
+    `);
+
+    if (correctOptions.length === 0) {
+        console.warn(`[getQuestionStatus] No correct options found for Q${index+1} in ctx`);
+        return 'pending';
+    }
+
+    // Evaluate against selections
+    const anyWrong = selected.some(sel => {
+        const idStr = sel.optionId != null ? String(sel.optionId) : "";
+        const idMatch = idStr && correctIds.has(idStr);
+        
+        const normSelText = robustNormalize(sel.text);
+        const isDummyText = /^option \d+$/i.test(normSelText);
+        const textMatch = !isDummyText && correctTexts.has(normSelText);
+        
+        const propMatch = (sel as any).correct === true || String((sel as any).correct) === 'true' || (sel as any).correct === 1;
+        
+        const isOk = idMatch || textMatch || propMatch;
+        if (!isOk) {
+            console.log(`[getQuestionStatus] Q${index+1} rejection: ID="${idStr}" Match=${idMatch}, Text="${normSelText}" Match=${textMatch}, Prop=${propMatch}`);
+        }
+        return !isOk;
+    });
+
+    if (anyWrong) {
+        console.log(`[getQuestionStatus] Q${index+1} marked WRONG.`);
+        this.dotStatusCache.set(index, 'wrong');
+        return 'wrong';
+    }
+
+    // MULTI-ANSWER: must have ALL correct selected for GREEN
+    if (isMultiAnswer) {
+        const selectedIds = new Set(selected.map(s => String(s.optionId)).filter(id => id != "null" && id != "undefined"));
+        const selectedTexts = new Set(selected.map(s => robustNormalize(s.text)));
+        
+        const allCorrect = correctOptions.every(opt => 
+            (opt.optionId != null && selectedIds.has(String(opt.optionId))) || 
+            selectedTexts.has(robustNormalize(opt.text)) ||
+            (opt as any).correct === true || String((opt as any).correct) === 'true'
+        );
+        
+        if (allCorrect) {
+            console.log(`[getQuestionStatus] Q${index+1} marked CORRECT (Multi).`);
+            this.dotStatusCache.set(index, 'correct');
+            return 'correct';
+        }
+        
+        console.log(`[getQuestionStatus] Q${index+1} PENDING (Multi).`);
+        return 'pending';
+    }
+
+    // SINGLE-ANSWER (one correct, anyWrong=false, selected.length>0)
+    console.log(`[getQuestionStatus] Q${index+1} marked CORRECT (Single).`);
+    this.dotStatusCache.set(index, 'correct');
+    return 'correct';
   }
 
   // Call this when user selects an answer to update the cache
   updateDotStatus(index: number): void {
-    // Force re-evaluation by temporarily removing from cache
-    this.dotStatusCache.delete(index);
-    // Now call getQuestionStatus which will re-compute and cache
-    this.getQuestionStatus(index);
+    console.log(`[DOT UPDATE] Re-evaluating Q${index + 1}`);
+    // Use forceRecompute to bypass stale cache entries
+    const status = this.getQuestionStatus(index, { forceRecompute: true });
+    this.dotStatusCache.set(index, status);
+    
+    // Ensure CD runs to update UI colors immediately
     this.cdRef.detectChanges();
+    this.cdRef.markForCheck();
   }
 
   getDotClass(index: number): string {

@@ -48,6 +48,7 @@ export class SelectedOptionService {
   }
 
   public clearState(): void {
+    console.log('[SOS] clearState() called - WIPING ALL SELECTIONS from map!');
     this.selectedOptionsMap.clear();
     this.rawSelectionsMap.clear();
     this.selectedOption = [];
@@ -226,7 +227,7 @@ export class SelectedOptionService {
       if (newCanonical.selected === false) {
         merged.delete(newCanonical.optionId);  // support unselect if needed
       } else {
-        merged.set(newCanonical.optionId, newCanonical);
+      merged.set(newCanonical.optionId, newCanonical);
       }
     }
 
@@ -236,6 +237,16 @@ export class SelectedOptionService {
     const mergedList = Array.from(merged.values());
     const committed = mergedList;
     this.selectedOptionsMap.set(idx, committed);
+
+    // PROACTIVE SYNC: Ensure QuizService knows about this answer immediately.
+    // This drives calculateAnsweredCount and progress persistence.
+    if (this.quizService) {
+      const ids = committed
+        .map(o => o.optionId)
+        .filter((id): id is number => typeof id === 'number');
+      this.quizService.updateUserAnswer(idx, ids);
+    }
+
     this.saveState();
 
     // Emit observable updates
@@ -1798,6 +1809,8 @@ export class SelectedOptionService {
       idx,
       selections
     ).map((sel) => ({ ...sel }));  // ensure new object identity
+
+    console.log(`[SOS] commitSelections for Q${idx + 1}: count=${canonicalSelections.length}`);
 
     if (canonicalSelections.length > 0) {
       // Replace the old bucket completely
