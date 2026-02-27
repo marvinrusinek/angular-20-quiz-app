@@ -571,9 +571,10 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         const raw = params.get('questionIndex');
         const idx = Math.max(0, (Number(raw) || 1) - 1);
 
-        console.log(`[DEBUG] NavigationEnd: routeQuizId=${routeQuizId}, this.quizId=${this.quizId}`);
-
-        if (routeQuizId && routeQuizId !== this.quizId) {
+        const previousQuizId = this.quizId || this.quizService.quizId || localStorage.getItem('lastQuizId') || '';
+        console.log(`[DEBUG] NavigationEnd: routeQuizId=${routeQuizId}, previousQuizId=${previousQuizId}`);
+        
+        if (routeQuizId && previousQuizId && routeQuizId !== previousQuizId) {
           // ALWAYS reset navigation service on any quiz load (it's a singleton that persists)
           this.quizNavigationService.resetForNewQuiz();
 
@@ -620,6 +621,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           // Update quiz ID and fetch new questions
           this.quizId = routeQuizId;
           this.quizService.setQuizId(routeQuizId);
+          try { localStorage.setItem('lastQuizId', routeQuizId); } catch {}
           await this.loadQuestions();
           this.isQuizLoaded = true; // Mark as loaded to prevent reset on within-quiz nav
           console.log(`[DEBUG] After loadQuestions, questionsArray[0]=${this.questionsArray[0]?.questionText?.substring(0, 30)}`);
