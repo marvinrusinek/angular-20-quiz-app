@@ -1172,7 +1172,10 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // Persist immediate status from current in-memory selection so navigation to next
     // question keeps Q1 dot/progress even if async scoring internals lag.
     const liveSelections = this.getSelectionsForQuestion(idx);
-    const liveCorrectness = this.evaluateSelectionCorrectness(idx, liveSelections);
+    const optimisticSelections = liveSelections.length > 0
+      ? liveSelections
+      : [option as SelectedOption];
+    const liveCorrectness = this.evaluateSelectionCorrectness(idx, optimisticSelections);
     if (liveCorrectness === true || liveCorrectness === false) {
       const scoringKey = this.getScoringKey(idx);
       this.quizService.questionCorrectness.set(scoringKey, liveCorrectness);
