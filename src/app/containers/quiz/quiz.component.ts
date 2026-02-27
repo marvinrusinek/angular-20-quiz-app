@@ -4542,6 +4542,28 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     }
 
     const normalize = (value: unknown): string => String(value ?? '').trim().toLowerCase();
+    
+    const scopedSelections = selections.filter((selection) => {
+      const selectionIndex = Number(
+        selection?.questionIndex ??
+        selection?.displayIndex ??
+        Number.NaN
+      );
+      return Number.isFinite(selectionIndex) ? selectionIndex === index : true;
+    });
+
+    const effectiveSelectionsRaw =
+      scopedSelections.length > 0 ? scopedSelections : selections;
+
+    const effectiveSelections =
+      question.type === QuestionType.MultipleAnswer
+        ? effectiveSelectionsRaw
+        : effectiveSelectionsRaw.slice(-1);
+
+    if (effectiveSelections.length === 0) {
+      return null;
+    }
+
     const optionIdSet = new Set(
       question.options
         .map((opt: Option) => String(opt.optionId ?? '').trim())
@@ -4558,15 +4580,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       const text = normalize(selection?.text ?? '');
       return (id !== '' && optionIdSet.has(id)) || (text !== '' && optionTextSet.has(text));
     });
-
-    const effectiveSelections =
-      question.type === QuestionType.MultipleAnswer
-        ? normalizedSelections
-        : normalizedSelections.slice(-1);
-
-    if (effectiveSelections.length === 0) {
-      return null;
-    }
 
     const correctOptions = question.options.filter(
       (opt: Option) => opt.correct === true || String(opt.correct) === 'true'
