@@ -4598,16 +4598,28 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       correctOptions.map((opt: Option) => normalize(opt.text)).filter(Boolean)
     );
 
+    let consideredSelections = 0;
     let matchedCorrectCount = 0;
 
     for (const selection of effectiveSelections) {
       const id = String(selection?.optionId ?? '').trim();
       const text = normalize(selection?.text ?? '');
+      const explicitCorrect =
+        selection?.correct === true || String(selection?.correct) === 'true';
+
+      const knownOption =
+        (id !== '' && optionIdSet.has(id)) ||
+        (text !== '' && optionTextSet.has(text));
+
+      // Ignore stale/noise entries that don't belong to this question's options.
+      if (!knownOption && !explicitCorrect) {
+        continue;
+      }
+
+      consideredSelections += 1;
 
       const idMatch = id !== '' && correctIds.has(id);
       const textMatch = text !== '' && correctTexts.has(text);
-      const explicitCorrect =
-        selection?.correct === true || String(selection?.correct) === 'true';
 
       if (idMatch || textMatch || explicitCorrect) {
         matchedCorrectCount += 1;
