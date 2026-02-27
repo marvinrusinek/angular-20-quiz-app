@@ -4613,10 +4613,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
       consideredSelections += 1;
 
-      if (consideredSelections === 0) {
-        return null;
-      }
-
       const idMatch = id !== '' && correctIds.has(id);
       const textMatch = text !== '' && correctTexts.has(text);
 
@@ -4636,6 +4632,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
   // Helper to determine dot class with caching
   getQuestionStatus(index: number, options?: { forceRecompute?: boolean }): 'correct' | 'wrong' | 'pending' {
+    const previousCached = this.dotStatusCache.get(index);
     if (this.dotStatusCache.has(index)) {
       const cached = this.dotStatusCache.get(index)!;
       const isCurrentQuestion = index === this.currentQuestionIndex;
@@ -4653,32 +4650,36 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       const persisted = this.quizService.questionCorrectness.get(key);
       return persisted === true || persisted === false;
     });
+    const evaluatedStatus = selections.length > 0
+      ? this.evaluateSelectionCorrectness(index, selections)
+      : null;
     
     // Active question: live evaluation should update immediately.
-    if (index === this.currentQuestionIndex && selections.length > 0) {
-      const liveStatus = this.evaluateSelectionCorrectness(index, selections);
-      if (liveStatus === true || liveStatus === false) {
-        const status: 'correct' | 'wrong' = liveStatus ? 'correct' : 'wrong';
-        const scoringKey = this.getScoringKey(index);
-        this.quizService.questionCorrectness.set(scoringKey, liveStatus);
-        this.quizService.questionCorrectness.set(index, liveStatus);
-        this.setPersistedDotStatus(index, status);
-        this.dotStatusCache.set(index, status);
-        return status;
-      }
-    }
-
-    // Do not restore persisted dot color for untouched questions.
-    // This prevents stale localStorage state from marking Q1 as wrong on a fresh run.
-    if (!hasScoredState && selections.length === 0) {
-      this.dotStatusCache.set(index, 'pending');
-      return 'pending';
+    if (index === this.currentQuestionIndex && (evaluatedStatus === true || evaluatedStatus === false)) {
+      const status: 'correct' | 'wrong' = evaluatedStatus ? 'correct' : 'wrong';
+      const scoringKey = this.getScoringKey(index);
+      this.quizService.questionCorrectness.set(scoringKey, evaluatedStatus);
+      this.quizService.questionCorrectness.set(index, evaluatedStatus);
+      this.setPersistedDotStatus(index, status);
+      this.dotStatusCache.set(index, status);
+      return status;
     }
 
     const localStatus = this.getPersistedDotStatus(index);
-    if (localStatus) {
-      this.dotStatusCache.set(index, localStatus);
-      return localStatus;
+    
+    
+    // Do not restore persisted dot color for untouched active questions.
+    // But allow non-current questions to keep their previous run status when navigating.
+    if (!hasScoredState && evaluatedStatus === null) {
+      if (previousCached === 'correct' || previousCached === 'wrong') {
+        return previousCached;
+      }
+      if (index !== this.currentQuestionIndex && (localStatus === 'correct' || localStatus === 'wrong')) {
+        this.dotStatusCache.set(index, localStatus);
+        return localStatus;
+      }
+      this.dotStatusCache.set(index, 'pending');
+      return 'pending';
     }
 
     for (const key of candidateIndices) {
@@ -4691,14 +4692,11 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       }
     }
 
-    if (selections.length > 0) {
-      const evaluated = this.evaluateSelectionCorrectness(index, selections);
-      if (evaluated === true || evaluated === false) {
-        const status: 'correct' | 'wrong' = evaluated ? 'correct' : 'wrong';
-        this.setPersistedDotStatus(index, status);
-        this.dotStatusCache.set(index, status);
-        return status;
-      }
+    if (evaluatedStatus === true || evaluatedStatus === false) {
+      const status: 'correct' | 'wrong' = evaluatedStatus ? 'correct' : 'wrong';
+      this.setPersistedDotStatus(index, status);
+      this.dotStatusCache.set(index, status);
+      return status;
     }
 
     return 'pending';
