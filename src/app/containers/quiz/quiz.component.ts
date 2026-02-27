@@ -4543,17 +4543,10 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     const normalize = (value: unknown): string => String(value ?? '').trim().toLowerCase();
     
-    const scopedSelections = selections.filter((selection) => {
-      const selectionIndex = Number(
-        selection?.questionIndex ??
-        selection?.displayIndex ??
-        Number.NaN
-      );
-      return Number.isFinite(selectionIndex) ? selectionIndex === index : true;
-    });
-
-    const effectiveSelectionsRaw =
-      scopedSelections.length > 0 ? scopedSelections : selections;
+    // Selections are already retrieved for the target question key.
+    // Avoid additional index scoping here because some flows (e.g. shuffle/remap)
+    // can carry a different index marker while still belonging to this question.
+    const effectiveSelectionsRaw = selections;
 
     const effectiveSelections =
       question.type === QuestionType.MultipleAnswer
