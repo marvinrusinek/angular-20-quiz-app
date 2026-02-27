@@ -4542,6 +4542,31 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     }
 
     const normalize = (value: unknown): string => String(value ?? '').trim().toLowerCase();
+    const optionIdSet = new Set(
+      question.options
+        .map((opt: Option) => String(opt.optionId ?? '').trim())
+        .filter(Boolean)
+    );
+    const optionTextSet = new Set(
+      question.options
+        .map((opt: Option) => normalize(opt.text))
+        .filter(Boolean)
+    );
+
+    const normalizedSelections = selections.filter((selection) => {
+      const id = String(selection?.optionId ?? '').trim();
+      const text = normalize(selection?.text ?? '');
+      return (id !== '' && optionIdSet.has(id)) || (text !== '' && optionTextSet.has(text));
+    });
+
+    const effectiveSelections =
+      question.type === QuestionType.MultipleAnswer
+        ? normalizedSelections
+        : normalizedSelections.slice(-1);
+
+    if (effectiveSelections.length === 0) {
+      return null;
+    }
 
     const correctOptions = question.options.filter(
       (opt: Option) => opt.correct === true || String(opt.correct) === 'true'
@@ -4562,7 +4587,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     let matchedCorrectCount = 0;
 
-    for (const selection of selections) {
+    for (const selection of effectiveSelections) {
       const id = String(selection?.optionId ?? '').trim();
       const text = normalize(selection?.text ?? '');
 
@@ -4585,7 +4610,11 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   getQuestionStatus(index: number, options?: { forceRecompute?: boolean }): 'correct' | 'wrong' | 'pending' {
     if (this.dotStatusCache.has(index)) {
       const cached = this.dotStatusCache.get(index)!;
-      if (!options?.forceRecompute || (index !== this.currentQuestionIndex && cached !== 'pending')) {
+      const isCurrentQuestion = index === this.currentQuestionIndex;
+      if (!options?.forceRecompute && !isCurrentQuestion) {
+        return cached;
+      }
+      if (!options?.forceRecompute && isCurrentQuestion && cached === 'pending') {
         return cached;
       }
     }
