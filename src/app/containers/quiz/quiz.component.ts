@@ -4591,6 +4591,11 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     }
 
     const selections = this.getSelectionsForQuestion(index);
+    const candidateIndices = this.getCandidateQuestionIndices(index);
+    const hasScoredState = candidateIndices.some((key) => {
+      const persisted = this.quizService.questionCorrectness.get(key);
+      return persisted === true || persisted === false;
+    });
     
     // Active question: live evaluation should update immediately.
     if (index === this.currentQuestionIndex && selections.length > 0) {
@@ -4606,13 +4611,20 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       }
     }
 
+    // Do not restore persisted dot color for untouched questions.
+    // This prevents stale localStorage state from marking Q1 as wrong on a fresh run.
+    if (!hasScoredState && selections.length === 0) {
+      this.dotStatusCache.set(index, 'pending');
+      return 'pending';
+    }
+
     const localStatus = this.getPersistedDotStatus(index);
     if (localStatus) {
       this.dotStatusCache.set(index, localStatus);
       return localStatus;
     }
 
-    for (const key of this.getCandidateQuestionIndices(index)) {
+    for (const key of candidateIndices) {
       const persisted = this.quizService.questionCorrectness.get(key);
       if (persisted === true || persisted === false) {
         const status: 'correct' | 'wrong' = persisted ? 'correct' : 'wrong';
@@ -4649,7 +4661,10 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
   getDotClass(index: number): string {
     const status = this.getQuestionStatus(index);
-    return (index === this.currentQuestionIndex) ? `${status} current` : status;
+    if (index === this.currentQuestionIndex && status !== 'pending') {
+      return `${status} current`;
+    }
+    return status;
   }
 
   navigateToDot(index: number): void {
