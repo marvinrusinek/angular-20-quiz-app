@@ -968,6 +968,7 @@ export class QuizService {
         if (wasCorrect) {
           this.updateCorrectCountForResults(this.correctCount - 1);
           this.questionCorrectness.set(scoringKey, false);
+          this.questionCorrectness.set(prevIndex, false);
           console.log(
             `[QuizService] Decremented score for Leaving Q${prevIndex} (Key=${scoringKey}, Backwards)`
           );
