@@ -2480,11 +2480,18 @@ export class QuizService {
     if (isNowCorrect && !wasCorrect) {
       this.updateCorrectCountForResults(this.correctCount + 1);
       this.questionCorrectness.set(scoringKey, true);
+      this.questionCorrectness.set(qIndex, true);
       console.log(`[incrementScore] INCREMENTED score to ${this.correctCount}`);
     } else if (!isNowCorrect && wasCorrect) {
       this.updateCorrectCountForResults(this.correctCount - 1);
       this.questionCorrectness.set(scoringKey, false);
+      this.questionCorrectness.set(qIndex, false);
       console.log(`[incrementScore] Decremented score for Q${qIndex} (Key=${scoringKey})`);
+    } else if (!isNowCorrect) {
+      // Persist explicit wrong status so dots/progress remain stable after navigation.
+      this.questionCorrectness.set(scoringKey, false);
+      this.questionCorrectness.set(qIndex, false);
+      console.log(`[incrementScore] Marked Q${qIndex} wrong (Key=${scoringKey})`);
     } else {
       console.log(`[incrementScore] NO CHANGE: isNowCorrect=${isNowCorrect}, wasCorrect=${wasCorrect}`);
     }

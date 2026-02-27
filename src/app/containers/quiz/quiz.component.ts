@@ -1107,6 +1107,26 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     }
   }
 
+  private normalizeQuestionIndex(rawIndex: number | undefined): number {
+    if (!Number.isInteger(rawIndex)) return this.currentQuestionIndex;
+
+    const idx = Number(rawIndex);
+    const total = this.totalCount;
+
+    if (idx === this.currentQuestionIndex) return idx;
+
+    // Some payloads send 1-based index; normalize to 0-based.
+    if (idx === this.currentQuestionIndex + 1) {
+      return this.currentQuestionIndex;
+    }
+
+    if (total > 0 && idx >= total && idx - 1 >= 0 && idx - 1 < total) {
+      return idx - 1;
+    }
+
+    return idx;
+  }
+
   public async onOptionSelected(
     option: SelectedOption,
     isUserAction: boolean = true
@@ -1127,7 +1147,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     (this as any)._lastOptionId = id;
 
     // Determine target question index
-    const idx = typeof option?.questionIndex === 'number' ? option.questionIndex : this.currentQuestionIndex;
+    const idx = this.normalizeQuestionIndex(option?.questionIndex);
 
     console.log(`[onOptionSelected] Processing Q${idx + 1}`, option);
 
@@ -1148,8 +1168,25 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       this.quizStateService.markUserInteracted(idx);
       if (isAnswered) this.quizStateService.markQuestionAnswered(idx);
     }
+
+    // Persist immediate status from current in-memory selection so navigation to next
+    // question keeps Q1 dot/progress even if async scoring internals lag.
+    const liveSelections = this.getSelectionsForQuestion(idx);
+    const liveCorrectness = this.evaluateSelectionCorrectness(idx, liveSelections);
+    if (liveCorrectness === true || liveCorrectness === false) {
+      this.quizService.questionCorrectness.set(this.getScoringKey(idx), liveCorrectness);
+      try {
+        localStorage.setItem(
+          'questionCorrectness',
+          JSON.stringify(Object.fromEntries(this.quizService.questionCorrectness))
+        );
+      } catch {}
+    }
     
-    // Now update progress AFTER state has been marked
+    // Ensure scoring state is updated before evaluating dot color/progress.
+    await this.quizService.checkIfAnsweredCorrectly(idx);
+
+    // Now update progress AFTER state has been marked and scored
     this.updateProgressValue();
     this.updateDotStatus(idx);
     this.cdRef.markForCheck();
@@ -1166,7 +1203,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     }
 
     // Trigger Scoring
-    void this.quizService.checkIfAnsweredCorrectly(idx);
+    // void this.quizService.checkIfAnsweredCorrectly(idx);
     
     // Persist to session
     try {
@@ -4283,20 +4320,16 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       return;
     }
     
-    // 1. Refresh Dot Status Cache for all questions to ensure visual persistence
-    // This handles the "dots not changing color" and "persist when navigating" issues.
-    console.log(`[PROGRESS] REFRESHING ALL ${total} DOTS...`);
+    let answeredCount = 0;
     for (let i = 0; i < total; i++) {
-        const status = this.getQuestionStatus(i, { forceRecompute: true });
-        this.dotStatusCache.set(i, status);
+      const status = this.getQuestionStatus(i, { forceRecompute: true });
+      this.dotStatusCache.set(i, status);
+      if (status !== 'pending') {
+        answeredCount += 1;
+      }
     }
 
-    // 2. Calculate Answered Count across all sources
-    const answeredCount = this.calculateAnsweredCount();
-    
-    // 3. Update Progress Percentage
-    const newProgress = Math.round((answeredCount / total) * 100);
-    this.progress = newProgress;
+    this.progress = Math.round((answeredCount / total) * 100);
     
     console.log(`[PROGRESS] Q${this.currentQuestionIndex + 1} SUMMARY: answeredCount=${answeredCount}/${total}, progress=${this.progress}%`);
     
@@ -4378,165 +4411,118 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   }
 
   // Helper to determine dot class with caching
+  private getScoringKey(index: number): number {
+    if (this.quizService.isShuffleEnabled() && this.quizId) {
+      const originalIndex = this.quizShuffleService.toOriginalIndex(this.quizId, index);
+      if (typeof originalIndex === 'number' && originalIndex >= 0) {
+        return originalIndex;
+      }
+    }
+    return index;
+  }
+
+  private getCandidateQuestionIndices(index: number): number[] {
+    const scoringKey = this.getScoringKey(index);
+    return Array.from(new Set([index, scoringKey]));
+  }
+
+  private getSelectionsForQuestion(index: number): SelectedOption[] {
+    // IMPORTANT: Use only live in-memory maps for dot/progress state.
+    // Persisted fallbacks (userAnswers/sessionStorage) can contain stale values.
+    const candidateIndices = this.getCandidateQuestionIndices(index);
+    
+    for (const candidateIndex of candidateIndices) {
+      const serviceSelection = this.selectedOptionService?.selectedOptionsMap?.get(candidateIndex);
+      if (Array.isArray(serviceSelection) && serviceSelection.length > 0) {
+        return serviceSelection;
+      }
+
+      const quizSelection = this.quizService?.selectedOptionsMap?.get(candidateIndex);
+      if (Array.isArray(quizSelection) && quizSelection.length > 0) {
+        return quizSelection as SelectedOption[];
+      }
+    }
+
+    return [];
+  }
+
+  private evaluateSelectionCorrectness(index: number, selections: SelectedOption[]): boolean | null {
+    const question = this.questionsArray?.[index] ||
+      this.quizService.questions?.[index] ||
+      this.quizService.activeQuiz?.questions?.[index];
+
+    if (!question || !Array.isArray(question.options) || question.options.length === 0) {
+      return null;
+    }
+
+    const normalize = (value: unknown): string => String(value ?? '').trim().toLowerCase();
+
+    const correctOptions = question.options.filter(
+      (opt: Option) => opt.correct === true || String(opt.correct) === 'true'
+    );
+
+    if (correctOptions.length === 0) {
+      return null;
+    }
+
+    const correctIds = new Set(
+      correctOptions
+        .map((opt: Option) => String(opt.optionId ?? ''))
+        .filter(Boolean)
+    );
+    const correctTexts = new Set(
+      correctOptions.map((opt: Option) => normalize(opt.text)).filter(Boolean)
+    );
+
+    let matchedCorrectCount = 0;
+
+    for (const selection of selections) {
+      const id = String(selection?.optionId ?? '').trim();
+      const text = normalize(selection?.text ?? '');
+
+      const idMatch = id !== '' && correctIds.has(id);
+      const textMatch = text !== '' && correctTexts.has(text);
+      const explicitCorrect =
+        selection?.correct === true || String(selection?.correct) === 'true';
+
+      if (idMatch || textMatch || explicitCorrect) {
+        matchedCorrectCount += 1;
+      } else {
+        return false;
+      }
+    }
+
+    return matchedCorrectCount === correctOptions.length;
+  }
+
+  // Helper to determine dot class with caching
   getQuestionStatus(index: number, options?: { forceRecompute?: boolean }): 'correct' | 'wrong' | 'pending' {
-    // 1. Cache Bypass Check
     if (!options?.forceRecompute && this.dotStatusCache.has(index)) {
       return this.dotStatusCache.get(index)!;
     }
 
-    // 2. Retrieval of authoritative selections (checking all known sources)
-    let selected = (this.selectedOptionService?.selectedOptionsMap?.get(index)) ?? 
-                     (this.quizService?.selectedOptionsMap?.get(index)) ?? [];
-    let sourceUsed = selected.length > 0 ? 'ServiceMaps' : '';
-
-    // Fallback 1: UserAnswers in QuizService
-    if (selected.length === 0) {
-        const ua = this.quizService?.userAnswers?.[index];
-        if (Array.isArray(ua) && ua.length > 0) {
-            selected = ua.map(id => ({ optionId: id, text: `Option ${id}` } as SelectedOption));
-            sourceUsed = 'UserAnswers';
-        }
-    }
-
-    // Fallback 2: SessionStorage
-    if (selected.length === 0) {
-        const stored = sessionStorage.getItem(`quiz_selection_${index}`);
-        if (stored) {
-            try {
-                const ids = JSON.parse(stored);
-                if (Array.isArray(ids) && ids.length > 0) {
-                    selected = ids.map((id: any) => ({ optionId: id, text: `Option ${id}` } as SelectedOption));
-                    sourceUsed = 'SessionStorage';
-                }
-            } catch {}
-        }
-    }
-
-    if (selected.length === 0) {
-      const qIdx = Number(index);
-      console.log(`[getQuestionStatus] Q${qIdx+1} PENDING (Reason: No selections found in any source)`);
-      return 'pending';
-    }
-    console.log(`[getQuestionStatus] Q${index+1} evaluating selections from ${sourceUsed}.`);
-
-    // 3. Retrieval of authoritative question/context
-    // Try index-based lookups first
-    let question: QuizQuestion | null | undefined = this.questionsArray?.[index] || 
-                   this.quizService.questions?.[index] ||
-                   (this.quizService.activeQuiz?.questions?.[index]);
-                   
-    // If not found by index, only use currentQuestion if the index matches
-    if (!question && (index === this.currentQuestionIndex || index === this.quizService.getCurrentQuestionIndex())) {
-      question = this.currentQuestion || this.quizService.currentQuestion?.getValue();
-    }
-                     
-    if (!question) {
-      console.warn(`[getQuestionStatus] Question Context MISSING for index ${index}`);
+    const selections = this.getSelectionsForQuestion(index);
+    if (selections.length === 0) {
       return 'pending';
     }
 
-    // Robust normalization for text comparisons
-    const robustNormalize = (str: string) =>
-      (str || '').replace(/\s+/g, ' ').trim().toLowerCase();
-    
-    // Fallback: If current question metadata lacks correct property, scan global data
-    let ctx = question;
-    const hasCorrectProp = ctx?.options?.some(o => (o as any).correct === true || String((o as any).correct) === 'true');
-    
-    if (!hasCorrectProp) {
-        console.log(`[getQuestionStatus] Q${index+1} lacks 'correct' property in metadata. Fallback active.`);
-        const globalQuestions = (this.quizService.quizData || []).flatMap(q => q.questions || []);
-        // Find by text match
-        const found = globalQuestions.find(q => robustNormalize(q.questionText) === robustNormalize(question.questionText));
-        if (found) {
-            console.log(`[getQuestionStatus] Q${index+1} found in global data via text match.`);
-            ctx = found;
-        } else {
-            console.warn(`[getQuestionStatus] Q${index+1} NOT found in global data either.`);
-        }
+    // const scoringKey = this.getScoringKey(index);
+    const evaluatedCorrectness = this.evaluateSelectionCorrectness(index, selections);
+    if (evaluatedCorrectness === true || evaluatedCorrectness === false) {
+      const status: 'correct' | 'wrong' = evaluatedCorrectness ? 'correct' : 'wrong';
+      this.dotStatusCache.set(index, status);
+      return status;
     }
 
-    // 4. Correctness Evaluation
-    let opts = ctx?.options ?? [];
-    if (opts.length === 0) {
-        console.warn(`[getQuestionStatus] Q${index+1} has NO options in ctx.`);
-        return 'pending';
-    }
-    
-    // CRITICAL: Ensure options have stable IDs for evaluation using ORIGINAL index to match service storage
-    if (opts.some(o => o.optionId == null)) {
-        const origIdx = this.quizShuffleService.toOriginalIndex(this.quizId, index) ?? index;
-        opts = this.quizShuffleService.assignOptionIds([...opts], origIdx);
+    const scoringKey = this.getScoringKey(index);
+    const persistedCorrectness = this.quizService.questionCorrectness.get(scoringKey);
+    if (persistedCorrectness === true || persistedCorrectness === false) {
+      const status: 'correct' | 'wrong' = persistedCorrectness ? 'correct' : 'wrong';
+      this.dotStatusCache.set(index, status);
+      return status;
     }
 
-    const correctOptions = opts.filter(o => o.correct === true || String(o.correct) === "true" || (o as any).correct === 1);
-    const correctIds = new Set(correctOptions.map(o => String(o.optionId)).filter(id => id != "null" && id != "undefined"));
-    const correctTexts = new Set(correctOptions.map(o => robustNormalize(o.text)));
-    const isMultiAnswer = correctOptions.length > 1;
-
-    console.log(`[getQuestionStatus] Q${index+1} DIAG:
-      Source: ${sourceUsed}
-      Ctx Question: "${ctx.questionText?.substring(0, 30)}..."
-      Correct IDs: [${Array.from(correctIds).join(',')}]
-      Correct Texts: [${Array.from(correctTexts).join('|')}]
-      Selected Count: ${selected.length}
-      isMultiAnswer: ${isMultiAnswer}
-    `);
-
-    if (correctOptions.length === 0) {
-        console.warn(`[getQuestionStatus] No correct options found for Q${index+1} in ctx`);
-        return 'pending';
-    }
-
-    // Evaluate against selections
-    const anyWrong = selected.some(sel => {
-        const idStr = sel.optionId != null ? String(sel.optionId) : "";
-        const idMatch = idStr && correctIds.has(idStr);
-        
-        const normSelText = robustNormalize(sel.text);
-        const isDummyText = /^option \d+$/i.test(normSelText);
-        const textMatch = !isDummyText && correctTexts.has(normSelText);
-        
-        const propMatch = (sel as any).correct === true || String((sel as any).correct) === 'true' || (sel as any).correct === 1;
-        
-        const isOk = idMatch || textMatch || propMatch;
-        if (!isOk) {
-            console.log(`[getQuestionStatus] Q${index+1} rejection: ID="${idStr}" Match=${idMatch}, Text="${normSelText}" Match=${textMatch}, Prop=${propMatch}`);
-        }
-        return !isOk;
-    });
-
-    if (anyWrong) {
-        console.log(`[getQuestionStatus] Q${index+1} marked WRONG.`);
-        this.dotStatusCache.set(index, 'wrong');
-        return 'wrong';
-    }
-
-    // MULTI-ANSWER: must have ALL correct selected for GREEN
-    if (isMultiAnswer) {
-        const selectedIds = new Set(selected.map(s => String(s.optionId)).filter(id => id != "null" && id != "undefined"));
-        const selectedTexts = new Set(selected.map(s => robustNormalize(s.text)));
-        
-        const allCorrect = correctOptions.every(opt => 
-            (opt.optionId != null && selectedIds.has(String(opt.optionId))) || 
-            selectedTexts.has(robustNormalize(opt.text)) ||
-            (opt as any).correct === true || String((opt as any).correct) === 'true'
-        );
-        
-        if (allCorrect) {
-            console.log(`[getQuestionStatus] Q${index+1} marked CORRECT (Multi).`);
-            this.dotStatusCache.set(index, 'correct');
-            return 'correct';
-        }
-        
-        console.log(`[getQuestionStatus] Q${index+1} PENDING (Multi).`);
-        return 'pending';
-    }
-
-    // SINGLE-ANSWER (one correct, anyWrong=false, selected.length>0)
-    console.log(`[getQuestionStatus] Q${index+1} marked CORRECT (Single).`);
-    this.dotStatusCache.set(index, 'correct');
-    return 'correct';
+    return 'pending';
   }
 
   // Call this when user selects an answer to update the cache
