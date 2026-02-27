@@ -1174,7 +1174,10 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     const liveSelections = this.getSelectionsForQuestion(idx);
     const liveCorrectness = this.evaluateSelectionCorrectness(idx, liveSelections);
     if (liveCorrectness === true || liveCorrectness === false) {
-      this.quizService.questionCorrectness.set(this.getScoringKey(idx), liveCorrectness);
+      const scoringKey = this.getScoringKey(idx);
+      this.quizService.questionCorrectness.set(scoringKey, liveCorrectness);
+      this.quizService.questionCorrectness.set(idx, liveCorrectness);
+      this.setPersistedDotStatus(idx, liveCorrectness ? 'correct' : 'wrong');
       try {
         localStorage.setItem(
           'questionCorrectness',
@@ -1201,9 +1204,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         explanationText: this.explanationToDisplay || prev.explanationText || ''
       });
     }
-
-    // Trigger Scoring
-    // void this.quizService.checkIfAnsweredCorrectly(idx);
     
     // Persist to session
     try {
@@ -4314,9 +4314,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   updateProgressValue(): void {
     const total = this.totalCount;
     if (total <= 0) {
-      console.warn('[PROGRESS] updateProgressValue: totalCount is 0');
-      this.progress = 0;
-      this.cdRef.detectChanges();
+      console.warn('[PROGRESS] updateProgressValue: totalCount is 0; keeping previous progress', this.progress);
+      this.cdRef.markForCheck();
       return;
     }
     
@@ -4412,8 +4411,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
   // Helper to determine dot class with caching
   private getScoringKey(index: number): number {
-    if (this.quizService.isShuffleEnabled() && this.quizId) {
-      const originalIndex = this.quizShuffleService.toOriginalIndex(this.quizId, index);
+    const effectiveQuizId = this.quizId || this.quizService.quizId || localStorage.getItem('lastQuizId') || '';
+    if (this.quizService.isShuffleEnabled() && effectiveQuizId) {
+      const originalIndex = this.quizShuffleService.toOriginalIndex(effectiveQuizId, index);
       if (typeof originalIndex === 'number' && originalIndex >= 0) {
         return originalIndex;
       }
@@ -4424,6 +4424,50 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   private getCandidateQuestionIndices(index: number): number[] {
     const scoringKey = this.getScoringKey(index);
     return Array.from(new Set([index, scoringKey]));
+  }
+
+  private getDotStatusStorageKey(): string {
+    const keyQuizId = this.quizId || this.quizService.quizId || localStorage.getItem('lastQuizId') || 'default';
+    return `quiz_dot_status_${keyQuizId}`;
+  }
+
+  private getPersistedDotStatus(index: number): 'correct' | 'wrong' | null {
+    try {
+      const keys = [
+        this.getDotStatusStorageKey(),
+        'quiz_dot_status_default'
+      ];
+
+      for (const key of keys) {
+        const raw = localStorage.getItem(key);
+        if (!raw) continue;
+        const parsed = JSON.parse(raw) as Record<string, 'correct' | 'wrong'>;
+        const value = parsed[String(index)];
+        if (value === 'correct' || value === 'wrong') {
+          return value;
+        }
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  private setPersistedDotStatus(index: number, status: 'correct' | 'wrong'): void {
+    try {
+      const keys = Array.from(new Set([
+        this.getDotStatusStorageKey(),
+        'quiz_dot_status_default'
+      ]));
+
+      for (const key of keys) {
+        const raw = localStorage.getItem(key);
+        const parsed = raw ? JSON.parse(raw) : {};
+        parsed[String(index)] = status;
+        localStorage.setItem(key, JSON.stringify(parsed));
+      }
+    } catch {}
   }
 
   private getSelectionsForQuestion(index: number): SelectedOption[] {
