@@ -1177,7 +1177,13 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     const optimisticSelections = liveSelections.length > 0
       ? liveSelections
       : [option as SelectedOption];
-    const liveCorrectness = this.evaluateSelectionCorrectness(idx, optimisticSelections);
+    let liveCorrectness = this.evaluateSelectionCorrectness(idx, optimisticSelections);
+    if (liveCorrectness !== true && liveCorrectness !== false) {
+      const payloadCorrect = option?.correct === true || String(option?.correct) === 'true';
+      if (payloadCorrect === true || payloadCorrect === false) {
+        liveCorrectness = payloadCorrect;
+      }
+    }
     if (liveCorrectness === true || liveCorrectness === false) {
       const scoringKey = this.getScoringKey(idx);
       this.quizService.questionCorrectness.set(scoringKey, liveCorrectness);
