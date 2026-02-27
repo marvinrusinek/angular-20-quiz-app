@@ -4569,17 +4569,12 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         .map((opt: Option) => String(opt.optionId ?? '').trim())
         .filter(Boolean)
     );
+
     const optionTextSet = new Set(
       question.options
         .map((opt: Option) => normalize(opt.text))
         .filter(Boolean)
     );
-
-    const normalizedSelections = selections.filter((selection) => {
-      const id = String(selection?.optionId ?? '').trim();
-      const text = normalize(selection?.text ?? '');
-      return (id !== '' && optionIdSet.has(id)) || (text !== '' && optionTextSet.has(text));
-    });
 
     const correctOptions = question.options.filter(
       (opt: Option) => opt.correct === true || String(opt.correct) === 'true'
@@ -4591,7 +4586,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     const correctIds = new Set(
       correctOptions
-        .map((opt: Option) => String(opt.optionId ?? ''))
+        .map((opt: Option) => String(opt.optionId ?? '').trim())
         .filter(Boolean)
     );
     const correctTexts = new Set(
@@ -4618,6 +4613,10 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
       consideredSelections += 1;
 
+      if (consideredSelections === 0) {
+        return null;
+      }
+
       const idMatch = id !== '' && correctIds.has(id);
       const textMatch = text !== '' && correctTexts.has(text);
 
@@ -4626,6 +4625,10 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       } else {
         return false;
       }
+    }
+
+    if (consideredSelections === 0) {
+      return null;
     }
 
     return matchedCorrectCount === correctOptions.length;
