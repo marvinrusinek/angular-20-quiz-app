@@ -4583,29 +4583,53 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
   // Helper to determine dot class with caching
   getQuestionStatus(index: number, options?: { forceRecompute?: boolean }): 'correct' | 'wrong' | 'pending' {
-    if (!options?.forceRecompute && this.dotStatusCache.has(index)) {
-      return this.dotStatusCache.get(index)!;
+    if (this.dotStatusCache.has(index)) {
+      const cached = this.dotStatusCache.get(index)!;
+      if (!options?.forceRecompute || (index !== this.currentQuestionIndex && cached !== 'pending')) {
+        return cached;
+      }
     }
 
     const selections = this.getSelectionsForQuestion(index);
-    if (selections.length === 0) {
-      return 'pending';
+    
+    // Active question: live evaluation should update immediately.
+    if (index === this.currentQuestionIndex && selections.length > 0) {
+      const liveStatus = this.evaluateSelectionCorrectness(index, selections);
+      if (liveStatus === true || liveStatus === false) {
+        const status: 'correct' | 'wrong' = liveStatus ? 'correct' : 'wrong';
+        const scoringKey = this.getScoringKey(index);
+        this.quizService.questionCorrectness.set(scoringKey, liveStatus);
+        this.quizService.questionCorrectness.set(index, liveStatus);
+        this.setPersistedDotStatus(index, status);
+        this.dotStatusCache.set(index, status);
+        return status;
+      }
     }
 
-    // const scoringKey = this.getScoringKey(index);
-    const evaluatedCorrectness = this.evaluateSelectionCorrectness(index, selections);
-    if (evaluatedCorrectness === true || evaluatedCorrectness === false) {
-      const status: 'correct' | 'wrong' = evaluatedCorrectness ? 'correct' : 'wrong';
-      this.dotStatusCache.set(index, status);
-      return status;
+    const localStatus = this.getPersistedDotStatus(index);
+    if (localStatus) {
+      this.dotStatusCache.set(index, localStatus);
+      return localStatus;
     }
 
-    const scoringKey = this.getScoringKey(index);
-    const persistedCorrectness = this.quizService.questionCorrectness.get(scoringKey);
-    if (persistedCorrectness === true || persistedCorrectness === false) {
-      const status: 'correct' | 'wrong' = persistedCorrectness ? 'correct' : 'wrong';
-      this.dotStatusCache.set(index, status);
-      return status;
+    for (const key of this.getCandidateQuestionIndices(index)) {
+      const persisted = this.quizService.questionCorrectness.get(key);
+      if (persisted === true || persisted === false) {
+        const status: 'correct' | 'wrong' = persisted ? 'correct' : 'wrong';
+        this.setPersistedDotStatus(index, status);
+        this.dotStatusCache.set(index, status);
+        return status;
+      }
+    }
+
+    if (selections.length > 0) {
+      const evaluated = this.evaluateSelectionCorrectness(index, selections);
+      if (evaluated === true || evaluated === false) {
+        const status: 'correct' | 'wrong' = evaluated ? 'correct' : 'wrong';
+        this.setPersistedDotStatus(index, status);
+        this.dotStatusCache.set(index, status);
+        return status;
+      }
     }
 
     return 'pending';
