@@ -614,6 +614,10 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
             localStorage.removeItem('userAnswers');
             localStorage.removeItem('selectedOptionsMap');
             localStorage.removeItem('questionCorrectness');
+            localStorage.removeItem(this.getDotStatusStorageKey());
+            localStorage.removeItem('quiz_dot_status_default');
+            localStorage.removeItem(this.getProgressStorageKey());
+            localStorage.removeItem('quiz_progress_default');
             localStorage.setItem('savedQuestionIndex', '0');
             sessionStorage.clear(); // CRITICAL: Clear session storage to reset dots
           } catch { }
@@ -4440,6 +4444,33 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   private getDotStatusStorageKey(): string {
     const keyQuizId = this.quizId || this.quizService.quizId || localStorage.getItem('lastQuizId') || 'default';
     return `quiz_dot_status_${keyQuizId}`;
+  }
+
+  private getProgressStorageKey(): string {
+    const keyQuizId = this.quizId || this.quizService.quizId || localStorage.getItem('lastQuizId') || 'default';
+    return `quiz_progress_${keyQuizId}`;
+  }
+
+  private getPersistedProgress(): number | null {
+    try {
+      const keys = [this.getProgressStorageKey(), 'quiz_progress_default'];
+      for (const key of keys) {
+        const raw = localStorage.getItem(key);
+        if (raw == null) continue;
+        const n = Number(raw);
+        if (Number.isFinite(n) && n >= 0) return Math.trunc(n);
+      }
+    } catch {}
+    return null;
+  }
+
+  private setPersistedProgress(value: number): void {
+    try {
+      const keys = Array.from(new Set([this.getProgressStorageKey(), 'quiz_progress_default']));
+      for (const key of keys) {
+        localStorage.setItem(key, String(Math.max(0, Math.trunc(value))));
+      }
+    } catch {}
   }
 
   private getPersistedDotStatus(index: number): 'correct' | 'wrong' | null {
