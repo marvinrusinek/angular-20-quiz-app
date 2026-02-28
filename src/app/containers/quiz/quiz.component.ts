@@ -4357,6 +4357,16 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       this.cdRef.markForCheck();
       return;
     }
+
+    if (this.isQuizFreshAtQuestionOne()) {
+      for (let i = 0; i < total; i++) {
+        this.dotStatusCache.set(i, 'pending');
+      }
+      this.progress = 0;
+      this.cdRef.detectChanges();
+      this.cdRef.markForCheck();
+      return;
+    }
     
     let answeredCount = 0;
     for (let i = 0; i < total; i++) {
@@ -4649,6 +4659,11 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
   // Helper to determine dot class with caching
   getQuestionStatus(index: number, options?: { forceRecompute?: boolean }): 'correct' | 'wrong' | 'pending' {
+    if (this.isQuizFreshAtQuestionOne()) {
+      this.dotStatusCache.set(index, 'pending');
+      return 'pending';
+    }
+
     const previousCached = this.dotStatusCache.get(index);
     if (this.dotStatusCache.has(index)) {
       const cached = this.dotStatusCache.get(index)!;
@@ -4663,6 +4678,17 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     const selections = this.getSelectionsForQuestion(index);
     const candidateIndices = this.getCandidateQuestionIndices(index);
+    const questionHasLiveSessionState = this.hasLiveSessionStateForQuestion(index);
+
+    if (
+      index === this.currentQuestionIndex &&
+      !questionHasLiveSessionState &&
+      selections.length === 0
+    ) {
+      this.dotStatusCache.set(index, 'pending');
+      return 'pending';
+    }
+
     const hasScoredState = candidateIndices.some((key) => {
       const persisted = this.quizService.questionCorrectness.get(key);
       return persisted === true || persisted === false;
@@ -4690,7 +4716,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     }
 
     const localStatus = this.getPersistedDotStatus(index);
-    
+    const hasSessionState = this.hasLiveSessionStateForQuestion(index);
 
     // Do not restore persisted dot color for untouched active questions.
     // But allow non-current questions to keep their previous run status when navigating.
@@ -4698,7 +4724,12 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       if (previousCached === 'correct' || previousCached === 'wrong') {
         return previousCached;
       }
-      if (hasActiveSessionState && index !== this.currentQuestionIndex && (localStatus === 'correct' || localStatus === 'wrong')) {
+      if (
+        hasActiveSessionState &&
+        hasSessionState &&
+        index !== this.currentQuestionIndex &&
+        (localStatus === 'correct' || localStatus === 'wrong')
+      ) {
         this.dotStatusCache.set(index, localStatus);
         return localStatus;
       }
@@ -4706,7 +4737,12 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       return 'pending';
     }
 
-    if (hasActiveSessionState && localStatus && index !== this.currentQuestionIndex) {
+    if (
+      hasActiveSessionState &&
+      hasSessionState &&
+      localStatus &&
+      index !== this.currentQuestionIndex
+    ) {
       this.dotStatusCache.set(index, localStatus);
       return localStatus;
     }
@@ -4728,6 +4764,71 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     }
 
     return 'pending';
+  }
+
+  private hasLiveSessionStateForQuestion(index: number): boolean {
+    const candidateIndices = this.getCandidateQuestionIndices(index);
+
+    const hasSelections = candidateIndices.some((candidateIndex) => {
+      const selectedViaService = this.selectedOptionService?.selectedOptionsMap?.get(candidateIndex);
+      if (Array.isArray(selectedViaService) && selectedViaService.length > 0) {
+        return true;
+      }
+
+      const selectedViaQuiz = this.quizService?.selectedOptionsMap?.get(candidateIndex);
+      return Array.isArray(selectedViaQuiz) && selectedViaQuiz.length > 0;
+    });
+
+    if (hasSelections) {
+      return true;
+    }
+
+    const hasScoredState = candidateIndices.some((candidateIndex) => {
+      const score = this.quizService?.questionCorrectness?.get(candidateIndex);
+      return score === true || score === false;
+    });
+
+    if (hasScoredState) {
+      return true;
+    }
+
+    const hasUserAnswers = candidateIndices.some((candidateIndex) => {
+      const answers = this.quizService?.userAnswers?.[candidateIndex];
+      return Array.isArray(answers) && answers.length > 0;
+    });
+
+    if (hasUserAnswers) {
+      return true;
+    }
+
+    return false;
+  }
+
+  private isQuizFreshAtQuestionOne(): boolean {
+    if (this.currentQuestionIndex !== 0) {
+      return false;
+    }
+
+    const hasSelectionsInSelectedOptionService =
+      (this.selectedOptionService?.selectedOptionsMap?.size ?? 0) > 0;
+    const hasSelectionsInQuizService =
+      (this.quizService?.selectedOptionsMap?.size ?? 0) > 0;
+    const hasScoredQuestions =
+      (this.quizService?.questionCorrectness?.size ?? 0) > 0;
+    const hasStoredUserAnswers =
+      Array.isArray(this.quizService?.userAnswers) &&
+      this.quizService.userAnswers.some((answers: unknown) =>
+        Array.isArray(answers) && answers.length > 0
+      );
+    const hasStateServiceActivity =
+      (this.quizStateService?._answeredQuestionIndices?.size ?? 0) > 0 ||
+      (this.quizStateService?._hasUserInteracted?.size ?? 0) > 0;
+
+    return !hasSelectionsInSelectedOptionService &&
+      !hasSelectionsInQuizService &&
+      !hasScoredQuestions &&
+      !hasStoredUserAnswers &&
+      !hasStateServiceActivity;
   }
 
   // Call this when user selects an answer to update the cache
