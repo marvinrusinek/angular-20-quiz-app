@@ -4678,7 +4678,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         ? this.quizService.userAnswers.some((answers: unknown) =>
           Array.isArray(answers) && answers.length > 0)
         : false);
-
     // Active question: live evaluation should update immediately.
     if (index === this.currentQuestionIndex && (evaluatedStatus === true || evaluatedStatus === false)) {
       const status: 'correct' | 'wrong' = evaluatedStatus ? 'correct' : 'wrong';
@@ -4692,6 +4691,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     const localStatus = this.getPersistedDotStatus(index);
     
+
     // Do not restore persisted dot color for untouched active questions.
     // But allow non-current questions to keep their previous run status when navigating.
     if (!hasScoredState && evaluatedStatus === null) {
@@ -4710,7 +4710,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       this.dotStatusCache.set(index, localStatus);
       return localStatus;
     }
-
     for (const key of candidateIndices) {
       const persisted = this.quizService.questionCorrectness.get(key);
       if (persisted === true || persisted === false) {
