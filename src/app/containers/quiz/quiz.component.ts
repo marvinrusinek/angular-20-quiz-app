@@ -1283,16 +1283,10 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     const optimisticStatus = canPersistOptimisticStatus ? liveCorrectness === true : null;
     if (canPersistOptimisticStatus) {
-      //const scoringKey = this.getScoringKey(idx);
-      //this.quizService.questionCorrectness.set(scoringKey, optimisticStatus === true);
-      //this.quizService.questionCorrectness.set(idx, optimisticStatus === true);
+      // Keep optimistic state visual-only for dots.
+      // Do NOT write into questionCorrectness here, otherwise incrementScore()
+      // may see `wasCorrect=true` and skip the first real +1 score update.
       this.setPersistedDotStatus(idx, optimisticStatus ? 'correct' : 'wrong');
-      /* try {
-        localStorage.setItem(
-          'questionCorrectness',
-          JSON.stringify(Object.fromEntries(this.quizService.questionCorrectness))
-        );
-      } catch {} */
     }
 
     // For single-answer questions, reflect a correct click in score immediately.
@@ -1301,8 +1295,15 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       const normalize = (value: unknown): string => String(value ?? '').trim().toLowerCase();
       const clickedOptionId = String(option?.optionId ?? '').trim();
       const clickedText = normalize(option?.text);
+      const payloadSaysCorrect = option?.correct === true || String(option?.correct) === 'true';
 
-      const clickedIsCorrectForSingle = !!questionForSelection?.options?.some((opt: Option) => {
+      const sourceOptions: Option[] =
+        (questionForSelection?.options as Option[]) ||
+        (this.currentQuestion?.options as Option[]) ||
+        (this.optionsToDisplay as Option[]) ||
+        [];
+      
+      const matchedCorrectOption = sourceOptions.some((opt: Option) => {
         const optId = String(opt?.optionId ?? '').trim();
         const optText = normalize(opt?.text);
         const isCorrect = opt?.correct === true || String(opt?.correct) === 'true';
@@ -1311,6 +1312,14 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         const textMatch = clickedText !== '' && optText !== '' && clickedText === optText;
         return isCorrect && (idMatch || textMatch);
       });
+
+      const payloadIndex = Number((option as any)?.index);
+      const indexMatchedCorrect =
+        Number.isInteger(payloadIndex) && payloadIndex >= 0 && payloadIndex < sourceOptions.length
+          ? (sourceOptions[payloadIndex]?.correct === true || String(sourceOptions[payloadIndex]?.correct) === 'true')
+          : false;
+
+      const clickedIsCorrectForSingle = payloadSaysCorrect || matchedCorrectOption || indexMatchedCorrect || liveCorrectness === true;
 
       if (clickedIsCorrectForSingle) {
         const scoringKey = this.getScoringKey(idx);
@@ -1332,6 +1341,24 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // answer-sync timing, which was flipping Q1 dot red before moving to Q2.
     if (authoritativeCorrectness === true) {
       const scoringKey = this.getScoringKey(idx);
+      const alreadyScoredCorrect =
+        this.quizService.questionCorrectness.get(scoringKey) === true ||
+        this.quizService.questionCorrectness.get(idx) === true;
+      
+      // Self-heal stale map state: if map says scored-correct but visible score
+      // is still zero, clear this question's correctness before scoring so first
+      // correct click can increment immediately.
+      const visibleScore = this.quizService.correctAnswersCountSubject.getValue();
+      if (alreadyScoredCorrect && visibleScore <= 0) {
+        this.quizService.questionCorrectness.set(scoringKey, false);
+        this.quizService.questionCorrectness.set(idx, false);
+      }
+
+      // Ensure score increments immediately when the question becomes correct,
+      // even if checkIfAnsweredCorrectly() result arrives before internal score sync.
+      this.quizService.scoreDirectly(idx, true, !isSingleAnswerQuestion);
+      
+
       this.quizService.questionCorrectness.set(scoringKey, true);
       this.quizService.questionCorrectness.set(idx, true);
       this.setPersistedDotStatus(idx, 'correct');

@@ -149,7 +149,7 @@ export class ScoreComponent implements OnInit, OnDestroy {
     const hasAnyScoredState = (this.quizService.questionCorrectness?.size ?? 0) > 0;
     const atQuizStart = this.quizService.currentQuestionIndex === 0;
     // Keep fresh-start at 0, but do NOT suppress a real positive update.
-    if (atQuizStart && !hasAnyScoredState && safeCorrectRaw <= 0) {
+    if (atQuizStart && !hasAnyScoredState) {
       safeCorrect = 0;
     }
 

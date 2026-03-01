@@ -84,7 +84,7 @@ export class QuizService {
   answersSubject = new Subject<number[]>();
 
   totalQuestions = 0;
-  correctCount = Number(localStorage.getItem('correctAnswersCount')) || 0;
+  correctCount = 0;
 
   selectedQuiz: Quiz | null = null;
   selectedQuiz$ = new BehaviorSubject<Quiz | null>(null);
@@ -99,9 +99,7 @@ export class QuizService {
   correctAnswerOptions: Option[] = [];
   numberOfCorrectAnswers = 0;
 
-  public correctAnswersCountSubject = new BehaviorSubject<number>(
-    Number(localStorage.getItem('correctAnswersCount')) || 0
-  );
+  public correctAnswersCountSubject = new BehaviorSubject<number>(0);
 
   private correctAnswersCountTextSource = new BehaviorSubject<string>(
     localStorage.getItem('correctAnswersText') ?? ''
@@ -2481,9 +2479,10 @@ export class QuizService {
     const isNowCorrect = correctAnswerFound;  // simplified
 
     if (isNowCorrect && !wasCorrect) {
-      this.updateCorrectCountForResults(this.correctCount + 1);
+      // this.updateCorrectCountForResults(this.correctCount + 1);
       this.questionCorrectness.set(scoringKey, true);
       this.questionCorrectness.set(qIndex, true);
+      this.updateCorrectCountForResults(this.correctCount + 1);
       console.log(`[incrementScore] INCREMENTED score to ${this.correctCount}`);
     } else if (!isNowCorrect && wasCorrect) {
       this.updateCorrectCountForResults(Math.max(this.correctCount - 1, 0));
