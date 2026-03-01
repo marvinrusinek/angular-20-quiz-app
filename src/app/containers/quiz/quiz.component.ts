@@ -1296,16 +1296,31 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     }
 
     // For single-answer questions, reflect a correct click in score immediately.
-    // Guarded so we only count once per question.
-    if (isSingleAnswerQuestion && optimisticStatus === true) {
-      const scoringKey = this.getScoringKey(idx);
+    // Do not rely only on optimisticStatus (it can be null before selection sync settles).
+    if (isSingleAnswerQuestion) {
+      const normalize = (value: unknown): string => String(value ?? '').trim().toLowerCase();
+      const clickedOptionId = String(option?.optionId ?? '').trim();
+      const clickedText = normalize(option?.text);
 
-      const alreadyScoredCorrect =
-        this.quizService.questionCorrectness.get(scoringKey) === true ||
-        this.quizService.questionCorrectness.get(idx) === true;
+      const clickedIsCorrectForSingle = !!questionForSelection?.options?.some((opt: Option) => {
+        const optId = String(opt?.optionId ?? '').trim();
+        const optText = normalize(opt?.text);
+        const isCorrect = opt?.correct === true || String(opt?.correct) === 'true';
 
-      if (!alreadyScoredCorrect) {
-        this.quizService.scoreDirectly(idx, true, false);
+        const idMatch = clickedOptionId !== '' && optId !== '' && clickedOptionId === optId;
+        const textMatch = clickedText !== '' && optText !== '' && clickedText === optText;
+        return isCorrect && (idMatch || textMatch);
+      });
+
+      if (clickedIsCorrectForSingle) {
+        const scoringKey = this.getScoringKey(idx);
+        const alreadyScoredCorrect =
+          this.quizService.questionCorrectness.get(scoringKey) === true ||
+          this.quizService.questionCorrectness.get(idx) === true;
+
+        if (!alreadyScoredCorrect) {
+          this.quizService.scoreDirectly(idx, true, false);
+        }
       }
     }
     
