@@ -128,6 +128,12 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       ets.latestExplanationIndex = idx;
       ets.formattedExplanationSubject.next('');
       ets.explanationText$.next('');
+      // Clear _fetSubject replay buffer so activeFetText$ won't serve stale FET
+      // from a previous session. Without this, the direct FET fallback in
+      // displayText$ can show Q1's old FET text on fresh quiz start.
+      try {
+        (ets as any)._fetSubject?.next({ idx: -1, text: '', token: 0 });
+      } catch { }
       // Clear any cached FET for this index to prevent stale FET display.
       // Keeping stale index cache here can leak a previous Q1 explanation after
       // restart/rehydration races before fresh FET is regenerated.
@@ -485,23 +491,35 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           // Cold-start bulletproofing:
           // displayState$ must emit at least once or combineLatest will stall.
           // We provide a safe default so question text can render immediately on Q1.
-          this.displayState$.pipe(startWith({ mode: 'question', answered: false }))
+          this.displayState$.pipe(startWith({ mode: 'question', answered: false })),
+
+          // Direct FET text fallback: activeFetText$ is driven by _fetSubject which
+          // always emits on correct answer click. This bypasses the shouldShowFet$
+          // gate (which can silently break due to JSON.stringify errors on option
+          // objects with circular references in getSelectedOptionsForQuestion$).
+          this.activeFetText$.pipe(startWith(''))
         ]).pipe(
-          map(([qObj, fetTextGated, state]) => {
+          map(([qObj, fetTextGated, state, activeFetDirect]) => {
             const rawQText = qObj?.questionText || '';
             const serviceQText = (qObj?.questionText ?? '').trim();
             const effectiveQText = serviceQText || rawQText || '';
 
-            // console.log(`[displayText$] Q${safeIdx + 1} Mode=${state?.mode}`);
-
-            // Show FET ONLY when gated stream provides it (correct answer(s) selected).
-            // Interaction alone should NOT force explanation display.
-            // Default: Question Text with Multi-Answer Banner if needed
+            // 1. Show FET from the gated stream if available (original path)
             const fetText = (fetTextGated ?? '').trim();
             if (fetText.length > 0) {
-              console.log('[displayText$] Showing Explanation:', fetText.substring(0, 20) + '...');
+              console.log('[displayText$] Showing FET (gated):', fetText.substring(0, 40) + '...');
               return fetText;
             }
+
+            // 2. Fallback: Show FET directly when displayState is 'explanation'
+            //    and activeFetText$ has text. This handles the case where
+            //    shouldShowFet$ is stuck due to reactive chain issues.
+            const directFet = (activeFetDirect ?? '').trim();
+            if (directFet.length > 0 && state?.mode === 'explanation') {
+              console.log('[displayText$] Showing FET (direct, mode=explanation):', directFet.substring(0, 40) + '...');
+              return directFet;
+            }
+
             console.log('[displayText$] Showing Question Text (FET empty/gated)');
 
             let displayText = effectiveQText;
