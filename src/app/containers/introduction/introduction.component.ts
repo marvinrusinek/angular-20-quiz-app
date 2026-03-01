@@ -23,6 +23,7 @@ import { QuizService } from '../../shared/services/data/quiz.service';
 import { QuizDataService } from '../../shared/services/data/quizdata.service';
 import { QuizShuffleService } from '../../shared/services/flow/quiz-shuffle.service';
 import { QuizNavigationService } from '../../shared/services/flow/quiz-navigation.service';
+import { SelectedOptionService } from '../../shared/services/state/selectedoption.service';
 
 @Component({
   selector: 'codelab-quiz-intro',
@@ -67,6 +68,7 @@ export class IntroductionComponent implements OnInit, OnDestroy {
     private quizDataService: QuizDataService,
     private quizShuffleService: QuizShuffleService,
     private quizNavigationService: QuizNavigationService,
+    private selectedOptionService: SelectedOptionService,
     private activatedRoute: ActivatedRoute,
     private router: Router,
     private fb: FormBuilder,
@@ -255,6 +257,23 @@ export class IntroductionComponent implements OnInit, OnDestroy {
       this.quizService.setCheckedShuffle(shouldShuffleOptions);
       this.quizService.setQuizId(targetQuizId);
       this.quizService.setCurrentQuestionIndex(0);
+
+      // Hard fresh-start reset for same-tab runs before entering Q1.
+      // Prevent stale score like 1/6 from previous attempts.
+      this.quizService.resetScore();
+      this.quizService.questionCorrectness.clear();
+      this.quizService.selectedOptionsMap.clear();
+      this.quizService.userAnswers = [];
+      this.quizService.answers = [];
+      this.selectedOptionService.clearAllSelectionsForQuiz(targetQuizId);
+      try {
+        localStorage.setItem('savedQuestionIndex', '0');
+        localStorage.setItem('correctAnswersCount', '0');
+        localStorage.removeItem('questionCorrectness');
+        localStorage.removeItem('selectedOptionsMap');
+        localStorage.removeItem('userAnswers');
+        sessionStorage.removeItem('selectedOptionsMap');
+      } catch {}
 
       try {
         const preparedQuestions = (await firstValueFrom(

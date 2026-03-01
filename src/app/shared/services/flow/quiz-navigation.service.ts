@@ -354,6 +354,27 @@ export class QuizNavigationService {
 
       this.quizId = effectiveQuizId;
 
+      // Fresh start guard: entering Q1 from intro/start should never reuse stale
+      // same-tab score or selection state.
+      if (index === 0) {
+        this.quizService.resetScore();
+        this.quizService.questionCorrectness.clear();
+        this.quizService.selectedOptionsMap.clear();
+        this.quizService.userAnswers = [];
+        this.quizService.answers = [];
+        this.selectedOptionService.resetSelectionState();
+        this.selectedOptionService.clearAllSelectionsForQuiz(effectiveQuizId);
+
+        try {
+          localStorage.setItem('savedQuestionIndex', '0');
+          localStorage.setItem('correctAnswersCount', '0');
+          localStorage.removeItem('questionCorrectness');
+          localStorage.removeItem('selectedOptionsMap');
+          localStorage.removeItem('userAnswers');
+          sessionStorage.removeItem('selectedOptionsMap');
+        } catch {}
+      }
+
       // Always ensure the quiz session is hydrated before attempting to access questions.
       await this.ensureSessionQuestions(effectiveQuizId);
 

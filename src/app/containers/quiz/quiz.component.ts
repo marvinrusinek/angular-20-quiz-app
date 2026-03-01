@@ -752,23 +752,34 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     // Starting on Q1 should always begin a fresh scoring session.
     // This prevents stale score (e.g. 1/6) from previous runs in the same tab.
-    /* if (idx === 0) {
+    if (idx === 0) {
       this.quizService.resetScore();
       this.quizService.questionCorrectness?.clear();
       this.quizService.selectedOptionsMap?.clear();
-      this.selectedOptionService.selectedOptionsMap?.clear();
+      this.quizService.userAnswers = [];
+      this.quizService.answers = [];
+      this.selectedOptionService.resetSelectionState();
+      const quizKey = this.quizId || this.quizService.quizId || '';
+      if (quizKey) {
+        this.selectedOptionService.clearAllSelectionsForQuiz(quizKey);
+      }
 
       try {
+        localStorage.setItem('savedQuestionIndex', '0');
         localStorage.setItem('correctAnswersCount', '0');
         localStorage.removeItem('questionCorrectness');
         localStorage.removeItem('selectedOptionsMap');
         localStorage.removeItem('userAnswers');
+        sessionStorage.removeItem('selectedOptionsMap');
       } catch {}
-    } */
+    
    // Preserve existing score/state here. Fresh-start resets are handled by
     // explicit entry flows (intro/restart), not by route index heuristics.
 
-    localStorage.setItem('savedQuestionIndex', JSON.stringify(idx));
+    //localStorage.setItem('savedQuestionIndex', JSON.stringify(idx));
+    } else {
+      localStorage.setItem('savedQuestionIndex', JSON.stringify(idx));
+    }
   }
 
   private clearStaleProgressAndDotStateForFreshStart(): void {
@@ -1276,6 +1287,50 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     return idx;
   }
 
+  private buildImmediateSelectionsForScoring(
+    index: number,
+    existingSelections: SelectedOption[],
+    clickedOption: SelectedOption,
+    isSingleAnswerQuestion: boolean,
+  ): SelectedOption[] {
+    const canonicalClicked: SelectedOption = {
+      ...clickedOption,
+      questionIndex: index,
+      selected:
+        clickedOption?.selected !== undefined
+          ? clickedOption.selected
+          : true,
+    };
+
+    if (isSingleAnswerQuestion) {
+      if (canonicalClicked.selected === false) {
+        return [];
+      }
+      return [canonicalClicked];
+    }
+
+    const merged = new Map<string, SelectedOption>();
+    for (const selection of existingSelections) {
+      const key = String(selection?.optionId ?? selection?.text ?? '').trim();
+      if (!key) continue;
+      merged.set(key, selection);
+    }
+
+    const clickedKey = String(
+      canonicalClicked?.optionId ?? canonicalClicked?.text ?? '',
+    ).trim();
+
+    if (clickedKey) {
+      if (canonicalClicked.selected === false) {
+        merged.delete(clickedKey);
+      } else {
+        merged.set(clickedKey, canonicalClicked);
+      }
+    }
+
+    return Array.from(merged.values());
+  }
+
   public async onOptionSelected(
     option: SelectedOption,
     isUserAction: boolean = true
@@ -1321,10 +1376,15 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // Persist immediate status from current in-memory selection so navigation to next
     // question keeps Q1 dot/progress even if async scoring internals lag.
     const liveSelections = this.getSelectionsForQuestion(idx);
-    const optimisticSelections = liveSelections.length > 0
+    /* const optimisticSelections = liveSelections.length > 0
       ? liveSelections
       : [option as SelectedOption];
-    let liveCorrectness = this.evaluateSelectionCorrectness(idx, optimisticSelections);
+    let liveCorrectness = this.evaluateSelectionCorrectness(idx, optimisticSelections); */
+    let liveCorrectness = this.evaluateSelectionCorrectness(
+      idx,
+      liveSelections.length > 0 ? liveSelections : [option as SelectedOption],
+    );
+  
     let usedExplicitPayloadCorrectness = false;
     const hasExplicitCorrectFlag = option?.correct !== undefined && option?.correct !== null;
 
@@ -1334,11 +1394,31 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       this.quizService.activeQuiz?.questions?.[idx] ||
       null;
 
-    const correctCountForQuestion = Array.isArray(questionForSelection?.options)
-      ? questionForSelection.options.filter((opt: Option) => opt?.correct === true || String(opt?.correct) === 'true').length
-      : 0;
+    const optionsForImmediateScoring: Option[] =
+      (questionForSelection?.options as Option[]) ||
+      (this.currentQuestion?.options as Option[]) ||
+      (this.optionsToDisplay as Option[]) ||
+      [];
+
+    const correctCountForQuestion = optionsForImmediateScoring.filter(
+      (opt: Option) => opt?.correct === true || String(opt?.correct) === 'true',
+    ).length;
 
     const isSingleAnswerQuestion = correctCountForQuestion === 1;
+
+    const immediateSelections = this.buildImmediateSelectionsForScoring(
+      idx,
+      liveSelections,
+      option as SelectedOption,
+      isSingleAnswerQuestion,
+    );
+    const immediateCorrectness = this.evaluateSelectionCorrectness(
+      idx,
+      immediateSelections,
+    );
+    if (immediateCorrectness === true || immediateCorrectness === false) {
+      liveCorrectness = immediateCorrectness;
+    }
 
     // For single-answer questions, a clicked option's explicit `correct` flag is the
     // most reliable immediate source for dot color state.
@@ -1370,11 +1450,12 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       const clickedText = normalize(option?.text);
       const payloadSaysCorrect = option?.correct === true || String(option?.correct) === 'true';
 
-      const sourceOptions: Option[] =
+      /* const sourceOptions: Option[] =
         (questionForSelection?.options as Option[]) ||
         (this.currentQuestion?.options as Option[]) ||
         (this.optionsToDisplay as Option[]) ||
-        [];
+        []; */
+      const sourceOptions: Option[] = optionsForImmediateScoring;
       
       const matchedCorrectOption = sourceOptions.some((opt: Option) => {
         const optId = String(opt?.optionId ?? '').trim();
@@ -1396,9 +1477,16 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
       if (clickedIsCorrectForSingle) {
         const scoringKey = this.getScoringKey(idx);
-        const alreadyScoredCorrect =
+        let alreadyScoredCorrect =
           this.quizService.questionCorrectness.get(scoringKey) === true ||
           this.quizService.questionCorrectness.get(idx) === true;
+        
+        const visibleScore = this.quizService.correctAnswersCountSubject.getValue();
+        if (alreadyScoredCorrect && visibleScore <= 0) {
+          this.quizService.questionCorrectness.set(scoringKey, false);
+          this.quizService.questionCorrectness.set(idx, false);
+          alreadyScoredCorrect = false;
+        }
 
         if (!alreadyScoredCorrect) {
           this.quizService.scoreDirectly(idx, true, false);
@@ -1406,11 +1494,22 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       }
     }
 
-    if (!isSingleAnswerQuestion && liveCorrectness === true) {
+    //if (!isSingleAnswerQuestion && liveCorrectness === true) {
+    const hasImmediateCorrectSelection =
+      immediateCorrectness === true || liveCorrectness === true;
+
+    if (!isSingleAnswerQuestion && hasImmediateCorrectSelection) {
       const scoringKey = this.getScoringKey(idx);
-      const alreadyScoredCorrect =
+      let alreadyScoredCorrect =
         this.quizService.questionCorrectness.get(scoringKey) === true ||
         this.quizService.questionCorrectness.get(idx) === true;
+
+      const visibleScore = this.quizService.correctAnswersCountSubject.getValue();
+      if (alreadyScoredCorrect && visibleScore <= 0) {
+        this.quizService.questionCorrectness.set(scoringKey, false);
+        this.quizService.questionCorrectness.set(idx, false);
+        alreadyScoredCorrect = false;
+      }
 
       if (!alreadyScoredCorrect) {
         // For multi-answer questions, score as soon as local selection state
@@ -3726,7 +3825,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.answered = true;
 
     // Check if the answer is correct
-    void this.quizService.checkIfAnsweredCorrectly(this.currentQuestionIndex);
+    // void this.quizService.checkIfAnsweredCorrectly(this.currentQuestionIndex);
 
     // Get all correct answers for the question
     this.correctAnswers = this.question?.options.filter((opt: Option) => opt.correct) ?? [];
@@ -3741,6 +3840,18 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       // For single correct answer, replace the first element
       this.answers = [option];
     }
+
+    // Sync selected answers into QuizService before scoring.
+    // Previously checkIfAnsweredCorrectly() ran before this.answers was updated,
+    // which delayed +1 updates until later navigation/state refresh.
+    const answerIds = this.answers
+      .map((ans: Option) => ans.optionId)
+      .filter((id): id is number => typeof id === 'number');
+    this.quizService.answers = [...this.answers];
+    this.quizService.updateUserAnswer(this.currentQuestionIndex, answerIds);
+
+    // Check if the answer is correct using updated answer state
+    void this.quizService.checkIfAnsweredCorrectly(this.currentQuestionIndex);
 
     // Notify subscribers of the selected option
     this.selectedOption$.next(option);
@@ -4134,7 +4245,26 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       this.quizService.setCurrentQuestionIndex(questionIndex);
       this.quizStateService.updateCurrentQuestion(this.currentQuestion);
 
-      await this.quizService.checkIfAnsweredCorrectly(questionIndex);
+      //await this.quizService.checkIfAnsweredCorrectly(questionIndex);
+      const liveSelections = this.getSelectionsForQuestion(questionIndex);
+      const hasUserAnswersForQuestion =
+        Array.isArray(this.quizService.userAnswers?.[questionIndex]) &&
+        this.quizService.userAnswers[questionIndex].length > 0;
+      const savedIndexRaw = localStorage.getItem('savedQuestionIndex');
+      const isFreshStartAtQ1 =
+        questionIndex === 0 &&
+        (savedIndexRaw == null || String(savedIndexRaw).trim() === '0');
+
+      // Do not auto-score Q1 during a fresh start when no real selection exists.
+      // This prevents stale same-tab state from rehydrating score as 1/6 on load.
+      if (isFreshStartAtQ1 && liveSelections.length === 0 && !hasUserAnswersForQuestion) {
+        const scoringKey = this.getScoringKey(questionIndex);
+        this.quizService.questionCorrectness.delete(scoringKey);
+        this.quizService.questionCorrectness.delete(questionIndex);
+        this.quizService.sendCorrectCountToResults(0);
+      } else {
+        await this.quizService.checkIfAnsweredCorrectly(questionIndex);
+      }
 
       // Mark question ready
       this.resetComplete = true;
@@ -4798,16 +4928,24 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     }
 
     const normalize = (value: unknown): string => String(value ?? '').trim().toLowerCase();
+
+    const correctOptions = question.options.filter(
+      (opt: Option) => opt.correct === true || String(opt.correct) === 'true'
+    );
+
+    // Treat questions with multiple correct options as multi-answer even when
+    // explicit `question.type` metadata is missing.
+    const isMultipleAnswerQuestion =
+      question.type === QuestionType.MultipleAnswer || correctOptions.length > 1;
     
     // Selections are already retrieved for the target question key.
     // Avoid additional index scoping here because some flows (e.g. shuffle/remap)
     // can carry a different index marker while still belonging to this question.
     const effectiveSelectionsRaw = selections;
 
-    const effectiveSelections =
-      question.type === QuestionType.MultipleAnswer
-        ? effectiveSelectionsRaw
-        : effectiveSelectionsRaw.slice(-1);
+    const effectiveSelections = isMultipleAnswerQuestion
+      ? effectiveSelectionsRaw
+      : effectiveSelectionsRaw.slice(-1);
 
     if (effectiveSelections.length === 0) {
       return null;
@@ -4823,10 +4961,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       question.options
         .map((opt: Option) => normalize(opt.text))
         .filter(Boolean)
-    );
-
-    const correctOptions = question.options.filter(
-      (opt: Option) => opt.correct === true || String(opt.correct) === 'true'
     );
 
     if (correctOptions.length === 0) {

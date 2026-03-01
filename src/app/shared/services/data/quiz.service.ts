@@ -48,6 +48,7 @@ export class QuizService {
     try { return localStorage.getItem('quizId') ?? ''; }
     catch { return ''; }
   })();
+  private readonly scoreQuizIdStorageKey = 'scoreQuizId';
   quizResources: QuizResource[] = [];
   question: QuizQuestion | null = null;
   private _questions: QuizQuestion[] = [];
@@ -2525,6 +2526,9 @@ export class QuizService {
     const safeValue = Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
     this.correctAnswersCountSubject.next(safeValue);
     localStorage.setItem('correctAnswersCount', String(safeValue));
+    if (this.quizId) {
+      localStorage.setItem(this.scoreQuizIdStorageKey, this.quizId);
+    }
   }
 
   private loadQuestionCorrectness(): void {
@@ -3130,13 +3134,23 @@ export class QuizService {
       const savedIndexRaw = localStorage.getItem('savedQuestionIndex');
       const savedIndex = Number(savedIndexRaw);
       const hasInProgressIndex = Number.isFinite(savedIndex) && Math.trunc(savedIndex) > 0;
+      const scoreQuizId = localStorage.getItem(this.scoreQuizIdStorageKey) ?? '';
+      const quizMatches =
+        scoreQuizId.length > 0 &&
+        this.quizId.length > 0 &&
+        scoreQuizId === this.quizId;
 
       // Fresh starts at Q1 should not resurrect stale scores from prior attempts.
       // Only restore persisted score for in-progress sessions (index > 0).
-      if (!hasInProgressIndex) {
+      if (!hasInProgressIndex || !quizMatches) {
         this.correctCount = 0;
         this.correctAnswersCountSubject.next(0);
+        this.questionCorrectness.clear();
+        this.saveQuestionCorrectness();
         localStorage.setItem('correctAnswersCount', '0');
+        if (this.quizId) {
+          localStorage.setItem(this.scoreQuizIdStorageKey, this.quizId);
+        }
         return;
       }
 
