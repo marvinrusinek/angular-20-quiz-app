@@ -144,15 +144,13 @@ export class ScoreComponent implements OnInit, OnDestroy {
     // this.correctAnswersCount = correctAnswersCount;
     const safeTotal = Number.isFinite(totalQuestions) ? Math.max(0, Math.trunc(totalQuestions)) : 0;
     const safeCorrectRaw = Number.isFinite(correctAnswersCount) ? Math.trunc(correctAnswersCount) : 0;
-    let safeCorrect = safeTotal > 0 ? Math.min(Math.max(0, safeCorrectRaw), safeTotal) : Math.max(0, safeCorrectRaw);
-
-    const hasAnyScoredState = (this.quizService.questionCorrectness?.size ?? 0) > 0;
-    const atQuizStart = this.quizService.currentQuestionIndex === 0;
-    // Keep fresh-start at 0, but do NOT suppress a real positive update.
-    if (atQuizStart && !hasAnyScoredState) {
-      safeCorrect = 0;
-    }
-
+    const safeCorrect = safeTotal > 0
+      ? Math.min(Math.max(0, safeCorrectRaw), safeTotal)
+      : Math.max(0, safeCorrectRaw);
+    
+    // Do not override the authoritative score stream with local heuristics.
+    // This previously caused legitimate score values (e.g. 1/6) to flash/reset
+    // to 0/6 when navigating between questions.
     console.log(`[ScoreComponent] 📊 Update: Correct=${safeCorrect}, Total=${safeTotal} (raw=${correctAnswersCount}/${totalQuestions})`);
 
     this.totalQuestions = safeTotal;

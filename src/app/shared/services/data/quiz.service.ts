@@ -239,6 +239,7 @@ export class QuizService {
   ) {
     this.http = http;
     this.loadQuestionCorrectness();  // load persisted correctness state
+    this.restoreScoreFromPersistence();
     this.initializeData();
 
     // Reset State Sync
@@ -3122,5 +3123,41 @@ export class QuizService {
       localStorage.removeItem(`quizState_${quizId}`);
       localStorage.removeItem(`quizResumeIndex_${quizId}`);
     } catch { }
+  }
+
+  private restoreScoreFromPersistence(): void {
+    try {
+      const savedIndexRaw = localStorage.getItem('savedQuestionIndex');
+      const savedIndex = Number(savedIndexRaw);
+      const hasInProgressIndex = Number.isFinite(savedIndex) && Math.trunc(savedIndex) > 0;
+
+      // Fresh starts at Q1 should not resurrect stale scores from prior attempts.
+      // Only restore persisted score for in-progress sessions (index > 0).
+      if (!hasInProgressIndex) {
+        this.correctCount = 0;
+        this.correctAnswersCountSubject.next(0);
+        localStorage.setItem('correctAnswersCount', '0');
+        return;
+      }
+
+      const storedRaw = localStorage.getItem('correctAnswersCount');
+      const storedCount = Number(storedRaw);
+      const safeStored = Number.isFinite(storedCount) ? Math.max(0, Math.trunc(storedCount)) : 0;
+
+      // questionCorrectness can survive service/component recreation even when
+      // correctAnswersCountSubject is back at its initial 0.
+      // Recover using the stronger of persisted count and correctness-map count.
+      const mapTrueCount = Array.from(this.questionCorrectness.values())
+        .filter((v) => v === true)
+        .length;
+
+      const restored = Math.max(safeStored, mapTrueCount);
+      this.correctCount = restored;
+      this.correctAnswersCountSubject.next(restored);
+      localStorage.setItem('correctAnswersCount', String(restored));
+      console.log(`[QuizService] Restored score from persistence: ${restored} (stored=${safeStored}, map=${mapTrueCount}, savedIndex=${savedIndex})`);
+    } catch (err) {
+      console.warn('[QuizService] Failed to restore score from persistence:', err);
+    }
   }
 }

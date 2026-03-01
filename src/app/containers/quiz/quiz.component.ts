@@ -517,18 +517,14 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     }
     this.quizId = quizId;
 
-    // Hard Reset for fresh starts / refreshes to satisfy "0% on start" requirement
-    // Hard Reset ONLY for fresh starts / full refreshes (NOT for within-quiz navigation)
-    // We check if questions are already in the service to determine if this is a navigation or a fresh load.
-    if (!this.isQuizLoaded && this.quizService.questions.length === 0) {
-      console.log('[QuizComponent] Fresh load - performing full reset');
-      this.quizService.resetAll();
-      this.quizNavigationService.resetForNewQuiz();
-      this.quizStateService.reset();
-      this.dotStatusCache.clear();
-    }
+    const initialRouteQuestionNumber = this.getRouteQuestionNumber();
+    const initialRouteIndex = initialRouteQuestionNumber != null ? initialRouteQuestionNumber - 1 : this.getRouteQuestionIndex();
 
-    this.resetQuizState();
+    // IMPORTANT: Do not reset score/session state in ngOnInit.
+    // The component can be recreated during in-quiz navigation (Q1 -> Q2),
+    // and any reset here can snap a real score (e.g. 1/6) back to 0/6.
+    // Session resets are handled by explicit quiz-start/restart flows.
+
     this.initializeQuestionIndex();
     this.clearStaleProgressAndDotStateForFreshStart();
     this.fetchTotalQuestions();
@@ -677,15 +673,86 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     localStorage.removeItem('savedQuestionIndex');
   }
 
+  private getRouteQuestionNumber(): number | null {
+    const parseNum = (raw: string | null): number | null => {
+      if (raw == null) return null;
+      const n = Number(raw);
+      if (!Number.isFinite(n)) return null;
+      const qn = Math.trunc(n);
+      return qn >= 1 ? qn : null;
+    };
+
+    const fromCurrent = parseNum(this.activatedRoute.snapshot.paramMap.get('questionIndex'));
+    if (fromCurrent !== null) return fromCurrent;
+
+    const walk = (snapshot: any): number | null => {
+      if (!snapshot) return null;
+      const found = parseNum(snapshot.paramMap?.get?.('questionIndex') ?? null);
+      if (found !== null) return found;
+      for (const child of snapshot.children ?? []) {
+        const childFound = walk(child);
+        if (childFound !== null) return childFound;
+      }
+      return null;
+    };
+
+    const fromTree = walk(this.router.routerState.snapshot.root);
+    if (fromTree !== null) return fromTree;
+
+    const m = this.router.url.match(/\/(\d+)(?:\/)?(?:\?|$)/);
+    if (m) {
+      const fromUrl = parseNum(m[1]);
+      if (fromUrl !== null) return fromUrl;
+    }
+
+    return null;
+  }
+
+  private getRouteQuestionIndex(): number {
+    const toIndex = (raw: string | null): number | null => {
+      if (raw == null) return null;
+      const n = Number(raw);
+      if (!Number.isFinite(n)) return null;
+      return Math.max(0, Math.trunc(n) - 1);
+    };
+
+    const fromCurrent = toIndex(this.activatedRoute.snapshot.paramMap.get('questionIndex'));
+    if (fromCurrent !== null) return fromCurrent;
+
+    const walk = (snapshot: any): number | null => {
+      if (!snapshot) return null;
+      const found = toIndex(snapshot.paramMap?.get?.('questionIndex') ?? null);
+      if (found !== null) return found;
+      for (const child of snapshot.children ?? []) {
+        const childFound = walk(child);
+        if (childFound !== null) return childFound;
+      }
+      return null;
+    };
+
+    const fromTree = walk(this.router.routerState.snapshot.root);
+    if (fromTree !== null) return fromTree;
+
+    const fromUrl = (() => {
+      const m = this.router.url.match(/\/(\d+)(?:\?|$)/);
+      if (!m) return null;
+      return toIndex(m[1]);
+    })();
+    if (fromUrl !== null) return fromUrl;
+
+    return 0;
+  }
+
   private initializeQuestionIndex(): void {
-    const routeParamIndex = this.activatedRoute.snapshot.paramMap.get('questionIndex');
-    const idx = Math.max(0, (Number(routeParamIndex) || 1) - 1);
+    // const routeParamIndex = this.activatedRoute.snapshot.paramMap.get('questionIndex');
+    // const idx = Math.max(0, (Number(routeParamIndex) || 1) - 1);
+    const idx = this.getRouteQuestionIndex();
     this.currentQuestionIndex = idx;
     this.quizService.setCurrentQuestionIndex(idx);
 
     // Starting on Q1 should always begin a fresh scoring session.
     // This prevents stale score (e.g. 1/6) from previous runs in the same tab.
-    if (idx === 0) {
+    /* if (idx === 0) {
       this.quizService.resetScore();
       this.quizService.questionCorrectness?.clear();
       this.quizService.selectedOptionsMap?.clear();
@@ -697,7 +764,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         localStorage.removeItem('selectedOptionsMap');
         localStorage.removeItem('userAnswers');
       } catch {}
-    }
+    } */
+   // Preserve existing score/state here. Fresh-start resets are handled by
+    // explicit entry flows (intro/restart), not by route index heuristics.
 
     localStorage.setItem('savedQuestionIndex', JSON.stringify(idx));
   }
@@ -736,8 +805,12 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.progress = 0;
 
     // Ensure scoreboard starts from 0 on fresh quiz start (Q1).
-    this.quizService.resetScore();
-    try { localStorage.setItem('correctAnswersCount', '0'); } catch {}
+    // this.quizService.resetScore();
+    // try { localStorage.setItem('correctAnswersCount', '0'); } catch {}
+    // Do NOT reset score here. This helper can run during component lifecycle
+    // transitions where route/session state has not fully hydrated yet, and
+    // resetting here causes valid scores (e.g. 1/6) to snap back to 0/6.
+    // Explicit quiz-start/restart flows are responsible for score resets.
   }
 
   private fetchTotalQuestions(): void {
@@ -1332,6 +1405,20 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         }
       }
     }
+
+    if (!isSingleAnswerQuestion && liveCorrectness === true) {
+      const scoringKey = this.getScoringKey(idx);
+      const alreadyScoredCorrect =
+        this.quizService.questionCorrectness.get(scoringKey) === true ||
+        this.quizService.questionCorrectness.get(idx) === true;
+
+      if (!alreadyScoredCorrect) {
+        // For multi-answer questions, score as soon as local selection state
+        // reaches a complete correct set. This avoids missing +1 when async
+        // answer synchronization lags behind UI selection updates.
+        this.quizService.scoreDirectly(idx, true, true);
+      }
+    }
     
     // Ensure scoring state is updated before evaluating dot color/progress.
     const authoritativeCorrectness = await this.quizService.checkIfAnsweredCorrectly(idx);
@@ -1357,7 +1444,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       // Ensure score increments immediately when the question becomes correct,
       // even if checkIfAnsweredCorrectly() result arrives before internal score sync.
       this.quizService.scoreDirectly(idx, true, !isSingleAnswerQuestion);
-      
 
       this.quizService.questionCorrectness.set(scoringKey, true);
       this.quizService.questionCorrectness.set(idx, true);
@@ -4869,9 +4955,13 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // Active question: live evaluation should update immediately.
     if (index === this.currentQuestionIndex && (evaluatedStatus === true || evaluatedStatus === false)) {
       const status: 'correct' | 'wrong' = evaluatedStatus ? 'correct' : 'wrong';
-      const scoringKey = this.getScoringKey(index);
-      this.quizService.questionCorrectness.set(scoringKey, evaluatedStatus);
-      this.quizService.questionCorrectness.set(index, evaluatedStatus);
+      // const scoringKey = this.getScoringKey(index);
+      // this.quizService.questionCorrectness.set(scoringKey, evaluatedStatus);
+      // this.quizService.questionCorrectness.set(index, evaluatedStatus);
+      // IMPORTANT: Keep this path visual-only.
+      // Writing into questionCorrectness here can pre-mark a question as
+      // already correct before incrementScore() runs, which suppresses the
+      // first real score increment (wasCorrect=true, isNowCorrect=true).
       this.setPersistedDotStatus(index, status);
       this.dotStatusCache.set(index, status);
       return status;

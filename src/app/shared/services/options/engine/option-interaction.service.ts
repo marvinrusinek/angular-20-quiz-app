@@ -228,7 +228,30 @@ export class OptionInteractionService {
             .map((o, i) => (o.optionId != null && o.optionId !== -1) ? o.optionId : i);
       }
 
-      const correctSet = new Set(correctIds);
+      const normalizeText = (value: unknown) => String(value ?? '').trim().toLowerCase();
+      const questionOptions = Array.isArray(question?.options) ? question.options : [];
+      const questionIds = new Set(
+        questionOptions
+          .map((o) => (o?.optionId != null && o.optionId !== -1) ? String(o.optionId).trim() : '')
+          .filter(Boolean)
+      );
+
+      const keyForQuestionOption = (opt: Option | undefined, fallbackIndex: number): string => {
+        if (!opt) return `idx:${fallbackIndex}`;
+        const id = opt?.optionId;
+        const text = normalizeText(opt?.text);
+        if (id != null && id !== -1) return `id:${String(id).trim()}`;
+        if (text) return `text:${text}`;
+        return `idx:${fallbackIndex}`;
+      };
+
+      const correctSet = questionOptions.length > 0
+        ? new Set(
+          questionOptions
+            .filter((o) => isCorrectHelper(o?.correct))
+            .map((o, i) => keyForQuestionOption(o, i))
+        )
+        : new Set((correctIds ?? []).map((id) => `id:${String(id).trim()}`));
       
       if (!state.correctClicksPerQuestion.has(qIdx)) {
         state.correctClicksPerQuestion.set(qIdx, new Set<number>());
@@ -239,19 +262,43 @@ export class OptionInteractionService {
         clickedCorrectSet.add(effectiveId as any);
       }
 
-      const selectedIds = simulatedSelection
-        .map(a => (a.optionId != null && a.optionId !== -1) ? a.optionId : (a as any).index)
-        .filter(id => id !== undefined);
-      
-      const selectedSet = new Set(selectedIds);
-      
-      // Strict equality check: same size and every correct ID is selected
-      let allCorrectSelected = [...correctSet].every(id => selectedSet.has(id));
+      const selectedKeys = simulatedSelection
+        .map((a) => {
+          const id = (a?.optionId != null && a.optionId !== -1) ? String(a.optionId).trim() : '';
+          const text = normalizeText(a?.text);
+          const explicitIndex = Number((a as any)?.index);
+
+          if (id && questionIds.has(id)) {
+            return `id:${id}`;
+          }
+
+          if (text) {
+            const qOptByText = questionOptions.find((opt) => normalizeText(opt?.text) === text);
+            if (qOptByText) {
+              return keyForQuestionOption(qOptByText, questionOptions.indexOf(qOptByText));
+            }
+          }
+
+          if (Number.isInteger(explicitIndex) && explicitIndex >= 0 && explicitIndex < questionOptions.length) {
+            return keyForQuestionOption(questionOptions[explicitIndex], explicitIndex);
+          }
+
+          if (id) return `id:${id}`;
+          if (text) return `text:${text}`;
+          return null;
+        })
+        .filter((k): k is string => !!k);
+
+      const selectedSet = new Set(selectedKeys);
+
+      // Strict equality check: same size and every correct key is selected
+      const allCorrectSelected = [...correctSet].every((key) => selectedSet.has(key));
+
       isPerfect = correctSet.size > 0 && correctSet.size === selectedSet.size && allCorrectSelected;
 
       console.log(`[OIS] Multi-Answer Check Q${qIdx + 1}:`, {
-        correctIds: [...correctSet],
-        selectedIds: [...selectedSet],
+        correctKeys: [...correctSet],
+        selectedKeys: [...selectedSet],
         allCorrectSelected,
         isPerfect
       });
