@@ -1520,7 +1520,10 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     }
     
     // Ensure scoring state is updated before evaluating dot color/progress.
-    const authoritativeCorrectness = await this.quizService.checkIfAnsweredCorrectly(idx);
+    // Use updateScore=false: scoreDirectly() above already handled the score mutation.
+    // Allowing score mutation here risks decrementing when async answer-ID evaluation
+    // disagrees with the deterministic scoreDirectly result.
+    const authoritativeCorrectness = await this.quizService.checkIfAnsweredCorrectly(idx, false);
 
     // Only persist authoritative TRUE immediately from this click path.
     // Authoritative FALSE can be transient right after navigation/click due async
@@ -3850,8 +3853,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.quizService.answers = [...this.answers];
     this.quizService.updateUserAnswer(this.currentQuestionIndex, answerIds);
 
-    // Check if the answer is correct using updated answer state
-    void this.quizService.checkIfAnsweredCorrectly(this.currentQuestionIndex);
+    // Check if the answer is correct using updated answer state.
+    // Use updateScore=false: OIS scoreDirectly already handles score mutation.
+    void this.quizService.checkIfAnsweredCorrectly(this.currentQuestionIndex, false);
 
     // Notify subscribers of the selected option
     this.selectedOption$.next(option);
@@ -4263,7 +4267,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         this.quizService.questionCorrectness.delete(questionIndex);
         this.quizService.sendCorrectCountToResults(0);
       } else {
-        await this.quizService.checkIfAnsweredCorrectly(questionIndex);
+        await this.quizService.checkIfAnsweredCorrectly(questionIndex, false);
       }
 
       // Mark question ready

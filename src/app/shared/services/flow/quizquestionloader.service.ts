@@ -773,7 +773,7 @@ export class QuizQuestionLoaderService {
     }
 
     await this.loadQuestionContents(idx);
-    await this.quizService.checkIfAnsweredCorrectly(idx);
+    await this.quizService.checkIfAnsweredCorrectly(idx, false);
 
     // Final flags
     this.questionTextLoaded = true;

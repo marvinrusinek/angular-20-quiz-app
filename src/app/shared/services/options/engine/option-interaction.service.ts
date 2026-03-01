@@ -139,7 +139,9 @@ export class OptionInteractionService {
 
     const isShuffledForScoring = this.quizService?.isShuffleEnabled?.();
     if (!isShuffledForScoring) {
-      this.quizService.checkIfAnsweredCorrectly(qIdx).then((isCorrect) => {
+      // Use updateScore=false: scoreDirectly() below handles score mutations.
+      // This call is only for verification/logging.
+      this.quizService.checkIfAnsweredCorrectly(qIdx, false).then((isCorrect) => {
         console.log(`[OIS] Score Verified for Q${qIdx + 1}: ${isCorrect}`);
       });
     }

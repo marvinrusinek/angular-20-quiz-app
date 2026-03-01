@@ -2371,13 +2371,17 @@ export class QuizService {
     // Scoring is handled by scoreDirectly calls in SharedOptionComponent to avoid race conditions
     // For UNSHUFFLED mode, call checkIfAnsweredCorrectly for score verification
     if (!this.shouldShuffle()) {
-      this.checkIfAnsweredCorrectly(questionIndex);
+      // Use updateScore=false here. Actual score mutations are handled by
+      // scoreDirectly() calls in OIS and QuizComponent.onOptionSelected.
+      // Allowing score mutation here caused decrements when synthetic answer-IDs
+      // didn't match the question's real optionId values.
+      this.checkIfAnsweredCorrectly(questionIndex, false);
     } else {
       console.log(`[QuizService] SHUFFLED mode: Skipping checkIfAnsweredCorrectly in updateUserAnswer (scoreDirectly handles scoring)`);
     }
   }
 
-  async checkIfAnsweredCorrectly(index: number = -1): Promise<boolean> {
+  async checkIfAnsweredCorrectly(index: number = -1, updateScore: boolean = true): Promise<boolean> {
     const qIndex = index >= 0 ? index : this.currentQuestionIndex;
     console.log(`[checkIfAnsweredCorrectly] Called for Q${qIndex}. IndexParam=${index}, ServiceIndex=${this.currentQuestionIndex}`);
 
@@ -2399,6 +2403,21 @@ export class QuizService {
     ).length;
     this.multipleAnswer = this.numberOfCorrectAnswers > 1;
 
+    // Always evaluate using the answer(s) saved for THIS question index.
+    // This prevents stale answers from a previous question from affecting score
+    // when navigation triggers correctness checks.
+    const storedAnswerIds = Array.isArray(this.userAnswers[qIndex])
+      ? (this.userAnswers[qIndex] as number[])
+      : [];
+
+    this.answers = storedAnswerIds
+      .map((id) =>
+        currentQuestionValue!.options.find((o: Option) =>
+          String(o.optionId) === String(id)
+        ) || ({ optionId: id } as Option)
+      )
+      .filter((o): o is Option => !!o);
+
     console.log(`[checkIfAnsweredCorrectly] 📊 Expected Correct Count: ${this.numberOfCorrectAnswers}. User Answers Count: ${this.answers?.length}`);
 
     if (!this.answers || this.answers.length === 0) {
@@ -2415,7 +2434,12 @@ export class QuizService {
     console.log(`[checkIfAnsweredCorrectly] Result: Found=${correctFoundCount}, Required=${this.numberOfCorrectAnswers}, correctnessArray=${JSON.stringify(correctnessArray)} -> isCorrect=${isCorrect}`);
 
     const answerIds = this.answers.map((a) => a.optionId).filter((id): id is number => id !== undefined);
-    this.incrementScore(answerIds, isCorrect, this.multipleAnswer, qIndex);
+    // this.incrementScore(answerIds, isCorrect, this.multipleAnswer, qIndex);
+    if (updateScore) {
+      this.incrementScore(answerIds, isCorrect, this.multipleAnswer, qIndex);
+    } else {
+      console.log(`[checkIfAnsweredCorrectly] Skipping score mutation for Q${qIndex} (navigation/state sync check)`);
+    }
 
     return isCorrect;
   }
