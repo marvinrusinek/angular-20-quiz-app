@@ -660,6 +660,20 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   private resetQuizState(): void {
     this.quizService.resetQuestionPayload();
     this.quizQuestionLoaderService.resetUI();
+
+    // Ensure each quiz start begins from clean scoring/selection state.
+    this.quizService.resetScore();
+    this.quizService.questionCorrectness?.clear();
+    this.quizService.selectedOptionsMap?.clear();
+    this.selectedOptionService.selectedOptionsMap?.clear();
+
+    try {
+      localStorage.setItem('correctAnswersCount', '0');
+      localStorage.removeItem('questionCorrectness');
+      localStorage.removeItem('selectedOptionsMap');
+      localStorage.removeItem('userAnswers');
+    } catch {}
+
     localStorage.removeItem('savedQuestionIndex');
   }
 
@@ -668,11 +682,39 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     const idx = Math.max(0, (Number(routeParamIndex) || 1) - 1);
     this.currentQuestionIndex = idx;
     this.quizService.setCurrentQuestionIndex(idx);
+
+    // Starting on Q1 should always begin a fresh scoring session.
+    // This prevents stale score (e.g. 1/6) from previous runs in the same tab.
+    if (idx === 0) {
+      this.quizService.resetScore();
+      this.quizService.questionCorrectness?.clear();
+      this.quizService.selectedOptionsMap?.clear();
+      this.selectedOptionService.selectedOptionsMap?.clear();
+
+      try {
+        localStorage.setItem('correctAnswersCount', '0');
+        localStorage.removeItem('questionCorrectness');
+        localStorage.removeItem('selectedOptionsMap');
+        localStorage.removeItem('userAnswers');
+      } catch {}
+    }
+
     localStorage.setItem('savedQuestionIndex', JSON.stringify(idx));
   }
 
   private clearStaleProgressAndDotStateForFreshStart(): void {
     if (this.currentQuestionIndex !== 0) {
+      return;
+    }
+
+    // Only clear for a truly fresh start. If any scored/selection state exists,
+    // preserve it so score can continue incrementing across question navigation.
+    const hasExistingState =
+      (this.quizService.questionCorrectness?.size ?? 0) > 0 ||
+      (this.quizService.selectedOptionsMap?.size ?? 0) > 0 ||
+      (this.selectedOptionService.selectedOptionsMap?.size ?? 0) > 0;
+
+    if (hasExistingState) {
       return;
     }
 
@@ -692,6 +734,10 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     } catch { }
 
     this.progress = 0;
+
+    // Ensure scoreboard starts from 0 on fresh quiz start (Q1).
+    this.quizService.resetScore();
+    try { localStorage.setItem('correctAnswersCount', '0'); } catch {}
   }
 
   private fetchTotalQuestions(): void {
@@ -1206,27 +1252,75 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       ? liveSelections
       : [option as SelectedOption];
     let liveCorrectness = this.evaluateSelectionCorrectness(idx, optimisticSelections);
-    if (liveCorrectness !== true && liveCorrectness !== false) {
+    let usedExplicitPayloadCorrectness = false;
+    const hasExplicitCorrectFlag = option?.correct !== undefined && option?.correct !== null;
+
+    const questionForSelection =
+      this.questionsArray?.[idx] ||
+      this.quizService.questions?.[idx] ||
+      this.quizService.activeQuiz?.questions?.[idx] ||
+      null;
+
+    const correctCountForQuestion = Array.isArray(questionForSelection?.options)
+      ? questionForSelection.options.filter((opt: Option) => opt?.correct === true || String(opt?.correct) === 'true').length
+      : 0;
+
+    const isSingleAnswerQuestion = correctCountForQuestion === 1;
+
+    // For single-answer questions, a clicked option's explicit `correct` flag is the
+    // most reliable immediate source for dot color state.
+    if (isSingleAnswerQuestion && hasExplicitCorrectFlag) {
+      liveCorrectness = option?.correct === true || String(option?.correct) === 'true';
+      usedExplicitPayloadCorrectness = true;
+    } else if (liveCorrectness !== true && liveCorrectness !== false && hasExplicitCorrectFlag) {
       const payloadCorrect = option?.correct === true || String(option?.correct) === 'true';
-      if (payloadCorrect === true || payloadCorrect === false) {
-        liveCorrectness = payloadCorrect;
-      }
+      liveCorrectness = payloadCorrect;
+      usedExplicitPayloadCorrectness = true;
     }
-    if (liveCorrectness === true || liveCorrectness === false) {
-      const scoringKey = this.getScoringKey(idx);
-      this.quizService.questionCorrectness.set(scoringKey, liveCorrectness);
-      this.quizService.questionCorrectness.set(idx, liveCorrectness);
-      this.setPersistedDotStatus(idx, liveCorrectness ? 'correct' : 'wrong');
-      try {
+
+    const canPersistOptimisticStatus =
+      liveCorrectness === true || (liveCorrectness === false && usedExplicitPayloadCorrectness);
+
+    const optimisticStatus = canPersistOptimisticStatus ? liveCorrectness === true : null;
+    if (canPersistOptimisticStatus) {
+      //const scoringKey = this.getScoringKey(idx);
+      //this.quizService.questionCorrectness.set(scoringKey, optimisticStatus === true);
+      //this.quizService.questionCorrectness.set(idx, optimisticStatus === true);
+      this.setPersistedDotStatus(idx, optimisticStatus ? 'correct' : 'wrong');
+      /* try {
         localStorage.setItem(
           'questionCorrectness',
           JSON.stringify(Object.fromEntries(this.quizService.questionCorrectness))
         );
-      } catch {}
+      } catch {} */
+    }
+
+    // For single-answer questions, reflect a correct click in score immediately.
+    // Guarded so we only count once per question.
+    if (isSingleAnswerQuestion && optimisticStatus === true) {
+      const scoringKey = this.getScoringKey(idx);
+
+      const alreadyScoredCorrect =
+        this.quizService.questionCorrectness.get(scoringKey) === true ||
+        this.quizService.questionCorrectness.get(idx) === true;
+
+      if (!alreadyScoredCorrect) {
+        this.quizService.scoreDirectly(idx, true, false);
+      }
     }
     
     // Ensure scoring state is updated before evaluating dot color/progress.
-    await this.quizService.checkIfAnsweredCorrectly(idx);
+    const authoritativeCorrectness = await this.quizService.checkIfAnsweredCorrectly(idx);
+
+    // Only persist authoritative TRUE immediately from this click path.
+    // Authoritative FALSE can be transient right after navigation/click due async
+    // answer-sync timing, which was flipping Q1 dot red before moving to Q2.
+    if (authoritativeCorrectness === true) {
+      const scoringKey = this.getScoringKey(idx);
+      this.quizService.questionCorrectness.set(scoringKey, true);
+      this.quizService.questionCorrectness.set(idx, true);
+      this.setPersistedDotStatus(idx, 'correct');
+    }
 
     // Now update progress AFTER state has been marked and scored
     this.updateProgressValue();
@@ -4704,6 +4798,32 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         ? this.quizService.userAnswers.some((answers: unknown) =>
           Array.isArray(answers) && answers.length > 0)
         : false);
+    
+    const localStatus = this.getPersistedDotStatus(index);
+
+    // For non-current questions, prefer already persisted dot color first.
+    // This prevents transient service-map false values from repainting an
+    // already-correct dot red when user navigates forward.
+    if (index !== this.currentQuestionIndex && (localStatus === 'correct' || localStatus === 'wrong')) {
+      this.dotStatusCache.set(index, localStatus);
+      return localStatus;
+    }
+
+    // If scoring service already has an explicit correctness value, prefer it over
+    // local selection heuristics (which can be noisy with remapped/shuffled payloads)
+    // for NON-current questions. For the active question, prioritize live evaluation.
+    if (index !== this.currentQuestionIndex) {
+      for (const key of candidateIndices) {
+        const persisted = this.quizService.questionCorrectness.get(key);
+        if (persisted === true || persisted === false) {
+          const status: 'correct' | 'wrong' = persisted ? 'correct' : 'wrong';
+          this.setPersistedDotStatus(index, status);
+          this.dotStatusCache.set(index, status);
+          return status;
+        }
+      }
+    }
+
     // Active question: live evaluation should update immediately.
     if (index === this.currentQuestionIndex && (evaluatedStatus === true || evaluatedStatus === false)) {
       const status: 'correct' | 'wrong' = evaluatedStatus ? 'correct' : 'wrong';
@@ -4715,7 +4835,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       return status;
     }
 
-    const localStatus = this.getPersistedDotStatus(index);
+    // const localStatus = this.getPersistedDotStatus(index);
     const hasSessionState = this.hasLiveSessionStateForQuestion(index);
 
     // Do not restore persisted dot color for untouched active questions.
@@ -4724,12 +4844,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       if (previousCached === 'correct' || previousCached === 'wrong') {
         return previousCached;
       }
-      if (
-        hasActiveSessionState &&
-        hasSessionState &&
-        index !== this.currentQuestionIndex &&
-        (localStatus === 'correct' || localStatus === 'wrong')
-      ) {
+      if (index !== this.currentQuestionIndex && (localStatus === 'correct' || localStatus === 'wrong')) {
         this.dotStatusCache.set(index, localStatus);
         return localStatus;
       }
@@ -4737,16 +4852,11 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       return 'pending';
     }
 
-    if (
-      hasActiveSessionState &&
-      hasSessionState &&
-      localStatus &&
-      index !== this.currentQuestionIndex
-    ) {
+    if (localStatus && index !== this.currentQuestionIndex) {
       this.dotStatusCache.set(index, localStatus);
       return localStatus;
     }
-    for (const key of candidateIndices) {
+    /* for (const key of candidateIndices) {
       const persisted = this.quizService.questionCorrectness.get(key);
       if (persisted === true || persisted === false) {
         const status: 'correct' | 'wrong' = persisted ? 'correct' : 'wrong';
@@ -4754,7 +4864,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         this.dotStatusCache.set(index, status);
         return status;
       }
-    }
+    } */
 
     if (evaluatedStatus === true || evaluatedStatus === false) {
       const status: 'correct' | 'wrong' = evaluatedStatus ? 'correct' : 'wrong';

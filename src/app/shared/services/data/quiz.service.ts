@@ -939,7 +939,7 @@ export class QuizService {
 
     // Volatile Scoring: Decrement score when leaving a previously correct question
     // provided we are navigating backwards
-    if (previousQuestion) {
+    /* if (previousQuestion) {
       let prevIndex = (previousQuestion as any).index;
       if (typeof prevIndex !== 'number') {
         prevIndex = this.questions.findIndex(
@@ -974,8 +974,10 @@ export class QuizService {
           );
         }
       }
-    }
+    } */
 
+    // Do NOT mutate score when simply navigating between questions.
+    // Score should reflect answer correctness events only, not navigation direction.
     // Check for deep comparison result
     const isEqual = this.areQuestionsEqual(previousQuestion, question);
     if (isEqual) {
@@ -2484,7 +2486,7 @@ export class QuizService {
       this.questionCorrectness.set(qIndex, true);
       console.log(`[incrementScore] INCREMENTED score to ${this.correctCount}`);
     } else if (!isNowCorrect && wasCorrect) {
-      this.updateCorrectCountForResults(this.correctCount - 1);
+      this.updateCorrectCountForResults(Math.max(this.correctCount - 1, 0));
       this.questionCorrectness.set(scoringKey, false);
       this.questionCorrectness.set(qIndex, false);
       console.log(`[incrementScore] Decremented score for Q${qIndex} (Key=${scoringKey})`);
@@ -2511,13 +2513,18 @@ export class QuizService {
   }
 
   private updateCorrectCountForResults(value: number): void {
-    this.correctCount = value;
+    // this.correctCount = value;
+    const safeValue = Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
+    this.correctCount = safeValue;
     this.sendCorrectCountToResults(this.correctCount);
   }
 
   sendCorrectCountToResults(value: number): void {
-    this.correctAnswersCountSubject.next(value);
-    localStorage.setItem('correctAnswersCount', String(value));
+    // this.correctAnswersCountSubject.next(value);
+    // localStorage.setItem('correctAnswersCount', String(value));
+    const safeValue = Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
+    this.correctAnswersCountSubject.next(safeValue);
+    localStorage.setItem('correctAnswersCount', String(safeValue));
   }
 
   private loadQuestionCorrectness(): void {

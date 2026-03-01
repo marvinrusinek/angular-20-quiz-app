@@ -140,8 +140,23 @@ export class ScoreComponent implements OnInit, OnDestroy {
     totalQuestions: number;
     questions: any[];
   }): void => {
-    console.log(`[ScoreComponent] 📊 Update: Correct=${correctAnswersCount}, Total=${totalQuestions}`);
-    this.correctAnswersCount = correctAnswersCount;
+    // console.log(`[ScoreComponent] 📊 Update: Correct=${correctAnswersCount}, Total=${totalQuestions}`);
+    // this.correctAnswersCount = correctAnswersCount;
+    const safeTotal = Number.isFinite(totalQuestions) ? Math.max(0, Math.trunc(totalQuestions)) : 0;
+    const safeCorrectRaw = Number.isFinite(correctAnswersCount) ? Math.trunc(correctAnswersCount) : 0;
+    let safeCorrect = safeTotal > 0 ? Math.min(Math.max(0, safeCorrectRaw), safeTotal) : Math.max(0, safeCorrectRaw);
+
+    const hasAnyScoredState = (this.quizService.questionCorrectness?.size ?? 0) > 0;
+    const atQuizStart = this.quizService.currentQuestionIndex === 0;
+    // Keep fresh-start at 0, but do NOT suppress a real positive update.
+    if (atQuizStart && !hasAnyScoredState && safeCorrectRaw <= 0) {
+      safeCorrect = 0;
+    }
+
+    console.log(`[ScoreComponent] 📊 Update: Correct=${safeCorrect}, Total=${safeTotal} (raw=${correctAnswersCount}/${totalQuestions})`);
+
+    this.totalQuestions = safeTotal;
+    this.correctAnswersCount = safeCorrect;
     this.updateScoreDisplay();
     this.cdRef.markForCheck();
   };
@@ -177,6 +192,12 @@ export class ScoreComponent implements OnInit, OnDestroy {
 
   displayPercentageScore(): void {
     const totalPossibleScore = 100;
+
+    if (this.totalQuestions <= 0) {
+      this.percentageScore = '0%';
+      this.currentScore$.next(this.percentageScore);
+      return;
+    }
 
     this.percentageScore = `${(
       (this.correctAnswersCount / this.totalQuestions) *

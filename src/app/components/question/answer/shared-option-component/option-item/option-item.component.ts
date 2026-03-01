@@ -62,8 +62,16 @@ export class OptionItemComponent implements OnChanges {
   constructor(private optionService: OptionService) { }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['b'] && this.b?.isSelected) {
-      this._wasSelected = true;
+    if (changes['b']) {
+      // Keep this flag in sync with the current binding.
+      // Using a sticky value here leaks a previous question's state into
+      // reused option-item instances (trackBy reuses components by optionId),
+      // which can incorrectly style later questions.
+      this._wasSelected = !!this.b?.isSelected;
+    }
+
+    if (changes['shouldResetBackground'] && this.shouldResetBackground) {
+      this._wasSelected = false;
     }
   }
 
@@ -88,13 +96,30 @@ export class OptionItemComponent implements OnChanges {
 
   getOptionClasses(): { [key: string]: boolean } {
     const classes = { ...this.b.cssClasses };
-    if (this._wasSelected) {
-      if (this.b.option.correct) {
+
+    const showSelectionState =
+      this.b.isSelected ||
+      this.b.checked === true ||
+      this.b.option?.selected === true ||
+      this.b.option?.highlight === true ||
+      this.b.highlightCorrect ||
+      this.b.highlightIncorrect ||
+      // this.shouldShowFeedback() ||
+      !!this.b.showFeedbackForOption?.[this.optionId] ||
+      this._wasSelected;
+
+    if (showSelectionState) {
+      const isCorrect = 
+        this.b.option?.correct === true ||
+        String(this.b.option?.correct) === 'true' ||
+        this.b.isCorrect === true;
+      if (isCorrect) {
         classes['correct-option'] = true;
       } else {
         classes['incorrect-option'] = true;
       }
     }
+
     return classes;
   }
 
