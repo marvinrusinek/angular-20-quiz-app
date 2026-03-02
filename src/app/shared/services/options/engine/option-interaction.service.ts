@@ -167,6 +167,15 @@ export class OptionInteractionService {
     }
 
     let isMultipleAnswer = state.type === 'multiple' || isMultipleForScore;
+    
+    // Authoritative fallback using the actual question object
+    if (!isMultipleAnswer && question && Array.isArray(question.options)) {
+      const correctCount = question.options.filter(o => isCorrectHelper(o.correct)).length;
+      if (correctCount > 1) {
+        isMultipleAnswer = true;
+      }
+    }
+    
     if (!isMultipleAnswer && state.optionsToDisplay?.length > 0) {
       const correctCount = state.optionsToDisplay.filter(o => isCorrectHelper(o.correct)).length;
       if (correctCount > 1) {
