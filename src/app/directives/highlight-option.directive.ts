@@ -116,10 +116,6 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
 
       // If the option is currently selected (from live state), apply correct/incorrect color
       if (isLiveSelected) {
-        const isCorrect = opt.correct === true || String(opt.correct) === 'true' ||
-          this.optionBinding?.isCorrect === true ||
-          this.sharedOptionConfig?.isAnswerCorrect === true;
-        this.setBackgroundColor(host, isCorrect ? '#43f756' : '#ff0000');
         opt.showIcon = true;
         return;
       }
