@@ -93,7 +93,7 @@ export class QuizQuestionComponent extends BaseQuestion
   @Output() optionSelected = new EventEmitter<SelectedOption>();
   @Output() displayStateChange = new EventEmitter<{
     mode: 'question' | 'explanation';
-    answered: boolean;
+    answered: boolean
   }>();
   @Output() feedbackApplied = new EventEmitter<number>();
   @Output() nextButtonState = new EventEmitter<boolean>();
