@@ -291,7 +291,7 @@ export class OptionUiSyncService {
     checked: boolean,
     ctx: OptionUiSyncContext
   ): void {
-    const effectiveId = (optionId != null && optionId !== -1) ? optionId : index;
+    const effectiveId = (optionId != null && optionId !== -1) ? optionId : currentIndex;
 
     if (checked) {
       // Use synchronous setSelectedOption to update service state IMMEDIATELY.
