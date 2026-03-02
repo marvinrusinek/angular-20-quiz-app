@@ -185,8 +185,11 @@ export class OptionUiSyncService {
     // optional: refresh directive highlighting after state changes
     this.optionVisualEffectsService.refreshHighlights(ctx.optionBindings);
 
-    // Apply styles to current binding
-    this.applyHighlighting(optionBinding);
+    // Apply styles to ALL bindings (not just the clicked one) so that
+    // previously selected options in multi-answer mode keep their green/red.
+    for (const b of ctx.optionBindings) {
+      this.applyHighlighting(b);
+    }
 
     // Only apply generic feedback if we haven't already anchored to a specific selection
     // in the checked/unchecked blocks above.
@@ -714,6 +717,7 @@ export class OptionUiSyncService {
         : (question.options ?? []);
 
     // Gather ALL currently selected options for accurate feedback
+    // Gather ALL currently selected options
     const isCorrect = (o: any) => o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || o.correct === '1');
     const selectedOptions: Option[] = ctx.optionBindings
       .filter(b => {
