@@ -1403,9 +1403,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       (opt: Option) => opt?.correct === true || String(opt?.correct) === 'true',
     ).length;
 
-    const isSingleAnswerQuestion = questionForSelection 
-      ? !this.quizQuestionManagerService.isMultipleAnswerQuestion(questionForSelection as QuizQuestion)
-      : correctCountForQuestion === 1;
+    const isSingleAnswerQuestion = correctCountForQuestion === 1;
 
     let immediateCorrectness = liveCorrectness;
 
