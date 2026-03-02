@@ -334,29 +334,29 @@ export class OptionUiSyncService {
 
     for (const b of ctx.optionBindings) {
       const id = b.option.optionId;
-      if (id === undefined) continue;
+      const effectiveId = (id != null && id !== -1) ? id : b.index;
 
-      const shouldPaint = ctx.perQuestionHistory.has(id);
+      const shouldPaint = ctx.perQuestionHistory.has(effectiveId);
 
       // Also check string/number versions to be absolutely safe
       const shouldPaintRobust = shouldPaint ||
-        (typeof id === 'string' && ctx.perQuestionHistory.has(Number(id))) ||
-        (typeof id === 'number' && ctx.perQuestionHistory.has(String(id)));
+        (typeof effectiveId === 'string' && ctx.perQuestionHistory.has(Number(effectiveId))) ||
+        (typeof effectiveId === 'number' && ctx.perQuestionHistory.has(String(effectiveId)));
 
       b.isSelected = shouldPaintRobust;
       b.option.selected = shouldPaintRobust;
       b.option.highlight = shouldPaintRobust;
       b.option.showIcon = shouldPaintRobust;
 
-      if (b.showFeedbackForOption && b.option.optionId !== undefined) {
-        b.showFeedbackForOption[b.option.optionId] = false;
-        if (typeof b.option.optionId === 'string') {
-          const n = Number(b.option.optionId);
+      if (b.showFeedbackForOption) {
+        b.showFeedbackForOption[effectiveId as any] = false;
+        if (typeof effectiveId === 'string') {
+          const n = Number(effectiveId);
           if (!isNaN(n)) (b.showFeedbackForOption as any)[n] = false;
         }
       }
 
-      ctx.showFeedbackForOption[id] = id === optionId;
+      ctx.showFeedbackForOption[effectiveId as any] = effectiveId === ((optionId != null && optionId !== -1) ? optionId : optionBinding.index);
 
       b.directiveInstance?.updateHighlight();
     }
@@ -636,7 +636,8 @@ export class OptionUiSyncService {
     const isMultiple = ctx.type === 'multiple';
 
     for (const o of ctx.optionsToDisplay ?? []) {
-      const isClicked = o.optionId === clicked.optionId;
+      const isClicked = (o.optionId != null && o.optionId === clicked.optionId) ||
+        (o.text === clicked.text);
 
       if (isMultiple) {
         // Multi: Set specific option to 'checked' value
