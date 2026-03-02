@@ -62,7 +62,7 @@ export class SelectedOptionService {
     this.isAnsweredSubject.next(false);
     this.isOptionSelectedSubject.next(false);
     this.showFeedbackForOptionSubject.next({});
-    
+
     try {
       sessionStorage.removeItem('rawSelectionsMap');
       sessionStorage.removeItem('selectedOptionsMap');
@@ -203,7 +203,7 @@ export class SelectedOptionService {
       selected: option.selected ?? true,  // respect unchecked if ever passed
       highlight: true,
       showIcon: true
-    });
+    }, option.text || (option as any).index);
 
     if (newCanonical.optionId == null) {
       console.error('[SOS] canonical option missing ID:', newCanonical);
@@ -227,7 +227,7 @@ export class SelectedOptionService {
       if (newCanonical.selected === false) {
         merged.delete(newCanonical.optionId);  // support unselect if needed
       } else {
-      merged.set(newCanonical.optionId, newCanonical);
+        merged.set(newCanonical.optionId, newCanonical);
       }
     }
 
@@ -383,7 +383,8 @@ export class SelectedOptionService {
         selected: true,
         highlight: true,
         showIcon: true
-      }
+      },
+      option.text || (option as any).index
     );
 
     // HARD RULE: Single-answer questions may never accumulate selections
@@ -475,7 +476,8 @@ export class SelectedOptionService {
           selected: true,
           highlight: true,
           showIcon: true
-        }
+        },
+        option.text || (option as any).index
       );
 
       if (
@@ -1734,7 +1736,7 @@ export class SelectedOptionService {
   private canonicalizeOptionForQuestion(
     questionIndex: number,
     option: SelectedOption,
-    fallbackIndex?: number
+    fallbackIndex?: number | string
   ): SelectedOption {
     if (!option) {
       return option;
@@ -1770,7 +1772,8 @@ export class SelectedOptionService {
 
       const canonicalSelection = this.canonicalizeOptionForQuestion(
         questionIndex,
-        selection
+        selection,
+        selection.text || (selection as any).index
       );
 
       if (
