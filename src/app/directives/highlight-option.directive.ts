@@ -77,8 +77,6 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
     }
   }
 
-  @HostBinding('style.background-color')
-  backgroundColor: string | undefined = undefined;
 
   @HostListener('click')
   onClick(): void {
@@ -135,11 +133,9 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
           const isCorrect = cfg.isAnswerCorrect ||
             cfg.option?.correct === true || String(cfg.option?.correct) === 'true' ||
             opt?.correct === true || String(opt?.correct) === 'true';
-          this.setBackgroundColor(host, isCorrect ? '#43f756' : '#ff0000');
           opt.showIcon = true;
         } else if (cfg.shouldResetBackground) {
           // Only reset to transparent if the option is truly not selected
-          this.renderer.removeStyle(host, 'background-color');
           opt.showIcon = false;
         } else {
           opt.showIcon = false;
@@ -148,20 +144,17 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
       }
 
       // Legacy Path: only used if sharedOptionConfig is not available
-      this.renderer.removeStyle(host, 'background-color');
       this.renderer.removeClass(host, 'deactivated-option');
       this.renderer.setStyle(host, 'cursor', 'pointer');
       this.setPointerEvents(host, 'auto');
 
       if (opt.highlight) {
-        this.setBackgroundColor(host, opt.correct ? '#43f756' : '#ff0000');
         opt.showIcon = true;
         return;
       }
 
       // Disabled
       if (!opt.correct && opt.active === false) {
-        this.setBackgroundColor(host, '#a3a3a3');
         this.renderer.addClass(host, 'deactivated-option');
         this.renderer.setStyle(host, 'cursor', 'not-allowed');
         this.setPointerEvents(host, 'none');
@@ -179,7 +172,6 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
     const opt = cfg.option;
 
     // Always reset first
-    this.renderer.removeStyle(host, 'background-color');
     this.renderer.removeClass(host, 'deactivated-option');
     this.renderer.setStyle(host, 'cursor', 'pointer');
     this.setPointerEvents(host, 'auto');
@@ -188,7 +180,6 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
     // Check shouldResetBackground FIRST, before selection state
     // This ensures new questions always start clean, regardless of stale state
     if (cfg.shouldResetBackground) {
-      this.renderer.removeStyle(host, 'background-color');
       opt.showIcon = false;
       return;  // exit early - don't apply any stale highlighting
     }
@@ -205,14 +196,10 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
       opt?.correct === true || String(opt?.correct) === 'true';
 
     if (isSelectedNow) {
-      this.setBackgroundColor(host, isCorrectAnswer ? '#43f756' : '#ff0000');
       opt.showIcon = true;
     }
   }
 
-  private setBackgroundColor(element: HTMLElement, color: string): void {
-    this.renderer.setStyle(element, 'background-color', color);
-  }
 
   private setPointerEvents(el: HTMLElement, value: string): void {
     this.renderer.setStyle(el, 'pointer-events', value);
