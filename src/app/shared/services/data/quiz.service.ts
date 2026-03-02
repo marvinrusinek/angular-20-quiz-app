@@ -1497,7 +1497,7 @@ export class QuizService {
       if (!answer) return false;
 
       const found = question.options.find(
-        (option) => 
+        (option) =>
           option === answer || // Reference match (fastest)
           (option.optionId !== undefined && answer.optionId !== undefined && String(option.optionId) === String(answer.optionId)) || // ID match
           (option.text && answer.text && option.text.trim().toLowerCase() === answer.text.trim().toLowerCase()) // Text match
@@ -1802,7 +1802,7 @@ export class QuizService {
         const oId = (typeof qIndex === 'number')
           ? (qIndex + 1) * 100 + (optionIdx + 1)
           : (!isNaN(Number(rawOId)) && Number(rawOId) > 0 ? Number(rawOId) : optionIdx + 1);
-        
+
         return {
           ...option,
           optionId: oId,
@@ -1822,12 +1822,12 @@ export class QuizService {
         if (!rawAns) return;
         const normAnsText = normalize(rawAns.text);
         const ansId = Number(rawAns.optionId);
-        
+
         // Find corresponding option using text (robust) or ID (fallback)
         const match = normalizedOptions.find(o => {
           const normOptText = normalize(o.text);
           return (normOptText && normAnsText && normOptText === normAnsText) ||
-                 (!isNaN(ansId) && Number(o.optionId) === ansId);
+            (!isNaN(ansId) && Number(o.optionId) === ansId);
         });
 
         if (match) {
@@ -2341,8 +2341,8 @@ export class QuizService {
           if (!match) {
             // Text Match (Reliable fallback for clones/disparate IDs)
             const answerId = id;
-            match = question.options.find((o: Option) => 
-              (o.text && String(o.optionId) === String(answerId)) || 
+            match = question.options.find((o: Option) =>
+              (o.text && String(o.optionId) === String(answerId)) ||
               (o.text && String(o.value) === String(answerId))
             );
           }
@@ -2350,10 +2350,10 @@ export class QuizService {
           if (!match && !this.shouldShuffle()) {
             // Fallback: Direct Index Matching for Unshuffled
             if (typeof id === 'number' && id >= 0 && question.options[id]) {
-                match = question.options[id];
+              match = question.options[id];
             }
           }
-          
+
           if (!match) {
             console.warn(`[QuizService] ⚠️ No match found for Option ID ${id} in Q${questionIndex + 1}. Returning dummy.`);
           }
@@ -2411,11 +2411,27 @@ export class QuizService {
       : [];
 
     this.answers = storedAnswerIds
-      .map((id) =>
-        currentQuestionValue!.options.find((o: Option) =>
+      .map((id) => {
+        const found = currentQuestionValue!.options.find((o: Option) =>
           String(o.optionId) === String(id)
-        ) || ({ optionId: id } as Option)
-      )
+        );
+        if (found) return found;
+
+        // Fallback for ID-less questions (where ID = index)
+        if (typeof id === 'number') {
+          if (id >= 0 && id < currentQuestionValue!.options.length) {
+            return currentQuestionValue!.options[id];
+          }
+          // Try synthetic ID backwards mapping
+          if (id > 100) {
+            const optIdx = (id % 100) - 1;
+            if (optIdx >= 0 && optIdx < currentQuestionValue!.options.length) {
+              return currentQuestionValue!.options[optIdx];
+            }
+          }
+        }
+        return { optionId: id } as Option;
+      })
       .filter((o): o is Option => !!o);
 
     console.log(`[checkIfAnsweredCorrectly] 📊 Expected Correct Count: ${this.numberOfCorrectAnswers}. User Answers Count: ${this.answers?.length}`);
