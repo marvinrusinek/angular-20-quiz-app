@@ -298,6 +298,7 @@ export class OptionUiSyncService {
       try {
         const selOpt: any = {
           ...optionBinding.option,
+          index: optionBinding.index,
           questionIndex: currentIndex,
           selected: true
         };
