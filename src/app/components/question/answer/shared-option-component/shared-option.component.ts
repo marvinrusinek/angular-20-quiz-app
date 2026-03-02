@@ -553,7 +553,7 @@ export class SharedOptionComponent
 
               this.feedbackConfigs[key] = {
                 feedback: freshFeedback,
-                showFeedback: true, 
+                showFeedback: true,
                 options: opts,
                 question: question,
                 selectedOption: b.option,
@@ -592,7 +592,7 @@ export class SharedOptionComponent
       this.form
         .get('selectedOptionId')
         ?.setValue(b.option.optionId, { emitEvent: false });
-      
+
       this.ensureOptionIds(); // Fix IDs BEFORE processing interaction
       this.updateOptionAndUI(b, i, {
         value: b.option.optionId
@@ -636,7 +636,7 @@ export class SharedOptionComponent
 
     if (hasIndexChanged) {
       console.log(`[SharedOptionComponent] Question index changed from ${this.lastProcessedQuestionIndex} to ${currentIdx}. Performing full state reset.`);
-      
+
       // AUTHORITATIVE RESET of all local tracking to prevent leakage
       this.selectedOptions.clear();
       this.clickedOptionIds.clear();
@@ -649,7 +649,7 @@ export class SharedOptionComponent
       this.lastFeedbackQuestionIndex = currentIdx;
       this.showFeedback = false;
       this.isOptionSelected = false;
-      
+
       this.lastProcessedQuestionIndex = currentIdx;
       this._lastClickFeedback = null; // Clear feedback on question change
     }
@@ -1386,13 +1386,21 @@ export class SharedOptionComponent
 
     const saved = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex);
     if (saved?.length > 0) {
-      const savedIds = new Set(saved.map(s => s.optionId));
+      // Robust check: match by ID, index, or text
+      for (let idx = 0; idx < this.optionsToDisplay.length; idx++) {
+        const opt = this.optionsToDisplay[idx];
+        const isSaved = saved.some(s =>
+          (s.optionId != null && s.optionId !== -1 && s.optionId === opt.optionId) ||
+          ((s as any).index === idx) ||
+          (s.text === opt.text)
+        );
 
-      for (const opt of this.optionsToDisplay) {
-
-        if (opt.optionId !== undefined && savedIds.has(opt.optionId)) {
+        if (isSaved) {
           opt.selected = true;
           opt.showIcon = true;
+          // also sync to internal set if needed
+          const effectiveId = (opt.optionId != null && opt.optionId !== -1) ? opt.optionId : idx;
+          this.selectedOptions.add(Number(effectiveId));
         }
       }
     } else {
@@ -1659,7 +1667,7 @@ export class SharedOptionComponent
     // Sync ALL feedback and selection state back from ctx.
     this.feedbackConfigs = { ...ctx.feedbackConfigs };
     this.showFeedbackForOption = { ...ctx.showFeedbackForOption };
-    this.showFeedback = ctx.showFeedback; 
+    this.showFeedback = ctx.showFeedback;
     this.lastFeedbackOptionId = Number(ctx.lastFeedbackOptionId);
     this.lastFeedbackQuestionIndex = ctx.lastFeedbackQuestionIndex;
     this.lastSelectedOptionIndex = index;
@@ -1687,7 +1695,7 @@ export class SharedOptionComponent
     }
 
     // Force reference update for ALL bindings to trigger child OnPush CD
-    this.optionBindings = this.optionBindings.map(b => ({ 
+    this.optionBindings = this.optionBindings.map(b => ({
       ...b,
       showFeedbackForOption: { ...this.showFeedbackForOption }
       // Removed: showFeedback: this.showFeedback
@@ -2230,7 +2238,7 @@ export class SharedOptionComponent
     this.showFeedbackForOption[effectiveId] = true;
     this.showFeedbackForOption[String(effectiveId)] = true;
     if (typeof effectiveId === 'string' && !isNaN(Number(effectiveId))) {
-       this.showFeedbackForOption[Number(effectiveId)] = true;
+      this.showFeedbackForOption[Number(effectiveId)] = true;
     }
 
     // 🚀 CRITICAL FIX: Only set as "answered" (revealing the permanent FET explanation)
@@ -2723,7 +2731,7 @@ export class SharedOptionComponent
     if (!this.currentQuestion) return;
 
     const currentIdx = this.currentQuestionIndex ?? this.quizService.getCurrentQuestionIndex();
-    
+
     // 1. Fetch AUTHORITATIVE selections for THIS question from the state service
     const savedSelections = this.selectedOptionService.getSelectedOptionsForQuestion(currentIdx) || [];
     const savedIds = this.optionHydrationService.toIdSet(savedSelections);
@@ -2756,7 +2764,7 @@ export class SharedOptionComponent
       opt.feedback = feedbackSentence;
 
       const isSelected = savedIds.has(effectiveId) || savedIds.has(String(effectiveId));
-      
+
       if (isSelected || highlightSet.has(effectiveId)) {
         opt.highlight = true;
       }
@@ -3112,7 +3120,7 @@ export class SharedOptionComponent
       // Robust match: Check numeric ID OR fallback to index if missing (matches SelectedOptionService logic)
       const effectiveId = (opt.optionId != null && Number(opt.optionId) > -1) ? opt.optionId : i;
       const isSelected = selIds.has(Number(effectiveId));
-      
+
       opt.selected = isSelected;
       opt.showIcon = isSelected;
       opt.highlight = isSelected;
@@ -3141,7 +3149,7 @@ export class SharedOptionComponent
     // showFeedbackForOption is cleared and set to only ONE target in OptionUiSyncService.refreshFeedbackConfigForClicked
     return !!(this.showFeedbackForOption[optId] === true || this.showFeedbackForOption[String(optId)] === true);
   }
- 
+
   /**
    * Gets the feedback config to show inline below the last selected option.
    * Derives from feedbackConfigs (reliably set by all interaction paths)
@@ -3150,7 +3158,7 @@ export class SharedOptionComponent
   public getInlineFeedbackConfig(b: OptionBindings, i: number): FeedbackProps | null {
     const optId = (b?.option?.optionId != null && b.option.optionId > -1) ? b.option.optionId : i;
     const isTarget = this.showFeedbackForOption[optId] === true || this.showFeedbackForOption[String(optId)] === true;
-    
+
     if (!isTarget) return null;
 
     // Highest priority: check by canonical key
