@@ -1,4 +1,4 @@
-import { 
+import {
   ChangeDetectorRef, Directive, ElementRef, EventEmitter, HostBinding,
   HostListener, Input, OnChanges, OnInit, Output, Renderer2, SimpleChanges
 } from '@angular/core';
@@ -37,7 +37,7 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
     private el: ElementRef,
     private renderer: Renderer2,
     private cdRef: ChangeDetectorRef
-  ) {}
+  ) { }
 
   ngOnInit(): void {
     if (this.optionBinding) {
@@ -120,10 +120,16 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
       // updateHighlightFromConfig has already cleared it
       if (this.sharedOptionConfig?.option) {
         const cfg = this.sharedOptionConfig;
-        const isSelectedNow = cfg.isOptionSelected || cfg.option.selected === true;
-        
+        const isSelectedNow = cfg.isOptionSelected || cfg.option.selected === true ||
+          this.isSelected || this.optionBinding?.isSelected === true || opt.highlight === true;
+
+        // Check correctness from multiple sources for robustness
+        const isCorrectAnswer = cfg.isAnswerCorrect ||
+          cfg.option?.correct === true || String(cfg.option?.correct) === 'true' ||
+          opt?.correct === true || String(opt?.correct) === 'true';
+
         if (isSelectedNow) {
-          this.setBackgroundColor(host, cfg.isAnswerCorrect ? '#43f756' : '#ff0000');
+          this.setBackgroundColor(host, isCorrectAnswer ? '#43f756' : '#ff0000');
           opt.showIcon = true;
         } else if (cfg.shouldResetBackground) {
           this.setBackgroundColor(host, 'transparent');
@@ -179,16 +185,23 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
     // Only apply highlighting if not resetting and actually selected
     const isSelectedNow =
       cfg.highlight === true || cfg.isOptionSelected ||
-      cfg.option.selected === true;
+      cfg.option.selected === true ||
+      this.isSelected || this.optionBinding?.isSelected === true;
+
+    // Check correctness from multiple sources
+    const isCorrectAnswer = cfg.isAnswerCorrect ||
+      cfg.option?.correct === true || String(cfg.option?.correct) === 'true' ||
+      opt?.correct === true || String(opt?.correct) === 'true';
 
     if (isSelectedNow) {
-      this.setBackgroundColor(host, cfg.isAnswerCorrect ? '#43f756' : '#ff0000');
+      this.setBackgroundColor(host, isCorrectAnswer ? '#43f756' : '#ff0000');
       opt.showIcon = true;
     }
   }
 
   private setBackgroundColor(element: HTMLElement, color: string): void {
-    this.renderer.setStyle(element, 'background-color', color);
+    // Use 'important' flag to override Angular Material's internal styles
+    this.renderer.setStyle(element, 'background-color', color, 2 /* RendererStyleFlags2.Important */);
   }
 
   private setPointerEvents(el: HTMLElement, value: string): void {
