@@ -78,7 +78,7 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
   }
 
   @HostBinding('style.background-color')
-  backgroundColor: string = '';
+  backgroundColor: string | undefined = undefined;
 
   @HostListener('click')
   onClick(): void {
