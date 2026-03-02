@@ -613,17 +613,19 @@ export class OptionUiSyncService {
   }
 
   private syncSelectedFlags(ctx: OptionUiSyncContext): void {
-    for (const b of ctx.optionBindings ?? []) {
+    for (let i = 0; i < (ctx.optionBindings?.length ?? 0); i++) {
+      const b = ctx.optionBindings[i];
       const id = b?.option?.optionId;
-      if (id == null) continue;
+      const effectiveId = (id != null && id !== -1) ? id : i;
 
       const history = ctx.selectedOptionHistory || [];
       const chosen =
-        (ctx.selectedOptionMap as any).get(id) === true ||
-        ctx.selectedOptionMap.get(Number(id)) === true ||
-        (history as any[]).includes(id) ||
-        (history as any[]).includes(String(id)) ||
-        (history as any[]).includes(Number(id));
+        (ctx.selectedOptionMap as any).get(effectiveId) === true ||
+        ctx.selectedOptionMap.get(Number(effectiveId)) === true ||
+        ctx.selectedOptionMap.get(String(effectiveId)) === true ||
+        (history as any[]).includes(effectiveId) ||
+        (history as any[]).includes(String(effectiveId)) ||
+        (history as any[]).includes(Number(effectiveId));
 
       b.option.selected = chosen;
       b.isSelected = chosen;
