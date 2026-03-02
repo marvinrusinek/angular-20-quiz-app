@@ -2,16 +2,18 @@
   [attr.data-option-id]="b.option.optionId">
   @if (type === 'single') {
   <mat-radio-button class="option-row single-option" appHighlightOption [appHighlightInputType]="'radio'"
-    [appHighlightReset]="shouldResetBackground" [sharedOptionConfig]="sharedOptionConfig" [optionBinding]="b" [option]="b.option" [isSelected]="b.isSelected" [value]="b.option.optionId"
-    [ngClass]="getOptionClasses()" [disabled]="isDisabled()" [disableRipple]="true" (change)="onChanged($event)"
-    (click)="onInteraction($event)" [attr.data-option-id]="b.option.optionId">
+    [appHighlightReset]="shouldResetBackground" [sharedOptionConfig]="sharedOptionConfig" [optionBinding]="b"
+    [option]="b.option" [isSelected]="b.isSelected" [value]="b.option.optionId" [ngClass]="getOptionClasses()"
+    [style.background-color]="getOptionBackgroundColor()" [disabled]="isDisabled()" [disableRipple]="true"
+    (change)="onChanged($event)" (click)="onInteraction($event)" [attr.data-option-id]="b.option.optionId">
     <ng-container *ngTemplateOutlet="optionContent"></ng-container>
   </mat-radio-button>
   } @else {
   <mat-checkbox class="option-row multiple-option" appHighlightOption [appHighlightInputType]="'checkbox'"
-    [appHighlightReset]="shouldResetBackground" [sharedOptionConfig]="sharedOptionConfig" [optionBinding]="b" [option]="b.option" [isSelected]="b.isSelected" [checked]="b.isSelected"
-    [ngClass]="getOptionClasses()" [disabled]="isDisabled()" [disableRipple]="true" (change)="onChanged($event)"
-    (click)="onInteraction($event)" [attr.data-option-id]="b.option.optionId">
+    [appHighlightReset]="shouldResetBackground" [sharedOptionConfig]="sharedOptionConfig" [optionBinding]="b"
+    [option]="b.option" [isSelected]="b.isSelected" [checked]="b.isSelected" [ngClass]="getOptionClasses()"
+    [style.background-color]="getOptionBackgroundColor()" [disabled]="isDisabled()" [disableRipple]="true"
+    (change)="onChanged($event)" (click)="onInteraction($event)" [attr.data-option-id]="b.option.optionId">
     <ng-container *ngTemplateOutlet="optionContent"></ng-container>
   </mat-checkbox>
   }
@@ -24,9 +26,9 @@
     </span>
 
     @if ((b.isSelected || isPreviousSelection()) && shouldShowIcon(b.option, i)) {
-      <mat-icon class="opt-icon">
-        {{ getOptionIcon(b.option, i) }}
-      </mat-icon>
+    <mat-icon class="opt-icon">
+      {{ getOptionIcon(b.option, i) }}
+    </mat-icon>
     }
   </div>
 </ng-template>
