@@ -200,8 +200,7 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
   }
 
   private setBackgroundColor(element: HTMLElement, color: string): void {
-    // Use 'important' flag to override Angular Material's internal styles
-    this.renderer.setStyle(element, 'background-color', color, 2 /* RendererStyleFlags2.Important */);
+    this.renderer.setStyle(element, 'background-color', color);
   }
 
   private setPointerEvents(el: HTMLElement, value: string): void {
