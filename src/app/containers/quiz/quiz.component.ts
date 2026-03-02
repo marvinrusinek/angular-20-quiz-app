@@ -1489,8 +1489,67 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // when matchedCorrectCount === correctOptions.length (all correct answers selected,
     // no incorrect answers selected). Do NOT use liveCorrectness here because it
     // could be set from a single correct option click via the payload flag.
-    const allCorrectSelectedForMulti =
+    let allCorrectSelectedForMulti =
       !isSingleAnswerQuestion && immediateCorrectness === true;
+
+    // Fallback: If evaluateSelectionCorrectness returned null (e.g. due to ID/text
+    // mismatch between selections and question options), do a direct check using
+    // the question's options and the current selection state from the service.
+    // This ensures Q4 and other later multi-answer questions still score correctly.
+    if (!isSingleAnswerQuestion && !allCorrectSelectedForMulti) {
+      const normalize = (value: unknown): string => String(value ?? '').trim().toLowerCase();
+      const correctOpts = optionsForImmediateScoring.filter(
+        (opt: Option) => opt?.correct === true || String(opt?.correct) === 'true'
+      );
+      if (correctOpts.length > 1) {
+        // Get ALL currently selected options from the service (includes the just-clicked one)
+        const currentSelections =
+          this.selectedOptionService?.selectedOptionsMap?.get(idx) ??
+          this.selectedOptionService?.getSelectedOptionsForQuestion(idx) ?? [];
+
+        if (currentSelections.length >= correctOpts.length) {
+          // Build sets of correct identifiers from the question's options
+          const correctTextSet = new Set(
+            correctOpts.map((opt: Option) => normalize(opt.text)).filter(Boolean)
+          );
+          const correctIdSet = new Set(
+            correctOpts.map((opt: Option) => String(opt.optionId ?? '').trim()).filter(Boolean)
+          );
+
+          // Check if every correct option is represented in the current selections
+          let matchedCount = 0;
+          let hasWrongSelection = false;
+          for (const sel of currentSelections) {
+            const selText = normalize(sel?.text);
+            const selId = String(sel?.optionId ?? '').trim();
+            const selCorrect = sel?.correct === true || String(sel?.correct) === 'true';
+
+            const idMatch = selId !== '' && correctIdSet.has(selId);
+            const textMatch = selText !== '' && correctTextSet.has(selText);
+
+            if (idMatch || textMatch || selCorrect) {
+              matchedCount++;
+            } else {
+              // Check by position: selection might use synthetic IDs
+              // Try to match by text against question options
+              const matchedOpt = optionsForImmediateScoring.find(
+                (opt: Option) => normalize(opt.text) === selText && selText !== ''
+              );
+              if (matchedOpt && (matchedOpt.correct === true || String(matchedOpt.correct) === 'true')) {
+                matchedCount++;
+              } else {
+                hasWrongSelection = true;
+              }
+            }
+          }
+
+          allCorrectSelectedForMulti = !hasWrongSelection && matchedCount >= correctOpts.length;
+          if (allCorrectSelectedForMulti) {
+            console.log(`[onOptionSelected] Direct multi-answer check: ALL ${correctOpts.length} correct answers selected for Q${idx + 1}`);
+          }
+        }
+      }
+    }
 
     if (allCorrectSelectedForMulti) {
       const scoringKey = this.getScoringKey(idx);
