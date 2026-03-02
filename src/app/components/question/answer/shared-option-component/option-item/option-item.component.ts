@@ -139,6 +139,8 @@ export class OptionItemComponent implements OnChanges {
       this.b.highlightIncorrect ||
       this._wasSelected;
 
+    console.log(`[getOptionBgColor] Option ${this.i}: isSelected=${this.b.isSelected}, opt.selected=${this.b.option?.selected}, opt.highlight=${this.b.option?.highlight}, highlightCorrect=${this.b.highlightCorrect}, highlightIncorrect=${this.b.highlightIncorrect}, _wasSelected=${this._wasSelected}, showSelectionState=${showSelectionState}, opt.correct=${this.b.option?.correct}`);
+
     if (!showSelectionState) {
       return null;  // let the default CSS handle it
     }
@@ -148,7 +150,9 @@ export class OptionItemComponent implements OnChanges {
       String(this.b.option?.correct) === 'true' ||
       this.b.isCorrect === true;
 
-    return isCorrect ? '#43f756' : '#ff0000';
+    const color = isCorrect ? '#43f756' : '#ff0000';
+    console.log(`[getOptionBgColor] Option ${this.i}: returning ${color} (isCorrect=${isCorrect})`);
+    return color;
   }
 
   getOptionCursor(): string {
