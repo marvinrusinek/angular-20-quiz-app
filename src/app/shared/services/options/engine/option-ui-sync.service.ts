@@ -714,7 +714,6 @@ export class OptionUiSyncService {
         : (question.options ?? []);
 
     // Gather ALL currently selected options for accurate feedback
-    // Gather ALL currently selected options
     const isCorrect = (o: any) => o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || o.correct === '1');
     const selectedOptions: Option[] = ctx.optionBindings
       .filter(b => {
