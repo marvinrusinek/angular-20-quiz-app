@@ -1412,7 +1412,10 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     if (isSingleAnswerQuestion && hasExplicitCorrectFlag) {
       liveCorrectness = option?.correct === true || String(option?.correct) === 'true';
       usedExplicitPayloadCorrectness = true;
-    } else if (liveCorrectness !== true && liveCorrectness !== false && hasExplicitCorrectFlag) {
+    } else if (isSingleAnswerQuestion && liveCorrectness !== true && liveCorrectness !== false && hasExplicitCorrectFlag) {
+      // Only allow payload correctness override for single-answer questions.
+      // For multi-answer questions, a single correct click does NOT mean the
+      // question is fully correct — all correct answers must be selected.
       const payloadCorrect = option?.correct === true || String(option?.correct) === 'true';
       liveCorrectness = payloadCorrect;
       usedExplicitPayloadCorrectness = true;
@@ -1481,10 +1484,15 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       }
     }
 
-    const hasImmediateCorrectSelection =
-      immediateCorrectness === true || liveCorrectness === true;
+    // For multi-answer questions, only score when ALL correct answers are selected.
+    // evaluateSelectionCorrectness() performs a strict check: it returns true only
+    // when matchedCorrectCount === correctOptions.length (all correct answers selected,
+    // no incorrect answers selected). Do NOT use liveCorrectness here because it
+    // could be set from a single correct option click via the payload flag.
+    const allCorrectSelectedForMulti =
+      !isSingleAnswerQuestion && immediateCorrectness === true;
 
-    if (!isSingleAnswerQuestion && hasImmediateCorrectSelection) {
+    if (allCorrectSelectedForMulti) {
       const scoringKey = this.getScoringKey(idx);
       let alreadyScoredCorrect =
         this.quizService.questionCorrectness.get(scoringKey) === true ||
