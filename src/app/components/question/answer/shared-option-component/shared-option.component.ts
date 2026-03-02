@@ -1550,11 +1550,12 @@ export class SharedOptionComponent
 
 
   public computeDisabledState(option: Option, index: number): boolean {
-    const optionId = option.optionId;
+    const id = option.optionId;
+    const effectiveId = (id != null && id !== -1) ? id : index;
     const qIndex = this.currentQuestionIndex;
 
     const disabledSet = this.disabledOptionsPerQuestion.get(qIndex);
-    if (disabledSet && typeof optionId === 'number' && disabledSet.has(optionId)) {
+    if (disabledSet && (disabledSet.has(Number(effectiveId)) || disabledSet.has(effectiveId as any))) {
       return true;
     }
 
@@ -1569,17 +1570,16 @@ export class SharedOptionComponent
 
     try {
       if (
-        optionId != null &&
-        this.selectedOptionService.isOptionLocked(qIndex, optionId)
+        this.selectedOptionService.isOptionLocked(qIndex, effectiveId as any)
       ) {
         return true;
       }
     } catch { }
 
-    if (optionId != null && this.lockedIncorrectOptionIds.has(optionId))
+    if (this.lockedIncorrectOptionIds.has(Number(effectiveId)) || this.lockedIncorrectOptionIds.has(effectiveId as any))
       return true;
 
-    return optionId != null && this.flashDisabledSet.has(optionId);
+    return this.flashDisabledSet.has(Number(effectiveId)) || this.flashDisabledSet.has(effectiveId as any);
   }
 
   // Wrapper for template compatibility or legacy calls
@@ -2444,12 +2444,11 @@ export class SharedOptionComponent
       optionBinding.option.showIcon = optionBinding.isSelected;
 
       const id = option.optionId;
-      if (id !== undefined) {
-        if (optionBinding.isSelected) {
-          this.selectedOptions.add(id);
-        } else {
-          this.selectedOptions.delete(id);
-        }
+      const effectiveId = (id != null && id !== -1) ? id : index;
+      if (optionBinding.isSelected) {
+        this.selectedOptions.add(Number(effectiveId));
+      } else {
+        this.selectedOptions.delete(Number(effectiveId));
       }
     }
 
@@ -3067,7 +3066,8 @@ export class SharedOptionComponent
   // Hard-reset every row (flags and visual DOM) for a brand-new question
   private fullyResetRows(): void {
     // Zero every binding flag …
-    for (const b of this.optionBindings) {
+    for (let i = 0; i < (this.optionBindings?.length ?? 0); i++) {
+      const b = this.optionBindings[i];
       b.isSelected = false;
       b.option.selected = false;
       b.option.highlight = false;
@@ -3075,9 +3075,8 @@ export class SharedOptionComponent
       b.disabled = false;
 
       const id = b.option.optionId;
-      if (id !== undefined) {
-        b.showFeedbackForOption[id] = false;
-      }
+      const effectiveId = (id != null && id !== -1) ? id : i;
+      b.showFeedbackForOption[effectiveId as any] = false;
     }
 
     this.perQuestionHistory.clear();  // forget old clicks
@@ -3090,17 +3089,18 @@ export class SharedOptionComponent
 
   // Ensure every binding’s option.selected matches the map / history
   private syncSelectedFlags(): void {
-    for (const b of this.optionBindings) {
+    for (let i = 0; i < (this.optionBindings?.length ?? 0); i++) {
+      const b = this.optionBindings[i];
       const id = b.option.optionId;
-
-      // Safely skip bindings with undefined IDs
-      if (id === undefined) {
-        continue;
-      }
+      const effectiveId = (id != null && id !== -1) ? id : i;
 
       const chosen =
-        this.selectedOptionMap.get(id) === true ||
-        this.selectedOptionHistory.includes(id);
+        this.selectedOptionMap.get(effectiveId as any) === true ||
+        this.selectedOptionMap.get(Number(effectiveId)) === true ||
+        this.selectedOptionMap.get(String(effectiveId)) === true ||
+        this.selectedOptionHistory.includes(effectiveId as any) ||
+        this.selectedOptionHistory.includes(Number(effectiveId)) ||
+        this.selectedOptionHistory.includes(String(effectiveId));
 
       b.option.selected = chosen;
       b.isSelected = chosen;
@@ -3383,7 +3383,7 @@ export class SharedOptionComponent
 
     if (!binding?.option) return;
 
-    // ✅ Single source of truth: this MUST be the path that triggers:
+    // Single source of truth: this MUST be the path that triggers:
     // - sounds
     // - SelectedOptionService updates / answered state
     // - emits to parent
