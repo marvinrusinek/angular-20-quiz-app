@@ -17,7 +17,8 @@
   display: flex !important;
   width: 100% !important;
   box-sizing: border-box !important;
-  background-color: #f5f5f5 !important; /* Solid Gray */
+  background-color: #f5f5f5;
+  /* Solid Gray — no !important so inline/class highlights can override */
   border: 2px solid #979797 !important;
   border-radius: 4px !important;
   padding: 12px 15px !important;
@@ -70,7 +71,8 @@
   display: flex !important;
   flex-direction: row !important;
   align-items: center !important;
-  justify-content: space-between !important; /* THE ICON FIX */
+  justify-content: space-between !important;
+  /* THE ICON FIX */
   flex: 1 1 auto !important;
 }
 
@@ -88,7 +90,8 @@
   font-size: 28px !important;
   width: 28px !important;
   height: 28px !important;
-  color: #000000 !important; /* USER REQUESTED: Black */
+  color: #000000 !important;
+  /* USER REQUESTED: Black */
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -100,14 +103,22 @@
   background-color: #43e756 !important;
   border-color: #36a34a !important;
   color: #000000 !important;
-  .option-text, .opt-icon { color: #000000 !important; }
+
+  .option-text,
+  .opt-icon {
+    color: #000000 !important;
+  }
 }
 
 .incorrect-option {
   background-color: #ff0000 !important;
   border-color: #c62828 !important;
   color: #000000 !important;
-  .option-text, .opt-icon { color: #000000 !important; }
+
+  .option-text,
+  .opt-icon {
+    color: #000000 !important;
+  }
 }
 
 
@@ -115,12 +126,17 @@
 .option-cursor-wrapper {
   width: 100%;
   display: block;
-  
+
   &.cursor-not-allowed {
     cursor: not-allowed !important;
-    &, * { cursor: not-allowed !important; }
-    
-    .mat-mdc-radio-button, .mat-mdc-checkbox {
+
+    &,
+    * {
+      cursor: not-allowed !important;
+    }
+
+    .mat-mdc-radio-button,
+    .mat-mdc-checkbox {
       pointer-events: auto !important;
     }
   }
