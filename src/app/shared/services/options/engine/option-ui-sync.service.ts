@@ -291,7 +291,7 @@ export class OptionUiSyncService {
     checked: boolean,
     ctx: OptionUiSyncContext
   ): void {
-    if (optionId == null) return;
+    const effectiveId = (optionId != null && optionId !== -1) ? optionId : index;
 
     if (checked) {
       // Use synchronous setSelectedOption to update service state IMMEDIATELY.
@@ -317,7 +317,7 @@ export class OptionUiSyncService {
       ctx.emitExplanation(currentIndex);
     } else {
       // Unselection: Remove from service
-      this.selectedOptionService.removeOption(currentIndex, optionId as any);
+      this.selectedOptionService.removeOption(currentIndex, effectiveId as any);
     }
 
     // Update Next Button State based on ACTUAL selection count
