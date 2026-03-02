@@ -109,7 +109,7 @@ export class OptionItemComponent implements OnChanges {
       this._wasSelected;
 
     if (showSelectionState) {
-      const isCorrect = 
+      const isCorrect =
         this.b.option?.correct === true ||
         String(this.b.option?.correct) === 'true' ||
         this.b.isCorrect === true;
@@ -121,6 +121,34 @@ export class OptionItemComponent implements OnChanges {
     }
 
     return classes;
+  }
+
+  /**
+   * Directly compute the background color for this option.
+   * Returns green for correct selected, red for incorrect selected, null otherwise.
+   * This is the most reliable highlighting mechanism as it uses Angular's
+   * native style binding, bypassing CSS class specificity and directive timing issues.
+   */
+  getOptionBackgroundColor(): string | null {
+    const showSelectionState =
+      this.b.isSelected ||
+      this.b.checked === true ||
+      this.b.option?.selected === true ||
+      this.b.option?.highlight === true ||
+      this.b.highlightCorrect ||
+      this.b.highlightIncorrect ||
+      this._wasSelected;
+
+    if (!showSelectionState) {
+      return null;  // let the default CSS handle it
+    }
+
+    const isCorrect =
+      this.b.option?.correct === true ||
+      String(this.b.option?.correct) === 'true' ||
+      this.b.isCorrect === true;
+
+    return isCorrect ? '#43f756' : '#ff0000';
   }
 
   getOptionCursor(): string {
