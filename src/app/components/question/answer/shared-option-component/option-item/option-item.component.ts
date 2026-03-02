@@ -112,9 +112,9 @@ export class OptionItemComponent implements OnChanges {
       : this.i;
 
     const isActuallySelectedFromService = selections.some(s =>
-      s.optionId === effectiveId ||
-      (s as any).index === this.i ||
-      s.text === this.b.option.text
+      (s.optionId != null && effectiveId != null && (s.optionId == effectiveId || String(s.optionId) === String(effectiveId))) ||
+      ((s as any).index != null && (s as any).index === this.i) ||
+      (s.text && s.text === this.b.option.text)
     );
 
     const showSelectionState =
@@ -158,9 +158,9 @@ export class OptionItemComponent implements OnChanges {
       : this.i;
 
     const isActuallySelectedFromService = selections.some(s =>
-      s.optionId === effectiveId ||
-      (s as any).index === this.i ||
-      s.text === this.b.option.text
+      (s.optionId != null && effectiveId != null && (s.optionId == effectiveId || String(s.optionId) === String(effectiveId))) ||
+      ((s as any).index != null && (s as any).index === this.i) ||
+      (s.text && s.text === this.b.option.text)
     );
 
     const showSelectionState =
