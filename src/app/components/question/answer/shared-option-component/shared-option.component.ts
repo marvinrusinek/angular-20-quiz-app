@@ -1734,6 +1734,25 @@ export class SharedOptionComponent
     // to avoid shuffle index confusion.
     console.log(`[SharedOptionComponent] emitExplanation checking Q${questionIndex + 1}...`);
 
+    // Guard: For multi-answer questions, only emit FET when ALL correct
+    // answers are selected (isPerfect). Without this, the binding-update
+    // path (setOptionBindingsIfChanged) would show FET on partial selections.
+    const question = this.quizService.questions?.[questionIndex];
+    if (question && Array.isArray(question.options)) {
+      const correctCount = question.options.filter(
+        (o: any) => o.correct === true || String(o.correct) === 'true'
+      ).length;
+      if (correctCount > 1) {
+        // Multi-answer: check if all correct options are selected
+        const selected = this.selectedOptionService.getSelectedOptionsForQuestion(questionIndex) ?? [];
+        const resolved = this.selectedOptionService.isQuestionResolvedCorrectly(question, selected);
+        if (!resolved) {
+          console.log(`[emitExplanation] Multi-answer Q${questionIndex + 1} not fully resolved (${selected.length} selected, ${correctCount} correct needed) — skipping`);
+          return;
+        }
+      }
+    }
+
     const explanationText = this.resolveExplanationText(questionIndex)?.trim()
       || this.quizService.questions[questionIndex]?.explanation
       || '';

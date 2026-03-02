@@ -166,11 +166,11 @@ export class OptionInteractionService {
       }
     }
 
-    let isMultipleAnswer = state.type === 'multiple';
+    let isMultipleAnswer = state.type === 'multiple' || isMultipleForScore;
     if (!isMultipleAnswer && state.optionsToDisplay?.length > 0) {
       const correctCount = state.optionsToDisplay.filter(o => isCorrectHelper(o.correct)).length;
       if (correctCount > 1) {
-        isMultipleAnswer = true;
+         isMultipleAnswer = true;
       }
     }
 
@@ -309,6 +309,13 @@ export class OptionInteractionService {
         this.timerService.allowAuthoritativeStop();
         this.timerService.stopTimer(undefined, { force: true });
         this.quizService.scoreDirectly(qIdx, true, true);
+        
+        // Signal that multi-answer is perfectly resolved for this index.
+        // Store on quizService (shared singleton) so emitFormatted can check it.
+        if (!(this.quizService as any)._multiAnswerPerfect) {
+          (this.quizService as any)._multiAnswerPerfect = new Map<number, boolean>();
+        }
+        (this.quizService as any)._multiAnswerPerfect.set(qIdx, true);
         
         console.log(`[OIS] PERFECT score detected for Q${qIdx + 1}`);
 

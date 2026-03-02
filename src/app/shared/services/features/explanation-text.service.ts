@@ -13,6 +13,7 @@ import { QuizQuestion } from '../../models/QuizQuestion.model';
 import { QuizService } from '../data/quiz.service';
 import { QuizStateService } from '../state/quizstate.service';
 import { QuizShuffleService } from '../flow/quiz-shuffle.service';
+import { SelectedOptionService } from '../state/selectedoption.service';
 
 
 export type FETPayload = { idx: number; text: string; token: number };
@@ -1506,6 +1507,56 @@ export class ExplanationTextService {
     this._fetLocked = true;
 
     const token = this._currentGateToken;
+
+    // ── MULTI-ANSWER GUARD ──────────────────────────────────────────────
+    // For multi-answer questions, block FET emission until ALL correct
+    // answers are selected. OIS sets quizService._multiAnswerPerfect when
+    // isPerfect=true (the authoritative check). This guard blocks all the
+    // many callers of emitFormatted until OIS confirms perfect resolution.
+    if (value && index >= 0) {
+      try {
+        const quizSvc = this.injector.get(QuizService, null);
+        if (quizSvc) {
+          const isShuffled = quizSvc.isShuffleEnabled?.() ?? false;
+          const questions = isShuffled && Array.isArray((quizSvc as any).shuffledQuestions) && (quizSvc as any).shuffledQuestions.length > 0 
+            ? (quizSvc as any).shuffledQuestions 
+            : quizSvc.questions;
+            
+          const question = questions?.[index];
+          let correctCount = 0;
+          
+          if (question && Array.isArray(question.options)) {
+            correctCount = question.options.filter(
+               (o: any) => o.correct === true || String(o.correct) === 'true'
+            ).length;
+          } else {
+             // If we can't find the question data from QuizService directly, try to
+             // parse the value string itself to guess if it's a multi-answer FET
+             if (value.toLowerCase().includes(' and ') || value.includes(',')) {
+                correctCount = 2; // assume multi-answer if text explicitly says "Options 1 and 2..."
+             }
+             console.warn(`[emitFormatted] Guard skipped metadata lookup: Could not resolve Q${index + 1}. isShuffled=${isShuffled}, questionsLen=${questions?.length}`);
+          }
+          
+          console.log(`[emitFormatted] Guard Check for Q${index + 1}: correctCount=${correctCount}`);
+            
+          if (correctCount > 1) {
+            // Multi-answer: check OIS's authoritative flag
+            const perfectMap = (quizSvc as any)._multiAnswerPerfect as Map<number, boolean> | undefined;
+            const isPerfect = perfectMap?.get(index) === true;
+            if (!isPerfect) {
+              console.log(`[emitFormatted] ⛔ Multi-answer Q${index + 1} not perfect yet (OIS flag false) — blocking FET`);
+              this._fetLocked = false;
+              return;
+            }
+            console.log(`[emitFormatted] ✅ Multi-answer Q${index + 1} is perfect — allowing FET`);
+          }
+        }
+      } catch (e) {
+        // If guard check fails, allow emission (fail-open)
+        console.warn('[emitFormatted] Multi-answer guard error:', e);
+      }
+    }
 
     // Guards: Allow emission if we have valid content
     // The lock check is removed because we now emit BEFORE locking in applyExplanationText
