@@ -109,42 +109,53 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
 
       const host = this.el.nativeElement as HTMLElement;
 
-      // Reset styles
+      // Check the LIVE binding/option state first — these are mutated synchronously
+      // during click handlers, BEFORE this setTimeout fires with potentially stale config.
+      const bindingSelected = this.optionBinding?.isSelected === true;
+      const optionSelected = opt.selected === true || opt.highlight === true;
+      const inputSelected = this.isSelected === true;
+      const isLiveSelected = bindingSelected || optionSelected || inputSelected;
+
+      // If the option is currently selected (from live state), apply correct/incorrect color
+      if (isLiveSelected) {
+        const isCorrect = opt.correct === true || String(opt.correct) === 'true' ||
+          this.optionBinding?.isCorrect === true ||
+          this.sharedOptionConfig?.isAnswerCorrect === true;
+        this.setBackgroundColor(host, isCorrect ? '#43f756' : '#ff0000');
+        opt.showIcon = true;
+        return;
+      }
+
+      // Not selected — check config for reset
+      if (this.sharedOptionConfig?.option) {
+        const cfg = this.sharedOptionConfig;
+        const cfgSelected = cfg.isOptionSelected || cfg.option.selected === true || cfg.highlight === true;
+
+        if (cfgSelected) {
+          const isCorrect = cfg.isAnswerCorrect ||
+            cfg.option?.correct === true || String(cfg.option?.correct) === 'true' ||
+            opt?.correct === true || String(opt?.correct) === 'true';
+          this.setBackgroundColor(host, isCorrect ? '#43f756' : '#ff0000');
+          opt.showIcon = true;
+        } else if (cfg.shouldResetBackground) {
+          // Only reset to transparent if the option is truly not selected
+          this.renderer.removeStyle(host, 'background-color');
+          opt.showIcon = false;
+        } else {
+          opt.showIcon = false;
+        }
+        return;
+      }
+
+      // Legacy Path: only used if sharedOptionConfig is not available
       this.renderer.removeStyle(host, 'background-color');
       this.renderer.removeClass(host, 'deactivated-option');
       this.renderer.setStyle(host, 'cursor', 'pointer');
       this.setPointerEvents(host, 'auto');
 
-      // If sharedOptionConfig is available, use it as the source of truth
-      // This prevents re-applying stale highlighting from optionBinding after
-      // updateHighlightFromConfig has already cleared it
-      if (this.sharedOptionConfig?.option) {
-        const cfg = this.sharedOptionConfig;
-        const isSelectedNow = cfg.isOptionSelected || cfg.option.selected === true ||
-          this.isSelected || this.optionBinding?.isSelected === true || opt.highlight === true;
-
-        // Check correctness from multiple sources for robustness
-        const isCorrectAnswer = cfg.isAnswerCorrect ||
-          cfg.option?.correct === true || String(cfg.option?.correct) === 'true' ||
-          opt?.correct === true || String(opt?.correct) === 'true';
-
-        if (isSelectedNow) {
-          this.setBackgroundColor(host, isCorrectAnswer ? '#43f756' : '#ff0000');
-          opt.showIcon = true;
-        } else if (cfg.shouldResetBackground) {
-          this.setBackgroundColor(host, 'transparent');
-          opt.showIcon = false;
-        } else {
-          opt.showIcon = false;
-        }
-        return;  // exit early - use config as source of truth
-      }
-
-      // Legacy Path: only used if sharedOptionConfig is not available
-      // Selected
       if (opt.highlight) {
         this.setBackgroundColor(host, opt.correct ? '#43f756' : '#ff0000');
-        opt.showIcon = true;  // keep ✓/✗
+        opt.showIcon = true;
         return;
       }
 
@@ -156,7 +167,7 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
         this.setPointerEvents(host, 'none');
       }
 
-      opt.showIcon = false;  // fallback: no highlight and not disabled — no icon
+      opt.showIcon = false;
     }, 0);
   }
 
@@ -177,7 +188,7 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
     // Check shouldResetBackground FIRST, before selection state
     // This ensures new questions always start clean, regardless of stale state
     if (cfg.shouldResetBackground) {
-      this.setBackgroundColor(host, 'transparent');
+      this.renderer.removeStyle(host, 'background-color');
       opt.showIcon = false;
       return;  // exit early - don't apply any stale highlighting
     }
