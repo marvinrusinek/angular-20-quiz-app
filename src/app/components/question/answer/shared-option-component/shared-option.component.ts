@@ -3230,12 +3230,15 @@ export class SharedOptionComponent
   }
 
   public getActiveQuestionIndex(): number {
-    // 1. Highest Priority: Local Inputs (most specific)
-    if (typeof this.currentQuestionIndex === 'number' && Number.isFinite(this.currentQuestionIndex)) {
-      return this.currentQuestionIndex;
-    }
+    // 1. Highest Priority: Per-question input index.
+    // In review/results views multiple SharedOptionComponent instances can exist
+    // at once, and currentQuestionIndex may point to the currently focused question.
+    // Prefer questionIndex first so each instance resolves its own question state.
     if (typeof this.questionIndex === 'number' && Number.isFinite(this.questionIndex)) {
       return this.questionIndex;
+    }
+    if (typeof this.currentQuestionIndex === 'number' && Number.isFinite(this.currentQuestionIndex)) {
+      return this.currentQuestionIndex;
     }
 
     // 2. Secondary: Resolved Index from Content Match
