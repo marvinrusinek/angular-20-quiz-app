@@ -3097,10 +3097,10 @@ export class SharedOptionComponent
       const chosen =
         this.selectedOptionMap.get(effectiveId as any) === true ||
         this.selectedOptionMap.get(Number(effectiveId)) === true ||
-        this.selectedOptionMap.get(String(effectiveId) as any) === true ||
+        this.selectedOptionMap.get(String(effectiveId)) === true ||
         this.selectedOptionHistory.includes(effectiveId as any) ||
         this.selectedOptionHistory.includes(Number(effectiveId)) ||
-        this.selectedOptionHistory.includes(String(effectiveId) as any);
+        this.selectedOptionHistory.includes(String(effectiveId));
 
       b.option.selected = chosen;
       b.isSelected = chosen;

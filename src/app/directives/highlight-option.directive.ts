@@ -108,60 +108,56 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
 
         const host = this.el.nativeElement as HTMLElement;
 
-        // Check the LIVE binding/option state first — these are mutated synchronously
-        // during click handlers, BEFORE this setTimeout fires with potentially stale config.
-        const bindingSelected = this.optionBinding?.isSelected === true;
-        const optionSelected = opt.selected === true || opt.highlight === true;
-        const inputSelected = this.isSelected === true;
-        const isLiveSelected = bindingSelected || optionSelected || inputSelected;
+      // Check the LIVE binding/option state first — these are mutated synchronously
+      // during click handlers, BEFORE this setTimeout fires with potentially stale config.
+      const bindingSelected = this.optionBinding?.isSelected === true;
+      const optionSelected = opt.selected === true || opt.highlight === true;
+      const inputSelected = this.isSelected === true;
+      const isLiveSelected = bindingSelected || optionSelected || inputSelected;
 
-        // If the option is currently selected (from live state), apply correct/incorrect color
-        if (isLiveSelected) {
-          opt.showIcon = true;
-          return;
-        }
-
-        // Not selected — check config for reset
-        if (this.sharedOptionConfig?.option) {
-          const cfg = this.sharedOptionConfig;
-          const cfgSelected = cfg.isOptionSelected || cfg.option.selected === true || cfg.highlight === true;
-
-          if (cfgSelected) {
-            const isCorrect = cfg.isAnswerCorrect ||
-              cfg.option?.correct === true || String(cfg.option?.correct) === 'true' ||
-              opt?.correct === true || String(opt?.correct) === 'true';
-            opt.showIcon = true;
-          } else if (cfg.shouldResetBackground) {
-            // Only reset to transparent if the option is truly not selected
-            opt.showIcon = false;
-          } else {
-            opt.showIcon = false;
-          }
-          return;
-        }
-
-        // Legacy Path: only used if sharedOptionConfig is not available
-        this.renderer.removeClass(host, 'deactivated-option');
-        this.renderer.setStyle(host, 'cursor', 'pointer');
-        this.setPointerEvents(host, 'auto');
-
-        if (opt.highlight) {
-          opt.showIcon = true;
-          return;
-        }
-
-        // Disabled
-        if (!opt.correct && opt.active === false) {
-          this.renderer.addClass(host, 'deactivated-option');
-          this.renderer.setStyle(host, 'cursor', 'not-allowed');
-          this.setPointerEvents(host, 'none');
-        }
-
-        opt.showIcon = false;
-      } finally {
-        this.cdRef.markForCheck();
-        this.cdRef.detectChanges();
+      // If the option is currently selected (from live state), apply correct/incorrect color
+      if (isLiveSelected) {
+        opt.showIcon = true;
+        return;
       }
+
+      // Not selected — check config for reset
+      if (this.sharedOptionConfig?.option) {
+        const cfg = this.sharedOptionConfig;
+        const cfgSelected = cfg.isOptionSelected || cfg.option.selected === true || cfg.highlight === true;
+
+        if (cfgSelected) {
+          const isCorrect = cfg.isAnswerCorrect ||
+            cfg.option?.correct === true || String(cfg.option?.correct) === 'true' ||
+            opt?.correct === true || String(opt?.correct) === 'true';
+          opt.showIcon = true;
+        } else if (cfg.shouldResetBackground) {
+          // Only reset to transparent if the option is truly not selected
+          opt.showIcon = false;
+        } else {
+          opt.showIcon = false;
+        }
+        return;
+      }
+
+      // Legacy Path: only used if sharedOptionConfig is not available
+      this.renderer.removeClass(host, 'deactivated-option');
+      this.renderer.setStyle(host, 'cursor', 'pointer');
+      this.setPointerEvents(host, 'auto');
+
+      if (opt.highlight) {
+        opt.showIcon = true;
+        return;
+      }
+
+      // Disabled
+      if (!opt.correct && opt.active === false) {
+        this.renderer.addClass(host, 'deactivated-option');
+        this.renderer.setStyle(host, 'cursor', 'not-allowed');
+        this.setPointerEvents(host, 'none');
+      }
+
+      opt.showIcon = false;
     }, 0);
   }
 
