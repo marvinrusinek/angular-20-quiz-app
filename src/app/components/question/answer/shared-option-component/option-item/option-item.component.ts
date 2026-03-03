@@ -142,7 +142,12 @@ export class OptionItemComponent implements OnChanges {
       isActuallySelectedFromService ||
       this._wasSelected;
     
-    if (showSelectionState) {
+    const hasAnsweredCurrentQuestion = selections.length > 0;
+    const shouldRevealCorrectAnswer =
+      hasAnsweredCurrentQuestion &&
+      (this.b.option?.correct === true || String(this.b.option?.correct) === 'true' || this.b.isCorrect === true);
+    
+    if (showSelectionState || shouldRevealCorrectAnswer) {
       const isCorrect =
         this.b.option?.correct === true ||
         String(this.b.option?.correct) === 'true' ||
@@ -200,14 +205,19 @@ export class OptionItemComponent implements OnChanges {
       this._wasSelected ||
       !!this.b.showFeedbackForOption?.[this.optionId] ||
       isActuallySelectedFromService;
+    
+    const hasAnsweredCurrentQuestion = selections.length > 0;
+    const shouldRevealCorrectAnswer =
+      hasAnsweredCurrentQuestion &&
+      (this.b.option?.correct === true || String(this.b.option?.correct) === 'true' || this.b.isCorrect === true);
 
     // DEBUG HIGHLIGHT TRACE:
     /* if (this.b.isSelected) {
       console.warn(`[OptionItem] getOptionBackgroundColor isActivelySelected: ID ${this.optionId} correct? ${this.b.option.correct} isActivelySelected eval: ${isActivelySelected}`); */
-    if (!isActivelySelected) {
+    if (!isActivelySelected && !shouldRevealCorrectAnswer) {
       return null;
     }
-    
+
     const isCorrect =
       this.b.option?.correct === true ||
       String(this.b.option?.correct) === 'true' ||
