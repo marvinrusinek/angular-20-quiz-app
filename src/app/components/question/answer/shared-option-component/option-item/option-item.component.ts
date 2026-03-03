@@ -143,11 +143,9 @@ export class OptionItemComponent implements OnChanges {
       this._wasSelected;
     
     const hasAnsweredCurrentQuestion = selections.length > 0;
-    const shouldRevealCorrectAnswer =
-      hasAnsweredCurrentQuestion &&
-      (this.b.option?.correct === true || String(this.b.option?.correct) === 'true' || this.b.isCorrect === true);
-    
-    if (showSelectionState || shouldRevealCorrectAnswer) {
+    const shouldHighlightThisOption = hasAnsweredCurrentQuestion || showSelectionState;
+
+    if (shouldHighlightThisOption) {
       const isCorrect =
         this.b.option?.correct === true ||
         String(this.b.option?.correct) === 'true' ||
@@ -206,15 +204,13 @@ export class OptionItemComponent implements OnChanges {
       !!this.b.showFeedbackForOption?.[this.optionId] ||
       isActuallySelectedFromService;
     
-    const hasAnsweredCurrentQuestion = selections.length > 0;
-    const shouldRevealCorrectAnswer =
-      hasAnsweredCurrentQuestion &&
-      (this.b.option?.correct === true || String(this.b.option?.correct) === 'true' || this.b.isCorrect === true);
+    const hasAnsweredCurrentQuestion = this.hasAnsweredCurrentQuestion(selections);
+    const shouldHighlightThisOption = hasAnsweredCurrentQuestion || isActivelySelected;
 
     // DEBUG HIGHLIGHT TRACE:
     /* if (this.b.isSelected) {
       console.warn(`[OptionItem] getOptionBackgroundColor isActivelySelected: ID ${this.optionId} correct? ${this.b.option.correct} isActivelySelected eval: ${isActivelySelected}`); */
-    if (!isActivelySelected && !shouldRevealCorrectAnswer) {
+    if (!shouldHighlightThisOption) {
       return null;
     }
 
@@ -224,6 +220,23 @@ export class OptionItemComponent implements OnChanges {
       this.b.isCorrect === true;
 
     return isCorrect ? '#43e756' : '#ff0000'; // Green if correct, Red if incorrect
+  }
+
+  private hasAnsweredCurrentQuestion(selections: any[]): boolean {
+    const fromSelectionService = (selections?.length ?? 0) > 0;
+    const fromFeedbackMap = Object.values(this.b?.showFeedbackForOption ?? {}).some(Boolean);
+    const fromBindingFlags =
+      this.b?.showFeedback === true ||
+      this.b?.isSelected === true ||
+      this.b?.checked === true ||
+      this.b?.highlightCorrect === true ||
+      this.b?.highlightIncorrect === true ||
+      this.b?.option?.selected === true ||
+      this.b?.option?.highlight === true ||
+      this._wasSelected;
+    const fromAllOptions = (this.b?.allOptions ?? []).some(o => o?.selected === true || o?.highlight === true);
+
+    return fromSelectionService || fromFeedbackMap || fromBindingFlags || fromAllOptions;
   }
 
   shouldShowFeedback(): boolean {
