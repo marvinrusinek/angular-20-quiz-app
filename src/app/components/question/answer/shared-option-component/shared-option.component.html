@@ -9,7 +9,8 @@
   <mat-radio-group class="options-group options" formControlName="selectedOptionId">
     @for (b of opts; let i = $index; track trackByOptionId(b, i)) {
     <app-option-item [b]="b" [i]="i" [type]="'single'" [form]="form" [shouldResetBackground]="shouldResetBackground"
-      [feedbackConfig]="feedbackConfigs[keyOf(b.option, i)]" [sharedOptionConfig]="getSharedOptionConfig(b, i)"
+      [currentQuestionIndex]="getActiveQuestionIndex()"
+    [feedbackConfig]="feedbackConfigs[keyOf(b.option, i)]" [sharedOptionConfig]="getSharedOptionConfig(b, i)"
       (optionUI)="onOptionUI($event)" />
 
     <!-- FEEDBACK: displayed below the last selected option -->
@@ -29,7 +30,8 @@
   <div class="options-group options" role="group" aria-label="Select one or more options">
     @for (b of opts; let i = $index; track trackByOptionId(b, i)) {
     <app-option-item [b]="b" [i]="i" [type]="'multiple'" [form]="form" [shouldResetBackground]="shouldResetBackground"
-      [feedbackConfig]="feedbackConfigs[keyOf(b.option, i)]" [sharedOptionConfig]="getSharedOptionConfig(b, i)"
+      [currentQuestionIndex]="getActiveQuestionIndex()"
+    [feedbackConfig]="feedbackConfigs[keyOf(b.option, i)]" [sharedOptionConfig]="getSharedOptionConfig(b, i)"
       (optionUI)="onOptionUI($event)" />
 
     <!-- FEEDBACK: displayed below the last selected option -->
