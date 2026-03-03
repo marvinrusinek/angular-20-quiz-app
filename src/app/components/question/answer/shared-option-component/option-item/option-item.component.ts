@@ -52,8 +52,10 @@ export class OptionItemComponent implements OnChanges {
   @Input() shouldResetBackground = false;
   @Input() feedbackConfig?: FeedbackProps;
   @Input() sharedOptionConfig!: SharedOptionConfig;
+  @Input() currentQuestionIndex = 0;
 
   private _wasSelected = false;
+  private _lastQuestionIndex = -1;
 
   // inputs removed in favor of OptionBindings snapshot
 
@@ -76,8 +78,20 @@ export class OptionItemComponent implements OnChanges {
       this._wasSelected = !!this.b?.isSelected;
     }
 
+    if (changes['currentQuestionIndex']) {
+      const nextQuestionIndex = Number(this.currentQuestionIndex ?? -1);
+      if (Number.isFinite(nextQuestionIndex) && nextQuestionIndex !== this._lastQuestionIndex) {
+        this._wasSelected = !!this.b?.isSelected;
+        this._lastQuestionIndex = nextQuestionIndex;
+      }
+    }
+
     if (changes['shouldResetBackground'] && this.shouldResetBackground) {
       this._wasSelected = false;
+    }
+
+    if (this.isSelectedForCurrentQuestion()) {
+      this._wasSelected = true;
     }
   }
 
@@ -104,8 +118,7 @@ export class OptionItemComponent implements OnChanges {
 
   getOptionClasses(): { [key: string]: boolean } {
     const classes = { ...this.b.cssClasses };
-
-    const qIndex = this.quizService.currentQuestionIndex;
+    const qIndex = this.currentQuestionIndex ?? this.quizService.currentQuestionIndex;
     const selections = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
 
     // Authoritative check matches OptionUiSyncService logic: id or index
@@ -128,7 +141,7 @@ export class OptionItemComponent implements OnChanges {
       this.b.highlightIncorrect ||
       isActuallySelectedFromService ||
       this._wasSelected;
-
+    
     if (showSelectionState) {
       const isCorrect =
         this.b.option?.correct === true ||
@@ -141,56 +154,7 @@ export class OptionItemComponent implements OnChanges {
       }
     }
 
-    if (this.b.isSelected) {
-       console.warn(`[OptionItem] getOptionClasses - ID: ${this.optionId}, isSelected: ${this.b.isSelected}, showSelection: ${showSelectionState}, classes:`, classes);
-    }
-
     return classes;
-  }
-
-  /**
-   * Directly compute the background color for this option.
-   * Returns green for correct selected, red for incorrect selected, null otherwise.
-   * This is the most reliable highlighting mechanism as it uses Angular's
-   * native style binding, bypassing CSS class specificity and directive timing issues.
-   */
-  getOptionBackgroundColor(): string | null {
-    const qIndex = this.quizService.currentQuestionIndex;
-    const selections = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
-
-    // Authoritative check matches OptionUiSyncService logic: id or index
-    const effectiveId = (this.b.option.optionId != null && this.b.option.optionId !== -1)
-      ? this.b.option.optionId
-      : this.i;
-
-    const isActuallySelectedFromService = selections.some(s =>
-      (s.optionId != null && effectiveId != null && (s.optionId == effectiveId || String(s.optionId) === String(effectiveId))) ||
-      ((s as any).index != null && (s as any).index === this.i) ||
-      (s.text && s.text === this.b.option.text)
-    );
-
-    const showSelectionState =
-      this.b.isSelected ||
-      this.b.checked === true ||
-      this.b.option?.selected === true ||
-      this.b.option?.highlight === true ||
-      this.b.highlightCorrect ||
-      this.b.highlightIncorrect ||
-      isActuallySelectedFromService ||
-      this._wasSelected;
-
-    if (!showSelectionState) {
-      return null;  // let the default CSS handle it
-    }
-
-    const isCorrect =
-      this.b.option?.correct === true ||
-      String(this.b.option?.correct) === 'true' ||
-      this.b.isCorrect === true;
-
-    // Use same colors as SCSS for consistency
-    const color = isCorrect ? '#43e756' : '#ff0000';
-    return color;
   }
 
   getOptionCursor(): string {
@@ -213,7 +177,20 @@ export class OptionItemComponent implements OnChanges {
   }
 
   getOptionBackgroundColor(): string | null {
-    const isActivelySelected = 
+    const qIndex = this.currentQuestionIndex ?? this.quizService.currentQuestionIndex;
+    const selections = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
+
+    const effectiveId = (this.b.option.optionId != null && this.b.option.optionId !== -1)
+      ? this.b.option.optionId
+      : this.i;
+
+    const isActuallySelectedFromService = selections.some(s =>
+      (s.optionId != null && effectiveId != null && (s.optionId == effectiveId || String(s.optionId) === String(effectiveId))) ||
+      ((s as any).index != null && (s as any).index === this.i) ||
+      (s.text && s.text === this.b.option.text)
+    );
+
+    const isActivelySelected =
       this.b.isSelected ||
       this.b.checked === true ||
       this.b.option?.selected === true ||
@@ -221,23 +198,22 @@ export class OptionItemComponent implements OnChanges {
       this.b.highlightCorrect ||
       this.b.highlightIncorrect ||
       this._wasSelected ||
-      !!this.b.showFeedbackForOption?.[this.optionId];
+      !!this.b.showFeedbackForOption?.[this.optionId] ||
+      isActuallySelectedFromService;
 
     // DEBUG HIGHLIGHT TRACE:
-    if (this.b.isSelected) {
-      console.warn(`[OptionItem] getOptionBackgroundColor isActivelySelected: ID ${this.optionId} correct? ${this.b.option.correct} isActivelySelected eval: ${isActivelySelected}`);
+    /* if (this.b.isSelected) {
+      console.warn(`[OptionItem] getOptionBackgroundColor isActivelySelected: ID ${this.optionId} correct? ${this.b.option.correct} isActivelySelected eval: ${isActivelySelected}`); */
+    if (!isActivelySelected) {
+      return null;
     }
+    
+    const isCorrect =
+      this.b.option?.correct === true ||
+      String(this.b.option?.correct) === 'true' ||
+      this.b.isCorrect === true;
 
-    if (isActivelySelected) {
-      const isCorrect = 
-        this.b.option?.correct === true ||
-        String(this.b.option?.correct) === 'true' ||
-        this.b.isCorrect === true;
-      
-      return isCorrect ? '#43e756' : '#ff0000'; // Green if correct, Red if incorrect
-    }
-
-    return null; // Let standard CSS handle default states
+    return isCorrect ? '#43e756' : '#ff0000'; // Green if correct, Red if incorrect
   }
 
   shouldShowFeedback(): boolean {
@@ -249,7 +225,7 @@ export class OptionItemComponent implements OnChanges {
   }
 
   onChanged(event: any): void {
-    console.warn(`[OptionItem] onChanged fired! optionId: ${this.optionId}, isSelected: ${this.b.isSelected}`);
+    // console.warn(`[OptionItem] onChanged fired! optionId: ${this.optionId}, isSelected: ${this.b.isSelected}`);
     this.optionUI.emit({
       optionId: this.optionId,
       displayIndex: this.i,
@@ -278,5 +254,33 @@ export class OptionItemComponent implements OnChanges {
       inputType: this.inputType,
       nativeEvent: event
     });
+  }
+
+  private shouldHighlightOption(): boolean {
+    return (
+      this.b.isSelected ||
+      this.b.checked === true ||
+      this.b.option?.selected === true ||
+      this.b.option?.highlight === true ||
+      this.b.highlightCorrect ||
+      this.b.highlightIncorrect ||
+      this.isSelectedForCurrentQuestion() ||
+      this._wasSelected ||
+      !!this.b.showFeedbackForOption?.[this.optionId]
+    );
+  }
+
+  private isSelectedForCurrentQuestion(): boolean {
+    const qIndex = this.quizService.currentQuestionIndex;
+    const selections = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
+    const effectiveId = (this.b.option.optionId != null && this.b.option.optionId !== -1)
+      ? this.b.option.optionId
+      : this.i;
+
+    return selections.some(s =>
+      (s.optionId != null && effectiveId != null && (s.optionId == effectiveId || String(s.optionId) === String(effectiveId))) ||
+      ((s as any).index != null && (s as any).index === this.i) ||
+      (s.text && s.text === this.b.option.text)
+    );
   }
 }

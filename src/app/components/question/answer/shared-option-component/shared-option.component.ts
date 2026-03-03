@@ -3094,13 +3094,11 @@ export class SharedOptionComponent
       const id = b.option.optionId;
       const effectiveId = (id != null && id !== -1) ? id : i;
 
-      const chosen =
-        this.selectedOptionMap.get(effectiveId as any) === true ||
-        this.selectedOptionMap.get(Number(effectiveId)) === true ||
-        this.selectedOptionMap.get(String(effectiveId)) === true ||
-        this.selectedOptionHistory.includes(effectiveId as any) ||
-        this.selectedOptionHistory.includes(Number(effectiveId)) ||
-        this.selectedOptionHistory.includes(String(effectiveId));
+      const numericId = Number(effectiveId);
+      const chosen = Number.isFinite(numericId)
+        ? this.selectedOptionMap.get(numericId) === true ||
+          this.selectedOptionHistory.includes(numericId)
+        : false;
 
       b.option.selected = chosen;
       b.isSelected = chosen;
