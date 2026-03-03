@@ -71,17 +71,16 @@ export class OptionItemComponent implements OnChanges {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['b']) {
-      // Keep this flag in sync with the current binding.
-      // Using a sticky value here leaks a previous question's state into
-      // reused option-item instances (trackBy reuses components by optionId),
-      // which can incorrectly style later questions.
-      this._wasSelected = !!this.b?.isSelected;
+      // Keep previous selection sticky for the same question so earlier picks
+      // remain highlighted even if transient binding snapshots flip false.
+      const selectedNow = this.isSelectedForCurrentQuestion() || !!this.b?.isSelected;
+      this._wasSelected = this._wasSelected || selectedNow;
     }
 
     if (changes['currentQuestionIndex']) {
       const nextQuestionIndex = Number(this.currentQuestionIndex ?? -1);
       if (Number.isFinite(nextQuestionIndex) && nextQuestionIndex !== this._lastQuestionIndex) {
-        this._wasSelected = !!this.b?.isSelected;
+        this._wasSelected = this.isSelectedForCurrentQuestion() || !!this.b?.isSelected;
         this._lastQuestionIndex = nextQuestionIndex;
       }
     }
@@ -356,7 +355,7 @@ export class OptionItemComponent implements OnChanges {
   }
 
   private isSelectedForCurrentQuestion(): boolean {
-    const qIndex = this.quizService.currentQuestionIndex;
+    /* const qIndex = this.quizService.currentQuestionIndex;
     const selections = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
     const effectiveId = (this.b.option.optionId != null && this.b.option.optionId !== -1)
       ? this.b.option.optionId
@@ -366,6 +365,8 @@ export class OptionItemComponent implements OnChanges {
       (s.optionId != null && effectiveId != null && (s.optionId == effectiveId || String(s.optionId) === String(effectiveId))) ||
       ((s as any).index != null && (s as any).index === this.i) ||
       (s.text && s.text === this.b.option.text)
-    );
+    ); */
+    const selections = this.getSelectionsForCurrentBinding();
+    return selections.some((s: any) => this.matchesBindingSelection(s));
   }
 }
