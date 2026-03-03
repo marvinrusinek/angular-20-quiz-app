@@ -17,7 +17,7 @@ export class OptionSelectionPolicyService {
       const isTarget = binding === selectedBinding;
 
       if (!isTarget && binding.isSelected) {
-        binding.isSelected = false;
+
         if (binding.option) binding.option.selected = false;
 
         // Preserve feedback state for previously selected option

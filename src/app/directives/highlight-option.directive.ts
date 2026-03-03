@@ -1,4 +1,4 @@
-import { 
+import {
   ChangeDetectorRef, Directive, ElementRef, EventEmitter, HostBinding,
   HostListener, Input, OnChanges, OnInit, Output, Renderer2, SimpleChanges
 } from '@angular/core';
@@ -37,7 +37,7 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
     private el: ElementRef,
     private renderer: Renderer2,
     private cdRef: ChangeDetectorRef
-  ) {}
+  ) { }
 
   ngOnInit(): void {
     if (this.optionBinding) {
@@ -77,8 +77,6 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
     }
   }
 
-  @HostBinding('style.background-color')
-  backgroundColor: string = '';
 
   @HostListener('click')
   onClick(): void {
@@ -104,53 +102,66 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
     if (!this.optionBinding?.option) return;
 
     setTimeout(() => {
-      const opt = this.optionBinding?.option;
-      if (!opt) return;  // null guard for strict mode
+      try {
+        const opt = this.optionBinding?.option;
+        if (!opt) return;  // null guard for strict mode
 
-      const host = this.el.nativeElement as HTMLElement;
+        const host = this.el.nativeElement as HTMLElement;
 
-      // Reset styles
-      this.renderer.removeStyle(host, 'background-color');
-      this.renderer.removeClass(host, 'deactivated-option');
-      this.renderer.setStyle(host, 'cursor', 'pointer');
-      this.setPointerEvents(host, 'auto');
+        // Check the LIVE binding/option state first — these are mutated synchronously
+        // during click handlers, BEFORE this setTimeout fires with potentially stale config.
+        const bindingSelected = this.optionBinding?.isSelected === true;
+        const optionSelected = opt.selected === true || opt.highlight === true;
+        const inputSelected = this.isSelected === true;
+        const isLiveSelected = bindingSelected || optionSelected || inputSelected;
 
-      // If sharedOptionConfig is available, use it as the source of truth
-      // This prevents re-applying stale highlighting from optionBinding after
-      // updateHighlightFromConfig has already cleared it
-      if (this.sharedOptionConfig?.option) {
-        const cfg = this.sharedOptionConfig;
-        const isSelectedNow = cfg.isOptionSelected || cfg.option.selected === true;
-        
-        if (isSelectedNow) {
-          this.setBackgroundColor(host, cfg.isAnswerCorrect ? '#43f756' : '#ff0000');
+        // If the option is currently selected (from live state), apply correct/incorrect color
+        if (isLiveSelected) {
           opt.showIcon = true;
-        } else if (cfg.shouldResetBackground) {
-          this.setBackgroundColor(host, 'transparent');
-          opt.showIcon = false;
-        } else {
-          opt.showIcon = false;
+          return;
         }
-        return;  // exit early - use config as source of truth
-      }
 
-      // Legacy Path: only used if sharedOptionConfig is not available
-      // Selected
-      if (opt.highlight) {
-        this.setBackgroundColor(host, opt.correct ? '#43f756' : '#ff0000');
-        opt.showIcon = true;  // keep ✓/✗
-        return;
-      }
+        // Not selected — check config for reset
+        if (this.sharedOptionConfig?.option) {
+          const cfg = this.sharedOptionConfig;
+          const cfgSelected = cfg.isOptionSelected || cfg.option.selected === true || cfg.highlight === true;
 
-      // Disabled
-      if (!opt.correct && opt.active === false) {
-        this.setBackgroundColor(host, '#a3a3a3');
-        this.renderer.addClass(host, 'deactivated-option');
-        this.renderer.setStyle(host, 'cursor', 'not-allowed');
-        this.setPointerEvents(host, 'none');
-      }
+          if (cfgSelected) {
+            const isCorrect = cfg.isAnswerCorrect ||
+              cfg.option?.correct === true || String(cfg.option?.correct) === 'true' ||
+              opt?.correct === true || String(opt?.correct) === 'true';
+            opt.showIcon = true;
+          } else if (cfg.shouldResetBackground) {
+            // Only reset to transparent if the option is truly not selected
+            opt.showIcon = false;
+          } else {
+            opt.showIcon = false;
+          }
+          return;
+        }
 
-      opt.showIcon = false;  // fallback: no highlight and not disabled — no icon
+        // Legacy Path: only used if sharedOptionConfig is not available
+        this.renderer.removeClass(host, 'deactivated-option');
+        this.renderer.setStyle(host, 'cursor', 'pointer');
+        this.setPointerEvents(host, 'auto');
+
+        if (opt.highlight) {
+          opt.showIcon = true;
+          return;
+        }
+
+        // Disabled
+        if (!opt.correct && opt.active === false) {
+          this.renderer.addClass(host, 'deactivated-option');
+          this.renderer.setStyle(host, 'cursor', 'not-allowed');
+          this.setPointerEvents(host, 'none');
+        }
+
+        opt.showIcon = false;
+      } finally {
+        this.cdRef.markForCheck();
+        this.cdRef.detectChanges();
+      }
     }, 0);
   }
 
@@ -162,7 +173,6 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
     const opt = cfg.option;
 
     // Always reset first
-    this.renderer.removeStyle(host, 'background-color');
     this.renderer.removeClass(host, 'deactivated-option');
     this.renderer.setStyle(host, 'cursor', 'pointer');
     this.setPointerEvents(host, 'auto');
@@ -171,7 +181,6 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
     // Check shouldResetBackground FIRST, before selection state
     // This ensures new questions always start clean, regardless of stale state
     if (cfg.shouldResetBackground) {
-      this.setBackgroundColor(host, 'transparent');
       opt.showIcon = false;
       return;  // exit early - don't apply any stale highlighting
     }
@@ -179,17 +188,19 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
     // Only apply highlighting if not resetting and actually selected
     const isSelectedNow =
       cfg.highlight === true || cfg.isOptionSelected ||
-      cfg.option.selected === true;
+      cfg.option.selected === true ||
+      this.isSelected || this.optionBinding?.isSelected === true;
+
+    // Check correctness from multiple sources
+    const isCorrectAnswer = cfg.isAnswerCorrect ||
+      cfg.option?.correct === true || String(cfg.option?.correct) === 'true' ||
+      opt?.correct === true || String(opt?.correct) === 'true';
 
     if (isSelectedNow) {
-      this.setBackgroundColor(host, cfg.isAnswerCorrect ? '#43f756' : '#ff0000');
       opt.showIcon = true;
     }
   }
 
-  private setBackgroundColor(element: HTMLElement, color: string): void {
-    this.renderer.setStyle(element, 'background-color', color);
-  }
 
   private setPointerEvents(el: HTMLElement, value: string): void {
     this.renderer.setStyle(el, 'pointer-events', value);

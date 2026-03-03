@@ -118,7 +118,9 @@ export class OptionUiSyncService {
 
     // Apply selection state + history
     optionBinding.option.selected = checked;
-    ctx.perQuestionHistory.add(effectiveId);
+    if (effectiveId !== undefined && !ctx.selectedOptionHistory.includes(effectiveId)) {
+      ctx.selectedOptionHistory.push(effectiveId);
+    }
 
     // Force service update to keep Next button snappy
     // Force service update call moved down to ensure map is updated first
@@ -151,7 +153,7 @@ export class OptionUiSyncService {
       ctx.onSelect(optionBinding, checked, currentIndex);
     }
 
-    this.trackVisited(optionId, ctx);
+    this.trackVisited(effectiveId as number, ctx);
 
     // updated anchor logic: if unselecting, move back to last still-selected option
     if (checked) {
@@ -238,6 +240,7 @@ export class OptionUiSyncService {
       }
       ctx.lastFeedbackOptionId = -1;
       ctx.lastFeedbackQuestionIndex = currentIndex;
+      ctx.selectedOptionHistory.length = 0;
     }
   }
 
@@ -325,40 +328,40 @@ export class OptionUiSyncService {
     ctx.selectedOptionMap.clear();
 
     for (const b of ctx.optionBindings) {
-      const id = b.option.optionId;
+      const id = (b.option.optionId != null && b.option.optionId !== -1) ? b.option.optionId : b.index;
       if (id === undefined) continue;
 
-      const shouldPaint = ctx.perQuestionHistory.has(id);
+      const shouldPaint = ctx.selectedOptionHistory.includes(id as any);
       
       // Also check string/number versions to be absolutely safe
       const shouldPaintRobust = shouldPaint || 
-                             (typeof id === 'string' && ctx.perQuestionHistory.has(Number(id))) ||
-                             (typeof id === 'number' && ctx.perQuestionHistory.has(String(id)));
+                             (typeof id === 'string' && ctx.selectedOptionHistory.includes(Number(id))) ||
+                             (typeof id === 'number' && ctx.selectedOptionHistory.includes(String(id)));
 
       b.isSelected = shouldPaintRobust;
       b.option.selected = shouldPaintRobust;
       b.option.highlight = shouldPaintRobust;
-      b.option.showIcon = shouldPaintRobust;
 
-      if (b.showFeedbackForOption && b.option.optionId !== undefined) {
-        b.showFeedbackForOption[b.option.optionId] = false;
-        if (typeof b.option.optionId === 'string') {
-           const n = Number(b.option.optionId);
-           if (!isNaN(n)) (b.showFeedbackForOption as any)[n] = false;
+      // Ensure that we only show the feedback/icon for options that were TRULY selected
+      if (b.showFeedbackForOption && id !== undefined) {
+        b.showFeedbackForOption[id] = shouldPaintRobust;
+        if (typeof id === 'string') {
+           const n = Number(id);
+           if (!isNaN(n)) (b.showFeedbackForOption as any)[n] = shouldPaintRobust;
         }
       }
 
-      ctx.showFeedbackForOption[id] = id === optionId;
+      ctx.showFeedbackForOption[id as any] = shouldPaintRobust;
 
       b.directiveInstance?.updateHighlight();
     }
   }
 
-  private trackVisited(optionId: number | undefined, ctx: OptionUiSyncContext): boolean {
+  private trackVisited(effectiveId: number | undefined, ctx: OptionUiSyncContext): boolean {
     let isAlreadyVisited = false;
-    if (optionId !== undefined) {
-      isAlreadyVisited = ctx.selectedOptionHistory.includes(optionId);
-      if (!isAlreadyVisited) ctx.selectedOptionHistory.push(optionId);
+    if (effectiveId !== undefined) {
+      isAlreadyVisited = ctx.selectedOptionHistory.includes(effectiveId);
+      if (!isAlreadyVisited) ctx.selectedOptionHistory.push(effectiveId);
     }
     return isAlreadyVisited;
   }
@@ -405,12 +408,8 @@ export class OptionUiSyncService {
       ctx.selectedOptionMap.delete(String(currentEffectiveId));
     }
 
-    // Sync selected flags on all bindings from the (now-complete) map
     for (const k of Object.keys(ctx.feedbackConfigs)) {
       ctx.feedbackConfigs[k].showFeedback = false;
-    }
-    for (const k of Object.keys(ctx.showFeedbackForOption)) {
-      delete ctx.showFeedbackForOption[k];
     }
 
     // Sync selected flags on all bindings from the (now-complete) map

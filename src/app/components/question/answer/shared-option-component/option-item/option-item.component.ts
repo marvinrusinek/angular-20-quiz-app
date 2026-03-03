@@ -75,8 +75,10 @@ export class OptionItemComponent implements OnChanges {
     }
   }
 
-  private get optionId(): number {
-    return Number(this.b?.option?.optionId ?? -1);
+  get optionId(): number {
+    return (this.b?.option?.optionId != null && this.b.option.optionId !== -1) 
+      ? Number(this.b.option.optionId) 
+      : this.i;
   }
 
   private get inputType(): 'radio' | 'checkbox' {
@@ -120,6 +122,10 @@ export class OptionItemComponent implements OnChanges {
       }
     }
 
+    if (this.b.isSelected) {
+       console.warn(`[OptionItem] getOptionClasses - ID: ${this.optionId}, isSelected: ${this.b.isSelected}, showSelection: ${showSelectionState}, classes:`, classes);
+    }
+
     return classes;
   }
 
@@ -142,18 +148,44 @@ export class OptionItemComponent implements OnChanges {
     return this._wasSelected;
   }
 
+  getOptionBackgroundColor(): string | null {
+    const isActivelySelected = 
+      this.b.isSelected ||
+      this.b.checked === true ||
+      this.b.option?.selected === true ||
+      this.b.option?.highlight === true ||
+      this.b.highlightCorrect ||
+      this.b.highlightIncorrect ||
+      this._wasSelected ||
+      !!this.b.showFeedbackForOption?.[this.optionId];
+
+    // DEBUG HIGHLIGHT TRACE:
+    if (this.b.isSelected) {
+      console.warn(`[OptionItem] getOptionBackgroundColor isActivelySelected: ID ${this.optionId} correct? ${this.b.option.correct} isActivelySelected eval: ${isActivelySelected}`);
+    }
+
+    if (isActivelySelected) {
+      const isCorrect = 
+        this.b.option?.correct === true ||
+        String(this.b.option?.correct) === 'true' ||
+        this.b.isCorrect === true;
+      
+      return isCorrect ? '#43e756' : '#ff0000'; // Green if correct, Red if incorrect
+    }
+
+    return null; // Let standard CSS handle default states
+  }
+
   shouldShowFeedback(): boolean {
-    const fromConfig = !!this.feedbackConfig?.showFeedback;
-    const fromBinding = !!(
-      this.b.showFeedback ||
-      (this.b.showFeedbackForOption && this.b.showFeedbackForOption[this.optionId])
-    );
+    const fromBindingMap = !!(this.b.showFeedbackForOption && this.b.showFeedbackForOption[this.optionId]);
     const fromHighlight = this.b.highlightCorrect || this.b.highlightIncorrect;
-    const fromLocked = this.b.disabled && this.b.isSelected;
-    return fromConfig || fromBinding || fromHighlight || fromLocked || this.isPreviousSelection();
+    const fromLocked = !!(this.b.disabled && this.b.isSelected);
+    
+    return fromBindingMap || fromHighlight || fromLocked || this.isPreviousSelection();
   }
 
   onChanged(event: any): void {
+    console.warn(`[OptionItem] onChanged fired! optionId: ${this.optionId}, isSelected: ${this.b.isSelected}`);
     this.optionUI.emit({
       optionId: this.optionId,
       displayIndex: this.i,

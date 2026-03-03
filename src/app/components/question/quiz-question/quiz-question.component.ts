@@ -93,7 +93,7 @@ export class QuizQuestionComponent extends BaseQuestion
   @Output() optionSelected = new EventEmitter<SelectedOption>();
   @Output() displayStateChange = new EventEmitter<{
     mode: 'question' | 'explanation';
-    answered: boolean;
+    answered: boolean
   }>();
   @Output() feedbackApplied = new EventEmitter<number>();
   @Output() nextButtonState = new EventEmitter<boolean>();
@@ -2885,7 +2885,7 @@ export class QuizQuestionComponent extends BaseQuestion
       // (quiz data often doesn't set q.type, so we count correct options as fallback)
       const correctCount = q!.options?.filter((o: any) => o.correct === true || String(o.correct) === 'true').length ?? 0;
       const isMultiAnswer = q?.type === QuestionType.MultipleAnswer || correctCount > 1;
-      
+
 
       this.persistSelection(evtOpt, idx, optionsNow, isMultiAnswer);
 
@@ -5550,7 +5550,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
       // Update score immediately when correct answer is selected
       try {
-        await this.quizService.checkIfAnsweredCorrectly(this.currentQuestionIndex);
+        await this.quizService.checkIfAnsweredCorrectly(this.currentQuestionIndex, false);
       } catch (error: any) {
         console.error('[handleOptionSelection] Error checking correctness:', error);
       }
@@ -6323,7 +6323,7 @@ export class QuizQuestionComponent extends BaseQuestion
         ? this.quizService.currentQuestionIndex
         : this.currentQuestionIndex;
 
-      isCorrect = await this.quizService.checkIfAnsweredCorrectly(effectiveIndex);
+      isCorrect = await this.quizService.checkIfAnsweredCorrectly(effectiveIndex, false);
     } catch (error: any) {
       console.error('Error checking answer correctness:', error);
     }

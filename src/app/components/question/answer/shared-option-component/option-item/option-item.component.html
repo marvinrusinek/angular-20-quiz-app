@@ -1,7 +1,8 @@
 <div class="option-cursor-wrapper" [class.cursor-not-allowed]="getOptionCursor() === 'not-allowed'">
   @if (type === 'single') {
   <mat-radio-button class="option-row single-option" appHighlightOption [appHighlightInputType]="'radio'"
-    [appHighlightReset]="shouldResetBackground" [sharedOptionConfig]="sharedOptionConfig" [optionBinding]="b" [option]="b.option" [isSelected]="b.isSelected" [value]="b.option.optionId"
+    [appHighlightReset]="shouldResetBackground" [sharedOptionConfig]="sharedOptionConfig" [optionBinding]="b" [option]="b.option" [isSelected]="b.isSelected" [value]="optionId"
+    [style.background-color]="getOptionBackgroundColor()"
     [ngClass]="getOptionClasses()" [disabled]="isDisabled()" [disableRipple]="true" (change)="onChanged($event)"
     (click)="onInteraction($event)">
     <ng-container *ngTemplateOutlet="optionContent"></ng-container>
@@ -9,6 +10,7 @@
   } @else {
   <mat-checkbox class="option-row multiple-option" appHighlightOption [appHighlightInputType]="'checkbox'"
     [appHighlightReset]="shouldResetBackground" [sharedOptionConfig]="sharedOptionConfig" [optionBinding]="b" [option]="b.option" [isSelected]="b.isSelected" [checked]="b.isSelected"
+    [style.background-color]="getOptionBackgroundColor()"
     [ngClass]="getOptionClasses()" [disabled]="isDisabled()" [disableRipple]="true" (change)="onChanged($event)"
     (click)="onInteraction($event)">
     <ng-container *ngTemplateOutlet="optionContent"></ng-container>
