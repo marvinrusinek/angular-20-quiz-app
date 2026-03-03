@@ -118,8 +118,7 @@ export class OptionItemComponent implements OnChanges {
 
   getOptionClasses(): { [key: string]: boolean } {
     const classes = { ...this.b.cssClasses };
-    const qIndex = this.currentQuestionIndex ?? this.quizService.currentQuestionIndex;
-    const selections = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
+    const selections = this.getSelectionsForCurrentBinding();
 
     // Authoritative check matches OptionUiSyncService logic: id or index
     const effectiveId = (this.b.option.optionId != null && this.b.option.optionId !== -1)
@@ -142,14 +141,28 @@ export class OptionItemComponent implements OnChanges {
       isActuallySelectedFromService ||
       this._wasSelected;
     
+    const isCorrect =
+      this.b.option?.correct === true ||
+      String(this.b.option?.correct) === 'true' ||
+      this.b.isCorrect === true;
+    
     const hasAnsweredCurrentQuestion = selections.length > 0;
-    const shouldHighlightThisOption = hasAnsweredCurrentQuestion || showSelectionState;
+    const shouldRevealCorrectAnswer =
+      this.type === 'single' && hasAnsweredCurrentQuestion && isCorrect;
+
+    const feedbackMap = this.b.showFeedbackForOption ?? {};
+    const feedbackForThisOption =
+      !!feedbackMap[this.optionId] ||
+      !!(feedbackMap as any)[String(this.optionId)] ||
+      !!(feedbackMap as any)[Number(this.optionId)] ||
+      !!(this.b.option?.optionId != null && (feedbackMap as any)[String(this.b.option.optionId)]);
+
+    const shouldHighlightThisOption =
+      showSelectionState ||
+      feedbackForThisOption ||
+      shouldRevealCorrectAnswer;
 
     if (shouldHighlightThisOption) {
-      const isCorrect =
-        this.b.option?.correct === true ||
-        String(this.b.option?.correct) === 'true' ||
-        this.b.isCorrect === true;
       if (isCorrect) {
         classes['correct-option'] = true;
       } else {
@@ -180,8 +193,7 @@ export class OptionItemComponent implements OnChanges {
   }
 
   getOptionBackgroundColor(): string | null {
-    const qIndex = this.currentQuestionIndex ?? this.quizService.currentQuestionIndex;
-    const selections = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
+    const selections = this.getSelectionsForCurrentBinding();
 
     const effectiveId = (this.b.option.optionId != null && this.b.option.optionId !== -1)
       ? this.b.option.optionId
@@ -203,9 +215,27 @@ export class OptionItemComponent implements OnChanges {
       this._wasSelected ||
       !!this.b.showFeedbackForOption?.[this.optionId] ||
       isActuallySelectedFromService;
+  
+    const isCorrect =
+      this.b.option?.correct === true ||
+      String(this.b.option?.correct) === 'true' ||
+      this.b.isCorrect === true;
     
-    const hasAnsweredCurrentQuestion = this.hasAnsweredCurrentQuestion(selections);
-    const shouldHighlightThisOption = hasAnsweredCurrentQuestion || isActivelySelected;
+    const hasAnsweredCurrentQuestion = selections.length > 0;
+    const shouldRevealCorrectAnswer =
+      this.type === 'single' && hasAnsweredCurrentQuestion && isCorrect;
+    
+    const feedbackMap = this.b.showFeedbackForOption ?? {};
+    const feedbackForThisOption =
+      !!feedbackMap[this.optionId] ||
+      !!(feedbackMap as any)[String(this.optionId)] ||
+      !!(feedbackMap as any)[Number(this.optionId)] ||
+      !!(this.b.option?.optionId != null && (feedbackMap as any)[String(this.b.option.optionId)]);
+
+    const shouldHighlightThisOption =
+      isActivelySelected ||
+      feedbackForThisOption ||
+      shouldRevealCorrectAnswer;
 
     // DEBUG HIGHLIGHT TRACE:
     /* if (this.b.isSelected) {
@@ -214,12 +244,44 @@ export class OptionItemComponent implements OnChanges {
       return null;
     }
 
-    const isCorrect =
-      this.b.option?.correct === true ||
-      String(this.b.option?.correct) === 'true' ||
-      this.b.isCorrect === true;
-
     return isCorrect ? '#43e756' : '#ff0000'; // Green if correct, Red if incorrect
+  }
+
+  private getSelectionsForCurrentBinding(): any[] {
+    const qIndex = this.currentQuestionIndex ?? this.quizService.currentQuestionIndex;
+    const direct = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
+
+    // Prefer direct index selections only if they actually include this binding.
+    // This prevents stale index leakage (e.g. Q2 list reused while rendering Q1).
+    if (direct.length > 0 && direct.some((sel: any) => this.matchesBindingSelection(sel))) {
+      return direct;
+    }
+
+    // Fallback: locate the map entry that actually contains this option
+    // (by optionId/text) so previously-selected states keep highlighting.
+    const entries = Array.from(this.selectedOptionService.selectedOptionsMap?.entries?.() ?? []);
+    for (const [, selections] of entries) {
+      if (!Array.isArray(selections) || selections.length === 0) continue;
+      if (selections.some((sel: any) => this.matchesBindingSelection(sel))) {
+        return selections;
+      }
+    }
+
+    // Last resort: keep old behavior for correctness-reveal logic that only
+    // needs to know the current indexed question has selections.
+    return direct;
+  }
+
+  private matchesBindingSelection(sel: any): boolean {
+    const effectiveId = (this.b.option.optionId != null && this.b.option.optionId !== -1)
+      ? this.b.option.optionId
+      : this.i;
+
+    return (
+      (sel?.optionId != null && effectiveId != null &&
+        (sel.optionId == effectiveId || String(sel.optionId) === String(effectiveId))) ||
+      (sel?.text && this.b?.option?.text && sel.text === this.b.option.text)
+    );
   }
 
   private hasAnsweredCurrentQuestion(selections: any[]): boolean {
