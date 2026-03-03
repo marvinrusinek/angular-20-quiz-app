@@ -1740,41 +1740,84 @@ export class SharedOptionComponent
     // sees (shuffle-safe, multi-answer aware) instead of raw canonical explanation.
     // Falls back to canonical source if resolveExplanationText returns empty
     // to avoid shuffle index confusion.
-    console.log(`[SharedOptionComponent] emitExplanation checking Q${questionIndex + 1}...`);
+    const activeIndex = this.getActiveQuestionIndex();
+    const resolvedIndex = Number.isFinite(activeIndex)
+      ? Math.max(0, Math.trunc(activeIndex))
+      : Number.isFinite(questionIndex)
+        ? Math.max(0, Math.trunc(questionIndex))
+        : this.resolveCurrentQuestionIndex();
 
-    // Guard: For multi-answer questions, only emit FET when ALL correct
-    // answers are selected (isPerfect). Without this, the binding-update
-    // path (setOptionBindingsIfChanged) would show FET on partial selections.
-    const question = this.quizService.questions?.[questionIndex];
+    const question =
+      this.quizService.questions?.[resolvedIndex]
+      ?? this.currentQuestion
+      ?? null;
+
+    console.log(`[SharedOptionComponent] emitExplanation checking Q${resolvedIndex + 1}...`);
+
+    // Guard: For multi-answer questions, only emit FET when all correct
+    // answers are selected. Build selection state from live UI first
+    // (optionBindings/optionsToDisplay), then fall back to service snapshots.
     if (question && Array.isArray(question.options)) {
       const correctCount = question.options.filter(
         (o: any) => o.correct === true || String(o.correct) === 'true'
       ).length;
+
       if (correctCount > 1) {
-        // Multi-answer: check if all correct options are selected
-        const selected = this.selectedOptionService.getSelectedOptionsForQuestion(questionIndex) ?? [];
-        const resolved = this.selectedOptionService.isQuestionResolvedCorrectly(question, selected);
-        if (!resolved) {
-          console.log(`[emitExplanation] Multi-answer Q${questionIndex + 1} not fully resolved (${selected.length} selected, ${correctCount} correct needed) — skipping`);
+        const selectedFromUi = (this.optionsToDisplay ?? [])
+          .map((opt: any, idx: number) => {
+            const bindingSelected = this.optionBindings?.[idx]?.isSelected === true;
+            const optionSelected = opt?.selected === true || bindingSelected;
+            return optionSelected
+              ? ({
+                optionId: opt?.optionId,
+                text: opt?.text,
+                correct: opt?.correct,
+                displayIndex: idx
+              } as any)
+              : null;
+          })
+          .filter((opt: any) => opt != null);
+
+        const selectedFromService =
+          this.selectedOptionService.getSelectedOptionsForQuestion(resolvedIndex) ?? [];
+
+        // Prefer UI-derived state because emitExplanation can run before service
+        // persistence finishes on the final checkbox click.
+        const selectedForResolution =
+          selectedFromUi.length > 0 ? selectedFromUi : selectedFromService;
+
+        const status = this.selectedOptionService.getResolutionStatus(
+          question,
+          selectedForResolution as any,
+          false
+        );
+
+        if (!status.resolved) {
+          console.log(
+            `[emitExplanation] Multi-answer Q${resolvedIndex + 1} not fully resolved ` +
+            `(correctSelected=${status.correctSelected}/${status.correctTotal}, ` +
+            `remaining=${status.remainingCorrect}, uiSelected=${selectedFromUi.length}, ` +
+            `serviceSelected=${selectedFromService.length}) — skipping`
+          );
           return;
         }
       }
     }
 
-    const explanationText = this.resolveExplanationText(questionIndex)?.trim()
-      || this.quizService.questions[questionIndex]?.explanation
+    const explanationText = this.resolveExplanationText(resolvedIndex)?.trim()
+      || question?.explanation
       || '';
 
     if (!explanationText) {
-      console.warn(`[emitExplanation] No explanation text resolved for Q${questionIndex + 1}`);
+      console.warn(`[emitExplanation] No explanation text resolved for Q${resolvedIndex + 1}`);
       return;
     }
 
-    console.log(`[SharedOptionComponent] emitExplanation proceeding for Q${questionIndex + 1}: "${explanationText.substring(0, 30)}..."`);
+    console.log(`[SharedOptionComponent] emitExplanation proceeding for Q${resolvedIndex + 1}: "${explanationText.substring(0, 30)}..."`);
 
     // Cache the resolved formatted text so other components (e.g. Q4, post-restart)
     // can find it without recomputing
-    this.cacheResolvedFormattedExplanation(questionIndex, explanationText);
+    this.cacheResolvedFormattedExplanation(resolvedIndex, explanationText);
 
     // BRUTE FORCE: Clear locks and pulse stream to bypass distinctUntilChanged/duplicate checks
     // This handles the "Back and Forth" requirement reported by user
@@ -1790,11 +1833,11 @@ export class SharedOptionComponent
     this.explanationTextService.shouldDisplayExplanationSource.next(true);
 
     // Use canonical index for logic tracking
-    this.pendingExplanationIndex = questionIndex;
-    this.applyExplanationText(explanationText, questionIndex);
-    this.scheduleExplanationVerification(questionIndex, explanationText);
+    this.pendingExplanationIndex = resolvedIndex;
+    this.applyExplanationText(explanationText, resolvedIndex);
+    this.scheduleExplanationVerification(resolvedIndex, explanationText);
 
-    console.log(`[SharedOptionComponent] emitExplanation COMPLETED for Q${questionIndex + 1}`);
+    console.log(`[SharedOptionComponent] emitExplanation COMPLETED for Q${resolvedIndex + 1}`);
   }
 
   private applyExplanationText(
@@ -3183,7 +3226,8 @@ export class SharedOptionComponent
   }
 
   private resolveCurrentQuestionIndex(): number {
-    return Number(this.currentQuestionIndex) || 0;
+    const active = this.getActiveQuestionIndex();
+    return Number.isFinite(active) ? Math.max(0, Math.floor(active)) : 0;
   }
 
   /**
