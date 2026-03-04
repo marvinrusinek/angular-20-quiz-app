@@ -55,11 +55,11 @@ export interface FeedbackConfig {
 
 
 @Component({
-  selector: 'codelab-quiz-question-x',
+  selector: 'codelab-quiz-question',
   templateUrl: './quiz-question.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class QuizQuestionXComponent extends BaseQuestion
+export class QuizQuestionComponent extends BaseQuestion
   implements OnInit, OnChanges, OnDestroy, AfterViewInit {
   @ViewChild('dynamicAnswerContainer', { read: ViewContainerRef, static: false })
   dynamicAnswerContainer!: ViewContainerRef;
