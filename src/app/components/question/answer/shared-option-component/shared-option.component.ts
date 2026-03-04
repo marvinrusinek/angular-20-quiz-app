@@ -1745,59 +1745,109 @@ export class SharedOptionComponent
       ? Math.max(0, Math.trunc(activeIndex))
       : Number.isFinite(questionIndex)
         ? Math.max(0, Math.trunc(questionIndex))
-        : this.resolveCurrentQuestionIndex();
+        : this.resolveExplanationQuestionIndex(questionIndex);
 
     const question =
-      this.quizService.questions?.[resolvedIndex]
-      ?? this.currentQuestion
+      this.currentQuestion
+      ?? this.getQuestionAtDisplayIndex(resolvedIndex)
+      ?? this.quizService.questions?.[resolvedIndex]
       ?? null;
 
     console.log(`[SharedOptionComponent] emitExplanation checking Q${resolvedIndex + 1}...`);
 
-    // Guard: For multi-answer questions, only emit FET when all correct
-    // answers are selected. Build selection state from live UI first
-    // (optionBindings/optionsToDisplay), then fall back to service snapshots.
+    // Guard: Emit FET only when the question is resolved correctly.
+    // Build selection state from live UI first (optionBindings/optionsToDisplay),
+    // then fall back to service snapshots to handle persistence timing gaps.
     if (question && Array.isArray(question.options)) {
       const correctCount = question.options.filter(
         (o: any) => o.correct === true || String(o.correct) === 'true'
       ).length;
 
-      if (correctCount > 1) {
-        const selectedFromUi = (this.optionsToDisplay ?? [])
-          .map((opt: any, idx: number) => {
-            const bindingSelected = this.optionBindings?.[idx]?.isSelected === true;
-            const optionSelected = opt?.selected === true || bindingSelected;
-            return optionSelected
-              ? ({
-                optionId: opt?.optionId,
-                text: opt?.text,
-                correct: opt?.correct,
-                displayIndex: idx
-              } as any)
-              : null;
-          })
-          .filter((opt: any) => opt != null);
+      const visualOptions = (Array.isArray(this.optionBindings) && this.optionBindings.length > 0)
+        ? this.optionBindings.map((b: OptionBindings) => b.option)
+        : (this.optionsToDisplay ?? []);
 
-        const selectedFromService =
-          this.selectedOptionService.getSelectedOptionsForQuestion(resolvedIndex) ?? [];
+      const selectedFromUi = visualOptions
+        .map((opt: any, idx: number) => {
+          const bindingSelected = this.optionBindings?.[idx]?.isSelected === true;
+          const optionSelected = opt?.selected === true || bindingSelected;
+          return optionSelected
+            ? ({
+              optionId: opt?.optionId,
+              text: opt?.text,
+              correct: opt?.correct,
+              displayIndex: idx
+            } as any)
+            : null;
+        })
+        .filter((opt: any) => opt != null);
 
-        // Prefer UI-derived state because emitExplanation can run before service
-        // persistence finishes on the final checkbox click.
-        const selectedForResolution =
-          selectedFromUi.length > 0 ? selectedFromUi : selectedFromService;
+      const selectedFromService =
+        this.selectedOptionService.getSelectedOptionsForQuestion(resolvedIndex) ?? [];
 
-        const status = this.selectedOptionService.getResolutionStatus(
-          question,
-          selectedForResolution as any,
-          false
+      const normalize = (value: unknown): string =>
+        String(value ?? '')
+          .replace(/<[^>]*>/g, ' ')
+          .replace(/&nbsp;/gi, ' ')
+          .replace(/\u00A0/g, ' ')
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, ' ');
+
+      const isSelectionCorrect = (sel: any): boolean => {
+        if (sel?.correct === true || String(sel?.correct) === 'true') return true;
+
+        const selId = sel?.optionId;
+        const selText = normalize(sel?.text);
+
+        const byId = question.options.find((o: any) =>
+          o?.optionId !== undefined && o?.optionId !== null &&
+          String(o.optionId) === String(selId)
         );
+        if (byId) return byId.correct === true || String(byId.correct) === 'true';
 
-        if (!status.resolved) {
+        const byText = question.options.find((o: any) =>
+          normalize(o?.text) !== '' && normalize(o?.text) === selText
+        );
+        if (byText) return byText.correct === true || String(byText.correct) === 'true';
+
+        return false;
+      };
+
+      const uiResolved = (() => {
+        if (selectedFromUi.length === 0) return false;
+
+        const correctSelected = selectedFromUi.filter(isSelectionCorrect).length;
+        if (correctCount > 1) {
+          return correctSelected >= correctCount;
+        }
+        return correctSelected >= 1;
+      })();
+
+      const status = this.selectedOptionService.getResolutionStatus(
+        question,
+        selectedFromService as any,
+        false
+      );
+
+      const resolved = selectedFromUi.length > 0 ? uiResolved : status.resolved;
+
+      if (correctCount > 1) {
+        if (!resolved) {
           console.log(
             `[emitExplanation] Multi-answer Q${resolvedIndex + 1} not fully resolved ` +
-            `(correctSelected=${status.correctSelected}/${status.correctTotal}, ` +
-            `remaining=${status.remainingCorrect}, uiSelected=${selectedFromUi.length}, ` +
-            `serviceSelected=${selectedFromService.length}) — skipping`
+            `(uiResolved=${uiResolved}, correctTotal=${correctCount}, uiSelected=${selectedFromUi.length}, ` +
+            `serviceResolved=${status.resolved}, serviceSelected=${selectedFromService.length}) — skipping`
+          );
+          return;
+        }
+      } else {
+        // Single-answer: never show FET on incorrect option selection.
+        if (!resolved) {
+          console.log(
+            `[emitExplanation] Single-answer Q${resolvedIndex + 1} incorrect selection ` +
+            `(uiResolved=${uiResolved}, uiSelected=${selectedFromUi.length}, ` +
+            `serviceResolved=${status.resolved}, serviceSelected=${selectedFromService.length}) — skipping`
           );
           return;
         }
@@ -2284,19 +2334,45 @@ export class SharedOptionComponent
       this.showFeedbackForOption[Number(effectiveId)] = true;
     }
 
-    // 🚀 CRITICAL FIX: Only set as "answered" (revealing the permanent FET explanation)
-    // if the question is TRULY resolved (success). Otherwise, it reveals the answer too early.
+    // 🚀 CRITICAL FIX: Only set as "answered" when resolution is TRUE.
+    // Do NOT infer resolved state from feedback copy text (it varies by question).
     const feedbackConfig = this.generateFeedbackConfig(option, index);
-    const isResolved = feedbackConfig.feedback.startsWith("You're right!");
+    
+    const questionForResolution =
+      this.quizService.questions?.[currentQuestionIndex] ?? this.currentQuestion;
+    const selectedForResolution =
+      this.selectedOptionService.getSelectedOptionsForQuestion(currentQuestionIndex) ?? [];
+
+    let isResolved = false;
+    if (questionForResolution) {
+      isResolved = this.selectedOptionService.isQuestionResolvedCorrectly(
+        questionForResolution,
+        selectedForResolution as any
+      );
+    }
+
+    // Single-answer fallback for immediate UI click before persistence catches up.
+    if (!isResolved) {
+      const correctCount = questionForResolution?.options?.filter(
+        (o: any) => o.correct === true || String(o.correct) === 'true'
+      ).length ?? 0;
+      const isSingleAnswer = correctCount <= 1;
+      if (isSingleAnswer && option?.correct === true) {
+        isResolved = true;
+      }
+    }
 
     if (isResolved) {
-      console.log('[SharedOption] Question Resolved. Setting answered=true.', {
+      console.log('[SharedOption] Question resolved. Setting answered=true.', {
         questionIndex: currentQuestionIndex,
+        selectedCount: selectedForResolution.length,
         feedback: feedbackConfig.feedback
       });
       this.selectedOptionService.setAnswered(true, true);
     } else {
       console.log('[SharedOption] Question not yet resolved. Staying in question mode.', {
+        questionIndex: currentQuestionIndex,
+        selectedCount: selectedForResolution.length,
         feedback: feedbackConfig.feedback
       });
       // Ensure we don't accidentally reveal the explanation path
@@ -3228,6 +3304,39 @@ export class SharedOptionComponent
   private resolveCurrentQuestionIndex(): number {
     const active = this.getActiveQuestionIndex();
     return Number.isFinite(active) ? Math.max(0, Math.floor(active)) : 0;
+  }
+
+  private resolveExplanationQuestionIndex(questionIndex: number): number {
+    if (Number.isFinite(questionIndex)) {
+      return Math.max(0, Math.trunc(questionIndex));
+    }
+
+    const active = this.getActiveQuestionIndex();
+    if (Number.isFinite(active)) {
+      return Math.max(0, Math.trunc(active));
+    }
+
+    const svcIndex = this.quizService?.getCurrentQuestionIndex?.() ?? this.quizService?.currentQuestionIndex;
+    if (typeof svcIndex === 'number' && Number.isFinite(svcIndex)) {
+      return Math.max(0, Math.trunc(svcIndex));
+    }
+
+    return 0;
+  }
+
+  private resolveQuestionIndexFromCurrentQuestion(): number | null {
+    const current = this.currentQuestion;
+    if (!current) return null;
+
+    const source = (this.quizService?.isShuffleEnabled?.() && Array.isArray(this.quizService?.shuffledQuestions)
+      && this.quizService.shuffledQuestions.length > 0)
+      ? this.quizService.shuffledQuestions
+      : this.quizService?.questions;
+
+    if (!Array.isArray(source) || source.length === 0) return null;
+
+    const idxByRef = source.findIndex((q) => q === current);
+    return idxByRef >= 0 ? idxByRef : null;
   }
 
   /**

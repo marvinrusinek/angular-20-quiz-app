@@ -119,9 +119,25 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       currentQuestion?.options?.some((o: Option) => o.selected) ?? false;
 
     // Verify against service state to prevent false positives from stale option objects
-    const isRecordedAsAnswered = this.quizService.selectedOptionsMap?.has(idx);
+    //const isRecordedAsAnswered = this.quizService.selectedOptionsMap?.has(idx);
 
-    if (!hasSelectedOption || !isRecordedAsAnswered) {
+    //if (!hasSelectedOption || !isRecordedAsAnswered) {
+    // Verify against both selection stores because QuizService.selectedOptionsMap
+    // can briefly lag behind SelectedOptionService during navigation.
+    // If we require both stores to agree, valid answered states (often Q3+) can be
+    // misclassified as unanswered and their FET cache gets wiped.
+    const quizServiceHasSelections =
+      this.quizService.selectedOptionsMap?.has(idx) ?? false;
+    const selectedOptionServiceHasSelections =
+      (this.selectedOptionService.selectedOptionsMap?.get(idx)?.length ?? 0) > 0;
+    const hasTrackedInteraction = this.quizStateService.hasUserInteracted(idx);
+    const hasAnswerEvidence =
+      hasSelectedOption ||
+      quizServiceHasSelections ||
+      selectedOptionServiceHasSelections ||
+      hasTrackedInteraction;
+
+    if (!hasAnswerEvidence) {
       // No valid FET for this question = it wasn't answered, clear everything
       ets.resetForIndex(idx);
       ets.latestExplanation = '';

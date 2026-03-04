@@ -374,10 +374,27 @@ export class ExplanationTextService {
     const FALLBACK = 'No explanation available';
 
     if (this._fetLocked) {
+      const lockedEntry = this.formattedExplanations[questionIndex];
+      const lockedExplanation = (lockedEntry?.explanation ?? '').trim();
       console.log(
-        `[ETS] ⏸ FET locked, returning fallback for Q${questionIndex + 1}`,
+        `[ETS] ⏸ FET locked for Q${questionIndex + 1}; serving index-scoped cached explanation when available`,
       );
-      // Return fallback instead of EMPTY to prevent firstValueFrom errors
+
+      // During fast question navigation, a lock can remain active briefly even
+      // when this question already has a valid FET. Prefer the index-scoped
+      // stored value so Q2+ explanations are still available while the lock
+      // settles, and only use fallback when no formatted text exists.
+      if (lockedExplanation) {
+        try {
+          this.emitFormatted(questionIndex, lockedExplanation);
+          this.latestExplanation = lockedExplanation;
+          this.latestExplanationIndex = questionIndex;
+          this.setGate(questionIndex, true);
+        } catch { }
+
+        return of(lockedExplanation);
+      }
+
       return of(FALLBACK);
     }
 
@@ -1516,44 +1533,72 @@ export class ExplanationTextService {
     if (value && index >= 0) {
       try {
         const quizSvc = this.injector.get(QuizService, null);
+        const selectedSvc = this.injector.get(SelectedOptionService, null);
+
         if (quizSvc) {
           const isShuffled = quizSvc.isShuffleEnabled?.() ?? false;
-          const questions = isShuffled && Array.isArray((quizSvc as any).shuffledQuestions) && (quizSvc as any).shuffledQuestions.length > 0 
-            ? (quizSvc as any).shuffledQuestions 
+          const shuffled = Array.isArray((quizSvc as any).shuffledQuestions)
+            ? (quizSvc as any).shuffledQuestions
+            : [];
+          const baseQuestions = isShuffled && shuffled.length > 0
+            ? shuffled
             : quizSvc.questions;
-            
-          const question = questions?.[index];
+          
+          // Prefer display-order accessor when available because direct arrays can
+          // briefly lag during navigation/shuffle transitions.
+          const displayQuestions =
+            typeof (quizSvc as any).getQuestionsInDisplayOrder === 'function'
+              ? (quizSvc as any).getQuestionsInDisplayOrder()
+              : baseQuestions;
+
+          const question = displayQuestions?.[index] ?? baseQuestions?.[index] ?? null;
           let correctCount = 0;
           
           if (question && Array.isArray(question.options)) {
             correctCount = question.options.filter(
-               (o: any) => o.correct === true || String(o.correct) === 'true'
+              (o: any) => o.correct === true || String(o.correct) === 'true'
             ).length;
           } else {
-             // If we can't find the question data from QuizService directly, try to
-             // parse the value string itself to guess if it's a multi-answer FET
-             if (value.toLowerCase().includes(' and ') || value.includes(',')) {
-                correctCount = 2; // assume multi-answer if text explicitly says "Options 1 and 2..."
-             }
-             console.warn(`[emitFormatted] Guard skipped metadata lookup: Could not resolve Q${index + 1}. isShuffled=${isShuffled}, questionsLen=${questions?.length}`);
+             // If metadata is missing, fail open so singles and already-resolved
+            // questions are not blocked by a stale lookup race.
+            console.warn(`[emitFormatted] Guard metadata unavailable for Q${index + 1}; skipping multi-answer block. isShuffled=${isShuffled}, questionsLen=${baseQuestions?.length}`);
           }
           
           console.log(`[emitFormatted] Guard Check for Q${index + 1}: correctCount=${correctCount}`);
             
           if (correctCount > 1) {
-            // Multi-answer: check OIS's authoritative flag
+            // Multi-answer: require perfect resolution before emitting FET.
             const perfectMap = (quizSvc as any)._multiAnswerPerfect as Map<number, boolean> | undefined;
-            const isPerfect = perfectMap?.get(index) === true;
-            if (!isPerfect) {
-              console.log(`[emitFormatted] ⛔ Multi-answer Q${index + 1} not perfect yet (OIS flag false) — blocking FET`);
+            const oisPerfect = perfectMap?.get(index) === true;
+
+            let selectionResolved = false;
+            if (selectedSvc && question) {
+              const selected = selectedSvc.getSelectedOptionsForQuestion(index) ?? [];
+              const status = selectedSvc.getResolutionStatus(question as QuizQuestion, selected as Option[], false);
+              selectionResolved = status.resolved === true;
+
+              console.log(`[emitFormatted] Multi-answer resolution for Q${index + 1}:`, {
+                oisPerfect,
+                selectedCount: selected.length,
+                correctSelected: status.correctSelected,
+                correctTotal: status.correctTotal,
+                remainingCorrect: status.remainingCorrect,
+                resolved: selectionResolved
+              });
+            }
+
+            if (!oisPerfect && !selectionResolved) {
+              console.log(`[emitFormatted] ⛔ Multi-answer Q${index + 1} not fully resolved — blocking FET`);
               this._fetLocked = false;
               return;
             }
-            console.log(`[emitFormatted] ✅ Multi-answer Q${index + 1} is perfect — allowing FET`);
+            
+            console.log(`[emitFormatted] ✅ Multi-answer Q${index + 1} resolved — allowing FET`);
           }
         }
       } catch (e) {
-        // If guard check fails, allow emission (fail-open)
+        // If guard check fails unexpectedly, allow emission (fail-open)
+        // to avoid deadlocking FET display for single-answer questions.
         console.warn('[emitFormatted] Multi-answer guard error:', e);
       }
     }
@@ -1599,6 +1644,7 @@ export class ExplanationTextService {
         const prefixNums = (prefixMatch[1].match(/\d+/g) || []).map(Number).filter(n => n > 0);
         if (prefixNums.length > 0) {
           const quizSvc = this.injector.get(QuizService, null);
+          
           if (quizSvc) {
             const shuffledQs = (quizSvc as any).shuffledQuestions;
             const isShuffled = quizSvc.isShuffleEnabled?.() ?? false;
