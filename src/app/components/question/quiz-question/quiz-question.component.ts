@@ -191,7 +191,7 @@ export class QuizQuestionComponent extends BaseQuestion
   shouldDisplayAnswers = false;
   feedbackText = '';
   displayExplanation = false;
-  override sharedOptionConfig: SharedOptionConfig | undefined;
+  override sharedOptionConfig: SharedOptionConfig | null = null;
   shouldRenderComponent = false;
   shouldRenderOptions = false;
   shouldRenderFinalOptions = false;
@@ -307,29 +307,27 @@ export class QuizQuestionComponent extends BaseQuestion
   private destroy$: Subject<void> = new Subject<void>();
 
   constructor(
-    protected quizService: QuizService,
+    protected override quizService: QuizService,
     protected quizDataService: QuizDataService,
     protected quizNavigationService: QuizNavigationService,
-    protected quizStateService: QuizStateService,
+    protected override quizStateService: QuizStateService,
     protected quizQuestionLoaderService: QuizQuestionLoaderService,
     protected quizQuestionManagerService: QuizQuestionManagerService,
-    protected answerTrackingService: AnswerTrackingService,
-    protected dynamicComponentService: DynamicComponentService,
+    protected override dynamicComponentService: DynamicComponentService,
     protected explanationTextService: ExplanationTextService,
-    protected feedbackService: FeedbackService,
+    protected override feedbackService: FeedbackService,
     protected nextButtonStateService: NextButtonStateService,
     protected resetBackgroundService: ResetBackgroundService,
     protected resetStateService: ResetStateService,
-    protected selectedOptionService: SelectedOptionService,
+    protected override selectedOptionService: SelectedOptionService,
     protected selectionMessageService: SelectionMessageService,
     protected sharedVisibilityService: SharedVisibilityService,
     protected soundService: SoundService,
     protected timerService: TimerService,
-    protected userPreferenceService: UserPreferenceService,
     protected componentFactoryResolver: ComponentFactoryResolver,
     protected activatedRoute: ActivatedRoute,
-    protected fb: FormBuilder,
-    protected cdRef: ChangeDetectorRef,
+    protected override fb: FormBuilder,
+    protected override cdRef: ChangeDetectorRef,
     protected router: Router,
     protected ngZone: NgZone,
     protected el: ElementRef
@@ -395,7 +393,7 @@ export class QuizQuestionComponent extends BaseQuestion
     const next = this.quizService.questions?.[qIndex + 1];
 
     if (current && next && current.options && next.options) {
-      const shared = current.options.some((o: Option, i: number) => o === next.options[i]);
+      const shared = current.options.some((o, i) => o === next.options[i]);
       console.log(`[REF TRACE] Shared option refs between Q${qIndex} and Q${qIndex + 1}:`, shared);
     }
 
@@ -438,7 +436,7 @@ export class QuizQuestionComponent extends BaseQuestion
     )
       .subscribe((i0: number) => this.onTimerExpiredFor(i0));
 
-    this.quizService.currentQuestionIndex$.subscribe((index) => {
+    this.quizService.currentQuestionIndex$.subscribe((index: number) => {
       // Log a stack trace for tracing unexpected emissions
       if (index === 1) {
         console.warn('[🧵 Stack trace for index === 1]', {
@@ -456,14 +454,14 @@ export class QuizQuestionComponent extends BaseQuestion
     this.quizService.questionPayload$
       .pipe(
         filter((payload): payload is QuestionPayload => !!payload),
-        tap((payload) => {
+        tap((payload: QuestionPayload) => {
           this.currentQuestion = payload.question;
           this.optionsToDisplay = payload.options;
           this.explanationToDisplay = payload.explanation ?? '';
           this.updateShouldRenderOptions(this.optionsToDisplay);
         })
       )
-      .subscribe((payload) => {
+      .subscribe((payload: QuestionPayload) => {
         console.time('[📥 QQC received QA]');
         console.log('[📥 QQC got payload]', payload);
         console.timeEnd('[📥 QQC received QA]');
@@ -488,7 +486,7 @@ export class QuizQuestionComponent extends BaseQuestion
     });
 
     this.quizNavigationService.navigationToQuestion$.subscribe(
-      ({ question, options }: { question: QuizQuestion, options: Option[] }) => {
+      ({ question, options }) => {
         if (question?.questionText && options?.length) {
           if (!this.containerInitialized && this.dynamicAnswerContainer) {
             this.loadDynamicComponent(question, options);
@@ -498,7 +496,7 @@ export class QuizQuestionComponent extends BaseQuestion
             console.log('[🧊 Skipping re-injection — already initialized]');
           }
 
-          this.sharedOptionConfig = undefined;
+          this.sharedOptionConfig = null;
           this.shouldRenderFinalOptions = false;
         } else {
           console.warn('[🚫 Dynamic injection skipped]', {
@@ -537,8 +535,7 @@ export class QuizQuestionComponent extends BaseQuestion
       this.explanationText = '';
       this._expl$.next(null);
 
-      const questionIndexString = params.get('questionIndex');
-      const questionIndex = questionIndexString ? Number(questionIndexString) : 0;
+      const questionIndex = Number(params.get('questionIndex'));
 
       try {
         const question = await firstValueFrom(
@@ -555,8 +552,7 @@ export class QuizQuestionComponent extends BaseQuestion
       }
     });
 
-    const routeIndexString = this.activatedRoute.snapshot.paramMap.get('questionIndex');
-    const routeIndex = routeIndexString ? +routeIndexString : 0;
+    const routeIndex = +this.activatedRoute.snapshot.paramMap.get('questionIndex') || 0;
     this.currentQuestionIndex = routeIndex;  // ensures correct index
     this.fixedQuestionIndex = isNaN(routeIndex) ? 0 : routeIndex - 1;
 
@@ -594,7 +590,7 @@ export class QuizQuestionComponent extends BaseQuestion
       this.renderReady$ = this.questionPayloadSubject.pipe(
         filter((payload): payload is QuestionPayload => !!payload),
         distinctUntilChanged((a, b) => JSON.stringify(a) === JSON.stringify(b)),
-        tap((payload) => {
+        tap((payload: QuestionPayload) => {
           // Assign all data at once
           const { question, options, explanation } = payload;
           this.currentQuestion = question;
@@ -1237,7 +1233,7 @@ export class QuizQuestionComponent extends BaseQuestion
       return;
     }
 
-    const validOptions = sourceQuestion.options.filter((o) => !!o && typeof o === 'object');
+    const validOptions = (sourceQuestion.options ?? []).filter((o: Option) => !!o && typeof o === 'object');
     if (!validOptions.length) {
       console.warn(`${context} ❌ All options were invalid.`);
       return;
@@ -1266,14 +1262,14 @@ export class QuizQuestionComponent extends BaseQuestion
       this.finalRenderReady = false;
 
       // Clear previous highlight / form flags before we clone
-      newOptions.forEach((o) => {
+      newOptions.forEach((o: Option) => {
         o.selected = false;
         o.highlight = false;
         o.showIcon = false;
       });
       // Rebuild the reactive form
       this.questionForm = new FormGroup({});
-      newOptions.forEach((o) =>
+      newOptions.forEach((o: Option) =>
         this.questionForm.addControl(
           `opt_${o.optionId}`,
           new FormControl(false)
@@ -3894,8 +3890,8 @@ export class QuizQuestionComponent extends BaseQuestion
     });
   }
 
-  private enableNextButton(): void {
-    const shouldEnableNext = this.answerTrackingService.isAnyOptionSelected();
+  private async enableNextButton(): Promise<void> {
+    const shouldEnableNext = await this.isAnyOptionSelected(this.currentQuestionIndex);
     this.nextButtonStateService.setNextButtonState(shouldEnableNext);
   }
 
@@ -5805,12 +5801,12 @@ export class QuizQuestionComponent extends BaseQuestion
       // Get selected options, but only include those with a valid optionId
       const selectedOptions: Option[] = this.selectedOptionService
         .getSelectedOptionIndices(this.currentQuestionIndex)
-        .map((index) => currentQuestion.options[index])
+        .map((index: number) => currentQuestion.options[index])
         .filter((option) => option && option.optionId !== undefined);
 
       // Check if the option is already selected
       const isOptionSelected = selectedOptions.some(
-        (option) => option.optionId === optionIndex
+        (option: Option) => option.optionId === optionIndex
       );
 
       // Add or remove the option based on its current state
@@ -6215,8 +6211,8 @@ export class QuizQuestionComponent extends BaseQuestion
       );
 
       explanation$.subscribe({
-        next: (explanationText: string) => {
-          if (this.isAnyOptionSelected(questionIndex)) {
+        next: async (explanationText: string) => {
+          if (await this.isAnyOptionSelected(questionIndex)) {
             this.currentQuestionIndex = questionIndex;
             this.explanationToDisplay =
               explanationText || 'No explanation available';
@@ -6455,10 +6451,10 @@ export class QuizQuestionComponent extends BaseQuestion
 
       // Wait for the question to be rendered before updating the explanation
       this.waitForQuestionRendering()
-        .then(() => {
+        .then(async () => {
           if (
             this.shouldDisplayExplanation &&
-            this.isAnyOptionSelected(adjustedIndex)
+            await this.isAnyOptionSelected(adjustedIndex)
           ) {
             // Clear any previous explanation state
             this.clearExplanationState();
