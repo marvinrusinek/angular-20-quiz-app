@@ -1009,7 +1009,10 @@ export class QuizQuestionComponent extends BaseQuestion
         const idx = this.currentQuestionIndex ?? 0;
         const qState = this.quizStateService.getQuestionState(this.quizId!, idx) || this.quizStateService.createDefaultQuestionState();
         this.quizStateService.setQuestionState(this.quizId!, idx, {
-          ...qState,
+          isAnswered: qState.isAnswered ?? false,
+          selectedOptions: qState.selectedOptions ?? [],
+          isCorrect: qState.isCorrect,
+          numberOfCorrectAnswers: qState.numberOfCorrectAnswers,
           explanationDisplayed: this.displayExplanation,
           explanationText: this.explanationTextService.latestExplanation ?? ''
         });
@@ -5122,6 +5125,7 @@ export class QuizQuestionComponent extends BaseQuestion
       this.displayState = { mode: 'question', answered: false };
       this.displayStateSubject.next(this.displayState);
       this.displayStateChange.emit(this.displayState);
+      this.quizStateService.setDisplayState(this.displayState);
 
       this.displayMode = 'question';
       this.displayMode$.next('question');
