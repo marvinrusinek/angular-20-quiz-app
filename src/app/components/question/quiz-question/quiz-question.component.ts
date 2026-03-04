@@ -3257,8 +3257,9 @@ export class QuizQuestionComponent extends BaseQuestion
         canonicalOpts[evtIdx].selected = true;
       }
 
-      // Reveal feedback and lock options
-      this.revealFeedbackForAllOptions(canonicalOpts);
+      // Refresh feedback only for the clicked option and lock it
+      // Reveal feedback for all options REMOVED as it reveals correct answers prematurely
+      // this.revealFeedbackForAllOptions(canonicalOpts);
 
       try {
         const clickedIdNum = Number(evtOpt?.optionId ?? NaN);
