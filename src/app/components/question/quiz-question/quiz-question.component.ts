@@ -555,7 +555,8 @@ export class QuizQuestionComponent extends BaseQuestion
       }
     });
 
-    const routeIndex = +this.activatedRoute.snapshot.paramMap.get('questionIndex') || 0;
+    const questionIndexParam = this.activatedRoute.snapshot.paramMap.get('questionIndex');
+    const routeIndex = questionIndexParam !== null ? +questionIndexParam : 0;
     this.currentQuestionIndex = routeIndex;  // ensures correct index
     this.fixedQuestionIndex = isNaN(routeIndex) ? 0 : routeIndex - 1;
 
@@ -1006,8 +1007,8 @@ export class QuizQuestionComponent extends BaseQuestion
 
       try {
         const idx = this.currentQuestionIndex ?? 0;
-        const qState = this.quizStateService.getQuestionState(this.quizId!, idx);
-        this.quizStateService.setQuestionState(this.quizId, idx, {
+        const qState = this.quizStateService.getQuestionState(this.quizId!, idx) || this.quizStateService.createDefaultQuestionState();
+        this.quizStateService.setQuestionState(this.quizId!, idx, {
           ...qState,
           explanationDisplayed: this.displayExplanation,
           explanationText: this.explanationTextService.latestExplanation ?? ''
@@ -2227,8 +2228,6 @@ export class QuizQuestionComponent extends BaseQuestion
         showExplanation: false,
         explanationText: '',
         highlightCorrectAfterIncorrect: false,
-        onOptionClicked: (opt: Option, i: number, c: boolean) => Promise.resolve(),
-        onQuestionAnswered: () => { },
         shouldResetBackground: false,
         showFeedbackForOption: {},
         isOptionSelected: false,
@@ -2807,9 +2806,11 @@ export class QuizQuestionComponent extends BaseQuestion
 
   private initializeSelectedQuiz(): void {
     if (this.quizDataService.selectedQuiz$) {
-      this.quizDataService.selectedQuiz$.subscribe((quiz: Quiz) => {
-        this.selectedQuiz.next(quiz);
-        this.setQuestionOptions();
+      this.quizDataService.selectedQuiz$.subscribe((quiz: Quiz | null) => {
+        if (quiz) {
+          this.selectedQuiz.next(quiz);
+          this.setQuestionOptions();
+        }
       });
     }
   }
@@ -4618,7 +4619,7 @@ export class QuizQuestionComponent extends BaseQuestion
       questionState.isAnswered = true;
       questionState.explanationDisplayed = true;
 
-      this.quizStateService.setQuestionState(this.quizId, questionIndex, questionState);
+      this.quizStateService.setQuestionState(this.quizId!, questionIndex, questionState);
     } else {
       console.error(
         `[markQuestionAsAnswered] ❌ Question state not found for Q${questionIndex}`
@@ -4850,9 +4851,9 @@ export class QuizQuestionComponent extends BaseQuestion
     const idx = this.quizService.getCurrentQuestionIndex();
 
     // Canonical (truth for `correct`)
-    const canonical = (this.quizService.questions?.[idx]?.options ?? []).map(o => ({ ...o }));
+    const canonical = (this.quizService.questions?.[idx]?.options ?? []).map((o: Option) => ({ ...o }));
     // UI (truth for `selected`, possibly a different array)
-    const ui = (this.optionsToDisplay ?? []).map(o => ({ ...o }));
+    const ui = (this.optionsToDisplay ?? []).map((o: Option) => ({ ...o }));
 
     // Overlay UI.selected → canonical by identity (id/value/text), index-agnostic
     const snapshot = this.selectedOptionService.overlaySelectedByIdentity(canonical, ui);
@@ -5686,7 +5687,7 @@ export class QuizQuestionComponent extends BaseQuestion
       return;
     }
 
-    const controls = this.currentQuestion.options.reduce((acc, option) => {
+    const controls = this.currentQuestion.options.reduce((acc: { [key: string]: any }, option: Option) => {
       acc[option.optionId!] = new FormControl(false);
       return acc;
     }, {});
@@ -5928,8 +5929,8 @@ export class QuizQuestionComponent extends BaseQuestion
 
     // Build a snapshot that mirrors what the user sees (UI order + flags)
     const qIdx = this.quizService.getCurrentQuestionIndex();
-    const canonical = (this.quizService.questions?.[qIdx]?.options ?? []).map(o => ({ ...o }));
-    const ui = (this.optionsToDisplay ?? []).map(o => ({ ...o }));
+    const canonical = (this.quizService.questions?.[qIdx]?.options ?? []).map((o: Option) => ({ ...o }));
+    const ui = (this.optionsToDisplay ?? []).map((o: Option) => ({ ...o }));
 
     // Prefer your identity overlay if you have it; otherwise use UI list
     const snapshot: Option[] =
@@ -6019,7 +6020,7 @@ export class QuizQuestionComponent extends BaseQuestion
         this.quizService.getQuestionByIndex(this.currentQuestionIndex)
       );
 
-      if (!this.quizQuestionManagerService.isValidQuestionData(questionData)) {
+      if (!this.quizQuestionManagerService.isValidQuestionData(questionData!)) {
         throw new Error('Invalid question data');
       }
 
