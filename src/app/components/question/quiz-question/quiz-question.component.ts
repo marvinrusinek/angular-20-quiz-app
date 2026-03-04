@@ -3341,6 +3341,12 @@ export class QuizQuestionComponent extends BaseQuestion
 
         (async () => {
           try {
+            // Guard: stop if user navigated away during the 40ms wait
+            if (this.currentQuestionIndex !== lockedIndex) {
+              console.log(`[QQC] ⏭ Aborting FET trigger for Q${lockedIndex + 1} (navigated away)`);
+              return;
+            }
+
             // Always use lockedIndex here
             const svc: any = this.explanationTextService;
             svc._activeIndex = lockedIndex;
@@ -3350,6 +3356,9 @@ export class QuizQuestionComponent extends BaseQuestion
             svc.setIsExplanationTextDisplayed(false);
 
             await new Promise(res => setTimeout(res, 40));
+
+            // Final safety check after wait
+            if (this.currentQuestionIndex !== lockedIndex) return;
 
             // Retrieve canonical question using locked index
             const canonicalQ = this.quizService.questions?.[lockedIndex] ?? q;
@@ -3385,16 +3394,22 @@ export class QuizQuestionComponent extends BaseQuestion
 
       // Post-click tasks (feedback + message sync)
       requestAnimationFrame(() => {
-        if (this._skipNextAsyncUpdates) return;
+        if (this._skipNextAsyncUpdates || idx !== this.currentQuestionIndex) return;
         (async () => {
-          try { if (evtOpt) this.optionSelected.emit(evtOpt); } catch { }
-          this.feedbackText = await this.generateFeedbackText(q!);
-          await this.postClickTasks(evtOpt ?? undefined, evtIdx, true, false);
-          if (event.option) {
-            this.handleCoreSelection(event as { option: SelectedOption, index: number, checked: boolean });
-          }
-          if (evtOpt) this.markBindingSelected(evtOpt);
-          this.refreshFeedbackFor(evtOpt ?? undefined);
+          try {
+            if (evtOpt) this.optionSelected.emit(evtOpt);
+
+            // Re-verify index inside async block
+            if (idx !== this.currentQuestionIndex) return;
+
+            this.feedbackText = await this.generateFeedbackText(q!);
+            await this.postClickTasks(evtOpt ?? undefined, evtIdx, true, false, idx);
+            if (event.option) {
+              this.handleCoreSelection(event as { option: SelectedOption, index: number, checked: boolean }, idx);
+            }
+            if (evtOpt) this.markBindingSelected(evtOpt);
+            this.refreshFeedbackFor(evtOpt ?? undefined);
+          } catch { }
         })().catch(() => { });
       });
 
@@ -3737,7 +3752,7 @@ export class QuizQuestionComponent extends BaseQuestion
     option: SelectedOption;
     index: number;
     checked: boolean;
-  }): void {
+  }, questionIndex: number): void {
     const isMultiSelect = this.question?.type === QuestionType.MultipleAnswer;
 
     // Perform selection tracking immediately
@@ -3748,16 +3763,19 @@ export class QuizQuestionComponent extends BaseQuestion
       checked: true,
     });
 
-    // Force state update before Next button eval
-    this.setAnsweredAndDisplayState();
+    // Guard: Only update global display state if we are still on the same question
+    if (this.currentQuestionIndex === questionIndex) {
+      // Force state update before Next button eval
+      this.setAnsweredAndDisplayState();
+    }
 
     // Call Next button logic immediately
     if (ev.option) {
-      this.selectedOptionService.setSelectedOption(ev.option);
+      this.selectedOptionService.setSelectedOption(ev.option, questionIndex);
     }
 
     this.selectedOptionService.evaluateNextButtonStateForQuestion(
-      this.currentQuestionIndex,
+      questionIndex,
       this.question?.type === QuestionType.MultipleAnswer
     );
 
@@ -3841,10 +3859,12 @@ export class QuizQuestionComponent extends BaseQuestion
     opt: SelectedOption,
     idx: number,
     checked: boolean,
-    wasPreviouslySelected: boolean
+    wasPreviouslySelected: boolean,
+    questionIndex?: number
   ): Promise<void> {
+    const qIdx = questionIndex ?? this.currentQuestionIndex;
     await this.processSelectedOption(opt, idx, checked);
-    await this.finalizeAfterClick(opt, idx, wasPreviouslySelected);
+    await this.finalizeAfterClick(opt, idx, wasPreviouslySelected, qIdx);
   }
 
   // Utility: replace the changed binding and keep a fresh array ref
@@ -4033,15 +4053,17 @@ export class QuizQuestionComponent extends BaseQuestion
   private async finalizeAfterClick(
     option: SelectedOption,
     index: number,
-    wasPreviouslySelected: boolean
+    wasPreviouslySelected: boolean,
+    questionIndex?: number
   ): Promise<void> {
+    const qIdx = questionIndex ?? this.currentQuestionIndex;
     console.log('[✅ finalizeAfterClick]', {
       index,
       optionId: option.optionId,
-      questionIndex: this.currentQuestionIndex,
+      questionIndex: qIdx,
     });
 
-    const lockedIndex = this.fixedQuestionIndex ?? this.currentQuestionIndex;
+    const lockedIndex = qIdx;
     this.markQuestionAsAnswered(lockedIndex);
 
     console.log(
@@ -4056,9 +4078,11 @@ export class QuizQuestionComponent extends BaseQuestion
     };
     this.optionSelected.emit(sel);
 
-    this.selectedOptionService.setAnswered(true);
-    this.nextButtonStateService.setNextButtonState(true);
-
+    // Guard global state updates
+    if (this.currentQuestionIndex === lockedIndex) {
+      this.selectedOptionService.setAnswered(true);
+      this.nextButtonStateService.setNextButtonState(true);
+    }
     this.cdRef.markForCheck();
   }
 
