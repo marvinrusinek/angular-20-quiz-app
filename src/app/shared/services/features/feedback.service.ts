@@ -133,6 +133,38 @@ export class FeedbackService {
       }
     });
 
+    // CROSS-CHECK: Count correct/incorrect selections directly from optionsRaw (optionsToDisplay).
+    // This handles cases where the `selected` parameter is incomplete due to timing/ID issues.
+    if (isMultiMode && optionsRaw.length > 0) {
+      let rawCorrectSelected = 0;
+      let rawIncorrectSelected = 0;
+      for (const o of optionsRaw) {
+        if (o.selected) {
+          if (isCorrectHelper(o.correct)) {
+            rawCorrectSelected++;
+          } else {
+            rawIncorrectSelected++;
+          }
+        }
+      }
+      // Also count targetOption if it's correct and selected (just clicked)
+      if (targetOption && targetOption.selected && isCorrectHelper(targetOption.correct)) {
+        // Check if targetOption is already counted in rawCorrectSelected
+        const alreadyCounted = optionsRaw.some(o =>
+          o.selected && isCorrectHelper(o.correct) &&
+          ((o.text && targetOption.text && String(o.text).trim() === String(targetOption.text).trim()) ||
+           (o.optionId != null && targetOption.optionId != null && String(o.optionId) === String(targetOption.optionId)))
+        );
+        if (!alreadyCounted) rawCorrectSelected++;
+      }
+      console.log(`[FeedbackService] CROSS-CHECK: rawCorrectSelected=${rawCorrectSelected}, rawIncorrectSelected=${rawIncorrectSelected} vs numCorrectSelected=${numCorrectSelected}, numIncorrectSelected=${numIncorrectSelected}`);
+      // Use whichever source found MORE correct selections (more complete picture)
+      if (rawCorrectSelected > numCorrectSelected) {
+        numCorrectSelected = rawCorrectSelected;
+        numIncorrectSelected = rawIncorrectSelected;
+      }
+    }
+
     const totalCorrectRequired = correctIndices.length > 0 ? correctIndices.length : 1;
     
     // Multi-Answer detection consistency: Resolved if counts match and no errors

@@ -2287,6 +2287,20 @@ export class SharedOptionComponent
       option.selected
         ? this.selectedOptions.add(effectiveId)
         : this.selectedOptions.delete(effectiveId);
+
+      // CRITICAL: Push to service immediately so generateFeedbackConfig (which runs next)
+      // can query the service and find ALL selections, not just the previous click's.
+      // Single-mode does this at line 2279; multi-mode was missing it.
+      if (option.selected) {
+        const qIdx = this.getActiveQuestionIndex() ?? 0;
+        const selOpt: SelectedOption = {
+          ...option,
+          optionId: (option.optionId != null && option.optionId !== -1) ? option.optionId : effectiveId,
+          questionIndex: qIdx,
+          selected: true
+        };
+        this.selectedOptionService.addOption(qIdx, selOpt);
+      }
     }
 
     const optionBinding = this.optionBindings[index];
@@ -2476,6 +2490,19 @@ export class SharedOptionComponent
     if (isMulti) {
       // Gather all currently selected options. 
       // Use consistent effectiveId (id || index) for Set lookups to match handleSelection
+      // Also query the service for persisted selections (local state can be stale between clicks)
+      const activeQIdx = this.getActiveQuestionIndex() ?? 0;
+      const serviceSelections = this.selectedOptionService.getSelectedOptionsForQuestion(activeQIdx) ?? [];
+      const serviceSelectedIds = new Set<number | string>();
+      for (const sel of serviceSelections) {
+        const sId = (sel as any).optionId ?? (sel as any).index;
+        if (sId != null && sId !== -1) {
+          serviceSelectedIds.add(sId);
+          serviceSelectedIds.add(Number(sId));
+          serviceSelectedIds.add(String(sId));
+        }
+      }
+
       const selectedModels = (this.optionsToDisplay || []).filter((opt, i) => {
         const id = opt.optionId;
         const normIdForFilter = (id != null && !isNaN(Number(id))) ? Number(id) : null;
@@ -2492,11 +2519,16 @@ export class SharedOptionComponent
         if (option && opt === option) return true;
         if (option && id != null && id === option.optionId) return true;
 
+        // Check 4: Service has this option as selected (handles stale local state)
+        if (serviceSelectedIds.has(currentEffectiveId)) return true;
+        if (id != null && serviceSelectedIds.has(id)) return true;
+
         return false;
       });
 
-      console.log(`[SOC.generateFeedbackConfig] Q${this.getActiveQuestionIndex() + 1} | selectedOptionsSet:`, Array.from(this.selectedOptions));
-      console.log(`[SOC.generateFeedbackConfig] Q${this.getActiveQuestionIndex() + 1} | selectedModels:`, selectedModels.map(m => m.optionId));
+      console.log(`[SOC.generateFeedbackConfig] Q${activeQIdx + 1} | selectedOptionsSet:`, Array.from(this.selectedOptions));
+      console.log(`[SOC.generateFeedbackConfig] Q${activeQIdx + 1} | serviceSelectedIds:`, Array.from(serviceSelectedIds));
+      console.log(`[SOC.generateFeedbackConfig] Q${activeQIdx + 1} | selectedModels:`, selectedModels.map(m => m.optionId));
 
       // Map to include displayIndex for FeedbackService reconciliation
       optionsToCheck = selectedModels.map(m => {
@@ -2513,7 +2545,7 @@ export class SharedOptionComponent
       if (!optionsToCheck.find(o => o === option || (o.optionId != null && o.optionId > -1 && o.optionId === option.optionId))) {
         optionsToCheck.push(option);
       }
-      console.log(`[SOC.generateFeedbackConfig] Q${this.getActiveQuestionIndex() + 1} | finalOptionsToCheck IDs:`, optionsToCheck.map(o => o.optionId));
+      console.log(`[SOC.generateFeedbackConfig] Q${activeQIdx + 1} | finalOptionsToCheck IDs:`, optionsToCheck.map(o => o.optionId));
     }
 
     // Ensure correct feedback message context
@@ -2530,10 +2562,57 @@ export class SharedOptionComponent
     const validOptions = (this.optionsToDisplay || []).filter(isValidOption);
     const correctMessage = this.feedbackService.setCorrectMessage(validOptions, this.currentQuestion!);
 
+    // DIRECT OVERRIDE: Check if all correct options are selected using EVERY available
+    // source of truth (selectedOptions Set, optionBindings, optionsToDisplay, current click).
+    let finalFeedback = feedbackMessage;
+    if (isMulti) {
+      const isCorrectFlag = (o: any) => o && (o.correct === true || String(o.correct) === 'true');
+      const displayOpts = this.optionsToDisplay || [];
+
+      // Count correct options
+      const correctIndices: number[] = [];
+      displayOpts.forEach((o, i) => {
+        if (isCorrectFlag(o)) correctIndices.push(i);
+      });
+      const correctCount = correctIndices.length;
+
+      // Check selection using MULTIPLE sources: any match = selected
+      const isOptSelected = (opt: Option, idx: number): boolean => {
+        // Source 1: optionsToDisplay item's selected flag
+        if (opt.selected) return true;
+        // Source 2: local selectedOptions Set (maintained by handleSelection)
+        const oid = opt.optionId;
+        const normId = (oid != null && !isNaN(Number(oid))) ? Number(oid) : null;
+        const effId = (normId !== null && normId > -1) ? normId : idx;
+        if (this.selectedOptions.has(effId)) return true;
+        // Source 3: optionBindings isSelected
+        if (this.optionBindings?.[idx]?.isSelected) return true;
+        if (this.optionBindings?.[idx]?.option?.selected) return true;
+        // Source 4: is this the option being clicked right now?
+        if (idx === selectedIndex) return true;
+        return false;
+      };
+
+      let correctSelectedCount = 0;
+      let incorrectSelectedCount = 0;
+      displayOpts.forEach((o, i) => {
+        const selected = isOptSelected(o, i);
+        if (isCorrectFlag(o) && selected) correctSelectedCount++;
+        if (!isCorrectFlag(o) && selected) incorrectSelectedCount++;
+      });
+
+      console.log(`[SOC.override] Q${(this.getActiveQuestionIndex() ?? 0) + 1} | correctCount=${correctCount} correctSelected=${correctSelectedCount} incorrectSelected=${incorrectSelectedCount} selectedOptionsSet=[${Array.from(this.selectedOptions)}] selectedIndex=${selectedIndex}`);
+
+      if (correctCount > 0 && correctSelectedCount >= correctCount && incorrectSelectedCount === 0) {
+        finalFeedback = `You're right! ${correctMessage}`;
+        console.log(`[SOC.override] OVERRIDE APPLIED → "${finalFeedback}"`);
+      }
+    }
+
     return {
       selectedOption: option,
       correctMessage,
-      feedback: feedbackMessage,
+      feedback: finalFeedback,
       showFeedback: true,
       idx: selectedIndex,
       options: this.optionsToDisplay ?? [],
