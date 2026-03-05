@@ -539,6 +539,12 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             if (isNavBack) {
               shouldShowExplanation = false;
             }
+
+            // When display state is explicitly 'question' mode (set during restart
+            // or navigation reset), always show question text, not FET
+            if (state?.mode === 'question') {
+              shouldShowExplanation = false;
+            }
             
             // DIRECT OIS BYPASS: If OIS has already confirmed all correct answers
             // are selected, trust it unconditionally. This handles cases where the
