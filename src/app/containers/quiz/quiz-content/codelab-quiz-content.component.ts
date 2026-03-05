@@ -93,6 +93,10 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     this._fetLocked = false;
     this._lockedForIndex = -1;
 
+    // Reset timed-out state so stale expiry from a previous session
+    // doesn't cause FET to display on a fresh visit to this question
+    this.timedOutIdxSubject.next(-1);
+
     // Force clear view to prevent previous question's FET leaking (e.g. Q1 FET on Q2)
     // Force clear view removed to prevent race condition wiping out synchronous updates
     // if (this.qText?.nativeElement) {
@@ -508,9 +512,10 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             map(tIdx => tIdx === safeIdx)
           ),
           this.displayState$.pipe(startWith({ mode: 'question', answered: false })),
-          this.quizNavigationService.getIsNavigatingToPrevious().pipe(startWith(false))
+          this.quizNavigationService.getIsNavigatingToPrevious().pipe(startWith(false)),
+          this.quizStateService.userHasInteracted$.pipe(startWith(-1))
         ]).pipe(
-          map(([qObj, selections, fetText, isTimedOut, state, isNavBack]) => {
+          map(([qObj, selections, fetText, isTimedOut, state, isNavBack, lastInteractedIdx]) => {
             const rawQText = qObj?.questionText || '';
             const serviceQText = (qObj?.questionText ?? '').trim();
             const effectiveQText = serviceQText || rawQText || '';
@@ -535,14 +540,18 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             // Allow FET if: Resolved OR TimedOut
             let shouldShowExplanation = isResolved || isTimedOut;
 
-            // When navigating backwards (Previous button), always show question text
-            if (isNavBack) {
+            // CRITICAL GUARD: Only show FET if user has actively interacted with
+            // this question in the current session. This prevents stale FET from
+            // showing after quiz restart, backward navigation, or page reload.
+            // The _hasUserInteracted set is cleared during restart.
+            // Check both: the last-interacted reactive stream AND the persistent set
+            const hasInteracted = this.quizStateService.hasUserInteracted(safeIdx) || lastInteractedIdx === safeIdx;
+            if (!hasInteracted) {
               shouldShowExplanation = false;
             }
 
-            // When display state is explicitly 'question' mode (set during restart
-            // or navigation reset), always show question text, not FET
-            if (state?.mode === 'question') {
+            // When navigating backwards (Previous button), always show question text
+            if (isNavBack) {
               shouldShowExplanation = false;
             }
             
@@ -552,13 +561,13 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             // raw question data and stored selections.
             if (!shouldShowExplanation && isMultipleAnswer) {
               const perfectMap = (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
-              if (perfectMap?.get(safeIdx) === true) {
+              if (perfectMap?.get(safeIdx) === true && hasInteracted) {
                 shouldShowExplanation = true;
                 console.log(`[displayText$] Q${safeIdx + 1} OIS bypass: _multiAnswerPerfect=true → forcing SHOW`);
               }
             }
             
-            if (!shouldShowExplanation && state?.mode === 'explanation' && safeSelections.length > 0) {
+            if (!shouldShowExplanation && state?.mode === 'explanation' && safeSelections.length > 0 && hasInteracted) {
               if (isMultipleAnswer) {
                 shouldShowExplanation = isResolved;
               } else {
