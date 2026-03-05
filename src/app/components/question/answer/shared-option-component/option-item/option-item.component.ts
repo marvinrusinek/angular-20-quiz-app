@@ -95,8 +95,8 @@ export class OptionItemComponent implements OnChanges {
   }
 
   get optionId(): number {
-    return (this.b?.option?.optionId != null && this.b.option.optionId !== -1) 
-      ? Number(this.b.option.optionId) 
+    return (this.b?.option?.optionId != null && this.b.option.optionId !== -1)
+      ? Number(this.b.option.optionId)
       : this.i;
   }
 
@@ -139,12 +139,12 @@ export class OptionItemComponent implements OnChanges {
       this.b.highlightIncorrect ||
       isActuallySelectedFromService ||
       this._wasSelected;
-    
+
     const isCorrect =
       this.b.option?.correct === true ||
       String(this.b.option?.correct) === 'true' ||
       this.b.isCorrect === true;
-    
+
     const hasAnsweredCurrentQuestion = selections.length > 0;
     const shouldRevealCorrectAnswer =
       this.type === 'single' && hasAnsweredCurrentQuestion && isCorrect;
@@ -158,8 +158,7 @@ export class OptionItemComponent implements OnChanges {
 
     const shouldHighlightThisOption =
       showSelectionState ||
-      feedbackForThisOption ||
-      shouldRevealCorrectAnswer;
+      feedbackForThisOption;
 
     if (shouldHighlightThisOption) {
       if (isCorrect) {
@@ -214,16 +213,16 @@ export class OptionItemComponent implements OnChanges {
       this._wasSelected ||
       !!this.b.showFeedbackForOption?.[this.optionId] ||
       isActuallySelectedFromService;
-  
+
     const isCorrect =
       this.b.option?.correct === true ||
       String(this.b.option?.correct) === 'true' ||
       this.b.isCorrect === true;
-    
+
     const hasAnsweredCurrentQuestion = selections.length > 0;
     const shouldRevealCorrectAnswer =
       this.type === 'single' && hasAnsweredCurrentQuestion && isCorrect;
-    
+
     const feedbackMap = this.b.showFeedbackForOption ?? {};
     const feedbackForThisOption =
       !!feedbackMap[this.optionId] ||
@@ -233,8 +232,7 @@ export class OptionItemComponent implements OnChanges {
 
     const shouldHighlightThisOption =
       isActivelySelected ||
-      feedbackForThisOption ||
-      shouldRevealCorrectAnswer;
+      feedbackForThisOption;
 
     // DEBUG HIGHLIGHT TRACE:
     /* if (this.b.isSelected) {
@@ -304,7 +302,7 @@ export class OptionItemComponent implements OnChanges {
     const fromBindingMap = !!(this.b.showFeedbackForOption && this.b.showFeedbackForOption[this.optionId]);
     const fromHighlight = this.b.highlightCorrect || this.b.highlightIncorrect;
     const fromLocked = !!(this.b.disabled && this.b.isSelected);
-    
+
     return fromBindingMap || fromHighlight || fromLocked || this.isPreviousSelection();
   }
 

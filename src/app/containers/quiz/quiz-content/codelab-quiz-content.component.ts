@@ -137,40 +137,46 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       selectedOptionServiceHasSelections ||
       hasTrackedInteraction;
 
-    if (!hasAnswerEvidence) {
-      // No valid FET for this question = it wasn't answered, clear everything
-      ets.resetForIndex(idx);
-      ets.latestExplanation = '';
-      ets.latestExplanationIndex = idx;
-      ets.formattedExplanationSubject.next('');
-      ets.explanationText$.next('');
-      // Clear _fetSubject replay buffer so activeFetText$ won't serve stale FET
-      // from a previous session. Without this, the direct FET fallback in
-      // displayText$ can show Q1's old FET text on fresh quiz start.
-      try {
-        (ets as any)._fetSubject?.next({ idx: -1, text: '', token: 0 });
-      } catch { }
-      // Clear any cached FET for this index to prevent stale FET display.
-      // Keeping stale index cache here can leak a previous Q1 explanation after
-      // restart/rehydration races before fresh FET is regenerated.
-      try {
-        ets.fetByIndex?.delete(idx);
-      } catch { }
-      try {
-        delete (ets.formattedExplanations as any)[idx];
-      } catch { }
+    // AUTHORITATIVE MODE RESET: Determine if the question is truly resolved (all correct, none wrong).
+    // This prevents explanation mode from leaking from a previous question (like Q3) to the current one (Q4).
+    const selectedForIdx = (this.selectedOptionService.selectedOptionsMap?.get(idx) ?? []) as Option[];
+    const isActuallyResolved = currentQuestion && this.selectedOptionService.isQuestionResolvedCorrectly(currentQuestion, selectedForIdx);
 
-      // Also clear the local question text cache which may have stale FET
-      this._lastQuestionTextByIndex?.delete(idx);
-      // Clear stale selectedOptionsMap entry so isAnswered() returns false
-      this.quizService.selectedOptionsMap?.delete(idx);
-      // Clear session tracking so stale FET won't persist
-      this._fetDisplayedThisSession?.delete(idx);
-      ets.setShouldDisplayExplanation(false, { force: true });
-      ets.setIsExplanationTextDisplayed(false, { force: true });
-      this.quizStateService.setDisplayState({ mode: 'question', answered: false });
+    if (isActuallyResolved) {
+      console.log(`[CQCC] Q${idx + 1} is already perfectly resolved. Showing explanation mode.`);
+      this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
     } else {
-      // Has valid FET: preserve state for persistence
+      console.log(`[CQCC] Q${idx + 1} is not resolved. Forcing question mode.`);
+      this.quizStateService.setDisplayState({ mode: 'question', answered: false });
+
+      if (!hasAnswerEvidence) {
+        // No valid FET for this question = it wasn't answered, clear everything
+        ets.resetForIndex(idx);
+        ets.latestExplanation = '';
+        ets.latestExplanationIndex = idx;
+        ets.formattedExplanationSubject.next('');
+        ets.explanationText$.next('');
+        
+        // Clear _fetSubject replay buffer
+        try {
+          (ets as any)._fetSubject?.next({ idx: -1, text: '', token: 0 });
+        } catch { }
+
+        // Clear any cached FET for this index
+        try {
+          ets.fetByIndex?.delete(idx);
+        } catch { }
+        try {
+          delete (ets.formattedExplanations as any)[idx];
+        } catch { }
+
+        this._lastQuestionTextByIndex?.delete(idx);
+        this.quizService.selectedOptionsMap?.delete(idx);
+        this.selectedOptionService.selectedOptionsMap?.delete(idx); // Clear both stores
+        this._fetDisplayedThisSession?.delete(idx);
+        ets.setShouldDisplayExplanation(false, { force: true });
+        ets.setIsExplanationTextDisplayed(false, { force: true });
+      }
     }
 
     // Reset local view flags (component-level)
@@ -253,11 +259,13 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     shareReplay(1)
   );
 
-  public activeFetText$: Observable<string> = this.explanationTextService.fetPayload$.pipe(
-    withLatestFrom(this.quizService.currentQuestionIndex$),
-    map(([payload, idx]:
-      [FETPayload, number]) => (payload?.idx === idx ? (payload.text ?? '') : '')),
-    startWith(''),
+  public activeFetText$: Observable<string> = combineLatest([
+    this.explanationTextService.fetPayload$.pipe(startWith(null)),
+    this.quizService.currentQuestionIndex$
+  ]).pipe(
+    map(([payload, idx]: [FETPayload | null, number]) => 
+      (payload?.idx === idx ? (payload.text ?? '') : '')
+    ),
     distinctUntilChanged()
   );
 
@@ -492,64 +500,70 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       filter(idx => idx >= 0),
       switchMap(safeIdx => {
         return combineLatest([
-          // Ensure combineLatest can emit immediately on cold start,
-          // even if getQuestionByIndex is async (qObj is safely handled as optional below).
-          this.quizService.getQuestionByIndex(safeIdx).pipe(startWith(null)),
-
-          // Use gated FET stream (only non-empty when correct answer(s) selected)
-          // This prevents explanation from showing on first click / interaction.
-          //
-          // combineLatest will NOT emit until ALL sources emit at least once.
-          // If fetToDisplay$ doesn't emit immediately on Q1 load, question text will never render.
-          // startWith('') guarantees an initial emission so Q1 question text displays.
-          this.fetToDisplay$.pipe(startWith('')),
-
-          // Cold-start bulletproofing:
-          // displayState$ must emit at least once or combineLatest will stall.
-          // We provide a safe default so question text can render immediately on Q1.
-          this.displayState$.pipe(startWith({ mode: 'question', answered: false })),
-
-          // Direct FET text fallback: activeFetText$ is driven by _fetSubject which
-          // always emits on correct answer click. This bypasses the shouldShowFet$
-          // gate (which can silently break due to JSON.stringify errors on option
-          // objects with circular references in getSelectedOptionsForQuestion$).
-          this.activeFetText$.pipe(startWith(''))
+          this.quizService.getQuestionByIndex(safeIdx),
+          this.selectedOptionService.getSelectedOptionsForQuestion$(safeIdx).pipe(startWith([])),
+          this.explanationTextService.getExplanationText$(safeIdx).pipe(startWith('')),
+          this.timedOutIdx$.pipe(
+            startWith(-1),
+            map(tIdx => tIdx === safeIdx)
+          ),
+          this.displayState$.pipe(startWith({ mode: 'question', answered: false }))
         ]).pipe(
-          map(([qObj, fetTextGated, state, activeFetDirect]) => {
+          map(([qObj, selections, fetText, isTimedOut, state]) => {
             const rawQText = qObj?.questionText || '';
             const serviceQText = (qObj?.questionText ?? '').trim();
             const effectiveQText = serviceQText || rawQText || '';
 
-            // 1. Show FET from the gated stream if available (original path)
-            const fetText = (fetTextGated ?? '').trim();
-            if (fetText.length > 0) {
-              console.log('[displayText$] Showing FET (gated):', fetText.substring(0, 40) + '...');
-              return fetText;
-            }
-
-            // 2. Fallback: Show FET directly when displayState is 'explanation'
-            //    and activeFetText$ has text. This handles the case where
-            //    shouldShowFet$ is stuck due to reactive chain issues.
-            const directFet = (activeFetDirect ?? '').trim();
-            if (directFet.length > 0 && state?.mode === 'explanation') {
-              console.log('[displayText$] Showing FET (direct, mode=explanation):', directFet.substring(0, 40) + '...');
-              return directFet;
-            }
-
-            console.log('[displayText$] Showing Question Text (FET empty/gated)');
-
-            let displayText = effectiveQText;
-
+            // Build the base question text display (with multi-answer banner if applicable)
+            let qDisplay = effectiveQText;
             const numCorrect = qObj?.options?.filter(o => o.correct)?.length || 0;
             if (numCorrect > 1 && qObj?.options) {
               const banner = this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
                 numCorrect,
                 qObj.options.length
               );
-              displayText = `${displayText} <span class="correct-count">${banner}</span>`;
+              qDisplay = `${qDisplay} <span class="correct-count">${banner}</span>`;
             }
 
-            return displayText;
+            // AUTHORITATIVE RESOLUTION FOR THIS INDEX
+            const safeSelections = Array.isArray(selections) ? selections : [];
+            const isResolved = qObj ? this.selectedOptionService.isQuestionResolvedLeniently(qObj, safeSelections) : false;
+            
+            const isMultipleAnswer = numCorrect > 1;
+
+            // Allow FET if: Resolved OR TimedOut
+            let shouldShowExplanation = isResolved || isTimedOut;
+            
+            // DIRECT OIS BYPASS: If OIS has already confirmed all correct answers
+            // are selected, trust it unconditionally. This handles cases where the
+            // resolution check fails due to ID normalization mismatches between
+            // raw question data and stored selections.
+            if (!shouldShowExplanation && isMultipleAnswer) {
+              const perfectMap = (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
+              if (perfectMap?.get(safeIdx) === true) {
+                shouldShowExplanation = true;
+                console.log(`[displayText$] Q${safeIdx + 1} OIS bypass: _multiAnswerPerfect=true → forcing SHOW`);
+              }
+            }
+            
+            if (!shouldShowExplanation && state?.mode === 'explanation' && safeSelections.length > 0) {
+              if (isMultipleAnswer) {
+                shouldShowExplanation = isResolved;
+              } else {
+                shouldShowExplanation = true;
+              }
+            }
+
+            const finalFet = (fetText ?? '').trim();
+            const hasFet = finalFet.length > 0;
+            const hasRaw = !!qObj?.explanation;
+
+            console.log(`[displayText$] Q${safeIdx + 1} | mode=${state?.mode} | isResolved=${isResolved} | isTimedOut=${isTimedOut} | selections=${safeSelections.length} | hasFet=${hasFet} | hasRaw=${hasRaw} | result=${shouldShowExplanation && (hasFet || hasRaw) ? 'SHOW_FET' : 'SHOW_QUESTION'}`);
+
+            if (shouldShowExplanation && hasFet) return finalFet;
+            if (shouldShowExplanation && hasRaw) return qObj.explanation;
+
+            return qDisplay;
           })
         );
       }),

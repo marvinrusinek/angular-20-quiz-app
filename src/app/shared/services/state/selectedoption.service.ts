@@ -2456,6 +2456,13 @@ export class SelectedOptionService {
     question: QuizQuestion,
     selected: Array<SelectedOption | Option> | null
   ): boolean {
+    return this.getResolutionStatus(question, selected as Option[], true).resolved;
+  }
+
+  public isQuestionResolvedLeniently(
+    question: QuizQuestion,
+    selected: Array<SelectedOption | Option> | null
+  ): boolean {
     return this.getResolutionStatus(question, selected as Option[], false).resolved;
   }
 
@@ -2478,89 +2485,100 @@ export class SelectedOptionService {
     incorrectSelected: number;
     remainingCorrect: number;
   } {
-    if (!question || !question.options) {
-      return {
-        resolved: false,
-        correctTotal: 0,
-        correctSelected: 0,
-        incorrectSelected: 0,
-        remainingCorrect: 0
-      };
+    if (!question) {
+      return { resolved: false, correctTotal: 0, correctSelected: 0, incorrectSelected: 0, remainingCorrect: 0 };
     }
 
-    const correctTotal = question.options.filter(o => this.coerceToBoolean(o.correct)).length;
+    const questionOptions = Array.isArray(question.options) ? question.options : [];
+    const correctTotal = questionOptions.filter(o => this.coerceToBoolean(o.correct)).length;
+
     let correctSelected = 0;
     let incorrectSelected = 0;
 
-    const seenKeys = new Set<string>();
-    const selectedArr = selected ?? [];
+    const selectedArr = Array.isArray(selected) ? selected : [];
+    const seenIndicesInQuestion = new Set<number>();
 
-    for (let i = 0; i < selectedArr.length; i++) {
-      const sel = selectedArr[i];
-      // Use displayIndex or loop index for uniqueness to avoid collapsing placeholder IDs
-      const visualIdx = (sel as any).displayIndex ?? i;
-      const selKey = `${visualIdx}_${sel.optionId}`;
-      const selIdStr = String(sel.optionId);
-      if (seenKeys.has(selKey)) continue;
-      seenKeys.add(selKey);
+    // Detect whether question options have real IDs (from JSON) or not
+    const hasRealIds = questionOptions.some(o => o.optionId != null);
 
-      let isCorrect = false;
+    console.log(`[RESOLUTION_TRACE] Q: "${question.questionText?.substring(0, 50)}..." | totalCorrect=${correctTotal} | selections=${selectedArr.length} | hasRealIds=${hasRealIds}`);
 
-      // A. Trusted flag
-      if (this.coerceToBoolean(sel.correct)) {
-        isCorrect = true;
-      } else {
-        // B. Lookup by ID
-        const matchById = question.options.find(o =>
-          (o.optionId !== undefined && o.optionId !== null) && String(o.optionId) === selIdStr
-        );
+    for (const sel of selectedArr) {
+        if (!sel) continue;
 
-        if (matchById) {
-          isCorrect = this.coerceToBoolean(matchById.correct);
-        } else {
-          // C. Match by Text (Robust against Shuffling + Missing IDs)
-          const matchByText = question.options.find(o =>
-            o.text && sel.text &&
-            o.text.trim().toLowerCase() === sel.text.trim().toLowerCase()
-          );
+        let matchedIdx = -1;
+        let matchMethod = 'none';
 
-          if (matchByText) {
-            isCorrect = this.coerceToBoolean(matchByText.correct);
-          } else {
-            // D. Lookup by Index (Relaxed guard & Modulo Fix)
-            const numericId = Number(sel.optionId);
-            if (Number.isInteger(numericId)) {
-              const index = (numericId % 100) - 1;
-              if (index >= 0 && index < question.options.length) {
-                const target = question.options[index];
-                isCorrect = this.coerceToBoolean(target.correct);
-              }
-            }
-          }
+        // STRATEGY 1: TEXT MATCH (most reliable — works regardless of ID normalization)
+        if (sel.text) {
+            const selText = sel.text.trim().toLowerCase();
+            matchedIdx = questionOptions.findIndex(o =>
+                o.text && o.text.trim().toLowerCase() === selText
+            );
+            if (matchedIdx !== -1) matchMethod = 'text';
         }
-      }
 
-      if (isCorrect) correctSelected++;
-      else incorrectSelected++;
+        // STRATEGY 2: ID MATCH (only reliable when question options have real IDs)
+        if (matchedIdx === -1 && sel.optionId != null && hasRealIds) {
+            const selIdStr = String(sel.optionId);
+            matchedIdx = questionOptions.findIndex(o =>
+                o.optionId != null && String(o.optionId) === selIdStr
+            );
+            if (matchedIdx !== -1) matchMethod = 'id';
+        }
+
+        // STRATEGY 3: Synthetic ID Modulo (e.g. 201 -> index 0)
+        if (matchedIdx === -1 && typeof sel.optionId === 'number' && sel.optionId > 100) {
+            const potentialIdx = (sel.optionId % 100) - 1;
+            if (potentialIdx >= 0 && potentialIdx < questionOptions.length) {
+                matchedIdx = potentialIdx;
+                matchMethod = 'synthetic_id';
+            }
+        }
+
+        // STRATEGY 4: Explicit index fallback
+        if (matchedIdx === -1 && typeof (sel as any).index === 'number') {
+            const idx = (sel as any).index;
+            if (idx >= 0 && idx < questionOptions.length) {
+                matchedIdx = idx;
+                matchMethod = 'index';
+            }
+        }
+
+        if (matchedIdx !== -1) {
+            if (seenIndicesInQuestion.has(matchedIdx)) continue;
+            seenIndicesInQuestion.add(matchedIdx);
+
+            const isCorrect = this.coerceToBoolean(questionOptions[matchedIdx].correct);
+            if (isCorrect) {
+                correctSelected++;
+                console.log(`  ✅ "${sel.text?.substring(0, 25)}" -> Q[${matchedIdx}] via ${matchMethod} = CORRECT`);
+            } else {
+                incorrectSelected++;
+                console.log(`  ❌ "${sel.text?.substring(0, 25)}" -> Q[${matchedIdx}] via ${matchMethod} = INCORRECT`);
+            }
+        } else {
+            // Last resort: trust the selection's own correct flag
+            if (this.coerceToBoolean(sel.correct)) {
+                correctSelected++;
+                console.log(`  ⚠️ "${sel.text?.substring(0, 25)}" no Q-match, using sel.correct=true`);
+            } else {
+                incorrectSelected++;
+                console.log(`  ❓ "${sel.text?.substring(0, 25)}" no Q-match, assuming INCORRECT`);
+            }
+        }
     }
 
     const remainingCorrect = Math.max(correctTotal - correctSelected, 0);
-
-    // Lenient: resolved when all correct are selected
     let resolved = correctTotal > 0 && remainingCorrect === 0;
 
-    // Strict: also require no incorrect selections
     if (strict) {
       resolved = resolved && incorrectSelected === 0;
     }
 
-    return {
-      resolved,
-      correctTotal,
-      correctSelected,
-      incorrectSelected,
-      remainingCorrect
-    };
+    console.log(`[RESOLUTION_TRACE] RESULT: correct=${correctSelected}/${correctTotal}, incorrect=${incorrectSelected}, strict=${strict} -> RESOLVED=${resolved}`);
+
+    return { resolved, correctTotal, correctSelected, incorrectSelected, remainingCorrect };
   }
 
   public getSelectedOptionsForQuestion$(idx: number): Observable<any[]> {
@@ -2589,10 +2607,8 @@ export class SelectedOptionService {
       // Example: len=6 and caller passes 6 (meaning Q6) -> convert to 5.
       if (n >= len && n - 1 >= 0 && n - 1 < len) return n - 1;
 
-      // If idx points to "missing" but idx-1 exists, assume 1-based.
-      if (n > 0 && qs[n] == null && qs[n - 1] != null) return n - 1;
-
-      // Otherwise, treat as correct 0-based.
+      // REMOVED: Dangerous logic that shifts index if current is null.
+      // This caused Q3 (idx 2) to resolve as Q2 (idx 1) when Q3 data was loading.
       return n;
     }
 

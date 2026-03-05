@@ -135,6 +135,7 @@ export class OptionInteractionService {
     }).filter((id): id is number => Number.isFinite(id));
 
     this.quizService.updateUserAnswer(qIdx, validIds);
+    console.log(`[OIS] Syncing selection for Q${qIdx+1}:`, simulatedSelection.map(s => s.text || s.optionId));
     this.selectedOptionService.syncSelectionState(qIdx, simulatedSelection);
 
     const isShuffledForScoring = this.quizService?.isShuffleEnabled?.();
@@ -187,6 +188,7 @@ export class OptionInteractionService {
 
     const isSingle = !isMultipleAnswer;
     let isPerfect = false;
+    let allCorrectSelected = false;
 
     if (isSingle) {
       if (clickedIsCorrect) {
@@ -256,13 +258,19 @@ export class OptionInteractionService {
         return `idx:${fallbackIndex}`;
       };
 
-      const correctSet = questionOptions.length > 0
-        ? new Set(
-          questionOptions
-            .filter((o) => isCorrectHelper(o?.correct))
-            .map((o, i) => keyForQuestionOption(o, i))
-        )
-        : new Set((correctIds ?? []).map((id) => `id:${String(id).trim()}`));
+      const correctSet = new Set<string>();
+      if (questionOptions.length > 0) {
+        questionOptions.forEach((o, i) => {
+          if (isCorrectHelper(o?.correct)) {
+            const key = keyForQuestionOption(o, i);
+            correctSet.add(key);
+          }
+        });
+      } else {
+        (correctIds ?? []).forEach(id => correctSet.add(`id:${String(id).trim()}`));
+      }
+      
+      console.log(`[OIS] Built correctSet for Q${qIdx + 1}:`, [...correctSet]);
       
       if (!state.correctClicksPerQuestion.has(qIdx)) {
         state.correctClicksPerQuestion.set(qIdx, new Set<number>());
@@ -301,9 +309,10 @@ export class OptionInteractionService {
         .filter((k): k is string => !!k);
 
       const selectedSet = new Set(selectedKeys);
+      console.log(`[OIS] Built selectedSet for Q${qIdx + 1}:`, [...selectedSet]);
 
       // Strict equality check: same size and every correct key is selected
-      const allCorrectSelected = [...correctSet].every((key) => selectedSet.has(key));
+      allCorrectSelected = [...correctSet].every((key) => selectedSet.has(key));
 
       isPerfect = correctSet.size > 0 && correctSet.size === selectedSet.size && allCorrectSelected;
 
@@ -314,17 +323,26 @@ export class OptionInteractionService {
         isPerfect
       });
 
-      if (isPerfect) {
-        this.timerService.allowAuthoritativeStop();
-        this.timerService.stopTimer(undefined, { force: true });
-        this.quizService.scoreDirectly(qIdx, true, true);
-        
-        // Signal that multi-answer is perfectly resolved for this index.
-        // Store on quizService (shared singleton) so emitFormatted can check it.
+      // Signal that multi-answer is resolved enough for FET display.
+      // We store this on the quizService singleton so emitFormatted can check it.
+      if (allCorrectSelected) {
         if (!(this.quizService as any)._multiAnswerPerfect) {
           (this.quizService as any)._multiAnswerPerfect = new Map<number, boolean>();
         }
         (this.quizService as any)._multiAnswerPerfect.set(qIdx, true);
+        console.log(`[OIS] Signaling RELAXED RESOLUTION for Q${qIdx + 1} FET display (allCorrectSelected=true)`);
+        
+        // CRITICAL: Re-trigger the selection stream so displayText$ pipeline
+        // re-evaluates WITH the _multiAnswerPerfect flag now set.
+        // Without this, the earlier syncSelectionState fires the stream BEFORE
+        // the flag is set, causing the pipeline to miss the bypass.
+        this.selectedOptionService.syncSelectionState(qIdx, simulatedSelection);
+      }
+
+      if (isPerfect) {
+        this.timerService.allowAuthoritativeStop();
+        this.timerService.stopTimer(undefined, { force: true });
+        this.quizService.scoreDirectly(qIdx, true, true);
         
         console.log(`[OIS] PERFECT score detected for Q${qIdx + 1}`);
 
@@ -349,8 +367,10 @@ export class OptionInteractionService {
 
     updateOptionAndUI(binding, index, mockEvent);
 
-    if (isSingle || (isMultipleAnswer && typeof isPerfect !== 'undefined' && isPerfect)) {
-      console.log(`[OIS] Triggering emitExplanation for Q${qIdx + 1}`);
+    // Trigger explanation if single-answer OR if multi-answer is satisfied (leniently)
+    const isSatisfied = isSingle || (isMultipleAnswer && allCorrectSelected);
+    if (isSatisfied) {
+      console.log(`[OIS] Triggering emitExplanation for Q${qIdx + 1} (Satisfied=${isSatisfied})`);
       setTimeout(() => {
         emitExplanation(qIdx);
       }, 0);

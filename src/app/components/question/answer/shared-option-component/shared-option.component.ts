@@ -1818,39 +1818,40 @@ export class SharedOptionComponent
         if (selectedFromUi.length === 0) return false;
 
         const correctSelected = selectedFromUi.filter(isSelectionCorrect).length;
+        const incorrectSelected = selectedFromUi.filter(s => !isSelectionCorrect(s)).length;
+
         if (correctCount > 1) {
-          return correctSelected >= correctCount;
+          // Multi-answer: Lenient resolution (all correct selected, ignore incorrect)
+          const allCorrect = correctSelected >= correctCount;
+          if (allCorrect) {
+             console.log(`[emitExplanation] Multi-answer UI Resolved: correct=${correctSelected}/${correctCount}, inc=${incorrectSelected}`);
+          }
+          return allCorrect;
         }
-        return correctSelected >= 1;
+        // Single-answer: Must be correct and no other (incorrect) selection
+        return correctSelected >= 1 && incorrectSelected === 0;
       })();
 
       const status = this.selectedOptionService.getResolutionStatus(
         question,
         selectedFromService as any,
-        false
+        false // Lenient
       );
 
-      const resolved = selectedFromUi.length > 0 ? uiResolved : status.resolved;
+      // Autoritative resolved flag: use UI state if fresh, otherwise service state
+      let resolved = (selectedFromUi.length > 0) ? uiResolved : status.resolved;
+      
+      // Safety: If service says it's resolved but UI check failed (e.g. metadata mismatch), trust the service.
+      if (!resolved && status.resolved) {
+          console.log(`[emitExplanation] Q${resolvedIndex + 1} UI check failed but Service check PASSED. Overriding to RESOLVED=true.`);
+          resolved = true;
+      }
 
-      if (correctCount > 1) {
-        if (!resolved) {
-          console.log(
-            `[emitExplanation] Multi-answer Q${resolvedIndex + 1} not fully resolved ` +
-            `(uiResolved=${uiResolved}, correctTotal=${correctCount}, uiSelected=${selectedFromUi.length}, ` +
-            `serviceResolved=${status.resolved}, serviceSelected=${selectedFromService.length}) — skipping`
-          );
+      console.log(`[emitExplanation] Q${resolvedIndex + 1} | correctTotal=${correctCount} | uiResolved=${uiResolved} | serviceResolved=${status.resolved} -> FINAL=${resolved}`);
+
+      if (!resolved) {
+          console.log(`[emitExplanation] Q${resolvedIndex + 1} NOT resolved. Skipping FET.`);
           return;
-        }
-      } else {
-        // Single-answer: never show FET on incorrect option selection.
-        if (!resolved) {
-          console.log(
-            `[emitExplanation] Single-answer Q${resolvedIndex + 1} incorrect selection ` +
-            `(uiResolved=${uiResolved}, uiSelected=${selectedFromUi.length}, ` +
-            `serviceResolved=${status.resolved}, serviceSelected=${selectedFromService.length}) — skipping`
-          );
-          return;
-        }
       }
     }
 
@@ -2117,7 +2118,7 @@ export class SharedOptionComponent
       })
       .filter((n): n is number => n !== null);
 
-    console.error(`🔴🔴🔴 [FET-SOC] Q${displayIndex + 1} | CORRECT INDICES: ${JSON.stringify(correctIndices)}`);
+    console.log(`[FET-SOC] Q${displayIndex + 1} | CORRECT INDICES: ${JSON.stringify(correctIndices)}`);
 
     // 5. Format and Emit
     const rawExplanation = (authQ.explanation || '').trim();

@@ -1,9 +1,9 @@
 import { Injectable, Injector } from '@angular/core';
 import {
-  BehaviorSubject, firstValueFrom, Observable, of, ReplaySubject, Subject
+  BehaviorSubject, firstValueFrom, merge, Observable, of, ReplaySubject, Subject
 } from 'rxjs';
 import {
-  distinctUntilChanged, filter, map, skip, take, timeout
+  distinctUntilChanged, filter, map, skip, startWith, take, timeout
 } from 'rxjs/operators';
 
 import { QuestionType } from '../../models/question-type.enum';
@@ -132,16 +132,14 @@ export class ExplanationTextService {
     this.activeIndex$.pipe(
       distinctUntilChanged()
     ).subscribe((idx: number) => {
-      // Don't clear if FET has already been set for this index (user clicked)
-      if (this._fetLocked) {
-        console.log(`[ETS] Skipping clear - FET locked for Q${idx + 1}`);
-        return;
-      }
+      // ALWAYS clear stale global state when the index changes.
+      // Keeping it populated leads to FET leakage between questions.
       this.latestExplanation = '';
-      this.latestExplanationIndex = idx;  // set to new index instead of null
+      this.latestExplanationIndex = idx;
       this.formattedExplanationSubject.next('');
       this.setShouldDisplayExplanation(false, { force: true });
       this.setIsExplanationTextDisplayed(false, { force: true });
+      this._fetLocked = false; // Reset lock on question switch
     });
   }
 
@@ -371,7 +369,7 @@ export class ExplanationTextService {
   public getFormattedExplanationTextForQuestion(
     questionIndex: number
   ): Observable<string | null> {
-    const FALLBACK = 'No explanation available';
+    const FALLBACK = null;
 
     if (this._fetLocked) {
       const lockedEntry = this.formattedExplanations[questionIndex];
@@ -865,6 +863,13 @@ export class ExplanationTextService {
     };
     this.fetByIndex.set(index, formattedExplanation);  // sync helper map for component fallback
 
+    // Update index-bound reactive streams immediately
+    try {
+      const entry = this.getOrCreate(index);
+      entry.text$.next(formattedExplanation);
+      this._byIndex.get(index)?.next(formattedExplanation);
+    } catch { }
+
     // DIAGNOSTIC: Log stack trace when writing Q1 FET
     if (index === 0) {
       const stack = new Error().stack?.split('\n').slice(1, 6).map(l => l.trim()).join(' <- ') ?? 'no stack';
@@ -1164,11 +1169,7 @@ export class ExplanationTextService {
     indices = Array.from(new Set(indices)).sort((a, b) => a - b);
 
     // DIAGNOSTIC: Log stack trace for Q1 to identify which caller produces wrong indices
-    if ((displayIndex ?? 0) === 0) {
-      const stack = new Error().stack?.split('\n').slice(1, 6).map(l => l.trim()).join(' <- ') ?? 'no stack';
-      console.error(`🔴🔴🔴 [formatExplanation] Q1 | INDICES: ${JSON.stringify(indices)} | STACK: ${stack}`);
-    }
-    console.error(`🔴🔴🔴 [formatExplanation] Q${(displayIndex ?? 0) + 1} | FINAL INDICES: ${JSON.stringify(indices)} | TEXT: "${e.slice(0, 50)}..."`);
+    console.log(`[formatExplanation] Q${(displayIndex ?? 0) + 1} | FINAL INDICES: ${JSON.stringify(indices)}`);
 
     if (indices.length === 0) {
       console.warn(`[formatExplanation] ⚠️ No indices! Fallback to raw.`);
@@ -1559,41 +1560,38 @@ export class ExplanationTextService {
               (o: any) => o.correct === true || String(o.correct) === 'true'
             ).length;
           } else {
-             // If metadata is missing, fail open so singles and already-resolved
-            // questions are not blocked by a stale lookup race.
-            console.warn(`[emitFormatted] Guard metadata unavailable for Q${index + 1}; skipping multi-answer block. isShuffled=${isShuffled}, questionsLen=${baseQuestions?.length}`);
+            console.warn(`[emitFormatted] Guard metadata unavailable for Q${index + 1}`);
           }
           
-          console.log(`[emitFormatted] Guard Check for Q${index + 1}: correctCount=${correctCount}`);
-            
           if (correctCount > 1) {
-            // Multi-answer: require perfect resolution before emitting FET.
             const perfectMap = (quizSvc as any)._multiAnswerPerfect as Map<number, boolean> | undefined;
             const oisPerfect = perfectMap?.get(index) === true;
 
             let selectionResolved = false;
+            let statusLog: any = {};
             if (selectedSvc && question) {
               const selected = selectedSvc.getSelectedOptionsForQuestion(index) ?? [];
               const status = selectedSvc.getResolutionStatus(question as QuizQuestion, selected as Option[], false);
               selectionResolved = status.resolved === true;
-
-              console.log(`[emitFormatted] Multi-answer resolution for Q${index + 1}:`, {
-                oisPerfect,
-                selectedCount: selected.length,
-                correctSelected: status.correctSelected,
-                correctTotal: status.correctTotal,
-                remainingCorrect: status.remainingCorrect,
-                resolved: selectionResolved
-              });
+              statusLog = {
+                selected: selected.length,
+                correct: status.correctSelected,
+                total: status.correctTotal,
+                incorrect: status.incorrectSelected,
+                resolved: status.resolved,
+                questionId: (question as any).id || 'unknown'
+              };
             }
 
+            console.log(`[emitFormatted] Guard Check Q${index + 1}: oisPerfect=${oisPerfect}, resolved=${selectionResolved}`, statusLog);
+            
             if (!oisPerfect && !selectionResolved) {
-              console.log(`[emitFormatted] ⛔ Multi-answer Q${index + 1} not fully resolved — blocking FET`);
+              console.log(`[emitFormatted] ⛔ Q${index + 1} BLOCKED. (Needs ${statusLog.total} correct, has ${statusLog.correct})`);
               this._fetLocked = false;
               return;
             }
             
-            console.log(`[emitFormatted] ✅ Multi-answer Q${index + 1} resolved — allowing FET`);
+            console.log(`[emitFormatted] ✅ Q${index + 1} PASSED. (oisPerfect=${oisPerfect} || resolved=${selectionResolved})`);
           }
         }
       } catch (e) {
@@ -1714,6 +1712,11 @@ export class ExplanationTextService {
 
     // At this point, FET is computed and “ready” for this question
     try {
+      this.getOrCreate(index).text$.next(validatedText);
+      this._byIndex.get(index)?.next(validatedText);
+    } catch { }
+
+    try {
       this.qss.setExplanationReady(true);
     } catch { }
   }
@@ -1771,7 +1774,7 @@ export class ExplanationTextService {
   }
 
   // Holds a per-question text$ stream (isolated subjects by index)
-  private getOrCreate(index: number) {
+  public getOrCreate(index: number) {
     // Ensure a dedicated text$ stream exists for each question index
     let textEntry = this._textMap.get(index);
     if (!textEntry) {
@@ -1796,6 +1799,24 @@ export class ExplanationTextService {
       text$: textEntry.text$,
       gate$: this._gate.get(index)!
     };
+  }
+
+  // Returns a reactive stream for a given question index
+  public getExplanationText$(index: number): Observable<string | null> {
+    const { text$ } = this.getOrCreate(index);
+    const existing = this.formattedExplanations[index]?.explanation || this.fetByIndex.get(index) || '';
+    
+    // Return a stream that merges direct emissions with global collection updates
+    return merge(
+      text$,
+      this.explanationsUpdated.pipe(
+        map(dict => dict[index]?.explanation || ''),
+        distinctUntilChanged()
+      )
+    ).pipe(
+      startWith(existing),
+      distinctUntilChanged()
+    );
   }
 
   // Reset explanation state cleanly for a new index

@@ -315,7 +315,12 @@ export class OptionUiSyncService {
         console.error('[OptionUiSyncService] Error in setSelectedOption:', err);
       }
 
-      this.selectedOptionService.setAnswered(true, true);
+      // Only set answered=true immediately for single-answer questions.
+      // For multi-answer, checkAndScoreMultiAnswer will handle it when perfect.
+      if (ctx.type === 'single') {
+        this.selectedOptionService.setAnswered(true, true);
+      }
+      
       // Ensure explanation is emitted for ALL types (including multiple), 
       // not just single (which handled it in applySingleSelectionPainting).
       ctx.emitExplanation(currentIndex);
@@ -606,6 +611,7 @@ export class OptionUiSyncService {
         if (!alreadyScored) {
           console.log(`[OptionUiSyncService] Scoring multi-answer Q${questionIndex + 1} via change path: ALL ${correctOptions.length} correct answers selected`);
           this.quizService.scoreDirectly(questionIndex, true, true);
+          this.selectedOptionService.setAnswered(true, true);
         }
       }
     }
