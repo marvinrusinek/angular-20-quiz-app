@@ -507,9 +507,10 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             startWith(-1),
             map(tIdx => tIdx === safeIdx)
           ),
-          this.displayState$.pipe(startWith({ mode: 'question', answered: false }))
+          this.displayState$.pipe(startWith({ mode: 'question', answered: false })),
+          this.quizNavigationService.getIsNavigatingToPrevious().pipe(startWith(false))
         ]).pipe(
-          map(([qObj, selections, fetText, isTimedOut, state]) => {
+          map(([qObj, selections, fetText, isTimedOut, state, isNavBack]) => {
             const rawQText = qObj?.questionText || '';
             const serviceQText = (qObj?.questionText ?? '').trim();
             const effectiveQText = serviceQText || rawQText || '';
@@ -535,7 +536,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             let shouldShowExplanation = isResolved || isTimedOut;
 
             // When navigating backwards (Previous button), always show question text
-            if (this.isNavigatingToPrevious) {
+            if (isNavBack) {
               shouldShowExplanation = false;
             }
             

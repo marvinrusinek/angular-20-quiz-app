@@ -100,6 +100,9 @@ export class QuizNavigationService {
   }
 
   public async advanceToPreviousQuestion(): Promise<boolean> {
+    // Signal backward navigation so display pipeline suppresses FET
+    this.isNavigatingToPrevious.next(true);
+
     try {
       // Do not wipe everything; only clear transient display flags if necessary
       this.quizStateService.setLoading(false);
@@ -114,7 +117,12 @@ export class QuizNavigationService {
       );
     }
 
-    return await this.navigateWithOffset(-1);
+    const result = await this.navigateWithOffset(-1);
+
+    // Reset flag after a short delay to allow display pipeline to process
+    setTimeout(() => this.isNavigatingToPrevious.next(false), 500);
+
+    return result;
   }
 
   private async navigateWithOffset(offset: number): Promise<boolean> {
