@@ -142,11 +142,11 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     const selectedForIdx = (this.selectedOptionService.selectedOptionsMap?.get(idx) ?? []) as Option[];
     const isActuallyResolved = currentQuestion && this.selectedOptionService.isQuestionResolvedCorrectly(currentQuestion, selectedForIdx);
 
-    if (isActuallyResolved) {
+    if (isActuallyResolved && !this.isNavigatingToPrevious) {
       console.log(`[CQCC] Q${idx + 1} is already perfectly resolved. Showing explanation mode.`);
       this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
     } else {
-      console.log(`[CQCC] Q${idx + 1} is not resolved. Forcing question mode.`);
+      console.log(`[CQCC] Q${idx + 1} is ${this.isNavigatingToPrevious ? 'navigating back' : 'not resolved'}. Forcing question mode.`);
       this.quizStateService.setDisplayState({ mode: 'question', answered: false });
 
       if (!hasAnswerEvidence) {
@@ -533,6 +533,11 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
             // Allow FET if: Resolved OR TimedOut
             let shouldShowExplanation = isResolved || isTimedOut;
+
+            // When navigating backwards (Previous button), always show question text
+            if (this.isNavigatingToPrevious) {
+              shouldShowExplanation = false;
+            }
             
             // DIRECT OIS BYPASS: If OIS has already confirmed all correct answers
             // are selected, trust it unconditionally. This handles cases where the
