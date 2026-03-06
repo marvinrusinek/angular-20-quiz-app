@@ -750,33 +750,13 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.currentQuestionIndex = idx;
     this.quizService.setCurrentQuestionIndex(idx);
 
-    // Starting on Q1 should always begin a fresh scoring session.
-    // This prevents stale score (e.g. 1/6) from previous runs in the same tab.
+    // DANGER: We CANNOT reset score unconditionally here. 
+    // This wipes score when navigating backward to Q1!
+    // ONLY IntroductionComponent or restartQuiz actions should dictate fresh starts!
     if (idx === 0) {
-      this.quizService.resetScore();
-      this.quizService.questionCorrectness?.clear();
-      this.quizService.selectedOptionsMap?.clear();
-      this.quizService.userAnswers = [];
-      this.quizService.answers = [];
-      this.selectedOptionService.resetSelectionState();
-      const quizKey = this.quizId || this.quizService.quizId || '';
-      if (quizKey) {
-        this.selectedOptionService.clearAllSelectionsForQuiz(quizKey);
-      }
-
       try {
         localStorage.setItem('savedQuestionIndex', '0');
-        localStorage.setItem('correctAnswersCount', '0');
-        localStorage.removeItem('questionCorrectness');
-        localStorage.removeItem('selectedOptionsMap');
-        localStorage.removeItem('userAnswers');
-        sessionStorage.removeItem('selectedOptionsMap');
       } catch { }
-
-      // Preserve existing score/state here. Fresh-start resets are handled by
-      // explicit entry flows (intro/restart), not by route index heuristics.
-
-      //localStorage.setItem('savedQuestionIndex', JSON.stringify(idx));
     } else {
       localStorage.setItem('savedQuestionIndex', JSON.stringify(idx));
     }
@@ -4310,6 +4290,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       const savedIndexRaw = localStorage.getItem('savedQuestionIndex');
       const isFreshStartAtQ1 =
         questionIndex === 0 &&
+        this.quizService.questionCorrectness.size === 0 &&
         (savedIndexRaw == null || String(savedIndexRaw).trim() === '0');
 
       // Do not auto-score Q1 during a fresh start when no real selection exists.

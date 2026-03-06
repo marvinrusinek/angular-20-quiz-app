@@ -643,6 +643,9 @@ export class SharedOptionComponent
       this.perQuestionHistory.clear();
       this.selectedOptionMap.clear();
       this.selectedOptionHistory = [];
+      this._isMultiModeCache = null;
+      this.forceDisableAll = false;
+      this.lockedIncorrectOptionIds.clear();
       this.showFeedbackForOption = {};
       this.feedbackConfigs = {};
       this.lastFeedbackOptionId = -1;

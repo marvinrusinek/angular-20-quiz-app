@@ -1409,7 +1409,18 @@ export class QuizService {
     if (question && Array.isArray(question.options)) {
       // Preserve the SAME array reference the caller passed in
       options.splice(0, options.length, ...question.options);
+
+      // Save state before reset to prevent score loss during navigation
+      const savedCorrectness = new Map(this.questionCorrectness);
+      const savedSelections = new Map(this.selectedOptionsMap);
+      const savedCount = this.correctCount;
+
       this.resetAll();
+
+      // Restore state immediately to maintain score persistence
+      this.questionCorrectness = savedCorrectness;
+      this.selectedOptionsMap = savedSelections;
+      this.correctCount = savedCount;
     }
 
     const base = options;  // caller’s array reference
@@ -2381,7 +2392,7 @@ export class QuizService {
     }
   }
 
-  async checkIfAnsweredCorrectly(index: number = -1, updateScore: boolean = true): Promise<boolean> {
+  async checkIfAnsweredCorrectly(index: number = -1, updateScore: boolean = false): Promise<boolean> {
     const qIndex = index >= 0 ? index : this.currentQuestionIndex;
     console.log(`[checkIfAnsweredCorrectly] Called for Q${qIndex}. IndexParam=${index}, ServiceIndex=${this.currentQuestionIndex}`);
 
@@ -2451,10 +2462,15 @@ export class QuizService {
 
     const answerIds = this.answers.map((a) => a.optionId).filter((id): id is number => id !== undefined);
     // this.incrementScore(answerIds, isCorrect, this.multipleAnswer, qIndex);
+    // If updateScore is explicitly true, then we apply score logic
     if (updateScore) {
-      this.incrementScore(answerIds, isCorrect, this.multipleAnswer, qIndex);
+      if (answerIds.length > 0) {
+        this.incrementScore(answerIds, isCorrect, this.multipleAnswer, qIndex);
+      } else {
+        console.log(`[checkIfAnsweredCorrectly] No answerIds to score for Q${qIndex}`);
+      }
     } else {
-      console.log(`[checkIfAnsweredCorrectly] Skipping score mutation for Q${qIndex} (navigation/state sync check)`);
+      console.log(`[checkIfAnsweredCorrectly] Skipping score mutation for Q${qIndex} (updateScore=false)`);
     }
 
     return isCorrect;
@@ -2517,7 +2533,13 @@ export class QuizService {
       }
     }
 
-    const wasCorrect = this.questionCorrectness.get(scoringKey) || false;
+    let wasCorrect = this.questionCorrectness.get(scoringKey);
+    // Fallback: if we didn't find it by scoringKey, try display index.
+    if (wasCorrect === undefined) {
+      wasCorrect = this.questionCorrectness.get(qIndex);
+    }
+    wasCorrect = wasCorrect || false;
+    
     const isNowCorrect = correctAnswerFound;  // simplified
 
     if (isNowCorrect && !wasCorrect) {
@@ -2544,26 +2566,57 @@ export class QuizService {
   }
 
   resetScore(): void {
+    localStorage.setItem('DEBUG_resetScore', new Error().stack || 'no stack');
     this.questionCorrectness.clear();
     this.saveQuestionCorrectness();  // clear persistence
-    this.correctAnswersCountSubject.next(0);
     this.correctCount = 0;
-    this.sendCorrectCountToResults(0);
-    localStorage.setItem('correctAnswersCount', '0');
+    // Use _forceSetScore to bypass the guard in sendCorrectCountToResults
+    this._forceSetScore(0);
     console.log('[QuizService] Score fully reset.');
   }
 
+  /** Bypass guard — only for explicit resets (restart, new quiz). */
+  private _forceSetScore(value: number): void {
+    const safeValue = Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
+    this.correctCount = safeValue;
+    this.correctAnswersCountSubject.next(safeValue);
+    localStorage.setItem('correctAnswersCount', String(safeValue));
+    if (this.quizId) {
+      localStorage.setItem(this.scoreQuizIdStorageKey, this.quizId);
+    }
+  }
+
   private updateCorrectCountForResults(value: number): void {
-    // this.correctCount = value;
     const safeValue = Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
     this.correctCount = safeValue;
     this.sendCorrectCountToResults(this.correctCount);
   }
 
   sendCorrectCountToResults(value: number): void {
-    // this.correctAnswersCountSubject.next(value);
-    // localStorage.setItem('correctAnswersCount', String(value));
     const safeValue = Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
+
+    // GUARD: If something tries to set score to 0 but we have correctly answered
+    // questions in our map, ignore the zero and re-derive from the map.
+    // This prevents navigation-triggered accidental resets.
+    if (safeValue === 0 && this.questionCorrectness.size > 0) {
+      localStorage.setItem('DEBUG_sendCorrectCount_BLOCKED', new Error().stack || 'no stack');
+      const trueCount = Array.from(this.questionCorrectness.values())
+        .filter(v => v === true).length;
+      if (trueCount > 0) {
+        console.warn(
+          `[QuizService] BLOCKED score reset to 0 — questionCorrectness has ${trueCount} correct answers. Keeping score at ${trueCount}.`
+        );
+        this.correctCount = trueCount;
+        this.correctAnswersCountSubject.next(trueCount);
+        localStorage.setItem('correctAnswersCount', String(trueCount));
+        if (this.quizId) {
+          localStorage.setItem(this.scoreQuizIdStorageKey, this.quizId);
+        }
+        return;
+      }
+    }
+
+    this.correctCount = safeValue;
     this.correctAnswersCountSubject.next(safeValue);
     localStorage.setItem('correctAnswersCount', String(safeValue));
     if (this.quizId) {
