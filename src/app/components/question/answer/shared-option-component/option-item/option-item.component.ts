@@ -302,8 +302,12 @@ export class OptionItemComponent implements OnChanges {
     const fromBindingMap = !!(this.b.showFeedbackForOption && this.b.showFeedbackForOption[this.optionId]);
     const fromHighlight = this.b.highlightCorrect || this.b.highlightIncorrect;
     const fromLocked = !!(this.b.disabled && this.b.isSelected);
+    
+    // Ensure we also check if it's marked as selected in the persistent service
+    const isCorrect = this.b.option?.correct === true || String(this.b.option?.correct) === 'true';
+    const isActuallySelectedFromService = this.isSelectedForCurrentQuestion();
 
-    return fromBindingMap || fromHighlight || fromLocked || this.isPreviousSelection();
+    return fromBindingMap || fromHighlight || fromLocked || this.isPreviousSelection() || isActuallySelectedFromService;
   }
 
   onChanged(event: any): void {
