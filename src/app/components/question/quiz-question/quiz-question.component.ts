@@ -3862,7 +3862,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
     // Update quiz state
     this.quizStateService.setDisplayState({
-      mode: 'explanation',
+      mode: this._lastAllCorrect ? 'explanation' : 'question',
       answered: true
     });
 
@@ -3963,7 +3963,7 @@ export class QuizQuestionComponent extends BaseQuestion
     this.selectedOptionService.setAnswered(true);
     this.quizStateService.setAnswered(true);
     this.quizStateService.setDisplayState({
-      mode: 'explanation',
+      mode: this._lastAllCorrect ? 'explanation' : 'question',
       answered: true,
     });
   }
@@ -4011,7 +4011,7 @@ export class QuizQuestionComponent extends BaseQuestion
   private markAsAnsweredAndShowExplanation(index: number): void {
     this.quizService.setCurrentQuestionIndex(index);
     this.quizStateService.setDisplayState({
-      mode: 'explanation',
+      mode: this._lastAllCorrect ? 'explanation' : 'question',
       answered: true,
     });
   }
@@ -4618,7 +4618,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
     if (questionState) {
       questionState.isAnswered = true;
-      questionState.explanationDisplayed = true;
+      questionState.explanationDisplayed = this._lastAllCorrect;
 
       this.quizStateService.setQuestionState(this.quizId!, questionIndex, questionState);
     } else {
@@ -4707,31 +4707,39 @@ export class QuizQuestionComponent extends BaseQuestion
 
       this.isAnswered = true;
 
-      await this.fetchAndSetExplanationText(this.currentQuestionIndex);
-      this.updateExplanationDisplay(true);
+      if (this._lastAllCorrect) {
+        await this.fetchAndSetExplanationText(this.currentQuestionIndex);
+        this.updateExplanationDisplay(true);
+      } else {
+        this.shouldDisplayExplanation = false;
+        this.showExplanationChange.emit(false);
+        this.displayExplanation = false;
+      }
 
       const questionData: any = await firstValueFrom(
         this.quizService.getQuestionByIndex(this.currentQuestionIndex)
       );
 
       if (this.quizQuestionManagerService.isValidQuestionData(questionData!)) {
-        const processedExplanation = await this.processExplanationText(
-          questionData!,
-          this.currentQuestionIndex
-        );
+        if (this._lastAllCorrect) {
+          const processedExplanation = await this.processExplanationText(
+            questionData!,
+            this.currentQuestionIndex
+          );
 
-        let explanationText =
-          processedExplanation?.explanation ??
-          questionData!.explanation ??
-          'No explanation available';
+          let explanationText =
+            processedExplanation?.explanation ??
+            questionData!.explanation ??
+            'No explanation available';
 
-        this.explanationToDisplay = explanationText;
-        this.explanationTextService.updateFormattedExplanation(explanationText);
+          this.explanationToDisplay = explanationText;
+          this.explanationTextService.updateFormattedExplanation(explanationText);
 
-        if (this.isAnswered && this.shouldDisplayExplanation) {
-          this.explanationToDisplayChange.emit(explanationText);
-          this.showExplanationChange.emit(true);
-          this.displayExplanation = true;
+          if (this.isAnswered && this.shouldDisplayExplanation) {
+            this.explanationToDisplayChange.emit(explanationText);
+            this.showExplanationChange.emit(true);
+            this.displayExplanation = true;
+          }
         }
 
         const correctOptions = (questionData?.options ?? []).filter(
@@ -4761,13 +4769,13 @@ export class QuizQuestionComponent extends BaseQuestion
         this.quizId!,
         this.currentQuestionIndex,
         {
-          explanationDisplayed: true,
+          explanationDisplayed: this._lastAllCorrect,
           selectedOptions: [option],
           explanationText: this.explanationToDisplay,
         },
         this.correctAnswers?.length ?? 0
       );
-      console.log('Question state updated with explanationDisplayed: true');
+      console.log(`Question state updated with explanationDisplayed: ${this._lastAllCorrect}`);
     } catch (stateUpdateError) {
       console.error('Error updating question state:', stateUpdateError);
     }
@@ -5016,7 +5024,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
       // Set the current explanation text
       this.explanationTextService.setCurrentQuestionExplanation(explanationText);
-      this.updateExplanationDisplay(true);
+      this.updateExplanationDisplay(this._lastAllCorrect);
 
       const totalCorrectAnswers = this.quizService.getTotalCorrectAnswers(currentQuestion);
 
@@ -5582,8 +5590,8 @@ export class QuizQuestionComponent extends BaseQuestion
 
     // Only update explanation display flag if not locked
     if (!this.explanationTextService.isExplanationLocked()) {
-      // Only trigger explanation if selected, otherwise ensure it's hidden
-      this.explanationTextService.setShouldDisplayExplanation(isOptionSelected);
+      // Only trigger explanation if selected and correct, otherwise ensure it's hidden
+      this.explanationTextService.setShouldDisplayExplanation(isOptionSelected && this._lastAllCorrect);
     } else {
       console.warn('[processOptionSelection] 🛡️ Explanation is locked. Skipping display update.');
     }
@@ -6038,8 +6046,10 @@ export class QuizQuestionComponent extends BaseQuestion
       this.explanationToDisplay = explanationText;
       this.explanationTextService.updateFormattedExplanation(explanationText);
       this.explanationTextService.setResetComplete(true);
-      this.explanationTextService.setShouldDisplayExplanation(true);
-      this.explanationTextService.lockExplanation();
+      this.explanationTextService.setShouldDisplayExplanation(this._lastAllCorrect);
+      if (this._lastAllCorrect) {
+        this.explanationTextService.lockExplanation();
+      }
       this.explanationToDisplayChange.emit(explanationText);
       this.showExplanationChange.emit(true);
       this.displayExplanation = true;

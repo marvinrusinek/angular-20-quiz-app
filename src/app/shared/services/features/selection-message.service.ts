@@ -222,7 +222,7 @@ export class SelectionMessageService {
       // Wrong chosen
       if (selectedWrong > 0) {
         this._singleAnswerIncorrectLock.add(index);
-        return 'Please select a correct answer to continue...';
+        return 'Please select correct answer to continue...';
       }
 
       // Correct chosen
