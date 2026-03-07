@@ -11,7 +11,7 @@ import { SelectedOptionService } from '../state/selectedoption.service';
 
 const START_MSG = 'Please start the quiz by selecting an option.';
 const CONTINUE_MSG = 'Please click an option to continue...';
-const NEXT_BTN_MSG = 'Please click the next button to continue...';
+const NEXT_BTN_MSG = 'Please click the Next button to continue...';
 const SHOW_RESULTS_MSG = 'Please click the Show Results button.';
 
 interface OptionSnapshot {
@@ -222,7 +222,7 @@ export class SelectionMessageService {
       // Wrong chosen
       if (selectedWrong > 0) {
         this._singleAnswerIncorrectLock.add(index);
-        return 'Please select correct answer to continue...';
+        return 'Please click the correct answer to continue...';
       }
 
       // Correct chosen
@@ -235,7 +235,7 @@ export class SelectionMessageService {
 
     // ───────── MULTI-ANSWER ─────────
     if (qType === QuestionType.MultipleAnswer) {
-      const baselineMsg = `Please select ${totalCorrect} correct answer${totalCorrect > 1 ? 's' : ''} to continue...`;
+      const baselineMsg = `Please select ${totalCorrect} correct answer to continue...`;
 
       // Baseline if no corrects chosen yet
       if (selectedCorrect === 0) {
@@ -254,7 +254,7 @@ export class SelectionMessageService {
       const remaining = totalCorrect - selectedCorrect;
       this._multiAnswerPreLock.delete(index);
       this._multiAnswerInProgressLock.add(index);
-      return `Please select ${remaining} more correct answer${remaining > 1 ? 's' : ''} to continue...`;
+      return `Please select ${remaining} more correct answer to continue...`;
     }
 
     // ───────── Default fallback ─────────
@@ -324,7 +324,7 @@ export class SelectionMessageService {
       let baselineMsg: string | null = null;
 
       if (qType === QuestionType.MultipleAnswer) {
-        baselineMsg = `Please select ${totalCorrect} correct answer${totalCorrect > 1 ? 's' : ''} to continue...`;
+        baselineMsg = `Please select ${totalCorrect} correct answer to continue...`;
 
         // Mark multi-answer as pre-lock
         this._multiAnswerPreLock.add(i0);
@@ -371,7 +371,7 @@ export class SelectionMessageService {
       let msg: string;
       if (qType === QuestionType.MultipleAnswer) {
         const totalCorrect = (q?.options ?? []).filter((o: any) => o.correct === true).length;
-        msg = `Please select ${totalCorrect} correct answer${totalCorrect > 1 ? 's' : ''} to continue...`;
+        msg = `Please select ${totalCorrect} correct answer to continue...`;
       } else {
         // Single-answer: Q1 gets START_MSG, others get CONTINUE_MSG
         msg = index === 0 ? START_MSG : CONTINUE_MSG;
@@ -424,7 +424,7 @@ export class SelectionMessageService {
       // ───────── MULTI-ANSWER: baseline ─────────
       if (qType === QuestionType.MultipleAnswer && selectedCorrect === 0) {
         if (!this._baselineReleased.has(i0)) {
-          const baselineMsg = `Please select ${totalCorrect} correct answer${totalCorrect > 1 ? 's' : ''} to continue...`;
+          const baselineMsg = `Please select ${totalCorrect} correct answer to continue...`;
           const prev = this._lastMessageByIndex.get(i0);
           if (prev !== baselineMsg) {
             this._lastMessageByIndex.set(i0, baselineMsg);
