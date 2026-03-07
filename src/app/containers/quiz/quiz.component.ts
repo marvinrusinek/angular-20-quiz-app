@@ -1808,7 +1808,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         this.onSelectionMessageChange(event.payload);
         break;
       case 'explanationToDisplayChange':
-        this.onExplanationChanged(event.payload);
+        this.onExplanationChanged(event.payload, event.index);
         break;
       case 'showExplanationChange':
         this.onShowExplanationChanged(event.payload);
@@ -2329,7 +2329,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       this.hasOptionsLoaded = false;
       this.shouldRenderOptions = false;
       this.explanationToDisplay = '';
-      this.explanationTextService.setExplanationText('');
+      this.explanationTextService.setExplanationText('', { index: this.currentQuestionIndex ?? 0 });
       return;
     }
 
@@ -2712,7 +2712,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // renders so we don't momentarily show the previous explanation (which caused the
     // flicker and stale text issues reported for Q1/Q2 transitions).
     this.explanationTextService.unlockExplanation();
-    this.explanationTextService.setExplanationText('', { force: true });
+    this.explanationTextService.setExplanationText('', { force: true, index: this.currentQuestionIndex });
     this.explanationTextService.setShouldDisplayExplanation(false, {
       force: true
     });
@@ -3761,11 +3761,11 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
         // Defensive fallback for empty explanation
         if (this.explanationToDisplay?.trim()) {
-          this.explanationTextService.setExplanationText(this.explanationToDisplay);
+          this.explanationTextService.setExplanationText(this.explanationToDisplay, { index: this.currentQuestionIndex });
         } else {
           console.warn(`[Explanation is empty for Q${questionIndex}]`);
           this.explanationToDisplay = 'No explanation available';
-          this.explanationTextService.setExplanationText(this.explanationToDisplay);
+          this.explanationTextService.setExplanationText(this.explanationToDisplay, { index: this.currentQuestionIndex });
         }
       } else {
         console.warn(
@@ -3773,7 +3773,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         );
         this.explanationToDisplay = 'No explanation available';
         this.explanationTextService.setExplanationText(
-          this.explanationToDisplay
+          this.explanationToDisplay,
+          { index: this.currentQuestionIndex }
         );
       }
 
@@ -3790,7 +3791,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       // Only allow disabling if explanation is not locked
       if (!this.explanationTextService.isExplanationLocked()) {
         this.explanationTextService.setResetComplete(false);
-        this.explanationTextService.setExplanationText('');
+        this.explanationTextService.setExplanationText('', { index: this.currentQuestionIndex });
         this.explanationTextService.setShouldDisplayExplanation(false);
       } else {
         console.warn('[Explanation reset blocked due to active lock]');
@@ -4660,7 +4661,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     if (!question) {
       console.warn(`No question found for index ${qIdx}`);
       this.explanationToDisplay = '<span class="muted">No explanation available</span>';
-      this.explanationTextService.setExplanationText(this.explanationToDisplay);
+      this.explanationTextService.setExplanationText(this.explanationToDisplay, { index: qIdx });
       this.explanationTextService.setShouldDisplayExplanation(true);
       return;
     }
@@ -4689,7 +4690,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.cdRef.detectChanges();
 
     // Push into the three streams synchronously so combinedText$ can see it
-    this.explanationTextService.setExplanationText(formatted);
+    this.explanationTextService.setExplanationText(formatted, { index: qIdx });
     this.explanationTextService.setShouldDisplayExplanation(true);
     this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
   }
@@ -4728,10 +4729,22 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.quizService.updateCorrectAnswersText(banner);
   }
 
-  onExplanationChanged(explanation: string): void {
-    this.explanationToDisplay = explanation;
-    this.explanationTextService.setExplanationText(explanation);
-    this.explanationTextService.setShouldDisplayExplanation(true);
+  onExplanationChanged(explanation: string | any, index?: number): void {
+    let finalExplanation: string;
+    let finalIndex = index;
+
+    if (explanation && typeof explanation === 'object' && 'payload' in explanation) {
+      finalExplanation = explanation.payload;
+      finalIndex = ('index' in explanation) ? explanation.index : index;
+    } else {
+      finalExplanation = explanation;
+    }
+
+    if (finalExplanation) {
+      this.explanationToDisplay = finalExplanation;
+      this.explanationTextService.setExplanationText(finalExplanation, { index: finalIndex });
+      this.explanationTextService.setShouldDisplayExplanation(true);
+    }
   }
 
   onShowExplanationChanged(shouldShow: boolean): void {

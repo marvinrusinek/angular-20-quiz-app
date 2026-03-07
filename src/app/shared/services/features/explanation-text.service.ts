@@ -1,4 +1,5 @@
 import { Injectable, Injector } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import {
   BehaviorSubject, firstValueFrom, merge, Observable, of, ReplaySubject, Subject
 } from 'rxjs';
@@ -120,7 +121,7 @@ export class ExplanationTextService {
     return this.shouldDisplayExplanationSource.getValue() === true;
   }
 
-  constructor(private injector: Injector) {
+  constructor(private injector: Injector, private activatedRoute: ActivatedRoute, private quizShuffleService: QuizShuffleService) {
     this._instanceId = `ETS-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     console.log(`[${this._instanceId}] ExplanationTextService initialized`);
 
@@ -187,14 +188,15 @@ export class ExplanationTextService {
 
   public setExplanationText(
     explanation: string | null,
-    options: { force?: boolean; context?: string } = {}
+    options: { force?: boolean; context?: string; index?: number } = {}
   ): void {
     const trimmed = (explanation ?? '').trim();
     const contextKey = this.normalizeContext(options.context);
     const signature = `${contextKey}:::${trimmed}`;
 
     // Ensure we track WHICH question this explanation belongs to
-    this.latestExplanationIndex = this._activeIndexValue;
+    const targetIdx = options.index ?? this._activeIndexValue;
+    this.latestExplanationIndex = targetIdx;
 
     // Visibility lock: prevent overwrites during tab restore
     if ((this as any)._visibilityLocked) {
@@ -321,14 +323,44 @@ export class ExplanationTextService {
       console.log('[ETS] Clearing stale explanation');
       this.latestExplanation = '';
       // Keep index aligned instead of null so subsequent questions work
-      this.latestExplanationIndex = this._activeIndex ?? 0;
+      this.latestExplanationIndex = targetIdx ?? this._activeIndex ?? 0;
     } else {
       this.latestExplanation = finalExplanation;
     }
 
-    // Unified emission pipeline
+    // Update the per-index subjects and collections if possible
+    const qIdx = targetIdx !== null ? targetIdx : this._activeIndex;
+    if (typeof qIdx === 'number' && qIdx >= 0) {
+      const trimmedFinal = (finalExplanation ?? '').trim();
+      
+      // Update persistent indexed storage
+      if (trimmedFinal) {
+        this.formattedExplanations[qIdx] = { 
+          questionIndex: qIdx, 
+          explanation: trimmedFinal 
+        };
+        this.fetByIndex.set(qIdx, trimmedFinal);
+      } else {
+        delete this.formattedExplanations[qIdx];
+        this.fetByIndex.delete(qIdx);
+      }
+
+      // Notify the indexed reactive subjects
+      try {
+        const { text$ } = this.getOrCreate(qIdx);
+        text$.next(trimmedFinal);
+        this._byIndex.get(qIdx)?.next(trimmedFinal);
+      } catch (e) {
+        console.warn(`[ETS] Failed to update indexed streams for Q${qIdx + 1}`, e);
+      }
+
+      // Broadcast the change to the collection
+      this.explanationsUpdated.next(this.formattedExplanations);
+    }
+
+    // Unified emission pipeline (Global)
     console.log(
-      `[ETS] Emitting to formattedExplanationSubject: "${finalExplanation}"`
+      `[ETS] Emitting to global subjects: "${finalExplanation}" (Index: ${qIdx})`
     );
     this.explanationText$.next(finalExplanation);
     this.formattedExplanationSubject.next(finalExplanation);
@@ -494,7 +526,7 @@ export class ExplanationTextService {
     // Ensure _activeIndex is set BEFORE the guard check.
     // This prevents FET from being blocked when _activeIndex is null/different.
     if (this._activeIndex !== questionIndex) {
-      console.log(`[ETS] � Setting _activeIndex: ${this._activeIndex} → ${questionIndex} before emit`);
+      console.log(`[ETS]  Setting _activeIndex: ${this._activeIndex} → ${questionIndex} before emit`);
       this._activeIndex = questionIndex;
     }
 
@@ -1012,32 +1044,22 @@ export class ExplanationTextService {
       const quizSvc = this.injector.get(QuizService, null);
       const shuffleSvc = this.injector.get(QuizShuffleService, null);
 
-      if (quizSvc && shuffleSvc && typeof qIdx === 'number' && quizSvc.quizId) {
-        let origIdx = shuffleSvc.toOriginalIndex(quizSvc.quizId, qIdx);
+      const resolvedQuizId = quizSvc?.quizId || this.activatedRoute.snapshot.paramMap.get('quizId') || 'dependency-injection';
+      if (quizSvc && shuffleSvc && typeof qIdx === 'number' && resolvedQuizId) {
+        let origIdx = shuffleSvc.toOriginalIndex(resolvedQuizId, qIdx);
         let pristine = (origIdx !== null) ? quizSvc.getPristineQuestion(origIdx) : null;
 
-        // 🛡️ SYNC VALIDATION: If the pristine question text doesn't match the displayed text,
-        // the index mapping is out of sync. Search for the correct pristine question by text.
-        const currentTextNorm = normalize(question?.questionText);
-        const pristineTextNorm = normalize(pristine?.questionText);
-
-        if (currentTextNorm && pristineTextNorm && currentTextNorm !== pristineTextNorm) {
-          console.warn(`[ETS] Index Sync Failure! DisplayIdx ${qIdx} mapped to OrigIdx ${origIdx} (Text Mismatch). Searching canonical cache...`);
-          const canonical = quizSvc.getCanonicalQuestions(quizSvc.quizId);
-          const foundIdx = canonical.findIndex(q => normalize(q.questionText) === currentTextNorm);
+        // 🧪 ROBUSTNESS FIX: Try to find origIdx by question text if mapping fails
+        if (!pristine && qText) {
+          const canonical = quizSvc.getCanonicalQuestions(resolvedQuizId);
+          const foundIdx = canonical.findIndex(q => normalize(q.questionText) === normalize(qText));
           if (foundIdx !== -1) {
             origIdx = foundIdx;
-            pristine = quizSvc.getPristineQuestion(origIdx);
-            console.log(`[ETS] ✅ Found correct match at OriginalIdx ${origIdx}`);
+            pristine = canonical[foundIdx];
+            console.log(`[ETS] ✅ Text-Match Recovery for Q${qIdx + 1} at OrigIdx ${origIdx}`);
           }
         }
-
-        // Fallback: If shuffle is disabled, display index IS the original index
-        if (origIdx === null && !quizSvc.isShuffleEnabled()) {
-          origIdx = qIdx;
-          pristine = quizSvc.getPristineQuestion(origIdx);
-        }
-
+        
         if (pristine) {
           // Check both answer (if populated) and options (standard raw data)
           const correctPristine = [
@@ -1116,25 +1138,21 @@ export class ExplanationTextService {
         const result = Array.from(new Set(indices)).sort((a, b) => a - b);
         console.log(`[ETS.getCorrectOptionIndices] --- COMPLETE (Robust Match) --- Result: ${JSON.stringify(result)}`);
         return result;
-      } else {
-        console.warn(`[ETS] ⚠️ Matching failed to find any matches! Expected IDs:`, [...correctIds], `Expected Texts:`, [...correctTexts]);
-        console.warn(`[ETS]   Available Options:`, opts.map(o => ({ id: o.optionId, text: o.text, norm: normalize(o.text) })));
       }
     }
 
-    // FALLBACK: Use the correct property directly (may be unreliable if mutated)
-    console.log(`[ETS.getCorrectOptionIndices] Attempting Fallback (correct property on provided options)...`);
-    const fallbackIndices = opts
-      .map((option, idx) => {
-        if (!option || typeof option !== 'object') return null;
-        if (!option.correct) return null;
-        return idx + 1;
-      })
+    // ATTEMPT 4: Simple Visual Scanning of provided opts (Green Flag)
+    const quickVisual = opts
+      .map((o, idx) => (o.correct === true || String(o.correct) === 'true' ? idx + 1 : null))
       .filter((n): n is number => n !== null);
+    
+    if (quickVisual.length > 0) {
+      console.log(`[ETS.getCorrectOptionIndices] ATTEMPT 4 (Quick Visual) SUCCESS: ${JSON.stringify(quickVisual)}`);
+      return Array.from(new Set(quickVisual)).sort((a, b) => a - b);
+    }
 
-    const finalResult = Array.from(new Set(fallbackIndices)).sort((a, b) => a - b);
-    console.log(`[ETS.getCorrectOptionIndices] --- COMPLETE (Fallback) --- Result: ${JSON.stringify(finalResult)}`);
-    return finalResult;
+    console.warn(`[ETS.getCorrectOptionIndices] ⚠️ FAILED ALL ATTEMPTS for Q${qIdx + 1}`);
+    return [];
   }
 
   formatExplanation(
@@ -1520,11 +1538,14 @@ export class ExplanationTextService {
   }
 
   // Emit per-index formatted text; coalesces duplicates and broadcasts event
-  public emitFormatted(index: number, value: string | null): void {
+  public emitFormatted(
+    index: number,
+    value: string | null,
+    options: { token?: number; bypassGuard?: boolean } = {}
+  ): void {
+    const { token = this._gateToken, bypassGuard = false } = options;
     // Lock immediately to prevent race conditions with reactive streams
     this._fetLocked = true;
-
-    const token = this._currentGateToken;
 
     // ── MULTI-ANSWER GUARD ──────────────────────────────────────────────
     // For multi-answer questions, block FET emission until ALL correct
@@ -1563,29 +1584,19 @@ export class ExplanationTextService {
             console.warn(`[emitFormatted] Guard metadata unavailable for Q${index + 1}`);
           }
           
-          if (correctCount > 1) {
+          if (!bypassGuard && correctCount > 1) {
             const perfectMap = (quizSvc as any)._multiAnswerPerfect as Map<number, boolean> | undefined;
             const oisPerfect = perfectMap?.get(index) === true;
-
-            let selectionResolved = false;
-            let statusLog: any = {};
-            if (selectedSvc && question) {
-              const selected = selectedSvc.getSelectedOptionsForQuestion(index) ?? [];
-              const status = selectedSvc.getResolutionStatus(question as QuizQuestion, selected as Option[], false);
-              selectionResolved = status.resolved === true;
-              statusLog = {
-                selected: selected.length,
-                correct: status.correctSelected,
-                total: status.correctTotal,
-                incorrect: status.incorrectSelected,
-                resolved: status.resolved,
-                questionId: (question as any).id || 'unknown'
-              };
-            }
-
-            console.log(`[emitFormatted] Guard Check Q${index + 1}: oisPerfect=${oisPerfect}, resolved=${selectionResolved}`, statusLog);
             
+            const sos = this.injector.get(SelectedOptionService, null);
+            const selections = sos?.selectedOptionsMap?.get(index) ?? [];
+            const selectionResolved = (question && sos) ? sos.isQuestionResolvedLeniently(question as QuizQuestion, selections) : false;
+
             if (!oisPerfect && !selectionResolved) {
+              const statusLog = {
+                correct: (question as any).correctAnswerCount ?? '?',
+                total: correctCount
+              };
               console.log(`[emitFormatted] ⛔ Q${index + 1} BLOCKED. (Needs ${statusLog.total} correct, has ${statusLog.correct})`);
               this._fetLocked = false;
               return;
@@ -1945,7 +1956,11 @@ export class ExplanationTextService {
 
     // Hard reset every flag
     this.latestExplanation = '';
-    this.setShouldDisplayExplanation(false);
+    // Only hide explanation if we are actually switching to a different question.
+    // This prevents blipping during timer expiry or clicks on the current question.
+    if (this._activeIndex !== newIndex) {
+      this.setShouldDisplayExplanation(false);
+    }
     this.setIsExplanationTextDisplayed(false);
     this._textMap?.clear?.();
 

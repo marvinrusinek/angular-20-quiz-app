@@ -29,7 +29,7 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
 {
   @Output() optionClicked = new EventEmitter<T>();
   @Output() questionChange = new EventEmitter<QuizQuestion>();
-  @Output() explanationToDisplayChange = new EventEmitter<string>();
+  @Output() explanationToDisplayChange = new EventEmitter<any>();
   @Output() correctMessageChange = new EventEmitter<string>();
 
   @Input() quizQuestionComponentOnOptionClicked!:

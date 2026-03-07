@@ -27,10 +27,10 @@
       {{ getOptionDisplayText() }}
     </span>
 
-    @if ((b.isSelected || isPreviousSelection()) && shouldShowIcon(b.option, i)) {
-    <mat-icon class="opt-icon">
-      {{ getOptionIcon(b.option, i) }}
-    </mat-icon>
+    @if ((b.isSelected || isPreviousSelection() || timerExpired) && shouldShowIcon(b.option, i)) {
+      <mat-icon class="opt-icon">
+        {{ getOptionIcon(b.option, i) }}
+      </mat-icon>
     }
   </div>
 </ng-template>

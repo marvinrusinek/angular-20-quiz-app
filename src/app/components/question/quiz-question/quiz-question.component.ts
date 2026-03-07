@@ -43,6 +43,7 @@ import { SelectionMessageService } from '../../../shared/services/features/selec
 import { SharedVisibilityService } from '../../../shared/services/ui/shared-visibility.service';
 import { SoundService } from '../../../shared/services/ui/sound.service';
 import { TimerService } from '../../../shared/services/features/timer.service';
+import { QuizShuffleService } from '../../../shared/services/flow/quiz-shuffle.service';
 import { BaseQuestion } from '../base/base-question';
 import { SharedOptionComponent } from '../../../components/question/answer/shared-option-component/shared-option.component';
 
@@ -329,6 +330,7 @@ export class QuizQuestionComponent extends BaseQuestion
     protected timerService: TimerService,
     protected componentFactoryResolver: ComponentFactoryResolver,
     protected activatedRoute: ActivatedRoute,
+    protected quizShuffleService: QuizShuffleService,
     protected override fb: FormBuilder,
     protected override cdRef: ChangeDetectorRef,
     protected router: Router,
@@ -1813,10 +1815,9 @@ export class QuizQuestionComponent extends BaseQuestion
           );
         }
 
-        // Handle explanation if previously answered
         const isAnswered = await this.isAnyOptionSelected(zeroBasedIndex);
         if (isAnswered) {
-          await this.fetchAndUpdateExplanationText(zeroBasedIndex);
+          await this.updateExplanationText(zeroBasedIndex);
 
           if (this.shouldDisplayExplanation) {
             this.showExplanationChange.emit(true);
@@ -3397,10 +3398,27 @@ export class QuizQuestionComponent extends BaseQuestion
         if (this._skipNextAsyncUpdates || idx !== this.currentQuestionIndex) return;
         (async () => {
           try {
-            if (evtOpt) this.optionSelected.emit(evtOpt);
+            const resolvedQuizId = this.quizService.quizId || this.activatedRoute.snapshot.paramMap.get('quizId') || 'dependency-injection';
+            const qIdx = this.quizService.getCurrentQuestionIndex();
+            const quizSvc = this.quizService;
+            const shuffleSvc = this.quizShuffleService;
+            const qText = q?.questionText;
 
-            // Re-verify index inside async block
-            if (idx !== this.currentQuestionIndex) return;
+            if (quizSvc && shuffleSvc && typeof qIdx === 'number' && resolvedQuizId) {
+              let origIdx = shuffleSvc.toOriginalIndex(resolvedQuizId, qIdx);
+              let pristine = (origIdx !== null) ? quizSvc.getPristineQuestion(origIdx) : null;
+
+              // 🧪 ROBUSTNESS FIX: Try to find origIdx by question text if mapping fails
+              if (!pristine && qText) {
+                const canonical = quizSvc.getCanonicalQuestions(resolvedQuizId);
+                const normalize = (s: string) => s.replace(/\s/g, '').toLowerCase();
+                const foundIdx = canonical.findIndex(q => normalize(q.questionText) === normalize(qText));
+                if (foundIdx !== -1) {
+                  origIdx = foundIdx;
+                  pristine = canonical[foundIdx];
+                }
+              }
+            }
 
             this.feedbackText = await this.generateFeedbackText(q!);
             await this.postClickTasks(evtOpt ?? undefined, evtIdx, true, false, idx);
@@ -3863,8 +3881,33 @@ export class QuizQuestionComponent extends BaseQuestion
     questionIndex?: number
   ): Promise<void> {
     const qIdx = questionIndex ?? this.currentQuestionIndex;
-    await this.processSelectedOption(opt, idx, checked);
-    await this.finalizeAfterClick(opt, idx, wasPreviouslySelected, qIdx);
+    console.log('[✅ finalizeAfterClick]', {
+      idx,
+      optionId: opt.optionId,
+      questionIndex: qIdx,
+    });
+
+    const lockedIndex = qIdx;
+    this.markQuestionAsAnswered(lockedIndex);
+
+    console.log(
+      '[🧪 QQC] finalizeAfterClick wasPreviouslySelected:',
+      wasPreviouslySelected
+    );
+    await this.finalizeSelection(opt, idx, wasPreviouslySelected);
+
+    const sel: SelectedOption = {
+      ...opt,
+      questionIndex: lockedIndex,
+    };
+    this.optionSelected.emit(sel);
+
+    // Guard global state updates
+    if (this.currentQuestionIndex === lockedIndex) {
+      this.selectedOptionService.setAnswered(true);
+      this.nextButtonStateService.setNextButtonState(true);
+    }
+    this.cdRef.markForCheck();
   }
 
   // Utility: replace the changed binding and keep a fresh array ref
@@ -4088,79 +4131,10 @@ export class QuizQuestionComponent extends BaseQuestion
 
   private async fetchAndUpdateExplanationText(questionIndex: number): Promise<string> {
     // Lock the question index at the time of call
-    const lockedQuestionIndex = this.currentQuestionIndex;
-
-    // Early exit if question index has changed
-    if (lockedQuestionIndex !== questionIndex) {
-      console.warn(
-        `[fetchAndUpdateExplanationText] ⚠️ Mismatch detected! Skipping explanation update for Q${questionIndex}.`
-      );
-      return '';
-    }
-
-    try {
-      // Check session storage
-      const storedExplanation = sessionStorage.getItem(
-        `explanationText_${questionIndex}`
-      );
-      if (storedExplanation) {
-        this.applyExplanation(storedExplanation);
-        return storedExplanation;  // return the explanation text
-      }
-
-      // Check service cache
-      const cachedExplanation = this.explanationTextService.formattedExplanations[questionIndex]?.explanation;
-
-      if (cachedExplanation) {
-        this.applyExplanation(cachedExplanation);
-
-        // Store in session storage for future use
-        sessionStorage.setItem(
-          `explanationText_${questionIndex}`,
-          cachedExplanation
-        );
-        return cachedExplanation;  // return the cached explanation text
-      }
-
-      // Fetch explanation from service, only if initialized
-      const explanationText = this.explanationTextService
-        .explanationsInitialized
-        ? await firstValueFrom(
-          this.explanationTextService.getFormattedExplanationTextForQuestion(
-            questionIndex
-          )
-        )
-        : 'No explanation available';
-
-      if (!explanationText?.trim()) {
-        console.warn(
-          `[fetchAndUpdateExplanationText] ⚠️ No explanation text found for Q${questionIndex}`
-        );
-        return '';  // return empty string to ensure consistent return type
-      }
-
-      // Confirm the question index hasn’t changed during async fetch
-      if (lockedQuestionIndex !== this.currentQuestionIndex) {
-        console.warn(`[fetchAndUpdateExplanationText] ⚠️ Explanation index mismatch after fetch! Skipping update.`);
-        return '';
-      }
-
-      // Cache and display
-      this.explanationTextService.formattedExplanations[questionIndex] = {
-        questionIndex,
-        explanation: explanationText,
-      };
-      sessionStorage.setItem(
-        `explanationText_${questionIndex}`,
-        explanationText
-      );
-      this.applyExplanation(explanationText);
-
-      return explanationText;  // return the fetched explanation text
-    } catch (error) {
-      console.error(`[fetchAndUpdateExplanationText] ❌ Error fetching explanation for Q${questionIndex}:`, error);
-      return ''; // return empty string in case of error
-    }
+    console.log(`[QQC] 🔄 Unified: fetchAndUpdateExplanationText redirected to updateExplanationText Q${questionIndex + 1}`);
+    const explanation = await this.updateExplanationText(questionIndex);
+    this.applyExplanation(explanation);
+    return explanation;
   }
 
   private applyExplanation(explanation: string): void {
@@ -4308,7 +4282,6 @@ export class QuizQuestionComponent extends BaseQuestion
     // Add a slight delay to ensure UI refreshes properly
     await new Promise((resolve) => setTimeout(resolve, 50));
 
-    // Ensure UI updates after applying feedback
     // Ensure the flag is initialized if missing
     if (!this.showFeedbackForOption[selectedOption.optionId!]) {
       this.showFeedbackForOption[selectedOption.optionId!] = true;
@@ -4676,17 +4649,18 @@ export class QuizQuestionComponent extends BaseQuestion
     index: number,
     wasPreviouslySelected: boolean
   ): Promise<void> {
-    const questionState = this.initializeQuestionState(
-      this.currentQuestionIndex
-    );
+    const currentQuestion = await this.fetchAndProcessCurrentQuestion();
+    if (!currentQuestion) {
+      console.error('Could not retrieve the current question.');
+      return;
+    }
 
-    this.answerSelected.emit(true);
+    // Select the option and update the state
+    this.selectOption(currentQuestion, option, index);
 
-    await this.handleCorrectnessOutcome(true, option, wasPreviouslySelected);
-    await this.processSelectedOption(option, index, true);
-    await this.finalizeOptionSelection(option, index, questionState);
-
-    this.saveQuizState();
+    await this.processCurrentQuestionState(currentQuestion, option, index);
+    await this.handleCorrectnessAndTimer();
+    this.stopTimerIfAllCorrectSelected();
   }
 
   private initializeQuestionState(questionIndex: number): QuestionState {
@@ -5416,45 +5390,69 @@ export class QuizQuestionComponent extends BaseQuestion
  
     return clean || baseRaw;
   } */
-  async updateExplanationText(index: number): Promise<string> {
-    const i0 = this.normalizeIndex(index);
-    const q = this.questions?.[i0];
+  private async updateExplanationText(index: number): Promise<string> {
     const svc = this.explanationTextService;
+    const quizSvc = this.quizService;
+    const i0 = this.normalizeIndex(index);
 
-    if (svc._fetLocked) {
-      console.log(`[QQC] 🔒 Skipping updateExplanationText for Q${i0 + 1} while locked`);
-      return '';
+    // Step 1: Resolve the question object and raw text
+    let q: QuizQuestion | null = null;
+    try {
+      const questions = (quizSvc as any).shuffledQuestions || quizSvc.questions || [];
+      q = questions[i0] || (this.currentQuestionIndex === i0 ? this.currentQuestion : null);
+    } catch { }
+
+    if (!q) {
+      console.warn(`[QQC] ⚠️ FAILED to resolve question object for Q${i0 + 1}. FET generation might be limited.`);
+      q = { ...this.currentQuestion } as QuizQuestion;
     }
 
-    // Step 1: Purge previous FET *before anything else*
+    const baseRaw = (q?.explanation ?? '').toString().trim();
+    if (!baseRaw && i0 === 0) {
+      console.log('[QQC] ⚠️ Q1 raw explanation missing! Checking if it is defined in QUIZ_DATA...');
+    }
+
     try {
       svc.purgeAndDefer(i0);
-      console.log(`[QQC] 🔄 Purged FET state before formatting Q${i0 + 1}`);
-    } catch (err) {
-      console.warn(`[QQC] ⚠️ purgeAndDefer failed for Q${i0 + 1}`, err);
-    }
+    } catch { }
 
     await new Promise(res => requestAnimationFrame(res));
 
-    // Step 2: Build base explanation safely
-    const svcCached = (svc.formattedExplanations?.[i0]?.explanation ?? '').trim();
-    let baseRaw = (q?.explanation ?? '').toString().trim();
-
-    // Ignore cache from any previous index
-    if (svc._activeIndex !== i0) {
-      console.log(`[QQC] 🧹 Ignoring stale cached explanation for Q${i0 + 1}`);
-      baseRaw = baseRaw || '';
-    } else if (!baseRaw && svcCached) {
-      baseRaw = svcCached;
-    }
-
-    // Step 3: Format explanation safely
+    // Step 2: Format explanation safely using authoritative indices
     let formatted = '';
     try {
-      formatted =
-        typeof svc.formatExplanation === 'function'
-          ? svc.formatExplanation(q, q.options?.map((o, i) => (o.correct ? i + 1 : -1)).filter(n => n > 0), baseRaw)
-          : baseRaw;
+      // ⚡ ROBUSTNESS FIX: Derive correctIndices from multiple sources
+      let visualOpts = (q.options?.length ? q.options : (this.options?.length ? this.options : []));
+
+      // Fallback: If no options found, try fetching from service
+      if (!visualOpts?.length && quizSvc) {
+        try {
+          const fetchedOpts = await firstValueFrom(quizSvc.getOptions(i0));
+          if (fetchedOpts?.length) visualOpts = fetchedOpts;
+        } catch { }
+      }
+
+      const correctIndices = svc.getCorrectOptionIndices(q, visualOpts, i0);
+
+      if (correctIndices.length > 0) {
+        formatted = typeof svc.formatExplanation === 'function'
+          ? svc.formatExplanation(q, correctIndices, baseRaw, i0)
+          : (baseRaw.includes('correct because') ? baseRaw : `Option ${correctIndices[0]} is correct because ${baseRaw}`);
+        console.log(`[🧠 FET] ✅ Generated FET with indices [${correctIndices}] for Q${i0 + 1}`);
+      } else {
+        // LAST RESORT REPAIR: If correctly indices is still empty, scan options manually for visual correct flag
+        const findCorrect = visualOpts
+          .map((opt, idx) => (opt.correct === true || (opt as any).correct === 'true' ? idx + 1 : null))
+          .filter((n): n is number => n !== null);
+
+        if (findCorrect.length > 0) {
+          formatted = svc.formatExplanation(q, findCorrect, baseRaw, i0);
+          console.log(`[🧠 FET] 🛠 REPAIRED: Used manual scan for Q${i0 + 1} -> [${findCorrect}]`);
+        } else {
+          console.warn(`[🧠 FET] ⚠️ No correct indices found for Q${i0 + 1}. FET prefix will be missing.`);
+          formatted = baseRaw;
+        }
+      }
     } catch (e) {
       console.warn('[updateExplanationText] formatter threw; using raw', e);
       formatted = baseRaw;
@@ -5462,62 +5460,33 @@ export class QuizQuestionComponent extends BaseQuestion
 
     const clean = (formatted ?? '').trim();
 
-    // Step 4: Cache per-index
+    // Step 3: Cache MUST happen before emit so components' startWith(existing) pick it up
     try {
-      const prev = svc.formattedExplanations?.[i0] as any;
       svc.formattedExplanations[i0] = {
-        ...(prev ?? {}),
         questionIndex: i0,
         explanation: clean || baseRaw,
       };
-    } catch (err) {
-      console.warn('[updateExplanationText] cache push failed', err);
-    }
-
-    // Step 5: Emit only if we’re still on this index and it’s not locked
-    // Step 5: Emit only if we’re still on this index and it’s not locked
-    const next = (clean || baseRaw).trim();
-    if (!next) return clean || baseRaw;
-
-    // Combine both local and service-level index checks
-    const stillActive =
-      i0 === this.currentQuestionIndex &&
-      svc._activeIndex === i0 &&
-      !svc._fetLocked &&
-      !this.explanationTextService._fetLocked; // cross-verify no lingering global lock
-
-    if (!stillActive) {
-      console.log(
-        `[🧠 FET] ⏸ Skip emit — index mismatch or locked (Q${i0 + 1}, active=${svc._activeIndex}, current=${this.currentQuestionIndex})`
-      );
-      return clean || baseRaw;
-    }
-
-    // Drop duplicates or stale echoes before emit
-    if (svc.latestExplanation?.trim() === next) {
-      console.log(`[🧠 FET] ⏸ Skip duplicate emit for Q${i0 + 1}`);
-      return clean || baseRaw;
-    }
-
-    // Emit explanation text and flag atomically
-    svc.setExplanationText(next);
-    svc.setShouldDisplayExplanation(true);
-    svc.latestExplanation = next;
-
-    // Unlock only *after* the new explanation is committed
-    requestAnimationFrame(() => {
-      // make sure this unlock belongs to the same active index
-      if (svc._activeIndex === i0 && this.currentQuestionIndex === i0) {
-        svc._fetLocked = false;
-        console.log(`[🧠 FET] 🔓 post-emit unlock for Q${i0 + 1}`);
-      } else {
-        console.log(
-          `[🧠 FET] ⏭ skipped unlock (mismatch active=${svc._activeIndex}, current=${this.currentQuestionIndex})`
-        );
+      if (typeof (svc as any).fetByIndex?.set === 'function') {
+        (svc as any).fetByIndex.set(i0, clean || baseRaw);
       }
-    });
+    } catch { }
 
-    return next;
+    // Step 4: Emit only if we’re still on this index
+    const nextText = (clean || baseRaw).trim();
+    if (!nextText) return clean || baseRaw;
+
+    const stillActive = i0 === this.currentQuestionIndex;
+
+    if (stillActive) {
+      // ⚡ SYNC FIX: Explicitly bypass the guard during direct updates
+      // This ensures that when the timer expires or a selection is made,
+      // the FET is broadcast regardless of the "perfect" state.
+      svc.setExplanationText(nextText, { index: i0 });
+      svc.setShouldDisplayExplanation(true);
+      svc.latestExplanation = nextText;
+    }
+
+    return nextText;
   }
 
   public async handleOptionSelection(
@@ -5564,15 +5533,12 @@ export class QuizQuestionComponent extends BaseQuestion
       // Apply feedback immediately for the selected option
       this.applyFeedbackIfNeeded(option);
 
-      // Emit explanation text immediately after feedback
-      const explanationText = await this.getExplanationText(
-        this.currentQuestionIndex
-      );
+      // ⚡ RE-GENERATE FET immediately on every click to ensure cache is fresh and prefix is correct
+      const explanationText = await this.updateExplanationText(questionIndex);
       console.log(
-        `[📢 Emitting Explanation Text for Q${questionIndex}]: "${explanationText}"`
+        `[📢 Fresh FET for Q${questionIndex + 1}]: "${explanationText.slice(0, 50)}..."`
       );
 
-      this.explanationTextService.setExplanationText(explanationText);
       this.explanationText = explanationText;
 
       // Update the answers and check if the selection is correct
@@ -6966,48 +6932,59 @@ export class QuizQuestionComponent extends BaseQuestion
         return;
       }
 
-      ets.emitFormatted(i0, formattedNow);
+      // ⚡ ROBUSTNESS: If we have a valid formatted FET, use it and SKIP the raw fallback
+      if (formattedNow && formattedNow !== 'No explanation available for this question.') {
+        console.log(`[onTimerExpiredFor] ✅ Using FET on expiry for Q${i0 + 1}: "${formattedNow.slice(0, 40)}..."`);
+        ets.emitFormatted(i0, formattedNow, { bypassGuard: true });
 
-      // We already wrote to the stream inside updateExplanationText if still on i0,
-      // but ensure the local mirrors are updated too.
-      this.ngZone.run(() => {
-        this.explanationToDisplay = formattedNow;
-        this.explanationToDisplayChange.emit(formattedNow);
-        this.cdRef.markForCheck();
-        this.cdRef.detectChanges();
-      });
+        this.ngZone.run(() => {
+          this.explanationToDisplay = formattedNow;
+          this.explanationToDisplayChange.emit(formattedNow);
+          this.cdRef.markForCheck();
+          this.cdRef.detectChanges();
+        });
+      } else {
+        // Fallback ONLY if NO FET generated
+        const rawBest =
+          ((this.questions[i0]?.explanation ?? '') as string).toString().trim() ||
+          ((ets.formattedExplanations[i0]?.explanation ?? '') as string).toString().trim() ||
+          'Explanation not available.';
 
-      // If nothing formatted, seed with best available raw and keep UI consistent
-      const rawBest =
-        ((this.questions[i0]?.explanation ?? '') as string).toString().trim() ||
-        ((ets.formattedExplanations[i0].explanation ?? '') as string).toString().trim() ||
-        'Explanation not available.';
+        console.warn(`[onTimerExpiredFor] 📄 No FET available on expiry for Q${i0 + 1}. Fallback to raw: "${rawBest.slice(0, 30)}..."`);
 
-      this.ngZone.run(() => {
-        ets.setExplanationText(rawBest);
-        this.explanationToDisplay = rawBest;
-        this.explanationToDisplayChange.emit(rawBest);
-        this.cdRef.markForCheck();
-        this.cdRef.detectChanges();
-      });
+        this.ngZone.run(() => {
+          ets.setExplanationText(rawBest);
+          this.explanationToDisplay = rawBest;
+          this.explanationToDisplayChange.emit(rawBest);
+          this.cdRef.markForCheck();
+          this.cdRef.detectChanges();
+        });
+      }
 
-      this.resolveFormatted(i0, { useCache: true, setCache: true, timeoutMs: 6000 })
-        .then((clean) => {
-          const out = (clean ?? '').toString().trim();
-          if (!out) return;
-          const active =
-            this.normalizeIndex?.(this.fixedQuestionIndex ?? this.currentQuestionIndex ?? 0) ??
-            (this.currentQuestionIndex ?? 0);
-          if (active !== i0) return;
-          this.ngZone.run(() => {
-            ets.setExplanationText(out);
-            this.explanationToDisplay = out;
-            this.explanationToDisplayChange.emit(out);
-            this.cdRef.markForCheck();
-            this.cdRef.detectChanges();
-          });
-        })
-        .catch(() => { });
+      // Final async resolve as double-check/lazy repair (only if we don't have a valid FET yet)
+      if (!formattedNow || formattedNow === 'No explanation available for this question.' || !formattedNow.toLowerCase().includes('correct because')) {
+        this.resolveFormatted(i0, { useCache: true, setCache: true, timeoutMs: 6000 })
+          .then((clean) => {
+            const out = (clean ?? '').toString().trim();
+            if (!out || out === 'No explanation available for this question.') return;
+            const active =
+              this.normalizeIndex?.(this.fixedQuestionIndex ?? this.currentQuestionIndex ?? 0) ??
+              (this.currentQuestionIndex ?? 0);
+            if (active !== i0) return;
+
+            console.log(`[onTimerExpiredFor] 🔄 Async resolve produced FET: "${out.slice(0, 30)}..."`);
+            this.ngZone.run(() => {
+              ets.setExplanationText(out);
+              this.explanationToDisplay = out;
+              this.explanationToDisplayChange.emit(out);
+              this.cdRef.markForCheck();
+              this.cdRef.detectChanges();
+            });
+          })
+          .catch(() => { });
+      } else {
+        console.log(`[onTimerExpiredFor] ✅ FET "sticky" check passed. Skipping resolveFormatted.`);
+      }
     } catch (err) {
       console.warn('[onTimerExpiredFor] failed; using raw', err);
     } finally {

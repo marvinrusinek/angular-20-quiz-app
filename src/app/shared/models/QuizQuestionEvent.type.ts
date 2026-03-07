@@ -8,7 +8,7 @@ export type QuizQuestionEvent =
   | { type: 'answer'; payload: number }
   | { type: 'optionSelected'; payload: SelectedOption }
   | { type: 'selectionMessageChange'; payload: string }
-  | { type: 'explanationToDisplayChange'; payload: string }
+  | { type: 'explanationToDisplayChange'; payload: string; index?: number }
   | { type: 'showExplanationChange'; payload: boolean };
 
 /**

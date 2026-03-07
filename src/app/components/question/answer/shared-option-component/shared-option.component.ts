@@ -1,4 +1,4 @@
-﻿import {
+﻿﻿import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef,
   Component, DoCheck, EventEmitter, HostListener, Input, NgZone, OnChanges, OnDestroy, OnInit,
   Output, SimpleChanges
@@ -967,21 +967,10 @@ export class SharedOptionComponent
       this.optionHydrationService.applySavedSelections(this.optionBindings, savedIds);
       // Ensure b.option.selected is ALSO synced for generateFeedbackConfig
       for (const b of this.optionBindings) {
-        const oId = (b.option?.optionId != null && b.option.optionId !== -1) ? b.option.optionId : b.index;
+        const oId = b.option?.optionId;
         if (oId != null && savedIds.has(oId)) {
-          b.option!.selected = true;
+          b.option.selected = true;
         }
-      }
-    }
-
-    // Restore feedback visibility indicators from service truth (icons/symbols)
-    const savedFeedback = this.selectedOptionService.getFeedbackForQuestion(qIndex);
-    if (savedFeedback && Object.keys(savedFeedback).length > 0) {
-      this.showFeedbackForOption = { ...savedFeedback };
-      this.showFeedback = true;
-      for (const b of this.optionBindings ?? []) {
-        b.showFeedbackForOption = this.showFeedbackForOption;
-        b.showFeedback = true;
       }
     }
 
@@ -1072,19 +1061,10 @@ export class SharedOptionComponent
       // Make sure optionsToDisplay is populated
       this.ensureOptionsToDisplay();
 
-      // Ensure bindings exist
-      if (!this.optionBindings?.length && this.optionsToDisplay?.length) {
-        this.generateOptionBindings();
-      }
-
-      // Re-hydrate selection + highlighting from persistent service (truth)
-      this.rehydrateUiFromState('visibilityChange');
-
       // Restore highlight / selection styling
       this.preserveOptionHighlighting();
 
-      // Force OnPush UI refresh immediately
-      this.cdRef.detectChanges();
+      this.cdRef.markForCheck();
     } catch (error) {
       console.error(
         '[SharedOptionComponent] Error during visibility change handling:', error

@@ -11,7 +11,8 @@
     <app-option-item [b]="b" [i]="i" [type]="'single'" [form]="form" [shouldResetBackground]="shouldResetBackground"
       [currentQuestionIndex]="getActiveQuestionIndex()"
     [feedbackConfig]="feedbackConfigs[keyOf(b.option, i)]" [sharedOptionConfig]="getSharedOptionConfig(b, i)"
-      (optionUI)="onOptionUI($event)" />
+    [timerExpired]="timerExpiredForQuestion"  
+    (optionUI)="onOptionUI($event)" />
 
     <!-- FEEDBACK: displayed below the last selected option -->
     @if (shouldShowFeedbackAfter(b, i)) {
@@ -32,7 +33,8 @@
     <app-option-item [b]="b" [i]="i" [type]="'multiple'" [form]="form" [shouldResetBackground]="shouldResetBackground"
       [currentQuestionIndex]="getActiveQuestionIndex()"
     [feedbackConfig]="feedbackConfigs[keyOf(b.option, i)]" [sharedOptionConfig]="getSharedOptionConfig(b, i)"
-      (optionUI)="onOptionUI($event)" />
+    [timerExpired]="timerExpiredForQuestion"  
+    (optionUI)="onOptionUI($event)" />
 
     <!-- FEEDBACK: displayed below the last selected option -->
     @if (shouldShowFeedbackAfter(b, i)) {

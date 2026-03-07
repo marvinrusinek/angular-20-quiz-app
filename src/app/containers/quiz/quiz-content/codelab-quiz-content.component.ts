@@ -98,10 +98,11 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     this.timedOutIdxSubject.next(-1);
 
     // Force clear view to prevent previous question's FET leaking (e.g. Q1 FET on Q2)
-    // Force clear view removed to prevent race condition wiping out synchronous updates
-    // if (this.qText?.nativeElement) {
-    //   this.qText.nativeElement.innerHTML = '';
-    // }
+    // Synchronous clearing is the only way to guarantee the user doesn't see stale content
+    // while the reactive pipeline for the new question is preparing its first emission.
+    if (this.qText?.nativeElement) {
+      this.renderer.setProperty(this.qText.nativeElement, 'innerHTML', '');
+    }
 
     this.overrideSubject.next({ idx, html: '' });
     this.clearCachedQuestionArtifacts(idx);
@@ -263,7 +264,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     shareReplay(1)
   );
 
-  public activeFetText$: Observable<string> = combineLatest([
+  /* public activeFetText$: Observable<string> = combineLatest([
     this.explanationTextService.fetPayload$.pipe(startWith(null)),
     this.quizService.currentQuestionIndex$
   ]).pipe(
@@ -271,6 +272,19 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       (payload?.idx === idx ? (payload.text ?? '') : '')
     ),
     distinctUntilChanged()
+  ); */
+  public activeFetText$: Observable<string> = combineLatest([
+    this.currentIndex$,
+    this.explanationTextService.explanationsUpdated.pipe(startWith({}))
+  ]).pipe(
+    map(([idx]) => {
+      const safeIdx = Number.isFinite(idx) ? Number(idx) : 0;
+      const fromMap = this.explanationTextService.fetByIndex?.get(safeIdx)?.trim() || '';
+      const fromRecord = this.explanationTextService.formattedExplanations?.[safeIdx]?.explanation?.trim() || '';
+      return fromMap || fromRecord;
+    }),
+    distinctUntilChanged(),
+    shareReplay({ bufferSize: 1, refCount: true })
   );
 
   // SIMPLE: One observable that switches between question text and FET
@@ -399,19 +413,24 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     this.timerService.expired$
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
-        const idx = this.quizService.getCurrentQuestionIndex?.() ?? this.currentQuestionIndexValue ?? 0;
+        // Use local currentIndex for stability, as QuizService may briefly reset to 0 during nav
+        const idx = this.currentIndex >= 0 ? this.currentIndex : (this.quizService.getCurrentQuestionIndex?.() ?? this.currentQuestionIndexValue ?? 0);
 
         console.warn(`[CQCC] ⏰ Timer expired for Q${idx + 1} → allow FET display`);
         this.timedOutIdxSubject.next(idx);
 
         // Safety: ensure we have a formatted explanation for this idx
-        const q =
-          (this.quizService as any)?.questions?.[idx] ??
-          ((this.quizService as any)?.currentQuestion?.value ?? null);
+        const isShuffled = this.quizService.isShuffleEnabled?.() && Array.isArray((this.quizService as any).shuffledQuestions) && (this.quizService as any).shuffledQuestions.length > 0;
+        let q = isShuffled
+          ? (this.quizService as any).shuffledQuestions[idx]
+          : (this.quizService as any).questions?.[idx];
+        
+        q = q ?? ((this.quizService as any)?.currentQuestion?.value ?? null);
 
         if (q?.explanation) {
-          // Pass q.options explicitly to ensure correct option indices
-          this.explanationTextService.storeFormattedExplanation(idx, q.explanation, q, q.options);
+          // Pass the actual component visual options to ensure correct option index generation
+          const visualOpts = this.quizQuestionComponent?.optionsToDisplay ?? q.options;
+          this.explanationTextService.storeFormattedExplanation(idx, q.explanation, q, visualOpts);
         }
 
         // OnPush safety
@@ -546,7 +565,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             // The _hasUserInteracted set is cleared during restart.
             // Check both: the last-interacted reactive stream AND the persistent set
             const hasInteracted = this.quizStateService.hasUserInteracted(safeIdx) || lastInteractedIdx === safeIdx;
-            if (!hasInteracted) {
+            if (!hasInteracted && !isTimedOut) {
               shouldShowExplanation = false;
             }
 
@@ -576,15 +595,30 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             }
 
             const finalFet = (fetText ?? '').trim();
-            const hasFet = finalFet.length > 0;
-            const hasRaw = !!qObj?.explanation;
+          const hasFet = finalFet.length > 0;
+          const hasRaw = !!qObj?.explanation;
 
-            console.log(`[displayText$] Q${safeIdx + 1} | mode=${state?.mode} | isResolved=${isResolved} | isTimedOut=${isTimedOut} | selections=${safeSelections.length} | hasFet=${hasFet} | hasRaw=${hasRaw} | result=${shouldShowExplanation && (hasFet || hasRaw) ? 'SHOW_FET' : 'SHOW_QUESTION'}`);
+          const isFetForThisQuestion = hasFet && (
+            this.explanationTextService.latestExplanationIndex === safeIdx ||
+            (this.explanationTextService.formattedExplanations[safeIdx]?.explanation ?? '').trim() === finalFet ||
+            (this.explanationTextService as any).fetByIndex?.get(safeIdx)?.trim() === finalFet ||
+            // Fallback: If the text contains the FET prefix, trust it belongs to the current logic
+            finalFet.toLowerCase().includes('correct because')
+          );
 
-            if (shouldShowExplanation && hasFet) return finalFet;
-            if (shouldShowExplanation && hasRaw) return qObj.explanation;
+          if (shouldShowExplanation) {
+            console.log(`[displayText$] Q${safeIdx + 1} DISPLAY: hasFet=${hasFet}, isValid=${isFetForThisQuestion}, hasRaw=${hasRaw}`);
+            if (isFetForThisQuestion) {
+              console.log(`[displayText$] Q${safeIdx + 1} showing FET: "${finalFet.slice(0, 40)}..."`);
+              return finalFet;
+            }
+            if (hasRaw) {
+              console.warn(`[displayText$] Q${safeIdx + 1} falling back to RAW: FET mismatch or missing`);
+              return qObj.explanation || '';
+            }
+          }
 
-            return qDisplay;
+          return qDisplay;
           })
         );
       }),

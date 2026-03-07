@@ -53,6 +53,7 @@ export class OptionItemComponent implements OnChanges {
   @Input() feedbackConfig?: FeedbackProps;
   @Input() sharedOptionConfig!: SharedOptionConfig;
   @Input() currentQuestionIndex = 0;
+  @Input() timerExpired = false;
 
   private _wasSelected = false;
   private _lastQuestionIndex = -1;
@@ -109,7 +110,7 @@ export class OptionItemComponent implements OnChanges {
   }
 
   getOptionIcon(option?: any, i?: number): string {
-    if (this.shouldShowFeedback()) {
+    if (this.shouldShowFeedback() || this.shouldShowCorrectOnTimeout()) {
       return this.b.option.correct ? 'check' : 'close';
     }
     return this.b.optionIcon || '';
@@ -117,6 +118,14 @@ export class OptionItemComponent implements OnChanges {
 
   getOptionClasses(): { [key: string]: boolean } {
     const classes = { ...this.b.cssClasses };
+
+    if (this.timerExpired) {
+      if (this.shouldShowCorrectOnTimeout()) {
+        classes['correct-option'] = true;
+      }
+      return classes;
+    }
+
     const selections = this.getSelectionsForCurrentBinding();
 
     // Authoritative check matches OptionUiSyncService logic: id or index
@@ -180,9 +189,28 @@ export class OptionItemComponent implements OnChanges {
   }
 
   shouldShowIcon(option?: any, i?: number): boolean {
+    if (this.timerExpired) {
+      return this.shouldShowCorrectOnTimeout();
+    }
+
     const showStandard = !!(option?.showIcon ?? this.b.option.showIcon);
     const showFeedback = this.shouldShowFeedback();
     return showStandard || showFeedback;
+  }
+
+  shouldShowCorrectOnTimeout(): boolean {
+    if (!this.timerExpired) {
+      return false;
+    }
+
+    const isCorrect =
+      this.b.option?.correct === true ||
+      String(this.b.option?.correct) === 'true' ||
+      this.b.isCorrect === true;
+
+    // When the timer expires, we want to reveal ALL correct answers
+    // regardless of whether they were flagged for icons or highlighted before.
+    return isCorrect;
   }
 
   isPreviousSelection(): boolean {
@@ -191,6 +219,10 @@ export class OptionItemComponent implements OnChanges {
   }
 
   getOptionBackgroundColor(): string | null {
+    if (this.timerExpired) {
+      return this.shouldShowCorrectOnTimeout() ? '#43e756' : null;
+    }
+
     const selections = this.getSelectionsForCurrentBinding();
 
     const effectiveId = (this.b.option.optionId != null && this.b.option.optionId !== -1)
