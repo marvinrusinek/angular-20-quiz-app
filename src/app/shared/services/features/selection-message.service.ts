@@ -222,17 +222,16 @@ export class SelectionMessageService {
 
     // ───────── SINGLE-ANSWER ─────────
     if (qType === QuestionType.SingleAnswer) {
-      // Baseline if nothing chosen
-      if (selectedCorrect === 0) {
-        return index === 0 ? START_MSG : CONTINUE_MSG;
+      if (selectedWrong > 0) {
+        this._singleAnswerIncorrectLock.add(index);
+        return 'Please select the correct answer to continue...';
       }
-
-      // Correct chosen
       if (selectedCorrect > 0) {
         this._singleAnswerCorrectLock.add(index);
         this._singleAnswerIncorrectLock.delete(index);
-        return isLast ? SHOW_RESULTS_MSG : NEXT_BTN_MSG;
+        return 'Please click the Next button to continue...';
       }
+      return index === 0 ? START_MSG : CONTINUE_MSG;
     }
 
     // ───────── MULTI-ANSWER ─────────
