@@ -3536,6 +3536,7 @@ export class QuizQuestionComponent extends BaseQuestion
     // Announce completion to any listeners (progress, gating, etc.)
     try {
       this.selectionMessageService.releaseBaseline(activeIndex);
+      this.selectionMessageService.setOptionsSnapshot(canonicalOpts);
 
       const anySelected = canonicalOpts.some(opt => !!opt?.selected);
       if (!anySelected) {
@@ -3545,15 +3546,21 @@ export class QuizQuestionComponent extends BaseQuestion
           isLastQuestion
         });
       } else {
-        this.selectionMessageService.setSelectionMessage(true);
+        this.selectionMessageService.setSelectionMessage(this._lastAllCorrect);
       }
     } catch { }
 
-    // Show explanation immediately
+    // Show explanation only if correct (matches onOptionClicked logic)
     try {
-      this.explanationTextService.setShouldDisplayExplanation(true);
-      this.displayExplanation = true;
-      this.showExplanationChange.emit(true);
+      if (this._lastAllCorrect) {
+        this.explanationTextService.setShouldDisplayExplanation(true);
+        this.displayExplanation = true;
+        this.showExplanationChange.emit(true);
+      } else {
+        this.explanationTextService.setShouldDisplayExplanation(false);
+        this.displayExplanation = false;
+        this.showExplanationChange.emit(false);
+      }
 
       const cached = this._formattedByIndex.get(i0);
       const rawTrue =

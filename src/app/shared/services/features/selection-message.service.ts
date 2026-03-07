@@ -212,17 +212,19 @@ export class SelectionMessageService {
     const selectedCorrect = opts.filter((o) => o.selected && o.correct).length;
     const selectedWrong = opts.filter((o) => o.selected && !o.correct).length;
 
+    // 1. INCORRECT SELECTION (Global Priority)
+    if (selectedWrong > 0) {
+      if (qType === QuestionType.SingleAnswer) {
+        this._singleAnswerIncorrectLock.add(index);
+      }
+      return 'Please select the correct answer to continue...';
+    }
+
     // ───────── SINGLE-ANSWER ─────────
     if (qType === QuestionType.SingleAnswer) {
       // Baseline if nothing chosen
-      if (selectedCorrect === 0 && selectedWrong === 0) {
+      if (selectedCorrect === 0) {
         return index === 0 ? START_MSG : CONTINUE_MSG;
-      }
-
-      // Wrong chosen
-      if (selectedWrong > 0) {
-        this._singleAnswerIncorrectLock.add(index);
-        return 'Please click the correct answer to continue...';
       }
 
       // Correct chosen
