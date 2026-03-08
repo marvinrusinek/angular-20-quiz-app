@@ -32,39 +32,19 @@ export class SelectionMessageService {
   private latestByIndex = new Map<number, number>();
   private freezeNextishUntil = new Map<number, number>();
 
-  private idMapByIndex = new Map<number, Map<string, string | number>>();  // key -> canonicalId
+  private _idMapByIndex = new Map<number, Map<string, string | number>>();
 
-  // Per-question remaining tracker and short enforcement window
-  lastRemainingByIndex = new Map<number, number>();
-
-  // Force a minimum number of correct answers for specific questions (e.g., Q4 ⇒ 3)
-  private expectedCorrectByIndex = new Map<number, number>();
-  private expectedCorrectByQid = new Map<string | number, number>();
-
-  // Tracks selected-correct option ids per question (survives wrong clicks)
-  public stickyCorrectIdsByIndex = new Map<number, Set<number | string>>();
-  public stickyAnySelectedKeysByIndex = new Map<number, Set<string>>();  // fallback store
-
-  private observedCorrectIds = new Map<number, Set<string>>();
-
-  // Track which questions have been "locked" once correct is chosen
-  // Single-answer: one for incorrect, one for correct
-  public _singleAnswerIncorrectLock: Set<number> = new Set();
-  public _singleAnswerCorrectLock: Set<number> = new Set();
-
-  // Multi-answer: one for "in-progress" (partial selections),
-  // one for "completion" (all correct selected)
-  private _multiAnswerInProgressLock: Set<number> = new Set();
-  private _multiAnswerCompletionLock: Set<number> = new Set();
+  // Progression Locks
+  public _singleAnswerIncorrectLock = new Set<number>();
+  public _singleAnswerCorrectLock = new Set<number>();
+  private _multiAnswerInProgressLock = new Set<number>();
+  private _multiAnswerCompletionLock = new Set<number>();
   private _multiAnswerPreLock = new Set<number>();
 
   public _lastMessageByIndex = new Map<number, string>();
   public _baselineReleased = new Set<number>();
 
-  // Track pending microtask tokens so we can cancel them
   private _pendingMsgTokens = new Map<number, number>();
-
-  // Incremental counter for unique tokens
   private _setMsgCounter = 0;
 
   constructor(
@@ -72,120 +52,63 @@ export class SelectionMessageService {
     private selectedOptionService: SelectedOptionService,
   ) { }
 
-  // Getter for the current selection message
   public getCurrentMessage(): string {
-    return this.selectionMessageSubject.getValue();  // get the current message value
+    return this.selectionMessageSubject.getValue();
   }
 
-  // Message determination function
+  private getQuestion(index: number): QuizQuestion | null {
+    const svc = this.quizService as any;
+    const questions = (svc.isShuffleEnabled() && svc.shuffledQuestions?.length > 0)
+      ? svc.shuffledQuestions
+      : svc.questions;
+
+    return (Array.isArray(questions) && index >= 0 && index < questions.length)
+      ? questions[index]
+      : (svc.currentQuestion?.value ?? null);
+  }
+
   public determineSelectionMessage(
     questionIndex: number,
     totalQuestions: number,
     _isAnswered: boolean
   ): string {
-    // Use the latest UI snapshot only to know what's selected…
     const uiSnapshot = this.getLatestOptionsSnapshot();
-
-    // GUARD: prevent empty snapshots from breaking flow
     if (!uiSnapshot || uiSnapshot.length === 0) {
-      console.warn(
-        '[determineSelectionMessage] ⚠️ Empty snapshot → return baseline',
-        {
-          questionIndex,
-          totalQuestions
-        }
-      );
-      // Always return a safe baseline so we don’t feed [] into computeFinalMessage
       return questionIndex === 0 ? START_MSG : CONTINUE_MSG;
     }
 
-    // Compute correctness from canonical question options (authoritative)
-    const svc: any = this.quizService as any;
-    // Prioritize shuffledQuestions if shuffle is enabled and active
-    const effectiveQuestions = (svc.isShuffleEnabled() && svc.shuffledQuestions?.length > 0)
-      ? svc.shuffledQuestions
-      : svc.questions;
+    const q = this.getQuestion(questionIndex);
+    const declaredType: QuestionType | undefined = q?.type;
 
-    const qArr = Array.isArray(effectiveQuestions)
-      ? (effectiveQuestions as QuizQuestion[])
-      : [];
-    const q =
-      (questionIndex >= 0 && questionIndex < qArr.length
-        ? qArr[questionIndex]
-        : undefined) ??
-      (svc.currentQuestion as QuizQuestion | undefined) ??
-      null;
-
-    // Resolve declared type (perhaps stale)
-    const declaredType: QuestionType | undefined =
-      q?.type ??
-      this.quizService.currentQuestion?.getValue()?.type ??
-      this.quizService.currentQuestion?.value?.type;
-
-    // Stable key: prefer explicit ids; fall back to value|text (no index cross-pollution)
     const keyOf = (o: any): string | number => {
       if (!o) return '__nil';
       if (o.optionId != null) return o.optionId;
       if (o.id != null) return o.id;
-      const val = (o.value ?? '').toString().trim().toLowerCase();
-      const txt = (o.text ?? o.label ?? '').toString().trim().toLowerCase();
-      return `${val}|${txt}`;
+      const v = (o.value ?? '').toString().trim().toLowerCase();
+      const t = (o.text ?? o.label ?? '').toString().trim().toLowerCase();
+      return `${v}|${t}`;
     };
 
-    // Build selected key set from UI snapshot…
     const selectedKeys = new Set<string | number>();
-    for (let i = 0; i < uiSnapshot.length; i++) {
-      const o = uiSnapshot[i];
-      if (o?.selected) selectedKeys.add(keyOf(o));
-    }
+    for (const o of uiSnapshot) if (o?.selected) selectedKeys.add(keyOf(o));
 
-    // …and union with SelectedOptionService (ids or objects)
-    const rawSel =
-      this.selectedOptionService?.selectedOptionsMap?.get(questionIndex);
+    const rawSel = this.selectedOptionService?.selectedOptionsMap?.get(questionIndex);
     const extraKeys = this.collectSelectedKeys(rawSel, keyOf);
-    for (const k of extraKeys) {
-      selectedKeys.add(k);
-    }
+    for (const k of extraKeys) selectedKeys.add(k);
 
-    // Ensure canonical and UI snapshot share the same optionId space, enriching snapshot with canonical fields like text
     const canonical = Array.isArray(q?.options) ? (q!.options as Option[]) : [];
+    this.ensureStableIds(questionIndex, canonical, uiSnapshot);
 
-    const priorSnapAsOpts: Option[] = this.getLatestOptionsSnapshotAsOptions();
-
-    this.ensureStableIds(
-      questionIndex,
-      canonical,
-      this.normalizeOptionArray(q?.options ?? []),
-      priorSnapAsOpts
-    );
-
-    const base: Option[] = canonical.length
-      ? canonical
-      : this.normalizeOptionArray(uiSnapshot);
-
-    // Overlay selection into canonical (correct flags intact)
-    const overlaid: Option[] = base.map((o, idx) => {
+    const overlaid: Option[] = (canonical.length ? canonical : this.normalizeOptionArray(uiSnapshot)).map((o, idx) => {
       const id = this.toStableId(o, idx);
-      const selected = selectedKeys.has(id) || !!o.selected;
-      return this.toOption(o, idx, selected);
+      return this.toOption(o, idx, selectedKeys.has(id) || !!o.selected);
     });
 
-    // If the data has >1 correct, treat as MultipleAnswer even if declared type is wrong
     const correctCount = overlaid.filter((o) => !!o?.correct).length;
-    const computedIsMulti = correctCount > 1;
-
-    // Trust the computed count over the declared type if we found multiple correct answers.
-    // This ensures Q1 (shuffled into Multi) gets the correct prompt.
-    const qType: QuestionType = computedIsMulti
+    const qType: QuestionType = (correctCount > 1 || declaredType === QuestionType.MultipleAnswer)
       ? QuestionType.MultipleAnswer
       : (declaredType ?? QuestionType.SingleAnswer);
 
-    console.log(`[SMS] Type Resolution Q${questionIndex + 1}: Declared=${declaredType} Computed=${computedIsMulti ? 'MULTI' : 'SINGLE'} (Correct=${correctCount})`);
-
-    // Note: Baseline guard removed - computeFinalMessage now handles all cases
-    // The guard was preventing message updates after option clicks
-
-    // Normal Path
     return this.computeFinalMessage({
       index: questionIndex,
       total: totalQuestions,
@@ -194,329 +117,114 @@ export class SelectionMessageService {
     });
   }
 
-  // Centralized, deterministic message resolver
   public computeFinalMessage(args: {
     index: number;
     total: number;
     qType: QuestionType;
     opts: Option[];
   }): string {
-    const { index, total, qType, opts } = args;
-    const isLast = total > 0 && index === total - 1;
-
-    if (!opts || opts.length === 0) {
-      return index === 0 ? START_MSG : CONTINUE_MSG;
-    }
+    const { index, qType, opts } = args;
+    if (!opts || opts.length === 0) return index === 0 ? START_MSG : CONTINUE_MSG;
 
     const totalCorrect = opts.filter((o) => !!o?.correct).length;
     const selectedCorrect = opts.filter((o) => o.selected && o.correct).length;
     const selectedWrong = opts.filter((o) => o.selected && !o.correct).length;
 
-    // 1. INCORRECT SELECTION (Global Priority)
-    if (selectedWrong > 0) {
-      if (qType === QuestionType.SingleAnswer) {
-        this._singleAnswerIncorrectLock.add(index);
-      }
-      return 'Please select the correct answer to continue...';
-    }
-
-    // ───────── SINGLE-ANSWER ─────────
     if (qType === QuestionType.SingleAnswer) {
-      if (selectedWrong > 0) {
-        this._singleAnswerIncorrectLock.add(index);
-        return 'Please select the correct answer to continue...';
-      }
       if (selectedCorrect > 0) {
         this._singleAnswerCorrectLock.add(index);
         this._singleAnswerIncorrectLock.delete(index);
         return 'Please click the Next button to continue...';
       }
+      if (selectedWrong > 0) {
+        this._singleAnswerIncorrectLock.add(index);
+        return 'Please select the correct answer to continue...';
+      }
       return index === 0 ? START_MSG : CONTINUE_MSG;
     }
 
-    // ───────── MULTI-ANSWER ─────────
     if (qType === QuestionType.MultipleAnswer) {
-      const baselineMsg = `Please select ${totalCorrect} correct answer to continue...`;
-
-      // Baseline if no corrects chosen yet
-      if (selectedCorrect === 0) {
-        return baselineMsg;
-      }
-
-      // All correct chosen
-      if (selectedCorrect === totalCorrect) {
-        this._multiAnswerCompletionLock.add(index);
-        this._multiAnswerPreLock.delete(index);
-        this._multiAnswerInProgressLock.delete(index);
-        return isLast ? SHOW_RESULTS_MSG : NEXT_BTN_MSG;
-      }
-
-      // Some correct, not all
       const remaining = totalCorrect - selectedCorrect;
-      this._multiAnswerPreLock.delete(index);
+      if (remaining === 0 && selectedWrong === 0) {
+        this._multiAnswerCompletionLock.add(index);
+        return 'Please click the Next button to continue...';
+      }
+      if (selectedWrong > 0) {
+        return remaining === 0 ? 'Please click the Next button to continue...' : `Select ${remaining} more correct option${remaining !== 1 ? 's' : ''} to continue...`;
+      }
+      if (selectedCorrect === 0) return `Please select ${totalCorrect} correct answers to continue...`;
       this._multiAnswerInProgressLock.add(index);
-      return `Please select ${remaining} more correct answer to continue...`;
+      return `Select ${remaining} more correct answer${remaining !== 1 ? 's' : ''} to continue...`;
     }
 
-    // ───────── Default fallback ─────────
     return index === 0 ? START_MSG : CONTINUE_MSG;
   }
 
-  public pushMessage(newMsg: string, i0: number): void {
-    const current = this.selectionMessageSubject.getValue();
-
-    // Push only if changed
-    if (current !== newMsg) {
+  public pushMessage(newMsg: string, _index: number): void {
+    if (this.selectionMessageSubject.getValue() !== newMsg) {
       this.selectionMessageSubject.next(newMsg);
-    } else {
-      console.log('[pushMessage] skipped duplicate', { i0, newMsg });
     }
   }
 
-  // ───────── RELEASE STICKY BASELINE LOCK ─────────
   public releaseBaseline(index: number): void {
-    // Ensure data structures exist
-    if (!this._baselineReleased) {
-      this._baselineReleased = new Set<number>();
-    }
-    if (!this._pendingMsgTokens) {
-      this._pendingMsgTokens = new Map<number, number>();
-    }
-
-    // Mark this index as released so baseline guards stop firing
-    if (!this._baselineReleased.has(index)) {
-      this._baselineReleased.add(index);
-    } else {
-      console.log('[releaseBaseline] Already released, skipping', index);
-    }
-
-    // Cancel any queued microtask for this index
-    // Setting to -1 signals that pending setSelectionMessage calls must skip
+    this._baselineReleased.add(index);
     this._pendingMsgTokens.set(index, -1);
   }
 
-  // Forces the selection message to promote the Next/Show Results prompt. Used when
-  // progression is allowed without an explicit selection (e.g., timer expiry).
-  public forceNextButtonMessage(
-    index: number,
-    opts: { isLastQuestion?: boolean } = {}
-  ): void {
-    if (index == null || index < 0) return;
-
-    const total =
-      this.quizService?.totalQuestions ??
-      this.quizService?.questions?.length ??
-      0;
+  public forceNextButtonMessage(index: number, opts: { isLastQuestion?: boolean } = {}): void {
+    const total = this.quizService.totalQuestions;
     const isLast = opts.isLastQuestion ?? (total > 0 && index === total - 1);
     const nextMsg = isLast ? SHOW_RESULTS_MSG : NEXT_BTN_MSG;
-
-    this._baselineReleased.add(index);
+    this.releaseBaseline(index);
     this._lastMessageByIndex.set(index, nextMsg);
     this.pushMessage(nextMsg, index);
   }
 
-  public enforceBaselineAtInit(
-    i0: number,
-    qType: QuestionType,
-    totalCorrect: number
-  ): void {
-    // Only enforce if baseline not already released by a click
-    if (!this._baselineReleased.has(i0)) {
-      let baselineMsg: string | null = null;
-
-      if (qType === QuestionType.MultipleAnswer) {
-        baselineMsg = `Please select ${totalCorrect} correct answer to continue...`;
-
-        // Mark multi-answer as pre-lock
-        this._multiAnswerPreLock.add(i0);
-        this._multiAnswerInProgressLock.delete(i0);
-        this._multiAnswerCompletionLock.delete(i0);
-      } else if (qType === QuestionType.SingleAnswer) {
-        baselineMsg = i0 === 0 ? START_MSG : CONTINUE_MSG;
-      }
-
-      if (baselineMsg) {
-        const prev = this._lastMessageByIndex.get(i0);
-        if (prev !== baselineMsg) {
-          this._lastMessageByIndex.set(i0, baselineMsg);
-          this.selectionMessageSubject.next(baselineMsg);
-        } else {
-          console.log('[enforceBaselineAtInit] Skipped duplicate baseline', {
-            i0,
-            baselineMsg
-          });
-        }
-      }
-    } else {
-      console.log(
-        '[enforceBaselineAtInit] Skipped — baseline already released by user action',
-        { i0 }
-      );
-    }
+  public enforceBaselineAtInit(i0: number, qType: QuestionType, totalCorrect: number): void {
+    if (this._baselineReleased.has(i0)) return;
+    const msg = qType === QuestionType.MultipleAnswer 
+      ? `Please select ${totalCorrect} correct answers to continue...`
+      : (i0 === 0 ? START_MSG : CONTINUE_MSG);
+    this._lastMessageByIndex.set(i0, msg);
+    this.pushMessage(msg, i0);
   }
 
   public forceBaseline(index: number): void {
-    try {
-      const total = this.quizService.totalQuestions;
-      const q = this.quizService.questions?.[index];
-      const qType = q?.type ?? QuestionType.SingleAnswer;
-      const isLast = total > 0 && index === total - 1;
-
-      // Reset any pending state
-      this._pendingMsgTokens?.set(index, -1);
-
-      // Mark baseline as released for this index
-      this.releaseBaseline(index);
-
-      // Compute baseline message directly based on question type
-      let msg: string;
-      if (qType === QuestionType.MultipleAnswer) {
-        const totalCorrect = (q?.options ?? []).filter((o: any) => o.correct === true).length;
-        msg = `Please select ${totalCorrect} correct answer to continue...`;
-      } else {
-        // Single-answer: Q1 gets START_MSG, others get CONTINUE_MSG
-        msg = index === 0 ? START_MSG : CONTINUE_MSG;
-      }
-
-      // Push only if changed
-      const current = this.selectionMessageSubject.getValue();
-      if (msg && current !== msg) {
-        this.selectionMessageSubject.next(msg);
-      } else {
-        console.log('[forceBaseline] skipped duplicate', { index, msg });
-      }
-    } catch (error) {
-      console.error('[forceBaseline ERROR]', error);
-    }
+    const q = this.getQuestion(index);
+    const totalCorrect = (q?.options ?? []).filter((o: any) => o.correct).length;
+    this.releaseBaseline(index);
+    this.enforceBaselineAtInit(index, q?.type ?? QuestionType.SingleAnswer, totalCorrect);
   }
 
   public async setSelectionMessage(isAnswered: boolean): Promise<void> {
-    try {
-      const i0 = this.quizService.currentQuestionIndex;
-      const total = this.quizService.totalQuestions;
-      this._setMsgCounter++;
+    const i0 = this.quizService.currentQuestionIndex;
+    const total = this.quizService.totalQuestions;
+    if (i0 < 0 || !this._baselineReleased.has(i0) && !isAnswered) return;
 
-      // Ignore stray "false" calls until baseline has been seeded by forceBaseline()
-      if (!this._baselineReleased.has(i0) && !isAnswered) {
-        console.log(
-          '[setSelectionMessage] Ignored pre-release call (baseline handled separately)',
-          { i0 }
-        );
-        return;
+    queueMicrotask(() => {
+      if (this._pendingMsgTokens.get(i0) === -1) return;
+      const msg = this.determineSelectionMessage(i0, total, isAnswered);
+      if (this._lastMessageByIndex.get(i0) !== msg) {
+        this._lastMessageByIndex.set(i0, msg);
+        this.pushMessage(msg, i0);
       }
-
-      if (!Number.isFinite(i0) || total <= 0) return;
-      if (!this.optionsSnapshot || this.optionsSnapshot.length === 0) return;
-
-      const qType: QuestionType | undefined =
-        (this.quizService.questions?.[i0]?.type as QuestionType | undefined) ??
-        undefined;
-
-      const totalCorrect = this.optionsSnapshot.filter(
-        (o) => !!o.correct,
-      ).length;
-      const selectedCorrect = this.optionsSnapshot.filter(
-        (o) => o.selected && o.correct,
-      ).length;
-      const selectedWrong = this.optionsSnapshot.filter(
-        (o) => o.selected && !o.correct,
-      ).length;
-
-      // ───────── MULTI-ANSWER: baseline ─────────
-      if (qType === QuestionType.MultipleAnswer && selectedCorrect === 0) {
-        if (!this._baselineReleased.has(i0)) {
-          const baselineMsg = `Please select ${totalCorrect} correct answer to continue...`;
-          const prev = this._lastMessageByIndex.get(i0);
-          if (prev !== baselineMsg) {
-            this._lastMessageByIndex.set(i0, baselineMsg);
-            this.pushMessage(baselineMsg, i0);
-          }
-          return;  // bail → don’t queue normal path until releaseBaseline
-        }
-      }
-
-      // ───────── SINGLE-ANSWER: baseline ─────────
-      if (
-        qType === QuestionType.SingleAnswer &&
-        selectedCorrect === 0 &&
-        selectedWrong === 0 &&
-        !this._singleAnswerCorrectLock.has(i0) &&
-        !this._singleAnswerIncorrectLock.has(i0)
-      ) {
-        if (!this._baselineReleased.has(i0)) {
-          const baselineMsg = i0 === 0 ? START_MSG : CONTINUE_MSG;
-          const prev = this._lastMessageByIndex.get(i0);
-          if (prev !== baselineMsg) {
-            this._lastMessageByIndex.set(i0, baselineMsg);
-            this.pushMessage(baselineMsg, i0);
-          }
-          return;  // bail → don’t queue normal path until releaseBaseline
-        }
-      }
-
-      // ───────── NORMAL PATH ─────────
-      queueMicrotask(() => {
-        if (this._pendingMsgTokens?.get(i0) === -1) {
-          console.log(
-            '[setSelectionMessage] Skipped microtask due to releaseBaseline cancel',
-            { i0 }
-          );
-          return;
-        }
-
-        if (!this._baselineReleased.has(i0)) {
-          console.log(
-            '[setSelectionMessage] Baseline not released, skipping normal path',
-            { i0 }
-          );
-          return;
-        }
-
-        const finalMsg = this.determineSelectionMessage(i0, total, isAnswered);
-        const lastMsg = this._lastMessageByIndex.get(i0);
-
-        if (
-          lastMsg === finalMsg &&
-          finalMsg &&
-          !finalMsg.startsWith('Select')
-        ) {
-          console.log(
-            '[setSelectionMessage] Upgrade allowed despite duplicate',
-            { i0, finalMsg }
-          );
-        } else {
-          if (lastMsg === finalMsg) return;
-        }
-
-        this._lastMessageByIndex.set(i0, finalMsg);
-        this.pushMessage(finalMsg, i0);
-      });
-    } catch (error) {
-      console.error('[❌ setSelectionMessage ERROR]', error);
-    }
+    });
   }
 
-  // Snapshot API
-  // Writer: always store a cloned array so callers can’t mutate our state
-  public setOptionsSnapshot(opts: Option[] | null | undefined): void {
-    // Defensive clone so we never hold external refs
-    const safe = Array.isArray(opts) ? opts.map((o) => ({ ...o })) : [];
-    if (safe.length === 0) {
-      console.warn('[setOptionsSnapshot] Ignored empty options snapshot');
-      return;  // don’t overwrite with []
-    }
 
-    // Persist internally and notify observers
-    this.optionsSnapshot = safe;
-    this.optionsSnapshotSubject.next(safe);
+
+  public setOptionsSnapshot(opts: Option[] | null | undefined): void {
+    const safe = Array.isArray(opts) ? opts.map((o) => ({ ...o })) : [];
+    if (safe.length > 0) {
+      this.optionsSnapshot = safe;
+      this.optionsSnapshotSubject.next(safe);
+    }
   }
 
   public notifySelectionMutated(options: Option[] | null | undefined): void {
-    this.setOptionsSnapshot(options);  // keep existing snapshot
+    this.setOptionsSnapshot(options);
   }
 
-  // HELPERS
-  // Reserve a write slot for this question; returns the token to attach to the write.
   public beginWrite(index: number, freezeMs = 600): number {
     const token = ++this.writeSeq;
     this.latestByIndex.set(index, token);
@@ -524,356 +232,117 @@ export class SelectionMessageService {
     return token;
   }
 
-  // Emit a selection message based on canonical + UI state
-  public emitFromClick(params: {
-    index: number;
-    totalQuestions: number;
-    questionType: QuestionType;
-    options: Option[];
-    canonicalOptions: CanonicalOption[];
-    onMessageChange?: (msg: string) => void;
-    token?: number;
-  }): void {
-    const {
-      index,
-      totalQuestions,
-      questionType,
-      canonicalOptions,
-      onMessageChange
-    } = params;
-
-    // Delegate all message building to computeFinalMessage
+  public emitFromClick(params: any): void {
     const msg = this.computeFinalMessage({
-      index,
-      total: totalQuestions,
-      qType: questionType,
-      opts: canonicalOptions as Option[]
+      index: params.index,
+      total: params.totalQuestions,
+      qType: params.questionType,
+      opts: params.canonicalOptions as Option[]
     });
-
-    // Callback hook for caller
-    if (onMessageChange) {
-      onMessageChange(msg);
-    }
-
-    // Route through guarded writer
-    this.pushMessage(msg, index);
+    if (params.onMessageChange) params.onMessageChange(msg);
+    this.pushMessage(msg, params.index);
   }
 
-  /* ================= Helpers ================= */
-  // Ensure every canonical option has a stable optionId.
-  // Also stamp matching ids onto any UI list passed in.
-  // More tolerant keying (value|text|label|title|optionText|displayText) + index fallback.
-  private ensureStableIds(
-    index: number,
-    canonical: Option[] | null | undefined,
-    ...uiLists: (Option[] | null | undefined)[]
-  ): void {
-    const canon = Array.isArray(canonical) ? canonical : [];
-    if (!canon.length) return;
-
-    // Robust keying helpers
-    const stripHtml = (s: any) => String(s ?? '').replace(/<[^>]*>/g, ' ');
-    const norm = (x: any) =>
-      stripHtml(x).replace(/\s+/g, ' ').trim().toLowerCase();
-    const keyOf = (o: any, i: number): string => {
-      if (!o) return '__nil';
-      // Prefer explicit ids if present
-      const id = o.optionId ?? o.id;
-      if (id != null) return `id:${String(id)}`;
-      // Value/text family (cover all common fields)
-      const v = norm(o.value);
-      const t = norm(
-        o.text ?? o.label ?? o.title ?? o.optionText ?? o.displayText,
-      );
-      if (v || t) return `vt:${v}|${t}`;
-      // Last resort: align by index if arrays are corresponding
-      return `ix:${i}`;
-    };
-
-    // Build or reuse mapping for this question
-    let fwd = this.idMapByIndex.get(index);
-    if (!fwd) fwd = new Map<string, string | number>();
-
-    // Seed/update mapping from canonical
-    let i = 0;
-    for (const c of canon) {
-      const k = keyOf(c as any, i);
-
-      let cid = (c as any).optionId ?? (c as any).id;
-      if (cid == null) {
-        cid = `q${index}o${i}`;  // deterministic fallback id
-      }
-
-      (c as any).optionId = cid;  // stamp canonical
-      fwd!.set(k, cid);           // key match
-      fwd!.set(`ix:${i}`, cid);   // index alignment fallback
-
-      i++;
-    }
-    this.idMapByIndex.set(index, fwd!);
-
-    // Stamp ids onto any provided UI lists using key → id, then fall back to index
-    for (const list of uiLists) {
-      if (!Array.isArray(list)) continue;
-    
-      let i = 0;
-      for (const o of list) {
-        const k = keyOf(o as any, i);
-        let cid = fwd!.get(k);
-        if (cid == null) cid = fwd!.get(`ix:${i}`);  // index fallback saves "first option" cases
-        if (cid != null) (o as any).optionId = cid;
-        i++;
-      }
-    }
+  private ensureStableIds(index: number, canonical: Option[], uiSnapshot: any[]): void {
+    let fwd = this._idMapByIndex.get(index) ?? new Map<string, string | number>();
+    canonical.forEach((c, i) => {
+      const id = c.optionId ?? (c as any).id ?? `q${index}o${i}`;
+      c.optionId = id;
+      fwd.set(this.stableKey(c, i), id);
+      fwd.set(`ix:${i}`, id);
+    });
+    this._idMapByIndex.set(index, fwd);
+    uiSnapshot.forEach((o, i) => {
+      const id = fwd.get(this.stableKey(o as Option, i)) ?? fwd.get(`ix:${i}`);
+      if (id != null) (o as any).optionId = id;
+    });
   }
 
-  // Prefer to set by a stable question id
-  public setExpectedCorrectCountForId(
-    qid: string | number,
-    count: number
-  ): void {
-    if (
-      qid !== null &&
-      qid !== undefined &&
-      Number.isFinite(count) &&
-      count > 0
-    ) {
-      this.expectedCorrectByQid.set(qid, count);
-    }
-  }
-
-  public setExpectedCorrectCount(index: number, count: number): void {
-    if (
-      Number.isInteger(index) &&
-      index >= 0 &&
-      Number.isFinite(count) &&
-      count > 0
-    ) {
-      this.expectedCorrectByIndex.set(index, count);
-    }
-  }
-
-  public registerClick(
-    index: number,
-    optionId: number | string,
-    wasCorrect: boolean,
-    selectedNow = true
-  ): void {
-    const key = String(optionId);
-    let set = this.observedCorrectIds.get(index);
-    if (!set) {
-      set = new Set<string>();
-      this.observedCorrectIds.set(index, set);
-    }
-    if (wasCorrect && selectedNow) set.add(key);
-    if (!selectedNow) set.delete(key);
-  }
-
-  // Read side used elsewhere in your code
-  public getLatestOptionsSnapshot(): OptionSnapshot[] {
-    const snapAny = this.optionsSnapshotSubject.getValue();
-
-    if (this.isSnapshotArray(snapAny)) {
-      // Return a fresh array of *exact* OptionSnapshot objects
-      const arr = snapAny as OptionSnapshot[];
-      return arr.map((s) => ({
-        id: s.id,
-        selected: s.selected,
-        // keep 'correct' only if it's a boolean; otherwise omit/undefined
-        correct: typeof s.correct === 'boolean' ? s.correct : undefined
-      }));
-    }
-
-    if (this.isOptionArray(snapAny)) {
-      // Normalize Options -> Snapshots on-the-fly
-      const arr = snapAny as Option[];
-      return arr.map((o, idx) => this.optionToSnapshot(o, idx));
-    }
-
-    return [];
-  }
-
-  // Map a single snapshot -> Option
-  private mapSnapshotToOption(s: OptionSnapshot): Option {
-    return {
-      optionId: s.id as any,
-      selected: s.selected,
-      correct: typeof s.correct === 'boolean' ? s.correct : false,
-      // safe defaults for common fields
-      text: '',
-      value: s.id as any,
-      showIcon: s.selected,
-      highlight: s.selected,
-      feedback: '',
-      styleClass: ''
-    } as unknown as Option;
-  }
-
-  // Type guards
-  private isSnapshotArray(input: any): input is OptionSnapshot[] {
-    return (
-      Array.isArray(input) && input.every((o) => 'id' in o && 'selected' in o)
-    );
-  }
-  private isOptionArray(input: any): input is Option[] {
-    return (
-      Array.isArray(input) &&
-      input.every((o) => 'optionId' in o || 'id' in o || 'text' in o)
-    );
-  }
-
-  // Returns a stable key for an option, to uniquely identify it across UI / canonical options.
   public stableKey(opt: Option, idx?: number): string {
-    if (!opt) return `unknown-${idx ?? '0'}`;
-    return opt.optionId != null
-      ? String(opt.optionId)
-      : `${String(opt.value ?? '')
-        .trim()
-        .toLowerCase()}|${String(opt.text ?? '')
-          .trim()
-          .toLowerCase()}`;
+    if (!opt) return `unknown-${idx ?? 0}`;
+    if (opt.optionId != null) return String(opt.optionId);
+    if ((opt as any).id != null) return String((opt as any).id);
+    const v = String(opt.value ?? '').trim().toLowerCase();
+    const t = String(opt.text ?? (opt as any).label ?? '').trim().toLowerCase();
+    return v || t ? `${v}|${t}` : `ix:${idx ?? 0}`;
   }
 
-  // Use the same stable-id logic everywhere
   private toStableId(o: any, idx?: number): number | string {
-    // Prefer true stable ids if present
-    if (o?.optionId != null) return o.optionId as number | string;
-    if (o?.id != null) return o.id as number | string;
-    if (o?.value != null) return o.value as number | string;
-
-    // Derive from text if available (stable across renders)
-    if (typeof o?.text === 'string' && o.text.trim().length) {
-      return `t:${o.text}`;  // prefix to avoid clashing with numeric ids
-    }
-
-    // Fall back to index if provided
-    if (typeof idx === 'number') {
-      return `i:${idx}`;
-    }
-
-    // Last-resort constant (still deterministic) – better than Math.random()
-    return 'unknown';
+    return o?.optionId ?? o?.id ?? o?.value ?? (o?.text ? `t:${o.text}` : `i:${idx ?? 0}`);
   }
 
-  // Normalize any candidate into a full Option object
   private toOption(o: any, idx: number, selectedOverride?: boolean): Option {
-    const optionId =
-      typeof o?.optionId === 'number' || typeof o?.optionId === 'string'
-        ? o.optionId
-        : this.toStableId(o, idx);
-
-    const selected =
-      typeof selectedOverride === 'boolean' ? selectedOverride : !!o?.selected;
-
+    const id = this.toStableId(o, idx);
+    const selected = selectedOverride ?? !!o?.selected;
     return {
-      // Required/expected fields
-      optionId: optionId as any,
-      text: typeof o?.text === 'string' ? o.text : '',
+      optionId: id as any,
+      text: String(o?.text ?? o?.label ?? ''),
       correct: !!o?.correct,
-      value: (o?.value ?? optionId) as any,
+      value: o?.value ?? id,
       selected,
-
-      // Keep common optional flags consistent
-      active: !!o?.active,
-      highlight: typeof o?.highlight === 'boolean' ? o.highlight : selected,
-      showIcon: typeof o?.showIcon === 'boolean' ? o.showIcon : selected,
-
-      // Passthrough optionals with safe defaults
-      answer: o?.answer,
-      feedback: typeof o?.feedback === 'string' ? o.feedback : '',
-      styleClass: typeof o?.styleClass === 'string' ? o.styleClass : ''
+      highlight: selected,
+      showIcon: selected,
+      feedback: String(o?.feedback ?? ''),
+      styleClass: String(o?.styleClass ?? '')
     } as Option;
   }
 
-  private optionToSnapshot(o: Option, idx?: number): OptionSnapshot {
-    return {
-      id: this.toStableId(o, idx),
+  public getLatestOptionsSnapshot(): OptionSnapshot[] {
+    const snap = this.optionsSnapshotSubject.getValue();
+    return Array.isArray(snap) ? snap.map((o, i) => ({
+      id: this.toStableId(o, i),
       selected: !!o.selected,
       correct: typeof o.correct === 'boolean' ? o.correct : undefined
-    };
+    })) : [];
   }
 
   public getLatestOptionsSnapshotAsOptions(): Option[] {
-    const snaps = this.getLatestOptionsSnapshot();  // OptionSnapshot[]
-    return this.normalizeOptionArray(snaps);  // Option[]
+    return this.normalizeOptionArray(this.getLatestOptionsSnapshot());
   }
 
-  private normalizeOptionArray(
-    input: Option[] | OptionSnapshot[] | null | undefined
-  ): Option[] {
-    if (!input || !Array.isArray(input) || input.length === 0) return [];
-
-    if (this.isOptionArray(input)) {
-      return input as Option[];
-    }
-
-    return (input as OptionSnapshot[]).map((s) => this.mapSnapshotToOption(s));
+  private normalizeOptionArray(input: any[]): Option[] {
+    return (input ?? []).map((item, idx) => {
+      if ('id' in item && 'selected' in item) {
+        return this.toOption({ ...item, optionId: item.id }, idx);
+      }
+      return this.toOption(item, idx);
+    });
   }
 
-  // Helper: normalize rawSel into a Set of keys
-  private collectSelectedKeys(
-    rawSel: Set<any> | any[] | undefined,
-    keyOf: (o: any) => string | number
-  ): Set<string | number> {
+  private collectSelectedKeys(rawSel: any, keyFn: (o: any) => string | number): Set<string | number> {
     const keys = new Set<string | number>();
     if (!rawSel) return keys;
-
     if (rawSel instanceof Set) {
-      for (const sel of rawSel) {
-        // sel might be a SelectedOption, so normalize to its optionId
-        const id = (sel as any)?.optionId ?? sel;
-        keys.add(id);
-      }
+      rawSel.forEach(s => keys.add(s?.optionId ?? s));
     } else if (Array.isArray(rawSel)) {
-      for (const so of rawSel) {
-        keys.add(keyOf(so));
-      }
+      rawSel.forEach(o => keys.add(keyFn(o)));
     }
-
     return keys;
   }
 
-  /**
-   * Ensures the service’s internal selection state matches the current question’s visible options.
-   * Used during navigation or question rehydration to prevent stale selection messages.
-   *
-   * @param questionIndex - Index of the current question
-   * @param optionsNow - The array of options currently displayed
-   */
-  /**
-   * Reconciles selection message state with the current set of displayed options.
-   * Used when options are reloaded, restored, or replaced during navigation.
-   *
-   * @param questionIndex Index of the current question
-   * @param optionsNow    The array of currently displayed options
-   */
-  reconcileObservedWithCurrentSelection(
-    questionIndex: number,
-    optionsNow: Option[]
-  ): void {
-    if (!Array.isArray(optionsNow) || optionsNow.length === 0) {
-      console.warn(
-        '[SelectionMessageService] No options to reconcile for question',
-        questionIndex
-      );
-      return;
-    }
+  public registerClick(index: number, optionId: any, wasCorrect: boolean, selectedNow = true): void {}
+  public setExpectedCorrectCountForId(_qid: any, _count: number): void {}
+  public setExpectedCorrectCount(_index: number, _count: number): void {}
 
-    const selectedCount = optionsNow.filter((o) => o.selected).length;
+  public reconcileObservedWithCurrentSelection(index: number, optionsNow: Option[]): void {
+    const totalCorrect = optionsNow.filter(o => !!o?.correct).length;
+    const q = this.getQuestion(index);
+    const qType = (totalCorrect > 1 || q?.type === QuestionType.MultipleAnswer) 
+      ? QuestionType.MultipleAnswer 
+      : (q?.type ?? QuestionType.SingleAnswer);
 
-    let msg: string;
-    if (selectedCount === 0) {
-      msg = 'Please click an option to continue...';
-    } else if (selectedCount === 1) {
-      msg = 'Please click the Next button to continue...';
-    } else {
-      msg = `You have selected ${selectedCount} options. Review before continuing.`;
-    }
-
+    const msg = this.computeFinalMessage({
+      index,
+      total: this.quizService.totalQuestions,
+      qType,
+      opts: optionsNow
+    });
     this.setSelectionMessageText(msg);
   }
 
-  setSelectionMessageText(message: string): void {
-    this.selectionMessageSubject?.next(message);
+  public setSelectionMessageText(message: string): void {
+    if (this.selectionMessageSubject.getValue() !== message) {
+      this.selectionMessageSubject.next(message);
+    }
   }
 }
