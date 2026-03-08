@@ -421,14 +421,14 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       case 'ArrowRight':
       case 'Enter': {
         // “Next” button visible? — go to next question
-        if (!this.shouldShowNextButton) {
+        if (this.shouldShowNextButton) {
           event.preventDefault();
           await this.advanceToNextQuestion();
           return;
         }
 
         // Otherwise, “Show Results” visible? — go to results
-        if (!this.shouldShowResultsButton) {
+        if (this.shouldShowResultsButton) {
           event.preventDefault();
           this.advanceToResults();
           return;
@@ -913,49 +913,26 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   }
 
   private async loadQuestions(): Promise<void> {
-    // Reuse existing loaded questions if they match the current quiz AND shuffle state
-    const shouldShuffle = this.quizService.isShuffleEnabled();
-    const hasShuffled =
-      this.quizService.shuffledQuestions && this.quizService.shuffledQuestions.length > 0;
+    try {
+      // Delegate fetching/caching to QuizService which now has length-based validation.
+      // This ensures that IF a quiz has been updated (e.g. Q6 added), we always get 
+      // the fresh metadata-validated array instead of reusing a stale 5-question cache.
+      const questions = await this.quizService.fetchQuizQuestions(this.quizId);
+      if (!questions?.length) {
+        console.error('[QuizComponent] No quiz questions returned.');
+        return;
+      }
 
-    // If shuffle is ON, we must have shuffledQuestions to reuse.
-    // If shuffle is OFF, we can reuse standard questions.
-    const canReuse = (shouldShuffle && hasShuffled) ||
-      (!shouldShuffle && this.quizService.questions &&
-        this.quizService.questions.length > 0);
-
-    if (canReuse && this.quizService.quizId === this.quizId) {
-      const source = shouldShuffle ?
-        this.quizService.shuffledQuestions : this.quizService.questions;
-      console.log(`[QuizComponent] Reusing existing ${shouldShuffle ?
-        'SHUFFLED' : 'standard'} questions (${source.length}) for quiz ${this.quizId}`);
-
-      // Propagate existing questions to local array
-      this.questionsArray = source;
-      this.totalQuestions = source.length;
+      this.questionsArray = [...questions];
+      this.totalQuestions = questions.length;
       this.isQuizDataLoaded = true;
       this.updateProgressValue();
 
-      // Ensure UI knows about them
-      Promise.resolve().then(() => this.cdRef.detectChanges());
-    } else {
-      try {
-        const questions = await this.quizService.fetchQuizQuestions(this.quizId);
-        if (!questions?.length) {
-          console.error('[QuizComponent] No quiz questions returned.');
-          return;
-        }
-
-        this.questionsArray = questions;
-        this.totalQuestions = questions.length;  // Ensure totalQuestions is updated
-        console.log(`[QuizComponent] Questions fetched. totalQuestions=${this.totalQuestions}`);
-
-        // Set quiz as loaded and sync index after questions are ready
-        this.isQuizDataLoaded = true;
-        this.updateProgressValue();
-      } catch (error) {
-        console.error('[QuizComponent] Failed to fetch questions:', error);
-      }
+      console.log(`[QuizComponent] Questions loaded: ${this.totalQuestions} questions for quiz ${this.quizId}`);
+      this.cdRef.markForCheck();
+      this.cdRef.detectChanges();
+    } catch (error) {
+      console.error('[QuizComponent] Error loading questions:', error);
     }
 
     // Push initial question data immediately after questions are loaded
@@ -5029,39 +5006,30 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     let consideredSelections = 0;
     let matchedCorrectCount = 0;
+    let hasIncorrect = false;
 
     for (const selection of effectiveSelections) {
       const id = String(selection?.optionId ?? '').trim();
       const text = normalize(selection?.text ?? '');
-      const explicitCorrect =
-        selection?.correct === true || String(selection?.correct) === 'true';
+      const explicitCorrect = selection?.correct === true || String(selection?.correct) === 'true';
 
-      const knownOption =
-        (id !== '' && optionIdSet.has(id)) ||
-        (text !== '' && optionTextSet.has(text));
+      const knownOption = (id !== '' && optionIdSet.has(id)) || (text !== '' && optionTextSet.has(text));
+      if (!knownOption && !explicitCorrect) continue;
 
-      // Ignore stale/noise entries that don't belong to this question's options.
-      if (!knownOption && !explicitCorrect) {
-        continue;
-      }
+      consideredSelections++;
 
-      consideredSelections += 1;
-
-      const idMatch = id !== '' && correctIds.has(id);
-      const textMatch = text !== '' && correctTexts.has(text);
-
-      if (idMatch || textMatch || explicitCorrect) {
-        matchedCorrectCount += 1;
+      const isCorrect = (id !== '' && correctIds.has(id)) || (text !== '' && correctTexts.has(text)) || explicitCorrect;
+      if (isCorrect) {
+        matchedCorrectCount++;
       } else {
-        return false;
+        hasIncorrect = true;
       }
     }
 
-    if (consideredSelections === 0) {
-      return null;
-    }
-
-    return matchedCorrectCount === correctOptions.length;
+    if (consideredSelections === 0) return null;
+    if (hasIncorrect) return false; // Any wrong choice = Red
+    if (matchedCorrectCount > 0) return true; // At least one right and zero wrong = Green
+    return null;
   }
 
   // Helper to determine dot class with caching

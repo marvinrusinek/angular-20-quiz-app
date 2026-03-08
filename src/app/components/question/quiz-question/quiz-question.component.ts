@@ -410,7 +410,8 @@ export class QuizQuestionComponent extends BaseQuestion
 
       // On every question: hard reset view and restart visible countdown
       tap((i0: number) => {
-        this.currentQuestionIndex = i0;
+        // DO NOT overwrite @Input currentQuestionIndex here. 
+        // We use i0 for the local reaction.
         this.resetPerQuestionState(i0);   // this must NOT arm any expiry
         this.handledOnExpiry.delete(i0);  // clear any one-shot guards
         requestAnimationFrame(() => this.emitPassiveNow(i0));
@@ -540,7 +541,9 @@ export class QuizQuestionComponent extends BaseQuestion
       this.explanationText = '';
       this._expl$.next(null);
 
-      const questionIndex = Number(params.get('questionIndex'));
+      const rawParam = params.get('questionIndex');
+      const routeIndex = Number(rawParam);
+      const questionIndex = Math.max(0, routeIndex - 1); // Normalize to 0-based
 
       try {
         const question = await firstValueFrom(
@@ -548,7 +551,7 @@ export class QuizQuestionComponent extends BaseQuestion
         );
         if (!question) {
           console.warn(
-            `[⚠️ No valid question returned for index ${questionIndex}]`
+            `[⚠️ No valid question returned for route index ${routeIndex} (normalized: ${questionIndex})]`
           );
           return;
         }
@@ -558,9 +561,9 @@ export class QuizQuestionComponent extends BaseQuestion
     });
 
     const questionIndexParam = this.activatedRoute.snapshot.paramMap.get('questionIndex');
-    const routeIndex = questionIndexParam !== null ? +questionIndexParam : 0;
-    this.currentQuestionIndex = routeIndex;  // ensures correct index
-    this.fixedQuestionIndex = isNaN(routeIndex) ? 0 : routeIndex - 1;
+    const routeIndex = questionIndexParam !== null ? +questionIndexParam : 1;
+    this.currentQuestionIndex = Math.max(0, routeIndex - 1);  // Normalize to 0-based
+    this.fixedQuestionIndex = this.currentQuestionIndex;
 
     const loaded = await this.loadQuestion();
     if (!loaded) {
@@ -2390,8 +2393,15 @@ export class QuizQuestionComponent extends BaseQuestion
         return false;
       }
 
-      if (this.currentQuestionIndex === this.questionsArray.length) {
-        console.log('[loadQuestion] End of quiz → /results');
+      // Defensive: only redirect to results if we truly have no more questions
+      // AND we are strictly past the last possible index (0-based).
+      const serviceTotal = this.quizService.totalQuestions || 0;
+      const localTotal = this.questionsArray.length || 0;
+      const authoritativeCount = this.quizDataService.getCachedQuizById(this.quizId!)?.questions?.length || 0;
+      const trueTotal = Math.max(serviceTotal, localTotal, authoritativeCount);
+
+      if (this.currentQuestionIndex >= trueTotal && trueTotal > 0) {
+        console.log(`[loadQuestion] End of quiz (Index ${this.currentQuestionIndex} >= Total ${trueTotal}) → /results`);
         await this.router.navigate(['/results', this.quizId]);
         return false;
       }
@@ -6907,13 +6917,8 @@ export class QuizQuestionComponent extends BaseQuestion
       this.cdRef.markForCheck();
     });
 
-    // Pin context to this index and try to get formatted NOW
-    const prevFixed = this.fixedQuestionIndex;
-    const prevCur = this.currentQuestionIndex;
+    // try-finally or just local use; DON'T pollute @Input state during async await
     try {
-      this.fixedQuestionIndex = i0;
-      this.currentQuestionIndex = i0;
-
       const ets = this.explanationTextService;
 
       // ⏸ Wait if the explanation gate is still locked
@@ -7004,9 +7009,6 @@ export class QuizQuestionComponent extends BaseQuestion
       }
     } catch (err) {
       console.warn('[onTimerExpiredFor] failed; using raw', err);
-    } finally {
-      this.fixedQuestionIndex = prevFixed;
-      this.currentQuestionIndex = prevCur;
     }
   }
 
@@ -7043,14 +7045,12 @@ export class QuizQuestionComponent extends BaseQuestion
       if (hit) return hit;
     }
 
-    const prevFixed = this.fixedQuestionIndex;
-    const prevCur = this.currentQuestionIndex;
     let text = '';
 
     try {
-      // Force the formatter to operate on this question
-      this.fixedQuestionIndex = i0;
-      this.currentQuestionIndex = i0;
+      // ────────────────────────────────────────────────
+      // Resolve the FET using the specific index i0
+      // ────────────────────────────────────────────────
 
       // Try direct return first
       const out = await this.updateExplanationText(i0);
@@ -7091,9 +7091,6 @@ export class QuizQuestionComponent extends BaseQuestion
     } catch (err) {
       console.warn('[resolveFormatted] failed', i0, err);
       return '';
-    } finally {
-      this.fixedQuestionIndex = prevFixed;
-      this.currentQuestionIndex = prevCur;
     }
   }
 

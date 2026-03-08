@@ -690,15 +690,13 @@ export class QuizService {
         const isSameQuiz = quizId && this.questionsQuizId === quizId;
 
         if (isSameQuiz) {
-          console.log(`[fetchQuizQuestions] Returning EXISTING shuffledQuestions (${this.shuffledQuestions.length} questions) for quiz ${quizId}`);
-
-          if (this.shuffledQuestions.length > 0) {
-            console.log(`[fetchQuizQuestions] Q1 Preview: Text="${this.shuffledQuestions[0].questionText.substring(0, 20)}..."`);
+          // One final safety check: if we somehow have questions but they are empty, don't use cache
+          if (Array.isArray(this.shuffledQuestions) && this.shuffledQuestions.length > 0) {
+            console.log(`[fetchQuizQuestions] Returning EXISTING shuffledQuestions (${this.shuffledQuestions.length} questions) for quiz ${quizId}`);
+            this.questionsSubject.next(this.shuffledQuestions);
+            return this.shuffledQuestions;
           }
-
-          // Ensure subscribers get the shuffled version
-          this.questionsSubject.next(this.shuffledQuestions);
-          return this.shuffledQuestions;
+          console.warn('[fetchQuizQuestions] Cache hit but questions array is empty. Proceeding to fetch.');
         } else {
           console.log(`[fetchQuizQuestions] Quiz mismatch - clearing old shuffle. quizId=${quizId}, this.quizId=${this.quizId}, questionsQuizId=${this.questionsQuizId}`);
           // Clear old shuffle for new quiz
@@ -725,73 +723,7 @@ export class QuizService {
           return [];
         }
 
-        // Reuse the already prepared questions when available
-        const cachedQuestions = this.questionsSubject.getValue();
-        if (
-          Array.isArray(cachedQuestions) &&
-          cachedQuestions.length > 0 &&
-          // this.quizId === quizId
-          this.questionsQuizId === quizId
-        ) {
-          console.log(`[QuizService] fetchQuizQuestions: Cache hit. shouldShuffle=${this.shouldShuffle()}, cachedSize=${cachedQuestions.length}`);
-          if (this.shouldShuffle()) {
-            // Reuse already shuffled session data if available
-            if (
-              this.shuffledQuestions &&
-              this.shuffledQuestions.length > 0 &&
-              // this.quizId === quizId
-              this.questionsQuizId === quizId
-            ) {
-              console.log('[QuizService] Reusing ALREADY SHUFFLED session data.');
-              this.questionsSubject.next(this.shuffledQuestions);  // sync fix
-              this.questionsQuizId = quizId;
-              return this.shuffledQuestions;
-            }
-
-            console.log('[QuizService] Shuffle requested on CACHED data - re-shuffling...');
-
-            // Use CANONICAL questions for shuffling, never the cached (potentially already shuffled) ones!
-            let sourceQuestions = this.canonicalQuestionsByQuiz.get(quizId);
-            if (!sourceQuestions || sourceQuestions.length === 0) {
-              console.warn('[QuizService] Canonical questions missing during re-shuffle! Falling back to cached.');
-              sourceQuestions = cachedQuestions;
-            } else {
-              // Clone to be safe
-              sourceQuestions = JSON.parse(JSON.stringify(sourceQuestions));
-            }
-
-            if (!sourceQuestions || sourceQuestions.length === 0) {
-              console.error('[QuizService] Cannot shuffle: No questions available.');
-              return [];
-            }
-
-            // Delegate cached shuffle to QuizShuffleService
-            this.quizShuffleService.prepareShuffle(quizId, sourceQuestions);
-            const syncedShuffled = this.quizShuffleService.buildShuffledQuestions(quizId, sourceQuestions);
-
-            this.shuffledQuestions = syncedShuffled;
-            this.questions = syncedShuffled;
-            this.questionsQuizId = quizId;
-            return syncedShuffled;
-          }
-
-          // If NOT shuffling, we should return the canonical order
-          const canonical = this.canonicalQuestionsByQuiz.get(quizId);
-          if (canonical && canonical.length > 0) {
-            console.log('[QuizService] Restoring canonical order from cache.');
-            const restored = JSON.parse(JSON.stringify(canonical));
-            this.questions = restored;
-            this.questionsQuizId = quizId;
-            return restored;
-          }
-
-          this.questionsQuizId = quizId;
-          return cachedQuestions.map(
-            (question) => this.cloneQuestionForSession(question) ?? question
-          );
-        }
-
-        // Fetch quizzes from the API
+        // 1. Fetch JSON metadata as source of truth
         const quizzes = await firstValueFrom<Quiz[]>(
           this.http.get<Quiz[]>(this.quizUrl)
         );
@@ -802,79 +734,69 @@ export class QuizService {
           return [];
         }
 
-        // Populate currentQuizSubject so getTotalQuestionsCount works
+        // Update current quiz metadata immediately for totalQuestions callers
         this.currentQuizSubject.next(quiz);
+        this.totalQuestions = quiz.questions?.length || 0;
 
-        // Normalize
-        const normalizedQuestions: QuizQuestion[] = (quiz.questions ?? []).map((question, qIndex) => {
-          // Use centralized ID generation to ensure consistency with QuizShuffleService
-          // This ensures that canonical questions (IDs 101, 102...) match shuffled questions,
-          // allowing getCorrectOptionIndices to correctly identify answers by ID.
-          const optionsWithIds = this.quizShuffleService.assignOptionIds(question.options ?? [], qIndex);
+        // 2. Validate cache: check same quiz ID AND same total question count
+        const isSameQuiz = quizId && this.questionsQuizId === quizId;
+        const cachedLen = this.shuffledQuestions?.length || 0;
+        const metadataLen = quiz.questions?.length || 0;
 
-          const normalizedOptions = optionsWithIds.map((option, index) => ({
-            ...option,
-            correct: !!option.correct,
-            // optionId is already assigned by service
-            displayOrder: index
-          }));
+        const lengthMatches = cachedLen > 0 && cachedLen === metadataLen;
 
-          return { ...question, options: normalizedOptions };
-        });
-
-        // Store canonical (original) order BEFORE shuffling!
-        // valid 'canonical' base allows resolveCanonicalQuestion to working correctly
-        // instead of falling back to the ALREADY shuffled 'this.questions' (double shuffle).
-        this.canonicalQuestionsByQuiz.set(
-          quizId,
-          JSON.parse(JSON.stringify(normalizedQuestions))
-        );
-
-        // Shuffle if needed, OR if we already have shuffled data we should preserve
-        const effectivelyShuffling = this.shouldShuffle();
-
-        if (effectivelyShuffling) {
-          if (!this.shouldShuffle()) {
-            console.warn('[fetchQuizQuestions] shouldShuffle is false, but restoring from existing shuffledQuestions.');
-          }
-
-          // Delegate shuffling to QuizShuffleService
-          // This ensures the internal map (used by resolveCanonicalQuestion) matches the array we return.
-          console.log('[QuizService] Generating NEW shuffle via QuizShuffleService...');
-          this.quizShuffleService.prepareShuffle(quizId, normalizedQuestions);
-
-          // Re-generate the array from the authoritative map
-          const syncedShuffled = this.quizShuffleService.buildShuffledQuestions(quizId, normalizedQuestions);
-
-          // Assign to normalizedQuestions so subsequent logic uses the synced version
-          // We clear the array first to ensure we replace it
-          normalizedQuestions.length = 0;
-          normalizedQuestions.push(...syncedShuffled);
+        if (isSameQuiz && lengthMatches) {
+          console.log(`[QuizService] fetchQuizQuestions: Cache Hit & Length Match (${cachedLen}). Returning shuffle.`);
+          this.questionsSubject.next(this.shuffledQuestions);
+          return this.shuffledQuestions;
         }
 
-        const sanitizedQuestions = normalizedQuestions
-          .map((question) => this.cloneQuestionForSession(question))
-          .filter((question): question is QuizQuestion => !!question);
-
-        this.quizId = quizId;
-
-        if (effectivelyShuffling) {
-          this.shuffledQuestions = sanitizedQuestions;
-        } else {
-          // Ensure we don't store unshuffled questions as "shuffled"
-          // This prevents future checks from returning unshuffled data when shuffle is requested
-          this.shuffledQuestions = [];
-        }
-
-        const broadcastQuestions = sanitizedQuestions.map(
-          (question) => this.cloneQuestionForSession(question) ?? question
-        );
-        this.questions = broadcastQuestions;
+        // 3. Cache Miss or Update: Re-initialize and (optionally) shuffle
+        console.log(`[QuizService] fetchQuizQuestions: ${isSameQuiz ? 'STALE (Length Mismatch)' : 'MISS'}. Expected=${metadataLen}, Found=${cachedLen}`);
+        
+        this.shuffledQuestions = [];
+        this._questions = [];
         this.questionsQuizId = quizId;
 
-        return sanitizedQuestions.map(
-          (question) => this.cloneQuestionForSession(question) ?? question
-        );
+        // Normalization: assign option IDs and align answers
+        const normalized: QuizQuestion[] = (quiz.questions ?? []).map((q, qIdx) => {
+          const optsWithIds = this.quizShuffleService.assignOptionIds(q.options ?? [], qIdx);
+          const alignedAnswers = this.quizShuffleService.alignAnswersWithOptions(q.answer, optsWithIds);
+          
+          const correctIds = new Set(alignedAnswers.map(a => Number(a.optionId)));
+          const finalOpts = optsWithIds.map(o => ({
+            ...o,
+            correct: correctIds.has(Number(o.optionId))
+          }));
+
+          return {
+            ...q,
+            options: finalOpts.map(o => ({ ...o })),
+            answer: alignedAnswers.map(a => ({ ...a }))
+          } as QuizQuestion;
+        });
+
+        // Save canonical reference
+        this.canonicalQuestionsByQuiz.set(quizId, JSON.parse(JSON.stringify(normalized)));
+        this._questions = JSON.parse(JSON.stringify(normalized));
+
+        if (this.shouldShuffle()) {
+          console.log('[QuizService] 🔀 Generating fresh shuffle for', quizId);
+          this.quizShuffleService.prepareShuffle(quizId, normalized);
+          const shuffled = this.quizShuffleService.buildShuffledQuestions(quizId, normalized);
+          
+          this.shuffledQuestions = shuffled;
+          try {
+            localStorage.setItem('shuffledQuestions', JSON.stringify(shuffled));
+            localStorage.setItem('shuffledQuestionsQuizId', quizId);
+          } catch {}
+          
+          this.questionsSubject.next(shuffled);
+          return shuffled;
+        }
+
+        this.questionsSubject.next(normalized);
+        return normalized;
       } catch (error) {
         console.error('Error in fetchQuizQuestions:', error);
         return [];

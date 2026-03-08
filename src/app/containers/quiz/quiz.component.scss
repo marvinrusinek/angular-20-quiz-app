@@ -323,17 +323,24 @@ mat-card {
           }
 
           &.current {
-            background-color: vars.$dodger-blue;
             transform: scale(1.4);
-            box-shadow: 0 0 0 3px rgba(vars.$dodger-blue, 0.25);
+            box-shadow: 0 0 0 3px rgba(vars.$dodger-blue, 0.4);
+            z-index: 2;
+
+            // Only blue if neither correct nor wrong
+            &:not(.correct):not(.wrong) {
+              background-color: vars.$dodger-blue;
+            }
           }
 
           &.correct {
-            background-color: vars.$green;
+            background-color: vars.$green !important;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
           }
 
           &.wrong {
-            background-color: vars.$red;
+            background-color: vars.$red !important;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
           }
         }
       }
