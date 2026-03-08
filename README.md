@@ -1,128 +1,251 @@
-<h1>🚀 Angular Quiz App</h1>
+<h1 align="center">🚀 Angular Quiz App</h1>
 
-<p>Welcome to the Angular Quiz App — an interactive, modern quiz platform built with Angular. Whether you're testing your knowledge or learning something new, this app offers a smooth and rewarding experience, complete with feedback, explanations, and a polished UI.</p>
-
-👉 <a href="https://stackblitz.com/~/github.com/marvinrusinek/angular-20-quiz-app" target="_blank">Launch the App Now</a>
-
-<h3>🎯 What Makes It Awesome</h3>
-
-<h4>✅ Multiple Question Types</h4>
-<p>Supports both single-answer and multiple-answer formats.</p>
-
-<h4>⏱️ Countdown Timer</h4>
-<p>Adds pressure and realism by timing each question.</p>
-
-<h4>📈 Live Score Tracking</h4>
-<p>Your score updates in real-time as you answer.</p>
-
-<h4>💡 Instant Feedback + Explanations</h4>
-<p>Learn from your mistakes with in-depth explanations for each question.</p>
-
-<h4>🔀 Seamless Navigation</h4>
-<p>Move between questions effortlessly via buttons or direct URL changes.</p>
-
-<h4>📱 Responsive Design</h4>
-<p>Optimized for desktop and mobile — enjoy the same smooth experience everywhere.</p>
-
-<h3>🛠️ Built With</h3>
-<ul>
-  <li>Angular – Modern web framework for dynamic UIs</li>
-  <li>TypeScript – Strongly typed JavaScript</li>
-  <li>RxJS – Reactive programming with Observables</li>
-  <li>SCSS – Clean and maintainable styles</li>
-  <li>Angular Material – Sleek, ready-made UI components</li>
-</ul>
-
-<h3>📦 Getting Started</h3>
-<b>Prerequisites</b>
-<p>Make sure you have the following installed:
-
-Node.js (v19+)
-
-Angular CLI (v20+)
-
-Run Locally
-git clone https://github.com/yourusername/quiz-app.git
-cd quiz-app
-npm install
-ng serve
-
-Then visit: http://localhost:4200
-
+<p align="center">
+A feature-rich quiz platform built with <strong>Angular 20</strong> that demonstrates
+reactive programming with RxJS, modular Angular architecture,
+and dynamic UI rendering.
 </p>
 
-<h3>🚘 How to Use</h3>
-<ol>
-<li>Choose a quiz category to begin.</li>
-<li>Answer each question (single or multiple answers).</li>
-<li>Click Next to proceed or use URL-based navigation.</li>
-<li>Review your score and explanations after each question.</li>
-<li>Restart the quiz anytime to challenge yourself again!</li>
-</ol>
+<p align="center">
+<img src="https://img.shields.io/badge/Angular-20-red">
+<img src="https://img.shields.io/badge/TypeScript-Enabled-blue">
+<img src="https://img.shields.io/badge/RxJS-Reactive-purple">
+<img src="https://img.shields.io/badge/Status-Active%20Development-brightgreen">
+</p>
 
-<h3>🧩 Project Structure</h3>
-src/<br>
-├── app/<br>
-│   ├── components/      → UI components (questions, options, timer)<br>
-│   ├── services/        → Business logic, quiz state, navigation<br>
-│   ├── models/          → TypeScript interfaces and data structures<br>
-│   ├── pipes/           → Custom pipes for display formatting<br>
-├── styles/              → Global SCSS, themes, and variables<br>
+<p align="center">
+<a href="https://stackblitz.com/~/github.com/marvinrusinek/angular-20-quiz-app" target="_blank">
+▶ Launch Live Demo
+</a>
+</p>
 
-<h3>🧪 Development Workflow</h3>
-<b>➕ Adding a New Feature</b>
-<ol>
-<li>Create a new component/service in the correct folder.</li>
-<li>Write tests and verify functionality.</li>
-<li>Run local tests with:</li>
-<p>ng test</p>
-</ol>
+<hr>
 
-<h3>🐞 Debugging Tips</h3>
+<h2>🎬 Feature Demo</h2>
+
+<p align="center">
+<img src="docs/demo/angular-quiz-demo.gif" width="900" alt="Angular Quiz Demo">
+</p>
+
+<p align="center">
+<em>Demo GIF coming soon</em>
+</p>
+
+<hr>
+
+<h2>💡 Why I Built This</h2>
+
+<p>
+This project was built to explore advanced Angular application design,
+including reactive state management with RxJS, service-driven architecture,
+and dynamic UI rendering patterns.
+</p>
+
+<p>
+The goal was to create a quiz platform that functions both as an engaging
+learning tool and as a demonstration of modern Angular development practices.
+</p>
+
+<hr>
+
+<h2>🏆 Engineering Highlights</h2>
+
 <ul>
-<li>Use browser dev tools while running ng serve</li>
-<li>Leverage Angular CLI for component/service debugging</li>
+<li>Built with <strong>Angular 20</strong>, <strong>TypeScript</strong>, and <strong>RxJS</strong></li>
+<li>Implemented support for both <strong>single-answer</strong> and <strong>multiple-answer</strong> quiz flows</li>
+<li>Designed a reactive feedback and explanation system synchronized with quiz state</li>
+<li>Integrated timer-driven quiz logic and real-time score updates</li>
+<li>Structured the application with modular Angular services</li>
+<li>Designed for future <strong>Angular Signals</strong> integration</li>
 </ul>
 
-<h3>🤝 Contributing</h3>
-<p>Contributions are <b>very welcome!</b></p>
-<p>If you find a bug, have a suggestion, or want to build a feature — please dive in.</p>
+<hr>
 
-<h4>Steps to Contribute</h4>
-# Fork the repo
-git clone https://github.com/YOUR_USERNAME/quiz-app.git
-cd quiz-app
+<h2>📸 Screenshots</h2>
 
-# Create a feature branch
+<p align="center">
+<img src="docs/screenshots/quiz-question.png" width="750" alt="Quiz Question Screen">
+</p>
 
-git checkout -b my-new-feature
+<p align="center">
+<img src="docs/screenshots/quiz-feedback.png" width="750" alt="Quiz Feedback Screen">
+</p>
 
-# Commit your changes
+<p align="center">
+<img src="docs/screenshots/results-summary.png" width="750" alt="Quiz Results Summary">
+</p>
 
-git commit -m "Add cool feature"
+<hr>
 
-# Push and open a PR
+<h2>✨ Core Features</h2>
 
-git push origin my-new-feature
+<h3>🧠 Multiple Question Types</h3>
 
-<h3>🚧 Roadmap</h3>
-<p>Here's what’s coming next:</p>
+<p>
+Supports both <strong>single-answer</strong> and <strong>multiple-answer</strong> questions,
+each with independent selection logic and validation.
+</p>
+
+<h3>💡 Instant Feedback + Explanation Text</h3>
+
+<p>
+After selecting an answer, the application displays contextual feedback
+and explanation text to reinforce learning.
+</p>
+
+<h3>⏱️ Timer-Based Quiz Flow</h3>
+
+<p>
+Each question can be timed, adding urgency and realism to the quiz experience.
+</p>
+
+<h3>📈 Live Score Tracking</h3>
+
+<p>
+Score updates dynamically as the user progresses through the quiz.
+</p>
+
+<h3>🔀 Shuffle Mode</h3>
+
+<p>
+Questions can be randomized while preserving accurate feedback
+and explanation alignment.
+</p>
+
+<h3>📊 Results Summary</h3>
+
+<p>
+After completing the quiz, users can review their performance
+with a structured results breakdown.
+</p>
+
+<hr>
+
+<h2>🧭 Architecture Overview</h2>
+
+<p align="center">
+<img src="docs/diagrams/architecture-diagram.png" width="950" alt="Angular Quiz App Architecture">
+</p>
+
+<p>
+The application follows a modular Angular architecture where container components
+coordinate UI logic while services manage application state and quiz behavior.
+Reactive streams synchronize UI updates across the application.
+</p>
+
+<h3>High-Level Flow</h3>
+
+<pre>
+[User Interaction]
+        ↓
+[Container Components]
+Introduction / Quiz / Results
+        ↓
+[Question + Answer Components]
+        ↓
+[Service Layer]
+ ├── QuizService
+ ├── QuizStateService
+ ├── SelectedOptionService
+ ├── ExplanationTextService
+ ├── TimerService
+ └── SelectionMessageService
+        ↓
+[RxJS State Streams]
+        ↓
+[UI Updates]
+Scoreboard / Feedback / Results
+</pre>
+
+<hr>
+
+<h2>🛠️ Technology Stack</h2>
+
 <ul>
-<li>🏆 Leaderboard – Track top scores and challenge friends</li>
-<li>🔐 User Accounts – Save progress and review history</li>
-<li>📚 More Categories – Broader quiz topics across disciplines</li>
+<li><strong>Angular 20</strong></li>
+<li><strong>TypeScript</strong></li>
+<li><strong>RxJS</strong></li>
+<li><strong>Angular Material</strong></li>
+<li><strong>SCSS</strong></li>
 </ul>
-<p>Want to see something added? Open an issue or contribute it!</p>
 
-<h3>🙌 Support the Project</h3>
-<p>If this app helped you learn, teach, or just have fun — please consider giving it a ⭐️ on GitHub. Your support <b>directly fuels</b> future features and improvements.</p>
-<p>You can also:</p>
+<hr>
+
+<h2>📁 Project Structure</h2>
+
+<pre>
+src/
+├── app/
+│   ├── components/
+│   ├── containers/
+│   ├── shared/
+│   │   ├── services/
+│   │   ├── models/
+│   │   └── utils/
+│   ├── pipes/
+│   ├── directives/
+│   └── animations/
+</pre>
+
+<hr>
+
+<h2>⚙️ Getting Started</h2>
+
+<h3>Prerequisites</h3>
+
 <ul>
-<li>Share it with others</li>
-<li>Submit feedback or bugs</li>
-<li>Sponsor development (if applicable)</li></ul>
-<p>Every bit of support counts — thank you!</p>
+<li>Node.js 18+</li>
+<li>Angular CLI 20+</li>
+</ul>
 
-<h3>📄 License</h3>
-<p>Licensed under the <b>MIT License</b>.</p>
-<p>See the <a href="">LICENSE</a> file for more info.</p>
+<h3>Installation</h3>
+
+<pre>
+git clone https://github.com/marvinrusinek/angular-20-quiz-app.git
+cd angular-20-quiz-app
+npm install
+</pre>
+
+<h3>Run the App</h3>
+
+<pre>
+ng serve
+</pre>
+
+<p>Then open:</p>
+
+<pre>
+http://localhost:4200
+</pre>
+
+<hr>
+
+<h2>🚧 Roadmap</h2>
+
+<ul>
+<li>Angular Signals integration</li>
+<li>Further modular refactoring</li>
+<li>UI/UX enhancements</li>
+<li>Additional quiz content</li>
+</ul>
+
+<hr>
+
+<h2>⭐ Support</h2>
+
+<p>
+If you find this project useful or interesting,
+consider giving it a star on GitHub.
+</p>
+
+<hr>
+
+<h2>📄 License</h2>
+
+<p>
+Licensed under the <strong>MIT License</strong>.
+</p>
+
+<p>
+See the <a href="./LICENSE">LICENSE</a> file for details.
+</p>
