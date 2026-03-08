@@ -149,9 +149,11 @@ export class OptionItemComponent implements OnChanges {
       isActuallySelectedFromService ||
       this._wasSelected;
 
-    const isCorrect =
-      this.b.option?.correct === true ||
-      String(this.b.option?.correct) === 'true' ||
+    const isCorrect = 
+      (this.b.option as any)?.correct === true || 
+      String((this.b.option as any)?.correct) === 'true' || 
+      (this.b.option as any)?.correct === 1 || 
+      (this.b.option as any)?.correct === '1' || 
       this.b.isCorrect === true;
 
     const hasAnsweredCurrentQuestion = selections.length > 0;
@@ -165,9 +167,9 @@ export class OptionItemComponent implements OnChanges {
       !!(feedbackMap as any)[Number(this.optionId)] ||
       !!(this.b.option?.optionId != null && (feedbackMap as any)[String(this.b.option.optionId)]);
 
-    const shouldHighlightThisOption =
-      showSelectionState ||
-      feedbackForThisOption;
+    const shouldHighlightThisOption = (this.type === 'single')
+      ? (showSelectionState || feedbackForThisOption)
+      : (this.b.option?.highlight === true);
 
     if (shouldHighlightThisOption) {
       if (isCorrect) {
@@ -246,9 +248,11 @@ export class OptionItemComponent implements OnChanges {
       !!this.b.showFeedbackForOption?.[this.optionId] ||
       isActuallySelectedFromService;
 
-    const isCorrect =
-      this.b.option?.correct === true ||
-      String(this.b.option?.correct) === 'true' ||
+    const isCorrect = 
+      (this.b.option as any)?.correct === true || 
+      String((this.b.option as any)?.correct) === 'true' || 
+      (this.b.option as any)?.correct === 1 || 
+      (this.b.option as any)?.correct === '1' || 
       this.b.isCorrect === true;
 
     const hasAnsweredCurrentQuestion = selections.length > 0;
@@ -262,9 +266,9 @@ export class OptionItemComponent implements OnChanges {
       !!(feedbackMap as any)[Number(this.optionId)] ||
       !!(this.b.option?.optionId != null && (feedbackMap as any)[String(this.b.option.optionId)]);
 
-    const shouldHighlightThisOption =
-      isActivelySelected ||
-      feedbackForThisOption;
+    const shouldHighlightThisOption = (this.type === 'single')
+      ? (isActivelySelected || feedbackForThisOption)
+      : (this.b.option?.highlight === true);
 
     // DEBUG HIGHLIGHT TRACE:
     /* if (this.b.isSelected) {
@@ -331,14 +335,18 @@ export class OptionItemComponent implements OnChanges {
   }
 
   shouldShowFeedback(): boolean {
+    const isMulti = this.type === 'multiple';
     const fromBindingMap = !!(this.b.showFeedbackForOption && this.b.showFeedbackForOption[this.optionId]);
-    const fromHighlight = this.b.highlightCorrect || this.b.highlightIncorrect;
+    const fromHighlight = this.b.highlightCorrect || this.b.highlightIncorrect || this.b.option?.highlight === true;
     const fromLocked = !!(this.b.disabled && this.b.isSelected);
-    
-    // Ensure we also check if it's marked as selected in the persistent service
-    const isCorrect = this.b.option?.correct === true || String(this.b.option?.correct) === 'true';
     const isActuallySelectedFromService = this.isSelectedForCurrentQuestion();
 
+    if (isMulti) {
+      // For multi-answer, we only show icons/feedback visuals for what's CURRENTLY highlighted
+      // (as per the exclusive highlighting rule)
+      return (this.b.option?.highlight === true);
+    }
+    
     return fromBindingMap || fromHighlight || fromLocked || this.isPreviousSelection() || isActuallySelectedFromService;
   }
 

@@ -154,12 +154,11 @@ export class SelectedOptionService {
 
   // Helper to sync state from external components (like SharedOptionComponent)
   syncSelectionState(questionIndex: number, options: SelectedOption[]): void {
-    this.selectedOptionsMap.set(questionIndex, options);
-    this.selectedOptionsMap.set(String(questionIndex) as any, options);  // duplicate key fix if needed
+    const committed = this.commitSelections(questionIndex, options);
 
-    this.selectedOption = options;  // helper Sync
-    this.selectedOptionSubject.next(options);
-    this.isOptionSelectedSubject.next(options.length > 0);
+    this.selectedOption = committed;  // helper Sync
+    this.selectedOptionSubject.next(committed);
+    this.isOptionSelectedSubject.next(committed.length > 0);
     this.isAnsweredSubject.next(true);  // ensure answered state is tracked
   }
 
@@ -211,9 +210,8 @@ export class SelectedOptionService {
     }
 
     // AUTHORITATIVE MERGE (REPLACE BY optionId)
-    // - Single-answer: newest selection replaces all previous
-    // - Multi-answer: newest selection replaces same optionId
     const merged = new Map<number, SelectedOption>();
+    const isCorrectHelper = (o: any) => o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || o.correct === '1');
 
     // Keep existing selections (as a base)
     for (const o of existingCanonical) {
@@ -232,18 +230,17 @@ export class SelectedOptionService {
     }
 
     // Commit selections and store the result
-    // IMPORTANT: commitSelections must NOT be allowed to drop the latest click.
-    // So we give it the already-merged, latest-truth list.
+    // IMPORTANT: commitSelections ensures object identities are preserved 
+    // and correctly applies the exclusive highlight logic.
     const mergedList = Array.from(merged.values());
-    const committed = mergedList;
-    this.selectedOptionsMap.set(idx, committed);
+    const committed = this.commitSelections(idx, mergedList);
 
     // PROACTIVE SYNC: Ensure QuizService knows about this answer immediately.
     // This drives calculateAnsweredCount and progress persistence.
     if (this.quizService) {
       const ids = committed
-        .map(o => o.optionId)
-        .filter((id): id is number => typeof id === 'number');
+        .map((o: any) => o.optionId)
+        .filter((id: any): id is number => typeof id === 'number');
       this.quizService.updateUserAnswer(idx, ids);
     }
 
@@ -547,10 +544,7 @@ export class SelectedOptionService {
       }
     }
 
-    const committed = Array.from(merged.values());
-
-    // Overwrite the question entry completely
-    this.selectedOptionsMap.set(questionIndex, committed);
+    const committed = this.commitSelections(questionIndex, Array.from(merged.values()));
 
     // Also store in rawSelectionsMap for results display
     if (committed.length > 0) {
@@ -570,8 +564,8 @@ export class SelectedOptionService {
 
     // Sync to QuizService for localStorage persistence
     const ids = committed
-      .map(o => o.optionId)
-      .filter((id): id is number => typeof id === 'number');
+      .map((o: any) => o.optionId)
+      .filter((id: any): id is number => typeof id === 'number');
 
     console.log(`[SOS] setSelectedOptionsForQuestion Q${questionIndex} syncing IDs:`, ids);
     this.quizService.updateUserAnswer(questionIndex, ids);
@@ -613,7 +607,10 @@ export class SelectedOptionService {
   ): boolean {
     // Only get CORRECT option IDs, not ALL options
     const correctIds = question.options
-      .filter(o => o.correct === true)  // filter for correct options first
+      .filter(o => {
+        const c = (o as any).correct;
+        return c === true || String(c) === 'true' || c === 1 || c === '1';
+      })  // filter for correct options first
       .map(o => o.optionId)
       .filter((id): id is number => typeof id === 'number');
 
@@ -1813,6 +1810,15 @@ export class SelectedOptionService {
       selections
     ).map((sel) => ({ ...sel }));  // ensure new object identity
 
+    // Selection Highlighting Rule:
+    // Highlighting is now cumulative for all selected options.
+    // Downstream components (OptionItemComponent) apply the Correct/Incorrect 
+    // coloring based on the 'correct' flag.
+    canonicalSelections.forEach((s) => {
+      s.highlight = true;
+      s.showIcon = true;
+    });
+
     console.log(`[SOS] commitSelections for Q${idx + 1}: count=${canonicalSelections.length}`);
 
     if (canonicalSelections.length > 0) {
@@ -2371,7 +2377,10 @@ export class SelectedOptionService {
       const selected = this.getSelectedOptionsForQuestion(qIndex) ?? [];
       if (selected.length === 0) return false;
 
-      const correctOptions = question.options.filter((o) => o.correct === true);
+      const correctOptions = question.options.filter((o: any) => {
+        const c = o.correct;
+        return c === true || String(c) === 'true' || c === 1 || c === '1';
+      });
       const correctIds = new Set(correctOptions.map((o) => String(o.optionId)));
 
       const selectedIds = new Set(
@@ -2414,14 +2423,18 @@ export class SelectedOptionService {
     if (!selected || selected.length === 0) return false;
 
     // 2. Identify total expected correct options
-    const totalCorrect = question.options.filter(o => o.correct === true).length;
+    const totalCorrect = question.options.filter((o: any) => {
+      const c = o.correct;
+      return c === true || String(c) === 'true' || c === 1 || c === '1';
+    }).length;
     if (totalCorrect === 0) return false;
 
     // 3. Count how many of the SELECTED options are actually correct.
     // robust verification by looking up in the source 'question.options'
     const selectedCorrectCount = selected.filter(sel => {
       // A. Trusted flag (if available)
-      if (sel.correct === true) return true;
+      const c = (sel as any).correct;
+      if (c === true || String(c) === 'true' || c === 1 || c === '1') return true;
 
       const selIdStr = String(sel.optionId);
 

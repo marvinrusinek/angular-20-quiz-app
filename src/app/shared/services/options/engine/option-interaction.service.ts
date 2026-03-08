@@ -125,6 +125,12 @@ export class OptionInteractionService {
       } as SelectedOption);
     }
 
+    let isMultipleAnswer = state.type === 'multiple';
+
+    // The Service now handles ALL exclusive highlight/icon logic centrally 
+    // when syncSelectionState calls setSelectedOptionsForQuestion -> commitSelections.
+
+
     // Update service
     const allBindings = state.optionBindings ?? [];
     const validIds = simulatedSelection.map((o) => {
@@ -167,7 +173,7 @@ export class OptionInteractionService {
       }
     }
 
-    let isMultipleAnswer = state.type === 'multiple' || isMultipleForScore;
+    isMultipleAnswer = isMultipleAnswer || state.type === 'multiple' || (typeof isMultipleForScore !== 'undefined' ? isMultipleForScore : false);
     
     // Authoritative fallback using the actual question object
     if (!isMultipleAnswer && question && Array.isArray(question.options)) {

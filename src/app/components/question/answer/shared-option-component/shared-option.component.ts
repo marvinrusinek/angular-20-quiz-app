@@ -237,15 +237,21 @@ export class SharedOptionComponent
 
       // Data inference (fixes multiple-answer questions)
       if (currentQ?.options) {
-        // Robust count: handle boolean and string 'true'
-        const count = currentQ.options.filter((o: Option) => o.correct === true || (o.correct as any) === 'true').length;
+        // Robust count: handle boolean, string 'true', number 1, and string '1'
+        const count = currentQ.options.filter((o: Option) => {
+          const c = (o as any).correct;
+          return c === true || String(c) === 'true' || c === 1 || c === '1';
+        }).length;
         console.log(`[isMultiMode] Q${idx + 1} from question: correctCount=${count}, returning ${count > 1}`);
         if (count > 1) result = true;
       }
 
       // Fallback: Check optionsToDisplay (most reliable for shuffled mode)
       if (!result && this.optionsToDisplay?.length > 0) {
-        const displayCount = this.optionsToDisplay.filter((o: Option) => o.correct === true || (o.correct as any) === 'true').length;
+        const displayCount = this.optionsToDisplay.filter((o: Option) => {
+          const c = (o as any).correct;
+          return c === true || String(c) === 'true' || c === 1 || c === '1';
+        }).length;
         console.log(`[isMultiMode] Q${idx + 1} from optionsToDisplay: correctCount=${displayCount}, returning ${displayCount > 1}`);
         if (displayCount > 1) result = true;
       }
@@ -813,6 +819,13 @@ export class SharedOptionComponent
 
     if (shouldRegenerate) {
       this.hydrateOptionsFromSelectionState();
+
+      // Synchronize type from data-detected multi-mode to ensure 
+      // OptionInteractionService/OptionUiSyncService use correct logic
+      if (this.isMultiMode) {
+        this.type = 'multiple';
+      }
+
       this.generateOptionBindings();
     } else if (
       changes['optionBindings'] &&
@@ -955,21 +968,53 @@ export class SharedOptionComponent
     const saved = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
     if (!saved.length) return;
 
-    const savedIds = this.optionHydrationService.toIdSet(saved) as Set<string | number>;
-
-    // Unified Selection Source of Truth: populate local Set and bindings
+    // Unified Selection Source of Truth: sync ALL flags (selected, highlight, showIcon)
     this.selectedOptions.clear();
-    for (const id of savedIds) {
-      if (id != null) this.selectedOptions.add(Number(id));
+    const savedMap = new Map<number | string, SelectedOption>();
+    for (const s of saved) {
+      const sid = s.optionId ?? (s as any).index;
+      if (sid != null) {
+        savedMap.set(sid, s);
+        if (s.selected) this.selectedOptions.add(Number(sid));
+      }
     }
 
+    // Sync bindings
     if (this.optionBindings?.length) {
-      this.optionHydrationService.applySavedSelections(this.optionBindings, savedIds);
-      // Ensure b.option.selected is ALSO synced for generateFeedbackConfig
       for (const b of this.optionBindings) {
-        const oId = b.option?.optionId;
-        if (oId != null && savedIds.has(oId)) {
-          b.option.selected = true;
+        const oId = b.option?.optionId ?? b.index;
+        const match = savedMap.get(oId) || savedMap.get(Number(oId)) || savedMap.get(String(oId));
+        
+        if (match) {
+          b.isSelected = !!match.selected;
+          b.option.selected = !!match.selected;
+          b.option.highlight = !!match.highlight;
+          b.option.showIcon = !!match.showIcon;
+        } else {
+          // Explicitly clear highlighting if it's no longer in the service sync
+          b.isSelected = false;
+          b.option.selected = false;
+          b.option.highlight = false;
+          b.option.showIcon = false;
+        }
+      }
+    }
+
+    // Also sync optionsToDisplay (which may be what some components/directives use)
+    if (this.optionsToDisplay?.length) {
+      for (let i = 0; i < this.optionsToDisplay.length; i++) {
+        const opt = this.optionsToDisplay[i];
+        const oId = opt.optionId ?? i;
+        const match = savedMap.get(oId) || savedMap.get(Number(oId)) || savedMap.get(String(oId));
+        
+        if (match) {
+          opt.selected = !!match.selected;
+          opt.highlight = !!match.highlight;
+          opt.showIcon = !!match.showIcon;
+        } else {
+          opt.selected = false;
+          opt.highlight = false;
+          opt.showIcon = false;
         }
       }
     }
@@ -1280,9 +1325,41 @@ export class SharedOptionComponent
 
 
   preserveOptionHighlighting(): void {
-    for (const option of this.optionsToDisplay) {
-      if (option.selected) {
-        option.highlight = true;  // highlight selected options
+    const isCorrectHelper = (o: any) => o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || o.correct === '1');
+    const isMulti = this.isMultiMode;
+
+    // For multiple-answer mode, we must NOT highlight all correct answers.
+    if (isMulti) {
+      // Find the last selected correct option (if any)
+      let lastSelectedCorrectId = -1;
+      for (const opt of [...this.optionsToDisplay].reverse()) {
+        if (opt.selected && isCorrectHelper(opt)) {
+          lastSelectedCorrectId = opt.optionId ?? -1;
+          break;
+        }
+      }
+
+      for (const option of this.optionsToDisplay) {
+        if (!option.selected) {
+          option.highlight = false;
+          continue;
+        }
+        
+        const isCorrect = isCorrectHelper(option);
+        if (isCorrect) {
+          // Rule: only last correct stays highlighted
+          option.highlight = (option.optionId === lastSelectedCorrectId);
+        } else {
+          // Rule: incorrect stays highlighted if selected
+          option.highlight = true;
+        }
+      }
+    } else {
+      // Single-answer mode: standard rule (highlight the selected one)
+      for (const option of this.optionsToDisplay) {
+        if (option.selected) {
+          option.highlight = true;
+        }
       }
     }
   }
@@ -2253,9 +2330,10 @@ export class SharedOptionComponent
     const effectiveId = (normalizedId !== null && normalizedId > -1) ? normalizedId : index;
 
     // Robust Multi-Answer Detection: Check component property, config type, OR count of correct options in current metadata
-    const correctCount = (this.currentQuestion?.options?.filter(o =>
-      o.correct === true || (o as any).correct === 'true'
-    ).length ?? 0);
+    const correctCount = (this.currentQuestion?.options?.filter(o => {
+      const c = (o as any).correct;
+      return c === true || String(c) === 'true' || c === 1 || c === '1';
+    }).length ?? 0);
     const isMultiMode = this.type === 'multiple' ||
       this.config.type === 'multiple' ||
       correctCount > 1;
@@ -2282,6 +2360,8 @@ export class SharedOptionComponent
       this.selectedOptionService.setSelectedOption(option);
     } else {
       // Multiple mode - toggle locally
+      const qIdx = this.getActiveQuestionIndex() ?? 0;
+      
       option.selected = !option.selected;
       if (this.optionsToDisplay?.[index]) {
         this.optionsToDisplay[index].selected = option.selected;
@@ -2291,19 +2371,15 @@ export class SharedOptionComponent
         ? this.selectedOptions.add(effectiveId)
         : this.selectedOptions.delete(effectiveId);
 
-      // CRITICAL: Push to service immediately so generateFeedbackConfig (which runs next)
-      // can query the service and find ALL selections, not just the previous click's.
-      // Single-mode does this at line 2279; multi-mode was missing it.
-      if (option.selected) {
-        const qIdx = this.getActiveQuestionIndex() ?? 0;
-        const selOpt: SelectedOption = {
-          ...option,
-          optionId: (option.optionId != null && option.optionId !== -1) ? option.optionId : effectiveId,
-          questionIndex: qIdx,
-          selected: true
-        };
-        this.selectedOptionService.addOption(qIdx, selOpt);
-      }
+      // CRITICAL: Push to service immediately (for both selection and unselection)
+      // The Service now handles ALL exclusive highlight/icon logic centrally.
+      const selOpt: SelectedOption = {
+        ...option,
+        optionId: (option.optionId != null && option.optionId !== -1) ? option.optionId : effectiveId,
+        questionIndex: qIdx,
+        selected: option.selected
+      };
+      this.selectedOptionService.addOption(qIdx, selOpt);
     }
 
     const optionBinding = this.optionBindings[index];
@@ -2484,7 +2560,10 @@ export class SharedOptionComponent
     const isMulti = this.type === 'multiple' ||
       question?.type === QuestionType.MultipleAnswer ||
       (question as any)?.multipleAnswer ||
-      ((question?.options?.filter(o => o.correct === true || (o as any).correct === 'true').length ?? 0) > 1);
+      ((question?.options?.filter(o => {
+          const c = (o as any).correct;
+          return c === true || String(c) === 'true' || c === 1 || c === '1';
+        }).length ?? 0) > 1);
 
     // For Multi-Answer: We must consider ALL selected options to return "Select 1 more" etc.
     // For Single-Answer: Just the current one is fine (since only one can be selected).
@@ -3314,6 +3393,13 @@ export class SharedOptionComponent
     // Build a Set for fast lookups
     const selIds = new Set(selectedOptions.map((s) => s.optionId));
 
+    // The user wants ONLY the currently selected option highlighted in multi-answer mode.
+    // If multiple items are selected, only the LAST one in the array (the newest) gets highlighted.
+    const lastSelection = selectedOptions.length > 0
+      ? selectedOptions[selectedOptions.length - 1]
+      : null;
+    const lastId = lastSelection ? lastSelection.optionId : null;
+
     // Sync all three flags in one pass
     for (let i = 0; i < this.optionsToDisplay.length; i++) {
       const opt = this.optionsToDisplay[i];
@@ -3321,9 +3407,19 @@ export class SharedOptionComponent
       const effectiveId = (opt.optionId != null && Number(opt.optionId) > -1) ? opt.optionId : i;
       const isSelected = selIds.has(Number(effectiveId));
 
+      const isLast = (lastId != null) && (Number(effectiveId) === Number(lastId));
+
       opt.selected = isSelected;
-      opt.showIcon = isSelected;
-      opt.highlight = isSelected;
+      
+      // EXCLUSIVE highlights/icons for multi-answer as per user request
+      if (this.type === 'multiple') {
+        opt.showIcon = isLast;
+        opt.highlight = isLast;
+      } else {
+        // Single: everything selected is highlighted
+        opt.showIcon = isSelected;
+        opt.highlight = isSelected;
+      }
     }
 
     this.generateOptionBindings();

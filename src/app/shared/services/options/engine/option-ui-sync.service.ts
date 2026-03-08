@@ -131,6 +131,9 @@ export class OptionUiSyncService {
 
     // mark selected/highlight/icon for current binding
     optionBinding.isSelected = checked;
+    
+    // (Highlighting is handled further down via granular correct/incorrect detection)
+    
     optionBinding.option.highlight = checked;
     optionBinding.option.showIcon = checked;
 
@@ -183,12 +186,40 @@ export class OptionUiSyncService {
       }
     }
 
+    // EXCLUSIVE HIGHLIGHT:
+    // Sync highlight/showIcon flags for ALL options for this question from the service state.
+    // The SelectedOptionService already handles the "only one correct" rule.
+    const qIdx = ctx.getActiveQuestionIndex() ?? 0;
+    const currentSelections = this.selectedOptionService.getSelectedOptionsForQuestion(qIdx) ?? [];
+    const selectionMap = new Map<number | string, any>();
+    for (const sel of currentSelections) {
+      const sid = sel.optionId ?? (sel as any).index;
+      if (sid != null) selectionMap.set(sid, sel);
+    }
+
+    for (const b of ctx.optionBindings) {
+      const id = b.option.optionId ?? b.index;
+      const match = selectionMap.get(id) || selectionMap.get(Number(id)) || selectionMap.get(String(id));
+      
+      if (match) {
+        // Use flags as stored in the service (Correct or Incorrect)
+        b.option.highlight = match.highlight;
+        b.option.showIcon = match.showIcon;
+        b.isSelected = !!match.selected;
+        b.option.selected = !!match.selected;
+      } else {
+        // Not selected - ensure highlighting is cleared
+        b.option.highlight = false;
+        b.option.showIcon = false;
+        b.isSelected = false;
+        b.option.selected = false;
+      }
+    }
 
     // optional: refresh directive highlighting after state changes
     this.optionVisualEffectsService.refreshHighlights(ctx.optionBindings);
 
-    // Apply styles to ALL bindings (not just the clicked one) so that
-    // previously selected options in multi-answer mode keep their green/red.
+    // Apply styles to ALL bindings
     for (const b of ctx.optionBindings) {
       this.applyHighlighting(b);
     }
@@ -650,6 +681,10 @@ export class OptionUiSyncService {
           o.selected = checked;
           o.showIcon = checked;
           o.highlight = checked;
+        } else {
+          // EXCLUSIVE highlight policy for multi-answer
+          o.highlight = false;
+          o.showIcon = false;
         }
       } else {
         // Single: The clicked one becomes true, others false (if checked is true)
@@ -664,25 +699,31 @@ export class OptionUiSyncService {
     ctx.optionsToDisplay = [...ctx.optionsToDisplay];
   }
 
+  private isCorrectHelper(o: any): boolean {
+    return o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || o.correct === '1');
+  }
+
   private applyHighlighting(optionBinding: OptionBindings): void {
     const optionId = optionBinding.option.optionId;
-    const isSelected = optionBinding.isSelected;
-    //const isCorrect = optionBinding.isCorrect;
-    const isCorrect = optionBinding.option?.correct === true;
+    const isCorrect = this.isCorrectHelper(optionBinding.option);
+    
+    // AUTHORITATIVE HIGHLIGHT CHECK: Only highlight if FLAG is true.
+    // Flag is managed at OIS/SharedOptionComponent level.
+    const shouldHighlight = optionBinding.option?.highlight === true;
 
-    // Set highlight flags (can be used by directive or other logic)
-    optionBinding.highlightCorrect = isSelected && isCorrect;
-    optionBinding.highlightIncorrect = isSelected && !isCorrect;
+    // Set highlight flags
+    optionBinding.highlightCorrect = shouldHighlight && isCorrect;
+    optionBinding.highlightIncorrect = shouldHighlight && !isCorrect;
 
     // Apply style class used in [ngClass] binding
-    if (isSelected) {
+    if (shouldHighlight) {
       optionBinding.styleClass = isCorrect
         ? 'highlight-correct' : 'highlight-incorrect';
     } else {
       optionBinding.styleClass = '';
     }
 
-    // Direct DOM fallback (for defensive rendering, optional)
+    // Direct DOM fallback
     const optionElement = document.querySelector(
       `[data-option-id="${optionId}"]`
     );
@@ -691,7 +732,7 @@ export class OptionUiSyncService {
         'highlight-correct',
         'highlight-incorrect'
       );
-      if (isSelected) {
+      if (shouldHighlight) {
         optionElement.classList.add(
           isCorrect ? 'highlight-correct' : 'highlight-incorrect'
         );

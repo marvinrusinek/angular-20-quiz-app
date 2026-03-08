@@ -3,7 +3,7 @@
 @if (canShowOptions()) {
 <!-- OPTIONS ARE READY -->
 <form [formGroup]="form" class="options-form">
-  @switch (type) {
+  @switch (isMultiMode ? 'multiple' : 'single') {
   <!-- SINGLE-ANSWER (RADIO) -->
   @case ('single') {
   <mat-radio-group class="options-group options" formControlName="selectedOptionId">

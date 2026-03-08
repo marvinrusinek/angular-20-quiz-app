@@ -415,14 +415,17 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
         (opt: Option) => String(opt.optionId) === String(rawOption.optionId),
       ) ?? rawOption;
 
+    // Robust correctness check (matches SelectedOptionService)
+    const isCorrectValue = (o: any) => o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || o.correct === '1');
+
     const enrichedOption: SelectedOption = {
       optionId: canonical.optionId,
       text: canonical.text,
-      correct: canonical.correct === true,
+      correct: isCorrectValue(canonical),
       questionIndex: activeQuestionIndex,
       selected: wasChecked === true,
-      highlight: true,
-      showIcon: true
+      highlight: wasChecked === true,
+      showIcon: wasChecked === true
     };
 
     // INTERNAL STATE UPDATE
@@ -479,6 +482,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
       );
     } else {
       // Multiple-answer: MERGE selection
+      // (High-level exclusive highlighting logic is now handled in SelectedOptionService.addOption)
       this.selectedOptionService.addOption(activeQuestionIndex, enrichedOption);
     }
 

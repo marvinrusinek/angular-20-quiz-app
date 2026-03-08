@@ -127,9 +127,8 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
         const cfgSelected = cfg.isOptionSelected || cfg.option.selected === true || cfg.highlight === true;
 
         if (cfgSelected) {
-          const isCorrect = cfg.isAnswerCorrect ||
-            cfg.option?.correct === true || String(cfg.option?.correct) === 'true' ||
-            opt?.correct === true || String(opt?.correct) === 'true';
+          const isCorrectHelper = (o: any) => o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || o.correct === '1');
+          const isCorrect = isCorrectHelper(cfg.option) || isCorrectHelper(opt);
           opt.showIcon = true;
         } else if (cfg.shouldResetBackground) {
           // Only reset to transparent if the option is truly not selected
@@ -191,9 +190,8 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
       this.isSelected || this.optionBinding?.isSelected === true;
 
     // Check correctness from multiple sources
-    const isCorrectAnswer = cfg.isAnswerCorrect ||
-      cfg.option?.correct === true || String(cfg.option?.correct) === 'true' ||
-      opt?.correct === true || String(opt?.correct) === 'true';
+    const isCorrectHelper = (o: any) => o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || o.correct === '1');
+    const isCorrectAnswer = cfg.isAnswerCorrect || isCorrectHelper(cfg.option) || isCorrectHelper(opt);
 
     if (isSelectedNow) {
       opt.showIcon = true;
