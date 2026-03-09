@@ -167,9 +167,7 @@ export class OptionItemComponent implements OnChanges {
       !!(feedbackMap as any)[Number(this.optionId)] ||
       !!(this.b.option?.optionId != null && (feedbackMap as any)[String(this.b.option.optionId)]);
 
-    const shouldHighlightThisOption = (this.type === 'single')
-      ? (showSelectionState || feedbackForThisOption)
-      : (this.b.option?.highlight === true);
+    const shouldHighlightThisOption = showSelectionState || feedbackForThisOption;
 
     if (shouldHighlightThisOption) {
       if (isCorrect) {
@@ -266,9 +264,7 @@ export class OptionItemComponent implements OnChanges {
       !!(feedbackMap as any)[Number(this.optionId)] ||
       !!(this.b.option?.optionId != null && (feedbackMap as any)[String(this.b.option.optionId)]);
 
-    const shouldHighlightThisOption = (this.type === 'single')
-      ? (isActivelySelected || feedbackForThisOption)
-      : (this.b.option?.highlight === true);
+    const shouldHighlightThisOption = isActivelySelected || feedbackForThisOption;
 
     // DEBUG HIGHLIGHT TRACE:
     /* if (this.b.isSelected) {
@@ -342,9 +338,7 @@ export class OptionItemComponent implements OnChanges {
     const isActuallySelectedFromService = this.isSelectedForCurrentQuestion();
 
     if (isMulti) {
-      // For multi-answer, we only show icons/feedback visuals for what's CURRENTLY highlighted
-      // (as per the exclusive highlighting rule)
-      return (this.b.option?.highlight === true);
+      return fromBindingMap || fromHighlight || fromLocked || this.isPreviousSelection() || isActuallySelectedFromService;
     }
     
     return fromBindingMap || fromHighlight || fromLocked || this.isPreviousSelection() || isActuallySelectedFromService;
