@@ -167,7 +167,9 @@ export class OptionItemComponent implements OnChanges {
       !!(feedbackMap as any)[Number(this.optionId)] ||
       !!(this.b.option?.optionId != null && (feedbackMap as any)[String(this.b.option.optionId)]);
 
-    const shouldHighlightThisOption = showSelectionState || feedbackForThisOption;
+    const shouldHighlightThisOption = this.type === 'multiple'
+      ? this.isOptionIndividuallySelected()
+      : showSelectionState || feedbackForThisOption;
 
     if (shouldHighlightThisOption) {
       if (isCorrect) {
@@ -264,7 +266,9 @@ export class OptionItemComponent implements OnChanges {
       !!(feedbackMap as any)[Number(this.optionId)] ||
       !!(this.b.option?.optionId != null && (feedbackMap as any)[String(this.b.option.optionId)]);
 
-    const shouldHighlightThisOption = isActivelySelected || feedbackForThisOption;
+    const shouldHighlightThisOption = this.type === 'multiple'
+      ? this.isOptionIndividuallySelected()
+      : isActivelySelected || feedbackForThisOption;
 
     // DEBUG HIGHLIGHT TRACE:
     /* if (this.b.isSelected) {
@@ -338,7 +342,7 @@ export class OptionItemComponent implements OnChanges {
     const isActuallySelectedFromService = this.isSelectedForCurrentQuestion();
 
     if (isMulti) {
-      return fromBindingMap || fromHighlight || fromLocked || this.isPreviousSelection() || isActuallySelectedFromService;
+      return fromLocked || this.isPreviousSelection() || isActuallySelectedFromService;
     }
     
     return fromBindingMap || fromHighlight || fromLocked || this.isPreviousSelection() || isActuallySelectedFromService;
@@ -387,6 +391,16 @@ export class OptionItemComponent implements OnChanges {
       this.isSelectedForCurrentQuestion() ||
       this._wasSelected ||
       !!this.b.showFeedbackForOption?.[this.optionId]
+    );
+  }
+
+  private isOptionIndividuallySelected(): boolean {
+    return (
+      this.b.isSelected ||
+      this.b.checked === true ||
+      this.b.option?.selected === true ||
+      this.isSelectedForCurrentQuestion() ||
+      this._wasSelected
     );
   }
 

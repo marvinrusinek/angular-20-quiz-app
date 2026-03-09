@@ -1325,11 +1325,11 @@ export class SharedOptionComponent
 
 
   preserveOptionHighlighting(): void {
-    const isCorrectHelper = (o: any) => o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || o.correct === '1');
+    // const isCorrectHelper = (o: any) => o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || o.correct === '1');
     const isMulti = this.isMultiMode;
 
     // For multiple-answer mode, we must NOT highlight all correct answers.
-    if (isMulti) {
+    /* if (isMulti) {
       // Find the last selected correct option (if any)
       let lastSelectedCorrectId = -1;
       for (const opt of [...this.optionsToDisplay].reverse()) {
@@ -1360,7 +1360,11 @@ export class SharedOptionComponent
         if (option.selected) {
           option.highlight = true;
         }
-      }
+      } */
+     for (const option of this.optionsToDisplay) {
+      // In multi-answer mode each selected option should keep its own highlight
+      // state (wrong=red, correct=green) and should not drive sibling highlights.
+      option.highlight = isMulti ? !!option.selected : !!option.selected;
     }
   }
 

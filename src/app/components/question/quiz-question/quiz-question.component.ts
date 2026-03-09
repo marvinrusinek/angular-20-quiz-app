@@ -3245,7 +3245,7 @@ export class QuizQuestionComponent extends BaseQuestion
       }
 
       // Persist selection
-      try { this.selectedOptionService.setSelectedOption(evtOpt, idx); } catch { }
+      try { this.selectedOptionService.setSelectedOption(evtOpt, idx, undefined, q?.type === QuestionType.MultipleAnswer); } catch { }
 
       // Canonical options for consistent state
       const canonicalOpts: Option[] = (q?.options ?? []).map((o, i) => ({
@@ -3806,7 +3806,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
     // Call Next button logic immediately
     if (ev.option) {
-      this.selectedOptionService.setSelectedOption(ev.option, questionIndex);
+      this.selectedOptionService.setSelectedOption(ev.option, questionIndex, undefined, isMultiSelect);
     }
 
     this.selectedOptionService.evaluateNextButtonStateForQuestion(
@@ -4562,7 +4562,7 @@ export class QuizQuestionComponent extends BaseQuestion
       this.selectedOptionService.wasOptionPreviouslySelected(option);
 
     // Update selection state
-    this.selectedOptionService.setSelectedOption(option);
+    this.selectedOptionService.setSelectedOption(option, this.currentQuestionIndex, undefined, this.isMultipleAnswer);
 
     // Check again after update (optional)
     const isNowSelected = this.selectedOptionService.wasOptionPreviouslySelected(option);
@@ -4851,7 +4851,7 @@ export class QuizQuestionComponent extends BaseQuestion
     }
 
     this.selectedOptionService.setOptionSelected(true);
-    this.selectedOptionService.setSelectedOption(option);
+    this.selectedOptionService.setSelectedOption(option, this.currentQuestionIndex, undefined, this.isMultipleAnswer);
     this.selectedOptionService.setAnsweredState(true);
   }
 
@@ -5945,7 +5945,7 @@ export class QuizQuestionComponent extends BaseQuestion
     };
 
     this.showFeedbackForOption = { [resolvedOptionId]: true };
-    this.selectedOptionService.setSelectedOption(selectedOption);
+    this.selectedOptionService.setSelectedOption(selectedOption, this.currentQuestionIndex, undefined, this.isMultipleAnswer);
 
     // Build a snapshot that mirrors what the user sees (UI order + flags)
     const qIdx = this.quizService.getCurrentQuestionIndex();
