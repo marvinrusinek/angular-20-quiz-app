@@ -16,7 +16,8 @@ export class OptionService {
    * Stable per-row key: prefer numeric optionId; fallback to stableKey + index
    */
   keyOf(o: Option, i: number): string {
-    return (o && o.optionId != null) ? String(o.optionId) : `opt-${i}`;
+    const idPart = (o && o.optionId != null && o.optionId !== -1) ? String(o.optionId) : 'opt';
+    return `${idPart}-${i}`;
   }
 
   /**
@@ -29,13 +30,14 @@ export class OptionService {
   /**
    * Returns the icon to display for an option based on its state
    */
-  getOptionIcon(option: Option, i: number): string {
+  getOptionIcon(binding: OptionBindings, i: number): string {
+    const option = binding.option;
     if (option.showIcon === false) { return ''; }
-    
+
     if (option.correct) {
       return 'check';
     }
-    if (option.selected && !option.correct) {
+    if (binding.isSelected && !option.correct) {
       return 'close';
     }
     return '';
@@ -45,7 +47,8 @@ export class OptionService {
    * Returns CSS classes for an option based on its bindings and state
    */
   getOptionClasses(
-    binding: OptionBindings, 
+    binding: OptionBindings,
+    idx: number,
     highlightedOptionIds: Set<number>,
     flashDisabledSet: Set<number>,
     isLocked: boolean = false,
@@ -54,15 +57,15 @@ export class OptionService {
     const option = binding.option;
     const optId = option.optionId ?? -1;
     const isSelected = binding.isSelected === true;
+    const isHighlighted = !!option.highlight;
     const showCorrectOnTimeout = timerExpiredForQuestion && !!option.correct;
-    const showAsSelected = isSelected;
 
     return {
-      'selected': isSelected, // Kept for compatibility if used
-      'selected-option': isSelected, // RESTORED: Needed for SCSS styling
-      'correct-option': (showAsSelected && !!option.correct) || showCorrectOnTimeout,
-      'incorrect-option': !!(showAsSelected && !option.correct),
-      'highlighted': highlightedOptionIds.has(optId),
+      'selected': isSelected,
+      'selected-option': isSelected,
+      'correct-option': (isHighlighted && !!option.correct) || showCorrectOnTimeout,
+      'incorrect-option': !!(isHighlighted && !option.correct),
+      'highlighted': isHighlighted || highlightedOptionIds.has(idx),
       'flash-red': flashDisabledSet.has(optId),  // match original 'flash-red'
       'disabled-option': !!binding.disabled,     // match original 'disabled-option'
       'locked-option': isLocked && !binding.disabled  // match original 'locked-option'
@@ -74,7 +77,7 @@ export class OptionService {
    * options or when timer expired
    */
   getOptionCursor(
-    binding: OptionBindings, 
+    binding: OptionBindings,
     index: number,
     isDisabled: boolean,
     timerExpiredForQuestion: boolean
@@ -89,7 +92,7 @@ export class OptionService {
    * Decide if an option should be disabled based on various rules
    */
   isDisabled(
-    binding: OptionBindings, 
+    binding: OptionBindings,
     idx: number,
     disabledOptionsPerQuestion: Map<number, Set<number>>,
     currentQuestionIndex: number,
@@ -113,7 +116,7 @@ export class OptionService {
    * Determines if an option is locked (e.g., after a correct selection in single mode)
    */
   isLocked(
-    binding: OptionBindings, 
+    binding: OptionBindings,
     index: number,
     shouldLockIncorrectOptions: boolean,
     lockedIncorrectOptionIds: Set<number>

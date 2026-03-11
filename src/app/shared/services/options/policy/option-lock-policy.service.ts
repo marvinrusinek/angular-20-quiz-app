@@ -90,19 +90,16 @@ export class OptionLockPolicyService {
     }
 
     for (const b of bindings) {
-      const optionId = b.option?.optionId;
-      const isActuallyCorrect = isCorrectBinding(b);
-      const shouldDisable = !isActuallyCorrect;
+      // USER REQUEST: Once resolved, disable ALL options (locking the question).
+      // shouldLockIncorrect is true only when the resolution conditions are met.
+      const shouldDisable = true; 
 
       b.disabled = shouldDisable;
       if (b.option) b.option.active = !shouldDisable;
 
-      if (optionId != null) {
-        const idNum = Number(optionId);
-        if (!isNaN(idNum)) {
-          if (shouldDisable) locked.add(idNum);
-          else locked.delete(idNum);
-        }
+      const bIdx = b.index;
+      if (bIdx != null) {
+        locked.add(bIdx);
       }
     }
 

@@ -4,7 +4,7 @@
   <mat-radio-button class="option-row single-option" appHighlightOption [appHighlightInputType]="'radio'"
     [appHighlightReset]="shouldResetBackground" [sharedOptionConfig]="sharedOptionConfig" [optionBinding]="b"
     [option]="b.option" [isSelected]="b.isSelected"
-    [value]="(b.option.optionId != null && b.option.optionId !== -1) ? b.option.optionId : i"
+    [value]="i"
     [ngClass]="getOptionClasses()" [style.background-color]="getOptionBackgroundColor()" [disabled]="isDisabled()"
     [disableRipple]="true" (change)="onChanged($event)" (click)="onInteraction($event)"
     [attr.data-option-id]="b.option.optionId">

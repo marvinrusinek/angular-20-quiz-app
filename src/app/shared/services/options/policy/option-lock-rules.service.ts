@@ -9,14 +9,12 @@ export class OptionLockRulesService {
     hasCorrectSelection: boolean,
     allCorrectSelected: boolean
   ): boolean {
-    if (type === QuestionType.SingleAnswer) {
-      return hasCorrectSelection;
-    }
-
-    if (type === QuestionType.MultipleAnswer) {
+    // If it's a multiple answer question, only lock when all are correct
+    if (type === QuestionType.MultipleAnswer || type as any === 'multiple') {
       return allCorrectSelected;
     }
 
-    return false;
+    // Single answer: lock as soon as any correct answer is picked
+    return hasCorrectSelection;
   }
 }

@@ -49,21 +49,24 @@ export class QuizQuestionManagerService {
   }
 
   public isMultipleAnswerQuestion(question: QuizQuestion): Observable<boolean> {
+    return of(this.isMultipleAnswerQuestionSync(question));
+  }
+
+  public isMultipleAnswerQuestionSync(question: QuizQuestion): boolean {
     try {
       if (question && Array.isArray(question.options)) {
         const correctAnswersCount = question.options.filter(
           (option) => option.correct,
         ).length;
-        const hasMultipleAnswers = correctAnswersCount > 1;
-        return of(hasMultipleAnswers);
-      } else {
-        return of(false);
+        return correctAnswersCount > 1;
       }
+      return false;
     } catch (error) {
       console.error(
-        'Error determining if it is a multiple-answer question:', error
+        'Error determining if it is a multiple-answer question:',
+        error,
       );
-      return of(false);
+      return false;
     }
   }
 

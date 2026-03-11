@@ -3195,8 +3195,11 @@ export class QuizQuestionComponent extends BaseQuestion
 
     if (evtOpt == null) return;
 
-    const getStableId = (o: Option | SelectedOption, idx?: number) =>
-      this.selectionMessageService.stableKey(o as Option, idx);
+    const getStableId = (o: Option | SelectedOption, idx?: number) => {
+      // Use the known index 'idx' OR the index property attached to the option object
+      const effectiveIdx = idx ?? (o as any).index ?? (o as any).idx;
+      return this.selectionMessageService.stableKey(o as Option, effectiveIdx);
+    };
 
     // [LOCK] Hard block re-clicks using NUMERIC optionId
     try {
@@ -3245,16 +3248,32 @@ export class QuizQuestionComponent extends BaseQuestion
       }
 
       // Persist selection
-      try { this.selectedOptionService.setSelectedOption(evtOpt, idx, undefined, q?.type === QuestionType.MultipleAnswer); } catch { }
+      try {
+        const selectionToPersist = { ...evtOpt, index: evtIdx };
+        this.selectedOptionService.setSelectedOption(selectionToPersist, idx, undefined, q?.type === QuestionType.MultipleAnswer);
+      } catch { }
 
-      // Canonical options for consistent state
-      const canonicalOpts: Option[] = (q?.options ?? []).map((o, i) => ({
-        ...o,
-        optionId: Number(o.optionId ?? getStableId(o, i)),
-        selected: (this.selectedOptionService.selectedOptionsMap?.get(idx) ?? []).some(
-          sel => getStableId(sel) === getStableId(o)
-        ),
-      }));
+      // Canonical options for consistent state - ensure all currently selected options are marked as selected in canonicalOpts
+      const currentSelectedFromService = this.selectedOptionService.selectedOptionsMap?.get(idx) ?? [];
+      const canonicalOpts: Option[] = (q?.options ?? []).map((o, i) => {
+        const stableId = getStableId(o, i);
+        const isSelected = currentSelectedFromService.some(
+          sel => {
+            const selId = sel.optionId;
+            const oId = o.optionId;
+            // First try direct ID comparison
+            if (selId != null && oId != null && String(selId) !== '-1' && String(oId) !== '-1' && String(selId) === String(oId)) return true;
+            // Fall back to stable key comparison which includes indices for placeholder IDs
+            return getStableId(sel, (sel as any).index ?? -1) === stableId;
+          }
+        );
+
+        return {
+          ...o,
+          optionId: (o.optionId != null && String(o.optionId) !== '-1') ? Number(o.optionId) : i,
+          selected: isSelected,
+        };
+      });
 
       // Enforce single-answer exclusivity canonically
       if (q?.type === QuestionType.SingleAnswer) {
@@ -3265,7 +3284,7 @@ export class QuizQuestionComponent extends BaseQuestion
           this.selectionMessageService._singleAnswerIncorrectLock.delete(idx);
         }
       } else if (canonicalOpts[evtIdx]) {
-        canonicalOpts[evtIdx].selected = true;
+        canonicalOpts[evtIdx].selected = event.checked ?? true;
       }
 
       // Refresh feedback only for the clicked option and lock it
@@ -3287,9 +3306,9 @@ export class QuizQuestionComponent extends BaseQuestion
         }
       } catch { }
 
-      // Feedback sync
+      // Feedback sync - use canonicalOpts to avoid service sync lag or ID collisions
       const selOptsSetImmediate = new Set(
-        (this.selectedOptionService.selectedOptionsMap?.get(idx) ?? []).map(o => getStableId(o))
+        canonicalOpts.filter(o => o.selected).map((o, i) => getStableId(o, i))
       );
       this.updateOptionHighlighting(selOptsSetImmediate);
       this.refreshFeedbackFor(evtOpt ?? undefined);
@@ -3319,8 +3338,14 @@ export class QuizQuestionComponent extends BaseQuestion
       const selOpts = Array.from(
         this.selectedOptionService.selectedOptionsMap?.get(idx) ?? []
       );
-      const selKeys = new Set(selOpts.map(o => getStableId(o)));
-      const selectedCorrectCount = correctOpts.filter(o => selKeys.has(getStableId(o))).length;
+      const selKeys = new Set(
+        canonicalOpts.filter(o => o.selected).map((o, i) => getStableId(o, i))
+      );
+      const selectedCorrectCount = correctOpts.filter((o, i) => {
+        // Must find original index in full list for correct matching
+        const originalIdx = (q?.options ?? []).findIndex(orig => orig === o);
+        return selKeys.has(getStableId(o, originalIdx !== -1 ? originalIdx : -1));
+      }).length;
 
       const allCorrect =
         q?.type === QuestionType.MultipleAnswer
@@ -3762,7 +3787,7 @@ export class QuizQuestionComponent extends BaseQuestion
     this._timerStoppedForQuestion = true;
   }
 
-  // Updates the highlighting and feedback icons for options after a click
+  // Updates the highlighting, selected state, and feedback icons for options after a click
   private updateOptionHighlighting(selectedKeys: Set<string | number>): void {
     if (!this.optionsToDisplay) return;
 
@@ -3771,16 +3796,26 @@ export class QuizQuestionComponent extends BaseQuestion
       const stableId = this.selectionMessageService.stableKey(opt, idx);
       const isSelected = selectedKeys.has(stableId);
 
+      // Force selected property sync
+      opt.selected = isSelected;
+
+      // Determine highlight from service-level state if possible
+      const qIdx = this.currentQuestionIndex ?? 0;
+      const selections = this.selectedOptionService.getSelectedOptionsForQuestion(qIdx) ?? [];
+      const currentSelectionInService = selections.find(s => (s.optionId != null && s.optionId === opt.optionId) || ((s as any).index === idx));
+      const shouldHighlight = !!(currentSelectionInService?.highlight || (isSelected && selections.length > 0 && selections[selections.length - 1].optionId === opt.optionId));
+
       // Apply highlighting
       if (opt.correct) {
-        opt.styleClass = isSelected ? 'highlight-correct' : '';
+        opt.styleClass = shouldHighlight ? 'highlight-correct' : '';
         opt.showIcon = isSelected;
       } else {
-        opt.styleClass = isSelected ? 'highlight-incorrect' : '';
+        opt.styleClass = shouldHighlight ? 'highlight-incorrect' : '';
         opt.showIcon = isSelected;
       }
     }
     this.cdRef.markForCheck();
+    this.cdRef.detectChanges();
   }
 
   private handleCoreSelection(ev: {
@@ -4835,11 +4870,6 @@ export class QuizQuestionComponent extends BaseQuestion
 
     if (!option.correct) {
       console.log('Incorrect option selected.');
-      for (const opt of this.optionsToDisplay) {
-        if (opt.correct) {
-          this.showFeedbackForOption[opt.optionId!] = true;
-        }
-      }
     }
 
     // Find the index of the selected option

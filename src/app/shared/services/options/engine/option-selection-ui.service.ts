@@ -46,8 +46,9 @@ export class OptionSelectionUiService {
       const everClicked = historySet.has(id);
       const isCurrent = id === selectedId;
 
-      // Color stays ON for anything ever clicked
-      b.option.highlight = everClicked;
+      // Selection Highlighting Rule:
+      // Only the most recently clicked option should be highlighted.
+      b.option.highlight = isCurrent;
 
       // Icon only on the row that was just clicked
       b.option.showIcon = isCurrent;

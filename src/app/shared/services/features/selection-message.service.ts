@@ -182,7 +182,7 @@ export class SelectionMessageService {
 
   public enforceBaselineAtInit(i0: number, qType: QuestionType, totalCorrect: number): void {
     if (this._baselineReleased.has(i0)) return;
-    const msg = qType === QuestionType.MultipleAnswer 
+    const msg = qType === QuestionType.MultipleAnswer
       ? `Please select ${totalCorrect} correct answers to continue...`
       : (i0 === 0 ? START_MSG : CONTINUE_MSG);
     this._lastMessageByIndex.set(i0, msg);
@@ -260,11 +260,12 @@ export class SelectionMessageService {
 
   public stableKey(opt: Option, idx?: number): string {
     if (!opt) return `unknown-${idx ?? 0}`;
-    if (opt.optionId != null) return String(opt.optionId);
-    if ((opt as any).id != null) return String((opt as any).id);
+    if (opt.optionId != null && String(opt.optionId) !== '-1') return String(opt.optionId);
+    if ((opt as any).id != null && String((opt as any).id) !== '-1') return String((opt as any).id);
     const v = String(opt.value ?? '').trim().toLowerCase();
     const t = String(opt.text ?? (opt as any).label ?? '').trim().toLowerCase();
-    return v || t ? `${v}|${t}` : `ix:${idx ?? 0}`;
+    const core = v || t ? `${v}|${t}` : 'any';
+    return `ix:${idx ?? 0}:${core}`;
   }
 
   private toStableId(o: any, idx?: number): number | string {
@@ -320,15 +321,15 @@ export class SelectionMessageService {
     return keys;
   }
 
-  public registerClick(index: number, optionId: any, wasCorrect: boolean, selectedNow = true): void {}
-  public setExpectedCorrectCountForId(_qid: any, _count: number): void {}
-  public setExpectedCorrectCount(_index: number, _count: number): void {}
+  public registerClick(index: number, optionId: any, wasCorrect: boolean, selectedNow = true): void { }
+  public setExpectedCorrectCountForId(_qid: any, _count: number): void { }
+  public setExpectedCorrectCount(_index: number, _count: number): void { }
 
   public reconcileObservedWithCurrentSelection(index: number, optionsNow: Option[]): void {
     const totalCorrect = optionsNow.filter(o => !!o?.correct).length;
     const q = this.getQuestion(index);
-    const qType = (totalCorrect > 1 || q?.type === QuestionType.MultipleAnswer) 
-      ? QuestionType.MultipleAnswer 
+    const qType = (totalCorrect > 1 || q?.type === QuestionType.MultipleAnswer)
+      ? QuestionType.MultipleAnswer
       : (q?.type ?? QuestionType.SingleAnswer);
 
     const msg = this.computeFinalMessage({
