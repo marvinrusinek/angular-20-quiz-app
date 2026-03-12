@@ -17,10 +17,8 @@ export class OptionSelectionPolicyService {
       const isTarget = binding === selectedBinding;
 
       if (!isTarget && binding.isSelected) {
-
         if (binding.option) binding.option.selected = false;
-        // Do NOT force feedback on the dequeued option here; 
-        // focus exclusively on the latest selection.
+        binding.isSelected = false; // Sync both flags
       }
     }
   }
