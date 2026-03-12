@@ -276,8 +276,8 @@ export class SelectedOptionService {
     const updatedOptions = currentOptions.filter(
       (o) => {
         const matchesId = (o.optionId === canonicalId || (canonicalId === null && o.optionId === -1));
-        const matchesIndex = (indexHint != null) ? 
-          (o.displayIndex === indexHint || (o as any).index === indexHint) : 
+        const matchesIndex = (indexHint != null) ?
+          (o.displayIndex === indexHint || (o as any).index === indexHint) :
           true;
         return !(matchesId && matchesIndex);
       }
@@ -417,16 +417,16 @@ export class SelectedOptionService {
     }
 
     const exists = canonicalCurrent.find(
-      (sel) => sel.optionId === enriched.optionId && 
-               (sel.displayIndex === enriched.displayIndex || (sel as any).index === (enriched as any).index)
+      (sel) => sel.optionId === enriched.optionId &&
+        (sel.displayIndex === enriched.displayIndex || (sel as any).index === (enriched as any).index)
     );
 
     if (isMultipleAnswer) {
       if (exists) {
         // Toggle OFF
         canonicalCurrent = canonicalCurrent.filter(
-          (sel) => !(sel.optionId === enriched.optionId && 
-                     (sel.displayIndex === enriched.displayIndex || (sel as any).index === (enriched as any).index))
+          (sel) => !(sel.optionId === enriched.optionId &&
+            (sel.displayIndex === enriched.displayIndex || (sel as any).index === (enriched as any).index))
         );
       } else {
         // Toggle ON
@@ -550,7 +550,7 @@ export class SelectedOptionService {
       const optId = opt.optionId;
       const optIdx = opt.displayIndex ?? (opt as any).index ?? -1;
       const key = `${optId}|${optIdx}`;
-      
+
       if (optId != null) {
         merged.set(key, {
           ...opt,
@@ -2286,7 +2286,7 @@ export class SelectedOptionService {
   }
 
   isOptionLocked(qIndex: number, optId: string | number): boolean {
-    return this._lockedByQuestion.get(qIndex)?.has(optId) ?? false;
+    return this._lockedByQuestion.get(qIndex)?.has(String(optId)) ?? false;
   }
 
   lockOption(qIndex: number, optId: string | number): void {
@@ -2295,13 +2295,13 @@ export class SelectedOptionService {
       set = new Set<string | number>();
       this._lockedByQuestion.set(qIndex, set);
     }
-    set.add(optId);
+    set.add(String(optId));
   }
 
   unlockOption(qIndex: number, optId: string | number): void {
     const set = this._lockedByQuestion.get(qIndex);
     if (set) {
-      set.delete(optId);
+      set.delete(String(optId));
     }
   }
 
@@ -2316,7 +2316,7 @@ export class SelectedOptionService {
       this._lockedByQuestion.set(qIndex, set);
     }
     for (const id of optIds) {
-      set!.add(id);
+      set!.add(String(id));
     }
   }
 
