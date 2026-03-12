@@ -3532,8 +3532,11 @@ export class SharedOptionComponent
     }
 
     // Third: search by optionId key
-    const cfgById = this.feedbackConfigs[String(optId)] ?? this.feedbackConfigs[optId];
-    if (cfgById?.showFeedback) return cfgById;
+    const optId = (b?.option?.optionId != null && b.option.optionId > -1) ? b.option.optionId : -1;
+    if (optId !== -1) {
+      const cfgById = this.feedbackConfigs[String(optId)] ?? this.feedbackConfigs[optId];
+      if (cfgById?.showFeedback) return cfgById;
+    }
 
     // Final fallback: activeFeedbackConfig
     if (i === this.lastSelectedOptionIndex && this.activeFeedbackConfig?.showFeedback) {
