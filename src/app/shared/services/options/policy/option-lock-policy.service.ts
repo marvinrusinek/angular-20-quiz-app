@@ -55,6 +55,7 @@ export class OptionLockPolicyService {
     }
 
     const isCorrectBinding = (b: OptionBindings) => {
+      if (b.isCorrect === true) return true;
       const v: any = b.option?.correct;
       return v === true || String(v) === 'true' || v === 1 || v === '1';
     };
@@ -70,6 +71,8 @@ export class OptionLockPolicyService {
       b => b.isSelected && !isCorrectBinding(b)
     );
     const isPerfect = allCorrectSelected && !hasIncorrectSelection;
+
+    console.log(`[OptionLockPolicy] Q Evaluation: hasCorrect=${hasCorrectSelection}, allCorrect=${allCorrectSelected}, isPerfect=${isPerfect}, type=${params.resolvedType}`);
 
     const shouldLockIncorrect = params.computeShouldLockIncorrectOptions(
       params.resolvedType,
