@@ -176,6 +176,16 @@ export class OptionUiSyncService {
       }
     }
 
+    // authoritatively sync feedback even if the clicked option wasn't the anchor
+    if (ctx.lastFeedbackOptionId !== -1) {
+      const anchorIdx = Number(ctx.lastFeedbackOptionId);
+      const anchorBinding = ctx.optionBindings[anchorIdx];
+      if (anchorBinding) {
+        this.refreshFeedbackConfigForClicked(anchorBinding, anchorIdx, anchorBinding.option?.optionId, ctx);
+        this.applyFeedback(anchorBinding, anchorIdx, ctx);
+      }
+    }
+
     // Ensure all bindings reflect the service-backed selection state so
     // multi-answer questions keep highlighting on every selected option.
     this.syncHighlightStateFromService(ctx);
@@ -187,12 +197,6 @@ export class OptionUiSyncService {
     // previously selected options in multi-answer mode keep their green/red.
     for (const b of ctx.optionBindings) {
       this.applyHighlighting(b);
-    }
-
-    // Only apply generic feedback if we haven't already anchored to a specific selection
-    // in the checked/unchecked blocks above.
-    if (ctx.lastFeedbackOptionId === -1 || ctx.lastFeedbackOptionId === index) {
-      this.applyFeedback(optionBinding, index, ctx);
     }
 
     // AUTHORITATIVE TYPE INFERENCE: Rely on data, not just metadata
