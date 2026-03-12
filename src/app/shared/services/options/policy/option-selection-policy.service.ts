@@ -19,13 +19,8 @@ export class OptionSelectionPolicyService {
       if (!isTarget && binding.isSelected) {
 
         if (binding.option) binding.option.selected = false;
-
-        // Preserve feedback state for previously selected option
-        const id = binding.option?.optionId ?? -1;
-        if (id !== -1) {
-          showFeedbackForOption[id] = true;
-          updateFeedbackState(id);
-        }
+        // Do NOT force feedback on the dequeued option here; 
+        // focus exclusively on the latest selection.
       }
     }
   }
