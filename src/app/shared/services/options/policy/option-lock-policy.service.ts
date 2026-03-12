@@ -100,10 +100,8 @@ export class OptionLockPolicyService {
       // 2. If all correct found but not perfect, disable unselected options ONLY.
       // 3. If single answer and correct selection found, disable everything.
       let shouldDisable = false;
-      if (isPerfect) {
+      if (isPerfect || allCorrectSelected) {
         shouldDisable = true;
-      } else if (allCorrectSelected) {
-        shouldDisable = !b.isSelected;
       } else if (params.resolvedType === QuestionType.SingleAnswer && hasCorrectSelection) {
         shouldDisable = true;
       }
