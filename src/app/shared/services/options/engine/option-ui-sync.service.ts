@@ -197,8 +197,8 @@ export class OptionUiSyncService {
 
     // AUTHORITATIVE TYPE INFERENCE: Rely on data, not just metadata
     const correctCountInBindings = ctx.optionBindings.filter(b => isCorrectHelper(b.option)).length;
-    const resolvedType = (correctCountInBindings > 1 || ctx.type === 'multiple') 
-      ? QuestionType.MultipleAnswer 
+    const resolvedType = (correctCountInBindings > 1 || ctx.type === 'multiple')
+      ? QuestionType.MultipleAnswer
       : QuestionType.SingleAnswer;
 
     const lockResult = this.optionLockPolicyService.updateLockedIncorrectOptions({
@@ -471,7 +471,7 @@ export class OptionUiSyncService {
       : '';
 
     const correctMessage = this.feedbackService.setCorrectMessage(freshOptions, currentQuestion!);
-    
+
     // Evaluate resolution
     // EVALUATE RESOLUTION
     const correctKeys = new Set<string>();
@@ -483,14 +483,14 @@ export class OptionUiSyncService {
     });
 
     const getKey = (o: any, idx: number) => {
-        const id = o.optionId ?? (o as any).id;
-        if (id != null && id !== -1) return `id:${id}`;
-        return `idx:${idx}`;
+      const id = o.optionId ?? (o as any).id;
+      if (id != null && id !== -1) return `id:${id}`;
+      return `idx:${idx}`;
     };
 
     const futureKeys = new Set<string>();
     ctx.optionBindings.forEach((b, i) => {
-        if (b.isSelected) futureKeys.add(getKey(b.option, i));
+      if (b.isSelected) futureKeys.add(getKey(b.option, i));
     });
 
     const allCorrectFound = correctKeys.size > 0 && [...correctKeys].every(k => futureKeys.has(k));
@@ -513,44 +513,16 @@ export class OptionUiSyncService {
       questionIndex: qIdx
     } as any;
 
-    // SYNC LOCKING (Should match OptionInteractionService)
-    const getLockId = (b: OptionBindings, idx: number) => {
-      const explicitId = b.option?.optionId;
-      return (explicitId != null && Number(explicitId) !== -1) ? Number(explicitId) : idx;
-    };
-
+    // Simplified: update the feedback configuration only.
+    // Locking is handled authoritatively by OptionLockPolicyService inside updateOptionAndUI.
     if (allCorrectFound) {
       if (isPerfect) {
-        ctx.optionBindings.forEach((b, idx) => {
-          const lId = getLockId(b, idx);
-          b.disabled = true;
-          this.selectedOptionService.lockOption(qIdx, lId);
-        });
         if (ctx.feedbackConfigs[key]) {
           ctx.feedbackConfigs[key].feedback = `You're right! ${correctMessage}`;
         }
-      } else {
-        // Partial Resolution: lock unselected
-        ctx.optionBindings.forEach((b, idx) => {
-          const lId = getLockId(b, idx);
-          const isSelected = futureKeys.has(getKey(b.option, idx));
-          if (!isSelected) {
-            b.disabled = true;
-            this.selectedOptionService.lockOption(qIdx, lId);
-          } else {
-            b.disabled = false;
-            this.selectedOptionService.unlockOption(qIdx, lId);
-          }
-        });
       }
-    } else {
-      // Not resolved
-      ctx.optionBindings.forEach((b, idx) => {
-        const lId = getLockId(b, idx);
-        b.disabled = false;
-        this.selectedOptionService.unlockOption(qIdx, lId);
-      });
     }
+
 
     // Anchor feedback using dual keys for robust lookup in template
     for (const k of Object.keys(ctx.showFeedbackForOption)) {
@@ -621,8 +593,8 @@ export class OptionUiSyncService {
       .filter(b => {
         // Correctly check if THIS specific binding's index is in the selection set
         return mapSelectedIds.has(b.index) ||
-               mapSelectedIds.has(String(b.index)) ||
-               mapSelectedIds.has(Number(b.index));
+          mapSelectedIds.has(String(b.index)) ||
+          mapSelectedIds.has(Number(b.index));
       })
       .map(b => b.option);
 
@@ -729,10 +701,10 @@ export class OptionUiSyncService {
 
   private applyHighlighting(optionBinding: OptionBindings): void {
     const isHighlighted = !!optionBinding.option?.highlight;
-    const isCorrect = (optionBinding.option as any)?.correct === true || 
-                     String((optionBinding.option as any)?.correct) === 'true' ||
-                     (optionBinding.option as any)?.correct === 1 ||
-                     (optionBinding.option as any)?.correct === '1';
+    const isCorrect = (optionBinding.option as any)?.correct === true ||
+      String((optionBinding.option as any)?.correct) === 'true' ||
+      (optionBinding.option as any)?.correct === 1 ||
+      (optionBinding.option as any)?.correct === '1';
 
     // Set binding-level highlight flags for component template consumption
     optionBinding.highlightCorrect = isHighlighted && isCorrect;
@@ -746,8 +718,8 @@ export class OptionUiSyncService {
     };
 
     // Ensure styleClass matches for backward compatibility with older templates
-    optionBinding.styleClass = isHighlighted 
-      ? (isCorrect ? 'correct-option' : 'incorrect-option') 
+    optionBinding.styleClass = isHighlighted
+      ? (isCorrect ? 'correct-option' : 'incorrect-option')
       : '';
   }
 
@@ -815,10 +787,10 @@ export class OptionUiSyncService {
     for (const k of Object.keys(ctx.showFeedbackForOption)) {
       delete ctx.showFeedbackForOption[k];
     }
-    
+
     ctx.showFeedbackForOption[displayIndex] = true;
     ctx.showFeedbackForOption[String(displayIndex)] = true;
-    
+
     const optionId = optionBinding.option?.optionId;
     if (optionId != null && optionId !== -1) {
       ctx.showFeedbackForOption[optionId as any] = true;
