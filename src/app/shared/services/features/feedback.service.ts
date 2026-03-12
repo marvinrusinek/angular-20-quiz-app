@@ -72,7 +72,7 @@ export class FeedbackService {
         if (sourceQ?.options) {
           const foundIndices = sourceQ.options
             .map((o: Option, i: number) =>
-              o.correct === true || (o as any).correct === 'true' ? i + 1 : null
+              isCorrectHelper(o.correct) ? i + 1 : null
             )
             .filter((n: number | null): n is number => n !== null);
 
@@ -123,7 +123,7 @@ export class FeedbackService {
 
       // ROBUST EVALUATION: 
       // An option is correct if its 'correct' flag is true OR if its visual position matches a correct index.
-      const isCorrect = sel.correct === true || (sel as any).correct === "true" || (sel as any).correct === 1 ||
+      const isCorrect = isCorrectHelper(sel.correct) ||
                         (visualIdx >= 0 && correctIndices.includes(visualIdx + 1));
       
       if (isCorrect) {
@@ -226,8 +226,9 @@ export class FeedbackService {
           : `${remainingTotal} more correct answers`;
         return `That's correct. Please select ${remainingText}.`;
       }
-      return 'Not this one, try again!';
+      return 'Please select the correct answers to continue...';
     } else {
+      // SINGLE-ANSWER LOGIC
       if (numCorrectSelected >= 1 && numIncorrectSelected === 0) {
         return `You're right! ${finalRevealMessage}`;
       }

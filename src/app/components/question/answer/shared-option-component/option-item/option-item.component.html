@@ -27,7 +27,7 @@
       {{ getOptionDisplayText() }}
     </span>
 
-    @if ((b.isSelected || isPreviousSelection() || timerExpired) && shouldShowIcon(b.option, i)) {
+    @if (shouldShowIcon(b.option, i)) {
       <mat-icon class="opt-icon">
         {{ getOptionIcon(b.option, i) }}
       </mat-icon>

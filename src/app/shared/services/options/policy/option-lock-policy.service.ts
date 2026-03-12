@@ -66,6 +66,11 @@ export class OptionLockPolicyService {
     const allCorrectSelected =
       correctBindings.length > 0 && correctBindings.every(b => b.isSelected);
 
+    const hasIncorrectSelection = bindings.some(
+      b => b.isSelected && !isCorrectBinding(b)
+    );
+    const isPerfect = allCorrectSelected && !hasIncorrectSelection;
+
     const shouldLockIncorrect = params.computeShouldLockIncorrectOptions(
       params.resolvedType,
       hasCorrectSelection,
@@ -74,7 +79,7 @@ export class OptionLockPolicyService {
 
     const locked = new Set<number>();
 
-    if (!shouldLockIncorrect) {
+    if (!shouldLockIncorrect && !isPerfect) {
       for (const b of bindings) {
         b.disabled = false;
         if (b.option) b.option.active = true;
@@ -90,15 +95,24 @@ export class OptionLockPolicyService {
     }
 
     for (const b of bindings) {
-      // USER REQUEST: Once resolved, disable ALL options (locking the question).
-      // shouldLockIncorrect is true only when the resolution conditions are met.
-      const shouldDisable = true; 
+      // GRANULAR LOCKING:
+      // 1. If perfectly resolved, disable everything.
+      // 2. If all correct found but not perfect, disable unselected options ONLY.
+      // 3. If single answer and correct selection found, disable everything.
+      let shouldDisable = false;
+      if (isPerfect) {
+        shouldDisable = true;
+      } else if (allCorrectSelected) {
+        shouldDisable = !b.isSelected;
+      } else if (params.resolvedType === QuestionType.SingleAnswer && hasCorrectSelection) {
+        shouldDisable = true;
+      }
 
       b.disabled = shouldDisable;
       if (b.option) b.option.active = !shouldDisable;
 
       const bIdx = b.index;
-      if (bIdx != null) {
+      if (shouldDisable && bIdx != null) {
         locked.add(bIdx);
       }
     }

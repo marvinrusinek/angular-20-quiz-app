@@ -423,10 +423,11 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
       text: canonical.text,
       correct: isCorrectValue(canonical),
       questionIndex: activeQuestionIndex,
+      displayIndex: payload.index,
       selected: wasChecked === true,
       highlight: wasChecked === true,
       showIcon: wasChecked === true
-    };
+    } as any;
 
     // INTERNAL STATE UPDATE
     if (this.type === 'single') {

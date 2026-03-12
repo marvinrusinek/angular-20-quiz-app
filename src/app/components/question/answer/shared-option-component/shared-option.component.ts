@@ -1,4 +1,4 @@
-﻿﻿import {
+import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef,
   Component, DoCheck, EventEmitter, HostListener, Input, NgZone, OnChanges, OnDestroy, OnInit,
   Output, SimpleChanges
@@ -1247,54 +1247,70 @@ export class SharedOptionComponent
 
   buildSharedOptionConfig(b: OptionBindings, i: number): SharedOptionConfig {
     // Verify selection state from service.
-    // We use resolveCurrentQuestionIndex() to ensure we are checking the correct question's state.
-    // relying on lastProcessedQuestionIndex caused synchronization issues.
     const qIndex = this.resolveCurrentQuestionIndex();
     const currentSelections = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
-    const currentOptionId = (b.option.optionId != null && String(b.option.optionId) !== '-1') ? b.option.optionId : null;
+    
     const isActuallySelected = currentSelections.some(s => {
-      // Index-strict matching is MANDATORY for row isolation with non-unique IDs
       const selIdx = (s as any).displayIndex ?? (s as any).index ?? (s as any).idx;
       return selIdx != null && Number(selIdx) === i;
     });
 
-    // DEBUG: trace for Option 1 (assuming index 1 for second option)
-    if (i === 1 && this.type === 'multiple') {
+    const isCorrect = (o: any) => o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || o.correct === '1');
+    const isMulti = this.isMultiMode;
 
+    // Identify last correct selected among ALL current bindings
+    let lastCorrectIdx: number | null = null;
+    if (isMulti) {
+        for (let j = this.optionBindings.length - 1; j >= 0; j--) {
+            const bRef = this.optionBindings[j];
+            if (bRef.isSelected && isCorrect(bRef.option)) {
+                lastCorrectIdx = j;
+                break;
+            }
+        }
+    }
+
+    const optionKey = this.keyOf(b.option, i);
+    const showCorrectOnTimeout = this.timerExpiredForQuestion
+      && (this.timeoutCorrectOptionKeys.has(optionKey) || !!b.option.correct);
+
+    const isCorrectRow = isCorrect(b.option);
+    
+    // Prefer existing highlight/selected flags if they were already set by services
+    // Otherwise calculate based on the rule
+    let shouldHighlight = !!b.option.highlight;
+    if (!shouldHighlight && (isActuallySelected || showCorrectOnTimeout)) {
+        if (isMulti) {
+            if (isCorrectRow) {
+                shouldHighlight = (lastCorrectIdx !== null && i === lastCorrectIdx) || showCorrectOnTimeout;
+            } else {
+                shouldHighlight = true;
+            }
+        } else {
+            shouldHighlight = true;
+        }
     }
 
     // Also check if we're on the correct question (prevent Q2 state showing on Q3)
     const isOnCorrectQuestion = this.lastProcessedQuestionIndex === qIndex;
 
-    // STRICTLY trust the service.
-    // 'b.isSelected' comes from inputs that may contain stale option objects from the previous question.
-    // By ignoring b.isSelected and relying only on isActuallySelected (which checks the service for the specific qIndex),
-    // we ensure we never show stale selections.
-    const showAsSelected = isActuallySelected;
-    const optionKey = this.keyOf(b.option, i);
-    const showCorrectOnTimeout = this.timerExpiredForQuestion
-      && (this.timeoutCorrectOptionKeys.has(optionKey) || !!b.option.correct);
-
-    // Create a copy of the option with verified selected state
-    // This prevents the directive from reading stale option.selected values
     const verifiedOption = {
       ...b.option,
-      selected: showAsSelected,  // override with verified state
-      highlight: showAsSelected || showCorrectOnTimeout,  // also update highlight flag
-      showIcon: showAsSelected || showCorrectOnTimeout   // ensure the copy has the icon state
+      selected: isActuallySelected,
+      highlight: shouldHighlight,
+      showIcon: shouldHighlight
     };
 
-    // Vital to update the ORIGINAL option's showIcon property
-    // because the template reads 'b.option.showIcon' to display the mat-icon.
-    // Since this method is called during change detection before the icon check,
-    // this effectively syncs the visual state.
-    b.option.showIcon = showAsSelected || showCorrectOnTimeout;
+    b.option.showIcon = shouldHighlight;
+    b.option.highlight = shouldHighlight;
+    b.isSelected = isActuallySelected;
+    b.option.selected = isActuallySelected;
 
     return {
       option: verifiedOption,  // use verified option, not original
       idx: i,
       type: this.resolveInteractionType(),
-      isOptionSelected: showAsSelected, // use verified selection state
+      isOptionSelected: isActuallySelected, // use verified selection state
       isAnswerCorrect: b.isCorrect,
       highlightCorrectAfterIncorrect: this.highlightCorrectAfterIncorrect,
       // Only force reset when:
@@ -1313,7 +1329,7 @@ export class SharedOptionComponent
       explanationText: '',
       showExplanation: false,
       selectedOptionIndex: this.selectedOptionIndex,
-      highlight: showAsSelected || showCorrectOnTimeout  // explicitly set top-level highlight on config
+      highlight: shouldHighlight
     };
   }
 
@@ -3383,13 +3399,16 @@ export class SharedOptionComponent
     for (let i = 0; i < (this.optionBindings?.length ?? 0); i++) {
       const b = this.optionBindings[i];
       const id = b.option.optionId;
-      const effectiveId = (id != null && id !== -1) ? id : i;
+      const numericId = (id != null && id !== -1) ? Number(id) : i;
 
-      const numericId = Number(effectiveId);
-      const chosen = Number.isFinite(numericId)
-        ? this.selectedOptionMap.get(numericId) === true ||
-        this.selectedOptionHistory.includes(numericId)
-        : false;
+      // Check map by ID or index
+      let chosen = this.selectedOptionMap.has(i) ||
+                   (Number.isFinite(numericId) && this.selectedOptionMap.has(numericId));
+
+      // Fallback to history
+      if (!chosen) {
+        chosen = this.selectedOptionHistory.some(h => Number(h) === numericId || Number(h) === i);
+      }
 
       b.option.selected = chosen;
       b.isSelected = chosen;
@@ -3409,27 +3428,41 @@ export class SharedOptionComponent
       }
     }
 
-    // Identify the VERY LAST selection's index for "exclusive" highlight logic
-    const lastSelection = selectedOptions.length > 0
-      ? selectedOptions[selectedOptions.length - 1]
-      : null;
-    const lastSIdx = lastSelection 
-      ? ((lastSelection as any).displayIndex ?? (lastSelection as any).index ?? (lastSelection as any).idx)
-      : null;
-    const lastIndex = (lastSIdx != null && Number.isFinite(Number(lastSIdx))) ? Number(lastSIdx) : null;
+    const isCorrect = (o: any) => {
+      if (!o) return false;
+      return o.correct === true || String(o.correct) === 'true' || o.correct === 1 || o.correct === '1';
+    };
+
+    // Identify the VERY LAST correct selection's index for "exclusive" green highlight
+    let lastCorrectIdx: number | null = null;
+    for (let i = selectedOptions.length - 1; i >= 0; i--) {
+      const s = selectedOptions[i];
+      if (isCorrect(s)) {
+        const sIdx = (s as any).displayIndex ?? (s as any).index ?? (s as any).idx;
+        if (sIdx != null && Number.isFinite(Number(sIdx))) {
+          lastCorrectIdx = Number(sIdx);
+          break;
+        }
+      }
+    }
 
     // Sync all visual flags strictly by array index
     for (let i = 0; i < this.optionsToDisplay.length; i++) {
       const opt = this.optionsToDisplay[i];
       const isSelected = selIndices.has(i);
-      const isLast = (lastIndex !== null) && (i === lastIndex);
-
       opt.selected = isSelected;
 
-      // Toggle highlights/icons exclusively for the targeted row
       if (this.type === 'multiple') {
-        opt.showIcon = isLast;
-        opt.highlight = isLast;
+        const isOptCorrect = isCorrect(opt);
+        if (isOptCorrect) {
+          // Rule: Only the most recent correct one is highlighted green
+          opt.highlight = (lastCorrectIdx !== null && i === lastCorrectIdx);
+          opt.showIcon = opt.highlight;
+        } else {
+          // Rule: ALL selected incorrect ones are highlighted red
+          opt.highlight = isSelected;
+          opt.showIcon = isSelected;
+        }
       } else {
         // Single answer: standard selection behavior (all selected show icons)
         opt.showIcon = isSelected;
@@ -3696,24 +3729,47 @@ export class SharedOptionComponent
       currentQuestion: this.currentQuestion
     };
 
-    // Call handleOptionClick as-is (no behavior change)
-    this.optionInteractionService.handleOptionClick(
-      binding,
-      index,
-      event,
-      state,
-      (idx) => this.getQuestionAtDisplayIndex(idx),
-      (idx) => this.emitExplanation(idx),
-      (b, i, ev) => this.updateOptionAndUI(b, i, ev)
-    );
+    // FREEZE bindings during interaction to prevent recreation race conditions
+    this.freezeOptionBindings = true;
+    state.freezeOptionBindings = true;
 
-    // Sync back mutated state (non-feedback fields only).
+    try {
+      this.optionInteractionService.handleOptionClick(
+        binding,
+        index,
+        event,
+        state,
+        (idx) => this.getQuestionAtDisplayIndex(idx),
+        (idx) => this.emitExplanation(idx),
+        (b, i, ev) => {
+          this.updateOptionAndUI(b, i, ev);
+          // Sync UI flags back into state so they persist when onOptionUI returns
+          state.showFeedback = this.showFeedback;
+          state.showFeedbackForOption = this.showFeedbackForOption;
+          state.feedbackConfigs = this.feedbackConfigs;
+          state.lastFeedbackOptionId = this.lastFeedbackOptionId;
+          state.disableRenderTrigger = this.disableRenderTrigger;
+        }
+      );
+    } finally {
+      this.freezeOptionBindings = false;
+      state.freezeOptionBindings = false;
+    }
+
+    // Sync back mutated state (including all visual/logic flags).
+    // CRITICAL: Ensure we use the bindings that were potentially modified by handleOptionClick
+    this.optionBindings = state.optionBindings;
     this.disableRenderTrigger = state.disableRenderTrigger;
     this.lastClickedOptionId = state.lastClickedOptionId;
     this.lastClickTimestamp = state.lastClickTimestamp;
     this.hasUserClicked = state.hasUserClicked;
     this.freezeOptionBindings = state.freezeOptionBindings;
+    this.showFeedback = state.showFeedback;
+    this.showFeedbackForOption = state.showFeedbackForOption;
+    this.feedbackConfigs = state.feedbackConfigs;
+    this.lastFeedbackOptionId = state.lastFeedbackOptionId;
 
+    // Force immediate sync for OnPush
     this.cdRef.detectChanges();
   }
 

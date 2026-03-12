@@ -36,7 +36,9 @@ export class SoundService {
   playOnceForOption(option: SelectedOption): void {
     if (!option.selected) return;
 
-    const isCorrect = (option as any).correct === true || (option as any).isCorrect === true;
+    const isCorrect = (option as any).correct === true || String((option as any).correct) === 'true' || 
+                     (option as any).correct === 1 || (option as any).correct === '1' ||
+                     (option as any).isCorrect === true;
     const soundKey = isCorrect ? 'correct' : 'incorrect';
     
     this.play(soundKey);
