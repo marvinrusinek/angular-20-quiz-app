@@ -1210,8 +1210,7 @@ export class SharedOptionComponent
         highlightCorrectAfterIncorrect: false,
         highlightIncorrect: isSelected && !isCorrect,
         highlightCorrect: isSelected && isCorrect,
-        styleClass: isSelected ? 'highlighted' : '',
-        disabled: false,
+        disabled: this.computeDisabledState(option, idx),
         type: this.resolveInteractionType(),
         appHighlightOption: isSelected,
         appHighlightInputType: (this.type === 'multiple'
@@ -1249,7 +1248,7 @@ export class SharedOptionComponent
     // Verify selection state from service.
     const qIndex = this.resolveCurrentQuestionIndex();
     const currentSelections = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
-    
+
     const isActuallySelected = currentSelections.some(s => {
       const selIdx = (s as any).displayIndex ?? (s as any).index ?? (s as any).idx;
       return selIdx != null && Number(selIdx) === i;
@@ -1261,13 +1260,13 @@ export class SharedOptionComponent
     // Identify last correct selected among ALL current bindings
     let lastCorrectIdx: number | null = null;
     if (isMulti) {
-        for (let j = this.optionBindings.length - 1; j >= 0; j--) {
-            const bRef = this.optionBindings[j];
-            if (bRef.isSelected && isCorrect(bRef.option)) {
-                lastCorrectIdx = j;
-                break;
-            }
+      for (let j = this.optionBindings.length - 1; j >= 0; j--) {
+        const bRef = this.optionBindings[j];
+        if (bRef.isSelected && isCorrect(bRef.option)) {
+          lastCorrectIdx = j;
+          break;
         }
+      }
     }
 
     const optionKey = this.keyOf(b.option, i);
@@ -1275,20 +1274,20 @@ export class SharedOptionComponent
       && (this.timeoutCorrectOptionKeys.has(optionKey) || !!b.option.correct);
 
     const isCorrectRow = isCorrect(b.option);
-    
+
     // Prefer existing highlight/selected flags if they were already set by services
     // Otherwise calculate based on the rule
     let shouldHighlight = !!b.option.highlight;
     if (!shouldHighlight && (isActuallySelected || showCorrectOnTimeout)) {
-        if (isMulti) {
-            if (isCorrectRow) {
-                shouldHighlight = (lastCorrectIdx !== null && i === lastCorrectIdx) || showCorrectOnTimeout;
-            } else {
-                shouldHighlight = true;
-            }
+      if (isMulti) {
+        if (isCorrectRow) {
+          shouldHighlight = (lastCorrectIdx !== null && i === lastCorrectIdx) || showCorrectOnTimeout;
         } else {
-            shouldHighlight = true;
+          shouldHighlight = true;
         }
+      } else {
+        shouldHighlight = true;
+      }
     }
 
     // Also check if we're on the correct question (prevent Q2 state showing on Q3)
@@ -1546,8 +1545,7 @@ export class SharedOptionComponent
         highlightCorrectAfterIncorrect: false,
         highlightIncorrect: false,
         highlightCorrect: false,
-        styleClass: '',
-        disabled: false,
+        disabled: this.computeDisabledState(option, idx),
         type: this.resolveInteractionType(),
         appHighlightOption: false,
         appHighlightInputType: '',
@@ -2826,7 +2824,7 @@ export class SharedOptionComponent
       change: () => this.handleOptionClick(option as SelectedOption, idx),
 
       // Do not derive disabled from option.selected
-      disabled: false,
+      disabled: this.computeDisabledState(option, idx),
 
       ariaLabel: 'Option ' + (idx + 1),
       checked: selected
@@ -2871,7 +2869,7 @@ export class SharedOptionComponent
         highlight: false,
         showIcon: false,
         active: opt.active ?? true,
-        disabled: false
+        disabled: this.computeDisabledState(opt, i)
       };
     });
 
@@ -2949,7 +2947,7 @@ export class SharedOptionComponent
         highlight: !!match?.highlight,
         showIcon: !!match?.showIcon,
         active: opt.active ?? true,
-        disabled: false
+        disabled: this.computeDisabledState(opt, i)
       };
     });
 
@@ -3403,7 +3401,7 @@ export class SharedOptionComponent
 
       // Check map by ID or index
       let chosen = this.selectedOptionMap.has(i) ||
-                   (Number.isFinite(numericId) && this.selectedOptionMap.has(numericId));
+        (Number.isFinite(numericId) && this.selectedOptionMap.has(numericId));
 
       // Fallback to history
       if (!chosen) {
