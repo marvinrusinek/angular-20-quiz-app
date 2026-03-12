@@ -725,10 +725,12 @@ export class SharedOptionComponent
             b.highlightCorrect = false;
             b.highlightIncorrect = false;
             b.highlightCorrectAfterIncorrect = false;
-            b.disabled = false;
+            // Restore from service state instead of clearing blindly
+            b.disabled = this.computeDisabledState(b.option, b.index);
             if (b.option) {
               b.option.selected = false;
               b.option.showIcon = false;
+              b.option.disabled = b.disabled;
             }
           }
 
@@ -997,6 +999,9 @@ export class SharedOptionComponent
           b.option.highlight = false;
           b.option.showIcon = false;
         }
+        // Force sync disabled state during rehydration
+        b.disabled = this.computeDisabledState(b.option, idx);
+        b.showFeedback = true; // Answers exist, show feedback
       });
     }
 
@@ -1014,10 +1019,21 @@ export class SharedOptionComponent
           opt.highlight = false;
           opt.showIcon = false;
         }
+        opt.disabled = this.computeDisabledState(opt, idx);
       });
     }
 
-    // Visuals should derive from bindings state
+    // Restore last feedback target for anchor calculation
+    if (saved.length > 0) {
+      const last = saved[saved.length - 1];
+      const lastIdx = (last as any).displayIndex ?? (last as any).index ?? (last as any).idx;
+      if (lastIdx != null && Number.isFinite(Number(lastIdx))) {
+        this.lastFeedbackOptionId = Number(lastIdx);
+        this.showFeedback = true;
+      }
+    }
+
+    this.rebuildShowFeedbackMapFromBindings();
     this.updateHighlighting();
     this.cdRef.markForCheck();
   }
@@ -1795,11 +1811,11 @@ export class SharedOptionComponent
       this.selectedOptions.add(Number(id));
     }
 
-    // Force reference update for ALL bindings to trigger child OnPush CD
     this.optionBindings = this.optionBindings.map(b => ({
       ...b,
-      showFeedbackForOption: { ...this.showFeedbackForOption }
-      // Removed: showFeedback: this.showFeedback
+      showFeedbackForOption: { ...this.showFeedbackForOption },
+      showFeedback: this.showFeedback,
+      disabled: this.computeDisabledState(b.option, b.index)
     }));
 
     this.updateBindingSnapshots();
