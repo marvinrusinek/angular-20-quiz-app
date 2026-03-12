@@ -21,18 +21,6 @@ and dynamic UI rendering.
 
 <hr>
 
-<h2>🎬 Feature Demo</h2>
-
-<p align="center">
-<img src="docs/demo/angular-quiz-demo.gif" width="900" alt="Angular Quiz Demo">
-</p>
-
-<p align="center">
-<em>Demo GIF coming soon</em>
-</p>
-
-<hr>
-
 <h2>💡 Why I Built This</h2>
 
 <p>
@@ -58,22 +46,6 @@ learning tool and as a demonstration of modern Angular development practices.
 <li>Structured the application with modular Angular services</li>
 <li>Designed for future <strong>Angular Signals</strong> integration</li>
 </ul>
-
-<hr>
-
-<h2>📸 Screenshots</h2>
-
-<p align="center">
-<img src="docs/screenshots/quiz-question.png" width="750" alt="Quiz Question Screen">
-</p>
-
-<p align="center">
-<img src="docs/screenshots/quiz-feedback.png" width="750" alt="Quiz Feedback Screen">
-</p>
-
-<p align="center">
-<img src="docs/screenshots/results-summary.png" width="750" alt="Quiz Results Summary">
-</p>
 
 <hr>
 
