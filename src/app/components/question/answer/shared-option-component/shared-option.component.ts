@@ -1652,9 +1652,10 @@ export class SharedOptionComponent
 
   public computeDisabledState(option: Option, index: number): boolean {
     const qIndex = this.currentQuestionIndex;
+    const lockId = (option?.optionId != null && Number(option.optionId) !== -1) ? option.optionId : index;
 
     const disabledSet = this.disabledOptionsPerQuestion.get(qIndex);
-    if (disabledSet && disabledSet.has(index)) {
+    if (disabledSet && (disabledSet.has(index) || disabledSet.has(lockId))) {
       return true;
     }
 
@@ -1668,17 +1669,18 @@ export class SharedOptionComponent
     } catch { }
 
     try {
-      // Use index for service-level lock checking to maintain row isolation
-      if (this.selectedOptionService.isOptionLocked(qIndex, index)) {
+      // Use both index and lockId for service-level lock checking
+      if (this.selectedOptionService.isOptionLocked(qIndex, index) ||
+        this.selectedOptionService.isOptionLocked(qIndex, lockId)) {
         return true;
       }
     } catch { }
 
-    if (this.lockedIncorrectOptionIds.has(index)) {
+    if (this.lockedIncorrectOptionIds.has(index) || this.lockedIncorrectOptionIds.has(lockId)) {
       return true;
     }
 
-    return this.flashDisabledSet.has(index);
+    return this.flashDisabledSet.has(index) || this.flashDisabledSet.has(lockId);
   }
 
   // Wrapper for template compatibility or legacy calls
