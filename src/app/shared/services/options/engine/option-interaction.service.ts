@@ -50,7 +50,7 @@ export class OptionInteractionService {
     private nextButtonStateService: NextButtonStateService,
     private ngZone: NgZone,
     private appRef: ApplicationRef
-  ) {}
+  ) { }
 
   /**
    * Main handler for option content clicks
@@ -73,7 +73,7 @@ export class OptionInteractionService {
       }
       return false;
     };
-      
+
     // Mark interaction immediately
     this.quizStateService.markUserInteracted(qIdx);
 
@@ -121,17 +121,17 @@ export class OptionInteractionService {
 
     const isCurrentlySelected = existingIdx > -1;
     let futureSelection: SelectedOption[];
-    
+
     if (isCurrentlySelected) {
       // Unselect
       futureSelection = simulatedSelection.filter((_, i) => i !== existingIdx);
     } else {
       // Select
-      const newOpt = { 
-        ...binding.option, 
-        selected: true, 
-        questionIndex: qIdx, 
-        index: index 
+      const newOpt = {
+        ...binding.option,
+        selected: true,
+        questionIndex: qIdx,
+        index: index
       } as SelectedOption;
       futureSelection = isMultipleMode ? [...simulatedSelection, newOpt] : [newOpt];
     }
@@ -146,7 +146,7 @@ export class OptionInteractionService {
     this.selectedOptionService.syncSelectionState(qIdx, simulatedSelection);
     // No more ID generation here - trust SelectedOptionService and QuizService
     this.quizService.updateUserAnswer(
-      qIdx, 
+      qIdx,
       simulatedSelection.map(o => o.optionId).filter((id): id is number => id != null && id !== -1)
     );
 
@@ -155,49 +155,10 @@ export class OptionInteractionService {
       return (explicitId != null && Number(explicitId) !== -1) ? Number(explicitId) : i;
     };
 
-    // EVALUATE LOCKING
-    if (!state.disabledOptionsPerQuestion.has(qIdx)) {
-      state.disabledOptionsPerQuestion.set(qIdx, new Set<number>());
-    }
-    const dSet = state.disabledOptionsPerQuestion.get(qIdx)!;
+    // OPTIMIZATION: Removed redundant locking logic here. 
+    // updateOptionAndUI (called below) triggers OptionUiSyncService which 
+    // uses OptionLockPolicyService for authoritative locking.
 
-    if (allCorrectFound) {
-      if (isPerfect) {
-        this.timerService.allowAuthoritativeStop();
-        this.timerService.stopTimer(undefined, { force: true });
-        this.quizService.scoreDirectly(qIdx, true, isMultipleMode);
-        
-        state.optionBindings.forEach((b, i) => {
-          const lId = getLockId(b, i);
-          b.disabled = true;
-          dSet.add(i);
-          this.selectedOptionService.lockOption(qIdx, lId);
-        });
-      } else {
-        // Partial Resolution: lock ONLY remaining unselected
-        state.optionBindings.forEach((b, i) => {
-          const lId = getLockId(b, i);
-          const isSelectedInFuture = futureKeys.has(getKey(b.option, i));
-          if (!isSelectedInFuture) {
-            b.disabled = true;
-            dSet.add(i);
-            this.selectedOptionService.lockOption(qIdx, lId);
-          } else {
-            b.disabled = false;
-            dSet.delete(i);
-            this.selectedOptionService.unlockOption(qIdx, lId);
-          }
-        });
-      }
-    } else {
-      // Not resolved: unlock all
-      state.optionBindings.forEach((b, i) => {
-        const lId = getLockId(b, i);
-        b.disabled = false;
-        dSet.delete(i);
-        this.selectedOptionService.unlockOption(qIdx, lId);
-      });
-    }
 
     // UPDATE UI
     const newState = !isCurrentlySelected;
@@ -206,31 +167,31 @@ export class OptionInteractionService {
 
     // Synchronize highlight flags according to the rules
     if (isMultipleMode) {
-        // Identify last correct selected
-        let lastCorrect: any = null;
-        for (let j = futureSelection.length - 1; j >= 0; j--) {
-            if (isCorrectHelper(futureSelection[j])) {
-                lastCorrect = futureSelection[j];
-                break;
-            }
+      // Identify last correct selected
+      let lastCorrect: any = null;
+      for (let j = futureSelection.length - 1; j >= 0; j--) {
+        if (isCorrectHelper(futureSelection[j])) {
+          lastCorrect = futureSelection[j];
+          break;
         }
-        const lastCorrKey = lastCorrect ? getKey(lastCorrect, (lastCorrect as any).index ?? (lastCorrect as any).displayIndex) : null;
+      }
+      const lastCorrKey = lastCorrect ? getKey(lastCorrect, (lastCorrect as any).index ?? (lastCorrect as any).displayIndex) : null;
 
-        state.optionBindings.forEach((b, i) => {
-            const bKey = getKey(b.option, i);
-            const isSelected = futureKeys.has(bKey);
-            const isCorrect = isCorrectHelper(b.option);
-            
-            if (isCorrect) {
-                // Rule: Only last correct highlighted
-                b.option.highlight = (lastCorrKey === bKey);
-                b.option.showIcon = b.option.highlight;
-            } else {
-                // Rule: All selected incorrect highlighted
-                b.option.highlight = isSelected;
-                b.option.showIcon = isSelected;
-            }
-        });
+      state.optionBindings.forEach((b, i) => {
+        const bKey = getKey(b.option, i);
+        const isSelected = futureKeys.has(bKey);
+        const isCorrect = isCorrectHelper(b.option);
+
+        if (isCorrect) {
+          // Rule: Only last correct highlighted
+          b.option.highlight = (lastCorrKey === bKey);
+          b.option.showIcon = b.option.highlight;
+        } else {
+          // Rule: All selected incorrect highlighted
+          b.option.highlight = isSelected;
+          b.option.showIcon = isSelected;
+        }
+      });
     }
 
     // FET & Explanation
@@ -239,7 +200,7 @@ export class OptionInteractionService {
         (this.quizService as any)._multiAnswerPerfect = new Map<number, boolean>();
       }
       (this.quizService as any)._multiAnswerPerfect.set(qIdx, true);
-      
+
       if (isPerfect || (!isMultipleMode && isCorrectHelper(binding.option))) {
         setTimeout(() => emitExplanation(qIdx), 0);
       }
