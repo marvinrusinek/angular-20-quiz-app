@@ -436,10 +436,15 @@ export class OptionUiSyncService {
       b.option.selected = isSelected;
 
       if (isMultiLimit) {
+        // The `isSelected` variable is already correctly determined above.
+        // The user's snippet re-calculates it, which is redundant.
+        // We will use the existing `isSelected` variable.
+        // The `if (isCorrect)` condition in the snippet is also incorrect, should be `isCorrectHelper(b.option)`.
+
         if (isCorrectHelper(b.option)) {
           // Rule: Only last correct highlighted
           b.option.highlight = (lastCorrectIdx !== null && b.index === lastCorrectIdx);
-          b.option.showIcon = b.option.highlight;
+          b.option.showIcon = isSelected; // Changed from b.option.highlight
         } else {
           // Rule: All selected incorrect highlighted
           b.option.highlight = isSelected;
