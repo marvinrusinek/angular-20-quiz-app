@@ -206,7 +206,22 @@ export class OptionInteractionService {
       }
     }
 
-    state.lastFeedbackOptionId = index;
+    // UPDATE ANCHOR: If we just selected something, that's the new anchor.
+    // If we unselected, find the most recently selected option that's still selected.
+    if (!isCurrentlySelected) {
+      state.lastFeedbackOptionId = index;
+    } else {
+      const stillSelectedId = [...(state.selectedOptionHistory || [])]
+        .reverse()
+        .find(id => futureKeys.has(getKey(state.optionsToDisplay[id], id)));
+      
+      if (stillSelectedId !== undefined) {
+        state.lastFeedbackOptionId = Number(stillSelectedId);
+      } else {
+        state.lastFeedbackOptionId = -1;
+      }
+    }
+
     state.lastClickedOptionId = index;
     state.hasUserClicked = true;
     state.disableRenderTrigger++;
