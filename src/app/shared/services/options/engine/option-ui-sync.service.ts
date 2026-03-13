@@ -158,16 +158,46 @@ export class OptionUiSyncService {
     this.trackVisited(index, ctx);
 
     // updated anchor logic: if unselecting, move back to last still-selected option
+    console.log(`[OUS.updateOptionAndUI] Q${currentIndex + 1} Index=${index} checked=${checked}`);
+
+    // SYNC: Push the state immediately to SelectedOptionService
+    console.log(`[OUS] Q${currentIndex + 1}: Syncing selection to service...`);
+    this.forceSelectIntoServices(
+      optionBinding,
+      optionId,
+      index,
+      currentIndex,
+      checked,
+      ctx
+    );
+
+    this.trackVisited(index, ctx);
+
+    // Ensure anchor logic: if select, move to this index
+    // force feedback visibility for the selection path
     if (checked) {
+      console.log(`[OUS] Q${currentIndex + 1}: Setting feedback anchor to index ${index}`);
       ctx.showFeedback = true;
+      // clear all existing anchors first
+      for (const k of Object.keys(ctx.showFeedbackForOption)) {
+        delete ctx.showFeedbackForOption[k];
+      }
+      ctx.showFeedbackForOption[index] = true;
+      ctx.showFeedbackForOption[String(index)] = true;
+      if (optionId != null && optionId !== -1) {
+        ctx.showFeedbackForOption[optionId as any] = true;
+        ctx.showFeedbackForOption[String(optionId)] = true;
+      }
       ctx.lastFeedbackOptionId = index;
       this.refreshFeedbackConfigForClicked(optionBinding, index, optionId, ctx);
     } else {
+      console.log(`[OUS] Q${currentIndex + 1}: Unselected option ${index}. Checking for new anchor...`);
       const stillSelectedId = [...(ctx.selectedOptionHistory || [])]
         .reverse()
         .find(id => ctx.selectedOptionMap.has(id));
 
       if (stillSelectedId !== undefined) {
+        console.log(`[OUS] Q${currentIndex + 1}: Moving anchor back to still-selected index ${stillSelectedId}`);
         ctx.lastFeedbackOptionId = stillSelectedId;
 
         const prevBindingIdx = stillSelectedId as number;
@@ -182,6 +212,7 @@ export class OptionUiSyncService {
           );
         }
       } else {
+        console.log(`[OUS] Q${currentIndex + 1}: No selections remaining. Clearing feedback anchors.`);
         ctx.showFeedbackForOption = {};
         ctx.lastFeedbackOptionId = -1;
       }
