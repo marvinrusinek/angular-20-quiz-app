@@ -190,7 +190,7 @@ export class OptionInteractionService {
         if (isCorrect) {
           // Rule: Only last correct highlighted
           b.option.highlight = (lastCorrKey === bKey);
-          b.option.showIcon = b.option.highlight;
+          b.option.showIcon = isSelected;
         } else {
           // Rule: All selected incorrect highlighted
           b.option.highlight = isSelected;
