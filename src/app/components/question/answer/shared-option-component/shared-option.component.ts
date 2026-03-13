@@ -1084,9 +1084,17 @@ export class SharedOptionComponent
     const finalTargetId = targetId !== undefined ? targetId : fallbackSelectedId;
 
     if (finalTargetId !== undefined) {
+      this.showFeedback = true;
+      // Set both index and optionId in the map for maximum template robustness
       showMap[finalTargetId] = true;
       showMap[String(finalTargetId)] = true;
-      this.showFeedback = true;
+
+      // Also try to find the other identifier (if finalTargetId is an index, find its optionId and vice versa)
+      const targetBinding = (this.optionBindings ?? [])[finalTargetId as number];
+      if (targetBinding?.option?.optionId != null) {
+        showMap[targetBinding.option.optionId] = true;
+        showMap[String(targetBinding.option.optionId)] = true;
+      }
     }
 
     // CRITICAL: Preserve the existing feedbackConfigs - do NOT clear them.
@@ -2444,7 +2452,8 @@ export class SharedOptionComponent
     this.lastFeedbackOptionMap[currentQuestionIndex] = optionId;
 
     // Set the last option selected (used to show only one feedback block)
-    this.lastFeedbackOptionId = option.optionId ?? -1;
+    // CRITICAL: Use index for anchoring so it's stable in the template loop
+    this.lastFeedbackOptionId = index;
 
     // Use consistent effective ID (matching shouldShowFeedbackAfter)
     const normalizedIdForAnchor = (optionId != null && !isNaN(Number(optionId))) ? Number(optionId) : null;
