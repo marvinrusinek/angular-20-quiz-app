@@ -118,12 +118,22 @@ export class OptionUiSyncService {
 
     // Force service update call moved down to ensure map is updated first
 
+    // Clear other anchors to ensure exclusive feedback per click
+    for (const k of Object.keys(ctx.showFeedbackForOption)) {
+      delete ctx.showFeedbackForOption[k];
+    }
+
     if (ctx.type === 'single') {
       ctx.selectedOptionMap.clear();
     }
 
     if (checked) {
       ctx.selectedOptionMap.set(index, true);
+      ctx.showFeedbackForOption[index] = true;
+      ctx.showFeedbackForOption[String(index)] = true;
+      if (optionId != null && optionId !== -1) {
+        ctx.showFeedbackForOption[optionId] = true;
+      }
     } else {
       ctx.selectedOptionMap.delete(index);
     }
@@ -138,6 +148,7 @@ export class OptionUiSyncService {
     ctx.showFeedback = true;
 
     this.toggleSelectedOption(optionBinding.option, index, checked, ctx);
+    this.refreshFeedbackConfigForClicked(optionBinding, index, optionId, ctx);
 
     // RESTORE: Let the component know a selection occurred (for sounds/events)
     if (ctx.onSelect) {
