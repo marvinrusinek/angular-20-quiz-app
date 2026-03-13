@@ -155,11 +155,14 @@ export class SelectedOptionService {
   // Helper to sync state from external components (like SharedOptionComponent)
   syncSelectionState(questionIndex: number, options: SelectedOption[]): void {
     const committed = this.commitSelections(questionIndex, options);
+    
+    // VITAL: Update the map so that getSelectedOptionsForQuestion(index) returns the new state!
+    this.selectedOptionsMap.set(questionIndex, committed);
 
-    this.selectedOption = committed;  // helper Sync
+    this.selectedOption = committed;  
     this.selectedOptionSubject.next(committed);
     this.isOptionSelectedSubject.next(committed.length > 0);
-    this.isAnsweredSubject.next(true);  // ensure answered state is tracked
+    this.isAnsweredSubject.next(true);  
   }
 
   deselectOption(): void {
