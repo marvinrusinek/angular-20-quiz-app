@@ -3630,6 +3630,32 @@ export class SharedOptionComponent
       });
     }
 
+    if (ev.kind === 'interaction' || ev.kind === 'contentClick') {
+      const now = Date.now();
+      
+      // Debounce logic: if we just handled a 'change' for this index, skip the click interaction
+      // if it's too close in time
+      if (this._lastHandledIndex === index && this._lastHandledTime && now - this._lastHandledTime < 100) {
+        console.log(`[SOC.onOptionUI] ⏭️ Skipping '${ev.kind}' for Q${this.getActiveQuestionIndex() + 1} option ${index} (Already handled via change)`);
+        return;
+      }
+
+      this._lastHandledIndex = index;
+      this._lastHandledTime = now;
+
+      console.log(`[SOC.onOptionUI] 🟢 Processing '${ev.kind}' for Q${this.getActiveQuestionIndex() + 1} option ${index}`);
+      
+      const native = ev.nativeEvent;
+      const checked = this.type === 'multiple' ? !binding.option.selected : true;
+      
+      const mockEvent: any = this.type === 'multiple' 
+        ? { source: null, checked } 
+        : { source: null, value: binding.option.optionId ?? index };
+
+      this.updateOptionAndUI(binding, index, mockEvent);
+      return;
+    }
+
     if (ev.kind === 'change') {
       const native = ev.nativeEvent as MatCheckboxChange | MatRadioChange;
       const now = Date.now();
