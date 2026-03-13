@@ -226,6 +226,9 @@ export class OptionInteractionService {
     state.hasUserClicked = true;
     state.disableRenderTrigger++;
 
+    // CALL UPDATE with the existing context so that feedback anchors are preserved
+    (updateOptionAndUI as any)(binding, index, mockEvent, state);
+
     // MESSAGE UPDATE - MOVED INSIDE handleOptionClick
     try {
       const message = this.selectionMessageService.computeFinalMessage({
