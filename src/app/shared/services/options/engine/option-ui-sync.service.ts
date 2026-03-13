@@ -140,6 +140,11 @@ export class OptionUiSyncService {
     }
 
     if (checked) {
+      // AUTHORITATIVE ANCHOR RESET: Clear previous anchors so only the newest one stays
+      for (const k of Object.keys(ctx.showFeedbackForOption)) {
+        delete ctx.showFeedbackForOption[k];
+      }
+
       ctx.selectedOptionMap.set(index, true);
       // Set anchor at both index and effectiveId for robust matching in SOC
       ctx.showFeedbackForOption[index] = true;
@@ -325,11 +330,31 @@ export class OptionUiSyncService {
     const effectiveId = getEffectiveId(optionBinding.option, index);
 
     if (checked) {
-      // Build the FULL list of selections to keep service state accurate
+      // Build the FULL list of selections PRESERVING TIME ORDER via history
       const fullSelections: any[] = [];
+      const seenIndices = new Set<number>();
+      
+      // 1. Process history (known order)
+      for (const hIdx of ctx.selectedOptionHistory || []) {
+        if (ctx.selectedOptionMap.has(hIdx) && !seenIndices.has(hIdx)) {
+          const b = ctx.optionBindings[hIdx];
+          if (b) {
+            fullSelections.push({
+              ...b.option,
+              optionId: b.option.optionId,
+              index: hIdx,
+              displayIndex: hIdx,
+              questionIndex: currentIndex,
+              selected: true
+            });
+            seenIndices.add(hIdx);
+          }
+        }
+      }
+
+      // 2. Catch any selected options not in history (redundancy)
       ctx.optionBindings.forEach((b, idx) => {
-        // Use the map as the single source of truth for "active" selections
-        if (ctx.selectedOptionMap.has(idx)) {
+        if (ctx.selectedOptionMap.has(idx) && !seenIndices.has(idx)) {
           fullSelections.push({
             ...b.option,
             optionId: b.option.optionId,
@@ -338,6 +363,7 @@ export class OptionUiSyncService {
             questionIndex: currentIndex,
             selected: true
           });
+          seenIndices.add(idx);
         }
       });
 
@@ -370,9 +396,21 @@ export class OptionUiSyncService {
     const isCorrectHelper = (o: any) => o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || o.correct === '1');
     const isMultiLimit = ctx.type === 'multiple' || (ctx as any).isMultiMode;
 
-    // Identify last correct selected by finding highest index among selections
+    // Identify last correct selected by finding most recent in HISTORY
     let lastCorrectIdx: number | null = null;
-    if (isMultiLimit) {
+    if (isMultiLimit && ctx.selectedOptionHistory?.length > 0) {
+      for (let j = ctx.selectedOptionHistory.length - 1; j >= 0; j--) {
+        const hIdx = ctx.selectedOptionHistory[j];
+        const b = ctx.optionBindings[hIdx];
+        if (ctx.selectedOptionMap.has(hIdx) && b && (b.isSelected || b.option.selected) && isCorrectHelper(b.option)) {
+          lastCorrectIdx = hIdx;
+          break;
+        }
+      }
+    }
+    
+    // Fallback to highest index if history is empty
+    if (isMultiLimit && lastCorrectIdx === null) {
       for (let j = selections.length - 1; j >= 0; j--) {
         const s = selections[j];
         if (isCorrectHelper(s)) {
@@ -659,12 +697,13 @@ export class OptionUiSyncService {
       }
     } else {
       if (correctSelectedCount >= correctOptions.length) {
-        const alreadyScored =
-          this.quizService.questionCorrectness.get(questionIndex) === true;
-        if (!alreadyScored) {
-          console.log(`[OptionUiSyncService] Scoring multi-answer Q${questionIndex + 1} via change path: ALL ${correctOptions.length} correct answers found`);
-          // Score as correct ONLY if no incorrect options are selected
-          this.quizService.scoreDirectly(questionIndex, !hasIncorrect, true);
+        if (!hasIncorrect) {
+          console.log(`[OptionUiSyncService] Scoring multi-answer Q${questionIndex + 1}: ALL ${correctOptions.length} correct answers found`);
+          const alreadyCorrect = this.quizService.questionCorrectness.get(questionIndex) === true;
+          if (!alreadyCorrect) {
+            this.quizService.scoreDirectly(questionIndex, true, true);
+          }
+          // Force FET readiness even if already scored correct (to be safe)
           this.selectedOptionService.setAnswered(true, true);
         }
       }
