@@ -29,6 +29,7 @@ export class SelectedOptionService {
       if (selected) {
         const parsed = JSON.parse(selected);
         this.selectedOptionsMap = new Map(Object.entries(parsed).map(([k, v]) => [Number(k), v as any]));
+        this.selectedOptionsMap$.next(new Map(this.selectedOptionsMap));
       }
     } catch (err) {
       console.warn('[SelectedOptionService] Failed to load state from sessionStorage', err);
@@ -97,6 +98,8 @@ export class SelectedOptionService {
 
   private questionTextSubject = new BehaviorSubject<string>('');
   questionText$ = this.questionTextSubject.asObservable();
+
+  public selectedOptionsMap$ = new BehaviorSubject<Map<number, SelectedOption[]>>(new Map());
 
   private showFeedbackForOptionSubject = new BehaviorSubject<
     Record<string, boolean>
