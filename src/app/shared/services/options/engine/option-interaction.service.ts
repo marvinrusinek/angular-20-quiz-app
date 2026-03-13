@@ -82,6 +82,8 @@ export class OptionInteractionService {
       event.stopPropagation();
     }
 
+    console.log(`[OIS.handleOptionClick] Q${qIdx + 1} Index=${index} isCurrentlySelected=${binding.isSelected}`);
+
     // Guard: disabled
     if (binding.disabled) return;
 
@@ -91,9 +93,12 @@ export class OptionInteractionService {
     // Determine if we are in multi-answer behavior
     const isMultipleMode = correctCountInBindings > 1 || state.type === 'multiple';
 
+    console.log(`[OIS] Q${qIdx + 1}: correctCount=${correctCountInBindings} Type=${state.type} isMultipleMode=${isMultipleMode}`);
+
     // Guard: prevent deselection of correct answers in multiple
     if (isMultipleMode && binding.isSelected && isCorrectHelper(binding.option)) {
       if (event && event.preventDefault) event.preventDefault();
+      console.log(`[OIS] Q${qIdx + 1}: Ignoring deselection of correct answer in multiple mode`);
       return;
     }
 
@@ -104,6 +109,8 @@ export class OptionInteractionService {
       const oIdx = (o as any).index ?? o.displayIndex ?? (o as any).idx;
       return oIdx === index;
     });
+
+    console.log(`[OIS] Q${qIdx + 1}: storedSelection.length=${storedSelection.length} existingIdx=${existingIdx}`);
 
     const question = getQuestionAtDisplayIndex(qIdx);
     const questionOptions = Array.isArray(question?.options) ? question.options : [];
@@ -124,9 +131,11 @@ export class OptionInteractionService {
 
     if (isCurrentlySelected) {
       // Unselect
+      console.log(`[OIS] Q${qIdx + 1}: UNSELECTING option ${index}`);
       futureSelection = simulatedSelection.filter((_, i) => i !== existingIdx);
     } else {
       // Select
+      console.log(`[OIS] Q${qIdx + 1}: SELECTING option ${index}`);
       const newOpt = {
         ...binding.option,
         selected: true,
@@ -136,6 +145,7 @@ export class OptionInteractionService {
       futureSelection = isMultipleMode ? [...simulatedSelection, newOpt] : [newOpt];
     }
 
+    console.log(`[OIS] Q${qIdx + 1}: Resulting futureSelection.length=${futureSelection.length}`);
     const futureKeys = new Set(futureSelection.map(s => getKey(s, (s as any).index ?? (s as any).displayIndex)));
     const allCorrectFound = correctKeys.size > 0 && [...correctKeys].every(k => futureKeys.has(k));
     const numIncorrectInFuture = futureSelection.filter(o => !isCorrectHelper(o)).length;
