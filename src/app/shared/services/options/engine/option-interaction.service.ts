@@ -58,7 +58,7 @@ export class OptionInteractionService {
   handleOptionClick(
     binding: OptionBindings,
     index: number,
-    event: MouseEvent,
+    event: any,
     state: OptionInteractionState,
     getQuestionAtDisplayIndex: (idx: number) => QuizQuestion | null,
     emitExplanation: (idx: number) => void,
@@ -144,7 +144,7 @@ export class OptionInteractionService {
       return getEffectiveId(s, sIdx);
     }));
 
-    const correctKeys = new Set<number | string>(); 
+    const correctKeys = new Set<number | string>();
     questionOptions.forEach((o, i) => {
       if (isCorrectHelper(o)) correctKeys.add(getEffectiveId(o, i));
     });
@@ -169,7 +169,7 @@ export class OptionInteractionService {
     // UPDATE UI
     const newState = !isCurrentlySelected;
     const mockEvent = isMultipleMode ? { source: null, checked: newState } : { source: null, value: binding.option.optionId ?? index };
-    
+
     // Synchronize highlight flags according to the rules
     if (isMultipleMode) {
       // Identify last correct selected
