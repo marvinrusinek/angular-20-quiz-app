@@ -141,9 +141,6 @@ export class OptionUiSyncService {
     }
 
     if (checked) {
-      if (!ctx.selectedOptionHistory.includes(index)) {
-        ctx.selectedOptionHistory.push(index);
-      }
       ctx.selectedOptionMap.set(index, true);
       // Set anchor at both index and effectiveId for robust matching in SOC
       ctx.showFeedbackForOption[index] = true;
