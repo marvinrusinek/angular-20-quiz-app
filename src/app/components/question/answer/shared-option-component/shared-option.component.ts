@@ -75,6 +75,8 @@ export class SharedOptionComponent
   @Output() reselectionDetected = new EventEmitter<boolean>();
   @Output() explanationUpdate = new EventEmitter<number>();
   @Output() renderReadyChange = new EventEmitter<boolean>();
+  @Output() showExplanationChange = new EventEmitter<boolean>();
+  @Output() explanationToDisplayChange = new EventEmitter<string>();
   @Input() currentQuestion: QuizQuestion | null = null;
   @Input() currentQuestionIndex!: number;
   @Input() questionIndex: number | null = null;
@@ -98,6 +100,7 @@ export class SharedOptionComponent
   @Input() finalRenderReady$: Observable<boolean> | null = null;
   @Input() questionVersion = 0;  // increments every time questionIndex changes
   @Input() sharedOptionConfig!: SharedOptionConfig;
+  public selectedOptionMap = new Map<number | string, boolean>();
   public ui!: SharedOptionUiState;
   public finalRenderReady = false;
   private finalRenderReadySub?: Subscription;
@@ -109,20 +112,25 @@ export class SharedOptionComponent
   currentFeedbackConfig!: FeedbackProps;
   feedbackConfigs: { [key: string]: FeedbackProps } = {};
   activeFeedbackConfig: FeedbackProps | null = null;
-  selectedOptions: Set<number> = new Set();
-  clickedOptionIds: Set<number> = new Set();
-  private readonly perQuestionHistory = new Set<number>();
+  selectedOptions: Set<number | string> = new Set();
+  clickedOptionIds: Set<number | string> = new Set();
+  private readonly perQuestionHistory = new Set<number | string>();
+  selectedOptionHistory: (number | string)[] = [];
   // Track CORRECT option clicks per question for timer stop logic
   private correctClicksPerQuestion: Map<number, Set<number>> = new Map();
   // Track DISABLED option IDs per question - persists across binding recreations
   public disabledOptionsPerQuestion: Map<number, Set<number>> = new Map();
   iconVisibility: boolean[] = []; // array to store visibility state of icons
-  showIconForOption: { [optionId: number]: boolean } = {};
+  showIconForOption: { [optionId: string | number]: boolean } = {};
   lastSelectedOptionIndex = -1;
   private lastFeedbackQuestionIndex = -1;
-  lastFeedbackOptionId = -1;
-  lastSelectedOptionId = -1;
-  highlightedOptionIds: Set<number> = new Set();
+  lastFeedbackOptionId: number | string = -1;
+  lastSelectedOptionId: number | string = -1;
+  lastClickedOptionId: number | string | null = null;
+  lastClickTimestamp: number | null = null;
+  hasUserClicked = false;
+  freezeOptionBindings = false;
+  highlightedOptionIds: Set<number | string> = new Set();
 
   // Counter to force OnPush re-render when disabled state changes
   disableRenderTrigger = 0;
