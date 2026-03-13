@@ -134,7 +134,9 @@ export class OptionUiSyncService {
     // (Removed start-of-method clear to allow additive transitions if needed, 
     // now handled inside checked/else blocks)
 
-    if (ctx.type === 'single') {
+    const isMultiAnswer = ctx.type === 'multiple' || ctx.optionBindings.filter(b => isCorrectHelper(b.option)).length > 1;
+
+    if (!isMultiAnswer) {
       ctx.selectedOptionMap.clear();
       this.applySingleSelectionPainting(index, ctx);
     }
