@@ -19,14 +19,15 @@ export interface OptionInteractionState {
   optionBindings: OptionBindings[];
   optionsToDisplay: Option[];
   currentQuestionIndex: number;
-  selectedOptionHistory: number[];
+  selectedOptionHistory: (number | string)[];
+  selectedOptionMap: Map<number | string, boolean>;
   disabledOptionsPerQuestion: Map<number, Set<number>>;
   correctClicksPerQuestion: Map<number, Set<number>>;
   feedbackConfigs: { [key: string]: FeedbackProps };
-  showFeedbackForOption: { [optionId: number]: boolean };
-  lastFeedbackOptionId: number;
+  showFeedbackForOption: { [key: string]: boolean };
+  lastFeedbackOptionId: number | string;
   lastFeedbackQuestionIndex: number;
-  lastClickedOptionId: number | null;
+  lastClickedOptionId: number | string | null;
   lastClickTimestamp: number | null;
   hasUserClicked: boolean;
   freezeOptionBindings: boolean;
@@ -34,6 +35,8 @@ export interface OptionInteractionState {
   disableRenderTrigger: number;
   type: 'single' | 'multiple';
   currentQuestion: QuizQuestion | null;
+  showExplanationChange: any;
+  explanationToDisplayChange: any;
 }
 
 @Injectable({
@@ -144,6 +147,21 @@ export class OptionInteractionService {
       return getEffectiveId(s, sIdx);
     }));
 
+    // SYNC INTERACTION STATE BACK TO CONTEXT/STATE MAP
+    // This is critical because updateOptionAndUI and syncHighlightStateFromService 
+    // rely on these values to properly determine highlights and icons.
+    state.selectedOptionMap.clear();
+    futureSelection.forEach(s => {
+      const sIdx = (s as any).displayIndex ?? (s as any).index ?? (s as any).idx;
+      if (sIdx != null) state.selectedOptionMap.set(sIdx, true);
+    });
+
+    if (newState && !state.selectedOptionHistory.includes(index)) {
+      state.selectedOptionHistory.push(index);
+    } else if (!newState) {
+      state.selectedOptionHistory = state.selectedOptionHistory.filter(i => i !== index);
+    }
+
     const correctKeys = new Set<number | string>();
     questionOptions.forEach((o, i) => {
       if (isCorrectHelper(o)) correctKeys.add(getEffectiveId(o, i));
@@ -206,7 +224,13 @@ export class OptionInteractionService {
       }
       (this.quizService as any)._multiAnswerPerfect.set(qIdx, true);
 
+      // Trigger FET if perfect or if it's a single answer correct interaction
       if (isPerfect || (!isMultipleMode && isCorrectHelper(binding.option))) {
+        // Emit for the parent (QuizQuestionComponent)
+        if ((state as any).showExplanationChange) {
+           (state as any).showExplanationChange.emit(true);
+        }
+        // Also fire the local explanation emission logic
         setTimeout(() => emitExplanation(qIdx), 0);
       }
     }
@@ -218,7 +242,7 @@ export class OptionInteractionService {
     } else {
       const stillSelectedId = [...(state.selectedOptionHistory || [])]
         .reverse()
-        .find(id => futureKeys.has(getEffectiveId(state.optionsToDisplay[id], id)));
+        .find(id => futureKeys.has(getEffectiveId(state.optionsToDisplay[id as any], id as any)));
 
       if (stillSelectedId !== undefined) {
         state.lastFeedbackOptionId = Number(stillSelectedId);
