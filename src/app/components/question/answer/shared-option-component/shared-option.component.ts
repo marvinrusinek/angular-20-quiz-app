@@ -3637,15 +3637,20 @@ export class SharedOptionComponent
       const event = ev.nativeEvent as MouseEvent;
 
       if (this.isDisabled(binding, index)) {
-
         event.preventDefault();
         event.stopPropagation();
         return;
       }
 
       const target = event.target as HTMLElement;
-      if (target?.tagName === 'INPUT') {
-        return; // let native input handle it
+      // Guard against double firing: if click is on/near the input, ignore it
+      // and let the 'change' kind handle the selection.
+      if (
+        target?.tagName === 'INPUT' ||
+        target?.closest('.mat-mdc-radio-button') ||
+        target?.closest('.mat-mdc-checkbox')
+      ) {
+        return;
       }
 
       // treat as content click; runOptionContentClick calls updateOptionAndUI internally
