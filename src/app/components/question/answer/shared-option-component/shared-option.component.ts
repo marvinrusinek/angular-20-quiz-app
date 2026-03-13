@@ -265,6 +265,11 @@ export class SharedOptionComponent
 
     // Cache result to prevent redundant computation across CD cycles
     this._isMultiModeCache = result;
+    if (result) {
+      console.warn(`[isMultiMode] Q${idx + 1} DETECTED AS MULTIPLE-ANSWER. result=true`);
+    } else {
+      console.log(`[isMultiMode] Q${idx + 1} detected as single-answer. result=false`);
+    }
     return result;
   }
 
@@ -1777,9 +1782,10 @@ export class SharedOptionComponent
   public updateOptionAndUI(
     optionBinding: OptionBindings,
     index: number,
-    event: MatCheckboxChange | MatRadioChange
+    event: MatCheckboxChange | MatRadioChange,
+    existingCtx?: OptionUiSyncContext
   ): void {
-    const ctx = this.buildOptionUiSyncContext();
+    const ctx = existingCtx ?? this.buildOptionUiSyncContext();
 
     this.optionUiSyncService.updateOptionAndUI(optionBinding, index, event, ctx);
 
@@ -2264,84 +2270,14 @@ export class SharedOptionComponent
     return formatted;
   }
 
-  async handleOptionClick(
+  // REMOVED: Obsolete handleOptionClick implementation. 
+  // All clicks now go through onOptionUI -> runOptionContentClick -> OptionInteractionService.
+  /* async handleOptionClick(
     option: SelectedOption | undefined,
     index: number
   ): Promise<void> {
-    // Validate the option object immediately
-    if (!option || typeof option !== 'object') {
-      console.error(
-        `Invalid or undefined option at index ${index}. Option:`, option
-      );
-      return;
-    }
-
-    // Clone the option to prevent mutations
-    const clonedOption = { ...option };
-
-    // Set last selected index for feedback targeting
-    this.lastSelectedOptionIndex = index;
-
-    // Emit the explanation update event
-    this.explanationUpdate.emit(index);
-
-    // Safely access optionId, or fallback to index
-    const optionId = this.quizService.getSafeOptionId(clonedOption, index);
-    if (optionId === undefined) {
-      console.error('Failed to access optionId. Option data:', JSON.stringify(clonedOption, null, 2));
-      return;
-    }
-
-    // Check if the click should be ignored
-    if (this.shouldIgnoreClick(optionId)) {
-      console.warn(`Ignoring click for optionId: ${optionId}`);
-      return;
-    }
-
-    // Handle navigation reversal scenario
-    if (this.isNavigatingBackwards) {
-      this.handleBackwardNavigationOptionClick(clonedOption, index);
-      return;
-    }
-
-    // Update option state, handle selection, and display feedback
-    this.updateOptionState(index, optionId);
-    this.handleSelection(clonedOption, index, optionId);
-    this.displayFeedbackForOption(clonedOption, index, optionId);
-
-    // BULLETPROOF: Store the feedback result in a property that NO rebuild cycle can wipe.
-    // This is the single source of truth for shouldShowFeedbackAfter/getInlineFeedbackConfig.
-    if (this.activeFeedbackConfig) {
-      this._lastClickFeedback = {
-        index,
-        config: this.activeFeedbackConfig,
-        questionIdx: this.resolveCurrentQuestionIndex()
-      };
-    }
-
-
-    // Generate feedbackConfig per option using hydrated data
-    const hydratedOption = this.optionsToDisplay[index];
-    if (!hydratedOption) {
-      console.warn('[Feedback] No hydrated option found at index ' + index);
-    } else {
-      const activeQuestionIndex = this.getActiveQuestionIndex() ?? 0;
-      const selectedHydratedOption: SelectedOption = {
-        ...hydratedOption,
-        selected: true,
-        questionIndex: activeQuestionIndex
-      };
-
-      // Build final payload
-      const payload: OptionClickedPayload = {
-        option: clonedOption,  // never mutate on the way out
-        index,  // option index
-        checked: clonedOption.selected === true
-      };
-
-      this.optionClicked.emit(payload);
-    }
-  }
+    ...
+  } */
 
   private shouldIgnoreClick(optionId: number): boolean {
     // For multi-answer questions, NEVER ignore re-clicks - toggling is allowed
@@ -3768,8 +3704,8 @@ export class SharedOptionComponent
         state,
         (idx) => this.getQuestionAtDisplayIndex(idx),
         (idx) => this.emitExplanation(idx),
-        (b, i, ev) => {
-          this.updateOptionAndUI(b, i, ev);
+        (b, i, ev, existingCtx) => {
+          this.updateOptionAndUI(b, i, ev, existingCtx || state);
           // Sync UI flags back into state so they persist when onOptionUI returns
           state.showFeedback = this.showFeedback;
           state.showFeedbackForOption = this.showFeedbackForOption;
