@@ -100,11 +100,16 @@ export class OptionLockPolicyService {
     for (const b of bindings) {
       // GRANULAR LOCKING:
       // 1. If perfectly resolved, disable everything.
-      // 2. If all correct found but not perfect, disable unselected options ONLY.
+      // 2. If all correct found but not perfect, disable UNSELECTED options ONLY.
+      //    (This allows the user to unselect the incorrect ones).
       // 3. If single answer and correct selection found, disable everything.
       let shouldDisable = false;
-      if (isPerfect || allCorrectSelected) {
+      if (isPerfect) {
         shouldDisable = true;
+      } else if (allCorrectSelected) {
+        // Multi-answer: Got all corrects, but maybe some incorrects too.
+        // Disable everything EXCEPT the currently selected ones (to allow unselecting).
+        shouldDisable = !b.isSelected;
       } else if (params.resolvedType === QuestionType.SingleAnswer && hasCorrectSelection) {
         shouldDisable = true;
       }
