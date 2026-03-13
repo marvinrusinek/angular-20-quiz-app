@@ -109,44 +109,52 @@ export class OptionInteractionService {
       const oIdx = (o as any).index ?? o.displayIndex ?? (o as any).idx;
       return oIdx === index;
     });
-
-    console.log(`[OIS] Q${qIdx + 1}: storedSelection.length=${storedSelection.length} existingIdx=${existingIdx}`);
-
     const question = getQuestionAtDisplayIndex(qIdx);
     const questionOptions = Array.isArray(question?.options) ? question.options : [];
 
-    const getKey = (o: any, idx: number) => {
-      const id = o.optionId ?? (o as any).id;
-      if (id != null && id !== -1) return `id:${id}`;
-      return `idx:${idx}`;
-    };
+    const getEffectiveId = (o: any, i: number) => (o?.optionId != null && o.optionId !== -1) ? o.optionId : i;
+    const targetKey = getEffectiveId(binding.option, index);
 
-    const correctKeys = new Set<string>();
-    questionOptions.forEach((o, i) => {
-      if (isCorrectHelper(o)) correctKeys.add(getKey(o, i));
+    const storedSelection = this.selectedOptionService.getSelectedOptionsForQuestion(qIdx) ?? [];
+    let simulatedSelection = [...storedSelection];
+
+    console.log(`[OIS] Q${qIdx + 1} clicked OptionId=${targetKey} text="${binding.option?.text}"`);
+
+    // Check if ALREADY selected using robust ID matching
+    const existingIdx = simulatedSelection.findIndex(o => {
+      const sIdx = (o as any).displayIndex ?? (o as any).index ?? (o as any).idx;
+      return getEffectiveId(o, sIdx) === targetKey;
     });
+    const isCurrentlySelected = existingIdx !== -1;
 
-    const isCurrentlySelected = existingIdx > -1;
-    let futureSelection: SelectedOption[];
-
+    let futureSelection: SelectedOption[] = [];
     if (isCurrentlySelected) {
-      // Unselect
-      console.log(`[OIS] Q${qIdx + 1}: UNSELECTING option ${index}`);
+      console.log(`[OIS] Deselecting already-selected option ${targetKey}`);
       futureSelection = simulatedSelection.filter((_, i) => i !== existingIdx);
     } else {
-      // Select
-      console.log(`[OIS] Q${qIdx + 1}: SELECTING option ${index}`);
-      const newOpt = {
+      console.log(`[OIS] Selecting new option ${targetKey}`);
+      const newOpt: SelectedOption = {
         ...binding.option,
+        optionId: targetKey,
         selected: true,
         questionIndex: qIdx,
-        index: index
+        index: index,
+        displayIndex: index
       } as SelectedOption;
       futureSelection = isMultipleMode ? [...simulatedSelection, newOpt] : [newOpt];
     }
 
     console.log(`[OIS] Q${qIdx + 1}: Resulting futureSelection.length=${futureSelection.length}`);
-    const futureKeys = new Set(futureSelection.map(s => getKey(s, (s as any).index ?? (s as any).displayIndex)));
+    const futureKeys = new Set(futureSelection.map(s => {
+      const sIdx = (s as any).displayIndex ?? (s as any).index ?? (s as any).idx;
+      return getEffectiveId(s, sIdx);
+    }));
+
+    const correctKeys = new Set<number>(); // Changed to number for effective IDs
+    questionOptions.forEach((o, i) => {
+      if (isCorrectHelper(o)) correctKeys.add(getEffectiveId(o, i));
+    });
+
     const allCorrectFound = correctKeys.size > 0 && [...correctKeys].every(k => futureKeys.has(k));
     const numIncorrectInFuture = futureSelection.filter(o => !isCorrectHelper(o)).length;
     const isPerfect = allCorrectFound && numIncorrectInFuture === 0;
@@ -157,7 +165,11 @@ export class OptionInteractionService {
     // No more ID generation here - trust SelectedOptionService and QuizService
     this.quizService.updateUserAnswer(
       qIdx,
-      simulatedSelection.map(o => o.optionId).filter((id): id is number => id != null && id !== -1)
+      simulatedSelection.map(o => {
+        const sIdx = (o as any).displayIndex ?? (o as any).index ?? (o as any).idx;
+        const eid = getEffectiveId(o, sIdx);
+        return typeof eid === 'number' ? eid : -1;
+      }).filter(id => id !== -1)
     );
 
     const getLockId = (b: OptionBindings, i: number) => {
