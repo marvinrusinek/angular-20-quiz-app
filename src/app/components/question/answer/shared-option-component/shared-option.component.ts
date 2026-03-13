@@ -3631,25 +3631,22 @@ export class SharedOptionComponent
     }
 
     const now = Date.now();
-
-    // Consolidated Debounce: ignore rapid duplicate events for the same option
-    if (this._lastHandledIndex === index && this._lastHandledTime && now - this._lastHandledTime < 100) {
-      console.log(`[SOC.onOptionUI] ⏭️ Skipping '${ev.kind}' for Q${this.getActiveQuestionIndex() + 1} option ${index} (Rapid duplicate)`);
-      return;
-    }
-
-    // EXTRA GUARD: If it's a single-answer question and the option is ALREADY selected,
-    // and feedback is already showing, ignore the click to prevent flickering.
-    if (this.type === 'single' && !this.isMultiMode && binding.option.selected && this.showFeedback) {
-      console.log(`[SOC.onOptionUI] ⏭️ Skipping '${ev.kind}' for ALREADY selected single option ${index}`);
-      return;
-    }
-
-    this._lastHandledIndex = index;
-    this._lastHandledTime = now;
+    const isRapidDuplicate = this._lastHandledIndex === index && 
+                             this._lastHandledTime && 
+                             (now - this._lastHandledTime < 100);
 
     if (ev.kind === 'change') {
       const native = ev.nativeEvent as MatCheckboxChange | MatRadioChange;
+      
+      // Debounce: if we JUST handled a contentClick for this index, 
+      // skip the change event to avoid double-selection.
+      if (isRapidDuplicate) {
+        console.log(`[SOC.onOptionUI] ⏭️ Skipping 'change' for Q${this.getActiveQuestionIndex() + 1} option ${index} (Already handled)`);
+        return;
+      }
+
+      this._lastHandledIndex = index;
+      this._lastHandledTime = now;
       console.log(`[SOC.onOptionUI] 🟢 Processing 'change' for Q${this.getActiveQuestionIndex() + 1} option ${index}`);
       this.updateOptionAndUI(binding, index, native);
       return;
@@ -3668,17 +3665,31 @@ export class SharedOptionComponent
 
       const target = event?.target as HTMLElement;
       // Guard against double firing: if click is on the input element itself, 
-      // let the 'change' kind handle the logic instead of the 'interaction' kind
-      // to avoid double state mutations and debounce races.
+      // let the 'change' kind handle the logic instead. Returning here WITHOUT
+      // updating _lastHandledTime allows the 'change' kind to proceed.
       if (
         target?.tagName === 'INPUT' ||
         target?.closest('.mat-mdc-radio-button') ||
         target?.closest('.mat-mdc-checkbox')
       ) {
-        console.log(`[SOC.onOptionUI] ⏭️ Skipping '${ev.kind}' on input for Q${this.getActiveQuestionIndex() + 1} option ${index}`);
+        console.log(`[SOC.onOptionUI] ⏭️ Skipping '${ev.kind}' on input for Q${this.getActiveQuestionIndex() + 1} option ${index} (Delegating to 'change')`);
         return;
       }
 
+      if (isRapidDuplicate) {
+        console.log(`[SOC.onOptionUI] ⏭️ Skipping '${ev.kind}' for Q${this.getActiveQuestionIndex() + 1} option ${index} (Rapid duplicate)`);
+        return;
+      }
+
+      // EXTRA GUARD: If it's a single-answer question and the option is ALREADY selected,
+      // and feedback is already showing, ignore the click to prevent flickering.
+      if (this.type === 'single' && !this.isMultiMode && binding.option.selected && this.showFeedback) {
+        console.log(`[SOC.onOptionUI] ⏭️ Skipping '${ev.kind}' for ALREADY selected single option ${index}`);
+        return;
+      }
+
+      this._lastHandledIndex = index;
+      this._lastHandledTime = now;
       console.log(`[SOC.onOptionUI] 🟢 Processing '${ev.kind}' for Q${this.getActiveQuestionIndex() + 1} option ${index}`);
       
       // SYNC FORM STATE MANUALLY for interactions that bypass 'change' event
