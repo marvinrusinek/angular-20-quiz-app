@@ -62,7 +62,7 @@ export class OptionInteractionService {
     state: OptionInteractionState,
     getQuestionAtDisplayIndex: (idx: number) => QuizQuestion | null,
     emitExplanation: (idx: number) => void,
-    updateOptionAndUI: (b: OptionBindings, i: number, ev: any) => void
+    updateOptionAndUI: (b: OptionBindings, i: number, ev: any, ctx?: any) => void
   ): void {
     const qIdx = state.currentQuestionIndex;
     const isCorrectHelper = (val: any) => {
@@ -214,7 +214,7 @@ export class OptionInteractionService {
       const stillSelectedId = [...(state.selectedOptionHistory || [])]
         .reverse()
         .find(id => futureKeys.has(getKey(state.optionsToDisplay[id], id)));
-      
+
       if (stillSelectedId !== undefined) {
         state.lastFeedbackOptionId = Number(stillSelectedId);
       } else {
