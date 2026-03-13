@@ -333,21 +333,22 @@ export class OptionUiSyncService {
       // Build the FULL list of selections PRESERVING TIME ORDER via history
       const fullSelections: any[] = [];
       const seenIndices = new Set<number>();
-      
+
       // 1. Process history (known order)
       for (const hIdx of ctx.selectedOptionHistory || []) {
-        if (ctx.selectedOptionMap.has(hIdx) && !seenIndices.has(hIdx)) {
-          const b = ctx.optionBindings[hIdx];
+        const numIdx = Number(hIdx);
+        if (ctx.selectedOptionMap.has(hIdx) && !seenIndices.has(numIdx)) {
+          const b = ctx.optionBindings[numIdx];
           if (b) {
             fullSelections.push({
               ...b.option,
               optionId: b.option.optionId,
-              index: hIdx,
-              displayIndex: hIdx,
+              index: numIdx,
+              displayIndex: numIdx,
               questionIndex: currentIndex,
               selected: true
             });
-            seenIndices.add(hIdx);
+            seenIndices.add(numIdx);
           }
         }
       }
@@ -401,14 +402,15 @@ export class OptionUiSyncService {
     if (isMultiLimit && ctx.selectedOptionHistory?.length > 0) {
       for (let j = ctx.selectedOptionHistory.length - 1; j >= 0; j--) {
         const hIdx = ctx.selectedOptionHistory[j];
-        const b = ctx.optionBindings[hIdx];
+        const numIdx = Number(hIdx);
+        const b = ctx.optionBindings[numIdx];
         if (ctx.selectedOptionMap.has(hIdx) && b && (b.isSelected || b.option.selected) && isCorrectHelper(b.option)) {
-          lastCorrectIdx = hIdx;
+          lastCorrectIdx = numIdx;
           break;
         }
       }
     }
-    
+
     // Fallback to highest index if history is empty
     if (isMultiLimit && lastCorrectIdx === null) {
       for (let j = selections.length - 1; j >= 0; j--) {
