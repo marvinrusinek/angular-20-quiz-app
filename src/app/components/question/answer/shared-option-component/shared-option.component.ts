@@ -1801,7 +1801,7 @@ export class SharedOptionComponent
     this.lastFeedbackOptionId = Number(ctx.lastFeedbackOptionId);
     this.lastFeedbackQuestionIndex = ctx.lastFeedbackQuestionIndex;
     this.lastSelectedOptionIndex = index;
-    this.lastSelectedOptionId = this.lastFeedbackOptionId;
+    this.lastSelectedOptionId = ctx.lastFeedbackOptionId as any;
 
     // CRITICAL: Also sync _lastClickFeedback and activeFeedbackConfig
     // so that shouldShowFeedbackAfter() and getInlineFeedbackConfig() work.
@@ -3738,7 +3738,9 @@ export class SharedOptionComponent
       disableRenderTrigger: this.disableRenderTrigger,
       currentQuestion: this.currentQuestion,
       // override currentQuestionIndex with the display-aligned one
-      currentQuestionIndex: baseCtx.getActiveQuestionIndex()
+      currentQuestionIndex: baseCtx.getActiveQuestionIndex(),
+      showExplanationChange: this.showExplanationChange,
+      explanationToDisplayChange: this.explanationToDisplayChange
     } as any;
 
     // FREEZE bindings during interaction to prevent recreation race conditions
@@ -3772,14 +3774,14 @@ export class SharedOptionComponent
     // CRITICAL: Ensure we use the bindings that were potentially modified by handleOptionClick
     this.optionBindings = state.optionBindings;
     this.disableRenderTrigger = state.disableRenderTrigger;
-    this.lastClickedOptionId = state.lastClickedOptionId;
+    this.lastClickedOptionId = state.lastClickedOptionId as any;
     this.lastClickTimestamp = state.lastClickTimestamp;
     this.hasUserClicked = state.hasUserClicked;
     this.freezeOptionBindings = state.freezeOptionBindings;
     this.showFeedback = state.showFeedback;
     this.showFeedbackForOption = state.showFeedbackForOption;
     this.feedbackConfigs = state.feedbackConfigs;
-    this.lastFeedbackOptionId = state.lastFeedbackOptionId;
+    this.lastFeedbackOptionId = state.lastFeedbackOptionId as any;
 
     // Force immediate sync for OnPush
     this.cdRef.detectChanges();
