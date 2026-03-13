@@ -111,120 +111,88 @@ export class OptionUiSyncService {
     }
 
     // Apply selection state + history
-    optionBinding.option.selected = checked;
-    if (!ctx.selectedOptionHistory.includes(index)) {
-      ctx.selectedOptionHistory.push(index);
-    }
 
     // Force service update call moved down to ensure map is updated first
 
-    // Clear other anchors to ensure exclusive feedback per click
+    const getEffectiveId = (o: any, i: number) => (o?.optionId != null && o.optionId !== -1) ? o.optionId : i;
+    const effectiveId = getEffectiveId(optionBinding.option, index);
+
+    console.log(`[OUS.updateOptionAndUI] Q${currentIndex + 1} Id=${effectiveId} Index=${index} checked=${checked}`);
+
+    // Update individual option state
+    optionBinding.option.selected = checked;
+    optionBinding.isSelected = checked;
+
+    // Maintain global history for anchor fallback
+    if (checked) {
+      if (!ctx.selectedOptionHistory.includes(index)) {
+        ctx.selectedOptionHistory.push(index);
+      }
+    }
+
+    // AUTHORITATIVE ANCHOR RESET: Clear all existing markers
     for (const k of Object.keys(ctx.showFeedbackForOption)) {
       delete ctx.showFeedbackForOption[k];
     }
 
     if (ctx.type === 'single') {
       ctx.selectedOptionMap.clear();
-    }
-
-    if (checked) {
-      ctx.selectedOptionMap.set(index, true);
-      ctx.showFeedbackForOption[index] = true;
-      ctx.showFeedbackForOption[String(index)] = true;
-      if (optionId != null && optionId !== -1) {
-        ctx.showFeedbackForOption[optionId] = true;
-      }
-    } else {
-      ctx.selectedOptionMap.delete(index);
-    }
-
-    if (ctx.type === 'single') {
       this.applySingleSelectionPainting(index, ctx);
     }
 
-    // Force service update to keep Next button snappy (now that map is updated)
-    this.forceSelectIntoServices(optionBinding, optionId, index, currentIndex, checked, ctx);
+    if (checked) {
+      if (!ctx.selectedOptionHistory.includes(index)) {
+        ctx.selectedOptionHistory.push(index);
+      }
+      ctx.selectedOptionMap.set(index, true);
+      // Set anchor at both index and effectiveId for robust matching in SOC
+      ctx.showFeedbackForOption[index] = true;
+      ctx.showFeedbackForOption[String(index)] = true;
+      if (effectiveId != null) {
+        ctx.showFeedbackForOption[effectiveId as any] = true;
+      }
+      ctx.lastFeedbackOptionId = index;
+    } else {
+      ctx.selectedOptionMap.delete(index);
 
-    ctx.showFeedback = true;
+      // FALLBACK ANCHOR: If unselecting, find the last remaining selection
+      const stillSelectedIdx = [...(ctx.selectedOptionHistory || [])]
+        .reverse()
+        .find(idx => ctx.selectedOptionMap.has(idx));
 
+      if (stillSelectedIdx !== undefined) {
+        const sIdx = Number(stillSelectedIdx);
+        ctx.showFeedbackForOption[sIdx] = true;
+        ctx.showFeedbackForOption[String(sIdx)] = true;
+        ctx.lastFeedbackOptionId = sIdx;
+        console.log(`[OUS] Q${currentIndex + 1}: Anchor moved back to index ${sIdx}`);
+      } else {
+        ctx.lastFeedbackOptionId = -1;
+      }
+    }
+
+    ctx.showFeedback = true; // Always show pane if any interaction occurred
+
+    // Sync to services (Single call here)
+    this.forceSelectIntoServices(optionBinding, effectiveId, index, currentIndex, checked, ctx);
+
+    // Refresh visual state
     this.toggleSelectedOption(optionBinding.option, index, checked, ctx);
-    this.refreshFeedbackConfigForClicked(optionBinding, index, optionId, ctx);
+    this.refreshFeedbackConfigForClicked(optionBinding, index, effectiveId, ctx);
 
-    // RESTORE: Let the component know a selection occurred (for sounds/events)
+    // Notify component (sound, etc.)
     if (ctx.onSelect) {
       ctx.onSelect(optionBinding, checked, currentIndex);
     }
 
     this.trackVisited(index, ctx);
 
-    // updated anchor logic: if unselecting, move back to last still-selected option
-    console.log(`[OUS.updateOptionAndUI] Q${currentIndex + 1} Index=${index} checked=${checked}`);
-
-    // SYNC: Push the state immediately to SelectedOptionService
-    console.log(`[OUS] Q${currentIndex + 1}: Syncing selection to service...`);
-    this.forceSelectIntoServices(
-      optionBinding,
-      optionId,
-      index,
-      currentIndex,
-      checked,
-      ctx
-    );
-
-    this.trackVisited(index, ctx);
-
-    // Ensure anchor logic: if select, move to this index
-    // force feedback visibility for the selection path
-    if (checked) {
-      console.log(`[OUS] Q${currentIndex + 1}: Setting feedback anchor to index ${index}`);
-      ctx.showFeedback = true;
-      // clear all existing anchors first
-      for (const k of Object.keys(ctx.showFeedbackForOption)) {
-        delete ctx.showFeedbackForOption[k];
-      }
-      ctx.showFeedbackForOption[index] = true;
-      ctx.showFeedbackForOption[String(index)] = true;
-      if (optionId != null && optionId !== -1) {
-        ctx.showFeedbackForOption[optionId as any] = true;
-        ctx.showFeedbackForOption[String(optionId)] = true;
-      }
-      ctx.lastFeedbackOptionId = index;
-      this.refreshFeedbackConfigForClicked(optionBinding, index, optionId, ctx);
-    } else {
-      console.log(`[OUS] Q${currentIndex + 1}: Unselected option ${index}. Checking for new anchor...`);
-      const stillSelectedId = [...(ctx.selectedOptionHistory || [])]
-        .reverse()
-        .find(id => ctx.selectedOptionMap.has(id));
-
-      if (stillSelectedId !== undefined) {
-        console.log(`[OUS] Q${currentIndex + 1}: Moving anchor back to still-selected index ${stillSelectedId}`);
-        ctx.lastFeedbackOptionId = stillSelectedId;
-
-        const prevBindingIdx = stillSelectedId as number;
-        if (ctx.optionBindings[prevBindingIdx]) {
-          const prevBinding = ctx.optionBindings[prevBindingIdx];
-          const prevOptionId = prevBinding.option?.optionId;
-          this.refreshFeedbackConfigForClicked(
-            prevBinding,
-            prevBindingIdx,
-            prevOptionId,
-            ctx
-          );
-        }
-      } else {
-        console.log(`[OUS] Q${currentIndex + 1}: No selections remaining. Clearing feedback anchors.`);
-        ctx.showFeedbackForOption = {};
-        ctx.lastFeedbackOptionId = -1;
-      }
-    }
-
-    // authoritatively sync feedback even if the clicked option wasn't the anchor
-    if (ctx.lastFeedbackOptionId !== -1) {
-      const anchorIdx = Number(ctx.lastFeedbackOptionId);
-      const anchorBinding = ctx.optionBindings[anchorIdx];
+    // FINAL FEEDBACK PASS: Ensure the anchor has its content built
+    const finalAnchorIdx = ctx.lastFeedbackOptionId !== -1 ? Number(ctx.lastFeedbackOptionId) : -1;
+    if (finalAnchorIdx !== -1) {
+      const anchorBinding = ctx.optionBindings[finalAnchorIdx];
       if (anchorBinding) {
-        this.refreshFeedbackConfigForClicked(anchorBinding, anchorIdx, anchorBinding.option?.optionId, ctx);
-        this.applyFeedback(anchorBinding, anchorIdx, ctx);
+        this.applyFeedback(anchorBinding, finalAnchorIdx, ctx);
       }
     }
 
