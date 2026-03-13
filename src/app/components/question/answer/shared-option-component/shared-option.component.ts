@@ -3455,14 +3455,9 @@ export class SharedOptionComponent
   }
 
   public shouldShowFeedbackAfter(b: OptionBindings, i: number): boolean {
-    // Priority 1: Check by index (most stable per-row marker)
-    if (this.showFeedbackForOption[i] === true || this.showFeedbackForOption[String(i)] === true) {
-      return true;
-    }
-
-    // Priority 2: Check by optionId
-    const optId = (b?.option?.optionId != null && b.option.optionId > -1) ? b.option.optionId : -1;
-    if (optId !== -1 && (this.showFeedbackForOption[optId] === true || this.showFeedbackForOption[String(optId)] === true)) {
+    // Authoritative check: use the prefixed index key to avoid collisions with numeric IDs
+    const anchorKey = `idx:${i}`;
+    if (this.showFeedbackForOption[anchorKey] === true) {
       return true;
     }
 
