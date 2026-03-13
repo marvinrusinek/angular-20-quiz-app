@@ -223,6 +223,7 @@ export class SharedOptionComponent
     // Return cached result to avoid repeated computation on every CD cycle
     if (this._isMultiModeCache !== null) return this._isMultiModeCache;
 
+    const idx = this.getActiveQuestionIndex();
     let result = false;
 
     // Explicit check
@@ -234,7 +235,6 @@ export class SharedOptionComponent
     if (!result) {
       // Use getActiveQuestionIndex for most reliable index
       // Then use getQuestionAtDisplayIndex for shuffle-aware question lookup
-      const idx = this.getActiveQuestionIndex();
       const currentQ = this.getQuestionAtDisplayIndex(idx) ?? this.currentQuestion;
 
       // Data inference (fixes multiple-answer questions)
@@ -2270,14 +2270,21 @@ export class SharedOptionComponent
     return formatted;
   }
 
-  // REMOVED: Obsolete handleOptionClick implementation. 
-  // All clicks now go through onOptionUI -> runOptionContentClick -> OptionInteractionService.
-  /* async handleOptionClick(
+  public async handleOptionClick(
     option: SelectedOption | undefined,
     index: number
   ): Promise<void> {
-    ...
-  } */
+    if (!option) return;
+
+    // Redirect to the unified UI flow which handles synchronization and services
+    this.onOptionUI({
+      optionId: option.optionId ?? -1,
+      displayIndex: index,
+      kind: 'interaction',
+      inputType: this.isMultiMode ? 'checkbox' : 'radio',
+      nativeEvent: new MouseEvent('click')
+    });
+  }
 
   private shouldIgnoreClick(optionId: number): boolean {
     // For multi-answer questions, NEVER ignore re-clicks - toggling is allowed
