@@ -170,6 +170,8 @@ export class SharedOptionComponent
   private resolvedQuestionIndex: number | null = null;
 
   private _isMultiModeCache: boolean | null = null;
+  private _lastHandledIndex: number | null = null;
+  private _lastHandledTime: number | null = null;
 
   // BULLETPROOF feedback tracker: set synchronously in handleOptionClick,
   // NEVER cleared by ngOnChanges/generateOptionBindings/rebuild cycles.
@@ -220,15 +222,21 @@ export class SharedOptionComponent
 
   // Robust Multi-Mode Detection (Infers from Data if Type is missing)
   get isMultiMode(): boolean {
-    // Return cached result to avoid repeated computation on every CD cycle
-    if (this._isMultiModeCache !== null) return this._isMultiModeCache;
-
     const idx = this.getActiveQuestionIndex();
+    
+    // Return cached result to avoid repeated computation on every CD cycle
+    if (this._isMultiModeCache !== null) {
+      if (this._isMultiModeCache) {
+         console.warn(`[isMultiMode] (CACHED) Q${idx + 1} = TRUE (multiple)`);
+      }
+      return this._isMultiModeCache;
+    }
+
     let result = false;
 
-    // Explicit check
+    // Explicit check from Input/Config
     if (this.type === 'multiple' || this.config?.type === 'multiple') {
-      console.log(`[isMultiMode] Returning TRUE due to explicit type='multiple'`);
+      console.warn(`[isMultiMode] Q${idx + 1} = TRUE (Explicit from type/config)`);
       result = true;
     }
 
@@ -239,12 +247,12 @@ export class SharedOptionComponent
 
       // Data inference (fixes multiple-answer questions)
       if (currentQ?.options) {
-        // Robust count: handle boolean, string 'true', number 1, and string '1'
-        const count = currentQ.options.filter((o: Option) => {
+        const correctOptions = currentQ.options.filter((o: Option) => {
           const c = (o as any).correct;
           return c === true || String(c) === 'true' || c === 1 || c === '1';
-        }).length;
-        console.log(`[isMultiMode] Q${idx + 1} from question: correctCount=${count}, returning ${count > 1}`);
+        });
+        const count = correctOptions.length;
+        console.log(`[isMultiMode] Q${idx + 1} inference: correctCount=${count} from question.options`);
         if (count > 1) result = true;
       }
 
@@ -254,21 +262,16 @@ export class SharedOptionComponent
           const c = (o as any).correct;
           return c === true || String(c) === 'true' || c === 1 || c === '1';
         }).length;
-        console.log(`[isMultiMode] Q${idx + 1} from optionsToDisplay: correctCount=${displayCount}, returning ${displayCount > 1}`);
+        console.log(`[isMultiMode] Q${idx + 1} inference: correctCount=${displayCount} from optionsToDisplay`);
         if (displayCount > 1) result = true;
-      }
-
-      if (!result) {
-        console.log(`[isMultiMode] Q${idx + 1}: No multi-answer detected, returning false`);
       }
     }
 
-    // Cache result to prevent redundant computation across CD cycles
     this._isMultiModeCache = result;
     if (result) {
-      console.warn(`[isMultiMode] Q${idx + 1} DETECTED AS MULTIPLE-ANSWER. result=true`);
+      console.warn(`[isMultiMode] Q${idx + 1} FINAL RESULT: MULTIPLE-ANSWER`);
     } else {
-      console.log(`[isMultiMode] Q${idx + 1} detected as single-answer. result=false`);
+      console.log(`[isMultiMode] Q${idx + 1} FINAL RESULT: SINGLE-ANSWER`);
     }
     return result;
   }
@@ -658,6 +661,8 @@ export class SharedOptionComponent
       this.selectedOptionMap.clear();
       this.selectedOptionHistory = [];
       this._isMultiModeCache = null;
+      this._lastHandledIndex = null;
+      this._lastHandledTime = null;
       this.forceDisableAll = false;
       this.lockedIncorrectOptionIds.clear();
       this.showFeedbackForOption = {};
@@ -3627,40 +3632,55 @@ export class SharedOptionComponent
 
     if (ev.kind === 'change') {
       const native = ev.nativeEvent as MatCheckboxChange | MatRadioChange;
-      // updateOptionAndUI now triggers the emit via OptionUiSyncService -> ctx.onSelect
+      const now = Date.now();
+      
+      // Debounce logic: if we just handled a contentClick/interaction for this index, skip the change event
+      // if it's too close in time (browser simulated click)
+      if (this._lastHandledIndex === index && this._lastHandledTime && now - this._lastHandledTime < 100) {
+        console.log(`[SOC.onOptionUI] ⏭️ Skipping 'change' for Q${this.getActiveQuestionIndex() + 1} option ${index} (Already handled via contentClick)`);
+        return;
+      }
+
+      this._lastHandledIndex = index;
+      this._lastHandledTime = now;
+      console.log(`[SOC.onOptionUI] 🟢 Processing 'change' for Q${this.getActiveQuestionIndex() + 1} option ${index}`);
       this.updateOptionAndUI(binding, index, native);
       return;
     }
 
-    if (ev.kind === 'interaction') {
-      // Preserve your “interaction guard” behavior exactly
+    if (ev.kind === 'interaction' || ev.kind === 'contentClick') {
       const event = ev.nativeEvent as MouseEvent;
+      const now = Date.now();
 
       if (this.isDisabled(binding, index)) {
-        event.preventDefault();
-        event.stopPropagation();
+        if (event) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
         return;
       }
 
-      const target = event.target as HTMLElement;
+      const target = event?.target as HTMLElement;
       // Guard against double firing: if click is on/near the input, ignore it
       // and let the 'change' kind handle the selection.
       if (
-        target?.tagName === 'INPUT' ||
-        target?.closest('.mat-mdc-radio-button') ||
+        target?.tagName === 'INPUT' || 
+        target?.closest('.mat-mdc-radio-button') || 
         target?.closest('.mat-mdc-checkbox')
       ) {
+        console.log(`[SOC.onOptionUI] ⏭️ Skipping '${ev.kind}' on input for Q${this.getActiveQuestionIndex() + 1} option ${index}`);
         return;
       }
 
-      // treat as content click; runOptionContentClick calls updateOptionAndUI internally
-      this.runOptionContentClick(binding, index, event);
-      return;
-    }
+      if (this._lastHandledIndex === index && this._lastHandledTime && now - this._lastHandledTime < 100) {
+        console.log(`[SOC.onOptionUI] ⏭️ Skipping '${ev.kind}' for Q${this.getActiveQuestionIndex() + 1} option ${index} (Rapid duplicate)`);
+        return;
+      }
 
-    if (ev.kind === 'contentClick') {
-      // runOptionContentClick calls updateOptionAndUI internally
-      this.runOptionContentClick(binding, index, ev.nativeEvent as MouseEvent);
+      this._lastHandledIndex = index;
+      this._lastHandledTime = now;
+      console.log(`[SOC.onOptionUI] 🟢 Processing '${ev.kind}' for Q${this.getActiveQuestionIndex() + 1} option ${index}`);
+      this.runOptionContentClick(binding, index, event);
       return;
     }
   }
