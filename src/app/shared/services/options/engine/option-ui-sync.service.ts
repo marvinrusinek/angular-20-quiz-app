@@ -140,28 +140,20 @@ export class OptionUiSyncService {
     }
 
     if (checked) {
-      // AUTHORITATIVE ANCHOR RESET: Clear previous anchors so only the newest one stays
+      // AUTHORITATIVE ANCHOR RESET: Clear all existing markers to ensure only one anchor exists
       for (const k of Object.keys(ctx.showFeedbackForOption)) {
         delete ctx.showFeedbackForOption[k];
       }
 
       ctx.selectedOptionMap.set(index, true);
-      // Set anchor at both index and effectiveId for robust matching in SOC
-      ctx.showFeedbackForOption[index] = true;
-      ctx.showFeedbackForOption[String(index)] = true;
-      if (effectiveId != null) {
-        ctx.showFeedbackForOption[effectiveId as any] = true;
-      }
+      // Use a prefixed key for the feedback anchor to prevent collisions with numeric IDs
+      const anchorKey = `idx:${index}`;
+      ctx.showFeedbackForOption[anchorKey] = true;
       ctx.lastFeedbackOptionId = index;
     } else {
       ctx.selectedOptionMap.delete(index);
-      // Remove from anchor map too
-      delete ctx.showFeedbackForOption[index];
-      delete ctx.showFeedbackForOption[String(index)];
-      if (effectiveId != null) {
-        delete ctx.showFeedbackForOption[effectiveId as any];
-        delete ctx.showFeedbackForOption[String(effectiveId)];
-      }
+      // Remove anchor with prefix
+      delete ctx.showFeedbackForOption[`idx:${index}`];
 
       // FALLBACK ANCHOR: If unselecting, find the last remaining selection
       const stillSelectedIdx = [...(ctx.selectedOptionHistory || [])]
@@ -170,8 +162,7 @@ export class OptionUiSyncService {
 
       if (stillSelectedIdx !== undefined) {
         const sIdx = Number(stillSelectedIdx);
-        ctx.showFeedbackForOption[sIdx] = true;
-        ctx.showFeedbackForOption[String(sIdx)] = true;
+        ctx.showFeedbackForOption[`idx:${sIdx}`] = true;
         ctx.lastFeedbackOptionId = sIdx;
         console.log(`[OUS] Q${currentIndex + 1}: Anchor moved back to index ${sIdx}`);
       } else {
@@ -426,12 +417,13 @@ export class OptionUiSyncService {
     }
 
     for (const b of ctx.optionBindings) {
-      const match = selections.find((sel: any) => {
+      const isSelected = selections.some((sel: any) => {
         const sIdx = sel.displayIndex ?? sel.index ?? sel.idx;
-        return sIdx != null && Number(sIdx) === b.index;
+        const sId = sel.optionId;
+        // Match by index or ID
+        return (sIdx != null && Number(sIdx) === b.index) || 
+               (sId != null && b.option.optionId != null && String(sId) === String(b.option.optionId));
       });
-
-      const isSelected = !!match;
       b.isSelected = isSelected;
       b.option.selected = isSelected;
 
