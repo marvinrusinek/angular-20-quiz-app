@@ -82,7 +82,10 @@ export class OptionInteractionService {
       event.stopPropagation();
     }
 
-    console.log(`[OIS.handleOptionClick] Q${qIdx + 1} Index=${index} isCurrentlySelected=${binding.isSelected}`);
+    const getEffectiveId = (o: any, i: number) => (o?.optionId != null && o.optionId !== -1) ? o.optionId : i;
+    const targetKey = getEffectiveId(binding.option, index);
+
+    console.log(`[OIS.handleOptionClick] Q${qIdx + 1} Index=${index} TargetKey=${targetKey} isCurrentlySelected=${binding.isSelected}`);
 
     // Guard: disabled
     if (binding.disabled) return;
@@ -103,29 +106,20 @@ export class OptionInteractionService {
     }
 
     // STATE SETUP
-    const storedSelection = this.selectedOptionService.getSelectedOptionsForQuestion(qIdx) || [];
-    let simulatedSelection = [...storedSelection];
-    const existingIdx = simulatedSelection.findIndex(o => {
-      const oIdx = (o as any).index ?? o.displayIndex ?? (o as any).idx;
-      return oIdx === index;
-    });
     const question = getQuestionAtDisplayIndex(qIdx);
     const questionOptions = Array.isArray(question?.options) ? question.options : [];
-
-    const getEffectiveId = (o: any, i: number) => (o?.optionId != null && o.optionId !== -1) ? o.optionId : i;
-    const targetKey = getEffectiveId(binding.option, index);
 
     const storedSelection = this.selectedOptionService.getSelectedOptionsForQuestion(qIdx) ?? [];
     let simulatedSelection = [...storedSelection];
 
-    console.log(`[OIS] Q${qIdx + 1} clicked OptionId=${targetKey} text="${binding.option?.text}"`);
+    console.log(`[OIS] Q${qIdx + 1} clicked text="${binding.option?.text}"`);
 
     // Check if ALREADY selected using robust ID matching
     const existingIdx = simulatedSelection.findIndex(o => {
       const sIdx = (o as any).displayIndex ?? (o as any).index ?? (o as any).idx;
       return getEffectiveId(o, sIdx) === targetKey;
     });
-    const isCurrentlySelected = existingIdx !== -1;
+    const isCurrentlySelected = (existingIdx !== -1);
 
     let futureSelection: SelectedOption[] = [];
     if (isCurrentlySelected) {
@@ -150,7 +144,7 @@ export class OptionInteractionService {
       return getEffectiveId(s, sIdx);
     }));
 
-    const correctKeys = new Set<number>(); // Changed to number for effective IDs
+    const correctKeys = new Set<number | string>();
     questionOptions.forEach((o, i) => {
       if (isCorrectHelper(o)) correctKeys.add(getEffectiveId(o, i));
     });
@@ -172,19 +166,9 @@ export class OptionInteractionService {
       }).filter(id => id !== -1)
     );
 
-    const getLockId = (b: OptionBindings, i: number) => {
-      const explicitId = b.option?.optionId;
-      return (explicitId != null && Number(explicitId) !== -1) ? Number(explicitId) : i;
-    };
-
-    // OPTIMIZATION: Removed redundant locking logic here. 
-    // updateOptionAndUI (called below) triggers OptionUiSyncService which 
-    // uses OptionLockPolicyService for authoritative locking.
-
-
     // UPDATE UI
     const newState = !isCurrentlySelected;
-    const mockEvent = isMultipleMode ? { source: null, checked: newState } : { source: null, value: binding.option.optionId };
+    const mockEvent = isMultipleMode ? { source: null, checked: newState } : { source: null, value: binding.option.optionId ?? index };
     updateOptionAndUI(binding, index, mockEvent);
 
     // Synchronize highlight flags according to the rules
@@ -197,10 +181,10 @@ export class OptionInteractionService {
           break;
         }
       }
-      const lastCorrKey = lastCorrect ? getKey(lastCorrect, (lastCorrect as any).index ?? (lastCorrect as any).displayIndex) : null;
+      const lastCorrKey = lastCorrect ? getEffectiveId(lastCorrect, (lastCorrect as any).index ?? (lastCorrect as any).displayIndex) : null;
 
       state.optionBindings.forEach((b, i) => {
-        const bKey = getKey(b.option, i);
+        const bKey = getEffectiveId(b.option, i);
         const isSelected = futureKeys.has(bKey);
         const isCorrect = isCorrectHelper(b.option);
 
@@ -235,7 +219,7 @@ export class OptionInteractionService {
     } else {
       const stillSelectedId = [...(state.selectedOptionHistory || [])]
         .reverse()
-        .find(id => futureKeys.has(getKey(state.optionsToDisplay[id], id)));
+        .find(id => futureKeys.has(getEffectiveId(state.optionsToDisplay[id], id)));
 
       if (stillSelectedId !== undefined) {
         state.lastFeedbackOptionId = Number(stillSelectedId);
@@ -251,7 +235,7 @@ export class OptionInteractionService {
     // CALL UPDATE with the existing context so that feedback anchors are preserved
     (updateOptionAndUI as any)(binding, index, mockEvent, state);
 
-    // MESSAGE UPDATE - MOVED INSIDE handleOptionClick
+    // MESSAGE UPDATE
     try {
       const message = this.selectionMessageService.computeFinalMessage({
         index: qIdx,
@@ -259,7 +243,7 @@ export class OptionInteractionService {
         qType: isMultipleMode ? QuestionType.MultipleAnswer : QuestionType.SingleAnswer,
         opts: state.optionBindings.map((b, i) => ({
           ...b.option,
-          selected: futureKeys.has(getKey(b.option, i))
+          selected: futureKeys.has(getEffectiveId(b.option, i))
         })) as Option[]
       });
       this.selectionMessageService.selectionMessageSubject.next(message);
