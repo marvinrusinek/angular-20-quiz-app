@@ -181,6 +181,8 @@ export class SelectedOptionService {
 
     // Trust: questionIndex is 0-based (QQC is the source of truth now)
     const idx = Number.isFinite(questionIndex) ? Math.trunc(questionIndex) : -1;
+    console.log(`[SOS.addOption] Q${idx + 1} OptionId=${option.optionId} text="${option.text}"`);
+
     if (idx < 0) {
       console.error('[SOS] Invalid questionIndex passed to addOption:', { questionIndex });
       return;
