@@ -223,11 +223,11 @@ export class SharedOptionComponent
   // Robust Multi-Mode Detection (Infers from Data if Type is missing)
   get isMultiMode(): boolean {
     const idx = this.getActiveQuestionIndex();
-    
+
     // Return cached result to avoid repeated computation on every CD cycle
     if (this._isMultiModeCache !== null) {
       if (this._isMultiModeCache) {
-         console.warn(`[isMultiMode] (CACHED) Q${idx + 1} = TRUE (multiple)`);
+        console.warn(`[isMultiMode] (CACHED) Q${idx + 1} = TRUE (multiple)`);
       }
       return this._isMultiModeCache;
     }
@@ -3630,45 +3630,19 @@ export class SharedOptionComponent
       });
     }
 
-    if (ev.kind === 'interaction' || ev.kind === 'contentClick') {
-      const now = Date.now();
-      
-      // Debounce logic: if we just handled a 'change' for this index, skip the click interaction
-      // if it's too close in time
-      if (this._lastHandledIndex === index && this._lastHandledTime && now - this._lastHandledTime < 100) {
-        console.log(`[SOC.onOptionUI] ⏭️ Skipping '${ev.kind}' for Q${this.getActiveQuestionIndex() + 1} option ${index} (Already handled via change)`);
-        return;
-      }
+    const now = Date.now();
 
-      this._lastHandledIndex = index;
-      this._lastHandledTime = now;
-
-      console.log(`[SOC.onOptionUI] 🟢 Processing '${ev.kind}' for Q${this.getActiveQuestionIndex() + 1} option ${index}`);
-      
-      const native = ev.nativeEvent;
-      const checked = this.type === 'multiple' ? !binding.option.selected : true;
-      
-      const mockEvent: any = this.type === 'multiple' 
-        ? { source: null, checked } 
-        : { source: null, value: binding.option.optionId ?? index };
-
-      this.updateOptionAndUI(binding, index, mockEvent);
+    // Unified Debounce: ignore rapid duplicate events for the same option
+    if (this._lastHandledIndex === index && this._lastHandledTime && now - this._lastHandledTime < 100) {
+      console.log(`[SOC.onOptionUI] ⏭️ Skipping '${ev.kind}' for Q${this.getActiveQuestionIndex() + 1} option ${index} (Rapid duplicate)`);
       return;
     }
 
+    this._lastHandledIndex = index;
+    this._lastHandledTime = now;
+
     if (ev.kind === 'change') {
       const native = ev.nativeEvent as MatCheckboxChange | MatRadioChange;
-      const now = Date.now();
-      
-      // Debounce logic: if we just handled a contentClick/interaction for this index, skip the change event
-      // if it's too close in time (browser simulated click)
-      if (this._lastHandledIndex === index && this._lastHandledTime && now - this._lastHandledTime < 100) {
-        console.log(`[SOC.onOptionUI] ⏭️ Skipping 'change' for Q${this.getActiveQuestionIndex() + 1} option ${index} (Already handled via contentClick)`);
-        return;
-      }
-
-      this._lastHandledIndex = index;
-      this._lastHandledTime = now;
       console.log(`[SOC.onOptionUI] 🟢 Processing 'change' for Q${this.getActiveQuestionIndex() + 1} option ${index}`);
       this.updateOptionAndUI(binding, index, native);
       return;
@@ -3676,7 +3650,6 @@ export class SharedOptionComponent
 
     if (ev.kind === 'interaction' || ev.kind === 'contentClick') {
       const event = ev.nativeEvent as MouseEvent;
-      const now = Date.now();
 
       if (this.isDisabled(binding, index)) {
         if (event) {
@@ -3687,24 +3660,17 @@ export class SharedOptionComponent
       }
 
       const target = event?.target as HTMLElement;
-      // Guard against double firing: if click is on/near the input, ignore it
-      // and let the 'change' kind handle the selection.
+      // Guard against double firing: if click is on the input element itself, 
+      // let the 'change' kind handle the logic instead of the 'interaction' kind.
       if (
-        target?.tagName === 'INPUT' || 
-        target?.closest('.mat-mdc-radio-button') || 
+        target?.tagName === 'INPUT' ||
+        target?.closest('.mat-mdc-radio-button') ||
         target?.closest('.mat-mdc-checkbox')
       ) {
-        console.log(`[SOC.onOptionUI] ⏭️ Skipping '${ev.kind}' on input for Q${this.getActiveQuestionIndex() + 1} option ${index}`);
+        console.log(`[SOC.onOptionUI] ⏭️ Skipping '${ev.kind}' on input control for Q${this.getActiveQuestionIndex() + 1} option ${index}`);
         return;
       }
 
-      if (this._lastHandledIndex === index && this._lastHandledTime && now - this._lastHandledTime < 100) {
-        console.log(`[SOC.onOptionUI] ⏭️ Skipping '${ev.kind}' for Q${this.getActiveQuestionIndex() + 1} option ${index} (Rapid duplicate)`);
-        return;
-      }
-
-      this._lastHandledIndex = index;
-      this._lastHandledTime = now;
       console.log(`[SOC.onOptionUI] 🟢 Processing '${ev.kind}' for Q${this.getActiveQuestionIndex() + 1} option ${index}`);
       this.runOptionContentClick(binding, index, event);
       return;
