@@ -62,6 +62,7 @@ export class SelectedOptionService {
     this._lockedByQuestion.clear();
     this.isAnsweredSubject.next(false);
     this.isOptionSelectedSubject.next(false);
+    this.selectedOptionsMap$.next(new Map());
     this.showFeedbackForOptionSubject.next({});
 
     try {
@@ -2657,7 +2658,7 @@ export class SelectedOptionService {
   }
 
   public getSelectedOptionsForQuestion$(idx: number): Observable<any[]> {
-    return this.selectedOption$.pipe(
+    return this.selectedOptionsMap$.pipe(
       map(() => {
         const normalizedIdx = this.normalizeIdx(idx);
         return this.getSelectedOptionsForQuestion(normalizedIdx) ?? [];
