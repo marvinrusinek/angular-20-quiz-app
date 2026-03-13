@@ -156,6 +156,10 @@ export class OptionInteractionService {
       if (sIdx != null) state.selectedOptionMap.set(sIdx, true);
     });
 
+    // UPDATE UI STATE BASICS
+    const newState = !isCurrentlySelected;
+    const mockEvent = isMultipleMode ? { source: null, checked: newState } : { source: null, value: binding.option.optionId ?? index };
+
     if (newState && !state.selectedOptionHistory.includes(index)) {
       state.selectedOptionHistory.push(index);
     } else if (!newState) {
@@ -185,8 +189,6 @@ export class OptionInteractionService {
     );
 
     // UPDATE UI
-    const newState = !isCurrentlySelected;
-    const mockEvent = isMultipleMode ? { source: null, checked: newState } : { source: null, value: binding.option.optionId ?? index };
 
     // Synchronize highlight flags according to the rules
     if (isMultipleMode) {
@@ -228,7 +230,7 @@ export class OptionInteractionService {
       if (isPerfect || (!isMultipleMode && isCorrectHelper(binding.option))) {
         // Emit for the parent (QuizQuestionComponent)
         if ((state as any).showExplanationChange) {
-           (state as any).showExplanationChange.emit(true);
+          (state as any).showExplanationChange.emit(true);
         }
         // Also fire the local explanation emission logic
         setTimeout(() => emitExplanation(qIdx), 0);
