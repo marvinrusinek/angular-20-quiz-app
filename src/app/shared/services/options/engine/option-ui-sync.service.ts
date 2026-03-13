@@ -130,10 +130,9 @@ export class OptionUiSyncService {
       }
     }
 
-    // AUTHORITATIVE ANCHOR RESET: Clear all existing markers
-    for (const k of Object.keys(ctx.showFeedbackForOption)) {
-      delete ctx.showFeedbackForOption[k];
-    }
+    // AUTHORITATIVE ANCHOR RESET: Clear all existing markers 
+    // (Removed start-of-method clear to allow additive transitions if needed, 
+    // now handled inside checked/else blocks)
 
     if (ctx.type === 'single') {
       ctx.selectedOptionMap.clear();
@@ -151,6 +150,13 @@ export class OptionUiSyncService {
       ctx.lastFeedbackOptionId = index;
     } else {
       ctx.selectedOptionMap.delete(index);
+      // Remove from anchor map too
+      delete ctx.showFeedbackForOption[index];
+      delete ctx.showFeedbackForOption[String(index)];
+      if (effectiveId != null) {
+        delete ctx.showFeedbackForOption[effectiveId as any];
+        delete ctx.showFeedbackForOption[String(effectiveId)];
+      }
 
       // FALLBACK ANCHOR: If unselecting, find the last remaining selection
       const stillSelectedIdx = [...(ctx.selectedOptionHistory || [])]
@@ -173,9 +179,13 @@ export class OptionUiSyncService {
     // Sync to services (Single call here)
     this.forceSelectIntoServices(optionBinding, effectiveId, index, currentIndex, checked, ctx);
 
-    // Refresh visual state
     this.toggleSelectedOption(optionBinding.option, index, checked, ctx);
     this.refreshFeedbackConfigForClicked(optionBinding, index, effectiveId, ctx);
+
+    // Scoring and FET triggering for Multi-answer
+    if (ctx.type === 'multiple') {
+      this.checkAndScoreMultiAnswer(ctx, currentIndex);
+    }
 
     // Notify component (sound, etc.)
     if (ctx.onSelect) {
@@ -311,7 +321,8 @@ export class OptionUiSyncService {
     checked: boolean,
     ctx: OptionUiSyncContext
   ): void {
-    const effectiveId = (optionId != null && optionId !== -1) ? optionId : optionBinding.index;
+    const getEffectiveId = (o: any, i: number) => (o?.optionId != null && o.optionId !== -1) ? o.optionId : i;
+    const effectiveId = getEffectiveId(optionBinding.option, index);
 
     if (checked) {
       // Build the FULL list of selections to keep service state accurate
@@ -792,11 +803,6 @@ export class OptionUiSyncService {
 
     if (ctx.feedbackConfigs[key]) {
       ctx.feedbackConfigs[key].showFeedback = true;
-    }
-
-    // Anchor feedback using dual keys (index AND optionId) for robust template lookup
-    for (const k of Object.keys(ctx.showFeedbackForOption)) {
-      delete ctx.showFeedbackForOption[k];
     }
 
     ctx.showFeedbackForOption[displayIndex] = true;
