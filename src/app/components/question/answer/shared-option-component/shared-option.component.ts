@@ -3668,17 +3668,32 @@ export class SharedOptionComponent
 
       const target = event?.target as HTMLElement;
       // Guard against double firing: if click is on the input element itself, 
-      // let the 'change' kind handle the logic instead of the 'interaction' kind.
+      // let the 'change' kind handle the logic instead of the 'interaction' kind
+      // to avoid double state mutations and debounce races.
       if (
         target?.tagName === 'INPUT' ||
         target?.closest('.mat-mdc-radio-button') ||
         target?.closest('.mat-mdc-checkbox')
       ) {
-        console.log(`[SOC.onOptionUI] ⏭️ Skipping '${ev.kind}' on input control for Q${this.getActiveQuestionIndex() + 1} option ${index}`);
+        console.log(`[SOC.onOptionUI] ⏭️ Skipping '${ev.kind}' on input for Q${this.getActiveQuestionIndex() + 1} option ${index}`);
         return;
       }
 
       console.log(`[SOC.onOptionUI] 🟢 Processing '${ev.kind}' for Q${this.getActiveQuestionIndex() + 1} option ${index}`);
+      
+      // SYNC FORM STATE MANUALLY for interactions that bypass 'change' event
+      if (this.type === 'single') {
+        const optionId = binding.option?.optionId ?? index;
+        if (this.form.get('selectedOptionId')?.value !== optionId) {
+          this.form.get('selectedOptionId')?.setValue(optionId, { emitEvent: false });
+        }
+      } else {
+        const ctrl = this.form.get(String(index));
+        if (ctrl) {
+          ctrl.setValue(!binding.option.selected, { emitEvent: false });
+        }
+      }
+
       this.runOptionContentClick(binding, index, event);
       return;
     }
