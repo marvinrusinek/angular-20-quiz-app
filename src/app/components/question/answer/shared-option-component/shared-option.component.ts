@@ -3632,9 +3632,16 @@ export class SharedOptionComponent
 
     const now = Date.now();
 
-    // Unified Debounce: ignore rapid duplicate events for the same option
+    // Consolidated Debounce: ignore rapid duplicate events for the same option
     if (this._lastHandledIndex === index && this._lastHandledTime && now - this._lastHandledTime < 100) {
       console.log(`[SOC.onOptionUI] ⏭️ Skipping '${ev.kind}' for Q${this.getActiveQuestionIndex() + 1} option ${index} (Rapid duplicate)`);
+      return;
+    }
+
+    // EXTRA GUARD: If it's a single-answer question and the option is ALREADY selected,
+    // and feedback is already showing, ignore the click to prevent flickering.
+    if (this.type === 'single' && !this.isMultiMode && binding.option.selected && this.showFeedback) {
+      console.log(`[SOC.onOptionUI] ⏭️ Skipping '${ev.kind}' for ALREADY selected single option ${index}`);
       return;
     }
 
@@ -3693,28 +3700,17 @@ export class SharedOptionComponent
   }
 
   private runOptionContentClick(binding: OptionBindings, index: number, event: MouseEvent): void {
+    const baseCtx = this.buildOptionUiSyncContext();
     const state: OptionInteractionState = {
-      optionBindings: this.optionBindings,
-      optionsToDisplay: this.optionsToDisplay,
-      // Use the active display-aligned index to avoid hydration races where
-      // currentQuestionIndex can be stale (notably on Q1 after new-tab restore).
-      currentQuestionIndex: this.getActiveQuestionIndex(),
-      selectedOptionHistory: this.selectedOptionHistory,
+      ...baseCtx,
       disabledOptionsPerQuestion: this.disabledOptionsPerQuestion,
       correctClicksPerQuestion: this.correctClicksPerQuestion,
-      feedbackConfigs: this.feedbackConfigs,
-      showFeedbackForOption: this.showFeedbackForOption,
-      lastFeedbackOptionId: this.lastFeedbackOptionId,
-      lastFeedbackQuestionIndex: this.lastFeedbackQuestionIndex,
-      lastClickedOptionId: this.lastClickedOptionId,
-      lastClickTimestamp: this.lastClickTimestamp,
-      hasUserClicked: this.hasUserClicked,
       freezeOptionBindings: this.freezeOptionBindings,
-      showFeedback: this.showFeedback,
       disableRenderTrigger: this.disableRenderTrigger,
-      type: this.type,
-      currentQuestion: this.currentQuestion
-    };
+      currentQuestion: this.currentQuestion,
+      // override currentQuestionIndex with the display-aligned one
+      currentQuestionIndex: baseCtx.getActiveQuestionIndex()
+    } as any;
 
     // FREEZE bindings during interaction to prevent recreation race conditions
     this.freezeOptionBindings = true;
