@@ -3631,13 +3631,13 @@ export class SharedOptionComponent
     }
 
     const now = Date.now();
-    const isRapidDuplicate = this._lastHandledIndex === index && 
-                             this._lastHandledTime && 
-                             (now - this._lastHandledTime < 100);
+    const isRapidDuplicate = this._lastHandledIndex === index &&
+      this._lastHandledTime &&
+      (now - this._lastHandledTime < 100);
 
     if (ev.kind === 'change') {
       const native = ev.nativeEvent as MatCheckboxChange | MatRadioChange;
-      
+
       // Debounce: if we JUST handled a contentClick for this index, 
       // skip the change event to avoid double-selection.
       if (isRapidDuplicate) {
@@ -3648,7 +3648,12 @@ export class SharedOptionComponent
       this._lastHandledIndex = index;
       this._lastHandledTime = now;
       console.log(`[SOC.onOptionUI] 🟢 Processing 'change' for Q${this.getActiveQuestionIndex() + 1} option ${index}`);
-      this.updateOptionAndUI(binding, index, native);
+      
+      // Proactive interaction marking for immediate UI response
+      this.quizStateService.markUserInteracted(this.getActiveQuestionIndex());
+
+      // Route through unified interaction logic
+      this.runOptionContentClick(binding, index, native as any);
       return;
     }
 
@@ -3691,7 +3696,7 @@ export class SharedOptionComponent
       this._lastHandledIndex = index;
       this._lastHandledTime = now;
       console.log(`[SOC.onOptionUI] 🟢 Processing '${ev.kind}' for Q${this.getActiveQuestionIndex() + 1} option ${index}`);
-      
+
       // SYNC FORM STATE MANUALLY for interactions that bypass 'change' event
       if (this.type === 'single') {
         const optionId = binding.option?.optionId ?? index;
@@ -3725,7 +3730,10 @@ export class SharedOptionComponent
     return { b: opts[i], i };
   }
 
-  private runOptionContentClick(binding: OptionBindings, index: number, event: MouseEvent): void {
+  private runOptionContentClick(binding: OptionBindings, index: number, event: any): void {
+    // Proactive interaction marking
+    this.quizStateService.markUserInteracted(this.getActiveQuestionIndex());
+
     const baseCtx = this.buildOptionUiSyncContext();
     const state: OptionInteractionState = {
       ...baseCtx,
