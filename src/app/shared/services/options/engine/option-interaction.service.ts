@@ -144,7 +144,7 @@ export class OptionInteractionService {
       return getEffectiveId(s, sIdx);
     }));
 
-    const correctKeys = new Set<number | string>();
+    const correctKeys = new Set<number | string>(); 
     questionOptions.forEach((o, i) => {
       if (isCorrectHelper(o)) correctKeys.add(getEffectiveId(o, i));
     });
@@ -169,8 +169,7 @@ export class OptionInteractionService {
     // UPDATE UI
     const newState = !isCurrentlySelected;
     const mockEvent = isMultipleMode ? { source: null, checked: newState } : { source: null, value: binding.option.optionId ?? index };
-    updateOptionAndUI(binding, index, mockEvent);
-
+    
     // Synchronize highlight flags according to the rules
     if (isMultipleMode) {
       // Identify last correct selected
@@ -232,7 +231,7 @@ export class OptionInteractionService {
     state.hasUserClicked = true;
     state.disableRenderTrigger++;
 
-    // CALL UPDATE with the existing context so that feedback anchors are preserved
+    // CALL UPDATE with THE AUTHORITATIVE CONTEXT (state)
     (updateOptionAndUI as any)(binding, index, mockEvent, state);
 
     // MESSAGE UPDATE
