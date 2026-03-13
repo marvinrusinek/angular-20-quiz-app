@@ -1850,10 +1850,8 @@ export class SelectedOptionService {
       selections
     ).map((sel) => ({ ...sel }));  // ensure new object identity
 
-    canonicalSelections.forEach((s) => {
-      s.highlight = true;
-      s.showIcon = true;
-    });
+    // Do NOT force highlight/showIcon here — let calling logic or sync methods decide
+    // based on multi-answer rules (e.g. only highlight the last selection).
 
     console.log(`[SOS] commitSelections for Q${idx + 1}: count=${canonicalSelections.length}`);
 
