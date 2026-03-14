@@ -71,18 +71,10 @@ export class OptionItemComponent implements OnChanges {
   ) { }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['b']) {
-      // Keep previous selection sticky for the same question so earlier picks
-      // remain highlighted even if transient binding snapshots flip false.
-      const selectedNow = this.isSelectedForCurrentQuestion() || !!this.b?.isSelected;
-      this._wasSelected = selectedNow;
-    }
-
     if (changes['currentQuestionIndex']) {
       const nextQuestionIndex = Number(this.currentQuestionIndex ?? -1);
       if (Number.isFinite(nextQuestionIndex) && nextQuestionIndex !== this._lastQuestionIndex) {
-        const selectedNow = this.isSelectedForCurrentQuestion() || !!this.b?.isSelected;
-        this._wasSelected = selectedNow; // Fully reset for new question
+        this._wasSelected = false; // Full reset for new question
         this._lastQuestionIndex = nextQuestionIndex;
       }
     }
@@ -91,7 +83,9 @@ export class OptionItemComponent implements OnChanges {
       this._wasSelected = false;
     }
 
-    if (this.isSelectedForCurrentQuestion()) {
+    // Sticky: once selected, stays highlighted for the rest of the question.
+    // Only goes true when the BINDING says selected (set by click handler).
+    if (this.b?.isSelected) {
       this._wasSelected = true;
     }
   }
@@ -277,9 +271,13 @@ export class OptionItemComponent implements OnChanges {
   }
 
   shouldHighlightOption(): boolean {
-    // SIMPLE RULE: Trust only the binding state set by the click handler.
-    // Do NOT check the service (isSelectedForCurrentQuestion) — it creates
-    // race conditions with async subscribers that corrupt highlight state.
+    // For multi-answer: strictly trust isSelected from binding + click history.
+    // Do NOT check b.option.highlight — it gets set by multiple async paths
+    // causing unclicked correct options to appear highlighted.
+    if (this.type === 'multiple') {
+      return this.b.isSelected || this._wasSelected;
+    }
+    // Single-answer: isSelected (current) + option.highlight (history from click handler)
     return this.b.isSelected || !!this.b.option?.highlight;
   }
 
