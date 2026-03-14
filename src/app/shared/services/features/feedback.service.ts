@@ -224,7 +224,7 @@ export class FeedbackService {
         const remainingText = remainingTotal === 1
           ? '1 more correct answer'
           : `${remainingTotal} more correct answers`;
-        return `That's correct! Select ${remainingText}.`;
+        return `That's correct. Select ${remainingText}.`;
       }
       return 'Please select the correct answers to continue...';
     } else {

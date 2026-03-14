@@ -971,6 +971,13 @@ export class SharedOptionComponent
   }
 
   private rehydrateUiFromState(reason: string): void {
+    // CRITICAL: Skip rehydration if user has already clicked.
+    // The click handler (runOptionContentClick / handleOptionClick) sets the
+    // authoritative binding state. Rehydrating from the service after a click
+    // overwrites it with stale or over-inclusive data (e.g., marking both
+    // correct options as selected when only one was clicked).
+    if (this.hasUserClicked || this.freezeOptionBindings) return;
+
     const qIndex = this.resolveCurrentQuestionIndex();
     const saved = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
     if (!saved.length) return;
@@ -1213,8 +1220,8 @@ export class SharedOptionComponent
     }
 
     // Guard: user clicked recently → freeze updates
-    if (this.freezeOptionBindings) {
-      console.warn('[SOC] 🔒 freezeOptionBindings active — ABORTING reassignment');
+    if (this.freezeOptionBindings || this.hasUserClicked) {
+      console.warn('[SOC] 🔒 freezeOptionBindings/hasUserClicked active — ABORTING reassignment');
       return;
     }
 
@@ -1412,9 +1419,9 @@ export class SharedOptionComponent
   }
 
   initializeFromConfig(): void {
-    if (this.freezeOptionBindings) {
+    if (this.freezeOptionBindings || this.hasUserClicked) {
       console.warn(
-        '[initializeFromConfig] Skipping initialization - option bindings frozen'
+        '[initializeFromConfig] Skipping initialization - option bindings frozen or user has clicked'
       );
       return;
     }
