@@ -126,8 +126,11 @@ export class OptionUiSyncService {
       }
     }
 
-    // Apply the selection to the current option
-    this.applySingleSelectionPainting(index, ctx);
+    // Apply the selection to the current option (single-answer only)
+    // For multi-answer, handleOptionClick already set the correct selection state
+    if (!isMulti) {
+      this.applySingleSelectionPainting(index, ctx);
+    }
 
     if (checked) {
       ctx.selectedOptionMap.set(index, true);
@@ -489,6 +492,8 @@ export class OptionUiSyncService {
       ? this.feedbackService.buildFeedbackMessage(currentQuestion, selectedOptions, false, false, qIdx, freshOptions, optionBinding.option)
       : '';
 
+    console.log(`[OUS.refreshFeedback] Q${qIdx + 1} idx=${index} dynamicFeedback="${dynamicFeedback}" selectedCount=${selectedOptions.length} selectedCorrectFlags=${JSON.stringify(selectedOptions.map(o => o.correct))}`);
+
     const correctMessage = this.feedbackService.setCorrectMessage(freshOptions, currentQuestion!);
 
     // Evaluate resolution
@@ -687,9 +692,20 @@ export class OptionUiSyncService {
       const isClicked = (i === clickedIndex);
       const inHistory = historySet.has(i);
 
-      o.selected = isClicked ? checked : false;
-      o.showIcon = (isClicked && checked) || inHistory;
-      o.highlight = (isClicked && checked) || inHistory;
+      if (isMultiple) {
+        // Multi-answer: toggle only the clicked option, preserve others
+        if (isClicked) {
+          o.selected = checked;
+        }
+        // For multi, highlight = selected state from bindings (already set by handleOptionClick)
+        const binding = ctx.optionBindings[i];
+        o.highlight = binding?.isSelected || false;
+        o.showIcon = binding?.isSelected || false;
+      } else {
+        o.selected = isClicked ? checked : false;
+        o.showIcon = (isClicked && checked) || inHistory;
+        o.highlight = (isClicked && checked) || inHistory;
+      }
     }
 
     // keep array ref refresh if your UI depends on it
