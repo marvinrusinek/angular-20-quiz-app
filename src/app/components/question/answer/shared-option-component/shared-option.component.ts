@@ -164,7 +164,7 @@ export class SharedOptionComponent
   // Include disableRenderTrigger to force re-render when disabled state changes
   trackByOptionId = (b: OptionBindings, idx: number) => {
     const idPart = (b.option?.optionId != null && b.option.optionId !== -1) ? b.option.optionId : `idx-${idx}`;
-    return `${idPart}_${idx}_${this.disableRenderTrigger}`;
+    return `${idPart}_${idx}`;
   };
 
   public flashDisabledSet = new Set<number>();
@@ -1323,6 +1323,7 @@ export class SharedOptionComponent
       highlight: shouldHighlight,
       showIcon: shouldHighlight
     };
+
 
     // DO NOT mutate binding here — this method is called during template
     // evaluation and mutations here overwrite the authoritative state set

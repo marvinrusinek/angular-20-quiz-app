@@ -492,7 +492,6 @@ export class OptionUiSyncService {
       ? this.feedbackService.buildFeedbackMessage(currentQuestion, selectedOptions, false, false, qIdx, freshOptions, optionBinding.option)
       : '';
 
-    console.log(`[OUS.refreshFeedback] Q${qIdx + 1} idx=${index} dynamicFeedback="${dynamicFeedback}" selectedCount=${selectedOptions.length} selectedCorrectFlags=${JSON.stringify(selectedOptions.map(o => o.correct))}`);
 
     const correctMessage = this.feedbackService.setCorrectMessage(freshOptions, currentQuestion!);
 

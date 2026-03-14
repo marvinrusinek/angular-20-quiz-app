@@ -115,7 +115,7 @@ export class OptionInteractionService {
     const storedSelection = this.selectedOptionService.getSelectedOptionsForQuestion(qIdx) ?? [];
     let simulatedSelection = [...storedSelection];
 
-    console.log(`[OIS] Q${qIdx + 1} clicked text="${binding.option?.text}"`);
+    console.log(`[OIS] Q${qIdx + 1} clicked text="${binding.option?.text}" storedSelection.length=${storedSelection.length}`, storedSelection.map((s: any) => ({ id: s.optionId, idx: s.displayIndex, text: s.text?.slice(0, 30) })));
 
     // Check if ALREADY selected using robust ID matching
     const existingIdx = simulatedSelection.findIndex(o => {
