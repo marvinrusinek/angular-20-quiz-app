@@ -31,17 +31,13 @@ export class OptionUiContextBuilderService {
         src.optionVisualEffectsService.toggleSelectedOption(opt, src.selectedOptionMap),
 
       onSelect: (binding: any, checked: boolean, questionIndex: number) => {
-
-
-        src.optionClicked.emit({
-          option: {
-            ...binding.option,
-            selected: checked
-          },
-          index: binding.index,
-          checked,
-          wasReselected: false
-        });
+        // NO-OP: Do NOT emit optionClicked here.
+        // The SOC click handler (handleOptionClick → updateOptionAndUI) already
+        // handles selection state, service sync, feedback, and scoring.
+        // Emitting optionClicked triggers QQC's onOptionClicked which
+        // double-processes the click: setSelectedOption TOGGLES for multi-answer
+        // (removing what SOC just added), and updateOptionHighlighting/
+        // markBindingSelected re-highlight from stale service state.
       }
     };
   }
