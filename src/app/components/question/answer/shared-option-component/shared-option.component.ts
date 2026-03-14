@@ -112,13 +112,10 @@ export class SharedOptionComponent
   currentFeedbackConfig!: FeedbackProps;
   feedbackConfigs: { [key: string]: FeedbackProps } = {};
   activeFeedbackConfig: FeedbackProps | null = null;
-<<<<<<< HEAD
   // Simple, bulletproof feedback tracker: set synchronously at the end of runOptionContentClick.
   // Bypasses complex service pipeline; cleared on question change.
   // Must be public for template access.
   public _feedbackDisplay: { idx: number; config: FeedbackProps } | null = null;
-=======
->>>>>>> 500a219ce5cc2bdf404bcd8f16932c3ff6e82c78
   selectedOptions: Set<number | string> = new Set();
   clickedOptionIds: Set<number | string> = new Set();
   private readonly perQuestionHistory = new Set<number | string>();
@@ -243,26 +240,12 @@ export class SharedOptionComponent
 
     let result = false;
 
-<<<<<<< HEAD
     // Explicit check from Input/Config - HIGHEST PRIORITY
     if (this.type === 'multiple' || this.config?.type === 'multiple') {
       result = true;
     } else if (this.type === 'single' || this.config?.type === 'single') {
       result = false;
     } else {
-=======
-    // Explicit check from Input/Config
-    if (this.type === 'multiple' || this.config?.type === 'multiple') {
-      console.warn(`[isMultiMode] Q${idx + 1} = TRUE (Explicit from type/config)`);
-      result = true;
-    }
-
-    if (!result) {
-      // Use getActiveQuestionIndex for most reliable index
-      // Then use getQuestionAtDisplayIndex for shuffle-aware question lookup
-      const currentQ = this.getQuestionAtDisplayIndex(idx) ?? this.currentQuestion;
-
->>>>>>> 500a219ce5cc2bdf404bcd8f16932c3ff6e82c78
       // Data inference (fixes multiple-answer questions)
       const currentQ = this.getQuestionAtDisplayIndex(idx) ?? this.currentQuestion;
       if (currentQ?.options) {
@@ -270,23 +253,7 @@ export class SharedOptionComponent
           const c = (o as any).correct;
           return c === true || String(c) === 'true' || c === 1 || c === '1';
         });
-<<<<<<< HEAD
         if (correctOptions.length > 1) result = true;
-=======
-        const count = correctOptions.length;
-        console.log(`[isMultiMode] Q${idx + 1} inference: correctCount=${count} from question.options`);
-        if (count > 1) result = true;
-      }
-
-      // Fallback: Check optionsToDisplay (most reliable for shuffled mode)
-      if (!result && this.optionsToDisplay?.length > 0) {
-        const displayCount = this.optionsToDisplay.filter((o: Option) => {
-          const c = (o as any).correct;
-          return c === true || String(c) === 'true' || c === 1 || c === '1';
-        }).length;
-        console.log(`[isMultiMode] Q${idx + 1} inference: correctCount=${displayCount} from optionsToDisplay`);
-        if (displayCount > 1) result = true;
->>>>>>> 500a219ce5cc2bdf404bcd8f16932c3ff6e82c78
       }
     }
 
@@ -1829,12 +1796,8 @@ export class SharedOptionComponent
     this.showFeedback = ctx.showFeedback;
     this.lastFeedbackOptionId = Number(ctx.lastFeedbackOptionId);
     this.lastFeedbackQuestionIndex = ctx.lastFeedbackQuestionIndex;
-<<<<<<< HEAD
     const isChecked = 'checked' in event ? (event as MatCheckboxChange).checked : true;
     this.lastSelectedOptionIndex = isChecked ? index : -1;
-=======
-    this.lastSelectedOptionIndex = index;
->>>>>>> 500a219ce5cc2bdf404bcd8f16932c3ff6e82c78
     this.lastSelectedOptionId = ctx.lastFeedbackOptionId as any;
 
     // CRITICAL: Also sync _lastClickFeedback and activeFeedbackConfig
@@ -3480,56 +3443,18 @@ export class SharedOptionComponent
   }
 
   public shouldShowFeedbackAfter(b: OptionBindings, i: number): boolean {
-<<<<<<< HEAD
     // ONLY trust _feedbackDisplay — it is set synchronously at end of click
     // processing with the exact display index. The legacy showFeedbackForOption
     // map uses optionId keys that can collide with other options' display indices.
     return this._feedbackDisplay !== null && this._feedbackDisplay.idx === i;
-=======
-    // Authoritative check: use the prefixed index key to avoid collisions with numeric IDs
-    const anchorKey = `idx:${i}`;
-    if (this.showFeedbackForOption[anchorKey] === true) {
-      return true;
-    }
-
-    return false;
->>>>>>> 500a219ce5cc2bdf404bcd8f16932c3ff6e82c78
   }
 
   public getInlineFeedbackConfig(b: OptionBindings, i: number): FeedbackProps | null {
-<<<<<<< HEAD
     // ONLY use _feedbackDisplay — it is the single source of truth for
     // which option shows feedback and what that feedback content is.
     if (this._feedbackDisplay?.idx === i && this._feedbackDisplay.config?.showFeedback) {
       return this._feedbackDisplay.config;
     }
-=======
-    if (!this.shouldShowFeedbackAfter(b, i)) return null;
-
-    // Highest priority: check by canonical key
-    const key = this.keyOf(b.option, i);
-    const cfg = this.feedbackConfigs[key];
-    if (cfg?.showFeedback) return cfg;
-
-    // Second: search all keys for matching index
-    for (const k of Object.keys(this.feedbackConfigs)) {
-      const c = this.feedbackConfigs[k];
-      if (c && c.idx === i && c.showFeedback) return c;
-    }
-
-    // Third: search by optionId key
-    const optId = (b?.option?.optionId != null && b.option.optionId > -1) ? b.option.optionId : -1;
-    if (optId !== -1) {
-      const cfgById = this.feedbackConfigs[String(optId)] ?? this.feedbackConfigs[optId];
-      if (cfgById?.showFeedback) return cfgById;
-    }
-
-    // Final fallback: activeFeedbackConfig
-    if (i === this.lastSelectedOptionIndex && this.activeFeedbackConfig?.showFeedback) {
-      return this.activeFeedbackConfig;
-    }
-
->>>>>>> 500a219ce5cc2bdf404bcd8f16932c3ff6e82c78
     return null;
   }
 
@@ -3760,7 +3685,6 @@ export class SharedOptionComponent
     return { b: opts[i], i };
   }
 
-<<<<<<< HEAD
   private _lastRunClickIndex: number | null = null;
   private _lastRunClickTime: number | null = null;
 
@@ -3774,9 +3698,6 @@ export class SharedOptionComponent
     this._lastRunClickIndex = index;
     this._lastRunClickTime = now;
 
-=======
-  private runOptionContentClick(binding: OptionBindings, index: number, event: any): void {
->>>>>>> 500a219ce5cc2bdf404bcd8f16932c3ff6e82c78
     // Proactive interaction marking
     this.quizStateService.markUserInteracted(this.getActiveQuestionIndex());
 
@@ -3832,7 +3753,6 @@ export class SharedOptionComponent
     this.showFeedbackForOption = state.showFeedbackForOption;
     this.feedbackConfigs = state.feedbackConfigs;
     this.lastFeedbackOptionId = state.lastFeedbackOptionId as any;
-<<<<<<< HEAD
 
     // FIX: Sync showFeedbackForOption to every OLD binding object so that
     // option-item.component's feedbackForThisOption check is accurate.
@@ -3874,8 +3794,6 @@ export class SharedOptionComponent
         }
       }
     }
-=======
->>>>>>> 500a219ce5cc2bdf404bcd8f16932c3ff6e82c78
 
     // Force immediate sync for OnPush
     this.cdRef.detectChanges();
