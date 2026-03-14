@@ -271,11 +271,13 @@ export class OptionItemComponent implements OnChanges {
   }
 
   shouldHighlightOption(): boolean {
-    // For multi-answer: strictly trust isSelected from binding + click history.
-    // Do NOT check b.option.highlight — it gets set by multiple async paths
-    // causing unclicked correct options to appear highlighted.
+    // For multi-answer: strictly trust ONLY the live isSelected binding.
+    // The click handler (handleOptionClick) maintains b.isSelected = true for
+    // ALL currently selected options via futureKeys, so _wasSelected is not
+    // needed and would cause false positives when service rehydration briefly
+    // marks all saved selections as selected before the user clicks.
     if (this.type === 'multiple') {
-      return this.b.isSelected || this._wasSelected;
+      return this.b.isSelected;
     }
     // Single-answer: isSelected (current) + option.highlight (history from click handler)
     return this.b.isSelected || !!this.b.option?.highlight;

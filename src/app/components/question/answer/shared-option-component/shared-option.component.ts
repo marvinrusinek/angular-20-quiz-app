@@ -305,6 +305,12 @@ export class SharedOptionComponent
     this.showFeedbackForOption = {};
     this._feedbackDisplay = null;
     this.showFeedback = false;
+    // CRITICAL: Reset hasUserClicked so that new question starts fresh.
+    // Without this, hasUserClicked from Q1 leaks into Q2 and blocks
+    // all guard-protected paths (rehydrateUiFromState, initializeFromConfig, etc.)
+    this.hasUserClicked = false;
+    this.freezeOptionBindings = false;
+    this.selectedOptionHistory = [];
   }
 
   private subscribeToTimerExpiration(): void {
