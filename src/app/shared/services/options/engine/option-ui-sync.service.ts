@@ -92,6 +92,7 @@ export class OptionUiSyncService {
       }
       const historySet = new Set(ctx.selectedOptionHistory);
 
+<<<<<<< HEAD
       ctx.optionBindings.forEach((b, i) => {
         const isCurrent = (i === index);
         const inHistory = historySet.has(i);
@@ -142,6 +143,81 @@ export class OptionUiSyncService {
     
     // authoritatively sync context flags to bindings before service calls
     this.syncSelectedFlags(ctx);
+=======
+      this.preservePreviousFeedbackAnchor(index, ctx);
+      ctx.emitExplanation(currentIndex);
+      return;
+    }
+
+    if (this.isRapidDuplicateUnselect(optionId, checked, now, ctx)) {
+      return;
+    }
+
+    // Apply selection state + history
+
+    // Force service update call moved down to ensure map is updated first
+
+    const getEffectiveId = (o: any, i: number) => (o?.optionId != null && o.optionId !== -1) ? o.optionId : i;
+    const effectiveId = getEffectiveId(optionBinding.option, index);
+
+    console.log(`[OUS.updateOptionAndUI] Q${currentIndex + 1} Id=${effectiveId} Index=${index} checked=${checked}`);
+
+    // Update individual option state
+    optionBinding.option.selected = checked;
+    optionBinding.isSelected = checked;
+
+    // Maintain global history for anchor fallback
+    if (checked) {
+      if (!ctx.selectedOptionHistory.includes(index)) {
+        ctx.selectedOptionHistory.push(index);
+      }
+    }
+
+    // AUTHORITATIVE ANCHOR RESET: Clear all existing markers 
+    // (Removed start-of-method clear to allow additive transitions if needed, 
+    // now handled inside checked/else blocks)
+
+    const isMultiAnswer = ctx.type === 'multiple' || ctx.optionBindings.filter(b => isCorrectHelper(b.option)).length > 1;
+
+    if (!isMultiAnswer) {
+      ctx.selectedOptionMap.clear();
+      this.applySingleSelectionPainting(index, ctx);
+    }
+
+    if (checked) {
+      // AUTHORITATIVE ANCHOR RESET: Clear all existing markers to ensure only one anchor exists
+      for (const k of Object.keys(ctx.showFeedbackForOption)) {
+        delete ctx.showFeedbackForOption[k];
+      }
+
+      ctx.selectedOptionMap.set(index, true);
+      // Use a prefixed key for the feedback anchor to prevent collisions with numeric IDs
+      const anchorKey = `idx:${index}`;
+      ctx.showFeedbackForOption[anchorKey] = true;
+      ctx.lastFeedbackOptionId = index;
+    } else {
+      ctx.selectedOptionMap.delete(index);
+      // Remove anchor with prefix
+      delete ctx.showFeedbackForOption[`idx:${index}`];
+
+      // FALLBACK ANCHOR: If unselecting, find the last remaining selection
+      const stillSelectedIdx = [...(ctx.selectedOptionHistory || [])]
+        .reverse()
+        .find(idx => ctx.selectedOptionMap.has(idx));
+
+      if (stillSelectedIdx !== undefined) {
+        const sIdx = Number(stillSelectedIdx);
+        ctx.showFeedbackForOption[`idx:${sIdx}`] = true;
+        ctx.lastFeedbackOptionId = sIdx;
+        console.log(`[OUS] Q${currentIndex + 1}: Anchor moved back to index ${sIdx}`);
+      } else {
+        ctx.lastFeedbackOptionId = -1;
+      }
+    }
+
+    ctx.showFeedback = true; // Always show pane if any interaction occurred
+
+>>>>>>> 500a219ce5cc2bdf404bcd8f16932c3ff6e82c78
     // Sync to services (Single call here)
     this.forceSelectIntoServices(optionBinding, effectiveId, index, currentIndex, checked, ctx);
 
@@ -172,6 +248,15 @@ export class OptionUiSyncService {
     // optional: refresh directive highlighting after state changes
     this.optionVisualEffectsService.refreshHighlights(ctx.optionBindings);
 
+<<<<<<< HEAD
+=======
+    // Apply styles to ALL bindings (not just the clicked one) so that
+    // previously selected options in multi-answer mode keep their green/red.
+    for (const b of ctx.optionBindings) {
+      this.applyHighlighting(b);
+    }
+
+>>>>>>> 500a219ce5cc2bdf404bcd8f16932c3ff6e82c78
     // AUTHORITATIVE TYPE INFERENCE: Rely on data, not just metadata
     const correctCountInBindings = ctx.optionBindings.filter(b => isCorrectHelper(b.option)).length;
     const resolvedType = (correctCountInBindings > 1 || ctx.type === 'multiple')

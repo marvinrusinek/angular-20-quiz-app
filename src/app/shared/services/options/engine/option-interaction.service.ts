@@ -283,7 +283,7 @@ export class OptionInteractionService {
     if (!isMultipleMode) {
       state.showFeedbackForOption = {}; // Reset completely for single-answer questions
     }
-    
+
     state.showFeedbackForOption = {
       ...state.showFeedbackForOption,
       [targetKey]: true,
@@ -295,7 +295,7 @@ export class OptionInteractionService {
     }
     state.lastFeedbackOptionId = targetKey;
     state.showFeedback = true;
-    
+
     state.lastClickedOptionId = index;
     state.hasUserClicked = true;
     state.disableRenderTrigger++;
