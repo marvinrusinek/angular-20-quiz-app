@@ -29,6 +29,7 @@ export class SelectedOptionService {
       if (selected) {
         const parsed = JSON.parse(selected);
         this.selectedOptionsMap = new Map(Object.entries(parsed).map(([k, v]) => [Number(k), v as any]));
+        this.selectedOptionsMap$.next(new Map(this.selectedOptionsMap));
       }
     } catch (err) {
       console.warn('[SelectedOptionService] Failed to load state from sessionStorage', err);
@@ -61,6 +62,7 @@ export class SelectedOptionService {
     this._lockedByQuestion.clear();
     this.isAnsweredSubject.next(false);
     this.isOptionSelectedSubject.next(false);
+    this.selectedOptionsMap$.next(new Map());
     this.showFeedbackForOptionSubject.next({});
 
     try {
@@ -97,6 +99,8 @@ export class SelectedOptionService {
 
   private questionTextSubject = new BehaviorSubject<string>('');
   questionText$ = this.questionTextSubject.asObservable();
+
+  public selectedOptionsMap$ = new BehaviorSubject<Map<number, SelectedOption[]>>(new Map());
 
   private showFeedbackForOptionSubject = new BehaviorSubject<
     Record<string, boolean>
@@ -156,10 +160,14 @@ export class SelectedOptionService {
   syncSelectionState(questionIndex: number, options: SelectedOption[]): void {
     const committed = this.commitSelections(questionIndex, options);
 
-    this.selectedOption = committed;  // helper Sync
+    // VITAL: Update the map so that getSelectedOptionsForQuestion(index) returns the new state!
+    this.selectedOptionsMap.set(questionIndex, committed);
+    this.selectedOptionsMap$.next(new Map(this.selectedOptionsMap));
+
+    this.selectedOption = committed;
     this.selectedOptionSubject.next(committed);
     this.isOptionSelectedSubject.next(committed.length > 0);
-    this.isAnsweredSubject.next(true);  // ensure answered state is tracked
+    this.isAnsweredSubject.next(true);
   }
 
   deselectOption(): void {
@@ -181,6 +189,8 @@ export class SelectedOptionService {
 
     // Trust: questionIndex is 0-based (QQC is the source of truth now)
     const idx = Number.isFinite(questionIndex) ? Math.trunc(questionIndex) : -1;
+    console.log(`[SOS.addOption] Q${idx + 1} OptionId=${option.optionId} text="${option.text}"`);
+
     if (idx < 0) {
       console.error('[SOS] Invalid questionIndex passed to addOption:', { questionIndex });
       return;
@@ -276,8 +286,8 @@ export class SelectedOptionService {
     const updatedOptions = currentOptions.filter(
       (o) => {
         const matchesId = (o.optionId === canonicalId || (canonicalId === null && o.optionId === -1));
-        const matchesIndex = (indexHint != null) ? 
-          (o.displayIndex === indexHint || (o as any).index === indexHint) : 
+        const matchesIndex = (indexHint != null) ?
+          (o.displayIndex === indexHint || (o as any).index === indexHint) :
           true;
         return !(matchesId && matchesIndex);
       }
@@ -417,16 +427,16 @@ export class SelectedOptionService {
     }
 
     const exists = canonicalCurrent.find(
-      (sel) => sel.optionId === enriched.optionId && 
-               (sel.displayIndex === enriched.displayIndex || (sel as any).index === (enriched as any).index)
+      (sel) => sel.optionId === enriched.optionId &&
+        (sel.displayIndex === enriched.displayIndex || (sel as any).index === (enriched as any).index)
     );
 
     if (isMultipleAnswer) {
       if (exists) {
         // Toggle OFF
         canonicalCurrent = canonicalCurrent.filter(
-          (sel) => !(sel.optionId === enriched.optionId && 
-                     (sel.displayIndex === enriched.displayIndex || (sel as any).index === (enriched as any).index))
+          (sel) => !(sel.optionId === enriched.optionId &&
+            (sel.displayIndex === enriched.displayIndex || (sel as any).index === (enriched as any).index))
         );
       } else {
         // Toggle ON
@@ -550,7 +560,7 @@ export class SelectedOptionService {
       const optId = opt.optionId;
       const optIdx = opt.displayIndex ?? (opt as any).index ?? -1;
       const key = `${optId}|${optIdx}`;
-      
+
       if (optId != null) {
         merged.set(key, {
           ...opt,
@@ -1840,10 +1850,8 @@ export class SelectedOptionService {
       selections
     ).map((sel) => ({ ...sel }));  // ensure new object identity
 
-    canonicalSelections.forEach((s) => {
-      s.highlight = true;
-      s.showIcon = true;
-    });
+    // Do NOT force highlight/showIcon here — let calling logic or sync methods decide
+    // based on multi-answer rules (e.g. only highlight the last selection).
 
     console.log(`[SOS] commitSelections for Q${idx + 1}: count=${canonicalSelections.length}`);
 
@@ -1854,6 +1862,9 @@ export class SelectedOptionService {
       this.selectedOptionsMap.delete(idx);
       this.optionSnapshotByQuestion.delete(idx);
     }
+
+    // VITAL: Propagate changes to the reactive map
+    this.selectedOptionsMap$.next(new Map(this.selectedOptionsMap));
 
     this.syncFeedbackForQuestion(idx, canonicalSelections);
 
@@ -2286,7 +2297,7 @@ export class SelectedOptionService {
   }
 
   isOptionLocked(qIndex: number, optId: string | number): boolean {
-    return this._lockedByQuestion.get(qIndex)?.has(optId) ?? false;
+    return this._lockedByQuestion.get(qIndex)?.has(String(optId)) ?? false;
   }
 
   lockOption(qIndex: number, optId: string | number): void {
@@ -2295,13 +2306,13 @@ export class SelectedOptionService {
       set = new Set<string | number>();
       this._lockedByQuestion.set(qIndex, set);
     }
-    set.add(optId);
+    set.add(String(optId));
   }
 
   unlockOption(qIndex: number, optId: string | number): void {
     const set = this._lockedByQuestion.get(qIndex);
     if (set) {
-      set.delete(optId);
+      set.delete(String(optId));
     }
   }
 
@@ -2316,7 +2327,7 @@ export class SelectedOptionService {
       this._lockedByQuestion.set(qIndex, set);
     }
     for (const id of optIds) {
-      set!.add(id);
+      set!.add(String(id));
     }
   }
 
@@ -2645,7 +2656,7 @@ export class SelectedOptionService {
   }
 
   public getSelectedOptionsForQuestion$(idx: number): Observable<any[]> {
-    return this.selectedOption$.pipe(
+    return this.selectedOptionsMap$.pipe(
       map(() => {
         const normalizedIdx = this.normalizeIdx(idx);
         return this.getSelectedOptionsForQuestion(normalizedIdx) ?? [];

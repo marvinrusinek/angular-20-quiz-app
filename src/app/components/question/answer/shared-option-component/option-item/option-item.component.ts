@@ -75,13 +75,14 @@ export class OptionItemComponent implements OnChanges {
       // Keep previous selection sticky for the same question so earlier picks
       // remain highlighted even if transient binding snapshots flip false.
       const selectedNow = this.isSelectedForCurrentQuestion() || !!this.b?.isSelected;
-      this._wasSelected = this._wasSelected || selectedNow;
+      this._wasSelected = selectedNow;
     }
 
     if (changes['currentQuestionIndex']) {
       const nextQuestionIndex = Number(this.currentQuestionIndex ?? -1);
       if (Number.isFinite(nextQuestionIndex) && nextQuestionIndex !== this._lastQuestionIndex) {
-        this._wasSelected = this.isSelectedForCurrentQuestion() || !!this.b?.isSelected;
+        const selectedNow = this.isSelectedForCurrentQuestion() || !!this.b?.isSelected;
+        this._wasSelected = selectedNow; // Fully reset for new question
         this._lastQuestionIndex = nextQuestionIndex;
       }
     }
@@ -276,28 +277,10 @@ export class OptionItemComponent implements OnChanges {
   }
 
   shouldHighlightOption(): boolean {
-    const isCorrect = this.isOptionCorrect();
-    const isMulti = this.type === 'multiple';
-
-    // Rule: In multi-answer, if it's correct but NOT the one flagged for highlighting, suppress it.
-    // This enforces the "Only Most Recent Correct" rule while allowing all others to show.
-    if (isMulti && isCorrect && this.b.option && this.b.option.highlight === false && this.b.isSelected) {
-      return false;
-    }
-
-    const feedbackMap = this.b.showFeedbackForOption ?? {};
-    const feedbackForThisOption = !!feedbackMap[this.i] || !!(feedbackMap as any)[String(this.i)];
-
-    return (
-      this.b.isSelected ||
-      this.b.checked === true ||
-      this.b.highlightCorrect ||
-      this.b.highlightIncorrect ||
-      this.isSelectedForCurrentQuestion() ||
-      this._wasSelected ||
-      feedbackForThisOption ||
-      !!this.b.option?.highlight
-    );
+    // SIMPLE RULE: Trust only the binding state set by the click handler.
+    // Do NOT check the service (isSelectedForCurrentQuestion) — it creates
+    // race conditions with async subscribers that corrupt highlight state.
+    return this.b.isSelected || !!this.b.option?.highlight;
   }
 
   private isOptionIndividuallySelected(): boolean {

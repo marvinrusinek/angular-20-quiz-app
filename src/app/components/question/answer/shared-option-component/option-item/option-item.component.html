@@ -6,7 +6,7 @@
     [option]="b.option" [isSelected]="b.isSelected"
     [value]="i"
     [ngClass]="getOptionClasses()" [style.background-color]="getOptionBackgroundColor()" [disabled]="isDisabled()"
-    [disableRipple]="true" (change)="onChanged($event)" (click)="onInteraction($event)"
+    [disableRipple]="true" (change)="onChanged($event)"
     [attr.data-option-id]="b.option.optionId">
     <ng-container *ngTemplateOutlet="optionContent"></ng-container>
   </mat-radio-button>
@@ -15,7 +15,7 @@
     [appHighlightReset]="shouldResetBackground" [sharedOptionConfig]="sharedOptionConfig" [optionBinding]="b"
     [option]="b.option" [isSelected]="b.isSelected" [checked]="b.isSelected" [ngClass]="getOptionClasses()"
     [style.background-color]="getOptionBackgroundColor()" [disabled]="isDisabled()" [disableRipple]="true"
-    (change)="onChanged($event)" (click)="onInteraction($event)" [attr.data-option-id]="b.option.optionId">
+    (change)="onChanged($event)" [attr.data-option-id]="b.option.optionId">
     <ng-container *ngTemplateOutlet="optionContent"></ng-container>
   </mat-checkbox>
   }

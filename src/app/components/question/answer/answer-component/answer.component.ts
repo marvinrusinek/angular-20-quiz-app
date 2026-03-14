@@ -126,16 +126,16 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
       .pipe(takeUntil(this.destroy$))
       .subscribe((currentQuestion: QuizQuestion | null) => {
         if (!currentQuestion) return;
-        
+
         // ROBUST MULTI-ANSWER CHECK
         const opts = currentQuestion.options || [];
-        const correctCount = opts.filter(o => 
+        const correctCount = opts.filter(o =>
           o.correct === true || (o as any).correct === 'true' || (o as any).correct === 1
         ).length;
-        
+
         this.type = correctCount > 1 ? 'multiple' : 'single';
         console.log(`[AnswerComponent] Q${this.currentQuestionIndex + 1} detected as ${this.type} (Correct count: ${correctCount})`);
-        
+
         if (!this.hasComponentLoaded) {
           this.hasComponentLoaded = true;
           this.syncOptionsWithSelections();
@@ -314,7 +314,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     if (this.type === 'single' && this.form) {
       const selectedId = savedSelections[0]?.optionId;
       if (selectedId != null) {
-        console.log(`[AC] 📻 Patching form for single-answer Q${idx+1} with ID=${selectedId}`);
+        console.log(`[AC] 📻 Patching form for single-answer Q${idx + 1} with ID=${selectedId}`);
         this.form.patchValue({ selectedOptionId: selectedId }, { emitEvent: false });
       }
     }
@@ -410,16 +410,20 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
         ? this.currentQuestionIndex
         : 0;
 
+    const getEffectiveId = (o: any, i: number) => (o?.optionId != null && o.optionId !== -1) ? o.optionId : i;
+    const targetKey = getEffectiveId(rawOption, payload.index);
+
     const canonical =
       this.optionsToDisplay?.find(
-        (opt: Option) => String(opt.optionId) === String(rawOption.optionId),
+        (opt: Option, i: number) => getEffectiveId(opt, i) === targetKey
       ) ?? rawOption;
 
     // Robust correctness check (matches SelectedOptionService)
     const isCorrectValue = (o: any) => o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || o.correct === '1');
 
     const enrichedOption: SelectedOption = {
-      optionId: canonical.optionId,
+      ...canonical,
+      optionId: targetKey,
       text: canonical.text,
       correct: isCorrectValue(canonical),
       questionIndex: activeQuestionIndex,
@@ -437,7 +441,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
       this.selectedOptions ??= [];
 
       const i = this.selectedOptions.findIndex(
-        (o: Option) => o.optionId === enrichedOption.optionId
+        (o: any) => getEffectiveId(o, (o as any).displayIndex ?? (o as any).index) === targetKey
       );
 
       if (enrichedOption.selected) {
@@ -462,7 +466,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
       );
       return;
     }
-    
+
     if (!serviceQuestion) {
       console.warn(`[AC] ⚠️ Service question missing for Q${activeQuestionIndex + 1}. Using @Input fallback.`);
     }

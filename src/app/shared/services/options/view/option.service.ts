@@ -49,8 +49,8 @@ export class OptionService {
   getOptionClasses(
     binding: OptionBindings,
     idx: number,
-    highlightedOptionIds: Set<number>,
-    flashDisabledSet: Set<number>,
+    highlightedOptionIds: Set<number | string>,
+    flashDisabledSet: Set<number | string>,
     isLocked: boolean = false,
     timerExpiredForQuestion: boolean = false
   ): { [key: string]: boolean } {

@@ -17,15 +17,8 @@ export class OptionSelectionPolicyService {
       const isTarget = binding === selectedBinding;
 
       if (!isTarget && binding.isSelected) {
-
         if (binding.option) binding.option.selected = false;
-
-        // Preserve feedback state for previously selected option
-        const id = binding.option?.optionId ?? -1;
-        if (id !== -1) {
-          showFeedbackForOption[id] = true;
-          updateFeedbackState(id);
-        }
+        binding.isSelected = false; // Sync both flags
       }
     }
   }

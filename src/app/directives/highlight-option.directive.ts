@@ -80,22 +80,10 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
 
   @HostListener('click')
   onClick(): void {
-    try {
-      // Check if the option is deactivated (highlighted or inactive)
-      if (this.option?.highlight || this.option?.active === false) {
-        console.info('Deactivated option clicked. No action taken:', this.option);
-        return;
-      }
-
-      // Emit the event and update visuals
-      if (this.option) {
-        this.optionClicked.emit(this.option);  // notify parent
-        this.updateHighlight();  // update UI
-        this.cdRef.detectChanges();  // ensure re-render
-      }
-    } catch (error: any) {
-      console.error('Error in onClick:', error);
-    }
+    // NO-OP: Click handling is done by OptionItemComponent (onContentClick / onChanged).
+    // Running updateHighlight() here fires BEFORE the click handler processes,
+    // which reads stale binding state and can reset showIcon to false,
+    // preventing the first click from highlighting.
   }
 
   updateHighlight(): void {

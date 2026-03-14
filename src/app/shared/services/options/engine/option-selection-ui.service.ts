@@ -4,12 +4,12 @@ import { OptionBindings } from '../../../models/OptionBindings.model';
 
 @Injectable({ providedIn: 'root' })
 export class OptionSelectionUiService {
-  // Push the newly‐clicked option into history, then synchronize every binding’s
+  // Push the newly‐clicked option into history, then synchronize every binding's
   // visual state (selected, highlight, icon, feedback) in one synchronous pass.
   applySingleSelectClick(
     optionBindings: OptionBindings[] | null | undefined,
     rawSelectedId: number | string,
-    selectedOptionHistory: number[]
+    selectedOptionHistory: (number | string)[]
   ): void {
     const parsedId =
       typeof rawSelectedId === 'string'
@@ -24,7 +24,7 @@ export class OptionSelectionUiService {
       return;
     }
 
-    // Ignore the synthetic “-1 repaint” that runs right after question load
+    // Ignore the synthetic "-1 repaint" that runs right after question load
     if (parsedId === -1) return;
 
     const selectedId = parsedId;
@@ -35,7 +35,7 @@ export class OptionSelectionUiService {
     }
 
     // Faster lookups than repeated .includes()
-    const historySet = new Set<number>(selectedOptionHistory);
+    const historySet = new Set<number | string>(selectedOptionHistory);
 
     for (const b of optionBindings ?? []) {
       const id = b?.option?.optionId;
@@ -43,15 +43,12 @@ export class OptionSelectionUiService {
         continue;
       }
 
-      const everClicked = historySet.has(id);
       const isCurrent = id === selectedId;
+      const inHistory = historySet.has(id);
 
-      // Selection Highlighting Rule:
-      // Only the most recently clicked option should be highlighted.
-      b.option.highlight = isCurrent;
+      b.option.highlight = isCurrent || inHistory;
 
-      // Icon only on the row that was just clicked
-      b.option.showIcon = isCurrent;
+      b.option.showIcon = isCurrent || inHistory;
 
       // Native control state (single truth for selection in UI)
       b.isSelected = isCurrent;

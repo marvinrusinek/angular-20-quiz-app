@@ -7,23 +7,24 @@ import { QuizQuestion } from '../../models/QuizQuestion.model';
 import { OptionInteractionState } from '../options/engine/option-interaction.service';
 
 export interface SharedOptionUiState {
-  selectedOptionHistory: number[];
+  selectedOptionHistory: (number | string)[];
   disabledOptionsPerQuestion: Map<number, Set<number>>;
   correctClicksPerQuestion: Map<number, Set<number>>;
 
   feedbackConfigs: { [key: string]: FeedbackProps };
-  showFeedbackForOption: { [optionId: number]: boolean };
+  showFeedbackForOption: { [key: string]: boolean };
 
-  lastFeedbackOptionId: number;
+  lastFeedbackOptionId: number | string;
   lastFeedbackQuestionIndex: number;
 
-  lastClickedOptionId: number | null;
+  lastClickedOptionId: number | string | null;
   lastClickTimestamp: number | null;
 
   hasUserClicked: boolean;
   freezeOptionBindings: boolean;
   showFeedback: boolean;
   disableRenderTrigger: number;
+  selectedOptionMap?: Map<number | string, boolean>;
 }
 
 export interface SharedOptionHost {
@@ -37,23 +38,27 @@ export interface SharedOptionHost {
   ui?: SharedOptionUiState;
 
   // Legacy fields
-  selectedOptionHistory: number[];
+  selectedOptionHistory: (number | string)[];
   disabledOptionsPerQuestion: Map<number, Set<number>>;
   correctClicksPerQuestion: Map<number, Set<number>>;
 
   feedbackConfigs: { [key: string]: FeedbackProps };
-  showFeedbackForOption: { [optionId: number]: boolean };
+  showFeedbackForOption: { [key: string]: boolean };
 
-  lastFeedbackOptionId: number;
+  lastFeedbackOptionId: number | string;
   lastFeedbackQuestionIndex: number;
 
-  lastClickedOptionId: number | null;
+  lastClickedOptionId: number | string | null;
   lastClickTimestamp: number | null;
 
   hasUserClicked: boolean;
   freezeOptionBindings: boolean;
   showFeedback: boolean;
   disableRenderTrigger: number;
+
+  selectedOptionMap?: Map<number | string, boolean>;
+  showExplanationChange?: any;
+  explanationToDisplayChange?: any;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -78,7 +83,8 @@ export class SharedOptionStateAdapterService {
       hasUserClicked: false,
       freezeOptionBindings: false,
       showFeedback: false,
-      disableRenderTrigger: 0
+      disableRenderTrigger: 0,
+      selectedOptionMap: new Map()
     };
   }
 
@@ -133,7 +139,11 @@ export class SharedOptionStateAdapterService {
       disableRenderTrigger: ui?.disableRenderTrigger ?? host.disableRenderTrigger,
 
       type: host.type,
-      currentQuestion: host.currentQuestion
+      currentQuestion: host.currentQuestion,
+
+      selectedOptionMap: ui?.selectedOptionMap ?? host.selectedOptionMap ?? new Map(),
+      showExplanationChange: host.showExplanationChange,
+      explanationToDisplayChange: host.explanationToDisplayChange
     };
   }
 
@@ -161,6 +171,7 @@ export class SharedOptionStateAdapterService {
       host.ui.disabledOptionsPerQuestion = state.disabledOptionsPerQuestion;
       host.ui.correctClicksPerQuestion = state.correctClicksPerQuestion;
       host.ui.selectedOptionHistory = state.selectedOptionHistory;
+      host.ui.selectedOptionMap = state.selectedOptionMap;
       return;
     }
 
@@ -179,5 +190,6 @@ export class SharedOptionStateAdapterService {
     host.disabledOptionsPerQuestion = state.disabledOptionsPerQuestion;
     host.correctClicksPerQuestion = state.correctClicksPerQuestion;
     host.selectedOptionHistory = state.selectedOptionHistory;
+    host.selectedOptionMap = state.selectedOptionMap;
   }
 }

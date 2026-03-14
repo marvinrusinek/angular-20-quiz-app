@@ -3409,6 +3409,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
             this.displayExplanation = true;
             this.displayStateSubject?.next({ mode: 'explanation', answered: true });
+            this.showExplanationChange.emit(true);
             this.explanationToDisplay = formatted;
             this.explanationToDisplayChange?.emit(formatted);
 
@@ -3803,7 +3804,14 @@ export class QuizQuestionComponent extends BaseQuestion
       const qIdx = this.currentQuestionIndex ?? 0;
       const selections = this.selectedOptionService.getSelectedOptionsForQuestion(qIdx) ?? [];
       const currentSelectionInService = selections.find(s => (s.optionId != null && s.optionId === opt.optionId) || ((s as any).index === idx));
-      const shouldHighlight = !!(currentSelectionInService?.highlight || (isSelected && selections.length > 0 && selections[selections.length - 1].optionId === opt.optionId));
+      const isMulti = this.question?.type === QuestionType.MultipleAnswer;
+      const isLastSelection = isSelected && selections.length > 0 &&
+        (selections[selections.length - 1].optionId === opt.optionId || (selections[selections.length - 1] as any).index === idx);
+
+      let shouldHighlight = isSelected;
+      if (isMulti && opt.correct) {
+        shouldHighlight = isLastSelection;
+      }
 
       // Apply highlighting
       if (opt.correct) {

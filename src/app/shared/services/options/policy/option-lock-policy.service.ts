@@ -55,6 +55,7 @@ export class OptionLockPolicyService {
     }
 
     const isCorrectBinding = (b: OptionBindings) => {
+      if (b.isCorrect === true) return true;
       const v: any = b.option?.correct;
       return v === true || String(v) === 'true' || v === 1 || v === '1';
     };
@@ -70,6 +71,8 @@ export class OptionLockPolicyService {
       b => b.isSelected && !isCorrectBinding(b)
     );
     const isPerfect = allCorrectSelected && !hasIncorrectSelection;
+
+    console.log(`[OptionLockPolicy] Q Evaluation: hasCorrect=${hasCorrectSelection}, allCorrect=${allCorrectSelected}, isPerfect=${isPerfect}, type=${params.resolvedType}`);
 
     const shouldLockIncorrect = params.computeShouldLockIncorrectOptions(
       params.resolvedType,
@@ -97,12 +100,15 @@ export class OptionLockPolicyService {
     for (const b of bindings) {
       // GRANULAR LOCKING:
       // 1. If perfectly resolved, disable everything.
-      // 2. If all correct found but not perfect, disable unselected options ONLY.
+      // 2. If all correct found but not perfect, disable UNSELECTED options ONLY.
+      //    (This allows the user to unselect the incorrect ones).
       // 3. If single answer and correct selection found, disable everything.
       let shouldDisable = false;
       if (isPerfect) {
         shouldDisable = true;
       } else if (allCorrectSelected) {
+        // Multi-answer: Got all corrects, but maybe some incorrects too.
+        // Disable everything EXCEPT the currently selected ones (to allow unselecting).
         shouldDisable = !b.isSelected;
       } else if (params.resolvedType === QuestionType.SingleAnswer && hasCorrectSelection) {
         shouldDisable = true;
