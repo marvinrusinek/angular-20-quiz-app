@@ -4003,6 +4003,15 @@ export class SharedOptionComponent
 
       console.log(`[SOC] MULTI-ANSWER STATE Q${qIdx + 1}: correctSel=${correctSel}, incorrectSel=${incorrectSel}, remaining=${remainingMsg}, correctIndices=${correctIndicesFromQ}, durableSet=[${[...durableSet]}]`);
 
+      // Disable incorrect options after they are clicked
+      if (!isClickedCorrect) {
+        if (!this.disabledOptionsPerQuestion.has(qIdx)) {
+          this.disabledOptionsPerQuestion.set(qIdx, new Set<number>());
+        }
+        this.disabledOptionsPerQuestion.get(qIdx)!.add(index);
+      }
+      const disabledSet = this.disabledOptionsPerQuestion.get(qIdx) ?? new Set<number>();
+
       // 1. HIGHLIGHT: Create new binding references so Angular detects changes
       this.optionBindings = this.optionBindings.map((ob, bi) => {
         const isInDurable = durableSet.has(bi);
@@ -4010,6 +4019,7 @@ export class SharedOptionComponent
           ...ob,
           isSelected: isInDurable,
           isCorrect: correctSet.has(bi),
+          disabled: disabledSet.has(bi),
           option: ob.option ? {
             ...ob.option,
             correct: correctSet.has(bi),
