@@ -49,6 +49,7 @@ import { OptionSelectionUiService } from '../../../../shared/services/options/en
 import { OptionVisualEffectsService } from '../../../../shared/services/options/view/option-visual-effects.service';
 import { SharedOptionUiState } from '../../../../shared/services/state/shared-option-state-adapter.service';
 import { OptionBindingFactoryService } from '../../../../shared/services/options/engine/option-binding-factory.service';
+import { NextButtonStateService } from '../../../../shared/services/state/next-button-state.service';
 
 @Component({
   selector: 'app-shared-option',
@@ -212,6 +213,7 @@ export class SharedOptionComponent
     public optionVisualEffectsService: OptionVisualEffectsService,
     private sharedOptionStateAdapterService: SharedOptionStateAdapterService,
     private optionBindingFactory: OptionBindingFactoryService,
+    private nextButtonStateService: NextButtonStateService,
     private cdRef: ChangeDetectorRef,
     private fb: FormBuilder,
     private ngZone: NgZone
@@ -4037,6 +4039,11 @@ export class SharedOptionComponent
       }
       this.selectionMessageService.selectionMessageSubject.next(selMsg);
       console.log(`[SOC] FORCED selMsg Q${qIdx + 1}: "${selMsg}"`);
+
+      // Enable next button when all correct answers are selected
+      if (remainingMsg === 0) {
+        this.nextButtonStateService.setNextButtonState(true);
+      }
 
       // Skip the normal _feedbackDisplay builder below for multi-answer
       this.showFeedback = true;
