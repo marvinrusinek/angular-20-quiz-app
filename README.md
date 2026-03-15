@@ -206,8 +206,7 @@ http://localhost:4200
 <h2>⭐ Support</h2>
 
 <p>
-If you find this project useful or interesting,
-consider giving it a star on GitHub.
+If this app helped you learn, teach, or just have fun — please consider giving it a ⭐️ on GitHub. Your support directly fuels future features and improvements.
 </p>
 
 <hr>
