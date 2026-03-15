@@ -4009,6 +4009,7 @@ export class SharedOptionComponent
         return {
           ...ob,
           isSelected: isInDurable,
+          isCorrect: correctSet.has(bi),
           option: ob.option ? {
             ...ob.option,
             correct: correctSet.has(bi),
