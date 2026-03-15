@@ -1974,7 +1974,7 @@ export class SharedOptionComponent
     return this.optionUiContextBuilder.fromSharedOptionComponent(this);
   }
 
-  private emitExplanation(questionIndex: number): void {
+  private emitExplanation(questionIndex: number, skipGuard = false): void {
     // Use resolveExplanationText so option numbering matches what the user
     // sees (shuffle-safe, multi-answer aware) instead of raw canonical explanation.
     // Falls back to canonical source if resolveExplanationText returns empty
@@ -1992,12 +1992,13 @@ export class SharedOptionComponent
       ?? this.quizService.questions?.[resolvedIndex]
       ?? null;
 
-    console.log(`[SharedOptionComponent] emitExplanation checking Q${resolvedIndex + 1}...`);
+    console.log(`[SharedOptionComponent] emitExplanation checking Q${resolvedIndex + 1} skipGuard=${skipGuard}...`);
 
     // Guard: Emit FET only when the question is resolved correctly.
+    // skipGuard=true when called from multi-answer bypass (we already know it's resolved).
     // Build selection state from live UI first (optionBindings/optionsToDisplay),
     // then fall back to service snapshots to handle persistence timing gaps.
-    if (question && Array.isArray(question.options)) {
+    if (!skipGuard && question && Array.isArray(question.options)) {
       const correctCount = question.options.filter(
         (o: any) => o.correct === true || String(o.correct) === 'true'
       ).length;
@@ -4095,7 +4096,7 @@ export class SharedOptionComponent
 
         // Emit FET (Formatted Explanation Text)
         this.showExplanationChange.emit(true);
-        setTimeout(() => this.emitExplanation(qIdx), 0);
+        setTimeout(() => this.emitExplanation(qIdx, true), 0);
       }
 
       // Re-assert feedback after async overwrites
