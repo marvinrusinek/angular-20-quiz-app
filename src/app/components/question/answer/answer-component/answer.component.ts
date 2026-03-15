@@ -293,20 +293,32 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     const savedIds = new Set(savedSelections.map(s => String(s.optionId)));
     const savedTexts = new Set(savedSelections.map(s => (s.text || '').trim().toLowerCase()));
 
+    // For multi-answer: do NOT pre-select/highlight all saved options.
+    // Each option should highlight individually on click, not all at once.
+    const isMulti = this.type === 'multiple';
+
     for (const opt of this.optionsToDisplay) {
-      const idMatch = opt.optionId != null && savedIds.has(String(opt.optionId));
-      const textMatch = !!(opt.text && savedTexts.has(opt.text.trim().toLowerCase()));
-      opt.selected = !!(idMatch || textMatch);
+      if (isMulti) {
+        opt.selected = false;
+      } else {
+        const idMatch = opt.optionId != null && savedIds.has(String(opt.optionId));
+        const textMatch = !!(opt.text && savedTexts.has(opt.text.trim().toLowerCase()));
+        opt.selected = !!(idMatch || textMatch);
+      }
     }
 
     // Also update bindings
     if (this.optionBindings?.length) {
       for (const b of this.optionBindings) {
-        const id = b.option?.optionId;
-        const text = b.option?.text;
-        const idMatch = id != null && savedIds.has(String(id));
-        const textMatch = !!(text && savedTexts.has(text.trim().toLowerCase()));
-        b.isSelected = !!(idMatch || textMatch);
+        if (isMulti) {
+          b.isSelected = false;
+        } else {
+          const id = b.option?.optionId;
+          const text = b.option?.text;
+          const idMatch = id != null && savedIds.has(String(id));
+          const textMatch = !!(text && savedTexts.has(text.trim().toLowerCase()));
+          b.isSelected = !!(idMatch || textMatch);
+        }
       }
     }
 

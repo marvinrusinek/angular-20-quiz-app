@@ -76,15 +76,21 @@ export class OptionUiSyncService {
     ctx: OptionUiSyncContext
   ): void {
     const currentIndex = ctx.getActiveQuestionIndex() ?? 0;
-    const isCorrectHelper = (o: any) => o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || o.correct === '1');
+    const isCorrectHelper = (o: any): boolean => {
+      if (!o) return false;
+      const c = o.correct ?? o.isCorrect ?? (o as any).correct;
+      return c === true || String(c) === 'true' || c === 1 || c === '1';
+    };
 
     this.resetFeedbackAnchorIfQuestionChanged(currentIndex, ctx);
 
     const checked = 'checked' in event ? (event as MatCheckboxChange).checked : true;
-    const isMulti = ctx.type === 'multiple';
+    const correctCountInBindings = ctx.optionBindings.filter(b => isCorrectHelper(b.option)).length;
+    const isTrulyMulti = ctx.type === 'multiple' || (ctx as any).isMultiMode === true || correctCountInBindings > 1;
 
     // UI-LEVEL RESET for single-answer mode (Visuals only, OIS handles service state)
-    if (!isMulti && checked) {
+    // ONLY run if it's definitely NOT a multi-answer scenario.
+    if (!isTrulyMulti && checked) {
       console.log(`[OUS] Authoritative Visual Reset for Q${currentIndex + 1}`);
       // Accumulate history for previous-selection highlighting
       if (!ctx.selectedOptionHistory.includes(index)) {
@@ -128,7 +134,7 @@ export class OptionUiSyncService {
 
     // Apply the selection to the current option (single-answer only)
     // For multi-answer, handleOptionClick already set the correct selection state
-    if (!isMulti) {
+    if (!isTrulyMulti) {
       this.applySingleSelectionPainting(index, ctx);
     }
 
@@ -152,7 +158,7 @@ export class OptionUiSyncService {
     this.refreshFeedbackConfigForClicked(optionBinding, index, effectiveId, ctx);
 
     // Scoring and FET triggering for Multi-answer
-    if (ctx.type === 'multiple') {
+    if (isTrulyMulti) {
       this.checkAndScoreMultiAnswer(ctx, currentIndex);
     }
 
@@ -163,21 +169,16 @@ export class OptionUiSyncService {
 
     this.trackVisited(index, ctx);
 
-    // FINAL FEEDBACK PASS: Ensure the anchor has its content built
-    const finalAnchorIdx = ctx.lastFeedbackOptionId !== -1 ? Number(ctx.lastFeedbackOptionId) : -1;
-    if (finalAnchorIdx !== -1) {
-      const anchorBinding = ctx.optionBindings[finalAnchorIdx];
-      if (anchorBinding) {
-        this.applyFeedback(anchorBinding, finalAnchorIdx, ctx);
-      }
-    }
+    // FINAL FEEDBACK PASS: Only apply if refreshFeedbackConfigForClicked didn't
+    // already set authoritative feedback (it handles resolution logic correctly).
+    // Running applyFeedback after would overwrite with stale buildFeedbackMessage.
+
 
     // optional: refresh directive highlighting after state changes
     this.optionVisualEffectsService.refreshHighlights(ctx.optionBindings);
 
     // AUTHORITATIVE TYPE INFERENCE: Rely on data, not just metadata
-    const correctCountInBindings = ctx.optionBindings.filter(b => isCorrectHelper(b.option)).length;
-    const resolvedType = (correctCountInBindings > 1 || ctx.type === 'multiple')
+    const resolvedType = (isTrulyMulti)
       ? QuestionType.MultipleAnswer
       : QuestionType.SingleAnswer;
 
@@ -348,59 +349,37 @@ export class OptionUiSyncService {
     const qIdx = ctx.getActiveQuestionIndex() ?? 0;
     const selections = this.selectedOptionService.getSelectedOptionsForQuestion(qIdx) ?? [];
 
-    const isCorrectHelper = (o: any) => o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || o.correct === '1');
-    const isMultiLimit = ctx.type === 'multiple' || (ctx as any).isMultiMode;
-
-    // Identify last correct selected by finding most recent in HISTORY
-    let lastCorrectIdx: number | null = null;
-    if (isMultiLimit && ctx.selectedOptionHistory?.length > 0) {
-      for (let j = ctx.selectedOptionHistory.length - 1; j >= 0; j--) {
-        const hIdx = ctx.selectedOptionHistory[j];
-        const numIdx = Number(hIdx);
-        const b = ctx.optionBindings[numIdx];
-        if (ctx.selectedOptionMap.has(hIdx) && b && (b.isSelected || b.option.selected) && isCorrectHelper(b.option)) {
-          lastCorrectIdx = numIdx;
-          break;
-        }
-      }
-    }
-
-    // Fallback to highest index if history is empty
-    if (isMultiLimit && lastCorrectIdx === null) {
-      for (let j = selections.length - 1; j >= 0; j--) {
-        const s = selections[j];
-        if (isCorrectHelper(s)) {
-          const sIdx = (s as any).displayIndex ?? (s as any).index ?? (s as any).idx;
-          if (sIdx != null && Number.isFinite(Number(sIdx))) {
-            lastCorrectIdx = Number(sIdx);
-            break;
-          }
-        }
-      }
-    }
+    const isCorrectHelper = (o: any): boolean => {
+      if (!o) return false;
+      const c = o.correct ?? o.isCorrect ?? (o as any).correct;
+      return c === true || String(c) === 'true' || c === 1 || c === '1';
+    };
+    const correctCount = ctx.optionBindings.filter(b => isCorrectHelper(b.option)).length;
+    const isTrulyMulti = ctx.type === 'multiple' || (ctx as any).isMultiMode || correctCount > 1;
 
     for (const b of ctx.optionBindings) {
       const isSelected = selections.some((sel: any) => {
         const sIdx = sel.displayIndex ?? sel.index ?? sel.idx;
         const sId = sel.optionId;
-        // Match by index or ID
-        return (sIdx != null && Number(sIdx) === b.index) || 
-               (sId != null && b.option.optionId != null && String(sId) === String(b.option.optionId));
-      });
-      b.isSelected = isSelected;
-      b.option.selected = isSelected;
-
-      if (isMultiLimit) {
-        if (isCorrectHelper(b.option)) {
-          // Rule: Only last correct highlighted
-          b.option.highlight = (lastCorrectIdx !== null && b.index === lastCorrectIdx);
-          b.option.showIcon = isSelected;
-        } else {
-          // Rule: All selected incorrect highlighted
-          b.option.highlight = isSelected;
-          b.option.showIcon = isSelected;
+        
+        // Priority 1: Match by index (most reliable for unique options)
+        if (sIdx != null && Number(sIdx) === b.index) return true;
+        
+        // Priority 2: Match by ID - ONLY if ID is valid and unique (not -1, not null)
+        const bId = b.option?.optionId;
+        if (sId != null && sId !== -1 && bId != null && bId !== -1 && String(sId) === String(bId)) {
+          // Additional check: if another binding already claimed this index, don't double-match
+          return true;
         }
-      } else {
+        
+        return false;
+      });
+      
+      b.isSelected = isSelected;
+      if (b.option) {
+        b.option.selected = isSelected;
+        // In Multi-answer, all selected are highlighted (Incorrect=Red, Correct=Green)
+        // In Single-answer, all selected are also highlighted.
         b.option.highlight = isSelected;
         b.option.showIcon = isSelected;
       }
@@ -449,41 +428,20 @@ export class OptionUiSyncService {
       ? ctx.optionsToDisplay
       : currentQuestion?.options ?? [];
 
-    const isCorrectHelper = (o: any) => {
-      if (o === true || o === 'true' || o === 1 || o === '1') return true;
-      if (o && typeof o === 'object' && ('correct' in o)) {
-        const c = o.correct;
+    const isCorrectHelper = (val: any) => {
+      if (!val) return false;
+      if (val === true || val === 'true' || val === 1 || val === '1') return true;
+      if (typeof val === 'object') {
+        const c = val.correct ?? val.isCorrect ?? (val as any).correct;
         return c === true || String(c) === 'true' || c === 1 || c === '1';
       }
       return false;
     };
 
-    // SYNC selectedOptionMap from service state before evaluating
-    const serviceSelections = this.selectedOptionService.getSelectedOptionsForQuestion(qIdx) ?? [];
-    ctx.selectedOptionMap.clear();
-    for (const sel of serviceSelections) {
-      const dIdx = (sel as any).displayIndex ?? (sel as any).index ?? (sel as any).idx;
-      if (dIdx != null && Number.isFinite(Number(dIdx))) {
-        ctx.selectedOptionMap.set(Number(dIdx), true);
-      }
-    }
-
-    // MANDATORY: Factor in the current interaction state immediately
-    const isCurrentlySelected = optionBinding.isSelected || optionBinding.option.selected;
-    if (isCurrentlySelected) {
-      ctx.selectedOptionMap.set(index, true);
-    } else {
-      ctx.selectedOptionMap.delete(index);
-    }
-
-    // Sync BINDINGS from map for accurate evaluation below
-    for (let i = 0; i < ctx.optionBindings.length; i++) {
-      const b = ctx.optionBindings[i];
-      const selected = ctx.selectedOptionMap.has(i);
-      b.isSelected = selected;
-      if (b.option) b.option.selected = selected;
-    }
-
+    // Use existing binding state (set by handleOptionClick) as the source of truth.
+    // Do NOT overwrite bindings from service — handleOptionClick already set the
+    // correct isSelected state for each binding, and overwriting from the service
+    // can restore stale/accumulated selections.
     const selectedOptions: Option[] = ctx.optionBindings
       .filter(b => b.isSelected)
       .map(b => b.option);
@@ -495,30 +453,22 @@ export class OptionUiSyncService {
 
     const correctMessage = this.feedbackService.setCorrectMessage(freshOptions, currentQuestion!);
 
-    // Evaluate resolution
-    // EVALUATE RESOLUTION
-    const correctKeys = new Set<string>();
-    freshOptions.forEach((o, i) => {
-      if (isCorrectHelper(o)) {
-        const id = o.optionId ?? (o as any).id;
-        correctKeys.add(id != null && id !== -1 ? `id:${id}` : `idx:${i}`);
-      }
-    });
-
-    const getKey = (o: any, idx: number) => {
-      const id = o.optionId ?? (o as any).id;
-      if (id != null && id !== -1) return `id:${id}`;
-      return `idx:${idx}`;
-    };
-
-    const futureKeys = new Set<string>();
+    // EVALUATE RESOLUTION — use bindings as single source of truth for both
+    // correct indices and selected indices to guarantee index consistency.
+    const correctIndicesSet = new Set<number>();
+    const futureIndices = new Set<number>();
     ctx.optionBindings.forEach((b, i) => {
-      if (b.isSelected) futureKeys.add(getKey(b.option, i));
+      if (isCorrectHelper(b.option)) correctIndicesSet.add(i);
+      if (b.isSelected) futureIndices.add(i);
     });
 
-    const allCorrectFound = correctKeys.size > 0 && [...correctKeys].every(k => futureKeys.has(k));
-    const numIncorrectInFuture = [...futureKeys].filter(k => !correctKeys.has(k)).length;
+    const allCorrectFound = correctIndicesSet.size > 0 && [...correctIndicesSet].every(i => futureIndices.has(i));
+    const numIncorrectInFuture = [...futureIndices].filter(i => !correctIndicesSet.has(i)).length;
     const isPerfect = allCorrectFound && numIncorrectInFuture === 0;
+
+    // Determine if we are really in multi-mode for the sake of the feedback message
+    const correctCountInBindings = correctIndicesSet.size;
+    const isTrulyMulti = ctx.type === 'multiple' || (ctx as any).isMultiMode === true || correctCountInBindings > 1;
 
     const key = ctx.keyOf(optionBinding.option, index);
     for (const configKey of Object.keys(ctx.feedbackConfigs)) {
@@ -538,12 +488,27 @@ export class OptionUiSyncService {
 
     // Simplified: update the feedback configuration only.
     // Locking is handled authoritatively by OptionLockPolicyService inside updateOptionAndUI.
-    if (allCorrectFound) {
-      if (isPerfect) {
-        if (ctx.feedbackConfigs[key]) {
-          ctx.feedbackConfigs[key].feedback = `You're right! ${correctMessage}`;
-        }
+    const isCorrectTarget = isCorrectHelper(optionBinding.option);
+    
+    if (allCorrectFound && isCorrectTarget) {
+      if (ctx.feedbackConfigs[key]) {
+        ctx.feedbackConfigs[key].feedback = `You're right! ${correctMessage}`;
       }
+    } else if (isTrulyMulti && isCorrectTarget) {
+       // intermediate multi-answer correct feedback
+       const numCorrectSelected = [...futureIndices].filter(i => correctIndicesSet.has(i)).length;
+       const remaining = Math.max(correctIndicesSet.size - numCorrectSelected, 0);
+       if (remaining > 0) {
+          const remText = remaining === 1 ? '1 more correct answer' : `${remaining} more correct answers`;
+          if (ctx.feedbackConfigs[key]) {
+            ctx.feedbackConfigs[key].feedback = `That's correct! Please select ${remText}.`;
+          }
+       }
+    } else {
+       // It's either an incorrect click, or it was wrong somehow
+       if (ctx.feedbackConfigs[key]) {
+         ctx.feedbackConfigs[key].feedback = dynamicFeedback; 
+       }
     }
 
 
@@ -575,12 +540,24 @@ export class OptionUiSyncService {
 
       b.option.selected = chosen;
       b.isSelected = chosen;
+
+      // Sync optionsToDisplay selected flag (binding options are structuredClone'd copies)
+      if (ctx.optionsToDisplay?.[i]) {
+        ctx.optionsToDisplay[i].selected = chosen;
+      }
     }
   }
 
   private checkAndScoreMultiAnswer(ctx: OptionUiSyncContext, questionIndex: number): void {
-    const isCorrectHelper = (o: any): boolean =>
-      o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || o.correct === '1');
+    const isCorrectHelper = (val: any) => {
+      if (!val) return false;
+      if (val === true || val === 'true' || val === 1 || val === '1') return true;
+      if (typeof val === 'object') {
+        const c = val.correct ?? val.isCorrect ?? (val as any).correct;
+        return c === true || String(c) === 'true' || c === 1 || c === '1';
+      }
+      return false;
+    };
     const normalize = (s: unknown): string => String(s ?? '').trim().toLowerCase();
 
     // Get the authoritative question data
@@ -589,10 +566,11 @@ export class OptionUiSyncService {
       ? ctx.optionsToDisplay
       : (question?.options ?? []);
 
-    const correctOptions = freshOptions.filter(isCorrectHelper);
+    const correctOptions = freshOptions.filter(o => isCorrectHelper(o));
     if (correctOptions.length === 0) return;
 
-    const isSingleAnswer = correctOptions.length === 1;
+    const isTrulyMulti = correctOptions.length > 1 || ctx.type === 'multiple';
+    const isActuallySingle = !isTrulyMulti;
 
     // Build a set of correct answer texts for text-based matching
     const correctTextSet = new Set(
@@ -649,7 +627,7 @@ export class OptionUiSyncService {
       }
     }
 
-    if (isSingleAnswer) {
+    if (isActuallySingle) {
       if (correctSelectedCount >= 1 && !hasIncorrect) {
         const alreadyScored =
           this.quizService.questionCorrectness.get(questionIndex) === true;
@@ -674,16 +652,16 @@ export class OptionUiSyncService {
   }
 
   private toggleSelectedOption(clicked: Option, clickedIndex: number, checked: boolean, ctx: OptionUiSyncContext): void {
-    const isMultiple = ctx.type === 'multiple';
-
-    const isCorrectHelper = (o: any) => {
-      if (o === true || o === 'true' || o === 1 || o === '1') return true;
-      if (o && typeof o === 'object' && ('correct' in o)) {
-        const c = o.correct;
+    const isCorrectHelper = (val: any) => {
+      if (val === true || val === 'true' || val === 1 || val === '1') return true;
+      if (val && typeof val === 'object') {
+        const c = val.correct ?? val.isCorrect;
         return c === true || String(c) === 'true' || c === 1 || c === '1';
       }
       return false;
     };
+    const correctCount = (ctx.optionsToDisplay ?? []).filter(o => isCorrectHelper(o)).length;
+    const isMultiple = ctx.type === 'multiple' || correctCount > 1;
 
     const historySet = new Set(ctx.selectedOptionHistory || []);
     for (let i = 0; i < (ctx.optionsToDisplay ?? []).length; i++) {
@@ -696,10 +674,12 @@ export class OptionUiSyncService {
         if (isClicked) {
           o.selected = checked;
         }
-        // For multi, highlight = selected state from bindings (already set by handleOptionClick)
-        const binding = ctx.optionBindings[i];
-        o.highlight = binding?.isSelected || false;
-        o.showIcon = binding?.isSelected || false;
+        
+        const isCorrect = isCorrectHelper(o);
+        const isSelected = !!o.selected;
+
+        o.highlight = isSelected;
+        o.showIcon = isSelected;
       } else {
         o.selected = isClicked ? checked : false;
         o.showIcon = (isClicked && checked) || inHistory;
@@ -760,7 +740,18 @@ export class OptionUiSyncService {
         ? ctx.optionsToDisplay
         : (question.options ?? []);
 
-    const isCorrect = (o: any) => o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || o.correct === '1');
+    const isCorrectHelper = (val: any) => {
+      if (!val) return false;
+      if (val === true || val === 'true' || val === 1 || val === '1') return true;
+      if (typeof val === 'object') {
+        const c = val.correct ?? val.isCorrect ?? (val as any).correct;
+        return c === true || String(c) === 'true' || c === 1 || c === '1';
+      }
+      return false;
+    };
+    const correctCountInBindings = ctx.optionBindings.filter(b => isCorrectHelper(b.option)).length;
+    const isMultipleMode = ctx.type === 'multiple' || (ctx as any).isMultiMode === true || correctCountInBindings > 1;
+    const isTrulyMulti = isMultipleMode;
     const selectedOptions: Option[] = ctx.optionBindings
       .filter((_, idx) => ctx.selectedOptionMap.has(idx))
       .map(b => b.option);
@@ -778,7 +769,7 @@ export class OptionUiSyncService {
 
     // Reveal message for correctMessage
     const correctMessage = this.feedbackService.generateFeedbackForOptions(
-      visualOptions.filter(isCorrect),
+      visualOptions.filter(o => isCorrectHelper(o)),
       visualOptions
     );
 

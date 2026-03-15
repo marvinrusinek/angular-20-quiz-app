@@ -126,19 +126,25 @@ export class SelectionMessageService {
     const { index, qType, opts } = args;
     if (!opts || opts.length === 0) return index === 0 ? START_MSG : CONTINUE_MSG;
 
-    const totalCorrect = opts.filter((o) => !!o?.correct).length;
-    const selectedCorrect = opts.filter((o) => o.selected && o.correct).length;
-    const selectedWrong = opts.filter((o) => o.selected && !o.correct).length;
+    const isCorrectHelper = (o: any) => {
+      if (!o) return false;
+      const c = o.correct ?? o.isCorrect ?? (o as any).correct;
+      return c === true || String(c) === 'true' || c === 1 || c === '1';
+    };
+
+    const totalCorrect = opts.filter(o => isCorrectHelper(o)).length;
+    const selectedCorrect = opts.filter(o => o.selected && isCorrectHelper(o)).length;
+    const selectedWrong = opts.filter(o => o.selected && !isCorrectHelper(o)).length;
 
     if (qType === QuestionType.SingleAnswer) {
       if (selectedCorrect > 0) {
         this._singleAnswerCorrectLock.add(index);
         this._singleAnswerIncorrectLock.delete(index);
-        return 'Please click the Next button to continue...';
+        return 'Please click the Next button to continue.';
       }
       if (selectedWrong > 0) {
         this._singleAnswerIncorrectLock.add(index);
-        return 'Please select the correct answer to continue...';
+        return 'Please select the correct answer to continue.';
       }
       return index === 0 ? START_MSG : CONTINUE_MSG;
     }
@@ -147,14 +153,27 @@ export class SelectionMessageService {
       const remaining = totalCorrect - selectedCorrect;
       if (remaining === 0 && selectedWrong === 0) {
         this._multiAnswerCompletionLock.add(index);
-        return 'Please click the Next button to continue...';
+        const correctIndices = opts
+          .map((o, i) => ({ o, i }))
+          .filter(x => x.o.correct)
+          .map(x => x.i + 1);
+        
+        const optionsList = correctIndices.length > 1
+          ? `Options ${correctIndices.slice(0, -1).join(', ')} and ${correctIndices[correctIndices.length - 1]}`
+          : `Option ${correctIndices[0]}`;
+
+        return `You're right! The correct answers are ${optionsList}.`;
       }
       if (selectedWrong > 0) {
-        return remaining === 0 ? 'Please click the Next button to continue...' : `Select ${remaining} more correct option${remaining !== 1 ? 's' : ''} to continue...`;
+        return remaining === 0 ? 'Please click the Next button to continue.' : `Select ${remaining} more correct answer${remaining !== 1 ? 's' : ''}.`;
       }
-      if (selectedCorrect === 0) return `Please select ${totalCorrect} correct answers to continue...`;
+      if (selectedCorrect === 0) return `Select ${totalCorrect} correct answers.`;
+      
       this._multiAnswerInProgressLock.add(index);
-      return `Select ${remaining} more correct answer${remaining !== 1 ? 's' : ''} to continue...`;
+      if (selectedCorrect > 0) {
+        return `That's correct! Please select ${remaining} more correct answer${remaining !== 1 ? 's' : ''}.`;
+      }
+      return `Please select ${remaining} more correct answer${remaining !== 1 ? 's' : ''} to continue.`;
     }
 
     return index === 0 ? START_MSG : CONTINUE_MSG;
@@ -183,7 +202,7 @@ export class SelectionMessageService {
   public enforceBaselineAtInit(i0: number, qType: QuestionType, totalCorrect: number): void {
     if (this._baselineReleased.has(i0)) return;
     const msg = qType === QuestionType.MultipleAnswer
-      ? `Please select ${totalCorrect} correct answers to continue...`
+      ? `Please select ${totalCorrect} correct answers to continue.`
       : (i0 === 0 ? START_MSG : CONTINUE_MSG);
     this._lastMessageByIndex.set(i0, msg);
     this.pushMessage(msg, i0);
@@ -278,7 +297,7 @@ export class SelectionMessageService {
     return {
       optionId: id as any,
       text: String(o?.text ?? o?.label ?? ''),
-      correct: !!o?.correct,
+      correct: !!(o?.correct ?? o?.isCorrect),
       value: o?.value ?? id,
       selected,
       highlight: selected,

@@ -68,13 +68,10 @@ export class OptionInteractionService {
     updateOptionAndUI: (b: OptionBindings, i: number, ev: any, ctx?: any) => void
   ): void {
     const qIdx = state.currentQuestionIndex;
-    const isCorrectHelper = (val: any) => {
-      if (val === true || val === 'true' || val === 1 || val === '1') return true;
-      if (val && typeof val === 'object' && ('correct' in val)) {
-        const c = val.correct;
-        return c === true || String(c) === 'true' || c === 1 || c === '1';
-      }
-      return false;
+    const isCorrectHelper = (o: any): boolean => {
+      if (!o) return false;
+      const c = o.correct ?? o.isCorrect ?? (o as any).correct;
+      return c === true || String(c) === 'true' || c === 1 || c === '1';
     };
 
     // Mark interaction immediately
@@ -93,13 +90,12 @@ export class OptionInteractionService {
     // Guard: disabled
     if (binding.disabled) return;
 
-    // USEFUL DERIVED VALUES
     const bindingsForScore = state.optionBindings ?? [];
     const correctCountInBindings = bindingsForScore.filter(b => isCorrectHelper(b.option)).length;
-    // Determine if we are in multi-answer behavior
-    const isMultipleMode = state.type === 'multiple';
+    const isMultipleMode = state.type === 'multiple' || (state as any).isMultiMode === true || correctCountInBindings > 1;
+    const isTrulyMulti = isMultipleMode;
 
-    console.log(`[OIS] Q${qIdx + 1}: correctCount=${correctCountInBindings} Type=${state.type} isMultipleMode=${isMultipleMode}`);
+    console.log(`[OIS] Q${qIdx + 1}: correctCount=${correctCountInBindings} stateType=${state.type} isMultipleMode=${isMultipleMode}`);
 
     // Guard: prevent deselection of correct answers in multiple
     if (isMultipleMode && binding.isSelected && isCorrectHelper(binding.option)) {
@@ -149,22 +145,38 @@ export class OptionInteractionService {
     }
 
     console.log(`[OIS] Q${qIdx + 1}: Resulting futureSelection.length=${futureSelection.length}`);
-    const futureKeys = new Set(futureSelection.map(s => {
-      // Robustly extract key from selected option (which might be raw or canonical)
-      const sIdx = (s as any).displayIndex ?? (s as any).index ?? (s as any).idx;
-      return getEffectiveId(s, sIdx);
-    }));
-
-    console.log(`[OIS_DEBUG] futureKeys:`, Array.from(futureKeys));
-
-    // SYNC INTERACTION STATE BACK TO CONTEXT/STATE MAP
-    // This is critical because updateOptionAndUI and syncHighlightStateFromService 
-    // rely on these values to properly determine highlights and icons.
-    state.selectedOptionMap.clear();
+    const futureKeys = new Set<number>();
     futureSelection.forEach(s => {
-      const sIdx = (s as any).displayIndex ?? (s as any).index ?? (s as any).idx;
-      if (sIdx != null) state.selectedOptionMap.set(sIdx, true);
+      const sId = (s as any).optionId;
+      const sText = (s as any).text?.trim().toLowerCase();
+      let idx = (s as any).displayIndex ?? (s as any).index ?? (s as any).idx;
+
+      if (idx === undefined || idx === null || idx === -1 || isNaN(Number(idx))) {
+        const foundIdx = state.optionBindings.findIndex(b => {
+          if (b.option === s) return true;
+          const bId = b.option?.optionId;
+          if (sId != null && sId !== -1 && bId != null && bId !== -1 && String(sId) === String(bId)) return true;
+          if (sText && b.option?.text?.trim().toLowerCase() === sText) return true;
+          return false;
+        });
+        if (foundIdx !== -1) idx = foundIdx;
+        else {
+          const oIdx = state.optionsToDisplay.findIndex(o => {
+            if (o === s) return true;
+            if (sId != null && sId !== -1 && o.optionId != null && o.optionId !== -1 && String(sId) === String(o.optionId)) return true;
+            if (sText && o.text?.trim().toLowerCase() === sText) return true;
+            return false;
+          });
+          if (oIdx !== -1) idx = oIdx;
+        }
+      }
+      if (idx !== undefined && idx !== null && idx !== -1 && !isNaN(Number(idx))) {
+        futureKeys.add(Number(idx));
+      }
     });
+
+    state.selectedOptionMap.clear();
+    futureKeys.forEach(k => state.selectedOptionMap.set(k, true));
 
     // UPDATE UI STATE BASICS
     const newState = !isCurrentlySelected;
@@ -173,27 +185,29 @@ export class OptionInteractionService {
     if (newState && !state.selectedOptionHistory.includes(index)) {
       state.selectedOptionHistory.push(index);
     } else if (!newState) {
-      state.selectedOptionHistory = state.selectedOptionHistory.filter(i => i !== index);
+      const hIdx = state.selectedOptionHistory.indexOf(index);
+      if (hIdx !== -1) {
+        state.selectedOptionHistory.splice(hIdx, 1);
+      }
     }
 
-    const correctKeys = new Set<number | string>();
+    const correctIndicesSet = new Set<number>();
     questionOptions.forEach((o, i) => {
-      if (isCorrectHelper(o)) correctKeys.add(getEffectiveId(o, i));
+      if (isCorrectHelper(o)) correctIndicesSet.add(i);
     });
 
-    const allCorrectFound = correctKeys.size > 0 && [...correctKeys].every(k => futureKeys.has(k));
+    const allCorrectFound = correctIndicesSet.size > 0 && [...correctIndicesSet].every(i => futureKeys.has(i));
     const numIncorrectInFuture = futureSelection.filter(o => !isCorrectHelper(o)).length;
     const isPerfect = allCorrectFound && numIncorrectInFuture === 0;
 
     // COMMIT STATE
     simulatedSelection = [...futureSelection];
     this.selectedOptionService.syncSelectionState(qIdx, simulatedSelection);
-    // No more ID generation here - trust SelectedOptionService and QuizService
     this.quizService.updateUserAnswer(
       qIdx,
-      simulatedSelection.map(o => {
-        const sIdx = (o as any).displayIndex ?? (o as any).index ?? (o as any).idx;
-        const eid = getEffectiveId(o, sIdx);
+      Array.from(futureKeys).map(idx => {
+        const o = state.optionsToDisplay[idx] || state.optionBindings[idx]?.option;
+        const eid = getEffectiveId(o, idx);
         return typeof eid === 'number' ? eid : -1;
       }).filter(id => id !== -1)
     );
@@ -230,18 +244,30 @@ export class OptionInteractionService {
       state.selectedOptionMap.clear();
       state.selectedOptionMap.set(targetKey, true);
       state.feedbackConfigs = {};
-    } else { // For multiple mode, update based on futureKeys
+    } else { // Multiple mode: two-pass update to ensure correct results regardless of binding order
+      // Pass 1: Sync 'selected' state for all bindings AND optionsToDisplay based on futureKeys.
+      // Binding options are structuredClone'd copies of optionsToDisplay, so both must be updated.
       state.optionBindings.forEach((b, i) => {
-        const bKey = getEffectiveId(b.option, i);
-        const isCurrentlySelected = futureKeys.has(bKey);
-
+        const isCurrentlySelected = futureKeys.has(i);
         b.isSelected = isCurrentlySelected;
         if (b.option) {
           b.option.selected = isCurrentlySelected;
-          b.option.highlight = isCurrentlySelected;
-          b.option.showIcon = isCurrentlySelected;
         }
-        // Feedback for multiple mode is handled later, not reset here
+        if (state.optionsToDisplay?.[i]) {
+          state.optionsToDisplay[i].selected = isCurrentlySelected;
+        }
+      });
+
+      // Pass 2: Calculate 'highlight' and 'showIcon' based on the updated state
+      state.optionBindings.forEach((b, i) => {
+        if (!b.option) return;
+        const isCurrentlySelected = b.isSelected;
+        b.option.highlight = isCurrentlySelected;
+        b.option.showIcon = isCurrentlySelected;
+        if (state.optionsToDisplay?.[i]) {
+          state.optionsToDisplay[i].highlight = isCurrentlySelected;
+          state.optionsToDisplay[i].showIcon = isCurrentlySelected;
+        }
       });
     }
 
@@ -268,24 +294,30 @@ export class OptionInteractionService {
     if (!isCurrentlySelected) {
       state.lastFeedbackOptionId = index;
     } else {
+      // Robustly find the most recent in history that is STILL selected
       const stillSelectedId = [...(state.selectedOptionHistory || [])]
         .reverse()
-        .find(id => futureKeys.has(getEffectiveId(state.optionsToDisplay[id as any], id as any)));
+        .find(histId => {
+          // Find the option in optionsToDisplay that corresponds to this history entry
+          const oIdx = state.optionsToDisplay.findIndex((_, i) => i === histId || String(i) === String(histId));
+          const opt = oIdx !== -1 ? state.optionsToDisplay[oIdx] : state.optionsToDisplay.find(o => o.optionId != null && o.optionId !== -1 && o.optionId == histId);
+          return opt && futureKeys.has(getEffectiveId(opt, state.optionsToDisplay.indexOf(opt)));
+        });
 
       if (stillSelectedId !== undefined) {
-        state.lastFeedbackOptionId = Number(stillSelectedId);
+        // Find its reliable index to use as the lastFeedbackOptionId
+        const finalIdx = state.optionsToDisplay.findIndex((_, i) => i === stillSelectedId || String(i) === String(stillSelectedId));
+        state.lastFeedbackOptionId = finalIdx !== -1 ? finalIdx : stillSelectedId;
       } else {
         state.lastFeedbackOptionId = -1;
       }
     }
 
     // AUTHORITATIVE FEEDBACK ANCHORING
-    if (!isMultipleMode) {
-      state.showFeedbackForOption = {}; // Reset completely for single-answer questions
-    }
+    // Reset completely for both single and multi-answer questions so feedback only shows under the LAST selection.
+    state.showFeedbackForOption = {}; 
 
     state.showFeedbackForOption = {
-      ...state.showFeedbackForOption,
       [targetKey]: true,
       [index]: true,
       [`idx:${index}`]: true
@@ -311,7 +343,7 @@ export class OptionInteractionService {
         qType: isMultipleMode ? QuestionType.MultipleAnswer : QuestionType.SingleAnswer,
         opts: state.optionBindings.map((b, i) => ({
           ...b.option,
-          selected: futureKeys.has(getEffectiveId(b.option, i))
+          selected: futureKeys.has(i)
         })) as Option[]
       });
       this.selectionMessageService.selectionMessageSubject.next(message);

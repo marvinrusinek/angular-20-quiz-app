@@ -2910,7 +2910,7 @@ export class QuizService {
         ...option,
         optionId: id,
         displayOrder: index,
-        correct: option.correct === true || match?.correct === true,
+        correct: option.correct === true,
         selected: match?.selected === true || option.selected === true,
         highlight: match?.highlight ?? option.highlight ?? false,
         showIcon: match?.showIcon ?? option.showIcon ?? false

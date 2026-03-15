@@ -184,6 +184,11 @@ export class SharedOptionComponent
   // Only cleared on question change.
   private _lastClickFeedback: { index: number; config: FeedbackProps; questionIdx: number } | null = null;
 
+  // DURABLE multi-answer selection tracker. Survives binding regeneration.
+  // Maps question index → Set of selected display indices.
+  // Only cleared on question change (resetStateForNewQuestion / ngOnChanges).
+  private _multiSelectByQuestion = new Map<number, Set<number>>();
+
   destroy$ = new Subject<void>();
 
   constructor(
@@ -240,21 +245,18 @@ export class SharedOptionComponent
 
     let result = false;
 
-    // Explicit check from Input/Config - HIGHEST PRIORITY
+    // Data inference (fixes multiple-answer questions even if explicitly marked single)
+    const currentQ = this.getQuestionAtDisplayIndex(idx) ?? this.currentQuestion;
+    if (currentQ?.options) {
+      const correctOptions = currentQ.options.filter((o: Option) => {
+        const c = (o as any).correct ?? (o as any).isCorrect;
+        return c === true || String(c) === 'true' || c === 1 || c === '1';
+      });
+      if (correctOptions.length > 1) result = true;
+    }
+
     if (this.type === 'multiple' || this.config?.type === 'multiple') {
       result = true;
-    } else if (this.type === 'single' || this.config?.type === 'single') {
-      result = false;
-    } else {
-      // Data inference (fixes multiple-answer questions)
-      const currentQ = this.getQuestionAtDisplayIndex(idx) ?? this.currentQuestion;
-      if (currentQ?.options) {
-        const correctOptions = currentQ.options.filter((o: Option) => {
-          const c = (o as any).correct;
-          return c === true || String(c) === 'true' || c === 1 || c === '1';
-        });
-        if (correctOptions.length > 1) result = true;
-      }
     }
 
     this._isMultiModeCache = result;
@@ -301,6 +303,7 @@ export class SharedOptionComponent
     this.forceDisableAll = false;  // reset forceDisableAll for new question
     this.selectedOptions.clear();
     this.selectedOptionMap.clear();
+    this._multiSelectByQuestion.clear();
     this.feedbackConfigs = {};
     this.showFeedbackForOption = {};
     this._feedbackDisplay = null;
@@ -1005,7 +1008,41 @@ export class SharedOptionComponent
         if (match) {
           b.isSelected = !!match.selected;
           b.option.selected = !!match.selected;
-          b.option.highlight = !!match.highlight;
+
+          // Apply 'only last correct highlighted' rule for multi-answer questions
+          if (this.isMultiMode) {
+            const isCorrect = this.isCorrect(b.option);
+            if (isCorrect) {
+              // Identify last correct selected by finding most recent in HISTORY
+              let lastCorrectIdx: number | null = null;
+              if (this.selectedOptionHistory?.length > 0) {
+                for (let j = this.selectedOptionHistory.length - 1; j >= 0; j--) {
+                  const histId = this.selectedOptionHistory[j];
+                  // Match by index first (since OIS/OUS typically push indices)
+                  let hIdx = this.optionBindings.findIndex((_, bIdx) => bIdx === histId || String(bIdx) === String(histId));
+                  if (hIdx === -1) {
+                    // Fallback to ID match
+                    hIdx = this.optionBindings.findIndex(b => (b.option?.optionId != null && b.option.optionId !== -1 && b.option.optionId == histId));
+                  }
+
+                  if (hIdx !== -1) {
+                    const optAtH = this.optionBindings[hIdx]?.option;
+                    if (optAtH?.selected && this.isCorrect(optAtH)) {
+                      lastCorrectIdx = hIdx;
+                      break;
+                    }
+                  }
+                }
+              }
+              b.option.highlight = (lastCorrectIdx !== null && idx === lastCorrectIdx);
+            } else {
+              // Rule: incorrect stays highlighted if selected
+              b.option.highlight = !!match.selected; // Highlight if it was selected
+            }
+          } else {
+            // Single-answer mode: highlight if selected
+            b.option.highlight = !!match.selected;
+          }
           b.option.showIcon = !!match.showIcon;
         } else {
           // Explicitly clear highlighting if it's no longer in the service sync
@@ -1027,7 +1064,28 @@ export class SharedOptionComponent
 
         if (match) {
           opt.selected = !!match.selected;
-          opt.highlight = !!match.highlight;
+          // Apply 'only last correct highlighted' rule for multi-answer questions
+          if (this.isMultiMode) {
+            const isCorrect = this.isCorrect(opt);
+            if (isCorrect) {
+              let lastCorrectIdx: number | null = null;
+              if (this.selectedOptionHistory?.length > 0) {
+                for (let j = this.selectedOptionHistory.length - 1; j >= 0; j--) {
+                  const hIdx = Number(this.selectedOptionHistory[j]);
+                  const optAtH = this.optionsToDisplay[hIdx];
+                  if (optAtH?.selected && this.isCorrect(optAtH)) {
+                    lastCorrectIdx = hIdx;
+                    break;
+                  }
+                }
+              }
+              opt.highlight = (lastCorrectIdx !== null && idx === lastCorrectIdx);
+            } else {
+              opt.highlight = !!match.selected;
+            }
+          } else {
+            opt.highlight = !!match.selected;
+          }
           opt.showIcon = !!match.showIcon;
         } else {
           opt.selected = false;
@@ -1282,53 +1340,36 @@ export class SharedOptionComponent
   }
 
   buildSharedOptionConfig(b: OptionBindings, i: number): SharedOptionConfig {
-    // Verify selection state from service.
     const qIndex = this.resolveCurrentQuestionIndex();
-    const currentSelections = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
-
-    const isActuallySelected = currentSelections.some(s => {
-      const selIdx = (s as any).displayIndex ?? (s as any).index ?? (s as any).idx;
-      return selIdx != null && Number(selIdx) === i;
-    });
-
-    const isCorrect = (o: any) => o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || o.correct === '1');
     const isMulti = this.isMultiMode;
 
-    // Identify last correct selected among ALL current bindings
-    let lastCorrectIdx: number | null = null;
-    if (isMulti) {
-      for (let j = this.optionBindings.length - 1; j >= 0; j--) {
-        const bRef = this.optionBindings[j];
-        if (bRef.isSelected && isCorrect(bRef.option)) {
-          lastCorrectIdx = j;
-          break;
-        }
-      }
-    }
+    // For multi-answer: trust ONLY b.isSelected (set authoritatively by click handler).
+    // Do NOT read from SelectedOptionService here — that causes all saved selections
+    // to highlight simultaneously instead of individually as clicked.
+    const isActuallySelected = isMulti
+      ? b.isSelected
+      : (() => {
+          const currentSelections = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
+          return currentSelections.some(s => {
+            const selIdx = (s as any).displayIndex ?? (s as any).index ?? (s as any).idx;
+            return selIdx != null && Number(selIdx) === i;
+          });
+        })();
 
     const optionKey = this.keyOf(b.option, i);
     const showCorrectOnTimeout = this.timerExpiredForQuestion
       && (this.timeoutCorrectOptionKeys.has(optionKey) || !!b.option.correct);
 
-    const isCorrectRow = isCorrect(b.option);
-
-    // Prefer existing highlight/selected flags if they were already set by services
-    // Otherwise calculate based on the rule
-    let shouldHighlight = !!b.option.highlight;
-    if (!shouldHighlight && (isActuallySelected || showCorrectOnTimeout)) {
-      if (isMulti) {
-        if (isCorrectRow) {
-          shouldHighlight = (lastCorrectIdx !== null && i === lastCorrectIdx) || showCorrectOnTimeout;
-        } else {
-          shouldHighlight = true;
-        }
-      } else {
-        shouldHighlight = true;
-      }
-    }
+    // For multi-answer: highlight = isSelected from binding (authoritative).
+    // For single-answer: highlight from binding flags or service.
+    let shouldHighlight = isMulti
+      ? (!!b.option.highlight || showCorrectOnTimeout)
+      : (!!b.option.highlight || isActuallySelected || showCorrectOnTimeout);
 
     // Also check if we're on the correct question (prevent Q2 state showing on Q3)
     const isOnCorrectQuestion = this.lastProcessedQuestionIndex === qIndex;
+    // For shouldResetBackground: check service for selection count (both single and multi)
+    const currentSelections = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
 
     const verifiedOption = {
       ...b.option,
@@ -1380,6 +1421,15 @@ export class SharedOptionComponent
 
 
 
+  private isCorrect(o: any): boolean {
+    if (o === true || o === 'true' || o === 1 || o === '1') return true;
+    if (o && typeof o === 'object') {
+      const c = o.correct ?? o.isCorrect ?? (o as any).correct;
+      return c === true || String(c) === 'true' || c === 1 || c === '1';
+    }
+    return false;
+  }
+
   preserveOptionHighlighting(): void {
     // const isCorrectHelper = (o: any) => o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || o.correct === '1');
     const isMulti = this.isMultiMode;
@@ -1389,7 +1439,7 @@ export class SharedOptionComponent
       // Find the last selected correct option (if any)
       let lastSelectedCorrectId = -1;
       for (const opt of [...this.optionsToDisplay].reverse()) {
-        if (opt.selected && isCorrectHelper(opt)) {
+        if (opt.selected && this.isCorrect(opt)) {
           lastSelectedCorrectId = opt.optionId ?? -1;
           break;
         }
@@ -1401,7 +1451,7 @@ export class SharedOptionComponent
           continue;
         }
         
-        const isCorrect = isCorrectHelper(option);
+        const isCorrect = this.isCorrect(option);
         if (isCorrect) {
           // Rule: only last correct stays highlighted
           option.highlight = (option.optionId === lastSelectedCorrectId);
@@ -1418,9 +1468,44 @@ export class SharedOptionComponent
         }
       } */
     for (const option of this.optionsToDisplay) {
-      // In multi-answer mode each selected option should keep its own highlight
-      // state (wrong=red, correct=green) and should not drive sibling highlights.
-      option.highlight = isMulti ? !!option.selected : !!option.selected;
+      if (!option.selected) {
+        option.highlight = false;
+        option.showIcon = false;
+        continue;
+      }
+      
+      const isCorrect = this.isCorrect(option);
+      if (isMulti) {
+         if (isCorrect) {
+            // Search for last correct in history
+            let lastCorrectIdx = -1;
+            if (this.selectedOptionHistory?.length > 0) {
+              for (let j = this.selectedOptionHistory.length - 1; j >= 0; j--) {
+                const histId = this.selectedOptionHistory[j];
+                // Match by index first
+                let hIdx = this.optionsToDisplay.findIndex((_, oIdx) => oIdx === histId || String(oIdx) === String(histId));
+                if (hIdx === -1) {
+                  // Fallback to ID
+                  hIdx = this.optionsToDisplay.findIndex(o => (o.optionId != null && o.optionId !== -1 && o.optionId == histId));
+                }
+
+                if (hIdx !== -1) {
+                  const oH = this.optionsToDisplay[hIdx];
+                  if (oH?.selected && this.isCorrect(oH)) {
+                    lastCorrectIdx = hIdx;
+                    break;
+                  }
+                }
+              }
+            }
+            option.highlight = (this.optionsToDisplay.indexOf(option) === lastCorrectIdx);
+         } else {
+            option.highlight = true;
+         }
+      } else {
+         option.highlight = true;
+      }
+      option.showIcon = true;
     }
   }
 
@@ -1835,12 +1920,17 @@ export class SharedOptionComponent
       this.selectedOptions.add(Number(id));
     }
 
-    this.optionBindings = this.optionBindings.map(b => ({
-      ...b,
-      showFeedbackForOption: { ...this.showFeedbackForOption },
-      showFeedback: this.showFeedback,
-      disabled: this.computeDisabledState(b.option, b.index)
-    }));
+    // Sync from authoritative interaction state
+    if (ctx.optionBindings) {
+      this.optionBindings = [...ctx.optionBindings];
+    } else {
+      this.optionBindings = this.optionBindings.map(b => ({
+        ...b,
+        showFeedbackForOption: { ...this.showFeedbackForOption },
+        showFeedback: this.showFeedback,
+        disabled: this.computeDisabledState(b.option, b.index)
+      }));
+    }
 
     this.updateBindingSnapshots();
 
@@ -2812,6 +2902,13 @@ export class SharedOptionComponent
   }
 
   public generateOptionBindings(): void {
+    // Guard: do NOT regenerate bindings once the user has clicked on this question.
+    // Regeneration wipes isSelected/highlight state, breaking multi-answer tracking.
+    if (this.hasUserClicked && this.optionBindings?.length > 0) {
+      console.log('[generateOptionBindings] SKIPPED — user has already clicked, preserving binding state');
+      return;
+    }
+
     const currentIndex = this.getActiveQuestionIndex() ?? 0;
 
     // Always start from a fresh clone of options (defensive)
@@ -3048,8 +3145,14 @@ export class SharedOptionComponent
 
       const isSelected = savedIds.has(effectiveId) || savedIds.has(String(effectiveId));
 
-      if (isSelected || highlightSet.has(effectiveId)) {
+      // For multi-answer: do NOT pre-highlight saved selections.
+      // Highlighting should only happen on individual click.
+      // For single-answer: restore highlight for previously selected option.
+      const isMulti = this.isMultiMode;
+      if (!isMulti && (isSelected || highlightSet.has(effectiveId))) {
         opt.highlight = true;
+      } else if (isMulti) {
+        opt.highlight = false;
       }
 
       return getBindings(opt, idx, isSelected);
@@ -3467,7 +3570,59 @@ export class SharedOptionComponent
     // ONLY use _feedbackDisplay — it is the single source of truth for
     // which option shows feedback and what that feedback content is.
     if (this._feedbackDisplay?.idx === i && this._feedbackDisplay.config?.showFeedback) {
-      return this._feedbackDisplay.config;
+      let config = this._feedbackDisplay.config;
+
+      // AUTHORITATIVE MULTI-ANSWER OVERRIDE using durable tracker.
+      // The _multiSelectByQuestion map survives binding regeneration and
+      // is the ONLY reliable source of which options are currently selected.
+      const qIdx = this.getActiveQuestionIndex();
+      const isCorrectFlag = (o: any) => o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || String(o.correct) === '1');
+
+      // Get correct indices from currentQuestion (matches displayed question)
+      const feedbackQ = this.currentQuestion ?? this.getQuestionAtDisplayIndex(qIdx);
+      const feedbackQOpts = feedbackQ?.options ?? [];
+      let correctIndicesArr: number[] = feedbackQOpts
+        .map((o: any, idx: number) => isCorrectFlag(o) ? idx : -1)
+        .filter(idx => idx >= 0);
+
+      const effectiveMultiMode = this.isMultiMode || this.type === 'multiple' || correctIndicesArr.length > 1;
+      const durableSelected = this._multiSelectByQuestion.get(qIdx);
+
+      if (effectiveMultiMode && durableSelected && durableSelected.size > 0 && correctIndicesArr.length > 0) {
+        const isClickedCorrect = correctIndicesArr.includes(i);
+        const correctIdxs1Based = correctIndicesArr.map(idx => idx + 1);
+        let correctSelected = 0;
+        let incorrectSelected = 0;
+
+        for (const selIdx of durableSelected) {
+          if (correctIndicesArr.includes(selIdx)) correctSelected++;
+          else incorrectSelected++;
+        }
+
+        const totalCorrect = correctIndicesArr.length;
+        const remaining = Math.max(totalCorrect - correctSelected, 0);
+        let newFeedback = config.feedback;
+
+        if (isClickedCorrect) {
+          if (remaining === 0 && incorrectSelected === 0) {
+            const optionsList = correctIdxs1Based.length > 1
+              ? `Options ${correctIdxs1Based.slice(0, -1).join(', ')} and ${correctIdxs1Based[correctIdxs1Based.length - 1]}`
+              : `Option ${correctIdxs1Based[0]}`;
+            newFeedback = `You're right! The correct answers are ${optionsList}.`;
+          } else if (remaining > 0) {
+            const remText = remaining === 1 ? '1 more correct answer' : `${remaining} more correct answers`;
+            newFeedback = `That's correct! Please select ${remText}.`;
+          }
+        } else {
+          newFeedback = 'Not this one, try again!';
+        }
+
+        if (newFeedback !== config.feedback) {
+          config = { ...config, feedback: newFeedback };
+        }
+      }
+
+      return config;
     }
     return null;
   }
@@ -3779,6 +3934,116 @@ export class SharedOptionComponent
     }
     this.optionBindings = state.optionBindings;
 
+    // DURABLE: Track selected indices INCREMENTALLY — just add the current click.
+    // Does NOT depend on state.selectedOptionMap (which can be stale/wrong).
+    const qIdx = this.getActiveQuestionIndex();
+    if (!this._multiSelectByQuestion.has(qIdx)) {
+      this._multiSelectByQuestion.set(qIdx, new Set<number>());
+    }
+    const durableSet = this._multiSelectByQuestion.get(qIdx)!;
+    durableSet.add(index); // Simply accumulate every click
+    console.log(`[SOC] DURABLE tracker Q${qIdx + 1}: clicked=${index}, all selected=[${[...durableSet]}]`);
+
+    // Get correct indices from currentQuestion (set by parent, matches displayed question)
+    const isCorrectFlag = (o: any) => o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || String(o.correct) === '1');
+    const question = this.currentQuestion ?? this.getQuestionAtDisplayIndex(qIdx);
+    const questionOpts = question?.options ?? [];
+    const correctIndicesFromQ = questionOpts
+      .map((o: any, idx: number) => isCorrectFlag(o) ? idx : -1)
+      .filter((idx: number) => idx >= 0);
+    const correctCountFromQ = correctIndicesFromQ.length;
+    const isMultiFromQ = this.isMultiMode || this.type === 'multiple' || correctCountFromQ > 1;
+
+    console.log(`[SOC] Q${qIdx + 1} correctIndices=${correctIndicesFromQ} correctCount=${correctCountFromQ} questionText="${(question?.questionText ?? '').slice(0, 40)}"`);
+
+    if (isMultiFromQ && correctCountFromQ > 0) {
+      const correctSet = new Set(correctIndicesFromQ);
+      const isClickedCorrect = correctSet.has(index);
+
+      // Count selections
+      let correctSel = 0;
+      let incorrectSel = 0;
+      for (const selIdx of durableSet) {
+        if (correctSet.has(selIdx)) correctSel++;
+        else incorrectSel++;
+      }
+      const remainingMsg = Math.max(correctCountFromQ - correctSel, 0);
+      const correctIdxs1Based = correctIndicesFromQ.map(i => i + 1);
+
+      console.log(`[SOC] MULTI-ANSWER STATE Q${qIdx + 1}: correctSel=${correctSel}, incorrectSel=${incorrectSel}, remaining=${remainingMsg}, correctIndices=${correctIndicesFromQ}, durableSet=[${[...durableSet]}]`);
+
+      // 1. HIGHLIGHT: Create new binding references so Angular detects changes
+      this.optionBindings = this.optionBindings.map((ob, bi) => {
+        const isInDurable = durableSet.has(bi);
+        return {
+          ...ob,
+          isSelected: isInDurable,
+          option: ob.option ? {
+            ...ob.option,
+            selected: isInDurable,
+            highlight: isInDurable,
+            showIcon: isInDurable,
+          } : ob.option
+        };
+      });
+
+      // 2. FEEDBACK TEXT under last clicked option
+      let feedbackText: string;
+      if (isClickedCorrect) {
+        if (remainingMsg === 0) {
+          const optsList = correctIdxs1Based.length > 1
+            ? `Options ${correctIdxs1Based.slice(0, -1).join(', ')} and ${correctIdxs1Based[correctIdxs1Based.length - 1]}`
+            : `Option ${correctIdxs1Based[0]}`;
+          feedbackText = `You're right! The correct answers are ${optsList}.`;
+        } else {
+          const remTxt = remainingMsg === 1 ? '1 more correct answer' : `${remainingMsg} more correct answers`;
+          feedbackText = `That's correct! Please select ${remTxt}.`;
+        }
+      } else {
+        feedbackText = 'Not this one, try again!';
+      }
+
+      // Force _feedbackDisplay with correct text
+      const correctMessage = this.feedbackService.setCorrectMessage(
+        (this.optionsToDisplay ?? []).filter(o => o && typeof o === 'object'),
+        this.currentQuestion!
+      );
+      this._feedbackDisplay = {
+        idx: index,
+        config: {
+          feedback: feedbackText,
+          showFeedback: true,
+          correctMessage,
+          selectedOption: binding.option,
+          options: this.optionsToDisplay ?? [],
+          question: this.currentQuestion ?? null,
+          idx: index
+        } as FeedbackProps
+      };
+      console.log(`[SOC] FORCED _feedbackDisplay: idx=${index} text="${feedbackText}"`);
+
+      // 3. SELECTION MESSAGE in footer
+      let selMsg: string;
+      if (remainingMsg === 0) {
+        const optsList = correctIdxs1Based.length > 1
+          ? `Options ${correctIdxs1Based.slice(0, -1).join(', ')} and ${correctIdxs1Based[correctIdxs1Based.length - 1]}`
+          : `Option ${correctIdxs1Based[0]}`;
+        selMsg = `You're right! The correct answers are ${optsList}.`;
+      } else if (correctSel > 0) {
+        const remTxt = remainingMsg === 1 ? '1 more correct answer' : `${remainingMsg} more correct answers`;
+        selMsg = `That's correct! Please select ${remTxt}.`;
+      } else {
+        selMsg = `Please select ${correctCountFromQ} correct answers to continue.`;
+      }
+      this.selectionMessageService.selectionMessageSubject.next(selMsg);
+      console.log(`[SOC] FORCED selMsg Q${qIdx + 1}: "${selMsg}"`);
+
+      // Skip the normal _feedbackDisplay builder below for multi-answer
+      this.showFeedback = true;
+      this.cdRef.detectChanges();
+      return; // <-- EARLY RETURN: bypass ALL downstream feedback/display logic
+    }
+
     // FIX: Build _feedbackDisplay directly here, after all state is final.
     // This bypasses the complex service pipeline and guarantees feedback shows.
     this._feedbackDisplay = null;
@@ -3791,10 +4056,65 @@ export class SharedOptionComponent
         const byIdx: FeedbackProps | undefined = (Object.values(this.feedbackConfigs) as FeedbackProps[]).find(
           c => c?.idx === index && c.showFeedback
         );
-        const cfg: FeedbackProps | undefined =
+        let cfg: FeedbackProps | undefined =
           (byKey?.showFeedback ? byKey : undefined) ??
           byIdx ??
           (this.activeFeedbackConfig?.showFeedback ? this.activeFeedbackConfig : undefined);
+
+        // LAST-MILE OVERRIDE: Recompute multi-answer feedback directly from
+        // authoritative binding state. The service pipeline can produce stale
+        // counts due to timing, so we verify and fix the message here.
+        const isCorrectFlag = (o: any) => o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || String(o.correct) === '1');
+        const correctCountFromBindings = this.optionBindings.filter(b => isCorrectFlag(b.option)).length;
+        const effectiveMultiMode = this.isMultiMode || this.type === 'multiple' || correctCountFromBindings > 1;
+
+        if (cfg?.showFeedback && effectiveMultiMode) {
+          const isClickedCorrect = isCorrectFlag(clickedBinding.option);
+          const correctIdxs: number[] = [];
+          let correctSelected = 0;
+          let incorrectSelected = 0;
+          for (let bi = 0; bi < this.optionBindings.length; bi++) {
+            const b = this.optionBindings[bi];
+            const bCorrect = isCorrectFlag(b.option);
+            if (bCorrect) correctIdxs.push(bi + 1);
+            if (b.isSelected || b.option?.selected) {
+              if (bCorrect) correctSelected++;
+              else incorrectSelected++;
+            }
+          }
+          const totalCorrect = correctIdxs.length;
+          const remaining = Math.max(totalCorrect - correctSelected, 0);
+
+          console.log(`[SOC] LAST-MILE DEBUG: isMultiMode=${this.isMultiMode} type=${this.type} effectiveMulti=${effectiveMultiMode} correctCountFromBindings=${correctCountFromBindings}`, {
+            isClickedCorrect,
+            correctIdxs,
+            correctSelected,
+            incorrectSelected,
+            totalCorrect,
+            remaining,
+            bindings: this.optionBindings.map((b, i) => ({
+              i,
+              isSelected: b.isSelected,
+              optSelected: b.option?.selected,
+              correct: b.option?.correct,
+              text: b.option?.text?.slice(0, 20)
+            }))
+          });
+
+          if (isClickedCorrect) {
+            if (remaining === 0 && incorrectSelected === 0) {
+              const optionsList = correctIdxs.length > 1
+                ? `Options ${correctIdxs.slice(0, -1).join(', ')} and ${correctIdxs[correctIdxs.length - 1]}`
+                : `Option ${correctIdxs[0]}`;
+              cfg = { ...cfg, feedback: `You're right! The correct answers are ${optionsList}.` };
+            } else if (remaining > 0) {
+              const remText = remaining === 1 ? '1 more correct answer' : `${remaining} more correct answers`;
+              cfg = { ...cfg, feedback: `That's correct! Please select ${remText}.` };
+            }
+          } else {
+            cfg = { ...cfg, feedback: 'Not this one, try again!' };
+          }
+        }
 
         if (cfg?.showFeedback) {
           this._feedbackDisplay = { idx: index, config: cfg };

@@ -128,7 +128,10 @@ export class OptionItemComponent implements OnChanges {
     if (this.timerExpired) {
       if (this.shouldShowCorrectOnTimeout()) {
         classes['correct-option'] = true;
+      } else {
+        classes['correct-option'] = false;
       }
+      classes['incorrect-option'] = false;
       return classes;
     }
 
@@ -143,6 +146,13 @@ export class OptionItemComponent implements OnChanges {
         classes['incorrect-option'] = true;
         classes['correct-option'] = false;
       }
+    } else {
+      // Explicitly clear all highlight classes to prevent stale cssClasses from leaking
+      classes['correct-option'] = false;
+      classes['incorrect-option'] = false;
+      classes['highlighted'] = false;
+      classes['selected'] = false;
+      classes['selected-option'] = false;
     }
 
     return classes;
@@ -271,13 +281,11 @@ export class OptionItemComponent implements OnChanges {
   }
 
   shouldHighlightOption(): boolean {
-    // For multi-answer: strictly trust ONLY the live isSelected binding.
-    // The click handler (handleOptionClick) maintains b.isSelected = true for
-    // ALL currently selected options via futureKeys, so _wasSelected is not
-    // needed and would cause false positives when service rehydration briefly
-    // marks all saved selections as selected before the user clicks.
+    // For multi-answer: Only highlight if explicitly marked for highlight.
+    // This allows showing only the last correct answer as green, while
+    // keeping others (selected but not highlighted) without background.
     if (this.type === 'multiple') {
-      return this.b.isSelected;
+      return !!this.b.option?.highlight;
     }
     // Single-answer: isSelected (current) + option.highlight (history from click handler)
     return this.b.isSelected || !!this.b.option?.highlight;
