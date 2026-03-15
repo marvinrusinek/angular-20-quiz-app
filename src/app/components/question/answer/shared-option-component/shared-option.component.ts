@@ -4094,6 +4094,16 @@ export class SharedOptionComponent
       if (remainingMsg === 0) {
         this.nextButtonStateService.setNextButtonState(true);
 
+        // Set _multiAnswerPerfect so emitFormatted() passes its multi-answer guard
+        if (!(this.quizService as any)._multiAnswerPerfect) {
+          (this.quizService as any)._multiAnswerPerfect = new Map<number, boolean>();
+        }
+        (this.quizService as any)._multiAnswerPerfect.set(qIdx, true);
+
+        // Unlock FET and emit
+        (this.explanationTextService as any)._fetLocked = false;
+        this.explanationTextService.unlockExplanation();
+
         // Emit FET (Formatted Explanation Text)
         this.showExplanationChange.emit(true);
         setTimeout(() => this.emitExplanation(qIdx, true), 0);
