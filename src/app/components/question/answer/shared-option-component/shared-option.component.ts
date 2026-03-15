@@ -4089,9 +4089,13 @@ export class SharedOptionComponent
       queueMicrotask(() => this.selectionMessageService.selectionMessageSubject.next(selMsg));
       setTimeout(() => this.selectionMessageService.selectionMessageSubject.next(selMsg), 0);
 
-      // Enable next button when all correct answers are selected
+      // When all correct answers are selected: enable Next button and show FET
       if (remainingMsg === 0) {
         this.nextButtonStateService.setNextButtonState(true);
+
+        // Emit FET (Formatted Explanation Text)
+        this.showExplanationChange.emit(true);
+        setTimeout(() => this.emitExplanation(qIdx), 0);
       }
 
       // Re-assert feedback after async overwrites
