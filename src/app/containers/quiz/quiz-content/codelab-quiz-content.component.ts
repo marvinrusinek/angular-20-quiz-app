@@ -587,11 +587,10 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             }
             
             if (!shouldShowExplanation && state?.mode === 'explanation' && safeSelections.length > 0 && hasInteracted) {
-              if (isMultipleAnswer) {
-                shouldShowExplanation = isResolved;
-              } else {
-                shouldShowExplanation = true;
-              }
+              // Only show FET when the question is actually resolved (correct answer selected).
+              // Previously, single-answer forced true here, which could display stale/wrong FET
+              // when displayState was 'explanation' but the answer was incorrect.
+              shouldShowExplanation = isResolved;
             }
 
             const finalFet = (fetText ?? '').trim();

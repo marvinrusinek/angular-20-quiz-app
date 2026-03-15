@@ -5467,7 +5467,14 @@ export class QuizQuestionComponent extends BaseQuestion
 
     if (!q) {
       console.warn(`[QQC] ⚠️ FAILED to resolve question object for Q${i0 + 1}. FET generation might be limited.`);
-      q = { ...this.currentQuestion } as QuizQuestion;
+      // CRITICAL: Only fall back to currentQuestion if it actually belongs to this index.
+      // Otherwise we'd store Q2's explanation at Q5's index when currentQuestion is stale.
+      if (this.currentQuestionIndex === i0 && this.currentQuestion) {
+        q = { ...this.currentQuestion } as QuizQuestion;
+      } else {
+        console.warn(`[QQC] ⚠️ Skipping FET for Q${i0 + 1}: no question data and currentQuestion (idx=${this.currentQuestionIndex}) doesn't match.`);
+        return '';
+      }
     }
 
     const baseRaw = (q?.explanation ?? '').toString().trim();
@@ -5484,10 +5491,34 @@ export class QuizQuestionComponent extends BaseQuestion
     // Step 2: Format explanation safely using authoritative indices
     let formatted = '';
     try {
-      // ⚡ ROBUSTNESS FIX: Derive correctIndices from multiple sources
-      let visualOpts = (q.options?.length ? q.options : (this.options?.length ? this.options : []));
+      // ⚡ ROBUSTNESS FIX: Derive correctIndices from VISUAL (display-order) options.
+      // CRITICAL: this.optionsToDisplay belongs to the CURRENT question on screen.
+      // During prewarm (navigation), it still holds the PREVIOUS question's options.
+      // Only use it when i0 matches the current question index; otherwise resolve
+      // the options for the target question directly from the shuffled questions array.
+      let visualOpts: Option[] = [];
 
-      // Fallback: If no options found, try fetching from service
+      if (i0 === this.currentQuestionIndex && this.optionsToDisplay?.length) {
+        // Safe: optionsToDisplay matches this question
+        visualOpts = this.optionsToDisplay;
+      } else {
+        // Prewarm or different index: get options from the question at i0
+        try {
+          const questions = (quizSvc as any).shuffledQuestions?.length
+            ? (quizSvc as any).shuffledQuestions
+            : quizSvc.questions || [];
+          const targetQ = questions[i0];
+          if (targetQ?.options?.length) {
+            visualOpts = targetQ.options;
+          }
+        } catch { }
+      }
+
+      // Fallback chain
+      if (!visualOpts?.length && this.options?.length) visualOpts = this.options;
+      if (!visualOpts?.length && q.options?.length) visualOpts = q.options;
+
+      // Last resort: fetch from service
       if (!visualOpts?.length && quizSvc) {
         try {
           const fetchedOpts = await firstValueFrom(quizSvc.getOptions(i0));
@@ -6817,6 +6848,10 @@ export class QuizQuestionComponent extends BaseQuestion
       this._pendingRAF = null;
     }
     this._skipNextAsyncUpdates = false;
+
+    // Clear stale FET cache so it gets recomputed with the correct question's options.
+    // Without this, a previous prewarm that used stale optionsToDisplay would persist.
+    this._formattedByIndex.delete(i0);
 
     // ── 1) Unlock & clear per-question selection/locks ─────────
     this.selectedOptionService.resetLocksForQuestion(i0);

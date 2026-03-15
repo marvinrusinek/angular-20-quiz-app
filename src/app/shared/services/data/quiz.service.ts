@@ -153,6 +153,13 @@ export class QuizService {
 
   public shuffledQuestions: QuizQuestion[] = (() => {
     try {
+      // One-time purge of stale cache with corrupted correct flags
+      if (!localStorage.getItem('_shuffleCacheV2')) {
+        localStorage.removeItem('shuffledQuestions');
+        localStorage.removeItem('shuffledQuestionsQuizId');
+        localStorage.setItem('_shuffleCacheV2', '1');
+        return [];
+      }
       const stored = localStorage.getItem('shuffledQuestions');
       return stored ? JSON.parse(stored) : [];
     } catch {

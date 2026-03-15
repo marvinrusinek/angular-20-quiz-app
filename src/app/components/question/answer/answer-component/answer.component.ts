@@ -255,12 +255,22 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
 
     if (config.resetSelection ?? true) this.resetSelectionState();
 
+    // Recalculate type from the incoming options' correct flags.
+    // Without this, navigating from a multi-answer question (e.g. Q4) to a
+    // single-answer question (e.g. Q5) would leave type='multiple', causing
+    // SOC to render checkboxes and use multi-answer interaction logic.
+    const correctCount = nextOptions.filter(o =>
+      o.correct === true || (o as any).correct === 'true' || (o as any).correct === 1
+    ).length;
+    this.type = correctCount > 1 ? 'multiple' : 'single';
+
     this.optionsToDisplay = nextOptions;
     this.optionBindingsSource = nextOptions.map((option) => ({ ...option }));
 
     if (this.sharedOptionConfig) {
       this.sharedOptionConfig = {
         ...this.sharedOptionConfig,
+        type: this.type,
         optionsToDisplay: nextOptions.map((option: Option) => ({ ...option }))
       };
     }

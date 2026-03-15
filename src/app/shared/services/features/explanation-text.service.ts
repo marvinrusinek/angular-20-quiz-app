@@ -137,6 +137,7 @@ export class ExplanationTextService {
       // Keeping it populated leads to FET leakage between questions.
       this.latestExplanation = '';
       this.latestExplanationIndex = idx;
+      this.explanationText$.next('');
       this.formattedExplanationSubject.next('');
       this.setShouldDisplayExplanation(false, { force: true });
       this.setIsExplanationTextDisplayed(false, { force: true });

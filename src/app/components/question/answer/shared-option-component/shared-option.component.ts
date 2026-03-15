@@ -248,17 +248,22 @@ export class SharedOptionComponent
 
     let result = false;
 
-    // Data inference (fixes multiple-answer questions even if explicitly marked single)
+    // Data inference: count correct options from the actual question data.
+    // This is the authoritative source of truth for single vs multi-answer.
     const currentQ = this.getQuestionAtDisplayIndex(idx) ?? this.currentQuestion;
+    let correctCount = 0;
     if (currentQ?.options) {
-      const correctOptions = currentQ.options.filter((o: Option) => {
+      correctCount = currentQ.options.filter((o: Option) => {
         const c = (o as any).correct ?? (o as any).isCorrect;
         return c === true || String(c) === 'true' || c === 1 || c === '1';
-      });
-      if (correctOptions.length > 1) result = true;
+      }).length;
+      if (correctCount > 1) result = true;
     }
 
-    if (this.type === 'multiple' || this.config?.type === 'multiple') {
+    // Only trust the type/config input when data is unavailable (correctCount === 0).
+    // When data IS available, it takes precedence because the type input can be stale
+    // (e.g. still 'multiple' from Q4 when we've navigated to single-answer Q5).
+    if (correctCount === 0 && (this.type === 'multiple' || this.config?.type === 'multiple')) {
       result = true;
     }
 
@@ -318,6 +323,22 @@ export class SharedOptionComponent
     this.hasUserClicked = false;
     this.freezeOptionBindings = false;
     this.selectedOptionHistory = [];
+
+    // Cancel any pending deferred emitExplanation from the previous question
+    // to prevent stale Q(N) FET from being stored at Q(N+1)'s index
+    if (this._pendingHighlightRAF !== null) {
+      cancelAnimationFrame(this._pendingHighlightRAF);
+      this._pendingHighlightRAF = null;
+    }
+
+    // Reset FET state so next question can emit freely
+    try {
+      (this.explanationTextService as any)._fetLocked = false;
+      this.explanationTextService.unlockExplanation();
+      const newIdx = this.currentQuestionIndex ?? this.questionIndex ?? 0;
+      this.explanationTextService._activeIndex = newIdx;
+      this.explanationTextService.latestExplanationIndex = newIdx;
+    } catch {}
   }
 
   private subscribeToTimerExpiration(): void {
@@ -1986,11 +2007,25 @@ export class SharedOptionComponent
         ? Math.max(0, Math.trunc(questionIndex))
         : this.resolveExplanationQuestionIndex(questionIndex);
 
+    // CRITICAL: Prefer the question at resolvedIndex over this.currentQuestion
+    // because this.currentQuestion can be stale (e.g., still Q2 when user is on Q5).
     const question =
-      this.currentQuestion
-      ?? this.getQuestionAtDisplayIndex(resolvedIndex)
+      this.getQuestionAtDisplayIndex(resolvedIndex)
+      ?? this.currentQuestion
       ?? this.quizService.questions?.[resolvedIndex]
       ?? null;
+
+    // Guard: Prevent stale deferred calls (e.g., requestAnimationFrame) from emitting
+    // an explanation for the wrong question. This happens when currentQuestionIndex has
+    // updated to Q5 but currentQuestion still references Q2 during a navigation transition.
+    if (this.currentQuestion && resolvedIndex !== questionIndex) {
+      const questionAtIndex = this.getQuestionAtDisplayIndex(resolvedIndex)
+        ?? this.quizService.questions?.[resolvedIndex];
+      if (questionAtIndex && questionAtIndex.questionText !== this.currentQuestion.questionText) {
+        console.warn(`[emitExplanation] BLOCKED: index=${resolvedIndex} points to "${questionAtIndex.questionText?.substring(0, 20)}" but currentQuestion is "${this.currentQuestion.questionText?.substring(0, 20)}". Stale deferred call.`);
+        return;
+      }
+    }
 
     console.log(`[SharedOptionComponent] emitExplanation checking Q${resolvedIndex + 1} skipGuard=${skipGuard}...`);
 
@@ -2150,10 +2185,11 @@ export class SharedOptionComponent
     // Emit the formatted explanation to the _fetSubject stream
     this.explanationTextService.emitFormatted(displayIndex, explanationText);
 
-    // Now set the explanation text in the service
+    // Now set the explanation text in the service (pass index explicitly to avoid stale _activeIndexValue)
     this.explanationTextService.setExplanationText(explanationText, {
       force: true,
-      context: contextKey
+      context: contextKey,
+      index: displayIndex
     });
 
     const displayOptions = { context: contextKey, force: true } as const;
@@ -2257,9 +2293,16 @@ export class SharedOptionComponent
     this.pendingExplanationIndex = -1;
   }
 
+  private _pendingHighlightRAF: number | null = null;
+
   private deferHighlightUpdate(callback: () => void): void {
+    // Cancel any pending deferred call to prevent stale Q(N) callbacks running during Q(N+1)
+    if (this._pendingHighlightRAF !== null) {
+      cancelAnimationFrame(this._pendingHighlightRAF);
+    }
     this.ngZone.runOutsideAngular(() => {
-      requestAnimationFrame(() => {
+      this._pendingHighlightRAF = requestAnimationFrame(() => {
+        this._pendingHighlightRAF = null;
         this.ngZone.run(() => {
           callback();
         });
@@ -2298,23 +2341,28 @@ export class SharedOptionComponent
 
     if (displayOptions.length === 0) {
       console.warn(`[FET-SOC] Q${displayIndex + 1} | No visual options found! Falling back to raw.`);
-      return (this.currentQuestion?.explanation || '').trim();
+      const fallbackQ = this.getQuestionAtDisplayIndex(displayIndex) || this.currentQuestion;
+      return (fallbackQ?.explanation || '').trim();
     }
 
     // 2. Identify the authoritative canonical question for "truth" data
-    const currentQText = normalize(this.currentQuestion?.questionText);
+    // CRITICAL: Use the question at the requested displayIndex, NOT this.currentQuestion
+    // which may be stale (e.g., still Q2 when user is on Q5).
+    const indexQuestion = this.getQuestionAtDisplayIndex(displayIndex);
+    const targetQuestion = indexQuestion || this.currentQuestion;
+    const currentQText = normalize(targetQuestion?.questionText);
     const allCanonical = this.quizService.getCanonicalQuestions(this.quizId) || [];
 
     // Improved matching: try Text (most reliable without ID)
     let authQ = allCanonical.find(q => normalize(q.questionText) === currentQText);
 
-    // Final fallback: use currentQuestion if no canonical match
+    // Final fallback: use the target question if no canonical match
     // Cast to remove null from type union since we return early if not found
-    authQ = authQ || (this.currentQuestion as QuizQuestion);
+    authQ = authQ || (targetQuestion as QuizQuestion);
 
     if (!authQ) {
       console.warn(`[FET-SOC] Q${displayIndex + 1} | No auth question found. Using raw.`);
-      return (this.currentQuestion?.explanation || '').trim();
+      return (targetQuestion?.explanation || '').trim();
     }
 
     // 3. Build sets of correct identifiers from the authoritative source
