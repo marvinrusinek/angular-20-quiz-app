@@ -4003,14 +4003,20 @@ export class SharedOptionComponent
 
       console.log(`[SOC] MULTI-ANSWER STATE Q${qIdx + 1}: correctSel=${correctSel}, incorrectSel=${incorrectSel}, remaining=${remainingMsg}, correctIndices=${correctIndicesFromQ}, durableSet=[${[...durableSet]}]`);
 
-      // Disable incorrect options after they are clicked
-      if (!isClickedCorrect) {
-        if (!this.disabledOptionsPerQuestion.has(qIdx)) {
-          this.disabledOptionsPerQuestion.set(qIdx, new Set<number>());
-        }
-        this.disabledOptionsPerQuestion.get(qIdx)!.add(index);
+      // Disable incorrect options: when clicked wrong OR when all correct are found
+      if (!this.disabledOptionsPerQuestion.has(qIdx)) {
+        this.disabledOptionsPerQuestion.set(qIdx, new Set<number>());
       }
-      const disabledSet = this.disabledOptionsPerQuestion.get(qIdx) ?? new Set<number>();
+      const disabledSetRef = this.disabledOptionsPerQuestion.get(qIdx)!;
+      if (!isClickedCorrect) {
+        disabledSetRef.add(index);
+      }
+      // When all correct answers selected, disable ALL incorrect options
+      if (remainingMsg === 0) {
+        for (let bi = 0; bi < this.optionBindings.length; bi++) {
+          if (!correctSet.has(bi)) disabledSetRef.add(bi);
+        }
+      }
 
       // 1. HIGHLIGHT: Create new binding references so Angular detects changes
       this.optionBindings = this.optionBindings.map((ob, bi) => {
@@ -4019,7 +4025,7 @@ export class SharedOptionComponent
           ...ob,
           isSelected: isInDurable,
           isCorrect: correctSet.has(bi),
-          disabled: disabledSet.has(bi),
+          disabled: disabledSetRef.has(bi),
           option: ob.option ? {
             ...ob.option,
             correct: correctSet.has(bi),
