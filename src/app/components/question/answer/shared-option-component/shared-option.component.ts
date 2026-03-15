@@ -189,6 +189,7 @@ export class SharedOptionComponent
   // Maps question index → Set of selected display indices.
   // Only cleared on question change (resetStateForNewQuestion / ngOnChanges).
   private _multiSelectByQuestion = new Map<number, Set<number>>();
+  private _correctIndicesByQuestion = new Map<number, number[]>();
 
   destroy$ = new Subject<void>();
 
@@ -306,6 +307,7 @@ export class SharedOptionComponent
     this.selectedOptions.clear();
     this.selectedOptionMap.clear();
     this._multiSelectByQuestion.clear();
+    this._correctIndicesByQuestion.clear();
     this.feedbackConfigs = {};
     this.showFeedbackForOption = {};
     this._feedbackDisplay = null;
@@ -3580,12 +3582,14 @@ export class SharedOptionComponent
       const qIdx = this.getActiveQuestionIndex();
       const isCorrectFlag = (o: any) => o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || String(o.correct) === '1');
 
-      // Get correct indices from currentQuestion (matches displayed question)
-      const feedbackQ = this.currentQuestion ?? this.getQuestionAtDisplayIndex(qIdx);
-      const feedbackQOpts = feedbackQ?.options ?? [];
-      let correctIndicesArr: number[] = feedbackQOpts
-        .map((o: any, idx: number) => isCorrectFlag(o) ? idx : -1)
-        .filter(idx => idx >= 0);
+      // Use cached correct indices (captured on first click, immune to corruption)
+      let correctIndicesArr: number[] = this._correctIndicesByQuestion.get(qIdx) ?? [];
+      if (correctIndicesArr.length === 0) {
+        const feedbackQ = this.currentQuestion ?? this.getQuestionAtDisplayIndex(qIdx);
+        correctIndicesArr = (feedbackQ?.options ?? [])
+          .map((o: any, idx: number) => isCorrectFlag(o) ? idx : -1)
+          .filter(idx => idx >= 0);
+      }
 
       const effectiveMultiMode = this.isMultiMode || this.type === 'multiple' || correctIndicesArr.length > 1;
       const durableSelected = this._multiSelectByQuestion.get(qIdx);
@@ -3946,17 +3950,42 @@ export class SharedOptionComponent
     durableSet.add(index); // Simply accumulate every click
     console.log(`[SOC] DURABLE tracker Q${qIdx + 1}: clicked=${index}, all selected=[${[...durableSet]}]`);
 
-    // Get correct indices from currentQuestion (set by parent, matches displayed question)
+    // Capture correct indices ONCE on first click per question.
+    // Cross-reference ALL sources and use _questions (raw data) as ground truth.
     const isCorrectFlag = (o: any) => o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || String(o.correct) === '1');
-    const question = this.currentQuestion ?? this.getQuestionAtDisplayIndex(qIdx);
-    const questionOpts = question?.options ?? [];
-    const correctIndicesFromQ = questionOpts
-      .map((o: any, idx: number) => isCorrectFlag(o) ? idx : -1)
-      .filter((idx: number) => idx >= 0);
+    if (!this._correctIndicesByQuestion.has(qIdx)) {
+      const question = this.currentQuestion ?? this.getQuestionAtDisplayIndex(qIdx);
+      const questionOpts = question?.options ?? [];
+
+      const rawQs: any[] = (this.quizService as any)._questions ?? [];
+
+      const fromCurrentQ = questionOpts
+        .map((o: any, idx: number) => isCorrectFlag(o) ? idx : -1)
+        .filter((idx: number) => idx >= 0);
+
+      // SOURCE 2: raw _questions
+      const qText = (question?.questionText ?? '').trim().toLowerCase();
+      let fromRaw: number[] = [];
+      for (const rq of rawQs) {
+        if ((rq.questionText ?? '').trim().toLowerCase() === qText) {
+          const rawCorrectTexts = new Set<string>(
+            (rq.options ?? []).filter((o: any) => o.correct === true).map((o: any) => (o.text ?? '').trim().toLowerCase())
+          );
+          fromRaw = questionOpts
+            .map((o: any, idx: number) => rawCorrectTexts.has((o.text ?? '').trim().toLowerCase()) ? idx : -1)
+            .filter((idx: number) => idx >= 0);
+          break;
+        }
+      }
+
+      const indices = fromRaw.length > 0 ? fromRaw : fromCurrentQ;
+      this._correctIndicesByQuestion.set(qIdx, indices);
+    }
+    const correctIndicesFromQ = this._correctIndicesByQuestion.get(qIdx)!;
     const correctCountFromQ = correctIndicesFromQ.length;
     const isMultiFromQ = this.isMultiMode || this.type === 'multiple' || correctCountFromQ > 1;
 
-    console.log(`[SOC] Q${qIdx + 1} correctIndices=${correctIndicesFromQ} correctCount=${correctCountFromQ} questionText="${(question?.questionText ?? '').slice(0, 40)}"`);
+    console.log(`[SOC] Q${qIdx + 1} correctIndices=${correctIndicesFromQ} correctCount=${correctCountFromQ}`);
 
     if (isMultiFromQ && correctCountFromQ > 0) {
       const correctSet = new Set(correctIndicesFromQ);
@@ -3982,6 +4011,7 @@ export class SharedOptionComponent
           isSelected: isInDurable,
           option: ob.option ? {
             ...ob.option,
+            correct: correctSet.has(bi),
             selected: isInDurable,
             highlight: isInDurable,
             showIcon: isInDurable,
@@ -4037,13 +4067,22 @@ export class SharedOptionComponent
       } else {
         selMsg = `Please select ${correctCountFromQ} correct answers to continue.`;
       }
+      // Set message now AND re-assert after microtasks to prevent async overwrites
       this.selectionMessageService.selectionMessageSubject.next(selMsg);
-      console.log(`[SOC] FORCED selMsg Q${qIdx + 1}: "${selMsg}"`);
+      queueMicrotask(() => this.selectionMessageService.selectionMessageSubject.next(selMsg));
+      setTimeout(() => this.selectionMessageService.selectionMessageSubject.next(selMsg), 0);
 
       // Enable next button when all correct answers are selected
       if (remainingMsg === 0) {
         this.nextButtonStateService.setNextButtonState(true);
       }
+
+      // Re-assert feedback after async overwrites
+      const savedFeedback = this._feedbackDisplay;
+      queueMicrotask(() => {
+        this._feedbackDisplay = savedFeedback;
+        this.cdRef.detectChanges();
+      });
 
       // Skip the normal _feedbackDisplay builder below for multi-answer
       this.showFeedback = true;
