@@ -736,6 +736,13 @@ export class SharedOptionComponent
       this.feedbackConfigs = {};
       this.lastFeedbackOptionId = -1;
       this.showFeedback = false;
+
+      // Clear service-level option locks for the new question so stale locks
+      // from a previous visit don't carry over during back-navigation.
+      try {
+        this.selectedOptionService.unlockAllOptionsForQuestion(this.currentQuestionIndex);
+      } catch { }
+
       console.log(
         '[ngOnChanges] Moving to NEW question: Cleared state'
       );
@@ -1811,12 +1818,22 @@ export class SharedOptionComponent
     // For multi-answer questions, correct options should NOT be disabled while
     // the user is still selecting answers. Once all correct are found (question
     // fully resolved), they CAN be disabled to lock the question.
+    // Check multi-answer directly from question data (not just isMultiMode) to
+    // handle back-navigation where isMultiMode may evaluate against stale bindings.
     const isCorrectOpt = option?.correct === true || String((option as any)?.correct) === 'true';
-    if (isCorrectOpt && this.isMultiMode && !this.forceDisableAll) {
-      const perfectMap = (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
-      const isFullyResolved = perfectMap?.get(qIndex) === true;
-      if (!isFullyResolved) {
-        return false;
+    if (isCorrectOpt && !this.forceDisableAll) {
+      const currentQ = this.getQuestionAtDisplayIndex(qIndex) ?? this.currentQuestion;
+      const questionCorrectCount = (currentQ?.options ?? []).filter(
+        (o: any) => o?.correct === true || String(o?.correct) === 'true'
+      ).length;
+      const isMultiFromData = questionCorrectCount > 1 || this.isMultiMode;
+
+      if (isMultiFromData) {
+        const perfectMap = (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
+        const isFullyResolved = perfectMap?.get(qIndex) === true;
+        if (!isFullyResolved) {
+          return false;
+        }
       }
     }
 
