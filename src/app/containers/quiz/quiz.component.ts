@@ -1517,6 +1517,34 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       this.quizService.scoreDirectly(idx, true, true);
     }
 
+    // Sync userAnswers from current selections so the authoritative check has current data.
+    // Without this, checkIfAnsweredCorrectly reads empty userAnswers and always returns false
+    // for multi-answer questions, preventing score increment in scenarios where incorrect
+    // options are selected before/between correct ones.
+    if (!isSingleAnswerQuestion) {
+      const syncNormalize = (v: unknown): string => String(v ?? '').trim().toLowerCase();
+      const allSelections: SelectedOption[] = [
+        ...(this.selectedOptionService?.selectedOptionsMap?.get(idx) ?? [])
+      ];
+      const syncClickedId = String(option?.optionId ?? '').trim();
+      const syncClickedText = syncNormalize(option?.text);
+      const syncAlreadyIncluded = allSelections.some((s) => {
+        const sId = String(s?.optionId ?? '').trim();
+        const sText = syncNormalize(s?.text);
+        return (syncClickedId !== '' && sId !== '' && syncClickedId === sId) ||
+          (syncClickedText !== '' && sText !== '' && syncClickedText === sText);
+      });
+      if (!syncAlreadyIncluded && option) {
+        allSelections.push(option as SelectedOption);
+      }
+      const syncIds = allSelections
+        .map((s: any) => s?.optionId)
+        .filter((id: any) => id !== undefined && id !== null);
+      if (syncIds.length > 0) {
+        this.quizService.userAnswers[idx] = syncIds;
+      }
+    }
+
     // Ensure scoring state is updated before evaluating dot color/progress.
     // Use updateScore=false: scoreDirectly() above already handled the score mutation.
     // Allowing score mutation here risks decrementing when async answer-ID evaluation
