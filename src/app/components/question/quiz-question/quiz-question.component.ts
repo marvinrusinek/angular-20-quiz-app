@@ -3246,6 +3246,21 @@ export class QuizQuestionComponent extends BaseQuestion
         this.selectedOptionService.setSelectedOption(selectionToPersist, idx, undefined, q?.type === QuestionType.MultipleAnswer);
       } catch { }
 
+      // Score multi-answer questions directly using optionsNow which has accumulated
+      // selection state from optionsToDisplay. This bypasses the broken
+      // checkAndScoreMultiAnswer path which only sees 1 option per click.
+      if (q?.type === QuestionType.MultipleAnswer) {
+        const correctInQ = optionsNow.filter(
+          (o: Option) => o.correct === true || String(o.correct) === 'true'
+        );
+        const allCorrectNowSelected = correctInQ.length > 0 && correctInQ.every(
+          (co: Option) => co.selected === true
+        );
+        if (allCorrectNowSelected) {
+          this.quizService.scoreDirectly(idx, true, true);
+        }
+      }
+
       // Canonical options for consistent state - ensure all currently selected options are marked as selected in canonicalOpts
       const currentSelectedFromService = this.selectedOptionService.selectedOptionsMap?.get(idx) ?? [];
       const canonicalOpts: Option[] = (q?.options ?? []).map((o, i) => {
@@ -3357,12 +3372,6 @@ export class QuizQuestionComponent extends BaseQuestion
       this.nextButtonStateService.setNextButtonState(allCorrect);
       this.quizStateService.setAnswered(allCorrect);
       this.quizStateService.setAnswerSelected(allCorrect);
-
-      // Score multi-answer questions when all correct answers are selected.
-      // scoreDirectly handles deduplication via questionCorrectness map.
-      if (allCorrect && q?.type === QuestionType.MultipleAnswer) {
-        this.quizService.scoreDirectly(idx, true, true);
-      }
 
       // Stop timer + trigger FET immediately (legally awaited)
 
