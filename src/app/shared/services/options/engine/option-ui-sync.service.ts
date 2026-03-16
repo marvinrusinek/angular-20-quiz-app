@@ -638,7 +638,7 @@ export class OptionUiSyncService {
         this.quizService.scoreDirectly(questionIndex, true, false);
       }
     } else {
-      if (correctSelectedCount >= correctOptions.length && !hasIncorrect) {
+      if (correctSelectedCount >= correctOptions.length) {
         console.log(`[OptionUiSyncService] Scoring multi-answer Q${questionIndex + 1}: ALL ${correctOptions.length} correct answers found`);
         this.quizService.scoreDirectly(questionIndex, true, true);
         // Force FET readiness even if already scored correct (to be safe)
