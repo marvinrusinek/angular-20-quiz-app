@@ -3358,6 +3358,12 @@ export class QuizQuestionComponent extends BaseQuestion
       this.quizStateService.setAnswered(allCorrect);
       this.quizStateService.setAnswerSelected(allCorrect);
 
+      // Score multi-answer questions when all correct answers are selected.
+      // scoreDirectly handles deduplication via questionCorrectness map.
+      if (allCorrect && q?.type === QuestionType.MultipleAnswer) {
+        this.quizService.scoreDirectly(idx, true, true);
+      }
+
       // Stop timer + trigger FET immediately (legally awaited)
 
       // ────────────────────────────────────────────────
