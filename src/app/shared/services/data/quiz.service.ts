@@ -760,7 +760,7 @@ export class QuizService {
 
         // 3. Cache Miss or Update: Re-initialize and (optionally) shuffle
         console.log(`[QuizService] fetchQuizQuestions: ${isSameQuiz ? 'STALE (Length Mismatch)' : 'MISS'}. Expected=${metadataLen}, Found=${cachedLen}`);
-        
+
         this.shuffledQuestions = [];
         this._questions = [];
         this.questionsQuizId = quizId;
@@ -769,7 +769,7 @@ export class QuizService {
         const normalized: QuizQuestion[] = (quiz.questions ?? []).map((q, qIdx) => {
           const optsWithIds = this.quizShuffleService.assignOptionIds(q.options ?? [], qIdx);
           const alignedAnswers = this.quizShuffleService.alignAnswersWithOptions(q.answer, optsWithIds);
-          
+
           const correctIds = new Set(alignedAnswers.map(a => Number(a.optionId)));
           const finalOpts = optsWithIds.map(o => ({
             ...o,
@@ -791,13 +791,13 @@ export class QuizService {
           console.log('[QuizService] 🔀 Generating fresh shuffle for', quizId);
           this.quizShuffleService.prepareShuffle(quizId, normalized);
           const shuffled = this.quizShuffleService.buildShuffledQuestions(quizId, normalized);
-          
+
           this.shuffledQuestions = shuffled;
           try {
             localStorage.setItem('shuffledQuestions', JSON.stringify(shuffled));
             localStorage.setItem('shuffledQuestionsQuizId', quizId);
-          } catch {}
-          
+          } catch { }
+
           this.questionsSubject.next(shuffled);
           return shuffled;
         }
@@ -2383,8 +2383,8 @@ export class QuizService {
     console.log(`[checkIfAnsweredCorrectly] User Answers:`, this.answers.map(a => `ID=${a.optionId}, Text="${a.text}"`));
 
     const correctnessArray = await this.determineCorrectAnswer(currentQuestionValue, this.answers);
-    const correctFoundCount = correctnessArray.filter((v) => v === true).length;
-    const isCorrect = correctFoundCount === this.numberOfCorrectAnswers;
+    const allSelectedAreCorrect = correctnessArray.every((v) => v === true);
+    const isCorrect = allSelectedAreCorrect && correctnessArray.length === this.numberOfCorrectAnswers;
 
     console.log(`[checkIfAnsweredCorrectly] Result: Found=${correctFoundCount}, Required=${this.numberOfCorrectAnswers}, correctnessArray=${JSON.stringify(correctnessArray)} -> isCorrect=${isCorrect}`);
 
