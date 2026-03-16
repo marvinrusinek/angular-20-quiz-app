@@ -532,8 +532,31 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
 
     this._wasComplete = complete;
 
-    // Mark answered ONLY when invariant is satisfied
-    this.quizStateService.setAnswerSelected(complete);
+    // MULTI-ANSWER SCORING: Score when ALL correct answers have been selected
+    // (regardless of whether incorrect answers were also selected)
+    if (isMultiAnswer && allSelected?.length > 0) {
+      const totalCorrectInQuestion = optionsSource.filter((o: any) => {
+        const c = o.correct;
+        return c === true || String(c) === 'true' || c === 1 || c === '1';
+      }).length;
+
+      const correctSelectedCount = allSelected.filter((sel: any) => {
+        const c = sel.correct;
+        return c === true || String(c) === 'true' || c === 1 || c === '1';
+      }).length;
+
+      const allCorrectSelected = correctSelectedCount === totalCorrectInQuestion && totalCorrectInQuestion > 0;
+
+      if (allCorrectSelected) {
+        this.quizService.scoreDirectly(activeQuestionIndex, true, true);
+        this.quizStateService.setAnswerSelected(true);
+      } else {
+        this.quizStateService.setAnswerSelected(complete);
+      }
+    } else {
+      // Mark answered ONLY when invariant is satisfied
+      this.quizStateService.setAnswerSelected(complete);
+    }
 
     // FORWARD CLEAN PAYLOAD UPWARD
     const cleanPayload: OptionClickedPayload = {
