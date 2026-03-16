@@ -2468,7 +2468,17 @@ export class QuizService {
       wasCorrect = this.questionCorrectness.get(qIndex);
     }
     wasCorrect = wasCorrect || false;
-    
+
+    // Self-heal: if questionCorrectness says "already correct" but correctCount is 0,
+    // the map entry is stale (e.g. from a previous localStorage session that wasn't
+    // fully cleared). Reset so scoring can proceed.
+    if (wasCorrect && this.correctCount === 0) {
+      console.warn(`[incrementScore] Self-heal: wasCorrect=true but correctCount=0 for Q${qIndex} (key=${scoringKey}). Clearing stale entry.`);
+      wasCorrect = false;
+      this.questionCorrectness.set(scoringKey, false);
+      this.questionCorrectness.set(qIndex, false);
+    }
+
     const isNowCorrect = correctAnswerFound;  // simplified
 
     if (isNowCorrect && !wasCorrect) {

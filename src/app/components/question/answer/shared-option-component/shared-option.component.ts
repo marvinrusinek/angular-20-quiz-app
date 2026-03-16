@@ -4182,8 +4182,8 @@ export class SharedOptionComponent
         // SCORE: Directly score the multi-answer question as correct.
         // Other scoring paths (OUS checkAndScoreMultiAnswer, quiz.component onOptionSelected)
         // can miss due to timing or state sync issues, so score authoritatively here.
-        const alreadyScored = this.quizService.questionCorrectness.get(qIdx) === true;
-        if (!alreadyScored && incorrectSel === 0) {
+        // Always call scoreDirectly — incrementScore has self-heal for stale localStorage.
+        if (incorrectSel === 0) {
           this.quizService.scoreDirectly(qIdx, true, true);
           console.log(`[SOC] Scored multi-answer Q${qIdx + 1} as correct`);
         }

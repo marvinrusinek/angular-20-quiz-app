@@ -201,6 +201,38 @@ export class OptionInteractionService {
       if (isCorrectHelper(o)) correctIndicesSet.add(i);
     });
 
+    // Fallback: if questionOptions had no correct flags, cross-reference raw _questions
+    if (correctIndicesSet.size === 0 && question?.questionText) {
+      const rawQs: any[] = (this.quizService as any)._questions ?? [];
+      const qText = (question.questionText ?? '').trim().toLowerCase();
+      for (const rq of rawQs) {
+        if ((rq.questionText ?? '').trim().toLowerCase() === qText) {
+          const rawCorrectTexts = new Set<string>(
+            (rq.options ?? []).filter((o: any) => isCorrectHelper(o)).map((o: any) => (o.text ?? '').trim().toLowerCase())
+          );
+          questionOptions.forEach((o: any, i: number) => {
+            if (rawCorrectTexts.has((o.text ?? '').trim().toLowerCase())) {
+              correctIndicesSet.add(i);
+            }
+          });
+          console.log(`[OIS] Fallback correct indices from raw _questions: [${[...correctIndicesSet]}]`);
+          break;
+        }
+      }
+    }
+
+    // Also try bindings as a source of correct info
+    if (correctIndicesSet.size === 0) {
+      state.optionBindings.forEach((b, i) => {
+        if (b.isCorrect || isCorrectHelper(b.option)) correctIndicesSet.add(i);
+      });
+      if (correctIndicesSet.size > 0) {
+        console.log(`[OIS] Fallback correct indices from bindings: [${[...correctIndicesSet]}]`);
+      }
+    }
+
+    console.log(`[OIS] Q${qIdx + 1}: correctIndicesSet=[${[...correctIndicesSet]}] futureKeys=[${[...futureKeys]}]`);
+
     const allCorrectFound = correctIndicesSet.size > 0 && [...correctIndicesSet].every(i => futureKeys.has(i));
     const numIncorrectInFuture = futureSelection.filter(o => !isCorrectHelper(o)).length;
     const isPerfect = allCorrectFound && numIncorrectInFuture === 0;
@@ -283,12 +315,11 @@ export class OptionInteractionService {
       }
       (this.quizService as any)._multiAnswerPerfect.set(qIdx, true);
 
-      // Score the question when all correct answers are found
+      // Score the question when all correct answers are found.
+      // Always call scoreDirectly — incrementScore has self-heal for stale localStorage
+      // and internal deduplication via wasCorrect check.
       if (isPerfect) {
-        const alreadyScored = this.quizService.questionCorrectness.get(qIdx) === true;
-        if (!alreadyScored) {
-          this.quizService.scoreDirectly(qIdx, true, isMultipleMode);
-        }
+        this.quizService.scoreDirectly(qIdx, true, isMultipleMode);
       }
 
       // Trigger FET if perfect or if it's a single answer correct interaction
