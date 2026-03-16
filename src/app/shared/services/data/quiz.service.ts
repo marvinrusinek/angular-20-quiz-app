@@ -2385,11 +2385,8 @@ export class QuizService {
     const correctnessArray = await this.determineCorrectAnswer(currentQuestionValue, this.answers);
     const allSelectedAreCorrect = correctnessArray.every((v) => v === true);
     const isCorrect = allSelectedAreCorrect && correctnessArray.length === this.numberOfCorrectAnswers;
-
-    console.log(`[checkIfAnsweredCorrectly] Result: Found=${correctFoundCount}, Required=${this.numberOfCorrectAnswers}, correctnessArray=${JSON.stringify(correctnessArray)} -> isCorrect=${isCorrect}`);
-
     const answerIds = this.answers.map((a) => a.optionId).filter((id): id is number => id !== undefined);
-    // this.incrementScore(answerIds, isCorrect, this.multipleAnswer, qIndex);
+
     // If updateScore is explicitly true, then we apply score logic
     if (updateScore) {
       if (answerIds.length > 0) {
