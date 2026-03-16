@@ -3286,8 +3286,15 @@ export class QuizQuestionComponent extends BaseQuestion
 
       try {
         const clickedIdNum = Number(evtOpt?.optionId ?? NaN);
+        const isMultiAnswer = q?.type === QuestionType.MultipleAnswer ||
+          (q?.options?.filter((o: any) => o.correct === true || String(o.correct) === 'true').length ?? 0) > 1;
+
         if (Number.isFinite(clickedIdNum)) {
-          this.selectedOptionService.lockOption(idx, clickedIdNum);
+          // For multi-answer: only lock INCORRECT options so correct ones stay clickable.
+          // For single-answer: lock the clicked option unconditionally.
+          if (!isMultiAnswer || !evtOpt?.correct) {
+            this.selectedOptionService.lockOption(idx, clickedIdNum);
+          }
         }
         if (q?.type === QuestionType.SingleAnswer) {
           if (evtOpt?.correct) {

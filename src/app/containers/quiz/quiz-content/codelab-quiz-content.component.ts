@@ -577,8 +577,9 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             // DIRECT OIS BYPASS: If OIS has already confirmed all correct answers
             // are selected, trust it unconditionally. This handles cases where the
             // resolution check fails due to ID normalization mismatches between
-            // raw question data and stored selections.
-            if (!shouldShowExplanation && isMultipleAnswer) {
+            // raw question data and stored selections, or timing issues where
+            // the combineLatest evaluates before selections fully propagate.
+            if (!shouldShowExplanation) {
               const perfectMap = (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
               if (perfectMap?.get(safeIdx) === true && hasInteracted) {
                 shouldShowExplanation = true;

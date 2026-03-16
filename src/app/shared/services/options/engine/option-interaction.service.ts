@@ -92,7 +92,12 @@ export class OptionInteractionService {
 
     const bindingsForScore = state.optionBindings ?? [];
     const correctCountInBindings = bindingsForScore.filter(b => isCorrectHelper(b.option)).length;
-    const isMultipleMode = state.type === 'multiple' || (state as any).isMultiMode === true || correctCountInBindings > 1;
+    
+    // Authoritative Type Resolution
+    const qText = state.currentQuestion?.questionText?.toLowerCase() || '';
+    const isExplicitMulti = qText.includes('select all') || qText.includes('multiple') || qText.includes('apply');
+    const isMultipleMode = state.type === 'multiple' || (state as any).isMultiMode === true || 
+                          isExplicitMulti || correctCountInBindings > 1;
     const isTrulyMulti = isMultipleMode;
 
     console.log(`[OIS] Q${qIdx + 1}: correctCount=${correctCountInBindings} stateType=${state.type} isMultipleMode=${isMultipleMode}`);

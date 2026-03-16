@@ -1000,11 +1000,18 @@ export class ExplanationTextService {
     qIdx = qIdx ?? this._activeIndex ?? 0;
     const qTextNormFull = (question?.questionText || targetQuestionText || '').toLowerCase();
     const isExplicitMulti = qTextNormFull.includes('apply') || qTextNormFull.includes('multiple');
-    
+
     // Robust type check: raw data might use 'single_answer' or 'SingleAnswer'
     const qTypeRaw = String(question?.type || '').toLowerCase();
-    const isSingleChoice = qTypeRaw === 'single_answer' || qTypeRaw === 'true_false' || 
-                          (!isExplicitMulti && qTypeRaw !== 'multiple_answer');
+
+    // Count correct options from the actual data — this is the most reliable signal.
+    const correctFlagCount = opts.filter(o =>
+      o?.correct === true || String((o as any)?.correct) === 'true'
+    ).length;
+
+    const isSingleChoice = correctFlagCount <= 1 &&
+      (qTypeRaw === 'single_answer' || qTypeRaw === 'true_false' ||
+      (!isExplicitMulti && qTypeRaw !== 'multiple_answer'));
 
     // 🛡️ TRUTH LAYER 0: EXPLANATION KEYWORD SCAN
     // High-Confidence: If the explanation mentions the exact text of an option, that's the truth.
@@ -1291,8 +1298,14 @@ export class ExplanationTextService {
     // Multi-answer
     const qTextNorm = (question?.questionText ?? '').toLowerCase();
     const isExplicitMulti = qTextNorm.includes('all that apply') || qTextNorm.includes('select multiple');
-    
-    if (indices.length > 1 && (question.type === QuestionType.MultipleAnswer || isExplicitMulti)) {
+
+    // Also detect multi-answer from actual data: if multiple correct flags exist, it IS multi-answer.
+    const dataCorrectCount = (question?.options ?? []).filter(
+      (o: any) => o?.correct === true || String(o?.correct) === 'true'
+    ).length;
+    const isDataMulti = dataCorrectCount > 1;
+
+    if (indices.length > 1 && (question.type === QuestionType.MultipleAnswer || isExplicitMulti || isDataMulti)) {
       question.type = QuestionType.MultipleAnswer;
 
       const optionsText =
@@ -1312,8 +1325,8 @@ export class ExplanationTextService {
       let targetIndex = indices[0];
       
       const qTextRef = (question?.questionText || '').toLowerCase();
-      const isExplicitMulti = qTextRef.includes('apply') || qTextRef.includes('multiple');
-      if (!isExplicitMulti && indices.length > 1) {
+      const isExplicitMultiRef = qTextRef.includes('apply') || qTextRef.includes('multiple');
+      if (!isExplicitMultiRef && !isDataMulti && indices.length > 1) {
         const expLower = e.toLowerCase();
         const verified = indices.filter(idx => {
           const opt = question.options?.[idx - 1];

@@ -249,10 +249,16 @@ export class SharedOptionComponent
     let result = false;
 
     // Data inference: count correct options from the actual question data.
-    // This is the authoritative source of truth for single vs multi-answer.
     const currentQ = this.getQuestionAtDisplayIndex(idx) ?? this.currentQuestion;
+    const qText = (currentQ?.questionText || '').toLowerCase();
+    
+    // Keyword-based inference (High priority)
+    if (qText.includes('select all') || qText.includes('all that apply') || qText.includes('multiple')) {
+       result = true;
+    }
+
     let correctCount = 0;
-    if (currentQ?.options) {
+    if (currentQ?.options && !result) {
       correctCount = currentQ.options.filter((o: Option) => {
         const c = (o as any).correct ?? (o as any).isCorrect;
         return c === true || String(c) === 'true' || c === 1 || c === '1';
@@ -1801,6 +1807,18 @@ export class SharedOptionComponent
   public computeDisabledState(option: Option, index: number): boolean {
     const qIndex = this.currentQuestionIndex;
     const lockId = (option?.optionId != null && Number(option.optionId) !== -1) ? option.optionId : index;
+
+    // For multi-answer questions, correct options should NOT be disabled while
+    // the user is still selecting answers. Once all correct are found (question
+    // fully resolved), they CAN be disabled to lock the question.
+    const isCorrectOpt = option?.correct === true || String((option as any)?.correct) === 'true';
+    if (isCorrectOpt && this.isMultiMode && !this.forceDisableAll) {
+      const perfectMap = (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
+      const isFullyResolved = perfectMap?.get(qIndex) === true;
+      if (!isFullyResolved) {
+        return false;
+      }
+    }
 
     const disabledSet = this.disabledOptionsPerQuestion.get(qIndex);
     if (disabledSet && (disabledSet.has(index) || disabledSet.has(lockId))) {
@@ -4036,11 +4054,13 @@ export class SharedOptionComponent
 
     console.log(`[SOC] Q${qIdx + 1} correctIndices=${correctIndicesFromQ} correctCount=${correctCountFromQ}`);
 
+    console.log(`[SOC.runOptionContentClick] DEBUG: Q${qIdx + 1} index=${index} isMultiFromQ=${isMultiFromQ} correctIndicesFromQ=[${correctIndicesFromQ}]`);
+
     if (isMultiFromQ && correctCountFromQ > 0) {
       const correctSet = new Set(correctIndicesFromQ);
       const isClickedCorrect = correctSet.has(index);
-
-      // Count selections
+      
+      console.log(`[SOC.runOptionContentClick] MULTI-MODE: isClickedCorrect=${isClickedCorrect} correctSet={${[...correctSet]}}`);
       let correctSel = 0;
       let incorrectSel = 0;
       for (const selIdx of durableSet) {

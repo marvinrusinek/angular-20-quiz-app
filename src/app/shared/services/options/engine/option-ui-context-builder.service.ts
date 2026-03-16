@@ -25,7 +25,9 @@ export class OptionUiContextBuilderService {
       getActiveQuestionIndex: () => src.getActiveQuestionIndex(),
       getQuestionAtDisplayIndex: (idx: number) => src.getQuestionAtDisplayIndex(idx),
       emitExplanation: (idx: number) => src.emitExplanation(idx),
-      type: src.isMultiMode ? 'multiple' : 'single',
+      type: (src.isMultiMode || src.type === 'multiple') ? 'multiple' : 'single',
+      isMultiMode: src.isMultiMode,
+      currentQuestion: src.currentQuestion,
       
       toggleSelectedOption: (opt: any) =>
         src.optionVisualEffectsService.toggleSelectedOption(opt, src.selectedOptionMap),

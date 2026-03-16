@@ -111,7 +111,8 @@ export class OptionLockPolicyService {
         // Disable everything EXCEPT the currently selected ones (to allow unselecting).
         shouldDisable = !b.isSelected;
       } else if (params.resolvedType === QuestionType.SingleAnswer && hasCorrectSelection) {
-        shouldDisable = true;
+        // Single-answer: unlock the selected one so it stays 'alive', lock others
+        shouldDisable = !b.isSelected;
       }
 
       b.disabled = shouldDisable;

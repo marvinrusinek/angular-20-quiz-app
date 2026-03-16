@@ -86,7 +86,12 @@ export class OptionUiSyncService {
 
     const checked = 'checked' in event ? (event as MatCheckboxChange).checked : true;
     const correctCountInBindings = ctx.optionBindings.filter(b => isCorrectHelper(b.option)).length;
-    const isTrulyMulti = ctx.type === 'multiple' || (ctx as any).isMultiMode === true || correctCountInBindings > 1;
+    
+    // Authoritative Type Resolution
+    const qText = (ctx as any).currentQuestion?.questionText?.toLowerCase() || '';
+    const isExplicitMulti = qText.includes('select all') || qText.includes('multiple') || qText.includes('apply');
+    const isTrulyMulti = ctx.type === 'multiple' || (ctx as any).isMultiMode === true || 
+                        isExplicitMulti || correctCountInBindings > 1;
 
     // UI-LEVEL RESET for single-answer mode (Visuals only, OIS handles service state)
     // ONLY run if it's definitely NOT a multi-answer scenario.
