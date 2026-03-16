@@ -2449,7 +2449,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
       this.optionsToDisplay = rawOpts.map((opt: Option, i: number) => ({
         ...opt,
-        optionId: this.currentQuestionIndex * 100 + (i + 1), // globally unique
+        optionId: (this.currentQuestionIndex + 1) * 100 + (i + 1), // globally unique (1-based for consistency)
         selected: false,
         highlight: false,
         showIcon: false,
@@ -2962,16 +2962,9 @@ export class QuizQuestionComponent extends BaseQuestion
     index: number
   ): Promise<void> {
     try {
-      // Assign option IDs
-      if (question.options?.length) {
-        question.options.forEach((option, oIndex) => {
-          option.optionId = oIndex;
-        });
-      } else {
-        console.error(
-          `❌ No options found for Q${index}: ${question.questionText}`
-        );
-      }
+      // Option IDs are already assigned by QuizService.assignOptionIds during fetch,
+      // and again uniquely in loadQuestion. We should not overwrite them with 0-based index here.
+
 
       // Check if explanation is needed
       const state = this.quizStateService.getQuestionState(quizId, index);
@@ -5461,21 +5454,33 @@ export class QuizQuestionComponent extends BaseQuestion
     // Step 1: Resolve the question object and raw text
     let q: QuizQuestion | null = null;
     try {
-      const questions = (quizSvc as any).shuffledQuestions || quizSvc.questions || [];
-      q = questions[i0] || (this.currentQuestionIndex === i0 ? this.currentQuestion : null);
-    } catch { }
+      // 🎯 PRIMARY SOURCE: Use the component's own questionsArray (already shuffled/ordered)
+      if (this.questionsArray && this.questionsArray.length > i0) {
+        q = this.questionsArray[i0];
+        console.log(`[QQC] 🎯 Resolved Q${i0 + 1} from questionsArray. Text: "${q.questionText?.slice(0, 30)}..."`);
+      }
+      
+      // Fallback 1: currentQuestion if it matches the index
+      if (!q && this.currentQuestionIndex === i0 && this.currentQuestion) {
+        q = { ...this.currentQuestion } as QuizQuestion;
+        console.log(`[QQC] 🎯 Resolved Q${i0 + 1} from currentQuestion.`);
+      }
+
+      // Fallback 2: Service-level shuffledQuestions
+      if (!q) {
+        const svcQuestions = (quizSvc as any).shuffledQuestions || quizSvc.questions || [];
+        q = svcQuestions[i0];
+        if (q) console.log(`[QQC] 🎯 Resolved Q${i0 + 1} from Service.`);
+      }
+    } catch (err) {
+      console.warn(`[QQC] Error resolving question for Q${i0 + 1}`, err);
+    }
 
     if (!q) {
-      console.warn(`[QQC] ⚠️ FAILED to resolve question object for Q${i0 + 1}. FET generation might be limited.`);
-      // CRITICAL: Only fall back to currentQuestion if it actually belongs to this index.
-      // Otherwise we'd store Q2's explanation at Q5's index when currentQuestion is stale.
-      if (this.currentQuestionIndex === i0 && this.currentQuestion) {
-        q = { ...this.currentQuestion } as QuizQuestion;
-      } else {
-        console.warn(`[QQC] ⚠️ Skipping FET for Q${i0 + 1}: no question data and currentQuestion (idx=${this.currentQuestionIndex}) doesn't match.`);
-        return '';
-      }
+      console.error(`[QQC] ❌ FAILED to resolve question object for Q${i0 + 1}. FET generation aborted.`);
+      return '';
     }
+
 
     const baseRaw = (q?.explanation ?? '').toString().trim();
     if (!baseRaw && i0 === 0) {
@@ -5526,6 +5531,7 @@ export class QuizQuestionComponent extends BaseQuestion
         } catch { }
       }
 
+      console.log(`[🧠 FET] Q${i0 + 1} Target Question: "${q.questionText?.slice(0, 30)}...", Options: ${visualOpts?.length}`);
       const correctIndices = svc.getCorrectOptionIndices(q, visualOpts, i0);
 
       if (correctIndices.length > 0) {
