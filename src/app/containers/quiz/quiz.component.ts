@@ -1487,7 +1487,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
             }
           }
 
-          allCorrectSelectedForMulti = !hasWrongSelection && matchedCount >= correctOpts.length;
+          allCorrectSelectedForMulti = matchedCount >= correctOpts.length;
           if (allCorrectSelectedForMulti) {
             console.log(`[onOptionSelected] Direct multi-answer check: ALL ${correctOpts.length} correct answers selected for Q${idx + 1}`);
           }
