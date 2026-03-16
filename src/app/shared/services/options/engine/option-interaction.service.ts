@@ -315,15 +315,13 @@ export class OptionInteractionService {
       }
       (this.quizService as any)._multiAnswerPerfect.set(qIdx, true);
 
-      // Score the question when all correct answers are found.
-      // Always call scoreDirectly — incrementScore has self-heal for stale localStorage
-      // and internal deduplication via wasCorrect check.
-      if (isPerfect) {
-        this.quizService.scoreDirectly(qIdx, true, isMultipleMode);
-      }
+      // Score when all correct answers are found, regardless of whether incorrect
+      // options were also clicked (they get disabled, user can't undo them).
+      // incrementScore handles deduplication internally via scoringKey.
+      this.quizService.scoreDirectly(qIdx, true, isMultipleMode);
 
-      // Trigger FET if perfect or if it's a single answer correct interaction
-      if (isPerfect || (!isMultipleMode && isCorrectHelper(binding.option))) {
+      // Trigger FET when all correct found or single correct interaction
+      if (allCorrectFound || (!isMultipleMode && isCorrectHelper(binding.option))) {
         // Emit for the parent (QuizQuestionComponent)
         if ((state as any).showExplanationChange) {
           (state as any).showExplanationChange.emit(true);

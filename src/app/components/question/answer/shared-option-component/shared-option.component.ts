@@ -4180,13 +4180,11 @@ export class SharedOptionComponent
         this.nextButtonStateService.setNextButtonState(true);
 
         // SCORE: Directly score the multi-answer question as correct.
-        // Other scoring paths (OUS checkAndScoreMultiAnswer, quiz.component onOptionSelected)
-        // can miss due to timing or state sync issues, so score authoritatively here.
-        // Always call scoreDirectly — incrementScore has self-heal for stale localStorage.
-        if (incorrectSel === 0) {
-          this.quizService.scoreDirectly(qIdx, true, true);
-          console.log(`[SOC] Scored multi-answer Q${qIdx + 1} as correct`);
-        }
+        // Score when all correct answers are found, regardless of whether incorrect
+        // options were also clicked (they get disabled, user can't undo them).
+        // incrementScore handles deduplication internally via scoringKey.
+        this.quizService.scoreDirectly(qIdx, true, true);
+        console.log(`[SOC] Scored multi-answer Q${qIdx + 1} as correct (incorrectSel=${incorrectSel})`);
 
         // Set _multiAnswerPerfect so emitFormatted() passes its multi-answer guard
         if (!(this.quizService as any)._multiAnswerPerfect) {
