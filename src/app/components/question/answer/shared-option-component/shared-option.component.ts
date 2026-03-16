@@ -4175,9 +4175,18 @@ export class SharedOptionComponent
       queueMicrotask(() => this.selectionMessageService.selectionMessageSubject.next(selMsg));
       setTimeout(() => this.selectionMessageService.selectionMessageSubject.next(selMsg), 0);
 
-      // When all correct answers are selected: enable Next button and show FET
+      // When all correct answers are selected: enable Next button, score, and show FET
       if (remainingMsg === 0) {
         this.nextButtonStateService.setNextButtonState(true);
+
+        // SCORE: Directly score the multi-answer question as correct.
+        // Other scoring paths (OUS checkAndScoreMultiAnswer, quiz.component onOptionSelected)
+        // can miss due to timing or state sync issues, so score authoritatively here.
+        const alreadyScored = this.quizService.questionCorrectness.get(qIdx) === true;
+        if (!alreadyScored && incorrectSel === 0) {
+          this.quizService.scoreDirectly(qIdx, true, true);
+          console.log(`[SOC] Scored multi-answer Q${qIdx + 1} as correct`);
+        }
 
         // Set _multiAnswerPerfect so emitFormatted() passes its multi-answer guard
         if (!(this.quizService as any)._multiAnswerPerfect) {

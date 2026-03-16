@@ -276,12 +276,20 @@ export class OptionInteractionService {
       });
     }
 
-    // FET & Explanation
+    // FET & Explanation & Scoring
     if (allCorrectFound) {
       if (!(this.quizService as any)._multiAnswerPerfect) {
         (this.quizService as any)._multiAnswerPerfect = new Map<number, boolean>();
       }
       (this.quizService as any)._multiAnswerPerfect.set(qIdx, true);
+
+      // Score the question when all correct answers are found
+      if (isPerfect) {
+        const alreadyScored = this.quizService.questionCorrectness.get(qIdx) === true;
+        if (!alreadyScored) {
+          this.quizService.scoreDirectly(qIdx, true, isMultipleMode);
+        }
+      }
 
       // Trigger FET if perfect or if it's a single answer correct interaction
       if (isPerfect || (!isMultipleMode && isCorrectHelper(binding.option))) {
