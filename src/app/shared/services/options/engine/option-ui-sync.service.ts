@@ -572,7 +572,15 @@ export class OptionUiSyncService {
       : (question?.options ?? []);
 
     const correctOptions = freshOptions.filter(o => isCorrectHelper(o));
-    if (correctOptions.length === 0) return;
+
+    console.log(`[checkAndScoreMultiAnswer] Q${questionIndex + 1} ENTRY: freshOptions=${freshOptions.length}, correctOptions=${correctOptions.length}, options=`,
+      freshOptions.map((o: any) => ({ id: o.optionId, text: o.text?.substring(0, 30), correct: o.correct, selected: o.selected }))
+    );
+
+    if (correctOptions.length === 0) {
+      console.log(`[checkAndScoreMultiAnswer] Q${questionIndex + 1} EXIT EARLY: no correct options found`);
+      return;
+    }
 
     const isTrulyMulti = correctOptions.length > 1 || ctx.type === 'multiple';
     const isActuallySingle = !isTrulyMulti;
@@ -632,6 +640,10 @@ export class OptionUiSyncService {
       }
     }
 
+    console.log(`[checkAndScoreMultiAnswer] Q${questionIndex + 1} RESULT: correctSelectedCount=${correctSelectedCount}, correctOptions.length=${correctOptions.length}, hasIncorrect=${hasIncorrect}, isActuallySingle=${isActuallySingle}, selectedOptions=`,
+      selectedOptions.map((s: any) => ({ id: s?.optionId, text: s?.text?.substring(0, 30), correct: s?.correct }))
+    );
+
     if (isActuallySingle) {
       if (correctSelectedCount >= 1 && !hasIncorrect) {
         console.log(`[OptionUiSyncService] Scoring single-answer Q${questionIndex + 1} via change path`);
@@ -639,7 +651,7 @@ export class OptionUiSyncService {
       }
     } else {
       if (correctSelectedCount >= correctOptions.length) {
-        console.log(`[OptionUiSyncService] Scoring multi-answer Q${questionIndex + 1}: ALL ${correctOptions.length} correct answers found`);
+        console.log(`[OptionUiSyncService] ✅ Scoring multi-answer Q${questionIndex + 1}: ALL ${correctOptions.length} correct answers found`);
         this.quizService.scoreDirectly(questionIndex, true, true);
         // Force FET readiness even if already scored correct (to be safe)
         this.selectedOptionService.setAnswered(true, true);
