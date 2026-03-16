@@ -3246,19 +3246,11 @@ export class QuizQuestionComponent extends BaseQuestion
         this.selectedOptionService.setSelectedOption(selectionToPersist, idx, undefined, q?.type === QuestionType.MultipleAnswer);
       } catch { }
 
-      // Score multi-answer questions directly using optionsNow which has accumulated
-      // selection state from optionsToDisplay. This bypasses the broken
-      // checkAndScoreMultiAnswer path which only sees 1 option per click.
+      // Score multi-answer questions using checkIfAnsweredCorrectly which reads
+      // from userAnswers (just synced by setSelectedOption → updateUserAnswer).
+      // updateScore=true so it calls incrementScore when all correct are selected.
       if (q?.type === QuestionType.MultipleAnswer) {
-        const correctInQ = optionsNow.filter(
-          (o: Option) => o.correct === true || String(o.correct) === 'true'
-        );
-        const allCorrectNowSelected = correctInQ.length > 0 && correctInQ.every(
-          (co: Option) => co.selected === true
-        );
-        if (allCorrectNowSelected) {
-          this.quizService.scoreDirectly(idx, true, true);
-        }
+        await this.quizService.checkIfAnsweredCorrectly(idx, true);
       }
 
       // Canonical options for consistent state - ensure all currently selected options are marked as selected in canonicalOpts
