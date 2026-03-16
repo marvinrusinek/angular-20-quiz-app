@@ -1434,18 +1434,43 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // This correctly handles all scenarios including incorrect selections mixed with correct ones.
     let allCorrectSelectedForMulti = false;
 
+    console.log(`[MULTI-DBG] Q${idx + 1} clicked option:`, {
+      optionId: option?.optionId,
+      text: option?.text,
+      correct: option?.correct,
+      isSingleAnswerQuestion,
+      correctCountForQuestion,
+      optionsForImmediateScoringLength: optionsForImmediateScoring?.length,
+      optionsForImmediateScoring: optionsForImmediateScoring?.map((o: Option) => ({
+        id: o.optionId, text: o.text, correct: o.correct
+      }))
+    });
+
     if (!isSingleAnswerQuestion) {
       const normalize = (v: unknown): string => String(v ?? '').trim().toLowerCase();
       const correctOpts = (optionsForImmediateScoring ?? []).filter(
         (opt: Option) => opt?.correct === true || String(opt?.correct) === 'true'
       );
 
+      console.log(`[MULTI-DBG] Q${idx + 1} correctOpts (${correctOpts.length}):`,
+        correctOpts.map((o: Option) => ({ id: o.optionId, text: o.text, correct: o.correct }))
+      );
+
       if (correctOpts.length > 1) {
         // Gather all current selections, ensuring the just-clicked option is included
+        const fromMap = this.selectedOptionService?.selectedOptionsMap?.get(idx);
+        const fromMethod = this.selectedOptionService?.getSelectedOptionsForQuestion(idx);
         const currentSelections: SelectedOption[] = [
-          ...(this.selectedOptionService?.selectedOptionsMap?.get(idx) ??
-            this.selectedOptionService?.getSelectedOptionsForQuestion(idx) ?? [])
+          ...(fromMap ?? fromMethod ?? [])
         ];
+
+        console.log(`[MULTI-DBG] Q${idx + 1} selectionsFromMap (${fromMap?.length ?? 'null'}):`,
+          fromMap?.map((s: any) => ({ id: s?.optionId, text: s?.text }))
+        );
+        console.log(`[MULTI-DBG] Q${idx + 1} selectionsFromMethod (${fromMethod?.length ?? 'null'}):`,
+          fromMethod?.map((s: any) => ({ id: s?.optionId, text: s?.text }))
+        );
+
         const clickedId = String(option?.optionId ?? '').trim();
         const clickedText = normalize(option?.text);
         const alreadyIncluded = currentSelections.some((s) => {
@@ -1458,22 +1483,26 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           currentSelections.push(option as SelectedOption);
         }
 
+        console.log(`[MULTI-DBG] Q${idx + 1} currentSelections after merge (${currentSelections.length}):`,
+          currentSelections.map((s: any) => ({ id: s?.optionId, text: s?.text }))
+        );
+
         // Check: is every correct option represented in the current selections?
         const everyCorrectSelected = correctOpts.every((correctOpt) => {
           const cOptId = String(correctOpt.optionId ?? '').trim();
           const cOptText = normalize(correctOpt.text);
-          return currentSelections.some((sel) => {
+          const found = currentSelections.some((sel) => {
             const selId = String(sel?.optionId ?? '').trim();
             const selText = normalize(sel?.text);
             return (cOptId !== '' && selId !== '' && cOptId === selId) ||
                    (cOptText !== '' && selText !== '' && cOptText === selText);
           });
+          console.log(`[MULTI-DBG] Q${idx + 1} correctOpt id=${cOptId} text="${cOptText}" found=${found}`);
+          return found;
         });
 
         allCorrectSelectedForMulti = everyCorrectSelected;
-        if (allCorrectSelectedForMulti) {
-          console.log(`[onOptionSelected] Multi-answer: ALL ${correctOpts.length} correct answers selected for Q${idx + 1}`);
-        }
+        console.log(`[MULTI-DBG] Q${idx + 1} everyCorrectSelected=${everyCorrectSelected} -> allCorrectSelectedForMulti=${allCorrectSelectedForMulti}`);
 
         // Sync userAnswers so checkIfAnsweredCorrectly has current data
         const syncIds = currentSelections
@@ -1482,39 +1511,15 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         if (syncIds.length > 0) {
           this.quizService.userAnswers[idx] = syncIds;
         }
+      } else {
+        console.log(`[MULTI-DBG] Q${idx + 1} SKIPPED: correctOpts.length=${correctOpts.length} (not > 1)`);
       }
+    } else {
+      console.log(`[MULTI-DBG] Q${idx + 1} SKIPPED: isSingleAnswerQuestion=true (correctCountForQuestion=${correctCountForQuestion})`);
     }
 
     if (allCorrectSelectedForMulti) {
       this.quizService.scoreDirectly(idx, true, true);
-    }
-
-    // Sync userAnswers from current selections so the authoritative check has current data.
-    // Without this, checkIfAnsweredCorrectly reads empty userAnswers and always returns false
-    // for multi-answer questions, preventing score increment in scenarios where incorrect
-    // options are selected before/between correct ones.
-    if (!isSingleAnswerQuestion) {
-      const syncNormalize = (v: unknown): string => String(v ?? '').trim().toLowerCase();
-      const allSelections: SelectedOption[] = [
-        ...(this.selectedOptionService?.selectedOptionsMap?.get(idx) ?? [])
-      ];
-      const syncClickedId = String(option?.optionId ?? '').trim();
-      const syncClickedText = syncNormalize(option?.text);
-      const syncAlreadyIncluded = allSelections.some((s) => {
-        const sId = String(s?.optionId ?? '').trim();
-        const sText = syncNormalize(s?.text);
-        return (syncClickedId !== '' && sId !== '' && syncClickedId === sId) ||
-          (syncClickedText !== '' && sText !== '' && syncClickedText === sText);
-      });
-      if (!syncAlreadyIncluded && option) {
-        allSelections.push(option as SelectedOption);
-      }
-      const syncIds = allSelections
-        .map((s: any) => s?.optionId)
-        .filter((id: any) => id !== undefined && id !== null);
-      if (syncIds.length > 0) {
-        this.quizService.userAnswers[idx] = syncIds;
-      }
     }
 
     // Ensure scoring state is updated before evaluating dot color/progress.
