@@ -85,8 +85,6 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   }
 
   @Input() set questionIndex(idx: number) {
-    // Remember the index and clear any old override
-    this.questionIndexSubject.next(idx);
     this.currentIndex = idx;
 
     // Reset FET lock when question changes
@@ -97,14 +95,18 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     // doesn't cause FET to display on a fresh visit to this question
     this.timedOutIdxSubject.next(-1);
 
-    // Force clear view to prevent previous question's FET leaking (e.g. Q1 FET on Q2)
-    // Synchronous clearing is the only way to guarantee the user doesn't see stale content
-    // while the reactive pipeline for the new question is preparing its first emission.
+    // Force clear view BEFORE pushing new index to the subject.
+    // The subject push triggers the displayText$ pipeline synchronously (of() and
+    // startWith() emit synchronously). If we clear AFTER the push, we wipe the
+    // question text that the pipeline just rendered — causing blank Q2+ text.
     if (this.qText?.nativeElement) {
       this.renderer.setProperty(this.qText.nativeElement, 'innerHTML', '');
     }
 
     this.overrideSubject.next({ idx, html: '' });
+
+    // Push new index AFTER clearing — pipeline emits synchronously and sets innerHTML
+    this.questionIndexSubject.next(idx);
     this.clearCachedQuestionArtifacts(idx);
 
     // Hard-align the ExplanationTextService with the active index so the
