@@ -3240,16 +3240,20 @@ export class QuizQuestionComponent extends BaseQuestion
         }
       }
 
-      // Persist selection
+      // Detect multi-answer by type OR by having multiple correct options
+      const isMultiForSelection = q?.type === QuestionType.MultipleAnswer ||
+        ((q?.options?.filter((o: any) => o.correct === true || String(o.correct) === 'true').length ?? 0) > 1);
+
+      // Persist selection (isMultiForSelection ensures accumulation, not replacement)
       try {
         const selectionToPersist = { ...evtOpt, index: evtIdx };
-        this.selectedOptionService.setSelectedOption(selectionToPersist, idx, undefined, q?.type === QuestionType.MultipleAnswer);
+        this.selectedOptionService.setSelectedOption(selectionToPersist, idx, undefined, isMultiForSelection);
       } catch { }
 
       // Score multi-answer questions using checkIfAnsweredCorrectly which reads
       // from userAnswers (just synced by setSelectedOption → updateUserAnswer).
       // updateScore=true so it calls incrementScore when all correct are selected.
-      if (q?.type === QuestionType.MultipleAnswer) {
+      if (isMultiForSelection) {
         await this.quizService.checkIfAnsweredCorrectly(idx, true);
       }
 
