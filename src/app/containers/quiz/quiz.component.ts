@@ -1446,10 +1446,27 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         (opt: Option) => opt?.correct === true || String(opt?.correct) === 'true'
       );
       if (correctOpts.length > 1) {
-        // Get ALL currently selected options from the service (includes the just-clicked one)
-        const currentSelections =
-          this.selectedOptionService?.selectedOptionsMap?.get(idx) ??
-          this.selectedOptionService?.getSelectedOptionsForQuestion(idx) ?? [];
+        // Get currently selected options from the service
+        const mapSelections: SelectedOption[] = [
+          ...(this.selectedOptionService?.selectedOptionsMap?.get(idx) ??
+            this.selectedOptionService?.getSelectedOptionsForQuestion(idx) ?? [])
+        ];
+
+        // Ensure the just-clicked option is included (map may not be updated yet)
+        const normalize2 = (v: unknown): string => String(v ?? '').trim().toLowerCase();
+        const clickedId = String(option?.optionId ?? '').trim();
+        const clickedText = normalize2(option?.text);
+        const alreadyIncluded = mapSelections.some((sel) => {
+          const selId = String(sel?.optionId ?? '').trim();
+          const selText = normalize2(sel?.text);
+          return (clickedId !== '' && selId !== '' && clickedId === selId) ||
+            (clickedText !== '' && selText !== '' && clickedText === selText);
+        });
+        if (!alreadyIncluded && option) {
+          mapSelections.push(option as SelectedOption);
+        }
+
+        const currentSelections = mapSelections;
 
         if (currentSelections.length >= correctOpts.length) {
           // Build sets of correct identifiers from the question's options
