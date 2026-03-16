@@ -3272,7 +3272,10 @@ export class QuizQuestionComponent extends BaseQuestion
         const allCorrectSelected = correctIndices.length > 0 &&
           correctIndices.every((ci: number) => selections.has(ci));
 
+        console.log(`[SCORE-FIX] Q${idx + 1} evtIdx=${evtIdx} checked=${event.checked} selections=[${[...selections]}] correctIndices=[${correctIndices}] allCorrect=${allCorrectSelected}`);
+
         if (allCorrectSelected) {
+          console.log(`[SCORE-FIX] Q${idx + 1} ✅ ALL CORRECT — calling scoreDirectly`);
           this.quizService.scoreDirectly(idx, true, true);
         }
       }
