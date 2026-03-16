@@ -533,21 +533,21 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     this._wasComplete = complete;
 
     // MULTI-ANSWER SCORING: Score when ALL correct answers have been selected
-    // (regardless of whether incorrect answers were also selected)
-    if (isMultiAnswer && allSelected?.length > 0) {
-      const totalCorrectInQuestion = optionsSource.filter((o: any) => {
-        const c = o.correct;
+    // Uses this.selectedOptions (local state with correct flags) — NOT the service map,
+    // which may lose the correct flag during canonicalization or use a different index key.
+    if (isMultiAnswer && this.selectedOptions?.length > 0) {
+      const isCorrect = (o: any) => {
+        const c = o?.correct;
         return c === true || String(c) === 'true' || c === 1 || c === '1';
-      }).length;
+      };
 
-      const correctSelectedCount = allSelected.filter((sel: any) => {
-        const c = sel.correct;
-        return c === true || String(c) === 'true' || c === 1 || c === '1';
-      }).length;
+      const totalCorrectInQuestion = optionsSource.filter(isCorrect).length;
+      const correctSelectedCount = this.selectedOptions.filter(isCorrect).length;
 
-      const allCorrectSelected = correctSelectedCount === totalCorrectInQuestion && totalCorrectInQuestion > 0;
+      console.log(`[AC-SCORE] Q${activeQuestionIndex + 1}: correctSelected=${correctSelectedCount}/${totalCorrectInQuestion}, totalSelected=${this.selectedOptions.length}`);
 
-      if (allCorrectSelected) {
+      if (correctSelectedCount === totalCorrectInQuestion && totalCorrectInQuestion > 0) {
+        console.log(`[AC-SCORE] Q${activeQuestionIndex + 1}: ALL correct answers selected — scoring!`);
         this.quizService.scoreDirectly(activeQuestionIndex, true, true);
         this.quizStateService.setAnswerSelected(true);
       } else {
