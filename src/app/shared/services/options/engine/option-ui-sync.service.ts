@@ -634,24 +634,15 @@ export class OptionUiSyncService {
 
     if (isActuallySingle) {
       if (correctSelectedCount >= 1 && !hasIncorrect) {
-        const alreadyScored =
-          this.quizService.questionCorrectness.get(questionIndex) === true;
-        if (!alreadyScored) {
-          console.log(`[OptionUiSyncService] Scoring single-answer Q${questionIndex + 1} via change path`);
-          this.quizService.scoreDirectly(questionIndex, true, false);
-        }
+        console.log(`[OptionUiSyncService] Scoring single-answer Q${questionIndex + 1} via change path`);
+        this.quizService.scoreDirectly(questionIndex, true, false);
       }
     } else {
-      if (correctSelectedCount >= correctOptions.length) {
-        if (!hasIncorrect) {
-          console.log(`[OptionUiSyncService] Scoring multi-answer Q${questionIndex + 1}: ALL ${correctOptions.length} correct answers found`);
-          const alreadyCorrect = this.quizService.questionCorrectness.get(questionIndex) === true;
-          if (!alreadyCorrect) {
-            this.quizService.scoreDirectly(questionIndex, true, true);
-          }
-          // Force FET readiness even if already scored correct (to be safe)
-          this.selectedOptionService.setAnswered(true, true);
-        }
+      if (correctSelectedCount >= correctOptions.length && !hasIncorrect) {
+        console.log(`[OptionUiSyncService] Scoring multi-answer Q${questionIndex + 1}: ALL ${correctOptions.length} correct answers found`);
+        this.quizService.scoreDirectly(questionIndex, true, true);
+        // Force FET readiness even if already scored correct (to be safe)
+        this.selectedOptionService.setAnswered(true, true);
       }
     }
   }

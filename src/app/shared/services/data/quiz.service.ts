@@ -897,7 +897,6 @@ export class QuizService {
         if (wasCorrect) {
           this.updateCorrectCountForResults(this.correctCount - 1);
           this.questionCorrectness.set(scoringKey, false);
-          this.questionCorrectness.set(prevIndex, false);
           console.log(
             `[QuizService] Decremented score for Leaving Q${prevIndex} (Key=${scoringKey}, Backwards)`
           );
@@ -2462,12 +2461,11 @@ export class QuizService {
       }
     }
 
-    let wasCorrect = this.questionCorrectness.get(scoringKey);
-    // Fallback: if we didn't find it by scoringKey, try display index.
-    if (wasCorrect === undefined) {
-      wasCorrect = this.questionCorrectness.get(qIndex);
-    }
-    wasCorrect = wasCorrect || false;
+    // IMPORTANT: Only use scoringKey for questionCorrectness lookups.
+    // Previously we also stored/checked by qIndex (display index), but in shuffled mode
+    // one question's qIndex can collide with another question's scoringKey, causing
+    // false "already scored" hits that block increments.
+    let wasCorrect = this.questionCorrectness.get(scoringKey) || false;
 
     // Self-heal: if questionCorrectness says "already correct" but correctCount is 0,
     // the map entry is stale (e.g. from a previous localStorage session that wasn't
@@ -2476,26 +2474,23 @@ export class QuizService {
       console.warn(`[incrementScore] Self-heal: wasCorrect=true but correctCount=0 for Q${qIndex} (key=${scoringKey}). Clearing stale entry.`);
       wasCorrect = false;
       this.questionCorrectness.set(scoringKey, false);
-      this.questionCorrectness.set(qIndex, false);
     }
 
     const isNowCorrect = correctAnswerFound;  // simplified
 
+    console.log(`[incrementScore] Q${qIndex} scoringKey=${scoringKey} isNowCorrect=${isNowCorrect} wasCorrect=${wasCorrect} correctCount=${this.correctCount}`);
+
     if (isNowCorrect && !wasCorrect) {
-      // this.updateCorrectCountForResults(this.correctCount + 1);
       this.questionCorrectness.set(scoringKey, true);
-      this.questionCorrectness.set(qIndex, true);
       this.updateCorrectCountForResults(this.correctCount + 1);
       console.log(`[incrementScore] INCREMENTED score to ${this.correctCount}`);
     } else if (!isNowCorrect && wasCorrect) {
       this.updateCorrectCountForResults(Math.max(this.correctCount - 1, 0));
       this.questionCorrectness.set(scoringKey, false);
-      this.questionCorrectness.set(qIndex, false);
       console.log(`[incrementScore] Decremented score for Q${qIndex} (Key=${scoringKey})`);
     } else if (!isNowCorrect) {
       // Persist explicit wrong status so dots/progress remain stable after navigation.
       this.questionCorrectness.set(scoringKey, false);
-      this.questionCorrectness.set(qIndex, false);
       console.log(`[incrementScore] Marked Q${qIndex} wrong (Key=${scoringKey})`);
     } else {
       console.log(`[incrementScore] NO CHANGE: isNowCorrect=${isNowCorrect}, wasCorrect=${wasCorrect}`);

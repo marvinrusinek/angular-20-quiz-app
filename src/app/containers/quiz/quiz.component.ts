@@ -1423,21 +1423,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       const clickedIsCorrectForSingle = payloadSaysCorrect || matchedCorrectOption || indexMatchedCorrect || liveCorrectness === true;
 
       if (clickedIsCorrectForSingle) {
-        const scoringKey = this.getScoringKey(idx);
-        let alreadyScoredCorrect =
-          this.quizService.questionCorrectness.get(scoringKey) === true ||
-          this.quizService.questionCorrectness.get(idx) === true;
-
-        const visibleScore = this.quizService.correctAnswersCountSubject.getValue();
-        if (alreadyScoredCorrect && visibleScore <= 0) {
-          this.quizService.questionCorrectness.set(scoringKey, false);
-          this.quizService.questionCorrectness.set(idx, false);
-          alreadyScoredCorrect = false;
-        }
-
-        if (!alreadyScoredCorrect) {
-          this.quizService.scoreDirectly(idx, true, false);
-        }
+        // scoreDirectly handles deduplication internally via scoringKey
+        this.quizService.scoreDirectly(idx, true, false);
       }
     }
 
@@ -1509,24 +1496,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     }
 
     if (allCorrectSelectedForMulti) {
-      const scoringKey = this.getScoringKey(idx);
-      let alreadyScoredCorrect =
-        this.quizService.questionCorrectness.get(scoringKey) === true ||
-        this.quizService.questionCorrectness.get(idx) === true;
-
-      const visibleScore = this.quizService.correctAnswersCountSubject.getValue();
-      if (alreadyScoredCorrect && visibleScore <= 0) {
-        this.quizService.questionCorrectness.set(scoringKey, false);
-        this.quizService.questionCorrectness.set(idx, false);
-        alreadyScoredCorrect = false;
-      }
-
-      if (!alreadyScoredCorrect) {
-        // For multi-answer questions, score as soon as local selection state
-        // reaches a complete correct set. This avoids missing +1 when async
-        // answer synchronization lags behind UI selection updates.
-        this.quizService.scoreDirectly(idx, true, true);
-      }
+      // scoreDirectly handles deduplication internally via scoringKey
+      this.quizService.scoreDirectly(idx, true, true);
     }
 
     // Ensure scoring state is updated before evaluating dot color/progress.
@@ -1539,26 +1510,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // Authoritative FALSE can be transient right after navigation/click due async
     // answer-sync timing, which was flipping Q1 dot red before moving to Q2.
     if (authoritativeCorrectness === true) {
-      const scoringKey = this.getScoringKey(idx);
-      const alreadyScoredCorrect =
-        this.quizService.questionCorrectness.get(scoringKey) === true ||
-        this.quizService.questionCorrectness.get(idx) === true;
-
-      // Self-heal stale map state: if map says scored-correct but visible score
-      // is still zero, clear this question's correctness before scoring so first
-      // correct click can increment immediately.
-      const visibleScore = this.quizService.correctAnswersCountSubject.getValue();
-      if (alreadyScoredCorrect && visibleScore <= 0) {
-        this.quizService.questionCorrectness.set(scoringKey, false);
-        this.quizService.questionCorrectness.set(idx, false);
-      }
-
-      // Ensure score increments immediately when the question becomes correct,
-      // even if checkIfAnsweredCorrectly() result arrives before internal score sync.
+      // scoreDirectly handles deduplication internally via scoringKey
       this.quizService.scoreDirectly(idx, true, !isSingleAnswerQuestion);
-
-      this.quizService.questionCorrectness.set(scoringKey, true);
-      this.quizService.questionCorrectness.set(idx, true);
       this.setPersistedDotStatus(idx, 'correct');
     }
 
