@@ -136,6 +136,10 @@ export class SelectionMessageService {
     const selectedCorrect = opts.filter(o => o.selected && isCorrectHelper(o)).length;
     const selectedWrong = opts.filter(o => o.selected && !isCorrectHelper(o)).length;
 
+    console.log(`[SEL-MSG] Q${index + 1} computeFinalMessage: qType=${qType}, totalCorrect=${totalCorrect}, selectedCorrect=${selectedCorrect}, selectedWrong=${selectedWrong}, opts=`, opts.map((o, i) => ({
+      i, text: (o.text ?? '').substring(0, 20), correct: o.correct, selected: o.selected
+    })));
+
     if (qType === QuestionType.SingleAnswer) {
       if (selectedCorrect > 0) {
         this._singleAnswerCorrectLock.add(index);
@@ -151,36 +155,31 @@ export class SelectionMessageService {
 
     if (qType === QuestionType.MultipleAnswer) {
       const remaining = totalCorrect - selectedCorrect;
-      if (remaining === 0 && selectedWrong === 0) {
-        this._multiAnswerCompletionLock.add(index);
-        const correctIndices = opts
-          .map((o, i) => ({ o, i }))
-          .filter(x => x.o.correct)
-          .map(x => x.i + 1);
-        
-        const optionsList = correctIndices.length > 1
-          ? `Options ${correctIndices.slice(0, -1).join(', ')} and ${correctIndices[correctIndices.length - 1]}`
-          : `Option ${correctIndices[0]}`;
+      const totalSelected = selectedCorrect + selectedWrong;
 
-        return `You're right! The correct answers are ${optionsList}.`;
+      // All correct answers selected → Next button
+      if (remaining === 0) {
+        this._multiAnswerCompletionLock.add(index);
+        return 'Please click the Next button to continue...';
       }
-      if (selectedWrong > 0) {
-        return remaining === 0 ? 'Please click the Next button to continue.' : `Select ${remaining} more correct answer${remaining !== 1 ? 's' : ''}.`;
+
+      // Nothing selected → prompt for total correct count
+      if (totalSelected === 0) {
+        return `Select ${totalCorrect} options to continue...`;
       }
-      if (selectedCorrect === 0) return `Select ${totalCorrect} correct answers.`;
-      
+
+      // Some selected but not all correct yet → show remaining correct needed
       this._multiAnswerInProgressLock.add(index);
-      if (selectedCorrect > 0) {
-        return `That's correct! Please select ${remaining} more correct answer${remaining !== 1 ? 's' : ''}.`;
-      }
-      return `Please select ${remaining} more correct answer${remaining !== 1 ? 's' : ''} to continue.`;
+      return `Select ${remaining} more correct answer${remaining !== 1 ? 's' : ''} to continue...`;
     }
 
     return index === 0 ? START_MSG : CONTINUE_MSG;
   }
 
   public pushMessage(newMsg: string, _index: number): void {
-    if (this.selectionMessageSubject.getValue() !== newMsg) {
+    const prev = this.selectionMessageSubject.getValue();
+    if (prev !== newMsg) {
+      console.log(`[SEL-MSG] pushMessage Q${_index + 1}: "${prev}" → "${newMsg}"`, new Error().stack?.split('\n').slice(1, 4).map(s => s.trim()));
       this.selectionMessageSubject.next(newMsg);
     }
   }
@@ -202,7 +201,7 @@ export class SelectionMessageService {
   public enforceBaselineAtInit(i0: number, qType: QuestionType, totalCorrect: number): void {
     if (this._baselineReleased.has(i0)) return;
     const msg = qType === QuestionType.MultipleAnswer
-      ? `Please select ${totalCorrect} correct answers to continue.`
+      ? `Select ${totalCorrect} options to continue...`
       : (i0 === 0 ? START_MSG : CONTINUE_MSG);
     this._lastMessageByIndex.set(i0, msg);
     this.pushMessage(msg, i0);
@@ -211,8 +210,15 @@ export class SelectionMessageService {
   public forceBaseline(index: number): void {
     const q = this.getQuestion(index);
     const totalCorrect = (q?.options ?? []).filter((o: any) => o.correct).length;
-    this.releaseBaseline(index);
-    this.enforceBaselineAtInit(index, q?.type ?? QuestionType.SingleAnswer, totalCorrect);
+    const qType = (totalCorrect > 1 || q?.type === QuestionType.MultipleAnswer)
+      ? QuestionType.MultipleAnswer
+      : (q?.type ?? QuestionType.SingleAnswer);
+
+    // Clear released state so enforceBaselineAtInit doesn't skip
+    this._baselineReleased.delete(index);
+    this._pendingMsgTokens.delete(index);
+
+    this.enforceBaselineAtInit(index, qType, totalCorrect);
   }
 
   public async setSelectionMessage(isAnswered: boolean): Promise<void> {
@@ -252,12 +258,25 @@ export class SelectionMessageService {
   }
 
   public emitFromClick(params: any): void {
+    const opts = params.canonicalOptions as Option[];
+    const correctCount = (opts ?? []).filter(
+      (o: any) => o?.correct === true || String(o?.correct) === 'true'
+    ).length;
+    const declaredType = params.questionType;
+    const qType: QuestionType = (correctCount > 1 || declaredType === QuestionType.MultipleAnswer)
+      ? QuestionType.MultipleAnswer
+      : (declaredType ?? QuestionType.SingleAnswer);
+
+    console.log(`[SEL-MSG] emitFromClick Q${params.index + 1}: declaredType=${declaredType}, correctCount=${correctCount}, derivedQType=${qType}`);
+
     const msg = this.computeFinalMessage({
       index: params.index,
       total: params.totalQuestions,
-      qType: params.questionType,
-      opts: params.canonicalOptions as Option[]
+      qType,
+      opts
     });
+
+    console.log(`[SEL-MSG] emitFromClick Q${params.index + 1}: msg="${msg}"`);
     if (params.onMessageChange) params.onMessageChange(msg);
     this.pushMessage(msg, params.index);
   }
@@ -361,7 +380,9 @@ export class SelectionMessageService {
   }
 
   public setSelectionMessageText(message: string): void {
-    if (this.selectionMessageSubject.getValue() !== message) {
+    const prev = this.selectionMessageSubject.getValue();
+    if (prev !== message) {
+      console.log(`[SEL-MSG] setSelectionMessageText: "${prev}" → "${message}"`, new Error().stack?.split('\n').slice(1, 3).map(s => s.trim()));
       this.selectionMessageSubject.next(message);
     }
   }

@@ -388,7 +388,7 @@ export class OptionInteractionService {
           selected: futureKeys.has(i)
         })) as Option[]
       });
-      this.selectionMessageService.selectionMessageSubject.next(message);
+      this.selectionMessageService.pushMessage(message, qIdx);
     } catch (e) {
       console.error('[OIS] Message sync failed', e);
     }

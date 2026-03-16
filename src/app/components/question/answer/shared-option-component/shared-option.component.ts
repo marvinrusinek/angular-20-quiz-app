@@ -4157,23 +4157,22 @@ export class SharedOptionComponent
       };
       console.log(`[SOC] FORCED _feedbackDisplay: idx=${index} text="${feedbackText}"`);
 
-      // 3. SELECTION MESSAGE in footer
-      let selMsg: string;
-      if (remainingMsg === 0) {
-        const optsList = correctIdxs1Based.length > 1
-          ? `Options ${correctIdxs1Based.slice(0, -1).join(', ')} and ${correctIdxs1Based[correctIdxs1Based.length - 1]}`
-          : `Option ${correctIdxs1Based[0]}`;
-        selMsg = `You're right! The correct answers are ${optsList}.`;
-      } else if (correctSel > 0) {
-        const remTxt = remainingMsg === 1 ? '1 more correct answer' : `${remainingMsg} more correct answers`;
-        selMsg = `That's correct! Please select ${remTxt}.`;
-      } else {
-        selMsg = `Please select ${correctCountFromQ} correct answers to continue.`;
-      }
+      // 3. SELECTION MESSAGE in footer — delegate to service for consistent messages
+      const optsForMsg: Option[] = this.optionBindings.map((ob, bi) => ({
+        ...ob.option,
+        correct: correctSet.has(bi),
+        selected: durableSet.has(bi),
+      })) as Option[];
+      const selMsg = this.selectionMessageService.computeFinalMessage({
+        index: qIdx,
+        total: this.quizService?.totalQuestions ?? 0,
+        qType: QuestionType.MultipleAnswer,
+        opts: optsForMsg
+      });
       // Set message now AND re-assert after microtasks to prevent async overwrites
-      this.selectionMessageService.selectionMessageSubject.next(selMsg);
-      queueMicrotask(() => this.selectionMessageService.selectionMessageSubject.next(selMsg));
-      setTimeout(() => this.selectionMessageService.selectionMessageSubject.next(selMsg), 0);
+      this.selectionMessageService.pushMessage(selMsg, qIdx);
+      queueMicrotask(() => this.selectionMessageService.pushMessage(selMsg, qIdx));
+      setTimeout(() => this.selectionMessageService.pushMessage(selMsg, qIdx), 0);
 
       // When all correct answers are selected: enable Next button, score, and show FET
       if (remainingMsg === 0) {
