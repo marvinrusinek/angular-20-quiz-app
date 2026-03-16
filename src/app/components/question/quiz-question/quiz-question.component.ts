@@ -130,6 +130,7 @@ export class QuizQuestionComponent extends BaseQuestion
   @Input() explanation!: string;
   @Input() shouldRenderOptions = false;
   quiz!: Quiz | null;
+  private _multiAnswerSelections = new Map<number, Set<number>>();
   selectedQuiz = new ReplaySubject<Quiz>(1);
   questions: QuizQuestion[] = [];
   questionsArray: QuizQuestion[] = [];
@@ -3250,11 +3251,30 @@ export class QuizQuestionComponent extends BaseQuestion
         this.selectedOptionService.setSelectedOption(selectionToPersist, idx, undefined, isMultiForSelection);
       } catch { }
 
-      // Score multi-answer questions using checkIfAnsweredCorrectly which reads
-      // from userAnswers (just synced by setSelectedOption → updateUserAnswer).
-      // updateScore=true so it calls incrementScore when all correct are selected.
-      if (isMultiForSelection) {
-        await this.quizService.checkIfAnsweredCorrectly(idx, true);
+      // Self-contained multi-answer scoring: track selected indices directly
+      // and check if all correct option indices are among them.
+      // Does not depend on selectedOptionsMap, optionsToDisplay, or userAnswers.
+      if (isMultiForSelection && q?.options) {
+        if (!this._multiAnswerSelections.has(idx)) {
+          this._multiAnswerSelections.set(idx, new Set());
+        }
+        const selections = this._multiAnswerSelections.get(idx)!;
+        if (event.checked !== false) {
+          selections.add(evtIdx);
+        } else {
+          selections.delete(evtIdx);
+        }
+
+        const correctIndices = q.options
+          .map((o: any, i: number) => (o.correct === true || String(o.correct) === 'true') ? i : -1)
+          .filter((i: number) => i !== -1);
+
+        const allCorrectSelected = correctIndices.length > 0 &&
+          correctIndices.every((ci: number) => selections.has(ci));
+
+        if (allCorrectSelected) {
+          this.quizService.scoreDirectly(idx, true, true);
+        }
       }
 
       // Canonical options for consistent state - ensure all currently selected options are marked as selected in canonicalOpts
