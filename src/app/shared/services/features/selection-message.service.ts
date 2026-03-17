@@ -123,8 +123,9 @@ export class SelectionMessageService {
     qType: QuestionType;
     opts: Option[];
   }): string {
-    const { index, qType, opts } = args;
+    const { index, total, qType, opts } = args;
     if (!opts || opts.length === 0) return index === 0 ? START_MSG : CONTINUE_MSG;
+    const isLastQuestion = total > 0 && index === total - 1;
 
     const isCorrectHelper = (o: any) => {
       if (!o) return false;
@@ -144,7 +145,7 @@ export class SelectionMessageService {
       if (selectedCorrect > 0) {
         this._singleAnswerCorrectLock.add(index);
         this._singleAnswerIncorrectLock.delete(index);
-        return 'Please click the Next button to continue.';
+        return isLastQuestion ? SHOW_RESULTS_MSG : 'Please click the Next button to continue.';
       }
       if (selectedWrong > 0) {
         this._singleAnswerIncorrectLock.add(index);
@@ -157,10 +158,10 @@ export class SelectionMessageService {
       const remaining = totalCorrect - selectedCorrect;
       const totalSelected = selectedCorrect + selectedWrong;
 
-      // All correct answers selected → Next button
+      // All correct answers selected → Next button or Show Results
       if (remaining === 0) {
         this._multiAnswerCompletionLock.add(index);
-        return 'Please click the Next button to continue...';
+        return isLastQuestion ? SHOW_RESULTS_MSG : 'Please click the Next button to continue...';
       }
 
       // Nothing selected → prompt for total correct count
