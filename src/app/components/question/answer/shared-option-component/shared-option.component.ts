@@ -4174,8 +4174,9 @@ export class SharedOptionComponent
       queueMicrotask(() => this.selectionMessageService.pushMessage(selMsg, qIdx));
       setTimeout(() => this.selectionMessageService.pushMessage(selMsg, qIdx), 0);
 
-      // When all correct answers are selected: enable Next button, score, and show FET
+      // When all correct answers are selected: stop timer, enable Next button, score, and show FET
       if (remainingMsg === 0) {
+        try { this.timerService.stopTimer?.(undefined, { force: true }); } catch {}
         this.nextButtonStateService.setNextButtonState(true);
 
         // SCORE: Directly score the multi-answer question as correct.

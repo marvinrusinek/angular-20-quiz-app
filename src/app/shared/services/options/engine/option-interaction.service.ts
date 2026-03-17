@@ -308,6 +308,11 @@ export class OptionInteractionService {
       });
     }
 
+    // Stop timer when correct answer(s) selected
+    if (allCorrectFound || (!isMultipleMode && isCorrectHelper(binding.option))) {
+      try { this.timerService.stopTimer?.(undefined, { force: true }); } catch {}
+    }
+
     // FET & Explanation & Scoring
     if (allCorrectFound) {
       if (!(this.quizService as any)._multiAnswerPerfect) {
