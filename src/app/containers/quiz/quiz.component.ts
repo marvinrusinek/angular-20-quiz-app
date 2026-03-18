@@ -5191,6 +5191,20 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     const localStatus = this.getPersistedDotStatus(index);
 
+    // Prefer the live selection evaluation whenever we still have in-memory
+    // state for this question. This prevents a previously persisted "wrong"
+    // dot from overriding the current multi-answer selection after the user
+    // fixes the answer on the same question.
+    if (
+      (evaluatedStatus === true || evaluatedStatus === false) &&
+      (questionHasLiveSessionState || index === this.currentQuestionIndex)
+    ) {
+      const status: 'correct' | 'wrong' = evaluatedStatus ? 'correct' : 'wrong';
+      this.setPersistedDotStatus(index, status);
+      this.dotStatusCache.set(index, status);
+      return status;
+    }
+
     // For non-current questions, prefer already persisted dot color first.
     // This prevents transient service-map false values from repainting an
     // already-correct dot red when user navigates forward.
