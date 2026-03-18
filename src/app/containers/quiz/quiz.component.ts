@@ -5163,10 +5163,32 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     }
 
     const previousCached = this.dotStatusCache.get(index);
-    if (this.dotStatusCache.has(index)) {
+    //if (this.dotStatusCache.has(index)) {
+    const hasCachedStatus = this.dotStatusCache.has(index);
+
+    const selections = this.getSelectionsForQuestion(index);
+    const candidateIndices = this.getCandidateQuestionIndices(index);
+    const questionHasLiveSessionState = this.hasLiveSessionStateForQuestion(index);
+  
+    if (hasCachedStatus) {
       const cached = this.dotStatusCache.get(index)!;
       const isCurrentQuestion = index === this.currentQuestionIndex;
-      if (!options?.forceRecompute && !isCurrentQuestion) {
+      //if (!options?.forceRecompute && !isCurrentQuestion) {
+      // Cached CORRECT is stable and can be reused safely.
+      // Cached WRONG is not stable enough for multi-answer questions because the
+      // user can fix an earlier incorrect selection by adding the remaining
+      // correct answers, which should immediately flip the dot green.
+      if (!options?.forceRecompute && !isCurrentQuestion && cached === 'correct') {
+        return cached;
+      }
+
+      if (
+        !options?.forceRecompute &&
+        !isCurrentQuestion &&
+        cached === 'pending' &&
+        !questionHasLiveSessionState &&
+        selections.length === 0
+      ) {
         return cached;
       }
       if (!options?.forceRecompute && isCurrentQuestion && cached === 'pending') {
@@ -5174,9 +5196,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       }
     }
 
-    const selections = this.getSelectionsForQuestion(index);
+    /* const selections = this.getSelectionsForQuestion(index);
     const candidateIndices = this.getCandidateQuestionIndices(index);
-    const questionHasLiveSessionState = this.hasLiveSessionStateForQuestion(index);
+    const questionHasLiveSessionState = this.hasLiveSessionStateForQuestion(index); */
 
     if (
       index === this.currentQuestionIndex &&
