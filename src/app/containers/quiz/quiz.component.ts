@@ -4911,15 +4911,66 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // Persisted fallbacks (userAnswers/sessionStorage) can contain stale values.
     const candidateIndices = this.getCandidateQuestionIndices(index);
 
+    const question = this.questionsArray?.[index] ||
+      this.quizService.questions?.[index] ||
+      this.quizService.activeQuiz?.questions?.[index];
+
+    const normalize = (value: unknown): string => String(value ?? '').trim().toLowerCase();
+    const optionIdSet = new Set(
+      (question?.options ?? [])
+        .map((opt: Option, optIndex: number) => {
+          const rawId = opt?.optionId;
+          if (rawId !== undefined && rawId !== null && String(rawId).trim() !== '') {
+            return String(rawId).trim();
+          }
+          return String(optIndex);
+        })
+    );
+    const optionTextSet = new Set(
+      (question?.options ?? [])
+        .map((opt: Option) => normalize(opt?.text))
+        .filter(Boolean)
+    );
+    const optionIndexSet = new Set((question?.options ?? []).map((_opt: Option, optIndex: number) => optIndex));
+
+    const pickRelevantSelections = (selections: SelectedOption[]): SelectedOption[] => {
+      if (!Array.isArray(selections) || selections.length === 0) {
+        return [];
+      }
+
+      const exactQuestionSelections = selections.filter((selection: SelectedOption) =>
+        selection?.questionIndex === index
+      );
+      if (exactQuestionSelections.length > 0) {
+        return exactQuestionSelections;
+      }
+
+      const matchedSelections = selections.filter((selection: SelectedOption) => {
+        const selectionId = String(selection?.optionId ?? '').trim();
+        const selectionText = normalize(selection?.text);
+        const selectionDisplayIndex = Number((selection as any)?.displayIndex ?? (selection as any)?.index ?? -1);
+
+        return (
+          (selectionId !== '' && optionIdSet.has(selectionId)) ||
+          (selectionText !== '' && optionTextSet.has(selectionText)) ||
+          optionIndexSet.has(selectionDisplayIndex)
+        );
+      });
+
+      return matchedSelections.length > 0 ? matchedSelections : selections;
+    };
+
     for (const candidateIndex of candidateIndices) {
       const serviceSelection = this.selectedOptionService?.selectedOptionsMap?.get(candidateIndex);
       if (Array.isArray(serviceSelection) && serviceSelection.length > 0) {
-        return serviceSelection;
+        // return serviceSelection;
+        return pickRelevantSelections(serviceSelection);
       }
 
       const quizSelection = this.quizService?.selectedOptionsMap?.get(candidateIndex);
       if (Array.isArray(quizSelection) && quizSelection.length > 0) {
-        return quizSelection as SelectedOption[];
+        // return quizSelection as SelectedOption[];
+        return pickRelevantSelections(quizSelection as SelectedOption[]);
       }
     }
 
