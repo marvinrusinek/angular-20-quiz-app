@@ -302,7 +302,7 @@ export class OptionUiSyncService {
           if (b) {
             fullSelections.push({
               ...b.option,
-              optionId: b.option.optionId,
+              optionId: getEffectiveId(b.option, numIdx),
               index: numIdx,
               displayIndex: numIdx,
               questionIndex: currentIndex,
@@ -318,7 +318,7 @@ export class OptionUiSyncService {
         if (ctx.selectedOptionMap.has(idx) && !seenIndices.has(idx)) {
           fullSelections.push({
             ...b.option,
-            optionId: b.option.optionId,
+            optionId: getEffectiveId(b.option, idx),
             index: idx,
             displayIndex: idx,
             questionIndex: currentIndex,
