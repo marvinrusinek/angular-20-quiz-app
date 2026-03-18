@@ -5194,14 +5194,14 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     const evaluatedStatus = selections.length > 0
       ? this.evaluateSelectionCorrectness(index, selections)
       : null;
-    const hasActiveSessionState =
+    /* const hasActiveSessionState =
       (this.selectedOptionService?.selectedOptionsMap?.size ?? 0) > 0 ||
       (this.quizService?.selectedOptionsMap?.size ?? 0) > 0 ||
       (this.quizService?.questionCorrectness?.size ?? 0) > 0 ||
       (Array.isArray(this.quizService?.userAnswers)
         ? this.quizService.userAnswers.some((answers: unknown) =>
           Array.isArray(answers) && answers.length > 0)
-        : false);
+        : false); */
 
     const localStatus = this.getPersistedDotStatus(index);
 
@@ -5209,10 +5209,15 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // state for this question. This prevents a previously persisted "wrong"
     // dot from overriding the current multi-answer selection after the user
     // fixes the answer on the same question.
-    if (
+    /* if (
       (evaluatedStatus === true || evaluatedStatus === false) &&
       (questionHasLiveSessionState || index === this.currentQuestionIndex)
-    ) {
+    ) { */
+    // Prefer the live selection evaluation whenever we can compute one from
+    // the current selections. This ensures a stale persisted "wrong" dot is
+    // immediately replaced once a multiple-answer question becomes correct
+    // after the user fixes an earlier incorrect selection.
+    if (evaluatedStatus === true || evaluatedStatus === false) {
       const status: 'correct' | 'wrong' = evaluatedStatus ? 'correct' : 'wrong';
       this.setPersistedDotStatus(index, status);
       this.dotStatusCache.set(index, status);
@@ -5248,7 +5253,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     }
 
     // Active question: live evaluation should update immediately.
-    if (index === this.currentQuestionIndex && (evaluatedStatus === true || evaluatedStatus === false)) {
+    /* if (index === this.currentQuestionIndex && (evaluatedStatus === true || evaluatedStatus === false)) {
       const status: 'correct' | 'wrong' = evaluatedStatus ? 'correct' : 'wrong';
       // const scoringKey = this.getScoringKey(index);
       // this.quizService.questionCorrectness.set(scoringKey, evaluatedStatus);
@@ -5263,7 +5268,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     }
 
     // const localStatus = this.getPersistedDotStatus(index);
-    const hasSessionState = this.hasLiveSessionStateForQuestion(index);
+    const hasSessionState = this.hasLiveSessionStateForQuestion(index); */
 
     // Do not restore persisted dot color for untouched active questions.
     // But allow non-current questions to keep their previous run status when navigating.
