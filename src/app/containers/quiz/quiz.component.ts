@@ -5209,10 +5209,15 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       return 'pending';
     }
 
-    const hasScoredState = candidateIndices.some((key) => {
+    /* const hasScoredState = candidateIndices.some((key) => {
       const persisted = this.quizService.questionCorrectness.get(key);
       return persisted === true || persisted === false;
-    });
+    }); */
+    const persistedScoredValues = candidateIndices
+      .map((key) => this.quizService.questionCorrectness.get(key))
+      .filter((value): value is boolean => value === true || value === false);
+    const hasScoredState = persistedScoredValues.length > 0;
+    const hasAuthoritativeCorrectState = persistedScoredValues.includes(true);
     const evaluatedStatus = selections.length > 0
       ? this.evaluateSelectionCorrectness(index, selections)
       : null;
@@ -5235,6 +5240,18 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       (evaluatedStatus === true || evaluatedStatus === false) &&
       (questionHasLiveSessionState || index === this.currentQuestionIndex)
     ) { */
+    
+    // An authoritative scored-correct state must win over any live-selection
+    // false negative. This is especially important for multiple-answer
+    // questions where transient stale selections can still include an earlier
+    // wrong click even after the service has already marked the question
+    // correct.
+    if (hasAuthoritativeCorrectState) {
+      this.setPersistedDotStatus(index, 'correct');
+      this.dotStatusCache.set(index, 'correct');
+      return 'correct';
+    }
+
     // Prefer the live selection evaluation whenever we can compute one from
     // the current selections. This ensures a stale persisted "wrong" dot is
     // immediately replaced once a multiple-answer question becomes correct
