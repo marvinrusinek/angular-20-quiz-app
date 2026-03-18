@@ -5059,11 +5059,56 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     return [];
   }
 
-  private evaluateSelectionCorrectness(index: number, selections: SelectedOption[]): boolean | null {
-    const question = this.questionsArray?.[index] ||
+  //private evaluateSelectionCorrectness(index: number, selections: SelectedOption[]): boolean | null {
+    //const question = this.questionsArray?.[index] ||
+  private getQuestionForIndex(index: number): QuizQuestion | null {
+    return this.questionsArray?.[index] ||
       this.quizService.questions?.[index] ||
-      this.quizService.activeQuiz?.questions?.[index];
+      this.quizService.activeQuiz?.questions?.[index] ||
+      null;
+  }
 
+  private hasOptimisticCorrectSelection(index: number, selections: SelectedOption[]): boolean {
+    const question = this.getQuestionForIndex(index);
+
+    if (!question || !Array.isArray(question.options) || question.options.length === 0 || selections.length === 0) {
+      return false;
+    }
+
+    const correctOptions = question.options.filter(
+      (opt: Option) => opt.correct === true || String(opt.correct) === 'true'
+    );
+
+    if (correctOptions.length <= 1) {
+      return false;
+    }
+
+    const normalize = (value: unknown): string => String(value ?? '').trim().toLowerCase();
+    const matchesOption = (candidate: SelectedOption, option: Option): boolean => {
+      const candidateId = String(candidate?.optionId ?? '').trim();
+      const optionId = String(option?.optionId ?? '').trim();
+      const candidateText = normalize(candidate?.text);
+      const optionText = normalize(option?.text);
+
+      return (candidateId !== '' && optionId !== '' && candidateId === optionId) ||
+        (candidateText !== '' && optionText !== '' && candidateText === optionText);
+    };
+
+    const hasIncorrectSelection = selections.some((selection) =>
+      !correctOptions.some((correctOption) => matchesOption(selection, correctOption))
+    );
+
+    if (hasIncorrectSelection) {
+      return false;
+    }
+
+    return selections.some((selection) =>
+      correctOptions.some((correctOption) => matchesOption(selection, correctOption))
+    );
+  }
+
+  private evaluateSelectionCorrectness(index: number, selections: SelectedOption[]): boolean | null {
+    const question = this.getQuestionForIndex(index);
     if (!question || !Array.isArray(question.options) || question.options.length === 0) {
       return null;
     }
@@ -5268,6 +5313,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     const evaluatedStatus = selections.length > 0
       ? this.evaluateSelectionCorrectness(index, selections)
       : null;
+    const hasOptimisticCorrectSelection = selections.length > 0 &&
+      this.hasOptimisticCorrectSelection(index, selections);
     /* const hasActiveSessionState =
       (this.selectedOptionService?.selectedOptionsMap?.size ?? 0) > 0 ||
       (this.quizService?.selectedOptionsMap?.size ?? 0) > 0 ||
