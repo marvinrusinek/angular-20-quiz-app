@@ -5021,7 +5021,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       return null;
     }
 
-    const normalize = (value: unknown): string => String(value ?? '').trim().toLowerCase();
+    // const normalize = (value: unknown): string => String(value ?? '').trim().toLowerCase();
 
     const correctOptions = question.options.filter(
       (opt: Option) => opt.correct === true || String(opt.correct) === 'true'
@@ -5029,7 +5029,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     // Treat questions with multiple correct options as multi-answer even when
     // explicit `question.type` metadata is missing.
-    const isMultipleAnswerQuestion =
+    /* const isMultipleAnswerQuestion =
       question.type === QuestionType.MultipleAnswer || correctOptions.length > 1;
 
     // Selections are already retrieved for the target question key.
@@ -5041,7 +5041,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       ? effectiveSelectionsRaw
       : effectiveSelectionsRaw.slice(-1);
 
-    if (effectiveSelections.length === 0) {
+    if (effectiveSelections.length === 0) { */
+    if (correctOptions.length === 0 || selections.length === 0) {
       return null;
     }
 
@@ -5057,11 +5058,17 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         .filter(Boolean)
     ); */
 
-    if (correctOptions.length === 0) {
+    const resolution = this.selectedOptionService.getResolutionStatus(
+      question,
+      selections as Option[],
+      true
+    );
+
+    if (resolution.correctSelected === 0 && resolution.incorrectSelected === 0) {
       return null;
     }
 
-    const findMatchedOption = (selection: SelectedOption): Option | null => {
+    /* const findMatchedOption = (selection: SelectedOption): Option | null => {
       const selectionId = String(selection?.optionId ?? '').trim();
       const selectionText = normalize(selection?.text ?? '');
       const selectionIndex = Number(
@@ -5120,12 +5127,18 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       } else {
         hasIncorrect = true;
       }
+    } */
+    if (resolution.incorrectSelected > 0) {
+      return false;
     }
 
-    if (consideredSelections === 0) return null;
+    /* if (consideredSelections === 0) return null;
     if (hasIncorrect) return false; // Any wrong choice = Red
     if (matchedCorrectCount > 0) return true; // At least one right and zero wrong = Green
-    return null;
+    return null; */
+    // Multi-answer dots should turn green as soon as the user has selected one
+    // or more correct answers and has not selected any incorrect answers.
+    return resolution.correctSelected > 0 ? true : null;
   }
 
   // Helper to determine dot class with caching
