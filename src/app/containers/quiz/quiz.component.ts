@@ -5323,6 +5323,14 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         ? this.quizService.userAnswers.some((answers: unknown) =>
           Array.isArray(answers) && answers.length > 0)
         : false); */
+    
+    // Multi-answer questions should flip green on the first correct click,
+    // even before the stricter resolution/scoring paths fully settle.
+    if (hasOptimisticCorrectSelection) {
+      this.setPersistedDotStatus(index, 'correct');
+      this.dotStatusCache.set(index, 'correct');
+      return 'correct';
+    }
 
     const localStatus = this.getPersistedDotStatus(index);
 
