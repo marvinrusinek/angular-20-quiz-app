@@ -5111,10 +5111,10 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // Do not restore persisted dot color for untouched active questions.
     // But allow non-current questions to keep their previous run status when navigating.
     if (!hasScoredState && evaluatedStatus === null) {
-      if (previousCached === 'correct' || previousCached === 'wrong') {
+      if (previousCached === 'correct') {
         return previousCached;
       }
-      if (index !== this.currentQuestionIndex && (localStatus === 'correct' || localStatus === 'wrong')) {
+      if (index !== this.currentQuestionIndex && localStatus === 'correct') {
         this.dotStatusCache.set(index, localStatus);
         return localStatus;
       }
@@ -5122,7 +5122,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       return 'pending';
     }
 
-    if (localStatus && index !== this.currentQuestionIndex) {
+    if (localStatus === 'correct' && index !== this.currentQuestionIndex) {
       this.dotStatusCache.set(index, localStatus);
       return localStatus;
     }
