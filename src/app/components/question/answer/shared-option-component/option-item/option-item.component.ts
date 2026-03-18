@@ -137,13 +137,9 @@ export class OptionItemComponent implements OnChanges {
 
     const isCorrect = this.isOptionCorrect();
     const shouldHighlight = this.shouldHighlightOption();
-    const shouldUseIncorrectState =
-      shouldHighlight &&
-      this.type === 'multiple' &&
-      this.hasIncorrectSelectionInCurrentQuestion();
 
     if (shouldHighlight) {
-      if (isCorrect && !shouldUseIncorrectState) {
+      if (isCorrect) {
         classes['correct-option'] = true;
         classes['incorrect-option'] = false;
       } else {
@@ -203,10 +199,6 @@ export class OptionItemComponent implements OnChanges {
       return null;
     }
 
-    if (this.type === 'multiple' && this.hasIncorrectSelectionInCurrentQuestion()) {
-      return '#ff0000';
-    }
-
     return this.isOptionCorrect() ? '#43e756' : '#ff0000'; // Green if correct, Red if incorrect
   }
 
@@ -250,26 +242,6 @@ export class OptionItemComponent implements OnChanges {
     const fromAllOptions = (this.b?.allOptions ?? []).some(o => o?.selected === true || o?.highlight === true);
 
     return fromSelectionService || fromFeedbackMap || fromBindingFlags || fromAllOptions;
-  }
-
-  private hasIncorrectSelectionInCurrentQuestion(): boolean {
-    const currentSelections = this.getSelectionsForCurrentBinding();
-    const selectedBindings = (this.b?.allOptions ?? []).filter((option: any) =>
-      option?.selected === true || option?.highlight === true
-    );
-
-    const selectionSources = currentSelections.length > 0 ? currentSelections : selectedBindings;
-
-    return selectionSources.some((selection: any) => {
-      const isSelectedBinding = selection === this.b?.option || selection?.selected === true || selection?.highlight === true;
-      const isCorrect =
-        selection?.correct === true ||
-        String(selection?.correct) === 'true' ||
-        selection?.correct === 1 ||
-        selection?.correct === '1';
-
-      return isSelectedBinding && !isCorrect;
-    });
   }
 
   shouldShowFeedback(): boolean {
