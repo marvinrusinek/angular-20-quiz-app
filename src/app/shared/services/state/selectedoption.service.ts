@@ -294,7 +294,11 @@ export class SelectedOptionService {
     );
 
     if (updatedOptions.length > 0) {
-      this.commitSelections(questionIndex, updatedOptions);
+      //this.commitSelections(questionIndex, updatedOptions);
+      const committed = this.commitSelections(questionIndex, updatedOptions);
+      this.selectedOption = committed;
+      this.selectedOptionSubject.next(committed);
+      this.isOptionSelectedSubject.next(committed.length > 0);
     } else {
       this.selectedOptionsMap.delete(questionIndex);
       this.selectedOption = [];
