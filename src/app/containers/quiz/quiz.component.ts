@@ -5094,17 +5094,17 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         (candidateText !== '' && optionText !== '' && candidateText === optionText);
     };
 
-    /* const hasIncorrectSelection = selections.some((selection) =>
+    const hasIncorrectSelection = selections.some((selection) =>
       !correctOptions.some((correctOption) => matchesOption(selection, correctOption))
     );
 
     if (hasIncorrectSelection) {
       return false;
-    } */
+    }
 
-    // For pagination dots, multi-answer questions should turn green on the
-    // first correct click, even if the user has also clicked an incorrect
-    // option. The dot is meant to reflect positive progress immediately.
+    // For multi-answer questions, the dot can turn green on the first correct
+    // click, but it must return to red immediately if the current selection set
+    // includes any incorrect option.
     return selections.some((selection) =>
       correctOptions.some((correctOption) => matchesOption(selection, correctOption))
     );
@@ -5226,18 +5226,14 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       }
     } */
     if (isMultipleAnswerQuestion) {
-      //if (resolution.correctSelected >= resolution.correctTotal && resolution.correctTotal > 0) {
-      if (resolution.correctSelected > 0) {
-        return true;
-      }
-
       if (resolution.incorrectSelected > 0) {
         return false;
       }
 
-      // Multi-answer dots should turn green as soon as the user has selected one
-      // or more correct answers and has not selected any incorrect answers.
-      //return resolution.correctSelected > 0 ? true : null;
+      if (resolution.correctSelected > 0) {
+        return true;
+      }
+      
       return null;
     }
 
