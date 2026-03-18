@@ -5026,6 +5026,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     const correctOptions = question.options.filter(
       (opt: Option) => opt.correct === true || String(opt.correct) === 'true'
     );
+    const isMultipleAnswerQuestion =
+      question.type === QuestionType.MultipleAnswer || correctOptions.length > 1;
 
     // Treat questions with multiple correct options as multi-answer even when
     // explicit `question.type` metadata is missing.
@@ -5128,6 +5130,20 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         hasIncorrect = true;
       }
     } */
+    if (isMultipleAnswerQuestion) {
+      if (resolution.correctSelected >= resolution.correctTotal && resolution.correctTotal > 0) {
+        return true;
+      }
+
+      if (resolution.incorrectSelected > 0) {
+        return false;
+      }
+
+      // Multi-answer dots should turn green as soon as the user has selected one
+      // or more correct answers and has not selected any incorrect answers.
+      return resolution.correctSelected > 0 ? true : null;
+    }
+
     if (resolution.incorrectSelected > 0) {
       return false;
     }
@@ -5136,8 +5152,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     if (hasIncorrect) return false; // Any wrong choice = Red
     if (matchedCorrectCount > 0) return true; // At least one right and zero wrong = Green
     return null; */
-    // Multi-answer dots should turn green as soon as the user has selected one
-    // or more correct answers and has not selected any incorrect answers.
     return resolution.correctSelected > 0 ? true : null;
   }
 
