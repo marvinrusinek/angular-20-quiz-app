@@ -1366,16 +1366,32 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     // For single-answer questions, a clicked option's explicit `correct` flag is the
     // most reliable immediate source for dot color state.
-    if (isSingleAnswerQuestion && hasExplicitCorrectFlag) {
+    /* if (isSingleAnswerQuestion && hasExplicitCorrectFlag) {
       liveCorrectness = option?.correct === true || String(option?.correct) === 'true';
       usedExplicitPayloadCorrectness = true;
-    } else if (isSingleAnswerQuestion && liveCorrectness !== true && liveCorrectness !== false && hasExplicitCorrectFlag) {
+    } else if (isSingleAnswerQuestion && liveCorrectness !== true && liveCorrectness !== false && hasExplicitCorrectFlag) { */
       // Only allow payload correctness override for single-answer questions.
       // For multi-answer questions, a single correct click does NOT mean the
       // question is fully correct — all correct answers must be selected.
+    // Use the clicked option's explicit correctness flag for immediate visual
+    // feedback when it is available. For multi-answer questions this is
+    // intentionally visual-only: the score still waits until the full answer is
+    // resolved, but the pagination dot should turn green on the first correct
+    // click as requested.
+    if (hasExplicitCorrectFlag) {
       const payloadCorrect = option?.correct === true || String(option?.correct) === 'true';
-      liveCorrectness = payloadCorrect;
-      usedExplicitPayloadCorrectness = true;
+      //liveCorrectness = payloadCorrect;
+      //usedExplicitPayloadCorrectness = true;
+      if (isSingleAnswerQuestion) {
+        liveCorrectness = payloadCorrect;
+        usedExplicitPayloadCorrectness = true;
+      } else if (payloadCorrect) {
+        liveCorrectness = true;
+        usedExplicitPayloadCorrectness = true;
+      } else if (liveCorrectness !== true && liveCorrectness !== false) {
+        liveCorrectness = false;
+        usedExplicitPayloadCorrectness = true;
+      }
     }
 
     /* const canPersistOptimisticStatus =
