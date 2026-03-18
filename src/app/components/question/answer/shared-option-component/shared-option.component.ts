@@ -165,7 +165,8 @@ export class SharedOptionComponent
   // Include disableRenderTrigger to force re-render when disabled state changes
   trackByOptionId = (b: OptionBindings, idx: number) => {
     const idPart = (b.option?.optionId != null && b.option.optionId !== -1) ? b.option.optionId : `idx-${idx}`;
-    return `${idPart}_${idx}`;
+    const questionPart = this.getActiveQuestionIndex();
+    return `q${questionPart}_${idPart}_${idx}`;
   };
 
   public flashDisabledSet = new Set<number>();
