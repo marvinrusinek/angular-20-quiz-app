@@ -1454,6 +1454,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // has been selected, rather than iterating selections and checking correctness.
     // This correctly handles all scenarios including incorrect selections mixed with correct ones.
     let allCorrectSelectedForMulti = false;
+    let hasAnyCorrectSelectionForMulti = false;
 
     console.log(`[MULTI-DBG] Q${idx + 1} clicked option:`, {
       optionId: option?.optionId,
@@ -1523,7 +1524,32 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         });
 
         allCorrectSelectedForMulti = everyCorrectSelected;
-        console.log(`[MULTI-DBG] Q${idx + 1} everyCorrectSelected=${everyCorrectSelected} -> allCorrectSelectedForMulti=${allCorrectSelectedForMulti}`);
+        //console.log(`[MULTI-DBG] Q${idx + 1} everyCorrectSelected=${everyCorrectSelected} -> allCorrectSelectedForMulti=${allCorrectSelectedForMulti}`);
+
+        const hasIncorrectSelection = currentSelections.some((sel) => {
+          const selId = String(sel?.optionId ?? '').trim();
+          const selText = normalize(sel?.text);
+          return !correctOpts.some((correctOpt) => {
+            const cOptId = String(correctOpt.optionId ?? '').trim();
+            const cOptText = normalize(correctOpt.text);
+            return (cOptId !== '' && selId !== '' && cOptId === selId) ||
+                   (cOptText !== '' && selText !== '' && cOptText === selText);
+          });
+        });
+
+        hasAnyCorrectSelectionForMulti =
+          currentSelections.some((sel) => {
+            const selId = String(sel?.optionId ?? '').trim();
+            const selText = normalize(sel?.text);
+            return correctOpts.some((correctOpt) => {
+              const cOptId = String(correctOpt.optionId ?? '').trim();
+              const cOptText = normalize(correctOpt.text);
+              return (cOptId !== '' && selId !== '' && cOptId === selId) ||
+                     (cOptText !== '' && selText !== '' && cOptText === selText);
+            });
+          }) && !hasIncorrectSelection;
+
+        console.log(`[MULTI-DBG] Q${idx + 1} everyCorrectSelected=${everyCorrectSelected} hasIncorrectSelection=${hasIncorrectSelection} hasAnyCorrectSelectionForMulti=${hasAnyCorrectSelectionForMulti} -> allCorrectSelectedForMulti=${allCorrectSelectedForMulti}`);
 
         // Sync userAnswers so checkIfAnsweredCorrectly has current data
         const syncIds = currentSelections
@@ -1555,6 +1581,11 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     if (authoritativeCorrectness === true) {
       // scoreDirectly handles deduplication internally via scoringKey
       this.quizService.scoreDirectly(idx, true, !isSingleAnswerQuestion);
+      this.setPersistedDotStatus(idx, 'correct');
+    } else if (!isSingleAnswerQuestion && hasAnyCorrectSelectionForMulti) {
+      // Keep the pagination dot green as soon as the user clicks their first
+      // correct option in a multi-answer question, provided they have not
+      // also selected an incorrect option.
       this.setPersistedDotStatus(idx, 'correct');
     }
 
