@@ -5045,7 +5045,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       return null;
     }
 
-    const optionIdSet = new Set(
+    /* const optionIdSet = new Set(
       question.options
         .map((opt: Option) => String(opt.optionId ?? '').trim())
         .filter(Boolean)
@@ -5055,36 +5055,66 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       question.options
         .map((opt: Option) => normalize(opt.text))
         .filter(Boolean)
-    );
+    ); */
 
     if (correctOptions.length === 0) {
       return null;
     }
 
-    const correctIds = new Set(
-      correctOptions
-        .map((opt: Option) => String(opt.optionId ?? '').trim())
-        .filter(Boolean)
-    );
-    const correctTexts = new Set(
-      correctOptions.map((opt: Option) => normalize(opt.text)).filter(Boolean)
-    );
+    const findMatchedOption = (selection: SelectedOption): Option | null => {
+      const selectionId = String(selection?.optionId ?? '').trim();
+      const selectionText = normalize(selection?.text ?? '');
+      const selectionIndex = Number(
+        (selection as any)?.displayIndex ?? (selection as any)?.index ?? -1
+      );
+
+      const byId = selectionId !== ''
+        ? question.options.find((opt: Option) =>
+          String(opt?.optionId ?? '').trim() === selectionId)
+        : undefined;
+      if (byId) {
+        return byId;
+      }
+
+      const byText = selectionText !== ''
+        ? question.options.find((opt: Option) =>
+          normalize(opt?.text) === selectionText)
+        : undefined;
+      if (byText) {
+        return byText;
+      }
+
+      if (
+        Number.isInteger(selectionIndex) &&
+        selectionIndex >= 0 &&
+        selectionIndex < question.options.length
+      ) {
+        return question.options[selectionIndex] ?? null;
+      }
+
+      return null;
+    };
 
     let consideredSelections = 0;
     let matchedCorrectCount = 0;
     let hasIncorrect = false;
 
     for (const selection of effectiveSelections) {
-      const id = String(selection?.optionId ?? '').trim();
-      const text = normalize(selection?.text ?? '');
+      //const id = String(selection?.optionId ?? '').trim();
+      //const text = normalize(selection?.text ?? '');
       const explicitCorrect = selection?.correct === true || String(selection?.correct) === 'true';
 
-      const knownOption = (id !== '' && optionIdSet.has(id)) || (text !== '' && optionTextSet.has(text));
+      //const knownOption = (id !== '' && optionIdSet.has(id)) || (text !== '' && optionTextSet.has(text));
+      const matchedOption = findMatchedOption(selection);
+      const matchedOptionIsCorrect =
+        matchedOption?.correct === true || String(matchedOption?.correct) === 'true';
+      const knownOption = !!matchedOption;
       if (!knownOption && !explicitCorrect) continue;
 
       consideredSelections++;
 
-      const isCorrect = (id !== '' && correctIds.has(id)) || (text !== '' && correctTexts.has(text)) || explicitCorrect;
+      //const isCorrect = (id !== '' && correctIds.has(id)) || (text !== '' && correctTexts.has(text)) || explicitCorrect;
+      const isCorrect = matchedOptionIsCorrect || explicitCorrect;
       if (isCorrect) {
         matchedCorrectCount++;
       } else {
