@@ -281,11 +281,10 @@ export class OptionItemComponent implements OnChanges {
   }
 
   shouldHighlightOption(): boolean {
-    // For multi-answer: Only highlight if explicitly marked for highlight.
-    // This allows showing only the last correct answer as green, while
-    // keeping others (selected but not highlighted) without background.
+    // Multi-answer selections should immediately show their success/error state
+    // on the first click, even before the full question is resolved.
     if (this.type === 'multiple') {
-      return !!this.b.option?.highlight;
+      return this.isOptionIndividuallySelected() || !!this.b.option?.highlight;
     }
     // Single-answer: isSelected (current) + option.highlight (history from click handler)
     return this.b.isSelected || !!this.b.option?.highlight;
