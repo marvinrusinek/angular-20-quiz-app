@@ -1378,19 +1378,24 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       usedExplicitPayloadCorrectness = true;
     }
 
-    const canPersistOptimisticStatus =
-      liveCorrectness === true || (liveCorrectness === false && usedExplicitPayloadCorrectness);
+    /* const canPersistOptimisticStatus =
+      liveCorrectness === true || (liveCorrectness === false && usedExplicitPayloadCorrectness); */
+    const canPersistOptimisticStatus = liveCorrectness === true;
 
-    const optimisticStatus = canPersistOptimisticStatus ? liveCorrectness === true : null;
+    // const optimisticStatus = canPersistOptimisticStatus ? liveCorrectness === true : null;
     if (canPersistOptimisticStatus) {
       // Keep optimistic state visual-only for dots.
+      // Only persist optimistic CORRECT here; transient false negatives can
+      // happen while selection/scoring state is still settling and would lock
+      // the pagination dot red for an actually-correct answer.
       // Do NOT write into questionCorrectness here, otherwise incrementScore()
       // may see `wasCorrect=true` and skip the first real +1 score update.
-      this.setPersistedDotStatus(idx, optimisticStatus ? 'correct' : 'wrong');
+      // this.setPersistedDotStatus(idx, optimisticStatus ? 'correct' : 'wrong');
+      this.setPersistedDotStatus(idx, 'correct');
     }
 
     // For single-answer questions, reflect a correct click in score immediately.
-    // Do not rely only on optimisticStatus (it can be null before selection sync settles).
+    // Do not rely only on optimistic dot persistence (selection sync can still be settling).
     if (isSingleAnswerQuestion) {
       const normalize = (value: unknown): string => String(value ?? '').trim().toLowerCase();
       const clickedOptionId = String(option?.optionId ?? '').trim();
@@ -5060,7 +5065,12 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // For non-current questions, prefer already persisted dot color first.
     // This prevents transient service-map false values from repainting an
     // already-correct dot red when user navigates forward.
-    if (index !== this.currentQuestionIndex && (localStatus === 'correct' || localStatus === 'wrong')) {
+    //if (index !== this.currentQuestionIndex && (localStatus === 'correct' || localStatus === 'wrong')) {
+    // For non-current questions, a persisted CORRECT dot is safe to reuse.
+    // Persisted WRONG is not authoritative enough to short-circuit here because
+    // a transient false negative can be written before scoring fully settles,
+    // which was leaving Q2 red after a correct answer.
+    if (index !== this.currentQuestionIndex && localStatus === 'correct') {
       this.dotStatusCache.set(index, localStatus);
       return localStatus;
     }
