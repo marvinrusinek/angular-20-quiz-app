@@ -5107,7 +5107,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       null;
   }
 
-  private getResolvedCorrectOptions(question: QuizQuestion | null | undefined, fallbackOptions: Option[] = []): Option[] {
+  private getResolvedCorrectOptionEntries(question: QuizQuestion | null | undefined, fallbackOptions: Option[] = []): Array<{ option: Option; index: number }> {
     const options = Array.isArray(question?.options) && question!.options.length > 0
       ? question!.options
       : fallbackOptions;
@@ -5147,6 +5147,10 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     return options
       .map((opt: Option, index: number) => ({ option: opt, index }))
       .filter(({ option }) => option?.correct === true || String(option?.correct) === 'true');
+  }
+
+  private getResolvedCorrectOptions(question: QuizQuestion | null | undefined, fallbackOptions: Option[] = []): Option[] {
+    return this.getResolvedCorrectOptionEntries(question, fallbackOptions).map(({ option }) => option);
   }
 
   private matchesAnyCorrectOption(selection: Partial<SelectedOption> | null | undefined, question: QuizQuestion | null | undefined, fallbackOptions: Option[] = []): boolean {
