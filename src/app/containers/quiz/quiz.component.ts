@@ -1444,7 +1444,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         return isCorrect && (idMatch || textMatch);
       });
 
-      const payloadIndex = Number((option as any)?.index);
+      const payloadIndex = Number((option as any)?.displayIndex ?? (option as any)?.index ?? -1);
       const indexMatchedCorrect =
         Number.isInteger(payloadIndex) && payloadIndex >= 0 && payloadIndex < sourceOptions.length
           ? (sourceOptions[payloadIndex]?.correct === true || String(sourceOptions[payloadIndex]?.correct) === 'true')
@@ -1453,6 +1453,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       const clickedIsCorrectForSingle = payloadSaysCorrect || matchedCorrectOption || indexMatchedCorrect || liveCorrectness === true;
 
       if (clickedIsCorrectForSingle) {
+        this.setPersistedDotStatus(idx, 'correct');
+        this.pendingDotStatusOverrides.set(idx, 'correct');
+        this.dotStatusCache.set(idx, 'correct');
         // scoreDirectly handles deduplication internally via scoringKey
         this.quizService.scoreDirectly(idx, true, false);
       }
