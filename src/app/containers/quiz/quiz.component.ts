@@ -1579,8 +1579,22 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       // clicked option: correct click → green, incorrect click → red.
       // This gives immediate per-click visual feedback regardless of
       // cumulative selection state.
-      const clickedOptionIsCorrect =
-        option?.correct === true || String(option?.correct) === 'true';
+      //
+      // IMPORTANT: Do NOT rely on option.correct from the event payload — it
+      // may be undefined depending on the emit path.  Instead, resolve
+      // correctness from the authoritative question options array.
+      const normalize = (v: unknown): string => String(v ?? '').trim().toLowerCase();
+      const clickedId = String(option?.optionId ?? '').trim();
+      const clickedText = normalize(option?.text);
+
+      const clickedOptionIsCorrect = correctOptionsForQuestion.some((cOpt: Option) => {
+        const cId = String(cOpt.optionId ?? '').trim();
+        const cText = normalize(cOpt.text);
+        return (clickedId !== '' && cId !== '' && clickedId === cId) ||
+          (clickedText !== '' && cText !== '' && clickedText === cText);
+      });
+
+      console.log(`[DOT-MULTI] Q${idx + 1} clicked option id=${clickedId} correct=${clickedOptionIsCorrect} (payload.correct=${option?.correct})`);
 
       if (clickedOptionIsCorrect) {
         immediateMultiDotStatus = 'correct';
