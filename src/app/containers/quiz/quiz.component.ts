@@ -1558,13 +1558,17 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     if (!isSingleAnswerQuestion) {
       const clickedIndex = Number((option as any)?.displayIndex ?? (option as any)?.index ?? -1);
-      const clickedOptionIsCorrect = this.matchesAnyCorrectOption(option as SelectedOption, questionForSelection, optionsForImmediateScoring) || (
-        Number.isInteger(clickedIndex) &&
-        clickedIndex >= 0 &&
-        clickedIndex < optionsForImmediateScoring.length &&
-        (optionsForImmediateScoring[clickedIndex]?.correct === true ||
-          String(optionsForImmediateScoring[clickedIndex]?.correct) === 'true')
-      );
+      const clickedPayloadSaysCorrect =
+        option?.correct === true || String(option?.correct) === 'true';
+      const clickedOptionIsCorrect =
+        clickedPayloadSaysCorrect ||
+        this.matchesAnyCorrectOption(option as SelectedOption, questionForSelection, optionsForImmediateScoring) || (
+          Number.isInteger(clickedIndex) &&
+          clickedIndex >= 0 &&
+          clickedIndex < optionsForImmediateScoring.length &&
+          (optionsForImmediateScoring[clickedIndex]?.correct === true ||
+            String(optionsForImmediateScoring[clickedIndex]?.correct) === 'true')
+        )
 
       // Multi-answer dot behavior should mirror single-answer questions:
       // - first correct pick => green immediately
