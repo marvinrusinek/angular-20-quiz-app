@@ -1556,43 +1556,30 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     }
 
     if (!isSingleAnswerQuestion) {
-      // Dot color for multi-answer questions is driven by the MOST RECENTLY
-      // clicked option: correct click → green, incorrect click → red.
-      // This gives immediate per-click visual feedback regardless of
-      // cumulative selection state.
-      //
-      // IMPORTANT: Do NOT rely on option.correct from the event payload — it
-      // may be undefined depending on the emit path.  Instead, resolve
-      // correctness from the authoritative question options array.
-      /* const normalize = (v: unknown): string => String(v ?? '').trim().toLowerCase();
-      const clickedId = String(option?.optionId ?? '').trim();
-      const clickedText = normalize(option?.text);
+      const clickedIndex = Number((option as any)?.displayIndex ?? (option as any)?.index ?? -1);
+      const clickedOptionIsCorrect = correctOptionsForQuestion.some((correctOpt, correctOptIndex) =>
+        this.selectionMatchesOption(option as SelectedOption, correctOpt, correctOptIndex)
+      ) || (
+        Number.isInteger(clickedIndex) &&
+        clickedIndex >= 0 &&
+        clickedIndex < optionsForImmediateScoring.length &&
+        (optionsForImmediateScoring[clickedIndex]?.correct === true ||
+          String(optionsForImmediateScoring[clickedIndex]?.correct) === 'true')
+      );
 
-      const clickedOptionIsCorrect = correctOptionsForQuestion.some((cOpt: Option) => {
-        const cId = String(cOpt.optionId ?? '').trim();
-        const cText = normalize(cOpt.text);
-        return (clickedId !== '' && cId !== '' && clickedId === cId) ||
-          (clickedText !== '' && cText !== '' && clickedText === cText);
-      });
-
-      console.log(`[DOT-MULTI] Q${idx + 1} clicked option id=${clickedId} correct=${clickedOptionIsCorrect} (payload.correct=${option?.correct})`);
-
-      if (clickedOptionIsCorrect) {
-        immediateMultiDotStatus = 'correct';
-      } else if (option) { */
-      // Multi-answer dot behavior is cumulative for the CURRENT selection set:
-      // - first correct selection with no wrong picks yet => green
-      // - any incorrect selection present => red
-      // This preserves the early-green behavior while still flipping red as
-      // soon as the user adds a wrong option afterwards.
+      // Multi-answer dot behavior should mirror single-answer questions:
+      // - first correct pick => green immediately
+      // - any incorrect pick added afterwards => red immediately
+      // - stays green while the live selection set contains only correct picks
       if (hasIncorrectSelectionForMulti) {
         immediateMultiDotStatus = 'wrong';
-      } else if (hasAnyCorrectSelectionForMulti || allCorrectSelectedForMulti) {
+      } else if (clickedOptionIsCorrect || hasAnyCorrectSelectionForMulti || allCorrectSelectedForMulti) {
         immediateMultiDotStatus = 'correct';
       }
 
-      console.log(`[DOT-MULTI] Q${idx + 1} cumulative status=${immediateMultiDotStatus} ` +
-      `(anyCorrect=${hasAnyCorrectSelectionForMulti}, allCorrect=${allCorrectSelectedForMulti}, hasIncorrect=${hasIncorrectSelectionForMulti})`);
+      console.log(`[DOT-MULTI] Q${idx + 1} status=${immediateMultiDotStatus} ` +
+        `(clickedCorrect=${clickedOptionIsCorrect}, anyCorrect=${hasAnyCorrectSelectionForMulti}, ` +
+        `allCorrect=${allCorrectSelectedForMulti}, hasIncorrect=${hasIncorrectSelectionForMulti})`);
 
       if (immediateMultiDotStatus) {
         this.setPersistedDotStatus(idx, immediateMultiDotStatus);
