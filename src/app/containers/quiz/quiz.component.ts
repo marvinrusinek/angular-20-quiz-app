@@ -5466,6 +5466,20 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // reflects the intended rule: green after the first correct pick, red once
     // any incorrect option is part of the selection set.
 
+    // If the active multi-answer question has already persisted a WRONG state
+    // for the current click sequence, trust that immediately unless scoring has
+    // already resolved the question as correct. This prevents a stale optimistic
+    // green dot from surviving after the user adds an incorrect option.
+    if (
+      localStatus === 'wrong' &&
+      !hasAuthoritativeCorrectState &&
+      index === this.currentQuestionIndex &&
+      (questionHasLiveSessionState || selections.length > 0)
+    ) {
+      this.dotStatusCache.set(index, 'wrong');
+      return 'wrong';
+    }
+
     // If this click path has already persisted an optimistic CORRECT state for
     // the active question, trust it immediately so the current dot flips green
     // on the first correct click even while selection/scoring state is still
