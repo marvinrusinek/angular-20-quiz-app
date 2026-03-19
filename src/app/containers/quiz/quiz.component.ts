@@ -5483,6 +5483,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // green dot from surviving after the user adds an incorrect option.
     if (
       localStatus === 'wrong' &&
+      evaluatedStatus !== true &&
       !hasAuthoritativeCorrectState &&
       index === this.currentQuestionIndex &&
       (questionHasLiveSessionState || selections.length > 0)
