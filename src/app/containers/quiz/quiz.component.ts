@@ -5413,6 +5413,25 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     const localStatus = this.getPersistedDotStatus(index);
 
+    // For multi-answer questions on the CURRENT question, the persisted dot
+    // status was written by onOptionSelected based on the most-recently-clicked
+    // option.  Trust it over the cumulative evaluateSelectionCorrectness result
+    // which considers the entire selection set (and would show 'wrong' if ANY
+    // incorrect option is in the set, even when the latest click was correct).
+    if (index === this.currentQuestionIndex && (localStatus === 'correct' || localStatus === 'wrong')) {
+      const question = this.getQuestionForIndex(index);
+      if (question) {
+        const correctOpts = (question.options ?? []).filter(
+          (opt: Option) => opt.correct === true || String(opt.correct) === 'true'
+        );
+        const isMultiAnswer = correctOpts.length > 1;
+        if (isMultiAnswer && questionHasLiveSessionState) {
+          this.dotStatusCache.set(index, localStatus);
+          return localStatus;
+        }
+      }
+    }
+
     // If this click path has already persisted an optimistic CORRECT state for
     // the active question, trust it immediately so the current dot flips green
     // on the first correct click even while selection/scoring state is still
