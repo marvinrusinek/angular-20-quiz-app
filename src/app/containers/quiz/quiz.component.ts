@@ -231,6 +231,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
   // Persistent Dot Status Cache - survives navigation and resets
   private dotStatusCache = new Map<number, 'correct' | 'wrong' | 'pending'>();
+  private pendingDotStatusOverrides = new Map<number, 'correct' | 'wrong'>();
 
   constructor(
     public quizService: QuizService,
@@ -596,6 +597,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
           // Clear dot status cache (Important to get gray dots)
           this.dotStatusCache.clear();
+          this.pendingDotStatusOverrides.clear();
 
           // Reset display mode to question (not explanation)
           this.quizStateService.setDisplayState({ mode: 'question', answered: false });
@@ -779,6 +781,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     }
 
     this.dotStatusCache.clear();
+    this.pendingDotStatusOverrides.clear();
     this.quizService.questionCorrectness?.clear();
     this.quizService.selectedOptionsMap?.clear();
     this.selectedOptionService.selectedOptionsMap?.clear();
@@ -1413,6 +1416,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       // may see `wasCorrect=true` and skip the first real +1 score update.
       // this.setPersistedDotStatus(idx, optimisticStatus ? 'correct' : 'wrong');
       this.setPersistedDotStatus(idx, 'correct');
+      this.pendingDotStatusOverrides.set(idx, 'correct');
     }
 
     // For single-answer questions, reflect a correct click in score immediately.
@@ -1578,6 +1582,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
       if (immediateMultiDotStatus) {
         this.setPersistedDotStatus(idx, immediateMultiDotStatus);
+        this.pendingDotStatusOverrides.set(idx, immediateMultiDotStatus);
         this.dotStatusCache.set(idx, immediateMultiDotStatus);
       }
     }
@@ -1705,6 +1710,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.destroy$.complete();
     this.subscriptions.unsubscribe();
     this.dotStatusCache.clear();
+    this.pendingDotStatusOverrides.clear();
     // this.selectedOptionService.resetAllOptions(); // REMOVED: Breaks persistence on navigation
     this.routeSubscription?.unsubscribe();
     this.routerSubscription?.unsubscribe();
@@ -1987,6 +1993,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         if (this.quizId && this.quizId !== quizId) {
           console.log(`[ROUTE] Quiz Changed: ${this.quizId} -> ${quizId}. Resetting progress & cache.`);
           this.dotStatusCache.clear();
+          this.pendingDotStatusOverrides.clear();
           this.progress = 0;
           this.quizStateService.reset();
         }
@@ -4541,6 +4548,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     // Clear the dot status cache locally for fresh pagination
     this.dotStatusCache.clear();
+    this.pendingDotStatusOverrides.clear();
 
     // Clear the shuffled questions in the service
     this.quizService.shuffledQuestions = [];
@@ -4613,6 +4621,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // Reset progress bar to 0%
     this.progress = 0;
     this.dotStatusCache.clear();
+    this.pendingDotStatusOverrides.clear();
     this.updateProgressValue();
 
 
@@ -5428,6 +5437,17 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     }
 
     const localStatus = this.getPersistedDotStatus(index);
+    const pendingOverrideStatus = this.pendingDotStatusOverrides.get(index);
+
+    if (
+      pendingOverrideStatus &&
+      index === this.currentQuestionIndex &&
+      (questionHasLiveSessionState || selections.length > 0)
+    ) {
+      this.setPersistedDotStatus(index, pendingOverrideStatus);
+      this.dotStatusCache.set(index, pendingOverrideStatus);
+      return pendingOverrideStatus;
+    }
 
     // For multi-answer questions on the CURRENT question, the persisted dot
     // status was written by onOptionSelected based on the most-recently-clicked
