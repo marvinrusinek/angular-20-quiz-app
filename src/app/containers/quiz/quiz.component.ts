@@ -1597,10 +1597,17 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       // - clicked correct => green immediately
       // - clicked incorrect => red immediately
       // This takes precedence over the cumulative selection set state.
-      if (clickedOptionIsCorrect) {
+      /* if (clickedOptionIsCorrect) {
         immediateMultiDotStatus = 'correct';
-      } else {
+      } else { */
+      // Multi-answer dots must reflect the CURRENT selection set, not only
+      // the most recently clicked option. This lets the dot flip immediately
+      // when the user corrects a previously wrong combination or introduces a
+      // new wrong selection after being correct.
+      if (hasIncorrectSelectionForMulti) {
         immediateMultiDotStatus = 'wrong';
+      } else if (hasAnyCorrectSelectionForMulti || allCorrectSelectedForMulti || clickedOptionIsCorrect) {
+        immediateMultiDotStatus = 'correct';
       }
 
       // If the selection set now contains any incorrect option, reset the
