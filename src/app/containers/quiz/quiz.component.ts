@@ -5489,11 +5489,26 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       (questionHasLiveSessionState || index === this.currentQuestionIndex)
     ) { */
 
-    // An authoritative scored-correct state must win over any live-selection
-    // false negative. This is especially important for multiple-answer
-    // questions where transient stale selections can still include an earlier
-    // wrong click even after the service has already marked the question
-    // correct.
+    // For the ACTIVE question, keep the dot synced to the current live
+    // selection set even if the question was previously scored as correct.
+    // This makes multi-answer behave like single-answer questions:
+    // - first correct pick => green
+    // - any later incorrect pick => red immediately
+    // The score can remain correct; this branch is visual-only for the dot.
+    if (
+      index === this.currentQuestionIndex &&
+      evaluatedStatus === false &&
+      (questionHasLiveSessionState || selections.length > 0)
+    ) {
+      this.setPersistedDotStatus(index, 'wrong');
+      this.dotStatusCache.set(index, 'wrong');
+      return 'wrong';
+    }
+
+    // An authoritative scored-correct state must win over stale/non-active
+    // live-selection false negatives. For the active question, the branch
+    // above already lets a newer incorrect pick flip the dot red immediately.
+    
     if (hasAuthoritativeCorrectState) {
       this.setPersistedDotStatus(index, 'correct');
       this.dotStatusCache.set(index, 'correct');
