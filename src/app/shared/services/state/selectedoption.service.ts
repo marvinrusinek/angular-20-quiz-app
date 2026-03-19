@@ -294,13 +294,27 @@ export class SelectedOptionService {
     );
 
     if (updatedOptions.length > 0) {
-      //this.commitSelections(questionIndex, updatedOptions);
       const committed = this.commitSelections(questionIndex, updatedOptions);
+      this.selectedOptionsMap.set(questionIndex, committed);
+
+      if (this.quizService) {
+        const ids = committed
+          .map((o: any) => o.optionId)
+          .filter((id: any): id is number => typeof id === 'number');
+        this.quizService.updateUserAnswer(questionIndex, ids);
+      }
+
       this.selectedOption = committed;
       this.selectedOptionSubject.next(committed);
       this.isOptionSelectedSubject.next(committed.length > 0);
+      this.updateAnsweredState(committed, questionIndex);
     } else {
       this.selectedOptionsMap.delete(questionIndex);
+
+      if (this.quizService) {
+        this.quizService.updateUserAnswer(questionIndex, []);
+      }
+
       this.selectedOption = [];
       this.selectedOptionSubject.next([]);
       this.isOptionSelectedSubject.next(false);
