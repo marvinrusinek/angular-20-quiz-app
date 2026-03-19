@@ -616,7 +616,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
             localStorage.removeItem(this.getProgressStorageKey());
             localStorage.removeItem('quiz_progress_default');
             localStorage.setItem('savedQuestionIndex', '0');
-            sessionStorage.clear(); // CRITICAL: Clear session storage to reset dots
+            sessionStorage.clear();  // clear session storage to reset dots
           } catch { }
 
           // Update quiz ID and fetch new questions
@@ -1455,6 +1455,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // This correctly handles all scenarios including incorrect selections mixed with correct ones.
     let allCorrectSelectedForMulti = false;
     let hasAnyCorrectSelectionForMulti = false;
+    let hasIncorrectSelectionForMulti = false;
+    let immediateMultiDotStatus: 'correct' | 'wrong' | null = null;
 
     console.log(`[MULTI-DBG] Q${idx + 1} clicked option:`, {
       optionId: option?.optionId,
@@ -1526,7 +1528,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         allCorrectSelectedForMulti = everyCorrectSelected;
         //console.log(`[MULTI-DBG] Q${idx + 1} everyCorrectSelected=${everyCorrectSelected} -> allCorrectSelectedForMulti=${allCorrectSelectedForMulti}`);
 
-        const hasIncorrectSelection = currentSelections.some((sel) => {
+        hasIncorrectSelectionForMulti = currentSelections.some((sel) => {
           const selId = String(sel?.optionId ?? '').trim();
           const selText = normalize(sel?.text);
           return !correctOpts.some((correctOpt) => {
@@ -1547,9 +1549,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
               return (cOptId !== '' && selId !== '' && cOptId === selId) ||
                      (cOptText !== '' && selText !== '' && cOptText === selText);
             });
-          }) && !hasIncorrectSelection;
+          }) && !hasIncorrectSelectionForMulti;
 
-        console.log(`[MULTI-DBG] Q${idx + 1} everyCorrectSelected=${everyCorrectSelected} hasIncorrectSelection=${hasIncorrectSelection} hasAnyCorrectSelectionForMulti=${hasAnyCorrectSelectionForMulti} -> allCorrectSelectedForMulti=${allCorrectSelectedForMulti}`);
+        console.log(`[MULTI-DBG] Q${idx + 1} everyCorrectSelected=${everyCorrectSelected} hasIncorrectSelection=${hasIncorrectSelectionForMulti} hasAnyCorrectSelectionForMulti=${hasAnyCorrectSelectionForMulti} -> allCorrectSelectedForMulti=${allCorrectSelectedForMulti}`);
 
         // Sync userAnswers so checkIfAnsweredCorrectly has current data
         const syncIds = currentSelections
@@ -1569,6 +1571,19 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       this.quizService.scoreDirectly(idx, true, true);
     }
 
+    if (!isSingleAnswerQuestion) {
+      if (hasIncorrectSelectionForMulti) {
+        immediateMultiDotStatus = 'wrong';
+      } else if (hasAnyCorrectSelectionForMulti) {
+        immediateMultiDotStatus = 'correct';
+      }
+
+      if (immediateMultiDotStatus) {
+        this.setPersistedDotStatus(idx, immediateMultiDotStatus);
+        this.dotStatusCache.set(idx, immediateMultiDotStatus);
+      }
+    }
+
     // Ensure scoring state is updated before evaluating dot color/progress.
     // Use updateScore=false: scoreDirectly() above already handled the score mutation.
     // Allowing score mutation here risks decrementing when async answer-ID evaluation
@@ -1582,11 +1597,11 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       // scoreDirectly handles deduplication internally via scoringKey
       this.quizService.scoreDirectly(idx, true, !isSingleAnswerQuestion);
       this.setPersistedDotStatus(idx, 'correct');
-    } else if (!isSingleAnswerQuestion && hasAnyCorrectSelectionForMulti) {
-      // Keep the pagination dot green as soon as the user clicks their first
-      // correct option in a multi-answer question, provided they have not
-      // also selected an incorrect option.
-      this.setPersistedDotStatus(idx, 'correct');
+    } else if (!isSingleAnswerQuestion && immediateMultiDotStatus) {
+      // Keep the pagination dot synced with the current multi-answer selection
+      // set even when the authoritative correctness check has not resolved to
+      // true yet.
+      this.setPersistedDotStatus(idx, immediateMultiDotStatus);
     }
 
     // Now update progress AFTER state has been marked and scored
@@ -5298,6 +5313,16 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       !questionHasLiveSessionState &&
       selections.length === 0
     ) {
+      if (previousCached === 'correct' || previousCached === 'wrong') {
+        this.dotStatusCache.set(index, previousCached);
+        return previousCached;
+      }
+
+      const localStatus = this.getPersistedDotStatus(index);
+      if (localStatus === 'correct' || localStatus === 'wrong') {
+        this.dotStatusCache.set(index, localStatus);
+        return localStatus;
+      }
       this.dotStatusCache.set(index, 'pending');
       return 'pending';
     }
@@ -5339,11 +5364,15 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // the active question, trust it immediately so the current dot flips green
     // on the first correct click even while selection/scoring state is still
     // settling asynchronously.
-    if (localStatus === 'correct' && (
-      index !== this.currentQuestionIndex ||
-      questionHasLiveSessionState ||
-      selections.length > 0
-    )) {
+    if (
+      localStatus === 'correct' &&
+      evaluatedStatus !== false &&
+      (
+        index !== this.currentQuestionIndex ||
+        questionHasLiveSessionState ||
+        selections.length > 0
+      )
+    ) {
       this.dotStatusCache.set(index, 'correct');
       return 'correct';
     }
@@ -5660,7 +5689,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         questionText: String(q.questionText ?? ''),
         wasCorrect,
         selectedOptionIds: selectedIds,
-        correctOptionIds: correctIds,
+        correctOptionIds: correctIds
       });
     }
 
