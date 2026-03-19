@@ -5246,13 +5246,19 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         .filter(Boolean)
     ); */
 
-    const resolution = this.selectedOptionService.getResolutionStatus(
-      question,
-      selections as Option[],
-      true
+    const matchedCorrectSelections = selections.filter((selection) =>
+      correctOptions.some((correctOption, correctOptionIndex) =>
+        this.selectionMatchesOption(selection, correctOption, correctOptionIndex)
+      )
     );
 
-    if (resolution.correctSelected === 0 && resolution.incorrectSelected === 0) {
+    const incorrectSelections = selections.filter((selection) =>
+      !correctOptions.some((correctOption, correctOptionIndex) =>
+        this.selectionMatchesOption(selection, correctOption, correctOptionIndex)
+      )
+    );
+
+    if (matchedCorrectSelections.length === 0 && incorrectSelections.length === 0) {
       return null;
     }
 
@@ -5317,18 +5323,18 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       }
     } */
     if (isMultipleAnswerQuestion) {
-      if (resolution.incorrectSelected > 0) {
+      if (incorrectSelections.length > 0) {
         return false;
       }
 
-      if (resolution.correctSelected > 0) {
+      if (matchedCorrectSelections.length > 0) {
         return true;
       }
 
       return null;
     }
 
-    if (resolution.incorrectSelected > 0) {
+    if (incorrectSelections.length > 0) {
       return false;
     }
 
@@ -5336,7 +5342,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     if (hasIncorrect) return false; // Any wrong choice = Red
     if (matchedCorrectCount > 0) return true; // At least one right and zero wrong = Green
     return null; */
-    return resolution.correctSelected > 0 ? true : null;
+    return matchedCorrectSelections.length > 0 ? true : null;
   }
 
   // Helper to determine dot class with caching
