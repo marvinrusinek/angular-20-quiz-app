@@ -1337,13 +1337,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // question keeps Q1 dot/progress even if async scoring internals lag.
     const liveSelections = this.getSelectionsForQuestion(idx);
 
-    // Use the perfectly synced liveSelections from OIS rather than reconstructing stale object states
-    const immediateSelections = liveSelections.length > 0 ? liveSelections : [option as SelectedOption];
-
-    let liveCorrectness = this.evaluateSelectionCorrectness(
-      idx,
-      immediateSelections
-    );
     let usedExplicitPayloadCorrectness = false;
     const hasExplicitCorrectFlag = option?.correct !== undefined && option?.correct !== null;
 
@@ -1367,6 +1360,19 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     const correctCountForQuestion = correctOptionsForQuestion.length;
 
     const isSingleAnswerQuestion = correctCountForQuestion === 1;
+
+    const immediateSelections = this.buildImmediateSelectionsForScoring(
+      idx,
+      liveSelections,
+      option,
+      isSingleAnswerQuestion
+    );
+
+    let liveCorrectness = this.evaluateSelectionCorrectness(
+      idx,
+      immediateSelections
+    );
+
 
     let immediateCorrectness = liveCorrectness;
 
@@ -1494,9 +1500,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         // Gather all current selections, ensuring the just-clicked option is included
         const fromMap = this.selectedOptionService?.selectedOptionsMap?.get(idx);
         const fromMethod = this.selectedOptionService?.getSelectedOptionsForQuestion(idx);
-        const currentSelections: SelectedOption[] = [
-          ...(fromMap ?? fromMethod ?? [])
-        ];
+        const currentSelections: SelectedOption[] = [...immediateSelections];
 
         console.log(`[MULTI-DBG] Q${idx + 1} selectionsFromMap (${fromMap?.length ?? 'null'}):`,
           fromMap?.map((s: any) => ({ id: s?.optionId, text: s?.text }))
