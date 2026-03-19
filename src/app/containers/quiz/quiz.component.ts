@@ -1511,7 +1511,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         );
 
         // Check: is every correct option represented in the current selections?
-        const everyCorrectSelected = correctOpts.every((correctOpt, correctOptIndex) => {
+        const correctOptionEntries = this.getResolvedCorrectOptionEntries(questionForSelection, optionsForImmediateScoring);
+        const everyCorrectSelected = correctOptionEntries.every(({ option: correctOpt, index: correctOptIndex }) => {
           const found = currentSelections.some((selection) =>
             this.selectionMatchesOption(selection, correctOpt, correctOptIndex)
           );
@@ -1523,17 +1524,13 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         //console.log(`[MULTI-DBG] Q${idx + 1} everyCorrectSelected=${everyCorrectSelected} -> allCorrectSelectedForMulti=${allCorrectSelectedForMulti}`);
 
         hasIncorrectSelectionForMulti = currentSelections.some((selection) =>
-          !correctOpts.some((correctOpt, correctOptIndex) =>
-            this.selectionMatchesOption(selection, correctOpt, correctOptIndex)
-          )
+          !this.matchesAnyCorrectOption(selection, questionForSelection, optionsForImmediateScoring)
         );
 
         hasAnyCorrectSelectionForMulti =
           currentSelections.some((selection) =>
-          correctOpts.some((correctOpt, correctOptIndex) =>
-            this.selectionMatchesOption(selection, correctOpt, correctOptIndex)
-          )
-        ) && !hasIncorrectSelectionForMulti;
+            this.matchesAnyCorrectOption(selection, questionForSelection, optionsForImmediateScoring)
+          ) && !hasIncorrectSelectionForMulti;
 
         console.log(`[MULTI-DBG] Q${idx + 1} everyCorrectSelected=${everyCorrectSelected} hasIncorrectSelection=${hasIncorrectSelectionForMulti} hasAnyCorrectSelectionForMulti=${hasAnyCorrectSelectionForMulti} -> allCorrectSelectedForMulti=${allCorrectSelectedForMulti}`);
 
@@ -1557,9 +1554,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     if (!isSingleAnswerQuestion) {
       const clickedIndex = Number((option as any)?.displayIndex ?? (option as any)?.index ?? -1);
-      const clickedOptionIsCorrect = correctOptionsForQuestion.some((correctOpt, correctOptIndex) =>
-        this.selectionMatchesOption(option as SelectedOption, correctOpt, correctOptIndex)
-      ) || (
+      const clickedOptionIsCorrect = this.matchesAnyCorrectOption(option as SelectedOption, questionForSelection, optionsForImmediateScoring) || (
         Number.isInteger(clickedIndex) &&
         clickedIndex >= 0 &&
         clickedIndex < optionsForImmediateScoring.length &&
@@ -5136,19 +5131,27 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       }
     }
 
-    const resolvedFromAnswers = options.filter((opt: Option) => {
-      const id = Number(opt?.optionId);
-      const text = String(opt?.text ?? '').trim().toLowerCase();
+    const resolvedFromAnswers = options
+      .map((opt: Option, index: number) => ({ option: opt, index }))
+      .filter(({ option }) => {
+        const id = Number(option?.optionId);
+        const text = String(option?.text ?? '').trim().toLowerCase();
 
-      return (!Number.isNaN(id) && correctIds.has(id)) || (!!text && correctTexts.has(text));
-    });
+        return (!Number.isNaN(id) && correctIds.has(id)) || (!!text && correctTexts.has(text));
+      });
 
     if (resolvedFromAnswers.length > 0) {
       return resolvedFromAnswers;
     }
 
-    return options.filter(
-      (opt: Option) => opt?.correct === true || String(opt?.correct) === 'true'
+    return options
+      .map((opt: Option, index: number) => ({ option: opt, index }))
+      .filter(({ option }) => option?.correct === true || String(option?.correct) === 'true');
+  }
+
+  private matchesAnyCorrectOption(selection: Partial<SelectedOption> | null | undefined, question: QuizQuestion | null | undefined, fallbackOptions: Option[] = []): boolean {
+    return this.getResolvedCorrectOptionEntries(question, fallbackOptions).some(({ option, index }) =>
+      this.selectionMatchesOption(selection, option, index)
     );
   }
 
@@ -5160,16 +5163,14 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       return false;
     }
 
-    const correctOptions = this.getResolvedCorrectOptions(question);
+    const correctOptionEntries = this.getResolvedCorrectOptionEntries(question);
 
-    if (correctOptions.length <= 1) {
+    if (correctOptionEntries.length <= 1) {
       return false;
     }
 
     const hasIncorrectSelection = selections.some((selection) =>
-      !correctOptions.some((correctOption, correctOptionIndex) =>
-        this.selectionMatchesOption(selection, correctOption, correctOptionIndex)
-      )
+      !this.matchesAnyCorrectOption(selection, question)
     );
 
     if (hasIncorrectSelection) {
@@ -5180,9 +5181,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // click, but it must return to red immediately if the current selection set
     // includes any incorrect option.
     return selections.some((selection) =>
-      correctOptions.some((correctOption, correctOptionIndex) =>
-        this.selectionMatchesOption(selection, correctOption, correctOptionIndex)
-      )
+      this.matchesAnyCorrectOption(selection, question)
     );
   }
 
@@ -5194,7 +5193,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     // const normalize = (value: unknown): string => String(value ?? '').trim().toLowerCase();
 
-    const correctOptions = this.getResolvedCorrectOptions(question);
+    const correctOptionEntries = this.getResolvedCorrectOptionEntries(question);
+    const correctOptions = correctOptionEntries.map(({ option }) => option);
     const isMultipleAnswerQuestion =
       question.type === QuestionType.MultipleAnswer || correctOptions.length > 1;
 
@@ -5230,14 +5230,14 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     ); */
 
     const matchedCorrectSelections = selections.filter((selection) =>
-      correctOptions.some((correctOption, correctOptionIndex) =>
-        this.selectionMatchesOption(selection, correctOption, correctOptionIndex)
+      correctOptionEntries.some(({ option, index: optionIndex }) =>
+        this.selectionMatchesOption(selection, option, optionIndex)
       )
     );
 
     const incorrectSelections = selections.filter((selection) =>
-      !correctOptions.some((correctOption, correctOptionIndex) =>
-        this.selectionMatchesOption(selection, correctOption, correctOptionIndex)
+      !correctOptionEntries.some(({ option, index: optionIndex }) =>
+        this.selectionMatchesOption(selection, option, optionIndex)
       )
     );
 
