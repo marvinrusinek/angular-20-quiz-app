@@ -5469,7 +5469,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // settling asynchronously.
     if (
       localStatus === 'correct' &&
-      evaluatedStatus !== false &&
       (
         index !== this.currentQuestionIndex ||
         questionHasLiveSessionState ||
