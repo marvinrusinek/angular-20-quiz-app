@@ -1506,10 +1506,14 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         );
 
         const clickedIndex = Number((option as any)?.displayIndex ?? (option as any)?.index ?? -1);
+        const optionIsCurrentlySelected =
+          option?.selected === true ||
+          (option as any)?.checked === true ||
+          (option as any)?.isSelected === true;
         const alreadyIncluded = currentSelections.some((selection) =>
           this.selectionMatchesOption(selection, option, clickedIndex)
         );
-        if (!alreadyIncluded && option) {
+        if (optionIsCurrentlySelected && !alreadyIncluded && option) {
           currentSelections.push(option as SelectedOption);
         }
 
