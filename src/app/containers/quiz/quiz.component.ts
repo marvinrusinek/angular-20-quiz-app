@@ -1356,9 +1356,12 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       (this.optionsToDisplay as Option[]) ||
       [];
 
-    const correctCountForQuestion = optionsForImmediateScoring.filter(
-      (opt: Option) => opt?.correct === true || String(opt?.correct) === 'true',
-    ).length;
+    const correctOptionsForQuestion = this.getResolvedCorrectOptions(
+      questionForSelection as QuizQuestion | null | undefined,
+      optionsForImmediateScoring
+    );
+  
+    const correctCountForQuestion = correctOptionsForQuestion.length;
 
     const isSingleAnswerQuestion = correctCountForQuestion === 1;
 
@@ -1474,9 +1477,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     if (!isSingleAnswerQuestion) {
       const normalize = (v: unknown): string => String(v ?? '').trim().toLowerCase();
-      const correctOpts = (optionsForImmediateScoring ?? []).filter(
-        (opt: Option) => opt?.correct === true || String(opt?.correct) === 'true'
-      );
+      const correctOpts = correctOptionsForQuestion;
 
       console.log(`[MULTI-DBG] Q${idx + 1} correctOpts (${correctOpts.length}):`,
         correctOpts.map((o: Option) => ({ id: o.optionId, text: o.text, correct: o.correct }))
@@ -1582,6 +1583,18 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
       const clickedOptionIsCorrect =
         option?.correct === true || String(option?.correct) === 'true';
+
+      if (!immediateMultiDotStatus && clickedOptionIsCorrect) {
+        // First correct click on a multi-answer question should turn the dot
+        // green immediately, even before all correct answers are selected.
+        immediateMultiDotStatus = 'correct';
+      }
+
+      if (!clickedOptionIsCorrect && option) {
+        // Any incorrect click on a multi-answer question should win
+        // immediately and repaint the dot red.
+        immediateMultiDotStatus = 'wrong';
+      }
 
       if (!immediateMultiDotStatus && clickedOptionIsCorrect) {
         // First correct click on a multi-answer question should turn the dot
@@ -5091,6 +5104,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     return [];
   }
 
+
+
   //private evaluateSelectionCorrectness(index: number, selections: SelectedOption[]): boolean | null {
     //const question = this.questionsArray?.[index] ||
   private getQuestionForIndex(index: number): QuizQuestion | null {
@@ -5099,6 +5114,47 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       this.quizService.activeQuiz?.questions?.[index] ||
       null;
   }
+
+  private getResolvedCorrectOptions(question: QuizQuestion | null | undefined, fallbackOptions: Option[] = []): Option[] {
+    const options = Array.isArray(question?.options) && question!.options.length > 0
+      ? question!.options
+      : fallbackOptions;
+
+    if (!Array.isArray(options) || options.length === 0) {
+      return [];
+    }
+
+    const correctIds = new Set<number>();
+    const correctTexts = new Set<string>();
+
+    if (Array.isArray((question as any)?.answer)) {
+      for (const answer of (question as any).answer) {
+        if (!answer) continue;
+
+        const id = Number(answer.optionId);
+        if (!Number.isNaN(id)) correctIds.add(id);
+
+        const text = String(answer.text ?? '').trim().toLowerCase();
+        if (text) correctTexts.add(text);
+      }
+    }
+
+    const resolvedFromAnswers = options.filter((opt: Option) => {
+      const id = Number(opt?.optionId);
+      const text = String(opt?.text ?? '').trim().toLowerCase();
+
+      return (!Number.isNaN(id) && correctIds.has(id)) || (!!text && correctTexts.has(text));
+    });
+
+    if (resolvedFromAnswers.length > 0) {
+      return resolvedFromAnswers;
+    }
+
+    return options.filter(
+      (opt: Option) => opt?.correct === true || String(opt?.correct) === 'true'
+    );
+  }
+
 
   private hasOptimisticCorrectSelection(index: number, selections: SelectedOption[]): boolean {
     const question = this.getQuestionForIndex(index);
