@@ -1574,30 +1574,38 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       this.quizService.scoreDirectly(idx, true, true);
     }
 
-    // UNIVERSAL DOT UPDATE — works for all question types.
-    // Resolve the clicked option's correctness from the authoritative source
-    // options array, NOT from the event payload's `correct` field (which may
-    // be undefined depending on the emit path).
-    {
+    if (!isSingleAnswerQuestion) {
+      // Dot color for multi-answer questions is driven by the MOST RECENTLY
+      // clicked option: correct click → green, incorrect click → red.
+      // This gives immediate per-click visual feedback regardless of
+      // cumulative selection state.
+      //
+      // IMPORTANT: Do NOT rely on option.correct from the event payload — it
+      // may be undefined depending on the emit path.  Instead, resolve
+      // correctness from the authoritative question options array.
       const normalize = (v: unknown): string => String(v ?? '').trim().toLowerCase();
       const clickedId = String(option?.optionId ?? '').trim();
       const clickedText = normalize(option?.text);
 
-      const clickedOptionIsCorrectFromSource = optionsForImmediateScoring.some((srcOpt: Option) => {
-        const sId = String(srcOpt.optionId ?? '').trim();
-        const sText = normalize(srcOpt.text);
-        const sCorrect = srcOpt.correct === true || String(srcOpt.correct) === 'true';
-        const idMatch = clickedId !== '' && sId !== '' && clickedId === sId;
-        const textMatch = clickedText !== '' && sText !== '' && clickedText === sText;
-        return sCorrect && (idMatch || textMatch);
+      const clickedOptionIsCorrect = correctOptionsForQuestion.some((cOpt: Option) => {
+        const cId = String(cOpt.optionId ?? '').trim();
+        const cText = normalize(cOpt.text);
+        return (clickedId !== '' && cId !== '' && clickedId === cId) ||
+          (clickedText !== '' && cText !== '' && clickedText === cText);
       });
 
-      console.log(`[DOT-UPDATE] Q${idx + 1} clicked id=${clickedId} text="${clickedText}" correctFromSource=${clickedOptionIsCorrectFromSource} payload.correct=${option?.correct} isSingleAnswer=${isSingleAnswerQuestion} correctCount=${correctCountForQuestion}`);
+      console.log(`[DOT-MULTI] Q${idx + 1} clicked option id=${clickedId} correct=${clickedOptionIsCorrect} (payload.correct=${option?.correct})`);
 
-      const clickDotStatus: 'correct' | 'wrong' = clickedOptionIsCorrectFromSource ? 'correct' : 'wrong';
-      this.setPersistedDotStatus(idx, clickDotStatus);
-      this.dotStatusCache.set(idx, clickDotStatus);
-      immediateMultiDotStatus = clickDotStatus;
+      if (clickedOptionIsCorrect) {
+        immediateMultiDotStatus = 'correct';
+      } else if (option) {
+        immediateMultiDotStatus = 'wrong';
+      }
+
+      if (immediateMultiDotStatus) {
+        this.setPersistedDotStatus(idx, immediateMultiDotStatus);
+        this.dotStatusCache.set(idx, immediateMultiDotStatus);
+      }
     }
 
     // Ensure scoring state is updated before evaluating dot color/progress.
@@ -5419,13 +5427,23 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     const localStatus = this.getPersistedDotStatus(index);
 
-    // For the CURRENT question, the persisted dot status was written by
-    // onOptionSelected based on the most-recently-clicked option.  Trust it
-    // over the cumulative evaluateSelectionCorrectness result which may
-    // disagree due to the full selection set or question type detection issues.
-    if (index === this.currentQuestionIndex && (localStatus === 'correct' || localStatus === 'wrong') && questionHasLiveSessionState) {
-      this.dotStatusCache.set(index, localStatus);
-      return localStatus;
+    // For multi-answer questions on the CURRENT question, the persisted dot
+    // status was written by onOptionSelected based on the most-recently-clicked
+    // option.  Trust it over the cumulative evaluateSelectionCorrectness result
+    // which considers the entire selection set (and would show 'wrong' if ANY
+    // incorrect option is in the set, even when the latest click was correct).
+    if (index === this.currentQuestionIndex && (localStatus === 'correct' || localStatus === 'wrong')) {
+      const question = this.getQuestionForIndex(index);
+      if (question) {
+        const correctOpts = (question.options ?? []).filter(
+          (opt: Option) => opt.correct === true || String(opt.correct) === 'true'
+        );
+        const isMultiAnswer = correctOpts.length > 1;
+        if (isMultiAnswer && questionHasLiveSessionState) {
+          this.dotStatusCache.set(index, localStatus);
+          return localStatus;
+        }
+      }
     }
 
     // If this click path has already persisted an optimistic CORRECT state for
