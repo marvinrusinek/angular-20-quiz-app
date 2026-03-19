@@ -1583,7 +1583,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       // IMPORTANT: Do NOT rely on option.correct from the event payload — it
       // may be undefined depending on the emit path.  Instead, resolve
       // correctness from the authoritative question options array.
-      const normalize = (v: unknown): string => String(v ?? '').trim().toLowerCase();
+      /* const normalize = (v: unknown): string => String(v ?? '').trim().toLowerCase();
       const clickedId = String(option?.optionId ?? '').trim();
       const clickedText = normalize(option?.text);
 
@@ -1598,9 +1598,20 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
       if (clickedOptionIsCorrect) {
         immediateMultiDotStatus = 'correct';
-      } else if (option) {
+      } else if (option) { */
+      // Multi-answer dot behavior is cumulative for the CURRENT selection set:
+      // - first correct selection with no wrong picks yet => green
+      // - any incorrect selection present => red
+      // This preserves the early-green behavior while still flipping red as
+      // soon as the user adds a wrong option afterwards.
+      if (hasIncorrectSelectionForMulti) {
         immediateMultiDotStatus = 'wrong';
+      } else if (hasAnyCorrectSelectionForMulti || allCorrectSelectedForMulti) {
+        immediateMultiDotStatus = 'correct';
       }
+
+      console.log(`[DOT-MULTI] Q${idx + 1} cumulative status=${immediateMultiDotStatus} ` +
+      `(anyCorrect=${hasAnyCorrectSelectionForMulti}, allCorrect=${allCorrectSelectedForMulti}, hasIncorrect=${hasIncorrectSelectionForMulti})`);
 
       if (immediateMultiDotStatus) {
         this.setPersistedDotStatus(idx, immediateMultiDotStatus);
@@ -5432,7 +5443,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // option.  Trust it over the cumulative evaluateSelectionCorrectness result
     // which considers the entire selection set (and would show 'wrong' if ANY
     // incorrect option is in the set, even when the latest click was correct).
-    if (index === this.currentQuestionIndex && (localStatus === 'correct' || localStatus === 'wrong')) {
+    /* if (index === this.currentQuestionIndex && (localStatus === 'correct' || localStatus === 'wrong')) {
       const question = this.getQuestionForIndex(index);
       if (question) {
         const correctOpts = (question.options ?? []).filter(
@@ -5444,7 +5455,12 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           return localStatus;
         }
       }
-    }
+    } */
+    // For the active multi-answer question, prefer the cumulative live
+    // selection evaluation below over any previously persisted local status.
+    // Persisted status can lag one click behind, while the live evaluation
+    // reflects the intended rule: green after the first correct pick, red once
+    // any incorrect option is part of the selection set.
 
     // If this click path has already persisted an optimistic CORRECT state for
     // the active question, trust it immediately so the current dot flips green
