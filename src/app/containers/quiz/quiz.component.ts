@@ -5187,10 +5187,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       )
     );
 
-    const hasIncorrectSelection = selections.some((selection) =>
-      !correctOptions.some((correctOption) => matchesOption(selection, correctOption))
-    );
-
     if (hasIncorrectSelection) {
       return false;
     }
