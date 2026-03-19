@@ -5173,9 +5173,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       return false;
     }
 
-    const correctOptions = question.options.filter(
-      (opt: Option) => opt.correct === true || String(opt.correct) === 'true'
-    );
+    const correctOptions = this.getResolvedCorrectOptions(question);
 
     if (correctOptions.length <= 1) {
       return false;
@@ -5209,9 +5207,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     // const normalize = (value: unknown): string => String(value ?? '').trim().toLowerCase();
 
-    const correctOptions = question.options.filter(
-      (opt: Option) => opt.correct === true || String(opt.correct) === 'true'
-    );
+    const correctOptions = this.getResolvedCorrectOptions(question);
     const isMultipleAnswerQuestion =
       question.type === QuestionType.MultipleAnswer || correctOptions.length > 1;
 
