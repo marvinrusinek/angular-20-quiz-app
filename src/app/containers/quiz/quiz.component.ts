@@ -1396,14 +1396,16 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     /* const canPersistOptimisticStatus =
       liveCorrectness === true || (liveCorrectness === false && usedExplicitPayloadCorrectness); */
-    const canPersistOptimisticStatus = liveCorrectness === true;
+    const canPersistOptimisticStatus =
+      isSingleAnswerQuestion && liveCorrectness === true;
 
     // const optimisticStatus = canPersistOptimisticStatus ? liveCorrectness === true : null;
     if (canPersistOptimisticStatus) {
       // Keep optimistic state visual-only for dots.
-      // Only persist optimistic CORRECT here; transient false negatives can
-      // happen while selection/scoring state is still settling and would lock
-      // the pagination dot red for an actually-correct answer.
+      // Single-answer questions can trust the clicked option immediately.
+      // Multi-answer questions must wait until the merged selection set is
+      // evaluated below so an immediately-following incorrect click can flip
+      // the dot red without a stale optimistic green flash.
       // Do NOT write into questionCorrectness here, otherwise incrementScore()
       // may see `wasCorrect=true` and skip the first real +1 score update.
       // this.setPersistedDotStatus(idx, optimisticStatus ? 'correct' : 'wrong');
@@ -1576,6 +1578,21 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         immediateMultiDotStatus = 'wrong';
       } else if (hasAnyCorrectSelectionForMulti) {
         immediateMultiDotStatus = 'correct';
+      }
+
+      const clickedOptionIsCorrect =
+        option?.correct === true || String(option?.correct) === 'true';
+
+      if (!immediateMultiDotStatus && clickedOptionIsCorrect) {
+        // First correct click on a multi-answer question should turn the dot
+        // green immediately, even before all correct answers are selected.
+        immediateMultiDotStatus = 'correct';
+      }
+
+      if (!clickedOptionIsCorrect && option) {
+        // Any incorrect click on a multi-answer question should win
+        // immediately and repaint the dot red.
+        immediateMultiDotStatus = 'wrong';
       }
 
       if (immediateMultiDotStatus) {
