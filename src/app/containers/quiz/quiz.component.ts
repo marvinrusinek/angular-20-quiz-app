@@ -1498,14 +1498,10 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           fromMethod?.map((s: any) => ({ id: s?.optionId, text: s?.text }))
         );
 
-        const clickedId = String(option?.optionId ?? '').trim();
-        const clickedText = normalize(option?.text);
-        const alreadyIncluded = currentSelections.some((s) => {
-          const sId = String(s?.optionId ?? '').trim();
-          const sText = normalize(s?.text);
-          return (clickedId !== '' && sId !== '' && clickedId === sId) ||
-            (clickedText !== '' && sText !== '' && clickedText === sText);
-        });
+        const clickedIndex = Number((option as any)?.displayIndex ?? (option as any)?.index ?? -1);
+        const alreadyIncluded = currentSelections.some((selection) =>
+          this.selectionMatchesOption(selection, option, clickedIndex)
+        );
         if (!alreadyIncluded && option) {
           currentSelections.push(option as SelectedOption);
         }
@@ -1515,44 +1511,29 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         );
 
         // Check: is every correct option represented in the current selections?
-        const everyCorrectSelected = correctOpts.every((correctOpt) => {
-          const cOptId = String(correctOpt.optionId ?? '').trim();
-          const cOptText = normalize(correctOpt.text);
-          const found = currentSelections.some((sel) => {
-            const selId = String(sel?.optionId ?? '').trim();
-            const selText = normalize(sel?.text);
-            return (cOptId !== '' && selId !== '' && cOptId === selId) ||
-              (cOptText !== '' && selText !== '' && cOptText === selText);
-          });
-          console.log(`[MULTI-DBG] Q${idx + 1} correctOpt id=${cOptId} text="${cOptText}" found=${found}`);
+        const everyCorrectSelected = correctOpts.every((correctOpt, correctOptIndex) => {
+          const found = currentSelections.some((selection) =>
+            this.selectionMatchesOption(selection, correctOpt, correctOptIndex)
+          );
+          console.log(`[MULTI-DBG] Q${idx + 1} correctOpt id=${String(correctOpt.optionId ?? '').trim()} text="${normalize(correctOpt.text)}" found=${found}`);
           return found;
         });
 
         allCorrectSelectedForMulti = everyCorrectSelected;
         //console.log(`[MULTI-DBG] Q${idx + 1} everyCorrectSelected=${everyCorrectSelected} -> allCorrectSelectedForMulti=${allCorrectSelectedForMulti}`);
 
-        hasIncorrectSelectionForMulti = currentSelections.some((sel) => {
-          const selId = String(sel?.optionId ?? '').trim();
-          const selText = normalize(sel?.text);
-          return !correctOpts.some((correctOpt) => {
-            const cOptId = String(correctOpt.optionId ?? '').trim();
-            const cOptText = normalize(correctOpt.text);
-            return (cOptId !== '' && selId !== '' && cOptId === selId) ||
-              (cOptText !== '' && selText !== '' && cOptText === selText);
-          });
-        });
+        hasIncorrectSelectionForMulti = currentSelections.some((selection) =>
+          !correctOpts.some((correctOpt, correctOptIndex) =>
+            this.selectionMatchesOption(selection, correctOpt, correctOptIndex)
+          )
+        );
 
         hasAnyCorrectSelectionForMulti =
-          currentSelections.some((sel) => {
-            const selId = String(sel?.optionId ?? '').trim();
-            const selText = normalize(sel?.text);
-            return correctOpts.some((correctOpt) => {
-              const cOptId = String(correctOpt.optionId ?? '').trim();
-              const cOptText = normalize(correctOpt.text);
-              return (cOptId !== '' && selId !== '' && cOptId === selId) ||
-                (cOptText !== '' && selText !== '' && cOptText === selText);
-            });
-          }) && !hasIncorrectSelectionForMulti;
+          currentSelections.some((selection) =>
+          correctOpts.some((correctOpt, correctOptIndex) =>
+            this.selectionMatchesOption(selection, correctOpt, correctOptIndex)
+          )
+        ) && !hasIncorrectSelectionForMulti;
 
         console.log(`[MULTI-DBG] Q${idx + 1} everyCorrectSelected=${everyCorrectSelected} hasIncorrectSelection=${hasIncorrectSelectionForMulti} hasAnyCorrectSelectionForMulti=${hasAnyCorrectSelectionForMulti} -> allCorrectSelectedForMulti=${allCorrectSelectedForMulti}`);
 
@@ -5113,6 +5094,30 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
   //private evaluateSelectionCorrectness(index: number, selections: SelectedOption[]): boolean | null {
   //const question = this.questionsArray?.[index] ||
+
+  private selectionMatchesOption(selection: Partial<SelectedOption> | null | undefined, option: Partial<Option> | null | undefined, optionIndex?: number): boolean {
+    if (!selection || !option) {
+      return false;
+    }
+
+    const normalize = (value: unknown): string => String(value ?? '').trim().toLowerCase();
+    const selectionId = String(selection.optionId ?? '').trim();
+    const optionId = String(option.optionId ?? '').trim();
+
+    if (selectionId !== '' && optionId !== '' && selectionId === optionId) {
+      return true;
+    }
+
+    const selectionText = normalize(selection.text);
+    const optionText = normalize(option.text);
+    if (selectionText !== '' && optionText !== '' && selectionText === optionText) {
+      return true;
+    }
+
+    const selectionDisplayIndex = Number((selection as any)?.displayIndex ?? (selection as any)?.index ?? -1);
+    return Number.isInteger(optionIndex) && selectionDisplayIndex === optionIndex;
+  }
+
   private getQuestionForIndex(index: number): QuizQuestion | null {
     return this.questionsArray?.[index] ||
       this.quizService.questions?.[index] ||
@@ -5176,16 +5181,11 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       return false;
     }
 
-    const normalize = (value: unknown): string => String(value ?? '').trim().toLowerCase();
-    const matchesOption = (candidate: SelectedOption, option: Option): boolean => {
-      const candidateId = String(candidate?.optionId ?? '').trim();
-      const optionId = String(option?.optionId ?? '').trim();
-      const candidateText = normalize(candidate?.text);
-      const optionText = normalize(option?.text);
-
-      return (candidateId !== '' && optionId !== '' && candidateId === optionId) ||
-        (candidateText !== '' && optionText !== '' && candidateText === optionText);
-    };
+    const hasIncorrectSelection = selections.some((selection) =>
+      !correctOptions.some((correctOption, correctOptionIndex) =>
+        this.selectionMatchesOption(selection, correctOption, correctOptionIndex)
+      )
+    );
 
     const hasIncorrectSelection = selections.some((selection) =>
       !correctOptions.some((correctOption) => matchesOption(selection, correctOption))
@@ -5199,7 +5199,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // click, but it must return to red immediately if the current selection set
     // includes any incorrect option.
     return selections.some((selection) =>
-      correctOptions.some((correctOption) => matchesOption(selection, correctOption))
+      correctOptions.some((correctOption, correctOptionIndex) =>
+        this.selectionMatchesOption(selection, correctOption, correctOptionIndex)
+      )
     );
   }
 
