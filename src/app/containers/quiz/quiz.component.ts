@@ -1360,7 +1360,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       questionForSelection as QuizQuestion | null | undefined,
       optionsForImmediateScoring
     );
-  
+
     const correctCountForQuestion = correctOptionsForQuestion.length;
 
     const isSingleAnswerQuestion = correctCountForQuestion === 1;
@@ -1373,9 +1373,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       liveCorrectness = option?.correct === true || String(option?.correct) === 'true';
       usedExplicitPayloadCorrectness = true;
     } else if (isSingleAnswerQuestion && liveCorrectness !== true && liveCorrectness !== false && hasExplicitCorrectFlag) { */
-      // Only allow payload correctness override for single-answer questions.
-      // For multi-answer questions, a single correct click does NOT mean the
-      // question is fully correct — all correct answers must be selected.
+    // Only allow payload correctness override for single-answer questions.
+    // For multi-answer questions, a single correct click does NOT mean the
+    // question is fully correct — all correct answers must be selected.
     // Use the clicked option's explicit correctness flag for immediate visual
     // feedback when it is available. For multi-answer questions this is
     // intentionally visual-only: the score still waits until the full answer is
@@ -1504,7 +1504,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           const sId = String(s?.optionId ?? '').trim();
           const sText = normalize(s?.text);
           return (clickedId !== '' && sId !== '' && clickedId === sId) ||
-                 (clickedText !== '' && sText !== '' && clickedText === sText);
+            (clickedText !== '' && sText !== '' && clickedText === sText);
         });
         if (!alreadyIncluded && option) {
           currentSelections.push(option as SelectedOption);
@@ -1522,7 +1522,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
             const selId = String(sel?.optionId ?? '').trim();
             const selText = normalize(sel?.text);
             return (cOptId !== '' && selId !== '' && cOptId === selId) ||
-                   (cOptText !== '' && selText !== '' && cOptText === selText);
+              (cOptText !== '' && selText !== '' && cOptText === selText);
           });
           console.log(`[MULTI-DBG] Q${idx + 1} correctOpt id=${cOptId} text="${cOptText}" found=${found}`);
           return found;
@@ -1538,7 +1538,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
             const cOptId = String(correctOpt.optionId ?? '').trim();
             const cOptText = normalize(correctOpt.text);
             return (cOptId !== '' && selId !== '' && cOptId === selId) ||
-                   (cOptText !== '' && selText !== '' && cOptText === selText);
+              (cOptText !== '' && selText !== '' && cOptText === selText);
           });
         });
 
@@ -1550,7 +1550,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
               const cOptId = String(correctOpt.optionId ?? '').trim();
               const cOptText = normalize(correctOpt.text);
               return (cOptId !== '' && selId !== '' && cOptId === selId) ||
-                     (cOptText !== '' && selText !== '' && cOptText === selText);
+                (cOptText !== '' && selText !== '' && cOptText === selText);
             });
           }) && !hasIncorrectSelectionForMulti;
 
@@ -1575,36 +1575,16 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     }
 
     if (!isSingleAnswerQuestion) {
-      if (hasIncorrectSelectionForMulti) {
-        immediateMultiDotStatus = 'wrong';
-      } else if (hasAnyCorrectSelectionForMulti) {
-        immediateMultiDotStatus = 'correct';
-      }
-
+      // Dot color for multi-answer questions is driven by the MOST RECENTLY
+      // clicked option: correct click → green, incorrect click → red.
+      // This gives immediate per-click visual feedback regardless of
+      // cumulative selection state.
       const clickedOptionIsCorrect =
         option?.correct === true || String(option?.correct) === 'true';
 
-      if (!immediateMultiDotStatus && clickedOptionIsCorrect) {
-        // First correct click on a multi-answer question should turn the dot
-        // green immediately, even before all correct answers are selected.
+      if (clickedOptionIsCorrect) {
         immediateMultiDotStatus = 'correct';
-      }
-
-      if (!clickedOptionIsCorrect && option) {
-        // Any incorrect click on a multi-answer question should win
-        // immediately and repaint the dot red.
-        immediateMultiDotStatus = 'wrong';
-      }
-
-      if (!immediateMultiDotStatus && clickedOptionIsCorrect) {
-        // First correct click on a multi-answer question should turn the dot
-        // green immediately, even before all correct answers are selected.
-        immediateMultiDotStatus = 'correct';
-      }
-
-      if (!clickedOptionIsCorrect && option) {
-        // Any incorrect click on a multi-answer question should win
-        // immediately and repaint the dot red.
+      } else if (option) {
         immediateMultiDotStatus = 'wrong';
       }
 
@@ -5107,7 +5087,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
 
   //private evaluateSelectionCorrectness(index: number, selections: SelectedOption[]): boolean | null {
-    //const question = this.questionsArray?.[index] ||
+  //const question = this.questionsArray?.[index] ||
   private getQuestionForIndex(index: number): QuizQuestion | null {
     return this.questionsArray?.[index] ||
       this.quizService.questions?.[index] ||
@@ -5321,7 +5301,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       if (resolution.correctSelected > 0) {
         return true;
       }
-      
+
       return null;
     }
 
@@ -5350,7 +5330,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     const selections = this.getSelectionsForQuestion(index);
     const candidateIndices = this.getCandidateQuestionIndices(index);
     const questionHasLiveSessionState = this.hasLiveSessionStateForQuestion(index);
-  
+
     if (hasCachedStatus) {
       const cached = this.dotStatusCache.get(index)!;
       const isCurrentQuestion = index === this.currentQuestionIndex;
@@ -5422,7 +5402,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         ? this.quizService.userAnswers.some((answers: unknown) =>
           Array.isArray(answers) && answers.length > 0)
         : false); */
-    
+
     // Multi-answer questions should flip green on the first correct click,
     // even before the stricter resolution/scoring paths fully settle.
     if (hasOptimisticCorrectSelection) {
@@ -5458,7 +5438,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       (evaluatedStatus === true || evaluatedStatus === false) &&
       (questionHasLiveSessionState || index === this.currentQuestionIndex)
     ) { */
-    
+
     // An authoritative scored-correct state must win over any live-selection
     // false negative. This is especially important for multiple-answer
     // questions where transient stale selections can still include an earlier
