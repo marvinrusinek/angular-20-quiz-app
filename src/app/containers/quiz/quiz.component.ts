@@ -8,8 +8,7 @@ import { FormGroup } from '@angular/forms';
 import { ActivatedRoute, NavigationEnd, ParamMap, Params, Router } from '@angular/router';
 import {
   BehaviorSubject, combineLatest, EMPTY, firstValueFrom, merge, Observable, of,
-  Subject, Subscription, throwError
-} from 'rxjs';
+  Subject, Subscription, throwError } from 'rxjs';
 import {
   catchError, debounceTime, distinctUntilChanged, filter, map, retry, shareReplay,
   startWith, switchMap, take, takeUntil, tap
@@ -232,6 +231,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   // Persistent Dot Status Cache - survives navigation and resets
   private dotStatusCache = new Map<number, 'correct' | 'wrong' | 'pending'>();
   private pendingDotStatusOverrides = new Map<number, 'correct' | 'wrong'>();
+  private _processingOptionClick = false;
 
   constructor(
     public quizService: QuizService,
@@ -385,6 +385,13 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // Trigger CD on any selection change (e.g. Red -> Green transition)
     // Also update the dot status cache for persistence
     this.selectedOptionService.selectedOption$.subscribe((selections: SelectedOption[]) => {
+      // Skip automatic re-evaluation while onOptionSelected is actively processing.
+      // onOptionSelected sets the dot status based on the CLICKED option's correctness;
+      // allowing this subscription to re-evaluate the full selection set mid-processing
+      // would override the intended per-click dot color with a cumulative result.
+      if (this._processingOptionClick) {
+        return;
+      }
       // Update cache for the current question whenever selection changes (even if cleared)
       const qIndex = selections?.[0]?.questionIndex ?? this.currentQuestionIndex;
 
@@ -1310,6 +1317,10 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     (this as any)._lastClickTime = now;
     (this as any)._lastOptionId = id;
 
+    // Guard: prevent the selectedOption$ subscription from overriding dot status
+    // while this click is being processed.
+    this._processingOptionClick = true;
+
     // Determine target question index
     const idx = this.normalizeQuestionIndex(option?.questionIndex);
 
@@ -1582,13 +1593,22 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         )
 
       // Multi-answer dot behavior should mirror single-answer questions:
-      // - first correct pick => green immediately
-      // - any incorrect pick added afterwards => red immediately
-      // - stays green while the live selection set contains only correct picks
-      if (hasIncorrectSelectionForMulti) {
-        immediateMultiDotStatus = 'wrong';
-      } else if (clickedOptionIsCorrect || hasAnyCorrectSelectionForMulti || allCorrectSelectedForMulti) {
+      // The dot color reflects the LAST CLICKED option's correctness.
+      // - clicked correct => green immediately
+      // - clicked incorrect => red immediately
+      // This takes precedence over the cumulative selection set state.
+      if (clickedOptionIsCorrect) {
         immediateMultiDotStatus = 'correct';
+      } else {
+        immediateMultiDotStatus = 'wrong';
+      }
+
+      // If the selection set now contains any incorrect option, reset the
+      // authoritative questionCorrectness to false so that stale 'true'
+      // values from a previous all-correct state do not block the dot from
+      // turning red in getQuestionStatus.
+      if (hasIncorrectSelectionForMulti && !allCorrectSelectedForMulti) {
+        this.quizService.scoreDirectly(idx, false, true);
       }
 
       console.log(`[DOT-MULTI] Q${idx + 1} status=${immediateMultiDotStatus} ` +
@@ -1647,6 +1667,10 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     } catch (e) {
       console.warn('[onOptionSelected] Storage failed', e);
     }
+
+    // Release the guard BEFORE the deferred update so that subsequent
+    // selection emissions (e.g. from navigation) can update dots normally.
+    this._processingOptionClick = false;
 
     // 3. FINAL EVALUATION (Deferred to ensure service state has settled)
     setTimeout(() => {
