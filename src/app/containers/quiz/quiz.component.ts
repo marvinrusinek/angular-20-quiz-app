@@ -1615,14 +1615,19 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       );
       const clickedOptionWasDeselected = !clickedOptionIsStillSelected;
 
-      if (clickedOptionWasDeselected) {
-        immediateMultiDotStatus = 'wrong';
-      } else if (clickedOptionIsCorrect) {
+      // Keep the active multi-answer dot aligned with the CURRENT
+      // resolved selection state, not just the clicked option itself.
+      // This lets Q2 flip red -> green when an incorrect option is removed and
+      // the remaining selections are now the full correct set, and green ->
+      // red when a new incorrect option is added or a required correct option
+      // is removed.
+      if (allCorrectSelectedForMulti && !hasIncorrectSelectionForMulti) {
         immediateMultiDotStatus = 'correct';
       } else if (
+        clickedOptionWasDeselected ||
+        clickedOptionIsCorrect ||
         hasIncorrectSelectionForMulti ||
-        hasAnyCorrectSelectionForMulti ||
-        allCorrectSelectedForMulti
+        hasAnyCorrectSelectionForMulti
       ) {
         immediateMultiDotStatus = 'wrong';
       }
