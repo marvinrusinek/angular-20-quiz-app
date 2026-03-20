@@ -5047,20 +5047,41 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         .filter(Boolean)
     );
     const optionIndexSet = new Set((question?.options ?? []).map((_opt: Option, optIndex: number) => optIndex));
+    const isSelectionActive = (selection: SelectedOption): boolean => {
+      if (!selection) {
+        return false;
+      }
+
+      if (
+        selection.selected === false ||
+        (selection as any)?.checked === false ||
+        (selection as any)?.isSelected === false ||
+        (selection as any)?.active === false
+      ) {
+        return false;
+      }
+
+      return true;
+    };
 
     const pickRelevantSelections = (selections: SelectedOption[]): SelectedOption[] => {
       if (!Array.isArray(selections) || selections.length === 0) {
         return [];
       }
 
-      const exactQuestionSelections = selections.filter((selection: SelectedOption) =>
+      const activeSelections = selections.filter(isSelectionActive);
+      if (activeSelections.length === 0) {
+        return [];
+      }
+
+      const exactQuestionSelections = activeSelections.filter((selection: SelectedOption) =>
         selection?.questionIndex === index
       );
       if (exactQuestionSelections.length > 0) {
         return exactQuestionSelections;
       }
 
-      const matchedSelections = selections.filter((selection: SelectedOption) => {
+      const matchedSelections = activeSelections.filter((selection: SelectedOption) => {
         const selectionId = String(selection?.optionId ?? '').trim();
         const selectionText = normalize(selection?.text);
         const selectionDisplayIndex = Number((selection as any)?.displayIndex ?? (selection as any)?.index ?? -1);
@@ -5072,7 +5093,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         );
       });
 
-      return matchedSelections.length > 0 ? matchedSelections : selections;
+      return matchedSelections.length > 0 ? matchedSelections : activeSelections;
     };
 
     for (const candidateIndex of candidateIndices) {
