@@ -5421,11 +5421,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     }
 
     const pendingOverrideStatus = this.pendingDotStatusOverrides.get(index);
-    if (index === this.currentQuestionIndex && pendingOverrideStatus) {
-      this.setPersistedDotStatus(index, pendingOverrideStatus);
-      this.dotStatusCache.set(index, pendingOverrideStatus);
-      return pendingOverrideStatus;
-    }
 
     const previousCached = this.dotStatusCache.get(index);
     //if (this.dotStatusCache.has(index)) {
@@ -5538,13 +5533,17 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       pendingOverrideStatus &&
       index === this.currentQuestionIndex
     ) {
-      // The active question's latest click/toggle is the freshest signal we have.
-      // Trust this override even if the selection maps have not finished settling
-      // yet; otherwise rapid multi-answer toggles can leave the pagination dot
-      // stuck on the previous color until a later recompute.
-      this.setPersistedDotStatus(index, pendingOverrideStatus);
-      this.dotStatusCache.set(index, pendingOverrideStatus);
-      return pendingOverrideStatus;
+      // Keep click-level overrides as a fast fallback, but do not let them
+      // override a forced recompute for the active multi-answer question. That
+      // path needs to honor the latest merged checkbox state so the pagination
+      // dot can flip immediately between red and green on Q2.
+      if (options?.forceRecompute && isLiveMultiAnswerQuestion) {
+        this.pendingDotStatusOverrides.delete(index);
+      } else {
+        this.setPersistedDotStatus(index, pendingOverrideStatus);
+        this.dotStatusCache.set(index, pendingOverrideStatus);
+        return pendingOverrideStatus;
+      }
     }
 
     // Multi-answer questions can still surface an optimistic green state while
