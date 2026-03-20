@@ -5910,6 +5910,18 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   }
 
   getDotClass(index: number): string {
+    if (index === this.currentQuestionIndex) {
+      const activeClickStatus = this.activeDotClickStatus.get(index);
+      if (activeClickStatus) {
+        return `${activeClickStatus} current`;
+      }
+
+      const pendingOverrideStatus = this.pendingDotStatusOverrides.get(index);
+      if (pendingOverrideStatus) {
+        return `${pendingOverrideStatus} current`;
+      }
+    }
+    
     const status = this.getQuestionStatus(index);
     if (index === this.currentQuestionIndex && status !== 'pending') {
       return `${status} current`;
