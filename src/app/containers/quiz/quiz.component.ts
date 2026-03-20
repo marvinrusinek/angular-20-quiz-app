@@ -5020,10 +5020,18 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     const question = this.questionsArray?.[index] ||
       this.quizService.questions?.[index] ||
       this.quizService.activeQuiz?.questions?.[index];
+    const currentQuestionOptions = index === this.currentQuestionIndex
+      ? ((Array.isArray(this.optionsToDisplay) && this.optionsToDisplay.length > 0)
+          ? this.optionsToDisplay
+          : (Array.isArray(this.currentQuestion?.options) ? this.currentQuestion.options as Option[] : []))
+      : [];
+    const referenceOptions = Array.isArray(question?.options) && question.options.length > 0
+      ? question.options
+      : currentQuestionOptions;
 
     const normalize = (value: unknown): string => String(value ?? '').trim().toLowerCase();
     const optionIdSet = new Set(
-      (question?.options ?? [])
+      referenceOptions
         .map((opt: Option, optIndex: number) => {
           const rawId = opt?.optionId;
           if (rawId !== undefined && rawId !== null && String(rawId).trim() !== '') {
@@ -5033,11 +5041,11 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         })
     );
     const optionTextSet = new Set(
-      (question?.options ?? [])
+      referenceOptions
         .map((opt: Option) => normalize(opt?.text))
         .filter(Boolean)
     );
-    const optionIndexSet = new Set((question?.options ?? []).map((_opt: Option, optIndex: number) => optIndex));
+    const optionIndexSet = new Set(referenceOptions.map((_opt: Option, optIndex: number) => optIndex));
     const isSelectionActive = (selection: SelectedOption): boolean => {
       if (!selection) {
         return false;
@@ -5098,6 +5106,23 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       if (Array.isArray(quizSelection) && quizSelection.length > 0) {
         // return quizSelection as SelectedOption[];
         return pickRelevantSelections(quizSelection as SelectedOption[]);
+      }
+    }
+
+    if (index === this.currentQuestionIndex && currentQuestionOptions.length > 0) {
+      const displayedSelections = currentQuestionOptions
+        .map((option: Option, optionIndex: number) => ({ option, optionIndex }))
+        .filter(({ option }) => isSelectionActive(option as SelectedOption))
+        .map(({ option, optionIndex }) => ({
+          ...(option as SelectedOption),
+          optionId: option?.optionId ?? optionIndex,
+          questionIndex: index,
+          displayIndex: Number((option as any)?.displayIndex ?? (option as any)?.index ?? optionIndex),
+          selected: true
+        } as SelectedOption));
+
+      if (displayedSelections.length > 0) {
+        return pickRelevantSelections(displayedSelections);
       }
     }
 
