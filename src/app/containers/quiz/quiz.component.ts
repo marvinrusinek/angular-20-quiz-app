@@ -1575,9 +1575,11 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         const syncIds = currentSelections
           .map((s: any) => s?.optionId)
           .filter((id: any) => id !== undefined && id !== null);
-        if (syncIds.length > 0) {
-          this.quizService.userAnswers[idx] = syncIds;
-        }
+        // Always sync the full live selection set, including the empty state.
+        // Skipping the empty-array write leaves stale answer IDs behind after a
+        // deselect, so multi-answer correctness and pagination-dot color can
+        // stay stuck on the previous click result.
+        this.quizService.updateUserAnswer(idx, syncIds);
       } else {
         console.log(`[MULTI-DBG] Q${idx + 1} SKIPPED: correctOpts.length=${correctOpts.length} (not > 1)`);
       }
