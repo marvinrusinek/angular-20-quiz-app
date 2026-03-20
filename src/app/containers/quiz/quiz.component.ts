@@ -5493,6 +5493,28 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     const localStatus = this.getPersistedDotStatus(index);
     const pendingOverrideStatus = this.pendingDotStatusOverrides.get(index);
+    const question = this.getQuestionForIndex(index);
+    const resolvedCorrectOptionCount = question
+      ? this.getResolvedCorrectOptionEntries(question).length
+      : 0;
+    const isLiveMultiAnswerQuestion =
+      index === this.currentQuestionIndex &&
+      (questionHasLiveSessionState || selections.length > 0) &&
+      (
+        question?.type === QuestionType.MultipleAnswer ||
+        resolvedCorrectOptionCount > 1
+      );
+
+    // For the active multi-answer question, the live merged selection set is the
+    // most reliable signal. Persisted/pending states can lag one toggle behind,
+    // which is exactly what leaves Q2's dot stuck red or green after the user
+    // changes the checkbox combination.
+    if (isLiveMultiAnswerQuestion && (evaluatedStatus === true || evaluatedStatus === false)) {
+      const status: 'correct' | 'wrong' = evaluatedStatus ? 'correct' : 'wrong';
+      this.setPersistedDotStatus(index, status);
+      this.dotStatusCache.set(index, status);
+      return status;
+    }
 
     if (
       pendingOverrideStatus &&
