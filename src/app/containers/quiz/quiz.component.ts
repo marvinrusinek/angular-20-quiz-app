@@ -5235,19 +5235,24 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
   private hasOptimisticCorrectSelection(index: number, selections: SelectedOption[]): boolean {
     const question = this.getQuestionForIndex(index);
+    const fallbackOptions = index === this.currentQuestionIndex
+      ? ((Array.isArray(this.optionsToDisplay) && this.optionsToDisplay.length > 0)
+          ? this.optionsToDisplay
+          : (Array.isArray(this.currentQuestion?.options) ? this.currentQuestion.options as Option[] : []))
+      : [];
 
-    if (!question || !Array.isArray(question.options) || question.options.length === 0 || selections.length === 0) {
+    if (selections.length === 0) {
       return false;
     }
 
-    const correctOptionEntries = this.getResolvedCorrectOptionEntries(question);
+    const correctOptionEntries = this.getResolvedCorrectOptionEntries(question, fallbackOptions);
 
     if (correctOptionEntries.length <= 1) {
       return false;
     }
 
     const hasIncorrectSelection = selections.some((selection) =>
-      !this.matchesAnyCorrectOption(selection, question)
+      !this.matchesAnyCorrectOption(selection, question, fallbackOptions)
     );
 
     if (hasIncorrectSelection) {
@@ -5259,7 +5264,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // any single correct selection as green leaves the dot stuck on the wrong
     // color for partially-correct states.
     const matchedCorrectSelections = selections.filter((selection) =>
-      this.matchesAnyCorrectOption(selection, question)
+      this.matchesAnyCorrectOption(selection, question, fallbackOptions)
     );
 
     return matchedCorrectSelections.length === correctOptionEntries.length;
@@ -5267,16 +5272,20 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
   private evaluateSelectionCorrectness(index: number, selections: SelectedOption[]): boolean | null {
     const question = this.getQuestionForIndex(index);
-    if (!question || !Array.isArray(question.options) || question.options.length === 0) {
+    const fallbackOptions = index === this.currentQuestionIndex
+      ? ((Array.isArray(this.optionsToDisplay) && this.optionsToDisplay.length > 0)
+          ? this.optionsToDisplay
+          : (Array.isArray(this.currentQuestion?.options) ? this.currentQuestion.options as Option[] : []))
+      : [];
+
+    if ((!question || !Array.isArray(question.options) || question.options.length === 0) && fallbackOptions.length === 0) {
       return null;
     }
 
-    // const normalize = (value: unknown): string => String(value ?? '').trim().toLowerCase();
-
-    const correctOptionEntries = this.getResolvedCorrectOptionEntries(question);
+    const correctOptionEntries = this.getResolvedCorrectOptionEntries(question, fallbackOptions);
     const correctOptions = correctOptionEntries.map(({ option }) => option);
     const isMultipleAnswerQuestion =
-      question.type === QuestionType.MultipleAnswer || correctOptions.length > 1;
+      question?.type === QuestionType.MultipleAnswer || correctOptions.length > 1;
 
     // Treat questions with multiple correct options as multi-answer even when
     // explicit `question.type` metadata is missing.
@@ -5500,9 +5509,12 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     const localStatus = this.getPersistedDotStatus(index);
     const question = this.getQuestionForIndex(index);
-    const resolvedCorrectOptionCount = question
-      ? this.getResolvedCorrectOptionEntries(question).length
-      : 0;
+    const fallbackOptions = index === this.currentQuestionIndex
+      ? ((Array.isArray(this.optionsToDisplay) && this.optionsToDisplay.length > 0)
+          ? this.optionsToDisplay
+          : (Array.isArray(this.currentQuestion?.options) ? this.currentQuestion.options as Option[] : []))
+      : [];
+    const resolvedCorrectOptionCount = this.getResolvedCorrectOptionEntries(question, fallbackOptions).length;  
     const isLiveMultiAnswerQuestion =
       index === this.currentQuestionIndex &&
       (questionHasLiveSessionState || selections.length > 0) &&
