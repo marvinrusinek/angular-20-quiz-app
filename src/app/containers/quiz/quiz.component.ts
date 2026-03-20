@@ -1592,22 +1592,13 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
             String(optionsForImmediateScoring[clickedIndex]?.correct) === 'true')
         )
 
-      // Multi-answer dot behavior should mirror single-answer questions:
-      // The dot color reflects the LAST CLICKED option's correctness.
-      // - clicked correct => green immediately
-      // - clicked incorrect => red immediately
-      // This takes precedence over the cumulative selection set state.
-      /* if (clickedOptionIsCorrect) {
+      // Multi-answer dots should reflect the current full-answer state:
+      // green only when every correct option is selected and no incorrect
+      // option is selected; red otherwise once the user has interacted.
+      if (allCorrectSelectedForMulti) {
         immediateMultiDotStatus = 'correct';
-      } else { */
-      // Multi-answer dots must reflect the CURRENT selection set, not only
-      // the most recently clicked option. This lets the dot flip immediately
-      // when the user corrects a previously wrong combination or introduces a
-      // new wrong selection after being correct.
-      if (hasIncorrectSelectionForMulti) {
+      } else if (hasIncorrectSelectionForMulti || hasAnyCorrectSelectionForMulti || clickedOptionIsCorrect) {
         immediateMultiDotStatus = 'wrong';
-      } else if (hasAnyCorrectSelectionForMulti || allCorrectSelectedForMulti || clickedOptionIsCorrect) {
-        immediateMultiDotStatus = 'correct';
       }
 
       // If the selection set now contains any incorrect option, reset the
@@ -5257,12 +5248,15 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       return false;
     }
 
-    // For multi-answer questions, the dot can turn green on the first correct
-    // click, but it must return to red immediately if the current selection set
-    // includes any incorrect option.
-    return selections.some((selection) =>
+    // A multi-answer question should only look "optimistically correct" when
+    // the current live selections already cover the full correct set. Treating
+    // any single correct selection as green leaves the dot stuck on the wrong
+    // color for partially-correct states.
+    const matchedCorrectSelections = selections.filter((selection) =>
       this.matchesAnyCorrectOption(selection, question)
     );
+
+    return matchedCorrectSelections.length === correctOptionEntries.length;
   }
 
   private evaluateSelectionCorrectness(index: number, selections: SelectedOption[]): boolean | null {
@@ -5390,11 +5384,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         return false;
       }
 
-      if (matchedCorrectSelections.length > 0) {
-        return true;
-      }
-
-      return null;
+      return matchedCorrectSelections.length === correctOptionEntries.length;
     }
 
     if (incorrectSelections.length > 0) {
