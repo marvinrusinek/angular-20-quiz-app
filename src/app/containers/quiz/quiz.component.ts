@@ -5570,16 +5570,14 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       );
     
     // Active multi-answer questions should mirror the latest click the same way
-    // single-answer questions do. If we already captured the latest click as an
-    // override or persisted visual state, return it immediately before any
-    // cumulative scoring/evaluation logic can repaint the dot.
-    if (isLiveMultiAnswerQuestion) {
-      const immediateActiveStatus = pendingOverrideStatus ?? localStatus;
-      if (immediateActiveStatus === 'correct' || immediateActiveStatus === 'wrong') {
-        this.setPersistedDotStatus(index, immediateActiveStatus);
-        this.dotStatusCache.set(index, immediateActiveStatus);
-        return immediateActiveStatus;
-      }
+    // single-answer questions do. Only trust the explicit pending override here:
+    // the persisted local status can be one click behind while the user toggles
+    // multi-select answers, which is what makes the dot appear stuck red after a
+    // newer correct click.
+    if (isLiveMultiAnswerQuestion && pendingOverrideStatus) {
+      this.setPersistedDotStatus(index, pendingOverrideStatus);
+      this.dotStatusCache.set(index, pendingOverrideStatus);
+      return pendingOverrideStatus;
     }
 
     if (
