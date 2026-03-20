@@ -5631,6 +5631,21 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       return 'wrong';
     }
 
+    // Mirror the same last-click behavior for green states on the ACTIVE
+    // multi-answer question. Without this branch, the cumulative selection
+    // evaluation below can repaint the dot red immediately after the user
+    // clicks a correct option while an older incorrect selection is still part
+    // of the live set. Single-answer questions always follow the latest click,
+    // so keep multi-answer dots aligned with that UX as well.
+    if (
+      index === this.currentQuestionIndex &&
+      isLiveMultiAnswerQuestion &&
+      localStatus === 'correct'
+    ) {
+      this.dotStatusCache.set(index, 'correct');
+      return 'correct';
+    }
+
     // For the active question, always prefer the live selection evaluation
     // below over any previously persisted local status. Persisted values can
     // lag one click behind while the user is toggling multiple-answer choices,
