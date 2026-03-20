@@ -1495,6 +1495,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     let hasAnyCorrectSelectionForMulti = false;
     let hasIncorrectSelectionForMulti = false;
     let immediateMultiDotStatus: 'correct' | 'wrong' | null = null;
+    let currentSelectionsForMulti: SelectedOption[] = [...immediateSelections];
 
     console.log(`[MULTI-DBG] Q${idx + 1} clicked option:`, {
       optionId: option?.optionId,
@@ -1521,6 +1522,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         const fromMap = this.selectedOptionService?.selectedOptionsMap?.get(idx);
         const fromMethod = this.selectedOptionService?.getSelectedOptionsForQuestion(idx);
         const currentSelections: SelectedOption[] = [...immediateSelections];
+        currentSelectionsForMulti = currentSelections;
 
         console.log(`[MULTI-DBG] Q${idx + 1} selectionsFromMap (${fromMap?.length ?? 'null'}):`,
           fromMap?.map((s: any) => ({ id: s?.optionId, text: s?.text }))
@@ -1606,10 +1608,10 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       // (correct => green, incorrect or deselecting a correct answer => red).
       // We still keep allCorrectSelectedForMulti for scoring, but dot color is
       // intentionally last-click driven so Q2 flips red <-> green instantly.
-      const clickedOptionWasDeselected =
-        option?.selected === false ||
-        (option as any)?.checked === false ||
-        (option as any)?.isSelected === false;
+      const clickedOptionIsStillSelected = currentSelectionsForMulti.some((selection) =>
+        this.selectionMatchesOption(selection, option as SelectedOption, clickedIndex)
+      );
+      const clickedOptionWasDeselected = !clickedOptionIsStillSelected;
 
       if (clickedOptionWasDeselected) {
         immediateMultiDotStatus = 'wrong';
