@@ -5564,6 +5564,19 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         question?.type === QuestionType.MultipleAnswer ||
         resolvedCorrectOptionCount > 1
       );
+    
+    // Active multi-answer questions should mirror the latest click the same way
+    // single-answer questions do. If we already captured the latest click as an
+    // override or persisted visual state, return it immediately before any
+    // cumulative scoring/evaluation logic can repaint the dot.
+    if (isLiveMultiAnswerQuestion) {
+      const immediateActiveStatus = pendingOverrideStatus ?? localStatus;
+      if (immediateActiveStatus === 'correct' || immediateActiveStatus === 'wrong') {
+        this.setPersistedDotStatus(index, immediateActiveStatus);
+        this.dotStatusCache.set(index, immediateActiveStatus);
+        return immediateActiveStatus;
+      }
+    }
 
     if (
       pendingOverrideStatus &&
@@ -5574,11 +5587,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       // the dot behaves like single-answer questions (red -> green and green ->
       // red on each click), even while the cumulative selection/scoring state
       // settles in the background.
-      if (isLiveMultiAnswerQuestion) {
-        this.setPersistedDotStatus(index, pendingOverrideStatus);
-        this.dotStatusCache.set(index, pendingOverrideStatus);
-        return pendingOverrideStatus;
-      }
 
       this.setPersistedDotStatus(index, pendingOverrideStatus);
       this.dotStatusCache.set(index, pendingOverrideStatus);
