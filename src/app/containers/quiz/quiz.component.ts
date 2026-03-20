@@ -1601,11 +1601,11 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         immediateMultiDotStatus = 'wrong';
       }
 
-      // If the selection set now contains any incorrect option, reset the
-      // authoritative questionCorrectness to false so that stale 'true'
-      // values from a previous all-correct state do not block the dot from
-      // turning red in getQuestionStatus.
-      if (hasIncorrectSelectionForMulti && !allCorrectSelectedForMulti) {
+      // Any multi-answer state that is no longer fully correct must clear a
+      // previously persisted true correctness flag. Otherwise, removing one of
+      // the correct selections after reaching an all-correct state can leave
+      // the pagination dot stuck green.
+      if (!allCorrectSelectedForMulti) {
         this.quizService.scoreDirectly(idx, false, true);
       }
 
@@ -5411,6 +5411,13 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       return 'pending';
     }
 
+    const pendingOverrideStatus = this.pendingDotStatusOverrides.get(index);
+    if (index === this.currentQuestionIndex && pendingOverrideStatus) {
+      this.setPersistedDotStatus(index, pendingOverrideStatus);
+      this.dotStatusCache.set(index, pendingOverrideStatus);
+      return pendingOverrideStatus;
+    }
+
     const previousCached = this.dotStatusCache.get(index);
     //if (this.dotStatusCache.has(index)) {
     const hasCachedStatus = this.dotStatusCache.has(index);
@@ -5492,7 +5499,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         : false); */
 
     const localStatus = this.getPersistedDotStatus(index);
-    const pendingOverrideStatus = this.pendingDotStatusOverrides.get(index);
     const question = this.getQuestionForIndex(index);
     const resolvedCorrectOptionCount = question
       ? this.getResolvedCorrectOptionEntries(question).length
