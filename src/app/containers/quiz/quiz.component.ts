@@ -231,6 +231,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   // Persistent Dot Status Cache - survives navigation and resets
   private dotStatusCache = new Map<number, 'correct' | 'wrong' | 'pending'>();
   private pendingDotStatusOverrides = new Map<number, 'correct' | 'wrong'>();
+  private activeDotClickStatus = new Map<number, 'correct' | 'wrong'>();
   private _processingOptionClick = false;
 
   constructor(
@@ -605,6 +606,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           // Clear dot status cache (Important to get gray dots)
           this.dotStatusCache.clear();
           this.pendingDotStatusOverrides.clear();
+          this.activeDotClickStatus.clear();
 
           // Reset display mode to question (not explanation)
           this.quizStateService.setDisplayState({ mode: 'question', answered: false });
@@ -789,6 +791,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     this.dotStatusCache.clear();
     this.pendingDotStatusOverrides.clear();
+    this.activeDotClickStatus.clear();
     this.quizService.questionCorrectness?.clear();
     this.quizService.selectedOptionsMap?.clear();
     this.selectedOptionService.selectedOptionsMap?.clear();
@@ -1609,10 +1612,15 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       // the pagination dot should immediately reflect the latest click
       // (correct => green, incorrect => red) while still allowing the fully
       // resolved selection set to show green after removing a bad pick.
+      const explicitSelectedState =
+        option?.selected ??
+        (option as any)?.checked ??
+        (option as any)?.isSelected;
       const clickedOptionIsStillSelected = currentSelectionsForMulti.some((selection) =>
         this.selectionMatchesOption(selection, option as SelectedOption, clickedIndex)
       );
-      const clickedOptionWasDeselected = !clickedOptionIsStillSelected;
+      const clickedOptionWasDeselected =
+        explicitSelectedState === false ? true : !clickedOptionIsStillSelected;
 
       // Order matters here. If the current selection set is now fully correct,
       // always show green. Otherwise, keep the active multi-answer dot aligned
@@ -1650,6 +1658,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         `allCorrect=${allCorrectSelectedForMulti}, hasIncorrect=${hasIncorrectSelectionForMulti})`);
 
       if (immediateMultiDotStatus) {
+        this.activeDotClickStatus.set(idx, immediateMultiDotStatus);
         this.setPersistedDotStatus(idx, immediateMultiDotStatus);
         this.pendingDotStatusOverrides.set(idx, immediateMultiDotStatus);
         this.dotStatusCache.set(idx, immediateMultiDotStatus);
@@ -1784,6 +1793,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.subscriptions.unsubscribe();
     this.dotStatusCache.clear();
     this.pendingDotStatusOverrides.clear();
+    this.activeDotClickStatus.clear();
     // this.selectedOptionService.resetAllOptions(); // REMOVED: Breaks persistence on navigation
     this.routeSubscription?.unsubscribe();
     this.routerSubscription?.unsubscribe();
@@ -2067,6 +2077,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           console.log(`[ROUTE] Quiz Changed: ${this.quizId} -> ${quizId}. Resetting progress & cache.`);
           this.dotStatusCache.clear();
           this.pendingDotStatusOverrides.clear();
+          this.activeDotClickStatus.clear();
           this.progress = 0;
           this.quizStateService.reset();
         }
@@ -4622,6 +4633,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // Clear the dot status cache locally for fresh pagination
     this.dotStatusCache.clear();
     this.pendingDotStatusOverrides.clear();
+    this.activeDotClickStatus.clear();
 
     // Clear the shuffled questions in the service
     this.quizService.shuffledQuestions = [];
@@ -4695,6 +4707,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.progress = 0;
     this.dotStatusCache.clear();
     this.pendingDotStatusOverrides.clear();
+    this.activeDotClickStatus.clear();
     this.updateProgressValue();
 
 
@@ -5579,6 +5592,15 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         resolvedCorrectOptionCount > 1
       );
     
+    const activeClickStatus = this.activeDotClickStatus.get(index);
+
+    if (isLiveMultiAnswerQuestion && activeClickStatus) {
+      this.setPersistedDotStatus(index, activeClickStatus);
+      this.pendingDotStatusOverrides.set(index, activeClickStatus);
+      this.dotStatusCache.set(index, activeClickStatus);
+      return activeClickStatus;
+    }
+
     // Active multi-answer questions should mirror the latest click the same way
     // single-answer questions do. Only trust the explicit pending override here:
     // the persisted local status can be one click behind while the user toggles
