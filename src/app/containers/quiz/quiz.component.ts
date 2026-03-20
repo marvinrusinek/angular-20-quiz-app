@@ -5547,25 +5547,20 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     if (
       localStatus === 'wrong' &&
       evaluatedStatus !== true &&
-      !hasAuthoritativeCorrectState &&
-      index === this.currentQuestionIndex &&
-      (questionHasLiveSessionState || selections.length > 0)
+      !hasAuthoritativeCorrectState
     ) {
       this.dotStatusCache.set(index, 'wrong');
       return 'wrong';
     }
 
-    // If this click path has already persisted an optimistic CORRECT state for
-    // the active question, trust it immediately so the current dot flips green
-    // on the first correct click even while selection/scoring state is still
-    // settling asynchronously.
+    // For the active question, always prefer the live selection evaluation
+    // below over any previously persisted local status. Persisted values can
+    // lag one click behind while the user is toggling multiple-answer choices,
+    // which leaves the pagination dot stuck on the previous color.
     if (
+      index !== this.currentQuestionIndex &&
       localStatus === 'correct' &&
-      (
-        index !== this.currentQuestionIndex ||
-        questionHasLiveSessionState ||
-        selections.length > 0
-      )
+      (questionHasLiveSessionState || selections.length > 0)
     ) {
       this.dotStatusCache.set(index, 'correct');
       return 'correct';
