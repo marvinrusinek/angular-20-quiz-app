@@ -5485,14 +5485,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           Array.isArray(answers) && answers.length > 0)
         : false); */
 
-    // Multi-answer questions should flip green on the first correct click,
-    // even before the stricter resolution/scoring paths fully settle.
-    if (hasOptimisticCorrectSelection) {
-      this.setPersistedDotStatus(index, 'correct');
-      this.dotStatusCache.set(index, 'correct');
-      return 'correct';
-    }
-
     const localStatus = this.getPersistedDotStatus(index);
     const pendingOverrideStatus = this.pendingDotStatusOverrides.get(index);
 
@@ -5501,9 +5493,21 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       index === this.currentQuestionIndex &&
       (questionHasLiveSessionState || selections.length > 0)
     ) {
+      // The active question's latest click/toggle is the freshest signal we have.
+      // Consult this override before any optimistic or persisted status so the
+      // dot can flip immediately in both directions for multi-answer questions.
       this.setPersistedDotStatus(index, pendingOverrideStatus);
       this.dotStatusCache.set(index, pendingOverrideStatus);
       return pendingOverrideStatus;
+    }
+
+    // Multi-answer questions can still surface an optimistic green state while
+    // the stricter scoring/persistence pipeline settles, but only after we've
+    // given the current click override a chance to repaint the dot.
+    if (hasOptimisticCorrectSelection) {
+      this.setPersistedDotStatus(index, 'correct');
+      this.dotStatusCache.set(index, 'correct');
+      return 'correct';
     }
 
     // For multi-answer questions on the CURRENT question, the persisted dot
