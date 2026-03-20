@@ -1611,13 +1611,15 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         (option as any)?.checked === false ||
         (option as any)?.isSelected === false;
 
-      if (allCorrectSelectedForMulti) {
-        immediateMultiDotStatus = 'correct';
-      } else if (clickedOptionWasDeselected) {
+      if (clickedOptionWasDeselected) {
         immediateMultiDotStatus = 'wrong';
       } else if (clickedOptionIsCorrect) {
         immediateMultiDotStatus = 'correct';
-      } else if (hasIncorrectSelectionForMulti || hasAnyCorrectSelectionForMulti) {
+      } else if (
+        hasIncorrectSelectionForMulti ||
+        hasAnyCorrectSelectionForMulti ||
+        allCorrectSelectedForMulti
+      ) {
         immediateMultiDotStatus = 'wrong';
       }
 
