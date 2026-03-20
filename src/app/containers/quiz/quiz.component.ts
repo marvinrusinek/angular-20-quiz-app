@@ -1592,12 +1592,23 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
             String(optionsForImmediateScoring[clickedIndex]?.correct) === 'true')
         )
 
-      // Multi-answer dots should reflect the current full-answer state:
-      // green only when every correct option is selected and no incorrect
-      // option is selected; red otherwise once the user has interacted.
+      // Match the single-answer UX for the ACTIVE multi-answer question:
+      // the pagination dot should immediately reflect the latest click
+      // (correct => green, incorrect or deselecting a correct answer => red).
+      // We still keep allCorrectSelectedForMulti for scoring, but dot color is
+      // intentionally last-click driven so Q2 flips red <-> green instantly.
+      const clickedOptionWasDeselected =
+        option?.selected === false ||
+        (option as any)?.checked === false ||
+        (option as any)?.isSelected === false;
+
       if (allCorrectSelectedForMulti) {
         immediateMultiDotStatus = 'correct';
-      } else if (hasIncorrectSelectionForMulti || hasAnyCorrectSelectionForMulti || clickedOptionIsCorrect) {
+      } else if (clickedOptionWasDeselected) {
+        immediateMultiDotStatus = 'wrong';
+      } else if (clickedOptionIsCorrect) {
+        immediateMultiDotStatus = 'correct';
+      } else if (hasIncorrectSelectionForMulti || hasAnyCorrectSelectionForMulti) {
         immediateMultiDotStatus = 'wrong';
       }
 
@@ -5547,22 +5558,15 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       pendingOverrideStatus &&
       index === this.currentQuestionIndex
     ) {
-      // Keep the latest click-derived override for the active question only
-      // until the live merged selection state becomes available. Once the
-      // current selection set can be evaluated, prefer that canonical result so
-      // the dot can flip immediately in either direction (red -> green or
-      // green -> red) when a multi-answer combination changes.
-      if (
-        isLiveMultiAnswerQuestion &&
-        (evaluatedStatus === true || evaluatedStatus === false)
-      ) {
-        const evaluatedDotStatus: 'correct' | 'wrong' =
-          evaluatedStatus ? 'correct' : 'wrong';
-
-        this.pendingDotStatusOverrides.delete(index);
-        this.setPersistedDotStatus(index, evaluatedDotStatus);
-        this.dotStatusCache.set(index, evaluatedDotStatus);
-        return evaluatedDotStatus;
+      // Keep the latest click-derived override for the active question.
+      // For multi-answer questions this is intentionally last-click driven so
+      // the dot behaves like single-answer questions (red -> green and green ->
+      // red on each click), even while the cumulative selection/scoring state
+      // settles in the background.
+      if (isLiveMultiAnswerQuestion) {
+        this.setPersistedDotStatus(index, pendingOverrideStatus);
+        this.dotStatusCache.set(index, pendingOverrideStatus);
+        return pendingOverrideStatus;
       }
 
       this.setPersistedDotStatus(index, pendingOverrideStatus);
