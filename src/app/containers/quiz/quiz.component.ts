@@ -5518,17 +5518,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         resolvedCorrectOptionCount > 1
       );
 
-    // For the active multi-answer question, the live merged selection set is the
-    // most reliable signal. Persisted/pending states can lag one toggle behind,
-    // which is exactly what leaves Q2's dot stuck red or green after the user
-    // changes the checkbox combination.
-    if (isLiveMultiAnswerQuestion && (evaluatedStatus === true || evaluatedStatus === false)) {
-      const status: 'correct' | 'wrong' = evaluatedStatus ? 'correct' : 'wrong';
-      this.setPersistedDotStatus(index, status);
-      this.dotStatusCache.set(index, status);
-      return status;
-    }
-
     if (
       pendingOverrideStatus &&
       index === this.currentQuestionIndex
@@ -5538,11 +5527,10 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       // recompute can still see the pre-click selection set, which is what was
       // leaving Q2's pagination dot stuck on the previous red/green state.
       //
-      // Once the live evaluated status catches up and agrees with the override,
-      // clear the pending marker so future recomputes rely on the canonical
-      // merged selection state again.
+      // Only clear the override once the live evaluation agrees with it.
+      // Until then, prefer the override so the dot flips immediately on the
+      // same click that changed the checkbox combination.
       if (
-        options?.forceRecompute &&
         isLiveMultiAnswerQuestion &&
         (evaluatedStatus === true || evaluatedStatus === false)
       ) {
@@ -5551,15 +5539,23 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
         if (evaluatedDotStatus === pendingOverrideStatus) {
           this.pendingDotStatusOverrides.delete(index);
-        } else {
-          this.setPersistedDotStatus(index, pendingOverrideStatus);
-          this.dotStatusCache.set(index, pendingOverrideStatus);
-          return pendingOverrideStatus;
+          this.setPersistedDotStatus(index, evaluatedDotStatus);
+          this.dotStatusCache.set(index, evaluatedDotStatus);
+          return evaluatedDotStatus;
         }
-      } else {
+
         this.setPersistedDotStatus(index, pendingOverrideStatus);
         this.dotStatusCache.set(index, pendingOverrideStatus);
         return pendingOverrideStatus;
+      }
+
+      // For the active multi-answer question, the live merged selection set is the
+      // most reliable canonical signal once it has caught up with the latest click.
+      if (isLiveMultiAnswerQuestion && (evaluatedStatus === true || evaluatedStatus === false)) {
+        const status: 'correct' | 'wrong' = evaluatedStatus ? 'correct' : 'wrong';
+        this.setPersistedDotStatus(index, status);
+        this.dotStatusCache.set(index, status);
+        return status;
       }
     }
 
