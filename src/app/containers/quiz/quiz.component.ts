@@ -5101,38 +5101,44 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       }
     }
 
-    const storedAnswerIds = Array.isArray(this.quizService?.userAnswers?.[index])
-      ? (this.quizService.userAnswers[index] as number[])
-      : [];
-    if (storedAnswerIds.length > 0 && Array.isArray(question?.options) && question.options.length > 0) {
-      const reconstructedSelections = storedAnswerIds
-        .map((answerId: number) => {
-          const directMatch = question.options.find((opt: Option) => String(opt?.optionId ?? '') === String(answerId));
-          if (directMatch) {
-            return {
-              ...directMatch,
-              optionId: directMatch.optionId ?? answerId,
-              questionIndex: index,
-              selected: true
-            } as SelectedOption;
+    // Do not reconstruct the ACTIVE question from persisted userAnswers.
+    // Multi-answer toggles can briefly leave that persisted array one click
+    // behind the real checkbox state, which makes the pagination dot appear
+    // stuck on its previous color while the user is still editing the answer.
+    if (index !== this.currentQuestionIndex) {
+      const storedAnswerIds = Array.isArray(this.quizService?.userAnswers?.[index])
+        ? (this.quizService.userAnswers[index] as number[])
+        : [];
+      if (storedAnswerIds.length > 0 && Array.isArray(question?.options) && question.options.length > 0) {
+        const reconstructedSelections = storedAnswerIds
+          .map((answerId: number) => {
+            const directMatch = question.options.find((opt: Option) => String(opt?.optionId ?? '') === String(answerId));
+            if (directMatch) {
+              return {
+                ...directMatch,
+                optionId: directMatch.optionId ?? answerId,
+                questionIndex: index,
+                selected: true
+              } as SelectedOption;
+            }
+
+            if (Number.isInteger(answerId) && answerId >= 0 && answerId < question.options.length) {
+              return {
+                ...question.options[answerId],
+                optionId: question.options[answerId]?.optionId ?? answerId,
+                questionIndex: index,
+                displayIndex: answerId,
+                selected: true
+              } as SelectedOption;
+            }
+
+            return null;
+          })
+          .filter((selection): selection is SelectedOption => !!selection);
+
+          if (reconstructedSelections.length > 0) {
+            return reconstructedSelections;
           }
-
-          if (Number.isInteger(answerId) && answerId >= 0 && answerId < question.options.length) {
-            return {
-              ...question.options[answerId],
-              optionId: question.options[answerId]?.optionId ?? answerId,
-              questionIndex: index,
-              displayIndex: answerId,
-              selected: true
-            } as SelectedOption;
-          }
-
-          return null;
-        })
-        .filter((selection): selection is SelectedOption => !!selection);
-
-      if (reconstructedSelections.length > 0) {
-        return reconstructedSelections;
       }
     }
 
