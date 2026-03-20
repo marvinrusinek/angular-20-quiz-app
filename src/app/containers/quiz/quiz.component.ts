@@ -5522,14 +5522,11 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       pendingOverrideStatus &&
       index === this.currentQuestionIndex
     ) {
-      // Keep the latest click-derived override for the active question while
-      // the checkbox-selection services catch up. During that window a forced
-      // recompute can still see the pre-click selection set, which is what was
-      // leaving Q2's pagination dot stuck on the previous red/green state.
-      //
-      // Only clear the override once the live evaluation agrees with it.
-      // Until then, prefer the override so the dot flips immediately on the
-      // same click that changed the checkbox combination.
+      // Keep the latest click-derived override for the active question only
+      // until the live merged selection state becomes available. Once the
+      // current selection set can be evaluated, prefer that canonical result so
+      // the dot can flip immediately in either direction (red -> green or
+      // green -> red) when a multi-answer combination changes.
       if (
         isLiveMultiAnswerQuestion &&
         (evaluatedStatus === true || evaluatedStatus === false)
@@ -5537,26 +5534,15 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         const evaluatedDotStatus: 'correct' | 'wrong' =
           evaluatedStatus ? 'correct' : 'wrong';
 
-        if (evaluatedDotStatus === pendingOverrideStatus) {
-          this.pendingDotStatusOverrides.delete(index);
-          this.setPersistedDotStatus(index, evaluatedDotStatus);
-          this.dotStatusCache.set(index, evaluatedDotStatus);
-          return evaluatedDotStatus;
-        }
-
-        this.setPersistedDotStatus(index, pendingOverrideStatus);
-        this.dotStatusCache.set(index, pendingOverrideStatus);
-        return pendingOverrideStatus;
+        this.pendingDotStatusOverrides.delete(index);
+        this.setPersistedDotStatus(index, evaluatedDotStatus);
+        this.dotStatusCache.set(index, evaluatedDotStatus);
+        return evaluatedDotStatus;
       }
 
-      // For the active multi-answer question, the live merged selection set is the
-      // most reliable canonical signal once it has caught up with the latest click.
-      if (isLiveMultiAnswerQuestion && (evaluatedStatus === true || evaluatedStatus === false)) {
-        const status: 'correct' | 'wrong' = evaluatedStatus ? 'correct' : 'wrong';
-        this.setPersistedDotStatus(index, status);
-        this.dotStatusCache.set(index, status);
-        return status;
-      }
+      this.setPersistedDotStatus(index, pendingOverrideStatus);
+      this.dotStatusCache.set(index, pendingOverrideStatus);
+      return pendingOverrideStatus;
     }
 
     // Multi-answer questions can still surface an optimistic green state while
