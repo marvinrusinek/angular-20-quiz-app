@@ -5490,12 +5490,12 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     if (
       pendingOverrideStatus &&
-      index === this.currentQuestionIndex &&
-      (questionHasLiveSessionState || selections.length > 0)
+      index === this.currentQuestionIndex
     ) {
       // The active question's latest click/toggle is the freshest signal we have.
-      // Consult this override before any optimistic or persisted status so the
-      // dot can flip immediately in both directions for multi-answer questions.
+      // Trust this override even if the selection maps have not finished settling
+      // yet; otherwise rapid multi-answer toggles can leave the pagination dot
+      // stuck on the previous color until a later recompute.
       this.setPersistedDotStatus(index, pendingOverrideStatus);
       this.dotStatusCache.set(index, pendingOverrideStatus);
       return pendingOverrideStatus;
