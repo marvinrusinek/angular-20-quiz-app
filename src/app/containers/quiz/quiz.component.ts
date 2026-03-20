@@ -5533,12 +5533,29 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       pendingOverrideStatus &&
       index === this.currentQuestionIndex
     ) {
-      // Keep click-level overrides as a fast fallback, but do not let them
-      // override a forced recompute for the active multi-answer question. That
-      // path needs to honor the latest merged checkbox state so the pagination
-      // dot can flip immediately between red and green on Q2.
-      if (options?.forceRecompute && isLiveMultiAnswerQuestion) {
-        this.pendingDotStatusOverrides.delete(index);
+      // Keep the latest click-derived override for the active question while
+      // the checkbox-selection services catch up. During that window a forced
+      // recompute can still see the pre-click selection set, which is what was
+      // leaving Q2's pagination dot stuck on the previous red/green state.
+      //
+      // Once the live evaluated status catches up and agrees with the override,
+      // clear the pending marker so future recomputes rely on the canonical
+      // merged selection state again.
+      if (
+        options?.forceRecompute &&
+        isLiveMultiAnswerQuestion &&
+        (evaluatedStatus === true || evaluatedStatus === false)
+      ) {
+        const evaluatedDotStatus: 'correct' | 'wrong' =
+          evaluatedStatus ? 'correct' : 'wrong';
+
+        if (evaluatedDotStatus === pendingOverrideStatus) {
+          this.pendingDotStatusOverrides.delete(index);
+        } else {
+          this.setPersistedDotStatus(index, pendingOverrideStatus);
+          this.dotStatusCache.set(index, pendingOverrideStatus);
+          return pendingOverrideStatus;
+        }
       } else {
         this.setPersistedDotStatus(index, pendingOverrideStatus);
         this.dotStatusCache.set(index, pendingOverrideStatus);
