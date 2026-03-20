@@ -1607,28 +1607,25 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
       // Match the single-answer UX for the ACTIVE multi-answer question:
       // the pagination dot should immediately reflect the latest click
-      // (correct => green, incorrect or deselecting a correct answer => red).
-      // We still keep allCorrectSelectedForMulti for scoring, but dot color is
-      // intentionally last-click driven so Q2 flips red <-> green instantly.
+      // (correct => green, incorrect => red) while still allowing the fully
+      // resolved selection set to show green after removing a bad pick.
       const clickedOptionIsStillSelected = currentSelectionsForMulti.some((selection) =>
         this.selectionMatchesOption(selection, option as SelectedOption, clickedIndex)
       );
       const clickedOptionWasDeselected = !clickedOptionIsStillSelected;
 
-      // Keep the active multi-answer dot aligned with the CURRENT
-      // resolved selection state, not just the clicked option itself.
-      // This lets Q2 flip red -> green when an incorrect option is removed and
-      // the remaining selections are now the full correct set, and green ->
-      // red when a new incorrect option is added or a required correct option
-      // is removed.
+      // Order matters here. If the current selection set is now fully correct,
+      // always show green. Otherwise, keep the active multi-answer dot aligned
+      // with the most recent click so it behaves the same as single-answer
+      // questions: a correct click flips green immediately, and an incorrect
+      // click or removing a required correct answer flips red immediately.
       if (allCorrectSelectedForMulti && !hasIncorrectSelectionForMulti) {
         immediateMultiDotStatus = 'correct';
-      } else if (
-        clickedOptionWasDeselected ||
-        clickedOptionIsCorrect ||
-        hasIncorrectSelectionForMulti ||
-        hasAnyCorrectSelectionForMulti
-      ) {
+      } else if (clickedOptionWasDeselected) {
+        immediateMultiDotStatus = 'wrong';
+      } else if (clickedOptionIsCorrect) {
+        immediateMultiDotStatus = 'correct';
+      } else if (hasIncorrectSelectionForMulti || hasAnyCorrectSelectionForMulti) {
         immediateMultiDotStatus = 'wrong';
       }
 
