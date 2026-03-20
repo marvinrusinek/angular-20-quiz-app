@@ -1622,7 +1622,15 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       if (allCorrectSelectedForMulti && !hasIncorrectSelectionForMulti) {
         immediateMultiDotStatus = 'correct';
       } else if (clickedOptionWasDeselected) {
-        immediateMultiDotStatus = 'wrong';
+        // Deselecting a wrong multi-answer option should let the dot recover
+        // immediately if the remaining live selection set is now clean/correct.
+        // Only force red when the user removed a required correct answer or
+        // there is still an incorrect option left in the active set.
+        if (clickedOptionIsCorrect || hasIncorrectSelectionForMulti) {
+          immediateMultiDotStatus = 'wrong';
+        } else if (hasAnyCorrectSelectionForMulti) {
+          immediateMultiDotStatus = 'correct';
+        }
       } else if (clickedOptionIsCorrect) {
         immediateMultiDotStatus = 'correct';
       } else if (hasIncorrectSelectionForMulti || hasAnyCorrectSelectionForMulti) {
