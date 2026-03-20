@@ -1288,7 +1288,16 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     ).trim();
 
     if (clickedKey) {
-      if (canonicalClicked.selected === false) {
+      const wasPreviouslySelected = merged.has(clickedKey);
+      const explicitSelectedState =
+        clickedOption?.selected ??
+        (clickedOption as any)?.checked ??
+        (clickedOption as any)?.isSelected;
+      const shouldSelect = explicitSelectedState === undefined
+        ? !wasPreviouslySelected
+        : explicitSelectedState === true;
+
+      if (!shouldSelect) {
         merged.delete(clickedKey);
       } else {
         merged.set(clickedKey, canonicalClicked);
