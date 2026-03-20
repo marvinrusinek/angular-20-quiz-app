@@ -5095,20 +5095,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       return matchedSelections.length > 0 ? matchedSelections : activeSelections;
     };
 
-    for (const candidateIndex of candidateIndices) {
-      const serviceSelection = this.selectedOptionService?.selectedOptionsMap?.get(candidateIndex);
-      if (Array.isArray(serviceSelection) && serviceSelection.length > 0) {
-        // return serviceSelection;
-        return pickRelevantSelections(serviceSelection);
-      }
-
-      const quizSelection = this.quizService?.selectedOptionsMap?.get(candidateIndex);
-      if (Array.isArray(quizSelection) && quizSelection.length > 0) {
-        // return quizSelection as SelectedOption[];
-        return pickRelevantSelections(quizSelection as SelectedOption[]);
-      }
-    }
-
     if (index === this.currentQuestionIndex && currentQuestionOptions.length > 0) {
       const displayedSelections = currentQuestionOptions
         .map((option: Option, optionIndex: number) => ({ option, optionIndex }))
@@ -5123,6 +5109,20 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
       if (displayedSelections.length > 0) {
         return pickRelevantSelections(displayedSelections);
+      }
+    }
+
+    for (const candidateIndex of candidateIndices) {
+      const serviceSelection = this.selectedOptionService?.selectedOptionsMap?.get(candidateIndex);
+      if (Array.isArray(serviceSelection) && serviceSelection.length > 0) {
+        // return serviceSelection;
+        return pickRelevantSelections(serviceSelection);
+      }
+
+      const quizSelection = this.quizService?.selectedOptionsMap?.get(candidateIndex);
+      if (Array.isArray(quizSelection) && quizSelection.length > 0) {
+        // return quizSelection as SelectedOption[];
+        return pickRelevantSelections(quizSelection as SelectedOption[]);
       }
     }
 
