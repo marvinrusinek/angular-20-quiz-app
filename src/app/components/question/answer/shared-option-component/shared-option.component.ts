@@ -4025,15 +4025,31 @@ export class SharedOptionComponent
     }
     this.optionBindings = state.optionBindings;
 
-    // DURABLE: Track selected indices INCREMENTALLY — just add the current click.
-    // Does NOT depend on state.selectedOptionMap (which can be stale/wrong).
+    // DURABLE: Track the current selected indices using the post-click binding
+    // state. This must support BOTH selecting and deselecting in multi-answer
+    // mode; only accumulating clicks leaves stale indices behind, which in turn
+    // makes downstream correctness/dot-color logic think an old wrong/correct
+    // choice is still active.
     const qIdx = this.getActiveQuestionIndex();
     if (!this._multiSelectByQuestion.has(qIdx)) {
       this._multiSelectByQuestion.set(qIdx, new Set<number>());
     }
     const durableSet = this._multiSelectByQuestion.get(qIdx)!;
-    durableSet.add(index); // Simply accumulate every click
-    console.log(`[SOC] DURABLE tracker Q${qIdx + 1}: clicked=${index}, all selected=[${[...durableSet]}]`);
+    const clickedBinding = this.optionBindings[index];
+    const clickedStillSelected = !!(
+      clickedBinding?.isSelected ||
+      clickedBinding?.option?.selected
+    );
+
+    if (clickedStillSelected) {
+      durableSet.add(index);
+    } else {
+      durableSet.delete(index);
+    }
+
+    console.log(
+      `[SOC] DURABLE tracker Q${qIdx + 1}: clicked=${index}, selected=${clickedStillSelected}, all selected=[${[...durableSet]}]`
+    );
 
     // Capture correct indices ONCE on first click per question.
     // Cross-reference ALL sources and use _questions (raw data) as ground truth.
