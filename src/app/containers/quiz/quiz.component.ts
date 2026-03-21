@@ -924,6 +924,19 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           this.updateProgressValue();
           this.updateDotStatus(idx);
 
+          // Restart timer for the new question if it hasn't been answered yet
+          const isAnsweredForTimer = this.selectedOptionService.isQuestionAnswered(idx);
+          if (!isAnsweredForTimer) {
+            this.timerService.stopTimer?.(undefined, { force: true });
+            this.timerService.resetTimer();
+            this.timerService.resetTimerFlagsFor(idx);
+            this.timerService.startTimer(
+              this.timerService.timePerQuestion,
+              this.timerService.isCountdown,
+              true
+            );
+          }
+
           console.warn('[NAVIGATION COMPLETE]', idx + 1);
         }
       });
