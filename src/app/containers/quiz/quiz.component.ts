@@ -5932,13 +5932,15 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         return `${pendingOverrideStatus} current`;
       }
 
+      // No click-based status — check if user has interacted on this question
+      const cachedStatus = this.dotStatusCache.get(index);
+      if (cachedStatus && cachedStatus !== 'pending') {
+        return `${cachedStatus} current`;
+      }
+      return 'current';
     }
+
     const status = this.getQuestionStatus(index);
-    if (index === this.currentQuestionIndex) {
-      // No click-based status — use evaluated status if user has interacted,
-      // otherwise show blue pulsing dot (pending current)
-      return status !== 'pending' ? `${status} current` : 'current';
-    }
     return status;
   }
 
@@ -5954,6 +5956,12 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // Simple navigation - update index and use router, quizId needed for route
     const quizId = this.quizService.quizId || this.quizService.getCurrentQuizId();
     console.log(`[DOT NAV] Navigating to Q${index + 1} for quiz ${quizId}`);
+
+    // Clear click-based dot state so the destination dot starts as blue
+    this.activeDotClickStatus.delete(index);
+    this.pendingDotStatusOverrides.delete(index);
+    this.dotStatusCache.delete(index);
+    this.selectedOptionService.lastClickedCorrectByQuestion.clear();
 
     // Update the service state
     this.quizService.setCurrentQuestionIndex(index);
