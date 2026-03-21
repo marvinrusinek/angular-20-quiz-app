@@ -5065,6 +5065,24 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     } catch { }
   }
 
+  private clearPersistedDotStatus(index: number): void {
+    try {
+      const keys = Array.from(new Set([
+        this.getDotStatusStorageKey(),
+        'quiz_dot_status_default'
+      ]));
+
+      for (const key of keys) {
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          delete parsed[String(index)];
+          localStorage.setItem(key, JSON.stringify(parsed));
+        }
+      }
+    } catch { }
+  }
+
   private getSelectionsForQuestion(index: number): SelectedOption[] {
     // IMPORTANT: Use only live in-memory maps for dot/progress state.
     // Persisted fallbacks (userAnswers/sessionStorage) can contain stale values.
@@ -5937,6 +5955,13 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       if (cachedStatus && cachedStatus !== 'pending') {
         return `${cachedStatus} current`;
       }
+
+      // Check persisted status (survives navigation resets)
+      const persistedStatus = this.getPersistedDotStatus(index);
+      if (persistedStatus === 'correct' || persistedStatus === 'wrong') {
+        return `${persistedStatus} current`;
+      }
+
       return 'current';
     }
 
@@ -5962,6 +5987,10 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.pendingDotStatusOverrides.delete(index);
     this.dotStatusCache.delete(index);
     this.selectedOptionService.lastClickedCorrectByQuestion.clear();
+    this.clearPersistedDotStatus(index);
+
+    // Clear option lock state for the destination question so all options are enabled
+    this.selectedOptionService.resetLocksForQuestion(index);
 
     // Update the service state
     this.quizService.setCurrentQuestionIndex(index);

@@ -1817,11 +1817,9 @@ export class SharedOptionComponent
     const qIndex = this.currentQuestionIndex;
     const lockId = (option?.optionId != null && Number(option.optionId) !== -1) ? option.optionId : index;
 
-    // For multi-answer questions, correct options should NOT be disabled while
-    // the user is still selecting answers. Once all correct are found (question
-    // fully resolved), they CAN be disabled to lock the question.
-    // Check multi-answer directly from question data (not just isMultiMode) to
-    // handle back-navigation where isMultiMode may evaluate against stale bindings.
+    // Correct options should NOT be disabled while the user is still selecting
+    // answers. For multi-answer, they can be disabled once fully resolved.
+    // For single-answer, the correct option must always remain clickable.
     const isCorrectOpt = option?.correct === true || String((option as any)?.correct) === 'true';
     if (isCorrectOpt && !this.forceDisableAll) {
       const currentQ = this.getQuestionAtDisplayIndex(qIndex) ?? this.currentQuestion;
@@ -1836,36 +1834,36 @@ export class SharedOptionComponent
         if (!isFullyResolved) {
           return false;
         }
+      } else {
+        // Single-answer: correct option is always enabled
+        return false;
       }
     }
 
     const disabledSet = this.disabledOptionsPerQuestion.get(qIndex);
-    if (disabledSet && (disabledSet.has(index) || disabledSet.has(lockId))) {
-      return true;
-    }
+    const disabledBySet = disabledSet && (disabledSet.has(index) || disabledSet.has(lockId));
 
-    // Check other global disable conditions
-    if (this.forceDisableAll) return true;
+    const forceDisabled = this.forceDisableAll;
 
+    let questionLocked = false;
+    try { questionLocked = this.selectedOptionService.isQuestionLocked(qIndex); } catch { }
+
+    let optionLocked = false;
     try {
-      if (this.selectedOptionService.isQuestionLocked(qIndex)) {
-        return true;
-      }
+      optionLocked = this.selectedOptionService.isOptionLocked(qIndex, index) ||
+        this.selectedOptionService.isOptionLocked(qIndex, lockId);
     } catch { }
 
-    try {
-      // Use both index and lockId for service-level lock checking
-      if (this.selectedOptionService.isOptionLocked(qIndex, index) ||
-        this.selectedOptionService.isOptionLocked(qIndex, lockId)) {
-        return true;
-      }
-    } catch { }
+    const lockedIncorrect = this.lockedIncorrectOptionIds.has(index) || this.lockedIncorrectOptionIds.has(lockId);
+    const flashDisabled = this.flashDisabledSet.has(index) || this.flashDisabledSet.has(lockId);
 
-    if (this.lockedIncorrectOptionIds.has(index) || this.lockedIncorrectOptionIds.has(lockId)) {
-      return true;
+    const result = !!(disabledBySet || forceDisabled || questionLocked || optionLocked || lockedIncorrect || flashDisabled);
+
+    if (result) {
+      console.log(`[computeDisabledState] Q${qIndex + 1} opt${index} DISABLED: disabledBySet=${disabledBySet} forceDisable=${forceDisabled} questionLocked=${questionLocked} optionLocked=${optionLocked} lockedIncorrect=${lockedIncorrect} flashDisabled=${flashDisabled}`);
     }
 
-    return this.flashDisabledSet.has(index) || this.flashDisabledSet.has(lockId);
+    return result;
   }
 
   // Wrapper for template compatibility or legacy calls
