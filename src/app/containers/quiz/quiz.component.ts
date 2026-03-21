@@ -1501,8 +1501,12 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         this.setPersistedDotStatus(idx, 'correct');
         this.pendingDotStatusOverrides.set(idx, 'correct');
         this.dotStatusCache.set(idx, 'correct');
+        try { sessionStorage.setItem('dot_confirmed_' + idx, 'correct'); } catch {}
         // scoreDirectly handles deduplication internally via scoringKey
         this.quizService.scoreDirectly(idx, true, false);
+      } else {
+        // Only write to sessionStorage — don't touch other state maps for incorrect
+        try { sessionStorage.setItem('dot_confirmed_' + idx, 'wrong'); } catch {}
       }
     }
 
@@ -1726,6 +1730,25 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     } catch (e) {
       console.warn('[onOptionSelected] Storage failed', e);
     }
+
+    // Catch-all: ensure sessionStorage has a dot_confirmed_ entry for ALL
+    // question types (single + multi-answer). The single-answer path above
+    // already writes this, but multi-answer questions skip that block entirely.
+    // Without this, getDotClass and updateProgressValue can't verify the
+    // question was actually answered after navigation clears selectedOptionsMap.
+    try {
+      if (sessionStorage.getItem('dot_confirmed_' + idx) === null) {
+        const finalDotStatus = this.pendingDotStatusOverrides.get(idx)
+          ?? this.activeDotClickStatus.get(idx)
+          ?? this.dotStatusCache.get(idx);
+        if (finalDotStatus === 'correct' || finalDotStatus === 'wrong') {
+          sessionStorage.setItem('dot_confirmed_' + idx, finalDotStatus);
+        } else {
+          const clickedCorrect = option?.correct === true || String(option?.correct) === 'true';
+          sessionStorage.setItem('dot_confirmed_' + idx, clickedCorrect ? 'correct' : 'wrong');
+        }
+      }
+    } catch {}
 
     // Release the guard BEFORE the deferred update so that subsequent
     // selection emissions (e.g. from navigation) can update dots normally.
@@ -5115,8 +5138,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   private getSelectionsForQuestion(index: number): SelectedOption[] {
     // IMPORTANT: Use only live in-memory maps for dot/progress state.
     // Persisted fallbacks (userAnswers/sessionStorage) can contain stale values.
-    const candidateIndices = this.getCandidateQuestionIndices(index);
-
     const question = this.questionsArray?.[index] ||
       this.quizService.questions?.[index] ||
       this.quizService.activeQuiz?.questions?.[index];
@@ -5212,18 +5233,18 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       }
     }
 
-    for (const candidateIndex of candidateIndices) {
-      const serviceSelection = this.selectedOptionService?.selectedOptionsMap?.get(candidateIndex);
-      if (Array.isArray(serviceSelection) && serviceSelection.length > 0) {
-        // return serviceSelection;
-        return pickRelevantSelections(serviceSelection);
-      }
+    // Only check the direct shuffled index for selections — NOT the scoring key.
+    // selectedOptionsMap is keyed by shuffled index. Using candidateIndices here
+    // caused cross-contamination: shuffled Q5 with scoringKey=0 would find Q1's
+    // selections stored at index 0.
+    const serviceSelection = this.selectedOptionService?.selectedOptionsMap?.get(index);
+    if (Array.isArray(serviceSelection) && serviceSelection.length > 0) {
+      return pickRelevantSelections(serviceSelection);
+    }
 
-      const quizSelection = this.quizService?.selectedOptionsMap?.get(candidateIndex);
-      if (Array.isArray(quizSelection) && quizSelection.length > 0) {
-        // return quizSelection as SelectedOption[];
-        return pickRelevantSelections(quizSelection as SelectedOption[]);
-      }
+    const quizSelection = this.quizService?.selectedOptionsMap?.get(index);
+    if (Array.isArray(quizSelection) && quizSelection.length > 0) {
+      return pickRelevantSelections(quizSelection as SelectedOption[]);
     }
 
     // Do not reconstruct the ACTIVE question from persisted userAnswers.
@@ -5552,7 +5573,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     const hasCachedStatus = this.dotStatusCache.has(index);
 
     const selections = this.getSelectionsForQuestion(index);
-    const candidateIndices = this.getCandidateQuestionIndices(index);
     const questionHasLiveSessionState = this.hasLiveSessionStateForQuestion(index);
 
     if (hasCachedStatus) {
@@ -5608,8 +5628,11 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       const persisted = this.quizService.questionCorrectness.get(key);
       return persisted === true || persisted === false;
     }); */
-    const persistedScoredValues = candidateIndices
-      .map((key) => this.quizService.questionCorrectness.get(key))
+    // questionCorrectness is keyed by scoringKey (original index), so only
+    // check the scoring key — NOT the shuffled index, which can collide with
+    // a different question's scoring key and cause cross-contamination.
+    const scoringKey = this.getScoringKey(index);
+    const persistedScoredValues = [this.quizService.questionCorrectness.get(scoringKey)]
       .filter((value): value is boolean => value === true || value === false);
     const hasScoredState = persistedScoredValues.length > 0;
     const hasAuthoritativeCorrectState = persistedScoredValues.includes(true);
@@ -5815,14 +5838,12 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // local selection heuristics (which can be noisy with remapped/shuffled payloads)
     // for NON-current questions. For the active question, prioritize live evaluation.
     if (index !== this.currentQuestionIndex) {
-      for (const key of candidateIndices) {
-        const persisted = this.quizService.questionCorrectness.get(key);
-        if (persisted === true || persisted === false) {
-          const status: 'correct' | 'wrong' = persisted ? 'correct' : 'wrong';
-          this.setPersistedDotStatus(index, status);
-          this.dotStatusCache.set(index, status);
-          return status;
-        }
+      const persisted = this.quizService.questionCorrectness.get(scoringKey);
+      if (persisted === true || persisted === false) {
+        const status: 'correct' | 'wrong' = persisted ? 'correct' : 'wrong';
+        this.setPersistedDotStatus(index, status);
+        this.dotStatusCache.set(index, status);
+        return status;
       }
     }
 
@@ -5884,37 +5905,28 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   }
 
   private hasLiveSessionStateForQuestion(index: number): boolean {
-    const candidateIndices = this.getCandidateQuestionIndices(index);
-
-    const hasSelections = candidateIndices.some((candidateIndex) => {
-      const selectedViaService = this.selectedOptionService?.selectedOptionsMap?.get(candidateIndex);
-      if (Array.isArray(selectedViaService) && selectedViaService.length > 0) {
-        return true;
-      }
-
-      const selectedViaQuiz = this.quizService?.selectedOptionsMap?.get(candidateIndex);
-      return Array.isArray(selectedViaQuiz) && selectedViaQuiz.length > 0;
-    });
-
-    if (hasSelections) {
+    // Check selectedOptionsMap by shuffled index only (selections are stored
+    // by shuffled index). Using candidateIndices here caused cross-contamination.
+    const selectedViaService = this.selectedOptionService?.selectedOptionsMap?.get(index);
+    if (Array.isArray(selectedViaService) && selectedViaService.length > 0) {
       return true;
     }
 
-    const hasScoredState = candidateIndices.some((candidateIndex) => {
-      const score = this.quizService?.questionCorrectness?.get(candidateIndex);
-      return score === true || score === false;
-    });
-
-    if (hasScoredState) {
+    const selectedViaQuiz = this.quizService?.selectedOptionsMap?.get(index);
+    if (Array.isArray(selectedViaQuiz) && selectedViaQuiz.length > 0) {
       return true;
     }
 
-    const hasUserAnswers = candidateIndices.some((candidateIndex) => {
-      const answers = this.quizService?.userAnswers?.[candidateIndex];
-      return Array.isArray(answers) && answers.length > 0;
-    });
+    // Check questionCorrectness by scoring key only (it's keyed by original index)
+    const scoringKey = this.getScoringKey(index);
+    const score = this.quizService?.questionCorrectness?.get(scoringKey);
+    if (score === true || score === false) {
+      return true;
+    }
 
-    if (hasUserAnswers) {
+    // Check userAnswers by shuffled index
+    const answers = this.quizService?.userAnswers?.[index];
+    if (Array.isArray(answers) && answers.length > 0) {
       return true;
     }
 
