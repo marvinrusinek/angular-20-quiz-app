@@ -4076,6 +4076,18 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.selectedOptionService.setAnswered(false);
     this.quizStateService.resetInteraction();  // clear interaction on nav
 
+    // Clear click-based dot state for the next question so it starts as blue
+    // (previous keeps its color to preserve dot state on back-navigation)
+    if (direction === 'next') {
+      const destIndex = this.currentQuestionIndex + 1;
+      if (destIndex < this.totalQuestions) {
+        this.activeDotClickStatus.delete(destIndex);
+        this.pendingDotStatusOverrides.delete(destIndex);
+        this.dotStatusCache.delete(destIndex);
+        this.selectedOptionService.lastClickedCorrectByQuestion.delete(destIndex);
+        this.clearPersistedDotStatus(destIndex);
+      }
+    }
 
     // Wrap in NgZone.run to ensure Angular detects navigation changes
     // This fixes the bug where navigation only works when DevTools console is open
