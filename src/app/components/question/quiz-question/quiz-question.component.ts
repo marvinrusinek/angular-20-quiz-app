@@ -3280,6 +3280,11 @@ export class QuizQuestionComponent extends BaseQuestion
         }
       }
 
+      // Track whether the clicked option is correct for per-click dot color
+      const clickedOptData = q?.options?.[evtIdx];
+      const clickedIsCorrect = clickedOptData?.correct === true || String(clickedOptData?.correct) === 'true';
+      this.selectedOptionService.lastClickedCorrectByQuestion.set(idx, clickedIsCorrect);
+
       // Canonical options for consistent state - ensure all currently selected options are marked as selected in canonicalOpts
       const currentSelectedFromService = this.selectedOptionService.selectedOptionsMap?.get(idx) ?? [];
       const canonicalOpts: Option[] = (q?.options ?? []).map((o, i) => {
@@ -3995,6 +4000,7 @@ export class QuizQuestionComponent extends BaseQuestion
       questionIndex: lockedIndex,
     };
     this.optionSelected.emit(sel);
+    this.events.emit({ type: 'optionSelected', payload: sel });
 
     // Guard global state updates
     if (this.currentQuestionIndex === lockedIndex) {
@@ -4214,6 +4220,7 @@ export class QuizQuestionComponent extends BaseQuestion
       questionIndex: lockedIndex,
     };
     this.optionSelected.emit(sel);
+    this.events.emit({ type: 'optionSelected', payload: sel });
 
     // Guard global state updates
     if (this.currentQuestionIndex === lockedIndex) {
@@ -6116,6 +6123,7 @@ export class QuizQuestionComponent extends BaseQuestion
     this.isAnswered = this.selectedOptions.length > 0;
     this.isAnswerSelectedChange.emit(this.isAnswered);
     this.optionSelected.emit(selectedOption);
+    this.events.emit({ type: 'optionSelected', payload: selectedOption });
 
     this.selectionChanged.emit({
       question: currentQuestion,

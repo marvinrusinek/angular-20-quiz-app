@@ -13,6 +13,10 @@ import { QuizService } from '../data/quiz.service';
 export class SelectedOptionService {
   selectedOption: SelectedOption[] = [];
   selectedOptionsMap = new Map<number, SelectedOption[]>();
+  /** The option from the most recent click (set by setSelectedOption). */
+  lastClickedOption: SelectedOption | null = null;
+  /** Per-question: was the last clicked option correct? Set by QQC directly. */
+  lastClickedCorrectByQuestion = new Map<number, boolean>();
   // Direct storage without canonicalization - more reliable for results display
   rawSelectionsMap = new Map<number, { optionId: number; text: string }[]>();
   selectedOptionIndices: { [key: number]: number[] } = {};
@@ -476,6 +480,9 @@ export class SelectedOptionService {
         .filter((id): id is number => typeof id === 'number');
       this.quizService.updateUserAnswer(qIndex, ids);
     }
+
+    // Track the clicked option for per-click dot color in multi-answer
+    this.lastClickedOption = enriched;
 
     // Synchronously emit the full updated list
     this.selectedOption = committed;

@@ -156,6 +156,15 @@ export class OptionUiSyncService {
 
     // authoritatively sync context flags to bindings before service calls
     this.syncSelectedFlags(ctx);
+
+    // For multi-answer: set per-click correctness BEFORE the service call
+    // (which triggers the subscription and dot re-render in quiz component)
+    if (isTrulyMulti) {
+      const clickedIsCorrect = isCorrectHelper(optionBinding.option);
+      this.selectedOptionService.lastClickedCorrectByQuestion.set(currentIndex, clickedIsCorrect);
+      console.log(`[OUS] lastClickedCorrectByQuestion Q${currentIndex + 1} = ${clickedIsCorrect} (checked=${checked}, option=`, optionBinding.option, ')');
+    }
+
     // Sync to services (Single call here)
     this.forceSelectIntoServices(optionBinding, effectiveId, index, currentIndex, checked, ctx);
 

@@ -1731,6 +1731,10 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   }
 
   private resetQuestionState(): void {
+    // Clear last clicked option so it doesn’t bleed to next question’s dot
+    this.selectedOptionService.lastClickedOption = null;
+    this.selectedOptionService.lastClickedCorrectByQuestion.clear();
+
     // Remove stale question so template can’t render old text
     this.currentQuestion = null;
     this.question = null;  // also clear this for consistency
@@ -5911,6 +5915,13 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
   getDotClass(index: number): string {
     if (index === this.currentQuestionIndex) {
+      // For multi-answer questions, use the LAST CLICKED option's correctness
+      // to set dot color (per-click, matching single-answer UX).
+      const lastClickedCorrect = this.selectedOptionService.lastClickedCorrectByQuestion.get(index);
+      if (lastClickedCorrect !== undefined) {
+        return `${lastClickedCorrect ? 'correct' : 'wrong'} current`;
+      }
+
       const activeClickStatus = this.activeDotClickStatus.get(index);
       if (activeClickStatus) {
         return `${activeClickStatus} current`;
@@ -5920,11 +5931,13 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       if (pendingOverrideStatus) {
         return `${pendingOverrideStatus} current`;
       }
+
     }
-    
     const status = this.getQuestionStatus(index);
-    if (index === this.currentQuestionIndex && status !== 'pending') {
-      return `${status} current`;
+    if (index === this.currentQuestionIndex) {
+      // No click-based status — use evaluated status if user has interacted,
+      // otherwise show blue pulsing dot (pending current)
+      return status !== 'pending' ? `${status} current` : 'current';
     }
     return status;
   }
