@@ -3640,10 +3640,22 @@ export class QuizQuestionComponent extends BaseQuestion
       const cached = this._formattedByIndex.get(i0);
       const rawTrue =
         (q?.explanation ?? this.currentQuestion?.explanation ?? '').trim();
-      const txt = cached?.trim() ?? rawTrue ?? '<span class="muted">Formatting…</span>';
-      this.setExplanationFor(i0, txt);
-      this.explanationToDisplay = txt;
-      this.explanationToDisplayChange?.emit(txt);
+      const immediateTxt = cached?.trim() ?? rawTrue ?? '<span class="muted">Formatting…</span>';
+      this.setExplanationFor(i0, immediateTxt);
+      this.explanationToDisplay = immediateTxt;
+      this.explanationToDisplayChange?.emit(immediateTxt);
+
+      // If no cached FET, resolve it asynchronously and update
+      if (!cached?.trim()) {
+        this.resolveFormatted(i0).then(formatted => {
+          if (formatted) {
+            this.setExplanationFor(i0, formatted);
+            this.explanationToDisplay = formatted;
+            this.explanationToDisplayChange?.emit(formatted);
+            this.cdRef.markForCheck();
+          }
+        }).catch(() => {});
+      }
     } catch { }
 
     // Allow navigation to proceed
