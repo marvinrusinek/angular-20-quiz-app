@@ -874,6 +874,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         this.currentQuestionIndex = idx;
 
         // URL Navigation Sync. Manually update currentQuestion when index changes.
+        console.log(`[subscribeToQuestionIndex] idx=${idx}, questionsArray.length=${this.questionsArray?.length}, hasQuestion=${!!this.questionsArray?.[idx]}`);
         if (this.questionsArray[idx]) {
           const question = this.questionsArray[idx];
           this.currentQuestion = question;
