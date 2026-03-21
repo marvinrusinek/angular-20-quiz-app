@@ -232,6 +232,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   private dotStatusCache = new Map<number, 'correct' | 'wrong' | 'pending'>();
   private pendingDotStatusOverrides = new Map<number, 'correct' | 'wrong'>();
   private activeDotClickStatus = new Map<number, 'correct' | 'wrong'>();
+  private timerExpiredUnanswered = new Set<number>();
   private _processingOptionClick = false;
 
   constructor(
@@ -554,6 +555,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     this.initializeCorrectExpectedCounts();
     this.subscribeToNextButtonState();
+    this.subscribeToTimerExpiry();
     this.initializeServices();
   }
 
@@ -607,6 +609,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           this.dotStatusCache.clear();
           this.pendingDotStatusOverrides.clear();
           this.activeDotClickStatus.clear();
+          this.timerExpiredUnanswered.clear();
 
           // Reset display mode to question (not explanation)
           this.quizStateService.setDisplayState({ mode: 'question', answered: false });
@@ -1045,6 +1048,19 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       .subscribe((enabled: boolean) => {
         this.isNextButtonEnabled = enabled;
         this.cdRef.markForCheck();  // force UI update when button state changes
+      });
+  }
+
+  private subscribeToTimerExpiry(): void {
+    this.timerService.expired$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        const idx = this.currentQuestionIndex;
+        const selections = this.getSelectionsForQuestion(idx);
+        if (selections.length === 0) {
+          this.timerExpiredUnanswered.add(idx);
+          this.cdRef.markForCheck();
+        }
       });
   }
 
@@ -2082,6 +2098,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           this.dotStatusCache.clear();
           this.pendingDotStatusOverrides.clear();
           this.activeDotClickStatus.clear();
+          this.timerExpiredUnanswered.clear();
           this.progress = 0;
           this.quizStateService.reset();
         }
@@ -5922,6 +5939,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   // Call this when user selects an answer to update the cache
   updateDotStatus(index: number): void {
     console.log(`[DOT UPDATE] Re-evaluating Q${index + 1}`);
+    // If user selects an option, this question is no longer "unanswered expired"
+    this.timerExpiredUnanswered.delete(index);
     // Use forceRecompute to bypass stale cache entries
     const status = this.getQuestionStatus(index, { forceRecompute: true });
     this.dotStatusCache.set(index, status);
@@ -5962,7 +5981,17 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         return `${persistedStatus} current`;
       }
 
+      // If timer expired on this question with no answer, keep it gray
+      if (this.timerExpiredUnanswered.has(index)) {
+        return 'pending';
+      }
+
       return 'current';
+    }
+
+    // If timer expired on this question with no answer, keep it gray
+    if (this.timerExpiredUnanswered.has(index)) {
+      return 'pending';
     }
 
     const status = this.getQuestionStatus(index);
