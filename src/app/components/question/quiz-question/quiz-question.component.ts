@@ -3284,6 +3284,9 @@ export class QuizQuestionComponent extends BaseQuestion
       const clickedOptData = q?.options?.[evtIdx];
       const clickedIsCorrect = clickedOptData?.correct === true || String(clickedOptData?.correct) === 'true';
       this.selectedOptionService.lastClickedCorrectByQuestion.set(idx, clickedIsCorrect);
+      // Stable click-confirmed dot status (survives component destruction)
+      this.selectedOptionService.clickConfirmedDotStatus.set(idx, clickedIsCorrect ? 'correct' : 'wrong');
+      try { sessionStorage.setItem('dot_confirmed_' + idx, clickedIsCorrect ? 'correct' : 'wrong'); } catch {}
 
       // Canonical options for consistent state - ensure all currently selected options are marked as selected in canonicalOpts
       const currentSelectedFromService = this.selectedOptionService.selectedOptionsMap?.get(idx) ?? [];
@@ -4011,6 +4014,11 @@ export class QuizQuestionComponent extends BaseQuestion
       ...opt,
       questionIndex: lockedIndex,
     };
+    // Do NOT set clickConfirmedDotStatus here — this runs in an async
+    // requestAnimationFrame callback AFTER the parent's onOptionSelected has
+    // already written the authoritative value via robust multi-source evaluation.
+    // Writing here with the unreliable opt.correct overwrites 'correct' with 'wrong'.
+
     this.optionSelected.emit(sel);
     this.events.emit({ type: 'optionSelected', payload: sel });
 
@@ -6078,6 +6086,12 @@ export class QuizQuestionComponent extends BaseQuestion
       optionId: resolvedOptionId,
       questionIndex: this.currentQuestionIndex
     };
+
+    // Do NOT set clickConfirmedDotStatus here — selectOption runs inside
+    // finalizeSelection (async) and its emit triggers the parent AFTER the
+    // parent already wrote the authoritative value.  The parent's
+    // onOptionSelected uses multi-source evaluation; this only checks
+    // option.correct which can be undefined, overwriting 'correct' with 'wrong'.
 
     this.showFeedbackForOption = { [resolvedOptionId]: true };
     this.selectedOptionService.setSelectedOption(selectedOption, this.currentQuestionIndex, undefined, this.isMultipleAnswer);

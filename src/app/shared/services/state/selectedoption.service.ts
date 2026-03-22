@@ -17,6 +17,9 @@ export class SelectedOptionService {
   lastClickedOption: SelectedOption | null = null;
   /** Per-question: was the last clicked option correct? Set by QQC directly. */
   lastClickedCorrectByQuestion = new Map<number, boolean>();
+  /** Stable click-confirmed dot status. Set on user click, never overwritten
+   *  by async evaluations. Only cleared on quiz restart. */
+  clickConfirmedDotStatus = new Map<number, 'correct' | 'wrong'>();
   // Direct storage without canonicalization - more reliable for results display
   rawSelectionsMap = new Map<number, { optionId: number; text: string }[]>();
   selectedOptionIndices: { [key: number]: number[] } = {};

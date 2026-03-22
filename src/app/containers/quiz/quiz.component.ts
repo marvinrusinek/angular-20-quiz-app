@@ -235,6 +235,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   private timerExpiredUnanswered = new Set<number>();
   private _processingOptionClick = false;
 
+  // clickConfirmedDotStatus lives on selectedOptionService (singleton)
+  // to survive component destruction/recreation during navigation.
+
   constructor(
     public quizService: QuizService,
     private quizDataService: QuizDataService,
@@ -518,6 +521,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   }
 
   async ngOnInit(): Promise<void> {
+    console.error(`[LIFECYCLE] ngOnInit fired. clickConfirmedDotStatus map:`, Array.from(this.selectedOptionService.clickConfirmedDotStatus.entries()));
     this.subscribeToQuestions();
     this.subscribeToRouteEvents();
 
@@ -608,6 +612,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           // Clear dot status cache (Important to get gray dots)
           this.dotStatusCache.clear();
           this.pendingDotStatusOverrides.clear();
+          this.clearClickConfirmedDotStatus();
           this.activeDotClickStatus.clear();
           this.timerExpiredUnanswered.clear();
 
@@ -795,6 +800,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.dotStatusCache.clear();
     this.pendingDotStatusOverrides.clear();
     this.activeDotClickStatus.clear();
+    this.clearClickConfirmedDotStatus();
     this.quizService.questionCorrectness?.clear();
     this.quizService.selectedOptionsMap?.clear();
     this.selectedOptionService.selectedOptionsMap?.clear();
@@ -1413,6 +1419,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     const correctCountForQuestion = correctOptionsForQuestion.length;
 
     const isSingleAnswerQuestion = correctCountForQuestion === 1;
+    console.warn(`[OOS-PATH] Q${idx + 1} correctCountForQuestion=${correctCountForQuestion} isSingleAnswer=${isSingleAnswerQuestion} optionsForImmediateScoring.length=${optionsForImmediateScoring?.length}`);
 
     const immediateSelections = this.buildImmediateSelectionsForScoring(
       idx,
@@ -1511,16 +1518,21 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
       const clickedIsCorrectForSingle = payloadSaysCorrect || matchedCorrectOption || indexMatchedCorrect || liveCorrectness === true;
 
+      console.log(`[SINGLE-SCORE] Q${idx + 1} clickedIsCorrectForSingle=${clickedIsCorrectForSingle} payloadSaysCorrect=${payloadSaysCorrect} matchedCorrectOption=${matchedCorrectOption} indexMatchedCorrect=${indexMatchedCorrect} liveCorrectness=${liveCorrectness}`);
       if (clickedIsCorrectForSingle) {
         this.setPersistedDotStatus(idx, 'correct');
         this.pendingDotStatusOverrides.set(idx, 'correct');
         this.dotStatusCache.set(idx, 'correct');
+        this.selectedOptionService.clickConfirmedDotStatus.set(idx, 'correct');
         try { sessionStorage.setItem('dot_confirmed_' + idx, 'correct'); } catch {}
         // scoreDirectly handles deduplication internally via scoringKey
         this.quizService.scoreDirectly(idx, true, false);
+        console.log(`[SINGLE-SCORE] Q${idx + 1} SCORED CORRECT. questionCorrectness after: ${JSON.stringify([...this.quizService.questionCorrectness.entries()])}`);
       } else {
+        this.selectedOptionService.clickConfirmedDotStatus.set(idx, 'wrong');
         // Only write to sessionStorage — don't touch other state maps for incorrect
         try { sessionStorage.setItem('dot_confirmed_' + idx, 'wrong'); } catch {}
+        console.log(`[SINGLE-SCORE] Q${idx + 1} SCORED WRONG (session only)`);
       }
     }
 
@@ -1696,6 +1708,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         this.setPersistedDotStatus(idx, immediateMultiDotStatus);
         this.pendingDotStatusOverrides.set(idx, immediateMultiDotStatus);
         this.dotStatusCache.set(idx, immediateMultiDotStatus);
+        this.selectedOptionService.clickConfirmedDotStatus.set(idx, immediateMultiDotStatus);
       }
     }
 
@@ -1843,6 +1856,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   }
 
   ngOnDestroy(): void {
+    console.error(`[LIFECYCLE] ngOnDestroy fired. clickConfirmedDotStatus map:`, Array.from(this.selectedOptionService.clickConfirmedDotStatus.entries()));
     this.unsubscribe$.next();
     this.unsubscribe$.complete();
     this.destroy$.next();
@@ -1851,6 +1865,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.dotStatusCache.clear();
     this.pendingDotStatusOverrides.clear();
     this.activeDotClickStatus.clear();
+    // Do NOT clear clickConfirmedDotStatus here — it lives on the singleton
+    // service precisely so it survives component destroy/recreate during navigation.
+    // It is cleared in quiz-reset and restart paths instead.
     // this.selectedOptionService.resetAllOptions(); // REMOVED: Breaks persistence on navigation
     this.routeSubscription?.unsubscribe();
     this.routerSubscription?.unsubscribe();
@@ -2135,6 +2152,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           this.dotStatusCache.clear();
           this.pendingDotStatusOverrides.clear();
           this.activeDotClickStatus.clear();
+          this.clearClickConfirmedDotStatus();
           this.timerExpiredUnanswered.clear();
           this.progress = 0;
           this.quizStateService.reset();
@@ -4109,6 +4127,30 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
   /************************ paging functions *********************/
   private async advanceQuestion(direction: 'next' | 'previous'): Promise<void> {
+    // CRITICAL: Snapshot the leaving question's dot color into all persistence
+    // layers BEFORE navigating away.  The current-question branch of getDotClass
+    // reads from transient maps (lastClickedCorrectByQuestion, activeDotClickStatus,
+    // pendingDotStatusOverrides, dotStatusCache) that get cleared during navigation.
+    // Without this snapshot, the non-current branch has no state to read.
+    const leavingIdx = this.currentQuestionIndex;
+    const leavingDotClass = this.getDotClass(leavingIdx);
+    const leavingStatus: 'correct' | 'wrong' | null =
+      leavingDotClass.includes('correct') ? 'correct' :
+      leavingDotClass.includes('wrong') ? 'wrong' : null;
+
+    if (leavingStatus) {
+      const sk = this.getScoringKey(leavingIdx);
+      // Persist into questionCorrectness (ground truth for scoring)
+      if (leavingStatus === 'correct' && !this.quizService.questionCorrectness.get(sk)) {
+        this.quizService.questionCorrectness.set(sk, true);
+      }
+      // Persist into localStorage dot status
+      this.setPersistedDotStatus(leavingIdx, leavingStatus);
+      // Persist into clickConfirmedDotStatus (in-memory + sessionStorage)
+      this.selectedOptionService.clickConfirmedDotStatus.set(leavingIdx, leavingStatus);
+      try { sessionStorage.setItem('dot_confirmed_' + leavingIdx, leavingStatus); } catch {}
+    }
+
     this.triggerAnimation();
     this.selectedOptionService.setAnswered(false);
     this.quizStateService.resetInteraction();  // clear interaction on nav
@@ -4704,6 +4746,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.dotStatusCache.clear();
     this.pendingDotStatusOverrides.clear();
     this.activeDotClickStatus.clear();
+    this.clearClickConfirmedDotStatus();
 
     // Clear the shuffled questions in the service
     this.quizService.shuffledQuestions = [];
@@ -4778,6 +4821,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.dotStatusCache.clear();
     this.pendingDotStatusOverrides.clear();
     this.activeDotClickStatus.clear();
+    this.clearClickConfirmedDotStatus();
     this.updateProgressValue();
 
 
@@ -5619,6 +5663,19 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     const candidateIndices = this.getCandidateQuestionIndices(index);
     const questionHasLiveSessionState = this.hasLiveSessionStateForQuestion(index); */
 
+    // Early authoritative check for NON-CURRENT questions.
+    // questionCorrectness is the scored ground truth. If it says correct,
+    // skip the complex evaluation which can produce wrong results due to
+    // stale selection data or race conditions during navigation.
+    if (index !== this.currentQuestionIndex) {
+      const earlyScoringKey = this.getScoringKey(index);
+      const earlyScored = this.quizService.questionCorrectness.get(earlyScoringKey);
+      if (earlyScored === true) {
+        this.dotStatusCache.set(index, 'correct');
+        return 'correct';
+      }
+    }
+
     if (
       index === this.currentQuestionIndex &&
       !questionHasLiveSessionState &&
@@ -6032,8 +6089,63 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       return 'pending';
     }
 
+    // DIAGNOSTIC: Log ALL state sources for this non-current dot
+    const scoringKey = this.getScoringKey(index);
+    const scoredCorrect = this.quizService.questionCorrectness.get(scoringKey);
+    const persisted = this.getPersistedDotStatus(index);
+    const confirmed = this.selectedOptionService.clickConfirmedDotStatus.get(index);
+    const cached = this.dotStatusCache.get(index);
+    const ssStored = (() => { try { return sessionStorage.getItem('dot_confirmed_' + index); } catch { return null; } })();
+
+    console.warn(
+      `[DOT-TRACE] Q${index + 1} (non-current) | scoringKey=${scoringKey} scored=${scoredCorrect} | persisted=${persisted} | confirmed=${confirmed} | cached=${cached} | ss=${ssStored} | qCorrectness keys=[${[...this.quizService.questionCorrectness.keys()]}]`
+    );
+
+    // 1. Ground truth: questionCorrectness
+    if (scoredCorrect === true) {
+      return 'correct';
+    }
+
+    // 2. Persisted dot status (localStorage)
+    if (persisted === 'correct') {
+      return 'correct';
+    }
+
+    // 3. clickConfirmedDotStatus (in-memory or sessionStorage fallback)
+    if (confirmed) {
+      return confirmed;
+    }
+    if (ssStored === 'correct' || ssStored === 'wrong') {
+      this.selectedOptionService.clickConfirmedDotStatus.set(index, ssStored);
+      return ssStored;
+    }
+
+    // 4. Explicit wrong from scoring
+    if (scoredCorrect === false) {
+      return 'wrong';
+    }
+    if (persisted === 'wrong') {
+      return 'wrong';
+    }
+
+    // 5. Fallback
     const status = this.getQuestionStatus(index);
+    console.warn(`[DOT-TRACE] Q${index + 1} fell through to getQuestionStatus => "${status}"`);
     return status;
+  }
+
+  /** Clear clickConfirmedDotStatus map AND its sessionStorage backing. */
+  private clearClickConfirmedDotStatus(): void {
+    // Clear sessionStorage entries before clearing the map
+    this.selectedOptionService.clickConfirmedDotStatus.forEach((_val, key) => {
+      try { sessionStorage.removeItem('dot_confirmed_' + key); } catch {}
+    });
+    // Also sweep any orphaned session keys (up to totalQuestions)
+    const total = this.totalQuestions || 20;
+    for (let i = 0; i < total; i++) {
+      try { sessionStorage.removeItem('dot_confirmed_' + i); } catch {}
+    }
+    this.selectedOptionService.clickConfirmedDotStatus.clear();
   }
 
   navigateToDot(index: number): void {
