@@ -1342,6 +1342,9 @@ export class QuizService {
       const savedCorrectness = new Map(this.questionCorrectness);
       const savedSelections = new Map(this.selectedOptionsMap);
       const savedCount = this.correctCount;
+      const savedShuffled = this.shuffledQuestions ? [...this.shuffledQuestions] : [];
+      const savedQuestions = this._questions ? [...this._questions] : [];
+      const savedQuestionsQuizId = this.questionsQuizId;
 
       this.resetAll();
 
@@ -1349,6 +1352,14 @@ export class QuizService {
       this.questionCorrectness = savedCorrectness;
       this.selectedOptionsMap = savedSelections;
       this.correctCount = savedCount;
+      if (savedShuffled.length > 0) {
+        this.shuffledQuestions = savedShuffled;
+      }
+      if (savedQuestions.length > 0) {
+        this._questions = savedQuestions;
+        this.questionsSubject.next(savedQuestions);
+      }
+      this.questionsQuizId = savedQuestionsQuizId;
     }
 
     const base = options;  // caller’s array reference
