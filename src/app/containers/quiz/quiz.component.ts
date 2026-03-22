@@ -4747,6 +4747,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.pendingDotStatusOverrides.clear();
     this.activeDotClickStatus.clear();
     this.clearClickConfirmedDotStatus();
+    this.timerExpiredUnanswered.clear();
+    this.selectedOptionService.lastClickedCorrectByQuestion.clear();
+    this.clearAllPersistedDotStatus();
 
     // Clear the shuffled questions in the service
     this.quizService.shuffledQuestions = [];
@@ -5189,6 +5192,19 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           delete parsed[String(index)];
           localStorage.setItem(key, JSON.stringify(parsed));
         }
+      }
+    } catch { }
+  }
+
+  /** Remove ALL persisted dot status entries (used on quiz restart). */
+  private clearAllPersistedDotStatus(): void {
+    try {
+      const keys = Array.from(new Set([
+        this.getDotStatusStorageKey(),
+        'quiz_dot_status_default'
+      ]));
+      for (const key of keys) {
+        localStorage.removeItem(key);
       }
     } catch { }
   }
