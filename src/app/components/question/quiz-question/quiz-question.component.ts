@@ -3390,15 +3390,33 @@ export class QuizQuestionComponent extends BaseQuestion
       }).length;
 
       const allCorrect =
-        q?.type === QuestionType.MultipleAnswer
+        isMultiForSelection
           ? correctOpts.length > 0 &&
           selectedCorrectCount === correctOpts.length
           : !!evtOpt?.correct;
 
       this._lastAllCorrect = allCorrect;
-      this.nextButtonStateService.setNextButtonState(allCorrect);
-      this.quizStateService.setAnswered(allCorrect);
-      this.quizStateService.setAnswerSelected(allCorrect);
+
+      // For multi-answer questions, enable Next after ANY selection — the user
+      // should be able to proceed even with a partial or incorrect answer.
+      // Only use allCorrect gating for single-answer questions.
+      const hasAnySelection = canonicalOpts.some(o => o.selected);
+      const enableNext = isMultiForSelection ? hasAnySelection : allCorrect;
+
+      if (enableNext) {
+        // Use forceEnable for multi-answer to prevent the reactive stream
+        // from overriding the button state during async processing.
+        if (isMultiForSelection) {
+          this.nextButtonStateService.forceEnable(800);
+        } else {
+          this.nextButtonStateService.setNextButtonState(true);
+        }
+      } else {
+        this.nextButtonStateService.setNextButtonState(false);
+      }
+      this.quizStateService.setAnswered(enableNext);
+      this.quizStateService.setAnswerSelected(enableNext);
+      this.selectedOptionService.setAnswered(enableNext);
 
       // Stop timer + trigger FET immediately (legally awaited)
 
@@ -3411,7 +3429,7 @@ export class QuizQuestionComponent extends BaseQuestion
       // Don’t rely on live reactive index after this point
       console.log(`[QQC] 🔒 Locked index for FET trigger: Q${lockedIndex + 1}`);
 
-      if (allCorrect && q?.type === QuestionType.MultipleAnswer && !this._fetEarlyShown.has(lockedIndex)) {
+      if (allCorrect && isMultiForSelection && !this._fetEarlyShown.has(lockedIndex)) {
         this.safeStopTimer('completed');
         this._fetEarlyShown.add(lockedIndex);
 

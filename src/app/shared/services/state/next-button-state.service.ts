@@ -16,6 +16,10 @@ export class NextButtonStateService implements OnDestroy {
   private nextButtonStateSubscription?: Subscription;
   private initialized = false;
 
+  // When > 0, the reactive stream cannot disable the button.
+  // Decremented by a timer so it auto-expires.
+  private _forceHoldUntil = 0;
+
   constructor(private ngZone: NgZone) { }
 
   ngOnDestroy(): void {
@@ -49,8 +53,11 @@ export class NextButtonStateService implements OnDestroy {
         ),
       )
       .subscribe(([isAnswered, isLoading, isNavigating, ready]) => {
-        console.log(`[NextButtonState] Stream update: isAnswered=${isAnswered}, isLoading=${isLoading}, isNavigating=${isNavigating}, ready=${ready}`);
         const enabled = isAnswered && !isLoading && !isNavigating && !!ready;
+        // If the button was force-held enabled, don't let the stream disable it
+        if (!enabled && Date.now() < this._forceHoldUntil) {
+          return;
+        }
         this.updateAndSyncNextButtonState(enabled);
       });
   }
@@ -67,6 +74,9 @@ export class NextButtonStateService implements OnDestroy {
     isNavigating: boolean,
   ): boolean {
     const shouldEnable = isAnswered && !isLoading && !isNavigating;
+    if (!shouldEnable && Date.now() < this._forceHoldUntil) {
+      return true;
+    }
     this.updateAndSyncNextButtonState(shouldEnable);
     return shouldEnable;
   }
@@ -84,10 +94,25 @@ export class NextButtonStateService implements OnDestroy {
   }
 
   public setNextButtonState(enabled: boolean): void {
-    this.updateAndSyncNextButtonState(enabled);  // reuse consistent logic
+    this.updateAndSyncNextButtonState(enabled);
+  }
+
+  /**
+   * Force-enable the button and prevent the reactive stream from
+   * disabling it for `durationMs` milliseconds.
+   */
+  public forceEnable(durationMs = 500): void {
+    this._forceHoldUntil = Date.now() + durationMs;
+    this.updateAndSyncNextButtonState(true);
+  }
+
+  /** Clear the force-hold (e.g. on question navigation). */
+  public clearForceHold(): void {
+    this._forceHoldUntil = 0;
   }
 
   reset(): void {
+    this._forceHoldUntil = 0;
     this.setNextButtonState(false);
   }
 }
