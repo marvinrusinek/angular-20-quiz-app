@@ -6084,48 +6084,41 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
   getDotClass(index: number): string {
     if (index === this.currentQuestionIndex) {
-      // For multi-answer questions, use the LAST CLICKED option's correctness
-      // to set dot color (per-click, matching single-answer UX).
       const lastClickedCorrect = this.selectedOptionService.lastClickedCorrectByQuestion.get(index);
+      const activeClickStatus = this.activeDotClickStatus.get(index);
+      const pendingOverrideStatus = this.pendingDotStatusOverrides.get(index);
+      const interacted = this.quizStateService.hasUserInteracted(index);
+      const cachedStatus = this.dotStatusCache.get(index);
+      const persistedStatus = this.getPersistedDotStatus(index);
+
+      console.warn(
+        `[getDotClass] Q${index + 1} (CURRENT) | lastClicked=${lastClickedCorrect} | active=${activeClickStatus} | pending=${pendingOverrideStatus} | interacted=${interacted} | cached=${cachedStatus} | persisted=${persistedStatus}`
+      );
+
       if (lastClickedCorrect !== undefined) {
         return `${lastClickedCorrect ? 'correct' : 'wrong'} current`;
       }
-
-      const activeClickStatus = this.activeDotClickStatus.get(index);
       if (activeClickStatus) {
         return `${activeClickStatus} current`;
       }
-
-      const pendingOverrideStatus = this.pendingDotStatusOverrides.get(index);
       if (pendingOverrideStatus) {
         return `${pendingOverrideStatus} current`;
       }
 
       // If the user hasn't interacted with this question yet, show lightblue.
-      // The dotStatusCache and persisted status can contain stale values from
-      // the PREVIOUS question's options leaking through getSelectionsForQuestion
-      // during navigation (before optionsToDisplay is fully refreshed).
-      // Only trust explicit click-based maps (checked above) for coloring.
-      if (!this.quizStateService.hasUserInteracted(index)) {
+      if (!interacted) {
         if (this.timerExpiredUnanswered.has(index)) {
           return 'pending';
         }
         return 'current';
       }
 
-      // No click-based status — check if user has interacted on this question
-      const cachedStatus = this.dotStatusCache.get(index);
       if (cachedStatus && cachedStatus !== 'pending') {
         return `${cachedStatus} current`;
       }
-
-      // Check persisted status (survives navigation resets)
-      const persistedStatus = this.getPersistedDotStatus(index);
       if (persistedStatus === 'correct' || persistedStatus === 'wrong') {
         return `${persistedStatus} current`;
       }
-
-      // If timer expired on this question with no answer, keep it gray
       if (this.timerExpiredUnanswered.has(index)) {
         return 'pending';
       }
