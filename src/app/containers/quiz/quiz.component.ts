@@ -6087,6 +6087,18 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         return `${pendingOverrideStatus} current`;
       }
 
+      // If the user hasn't interacted with this question yet, show lightblue.
+      // The dotStatusCache and persisted status can contain stale values from
+      // the PREVIOUS question's options leaking through getSelectionsForQuestion
+      // during navigation (before optionsToDisplay is fully refreshed).
+      // Only trust explicit click-based maps (checked above) for coloring.
+      if (!this.quizStateService.hasUserInteracted(index)) {
+        if (this.timerExpiredUnanswered.has(index)) {
+          return 'pending';
+        }
+        return 'current';
+      }
+
       // No click-based status — check if user has interacted on this question
       const cachedStatus = this.dotStatusCache.get(index);
       if (cachedStatus && cachedStatus !== 'pending') {
