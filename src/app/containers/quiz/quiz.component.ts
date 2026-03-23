@@ -5647,19 +5647,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       return 'pending';
     }
 
-    // If the user hasn't interacted with this question yet, it must be
-    // pending. Without this guard, stale optionsToDisplay from the PREVIOUS
-    // question leak through getSelectionsForQuestion during navigation and
-    // cause evaluateSelectionCorrectness to persist 'wrong' for the new
-    // (untouched) question, turning its dot red.
-    if (!this.quizStateService.hasUserInteracted(index)) {
-      const scoringKey = this.getScoringKey(index);
-      const alreadyScored = this.quizService.questionCorrectness.get(scoringKey);
-      if (alreadyScored === undefined) {
-        this.dotStatusCache.set(index, 'pending');
-        return 'pending';
-      }
-    }
 
     const pendingOverrideStatus = this.pendingDotStatusOverrides.get(index);
 
@@ -6129,17 +6116,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // If timer expired on this question with no answer, keep it gray
     if (this.timerExpiredUnanswered.has(index)) {
       return 'pending';
-    }
-
-    // Non-current question the user never clicked on: must be gray (pending).
-    // Stale data from navigation can pollute persisted/confirmed/cached state
-    // for questions the user hasn't touched yet.
-    if (!this.quizStateService.hasUserInteracted(index)) {
-      const earlyKey = this.getScoringKey(index);
-      const earlyScored = this.quizService.questionCorrectness.get(earlyKey);
-      if (earlyScored === undefined) {
-        return 'pending';
-      }
     }
 
     // DIAGNOSTIC: Log ALL state sources for this non-current dot
