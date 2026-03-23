@@ -6245,7 +6245,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       total,
       percentage: total > 0 ? Math.round((correct / total) * 100) : 0,
       analysis,
-      completedAt: Date.now(),
+      completedAt: Date.now()
     };
 
     this.quizService.quizCompleted = true;
