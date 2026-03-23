@@ -926,6 +926,13 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           this.explanationToDisplay = '';
           this.explanationVisibleLocal = false;
 
+          // Clear stale optionsToDisplay from the PREVIOUS question before
+          // evaluating the new question's dot status. Without this, the old
+          // question's selected options leak into getSelectionsForQuestion
+          // (which checks optionsToDisplay when index === currentQuestionIndex),
+          // causing the new question's dot to inherit the old answer's color.
+          this.optionsToDisplay = [];
+
           // Ensure progress and dot colors are updated when arriving at new question
           this.updateProgressValue();
           this.updateDotStatus(idx);
