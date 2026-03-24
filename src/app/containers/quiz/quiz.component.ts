@@ -6071,41 +6071,45 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
   getDotClass(index: number): string {
     if (index === this.currentQuestionIndex) {
+      // For multi-answer questions, use the LAST CLICKED option's correctness
+      // to set dot color (per-click, matching single-answer UX).
       const lastClickedCorrect = this.selectedOptionService.lastClickedCorrectByQuestion.get(index);
-      const activeClickStatus = this.activeDotClickStatus.get(index);
-      const pendingOverrideStatus = this.pendingDotStatusOverrides.get(index);
-      const interacted = this.quizStateService.hasUserInteracted(index);
-      const cachedStatus = this.dotStatusCache.get(index);
-      const persistedStatus = this.getPersistedDotStatus(index);
-
-      console.warn(
-        `[getDotClass] Q${index + 1} (CURRENT) | lastClicked=${lastClickedCorrect} | active=${activeClickStatus} | pending=${pendingOverrideStatus} | interacted=${interacted} | cached=${cachedStatus} | persisted=${persistedStatus}`
-      );
-
       if (lastClickedCorrect !== undefined) {
         return `${lastClickedCorrect ? 'correct' : 'wrong'} current`;
       }
+
+      const activeClickStatus = this.activeDotClickStatus.get(index);
       if (activeClickStatus) {
         return `${activeClickStatus} current`;
       }
+
+      const pendingOverrideStatus = this.pendingDotStatusOverrides.get(index);
       if (pendingOverrideStatus) {
         return `${pendingOverrideStatus} current`;
       }
 
       // If the user hasn't interacted with this question yet, show lightblue.
-      if (!interacted) {
+      // Stale optionsToDisplay from the PREVIOUS question can leak through
+      // getSelectionsForQuestion during navigation, causing dotStatusCache
+      // and persisted status to contain 'wrong' for the new question.
+      // Only the click-based maps above are trustworthy before interaction.
+      if (!this.quizStateService.hasUserInteracted(index)) {
         if (this.timerExpiredUnanswered.has(index)) {
           return 'pending';
         }
         return 'current';
       }
 
+      const cachedStatus = this.dotStatusCache.get(index);
       if (cachedStatus && cachedStatus !== 'pending') {
         return `${cachedStatus} current`;
       }
+
+      const persistedStatus = this.getPersistedDotStatus(index);
       if (persistedStatus === 'correct' || persistedStatus === 'wrong') {
         return `${persistedStatus} current`;
       }
+
       if (this.timerExpiredUnanswered.has(index)) {
         return 'pending';
       }
