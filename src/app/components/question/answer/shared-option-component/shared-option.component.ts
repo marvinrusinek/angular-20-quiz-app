@@ -3698,7 +3698,9 @@ export class SharedOptionComponent
             const optionsList = correctIdxs1Based.length > 1
               ? `Options ${correctIdxs1Based.slice(0, -1).join(', ')} and ${correctIdxs1Based[correctIdxs1Based.length - 1]}`
               : `Option ${correctIdxs1Based[0]}`;
-            newFeedback = `You're right! The correct answers are ${optionsList}.`;
+            newFeedback = correctIdxs1Based.length > 1
+              ? `You're right! The correct answers are ${optionsList}.`
+              : `You're right! The correct answer is ${optionsList}.`;
           } else if (remaining > 0) {
             const remText = remaining === 1 ? '1 more correct answer' : `${remaining} more correct answers`;
             newFeedback = `That's correct! Please select ${remText}.`;
@@ -4129,7 +4131,9 @@ export class SharedOptionComponent
           const optsList = correctIdxs1Based.length > 1
             ? `Options ${correctIdxs1Based.slice(0, -1).join(', ')} and ${correctIdxs1Based[correctIdxs1Based.length - 1]}`
             : `Option ${correctIdxs1Based[0]}`;
-          feedbackText = `You're right! The correct answers are ${optsList}.`;
+          feedbackText = correctIdxs1Based.length > 1
+            ? `You're right! The correct answers are ${optsList}.`
+            : `You're right! The correct answer is ${optsList}.`;
         } else {
           const remTxt = remainingMsg === 1 ? '1 more correct answer' : `${remainingMsg} more correct answers`;
           feedbackText = `That's correct! Please select ${remTxt}.`;
@@ -4276,7 +4280,9 @@ export class SharedOptionComponent
               const optionsList = correctIdxs.length > 1
                 ? `Options ${correctIdxs.slice(0, -1).join(', ')} and ${correctIdxs[correctIdxs.length - 1]}`
                 : `Option ${correctIdxs[0]}`;
-              cfg = { ...cfg, feedback: `You're right! The correct answers are ${optionsList}.` };
+              cfg = { ...cfg, feedback: correctIdxs.length > 1
+                ? `You're right! The correct answers are ${optionsList}.`
+                : `You're right! The correct answer is ${optionsList}.` };
             } else if (remaining > 0) {
               const remText = remaining === 1 ? '1 more correct answer' : `${remaining} more correct answers`;
               cfg = { ...cfg, feedback: `That's correct! Please select ${remText}.` };
