@@ -60,6 +60,7 @@ export class FeedbackService {
     const qIdx = displayIndex ?? (question as any).questionIndex ?? quizSvc?.currentQuestionIndex ?? 0;
     let correctIndices = this.explanationTextService.getCorrectOptionIndices(question, optionsToDisplay ?? question.options ?? [], qIdx); */
     const quizSvc = this.injector.get(QuizService, null);
+    const qIdx = displayIndex ?? (question as any).questionIndex ?? quizSvc?.currentQuestionIndex ?? 0;
     const currentIndex = quizSvc?.currentQuestionIndex;
     const resolvedQuestion = question ?? quizSvc?.currentQuestion ?? {
       questionText: '', options: optionsToDisplay ?? [], explanation:
