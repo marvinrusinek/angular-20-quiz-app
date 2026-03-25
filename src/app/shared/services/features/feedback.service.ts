@@ -65,7 +65,7 @@ export class FeedbackService {
       questionText: '', options: optionsToDisplay ?? [], explanation:
         '', type: QuestionType.SingleAnswer
     };
-    const correctIndices = this.explanationTextService.getCorrectOptionIndices(resolvedQuestion, optionsToDisplay, typeof currentIndex ===
+    let correctIndices = this.explanationTextService.getCorrectOptionIndices(resolvedQuestion, optionsToDisplay, typeof currentIndex ===
       'number' ? currentIndex : undefined);
 
 
