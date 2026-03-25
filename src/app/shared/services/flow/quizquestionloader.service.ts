@@ -989,6 +989,15 @@ export class QuizQuestionLoaderService {
       }
 
       // ─── Normalize / add fallback feedback once ───────────────────
+      const correctIndices = opts
+        .map((o, i) => o.correct ? i + 1 : null)
+        .filter((n): n is number => n !== null)
+        .sort((a, b) => a - b);
+      const correctLabel = correctIndices.length === 1
+        ? `The correct answer is Option ${correctIndices[0]}.`
+        : `The correct answers are Options ${correctIndices.slice(0, -1).join(', ')} and                                  
+           +${correctIndices.slice(-1)}.`;
+
       const finalOpts = opts.map((o, i) => ({
         ...o,
         optionId: o.optionId ?? i + 1,
@@ -996,8 +1005,7 @@ export class QuizQuestionLoaderService {
         showIcon: !!o.showIcon,
         selected: !!o.selected,
         correct: !!o.correct,
-        feedback:
-          o.feedback ?? `You're right! The correct answer is Option ${i + 1}.`
+        feedback: o.feedback ?? correctLabel
       }));
 
       // ─── Synthesize the selection message ──────────────────────────
