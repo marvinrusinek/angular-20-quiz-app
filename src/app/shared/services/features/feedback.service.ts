@@ -56,9 +56,18 @@ export class FeedbackService {
   ): string {
     if (timedOut) return 'Time\'s up. Review the explanation above.';
 
-    const quizSvc = this.injector.get(QuizService, null);
+    /* const quizSvc = this.injector.get(QuizService, null);
     const qIdx = displayIndex ?? (question as any).questionIndex ?? quizSvc?.currentQuestionIndex ?? 0;
-    let correctIndices = this.explanationTextService.getCorrectOptionIndices(question, optionsToDisplay ?? question.options ?? [], qIdx);
+    let correctIndices = this.explanationTextService.getCorrectOptionIndices(question, optionsToDisplay ?? question.options ?? [], qIdx); */
+    const quizSvc = this.injector.get(QuizService, null);
+    const currentIndex = quizSvc?.currentQuestionIndex;
+    const resolvedQuestion = question ?? quizSvc?.currentQuestion ?? {
+      questionText: '', options: optionsToDisplay ?? [], explanation:
+        '', type: QuestionType.SingleAnswer
+    };
+    const correctIndices = this.explanationTextService.getCorrectOptionIndices(resolvedQuestion, optionsToDisplay, typeof currentIndex ===
+      'number' ? currentIndex : undefined);
+
 
     const isCorrectHelper = (val: any) => {
       if (!val) return false;
@@ -69,7 +78,7 @@ export class FeedbackService {
       }
       return false;
     };
-    
+
     if ((!correctIndices || correctIndices.length === 0) && quizSvc) {
       const qText = (question.questionText || '').trim().toLowerCase();
       if (qText) {
@@ -94,7 +103,7 @@ export class FeedbackService {
     // Use provided optionsToDisplay (visual order) as the source of truth for indices
     // This ensures indices match what the user sees even if shuffled.
     const optionsRaw = optionsToDisplay || (question.options || []);
-    
+
     // Always calculate visual correct indices from the actual options being displayed
     correctIndices = optionsRaw
       .map((o: Option, i: number) => isCorrectHelper(o) ? i + 1 : null)
@@ -132,8 +141,8 @@ export class FeedbackService {
       // ROBUST EVALUATION: 
       // An option is correct if its 'correct' flag is true OR if its visual position matches a correct index.
       const isCorrect = isCorrectHelper(sel) ||
-                        (visualIdx >= 0 && correctIndices.includes(visualIdx + 1));
-      
+        (visualIdx >= 0 && correctIndices.includes(visualIdx + 1));
+
       if (isCorrect) {
         numCorrectSelected++;
       } else {
@@ -161,7 +170,7 @@ export class FeedbackService {
         const alreadyCounted = optionsRaw.some(o =>
           o.selected && isCorrectHelper(o) &&
           ((o.text && targetOption.text && String(o.text).trim() === String(targetOption.text).trim()) ||
-           (o.optionId != null && targetOption.optionId != null && String(o.optionId) === String(targetOption.optionId)))
+            (o.optionId != null && targetOption.optionId != null && String(o.optionId) === String(targetOption.optionId)))
         );
         if (!alreadyCounted) rawCorrectSelected++;
       }
@@ -174,22 +183,22 @@ export class FeedbackService {
     }
 
     const totalCorrectRequired = correctIndices.length > 0 ? correctIndices.length : 1;
-    
+
     // Multi-Answer detection consistency: Resolved if counts match (even if incorrects are present)
     const isMultiResolved = isMultiMode && numCorrectSelected >= totalCorrectRequired;
 
     // Special safeguard: if it was truly perfectly resolved by our counts, override text right here.
     if (isMultiResolved) {
-       const formatReveal = (indices: number[]) => {
-         const deduped = Array.from(new Set(indices)).sort((a, b) => a - b);
-         if (deduped.length === 0) return '';
-         if (deduped.length === 1) return `The correct answer is Option ${deduped[0]}.`;
-         const list = deduped.length > 1 
-           ? `${deduped.slice(0, -1).join(', ')} and ${deduped[deduped.length - 1]}`
-           : `${deduped[0]}`;
-         return `The correct answers are Options ${list}.`;
-       };
-       return `You're right! ${formatReveal(correctIndices)}`;
+      const formatReveal = (indices: number[]) => {
+        const deduped = Array.from(new Set(indices)).sort((a, b) => a - b);
+        if (deduped.length === 0) return '';
+        if (deduped.length === 1) return `The correct answer is Option ${deduped[0]}.`;
+        const list = deduped.length > 1
+          ? `${deduped.slice(0, -1).join(', ')} and ${deduped[deduped.length - 1]}`
+          : `${deduped[0]}`;
+        return `The correct answers are Options ${list}.`;
+      };
+      return `You're right! ${formatReveal(correctIndices)}`;
     }
 
     console.log(`[FeedbackService] Evaluation: Q${qIdx + 1}`, {
@@ -222,18 +231,18 @@ export class FeedbackService {
       // If a specific option was clicked, prioritize its individual feedback
       if (targetOption) {
         // Robustly determine if the target option is correct
-        const isTargetCorrect = isCorrectHelper(targetOption) || 
-                               (optionsRaw.findIndex(o => 
-                                 o === targetOption || 
-                                 (o.optionId != null && targetOption.optionId != null && String(o.optionId) === String(targetOption.optionId)) ||
-                                 (o.text && targetOption.text && String(o.text).trim() === String(targetOption.text).trim())
-                               ) >= 0 && 
-                               correctIndices.includes(optionsRaw.findIndex(o => 
-                                 o === targetOption || 
-                                 (o.optionId != null && targetOption.optionId != null && String(o.optionId) === String(targetOption.optionId)) ||
-                                 (o.text && targetOption.text && String(o.text).trim() === String(targetOption.text).trim())
-                               ) + 1));
-        
+        const isTargetCorrect = isCorrectHelper(targetOption) ||
+          (optionsRaw.findIndex(o =>
+            o === targetOption ||
+            (o.optionId != null && targetOption.optionId != null && String(o.optionId) === String(targetOption.optionId)) ||
+            (o.text && targetOption.text && String(o.text).trim() === String(targetOption.text).trim())
+          ) >= 0 &&
+            correctIndices.includes(optionsRaw.findIndex(o =>
+              o === targetOption ||
+              (o.optionId != null && targetOption.optionId != null && String(o.optionId) === String(targetOption.optionId)) ||
+              (o.text && targetOption.text && String(o.text).trim() === String(targetOption.text).trim())
+            ) + 1));
+
         if (isTargetCorrect) {
           if (numCorrectSelected >= totalCorrectRequired && numIncorrectSelected === 0) {
             return `You're right! ${finalRevealMessage}`;
@@ -252,11 +261,11 @@ export class FeedbackService {
       if (numIncorrectSelected > 0) {
         return 'Not this one, try again!';
       }
-      
+
       if (numCorrectSelected >= totalCorrectRequired) {
         return `You're right! ${finalRevealMessage}`;
       }
-      
+
       if (numCorrectSelected > 0) {
         const remainingTotal = Math.max(totalCorrectRequired - numCorrectSelected, 0);
         const remainingText = remainingTotal === 1
