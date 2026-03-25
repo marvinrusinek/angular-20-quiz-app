@@ -3646,33 +3646,38 @@ export class QuizQuestionComponent extends BaseQuestion
       }
     } catch { }
 
-    // Show explanation only if correct (matches onOptionClicked logic)
+    // On timer expiry, always show explanation regardless of correctness.
+    // The user needs to see the explanation when time runs out.
     try {
-      if (this._lastAllCorrect) {
-        this.explanationTextService.setShouldDisplayExplanation(true);
-        this.displayExplanation = true;
-        this.showExplanationChange.emit(true);
-      } else {
-        this.explanationTextService.setShouldDisplayExplanation(false);
-        this.displayExplanation = false;
-        this.showExplanationChange.emit(false);
-      }
+      this.explanationTextService.setShouldDisplayExplanation(true);
+      this.displayExplanation = true;
+      this.showExplanationChange.emit(true);
 
-      const cached = this._formattedByIndex.get(i0);
+      const cached = this._formattedByIndex.get(i0)
+        ?? this.explanationTextService.fetByIndex?.get(i0)
+        ?? this.explanationTextService.formattedExplanations?.[i0]?.explanation
+        ?? '';
       const rawTrue =
         (q?.explanation ?? this.currentQuestion?.explanation ?? '').trim();
-      const immediateTxt = cached?.trim() ?? rawTrue ?? '<span class="muted">Formatting…</span>';
+      const hasFet = cached && cached.toLowerCase().includes('correct because');
+      const immediateTxt = (hasFet ? cached.trim() : '') || rawTrue || '<span class="muted">Formatting…</span>';
       this.setExplanationFor(i0, immediateTxt);
       this.explanationToDisplay = immediateTxt;
       this.explanationToDisplayChange?.emit(immediateTxt);
 
+      // Emit FET to the service so quiz-content's displayText$ pipeline picks it up
+      if (hasFet) {
+        this.explanationTextService.setExplanationText(immediateTxt, { index: i0 });
+      }
+
       // If no cached FET, resolve it asynchronously and update
-      if (!cached?.trim()) {
+      if (!hasFet) {
         this.resolveFormatted(i0).then(formatted => {
           if (formatted) {
             this.setExplanationFor(i0, formatted);
             this.explanationToDisplay = formatted;
             this.explanationToDisplayChange?.emit(formatted);
+            this.explanationTextService.setExplanationText(formatted, { index: i0 });
             this.cdRef.markForCheck();
           }
         }).catch(() => {});
@@ -7095,12 +7100,25 @@ export class QuizQuestionComponent extends BaseQuestion
 
       // ⏸ Wait if the explanation gate is still locked
       if (ets._fetLocked) {
-        console.log(`[onOptionClicked] Waiting for FET unlock before processing Q${this.currentQuestionIndex + 1}`);
+        console.log(`[onTimerExpiredFor] Waiting for FET unlock before processing Q${this.currentQuestionIndex + 1}`);
         await new Promise(res => setTimeout(res, 60));
       }
 
-      // Compute formatted by index; this now uses the proper formatter signature
-      const formattedNow = (await this.updateExplanationText(i0))?.toString().trim() ?? '';
+      // PREFER cached FET to avoid calling updateExplanationText which triggers
+      // purgeAndDefer — that destroys text$ subjects that quiz-content's
+      // displayText$ pipeline is subscribed to via getExplanationText$.
+      let formattedNow = '';
+      const cachedFet = this._formattedByIndex.get(i0)
+        ?? ets.fetByIndex?.get(i0)
+        ?? ets.formattedExplanations?.[i0]?.explanation
+        ?? '';
+      if (cachedFet && cachedFet.toLowerCase().includes('correct because')) {
+        formattedNow = cachedFet.trim();
+        console.log(`[onTimerExpiredFor] Using cached FET for Q${i0 + 1}: "${formattedNow.slice(0, 40)}..."`);
+      } else {
+        // No cached FET — compute it (this calls purgeAndDefer internally)
+        formattedNow = (await this.updateExplanationText(i0))?.toString().trim() ?? '';
+      }
 
       // Guard: skip empty or placeholder text, but wait one frame before giving up
       if (!formattedNow || formattedNow === 'No explanation available for this question.') {

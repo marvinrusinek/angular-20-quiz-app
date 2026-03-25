@@ -2091,7 +2091,10 @@ export class ExplanationTextService {
       this.setShouldDisplayExplanation(false);
     }
     this.setIsExplanationTextDisplayed(false);
-    this._textMap?.clear?.();
+    // Only delete the specific index's text$ entry instead of clearing all.
+    // Clearing all orphans text$ subjects that other components (quiz-content's
+    // displayText$ pipeline) may still be subscribed to via getExplanationText$.
+    this._textMap?.delete?.(newIndex);
 
     // Prevent stale cached FET from being reused after URL restarts/navigation.
     // Q1 is especially sensitive: stale index-0 text can survive and show wrong Option #.
