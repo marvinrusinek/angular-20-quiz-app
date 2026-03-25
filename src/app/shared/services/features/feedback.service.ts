@@ -101,14 +101,32 @@ export class FeedbackService {
       }
     }
 
-    // Use provided optionsToDisplay (visual order) as the source of truth for indices
-    // This ensures indices match what the user sees even if shuffled.
     const optionsRaw = optionsToDisplay || (question.options || []);
 
-    // Always calculate visual correct indices from the actual options being displayed
-    correctIndices = optionsRaw
-      .map((o: Option, i: number) => isCorrectHelper(o) ? i + 1 : null)
-      .filter((n: number | null): n is number => n !== null);
+    // ── GUARDRAIL: Cross-validate correctIndices against visual correct flags ──
+    // getCorrectOptionIndices can return wrong indices (e.g. Truth Layer 0
+    // matching a partial option-text substring in the explanation).  The FET
+    // has the same guardrail in emitFormatted; apply it here so feedback
+    // option numbers stay consistent with the FET.
+    if (optionsRaw.length > 0) {
+      const visualCorrect = optionsRaw
+        .map((o: Option, i: number) => isCorrectHelper(o) ? i + 1 : null)
+        .filter((n: number | null): n is number => n !== null);
+
+      if (visualCorrect.length > 0) {
+        const sortedCalc = [...correctIndices].sort((a, b) => a - b);
+        const sortedVisual = [...visualCorrect].sort((a, b) => a - b);
+        const match = sortedCalc.length === sortedVisual.length &&
+          sortedCalc.every((n, i) => n === sortedVisual[i]);
+
+        if (!match) {
+          console.warn(
+            `[FeedbackService] GUARDRAIL: correctIndices [${sortedCalc}] != visual [${sortedVisual}]. Using visual.`
+          );
+          correctIndices = visualCorrect;
+        }
+      }
+    }
 
     const totalCorrectInQ = correctIndices.length;
 

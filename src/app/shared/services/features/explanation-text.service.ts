@@ -1013,45 +1013,19 @@ export class ExplanationTextService {
       (qTypeRaw === 'single_answer' || qTypeRaw === 'true_false' ||
       (!isExplicitMulti && qTypeRaw !== 'multiple_answer'));
 
-    // 🛡️ TRUTH LAYER 0: EXPLANATION KEYWORD SCAN
-    // High-Confidence: If the explanation mentions the exact text of an option, that's the truth.
     const lowerExpContent = (question?.explanation || '').toLowerCase();
-    if (lowerExpContent.length > 5) {
-      // 🎯 HARD-LOCK for Constructor Question (Q5)
-      // "object instantiations are taken care of by the constructor in Angular"
-      if (lowerExpContent.includes('constructor') && lowerExpContent.includes('instantiation')) {
-        const found = opts.findIndex(o => (o.text || '').toLowerCase().includes('constructor'));
-        if (found !== -1) {
-          console.log(`[ETS] 🎯 Q5 TRUTH LOCK SUCCESS: Found "constructor" in explanation and option ${found + 1}`);
-          return [found + 1];
-        }
-      }
 
-      const uniqueMention = opts
-        .map((o, i) => {
-          const t = (o.text || '').trim().toLowerCase();
-          if (t.length < 3) return null;
-          // Exact text match or significant keyword match in explanation
-          return lowerExpContent.includes(t) ? i + 1 : null;
-        })
-        .filter((n): n is number => n !== null);
-
-      if (uniqueMention.length === 1) {
-        console.log(`[ETS] 🛡️ TRUTH LAYER 0 SUCCESS! Explanation uniquely mentions Option ${uniqueMention[0]}. Using it.`);
-        return uniqueMention;
-      }
-    }
-
-    // Attempt 0: Trust the internal flags on the provided question object first
+    // Attempt 0: Trust the internal correct flags FIRST — they are the most
+    // reliable signal and should take priority over text-matching heuristics.
     const internalCorrectIndices = (question?.options || [])
       .map((opt, i) => (opt.correct === true || (opt as any).correct === 'true' ? i + 1 : null))
       .filter((n): n is number => n !== null);
 
     if (internalCorrectIndices.length > 0) {
       let result = Array.from(new Set(internalCorrectIndices)).sort((a, b) => a - b);
-      
+
       // Safeguard: If multiple flags for single-choice, refine by explanation keyword
-      if (result.length > 1 && isSingleChoice) {
+      if (result.length > 1 && isSingleChoice && lowerExpContent.length > 5) {
         const matchingExp = result.filter(idx => {
            const t = (opts[idx - 1]?.text || '').toLowerCase();
            return t.length > 2 && lowerExpContent.includes(t);
@@ -1064,6 +1038,31 @@ export class ExplanationTextService {
 
       console.log(`[ETS.getCorrectOptionIndices] ✅ Attempt 0 SUCCESS for Q${qIdx + 1}. Result: ${JSON.stringify(result)}`);
       return result;
+    }
+
+    // TRUTH LAYER 0: EXPLANATION KEYWORD SCAN (fallback only when correct flags are absent)
+    if (lowerExpContent.length > 5) {
+      // 🎯 HARD-LOCK for Constructor Question (Q5)
+      if (lowerExpContent.includes('constructor') && lowerExpContent.includes('instantiation')) {
+        const found = opts.findIndex(o => (o.text || '').toLowerCase().includes('constructor'));
+        if (found !== -1) {
+          console.log(`[ETS] 🎯 Q5 TRUTH LOCK SUCCESS: Found "constructor" in explanation and option ${found + 1}`);
+          return [found + 1];
+        }
+      }
+
+      const uniqueMention = opts
+        .map((o, i) => {
+          const t = (o.text || '').trim().toLowerCase();
+          if (t.length < 3) return null;
+          return lowerExpContent.includes(t) ? i + 1 : null;
+        })
+        .filter((n): n is number => n !== null);
+
+      if (uniqueMention.length === 1) {
+        console.log(`[ETS] 🛡️ TRUTH LAYER 0 SUCCESS! Explanation uniquely mentions Option ${uniqueMention[0]}. Using it.`);
+        return uniqueMention;
+      }
     }
 
     console.error(`🔴🔴🔴 [getCorrectOptionIndices] Q${(qIdx ?? 0) + 1} | OPTS COUNT: ${opts.length}`);
