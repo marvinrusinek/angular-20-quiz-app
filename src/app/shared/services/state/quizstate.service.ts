@@ -436,6 +436,7 @@ export class QuizStateService {
     this.quizStates = {};
     this._hasUserInteracted.clear();
     this._answeredQuestionIndices.clear();
+    this.userHasInteracted$.next(-1);  // Reset so stale index doesn't falsely pass hasInteracted checks
     this.currentQuestionSubject.next(null);
     this.explanationReadySubject.next(false);
     this.answeredSubject.next(false);
