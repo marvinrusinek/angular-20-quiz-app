@@ -331,8 +331,11 @@ export class OptionInteractionService {
         if ((state as any).showExplanationChange) {
           (state as any).showExplanationChange.emit(true);
         }
-        // Also fire the local explanation emission logic
-        setTimeout(() => emitExplanation(qIdx), 0);
+        // Fire FET emission as a microtask so it completes BEFORE the
+        // requestAnimationFrame that sets displayState to 'explanation'.
+        // setTimeout (macrotask) fires AFTER RAF, causing displayText$ to
+        // evaluate with empty FET and fall back to raw explanation text.
+        queueMicrotask(() => emitExplanation(qIdx));
       }
     }
 
