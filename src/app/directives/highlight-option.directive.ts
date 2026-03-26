@@ -140,7 +140,7 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
       // Disabled
       if (!opt.correct && opt.active === false) {
         this.renderer.addClass(host, 'deactivated-option');
-        this.renderer.setStyle(host, 'cursor', 'not-allowed');
+        this.renderer.setStyle(host, 'cursor', 'default');
         this.setPointerEvents(host, 'none');
       }
 
