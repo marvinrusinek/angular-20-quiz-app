@@ -1968,16 +1968,13 @@ export class ExplanationTextService {
       this._activeIndex !== index
     ) {
       try {
-        this._byIndex.get(this._activeIndex)?.next(null);
-      } catch { }
-
-      try {
         this._gate.get(this._activeIndex)?.next(false);
       } catch { }
 
-      if (this.formattedExplanations) {
-        delete this.formattedExplanations[this._activeIndex];
-      }
+      // Preserve cached FET for the previous question so it can be
+      // restored when navigating back. Only clear transient display state.
+      // Do NOT delete formattedExplanations[_activeIndex] or push null
+      // into _byIndex — that destroys the FET cache for back-navigation.
 
       // Only clear global state when switching to a DIFFERENT question
       this.latestExplanation = '';
@@ -1991,10 +1988,15 @@ export class ExplanationTextService {
       );
     }
 
-    // Ensure and hard-emit null/false for new index
+    // Ensure and hard-emit for new index
     const { text$, gate$ } = this.getOrCreate(index);
+    // If there's already a cached FET for this index (from a previous visit),
+    // re-emit it instead of clearing it. This ensures back-navigation shows FET.
+    const cachedFet = this.formattedExplanations[index]?.explanation?.trim()
+      || this.fetByIndex.get(index)?.trim()
+      || '';
     try {
-      text$.next('');
+      text$.next(cachedFet || '');
     } catch { }
     try {
       gate$.next(false);
@@ -2002,11 +2004,13 @@ export class ExplanationTextService {
 
     this._activeIndex = index;
     this.latestExplanationIndex = index;  // ensure FET guard can match for new question
-    this.formattedExplanations[index] = {
-      questionIndex: index,
-      explanation: ''
-    };
-    console.log(`[ETS] resetForIndex(${index}) -> null/false`);
+    if (!cachedFet) {
+      this.formattedExplanations[index] = {
+        questionIndex: index,
+        explanation: ''
+      };
+    }
+    console.log(`[ETS] resetForIndex(${index}) -> cachedFet=${cachedFet ? 'YES' : 'NO'}`);
 
     try {
       this.qss.setExplanationReady(false);
@@ -2095,12 +2099,16 @@ export class ExplanationTextService {
     // displayText$ pipeline) may still be subscribed to via getExplanationText$.
     this._textMap?.delete?.(newIndex);
 
-    // Prevent stale cached FET from being reused after URL restarts/navigation.
-    // Q1 is especially sensitive: stale index-0 text can survive and show wrong Option #.
-    this.fetByIndex.delete(newIndex);
-    this.lockedFetIndices.delete(newIndex);
+    // Preserve cached FET for back-navigation. Only delete if there's no
+    // persisted formattedExplanation for this index (i.e. never answered).
+    const hasCachedFet = !!(this.formattedExplanations[newIndex]?.explanation?.trim()
+      || this.fetByIndex.get(newIndex)?.trim());
+    if (!hasCachedFet) {
+      this.fetByIndex.delete(newIndex);
+      this.lockedFetIndices.delete(newIndex);
+    }
     if (this.latestExplanationIndex === newIndex) {
-      this.latestExplanationIndex = -1;
+      this.latestExplanationIndex = newIndex; // keep it pointing to the current index
     }
 
     // Navigation in progress → explanation not ready
