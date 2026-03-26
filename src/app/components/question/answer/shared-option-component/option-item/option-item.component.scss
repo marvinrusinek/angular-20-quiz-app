@@ -103,6 +103,8 @@
   background-color: #43e756 !important;
   border-color: #36a34a !important;
   color: #000000 !important;
+  cursor: default !important;
+  pointer-events: none !important;
 
   .option-text,
   .opt-icon {
@@ -114,6 +116,8 @@
   background-color: #ff0000 !important;
   border-color: #c62828 !important;
   color: #000000 !important;
+  cursor: default !important;
+  pointer-events: none !important;
 
   .option-text,
   .opt-icon {
@@ -121,18 +125,18 @@
   }
 }
 
- /* DISABLED STATE — only for unselected/non-highlighted options */  
- .option-row.mat-mdc-radio-disabled:not(.correct-option):not(.incorrect-option),                                            
- .option-row.mat-mdc-checkbox-disabled:not(.correct-option):not(.incorrect-option) {
-   background-color: #a0a0a0 !important;
-   border-color: #888 !important;
-   cursor: default !important;
-   pointer-events: none !important;
+/* DISABLED STATE — only for unselected/non-highlighted options */
+.option-row.mat-mdc-radio-disabled:not(.correct-option):not(.incorrect-option),
+.option-row.mat-mdc-checkbox-disabled:not(.correct-option):not(.incorrect-option) {
+  background-color: #a0a0a0 !important;
+  border-color: #888 !important;
+  cursor: default !important;
+  pointer-events: none !important;
 
-   .option-text {
-     color: #444 !important;
-   }
- }
+  .option-text {
+    color: #444 !important;
+  }
+}
 
 /* CURSOR FEEDBACK */
 .option-cursor-wrapper {
