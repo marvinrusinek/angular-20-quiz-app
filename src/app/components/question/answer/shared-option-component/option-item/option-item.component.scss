@@ -121,7 +121,7 @@
   }
 }
 
- /* DISABLED STATE */
+ /* DISABLED STATE — only for unselected/non-highlighted options */  
  .option-row.mat-mdc-radio-disabled:not(.correct-option):not(.incorrect-option),                                            
  .option-row.mat-mdc-checkbox-disabled:not(.correct-option):not(.incorrect-option) {
    background-color: #a0a0a0 !important;
