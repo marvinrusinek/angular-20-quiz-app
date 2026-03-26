@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, OnChanges, SimpleChanges, ViewEncapsulation } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, OnChanges, SimpleChanges, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -35,14 +35,14 @@ export interface OptionUIEvent {
     MatCheckboxModule,
     MatRadioModule,
     MatIconModule,
-
     HighlightOptionDirective,
     SharedOptionConfigDirective
   ],
   templateUrl: './option-item.component.html',
   styleUrls: ['./option-item.component.scss'],
   encapsulation: ViewEncapsulation.None,
-  animations: [correctAnswerAnim]
+  animations: [correctAnswerAnim],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class OptionItemComponent implements OnChanges {
   @Input() b!: OptionBindings;
