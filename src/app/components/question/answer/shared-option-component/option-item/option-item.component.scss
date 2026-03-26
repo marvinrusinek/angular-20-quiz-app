@@ -121,6 +121,18 @@
   }
 }
 
+ /* DISABLED STATE */
+ .option-row.mat-mdc-radio-disabled,
+ .option-row.mat-mdc-checkbox-disabled {
+   background-color: #a0a0a0 !important;
+   border-color: #888 !important;
+   cursor: not-allowed !important;
+   pointer-events: none !important;
+
+   .option-text {
+     color: #444 !important;
+   }
+ }
 
 /* CURSOR FEEDBACK */
 .option-cursor-wrapper {
