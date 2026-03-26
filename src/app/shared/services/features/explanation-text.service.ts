@@ -1616,6 +1616,8 @@ export class ExplanationTextService {
     this._gate.clear();
     this._gatesByIndex.clear();
     this._textMap?.clear?.();
+    this.formattedExplanations = {};  // Clear cached FET so stale entries don't leak after restart
+    this.formattedExplanationByQuestionText.clear();
     this.formattedExplanations$ = [];
     this._fetLocked = null;
     this._gateToken = 0;
