@@ -126,7 +126,7 @@
  .option-row.mat-mdc-checkbox-disabled {
    background-color: #a0a0a0 !important;
    border-color: #888 !important;
-   cursor: not-allowed !important;
+   cursor: default !important;
    pointer-events: none !important;
 
    .option-text {
@@ -140,11 +140,11 @@
   display: block;
 
   &.cursor-not-allowed {
-    cursor: not-allowed !important;
+    cursor: default !important;
 
     &,
     * {
-      cursor: not-allowed !important;
+      cursor: default !important;
     }
 
     .mat-mdc-radio-button,
