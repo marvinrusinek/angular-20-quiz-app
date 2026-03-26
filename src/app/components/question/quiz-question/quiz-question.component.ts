@@ -723,8 +723,9 @@ export class QuizQuestionComponent extends BaseQuestion
     if (question) {
       this.quizService.setCurrentQuestion(question);
 
-      setTimeout(() => {
-        const explanationText = question.explanation || 'No explanation available';
+      setTimeout(async () => {
+        const formatted = await this.getFormattedExplanation(question, index);
+        const explanationText = formatted?.explanation || question.explanation || 'No explanation available';
         this.updateExplanationUI(index, explanationText);
       }, 50);
     } else {
@@ -1966,8 +1967,9 @@ export class QuizQuestionComponent extends BaseQuestion
     question: QuizQuestion
   ): Promise<void> {
     if (await this.isAnyOptionSelected(index) && this.shouldDisplayExplanation) {
-      const explanationText =
-        this.explanationTextService.prepareExplanationText(question);
+      const formatted = await this.getFormattedExplanation(question, index);
+      const explanationText = formatted?.explanation
+        || this.explanationTextService.prepareExplanationText(question);
       this.explanationToDisplay = explanationText;
       this.explanationToDisplayChange.emit(this.explanationToDisplay);
       this.showExplanationChange.emit(true);
