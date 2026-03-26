@@ -2,8 +2,7 @@
 import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef,
   Component, DoCheck, EventEmitter, HostListener, Input, NgZone, OnChanges, OnDestroy, OnInit,
-  Output, SimpleChanges
-} from '@angular/core';
+  Output, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule, MatCheckboxChange } from '@angular/material/checkbox';
@@ -11,8 +10,7 @@ import { MatRadioModule, MatRadioChange } from '@angular/material/radio';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import {
   animationFrameScheduler, BehaviorSubject, combineLatest, Observable, of, Subject,
-  Subscription
-} from 'rxjs';
+  Subscription } from 'rxjs';
 import { distinctUntilChanged, filter, observeOn, take, takeUntil } from 'rxjs/operators';
 
 import { FeedbackProps } from '../../../../shared/models/FeedbackProps.model';
