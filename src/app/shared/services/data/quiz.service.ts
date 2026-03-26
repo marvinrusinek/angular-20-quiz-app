@@ -2690,6 +2690,9 @@ export class QuizService {
     // Reset quiz completion flag for new quiz
     this.quizCompleted = false;
 
+    // Clear multi-answer perfect map so stale entries don't trigger early FET
+    (this as any)._multiAnswerPerfect?.clear?.();
+
     try {
       localStorage.removeItem('userAnswers');
       localStorage.removeItem('questionCorrectness');
