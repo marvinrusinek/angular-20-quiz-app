@@ -2138,8 +2138,8 @@ export class SharedOptionComponent
           }
           return allCorrect;
         }
-        // Single-answer: FET should display on ANY selection (correct or incorrect)
-        return selectedFromUi.length > 0;
+        // Single-answer: FET should display only when the correct answer is selected
+        return correctSelected >= 1;
       })();
 
       const status = this.selectedOptionService.getResolutionStatus(
