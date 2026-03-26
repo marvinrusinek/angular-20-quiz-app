@@ -283,8 +283,10 @@ export class OptionItemComponent implements OnChanges {
   shouldHighlightOption(): boolean {
     // Multi-answer selections should immediately show their success/error state
     // on the first click, even before the full question is resolved.
+    // _wasSelected keeps previously selected incorrect options highlighted (red)
+    // even after forceDisableAll fires.
     if (this.type === 'multiple') {
-      return this.isOptionIndividuallySelected() || !!this.b.option?.highlight;
+      return this.isOptionIndividuallySelected() || !!this.b.option?.highlight || this._wasSelected;
     }
     // Single-answer: isSelected (current) + option.highlight (history from click handler)
     return this.b.isSelected || !!this.b.option?.highlight;
