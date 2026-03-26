@@ -83,7 +83,7 @@ export class OptionService {
     timerExpiredForQuestion: boolean
   ): string {
     if (isDisabled || timerExpiredForQuestion) {
-      return 'not-allowed';
+      return 'default';
     }
     return 'pointer';
   }
