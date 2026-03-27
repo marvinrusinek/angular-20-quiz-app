@@ -57,6 +57,11 @@ export class AccordionComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    // Recover selections from durable localStorage store.
+    // clearState/resetAll wipes rawSelectionsMap AND sessionStorage,
+    // but the durable 'quizAnswersForResults' key in localStorage survives.
+    this.selectedOptionService.recoverAnswersForResults();
+
     // Read userAnswers directly from localStorage to ensure we have the latest data
     let storedAnswers: any[] = [];
     try {
@@ -69,7 +74,7 @@ export class AccordionComponent implements OnInit, OnDestroy {
     }
 
     // Use localStorage data as primary source, fallback to service
-    const userAnswersData = 
+    const userAnswersData =
       storedAnswers.length > 0 ? storedAnswers : this.quizService.userAnswers;
     
     // Initialize results in ngOnInit when service data is available
@@ -154,16 +159,21 @@ export class AccordionComponent implements OnInit, OnDestroy {
 
   getUserAnswerIndices(question: QuizQuestion, userIds: number | number[]): number[] {
     if (!question || !question.options || !userIds) return [];
-    
+
     const ids = Array.isArray(userIds) ? userIds : [userIds];
-    
+
     return ids
       .map((id: number) => {
-         // Find index of option with this optionId, safe-matching strings or numbers
-         const idx = question.options.findIndex((opt: Option) => String(opt.optionId) === String(id));
-         if (idx === -1) {
-          console.warn(`[getUserAnswerIndices] ID mismatch for Q "${question.questionText?.substring(0, 15)}...". Looking for ID: ${id}. Available Options:`, question.options.map(o => o.optionId));
+         // Try matching by optionId first
+         let idx = question.options.findIndex((opt: Option) =>
+           opt.optionId != null && String(opt.optionId) === String(id)
+         );
+
+         // Fallback: treat id as a 0-based display index (used when options lack optionId)
+         if (idx === -1 && typeof id === 'number' && id >= 0 && id < question.options.length) {
+           idx = id;
          }
+
          return idx >= 0 ? idx + 1 : -1;
       })
       .filter((idx: number) => idx !== -1)
@@ -189,19 +199,33 @@ export class AccordionComponent implements OnInit, OnDestroy {
     const question = this.questions[questionIndex];
     if (!question || !question.options) return [];
 
+    const matchOption = (sel: any): number => {
+      // Match by optionId (when both sides have it)
+      let idx = question.options.findIndex((opt: Option) =>
+        opt.optionId != null && sel.optionId != null && sel.optionId !== -1 &&
+        String(opt.optionId) === String(sel.optionId)
+      );
+      // Match by text
+      if (idx === -1 && sel.text) {
+        idx = question.options.findIndex((opt: Option) => opt.text === sel.text);
+      }
+      // Fallback: treat optionId as display index (when options lack optionId)
+      if (idx === -1 && typeof sel.optionId === 'number' && sel.optionId >= 0 && sel.optionId < question.options.length) {
+        idx = sel.optionId;
+      }
+      return idx;
+    };
+
     // Try rawSelectionsMap first (more reliable)
     const rawSelections = this.selectedOptionService.rawSelectionsMap.get(questionIndex);
     if (rawSelections && rawSelections.length > 0) {
       return rawSelections.map((sel: any) => {
-        // Find the visual index (1-based) of this option in the question
-        const visualIdx = question.options.findIndex((opt: Option) => 
-          String(opt.optionId) === String(sel.optionId) || opt.text === sel.text
-        );
+        const visualIdx = matchOption(sel);
         return {
-          text: sel.text || `Option ${visualIdx + 1}`,
+          text: sel.text || (visualIdx >= 0 ? question.options[visualIdx]?.text : '') || `Option ${visualIdx + 1}`,
           visualIndex: visualIdx >= 0 ? visualIdx + 1 : 0
         };
-      }).filter((o: any) => o.visualIndex > 0);  // removed .sort() - preserve selection order
+      }).filter((o: any) => o.visualIndex > 0);
     }
 
     // Fallback to selectedOptionsMap
@@ -209,16 +233,13 @@ export class AccordionComponent implements OnInit, OnDestroy {
     if (!selections || selections.length === 0) {
       return [];
     }
-    console.log(`[ACCORDION] Using selectedOptionsMap for Q${questionIndex}:`, selections);
     return selections.map((sel: any) => {
-      const visualIdx = question.options.findIndex((opt: Option) => 
-        String(opt.optionId) === String(sel.optionId) || opt.text === sel.text
-      );
+      const visualIdx = matchOption(sel);
       return {
-        text: sel.text || `Option ${visualIdx + 1}`,
+        text: sel.text || (visualIdx >= 0 ? question.options[visualIdx]?.text : '') || `Option ${visualIdx + 1}`,
         visualIndex: visualIdx >= 0 ? visualIdx + 1 : 0
       };
-    }).filter((o: any) => o.visualIndex > 0);  // removed .sort() - preserve selection order
+    }).filter((o: any) => o.visualIndex > 0);
   }
 
   // Check if we have any selections from the service for this question

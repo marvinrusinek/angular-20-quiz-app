@@ -1,7 +1,26 @@
 {
   "permissions": {
     "allow": [
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(npx ng:*)",
+      "Bash(grep -n \"questionText$\\\\s*=\" \"C:\\\\Users\\\\marvi\\\\OneDrive\\\\Desktop\\\\angular-20-quiz-app\\\\src\\\\app\\\\containers\\\\quiz\\\\quiz-content\\\\codelab-quiz-content.component.ts\")",
+      "Bash(grep -n \"quietZoneUntil$\\\\|_quietZoneUntil\" \"C:\\\\Users\\\\marvi\\\\OneDrive\\\\Desktop\\\\angular-20-quiz-app\\\\src\\\\app\\\\shared\\\\services\\\\flow\\\\quizquestionloader.service.ts\")",
+      "Bash(grep -n \"index$\\\\s*=\" \"C:\\\\Users\\\\marvi\\\\OneDrive\\\\Desktop\\\\angular-20-quiz-app\\\\src\\\\app\\\\containers\\\\quiz\\\\quiz-content\\\\codelab-quiz-content.component.ts\")",
+      "Bash(find /c/Users/marvi/OneDrive/Desktop/angular-20-quiz-app -name *.json -path */assets/* -o -name *.json -path */data/*)",
+      "Bash(git push:*)",
+      "Bash(git pull:*)",
+      "Bash(git stash:*)",
+      "Bash(grep -n \"questionToDisplaySource\\\\|questionToDisplay$\\\\|codelab-quiz-content\" /c/Users/marvi/OneDrive/Desktop/angular-20-quiz-app/src/app/containers/quiz/quiz.component.html)",
+      "Bash(grep -n \"questionToDisplay$\\\\|questionToDisplaySource\" /c/Users/marvi/OneDrive/Desktop/angular-20-quiz-app/src/app/containers/quiz/quiz.component.ts)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(grep -n \"optionsToDisplay\\\\|options$\\\\|currentOptions\" /c/Users/marvi/OneDrive/Desktop/angular-20-quiz-app/src/app/components/question/quiz-question/quiz-question.component.ts)",
+      "Bash(find /c/Users/marvi/OneDrive/Desktop/angular-20-quiz-app -name *quiz* -type f)",
+      "Bash(grep -E \"\\\\.\\(json|ts\\)$\")",
+      "Bash(xargs grep:*)",
+      "Bash(grep -r \"Q3\\\\|question.*3\" /c/Users/marvi/OneDrive/Desktop/angular-20-quiz-app/src --include=*.ts --include=*.json)",
+      "Bash(python3:*)",
+      "Bash(node -e \":*)"
     ]
   }
 }

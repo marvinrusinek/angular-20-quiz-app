@@ -165,6 +165,24 @@ export class SelectedOptionService {
 
   // Helper to sync state from external components (like SharedOptionComponent)
   syncSelectionState(questionIndex: number, options: SelectedOption[]): void {
+    // Store RAW selections to a DURABLE location that survives clearState/resetAll.
+    // clearState() wipes rawSelectionsMap, selectedOptionsMap, AND sessionStorage.
+    // Only localStorage with a distinct key survives every reset path.
+    if (Array.isArray(options) && options.length > 0) {
+      const rawSelections = options
+        .filter(o => o != null)
+        .map(o => ({
+          optionId: typeof o.optionId === 'number' ? o.optionId : -1,
+          text: o.text || ''
+        }))
+        .filter(o => o.optionId >= 0 || o.text);
+      if (rawSelections.length > 0) {
+        this.rawSelectionsMap.set(questionIndex, rawSelections);
+        // Persist to durable localStorage key that NO reset path touches
+        this.persistAnswerForResults(questionIndex, rawSelections);
+      }
+    }
+
     const committed = this.commitSelections(questionIndex, options);
 
     // VITAL: Update the map so that getSelectedOptionsForQuestion(index) returns the new state!
@@ -175,6 +193,46 @@ export class SelectedOptionService {
     this.selectedOptionSubject.next(committed);
     this.isOptionSelectedSubject.next(committed.length > 0);
     this.isAnsweredSubject.next(true);
+
+    // Persist to sessionStorage so data survives navigation
+    this.saveState();
+  }
+
+  /** Persist a single question's selections to a durable localStorage key
+   *  that is NOT cleared by clearState/resetAllOptions/resetAll. */
+  private persistAnswerForResults(questionIndex: number, selections: { optionId: number; text: string }[]): void {
+    try {
+      const key = 'quizAnswersForResults';
+      const existing = JSON.parse(localStorage.getItem(key) || '{}');
+      existing[questionIndex] = selections;
+      localStorage.setItem(key, JSON.stringify(existing));
+    } catch { /* ignore */ }
+  }
+
+  /** Recover all persisted answers from the durable store into rawSelectionsMap. */
+  public recoverAnswersForResults(): void {
+    try {
+      const key = 'quizAnswersForResults';
+      const stored = localStorage.getItem(key);
+      if (!stored) return;
+      const parsed = JSON.parse(stored);
+      for (const [k, v] of Object.entries(parsed)) {
+        const idx = Number(k);
+        if (Number.isFinite(idx) && Array.isArray(v) && v.length > 0) {
+          // Only recover if rawSelectionsMap doesn't already have data for this question
+          if (!this.rawSelectionsMap.has(idx) || this.rawSelectionsMap.get(idx)!.length === 0) {
+            this.rawSelectionsMap.set(idx, v as any);
+          }
+        }
+      }
+    } catch { /* ignore */ }
+  }
+
+  /** Clear the durable answers store (call only on explicit quiz restart). */
+  public clearAnswersForResults(): void {
+    try {
+      localStorage.removeItem('quizAnswersForResults');
+    } catch { /* ignore */ }
   }
 
   deselectOption(): void {
@@ -2734,6 +2792,9 @@ export class SelectedOptionService {
     this.selectedOptionSubject.next([]);
     this.isOptionSelectedSubject.next(false);
     this.isAnsweredSubject.next(false);
+
+    // Also clear the durable results store for a fresh start
+    this.clearAnswersForResults();
 
     try {
       localStorage.removeItem('selectedOptionsMap');
