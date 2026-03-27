@@ -1,19 +1,40 @@
-<div class="option-cursor-wrapper" [class.cursor-not-allowed]="getOptionCursor() === 'not-allowed'"
-  [attr.data-option-id]="b.option.optionId">
+<div
+  class="option-cursor-wrapper"
+  [class.cursor-not-allowed]="getOptionCursor() === 'not-allowed'"
+  [attr.data-option-id]="b.option.optionId"
+>
   @if (type === 'single') {
-  <mat-radio-button class="option-row single-option" appHighlightOption [sharedOptionConfig]="sharedOptionConfig"
-    [optionBinding]="b" [value]="i" [ngClass]="getOptionClasses()" [style.background-color]="getOptionBackgroundColor()"
-    [disabled]="isDisabled()" [disableRipple]="true" (change)="onChanged($event)"
-    [attr.data-option-id]="b.option.optionId">
-    <ng-container *ngTemplateOutlet="optionContent"></ng-container>
-  </mat-radio-button>
+    <mat-radio-button
+      class="option-row single-option"
+      appHighlightOption
+      [sharedOptionConfig]="sharedOptionConfig"
+      [optionBinding]="b"
+      [value]="i"
+      [ngClass]="getOptionClasses()"
+      [style.background-color]="getOptionBackgroundColor()"
+      [disabled]="isDisabled()"
+      [disableRipple]="true"
+      (change)="onChanged($event)"
+      [attr.data-option-id]="b.option.optionId"
+    >
+      <ng-container *ngTemplateOutlet="optionContent"></ng-container>
+    </mat-radio-button>
   } @else {
-  <mat-checkbox class="option-row multiple-option" appHighlightOption [sharedOptionConfig]="sharedOptionConfig"
-    [optionBinding]="b" [checked]="b.isSelected" [ngClass]="getOptionClasses()"
-    [style.background-color]="getOptionBackgroundColor()" [disabled]="isDisabled()" [disableRipple]="true"
-    (change)="onChanged($event)" [attr.data-option-id]="b.option.optionId">
-    <ng-container *ngTemplateOutlet="optionContent"></ng-container>
-  </mat-checkbox>
+    <mat-checkbox
+      class="option-row multiple-option"
+      appHighlightOption
+      [sharedOptionConfig]="sharedOptionConfig"
+      [optionBinding]="b"
+      [checked]="b.isSelected"
+      [ngClass]="getOptionClasses()"
+      [style.background-color]="getOptionBackgroundColor()"
+      [disabled]="isDisabled()"
+      [disableRipple]="true"
+      (change)="onChanged($event)"
+      [attr.data-option-id]="b.option.optionId"
+    >
+      <ng-container *ngTemplateOutlet="optionContent"></ng-container>
+    </mat-checkbox>
   }
 </div>
 
@@ -24,9 +45,9 @@
     </span>
 
     @if (shouldShowIcon(b.option, i)) {
-    <mat-icon class="opt-icon">
-      {{ getOptionIcon(b.option, i) }}
-    </mat-icon>
+      <mat-icon class="opt-icon">
+        {{ getOptionIcon(b.option, i) }}
+      </mat-icon>
     }
   </div>
 </ng-template>
