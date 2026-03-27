@@ -1,5 +1,5 @@
 import {
-  ChangeDetectorRef, Directive, ElementRef, EventEmitter, HostListener, Input, 
+  ChangeDetectorRef, Directive, ElementRef, EventEmitter, HostListener, Input,
   OnChanges, OnInit, Output, Renderer2, SimpleChanges
 } from '@angular/core';
 
@@ -46,6 +46,12 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
+    // Auto-derive inputs from sharedOptionConfig / optionBinding
+    // so the template doesn't have to pass them individually.
+    if (changes['sharedOptionConfig'] || changes['optionBinding']) {
+      this.syncDerivedInputs();
+    }
+
     // New Source Of Truth:
     // Highlighting is now driven by SharedOptionConfig
     if (changes['sharedOptionConfig']) {
@@ -77,6 +83,18 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
     }
   }
 
+  /** Derive individual inputs from sharedOptionConfig / optionBinding when not explicitly set. */
+  private syncDerivedInputs(): void {
+    if (this.sharedOptionConfig) {
+      this.appHighlightInputType = this.sharedOptionConfig.type === 'multiple' ? 'checkbox' : 'radio';
+      this.appHighlightReset = this.sharedOptionConfig.shouldResetBackground;
+    }
+    if (this.optionBinding) {
+      this.option = this.optionBinding.option;
+      this.isSelected = this.optionBinding.isSelected;
+    }
+  }
+
 
   @HostListener('click')
   onClick(): void {
@@ -96,55 +114,55 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
 
         const host = this.el.nativeElement as HTMLElement;
 
-      // Check the LIVE binding/option state first — these are mutated synchronously
-      // during click handlers, BEFORE this setTimeout fires with potentially stale config.
-      const bindingSelected = this.optionBinding?.isSelected === true;
-      const optionSelected = opt.selected === true || opt.highlight === true;
-      const inputSelected = this.isSelected === true;
-      const isLiveSelected = bindingSelected || optionSelected || inputSelected;
+        // Check the LIVE binding/option state first — these are mutated synchronously
+        // during click handlers, BEFORE this setTimeout fires with potentially stale config.
+        const bindingSelected = this.optionBinding?.isSelected === true;
+        const optionSelected = opt.selected === true || opt.highlight === true;
+        const inputSelected = this.isSelected === true;
+        const isLiveSelected = bindingSelected || optionSelected || inputSelected;
 
-      // If the option is currently selected (from live state), apply correct/incorrect color
-      if (isLiveSelected) {
-        opt.showIcon = true;
-        return;
-      }
-
-      // Not selected — check config for reset
-      if (this.sharedOptionConfig?.option) {
-        const cfg = this.sharedOptionConfig;
-        const cfgSelected = cfg.isOptionSelected || cfg.option.selected === true || cfg.highlight === true;
-
-        if (cfgSelected) {
-          const isCorrectHelper = (o: any) => o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || o.correct === '1');
-          const isCorrect = isCorrectHelper(cfg.option) || isCorrectHelper(opt);
+        // If the option is currently selected (from live state), apply correct/incorrect color
+        if (isLiveSelected) {
           opt.showIcon = true;
-        } else if (cfg.shouldResetBackground) {
-          // Only reset to transparent if the option is truly not selected
-          opt.showIcon = false;
-        } else {
-          opt.showIcon = false;
+          return;
         }
-        return;
-      }
 
-      // Legacy Path: only used if sharedOptionConfig is not available
-      this.renderer.removeClass(host, 'deactivated-option');
-      this.renderer.setStyle(host, 'cursor', 'pointer');
-      this.setPointerEvents(host, 'auto');
+        // Not selected — check config for reset
+        if (this.sharedOptionConfig?.option) {
+          const cfg = this.sharedOptionConfig;
+          const cfgSelected = cfg.isOptionSelected || cfg.option.selected === true || cfg.highlight === true;
 
-      if (opt.highlight) {
-        opt.showIcon = true;
-        return;
-      }
+          if (cfgSelected) {
+            const isCorrectHelper = (o: any) => o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || o.correct === '1');
+            const isCorrect = isCorrectHelper(cfg.option) || isCorrectHelper(opt);
+            opt.showIcon = true;
+          } else if (cfg.shouldResetBackground) {
+            // Only reset to transparent if the option is truly not selected
+            opt.showIcon = false;
+          } else {
+            opt.showIcon = false;
+          }
+          return;
+        }
 
-      // Disabled
-      if (!opt.correct && opt.active === false) {
-        this.renderer.addClass(host, 'deactivated-option');
-        this.renderer.setStyle(host, 'cursor', 'default');
-        this.setPointerEvents(host, 'none');
-      }
+        // Legacy Path: only used if sharedOptionConfig is not available
+        this.renderer.removeClass(host, 'deactivated-option');
+        this.renderer.setStyle(host, 'cursor', 'pointer');
+        this.setPointerEvents(host, 'auto');
 
-      opt.showIcon = false;
+        if (opt.highlight) {
+          opt.showIcon = true;
+          return;
+        }
+
+        // Disabled
+        if (!opt.correct && opt.active === false) {
+          this.renderer.addClass(host, 'deactivated-option');
+          this.renderer.setStyle(host, 'cursor', 'default');
+          this.setPointerEvents(host, 'none');
+        }
+
+        opt.showIcon = false;
       } catch (error: unknown) {
         console.error('[HighlightOptionDirective] updateHighlight failed', error);
       }
