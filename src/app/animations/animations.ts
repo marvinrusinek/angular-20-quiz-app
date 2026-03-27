@@ -36,7 +36,10 @@ export const ChangeRouteAnimation = {
   ])
 };
 
-
+/***************************************
+ * Correct answer pop-in: 
+ * Scales from 92% to 100% and fades in over 180ms.
+ ***************************************/ 
 export const correctAnswerAnim = trigger('correctAnswer', [
   transition(':enter', [
     style({
