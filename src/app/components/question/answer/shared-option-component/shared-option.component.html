@@ -1,3 +1,5 @@
+@let opts = optionBindings || [];
+
 <!-- Reusable feedback block (rendered below the last selected option) -->
 <ng-template #feedbackBlock let-b="b" let-i="i">
   @if (shouldShowFeedbackAfter(b, i)) {
