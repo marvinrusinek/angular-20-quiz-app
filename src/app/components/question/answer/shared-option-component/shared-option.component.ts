@@ -1815,6 +1815,18 @@ export class SharedOptionComponent
     const qIndex = this.currentQuestionIndex;
     const lockId = (option?.optionId != null && Number(option.optionId) !== -1) ? option.optionId : index;
 
+    // Multi-answer guard: only use the explicit disabledOptionsPerQuestion set
+    // and forceDisableAll. Lock services (optionLocked, questionLocked) can
+    // cross-contaminate and erroneously disable non-clicked options.
+    // Check by display index ONLY — the set stores display indices, so checking
+    // by optionId would cause cross-contamination when an optionId matches
+    // another option's display index.
+    if (this.isMultiMode) {
+      if (this.forceDisableAll) return true;
+      const disabledSet = this.disabledOptionsPerQuestion.get(qIndex);
+      return !!(disabledSet && disabledSet.has(index));
+    }
+
     // Correct options should NOT be disabled while the user is still selecting
     // answers. For multi-answer, they can be disabled once fully resolved.
     // For single-answer, the correct option must always remain clickable.
@@ -1824,7 +1836,7 @@ export class SharedOptionComponent
       const questionCorrectCount = (currentQ?.options ?? []).filter(
         (o: any) => o?.correct === true || String(o?.correct) === 'true'
       ).length;
-      const isMultiFromData = questionCorrectCount > 1 || this.isMultiMode;
+      const isMultiFromData = questionCorrectCount > 1;
 
       if (isMultiFromData) {
         const perfectMap = (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
