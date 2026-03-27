@@ -28,10 +28,10 @@ export class OptionHydrationService {
     if (!saved?.length) return set;
 
     for (const s of saved) {
-        const id = s?.optionId;
-        if (id !== undefined && id !== null) {
+      const id = s?.optionId;
+      if (id !== undefined && id !== null) {
         set.add(id);
-        }
+      }
     }
     return set;
   }
