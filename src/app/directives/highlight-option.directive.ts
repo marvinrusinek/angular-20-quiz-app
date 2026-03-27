@@ -1,6 +1,6 @@
 import {
-  ChangeDetectorRef, Directive, ElementRef, EventEmitter, HostBinding,
-  HostListener, Input, OnChanges, OnInit, Output, Renderer2, SimpleChanges
+  ChangeDetectorRef, Directive, ElementRef, EventEmitter, HostListener, Input, 
+  OnChanges, OnInit, Output, Renderer2, SimpleChanges
 } from '@angular/core';
 
 import { Option } from '../shared/models/Option.model';
@@ -10,7 +10,7 @@ import { SharedOptionConfig } from '../shared/models/SharedOptionConfig.model';
 @Directive({
   selector: '[appHighlightOption]',
   exportAs: 'appHighlightOption',
-  standalone: true,
+  standalone: true
 })
 export class HighlightOptionDirective implements OnInit, OnChanges {
   @Output() resetBackground = new EventEmitter<boolean>();
