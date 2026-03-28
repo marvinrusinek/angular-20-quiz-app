@@ -166,7 +166,7 @@ export class SelectionMessageService {
 
       // Nothing selected → prompt for total correct count
       if (totalSelected === 0) {
-        return `Select ${totalCorrect} options to continue...`;
+        return `Select ${totalCorrect} correct options to continue...`;
       }
 
       // Some selected but not all correct yet → show remaining correct needed
@@ -202,7 +202,7 @@ export class SelectionMessageService {
   public enforceBaselineAtInit(i0: number, qType: QuestionType, totalCorrect: number): void {
     if (this._baselineReleased.has(i0)) return;
     const msg = qType === QuestionType.MultipleAnswer
-      ? `Select ${totalCorrect} options to continue...`
+      ? `Select ${totalCorrect} correct options to continue...`
       : (i0 === 0 ? START_MSG : CONTINUE_MSG);
     this._lastMessageByIndex.set(i0, msg);
     this.pushMessage(msg, i0);
