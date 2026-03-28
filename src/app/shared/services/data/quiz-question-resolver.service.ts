@@ -1,0 +1,300 @@
+import { Injectable } from '@angular/core';
+import {
+  BehaviorSubject, Observable, of
+} from 'rxjs';
+import {
+  catchError, distinctUntilChanged, filter, map, take
+} from 'rxjs/operators';
+
+import { QuestionType } from '../../models/question-type.enum';
+import { Option } from '../../models/Option.model';
+import { QuizQuestion } from '../../models/QuizQuestion.model';
+import { QuizShuffleService } from '../flow/quiz-shuffle.service';
+
+@Injectable({ providedIn: 'root' })
+export class QuizQuestionResolverService {
+  constructor(
+    private quizShuffleService: QuizShuffleService
+  ) {}
+
+  getQuestionByIndex(
+    index: number,
+    resolveShuffleQuizId: () => string | null,
+    resolveCanonicalQuestion: (idx: number, q: QuizQuestion | null) => QuizQuestion | null,
+    isShuffleEnabled: () => boolean,
+    shuffledQuestions: QuizQuestion[],
+    questions$: Observable<QuizQuestion[]>
+  ): Observable<QuizQuestion | null> {
+    const quizId = resolveShuffleQuizId();
+    if (!quizId) {
+      console.warn('[getQuestionByIndex] No active quiz ID resolved.');
+      return of(null);
+    }
+
+    const resolvedQuestion = resolveCanonicalQuestion(index, null);
+
+    if (resolvedQuestion) {
+      if (isShuffleEnabled() && shuffledQuestions && shuffledQuestions.length > index) {
+        const strictShuffled = shuffledQuestions[index];
+        if (strictShuffled && strictShuffled.questionText !== resolvedQuestion.questionText) {
+          console.warn(`[getQuestionByIndex] MISMATCH DETECTED for Q${index + 1}!`);
+          return of({
+            ...strictShuffled,
+            options: (strictShuffled.options ?? []).map((o) => ({ ...o }))
+          });
+        }
+      }
+
+      return of({
+        ...resolvedQuestion,
+        options: (resolvedQuestion.options ?? []).map((o) => ({ ...o }))
+      });
+    }
+
+    return questions$.pipe(
+      filter((questions) => Array.isArray(questions) && questions.length > 0),
+      take(1),
+      map((questions: QuizQuestion[] | null) => {
+        if (!Array.isArray(questions) || !questions[index]) return null;
+        const q = questions[index];
+        return {
+          ...q,
+          options: (q.options ?? []).map((o) => ({ ...o }))
+        };
+      })
+    );
+  }
+
+  getCurrentQuestion(
+    questionIndex: number,
+    questions: QuizQuestion[]
+  ): Observable<QuizQuestion | null> {
+    return of(null).pipe(
+      map(() => {
+        if (!Array.isArray(questions) || questions.length === 0) {
+          console.error('[QuizService] getCurrentQuestion: No questions available');
+          return null;
+        }
+
+        if (questionIndex < 0 || questionIndex >= questions.length) {
+          console.warn(`[QuizService] Index ${questionIndex} out of bounds (0-${questions.length - 1}).`);
+          return null;
+        }
+
+        return questions[questionIndex];
+      }),
+      distinctUntilChanged(),
+      catchError((error: Error) => {
+        console.error('Error fetching current question:', error);
+        return of(null);
+      })
+    );
+  }
+
+  resolveCanonicalQuestion(
+    index: number,
+    currentQuestion: QuizQuestion | null | undefined,
+    quizId: string | null,
+    isShuffleEnabled: () => boolean,
+    shouldShuffle: () => boolean,
+    shuffledQuestions: QuizQuestion[],
+    canonicalQuestionsByQuiz: Map<string, QuizQuestion[]>,
+    canonicalQuestionIndexByText: Map<string, Map<string, number>>,
+    questions: QuizQuestion[],
+    cloneQuestionForSession: (q: QuizQuestion, idx?: number) => QuizQuestion | null,
+    normalizeQuestionText: (text: string | null | undefined) => string,
+    quizShuffleService: QuizShuffleService
+  ): QuizQuestion | null {
+    if (!quizId) return null;
+
+    // Strict Shuffle Priority
+    if (isShuffleEnabled() && shuffledQuestions && shuffledQuestions.length > 0) {
+      if (index >= 0 && index < shuffledQuestions.length) {
+        const shuffledQ = shuffledQuestions[index];
+        if (currentQuestion && currentQuestion.questionText !== shuffledQ.questionText) {
+          console.warn(`[resolveCanonicalQuestion] Index ${index} Mismatch!`);
+        }
+        return shuffledQ;
+      }
+    }
+
+    const canonical = canonicalQuestionsByQuiz.get(quizId) ?? [];
+    const source = Array.isArray(questions) ? questions : [];
+    const hasCanonical = canonical.length > 0;
+    const shuffleActive = shouldShuffle();
+
+    const cloneCandidate = (
+      question: QuizQuestion | null | undefined,
+      reason: string
+    ): QuizQuestion | null => {
+      if (!question) return null;
+
+      const clone = cloneQuestionForSession(question);
+      if (!clone) return null;
+
+      if (!clone.type) {
+        clone.type = question.type ?? QuestionType.SingleAnswer;
+      }
+
+      if (currentQuestion) {
+        const incomingText = normalizeQuestionText(clone.questionText);
+        const currentText = normalizeQuestionText(currentQuestion.questionText);
+        if (incomingText && currentText && incomingText !== currentText) {
+          console.debug('[resolveCanonicalQuestion] Replacing mismatched question text', { reason, currentText, incomingText, index });
+        }
+      }
+
+      return clone;
+    };
+
+    if (shuffleActive) {
+      if (Array.isArray(shuffledQuestions) && shuffledQuestions.length > index && shuffledQuestions[index]) {
+        return shuffledQuestions[index];
+      }
+
+      const base = hasCanonical ? canonical : source;
+      if (!Array.isArray(base) || base.length === 0) {
+        return cloneCandidate(currentQuestion, 'shuffle-no-base');
+      }
+
+      if (hasCanonical) {
+        const originalIndex = quizShuffleService.toOriginalIndex(quizId, index);
+
+        if (
+          typeof originalIndex === 'number' &&
+          Number.isInteger(originalIndex) &&
+          originalIndex >= 0 &&
+          originalIndex < canonical.length
+        ) {
+          const canonicalClone = cloneCandidate(canonical[originalIndex], 'canonical-original-index');
+          if (canonicalClone) return canonicalClone;
+        }
+      }
+
+      const fromShuffle = quizShuffleService.getQuestionAtDisplayIndex(quizId, index, base);
+      const shuffleClone = cloneCandidate(fromShuffle, 'shuffle-display-index');
+      if (shuffleClone) return shuffleClone;
+
+      const baseClone = cloneCandidate(base[index], 'shuffle-base-index');
+      if (baseClone) return baseClone;
+
+      if (hasCanonical) {
+        const canonicalClone = cloneCandidate(canonical[index], 'canonical-index');
+        if (canonicalClone) return canonicalClone;
+      }
+
+      if (currentQuestion) {
+        const currentKey = normalizeQuestionText(currentQuestion.questionText);
+        if (currentKey) {
+          const textIndexMap = canonicalQuestionIndexByText.get(quizId);
+          const mappedIndex = textIndexMap?.get(currentKey);
+          if (
+            Number.isInteger(mappedIndex) &&
+            mappedIndex! >= 0 &&
+            mappedIndex! < canonical.length
+          ) {
+            const mappedClone = cloneCandidate(canonical[mappedIndex!], 'canonical-text-index');
+            if (mappedClone) return mappedClone;
+          }
+
+          const fallbackMatch = canonical.find(
+            (q) => normalizeQuestionText(q?.questionText) === currentKey
+          );
+          const fallbackClone = cloneCandidate(fallbackMatch, 'canonical-text-scan');
+          if (fallbackClone) return fallbackClone;
+        }
+      }
+
+      return cloneCandidate(currentQuestion ?? source[index] ?? null, 'current-fallback');
+    }
+
+    // Non-shuffle path
+    const sourceClone = cloneCandidate(source[index], 'source-index');
+    return sourceClone ?? null;
+  }
+
+  cloneQuestionForSession(question: QuizQuestion, qIndex?: number): QuizQuestion | null {
+    if (!question) {
+      return null;
+    }
+
+    const deepClone = JSON.parse(JSON.stringify(question)) as QuizQuestion;
+
+    const normalize = (val: unknown): string =>
+      String(val ?? '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\u00A0/g, ' ').trim().toLowerCase().replace(/\s+/g, ' ');
+
+    // Phase 1: Normalize Options and enforce stable, unique numeric IDs
+    const normalizedOptions = Array.isArray(deepClone.options)
+      ? deepClone.options.map((option, optionIdx) => {
+        const rawOId = (option as any).optionId;
+        const oId = (typeof qIndex === 'number')
+          ? (qIndex + 1) * 100 + (optionIdx + 1)
+          : (!isNaN(Number(rawOId)) && Number(rawOId) > 0 ? Number(rawOId) : optionIdx + 1);
+
+        return {
+          ...option,
+          optionId: oId,
+          displayOrder: typeof option.displayOrder === 'number' ? option.displayOrder : optionIdx,
+          selected: option.selected === true || (option as any).selected === 'true',
+          highlight: option.highlight ?? false,
+          showIcon: option.showIcon ?? false
+        };
+      })
+      : [];
+
+    // Phase 2: Build authoritative 'answer' array
+    const finalAnswers: Option[] = [];
+    if (Array.isArray(deepClone.answer)) {
+      deepClone.answer.forEach(rawAns => {
+        if (!rawAns) return;
+        const normAnsText = normalize(rawAns.text);
+        const ansId = Number(rawAns.optionId);
+
+        const match = normalizedOptions.find(o => {
+          const normOptText = normalize(o.text);
+          return (normOptText && normAnsText && normOptText === normAnsText) ||
+            (!isNaN(ansId) && Number(o.optionId) === ansId);
+        });
+
+        if (match) {
+          finalAnswers.push({
+            ...rawAns,
+            optionId: match.optionId,
+            text: match.text,
+            correct: true
+          });
+        }
+      });
+    }
+
+    // Fallback Phase 2
+    if (finalAnswers.length === 0) {
+      normalizedOptions.forEach(o => {
+        if (o.correct === true || (o as any).correct === "true") {
+          finalAnswers.push({
+            optionId: o.optionId,
+            text: o.text,
+            correct: true
+          } as Option);
+        }
+      });
+    }
+
+    // Phase 3: Synchronize 'correct' flag
+    const correctIds = new Set(finalAnswers.map(a => Number(a.optionId)));
+    const finalOptions = normalizedOptions.map(o => ({
+      ...o,
+      correct: correctIds.has(Number(o.optionId))
+    }));
+
+    if (qIndex !== undefined) {
+      console.log(`[QuizService] Normalized Q${qIndex + 1}: ${finalAnswers.length} answers, ids: ${Array.from(correctIds)}`);
+    }
+
+    return {
+      ...deepClone,
+      options: finalOptions,
+      answer: finalAnswers
+    };
+  }
+}

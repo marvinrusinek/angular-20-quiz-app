@@ -1,0 +1,534 @@
+import { Injectable } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
+import {
+  BehaviorSubject, firstValueFrom, from, Observable, of, Subject
+} from 'rxjs';
+import {
+  distinctUntilChanged, filter, map, take
+} from 'rxjs/operators';
+import _ from 'lodash';
+
+import { QUIZ_DATA, QUIZ_RESOURCES } from '../../quiz';
+import { QuestionType } from '../../models/question-type.enum';
+import { Option } from '../../models/Option.model';
+import { Quiz } from '../../models/Quiz.model';
+import { QuizQuestion } from '../../models/QuizQuestion.model';
+import { QuizResource } from '../../models/QuizResource.model';
+import { Resource } from '../../models/Resource.model';
+import { QuizShuffleService } from '../flow/quiz-shuffle.service';
+import { QuizStateService } from '../state/quizstate.service';
+import { Utils } from '../../utils/utils';
+
+@Injectable({ providedIn: 'root' })
+export class QuizDataLoaderService {
+  quizInitialState: Quiz[] = _.cloneDeep(QUIZ_DATA);
+  quizData: Quiz[] | null = this.quizInitialState;
+  private _quizData$ = new BehaviorSubject<Quiz[]>([]);
+  quizResources: QuizResource[] = [];
+  resources: Resource[] = [];
+
+  private currentQuizSubject = new BehaviorSubject<Quiz | null>(null);
+
+  private canonicalQuestionsByQuiz = new Map<string, QuizQuestion[]>();
+  private canonicalQuestionIndexByText = new Map<string, Map<string, number>>();
+
+  private quizUrl = 'assets/data/quiz.json';
+  private fetchPromise: Promise<QuizQuestion[]> | null = null;
+
+  private readonly shuffleEnabledSubject = new BehaviorSubject<boolean>(
+    localStorage.getItem('checkedShuffle') === 'true'
+  );
+  checkedShuffle$ = this.shuffleEnabledSubject.asObservable();
+
+  public shuffledQuestions: QuizQuestion[] = (() => {
+    try {
+      if (!localStorage.getItem('_shuffleCacheV2')) {
+        localStorage.removeItem('shuffledQuestions');
+        localStorage.removeItem('shuffledQuestionsQuizId');
+        localStorage.setItem('_shuffleCacheV2', '1');
+        return [];
+      }
+      const stored = localStorage.getItem('shuffledQuestions');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  })();
+
+  questionsQuizId: string | null = (() => {
+    try { return localStorage.getItem('shuffledQuestionsQuizId'); }
+    catch { return null; }
+  })();
+
+  constructor(
+    private quizShuffleService: QuizShuffleService,
+    private quizStateService: QuizStateService,
+    private activatedRoute: ActivatedRoute,
+    private http: HttpClient
+  ) {}
+
+  get currentQuizSubject$() {
+    return this.currentQuizSubject;
+  }
+
+  get quizData$() {
+    return this._quizData$;
+  }
+
+  initializeData(
+    quizId: string,
+    questionsSubject: BehaviorSubject<QuizQuestion[]>,
+    totalQuestionsSubject: BehaviorSubject<number>,
+    setQuestions: (qs: QuizQuestion[]) => void,
+    setTotalQuestions: (n: number) => void
+  ): { questions: QuizQuestion[]; totalQuestions: number } {
+    if (!QUIZ_DATA || !Array.isArray(QUIZ_DATA)) {
+      console.error('QUIZ_DATA is invalid:', QUIZ_DATA);
+      this.quizData = [];
+    } else {
+      this.quizData = QUIZ_DATA;
+    }
+
+    let questions: QuizQuestion[] = [];
+    let totalQuestions = 0;
+
+    if (this.quizData.length > 0) {
+      this.quizInitialState = _.cloneDeep(this.quizData);
+      let selectedQuiz = quizId
+        ? this.quizData.find((quiz) => quiz.quizId === quizId)
+        : undefined;
+
+      if (!selectedQuiz && quizId) {
+        console.warn(`No quiz found with ID: ${quizId}. Falling back to the first quiz.`);
+      }
+
+      selectedQuiz = selectedQuiz ?? this.quizData[0];
+
+      if (Array.isArray(selectedQuiz.questions) && selectedQuiz.questions.length > 0) {
+        questions = [...selectedQuiz.questions];
+      } else {
+        console.error(`Selected quiz (ID: ${selectedQuiz.quizId}) does not have a valid questions array:`, selectedQuiz.questions);
+        questions = [];
+      }
+
+      totalQuestions = questions.length;
+    } else {
+      console.error('QUIZ_DATA is empty');
+      questions = [];
+    }
+
+    this.quizResources = Array.isArray(QUIZ_RESOURCES) ? QUIZ_RESOURCES : [];
+
+    if (questions.length > 0) {
+      const firstQuestion = questions[0];
+      if (!this.isValidQuestionStructure(firstQuestion)) {
+        console.error('First question does not have a valid structure:', firstQuestion);
+      }
+    }
+
+    return { questions, totalQuestions };
+  }
+
+  loadResourcesForQuiz(quizId: string): void {
+    const quizResource = this.quizResources.find(r => r.quizId === quizId);
+    this.resources = quizResource?.resources ?? [];
+    console.log(`[QuizService] Loaded ${this.resources.length} resources for quiz: ${quizId}`);
+  }
+
+  setCurrentQuizSubject(quiz: Quiz | null): void {
+    this.currentQuizSubject.next(quiz);
+  }
+
+  getCurrentQuiz(quizId: string, activeQuiz: Quiz | null): Observable<Quiz | null> {
+    if (activeQuiz) {
+      return of(activeQuiz);
+    }
+
+    const quiz = Array.isArray(this.quizData)
+      ? this.quizData.find((q) => q.quizId === quizId)
+      : null;
+
+    if (!quiz) {
+      console.warn(`No quiz found for quizId: ${quizId}`);
+    }
+
+    return of(quiz ?? null);
+  }
+
+  findQuizByQuizId(quizId: string): Observable<Quiz | undefined> {
+    const foundQuiz = this.quizData?.find((quiz) => quiz.quizId === quizId) ?? null;
+
+    if (foundQuiz && this.isQuiz(foundQuiz)) {
+      return of(foundQuiz as Quiz);
+    }
+
+    return of(undefined);
+  }
+
+  async ensureQuizIdExists(quizId: string): Promise<{ exists: boolean; resolvedId: string }> {
+    let resolved = quizId;
+    if (!resolved) {
+      resolved = this.activatedRoute.snapshot.paramMap.get('quizId') || quizId;
+      if (resolved) {
+        localStorage.setItem('quizId', resolved);
+      }
+    }
+    return { exists: !!resolved, resolvedId: resolved };
+  }
+
+  getTotalQuestionsCount(quizId: string, questions: QuizQuestion[]): Observable<number> {
+    return this.currentQuizSubject.pipe(
+      map((quiz) => {
+        if (quiz && quiz.quizId === quizId) {
+          return quiz.questions?.length ?? 0;
+        }
+
+        if (Array.isArray(questions) && questions.length > 0) {
+          return questions.length;
+        }
+
+        return 0;
+      }),
+      distinctUntilChanged(),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Fetch & Shuffle
+  // ═══════════════════════════════════════════════════════════════════════
+
+  async fetchQuizQuestions(
+    quizId: string,
+    questionsSubject: BehaviorSubject<QuizQuestion[]>,
+    setInternalQuestions: (qs: QuizQuestion[]) => void
+  ): Promise<QuizQuestion[]> {
+    console.log(`[QuizService] fetchQuizQuestions(${quizId}). hasShuffle=${this.shuffledQuestions?.length}, questionsQuizId=${this.questionsQuizId}, shouldShuffle=${this.shouldShuffle()}`);
+
+    // Restore persisted shuffled order
+    if (this.shouldShuffle() && (!this.shuffledQuestions || this.shuffledQuestions.length === 0)) {
+      try {
+        const persistedQuizId = localStorage.getItem('shuffledQuestionsQuizId');
+        const persisted = localStorage.getItem('shuffledQuestions');
+        if (persistedQuizId === quizId && persisted) {
+          const parsed = JSON.parse(persisted);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            this.shuffledQuestions = parsed;
+            this.questionsQuizId = quizId;
+            console.log(`[QuizService] Restored persisted shuffledQuestions for quiz ${quizId} (${parsed.length} questions).`);
+          }
+        }
+      } catch { }
+    }
+
+    // Return existing shuffledQuestions if available
+    if (this.shuffledQuestions && this.shuffledQuestions.length > 0) {
+      const hasBadData = this.shuffledQuestions.some(q =>
+        Array.isArray(q.options) &&
+        q.options.length > 1 &&
+        !q.options.some(o => o.correct === true)
+      );
+
+      if (hasBadData) {
+        console.warn('[QuizService] Cache Eviction: Detected stale shuffledQuestions. Purging cache.');
+        this.shuffledQuestions = [];
+        setInternalQuestions([]);
+        this.questionsQuizId = null;
+        try {
+          localStorage.removeItem('shuffledQuestions');
+          localStorage.removeItem('shuffledQuestionsQuizId');
+        } catch { }
+      } else {
+        const isSameQuiz = quizId && this.questionsQuizId === quizId;
+
+        if (isSameQuiz) {
+          if (Array.isArray(this.shuffledQuestions) && this.shuffledQuestions.length > 0) {
+            console.log(`[fetchQuizQuestions] Returning EXISTING shuffledQuestions (${this.shuffledQuestions.length} questions) for quiz ${quizId}`);
+            questionsSubject.next(this.shuffledQuestions);
+            return this.shuffledQuestions;
+          }
+          console.warn('[fetchQuizQuestions] Cache hit but questions array is empty. Proceeding to fetch.');
+        } else {
+          console.log(`[fetchQuizQuestions] Quiz mismatch - clearing old shuffle.`);
+          this.shuffledQuestions = [];
+          setInternalQuestions([]);
+          this.questionsQuizId = null;
+          try {
+            localStorage.removeItem('shuffledQuestions');
+            localStorage.removeItem('shuffledQuestionsQuizId');
+          } catch { }
+        }
+      }
+    }
+
+    if (this.fetchPromise) {
+      console.log('[QuizService] Reuse in-flight fetch promise.');
+      return this.fetchPromise;
+    }
+
+    this.fetchPromise = (async () => {
+      try {
+        if (!quizId) {
+          console.error('Quiz ID is not provided or is empty:', quizId);
+          return [];
+        }
+
+        const quizzes = await firstValueFrom<Quiz[]>(
+          this.http.get<Quiz[]>(this.quizUrl)
+        );
+
+        const quiz = quizzes.find((q) => String(q.quizId) === String(quizId));
+        if (!quiz) {
+          console.error(`Quiz with ID ${quizId} not found`);
+          return [];
+        }
+
+        this.currentQuizSubject.next(quiz);
+        const totalQuestions = quiz.questions?.length || 0;
+
+        const isSameQuiz = quizId && this.questionsQuizId === quizId;
+        const cachedLen = this.shuffledQuestions?.length || 0;
+        const metadataLen = quiz.questions?.length || 0;
+        const lengthMatches = cachedLen > 0 && cachedLen === metadataLen;
+
+        if (isSameQuiz && lengthMatches) {
+          console.log(`[QuizService] fetchQuizQuestions: Cache Hit & Length Match (${cachedLen}). Returning shuffle.`);
+          questionsSubject.next(this.shuffledQuestions);
+          return this.shuffledQuestions;
+        }
+
+        console.log(`[QuizService] fetchQuizQuestions: ${isSameQuiz ? 'STALE (Length Mismatch)' : 'MISS'}.`);
+
+        this.shuffledQuestions = [];
+        setInternalQuestions([]);
+        this.questionsQuizId = quizId;
+
+        const normalized: QuizQuestion[] = (quiz.questions ?? []).map((q, qIdx) => {
+          const optsWithIds = this.quizShuffleService.assignOptionIds(q.options ?? [], qIdx);
+          const alignedAnswers = this.quizShuffleService.alignAnswersWithOptions(q.answer, optsWithIds);
+
+          const correctIds = new Set(alignedAnswers.map(a => Number(a.optionId)));
+          const finalOpts = optsWithIds.map(o => ({
+            ...o,
+            correct: correctIds.has(Number(o.optionId))
+          }));
+
+          return {
+            ...q,
+            options: finalOpts.map(o => ({ ...o })),
+            answer: alignedAnswers.map(a => ({ ...a }))
+          } as QuizQuestion;
+        });
+
+        this.canonicalQuestionsByQuiz.set(quizId, JSON.parse(JSON.stringify(normalized)));
+        setInternalQuestions(JSON.parse(JSON.stringify(normalized)));
+
+        if (this.shouldShuffle()) {
+          console.log('[QuizService] Generating fresh shuffle for', quizId);
+          this.quizShuffleService.prepareShuffle(quizId, normalized);
+          const shuffled = this.quizShuffleService.buildShuffledQuestions(quizId, normalized);
+
+          this.shuffledQuestions = shuffled;
+          try {
+            localStorage.setItem('shuffledQuestions', JSON.stringify(shuffled));
+            localStorage.setItem('shuffledQuestionsQuizId', quizId);
+          } catch { }
+
+          questionsSubject.next(shuffled);
+          return shuffled;
+        }
+
+        questionsSubject.next(normalized);
+        return normalized;
+      } catch (error) {
+        console.error('Error in fetchQuizQuestions:', error);
+        return [];
+      } finally {
+        this.fetchPromise = null;
+      }
+    })();
+
+    return this.fetchPromise;
+  }
+
+  shouldShuffle(): boolean {
+    return this.shuffleEnabledSubject.getValue();
+  }
+
+  isShuffleEnabled(): boolean {
+    return this.shuffleEnabledSubject.getValue();
+  }
+
+  get shuffleEnabled(): boolean {
+    return this.isShuffleEnabled();
+  }
+
+  setCheckedShuffle(isChecked: boolean): void {
+    console.log(`[QuizService] setCheckedShuffle(${isChecked})`);
+    this.shuffleEnabledSubject.next(isChecked);
+    try {
+      localStorage.setItem('checkedShuffle', String(isChecked));
+      localStorage.removeItem('shuffledQuestions');
+      localStorage.removeItem('shuffledQuestionsQuizId');
+    } catch { }
+
+    this.quizShuffleService.clearAll();
+    this.shuffledQuestions = [];
+    this.questionsQuizId = null;
+  }
+
+  getShuffledQuestions(
+    quizId: string,
+    questionsSubject: BehaviorSubject<QuizQuestion[]>,
+    fetchQuizQuestionsFn: (id: string) => Promise<QuizQuestion[]>
+  ): Observable<QuizQuestion[]> {
+    console.log(`[QuizService] getShuffledQuestions called. stored=${this.shuffledQuestions?.length}`);
+    if (this.shuffledQuestions && this.shuffledQuestions.length > 0) {
+      return of(this.shuffledQuestions);
+    }
+
+    const cachedQuestions = questionsSubject.getValue();
+    if (Array.isArray(cachedQuestions) && cachedQuestions.length > 0) {
+      const shuffled = this.shuffleQuestions(cachedQuestions);
+      return of(shuffled);
+    }
+
+    if (!quizId) {
+      console.warn('[getShuffledQuestions] Quiz ID not set.');
+      return of([]);
+    }
+
+    return from(fetchQuizQuestionsFn(quizId)).pipe(
+      map(questions => this.shuffleQuestions(questions))
+    );
+  }
+
+  shuffleQuestions(questions: QuizQuestion[]): QuizQuestion[] {
+    if (this.shouldShuffle() && questions && questions.length > 0) {
+      return Utils.shuffleArray([...questions]);
+    }
+    return questions;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Canonical Questions
+  // ═══════════════════════════════════════════════════════════════════════
+
+  setCanonicalQuestions(
+    quizId: string,
+    questions: QuizQuestion[] | null | undefined,
+    cloneQuestionForSession: (q: QuizQuestion, idx?: number) => QuizQuestion | null,
+    normalizeQuestionText: (text: string | null | undefined) => string
+  ): void {
+    if (!quizId) {
+      console.warn('[setCanonicalQuestions] quizId missing.');
+      return;
+    }
+
+    if (!Array.isArray(questions) || questions.length === 0) {
+      this.canonicalQuestionsByQuiz.delete(quizId);
+      this.canonicalQuestionIndexByText.delete(quizId);
+      return;
+    }
+
+    const sanitized = questions
+      .map((question, idx) => cloneQuestionForSession(question, idx))
+      .filter((question): question is QuizQuestion => !!question)
+      .map((question) => ({
+        ...question,
+        options: Array.isArray(question.options)
+          ? question.options.map((option) => ({ ...option }))
+          : []
+      }));
+
+    if (sanitized.length === 0) {
+      this.canonicalQuestionsByQuiz.delete(quizId);
+      this.canonicalQuestionIndexByText.delete(quizId);
+      return;
+    }
+
+    const textIndex = new Map<string, number>();
+    let idx = 0;
+    for (const question of sanitized) {
+      const key = normalizeQuestionText(question?.questionText);
+      if (!key) { idx++; continue; }
+      if (!textIndex.has(key)) {
+        textIndex.set(key, idx);
+      }
+      idx++;
+    }
+
+    this.canonicalQuestionsByQuiz.set(quizId, sanitized);
+    this.canonicalQuestionIndexByText.set(quizId, textIndex);
+  }
+
+  getCanonicalQuestions(quizId: string): QuizQuestion[] {
+    if (!quizId) return [];
+    return this.canonicalQuestionsByQuiz.get(quizId) || [];
+  }
+
+  getCanonicalQuestionsByQuiz(): Map<string, QuizQuestion[]> {
+    return this.canonicalQuestionsByQuiz;
+  }
+
+  getCanonicalQuestionIndexByText(): Map<string, Map<string, number>> {
+    return this.canonicalQuestionIndexByText;
+  }
+
+  hasCachedQuestion(quizId: string, questionIndex: number): boolean {
+    const quiz = this.currentQuizSubject.getValue();
+    if (!quiz || quiz.quizId !== quizId) return false;
+
+    const questions = quiz.questions ?? [];
+    if (!Array.isArray(questions) || questionIndex < 0 || questionIndex >= questions.length) {
+      return false;
+    }
+
+    const q = questions[questionIndex];
+    if (!q) return false;
+
+    const hasOptions = Array.isArray(q.options) && q.options.length > 0;
+    const hasText = typeof q.questionText === 'string' && q.questionText.trim().length > 0;
+
+    return hasOptions && hasText;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Helpers
+  // ═══════════════════════════════════════════════════════════════════════
+
+  getPristineQuestion(
+    quizId: string,
+    index: number,
+    cloneQuestionForSession: (q: QuizQuestion, idx?: number) => QuizQuestion | null
+  ): QuizQuestion | null {
+    if (!quizId) return null;
+
+    const canonical = this.canonicalQuestionsByQuiz.get(quizId);
+    if (!canonical || canonical.length <= index) {
+      return null;
+    }
+
+    // Return a clone to be safe
+    return cloneQuestionForSession(canonical[index], index);
+  }
+
+  normalizeQuestionText(value: string | null | undefined): string {
+    return (value ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+  }
+
+  isValidQuestionStructure(question: any): boolean {
+    return (
+      question &&
+      typeof question === 'object' &&
+      typeof question.questionText === 'string' &&
+      Array.isArray(question.options) &&
+      question.options.length > 0 &&
+      question.options.every((opt: any) => opt && typeof opt.text === 'string')
+    );
+  }
+
+  private isQuiz(item: any): item is Quiz {
+    return typeof item === 'object' && 'quizId' in item;
+  }
+}

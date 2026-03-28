@@ -26,6 +26,10 @@ import { Resource } from '../../models/Resource.model';
 import { SelectedOption } from '../../models/SelectedOption.model';
 import { QuizStateService } from '../state/quizstate.service';
 import { QuizShuffleService } from '../flow/quiz-shuffle.service';
+import { QuizDataLoaderService } from './quiz-data-loader.service';
+import { QuizQuestionResolverService } from './quiz-question-resolver.service';
+import { QuizOptionsService } from './quiz-options.service';
+import { QuizScoringService } from './quiz-scoring.service';
 
 @Injectable({ providedIn: 'root' })
 export class QuizService {
@@ -48,18 +52,25 @@ export class QuizService {
     try { return localStorage.getItem('quizId') ?? ''; }
     catch { return ''; }
   })();
-  private readonly scoreQuizIdStorageKey = 'scoreQuizId';
   quizResources: QuizResource[] = [];
   question: QuizQuestion | null = null;
   private _questions: QuizQuestion[] = [];
   questionsList: QuizQuestion[] = [];
 
-  // State tracking for scoring (Index -> IsCorrect)
-  public questionCorrectness = new Map<number, boolean>();
+  // Scoring state delegated to QuizScoringService — getters for backwards compat
+  public get questionCorrectness(): Map<number, boolean> {
+    return this.scoringService.questionCorrectness;
+  }
+  public set questionCorrectness(val: Map<number, boolean>) {
+    this.scoringService.questionCorrectness = val;
+  }
 
   isNavigating = false;
 
-  private currentQuizSubject = new BehaviorSubject<Quiz | null>(null);
+  // Delegate to dataLoader's currentQuizSubject for single source of truth
+  private get currentQuizSubject(): BehaviorSubject<Quiz | null> {
+    return this.dataLoader.currentQuizSubject$;
+  }
 
   private questionsSubject = new BehaviorSubject<QuizQuestion[]>([]);
   questions$ = this.questionsSubject.asObservable();
@@ -85,7 +96,8 @@ export class QuizService {
   answersSubject = new Subject<number[]>();
 
   totalQuestions = 0;
-  correctCount = 0;
+  get correctCount(): number { return this.scoringService.correctCount; }
+  set correctCount(val: number) { this.scoringService.correctCount = val; }
 
   selectedQuiz: Quiz | null = null;
   selectedQuiz$ = new BehaviorSubject<Quiz | null>(null);
@@ -100,7 +112,9 @@ export class QuizService {
   correctAnswerOptions: Option[] = [];
   numberOfCorrectAnswers = 0;
 
-  public correctAnswersCountSubject = new BehaviorSubject<number>(0);
+  public get correctAnswersCountSubject(): BehaviorSubject<number> {
+    return this.scoringService.correctAnswersCountSubject;
+  }
 
   private correctAnswersCountTextSource = new BehaviorSubject<string>(
     localStorage.getItem('correctAnswersText') ?? ''
@@ -167,8 +181,13 @@ export class QuizService {
     }
   })();
 
-  private canonicalQuestionsByQuiz = new Map<string, QuizQuestion[]>();
-  private canonicalQuestionIndexByText = new Map<string, Map<string, number>>();
+  // Canonical question data is stored in dataLoader — access via getters below
+  private get canonicalQuestionsByQuiz(): Map<string, QuizQuestion[]> {
+    return this.dataLoader.getCanonicalQuestionsByQuiz();
+  }
+  private get canonicalQuestionIndexByText(): Map<string, Map<string, number>> {
+    return this.dataLoader.getCanonicalQuestionIndexByText();
+  }
 
   correctMessage = '';
   correctOptions: Option[] = [];
@@ -217,11 +236,15 @@ export class QuizService {
 
   lock = false;
 
-  score = 0;
+  get score(): number { return this.scoringService.score; }
+  set score(val: number) { this.scoringService.score = val; }
   currentScore$: Observable<number> = of(0);
-  quizScore: QuizScore | null = null;
-  highScores: QuizScore[] = [];
-  highScoresLocal = JSON.parse(localStorage.getItem('highScoresLocal') ?? '[]');
+  get quizScore(): QuizScore | null { return this.scoringService.quizScore; }
+  set quizScore(val: QuizScore | null) { this.scoringService.quizScore = val; }
+  get highScores(): QuizScore[] { return this.scoringService.highScores; }
+  set highScores(val: QuizScore[]) { this.scoringService.highScores = val; }
+  get highScoresLocal(): any { return this.scoringService.highScoresLocal; }
+  set highScoresLocal(val: any) { this.scoringService.highScoresLocal = val; }
 
   private quizUrl = 'assets/data/quiz.json';
   questionPayloadSubject = new BehaviorSubject<QuestionPayload | null>(null);
@@ -243,11 +266,15 @@ export class QuizService {
     private quizShuffleService: QuizShuffleService,
     private quizStateService: QuizStateService,
     private activatedRoute: ActivatedRoute,
-    private http: HttpClient
+    private http: HttpClient,
+    public dataLoader: QuizDataLoaderService,
+    public questionResolver: QuizQuestionResolverService,
+    public optionsService: QuizOptionsService,
+    public scoringService: QuizScoringService
   ) {
     this.http = http;
-    this.loadQuestionCorrectness();  // load persisted correctness state
-    this.restoreScoreFromPersistence();
+    // Scoring state is loaded in QuizScoringService constructor (loadQuestionCorrectness)
+    this.scoringService.restoreScoreFromPersistence(this.quizId);
     this.initializeData();
 
     // Reset State Sync
@@ -403,9 +430,8 @@ export class QuizService {
 
   // Load resources for a specific quiz ID
   loadResourcesForQuiz(quizId: string): void {
-    const quizResource = this.quizResources.find(r => r.quizId === quizId);
-    this.resources = quizResource?.resources ?? [];
-    console.log(`[QuizService] Loaded ${this.resources.length} resources for quiz: ${quizId}`);
+    this.dataLoader.loadResourcesForQuiz(quizId);
+    this.resources = this.dataLoader.resources;
   }
 
   getActiveQuiz(): Quiz | null {
@@ -429,19 +455,7 @@ export class QuizService {
   }
 
   getCurrentQuiz(): Observable<Quiz | null> {
-    if (this.activeQuiz) {
-      return of(this.activeQuiz);
-    }
-
-    const quiz = Array.isArray(this.quizData)
-      ? this.quizData.find((quiz) => quiz.quizId === this.quizId)
-      : null;
-
-    if (!quiz) {
-      console.warn(`No quiz found for quizId: ${this.quizId}`);
-    }
-
-    return of(quiz ?? null);
+    return this.dataLoader.getCurrentQuiz(this.quizId, this.activeQuiz);
   }
 
   getCurrentQuizId(): string {
@@ -455,6 +469,7 @@ export class QuizService {
 
   setQuizData(quizData: Quiz[]): void {
     this.quizData = quizData;
+    this.dataLoader.quizData = quizData;
   }
 
   setQuizId(id: string): void {
@@ -523,110 +538,25 @@ export class QuizService {
   }
 
   private cloneOptions(options: Option[] = []): Option[] {
-    return options.map((option) => ({ ...option }));
+    return this.optionsService.cloneOptions(options);
   }
 
   sanitizeOptions(options: Option[]): Option[] {
-    if (!Array.isArray(options)) {
-      console.warn('[sanitizeOptions] options is not an array');
-      return [];
-    }
-
-    return options.map((opt, idx) => {
-      const safeId =
-        Number.isInteger(opt?.optionId) && (opt?.optionId as number) >= 0
-          ? (opt.optionId as number)
-          : idx + 1;
-
-      const safeText = (opt?.text ?? '').trim() || `Option ${idx + 1}`;
-      const normalizedHighlight =
-        typeof opt?.highlight === 'boolean' ? opt.highlight : !!opt?.highlight;
-      const normalizedActive =
-        typeof opt?.active === 'boolean' ? opt.active : true;
-
-      const sanitized: Option = {
-        ...opt,
-        optionId: safeId,
-        text: safeText,
-        correct: (opt?.correct as any) === true || (opt?.correct as any) === 'true',
-        value: typeof opt?.value === 'number' ? opt.value : safeId,
-        answer: opt?.answer ?? undefined,
-        selected: opt?.selected === true,
-        active: normalizedActive,
-        highlight: normalizedHighlight,
-        showIcon: opt?.showIcon === true,
-        showFeedback:
-          typeof opt?.showFeedback === 'boolean' ? opt.showFeedback : false,
-        feedback: (opt?.feedback ?? 'No feedback available').trim(),
-        styleClass: opt?.styleClass ?? ''
-      };
-
-      if (typeof opt?.displayOrder === 'number') {
-        sanitized.displayOrder = opt.displayOrder;
-      }
-
-      return sanitized;
-    });
+    return this.optionsService.sanitizeOptions(options);
   }
 
   getSafeOptionId(option: SelectedOption, index: number): number | undefined {
-    // Ensure optionId exists and is a number
-    if (option && typeof option.optionId === 'number') {
-      return option.optionId;
-    }
-
-    console.warn(
-      `Invalid or missing optionId. Falling back to index: ${index}`
-    );
-    return index;
+    return this.optionsService.getSafeOptionId(option, index);
   }
 
   getQuestionByIndex(index: number): Observable<QuizQuestion | null> {
-    const quizId = this.resolveShuffleQuizId();
-    if (!quizId) {
-      console.warn('[getQuestionByIndex] No active quiz ID resolved.');
-      return of(null);
-    }
-
-    // Use the centralized resolution logic to ensure consistency with shuffle service
-    // This expects that resolveCanonicalQuestion returns the CORRECT shuffled question at this index
-    const resolvedQuestion = this.resolveCanonicalQuestion(index, null);
-
-    if (resolvedQuestion) {
-      // Strict Shuffle Mismatch Guard - if shuffle is active, verify that the 
-      // resolved question matches the shuffledQuestions at this index
-      if (this.isShuffleEnabled() && this.shuffledQuestions && this.shuffledQuestions.length > index) {
-        const strictShuffled = this.shuffledQuestions[index];
-        if (strictShuffled && strictShuffled.questionText !== resolvedQuestion.questionText) {
-          console.warn(`[getQuestionByIndex] ⚠️ MISMATCH DETECTED for Q${index + 1}! 
-            Resolved="${resolvedQuestion.questionText.substring(0, 15)}...", 
-            Shuffled="${strictShuffled.questionText.substring(0, 15)}..."`);
-          console.log(`[getQuestionByIndex] 🛡️ Overriding with STRICT shuffled question.`);
-          return of({
-            ...strictShuffled,
-            options: (strictShuffled.options ?? []).map((o) => ({ ...o }))
-          });
-        }
-      }
-
-      return of({
-        ...resolvedQuestion,
-        options: (resolvedQuestion.options ?? []).map((o) => ({ ...o }))
-      });
-    }
-
-    // Fallback to legacy behavior if resolution fails (should rarely happen)
-    return this.questions$.pipe(
-      filter((questions) => Array.isArray(questions) && questions.length > 0),
-      take(1),
-      map((questions: QuizQuestion[] | null) => {
-        if (!Array.isArray(questions) || !questions[index]) return null;
-        const q = questions[index];
-        return {
-          ...q,
-          options: (q.options ?? []).map((o) => ({ ...o }))
-        };
-      })
+    return this.questionResolver.getQuestionByIndex(
+      index,
+      () => this.resolveShuffleQuizId(),
+      (idx, q) => this.resolveCanonicalQuestion(idx, q),
+      () => this.isShuffleEnabled(),
+      this.shuffledQuestions,
+      this.questions$
     );
   }
 
@@ -947,35 +877,7 @@ export class QuizService {
   public getCurrentQuestion(
     questionIndex: number,
   ): Observable<QuizQuestion | null> {
-    // Use this.questions (shuffled) instead of fetching from findQuizByQuizId (unshuffled)
-    // This ensures the question text matches the options which also come from this.questions
-    return of(null).pipe(
-      map(() => {
-        // Use the shuffled questions array that was set via applySessionQuestions
-        const questions = this.questions;
-
-        if (!Array.isArray(questions) || questions.length === 0) {
-          console.error('[QuizService] getCurrentQuestion: No questions available in this.questions');
-          return null;
-        }
-
-        if (questionIndex < 0 || questionIndex >= questions.length) {
-          console.warn(
-            `[QuizService] Index ${questionIndex} out of bounds (0-${questions.length - 1}). Returning null.`
-          );
-          return null;
-        }
-
-        const question = questions[questionIndex];
-
-        return question;
-      }),
-      distinctUntilChanged(),
-      catchError((error: Error) => {
-        console.error('Error fetching current question:', error);
-        return of(null);
-      })
-    );
+    return this.questionResolver.getCurrentQuestion(questionIndex, this.questions);
   }
 
   public getLastKnownOptions(): Option[] {
@@ -1101,39 +1003,12 @@ export class QuizService {
   }
 
   calculateCorrectAnswers(questions: QuizQuestion[]): Map<string, number[]> {
-    const correctAnswers = new Map<string, number[]>();
-
-    for (const question of questions) {
-      if (question?.options) {
-        // Use flatMap to build a clean number[] directly
-        const correctOptionNumbers = question.options.flatMap((opt, idx) =>
-          opt.correct ? [idx + 1] : []
-        );
-
-        correctAnswers.set(question.questionText, correctOptionNumbers);
-      } else {
-        console.warn('Options are undefined for question:', question);
-      }
-    }
-
-    return correctAnswers;
+    return this.optionsService.calculateCorrectAnswers(questions);
   }
 
   getCorrectOptionsForCurrentQuestion(question: QuizQuestion): Option[] {
-    if (!question) {
-      console.error('No question provided to getCorrectOptionsForCurrentQuestion.');
-      return [];
-    }
-
-    if (!Array.isArray(question.options)) {
-      console.error('No options available for the provided question:', question);
-      return [];
-    }
-
-    // Filter and return the correct options for the current question
-    const correctOptions = question.options.filter((option) => option.correct);
+    const correctOptions = this.optionsService.getCorrectOptionsForCurrentQuestion(question);
     this.correctOptions = correctOptions;
-
     return correctOptions;
   }
 
@@ -1297,10 +1172,7 @@ export class QuizService {
   }
 
   getTotalCorrectAnswers(currentQuestion: QuizQuestion) {
-    if (currentQuestion && currentQuestion.options) {
-      return currentQuestion.options.filter((option) => option.correct).length;
-    }
-    return 0;
+    return this.optionsService.getTotalCorrectAnswers(currentQuestion);
   }
 
   validateAndSetCurrentQuestion(
@@ -1411,24 +1283,7 @@ export class QuizService {
     question: QuizQuestion,
     options: Option[]
   ): string {
-    if (!question) {
-      return '';
-    }
-
-    const isMultipleAnswer =
-      question.type === QuestionType.MultipleAnswer ||
-      options.filter((option) => option.correct).length > 1;
-
-    if (!isMultipleAnswer) {
-      return '';
-    }
-
-    const correctCount = options.filter((option) => option.correct).length;
-    if (!correctCount) return '';
-
-    return correctCount === 1
-      ? '1 correct answer'
-      : `${correctCount} correct answers`;
+    return this.optionsService.buildCorrectAnswerCountLabel(question, options);
   }
 
   validateAnswers(currentQuestionValue: QuizQuestion, answers: any[]): boolean {
@@ -1443,18 +1298,7 @@ export class QuizService {
     question: QuizQuestion,
     answers: Option[]
   ): Promise<boolean[]> {
-    return (answers ?? []).map((answer) => {
-      if (!answer) return false;
-
-      const found = question.options.find(
-        (option) =>
-          option === answer || // Reference match (fastest)
-          (option.optionId !== undefined && answer.optionId !== undefined && String(option.optionId) === String(answer.optionId)) || // ID match
-          (option.text && answer.text && option.text.trim().toLowerCase() === answer.text.trim().toLowerCase()) // Text match
-      );
-      const correct = found?.correct;
-      return correct === true || String(correct) === 'true';
-    });
+    return this.optionsService.determineCorrectAnswer(question, answers);
   }
 
   // Populate correctOptions when questions are loaded
@@ -1510,29 +1354,7 @@ export class QuizService {
   }
 
   getCorrectAnswers(question: QuizQuestion): number[] {
-    if (
-      !question ||
-      !Array.isArray(question.options) ||
-      question.options.length === 0
-    ) {
-      console.error('Invalid question or no options available.');
-      return [];
-    }
-
-    // Filter options marked as correct and map their IDs
-    const correctAnswers = question.options
-      .filter((option) => option.correct && option.optionId !== undefined)
-      .map((option) => option.optionId as number);
-
-    if (correctAnswers.length === 0) {
-      console.warn(
-        `No correct answers found for question: "${question.questionText}".`,
-      );
-    } else {
-      console.log('Correct answers:', correctAnswers);
-    }
-
-    return correctAnswers;
+    return this.optionsService.getCorrectAnswers(question);
   }
 
   getCorrectAnswersAsString(): string {
@@ -1586,49 +1408,11 @@ export class QuizService {
   }
 
   saveHighScores(): void {
-    this.quizScore = {
-      quizId: this.quizId,
-      attemptDateTime: new Date(),
-      score: this.calculatePercentageOfCorrectlyAnsweredQuestions(),
-      totalQuestions: this.totalQuestions
-    };
-
-    const MAX_HIGH_SCORES = 10;  // show results of the last 10 quizzes
-    this.highScoresLocal = this.highScoresLocal ?? [];
-    this.highScoresLocal.push(this.quizScore);
-
-    // Sort descending by date
-    this.highScoresLocal.sort((a: any, b: any) => {
-      const dateA = new Date(a.attemptDateTime);
-      const dateB = new Date(b.attemptDateTime);
-      return dateB.getTime() - dateA.getTime();
-    });
-    // this.highScoresLocal.reverse();  // Removed to ensure most recent is first
-    // Filter out scores older than 7 days
-    const oneWeekAgo = new Date();
-    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-    this.highScoresLocal = this.highScoresLocal.filter((score: any) => {
-      const scoreDate = new Date(score.attemptDateTime);
-      return scoreDate >= oneWeekAgo;
-    });
-
-    this.highScoresLocal.splice(MAX_HIGH_SCORES);
-    localStorage.setItem(
-      'highScoresLocal',
-      JSON.stringify(this.highScoresLocal)
-    );
-    this.highScores = this.highScoresLocal;
+    this.scoringService.saveHighScores(this.quizId, this.totalQuestions);
   }
 
   calculatePercentageOfCorrectlyAnsweredQuestions(): number {
-    const correctAnswers = this.correctAnswersCountSubject.getValue();
-    const totalQuestions = this.totalQuestions;
-
-    if (totalQuestions === 0) {
-      return 0;  // handle division by zero
-    }
-
-    return Math.round((correctAnswers / totalQuestions) * 100);
+    return this.scoringService.calculatePercentageOfCorrectlyAnsweredQuestions(this.totalQuestions);
   }
 
   private shouldShuffle(): boolean {
@@ -1638,8 +1422,15 @@ export class QuizService {
   }
 
   isShuffleEnabled(): boolean {
+    // Keep using local subject since it's initialized in this service
     return this.shuffleEnabledSubject.getValue();
   }
+
+  // Expose sub-services for direct access by consumers that need them
+  get quizDataLoader(): QuizDataLoaderService { return this.dataLoader; }
+  get quizQuestionResolver(): QuizQuestionResolverService { return this.questionResolver; }
+  get quizOptions(): QuizOptionsService { return this.optionsService; }
+  get quizScoring(): QuizScoringService { return this.scoringService; }
 
   setCheckedShuffle(isChecked: boolean): void {
     console.log(`[QuizService] setCheckedShuffle(${isChecked})`);
@@ -1711,172 +1502,27 @@ export class QuizService {
   }
 
   public hasCachedQuestion(quizId: string, questionIndex: number): boolean {
-    const quiz = this.currentQuizSubject.getValue();
-    if (!quiz || quiz.quizId !== quizId) return false;
-
-    const questions = quiz.questions ?? [];
-    if (
-      !Array.isArray(questions) ||
-      questionIndex < 0 ||
-      questionIndex >= questions.length
-    ) {
-      return false;
-    }
-
-    const q = questions[questionIndex];
-    if (!q) return false;
-
-    const hasOptions = Array.isArray(q.options) && q.options.length > 0;
-    const hasText =
-      typeof q.questionText === 'string' && q.questionText.trim().length > 0;
-
-    return hasOptions && hasText;
+    return this.dataLoader.hasCachedQuestion(quizId, questionIndex);
   }
 
   private cloneQuestionForSession(question: QuizQuestion, qIndex?: number): QuizQuestion | null {
-    if (!question) {
-      return null;
-    }
-
-    const deepClone = JSON.parse(JSON.stringify(question)) as QuizQuestion;
-
-    const normalize = (val: unknown): string =>
-      String(val ?? '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\u00A0/g, ' ').trim().toLowerCase().replace(/\s+/g, ' ');
-
-    // Phase 1: Normalize Options and enforce stable, unique numeric IDs
-    const normalizedOptions = Array.isArray(deepClone.options)
-      ? deepClone.options.map((option, optionIdx) => {
-        const rawOId = (option as any).optionId;
-        // If qIndex is provided, we STRICTLY enforce the (qIndex+1)*100 format for stability.
-        // Otherwise, we reuse the existing numeric ID if it looks valid, or fallback to optionIdx+1.
-        const oId = (typeof qIndex === 'number')
-          ? (qIndex + 1) * 100 + (optionIdx + 1)
-          : (!isNaN(Number(rawOId)) && Number(rawOId) > 0 ? Number(rawOId) : optionIdx + 1);
-
-        return {
-          ...option,
-          optionId: oId,
-          displayOrder: typeof option.displayOrder === 'number' ? option.displayOrder : optionIdx,
-          selected: option.selected === true || (option as any).selected === 'true',
-          highlight: option.highlight ?? false,
-          showIcon: option.showIcon ?? false
-        };
-      })
-      : [];
-
-    // Phase 2: Build an authoritative 'answer' array by matching against normalized options.
-    // This fixes cases where the raw answer array has stale IDs or only text.
-    const finalAnswers: Option[] = [];
-    if (Array.isArray(deepClone.answer)) {
-      deepClone.answer.forEach(rawAns => {
-        if (!rawAns) return;
-        const normAnsText = normalize(rawAns.text);
-        const ansId = Number(rawAns.optionId);
-
-        // Find corresponding option using text (robust) or ID (fallback)
-        const match = normalizedOptions.find(o => {
-          const normOptText = normalize(o.text);
-          return (normOptText && normAnsText && normOptText === normAnsText) ||
-            (!isNaN(ansId) && Number(o.optionId) === ansId);
-        });
-
-        if (match) {
-          finalAnswers.push({
-            ...rawAns,
-            optionId: match.optionId,
-            text: match.text,
-            correct: true
-          });
-        }
-      });
-    }
-
-    // Fallback Phase 2: If answer array is still empty, trust the 'correct' flag on options
-    if (finalAnswers.length === 0) {
-      normalizedOptions.forEach(o => {
-        if (o.correct === true || (o as any).correct === "true") {
-          finalAnswers.push({
-            optionId: o.optionId,
-            text: o.text,
-            correct: true
-          } as Option);
-        }
-      });
-    }
-
-    // Phase 3: Synchronize 'correct' flag on options based on the authoritative finalAnswers
-    const correctIds = new Set(finalAnswers.map(a => Number(a.optionId)));
-    const finalOptions = normalizedOptions.map(o => ({
-      ...o,
-      correct: correctIds.has(Number(o.optionId))
-    }));
-
-    if (qIndex !== undefined) {
-      console.log(`[QuizService] Normalized Q${qIndex + 1}: ${finalAnswers.length} answers, ids: ${Array.from(correctIds)}`);
-    }
-
-    return {
-      ...deepClone,
-      options: finalOptions,
-      answer: finalAnswers
-    };
+    return this.questionResolver.cloneQuestionForSession(question, qIndex);
   }
 
   setCanonicalQuestions(
     quizId: string,
     questions: QuizQuestion[] | null | undefined
   ): void {
-    if (!quizId) {
-      console.warn('[setCanonicalQuestions] quizId missing.');
-      return;
-    }
-
-    if (!Array.isArray(questions) || questions.length === 0) {
-      this.canonicalQuestionsByQuiz.delete(quizId);
-      this.canonicalQuestionIndexByText.delete(quizId);
-      return;
-    }
-
-    const sanitized = questions
-      .map((question, idx) => this.cloneQuestionForSession(question, idx))
-      .filter((question): question is QuizQuestion => !!question)
-      .map((question) => ({
-        ...question,
-        options: Array.isArray(question.options)
-          ? question.options.map((option) => ({ ...option }))
-          : []
-      }));
-
-    if (sanitized.length === 0) {
-      this.canonicalQuestionsByQuiz.delete(quizId);
-      this.canonicalQuestionIndexByText.delete(quizId);
-      return;
-    }
-
-    const textIndex = new Map<string, number>();
-
-    let idx = 0;
-    for (const question of sanitized) {
-      const key = this.normalizeQuestionText(question?.questionText);
-      if (!key) {
-        idx++;
-        continue;
-      }
-
-      if (!textIndex.has(key)) {
-        textIndex.set(key, idx);
-      }
-
-      idx++;
-    }
-
-    this.canonicalQuestionsByQuiz.set(quizId, sanitized);
-    this.canonicalQuestionIndexByText.set(quizId, textIndex);
+    this.dataLoader.setCanonicalQuestions(
+      quizId,
+      questions,
+      (q, idx) => this.cloneQuestionForSession(q, idx),
+      (text) => this.normalizeQuestionText(text)
+    );
   }
 
   public getCanonicalQuestions(quizId: string): QuizQuestion[] {
-    if (!quizId) return [];
-    return this.canonicalQuestionsByQuiz.get(quizId) || [];
+    return this.dataLoader.getCanonicalQuestions(quizId);
   }
 
   /**
@@ -1885,16 +1531,11 @@ export class QuizService {
    * @param index The original (unshuffled) index of the question.
    */
   public getPristineQuestion(index: number): QuizQuestion | null {
-    const qId = this.quizId;
-    if (!qId) return null;
-
-    const canonical = this.canonicalQuestionsByQuiz.get(qId);
-    if (!canonical || canonical.length <= index) {
-      return null;
-    }
-
-    // Return a clone to be safe
-    return this.cloneQuestionForSession(canonical[index], index);
+    return this.dataLoader.getPristineQuestion(
+      this.quizId,
+      index,
+      (q, idx) => this.cloneQuestionForSession(q, idx)
+    );
   }
 
   applySessionQuestions(quizId: string, questions: QuizQuestion[]): void {
@@ -2072,17 +1713,7 @@ export class QuizService {
 
   // Helper function to find a quiz by quizId
   findQuizByQuizId(quizId: string): Observable<Quiz | undefined> {
-    // Find the quiz by quizId within the quizData array
-    const foundQuiz =
-      this.quizData?.find((quiz) => quiz.quizId === quizId) ?? null;
-
-    // If a quiz is found, and it's indeed a Quiz (as checked by this.isQuiz), return it as an Observable
-    if (foundQuiz && this.isQuiz(foundQuiz)) {
-      return of(foundQuiz as Quiz);
-    }
-
-    // Return an Observable with undefined if the quiz is not found
-    return of(undefined);
+    return this.dataLoader.findQuizByQuizId(quizId);
   }
 
   // Method to find the index of a question
@@ -2117,11 +1748,6 @@ export class QuizService {
     return this.selectedQuiz.questions.findIndex(
       (q) => q.questionText === question.questionText
     );
-  }
-
-  // Type guard function to check if an object is of type Quiz
-  private isQuiz(item: any): item is Quiz {
-    return typeof item === 'object' && 'quizId' in item;
   }
 
   isValidQuestionIndex(index: number, data: Quiz | QuizQuestion[]): boolean {
@@ -2175,81 +1801,26 @@ export class QuizService {
 
   // Ensure quiz ID exists, retrieving it if necessary
   async ensureQuizIdExists(): Promise<boolean> {
-    if (!this.quizId) {
-      this.quizId =
-        this.activatedRoute.snapshot.paramMap.get('quizId') || this.quizId;
-      if (this.quizId) {
-        localStorage.setItem('quizId', this.quizId);
-      }
+    const result = await this.dataLoader.ensureQuizIdExists(this.quizId);
+    if (result.resolvedId && result.resolvedId !== this.quizId) {
+      this.quizId = result.resolvedId;
     }
-    return !!this.quizId;
+    return result.exists;
   }
 
-  // Ensures every option has a valid optionId. If optionId is missing or invalid, it will assign the index as the optionId.
   assignOptionIds(options: Option[], questionIndex: number): Option[] {
-    if (!Array.isArray(options)) {
-      console.error('[assignOptionIds] Invalid options array:', options);
-      return [];
-    }
-
-    return options.map((option, localIdx) => {
-      // ⚡ FIX: Sync Safeguard
-      // If the option ALREADY has a computed ID, DO NOT overwrite it with a new positional ID.
-      // This ensures scoring uses the canonical ID (e.g. 1, 2, 301) instead of the display ID (e.g. 101).
-      // We also handle string IDs (e.g. "101") by normalizing them.
-      const existingId = Number(option.optionId);
-      if (option.optionId !== undefined && !isNaN(existingId)) {
-        return {
-          ...option,
-          optionId: existingId, // Ensure it is a number
-          selected: false,
-          highlight: false,
-          showIcon: false
-        };
-      }
-
-      // Build a globally unique numeric ID like 1001, 1002, 2001, 2002, etc.
-      const uniqueId = Number(
-        `${questionIndex + 1}${(localIdx + 1).toString().padStart(2, '0')}`
-      );
-      return {
-        ...option,
-        optionId: uniqueId,
-        selected: false,
-        highlight: false,
-        showIcon: false
-      };
-    });
+    return this.optionsService.assignOptionIds(options, questionIndex);
   }
 
   private normalizeOptionDisplayOrder(options: Option[] = []): Option[] {
-    if (!Array.isArray(options)) {
-      return [];
-    }
-
-    return options.map((option, index) => ({
-      ...option,
-      displayOrder: index
-    }));
+    return this.optionsService.normalizeOptionDisplayOrder(options);
   }
 
   assignOptionActiveStates(
     options: Option[],
     correctOptionSelected: boolean,
   ): Option[] {
-    if (!Array.isArray(options) || options.length === 0) {
-      console.warn('[assignOptionActiveStates] No options provided.');
-      return [];
-    }
-
-    return options.map((opt) => ({
-      ...opt,
-      active: correctOptionSelected ? opt.correct : true,  // keep only correct options active
-      feedback: correctOptionSelected && !opt.correct ? 'x' : undefined,  // add feedback for incorrect options
-      showIcon: correctOptionSelected
-        ? opt.correct || opt.showIcon
-        : opt.showIcon  // preserve icons for correct or previously shown
-    }));
+    return this.optionsService.assignOptionActiveStates(options, correctOptionSelected);
   }
 
   updateUserAnswer(questionIndex: number, answerIds: number[]): void {
@@ -2420,8 +1991,7 @@ export class QuizService {
    * @param isMultipleAnswer Whether this is a multi-answer question
    */
   public scoreDirectly(questionIndex: number, isCorrect: boolean, isMultipleAnswer: boolean): void {
-    console.log(`[scoreDirectly] 🎯 Q${questionIndex}: isCorrect=${isCorrect}, isMulti=${isMultipleAnswer}`);
-    this.incrementScore([], isCorrect, isMultipleAnswer, questionIndex);
+    this.scoringService.scoreDirectly(questionIndex, isCorrect, isMultipleAnswer, this.shouldShuffle(), this.quizId);
   }
 
   incrementScore(
@@ -2431,163 +2001,15 @@ export class QuizService {
     questionIndex: number = -1
   ): void {
     const qIndex = questionIndex >= 0 ? questionIndex : this.currentQuestionIndex;
-
-    // Scoring Key Resolution
-    let scoringKey = qIndex;
-
-    // Strict Shuffle Guard
-    // Only use the shuffle service mapping if shuffle is explicitly ENABLED.
-    // If we rely on valid ID checks alone, a stale map in QuizShuffleService (from a prev session)
-    // might incorrectly remap an unshuffled question (0->3), updating the wrong score key.
-    if (this.shouldShuffle()) {
-      // Try to get quizId from various sources if it's empty
-      let effectiveQuizId = this.quizId;
-      if (!effectiveQuizId) {
-        // Try localStorage
-        try {
-          effectiveQuizId = localStorage.getItem('lastQuizId') || '';
-        } catch { }
-      }
-      if (!effectiveQuizId) {
-        // Try to find any active shuffle state
-        const shuffleKeys = Object.keys(localStorage).filter(k => k.startsWith('shuffleState:'));
-        if (shuffleKeys.length > 0) {
-          effectiveQuizId = shuffleKeys[0].replace('shuffleState:', '');
-          console.log(`[incrementScore] Found shuffle state for quizId: ${effectiveQuizId}`);
-        }
-      }
-
-      if (effectiveQuizId) {
-        const originalIndex = this.quizShuffleService.toOriginalIndex(effectiveQuizId, qIndex);
-
-        // Valid original index is >= 0
-        if (typeof originalIndex === 'number' && originalIndex >= 0) {
-          scoringKey = originalIndex;
-        }
-      } else {
-        console.warn(`[incrementScore] Shuffle enabled but no quizId found - using display index as scoringKey`);
-      }
-    }
-
-    // IMPORTANT: Only use scoringKey for questionCorrectness lookups.
-    // Previously we also stored/checked by qIndex (display index), but in shuffled mode
-    // one question's qIndex can collide with another question's scoringKey, causing
-    // false "already scored" hits that block increments.
-    let wasCorrect = this.questionCorrectness.get(scoringKey) || false;
-
-    // Self-heal: if questionCorrectness says "already correct" but correctCount is 0,
-    // the map entry is stale (e.g. from a previous localStorage session that wasn't
-    // fully cleared). Reset so scoring can proceed.
-    if (wasCorrect && this.correctCount === 0) {
-      console.warn(`[incrementScore] Self-heal: wasCorrect=true but correctCount=0 for Q${qIndex} (key=${scoringKey}). Clearing stale entry.`);
-      wasCorrect = false;
-      this.questionCorrectness.set(scoringKey, false);
-    }
-
-    const isNowCorrect = correctAnswerFound;  // simplified
-
-    console.log(`[incrementScore] Q${qIndex} scoringKey=${scoringKey} isNowCorrect=${isNowCorrect} wasCorrect=${wasCorrect} correctCount=${this.correctCount}`);
-
-    if (isNowCorrect && !wasCorrect) {
-      this.questionCorrectness.set(scoringKey, true);
-      this.updateCorrectCountForResults(this.correctCount + 1);
-      console.log(`[incrementScore] INCREMENTED score to ${this.correctCount}`);
-    } else if (!isNowCorrect && wasCorrect) {
-      this.updateCorrectCountForResults(Math.max(this.correctCount - 1, 0));
-      this.questionCorrectness.set(scoringKey, false);
-      console.log(`[incrementScore] Decremented score for Q${qIndex} (Key=${scoringKey})`);
-    } else if (!isNowCorrect) {
-      // Persist explicit wrong status so dots/progress remain stable after navigation.
-      this.questionCorrectness.set(scoringKey, false);
-      console.log(`[incrementScore] Marked Q${qIndex} wrong (Key=${scoringKey})`);
-    } else {
-      console.log(`[incrementScore] NO CHANGE: isNowCorrect=${isNowCorrect}, wasCorrect=${wasCorrect}`);
-    }
-
-    this.saveQuestionCorrectness();
+    this.scoringService.incrementScore(answers, correctAnswerFound, isMultipleAnswer, qIndex, this.shouldShuffle(), this.quizId);
   }
 
   resetScore(): void {
-    localStorage.setItem('DEBUG_resetScore', new Error().stack || 'no stack');
-    this.questionCorrectness.clear();
-    this.saveQuestionCorrectness();  // clear persistence
-    this.correctCount = 0;
-    // Use _forceSetScore to bypass the guard in sendCorrectCountToResults
-    this._forceSetScore(0);
-    console.log('[QuizService] Score fully reset.');
-  }
-
-  /** Bypass guard — only for explicit resets (restart, new quiz). */
-  private _forceSetScore(value: number): void {
-    const safeValue = Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
-    this.correctCount = safeValue;
-    this.correctAnswersCountSubject.next(safeValue);
-    localStorage.setItem('correctAnswersCount', String(safeValue));
-    if (this.quizId) {
-      localStorage.setItem(this.scoreQuizIdStorageKey, this.quizId);
-    }
-  }
-
-  private updateCorrectCountForResults(value: number): void {
-    const safeValue = Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
-    this.correctCount = safeValue;
-    this.sendCorrectCountToResults(this.correctCount);
+    this.scoringService.resetScore(this.quizId);
   }
 
   sendCorrectCountToResults(value: number): void {
-    const safeValue = Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
-
-    // GUARD: If something tries to set score to 0 but we have correctly answered
-    // questions in our map, ignore the zero and re-derive from the map.
-    // This prevents navigation-triggered accidental resets.
-    if (safeValue === 0 && this.questionCorrectness.size > 0) {
-      localStorage.setItem('DEBUG_sendCorrectCount_BLOCKED', new Error().stack || 'no stack');
-      const trueCount = Array.from(this.questionCorrectness.values())
-        .filter(v => v === true).length;
-      if (trueCount > 0) {
-        console.warn(
-          `[QuizService] BLOCKED score reset to 0 — questionCorrectness has ${trueCount} correct answers. Keeping score at ${trueCount}.`
-        );
-        this.correctCount = trueCount;
-        this.correctAnswersCountSubject.next(trueCount);
-        localStorage.setItem('correctAnswersCount', String(trueCount));
-        if (this.quizId) {
-          localStorage.setItem(this.scoreQuizIdStorageKey, this.quizId);
-        }
-        return;
-      }
-    }
-
-    this.correctCount = safeValue;
-    this.correctAnswersCountSubject.next(safeValue);
-    localStorage.setItem('correctAnswersCount', String(safeValue));
-    if (this.quizId) {
-      localStorage.setItem(this.scoreQuizIdStorageKey, this.quizId);
-    }
-  }
-
-  private loadQuestionCorrectness(): void {
-    try {
-      const stored = localStorage.getItem('questionCorrectness');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        this.questionCorrectness = new Map(
-          Object.entries(parsed).map(([k, v]) => [Number(k), Boolean(v)])
-        );
-        console.log('[QuizService] Loaded questionCorrectness:', this.questionCorrectness);
-      }
-    } catch (err) {
-      console.warn('Failed to load questionCorrectness:', err);
-    }
-  }
-
-  private saveQuestionCorrectness(): void {
-    try {
-      const obj = Object.fromEntries(this.questionCorrectness);
-      localStorage.setItem('questionCorrectness', JSON.stringify(obj));
-    } catch (err) {
-      console.warn('Failed to save questionCorrectness:', err);
-    }
+    this.scoringService.sendCorrectCountToResults(value, this.quizId);
   }
 
   resetQuizSessionState(): void {
@@ -2706,7 +2128,7 @@ export class QuizService {
   }
 
   private normalizeQuestionText(value: string | null | undefined): string {
-    return (value ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+    return this.dataLoader.normalizeQuestionText(value);
   }
 
   private toNumericId(value: unknown, fallback: number): number {
@@ -2892,59 +2314,7 @@ export class QuizService {
     question: QuizQuestion,
     incoming: Option[] = []
   ): Option[] {
-    const canonical = Array.isArray(question?.options) ? question.options : [];
-
-    if (!canonical.length) {
-      return this.normalizeOptionDisplayOrder(incoming ?? []).map(
-        (option, index) => ({
-          ...option,
-          optionId: this.toNumericId(option.optionId, index + 1),
-          displayOrder: index,
-          correct: (option.correct as any) === true || (option.correct as any) === 'true',
-          selected: option.selected === true,
-          highlight: option.highlight ?? false,
-          showIcon: option.showIcon ?? false
-        })
-      );
-    }
-
-    const textKey = (value: string | null | undefined) =>
-      (value ?? '').trim().toLowerCase();
-
-    const incomingList = Array.isArray(incoming) ? incoming : [];
-    const incomingById = new Map<number, Option>();
-
-    for (const option of incomingList) {
-      const id = this.toNumericId(option?.optionId, NaN);
-      if (Number.isFinite(id)) {
-        incomingById.set(id, option);
-      }
-    }
-
-    return canonical.map((option, index) => {
-      const id = this.toNumericId(option?.optionId, index + 1);
-      const match =
-        incomingById.get(id) ||
-        incomingList.find(
-          (candidate) => textKey(candidate?.text) === textKey(option?.text)
-        );
-
-      const merged: Option = {
-        ...option,
-        optionId: id,
-        displayOrder: index,
-        correct: option.correct === true,
-        selected: match?.selected === true || option.selected === true,
-        highlight: match?.highlight ?? option.highlight ?? false,
-        showIcon: match?.showIcon ?? option.showIcon ?? false
-      };
-
-      if (match && 'active' in match) {
-        (merged as any).active = (match as any).active;
-      }
-
-      return merged;
-    });
+    return this.optionsService.mergeOptionsWithCanonical(question, incoming);
   }
 
   emitQuestionAndOptions(
@@ -3099,16 +2469,8 @@ export class QuizService {
     this.questionPayloadMap.clear();
   }
 
-  // Helper method to check question structure
   private isValidQuestionStructure(question: any): boolean {
-    return (
-      question &&
-      typeof question === 'object' &&
-      typeof question.questionText === 'string' &&
-      Array.isArray(question.options) &&
-      question.options.length > 0 &&
-      question.options.every((opt: any) => opt && typeof opt.text === 'string')
-    );
+    return this.dataLoader.isValidQuestionStructure(question);
   }
 
   setFinalResult(result: FinalResult): void {
@@ -3168,48 +2530,6 @@ export class QuizService {
   }
 
   private restoreScoreFromPersistence(): void {
-    try {
-      const savedIndexRaw = localStorage.getItem('savedQuestionIndex');
-      const savedIndex = Number(savedIndexRaw);
-      const hasInProgressIndex = Number.isFinite(savedIndex) && Math.trunc(savedIndex) > 0;
-      const scoreQuizId = localStorage.getItem(this.scoreQuizIdStorageKey) ?? '';
-      const quizMatches =
-        scoreQuizId.length > 0 &&
-        this.quizId.length > 0 &&
-        scoreQuizId === this.quizId;
-
-      // Fresh starts at Q1 should not resurrect stale scores from prior attempts.
-      // Only restore persisted score for in-progress sessions (index > 0).
-      if (!hasInProgressIndex || !quizMatches) {
-        this.correctCount = 0;
-        this.correctAnswersCountSubject.next(0);
-        this.questionCorrectness.clear();
-        this.saveQuestionCorrectness();
-        localStorage.setItem('correctAnswersCount', '0');
-        if (this.quizId) {
-          localStorage.setItem(this.scoreQuizIdStorageKey, this.quizId);
-        }
-        return;
-      }
-
-      const storedRaw = localStorage.getItem('correctAnswersCount');
-      const storedCount = Number(storedRaw);
-      const safeStored = Number.isFinite(storedCount) ? Math.max(0, Math.trunc(storedCount)) : 0;
-
-      // questionCorrectness can survive service/component recreation even when
-      // correctAnswersCountSubject is back at its initial 0.
-      // Recover using the stronger of persisted count and correctness-map count.
-      const mapTrueCount = Array.from(this.questionCorrectness.values())
-        .filter((v) => v === true)
-        .length;
-
-      const restored = Math.max(safeStored, mapTrueCount);
-      this.correctCount = restored;
-      this.correctAnswersCountSubject.next(restored);
-      localStorage.setItem('correctAnswersCount', String(restored));
-      console.log(`[QuizService] Restored score from persistence: ${restored} (stored=${safeStored}, map=${mapTrueCount}, savedIndex=${savedIndex})`);
-    } catch (err) {
-      console.warn('[QuizService] Failed to restore score from persistence:', err);
-    }
+    this.scoringService.restoreScoreFromPersistence(this.quizId);
   }
 }
