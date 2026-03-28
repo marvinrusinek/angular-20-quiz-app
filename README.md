@@ -94,11 +94,6 @@ with a structured results breakdown.
 <hr>
 
 <h2>🧭 Architecture Overview</h2>
-
-<p align="center">
-<img src="docs/diagrams/architecture-diagram.png" width="950" alt="Angular Quiz App Architecture">
-</p>
-
 <p>
 The application follows a modular Angular architecture where container components
 coordinate UI logic while services manage application state and quiz behavior.
