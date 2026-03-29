@@ -41,6 +41,12 @@ modular architecture, and prepare for Angular Signals integration.
 
 <hr>
 
+<h2>⭐ Support</h2>
+
+<p>
+If this app helped you learn, teach, or just have fun — please consider giving it a ⭐️ on GitHub. Your support directly fuels future features and improvements.
+</p>
+
 <h2>🏆 Engineering Highlights</h2>
 
 <ul>
@@ -197,17 +203,10 @@ http://localhost:4200
 <ul>
 <li>Angular Signals integration</li>
 <li>Further modular refactoring</li>
+<li>Mobile/tactile interaction improvements</li>
 <li>UI/UX enhancements</li>
 <li>Additional quiz content</li>
 </ul>
-
-<hr>
-
-<h2>⭐ Support</h2>
-
-<p>
-If this app helped you learn, teach, or just have fun — please consider giving it a ⭐️ on GitHub. Your support directly fuels future features and improvements.
-</p>
 
 <hr>
 
