@@ -34,6 +34,11 @@ The goal was to create a quiz platform that functions both as an engaging
 learning tool and as a demonstration of modern Angular development practices.
 </p>
 
+<p>
+The app is currently being refactored to improve maintainability,
+modular architecture, and prepare for Angular Signals integration.
+</p>
+
 <hr>
 
 <h2>🏆 Engineering Highlights</h2>
