@@ -47,6 +47,8 @@ modular architecture, and prepare for Angular Signals integration.
 If this app helps you learn, teach, or just have fun — please give it a ⭐️ on GitHub. Your support fuels future features and improvements.
 </p>
 
+<hr>
+
 <h2>🏆 Engineering Highlights</h2>
 
 <ul>
