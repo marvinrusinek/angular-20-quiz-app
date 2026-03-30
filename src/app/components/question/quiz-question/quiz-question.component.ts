@@ -44,6 +44,7 @@ import { SharedVisibilityService } from '../../../shared/services/ui/shared-visi
 import { SoundService } from '../../../shared/services/ui/sound.service';
 import { TimerService } from '../../../shared/services/features/timer.service';
 import { QqcStatePersistenceService } from '../../../shared/services/state/qqc-state-persistence.service';
+import { QqcExplanationManagerService } from '../../../shared/services/features/qqc-explanation-manager.service';
 import { QuizShuffleService } from '../../../shared/services/flow/quiz-shuffle.service';
 import { BaseQuestion } from '../base/base-question';
 import { SharedOptionComponent } from '../../../components/question/answer/shared-option-component/shared-option.component';
@@ -331,6 +332,7 @@ export class QuizQuestionComponent extends BaseQuestion
     protected soundService: SoundService,
     protected timerService: TimerService,
     protected statePersistence: QqcStatePersistenceService,
+    protected explanationManager: QqcExplanationManagerService,
     protected componentFactoryResolver: ComponentFactoryResolver,
     protected activatedRoute: ActivatedRoute,
     protected quizShuffleService: QuizShuffleService,
@@ -1239,26 +1241,6 @@ export class QuizQuestionComponent extends BaseQuestion
     }, 150);
   }
 
-  private triggerRenderReady(reason: string = ''): void {
-    if (reason) console.log('[🚀 triggerRenderReady]', reason);
-
-    this.finalRenderReady = true;
-    this.renderReady = true;
-
-    this.renderReadySubject.next(true);  // triggers the stream
-  }
-
-  private saveQuizState(): void {
-    this.statePersistence.saveState({
-      questionIndex: this.currentQuestionIndex,
-      explanationText: this.currentExplanationText,
-      displayMode: this.displayState.mode,
-      optionsToDisplay: this.optionsToDisplay,
-      selectedOptions: this.selectedOptionService.getSelectedOptions() || [],
-      feedbackText: this.feedbackText
-    });
-  }
-
   private restoreQuizState(): void {
     try {
       const restored = this.statePersistence.restoreState(this.currentQuestionIndex);
@@ -1732,10 +1714,6 @@ export class QuizQuestionComponent extends BaseQuestion
       'visibilitychange',
       this.onVisibilityChange.bind(this)
     );
-  }
-
-  isAnswerSelected(): boolean {
-    return this.selectedOptions && this.selectedOptions.length > 0;
   }
 
   // Unsubscribing to prevent multiple triggers
@@ -2502,18 +2480,6 @@ export class QuizQuestionComponent extends BaseQuestion
     );
   }
 
-  public shouldHideOptions(): boolean {
-    return !this.data?.options || this.data.options.length === 0;
-  }
-
-  handleQuestionUpdate(newQuestion: QuizQuestion): void {
-    if (!newQuestion.selectedOptions) {
-      newQuestion.selectedOptions = [];
-    }
-
-    this.getCorrectAnswers();
-  }
-
   private initializeData(): void {
     if (!this.question) {
       console.warn('Question is not defined.');
@@ -2539,19 +2505,6 @@ export class QuizQuestionComponent extends BaseQuestion
     // Initialize selected questions and answers without affecting the index
     this.initializeSelectedQuiz();
     await this.initializeQuizQuestionsAndAnswers();
-  }
-
-  // might need later
-  private subscribeToAnswers(): void {
-    this.quizService.answersSubject.subscribe((answers: number[]) => {
-      this.answers = answers;
-    });
-  }
-
-  public getDisplayOptions(): Option[] {
-    return this.optionsToDisplay && this.optionsToDisplay.length > 0
-      ? this.optionsToDisplay
-      : this.data?.options;
   }
 
   private initializeSelectedQuiz(): void {
@@ -5071,57 +5024,18 @@ export class QuizQuestionComponent extends BaseQuestion
     explanationText: string;
     questionState?: QuestionState;
   } {
-    if (!preserveVisualState) {
-      return { shouldRestore: false, explanationText: '' };
-    }
-
-    const rawExplanation = (this.explanationToDisplay ?? '').trim();
-    const latestExplanation = (this.explanationTextService.getLatestExplanation() ?? '')
-      .toString()
-      .trim();
-    const serviceExplanation = (this.explanationTextService.explanationText$.getValue() ?? '')
-      .toString()
-      .trim();
-    const explanationText = rawExplanation || latestExplanation || serviceExplanation;
-
-    if (!explanationText) {
-      return { shouldRestore: false, explanationText: '' };
-    }
-
-    const activeQuizId =
-      [this.quizId, this.quizService.getCurrentQuizId(), this.quizService.quizId]
-        .find((id) => typeof id === 'string' && id.trim().length > 0) ?? null;
-
-    const questionState = activeQuizId
-      ? this.quizStateService.getQuestionState(activeQuizId, index)
-      : undefined;
-
-    const answered = Boolean(
-      questionState?.isAnswered ||
-      this.selectedOptionService.isAnsweredSubject.getValue() ||
-      this.isAnswered ||
-      this.displayState?.answered
-    );
-
-    const explanationVisible = Boolean(
-      this.displayMode$.getValue() === 'explanation' ||
-      this.displayState?.mode === 'explanation' ||
-      this.shouldDisplayExplanation ||
-      this.explanationVisible ||
-      this.displayExplanation ||
-      this.explanationTextService.shouldDisplayExplanationSource.getValue() ||
-      questionState?.explanationDisplayed
-    );
-
-    return {
-      shouldRestore:
-        preserveVisualState &&
-        answered &&
-        explanationVisible &&
-        explanationText.length > 0,
-      explanationText,
-      questionState
-    };
+    return this.explanationManager.captureExplanationSnapshot({
+      preserveVisualState,
+      index,
+      explanationToDisplay: this.explanationToDisplay,
+      quizId: this.quizId,
+      isAnswered: this.isAnswered as boolean,
+      displayMode: this.displayMode$.getValue(),
+      shouldDisplayExplanation: this.shouldDisplayExplanation,
+      explanationVisible: this.explanationVisible,
+      displayExplanation: this.displayExplanation,
+      displayStateAnswered: this.displayState?.answered
+    });
   }
 
   private restoreExplanationAfterReset(args: {
@@ -5199,79 +5113,6 @@ export class QuizQuestionComponent extends BaseQuestion
     this.cdRef.markForCheck();
   }
 
-  /* async updateExplanationText(index: number): Promise<string> {
-    const i0 = this.normalizeIndex(index);
- 
-    const q = this.questions?.[i0];
-    // Prefer model raw; fallback to service cache if model is empty
-    const svcCached = (this.explanationTextService?.formattedExplanations?.[i0]?.explanation ?? '').toString().trim();
-    const baseRaw   = ((q?.explanation ?? '') as string).toString().trim() || svcCached;
- 
-    console.warn('[🧠 updateExplanationText CALLED]', {
-      index: i0,
-      currentIndex: this.currentQuestionIndex,
-    });
- 
-    if (!q) {
-      // still update state with whatever we have
-      this.explanationTextService.setExplanationText(baseRaw || 'Explanation not available.');
-      const qState0 = this.quizStateService.getQuestionState(this.quizId!, i0);
-      this.quizStateService.setQuestionState(this.quizId, i0, {
-        ...qState0,
-        explanationDisplayed: true,
-        explanationText: baseRaw || 'Explanation not available.',
-      });
-      return baseRaw;
-    }
- 
-    // Derive correct option indices from the question itself (works on timeout)
-    const indices: number[] = Array.isArray(q.options)
-      ? q.options.map((opt, idx) => (opt?.correct ? (idx + 1) : -1)).filter((n) => n > 0)
-      : [];
- 
-    // Format using your service; if missing/throws, fall back to raw
-    let formatted = '';
-    try {
-      const svc: any = this.explanationTextService;
-      if (typeof svc.formatExplanation === 'function') {
-        // correct signature: (question, correctOptionIndices, explanation)
-        formatted = svc.formatExplanation(q, indices, baseRaw);
-      } else {
-        formatted = baseRaw;
-      }
-    } catch (e) {
-      console.warn('[updateExplanationText] formatter threw; using raw', e);
-      formatted = baseRaw;
-    }
- 
-    const clean = (formatted ?? '').toString().trim();
- 
-    // Cache per-index in the service and (optionally) push to a sticky stream
-    try {
-      const prev = this.explanationTextService.formattedExplanations?.[i0] as any;
-      this.explanationTextService.formattedExplanations[i0] = {
-        ...(prev ?? {}),
-        questionIndex: i0,
-        explanation: clean || baseRaw,
-      };
-      (this.explanationTextService as any).pushFormatted?.(clean || baseRaw);
-    } catch {}
- 
-    // Only write to live stream if we’re still on this index
-    if (this.currentQuestionIndex === i0 && (clean || baseRaw)) {
-      this.explanationTextService.setExplanationText(clean || baseRaw);
-    }
- 
-    // Keep your per-question state
-    const qState = this.quizStateService.getQuestionState(this.quizId!, i0);
-    this.quizStateService.setQuestionState(this.quizId, i0, {
-      ...qState,
-      explanationDisplayed: true,
-      explanationText: clean || baseRaw,
-    });
- 
-    return clean || baseRaw;
-  } */
   private async updateExplanationText(index: number): Promise<string> {
     const svc = this.explanationTextService;
     const quizSvc = this.quizService;
@@ -6253,101 +6094,30 @@ export class QuizQuestionComponent extends BaseQuestion
   }
 
   public async getExplanationText(questionIndex: number): Promise<string> {
-    try {
-      if (!this.explanationTextService.explanationsInitialized) {
-        console.warn(
-          `[getExplanationText] ⏳ Explanations not initialized — returning fallback for Q${questionIndex}`
-        );
-        return 'No explanation available for this question.';
-      }
-
-      const explanation$ =
-        this.explanationTextService.getFormattedExplanationTextForQuestion(
-          questionIndex
-        );
-      const explanationText = await firstValueFrom(explanation$);
-
-      const trimmed = explanationText?.trim();
-      if (!trimmed) {
-        console.warn(
-          `[getExplanationText] ⚠️ Empty or undefined explanation for Q${questionIndex}. Using fallback.`
-        );
-        return 'No explanation available for this question.';
-      }
-
-      return trimmed;
-    } catch (error) {
-      console.error(
-        `[getExplanationText] ❌ Error fetching explanation for Q${questionIndex}:`,
-        error
-      );
-      return 'Error loading explanation.';
-    }
+    return this.explanationManager.getExplanationText(questionIndex);
   }
 
   private async processExplanationText(
     questionData: QuizQuestion,
     questionIndex: number
   ): Promise<FormattedExplanation | null> {
-    if (!questionData) {
-      console.error(`Invalid question data for index ${questionIndex}`);
-      return {
-        questionIndex,
-        explanation: 'No question data available',
-      };
+    const result = await this.explanationManager.processExplanationText(
+      questionData,
+      questionIndex
+    );
+
+    if (result) {
+      this.handleFormattedExplanation(result, result.questionIndex);
     }
 
-    const explanation = questionData.explanation || 'No explanation available';
-    this.explanationTextService.setCurrentQuestionExplanation(explanation);
-
-    try {
-      const formattedExplanation = await this.getFormattedExplanation(
-        questionData,
-        questionIndex
-      );
-
-      if (formattedExplanation) {
-        const explanationText =
-          typeof formattedExplanation === 'string'
-            ? formattedExplanation
-            : formattedExplanation.explanation || '';
-
-        const formattedExplanationObject: FormattedExplanation = {
-          questionIndex,
-          explanation: explanationText,
-        };
-
-        this.handleFormattedExplanation(
-          formattedExplanationObject,
-          formattedExplanationObject.questionIndex
-        );
-        return formattedExplanationObject;
-      } else {
-        console.warn('No formatted explanation received');
-        return {
-          questionIndex: questionIndex,
-          explanation: questionData.explanation || 'No explanation available',
-        };
-      }
-    } catch (error) {
-      console.error('Error in processing explanation text:', error);
-      return {
-        questionIndex: questionIndex,
-        explanation: questionData.explanation || 'Error processing explanation',
-      };
-    }
+    return result;
   }
 
   private async getFormattedExplanation(
     questionData: QuizQuestion,
     questionIndex: number
   ): Promise<{ questionIndex: number; explanation: string }> {
-    const formattedExplanationObservable =
-      this.explanationTextService.formatExplanationText(
-        questionData,
-        questionIndex
-      );
-    return firstValueFrom(formattedExplanationObservable);
+    return this.explanationManager.getFormattedExplanation(questionData, questionIndex);
   }
 
   private handleFormattedExplanation(

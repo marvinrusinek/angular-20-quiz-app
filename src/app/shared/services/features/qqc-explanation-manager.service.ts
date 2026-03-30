@@ -1,0 +1,199 @@
+import { Injectable } from '@angular/core';
+
+import { FormattedExplanation } from '../../models/FormattedExplanation.model';
+import { QuizQuestion } from '../../models/QuizQuestion.model';
+import { QuestionState } from '../../models/QuestionState.model';
+import { ExplanationTextService } from './explanation-text.service';
+import { QuizService } from '../data/quiz.service';
+import { QuizStateService } from '../state/quizstate.service';
+import { SelectedOptionService } from '../state/selectedoption.service';
+import { firstValueFrom } from '../../utils/rxjs-compat';
+
+/**
+ * Manages explanation text resolution, formatting, and caching for QQC.
+ * Extracted from QuizQuestionComponent to reduce its size.
+ */
+@Injectable({ providedIn: 'root' })
+export class QqcExplanationManagerService {
+
+  constructor(
+    private explanationTextService: ExplanationTextService,
+    private quizService: QuizService,
+    private quizStateService: QuizStateService,
+    private selectedOptionService: SelectedOptionService
+  ) {}
+
+  /**
+   * Fetches explanation text for a question index.
+   * Returns fallback strings on error or missing data.
+   */
+  async getExplanationText(questionIndex: number): Promise<string> {
+    try {
+      if (!this.explanationTextService.explanationsInitialized) {
+        console.warn(
+          `[getExplanationText] Explanations not initialized — returning fallback for Q${questionIndex}`
+        );
+        return 'No explanation available for this question.';
+      }
+
+      const explanation$ =
+        this.explanationTextService.getFormattedExplanationTextForQuestion(
+          questionIndex
+        );
+      const explanationText = await firstValueFrom(explanation$);
+
+      const trimmed = explanationText?.trim();
+      if (!trimmed) {
+        console.warn(
+          `[getExplanationText] Empty or undefined explanation for Q${questionIndex}. Using fallback.`
+        );
+        return 'No explanation available for this question.';
+      }
+
+      return trimmed;
+    } catch (error) {
+      console.error(
+        `[getExplanationText] Error fetching explanation for Q${questionIndex}:`,
+        error
+      );
+      return 'Error loading explanation.';
+    }
+  }
+
+  /**
+   * Processes explanation text for a question: formats and returns a FormattedExplanation.
+   */
+  async processExplanationText(
+    questionData: QuizQuestion,
+    questionIndex: number
+  ): Promise<FormattedExplanation | null> {
+    if (!questionData) {
+      console.error(`Invalid question data for index ${questionIndex}`);
+      return {
+        questionIndex,
+        explanation: 'No question data available',
+      };
+    }
+
+    const explanation = questionData.explanation || 'No explanation available';
+    this.explanationTextService.setCurrentQuestionExplanation(explanation);
+
+    try {
+      const formattedExplanation = await this.getFormattedExplanation(
+        questionData,
+        questionIndex
+      );
+
+      if (formattedExplanation) {
+        const explanationText =
+          typeof formattedExplanation === 'string'
+            ? formattedExplanation
+            : formattedExplanation.explanation || '';
+
+        return {
+          questionIndex,
+          explanation: explanationText,
+        };
+      } else {
+        console.warn('No formatted explanation received');
+        return {
+          questionIndex,
+          explanation: questionData.explanation || 'No explanation available',
+        };
+      }
+    } catch (error) {
+      console.error('Error in processing explanation text:', error);
+      return {
+        questionIndex,
+        explanation: questionData.explanation || 'Error processing explanation',
+      };
+    }
+  }
+
+  /**
+   * Gets a formatted explanation from the explanation text service.
+   */
+  async getFormattedExplanation(
+    questionData: QuizQuestion,
+    questionIndex: number
+  ): Promise<{ questionIndex: number; explanation: string }> {
+    const formattedExplanationObservable =
+      this.explanationTextService.formatExplanationText(
+        questionData,
+        questionIndex
+      );
+    return firstValueFrom(formattedExplanationObservable);
+  }
+
+  /**
+   * Captures the current explanation display state for a question.
+   * Returns a snapshot that can be used to restore state after a reset.
+   */
+  captureExplanationSnapshot(params: {
+    preserveVisualState: boolean;
+    index: number;
+    explanationToDisplay: string;
+    quizId: string | null | undefined;
+    isAnswered: boolean;
+    displayMode: string;
+    shouldDisplayExplanation: boolean;
+    explanationVisible: boolean;
+    displayExplanation: boolean;
+    displayStateAnswered: boolean;
+  }): {
+    shouldRestore: boolean;
+    explanationText: string;
+    questionState?: QuestionState;
+  } {
+    if (!params.preserveVisualState) {
+      return { shouldRestore: false, explanationText: '' };
+    }
+
+    const rawExplanation = (params.explanationToDisplay ?? '').trim();
+    const latestExplanation = (this.explanationTextService.getLatestExplanation() ?? '')
+      .toString()
+      .trim();
+    const serviceExplanation = (this.explanationTextService.explanationText$.getValue() ?? '')
+      .toString()
+      .trim();
+    const explanationText = rawExplanation || latestExplanation || serviceExplanation;
+
+    if (!explanationText) {
+      return { shouldRestore: false, explanationText: '' };
+    }
+
+    const activeQuizId =
+      [params.quizId, this.quizService.getCurrentQuizId(), this.quizService.quizId]
+        .find((id) => typeof id === 'string' && id.trim().length > 0) ?? null;
+
+    const questionState = activeQuizId
+      ? this.quizStateService.getQuestionState(activeQuizId, params.index)
+      : undefined;
+
+    const answered = Boolean(
+      questionState?.isAnswered ||
+      this.selectedOptionService.isAnsweredSubject.getValue() ||
+      params.isAnswered ||
+      params.displayStateAnswered
+    );
+
+    const explanationVisibleCheck = Boolean(
+      params.displayMode === 'explanation' ||
+      params.shouldDisplayExplanation ||
+      params.explanationVisible ||
+      params.displayExplanation ||
+      this.explanationTextService.shouldDisplayExplanationSource.getValue() ||
+      questionState?.explanationDisplayed
+    );
+
+    return {
+      shouldRestore:
+        params.preserveVisualState &&
+        answered &&
+        explanationVisibleCheck &&
+        explanationText.length > 0,
+      explanationText,
+      questionState
+    };
+  }
+}
