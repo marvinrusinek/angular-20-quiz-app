@@ -45,6 +45,9 @@ import { SoundService } from '../../../shared/services/ui/sound.service';
 import { TimerService } from '../../../shared/services/features/timer.service';
 import { QqcStatePersistenceService } from '../../../shared/services/state/qqc-state-persistence.service';
 import { QqcExplanationManagerService } from '../../../shared/services/features/qqc-explanation-manager.service';
+import { QqcTimerEffectService } from '../../../shared/services/features/qqc-timer-effect.service';
+import { QqcFeedbackManagerService } from '../../../shared/services/features/qqc-feedback-manager.service';
+import { QqcOptionSelectionService } from '../../../shared/services/features/qqc-option-selection.service';
 import { QuizShuffleService } from '../../../shared/services/flow/quiz-shuffle.service';
 import { BaseQuestion } from '../base/base-question';
 import { SharedOptionComponent } from '../../../components/question/answer/shared-option-component/shared-option.component';
@@ -333,6 +336,9 @@ export class QuizQuestionComponent extends BaseQuestion
     protected timerService: TimerService,
     protected statePersistence: QqcStatePersistenceService,
     protected explanationManager: QqcExplanationManagerService,
+    protected timerEffect: QqcTimerEffectService,
+    protected feedbackManager: QqcFeedbackManagerService,
+    protected optionSelection: QqcOptionSelectionService,
     protected componentFactoryResolver: ComponentFactoryResolver,
     protected activatedRoute: ActivatedRoute,
     protected quizShuffleService: QuizShuffleService,
@@ -3300,110 +3306,82 @@ export class QuizQuestionComponent extends BaseQuestion
     if (this.timedOut) return;
     this.timedOut = true;
 
-    const activeIndex = targetIndex ?? this.currentQuestionIndex ?? 0;
-    const i0 = this.normalizeIndex(activeIndex);
-    const q =
-      this.questions?.[i0] ??
-      (this.currentQuestionIndex === i0 ? this.currentQuestion : undefined);
-
-    // Collect canonical snapshot and robust lock keys
-    const { canonicalOpts, lockKeys } = this.collectLockContextForQuestion(i0, {
-      question: q,
-      fallbackOptions: this.optionsToDisplay
-    });
-
-    // Reveal feedback, lock, and disable options now that the timer has ended
-    this.applyLocksAndDisableForQuestion(i0, canonicalOpts, lockKeys, {
-      revealFeedback: true
-    });
-
-    // Announce completion to any listeners (progress, gating, etc.)
-    try {
-      this.selectionMessageService.releaseBaseline(activeIndex);
-      this.selectionMessageService.setOptionsSnapshot(canonicalOpts);
-
-      const anySelected = canonicalOpts.some(opt => !!opt?.selected);
-      if (!anySelected) {
-        const total = this.totalQuestions ?? this.quizService?.totalQuestions ?? 0;
-        const isLastQuestion = total > 0 && i0 === total - 1;
-        this.selectionMessageService.forceNextButtonMessage(i0, {
-          isLastQuestion
-        });
-      } else {
-        this.selectionMessageService.setSelectionMessage(this._lastAllCorrect);
-      }
-    } catch { }
-
-    // On timer expiry, always show explanation regardless of correctness.
-    // The user needs to see the explanation when time runs out.
-    try {
-      this.explanationTextService.setShouldDisplayExplanation(true);
-      this.displayExplanation = true;
-      this.showExplanationChange.emit(true);
-
-      const cached = this._formattedByIndex.get(i0)
-        ?? this.explanationTextService.fetByIndex?.get(i0)
-        ?? this.explanationTextService.formattedExplanations?.[i0]?.explanation
-        ?? '';
-      const rawTrue =
-        (q?.explanation ?? this.currentQuestion?.explanation ?? '').trim();
-      const hasFet = cached && cached.toLowerCase().includes('correct because');
-      const immediateTxt = (hasFet ? cached.trim() : '') || rawTrue || '<span class="muted">Formatting…</span>';
-      this.setExplanationFor(i0, immediateTxt);
-      this.explanationToDisplay = immediateTxt;
-      this.explanationToDisplayChange?.emit(immediateTxt);
-
-      // Emit FET to the service so quiz-content's displayText$ pipeline picks it up
-      if (hasFet) {
-        this.explanationTextService.setExplanationText(immediateTxt, { index: i0 });
-      }
-
-      // If no cached FET, resolve it asynchronously and update
-      if (!hasFet) {
-        this.resolveFormatted(i0).then(formatted => {
-          if (formatted) {
-            this.setExplanationFor(i0, formatted);
-            this.explanationToDisplay = formatted;
-            this.explanationToDisplayChange?.emit(formatted);
-            this.explanationTextService.setExplanationText(formatted, { index: i0 });
-            this.cdRef.markForCheck();
+    const result = this.timerEffect.onQuestionTimedOut({
+      targetIndex,
+      currentQuestionIndex: this.currentQuestionIndex,
+      questions: this.questions,
+      currentQuestion: this.currentQuestion,
+      optionsToDisplay: this.optionsToDisplay,
+      sharedOptionBindings: this.sharedOptionComponent?.optionBindings,
+      totalQuestions: this.totalQuestions,
+      formattedByIndex: this._formattedByIndex,
+      lastAllCorrect: this._lastAllCorrect,
+      normalizeIndex: (idx) => this.normalizeIndex(idx),
+      setExplanationFor: (idx, html) => this.setExplanationFor(idx, html),
+      resolveFormatted: (idx) => this.resolveFormatted(idx),
+      revealFeedbackForAllOptions: (opts) => this.revealFeedbackForAllOptions(opts),
+      forceDisableSharedOption: () => {
+        this.sharedOptionComponent?.forceDisableAllOptions?.();
+        this.sharedOptionComponent?.triggerViewRefresh?.();
+      },
+      updateBindingsAndOptions: () => {
+        this.optionBindings = (this.optionBindings ?? []).map(binding => {
+          const updated = { ...binding, disabled: true } as OptionBindings;
+          if (updated.option) {
+            updated.option = { ...updated.option, active: false } as Option;
           }
-        }).catch(() => {});
-      }
-    } catch { }
+          return updated;
+        });
+        this.optionsToDisplay = (this.optionsToDisplay ?? []).map(option => ({
+          ...option, active: false,
+        }));
+        return { optionBindings: this.optionBindings, optionsToDisplay: this.optionsToDisplay };
+      },
+      markForCheck: () => this.cdRef.markForCheck(),
+    });
 
-    // Allow navigation to proceed
-    this.nextButtonStateService.setNextButtonState(true);
-    this.quizStateService.setAnswered(true);
-    this.quizStateService.setAnswerSelected(true);
-
-    // Defensive stop in case the timer didn’t auto-stop at zero
-    try { this.timerService.stopTimer(undefined, { force: true }); } catch { }
-
-    this.cdRef.markForCheck();  // render
+    this.displayExplanation = true;
+    this.showExplanationChange.emit(true);
+    this.explanationToDisplay = result.explanationToDisplay;
+    this.explanationToDisplayChange?.emit(result.explanationToDisplay);
+    this._timerStoppedForQuestion = result.timerStoppedForQuestion;
   }
 
   private handleTimerStoppedForActiveQuestion(reason: 'timeout' | 'stopped'): void {
-    if (this._timerStoppedForQuestion) return;
-
-    const i0 = this.normalizeIndex(this.currentQuestionIndex ?? 0);
-    if (!Number.isFinite(i0) || !this.questions?.[i0]) return;
-    if (reason !== 'timeout' && this.questionFresh) return;
-
-    const { canonicalOpts, lockKeys } = this.collectLockContextForQuestion(i0);
-
-    this.applyLocksAndDisableForQuestion(i0, canonicalOpts, lockKeys, {
-      revealFeedback: reason === 'timeout'
+    const stopped = this.timerEffect.handleTimerStoppedForActiveQuestion({
+      reason,
+      timerStoppedForQuestion: this._timerStoppedForQuestion,
+      currentQuestionIndex: this.currentQuestionIndex,
+      questions: this.questions,
+      questionFresh: this.questionFresh,
+      optionsToDisplay: this.optionsToDisplay,
+      sharedOptionBindings: this.sharedOptionComponent?.optionBindings,
+      currentQuestion: this.currentQuestion,
+      normalizeIndex: (idx) => this.normalizeIndex(idx),
+      revealFeedbackForAllOptions: (opts) => this.revealFeedbackForAllOptions(opts),
+      forceDisableSharedOption: () => {
+        this.sharedOptionComponent?.forceDisableAllOptions?.();
+        this.sharedOptionComponent?.triggerViewRefresh?.();
+      },
+      updateBindingsAndOptions: () => {
+        this.optionBindings = (this.optionBindings ?? []).map(binding => {
+          const updated = { ...binding, disabled: true } as OptionBindings;
+          if (updated.option) {
+            updated.option = { ...updated.option, active: false } as Option;
+          }
+          return updated;
+        });
+        this.optionsToDisplay = (this.optionsToDisplay ?? []).map(option => ({
+          ...option, active: false,
+        }));
+        return { optionBindings: this.optionBindings, optionsToDisplay: this.optionsToDisplay };
+      },
+      markForCheck: () => this.cdRef.markForCheck(),
+      detectChanges: () => this.cdRef.detectChanges(),
     });
-
-    if (reason !== 'timeout') {
-      try {
-        this.selectionMessageService.releaseBaseline(this.currentQuestionIndex);
-      } catch { }
+    if (stopped) {
+      this._timerStoppedForQuestion = true;
     }
-
-    this.cdRef.markForCheck();
-    this.cdRef.detectChanges();
   }
 
   private collectLockContextForQuestion(
@@ -3413,92 +3391,13 @@ export class QuizQuestionComponent extends BaseQuestion
     canonicalOpts: Option[];
     lockKeys: Set<string | number>;
   } {
-    const lockKeys = new Set<string | number>();
-
-    const addKeyVariant = (raw: unknown) => {
-      if (raw == null) return;
-
-      if (typeof raw === 'number') {
-        lockKeys.add(raw);
-        lockKeys.add(String(raw));
-        return;
-      }
-
-      const str = String(raw).trim();
-      if (!str) return;
-
-      const num = Number(str);
-      if (Number.isFinite(num)) {
-        lockKeys.add(num);
-      }
-
-      lockKeys.add(str);
-    };
-
-    const harvestOptionKeys = (opt?: Option, idx?: number) => {
-      if (!opt) return;
-
-      addKeyVariant(opt.optionId);
-      addKeyVariant(opt.value);
-
-      try {
-        const stable = this.selectionMessageService.stableKey(opt, idx);
-        addKeyVariant(stable);
-      } catch { }
-    };
-
-    const resolvedQuestion =
-      context.question ??
-      this.questions?.[i0] ??
-      (this.currentQuestionIndex === i0 ? this.currentQuestion : undefined);
-
-    const baseOptions = (() => {
-      if (Array.isArray(resolvedQuestion?.options) && resolvedQuestion.options.length) {
-        return resolvedQuestion.options;
-      }
-      if (Array.isArray(context.fallbackOptions) && context.fallbackOptions.length) {
-        return context.fallbackOptions;
-      }
-      if (Array.isArray(this.optionsToDisplay) && this.optionsToDisplay.length) {
-        return this.optionsToDisplay;
-      }
-      return [] as Option[];
-    })();
-
-    let canonicalOpts: Option[] = baseOptions.map((o, idx) => {
-      harvestOptionKeys(o, idx);
-
-      const numericId = Number(o.optionId);
-
-      return {
-        ...o,
-        optionId: Number.isFinite(numericId) ? numericId : o.optionId,
-        selected: !!o.selected
-      } as Option;
+    return this.timerEffect.collectLockContextForQuestion(i0, {
+      ...context,
+      optionsToDisplay: this.optionsToDisplay,
+      sharedOptionBindings: this.sharedOptionComponent?.optionBindings,
+      currentQuestionIndex: this.currentQuestionIndex,
+      currentQuestion: this.currentQuestion,
     });
-
-    if (!canonicalOpts.length && Array.isArray(this.sharedOptionComponent?.optionBindings)) {
-      canonicalOpts = this.sharedOptionComponent.optionBindings
-        .map((binding, idx) => {
-          const opt = binding?.option;
-          if (!opt) return undefined;
-          harvestOptionKeys(opt, idx);
-          const numericId = Number(opt.optionId);
-          return {
-            ...opt,
-            optionId: Number.isFinite(numericId) ? numericId : opt.optionId,
-            selected: !!opt.selected
-          } as Option;
-        })
-        .filter((opt): opt is Option => !!opt);
-    }
-
-    (this.optionsToDisplay ?? []).forEach((opt, idx) => harvestOptionKeys(opt, idx));
-    (this.sharedOptionComponent?.optionBindings ?? []).forEach((binding, idx) =>
-      harvestOptionKeys(binding?.option, idx)
-    );
-
-    return { canonicalOpts, lockKeys };
   }
 
   private applyLocksAndDisableForQuestion(
@@ -3507,86 +3406,37 @@ export class QuizQuestionComponent extends BaseQuestion
     lockKeys: Set<string | number>,
     options: { revealFeedback: boolean }
   ): void {
-    if (options.revealFeedback) {
-      try { this.revealFeedbackForAllOptions(canonicalOpts); } catch { }
-    }
-
-    try { this.selectedOptionService.lockQuestion(i0); } catch { }
-
-    if (lockKeys.size) {
-      try {
-        this.selectedOptionService.lockMany(i0, Array.from(lockKeys));
-      } catch { }
-    }
-
-    try {
-      this.sharedOptionComponent?.forceDisableAllOptions?.();
-      this.sharedOptionComponent?.triggerViewRefresh?.();
-    } catch { }
-
-    try {
-      // Update local bindings and option snapshots so any direct consumers
-      // within this component also respect the disabled state even if the
-      // child component has not yet processed the disable broadcast.
-      this.optionBindings = (this.optionBindings ?? []).map(binding => {
-        const updated = {
-          ...binding,
-          disabled: true,
-        } as OptionBindings;
-
-        if (updated.option) {
-          updated.option = {
-            ...updated.option,
-            active: false,
-          } as Option;
-        }
-
-        return updated;
-      });
-
-      this.optionsToDisplay = (this.optionsToDisplay ?? []).map(option => ({
-        ...option,
-        active: false,
-      }));
-    } catch { }
-
+    this.timerEffect.applyLocksAndDisableForQuestion(i0, canonicalOpts, lockKeys, options, {
+      revealFeedbackForAllOptions: (opts) => this.revealFeedbackForAllOptions(opts),
+      forceDisableSharedOption: () => {
+        this.sharedOptionComponent?.forceDisableAllOptions?.();
+        this.sharedOptionComponent?.triggerViewRefresh?.();
+      },
+      updateBindingsAndOptions: () => {
+        this.optionBindings = (this.optionBindings ?? []).map(binding => {
+          const updated = { ...binding, disabled: true } as OptionBindings;
+          if (updated.option) {
+            updated.option = { ...updated.option, active: false } as Option;
+          }
+          return updated;
+        });
+        this.optionsToDisplay = (this.optionsToDisplay ?? []).map(option => ({
+          ...option, active: false,
+        }));
+        return { optionBindings: this.optionBindings, optionsToDisplay: this.optionsToDisplay };
+      },
+    });
     this._timerStoppedForQuestion = true;
   }
 
   // Updates the highlighting, selected state, and feedback icons for options after a click
   private updateOptionHighlighting(selectedKeys: Set<string | number>): void {
-    if (!this.optionsToDisplay) return;
-
-    for (let idx = 0; idx < this.optionsToDisplay.length; idx++) {
-      const opt = this.optionsToDisplay[idx];
-      const stableId = this.selectionMessageService.stableKey(opt, idx);
-      const isSelected = selectedKeys.has(stableId);
-
-      // Force selected property sync
-      opt.selected = isSelected;
-
-      // Determine highlight from service-level state if possible
-      const qIdx = this.currentQuestionIndex ?? 0;
-      const selections = this.selectedOptionService.getSelectedOptionsForQuestion(qIdx) ?? [];
-      const currentSelectionInService = selections.find(s => (s.optionId != null && s.optionId === opt.optionId) || ((s as any).index === idx));
-      const isMulti = this.question?.type === QuestionType.MultipleAnswer;
-      const isLastSelection = isSelected && selections.length > 0 &&
-        (selections[selections.length - 1].optionId === opt.optionId || (selections[selections.length - 1] as any).index === idx);
-
-      let shouldHighlight = isSelected;
-      if (isMulti && opt.correct) {
-        shouldHighlight = isLastSelection;
-      }
-
-      // Apply highlighting
-      if (opt.correct) {
-        opt.styleClass = shouldHighlight ? 'highlight-correct' : '';
-        opt.showIcon = isSelected;
-      } else {
-        opt.styleClass = shouldHighlight ? 'highlight-incorrect' : '';
-        opt.showIcon = isSelected;
-      }
-    }
+    this.optionsToDisplay = this.feedbackManager.updateOptionHighlighting(
+      this.optionsToDisplay,
+      selectedKeys,
+      this.currentQuestionIndex,
+      this.question?.type
+    );
     this.cdRef.markForCheck();
     this.cdRef.detectChanges();
   }
@@ -3628,17 +3478,12 @@ export class QuizQuestionComponent extends BaseQuestion
 
   // Mark the binding and repaint highlight
   private markBindingSelected(opt: Option): void {
-    // Rebuild selectedKeys from the service map for current question
-    const currentSelected =
-      this.selectedOptionService.selectedOptionsMap.get(this.currentQuestionIndex) ?? [];
-    const selectedKeys = new Set(currentSelected.map(o => o.optionId));
-
-    const b = this.optionBindings.find(x => x.option.optionId === opt.optionId);
+    const b = this.feedbackManager.markBindingSelected(
+      opt,
+      this.currentQuestionIndex,
+      this.optionBindings
+    );
     if (!b) return;
-
-    // Update binding based on whether this option is still selected
-    b.isSelected = selectedKeys.has(opt.optionId!);
-    b.showFeedback = true;
 
     this.updateOptionBinding(b);
     b.directiveInstance?.updateHighlight();
@@ -3655,18 +3500,12 @@ export class QuizQuestionComponent extends BaseQuestion
       this.sharedOptionComponent.lastFeedbackOptionId = opt.optionId;
     }
 
-    const cfg: FeedbackProps = {
-      ...this.sharedOptionComponent.feedbackConfigs[opt.optionId!],
-      showFeedback: true,
-      selectedOption: opt,
-      options: this.optionBindings.map((b) => b.option),
-      question: this.currentQuestion!,
-      feedback: opt.feedback ?? '',
-      idx:
-        this.optionBindings.find((b) => b.option.optionId === opt.optionId)
-          ?.index ?? 0,
-      correctMessage: '',
-    };
+    const cfg = this.feedbackManager.buildFeedbackConfigForOption(
+      opt,
+      this.optionBindings,
+      this.currentQuestion!,
+      this.sharedOptionComponent.feedbackConfigs
+    );
 
     this.sharedOptionComponent.feedbackConfigs = {
       ...this.sharedOptionComponent.feedbackConfigs,
@@ -4125,113 +3964,42 @@ export class QuizQuestionComponent extends BaseQuestion
   }
 
   private restoreFeedbackState(): void {
-    try {
-      if (!this.currentQuestion || !this.optionsToDisplay.length) {
-        console.warn(
-          '[restoreFeedbackState] Missing current question or options to display.'
-        );
-        return;
-      }
-
-      // Restore feedback for options
-      this.optionsToDisplay = this.optionsToDisplay.map((option) => ({
-        ...option,
-        active: true,
-        feedback: option.feedback || this.generateFeedbackForOption(option), // restore or regenerate feedback
-        showIcon: option.correct || option.showIcon, // ensure icons are displayed for correct options
-        selected: option.selected ?? false, // use saved state if available
-      }));
-    } catch (error) {
-      console.error(
-        '[restoreFeedbackState] Error restoring feedback state:',
-        error
-      );
-    }
+    this.optionsToDisplay = this.feedbackManager.restoreFeedbackState(
+      this.currentQuestion,
+      this.optionsToDisplay,
+      this.correctMessage
+    );
   }
 
   private generateFeedbackForOption(option: Option): string {
-    if (option.correct) {
-      return this.correctMessage || 'Correct answer!';
-    } else {
-      return option.feedback || 'No feedback available.';
-    }
+    return this.feedbackManager.generateFeedbackForOption(option, this.correctMessage);
   }
 
   private async updateOptionHighlightState(): Promise<void> {
-    try {
-      // Ensure currentQuestion and options are valid
-      if (
-        !this.currentQuestion ||
-        !Array.isArray(this.currentQuestion.options)
-      ) {
-        console.warn('[updateOptionHighlightState] No valid question or options available.');
-        return;
-      }
-
-      // Check if all correct answers are selected
-      const allCorrectSelected = this.selectedOptionService.areAllCorrectAnswersSelected(
-        this.currentQuestion!,
-        this.selectedIndices
-      );
-
-      // Update the highlight state for incorrect options
-      for (const opt of this.currentQuestion.options) {
-        opt.highlight = !opt.correct && allCorrectSelected;
-      }
-    } catch (error) {
-      console.error('[updateOptionHighlightState] Error:', error);
-    }
+    await this.feedbackManager.updateOptionHighlightState(
+      this.currentQuestion,
+      this.selectedIndices
+    );
   }
 
   private deactivateIncorrectOptions(allCorrectSelected: boolean): void {
-    if (!allCorrectSelected) {
-      console.log('No action taken. Not all correct answers selected yet.');
-      return;
-    }
-
-    if (this.currentQuestion?.options?.length) {
-      for (const opt of this.currentQuestion.options) {
-        if (!opt.correct) {
-          opt.selected = false; // deselect the incorrect option
-          opt.highlight = true; // mark for grey-out
-          opt.active = false; // deactivate the option (prevent further clicks)
-        } else {
-          opt.active = true; // ensure correct options remain active
-        }
-      }
-
-      // Update optionsToDisplay to trigger change detection
-      this.optionsToDisplay = [...this.currentQuestion.options];
-
-      // Ensure highlights are applied correctly
-      this.updateOptionHighlightState();
-    } else {
-      console.warn(
-        '⚠️ [deactivateIncorrectOptions] No options available to deactivate.'
-      );
+    const result = this.feedbackManager.deactivateIncorrectOptions(
+      allCorrectSelected,
+      this.currentQuestion,
+      this.selectedIndices
+    );
+    if (result) {
+      this.optionsToDisplay = result;
     }
   }
 
   private disableIncorrectOptions(): void {
-    if (!this.optionsToDisplay || this.optionsToDisplay.length === 0) {
-      console.warn('No options available to disable.');
-      return;
-    }
-
-    // Update all options to disable incorrect ones
-    this.optionsToDisplay = this.optionsToDisplay.map((option) => ({
-      ...option,
-      active: option.correct,  // only correct options remain active
-      feedback: option.correct ? undefined : 'x',  // set 'x' for incorrect options
-      showIcon: true  // ensure icons are displayed
-    }));
+    this.optionsToDisplay = this.feedbackManager.disableIncorrectOptions(this.optionsToDisplay);
   }
 
   // Handles single-answer lock logic. When returning early, returns true.
   private handleSingleAnswerLock(isMultipleAnswer: boolean): boolean {
-    // Lock input for single-answer questions
-    if (!isMultipleAnswer && this.isOptionSelected) {
-      console.log('Single-answer question: Option already selected. Skipping.');
+    if (this.optionSelection.handleSingleAnswerLock(isMultipleAnswer, this.isOptionSelected)) {
       return true;
     }
     this.isOptionSelected = true;
@@ -4243,25 +4011,7 @@ export class QuizQuestionComponent extends BaseQuestion
     event: { option: SelectedOption; checked: boolean; index?: number },
     option: SelectedOption
   ): void {
-    if (!option) {
-      console.error('Option is undefined, cannot update.');
-      return;
-    }
-
-    // Check for undefined optionId
-    if (option.optionId === undefined) {
-      console.error('option.optionId is undefined:', option);
-      option.optionId = event.index ?? -1;  // assign fallback optionId
-    }
-
-    if (event.checked) {
-      this.selectedOptionService.addOption(this.currentQuestionIndex, option);
-    } else {
-      this.selectedOptionService.removeOption(
-        this.currentQuestionIndex,
-        option.optionId
-      );
-    }
+    this.optionSelection.updateOptionSelection(event, option, this.currentQuestionIndex);
   }
 
   // Handles logic for when the timer should stop.
@@ -4269,44 +4019,13 @@ export class QuizQuestionComponent extends BaseQuestion
     isMultipleAnswer: boolean,
     option: SelectedOption
   ): Promise<void> {
-    let stopTimer = false;
-
-    try {
-      if (isMultipleAnswer) {
-        // Ensure options and question index are valid
-        if (
-          !this.currentQuestion ||
-          !Array.isArray(this.currentQuestion.options)
-        ) {
-          console.warn(
-            '[stopTimerIfApplicable] Invalid question or options for multiple-answer question.'
-          );
-          return;
-        }
-
-        const allCorrectSelected = this.selectedOptionService.areAllCorrectAnswersSelected(this.currentQuestion!, this.selectedIndices);
-        stopTimer = allCorrectSelected;
-      } else {
-        stopTimer = option.correct ?? false;
-      }
-
-      this.timerService.allowAuthoritativeStop();
-      if (stopTimer) {
-        const stopped = await this.timerService.attemptStopTimerForQuestion({
-          questionIndex: this.currentQuestionIndex,
-        });
-
-        if (stopped) {
-          this.timerService.isTimerRunning = false; // ensure the timer state is updated
-        } else {
-          console.log('[stopTimerIfApplicable] Timer stop attempt rejected.');
-        }
-      } else {
-        console.log('[stopTimerIfApplicable] Timer not stopped: Condition not met.');
-      }
-    } catch (error) {
-      console.error('[stopTimerIfApplicable] Error in timer logic:', error);
-    }
+    await this.optionSelection.stopTimerIfApplicable(
+      isMultipleAnswer,
+      option,
+      this.currentQuestion,
+      this.currentQuestionIndex,
+      this.selectedIndices
+    );
   }
 
   // Updates the display to explanation mode.
@@ -4446,22 +4165,7 @@ export class QuizQuestionComponent extends BaseQuestion
   }
 
   private markQuestionAsAnswered(questionIndex: number): void {
-    const questionState = this.quizStateService.getQuestionState(this.quizId!, questionIndex);
-
-    if (questionState) {
-      questionState.isAnswered = true;
-      questionState.explanationDisplayed = this._lastAllCorrect;
-
-      this.quizStateService.setQuestionState(this.quizId!, questionIndex, questionState);
-    } else {
-      console.error(
-        `[markQuestionAsAnswered] ❌ Question state not found for Q${questionIndex}`
-      );
-    }
-
-    if (!this.quizStateService.answeredSubject.value) {
-      this.quizStateService.setAnswerSelected(true);
-    }
+    this.optionSelection.markQuestionAsAnswered(this.quizId!, questionIndex, this._lastAllCorrect);
   }
 
   private async processSelectedOption(
@@ -4496,29 +4200,7 @@ export class QuizQuestionComponent extends BaseQuestion
   }
 
   private initializeQuestionState(questionIndex: number): QuestionState {
-    // Retrieve existing state for the given index
-    let questionState = this.quizStateService.getQuestionState(
-      this.quizId!,
-      questionIndex
-    );
-
-    // If state doesn't exist, create a new one
-    if (!questionState) {
-      questionState = {
-        isAnswered: false,
-        numberOfCorrectAnswers: 0,
-        selectedOptions: [],
-        explanationDisplayed: false,
-      };
-
-      // Store the newly created state
-      this.quizStateService.setQuestionState(this.quizId!, questionIndex, questionState);
-    } else {
-      // Reset isAnswered if already exists
-      questionState.isAnswered = false;
-    }
-
-    return questionState;
+    return this.optionSelection.initializeQuestionState(this.quizId!, questionIndex);
   }
 
   private async handleOptionProcessingAndFeedback(
@@ -4685,91 +4367,43 @@ export class QuizQuestionComponent extends BaseQuestion
   }
 
   private stopTimerIfAllCorrectSelected(): void {
-    const idx = this.quizService.getCurrentQuestionIndex();
-
-    // Canonical (truth for `correct`)
-    const canonical = (this.quizService.questions?.[idx]?.options ?? []).map((o: Option) => ({ ...o }));
-    // UI (truth for `selected`, possibly a different array)
-    const ui = (this.optionsToDisplay ?? []).map((o: Option) => ({ ...o }));
-
-    // Overlay UI.selected → canonical by identity (id/value/text), index-agnostic
-    const snapshot = this.selectedOptionService.overlaySelectedByIdentity(canonical, ui);
-
-    // Defer one macrotask so any async CD/pipes settle
-    setTimeout(() => {
-      const totalCorrect = snapshot.filter(o => !!(o as any).correct).length;
-      const selectedCorrect = snapshot.filter(o => !!(o as any).correct && !!(o as any).selected).length;
-
-      // quick debug; comment out when green
-      // console.log('[StopGate]', { idx, totalCorrect, selectedCorrect, running: this.timerService.isTimerRunning });
-
-      if (totalCorrect > 0 && selectedCorrect === totalCorrect) {
-        try { this.soundService?.play('correct'); } catch { }
-
-        this.timerService.attemptStopTimerForQuestion({
-          questionIndex: idx,
-          optionsSnapshot: snapshot,                // make the service read this exact state
-          onStop: (elapsed) => {
-            (this.timerService as any).elapsedTimes ||= [];
-            (this.timerService as any).elapsedTimes[idx] = elapsed ?? 0;
-          },
-        });
-      }
-    }, 0);
+    this.timerEffect.stopTimerIfAllCorrectSelected({
+      currentQuestionIndex: this.currentQuestionIndex,
+      questions: this.questions,
+      optionsToDisplay: this.optionsToDisplay,
+    });
   }
 
   // Helper method to update feedback for options
   private updateFeedbackForOption(option: SelectedOption): void {
-    this.showFeedbackForOption = {}; // reset the feedback object
+    this.showFeedbackForOption = this.feedbackManager.resetFeedbackForOption(option.optionId!);
     this.showFeedbackForOption[option.optionId!] =
       this.showFeedback && this.selectedOption === option;
   }
 
   private resetStateForNewQuestion(): void {
-    this.showFeedbackForOption = {};
-    this.showFeedback = false;
-    this.correctMessage = '';
-    this.selectedOption = null;
-    this.isOptionSelected = false;
+    const resetState = this.optionSelection.resetStateForNewQuestion();
+    this.showFeedbackForOption = resetState.showFeedbackForOption;
+    this.showFeedback = resetState.showFeedback;
+    this.correctMessage = resetState.correctMessage;
+    this.selectedOption = resetState.selectedOption;
+    this.isOptionSelected = resetState.isOptionSelected;
     this.explanationToDisplayChange.emit('');
     this.showExplanationChange.emit(false);
-    this.selectedOptionService.clearOptions();
-    this.selectedOptionService.clearSelectedOption();
-    this.selectedOptionService.setOptionSelected(false);
   }
 
   private processOptionSelectionAndUpdateState(index: number): void {
-    // Skip if this was not triggered by an actual click
-    if (!this.isUserClickInProgress) {
-      console.warn('[processOptionSelectionAndUpdateState] skipped — no user click in progress');
-      return;
-    }
-
-    const option = this.question.options[index];
-    const selectedOption: SelectedOption = {
-      optionId: option.optionId,
-      questionIndex: this.currentQuestionIndex,
-      text: option.text,
-      correct: option.correct ?? false,
-      selected: true,
-      highlight: true,
-      showIcon: true
-    };
-    console.log('[QQC] ⚡ About to call updateSelectionState', {
-      idx: this.currentQuestionIndex,
-      selectedOption,
-      serviceRef: this.selectedOptionService
-    });
-
-    this.selectedOptionService.updateSelectionState(
+    const result = this.optionSelection.processOptionSelectionAndUpdateState(
+      this.question,
+      index,
       this.currentQuestionIndex,
-      selectedOption,
-      this.isMultipleAnswer
+      this.isMultipleAnswer,
+      this.isUserClickInProgress
     );
-    this.selectedOptionService.setOptionSelected(true);
-    this.selectedOptionService.setAnsweredState(true);
-    this.answerSelected.emit(true);
-    this.isFirstQuestion = false;  // reset after the first option click
+    if (result) {
+      this.answerSelected.emit(true);
+      this.isFirstQuestion = false;
+    }
   }
 
   public async fetchAndProcessCurrentQuestion(): Promise<QuizQuestion | null> {
@@ -5478,17 +5112,7 @@ export class QuizQuestionComponent extends BaseQuestion
   }
 
   private async checkAndHandleCorrectAnswer(): Promise<void> {
-    const isCorrect = await this.quizService.checkIfAnsweredCorrectly();
-    if (isCorrect) {
-      // Stop the timer and provide an empty callback
-      this.timerService.attemptStopTimerForQuestion({
-        questionIndex: this.currentQuestionIndex,
-        onStop: () => {
-          console.log('Correct answer selected!');
-          // add additional logic here
-        },
-      });
-    }
+    await this.optionSelection.checkAndHandleCorrectAnswer(this.currentQuestionIndex);
   }
 
   conditionallyShowExplanation(questionIndex: number): void {
@@ -5637,35 +5261,7 @@ export class QuizQuestionComponent extends BaseQuestion
   }
 
   private resolveStableOptionId(option: Option | null | undefined, fallbackIndex: number): number {
-    const coerce = (value: unknown): number | null => {
-      if (typeof value === 'number' && Number.isFinite(value)) {
-        return value;
-      }
-
-      if (typeof value === 'string') {
-        const parsed = Number(value);
-        return Number.isFinite(parsed) ? parsed : null;
-      }
-
-      return null;
-    };
-
-    const direct = coerce(option?.optionId);
-    if (direct !== null) {
-      return direct;
-    }
-
-    const fromValue = coerce((option as any)?.value);
-    if (fromValue !== null) {
-      return fromValue;
-    }
-
-    const fromDisplayOrder = coerce((option as any)?.displayOrder);
-    if (fromDisplayOrder !== null) {
-      return fromDisplayOrder;
-    }
-
-    return Math.max(0, fallbackIndex);
+    return this.optionSelection.resolveStableOptionId(option, fallbackIndex);
   }
 
   async selectOption(
@@ -6818,37 +6414,13 @@ export class QuizQuestionComponent extends BaseQuestion
   }
 
   public revealFeedbackForAllOptions(canonicalOpts: Option[]): void {
-    // Reveal feedback for EVERY option before any locking/disable runs
-    for (let i = 0; i < canonicalOpts.length; i++) {
-      const o = canonicalOpts[i];
-
-      // Prefer numeric optionId; fall back to a stable key WITH index
-      const rawKey = o.optionId ?? this.selectionMessageService.stableKey(o, i);
-      const key = Number(rawKey);
-
-      // If key isn't numeric, don't silently fail — use a string key instead
-      if (!Number.isFinite(key)) {
-        const sk = String(rawKey);
-        this.feedbackConfigs[sk] = {
-          ...(this.feedbackConfigs[sk] ?? {}),
-          showFeedback: true,
-          icon: o.correct ? 'check_circle' : 'cancel',
-          isCorrect: !!o.correct
-        };
-        (this.showFeedbackForOption as any)[sk] = true;
-        continue;
-      }
-
-      this.feedbackConfigs[key] = {
-        ...(this.feedbackConfigs[key] ?? {}),
-        showFeedback: true,
-        icon: o.correct ? 'check_circle' : 'cancel',
-        isCorrect: !!o.correct
-      };
-      this.showFeedbackForOption[key] = true;
-    }
-
-    // Trigger view update
+    const result = this.feedbackManager.revealFeedbackForAllOptions(
+      canonicalOpts,
+      this.feedbackConfigs,
+      this.showFeedbackForOption
+    );
+    this.feedbackConfigs = result.feedbackConfigs;
+    this.showFeedbackForOption = result.showFeedbackForOption;
     this.cdRef.markForCheck();
   }
 
@@ -6868,13 +6440,10 @@ export class QuizQuestionComponent extends BaseQuestion
 
   // Centralized, reasoned stop. Only stops when allowed.
   private safeStopTimer(reason: 'completed' | 'timeout' | 'navigate'): void {
-    if (this._timerStoppedForQuestion) return;
-
-    // Only "completed" may stop due to correctness. Guard it.
-    if (reason === 'completed' && !this._lastAllCorrect) return;
-
-    try { this.timerService.stopTimer?.(undefined, { force: true }); } catch { }
-    this._timerStoppedForQuestion = true;
+    const stopped = this.timerEffect.safeStopTimer(reason, this._timerStoppedForQuestion, this._lastAllCorrect);
+    if (stopped) {
+      this._timerStoppedForQuestion = true;
+    }
   }
 
   // Guard wrapper for display state changes
