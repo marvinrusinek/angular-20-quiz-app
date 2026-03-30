@@ -1285,10 +1285,10 @@ export class QuizQuestionComponent extends BaseQuestion
       }
 
       // Restore selected options and apply feedback
-      for (const optionId of restored.selectedOptionIds) {
-        this.selectedOptionService.setSelectedOption(optionId);
+      for (const option of restored.selectedOptions) {
+        this.selectedOptionService.setSelectedOption(option);
         const restoredOption = this.optionsToDisplay.find(
-          (opt) => opt.optionId === optionId
+          (opt) => opt.optionId === option.optionId
         );
         if (restoredOption) {
           this.applyOptionFeedback(restoredOption);

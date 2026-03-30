@@ -22,7 +22,7 @@ export interface QqcRestoredState {
   explanationText: string;
   displayMode: 'question' | 'explanation';
   parsedOptions: any[] | null;
-  selectedOptionIds: number[];
+  selectedOptions: any[];
   feedbackText: string;
 }
 
@@ -122,20 +122,16 @@ export class QqcStatePersistenceService {
       }
     }
 
-    // Restore selected option IDs
-    const selectedOptionIds: number[] = [];
+    // Restore selected options (full objects, not just IDs)
+    let selectedOptions: any[] = [];
     const selectedOptionsData =
       sessionStorage.getItem(selectedOptionsKey) ||
       sessionStorage.getItem('selectedOptions');
     if (selectedOptionsData) {
       try {
-        const selectedOptions = JSON.parse(selectedOptionsData);
-        if (Array.isArray(selectedOptions)) {
-          for (const option of selectedOptions) {
-            if (option.optionId !== undefined) {
-              selectedOptionIds.push(option.optionId);
-            }
-          }
+        const parsed = JSON.parse(selectedOptionsData);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          selectedOptions = parsed.filter((o: any) => o.optionId !== undefined);
         }
       } catch (error) {
         console.error('[restoreQuizState] Error parsing selected options data:', error);
@@ -152,7 +148,7 @@ export class QqcStatePersistenceService {
       explanationText,
       displayMode,
       parsedOptions,
-      selectedOptionIds,
+      selectedOptions,
       feedbackText
     };
   }
