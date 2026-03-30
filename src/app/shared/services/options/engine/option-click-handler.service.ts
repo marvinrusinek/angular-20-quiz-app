@@ -1,0 +1,432 @@
+import { Injectable } from '@angular/core';
+
+import { Option } from '../../../models/Option.model';
+import { OptionBindings } from '../../../models/OptionBindings.model';
+import { FeedbackProps } from '../../../models/FeedbackProps.model';
+import { QuizQuestion } from '../../../models/QuizQuestion.model';
+import { QuestionType } from '../../../models/question-type.enum';
+import { QuizService } from '../../data/quiz.service';
+import { SelectedOptionService } from '../../state/selectedoption.service';
+
+/**
+ * Result of resolving correct indices for a question.
+ */
+export interface CorrectIndicesResult {
+  /** 0-based indices of correct options in display order */
+  correctIndices: number[];
+  /** Total correct count */
+  correctCount: number;
+  /** Whether multi-answer mode should be used */
+  isMultiMode: boolean;
+}
+
+/**
+ * State snapshot for multi-answer click processing.
+ */
+export interface MultiAnswerClickState {
+  /** The clicked option's display index */
+  clickedIndex: number;
+  /** Whether the clicked option is correct */
+  isClickedCorrect: boolean;
+  /** Number of correct options selected so far */
+  correctSelected: number;
+  /** Number of incorrect options selected so far */
+  incorrectSelected: number;
+  /** Remaining correct answers to find */
+  remaining: number;
+  /** 1-based correct option indices for display */
+  correctIndices1Based: number[];
+}
+
+/**
+ * Computed binding state for multi-answer after a click.
+ */
+export interface MultiAnswerBindingUpdate {
+  isSelected: boolean;
+  isCorrect: boolean;
+  disabled: boolean;
+  optionOverrides: {
+    correct: boolean;
+    selected: boolean;
+    highlight: boolean;
+    showIcon: boolean;
+  };
+}
+
+/**
+ * Input context for disabled-state computation, supplied by the component.
+ */
+export interface DisabledStateContext {
+  currentQuestionIndex: number;
+  isMultiMode: boolean;
+  forceDisableAll: boolean;
+  disabledOptionsPerQuestion: Map<number, Set<number>>;
+  lockedIncorrectOptionIds: Set<number>;
+  flashDisabledSet: Set<number>;
+}
+
+@Injectable({ providedIn: 'root' })
+export class OptionClickHandlerService {
+  constructor(
+    private quizService: QuizService,
+    private selectedOptionService: SelectedOptionService
+  ) {}
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Correct Indices Resolution
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /**
+   * Resolves the correct option indices for a question, cross-referencing
+   * multiple data sources for accuracy.
+   */
+  resolveCorrectIndices(
+    question: QuizQuestion | null,
+    questionIndex: number,
+    isMultiModeFromComponent: boolean,
+    typeFromComponent: string
+  ): CorrectIndicesResult {
+    const isCorrectFlag = (o: any) =>
+      o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || String(o.correct) === '1');
+
+    const questionOpts = question?.options ?? [];
+
+    // SOURCE 1: Current question options
+    const fromCurrentQ = questionOpts
+      .map((o: any, idx: number) => isCorrectFlag(o) ? idx : -1)
+      .filter((idx: number) => idx >= 0);
+
+    // SOURCE 2: Raw _questions data for cross-reference
+    const rawQs: any[] = (this.quizService as any)._questions ?? [];
+    const qText = (question?.questionText ?? '').trim().toLowerCase();
+    let fromRaw: number[] = [];
+    for (const rq of rawQs) {
+      if ((rq.questionText ?? '').trim().toLowerCase() === qText) {
+        const rawCorrectTexts = new Set<string>(
+          (rq.options ?? []).filter((o: any) => o.correct === true).map((o: any) => (o.text ?? '').trim().toLowerCase())
+        );
+        fromRaw = questionOpts
+          .map((o: any, idx: number) => rawCorrectTexts.has((o.text ?? '').trim().toLowerCase()) ? idx : -1)
+          .filter((idx: number) => idx >= 0);
+        break;
+      }
+    }
+
+    const correctIndices = fromRaw.length > 0 ? fromRaw : fromCurrentQ;
+    const correctCount = correctIndices.length;
+    const isMultiMode = isMultiModeFromComponent || typeFromComponent === 'multiple' || correctCount > 1;
+
+    return { correctIndices, correctCount, isMultiMode };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Multi-Answer Click State
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /**
+   * Computes the multi-answer state after a click, given the durable
+   * selection set and correct indices.
+   */
+  computeMultiAnswerClickState(
+    clickedIndex: number,
+    durableSet: Set<number>,
+    correctIndices: number[]
+  ): MultiAnswerClickState {
+    const correctSet = new Set(correctIndices);
+    const isClickedCorrect = correctSet.has(clickedIndex);
+
+    let correctSelected = 0;
+    let incorrectSelected = 0;
+    for (const selIdx of durableSet) {
+      if (correctSet.has(selIdx)) correctSelected++;
+      else incorrectSelected++;
+    }
+
+    const remaining = Math.max(correctIndices.length - correctSelected, 0);
+    const correctIndices1Based = correctIndices.map(i => i + 1);
+
+    return {
+      clickedIndex,
+      isClickedCorrect,
+      correctSelected,
+      incorrectSelected,
+      remaining,
+      correctIndices1Based
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Multi-Answer Feedback Text
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /**
+   * Generates the feedback text for a multi-answer click.
+   */
+  generateMultiAnswerFeedbackText(state: MultiAnswerClickState): string {
+    if (state.isClickedCorrect) {
+      if (state.remaining === 0) {
+        const optsList = state.correctIndices1Based.length > 1
+          ? `Options ${state.correctIndices1Based.slice(0, -1).join(', ')} and ${state.correctIndices1Based[state.correctIndices1Based.length - 1]}`
+          : `Option ${state.correctIndices1Based[0]}`;
+        return state.correctIndices1Based.length > 1
+          ? `You're right! The correct answers are ${optsList}.`
+          : `You're right! The correct answer is ${optsList}.`;
+      } else {
+        const remTxt = state.remaining === 1 ? '1 more correct answer' : `${state.remaining} more correct answers`;
+        return `That's correct! Please select ${remTxt}.`;
+      }
+    } else {
+      return 'Not this one, try again!';
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Multi-Answer Binding Updates
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /**
+   * Computes what each binding should look like after a multi-answer click.
+   */
+  computeMultiAnswerBindingUpdates(
+    bindingsCount: number,
+    durableSet: Set<number>,
+    correctIndices: number[],
+    disabledSet: Set<number>
+  ): MultiAnswerBindingUpdate[] {
+    const correctSet = new Set(correctIndices);
+    const updates: MultiAnswerBindingUpdate[] = [];
+
+    for (let bi = 0; bi < bindingsCount; bi++) {
+      const isInDurable = durableSet.has(bi);
+      const isCorrect = correctSet.has(bi);
+      updates.push({
+        isSelected: isInDurable,
+        isCorrect,
+        disabled: disabledSet.has(bi),
+        optionOverrides: {
+          correct: isCorrect,
+          selected: isInDurable,
+          highlight: isInDurable,
+          showIcon: isInDurable
+        }
+      });
+    }
+
+    return updates;
+  }
+
+  /**
+   * Updates the disabled set for a multi-answer click.
+   * Disables incorrect clicks and all incorrect options when all correct are found.
+   */
+  updateDisabledSet(
+    disabledSet: Set<number>,
+    clickedIndex: number,
+    isClickedCorrect: boolean,
+    remaining: number,
+    bindingsCount: number,
+    correctIndices: number[]
+  ): void {
+    const correctSet = new Set(correctIndices);
+
+    if (!isClickedCorrect) {
+      disabledSet.add(clickedIndex);
+    }
+    // When all correct answers selected, disable ALL incorrect options
+    if (remaining === 0) {
+      for (let bi = 0; bi < bindingsCount; bi++) {
+        if (!correctSet.has(bi)) disabledSet.add(bi);
+      }
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Single-Answer Feedback Override
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /**
+   * For single-answer mode, verifies and potentially overrides the feedback
+   * config for multi-answer edge cases detected from binding state.
+   */
+  overrideMultiAnswerFeedback(
+    cfg: FeedbackProps,
+    clickedBinding: OptionBindings,
+    optionBindings: OptionBindings[]
+  ): FeedbackProps {
+    const isCorrectFlag = (o: any) =>
+      o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || String(o.correct) === '1');
+
+    const correctCountFromBindings = optionBindings.filter(b => isCorrectFlag(b.option)).length;
+    if (correctCountFromBindings <= 1) return cfg;
+
+    const isClickedCorrect = isCorrectFlag(clickedBinding.option);
+    const correctIdxs: number[] = [];
+    let correctSelected = 0;
+    let incorrectSelected = 0;
+
+    for (let bi = 0; bi < optionBindings.length; bi++) {
+      const b = optionBindings[bi];
+      const bCorrect = isCorrectFlag(b.option);
+      if (bCorrect) correctIdxs.push(bi + 1);
+      if (b.isSelected || b.option?.selected) {
+        if (bCorrect) correctSelected++;
+        else incorrectSelected++;
+      }
+    }
+
+    const totalCorrect = correctIdxs.length;
+    const remaining = Math.max(totalCorrect - correctSelected, 0);
+
+    if (isClickedCorrect) {
+      if (remaining === 0 && incorrectSelected === 0) {
+        const optionsList = correctIdxs.length > 1
+          ? `Options ${correctIdxs.slice(0, -1).join(', ')} and ${correctIdxs[correctIdxs.length - 1]}`
+          : `Option ${correctIdxs[0]}`;
+        return {
+          ...cfg,
+          feedback: correctIdxs.length > 1
+            ? `You're right! The correct answers are ${optionsList}.`
+            : `You're right! The correct answer is ${optionsList}.`
+        };
+      } else if (remaining > 0) {
+        const remText = remaining === 1 ? '1 more correct answer' : `${remaining} more correct answers`;
+        return { ...cfg, feedback: `That's correct! Please select ${remText}.` };
+      }
+    } else {
+      return { ...cfg, feedback: 'Not this one, try again!' };
+    }
+
+    return cfg;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Disabled State Computation
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /**
+   * Computes whether an option should be disabled, given the component's
+   * current state context. Pure decision logic — no side effects.
+   */
+  computeDisabledState(
+    option: Option,
+    index: number,
+    ctx: DisabledStateContext
+  ): boolean {
+    const { currentQuestionIndex: qIndex, isMultiMode, forceDisableAll,
+            disabledOptionsPerQuestion, lockedIncorrectOptionIds, flashDisabledSet } = ctx;
+    const lockId = (option?.optionId != null && Number(option.optionId) !== -1)
+      ? option.optionId : index;
+
+    // Multi-answer: only use the explicit disabledOptionsPerQuestion set
+    // and forceDisableAll. Lock services can cross-contaminate.
+    if (isMultiMode) {
+      if (forceDisableAll) return true;
+      const disabledSet = disabledOptionsPerQuestion.get(qIndex);
+      return !!(disabledSet && disabledSet.has(index));
+    }
+
+    // Correct options should NOT be disabled while the user is still selecting.
+    const isCorrectOpt = option?.correct === true || String((option as any)?.correct) === 'true';
+    if (isCorrectOpt && !forceDisableAll) {
+      const isShuffled = this.quizService?.isShuffleEnabled?.() &&
+        this.quizService?.shuffledQuestions?.length > 0;
+      const questionSource = isShuffled
+        ? this.quizService.shuffledQuestions
+        : this.quizService?.questions;
+      const currentQ = questionSource?.[qIndex] ?? null;
+      const questionCorrectCount = (currentQ?.options ?? []).filter(
+        (o: any) => o?.correct === true || String(o?.correct) === 'true'
+      ).length;
+      const isMultiFromData = questionCorrectCount > 1;
+
+      if (isMultiFromData) {
+        const perfectMap = (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
+        const isFullyResolved = perfectMap?.get(qIndex) === true;
+        if (!isFullyResolved) return false;
+      } else {
+        return false;
+      }
+    }
+
+    const disabledSet = disabledOptionsPerQuestion.get(qIndex);
+    const disabledBySet = disabledSet && (disabledSet.has(index) || disabledSet.has(lockId));
+    const forceDisabled = forceDisableAll;
+
+    let questionLocked = false;
+    try { questionLocked = this.selectedOptionService.isQuestionLocked(qIndex); } catch { }
+
+    let optionLocked = false;
+    try {
+      optionLocked = this.selectedOptionService.isOptionLocked(qIndex, index) ||
+        this.selectedOptionService.isOptionLocked(qIndex, lockId);
+    } catch { }
+
+    const lockedIncorrect = lockedIncorrectOptionIds.has(index) || lockedIncorrectOptionIds.has(lockId);
+    const flashDisabled = flashDisabledSet.has(index) || flashDisabledSet.has(lockId);
+
+    const result = !!(disabledBySet || forceDisabled || questionLocked || optionLocked || lockedIncorrect || flashDisabled);
+
+    if (result) {
+      console.log(`[computeDisabledState] Q${qIndex + 1} opt${index} DISABLED: disabledBySet=${disabledBySet} forceDisable=${forceDisabled} questionLocked=${questionLocked} optionLocked=${optionLocked} lockedIncorrect=${lockedIncorrect} flashDisabled=${flashDisabled}`);
+    }
+
+    return result;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Question Type Detection
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /**
+   * Determines if a question is single or multiple answer.
+   */
+  determineQuestionType(input: QuizQuestion): 'single' | 'multiple' {
+    if (input && Array.isArray(input.options)) {
+      const correctOptionsCount = input.options.filter(o => this.isCorrectFlag(o)).length;
+      if (correctOptionsCount > 1 || input.type === QuestionType.MultipleAnswer || (input as any).multipleAnswer === true) {
+        return 'multiple';
+      }
+    }
+    return 'single';
+  }
+
+  /**
+   * Detects multi-answer mode from question data, text keywords, and fallback type.
+   * Returns the cached result if provided (for CD-cycle performance).
+   */
+  detectMultiMode(
+    question: QuizQuestion | null,
+    typeInput: string,
+    configType?: string
+  ): boolean {
+    let result = false;
+
+    const qText = (question?.questionText || '').toLowerCase();
+    if (qText.includes('select all') || qText.includes('all that apply') || qText.includes('multiple')) {
+      result = true;
+    }
+
+    let correctCount = 0;
+    if (question?.options && !result) {
+      correctCount = question.options.filter((o: Option) => this.isCorrectFlag(o)).length;
+      if (correctCount > 1) result = true;
+    }
+
+    // Only trust the type/config input when data is unavailable (correctCount === 0).
+    if (correctCount === 0 && (typeInput === 'multiple' || configType === 'multiple')) {
+      result = true;
+    }
+
+    return result;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Shared Utilities
+  // ═══════════════════════════════════════════════════════════════════════
+
+  private isCorrectFlag(o: any): boolean {
+    if (!o) return false;
+    const c = o.correct ?? o.isCorrect;
+    return c === true || String(c) === 'true' || c === 1 || String(c) === '1';
+  }
+}

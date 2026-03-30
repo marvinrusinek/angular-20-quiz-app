@@ -1,0 +1,693 @@
+import { ChangeDetectorRef, Injectable } from '@angular/core';
+import {
+  animationFrameScheduler, BehaviorSubject, combineLatest, Observable, of,
+  Subject, Subscription
+} from 'rxjs';
+import { distinctUntilChanged, filter, observeOn, takeUntil } from 'rxjs/operators';
+
+import { FeedbackProps } from '../../../models/FeedbackProps.model';
+import { Option } from '../../../models/Option.model';
+import { OptionBindings } from '../../../models/OptionBindings.model';
+import { QuizQuestion } from '../../../models/QuizQuestion.model';
+import { SelectedOption } from '../../../models/SelectedOption.model';
+import { SharedOptionConfig } from '../../../models/SharedOptionConfig.model';
+import { ExplanationTextService } from '../../features/explanation-text.service';
+import { FeedbackService } from '../../features/feedback.service';
+import { QuizService } from '../../data/quiz.service';
+import { QuizStateService } from '../../state/quizstate.service';
+import { SelectedOptionService } from '../../state/selectedoption.service';
+import { TimerService } from '../../features/timer.service';
+
+/**
+ * Interface representing the component surface area that the init service needs.
+ * The component passes `this` typed as this interface so the service can
+ * read/write state and call helper methods.
+ */
+export interface SharedOptionComponentLike {
+  // --- Inputs / public fields ---
+  currentQuestion: QuizQuestion | null;
+  currentQuestionIndex: number;
+  questionIndex: number | null;
+  optionsToDisplay: Option[];
+  quizId: string;
+  type: 'single' | 'multiple';
+  config: SharedOptionConfig;
+  selectedOption: Option | null;
+  showFeedbackForOption: { [key: string | number]: boolean };
+  correctMessage: string;
+  showFeedback: boolean;
+  shouldResetBackground: boolean;
+  highlightCorrectAfterIncorrect: boolean;
+  optionBindings: OptionBindings[];
+  selectedOptionId: number | null;
+  selectedOptionIndex: number | null;
+  isNavigatingBackwards: boolean;
+  renderReady: boolean;
+  finalRenderReady$: Observable<boolean> | null;
+  questionVersion: number;
+  sharedOptionConfig: SharedOptionConfig;
+
+  // --- Public state ---
+  selectedOptionMap: Map<number | string, boolean>;
+  finalRenderReady: boolean;
+  isSelected: boolean;
+  feedbackBindings: FeedbackProps[];
+  currentFeedbackConfig: FeedbackProps;
+  feedbackConfigs: { [key: string]: FeedbackProps };
+  activeFeedbackConfig: FeedbackProps | null;
+  _feedbackDisplay: { idx: number; config: FeedbackProps } | null;
+  selectedOptions: Set<number | string>;
+  clickedOptionIds: Set<number | string>;
+  selectedOptionHistory: (number | string)[];
+  disabledOptionsPerQuestion: Map<number, Set<number>>;
+  lastSelectedOptionIndex: number;
+  lastFeedbackOptionId: number | string;
+  lastSelectedOptionId: number | string;
+  lastClickedOptionId: number | string | null;
+  lastClickTimestamp: number | null;
+  hasUserClicked: boolean;
+  freezeOptionBindings: boolean;
+  highlightedOptionIds: Set<number | string>;
+  disableRenderTrigger: number;
+  flashDisabledSet: Set<number>;
+  forceDisableAll: boolean;
+  timerExpiredForQuestion: boolean;
+  viewReady: boolean;
+  optionsReady: boolean;
+  showOptions: boolean;
+  showNoOptionsFallback: boolean;
+  destroy$: Subject<void>;
+
+  // --- Private-ish fields exposed for the service ---
+  _isMultiModeCache: boolean | null;
+  _lastHandledIndex: number | null;
+  _lastHandledTime: number | null;
+  _lastClickFeedback: { index: number; config: FeedbackProps; questionIdx: number } | null;
+  _multiSelectByQuestion: Map<number, Set<number>>;
+  _correctIndicesByQuestion: Map<number, number[]>;
+  _pendingHighlightRAF: number | null;
+  lastProcessedQuestionIndex: number;
+  resolvedQuestionIndex: number | null;
+  optionsRestored: boolean;
+  lockedIncorrectOptionIds: Set<number>;
+  timeoutCorrectOptionKeys: Set<string>;
+  lastFeedbackQuestionIndex: number;
+  correctClicksPerQuestion: Map<number, Set<number>>;
+  selectionSub: Subscription;
+  finalRenderReadySub?: Subscription;
+
+  // --- Subjects ---
+  optionsToDisplay$: BehaviorSubject<Option[]>;
+  renderReadySubject: BehaviorSubject<boolean>;
+  renderReady$: Observable<boolean>;
+
+  // --- ChangeDetectorRef ---
+  cdRef: ChangeDetectorRef;
+
+  // --- Methods the service delegates back to ---
+  getActiveQuestionIndex(): number;
+  getQuestionAtDisplayIndex(idx: number): QuizQuestion | null;
+  updateResolvedQuestionIndex(idx: number): void;
+  resolveCurrentQuestionIndex(): number;
+  generateOptionBindings(): void;
+  rehydrateUiFromState(reason: string): void;
+  applySelectionsUI(selList: SelectedOption[]): void;
+  regenerateFeedback(questionIndex: number): void;
+  initializeOptionBindings(): void;
+  synchronizeOptionBindings(): void;
+  initializeDisplay(): void;
+  determineQuestionType(question: QuizQuestion): 'single' | 'multiple';
+  initializeFeedbackBindings(): void;
+  finalizeOptionPopulation(): void;
+  keyOf(o: Option, i: number): string;
+  setOptionBindingsIfChanged(newOptions: Option[]): void;
+  rebuildShowFeedbackMapFromBindings(): void;
+  updateHighlighting(): void;
+}
+
+@Injectable({ providedIn: 'root' })
+export class SharedOptionInitService {
+  constructor(
+    private quizService: QuizService,
+    private selectedOptionService: SelectedOptionService,
+    private explanationTextService: ExplanationTextService,
+    private feedbackService: FeedbackService,
+    private quizStateService: QuizStateService,
+    private timerService: TimerService
+  ) {}
+
+  /**
+   * Resets all mutable state on the component for a new question.
+   * Corresponds to SharedOptionComponent.resetStateForNewQuestion().
+   */
+  resetStateForNewQuestion(comp: SharedOptionComponentLike): void {
+    comp._isMultiModeCache = null; // invalidate: new question may have different answer count
+    comp.disabledOptionsPerQuestion.clear();
+    comp.lockedIncorrectOptionIds.clear();
+    comp.flashDisabledSet.clear();
+    comp.timerExpiredForQuestion = false;
+    comp.timeoutCorrectOptionKeys.clear();
+    comp.forceDisableAll = false;  // reset forceDisableAll for new question
+    comp.selectedOptions.clear();
+    comp.selectedOptionMap.clear();
+    comp._multiSelectByQuestion.clear();
+    comp._correctIndicesByQuestion.clear();
+    comp.feedbackConfigs = {};
+    comp.showFeedbackForOption = {};
+    comp._feedbackDisplay = null;
+    comp.showFeedback = false;
+    // CRITICAL: Reset hasUserClicked so that new question starts fresh.
+    // Without this, hasUserClicked from Q1 leaks into Q2 and blocks
+    // all guard-protected paths (rehydrateUiFromState, initializeFromConfig, etc.)
+    comp.hasUserClicked = false;
+    comp.freezeOptionBindings = false;
+    comp.selectedOptionHistory = [];
+
+    // Cancel any pending deferred emitExplanation from the previous question
+    // to prevent stale Q(N) FET from being stored at Q(N+1)'s index
+    if (comp._pendingHighlightRAF !== null) {
+      cancelAnimationFrame(comp._pendingHighlightRAF);
+      comp._pendingHighlightRAF = null;
+    }
+
+    // Reset FET state so next question can emit freely
+    try {
+      (this.explanationTextService as any)._fetLocked = false;
+      this.explanationTextService.unlockExplanation();
+      const newIdx = comp.currentQuestionIndex ?? comp.questionIndex ?? 0;
+      this.explanationTextService._activeIndex = newIdx;
+      this.explanationTextService.latestExplanationIndex = newIdx;
+    } catch {}
+  }
+
+  /**
+   * Subscribes to timer expired$ events.
+   * Corresponds to SharedOptionComponent.subscribeToTimerExpiration().
+   */
+  subscribeToTimerExpiration(comp: SharedOptionComponentLike): void {
+    this.timerService.expired$.pipe(takeUntil(comp.destroy$)).subscribe(() => {
+
+      comp.timerExpiredForQuestion = true;
+      const question = comp.currentQuestion
+        || comp.config?.currentQuestion
+        || comp.getQuestionAtDisplayIndex(comp.currentQuestionIndex)
+        || comp.getQuestionAtDisplayIndex(this.quizService.getCurrentQuestionIndex());
+      const displayOptions = comp.optionsToDisplay?.length
+        ? comp.optionsToDisplay
+        : question?.options ?? [];
+      const correctFromDisplay = displayOptions.filter((option) => option?.correct);
+      const correctOptions = question
+        ? this.quizService.getCorrectOptionsForCurrentQuestion(question)
+        : [];
+      const keys = new Set<string>();
+
+      if (correctFromDisplay.length > 0) {
+        displayOptions.forEach((option, index) => {
+          if (option?.correct) {
+            keys.add(comp.keyOf(option, index));
+          }
+        });
+      } else if (correctOptions.length > 0) {
+        correctOptions.forEach((correctOption, fallbackIndex) => {
+          const displayIndex = displayOptions.findIndex((option) =>
+            option?.optionId != null && option.optionId === correctOption.optionId
+          );
+          if (displayIndex >= 0) {
+            keys.add(comp.keyOf(displayOptions[displayIndex], displayIndex));
+            return;
+          }
+
+          const textMatchIndex = displayOptions.findIndex((option) =>
+            option?.text && correctOption.text && option.text === correctOption.text
+          );
+          if (textMatchIndex >= 0) {
+            keys.add(comp.keyOf(displayOptions[textMatchIndex], textMatchIndex));
+            return;
+          }
+
+          keys.add(comp.keyOf(correctOption, fallbackIndex));
+        });
+      }
+
+      comp.timeoutCorrectOptionKeys = keys;
+      comp.cdRef.markForCheck();
+    });
+  }
+
+  /**
+   * Retry logic for rendering / fallback display.
+   * Corresponds to SharedOptionComponent.setupFallbackRendering().
+   */
+  setupFallbackRendering(comp: SharedOptionComponentLike): void {
+    // Stackblitz can be slower, so we retry at multiple intervals before
+    // showing the fallback message
+    const checkAndRetry = (attempt: number) => {
+      const maxAttempts = 5;  // increased for Stackblitz
+      const delays = [100, 200, 400, 800, 1500];  // progressive delays for retries
+
+      setTimeout(() => {
+        // If options are now ready, try to initialize them
+        if (comp.optionsToDisplay?.length && !comp.optionBindings?.length) {
+
+          comp.generateOptionBindings();
+          comp.cdRef.detectChanges();  // force immediate update for OnPush
+          return;
+        }
+
+        // If we have options and bindings but display flags aren't set, fix them
+        if (comp.optionsToDisplay?.length && comp.optionBindings?.length) {
+          if (!comp.showOptions || !comp.renderReady) {
+
+            comp.showOptions = true;
+            comp.renderReady = true;
+            comp.optionsReady = true;
+            comp.showNoOptionsFallback = false;
+            comp.cdRef.detectChanges();  // force immediate update for OnPush
+          }
+          return;
+        }
+
+        // If we've exhausted retries, show fallback
+        if (attempt >= maxAttempts) {
+          if (!comp.renderReady || !comp.optionsToDisplay?.length) {
+            console.warn('[SOC] Options still not ready after retries, showing fallback');
+            comp.showNoOptionsFallback = true;
+            comp.cdRef.detectChanges();  // force immediate update for OnPush
+          }
+          return;
+        }
+
+        // Try again
+        checkAndRetry(attempt + 1);
+      }, delays[attempt - 1] || 1500);
+    };
+
+    checkAndRetry(1);
+  }
+
+  /**
+   * Config initialization.
+   * Corresponds to SharedOptionComponent.initializeConfiguration().
+   */
+  initializeConfiguration(comp: SharedOptionComponentLike): void {
+    this.initializeFromConfig(comp);
+
+    if (comp.config && comp.config.optionsToDisplay?.length > 0) {
+      comp.optionsToDisplay = comp.config.optionsToDisplay;
+    } else if (comp.optionsToDisplay?.length > 0) {
+      console.log('Options received directly:', comp.optionsToDisplay);
+    } else {
+      console.warn('No options received in SharedOptionComponent');
+    }
+
+    comp.renderReady = comp.optionsToDisplay?.length > 0;
+  }
+
+  /**
+   * Initialize option display with feedback.
+   * Corresponds to SharedOptionComponent.initializeOptionDisplayWithFeedback().
+   */
+  initializeOptionDisplayWithFeedback(comp: SharedOptionComponentLike): void {
+    comp.initializeOptionBindings();
+    comp.synchronizeOptionBindings();
+    comp.initializeDisplay();
+
+    // Initial feedback generation for Q1
+    if (comp.currentQuestionIndex >= 0 && comp.optionsToDisplay?.length > 0) {
+      comp.regenerateFeedback(comp.currentQuestionIndex);
+    }
+
+    // Immediately set display flags if options are available
+    if (comp.optionsToDisplay?.length > 0) {
+      comp.renderReady = true;
+      comp.showOptions = true;
+      comp.optionsReady = true;
+      comp.cdRef.detectChanges();
+    }
+
+    // Fallback: retry after short delay for Stackblitz timing issues
+    setTimeout(() => {
+      if (comp.optionsToDisplay?.length > 0 && !comp.showOptions) {
+        comp.renderReady = true;
+        comp.showOptions = true;
+        comp.optionsReady = true;
+        comp.cdRef.detectChanges();
+      }
+    }, 50);
+  }
+
+  /**
+   * The main reactive pipeline that listens for question index changes via combineLatest.
+   * Corresponds to SharedOptionComponent.setupSubscriptions().
+   */
+  setupSubscriptions(comp: SharedOptionComponentLike): void {
+    if (comp.finalRenderReady$) {
+      comp.finalRenderReadySub = comp.finalRenderReady$.subscribe((ready: boolean) => {
+        comp.finalRenderReady = ready;
+      });
+    }
+
+    // Regenerate feedback when quizService index changes
+    // Combine index + latest @Input options to avoid race conditions
+    combineLatest([
+      this.quizService.currentQuestionIndex$.pipe(distinctUntilChanged()),
+      comp.optionsToDisplay$
+    ])
+      .pipe(takeUntil(comp.destroy$))
+      .subscribe(([idx, opts]: [number, Option[]]) => {
+        // Use opts (synced latest options) for logging/logic
+        console.log(
+          `[SOC] currentQuestionIndex$ fired: idx=${idx}, optionsToDisplay.length=${opts?.length}`
+        );
+
+        // Reset all state when question index changes
+        // This fixes highlighting/disabled state persisting from previous questions
+        // Use lastProcessedQuestionIndex (internal tracker) instead of @Input currentQuestionIndex
+        // because the @Input might not have been updated yet when this subscription fires
+        if (comp.lastProcessedQuestionIndex !== idx) {
+
+          this.resetStateForNewQuestion(comp);
+
+          // Clear highlighting state
+          comp.highlightedOptionIds.clear();
+          comp.selectedOptions.clear();
+          comp.feedbackConfigs = {};
+          comp.showFeedback = false;
+          comp.showFeedbackForOption = {};
+
+          // Reset option bindings to clear visual state
+          for (const b of comp.optionBindings ?? []) {
+            b.isSelected = false;
+            b.showFeedback = false;
+            b.highlightCorrect = false;
+            b.highlightIncorrect = false;
+            b.highlightCorrectAfterIncorrect = false;
+            b.disabled = false;
+            if (b.option) {
+              b.option.selected = false;
+              b.option.showIcon = false;
+            }
+          }
+
+          // Update the internal tracker
+          comp.lastProcessedQuestionIndex = idx;
+          // Also update currentQuestionIndex if it's stale
+          if (comp.currentQuestionIndex !== idx) {
+            comp.currentQuestionIndex = idx;
+          }
+
+          comp.cdRef.markForCheck();
+        }
+
+        // Use opts (synced) instead of this.optionsToDisplay (may be stale)
+        if (idx >= 0 && Array.isArray(opts) && opts.length > 0) {
+          //  Use helper method that respects shuffle state
+          const question = comp.getQuestionAtDisplayIndex(idx);
+
+          if (question?.options) {
+            const correctOptions = opts.filter(
+              (o: Option) => o.correct === true
+            );
+            console.log(
+              `[SOC] Q${idx + 1} correctOptions from optionsToDisplay:`,
+              correctOptions?.map((o) => o.optionId)
+            );
+
+            const serviceDisplayOrders = question.options
+              ?.map((o: Option) => o.displayOrder)
+              .join(',');
+            const inputDisplayOrders = opts
+              ?.map((o) => o.displayOrder)
+              .join(',');
+            console.log(
+              `[SOC] Service DisplayOrders: [${serviceDisplayOrders}] |
+                 Input DisplayOrders: [${inputDisplayOrders}]`
+            );
+
+            const selections = this.selectedOptionService.getSelectedOptionsForQuestion(idx) || [];
+            const freshFeedback = this.feedbackService.buildFeedbackMessage(
+              question,
+              selections,
+              false,
+              false,
+              idx,
+              comp.optionsToDisplay
+            );
+
+            comp.feedbackConfigs = {};
+            comp.activeFeedbackConfig = null;
+
+            let lastSelectedId = -1;
+            let hasSelection = false;
+
+            for (const [i, b] of (comp.optionBindings ?? []).entries()) {
+              if (!b.option) continue;
+
+              b.option.feedback = freshFeedback;
+              b.feedback = freshFeedback;
+
+              const key = comp.keyOf(b.option, i);
+              const optId = (b.option.optionId != null && b.option.optionId > -1) ? b.option.optionId : i;
+
+              if (b.isSelected) {
+                lastSelectedId = optId;
+                hasSelection = true;
+              }
+
+              comp.feedbackConfigs[key] = {
+                feedback: freshFeedback,
+                showFeedback: true,
+                options: opts,
+                question: question,
+                selectedOption: b.option,
+                correctMessage: freshFeedback,
+                idx: b.index
+              };
+
+              if (comp.feedbackConfigs[key].showFeedback) {
+                comp.activeFeedbackConfig = comp.feedbackConfigs[key];
+              }
+            }
+
+            if (hasSelection) {
+              comp.showFeedback = true;
+
+              // Only overwrite lastFeedbackOptionId if it's invalid or no longer selected.
+              // This ensures feedback stays with the most recently clicked option (which
+              // displayFeedbackForOption sets) rather than jumping to the last option in the list.
+              const isCurrentFeedbackSelected =
+                comp.lastFeedbackOptionId !== -1 &&
+                comp.selectedOptions.has(comp.lastFeedbackOptionId);
+
+              if (!isCurrentFeedbackSelected) {
+                comp.lastFeedbackOptionId = lastSelectedId;
+              }
+            }
+          }
+        }
+
+        comp.cdRef.markForCheck();
+      });
+  }
+
+  /**
+   * Subscribes to selectedOption$ changes.
+   * Corresponds to SharedOptionComponent.subscribeToSelectionChanges().
+   */
+  subscribeToSelectionChanges(comp: SharedOptionComponentLike): void {
+    comp.selectionSub = this.selectedOptionService.selectedOption$
+      .pipe(
+        distinctUntilChanged(
+          (prev, curr) => JSON.stringify(prev) === JSON.stringify(curr)
+        ),
+        observeOn(animationFrameScheduler)
+      )
+      .subscribe((incoming) => {
+        const selList: SelectedOption[] = Array.isArray(incoming)
+          ? incoming
+          : incoming
+            ? [incoming]
+            : [];
+
+        comp.applySelectionsUI(selList);
+
+        const selectedIds =
+          selList.map((s) => s.optionId);
+
+        if (comp.selectedOptionId != null) {
+          comp.isSelected = selectedIds.includes(comp.selectedOptionId);
+        } else {
+          comp.isSelected = false;
+        }
+
+        comp.cdRef.markForCheck();
+      });
+  }
+
+  /**
+   * Setup rehydrate triggers.
+   * Corresponds to SharedOptionComponent.setupRehydrateTriggers().
+   */
+  setupRehydrateTriggers(comp: SharedOptionComponentLike): void {
+    const renderReady$ =
+      comp.finalRenderReady$ ??
+      comp.renderReadySubject.asObservable();
+
+    const qIndex$ =
+      this.quizService?.currentQuestionIndex$ ?? of(0);
+
+    combineLatest([renderReady$, qIndex$])
+      .pipe(
+        filter(([ready, _index]: [boolean, number]) => ready === true),
+        takeUntil(comp.destroy$)
+      )
+      .subscribe(() => {
+        // Ensure bindings exist
+        if (!comp.optionBindings?.length && comp.optionsToDisplay?.length) {
+          comp.generateOptionBindings();
+        }
+
+        // Hydrate selection + highlighting from persisted state
+        comp.rehydrateUiFromState('renderReady/qIndex');
+      });
+  }
+
+  /**
+   * Complex config-based initialization.
+   * Corresponds to SharedOptionComponent.initializeFromConfig().
+   */
+  initializeFromConfig(comp: SharedOptionComponentLike): void {
+    if (comp.freezeOptionBindings || comp.hasUserClicked) {
+      console.warn(
+        '[initializeFromConfig] Skipping initialization - option bindings frozen or user has clicked'
+      );
+      return;
+    }
+
+    // Full reset
+    comp.optionBindings = [];
+    comp.selectedOption = null;
+    comp.selectedOptionIndex = -1;
+    comp.showFeedbackForOption = {};
+    comp.correctMessage = '';
+    comp.showFeedback = false;
+    comp.shouldResetBackground = false;
+    comp.optionsRestored = false;
+    comp.currentQuestion = null;
+    comp.optionsToDisplay = [];
+
+    // Guard: Config or options missing
+    if (!comp.config || !comp.config.optionsToDisplay?.length) {
+      console.warn('[initializeFromConfig] Config missing or empty.');
+      return;
+    }
+
+    // Assign current question
+    comp.currentQuestion = comp.config.currentQuestion;
+
+    // Validate currentQuestion before proceeding
+    if (!comp.currentQuestion || !Array.isArray(comp.currentQuestion.options)) {
+      console.error(
+        '[initializeFromConfig] Invalid or missing currentQuestion options.'
+      );
+      return;
+    }
+
+    // Populate optionsToDisplay with structured data
+    comp.optionsToDisplay = comp.currentQuestion.options.map((opt, idx) => {
+      // Ensure we have a unique and valid numeric optionId
+      // Fallback to index if source is missing ID or has placeholder -1
+      const rawId = opt.optionId;
+      const finalId = (rawId !== undefined && rawId !== null && String(rawId) !== '-1') ? rawId : idx;
+
+      return {
+        ...opt,
+        optionId: finalId,
+        correct: opt.correct ?? false,
+        feedback: typeof opt.feedback === 'string' ? opt.feedback.trim() : '',
+        selected: opt.selected ?? false,
+        active: true,
+        showIcon: false
+      };
+    });
+
+    if (!comp.optionsToDisplay.length) {
+      console.warn(
+        '[initializeFromConfig] optionsToDisplay is empty after processing.'
+      );
+      return;
+    }
+
+    // Rehydrate selection state from Service (persistence)
+    // This ensures that when navigating back, the options show as selected
+    // (Green/Red).
+    // Resolve index via content matching to avoid race conditions between Service and Input
+    // We search the QuizService for the question that actually contains these options.
+    let qIndex = this.quizService.currentQuestionIndex ?? 0;
+    const inputIndex = comp.resolveCurrentQuestionIndex();
+
+    if (this.quizService.questions && comp.optionsToDisplay?.length > 0) {
+      const firstOptId = comp.optionsToDisplay[0].optionId;
+      const matchIdx = this.quizService.questions.findIndex((q: QuizQuestion) =>
+        q.options?.some((o: Option) => o.optionId === firstOptId)
+      );
+
+      if (matchIdx !== -1) {
+        comp.resolvedQuestionIndex = matchIdx;
+        qIndex = matchIdx; // Found authentic index via content match
+        if (qIndex !== inputIndex && Number.isFinite(inputIndex)) {
+
+        }
+      } else {
+        // No match found? Fallback to input index if valid
+        if (Number.isFinite(inputIndex)) {
+          comp.resolvedQuestionIndex = inputIndex;
+          qIndex = inputIndex;
+        }
+      }
+    }
+
+    // Mismatch Guard logging only
+    if (qIndex !== inputIndex && Number.isFinite(inputIndex)) {
+      console.warn(`[initializeFromConfig] Index divergence noted: Service/Calculated says ${qIndex}, Input says ${inputIndex}. Using ${qIndex}.`);
+    }
+
+    const saved = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex);
+    if (saved?.length > 0) {
+      // Robust check: match by ID, index, or text
+      for (let idx = 0; idx < comp.optionsToDisplay.length; idx++) {
+        const opt = comp.optionsToDisplay[idx];
+        const isSaved = saved.some(s =>
+          (s.displayIndex === idx) || ((s as any).index === idx)
+        );
+
+        if (isSaved) {
+          opt.selected = true;
+          opt.showIcon = true;
+          // also sync to internal set if needed
+          const effectiveId = (opt.optionId != null && opt.optionId !== -1) ? opt.optionId : idx;
+          comp.selectedOptions.add(Number(effectiveId));
+        }
+      }
+    } else {
+      console.log(
+        `[initializeFromConfig] No saved selections for Q${qIndex + 1} - starting clean`
+      );
+    }
+
+    // Determine question type based on options, but Respect explicit input first!
+    // Use authoritative question from service to ensure 'correct' flags are present for type determination
+    const authoritativeQuestion = this.quizService.questions[qIndex] || comp.currentQuestion;
+    if (comp.type !== 'multiple' && authoritativeQuestion) {
+      comp.type = comp.determineQuestionType(authoritativeQuestion);
+    } else {
+
+    }
+
+    // Initialize bindings and feedback maps
+    comp.setOptionBindingsIfChanged(comp.optionsToDisplay);
+    comp.initializeFeedbackBindings();
+
+    comp.finalizeOptionPopulation();
+  }
+}
