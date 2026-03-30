@@ -792,6 +792,18 @@ export class SharedOptionComponent
     this.bindingService.processOptionBindings(this as any);
   }
 
+  /** Public entry point for external callers (e.g. QQC). Delegates to init service. */
+  initializeOptionBindings(): void {
+    if (this.optionBindingsInitialized) {
+      return;
+    }
+    this.optionBindingsInitialized = true;
+    if (!this.optionsToDisplay?.length) {
+      this.optionBindingsInitialized = false;
+      return;
+    }
+    this.generateOptionBindings();
+  }
 
   initializeFeedbackBindings(): void {
     this.feedbackBindings = this.feedbackManager.initializeFeedbackBindings(

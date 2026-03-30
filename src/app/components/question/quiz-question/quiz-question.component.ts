@@ -43,6 +43,7 @@ import { SelectionMessageService } from '../../../shared/services/features/selec
 import { SharedVisibilityService } from '../../../shared/services/ui/shared-visibility.service';
 import { SoundService } from '../../../shared/services/ui/sound.service';
 import { TimerService } from '../../../shared/services/features/timer.service';
+import { QqcStatePersistenceService } from '../../../shared/services/state/qqc-state-persistence.service';
 import { QuizShuffleService } from '../../../shared/services/flow/quiz-shuffle.service';
 import { BaseQuestion } from '../base/base-question';
 import { SharedOptionComponent } from '../../../components/question/answer/shared-option-component/shared-option.component';
@@ -329,6 +330,7 @@ export class QuizQuestionComponent extends BaseQuestion
     protected sharedVisibilityService: SharedVisibilityService,
     protected soundService: SoundService,
     protected timerService: TimerService,
+    protected statePersistence: QqcStatePersistenceService,
     protected componentFactoryResolver: ComponentFactoryResolver,
     protected activatedRoute: ActivatedRoute,
     protected quizShuffleService: QuizShuffleService,
@@ -829,181 +831,6 @@ export class QuizQuestionComponent extends BaseQuestion
     this.shufflePreferenceSubscription?.unsubscribe();
   }
 
-  // Listen for the visibility change event
-  /* @HostListener('window:visibilitychange', [])
-  async onVisibilityChange(): Promise<void> {
-    if (document.visibilityState === 'hidden') {
-      try {
-        const idx = this.currentQuestionIndex ?? 0;
-        const qState = this.quizStateService.getQuestionState(this.quizId, idx);
-        this.quizStateService.setQuestionState(this.quizId, idx, {
-          ...qState,
-          explanationDisplayed: this.displayExplanation,
-          explanationText: this.explanationTextService.currentExplanationText ?? ''
-        });
-        console.log(`[VISIBILITY] 💾 Saved FET display state for Q${idx + 1}:`, this.displayExplanation);
-      } catch (err) {
-        console.warn('[VISIBILITY] ⚠️ Failed to persist FET state', err);
-      }
-
-      try {
-        const snap = await firstValueFrom<number>(
-          this.timerService.elapsedTime$.pipe(take(1))
-        );
-        this._elapsedAtHide = snap;
-      } catch {
-        this._elapsedAtHide = null;
-      }
-      this._hiddenAt = performance.now();
-      return;
-    }
-
-    // FAST-PATH EXPIRY CHECK
-    try {
-      const duration = this.timerService.timePerQuestion ?? 30;
-
-      const elapsedLive = await firstValueFrom<number>(
-        this.timerService.elapsedTime$.pipe(take(1))
-      );
-
-      let candidate = elapsedLive;
-      if (this._hiddenAt != null && this._elapsedAtHide != null) {
-        const hiddenDeltaSec = Math.floor((performance.now() - this._hiddenAt) / 1000);
-        candidate = this._elapsedAtHide + hiddenDeltaSec;
-      }
-
-      if (candidate >= duration) {
-        const i0 = this.normalizeIndex(this.currentQuestionIndex ?? 0);
-
-        // Skip if already showing explanation
-        const alreadyShowing =
-          this.displayExplanation ||
-          (await firstValueFrom<boolean>(
-            this.explanationTextService.shouldDisplayExplanation$.pipe(take(1))
-          ));
-
-        if (!alreadyShowing) {
-          // Stop the ticking
-          this.timerService.stopTimer?.(undefined, { force: true });
-
-          // Flip to explanation inside Angular
-          this.ngZone.run(() => { this.onTimerExpiredFor(i0); });
-
-          // Clear snapshots and bail to avoid racing the restore flow
-          this._hiddenAt = null;
-          this._elapsedAtHide = null;
-          return;
-        }
-      }
-
-      // Not expiring now → clear snapshots and continue
-      this._hiddenAt = null;
-      this._elapsedAtHide = null;
-    } catch (err) {
-      console.warn('[onVisibilityChange] fast-path expiry check failed', err);
-    }
-
-    // Restore flow
-    try {
-      if (document.visibilityState === 'visible') {
-        console.log('[onVisibilityChange] 🟢 Restoring quiz state...');
-
-        // Ensure quiz state is restored before proceeding
-        await this.restoreQuizState();
-
-        // 🧠 NEW: restore FET display mode accurately
-        try {
-          const qIdx = this.currentQuestionIndex ?? 0;
-          const qState = this.quizStateService.getQuestionState(this.quizId!, qIdx);
-          const shouldShowExplanation =
-            qState?.explanationDisplayed === true ||
-            (this.explanationTextService as any)?.shouldDisplayExplanation$.value === true;
-
-          if (shouldShowExplanation) {
-            // 🔹 Restore explanation mode
-            this.displayStateSubject?.next({ mode: 'explanation', answered: true });
-            this.displayExplanation = true;
-            this.explanationTextService.setShouldDisplayExplanation(true);
-            this.explanationTextService.setIsExplanationTextDisplayed(true);
-            console.log(`[onVisibilityChange] ✅ Restored FET for Q${qIdx + 1}`);
-          } else {
-            // 🔹 Restore question mode
-            this.displayStateSubject?.next({ mode: 'question', answered: false });
-            this.displayExplanation = false;
-            this.explanationTextService.setShouldDisplayExplanation(false);
-            this.explanationTextService.setIsExplanationTextDisplayed(false);
-            console.log(`[onVisibilityChange] ↩️ Restored question text for Q${qIdx + 1}`);
-          }
-        } catch (fetErr) {
-          console.warn('[onVisibilityChange] ⚠️ FET restore failed:', fetErr);
-        }
-
-        // Ensure optionsToDisplay is populated before proceeding
-        if (!Array.isArray(this.optionsToDisplay) || this.optionsToDisplay.length === 0) {
-          console.warn('[onVisibilityChange] ⚠️ optionsToDisplay is empty! Attempting to repopulate from currentQuestion.');
-          if (this.currentQuestion && Array.isArray(this.currentQuestion.options)) {
-            this.optionsToDisplay = this.currentQuestion.options.map((option, index) => ({
-              ...option,
-              optionId: option.optionId ?? index,  // ensure optionId
-              correct: option.correct ?? false     // ensure correct flag
-            }));
-          } else {
-            console.error('[onVisibilityChange] ❌ Failed to repopulate optionsToDisplay. Aborting feedback restoration.');
-            return;
-          }
-        }
-
-        // Feedback restore flow
-        if (this.currentQuestion) {
-          // Restore selected options safely before applying feedback
-          this.restoreFeedbackState();
-
-          // Apply feedback immediately after restoring selected options
-          setTimeout(() => {
-            const previouslySelectedOption = this.optionsToDisplay.find(opt => opt.selected);
-            if (previouslySelectedOption) {
-              this.applyOptionFeedback(previouslySelectedOption);
-            } else {
-              console.log('[restoreQuizState] ⚠️ No previously selected option found. Skipping feedback reapply.');
-            }
-          }, 50);
-
-          // Regenerate feedback text for the current question
-          try {
-            const feedbackText = await this.generateFeedbackText(this.currentQuestion);
-            this.feedbackText = feedbackText;
-          } catch (error) {
-            console.error('[onVisibilityChange] ❌ Error generating feedback text:', error);
-          }
-        } else {
-          console.warn('[onVisibilityChange] ⚠️ Current question is missing. Attempting to reload...');
-
-          const loaded = await this.loadCurrentQuestion();
-          if (loaded && this.currentQuestion) {
-            this.restoreFeedbackState();
-
-            const previouslySelectedOption = this.optionsToDisplay.find(opt => opt.selected);
-            if (previouslySelectedOption) {
-              this.applyOptionFeedback(previouslySelectedOption);
-            } else {
-              console.warn('[onVisibilityChange] ⚠️ No previously selected option found after reload. Applying feedback to all options.');
-            }
-
-            try {
-              const feedbackText = await this.generateFeedbackText(this.currentQuestion);
-              this.feedbackText = feedbackText;
-            } catch (error) {
-              console.error('[onVisibilityChange] ❌ Error generating feedback text after reload:', error);
-            }
-          } else {
-            console.error('[onVisibilityChange] ❌ Failed to reload current question.');
-          }
-        }
-      }
-    } catch (error) {
-      console.error('[onVisibilityChange] ❌ Error during state restoration:', error);
-    }
-  } */
   @HostListener('window:visibilitychange', [])
   async onVisibilityChange(): Promise<void> {
     // ────────────────────────────────────────────────
@@ -1422,100 +1249,34 @@ export class QuizQuestionComponent extends BaseQuestion
   }
 
   private saveQuizState(): void {
-    try {
-      // Save explanation text
-      if (this.currentExplanationText) {
-        sessionStorage.setItem(
-          `explanationText_${this.currentQuestionIndex}`,
-          this.currentExplanationText
-        );
-      }
-
-      // Save display mode
-      if (this.displayState.mode) {
-        sessionStorage.setItem(
-          `displayMode_${this.currentQuestionIndex}`,
-          this.displayState.mode
-        );
-        console.log('[saveQuizState] Saved display mode:', this.displayState.mode);
-      }
-
-      // Save options
-      const optionsToSave = this.optionsToDisplay || [];
-      if (optionsToSave.length > 0) {
-        sessionStorage.setItem(
-          `options_${this.currentQuestionIndex}`,
-          JSON.stringify(optionsToSave)
-        );
-      }
-
-      // Save selected options
-      const selectedOptions =
-        this.selectedOptionService.getSelectedOptions() || [];
-      if (selectedOptions.length > 0) {
-        sessionStorage.setItem(
-          `selectedOptions_${this.currentQuestionIndex}`,
-          JSON.stringify(selectedOptions)
-        );
-      }
-
-      // Save feedback text
-      if (this.feedbackText) {
-        sessionStorage.setItem(`feedbackText_${this.currentQuestionIndex}`, this.feedbackText);
-      }
-    } catch (error) {
-      console.error('[saveQuizState] Error saving quiz state:', error);
-    }
+    this.statePersistence.saveState({
+      questionIndex: this.currentQuestionIndex,
+      explanationText: this.currentExplanationText,
+      displayMode: this.displayState.mode,
+      optionsToDisplay: this.optionsToDisplay,
+      selectedOptions: this.selectedOptionService.getSelectedOptions() || [],
+      feedbackText: this.feedbackText
+    });
   }
 
   private restoreQuizState(): void {
     try {
-      const storageIndex =
-        typeof this.currentQuestionIndex === 'number' &&
-          !Number.isNaN(this.currentQuestionIndex)
-          ? this.currentQuestionIndex
-          : 0;
+      const restored = this.statePersistence.restoreState(this.currentQuestionIndex);
 
-      const explanationKey = `explanationText_${storageIndex}`;
-      const displayModeKey = `displayMode_${storageIndex}`;
-      const optionsKey = `options_${storageIndex}`;
-      const selectedOptionsKey = `selectedOptions_${storageIndex}`;
-      const feedbackKey = `feedbackText_${storageIndex}`;
-
-      // Restore explanation text
-      this.currentExplanationText =
-        sessionStorage.getItem(explanationKey) ||
-        sessionStorage.getItem(`explanationText`) ||
-        '';
-      const displayMode =
-        sessionStorage.getItem(displayModeKey) ||
-        sessionStorage.getItem(`displayMode`);
-      this.displayState.mode =
-        displayMode === 'explanation' ? 'explanation' : 'question';
+      // Apply restored values to component state
+      this.currentExplanationText = restored.explanationText;
+      this.displayState.mode = restored.displayMode;
 
       // Restore options
-      const optionsData =
-        sessionStorage.getItem(optionsKey) ||
-        sessionStorage.getItem(`options`);
-      if (optionsData) {
-        try {
-          const parsedOptions = JSON.parse(optionsData);
-          if (Array.isArray(parsedOptions) && parsedOptions.length > 0) {
-            this.optionsToDisplay = this.quizService.assignOptionIds(parsedOptions, storageIndex);
-          } else {
-            console.warn(
-              '[restoreQuizState] ⚠️ Parsed options data is empty or invalid.'
-            );
-          }
-        } catch (error) {
-          console.error(
-            '[restoreQuizState] ❌ Error parsing options data:',
-            error
-          );
-        }
+      if (restored.parsedOptions) {
+        const storageIndex =
+          typeof this.currentQuestionIndex === 'number' && !Number.isNaN(this.currentQuestionIndex)
+            ? this.currentQuestionIndex
+            : 0;
+        this.optionsToDisplay = this.quizService.assignOptionIds(restored.parsedOptions, storageIndex);
       }
 
-      // Only reset if options are already empty or need updating
+      // Fallback: use last known options if still empty
       if (!this.optionsToDisplay || this.optionsToDisplay.length === 0) {
         const lastKnownOptions = this.quizService.getLastKnownOptions();
         if (lastKnownOptions && lastKnownOptions.length > 0) {
@@ -1523,57 +1284,31 @@ export class QuizQuestionComponent extends BaseQuestion
         }
       }
 
-      // Restore selected options safely and apply feedback
-      const selectedOptionsData =
-        sessionStorage.getItem(selectedOptionsKey) ||
-        sessionStorage.getItem(`selectedOptions`);
-      if (selectedOptionsData) {
-        try {
-          const selectedOptions = JSON.parse(selectedOptionsData);
-          if (Array.isArray(selectedOptions) && selectedOptions.length > 0) {
-            for (const option of selectedOptions) {
-              if (option.optionId !== undefined) {
-                this.selectedOptionService.setSelectedOption(option.optionId);
-
-                // Apply feedback for restored option immediately
-                const restoredOption = this.optionsToDisplay.find(
-                  (opt) => opt.optionId === option.optionId
-                );
-                if (restoredOption) {
-                  this.applyOptionFeedback(restoredOption);
-                }
-              }
-            }
-          }
-        } catch (error) {
-          console.error(
-            '[restoreQuizState] ❌ Error parsing selected options data:',
-            error
-          );
+      // Restore selected options and apply feedback
+      for (const optionId of restored.selectedOptionIds) {
+        this.selectedOptionService.setSelectedOption(optionId);
+        const restoredOption = this.optionsToDisplay.find(
+          (opt) => opt.optionId === optionId
+        );
+        if (restoredOption) {
+          this.applyOptionFeedback(restoredOption);
         }
       }
 
       // Restore feedback text
-      this.feedbackText =
-        sessionStorage.getItem(feedbackKey) ||
-        sessionStorage.getItem(`feedbackText`) ||
-        '';
+      this.feedbackText = restored.feedbackText;
 
       // Mark that at least one full restore has occurred
       this.quizStateService.hasRestoredOnce = true;
-      console.log('[restoreQuizState] ✅ hasRestoredOnce set → true');
+      console.log('[restoreQuizState] hasRestoredOnce set -> true');
 
       // Force feedback to be applied even if state wasn't restored properly
       setTimeout(() => {
-        // Recheck if options are available
         if (!this.optionsToDisplay || this.optionsToDisplay.length === 0) {
-          console.warn(
-            '[restoreQuizState] ⚠️ optionsToDisplay is still empty! Attempting repopulation...'
-          );
+          console.warn('[restoreQuizState] optionsToDisplay is still empty! Attempting repopulation...');
           this.populateOptionsToDisplay();
         }
 
-        // Backup recheck: Ensure feedback is applied after restoring selected options
         setTimeout(() => {
           const previouslySelectedOption = this.optionsToDisplay.find(
             (opt) => opt.selected
@@ -1581,14 +1316,12 @@ export class QuizQuestionComponent extends BaseQuestion
           if (previouslySelectedOption) {
             this.applyOptionFeedback(previouslySelectedOption);
           } else {
-            console.log(
-              '[restoreQuizState] ⚠️ No previously selected option found. Skipping feedback reapply.mmm'
-            );
+            console.log('[restoreQuizState] No previously selected option found. Skipping feedback reapply.');
           }
-        }, 50);  // extra delay ensures selections are fully restored before applying feedback
-      }, 100);  // slight delay to ensure UI updates correctly
+        }, 50);
+      }, 100);
     } catch (error) {
-      console.error('[restoreQuizState] ❌ Error restoring quiz state:', error);
+      console.error('[restoreQuizState] Error restoring quiz state:', error);
     }
   }
 
