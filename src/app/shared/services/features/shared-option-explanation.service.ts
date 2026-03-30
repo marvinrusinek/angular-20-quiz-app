@@ -46,6 +46,57 @@ export class SharedOptionExplanationService {
   // ═══════════════════════════════════════════════════════════════════════
 
   /**
+   * Resolves the question index, applies stale-call guard, builds context,
+   * and delegates to emitExplanation. Called from the component's thin wrapper.
+   */
+  resolveAndEmitExplanation(params: {
+    questionIndex: number;
+    activeQuestionIndex: number;
+    currentQuestion: QuizQuestion | null;
+    quizId: string;
+    optionBindings: OptionBindings[];
+    optionsToDisplay: Option[];
+    isMultiMode: boolean;
+    getQuestionAtDisplayIndex: (idx: number) => QuizQuestion | null;
+  }, skipGuard = false): void {
+    const { questionIndex, activeQuestionIndex, currentQuestion, getQuestionAtDisplayIndex } = params;
+
+    const resolvedIndex = Number.isFinite(activeQuestionIndex)
+      ? Math.max(0, Math.trunc(activeQuestionIndex))
+      : Number.isFinite(questionIndex)
+        ? Math.max(0, Math.trunc(questionIndex))
+        : this.resolveExplanationQuestionIndex(questionIndex, activeQuestionIndex);
+
+    const question =
+      getQuestionAtDisplayIndex(resolvedIndex)
+      ?? currentQuestion
+      ?? this.quizService.questions?.[resolvedIndex]
+      ?? null;
+
+    // Guard: Prevent stale deferred calls from emitting for the wrong question.
+    if (currentQuestion && resolvedIndex !== questionIndex) {
+      const questionAtIndex = getQuestionAtDisplayIndex(resolvedIndex)
+        ?? this.quizService.questions?.[resolvedIndex];
+      if (questionAtIndex && questionAtIndex.questionText !== currentQuestion.questionText) {
+        console.warn(`[emitExplanation] BLOCKED: stale deferred call for index=${resolvedIndex}`);
+        return;
+      }
+    }
+
+    const ctx: ExplanationContext = {
+      resolvedIndex,
+      question,
+      currentQuestion,
+      quizId: params.quizId,
+      optionBindings: params.optionBindings,
+      optionsToDisplay: params.optionsToDisplay,
+      isMultiMode: params.isMultiMode
+    };
+
+    this.emitExplanation(ctx, skipGuard);
+  }
+
+  /**
    * Evaluates whether the question is resolved, then formats and emits
    * the explanation text through all required service channels.
    */
@@ -307,6 +358,33 @@ export class SharedOptionExplanationService {
 
   clearPendingExplanation(): void {
     this.pendingExplanationIndex = -1;
+  }
+
+  /**
+   * Resolves a question index for explanation emission using a fallback chain:
+   *   1. The provided questionIndex (if finite)
+   *   2. The active question index from the component
+   *   3. The service-level current question index
+   *   4. Emergency fallback: 0
+   */
+  resolveExplanationQuestionIndex(
+    questionIndex: number,
+    activeQuestionIndex: number
+  ): number {
+    if (Number.isFinite(questionIndex)) {
+      return Math.max(0, Math.trunc(questionIndex));
+    }
+
+    if (Number.isFinite(activeQuestionIndex)) {
+      return Math.max(0, Math.trunc(activeQuestionIndex));
+    }
+
+    const svcIndex = this.quizService?.getCurrentQuestionIndex?.() ?? this.quizService?.currentQuestionIndex;
+    if (typeof svcIndex === 'number' && Number.isFinite(svcIndex)) {
+      return Math.max(0, Math.trunc(svcIndex));
+    }
+
+    return 0;
   }
 
   // ═══════════════════════════════════════════════════════════════════════

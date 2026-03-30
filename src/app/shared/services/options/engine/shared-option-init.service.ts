@@ -1,4 +1,5 @@
 import { ChangeDetectorRef, Injectable } from '@angular/core';
+import { FormGroup } from '@angular/forms';
 import {
   animationFrameScheduler, BehaviorSubject, combineLatest, Observable, of,
   Subject, Subscription
@@ -104,6 +105,11 @@ export interface SharedOptionComponentLike {
   // --- ChangeDetectorRef ---
   cdRef: ChangeDetectorRef;
 
+  // --- Form ---
+  form: FormGroup;
+
+  optionBindingsInitialized: boolean;
+
   // --- Methods the service delegates back to ---
   getActiveQuestionIndex(): number;
   getQuestionAtDisplayIndex(idx: number): QuizQuestion | null;
@@ -113,9 +119,7 @@ export interface SharedOptionComponentLike {
   rehydrateUiFromState(reason: string): void;
   applySelectionsUI(selList: SelectedOption[]): void;
   regenerateFeedback(questionIndex: number): void;
-  initializeOptionBindings(): void;
   synchronizeOptionBindings(): void;
-  initializeDisplay(): void;
   determineQuestionType(question: QuizQuestion): 'single' | 'multiple';
   initializeFeedbackBindings(): void;
   finalizeOptionPopulation(): void;
@@ -307,10 +311,48 @@ export class SharedOptionInitService {
    * Initialize option display with feedback.
    * Corresponds to SharedOptionComponent.initializeOptionDisplayWithFeedback().
    */
+  private initializeOptionBindings(comp: SharedOptionComponentLike): void {
+    try {
+      if (comp.optionBindingsInitialized) {
+        console.warn('[Already initialized]');
+        return;
+      }
+
+      comp.optionBindingsInitialized = true;
+
+      const options = comp.optionsToDisplay;
+
+      if (!options?.length) {
+        console.warn('[No options available on init - will be set by ngOnChanges]');
+        comp.optionBindingsInitialized = false;
+        return;
+      }
+
+      // Use generateOptionBindings for consistency (handles deduplication, showOptions, etc.)
+      comp.generateOptionBindings();
+    } catch (error) {
+      console.error('[initializeOptionBindings error]', error);
+      comp.optionBindingsInitialized = false;
+    } finally {
+      console.timeEnd('[initializeOptionBindings]');
+    }
+  }
+
   initializeOptionDisplayWithFeedback(comp: SharedOptionComponentLike): void {
-    comp.initializeOptionBindings();
+    this.initializeOptionBindings(comp);
     comp.synchronizeOptionBindings();
-    comp.initializeDisplay();
+
+    // Initialize display flags if form and bindings are ready
+    if (
+      comp.form &&
+      comp.optionBindings?.length > 0 &&
+      comp.optionsToDisplay?.length > 0
+    ) {
+      comp.renderReady = true;
+      comp.viewReady = true;
+    } else {
+      console.warn('[Display init skipped — not ready]');
+    }
 
     // Initial feedback generation for Q1
     if (comp.currentQuestionIndex >= 0 && comp.optionsToDisplay?.length > 0) {

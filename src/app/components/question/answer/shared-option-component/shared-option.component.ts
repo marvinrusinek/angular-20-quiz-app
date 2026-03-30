@@ -18,7 +18,6 @@ import { Option } from '../../../../shared/models/Option.model';
 import { OptionClickedPayload } from '../../../../shared/models/OptionClickedPayload.model';
 import { OptionBindings } from '../../../../shared/models/OptionBindings.model';
 import { QuizQuestion } from '../../../../shared/models/QuizQuestion.model';
-import { QuestionType } from '../../../../shared/models/question-type.enum';
 import { SelectedOption } from '../../../../shared/models/SelectedOption.model';
 import { SharedOptionConfig } from '../../../../shared/models/SharedOptionConfig.model';
 import { FeedbackComponent } from '../feedback/feedback.component';
@@ -36,7 +35,7 @@ import { OptionUiContextBuilderService } from '../../../../shared/services/optio
 import { OptionUiSyncContext } from '../../../../shared/services/options/engine/option-ui-sync.service';
 import { OptionLockService } from '../../../../shared/services/options/policy/option-lock.service';
 import { OptionSelectionUiService } from '../../../../shared/services/options/engine/option-selection-ui.service';
-import { SharedOptionExplanationService, ExplanationContext } from '../../../../shared/services/features/shared-option-explanation.service';
+import { SharedOptionExplanationService } from '../../../../shared/services/features/shared-option-explanation.service';
 import { OptionClickHandlerService } from '../../../../shared/services/options/engine/option-click-handler.service';
 import { SharedOptionChangeHandlerService, ChangeResult } from '../../../../shared/services/options/engine/shared-option-change-handler.service';
 import { SharedOptionFeedbackService, FeedbackContext, DisplayFeedbackResult } from '../../../../shared/services/features/shared-option-feedback.service';
@@ -100,7 +99,7 @@ export class SharedOptionComponent
   private finalRenderReadySub?: Subscription;
   private selectionSub!: Subscription;
   public isSelected = false;
-  private optionBindingsInitialized = false;
+  public optionBindingsInitialized = false;
 
   feedbackBindings: FeedbackProps[] = [];
   currentFeedbackConfig!: FeedbackProps;
@@ -568,45 +567,6 @@ export class SharedOptionComponent
     return this.computeDisabledState(binding.option, index);
   }
 
-  private resolveQuestionType(): QuestionType {
-    if (this.currentQuestion?.type) {
-      return this.currentQuestion.type;
-    }
-
-    const candidateIndex = this.getActiveQuestionIndex();
-
-    // Use helper method that respects shuffle state
-    const question = this.getQuestionAtDisplayIndex(candidateIndex);
-    if (question?.type) {
-      return question.type;
-    }
-
-    return this.type === 'multiple'
-      ? QuestionType.MultipleAnswer
-      : QuestionType.SingleAnswer;
-  }
-
-  private computeShouldLockIncorrectOptions(
-    resolvedType: QuestionType,
-    hasCorrectSelection: boolean,
-    allCorrectSelectedLocally: boolean
-  ): boolean {
-    if (
-      resolvedType === QuestionType.SingleAnswer ||
-      resolvedType === QuestionType.TrueFalse
-    ) {
-      // Single / TF: lock incorrect options once a correct one is selected
-      return hasCorrectSelection;
-    }
-
-    if (resolvedType === QuestionType.MultipleAnswer) {
-      // Multiple: lock incorrect options only when all correct answers are selected
-      return allCorrectSelectedLocally;
-    }
-
-    return false;
-  }
-
   public onOptionInteraction(binding: OptionBindings, index: number, event: MouseEvent): void {
     if (this.isDisabled(binding, index)) {
       event.preventDefault();
@@ -674,41 +634,17 @@ export class SharedOptionComponent
     return this.optionUiContextBuilder.fromSharedOptionComponent(this);
   }
 
-  private emitExplanation(questionIndex: number, skipGuard = false): void {
-    const activeIndex = this.getActiveQuestionIndex();
-    const resolvedIndex = Number.isFinite(activeIndex)
-      ? Math.max(0, Math.trunc(activeIndex))
-      : Number.isFinite(questionIndex)
-        ? Math.max(0, Math.trunc(questionIndex))
-        : this.resolveExplanationQuestionIndex(questionIndex);
-
-    const question =
-      this.getQuestionAtDisplayIndex(resolvedIndex)
-      ?? this.currentQuestion
-      ?? this.quizService.questions?.[resolvedIndex]
-      ?? null;
-
-    // Guard: Prevent stale deferred calls from emitting for the wrong question.
-    if (this.currentQuestion && resolvedIndex !== questionIndex) {
-      const questionAtIndex = this.getQuestionAtDisplayIndex(resolvedIndex)
-        ?? this.quizService.questions?.[resolvedIndex];
-      if (questionAtIndex && questionAtIndex.questionText !== this.currentQuestion.questionText) {
-        console.warn(`[emitExplanation] BLOCKED: stale deferred call for index=${resolvedIndex}`);
-        return;
-      }
-    }
-
-    const ctx: ExplanationContext = {
-      resolvedIndex,
-      question,
+  public emitExplanation(questionIndex: number, skipGuard = false): void {
+    this.explanationHandler.resolveAndEmitExplanation({
+      questionIndex,
+      activeQuestionIndex: this.getActiveQuestionIndex(),
       currentQuestion: this.currentQuestion,
       quizId: this.quizId,
       optionBindings: this.optionBindings,
       optionsToDisplay: this.optionsToDisplay,
-      isMultiMode: this.isMultiMode
-    };
-
-    this.explanationHandler.emitExplanation(ctx, skipGuard);
+      isMultiMode: this.isMultiMode,
+      getQuestionAtDisplayIndex: (idx) => this.getQuestionAtDisplayIndex(idx)
+    }, skipGuard);
   }
 
   private applyExplanationText(
@@ -751,24 +687,6 @@ export class SharedOptionComponent
 
   private cacheResolvedFormattedExplanation(index: number, formatted: string): void {
     this.explanationHandler.cacheResolvedFormattedExplanation(index, formatted);
-  }
-
-  private resolveExplanationText(questionIndex: number): string {
-    const displayIndex = Number.isFinite(questionIndex) ? Math.max(0, Math.floor(questionIndex)) : 0;
-    const indexQuestion = this.getQuestionAtDisplayIndex(displayIndex);
-    const targetQuestion = indexQuestion || this.currentQuestion;
-
-    const ctx: ExplanationContext = {
-      resolvedIndex: displayIndex,
-      question: targetQuestion,
-      currentQuestion: targetQuestion,
-      quizId: this.quizId,
-      optionBindings: this.optionBindings,
-      optionsToDisplay: this.optionsToDisplay,
-      isMultiMode: this.isMultiMode
-    };
-
-    return this.explanationHandler.resolveExplanationText(ctx);
   }
 
   public async handleOptionClick(
@@ -870,33 +788,6 @@ export class SharedOptionComponent
     return this.feedbackManager.getFeedbackBindings(option, idx, this.buildFeedbackContext());
   }
 
-  initializeOptionBindings(): void {
-    try {
-      if (this.optionBindingsInitialized) {
-        console.warn('[Already initialized]');
-        return;
-      }
-
-      this.optionBindingsInitialized = true;
-
-      const options = this.optionsToDisplay;
-
-      if (!options?.length) {
-        console.warn('[No options available on init - will be set by ngOnChanges]');
-        this.optionBindingsInitialized = false;
-        return;
-      }
-
-      // Use generateOptionBindings for consistency (handles deduplication, showOptions, etc.)
-      this.generateOptionBindings();
-    } catch (error) {
-      console.error('[initializeOptionBindings error]', error);
-      this.optionBindingsInitialized = false;
-    } finally {
-      console.timeEnd('[initializeOptionBindings]');
-    }
-  }
-
   private processOptionBindings(): void {
     this.bindingService.processOptionBindings(this as any);
   }
@@ -949,19 +840,6 @@ export class SharedOptionComponent
       this.optionBindings.length > 0 &&
       this.optionBindings.every((b) => !!b.option)
     );
-  }
-
-  private initializeDisplay(): void {
-    if (
-      this.form &&
-      this.optionBindings?.length > 0 &&
-      this.optionsToDisplay?.length > 0
-    ) {
-      this.renderReady = true;
-      this.viewReady = true;
-    } else {
-      console.warn('[Display init skipped — not ready]');
-    }
   }
 
   public markRenderReady(reason: string = ''): void {
@@ -1076,36 +954,9 @@ export class SharedOptionComponent
   }
 
   private resolveExplanationQuestionIndex(questionIndex: number): number {
-    if (Number.isFinite(questionIndex)) {
-      return Math.max(0, Math.trunc(questionIndex));
-    }
-
-    const active = this.getActiveQuestionIndex();
-    if (Number.isFinite(active)) {
-      return Math.max(0, Math.trunc(active));
-    }
-
-    const svcIndex = this.quizService?.getCurrentQuestionIndex?.() ?? this.quizService?.currentQuestionIndex;
-    if (typeof svcIndex === 'number' && Number.isFinite(svcIndex)) {
-      return Math.max(0, Math.trunc(svcIndex));
-    }
-
-    return 0;
-  }
-
-  private resolveQuestionIndexFromCurrentQuestion(): number | null {
-    const current = this.currentQuestion;
-    if (!current) return null;
-
-    const source = (this.quizService?.isShuffleEnabled?.() && Array.isArray(this.quizService?.shuffledQuestions)
-      && this.quizService.shuffledQuestions.length > 0)
-      ? this.quizService.shuffledQuestions
-      : this.quizService?.questions;
-
-    if (!Array.isArray(source) || source.length === 0) return null;
-
-    const idxByRef = source.findIndex((q) => q === current);
-    return idxByRef >= 0 ? idxByRef : null;
+    return this.explanationHandler.resolveExplanationQuestionIndex(
+      questionIndex, this.getActiveQuestionIndex()
+    );
   }
 
   /**
