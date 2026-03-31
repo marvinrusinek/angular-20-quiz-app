@@ -48,6 +48,8 @@ import { QqcExplanationManagerService } from '../../../shared/services/features/
 import { QqcTimerEffectService } from '../../../shared/services/features/qqc-timer-effect.service';
 import { QqcFeedbackManagerService } from '../../../shared/services/features/qqc-feedback-manager.service';
 import { QqcOptionSelectionService } from '../../../shared/services/features/qqc-option-selection.service';
+import { QqcExplanationDisplayService } from '../../../shared/services/features/qqc-explanation-display.service';
+import { QqcResetManagerService } from '../../../shared/services/features/qqc-reset-manager.service';
 import { QuizShuffleService } from '../../../shared/services/flow/quiz-shuffle.service';
 import { BaseQuestion } from '../base/base-question';
 import { SharedOptionComponent } from '../../../components/question/answer/shared-option-component/shared-option.component';
@@ -339,6 +341,8 @@ export class QuizQuestionComponent extends BaseQuestion
     protected timerEffect: QqcTimerEffectService,
     protected feedbackManager: QqcFeedbackManagerService,
     protected optionSelection: QqcOptionSelectionService,
+    protected explanationDisplay: QqcExplanationDisplayService,
+    protected resetManager: QqcResetManagerService,
     protected componentFactoryResolver: ComponentFactoryResolver,
     protected activatedRoute: ActivatedRoute,
     protected quizShuffleService: QuizShuffleService,
@@ -2815,29 +2819,23 @@ export class QuizQuestionComponent extends BaseQuestion
   }
 
   private clearSelection(): void {
-    if (this.correctAnswers && this.correctAnswers.length === 1) {
-      if (this.currentQuestion && this.currentQuestion.options) {
-        for (const option of this.currentQuestion.options) {
-          option.selected = false;
-          option.styleClass = '';
-        }
-      }
-    }
+    this.resetManager.clearSelection(this.correctAnswers, this.currentQuestion);
   }
 
   public resetState(): void {
-    this.selectedOption = null;
-    this.options = [];
+    const result = this.resetManager.resetState();
+    this.selectedOption = result.selectedOption;
+    this.options = result.options;
+    this.areOptionsReadyToRender = result.areOptionsReadyToRender;
     this.resetFeedback();
-    this.selectedOptionService.clearOptions();
-    this.areOptionsReadyToRender = false;
   }
 
   public resetFeedback(): void {
-    this.correctMessage = '';
-    this.showFeedback = false;
-    this.selectedOption = null;
-    this.showFeedbackForOption = {};
+    const result = this.resetManager.resetFeedback();
+    this.correctMessage = result.correctMessage;
+    this.showFeedback = result.showFeedback;
+    this.selectedOption = result.selectedOption;
+    this.showFeedbackForOption = result.showFeedbackForOption;
   }
 
   // Called when a user clicks an option row
@@ -3517,20 +3515,8 @@ export class QuizQuestionComponent extends BaseQuestion
 
   // Emit/display explanation
   private displayExplanationText(explanationText: string, qIdx: number): void {
-    // Emit based only on index
-    // this.emitExplanationIfValid(explanationText, qIdx);
+    this.explanationDisplay.displayExplanationText(explanationText, this._lastAllCorrect);
 
-    // Update the shared service
-    this.explanationTextService.setExplanationText(explanationText);
-    this.explanationTextService.setShouldDisplayExplanation(true);
-
-    // Update quiz state
-    this.quizStateService.setDisplayState({
-      mode: this._lastAllCorrect ? 'explanation' : 'question',
-      answered: true
-    });
-
-    // Finally drive _this_ component’s UI
     this.explanationText = explanationText;
     this.explanationVisible = true;
     this.cdRef.detectChanges();
@@ -3645,34 +3631,11 @@ export class QuizQuestionComponent extends BaseQuestion
 
   private emitExplanationIfValid(explanationText: string, questionIndex: number): void {
     const currentIndex = this.fixedQuestionIndex ?? this.currentQuestionIndex;
+    const valid = this.explanationDisplay.emitExplanationIfValid(
+      explanationText, questionIndex, currentIndex
+    );
+    if (!valid) return;
 
-    // Only gate on the question index
-    if (currentIndex !== questionIndex) {
-      console.warn(`[⛔ Explanation index mismatch]`, {
-        currentIndex,
-        questionIndex,
-      });
-      return;
-    }
-
-    // Push straight into service
-    this.explanationTextService.setExplanationText(explanationText);
-    this.explanationTextService.setShouldDisplayExplanation(true);
-
-    // Update quiz state mode once
-    this.quizStateService.setDisplayState({
-      mode: 'explanation',
-      answered: true,
-    });
-
-    // Notify any other listeners
-    // this.explanationTextService.emitExplanationIfNeeded({
-    //   explanationText,
-    //   questionIndex,
-    //   question: this.questions?.[questionIndex]
-    // });
-
-    // Finally drive the UI locally
     this.explanationText = explanationText;
     this.explanationVisible = true;
     this.cdRef.detectChanges();
@@ -4030,32 +3993,26 @@ export class QuizQuestionComponent extends BaseQuestion
 
   // Updates the display to explanation mode.
   private updateDisplayStateToExplanation(): void {
-    // Get answered state from SelectedOptionService
-    const isAnswered = this.selectedOptionService.isAnsweredSubject.getValue();
+    const transition = this.explanationDisplay.computeExplanationModeTransition(
+      this.shouldDisplayExplanation,
+      this.displayMode$.getValue()
+    );
+    if (!transition) return;
 
-    // Guard conditions to prevent premature execution
-    if (!isAnswered || !this.shouldDisplayExplanation) return;
-    if (this.displayMode$.getValue() === 'explanation') return;
-
-    // Update the display state
-    this.displayState = { mode: 'explanation', answered: isAnswered };
+    this.displayState = transition.displayState;
     this.displayStateSubject.next(this.displayState);
     this.displayStateChange.emit(this.displayState);
+    this.displayMode = transition.displayMode;
+    this.displayMode$.next(transition.displayMode);
 
-    // Update the display mode
-    this.displayMode = 'explanation';
-    this.displayMode$.next('explanation');
-
-    // Ensure explanation is visible
-    this.shouldDisplayExplanation = true;
-    this.explanationVisible = true;
-    this.isExplanationTextDisplayed = true;
-
-    // Update rendering flags
-    this.forceQuestionDisplay = false;
-    this.readyForExplanationDisplay = true;
-    this.isExplanationReady = true;
-    this.isExplanationLocked = false;
+    const flags = transition.explanationFlags;
+    this.shouldDisplayExplanation = flags.shouldDisplayExplanation;
+    this.explanationVisible = flags.explanationVisible;
+    this.isExplanationTextDisplayed = flags.isExplanationTextDisplayed;
+    this.forceQuestionDisplay = flags.forceQuestionDisplay;
+    this.readyForExplanationDisplay = flags.readyForExplanationDisplay;
+    this.isExplanationReady = flags.isExplanationReady;
+    this.isExplanationLocked = flags.isExplanationLocked;
   }
 
   // Handles the outcome after checking if all correct answers are selected.
@@ -4748,146 +4705,15 @@ export class QuizQuestionComponent extends BaseQuestion
   }
 
   private async updateExplanationText(index: number): Promise<string> {
-    const svc = this.explanationTextService;
-    const quizSvc = this.quizService;
-    const i0 = this.normalizeIndex(index);
-
-    // Step 1: Resolve the question object and raw text
-    let q: QuizQuestion | null = null;
-    try {
-      // 🎯 PRIMARY SOURCE: Use the component's own questionsArray (already shuffled/ordered)
-      if (this.questionsArray && this.questionsArray.length > i0) {
-        q = this.questionsArray[i0];
-        console.log(`[QQC] 🎯 Resolved Q${i0 + 1} from questionsArray. Text: "${q.questionText?.slice(0, 30)}..."`);
-      }
-      
-      // Fallback 1: currentQuestion if it matches the index
-      if (!q && this.currentQuestionIndex === i0 && this.currentQuestion) {
-        q = { ...this.currentQuestion } as QuizQuestion;
-        console.log(`[QQC] 🎯 Resolved Q${i0 + 1} from currentQuestion.`);
-      }
-
-      // Fallback 2: Service-level shuffledQuestions
-      if (!q) {
-        const svcQuestions = (quizSvc as any).shuffledQuestions || quizSvc.questions || [];
-        q = svcQuestions[i0];
-        if (q) console.log(`[QQC] 🎯 Resolved Q${i0 + 1} from Service.`);
-      }
-    } catch (err) {
-      console.warn(`[QQC] Error resolving question for Q${i0 + 1}`, err);
-    }
-
-    if (!q) {
-      console.error(`[QQC] ❌ FAILED to resolve question object for Q${i0 + 1}. FET generation aborted.`);
-      return '';
-    }
-
-
-    const baseRaw = (q?.explanation ?? '').toString().trim();
-    if (!baseRaw && i0 === 0) {
-      console.log('[QQC] ⚠️ Q1 raw explanation missing! Checking if it is defined in QUIZ_DATA...');
-    }
-
-    try {
-      svc.purgeAndDefer(i0);
-    } catch { }
-
-    await new Promise(res => requestAnimationFrame(res));
-
-    // Step 2: Format explanation safely using authoritative indices
-    let formatted = '';
-    try {
-      // ⚡ ROBUSTNESS FIX: Derive correctIndices from VISUAL (display-order) options.
-      // CRITICAL: this.optionsToDisplay belongs to the CURRENT question on screen.
-      // During prewarm (navigation), it still holds the PREVIOUS question's options.
-      // Only use it when i0 matches the current question index; otherwise resolve
-      // the options for the target question directly from the shuffled questions array.
-      let visualOpts: Option[] = [];
-
-      if (i0 === this.currentQuestionIndex && this.optionsToDisplay?.length) {
-        // Safe: optionsToDisplay matches this question
-        visualOpts = this.optionsToDisplay;
-      } else {
-        // Prewarm or different index: get options from the question at i0
-        try {
-          const questions = (quizSvc as any).shuffledQuestions?.length
-            ? (quizSvc as any).shuffledQuestions
-            : quizSvc.questions || [];
-          const targetQ = questions[i0];
-          if (targetQ?.options?.length) {
-            visualOpts = targetQ.options;
-          }
-        } catch { }
-      }
-
-      // Fallback chain
-      if (!visualOpts?.length && this.options?.length) visualOpts = this.options;
-      if (!visualOpts?.length && q.options?.length) visualOpts = q.options;
-
-      // Last resort: fetch from service
-      if (!visualOpts?.length && quizSvc) {
-        try {
-          const fetchedOpts = await firstValueFrom(quizSvc.getOptions(i0));
-          if (fetchedOpts?.length) visualOpts = fetchedOpts;
-        } catch { }
-      }
-
-      console.log(`[🧠 FET] Q${i0 + 1} Target Question: "${q.questionText?.slice(0, 30)}...", Options: ${visualOpts?.length}`);
-      const correctIndices = svc.getCorrectOptionIndices(q, visualOpts, i0);
-
-      if (correctIndices.length > 0) {
-        formatted = typeof svc.formatExplanation === 'function'
-          ? svc.formatExplanation(q, correctIndices, baseRaw, i0)
-          : (baseRaw.includes('correct because') ? baseRaw : `Option ${correctIndices[0]} is correct because ${baseRaw}`);
-        console.log(`[🧠 FET] ✅ Generated FET with indices [${correctIndices}] for Q${i0 + 1}`);
-      } else {
-        // LAST RESORT REPAIR: If correctly indices is still empty, scan options manually for visual correct flag
-        const findCorrect = visualOpts
-          .map((opt, idx) => (opt.correct === true || (opt as any).correct === 'true' ? idx + 1 : null))
-          .filter((n): n is number => n !== null);
-
-        if (findCorrect.length > 0) {
-          formatted = svc.formatExplanation(q, findCorrect, baseRaw, i0);
-          console.log(`[🧠 FET] 🛠 REPAIRED: Used manual scan for Q${i0 + 1} -> [${findCorrect}]`);
-        } else {
-          console.warn(`[🧠 FET] ⚠️ No correct indices found for Q${i0 + 1}. FET prefix will be missing.`);
-          formatted = baseRaw;
-        }
-      }
-    } catch (e) {
-      console.warn('[updateExplanationText] formatter threw; using raw', e);
-      formatted = baseRaw;
-    }
-
-    const clean = (formatted ?? '').trim();
-
-    // Step 3: Cache MUST happen before emit so components' startWith(existing) pick it up
-    try {
-      svc.formattedExplanations[i0] = {
-        questionIndex: i0,
-        explanation: clean || baseRaw,
-      };
-      if (typeof (svc as any).fetByIndex?.set === 'function') {
-        (svc as any).fetByIndex.set(i0, clean || baseRaw);
-      }
-    } catch { }
-
-    // Step 4: Emit only if we’re still on this index
-    const nextText = (clean || baseRaw).trim();
-    if (!nextText) return clean || baseRaw;
-
-    const stillActive = i0 === this.currentQuestionIndex;
-
-    if (stillActive) {
-      // ⚡ SYNC FIX: Explicitly bypass the guard during direct updates
-      // This ensures that when the timer expires or a selection is made,
-      // the FET is broadcast regardless of the "perfect" state.
-      svc.setExplanationText(nextText, { index: i0 });
-      svc.setShouldDisplayExplanation(true);
-      svc.latestExplanation = nextText;
-    }
-
-    return nextText;
+    return this.explanationDisplay.updateExplanationText({
+      index,
+      normalizeIndex: (idx) => this.normalizeIndex(idx),
+      questionsArray: this.questionsArray,
+      currentQuestionIndex: this.currentQuestionIndex,
+      currentQuestion: this.currentQuestion,
+      optionsToDisplay: this.optionsToDisplay,
+      options: this.options,
+    });
   }
 
   public async handleOptionSelection(
@@ -5720,20 +5546,15 @@ export class QuizQuestionComponent extends BaseQuestion
     formattedExplanation: FormattedExplanation,
     questionIndex: number
   ): void {
-    if (!formattedExplanation) {
-      console.error('Error: formatExplanationText returned void');
-      return;
-    }
+    const result = this.explanationDisplay.handleFormattedExplanation(
+      formattedExplanation,
+      this.isAnswered as boolean,
+      this.shouldDisplayExplanation
+    );
+    if (!result.explanationToDisplay) return;
 
-    const explanationText =
-      typeof formattedExplanation === 'string'
-        ? formattedExplanation
-        : formattedExplanation.explanation || 'No explanation available';
-
-    // Directly update and emit explanation text
-    this.explanationToDisplay = explanationText;
-
-    if (this.isAnswered && this.shouldDisplayExplanation) {
+    this.explanationToDisplay = result.explanationToDisplay;
+    if (result.shouldEmit) {
       this.explanationToDisplayChange.emit(this.explanationToDisplay);
       this.showExplanationChange.emit(true);
     }
@@ -6007,36 +5828,22 @@ export class QuizQuestionComponent extends BaseQuestion
   }
 
   private clearOptionStateForQuestion(index: number): void {
-    this.selectedOptionService.clearSelectionsForQuestion(index);
-
-    this.optionsToDisplay?.forEach((opt) => {
-      opt.selected = false;
-      opt.showIcon = false;
-    });
-
+    this.optionsToDisplay = this.resetManager.clearOptionStateForQuestion(index, this.optionsToDisplay);
     this.cdRef.detectChanges();
   }
 
   restoreSelectionsAndIconsForQuestion(index: number) {
-    const selectedOptions =
-      this.selectedOptionService.getSelectedOptionsForQuestion(index);
-    this.optionsToDisplay?.forEach((opt) => {
-      const match = selectedOptions.find(
-        (sel) => sel.optionId === opt.optionId
-      );
-      opt.selected = !!match;
-      opt.showIcon = !!match?.showIcon;
-    });
-
+    this.optionsToDisplay = this.resetManager.restoreSelectionsAndIcons(index, this.optionsToDisplay);
     this.cdRef.detectChanges();
   }
 
   private hardResetClickGuards(): void {
-    this._clickGate = false;
-    this.waitingForReady = false;
-    this.deferredClick = undefined;
-    this.lastLoggedQuestionIndex = -1;
-    this.lastLoggedIndex = -1;
+    const result = this.resetManager.hardResetClickGuards();
+    this._clickGate = result.clickGate;
+    this.waitingForReady = result.waitingForReady;
+    this.deferredClick = result.deferredClick;
+    this.lastLoggedQuestionIndex = result.lastLoggedQuestionIndex;
+    this.lastLoggedIndex = result.lastLoggedIndex;
     this.selectedIndices?.clear?.();
   }
 
