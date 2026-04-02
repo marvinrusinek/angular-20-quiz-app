@@ -274,4 +274,99 @@ export class QqcFeedbackManagerService {
   resetFeedbackForOption(optionId: number): { [optionId: number]: boolean } {
     return { [optionId]: true };
   }
+
+  /**
+   * Processes feedback update for a selected option.
+   * Returns the updated showFeedbackForOption map and the selected option index, or null if skipped.
+   */
+  updateFeedback(params: {
+    option: SelectedOption;
+    isUserClickInProgress: boolean;
+    showFeedback: boolean;
+    selectedOption: SelectedOption | null;
+    optionsToDisplay: Option[];
+    currentQuestionIndex: number;
+    isMultipleAnswer: boolean;
+  }): {
+    showFeedbackForOption: { [optionId: number]: boolean };
+    selectedIndex: number;
+  } | null {
+    if (!params.isUserClickInProgress) {
+      console.warn('[updateFeedback] skipped — no user click in progress');
+      return null;
+    }
+
+    // Reset feedback for this option
+    const showFeedbackForOption = this.resetFeedbackForOption(params.option.optionId!);
+    showFeedbackForOption[params.option.optionId!] =
+      params.showFeedback && params.selectedOption === params.option;
+
+    // Find the index of the selected option
+    const selectedIndex = params.optionsToDisplay.findIndex(
+      (opt) => opt.optionId === params.option.optionId
+    );
+
+    // Update service state
+    this.selectedOptionService.setOptionSelected(true);
+    this.selectedOptionService.setSelectedOption(
+      params.option,
+      params.currentQuestionIndex,
+      undefined,
+      params.isMultipleAnswer
+    );
+    this.selectedOptionService.setAnsweredState(true);
+
+    return { showFeedbackForOption, selectedIndex };
+  }
+
+  /**
+   * Applies feedback to a selected option within the options list.
+   * Returns updated optionsToDisplay and showFeedbackForOption, or null if invalid.
+   */
+  applyOptionFeedback(
+    selectedOption: Option,
+    optionsToDisplay: Option[],
+    showFeedbackForOption: { [optionId: number]: boolean }
+  ): {
+    optionsToDisplay: Option[];
+    showFeedbackForOption: { [optionId: number]: boolean };
+    selectedOptionIndex: number;
+  } | null {
+    if (!selectedOption) {
+      console.error('[applyOptionFeedback] selectedOption is null or undefined! Aborting.');
+      return null;
+    }
+
+    showFeedbackForOption = showFeedbackForOption || {};
+    showFeedbackForOption[selectedOption.optionId!] = true;
+
+    const selectedOptionIndex = optionsToDisplay.findIndex(
+      (opt) => opt.optionId === selectedOption.optionId
+    );
+    if (selectedOptionIndex === -1) {
+      console.error(
+        `[applyOptionFeedback] selectedOptionIndex not found for optionId: ${selectedOption.optionId}`
+      );
+      return null;
+    }
+
+    // Apply feedback to only the clicked option, keeping others unchanged
+    const updatedOptions = optionsToDisplay.map((option) => ({
+      ...option,
+      feedback:
+        option.optionId === selectedOption.optionId
+          ? option.correct
+            ? '✅ This is a correct answer!'
+            : '❌ Incorrect answer!'
+          : option.feedback,
+      showIcon: option.optionId === selectedOption.optionId,
+      selected: option.optionId === selectedOption.optionId
+    }));
+
+    return {
+      optionsToDisplay: updatedOptions,
+      showFeedbackForOption,
+      selectedOptionIndex,
+    };
+  }
 }

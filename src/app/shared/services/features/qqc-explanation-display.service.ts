@@ -8,6 +8,8 @@ import { ExplanationTextService } from './explanation-text.service';
 import { QuizService } from '../data/quiz.service';
 import { QuizStateService } from '../state/quizstate.service';
 import { SelectedOptionService } from '../state/selectedoption.service';
+import { QuizQuestionManagerService } from '../flow/quizquestionmgr.service';
+import { QqcExplanationManagerService } from './qqc-explanation-manager.service';
 import { firstValueFrom } from '../../utils/rxjs-compat';
 
 /**
@@ -22,7 +24,9 @@ export class QqcExplanationDisplayService {
     private explanationTextService: ExplanationTextService,
     private quizService: QuizService,
     private quizStateService: QuizStateService,
-    private selectedOptionService: SelectedOptionService
+    private selectedOptionService: SelectedOptionService,
+    private quizQuestionManagerService: QuizQuestionManagerService,
+    private explanationManager: QqcExplanationManagerService
   ) {}
 
   /**
@@ -411,5 +415,281 @@ export class QqcExplanationDisplayService {
    */
   handleExplanationError(): string {
     return 'Error fetching explanation. Please try again.';
+  }
+
+  /**
+   * Manages the full explanation display lifecycle for a question.
+   * Fetches question data, processes explanation, updates state, returns values for component.
+   */
+  async manageExplanationDisplay(params: {
+    currentQuestionIndex: number;
+    quizId: string;
+    lastAllCorrect: boolean;
+  }): Promise<{
+    explanationToDisplay: string;
+    displayExplanation: boolean;
+    explanationText?: string;
+    questionState?: QuestionState;
+  }> {
+    const { currentQuestionIndex, quizId, lastAllCorrect } = params;
+
+    try {
+      if (currentQuestionIndex === null || currentQuestionIndex === undefined) {
+        throw new Error('Current question index is not set');
+      }
+
+      const questionData: any = await firstValueFrom(
+        this.quizService.getQuestionByIndex(currentQuestionIndex)
+      );
+
+      if (!this.quizQuestionManagerService.isValidQuestionData(questionData!)) {
+        throw new Error('Invalid question data');
+      }
+
+      let explanationText =
+        questionData?.explanation ?? 'No explanation available';
+
+      const processedExplanation = await this.explanationManager.processExplanationText(
+        questionData!,
+        currentQuestionIndex
+      );
+
+      if (processedExplanation && processedExplanation.explanation) {
+        explanationText = processedExplanation.explanation;
+      }
+
+      // Update service state
+      this.explanationTextService.updateFormattedExplanation(explanationText);
+      this.explanationTextService.setResetComplete(true);
+      this.explanationTextService.setShouldDisplayExplanation(lastAllCorrect);
+      if (lastAllCorrect) {
+        this.explanationTextService.lockExplanation();
+      }
+
+      // Update quiz state
+      const questionState = this.quizStateService.getQuestionState(
+        quizId,
+        currentQuestionIndex
+      );
+      if (questionState) {
+        questionState.explanationText = explanationText;
+        questionState.explanationDisplayed = true;
+        this.quizStateService.setQuestionState(
+          quizId,
+          currentQuestionIndex,
+          questionState
+        );
+      }
+
+      return {
+        explanationToDisplay: explanationText,
+        displayExplanation: true,
+        explanationText,
+        questionState,
+      };
+    } catch (error) {
+      console.error('Error managing explanation display:', error);
+
+      // Ensure flags are always set
+      if (!this.explanationTextService.isExplanationLocked()) {
+        this.explanationTextService.setResetComplete(true);
+        this.explanationTextService.setShouldDisplayExplanation(true);
+        this.explanationTextService.lockExplanation();
+      }
+
+      return {
+        explanationToDisplay: 'Error loading explanation. Please try again.',
+        displayExplanation: true,
+      };
+    }
+  }
+
+  /**
+   * Handles question data to determine if explanation should be shown.
+   * Returns the explanation text and display flags.
+   */
+  async handleQuestionData(params: {
+    questionsArray: QuizQuestion[];
+    questionIndex: number;
+    quizId: string;
+    shouldDisplayExplanation: boolean;
+    getExplanationText: (idx: number) => Promise<string>;
+  }): Promise<{
+    explanationText: string;
+    shouldShowExplanation: boolean;
+  }> {
+    const { questionsArray, questionIndex, quizId, shouldDisplayExplanation, getExplanationText } = params;
+
+    if (!questionsArray || questionsArray.length === 0) {
+      console.warn('[handleQuestionData] Questions array is not initialized or empty.');
+      return { explanationText: '', shouldShowExplanation: false };
+    }
+
+    if (questionIndex < 0 || questionIndex >= questionsArray.length) {
+      console.error(`[handleQuestionData] Invalid questionIndex: ${questionIndex}`);
+      return { explanationText: '', shouldShowExplanation: false };
+    }
+
+    const questionState = this.quizStateService.getQuestionState(quizId, questionIndex);
+    const isAnswered = questionState?.isAnswered;
+    const shouldShow = isAnswered && shouldDisplayExplanation;
+
+    if (shouldShow) {
+      try {
+        const explanationText = await getExplanationText(questionIndex);
+
+        this.explanationTextService.setResetComplete(true);
+        this.explanationTextService.setExplanationText(explanationText);
+        this.explanationTextService.setShouldDisplayExplanation(true);
+        this.explanationTextService.lockExplanation();
+
+        return { explanationText, shouldShowExplanation: true };
+      } catch (error) {
+        console.error('[handleQuestionData] Error fetching explanation text:', error);
+        return { explanationText: 'Error loading explanation.', shouldShowExplanation: true };
+      }
+    } else {
+      if (!this.explanationTextService.isExplanationLocked()) {
+        this.explanationTextService.setExplanationText('');
+        this.explanationTextService.setShouldDisplayExplanation(false);
+        this.explanationTextService.setResetComplete(false);
+      }
+      return { explanationText: '', shouldShowExplanation: false };
+    }
+  }
+
+  /**
+   * Restores explanation state after a navigation reset.
+   * Handles service-level state and quiz state updates, returns display flags for component.
+   */
+  restoreExplanationAfterReset(params: {
+    questionIndex: number;
+    explanationText: string;
+    questionState?: QuestionState;
+    quizId: string | null;
+  }): {
+    explanationToDisplay: string;
+    displayMode: 'explanation';
+    displayState: { mode: 'explanation'; answered: true };
+    forceQuestionDisplay: false;
+    readyForExplanationDisplay: true;
+    isExplanationReady: true;
+    isExplanationLocked: false;
+    explanationLocked: true;
+    explanationVisible: true;
+    displayExplanation: true;
+    shouldDisplayExplanation: true;
+    isExplanationTextDisplayed: true;
+  } | null {
+    const normalized = (params.explanationText ?? '').trim();
+    if (!normalized) return null;
+
+    // Service-level state
+    this.explanationTextService.setExplanationText(normalized);
+    this.explanationTextService.setShouldDisplayExplanation(true);
+    this.explanationTextService.setIsExplanationTextDisplayed(true);
+    this.explanationTextService.setResetComplete(true);
+    this.explanationTextService.lockExplanation();
+
+    // Quiz state update
+    if (params.quizId && params.questionState) {
+      params.questionState.isAnswered = true;
+      params.questionState.explanationDisplayed = true;
+      this.quizStateService.setQuestionState(
+        params.quizId, params.questionIndex, params.questionState
+      );
+    }
+
+    return {
+      explanationToDisplay: normalized,
+      displayMode: 'explanation',
+      displayState: { mode: 'explanation', answered: true },
+      forceQuestionDisplay: false,
+      readyForExplanationDisplay: true,
+      isExplanationReady: true,
+      isExplanationLocked: false,
+      explanationLocked: true,
+      explanationVisible: true,
+      displayExplanation: true,
+      shouldDisplayExplanation: true,
+      isExplanationTextDisplayed: true,
+    };
+  }
+
+  /**
+   * Handles explanation display update with shouldDisplay flag.
+   * Manages lock/unlock, fetches explanation text, returns state for component.
+   */
+  async performUpdateExplanationDisplay(params: {
+    shouldDisplay: boolean;
+    currentQuestionIndex: number;
+  }): Promise<{
+    explanationToDisplay: string;
+    displayExplanation: boolean;
+    shouldEmitExplanation: boolean;
+    shouldResetQuestionState: boolean;
+  }> {
+    const { shouldDisplay, currentQuestionIndex } = params;
+
+    if (shouldDisplay) {
+      this.explanationTextService.setResetComplete(true);
+      this.explanationTextService.setShouldDisplayExplanation(true);
+      this.explanationTextService.lockExplanation();
+
+      try {
+        let explanationText = 'No explanation available';
+
+        if (this.explanationTextService.explanationsInitialized) {
+          const fetched = await firstValueFrom(
+            this.explanationTextService.getFormattedExplanationTextForQuestion(
+              currentQuestionIndex
+            )
+          );
+          explanationText = fetched?.trim() || explanationText;
+        } else {
+          console.warn(
+            `[updateExplanationDisplay] Explanations not initialized for Q${currentQuestionIndex}`
+          );
+        }
+
+        this.explanationTextService.setExplanationText(explanationText);
+
+        return {
+          explanationToDisplay: explanationText,
+          displayExplanation: true,
+          shouldEmitExplanation: true,
+          shouldResetQuestionState: false,
+        };
+      } catch (error) {
+        console.error('[updateExplanationDisplay] Error fetching explanation:', error);
+        return {
+          explanationToDisplay: 'Error loading explanation.',
+          displayExplanation: true,
+          shouldEmitExplanation: true,
+          shouldResetQuestionState: false,
+        };
+      }
+    } else {
+      if (!this.explanationTextService.isExplanationLocked()) {
+        this.explanationTextService.setExplanationText('');
+        this.explanationTextService.setResetComplete(false);
+        this.explanationTextService.setShouldDisplayExplanation(false);
+
+        return {
+          explanationToDisplay: '',
+          displayExplanation: false,
+          shouldEmitExplanation: true,
+          shouldResetQuestionState: true,
+        };
+      } else {
+        console.warn('[updateExplanationDisplay] Blocked reset — explanation is locked');
+        return {
+          explanationToDisplay: '',
+          displayExplanation: false,
+          shouldEmitExplanation: true,
+          shouldResetQuestionState: false,
+        };
+      }
+    }
   }
 }

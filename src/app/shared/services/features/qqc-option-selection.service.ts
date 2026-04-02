@@ -11,6 +11,7 @@ import { SelectedOptionService } from '../state/selectedoption.service';
 import { TimerService } from './timer.service';
 import { ExplanationTextService } from './explanation-text.service';
 import { FeedbackService } from './feedback.service';
+import { SoundService } from '../ui/sound.service';
 
 /**
  * Manages option selection logic, state transitions, and correctness evaluation for QQC.
@@ -25,7 +26,8 @@ export class QqcOptionSelectionService {
     private selectedOptionService: SelectedOptionService,
     private timerService: TimerService,
     private explanationTextService: ExplanationTextService,
-    private feedbackService: FeedbackService
+    private feedbackService: FeedbackService,
+    private soundService: SoundService
   ) {}
 
   /**
@@ -277,7 +279,8 @@ export class QqcOptionSelectionService {
   }
 
   /**
-   * Handles correctness outcome after all correct check: timer stop, sound, next button.
+   * Handles correctness outcome after all correct check: timer stop, sound, selection, explanation, next button.
+   * Returns state values for the component to apply.
    */
   async handleCorrectnessOutcome(params: {
     allCorrectSelected: boolean;
@@ -289,10 +292,24 @@ export class QqcOptionSelectionService {
     explanationToDisplay: string;
   }): Promise<{
     explanationToDisplay: string;
+    shouldEmitAnswerSelected: boolean;
+    shouldEnableNext: boolean;
   }> {
     if (!params.currentQuestion) {
       console.error('[handleCorrectnessOutcome] currentQuestion is null');
-      return { explanationToDisplay: params.explanationToDisplay };
+      return {
+        explanationToDisplay: params.explanationToDisplay,
+        shouldEmitAnswerSelected: false,
+        shouldEnableNext: false,
+      };
+    }
+
+    // Handle multi-answer timer logic
+    if (params.currentQuestion.type === QuestionType.MultipleAnswer) {
+      this.timerService.allowAuthoritativeStop();
+      await this.timerService.attemptStopTimerForQuestion({
+        questionIndex: params.currentQuestionIndex,
+      });
     }
 
     if (params.allCorrectSelected) {
@@ -320,6 +337,15 @@ export class QqcOptionSelectionService {
       params.isMultipleAnswer
     );
 
+    // Play sound based on correctness (only for new selections)
+    if (!params.wasPreviouslySelected) {
+      const enrichedOption: SelectedOption = {
+        ...params.option,
+        questionIndex: params.currentQuestionIndex,
+      };
+      this.soundService.playOnceForOption(enrichedOption);
+    }
+
     // Ensure explanation text is preserved if not already set
     let explanationToDisplay = params.explanationToDisplay;
     if (!explanationToDisplay || !explanationToDisplay.trim()) {
@@ -338,7 +364,16 @@ export class QqcOptionSelectionService {
       explanationToDisplay = explanationText || 'No explanation available';
     }
 
-    return { explanationToDisplay };
+    // Compute next button state
+    const shouldEnableNext =
+      params.allCorrectSelected ||
+      this.selectedOptionService.isAnsweredSubject.getValue();
+
+    return {
+      explanationToDisplay,
+      shouldEmitAnswerSelected: params.allCorrectSelected,
+      shouldEnableNext,
+    };
   }
 
   /**
@@ -350,5 +385,98 @@ export class QqcOptionSelectionService {
       correctAnswers,
       { options: optionsToDisplay } as any as QuizQuestion
     );
+  }
+
+  /**
+   * Performs the full selectOption flow: resolves IDs, persists selection,
+   * builds snapshot, fetches explanation, and returns state for the component.
+   */
+  async performSelectOption(params: {
+    currentQuestion: QuizQuestion;
+    option: SelectedOption;
+    optionIndex: number;
+    currentQuestionIndex: number;
+    isMultipleAnswer: boolean;
+    optionsToDisplay: Option[];
+    selectedOptionsCount: number;
+    getExplanationText: (idx: number) => Promise<string>;
+  }): Promise<{
+    selectedOption: SelectedOption;
+    resolvedOptionId: number;
+    showFeedbackForOption: Record<number, boolean>;
+    isOptionSelected: boolean;
+    isAnswered: boolean;
+    explanationText: string;
+    correctMessage: string;
+  } | null> {
+    const {
+      currentQuestion, option, optionIndex, currentQuestionIndex,
+      isMultipleAnswer, optionsToDisplay, selectedOptionsCount, getExplanationText
+    } = params;
+
+    if (optionIndex < 0) {
+      console.error(`Invalid optionIndex ${optionIndex}.`);
+      return null;
+    }
+
+    const resolvedOptionId = this.resolveStableOptionId(option, optionIndex);
+
+    const selectedOption: SelectedOption = {
+      ...option,
+      optionId: resolvedOptionId,
+      questionIndex: currentQuestionIndex
+    };
+
+    const showFeedbackForOption: Record<number, boolean> = { [resolvedOptionId]: true };
+    this.selectedOptionService.setSelectedOption(
+      selectedOption, currentQuestionIndex, undefined, isMultipleAnswer
+    );
+
+    // Build a snapshot that mirrors what the user sees (UI order + flags)
+    const qIdx = this.quizService.getCurrentQuestionIndex();
+    const canonical = (this.quizService.questions?.[qIdx]?.options ?? []).map((o: Option) => ({ ...o }));
+    const ui = (optionsToDisplay ?? []).map((o: Option) => ({ ...o }));
+    const snapshot: Option[] =
+      this.selectedOptionService.overlaySelectedByIdentity?.(canonical, ui) ?? ui ?? canonical;
+
+    await this.selectedOptionService.selectOption(
+      resolvedOptionId,
+      selectedOption.questionIndex!,
+      selectedOption.text ?? (selectedOption as any).value ?? '',
+      isMultipleAnswer,
+      snapshot
+    );
+
+    this.explanationTextService.setIsExplanationTextDisplayed(true);
+    this.quizService.setCurrentQuestion(currentQuestion);
+
+    this.selectedOptionService.updateSelectedOptions(
+      currentQuestionIndex,
+      resolvedOptionId,
+      'add'
+    );
+
+    // Get explanation text
+    const explanationText =
+      (await getExplanationText(currentQuestionIndex)) ||
+      'No explanation available';
+    this.explanationTextService.setExplanationText(explanationText);
+
+    if (currentQuestion) {
+      this.explanationTextService.updateExplanationText(currentQuestion);
+    }
+
+    // Correct message
+    const correctMessage = this.setCorrectMessage(optionsToDisplay, currentQuestion);
+
+    return {
+      selectedOption,
+      resolvedOptionId,
+      showFeedbackForOption,
+      isOptionSelected: true,
+      isAnswered: selectedOptionsCount > 0,
+      explanationText,
+      correctMessage,
+    };
   }
 }
