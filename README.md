@@ -21,24 +21,23 @@ and dynamic UI rendering.
 
 <hr>
 
-<h2>💡 Why I Built This</h2>
+<h2>🎯 Goal / Purpose</h2>
 
 <p>
-This project was built to explore advanced Angular application design,
-including reactive state management with RxJS, service-driven architecture,
-and dynamic UI rendering patterns.
+This project explores advanced Angular application design, focusing on
+reactive state management with RxJS, modular service-driven architecture,
+and dynamic UI rendering.
 </p>
 
 <p>
-The goal was to create a quiz platform that functions both as an engaging
-learning tool and as a demonstration of modern Angular engineering practices.
+It is intended both as a practical learning tool and as a demonstration
+of scalable Angular engineering patterns.
 </p>
 
 <p>
 The application is currently being refactored to improve maintainability,
-reduce component complexity, and further separate concerns across services
-and UI layers. Ongoing work also includes preparing the codebase for
-<strong>Angular Signals</strong> integration.
+reduce component complexity, and better separate concerns across services
+and UI layers, with future plans for <strong>Angular Signals</strong> integration.
 </p>
 
 <hr>
