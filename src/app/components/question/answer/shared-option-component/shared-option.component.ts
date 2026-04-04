@@ -451,7 +451,7 @@ export class SharedOptionComponent
     );
 
     // Keep feedback targeted to the correct row (especially for multi-select/back-nav)
-    if (this.showFeedback === true) {
+    if (this.showFeedback) {
       this.rebuildShowFeedbackMapFromBindings();
     }
 

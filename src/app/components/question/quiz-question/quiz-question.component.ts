@@ -3,13 +3,12 @@ import {
   Input, NgZone, OnChanges, OnDestroy, OnInit, Output, SimpleChange, SimpleChanges, ViewChild, ViewContainerRef
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, FormControl, FormGroup } from '@angular/forms';
-import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
-import { BehaviorSubject, from, Observable, of, ReplaySubject, Subject, Subscription } from 'rxjs';
+import { ReactiveFormsModule, FormBuilder, FormGroup } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
+import { BehaviorSubject, firstValueFrom, from, Observable, of, ReplaySubject, Subject, Subscription } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, filter, map, skip, switchMap, take, takeUntil, tap, timeout } from 'rxjs/operators';
 import { MatCheckbox, MatCheckboxModule } from '@angular/material/checkbox';
 import { MatRadioButton, MatRadioModule } from '@angular/material/radio';
-import { firstValueFrom } from '../../../shared/utils/rxjs-compat';
 import { AnswerComponent } from '../answer/answer-component/answer.component';
 
 import { QuestionType } from '../../../shared/models/question-type.enum';
@@ -59,7 +58,7 @@ import { QqcExplanationFlowService } from '../../../shared/services/features/qqc
 import { QqcSubscriptionWiringService } from '../../../shared/services/features/qqc-subscription-wiring.service';
 import { QuizShuffleService } from '../../../shared/services/flow/quiz-shuffle.service';
 import { BaseQuestion } from '../base/base-question';
-import { SharedOptionComponent } from '../../../components/question/answer/shared-option-component/shared-option.component';
+import { SharedOptionComponent } from '../answer/shared-option-component/shared-option.component';
 
 type FeedbackKey = number | string;
 
@@ -69,7 +68,6 @@ export interface FeedbackConfig {
   icon?: string,
   text?: string
 }
-
 
 @Component({
   selector: 'codelab-quiz-question',
@@ -144,7 +142,6 @@ export class QuizQuestionComponent extends BaseQuestion
   @Input() explanation!: string;
   @Input() shouldRenderOptions = false;
   quiz!: Quiz | null;
-  private _multiAnswerSelections = new Map<number, Set<number>>();
   selectedQuiz = new ReplaySubject<Quiz>(1);
   questions: QuizQuestion[] = [];
   questionsArray: QuizQuestion[] = [];

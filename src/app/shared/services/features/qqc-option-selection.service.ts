@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
 
 import { Option } from '../../models/Option.model';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
@@ -352,7 +353,6 @@ export class QqcOptionSelectionService {
       const explanationText = this.explanationTextService
         .explanationsInitialized
         ? await (async () => {
-            const { firstValueFrom } = await import('../../utils/rxjs-compat');
             return firstValueFrom(
               this.explanationTextService.getFormattedExplanationTextForQuestion(
                 params.currentQuestionIndex

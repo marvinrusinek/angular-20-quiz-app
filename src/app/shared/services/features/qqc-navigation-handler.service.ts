@@ -1,4 +1,6 @@
 import { Injectable } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
+import { take } from 'rxjs/operators';
 
 import { Option } from '../../models/Option.model';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
@@ -100,9 +102,6 @@ export class QqcNavigationHandlerService {
    */
   async captureElapsedOnHide(): Promise<void> {
     try {
-      const { firstValueFrom } = await import('../../utils/rxjs-compat');
-      const { take } = await import('rxjs/operators');
-
       const snap = await firstValueFrom<number>(
         this.timerService.elapsedTime$.pipe(take(1))
       );
@@ -127,9 +126,6 @@ export class QqcNavigationHandlerService {
     const { currentQuestionIndex, displayExplanation, normalizeIndex } = params;
 
     try {
-      const { firstValueFrom } = await import('../../utils/rxjs-compat');
-      const { take } = await import('rxjs/operators');
-
       const duration = this.timerService.timePerQuestion ?? 30;
 
       const elapsedLive = await firstValueFrom<number>(

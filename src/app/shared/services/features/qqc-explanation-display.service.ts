@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { Observable } from 'rxjs';
+import { firstValueFrom, Observable } from 'rxjs';
 import { filter, map, take, timeout } from 'rxjs/operators';
 
 import { Option } from '../../models/Option.model';
@@ -12,7 +12,6 @@ import { QuizStateService } from '../state/quizstate.service';
 import { SelectedOptionService } from '../state/selectedoption.service';
 import { QuizQuestionManagerService } from '../flow/quizquestionmgr.service';
 import { QqcExplanationManagerService } from './qqc-explanation-manager.service';
-import { firstValueFrom } from '../../utils/rxjs-compat';
 
 /**
  * Manages explanation display, formatted explanation text (FET) resolution,
