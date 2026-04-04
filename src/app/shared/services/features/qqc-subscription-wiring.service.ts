@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
-import { Observable, of, Subject, Subscription } from 'rxjs';
-import { catchError, debounceTime, distinctUntilChanged, filter, map, take, takeUntil, tap } from 'rxjs/operators';
+import { of, Subject, Subscription } from 'rxjs';
+import { catchError, distinctUntilChanged, filter, map, takeUntil, tap } from 'rxjs/operators';
 
 import { QuizService } from '../data/quiz.service';
 import { QuizNavigationService } from '../flow/quiz-navigation.service';
