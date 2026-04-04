@@ -22,10 +22,9 @@ import { QuizQuestionLoaderService } from '../../../../shared/services/flow/quiz
 import { QuizQuestionManagerService } from '../../../../shared/services/flow/quizquestionmgr.service';
 import { QuizStateService } from '../../../../shared/services/state/quizstate.service';
 import { SelectedOptionService } from '../../../../shared/services/state/selectedoption.service';
-
 import { TimerService } from '../../../../shared/services/features/timer.service';
-import { BaseQuestion } from '../../base/base-question';
 import { SharedOptionComponent } from '../shared-option-component/shared-option.component';
+import { BaseQuestion } from '../../base/base-question';
 
 @Component({
   selector: 'codelab-question-answer',
@@ -58,6 +57,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
   ) => void;
   @Input() currentQuestionIndex!: number;
   @Input() quizId!: string;
+  @Input() form!: FormGroup;
   @Input() override optionsToDisplay: Option[] = [];
   @Input() override optionBindings: OptionBindings[] = [];
   private _questionIndex: number | null = null;
@@ -68,9 +68,10 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
   incomingOptions: Option[] = [];
   override sharedOptionConfig!: SharedOptionConfig;
   hasComponentLoaded = false;
-  override type: 'single' | 'multiple' = 'single';  // store the type (single/multiple answer)
+
+  // store the type (single/multiple answer)
+  override type: 'single' | 'multiple' = 'single';
   override selectedOptionIndex = -1;
-  @Input() form!: FormGroup;
   renderReady = false;
 
   public quizQuestionComponentLoaded = new EventEmitter<void>();
@@ -97,7 +98,6 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     protected override quizService: QuizService,
     protected override quizStateService: QuizStateService,
     protected override selectedOptionService: SelectedOptionService,
-
     protected override fb: FormBuilder,
     protected override cdRef: ChangeDetectorRef
   ) {
@@ -134,7 +134,8 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
         ).length;
 
         this.type = correctCount > 1 ? 'multiple' : 'single';
-        console.log(`[AnswerComponent] Q${this.currentQuestionIndex + 1} detected as ${this.type} (Correct count: ${correctCount})`);
+        console.log(`[AnswerComponent] Q${this.currentQuestionIndex + 1} 
+          detected as ${this.type} (Correct count: ${correctCount})`);
 
         if (!this.hasComponentLoaded) {
           this.hasComponentLoaded = true;
@@ -148,7 +149,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     this.quizQuestionLoaderService.optionsStream$
       .pipe(takeUntil(this.destroy$))
       .subscribe((opts: Option[]) => {
-        // ⚡ FIX: Skip empty arrays to prevent BehaviorSubject initial emission
+        // Skip empty arrays to prevent BehaviorSubject initial emission
         // from clearing valid options that may have arrived via @Input
         if (!opts?.length) {
           console.log('[AC] ⏭️ Skipping empty optionsStream$ emission');
@@ -194,7 +195,8 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
 
       if (refChanged) {
         if (Array.isArray(next) && next.length) {
-          this.optionBindingsSource = next.map((o: Option) => ({ ...o }));
+          this.optionBindingsSource =
+            next.map((o: Option) => ({ ...o }));
           this.optionBindings = this.rebuildOptionBindings(
             this.optionBindingsSource
           );
@@ -251,7 +253,8 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     config: { resetSelection?: boolean } = {}
   ): void {
     const normalized = this.normalizeOptions(options);
-    const nextOptions = normalized.map((option: Option) => ({ ...option }));
+    const nextOptions =
+      normalized.map((option: Option) => ({ ...option }));
 
     if (config.resetSelection ?? true) this.resetSelectionState();
 
@@ -259,13 +262,15 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     // Without this, navigating from a multi-answer question (e.g. Q4) to a
     // single-answer question (e.g. Q5) would leave type='multiple', causing
     // SOC to render checkboxes and use multi-answer interaction logic.
-    const correctCount = nextOptions.filter(o =>
-      o.correct === true || (o as any).correct === 'true' || (o as any).correct === 1
+    const correctCount =
+      nextOptions.filter(o =>
+        o.correct === true || (o as any).correct === 'true' || (o as any).correct === 1
     ).length;
     this.type = correctCount > 1 ? 'multiple' : 'single';
 
     this.optionsToDisplay = nextOptions;
-    this.optionBindingsSource = nextOptions.map((option) => ({ ...option }));
+    this.optionBindingsSource =
+      nextOptions.map((option) => ({ ...option }));
 
     if (this.sharedOptionConfig) {
       this.sharedOptionConfig = {
@@ -286,19 +291,18 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
    * from the SelectedOptionService.
    */
   private syncOptionsWithSelections(): void {
-    const idx = typeof this.currentQuestionIndex === 'number' ? this.currentQuestionIndex : this.questionIndex;
+    const idx = this.currentQuestionIndex;
     if (idx === null || idx === undefined || idx < 0) {
       console.warn('[AC] ⏭️ Cannot sync options: valid question index not found');
       return;
     }
 
-    const savedSelections = this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
+    const savedSelections =
+      this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
     if (!savedSelections.length || !this.optionsToDisplay?.length) {
       console.log(`[AC] 🧬 No saved selections or options to display for Q${idx + 1}. Skipping sync.`);
       return;
     }
-
-    console.log(`[AC] 🧬 Synchronizing ${this.optionsToDisplay.length} options with ${savedSelections.length} saved selections for Q${idx + 1}`);
 
     const savedIds = new Set(savedSelections.map(s => String(s.optionId)));
     const savedTexts = new Set(savedSelections.map(s => (s.text || '').trim().toLowerCase()));
@@ -312,8 +316,9 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
         opt.selected = false;
       } else {
         const idMatch = opt.optionId != null && savedIds.has(String(opt.optionId));
-        const textMatch = !!(opt.text && savedTexts.has(opt.text.trim().toLowerCase()));
-        opt.selected = !!(idMatch || textMatch);
+        const textMatch =
+          !!(opt.text && savedTexts.has(opt.text.trim().toLowerCase()));
+        opt.selected = idMatch || textMatch;
       }
     }
 
@@ -327,16 +332,17 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
           const text = b.option?.text;
           const idMatch = id != null && savedIds.has(String(id));
           const textMatch = !!(text && savedTexts.has(text.trim().toLowerCase()));
-          b.isSelected = !!(idMatch || textMatch);
+          b.isSelected = idMatch || textMatch;
         }
       }
     }
 
-    // CRITICAL: Update FormGroup for single-answer (radio group sync)
+    // Update FormGroup for single-answer (radio group sync)
     if (this.type === 'single' && this.form) {
       const selectedId = savedSelections[0]?.optionId;
       if (selectedId != null) {
-        console.log(`[AC] 📻 Patching form for single-answer Q${idx + 1} with ID=${selectedId}`);
+        console.log(`[AC] 📻 Patching form for single-answer Q${idx + 1} with 
+          ID=${selectedId}`);
         this.form.patchValue({ selectedOptionId: selectedId }, { emitEvent: false });
       }
     }
@@ -349,11 +355,8 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     }
 
     if (this.viewContainerRefs && this.viewContainerRefs.length > 0) {
-      console.log(
-        'viewContainerRefs available in handleViewContainerRef:',
-        this.viewContainerRefs
-      );
-      this.viewContainerRef = this.viewContainerRefs.first;  // assign the first available ViewContainerRef
+      // Assign the first available ViewContainerRef
+      this.viewContainerRef = this.viewContainerRefs.first;
       this.loadQuizQuestionComponent();
       this.hasComponentLoaded = true;  // prevent further attempts to load
     } else {
@@ -367,7 +370,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
       return;
     }
 
-    // Ensure that the current component conainer is cleared before loading a new one
+    // Ensure that the current component container is cleared before loading a new one
     if (this.viewContainerRef) {
       console.log('Clearing viewContainerRef before loading new component.');
       this.viewContainerRef.clear();
@@ -432,7 +435,8 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
         ? this.currentQuestionIndex
         : 0;
 
-    const getEffectiveId = (o: any, i: number) => (o?.optionId != null && o.optionId !== -1) ? o.optionId : i;
+    const getEffectiveId =
+      (o: any, i: number) => (o?.optionId != null && o.optionId !== -1) ? o.optionId : i;
     const targetKey = getEffectiveId(rawOption, payload.index);
 
     const canonical =
@@ -441,7 +445,9 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
       ) ?? rawOption;
 
     // Robust correctness check (matches SelectedOptionService)
-    const isCorrectValue = (o: any) => o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || o.correct === '1');
+    const isCorrectValue =
+      (o: any) => o && (o.correct === true || String(o.correct) === 'true' ||
+        o.correct === 1 || o.correct === '1');
 
     const enrichedOption: SelectedOption = {
       ...canonical,
@@ -463,7 +469,8 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
       this.selectedOptions ??= [];
 
       const i = this.selectedOptions.findIndex(
-        (o: any) => getEffectiveId(o, (o as any).displayIndex ?? (o as any).index) === targetKey
+        (o: any) => getEffectiveId(o, (o as any).displayIndex ??
+        (o as any).index) === targetKey
       );
 
       if (enrichedOption.selected) {
@@ -490,12 +497,16 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     }
 
     if (!serviceQuestion) {
-      console.warn(`[AC] ⚠️ Service question missing for Q${activeQuestionIndex + 1}. Using @Input fallback.`);
+      console.warn(`[AC] ⚠️ Service question missing for 
+        Q${activeQuestionIndex + 1}. Using @Input fallback.`);
     }
 
-    const optionsSource = this.optionsToDisplay?.length ? this.optionsToDisplay : question.options;
-    const correctCount = optionsSource?.filter((o: any) => o.correct === true || String(o.correct) === 'true').length ?? 0;
-    const isMultiAnswer = this.type === 'multiple' || question.type === QuestionType.MultipleAnswer || correctCount > 1;
+    const optionsSource =
+      this.optionsToDisplay?.length ? this.optionsToDisplay : question.options;
+    const correctCount =
+      optionsSource?.filter((o: any) => o.correct === true || String(o.correct) === 'true').length ?? 0;
+    const isMultiAnswer =
+      this.type === 'multiple' || question.type === QuestionType.MultipleAnswer || correctCount > 1;
 
     // Push to SelectedOptionService (merge, not replace)
     this.selectedOptionService.currentQuestionType =
@@ -514,11 +525,6 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     }
 
     // AUTHORITATIVE COMPLETE CHECK (AFTER SOS UPDATE)
-    const selectedNow =
-      this.selectedOptionService.getSelectedOptionsForQuestion(
-        activeQuestionIndex,
-      ) ?? [];
-
     if (this.questionIndex == null) {
       console.warn('[onOptionClicked] questionIndex is null — skipping completion check');
       return;
@@ -571,8 +577,6 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
 
   // Rebuild optionBindings from the latest optionsToDisplay.
   private rebuildOptionBindings(opt: Option[]): OptionBindings[] {
-    console.time('[⏱️ Rebuild OptionBindings]');
-
     if (!opt?.length) {
       this.optionBindings = [];
       return [];
@@ -595,8 +599,8 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
       b.optionsToDisplay = cloned;
     }
 
-    // ⚡ FIX: Set renderReady synchronously instead of in microtask
-    // to avoid race condition where template checks renderReady before Promise resolves
+    // Set renderReady synchronously instead of in microtask to avoid race
+    // condition where template checks renderReady before Promise resolves
     this.optionBindings = rebuilt;
     this.renderReady = true;
 
@@ -635,12 +639,12 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
       styleClass: '',
       disabled: false,
       type: 'single',
-      appHighlightInputType: 'radio', // satisfies the union type
-      allOptions: [], // will be replaced below
+      appHighlightInputType: 'radio',  // satisfies the union type
+      allOptions: [],  // will be replaced below
       appHighlightReset: false,
       ariaLabel: `Option ${idx + 1}`,
       appResetBackground: false,
-      optionsToDisplay: [], // will be replaced below
+      optionsToDisplay: [],  // will be replaced below
       checked: !!opt.selected,
       change: () => { },
       active: true
@@ -650,7 +654,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
   override async loadDynamicComponent(
     _question: QuizQuestion,
     _options: Option[],
-    _questionIndex: number,
+    _questionIndex: number
   ): Promise<void> {
     // AnswerComponent doesn't load dynamic children, so we
     // simply fulfill the contract and return a resolved promise.
