@@ -12,7 +12,7 @@ import { NextButtonStateService } from '../state/next-button-state.service';
 import { SelectedOptionService } from '../state/selectedoption.service';
 import { TimerService } from './timer.service';
 import { SoundService } from '../ui/sound.service';
-import { FeedbackConfig } from '../../../components/question/quiz-question/quiz-question.component';
+import { FeedbackConfig } from '../../models/FeedbackConfig.model';
 
 /**
  * Handles timer expiry, lock, and disable logic for QQC.

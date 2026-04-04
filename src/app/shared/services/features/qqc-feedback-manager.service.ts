@@ -8,7 +8,7 @@ import { OptionBindings } from '../../models/OptionBindings.model';
 import { FeedbackProps } from '../../models/FeedbackProps.model';
 import { SelectedOptionService } from '../state/selectedoption.service';
 import { SelectionMessageService } from './selection-message.service';
-import { FeedbackConfig } from '../../../components/question/quiz-question/quiz-question.component';
+import { FeedbackConfig } from '../../models/FeedbackConfig.model';
 
 /**
  * Manages feedback display, option highlighting, and disable logic for QQC.

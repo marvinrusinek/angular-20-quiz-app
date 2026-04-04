@@ -54,6 +54,9 @@ import { QqcOptionClickOrchestratorService } from '../../../shared/services/feat
 import { QqcNavigationHandlerService } from '../../../shared/services/features/qqc-navigation-handler.service';
 import { QqcInitializerService } from '../../../shared/services/features/qqc-initializer.service';
 import { QqcQuestionLoaderService } from '../../../shared/services/features/qqc-question-loader.service';
+import { QqcDisplayStateManagerService } from '../../../shared/services/features/qqc-display-state-manager.service';
+import { QqcExplanationFlowService } from '../../../shared/services/features/qqc-explanation-flow.service';
+import { QqcSubscriptionWiringService } from '../../../shared/services/features/qqc-subscription-wiring.service';
 import { QuizShuffleService } from '../../../shared/services/flow/quiz-shuffle.service';
 import { BaseQuestion } from '../base/base-question';
 import { SharedOptionComponent } from '../../../components/question/answer/shared-option-component/shared-option.component';
@@ -353,6 +356,9 @@ export class QuizQuestionComponent extends BaseQuestion
     protected componentFactoryResolver: ComponentFactoryResolver,
     protected activatedRoute: ActivatedRoute,
     protected quizShuffleService: QuizShuffleService,
+    protected displayStateManager: QqcDisplayStateManagerService,
+    protected explanationFlow: QqcExplanationFlowService,
+    protected subscriptionWiring: QqcSubscriptionWiringService,
     protected override fb: FormBuilder,
     protected override cdRef: ChangeDetectorRef,
     protected router: Router,
@@ -616,7 +622,10 @@ export class QuizQuestionComponent extends BaseQuestion
       this.populateOptionsToDisplay();
 
       // Initialize display mode subscription for reactive updates
-      this.initializeDisplayModeSubscription();
+      this.displayModeSubscription = this.subscriptionWiring.createDisplayModeSubscription(
+        this.currentQuestionIndex,
+        this.isRestoringState
+      );
 
       this.renderReady$ = this.questionPayloadSubject.pipe(
         filter((payload): payload is QuestionPayload => !!payload),
@@ -660,13 +669,44 @@ export class QuizQuestionComponent extends BaseQuestion
       this.loadInitialQuestionAndMessage();
 
       // Setup for visibility and routing
-      this.setupVisibilitySubscription();
-      this.initializeRouteListener();
+      this.sharedVisibilitySubscription = this.subscriptionWiring.createVisibilitySubscription({
+        onHidden: () => this.handlePageVisibilityChange(true),
+        onVisible: () => this.handlePageVisibilityChange(false),
+      });
+
+      this.subscriptionWiring.createRouteListener({
+        activatedRoute: this.activatedRoute,
+        getQuestionsLength: () => this.questions?.length ?? 0,
+        onRouteChange: (adjustedIndex: number) => {
+          this.quizService.updateCurrentQuestionIndex(adjustedIndex);
+          this.fetchAndSetExplanationText(adjustedIndex);
+        },
+      });
 
       // Additional subscriptions and state tracking
-      this.setupSubscriptions();
-      this.subscribeToNavigationFlags();
-      this.subscribeToTotalQuestions();
+      const resetSubs = this.subscriptionWiring.createResetSubscriptions({
+        onResetFeedback: () => this.resetFeedback(),
+        onResetState: () => this.resetState(),
+      });
+      this.resetFeedbackSubscription = resetSubs[0];
+      this.resetStateSubscription = resetSubs[1];
+
+      document.addEventListener(
+        'visibilitychange',
+        this.onVisibilityChange.bind(this)
+      );
+
+      this.subscriptionWiring.createNavigationFlagSubscription(
+        (isNavigating: boolean) => (this.isNavigatingToPrevious = isNavigating)
+      );
+
+      this.subscriptionWiring.createTotalQuestionsSubscription({
+        quizId: this.quizId!,
+        destroy$: this.destroy$,
+        onTotal: (totalQuestions: number) => {
+          this.totalQuestions = totalQuestions;
+        },
+      });
     } catch (error) {
       console.error('Error in ngOnInit:', error);
     }
@@ -995,67 +1035,34 @@ export class QuizQuestionComponent extends BaseQuestion
 
 
   setOptionsToDisplay(): void {
-    const context = '[setOptionsToDisplay]';
     const sourceQuestion = this.currentQuestion || this.question;
-
-    if (!sourceQuestion || !Array.isArray(sourceQuestion.options)) {
-      console.warn(
-        `${context} ❌ No valid currentQuestion or options. Skipping option assignment.`
-      );
-      return;
+    const result = this.displayStateManager.buildOptionsToDisplay(sourceQuestion);
+    if (result) {
+      this.optionsToDisplay = result;
     }
-
-    const validOptions = (sourceQuestion.options ?? []).filter((o: Option) => !!o && typeof o === 'object');
-    if (!validOptions.length) {
-      console.warn(`${context} ❌ All options were invalid.`);
-      return;
-    }
-
-    this.optionsToDisplay = validOptions.map((opt: Option, index: number) => ({
-      ...opt,
-      optionId: opt.optionId ?? index,
-      active: opt.active ?? true,
-      feedback: opt.feedback ?? '',
-      showIcon: opt.showIcon ?? false,
-      selected: false,
-      highlighted: false
-    }));
   }
 
   // Safely replace the option list when navigating to a new question
   public updateOptionsSafely(newOptions: Option[]): void {
-    const incoming = JSON.stringify(newOptions);
-    const current = JSON.stringify(this.optionsToDisplay);
+    const result = this.displayStateManager.prepareOptionSwap({
+      newOptions,
+      currentOptionsJson: JSON.stringify(this.optionsToDisplay),
+    });
 
-    if (incoming !== current) {
+    if (result.needsSwap) {
       // Block render while we swap lists
       this.renderReadySubject.next(false);
       this.internalBufferReady = false;
       this.finalRenderReady = false;
 
-      // Clear previous highlight / form flags before we clone
-      newOptions.forEach((o: Option) => {
-        o.selected = false;
-        o.highlight = false;
-        o.showIcon = false;
-      });
-      // Rebuild the reactive form
-      this.questionForm = new FormGroup({});
-      newOptions.forEach((o: Option) =>
-        this.questionForm.addControl(
-          `opt_${o.optionId}`,
-          new FormControl(false)
-        )
-      );
+      this.questionForm = result.formGroup;
 
-      // Batch the visual swap
-      const latest = JSON.stringify(newOptions);
-      if (latest !== this.lastSerializedOptions) {
-        this.lastSerializedOptions = latest;
+      if (result.serialized !== this.lastSerializedOptions) {
+        this.lastSerializedOptions = result.serialized;
       }
 
       // Swap reference for OnPush
-      this.optionsToDisplay = [...newOptions];
+      this.optionsToDisplay = result.cleanedOptions;
 
       // Initialize bindings if applicable
       if (this.sharedOptionComponent) {
@@ -1064,9 +1071,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
       // Set renderReady in next microtask to avoid sync paint conflicts
       setTimeout(() => {
-        const ready =
-          Array.isArray(this.optionsToDisplay) &&
-          this.optionsToDisplay.length > 0;
+        const ready = this.displayStateManager.computeRenderReadiness(this.optionsToDisplay);
 
         if (!ready) {
           console.warn('[🛠️ Skipping renderReady — options not ready]');
@@ -1081,8 +1086,7 @@ export class QuizQuestionComponent extends BaseQuestion
       }, 0);
     } else {
       // No option change, but render was not previously marked ready
-      const ready =
-        Array.isArray(this.optionsToDisplay) && this.optionsToDisplay.length > 0;
+      const ready = this.displayStateManager.computeRenderReadiness(this.optionsToDisplay);
 
       if (ready && !this.finalRenderReady) {
         this.internalBufferReady = true;
@@ -1095,35 +1099,26 @@ export class QuizQuestionComponent extends BaseQuestion
   }
 
   private hydrateFromPayload(payload: QuestionPayload): void {
-    // Compare by questionText instead of full JSON
-    const incomingQuestionText = payload?.question?.questionText?.trim();
-    const currentQuestionText = this.currentQuestion?.questionText?.trim();
+    const result = this.displayStateManager.hydrateFromPayload({
+      payload,
+      currentQuestionText: this.currentQuestion?.questionText?.trim(),
+      isAlreadyRendered: this.finalRenderReady,
+    });
 
-    // Skip if same question text and already rendered
-    if (
-      incomingQuestionText &&
-      incomingQuestionText === currentQuestionText &&
-      this.finalRenderReady
-    ) {
-      console.warn('[⚠️ Skipping rehydration: same question text and already rendered]');
-      return;
-    }
+    if (!result) return;
 
     // Store payload and reset render flags
-    this.lastSerializedPayload = JSON.stringify(payload);  // update for tracking
+    this.lastSerializedPayload = result.serializedPayload;
     this.renderReady = false;
     this.finalRenderReady = false;
     this.renderReadySubject.next(false);
     this.finalRenderReadySubject.next(false);
-    this.cdRef.detectChanges();  // clear UI
+    this.cdRef.detectChanges();
 
-    const { question, options, explanation } = payload;
-
-    this.currentQuestion = question;
-    this.optionsToDisplay = structuredClone(options);
+    this.currentQuestion = result.currentQuestion;
+    this.optionsToDisplay = result.optionsToDisplay;
     this.updateShouldRenderOptions(this.optionsToDisplay);
-
-    this.explanationToDisplay = explanation?.trim() || '';
+    this.explanationToDisplay = result.explanationToDisplay;
 
     // Now inject the AnswerComponent
     if (!this.containerInitialized && this.dynamicAnswerContainer) {
@@ -1143,7 +1138,7 @@ export class QuizQuestionComponent extends BaseQuestion
         this.sharedOptionComponent.optionBindings.every((b) => !!b.option);
 
       const ready =
-        Array.isArray(this.optionsToDisplay) && this.optionsToDisplay.length > 0 && bindingsReady;
+        this.displayStateManager.computeRenderReadiness(this.optionsToDisplay) && bindingsReady;
 
       if (ready) {
         this.sharedOptionComponent?.markRenderReady('✅ Hydrated from new payload');
@@ -1155,12 +1150,10 @@ export class QuizQuestionComponent extends BaseQuestion
 
   private enforceHydrationFallback(): void {
     setTimeout(() => {
-      const safeToRender =
-        !this.renderReady &&
-        Array.isArray(this.optionsToDisplay) &&
-        this.optionsToDisplay.length > 0;
-
-      if (safeToRender) {
+      if (this.displayStateManager.shouldTriggerHydrationFallback({
+        renderReady: this.renderReady,
+        options: this.optionsToDisplay,
+      })) {
         console.warn('[🛠️ Hydration fallback triggered: safe renderReady]');
         this.renderReady = true;
         this.cdRef.detectChanges();
@@ -1236,72 +1229,6 @@ export class QuizQuestionComponent extends BaseQuestion
     }
   }
 
-  // Method to initialize `displayMode$` and control the display reactively
-  private initializeDisplayModeSubscription(): void {
-    this.displayModeSubscription = this.quizService.isAnswered(this.currentQuestionIndex)
-      .pipe(
-        map((isAnswered) => (isAnswered ? 'explanation' : 'question')),
-        distinctUntilChanged(),
-        tap((mode: 'question' | 'explanation') => {
-          if (this.isRestoringState) {
-            console.log(`[🛠️ Restoration] Skipping displayMode$ update (${mode})`);
-          } else {
-            console.log(`[👀 Observed isAnswered ➡️ ${mode}] — no displayMode$ update`);
-          }
-        }),
-        catchError((error) => {
-          console.error('❌ Error in display mode subscription:', error);
-          return of('question');  // safe fallback
-        })
-      )
-      .subscribe();
-  }
-
-  // Function to set up shared visibility subscription
-  private setupVisibilitySubscription(): void {
-    this.sharedVisibilitySubscription =
-      this.sharedVisibilityService.pageVisibility$.subscribe((isHidden) => {
-        this.handlePageVisibilityChange(isHidden);
-      });
-  }
-
-  private initializeRouteListener(): void {
-    this.router.events
-      .pipe(filter((event) => event instanceof NavigationEnd))
-      .subscribe(() => {
-        const paramIndex =
-          this.activatedRoute.snapshot.paramMap.get('questionIndex');
-        const index = paramIndex ? +paramIndex : 0;  // fallback to 0 if param is missing or invalid
-
-        // Check if questions are available to avoid out-of-bounds access
-        if (!this.questions || this.questions.length === 0) {
-          console.warn('Questions are not loaded yet.');
-          return;
-        }
-
-        const adjustedIndex = Math.max(0, Math.min(index - 1, this.questions.length - 1));
-        this.quizService.updateCurrentQuestionIndex(adjustedIndex);
-
-        // Use the adjusted index for explanation text to ensure sync
-        this.fetchAndSetExplanationText(adjustedIndex);
-      });
-  }
-
-  // Function to subscribe to navigation flags
-  private subscribeToNavigationFlags(): void {
-    this.quizNavigationService.getIsNavigatingToPrevious().subscribe(
-      (isNavigating: boolean) => (this.isNavigatingToPrevious = isNavigating)
-    );
-  }
-
-  // Function to subscribe to total questions count
-  private subscribeToTotalQuestions(): void {
-    this.quizService.getTotalQuestionsCount(this.quizId!)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe((totalQuestions: number) => {
-        this.totalQuestions = totalQuestions;
-      });
-  }
 
   private subscribeToRenderReady(): void {
     if (!this.sharedOptionComponent) return;
@@ -1592,23 +1519,6 @@ export class QuizQuestionComponent extends BaseQuestion
     }
   }
 
-  private setupSubscriptions(): void {
-    this.resetFeedbackSubscription =
-      this.resetStateService.resetFeedback$.subscribe(() => {
-        this.resetFeedback();
-      });
-
-    this.resetStateSubscription = this.resetStateService.resetState$.subscribe(
-      () => {
-        this.resetState();
-      }
-    );
-
-    document.addEventListener(
-      'visibilitychange',
-      this.onVisibilityChange.bind(this)
-    );
-  }
 
   // Unsubscribing to prevent multiple triggers
   private handlePageVisibilityChange(isHidden: boolean): void {
@@ -4098,47 +4008,39 @@ export class QuizQuestionComponent extends BaseQuestion
     explanationText: string;
     questionState?: QuestionState;
   }): void {
-    const normalized = (args.explanationText ?? '').trim();
-    if (!normalized) {
-      return;
-    }
+    const result = this.explanationFlow.computeRestoreAfterReset({
+      questionIndex: args.questionIndex,
+      explanationText: args.explanationText,
+      questionState: args.questionState,
+      quizId: this.quizId,
+      quizServiceQuizId: this.quizService.quizId,
+      currentQuizId: this.quizService.getCurrentQuizId(),
+    });
 
-    this.explanationToDisplay = normalized;
-    this.explanationToDisplayChange.emit(normalized);
-    this.explanationTextService.setExplanationText(normalized);
-    this.explanationTextService.setShouldDisplayExplanation(true);
-    this.explanationTextService.setIsExplanationTextDisplayed(true);
-    this.explanationTextService.setResetComplete(true);
-    this.explanationTextService.lockExplanation();
+    if (result.shouldSkip) return;
 
-    this.displayMode = 'explanation';
-    this.displayMode$.next('explanation');
+    // Apply result to component state
+    this.explanationToDisplay = result.explanationText;
+    this.explanationToDisplayChange.emit(result.explanationText);
 
-    this.displayState = { mode: 'explanation', answered: true };
+    this.displayMode = result.displayMode;
+    this.displayMode$.next(result.displayMode);
+
+    this.displayState = result.displayState;
     this.displayStateSubject.next(this.displayState);
     this.displayStateChange.emit(this.displayState);
 
-    this.forceQuestionDisplay = false;
-    this.readyForExplanationDisplay = true;
-    this.isExplanationReady = true;
-    this.isExplanationLocked = false;
-    this.explanationLocked = true;
-    this.explanationVisible = true;
-    this.displayExplanation = true;
-    this.shouldDisplayExplanation = true;
-    this.isExplanationTextDisplayed = true;
+    this.forceQuestionDisplay = result.forceQuestionDisplay;
+    this.readyForExplanationDisplay = result.readyForExplanationDisplay;
+    this.isExplanationReady = result.isExplanationReady;
+    this.isExplanationLocked = result.isExplanationLocked;
+    this.explanationLocked = result.explanationLocked;
+    this.explanationVisible = result.explanationVisible;
+    this.displayExplanation = result.displayExplanation;
+    this.shouldDisplayExplanation = result.shouldDisplayExplanation;
+    this.isExplanationTextDisplayed = result.isExplanationTextDisplayed;
 
     this.showExplanationChange.emit(true);
-
-    const quizId =
-      [this.quizId, this.quizService.getCurrentQuizId(), this.quizService.quizId]
-        .find((id) => typeof id === 'string' && id.trim().length > 0) ?? null;
-
-    if (quizId && args.questionState) {
-      args.questionState.isAnswered = true;
-      args.questionState.explanationDisplayed = true;
-      this.quizStateService.setQuestionState(quizId, args.questionIndex, args.questionState);
-    }
   }
 
   private canRenderQuestionInstantly(index: number): boolean {
@@ -4351,33 +4253,16 @@ export class QuizQuestionComponent extends BaseQuestion
   }
 
   initializeForm(): void {
-    if (!this.currentQuestion?.options?.length) {
-      console.warn('Question data not ready or options are missing.');
-      return;
-    }
+    const form = this.initializer.buildFormFromOptions(this.currentQuestion, this.fb);
+    if (!form) return;
 
-    const controls = this.currentQuestion.options.reduce((acc: { [key: string]: any }, option: Option) => {
-      acc[option.optionId!] = new FormControl(false);
-      return acc;
-    }, {});
-
-    this.questionForm = this.fb.group(controls);
-    console.log('Form initialized:', this.questionForm.value);
-
-    this.questionForm.updateValueAndValidity();
+    this.questionForm = form;
     this.updateRenderComponentState();
   }
 
   private updateRenderComponentState(): void {
     // Check if both the form is valid and question data is available
-    if (this.isFormValid()) {
-      console.info(
-        'Both form and question data are ready, rendering component.'
-      );
-      this.shouldRenderComponent = true;
-    } else {
-      console.log('Form or question data is not ready yet');
-    }
+    this.shouldRenderComponent = this.initializer.checkRenderReady(this.questionForm);
   }
 
   private isFormValid(): boolean {
@@ -4561,39 +4446,30 @@ export class QuizQuestionComponent extends BaseQuestion
   // Helper method to clear explanation
   resetExplanation(force: boolean = false): void {
     // Reset local component state
-    this.displayExplanation = false; // hide explanation display
-    this.explanationToDisplay = ''; // clear local explanation text
+    this.displayExplanation = false;
+    this.explanationToDisplay = '';
 
     // Always reset the internal explanation text state (service first)
     this.explanationTextService.resetExplanationText();
 
-    // Determine current question index for per-question locking (if supported)
     const qIndex = this.fixedQuestionIndex ?? this.currentQuestionIndex ?? 0;
+    const result = this.explanationFlow.computeResetExplanation({
+      force,
+      questionIndex: qIndex,
+    });
 
-    // If lock exists, only skip when *not* forced
-    const locked =
-      this.explanationTextService.isExplanationLocked?.() ??
-      this.explanationTextService.isExplanationLocked?.(); // fallback to legacy
-    if (!force && locked) {
-      console.log('[🛡️ resetExplanation] Blocked — lock is active.', {
-        qIndex,
-      });
-      return;
-    }
+    if (result.blocked) return;
 
     // Clear display flags in the service (do this BEFORE emitting to parent)
     this.explanationTextService.setShouldDisplayExplanation(false);
 
     // Reset display state so templates go back to question mode
-    this.quizStateService.setDisplayState({
-      mode: 'question',
-      answered: false,
-    });
+    this.quizStateService.setDisplayState(result.displayState!);
     this.quizStateService.setAnswerSelected(false);
 
     // Emit cleared states to parent components
-    this.explanationToDisplayChange.emit(''); // inform parent: explanation cleared
-    this.showExplanationChange.emit(false); // inform parent: hide explanation
+    this.explanationToDisplayChange.emit('');
+    this.showExplanationChange.emit(false);
 
     // Mark reset complete (true, not false) so listeners don’t wait forever
     this.explanationTextService.setResetComplete?.(true);
@@ -4602,67 +4478,7 @@ export class QuizQuestionComponent extends BaseQuestion
   }
 
   async prepareAndSetExplanationText(questionIndex: number): Promise<string> {
-    if (document.hidden) {
-      this.explanationToDisplay =
-        'Explanation text not available when document is hidden.';
-      return this.explanationToDisplay;
-    }
-
-    try {
-      const questionData = await firstValueFrom(
-        this.quizService.getQuestionByIndex(questionIndex)
-      );
-
-      if (this.quizQuestionManagerService.isValidQuestionData(questionData!)) {
-        const formattedExplanationObservable =
-          this.explanationTextService.getFormattedExplanation(questionIndex);
-
-        try {
-          const formattedExplanation = await Promise.race([
-            firstValueFrom(formattedExplanationObservable),
-            new Promise<string>((_, reject) =>
-              setTimeout(() => reject(new Error('Timeout')), 5000)
-            ),
-          ]);
-
-          if (formattedExplanation) {
-            this.explanationToDisplay = formattedExplanation;
-          } else {
-            const processedExplanation = await this.processExplanationText(
-              questionData!,
-              questionIndex
-            );
-
-            if (processedExplanation) {
-              this.explanationToDisplay = processedExplanation.explanation;
-              this.explanationTextService.updateFormattedExplanation(
-                processedExplanation.explanation
-              );
-            } else {
-              this.explanationToDisplay = 'No explanation available...';
-            }
-          }
-        } catch (timeoutError) {
-          console.error(
-            'Timeout while fetching formatted explanation:',
-            timeoutError
-          );
-          this.explanationToDisplay =
-            'Explanation text unavailable at the moment.';
-        }
-      } else {
-        console.error('Error: questionData is invalid');
-        this.explanationToDisplay = 'No explanation available.';
-      }
-    } catch (error) {
-      console.error('Error in fetching explanation text:', error);
-      if (error instanceof Error) {
-        console.error('Error message:', error.message);
-        console.error('Error stack:', error.stack);
-      }
-      this.explanationToDisplay = 'Error fetching explanation.';
-    }
-
+    this.explanationToDisplay = await this.explanationFlow.prepareExplanationText(questionIndex);
     return this.explanationToDisplay;
   }
 
@@ -4740,7 +4556,7 @@ export class QuizQuestionComponent extends BaseQuestion
   }
 
   private handleExplanationError(questionIndex: number): void {
-    this.explanationToDisplay = 'Error fetching explanation. Please try again.';
+    this.explanationToDisplay = this.explanationFlow.getExplanationErrorText();
     if (this.isAnswered && this.shouldDisplayExplanation) {
       this.explanationToDisplayChange.emit(this.explanationToDisplay);
       this.showExplanationChange.emit(true);
@@ -4782,7 +4598,7 @@ export class QuizQuestionComponent extends BaseQuestion
     formattedExplanation: FormattedExplanation,
     questionIndex: number
   ): void {
-    const result = this.explanationDisplay.handleFormattedExplanation(
+    const result = this.explanationFlow.processFormattedExplanation(
       formattedExplanation,
       this.isAnswered as boolean,
       this.shouldDisplayExplanation
@@ -4800,45 +4616,29 @@ export class QuizQuestionComponent extends BaseQuestion
     questionIndex: number,
     explanationText: string
   ): void {
-    // Validate if questions are loaded and the array is non-empty
-    if (!this.questionsArray || this.questionsArray.length === 0) {
-      console.warn('Questions not loaded yet. Skipping explanation update.');
-      return;
-    }
+    const validated = this.explanationFlow.validateForExplanationUI({
+      questionsArray: this.questionsArray,
+      questionIndex,
+    });
 
-    // Ensure the index is within valid bounds
-    const adjustedIndex = Math.max(
-      0,
-      Math.min(questionIndex, this.questionsArray.length - 1)
-    );
-    const currentQuestion = this.questionsArray[adjustedIndex];
+    if (!validated) return;
 
-    // Validate that the current question exists
-    if (!currentQuestion) {
-      console.error(`Question not found at index: ${adjustedIndex}`);
-      return;
-    }
+    const { adjustedIndex, currentQuestion } = validated;
 
     try {
-      // Set the question and trigger a re-render
-      if (currentQuestion) {
-        this.quizService.setCurrentQuestion(currentQuestion);
-      }
+      this.quizService.setCurrentQuestion(currentQuestion);
 
-      // Wait for the question to be rendered before updating the explanation
       this.waitForQuestionRendering()
         .then(async () => {
           if (
             this.shouldDisplayExplanation &&
             await this.isAnyOptionSelected(adjustedIndex)
           ) {
-            // Clear any previous explanation state
             this.clearExplanationState();
             this.explanationToDisplay = explanationText;
             this.explanationToDisplayChange.emit(this.explanationToDisplay);
             this.showExplanationChange.emit(true);
 
-            // Update combined question data with the current explanation
             this.updateCombinedQuestionData(currentQuestion, explanationText);
             this.isAnswerSelectedChange.emit(true);
           } else {
@@ -5468,7 +5268,7 @@ export class QuizQuestionComponent extends BaseQuestion
   }
 
   private updateShouldRenderOptions(options: Option[] | null | undefined): void {
-    const hasRenderableOptions = Array.isArray(options) && options.length > 0;
+    const hasRenderableOptions = this.displayStateManager.computeRenderReadiness(options);
 
     if (this.shouldRenderOptions !== hasRenderableOptions) {
       this.shouldRenderOptions = hasRenderableOptions;
@@ -5477,8 +5277,7 @@ export class QuizQuestionComponent extends BaseQuestion
   }
 
   private applyDisplayOrder(options: Option[] | null | undefined): Option[] {
-    if (!Array.isArray(options)) return [];
-    return options.map((option, index) => ({ ...option, displayOrder: index }));
+    return this.displayStateManager.applyDisplayOrder(options);
   }
 
   // Centralized, reasoned stop. Only stops when allowed.

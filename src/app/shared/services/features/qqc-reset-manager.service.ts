@@ -7,7 +7,7 @@ import { ExplanationTextService } from './explanation-text.service';
 import { TimerService } from './timer.service';
 import { QuizStateService } from '../state/quizstate.service';
 import { SelectedOptionService } from '../state/selectedoption.service';
-import { FeedbackConfig } from '../../../components/question/quiz-question/quiz-question.component';
+import { FeedbackConfig } from '../../models/FeedbackConfig.model';
 
 /**
  * Manages per-question reset, state clearing, and click guard resets for QQC.

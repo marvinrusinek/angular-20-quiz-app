@@ -1,4 +1,6 @@
 import { Injectable } from '@angular/core';
+import { Observable } from 'rxjs';
+import { filter, map, take, timeout } from 'rxjs/operators';
 
 import { Option } from '../../models/Option.model';
 import { FormattedExplanation } from '../../models/FormattedExplanation.model';
@@ -690,6 +692,167 @@ export class QqcExplanationDisplayService {
           shouldResetQuestionState: false,
         };
       }
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // FORMATTED EXPLANATION RESOLUTION
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * Resolves and returns a formatted explanation text for a given question index.
+   * Uses cache when available and falls back to the observable stream.
+   * Preserves all original logic and comments from QQC.
+   */
+  async resolveFormatted(
+    index: number,
+    opts: { useCache?: boolean; setCache?: boolean; timeoutMs?: number } = {},
+    context: {
+      normalizeIndex: (idx: number) => number;
+      formattedByIndex: Map<number, string>;
+      questionsArray: QuizQuestion[];
+      currentQuestionIndex: number;
+      currentQuestion: QuizQuestion | null;
+      optionsToDisplay: Option[];
+      options: Option[];
+    }
+  ): Promise<string> {
+    const i0 = context.normalizeIndex(index);
+    const { useCache = true, setCache = true, timeoutMs = 1200 } = opts;
+
+    if (useCache) {
+      const hit = context.formattedByIndex.get(i0);
+      if (hit) return hit;
+    }
+
+    let text = '';
+
+    try {
+      // ────────────────────────────────────────────────
+      // Resolve the FET using the specific index i0
+      // ────────────────────────────────────────────────
+
+      // Try direct return first
+      const out = await this.updateExplanationText({
+        index: i0,
+        normalizeIndex: context.normalizeIndex,
+        questionsArray: context.questionsArray,
+        currentQuestionIndex: context.currentQuestionIndex,
+        currentQuestion: context.currentQuestion,
+        optionsToDisplay: context.optionsToDisplay,
+        options: context.options,
+      });
+      text = (out ?? '').toString().trim();
+
+      // ────────────────────────────────────────────────
+      // Fallback: formatter writes to a stream
+      // ────────────────────────────────────────────────
+      if ((!text || text === 'No explanation available for this question.') &&
+        this.explanationTextService.formattedExplanation$) {
+
+        const src$ = this.explanationTextService.formattedExplanation$ as Observable<string | null | undefined>;
+
+        const formatted$: Observable<string> = src$.pipe(
+          filter((s: unknown): s is string => typeof s === 'string' && s.trim().length > 0),
+          map(s => s.trim()),
+          timeout(timeoutMs),
+          take(1)
+        );
+
+        try {
+          text = await firstValueFrom(formatted$);
+        } catch {
+          text = '';
+        }
+      }
+
+      // ────────────────────────────────────────────────
+      // Final check — only emit real explanation text
+      // ────────────────────────────────────────────────
+      if (!text || text === 'No explanation available for this question.') {
+        console.log(`[QQC] 💤 Explanation not ready for Q${i0 + 1} — skipping emit.`);
+        return '';
+      }
+
+      if (text && setCache) context.formattedByIndex.set(i0, text);
+      return text;
+    } catch (err) {
+      console.warn('[resolveFormatted] failed', i0, err);
+      return '';
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // PREPARE AND SET EXPLANATION TEXT
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * Prepares and sets explanation text for a given question index.
+   * Returns the explanation text string.
+   * Preserves all original logic and comments from QQC.
+   */
+  async prepareAndSetExplanationText(
+    questionIndex: number,
+    context: {
+      processExplanationText: (q: QuizQuestion, idx: number) => Promise<FormattedExplanation | null>;
+    }
+  ): Promise<string> {
+    if (typeof document !== 'undefined' && document.hidden) {
+      return 'Explanation text not available when document is hidden.';
+    }
+
+    try {
+      const questionData = await firstValueFrom(
+        this.quizService.getQuestionByIndex(questionIndex)
+      );
+
+      if (this.quizQuestionManagerService.isValidQuestionData(questionData!)) {
+        const formattedExplanationObservable =
+          this.explanationTextService.getFormattedExplanation(questionIndex);
+
+        try {
+          const formattedExplanation = await Promise.race([
+            firstValueFrom(formattedExplanationObservable),
+            new Promise<string>((_, reject) =>
+              setTimeout(() => reject(new Error('Timeout')), 5000)
+            ),
+          ]);
+
+          if (formattedExplanation) {
+            return formattedExplanation as string;
+          } else {
+            const processedExplanation = await context.processExplanationText(
+              questionData!,
+              questionIndex
+            );
+
+            if (processedExplanation) {
+              this.explanationTextService.updateFormattedExplanation(
+                processedExplanation.explanation
+              );
+              return processedExplanation.explanation;
+            } else {
+              return 'No explanation available...';
+            }
+          }
+        } catch (timeoutError) {
+          console.error(
+            'Timeout while fetching formatted explanation:',
+            timeoutError
+          );
+          return 'Explanation text unavailable at the moment.';
+        }
+      } else {
+        console.error('Error: questionData is invalid');
+        return 'No explanation available.';
+      }
+    } catch (error) {
+      console.error('Error in fetching explanation text:', error);
+      if (error instanceof Error) {
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+      }
+      return 'Error fetching explanation.';
     }
   }
 }

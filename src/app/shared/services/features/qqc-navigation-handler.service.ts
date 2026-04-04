@@ -421,4 +421,25 @@ export class QqcNavigationHandlerService {
 
     return { restoredState, fetState };
   }
+
+  // ═══════════════════════════════════════════════════════════════
+  // DISPLAY STATE GUARD
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * Guard wrapper for display state changes.
+   * Suppresses any update while restoration lock is active or within the debounce window.
+   * Returns true if the update was allowed, false if suppressed.
+   */
+  guardDisplayStateUpdate(params: {
+    state: { mode: 'question' | 'explanation'; answered: boolean };
+    visibilityRestoreInProgress: boolean;
+    suppressDisplayStateUntil: number;
+  }): boolean {
+    if (params.visibilityRestoreInProgress || performance.now() < params.suppressDisplayStateUntil) {
+      console.log('[safeSetDisplayState] 🚫 Suppressed reactive display update during restore:', params.state);
+      return false; // suppressed
+    }
+    return true; // allowed
+  }
 }

@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { FormBuilder, FormControl, FormGroup } from '@angular/forms';
 
 import { Option } from '../../models/Option.model';
 import { Quiz } from '../../models/Quiz.model';
@@ -267,5 +268,124 @@ export class QqcInitializerService {
    */
   computeInitialDisplayMode(isAnswered: boolean): 'question' | 'explanation' {
     return isAnswered ? 'explanation' : 'question';
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // FORM INITIALIZATION & VALIDATION
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * Builds a FormGroup from question options, each keyed by optionId.
+   * Returns null if the question or options are not ready.
+   */
+  buildFormFromOptions(
+    currentQuestion: QuizQuestion | null,
+    fb: FormBuilder
+  ): FormGroup | null {
+    if (!currentQuestion?.options?.length) {
+      console.warn('Question data not ready or options are missing.');
+      return null;
+    }
+
+    const controls = currentQuestion.options.reduce(
+      (acc: { [key: string]: any }, option: Option) => {
+        acc[option.optionId!] = new FormControl(false);
+        return acc;
+      },
+      {}
+    );
+
+    const form = fb.group(controls);
+    console.log('Form initialized:', form.value);
+    form.updateValueAndValidity();
+    return form;
+  }
+
+  /**
+   * Checks if both the form is valid and question data is available.
+   * Returns true if the component should render.
+   */
+  checkRenderReady(questionForm: FormGroup | null): boolean {
+    const valid = questionForm?.valid ?? false;
+    if (valid) {
+      console.info('Both form and question data are ready, rendering component.');
+    } else {
+      console.log('Form or question data is not ready yet');
+    }
+    return valid;
+  }
+
+  /**
+   * Validates a form for submission: checks form validity and option selection.
+   */
+  validateFormForSubmission(questionForm: FormGroup): boolean {
+    if (questionForm.invalid) {
+      console.log('Form is invalid');
+      return false;
+    }
+
+    const selectedOption = questionForm.get('selectedOption')?.value;
+    if (selectedOption === null || selectedOption === undefined) {
+      console.log('No option selected');
+      return false;
+    }
+
+    return true; // form is valid and option is selected
+  }
+
+  /**
+   * Processes an answer submission: validates, records, checks correctness,
+   * and updates quiz state. Returns whether the answer was correct.
+   */
+  async processAnswer(params: {
+    selectedOption: any;
+    currentQuestion: QuizQuestion;
+    currentQuestionIndex: number;
+    answers: any[];
+  }): Promise<boolean> {
+    const { selectedOption, currentQuestion, currentQuestionIndex, answers } = params;
+
+    if (
+      !selectedOption ||
+      !currentQuestion?.options?.find(
+        (opt) => opt.optionId === selectedOption.optionId
+      )
+    ) {
+      console.error('Invalid or unselected option.');
+      return false;
+    }
+
+    answers.push({
+      question: currentQuestion,
+      questionIndex: currentQuestionIndex,
+      selectedOption: selectedOption,
+    });
+
+    let isCorrect = false;
+    try {
+      isCorrect = await this.quizService.checkIfAnsweredCorrectly();
+    } catch (error) {
+      console.error('Error checking answer correctness:', error);
+    }
+
+    const explanationText = currentQuestion?.explanation;
+    const quizId = this.quizService.getCurrentQuizId();
+
+    // Update the state to include the selected option and adjust the number of correct answers
+    const selectedOptions = currentQuestion?.selectedOptions || [];
+    selectedOptions.push(selectedOption); // add the newly selected option
+    const numberOfCorrectAnswers = selectedOptions.filter(
+      (opt) => opt.correct
+    ).length;
+
+    this.quizStateService.setQuestionState(quizId, currentQuestionIndex, {
+      isAnswered: true,
+      isCorrect: isCorrect,
+      explanationText: explanationText,
+      selectedOptions: selectedOptions,
+      numberOfCorrectAnswers: numberOfCorrectAnswers,
+    });
+
+    return isCorrect;
   }
 }
