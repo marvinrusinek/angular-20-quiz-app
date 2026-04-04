@@ -60,8 +60,7 @@ export class OptionItemComponent implements OnChanges {
 
   // inputs removed in favor of OptionBindings snapshot
 
-
-  // ✅ ONE output
+  // ONE output
   @Output() optionUI = new EventEmitter<OptionUIEvent>();
 
   constructor(
@@ -74,7 +73,7 @@ export class OptionItemComponent implements OnChanges {
     if (changes['currentQuestionIndex']) {
       const nextQuestionIndex = Number(this.currentQuestionIndex ?? -1);
       if (Number.isFinite(nextQuestionIndex) && nextQuestionIndex !== this._lastQuestionIndex) {
-        this._wasSelected = false; // Full reset for new question
+        this._wasSelected = false;  // full reset for new question
         this._lastQuestionIndex = nextQuestionIndex;
       }
     }
@@ -126,11 +125,7 @@ export class OptionItemComponent implements OnChanges {
     const classes = { ...this.b.cssClasses };
 
     if (this.timerExpired) {
-      if (this.shouldShowCorrectOnTimeout()) {
-        classes['correct-option'] = true;
-      } else {
-        classes['correct-option'] = false;
-      }
+      classes['correct-option'] = this.shouldShowCorrectOnTimeout();
       classes['incorrect-option'] = false;
       return classes;
     }
@@ -163,7 +158,7 @@ export class OptionItemComponent implements OnChanges {
   }
 
   isDisabled(): boolean {
-    return !!this.b.disabled;
+    return this.b.disabled;
   }
 
   shouldShowIcon(option?: any, i?: number): boolean {
@@ -185,11 +180,6 @@ export class OptionItemComponent implements OnChanges {
     return this.isOptionCorrect();
   }
 
-  isPreviousSelection(): boolean {
-    // Show feedback for ANY option that was selected (correct or incorrect)
-    return this._wasSelected;
-  }
-
   getOptionBackgroundColor(): string | null {
     if (this.timerExpired) {
       return this.shouldShowCorrectOnTimeout() ? '#43e756' : null;
@@ -199,7 +189,8 @@ export class OptionItemComponent implements OnChanges {
       return null;
     }
 
-    return this.isOptionCorrect() ? '#43e756' : '#ff0000'; // Green if correct, Red if incorrect
+    // green if correct, red if incorrect
+    return this.isOptionCorrect() ? '#43e756' : '#ff0000';
   }
 
   private getSelectionsForCurrentBinding(): any[] {
@@ -208,8 +199,10 @@ export class OptionItemComponent implements OnChanges {
   }
 
   private matchesBindingSelection(sel: any): boolean {
-    const qIndex = this.currentQuestionIndex ?? this.quizService.currentQuestionIndex;
-    const selQIdx = sel.questionIndex ?? (sel as any).qIdx ?? (sel as any).questionIdx;
+    const qIndex =
+      this.currentQuestionIndex ?? this.quizService.currentQuestionIndex;
+    const selQIdx =
+      sel.questionIndex ?? (sel as any).qIdx ?? (sel as any).questionIdx;
 
     // Strict Question Context Check
     if (selQIdx !== undefined && selQIdx !== null && selQIdx !== -1) {
@@ -227,43 +220,15 @@ export class OptionItemComponent implements OnChanges {
     return (normalizedSelectedIndex != null && normalizedSelectedIndex === this.i);
   }
 
-  private hasAnsweredCurrentQuestion(selections: any[]): boolean {
-    const fromSelectionService = (selections?.length ?? 0) > 0;
-    const fromFeedbackMap = Object.values(this.b?.showFeedbackForOption ?? {}).some(Boolean);
-    const fromBindingFlags =
-      this.b?.showFeedback === true ||
-      this.b?.isSelected === true ||
-      this.b?.checked === true ||
-      this.b?.highlightCorrect === true ||
-      this.b?.highlightIncorrect === true ||
-      this.b?.option?.selected === true ||
-      this.b?.option?.highlight === true ||
-      this._wasSelected;
-    const fromAllOptions = (this.b?.allOptions ?? []).some(o => o?.selected === true || o?.highlight === true);
-
-    return fromSelectionService || fromFeedbackMap || fromBindingFlags || fromAllOptions;
-  }
-
   shouldShowFeedback(): boolean {
     return this.shouldHighlightOption() || this.shouldShowCorrectOnTimeout();
   }
 
   onChanged(event: any): void {
-    // console.warn(`[OptionItem] onChanged fired! optionId: ${this.optionId}, isSelected: ${this.b.isSelected}`);
     this.optionUI.emit({
       optionId: this.optionId,
       displayIndex: this.i,
       kind: 'change',
-      inputType: this.inputType,
-      nativeEvent: event
-    });
-  }
-
-  onInteraction(event: MouseEvent): void {
-    this.optionUI.emit({
-      optionId: this.optionId,
-      displayIndex: this.i,
-      kind: 'interaction',
       inputType: this.inputType,
       nativeEvent: event
     });
@@ -286,33 +251,19 @@ export class OptionItemComponent implements OnChanges {
     // _wasSelected keeps previously selected incorrect options highlighted (red)
     // even after forceDisableAll fires.
     if (this.type === 'multiple') {
-      return this.isOptionIndividuallySelected() || !!this.b.option?.highlight || this._wasSelected;
+      return this.isOptionIndividuallySelected() || !!this.b.option?.highlight ||
+        this._wasSelected;
     }
     // Single-answer: isSelected (current) + option.highlight (history from click handler)
     return this.b.isSelected || !!this.b.option?.highlight;
   }
 
   private isOptionIndividuallySelected(): boolean {
-    return (
-      this.b.isSelected ||
-      this.b.checked === true ||
-      this.b.option?.selected === true ||
-      this.isSelectedForCurrentQuestion()
-    );
+    return (this.b.isSelected || this.b.checked || this.b.option?.selected === true ||
+      this.isSelectedForCurrentQuestion());
   }
 
   private isSelectedForCurrentQuestion(): boolean {
-    /* const qIndex = this.quizService.currentQuestionIndex;
-    const selections = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
-    const effectiveId = (this.b.option.optionId != null && this.b.option.optionId !== -1)
-      ? this.b.option.optionId
-      : this.i;
-
-    return selections.some(s =>
-      (s.optionId != null && effectiveId != null && (s.optionId == effectiveId || String(s.optionId) === String(effectiveId))) ||
-      ((s as any).index != null && (s as any).index === this.i) ||
-      (s.text && s.text === this.b.option.text)
-    ); */
     const selections = this.getSelectionsForCurrentBinding();
     return selections.some((s: any) => this.matchesBindingSelection(s));
   }
