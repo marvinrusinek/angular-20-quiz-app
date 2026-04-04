@@ -1,14 +1,14 @@
 import {
   ChangeDetectorRef, ChangeDetectionStrategy, Component, Input, OnInit,
-  OnChanges, SimpleChanges, Injector
+  OnChanges, SimpleChanges
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 
 import { FeedbackProps } from '../../../../shared/models/FeedbackProps.model';
 import { FeedbackService } from '../../../../shared/services/features/feedback.service';
-import { SelectedOptionService } from '../../../../shared/services/state/selectedoption.service';
 import { QuizService } from '../../../../shared/services/data/quiz.service';
+import { SelectedOptionService } from '../../../../shared/services/state/selectedoption.service';
 
 @Component({
   selector: 'codelab-quiz-feedback',
@@ -28,8 +28,7 @@ export class FeedbackComponent implements OnInit, OnChanges {
     private feedbackService: FeedbackService,
     private quizService: QuizService,
     private selectedOptionService: SelectedOptionService,
-    private cdRef: ChangeDetectorRef,
-    private injector: Injector
+    private cdRef: ChangeDetectorRef
   ) { }
 
   ngOnInit(): void {
@@ -43,8 +42,7 @@ export class FeedbackComponent implements OnInit, OnChanges {
     if (feedbackChange) {
       console.log('[🧪 ngOnChanges] feedbackConfig changed:', feedbackChange);
       console.log(
-        '[🧪 ngOnChanges] new feedbackConfig:',
-        feedbackChange.currentValue
+        '[🧪 ngOnChanges] new feedbackConfig:', feedbackChange.currentValue
       );
     }
 
@@ -87,7 +85,7 @@ export class FeedbackComponent implements OnInit, OnChanges {
       return;
     }
 
-    // 🚀 NEW: Prioritize the feedback message already computed by the Parent (SharedOptionComponent)
+    // Prioritize the feedback message already computed by the Parent (SharedOptionComponent)
     // This message has been carefully reconciled with authoritative correct flags and visual order.
     if (this.feedbackConfig?.feedback && this.feedbackConfig.feedback.trim()) {
       this.displayMessage = this.feedbackConfig.feedback;
