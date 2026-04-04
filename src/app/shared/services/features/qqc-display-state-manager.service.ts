@@ -175,4 +175,46 @@ export class QqcDisplayStateManagerService {
     if (!Array.isArray(options)) return [];
     return options.map((option, index) => ({ ...option, displayOrder: index }));
   }
+
+  /**
+   * Resolves correctness and builds display-ready options from a question's
+   * raw options and answer values. Returns the mapped options with correct,
+   * selected, and displayOrder fields set.
+   * Extracted from QuizQuestionComponent.setQuestionOptions().
+   */
+  buildOptionsWithCorrectness(
+    question: QuizQuestion
+  ): Option[] {
+    const options = question.options ?? [];
+
+    if (!Array.isArray(options) || options.length === 0) {
+      console.error(
+        `[buildOptionsWithCorrectness] No options available for question.`
+      );
+      return [];
+    }
+
+    const answerValues = (question.answer ?? [])
+      .map((answer: any) => answer?.value)
+      .filter((value: any): value is Option['value'] => value !== undefined && value !== null);
+
+    const resolveCorrect = (option: Option): boolean => {
+      if (option.correct === true) {
+        return true;
+      }
+
+      if (Array.isArray(answerValues) && answerValues.length > 0) {
+        return answerValues.includes(option.value);
+      }
+
+      return false;
+    };
+
+    return options.map((option, index) => ({
+      ...option,
+      correct: resolveCorrect(option),
+      selected: false,
+      displayOrder: index
+    }));
+  }
 }

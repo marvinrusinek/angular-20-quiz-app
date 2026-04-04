@@ -126,6 +126,32 @@ export class QqcExplanationManagerService {
   }
 
   /**
+   * Normalizes a question index to a valid 0-based index within the questions array.
+   * Handles NaN, negative, 1-based overflow, and out-of-range values.
+   *
+   * Extracted from QuizQuestionComponent.normalizeIndex().
+   */
+  normalizeIndex(idx: number, questions: QuizQuestion[]): number {
+    if (!Number.isFinite(idx)) return 0;
+
+    const normalized = Math.trunc(idx);
+
+    if (!questions || questions.length === 0) return normalized >= 0 ? normalized : 0;
+    if (questions[normalized] != null) return normalized;
+
+    const potentialOneBased = normalized - 1;
+    const looksOneBased =
+      normalized === potentialOneBased + 1 &&
+      potentialOneBased >= 0 &&
+      potentialOneBased < questions.length &&
+      questions[potentialOneBased] != null;
+
+    if (looksOneBased) return potentialOneBased;
+
+    return Math.min(Math.max(normalized, 0), questions.length - 1);
+  }
+
+  /**
    * Captures the current explanation display state for a question.
    * Returns a snapshot that can be used to restore state after a reset.
    */

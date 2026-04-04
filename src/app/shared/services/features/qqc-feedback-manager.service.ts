@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
 
 import { Option } from '../../models/Option.model';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
@@ -8,6 +9,10 @@ import { OptionBindings } from '../../models/OptionBindings.model';
 import { FeedbackProps } from '../../models/FeedbackProps.model';
 import { SelectedOptionService } from '../state/selectedoption.service';
 import { SelectionMessageService } from './selection-message.service';
+import { FeedbackService } from './feedback.service';
+import { ExplanationTextService } from './explanation-text.service';
+import { QuizService } from '../data/quiz.service';
+import { QuizQuestionManagerService } from '../flow/quizquestionmgr.service';
 import { FeedbackConfig } from '../../models/FeedbackConfig.model';
 
 /**
@@ -19,7 +24,11 @@ export class QqcFeedbackManagerService {
 
   constructor(
     private selectedOptionService: SelectedOptionService,
-    private selectionMessageService: SelectionMessageService
+    private selectionMessageService: SelectionMessageService,
+    private feedbackService: FeedbackService,
+    private explanationTextService: ExplanationTextService,
+    private quizService: QuizService,
+    private quizQuestionManagerService: QuizQuestionManagerService
   ) {}
 
   /**
@@ -368,5 +377,151 @@ export class QqcFeedbackManagerService {
       showFeedbackForOption,
       selectedOptionIndex,
     };
+  }
+
+  /**
+   * Processes option selection and generates feedback after a click.
+   * Handles calling the parent handler, setting feedback state, and
+   * generating explanation + correct message.
+   *
+   * Returns the computed state for the component to apply.
+   * Extracted from QuizQuestionComponent.handleOptionProcessingAndFeedback().
+   */
+  async handleOptionProcessingAndFeedback(params: {
+    option: SelectedOption;
+    index: number;
+    checked: boolean;
+    currentQuestionIndex: number;
+    lastAllCorrect: boolean;
+    optionsToDisplay: Option[];
+    callParentOnOptionClicked: (event: { option: SelectedOption; index: number; checked: boolean }) => Promise<void>;
+    fetchAndSetExplanationText: (idx: number) => Promise<void>;
+  }): Promise<{
+    selectedOptions: SelectedOption[];
+    selectedOption: SelectedOption;
+    showFeedback: boolean;
+    showFeedbackForOption: { [optionId: number]: boolean };
+    isAnswered: boolean;
+    explanationToDisplay: string;
+    correctMessage: string;
+    shouldDisplayExplanation: boolean;
+    displayExplanation: boolean;
+  } | null> {
+    try {
+      const event = { option: params.option, index: params.index, checked: params.checked };
+      await params.callParentOnOptionClicked(event);
+
+      const selectedOptions: SelectedOption[] = [
+        { ...params.option, questionIndex: params.currentQuestionIndex },
+      ];
+      const selectedOption = { ...params.option };
+      const showFeedbackForOption: { [optionId: number]: boolean } = {};
+      showFeedbackForOption[params.option.optionId!] = true;
+
+      let explanationToDisplay = '';
+      let shouldDisplayExplanation = false;
+      let displayExplanation = false;
+
+      if (params.lastAllCorrect) {
+        await params.fetchAndSetExplanationText(params.currentQuestionIndex);
+        shouldDisplayExplanation = true;
+        displayExplanation = true;
+      }
+
+      const questionData: any = await firstValueFrom(
+        this.quizService.getQuestionByIndex(params.currentQuestionIndex)
+      );
+
+      let correctMessage = '';
+      if (this.quizQuestionManagerService.isValidQuestionData(questionData!)) {
+        if (params.lastAllCorrect) {
+          const rawExpl = questionData!.explanation ?? 'No explanation available';
+          explanationToDisplay = rawExpl;
+          this.explanationTextService.updateFormattedExplanation(rawExpl);
+        }
+
+        correctMessage = this.feedbackService.setCorrectMessage(
+          params.optionsToDisplay,
+          questionData as QuizQuestion
+        );
+      } else {
+        console.error(
+          '[handleOptionProcessingAndFeedback] ❌ Invalid question data when handling option processing.'
+        );
+        return null;
+      }
+
+      return {
+        selectedOptions,
+        selectedOption,
+        showFeedback: true,
+        showFeedbackForOption,
+        isAnswered: true,
+        explanationToDisplay,
+        correctMessage,
+        shouldDisplayExplanation,
+        displayExplanation,
+      };
+    } catch (error) {
+      console.error('[handleOptionProcessingAndFeedback] ❌ Error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Generates feedback text for a question using the feedback service.
+   * Returns the feedback string, or a fallback/error message.
+   * Extracted from QuizQuestionComponent.generateFeedbackText().
+   */
+  generateFeedbackText(
+    question: QuizQuestion,
+    optionsToDisplay: Option[]
+  ): string {
+    try {
+      // Validate the question and its options
+      if (!question || !question.options || question.options.length === 0) {
+        console.warn(
+          '[generateFeedbackText] Invalid question or options are missing.'
+        );
+        return 'No feedback available for the current question.';
+      }
+
+      // Validate optionsToDisplay
+      if (!optionsToDisplay || optionsToDisplay.length === 0) {
+        console.warn(
+          '[generateFeedbackText] optionsToDisplay is empty.'
+        );
+        return 'No options available to generate feedback.';
+      }
+
+      // Extract correct options from the question
+      const correctOptions = question.options.filter(
+        (option) => option.correct
+      );
+      if (correctOptions.length === 0) {
+        console.info(
+          '[generateFeedbackText] No correct options found for the question.'
+        );
+        return 'No correct answers defined for this question.';
+      }
+
+      // Generate feedback using the feedback service
+      const feedbackText = this.feedbackService.setCorrectMessage(
+        optionsToDisplay,
+        question
+      );
+
+      return feedbackText || 'No feedback generated for the current question.';
+    } catch (error) {
+      console.error(
+        '[generateFeedbackText] Error generating feedback:',
+        error,
+        {
+          question,
+          optionsToDisplay,
+        }
+      );
+      return 'An error occurred while generating feedback. Please try again.';
+    }
   }
 }

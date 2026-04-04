@@ -1,7 +1,10 @@
 import { Injectable } from '@angular/core';
+import { Observable, firstValueFrom } from 'rxjs';
+import { filter, map, take, timeout } from 'rxjs/operators';
 
 import { Option } from '../../models/Option.model';
 import { OptionBindings } from '../../models/OptionBindings.model';
+import { QuestionType } from '../../models/question-type.enum';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
 import { SelectedOption } from '../../models/SelectedOption.model';
 import { ExplanationTextService } from './explanation-text.service';
@@ -402,5 +405,190 @@ export class QqcTimerEffectService {
 
     try { this.timerService.stopTimer?.(undefined, { force: true }); } catch { }
     return true; // timerStoppedForQuestion = true
+  }
+
+  /**
+   * Resolves the formatted explanation text for a given question index.
+   * Tries updateExplanationText first, falls back to the formatted stream.
+   * Returns the resolved text, or '' if nothing is available.
+   *
+   * Extracted from QuizQuestionComponent.resolveFormatted().
+   */
+  async resolveFormatted(params: {
+    index: number;
+    normalizeIndex: (idx: number) => number;
+    formattedByIndex: Map<number, string>;
+    useCache?: boolean;
+    setCache?: boolean;
+    timeoutMs?: number;
+    updateExplanationText: (idx: number) => Promise<string>;
+  }): Promise<string> {
+    const i0 = params.normalizeIndex(params.index);
+    const { useCache = true, setCache = true, timeoutMs = 1200 } = params;
+
+    if (useCache) {
+      const hit = params.formattedByIndex.get(i0);
+      if (hit) return hit;
+    }
+
+    try {
+      const out = await params.updateExplanationText(i0);
+      let text = (out ?? '').toString().trim();
+
+      if ((!text || text === 'No explanation available for this question.') &&
+        this.explanationTextService.formattedExplanation$) {
+
+        const src$ = this.explanationTextService.formattedExplanation$ as Observable<string | null | undefined>;
+
+        const formatted$: Observable<string> = src$.pipe(
+          filter((s: unknown): s is string => typeof s === 'string' && s.trim().length > 0),
+          map(s => s.trim()),
+          timeout(timeoutMs),
+          take(1)
+        );
+
+        try {
+          text = await firstValueFrom(formatted$);
+        } catch {
+          text = '';
+        }
+      }
+
+      if (!text || text === 'No explanation available for this question.') {
+        console.log(`[QQC] 💤 Explanation not ready for Q${i0 + 1} — skipping emit.`);
+        return '';
+      }
+
+      if (text && setCache) params.formattedByIndex.set(i0, text);
+      return text;
+    } catch (err) {
+      console.warn('[resolveFormatted] failed', i0, err);
+      return '';
+    }
+  }
+
+  /**
+   * Handles the full async onTimerExpiredFor flow.
+   * Resolves explanation text (cached or computed), emits FET to service,
+   * and returns the explanation text + async repair callback.
+   *
+   * Extracted from QuizQuestionComponent.onTimerExpiredFor().
+   */
+  async processTimerExpiry(params: {
+    index: number;
+    normalizeIndex: (idx: number) => number;
+    questions: QuizQuestion[];
+    currentQuestionIndex: number;
+    currentQuestion: QuizQuestion | null;
+    formattedByIndex: Map<number, string>;
+    fixedQuestionIndex?: number;
+    updateExplanationText: (idx: number) => Promise<string>;
+  }): Promise<{
+    formattedText: string;
+    needsAsyncRepair: boolean;
+  }> {
+    const i0 = params.normalizeIndex(params.index);
+    const ets = this.explanationTextService;
+
+    // Wait if the explanation gate is still locked
+    if (ets._fetLocked) {
+      console.log(`[onTimerExpiredFor] Waiting for FET unlock before processing Q${params.currentQuestionIndex + 1}`);
+      await new Promise(res => setTimeout(res, 60));
+    }
+
+    // PREFER cached FET
+    const cachedFet = params.formattedByIndex.get(i0)
+      ?? ets.fetByIndex?.get(i0)
+      ?? ets.formattedExplanations?.[i0]?.explanation
+      ?? '';
+
+    let formattedNow = '';
+    if (cachedFet && cachedFet.toLowerCase().includes('correct because')) {
+      formattedNow = cachedFet.trim();
+      console.log(`[onTimerExpiredFor] Using cached FET for Q${i0 + 1}: "${formattedNow.slice(0, 40)}..."`);
+    } else {
+      formattedNow = (await params.updateExplanationText(i0))?.toString().trim() ?? '';
+    }
+
+    // Guard: skip empty or placeholder text, wait one frame before giving up
+    if (!formattedNow || formattedNow === 'No explanation available for this question.') {
+      console.log(`[QQC] 💤 Explanation not ready for Q${i0 + 1} — deferring emit by one frame.`);
+      await new Promise(requestAnimationFrame);
+
+      const retry = (await params.updateExplanationText(i0))?.toString().trim() ?? '';
+      if (!retry || retry === 'No explanation available for this question.') {
+        console.log(`[QQC] ⚠️ Still no explanation for Q${i0 + 1} — skipping emit.`);
+        return { formattedText: '', needsAsyncRepair: false };
+      }
+
+      ets.emitFormatted(i0, retry);
+      return { formattedText: retry, needsAsyncRepair: false };
+    }
+
+    // Use valid formatted FET
+    if (formattedNow && formattedNow !== 'No explanation available for this question.') {
+      console.log(`[onTimerExpiredFor] ✅ Using FET on expiry for Q${i0 + 1}: "${formattedNow.slice(0, 40)}..."`);
+      ets.emitFormatted(i0, formattedNow, { bypassGuard: true });
+      return { formattedText: formattedNow, needsAsyncRepair: false };
+    }
+
+    // Fallback: raw explanation
+    const rawBest =
+      ((params.questions[i0]?.explanation ?? '') as string).toString().trim() ||
+      ((ets.formattedExplanations[i0]?.explanation ?? '') as string).toString().trim() ||
+      'Explanation not available.';
+
+    console.warn(`[onTimerExpiredFor] 📄 No FET available on expiry for Q${i0 + 1}. Fallback to raw: "${rawBest.slice(0, 30)}..."`);
+    ets.setExplanationText(rawBest);
+
+    // Needs async repair if no proper FET was found
+    const needsAsyncRepair = !formattedNow ||
+      formattedNow === 'No explanation available for this question.' ||
+      !formattedNow.toLowerCase().includes('correct because');
+
+    return { formattedText: rawBest, needsAsyncRepair };
+  }
+
+  /**
+   * Performs the async repair resolution for timer expiry.
+   * Only updates if the question is still active.
+   *
+   * Extracted from QuizQuestionComponent.onTimerExpiredFor() async tail.
+   */
+  async repairExplanationAsync(params: {
+    index: number;
+    normalizeIndex: (idx: number) => number;
+    formattedByIndex: Map<number, string>;
+    fixedQuestionIndex?: number;
+    currentQuestionIndex: number;
+    updateExplanationText: (idx: number) => Promise<string>;
+  }): Promise<string | null> {
+    const i0 = params.normalizeIndex(params.index);
+
+    try {
+      const clean = await this.resolveFormatted({
+        index: i0,
+        normalizeIndex: params.normalizeIndex,
+        formattedByIndex: params.formattedByIndex,
+        useCache: true,
+        setCache: true,
+        timeoutMs: 6000,
+        updateExplanationText: params.updateExplanationText,
+      });
+
+      const out = (clean ?? '').toString().trim();
+      if (!out || out === 'No explanation available for this question.') return null;
+
+      const active =
+        params.normalizeIndex?.(params.fixedQuestionIndex ?? params.currentQuestionIndex ?? 0) ??
+        (params.currentQuestionIndex ?? 0);
+      if (active !== i0) return null;
+
+      console.log(`[onTimerExpiredFor] 🔄 Async resolve produced FET: "${out.slice(0, 30)}..."`);
+      this.explanationTextService.setExplanationText(out);
+      return out;
+    } catch {
+      return null;
+    }
   }
 }

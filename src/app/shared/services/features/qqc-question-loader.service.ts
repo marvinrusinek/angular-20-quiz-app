@@ -1,6 +1,8 @@
 import { Injectable } from '@angular/core';
 
 import { Option } from '../../models/Option.model';
+import { OptionBindings } from '../../models/OptionBindings.model';
+import { SharedOptionConfig } from '../../models/SharedOptionConfig.model';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
 import { QuestionPayload } from '../../models/QuestionPayload.model';
 import { QuizService } from '../data/quiz.service';
@@ -365,6 +367,73 @@ export class QqcQuestionLoaderService {
     }));
 
     return { options: populated, signature };
+  }
+
+  /**
+   * Builds option bindings array for a dynamic component instance.
+   * Extracted from QuizQuestionComponent.loadDynamicComponent().
+   */
+  buildOptionBindings(
+    clonedOptions: Option[],
+    isMultipleAnswer: boolean
+  ): OptionBindings[] {
+    return clonedOptions.map((opt, idx) => ({
+      appHighlightOption: false,
+      option: opt,
+      isCorrect: opt.correct ?? false,
+      feedback: opt.feedback ?? '',
+      showFeedback: false,
+      showFeedbackForOption: {},
+      highlightCorrectAfterIncorrect: false,
+      allOptions: clonedOptions,
+      type: isMultipleAnswer ? 'multiple' : 'single',
+      appHighlightInputType: isMultipleAnswer ? 'checkbox' : 'radio',
+      appHighlightReset: false,
+      appResetBackground: false,
+      optionsToDisplay: clonedOptions,
+      isSelected: opt.selected ?? false,
+      active: opt.active ?? true,
+      checked: false,
+      change: (_: any) => { },
+      index: idx,
+      highlightIncorrect: false,
+      highlightCorrect: false,
+      disabled: false,
+      ariaLabel: opt.text ?? `Option ${idx + 1}`,
+    })) as OptionBindings[];
+  }
+
+  /**
+   * Builds SharedOptionConfig for a dynamic component instance.
+   * Extracted from QuizQuestionComponent.loadDynamicComponent().
+   */
+  buildSharedOptionConfig(params: {
+    question: QuizQuestion;
+    clonedOptions: Option[];
+    isMultipleAnswer: boolean;
+    currentQuestionIndex: number;
+    defaultConfig?: SharedOptionConfig | null;
+  }): SharedOptionConfig {
+    return {
+      ...(params.defaultConfig ?? {}),
+      type: params.isMultipleAnswer ? 'multiple' : 'single',
+      currentQuestion: { ...params.question },
+      optionsToDisplay: params.clonedOptions,
+      selectedOption: null,
+      selectedOptionIndex: -1,
+      showFeedback: false,
+      isAnswerCorrect: false,
+      showCorrectMessage: false,
+      showExplanation: false,
+      explanationText: '',
+      highlightCorrectAfterIncorrect: false,
+      shouldResetBackground: false,
+      showFeedbackForOption: {},
+      isOptionSelected: false,
+      correctMessage: '',
+      feedback: '',
+      idx: params.currentQuestionIndex,
+    } as SharedOptionConfig;
   }
 
   /**

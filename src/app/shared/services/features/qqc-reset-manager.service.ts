@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { FormGroup } from '@angular/forms';
 
 import { Option } from '../../models/Option.model';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
@@ -229,6 +230,76 @@ export class QqcResetManagerService {
       deferredClick: undefined,
       lastLoggedQuestionIndex: -1,
       lastLoggedIndex: -1,
+    };
+  }
+
+  /**
+   * Computes the reset state before navigation to a new question.
+   * Returns an object describing what the component should apply.
+   */
+  computeResetQuestionStateBeforeNavigation(options?: {
+    preserveVisualState?: boolean;
+    preserveExplanation?: boolean;
+  }): {
+    preserveVisualState: boolean;
+    preserveExplanation: boolean;
+    displayState: { mode: 'question' | 'explanation'; answered: boolean };
+    displayMode: 'question' | 'explanation';
+    forceQuestionDisplay: boolean;
+    readyForExplanationDisplay: boolean;
+    isExplanationReady: boolean;
+    isExplanationLocked: boolean;
+    explanationLocked: boolean;
+    explanationVisible: boolean;
+    displayExplanation: boolean;
+    shouldDisplayExplanation: boolean;
+    isExplanationTextDisplayed: boolean;
+    explanationToDisplay: string;
+    questionToDisplay: string;
+    shouldRenderOptions: boolean;
+    feedbackText: string;
+    currentQuestion: null;
+    selectedOption: null;
+    resetOptions: Option[];
+  } {
+    const preserveVisualState = options?.preserveVisualState ?? false;
+    const preserveExplanation = options?.preserveExplanation ?? false;
+
+    // Perform service-level resets when not preserving explanation
+    if (!preserveExplanation) {
+      this.explanationTextService.resetExplanationState();
+      this.explanationTextService.setExplanationText('');
+      this.explanationTextService.explanationText$.next('');
+      this.explanationTextService.updateFormattedExplanation('');
+      this.explanationTextService.setResetComplete(false);
+      this.explanationTextService.unlockExplanation();
+      this.explanationTextService.setShouldDisplayExplanation(false);
+      this.explanationTextService.setIsExplanationTextDisplayed(false);
+    }
+
+    return {
+      preserveVisualState,
+      preserveExplanation,
+      displayState: preserveExplanation
+        ? { mode: 'explanation' as const, answered: true }
+        : { mode: 'question' as const, answered: false },
+      displayMode: preserveExplanation ? 'explanation' : 'question',
+      forceQuestionDisplay: !preserveExplanation,
+      readyForExplanationDisplay: preserveExplanation,
+      isExplanationReady: preserveExplanation,
+      isExplanationLocked: !preserveExplanation,
+      explanationLocked: !preserveExplanation,
+      explanationVisible: preserveExplanation,
+      displayExplanation: preserveExplanation,
+      shouldDisplayExplanation: preserveExplanation,
+      isExplanationTextDisplayed: preserveExplanation,
+      explanationToDisplay: preserveExplanation ? '' : '',
+      questionToDisplay: preserveVisualState ? '' : '',
+      shouldRenderOptions: preserveVisualState,
+      feedbackText: preserveExplanation ? '' : '',
+      currentQuestion: null,
+      selectedOption: null,
+      resetOptions: [],
     };
   }
 }
