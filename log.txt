@@ -1,0 +1,15 @@
+﻿b6b95b7 fix if statement condition
+c6fc9a4 remove numberOfCorrectAnswers variable in QuizInitializationService
+5f9112e fix destroy$ ts error
+74daf48 removed restoreScoreFromPersistence() from QuizService
+12687bf removed validateAndSetCurrentQuestion() from QuizService
+9a21a13 removed setTotalQuestions() from QuizService
+1cea78f remove setAnswers() from QuizService
+03dce6f simplify if stmt condition in setQuizStatus
+096ada8 removed getQuestionPayloadForIndex() from QuizService
+5a892df remove getQuizName() from QuizService
+4765f70 removed ngOnDestroy
+698231c remove ngOnDestroy from NextButtonStateService
+a092331 remove clearForceHold
+a183a46 fix baseUrl in SoundService
+591226a Refactor: further delegation of QQC logic and question loader enhancements

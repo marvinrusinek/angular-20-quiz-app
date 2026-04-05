@@ -538,10 +538,6 @@ export class QuizService {
     return this.optionsService.sanitizeOptions(options);
   }
 
-  getSafeOptionId(option: SelectedOption, index: number): number | undefined {
-    return this.optionsService.getSafeOptionId(option, index);
-  }
-
   getQuestionByIndex(index: number): Observable<QuizQuestion | null> {
     return this.questionResolver.getQuestionByIndex(
       index,
