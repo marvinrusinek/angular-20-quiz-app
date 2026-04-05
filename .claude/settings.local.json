@@ -35,7 +35,10 @@
       "Bash(ls src/app/shared/services/features/qqc-*.service.ts)",
       "Bash(sed 's/:.*//')",
       "Bash(xargs -I {} sed -n '{}p' \"/c/Users/marvi/OneDrive/Desktop/angular-20-quiz-app/src/app/components/question/quiz-question/quiz-question.component.ts\")",
-      "Bash(xxd)"
+      "Bash(xxd)",
+      "Bash(sed s/:.*//)",
+      "Read(//tmp/**)",
+      "Bash(awk:*)"
     ]
   }
 }

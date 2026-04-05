@@ -885,6 +885,7 @@ export class QuizQuestionComponent extends BaseQuestion
     this.renderReadySubscription?.unsubscribe();
     this.timerSub?.unsubscribe();
     this.shufflePreferenceSubscription?.unsubscribe();
+    this.nextButtonStateService.cleanupNextButtonStateStream();
   }
 
   @HostListener('window:visibilitychange', [])

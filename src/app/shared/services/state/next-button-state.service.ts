@@ -1,9 +1,9 @@
-import { Injectable, NgZone, OnDestroy } from '@angular/core';
+import { Injectable, NgZone } from '@angular/core';
 import { BehaviorSubject, combineLatest, Observable, of, Subscription } from 'rxjs';
-import { distinctUntilChanged } from 'rxjs/operators';
+import { distinctUntilChanged, takeUntil } from 'rxjs/operators';
 
 @Injectable({ providedIn: 'root' })
-export class NextButtonStateService implements OnDestroy {
+export class NextButtonStateService {
   private isButtonEnabledSubject = new BehaviorSubject<boolean>(false);
   public isButtonEnabled$ = this.isButtonEnabledSubject.asObservable();
 
@@ -22,15 +22,12 @@ export class NextButtonStateService implements OnDestroy {
 
   constructor(private ngZone: NgZone) { }
 
-  ngOnDestroy(): void {
-    this.cleanupNextButtonStateStream();
-  }
-
   public initializeNextButtonStateStream(
-    isAnswered$: Observable<boolean>,
-    isLoading$: Observable<boolean>,
-    isNavigating$: Observable<boolean>,
-    interactionReady$?: Observable<boolean>
+      isAnswered$: Observable<boolean>,
+      isLoading$: Observable<boolean>,
+      isNavigating$: Observable<boolean>,
+      destroy$: Observable<void>,
+      interactionReady$?: Observable<boolean>
   ): void {
     if (this.initialized) {
       console.warn('[🛑 initializeNextButtonStateStream] Already initialized');
@@ -46,20 +43,21 @@ export class NextButtonStateService implements OnDestroy {
       isNavigating$,
       ready$
     ])
-      .pipe(
-        distinctUntilChanged(
-          ([a1, b1, c1, d1], [a2, b2, c2, d2]) =>
-            a1 === a2 && b1 === b2 && c1 === c2 && d1 === d2
-        ),
-      )
-      .subscribe(([isAnswered, isLoading, isNavigating, ready]) => {
-        const enabled = isAnswered && !isLoading && !isNavigating && !!ready;
-        // If the button was force-held enabled, don't let the stream disable it
-        if (!enabled && Date.now() < this._forceHoldUntil) {
-          return;
-        }
-        this.updateAndSyncNextButtonState(enabled);
-      });
+        .pipe(
+            takeUntil(destroy$), // Cleanup when component is destroyed
+            distinctUntilChanged(
+                ([a1, b1, c1, d1], [a2, b2, c2, d2]) =>
+                    a1 === a2 && b1 === b2 && c1 === c2 && d1 === d2
+            ),
+        )
+        .subscribe(([isAnswered, isLoading, isNavigating, ready]) => {
+          const enabled = isAnswered && !isLoading && !isNavigating && !!ready;
+          // If the button was force-held enabled, don't let the stream disable it
+          if (!enabled && Date.now() < this._forceHoldUntil) {
+            return;
+          }
+          this.updateAndSyncNextButtonState(enabled);
+        });
   }
 
   public cleanupNextButtonStateStream(): void {
@@ -69,9 +67,9 @@ export class NextButtonStateService implements OnDestroy {
   }
 
   public evaluateNextButtonState(
-    isAnswered: boolean,
-    isLoading: boolean,
-    isNavigating: boolean,
+      isAnswered: boolean,
+      isLoading: boolean,
+      isNavigating: boolean
   ): boolean {
     const shouldEnable = isAnswered && !isLoading && !isNavigating;
     if (!shouldEnable && Date.now() < this._forceHoldUntil) {
@@ -88,7 +86,7 @@ export class NextButtonStateService implements OnDestroy {
       this.nextButtonStyle = {
         opacity: isEnabled ? '1' : '0.5',
         cursor: isEnabled ? 'pointer' : 'not-allowed',
-          'pointer-events': 'auto'
+        'pointer-events': 'auto'
       };
     });
   }
