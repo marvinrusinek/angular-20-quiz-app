@@ -80,10 +80,7 @@ export class QqcStatePersistenceService {
    * Returns raw parsed data; the component applies it to its own state.
    */
   restoreState(questionIndex: number): QqcRestoredState {
-    const storageIndex =
-      typeof questionIndex === 'number' && !Number.isNaN(questionIndex)
-        ? questionIndex
-        : 0;
+    const storageIndex = !Number.isNaN(questionIndex) ? questionIndex : 0;
 
     const explanationKey = `explanationText_${storageIndex}`;
     const displayModeKey = `displayMode_${storageIndex}`;
