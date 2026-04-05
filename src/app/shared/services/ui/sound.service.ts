@@ -7,7 +7,6 @@ import { SelectedOption } from '../../models/SelectedOption.model';
 export class SoundService {
   private sounds: { [key: string]: Howl } = {};
 
-
   constructor() {
     this.initializeSounds();
   }
@@ -20,7 +19,7 @@ export class SoundService {
     };
 
     // Use jsDelivr CDN to serve proper MIME types (audio/mpeg) and CORS headers for GitHub files
-    const baseUrl = 'https://cdn.jsdelivr.net/gh/marvinrusinek/angular-10-quiz-app@master/src/assets/sounds';
+    const baseUrl = 'https://cdn.jsdelivr.net/gh/marvinrusinek/angular-20-quiz-app@main/src/assets/sounds';
 
     this.sounds['correct'] = new Howl({
       src: [`${baseUrl}/correct.mp3`],
@@ -36,9 +35,10 @@ export class SoundService {
   playOnceForOption(option: SelectedOption): void {
     if (!option.selected) return;
 
-    const isCorrect = (option as any).correct === true || String((option as any).correct) === 'true' || 
-                     (option as any).correct === 1 || (option as any).correct === '1' ||
-                     (option as any).isCorrect === true;
+    const isCorrect =
+      (option as any).correct === true || String((option as any).correct) === 'true' ||
+      (option as any).correct === 1 || (option as any).correct === '1' ||
+      (option as any).isCorrect === true;
     const soundKey = isCorrect ? 'correct' : 'incorrect';
     
     this.play(soundKey);
