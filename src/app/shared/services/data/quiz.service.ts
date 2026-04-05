@@ -1,12 +1,10 @@
 import { Injectable } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import {
   BehaviorSubject, firstValueFrom, from, Observable, of, Subject
 } from 'rxjs';
 import {
-  auditTime, catchError, distinctUntilChanged, filter, map, shareReplay,
-  take, tap
+  auditTime, catchError, distinctUntilChanged, filter, map, shareReplay, tap
 } from 'rxjs/operators';
 import _, { isEqual } from 'lodash';
 
@@ -265,7 +263,6 @@ export class QuizService {
   constructor(
     private quizShuffleService: QuizShuffleService,
     private quizStateService: QuizStateService,
-    private activatedRoute: ActivatedRoute,
     private http: HttpClient,
     public dataLoader: QuizDataLoaderService,
     public questionResolver: QuizQuestionResolverService,
@@ -795,44 +792,6 @@ export class QuizService {
     }
 
     const previousQuestion = this.currentQuestion.getValue();
-
-    // Volatile Scoring: Decrement score when leaving a previously correct question
-    // provided we are navigating backwards
-    /* if (previousQuestion) {
-      let prevIndex = (previousQuestion as any).index;
-      if (typeof prevIndex !== 'number') {
-        prevIndex = this.questions.findIndex(
-          (q: QuizQuestion) =>
-            q === previousQuestion ||
-            (q.questionText === previousQuestion.questionText &&
-              q.questionText)
-        );
-      }
-      const isGoingBack = prevIndex > this.currentQuestionIndex;
-
-      if (prevIndex > -1 && isGoingBack) {
-        // Use correct scoring key for shuffled quizzes
-        // The questionCorrectness map is keyed by ORIGINAL index, not shuffled index
-        let scoringKey = prevIndex;
-
-        if (this.shouldShuffle() && this.quizId) {
-          const originalIndex = this.quizShuffleService.toOriginalIndex(this.quizId, prevIndex);
-
-          if (typeof originalIndex === 'number' && originalIndex >= 0) {
-            scoringKey = originalIndex;
-          }
-        }
-
-        const wasCorrect = this.questionCorrectness.get(scoringKey);
-        if (wasCorrect) {
-          this.updateCorrectCountForResults(this.correctCount - 1);
-          this.questionCorrectness.set(scoringKey, false);
-          console.log(
-            `[QuizService] Decremented score for Leaving Q${prevIndex} (Key=${scoringKey}, Backwards)`
-          );
-        }
-      }
-    } */
 
     // Do NOT mutate score when simply navigating between questions.
     // Score should reflect answer correctness events only, not navigation direction.
