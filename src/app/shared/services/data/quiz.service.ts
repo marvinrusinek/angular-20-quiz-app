@@ -334,10 +334,6 @@ export class QuizService {
     return this.isShuffleEnabled();
   }
 
-  getQuizName(segments: any[]): string {
-    return segments[1].toString();
-  }
-
   initializeData(): void {
     if (!QUIZ_DATA || !Array.isArray(QUIZ_DATA)) {
       console.error('QUIZ_DATA is invalid:', QUIZ_DATA);
