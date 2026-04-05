@@ -1187,14 +1187,6 @@ export class QuizService {
     return this.optionsService.buildCorrectAnswerCountLabel(question, options);
   }
 
-  validateAnswers(currentQuestionValue: QuizQuestion, answers: any[]): boolean {
-    if (!currentQuestionValue || !answers || answers.length === 0) {
-      console.error('Question or Answers is not defined');
-      return false;
-    }
-    return true;
-  }
-
   async determineCorrectAnswer(
     question: QuizQuestion,
     answers: Option[]
