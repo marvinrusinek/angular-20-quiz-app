@@ -1076,10 +1076,6 @@ export class QuizService {
     return this.totalQuestionsSubject.asObservable();
   }
 
-  setTotalQuestions(total: number): void {
-    this.totalQuestionsSubject.next(total);
-  }
-
   getTotalQuestionsCount(quizId: string): Observable<number> {
     return this.currentQuizSubject.pipe(
       map((quiz) => {
