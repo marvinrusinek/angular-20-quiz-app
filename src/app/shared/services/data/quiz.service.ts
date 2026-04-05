@@ -2433,8 +2433,4 @@ export class QuizService {
       localStorage.removeItem(`quizResumeIndex_${quizId}`);
     } catch { }
   }
-
-  private restoreScoreFromPersistence(): void {
-    this.scoringService.restoreScoreFromPersistence(this.quizId);
-  }
 }
