@@ -60,6 +60,7 @@ export class QuizInitializationService {
       this.selectedOptionService.isAnswered$,
       this.quizStateService.isLoading$,
       this.quizStateService.isNavigating$,
+      destroy$,
       this.quizStateService.interactionReady$
     );
 
