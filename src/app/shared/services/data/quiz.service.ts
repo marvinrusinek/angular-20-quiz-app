@@ -1065,23 +1065,6 @@ export class QuizService {
     }
   }
 
-  setAnswers(answers: number[]): void {
-    this.answersSubject.next(answers);
-
-    // Populate selectedOptionsMap so isAnswered() works correctly
-    // Map numbers to partial SelectedOption objects to satisfy the type.
-    const selectedOptions = answers.map(id => ({ optionId: id } as any));
-    this.selectedOptionsMap.set(this.currentQuestionIndex, selectedOptions);
-
-    // Also update the main questions array so component checks work
-    const q = this.questions[this.currentQuestionIndex];
-    if (q) {
-      for (const o of q.options) {
-        o.selected = answers.includes(o.optionId as number);
-      }
-    }
-  }
-
   // Method to check if the current question is answered
   isAnswered(questionIndex: number): Observable<boolean> {
     const options = this.selectedOptionsMap.get(questionIndex) ?? [];
