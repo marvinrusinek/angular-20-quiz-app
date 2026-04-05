@@ -635,4 +635,44 @@ export class QqcTimerEffectService {
       return { optionsToDisplay: params.optionsToDisplay, stopped: false };
     }
   }
+
+  /**
+   * Flips into explanation mode and enables Next immediately after timer expiry.
+   * Stops the timer, sets display state, and evaluates Next button state.
+   * Extracted from onTimerExpiredFor inline ngZone.run block (lines 3936–3963).
+   */
+  applyTimerExpiryState(params: {
+    i0: number;
+    questions: QuizQuestion[];
+    currentQuestionType: string | undefined;
+  }): {
+    feedbackText: string;
+    displayExplanation: boolean;
+  } {
+    this.timerService.stopTimer(undefined, { force: true });
+
+    this.explanationTextService.setShouldDisplayExplanation(true);
+    this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
+    this.quizStateService.setAnswered(true);
+    this.quizStateService.setAnswerSelected(true);
+
+    const qType = params.questions?.[params.i0]?.type ?? params.currentQuestionType;
+    if (qType === QuestionType.MultipleAnswer) {
+      try {
+        this.selectedOptionService.evaluateNextButtonStateForQuestion(
+          params.i0,
+          true,
+          true
+        );
+      } catch { }
+    } else {
+      try { this.selectedOptionService.setAnswered(true); } catch { }
+      try { this.nextButtonStateService.setNextButtonState(true); } catch { }
+    }
+
+    return {
+      feedbackText: '',
+      displayExplanation: true,
+    };
+  }
 }

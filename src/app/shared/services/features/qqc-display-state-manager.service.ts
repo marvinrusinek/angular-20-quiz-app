@@ -342,4 +342,50 @@ export class QqcDisplayStateManagerService {
   }): boolean {
     return params.visibilityRestoreInProgress || performance.now() < params.suppressDisplayStateUntil;
   }
+
+  /**
+   * Computes whether renderReady should be emitted based on question and options validity.
+   * Extracted from ngOnChanges (lines 789–808).
+   */
+  computeRenderReadyFromInputs(params: {
+    questionDataText: string | undefined;
+    currentQuestionText: string | undefined;
+    options: Option[] | null | undefined;
+  }): boolean {
+    const hasValidQuestion =
+      !!params.questionDataText?.trim() ||
+      !!params.currentQuestionText?.trim();
+
+    const hasValidOptions =
+      Array.isArray(params.options) && params.options.length > 0;
+
+    if (hasValidQuestion && hasValidOptions) {
+      return true;
+    } else {
+      console.warn('[⏸️ renderReady] Conditions not met:', {
+        hasValidQuestion,
+        hasValidOptions,
+      });
+      return false;
+    }
+  }
+
+  /**
+   * Computes whether _fetEarlyShown should be cleared for a question transition.
+   * Extracted from ngOnChanges (lines 737–750).
+   */
+  shouldClearFetEarlyShown(params: {
+    newIndex: number | undefined;
+    prevIndex: number | undefined;
+  }): { shouldClear: boolean; indexToClear: number } {
+    if (
+      typeof params.newIndex === 'number' &&
+      typeof params.prevIndex === 'number' &&
+      params.newIndex !== params.prevIndex
+    ) {
+      console.log(`[QQC] 🔄 Reset _fetEarlyShown for transition ${params.prevIndex + 1} → ${params.newIndex + 1}`);
+      return { shouldClear: true, indexToClear: params.prevIndex };
+    }
+    return { shouldClear: false, indexToClear: -1 };
+  }
 }

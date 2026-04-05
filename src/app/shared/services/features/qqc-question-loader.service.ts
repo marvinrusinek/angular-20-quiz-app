@@ -1,5 +1,7 @@
 import { Injectable } from '@angular/core';
-import { firstValueFrom } from 'rxjs';
+import { ChangeDetectorRef } from '@angular/core';
+import { BehaviorSubject, firstValueFrom, Subscription } from 'rxjs';
+import { distinctUntilChanged, filter } from 'rxjs/operators';
 
 import { Option } from '../../models/Option.model';
 import { OptionBindings } from '../../models/OptionBindings.model';
@@ -12,6 +14,7 @@ import { QuizStateService } from '../state/quizstate.service';
 import { SelectedOptionService } from '../state/selectedoption.service';
 import { NextButtonStateService } from '../state/next-button-state.service';
 import { ExplanationTextService } from './explanation-text.service';
+import { SelectionMessageService } from './selection-message.service';
 import { TimerService } from './timer.service';
 
 /**
@@ -31,6 +34,7 @@ export class QqcQuestionLoaderService {
     private selectedOptionService: SelectedOptionService,
     private nextButtonStateService: NextButtonStateService,
     private explanationTextService: ExplanationTextService,
+    private selectionMessageService: SelectionMessageService,
     private timerService: TimerService
   ) {}
 
@@ -772,6 +776,307 @@ export class QqcQuestionLoaderService {
       lastLoggedIndex: -1,
       lastExplanationShownIndex: -1,
       explanationInFlight: false,
+    };
+  }
+
+  /**
+   * Creates the payload hydration subscription used in ngAfterViewInit.
+   * Hydrates component state from each distinct QuestionPayload emission.
+   * Extracted from ngAfterViewInit (lines 736–770).
+   */
+  createPayloadHydrationSubscription(params: {
+    payloadSubject: BehaviorSubject<QuestionPayload | null>;
+    getHydrationInProgress: () => boolean;
+    setHydrationInProgress: (val: boolean) => void;
+    setRenderReady: (val: boolean) => void;
+    setCurrentQuestion: (q: QuizQuestion) => void;
+    setExplanationToDisplay: (text: string) => void;
+    setOptionsToDisplay: (opts: Option[]) => void;
+    initializeOptionBindings: () => void;
+    releaseBaseline: (idx: number) => void;
+    getCurrentQuestionIndex: () => number;
+    detectChanges: () => void;
+  }): Subscription {
+    return params.payloadSubject
+      .pipe(
+        filter((payload): payload is QuestionPayload => !!payload),
+        distinctUntilChanged((a, b) => JSON.stringify(a) === JSON.stringify(b))
+      )
+      .subscribe((payload: QuestionPayload) => {
+        if (params.getHydrationInProgress()) return;
+
+        params.setRenderReady(false);
+        params.setHydrationInProgress(true);
+
+        // Extract and assign payload
+        const { question, options, explanation } = payload;
+        params.setCurrentQuestion(question);
+        params.setExplanationToDisplay(explanation?.trim() || '');
+        params.setOptionsToDisplay(structuredClone(options));  // ensure isolation
+
+        // Initialize option bindings if needed
+        params.initializeOptionBindings();
+
+        // Baseline message recompute, now that options are known
+        if (options && options.length > 0) {
+          // Release baseline immediately
+          this.selectionMessageService.releaseBaseline(params.getCurrentQuestionIndex());
+        }
+
+        // Finalize rendering state after one microtask delay
+        setTimeout(() => {
+          params.setRenderReady(true);
+          params.setHydrationInProgress(false);
+          params.detectChanges();  // trigger OnPush refresh
+        }, 0);
+      });
+  }
+
+  /**
+   * Performs pre-load reset: sets explanation locks, resets selection/button state,
+   * and determines whether to preserve visual state or start fresh loading.
+   * Extracted from loadQuestion (lines 1562–1602).
+   */
+  performPreLoadReset(params: {
+    shouldPreserveVisualState: boolean;
+    shouldKeepExplanationVisible: boolean;
+    currentQuestionIndex: number;
+  }): void {
+    // ABSOLUTE LOCK: prevent stale FET display
+    this.resetExplanationForLoad();
+
+    if (params.shouldPreserveVisualState) {
+      this.quizStateService.setLoading(false);
+      this.quizStateService.setAnswerSelected(false);
+    } else {
+      this.quizStateService.setLoading(true);
+      this.quizStateService.setAnswerSelected(false);
+    }
+
+    // Reset selection and button state before processing question
+    if (!params.shouldKeepExplanationVisible) {
+      this.selectedOptionService.clearSelectionsForQuestion(params.currentQuestionIndex);
+      this.selectedOptionService.setAnswered(false);
+      this.nextButtonStateService.reset();
+    } else {
+      this.selectedOptionService.setAnswered(true, true);
+      this.nextButtonStateService.setNextButtonState(true);
+    }
+  }
+
+  /**
+   * Performs the post-load state reset when explanation should NOT be preserved.
+   * Resets explanation text service, display state, and text fields.
+   * Extracted from loadQuestion (lines 1622–1641).
+   */
+  performPostResetExplanationClear(): {
+    displayState: { mode: 'question' | 'explanation'; answered: boolean };
+    forceQuestionDisplay: boolean;
+    readyForExplanationDisplay: boolean;
+    isExplanationReady: boolean;
+    isExplanationLocked: boolean;
+    currentExplanationText: string;
+    feedbackText: string;
+  } {
+    this.explanationTextService.resetExplanationState();
+    this.explanationTextService.setExplanationText('');
+    this.explanationTextService.setIsExplanationTextDisplayed(false);
+
+    return {
+      displayState: { mode: 'question', answered: false },
+      forceQuestionDisplay: true,
+      readyForExplanationDisplay: false,
+      isExplanationReady: false,
+      isExplanationLocked: true,
+      currentExplanationText: '',
+      feedbackText: '',
+    };
+  }
+
+  /**
+   * Emits the baseline selection message once options are fully ready after loading.
+   * Extracted from loadQuestion (lines 1747–1770).
+   */
+  emitBaselineSelectionMessage(params: {
+    optionsToDisplay: Option[];
+    currentQuestionIndex: number;
+    questions: QuizQuestion[];
+  }): void {
+    queueMicrotask(() => {
+      requestAnimationFrame(async () => {
+        if (params.optionsToDisplay?.length > 0) {
+          console.log('[loadQuestion] Forcing baseline selection message after emit', {
+            index: params.currentQuestionIndex,
+            total: this.quizService.totalQuestions,
+            opts: params.optionsToDisplay.map(o => ({
+              text: o.text,
+              correct: o.correct,
+              selected: o.selected
+            }))
+          });
+          const q = params.questions[params.currentQuestionIndex];
+          if (q) {
+            const totalCorrect = q.options.filter(o => !!o.correct).length;
+            // Push the baseline immediately
+            await this.selectionMessageService.enforceBaselineAtInit(params.currentQuestionIndex, q.type!, totalCorrect);
+          }
+        } else {
+          console.warn('[loadQuestion] Skipped baseline recompute (no options yet)');
+        }
+      });
+    });
+  }
+
+  /**
+   * Performs the post-binding microtask for loadOptionsForQuestion:
+   * flips loading→false, interactionReady→true, resets click dedupe,
+   * disables Next button, and schedules passive message emit.
+   * Extracted from loadOptionsForQuestion (lines 1329–1353).
+   */
+  performPostOptionsBindingSetup(params: {
+    generateOptionBindings: () => void;
+    detectChanges: () => void;
+    currentQuestionIndex: number;
+    emitPassiveNow: (idx: number) => void;
+  }): {
+    lastLoggedIndex: number;
+    lastExplanationShownIndex: number;
+    explanationInFlight: boolean;
+    pendingPassiveRaf: number;
+  } {
+    params.generateOptionBindings();
+    params.detectChanges();
+
+    // UI is now interactive
+    this.quizStateService.setLoading(false);
+    this.quizStateService.setInteractionReady(true);
+
+    // Reset click dedupe and explanation flight state
+    const resetState = this.computePostOptionsLoadState();
+
+    // Start with Next disabled for ALL questions until first selection
+    this.quizStateService.setAnswerSelected(false);
+    this.nextButtonStateService.setNextButtonState(false);
+
+    // Emit the passive message from the same array the UI just rendered
+    const pendingPassiveRaf = requestAnimationFrame(
+      () => params.emitPassiveNow(params.currentQuestionIndex)
+    );
+
+    return {
+      ...resetState,
+      pendingPassiveRaf,
+    };
+  }
+
+  /**
+   * Configures a dynamically loaded AnswerComponent instance with
+   * cloned options, bindings, shared config, and event handlers.
+   * Extracted from loadDynamicComponent (lines 1481–1513).
+   */
+  configureDynamicInstance(params: {
+    instance: any;
+    question: any;
+    options: Option[];
+    isMultipleAnswer: boolean;
+    currentQuestionIndex: number;
+    navigatingBackwards: boolean;
+    defaultConfig: any;
+    onOptionClicked: (...args: any[]) => any;
+  }): {
+    clonedOptions: Option[];
+    questionData: any;
+    sharedOptionConfig: SharedOptionConfig | null;
+  } {
+    const { instance, question, options, isMultipleAnswer, currentQuestionIndex } = params;
+
+    // Set backward nav flag if supported
+    if ((instance as any)?.hasOwnProperty('isNavigatingBackwards')) {
+      (instance as any).isNavigatingBackwards = params.navigatingBackwards ?? false;
+    }
+
+    // Configure instance with cloned options and bindings
+    const clonedOptions =
+      structuredClone?.(options) ?? JSON.parse(JSON.stringify(options));
+
+    try {
+      (instance as any).question = { ...question };
+      instance.optionsToDisplay = clonedOptions;
+    } catch (error) {
+      console.error('[❌ Assignment failed in loadDynamicComponent]', error, {
+        question,
+        options: clonedOptions,
+      });
+    }
+
+    instance.optionBindings = this.buildOptionBindings(clonedOptions, isMultipleAnswer);
+    instance.sharedOptionConfig = this.buildSharedOptionConfig({
+      question,
+      clonedOptions,
+      isMultipleAnswer,
+      currentQuestionIndex,
+      defaultConfig: params.defaultConfig,
+    });
+
+    const questionData = { ...(instance as any).question, options: clonedOptions };
+    const sharedOptionConfig = instance.sharedOptionConfig;
+
+    return { clonedOptions, questionData, sharedOptionConfig };
+  }
+
+  /**
+   * Performs the post-view-init question setup: sets current question,
+   * resolves formatted explanation, and updates UI.
+   * Extracted from ngAfterViewInit (lines 772–791).
+   */
+  async performAfterViewInitQuestionSetup(params: {
+    questionsArray: QuizQuestion[];
+    currentQuestionIndex: number;
+    getFormattedExplanation: (question: QuizQuestion, index: number) => Promise<{ explanation: string }>;
+    updateExplanationUI: (index: number, explanationText: string) => void;
+  }): Promise<QuizQuestion | null> {
+    const { questionsArray, currentQuestionIndex: index } = params;
+
+    // Wait until questions are available
+    if (!questionsArray || questionsArray.length <= index) {
+      return null; // caller should retry
+    }
+
+    const question = questionsArray[index];
+    if (question) {
+      this.quizService.setCurrentQuestion(question);
+
+      setTimeout(async () => {
+        const formatted = await params.getFormattedExplanation(question, index);
+        const explanationText = formatted?.explanation || question.explanation || 'No explanation available';
+        params.updateExplanationUI(index, explanationText);
+      }, 50);
+
+      return question;
+    } else {
+      console.error(`[ngAfterViewInit] ❌ No question found at index ${index}`);
+      return null;
+    }
+  }
+
+  /**
+   * Builds the initial data object for the component from a question and options.
+   * Extracted from initializeData().
+   */
+  buildInitialData(
+    question: QuizQuestion,
+    options: Option[]
+  ): {
+    questionText: string;
+    explanationText: string;
+    correctAnswersText: string;
+    options: Option[];
+  } {
+    return {
+      questionText: question.questionText,
+      explanationText: question.explanation || 'No explanation available',
+      correctAnswersText: this.quizService.getCorrectAnswersAsString() || '',
+      options: options || [],
     };
   }
 }

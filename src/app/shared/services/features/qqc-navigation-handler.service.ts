@@ -478,4 +478,98 @@ export class QqcNavigationHandlerService {
       };
     }
   }
+
+  // ═══════════════════════════════════════════════════════════════
+  // FULL VISIBLE RESTORE BODY
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * Performs the full restore flow when the page becomes visible.
+   * Repopulates options if needed, restores feedback and selection state,
+   * generates feedback text, and applies FET display state.
+   *
+   * Returns the fully resolved restore result for the component to apply
+   * any remaining UI state (e.g. emitters, change detection).
+   *
+   * Extracted from onVisibilityChange visible-restore block (lines 938–1031).
+   */
+  async performFullVisibilityRestore(params: {
+    quizId: string;
+    currentQuestionIndex: number;
+    optionsToDisplay: Option[];
+    currentQuestion: QuizQuestion | null;
+    generateFeedbackText: (question: QuizQuestion) => Promise<string>;
+    applyOptionFeedback: (option: Option) => void;
+    restoreFeedbackState: () => void;
+  }): Promise<{
+    currentExplanationText: string;
+    displayMode: string;
+    optionsToDisplay: Option[];
+    feedbackText: string;
+    shouldShowExplanation: boolean;
+  }> {
+    // 1. Delegate core restore logic to handleVisibilityRestore
+    const { restoredState, fetState } = this.handleVisibilityRestore({
+      quizId: params.quizId,
+      currentQuestionIndex: params.currentQuestionIndex,
+      optionsToDisplay: params.optionsToDisplay,
+    });
+
+    // Apply restored state
+    let optionsToDisplay = restoredState.optionsToDisplay;
+    let feedbackText = restoredState.feedbackText;
+
+    // ✅ Mark that restoration has occurred
+    this.quizStateService.hasRestoredOnce = true;
+
+    // Ensure options are ready (fallback if restore returned empty)
+    if (!Array.isArray(optionsToDisplay) || optionsToDisplay.length === 0) {
+      console.warn('[onVisibilityChange] ⚠️ optionsToDisplay empty → repopulating');
+      if (params.currentQuestion && Array.isArray(params.currentQuestion.options)) {
+        optionsToDisplay = params.currentQuestion.options.map((option, index) => ({
+          ...option,
+          optionId: option.optionId ?? index,
+          correct: option.correct ?? false
+        }));
+      } else {
+        console.error('[onVisibilityChange] ❌ Failed to repopulate optionsToDisplay');
+        return {
+          currentExplanationText: restoredState.explanationText,
+          displayMode: restoredState.displayMode,
+          optionsToDisplay,
+          feedbackText,
+          shouldShowExplanation: false,
+        };
+      }
+    }
+
+    // Restore feedback and selection
+    if (params.currentQuestion) {
+      params.restoreFeedbackState();
+
+      setTimeout(() => {
+        const prevOpt = optionsToDisplay.find(o => o.selected);
+        if (prevOpt) {
+          params.applyOptionFeedback(prevOpt);
+        }
+      }, 50);
+
+      try {
+        feedbackText = await params.generateFeedbackText(params.currentQuestion);
+      } catch (error) {
+        console.error('[onVisibilityChange] ❌ Error generating feedback text:', error);
+      }
+    }
+
+    // Debounce before applying FET state (ensures no race)
+    await new Promise(res => setTimeout(res, 60));
+
+    return {
+      currentExplanationText: restoredState.explanationText,
+      displayMode: restoredState.displayMode,
+      optionsToDisplay,
+      feedbackText,
+      shouldShowExplanation: fetState.shouldShowExplanation,
+    };
+  }
 }

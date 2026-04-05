@@ -13,6 +13,8 @@ import { TimerService } from './timer.service';
 import { ExplanationTextService } from './explanation-text.service';
 import { FeedbackService } from './feedback.service';
 import { SoundService } from '../ui/sound.service';
+import { SelectionMessageService } from './selection-message.service';
+import { QuizQuestionManagerService } from '../flow/quizquestionmgr.service';
 
 /**
  * Manages option selection logic, state transitions, and correctness evaluation for QQC.
@@ -28,7 +30,9 @@ export class QqcOptionSelectionService {
     private timerService: TimerService,
     private explanationTextService: ExplanationTextService,
     private feedbackService: FeedbackService,
-    private soundService: SoundService
+    private soundService: SoundService,
+    private selectionMessageService: SelectionMessageService,
+    private quizQuestionManagerService: QuizQuestionManagerService
   ) {}
 
   /**
@@ -821,5 +825,177 @@ export class QqcOptionSelectionService {
       });
     }
     return isCorrect;
+  }
+
+  /**
+   * Performs the unselectOption reset: clears selections, feedback, and explanation text.
+   * Extracted from unselectOption().
+   */
+  unselectOption(currentQuestionIndex: number): {
+    selectedOptions: any[];
+    optionChecked: {};
+    showFeedbackForOption: {};
+    showFeedback: false;
+    selectedOption: null;
+  } {
+    this.selectedOptionService.clearSelectionsForQuestion(currentQuestionIndex);
+    this.quizQuestionManagerService.setExplanationText('');
+    return {
+      selectedOptions: [],
+      optionChecked: {},
+      showFeedbackForOption: {},
+      showFeedback: false,
+      selectedOption: null,
+    };
+  }
+
+  /**
+   * Handles selection message update: notifies service of mutation and recomputes message.
+   * Extracted from handleSelectionMessageUpdate().
+   */
+  handleSelectionMessageUpdate(params: {
+    optionsToDisplay: Option[];
+    currentQuestionOptions: Option[] | undefined;
+    isAnswered: boolean;
+  }): void {
+    // Wait a microtask so any selection mutations and state evals have landed
+    queueMicrotask(() => {
+      // Then wait a frame to ensure the rendered list reflects the latest flags
+      requestAnimationFrame(async () => {
+        const optionsNow = (params.optionsToDisplay?.length
+          ? params.optionsToDisplay
+          : params.currentQuestionOptions) as Option[] || [];
+
+        // Notify the service that selection just changed (starts hold-off window)
+        this.selectionMessageService.notifySelectionMutated(optionsNow);
+
+        // 🚦 Upgrade: always recompute based on answered state
+        await this.selectionMessageService.setSelectionMessage(params.isAnswered);
+      });
+    });
+  }
+
+  /**
+   * Computes the emitPassiveNow logic: determines question type from options and begins write.
+   * Extracted from emitPassiveNow().
+   */
+  emitPassiveNow(params: {
+    index: number;
+    normalizeIndex: (idx: number) => number;
+    optionsToDisplay: Option[];
+    currentQuestionType: QuestionType | undefined;
+  }): void {
+    const i0 = params.normalizeIndex ? params.normalizeIndex(params.index) : params.index;
+
+    // Use the freshest live options list
+    const opts = Array.isArray(params.optionsToDisplay) ? params.optionsToDisplay : [];
+
+    const fallbackType =
+      (opts.filter(o => !!o?.correct).length > 1)
+        ? QuestionType.MultipleAnswer
+        : QuestionType.SingleAnswer;
+
+    const qType = params.currentQuestionType ?? fallbackType;
+
+    // Use a short freeze only for Q1
+    const token = this.selectionMessageService.beginWrite(i0, 200);
+  }
+
+  /**
+   * Handles core selection state transitions after an option click:
+   * transitions from question to explanation mode on first selection,
+   * persists the selected option, and evaluates next button state.
+   * Extracted from handleCoreSelection() in QuizQuestionComponent.
+   */
+  handleCoreSelectionState(params: {
+    option: SelectedOption;
+    questionIndex: number;
+    currentQuestionIndex: number;
+    questionType: QuestionType | undefined;
+    forceQuestionDisplay: boolean;
+    lastAllCorrect: boolean;
+  }): {
+    isAnswered: boolean;
+    forceQuestionDisplay: boolean;
+    displayStateAnswered: boolean;
+    displayStateMode: 'question' | 'explanation';
+  } {
+    const isMultiSelect = params.questionType === QuestionType.MultipleAnswer;
+    let forceQuestionDisplay = params.forceQuestionDisplay;
+    let isAnswered = false;
+    let displayStateAnswered = false;
+    let displayStateMode: 'question' | 'explanation' = 'question';
+
+    // Transition from question to explanation mode on first selection
+    if (forceQuestionDisplay) {
+      isAnswered = true;
+      forceQuestionDisplay = false;
+      displayStateAnswered = true;
+      displayStateMode = 'explanation';
+    }
+
+    if (params.currentQuestionIndex === params.questionIndex) {
+      this.setAnsweredAndDisplayState(params.lastAllCorrect);
+    }
+
+    if (params.option) {
+      this.selectedOptionService.setSelectedOption(params.option, params.questionIndex, undefined, isMultiSelect);
+    }
+
+    this.selectedOptionService.evaluateNextButtonStateForQuestion(
+      params.questionIndex,
+      params.questionType === QuestionType.MultipleAnswer
+    );
+
+    return { isAnswered, forceQuestionDisplay, displayStateAnswered, displayStateMode };
+  }
+
+  /**
+   * Performs post-click tasks: marks question as answered, sets global state,
+   * and builds the selection payload.
+   * Returns the SelectedOption payload for emission.
+   * Extracted from postClickTasks() in QuizQuestionComponent.
+   */
+  performPostClickTasks(params: {
+    opt: SelectedOption;
+    idx: number;
+    questionIndex: number;
+    quizId: string;
+    lastAllCorrect: boolean;
+    currentQuestionIndex: number;
+  }): { sel: SelectedOption; shouldUpdateGlobalState: boolean } {
+    const lockedIndex = params.questionIndex ?? params.currentQuestionIndex;
+    this.markQuestionAsAnswered(params.quizId, lockedIndex, params.lastAllCorrect);
+
+    const sel: SelectedOption = {
+      ...params.opt,
+      questionIndex: lockedIndex,
+    };
+
+    const shouldUpdateGlobalState = params.currentQuestionIndex === lockedIndex;
+    if (shouldUpdateGlobalState) {
+      this.selectedOptionService.setAnswered(true);
+    }
+
+    return { sel, shouldUpdateGlobalState };
+  }
+
+  /**
+   * Handles the setAnsweredAndDisplayState logic: sets answered state in services.
+   * Returns the display state to apply.
+   * Extracted from setAnsweredAndDisplayState().
+   */
+  setAnsweredAndDisplayState(lastAllCorrect: boolean): {
+    mode: 'question' | 'explanation';
+    answered: boolean;
+  } {
+    this.selectedOptionService.setAnswered(true);
+    this.quizStateService.setAnswered(true);
+    const displayState = {
+      mode: (lastAllCorrect ? 'explanation' : 'question') as 'question' | 'explanation',
+      answered: true,
+    };
+    this.quizStateService.setDisplayState(displayState);
+    return displayState;
   }
 }

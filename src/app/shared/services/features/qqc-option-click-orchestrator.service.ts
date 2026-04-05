@@ -6,6 +6,10 @@ import { QuizQuestion } from '../../models/QuizQuestion.model';
 import { QuestionType } from '../../models/question-type.enum';
 import { SelectedOptionService } from '../state/selectedoption.service';
 import { SelectionMessageService } from './selection-message.service';
+import { NextButtonStateService } from '../state/next-button-state.service';
+import { QuizStateService } from '../state/quizstate.service';
+import { QuizService } from '../data/quiz.service';
+import { QuizShuffleService } from '../flow/quiz-shuffle.service';
 
 /**
  * Manages option click orchestration: canonical option building, multi-answer
@@ -23,7 +27,11 @@ export class QqcOptionClickOrchestratorService {
 
   constructor(
     private selectedOptionService: SelectedOptionService,
-    private selectionMessageService: SelectionMessageService
+    private selectionMessageService: SelectionMessageService,
+    private nextButtonStateService: NextButtonStateService,
+    private quizStateService: QuizStateService,
+    private quizService: QuizService,
+    private quizShuffleService: QuizShuffleService
   ) {}
 
   /**
@@ -282,5 +290,250 @@ export class QqcOptionClickOrchestratorService {
    */
   resetAllSelections(): void {
     this._multiAnswerSelections.clear();
+  }
+
+  /**
+   * Resolves the pristine (pre-shuffle) question for the current index.
+   * Uses shuffle mapping first, then falls back to text-based lookup.
+   * Extracted from onOptionClicked post-click RAF block (lines 2296–2317).
+   */
+  resolvePristineQuestion(params: {
+    quizId: string;
+    questionText: string | undefined;
+  }): { origIdx: number | null; pristine: QuizQuestion | null } {
+    const qIdx = this.quizService.getCurrentQuestionIndex();
+
+    let origIdx = this.quizShuffleService.toOriginalIndex(params.quizId, qIdx);
+    let pristine = (origIdx !== null) ? this.quizService.getPristineQuestion(origIdx) : null;
+
+    // 🧪 ROBUSTNESS FIX: Try to find origIdx by question text if mapping fails
+    if (!pristine && params.questionText) {
+      const canonical = this.quizService.getCanonicalQuestions(params.quizId);
+      const normalize = (s: string) => s.replace(/\s/g, '').toLowerCase();
+      const foundIdx = canonical.findIndex(q => normalize(q.questionText) === normalize(params.questionText!));
+      if (foundIdx !== -1) {
+        origIdx = foundIdx;
+        pristine = canonical[foundIdx];
+      }
+    }
+
+    return { origIdx, pristine };
+  }
+
+  /**
+   * Performs the post-click RAF tasks: resolves pristine question,
+   * generates feedback text, runs post-click tasks, handles core
+   * selection, marks bindings selected, and refreshes feedback.
+   * Extracted from onOptionClicked RAF block (lines 2292–2328).
+   */
+  async performPostClickRafTasks(params: {
+    idx: number;
+    evtOpt: SelectedOption | undefined;
+    evtIdx: number;
+    question: QuizQuestion;
+    event: { option: SelectedOption | null; index: number; checked: boolean };
+    quizId: string;
+    generateFeedbackText: (q: QuizQuestion) => Promise<string>;
+    postClickTasks: (opt: SelectedOption, idx: number, checked: boolean, wasPreviouslySelected: boolean, questionIndex: number) => Promise<void>;
+    handleCoreSelection: (ev: { option: SelectedOption; index: number; checked: boolean }, idx: number) => void;
+    markBindingSelected: (opt: Option) => void;
+    refreshFeedbackFor: (opt: Option) => void;
+  }): Promise<void> {
+    const resolvedQuizId = params.quizId || 'dependency-injection';
+
+    // Resolve pristine question (for potential correctness validation)
+    this.resolvePristineQuestion({
+      quizId: resolvedQuizId,
+      questionText: params.question?.questionText,
+    });
+
+    await params.generateFeedbackText(params.question);
+    await params.postClickTasks(params.evtOpt as SelectedOption, params.evtIdx, true, false, params.idx);
+    if (params.event.option) {
+      params.handleCoreSelection(
+        params.event as { option: SelectedOption; index: number; checked: boolean },
+        params.idx
+      );
+    }
+    if (params.evtOpt) params.markBindingSelected(params.evtOpt);
+    params.refreshFeedbackFor(params.evtOpt as Option);
+  }
+
+  /**
+   * Applies next-button state and answered/selection flags after correctness is computed.
+   */
+  applyCorrectnessState(params: {
+    enableNext: boolean;
+    isMultiForSelection: boolean;
+  }): void {
+    if (params.enableNext) {
+      if (params.isMultiForSelection) {
+        this.nextButtonStateService.forceEnable(800);
+      } else {
+        this.nextButtonStateService.setNextButtonState(true);
+      }
+    } else {
+      this.nextButtonStateService.setNextButtonState(false);
+    }
+    this.quizStateService.setAnswered(params.enableNext);
+    this.quizStateService.setAnswerSelected(params.enableNext);
+    this.selectedOptionService.setAnswered(params.enableNext);
+  }
+
+  /**
+   * Builds the selected-options set for highlighting from canonical options.
+   */
+  buildSelectedKeysSet(canonicalOpts: Option[]): Set<string | number> {
+    return new Set(
+      canonicalOpts.filter(o => o.selected).map((o, i) => this.getStableId(o, i))
+    );
+  }
+
+  /**
+   * Performs the full synchronous click orchestration flow:
+   * builds options snapshot, applies selection state, persists selection,
+   * tracks multi-answer, tracks correctness, builds canonical options,
+   * applies locks, emits selection message, and computes correctness.
+   *
+   * Returns all computed results for the component to apply to its state.
+   */
+  performSynchronousClickFlow(params: {
+    question: QuizQuestion;
+    questionIndex: number;
+    evtIdx: number;
+    evtOpt: SelectedOption;
+    checked: boolean;
+    optionsToDisplay: Option[];
+    currentQuestionOptions: Option[] | undefined;
+    totalQuestions: number;
+    msgTok: number;
+  }): {
+    optionsNow: Option[];
+    canonicalOpts: Option[];
+    selectedKeysSet: Set<string | number>;
+    isMultiForSelection: boolean;
+    allCorrect: boolean;
+    enableNext: boolean;
+    hasAnySelection: boolean;
+    msgTok: number;
+  } {
+    const { question, questionIndex, evtIdx, evtOpt, checked, optionsToDisplay, totalQuestions } = params;
+    let msgTok = params.msgTok;
+
+    // Build a mutable snapshot of options
+    const optionsNow: Option[] =
+      optionsToDisplay?.map(o => ({ ...o })) ??
+      params.currentQuestionOptions?.map(o => ({ ...o })) ??
+      [];
+
+    // Apply local selection state
+    this.applyLocalSelectionState({
+      questionType: question?.type,
+      optionsNow,
+      optionsToDisplay,
+      evtIdx,
+      checked,
+      questionIndex,
+    });
+
+    const isMultiForSelection = this.isMultiForSelection(question);
+
+    // Persist selection
+    try {
+      const selectionToPersist = { ...evtOpt, index: evtIdx };
+      this.selectedOptionService.setSelectedOption(selectionToPersist, questionIndex, undefined, isMultiForSelection);
+    } catch { }
+
+    // Track multi-answer scoring
+    if (isMultiForSelection && question?.options) {
+      const { allCorrectSelected } = this.trackMultiAnswerSelection({
+        questionIndex,
+        evtIdx,
+        checked,
+        question,
+      });
+
+      if (allCorrectSelected) {
+        this.quizService.scoreDirectly(questionIndex, true, true);
+      }
+    }
+
+    // Track per-click dot color
+    this.trackClickedOptionCorrectness(questionIndex, evtIdx, question);
+
+    // Build canonical options
+    const canonicalOpts = this.buildCanonicalOptions({
+      question,
+      questionIndex,
+      evtIdx,
+      evtOpt,
+      checked,
+    });
+
+    // Apply option locks
+    this.applyOptionLocks({
+      questionIndex,
+      evtOpt,
+      question,
+      optionsToDisplay,
+    });
+
+    const selectedKeysSet = this.buildSelectedKeysSet(canonicalOpts);
+
+    // Emit selection message
+    msgTok = msgTok + 1;
+    this.emitSelectionMessage({
+      idx: questionIndex,
+      totalQuestions,
+      questionType: question?.type,
+      optionsNow,
+      canonicalOpts,
+      msgTok,
+    });
+
+    // Compute correctness
+    const { allCorrect, enableNext, hasAnySelection } = this.computeCorrectness({
+      canonicalOpts,
+      question,
+      questionIndex,
+      evtOpt,
+      isMultiForSelection,
+    });
+
+    // Apply correctness state to services
+    this.applyCorrectnessState({ enableNext, isMultiForSelection });
+
+    return {
+      optionsNow,
+      canonicalOpts,
+      selectedKeysSet,
+      isMultiForSelection,
+      allCorrect,
+      enableNext,
+      hasAnySelection,
+      msgTok,
+    };
+  }
+
+  /**
+   * Emits selection message from a click event.
+   */
+  emitSelectionMessage(params: {
+    idx: number;
+    totalQuestions: number;
+    questionType: QuestionType | undefined;
+    optionsNow: Option[];
+    canonicalOpts: Option[];
+    msgTok: number;
+  }): void {
+    this.selectionMessageService.setOptionsSnapshot(params.canonicalOpts);
+    this.selectionMessageService.emitFromClick({
+      index: params.idx,
+      totalQuestions: params.totalQuestions,
+      questionType: params.questionType ?? QuestionType.SingleAnswer,
+      options: params.optionsNow,
+      canonicalOptions: params.canonicalOpts as any[],
+      token: params.msgTok,
+    });
   }
 }

@@ -469,6 +469,53 @@ export class QqcExplanationFlowService {
   }
 
   /**
+   * Handles explanation display logic: fetches and sets explanation if answered,
+   * otherwise clears it.
+   * Extracted from handleExplanationDisplay().
+   */
+  async handleExplanationDisplay(params: {
+    isAnswered: boolean;
+    currentQuestionIndex: number;
+    fetchAndSetExplanationText: (idx: number) => Promise<void>;
+    updateExplanationDisplay: (shouldDisplay: boolean) => Promise<void>;
+  }): Promise<void> {
+    if (params.isAnswered) {
+      await params.fetchAndSetExplanationText(params.currentQuestionIndex);
+      await params.updateExplanationDisplay(true);
+    } else {
+      await params.updateExplanationDisplay(false);
+    }
+  }
+
+  /**
+   * Handles updateExplanationIfAnswered: checks if question is answered,
+   * fetches formatted explanation, and returns the explanation text + display data.
+   * Extracted from updateExplanationIfAnswered().
+   */
+  async updateExplanationIfAnswered(params: {
+    index: number;
+    question: QuizQuestion;
+    shouldDisplayExplanation: boolean;
+    isAnyOptionSelected: (idx: number) => Promise<boolean>;
+    getFormattedExplanation: (q: QuizQuestion, idx: number) => Promise<{ questionIndex: number; explanation: string }>;
+  }): Promise<{
+    shouldUpdate: boolean;
+    explanationText: string;
+  }> {
+    if (await params.isAnyOptionSelected(params.index) && params.shouldDisplayExplanation) {
+      const formatted = await params.getFormattedExplanation(params.question, params.index);
+      const explanationText = formatted?.explanation
+        || this.explanationTextService.prepareExplanationText(params.question);
+      return { shouldUpdate: true, explanationText };
+    } else {
+      console.log(
+        `Question ${params.index} is not answered. Skipping explanation update.`
+      );
+      return { shouldUpdate: false, explanationText: '' };
+    }
+  }
+
+  /**
    * Computes and emits formatted explanation text for a multi-answer question
    * when all correct options are selected (FET trigger).
    * Returns the formatted text and display flag, or null on failure.

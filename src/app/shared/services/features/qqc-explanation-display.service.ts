@@ -898,4 +898,16 @@ export class QqcExplanationDisplayService {
         });
     });
   }
+
+  /**
+   * Resets explanation state at the start of a click.
+   * Extracted from onOptionClicked() explanation clearing block.
+   */
+  resetExplanationStateForClick(questionIndex: number): void {
+    this.explanationTextService._activeIndex = questionIndex;
+    this.explanationTextService.updateFormattedExplanation('');
+    this.explanationTextService.latestExplanation = '';
+    this.explanationTextService.setShouldDisplayExplanation(false);
+    this.explanationTextService.setIsExplanationTextDisplayed(false);
+  }
 }
