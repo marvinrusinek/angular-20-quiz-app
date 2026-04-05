@@ -302,4 +302,13 @@ export class QqcResetManagerService {
       resetOptions: [],
     };
   }
+
+  /**
+   * Handles the full post-reset shared option component cleanup.
+   * Schedules the freezeOptionBindings and showFeedbackForOption reset.
+   * Extracted from resetQuestionStateBeforeNavigation() in QuizQuestionComponent.
+   */
+  computeResetDelay(preserveVisualState?: boolean): number {
+    return preserveVisualState ? 0 : 50;
+  }
 }

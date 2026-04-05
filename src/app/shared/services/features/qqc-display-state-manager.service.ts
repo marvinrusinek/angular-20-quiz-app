@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { FormControl, FormGroup } from '@angular/forms';
 
 import { Option } from '../../models/Option.model';
+import { OptionBindings } from '../../models/OptionBindings.model';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
 import { QuestionPayload } from '../../models/QuestionPayload.model';
 import { SimpleChange } from '@angular/core';
@@ -387,5 +388,27 @@ export class QqcDisplayStateManagerService {
       return { shouldClear: true, indexToClear: params.prevIndex };
     }
     return { shouldClear: false, indexToClear: -1 };
+  }
+
+  /**
+   * Disables all option bindings and options to display.
+   * Returns the updated arrays for the component to apply.
+   * Extracted from disableAllBindingsAndOptions() in QuizQuestionComponent.
+   */
+  disableAllBindingsAndOptions(
+    optionBindings: OptionBindings[],
+    optionsToDisplay: Option[]
+  ): { optionBindings: OptionBindings[]; optionsToDisplay: Option[] } {
+    const disabledBindings = (optionBindings ?? []).map(binding => {
+      const updated = { ...binding, disabled: true } as OptionBindings;
+      if (updated.option) {
+        updated.option = { ...updated.option, active: false } as Option;
+      }
+      return updated;
+    });
+    const disabledOptions = (optionsToDisplay ?? []).map(option => ({
+      ...option, active: false,
+    }));
+    return { optionBindings: disabledBindings, optionsToDisplay: disabledOptions };
   }
 }

@@ -464,4 +464,71 @@ export class QqcInitializerService {
       }
     });
   }
+
+  /**
+   * Performs the full quiz initialization flow: initializes the selected quiz,
+   * resolves the quiz ID from the route, and loads quiz questions/answers.
+   * Combines initializeQuiz() and fetchAndProcessQuizQuestions().
+   * Extracted from QuizQuestionComponent.
+   */
+  async performFullQuizInit(params: {
+    currentQuestionIndex: number;
+    questionsArray: QuizQuestion[];
+    routeQuizId: string | null;
+    setQuestionOptions: () => void;
+    questionLoader: {
+      fetchAndProcessQuizQuestions: (p: {
+        quizId: string;
+        prepareQuestion: (id: string, question: QuizQuestion, index: number) => Promise<void>;
+      }) => Promise<QuizQuestion[]>;
+    };
+    prepareExplanationForQuestion: (p: {
+      quizId: string;
+      questionIndex: number;
+      question: QuizQuestion;
+      getExplanationText: (idx: number) => any;
+    }) => Promise<void> | void;
+    getExplanationText: (idx: number) => any;
+  }): Promise<{
+    questionsArray: QuizQuestion[];
+    questions: QuizQuestion[];
+    quizId: string | null;
+  } | null> {
+    // Initialize selected quiz subscription
+    this.initializeSelectedQuiz({
+      onQuizSelected: (_quiz: Quiz) => params.setQuestionOptions(),
+    });
+
+    const quizId = params.routeQuizId;
+
+    // Initialize quiz questions and answers
+    const result = await this.initializeQuizQuestionsAndAnswers({
+      quizId,
+      currentQuestionIndex: params.currentQuestionIndex,
+      questionsArray: params.questionsArray,
+      fetchAndProcessQuizQuestions: async (id: string) => {
+        const questions = await params.questionLoader.fetchAndProcessQuizQuestions({
+          quizId: id,
+          prepareQuestion: async (qId, question, index) =>
+            params.prepareExplanationForQuestion({
+              quizId: qId,
+              questionIndex: index,
+              question,
+              getExplanationText: params.getExplanationText,
+            }),
+        });
+        return questions;
+      },
+    });
+
+    if (result) {
+      return {
+        questionsArray: result.questionsArray,
+        questions: result.questions,
+        quizId,
+      };
+    }
+
+    return null;
+  }
 }

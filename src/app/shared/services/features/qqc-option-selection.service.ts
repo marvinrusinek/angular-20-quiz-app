@@ -998,4 +998,84 @@ export class QqcOptionSelectionService {
     this.quizStateService.setDisplayState(displayState);
     return displayState;
   }
+
+  /**
+   * Orchestrates the full finalizeSelection flow: fetches current question,
+   * selects option, processes explanation, handles option selection,
+   * updates question state, emits answered, checks correctness/timer.
+   * Returns state for the component to apply.
+   * Extracted from finalizeSelection() in QuizQuestionComponent.
+   */
+  async performFinalizeSelection(params: {
+    option: SelectedOption;
+    index: number;
+    wasPreviouslySelected: boolean;
+    currentQuestionIndex: number;
+    quizId: string;
+    lastAllCorrect: boolean;
+    fetchAndProcessCurrentQuestion: () => Promise<QuizQuestion | null>;
+    selectOption: (q: QuizQuestion, opt: SelectedOption, idx: number) => Promise<void>;
+    processCurrentQuestion: (q: QuizQuestion) => Promise<{ shouldDisplay: boolean }>;
+    handleOptionSelection: (opt: SelectedOption, idx: number, q: QuizQuestion) => Promise<void>;
+  }): Promise<{
+    shouldDisplay: boolean;
+  } | null> {
+    const currentQuestion = await params.fetchAndProcessCurrentQuestion();
+    if (!currentQuestion) return null;
+
+    // Select the option and update the state
+    await params.selectOption(currentQuestion, params.option, params.index);
+
+    const explanationResult = await params.processCurrentQuestion(currentQuestion);
+    await params.handleOptionSelection(params.option, params.index, currentQuestion);
+    this.quizStateService.updateQuestionStateForExplanation(
+      params.quizId,
+      params.currentQuestionIndex
+    );
+
+    await this.handleCorrectnessAndTimer({
+      currentQuestionIndex: params.currentQuestionIndex,
+    });
+
+    return {
+      shouldDisplay: explanationResult.shouldDisplay,
+    };
+  }
+
+  /**
+   * Handles the post-selection transition: registers click or reconciles deselection,
+   * and updates selection message.
+   * Extracted from performInitialSelectionFlow() in QuizQuestionComponent.
+   */
+  handleSelectionTransitionAndMessage(params: {
+    prevSelected: boolean;
+    nowSelected: boolean;
+    transition: {
+      becameSelected: boolean;
+      becameDeselected: boolean;
+      optId: number;
+      wasCorrect: boolean;
+    };
+    currentQuestionIndex: number;
+    optionsToDisplay: Option[];
+    currentQuestionOptions: Option[] | undefined;
+    isAnswered: boolean;
+  }): void {
+    if (params.transition.becameSelected && Number.isFinite(params.transition.optId)) {
+      this.selectionMessageService.registerClick(
+        params.currentQuestionIndex, params.transition.optId, params.transition.wasCorrect
+      );
+    }
+
+    if (params.transition.becameDeselected) {
+      const optsNow = (params.optionsToDisplay?.length ? params.optionsToDisplay : params.currentQuestionOptions) as Option[] || [];
+      this.selectionMessageService['reconcileObservedWithCurrentSelection']?.(params.currentQuestionIndex, optsNow);
+    }
+
+    this.handleSelectionMessageUpdate({
+      optionsToDisplay: params.optionsToDisplay,
+      currentQuestionOptions: params.currentQuestionOptions,
+      isAnswered: params.isAnswered,
+    });
+  }
 }

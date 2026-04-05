@@ -675,4 +675,41 @@ export class QqcTimerEffectService {
       displayExplanation: true,
     };
   }
+
+  /**
+   * Handles the async FET resolution after timer expiry.
+   * Resolves formatted explanation text and determines if async repair is needed.
+   * Extracted from onTimerExpiredFor() in QuizQuestionComponent.
+   */
+  async performTimerExpiredForAsync(params: {
+    i0: number;
+    normalizeIndex: (idx: number) => number;
+    questions: QuizQuestion[];
+    currentQuestionIndex: number;
+    currentQuestion: QuizQuestion | null;
+    formattedByIndex: Map<number, string>;
+    fixedQuestionIndex: number;
+    updateExplanationText: (idx: number) => Promise<string>;
+  }): Promise<{
+    formattedText: string | null;
+    needsAsyncRepair: boolean;
+  }> {
+    try {
+      const { formattedText, needsAsyncRepair } = await this.processTimerExpiry({
+        index: params.i0,
+        normalizeIndex: params.normalizeIndex,
+        questions: params.questions,
+        currentQuestionIndex: params.currentQuestionIndex,
+        currentQuestion: params.currentQuestion,
+        formattedByIndex: params.formattedByIndex,
+        fixedQuestionIndex: params.fixedQuestionIndex,
+        updateExplanationText: params.updateExplanationText,
+      });
+
+      return { formattedText, needsAsyncRepair };
+    } catch (err) {
+      console.warn('[performTimerExpiredForAsync] failed; using raw', err);
+      return { formattedText: null, needsAsyncRepair: false };
+    }
+  }
 }

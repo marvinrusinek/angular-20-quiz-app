@@ -1079,4 +1079,176 @@ export class QqcQuestionLoaderService {
       options: options || [],
     };
   }
+
+  /**
+   * Handles the core of loadQuestion after the reset/explanation-clear phase.
+   * Starts the timer, fetches questions if needed, validates the index,
+   * prepares the component state, and emits to subjects.
+   * Returns null if loading should be aborted/failed.
+   * Extracted from loadQuestion() in QuizQuestionComponent.
+   */
+  async performLoadQuestionPostReset(params: {
+    currentQuestionIndex: number;
+    questionsArray: QuizQuestion[];
+    quizId: string | null | undefined;
+    signal?: AbortSignal;
+    questions?: QuizQuestion[];
+  }): Promise<{
+    success: boolean;
+    shouldRedirect: boolean;
+    questionsArray: QuizQuestion[];
+    currentQuestion: QuizQuestion;
+    optionsToDisplay: Option[];
+    questionToDisplay: string;
+  } | null> {
+    this.timerService.startTimer(this.timerService.timePerQuestion, true);
+
+    // Fetch questions if not already available
+    const questionsArray = await this.fetchQuestionsIfNeeded(params.questionsArray);
+
+    // Set totalQuestions before selection messages are computed
+    if (questionsArray?.length > 0) {
+      this.quizService.totalQuestions = questionsArray.length;
+    }
+
+    if (questionsArray.length === 0) return null;
+
+    // Check end of quiz
+    const { shouldRedirect } = this.checkEndOfQuiz({
+      currentQuestionIndex: params.currentQuestionIndex,
+      questionsArray,
+      quizId: params.quizId!,
+    });
+
+    if (shouldRedirect) {
+      return {
+        success: false, shouldRedirect: true, questionsArray,
+        currentQuestion: null as any, optionsToDisplay: [], questionToDisplay: '',
+      };
+    }
+
+    // Validate current index
+    if (params.currentQuestionIndex < 0 || params.currentQuestionIndex >= questionsArray.length) {
+      throw new Error(`Invalid question index: ${params.currentQuestionIndex}`);
+    }
+
+    const potentialQuestion = questionsArray[params.currentQuestionIndex];
+    if (!potentialQuestion) {
+      throw new Error(`No question found for index ${params.currentQuestionIndex}`);
+    }
+
+    if (params.signal?.aborted) {
+      this.timerService.stopTimer(undefined, { force: true });
+      return null;
+    }
+
+    // Prepare core state
+    const preparedState = this.prepareComponentStateForQuestion({
+      potentialQuestion,
+      currentQuestionIndex: params.currentQuestionIndex,
+      questionsArray,
+    });
+
+    // Emit to quiz service subjects
+    this.quizService.questionPayloadSubject.next({
+      question: preparedState.currentQuestion!,
+      options: preparedState.optionsToDisplay,
+      explanation: '',
+    });
+
+    this.quizService.nextQuestionSubject.next(preparedState.currentQuestion);
+    this.quizService.nextOptionsSubject.next(preparedState.optionsToDisplay);
+
+    // Emit baseline selection message
+    this.emitBaselineSelectionMessage({
+      optionsToDisplay: preparedState.optionsToDisplay,
+      currentQuestionIndex: params.currentQuestionIndex,
+      questions: params.questions ?? questionsArray,
+    });
+
+    if (params.signal?.aborted) {
+      this.timerService.stopTimer(undefined, { force: true });
+      return null;
+    }
+
+    return {
+      success: true,
+      shouldRedirect: false,
+      questionsArray,
+      currentQuestion: preparedState.currentQuestion!,
+      optionsToDisplay: preparedState.optionsToDisplay,
+      questionToDisplay: preparedState.questionToDisplay,
+    };
+  }
+
+  /**
+   * Handles the route change update within setupRouteChangeHandler.
+   * Loads the question, resets explanation state, and applies explanation transition if answered.
+   * Returns state for the component to apply.
+   * Extracted from setupRouteChangeHandler().onRouteChange callback.
+   */
+  async performRouteChangeUpdate(params: {
+    zeroBasedIndex: number;
+    questionsArray: QuizQuestion[];
+    loadQuestion: () => Promise<boolean>;
+    isAnyOptionSelected: (idx: number) => Promise<boolean>;
+    updateExplanationText: (idx: number) => Promise<string>;
+    shouldDisplayExplanation: boolean;
+    questionForm: any;
+  }): Promise<{
+    loaded: boolean;
+    currentQuestion: QuizQuestion | null;
+    optionsToDisplay: Option[];
+  } | null> {
+    this.quizService.setCurrentQuestionIndex(params.zeroBasedIndex);
+
+    const loaded = await params.loadQuestion();
+    if (!loaded) return null;
+
+    if (params.questionForm) {
+      params.questionForm.patchValue({ answer: '' });
+    }
+
+    const currentQuestion = params.questionsArray?.[params.zeroBasedIndex] ?? null;
+    if (!currentQuestion) return null;
+
+    const optionsToDisplay = (currentQuestion.options ?? []).map((opt: Option) => ({
+      ...opt,
+      active: true,
+      feedback: undefined,
+      showIcon: false,
+    }));
+
+    const isAnswered = await params.isAnyOptionSelected(params.zeroBasedIndex);
+    if (isAnswered) {
+      await params.updateExplanationText(params.zeroBasedIndex);
+    }
+
+    return {
+      loaded: true,
+      currentQuestion,
+      optionsToDisplay,
+    };
+  }
+
+  /**
+   * Performs the full quiz data loading and route handler setup.
+   * Combines initializeQuizDataAndRouting() and setupRouteChangeHandler().
+   * Extracted from QuizQuestionComponent.
+   */
+  async performQuizDataAndRoutingInit(params: {
+    quizId: string | null | undefined;
+  }): Promise<{
+    questions: QuizQuestion[];
+    quiz: any;
+  } | null> {
+    const questions = await this.loadQuizData(params.quizId);
+    if (!questions) return null;
+
+    const activeQuiz = this.quizService.getActiveQuiz();
+    return {
+      questions,
+      quiz: activeQuiz || null,
+    };
+  }
 }

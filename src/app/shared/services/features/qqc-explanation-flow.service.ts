@@ -556,4 +556,99 @@ export class QqcExplanationFlowService {
       return null;
     }
   }
+
+  /**
+   * Performs the full resetExplanation flow: resets explanation text via service,
+   * computes whether reset is blocked, and applies service-level state changes.
+   * Returns state for the component to apply.
+   * Extracted from resetExplanation() in QuizQuestionComponent.
+   */
+  performResetExplanation(params: {
+    force: boolean;
+    questionIndex: number;
+  }): {
+    blocked: boolean;
+    displayExplanation: boolean;
+    explanationToDisplay: string;
+  } {
+    this.explanationTextService.resetExplanationText();
+
+    const result = this.computeResetExplanation({
+      force: params.force,
+      questionIndex: params.questionIndex,
+    });
+
+    if (result.blocked) {
+      return { blocked: true, displayExplanation: false, explanationToDisplay: '' };
+    }
+
+    this.explanationTextService.setShouldDisplayExplanation(false);
+    this.quizStateService.setDisplayState(result.displayState!);
+    this.quizStateService.setAnswerSelected(false);
+    this.explanationTextService.setResetComplete?.(true);
+
+    return {
+      blocked: false,
+      displayExplanation: false,
+      explanationToDisplay: '',
+    };
+  }
+
+  /**
+   * Handles the updateExplanationUI flow: validates the question, schedules
+   * the delayed explanation update if the question is answered.
+   * Returns the validated data, or null if validation fails.
+   * Extracted from updateExplanationUI() in QuizQuestionComponent.
+   */
+  performUpdateExplanationUI(params: {
+    questionsArray: QuizQuestion[];
+    questionIndex: number;
+  }): { adjustedIndex: number; currentQuestion: QuizQuestion } | null {
+    return this.validateForExplanationUI(params);
+  }
+
+  /**
+   * Performs the full fetchAndSetExplanationText flow:
+   * ensures questions are loaded, ensures the target question is fully loaded,
+   * then prepares and returns the explanation text.
+   * Extracted from fetchAndSetExplanationText() in QuizQuestionComponent.
+   */
+  async performFetchAndSetExplanation(params: {
+    questionIndex: number;
+    questionsArray: QuizQuestion[];
+    quizId: string | null | undefined;
+    isAnswered: boolean;
+    shouldDisplayExplanation: boolean;
+    ensureQuestionsLoaded: () => Promise<boolean>;
+    ensureQuestionIsFullyLoaded: (idx: number) => Promise<any>;
+    prepareExplanationText: (idx: number) => Promise<string>;
+    isAnyOptionSelected: (idx: number) => Promise<boolean>;
+  }): Promise<{
+    success: boolean;
+    explanationToDisplay: string;
+  }> {
+    const { questionIndex, isAnswered, shouldDisplayExplanation } = params;
+
+    try {
+      await params.ensureQuestionsLoaded();
+      await params.ensureQuestionIsFullyLoaded(questionIndex);
+
+      const explanationToDisplay = await params.prepareExplanationText(questionIndex);
+
+      // Only mark as answered if the option was already selected
+      const optionSelected = await params.isAnyOptionSelected(questionIndex);
+
+      if (!optionSelected || (!isAnswered && !shouldDisplayExplanation)) {
+        return { success: true, explanationToDisplay };
+      }
+
+      return { success: true, explanationToDisplay };
+    } catch (error) {
+      console.error('[performFetchAndSetExplanation] Error:', error);
+      return {
+        success: false,
+        explanationToDisplay: this.getExplanationErrorText(),
+      };
+    }
+  }
 }
