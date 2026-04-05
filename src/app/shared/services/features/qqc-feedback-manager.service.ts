@@ -524,4 +524,89 @@ export class QqcFeedbackManagerService {
       return 'An error occurred while generating feedback. Please try again.';
     }
   }
+
+  /**
+   * Validates and prepares feedback application for a selected option.
+   * Returns the selectedOptionIndex and whether explanation evaluation should trigger.
+   * Extracted from applyFeedbackIfNeeded().
+   */
+  applyFeedbackIfNeeded(params: {
+    option: SelectedOption;
+    optionsToDisplay: Option[];
+    showFeedbackForOption: { [optionId: number]: boolean };
+  }): {
+    showFeedbackForOption: { [optionId: number]: boolean };
+    selectedOptionIndex: number;
+    foundOption: Option | null;
+    shouldTriggerExplanation: boolean;
+  } | null {
+    const { option, optionsToDisplay } = params;
+
+    if (!option) {
+      console.error('[applyFeedbackIfNeeded] ❌ ERROR: option is null or undefined! Aborting.');
+      return null;
+    }
+
+    // Ensure UI-related states are initialized
+    const showFeedbackForOption = params.showFeedbackForOption || {};
+    showFeedbackForOption[option.optionId!] = true;
+
+    // Find index of the selected option safely
+    const selectedOptionIndex = optionsToDisplay.findIndex(
+      (opt) => opt.optionId === option.optionId
+    );
+    if (selectedOptionIndex === -1) {
+      console.error(`[applyFeedbackIfNeeded] ❌ ERROR: selectedOptionIndex not found for optionId: ${option.optionId}`);
+      return null;
+    }
+
+    const foundOption = optionsToDisplay[selectedOptionIndex];
+
+    console.log(
+      `[✅ applyFeedbackIfNeeded] Found Option at index ${selectedOptionIndex}:`,
+      foundOption
+    );
+
+    // Explanation evaluation check
+    const ready = !!this.explanationTextService.latestExplanation?.trim();
+    const show =
+      this.explanationTextService.shouldDisplayExplanationSource.getValue();
+
+    return {
+      showFeedbackForOption,
+      selectedOptionIndex,
+      foundOption,
+      shouldTriggerExplanation: ready && show,
+    };
+  }
+
+  /**
+   * Processes initial selection flow: handles selection message registration
+   * for click-based selection/deselection transitions.
+   * Returns the message update flags.
+   * Extracted from performInitialSelectionFlow().
+   */
+  computeSelectionTransition(params: {
+    prevSelected: boolean;
+    nowSelected: boolean;
+    option: SelectedOption;
+    currentQuestionIndex: number;
+  }): {
+    becameSelected: boolean;
+    becameDeselected: boolean;
+    wasCorrect: boolean;
+    optId: number;
+  } {
+    const { prevSelected, nowSelected, option, currentQuestionIndex } = params;
+    const becameSelected = !prevSelected && nowSelected;
+    const becameDeselected = prevSelected && !nowSelected;
+    const optId = Number(option.optionId);
+
+    // Use fields that actually exist on your model
+    const wasCorrect =
+      option.correct === true ||
+      (typeof option.feedback === 'string' && /correct/i.test(option.feedback));
+
+    return { becameSelected, becameDeselected, wasCorrect, optId };
+  }
 }

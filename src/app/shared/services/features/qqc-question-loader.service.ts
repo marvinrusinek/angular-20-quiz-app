@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
 
 import { Option } from '../../models/Option.model';
 import { OptionBindings } from '../../models/OptionBindings.model';
@@ -437,6 +438,45 @@ export class QqcQuestionLoaderService {
   }
 
   /**
+   * Fetches and processes quiz questions for a given quiz ID.
+   * Runs preparation for each question in parallel.
+   * Returns the processed questions array.
+   * Extracted from fetchAndProcessQuizQuestions().
+   */
+  async fetchAndProcessQuizQuestions(params: {
+    quizId: string;
+    prepareQuestion: (quizId: string, question: QuizQuestion, index: number) => Promise<void>;
+  }): Promise<QuizQuestion[]> {
+    const { quizId, prepareQuestion } = params;
+
+    if (!quizId) {
+      console.error('Quiz ID is not provided or is empty.');
+      return [];
+    }
+
+    try {
+      const questions = await this.quizService.fetchQuizQuestions(quizId);
+
+      if (!questions || questions.length === 0) {
+        console.error('No questions were loaded');
+        return [];
+      }
+
+      // Run all question preparations in parallel
+      await Promise.all(
+        questions.map((question, index) =>
+          prepareQuestion(quizId, question, index)
+        )
+      );
+
+      return questions;
+    } catch (error) {
+      console.error('Error loading questions:', error);
+      return [];
+    }
+  }
+
+  /**
    * Ensures a question is fully loaded from the quiz service.
    */
   async ensureQuestionIsFullyLoaded(
@@ -477,5 +517,148 @@ export class QqcQuestionLoaderService {
         },
       });
     });
+  }
+
+  /**
+   * Loads and validates the current question by index.
+   * Assigns option IDs and active states.
+   * Extracted from loadCurrentQuestion().
+   */
+  async loadCurrentQuestion(params: {
+    currentQuestionIndex: number;
+    questionsArray: QuizQuestion[];
+    quizId: string | null | undefined;
+  }): Promise<{
+    success: boolean;
+    currentQuestion: QuizQuestion | null;
+    optionsToDisplay: Option[];
+    questions: QuizQuestion[];
+  }> {
+    const result = await this.ensureQuestionsLoaded(params.questionsArray, params.quizId);
+    if (!result.loaded) {
+      console.error('[loadCurrentQuestion] No questions available.');
+      return { success: false, currentQuestion: null, optionsToDisplay: [], questions: params.questionsArray };
+    }
+
+    const questions = result.questions || params.questionsArray;
+
+    if (
+      params.currentQuestionIndex < 0 ||
+      params.currentQuestionIndex >= questions.length
+    ) {
+      console.error(
+        `[loadCurrentQuestion] Invalid question index: ${params.currentQuestionIndex}`
+      );
+      return { success: false, currentQuestion: null, optionsToDisplay: [], questions };
+    }
+
+    try {
+      const questionData = await firstValueFrom(
+        this.quizService.getQuestionByIndex(params.currentQuestionIndex)
+      );
+
+      if (questionData) {
+        console.log(
+          `[loadCurrentQuestion] Loaded data for question index: ${params.currentQuestionIndex}`
+        );
+
+        questionData.options = this.quizService.assignOptionIds(
+          questionData.options,
+          params.currentQuestionIndex
+        );
+
+        questionData.options = this.quizService.assignOptionActiveStates(
+          questionData.options,
+          false
+        );
+
+        return {
+          success: true,
+          currentQuestion: questionData,
+          optionsToDisplay: questionData.options ?? [],
+          questions,
+        };
+      } else {
+        console.error(
+          `[loadCurrentQuestion] No data found for question index: ${params.currentQuestionIndex}`
+        );
+        return { success: false, currentQuestion: null, optionsToDisplay: [], questions };
+      }
+    } catch (error) {
+      console.error(
+        '[loadCurrentQuestion] Error fetching question data:',
+        error
+      );
+      return { success: false, currentQuestion: null, optionsToDisplay: [], questions };
+    }
+  }
+
+  /**
+   * Waits for question data to be available, clamping to last index if needed.
+   * Returns the question and its options.
+   * Extracted from waitForQuestionData().
+   */
+  async waitForQuestionData(params: {
+    currentQuestionIndex: number;
+    quizId: string;
+  }): Promise<{
+    currentQuestion: QuizQuestion | null;
+    optionsToDisplay: Option[];
+    currentQuestionIndex: number;
+  }> {
+    let idx = params.currentQuestionIndex;
+
+    if (!Number.isInteger(idx) || idx < 0) {
+      idx = 0;
+    }
+
+    try {
+      let question = await firstValueFrom(
+        this.quizService.getQuestionByIndex(idx)
+      );
+
+      if (!question) {
+        console.warn(
+          `[waitForQuestionData] Index ${idx} out of range — clamping to last question`
+        );
+
+        const total: number = await firstValueFrom(
+          this.quizService.getTotalQuestionsCount(params.quizId)
+        );
+
+        const lastIndex = Math.max(0, total - 1);
+        idx = lastIndex;
+
+        question = await firstValueFrom(
+          this.quizService.getQuestionByIndex(idx)
+        );
+
+        if (!question) {
+          console.error(
+            '[waitForQuestionData] Still no question after clamping — aborting.'
+          );
+          return { currentQuestion: null, optionsToDisplay: [], currentQuestionIndex: idx };
+        }
+      }
+
+      if (!question.options?.length) {
+        console.error(
+          `[waitForQuestionData] ❌ Invalid question data or options missing for index: ${idx}`
+        );
+        return { currentQuestion: null, optionsToDisplay: [], currentQuestionIndex: idx };
+      }
+
+      return {
+        currentQuestion: question,
+        optionsToDisplay: [...question.options],
+        currentQuestionIndex: idx,
+      };
+    } catch (error) {
+      console.error(
+        `[waitForQuestionData] ❌ Error loading question data for index ${idx}:`,
+        error
+      );
+      return { currentQuestion: null, optionsToDisplay: [], currentQuestionIndex: idx };
+    }
   }
 }

@@ -4,6 +4,8 @@ import { FormControl, FormGroup } from '@angular/forms';
 import { Option } from '../../models/Option.model';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
 import { QuestionPayload } from '../../models/QuestionPayload.model';
+import { SimpleChange } from '@angular/core';
+import { QuizService } from '../data/quiz.service';
 
 /**
  * Manages option display preparation and render-readiness logic for QQC.
@@ -14,6 +16,103 @@ import { QuestionPayload } from '../../models/QuestionPayload.model';
  */
 @Injectable({ providedIn: 'root' })
 export class QqcDisplayStateManagerService {
+
+  constructor(
+    private quizService: QuizService
+  ) {}
+
+  // ═══════════════════════════════════════════════════════════════
+  // QUESTION AND OPTIONS CHANGE HANDLING
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * Handles the logic when question and/or options inputs change.
+   * Resolves the effective question and incoming options from SimpleChanges.
+   * Extracted from handleQuestionAndOptionsChange().
+   */
+  handleQuestionAndOptionsChange(params: {
+    currentQuestionChange: SimpleChange | undefined;
+    optionsChange: SimpleChange | undefined;
+    currentQuestion: QuizQuestion | null;
+  }): {
+    nextQuestion: QuizQuestion | null;
+    effectiveQuestion: QuizQuestion | null;
+    incomingOptions: Option[] | null;
+  } {
+    const nextQuestion = (params.currentQuestionChange
+      ? (params.currentQuestionChange.currentValue as QuizQuestion)
+      : null) ?? null;
+
+    const incomingOptions = (params.optionsChange?.currentValue as Option[]) ??
+      nextQuestion?.options ??
+      params.currentQuestionChange?.currentValue?.options ??
+      null;
+
+    const effectiveQuestion = nextQuestion ?? params.currentQuestion ?? null;
+
+    return { nextQuestion, effectiveQuestion, incomingOptions };
+  }
+
+  /**
+   * Extracts selected option values from a question for change handling.
+   * Extracted from handleQuestionAndOptionsChange().
+   */
+  extractSelectedOptionValues(effectiveQuestion: QuizQuestion | null): any[] {
+    return (effectiveQuestion?.selectedOptions ?? [])
+      .map((opt: any) => {
+        if (opt == null) {
+          return null;
+        }
+
+        if (typeof opt === 'object') {
+          return opt.value ?? opt.optionId ?? opt.text ?? null;
+        }
+
+        return opt;
+      })
+      .filter((value) => value != null);
+  }
+
+  /**
+   * Synchronizes the local option inputs with the currently active question,
+   * important for randomization/shuffling.
+   * Returns the normalized options array.
+   * Extracted from refreshOptionsForQuestion().
+   */
+  refreshOptionsForQuestion(params: {
+    question: QuizQuestion | null;
+    providedOptions?: Option[] | null;
+    currentQuestionIndex: number;
+  }): {
+    normalizedOptions: Option[];
+    options: Option[];
+    optionsToDisplay: Option[];
+  } {
+    const baseOptions = Array.isArray(params.providedOptions) && params.providedOptions.length
+      ? params.providedOptions
+      : Array.isArray(params.question?.options)
+        ? params.question!.options
+        : [];
+
+    if (!baseOptions.length) {
+      console.warn('[refreshOptionsForQuestion] No options found for the current question.');
+      return { normalizedOptions: [], options: [], optionsToDisplay: [] };
+    }
+
+    const normalizedOptions = this.quizService.assignOptionIds(
+      baseOptions.map((option) => ({ ...option })),
+      params.currentQuestionIndex
+    );
+
+    const optionsToDisplay = normalizedOptions.map((option, index) => ({
+      ...option,
+      optionId: option.optionId ?? index + 1,
+      selected: !!option.selected,
+      showIcon: option.showIcon ?? false
+    }));
+
+    return { normalizedOptions, options: normalizedOptions, optionsToDisplay };
+  }
 
   /**
    * Builds display-ready options from a source question.

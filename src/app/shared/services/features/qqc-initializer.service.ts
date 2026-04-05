@@ -1,12 +1,16 @@
 import { Injectable } from '@angular/core';
 import { FormBuilder, FormControl, FormGroup } from '@angular/forms';
+import { Observable, Subscription } from 'rxjs';
+import { map } from 'rxjs/operators';
 
 import { Option } from '../../models/Option.model';
+import { SelectedOption } from '../../models/SelectedOption.model';
 import { Quiz } from '../../models/Quiz.model';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
 import { QuizService } from '../data/quiz.service';
 import { QuizDataService } from '../data/quizdata.service';
 import { QuizStateService } from '../state/quizstate.service';
+import { SelectedOptionService } from '../state/selectedoption.service';
 import { ExplanationTextService } from './explanation-text.service';
 import { QqcQuestionLoaderService } from './qqc-question-loader.service';
 
@@ -26,6 +30,7 @@ export class QqcInitializerService {
     private quizService: QuizService,
     private quizDataService: QuizDataService,
     private quizStateService: QuizStateService,
+    private selectedOptionService: SelectedOptionService,
     private explanationTextService: ExplanationTextService,
     private questionLoader: QqcQuestionLoaderService
   ) {}
@@ -387,5 +392,93 @@ export class QqcInitializerService {
     });
 
     return isCorrect;
+  }
+
+  /**
+   * Initializes the quiz question subscription: fetches all questions,
+   * assigns option IDs, and updates answered state.
+   * Returns the subscription for cleanup.
+   * Extracted from initializeQuizQuestion().
+   */
+  initializeQuizQuestion(params: {
+    onQuestionsLoaded: (questions: QuizQuestion[]) => void;
+  }): Subscription | null {
+    if (!this.quizStateService || !this.quizService) {
+      console.warn('Required services are not available.');
+      return null;
+    }
+
+    if (this.quizStateService.getQuizQuestionCreated()) {
+      return null;
+    }
+
+    this.quizStateService.setQuizQuestionCreated();
+
+    return this.quizService
+      .getAllQuestions()
+      .pipe(
+        map((questions: QuizQuestion[]) => {
+          for (const quizQuestion of questions) {
+            quizQuestion.selectedOptions = [];
+
+            if (Array.isArray(quizQuestion.options)) {
+              quizQuestion.options = quizQuestion.options.map(
+                (option, index) => ({
+                  ...option,
+                  optionId: index,
+                })
+              );
+            } else {
+              console.error(
+                `Options are not properly defined for question: ${quizQuestion.questionText}`
+              );
+              quizQuestion.options = [];
+            }
+          }
+          return questions;
+        })
+      )
+      .subscribe({
+        next: (questions: QuizQuestion[]) => {
+          if (questions && questions.length > 0) {
+            const selectedOptions =
+              this.selectedOptionService.getSelectedOptions();
+            const hasAnswered =
+              Array.isArray(selectedOptions) && selectedOptions.length > 0;
+
+            if (hasAnswered) {
+              this.selectedOptionService.setAnsweredState(true);
+            } else {
+              console.log(
+                'Skipping setAnsweredState(false) to avoid overwrite'
+              );
+            }
+
+            params.onQuestionsLoaded(questions);
+          }
+        },
+        error: (err) => {
+          console.error('Error fetching questions:', err);
+        },
+      });
+  }
+
+  /**
+   * Initializes the selected quiz subscription.
+   * Returns the subscription for cleanup.
+   * Extracted from initializeSelectedQuiz().
+   */
+  initializeSelectedQuiz(params: {
+    onQuizSelected: (quiz: Quiz) => void;
+  }): Subscription | null {
+    if (!this.quizDataService.selectedQuiz$) {
+      return null;
+    }
+
+    return this.quizDataService.selectedQuiz$.subscribe((quiz: Quiz | null) => {
+      if (quiz) {
+        params.onQuizSelected(quiz);
+      }
+    });
   }
 }

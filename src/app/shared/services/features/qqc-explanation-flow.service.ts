@@ -1,15 +1,20 @@
 import { Injectable } from '@angular/core';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, from, of } from 'rxjs';
+import { catchError, debounceTime } from 'rxjs/operators';
 
+import { Option } from '../../models/Option.model';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
 import { QuestionState } from '../../models/QuestionState.model';
 import { FormattedExplanation } from '../../models/FormattedExplanation.model';
+import { QuestionType } from '../../models/question-type.enum';
 import { ExplanationTextService } from '../features/explanation-text.service';
 import { QuizService } from '../data/quiz.service';
+import { QuizDataService } from '../data/quizdata.service';
 import { QuizStateService } from '../state/quizstate.service';
 import { QuizQuestionManagerService } from '../flow/quizquestionmgr.service';
 import { QqcExplanationManagerService } from './qqc-explanation-manager.service';
 import { QqcExplanationDisplayService } from './qqc-explanation-display.service';
+import { QqcQuestionLoaderService } from './qqc-question-loader.service';
 
 /**
  * Orchestrates explanation flow lifecycle for QQC.
@@ -25,10 +30,12 @@ export class QqcExplanationFlowService {
   constructor(
     private explanationTextService: ExplanationTextService,
     private quizService: QuizService,
+    private quizDataService: QuizDataService,
     private quizStateService: QuizStateService,
     private quizQuestionManagerService: QuizQuestionManagerService,
     private explanationManager: QqcExplanationManagerService,
-    private explanationDisplay: QqcExplanationDisplayService
+    private explanationDisplay: QqcExplanationDisplayService,
+    private questionLoader: QqcQuestionLoaderService
   ) {}
 
   /**
@@ -230,6 +237,59 @@ export class QqcExplanationFlowService {
   }
 
   /**
+   * Processes the current question: fetches explanation text, sets it in the service,
+   * and updates quiz state. Returns the explanation text and total correct answers.
+   * Extracted from processCurrentQuestion().
+   */
+  async processCurrentQuestion(params: {
+    currentQuestion: QuizQuestion;
+    currentQuestionIndex: number;
+    quizId: string;
+    lastAllCorrect: boolean;
+    getExplanationText: (index: number) => Promise<string>;
+  }): Promise<{
+    explanationText: string;
+    shouldDisplay: boolean;
+  }> {
+    try {
+      // Await the explanation text to ensure it resolves to a string
+      const explanationText: string = await params.getExplanationText(
+        params.currentQuestionIndex
+      );
+
+      // Set the current explanation text
+      this.explanationTextService.setCurrentQuestionExplanation(explanationText);
+
+      const totalCorrectAnswers = this.quizService.getTotalCorrectAnswers(params.currentQuestion);
+
+      // Update the quiz state with the latest question information
+      this.quizStateService.updateQuestionState(
+        params.quizId,
+        params.currentQuestionIndex,
+        { isAnswered: true },
+        totalCorrectAnswers
+      );
+
+      return {
+        explanationText,
+        shouldDisplay: params.lastAllCorrect,
+      };
+    } catch (error) {
+      console.error('Error processing current question:', error);
+
+      // Set a fallback explanation text on error
+      this.explanationTextService.setCurrentQuestionExplanation(
+        'Unable to load explanation.'
+      );
+
+      return {
+        explanationText: 'Unable to load explanation.',
+        shouldDisplay: false,
+      };
+    }
+  }
+
+  /**
    * Returns the error message for explanation fetch failure.
    * Extracted from handleExplanationError().
    */
@@ -255,5 +315,156 @@ export class QqcExplanationFlowService {
       isAnswered,
       shouldDisplayExplanation
     );
+  }
+
+  /**
+   * Computes the explanation text and state for multi-answer submission.
+   * Returns formatted text, correct answer info, and display flags.
+   * Extracted from onSubmitMultiple().
+   */
+  computeSubmitMultipleExplanation(params: {
+    currentQuestionIndex: number;
+  }): {
+    formatted: string;
+    correctIdxs: number[];
+    questionType: QuestionType | undefined;
+    correctAnswersText: string;
+    totalOpts: number;
+  } | null {
+    const idx = params.currentQuestionIndex;
+    const q = this.quizService.questions?.[idx];
+    if (!q) {
+      console.warn(`[computeSubmitMultipleExplanation] ❌ No question found at index ${idx}`);
+      return null;
+    }
+
+    const correctIdxs = this.explanationTextService.getCorrectOptionIndices(q);
+    const rawExpl = (q.explanation ?? '').trim() || 'Explanation not provided';
+    const formatted = this.explanationTextService.formatExplanation(q, correctIdxs, rawExpl).trim();
+
+    let correctAnswersText = '';
+    const totalOpts = q.options?.length ?? 0;
+
+    if (q.type === QuestionType.MultipleAnswer) {
+      const numCorrect = correctIdxs.length;
+      correctAnswersText = this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
+        numCorrect,
+        totalOpts
+      );
+    }
+
+    return {
+      formatted,
+      correctIdxs,
+      questionType: q.type,
+      correctAnswersText,
+      totalOpts,
+    };
+  }
+
+  /**
+   * Applies the submit-multiple explanation state to the explanation text service.
+   * Extracted from onSubmitMultiple().
+   */
+  async applySubmitMultipleExplanation(params: {
+    currentQuestionIndex: number;
+    formatted: string;
+    correctAnswersText: string;
+    questionType: QuestionType | undefined;
+  }): Promise<void> {
+    const idx = params.currentQuestionIndex;
+
+    try {
+      this.explanationTextService._activeIndex = idx;
+      this.explanationTextService.resetForIndex(idx);
+      await new Promise(res => requestAnimationFrame(() => setTimeout(res, 60)));
+
+      this.explanationTextService.openExclusive(idx, params.formatted);
+
+      if (params.questionType === QuestionType.MultipleAnswer) {
+        this.quizService.updateCorrectAnswersText(params.correctAnswersText);
+        requestAnimationFrame(() => {
+          try {
+            this.quizService.updateCorrectAnswersText(params.correctAnswersText);
+          } catch (err) {
+            console.warn('[NAV ⚠️] Failed to emit banner + question text', err);
+          }
+        });
+        console.log(`[applySubmitMultipleExplanation] 🧮 Correct answers text for Q${idx + 1}:`, params.correctAnswersText);
+      } else {
+        this.quizService.updateCorrectAnswersText('');
+      }
+    } catch (err) {
+      console.warn('[applySubmitMultipleExplanation] ⚠️ FET open failed:', err);
+    }
+  }
+
+  /**
+   * Orchestrates fetching and setting explanation text for a question.
+   * Manages the full flow: reset → ensure loaded → fetch → set.
+   * Extracted from fetchAndSetExplanationText().
+   */
+  async fetchAndSetExplanationText(params: {
+    questionIndex: number;
+    questionsArray: QuizQuestion[];
+    quizId: string | null | undefined;
+    isAnswered: boolean;
+    shouldDisplayExplanation: boolean;
+    ensureQuestionsLoaded: () => Promise<boolean>;
+    ensureQuestionIsFullyLoaded: (index: number) => Promise<void>;
+    prepareExplanationText: (index: number) => Promise<string>;
+    isAnyOptionSelected: (index: number) => Promise<boolean>;
+  }): Promise<{
+    explanationToDisplay: string;
+    success: boolean;
+  }> {
+    try {
+      const questionsLoaded = await params.ensureQuestionsLoaded();
+
+      if (!questionsLoaded || !params.questionsArray || params.questionsArray.length === 0) {
+        console.error('Failed to load questions or questions array is empty. Aborting explanation fetch.');
+        return { explanationToDisplay: '', success: false };
+      }
+
+      if (!params.questionsArray[params.questionIndex]) {
+        console.error(`Questions array is not properly populated or invalid index: ${params.questionIndex}`);
+        return { explanationToDisplay: '', success: false };
+      }
+
+      await params.ensureQuestionIsFullyLoaded(params.questionIndex);
+
+      const explanationText = await params.prepareExplanationText(params.questionIndex);
+
+      if (await params.isAnyOptionSelected(params.questionIndex)) {
+        return {
+          explanationToDisplay: explanationText || 'No explanation available',
+          success: true,
+        };
+      } else {
+        console.log(`Skipping explanation for unanswered question ${params.questionIndex}.`);
+        return { explanationToDisplay: '', success: false };
+      }
+    } catch (error) {
+      console.error(`Error fetching explanation for question ${params.questionIndex}:`, error);
+      return {
+        explanationToDisplay: this.getExplanationErrorText(),
+        success: false,
+      };
+    }
+  }
+
+  /**
+   * Updates the explanation UI for a given question index.
+   * Validates the question data and returns the adjustment info.
+   * Extracted from updateExplanationUI() (validation + question resolution).
+   */
+  resolveQuestionForExplanationUI(params: {
+    questionsArray: QuizQuestion[];
+    questionIndex: number;
+  }): {
+    adjustedIndex: number;
+    currentQuestion: QuizQuestion;
+  } | null {
+    return this.validateForExplanationUI(params);
   }
 }

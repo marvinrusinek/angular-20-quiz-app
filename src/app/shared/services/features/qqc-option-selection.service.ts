@@ -377,6 +377,90 @@ export class QqcOptionSelectionService {
   }
 
   /**
+   * Handles option click toggle logic: assigns option IDs, adds/removes
+   * selected options, updates answered state, and attempts timer stop.
+   * Returns the updated selection state.
+   * Extracted from handleOptionClicked().
+   */
+  handleOptionClicked(params: {
+    currentQuestion: QuizQuestion;
+    optionIndex: number;
+    currentQuestionIndex: number;
+  }): {
+    selectedOptions: Option[];
+    isOptionSelected: boolean;
+    timerStopped: boolean;
+  } | null {
+    const { currentQuestion, optionIndex, currentQuestionIndex } = params;
+
+    try {
+      if (!currentQuestion || !Array.isArray(currentQuestion.options)) {
+        console.warn(
+          '[❌ handleOptionClicked] currentQuestion or options is null/invalid',
+          currentQuestion
+        );
+        return null;
+      }
+
+      // Ensure optionId is assigned to all options in the current question
+      currentQuestion.options = this.quizService.assignOptionIds(
+        currentQuestion.options, currentQuestionIndex
+      );
+
+      // Get selected options, but only include those with a valid optionId
+      const selectedOptions: Option[] = this.selectedOptionService
+        .getSelectedOptionIndices(currentQuestionIndex)
+        .map((index: number) => currentQuestion.options[index])
+        .filter((option) => option && option.optionId !== undefined);
+
+      // Check if the option is already selected
+      const isOptionSelected = selectedOptions.some(
+        (option: Option) => option.optionId === optionIndex
+      );
+
+      // Add or remove the option based on its current state
+      if (!isOptionSelected) {
+        this.selectedOptionService.addSelectedOptionIndex(
+          currentQuestionIndex,
+          optionIndex
+        );
+      } else {
+        this.selectedOptionService.removeSelectedOptionIndex(
+          currentQuestionIndex,
+          optionIndex
+        );
+      }
+
+      // Check if all correct answers are selected
+      // Update answered state
+      this.selectedOptionService.updateAnsweredState(
+        currentQuestion.options,
+        currentQuestionIndex
+      );
+
+      // Handle multiple-answer logic
+      const timerStopped = this.timerService.attemptStopTimerForQuestion({
+        questionIndex: currentQuestionIndex,
+      });
+
+      if (timerStopped) {
+        console.log(
+          '[handleOptionClicked] All correct options selected. Timer stopped successfully.'
+        );
+      }
+
+      return {
+        selectedOptions,
+        isOptionSelected: !isOptionSelected, // toggled
+        timerStopped: !!timerStopped,
+      };
+    } catch (error) {
+      console.error('[handleOptionClicked] Unhandled error:', error);
+      return null;
+    }
+  }
+
+  /**
    * Sets correct message via the feedback service.
    */
   setCorrectMessage(optionsToDisplay: Option[], question: QuizQuestion): string {
@@ -478,5 +562,176 @@ export class QqcOptionSelectionService {
       explanationText,
       correctMessage,
     };
+  }
+
+  /**
+   * Handles the full option selection flow: resolves option ID, toggles selection,
+   * processes selection, updates state, applies feedback, regenerates FET,
+   * and updates quiz state.
+   * Returns the updated state for the component to apply.
+   * Extracted from handleOptionSelection().
+   */
+  async handleFullOptionSelection(params: {
+    option: SelectedOption;
+    optionIndex: number;
+    currentQuestion: QuizQuestion;
+    currentQuestionIndex: number;
+    quizId: string;
+    lastAllCorrect: boolean;
+    optionsToDisplay: Option[];
+    handleOptionClickedFn: (question: QuizQuestion, index: number) => Promise<void>;
+    updateExplanationTextFn: (index: number) => Promise<string>;
+  }): Promise<{
+    selectedOption: SelectedOption;
+    showFeedback: boolean;
+    showFeedbackForOption: { [optionId: number]: boolean };
+    selectedOptionIndex: number;
+    explanationText: string;
+    isFeedbackApplied: boolean;
+  } | null> {
+    const { option, optionIndex, currentQuestion, currentQuestionIndex, quizId } = params;
+
+    // Ensure that the option and optionIndex are valid
+    if (!option || optionIndex < 0) {
+      console.error(
+        `Invalid option or optionIndex: ${JSON.stringify(
+          option
+        )}, index: ${optionIndex}`
+      );
+      return null;
+    }
+
+    // Ensure the question index is valid
+    if (typeof currentQuestionIndex !== 'number' || currentQuestionIndex < 0) {
+      console.error(`Invalid question index: ${currentQuestionIndex}`);
+      return null;
+    }
+
+    try {
+      const resolvedOptionId = this.resolveStableOptionId(option, optionIndex);
+      option.optionId = resolvedOptionId;
+
+      // Toggle option selection state
+      option.selected = !option.selected;
+
+      // Process the selected option and update states (trigger selection logic)
+      await params.handleOptionClickedFn(currentQuestion, optionIndex);
+
+      // Check if this specific option is now selected
+      const isOptionSelected = this.selectedOptionService.isSelectedOption(option);
+
+      // Only update explanation display flag if not locked
+      if (!(this.explanationTextService as any).isExplanationLocked?.()) {
+        // Only trigger explanation if selected and correct, otherwise ensure it's hidden
+        this.explanationTextService.setShouldDisplayExplanation(isOptionSelected && params.lastAllCorrect);
+      } else {
+        console.warn('[handleFullOptionSelection] 🛡️ Explanation is locked. Skipping display update.');
+      }
+
+      // Update selected option service
+      this.selectedOptionService.setAnsweredState(true);
+      this.selectedOptionService.updateSelectedOptions(currentQuestionIndex, resolvedOptionId, 'add');
+
+      // Immediate state synchronization
+      const selectedOption: SelectedOption = { ...option, correct: option.correct };
+      const showFeedbackForOption: { [optionId: number]: boolean } = {};
+      showFeedbackForOption[option.optionId!] = true;
+
+      const selectedOptionIndex = params.optionsToDisplay.findIndex(
+        (opt) => opt.optionId === option.optionId
+      );
+
+      // ⚡ RE-GENERATE FET immediately on every click to ensure cache is fresh and prefix is correct
+      const explanationText = await params.updateExplanationTextFn(currentQuestionIndex);
+      console.log(
+        `[📢 Fresh FET for Q${currentQuestionIndex + 1}]: "${explanationText.slice(0, 50)}..."`
+      );
+
+      // Update the answers and check if the selection is correct
+      this.quizService.updateAnswersForOption(option);
+      await this.checkAndHandleCorrectAnswer(currentQuestionIndex);
+
+      const totalCorrectAnswers = this.quizService.getTotalCorrectAnswers(currentQuestion);
+
+      // Update the question state in the QuizStateService
+      this.quizStateService.updateQuestionState(
+        quizId,
+        currentQuestionIndex,
+        {
+          selectedOptions: [option],
+          isCorrect: option.correct ?? false,
+        },
+        totalCorrectAnswers
+      );
+
+      // Trigger explanation evaluation immediately
+      this.explanationTextService.triggerExplanationEvaluation();
+
+      return {
+        selectedOption,
+        showFeedback: true,
+        showFeedbackForOption,
+        selectedOptionIndex,
+        explanationText,
+        isFeedbackApplied: true,
+      };
+    } catch (error) {
+      console.error('Error during option selection:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Fetches and processes the current question: resets state, loads question data,
+   * builds display data, and checks answered state.
+   * Extracted from fetchAndProcessCurrentQuestion().
+   */
+  async fetchAndProcessCurrentQuestion(params: {
+    currentQuestionIndex: number;
+    isAnyOptionSelectedFn: (index: number) => Promise<boolean>;
+    shouldUpdateMessageOnAnswerFn: (isAnswered: boolean) => Promise<boolean>;
+  }): Promise<{
+    currentQuestion: QuizQuestion;
+    optionsToDisplay: Option[];
+    data: {
+      questionText: string;
+      explanationText?: string;
+      correctAnswersText: string;
+      options: Option[];
+    };
+  } | null> {
+    try {
+      // Reset state before fetching new question
+      this.resetStateForNewQuestion();
+
+      const currentQuestion = this.quizService.questions[params.currentQuestionIndex];
+
+      if (!currentQuestion) return null;
+
+      const optionsToDisplay = [...(currentQuestion.options || [])];
+
+      // Set display data
+      const data = {
+        questionText: currentQuestion.questionText,
+        explanationText: currentQuestion.explanation,
+        correctAnswersText: this.quizService.getCorrectAnswersAsString(),
+        options: optionsToDisplay
+      };
+
+      // Determine if the current question is answered
+      const isAnswered = await params.isAnyOptionSelectedFn(params.currentQuestionIndex);
+
+      // Update the selection message based on the current state
+      if (await params.shouldUpdateMessageOnAnswerFn(isAnswered)) {
+        // Selection message update would go here
+      } else {
+        console.log('No update required for the selection message.');
+      }
+
+      return { currentQuestion, optionsToDisplay, data };
+    } catch (error) {
+      console.error('[fetchAndProcessCurrentQuestion] An error occurred while fetching the current question:', error);
+      return null;
+    }
   }
 }

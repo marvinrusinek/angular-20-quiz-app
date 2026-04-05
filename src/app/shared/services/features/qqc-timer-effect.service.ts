@@ -591,4 +591,48 @@ export class QqcTimerEffectService {
       return null;
     }
   }
+
+  /**
+   * Handles multiple-answer timer logic: updates options state with feedback,
+   * then attempts to stop the timer if all correct options are selected.
+   * Returns the updated options array.
+   * Extracted from handleMultipleAnswerTimerLogic().
+   */
+  async handleMultipleAnswerTimerLogic(params: {
+    option: Option;
+    optionsToDisplay: Option[];
+    currentQuestionIndex: number;
+  }): Promise<{
+    optionsToDisplay: Option[];
+    stopped: boolean;
+  }> {
+    try {
+      // Update options state
+      const updatedOptions = params.optionsToDisplay.map((opt) => {
+        const isSelected = opt.optionId === params.option.optionId;
+
+        return {
+          ...opt,
+          feedback: isSelected && !opt.correct ? 'x' : opt.feedback,
+          showIcon: isSelected,
+          active: true  // keep all options active
+        };
+      });
+
+      // Stop the timer if all correct options are selected
+      this.timerService.allowAuthoritativeStop();
+      const stopped = await this.timerService.attemptStopTimerForQuestion({
+        questionIndex: params.currentQuestionIndex,
+      });
+
+      if (!stopped) {
+        console.log('❌ Timer not stopped: Conditions not met.');
+      }
+
+      return { optionsToDisplay: updatedOptions, stopped: !!stopped };
+    } catch (error) {
+      console.error('[handleMultipleAnswerTimerLogic] Error:', error);
+      return { optionsToDisplay: params.optionsToDisplay, stopped: false };
+    }
+  }
 }
