@@ -1100,26 +1100,6 @@ export class QuizService {
     return this.optionsService.getTotalCorrectAnswers(currentQuestion);
   }
 
-  validateAndSetCurrentQuestion(
-    quiz: Quiz,
-    currentQuestionIndex: number
-  ): boolean {
-    if (
-      quiz &&
-      Array.isArray(quiz.questions) &&
-      currentQuestionIndex >= 0 &&
-      currentQuestionIndex < quiz.questions.length
-    ) {
-      this.currentQuestion.next(quiz.questions[currentQuestionIndex]);
-      return true;
-    } else {
-      console.error(
-        'Quiz is not initialized or currentQuestionIndex is out of bounds'
-      );
-      return false;
-    }
-  }
-
   handleQuestionChange(
     question: QuizQuestion | null,
     selectedOptions: Array<string | number> | null | undefined,
