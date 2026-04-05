@@ -553,15 +553,6 @@ export class QuizService {
     );
   }
 
-  getQuestionPayloadForIndex(
-    index: number,
-  ): Observable<QuestionPayload | null> {
-    return this.questionPayload$.pipe(
-      map(() => this.questionPayloadMap.get(index) ?? null),
-      distinctUntilChanged()
-    );
-  }
-
   getQuestionsInDisplayOrder(): QuizQuestion[] {
     const shuffled = this.shuffledQuestions ?? [];
     return this.shuffleEnabled && shuffled.length
