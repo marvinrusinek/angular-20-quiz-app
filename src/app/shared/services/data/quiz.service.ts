@@ -1326,7 +1326,6 @@ export class QuizService {
   get quizScoring(): QuizScoringService { return this.scoringService; }
 
   setCheckedShuffle(isChecked: boolean): void {
-    console.log(`[QuizService] setCheckedShuffle(${isChecked})`);
     this.shuffleEnabledSubject.next(isChecked);
     try {
       localStorage.setItem('checkedShuffle', String(isChecked));
