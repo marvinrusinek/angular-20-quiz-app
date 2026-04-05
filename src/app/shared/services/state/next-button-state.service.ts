@@ -106,11 +106,6 @@ export class NextButtonStateService implements OnDestroy {
     this.updateAndSyncNextButtonState(true);
   }
 
-  /** Clear the force-hold (e.g. on question navigation). */
-  public clearForceHold(): void {
-    this._forceHoldUntil = 0;
-  }
-
   reset(): void {
     this._forceHoldUntil = 0;
     this.setNextButtonState(false);
