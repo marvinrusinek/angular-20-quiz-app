@@ -661,4 +661,117 @@ export class QqcQuestionLoaderService {
       return { currentQuestion: null, optionsToDisplay: [], currentQuestionIndex: idx };
     }
   }
+
+  /**
+   * Prepares enriched options for a question and determines if the option list
+   * needs clearing due to length mismatch. Returns the enriched options and
+   * whether the current list should be cleared first.
+   * Extracted from loadOptionsForQuestion().
+   */
+  prepareOptionsForQuestion(params: {
+    question: QuizQuestion;
+    currentOptionsLength: number;
+  }): {
+    enrichedOptions: Option[];
+    shouldClearFirst: boolean;
+  } {
+    const enrichedOptions = this.enrichOptionsForDisplay(params.question);
+
+    // If incoming list length differs, clear current list to avoid stale bleed-through
+    const shouldClearFirst =
+      enrichedOptions.length > 0 &&
+      params.currentOptionsLength !== params.question.options.length;
+
+    if (shouldClearFirst) {
+      console.warn('[DEBUG] ❌ Clearing optionsToDisplay due to length mismatch');
+    }
+
+    return { enrichedOptions, shouldClearFirst };
+  }
+
+  /**
+   * Post-options-load state reset: resets click deduplication guards,
+   * explanation flight state, and Next button to disabled.
+   * Returns the reset values for the component to apply.
+   * Extracted from loadOptionsForQuestion().
+   */
+  /**
+   * Prepares core component state for a new question: clones question,
+   * builds fresh options, and computes question text.
+   * Returns the data the component should apply.
+   * Extracted from loadQuestion() "Update Component State" section.
+   */
+  prepareComponentStateForQuestion(params: {
+    potentialQuestion: QuizQuestion;
+    currentQuestionIndex: number;
+    questionsArray: QuizQuestion[];
+  }): {
+    currentQuestion: QuizQuestion;
+    optionsToDisplay: Option[];
+    questionToDisplay: string;
+    hasSharedRefs: boolean;
+  } {
+    // 1️⃣ Purge all previous state before touching new data
+    this.purgeSelectionState();
+
+    // 2️⃣ Defensive clone of question data
+    const currentQuestion = { ...params.potentialQuestion };
+
+    // 3️⃣ Deep clone options to guarantee new references
+    const optionsToDisplay = this.buildFreshOptions(params.potentialQuestion, params.currentQuestionIndex);
+
+    console.group(`[QQC TRACE] Fresh options for Q${params.currentQuestionIndex}`);
+    optionsToDisplay.forEach((o, j) =>
+      console.log(`Opt${j}:`, o.text, '| id:', o.optionId, '| ref:', o)
+    );
+    console.groupEnd();
+
+    // 4️⃣ Verify no shared references
+    let hasSharedRefs = false;
+    if (params.questionsArray?.[params.currentQuestionIndex - 1]?.options) {
+      const prev = params.questionsArray[params.currentQuestionIndex - 1].options;
+      const curr = optionsToDisplay;
+      hasSharedRefs = prev.some((p, i) => p === curr[i]);
+      console.log(`[QQC REF CHECK] Between Q${params.currentQuestionIndex - 1} and Q${params.currentQuestionIndex}: shared=${hasSharedRefs}`);
+    }
+
+    // 5️⃣ Compute question text
+    const questionToDisplay = currentQuestion.questionText?.trim() || '';
+
+    return { currentQuestion, optionsToDisplay, questionToDisplay, hasSharedRefs };
+  }
+
+  /**
+   * Computes the pre-load reset flags for a question load.
+   * Returns which resets to apply and which loading state to use.
+   * Extracted from loadQuestion() pre-load state section.
+   */
+  computePreLoadResetActions(params: {
+    shouldPreserveVisualState: boolean;
+    shouldKeepExplanationVisible: boolean;
+  }): {
+    shouldResetSelections: boolean;
+    shouldResetExplanation: boolean;
+    shouldStartLoading: boolean;
+    shouldSetAnsweredTrue: boolean;
+  } {
+    return {
+      shouldResetSelections: !params.shouldKeepExplanationVisible,
+      shouldResetExplanation: !params.shouldKeepExplanationVisible,
+      shouldStartLoading: !params.shouldPreserveVisualState,
+      shouldSetAnsweredTrue: params.shouldKeepExplanationVisible,
+    };
+  }
+
+  computePostOptionsLoadState(): {
+    lastLoggedIndex: number;
+    lastExplanationShownIndex: number;
+    explanationInFlight: boolean;
+  } {
+    return {
+      lastLoggedIndex: -1,
+      lastExplanationShownIndex: -1,
+      explanationInFlight: false,
+    };
+  }
 }

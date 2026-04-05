@@ -316,4 +316,30 @@ export class QqcDisplayStateManagerService {
       displayOrder: index
     }));
   }
+
+  /**
+   * Builds clean options for a route change: resets feedback, showIcon, and active state.
+   * Extracted from handleRouteChanges().
+   */
+  buildCleanOptionsForRouteChange(question: QuizQuestion): Option[] {
+    const originalOptions = question.options ?? [];
+    return originalOptions.map((opt) => ({
+      ...opt,
+      active: true,
+      feedback: undefined,
+      showIcon: false,
+    }));
+  }
+
+  /**
+   * Determines if the page visibility change should suppress display state updates.
+   * Returns true if the update should be suppressed.
+   * Extracted from safeSetDisplayState().
+   */
+  shouldSuppressDisplayState(params: {
+    visibilityRestoreInProgress: boolean;
+    suppressDisplayStateUntil: number;
+  }): boolean {
+    return params.visibilityRestoreInProgress || performance.now() < params.suppressDisplayStateUntil;
+  }
 }

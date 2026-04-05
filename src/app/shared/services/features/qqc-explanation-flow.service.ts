@@ -467,4 +467,46 @@ export class QqcExplanationFlowService {
   } | null {
     return this.validateForExplanationUI(params);
   }
+
+  /**
+   * Computes and emits formatted explanation text for a multi-answer question
+   * when all correct options are selected (FET trigger).
+   * Returns the formatted text and display flag, or null on failure.
+   * Extracted from onOptionClicked() multi-answer FET trigger block.
+   */
+  async triggerMultiAnswerFet(params: {
+    lockedIndex: number;
+    question: QuizQuestion | null | undefined;
+  }): Promise<{
+    formatted: string;
+    shouldDisplay: boolean;
+  } | null> {
+    try {
+      const svc: any = this.explanationTextService;
+      svc._activeIndex = params.lockedIndex;
+      svc.readyForExplanation = true;
+      svc._fetLocked = true;
+      svc.setShouldDisplayExplanation(true);
+      svc.setIsExplanationTextDisplayed(false);
+
+      await new Promise(res => setTimeout(res, 40));
+
+      // Retrieve canonical question using locked index
+      const canonicalQ = this.quizService?.questions?.[params.lockedIndex] ?? params.question;
+      const raw = (canonicalQ?.explanation ?? '').trim();
+      const correctIdxs = svc.getCorrectOptionIndices(canonicalQ);
+      const formatted = svc.formatExplanation(canonicalQ, correctIdxs, raw).trim();
+
+      // Emit to service
+      svc.setExplanationText(formatted);
+      svc.setIsExplanationTextDisplayed(true);
+      svc.setShouldDisplayExplanation(true);
+
+      console.log(`[QQC ✅] FET computed for Q${params.lockedIndex + 1}`);
+      return { formatted, shouldDisplay: true };
+    } catch (err) {
+      console.warn('[QQC] ⚠️ FET trigger failed', err);
+      return null;
+    }
+  }
 }

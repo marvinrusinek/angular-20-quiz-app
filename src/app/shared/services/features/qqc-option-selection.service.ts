@@ -734,4 +734,92 @@ export class QqcOptionSelectionService {
       return null;
     }
   }
+
+  /**
+   * Updates the question state in QuizStateService after an option is selected.
+   * Extracted from updateQuestionState().
+   */
+  updateQuestionState(params: {
+    quizId: string;
+    currentQuestionIndex: number;
+    lastAllCorrect: boolean;
+    option: SelectedOption;
+    explanationToDisplay: string;
+    correctAnswersLength: number;
+  }): void {
+    try {
+      this.quizStateService.updateQuestionState(
+        params.quizId,
+        params.currentQuestionIndex,
+        {
+          explanationDisplayed: params.lastAllCorrect,
+          selectedOptions: [params.option],
+          explanationText: params.explanationToDisplay,
+        },
+        params.correctAnswersLength
+      );
+      console.log(`Question state updated with explanationDisplayed: ${params.lastAllCorrect}`);
+    } catch (stateUpdateError) {
+      console.error('Error updating question state:', stateUpdateError);
+    }
+  }
+
+  /**
+   * Handles the full process-selected-option flow: processes feedback,
+   * updates question state, handles correct answers, and updates feedback.
+   * Extracted from processSelectedOption().
+   */
+  async processSelectedOption(params: {
+    option: SelectedOption;
+    index: number;
+    checked: boolean;
+    currentQuestionIndex: number;
+    quizId: string;
+    lastAllCorrect: boolean;
+    explanationToDisplay: string;
+    correctAnswersLength: number;
+    handleOptionProcessingAndFeedback: (option: SelectedOption, index: number, checked: boolean) => Promise<void>;
+    getCorrectAnswers: () => Promise<number[]>;
+  }): Promise<{
+    correctAnswers: number[];
+  }> {
+    await params.handleOptionProcessingAndFeedback(params.option, params.index, params.checked);
+
+    this.updateQuestionState({
+      quizId: params.quizId,
+      currentQuestionIndex: params.currentQuestionIndex,
+      lastAllCorrect: params.lastAllCorrect,
+      option: params.option,
+      explanationToDisplay: params.explanationToDisplay,
+      correctAnswersLength: params.correctAnswersLength,
+    });
+
+    const correctAnswers = await params.getCorrectAnswers();
+    console.log('Handling correct answers for option:', params.option);
+    console.log('Fetched correct answers:', correctAnswers);
+
+    if (!correctAnswers || correctAnswers.length === 0) {
+      console.warn('No correct answers available for this question.');
+    } else {
+      console.log('Is the specific answer correct?', correctAnswers.includes(params.option.optionId!));
+    }
+
+    return { correctAnswers };
+  }
+
+  /**
+   * Handles correctness check and timer stop after option selection.
+   * Extracted from handleCorrectnessAndTimer().
+   */
+  async handleCorrectnessAndTimer(params: {
+    currentQuestionIndex: number;
+  }): Promise<boolean> {
+    const isCorrect = await this.quizService.checkIfAnsweredCorrectly();
+    if (isCorrect) {
+      this.timerService.attemptStopTimerForQuestion({
+        questionIndex: params.currentQuestionIndex,
+      });
+    }
+    return isCorrect;
+  }
 }

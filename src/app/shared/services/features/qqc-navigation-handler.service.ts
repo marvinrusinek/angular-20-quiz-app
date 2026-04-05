@@ -438,4 +438,44 @@ export class QqcNavigationHandlerService {
     }
     return true; // allowed
   }
+
+  /**
+   * Computes the display subscription cleanup state when page becomes hidden.
+   * Returns the reset values for explanation display.
+   * Extracted from clearDisplaySubscriptions().
+   */
+  computeDisplaySubscriptionCleanup(): {
+    explanationToDisplay: string;
+    showExplanation: boolean;
+  } {
+    return {
+      explanationToDisplay: '',
+      showExplanation: false,
+    };
+  }
+
+  /**
+   * Determines the action to take when page visibility changes.
+   * Returns whether to pause or resume, and triggers explanation refresh if resuming.
+   * Extracted from handlePageVisibilityChange().
+   */
+  computeVisibilityAction(isHidden: boolean): {
+    isPaused: boolean;
+    shouldClearSubscriptions: boolean;
+    shouldRefreshExplanation: boolean;
+  } {
+    if (isHidden) {
+      return {
+        isPaused: true,
+        shouldClearSubscriptions: true,
+        shouldRefreshExplanation: false,
+      };
+    } else {
+      return {
+        isPaused: false,
+        shouldClearSubscriptions: false,
+        shouldRefreshExplanation: true,
+      };
+    }
+  }
 }

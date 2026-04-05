@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
-import { firstValueFrom, Observable } from 'rxjs';
-import { filter, map, take, timeout } from 'rxjs/operators';
+import { firstValueFrom, Observable, of } from 'rxjs';
+import { catchError, filter, map, take, timeout } from 'rxjs/operators';
 
 import { Option } from '../../models/Option.model';
 import { FormattedExplanation } from '../../models/FormattedExplanation.model';
@@ -8,6 +8,7 @@ import { QuizQuestion } from '../../models/QuizQuestion.model';
 import { QuestionState } from '../../models/QuestionState.model';
 import { ExplanationTextService } from './explanation-text.service';
 import { QuizService } from '../data/quiz.service';
+import { QuizDataService } from '../data/quizdata.service';
 import { QuizStateService } from '../state/quizstate.service';
 import { SelectedOptionService } from '../state/selectedoption.service';
 import { QuizQuestionManagerService } from '../flow/quizquestionmgr.service';
@@ -24,6 +25,7 @@ export class QqcExplanationDisplayService {
   constructor(
     private explanationTextService: ExplanationTextService,
     private quizService: QuizService,
+    private quizDataService: QuizDataService,
     private quizStateService: QuizStateService,
     private selectedOptionService: SelectedOptionService,
     private quizQuestionManagerService: QuizQuestionManagerService,
@@ -853,5 +855,47 @@ export class QqcExplanationDisplayService {
       }
       return 'Error fetching explanation.';
     }
+  }
+
+  /**
+   * Fetches questions for a quiz and delegates to handleQuestionData.
+   * Returns an observable subscription for cleanup.
+   * Extracted from conditionallyShowExplanation().
+   */
+  conditionallyShowExplanation(params: {
+    questionIndex: number;
+    quizId: string;
+    shouldDisplayExplanation: boolean;
+    getExplanationText: (index: number) => Promise<string>;
+  }): Promise<{
+    questionsArray: QuizQuestion[];
+    explanationText: string;
+    shouldShowExplanation: boolean;
+  }> {
+    return new Promise((resolve) => {
+      this.quizDataService
+        .getQuestionsForQuiz(params.quizId)
+        .pipe(
+          catchError((error: Error) => {
+            console.error('There was an error loading the questions', error);
+            return of([]);
+          })
+        )
+        .subscribe(async (data: QuizQuestion[]) => {
+          const result = await this.handleQuestionData({
+            questionsArray: data,
+            questionIndex: params.questionIndex,
+            quizId: params.quizId,
+            shouldDisplayExplanation: params.shouldDisplayExplanation,
+            getExplanationText: params.getExplanationText,
+          });
+
+          resolve({
+            questionsArray: data,
+            explanationText: result.explanationText,
+            shouldShowExplanation: result.shouldShowExplanation,
+          });
+        });
+    });
   }
 }

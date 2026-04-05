@@ -67,23 +67,6 @@ export class QqcInitializerService {
   // ═══════════════════════════════════════════════════════════════
 
   /**
-   * Initializes the quiz question subscription for tracking selected options.
-   * Called once during component initialization.
-   */
-  initializeQuizQuestion(params: {
-    quizStateService: QuizStateService;
-    quizService: QuizService;
-  }): void {
-    if (!params.quizStateService || !params.quizService) {
-      console.warn('Required services are not available.');
-      return;
-    }
-
-    // Delegate to component — this method just validates readiness
-    console.log('[QqcInitializer] Quiz question initialization validated.');
-  }
-
-  /**
    * Sets up the first question based on a route index.
    * Returns the prepared question and options.
    */

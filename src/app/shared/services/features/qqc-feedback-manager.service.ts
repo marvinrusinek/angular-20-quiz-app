@@ -586,6 +586,37 @@ export class QqcFeedbackManagerService {
    * Returns the message update flags.
    * Extracted from performInitialSelectionFlow().
    */
+  /**
+   * Computes the correct answers banner text for a question.
+   * Returns the banner text and the number of correct options.
+   * Extracted from loadQuestion().
+   */
+  computeCorrectAnswersBanner(params: {
+    currentQuestion: QuizQuestion;
+    currentQuestionIndex: number;
+  }): { bannerText: string; numCorrect: number } {
+    try {
+      const q = params.currentQuestion;
+      if (q?.options?.length) {
+        const numCorrect = q.options.filter(o => o.correct).length;
+        const totalOpts = q.options.length;
+        const msg = this.quizQuestionManagerService.getNumberOfCorrectAnswersText(numCorrect, totalOpts);
+
+        if (numCorrect > 1) {
+          console.log(`[BANNER] Set multi-answer banner for Q${params.currentQuestionIndex + 1}:`, msg);
+          return { bannerText: msg, numCorrect };
+        } else {
+          console.log(`[BANNER] Cleared single-answer banner for Q${params.currentQuestionIndex + 1}`);
+          return { bannerText: '', numCorrect };
+        }
+      }
+    } catch (err) {
+      console.warn('[BANNER] Failed to compute correct-answers text', err);
+    }
+
+    return { bannerText: '', numCorrect: 0 };
+  }
+
   computeSelectionTransition(params: {
     prevSelected: boolean;
     nowSelected: boolean;
