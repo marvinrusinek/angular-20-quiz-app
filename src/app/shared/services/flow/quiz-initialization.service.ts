@@ -22,7 +22,6 @@ export class QuizInitializationService {
   currentQuestion: QuizQuestion | null = null;
   currentQuestionIndex = 0;
   totalQuestions = 0;
-  numberOfCorrectAnswers = 0;
   quizId = '';
   selectedOption$: BehaviorSubject<Option | null> =
     new BehaviorSubject<Option | null>(null);
