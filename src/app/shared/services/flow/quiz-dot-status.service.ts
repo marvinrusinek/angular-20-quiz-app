@@ -905,6 +905,62 @@ export class QuizDotStatusService {
   }
 
   // ═══════════════════════════════════════════════════════════════
+  // PROGRESS COMPUTATION
+  // ═══════════════════════════════════════════════════════════════
+
+  computeTotalCount(
+    totalQuestions: number,
+    serviceQuestionsLength: number,
+    quizQuestionsLength: number
+  ): number {
+    if (totalQuestions > 0) return totalQuestions;
+    if (serviceQuestionsLength > 0) return serviceQuestionsLength;
+    return quizQuestionsLength;
+  }
+
+  computeProgressValue(params: {
+    totalCount: number;
+    currentQuestionIndex: number;
+    quizId: string;
+    optionsToDisplay: Option[];
+    currentQuestion: QuizQuestion | null;
+    questionsArray: QuizQuestion[];
+  }): { progress: number; isFresh: boolean } {
+    const { totalCount, currentQuestionIndex, quizId, optionsToDisplay, currentQuestion, questionsArray } = params;
+
+    if (totalCount <= 0) {
+      return { progress: -1, isFresh: false };
+    }
+
+    if (this.isQuizFreshAtQuestionOne(currentQuestionIndex)) {
+      for (let i = 0; i < totalCount; i++) {
+        this.dotStatusCache.set(i, 'pending');
+      }
+      return { progress: 0, isFresh: true };
+    }
+
+    let answeredCount = 0;
+    for (let i = 0; i < totalCount; i++) {
+      const status = this.getQuestionStatusSimple({
+        index: i,
+        quizId,
+        currentQuestionIndex,
+        optionsToDisplay,
+        currentQuestion,
+        questionsArray,
+        options: { forceRecompute: true },
+      });
+      this.dotStatusCache.set(i, status);
+      if (status !== 'pending') {
+        answeredCount += 1;
+      }
+    }
+
+    const progress = Math.round((answeredCount / totalCount) * 100);
+    return { progress, isFresh: false };
+  }
+
+  // ═══════════════════════════════════════════════════════════════
   // PRIVATE HELPERS
   // ═══════════════════════════════════════════════════════════════
 

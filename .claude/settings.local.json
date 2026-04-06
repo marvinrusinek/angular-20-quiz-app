@@ -42,7 +42,9 @@
       "Bash(grep -B5 -A5 handleOptionProcessingAndFeedback.*this. /c/Users/marvi/OneDrive/Desktop/angular-20-quiz-app/src/app/components/question/quiz-question/quiz-question.component.ts)",
       "Bash(grep -rn \"\\\\.conditionallyShowExplanation\\\\|\\\\.manageExplanationDisplay\" /c/Users/marvi/OneDrive/Desktop/angular-20-quiz-app/src/app --include=*.ts)",
       "Bash(grep:*)",
-      "Bash(find /c/Users/marvi/OneDrive/Desktop/angular-20-quiz-app/src -name *.ts -o -name *.html)"
+      "Bash(find /c/Users/marvi/OneDrive/Desktop/angular-20-quiz-app/src -name *.ts -o -name *.html)",
+      "Bash(while read:*)",
+      "Bash(for m:*)"
     ]
   }
 }

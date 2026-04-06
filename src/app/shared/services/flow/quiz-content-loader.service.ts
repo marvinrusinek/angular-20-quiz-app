@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
-import { firstValueFrom } from 'rxjs';
-import { take } from 'rxjs/operators';
+import { firstValueFrom, Observable, of } from 'rxjs';
+import { catchError, filter, map, take } from 'rxjs/operators';
 
 import { Option } from '../../models/Option.model';
+import { Quiz } from '../../models/Quiz.model';
 import { QuestionPayload } from '../../models/QuestionPayload.model';
 import { QuestionType } from '../../models/question-type.enum';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
@@ -13,6 +14,8 @@ import { ExplanationTextService } from '../features/explanation-text.service';
 import { SelectedOptionService } from '../state/selectedoption.service';
 import { SelectionMessageService } from '../features/selection-message.service';
 import { QuizQuestionDataService } from './quiz-question-data.service';
+import { QuizQuestionLoaderService } from './quizquestionloader.service';
+import { QuizScoringService } from './quiz-scoring.service';
 
 /**
  * Result from fetchAndSetQuestionData preparation.
@@ -66,6 +69,18 @@ export interface QuestionStateResult {
 }
 
 /**
+ * Result from loadQuestionFromRouteChange.
+ */
+export interface RouteChangeQuestionResult {
+  success: boolean;
+  question: QuizQuestion | null;
+  options: Option[];
+  explanation: string;
+  totalQuestions: number;
+  hasValidSelections: boolean;
+}
+
+/**
  * Handles heavy data-fetching and preparation logic for quiz questions.
  * Extracted from QuizComponent to reduce its size.
  */
@@ -79,7 +94,9 @@ export class QuizContentLoaderService {
     private explanationTextService: ExplanationTextService,
     private selectedOptionService: SelectedOptionService,
     private selectionMessageService: SelectionMessageService,
-    private quizQuestionDataService: QuizQuestionDataService
+    private quizQuestionDataService: QuizQuestionDataService,
+    private quizQuestionLoaderService: QuizQuestionLoaderService,
+    private quizScoringService: QuizScoringService
   ) {}
 
   // ═══════════════════════════════════════════════════════════════
@@ -142,6 +159,72 @@ export class QuizContentLoaderService {
     }
 
     return { question, isNavigation };
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // LOAD QUESTION FROM ROUTE CHANGE
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * Handles the heavy lifting when route params change: fetches quiz meta,
+   * loads question + options via loader service, resolves effective question
+   * (accounting for shuffle), and checks for existing selections.
+   */
+  async loadQuestionFromRouteChange(params: {
+    quizId: string;
+    index: number;
+  }): Promise<RouteChangeQuestionResult> {
+    const { quizId, index } = params;
+    const empty: RouteChangeQuestionResult = {
+      success: false, question: null, options: [], explanation: '',
+      totalQuestions: 0, hasValidSelections: false,
+    };
+
+    const currentQuiz: Quiz = await firstValueFrom(
+      this.quizDataService.getQuiz(quizId).pipe(
+        filter((q): q is Quiz => !!q && Array.isArray(q.questions)),
+        take(1)
+      )
+    );
+    if (!currentQuiz) return empty;
+
+    this.quizService.setCurrentQuiz(currentQuiz);
+    this.quizQuestionLoaderService.activeQuizId = quizId;
+    const totalQ = currentQuiz.questions?.length ?? 0;
+    this.quizQuestionLoaderService.totalQuestions = totalQ;
+
+    await this.quizQuestionLoaderService.loadQuestionAndOptions(index);
+    await this.quizQuestionLoaderService.loadQA(index);
+
+    const shouldUseShuffled =
+      this.quizService.isShuffleEnabled() &&
+      this.quizService.shuffledQuestions?.length > 0;
+    const effectiveQuestions = shouldUseShuffled
+      ? this.quizService.shuffledQuestions : currentQuiz.questions;
+    const question = effectiveQuestions?.[index] ?? null;
+    if (!question) return empty;
+
+    this.quizQuestionLoaderService.resetHeadlineStreams(index);
+    this.quizService.updateCurrentQuestion(question);
+
+    const options = question.options ?? [];
+    const explanation = question.explanation ?? '';
+
+    const optionIdSet = new Set(
+      options.map((opt) => opt.optionId).filter((id): id is number => typeof id === 'number')
+    );
+    const validSelections =
+      (this.selectedOptionService.getSelectedOptionsForQuestion(index) ?? [])
+        .filter((opt) => optionIdSet.has(opt.optionId ?? -1));
+
+    return {
+      success: true,
+      question,
+      options,
+      explanation,
+      totalQuestions: totalQ,
+      hasValidSelections: validSelections.length > 0,
+    };
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -823,6 +906,418 @@ export class QuizContentLoaderService {
       } catch {}
       this.selectedOptionService.clickConfirmedDotStatus.set(leavingIdx, leavingStatus);
       try { sessionStorage.setItem('dot_confirmed_' + leavingIdx, leavingStatus); } catch {}
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // QUESTION DATA PIPELINE
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * Creates a normalized QuestionPayload observable from quizService.questionPayload$.
+   * The component subscribes and assigns fields from each emission.
+   */
+  createNormalizedQuestionPayload$(): Observable<QuestionPayload> {
+    const fallbackQuestion: QuizQuestion = {
+      questionText: 'No question available',
+      type: QuestionType.SingleAnswer,
+      explanation: '',
+      options: []
+    };
+
+    const fallbackPayload: QuestionPayload = {
+      question: fallbackQuestion,
+      options: [],
+      explanation: ''
+    };
+
+    return this.quizService.questionPayload$.pipe(
+      map((payload) => {
+        const baseQuestion = payload?.question ?? fallbackQuestion;
+        const safeOptions = Array.isArray(payload?.options)
+          ? payload.options.map((option: Option) => ({
+            ...option,
+            correct: option.correct ?? false
+          }))
+          : [];
+
+        const explanation = (
+          payload?.explanation ??
+          baseQuestion.explanation ??
+          ''
+        ).trim();
+
+        const normalizedQuestion: QuizQuestion = {
+          ...baseQuestion,
+          options: safeOptions,
+          explanation
+        };
+
+        return {
+          question: normalizedQuestion,
+          options: safeOptions,
+          explanation
+        } as QuestionPayload;
+      }),
+      catchError((error: Error) => {
+        console.error('[Error in createNormalizedQuestionPayload$]', error);
+        return of(fallbackPayload);
+      })
+    );
+  }
+
+  /**
+   * Resolves an explanation change event into a normalized { text, index } pair.
+   * Returns null if the change should be suppressed (e.g., raw text trying to
+   * overwrite a formatted FET).
+   */
+  resolveExplanationChange(
+    explanation: string | any,
+    index: number | undefined,
+    currentExplanation: string
+  ): { text: string; index: number | undefined } | null {
+    let finalExplanation: string;
+    let finalIndex = index;
+
+    if (explanation && typeof explanation === 'object' && 'payload' in explanation) {
+      finalExplanation = explanation.payload;
+      finalIndex = ('index' in explanation) ? explanation.index : index;
+    } else {
+      finalExplanation = explanation;
+    }
+
+    if (!finalExplanation) return null;
+
+    // Guard: Don't let non-formatted text overwrite an already-formatted FET
+    const currentHasPrefix = currentExplanation?.toLowerCase().includes('correct because');
+    const incomingHasPrefix = finalExplanation.toLowerCase().includes('correct because');
+    if (currentHasPrefix && !incomingHasPrefix) return null;
+
+    return { text: finalExplanation, index: finalIndex };
+  }
+
+  /**
+   * Restores selected options from sessionStorage by marking matching options as selected.
+   * Mutates the passed options array in place.
+   */
+  restoreSelectedOptionsFromSession(optionsToDisplay: Option[]): void {
+    const selectedOptionsData = sessionStorage.getItem('selectedOptions');
+    if (!selectedOptionsData) return;
+
+    try {
+      const selectedOptions = JSON.parse(selectedOptionsData);
+      if (!Array.isArray(selectedOptions) || selectedOptions.length === 0) {
+        console.warn('[restoreSelectedOptions] No valid selected options to restore.');
+        return;
+      }
+
+      for (const option of selectedOptions) {
+        const restoredOption = optionsToDisplay.find(
+          opt => opt.optionId === option.optionId
+        );
+
+        if (restoredOption) {
+          restoredOption.selected = true;
+          console.log('[restoreSelectedOptions] Restored option as selected:', restoredOption);
+        } else {
+          console.warn('[restoreSelectedOptions] Option not found in optionsToDisplay:', option);
+        }
+      }
+    } catch (error: any) {
+      console.error('[restoreSelectedOptions] Error parsing selected options:', error);
+    }
+  }
+
+  /**
+   * Fetches a question and options from the API for a given quizId and questionIndex.
+   * Returns the question with options having `correct` defaults applied.
+   */
+  async fetchQuestionFromAPI(
+    quizId: string,
+    questionIndex: number
+  ): Promise<QuizQuestion | null> {
+    if (!quizId || quizId.trim() === '') {
+      console.error('Quiz ID is required but not provided.');
+      return null;
+    }
+
+    try {
+      const result = await firstValueFrom(
+        of(
+          this.quizDataService.fetchQuestionAndOptionsFromAPI(
+            quizId,
+            questionIndex
+          )
+        )
+      );
+
+      if (!result) {
+        console.error('No valid question found');
+        return null;
+      }
+
+      const [question, options] = result ?? [null, null];
+      if (!question) return null;
+
+      return {
+        ...question,
+        options: options?.map((option: Option) => ({
+          ...option,
+          correct: option.correct ?? false
+        })) ?? question.options
+      };
+    } catch (error: any) {
+      console.error('Error fetching question and options:', error);
+      return null;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // QUESTION HYDRATION PIPELINE
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * Hydrates a set of questions from session data: scores, explanations,
+   * formatted explanations, and deep-clones questions onto quiz/selectedQuiz.
+   * Returns the hydrated array and deep-cloned question arrays for quiz and selectedQuiz.
+   */
+  hydrateQuestionsFromSession(params: {
+    questions: QuizQuestion[];
+    quiz: Quiz | null;
+    selectedQuiz: Quiz | null;
+  }): {
+    hydratedQuestions: QuizQuestion[];
+    quizQuestions: QuizQuestion[] | null;
+    selectedQuizQuestions: QuizQuestion[] | null;
+  } {
+    const hydratedQuestions = this.quizScoringService.hydrateQuestionSet(params.questions);
+
+    if (hydratedQuestions.length === 0) {
+      this.explanationTextService.initializeExplanationTexts([]);
+      this.explanationTextService.initializeFormattedExplanations([]);
+      return { hydratedQuestions, quizQuestions: null, selectedQuizQuestions: null };
+    }
+
+    const explanations = hydratedQuestions.map((question) =>
+      (question.explanation ?? '').trim()
+    );
+    this.explanationTextService.initializeExplanationTexts(explanations);
+
+    this.explanationTextService.fetByIndex.clear();
+    console.log('[QuizContentLoader] Cleared FET cache (fetByIndex) before regenerating.');
+
+    const formattedExplanations =
+      this.quizQuestionDataService.formatExplanationsForQuestions(hydratedQuestions);
+    this.explanationTextService.initializeFormattedExplanations(formattedExplanations);
+
+    const deepCloneQuestions = (qs: QuizQuestion[]) =>
+      qs.map((question) => ({
+        ...question,
+        options: question.options.map((option) => ({ ...option }))
+      }));
+
+    const quizQuestions = params.quiz ? deepCloneQuestions(hydratedQuestions) : null;
+    const selectedQuizQuestions = params.selectedQuiz ? deepCloneQuestions(hydratedQuestions) : null;
+
+    return { hydratedQuestions, quizQuestions, selectedQuizQuestions };
+  }
+
+  /**
+   * Resets FET state before quiz initialization.
+   * Called from initializeQuizFromRoute to prevent stale FET from previous sessions.
+   */
+  resetFetStateForInit(): void {
+    try {
+      const ets = this.explanationTextService;
+      ets._activeIndex = -1;
+      ets._fetLocked = true;
+      ets.latestExplanation = '';
+      ets.setShouldDisplayExplanation(false);
+      ets.setIsExplanationTextDisplayed(false);
+      ets.formattedExplanationSubject?.next('');
+      requestAnimationFrame(() => ets.emitFormatted(-1, null));
+      console.log('[INIT] Cleared old FET state before first render');
+    } catch (error) {
+      console.warn('[INIT] FET clear failed', error);
+    }
+  }
+
+  /**
+   * Seeds the first question text and unlocks FET gate after stabilization.
+   * Called after quiz initialization completes.
+   */
+  seedFirstQuestionText(): void {
+    try {
+      const firstQuestion = this.quizService.questions?.[0];
+      if (firstQuestion) {
+        const trimmed = (firstQuestion.questionText ?? '').trim();
+        if (trimmed.length > 0) {
+          console.log('[QUIZ INIT] Seeded initial question text for Q1');
+          setTimeout(() => {
+            this.explanationTextService._fetLocked = false;
+            console.log('[INIT] FET gate opened after first-question seed');
+          }, 80);
+        }
+      }
+      this.explanationTextService.setShouldDisplayExplanation(false);
+      this.explanationTextService.setIsExplanationTextDisplayed(false);
+    } catch (error: any) {
+      console.warn('[QUIZ INIT] Could not seed initial question text', error);
+    }
+  }
+
+  /**
+   * Processes a selected answer: determines correct answers, manages answer
+   * arrays, syncs with QuizService, and triggers scoring.
+   */
+  processSelectedAnswer(params: {
+    optionIndex: number;
+    question: QuizQuestion | null;
+    optionsToDisplay: Option[];
+    currentQuestionIndex: number;
+    answers: Option[];
+    selectedOption$: { next: (o: Option) => void };
+  }): {
+    option: Option | null;
+    answers: Option[];
+    answerIds: number[];
+  } {
+    const option =
+      params.question?.options?.[params.optionIndex] ?? params.optionsToDisplay?.[params.optionIndex];
+    if (!option) {
+      console.warn(`[selectedAnswer] No option found at index ${params.optionIndex}`);
+      return { option: null, answers: params.answers, answerIds: [] };
+    }
+
+    const correctAnswers = params.question?.options.filter((opt: Option) => opt.correct) ?? [];
+    let answers = [...params.answers];
+
+    if (correctAnswers.length > 1) {
+      if (!answers.includes(option)) {
+        answers.push(option);
+      }
+    } else {
+      answers = [option];
+    }
+
+    const answerIds = answers
+      .map((ans: Option) => ans.optionId)
+      .filter((id): id is number => typeof id === 'number');
+    this.quizService.answers = [...answers];
+    this.quizService.updateUserAnswer(params.currentQuestionIndex, answerIds);
+    void this.quizService.checkIfAnsweredCorrectly(params.currentQuestionIndex, false);
+
+    params.selectedOption$.next(option);
+
+    return { option, answers, answerIds };
+  }
+
+  /**
+   * Fetches question and options from the data service and updates quiz state.
+   * Replaces the component's fetchQuestionAndOptions method.
+   */
+  fetchAndSubscribeQuestionAndOptions(quizId: string, questionIndex: number): void {
+    if (document.hidden) {
+      console.log('Document is hidden, not loading question');
+      return;
+    }
+
+    if (!quizId || quizId.trim() === '') {
+      console.error('Quiz ID is required but not provided.');
+      return;
+    }
+
+    if (questionIndex < 0) {
+      console.error(`Invalid question index: ${questionIndex}`);
+      return;
+    }
+
+    this.quizDataService.getQuestionAndOptions(quizId, questionIndex)
+      .pipe(
+        map((data: any): [QuizQuestion | null, Option[] | null] => {
+          return Array.isArray(data)
+            ? (data as [QuizQuestion | null, Option[] | null])
+            : [null, null];
+        }),
+        catchError(
+          (error: Error): Observable<[QuizQuestion | null, Option[] | null]> => {
+            console.error('Error fetching question and options:', error);
+            return of<[QuizQuestion | null, Option[] | null]>([null, null]);
+          }
+        )
+      )
+      .subscribe({
+        next: ([question, options]: [QuizQuestion | null, Option[] | null]) => {
+          if (question && options) {
+            this.quizStateService.updateCurrentQuizState(of(question));
+          } else {
+            console.log('Question or options not found');
+          }
+        },
+        error: (error: Error) => {
+          console.error('Subscription error:', error);
+        }
+      });
+  }
+
+  /**
+   * Initializes FET (formatted explanation text) for quiz data, handling
+   * the shuffle vs non-shuffle ordering.
+   */
+  initializeFetForQuizData(quizData: Quiz): void {
+    const isShuffled = this.quizService.isShuffleEnabled();
+
+    this.quizService.setSelectedQuiz(quizData);
+
+    if (!isShuffled) {
+      this.explanationTextService.initializeExplanationTexts(
+        (quizData.questions ?? []).map((q: QuizQuestion) => q.explanation)
+      );
+    }
+  }
+
+  /**
+   * Initializes FET with shuffled question order after quiz init.
+   */
+  initializeFetForShuffledQuiz(): void {
+    if (!this.quizService.isShuffleEnabled()) return;
+
+    const shuffledQuestions = this.quizService.questions ?? [];
+    if (shuffledQuestions.length > 0) {
+      this.explanationTextService.initializeExplanationTexts(
+        shuffledQuestions.map((q: QuizQuestion) => q.explanation)
+      );
+      console.log('[resolveQuizData] FET initialized with SHUFFLED question order');
+    }
+  }
+
+  /**
+   * Loads quiz data (questions + metadata) for a given quizId.
+   * Returns the quiz and questions, or null on failure.
+   */
+  async loadQuizDataFromService(quizId: string): Promise<{
+    quiz: Quiz;
+    questions: QuizQuestion[];
+  } | null> {
+    try {
+      const questions = await this.quizService.fetchQuizQuestions(quizId);
+      if (!questions || questions.length === 0) {
+        console.error('Quiz has no questions or failed to load via QuizService.');
+        return null;
+      }
+
+      const quiz = await firstValueFrom(
+        this.quizDataService.getQuiz(quizId).pipe(take(1))
+      );
+      if (!quiz) {
+        console.error('Quiz metadata not found.');
+        return null;
+      }
+
+      return { quiz, questions };
+    } catch (error: any) {
+      console.error('Error loading quiz data:', error);
+      return null;
     }
   }
 }
