@@ -134,6 +134,21 @@ export class QuizResetService {
   // RESET FOR QUIZ SWITCH (route event quiz change)
   // ═══════════════════════════════════════════════════════════════
 
+  /**
+   * Full quiz-switch reset orchestration including persistence cleanup.
+   * Caller must reset its own component-local fields after calling this.
+   */
+  performQuizSwitchResets(routeQuizId: string): void {
+    this.resetForQuizSwitch(routeQuizId);
+    this.quizPersistence.clearAllPersistedDotStatus(routeQuizId);
+    this.dotStatusService.clearAllMaps();
+    this.quizPersistence.clearClickConfirmedDotStatus(0);
+
+    try {
+      localStorage.setItem('lastQuizId', routeQuizId);
+    } catch { }
+  }
+
   resetForQuizSwitch(routeQuizId: string): void {
     // Reset navigation service
     // (caller must handle quizNavigationService.resetForNewQuiz separately

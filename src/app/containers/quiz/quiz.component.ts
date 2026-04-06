@@ -49,6 +49,7 @@ import { QuizRouteService } from '../../shared/services/flow/quiz-route.service'
 import { QuizScoringService } from '../../shared/services/flow/quiz-scoring.service';
 import { QuizOptionProcessingService } from '../../shared/services/flow/quiz-option-processing.service';
 import { QuizContentLoaderService } from '../../shared/services/flow/quiz-content-loader.service';
+import { QuizVisibilityRestoreService } from '../../shared/services/flow/quiz-visibility-restore.service';
 import { QuizPersistenceService } from '../../shared/services/state/quiz-persistence.service';
 
 import { ChangeRouteAnimation } from '../../animations/animations';
@@ -158,9 +159,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   unsubscribe$ = new Subject<void>();
   private destroy$ = new Subject<void>();
 
-  // Saved display state for tab visibility restoration (question vs FET)
-  private _savedDisplayState: { mode: 'question' | 'explanation'; answered: boolean } | null = null;
-
   // Use the display state from QuizStateService instead of local state
   displayState$ = this.quizStateService.displayState$;
 
@@ -195,6 +193,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     private quizScoringService: QuizScoringService,
     private quizOptionProcessingService: QuizOptionProcessingService,
     private quizContentLoaderService: QuizContentLoaderService,
+    private quizVisibilityRestoreService: QuizVisibilityRestoreService,
 
     private activatedRoute: ActivatedRoute,
     private router: Router,
@@ -207,58 +206,14 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     // Tab visibility change handler - preserve display state (question vs FET)
     this.sharedVisibilityService.pageVisibility$.subscribe((isHidden: boolean) => {
-      if (isHidden) {
-        // Tab hidden: Save the current display state to preserve it
-        const currentDisplayState =
-          this.quizStateService.displayStateSubject?.value;
-        if (currentDisplayState) {
-          this._savedDisplayState = { ...currentDisplayState };
-          console.log('[VISIBILITY] Saved display state on hide:',
-            this._savedDisplayState);
-        }
-      } else {
-        // Tab visible: Lock display state changes, then restore the saved state
-        if (this._savedDisplayState) {
-          console.log('[VISIBILITY] Restoring saved display state:',
-            this._savedDisplayState);
-
-          // Lock display state changes for 500ms to prevent other components from
-          // overriding
-          this.quizStateService.lockDisplayStateForVisibilityRestore(500);
-
-          // Re-apply the exact same state that was active before with force to bypass lock
-          this.quizStateService.setDisplayState(this._savedDisplayState, { force: true });
-
-          // Sync explanation service flags with the saved state
-          const showingExplanation = this._savedDisplayState.mode === 'explanation';
-          this.explanationTextService.setShouldDisplayExplanation(showingExplanation);
-          this.explanationTextService.setIsExplanationTextDisplayed(showingExplanation);
-
-          // Force re-emit of question data to ensure UI renders
-          if (this.currentQuestion) {
-            console.log('[VISIBILITY] Re-emitting question data to force ' +
-              're-render');
-            const currentPayload =
-              this.combinedQuestionDataSubject.getValue();
-
-            // Prefer existing payload if available, otherwise reconstruct it
-            const payloadToEmit: QuestionPayload = currentPayload || {
-              question: this.currentQuestion,
-              options: this.optionsToDisplay || [],
-              explanation: this.explanationToDisplay || ''
-            };
-
-            this.combinedQuestionDataSubject.next(payloadToEmit);
-
-            // Ensure options are also re-pushed to optionsToDisplay$
-            if (this.optionsToDisplay && this.optionsToDisplay.length > 0) {
-              this.optionsToDisplay$.next(this.optionsToDisplay);
-            }
-          }
-
-          this.cdRef.markForCheck();
-        }
-      }
+      const needsRender = this.quizVisibilityRestoreService.handleVisibilityChange(isHidden, {
+        currentQuestion: this.currentQuestion,
+        optionsToDisplay: this.optionsToDisplay,
+        explanationToDisplay: this.explanationToDisplay,
+        combinedQuestionDataSubject: this.combinedQuestionDataSubject,
+        optionsToDisplay$: this.optionsToDisplay$,
+      });
+      if (needsRender) this.cdRef.markForCheck();
     });
 
     this.isAnswered$ = this.selectedOptionService.isAnswered$;
@@ -512,9 +467,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           this.quizNavigationService.resetForNewQuiz();
           console.log(`[QuizComponent] Quiz INIT/SWITCH: ${this.quizId} -> ${routeQuizId}. Resetting state for clean start.`);
 
-          // Service-level resets
-          this.quizResetService.resetForQuizSwitch(routeQuizId);
-          this.clearAllPersistedDotStatus();
+          this.quizResetService.performQuizSwitchResets(routeQuizId);
 
           // Component-local state
           this.questionsArray = [];
@@ -526,20 +479,14 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           this.explanationToDisplay = '';
           this.currentQuestionIndex = 0;
           this.lastLoggedIndex = -1;
-
-          this.dotStatusService.clearAllMaps();
-          this.clearClickConfirmedDotStatus();
-
           this.navigatingToResults = false;
           this.isQuizLoaded = false;
           this.isQuizDataLoaded = false;
           this.totalQuestions = 0;
           this.progress = 0;
 
-          // Update quiz ID and fetch new questions
           this.quizId = routeQuizId;
           this.quizService.setQuizId(routeQuizId);
-          try { localStorage.setItem('lastQuizId', routeQuizId); } catch { }
           await this.loadQuestions();
           this.isQuizLoaded = true;
         }
