@@ -1,10 +1,9 @@
 import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component,
-  EventEmitter, HostListener, Input, NgZone, OnChanges, OnDestroy, OnInit,
-  Output, SimpleChanges, ViewChild, ViewEncapsulation
+  HostListener, Input, NgZone, OnChanges, OnDestroy, OnInit,
+  SimpleChanges, ViewChild, ViewEncapsulation
 } from '@angular/core';
 import { CommonModule, AsyncPipe } from '@angular/common';
-import { FormGroup } from '@angular/forms';
 import { ActivatedRoute, NavigationEnd, ParamMap, Params, Router } from '@angular/router';
 import {
   BehaviorSubject, combineLatest, EMPTY, firstValueFrom, Observable, of,
@@ -83,12 +82,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   @ViewChild('nextButton', { static: false })
   nextButtonTooltip!: MatTooltip;
 
-  @Output() selectionMessageChange = new EventEmitter<string>();
-  @Input() data: QuizQuestion | null = null;
   @Input() selectedQuiz: Quiz | null = null;
   @Input() currentQuestion: QuizQuestion | null = null;
-  @Input() shouldDisplayNumberOfCorrectAnswers = false;
-  @Input() form!: FormGroup;
   quiz!: Quiz;
   quizId = '';
   question: QuizQuestion | null = null;
@@ -1134,7 +1129,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         }
         break;
       case 'selectionMessageChange':
-        this.onSelectionMessageChange(event.payload);
         break;
       case 'explanationToDisplayChange':
         this.onExplanationChanged(event.payload, event.index);
@@ -1723,9 +1717,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       console.error('Invalid question provided.');
       this.question = null;
     }
-  }
-
-  onSelectionMessageChange(_message: string) {
   }
 
 
