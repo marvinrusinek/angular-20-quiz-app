@@ -10,6 +10,7 @@ import { ResetStateService } from '../state/reset-state.service';
 import { ResetBackgroundService } from '../ui/reset-background.service';
 import { QuizPersistenceService } from '../state/quiz-persistence.service';
 import { QuizDotStatusService } from './quiz-dot-status.service';
+import { TimerService } from '../features/timer.service';
 
 /**
  * Orchestrates reset operations across multiple services.
@@ -28,8 +29,47 @@ export class QuizResetService {
     private resetStateService: ResetStateService,
     private resetBackgroundService: ResetBackgroundService,
     private quizPersistence: QuizPersistenceService,
-    private dotStatusService: QuizDotStatusService
+    private dotStatusService: QuizDotStatusService,
+    private timerService: TimerService
   ) {}
+
+  // ═══════════════════════════════════════════════════════════════
+  // POST-RESTART STATE (after navigation completes)
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * Applies post-navigation restart state. Caller passes totalQuestions
+   * and a callback to invoke after the second microtask (for ViewChild work).
+   */
+  applyPostRestartState(
+    totalQuestions: number,
+    postBindingCallback: () => void
+  ): void {
+    this.quizService.setCurrentQuestionIndex(0);
+    this.quizService.updateBadgeText(1, totalQuestions);
+
+    this.resetStateService.triggerResetFeedback();
+    this.resetStateService.triggerResetState();
+    this.quizService.setCurrentQuestionIndex(0);
+
+    this.nextButtonStateService.setNextButtonState(false);
+    this.quizStateService.setAnswerSelected(false);
+
+    queueMicrotask(() => {
+      this.quizStateService.setInteractionReady(true);
+      requestAnimationFrame(() => {
+        this.timerService.resetTimer();
+        this.timerService.startTimer(
+          this.timerService.timePerQuestion,
+          this.timerService.isCountdown,
+          true
+        );
+      });
+    });
+
+    queueMicrotask(postBindingCallback);
+  }
+
 
   // ═══════════════════════════════════════════════════════════════
   // RESET QUIZ STATE (service-level resets for quiz start)

@@ -100,6 +100,41 @@ export class QuizContentLoaderService {
   ) {}
 
   // ═══════════════════════════════════════════════════════════════
+  // OPTION / DOM RESETS FOR QUESTION TRANSITION
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * Clears transient option flags (selected/highlight/showFeedback/showIcon)
+   * across all loaded questions. Used when navigating to a new index.
+   */
+  clearAllOptionStates(): void {
+    try {
+      for (const q of this.quizService.questions ?? []) {
+        for (const o of q.options ?? []) {
+          o.selected = false;
+          o.highlight = false;
+          o.showFeedback = false;
+          o.showIcon = false;
+        }
+      }
+    } catch (error: any) {
+      console.warn('[clearAllOptionStates] failed', error);
+    }
+  }
+
+  /**
+   * Re-enables pointer events on all option buttons in the DOM,
+   * undoing any prior pointerEvents='none' lock.
+   */
+  enableAllOptionPointerEvents(): void {
+    for (const btn of Array.from(
+      document.querySelectorAll('.option-button,.mat-radio-button,.mat-checkbox')
+    )) {
+      (btn as HTMLElement).style.pointerEvents = 'auto';
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
   // QUESTION INDEX TRANSITION
   // ═══════════════════════════════════════════════════════════════
 

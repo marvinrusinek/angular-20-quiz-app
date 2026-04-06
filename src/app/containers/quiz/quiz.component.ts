@@ -624,44 +624,40 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       console.error('[QuizComponent] Error loading questions:', error);
     }
 
-    // Push initial question data immediately after questions are loaded
-    // This fixes Stackblitz timing issue where options weren't displaying because
-    // subscribeToQuestionIndex subscription wasn't triggered for initial question
-    if (this.questionsArray?.length > 0) {
-      const initialIdx = this.currentQuestionIndex || 0;
-      const initialQuestion = this.questionsArray[initialIdx];
-      if (initialQuestion && initialQuestion.options?.length > 0) {
-        console.log(`[QuizComponent] Pushing initial Q${initialIdx + 1} to combinedQuestionDataSubject`);
-        this.currentQuestion = initialQuestion;
-        this.questionToDisplaySource.next(initialQuestion.questionText?.trim() ?? '');
+    this.pushInitialQuestionPayload();
+  }
 
-        const payload = {
-          question: initialQuestion,
-          options: initialQuestion.options,
-          explanation: initialQuestion.explanation
-        };
-
-        // Push synchronously
-        this.combinedQuestionDataSubject.next(payload);
-
-        // Force synchronous change detection to ensure template updates
-        this.cdRef.detectChanges();
-        console.log('[QuizComponent] Forced detectChanges after initial push');
-
-        // Also schedule a microtask push as backup for Stackblitz
-        Promise.resolve().then(() => {
-          // Re-emit in case the first one was missed
-          if (this.combinedQuestionDataSubject.getValue()?.options?.length === 0 ||
-            !this.combinedQuestionDataSubject.getValue()) {
-            console.log('[QuizComponent] Re-emitting payload in microtask');
-            this.combinedQuestionDataSubject.next(payload);
-            this.cdRef.detectChanges();
-          }
-        });
-      } else {
-        console.warn('[QuizComponent] Initial question has no options!', initialQuestion);
-      }
+  // Pushes initial question payload after load.
+  // Fixes Stackblitz timing where subscribeToQuestionIndex doesn't fire for Q1.
+  private pushInitialQuestionPayload(): void {
+    if (!this.questionsArray?.length) return;
+    const initialIdx = this.currentQuestionIndex || 0;
+    const initialQuestion = this.questionsArray[initialIdx];
+    if (!initialQuestion || !initialQuestion.options?.length) {
+      console.warn('[QuizComponent] Initial question has no options!', initialQuestion);
+      return;
     }
+
+    this.currentQuestion = initialQuestion;
+    this.questionToDisplaySource.next(initialQuestion.questionText?.trim() ?? '');
+
+    const payload = {
+      question: initialQuestion,
+      options: initialQuestion.options,
+      explanation: initialQuestion.explanation
+    };
+
+    this.combinedQuestionDataSubject.next(payload);
+    this.cdRef.detectChanges();
+
+    // Microtask backup for Stackblitz
+    Promise.resolve().then(() => {
+      const current = this.combinedQuestionDataSubject.getValue();
+      if (!current || current.options?.length === 0) {
+        this.combinedQuestionDataSubject.next(payload);
+        this.cdRef.detectChanges();
+      }
+    });
   }
 
   private subscribeToNextButtonState(): void {
@@ -1403,23 +1399,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     // Reset all transient UI and selection state
     this.resetExplanationText();
-    try {
-      for (const q of this.quizService.questions ?? []) {
-        for (const o of q.options ?? []) {
-          o.selected = false;
-          o.highlight = false;
-          o.showFeedback = false;
-          o.showIcon = false;
-        }
-      }
-      this.nextButtonStateService.setNextButtonState(false);
-      console.log(
-        `[updateContentBasedOnIndex] Cleared option states for 
-          Q${adjustedIndex + 1}`
-      );
-    } catch (error: any) {
-      console.warn('[updateContentBasedOnIndex] ⚠️ State reset failed', error);
-    }
+    this.quizContentLoaderService.clearAllOptionStates();
+    this.nextButtonStateService.setNextButtonState(false);
 
     // Wait for purge to settle visually
     await this.nextFrame();
@@ -1463,15 +1444,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       }, 140);
 
       // Ensure all options are clickable again
-      setTimeout(() => {
-        for (const btn of Array.from(
-          document.querySelectorAll(
-            '.option-button,.mat-radio-button,.mat-checkbox'
-          )
-        )) {
-          (btn as HTMLElement).style.pointerEvents = 'auto';
-        }
-      }, 200);
+      setTimeout(() => this.quizContentLoaderService.enableAllOptionPointerEvents(), 200);
     } catch (error: any) {
       console.error('[updateContentBasedOnIndex] Failed to load question',
         error);
@@ -1820,29 +1793,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.router.navigate(['/quiz/question', this.quizId, 1])
       .then(() => {
         this.currentQuestionIndex = 0;
-        this.quizService.setCurrentQuestionIndex(0);
-        this.quizService.updateBadgeText(1, this.totalQuestions);
-
-        this.resetStateService.triggerResetFeedback();
-        this.resetStateService.triggerResetState();
-        this.quizService.setCurrentQuestionIndex(0);
-
-        this.nextButtonStateService.setNextButtonState(false);
-        this.quizStateService.setAnswerSelected(false);
-
-        queueMicrotask(() => {
-          this.quizStateService.setInteractionReady(true);
-          requestAnimationFrame(() => {
-            this.timerService.resetTimer();
-            this.timerService.startTimer(
-              this.timerService.timePerQuestion,
-              this.timerService.isCountdown,
-              true
-            );
-          });
-        });
-
-        queueMicrotask(() => {
+        this.quizResetService.applyPostRestartState(this.totalQuestions, () => {
           this.sharedOptionComponent?.generateOptionBindings();
           this.cdRef.detectChanges();
         });
