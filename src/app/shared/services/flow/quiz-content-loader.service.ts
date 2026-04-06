@@ -83,6 +83,68 @@ export class QuizContentLoaderService {
   ) {}
 
   // ═══════════════════════════════════════════════════════════════
+  // QUESTION INDEX TRANSITION
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * Handles service-level state transitions when the question index changes.
+   * Returns the question for the new index (if found) for the component to assign.
+   */
+  handleQuestionIndexTransition(params: {
+    idx: number;
+    prevIdx: number | null;
+    quizId: string;
+    questionsArray: QuizQuestion[];
+  }): { question: QuizQuestion | null; isNavigation: boolean } {
+    const { idx, prevIdx, quizId } = params;
+    const ets = this.explanationTextService;
+
+    // Clear FET belonging to the previous question
+    if (prevIdx !== null && prevIdx !== idx) {
+      if (ets.latestExplanationIndex === prevIdx) {
+        ets.latestExplanation = '';
+        ets.latestExplanationIndex = null;
+        ets.formattedExplanationSubject.next('');
+        ets.shouldDisplayExplanationSource.next(false);
+        ets.setIsExplanationTextDisplayed(false);
+      }
+    }
+
+    // Hard reset question state flags
+    const qState =
+      quizId && Number.isFinite(idx)
+        ? this.quizStateService.getQuestionState?.(quizId, idx)
+        : null;
+    if (qState) {
+      qState.explanationDisplayed = false;
+      qState.explanationText = '';
+    }
+
+    // Update ETS tracking
+    ets._activeIndex = idx;
+    ets.latestExplanationIndex = idx;
+    ets._fetLocked = false;
+
+    // Sync question from array
+    const question = params.questionsArray[idx] ?? null;
+    if (question) {
+      this.quizStateService.updateCurrentQuestion(question);
+      this.quizService.updateCurrentQuestion(question);
+    }
+
+    // Reset display mode on navigation
+    const isNavigation = prevIdx !== null && prevIdx !== idx;
+    if (isNavigation) {
+      this.quizStateService.displayStateSubject.next({
+        mode: 'question',
+        answered: false
+      });
+    }
+
+    return { question, isNavigation };
+  }
+
+  // ═══════════════════════════════════════════════════════════════
   // FETCH AND SET QUESTION DATA
   // ═══════════════════════════════════════════════════════════════
 

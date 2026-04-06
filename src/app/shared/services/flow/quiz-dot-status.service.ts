@@ -18,6 +18,15 @@ import { QuizPersistenceService } from '../state/quiz-persistence.service';
 @Injectable({ providedIn: 'root' })
 export class QuizDotStatusService {
 
+  // ═══════════════════════════════════════════════════════════════
+  // OWNED STATE MAPS (moved from QuizComponent)
+  // ═══════════════════════════════════════════════════════════════
+
+  dotStatusCache = new Map<number, 'correct' | 'wrong' | 'pending'>();
+  pendingDotStatusOverrides = new Map<number, 'correct' | 'wrong'>();
+  activeDotClickStatus = new Map<number, 'correct' | 'wrong'>();
+  timerExpiredUnanswered = new Set<number>();
+
   constructor(
     private quizService: QuizService,
     private quizShuffleService: QuizShuffleService,
@@ -25,6 +34,23 @@ export class QuizDotStatusService {
     private selectedOptionService: SelectedOptionService,
     private persistence: QuizPersistenceService
   ) {}
+
+  // ═══════════════════════════════════════════════════════════════
+  // STATE MAP HELPERS
+  // ═══════════════════════════════════════════════════════════════
+
+  clearAllMaps(): void {
+    this.dotStatusCache.clear();
+    this.pendingDotStatusOverrides.clear();
+    this.activeDotClickStatus.clear();
+    this.timerExpiredUnanswered.clear();
+  }
+
+  clearForIndex(index: number): void {
+    this.activeDotClickStatus.delete(index);
+    this.pendingDotStatusOverrides.delete(index);
+    this.dotStatusCache.delete(index);
+  }
 
   // ═══════════════════════════════════════════════════════════════
   // SCORING KEY HELPERS
@@ -498,6 +524,40 @@ export class QuizDotStatusService {
   // ═══════════════════════════════════════════════════════════════
   // GET QUESTION STATUS (core dot status computation)
   // ═══════════════════════════════════════════════════════════════
+
+  getQuestionStatusSimple(params: {
+    index: number;
+    quizId: string;
+    currentQuestionIndex: number;
+    optionsToDisplay: Option[];
+    currentQuestion: QuizQuestion | null;
+    questionsArray: QuizQuestion[];
+    options?: { forceRecompute?: boolean };
+  }): 'correct' | 'wrong' | 'pending' {
+    return this.getQuestionStatus({
+      ...params,
+      dotStatusCache: this.dotStatusCache,
+      pendingDotStatusOverrides: this.pendingDotStatusOverrides,
+      activeDotClickStatus: this.activeDotClickStatus,
+    });
+  }
+
+  getDotClassSimple(params: {
+    index: number;
+    quizId: string;
+    currentQuestionIndex: number;
+    optionsToDisplay: Option[];
+    currentQuestion: QuizQuestion | null;
+    questionsArray: QuizQuestion[];
+  }): string {
+    return this.getDotClass({
+      ...params,
+      dotStatusCache: this.dotStatusCache,
+      pendingDotStatusOverrides: this.pendingDotStatusOverrides,
+      activeDotClickStatus: this.activeDotClickStatus,
+      timerExpiredUnanswered: this.timerExpiredUnanswered,
+    });
+  }
 
   getQuestionStatus(params: {
     index: number;

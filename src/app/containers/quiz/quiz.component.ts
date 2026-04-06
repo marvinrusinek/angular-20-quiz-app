@@ -232,11 +232,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
   qaToDisplay?: { question: QuizQuestion; options: Option[] };
 
-  // Persistent Dot Status Cache - survives navigation and resets
-  private dotStatusCache = new Map<number, 'correct' | 'wrong' | 'pending'>();
-  private pendingDotStatusOverrides = new Map<number, 'correct' | 'wrong'>();
-  private activeDotClickStatus = new Map<number, 'correct' | 'wrong'>();
-  private timerExpiredUnanswered = new Set<number>();
+  // Dot status maps are owned by QuizDotStatusService
   private _processingOptionClick = false;
 
   // clickConfirmedDotStatus lives on selectedOptionService (singleton)
@@ -615,11 +611,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           this.currentQuestionIndex = 0;
           this.lastLoggedIndex = -1;
 
-          this.dotStatusCache.clear();
-          this.pendingDotStatusOverrides.clear();
+          this.dotStatusService.clearAllMaps();
           this.clearClickConfirmedDotStatus();
-          this.activeDotClickStatus.clear();
-          this.timerExpiredUnanswered.clear();
 
           this.showExplanation = false;
           this.navigatingToResults = false;
@@ -692,9 +685,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     const cleared = this.quizResetService.clearStaleProgressAndDotStateForFreshStart(
       this.currentQuestionIndex,
       this.quizId,
-      this.dotStatusCache,
-      this.pendingDotStatusOverrides,
-      this.activeDotClickStatus,
       this.totalQuestions
     );
     if (cleared) {
@@ -717,109 +707,36 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       .pipe(distinctUntilChanged())
       .subscribe((idx: number) => {
         const prevIdx = this.lastLoggedIndex;
-        const ets = this.explanationTextService;
-
-        // Keep historical state for progress/dots
-        if (prevIdx !== null && prevIdx !== idx) {
-          console.warn('[STATE SYNC] Moving from Q', prevIdx + 1);
-          // Only clear FET belonging to the previous question
-          if (ets.latestExplanationIndex === prevIdx) {
-            ets.latestExplanation = '';
-            ets.latestExplanationIndex = null;
-            ets.formattedExplanationSubject.next('');
-            ets.shouldDisplayExplanationSource.next(false);
-            ets.setIsExplanationTextDisplayed(false);
-          }
-        }
-
-        // Hard Reset Question State (not just UI)
-        const qState =
-          this.quizId && Number.isFinite(idx)
-            ? this.quizStateService.getQuestionState?.(this.quizId, idx)
-            : null;
-
-        if (qState) {
-          console.warn('[QSTATE HARD RESET] Clearing stale explanation flags for ' +
-            'Q', idx + 1);
-
-          qState.explanationDisplayed = false;
-          qState.explanationText = '';
-        }
-
-        // Do not clear the current question state
-        ets._activeIndex = idx;
-        ets.latestExplanationIndex = idx;  // ensure FET guard can match for new question
-        ets._fetLocked = false;
         this.lastLoggedIndex = idx;
-
-        // Update the component property so it propagates to children
         this.currentQuestionIndex = idx;
 
-        // URL Navigation Sync. Manually update currentQuestion when index changes.
-        console.log(`[subscribeToQuestionIndex] idx=${idx}, questionsArray.length=${this.questionsArray?.length}, hasQuestion=${!!this.questionsArray?.[idx]}`);
-        if (this.questionsArray[idx]) {
-          const question = this.questionsArray[idx];
+        // Delegate service-level state transitions
+        const { question, isNavigation } = this.quizContentLoaderService.handleQuestionIndexTransition({
+          idx, prevIdx, quizId: this.quizId, questionsArray: this.questionsArray,
+        });
+
+        // Update component-local state from result
+        if (question) {
           this.currentQuestion = question;
-          console.log(
-            `[QuizComponent] Synced currentQuestion to Q${idx + 1} from 
-            URL/Index update`
-          );
-
-          // Update Display Source so the UI receives the new text
           this.questionToDisplaySource.next(question.questionText?.trim() ?? '');
-
-          // Update Combined Data for the template (options, etc.)
           this.combinedQuestionDataSubject.next({
-            question: question,
-            options: question.options,
-            explanation: question.explanation
+            question, options: question.options, explanation: question.explanation,
           });
-
-          // Ensure QuizStateService is also aligned
-          this.quizStateService.updateCurrentQuestion(this.currentQuestion);
-          // Ensure QuizService is also aligned
-          this.quizService.updateCurrentQuestion(this.currentQuestion);  // sync Service too
         }
         this.cdRef.markForCheck();
 
-        // Only reset display mode when navigating to a new question
-        if (prevIdx !== null && prevIdx !== idx) {
-          console.warn(
-            '[NAVIGATION RESET] Moving from Q',
-            prevIdx + 1,
-            '→ Q',
-            idx + 1
-          );
-
-          // Force question mode on navigation
-          this.quizStateService.displayStateSubject.next({
-            mode: 'question',
-            answered: false
-          });
-
-          // Reset any local UI explanation flags
+        // Handle navigation-specific resets
+        if (isNavigation) {
           this.showExplanation = false;
           this.explanationToDisplay = '';
           this.explanationVisibleLocal = false;
-
-          // Clear stale optionsToDisplay from the PREVIOUS question before
-          // evaluating the new question's dot status. Without this, the old
-          // question's selected options leak into getSelectionsForQuestion
-          // (which checks optionsToDisplay when index === currentQuestionIndex),
-          // causing the new question's dot to inherit the old answer's color.
           this.optionsToDisplay = [];
-
-          // Ensure progress and dot colors are updated when arriving at new question
           this.updateProgressValue();
           this.updateDotStatus(idx);
 
-          // Restart timer for the new question if it hasn't been answered yet
-          const isAnsweredForTimer = this.selectedOptionService.isQuestionAnswered(idx);
-          if (!isAnsweredForTimer) {
+          if (!this.selectedOptionService.isQuestionAnswered(idx)) {
             this.timerService.restartForQuestion(idx);
           }
-
-          console.warn('[NAVIGATION COMPLETE]', idx + 1);
         }
       });
   }
@@ -907,7 +824,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         const idx = this.currentQuestionIndex;
         const selections = this.getSelectionsForQuestion(idx);
         if (selections.length === 0) {
-          this.timerExpiredUnanswered.add(idx);
+          this.dotStatusService.timerExpiredUnanswered.add(idx);
           this.cdRef.markForCheck();
         }
       });
@@ -1109,14 +1026,12 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     });
     if (immediate.canPersistOptimisticStatus) {
       this.setPersistedDotStatus(idx, 'correct');
-      this.pendingDotStatusOverrides.set(idx, 'correct');
+      this.dotStatusService.pendingDotStatusOverrides.set(idx, 'correct');
     }
     if (immediate.isSingleAnswerQuestion) {
       this.quizOptionProcessingService.evaluateSingleAnswer({
         option, idx, optionsForImmediateScoring: immediate.optionsForImmediateScoring,
         liveCorrectness: immediate.liveCorrectness, quizId: this.quizId,
-        pendingDotStatusOverrides: this.pendingDotStatusOverrides,
-        dotStatusCache: this.dotStatusCache,
       });
     }
     let immediateMultiDotStatus: 'correct' | 'wrong' | null = null;
@@ -1126,8 +1041,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         questionForSelection: immediate.questionForSelection,
         optionsForImmediateScoring: immediate.optionsForImmediateScoring,
         correctOptionsForQuestion: immediate.correctOptionsForQuestion,
-        quizId: this.quizId, pendingDotStatusOverrides: this.pendingDotStatusOverrides,
-        dotStatusCache: this.dotStatusCache, activeDotClickStatus: this.activeDotClickStatus,
+        quizId: this.quizId,
       });
       immediateMultiDotStatus = multiResult.immediateMultiDotStatus;
     }
@@ -1148,9 +1062,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     }
     this.quizOptionProcessingService.persistOptionSelection({
       idx, quizId: this.quizId, explanationToDisplay: this.explanationToDisplay,
-      pendingDotStatusOverrides: this.pendingDotStatusOverrides,
-      activeDotClickStatus: this.activeDotClickStatus,
-      dotStatusCache: this.dotStatusCache, option,
+      option,
     });
     this._processingOptionClick = false;
     setTimeout(() => {
@@ -1202,12 +1114,11 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.destroy$.next();
     this.destroy$.complete();
     this.subscriptions.unsubscribe();
-    this.dotStatusCache.clear();
-    this.pendingDotStatusOverrides.clear();
-    this.activeDotClickStatus.clear();
-    // Do NOT clear clickConfirmedDotStatus here — it lives on the singleton
-    // service precisely so it survives component destroy/recreate during navigation.
-    // It is cleared in quiz-reset and restart paths instead.
+    this.dotStatusService.dotStatusCache.clear();
+    this.dotStatusService.pendingDotStatusOverrides.clear();
+    this.dotStatusService.activeDotClickStatus.clear();
+    // Do NOT clear timerExpiredUnanswered or clickConfirmedDotStatus here —
+    // they live on the singleton service to survive component destroy/recreate.
     // this.selectedOptionService.resetAllOptions(); // REMOVED: Breaks persistence on navigation
     this.routeSubscription?.unsubscribe();
     this.routerSubscription?.unsubscribe();
@@ -1489,11 +1400,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
         if (this.quizId && this.quizId !== quizId) {
           console.log(`[ROUTE] Quiz Changed: ${this.quizId} -> ${quizId}. Resetting progress & cache.`);
-          this.dotStatusCache.clear();
-          this.pendingDotStatusOverrides.clear();
-          this.activeDotClickStatus.clear();
+          this.dotStatusService.clearAllMaps();
           this.clearClickConfirmedDotStatus();
-          this.timerExpiredUnanswered.clear();
           this.progress = 0;
           this.quizStateService.reset();
         }
@@ -3022,9 +2930,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     if (direction === 'next') {
       const destIndex = this.currentQuestionIndex + 1;
       if (destIndex < this.totalQuestions) {
-        this.activeDotClickStatus.delete(destIndex);
-        this.pendingDotStatusOverrides.delete(destIndex);
-        this.dotStatusCache.delete(destIndex);
+        this.dotStatusService.clearForIndex(destIndex);
         this.selectedOptionService.lastClickedCorrectByQuestion.delete(destIndex);
         this.clearPersistedDotStatus(destIndex);
       }
@@ -3262,20 +3168,14 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // Service-level resets
     this.quizResetService.performRestartServiceResets(
       this.quizId,
-      this.totalQuestions,
-      this.dotStatusCache,
-      this.pendingDotStatusOverrides,
-      this.activeDotClickStatus
+      this.totalQuestions
     );
 
     // Component-local state
-    this.timerExpiredUnanswered.clear();
+    this.dotStatusService.clearAllMaps();
     this.quizQuestionComponent?.selectedIndices?.clear();
     this.timerService.stopTimer?.(undefined, { force: true });
     this.progress = 0;
-    this.dotStatusCache.clear();
-    this.pendingDotStatusOverrides.clear();
-    this.activeDotClickStatus.clear();
     this.clearClickConfirmedDotStatus();
     this.updateProgressValue();
 
@@ -3382,7 +3282,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
     if (this.dotStatusService.isQuizFreshAtQuestionOne(this.currentQuestionIndex)) {
       for (let i = 0; i < total; i++) {
-        this.dotStatusCache.set(i, 'pending');
+        this.dotStatusService.dotStatusCache.set(i, 'pending');
       }
       this.progress = 0;
       this.cdRef.detectChanges();
@@ -3393,7 +3293,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     let answeredCount = 0;
     for (let i = 0; i < total; i++) {
       const status = this.getQuestionStatus(i, { forceRecompute: true });
-      this.dotStatusCache.set(i, status);
+      this.dotStatusService.dotStatusCache.set(i, status);
       if (status !== 'pending') {
         answeredCount += 1;
       }
@@ -3459,12 +3359,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
   // Delegate to QuizDotStatusService
   getQuestionStatus(index: number, options?: { forceRecompute?: boolean }): 'correct' | 'wrong' | 'pending' {
-    return this.dotStatusService.getQuestionStatus({
+    return this.dotStatusService.getQuestionStatusSimple({
       index,
       ...this._dotParams,
-      dotStatusCache: this.dotStatusCache,
-      pendingDotStatusOverrides: this.pendingDotStatusOverrides,
-      activeDotClickStatus: this.activeDotClickStatus,
       options,
     });
   }
@@ -3473,10 +3370,10 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   updateDotStatus(index: number): void {
     console.log(`[DOT UPDATE] Re-evaluating Q${index + 1}`);
     // If user selects an option, this question is no longer "unanswered expired"
-    this.timerExpiredUnanswered.delete(index);
+    this.dotStatusService.timerExpiredUnanswered.delete(index);
     // Use forceRecompute to bypass stale cache entries
     const status = this.getQuestionStatus(index, { forceRecompute: true });
-    this.dotStatusCache.set(index, status);
+    this.dotStatusService.dotStatusCache.set(index, status);
 
     // Ensure CD runs to update UI colors immediately
     this.cdRef.detectChanges();
@@ -3484,13 +3381,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   }
 
   getDotClass(index: number): string {
-    return this.dotStatusService.getDotClass({
+    return this.dotStatusService.getDotClassSimple({
       index,
       ...this._dotParams,
-      dotStatusCache: this.dotStatusCache,
-      pendingDotStatusOverrides: this.pendingDotStatusOverrides,
-      activeDotClickStatus: this.activeDotClickStatus,
-      timerExpiredUnanswered: this.timerExpiredUnanswered,
     });
   }
 
@@ -3513,9 +3406,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     console.log(`[DOT NAV] Navigating to Q${index + 1} for quiz ${quizId}`);
 
     // Clear click-based dot state so the destination dot starts as blue
-    this.activeDotClickStatus.delete(index);
-    this.pendingDotStatusOverrides.delete(index);
-    this.dotStatusCache.delete(index);
+    this.dotStatusService.clearForIndex(index);
     this.selectedOptionService.lastClickedCorrectByQuestion.clear();
     this.clearPersistedDotStatus(index);
 
@@ -3543,5 +3434,4 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     // Visual styling still shows answered/unanswered state
     return true;
   }
-
 }

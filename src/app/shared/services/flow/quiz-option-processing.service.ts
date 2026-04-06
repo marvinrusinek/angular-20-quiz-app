@@ -163,8 +163,6 @@ export class QuizOptionProcessingService {
     optionsForImmediateScoring: Option[];
     liveCorrectness: boolean | null;
     quizId: string;
-    pendingDotStatusOverrides: Map<number, 'correct' | 'wrong'>;
-    dotStatusCache: Map<number, 'correct' | 'wrong' | 'pending'>;
   }): SingleAnswerResult {
     const { option, idx, optionsForImmediateScoring, liveCorrectness, quizId } = params;
 
@@ -195,8 +193,8 @@ export class QuizOptionProcessingService {
 
     if (clickedIsCorrect) {
       this.quizPersistence.setPersistedDotStatus(quizId, idx, 'correct');
-      params.pendingDotStatusOverrides.set(idx, 'correct');
-      params.dotStatusCache.set(idx, 'correct');
+      this.dotStatusService.pendingDotStatusOverrides.set(idx, 'correct');
+      this.dotStatusService.dotStatusCache.set(idx, 'correct');
       this.selectedOptionService.clickConfirmedDotStatus.set(idx, 'correct');
       try { sessionStorage.setItem('dot_confirmed_' + idx, 'correct'); } catch {}
       this.quizService.scoreDirectly(idx, true, false);
@@ -223,9 +221,6 @@ export class QuizOptionProcessingService {
     optionsForImmediateScoring: Option[];
     correctOptionsForQuestion: Option[];
     quizId: string;
-    pendingDotStatusOverrides: Map<number, 'correct' | 'wrong'>;
-    dotStatusCache: Map<number, 'correct' | 'wrong' | 'pending'>;
-    activeDotClickStatus: Map<number, 'correct' | 'wrong'>;
   }): MultiAnswerResult {
     const {
       option, idx, immediateSelections, questionForSelection,
@@ -325,10 +320,10 @@ export class QuizOptionProcessingService {
     }
 
     if (immediateMultiDotStatus) {
-      params.activeDotClickStatus.set(idx, immediateMultiDotStatus);
+      this.dotStatusService.activeDotClickStatus.set(idx, immediateMultiDotStatus);
       this.quizPersistence.setPersistedDotStatus(quizId, idx, immediateMultiDotStatus);
-      params.pendingDotStatusOverrides.set(idx, immediateMultiDotStatus);
-      params.dotStatusCache.set(idx, immediateMultiDotStatus);
+      this.dotStatusService.pendingDotStatusOverrides.set(idx, immediateMultiDotStatus);
+      this.dotStatusService.dotStatusCache.set(idx, immediateMultiDotStatus);
       this.selectedOptionService.clickConfirmedDotStatus.set(idx, immediateMultiDotStatus);
     }
 
@@ -372,9 +367,6 @@ export class QuizOptionProcessingService {
     idx: number;
     quizId: string;
     explanationToDisplay: string;
-    pendingDotStatusOverrides: Map<number, 'correct' | 'wrong'>;
-    activeDotClickStatus: Map<number, 'correct' | 'wrong'>;
-    dotStatusCache: Map<number, 'correct' | 'wrong' | 'pending'>;
     option: SelectedOption;
   }): void {
     const { idx, quizId, explanationToDisplay } = params;
@@ -396,9 +388,9 @@ export class QuizOptionProcessingService {
     // Ensure sessionStorage has a dot_confirmed_ entry
     try {
       if (sessionStorage.getItem('dot_confirmed_' + idx) === null) {
-        const finalDotStatus = params.pendingDotStatusOverrides.get(idx)
-          ?? params.activeDotClickStatus.get(idx)
-          ?? params.dotStatusCache.get(idx);
+        const finalDotStatus = this.dotStatusService.pendingDotStatusOverrides.get(idx)
+          ?? this.dotStatusService.activeDotClickStatus.get(idx)
+          ?? this.dotStatusService.dotStatusCache.get(idx);
         if (finalDotStatus === 'correct' || finalDotStatus === 'wrong') {
           sessionStorage.setItem('dot_confirmed_' + idx, finalDotStatus);
         } else {

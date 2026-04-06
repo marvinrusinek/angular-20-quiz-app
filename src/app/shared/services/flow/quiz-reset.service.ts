@@ -9,6 +9,7 @@ import { SelectedOptionService } from '../state/selectedoption.service';
 import { ResetStateService } from '../state/reset-state.service';
 import { ResetBackgroundService } from '../ui/reset-background.service';
 import { QuizPersistenceService } from '../state/quiz-persistence.service';
+import { QuizDotStatusService } from './quiz-dot-status.service';
 
 /**
  * Orchestrates reset operations across multiple services.
@@ -26,7 +27,8 @@ export class QuizResetService {
     private selectedOptionService: SelectedOptionService,
     private resetStateService: ResetStateService,
     private resetBackgroundService: ResetBackgroundService,
-    private quizPersistence: QuizPersistenceService
+    private quizPersistence: QuizPersistenceService,
+    private dotStatusService: QuizDotStatusService
   ) {}
 
   // ═══════════════════════════════════════════════════════════════
@@ -94,9 +96,6 @@ export class QuizResetService {
   clearStaleProgressAndDotStateForFreshStart(
     currentQuestionIndex: number,
     quizId: string,
-    dotStatusCache: Map<number, 'correct' | 'wrong' | 'pending'>,
-    pendingDotStatusOverrides: Map<number, 'correct' | 'wrong'>,
-    activeDotClickStatus: Map<number, 'correct' | 'wrong'>,
     totalQuestions: number
   ): boolean {
     if (currentQuestionIndex !== 0) {
@@ -112,9 +111,9 @@ export class QuizResetService {
       return false;
     }
 
-    dotStatusCache.clear();
-    pendingDotStatusOverrides.clear();
-    activeDotClickStatus.clear();
+    this.dotStatusService.dotStatusCache.clear();
+    this.dotStatusService.pendingDotStatusOverrides.clear();
+    this.dotStatusService.activeDotClickStatus.clear();
     this.quizPersistence.clearClickConfirmedDotStatus(totalQuestions);
     this.quizService.questionCorrectness?.clear();
     this.quizService.selectedOptionsMap?.clear();
@@ -166,16 +165,11 @@ export class QuizResetService {
    */
   performRestartServiceResets(
     quizId: string,
-    totalQuestions: number,
-    dotStatusCache: Map<number, 'correct' | 'wrong' | 'pending'>,
-    pendingDotStatusOverrides: Map<number, 'correct' | 'wrong'>,
-    activeDotClickStatus: Map<number, 'correct' | 'wrong'>
+    totalQuestions: number
   ): void {
     this.quizService.resetAll();
 
-    dotStatusCache.clear();
-    pendingDotStatusOverrides.clear();
-    activeDotClickStatus.clear();
+    this.dotStatusService.clearAllMaps();
     this.quizPersistence.clearClickConfirmedDotStatus(totalQuestions);
     this.selectedOptionService.lastClickedCorrectByQuestion.clear();
     this.quizPersistence.clearAllPersistedDotStatus(quizId);
