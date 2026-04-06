@@ -214,7 +214,28 @@ export class QuizContentDisplayService {
         console.log(`[displayText$] Q${safeIdx + 1} showing FET: "${finalFet.slice(0, 40)}..."`);
         return finalFet;
       }
+      // Before falling back to raw explanation, check formatted caches directly.
+      // The reactive stream (fetText) may not have the formatted text yet due to
+      // timing (e.g. resetExplanationState cleared _byIndex subjects), but the
+      // formattedExplanations cache or fetByIndex may still have it.
+      const cachedFet = (this.explanationTextService.formattedExplanations[safeIdx]?.explanation ?? '').trim()
+        || ((this.explanationTextService as any).fetByIndex?.get(safeIdx) ?? '').trim();
+      if (cachedFet && cachedFet.toLowerCase().includes('correct because')) {
+        console.log(`[displayText$] Q${safeIdx + 1} showing CACHED FET: "${cachedFet.slice(0, 40)}..."`);
+        return cachedFet;
+      }
       if (hasRaw) {
+        // Last resort: format the raw explanation on-the-fly with option #s
+        const correctIndices = this.explanationTextService.getCorrectOptionIndices(
+          qObj, qObj.options, safeIdx
+        );
+        if (correctIndices.length > 0) {
+          const formatted = this.explanationTextService.formatExplanation(
+            qObj, correctIndices, qObj.explanation
+          );
+          console.log(`[displayText$] Q${safeIdx + 1} ON-THE-FLY FET: "${formatted.slice(0, 40)}..."`);
+          return formatted;
+        }
         console.warn(`[displayText$] Q${safeIdx + 1} falling back to RAW: FET mismatch or missing`);
         return qObj.explanation || '';
       }

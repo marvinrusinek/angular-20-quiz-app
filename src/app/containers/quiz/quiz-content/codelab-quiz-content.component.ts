@@ -482,10 +482,50 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         next: (text: string) => {
           console.log(`[subscribeToDisplayText] 📝 Processing text (${text?.length || 0} chars)`);
 
+          // Ensure explanation text always has "Option X is correct because" prefix.
+          // The displayText$ pipeline may emit raw explanation text if reactive
+          // streams lose the formatted FET due to timing/reset issues.
+          // GUARD: Only intercept if text is NOT the question text itself.
+          let finalText = text;
+          const lowerText = (text ?? '').toLowerCase();
+          const currentQ = this.quizService.getQuestionsInDisplayOrder()?.[this.currentIndex];
+          const qTextRaw = (currentQ?.questionText ?? '').trim();
+          const isQuestionText = qTextRaw.length > 0 && (text ?? '').trim().startsWith(qTextRaw);
+          const isExplanation = lowerText.length > 0
+            && !isQuestionText
+            && !lowerText.includes('correct because')
+            && this.explanationTextService.latestExplanationIndex === this.currentIndex
+            && this.explanationTextService.latestExplanationIndex >= 0;
+          if (isExplanation) {
+            const idx = this.currentIndex;
+            // Check caches first
+            const cached = (this.explanationTextService.formattedExplanations[idx]?.explanation ?? '').trim()
+              || ((this.explanationTextService as any).fetByIndex?.get(idx) ?? '').trim();
+            if (cached && cached.toLowerCase().includes('correct because')) {
+              finalText = cached;
+              console.log(`[subscribeToDisplayText] 🔧 Replaced raw with CACHED FET for Q${idx + 1}`);
+            } else {
+              // Try on-the-fly formatting
+              try {
+                const questions = this.quizService.getQuestionsInDisplayOrder();
+                const q = questions?.[idx];
+                if (q?.options?.length > 0 && q.explanation) {
+                  const correctIndices = this.explanationTextService.getCorrectOptionIndices(q, q.options, idx);
+                  if (correctIndices.length > 0) {
+                    finalText = this.explanationTextService.formatExplanation(q, correctIndices, q.explanation);
+                    console.log(`[subscribeToDisplayText] 🔧 On-the-fly FET for Q${idx + 1}: "${finalText.slice(0, 50)}"`);
+                  }
+                }
+              } catch (e) {
+                console.warn('[subscribeToDisplayText] On-the-fly FET failed', e);
+              }
+            }
+          }
+
           const el = this.qText?.nativeElement;
           if (el) {
-            this.renderer.setProperty(el, 'innerHTML', text);
-            console.log(`[subscribeToDisplayText] ✅ Updated innerHTML using Renderer2: "${text?.substring(0, 50)}..."`);
+            this.renderer.setProperty(el, 'innerHTML', finalText);
+            console.log(`[subscribeToDisplayText] ✅ Updated innerHTML using Renderer2: "${finalText?.substring(0, 50)}..."`);
           } else {
             console.warn(`[subscribeToDisplayText] ⚠️ qText.nativeElement not available!`);
           }

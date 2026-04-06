@@ -529,6 +529,17 @@ export class TimerService implements OnDestroy {
     }
   }
 
+  /**
+   * Convenience: stop, reset, clear flags, and start a fresh timer for a question.
+   * Consolidates the 4-step pattern used across QuizComponent navigation paths.
+   */
+  public restartForQuestion(questionIndex: number): void {
+    this.stopTimer?.(undefined, { force: true });
+    this.resetTimer();
+    this.resetTimerFlagsFor(questionIndex);
+    this.startTimer(this.timePerQuestion, this.isCountdown, true);
+  }
+
   public resetTimerFlagsFor(questionIndex: number): void {
     if (questionIndex == null || questionIndex < 0) {
       console.warn('[TimerService] resetTimerFlagsFor: Invalid question index');
