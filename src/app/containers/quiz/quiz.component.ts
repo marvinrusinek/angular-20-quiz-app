@@ -52,6 +52,8 @@ import { TimerService } from '../../shared/services/features/timer.service';
 import { ResetStateService } from '../../shared/services/state/reset-state.service';
 import { ResetBackgroundService } from '../../shared/services/ui/reset-background.service';
 import { SharedVisibilityService } from '../../shared/services/ui/shared-visibility.service';
+import { QuizDotStatusService } from '../../shared/services/flow/quiz-dot-status.service';
+import { QuizPersistenceService } from '../../shared/services/state/quiz-persistence.service';
 
 import { ChangeRouteAnimation } from '../../animations/animations';
 
@@ -256,6 +258,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     private resetStateService: ResetStateService,
     private resetBackgroundService: ResetBackgroundService,
     private sharedVisibilityService: SharedVisibilityService,
+    private dotStatusService: QuizDotStatusService,
+    private quizPersistence: QuizPersistenceService,
 
     private activatedRoute: ActivatedRoute,
     private router: Router,
@@ -630,9 +634,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
             localStorage.removeItem('userAnswers');
             localStorage.removeItem('selectedOptionsMap');
             localStorage.removeItem('questionCorrectness');
-            localStorage.removeItem(this.getDotStatusStorageKey());
-            localStorage.removeItem('quiz_dot_status_default');
-            localStorage.removeItem(this.getProgressStorageKey());
+            this.clearAllPersistedDotStatus();
             localStorage.removeItem('quiz_progress_default');
             localStorage.setItem('savedQuestionIndex', '0');
             sessionStorage.clear();  // clear session storage to reset dots
@@ -806,9 +808,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.selectedOptionService.selectedOptionsMap?.clear();
 
     try {
-      localStorage.removeItem(this.getDotStatusStorageKey());
-      localStorage.removeItem('quiz_dot_status_default');
-      localStorage.removeItem(this.getProgressStorageKey());
+      this.clearAllPersistedDotStatus();
       localStorage.removeItem('quiz_progress_default');
       localStorage.removeItem('questionCorrectness');
       localStorage.removeItem('selectedOptionsMap');
@@ -4240,15 +4240,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     });
   }
 
-  // REMOVE??
-  private handleQuizCompletion(): void {
-    this.quizService
-      .submitQuizScore(this.answers.map((opt: Option) => opt.optionId ?? 0))
-      .subscribe(() => {
-        void this.router.navigate(['quiz', 'result']);
-      });
-  }
-
   private async fetchAndSetQuestionData(questionIndex: number): Promise<boolean> {
     // Reset loading state for options
     this.questionTextLoaded = false;
@@ -5097,962 +5088,104 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     return count;
   }
 
-  // Helper to determine dot class with caching
+  // Delegate persistence helpers to QuizPersistenceService
   private getScoringKey(index: number): number {
-    const effectiveQuizId = this.quizId || this.quizService.quizId || localStorage.getItem('lastQuizId') || '';
-    if (this.quizService.isShuffleEnabled() && effectiveQuizId) {
-      const originalIndex = this.quizShuffleService.toOriginalIndex(effectiveQuizId, index);
-      if (typeof originalIndex === 'number' && originalIndex >= 0) {
-        return originalIndex;
-      }
-    }
-    return index;
-  }
-
-  private getCandidateQuestionIndices(index: number): number[] {
-    const scoringKey = this.getScoringKey(index);
-    return Array.from(new Set([index, scoringKey]));
-  }
-
-  private getDotStatusStorageKey(): string {
-    const keyQuizId = this.quizId || this.quizService.quizId || localStorage.getItem('lastQuizId') || 'default';
-    return `quiz_dot_status_${keyQuizId}`;
-  }
-
-  private getProgressStorageKey(): string {
-    const keyQuizId = this.quizId || this.quizService.quizId || localStorage.getItem('lastQuizId') || 'default';
-    return `quiz_progress_${keyQuizId}`;
+    return this.dotStatusService.getScoringKey(this.quizId, index);
   }
 
   private getPersistedProgress(): number | null {
-    try {
-      const keys = [this.getProgressStorageKey(), 'quiz_progress_default'];
-      for (const key of keys) {
-        const raw = localStorage.getItem(key);
-        if (raw == null) continue;
-        const n = Number(raw);
-        if (Number.isFinite(n) && n >= 0) return Math.trunc(n);
-      }
-    } catch { }
-    return null;
+    return this.quizPersistence.getPersistedProgress(this.quizId);
   }
 
   private setPersistedProgress(value: number): void {
-    try {
-      const keys = Array.from(new Set([this.getProgressStorageKey(), 'quiz_progress_default']));
-      for (const key of keys) {
-        localStorage.setItem(key, String(Math.max(0, Math.trunc(value))));
-      }
-    } catch { }
+    this.quizPersistence.setPersistedProgress(this.quizId, value);
   }
 
   private getPersistedDotStatus(index: number): 'correct' | 'wrong' | null {
-    try {
-      const keys = [
-        this.getDotStatusStorageKey(),
-        'quiz_dot_status_default'
-      ];
-
-      for (const key of keys) {
-        const raw = localStorage.getItem(key);
-        if (!raw) continue;
-        const parsed = JSON.parse(raw) as Record<string, 'correct' | 'wrong'>;
-        const value = parsed[String(index)];
-        if (value === 'correct' || value === 'wrong') {
-          return value;
-        }
-      }
-
-      return null;
-    } catch {
-      return null;
-    }
+    return this.quizPersistence.getPersistedDotStatus(this.quizId, index);
   }
 
   private setPersistedDotStatus(index: number, status: 'correct' | 'wrong'): void {
-    try {
-      const keys = Array.from(new Set([
-        this.getDotStatusStorageKey(),
-        'quiz_dot_status_default'
-      ]));
-
-      for (const key of keys) {
-        const raw = localStorage.getItem(key);
-        const parsed = raw ? JSON.parse(raw) : {};
-        parsed[String(index)] = status;
-        localStorage.setItem(key, JSON.stringify(parsed));
-      }
-    } catch { }
+    this.quizPersistence.setPersistedDotStatus(this.quizId, index, status);
   }
 
   private clearPersistedDotStatus(index: number): void {
-    try {
-      const keys = Array.from(new Set([
-        this.getDotStatusStorageKey(),
-        'quiz_dot_status_default'
-      ]));
-
-      for (const key of keys) {
-        const raw = localStorage.getItem(key);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          delete parsed[String(index)];
-          localStorage.setItem(key, JSON.stringify(parsed));
-        }
-      }
-    } catch { }
+    this.quizPersistence.clearPersistedDotStatus(this.quizId, index);
   }
 
   /** Remove ALL persisted dot status entries (used on quiz restart). */
   private clearAllPersistedDotStatus(): void {
-    try {
-      const keys = Array.from(new Set([
-        this.getDotStatusStorageKey(),
-        'quiz_dot_status_default'
-      ]));
-      for (const key of keys) {
-        localStorage.removeItem(key);
-      }
-    } catch { }
+    this.quizPersistence.clearAllPersistedDotStatus(this.quizId);
+  }
+
+  // Delegate dot/selection logic to QuizDotStatusService
+  private get _dotParams() {
+    return {
+      quizId: this.quizId,
+      currentQuestionIndex: this.currentQuestionIndex,
+      optionsToDisplay: this.optionsToDisplay,
+      currentQuestion: this.currentQuestion,
+      questionsArray: this.questionsArray,
+    };
   }
 
   private getSelectionsForQuestion(index: number): SelectedOption[] {
-    // IMPORTANT: Use only live in-memory maps for dot/progress state.
-    // Persisted fallbacks (userAnswers/sessionStorage) can contain stale values.
-    const question = this.questionsArray?.[index] ||
-      this.quizService.questions?.[index] ||
-      this.quizService.activeQuiz?.questions?.[index];
-    const currentQuestionOptions = index === this.currentQuestionIndex
-      ? ((Array.isArray(this.optionsToDisplay) && this.optionsToDisplay.length > 0)
-          ? this.optionsToDisplay
-          : (Array.isArray(this.currentQuestion?.options) ? this.currentQuestion.options as Option[] : []))
-      : [];
-    const referenceOptions = Array.isArray(question?.options) && question.options.length > 0
-      ? question.options
-      : currentQuestionOptions;
-
-    const normalize = (value: unknown): string => String(value ?? '').trim().toLowerCase();
-    const optionIdSet = new Set(
-      referenceOptions
-        .map((opt: Option, optIndex: number) => {
-          const rawId = opt?.optionId;
-          if (rawId !== undefined && rawId !== null && String(rawId).trim() !== '') {
-            return String(rawId).trim();
-          }
-          return String(optIndex);
-        })
-    );
-    const optionTextSet = new Set(
-      referenceOptions
-        .map((opt: Option) => normalize(opt?.text))
-        .filter(Boolean)
-    );
-    const optionIndexSet = new Set(referenceOptions.map((_opt: Option, optIndex: number) => optIndex));
-    const isSelectionActive = (selection: SelectedOption): boolean => {
-      if (!selection) {
-        return false;
-      }
-
-      if (
-        selection.selected === false ||
-        (selection as any)?.checked === false ||
-        (selection as any)?.isSelected === false ||
-        (selection as any)?.active === false
-      ) {
-        return false;
-      }
-
-      return true;
-    };
-
-    const pickRelevantSelections = (selections: SelectedOption[]): SelectedOption[] => {
-      if (!Array.isArray(selections) || selections.length === 0) {
-        return [];
-      }
-
-      const activeSelections = selections.filter(isSelectionActive);
-      if (activeSelections.length === 0) {
-        return [];
-      }
-
-      const exactQuestionSelections = activeSelections.filter((selection: SelectedOption) =>
-        selection?.questionIndex === index
-      );
-      if (exactQuestionSelections.length > 0) {
-        return exactQuestionSelections;
-      }
-
-      const matchedSelections = activeSelections.filter((selection: SelectedOption) => {
-        const selectionId = String(selection?.optionId ?? '').trim();
-        const selectionText = normalize(selection?.text);
-        const selectionDisplayIndex = Number((selection as any)?.displayIndex ?? (selection as any)?.index ?? -1);
-
-        return (
-          (selectionId !== '' && optionIdSet.has(selectionId)) ||
-          (selectionText !== '' && optionTextSet.has(selectionText)) ||
-          optionIndexSet.has(selectionDisplayIndex)
-        );
-      });
-
-      return matchedSelections.length > 0 ? matchedSelections : activeSelections;
-    };
-
-    if (index === this.currentQuestionIndex && currentQuestionOptions.length > 0) {
-      const displayedSelections = currentQuestionOptions
-        .map((option: Option, optionIndex: number) => ({ option, optionIndex }))
-        .filter(({ option }) => isSelectionActive(option as SelectedOption))
-        .map(({ option, optionIndex }) => ({
-          ...(option as SelectedOption),
-          optionId: option?.optionId ?? optionIndex,
-          questionIndex: index,
-          displayIndex: Number((option as any)?.displayIndex ?? (option as any)?.index ?? optionIndex),
-          selected: true
-        } as SelectedOption));
-
-      if (displayedSelections.length > 0) {
-        return pickRelevantSelections(displayedSelections);
-      }
-    }
-
-    // Only check the direct shuffled index for selections — NOT the scoring key.
-    // selectedOptionsMap is keyed by shuffled index. Using candidateIndices here
-    // caused cross-contamination: shuffled Q5 with scoringKey=0 would find Q1's
-    // selections stored at index 0.
-    const serviceSelection = this.selectedOptionService?.selectedOptionsMap?.get(index);
-    if (Array.isArray(serviceSelection) && serviceSelection.length > 0) {
-      return pickRelevantSelections(serviceSelection);
-    }
-
-    const quizSelection = this.quizService?.selectedOptionsMap?.get(index);
-    if (Array.isArray(quizSelection) && quizSelection.length > 0) {
-      return pickRelevantSelections(quizSelection as SelectedOption[]);
-    }
-
-    // Do not reconstruct the ACTIVE question from persisted userAnswers.
-    // Multi-answer toggles can briefly leave that persisted array one click
-    // behind the real checkbox state, which makes the pagination dot appear
-    // stuck on its previous color while the user is still editing the answer.
-    if (index !== this.currentQuestionIndex) {
-      const storedAnswerIds = Array.isArray(this.quizService?.userAnswers?.[index])
-        ? (this.quizService.userAnswers[index] as number[])
-        : [];
-      if (storedAnswerIds.length > 0 && Array.isArray(question?.options) && question.options.length > 0) {
-        const reconstructedSelections = storedAnswerIds
-          .map((answerId: number) => {
-            const directMatch = question.options.find((opt: Option) => String(opt?.optionId ?? '') === String(answerId));
-            if (directMatch) {
-              return {
-                ...directMatch,
-                optionId: directMatch.optionId ?? answerId,
-                questionIndex: index,
-                selected: true
-              } as SelectedOption;
-            }
-
-            if (Number.isInteger(answerId) && answerId >= 0 && answerId < question.options.length) {
-              return {
-                ...question.options[answerId],
-                optionId: question.options[answerId]?.optionId ?? answerId,
-                questionIndex: index,
-                displayIndex: answerId,
-                selected: true
-              } as SelectedOption;
-            }
-
-            return null;
-          })
-          .filter((selection): selection is SelectedOption => !!selection);
-
-          if (reconstructedSelections.length > 0) {
-            return reconstructedSelections;
-          }
-      }
-    }
-
-    return [];
-  }
-
-
-
-  //private evaluateSelectionCorrectness(index: number, selections: SelectedOption[]): boolean | null {
-  //const question = this.questionsArray?.[index] ||
-
-  private selectionMatchesOption(selection: Partial<SelectedOption> | null | undefined, option: Partial<Option> | null | undefined, optionIndex?: number): boolean {
-    if (!selection || !option) {
-      return false;
-    }
-
-    const normalize = (value: unknown): string => String(value ?? '').trim().toLowerCase();
-    const selectionId = String(selection.optionId ?? '').trim();
-    const optionId = String(option.optionId ?? '').trim();
-
-    if (selectionId !== '' && optionId !== '' && selectionId === optionId) {
-      return true;
-    }
-
-    const selectionText = normalize(selection.text);
-    const optionText = normalize(option.text);
-    if (selectionText !== '' && optionText !== '' && selectionText === optionText) {
-      return true;
-    }
-
-    const selectionDisplayIndex = Number((selection as any)?.displayIndex ?? (selection as any)?.index ?? -1);
-    return Number.isInteger(optionIndex) && selectionDisplayIndex === optionIndex;
+    return this.dotStatusService.getSelectionsForQuestion({
+      index,
+      ...this._dotParams,
+    });
   }
 
   private getQuestionForIndex(index: number): QuizQuestion | null {
-    return this.questionsArray?.[index] ||
-      this.quizService.questions?.[index] ||
-      this.quizService.activeQuiz?.questions?.[index] ||
-      null;
+    return this.dotStatusService.getQuestionForIndex(index, this.questionsArray);
   }
 
   private getResolvedCorrectOptionEntries(question: QuizQuestion | null | undefined, fallbackOptions: Option[] = []): Array<{ option: Option; index: number }> {
-    const options = Array.isArray(question?.options) && question!.options.length > 0
-      ? question!.options
-      : fallbackOptions;
-
-    if (!Array.isArray(options) || options.length === 0) {
-      return [];
-    }
-
-    const correctIds = new Set<number>();
-    const correctTexts = new Set<string>();
-
-    if (Array.isArray((question as any)?.answer)) {
-      for (const answer of (question as any).answer) {
-        if (!answer) continue;
-
-        const id = Number(answer.optionId);
-        if (!Number.isNaN(id)) correctIds.add(id);
-
-        const text = String(answer.text ?? '').trim().toLowerCase();
-        if (text) correctTexts.add(text);
-      }
-    }
-
-    const resolvedFromAnswers = options
-      .map((opt: Option, index: number) => ({ option: opt, index }))
-      .filter(({ option }) => {
-        const id = Number(option?.optionId);
-        const text = String(option?.text ?? '').trim().toLowerCase();
-
-        return (!Number.isNaN(id) && correctIds.has(id)) || (!!text && correctTexts.has(text));
-      });
-
-    if (resolvedFromAnswers.length > 0) {
-      return resolvedFromAnswers;
-    }
-
-    return options
-      .map((opt: Option, index: number) => ({ option: opt, index }))
-      .filter(({ option }) => option?.correct === true || String(option?.correct) === 'true');
+    return this.dotStatusService.getResolvedCorrectOptionEntries(question, fallbackOptions);
   }
 
   private getResolvedCorrectOptions(question: QuizQuestion | null | undefined, fallbackOptions: Option[] = []): Option[] {
-    return this.getResolvedCorrectOptionEntries(question, fallbackOptions).map(({ option }) => option);
+    return this.dotStatusService.getResolvedCorrectOptions(question, fallbackOptions);
   }
 
-  private matchesAnyCorrectOption(selection: Partial<SelectedOption> | null | undefined, question: QuizQuestion | null | undefined, fallbackOptions: Option[] = []): boolean {
-    return this.getResolvedCorrectOptionEntries(question, fallbackOptions).some(({ option, index }) =>
-      this.selectionMatchesOption(selection, option, index)
-    );
+  private selectionMatchesOption(
+    selection: Partial<SelectedOption> | null | undefined,
+    option: Partial<Option> | null | undefined,
+    optionIndex?: number
+  ): boolean {
+    return this.dotStatusService.selectionMatchesOption(selection, option, optionIndex);
   }
 
-
-  private hasOptimisticCorrectSelection(index: number, selections: SelectedOption[]): boolean {
-    const question = this.getQuestionForIndex(index);
-    const fallbackOptions = index === this.currentQuestionIndex
-      ? ((Array.isArray(this.optionsToDisplay) && this.optionsToDisplay.length > 0)
-          ? this.optionsToDisplay
-          : (Array.isArray(this.currentQuestion?.options) ? this.currentQuestion.options as Option[] : []))
-      : [];
-
-    if (selections.length === 0) {
-      return false;
-    }
-
-    const correctOptionEntries = this.getResolvedCorrectOptionEntries(question, fallbackOptions);
-
-    if (correctOptionEntries.length <= 1) {
-      return false;
-    }
-
-    const hasIncorrectSelection = selections.some((selection) =>
-      !this.matchesAnyCorrectOption(selection, question, fallbackOptions)
-    );
-
-    if (hasIncorrectSelection) {
-      return false;
-    }
-
-    // A multi-answer question should only look "optimistically correct" when
-    // the current live selections already cover the full correct set. Treating
-    // any single correct selection as green leaves the dot stuck on the wrong
-    // color for partially-correct states.
-    const matchedCorrectSelections = selections.filter((selection) =>
-      this.matchesAnyCorrectOption(selection, question, fallbackOptions)
-    );
-
-    return matchedCorrectSelections.length === correctOptionEntries.length;
-  }
-
-  private evaluateSelectionCorrectness(index: number, selections: SelectedOption[]): boolean | null {
-    const question = this.getQuestionForIndex(index);
-    const fallbackOptions = index === this.currentQuestionIndex
-      ? ((Array.isArray(this.optionsToDisplay) && this.optionsToDisplay.length > 0)
-          ? this.optionsToDisplay
-          : (Array.isArray(this.currentQuestion?.options) ? this.currentQuestion.options as Option[] : []))
-      : [];
-
-    if ((!question || !Array.isArray(question.options) || question.options.length === 0) && fallbackOptions.length === 0) {
-      return null;
-    }
-
-    const correctOptionEntries = this.getResolvedCorrectOptionEntries(question, fallbackOptions);
-    const correctOptions = correctOptionEntries.map(({ option }) => option);
-    const isMultipleAnswerQuestion =
-      question?.type === QuestionType.MultipleAnswer || correctOptions.length > 1;
-
-    // Treat questions with multiple correct options as multi-answer even when
-    // explicit `question.type` metadata is missing.
-    /* const isMultipleAnswerQuestion =
-      question.type === QuestionType.MultipleAnswer || correctOptions.length > 1;
-
-    // Selections are already retrieved for the target question key.
-    // Avoid additional index scoping here because some flows (e.g. shuffle/remap)
-    // can carry a different index marker while still belonging to this question.
-    const effectiveSelectionsRaw = selections;
-
-    const effectiveSelections = isMultipleAnswerQuestion
-      ? effectiveSelectionsRaw
-      : effectiveSelectionsRaw.slice(-1);
-
-    if (effectiveSelections.length === 0) { */
-    if (correctOptions.length === 0 || selections.length === 0) {
-      return null;
-    }
-
-    /* const optionIdSet = new Set(
-      question.options
-        .map((opt: Option) => String(opt.optionId ?? '').trim())
-        .filter(Boolean)
-    );
-
-    const optionTextSet = new Set(
-      question.options
-        .map((opt: Option) => normalize(opt.text))
-        .filter(Boolean)
-    ); */
-
-    const matchedCorrectSelections = selections.filter((selection) =>
-      correctOptionEntries.some(({ option, index: optionIndex }) =>
-        this.selectionMatchesOption(selection, option, optionIndex)
-      )
-    );
-
-    const incorrectSelections = selections.filter((selection) =>
-      !correctOptionEntries.some(({ option, index: optionIndex }) =>
-        this.selectionMatchesOption(selection, option, optionIndex)
-      )
-    );
-
-    if (matchedCorrectSelections.length === 0 && incorrectSelections.length === 0) {
-      return null;
-    }
-
-    /* const findMatchedOption = (selection: SelectedOption): Option | null => {
-      const selectionId = String(selection?.optionId ?? '').trim();
-      const selectionText = normalize(selection?.text ?? '');
-      const selectionIndex = Number(
-        (selection as any)?.displayIndex ?? (selection as any)?.index ?? -1
-      );
-
-      const byId = selectionId !== ''
-        ? question.options.find((opt: Option) =>
-          String(opt?.optionId ?? '').trim() === selectionId)
-        : undefined;
-      if (byId) {
-        return byId;
-      }
-
-      const byText = selectionText !== ''
-        ? question.options.find((opt: Option) =>
-          normalize(opt?.text) === selectionText)
-        : undefined;
-      if (byText) {
-        return byText;
-      }
-
-      if (
-        Number.isInteger(selectionIndex) &&
-        selectionIndex >= 0 &&
-        selectionIndex < question.options.length
-      ) {
-        return question.options[selectionIndex] ?? null;
-      }
-
-      return null;
-    };
-
-    let consideredSelections = 0;
-    let matchedCorrectCount = 0;
-    let hasIncorrect = false;
-
-    for (const selection of effectiveSelections) {
-      //const id = String(selection?.optionId ?? '').trim();
-      //const text = normalize(selection?.text ?? '');
-      const explicitCorrect = selection?.correct === true || String(selection?.correct) === 'true';
-
-      //const knownOption = (id !== '' && optionIdSet.has(id)) || (text !== '' && optionTextSet.has(text));
-      const matchedOption = findMatchedOption(selection);
-      const matchedOptionIsCorrect =
-        matchedOption?.correct === true || String(matchedOption?.correct) === 'true';
-      const knownOption = !!matchedOption;
-      if (!knownOption && !explicitCorrect) continue;
-
-      consideredSelections++;
-
-      //const isCorrect = (id !== '' && correctIds.has(id)) || (text !== '' && correctTexts.has(text)) || explicitCorrect;
-      const isCorrect = matchedOptionIsCorrect || explicitCorrect;
-      if (isCorrect) {
-        matchedCorrectCount++;
-      } else {
-        hasIncorrect = true;
-      }
-    } */
-    if (isMultipleAnswerQuestion) {
-      if (incorrectSelections.length > 0) {
-        return false;
-      }
-
-      return matchedCorrectSelections.length === correctOptionEntries.length;
-    }
-
-    if (incorrectSelections.length > 0) {
-      return false;
-    }
-
-    /* if (consideredSelections === 0) return null;
-    if (hasIncorrect) return false; // Any wrong choice = Red
-    if (matchedCorrectCount > 0) return true; // At least one right and zero wrong = Green
-    return null; */
-    return matchedCorrectSelections.length > 0 ? true : null;
-  }
-
-  // Helper to determine dot class with caching
-  getQuestionStatus(index: number, options?: { forceRecompute?: boolean }): 'correct' | 'wrong' | 'pending' {
-    if (this.isQuizFreshAtQuestionOne()) {
-      this.dotStatusCache.set(index, 'pending');
-      return 'pending';
-    }
-
-
-    const pendingOverrideStatus = this.pendingDotStatusOverrides.get(index);
-
-    const previousCached = this.dotStatusCache.get(index);
-    //if (this.dotStatusCache.has(index)) {
-    const hasCachedStatus = this.dotStatusCache.has(index);
-
-    const selections = this.getSelectionsForQuestion(index);
-    const questionHasLiveSessionState = this.hasLiveSessionStateForQuestion(index);
-
-    if (hasCachedStatus) {
-      const cached = this.dotStatusCache.get(index)!;
-      const isCurrentQuestion = index === this.currentQuestionIndex;
-      //if (!options?.forceRecompute && !isCurrentQuestion) {
-      // Cached CORRECT is stable and can be reused safely.
-      // Cached WRONG is not stable enough for multi-answer questions because the
-      // user can fix an earlier incorrect selection by adding the remaining
-      // correct answers, which should immediately flip the dot green.
-      if (!options?.forceRecompute && !isCurrentQuestion && cached === 'correct') {
-        return cached;
-      }
-
-      if (
-        !options?.forceRecompute &&
-        !isCurrentQuestion &&
-        cached === 'pending' &&
-        !questionHasLiveSessionState &&
-        selections.length === 0
-      ) {
-        return cached;
-      }
-      if (!options?.forceRecompute && isCurrentQuestion && cached === 'pending') {
-        return cached;
-      }
-    }
-
-    /* const selections = this.getSelectionsForQuestion(index);
-    const candidateIndices = this.getCandidateQuestionIndices(index);
-    const questionHasLiveSessionState = this.hasLiveSessionStateForQuestion(index); */
-
-    // Early authoritative check for NON-CURRENT questions.
-    // questionCorrectness is the scored ground truth. If it says correct,
-    // skip the complex evaluation which can produce wrong results due to
-    // stale selection data or race conditions during navigation.
-    if (index !== this.currentQuestionIndex) {
-      const earlyScoringKey = this.getScoringKey(index);
-      const earlyScored = this.quizService.questionCorrectness.get(earlyScoringKey);
-      if (earlyScored === true) {
-        this.dotStatusCache.set(index, 'correct');
-        return 'correct';
-      }
-    }
-
-    if (
-      index === this.currentQuestionIndex &&
-      !questionHasLiveSessionState &&
-      selections.length === 0
-    ) {
-      if (previousCached === 'correct' || previousCached === 'wrong') {
-        this.dotStatusCache.set(index, previousCached);
-        return previousCached;
-      }
-
-      const localStatus = this.getPersistedDotStatus(index);
-      if (localStatus === 'correct' || localStatus === 'wrong') {
-        this.dotStatusCache.set(index, localStatus);
-        return localStatus;
-      }
-      this.dotStatusCache.set(index, 'pending');
-      return 'pending';
-    }
-
-    /* const hasScoredState = candidateIndices.some((key) => {
-      const persisted = this.quizService.questionCorrectness.get(key);
-      return persisted === true || persisted === false;
-    }); */
-    // questionCorrectness is keyed by scoringKey (original index), so only
-    // check the scoring key — NOT the shuffled index, which can collide with
-    // a different question's scoring key and cause cross-contamination.
-    const scoringKey = this.getScoringKey(index);
-    const persistedScoredValues = [this.quizService.questionCorrectness.get(scoringKey)]
-      .filter((value): value is boolean => value === true || value === false);
-    const hasScoredState = persistedScoredValues.length > 0;
-    const hasAuthoritativeCorrectState = persistedScoredValues.includes(true);
-    const evaluatedStatus = selections.length > 0
-      ? this.evaluateSelectionCorrectness(index, selections)
-      : null;
-    const hasOptimisticCorrectSelection = selections.length > 0 &&
-      this.hasOptimisticCorrectSelection(index, selections);
-    /* const hasActiveSessionState =
-      (this.selectedOptionService?.selectedOptionsMap?.size ?? 0) > 0 ||
-      (this.quizService?.selectedOptionsMap?.size ?? 0) > 0 ||
-      (this.quizService?.questionCorrectness?.size ?? 0) > 0 ||
-      (Array.isArray(this.quizService?.userAnswers)
-        ? this.quizService.userAnswers.some((answers: unknown) =>
-          Array.isArray(answers) && answers.length > 0)
-        : false); */
-
-    const localStatus = this.getPersistedDotStatus(index);
-    const question = this.getQuestionForIndex(index);
-    const fallbackOptions = index === this.currentQuestionIndex
-      ? ((Array.isArray(this.optionsToDisplay) && this.optionsToDisplay.length > 0)
-          ? this.optionsToDisplay
-          : (Array.isArray(this.currentQuestion?.options) ? this.currentQuestion.options as Option[] : []))
-      : [];
-    const resolvedCorrectOptionCount = this.getResolvedCorrectOptionEntries(question, fallbackOptions).length;  
-    const isLiveMultiAnswerQuestion =
-      index === this.currentQuestionIndex &&
-      (questionHasLiveSessionState || selections.length > 0) &&
-      (
-        question?.type === QuestionType.MultipleAnswer ||
-        resolvedCorrectOptionCount > 1
-      );
-    
-    const activeClickStatus = this.activeDotClickStatus.get(index);
-
-    if (isLiveMultiAnswerQuestion && activeClickStatus) {
-      this.setPersistedDotStatus(index, activeClickStatus);
-      this.pendingDotStatusOverrides.set(index, activeClickStatus);
-      this.dotStatusCache.set(index, activeClickStatus);
-      return activeClickStatus;
-    }
-
-    // Active multi-answer questions should mirror the latest click the same way
-    // single-answer questions do. Only trust the explicit pending override here:
-    // the persisted local status can be one click behind while the user toggles
-    // multi-select answers, which is what makes the dot appear stuck red after a
-    // newer correct click.
-    if (isLiveMultiAnswerQuestion && pendingOverrideStatus) {
-      this.setPersistedDotStatus(index, pendingOverrideStatus);
-      this.dotStatusCache.set(index, pendingOverrideStatus);
-      return pendingOverrideStatus;
-    }
-
-    if (
-      pendingOverrideStatus &&
-      index === this.currentQuestionIndex
-    ) {
-      // Keep the latest click-derived override for the active question.
-      // For multi-answer questions this is intentionally last-click driven so
-      // the dot behaves like single-answer questions (red -> green and green ->
-      // red on each click), even while the cumulative selection/scoring state
-      // settles in the background.
-
-      this.setPersistedDotStatus(index, pendingOverrideStatus);
-      this.dotStatusCache.set(index, pendingOverrideStatus);
-      return pendingOverrideStatus;
-    }
-
-    // Multi-answer questions can still surface an optimistic green state while
-    // the stricter scoring/persistence pipeline settles, but only after we've
-    // given the current click override a chance to repaint the dot.
-    if (hasOptimisticCorrectSelection) {
-      this.setPersistedDotStatus(index, 'correct');
-      this.dotStatusCache.set(index, 'correct');
-      return 'correct';
-    }
-
-    // For multi-answer questions on the CURRENT question, the persisted dot
-    // status was written by onOptionSelected based on the most-recently-clicked
-    // option.  Trust it over the cumulative evaluateSelectionCorrectness result
-    // which considers the entire selection set (and would show 'wrong' if ANY
-    // incorrect option is in the set, even when the latest click was correct).
-    /* if (index === this.currentQuestionIndex && (localStatus === 'correct' || localStatus === 'wrong')) {
-      const question = this.getQuestionForIndex(index);
-      if (question) {
-        const correctOpts = (question.options ?? []).filter(
-          (opt: Option) => opt.correct === true || String(opt.correct) === 'true'
-        );
-        const isMultiAnswer = correctOpts.length > 1;
-        if (isMultiAnswer && questionHasLiveSessionState) {
-          this.dotStatusCache.set(index, localStatus);
-          return localStatus;
-        }
-      }
-    } */
-    // For the active multi-answer question, prefer the cumulative live
-    // selection evaluation below over any previously persisted local status.
-    // Persisted status can lag one click behind, while the live evaluation
-    // reflects the intended rule: green after the first correct pick, red once
-    // any incorrect option is part of the selection set.
-
-    // If the active multi-answer question has already persisted a WRONG state
-    // for the current click sequence, trust that immediately unless scoring has
-    // already resolved the question as correct. This prevents a stale optimistic
-    // green dot from surviving after the user adds an incorrect option.
-    if (
-      localStatus === 'wrong' &&
-      evaluatedStatus !== true &&
-      !hasAuthoritativeCorrectState
-    ) {
-      this.dotStatusCache.set(index, 'wrong');
-      return 'wrong';
-    }
-
-    // Mirror the same last-click behavior for green states on the ACTIVE
-    // multi-answer question. Without this branch, the cumulative selection
-    // evaluation below can repaint the dot red immediately after the user
-    // clicks a correct option while an older incorrect selection is still part
-    // of the live set. Single-answer questions always follow the latest click,
-    // so keep multi-answer dots aligned with that UX as well.
-    if (
-      index === this.currentQuestionIndex &&
-      isLiveMultiAnswerQuestion &&
-      localStatus === 'correct'
-    ) {
-      this.dotStatusCache.set(index, 'correct');
-      return 'correct';
-    }
-
-    // For the active question, always prefer the live selection evaluation
-    // below over any previously persisted local status. Persisted values can
-    // lag one click behind while the user is toggling multiple-answer choices,
-    // which leaves the pagination dot stuck on the previous color.
-    if (
-      index !== this.currentQuestionIndex &&
-      localStatus === 'correct' &&
-      (questionHasLiveSessionState || selections.length > 0)
-    ) {
-      this.dotStatusCache.set(index, 'correct');
-      return 'correct';
-    }
-
-    // Prefer the live selection evaluation whenever we still have in-memory
-    // state for this question. This prevents a previously persisted "wrong"
-    // dot from overriding the current multi-answer selection after the user
-    // fixes the answer on the same question.
-    /* if (
-      (evaluatedStatus === true || evaluatedStatus === false) &&
-      (questionHasLiveSessionState || index === this.currentQuestionIndex)
-    ) { */
-
-    // For the ACTIVE question, keep the dot synced to the current live
-    // selection set even if the question was previously scored as correct.
-    // This makes multi-answer behave like single-answer questions:
-    // - first correct pick => green
-    // - any later incorrect pick => red immediately
-    // The score can remain correct; this branch is visual-only for the dot.
-    if (
-      index === this.currentQuestionIndex &&
-      evaluatedStatus === false &&
-      (questionHasLiveSessionState || selections.length > 0)
-    ) {
-      this.setPersistedDotStatus(index, 'wrong');
-      this.dotStatusCache.set(index, 'wrong');
-      return 'wrong';
-    }
-
-    // An authoritative scored-correct state must win over stale/non-active
-    // live-selection false negatives. For the active question, the branch
-    // above already lets a newer incorrect pick flip the dot red immediately.
-    
-    if (hasAuthoritativeCorrectState) {
-      this.setPersistedDotStatus(index, 'correct');
-      this.dotStatusCache.set(index, 'correct');
-      return 'correct';
-    }
-
-    // Prefer the live selection evaluation whenever we can compute one from
-    // the current selections. This ensures a stale persisted "wrong" dot is
-    // immediately replaced once a multiple-answer question becomes correct
-    // after the user fixes an earlier incorrect selection.
-    if (evaluatedStatus === true || evaluatedStatus === false) {
-      const status: 'correct' | 'wrong' = evaluatedStatus ? 'correct' : 'wrong';
-      this.setPersistedDotStatus(index, status);
-      this.dotStatusCache.set(index, status);
-      return status;
-    }
-
-    // For non-current questions, prefer already persisted dot color first.
-    // This prevents transient service-map false values from repainting an
-    // already-correct dot red when user navigates forward.
-    //if (index !== this.currentQuestionIndex && (localStatus === 'correct' || localStatus === 'wrong')) {
-    // For non-current questions, a persisted CORRECT dot is safe to reuse.
-    // Persisted WRONG is not authoritative enough to short-circuit here because
-    // a transient false negative can be written before scoring fully settles,
-    // which was leaving Q2 red after a correct answer.
-    if (index !== this.currentQuestionIndex && localStatus === 'correct') {
-      this.dotStatusCache.set(index, localStatus);
-      return localStatus;
-    }
-
-    // If scoring service already has an explicit correctness value, prefer it over
-    // local selection heuristics (which can be noisy with remapped/shuffled payloads)
-    // for NON-current questions. For the active question, prioritize live evaluation.
-    if (index !== this.currentQuestionIndex) {
-      const persisted = this.quizService.questionCorrectness.get(scoringKey);
-      if (persisted === true || persisted === false) {
-        const status: 'correct' | 'wrong' = persisted ? 'correct' : 'wrong';
-        this.setPersistedDotStatus(index, status);
-        this.dotStatusCache.set(index, status);
-        return status;
-      }
-    }
-
-    // Active question: live evaluation should update immediately.
-    /* if (index === this.currentQuestionIndex && (evaluatedStatus === true || evaluatedStatus === false)) {
-      const status: 'correct' | 'wrong' = evaluatedStatus ? 'correct' : 'wrong';
-      // const scoringKey = this.getScoringKey(index);
-      // this.quizService.questionCorrectness.set(scoringKey, evaluatedStatus);
-      // this.quizService.questionCorrectness.set(index, evaluatedStatus);
-      // IMPORTANT: Keep this path visual-only.
-      // Writing into questionCorrectness here can pre-mark a question as
-      // already correct before incrementScore() runs, which suppresses the
-      // first real score increment (wasCorrect=true, isNowCorrect=true).
-      this.setPersistedDotStatus(index, status);
-      this.dotStatusCache.set(index, status);
-      return status;
-    }
-
-    // const localStatus = this.getPersistedDotStatus(index);
-    const hasSessionState = this.hasLiveSessionStateForQuestion(index); */
-
-    // Do not restore persisted dot color for untouched active questions.
-    // But allow non-current questions to keep their previous run status when navigating.
-    if (!hasScoredState && evaluatedStatus === null) {
-      if (previousCached === 'correct' || previousCached === 'wrong') {
-        this.dotStatusCache.set(index, previousCached);
-        return previousCached;
-      }
-      if (localStatus === 'correct' || localStatus === 'wrong') {
-        this.dotStatusCache.set(index, localStatus);
-        return localStatus;
-      }
-      this.dotStatusCache.set(index, 'pending');
-      return 'pending';
-    }
-
-    if (localStatus === 'correct' && index !== this.currentQuestionIndex) {
-      this.dotStatusCache.set(index, localStatus);
-      return localStatus;
-    }
-    /* for (const key of candidateIndices) {
-      const persisted = this.quizService.questionCorrectness.get(key);
-      if (persisted === true || persisted === false) {
-        const status: 'correct' | 'wrong' = persisted ? 'correct' : 'wrong';
-        this.setPersistedDotStatus(index, status);
-        this.dotStatusCache.set(index, status);
-        return status;
-      }
-    } */
-
-    if (evaluatedStatus === true || evaluatedStatus === false) {
-      const status: 'correct' | 'wrong' = evaluatedStatus ? 'correct' : 'wrong';
-      this.setPersistedDotStatus(index, status);
-      this.dotStatusCache.set(index, status);
-      return status;
-    }
-
-    return 'pending';
-  }
-
-  private hasLiveSessionStateForQuestion(index: number): boolean {
-    // Check selectedOptionsMap by shuffled index only (selections are stored
-    // by shuffled index). Using candidateIndices here caused cross-contamination.
-    const selectedViaService = this.selectedOptionService?.selectedOptionsMap?.get(index);
-    if (Array.isArray(selectedViaService) && selectedViaService.length > 0) {
-      return true;
-    }
-
-    const selectedViaQuiz = this.quizService?.selectedOptionsMap?.get(index);
-    if (Array.isArray(selectedViaQuiz) && selectedViaQuiz.length > 0) {
-      return true;
-    }
-
-    // Check questionCorrectness by scoring key only (it's keyed by original index)
-    const scoringKey = this.getScoringKey(index);
-    const score = this.quizService?.questionCorrectness?.get(scoringKey);
-    if (score === true || score === false) {
-      return true;
-    }
-
-    // Check userAnswers by shuffled index
-    const answers = this.quizService?.userAnswers?.[index];
-    if (Array.isArray(answers) && answers.length > 0) {
-      return true;
-    }
-
-    return false;
+  private matchesAnyCorrectOption(
+    selection: Partial<SelectedOption> | null | undefined,
+    question: QuizQuestion | null | undefined,
+    fallbackOptions: Option[] = []
+  ): boolean {
+    return this.dotStatusService.matchesAnyCorrectOption(selection, question, fallbackOptions);
   }
 
   private isQuizFreshAtQuestionOne(): boolean {
-    if (this.currentQuestionIndex !== 0) {
-      return false;
-    }
+    return this.dotStatusService.isQuizFreshAtQuestionOne(this.currentQuestionIndex);
+  }
 
-    const hasSelectionsInSelectedOptionService =
-      (this.selectedOptionService?.selectedOptionsMap?.size ?? 0) > 0;
-    const hasSelectionsInQuizService =
-      (this.quizService?.selectedOptionsMap?.size ?? 0) > 0;
-    const hasScoredQuestions =
-      (this.quizService?.questionCorrectness?.size ?? 0) > 0;
-    const hasStoredUserAnswers =
-      Array.isArray(this.quizService?.userAnswers) &&
-      this.quizService.userAnswers.some((answers: unknown) =>
-        Array.isArray(answers) && answers.length > 0
-      );
-    const hasStateServiceActivity =
-      (this.quizStateService?._answeredQuestionIndices?.size ?? 0) > 0 ||
-      (this.quizStateService?._hasUserInteracted?.size ?? 0) > 0;
+  private evaluateSelectionCorrectness(index: number, selections: SelectedOption[]): boolean | null {
+    return this.dotStatusService.evaluateSelectionCorrectness({
+      index,
+      selections,
+      ...this._dotParams,
+    });
+  }
 
-    return !hasSelectionsInSelectedOptionService &&
-      !hasSelectionsInQuizService &&
-      !hasScoredQuestions &&
-      !hasStoredUserAnswers &&
-      !hasStateServiceActivity;
+  // Delegate to QuizDotStatusService
+  getQuestionStatus(index: number, options?: { forceRecompute?: boolean }): 'correct' | 'wrong' | 'pending' {
+    return this.dotStatusService.getQuestionStatus({
+      index,
+      ...this._dotParams,
+      dotStatusCache: this.dotStatusCache,
+      pendingDotStatusOverrides: this.pendingDotStatusOverrides,
+      activeDotClickStatus: this.activeDotClickStatus,
+      options,
+    });
   }
 
   // Call this when user selects an answer to update the cache
@@ -6070,115 +5203,19 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   }
 
   getDotClass(index: number): string {
-    if (index === this.currentQuestionIndex) {
-      // For multi-answer questions, use the LAST CLICKED option's correctness
-      // to set dot color (per-click, matching single-answer UX).
-      const lastClickedCorrect = this.selectedOptionService.lastClickedCorrectByQuestion.get(index);
-      if (lastClickedCorrect !== undefined) {
-        return `${lastClickedCorrect ? 'correct' : 'wrong'} current`;
-      }
-
-      const activeClickStatus = this.activeDotClickStatus.get(index);
-      if (activeClickStatus) {
-        return `${activeClickStatus} current`;
-      }
-
-      const pendingOverrideStatus = this.pendingDotStatusOverrides.get(index);
-      if (pendingOverrideStatus) {
-        return `${pendingOverrideStatus} current`;
-      }
-
-      // If the user hasn't interacted with this question yet, show lightblue.
-      // Stale optionsToDisplay from the PREVIOUS question can leak through
-      // getSelectionsForQuestion during navigation, causing dotStatusCache
-      // and persisted status to contain 'wrong' for the new question.
-      // Only the click-based maps above are trustworthy before interaction.
-      if (!this.quizStateService.hasUserInteracted(index)) {
-        if (this.timerExpiredUnanswered.has(index)) {
-          return 'pending';
-        }
-        return 'current';
-      }
-
-      const cachedStatus = this.dotStatusCache.get(index);
-      if (cachedStatus && cachedStatus !== 'pending') {
-        return `${cachedStatus} current`;
-      }
-
-      const persistedStatus = this.getPersistedDotStatus(index);
-      if (persistedStatus === 'correct' || persistedStatus === 'wrong') {
-        return `${persistedStatus} current`;
-      }
-
-      if (this.timerExpiredUnanswered.has(index)) {
-        return 'pending';
-      }
-
-      return 'current';
-    }
-
-    // If timer expired on this question with no answer, keep it gray
-    if (this.timerExpiredUnanswered.has(index)) {
-      return 'pending';
-    }
-
-    // DIAGNOSTIC: Log ALL state sources for this non-current dot
-    const scoringKey = this.getScoringKey(index);
-    const scoredCorrect = this.quizService.questionCorrectness.get(scoringKey);
-    const persisted = this.getPersistedDotStatus(index);
-    const confirmed = this.selectedOptionService.clickConfirmedDotStatus.get(index);
-    const cached = this.dotStatusCache.get(index);
-    const ssStored = (() => { try { return sessionStorage.getItem('dot_confirmed_' + index); } catch { return null; } })();
-
-    console.warn(
-      `[DOT-TRACE] Q${index + 1} (non-current) | scoringKey=${scoringKey} scored=${scoredCorrect} | persisted=${persisted} | confirmed=${confirmed} | cached=${cached} | ss=${ssStored} | qCorrectness keys=[${[...this.quizService.questionCorrectness.keys()]}]`
-    );
-
-    // 1. Ground truth: questionCorrectness
-    if (scoredCorrect === true) {
-      return 'correct';
-    }
-
-    // 2. Persisted dot status (localStorage)
-    if (persisted === 'correct') {
-      return 'correct';
-    }
-
-    // 3. clickConfirmedDotStatus (in-memory or sessionStorage fallback)
-    if (confirmed) {
-      return confirmed;
-    }
-    if (ssStored === 'correct' || ssStored === 'wrong') {
-      this.selectedOptionService.clickConfirmedDotStatus.set(index, ssStored);
-      return ssStored;
-    }
-
-    // 4. Explicit wrong from scoring
-    if (scoredCorrect === false) {
-      return 'wrong';
-    }
-    if (persisted === 'wrong') {
-      return 'wrong';
-    }
-
-    // 5. Fallback
-    const status = this.getQuestionStatus(index);
-    console.warn(`[DOT-TRACE] Q${index + 1} fell through to getQuestionStatus => "${status}"`);
-    return status;
+    return this.dotStatusService.getDotClass({
+      index,
+      ...this._dotParams,
+      dotStatusCache: this.dotStatusCache,
+      pendingDotStatusOverrides: this.pendingDotStatusOverrides,
+      activeDotClickStatus: this.activeDotClickStatus,
+      timerExpiredUnanswered: this.timerExpiredUnanswered,
+    });
   }
 
   /** Clear clickConfirmedDotStatus map AND its sessionStorage backing. */
   private clearClickConfirmedDotStatus(): void {
-    // Clear sessionStorage entries before clearing the map
-    this.selectedOptionService.clickConfirmedDotStatus.forEach((_val, key) => {
-      try { sessionStorage.removeItem('dot_confirmed_' + key); } catch {}
-    });
-    // Also sweep any orphaned session keys (up to totalQuestions)
-    const total = this.totalQuestions || 20;
-    for (let i = 0; i < total; i++) {
-      try { sessionStorage.removeItem('dot_confirmed_' + i); } catch {}
-    }
-    this.selectedOptionService.clickConfirmedDotStatus.clear();
+    this.quizPersistence.clearClickConfirmedDotStatus(this.totalQuestions);
   }
 
   navigateToDot(index: number): void {
@@ -6227,27 +5264,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   }
 
   private persistContinueStatusIfNeeded(): void {
-    if (!this.quizId) return;
-
-    // Hard Block: never persist CONTINUE after completion
-    if (this.quizService.quizCompleted === true) {
-      console.log('[QuizComponent] Quiz completed. Skipping CONTINUE persist.');
-      return;
-    }
-
-    // Only persist if the user actually answered something
-    const hasAnsweredAny =
-      this.currentQuestionIndex > 0 ||
-      this.selectedOptionService.isQuestionAnswered(0) === true;
-
-    if (!hasAnsweredAny) return;
-
-    // Store the current question index for resume
-    this.quizService.currentQuestionIndex = this.currentQuestionIndex;
-
-    // Set CONTINUE status
-    this.quizDataService.updateQuizStatus(this.quizId, QuizStatus.CONTINUE);
-    this.quizService.setQuizStatus(QuizStatus.CONTINUE);
+    this.quizPersistence.persistContinueStatusIfNeeded(this.quizId, this.currentQuestionIndex);
   }
 
   private finalizeAndGoToResults(): void {
