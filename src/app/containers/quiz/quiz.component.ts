@@ -53,6 +53,9 @@ import { ResetStateService } from '../../shared/services/state/reset-state.servi
 import { ResetBackgroundService } from '../../shared/services/ui/reset-background.service';
 import { SharedVisibilityService } from '../../shared/services/ui/shared-visibility.service';
 import { QuizDotStatusService } from '../../shared/services/flow/quiz-dot-status.service';
+import { QuizQuestionDataService } from '../../shared/services/flow/quiz-question-data.service';
+import { QuizResetService } from '../../shared/services/flow/quiz-reset.service';
+import { QuizRouteService } from '../../shared/services/flow/quiz-route.service';
 import { QuizScoringService } from '../../shared/services/flow/quiz-scoring.service';
 import { QuizPersistenceService } from '../../shared/services/state/quiz-persistence.service';
 
@@ -261,6 +264,9 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     private sharedVisibilityService: SharedVisibilityService,
     private dotStatusService: QuizDotStatusService,
     private quizPersistence: QuizPersistenceService,
+    private quizQuestionDataService: QuizQuestionDataService,
+    private quizResetService: QuizResetService,
+    private quizRouteService: QuizRouteService,
     private quizScoringService: QuizScoringService,
 
     private activatedRoute: ActivatedRoute,
@@ -593,18 +599,14 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
         console.log(`[DEBUG] NavigationEnd: routeQuizId=${routeQuizId}, previousQuizId=${previousQuizId}`);
 
         if (routeQuizId && previousQuizId && routeQuizId !== previousQuizId) {
-          // ALWAYS reset navigation service on any quiz load (it's a singleton that persists)
           this.quizNavigationService.resetForNewQuiz();
-
           console.log(`[QuizComponent] Quiz INIT/SWITCH: ${this.quizId} -> ${routeQuizId}. Resetting state for clean start.`);
 
-          // CRITICAL: Clear ALL question data - both service and local
-          this.quizService.resetAll();
-          this.quizStateService.reset();  // Reset quiz state service
-          this.explanationTextService.resetExplanationState();  // Clear explanation caches
-          this.selectedOptionService.clearAllSelectionsForQuiz(routeQuizId);
+          // Service-level resets
+          this.quizResetService.resetForQuizSwitch(routeQuizId);
+          this.clearAllPersistedDotStatus();
 
-          // Clear local component state
+          // Component-local state
           this.questionsArray = [];
           this.currentQuestion = null;
           this.optionsToDisplay = [];
@@ -615,15 +617,12 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           this.currentQuestionIndex = 0;
           this.lastLoggedIndex = -1;
 
-          // Clear dot status cache (Important to get gray dots)
           this.dotStatusCache.clear();
           this.pendingDotStatusOverrides.clear();
           this.clearClickConfirmedDotStatus();
           this.activeDotClickStatus.clear();
           this.timerExpiredUnanswered.clear();
 
-          // Reset display mode to question (not explanation)
-          this.quizStateService.setDisplayState({ mode: 'question', answered: false });
           this.showExplanation = false;
           this.navigatingToResults = false;
           this.isQuizLoaded = false;
@@ -631,24 +630,12 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           this.totalQuestions = 0;
           this.progress = 0;
 
-          try {
-            localStorage.removeItem('shuffledQuestions');
-            localStorage.removeItem('userAnswers');
-            localStorage.removeItem('selectedOptionsMap');
-            localStorage.removeItem('questionCorrectness');
-            this.clearAllPersistedDotStatus();
-            localStorage.removeItem('quiz_progress_default');
-            localStorage.setItem('savedQuestionIndex', '0');
-            sessionStorage.clear();  // clear session storage to reset dots
-          } catch { }
-
           // Update quiz ID and fetch new questions
           this.quizId = routeQuizId;
           this.quizService.setQuizId(routeQuizId);
           try { localStorage.setItem('lastQuizId', routeQuizId); } catch { }
           await this.loadQuestions();
-          this.isQuizLoaded = true; // Mark as loaded to prevent reset on within-quiz nav
-          console.log(`[DEBUG] After loadQuestions, questionsArray[0]=${this.questionsArray[0]?.questionText?.substring(0, 30)}`);
+          this.isQuizLoaded = true;
         }
 
         this.quizService.setCurrentQuestionIndex(idx);
@@ -677,93 +664,15 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   }
 
   private resetQuizState(): void {
-    this.quizService.resetQuestionPayload();
-    this.quizQuestionLoaderService.resetUI();
-
-    // Ensure each quiz start begins from clean scoring/selection state.
-    this.quizService.resetScore();
-    this.quizService.questionCorrectness?.clear();
-    this.quizService.selectedOptionsMap?.clear();
-    this.selectedOptionService.selectedOptionsMap?.clear();
-
-    try {
-      localStorage.setItem('correctAnswersCount', '0');
-      localStorage.removeItem('questionCorrectness');
-      localStorage.removeItem('selectedOptionsMap');
-      localStorage.removeItem('userAnswers');
-    } catch { }
-
-    localStorage.removeItem('savedQuestionIndex');
+    this.quizResetService.resetQuizState();
   }
 
   private getRouteQuestionNumber(): number | null {
-    const parseNum = (raw: string | null): number | null => {
-      if (raw == null) return null;
-      const n = Number(raw);
-      if (!Number.isFinite(n)) return null;
-      const qn = Math.trunc(n);
-      return qn >= 1 ? qn : null;
-    };
-
-    const fromCurrent = parseNum(this.activatedRoute.snapshot.paramMap.get('questionIndex'));
-    if (fromCurrent !== null) return fromCurrent;
-
-    const walk = (snapshot: any): number | null => {
-      if (!snapshot) return null;
-      const found = parseNum(snapshot.paramMap?.get?.('questionIndex') ?? null);
-      if (found !== null) return found;
-      for (const child of snapshot.children ?? []) {
-        const childFound = walk(child);
-        if (childFound !== null) return childFound;
-      }
-      return null;
-    };
-
-    const fromTree = walk(this.router.routerState.snapshot.root);
-    if (fromTree !== null) return fromTree;
-
-    const m = this.router.url.match(/\/(\d+)(?:\/)?(?:\?|$)/);
-    if (m) {
-      const fromUrl = parseNum(m[1]);
-      if (fromUrl !== null) return fromUrl;
-    }
-
-    return null;
+    return this.quizRouteService.getRouteQuestionNumber(this.activatedRoute, this.router);
   }
 
   private getRouteQuestionIndex(): number {
-    const toIndex = (raw: string | null): number | null => {
-      if (raw == null) return null;
-      const n = Number(raw);
-      if (!Number.isFinite(n)) return null;
-      return Math.max(0, Math.trunc(n) - 1);
-    };
-
-    const fromCurrent = toIndex(this.activatedRoute.snapshot.paramMap.get('questionIndex'));
-    if (fromCurrent !== null) return fromCurrent;
-
-    const walk = (snapshot: any): number | null => {
-      if (!snapshot) return null;
-      const found = toIndex(snapshot.paramMap?.get?.('questionIndex') ?? null);
-      if (found !== null) return found;
-      for (const child of snapshot.children ?? []) {
-        const childFound = walk(child);
-        if (childFound !== null) return childFound;
-      }
-      return null;
-    };
-
-    const fromTree = walk(this.router.routerState.snapshot.root);
-    if (fromTree !== null) return fromTree;
-
-    const fromUrl = (() => {
-      const m = this.router.url.match(/\/(\d+)(?:\?|$)/);
-      if (!m) return null;
-      return toIndex(m[1]);
-    })();
-    if (fromUrl !== null) return fromUrl;
-
-    return 0;
+    return this.quizRouteService.getRouteQuestionIndex(this.activatedRoute, this.router);
   }
 
   private initializeQuestionIndex(): void {
@@ -786,46 +695,17 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   }
 
   private clearStaleProgressAndDotStateForFreshStart(): void {
-    if (this.currentQuestionIndex !== 0) {
-      return;
+    const cleared = this.quizResetService.clearStaleProgressAndDotStateForFreshStart(
+      this.currentQuestionIndex,
+      this.quizId,
+      this.dotStatusCache,
+      this.pendingDotStatusOverrides,
+      this.activeDotClickStatus,
+      this.totalQuestions
+    );
+    if (cleared) {
+      this.progress = 0;
     }
-
-    // Only clear for a truly fresh start. If any scored/selection state exists,
-    // preserve it so score can continue incrementing across question navigation.
-    const hasExistingState =
-      (this.quizService.questionCorrectness?.size ?? 0) > 0 ||
-      (this.quizService.selectedOptionsMap?.size ?? 0) > 0 ||
-      (this.selectedOptionService.selectedOptionsMap?.size ?? 0) > 0;
-
-    if (hasExistingState) {
-      return;
-    }
-
-    this.dotStatusCache.clear();
-    this.pendingDotStatusOverrides.clear();
-    this.activeDotClickStatus.clear();
-    this.clearClickConfirmedDotStatus();
-    this.quizService.questionCorrectness?.clear();
-    this.quizService.selectedOptionsMap?.clear();
-    this.selectedOptionService.selectedOptionsMap?.clear();
-
-    try {
-      this.clearAllPersistedDotStatus();
-      localStorage.removeItem('quiz_progress_default');
-      localStorage.removeItem('questionCorrectness');
-      localStorage.removeItem('selectedOptionsMap');
-      localStorage.removeItem('userAnswers');
-    } catch { }
-
-    this.progress = 0;
-
-    // Ensure scoreboard starts from 0 on fresh quiz start (Q1).
-    // this.quizService.resetScore();
-    // try { localStorage.setItem('correctAnswersCount', '0'); } catch {}
-    // Do NOT reset score here. This helper can run during component lifecycle
-    // transitions where route/session state has not fully hydrated yet, and
-    // resetting here causes valid scores (e.g. 1/6) to snap back to 0/6.
-    // Explicit quiz-start/restart flows are responsible for score resets.
   }
 
   private fetchTotalQuestions(): void {
@@ -1720,28 +1600,22 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   }
 
   private resetQuestionState(): void {
-    // Clear last clicked option so it doesn’t bleed to next question’s dot
-    this.selectedOptionService.lastClickedOption = null;
-    this.selectedOptionService.lastClickedCorrectByQuestion.clear();
+    // Service-level resets
+    this.quizResetService.resetQuestionServiceState();
 
-    // Remove stale question so template can’t render old text
+    // Component-local state
     this.currentQuestion = null;
-    this.question = null;  // also clear this for consistency
+    this.question = null;
     this.optionsToDisplay = [];
-
-    // Clear local UI state
-    this.questionInitialized = false;  // block during reset
+    this.questionInitialized = false;
     this.isAnswered = false;
     this.selectedOptions = [];
     this.currentQuestionAnswered = false;
     this.isNextButtonEnabled = false;
     this.isButtonEnabled = false;
-    this.nextButtonStateService.reset();
-
-    // Reset visual selection state
     this.showFeedbackForOption = {};
 
-    // Reset question component state only if method exists
+    // Child component reset
     if (this.quizQuestionComponent) {
       if (typeof this.quizQuestionComponent.resetFeedback === 'function') {
         this.quizQuestionComponent.resetFeedback();
@@ -1749,31 +1623,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       if (typeof this.quizQuestionComponent.resetState === 'function') {
         this.quizQuestionComponent.resetState();
       }
-    } else {
-      console.warn(
-        '[resetQuestionState] ⚠️ quizQuestionComponent not initialized or dynamically loaded.'
-      );
     }
-
-    // Trigger global reset events and background reset
-    this.resetBackgroundService.setShouldResetBackground(true);
-    this.resetStateService.triggerResetFeedback();
-    this.resetStateService.triggerResetState();
-
-    // Clear selected options tracking
-    this.selectedOptionService.clearOptions();
-
-    // Reset explanation state if not locked
-    if (!this.explanationTextService.isExplanationLocked()) {
-      this.explanationTextService.resetExplanationState();
-    } else {
-      console.log(
-        '[resetQuestionState] Skipping explanation reset — lock is active.'
-      );
-    }
-
-    // Reset internal selected options tracking
-    this.selectedOptionService.stopTimerEmitted = false;
 
     this.cdRef.detectChanges();
   }
@@ -2367,24 +2217,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     console.log('[QuizComponent] Cleared FET cache (fetByIndex) before ' +
       'regenerating.');
 
-    // Format each explanation with "Option X is correct" based on the SHUFFLED array index,
-    // matching the UI.
     const formattedExplanations =
-      hydratedQuestions.map((question, index) => {
-        const rawExplanation = (question.explanation ?? '').trim();
-
-        // Get correct option indices for this question
-        const correctIndices = this.explanationTextService.getCorrectOptionIndices(question, question.options, index);
-
-        // Format the explanation with the prefix
-        const formattedText = this.explanationTextService.formatExplanation(
-          question,
-          correctIndices,
-          rawExplanation
-        );
-
-        return { questionIndex: index, explanation: formattedText };
-      });
+      this.quizQuestionDataService.formatExplanationsForQuestions(hydratedQuestions);
 
     this.explanationTextService.initializeFormattedExplanations(formattedExplanations);
 
@@ -2748,7 +2582,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       ets.setIsExplanationTextDisplayed(false);
       ets.latestExplanation = '';
 
-      // Wait for feedback and Angular’s stabilization before unlocking
+      // Wait for feedback and Angular's stabilization before unlocking
       setTimeout(() => {
         this.displayFeedback();
 
@@ -3016,42 +2850,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
    * Ensures the explanation text matches the currently shuffled option order.
    */
   private forceRegenerateExplanation(question: QuizQuestion, index: number): void {
-    if (question && question.options) {
-      // DEBUG: Log the options to see their correct flags
-      console.log(`[forceRegenerateExplanation] Q${index + 1} options:`,
-        question.options.map((o, i) => ({
-          idx: i + 1,
-          text: o.text?.substring(0, 20),
-          correct: o.correct,
-          optionId: o.optionId
-        }))
-      );
-
-      const correctIndices = this.explanationTextService.getCorrectOptionIndices(
-        question,
-        question.options,
-        index
-      );
-      console.log(`[forceRegenerateExplanation] Q${index + 1} correctIndices:`, correctIndices);
-
-      const formattedExplanation = this.explanationTextService.formatExplanation(
-        question,
-        correctIndices,
-        question.explanation
-      );
-      console.log(`[forceRegenerateExplanation] Q${index + 1} formattedExplanation:`, formattedExplanation?.substring(0, 80));
-
-      this.explanationTextService.storeFormattedExplanation(
-        index,
-        formattedExplanation,
-        question,
-        question.options,
-        true // FORCE update to override any locked FET
-      );
-      console.log(`[forceRegenerateExplanation] Updated FET for Q${index + 1}`);
-    } else {
-      console.warn(`[forceRegenerateExplanation] Q${index + 1} has no options!`);
-    }
+    this.quizQuestionDataService.forceRegenerateExplanation(question, index);
   }
 
   private resetFeedbackState(): void {
@@ -3089,36 +2888,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       });
   }
 
-  // REMOVE!!
   private async fetchQuestionData(quizId: string, questionIndex: number): Promise<any> {
-    try {
-      const rawData: QuestionData | null = await firstValueFrom(
-        of(this.quizService.getQuestionData(quizId, questionIndex)),
-      );
-      if (!rawData) return;
-
-      // Get the explanation as an Observable
-      const explanationObservable = this.explanationTextService
-        .explanationsInitialized
-        ? this.explanationTextService.getFormattedExplanationTextForQuestion(
-          questionIndex,
-        )
-        : of('');
-
-      // Convert the Observable to a Promise and await its value
-      const explanation: string =
-        (await firstValueFrom(explanationObservable)) ?? '';
-
-      return {
-        questionText: rawData.questionText ?? '',
-        options: rawData.currentOptions ?? [],
-        explanation: explanation ?? '',
-        type: this.quizDataService.questionType as QuestionType,
-      } as QuizQuestion;
-    } catch (error) {
-      console.error('Error fetching question data:', error);
-      throw error;
-    }
+    return this.quizQuestionDataService.fetchQuestionData(quizId, questionIndex);
   }
 
   // REMOVE!!
@@ -3898,40 +3669,10 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     }
   }
 
-  // REMOVE!!
   handleRouteParams(
     params: ParamMap
   ): Observable<{ quizId: string; questionIndex: number; quizData: Quiz }> {
-    const quizId = params.get('quizId');
-    const questionIndex = Number(params.get('questionIndex'));
-
-    // Validate parameters
-    if (!quizId) {
-      console.error('Quiz ID is missing.');
-      return throwError(() => new Error('Quiz ID is required'));
-    }
-
-    if (isNaN(questionIndex)) {
-      console.error('Invalid question index:',
-        params.get('questionIndex'));
-      return throwError(() => new Error('Invalid question index'));
-    }
-
-    // Fetch quiz data and validate
-    return this.quizDataService.getQuizzes().pipe(
-      map((quizzes: Quiz[]) => {
-        const quizData =
-          quizzes.find((quiz) => quiz.quizId === quizId);
-        if (!quizData) {
-          throw new Error(`Quiz with ID "${quizId}" not found.`);
-        }
-        return { quizId, questionIndex, quizData };
-      }),
-      catchError((error: Error) => {
-        console.error('Error processing quiz data:', error);
-        return throwError(() => new Error('Failed to process quiz data'));
-      })
-    );
+    return this.quizRouteService.handleRouteParams(params);
   }
 
   handleQuestion(question: QuizQuestion | null): void {
@@ -4442,72 +4183,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   }
 
   private async fetchQuestionDetails(questionIndex: number): Promise<QuizQuestion | null> {
-    try {
-      const resolvedQuestion: QuizQuestion | null = await firstValueFrom(
-        this.quizService.getQuestionByIndex(questionIndex)
-      );
-
-      if (!resolvedQuestion || !resolvedQuestion.questionText?.trim()) {
-        console.error(`[Q${questionIndex}] Missing or invalid question payload`);
-        return null;
-      }
-
-      const trimmedText = resolvedQuestion.questionText.trim();
-
-      const options =
-        Array.isArray(resolvedQuestion.options)
-          ? resolvedQuestion.options.map((option, idx) => ({
-            ...option,
-            optionId: option.optionId ?? idx
-          }))
-          : [];
-
-      if (!options.length) {
-        console.error(`[Q${questionIndex}] No valid options`);
-        return null;
-      }
-
-      // Fetch explanation text
-      let explanation = 'No explanation available';
-      if (this.explanationTextService.explanationsInitialized) {
-        const fetchedExplanation = await firstValueFrom(
-          this.explanationTextService.getFormattedExplanationTextForQuestion(
-            questionIndex
-          )
-        );
-        explanation = fetchedExplanation?.trim() || 'No explanation available';
-      } else {
-        console.warn(`[Q${questionIndex}] Explanations not initialized`);
-      }
-
-      if (
-        (!explanation || explanation === 'No explanation available') &&
-        resolvedQuestion.explanation?.trim()
-      ) {
-        explanation = resolvedQuestion.explanation.trim();
-      }
-
-      // Determine question type
-      const correctCount = options.filter((opt: Option) => opt.correct).length;
-      const type =
-        correctCount > 1
-          ? QuestionType.MultipleAnswer
-          : QuestionType.SingleAnswer;
-
-      const question: QuizQuestion = {
-        questionText: trimmedText,
-        options,
-        explanation,
-        type
-      };
-
-      // Sync type with service
-      this.quizDataService.setQuestionType(question);
-      return question;
-    } catch (error: any) {
-      console.error(`[fetchQuestionDetails] Error loading Q${questionIndex}:`, error);
-      throw error;
-    }
+    return this.quizQuestionDataService.fetchQuestionDetails(questionIndex);
   }
 
   private setQuestionDetails(questionText: string, options: Option[], explanationText: string): void {
@@ -4643,87 +4319,19 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   restartQuiz(): void {
     console.log('[QuizComponent] restartQuiz: performing full reset');
 
-    // Use the authoritative service reset which clears maps, storage, and session
-    this.quizService.resetAll();
-
-    // Clear the dot status cache locally for fresh pagination
-    this.dotStatusCache.clear();
-    this.pendingDotStatusOverrides.clear();
-    this.activeDotClickStatus.clear();
-    this.clearClickConfirmedDotStatus();
-    this.timerExpiredUnanswered.clear();
-    this.selectedOptionService.lastClickedCorrectByQuestion.clear();
-    this.clearAllPersistedDotStatus();
-
-    // Clear the shuffled questions in the service
-    this.quizService.shuffledQuestions = [];
-
-    // PRE-RESET: wipe all reactive quiz state and gates
-    // (Prevents Q2/Q3 flickering and stale FET frames)
-
-    // Reset explanation display flags
-    this.explanationTextService.setShouldDisplayExplanation(false, {
-      force: true
-    });
-    this.explanationTextService.setIsExplanationTextDisplayed(false);
-
-    // Clear all cached explanation / gate subjects
-    if (this.explanationTextService._byIndex) {
-      this.explanationTextService._byIndex.clear();
-    }
-    if (this.explanationTextService._gatesByIndex) {
-      this.explanationTextService._gatesByIndex.clear();
-    }
-
-    // Reset any internal locks / trackers
-    this.explanationTextService._fetLocked = false;
-
-    // Fully reset reactive participation state
-    this.quizStateService.reset();
-
-    // Reset question text BehaviorSubject (prevents “?” or old Q showing)
-    try {
-      this.quizQuestionLoaderService?.questionToDisplaySubject.next('');
-    } catch {
-      console.warn('[RESET] questionToDisplay$ not available');
-    }
-
-    // Force display back to question mode
-    this.quizStateService.displayStateSubject?.next(
-      { mode: 'question', answered: false }
+    // Service-level resets
+    this.quizResetService.performRestartServiceResets(
+      this.quizId,
+      this.totalQuestions,
+      this.dotStatusCache,
+      this.pendingDotStatusOverrides,
+      this.activeDotClickStatus
     );
-    this.quizStateService.setExplanationReady(false);
 
-    console.log('[RESET] Reactive quiz state cleared.');
-
-    // Clear selection/answer maps
-    this.selectedOptionService.clearSelectedOption();
-    this.selectedOptionService.clearSelection();
-    this.selectedOptionService.deselectOption();
-    this.selectedOptionService.resetSelectionState();
-    this.selectedOptionService.selectedOptionsMap.clear();
-    console.log('[SOS] restartQuiz() called - WIPING ALL SELECTIONS from map!');
-    this.selectedOptionService.setAnswered(false);
-    this.quizStateService.setAnswerSelected(false);
-
-    // Reset explanation/FET state fully on restart so stale cached indices
-    // (especially Q1 after URL restart) cannot be reused.
-    this.explanationTextService.resetExplanationState();
-    this.explanationTextService.unlockExplanation();
-    this.explanationTextService.setShouldDisplayExplanation(false);
-    this.quizStateService.setDisplayState({ mode: 'question', answered: false });
-
-    // Next starts disabled
-    this.nextButtonStateService.setNextButtonState(false);
-
-    // Clear child-local state
+    // Component-local state
+    this.timerExpiredUnanswered.clear();
     this.quizQuestionComponent?.selectedIndices?.clear();
-
-    // Reset sounds/timer
-
     this.timerService.stopTimer?.(undefined, { force: true });
-
-    // Reset progress bar to 0%
     this.progress = 0;
     this.dotStatusCache.clear();
     this.pendingDotStatusOverrides.clear();
@@ -4731,29 +4339,22 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.clearClickConfirmedDotStatus();
     this.updateProgressValue();
 
-
     // Navigate to Q1
     this.router.navigate(['/quiz/question', this.quizId, 1])
       .then(() => {
-        // Sync current index
         this.currentQuestionIndex = 0;
         this.quizService.setCurrentQuestionIndex(0);
         this.quizService.updateBadgeText(1, this.totalQuestions);
 
-        // Ensure child resets itself for Q1
         this.resetStateService.triggerResetFeedback();
         this.resetStateService.triggerResetState();
         this.quizService.setCurrentQuestionIndex(0);
 
-        // Guarantee Next is off for Q1
         this.nextButtonStateService.setNextButtonState(false);
         this.quizStateService.setAnswerSelected(false);
 
-        // Mark interactive so first click is processed immediately
         queueMicrotask(() => {
           this.quizStateService.setInteractionReady(true);
-
-          // Start timer on next frame after paint
           requestAnimationFrame(() => {
             this.timerService.resetTimer();
             this.timerService.startTimer(
@@ -4764,7 +4365,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
           });
         });
 
-        // Regenerate option bindings
         queueMicrotask(() => {
           this.sharedOptionComponent?.generateOptionBindings();
           this.cdRef.detectChanges();

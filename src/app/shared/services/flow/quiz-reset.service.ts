@@ -1,0 +1,230 @@
+import { Injectable } from '@angular/core';
+
+import { QuizService } from '../data/quiz.service';
+import { QuizStateService } from '../state/quizstate.service';
+import { QuizQuestionLoaderService } from './quizquestionloader.service';
+import { ExplanationTextService } from '../features/explanation-text.service';
+import { NextButtonStateService } from '../state/next-button-state.service';
+import { SelectedOptionService } from '../state/selectedoption.service';
+import { ResetStateService } from '../state/reset-state.service';
+import { ResetBackgroundService } from '../ui/reset-background.service';
+import { QuizPersistenceService } from '../state/quiz-persistence.service';
+
+/**
+ * Orchestrates reset operations across multiple services.
+ * Extracted from QuizComponent to reduce its size.
+ */
+@Injectable({ providedIn: 'root' })
+export class QuizResetService {
+
+  constructor(
+    private quizService: QuizService,
+    private quizStateService: QuizStateService,
+    private quizQuestionLoaderService: QuizQuestionLoaderService,
+    private explanationTextService: ExplanationTextService,
+    private nextButtonStateService: NextButtonStateService,
+    private selectedOptionService: SelectedOptionService,
+    private resetStateService: ResetStateService,
+    private resetBackgroundService: ResetBackgroundService,
+    private quizPersistence: QuizPersistenceService
+  ) {}
+
+  // ═══════════════════════════════════════════════════════════════
+  // RESET QUIZ STATE (service-level resets for quiz start)
+  // ═══════════════════════════════════════════════════════════════
+
+  resetQuizState(): void {
+    this.quizService.resetQuestionPayload();
+    this.quizQuestionLoaderService.resetUI();
+
+    this.quizService.resetScore();
+    this.quizService.questionCorrectness?.clear();
+    this.quizService.selectedOptionsMap?.clear();
+    this.selectedOptionService.selectedOptionsMap?.clear();
+
+    try {
+      localStorage.setItem('correctAnswersCount', '0');
+      localStorage.removeItem('questionCorrectness');
+      localStorage.removeItem('selectedOptionsMap');
+      localStorage.removeItem('userAnswers');
+    } catch { }
+
+    localStorage.removeItem('savedQuestionIndex');
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // RESET QUESTION STATE (between question transitions)
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * Resets service-level state between questions.
+   * Returns flags the component must apply to its own properties.
+   */
+  resetQuestionServiceState(): void {
+    this.selectedOptionService.lastClickedOption = null;
+    this.selectedOptionService.lastClickedCorrectByQuestion.clear();
+
+    this.nextButtonStateService.reset();
+
+    this.resetBackgroundService.setShouldResetBackground(true);
+    this.resetStateService.triggerResetFeedback();
+    this.resetStateService.triggerResetState();
+
+    this.selectedOptionService.clearOptions();
+
+    if (!this.explanationTextService.isExplanationLocked()) {
+      this.explanationTextService.resetExplanationState();
+    } else {
+      console.log(
+        '[resetQuestionState] Skipping explanation reset — lock is active.'
+      );
+    }
+
+    this.selectedOptionService.stopTimerEmitted = false;
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // CLEAR STALE PROGRESS AND DOT STATE FOR FRESH START
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * Checks if a fresh start is warranted and clears stale state.
+   * Returns true if state was cleared, false if not needed.
+   */
+  clearStaleProgressAndDotStateForFreshStart(
+    currentQuestionIndex: number,
+    quizId: string,
+    dotStatusCache: Map<number, 'correct' | 'wrong' | 'pending'>,
+    pendingDotStatusOverrides: Map<number, 'correct' | 'wrong'>,
+    activeDotClickStatus: Map<number, 'correct' | 'wrong'>,
+    totalQuestions: number
+  ): boolean {
+    if (currentQuestionIndex !== 0) {
+      return false;
+    }
+
+    const hasExistingState =
+      (this.quizService.questionCorrectness?.size ?? 0) > 0 ||
+      (this.quizService.selectedOptionsMap?.size ?? 0) > 0 ||
+      (this.selectedOptionService.selectedOptionsMap?.size ?? 0) > 0;
+
+    if (hasExistingState) {
+      return false;
+    }
+
+    dotStatusCache.clear();
+    pendingDotStatusOverrides.clear();
+    activeDotClickStatus.clear();
+    this.quizPersistence.clearClickConfirmedDotStatus(totalQuestions);
+    this.quizService.questionCorrectness?.clear();
+    this.quizService.selectedOptionsMap?.clear();
+    this.selectedOptionService.selectedOptionsMap?.clear();
+
+    try {
+      this.quizPersistence.clearAllPersistedDotStatus(quizId);
+      localStorage.removeItem('quiz_progress_default');
+      localStorage.removeItem('questionCorrectness');
+      localStorage.removeItem('selectedOptionsMap');
+      localStorage.removeItem('userAnswers');
+    } catch { }
+
+    return true;
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // RESET FOR QUIZ SWITCH (route event quiz change)
+  // ═══════════════════════════════════════════════════════════════
+
+  resetForQuizSwitch(routeQuizId: string): void {
+    // Reset navigation service
+    // (caller must handle quizNavigationService.resetForNewQuiz separately
+    //  if needed, since that service is not injected here)
+
+    this.quizService.resetAll();
+    this.quizStateService.reset();
+    this.explanationTextService.resetExplanationState();
+    this.selectedOptionService.clearAllSelectionsForQuiz(routeQuizId);
+
+    try {
+      localStorage.removeItem('shuffledQuestions');
+      localStorage.removeItem('userAnswers');
+      localStorage.removeItem('selectedOptionsMap');
+      localStorage.removeItem('questionCorrectness');
+      localStorage.removeItem('quiz_progress_default');
+      localStorage.setItem('savedQuestionIndex', '0');
+      sessionStorage.clear();
+    } catch { }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // RESTART QUIZ (full reset + service orchestration)
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * Performs all service-level resets for a quiz restart.
+   * Returns navigation target and post-nav config for the component.
+   */
+  performRestartServiceResets(
+    quizId: string,
+    totalQuestions: number,
+    dotStatusCache: Map<number, 'correct' | 'wrong' | 'pending'>,
+    pendingDotStatusOverrides: Map<number, 'correct' | 'wrong'>,
+    activeDotClickStatus: Map<number, 'correct' | 'wrong'>
+  ): void {
+    this.quizService.resetAll();
+
+    dotStatusCache.clear();
+    pendingDotStatusOverrides.clear();
+    activeDotClickStatus.clear();
+    this.quizPersistence.clearClickConfirmedDotStatus(totalQuestions);
+    this.selectedOptionService.lastClickedCorrectByQuestion.clear();
+    this.quizPersistence.clearAllPersistedDotStatus(quizId);
+
+    this.quizService.shuffledQuestions = [];
+
+    this.explanationTextService.setShouldDisplayExplanation(false, {
+      force: true
+    });
+    this.explanationTextService.setIsExplanationTextDisplayed(false);
+
+    if (this.explanationTextService._byIndex) {
+      this.explanationTextService._byIndex.clear();
+    }
+    if (this.explanationTextService._gatesByIndex) {
+      this.explanationTextService._gatesByIndex.clear();
+    }
+
+    this.explanationTextService._fetLocked = false;
+
+    this.quizStateService.reset();
+
+    try {
+      this.quizQuestionLoaderService?.questionToDisplaySubject.next('');
+    } catch {
+      console.warn('[RESET] questionToDisplay$ not available');
+    }
+
+    this.quizStateService.displayStateSubject?.next(
+      { mode: 'question', answered: false }
+    );
+    this.quizStateService.setExplanationReady(false);
+
+    console.log('[RESET] Reactive quiz state cleared.');
+
+    this.selectedOptionService.clearSelectedOption();
+    this.selectedOptionService.clearSelection();
+    this.selectedOptionService.deselectOption();
+    this.selectedOptionService.resetSelectionState();
+    this.selectedOptionService.selectedOptionsMap.clear();
+    console.log('[SOS] restartQuiz() called - WIPING ALL SELECTIONS from map!');
+    this.selectedOptionService.setAnswered(false);
+    this.quizStateService.setAnswerSelected(false);
+
+    this.explanationTextService.resetExplanationState();
+    this.explanationTextService.unlockExplanation();
+    this.explanationTextService.setShouldDisplayExplanation(false);
+    this.quizStateService.setDisplayState({ mode: 'question', answered: false });
+
+    this.nextButtonStateService.setNextButtonState(false);
+  }
+}
