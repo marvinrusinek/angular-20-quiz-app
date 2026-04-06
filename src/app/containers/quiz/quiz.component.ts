@@ -1374,17 +1374,8 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       return;
     }
 
-    // Purge immediately before anything else
-    // Rejects all old FET emissions before new load starts
-    const ets = this.explanationTextService;
-    try {
-      ets._fetLocked = true;
-      ets.purgeAndDefer(adjustedIndex);
-      console.log(`[updateContentBasedOnIndex] Locked + purged FET for 
-        Q${adjustedIndex + 1}`);
-    } catch (error: any) {
-      console.warn(`[updateContentBasedOnIndex] purgeAndDefer failed`, error);
-    }
+    // Lock + purge FET before new load starts
+    this.quizContentLoaderService.lockAndPurgeFet(adjustedIndex);
 
     // Skip redundant reloads
     if (this.previousIndex === adjustedIndex && !this.isNavigatedByUrl) {
@@ -1409,39 +1400,11 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     try {
       await this.loadQuestionByRouteIndex(index);
 
-      // Keep gate closed while feedback renders
-      ets._fetLocked = true;
-      ets.setShouldDisplayExplanation(false);
-      ets.setIsExplanationTextDisplayed(false);
-      ets.latestExplanation = '';
-
-      // Wait for feedback and Angular's stabilization before unlocking
-      setTimeout(() => {
-        this.cdRef.detectChanges();
-
-        this.ngZone.onStable.pipe(take(1)).subscribe(() => {
-          requestAnimationFrame(() => {
-            setTimeout(() => {
-              const stillCurrent =
-                ets._gateToken === ets._currentGateToken &&
-                adjustedIndex === this.currentQuestionIndex;
-
-              if (!stillCurrent) {
-                console.log(
-                  `[updateContentBasedOnIndex] stale unlock skipped for 
-                   Q${adjustedIndex + 1}`
-                );
-                return;
-              }
-
-              ets._fetLocked = false;
-              console.log(
-                `[updateContentBasedOnIndex] FET gate unlocked cleanly for Q${adjustedIndex + 1}`
-              );
-            }, 100);
-          });
-        });
-      }, 140);
+      this.quizContentLoaderService.unlockFetGateAfterRender(
+        adjustedIndex,
+        () => this.currentQuestionIndex,
+        () => this.cdRef.detectChanges()
+      );
 
       // Ensure all options are clickable again
       setTimeout(() => this.quizContentLoaderService.enableAllOptionPointerEvents(), 200);
@@ -1462,17 +1425,7 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
 
   resetExplanationText(): void {
     this.explanationToDisplay = '';
-    // Ensure the shared explanation state is fully cleared before the next question
-    // renders so we don't momentarily show the previous explanation (which caused the
-    // flicker and stale text issues reported for Q1/Q2 transitions).
-    this.explanationTextService.unlockExplanation();
-    this.explanationTextService.setExplanationText('', { force: true, index: this.currentQuestionIndex });
-    this.explanationTextService.setShouldDisplayExplanation(false, {
-      force: true
-    });
-    this.explanationTextService.setIsExplanationTextDisplayed(false, {
-      force: true
-    });
+    this.quizContentLoaderService.resetDisplayExplanationText(this.currentQuestionIndex);
   }
 
   // This function loads the question corresponding to the provided index.

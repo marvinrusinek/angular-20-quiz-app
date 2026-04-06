@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, NgZone } from '@angular/core';
 import { firstValueFrom, Observable, of } from 'rxjs';
 import { catchError, filter, map, take } from 'rxjs/operators';
 
@@ -96,8 +96,72 @@ export class QuizContentLoaderService {
     private selectionMessageService: SelectionMessageService,
     private quizQuestionDataService: QuizQuestionDataService,
     private quizQuestionLoaderService: QuizQuestionLoaderService,
-    private quizScoringService: QuizScoringService
+    private quizScoringService: QuizScoringService,
+    private ngZone: NgZone
   ) {}
+
+  // ═══════════════════════════════════════════════════════════════
+  // FET (Formatted Explanation Text) GATE CONTROL
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * Locks FET gate and purges any deferred FET emissions for the
+   * incoming question index. Safe to call before navigation.
+   */
+  lockAndPurgeFet(adjustedIndex: number): void {
+    const ets = this.explanationTextService;
+    try {
+      ets._fetLocked = true;
+      ets.purgeAndDefer(adjustedIndex);
+    } catch (error: any) {
+      console.warn('[lockAndPurgeFet] failed', error);
+    }
+  }
+
+  /**
+   * Resets visible explanation state to empty/hidden and unlocks the
+   * explanation lock so the next question's text can be set fresh.
+   */
+  resetDisplayExplanationText(currentQuestionIndex: number): void {
+    const ets = this.explanationTextService;
+    ets.unlockExplanation();
+    ets.setExplanationText('', { force: true, index: currentQuestionIndex });
+    ets.setShouldDisplayExplanation(false, { force: true });
+    ets.setIsExplanationTextDisplayed(false, { force: true });
+  }
+
+  /**
+   * Re-closes the FET gate, then unlocks it after Angular has stabilized
+   * (waits for ngZone.onStable + rAF + 100ms tail) only if the index is
+   * still current. Caller passes a getter for the live index.
+   */
+  unlockFetGateAfterRender(
+    adjustedIndex: number,
+    getCurrentIndex: () => number,
+    detectChanges: () => void
+  ): void {
+    const ets = this.explanationTextService;
+    ets._fetLocked = true;
+    ets.setShouldDisplayExplanation(false);
+    ets.setIsExplanationTextDisplayed(false);
+    ets.latestExplanation = '';
+
+    setTimeout(() => {
+      detectChanges();
+      this.ngZone.onStable.pipe(take(1)).subscribe(() => {
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            const stillCurrent =
+              ets._gateToken === ets._currentGateToken &&
+              adjustedIndex === getCurrentIndex();
+            if (!stillCurrent) return;
+            ets._fetLocked = false;
+          }, 100);
+        });
+      });
+    }, 140);
+  }
+
 
   // ═══════════════════════════════════════════════════════════════
   // OPTION / DOM RESETS FOR QUESTION TRANSITION
