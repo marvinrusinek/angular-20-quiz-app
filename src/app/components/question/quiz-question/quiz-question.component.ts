@@ -1,8 +1,9 @@
 import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ComponentRef, EventEmitter, HostListener,
-  Input, NgZone, OnChanges, OnDestroy, OnInit, Output, SimpleChange, SimpleChanges, ViewChild, ViewContainerRef,
+  Input, NgZone, OnChanges, OnDestroy, OnInit, Output, SimpleChange, SimpleChanges, ViewContainerRef,
   input,
-  output
+  output,
+  viewChild
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup } from '@angular/forms';
@@ -70,10 +71,8 @@ import { FeedbackKey, FeedbackConfig } from '../../../shared/models/FeedbackConf
 })
 export class QuizQuestionComponent extends BaseQuestion
   implements OnInit, OnChanges, OnDestroy, AfterViewInit {
-  @ViewChild('dynamicAnswerContainer', { read: ViewContainerRef, static: false })
-  dynamicAnswerContainer!: ViewContainerRef;
-  @ViewChild(SharedOptionComponent, { static: false })
-  sharedOptionComponent!: SharedOptionComponent;
+  readonly dynamicAnswerContainer = viewChild.required('dynamicAnswerContainer', { read: ViewContainerRef });
+  readonly sharedOptionComponent = viewChild.required(SharedOptionComponent);
   answer = new EventEmitter<number>();
   answeredChange = new EventEmitter<boolean>();
   selectionChanged: EventEmitter<{
@@ -314,7 +313,7 @@ export class QuizQuestionComponent extends BaseQuestion
   }
 
   private resetUIForNewQuestion(): void {
-    this.sharedOptionComponent?.resetUIForNewQuestion();
+    this.sharedOptionComponent()?.resetUIForNewQuestion();
     this.updateShouldRenderOptions([]);
   }
 
@@ -585,8 +584,8 @@ export class QuizQuestionComponent extends BaseQuestion
     return this.componentOrchestrator.runDisableAllBindingsAndOptions(this);
   }
   private forceDisableSharedOption(): void {
-    this.sharedOptionComponent?.forceDisableAllOptions?.();
-    this.sharedOptionComponent?.triggerViewRefresh?.();
+    this.sharedOptionComponent()?.forceDisableAllOptions?.();
+    this.sharedOptionComponent()?.triggerViewRefresh?.();
   }
 
   public revealFeedbackForAllOptions(canonicalOpts: Option[]): void {

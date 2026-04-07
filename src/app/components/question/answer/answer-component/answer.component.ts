@@ -1,9 +1,10 @@
 import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, EventEmitter,
   Input, OnChanges, OnInit, Output, QueryList, SimpleChanges,
-  ViewChild, ViewContainerRef,
+  ViewContainerRef,
   input,
-  output
+  output,
+  viewChild
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
@@ -40,8 +41,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
 
   viewContainerRefs!: QueryList<ViewContainerRef>;
   viewContainerRef!: ViewContainerRef;
-  @ViewChild(SharedOptionComponent)
-  sharedOptionComponent!: SharedOptionComponent;
+  readonly sharedOptionComponent = viewChild.required(SharedOptionComponent);
 
   readonly componentLoaded = output<any>();
   readonly optionSelected = output<{
