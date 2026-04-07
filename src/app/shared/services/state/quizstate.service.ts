@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import {
   BehaviorSubject, EMPTY, Observable, ReplaySubject, Subject
 } from 'rxjs';
@@ -74,6 +75,20 @@ export class QuizStateService {
 
   public _hasUserInteracted = new Set<number>();
   public _answeredQuestionIndices = new Set<number>();
+
+  // Signal mirrors derived from the BehaviorSubjects above.
+  // New code should read these; existing code can keep using the $ observables.
+  readonly currentQuestionSig = toSignal(this.currentQuestion$, { initialValue: null });
+  readonly currentQuestionIndexSig = toSignal(this.currentQuestionIndex$, { initialValue: 0 });
+  readonly currentOptionsSig = toSignal(this.currentOptions$, { initialValue: [] as Option[] });
+  readonly isLoadingSig = toSignal(this.isLoading$, { initialValue: false });
+  readonly isNavigatingSig = toSignal(this.isNavigating$, { initialValue: false });
+  readonly isAnsweredSig = toSignal(this.isAnswered$, { initialValue: false });
+  readonly explanationReadySig = toSignal(this.explanationReady$, { initialValue: false });
+  readonly displayStateSig = toSignal(this.displayState$, {
+    initialValue: { mode: 'question' as 'question' | 'explanation', answered: false }
+  });
+  readonly interactionReadySig = toSignal(this.interactionReady$, { initialValue: true });
 
   constructor() {
     this.questionStates = new Map<number, QuestionState>();
