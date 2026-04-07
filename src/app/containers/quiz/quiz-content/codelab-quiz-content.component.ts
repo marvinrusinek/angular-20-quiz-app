@@ -1,7 +1,8 @@
 import {
-  ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter,
-  Input, OnChanges, OnDestroy, OnInit, Output, Renderer2, SimpleChanges, ViewChild,
-  input
+  ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef,
+  Input, OnChanges, OnDestroy, OnInit, Renderer2, SimpleChanges, ViewChild,
+  input,
+  output
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, ParamMap } from '@angular/router';
@@ -41,7 +42,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   @ViewChild('qText', { static: true })
   qText!: ElementRef<HTMLHeadingElement>;
 
-  @Output() isContentAvailableChange = new EventEmitter<boolean>();
+  readonly isContentAvailableChange = output<boolean>();
 
   readonly combinedQuestionData$ = input<Observable<CombinedQuestionDataType> | null>(null);
   readonly currentQuestion = input(new BehaviorSubject<QuizQuestion | null>(null));

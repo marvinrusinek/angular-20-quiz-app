@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, OnChanges, SimpleChanges, ViewEncapsulation, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, OnChanges, SimpleChanges, ViewEncapsulation, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -59,7 +59,7 @@ export class OptionItemComponent implements OnChanges {
   private _lastQuestionIndex = -1;
 
   // ONE output
-  @Output() optionUI = new EventEmitter<OptionUIEvent>();
+  readonly optionUI = output<OptionUIEvent>();
 
   constructor(
     private optionService: OptionService,

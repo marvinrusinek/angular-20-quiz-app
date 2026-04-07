@@ -1,8 +1,9 @@
 import {
-  AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component,
-  EventEmitter, Input, OnChanges, OnInit, Output, QueryList, SimpleChanges,
+  AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, EventEmitter,
+  Input, OnChanges, OnInit, Output, QueryList, SimpleChanges,
   ViewChild, ViewContainerRef,
-  input
+  input,
+  output
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
@@ -42,12 +43,12 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
   @ViewChild(SharedOptionComponent)
   sharedOptionComponent!: SharedOptionComponent;
 
-  @Output() componentLoaded = new EventEmitter<any>();
-  @Output() optionSelected = new EventEmitter<{
-    option: SelectedOption,
-    index: number,
-    checked: boolean
-  }>();
+  readonly componentLoaded = output<any>();
+  readonly optionSelected = output<{
+    option: SelectedOption;
+    index: number;
+    checked: boolean;
+}>();
   @Output() override optionClicked =
     new EventEmitter<OptionClickedPayload>() as any;
   readonly questionData = input.required<QuizQuestion>();

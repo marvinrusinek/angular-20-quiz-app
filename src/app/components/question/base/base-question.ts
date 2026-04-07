@@ -1,7 +1,8 @@
 import {
-  ChangeDetectorRef, Directive, EventEmitter, Input, OnChanges,
-  OnDestroy, OnInit, Output, SimpleChange, SimpleChanges,
-  input
+  ChangeDetectorRef, Directive, Input, OnChanges,
+  OnDestroy, OnInit, SimpleChange, SimpleChanges,
+  input,
+  output
 } from '@angular/core';
 import { FormBuilder, FormControl, FormGroup } from '@angular/forms';
 import { Subscription } from 'rxjs';
@@ -30,10 +31,10 @@ export interface OptionClickEvent {
 export abstract class BaseQuestion<T extends OptionClickEvent =
   OptionClickEvent> implements OnInit, OnChanges, OnDestroy
 {
-  @Output() optionClicked = new EventEmitter<T>();
-  @Output() questionChange = new EventEmitter<QuizQuestion>();
-  @Output() explanationToDisplayChange = new EventEmitter<any>();
-  @Output() correctMessageChange = new EventEmitter<string>();
+  readonly optionClicked = output<T>();
+  readonly questionChange = output<QuizQuestion>();
+  readonly explanationToDisplayChange = output<any>();
+  readonly correctMessageChange = output<string>();
 
   @Input() quizQuestionComponentOnOptionClicked!:
     (option: SelectedOption, index: number) => void;

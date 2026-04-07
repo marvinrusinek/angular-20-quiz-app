@@ -1,8 +1,9 @@
 import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, DoCheck,
-  EventEmitter, HostListener, OnChanges, OnDestroy, OnInit, Output,
+  HostListener, OnChanges, OnDestroy, OnInit,
   SimpleChanges,
-  input
+  input,
+  output
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
@@ -65,13 +66,13 @@ import { SharedOptionOrchestratorService } from '../../../../shared/services/fea
 })
 export class SharedOptionComponent
     implements OnInit, OnChanges, DoCheck, OnDestroy, AfterViewInit {
-  @Output() optionClicked = new EventEmitter<OptionClickedPayload>();
-  @Output() optionEvent = new EventEmitter<OptionUIEvent>();
-  @Output() reselectionDetected = new EventEmitter<boolean>();
-  @Output() explanationUpdate = new EventEmitter<number>();
-  @Output() renderReadyChange = new EventEmitter<boolean>();
-  @Output() showExplanationChange = new EventEmitter<boolean>();
-  @Output() explanationToDisplayChange = new EventEmitter<string>();
+  readonly optionClicked = output<OptionClickedPayload>();
+  readonly optionEvent = output<OptionUIEvent>();
+  readonly reselectionDetected = output<boolean>();
+  readonly explanationUpdate = output<number>();
+  readonly renderReadyChange = output<boolean>();
+  readonly showExplanationChange = output<boolean>();
+  readonly explanationToDisplayChange = output<string>();
   readonly currentQuestion = input<QuizQuestion | null>(null);
   readonly currentQuestionIndex = input.required<number>();
   readonly questionIndex = input<number | null>(null);

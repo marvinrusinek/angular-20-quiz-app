@@ -1,7 +1,8 @@
 import {
-  ChangeDetectorRef, Directive, ElementRef, EventEmitter, HostListener, Input,
-  OnChanges, OnInit, Output, Renderer2, SimpleChanges,
-  input
+  ChangeDetectorRef, Directive, ElementRef, HostListener, Input,
+  OnChanges, OnInit, Renderer2, SimpleChanges,
+  input,
+  output
 } from '@angular/core';
 
 import { Option } from '../shared/models/Option.model';
@@ -14,8 +15,8 @@ import { SharedOptionConfig } from '../shared/models/SharedOptionConfig.model';
   standalone: true
 })
 export class HighlightOptionDirective implements OnInit, OnChanges {
-  @Output() resetBackground = new EventEmitter<boolean>();
-  @Output() optionClicked = new EventEmitter<Option>();
+  readonly resetBackground = output<boolean>();
+  readonly optionClicked = output<Option>();
   @Input() appHighlightInputType: 'checkbox' | 'radio' = 'radio';
   readonly type = input<'single' | 'multiple'>('single');
   @Input() appHighlightReset = false;

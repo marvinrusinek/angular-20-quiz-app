@@ -1,7 +1,8 @@
 import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ComponentRef, EventEmitter, HostListener,
   Input, NgZone, OnChanges, OnDestroy, OnInit, Output, SimpleChange, SimpleChanges, ViewChild, ViewContainerRef,
-  input
+  input,
+  output
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup } from '@angular/forms';
@@ -81,7 +82,7 @@ export class QuizQuestionComponent extends BaseQuestion
   }> = new EventEmitter();
   questionAnswered = new EventEmitter<QuizQuestion>();
   isAnswerSelectedChange = new EventEmitter<boolean>();
-  override explanationToDisplayChange = new EventEmitter<string>();
+  override readonly explanationToDisplayChange = output<string>();
   showExplanationChange = new EventEmitter<boolean>();
   selectionMessageChange = new EventEmitter<string>();
   isAnsweredChange = new EventEmitter<boolean>();
@@ -138,7 +139,7 @@ export class QuizQuestionComponent extends BaseQuestion
   lastLoggedIndex = -1;
   private lastLoggedQuestionIndex = -1;
   private _clickGate = false;  // same-tick re-entrancy guard
-  @Output() events = new EventEmitter<QuizQuestionEvent>();
+  readonly events = output<QuizQuestionEvent>();
   public selectedIndices = new Set<number>();
 
   override selectedOption: SelectedOption | null = null;
