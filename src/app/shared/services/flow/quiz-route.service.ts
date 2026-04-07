@@ -5,6 +5,7 @@ import { catchError, map } from 'rxjs/operators';
 
 import { Quiz } from '../../models/Quiz.model';
 import { QuizDataService } from '../data/quizdata.service';
+import { QuizService } from '../data/quiz.service';
 
 /**
  * Handles route parameter parsing and route-based quiz data resolution.
@@ -14,8 +15,30 @@ import { QuizDataService } from '../data/quizdata.service';
 export class QuizRouteService {
 
   constructor(
-    private quizDataService: QuizDataService
+    private quizDataService: QuizDataService,
+    private quizService: QuizService
   ) {}
+
+  // ═══════════════════════════════════════════════════════════════
+  // PARSE NAVIGATION-END ROUTE PARAMS
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * Parses the snapshot's quizId + 0-based question index, and detects
+   * whether the route quiz differs from the previous quiz id.
+   */
+  parseNavigationEndParams(
+    activatedRoute: ActivatedRoute,
+    previousQuizId: string
+  ): { routeQuizId: string | null; index: number; isQuizSwitch: boolean } {
+    const params = activatedRoute.snapshot.paramMap;
+    const routeQuizId = params.get('quizId');
+    const raw = params.get('questionIndex');
+    const index = Math.max(0, (Number(raw) || 1) - 1);
+    const prev = previousQuizId || this.quizService.quizId || localStorage.getItem('lastQuizId') || '';
+    const isQuizSwitch = !!(routeQuizId && prev && routeQuizId !== prev);
+    return { routeQuizId, index, isQuizSwitch };
+  }
 
   // ═══════════════════════════════════════════════════════════════
   // ROUTE QUESTION NUMBER (1-based)

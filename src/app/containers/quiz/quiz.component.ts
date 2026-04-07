@@ -455,46 +455,40 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     this.router.events
       .pipe(filter((event) => event instanceof NavigationEnd))
       .subscribe(async () => {
-        const params = this.activatedRoute.snapshot.paramMap;
-        const routeQuizId = params.get('quizId');
-        const raw = params.get('questionIndex');
-        const idx = Math.max(0, (Number(raw) || 1) - 1);
+        const { routeQuizId, index: idx, isQuizSwitch } =
+          this.quizRouteService.parseNavigationEndParams(this.activatedRoute, this.quizId);
 
-        const previousQuizId = this.quizId || this.quizService.quizId || localStorage.getItem('lastQuizId') || '';
-        console.log(`[DEBUG] NavigationEnd: routeQuizId=${routeQuizId}, previousQuizId=${previousQuizId}`);
-
-        if (routeQuizId && previousQuizId && routeQuizId !== previousQuizId) {
+        if (isQuizSwitch && routeQuizId) {
           this.quizNavigationService.resetForNewQuiz();
-          console.log(`[QuizComponent] Quiz INIT/SWITCH: ${this.quizId} -> ${routeQuizId}. Resetting state for clean start.`);
-
           this.quizResetService.performQuizSwitchResets(routeQuizId);
-
-          // Component-local state
-          this.questionsArray = [];
-          this.currentQuestion = null;
-          this.optionsToDisplay = [];
-          this.optionsToDisplay$.next([]);
-          this.combinedQuestionDataSubject.next(null);
-          this.questionToDisplaySource.next('');
-          this.explanationToDisplay = '';
-          this.currentQuestionIndex = 0;
-          this.lastLoggedIndex = -1;
-          this.navigatingToResults = false;
-          this.isQuizLoaded = false;
-          this.isQuizDataLoaded = false;
-          this.totalQuestions = 0;
-          this.progress = 0;
-
-          this.quizId = routeQuizId;
-          this.quizService.setQuizId(routeQuizId);
+          this.resetComponentStateForQuizSwitch(routeQuizId);
           await this.loadQuestions();
           this.isQuizLoaded = true;
         }
 
         this.quizService.setCurrentQuestionIndex(idx);
-        this.updateProgressValue(); // Ensure progress stays updated across navigations
+        this.updateProgressValue();
         this.updateDotStatus(idx);
       });
+  }
+
+  private resetComponentStateForQuizSwitch(routeQuizId: string): void {
+    this.questionsArray = [];
+    this.currentQuestion = null;
+    this.optionsToDisplay = [];
+    this.optionsToDisplay$.next([]);
+    this.combinedQuestionDataSubject.next(null);
+    this.questionToDisplaySource.next('');
+    this.explanationToDisplay = '';
+    this.currentQuestionIndex = 0;
+    this.lastLoggedIndex = -1;
+    this.navigatingToResults = false;
+    this.isQuizLoaded = false;
+    this.isQuizDataLoaded = false;
+    this.totalQuestions = 0;
+    this.progress = 0;
+    this.quizId = routeQuizId;
+    this.quizService.setQuizId(routeQuizId);
   }
 
   private async initializeQuizId(): Promise<string | null> {
@@ -849,63 +843,26 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
     if (id !== -1 && id === ((this as any)._lastOptionId ?? -1) && (now - ((this as any)._lastClickTime ?? 0)) < 200) return;
     (this as any)._lastClickTime = now;
     (this as any)._lastOptionId = id;
+
     this._processingOptionClick = true;
     const idx = this.normalizeQuestionIndex(option?.questionIndex);
     this.showExplanationForQuestion(idx);
-    const isAnswered = this.selectedOptionService.isQuestionAnswered(idx);
-    this.nextButtonStateService.setNextButtonState(isAnswered);
-    if (this.quizStateService) {
-      this.quizStateService.markUserInteracted(idx);
-      if (isAnswered) this.quizStateService.markQuestionAnswered(idx);
-    }
-    const liveSelections = this.getSelectionsForQuestion(idx);
-    const immediate = this.quizOptionProcessingService.evaluateImmediateCorrectness({
-      option, idx, liveSelections,
-      questionsArray: this.questionsArray, currentQuestion: this.currentQuestion,
-      optionsToDisplay: this.optionsToDisplay, quizId: this.quizId,
+
+    await this.quizOptionProcessingService.processOptionClick({
+      option, idx, quizId: this.quizId,
       currentQuestionIndex: this.currentQuestionIndex,
+      questionsArray: this.questionsArray,
+      currentQuestion: this.currentQuestion,
+      optionsToDisplay: this.optionsToDisplay,
+      liveSelections: this.getSelectionsForQuestion(idx),
+      explanationToDisplay: this.explanationToDisplay,
     });
-    if (immediate.canPersistOptimisticStatus) {
-      this.setPersistedDotStatus(idx, 'correct');
-      this.dotStatusService.pendingDotStatusOverrides.set(idx, 'correct');
-    }
-    if (immediate.isSingleAnswerQuestion) {
-      this.quizOptionProcessingService.evaluateSingleAnswer({
-        option, idx, optionsForImmediateScoring: immediate.optionsForImmediateScoring,
-        liveCorrectness: immediate.liveCorrectness, quizId: this.quizId,
-      });
-    }
-    let immediateMultiDotStatus: 'correct' | 'wrong' | null = null;
-    if (!immediate.isSingleAnswerQuestion) {
-      const multiResult = this.quizOptionProcessingService.evaluateMultiAnswer({
-        option, idx, immediateSelections: immediate.immediateSelections,
-        questionForSelection: immediate.questionForSelection,
-        optionsForImmediateScoring: immediate.optionsForImmediateScoring,
-        correctOptionsForQuestion: immediate.correctOptionsForQuestion,
-        quizId: this.quizId,
-      });
-      immediateMultiDotStatus = multiResult.immediateMultiDotStatus;
-    }
-    await this.quizOptionProcessingService.handleAuthoritativeCheck({
-      idx, isSingleAnswerQuestion: immediate.isSingleAnswerQuestion,
-      immediateMultiDotStatus, quizId: this.quizId,
-    });
+
     this.updateProgressValue();
     this.updateDotStatus(idx);
-    this.cdRef.markForCheck();
     this.cdRef.detectChanges();
-    const prev = this.quizStateService.getQuestionState(this.quizId, idx);
-    if (prev) {
-      this.quizStateService.setQuestionState(this.quizId, idx, {
-        ...prev, isAnswered: true,
-        explanationText: this.explanationToDisplay || prev.explanationText || ''
-      });
-    }
-    this.quizOptionProcessingService.persistOptionSelection({
-      idx, quizId: this.quizId, explanationToDisplay: this.explanationToDisplay,
-      option,
-    });
     this._processingOptionClick = false;
+
     setTimeout(() => {
       this.nextButtonStateService.evaluateNextButtonState(
         this.selectedOptionService.isAnsweredSubject.getValue(),
@@ -914,7 +871,6 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
       );
       this.updateDotStatus(idx);
       this.updateProgressValue();
-      this.cdRef.markForCheck();
       this.cdRef.detectChanges();
     }, 150);
   }
@@ -1165,74 +1121,59 @@ export class QuizComponent implements OnInit, OnDestroy, OnChanges, AfterViewIni
   private subscribeToRouteParams(): void {
     this.activatedRoute.paramMap
       .pipe(
-        tap((p) =>
-          console.log('[ROUTE] paramMap emitted →',
-            p.get('questionIndex'))
-        ),
         distinctUntilChanged(
           (prev, curr) =>
             prev.get('questionIndex') === curr.get('questionIndex') &&
             prev.get('quizId') === curr.get('quizId')
         )
       )
-      .subscribe(async (params: ParamMap) => {
-        const quizId = params.get('quizId') ?? '';
-        const indexParam = params.get('questionIndex');
-        const index = Number(indexParam) - 1;
+      .subscribe((params: ParamMap) => void this.handleParamMapChange(params));
+  }
 
-        if (!quizId || isNaN(index) || index < 0) {
-          console.error('[Invalid route params]', { quizId, indexParam });
-          return;
-        }
+  private async handleParamMapChange(params: ParamMap): Promise<void> {
+    const quizId = params.get('quizId') ?? '';
+    const indexParam = params.get('questionIndex');
+    const index = Number(indexParam) - 1;
+    if (!quizId || isNaN(index) || index < 0) return;
 
-        this.cdRef.markForCheck();
+    if (this.quizId && this.quizId !== quizId) {
+      this.dotStatusService.clearAllMaps();
+      this.clearClickConfirmedDotStatus();
+      this.progress = 0;
+      this.quizStateService.reset();
+    }
 
-        if (this.quizId && this.quizId !== quizId) {
-          console.log(`[ROUTE] Quiz Changed: ${this.quizId} -> ${quizId}. Resetting progress & cache.`);
-          this.dotStatusService.clearAllMaps();
-          this.clearClickConfirmedDotStatus();
-          this.progress = 0;
-          this.quizStateService.reset();
-        }
+    this.quizId = quizId;
+    this.currentQuestionIndex = index;
+    this.quizService.setQuizId(quizId);
+    this.quizService.setCurrentQuestionIndex(index);
+    this.timerService.stopTimer?.(undefined, { force: true });
+    this.timerService.resetTimer();
+    this.timerService.resetTimerFlagsFor(index);
 
-        // Update indices (local and services) before async calls
-        this.quizId = quizId;
-        this.currentQuestionIndex = index;
-        // this.quizService.quizId = quizId;
-        this.quizService.setQuizId(quizId);
-        this.quizService.setCurrentQuestionIndex(index);
-        this.timerService.stopTimer?.(undefined, { force: true });
-        this.timerService.resetTimer();
-        this.timerService.resetTimerFlagsFor(index);
+    try {
+      const result = await this.quizContentLoaderService.loadQuestionFromRouteChange({ quizId, index });
+      if (!result.success || !result.question) return;
 
-        try {
-          const result = await this.quizContentLoaderService.loadQuestionFromRouteChange({
-            quizId, index,
-          });
-          if (!result.success || !result.question) return;
-
-          this.totalQuestions = result.totalQuestions;
-          this.currentQuestion = result.question;
-          this.question = result.question;
-          this.combinedQuestionDataSubject.next({
-            question: result.question, options: result.options, explanation: result.explanation,
-          });
-          this.questionToDisplaySource.next(result.question.questionText?.trim() ?? '');
-          this.optionsToDisplay = [...result.options];
-          this.optionsToDisplay$.next([...result.options]);
-          this.explanationToDisplay = result.explanation;
-          this.qaToDisplay = { question: result.question, options: result.options };
-          this.shouldRenderOptions = true;
-
-          if (!result.hasValidSelections) {
-            this.timerService.restartForQuestion(index);
-          }
-          this.updateProgressValue();
-          localStorage.setItem('savedQuestionIndex', index.toString());
-        } catch (error) {
-          console.error('[Error in paramMap subscribe]', error);
-        }
+      this.totalQuestions = result.totalQuestions;
+      this.currentQuestion = result.question;
+      this.question = result.question;
+      this.combinedQuestionDataSubject.next({
+        question: result.question, options: result.options, explanation: result.explanation,
       });
+      this.questionToDisplaySource.next(result.question.questionText?.trim() ?? '');
+      this.optionsToDisplay = [...result.options];
+      this.optionsToDisplay$.next([...result.options]);
+      this.explanationToDisplay = result.explanation;
+      this.qaToDisplay = { question: result.question, options: result.options };
+      this.shouldRenderOptions = true;
+
+      if (!result.hasValidSelections) this.timerService.restartForQuestion(index);
+      this.updateProgressValue();
+      localStorage.setItem('savedQuestionIndex', index.toString());
+    } catch (error) {
+      console.error('[handleParamMapChange]', error);
+    }
   }
 
   /**** Initialize route parameters and subscribe to updates ****/

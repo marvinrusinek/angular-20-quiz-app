@@ -8,6 +8,8 @@ import { SelectedOptionService } from '../state/selectedoption.service';
 import { QuizDotStatusService } from './quiz-dot-status.service';
 import { QuizPersistenceService } from '../state/quiz-persistence.service';
 import { QuizScoringService } from './quiz-scoring.service';
+import { QuizStateService } from '../state/quizstate.service';
+import { NextButtonStateService } from '../state/next-button-state.service';
 
 /**
  * Result of evaluating immediate correctness for an option click.
@@ -65,8 +67,85 @@ export class QuizOptionProcessingService {
     private selectedOptionService: SelectedOptionService,
     private dotStatusService: QuizDotStatusService,
     private quizPersistence: QuizPersistenceService,
-    private quizScoringService: QuizScoringService
+    private quizScoringService: QuizScoringService,
+    private quizStateService: QuizStateService,
+    private nextButtonStateService: NextButtonStateService
   ) {}
+
+  // ═══════════════════════════════════════════════════════════════
+  // FULL OPTION CLICK ORCHESTRATION
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * Runs the full evaluation chain after a user option click.
+   * Returns the params used so the caller can finalize per-question state.
+   * Caller is responsible for updateProgressValue / updateDotStatus / CD.
+   */
+  async processOptionClick(params: {
+    option: SelectedOption;
+    idx: number;
+    quizId: string;
+    currentQuestionIndex: number;
+    questionsArray: QuizQuestion[];
+    currentQuestion: QuizQuestion | null;
+    optionsToDisplay: Option[];
+    liveSelections: SelectedOption[];
+    explanationToDisplay: string;
+  }): Promise<void> {
+    const { option, idx, quizId } = params;
+
+    const isAnswered = this.selectedOptionService.isQuestionAnswered(idx);
+    this.nextButtonStateService.setNextButtonState(isAnswered);
+    this.quizStateService.markUserInteracted(idx);
+    if (isAnswered) this.quizStateService.markQuestionAnswered(idx);
+
+    const immediate = this.evaluateImmediateCorrectness({
+      option, idx, liveSelections: params.liveSelections,
+      questionsArray: params.questionsArray, currentQuestion: params.currentQuestion,
+      optionsToDisplay: params.optionsToDisplay, quizId,
+      currentQuestionIndex: params.currentQuestionIndex,
+    });
+
+    if (immediate.canPersistOptimisticStatus) {
+      this.quizPersistence.setPersistedDotStatus(quizId, idx, 'correct');
+      this.dotStatusService.pendingDotStatusOverrides.set(idx, 'correct');
+    }
+
+    let immediateMultiDotStatus: 'correct' | 'wrong' | null = null;
+    if (immediate.isSingleAnswerQuestion) {
+      this.evaluateSingleAnswer({
+        option, idx, optionsForImmediateScoring: immediate.optionsForImmediateScoring,
+        liveCorrectness: immediate.liveCorrectness, quizId,
+      });
+    } else {
+      const multiResult = this.evaluateMultiAnswer({
+        option, idx, immediateSelections: immediate.immediateSelections,
+        questionForSelection: immediate.questionForSelection,
+        optionsForImmediateScoring: immediate.optionsForImmediateScoring,
+        correctOptionsForQuestion: immediate.correctOptionsForQuestion,
+        quizId,
+      });
+      immediateMultiDotStatus = multiResult.immediateMultiDotStatus;
+    }
+
+    await this.handleAuthoritativeCheck({
+      idx, isSingleAnswerQuestion: immediate.isSingleAnswerQuestion,
+      immediateMultiDotStatus, quizId,
+    });
+
+    const prev = this.quizStateService.getQuestionState(quizId, idx);
+    if (prev) {
+      this.quizStateService.setQuestionState(quizId, idx, {
+        ...prev, isAnswered: true,
+        explanationText: params.explanationToDisplay || prev.explanationText || ''
+      });
+    }
+
+    this.persistOptionSelection({
+      idx, quizId, explanationToDisplay: params.explanationToDisplay, option,
+    });
+  }
+
 
   // ═══════════════════════════════════════════════════════════════
   // EVALUATE IMMEDIATE CORRECTNESS
