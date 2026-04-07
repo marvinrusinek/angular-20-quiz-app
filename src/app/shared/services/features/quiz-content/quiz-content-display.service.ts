@@ -6,14 +6,14 @@ import {
   distinctUntilChanged, filter, map, shareReplay, startWith, switchMap
 } from 'rxjs/operators';
 
-import { Option } from '../../models/Option.model';
-import { QuizQuestion } from '../../models/QuizQuestion.model';
-import { QuizService } from '../data/quiz.service';
-import { QuizNavigationService } from '../flow/quiz-navigation.service';
-import { QuizQuestionManagerService } from '../flow/quizquestionmgr.service';
-import { QuizStateService } from '../state/quizstate.service';
-import { SelectedOptionService } from '../state/selectedoption.service';
-import { ExplanationTextService, FETPayload } from './explanation-text.service';
+import { Option } from '../../../models/Option.model';
+import { QuizQuestion } from '../../../models/QuizQuestion.model';
+import { QuizService } from '../../data/quiz.service';
+import { QuizNavigationService } from '../../flow/quiz-navigation.service';
+import { QuizQuestionManagerService } from '../../flow/quizquestionmgr.service';
+import { QuizStateService } from '../../state/quizstate.service';
+import { SelectedOptionService } from '../../state/selectedoption.service';
+import { ExplanationTextService, FETPayload } from '../explanation/explanation-text.service';
 
 @Injectable({ providedIn: 'root' })
 export class QuizContentDisplayService {

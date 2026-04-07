@@ -31,14 +31,14 @@ import { OptionUiContextBuilderService } from '../../../../shared/services/optio
 import { OptionUiSyncContext } from '../../../../shared/services/options/engine/option-ui-sync.service';
 import { OptionLockService } from '../../../../shared/services/options/policy/option-lock.service';
 import { OptionSelectionUiService } from '../../../../shared/services/options/engine/option-selection-ui.service';
-import { SharedOptionExplanationService } from '../../../../shared/services/features/shared-option-explanation.service';
+import { SharedOptionExplanationService } from '../../../../shared/services/features/shared-option/shared-option-explanation.service';
 import { OptionClickHandlerService } from '../../../../shared/services/options/engine/option-click-handler.service';
 import { SharedOptionChangeHandlerService, ChangeResult } from '../../../../shared/services/options/engine/shared-option-change-handler.service';
-import { SharedOptionFeedbackService, FeedbackContext, DisplayFeedbackResult } from '../../../../shared/services/features/shared-option-feedback.service';
+import { SharedOptionFeedbackService, FeedbackContext, DisplayFeedbackResult } from '../../../../shared/services/features/shared-option/shared-option-feedback.service';
 import { SharedOptionInitService } from '../../../../shared/services/options/engine/shared-option-init.service';
 import { SharedOptionBindingService } from '../../../../shared/services/options/engine/shared-option-binding.service';
 import { SharedOptionClickService } from '../../../../shared/services/options/engine/shared-option-click.service';
-import { SharedOptionOrchestratorService } from '../../../../shared/services/features/shared-option-orchestrator.service';
+import { SharedOptionOrchestratorService } from '../../../../shared/services/features/shared-option/shared-option-orchestrator.service';
 
 @Component({
   selector: 'app-shared-option',

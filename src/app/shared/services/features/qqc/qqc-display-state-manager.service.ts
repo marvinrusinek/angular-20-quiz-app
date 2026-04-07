@@ -1,12 +1,12 @@
 import { Injectable } from '@angular/core';
 import { FormControl, FormGroup } from '@angular/forms';
 
-import { Option } from '../../models/Option.model';
-import { OptionBindings } from '../../models/OptionBindings.model';
-import { QuizQuestion } from '../../models/QuizQuestion.model';
-import { QuestionPayload } from '../../models/QuestionPayload.model';
+import { Option } from '../../../models/Option.model';
+import { OptionBindings } from '../../../models/OptionBindings.model';
+import { QuizQuestion } from '../../../models/QuizQuestion.model';
+import { QuestionPayload } from '../../../models/QuestionPayload.model';
 import { SimpleChange } from '@angular/core';
-import { QuizService } from '../data/quiz.service';
+import { QuizService } from '../../data/quiz.service';
 
 /**
  * Manages option display preparation and render-readiness logic for QQC.

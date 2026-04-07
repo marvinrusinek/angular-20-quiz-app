@@ -16,13 +16,13 @@ import { QuizQuestion } from '../../../../shared/models/QuizQuestion.model';
 import { SelectedOption } from '../../../../shared/models/SelectedOption.model';
 import { SharedOptionConfig } from '../../../../shared/models/SharedOptionConfig.model';
 import { DynamicComponentService } from '../../../../shared/services/ui/dynamic-component.service';
-import { FeedbackService } from '../../../../shared/services/features/feedback.service';
+import { FeedbackService } from '../../../../shared/services/features/feedback/feedback.service';
 import { QuizService } from '../../../../shared/services/data/quiz.service';
 import { QuizQuestionLoaderService } from '../../../../shared/services/flow/quizquestionloader.service';
 import { QuizQuestionManagerService } from '../../../../shared/services/flow/quizquestionmgr.service';
 import { QuizStateService } from '../../../../shared/services/state/quizstate.service';
 import { SelectedOptionService } from '../../../../shared/services/state/selectedoption.service';
-import { TimerService } from '../../../../shared/services/features/timer.service';
+import { TimerService } from '../../../../shared/services/features/timer/timer.service';
 import { SharedOptionComponent } from '../shared-option-component/shared-option.component';
 import { BaseQuestion } from '../../base/base-question';
 

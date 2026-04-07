@@ -2,10 +2,10 @@ import { Injectable, Injector } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { BehaviorSubject, Observable } from 'rxjs';
 
-import { FormattedExplanation } from '../../models/FormattedExplanation.model';
-import { Option } from '../../models/Option.model';
-import { QuizQuestion } from '../../models/QuizQuestion.model';
-import { QuizShuffleService } from '../flow/quiz-shuffle.service';
+import { FormattedExplanation } from '../../../models/FormattedExplanation.model';
+import { Option } from '../../../models/Option.model';
+import { QuizQuestion } from '../../../models/QuizQuestion.model';
+import { QuizShuffleService } from '../../flow/quiz-shuffle.service';
 import { ExplanationFormatterService } from './explanation-formatter.service';
 import { ExplanationDisplayStateService, FETPayload } from './explanation-display-state.service';
 

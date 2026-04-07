@@ -1,15 +1,15 @@
 import { Injectable } from '@angular/core';
 
-import { Option } from '../../models/Option.model';
-import { SelectedOption } from '../../models/SelectedOption.model';
-import { QuizQuestion } from '../../models/QuizQuestion.model';
-import { QuestionType } from '../../models/question-type.enum';
-import { SelectedOptionService } from '../state/selectedoption.service';
-import { SelectionMessageService } from './selection-message.service';
-import { NextButtonStateService } from '../state/next-button-state.service';
-import { QuizStateService } from '../state/quizstate.service';
-import { QuizService } from '../data/quiz.service';
-import { QuizShuffleService } from '../flow/quiz-shuffle.service';
+import { Option } from '../../../models/Option.model';
+import { SelectedOption } from '../../../models/SelectedOption.model';
+import { QuizQuestion } from '../../../models/QuizQuestion.model';
+import { QuestionType } from '../../../models/question-type.enum';
+import { SelectedOptionService } from '../../state/selectedoption.service';
+import { SelectionMessageService } from '../selection-message/selection-message.service';
+import { NextButtonStateService } from '../../state/next-button-state.service';
+import { QuizStateService } from '../../state/quizstate.service';
+import { QuizService } from '../../data/quiz.service';
+import { QuizShuffleService } from '../../flow/quiz-shuffle.service';
 
 /**
  * Manages option click orchestration: canonical option building, multi-answer

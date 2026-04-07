@@ -1,19 +1,19 @@
 import { Injectable } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
-import { Option } from '../../models/Option.model';
-import { QuizQuestion } from '../../models/QuizQuestion.model';
-import { QuestionType } from '../../models/question-type.enum';
-import { SelectedOption } from '../../models/SelectedOption.model';
-import { OptionBindings } from '../../models/OptionBindings.model';
-import { FeedbackProps } from '../../models/FeedbackProps.model';
-import { SelectedOptionService } from '../state/selectedoption.service';
-import { SelectionMessageService } from './selection-message.service';
-import { FeedbackService } from './feedback.service';
-import { ExplanationTextService } from './explanation-text.service';
-import { QuizService } from '../data/quiz.service';
-import { QuizQuestionManagerService } from '../flow/quizquestionmgr.service';
-import { FeedbackConfig } from '../../models/FeedbackConfig.model';
+import { Option } from '../../../models/Option.model';
+import { QuizQuestion } from '../../../models/QuizQuestion.model';
+import { QuestionType } from '../../../models/question-type.enum';
+import { SelectedOption } from '../../../models/SelectedOption.model';
+import { OptionBindings } from '../../../models/OptionBindings.model';
+import { FeedbackProps } from '../../../models/FeedbackProps.model';
+import { SelectedOptionService } from '../../state/selectedoption.service';
+import { SelectionMessageService } from '../selection-message/selection-message.service';
+import { FeedbackService } from '../feedback/feedback.service';
+import { ExplanationTextService } from '../explanation/explanation-text.service';
+import { QuizService } from '../../data/quiz.service';
+import { QuizQuestionManagerService } from '../../flow/quizquestionmgr.service';
+import { FeedbackConfig } from '../../../models/FeedbackConfig.model';
 
 /**
  * Manages feedback display, option highlighting, and disable logic for QQC.

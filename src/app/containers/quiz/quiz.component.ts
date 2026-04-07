@@ -31,8 +31,8 @@ import { QuizQuestionLoaderService } from '../../shared/services/flow/quizquesti
 import { NextButtonStateService } from '../../shared/services/state/next-button-state.service';
 import { RenderStateService } from '../../shared/services/ui/render-state.service';
 import { SelectedOptionService } from '../../shared/services/state/selectedoption.service';
-import { SelectionMessageService } from '../../shared/services/features/selection-message.service';
-import { TimerService } from '../../shared/services/features/timer.service';
+import { SelectionMessageService } from '../../shared/services/features/selection-message/selection-message.service';
+import { TimerService } from '../../shared/services/features/timer/timer.service';
 import { SharedVisibilityService } from '../../shared/services/ui/shared-visibility.service';
 import { QuizDotStatusService } from '../../shared/services/flow/quiz-dot-status.service';
 import { QuizResetService } from '../../shared/services/flow/quiz-reset.service';

@@ -11,9 +11,9 @@ import { QuizQuestion } from '../../../models/QuizQuestion.model';
 
 import { SelectedOptionService } from '../../state/selectedoption.service';
 import { NextButtonStateService } from '../../state/next-button-state.service';
-import { FeedbackService } from '../../features/feedback.service';
+import { FeedbackService } from '../../features/feedback/feedback.service';
 import { OptionVisualEffectsService } from '../view/option-visual-effects.service';
-import { SelectionMessageService } from '../../features/selection-message.service';
+import { SelectionMessageService } from '../../features/selection-message/selection-message.service';
 import { QuizService } from '../../data/quiz.service';
 import { OptionSelectionPolicyService } from '../policy/option-selection-policy.service';
 import { OptionLockPolicyService } from '../policy/option-lock-policy.service';

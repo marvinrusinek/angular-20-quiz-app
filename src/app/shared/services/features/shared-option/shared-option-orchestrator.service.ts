@@ -2,12 +2,12 @@ import { Injectable } from '@angular/core';
 import { MatCheckboxChange } from '@angular/material/checkbox';
 import { MatRadioChange } from '@angular/material/radio';
 
-import { FeedbackProps } from '../../models/FeedbackProps.model';
-import { Option } from '../../models/Option.model';
-import { OptionBindings } from '../../models/OptionBindings.model';
-import { QuizQuestion } from '../../models/QuizQuestion.model';
-import { SelectedOption } from '../../models/SelectedOption.model';
-import { ChangeResult } from '../options/engine/shared-option-change-handler.service';
+import { FeedbackProps } from '../../../models/FeedbackProps.model';
+import { Option } from '../../../models/Option.model';
+import { OptionBindings } from '../../../models/OptionBindings.model';
+import { QuizQuestion } from '../../../models/QuizQuestion.model';
+import { SelectedOption } from '../../../models/SelectedOption.model';
+import { ChangeResult } from '../../options/engine/shared-option-change-handler.service';
 import { FeedbackContext } from './shared-option-feedback.service';
 
 type Host = any;

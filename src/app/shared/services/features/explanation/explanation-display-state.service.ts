@@ -6,10 +6,10 @@ import {
   distinctUntilChanged, filter, map, startWith, take, timeout
 } from 'rxjs/operators';
 
-import { QuizQuestion } from '../../models/QuizQuestion.model';
-import { QuizService } from '../data/quiz.service';
-import { QuizStateService } from '../state/quizstate.service';
-import { SelectedOptionService } from '../state/selectedoption.service';
+import { QuizQuestion } from '../../../models/QuizQuestion.model';
+import { QuizService } from '../../data/quiz.service';
+import { QuizStateService } from '../../state/quizstate.service';
+import { SelectedOptionService } from '../../state/selectedoption.service';
 import { ExplanationFormatterService } from './explanation-formatter.service';
 
 export type FETPayload = { idx: number; text: string; token: number };

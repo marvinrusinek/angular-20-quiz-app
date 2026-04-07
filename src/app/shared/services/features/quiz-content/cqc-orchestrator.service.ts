@@ -10,11 +10,11 @@ import {
   tap, withLatestFrom
 } from 'rxjs/operators';
 
-import { CombinedQuestionDataType } from '../../models/CombinedQuestionDataType.model';
-import { Option } from '../../models/Option.model';
-import { QuestionType } from '../../models/question-type.enum';
-import { QuestionPayload } from '../../models/QuestionPayload.model';
-import { QuizQuestion } from '../../models/QuizQuestion.model';
+import { CombinedQuestionDataType } from '../../../models/CombinedQuestionDataType.model';
+import { Option } from '../../../models/Option.model';
+import { QuestionType } from '../../../models/question-type.enum';
+import { QuestionPayload } from '../../../models/QuestionPayload.model';
+import { QuizQuestion } from '../../../models/QuizQuestion.model';
 
 type Host = any;
 

@@ -7,7 +7,7 @@ import { FeedbackProps } from '../../../models/FeedbackProps.model';
 import { Option } from '../../../models/Option.model';
 import { OptionBindings } from '../../../models/OptionBindings.model';
 import { SharedOptionConfig } from '../../../models/SharedOptionConfig.model';
-import { ExplanationTextService } from '../../features/explanation-text.service';
+import { ExplanationTextService } from '../../features/explanation/explanation-text.service';
 import { QuizService } from '../../data/quiz.service';
 import { QuizStateService } from '../../state/quizstate.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';

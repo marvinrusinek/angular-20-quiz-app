@@ -14,9 +14,9 @@ import { QuizQuestion } from '../../../shared/models/QuizQuestion.model';
 import { Result } from '../../../shared/models/Result.model';
 import { QuizService } from '../../../shared/services/data/quiz.service';
 import { QuizDataService } from '../../../shared/services/data/quizdata.service';
-import { TimerService } from '../../../shared/services/features/timer.service';
+import { TimerService } from '../../../shared/services/features/timer/timer.service';
 import { SelectedOptionService } from '../../../shared/services/state/selectedoption.service';
-import { ExplanationTextService } from '../../../shared/services/features/explanation-text.service';
+import { ExplanationTextService } from '../../../shared/services/features/explanation/explanation-text.service';
 
 @Component({
   selector: 'codelab-results-accordion',

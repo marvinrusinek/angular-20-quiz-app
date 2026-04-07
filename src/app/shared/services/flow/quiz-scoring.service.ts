@@ -7,7 +7,7 @@ import { ScoreAnalysisItem } from '../../models/Final-Result.model';
 import { QuizService } from '../data/quiz.service';
 import { QuizStateService } from '../state/quizstate.service';
 import { SelectedOptionService } from '../state/selectedoption.service';
-import { SelectionMessageService } from '../features/selection-message.service';
+import { SelectionMessageService } from '../features/selection-message/selection-message.service';
 
 /**
  * Manages scoring, progress calculation, and expected-correct-count

@@ -3,14 +3,14 @@ import { Injectable } from '@angular/core';
 import { QuizService } from '../data/quiz.service';
 import { QuizStateService } from '../state/quizstate.service';
 import { QuizQuestionLoaderService } from './quizquestionloader.service';
-import { ExplanationTextService } from '../features/explanation-text.service';
+import { ExplanationTextService } from '../features/explanation/explanation-text.service';
 import { NextButtonStateService } from '../state/next-button-state.service';
 import { SelectedOptionService } from '../state/selectedoption.service';
 import { ResetStateService } from '../state/reset-state.service';
 import { ResetBackgroundService } from '../ui/reset-background.service';
 import { QuizPersistenceService } from '../state/quiz-persistence.service';
 import { QuizDotStatusService } from './quiz-dot-status.service';
-import { TimerService } from '../features/timer.service';
+import { TimerService } from '../features/timer/timer.service';
 
 /**
  * Orchestrates reset operations across multiple services.

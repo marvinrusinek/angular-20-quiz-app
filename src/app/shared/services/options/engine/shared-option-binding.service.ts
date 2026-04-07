@@ -10,10 +10,10 @@ import { OptionClickHandlerService } from './option-click-handler.service';
 import { OptionService } from '../view/option.service';
 import { QuizService } from '../../data/quiz.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
-import { FeedbackService } from '../../features/feedback.service';
+import { FeedbackService } from '../../features/feedback/feedback.service';
 import { OptionHydrationService } from './option-hydration.service';
 import { OptionBindingFactoryService } from './option-binding-factory.service';
-import { ExplanationTextService } from '../../features/explanation-text.service';
+import { ExplanationTextService } from '../../features/explanation/explanation-text.service';
 
 @Injectable({ providedIn: 'root' })
 export class SharedOptionBindingService {

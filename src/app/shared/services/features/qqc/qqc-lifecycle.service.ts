@@ -3,14 +3,14 @@ import { ActivatedRoute } from '@angular/router';
 import { BehaviorSubject, firstValueFrom, Observable, Subject } from 'rxjs';
 import { distinctUntilChanged, filter, map, switchMap, take, tap } from 'rxjs/operators';
 
-import { Option } from '../../models/Option.model';
-import { QuizQuestion } from '../../models/QuizQuestion.model';
-import { QuestionPayload } from '../../models/QuestionPayload.model';
-import { QuizService } from '../data/quiz.service';
-import { QuizStateService } from '../state/quizstate.service';
-import { TimerService } from './timer.service';
-import { ExplanationTextService } from './explanation-text.service';
-import { SelectionMessageService } from './selection-message.service';
+import { Option } from '../../../models/Option.model';
+import { QuizQuestion } from '../../../models/QuizQuestion.model';
+import { QuestionPayload } from '../../../models/QuestionPayload.model';
+import { QuizService } from '../../data/quiz.service';
+import { QuizStateService } from '../../state/quizstate.service';
+import { TimerService } from '../timer/timer.service';
+import { ExplanationTextService } from '../explanation/explanation-text.service';
+import { SelectionMessageService } from '../selection-message/selection-message.service';
 
 /**
  * Manages lifecycle-related orchestration for QuizQuestionComponent:

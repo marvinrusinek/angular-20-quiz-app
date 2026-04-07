@@ -2,11 +2,11 @@ import { ComponentRef, Injectable } from '@angular/core';
 import { firstValueFrom, Subscription } from 'rxjs';
 import { debounceTime, filter, take } from 'rxjs/operators';
 
-import { Option } from '../../models/Option.model';
-import { QuizQuestion } from '../../models/QuizQuestion.model';
-import { SelectedOption } from '../../models/SelectedOption.model';
-import { QuestionType } from '../../models/question-type.enum';
-import { Utils } from '../../utils/utils';
+import { Option } from '../../../models/Option.model';
+import { QuizQuestion } from '../../../models/QuizQuestion.model';
+import { SelectedOption } from '../../../models/SelectedOption.model';
+import { QuestionType } from '../../../models/question-type.enum';
+import { Utils } from '../../../utils/utils';
 
 type Host = any;
 

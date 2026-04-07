@@ -10,7 +10,7 @@ import { QuizQuestion } from '../../../shared/models/QuizQuestion.model';
 import { SelectedOption } from '../../../shared/models/SelectedOption.model';
 import { SharedOptionConfig } from '../../../shared/models/SharedOptionConfig.model';
 import { DynamicComponentService } from '../../../shared/services/ui/dynamic-component.service';
-import { FeedbackService } from '../../../shared/services/features/feedback.service';
+import { FeedbackService } from '../../../shared/services/features/feedback/feedback.service';
 import { QuizService } from '../../../shared/services/data/quiz.service';
 import { QuizStateService } from '../../../shared/services/state/quizstate.service';
 import { SelectedOptionService } from '../../../shared/services/state/selectedoption.service';

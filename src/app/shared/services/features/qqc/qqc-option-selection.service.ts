@@ -1,20 +1,20 @@
 import { Injectable } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
-import { Option } from '../../models/Option.model';
-import { QuizQuestion } from '../../models/QuizQuestion.model';
-import { QuestionType } from '../../models/question-type.enum';
-import { QuestionState } from '../../models/QuestionState.model';
-import { SelectedOption } from '../../models/SelectedOption.model';
-import { QuizService } from '../data/quiz.service';
-import { QuizStateService } from '../state/quizstate.service';
-import { SelectedOptionService } from '../state/selectedoption.service';
-import { TimerService } from './timer.service';
-import { ExplanationTextService } from './explanation-text.service';
-import { FeedbackService } from './feedback.service';
-import { SoundService } from '../ui/sound.service';
-import { SelectionMessageService } from './selection-message.service';
-import { QuizQuestionManagerService } from '../flow/quizquestionmgr.service';
+import { Option } from '../../../models/Option.model';
+import { QuizQuestion } from '../../../models/QuizQuestion.model';
+import { QuestionType } from '../../../models/question-type.enum';
+import { QuestionState } from '../../../models/QuestionState.model';
+import { SelectedOption } from '../../../models/SelectedOption.model';
+import { QuizService } from '../../data/quiz.service';
+import { QuizStateService } from '../../state/quizstate.service';
+import { SelectedOptionService } from '../../state/selectedoption.service';
+import { TimerService } from '../timer/timer.service';
+import { ExplanationTextService } from '../explanation/explanation-text.service';
+import { FeedbackService } from '../feedback/feedback.service';
+import { SoundService } from '../../ui/sound.service';
+import { SelectionMessageService } from '../selection-message/selection-message.service';
+import { QuizQuestionManagerService } from '../../flow/quizquestionmgr.service';
 
 /**
  * Manages option selection logic, state transitions, and correctness evaluation for QQC.

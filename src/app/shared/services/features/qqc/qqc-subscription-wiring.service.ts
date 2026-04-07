@@ -3,13 +3,13 @@ import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
 import { BehaviorSubject, Observable, of, Subject, Subscription } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, filter, map, skip, takeUntil, tap } from 'rxjs/operators';
 
-import { Option } from '../../models/Option.model';
-import { QuestionPayload } from '../../models/QuestionPayload.model';
-import { QuizQuestion } from '../../models/QuizQuestion.model';
-import { QuizService } from '../data/quiz.service';
-import { QuizNavigationService } from '../flow/quiz-navigation.service';
-import { ResetStateService } from '../state/reset-state.service';
-import { SharedVisibilityService } from '../ui/shared-visibility.service';
+import { Option } from '../../../models/Option.model';
+import { QuestionPayload } from '../../../models/QuestionPayload.model';
+import { QuizQuestion } from '../../../models/QuizQuestion.model';
+import { QuizService } from '../../data/quiz.service';
+import { QuizNavigationService } from '../../flow/quiz-navigation.service';
+import { ResetStateService } from '../../state/reset-state.service';
+import { SharedVisibilityService } from '../../ui/shared-visibility.service';
 
 /**
  * Subscription factory service for QQC.

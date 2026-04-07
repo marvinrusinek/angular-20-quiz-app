@@ -6,7 +6,7 @@ import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 
 import { FeedbackProps } from '../../../../shared/models/FeedbackProps.model';
-import { FeedbackService } from '../../../../shared/services/features/feedback.service';
+import { FeedbackService } from '../../../../shared/services/features/feedback/feedback.service';
 import { QuizService } from '../../../../shared/services/data/quiz.service';
 import { SelectedOptionService } from '../../../../shared/services/state/selectedoption.service';
 

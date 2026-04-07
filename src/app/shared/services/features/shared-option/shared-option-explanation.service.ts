@@ -1,13 +1,13 @@
 import { Injectable, NgZone } from '@angular/core';
 import { take } from 'rxjs/operators';
 
-import { Option } from '../../models/Option.model';
-import { OptionBindings } from '../../models/OptionBindings.model';
-import { QuizQuestion } from '../../models/QuizQuestion.model';
-import { QuizService } from '../data/quiz.service';
-import { QuizStateService } from '../state/quizstate.service';
-import { SelectedOptionService } from '../state/selectedoption.service';
-import { ExplanationTextService } from './explanation-text.service';
+import { Option } from '../../../models/Option.model';
+import { OptionBindings } from '../../../models/OptionBindings.model';
+import { QuizQuestion } from '../../../models/QuizQuestion.model';
+import { QuizService } from '../../data/quiz.service';
+import { QuizStateService } from '../../state/quizstate.service';
+import { SelectedOptionService } from '../../state/selectedoption.service';
+import { ExplanationTextService } from '../explanation/explanation-text.service';
 
 /**
  * Context passed from the component for explanation resolution.

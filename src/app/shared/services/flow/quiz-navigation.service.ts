@@ -6,7 +6,7 @@ import { catchError, take } from 'rxjs/operators';
 import { Option } from '../../models/Option.model';
 import { QuestionType } from '../../models/question-type.enum';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
-import { ExplanationTextService } from '../features/explanation-text.service';
+import { ExplanationTextService } from '../features/explanation/explanation-text.service';
 import { NextButtonStateService } from '../state/next-button-state.service';
 import { QuizQuestionLoaderService } from '../flow/quizquestionloader.service';
 import { QuizQuestionManagerService } from '../flow/quizquestionmgr.service';
@@ -14,7 +14,7 @@ import { QuizService } from '../data/quiz.service';
 import { QuizDataService } from '../data/quizdata.service';
 import { QuizStateService } from '../state/quizstate.service';
 import { SelectedOptionService } from '../state/selectedoption.service';
-import { TimerService } from '../features/timer.service';
+import { TimerService } from '../features/timer/timer.service';
 import { QuizRoutes } from '../../models/quiz-routes.enum';
 
 @Injectable({ providedIn: 'root' })

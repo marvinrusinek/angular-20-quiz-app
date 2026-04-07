@@ -6,7 +6,7 @@ import { QuestionType } from '../../models/question-type.enum';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
 import { QuizService } from '../data/quiz.service';
 import { QuizDataService } from '../data/quizdata.service';
-import { ExplanationTextService } from '../features/explanation-text.service';
+import { ExplanationTextService } from '../features/explanation/explanation-text.service';
 
 /**
  * Handles question data fetching, normalization, and preparation.

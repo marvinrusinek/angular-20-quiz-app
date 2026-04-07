@@ -9,7 +9,7 @@ import { QuizMetadata } from '../../../shared/models/QuizMetadata.model';
 import { Resource } from '../../../shared/models/Resource.model';
 import { QuizService } from '../../../shared/services/data/quiz.service';
 import { QuizDataService } from '../../../shared/services/data/quizdata.service';
-import { TimerService } from '../../../shared/services/features/timer.service';
+import { TimerService } from '../../../shared/services/features/timer/timer.service';
 
 @Component({
   selector: 'codelab-results-statistics',

@@ -12,12 +12,12 @@ import { OptionBindings } from '../../../models/OptionBindings.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
 import { SelectedOption } from '../../../models/SelectedOption.model';
 import { SharedOptionConfig } from '../../../models/SharedOptionConfig.model';
-import { ExplanationTextService } from '../../features/explanation-text.service';
-import { FeedbackService } from '../../features/feedback.service';
+import { ExplanationTextService } from '../../features/explanation/explanation-text.service';
+import { FeedbackService } from '../../features/feedback/feedback.service';
 import { QuizService } from '../../data/quiz.service';
 import { QuizStateService } from '../../state/quizstate.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
-import { TimerService } from '../../features/timer.service';
+import { TimerService } from '../../features/timer/timer.service';
 
 /**
  * Interface representing the component surface area that the init service needs.

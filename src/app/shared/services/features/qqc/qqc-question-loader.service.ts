@@ -3,19 +3,19 @@ import { ChangeDetectorRef } from '@angular/core';
 import { BehaviorSubject, firstValueFrom, Subscription } from 'rxjs';
 import { distinctUntilChanged, filter } from 'rxjs/operators';
 
-import { Option } from '../../models/Option.model';
-import { OptionBindings } from '../../models/OptionBindings.model';
-import { SharedOptionConfig } from '../../models/SharedOptionConfig.model';
-import { QuizQuestion } from '../../models/QuizQuestion.model';
-import { QuestionPayload } from '../../models/QuestionPayload.model';
-import { QuizService } from '../data/quiz.service';
-import { QuizDataService } from '../data/quizdata.service';
-import { QuizStateService } from '../state/quizstate.service';
-import { SelectedOptionService } from '../state/selectedoption.service';
-import { NextButtonStateService } from '../state/next-button-state.service';
-import { ExplanationTextService } from './explanation-text.service';
-import { SelectionMessageService } from './selection-message.service';
-import { TimerService } from './timer.service';
+import { Option } from '../../../models/Option.model';
+import { OptionBindings } from '../../../models/OptionBindings.model';
+import { SharedOptionConfig } from '../../../models/SharedOptionConfig.model';
+import { QuizQuestion } from '../../../models/QuizQuestion.model';
+import { QuestionPayload } from '../../../models/QuestionPayload.model';
+import { QuizService } from '../../data/quiz.service';
+import { QuizDataService } from '../../data/quizdata.service';
+import { QuizStateService } from '../../state/quizstate.service';
+import { SelectedOptionService } from '../../state/selectedoption.service';
+import { NextButtonStateService } from '../../state/next-button-state.service';
+import { ExplanationTextService } from '../explanation/explanation-text.service';
+import { SelectionMessageService } from '../selection-message/selection-message.service';
+import { TimerService } from '../timer/timer.service';
 
 /**
  * Manages question loading pipeline, quiz data fetching, and question initialization for QQC.

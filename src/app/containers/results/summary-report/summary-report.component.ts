@@ -11,7 +11,7 @@ import { SummaryStatsComponent } from './summary-stats/summary-stats.component';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { QuizService } from '../../../shared/services/data/quiz.service';
 import { QuizDataService } from '../../../shared/services/data/quizdata.service';
-import { TimerService } from '../../../shared/services/features/timer.service';
+import { TimerService } from '../../../shared/services/features/timer/timer.service';
 
 @Component({
   selector: 'codelab-results-summary',

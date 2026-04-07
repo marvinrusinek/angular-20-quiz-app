@@ -7,7 +7,7 @@ import {
 
 import { QuizPersistenceService } from '../state/quiz-persistence.service';
 import { QuizOptionProcessingService } from './quiz-option-processing.service';
-import { SelectionMessageService } from '../features/selection-message.service';
+import { SelectionMessageService } from '../features/selection-message/selection-message.service';
 import { SharedVisibilityService } from '../ui/shared-visibility.service';
 import { QuizVisibilityRestoreService } from './quiz-visibility-restore.service';
 
@@ -19,8 +19,8 @@ import { QuestionPayload } from '../../models/QuestionPayload.model';
 import { QuizService } from '../data/quiz.service';
 import { QuizDataService } from '../data/quizdata.service';
 import { QuizStateService } from '../state/quizstate.service';
-import { TimerService } from '../features/timer.service';
-import { ExplanationTextService } from '../features/explanation-text.service';
+import { TimerService } from '../features/timer/timer.service';
+import { ExplanationTextService } from '../features/explanation/explanation-text.service';
 import { NextButtonStateService } from '../state/next-button-state.service';
 import { SelectedOptionService } from '../state/selectedoption.service';
 import { QuizDotStatusService } from './quiz-dot-status.service';

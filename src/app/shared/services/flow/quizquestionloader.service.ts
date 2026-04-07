@@ -12,16 +12,16 @@ import { QAPayload } from '../../models/QAPayload.model';
 import { QuestionPayload } from '../../models/QuestionPayload.model';
 import { Quiz } from '../../models/Quiz.model';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
-import { ExplanationTextService } from '../features/explanation-text.service';
-import { FeedbackService } from '../features/feedback.service';
+import { ExplanationTextService } from '../features/explanation/explanation-text.service';
+import { FeedbackService } from '../features/feedback/feedback.service';
 import { QuizService } from '../data/quiz.service';
 import { QuizDataService } from '../data/quizdata.service';
 import { QuizStateService } from '../state/quizstate.service';
 import { ResetBackgroundService } from '../ui/reset-background.service';
 import { ResetStateService } from '../state/reset-state.service';
 import { SelectedOptionService } from '../state/selectedoption.service';
-import { SelectionMessageService } from '../features/selection-message.service';
-import { TimerService } from '../features/timer.service';
+import { SelectionMessageService } from '../features/selection-message/selection-message.service';
+import { TimerService } from '../features/timer/timer.service';
 import { QuizQuestionComponent } from '../../../components/question/quiz-question/quiz-question.component';
 
 @Injectable({ providedIn: 'root' })

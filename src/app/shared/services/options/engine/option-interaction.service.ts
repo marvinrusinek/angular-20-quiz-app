@@ -10,9 +10,9 @@ import { FeedbackProps } from '../../../models/FeedbackProps.model';
 import { QuizService } from '../../data/quiz.service';
 import { QuizStateService } from '../../state/quizstate.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
-import { TimerService } from '../../features/timer.service';
-import { FeedbackService } from '../../features/feedback.service';
-import { SelectionMessageService } from '../../features/selection-message.service';
+import { TimerService } from '../../features/timer/timer.service';
+import { FeedbackService } from '../../features/feedback/feedback.service';
+import { SelectionMessageService } from '../../features/selection-message/selection-message.service';
 import { NextButtonStateService } from '../../state/next-button-state.service';
 
 export interface OptionInteractionState {

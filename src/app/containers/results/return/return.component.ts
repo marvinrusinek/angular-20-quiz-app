@@ -5,9 +5,9 @@ import { MatCardModule } from '@angular/material/card';
 import { MatListModule } from '@angular/material/list';
 
 import { QuizService } from '../../../shared/services/data/quiz.service';
-import { ExplanationTextService } from '../../../shared/services/features/explanation-text.service';
+import { ExplanationTextService } from '../../../shared/services/features/explanation/explanation-text.service';
 import { SelectedOptionService } from '../../../shared/services/state/selectedoption.service';
-import { TimerService } from '../../../shared/services/features/timer.service';
+import { TimerService } from '../../../shared/services/features/timer/timer.service';
 
 @Component({
   selector: 'codelab-results-return',

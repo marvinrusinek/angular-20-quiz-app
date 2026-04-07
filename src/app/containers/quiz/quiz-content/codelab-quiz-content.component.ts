@@ -19,12 +19,12 @@ import { QuizQuestionManagerService } from '../../../shared/services/flow/quizqu
 import { QuizStateService } from '../../../shared/services/state/quizstate.service';
 import { SelectedOptionService } from '../../../shared/services/state/selectedoption.service';
 import { ExplanationTextService, FETPayload } from
-  '../../../shared/services/features/explanation-text.service';
+      '../../../shared/services/features/explanation/explanation-text.service';
 import { QuizQuestionComponent } from
   '../../../components/question/quiz-question/quiz-question.component';
-import { TimerService } from '../../../shared/services/features/timer.service';
-import { QuizContentDisplayService } from '../../../shared/services/features/quiz-content-display.service';
-import { CqcOrchestratorService } from '../../../shared/services/features/cqc-orchestrator.service';
+import { TimerService } from '../../../shared/services/features/timer/timer.service';
+import { QuizContentDisplayService } from '../../../shared/services/features/quiz-content/quiz-content-display.service';
+import { CqcOrchestratorService } from '../../../shared/services/features/quiz-content/cqc-orchestrator.service';
 
 @Component({
   selector: 'codelab-quiz-content',
