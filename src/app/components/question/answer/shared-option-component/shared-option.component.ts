@@ -1,7 +1,7 @@
 import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, DoCheck,
-  EventEmitter, HostListener, Input, NgZone, OnChanges, OnDestroy, OnInit,
-  Output, SimpleChanges } from '@angular/core';
+  EventEmitter, HostListener, Input, OnChanges, OnDestroy, OnInit, Output,
+  SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule, MatCheckboxChange } from '@angular/material/checkbox';
@@ -172,26 +172,25 @@ export class SharedOptionComponent
   destroy$ = new Subject<void>();
 
   constructor(
-      private quizService: QuizService,
-      private quizStateService: QuizStateService,
-      private selectedOptionService: SelectedOptionService,
-      public soundService: SoundService,
-      private optionService: OptionService,
-      private optionUiContextBuilder: OptionUiContextBuilderService,
-      private optionLockService: OptionLockService,
-      private optionSelectionUiService: OptionSelectionUiService,
-      private sharedOptionStateAdapterService: SharedOptionStateAdapterService,
-      private explanationHandler: SharedOptionExplanationService,
-      private clickHandler: OptionClickHandlerService,
-      private changeHandler: SharedOptionChangeHandlerService,
-      private feedbackManager: SharedOptionFeedbackService,
-      private initService: SharedOptionInitService,
-      private bindingService: SharedOptionBindingService,
-      private clickService: SharedOptionClickService,
-      private orchestrator: SharedOptionOrchestratorService,
-      private cdRef: ChangeDetectorRef,
-      private fb: FormBuilder,
-      private ngZone: NgZone
+    private quizService: QuizService,
+    private quizStateService: QuizStateService,
+    private selectedOptionService: SelectedOptionService,
+    public soundService: SoundService,
+    private optionService: OptionService,
+    private optionUiContextBuilder: OptionUiContextBuilderService,
+    private optionLockService: OptionLockService,
+    private optionSelectionUiService: OptionSelectionUiService,
+    private sharedOptionStateAdapterService: SharedOptionStateAdapterService,
+    private explanationHandler: SharedOptionExplanationService,
+    private clickHandler: OptionClickHandlerService,
+    private changeHandler: SharedOptionChangeHandlerService,
+    private feedbackManager: SharedOptionFeedbackService,
+    private initService: SharedOptionInitService,
+    private bindingService: SharedOptionBindingService,
+    private clickService: SharedOptionClickService,
+    private orchestrator: SharedOptionOrchestratorService,
+    private cdRef: ChangeDetectorRef,
+    private fb: FormBuilder
   ) {
     this.ui = this.sharedOptionStateAdapterService.createInitialUiState();
     this.form = this.fb.group({
@@ -632,5 +631,4 @@ export class SharedOptionComponent
   public triggerViewRefresh(): void {
     this.cdRef.markForCheck();
   }
-
 }
