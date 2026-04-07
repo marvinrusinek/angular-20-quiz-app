@@ -1,5 +1,4 @@
 import { Injectable } from '@angular/core';
-import { ChangeDetectorRef } from '@angular/core';
 import { BehaviorSubject, firstValueFrom, Subscription } from 'rxjs';
 import { distinctUntilChanged, filter } from 'rxjs/operators';
 
