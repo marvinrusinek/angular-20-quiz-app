@@ -1,11 +1,12 @@
-import { Injectable, NgZone } from '@angular/core';
-import { BehaviorSubject, combineLatest, Observable, of, Subscription } from 'rxjs';
+import { Injectable, NgZone, signal } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
+import { combineLatest, Observable, of, Subscription } from 'rxjs';
 import { distinctUntilChanged, takeUntil } from 'rxjs/operators';
 
 @Injectable({ providedIn: 'root' })
 export class NextButtonStateService {
-  private isButtonEnabledSubject = new BehaviorSubject<boolean>(false);
-  public isButtonEnabled$ = this.isButtonEnabledSubject.asObservable();
+  readonly isButtonEnabled = signal<boolean>(false);
+  public isButtonEnabled$ = toObservable(this.isButtonEnabled);
 
   public nextButtonStyle: { [key: string]: string } = {
     opacity: '0.5',
@@ -81,7 +82,7 @@ export class NextButtonStateService {
 
   public updateAndSyncNextButtonState(isEnabled: boolean): void {
     this.ngZone.run(() => {
-      this.isButtonEnabledSubject.next(isEnabled);
+      this.isButtonEnabled.set(isEnabled);
 
       this.nextButtonStyle = {
         opacity: isEnabled ? '1' : '0.5',
