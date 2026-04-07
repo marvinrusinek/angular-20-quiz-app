@@ -20,6 +20,15 @@ export class OptionUiContextBuilderService {
   fromSharedOptionComponent(src: any): OptionUiSyncContext {
     return {
       ...src,
+      // Unwrap migrated signal inputs explicitly so consumers see values, not functions
+      questionIndex: src.questionIndex?.(),
+      quizId: src.quizId?.(),
+      config: src.config?.(),
+      highlightCorrectAfterIncorrect: src.highlightCorrectAfterIncorrect?.(),
+      selectedOptionId: src.selectedOptionId?.(),
+      finalRenderReady$: src.finalRenderReady$?.(),
+      questionVersion: src.questionVersion?.(),
+      sharedOptionConfig: src.sharedOptionConfig?.(),
       // Explicitly bind methods that are on the prototype (spread doesn't copy them)
       keyOf: (o: Option, i: number) => src.keyOf(o, i),
       getActiveQuestionIndex: () => src.getActiveQuestionIndex(),

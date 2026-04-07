@@ -359,7 +359,7 @@ export class SharedOptionClickService {
       return c === true || String(c) === 'true' || c === 1 || c === '1';
     }).length ?? 0);
     const isMultiMode = comp.type === 'multiple' ||
-      comp.config.type === 'multiple' ||
+      comp.config()?.type === 'multiple' ||
       correctCount > 1;
 
     if (!isMultiMode) {
@@ -375,7 +375,8 @@ export class SharedOptionClickService {
       if (comp.optionsToDisplay?.[index]) {
         comp.optionsToDisplay[index].selected = true;
       }
-      comp.config.selectedOptionIndex = index;
+      const cfgClick = comp.config();
+      if (cfgClick) cfgClick.selectedOptionIndex = index;
       comp.selectedOption = option;
 
       comp.selectedOptions.clear();

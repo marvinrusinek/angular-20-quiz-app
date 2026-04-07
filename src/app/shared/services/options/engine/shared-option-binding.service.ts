@@ -180,7 +180,7 @@ export class SharedOptionBindingService {
       type: comp.resolveInteractionType(),
       showFeedback: comp.showFeedback,
       showFeedbackForOption: {},
-      highlightCorrectAfterIncorrect: comp.highlightCorrectAfterIncorrect,
+      highlightCorrectAfterIncorrect: comp.highlightCorrectAfterIncorrect(),
       shouldResetBackground: comp.shouldResetBackground,
       ariaLabelPrefix: 'Option',
       onChange: (opt: any, idx: number) => comp.handleOptionClick(opt, idx),
@@ -271,7 +271,7 @@ export class SharedOptionBindingService {
     const currentIndex =
       comp.getActiveQuestionIndex() ??
       comp.currentQuestionIndex ??
-      comp.questionIndex ??
+      comp.questionIndex() ??
       0;
 
     const storedSelections =
@@ -449,7 +449,7 @@ export class SharedOptionBindingService {
       type: comp.resolveInteractionType(),
       isOptionSelected: isActuallySelected,
       isAnswerCorrect: b.isCorrect,
-      highlightCorrectAfterIncorrect: comp.highlightCorrectAfterIncorrect,
+      highlightCorrectAfterIncorrect: comp.highlightCorrectAfterIncorrect(),
       shouldResetBackground:
         comp.shouldResetBackground || (!isOnCorrectQuestion && currentSelections.length === 0),
       feedback: b.feedback ?? '',
@@ -483,7 +483,7 @@ export class SharedOptionBindingService {
       isCorrect: option.correct ?? false,
       showFeedback: comp.showFeedback,
       showFeedbackForOption: comp.showFeedbackForOption,
-      highlightCorrectAfterIncorrect: comp.highlightCorrectAfterIncorrect,
+      highlightCorrectAfterIncorrect: comp.highlightCorrectAfterIncorrect(),
       highlightIncorrect: selected && !option.correct,
       highlightCorrect: selected && !!option.correct,
       allOptions: comp.optionsToDisplay,

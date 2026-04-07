@@ -54,15 +54,15 @@ export class SharedOptionOrchestratorService {
   async runOnChanges(host: Host, changes: any): Promise<void> {
     const result = host.changeHandler.handleChanges(changes, {
       currentQuestionIndex: host.currentQuestionIndex,
-      questionIndex: host.questionIndex,
+      questionIndex: host.questionIndex(),
       optionsToDisplay: host.optionsToDisplay,
-      config: host.config,
+      config: host.config(),
       type: host.type,
       optionBindings: host.optionBindings,
       selectedOption: host.selectedOption,
       showFeedbackForOption: host.showFeedbackForOption,
       showFeedback: host.showFeedback,
-      questionVersion: host.questionVersion,
+      questionVersion: host.questionVersion(),
       lastProcessedQuestionIndex: host.lastProcessedQuestionIndex,
       resolvedQuestionIndex: host.resolvedQuestionIndex,
       isMultiMode: host.isMultiMode,
@@ -109,7 +109,7 @@ export class SharedOptionOrchestratorService {
     if (r.highlightedOptionIds === 'clear') host.highlightedOptionIds.clear();
     if (r.selectedOption === null) host.selectedOption = null;
     if (r.type !== undefined) host.type = r.type;
-    if (r.questionVersion !== undefined) host.questionVersion = r.questionVersion;
+    // questionVersion is now a signal input — write removed.
     if (r.flashDisabledSet === 'clear') host.flashDisabledSet.clear();
     if (r.correctClicksPerQuestion === 'clear') host.correctClicksPerQuestion.clear();
 
@@ -140,9 +140,9 @@ export class SharedOptionOrchestratorService {
 
   // ===== Index helpers =====
   runInitializeQuestionIndex(host: Host): void {
-    const qIndex = host.questionIndex ??
+    const qIndex = host.questionIndex() ??
         host.currentQuestionIndex ??
-        host.config?.idx ??
+        host.config()?.idx ??
         host.quizService?.currentQuestionIndex ?? 0;
     host.lastProcessedQuestionIndex = qIndex;
     host.updateResolvedQuestionIndex(qIndex);
@@ -154,8 +154,9 @@ export class SharedOptionOrchestratorService {
   }
 
   runGetActiveQuestionIndex(host: Host): number {
-    if (typeof host.questionIndex === 'number' && Number.isFinite(host.questionIndex)) {
-      return host.questionIndex;
+    const qi = host.questionIndex();
+    if (typeof qi === 'number' && Number.isFinite(qi)) {
+      return qi;
     }
     if (typeof host.currentQuestionIndex === 'number' && Number.isFinite(host.currentQuestionIndex)) {
       return host.currentQuestionIndex;
@@ -207,7 +208,7 @@ export class SharedOptionOrchestratorService {
     }
     const currentQ = host.getQuestionAtDisplayIndex(idx) ?? host.currentQuestion;
     const result = host.clickHandler.detectMultiMode(
-        currentQ, host.type, host.config?.type
+        currentQ, host.type, host.config()?.type
     );
     host._isMultiModeCache = result;
     if (result) {
@@ -232,7 +233,7 @@ export class SharedOptionOrchestratorService {
       feedbackConfigs: host.feedbackConfigs,
       lastFeedbackOptionId: host.lastFeedbackOptionId as number,
       lastFeedbackQuestionIndex: host.lastFeedbackQuestionIndex,
-      selectedOptionId: host.selectedOptionId,
+      selectedOptionId: host.selectedOptionId(),
       isMultiMode: host.isMultiMode,
       _feedbackDisplay: host._feedbackDisplay,
       _multiSelectByQuestion: host._multiSelectByQuestion,
@@ -377,7 +378,7 @@ export class SharedOptionOrchestratorService {
       questionIndex,
       activeQuestionIndex: host.getActiveQuestionIndex(),
       currentQuestion: host.currentQuestion,
-      quizId: host.quizId,
+      quizId: host.quizId(),
       optionBindings: host.optionBindings,
       optionsToDisplay: host.optionsToDisplay,
       isMultiMode: host.isMultiMode,

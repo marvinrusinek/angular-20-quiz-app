@@ -28,25 +28,25 @@ export interface SharedOptionComponentLike {
   // --- Inputs / public fields ---
   currentQuestion: QuizQuestion | null;
   currentQuestionIndex: number;
-  questionIndex: number | null;
+  questionIndex: () => number | null;
   optionsToDisplay: Option[];
-  quizId: string;
+  quizId: () => string;
   type: 'single' | 'multiple';
-  config: SharedOptionConfig;
+  config: () => SharedOptionConfig;
   selectedOption: Option | null;
   showFeedbackForOption: { [key: string | number]: boolean };
   correctMessage: string;
   showFeedback: boolean;
   shouldResetBackground: boolean;
-  highlightCorrectAfterIncorrect: boolean;
+  highlightCorrectAfterIncorrect: () => boolean;
   optionBindings: OptionBindings[];
-  selectedOptionId: number | null;
+  selectedOptionId: () => number | null;
   selectedOptionIndex: number | null;
   isNavigatingBackwards: boolean;
   renderReady: boolean;
-  finalRenderReady$: Observable<boolean> | null;
-  questionVersion: number;
-  sharedOptionConfig: SharedOptionConfig;
+  finalRenderReady$: () => Observable<boolean> | null;
+  questionVersion: () => number;
+  sharedOptionConfig: () => SharedOptionConfig;
 
   // --- Public state ---
   selectedOptionMap: Map<number | string, boolean>;
@@ -178,7 +178,7 @@ export class SharedOptionInitService {
     try {
       (this.explanationTextService as any)._fetLocked = false;
       this.explanationTextService.unlockExplanation();
-      const newIdx = comp.currentQuestionIndex ?? comp.questionIndex ?? 0;
+      const newIdx = comp.currentQuestionIndex ?? comp.questionIndex() ?? 0;
       this.explanationTextService._activeIndex = newIdx;
       this.explanationTextService.latestExplanationIndex = newIdx;
     } catch {}
@@ -193,7 +193,7 @@ export class SharedOptionInitService {
 
       comp.timerExpiredForQuestion = true;
       const question = comp.currentQuestion
-        || comp.config?.currentQuestion
+        || comp.config()?.currentQuestion
         || comp.getQuestionAtDisplayIndex(comp.currentQuestionIndex)
         || comp.getQuestionAtDisplayIndex(this.quizService.getCurrentQuestionIndex());
       const displayOptions = comp.optionsToDisplay?.length
@@ -296,8 +296,9 @@ export class SharedOptionInitService {
   initializeConfiguration(comp: SharedOptionComponentLike): void {
     this.initializeFromConfig(comp);
 
-    if (comp.config && comp.config.optionsToDisplay?.length > 0) {
-      comp.optionsToDisplay = comp.config.optionsToDisplay;
+    const cfg = comp.config();
+    if (cfg && cfg.optionsToDisplay?.length > 0) {
+      comp.optionsToDisplay = cfg.optionsToDisplay;
     } else if (comp.optionsToDisplay?.length > 0) {
       console.log('Options received directly:', comp.optionsToDisplay);
     } else {
@@ -383,8 +384,9 @@ export class SharedOptionInitService {
    * Corresponds to SharedOptionComponent.setupSubscriptions().
    */
   setupSubscriptions(comp: SharedOptionComponentLike): void {
-    if (comp.finalRenderReady$) {
-      comp.finalRenderReadySub = comp.finalRenderReady$.subscribe((ready: boolean) => {
+    const finalReady$ = comp.finalRenderReady$();
+    if (finalReady$) {
+      comp.finalRenderReadySub = finalReady$.subscribe((ready: boolean) => {
         comp.finalRenderReady = ready;
       });
     }
@@ -556,8 +558,9 @@ export class SharedOptionInitService {
         const selectedIds =
           selList.map((s) => s.optionId);
 
-        if (comp.selectedOptionId != null) {
-          comp.isSelected = selectedIds.includes(comp.selectedOptionId);
+        const selId = comp.selectedOptionId();
+        if (selId != null) {
+          comp.isSelected = selectedIds.includes(selId);
         } else {
           comp.isSelected = false;
         }
@@ -572,7 +575,7 @@ export class SharedOptionInitService {
    */
   setupRehydrateTriggers(comp: SharedOptionComponentLike): void {
     const renderReady$ =
-      comp.finalRenderReady$ ??
+      comp.finalRenderReady$() ??
       comp.renderReadySubject.asObservable();
 
     const qIndex$ =
@@ -619,13 +622,14 @@ export class SharedOptionInitService {
     comp.optionsToDisplay = [];
 
     // Guard: Config or options missing
-    if (!comp.config || !comp.config.optionsToDisplay?.length) {
+    const cfg2 = comp.config();
+    if (!cfg2 || !cfg2.optionsToDisplay?.length) {
       console.warn('[initializeFromConfig] Config missing or empty.');
       return;
     }
 
     // Assign current question
-    comp.currentQuestion = comp.config.currentQuestion;
+    comp.currentQuestion = cfg2.currentQuestion;
 
     // Validate currentQuestion before proceeding
     if (!comp.currentQuestion || !Array.isArray(comp.currentQuestion.options)) {

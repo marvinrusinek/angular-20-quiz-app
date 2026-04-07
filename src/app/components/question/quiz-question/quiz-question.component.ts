@@ -1,6 +1,7 @@
 import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ComponentRef, EventEmitter, HostListener,
-  Input, NgZone, OnChanges, OnDestroy, OnInit, Output, SimpleChange, SimpleChanges, ViewChild, ViewContainerRef
+  Input, NgZone, OnChanges, OnDestroy, OnInit, Output, SimpleChange, SimpleChanges, ViewChild, ViewContainerRef,
+  input, output
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup } from '@angular/forms';
@@ -107,7 +108,7 @@ export class QuizQuestionComponent extends BaseQuestion
   @Input() options!: Option[];
   @Input() override optionsToDisplay: Option[] = [];
   @Input() currentQuestion: QuizQuestion | null = null;
-  @Input() currentQuestion$: Observable<QuizQuestion | null> = of(null);
+  readonly currentQuestion$ = input<Observable<QuizQuestion | null>>(of(null));
   @Input() currentQuestionIndex = 0;
   @Input() previousQuestionIndex!: number;
   @Input() quizId: string | null | undefined = '';
@@ -115,11 +116,11 @@ export class QuizQuestionComponent extends BaseQuestion
   @Input() isOptionSelected = false;
   @Input() override showFeedback = false;
   @Input() selectionMessage!: string;
-  @Input() reset!: boolean;
+  readonly reset = input<boolean>(false);
   @Input() override explanationToDisplay = '';
-  @Input() questionToDisplay$!: Observable<string>;
-  @Input() displayState$!: Observable<{ mode: 'question' | 'explanation'; answered: boolean }>;
-  @Input() explanation!: string;
+  readonly questionToDisplay$ = input<Observable<string>>(of(''));
+  readonly displayState$ = input<Observable<{ mode: 'question' | 'explanation'; answered: boolean }>>(of({ mode: 'question', answered: false }));
+  readonly explanation = input<string>('');
   @Input() shouldRenderOptions = false;
   quiz!: Quiz | null;
   questions: QuizQuestion[] = [];
@@ -134,7 +135,7 @@ export class QuizQuestionComponent extends BaseQuestion
   lastLoggedIndex = -1;
   private lastLoggedQuestionIndex = -1;
   private _clickGate = false;  // same-tick re-entrancy guard
-  @Output() events = new EventEmitter<QuizQuestionEvent>();
+  readonly events = output<QuizQuestionEvent>();
   public selectedIndices = new Set<number>();
 
   override selectedOption: SelectedOption | null = null;
