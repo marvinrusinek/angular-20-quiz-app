@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter,
-  Input, OnChanges, OnDestroy, OnInit, Output, Renderer2, SimpleChanges, ViewChild
+  Input, OnChanges, OnDestroy, OnInit, Output, Renderer2, SimpleChanges, ViewChild,
+  input, output
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, ParamMap } from '@angular/router';
@@ -40,7 +41,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   @ViewChild('qText', { static: true })
   qText!: ElementRef<HTMLHeadingElement>;
 
-  @Output() isContentAvailableChange = new EventEmitter<boolean>();
+  readonly isContentAvailableChange = output<boolean>();
 
   @Input() combinedQuestionData$: Observable<CombinedQuestionDataType> | null =
     null;
@@ -61,8 +62,8 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     answered: boolean
   }>;
   @Input() displayVariables!: { question: string; explanation: string };
-  @Input() localExplanationText = '';
-  @Input() showLocalExplanation = false;
+  readonly localExplanationText = input<string>('');
+  readonly showLocalExplanation = input<boolean>(false);
 
   @Input() set explanationOverride(o: { idx: number; html: string }) {
     this.overrideSubject.next(o);
