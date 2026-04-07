@@ -69,7 +69,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
   override sharedOptionConfig!: SharedOptionConfig;
   hasComponentLoaded = false;
 
-  // store the type (single/multiple answer)
+  // Store the type (single/multiple answer)
   override type: 'single' | 'multiple' = 'single';
   override selectedOptionIndex = -1;
   renderReady = false;
@@ -175,9 +175,6 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     // Reset only when question changes
     if (changes['questionData']) {
       const q = changes['questionData'].currentValue;
-      console.log(`[AC] 🔄 Input 'questionData' changed:`,
-        q ? `ID=${q.questionId} Text="${q.questionText?.substring(0, 20)}..."` : 'NULL');
-
       if (q) {
         // Calculate synchronously from INPUT, not async service
         const correctCount = q.options?.filter((o: Option) => o.correct).length ?? 0;
@@ -456,9 +453,9 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
       correct: isCorrectValue(canonical),
       questionIndex: activeQuestionIndex,
       displayIndex: payload.index,
-      selected: wasChecked === true,
-      highlight: wasChecked === true,
-      showIcon: wasChecked === true
+      selected: wasChecked,
+      highlight: wasChecked,
+      showIcon: wasChecked
     } as any;
 
     // INTERNAL STATE UPDATE
@@ -550,10 +547,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
       const totalCorrectInQuestion = optionsSource.filter(isCorrect).length;
       const correctSelectedCount = this.selectedOptions.filter(isCorrect).length;
 
-      console.log(`[AC-SCORE] Q${activeQuestionIndex + 1}: correctSelected=${correctSelectedCount}/${totalCorrectInQuestion}, totalSelected=${this.selectedOptions.length}`);
-
       if (correctSelectedCount === totalCorrectInQuestion && totalCorrectInQuestion > 0) {
-        console.log(`[AC-SCORE] Q${activeQuestionIndex + 1}: ALL correct answers selected — scoring!`);
         this.quizService.scoreDirectly(activeQuestionIndex, true, true);
         this.quizStateService.setAnswerSelected(true);
       } else {
