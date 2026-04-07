@@ -1,6 +1,7 @@
-import { 
-  ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnDestroy, 
-  OnInit 
+import {
+  ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnDestroy,
+  OnInit,
+  input
 } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { Subject } from 'rxjs';
@@ -28,8 +29,8 @@ import { ExplanationTextService } from '../../../shared/services/features/explan
 })
 export class AccordionComponent implements OnInit, OnDestroy {
   @Input() questions: QuizQuestion[] = [];
-  @Input() isShuffled = false;
-  @Input({alias: "headerLabel"}) accordionHeaderLabel = '';
+  readonly isShuffled = input(false);
+  readonly accordionHeaderLabel = input('', { alias: "headerLabel" });
 
   results: Result = {
     userAnswers: [],
@@ -51,7 +52,7 @@ export class AccordionComponent implements OnInit, OnDestroy {
 
   get headerLabel(): string {
     const count = this.questions?.length ?? 0;
-    return this.isShuffled
+    return this.isShuffled()
       ? `${count} questions, SHUFFLED`
       : `${count} questions`;
   }

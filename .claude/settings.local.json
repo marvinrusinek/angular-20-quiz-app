@@ -54,7 +54,9 @@
       "Bash(git checkout:*)",
       "Bash(for n:*)",
       "Bash(do)",
-      "Bash(echo \"=== $n ===\")"
+      "Bash(echo \"=== $n ===\")",
+      "Bash(for p:*)",
+      "Bash(do npx:*)"
     ]
   }
 }

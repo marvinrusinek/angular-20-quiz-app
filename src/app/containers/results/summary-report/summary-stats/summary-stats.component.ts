@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, input } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { of } from 'rxjs';
 
@@ -14,15 +14,15 @@ import { QuizScore } from '../../../../shared/models/QuizScore.model';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SummaryStatsComponent {
-  @Input() quizMetadata: Partial<QuizMetadata> | null = {
+  readonly quizMetadata = input<Partial<QuizMetadata> | null>({
     correctAnswersCount$: of(0),
     totalQuestions: 0,
     totalQuestionsAttempted: 0,
     percentage: 0,
     completionTime: 0
-  };
+});
   @Input() score: QuizScore | null = null;
-  @Input() elapsedMinutes = 0;
-  @Input() elapsedSeconds = 0;
-  @Input() isShuffled = false;
+  readonly elapsedMinutes = input(0);
+  readonly elapsedSeconds = input(0);
+  readonly isShuffled = input(false);
 }

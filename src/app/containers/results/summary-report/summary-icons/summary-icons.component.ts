@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 import { Quiz } from '../../../../shared/models/Quiz.model';
@@ -13,10 +13,10 @@ import { QuizMetadata } from '../../../../shared/models/QuizMetadata.model';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SummaryIconsComponent {
-  @Input() quiz: Quiz | null = null;
-  @Input() quizMetadata: Partial<QuizMetadata> | null = null;
-  @Input() quizPercentage = 0;
-  @Input() codelabUrl = '';
+  readonly quiz = input<Quiz | null>(null);
+  readonly quizMetadata = input<Partial<QuizMetadata> | null>(null);
+  readonly quizPercentage = input(0);
+  readonly codelabUrl = input('');
 
   // Custom URI encoding that preserves % and / for better readability
   // in email and social media shares
@@ -53,12 +53,12 @@ export class SummaryIconsComponent {
     codelabUrl: string
   } {
     const percentageSource =
-      this.quizMetadata?.percentage ?? this.quizPercentage;
+      this.quizMetadata()?.percentage ?? this.quizPercentage();
 
     return {
       percentage: Number.isFinite(percentageSource) ? percentageSource : 0,
-      milestone: this.quiz?.milestone ?? '',
-      codelabUrl: this.codelabUrl ?? ''
+      milestone: this.quiz()?.milestone ?? '',
+      codelabUrl: this.codelabUrl() ?? ''
     };
   }
 }

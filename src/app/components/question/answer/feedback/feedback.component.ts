@@ -1,6 +1,7 @@
 import {
   ChangeDetectorRef, ChangeDetectionStrategy, Component, Input, OnInit,
-  OnChanges, SimpleChanges
+  OnChanges, SimpleChanges,
+  input
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
@@ -20,7 +21,7 @@ import { SelectedOptionService } from '../../../../shared/services/state/selecte
 })
 export class FeedbackComponent implements OnInit, OnChanges {
   @Input() feedbackConfig?: FeedbackProps | null;
-  @Input() stylePreset: 'default' | 'inline' = 'default';
+  readonly stylePreset = input<'default' | 'inline'>('default');
   feedbackMessageClass = '';
   displayMessage = '';
 

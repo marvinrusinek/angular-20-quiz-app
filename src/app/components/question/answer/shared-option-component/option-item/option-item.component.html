@@ -3,11 +3,11 @@
   [class.cursor-not-allowed]="getOptionCursor() === 'not-allowed'"
   [attr.data-option-id]="b.option.optionId"
 >
-  @if (type === 'single') {
+  @if (type() === 'single') {
     <mat-radio-button
       class="option-row single-option"
       appHighlightOption
-      [sharedOptionConfig]="sharedOptionConfig"
+      [sharedOptionConfig]="sharedOptionConfig()"
       [optionBinding]="b"
       [value]="i"
       [ngClass]="getOptionClasses()"
@@ -23,7 +23,7 @@
     <mat-checkbox
       class="option-row multiple-option"
       appHighlightOption
-      [sharedOptionConfig]="sharedOptionConfig"
+      [sharedOptionConfig]="sharedOptionConfig()"
       [optionBinding]="b"
       [checked]="b.isSelected"
       [ngClass]="getOptionClasses()"
