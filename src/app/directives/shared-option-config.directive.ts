@@ -1,4 +1,4 @@
-import { Directive, Input } from '@angular/core';
+import { Directive, input } from '@angular/core';
 import { SharedOptionConfig } from '../shared/models/SharedOptionConfig.model';
 
 @Directive({
@@ -6,5 +6,5 @@ import { SharedOptionConfig } from '../shared/models/SharedOptionConfig.model';
   standalone: true
 })
 export class SharedOptionConfigDirective {
-  @Input() sharedOptionConfig!: SharedOptionConfig;
+  readonly sharedOptionConfig = input.required<SharedOptionConfig>();
 }

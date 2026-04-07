@@ -1,5 +1,8 @@
-import { ChangeDetectorRef, Directive, EventEmitter, Input, OnChanges,
-  OnDestroy, OnInit, Output, SimpleChange, SimpleChanges } from '@angular/core';
+import {
+  ChangeDetectorRef, Directive, EventEmitter, Input, OnChanges,
+  OnDestroy, OnInit, Output, SimpleChange, SimpleChanges,
+  input
+} from '@angular/core';
 import { FormBuilder, FormControl, FormGroup } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
@@ -37,11 +40,11 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
   @Input() question: QuizQuestion | null = null;
   @Input() optionsToDisplay: Option[] = [];
   @Input() correctMessage = '';
-  @Input() feedback = '';
+  readonly feedback = input('');
   @Input() showFeedback = false;
-  @Input() shouldResetBackground = false;
+  readonly shouldResetBackground = input(false);
   @Input() type: 'single' | 'multiple' = 'single';
-  @Input() config!: SharedOptionConfig;
+  readonly config = input.required<SharedOptionConfig>();
   sharedOptionConfig: SharedOptionConfig | null = null;
   currentQuestionSubscription!: Subscription;
   explanationToDisplay: string | null = null;
@@ -252,7 +255,7 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
       type: this.type, // FIX: Use the actual type (which might be 'multiple') to configure Option behavior
       optionsToDisplay: clonedOptions,
       currentQuestion: { ...this.question },
-      shouldResetBackground: this.shouldResetBackground || false,
+      shouldResetBackground: this.shouldResetBackground() || false,
       selectedOption: this.selectedOption || null,
       showFeedbackForOption: { ...this.showFeedbackForOption },
       showFeedback: this.showFeedback || false,
@@ -260,7 +263,7 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
       isOptionSelected: false,
       selectedOptionIndex: -1,
       isAnswerCorrect: false,
-      feedback: this.feedback || '',
+      feedback: this.feedback() || '',
       highlightCorrectAfterIncorrect: false
     };
   }

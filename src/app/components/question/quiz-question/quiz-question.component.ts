@@ -1,6 +1,7 @@
 import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ComponentRef, EventEmitter, HostListener,
-  Input, NgZone, OnChanges, OnDestroy, OnInit, Output, SimpleChange, SimpleChanges, ViewChild, ViewContainerRef
+  Input, NgZone, OnChanges, OnDestroy, OnInit, Output, SimpleChange, SimpleChanges, ViewChild, ViewContainerRef,
+  input
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup } from '@angular/forms';
@@ -96,31 +97,34 @@ export class QuizQuestionComponent extends BaseQuestion
   nextButtonState = new EventEmitter<boolean>();
   questionAndOptionsReady = new EventEmitter<void>();
 
-  @Input() data!: {
-    questionText: string,
-    explanationText?: string,
-    correctAnswersText?: string,
-    options: Option[]
-  };
-  @Input() questionData!: QuizQuestion;
+  readonly data = input.required<{
+    questionText: string;
+    explanationText?: string;
+    correctAnswersText?: string;
+    options: Option[];
+}>();
+  readonly questionData = input.required<QuizQuestion>();
   @Input() override question!: QuizQuestion;
-  @Input() options!: Option[];
+  readonly options = input.required<Option[]>();
   @Input() override optionsToDisplay: Option[] = [];
-  @Input() currentQuestion: QuizQuestion | null = null;
-  @Input() currentQuestion$: Observable<QuizQuestion | null> = of(null);
+  readonly currentQuestion = input<QuizQuestion | null>(null);
+  readonly currentQuestion$ = input<Observable<QuizQuestion | null>>(of(null));
   @Input() currentQuestionIndex = 0;
-  @Input() previousQuestionIndex!: number;
-  @Input() quizId: string | null | undefined = '';
-  @Input() explanationText!: string | null;
-  @Input() isOptionSelected = false;
+  readonly previousQuestionIndex = input.required<number>();
+  readonly quizId = input<string | null | undefined>('');
+  readonly explanationText = input.required<string | null>();
+  readonly isOptionSelected = input(false);
   @Input() override showFeedback = false;
-  @Input() selectionMessage!: string;
-  @Input() reset!: boolean;
+  readonly selectionMessage = input.required<string>();
+  readonly reset = input.required<boolean>();
   @Input() override explanationToDisplay = '';
-  @Input() questionToDisplay$!: Observable<string>;
-  @Input() displayState$!: Observable<{ mode: 'question' | 'explanation'; answered: boolean }>;
-  @Input() explanation!: string;
-  @Input() shouldRenderOptions = false;
+  readonly questionToDisplay$ = input.required<Observable<string>>();
+  readonly displayState$ = input.required<Observable<{
+    mode: 'question' | 'explanation';
+    answered: boolean;
+}>>();
+  readonly explanation = input.required<string>();
+  readonly shouldRenderOptions = input(false);
   quiz!: Quiz | null;
   questions: QuizQuestion[] = [];
   questionsArray: QuizQuestion[] = [];
