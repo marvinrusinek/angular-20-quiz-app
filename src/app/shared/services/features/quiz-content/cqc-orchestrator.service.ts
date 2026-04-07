@@ -179,9 +179,9 @@ export class CqcOrchestratorService {
   }
 
   runSetupQuestionResetSubscription(host: Host): void {
-    if (!host.questionToDisplay$) return;
+    if (!host.questionToDisplay$()) return;
     combineLatest([
-      host.questionToDisplay$.pipe(startWith(''), distinctUntilChanged()),
+      host.questionToDisplay$().pipe(startWith(''), distinctUntilChanged()),
       host.quizService.currentQuestionIndex$.pipe(
         startWith(host.quizService?.currentQuestionIndex ?? 0)
       )
@@ -602,8 +602,8 @@ export class CqcOrchestratorService {
       })),
       filter(({ payload, index }: { payload: QuestionPayload; index: number }) => {
         const expected =
-          Array.isArray(host.questions) && index >= 0
-            ? (host.questions[index] ?? null)
+          Array.isArray(host.questions()) && index >= 0
+            ? (host.questions()[index] ?? null)
             : null;
 
         if (!expected) return true;

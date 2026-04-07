@@ -46,22 +46,19 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   @Input() combinedQuestionData$: Observable<CombinedQuestionDataType> | null =
     null;
   @Input() currentQuestion = new BehaviorSubject<QuizQuestion | null>(null);
-  @Input() questionToDisplay = '';
-  @Input() questionToDisplay$!: Observable<string | null>;
+  readonly questionToDisplay = input<string>('');
+  readonly questionToDisplay$ = input<Observable<string | null> | null>(null);
   @Input() explanationToDisplay: string | null = null;
-  @Input() question!: QuizQuestion;
-  @Input() question$!: Observable<QuizQuestion | null>;
-  @Input() questions!: QuizQuestion[];
-  @Input() options!: Option[];
+  readonly question = input<QuizQuestion | null>(null);
+  readonly question$ = input<Observable<QuizQuestion | null> | null>(null);
+  readonly questions = input<QuizQuestion[]>([]);
+  readonly options = input<Option[]>([]);
   @Input() quizId = '';
-  @Input() correctAnswersText = '';
-  @Input() questionText = '';
-  @Input() quizData: CombinedQuestionDataType | null = null;
-  @Input() displayState$!: Observable<{
-    mode: 'question' | 'explanation',
-    answered: boolean
-  }>;
-  @Input() displayVariables!: { question: string; explanation: string };
+  readonly correctAnswersText = input<string>('');
+  readonly questionText = input<string>('');
+  readonly quizData = input<CombinedQuestionDataType | null>(null);
+  readonly displayState$ = input<Observable<{ mode: 'question' | 'explanation', answered: boolean }> | null>(null);
+  readonly displayVariables = input<{ question: string; explanation: string } | null>(null);
   readonly localExplanationText = input<string>('');
   readonly showLocalExplanation = input<boolean>(false);
 
@@ -181,7 +178,6 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   ) {
     this.nextQuestion$ = this.quizService.nextQuestion$;
     this.previousQuestion$ = this.quizService.previousQuestion$;
-    this.displayState$ = this.quizStateService.displayState$;
 
     this.formattedExplanation$ = this.displayService.createFormattedExplanation$(this.currentIndex$);
     this.activeFetText$ = this.displayService.createActiveFetText$(this.currentIndex$);
@@ -211,7 +207,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     // FET should only be updated through the formattedExplanation$ stream which has index validation
 
     // Run only when the new questionText arrives
-    if (!!this.questionText && !this.questionRendered.getValue()) {
+    if (!!this.questionText() && !this.questionRendered.getValue()) {
       this.questionRendered.next(true);
     }
 
@@ -249,7 +245,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     this.displayService.initDisplayTextPipeline(
       this.currentIndex$,
       this.timedOutIdx$,
-      this.displayState$
+      this.displayState$() ?? this.quizStateService.displayState$
     );
   }
 
