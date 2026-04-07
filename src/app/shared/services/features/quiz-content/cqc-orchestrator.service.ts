@@ -56,12 +56,23 @@ export class CqcOrchestratorService {
 
     host._cqcVisibilityHandler = () => {
       if (document.visibilityState !== 'visible') return;
-      const el = host.qText?.nativeElement;
-      const cached = host._lastDisplayedText;
-      if (el && cached && !el.innerHTML) {
-        host.renderer.setProperty(el, 'innerHTML', cached);
-        console.log('[CQCC visibility] 🔁 Replayed cached question text');
-      }
+      const replay = () => {
+        const el = host.qText?.nativeElement;
+        const cached = host._lastDisplayedText;
+        if (!el || !cached) return;
+        const current = (el.innerHTML ?? '').trim();
+        if (!current || current !== cached.trim()) {
+          host.renderer.setProperty(el, 'innerHTML', cached);
+          console.log('[CQCC visibility] 🔁 Replayed cached question text');
+        }
+      };
+      // Replay at several points to win races with the QQC visibility-restore
+      // flow (which runs async with ~350ms + 400ms setTimeouts and may
+      // overwrite or clear the qText DOM).
+      replay();
+      setTimeout(replay, 100);
+      setTimeout(replay, 500);
+      setTimeout(replay, 900);
     };
     document.addEventListener('visibilitychange', host._cqcVisibilityHandler);
 
