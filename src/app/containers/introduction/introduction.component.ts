@@ -90,14 +90,13 @@ export class IntroductionComponent implements OnInit, OnDestroy {
     this.selectedQuiz$
       .pipe(
         takeUntil(this.destroy$),
-        filter((quiz) => quiz !== null),  // ensure we proceed only if there's a valid quiz
+        filter((quiz) => quiz !== null)  // proceed only if there's a valid quiz
       )
       .subscribe(() => {
         this.cdRef.markForCheck();
       });
 
-    this.preferencesForm
-      .get('shouldShuffleOptions')!
+    this.preferencesForm.get('shouldShuffleOptions')!
       .valueChanges.pipe(takeUntil(this.destroy$))
       .subscribe((isChecked: boolean) => {
         this.highlightPreference = isChecked;
@@ -247,12 +246,10 @@ export class IntroductionComponent implements OnInit, OnDestroy {
 
       // Access individual preferences from the form
       const shouldShuffleOptions = preferences.shouldShuffleOptions;
-      const isImmediateFeedback = preferences.isImmediateFeedback;
 
       this.quizDataService.setSelectedQuiz(activeQuiz);
       this.quizService.setSelectedQuiz(activeQuiz);
       this.quizService.setActiveQuiz(activeQuiz);
-      // this.quizService.setQuizId(targetQuizId);
       this.persistQuizId(targetQuizId);
       this.quizService.setCheckedShuffle(shouldShuffleOptions);
       this.quizService.setQuizId(targetQuizId);
