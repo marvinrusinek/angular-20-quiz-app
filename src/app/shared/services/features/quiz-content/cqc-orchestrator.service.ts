@@ -258,6 +258,16 @@ export class CqcOrchestratorService {
 
           const el = host.qText?.nativeElement;
           if (el) {
+            // Guard against blanking the DOM when displayText$ momentarily
+            // emits an empty string (common after tab visibility restore,
+            // when combineLatest sources re-fire with stale/null values).
+            const incoming = (finalText ?? '').trim();
+            const cached = (host._lastDisplayedText ?? '').trim();
+            if (!incoming && cached) {
+              console.warn('[subscribeToDisplayText] ⚠️ Empty text after restore — keeping cached');
+              host.renderer.setProperty(el, 'innerHTML', cached);
+              return;
+            }
             host.renderer.setProperty(el, 'innerHTML', finalText);
             host._lastDisplayedText = finalText;
             console.log(`[subscribeToDisplayText] ✅ Updated innerHTML using Renderer2: "${finalText?.substring(0, 50)}..."`);
