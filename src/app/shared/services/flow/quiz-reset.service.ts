@@ -223,6 +223,7 @@ export class QuizResetService {
     totalQuestions: number
   ): void {
     this.quizService.resetAll();
+    this.quizService.resetScore();
 
     this.dotStatusService.clearAllMaps();
     this.quizPersistence.clearClickConfirmedDotStatus(totalQuestions);

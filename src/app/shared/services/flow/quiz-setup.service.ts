@@ -840,4 +840,127 @@ export class QuizSetupService {
     this.explanationTextService.setExplanationText(resolved.text, { index: resolved.index });
     this.explanationTextService.setShouldDisplayExplanation(true);
   }
+
+  // ─── Lifecycle / event wrappers extracted from QuizComponent ───
+
+  async runOnInit(host: Host): Promise<void> {
+    host.questions$ = this.quizService.questions$;
+    this.subscribeToRouteEvents(host);
+
+    const quizId = await host.initializeQuizId();
+    if (!quizId) return;
+    host.quizId = quizId;
+
+    host.initializeQuestionIndex();
+    const cleared = this.quizResetService.clearStaleProgressAndDotStateForFreshStart(
+      host.currentQuestionIndex, host.quizId, host.totalQuestions
+    );
+    if (cleared) host.progress = 0;
+
+    this.fetchTotalQuestions(host);
+    this.subscribeToQuestionIndex(host);
+
+    await this.loadQuestions(host);
+    host.isQuizLoaded = true;
+
+    const initialIndex = host.currentQuestionIndex || 0;
+    this.quizService.setCurrentQuestionIndex(initialIndex);
+    host.updateDotStatus(initialIndex);
+    Promise.resolve().then(() => host.cdRef.detectChanges());
+
+    host.quizScoringService.initializeCorrectExpectedCounts(host.questionsArray);
+    this.subscribeToNextButtonState(host);
+    this.subscribeToTimerExpiry(host);
+
+    this.setupQuiz(host);
+    this.fetchRouteParams(host);
+    this.subscribeRouterAndInit(host);
+    this.subscribeToRouteParams(host);
+
+    host.quizInitializationService.initializeAnswerSync(
+      (enabled: boolean) => (host.isNextButtonEnabled = enabled),
+      (answered: boolean) => (host.isCurrentQuestionAnswered = answered),
+      (_message: string) => {},
+      host.destroy$
+    );
+
+    this.initializeTooltip(host);
+    host.resetQuestionState();
+    this.initializeExplanationText(host);
+  }
+
+  runOnDestroy(host: Host): void {
+    host.unsubscribe$.next();
+    host.unsubscribe$.complete();
+    host.destroy$.next();
+    host.destroy$.complete();
+    host.subscriptions.unsubscribe();
+    this.dotStatusService.dotStatusCache.clear();
+    this.dotStatusService.pendingDotStatusOverrides.clear();
+    this.dotStatusService.activeDotClickStatus.clear();
+    host.routeSubscription?.unsubscribe();
+    host.routerSubscription?.unsubscribe();
+    host.indexSubscription?.unsubscribe();
+    host.questionAndOptionsSubscription?.unsubscribe();
+    host.optionSelectedSubscription?.unsubscribe();
+    this.timerService.stopTimer(undefined, { force: true });
+    this.nextButtonStateService.cleanupNextButtonStateStream();
+    if (host.nextButtonTooltip) {
+      host.nextButtonTooltip.disabled = true;
+      host.nextButtonTooltip.hide();
+    }
+  }
+
+  async runAfterViewInit(host: Host): Promise<void> {
+    setTimeout(() => host.checkScrollIndicator(), 500);
+    void host.quizQuestionLoaderService.loadQuestionContents(host.currentQuestionIndex);
+
+    if (host.quizQuestionLoaderService.pendingOptions?.length) {
+      const opts = host.quizQuestionLoaderService.pendingOptions;
+      host.quizQuestionLoaderService.pendingOptions = null;
+      Promise.resolve().then(() => {
+        if (host.quizQuestionComponent && opts?.length) {
+          host.quizQuestionComponent.optionsToDisplay = [...opts];
+        }
+      });
+    }
+
+    setTimeout(() => {
+      host.quizQuestionComponent?.renderReady$
+        ?.pipe(debounceTime(10))
+        .subscribe((isReady: boolean) => {
+          host.isQuizRenderReady$.next(isReady);
+          if (isReady) host.renderStateService.setupRenderGateSync();
+        });
+    }, 0);
+  }
+
+  async runOnGlobalKey(host: Host, event: KeyboardEvent): Promise<void> {
+    const tag = (event.target as HTMLElement)?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    switch (event.key) {
+      case 'ArrowRight':
+      case 'Enter': {
+        if (host.shouldShowNextButton) {
+          event.preventDefault();
+          await host.advanceToNextQuestion();
+          return;
+        }
+        if (host.shouldShowResultsButton) {
+          event.preventDefault();
+          host.advanceToResults();
+          return;
+        }
+        break;
+      }
+      case 'ArrowLeft': {
+        const idx = this.quizService.getCurrentQuestionIndex();
+        if (idx > 0) {
+          event.preventDefault();
+          await host.advanceToPreviousQuestion();
+        }
+        break;
+      }
+    }
+  }
 }
