@@ -580,6 +580,22 @@ export class QuizNavigationService {
     this.quizStateService.setExplanationReady(false);
   }
 
+  /**
+   * Records elapsed time for the leaving question, stops the timer,
+   * and navigates to results. Returns true if navigation was triggered.
+   */
+  recordElapsedAndGoToResults(currentQuestionIndex: number): void {
+    const idx = this.quizService.getCurrentQuestionIndex?.() ?? currentQuestionIndex;
+    const elapsed = (this.timerService as any).elapsedTime ?? 0;
+    if (idx != null && idx >= 0 && !this.timerService.elapsedTimes[idx] && elapsed > 0) {
+      this.timerService.elapsedTimes[idx] = elapsed;
+    }
+    if (this.timerService.isTimerRunning) {
+      this.timerService.stopTimer(() => {}, { force: true });
+    }
+    this.navigateToResults();
+  }
+
   navigateToResults(): void {
     console.log(`[navigateToResults] Called. quizCompleted=${this.quizCompleted}`);
 
