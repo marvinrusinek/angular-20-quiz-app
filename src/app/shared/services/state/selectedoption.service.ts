@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { BehaviorSubject, Observable, Subject } from 'rxjs';
 import { distinctUntilChanged, map, startWith } from 'rxjs/operators';
 
@@ -113,6 +114,15 @@ export class SelectedOptionService {
     Record<string, boolean>
   >({});
   showFeedbackForOption$ = this.showFeedbackForOptionSubject.asObservable();
+
+  // Signal mirrors for new code; existing $ subscribers unaffected.
+  readonly selectedOptionSig = toSignal(this.selectedOption$, { initialValue: [] as SelectedOption[] });
+  readonly selectedOptionExplanationSig = toSignal(this.selectedOptionExplanation$, { initialValue: '' });
+  readonly isAnsweredSig = toSignal(this.isAnswered$, { initialValue: false });
+  readonly questionTextSig = toSignal(this.questionText$, { initialValue: '' });
+  readonly showFeedbackForOptionSig = toSignal(this.showFeedbackForOption$, { initialValue: {} as Record<string, boolean> });
+  readonly selectedOptionsMapSig = toSignal(this.selectedOptionsMap$, { initialValue: new Map<number, SelectedOption[]>() });
+
   private feedbackByQuestion = new Map<number, Record<string, boolean>>();
   private optionSnapshotByQuestion = new Map<number, Option[]>();
 

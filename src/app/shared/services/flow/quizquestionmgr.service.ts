@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { BehaviorSubject, Observable, of } from 'rxjs';
 
 import { Option } from '../../models/Option.model';
@@ -9,6 +10,9 @@ export class QuizQuestionManagerService {
   private shouldDisplayExplanationSubject = new BehaviorSubject<boolean>(false);
   shouldDisplayExplanation$ =
     this.shouldDisplayExplanationSubject.asObservable();
+
+  // Signal mirrors for new code; existing $ subscribers unaffected.
+  readonly shouldDisplayExplanationSig = toSignal(this.shouldDisplayExplanation$, { initialValue: false });
 
   private explanationTextSubject: BehaviorSubject<string | null> =
     new BehaviorSubject<string | null>(null);

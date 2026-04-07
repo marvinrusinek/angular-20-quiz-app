@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRouteSnapshot, Router } from '@angular/router';
 import {
   BehaviorSubject, firstValueFrom, forkJoin, lastValueFrom, of,
@@ -40,6 +41,7 @@ export class QuizQuestionLoaderService {
   public readonly questionToDisplaySubject = new ReplaySubject<string>(1);
   // Observable stream for safe external subscription
   public readonly questionToDisplay$ = this.questionToDisplaySubject.asObservable();
+  readonly questionToDisplaySig = toSignal(this.questionToDisplay$, { initialValue: '' });
 
   questionTextLoaded = false;
   questionInitialized = false;
@@ -53,6 +55,7 @@ export class QuizQuestionLoaderService {
   selectedOptions: Option[] = [];
   optionsToDisplay: Option[] = [];
   public optionsToDisplay$ = new BehaviorSubject<Option[]>([]);
+  readonly optionsToDisplaySig = toSignal(this.optionsToDisplay$, { initialValue: [] as Option[] });
   optionBindingsSrc: Option[] = [];
   public hasOptionsLoaded = false;
   public shouldRenderOptions = false;
@@ -76,6 +79,7 @@ export class QuizQuestionLoaderService {
   private isButtonEnabledSubject = new BehaviorSubject<boolean>(false);
 
   public readonly isLoading$ = new BehaviorSubject<boolean>(false);  // true while a question is being fetched
+  readonly isLoadingSig = toSignal(this.isLoading$, { initialValue: false });
   private currentLoadAbortCtl = new AbortController();  // abort a stale fetch when the user clicks “Next” too fast
 
   private qaSubject = new BehaviorSubject<QAPayload | null>(null);
@@ -84,6 +88,9 @@ export class QuizQuestionLoaderService {
     Option[]
   >([]);
   options$ = this.optionsStream$.asObservable();
+
+  // Signal mirrors for new code; existing $ subscribers unaffected.
+  readonly optionsSig = toSignal(this.options$, { initialValue: [] as Option[] });
 
   lastQuizId: string | null = null;
   questionsArray: QuizQuestion[] = [];
@@ -104,6 +111,7 @@ export class QuizQuestionLoaderService {
   private _navBarrier = false;
 
   public quietZoneUntil$ = new BehaviorSubject<number>(0);
+  readonly quietZoneUntilSig = toSignal(this.quietZoneUntil$, { initialValue: 0 });
 
   constructor(
     private explanationTextService: ExplanationTextService,

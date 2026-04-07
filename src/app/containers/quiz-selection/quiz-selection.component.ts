@@ -1,6 +1,7 @@
 import {
-  ChangeDetectionStrategy, Component, OnDestroy, OnInit, ViewEncapsulation 
+  ChangeDetectionStrategy, Component, OnDestroy, OnInit, ViewEncapsulation, signal
 } from '@angular/core';
+import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { CommonModule, NgOptimizedImage } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
@@ -8,7 +9,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import {
-  BehaviorSubject, EMPTY, Observable, of, Subject, Subscription 
+  EMPTY, Observable, of, Subject, Subscription
 } from 'rxjs';
 import { catchError, takeUntil } from 'rxjs/operators';
 
@@ -44,7 +45,9 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
   quizzes$: Observable<Quiz[]> = of([]);
   selectedQuiz: Quiz | null = null;
   currentQuestionIndex = 0;
-  animationState$ = new BehaviorSubject<AnimationState>('none');
+  private animationStateSignal = signal<AnimationState>('none');
+  readonly animationState$ = toObservable(this.animationStateSignal);
+  readonly animationStateSig = this.animationStateSignal.asReadonly();
   selectionParams!: QuizSelectionParams;
   selectedQuizSubscription!: Subscription;
   unsubscribe$ = new Subject<void>();
@@ -220,7 +223,7 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
   }
 
   animationDoneHandler(): void {
-    this.animationState$.next('none');
+    this.animationStateSignal.set('none');
   }
 
   onSelectQuiz(quiz: any, index: number): void {

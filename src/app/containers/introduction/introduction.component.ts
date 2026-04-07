@@ -1,5 +1,6 @@
 import {
-  ChangeDetectionStrategy, ChangeDetectorRef, Component, NgZone, OnDestroy, OnInit
+  ChangeDetectionStrategy, ChangeDetectorRef, Component, NgZone, OnDestroy, OnInit,
+  signal, computed
 } from '@angular/core';
 import { CommonModule, NgOptimizedImage } from '@angular/common';
 import { ActivatedRoute, Params, Router } from '@angular/router';
@@ -48,7 +49,11 @@ export class IntroductionComponent implements OnInit, OnDestroy {
   selectedQuiz$ = new BehaviorSubject<Quiz | null>(null);
   preferencesForm: FormGroup;
   private isCheckedSubject = new BehaviorSubject<boolean>(false);
-  isStartingQuiz = false;
+  readonly isStartingQuiz = signal(false);
+  readonly questionCountSig = signal(0);
+  readonly questionLabelSig = computed(() =>
+    this.questionCountSig() === 1 ? 'question' : 'questions'
+  );
 
   shuffledQuestions: QuizQuestion[] = [];
   shouldShuffleOptions = false;
@@ -154,6 +159,7 @@ export class IntroductionComponent implements OnInit, OnDestroy {
       this.selectedQuiz$.next(quiz);
       this.quiz = quiz;
       this.introImg = this.imagePath + quiz.image;
+      this.questionCountSig.set(quiz.questions?.length ?? 0);
       this.questionLabel = this.getPluralizedQuestionLabel(
         quiz.questions?.length ?? 0
       );
@@ -211,11 +217,11 @@ export class IntroductionComponent implements OnInit, OnDestroy {
   }
 
   async onStartQuiz(quizId?: string): Promise<void> {
-    if (this.isStartingQuiz) {
+    if (this.isStartingQuiz()) {
       return;
     }
 
-    this.isStartingQuiz = true;
+    this.isStartingQuiz.set(true);
     this.cdRef.markForCheck();
 
     try {
@@ -298,7 +304,7 @@ export class IntroductionComponent implements OnInit, OnDestroy {
         });
       }
     } finally {
-      this.isStartingQuiz = false;
+      this.isStartingQuiz.set(false);
       this.cdRef.markForCheck();
     }
   }

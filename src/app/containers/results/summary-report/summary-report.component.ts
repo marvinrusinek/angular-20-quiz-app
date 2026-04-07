@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnChanges, OnInit, SimpleChanges } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnChanges, OnInit, SimpleChanges, signal, computed } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { Observable, of } from 'rxjs';
 import { take, takeUntil } from 'rxjs/operators';
@@ -33,8 +33,9 @@ export class SummaryReportComponent implements OnInit, OnChanges {
   quizzes$: Observable<Quiz[]> = of([]);
   quizName$: Observable<string> = of('');
   quizMetadata: Partial<QuizMetadata> = {};
-  elapsedMinutes = 0;
-  elapsedSeconds = 0;
+  readonly completionTimeSig = signal(0);
+  readonly elapsedMinutes = computed(() => Math.floor(this.completionTimeSig() / 60));
+  readonly elapsedSeconds = computed(() => this.completionTimeSig() % 60);
   checkedShuffle = false;
   checkedShuffle$: Observable<boolean> = of(false);
   highScores: QuizScore[] = [];
@@ -118,8 +119,7 @@ export class SummaryReportComponent implements OnInit, OnChanges {
 
   calculateElapsedTime(): void {
     const completionTime = this.quizMetadata?.completionTime ?? 0;
-    this.elapsedMinutes = Math.floor(completionTime / 60);
-    this.elapsedSeconds = completionTime % 60;
+    this.completionTimeSig.set(completionTime);
   }
 
   getMilestoneLabel(quizId: string): string {

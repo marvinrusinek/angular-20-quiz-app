@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { BehaviorSubject, combineLatest, of } from 'rxjs';
 import { catchError, filter, take, tap } from 'rxjs/operators';
 
@@ -9,6 +10,7 @@ import { QuizService } from '../data/quiz.service';
 @Injectable({ providedIn: 'root' })
 export class RenderStateService {
   public optionsToDisplay$ = new BehaviorSubject<Option[]>([]);
+  readonly optionsToDisplaySig = toSignal(this.optionsToDisplay$, { initialValue: [] as Option[] });
 
   private combinedQuestionDataSubject = new BehaviorSubject<{
     question: QuizQuestion,

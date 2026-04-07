@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, HostListener } from '@angular/core';
+import { ChangeDetectionStrategy, Component, HostListener, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 @Component({
@@ -10,13 +10,13 @@ import { CommonModule } from '@angular/common';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class BackToTopComponent {
-  isVisible = false;
+  readonly isVisible = signal(false);
 
   // Listen to window scroll events
   @HostListener('window:scroll')
   onWindowScroll(): void {
     const yOffset = window.pageYOffset || document.documentElement.scrollTop;
-    this.isVisible = yOffset > 300;  // show button after scrolling 300px
+    this.isVisible.set(yOffset > 300);  // show button after scrolling 300px
   }
 
   scrollToTop(): void {

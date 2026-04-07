@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { HttpClient } from '@angular/common/http';
 import {
   BehaviorSubject, firstValueFrom, from, Observable, of, Subject
@@ -255,6 +256,23 @@ export class QuizService {
   private readonly _preReset$ = new Subject<number>();
   // Emitted with the target question index just before navigation hydrates it
   readonly preReset$ = this._preReset$.asObservable();
+
+  // Signal mirrors for new code; existing $ subscribers unaffected.
+  readonly questionsSig = toSignal(this.questions$, { initialValue: [] as QuizQuestion[] });
+  readonly questionToDisplaySig = toSignal(this.questionToDisplay$, { initialValue: '' });
+  readonly currentQuestionIndexSig = toSignal(this.currentQuestionIndex$, { initialValue: 0 });
+  readonly currentQuestionSig = toSignal(this.currentQuestion$, { initialValue: null as QuizQuestion | null });
+  readonly questionDataSig = toSignal(this.questionData$, { initialValue: null as any });
+  readonly checkedShuffleSig = toSignal(this.checkedShuffle$, { initialValue: localStorage.getItem('checkedShuffle') === 'true' });
+  readonly nextQuestionSig = toSignal(this.nextQuestion$, { initialValue: null as QuizQuestion | null });
+  readonly nextOptionsSig = toSignal(this.nextOptions$, { initialValue: [] as Option[] });
+  readonly previousQuestionSig = toSignal(this.previousQuestion$, { initialValue: null as QuizQuestion | null });
+  readonly previousOptionsSig = toSignal(this.previousOptions$, { initialValue: [] as Option[] });
+  readonly badgeTextSig = toSignal(this.badgeText, { initialValue: '' });
+  readonly nextExplanationTextSig = toSignal(this.nextExplanationText$, { initialValue: '' });
+  readonly questionsLoadedSig = toSignal(this.questionsLoaded$, { initialValue: false });
+  readonly questionPayloadSig = toSignal(this.questionPayload$, { initialValue: null as QuestionPayload | null });
+  readonly finalResultSig = toSignal(this.finalResult$, { initialValue: null as FinalResult | null });
 
   private fetchPromise: Promise<QuizQuestion[]> | null = null;
 

@@ -1,7 +1,7 @@
 import {
   ChangeDetectorRef, ChangeDetectionStrategy, Component, Input, OnInit,
   OnChanges, SimpleChanges,
-  input
+  input, signal
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
@@ -22,8 +22,8 @@ import { SelectedOptionService } from '../../../../shared/services/state/selecte
 export class FeedbackComponent implements OnInit, OnChanges {
   @Input() feedbackConfig?: FeedbackProps | null;
   readonly stylePreset = input<'default' | 'inline'>('default');
-  feedbackMessageClass = '';
-  displayMessage = '';
+  readonly feedbackMessageClass = signal('');
+  readonly displayMessage = signal('');
 
   constructor(
     private feedbackService: FeedbackService,
@@ -67,9 +67,9 @@ export class FeedbackComponent implements OnInit, OnChanges {
   private updateFeedback(): void {
     if (this.feedbackConfig?.showFeedback) {
       this.updateDisplayMessage();
-      this.feedbackMessageClass = this.determineFeedbackMessageClass();
+      this.feedbackMessageClass.set(this.determineFeedbackMessageClass());
     } else {
-      this.displayMessage = '';
+      this.displayMessage.set('');
     }
     this.cdRef.detectChanges();
   }
@@ -82,14 +82,14 @@ export class FeedbackComponent implements OnInit, OnChanges {
 
   private updateDisplayMessage(): void {
     if (!this.feedbackConfig) {
-      this.displayMessage = '';
+      this.displayMessage.set('');
       return;
     }
 
     // Prioritize the feedback message already computed by the Parent (SharedOptionComponent)
     // This message has been carefully reconciled with authoritative correct flags and visual order.
     if (this.feedbackConfig?.feedback && this.feedbackConfig.feedback.trim()) {
-      this.displayMessage = this.feedbackConfig.feedback;
+      this.displayMessage.set(this.feedbackConfig.feedback);
       return;
     }
 
@@ -150,10 +150,10 @@ export class FeedbackComponent implements OnInit, OnChanges {
 
     // If feedbackService decided on a message, USE IT and STOP
     if (msg && msg.trim()) {
-      this.displayMessage = msg;
+      this.displayMessage.set(msg);
       return;
     }
 
-    this.displayMessage = '';
+    this.displayMessage.set('');
   }
 }

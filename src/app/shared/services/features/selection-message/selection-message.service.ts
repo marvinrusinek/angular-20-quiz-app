@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { distinctUntilChanged } from 'rxjs/operators';
 
@@ -25,6 +26,9 @@ export class SelectionMessageService {
   public selectionMessageSubject = new BehaviorSubject<string>(START_MSG);
   public readonly selectionMessage$: Observable<string> =
     this.selectionMessageSubject.pipe(distinctUntilChanged());
+
+  // Signal mirrors for new code; existing $ subscribers unaffected.
+  readonly selectionMessageSig = toSignal(this.selectionMessage$, { initialValue: START_MSG });
 
   public optionsSnapshot: Option[] = [];
   private optionsSnapshotSubject = new BehaviorSubject<Option[]>([]);

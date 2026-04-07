@@ -1,5 +1,6 @@
 import {
-  ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit, HostListener
+  ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit, HostListener,
+  signal, computed
 } from '@angular/core';
 import { CommonModule, NgOptimizedImage } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -53,14 +54,15 @@ export class ResultsComponent implements OnInit, OnDestroy {
   detailedSummaryQuestions: QuizQuestion[] = [];
   headerLabel = '';
 
-  menuOpen = false;
-  activeSection: 
-    'score' | 'report' | 'summary' | 'highscores' | 'resources' = 'score';
-  
+  readonly menuOpen = signal(false);
+  readonly activeSection = signal<
+    'score' | 'report' | 'summary' | 'highscores' | 'resources'
+  >('score');
+
   finalResult: FinalResult | null = null;
   scoreAnalysis: ScoreAnalysisItem[] = [];
 
-  showScrollIndicator = true;
+  readonly showScrollIndicator = signal(true);
 
   unsubscribe$ = new Subject<void>();
 
@@ -130,19 +132,19 @@ export class ResultsComponent implements OnInit, OnDestroy {
 
   @HostListener('window:scroll', [])
   onWindowScroll(): void {
-    this.showScrollIndicator = window.scrollY < 100;
+    this.showScrollIndicator.set(window.scrollY < 100);
   }
 
   toggleMenu(): void {
-    this.menuOpen = !this.menuOpen;
+    this.menuOpen.update(prev => !prev);
   }
 
   closeMenu(): void {
-    this.menuOpen = false;
+    this.menuOpen.set(false);
   }
 
   setActiveSection(section: 'score' | 'report' | 'summary' | 'highscores' | 'resources'): void {
-    this.activeSection = section;
+    this.activeSection.set(section);
     this.closeMenu();
     window.scrollTo({ top: 0, behavior: 'smooth' });
     this.cdRef.markForCheck();

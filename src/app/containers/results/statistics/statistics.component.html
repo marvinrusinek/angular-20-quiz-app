@@ -123,9 +123,9 @@
             <span class="time-icon">⏱️</span>
             <span class="elapsed-time" i18n>
               Completed in
-              <span class="result">{{ elapsedMinutes }}</span>
-              {{ elapsedMinutes === 1 ? 'minute' : 'minutes' }}
-              and <span class="result">{{ elapsedSeconds }}</span> seconds.
+              <span class="result">{{ elapsedMinutes() }}</span>
+              {{ elapsedMinutes() === 1 ? 'minute' : 'minutes' }}
+              and <span class="result">{{ elapsedSeconds() }}</span> seconds.
             </span>
           </div>
         </div>

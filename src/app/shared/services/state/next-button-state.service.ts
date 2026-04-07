@@ -1,4 +1,4 @@
-import { Injectable, NgZone, signal } from '@angular/core';
+import { computed, Injectable, NgZone, signal } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { combineLatest, Observable, of, Subscription } from 'rxjs';
 import { distinctUntilChanged, takeUntil } from 'rxjs/operators';
@@ -7,6 +7,14 @@ import { distinctUntilChanged, takeUntil } from 'rxjs/operators';
 export class NextButtonStateService {
   readonly isButtonEnabled = signal<boolean>(false);
   public isButtonEnabled$ = toObservable(this.isButtonEnabled);
+
+  // Reactive style derived from the enabled signal — auto-recomputes
+  // whenever isButtonEnabled changes.
+  readonly nextButtonStyleSig = computed<{ [key: string]: string }>(() => ({
+    opacity: this.isButtonEnabled() ? '1' : '0.5',
+    cursor: this.isButtonEnabled() ? 'pointer' : 'not-allowed',
+    'pointer-events': 'auto'
+  }));
 
   public nextButtonStyle: { [key: string]: string } = {
     opacity: '0.5',

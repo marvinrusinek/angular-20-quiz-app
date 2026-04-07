@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import {
@@ -40,6 +41,9 @@ export class QuizDataLoaderService {
     localStorage.getItem('checkedShuffle') === 'true'
   );
   checkedShuffle$ = this.shuffleEnabledSubject.asObservable();
+
+  // Signal mirrors for new code; existing $ subscribers unaffected.
+  readonly checkedShuffleSig = toSignal(this.checkedShuffle$, { initialValue: localStorage.getItem('checkedShuffle') === 'true' });
 
   public shuffledQuestions: QuizQuestion[] = (() => {
     try {

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnChanges, OnInit, SimpleChanges } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnChanges, OnInit, SimpleChanges, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Observable, of } from 'rxjs';
 import { map } from 'rxjs/operators';
@@ -28,8 +28,9 @@ export class StatisticsComponent implements OnInit, OnChanges {
   quizMetadata: Partial<QuizMetadata> = {};
   resources: Resource[] = [];
   status: QuizStatus = QuizStatus.STARTED;
-  elapsedMinutes = 0;
-  elapsedSeconds = 0;
+  readonly completionTimeSig = signal(0);
+  readonly elapsedMinutes = computed(() => Math.floor(this.completionTimeSig() / 60));
+  readonly elapsedSeconds = computed(() => this.completionTimeSig() % 60);
   percentage = 0;
 
   CONGRATULATIONS =
@@ -112,8 +113,7 @@ export class StatisticsComponent implements OnInit, OnChanges {
 
   calculateElapsedTime(): void {
     const completionTime = this.quizMetadata?.completionTime ?? 0;
-    this.elapsedMinutes = Math.floor(completionTime / 60);
-    this.elapsedSeconds = completionTime % 60;
+    this.completionTimeSig.set(completionTime);
   }
 
   calculatePercentageOfCorrectlyAnsweredQuestions(): number {

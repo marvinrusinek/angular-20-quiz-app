@@ -1,6 +1,6 @@
-import { 
+import {
   ChangeDetectionStrategy, ChangeDetectorRef, Component, NgZone, OnDestroy,
-  OnInit 
+  OnInit, signal
 } from '@angular/core';
 import { CommonModule, DecimalPipe } from '@angular/common';
 import { MatMenuModule } from '@angular/material/menu';
@@ -30,7 +30,7 @@ export class TimerComponent implements OnInit, OnDestroy {
   timeLeft$!: Observable<number>;
   
   // Direct display value for reliability
-  displayTime = 30;
+  readonly displayTime = signal(30);
   private uiUpdateInterval: any = null;
   private elapsedSub: Subscription | null = null;
   private timerTypeSub: Subscription | null = null;
@@ -76,8 +76,8 @@ export class TimerComponent implements OnInit, OnDestroy {
           const elapsed = this.timerService.elapsedTime || 0;
           const newDisplayTime = this.getDisplayTime(elapsed);
           
-          if (this.displayTime !== newDisplayTime) {
-            this.displayTime = newDisplayTime;
+          if (this.displayTime() !== newDisplayTime) {
+            this.displayTime.set(newDisplayTime);
             this.cdRef.markForCheck();
           }
         });
@@ -111,7 +111,7 @@ export class TimerComponent implements OnInit, OnDestroy {
   }
 
   private updateDisplayTime(elapsed: number): void {
-    this.displayTime = this.getDisplayTime(elapsed);
+    this.displayTime.set(this.getDisplayTime(elapsed));
     this.cdRef.markForCheck();
   }
 

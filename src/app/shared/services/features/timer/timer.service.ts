@@ -1,4 +1,5 @@
 import { Injectable, NgZone, OnDestroy } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { BehaviorSubject, Subject, Subscription, timer } from 'rxjs';
 import { finalize, map, takeUntil, tap } from 'rxjs/operators';
 
@@ -63,6 +64,11 @@ export class TimerService implements OnDestroy {
 
   private expiredSubject = new Subject<void>();
   public expired$ = this.expiredSubject.asObservable();
+
+  // Signal mirrors for new code; existing $ subscribers unaffected.
+  readonly elapsedTimeSig = toSignal(this.elapsedTime$, { initialValue: 0 });
+  readonly timerTypeSig = toSignal(this.timerType$, { initialValue: (() => { try { return localStorage.getItem('timerType') === 'stopwatch' ? 'stopwatch' : 'countdown'; } catch { return 'countdown'; } })() as 'countdown' | 'stopwatch' });
+  readonly stopSig = toSignal(this.stop$, { initialValue: 0 });
 
   private _authoritativeStop = false;
   private hasExpiredForRun = false;

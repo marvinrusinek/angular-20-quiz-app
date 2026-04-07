@@ -1,6 +1,6 @@
 <section class="message" [class.feedback-inline]="stylePreset() === 'inline'">
   @if (feedbackConfig?.showFeedback) {
-    <div class="feedback-message" [ngClass]="feedbackMessageClass">
+    <div class="feedback-message" [ngClass]="feedbackMessageClass()">
       @if (feedbackConfig?.selectedOption?.correct) {
         <mat-icon class="material-icons"> sentiment_very_satisfied </mat-icon>
       } @else {
@@ -8,7 +8,7 @@
           sentiment_very_dissatisfied
         </mat-icon>
       }
-      <span>{{ displayMessage }}</span>
+      <span>{{ displayMessage() }}</span>
     </div>
   }
 </section>

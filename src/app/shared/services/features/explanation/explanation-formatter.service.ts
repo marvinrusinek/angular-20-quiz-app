@@ -1,4 +1,5 @@
 import { Injectable, Injector } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { BehaviorSubject, Observable, of } from 'rxjs';
 
@@ -15,6 +16,8 @@ export class ExplanationFormatterService {
   formattedExplanations$: BehaviorSubject<string | null>[] = [];
   formattedExplanationSubject = new BehaviorSubject<string>('');
   formattedExplanation$ = this.formattedExplanationSubject.asObservable();
+  // Signal mirrors for new code; existing $ subscribers unaffected.
+  readonly formattedExplanationSig = toSignal(this.formattedExplanation$, { initialValue: '' });
   private formattedExplanationByQuestionText = new Map<string, string>();
 
   public explanationsUpdated = new BehaviorSubject<

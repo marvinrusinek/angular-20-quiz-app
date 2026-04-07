@@ -1,4 +1,5 @@
 import { Injectable, Injector } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import {
   BehaviorSubject, firstValueFrom, merge, Observable, ReplaySubject, Subject
 } from 'rxjs';
@@ -36,6 +37,10 @@ export class ExplanationDisplayStateService {
   shouldDisplayExplanationSource = new BehaviorSubject<boolean>(false);
   shouldDisplayExplanation$ =
     this.shouldDisplayExplanationSource.asObservable();
+
+  // Signal mirrors for new code; existing $ subscribers unaffected.
+  readonly isExplanationTextDisplayedSig = toSignal(this.isExplanationTextDisplayed$, { initialValue: false });
+  readonly shouldDisplayExplanationSig = toSignal(this.shouldDisplayExplanation$, { initialValue: false });
 
   private explanationTrigger = new Subject<void>();
 

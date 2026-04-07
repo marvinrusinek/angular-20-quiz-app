@@ -1,4 +1,5 @@
 import { Injectable, OnDestroy } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import {
   BehaviorSubject, firstValueFrom, Observable, of, Subject, throwError
@@ -35,6 +36,10 @@ export class QuizDataService implements OnDestroy {
   private isContentAvailableSubject = new BehaviorSubject<boolean>(false);
   public isContentAvailable$: Observable<boolean> =
     this.isContentAvailableSubject.asObservable();
+
+  // Signal mirrors for new code; existing $ subscribers unaffected.
+  readonly quizzesSig = toSignal(this.quizzes$, { initialValue: [] as Quiz[] });
+  readonly isContentAvailableSig = toSignal(this.isContentAvailable$, { initialValue: false });
 
   private destroy$ = new Subject<void>();
 

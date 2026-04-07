@@ -2,13 +2,15 @@ import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
+  computed,
   Input,
   OnInit,
   OnDestroy,
+  signal,
 } from '@angular/core';
+import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import {
-  BehaviorSubject,
   combineLatest,
   Observable,
   of,
@@ -43,9 +45,9 @@ export class ScoreComponent implements OnInit, OnDestroy {
   @Input() totalQuestions = 0;
   questions$: Observable<QuizQuestion[]> = of([]);
   totalQuestions$: Observable<number>;
-  correctAnswersCount$: BehaviorSubject<number> = new BehaviorSubject<number>(
-    0,
-  );
+  private correctAnswersCountSignal = signal<number>(0);
+  readonly correctAnswersCount$ = toObservable(this.correctAnswersCountSignal);
+  readonly correctAnswersCountSig = this.correctAnswersCountSignal.asReadonly();
 
   numericalScore = '0/0';
   percentageScore = '';
@@ -53,9 +55,22 @@ export class ScoreComponent implements OnInit, OnDestroy {
   percentage = 0;
   private readonly scoreDisplayStorageKey = 'scoreDisplayType';
 
-  currentScore$: BehaviorSubject<string> = new BehaviorSubject<string>(
-    this.numericalScore,
-  );
+  private currentScoreSignal = signal<string>(this.numericalScore);
+  readonly currentScore$ = toObservable(this.currentScoreSignal);
+  readonly currentScoreSig = this.currentScoreSignal.asReadonly();
+
+  // Reactive derivation of the displayed score string.
+  // Uses computed() to combine correctCount, total, and display mode.
+  private totalQuestionsSig = signal<number>(0);
+  private isPercentageSig = signal<boolean>(false);
+  readonly displayedScore = computed<string>(() => {
+    const correct = this.correctAnswersCountSignal();
+    const total = this.totalQuestionsSig();
+    if (this.isPercentageSig()) {
+      return total > 0 ? `${((correct / total) * 100).toFixed(0)}%` : '0%';
+    }
+    return `${correct}/${total}`;
+  });
   scoreSubscription!: Subscription;
 
   private unsubscribeTrigger$: Subject<void> = new Subject<void>();
@@ -84,7 +99,6 @@ export class ScoreComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.unsubscribeTrigger$.next();
     this.unsubscribeTrigger$.complete();
-    this.currentScore$.complete();
     this.scoreSubscription?.unsubscribe();
   }
 
@@ -155,6 +169,16 @@ export class ScoreComponent implements OnInit, OnDestroy {
 
     this.totalQuestions = safeTotal;
     this.correctAnswersCount = safeCorrect;
+    this.totalQuestionsSig.set(safeTotal);
+    // update() variant: bump the signal to the latest authoritative value while
+    // logging the previous one — exercises WritableSignal.update for the
+    // common "merge prior with incoming" case.
+    this.correctAnswersCountSignal.update(prev => {
+      if (prev !== safeCorrect) {
+        // console.log(`[ScoreComponent] correct count: ${prev} → ${safeCorrect}`);
+      }
+      return safeCorrect;
+    });
     this.updateScoreDisplay();
     this.cdRef.markForCheck();
   };
@@ -171,7 +195,12 @@ export class ScoreComponent implements OnInit, OnDestroy {
     // Update isPercentage based on the user's choice
     if (scoreType) {
       this.isPercentage = scoreType === 'percentage';
+    } else {
+      // update() variant: flip the boolean signal in-place
+      this.isPercentageSig.update(v => !v);
+      this.isPercentage = this.isPercentageSig();
     }
+    this.isPercentageSig.set(this.isPercentage);
 
     // Call updateScoreDisplay only if the display type has actually changed
     if (this.isPercentage !== previousIsPercentage) {
@@ -193,7 +222,7 @@ export class ScoreComponent implements OnInit, OnDestroy {
 
     if (this.totalQuestions <= 0) {
       this.percentageScore = '0%';
-      this.currentScore$.next(this.percentageScore);
+      this.currentScoreSignal.set(this.percentageScore);
       return;
     }
 
@@ -202,12 +231,12 @@ export class ScoreComponent implements OnInit, OnDestroy {
       totalPossibleScore
     ).toFixed(0)}%`;
 
-    this.currentScore$.next(this.percentageScore);
+    this.currentScoreSignal.set(this.percentageScore);
   }
 
   displayNumericalScore(): void {
     this.numericalScore = `${this.correctAnswersCount}/${this.totalQuestions}`;
-    this.currentScore$.next(this.numericalScore);
+    this.currentScoreSignal.set(this.numericalScore);
   }
 
   private restoreScoreDisplayPreference(): void {
