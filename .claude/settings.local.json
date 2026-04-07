@@ -44,7 +44,17 @@
       "Bash(grep:*)",
       "Bash(find /c/Users/marvi/OneDrive/Desktop/angular-20-quiz-app/src -name *.ts -o -name *.html)",
       "Bash(while read:*)",
-      "Bash(for m:*)"
+      "Bash(for m:*)",
+      "Bash(node:*)",
+      "Bash(npx tsc:*)",
+      "Bash(echo EXIT $?)",
+      "Bash(ls tsconfig*.json)",
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(ls src/app/shared/services/features/qqc-*.ts)",
+      "Bash(git checkout:*)",
+      "Bash(for n:*)",
+      "Bash(do)",
+      "Bash(echo \"=== $n ===\")"
     ]
   }
 }

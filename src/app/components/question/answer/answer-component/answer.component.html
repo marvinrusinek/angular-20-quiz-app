@@ -2,13 +2,13 @@
   <app-shared-option 
     [optionsToDisplay]="optionsToDisplay" 
     [optionBindings]="optionBindings"
-    [questionIndex]="currentQuestionIndex()"
-    [currentQuestionIndex]="currentQuestionIndex()"
-    [currentQuestion]="questionData()"
-    [quizId]="quizId()"
+    [questionIndex]="currentQuestionIndex"
+    [currentQuestionIndex]="currentQuestionIndex"
+    [currentQuestion]="questionData"
+    [quizId]="quizId"
     [renderReady]="renderReady"
     [config]="sharedOptionConfig"
-    [isNavigatingBackwards]="isNavigatingBackwards()"
+    [isNavigatingBackwards]="isNavigatingBackwards"
     [type]="type"
     (optionClicked)="onOptionClicked($event)">
   </app-shared-option>

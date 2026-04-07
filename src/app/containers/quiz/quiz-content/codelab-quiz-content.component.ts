@@ -1,9 +1,6 @@
 import {
-  ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef,
-  Input, OnChanges, OnDestroy, OnInit, Renderer2, SimpleChanges,
-  input,
-  output,
-  viewChild
+  ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter,
+  Input, OnChanges, OnDestroy, OnInit, Output, Renderer2, SimpleChanges, ViewChild
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, ParamMap } from '@angular/router';
@@ -38,34 +35,34 @@ import { CqcOrchestratorService } from '../../../shared/services/features/quiz-c
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy {
-  readonly quizQuestionComponent = viewChild.required(QuizQuestionComponent);
-  readonly qText = viewChild.required<ElementRef<HTMLHeadingElement>>('qText');
+  @ViewChild(QuizQuestionComponent, { static: false })
+  quizQuestionComponent!: QuizQuestionComponent;
+  @ViewChild('qText', { static: true })
+  qText!: ElementRef<HTMLHeadingElement>;
 
-  readonly isContentAvailableChange = output<boolean>();
+  @Output() isContentAvailableChange = new EventEmitter<boolean>();
 
-  readonly combinedQuestionData$ = input<Observable<CombinedQuestionDataType> | null>(null);
-  readonly currentQuestion = input(new BehaviorSubject<QuizQuestion | null>(null));
-  readonly questionToDisplay = input('');
-  readonly questionToDisplay$ = input.required<Observable<string | null>>();
-  readonly explanationToDisplay = input<string | null>(null);
-  readonly question = input.required<QuizQuestion>();
-  readonly question$ = input.required<Observable<QuizQuestion | null>>();
-  readonly questions = input.required<QuizQuestion[]>();
-  readonly options = input.required<Option[]>();
-  readonly quizId = input('');
-  readonly correctAnswersText = input('');
-  readonly questionText = input('');
-  readonly quizData = input<CombinedQuestionDataType | null>(null);
+  @Input() combinedQuestionData$: Observable<CombinedQuestionDataType> | null =
+    null;
+  @Input() currentQuestion = new BehaviorSubject<QuizQuestion | null>(null);
+  @Input() questionToDisplay = '';
+  @Input() questionToDisplay$!: Observable<string | null>;
+  @Input() explanationToDisplay: string | null = null;
+  @Input() question!: QuizQuestion;
+  @Input() question$!: Observable<QuizQuestion | null>;
+  @Input() questions!: QuizQuestion[];
+  @Input() options!: Option[];
+  @Input() quizId = '';
+  @Input() correctAnswersText = '';
+  @Input() questionText = '';
+  @Input() quizData: CombinedQuestionDataType | null = null;
   @Input() displayState$!: Observable<{
     mode: 'question' | 'explanation',
     answered: boolean
   }>;
-  readonly displayVariables = input.required<{
-    question: string;
-    explanation: string;
-}>();
-  readonly localExplanationText = input('');
-  readonly showLocalExplanation = input(false);
+  @Input() displayVariables!: { question: string; explanation: string };
+  @Input() localExplanationText = '';
+  @Input() showLocalExplanation = false;
 
   @Input() set explanationOverride(o: { idx: number; html: string }) {
     this.overrideSubject.next(o);
@@ -213,7 +210,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     // FET should only be updated through the formattedExplanation$ stream which has index validation
 
     // Run only when the new questionText arrives
-    if (!!this.questionText() && !this.questionRendered.getValue()) {
+    if (!!this.questionText && !this.questionRendered.getValue()) {
       this.questionRendered.next(true);
     }
 
@@ -368,7 +365,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       this.currentIndex$,
       this.timedOutIdx$,
       this.activeFetText$,
-      this.currentQuestion()
+      this.currentQuestion
     );
   }
 

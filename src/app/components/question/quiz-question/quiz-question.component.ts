@@ -1,9 +1,6 @@
 import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ComponentRef, EventEmitter, HostListener,
-  Input, NgZone, OnChanges, OnDestroy, OnInit, Output, SimpleChange, SimpleChanges, ViewContainerRef,
-  input,
-  output,
-  viewChild
+  Input, NgZone, OnChanges, OnDestroy, OnInit, Output, SimpleChange, SimpleChanges, ViewChild, ViewContainerRef
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup } from '@angular/forms';
@@ -71,8 +68,10 @@ import { FeedbackKey, FeedbackConfig } from '../../../shared/models/FeedbackConf
 })
 export class QuizQuestionComponent extends BaseQuestion
   implements OnInit, OnChanges, OnDestroy, AfterViewInit {
-  readonly dynamicAnswerContainer = viewChild.required('dynamicAnswerContainer', { read: ViewContainerRef });
-  readonly sharedOptionComponent = viewChild.required(SharedOptionComponent);
+  @ViewChild('dynamicAnswerContainer', { read: ViewContainerRef, static: false })
+  dynamicAnswerContainer!: ViewContainerRef;
+  @ViewChild(SharedOptionComponent, { static: false })
+  sharedOptionComponent!: SharedOptionComponent;
   answer = new EventEmitter<number>();
   answeredChange = new EventEmitter<boolean>();
   selectionChanged: EventEmitter<{
@@ -81,7 +80,7 @@ export class QuizQuestionComponent extends BaseQuestion
   }> = new EventEmitter();
   questionAnswered = new EventEmitter<QuizQuestion>();
   isAnswerSelectedChange = new EventEmitter<boolean>();
-  override readonly explanationToDisplayChange = output<string>();
+  override explanationToDisplayChange = new EventEmitter<string>();
   showExplanationChange = new EventEmitter<boolean>();
   selectionMessageChange = new EventEmitter<string>();
   isAnsweredChange = new EventEmitter<boolean>();
@@ -97,34 +96,31 @@ export class QuizQuestionComponent extends BaseQuestion
   nextButtonState = new EventEmitter<boolean>();
   questionAndOptionsReady = new EventEmitter<void>();
 
-  readonly data = input.required<{
-    questionText: string;
-    explanationText?: string;
-    correctAnswersText?: string;
-    options: Option[];
-}>();
-  readonly questionData = input.required<QuizQuestion>();
+  @Input() data!: {
+    questionText: string,
+    explanationText?: string,
+    correctAnswersText?: string,
+    options: Option[]
+  };
+  @Input() questionData!: QuizQuestion;
   @Input() override question!: QuizQuestion;
-  readonly options = input.required<Option[]>();
+  @Input() options!: Option[];
   @Input() override optionsToDisplay: Option[] = [];
-  readonly currentQuestion = input<QuizQuestion | null>(null);
-  readonly currentQuestion$ = input<Observable<QuizQuestion | null>>(of(null));
+  @Input() currentQuestion: QuizQuestion | null = null;
+  @Input() currentQuestion$: Observable<QuizQuestion | null> = of(null);
   @Input() currentQuestionIndex = 0;
-  readonly previousQuestionIndex = input.required<number>();
-  readonly quizId = input<string | null | undefined>('');
-  readonly explanationText = input.required<string | null>();
-  readonly isOptionSelected = input(false);
+  @Input() previousQuestionIndex!: number;
+  @Input() quizId: string | null | undefined = '';
+  @Input() explanationText!: string | null;
+  @Input() isOptionSelected = false;
   @Input() override showFeedback = false;
-  readonly selectionMessage = input.required<string>();
-  readonly reset = input.required<boolean>();
+  @Input() selectionMessage!: string;
+  @Input() reset!: boolean;
   @Input() override explanationToDisplay = '';
-  readonly questionToDisplay$ = input.required<Observable<string>>();
-  readonly displayState$ = input.required<Observable<{
-    mode: 'question' | 'explanation';
-    answered: boolean;
-}>>();
-  readonly explanation = input.required<string>();
-  readonly shouldRenderOptions = input(false);
+  @Input() questionToDisplay$!: Observable<string>;
+  @Input() displayState$!: Observable<{ mode: 'question' | 'explanation'; answered: boolean }>;
+  @Input() explanation!: string;
+  @Input() shouldRenderOptions = false;
   quiz!: Quiz | null;
   questions: QuizQuestion[] = [];
   questionsArray: QuizQuestion[] = [];
@@ -138,7 +134,7 @@ export class QuizQuestionComponent extends BaseQuestion
   lastLoggedIndex = -1;
   private lastLoggedQuestionIndex = -1;
   private _clickGate = false;  // same-tick re-entrancy guard
-  readonly events = output<QuizQuestionEvent>();
+  @Output() events = new EventEmitter<QuizQuestionEvent>();
   public selectedIndices = new Set<number>();
 
   override selectedOption: SelectedOption | null = null;
@@ -313,7 +309,7 @@ export class QuizQuestionComponent extends BaseQuestion
   }
 
   private resetUIForNewQuestion(): void {
-    this.sharedOptionComponent()?.resetUIForNewQuestion();
+    this.sharedOptionComponent?.resetUIForNewQuestion();
     this.updateShouldRenderOptions([]);
   }
 
@@ -584,8 +580,8 @@ export class QuizQuestionComponent extends BaseQuestion
     return this.componentOrchestrator.runDisableAllBindingsAndOptions(this);
   }
   private forceDisableSharedOption(): void {
-    this.sharedOptionComponent()?.forceDisableAllOptions?.();
-    this.sharedOptionComponent()?.triggerViewRefresh?.();
+    this.sharedOptionComponent?.forceDisableAllOptions?.();
+    this.sharedOptionComponent?.triggerViewRefresh?.();
   }
 
   public revealFeedbackForAllOptions(canonicalOpts: Option[]): void {

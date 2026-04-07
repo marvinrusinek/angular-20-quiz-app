@@ -1,9 +1,5 @@
-import {
-  ChangeDetectorRef, Directive, Input, OnChanges,
-  OnDestroy, OnInit, SimpleChange, SimpleChanges,
-  input,
-  output
-} from '@angular/core';
+import { ChangeDetectorRef, Directive, EventEmitter, Input, OnChanges,
+  OnDestroy, OnInit, Output, SimpleChange, SimpleChanges } from '@angular/core';
 import { FormBuilder, FormControl, FormGroup } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
@@ -31,21 +27,21 @@ export interface OptionClickEvent {
 export abstract class BaseQuestion<T extends OptionClickEvent =
   OptionClickEvent> implements OnInit, OnChanges, OnDestroy
 {
-  readonly optionClicked = output<T>();
-  readonly questionChange = output<QuizQuestion>();
-  readonly explanationToDisplayChange = output<any>();
-  readonly correctMessageChange = output<string>();
+  @Output() optionClicked = new EventEmitter<T>();
+  @Output() questionChange = new EventEmitter<QuizQuestion>();
+  @Output() explanationToDisplayChange = new EventEmitter<any>();
+  @Output() correctMessageChange = new EventEmitter<string>();
 
   @Input() quizQuestionComponentOnOptionClicked!:
     (option: SelectedOption, index: number) => void;
   @Input() question: QuizQuestion | null = null;
   @Input() optionsToDisplay: Option[] = [];
   @Input() correctMessage = '';
-  readonly feedback = input('');
+  @Input() feedback = '';
   @Input() showFeedback = false;
-  readonly shouldResetBackground = input(false);
+  @Input() shouldResetBackground = false;
   @Input() type: 'single' | 'multiple' = 'single';
-  readonly config = input.required<SharedOptionConfig>();
+  @Input() config!: SharedOptionConfig;
   sharedOptionConfig: SharedOptionConfig | null = null;
   currentQuestionSubscription!: Subscription;
   explanationToDisplay: string | null = null;
@@ -256,7 +252,7 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
       type: this.type, // FIX: Use the actual type (which might be 'multiple') to configure Option behavior
       optionsToDisplay: clonedOptions,
       currentQuestion: { ...this.question },
-      shouldResetBackground: this.shouldResetBackground() || false,
+      shouldResetBackground: this.shouldResetBackground || false,
       selectedOption: this.selectedOption || null,
       showFeedbackForOption: { ...this.showFeedbackForOption },
       showFeedback: this.showFeedback || false,
@@ -264,7 +260,7 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
       isOptionSelected: false,
       selectedOptionIndex: -1,
       isAnswerCorrect: false,
-      feedback: this.feedback() || '',
+      feedback: this.feedback || '',
       highlightCorrectAfterIncorrect: false
     };
   }

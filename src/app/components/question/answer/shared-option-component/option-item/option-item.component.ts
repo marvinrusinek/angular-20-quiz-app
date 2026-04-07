@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, Input, OnChanges, SimpleChanges, ViewEncapsulation, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, OnChanges, SimpleChanges, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -47,19 +47,19 @@ export interface OptionUIEvent {
 export class OptionItemComponent implements OnChanges {
   @Input() b!: OptionBindings;
   @Input() i!: number;
-  readonly type = input<'single' | 'multiple'>('single');
-  readonly form = input.required<FormGroup>();
-  readonly shouldResetBackground = input(false);
-  readonly feedbackConfig = input<FeedbackProps>();
-  readonly sharedOptionConfig = input.required<SharedOptionConfig>();
-  readonly currentQuestionIndex = input(0);
-  readonly timerExpired = input(false);
+  @Input() type: 'single' | 'multiple' = 'single';
+  @Input() form!: FormGroup;
+  @Input() shouldResetBackground = false;
+  @Input() feedbackConfig?: FeedbackProps;
+  @Input() sharedOptionConfig!: SharedOptionConfig;
+  @Input() currentQuestionIndex = 0;
+  @Input() timerExpired = false;
 
   private _wasSelected = false;
   private _lastQuestionIndex = -1;
 
   // ONE output
-  readonly optionUI = output<OptionUIEvent>();
+  @Output() optionUI = new EventEmitter<OptionUIEvent>();
 
   constructor(
     private optionService: OptionService,
@@ -69,14 +69,14 @@ export class OptionItemComponent implements OnChanges {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['currentQuestionIndex']) {
-      const nextQuestionIndex = Number(this.currentQuestionIndex() ?? -1);
+      const nextQuestionIndex = Number(this.currentQuestionIndex ?? -1);
       if (Number.isFinite(nextQuestionIndex) && nextQuestionIndex !== this._lastQuestionIndex) {
         this._wasSelected = false;  // full reset for new question
         this._lastQuestionIndex = nextQuestionIndex;
       }
     }
 
-    if (changes['shouldResetBackground'] && this.shouldResetBackground()) {
+    if (changes['shouldResetBackground'] && this.shouldResetBackground) {
       this._wasSelected = false;
     }
 
@@ -92,7 +92,7 @@ export class OptionItemComponent implements OnChanges {
   }
 
   private get inputType(): 'radio' | 'checkbox' {
-    return this.type() === 'multiple' ? 'checkbox' : 'radio';
+    return this.type === 'multiple' ? 'checkbox' : 'radio';
   }
 
   getOptionDisplayText(): string {
@@ -120,7 +120,7 @@ export class OptionItemComponent implements OnChanges {
   getOptionClasses(): { [key: string]: boolean } {
     const classes = { ...this.b.cssClasses };
 
-    if (this.timerExpired()) {
+    if (this.timerExpired) {
       classes['correct-option'] = this.shouldShowCorrectOnTimeout();
       classes['incorrect-option'] = false;
       return classes;
@@ -158,7 +158,7 @@ export class OptionItemComponent implements OnChanges {
   }
 
   shouldShowIcon(option?: any, i?: number): boolean {
-    if (this.timerExpired()) {
+    if (this.timerExpired) {
       return this.shouldShowCorrectOnTimeout();
     }
 
@@ -167,7 +167,7 @@ export class OptionItemComponent implements OnChanges {
   }
 
   shouldShowCorrectOnTimeout(): boolean {
-    if (!this.timerExpired()) {
+    if (!this.timerExpired) {
       return false;
     }
 
@@ -177,7 +177,7 @@ export class OptionItemComponent implements OnChanges {
   }
 
   getOptionBackgroundColor(): string | null {
-    if (this.timerExpired()) {
+    if (this.timerExpired) {
       return this.shouldShowCorrectOnTimeout() ? '#43e756' : null;
     }
 
@@ -190,13 +190,13 @@ export class OptionItemComponent implements OnChanges {
   }
 
   private getSelectionsForCurrentBinding(): any[] {
-    const qIndex = this.currentQuestionIndex() ?? this.quizService.currentQuestionIndex;
+    const qIndex = this.currentQuestionIndex ?? this.quizService.currentQuestionIndex;
     return this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
   }
 
   private matchesBindingSelection(sel: any): boolean {
     const qIndex =
-      this.currentQuestionIndex() ?? this.quizService.currentQuestionIndex;
+      this.currentQuestionIndex ?? this.quizService.currentQuestionIndex;
     const selQIdx =
       sel.questionIndex ?? (sel as any).qIdx ?? (sel as any).questionIdx;
 
@@ -246,7 +246,7 @@ export class OptionItemComponent implements OnChanges {
     // on the first click, even before the full question is resolved.
     // _wasSelected keeps previously selected incorrect options highlighted (red)
     // even after forceDisableAll fires.
-    if (this.type() === 'multiple') {
+    if (this.type === 'multiple') {
       return this.isOptionIndividuallySelected() || !!this.b.option?.highlight ||
         this._wasSelected;
     }

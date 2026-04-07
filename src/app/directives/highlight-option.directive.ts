@@ -1,8 +1,6 @@
 import {
-  ChangeDetectorRef, Directive, ElementRef, HostListener, Input,
-  OnChanges, OnInit, Renderer2, SimpleChanges,
-  input,
-  output
+  ChangeDetectorRef, Directive, ElementRef, EventEmitter, HostListener, Input,
+  OnChanges, OnInit, Output, Renderer2, SimpleChanges
 } from '@angular/core';
 
 import { Option } from '../shared/models/Option.model';
@@ -15,27 +13,25 @@ import { SharedOptionConfig } from '../shared/models/SharedOptionConfig.model';
   standalone: true
 })
 export class HighlightOptionDirective implements OnInit, OnChanges {
-  readonly resetBackground = output<boolean>();
-  readonly optionClicked = output<Option>();
+  @Output() resetBackground = new EventEmitter<boolean>();
+  @Output() optionClicked = new EventEmitter<Option>();
   @Input() appHighlightInputType: 'checkbox' | 'radio' = 'radio';
-  readonly type = input<'single' | 'multiple'>('single');
+  @Input() type: 'single' | 'multiple' = 'single';
   @Input() appHighlightReset = false;
-  readonly appResetBackground = input(false);
+  @Input() appResetBackground = false;
   @Input() option!: Option;
-  readonly showFeedbackForOption = input<{
-    [key: number]: boolean;
-}>({});
-  readonly highlightCorrectAfterIncorrect = input(false);
-  readonly allOptions = input<Option[]>([]);  // to access all options directly
-  readonly optionsToDisplay = input<Option[]>([]);
-  readonly optionBinding = input<OptionBindings>();
-  readonly selectedOptionHistory = input<number[]>([]);
+  @Input() showFeedbackForOption: { [key: number]: boolean } = {};
+  @Input() highlightCorrectAfterIncorrect = false;
+  @Input() allOptions: Option[] = [];  // to access all options directly
+  @Input() optionsToDisplay: Option[] = [];
+  @Input() optionBinding: OptionBindings | undefined;
+  @Input() selectedOptionHistory: number[] = [];
   @Input() isSelected = false;
-  readonly isCorrect = input(false);
-  readonly isAnswered = input(false);
-  readonly showFeedback = input(false);
-  readonly renderReady = input(false);
-  readonly sharedOptionConfig = input.required<SharedOptionConfig>();
+  @Input() isCorrect = false;
+  @Input() isAnswered = false;
+  @Input() showFeedback = false;
+  @Input() renderReady = false;
+  @Input() sharedOptionConfig!: SharedOptionConfig;
 
   constructor(
     private el: ElementRef,
@@ -44,9 +40,8 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
   ) { }
 
   ngOnInit(): void {
-    const optionBinding = this.optionBinding();
-    if (optionBinding) {
-      optionBinding.directiveInstance = this;
+    if (this.optionBinding) {
+      this.optionBinding.directiveInstance = this;
     }
   }
 
@@ -77,10 +72,9 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
       resetChanged;
 
     // If something worth reacting to changed, run the full logic
-    const optionBinding = this.optionBinding();
-    if (highlightRelevant && optionBinding) {
+    if (highlightRelevant && this.optionBinding) {
       // Maintain reference back to this directive
-      optionBinding.directiveInstance = this;
+      this.optionBinding.directiveInstance = this;
 
       // Immediate highlight update (keeps old UX)
       this.updateHighlight();
@@ -91,15 +85,13 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
 
   /** Derive individual inputs from sharedOptionConfig / optionBinding when not explicitly set. */
   private syncDerivedInputs(): void {
-    const sharedOptionConfig = this.sharedOptionConfig();
-    if (sharedOptionConfig) {
-      this.appHighlightInputType = sharedOptionConfig.type === 'multiple' ? 'checkbox' : 'radio';
-      this.appHighlightReset = sharedOptionConfig.shouldResetBackground;
+    if (this.sharedOptionConfig) {
+      this.appHighlightInputType = this.sharedOptionConfig.type === 'multiple' ? 'checkbox' : 'radio';
+      this.appHighlightReset = this.sharedOptionConfig.shouldResetBackground;
     }
-    const optionBinding = this.optionBinding();
-    if (optionBinding) {
-      this.option = optionBinding.option;
-      this.isSelected = optionBinding.isSelected;
+    if (this.optionBinding) {
+      this.option = this.optionBinding.option;
+      this.isSelected = this.optionBinding.isSelected;
     }
   }
 
@@ -113,19 +105,18 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
   }
 
   updateHighlight(): void {
-    if (!this.optionBinding()?.option) return;
+    if (!this.optionBinding?.option) return;
 
     setTimeout(() => {
       try {
-        const optionBinding = this.optionBinding();
-        const opt = optionBinding?.option;
+        const opt = this.optionBinding?.option;
         if (!opt) return;  // null guard for strict mode
 
         const host = this.el.nativeElement as HTMLElement;
 
         // Check the LIVE binding/option state first — these are mutated synchronously
         // during click handlers, BEFORE this setTimeout fires with potentially stale config.
-        const bindingSelected = optionBinding?.isSelected === true;
+        const bindingSelected = this.optionBinding?.isSelected === true;
         const optionSelected = opt.selected === true || opt.highlight === true;
         const inputSelected = this.isSelected === true;
         const isLiveSelected = bindingSelected || optionSelected || inputSelected;
@@ -137,9 +128,8 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
         }
 
         // Not selected — check config for reset
-        const sharedOptionConfig = this.sharedOptionConfig();
-        if (sharedOptionConfig?.option) {
-          const cfg = sharedOptionConfig;
+        if (this.sharedOptionConfig?.option) {
+          const cfg = this.sharedOptionConfig;
           const cfgSelected = cfg.isOptionSelected || cfg.option.selected === true || cfg.highlight === true;
 
           if (cfgSelected) {
@@ -180,7 +170,7 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
   }
 
   private updateHighlightFromConfig(): void {
-    const cfg = this.sharedOptionConfig();
+    const cfg = this.sharedOptionConfig;
     if (!cfg || !cfg.option) return;
 
     const host = this.el.nativeElement as HTMLElement;
@@ -203,7 +193,7 @@ export class HighlightOptionDirective implements OnInit, OnChanges {
     const isSelectedNow =
       cfg.highlight === true || cfg.isOptionSelected ||
       cfg.option.selected === true ||
-      this.isSelected || this.optionBinding()?.isSelected === true;
+      this.isSelected || this.optionBinding?.isSelected === true;
 
     // Check correctness from multiple sources
     const isCorrectHelper = (o: any) => o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || o.correct === '1');

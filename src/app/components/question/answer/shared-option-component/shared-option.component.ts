@@ -1,10 +1,7 @@
 import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, DoCheck,
-  HostListener, OnChanges, OnDestroy, OnInit,
-  SimpleChanges,
-  input,
-  output
-} from '@angular/core';
+  EventEmitter, HostListener, Input, OnChanges, OnDestroy, OnInit, Output,
+  SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule, MatCheckboxChange } from '@angular/material/checkbox';
@@ -66,37 +63,36 @@ import { SharedOptionOrchestratorService } from '../../../../shared/services/fea
 })
 export class SharedOptionComponent
     implements OnInit, OnChanges, DoCheck, OnDestroy, AfterViewInit {
-  readonly optionClicked = output<OptionClickedPayload>();
-  readonly optionEvent = output<OptionUIEvent>();
-  readonly reselectionDetected = output<boolean>();
-  readonly explanationUpdate = output<number>();
-  readonly renderReadyChange = output<boolean>();
-  readonly showExplanationChange = output<boolean>();
-  readonly explanationToDisplayChange = output<string>();
-  readonly currentQuestion = input<QuizQuestion | null>(null);
-  readonly currentQuestionIndex = input.required<number>();
-  readonly questionIndex = input<number | null>(null);
-  readonly optionsToDisplay = input.required<Option[]>();
-  readonly quizId = input.required<string>();
-  readonly type = input<'single' | 'multiple'>('single');
-  readonly config = input.required<SharedOptionConfig>();
-  readonly selectedOption = input<Option | null>(null);
-  readonly showFeedbackForOption = input.required<{
-    [key: string | number]: boolean;
-}>();
-  readonly correctMessage = input('');
-  readonly showFeedback = input(false);
-  readonly shouldResetBackground = input(false);
-  readonly highlightCorrectAfterIncorrect = input(false);
-  readonly quizQuestionComponentOnOptionClicked = input.required<(option: SelectedOption, index: number) => void>();
-  readonly optionBindings = input<OptionBindings[]>([]);
-  readonly selectedOptionId = input<number | null>(null);
-  readonly selectedOptionIndex = input<number | null>(null);
-  readonly isNavigatingBackwards = input(false);
-  readonly renderReady = input(false);
-  readonly finalRenderReady$ = input<Observable<boolean> | null>(null);
-  readonly questionVersion = input(0);  // increments every time questionIndex changes
-  readonly sharedOptionConfig = input.required<SharedOptionConfig>();
+  @Output() optionClicked = new EventEmitter<OptionClickedPayload>();
+  @Output() optionEvent = new EventEmitter<OptionUIEvent>();
+  @Output() reselectionDetected = new EventEmitter<boolean>();
+  @Output() explanationUpdate = new EventEmitter<number>();
+  @Output() renderReadyChange = new EventEmitter<boolean>();
+  @Output() showExplanationChange = new EventEmitter<boolean>();
+  @Output() explanationToDisplayChange = new EventEmitter<string>();
+  @Input() currentQuestion: QuizQuestion | null = null;
+  @Input() currentQuestionIndex!: number;
+  @Input() questionIndex: number | null = null;
+  @Input() optionsToDisplay!: Option[];
+  @Input() quizId!: string;
+  @Input() type: 'single' | 'multiple' = 'single';
+  @Input() config!: SharedOptionConfig;
+  @Input() selectedOption: Option | null = null;
+  @Input() showFeedbackForOption!: { [key: string | number]: boolean };
+  @Input() correctMessage = '';
+  @Input() showFeedback = false;
+  @Input() shouldResetBackground = false;
+  @Input() highlightCorrectAfterIncorrect = false;
+  @Input() quizQuestionComponentOnOptionClicked!: (
+      option: SelectedOption, index: number) => void;
+  @Input() optionBindings: OptionBindings[] = [];
+  @Input() selectedOptionId: number | null = null;
+  @Input() selectedOptionIndex: number | null = null;
+  @Input() isNavigatingBackwards = false;
+  @Input() renderReady = false;
+  @Input() finalRenderReady$: Observable<boolean> | null = null;
+  @Input() questionVersion = 0;  // increments every time questionIndex changes
+  @Input() sharedOptionConfig!: SharedOptionConfig;
   public selectedOptionMap = new Map<number | string, boolean>();
   public ui!: SharedOptionUiState;
   private finalRenderReadySub?: Subscription;
@@ -402,7 +398,7 @@ export class SharedOptionComponent
     return this.explanationHandler.resolveDisplayIndex(
         questionIndex,
         () => this.getActiveQuestionIndex(),
-        this.currentQuestionIndex(),
+        this.currentQuestionIndex,
         this.resolvedQuestionIndex
     );
   }
@@ -490,7 +486,7 @@ export class SharedOptionComponent
 
   initializeFeedbackBindings(): void {
     this.feedbackBindings = this.feedbackManager.initializeFeedbackBindings(
-        this.optionBindings(), this.buildFeedbackContext()
+        this.optionBindings, this.buildFeedbackContext()
     );
   }
 
@@ -499,7 +495,7 @@ export class SharedOptionComponent
   }
 
   isSelectedOption(option: Option): boolean {
-    return this.selectedOptionId() === option.optionId;
+    return this.selectedOptionId === option.optionId;
   }
 
   ensureOptionIds(): void {

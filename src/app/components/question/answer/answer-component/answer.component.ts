@@ -1,10 +1,7 @@
 import {
-  AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, EventEmitter,
-  Input, OnChanges, OnInit, Output, QueryList, SimpleChanges,
-  ViewContainerRef,
-  input,
-  output,
-  viewChild
+  AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component,
+  EventEmitter, Input, OnChanges, OnInit, Output, QueryList, SimpleChanges,
+  ViewChild, ViewContainerRef
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
@@ -41,25 +38,26 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
 
   viewContainerRefs!: QueryList<ViewContainerRef>;
   viewContainerRef!: ViewContainerRef;
-  readonly sharedOptionComponent = viewChild.required(SharedOptionComponent);
+  @ViewChild(SharedOptionComponent)
+  sharedOptionComponent!: SharedOptionComponent;
 
-  readonly componentLoaded = output<any>();
-  readonly optionSelected = output<{
-    option: SelectedOption;
-    index: number;
-    checked: boolean;
-}>();
+  @Output() componentLoaded = new EventEmitter<any>();
+  @Output() optionSelected = new EventEmitter<{
+    option: SelectedOption,
+    index: number,
+    checked: boolean
+  }>();
   @Output() override optionClicked =
     new EventEmitter<OptionClickedPayload>() as any;
-  readonly questionData = input.required<QuizQuestion>();
-  readonly isNavigatingBackwards = input<boolean>(false);
+  @Input() questionData!: QuizQuestion;
+  @Input() isNavigatingBackwards: boolean = false;
   override quizQuestionComponentOnOptionClicked!: (
     option: SelectedOption,
     index: number
   ) => void;
-  readonly currentQuestionIndex = input.required<number>();
-  readonly quizId = input.required<string>();
-  readonly form = input.required<FormGroup>();
+  @Input() currentQuestionIndex!: number;
+  @Input() quizId!: string;
+  @Input() form!: FormGroup;
   @Input() override optionsToDisplay: Option[] = [];
   @Input() override optionBindings: OptionBindings[] = [];
   private _questionIndex: number | null = null;
@@ -136,7 +134,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
         ).length;
 
         this.type = correctCount > 1 ? 'multiple' : 'single';
-        console.log(`[AnswerComponent] Q${this.currentQuestionIndex() + 1} 
+        console.log(`[AnswerComponent] Q${this.currentQuestionIndex + 1} 
           detected as ${this.type} (Correct count: ${correctCount})`);
 
         if (!this.hasComponentLoaded) {
@@ -290,7 +288,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
    * from the SelectedOptionService.
    */
   private syncOptionsWithSelections(): void {
-    const idx = this.currentQuestionIndex();
+    const idx = this.currentQuestionIndex;
     if (idx === null || idx === undefined || idx < 0) {
       console.warn('[AC] ⏭️ Cannot sync options: valid question index not found');
       return;
@@ -337,13 +335,12 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     }
 
     // Update FormGroup for single-answer (radio group sync)
-    const form = this.form();
-    if (this.type === 'single' && form) {
+    if (this.type === 'single' && this.form) {
       const selectedId = savedSelections[0]?.optionId;
       if (selectedId != null) {
         console.log(`[AC] 📻 Patching form for single-answer Q${idx + 1} with 
           ID=${selectedId}`);
-        form.patchValue({ selectedOptionId: selectedId }, { emitEvent: false });
+        this.form.patchValue({ selectedOptionId: selectedId }, { emitEvent: false });
       }
     }
   }
@@ -430,10 +427,9 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     const wasChecked = payload.checked ?? true;
 
     // Always get the QUESTION INDEX from QQC input
-    const currentQuestionIndex = this.currentQuestionIndex();
     const activeQuestionIndex =
-      typeof currentQuestionIndex === 'number'
-        ? currentQuestionIndex
+      typeof this.currentQuestionIndex === 'number'
+        ? this.currentQuestionIndex
         : 0;
 
     const getEffectiveId =
@@ -487,7 +483,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
 
     // Resolve canonical question by INDEX (prefer service, fallback to @Input)
     const serviceQuestion = this.quizService.questions?.[activeQuestionIndex];
-    const question = serviceQuestion ?? this.questionData();
+    const question = serviceQuestion ?? this.questionData;
 
     if (!question) {
       console.error(

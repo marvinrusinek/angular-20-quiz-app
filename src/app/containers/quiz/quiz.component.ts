@@ -1,8 +1,6 @@
 import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component,
-  HostListener, Input, NgZone, OnDestroy, OnInit, ViewEncapsulation,
-  input,
-  viewChild
+  HostListener, Input, NgZone, OnDestroy, OnInit, ViewChild, ViewEncapsulation
 } from '@angular/core';
 import { CommonModule, AsyncPipe } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -65,11 +63,14 @@ type AnimationState = 'animationStarted' | 'none';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
-  readonly quizQuestionComponent = viewChild.required(QuizQuestionComponent);
-  readonly sharedOptionComponent = viewChild.required(SharedOptionComponent);
-  readonly nextButtonTooltip = viewChild.required<MatTooltip>('nextButton');
+  @ViewChild(QuizQuestionComponent, { static: false })
+  quizQuestionComponent!: QuizQuestionComponent;
+  @ViewChild(SharedOptionComponent, { static: false })
+  sharedOptionComponent!: SharedOptionComponent;
+  @ViewChild('nextButton', { static: false })
+  nextButtonTooltip!: MatTooltip;
 
-  readonly selectedQuiz = input<Quiz | null>(null);
+  @Input() selectedQuiz: Quiz | null = null;
   @Input() currentQuestion: QuizQuestion | null = null;
   quiz!: Quiz;
   quizId = '';
@@ -266,8 +267,8 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     this.optionsToDisplay = [];
     this.isAnswered = false;
     this.isNextButtonEnabled = false;
-    this.quizQuestionComponent()?.resetFeedback?.();
-    this.quizQuestionComponent()?.resetState?.();
+    this.quizQuestionComponent?.resetFeedback?.();
+    this.quizQuestionComponent?.resetState?.();
     this.cdRef.detectChanges();
   }
 
