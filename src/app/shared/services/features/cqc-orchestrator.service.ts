@@ -54,6 +54,17 @@ export class CqcOrchestratorService {
         console.log('[CQCC] ♻️ Questions updated - FET will be generated on-demand when user clicks');
       });
 
+    host._cqcVisibilityHandler = () => {
+      if (document.visibilityState !== 'visible') return;
+      const el = host.qText?.nativeElement;
+      const cached = host._lastDisplayedText;
+      if (el && cached && !el.innerHTML) {
+        host.renderer.setProperty(el, 'innerHTML', cached);
+        console.log('[CQCC visibility] 🔁 Replayed cached question text');
+      }
+    };
+    document.addEventListener('visibilitychange', host._cqcVisibilityHandler);
+
     host.timerService.expired$
       .pipe(takeUntil(host.destroy$))
       .subscribe(() => {
@@ -79,6 +90,10 @@ export class CqcOrchestratorService {
   }
 
   runOnDestroy(host: Host): void {
+    if (host._cqcVisibilityHandler) {
+      document.removeEventListener('visibilitychange', host._cqcVisibilityHandler);
+      host._cqcVisibilityHandler = null;
+    }
     host.destroy$.next();
     host.destroy$.complete();
     host.correctAnswersTextSource.complete();
@@ -233,6 +248,7 @@ export class CqcOrchestratorService {
           const el = host.qText?.nativeElement;
           if (el) {
             host.renderer.setProperty(el, 'innerHTML', finalText);
+            host._lastDisplayedText = finalText;
             console.log(`[subscribeToDisplayText] ✅ Updated innerHTML using Renderer2: "${finalText?.substring(0, 50)}..."`);
           } else {
             console.warn(`[subscribeToDisplayText] ⚠️ qText.nativeElement not available!`);
