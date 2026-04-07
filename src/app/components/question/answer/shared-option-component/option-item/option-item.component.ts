@@ -82,9 +82,7 @@ export class OptionItemComponent implements OnChanges {
 
     // Sticky: once selected, stays highlighted for the rest of the question.
     // Only goes true when the BINDING says selected (set by click handler).
-    if (this.b?.isSelected) {
-      this._wasSelected = true;
-    }
+    if (this.b?.isSelected) this._wasSelected = true;
   }
 
   get optionId(): number {
@@ -257,8 +255,12 @@ export class OptionItemComponent implements OnChanges {
   }
 
   private isOptionIndividuallySelected(): boolean {
-    return (this.b.isSelected || this.b.checked || this.b.option?.selected === true ||
-      this.isSelectedForCurrentQuestion());
+    return (
+      this.b.isSelected ||
+      this.b.checked ||
+      this.b.option?.selected === true ||
+      this.isSelectedForCurrentQuestion()
+    );
   }
 
   private isSelectedForCurrentQuestion(): boolean {
