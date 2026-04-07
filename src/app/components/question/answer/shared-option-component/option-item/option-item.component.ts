@@ -58,8 +58,6 @@ export class OptionItemComponent implements OnChanges {
   private _wasSelected = false;
   private _lastQuestionIndex = -1;
 
-  // inputs removed in favor of OptionBindings snapshot
-
   // ONE output
   @Output() optionUI = new EventEmitter<OptionUIEvent>();
 
@@ -175,8 +173,8 @@ export class OptionItemComponent implements OnChanges {
       return false;
     }
 
-    // When the timer expires, we want to reveal ALL correct answers
-    // regardless of whether they were flagged for icons or highlighted before.
+    // When the timer expires, reveal ALL correct answers regardless of whether
+    // they were flagged for icons or highlighted before.
     return this.isOptionCorrect();
   }
 
@@ -189,7 +187,7 @@ export class OptionItemComponent implements OnChanges {
       return null;
     }
 
-    // green if correct, red if incorrect
+    // Green if correct, red if incorrect
     return this.isOptionCorrect() ? '#43e756' : '#ff0000';
   }
 
