@@ -59,7 +59,10 @@ export class OptionBindingFactoryService {
 
       const cloned = {
         ...structuredClone(option),
-        feedback: option?.feedback ?? 'No feedback available'
+        feedback: option?.feedback ?? 'No feedback available',
+        // Clear stale visual flags carried over from prior question state
+        highlight: false,
+        selected: false,
       };
 
       bindings.push({

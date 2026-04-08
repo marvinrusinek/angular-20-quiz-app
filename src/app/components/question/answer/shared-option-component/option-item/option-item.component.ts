@@ -75,6 +75,17 @@ export class OptionItemComponent implements OnChanges {
       if (Number.isFinite(nextQuestionIndex) && nextQuestionIndex !== this._lastQuestionIndex) {
         this._wasSelected = false;  // full reset for new question
         this._lastQuestionIndex = nextQuestionIndex;
+        // Force-clear any stale visual state on this binding from a prior question
+        if (this.b) {
+          this.b.isSelected = false;
+          this.b.disabled = false;
+          this.b.cssClasses = {};
+          if (this.b.option) {
+            this.b.option.selected = false;
+            this.b.option.highlight = false;
+            this.b.option.showIcon = false;
+          }
+        }
       }
     }
 
@@ -156,27 +167,10 @@ export class OptionItemComponent implements OnChanges {
   }
 
   isDisabled(): boolean {
-    if (this.b?.disabled) return true;
-    try {
-      const qIdx = Number(this.currentQuestionIndex() ?? -1);
-      const id = this.optionId;
-      if (Number.isFinite(qIdx) && qIdx >= 0 && Number.isFinite(id)) {
-        if (this.selectedOptionService.isOptionLocked(qIdx, id)) {
-          return true;
-        }
-      }
-
-      // SINGLE-ANSWER auto-lock via shared correct-lock set: when the user
-      // has clicked the correct option, the orchestrator adds this index to
-      // _singleAnswerCorrectLock. Disable any non-correct binding.
-      if (this.selectionMessageService._singleAnswerCorrectLock?.has(qIdx)) {
-        const myCorrect = this.b?.option?.correct === true ||
-          String(this.b?.option?.correct) === 'true';
-        if (!myCorrect) return true;
-      }
-
-    } catch {}
-    return false;
+    // Disabled comes ONLY from the binding flag set by the click flow.
+    // All lock-set lookups have been removed because they were leaking
+    // disable state across questions on navigation.
+    return this.b?.disabled === true;
   }
 
   shouldShowIcon(option?: any, i?: number): boolean {
@@ -264,16 +258,10 @@ export class OptionItemComponent implements OnChanges {
   }
 
   shouldHighlightOption(): boolean {
-    // Multi-answer selections should immediately show their success/error state
-    // on the first click, even before the full question is resolved.
-    // _wasSelected keeps previously selected incorrect options highlighted (red)
-    // even after forceDisableAll fires.
     if (this.type() === 'multiple') {
       return this.isOptionIndividuallySelected() || !!this.b.option?.highlight ||
         this._wasSelected;
     }
-    // Single-answer: current selection + sticky history (previously clicked,
-    // incorrect options stay highlighted red across subsequent clicks)
     return this.b.isSelected || !!this.b.option?.highlight || this._wasSelected;
   }
 

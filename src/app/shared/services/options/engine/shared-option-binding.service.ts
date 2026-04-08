@@ -215,7 +215,14 @@ export class SharedOptionBindingService {
 
     const currentIdx = comp.currentQuestionIndex ?? this.quizService.getCurrentQuestionIndex();
 
-    const savedSelections = this.selectedOptionService.getSelectedOptionsForQuestion(currentIdx) || [];
+    const rawSavedSelections = this.selectedOptionService.getSelectedOptionsForQuestion(currentIdx) || [];
+    // Strict question-context filter: drop any selection whose stored
+    // questionIndex doesn't match currentIdx, so a previous question's
+    // selections can never stamp highlights onto a new question's options.
+    const savedSelections = rawSavedSelections.filter((s: any) => {
+      const sQIdx = s?.questionIndex ?? s?.qIdx ?? s?.questionIdx;
+      return sQIdx == null || Number(sQIdx) === Number(currentIdx);
+    });
     const savedIds = this.optionHydrationService.toIdSet(savedSelections);
 
     const getBindings = comp.getOptionBindings.bind(comp);
@@ -245,7 +252,10 @@ export class SharedOptionBindingService {
       const isMulti = comp.isMultiMode;
       if (!isMulti && (isSelected || highlightSet.has(effectiveId))) {
         opt.highlight = true;
-      } else if (isMulti) {
+      } else {
+        // Always clear highlight on fresh build for non-selected options,
+        // for both single and multi mode, so prior question state can't
+        // bleed into this one.
         opt.highlight = false;
       }
 
@@ -302,6 +312,29 @@ export class SharedOptionBindingService {
   }
 
   rehydrateUiFromState(comp: any, reason: string): void {
+    // Universal clean-slate: ALWAYS clear stale visual state on the freshly
+    // built bindings, BEFORE any guard, so highlights/selected from a
+    // previous question can never leak into a new one.
+    if (comp.optionBindings?.length) {
+      comp.optionBindings.forEach((b: any) => {
+        b.isSelected = false;
+        if (b.option) {
+          b.option.selected = false;
+          b.option.highlight = false;
+          b.option.showIcon = false;
+        }
+      });
+    }
+    if (comp.optionsToDisplay?.length) {
+      comp.optionsToDisplay.forEach((opt: any) => {
+        opt.selected = false;
+        opt.highlight = false;
+        opt.showIcon = false;
+      });
+    }
+    // Force a re-render of the cleared state
+    comp.cdRef?.markForCheck?.();
+
     if (comp.hasUserClicked || comp.freezeOptionBindings) return;
 
     const qIndex = comp.resolveCurrentQuestionIndex();
@@ -310,11 +343,18 @@ export class SharedOptionBindingService {
 
     const savedByIndex = new Map<number, any>();
     for (const s of saved) {
+      // Strict question-context check: drop selections from a different question
+      const sQIdx = (s as any).questionIndex ?? (s as any).qIdx ?? (s as any).questionIdx;
+      if (sQIdx != null && Number(sQIdx) !== qIndex) continue;
+
       const sIdx = (s as any).displayIndex ?? (s as any).index ?? (s as any).idx;
       if (sIdx != null && Number.isFinite(Number(sIdx))) {
         savedByIndex.set(Number(sIdx), s);
       }
     }
+    // If nothing remains after filtering, freshly-generated bindings are
+    // already clean — bail to avoid accidentally restamping stale highlights.
+    if (savedByIndex.size === 0) return;
 
     if (comp.optionBindings?.length) {
       comp.optionBindings.forEach((b: any, idx: number) => {

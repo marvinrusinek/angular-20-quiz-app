@@ -185,6 +185,25 @@ export class TimerService implements OnDestroy {
       return;
     }
 
+    // Anti-thrash: ignore any (re)start that happens within 5s of a previous
+    // start, regardless of running state. The init chain repeatedly fires
+    // stop+start; suppressing the duplicates lets the tick stream survive.
+    const nowMs = Date.now();
+    // Once expired for this question, refuse all further starts until
+    // restartForQuestion is called for a new question.
+    if (this.hasExpiredForRun) {
+      console.info(`[TimerService] Start suppressed — already expired for this question.`);
+      return;
+    }
+    if (this._lastStartedAtMs > 0 && (nowMs - this._lastStartedAtMs) < 60000) {
+      console.info(`[TimerService] Duplicate start suppressed (anti-thrash).`);
+      // Re-arm running flag in case a rogue stop slipped through
+      if (!this.isTimerRunning && this.timerSubscription) {
+        this.isTimerRunning = true;
+      }
+      return;
+    }
+
     if (this.isTimerRunning) {
       if (!forceRestart) {
         console.info(`[TimerService] Timer is already running. Start ignored.`);
@@ -192,6 +211,7 @@ export class TimerService implements OnDestroy {
       }
       this.stopTimer(undefined, { force: true });
     }
+    this._lastStartedAtMs = nowMs;
 
     if (forceRestart) {
       this.isTimerStoppedForCurrentQuestion = false;
@@ -271,6 +291,17 @@ export class TimerService implements OnDestroy {
       return;
     }
 
+    // Anti-thrash: ignore stops fired immediately after a fresh start
+    // (init-chain churn). Only honor stops once the timer has had a chance
+    // to actually tick, OR if expiry has been reached.
+    const sinceStart = Date.now() - this._lastStartedAtMs;
+    if (sinceStart < 60000 && !this.hasExpiredForRun) {
+      console.info(
+        `[TimerService] stopTimer suppressed (only ${sinceStart}ms since start).`
+      );
+      return;
+    }
+
     // End the ticking subscription
     if (this.timerSubscription) {
       this.timerSubscription.unsubscribe();
@@ -298,6 +329,19 @@ export class TimerService implements OnDestroy {
   // Resets the timer
   resetTimer(): void {
     console.log('Attempting to reset timer...');
+
+    // Anti-thrash: ignore resets after a start is in flight or after expiry,
+    // until restartForQuestion explicitly clears the flags for a new question.
+    if (this.hasExpiredForRun) {
+      console.info(`[TimerService] resetTimer suppressed — already expired.`);
+      return;
+    }
+    const sinceStart = Date.now() - this._lastStartedAtMs;
+    if (this._lastStartedAtMs > 0 && sinceStart < 60000) {
+      console.info(`[TimerService] resetTimer suppressed (${sinceStart}ms since start).`);
+      return;
+    }
+
     if (this.isTimerRunning) {
       console.log('Timer is running. Stopping before resetting...');
       this.stopTimer(undefined, { force: true });
@@ -539,7 +583,17 @@ export class TimerService implements OnDestroy {
    * Convenience: stop, reset, clear flags, and start a fresh timer for a question.
    * Consolidates the 4-step pattern used across QuizComponent navigation paths.
    */
+  private _runningForQuestion: number | null = null;
+  private _lastStartedAtMs = 0;
+
   public restartForQuestion(questionIndex: number): void {
+    if (this._runningForQuestion === questionIndex && (this.isTimerRunning || this.hasExpiredForRun)) {
+      return;
+    }
+    this._runningForQuestion = questionIndex;
+    // Clear expiry/start guards so this fresh question can run
+    this.hasExpiredForRun = false;
+    this._lastStartedAtMs = 0;
     this.stopTimer?.(undefined, { force: true });
     this.resetTimer();
     this.resetTimerFlagsFor(questionIndex);

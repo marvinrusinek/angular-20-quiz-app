@@ -1114,8 +1114,6 @@ export class QqcQuestionLoaderService {
     optionsToDisplay: Option[];
     questionToDisplay: string;
   } | null> {
-    this.timerService.startTimer(this.timerService.timePerQuestion, true);
-
     // Fetch questions if not already available
     const questionsArray = await this.fetchQuestionsIfNeeded(params.questionsArray);
 
@@ -1183,6 +1181,10 @@ export class QqcQuestionLoaderService {
       this.timerService.stopTimer(undefined, { force: true });
       return null;
     }
+
+    // Start the timer AFTER all setup is complete to avoid races where
+    // an aborted prior load tears down the freshly-started timer.
+    this.timerService.restartForQuestion(params.currentQuestionIndex);
 
     return {
       success: true,

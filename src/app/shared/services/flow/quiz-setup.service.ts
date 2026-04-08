@@ -288,9 +288,24 @@ export class QuizSetupService {
           host.explanationToDisplay = '';
           host.optionsToDisplay = [];
           host.updateDotStatus(idx);
-          if (!this.selectedOptionService.isQuestionAnswered(idx)) {
-            this.timerService.restartForQuestion(idx);
-          }
+        }
+        // Nuclear clear: wipe ALL locks on navigation so disable state
+        // from any prior question can't leak into the new one.
+        try {
+          const sos: any = this.selectedOptionService;
+          sos._lockedByQuestion?.clear?.();
+          sos._questionLocks?.clear?.();
+          const sms: any = this.selectionMessageService;
+          sms._singleAnswerCorrectLock?.clear?.();
+          sms._singleAnswerIncorrectLock?.clear?.();
+          sms._multiAnswerInProgressLock?.clear?.();
+          sms._multiAnswerCompletionLock?.clear?.();
+          sms._multiAnswerPreLock?.clear?.();
+        } catch {}
+
+        // Start the timer on both initial load and navigation (unless answered)
+        if (!this.selectedOptionService.isQuestionAnswered(idx)) {
+          this.timerService.restartForQuestion(idx);
         }
       });
   }
@@ -866,6 +881,18 @@ export class QuizSetupService {
     const initialIndex = host.currentQuestionIndex || 0;
     this.quizService.setCurrentQuestionIndex(initialIndex);
     host.updateDotStatus(initialIndex);
+
+    // Ensure the timer starts on initial quiz load
+    if (!this.selectedOptionService.isQuestionAnswered(initialIndex)) {
+      this.timerService.restartForQuestion(initialIndex);
+      // Safety: re-arm after the rest of the init chain settles, in case
+      // a downstream stopTimer() runs and tears the freshly-started timer down.
+      setTimeout(() => {
+        if (!this.selectedOptionService.isQuestionAnswered(initialIndex)) {
+          this.timerService.restartForQuestion(initialIndex);
+        }
+      }, 300);
+    }
     Promise.resolve().then(() => host.cdRef.detectChanges());
 
     host.quizScoringService.initializeCorrectExpectedCounts(host.questionsArray);
