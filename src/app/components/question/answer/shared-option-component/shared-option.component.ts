@@ -109,8 +109,6 @@ export class SharedOptionComponent
   private finalRenderReadySub?: Subscription;
   private selectionSub!: Subscription;
   public isSelected = false;
-  public optionBindingsInitialized = false;
-
   feedbackBindings: FeedbackProps[] = [];
   currentFeedbackConfig!: FeedbackProps;
   feedbackConfigs: { [key: string]: FeedbackProps } = {};
