@@ -1,12 +1,7 @@
 import { Injectable } from '@angular/core';
 
-import { Option } from '../../models/Option.model';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
 import { SelectedOption } from '../../models/SelectedOption.model';
-import { ScoreAnalysisItem } from '../../models/Final-Result.model';
-import { QuizService } from '../data/quiz.service';
-import { QuizStateService } from '../state/quizstate.service';
-import { SelectedOptionService } from '../state/selectedoption.service';
 import { SelectionMessageService } from '../features/selection-message/selection-message.service';
 
 /**
@@ -17,9 +12,6 @@ import { SelectionMessageService } from '../features/selection-message/selection
 export class QuizScoringService {
 
   constructor(
-    private quizService: QuizService,
-    private quizStateService: QuizStateService,
-    private selectedOptionService: SelectedOptionService,
     private selectionMessageService: SelectionMessageService
   ) {}
 
@@ -87,134 +79,6 @@ export class QuizScoringService {
         }
       }
     }
-  }
-
-  // ═══════════════════════════════════════════════════════════════
-  // CALCULATE ANSWERED COUNT
-  // ═══════════════════════════════════════════════════════════════
-
-  calculateAnsweredCount(params: {
-    totalCount: number;
-    totalQuestions: number;
-    quizQuestionsLength: number;
-  }): number {
-    const answeredIndices = new Set<number>();
-    const total = params.totalCount;
-    if (total <= 0) {
-      return 0;
-    }
-
-    // Source 1: Service Maps (The most immediate interactive source)
-    const mapsByRef = [
-      { name: 'SOS.Map', map: this.selectedOptionService?.selectedOptionsMap },
-      { name: 'QS.Map', map: this.quizService?.selectedOptionsMap }
-    ];
-    for (const item of mapsByRef) {
-      if (item.map) {
-        for (const [key, value] of item.map.entries()) {
-          const idx = Number(key);
-          if (!isNaN(idx) && idx >= 0 && idx < total) {
-            const hasData = Array.isArray(value)
-              ? value.length > 0
-              : (value !== undefined);
-            if (hasData) {
-              answeredIndices.add(idx);
-            }
-          }
-        }
-      }
-    }
-
-    // Explicitly check questionCorrectness
-    const qc = this.quizService.questionCorrectness;
-    if (qc instanceof Map) {
-      for (const [key, val] of qc.entries()) {
-        const idx = Number(key);
-        if (!isNaN(idx) && idx >= 0 && idx < total && val !== undefined) {
-          answeredIndices.add(idx);
-        }
-      }
-    }
-
-    // Source 2: QuizStateService (Interaction Tracker)
-    if (this.quizStateService) {
-      this.quizStateService._answeredQuestionIndices?.forEach(idx => {
-        if (idx >= 0 && idx < total) {
-          answeredIndices.add(idx);
-        }
-      });
-      this.quizStateService._hasUserInteracted?.forEach(idx => {
-        if (idx >= 0 && idx < total) {
-          answeredIndices.add(idx);
-        }
-      });
-    }
-
-    // Source 3: User Answers Persistence
-    const userAnswers = this.quizService?.userAnswers;
-    if (Array.isArray(userAnswers)) {
-      userAnswers.forEach((ans, idx) => {
-        if (idx < total && Array.isArray(ans) && ans.length > 0) {
-          answeredIndices.add(idx);
-        }
-      });
-    }
-
-    const count = answeredIndices.size;
-    const sortedIndices = Array.from(answeredIndices).sort((a, b) => a - b);
-    console.log(`[PROGRESS] calculateAnsweredCount SUMMARY:
-      TotalAnswered: ${count}/${total}
-      AnsweredIndices: [${sortedIndices.map(i => i + 1).join(',')}]
-      TotalCountSource: ${total} (totalQuestions=${params.totalQuestions}, quizQuestions=${params.quizQuestionsLength})
-    `);
-    return count;
-  }
-
-  // ═══════════════════════════════════════════════════════════════
-  // BUILD SCORE ANALYSIS SNAPSHOT
-  // ═══════════════════════════════════════════════════════════════
-
-  buildScoreAnalysisSnapshot(): ScoreAnalysisItem[] {
-    const questions = this.quizService.activeQuiz?.questions
-      ?? this.quizService.questions
-      ?? [];
-    const analysis: ScoreAnalysisItem[] = [];
-
-    for (let i = 0; i < questions.length; i++) {
-      const q = questions[i];
-      if (!q) {
-        continue;
-      }
-
-      const selected = this.selectedOptionService.getSelectedOptionsForQuestion(i) ?? [];
-      const selectedIds = selected
-        .map(o => String(o?.optionId ?? ''))
-        .filter(Boolean);
-
-      const correctIds = (q.options ?? [])
-        .filter((o: Option) => o.correct === true)
-        .map((o: Option) => String(o.optionId))
-        .filter(Boolean);
-
-      // "wasCorrect" logic: selected set equals correct set
-      const selectedSet: Set<string> = new Set<string>(selectedIds);
-      const correctSet: Set<string> = new Set<string>(correctIds);
-
-      const wasCorrect =
-        correctSet.size > 0 &&
-        correctSet.size === selectedSet.size &&
-        Array.from(correctSet).every((id: string) => selectedSet.has(id));
-
-      analysis.push({
-        questionIndex: i,
-        questionText: String(q.questionText ?? ''),
-        wasCorrect,
-        selectedOptionIds: selectedIds,
-        correctOptionIds: correctIds
-      });
-    }
-
-    return analysis;
   }
 
   // ═══════════════════════════════════════════════════════════════
