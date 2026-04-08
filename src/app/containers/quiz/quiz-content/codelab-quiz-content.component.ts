@@ -1,8 +1,8 @@
 
 import {
-  ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter,
-  Input, OnChanges, OnDestroy, OnInit, Output, Renderer2, SimpleChanges, ViewChild,
-  input, output
+  ChangeDetectionStrategy, ChangeDetectorRef, Component, effect, ElementRef,
+  OnChanges, OnDestroy, OnInit, Renderer2, SimpleChanges, untracked, ViewChild,
+  input, output, signal
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, ParamMap } from '@angular/router';
@@ -44,17 +44,20 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
   readonly isContentAvailableChange = output<boolean>();
 
-  @Input() combinedQuestionData$: Observable<CombinedQuestionDataType> | null =
-    null;
-  @Input() currentQuestion = new BehaviorSubject<QuizQuestion | null>(null);
+  private _combinedQuestionDataSig = signal<Observable<CombinedQuestionDataType> | null>(null);
+  readonly combinedQuestionData$ = this._combinedQuestionDataSig.asReadonly();
+  setCombinedQuestionData$(v: Observable<CombinedQuestionDataType> | null): void { this._combinedQuestionDataSig.set(v); }
+  currentQuestion = new BehaviorSubject<QuizQuestion | null>(null);
   readonly questionToDisplay = input<string>('');
   readonly questionToDisplay$ = input<Observable<string | null> | null>(null);
-  @Input() explanationToDisplay: string | null = null;
+  readonly explanationToDisplay = input<string | null>(null);
   readonly question = input<QuizQuestion | null>(null);
   readonly question$ = input<Observable<QuizQuestion | null> | null>(null);
   readonly questions = input<QuizQuestion[]>([]);
   readonly options = input<Option[]>([]);
-  @Input() quizId = '';
+  private _quizIdSig = signal<string>('');
+  readonly quizId = this._quizIdSig.asReadonly();
+  setQuizId(v: string): void { this._quizIdSig.set(v); }
   readonly correctAnswersText = input<string>('');
   readonly questionText = input<string>('');
   readonly quizData = input<CombinedQuestionDataType | null>(null);
@@ -63,18 +66,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   readonly localExplanationText = input<string>('');
   readonly showLocalExplanation = input<boolean>(false);
 
-  @Input() set explanationOverride(o: { idx: number; html: string }) {
-    this.overrideSubject.next(o);
-  }
-
-  @Input() set questionIndex(idx: number) {
-    this.orchestrator.runQuestionIndexSet(this, idx);
-  }
-
-  @Input() set showExplanation(value: boolean) {
-    this._showExplanation = value;
-    this.cdRef.markForCheck();
-  }
+  readonly questionIndex = input<number>(0);
 
   private combinedTextSubject = new BehaviorSubject<string>('');
   combinedText$ = this.combinedTextSubject.asObservable();
@@ -191,41 +183,42 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
     this.isExplanationTextDisplayed$ =
       this.explanationTextService.isExplanationTextDisplayed$;
+
+    let effectFiredOnce = false;
+    effect(() => {
+      const idx = this.questionIndex();
+      untracked(() => {
+        if (!effectFiredOnce) {
+          // Skip the effect's own first run — ngOnInit primes synchronously.
+          effectFiredOnce = true;
+          return;
+        }
+        this.navTime = Date.now();
+        this._fetLocked = false;
+        this._lockedForIndex = -1;
+        this.orchestrator.runQuestionIndexSet(this, idx);
+        this.currentIndex = idx;
+        this.overrideSubject.next({ idx, html: '' });
+        this.resetExplanationView();
+        this.explanationText = '';
+        this.explanationTextLocal = '';
+        this.explanationVisible = false;
+        this.cdRef.markForCheck();
+      });
+    });
   }
 
   async ngOnInit(): Promise<void> {
+    // Prime synchronously with the initial input value so runOnInit's
+    // downstream setup sees the correct currentIndex / FET state.
+    const initialIdx = this.questionIndex();
+    this.orchestrator.runQuestionIndexSet(this, initialIdx);
     return this.orchestrator.runOnInit(this);
   }
 
   ngOnChanges(changes: SimpleChanges) {
-    if (changes['explanationOverride']) {
-      this.overrideSubject.next(this.explanationOverride);
-      this.cdRef.markForCheck();
-    }
-
-    // NOTE: Removed explanationToDisplay handler as it was unreliable
-    // The parent component doesn't reset this value when navigating, causing stale FET display
-    // FET should only be updated through the formattedExplanation$ stream which has index validation
-
-    // Run only when the new questionText arrives
     if (!!this.questionText() && !this.questionRendered.getValue()) {
       this.questionRendered.next(true);
-    }
-
-    if (changes['questionIndex'] && !changes['questionIndex'].firstChange) {
-      this.navTime = Date.now();  // capture navigation time baseline
-      // Reset FET lock when question changes to allow question text to display
-      this._fetLocked = false;
-      this._lockedForIndex = -1;
-
-      // Clear out old explanation
-      this.currentIndex = this.questionIndex;
-      this.overrideSubject.next({ idx: this.currentIndex, html: '' });
-      this.resetExplanationView();
-      this.explanationText = '';
-      this.explanationTextLocal = '';
-      this.explanationVisible = false;
-      this.cdRef.markForCheck();
     }
   }
 

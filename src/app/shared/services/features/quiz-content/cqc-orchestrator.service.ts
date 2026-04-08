@@ -323,7 +323,7 @@ export class CqcOrchestratorService {
       const zeroBasedIndex = questionIndex - 1;
 
       if (quizId) {
-        host.quizId = quizId;
+        host.setQuizId(quizId);
         host.quizService.quizId = quizId;
         host.quizService.setQuizId(quizId);
         localStorage.setItem('quizId', quizId);
@@ -373,7 +373,6 @@ export class CqcOrchestratorService {
 
         host.currentQuestion.next(question);
         host.isExplanationDisplayed = false;
-        host.explanationToDisplay = '';
 
         host.explanationTextService.resetExplanationState();
         host.explanationTextService.resetExplanationText();
@@ -427,20 +426,21 @@ export class CqcOrchestratorService {
   }
 
   runFetchQuestionsAndExplanationTexts(host: Host, params: ParamMap): Observable<[QuizQuestion[], string[]]> {
-    host.quizId = params.get('quizId') ?? '';
-    if (!host.quizId) {
+    host.setQuizId(params.get('quizId') ?? '');
+    const qid = host.quizId();
+    if (!qid) {
       console.warn('No quizId provided in the parameters.');
       return of([[], []] as [QuizQuestion[], string[]]);
     }
 
     return forkJoin([
-      host.quizDataService.getQuestionsForQuiz(host.quizId).pipe(
+      host.quizDataService.getQuestionsForQuiz(qid).pipe(
         catchError((error: Error) => {
           console.error('Error fetching questions:', error);
           return of([] as QuizQuestion[]);
         })
       ),
-      host.quizDataService.getAllExplanationTextsForQuiz(host.quizId).pipe(
+      host.quizDataService.getAllExplanationTextsForQuiz(qid).pipe(
         catchError((error: Error) => {
           console.error('Error fetching explanation texts:', error);
           return of([] as string[]);
@@ -496,7 +496,7 @@ export class CqcOrchestratorService {
       error: (err: any) => console.error('Error combining current quiz and options:', err)
     });
 
-    host.combinedQuestionData$ = combineLatest([
+    host.setCombinedQuestionData$(combineLatest([
       currentQuizAndOptions$.pipe(
         startWith<{
           currentQuestion: QuizQuestion | null;
@@ -570,7 +570,7 @@ export class CqcOrchestratorService {
 
         return of<CombinedQuestionDataType>(fallback);
       }),
-    );
+    ));
   }
 
   runCombineCurrentQuestionAndOptions(host: Host): Observable<{
