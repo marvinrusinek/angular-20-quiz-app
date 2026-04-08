@@ -62,12 +62,59 @@ export class FeedbackService {
     const quizSvc = this.injector.get(QuizService, null);
     const qIdx = displayIndex ?? (question as any).questionIndex ?? quizSvc?.currentQuestionIndex ?? 0;
     const currentIndex = quizSvc?.currentQuestionIndex;
-    const resolvedQuestion = question ?? quizSvc?.currentQuestion ?? {
-      questionText: '', options: optionsToDisplay ?? [], explanation:
-        '', type: QuestionType.SingleAnswer
+
+    // CRITICAL: when the caller passes a stale `question` object (e.g. Q1
+    // while the user is on Q3), resolve to the canonical question at the
+    // current index from quizService so feedback option numbers reflect
+    // the question the user is actually looking at.
+    // SIMPLIFIED: Resolve canonical question by matching passed question's
+    // TEXT against quizService.questions[]. The passed `question` object is
+    // the source of truth for "which question the user is looking at".
+    // We then read the canonical options (with correct flags) from
+    // quizService.questions[] for that same text.
+    const isCorrectFlag = (val: any): boolean => {
+      if (!val) return false;
+      const c = (val as any).correct ?? (val as any).isCorrect;
+      return c === true || String(c) === 'true' || c === 1 || c === '1';
     };
-    let correctIndices = this.explanationTextService.getCorrectOptionIndices(resolvedQuestion, optionsToDisplay, typeof currentIndex ===
-      'number' ? currentIndex : undefined);
+
+    let resolvedQuestion: QuizQuestion = question ?? {
+      questionText: '', options: optionsToDisplay ?? [], explanation: '',
+      type: QuestionType.SingleAnswer
+    };
+    let resolvedIdx = -1;
+    try {
+      const allQs: QuizQuestion[] = (quizSvc as any)?.questions ?? [];
+      const passedText = (question?.questionText || '').trim().toLowerCase();
+      if (passedText && allQs.length) {
+        resolvedIdx = allQs.findIndex(
+          (q) => (q?.questionText || '').trim().toLowerCase() === passedText
+        );
+        if (resolvedIdx >= 0 && allQs[resolvedIdx]?.options?.length) {
+          resolvedQuestion = allQs[resolvedIdx];
+        }
+      }
+    } catch {}
+
+    const idxForLookup = resolvedIdx >= 0
+      ? resolvedIdx
+      : (typeof displayIndex === 'number' && displayIndex >= 0
+        ? displayIndex
+        : (typeof currentIndex === 'number' ? currentIndex : undefined));
+
+    // Compute correctIndices DIRECTLY from canonical question's correct flags.
+    let correctIndices: number[] = [];
+    const canonicalOpts: Option[] = (resolvedQuestion?.options ?? []) as Option[];
+    canonicalOpts.forEach((o, i) => {
+      if (isCorrectFlag(o)) correctIndices.push(i + 1);
+    });
+    if (correctIndices.length === 0) {
+      correctIndices = this.explanationTextService.getCorrectOptionIndices(
+        resolvedQuestion,
+        canonicalOpts,
+        idxForLookup
+      );
+    }
 
 
     const isCorrectHelper = (val: any) => {
@@ -80,7 +127,7 @@ export class FeedbackService {
       return false;
     };
 
-    if ((!correctIndices || correctIndices.length === 0) && quizSvc) {
+if ((!correctIndices || correctIndices.length === 0) && quizSvc) {
       const qText = (question.questionText || '').trim().toLowerCase();
       if (qText) {
         const allQuestions = (quizSvc as any)._questions || quizSvc.questions || [];
@@ -103,13 +150,18 @@ export class FeedbackService {
 
     const optionsRaw = optionsToDisplay || (question.options || []);
 
+    // Prefer the RAW source-of-truth options from quizService for correctness
+    // checks — optionsToDisplay can carry stale/polluted `correct` flags from
+    // prior question rendering, which yields wrong feedback option numbers.
+    // Use the resolvedQuestion's options as the truth source — these come
+    // from quizService.questions[resolvedIdx] (located above by text match).
+    let truthOptions: Option[] = (resolvedQuestion?.options?.length
+      ? resolvedQuestion.options
+      : optionsRaw) as Option[];
+
     // ── GUARDRAIL: Cross-validate correctIndices against visual correct flags ──
-    // getCorrectOptionIndices can return wrong indices (e.g. Truth Layer 0
-    // matching a partial option-text substring in the explanation).  The FET
-    // has the same guardrail in emitFormatted; apply it here so feedback
-    // option numbers stay consistent with the FET.
-    if (optionsRaw.length > 0) {
-      const visualCorrect = optionsRaw
+    if (truthOptions.length > 0) {
+      const visualCorrect = truthOptions
         .map((o: Option, i: number) => isCorrectHelper(o) ? i + 1 : null)
         .filter((n: number | null): n is number => n !== null);
 
@@ -316,7 +368,28 @@ export class FeedbackService {
 
     const quizSvc = this.injector.get(QuizService, null);
     const currentIndex = quizSvc?.currentQuestionIndex;
-    const indices = this.explanationTextService.getCorrectOptionIndices(question!, optionsToDisplay, typeof currentIndex === 'number' ? currentIndex : undefined);
+    // Resolve canonical question by text-match against quizService.questions[]
+    const isCorrectFlagSCM = (val: any): boolean => {
+      if (!val) return false;
+      const c = (val as any).correct ?? (val as any).isCorrect;
+      return c === true || String(c) === 'true' || c === 1 || c === '1';
+    };
+    let canonicalQ: QuizQuestion | undefined = question;
+    try {
+      const allQs: QuizQuestion[] = (quizSvc as any)?.questions ?? [];
+      const passedText = (question?.questionText || '').trim().toLowerCase();
+      if (passedText && allQs.length) {
+        const idx = allQs.findIndex(q => (q?.questionText || '').trim().toLowerCase() === passedText);
+        if (idx >= 0 && allQs[idx]?.options?.length) canonicalQ = allQs[idx];
+      }
+    } catch {}
+    const directFromCanonical: number[] = [];
+    (canonicalQ?.options ?? []).forEach((o, i) => {
+      if (isCorrectFlagSCM(o)) directFromCanonical.push(i + 1);
+    });
+const indices = directFromCanonical.length > 0
+      ? directFromCanonical
+      : this.explanationTextService.getCorrectOptionIndices(question!, optionsToDisplay, typeof currentIndex === 'number' ? currentIndex : undefined);
     const deduped = Array.from(new Set(indices)).sort((a, b) => a - b);
     this.lastCorrectIndices = deduped;
 
