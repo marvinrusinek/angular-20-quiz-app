@@ -219,6 +219,37 @@ export class SharedOptionClickService {
 
     console.log(`[SOC.runOptionContentClick] DEBUG: Q${qIdx + 1} index=${index} isMultiFromQ=${isMultiFromQ} correctIndicesFromQ=[${correctIndicesFromQ}]`);
 
+    // Universal "all correct selected" timer stop. Resolves the canonical
+    // correct indices and checks whether the durable selection set now
+    // contains every correct index. Works for both single- and multi-answer.
+    try {
+      let allCorrectIdxs: number[] = [];
+      const allQs: any[] = (this.quizService as any)?.questions ?? [];
+      const passedText = (comp.currentQuestion?.questionText || '').trim().toLowerCase();
+      let canonicalQ: any = null;
+      if (passedText && allQs.length) {
+        const cIdx = allQs.findIndex((q: any) => (q?.questionText || '').trim().toLowerCase() === passedText);
+        if (cIdx >= 0) canonicalQ = allQs[cIdx];
+      }
+      if (!canonicalQ) canonicalQ = allQs[qIdx] ?? comp.currentQuestion;
+      const rawOpts = canonicalQ?.options ?? [];
+      allCorrectIdxs = rawOpts
+        .map((o: any, i: number) => {
+          const c = o?.correct ?? o?.isCorrect;
+          return (c === true || c === 'true' || c === 1 || c === '1') ? i : -1;
+        })
+        .filter((n: number) => n >= 0);
+      if (allCorrectIdxs.length === 0 && correctIndicesFromQ?.length) {
+        allCorrectIdxs = correctIndicesFromQ;
+      }
+      if (allCorrectIdxs.length > 0) {
+        const allSelected = allCorrectIdxs.every(ci => durableSet.has(ci));
+        if (allSelected) {
+          this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true });
+        }
+      }
+    } catch {}
+
     if (isMultiFromQ && correctCountFromQ > 0) {
       const clickState = this.clickHandler.computeMultiAnswerClickState(
         index, durableSet, correctIndicesFromQ
@@ -285,7 +316,7 @@ export class SharedOptionClickService {
       setTimeout(() => this.selectionMessageService.pushMessage(selMsg, qIdx), 0);
 
       if (clickState.remaining === 0) {
-        try { this.timerService.stopTimer?.(undefined, { force: true }); } catch {}
+        try { this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true }); } catch {}
         this.nextButtonStateService.setNextButtonState(true);
 
         this.quizService.scoreDirectly(qIdx, true, true);
@@ -344,6 +375,7 @@ export class SharedOptionClickService {
       const isClickedCorrect = correctSet.has(index);
       console.log(`[SOC] SINGLE-MODE check Q${qIdx + 1}: clicked=${index}, correct=[${[...correctSet]}], isCorrect=${isClickedCorrect}`);
       if (isClickedCorrect) {
+        try { this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true }); } catch {}
         if (!comp.disabledOptionsPerQuestion.has(qIdx)) {
           comp.disabledOptionsPerQuestion.set(qIdx, new Set<number>());
         }

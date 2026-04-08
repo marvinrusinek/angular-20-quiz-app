@@ -270,7 +270,7 @@ export class TimerService implements OnDestroy {
   // Stops the timer
   stopTimer(
     callback?: (elapsedTime: number) => void,
-    options: { force?: boolean } = {}  // future use
+    options: { force?: boolean; bypassAntiThrash?: boolean } = {}
   ): void {
     // Authoritative Stop Guard: Blocks rogue direct calls
     if (!options.force && !this._authoritativeStop) {
@@ -295,7 +295,7 @@ export class TimerService implements OnDestroy {
     // (init-chain churn). Only honor stops once the timer has had a chance
     // to actually tick, OR if expiry has been reached.
     const sinceStart = Date.now() - this._lastStartedAtMs;
-    if (sinceStart < 60000 && !this.hasExpiredForRun) {
+    if (sinceStart < 60000 && !this.hasExpiredForRun && !options.bypassAntiThrash) {
       console.info(
         `[TimerService] stopTimer suppressed (only ${sinceStart}ms since start).`
       );

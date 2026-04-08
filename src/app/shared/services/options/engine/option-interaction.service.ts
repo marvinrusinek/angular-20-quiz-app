@@ -310,7 +310,7 @@ export class OptionInteractionService {
 
     // Stop timer when correct answer(s) selected
     if (allCorrectFound || (!isMultipleMode && isCorrectHelper(binding.option))) {
-      try { this.timerService.stopTimer?.(undefined, { force: true }); } catch {}
+      try { this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true }); } catch {}
     }
 
     // FET & Explanation & Scoring
