@@ -22,7 +22,9 @@ export class QuizScoringService {
   initializeCorrectExpectedCounts(questionsArray: QuizQuestion[]): void {
     type QuizQuestionWithExpectedCorrect = QuizQuestion & {
       expectedCorrect?: number;
+      id?: string | number;
       _id?: string | number;
+      questionId?: string | number;
       uuid?: string | number;
       qid?: string | number;
       questionID?: string | number;
