@@ -58,12 +58,25 @@ export class CqcOrchestratorService {
       if (document.visibilityState !== 'visible') return;
       const replay = () => {
         const el = host.qText?.nativeElement;
-        const cached = host._lastDisplayedText;
-        if (!el || !cached) return;
+        if (!el) return;
+        let cached = (host._lastDisplayedText ?? '').trim();
+        // Fallback: if no cached text, pull current question text directly
+        // from the canonical quizService questions array.
+        if (!cached) {
+          try {
+            const idx = host.currentIndex >= 0
+              ? host.currentIndex
+              : (host.quizService.getCurrentQuestionIndex?.() ?? 0);
+            const q = host.quizService.questions?.[idx];
+            cached = (q?.questionText ?? '').trim();
+          } catch {}
+        }
+        if (!cached) return;
         const current = (el.innerHTML ?? '').trim();
-        if (!current || current !== cached.trim()) {
+        if (!current || current !== cached) {
           host.renderer.setProperty(el, 'innerHTML', cached);
-          console.log('[CQCC visibility] 🔁 Replayed cached question text');
+          host._lastDisplayedText = cached;
+          console.log('[CQCC visibility] 🔁 Replayed question text');
         }
       };
       // Replay at several points to win races with the QQC visibility-restore
