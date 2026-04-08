@@ -114,6 +114,23 @@ export class SharedOptionChangeHandlerService {
   ) {}
 
   handleChanges(changes: SimpleChanges, ctx: ChangeHandlerContext): ChangeResult {
+    // Alias new signal-input keys (post-SOC refactor) back to the legacy
+    // names so existing change-handler logic keeps working unchanged.
+    const aliasMap: Record<string, string> = {
+      currentQuestionIndexInput: 'currentQuestionIndex',
+      optionsToDisplayInput: 'optionsToDisplay',
+      optionBindingsInput: 'optionBindings',
+      typeInput: 'type',
+      currentQuestionInput: 'currentQuestion',
+      isNavigatingBackwardsInput: 'isNavigatingBackwards',
+      renderReadyInput: 'renderReady'
+    };
+    for (const newKey of Object.keys(aliasMap)) {
+      if (changes[newKey] && !changes[aliasMap[newKey]]) {
+        changes[aliasMap[newKey]] = changes[newKey];
+      }
+    }
+
     const result: ChangeResult = {};
 
     const currentIdx = ctx.resolveCurrentQuestionIndex();
