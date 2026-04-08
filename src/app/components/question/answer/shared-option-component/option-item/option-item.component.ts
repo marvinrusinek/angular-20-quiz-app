@@ -167,10 +167,57 @@ export class OptionItemComponent implements OnChanges {
   }
 
   isDisabled(): boolean {
-    // Disabled comes ONLY from the binding flag set by the click flow.
-    // All lock-set lookups have been removed because they were leaking
-    // disable state across questions on navigation.
-    return this.b?.disabled === true;
+    if (this.b?.disabled === true) return true;
+
+    // SINGLE-ANSWER GUARD: if any sibling selection for the current question
+    // is correct, lock every non-selected option. Strictly question-scoped via
+    // questionIndex on the selection record, so navigation cannot leak.
+    if (this.type() === 'single') {
+      const qIdx = this.currentQuestionIndex() ?? this.quizService.currentQuestionIndex;
+      const selections = this.selectedOptionService.getSelectedOptionsForQuestion(qIdx) ?? [];
+      const filtered = selections.filter((s: any) => {
+        const sQ = s?.questionIndex ?? s?.qIdx ?? s?.questionIdx;
+        return sQ === undefined || sQ === null || sQ === -1 || Number(sQ) === Number(qIdx);
+      });
+      if (filtered.length === 0) return false;
+
+      // Resolve correct flags from canonical question (quizService.questions[qIdx])
+      const canonicalQ: any = (this.quizService as any)?.questions?.[qIdx];
+      const canonicalOpts: any[] = canonicalQ?.options ?? [];
+      const isCorrectFlag = (v: any) => v === true || String(v) === 'true' || v === 1 || v === '1';
+
+      const anyCorrectSelected = filtered.some((s: any) => {
+        const sIdx = s?.displayIndex ?? s?.index ?? s?.idx;
+        const sId = s?.optionId;
+        // Match by canonical index
+        if (typeof sIdx === 'number' && sIdx >= 0) {
+          const co = canonicalOpts[sIdx];
+          if (co && isCorrectFlag(co.correct ?? co.isCorrect)) return true;
+        }
+        // Or by id
+        if (sId != null) {
+          const co = canonicalOpts.find((o: any) => o?.optionId === sId);
+          if (co && isCorrectFlag(co.correct ?? co.isCorrect)) return true;
+        }
+        // Or by selection record's own flag
+        if (isCorrectFlag(s?.correct ?? s?.isCorrect)) return true;
+        return false;
+      });
+
+      if (anyCorrectSelected) {
+        // Lock self if NOT the selected one
+        const selfSelected = filtered.some((s: any) => {
+          const sIdx = s?.displayIndex ?? s?.index ?? s?.idx;
+          if (typeof sIdx === 'number' && sIdx === this.i) return true;
+          const sId = s?.optionId;
+          if (sId != null && this.b?.option?.optionId != null && String(sId) === String(this.b.option.optionId)) return true;
+          return false;
+        });
+        return !selfSelected;
+      }
+    }
+
+    return false;
   }
 
   shouldShowIcon(option?: any, i?: number): boolean {

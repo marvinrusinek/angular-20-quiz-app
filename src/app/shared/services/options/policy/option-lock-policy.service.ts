@@ -1,7 +1,8 @@
-import { Injectable } from '@angular/core';
+import { Injectable, Injector } from '@angular/core';
 
 import { QuestionType } from '../../../models/question-type.enum';
 import { OptionBindings } from '../../../models/OptionBindings.model';
+import { QuizService } from '../../data/quiz.service';
 
 export interface LockIncorrectResult {
   shouldLockIncorrectOptions: boolean;
@@ -13,6 +14,40 @@ export interface LockIncorrectResult {
 
 @Injectable({ providedIn: 'root' })
 export class OptionLockPolicyService {
+  constructor(private injector: Injector) {}
+
+  // Resolve canonical correct indices for a binding set by text-matching
+  // the first binding's question against quizService.questions[]. This
+  // covers cases where bindings have stale/missing correct flags.
+  private resolveCanonicalCorrectIdxs(bindings: OptionBindings[]): Set<number> {
+    try {
+      const quizSvc: any = this.injector.get(QuizService, null);
+      const allQs: any[] = quizSvc?.questions ?? [];
+      if (!allQs.length || !bindings.length) return new Set<number>();
+      // Build a fingerprint of the binding option texts
+      const bindingTexts = bindings
+        .map(b => (b?.option?.text || '').trim().toLowerCase())
+        .filter(Boolean);
+      if (!bindingTexts.length) return new Set<number>();
+      const matchedQ = allQs.find((q: any) => {
+        const opts = q?.options ?? [];
+        if (opts.length !== bindings.length) return false;
+        return opts.every(
+          (o: any, i: number) => (o?.text || '').trim().toLowerCase() === bindingTexts[i]
+        );
+      });
+      if (!matchedQ) return new Set<number>();
+      const set = new Set<number>();
+      (matchedQ.options ?? []).forEach((o: any, i: number) => {
+        const c = o?.correct ?? o?.isCorrect;
+        if (c === true || String(c) === 'true' || c === 1 || c === '1') set.add(i);
+      });
+      return set;
+    } catch {
+      return new Set<number>();
+    }
+  }
+
   updateLockedIncorrectOptions(params: {
     bindings: OptionBindings[];
     forceDisableAll: boolean;
@@ -54,21 +89,34 @@ export class OptionLockPolicyService {
       };
     }
 
-    const isCorrectBinding = (b: OptionBindings) => {
+    // Canonical correct indices from quizService (overrides stale binding flags)
+    const canonicalCorrectIdxs = this.resolveCanonicalCorrectIdxs(bindings);
+
+    const isCorrectBinding = (b: OptionBindings, i: number) => {
+      if (canonicalCorrectIdxs.size > 0) return canonicalCorrectIdxs.has(i);
       if (b.isCorrect === true) return true;
       const v: any = b.option?.correct;
       return v === true || String(v) === 'true' || v === 1 || v === '1';
     };
 
+    // Backfill correct flags onto bindings so downstream code sees them
+    if (canonicalCorrectIdxs.size > 0) {
+      bindings.forEach((b, i) => {
+        const isC = canonicalCorrectIdxs.has(i);
+        b.isCorrect = isC;
+        if (b.option) (b.option as any).correct = isC;
+      });
+    }
+
     const hasCorrectSelection = bindings.some(
-      b => b.isSelected && isCorrectBinding(b)
+      (b, i) => b.isSelected && isCorrectBinding(b, i)
     );
-    const correctBindings = bindings.filter(isCorrectBinding);
+    const correctBindings = bindings.filter((b, i) => isCorrectBinding(b, i));
     const allCorrectSelected =
       correctBindings.length > 0 && correctBindings.every(b => b.isSelected);
 
     const hasIncorrectSelection = bindings.some(
-      b => b.isSelected && !isCorrectBinding(b)
+      (b, i) => b.isSelected && !isCorrectBinding(b, i)
     );
     const isPerfect = allCorrectSelected && !hasIncorrectSelection;
 

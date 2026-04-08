@@ -316,18 +316,29 @@ export class SharedOptionClickService {
 
     // SINGLE-ANSWER: disable incorrect options only when the correct one is clicked
     if (!isMultiFromQ) {
-      // Resolve correct indices from raw question if cache is empty
-      let correctIdxs = correctIndicesFromQ;
-      if (!correctIdxs || correctIdxs.length === 0) {
-        const rawQ = (this.quizService as any)?.questions?.[qIdx]
-          ?? comp.currentQuestion;
-        const rawOpts = rawQ?.options ?? [];
+      // CANONICAL resolution: match comp.currentQuestion text against
+      // quizService.questions[] to get authoritative correct flags. This
+      // avoids stale/empty cache from clickHandler.resolveCorrectIndices.
+      let correctIdxs: number[] = [];
+      try {
+        const allQs: any[] = (this.quizService as any)?.questions ?? [];
+        const passedText = (comp.currentQuestion?.questionText || '').trim().toLowerCase();
+        let canonicalQ: any = null;
+        if (passedText && allQs.length) {
+          const idx = allQs.findIndex((q: any) => (q?.questionText || '').trim().toLowerCase() === passedText);
+          if (idx >= 0) canonicalQ = allQs[idx];
+        }
+        if (!canonicalQ) canonicalQ = allQs[qIdx] ?? comp.currentQuestion;
+        const rawOpts = canonicalQ?.options ?? [];
         correctIdxs = rawOpts
           .map((o: any, i: number) => {
-            const c = o?.correct;
-            return (c === true || c === 'true' || c === 1) ? i : -1;
+            const c = o?.correct ?? o?.isCorrect;
+            return (c === true || c === 'true' || c === 1 || c === '1') ? i : -1;
           })
           .filter((n: number) => n >= 0);
+      } catch {}
+      if (correctIdxs.length === 0 && correctIndicesFromQ?.length) {
+        correctIdxs = correctIndicesFromQ;
       }
       const correctSet = new Set(correctIdxs);
       const isClickedCorrect = correctSet.has(index);
@@ -344,20 +355,24 @@ export class SharedOptionClickService {
         for (let i = 0; i < currentBindings.length; i++) {
           if (!correctSet.has(i)) disabledSetRef.add(i);
         }
-        // MUTATE in place so the same object refs held by parent signal update
-        for (let bi = 0; bi < currentBindings.length; bi++) {
-          const b = currentBindings[bi];
-          if (!b) continue;
+        // Replace with NEW array of NEW binding objects so OnPush children
+        // re-render. In-place mutation alone does not trigger child CD.
+        const newBindings = currentBindings.map((ob: any, bi: number) => {
           const isCorrectBinding = correctSet.has(bi);
-          b.disabled = !isCorrectBinding;
-          b.isSelected = bi === index;
-          if (b.option) {
-            b.option.selected = bi === index;
-            b.option.highlight = bi === index;
-            b.option.showIcon = bi === index;
-          }
-        }
-        console.log(`[SOC] SINGLE-MODE disabled Q${qIdx + 1}: disabled=[${[...disabledSetRef]}], bindings.disabled=[${currentBindings.map(b => b?.disabled).join(',')}]`);
+          return {
+            ...ob,
+            disabled: !isCorrectBinding,
+            isSelected: bi === index,
+            option: ob?.option ? {
+              ...ob.option,
+              selected: bi === index,
+              highlight: bi === index,
+              showIcon: bi === index
+            } : ob?.option
+          };
+        });
+        comp.optionBindings = newBindings;
+        console.log(`[SOC] SINGLE-MODE disabled Q${qIdx + 1}: disabled=[${[...disabledSetRef]}], bindings.disabled=[${newBindings.map((b: any) => b?.disabled).join(',')}]`);
         comp.cdRef?.markForCheck?.();
         comp.cdRef?.detectChanges?.();
       }
