@@ -50,8 +50,8 @@ import { SharedOptionOrchestratorService } from '../../../../shared/services/fea
     MatRadioModule,
     MatCheckboxModule,
     SharedOptionConfigDirective,
-    OptionItemComponent,
-    FeedbackComponent
+    FeedbackComponent,
+    OptionItemComponent
   ],
   templateUrl: './shared-option.component.html',
   styleUrls: [
@@ -70,6 +70,7 @@ export class SharedOptionComponent
   readonly renderReadyChange = output<boolean>();
   readonly showExplanationChange = output<boolean>();
   readonly explanationToDisplayChange = output<string>();
+
   // Signal inputs (parent-bound). Internal mutable backing fields with the same
   // logical names are kept below, since multiple services write to them via
   // `host as any`. Effects in the constructor mirror input → backing field.
@@ -106,8 +107,6 @@ export class SharedOptionComponent
   readonly sharedOptionConfig = input<SharedOptionConfig>(undefined as unknown as SharedOptionConfig);
   public selectedOptionMap = new Map<number | string, boolean>();
   public ui!: SharedOptionUiState;
-  private finalRenderReadySub?: Subscription;
-  private selectionSub!: Subscription;
   public isSelected = false;
   feedbackBindings: FeedbackProps[] = [];
   currentFeedbackConfig!: FeedbackProps;
@@ -136,12 +135,6 @@ export class SharedOptionComponent
   // Counter to force OnPush re-render when disabled state changes
   disableRenderTrigger = 0;
 
-  // Internal tracker for last processed question index
-  // This is separate from the @Input currentQuestionIndex to handle timing issues
-  private lastProcessedQuestionIndex: number = -1;
-
-  private readonly optionsToDisplay$ = new BehaviorSubject<Option[]>([]);
-  viewReady = false;
   showOptions = false;
   form!: FormGroup;
 
