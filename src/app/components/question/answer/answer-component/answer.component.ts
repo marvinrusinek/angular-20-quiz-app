@@ -1,8 +1,7 @@
 import {
-  AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component,
-  effect, EventEmitter, input, model, OnChanges, OnInit, output, QueryList, SimpleChanges,
-  ViewChild, ViewContainerRef
-} from '@angular/core';
+  AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, effect,
+  input, model, OnChanges, OnInit, output, QueryList, SimpleChanges, ViewChild,
+  ViewContainerRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
@@ -52,7 +51,6 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
   readonly currentQuestionIndex = input<number>(undefined as unknown as number);
   readonly quizId = input<string>(undefined as unknown as string);
   readonly form = input<FormGroup>(undefined as unknown as FormGroup);
-  private _questionIndex: number | null = null;
   private optionBindingsSource: Option[] = [];
   override showFeedbackForOption: { [optionId: number]: boolean } = {};
   override selectedOption: SelectedOption | null = null;
