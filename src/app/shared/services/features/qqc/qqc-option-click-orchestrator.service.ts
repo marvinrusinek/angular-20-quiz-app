@@ -220,13 +220,18 @@ export class QqcOptionClickOrchestratorService {
           this.selectedOptionService.lockOption(questionIndex, clickedIdNum);
         }
       }
-      if (question.type === QuestionType.SingleAnswer) {
-        if (evtOpt?.correct) {
-          const allIdsNum = (optionsToDisplay ?? [])
-            .map(o => Number(o.optionId))
-            .filter(Number.isFinite);
-          this.selectedOptionService.lockMany(questionIndex, allIdsNum as number[]);
-        }
+      // Single-answer: when the correct option is clicked, lock ALL options so
+      // incorrect ones display dark gray and disabled. Detect single-answer by
+      // either question.type OR by correct-count <= 1 (resilient to missing type).
+      const isSingleAnswer = question.type === QuestionType.SingleAnswer || !isMultiAnswer;
+      if (isSingleAnswer && evtOpt?.correct) {
+        const idSource = (optionsToDisplay?.length ? optionsToDisplay : question?.options) ?? [];
+        const allIdsNum = idSource
+          .map((o, i) => {
+            const id = Number(o?.optionId);
+            return Number.isFinite(id) && id !== -1 ? id : i;
+          });
+        this.selectedOptionService.lockMany(questionIndex, allIdsNum as number[]);
       }
     } catch {}
   }

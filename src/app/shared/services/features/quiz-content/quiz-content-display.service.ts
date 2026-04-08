@@ -152,11 +152,16 @@ export class QuizContentDisplayService {
 
     // Build the base question text display (with multi-answer banner if applicable)
     let qDisplay = effectiveQText;
-    const numCorrect = qObj?.options?.filter(o => o.correct)?.length || 0;
-    if (numCorrect > 1 && qObj?.options) {
+    // Use the raw, untouched questions array as the source of truth for the
+    // correct-count. The qObj passed in here may have been mutated by upstream
+    // services that OR-merge correct flags from prior state.
+    const rawQuestion = (this.quizService as any)?.questions?.[safeIdx] as QuizQuestion | undefined;
+    const sourceOpts = rawQuestion?.options ?? qObj?.options ?? [];
+    const numCorrect = sourceOpts.filter((o: Option) => o?.correct === true).length;
+    if (numCorrect > 1 && sourceOpts.length) {
       const banner = this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
         numCorrect,
-        qObj.options.length
+        sourceOpts.length
       );
       qDisplay = `${qDisplay} <span class="correct-count">${banner}</span>`;
     }

@@ -586,7 +586,7 @@ export class QuizSetupService {
     host.hasOptionsLoaded = result.normalizedOptions.length > 0;
     host.shouldRenderOptions = host.hasOptionsLoaded;
     host.explanationToDisplay = result.trimmedExplanation;
-    if (host.quizQuestionComponent) host.quizQuestionComponent.optionsToDisplay = [...result.normalizedOptions];
+    if (host.quizQuestionComponent) host.quizQuestionComponent.optionsToDisplay.set([...result.normalizedOptions]);
   }
 
   private async prepareQuizSession(host: Host): Promise<void> {
@@ -920,7 +920,7 @@ export class QuizSetupService {
       host.quizQuestionLoaderService.pendingOptions = null;
       Promise.resolve().then(() => {
         if (host.quizQuestionComponent && opts?.length) {
-          host.quizQuestionComponent.optionsToDisplay = [...opts];
+          host.quizQuestionComponent.optionsToDisplay.set([...opts]);
         }
       });
     }

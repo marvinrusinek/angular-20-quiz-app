@@ -1,6 +1,6 @@
 import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component,
-  EventEmitter, Input, OnChanges, OnInit, Output, QueryList, SimpleChanges,
+  effect, EventEmitter, input, model, OnChanges, OnInit, output, QueryList, SimpleChanges,
   ViewChild, ViewContainerRef
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -41,25 +41,17 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
   @ViewChild(SharedOptionComponent)
   sharedOptionComponent!: SharedOptionComponent;
 
-  @Output() componentLoaded = new EventEmitter<any>();
-  @Output() optionSelected = new EventEmitter<{
+  readonly componentLoaded = output<any>();
+  readonly optionSelected = output<{
     option: SelectedOption,
     index: number,
     checked: boolean
   }>();
-  @Output() override optionClicked =
-    new EventEmitter<OptionClickedPayload>() as any;
-  @Input() questionData!: QuizQuestion;
-  @Input() isNavigatingBackwards: boolean = false;
-  override quizQuestionComponentOnOptionClicked!: (
-    option: SelectedOption,
-    index: number
-  ) => void;
-  @Input() currentQuestionIndex!: number;
-  @Input() quizId!: string;
-  @Input() form!: FormGroup;
-  @Input() override optionsToDisplay: Option[] = [];
-  @Input() override optionBindings: OptionBindings[] = [];
+  readonly questionData = model<QuizQuestion>(undefined as unknown as QuizQuestion);
+  readonly isNavigatingBackwards = input<boolean>(false);
+  readonly currentQuestionIndex = input<number>(undefined as unknown as number);
+  readonly quizId = input<string>(undefined as unknown as string);
+  readonly form = input<FormGroup>(undefined as unknown as FormGroup);
   private _questionIndex: number | null = null;
   private optionBindingsSource: Option[] = [];
   override showFeedbackForOption: { [optionId: number]: boolean } = {};
@@ -69,25 +61,16 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
   override sharedOptionConfig!: SharedOptionConfig;
   hasComponentLoaded = false;
 
-  // Store the type (single/multiple answer)
-  override type: 'single' | 'multiple' = 'single';
   override selectedOptionIndex = -1;
   renderReady = false;
 
-  public quizQuestionComponentLoaded = new EventEmitter<void>();
+  readonly quizQuestionComponentLoaded = output<void>();
 
   private _wasComplete = false;
 
   private destroy$ = new Subject<void>();
 
-  @Input()
-  set questionIndex(v: number | null) {
-    this._questionIndex = v;
-  }
-
-  get questionIndex(): number | null {
-    return this._questionIndex;
-  }
+  readonly questionIndex = input<number | null>(null);
 
   constructor(
     protected quizQuestionLoaderService: QuizQuestionLoaderService,
@@ -110,6 +93,48 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
       selectedOptionService,
       cdRef
     );
+
+    // React to signal-input updates from the dynamic loader (replaces ngOnChanges)
+    effect(() => {
+      const q = this.questionData();
+      if (q) {
+        const correctCount = q.options?.filter((o: Option) => o.correct).length ?? 0;
+        this.type.set(correctCount > 1 ? 'multiple' : 'single');
+      }
+      this._wasComplete = false;
+      this.cdRef.markForCheck();
+    });
+
+    effect(() => {
+      const next = this.optionsToDisplay();
+      console.log('[AC effect] optionsToDisplay changed →', next?.length ?? 0);
+      if (Array.isArray(next) && next.length) {
+        // Skip rebuild if the option set is the same as the current bindings
+        // (e.g. parent re-emit after a click). Rebuilding here would wipe
+        // the highlight state we just set in onOptionClicked.
+        const currentBindings = this.optionBindings();
+        const sameSet =
+          currentBindings?.length === next.length &&
+          currentBindings.every((b, i) => {
+            const a = b.option;
+            const n = next[i];
+            return (a?.optionId != null && a.optionId === n?.optionId) ||
+              (a?.text && a.text === n?.text);
+          });
+        if (sameSet) {
+          this.cdRef.markForCheck();
+          return;
+        }
+        this.optionBindingsSource = next.map((o: Option) => ({ ...o }));
+        this.optionBindings.set(this.rebuildOptionBindings(this.optionBindingsSource));
+        this.renderReady = true;
+        this.syncOptionsWithSelections();
+        this.cdRef.markForCheck();
+      } else {
+        this.optionBindingsSource = [];
+        this.optionBindings.set([]);
+      }
+    });
   }
 
   override async ngOnInit(): Promise<void> {
@@ -118,8 +143,8 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
 
     // Guard against the first render missing its options because the
     // options stream may not have emitted yet when the template binds.
-    if (this.optionsToDisplay?.length) {
-      this.applyIncomingOptions(this.optionsToDisplay);
+    if (this.optionsToDisplay()?.length) {
+      this.applyIncomingOptions(this.optionsToDisplay());
     }
 
     this.quizService.getCurrentQuestion(this.quizService.currentQuestionIndex)
@@ -133,9 +158,9 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
           o.correct === true || (o as any).correct === 'true' || (o as any).correct === 1
         ).length;
 
-        this.type = correctCount > 1 ? 'multiple' : 'single';
-        console.log(`[AnswerComponent] Q${this.currentQuestionIndex + 1} 
-          detected as ${this.type} (Correct count: ${correctCount})`);
+        this.type.set(correctCount > 1 ? 'multiple' : 'single');
+        console.log(`[AnswerComponent] Q${this.currentQuestionIndex() + 1} 
+          detected as ${this.type()} (Correct count: ${correctCount})`);
 
         if (!this.hasComponentLoaded) {
           this.hasComponentLoaded = true;
@@ -159,7 +184,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
         this.incomingOptions = this.normalizeOptions(structuredClone(opts));
 
         //  Clear prior icons and bindings (clean slate)
-        this.optionBindings = [];
+        this.optionBindings.set([]);
         this.renderReady = false;
 
         // Apply options synchronously (removed Promise.resolve to fix StackBlitz timing)
@@ -169,48 +194,8 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
       });
   }
 
-  override async ngOnChanges(changes: SimpleChanges): Promise<void> {
-    let shouldMark = false;
-
-    // Reset only when question changes
-    if (changes['questionData']) {
-      const q = changes['questionData'].currentValue;
-      if (q) {
-        // Calculate synchronously from INPUT, not async service
-        const correctCount = q.options?.filter((o: Option) => o.correct).length ?? 0;
-        this.type = correctCount > 1 ? 'multiple' : 'single';
-      }
-
-      this._wasComplete = false;
-      shouldMark = true;
-    }
-
-    if (changes['optionsToDisplay']) {
-      const change = changes['optionsToDisplay'];
-      const next = change.currentValue as Option[] | null | undefined;
-      const refChanged = change.previousValue !== change.currentValue;
-
-      if (refChanged) {
-        if (Array.isArray(next) && next.length) {
-          this.optionBindingsSource =
-            next.map((o: Option) => ({ ...o }));
-          this.optionBindings = this.rebuildOptionBindings(
-            this.optionBindingsSource
-          );
-          this.applyIncomingOptions(next);
-          this.syncOptionsWithSelections();
-          this.cdRef.markForCheck();
-        } else {
-          this.optionBindingsSource = [];
-          this.optionBindings = [];
-          this.applyIncomingOptions?.([]);
-        }
-      } else {
-        shouldMark = true;
-      }
-    }
-
-    if (shouldMark) this.cdRef.markForCheck();
+  override async ngOnChanges(_changes: SimpleChanges): Promise<void> {
+    // Signal-input reactions are handled via effect() in the constructor.
   }
 
   ngAfterViewInit(): void {
@@ -263,21 +248,21 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
       nextOptions.filter(o =>
         o.correct === true || (o as any).correct === 'true' || (o as any).correct === 1
     ).length;
-    this.type = correctCount > 1 ? 'multiple' : 'single';
+    this.type.set(correctCount > 1 ? 'multiple' : 'single');
 
-    this.optionsToDisplay = nextOptions;
+    this.optionsToDisplay.set(nextOptions);
     this.optionBindingsSource =
       nextOptions.map((option) => ({ ...option }));
 
     if (this.sharedOptionConfig) {
       this.sharedOptionConfig = {
         ...this.sharedOptionConfig,
-        type: this.type,
+        type: this.type(),
         optionsToDisplay: nextOptions.map((option: Option) => ({ ...option }))
       };
     }
 
-    this.optionBindings = this.rebuildOptionBindings(this.optionBindingsSource);
+    this.optionBindings.set(this.rebuildOptionBindings(this.optionBindingsSource));
     this.renderReady = true;
     this.syncOptionsWithSelections();
     this.cdRef.markForCheck();
@@ -288,7 +273,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
    * from the SelectedOptionService.
    */
   private syncOptionsWithSelections(): void {
-    const idx = this.currentQuestionIndex;
+    const idx = this.currentQuestionIndex();
     if (idx === null || idx === undefined || idx < 0) {
       console.warn('[AC] ⏭️ Cannot sync options: valid question index not found');
       return;
@@ -296,7 +281,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
 
     const savedSelections =
       this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
-    if (!savedSelections.length || !this.optionsToDisplay?.length) {
+    if (!savedSelections.length || !this.optionsToDisplay()?.length) {
       console.log(`[AC] 🧬 No saved selections or options to display for Q${idx + 1}. Skipping sync.`);
       return;
     }
@@ -306,9 +291,9 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
 
     // For multi-answer: do NOT pre-select/highlight all saved options.
     // Each option should highlight individually on click, not all at once.
-    const isMulti = this.type === 'multiple';
+    const isMulti = this.type() === 'multiple';
 
-    for (const opt of this.optionsToDisplay) {
+    for (const opt of this.optionsToDisplay()) {
       if (isMulti) {
         opt.selected = false;
       } else {
@@ -319,28 +304,41 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
       }
     }
 
-    // Also update bindings
-    if (this.optionBindings?.length) {
-      for (const b of this.optionBindings) {
-        if (isMulti) {
-          b.isSelected = false;
-        } else {
-          const id = b.option?.optionId;
-          const text = b.option?.text;
-          const idMatch = id != null && savedIds.has(String(id));
-          const textMatch = !!(text && savedTexts.has(text.trim().toLowerCase()));
-          b.isSelected = idMatch || textMatch;
-        }
-      }
+    // Also update bindings — mutate ALL visual fields and re-emit so the
+    // signal consumers (option-item) re-render the highlight state.
+    const currentBindings = this.optionBindings();
+    if (currentBindings?.length) {
+      const updated = currentBindings.map(b => {
+        const id = b.option?.optionId;
+        const text = b.option?.text;
+        const idMatch = id != null && savedIds.has(String(id));
+        const textMatch = !!(text && savedTexts.has((text || '').trim().toLowerCase()));
+        const isSel = isMulti ? false : (idMatch || textMatch);
+        const newOpt = {
+          ...b.option,
+          selected: isSel,
+          highlight: isSel,
+          showIcon: isSel
+        };
+        return {
+          ...b,
+          option: newOpt,
+          isSelected: isSel,
+          highlight: isSel,
+          checked: isSel,
+          showFeedback: true
+        } as OptionBindings;
+      });
+      this.optionBindings.set(updated);
     }
 
     // Update FormGroup for single-answer (radio group sync)
-    if (this.type === 'single' && this.form) {
+    if (this.type() === 'single' && this.form()) {
       const selectedId = savedSelections[0]?.optionId;
       if (selectedId != null) {
         console.log(`[AC] 📻 Patching form for single-answer Q${idx + 1} with 
           ID=${selectedId}`);
-        this.form.patchValue({ selectedOptionId: selectedId }, { emitEvent: false });
+        this.form().patchValue({ selectedOptionId: selectedId }, { emitEvent: false });
       }
     }
   }
@@ -384,7 +382,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
           this.quizQuestionManagerService.isMultipleAnswerQuestion(currentQuestion);
 
         if (isMultipleAnswer) {
-          this.type = isMultipleAnswer ? 'multiple' : 'single';
+          this.type.set(isMultipleAnswer ? 'multiple' : 'single');
           this.hasComponentLoaded = true;  // prevent further attempts to load
           this.quizQuestionComponentLoaded.emit();  // notify listeners that component is loaded
           this.cdRef.markForCheck();
@@ -400,7 +398,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     }
 
     if (this.sharedOptionConfig) {
-      this.sharedOptionConfig.type = this.type;
+      this.sharedOptionConfig.type = this.type();
     } else {
       console.error('Failed to initialize sharedOptionConfig in AnswerComponent');
     }
@@ -409,7 +407,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
   public override async initializeSharedOptionConfig(): Promise<void> {
     await super.initializeSharedOptionConfig();
     if (this.sharedOptionConfig) {
-      this.sharedOptionConfig.type = this.type;
+      this.sharedOptionConfig.type = this.type();
     }
   }
 
@@ -428,8 +426,8 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
 
     // Always get the QUESTION INDEX from QQC input
     const activeQuestionIndex =
-      typeof this.currentQuestionIndex === 'number'
-        ? this.currentQuestionIndex
+      typeof this.currentQuestionIndex() === 'number'
+        ? this.currentQuestionIndex()
         : 0;
 
     const getEffectiveId =
@@ -437,7 +435,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     const targetKey = getEffectiveId(rawOption, payload.index);
 
     const canonical =
-      this.optionsToDisplay?.find(
+      this.optionsToDisplay()?.find(
         (opt: Option, i: number) => getEffectiveId(opt, i) === targetKey
       ) ?? rawOption;
 
@@ -459,7 +457,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     } as any;
 
     // INTERNAL STATE UPDATE
-    if (this.type === 'single') {
+    if (this.type() === 'single') {
       this.selectedOption = enrichedOption;
       this.selectedOptions = [enrichedOption];
     } else {
@@ -483,7 +481,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
 
     // Resolve canonical question by INDEX (prefer service, fallback to @Input)
     const serviceQuestion = this.quizService.questions?.[activeQuestionIndex];
-    const question = serviceQuestion ?? this.questionData;
+    const question = serviceQuestion ?? this.questionData();
 
     if (!question) {
       console.error(
@@ -499,11 +497,11 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     }
 
     const optionsSource =
-      this.optionsToDisplay?.length ? this.optionsToDisplay : question.options;
+      this.optionsToDisplay()?.length ? this.optionsToDisplay() : question.options;
     const correctCount =
       optionsSource?.filter((o: any) => o.correct === true || String(o.correct) === 'true').length ?? 0;
     const isMultiAnswer =
-      this.type === 'multiple' || question.type === QuestionType.MultipleAnswer || correctCount > 1;
+      this.type() === 'multiple' || question.type === QuestionType.MultipleAnswer || correctCount > 1;
 
     // Push to SelectedOptionService (merge, not replace)
     this.selectedOptionService.currentQuestionType =
@@ -528,7 +526,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     }
 
     const allSelected =
-      this.selectedOptionService.getSelectedOptionsForQuestion(this.questionIndex);
+      this.selectedOptionService.getSelectedOptionsForQuestion(this.questionIndex()!);
 
     const complete =
       this.selectedOptionService.isQuestionComplete(question, allSelected);
@@ -558,6 +556,53 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
       this.quizStateService.setAnswerSelected(complete);
     }
 
+    // VISUAL HIGHLIGHTING UPDATE: mutate bindings so the clicked option
+    // (and previously selected ones in multi-mode) reflect selection state.
+    const currentBindings = this.optionBindings();
+    if (currentBindings?.length) {
+      const isSingle = this.type() === 'single';
+      // Single-answer questions only allow one selection — once any option
+      // is clicked, disable all other options so they grey out.
+      const disableOthers = isSingle && enrichedOption.selected === true;
+      console.log(`[AC click DIAG] isSingle=${isSingle} disableOthers=${disableOthers} type()=${this.type()} bindingsLen=${currentBindings.length}`);
+      const updated = currentBindings.map((b, i) => {
+        const bId = getEffectiveId(b.option, i);
+        const matches = bId === targetKey;
+        if (matches) {
+          const newOpt = {
+            ...b.option,
+            selected: enrichedOption.selected,
+            highlight: enrichedOption.selected,
+            showIcon: enrichedOption.selected
+          };
+          return {
+            ...b,
+            option: newOpt,
+            isSelected: enrichedOption.selected === true,
+            highlight: enrichedOption.selected === true,
+            checked: enrichedOption.selected === true,
+            showFeedback: true,
+            disabled: false
+          } as OptionBindings;
+        }
+        if (isSingle) {
+          // Deselect all others in single mode; grey them if a correct answer was just selected.
+          const newOpt = { ...b.option, selected: false, highlight: false, showIcon: false };
+          return {
+            ...b,
+            option: newOpt,
+            isSelected: false,
+            highlight: false,
+            checked: false,
+            disabled: disableOthers ? true : b.disabled
+          } as OptionBindings;
+        }
+        return b;
+      });
+      this.optionBindings.set(updated);
+      this.cdRef.markForCheck();
+    }
+
     // FORWARD CLEAN PAYLOAD UPWARD
     const cleanPayload: OptionClickedPayload = {
       option: enrichedOption,
@@ -572,7 +617,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
   // Rebuild optionBindings from the latest optionsToDisplay.
   private rebuildOptionBindings(opt: Option[]): OptionBindings[] {
     if (!opt?.length) {
-      this.optionBindings = [];
+      this.optionBindings.set([]);
       return [];
     }
 
@@ -595,7 +640,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
 
     // Set renderReady synchronously instead of in microtask to avoid race
     // condition where template checks renderReady before Promise resolves
-    this.optionBindings = rebuilt;
+    this.optionBindings.set(rebuilt);
     this.renderReady = true;
 
     // Use requestAnimationFrame for change detection to ensure paint-synchronized update

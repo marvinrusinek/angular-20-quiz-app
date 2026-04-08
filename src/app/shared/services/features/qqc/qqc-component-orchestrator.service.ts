@@ -42,15 +42,15 @@ export class QqcComponentOrchestratorService {
     });
 
     host.subscriptionWiring.createCurrentQuestionIndexSubscription((index: number) => {
-      host.currentQuestionIndex = index;
+      host.currentQuestionIndex.set(index);
     });
 
     host.subscriptionWiring.createQuestionPayloadSubscription({
       onPayload: (payload: any) => {
-        host.currentQuestion = payload.question;
-        host.optionsToDisplay = payload.options;
-        host.explanationToDisplay = payload.explanation ?? '';
-        host.updateShouldRenderOptions(host.optionsToDisplay);
+        host.currentQuestion.set(payload.question);
+        host.optionsToDisplay.set(payload.options);
+        host.explanationToDisplay.set(payload.explanation ?? '');
+        host.updateShouldRenderOptions(host.optionsToDisplay());
       },
     });
 
@@ -90,7 +90,7 @@ export class QqcComponentOrchestratorService {
       activatedRoute: host.activatedRoute,
       onRouteChange: async (questionIndex: number) => {
         host.explanationVisible = false;
-        host.explanationText = '';
+        host.explanationText.set('');
         try {
           const question = await firstValueFrom(host.quizService.getQuestionByIndex(questionIndex));
           if (!question) return;
@@ -99,7 +99,7 @@ export class QqcComponentOrchestratorService {
     });
 
     const initialIdx = host.lifecycle.computeInitialQuestionIndex(host.activatedRoute);
-    host.currentQuestionIndex = initialIdx.currentQuestionIndex;
+    host.currentQuestionIndex.set(initialIdx.currentQuestionIndex);
     host.fixedQuestionIndex = initialIdx.fixedQuestionIndex;
 
     const loaded = await host.loadQuestion();
@@ -109,7 +109,7 @@ export class QqcComponentOrchestratorService {
       destroy$: host.destroy$,
       timerExpired$: host.timerService.expired$,
       onExpired: () => {
-        const idx = host.normalizeIndex(host.currentQuestionIndex ?? 0);
+        const idx = host.normalizeIndex(host.currentQuestionIndex() ?? 0);
         host.onQuestionTimedOut(idx);
       },
     });
@@ -129,15 +129,15 @@ export class QqcComponentOrchestratorService {
       host.populateOptionsToDisplay();
 
       host.displayModeSubscription = host.subscriptionWiring.createDisplayModeSubscription(
-        host.currentQuestionIndex,
+        host.currentQuestionIndex(),
         false
       );
 
       host.renderReady$ = host.lifecycle.createRenderReadyObservable({
         questionPayloadSubject: host.questionPayloadSubject,
-        setCurrentQuestion: (q: QuizQuestion | null) => { host.currentQuestion = q; },
-        setOptionsToDisplay: (opts: Option[]) => { host.optionsToDisplay = opts; },
-        setExplanationToDisplay: (text: string) => { host.explanationToDisplay = text; },
+        setCurrentQuestion: (q: QuizQuestion | null) => { host.currentQuestion.set(q); },
+        setOptionsToDisplay: (opts: Option[]) => { host.optionsToDisplay.set(opts); },
+        setExplanationToDisplay: (text: string) => { host.explanationToDisplay.set(text); },
         setRenderReady: (val: boolean) => { host.renderReady = val; },
         emitRenderReady: (val: boolean) => host.renderReadySubject.next(val),
       });
@@ -147,29 +147,29 @@ export class QqcComponentOrchestratorService {
 
       host.questionLoader.initializeComponentState({
         questionsArray: host.questionsArray,
-        currentQuestionIndex: host.currentQuestionIndex,
+        currentQuestionIndex: host.currentQuestionIndex(),
       }).then((result: any) => {
         if (!result) return;
         host.questionsArray = result.questionsArray;
-        host.currentQuestionIndex = result.currentQuestionIndex;
-        host.currentQuestion = result.currentQuestion;
-        host.generateFeedbackText(host.currentQuestion).then(
+        host.currentQuestionIndex.set(result.currentQuestionIndex);
+        host.currentQuestion.set(result.currentQuestion);
+        host.generateFeedbackText(host.currentQuestion()).then(
           (text: string) => { host.feedbackText = text; },
           () => { host.feedbackText = 'Unable to generate feedback.'; }
         );
       });
 
       host.questionLoader.waitForQuestionData({
-        currentQuestionIndex: host.currentQuestionIndex,
+        currentQuestionIndex: host.currentQuestionIndex(),
         quizId: host.quizService.quizId,
       }).then((waitResult: any) => {
         if (!waitResult.currentQuestion) return;
-        host.currentQuestionIndex = waitResult.currentQuestionIndex;
-        host.currentQuestion = waitResult.currentQuestion;
-        host.optionsToDisplay = waitResult.optionsToDisplay;
-        host.quizService.getCurrentOptions(host.currentQuestionIndex).pipe(take(1)).subscribe((options: Option[]) => {
-          host.optionsToDisplay = Array.isArray(options) ? options : [];
-          const previouslySelectedOption = host.optionsToDisplay.find((opt: Option) => opt.selected);
+        host.currentQuestionIndex.set(waitResult.currentQuestionIndex);
+        host.currentQuestion.set(waitResult.currentQuestion);
+        host.optionsToDisplay.set(waitResult.optionsToDisplay);
+        host.quizService.getCurrentOptions(host.currentQuestionIndex()).pipe(take(1)).subscribe((options: Option[]) => {
+          host.optionsToDisplay.set(Array.isArray(options) ? options : []);
+          const previouslySelectedOption = host.optionsToDisplay().find((opt: Option) => opt.selected);
           if (previouslySelectedOption) {
             host.applyOptionFeedback(previouslySelectedOption);
           }
@@ -179,8 +179,8 @@ export class QqcComponentOrchestratorService {
         window.scrollTo(0, 0);
       });
 
-      if (host.question) {
-        host.data = host.questionLoader.buildInitialData(host.question, host.options);
+      if (host.question()) {
+        host.data.set(host.questionLoader.buildInitialData(host.question(), host.options()));
       }
       host.initializeForm();
       host.quizStateService.setLoading(true);
@@ -202,8 +202,8 @@ export class QqcComponentOrchestratorService {
         questionsArray: host.questionsArray,
       });
       if (firstQResult) {
-        host.currentQuestion = firstQResult.currentQuestion;
-        host.optionsToDisplay = firstQResult.optionsToDisplay;
+        host.currentQuestion.set(firstQResult.currentQuestion);
+        host.optionsToDisplay.set(firstQResult.optionsToDisplay);
         if (host.lastProcessedQuestionIndex !== firstQResult.questionIndex || firstQResult.questionIndex === 0) {
           host.lastProcessedQuestionIndex = firstQResult.questionIndex;
         }
@@ -214,11 +214,11 @@ export class QqcComponentOrchestratorService {
 
       if (host.currentQuestionIndex === 0) {
         const initialMessage = 'Please start the quiz by selecting an option.';
-        if (host.selectionMessage !== initialMessage) {
-          host.selectionMessage = initialMessage;
+        if (host.selectionMessage() !== initialMessage) {
+          host.selectionMessage.set(initialMessage);
         }
       } else {
-        host.resetManager.clearSelection(host.correctAnswers, host.currentQuestion);
+        host.resetManager.clearSelection(host.correctAnswers, host.currentQuestion());
       }
 
       host.sharedVisibilitySubscription = host.subscriptionWiring.createVisibilitySubscription({
@@ -256,7 +256,7 @@ export class QqcComponentOrchestratorService {
   // ngAfterViewInit body
   // ═══════════════════════════════════════════════════════════════
   async runAfterViewInit(host: Host): Promise<void> {
-    const idx = host.fixedQuestionIndex ?? host.currentQuestionIndex ?? 0;
+    const idx = host.fixedQuestionIndex ?? host.currentQuestionIndex() ?? 0;
     host.resetForQuestion(idx);
 
     host.lifecycle.deferRenderReadySubscription({
@@ -279,20 +279,20 @@ export class QqcComponentOrchestratorService {
       getHydrationInProgress: () => host.hydrationInProgress,
       setHydrationInProgress: (val: boolean) => { host.hydrationInProgress = val; },
       setRenderReady: (val: boolean) => { host.renderReady = val; },
-      setCurrentQuestion: (q: QuizQuestion | null) => { host.currentQuestion = q; },
-      setExplanationToDisplay: (text: string) => { host.explanationToDisplay = text; },
-      setOptionsToDisplay: (opts: Option[]) => { host.optionsToDisplay = opts; },
+      setCurrentQuestion: (q: QuizQuestion | null) => { host.currentQuestion.set(q); },
+      setExplanationToDisplay: (text: string) => { host.explanationToDisplay.set(text); },
+      setOptionsToDisplay: (opts: Option[]) => { host.optionsToDisplay.set(opts); },
       initializeOptionBindings: () => {
         if (host.sharedOptionComponent) {
           host.sharedOptionComponent.initializeOptionBindings();
         }
       },
       releaseBaseline: (i: number) => host.selectionMessageService.releaseBaseline(i),
-      getCurrentQuestionIndex: () => host.currentQuestionIndex,
+      getCurrentQuestionIndex: () => host.currentQuestionIndex(),
       detectChanges: () => host.cdRef.detectChanges(),
     });
 
-    const index = host.currentQuestionIndex;
+    const index = host.currentQuestionIndex();
 
     const setupResult = await host.questionLoader.performAfterViewInitQuestionSetup({
       questionsArray: host.questionsArray,
@@ -325,7 +325,7 @@ export class QqcComponentOrchestratorService {
       setTimeout(() => {
         if (host.displayStateManager.shouldTriggerHydrationFallback({
           renderReady: host.renderReady,
-          options: host.optionsToDisplay,
+          options: host.optionsToDisplay(),
         })) {
           host.renderReady = true;
           host.cdRef.detectChanges();
@@ -335,27 +335,27 @@ export class QqcComponentOrchestratorService {
 
     if (changes['currentQuestionIndex'] && !changes['currentQuestionIndex'].firstChange) {
       host.explanationVisible = false;
-      host.explanationText = '';
+      host.explanationText.set('');
     }
 
     if (changes['question']) {
-      host.optionsToDisplay = host.resetManager.clearOptionStateForQuestion(host.previousQuestionIndex, host.optionsToDisplay);
+      host.optionsToDisplay.set(host.resetManager.clearOptionStateForQuestion(host.previousQuestionIndex(), host.optionsToDisplay()));
       host.cdRef.detectChanges();
     }
 
     if (changes['question'] || changes['options']) {
       host.unselectOption();
       host.handleQuestionAndOptionsChange(changes['question'], changes['options']);
-      if (host.currentQuestionIndex != null) {
+      if (host.currentQuestionIndex() != null) {
         host.restoreSelectionsAndIconsForQuestion(host.quizService.currentQuestionIndex);
       }
-      host.previousQuestionIndex = host.currentQuestionIndex;
+      host.previousQuestionIndex.set(host.currentQuestionIndex());
     }
 
     const isRenderReady = host.displayStateManager.computeRenderReadyFromInputs({
-      questionDataText: host.questionData?.questionText,
-      currentQuestionText: host.currentQuestion?.questionText,
-      options: host.options,
+      questionDataText: host.questionData()?.questionText,
+      currentQuestionText: host.currentQuestion()?.questionText,
+      options: host.options(),
     });
 
     if (isRenderReady) {
@@ -390,7 +390,7 @@ export class QqcComponentOrchestratorService {
     if (document.visibilityState === 'hidden') {
       host.navigationHandler.persistStateOnHide({
         quizId: host.quizId!,
-        currentQuestionIndex: host.currentQuestionIndex ?? 0,
+        currentQuestionIndex: host.currentQuestionIndex() ?? 0,
         displayExplanation: host.displayExplanation,
       });
       host.navigationHandler.resetExplanationStateOnHide();
@@ -400,7 +400,7 @@ export class QqcComponentOrchestratorService {
 
     try {
       const { shouldExpire, expiredIndex } = await host.navigationHandler.handleFastPathExpiry({
-        currentQuestionIndex: host.currentQuestionIndex ?? 0,
+        currentQuestionIndex: host.currentQuestionIndex() ?? 0,
         displayExplanation: host.displayExplanation,
         normalizeIndex: (idx: number) => host.normalizeIndex(idx),
       });
@@ -419,22 +419,22 @@ export class QqcComponentOrchestratorService {
 
       const restoreResult = await host.navigationHandler.performFullVisibilityRestore({
         quizId: host.quizId!,
-        currentQuestionIndex: host.currentQuestionIndex ?? 0,
-        optionsToDisplay: host.optionsToDisplay,
-        currentQuestion: host.currentQuestion,
+        currentQuestionIndex: host.currentQuestionIndex() ?? 0,
+        optionsToDisplay: host.optionsToDisplay(),
+        currentQuestion: host.currentQuestion(),
         generateFeedbackText: (q: QuizQuestion) => host.generateFeedbackText(q),
         applyOptionFeedback: (opt: Option) => host.applyOptionFeedback(opt),
         restoreFeedbackState: () => {
-          host.optionsToDisplay = host.feedbackManager.restoreFeedbackState(
-            host.currentQuestion,
-            host.optionsToDisplay,
-            host.correctMessage
-          );
+          host.optionsToDisplay.set(host.feedbackManager.restoreFeedbackState(
+            host.currentQuestion(),
+            host.optionsToDisplay(),
+            host.correctMessage()
+          ));
         },
       });
 
       host.displayState.mode = restoreResult.displayMode as 'question' | 'explanation';
-      host.optionsToDisplay = restoreResult.optionsToDisplay;
+      host.optionsToDisplay.set(restoreResult.optionsToDisplay);
       host.feedbackText = restoreResult.feedbackText;
       host.displayExplanation = restoreResult.shouldShowExplanation;
       host.safeSetDisplayState(
@@ -447,7 +447,7 @@ export class QqcComponentOrchestratorService {
         (host.explanationTextService as any)._visibilityLocked = false;
         host._visibilityRestoreInProgress = false;
         setTimeout(
-          () => host.navigationHandler.refreshExplanationStatePostRestore(host.currentQuestionIndex ?? 0),
+          () => host.navigationHandler.refreshExplanationStatePostRestore(host.currentQuestionIndex() ?? 0),
           400
         );
       }, 350);
@@ -472,7 +472,7 @@ export class QqcComponentOrchestratorService {
       await firstValueFrom(host.quizStateService.interactionReady$.pipe(filter(Boolean), take(1)));
     }
 
-    if (!host.currentQuestion || !host.currentOptions) return;
+    if (!host.currentQuestion() || !host.currentOptions) return;
 
     const idx = host.quizService.getCurrentQuestionIndex() ?? 0;
     const q = host.questions?.[idx];
@@ -501,8 +501,8 @@ export class QqcComponentOrchestratorService {
         evtIdx,
         evtOpt,
         checked: event.checked,
-        optionsToDisplay: host.optionsToDisplay,
-        currentQuestionOptions: host.currentQuestion?.options,
+        optionsToDisplay: host.optionsToDisplay(),
+        currentQuestionOptions: host.currentQuestion()?.options,
         totalQuestions: host.totalQuestions,
         msgTok: host._msgTok,
       });
@@ -513,10 +513,81 @@ export class QqcComponentOrchestratorService {
 
       host.updateOptionHighlighting(selOptsSetImmediate);
       host.refreshFeedbackFor(evtOpt ?? undefined);
+
+      // SINGLE-ANSWER disable function — re-callable from microtask/RAF
+      const applySingleAnswerDisable = () => {
+      // SINGLE-ANSWER: when the clicked option is correct, mutate bindings so
+      // incorrect options become disabled (dark gray) and only the correct one
+      // stays active. Use RAW quizService data to determine correctness so
+      // mutated/polluted question.options can't break detection.
+      try {
+        const rawQuestion: any = (host.quizService as any)?.questions?.[idx] ?? q;
+        const rawOpts: any[] = rawQuestion?.options ?? [];
+        const rawCorrectCount = rawOpts.filter((o: any) =>
+          o?.correct === true || String(o?.correct) === 'true'
+        ).length;
+        const isSingleAnswer = rawCorrectCount <= 1;
+        const correctIdSet = new Set<number>(
+          rawOpts
+            .map((o: any, i: number) => {
+              const c = o?.correct === true || String(o?.correct) === 'true';
+              if (!c) return -1;
+              const id = Number(o?.optionId);
+              return Number.isFinite(id) && id !== -1 ? id : i;
+            })
+            .filter((n: number) => n >= 0)
+        );
+        const clickedId = Number(evtOpt?.optionId);
+        const clickedKey = Number.isFinite(clickedId) && clickedId !== -1 ? clickedId : evtIdx;
+        // Trust evtOpt.correct as fallback when raw data is empty/polluted
+        const clickedIsCorrect = correctIdSet.has(clickedKey)
+          || evtOpt?.correct === true
+          || String(evtOpt?.correct) === 'true';
+
+        // If raw set is empty but click is correct, populate it from the click
+        if (correctIdSet.size === 0 && clickedIsCorrect) {
+          correctIdSet.add(clickedKey);
+        }
+
+        if (isSingleAnswer && clickedIsCorrect) {
+          const targets: any[][] = [];
+          const soc: any = host.sharedOptionComponent;
+          if (soc?.optionBindings?.length) targets.push(soc.optionBindings);
+          const sigBindings: any[] = host.optionBindings?.() ?? [];
+          if (sigBindings?.length) targets.push(sigBindings);
+          for (const arr of targets) {
+            for (let bi = 0; bi < arr.length; bi++) {
+              const b = arr[bi];
+              if (!b) continue;
+              const bId = Number(b.option?.optionId);
+              const effId = Number.isFinite(bId) && bId !== -1 ? bId : bi;
+              const isCorrect = correctIdSet.has(effId);
+              b.disabled = !isCorrect;
+              if (b.option) b.option.active = isCorrect;
+              // Keep previously-selected incorrect options highlighted red
+              if (!isCorrect && (b.isSelected || b.option?.selected)) {
+                b.highlight = true;
+                b.showFeedback = true;
+                if (b.option) {
+                  b.option.highlight = true;
+                  b.option.showIcon = true;
+                  b.option.feedback = b.option.feedback || 'incorrect';
+                }
+              }
+            }
+          }
+          soc?.cdRef?.markForCheck?.();
+          soc?.cdRef?.detectChanges?.();
+        }
+      } catch {}
+      };
+
+      applySingleAnswerDisable();
+
       host.cdRef.markForCheck();
       host.cdRef.detectChanges();
 
-      const lockedIndex = host.currentQuestionIndex ?? idx;
+      const lockedIndex = host.currentQuestionIndex() ?? idx;
 
       if (allCorrect && isMultiForSelection && !host._fetEarlyShown.has(lockedIndex)) {
         if (host.timerEffect.safeStopTimer('completed', host._timerStoppedForQuestion, host._lastAllCorrect)) {
@@ -524,11 +595,11 @@ export class QqcComponentOrchestratorService {
         }
         host._fetEarlyShown.add(lockedIndex);
         host.explanationFlow.triggerMultiAnswerFet({ lockedIndex, question: q }).then((fetResult: any) => {
-          if (host.currentQuestionIndex !== lockedIndex || !fetResult) return;
+          if (host.currentQuestionIndex() !== lockedIndex || !fetResult) return;
           host.displayExplanation = true;
           host.displayStateSubject?.next({ mode: 'explanation', answered: true });
           host.showExplanationChange.emit(true);
-          host.explanationToDisplay = fetResult.formatted;
+          host.explanationToDisplay.set(fetResult.formatted);
           host.explanationToDisplayChange?.emit(fetResult.formatted);
         }).catch(() => {});
       }
@@ -537,12 +608,13 @@ export class QqcComponentOrchestratorService {
         if (host._skipNextAsyncUpdates) return;
         host.updateOptionHighlighting(selOptsSetImmediate);
         host.refreshFeedbackFor(evtOpt ?? undefined);
+        applySingleAnswerDisable();
         host.cdRef.markForCheck();
         host.cdRef.detectChanges();
       });
 
       requestAnimationFrame(() => {
-        if (host._skipNextAsyncUpdates || idx !== host.currentQuestionIndex) return;
+        if (host._skipNextAsyncUpdates || idx !== host.currentQuestionIndex()) return;
         const resolvedQuizId =
           host.quizService.quizId ||
           host.activatedRoute.snapshot.paramMap.get('quizId') ||
@@ -562,8 +634,8 @@ export class QqcComponentOrchestratorService {
             const coreResult = host.optionSelection.handleCoreSelectionState({
               option: ev.option,
               questionIndex: i,
-              currentQuestionIndex: host.currentQuestionIndex,
-              questionType: host.question?.type,
+              currentQuestionIndex: host.currentQuestionIndex(),
+              questionType: host.question()?.type,
               forceQuestionDisplay: host.forceQuestionDisplay,
               lastAllCorrect: host._lastAllCorrect,
             });
@@ -576,21 +648,34 @@ export class QqcComponentOrchestratorService {
             host.cdRef.detectChanges();
           },
           markBindingSelected: (opt: any) => {
-            const b = host.feedbackManager.markBindingSelected(opt, host.currentQuestionIndex, host.optionBindings);
+            const b = host.feedbackManager.markBindingSelected(opt, host.currentQuestionIndex(), host.optionBindings());
             if (!b) return;
-            host.optionBindings = host.optionBindings.map((ob: any) =>
+            host.optionBindings.set(host.optionBindings().map((ob: any) =>
               ob.option.optionId === b.option.optionId ? b : ob
-            );
+            ));
             b.directiveInstance?.updateHighlight();
           },
           refreshFeedbackFor: (opt: Option) => host.refreshFeedbackFor(opt),
-        }).catch(() => {});
+        }).catch(() => {}).finally(() => {
+          applySingleAnswerDisable();
+          host.cdRef?.markForCheck?.();
+          host.cdRef?.detectChanges?.();
+        });
       });
+
+      // Final safety net: re-apply after all click pipelines have settled
+      setTimeout(() => {
+        applySingleAnswerDisable();
+        host.sharedOptionComponent?.cdRef?.markForCheck?.();
+        host.sharedOptionComponent?.cdRef?.detectChanges?.();
+        host.cdRef?.markForCheck?.();
+        host.cdRef?.detectChanges?.();
+      }, 0);
 
     } finally {
       queueMicrotask(() => {
         host._clickGate = false;
-        host.selectionMessageService.releaseBaseline(host.currentQuestionIndex);
+        host.selectionMessageService.releaseBaseline(host.currentQuestionIndex());
         const selectionComplete =
           q?.type === QuestionType.SingleAnswer ? !!evtOpt?.correct : host._lastAllCorrect;
         host.selectionMessageService.setSelectionMessage(selectionComplete);
@@ -633,25 +718,27 @@ export class QqcComponentOrchestratorService {
 
       const configured = host.questionLoader.configureDynamicInstance({
         instance,
+        componentRef,
         question,
         options,
         isMultipleAnswer,
-        currentQuestionIndex: host.currentQuestionIndex,
+        currentQuestionIndex: host.currentQuestionIndex(),
         navigatingBackwards: false,
         defaultConfig: host.getDefaultSharedOptionConfig?.(),
         onOptionClicked: host.onOptionClicked.bind(host),
       });
-      host.questionData = configured.questionData;
+      host.questionData.set(configured.questionData);
       host.sharedOptionConfig = configured.sharedOptionConfig;
       host.cdRef.markForCheck();
       await (instance as any).initializeSharedOptionConfig(configured.clonedOptions);
       if (!Object.prototype.hasOwnProperty.call(instance, 'onOptionClicked')) {
         instance.onOptionClicked = host.onOptionClicked.bind(host);
       }
-      host.updateShouldRenderOptions(instance.optionsToDisplay);
-      if (host.displayStateManager.computeRenderReadiness(instance.optionsToDisplay)) {
-        host.shouldRenderOptions = true;
+      host.updateShouldRenderOptions(instance.optionsToDisplay());
+      if (host.displayStateManager.computeRenderReadiness(instance.optionsToDisplay())) {
+        host.shouldRenderOptions.set(true);
       }
+      try { componentRef.changeDetectorRef.markForCheck(); } catch {}
     } catch (error) {
       console.error('[loadDynamicComponent] Failed:', error);
     }
@@ -668,12 +755,12 @@ export class QqcComponentOrchestratorService {
 
     const shouldPreserveVisualState = host.questionLoader.canRenderQuestionInstantly(
       host.questionsArray,
-      host.currentQuestionIndex
+      host.currentQuestionIndex()
     );
     const explanationSnapshot = host.explanationManager.captureExplanationSnapshot({
       preserveVisualState: shouldPreserveVisualState,
-      index: host.currentQuestionIndex,
-      explanationToDisplay: host.explanationToDisplay,
+      index: host.currentQuestionIndex(),
+      explanationToDisplay: host.explanationToDisplay(),
       quizId: host.quizId,
       isAnswered: host.isAnswered as boolean,
       displayMode: host.displayMode$.getValue(),
@@ -687,7 +774,7 @@ export class QqcComponentOrchestratorService {
     host.questionLoader.performPreLoadReset({
       shouldPreserveVisualState,
       shouldKeepExplanationVisible,
-      currentQuestionIndex: host.currentQuestionIndex,
+      currentQuestionIndex: host.currentQuestionIndex(),
     });
 
     if (shouldPreserveVisualState) {
@@ -701,7 +788,7 @@ export class QqcComponentOrchestratorService {
 
     try {
       host.selectedOptionId = null;
-      const lockedIndex = host.currentQuestionIndex;
+      const lockedIndex = host.currentQuestionIndex();
 
       await host.resetQuestionStateBeforeNavigation({
         preserveVisualState: shouldPreserveVisualState,
@@ -727,7 +814,7 @@ export class QqcComponentOrchestratorService {
           currentQuizId: host.quizService.getCurrentQuizId(),
         });
         if (!restoreResult.shouldSkip) {
-          host.explanationToDisplay = restoreResult.explanationText;
+          host.explanationToDisplay.set(restoreResult.explanationText);
           host.updateDisplayMode(restoreResult.displayMode);
           host.applyDisplayState(restoreResult.displayState);
           host.applyExplanationFlags(restoreResult);
@@ -736,7 +823,7 @@ export class QqcComponentOrchestratorService {
       }
 
       const loadResult = await host.questionLoader.performLoadQuestionPostReset({
-        currentQuestionIndex: host.currentQuestionIndex,
+        currentQuestionIndex: host.currentQuestionIndex(),
         questionsArray: host.questionsArray,
         quizId: host.quizId,
         signal,
@@ -750,26 +837,26 @@ export class QqcComponentOrchestratorService {
       }
 
       host.questionsArray = loadResult.questionsArray;
-      host.currentQuestion = loadResult.currentQuestion;
-      host.optionsToDisplay = loadResult.optionsToDisplay;
+      host.currentQuestion.set(loadResult.currentQuestion);
+      host.optionsToDisplay.set(loadResult.optionsToDisplay);
       host.questionToDisplay = loadResult.questionToDisplay;
-      host.updateShouldRenderOptions(host.optionsToDisplay);
+      host.updateShouldRenderOptions(host.optionsToDisplay());
 
       const banner = host.feedbackManager.computeCorrectAnswersBanner({
-        currentQuestion: host.currentQuestion,
-        currentQuestionIndex: host.currentQuestionIndex,
+        currentQuestion: host.currentQuestion(),
+        currentQuestionIndex: host.currentQuestionIndex(),
       });
       host.quizService.updateCorrectAnswersText(banner.bannerText);
 
       if (host.sharedOptionComponent) host.sharedOptionComponent.initializeOptionBindings();
       host.cdRef.markForCheck();
 
-      if (host.currentQuestion && host.optionsToDisplay?.length > 0) {
+      if (host.currentQuestion() && host.optionsToDisplay()?.length > 0) {
         host.questionAndOptionsReady.emit();
         host.quizService.emitQuestionAndOptions(
-          host.currentQuestion,
-          host.optionsToDisplay,
-          host.currentQuestionIndex
+          host.currentQuestion(),
+          host.optionsToDisplay(),
+          host.currentQuestionIndex()
         );
       }
 
@@ -777,8 +864,8 @@ export class QqcComponentOrchestratorService {
     } catch (error) {
       console.error('[loadQuestion] Error:', error);
       host.feedbackText = 'Error loading question. Please try again.';
-      host.currentQuestion = null;
-      host.optionsToDisplay = [];
+      host.currentQuestion.set(null);
+      host.optionsToDisplay.set([]);
       return false;
     } finally {
       host.isLoading = false;
@@ -796,9 +883,9 @@ export class QqcComponentOrchestratorService {
       parseRouteIndex: (rawParam: string | null) =>
         host.initializer.handleRouteChangeParsing({ rawParam, totalQuestions: host.totalQuestions }),
       onRouteChange: async (zeroBasedIndex: number, _displayIndex: number) => {
-        host.currentQuestionIndex = zeroBasedIndex;
+        host.currentQuestionIndex.set(zeroBasedIndex);
         host.explanationVisible = false;
-        host.explanationText = '';
+        host.explanationText.set('');
 
         const routeResult = await host.questionLoader.performRouteChangeUpdate({
           zeroBasedIndex,
@@ -811,8 +898,8 @@ export class QqcComponentOrchestratorService {
         });
 
         if (!routeResult) return;
-        host.currentQuestion = routeResult.currentQuestion;
-        host.optionsToDisplay = routeResult.optionsToDisplay;
+        host.currentQuestion.set(routeResult.currentQuestion);
+        host.optionsToDisplay.set(routeResult.optionsToDisplay);
 
         if (host.shouldDisplayExplanation) {
           host.showExplanationChange.emit(true);
@@ -844,10 +931,10 @@ export class QqcComponentOrchestratorService {
     host.timedOut = true;
     const result = host.timerEffect.onQuestionTimedOut({
       targetIndex,
-      currentQuestionIndex: host.currentQuestionIndex,
+      currentQuestionIndex: host.currentQuestionIndex(),
       questions: host.questions,
-      currentQuestion: host.currentQuestion,
-      optionsToDisplay: host.optionsToDisplay,
+      currentQuestion: host.currentQuestion(),
+      optionsToDisplay: host.optionsToDisplay(),
       sharedOptionBindings: host.sharedOptionComponent?.optionBindings,
       totalQuestions: host.totalQuestions,
       formattedByIndex: host._formattedByIndex,
@@ -865,7 +952,7 @@ export class QqcComponentOrchestratorService {
     });
     host.displayExplanation = true;
     host.showExplanationChange.emit(true);
-    host.explanationToDisplay = result.explanationToDisplay;
+    host.explanationToDisplay.set(result.explanationToDisplay);
     host.explanationToDisplayChange?.emit(result.explanationToDisplay);
     host._timerStoppedForQuestion = result.timerStoppedForQuestion;
   }
@@ -877,12 +964,12 @@ export class QqcComponentOrchestratorService {
     const stopped = host.timerEffect.handleTimerStoppedForActiveQuestion({
       reason,
       timerStoppedForQuestion: host._timerStoppedForQuestion,
-      currentQuestionIndex: host.currentQuestionIndex,
+      currentQuestionIndex: host.currentQuestionIndex(),
       questions: host.questions,
       questionFresh: host.questionFresh,
-      optionsToDisplay: host.optionsToDisplay,
+      optionsToDisplay: host.optionsToDisplay(),
       sharedOptionBindings: host.sharedOptionComponent?.optionBindings,
-      currentQuestion: host.currentQuestion,
+      currentQuestion: host.currentQuestion(),
       normalizeIndex: (idx: number) => host.normalizeIndex(idx),
       revealFeedbackForAllOptions: (opts: Option[]) => host.revealFeedbackForAllOptions(opts),
       forceDisableSharedOption: () => host.forceDisableSharedOption(),
@@ -906,7 +993,7 @@ export class QqcComponentOrchestratorService {
       const expiryState = host.timerEffect.applyTimerExpiryState({
         i0,
         questions: host.questions,
-        currentQuestionType: host.currentQuestion?.type,
+        currentQuestionType: host.currentQuestion()?.type,
       });
       host.feedbackText = expiryState.feedbackText;
       host.displayExplanation = expiryState.displayExplanation;
@@ -918,8 +1005,8 @@ export class QqcComponentOrchestratorService {
       i0,
       normalizeIndex: (idx: number) => host.normalizeIndex(idx),
       questions: host.questions,
-      currentQuestionIndex: host.currentQuestionIndex,
-      currentQuestion: host.currentQuestion,
+      currentQuestionIndex: host.currentQuestionIndex(),
+      currentQuestion: host.currentQuestion(),
       formattedByIndex: host._formattedByIndex,
       fixedQuestionIndex: host.fixedQuestionIndex,
       updateExplanationText: (idx: number) => host.updateExplanationText(idx),
@@ -933,7 +1020,7 @@ export class QqcComponentOrchestratorService {
           normalizeIndex: (idx: number) => host.normalizeIndex(idx),
           formattedByIndex: host._formattedByIndex,
           fixedQuestionIndex: host.fixedQuestionIndex,
-          currentQuestionIndex: host.currentQuestionIndex,
+          currentQuestionIndex: host.currentQuestionIndex(),
           updateExplanationText: (idx: number) => host.updateExplanationText(idx),
         })
         .then((repaired: string) => {
@@ -951,9 +1038,9 @@ export class QqcComponentOrchestratorService {
     options?: { preserveVisualState?: boolean; preserveExplanation?: boolean }
   ): Promise<void> {
     const result = host.resetManager.computeResetQuestionStateBeforeNavigation(options);
-    host.currentQuestion = result.currentQuestion;
+    host.currentQuestion.set(result.currentQuestion);
     host.selectedOption = result.selectedOption;
-    host.options = result.resetOptions;
+    host.options.set(result.resetOptions);
 
     if (!result.preserveExplanation) {
       host.feedbackText = result.feedbackText;
@@ -961,13 +1048,13 @@ export class QqcComponentOrchestratorService {
       host.quizStateService.setDisplayState(host.displayState);
       host.updateDisplayMode(result.displayMode);
       host.applyExplanationFlags(result);
-      host.explanationToDisplay = result.explanationToDisplay;
+      host.explanationToDisplay.set(result.explanationToDisplay);
       host.emitExplanationChange('', false);
     }
     if (!result.preserveVisualState) {
       host.questionToDisplay = '';
       host.updateShouldRenderOptions([]);
-      host.shouldRenderOptions = false;
+      host.shouldRenderOptions.set(false);
     }
 
     host.finalRenderReadySubject.next(false);
@@ -1007,7 +1094,7 @@ export class QqcComponentOrchestratorService {
     host.showFeedbackForOption = result.showFeedbackForOption;
 
     if (result.hasSelections) {
-      host.optionsToDisplay = host.resetManager.restoreSelectionsAndIcons(result.i0, host.optionsToDisplay);
+      host.optionsToDisplay.set(host.resetManager.restoreSelectionsAndIcons(result.i0, host.optionsToDisplay()));
       host.cdRef.detectChanges();
     }
 
@@ -1016,7 +1103,7 @@ export class QqcComponentOrchestratorService {
     if (result.hasSelections) {
       host.showExplanationChange?.emit(true);
     } else {
-      host.explanationToDisplay = '';
+      host.explanationToDisplay.set('');
       host.emitExplanationChange('', false);
     }
 
@@ -1045,19 +1132,19 @@ export class QqcComponentOrchestratorService {
       setTimeout(async () => {
         const result = await host.explanationDisplay.performUpdateExplanationDisplay({
           shouldDisplay: true,
-          currentQuestionIndex: host.currentQuestionIndex,
+          currentQuestionIndex: host.currentQuestionIndex(),
         });
-        host.explanationToDisplay = result.explanationToDisplay;
+        host.explanationToDisplay.set(result.explanationToDisplay);
         host.explanationToDisplayChange.emit(result.explanationToDisplay);
         host.cdRef.markForCheck();
       }, 50);
     } else {
       const result = await host.explanationDisplay.performUpdateExplanationDisplay({
         shouldDisplay: false,
-        currentQuestionIndex: host.currentQuestionIndex,
+        currentQuestionIndex: host.currentQuestionIndex(),
       });
       if (result.explanationToDisplay !== undefined) {
-        host.explanationToDisplay = result.explanationToDisplay;
+        host.explanationToDisplay.set(result.explanationToDisplay);
         host.explanationToDisplayChange.emit(result.explanationToDisplay);
       }
       if (result.shouldResetQuestionState) host.resetQuestionStateBeforeNavigation();
@@ -1093,14 +1180,14 @@ export class QqcComponentOrchestratorService {
     });
 
     if (result.success) {
-      host.currentQuestionIndex = questionIndex;
-      host.explanationToDisplay = result.explanationToDisplay;
-      host.explanationTextService.updateFormattedExplanation(host.explanationToDisplay);
-      host.explanationToDisplayChange.emit(host.explanationToDisplay);
+      host.currentQuestionIndex.set(questionIndex);
+      host.explanationToDisplay.set(result.explanationToDisplay);
+      host.explanationTextService.updateFormattedExplanation(host.explanationToDisplay());
+      host.explanationToDisplayChange.emit(host.explanationToDisplay());
     } else if (result.explanationToDisplay) {
-      host.explanationToDisplay = host.explanationFlow.getExplanationErrorText();
+      host.explanationToDisplay.set(host.explanationFlow.getExplanationErrorText());
       if (host.isAnswered && host.shouldDisplayExplanation) {
-        host.emitExplanationChange(host.explanationToDisplay, true);
+        host.emitExplanationChange(host.explanationToDisplay(), true);
       }
     }
   }
@@ -1121,8 +1208,8 @@ export class QqcComponentOrchestratorService {
         .then(async () => {
           if (host.shouldDisplayExplanation && (await host.isAnyOptionSelected(validated.adjustedIndex))) {
             host.emitExplanationChange('', false);
-            host.explanationToDisplay = explanationText;
-            host.emitExplanationChange(host.explanationToDisplay, true);
+            host.explanationToDisplay.set(explanationText);
+            host.emitExplanationChange(host.explanationToDisplay(), true);
             host.isAnswerSelectedChange.emit(true);
           }
         })
@@ -1143,15 +1230,15 @@ export class QqcComponentOrchestratorService {
       option,
       optionIndex,
       currentQuestion,
-      currentQuestionIndex: host.currentQuestionIndex,
+      currentQuestionIndex: host.currentQuestionIndex(),
       quizId: host.quizId!,
       lastAllCorrect: host._lastAllCorrect,
-      optionsToDisplay: host.optionsToDisplay,
+      optionsToDisplay: host.optionsToDisplay(),
       handleOptionClickedFn: async (q: QuizQuestion, idx: number) => {
         const r = host.optionSelection.handleOptionClicked({
           currentQuestion: q,
           optionIndex: idx,
-          currentQuestionIndex: host.currentQuestionIndex,
+          currentQuestionIndex: host.currentQuestionIndex(),
         });
         if (r) host.cdRef.markForCheck();
       },
@@ -1159,10 +1246,10 @@ export class QqcComponentOrchestratorService {
     });
     if (!result) return;
     host.selectedOption = result.selectedOption;
-    host.showFeedback = result.showFeedback;
+    host.showFeedback.set(result.showFeedback);
     host.showFeedbackForOption = result.showFeedbackForOption;
     host.selectedOptionIndex = result.selectedOptionIndex;
-    host.explanationText = result.explanationText;
+    host.explanationText.set(result.explanationText);
     host.applyFeedbackIfNeeded(option);
     host.optionSelection.setAnsweredAndDisplayState(host._lastAllCorrect);
   }
@@ -1173,7 +1260,7 @@ export class QqcComponentOrchestratorService {
   runUpdateOptionsSafely(host: Host, newOptions: Option[]): void {
     const result = host.displayStateManager.prepareOptionSwap({
       newOptions,
-      currentOptionsJson: JSON.stringify(host.optionsToDisplay),
+      currentOptionsJson: JSON.stringify(host.optionsToDisplay()),
     });
 
     if (result.needsSwap) {
@@ -1183,17 +1270,17 @@ export class QqcComponentOrchestratorService {
       if (result.serialized !== host.lastSerializedOptions) {
         host.lastSerializedOptions = result.serialized;
       }
-      host.optionsToDisplay = result.cleanedOptions;
+      host.optionsToDisplay.set(result.cleanedOptions);
       if (host.sharedOptionComponent) {
         host.sharedOptionComponent.initializeOptionBindings();
       }
       setTimeout(() => {
-        if (host.displayStateManager.computeRenderReadiness(host.optionsToDisplay)) {
+        if (host.displayStateManager.computeRenderReadiness(host.optionsToDisplay())) {
           host.markRenderReady();
         }
       }, 0);
     } else if (
-      host.displayStateManager.computeRenderReadiness(host.optionsToDisplay) &&
+      host.displayStateManager.computeRenderReadiness(host.optionsToDisplay()) &&
       !host.finalRenderReady
     ) {
       host.markRenderReady();
@@ -1206,7 +1293,7 @@ export class QqcComponentOrchestratorService {
   runHydrateFromPayload(host: Host, payload: any): void {
     const result = host.displayStateManager.hydrateFromPayload({
       payload,
-      currentQuestionText: host.currentQuestion?.questionText?.trim(),
+      currentQuestionText: host.currentQuestion()?.questionText?.trim(),
       isAlreadyRendered: host.finalRenderReady,
     });
     if (!result) return;
@@ -1217,13 +1304,13 @@ export class QqcComponentOrchestratorService {
     host.finalRenderReadySubject.next(false);
     host.cdRef.detectChanges();
 
-    host.currentQuestion = result.currentQuestion;
-    host.optionsToDisplay = result.optionsToDisplay;
-    host.updateShouldRenderOptions(host.optionsToDisplay);
-    host.explanationToDisplay = result.explanationToDisplay;
+    host.currentQuestion.set(result.currentQuestion);
+    host.optionsToDisplay.set(result.optionsToDisplay);
+    host.updateShouldRenderOptions(host.optionsToDisplay());
+    host.explanationToDisplay.set(result.explanationToDisplay);
 
     if (!host.containerInitialized && host.dynamicAnswerContainer) {
-      host.loadDynamicComponent(host.currentQuestion, host.optionsToDisplay);
+      host.loadDynamicComponent(host.currentQuestion(), host.optionsToDisplay());
       host.containerInitialized = true;
     }
     host.sharedOptionComponent?.initializeOptionBindings();
@@ -1234,7 +1321,7 @@ export class QqcComponentOrchestratorService {
         host.sharedOptionComponent.optionBindings.length > 0 &&
         host.sharedOptionComponent.optionBindings.every((b: any) => !!b.option);
       if (
-        host.displayStateManager.computeRenderReadiness(host.optionsToDisplay) &&
+        host.displayStateManager.computeRenderReadiness(host.optionsToDisplay()) &&
         bindingsReady
       ) {
         host.sharedOptionComponent?.markRenderReady('✅ Hydrated from new payload');
@@ -1255,8 +1342,8 @@ export class QqcComponentOrchestratorService {
         host.explanationManager.getFormattedExplanation(q, idx),
     });
     if (result.shouldUpdate) {
-      host.explanationToDisplay = result.explanationText;
-      host.emitExplanationChange(host.explanationToDisplay, true);
+      host.explanationToDisplay.set(result.explanationText);
+      host.emitExplanationChange(host.explanationToDisplay(), true);
       host.isAnswerSelectedChange.emit(true);
     }
   }
@@ -1270,11 +1357,11 @@ export class QqcComponentOrchestratorService {
       host.displaySubscriptions?.forEach((sub: Subscription) => sub.unsubscribe());
       host.displaySubscriptions = [];
       const cleanup = host.navigationHandler.computeDisplaySubscriptionCleanup();
-      host.explanationToDisplay = cleanup.explanationToDisplay;
+      host.explanationToDisplay.set(cleanup.explanationToDisplay);
       host.emitExplanationChange('', cleanup.showExplanation);
     }
     if (action.shouldRefreshExplanation) {
-      host.prepareAndSetExplanationText(host.currentQuestionIndex);
+      host.prepareAndSetExplanationText(host.currentQuestionIndex());
     }
   }
 
@@ -1285,13 +1372,13 @@ export class QqcComponentOrchestratorService {
     if (host.initialized) return;
     host.initialized = true;
 
-    host.quizId = host.activatedRoute.snapshot.paramMap.get('quizId');
+    host.quizId.set(host.activatedRoute.snapshot.paramMap.get('quizId'));
     host.isLoading = true;
     try {
       const result = await host.initializer.performFullQuizInit({
-        currentQuestionIndex: host.currentQuestionIndex,
+        currentQuestionIndex: host.currentQuestionIndex(),
         questionsArray: host.questionsArray,
-        routeQuizId: host.quizId,
+        routeQuizId: host.quizId(),
         setQuestionOptions: () => host.setQuestionOptions(),
         questionLoader: host.questionLoader,
         prepareExplanationForQuestion: (p: any) => host.initializer.prepareExplanationForQuestion(p),
@@ -1300,7 +1387,7 @@ export class QqcComponentOrchestratorService {
       if (result) {
         host.questionsArray = result.questionsArray;
         host.questions = result.questions;
-        host.quizId = result.quizId;
+        host.quizId.set(result.quizId);
       }
     } finally {
       host.isLoading = false;
@@ -1313,10 +1400,10 @@ export class QqcComponentOrchestratorService {
   async runIsAnyOptionSelected(host: Host, questionIndex: number): Promise<boolean> {
     const rs = host.optionSelection.resetStateForNewQuestion();
     host.showFeedbackForOption = rs.showFeedbackForOption;
-    host.showFeedback = rs.showFeedback;
-    host.correctMessage = rs.correctMessage;
+    host.showFeedback.set(rs.showFeedback);
+    host.correctMessage.set(rs.correctMessage);
     host.selectedOption = rs.selectedOption;
-    host.isOptionSelected = rs.isOptionSelected;
+    host.isOptionSelected.set(rs.isOptionSelected);
     host.emitExplanationChange('', false);
     try {
       return await firstValueFrom(host.quizService.isAnswered(questionIndex));
@@ -1329,7 +1416,7 @@ export class QqcComponentOrchestratorService {
   // onSubmitMultiple body
   // ═══════════════════════════════════════════════════════════════
   async runOnSubmitMultiple(host: Host): Promise<void> {
-    const idx = host.currentQuestionIndex ?? host.quizService.getCurrentQuestionIndex() ?? 0;
+    const idx = host.currentQuestionIndex() ?? host.quizService.getCurrentQuestionIndex() ?? 0;
     const computed = host.explanationFlow.computeSubmitMultipleExplanation({ currentQuestionIndex: idx });
     if (!computed) return;
     await host.explanationFlow.applySubmitMultipleExplanation({
@@ -1340,7 +1427,7 @@ export class QqcComponentOrchestratorService {
     });
     host.displayStateSubject?.next({ mode: 'explanation', answered: true });
     host.displayExplanation = true;
-    host.explanationToDisplay = computed.formatted;
+    host.explanationToDisplay.set(computed.formatted);
     host.explanationToDisplayChange?.emit(computed.formatted);
   }
 
@@ -1355,14 +1442,14 @@ export class QqcComponentOrchestratorService {
     wasPreviouslySelected: boolean,
     questionIndex?: number
   ): Promise<void> {
-    const lockedIndex = questionIndex ?? host.currentQuestionIndex;
+    const lockedIndex = questionIndex ?? host.currentQuestionIndex();
     const { sel, shouldUpdateGlobalState } = host.optionSelection.performPostClickTasks({
       opt,
       idx,
       questionIndex: lockedIndex,
       quizId: host.quizId!,
       lastAllCorrect: host._lastAllCorrect,
-      currentQuestionIndex: host.currentQuestionIndex,
+      currentQuestionIndex: host.currentQuestionIndex(),
     });
     await host.finalizeSelection(opt, idx, wasPreviouslySelected);
     host.optionSelected.emit(sel);
@@ -1376,23 +1463,23 @@ export class QqcComponentOrchestratorService {
   // ═══════════════════════════════════════════════════════════════
   async runPerformInitialSelectionFlow(host: Host, event: any, option: SelectedOption): Promise<void> {
     const prevSelected = !!option.selected;
-    host.optionSelection.updateOptionSelection(event, option, host.currentQuestionIndex);
-    await host.handleOptionSelection(option, event.index, host.currentQuestion!);
+    host.optionSelection.updateOptionSelection(event, option, host.currentQuestionIndex());
+    await host.handleOptionSelection(option, event.index, host.currentQuestion()!);
     host.applyFeedbackIfNeeded(option);
     const nowSelected = !!option.selected;
     const transition = host.feedbackManager.computeSelectionTransition({
       prevSelected,
       nowSelected,
       option,
-      currentQuestionIndex: host.currentQuestionIndex,
+      currentQuestionIndex: host.currentQuestionIndex(),
     });
     host.optionSelection.handleSelectionTransitionAndMessage({
       prevSelected,
       nowSelected,
       transition,
-      currentQuestionIndex: host.currentQuestionIndex,
-      optionsToDisplay: host.optionsToDisplay,
-      currentQuestionOptions: host.currentQuestion?.options,
+      currentQuestionIndex: host.currentQuestionIndex(),
+      optionsToDisplay: host.optionsToDisplay(),
+      currentQuestionOptions: host.currentQuestion()?.options,
       isAnswered: host.isAnswered as boolean,
     });
   }
@@ -1401,10 +1488,10 @@ export class QqcComponentOrchestratorService {
   // applyFeedbackIfNeeded body
   // ═══════════════════════════════════════════════════════════════
   async runApplyFeedbackIfNeeded(host: Host, option: SelectedOption): Promise<void> {
-    if (!host.optionsToDisplay?.length) host.populateOptionsToDisplay();
+    if (!host.optionsToDisplay()?.length) host.populateOptionsToDisplay();
     const result = host.feedbackManager.applyFeedbackIfNeeded({
       option,
-      optionsToDisplay: host.optionsToDisplay,
+      optionsToDisplay: host.optionsToDisplay(),
       showFeedbackForOption: host.showFeedbackForOption,
     });
     if (!result) return;
@@ -1420,14 +1507,14 @@ export class QqcComponentOrchestratorService {
   // applyOptionFeedback body
   // ═══════════════════════════════════════════════════════════════
   async runApplyOptionFeedback(host: Host, selectedOption: Option): Promise<void> {
-    if (!host.optionsToDisplay?.length) host.populateOptionsToDisplay();
+    if (!host.optionsToDisplay()?.length) host.populateOptionsToDisplay();
     const result = host.feedbackManager.applyOptionFeedback(
       selectedOption,
-      host.optionsToDisplay,
+      host.optionsToDisplay(),
       host.showFeedbackForOption
     );
     if (!result) return;
-    host.optionsToDisplay = result.optionsToDisplay;
+    host.optionsToDisplay.set(result.optionsToDisplay);
     host.showFeedbackForOption = result.showFeedbackForOption;
     host.selectedOptionIndex = result.selectedOptionIndex;
     host.feedbackApplied.emit(selectedOption.optionId);
@@ -1448,7 +1535,7 @@ export class QqcComponentOrchestratorService {
       option,
       index,
       wasPreviouslySelected,
-      currentQuestionIndex: host.currentQuestionIndex,
+      currentQuestionIndex: host.currentQuestionIndex(),
       quizId: host.quizId!,
       lastAllCorrect: host._lastAllCorrect,
       fetchAndProcessCurrentQuestion: () => host.fetchAndProcessCurrentQuestion(),
@@ -1456,7 +1543,7 @@ export class QqcComponentOrchestratorService {
       processCurrentQuestion: (q: QuizQuestion) =>
         host.explanationFlow.processCurrentQuestion({
           currentQuestion: q,
-          currentQuestionIndex: host.currentQuestionIndex,
+          currentQuestionIndex: host.currentQuestionIndex(),
           quizId: host.quizId!,
           lastAllCorrect: host._lastAllCorrect,
           getExplanationText: (idx: number) => host.explanationManager.getExplanationText(idx),
@@ -1468,9 +1555,9 @@ export class QqcComponentOrchestratorService {
     host.updateExplanationDisplay(result.shouldDisplay);
     host.questionAnswered.emit();
     host.timerEffect.stopTimerIfAllCorrectSelected({
-      currentQuestionIndex: host.currentQuestionIndex,
+      currentQuestionIndex: host.currentQuestionIndex(),
       questions: host.questions,
-      optionsToDisplay: host.optionsToDisplay,
+      optionsToDisplay: host.optionsToDisplay(),
     });
   }
 
@@ -1479,20 +1566,20 @@ export class QqcComponentOrchestratorService {
   // ═══════════════════════════════════════════════════════════════
   async runFetchAndProcessCurrentQuestion(host: Host): Promise<QuizQuestion | null> {
     const result = await host.optionSelection.fetchAndProcessCurrentQuestion({
-      currentQuestionIndex: host.currentQuestionIndex,
+      currentQuestionIndex: host.currentQuestionIndex(),
       isAnyOptionSelectedFn: (idx: number) => host.isAnyOptionSelected(idx),
       shouldUpdateMessageOnAnswerFn: async (isAnswered: boolean) =>
-        host.selectionMessage !==
+        host.selectionMessage() !==
         host.selectionMessageService.determineSelectionMessage(
-          host.currentQuestionIndex,
+          host.currentQuestionIndex(),
           host.totalQuestions,
           isAnswered
         ),
     });
     if (!result) return null;
-    host.currentQuestion = result.currentQuestion;
-    host.optionsToDisplay = result.optionsToDisplay;
-    host.data = result.data;
+    host.currentQuestion.set(result.currentQuestion);
+    host.optionsToDisplay.set(result.optionsToDisplay);
+    host.data.set(result.data);
     return result.currentQuestion;
   }
 
@@ -1509,16 +1596,16 @@ export class QqcComponentOrchestratorService {
       currentQuestion,
       option,
       optionIndex,
-      currentQuestionIndex: host.currentQuestionIndex,
+      currentQuestionIndex: host.currentQuestionIndex(),
       isMultipleAnswer: host.isMultipleAnswer,
-      optionsToDisplay: host.optionsToDisplay,
+      optionsToDisplay: host.optionsToDisplay(),
       selectedOptionsCount: host.selectedOptions.length,
       getExplanationText: (idx: number) => host.explanationManager.getExplanationText(idx),
     });
     if (!result) return;
     host.showFeedbackForOption = result.showFeedbackForOption;
     host.selectedOption = result.selectedOption;
-    host.isOptionSelected = result.isOptionSelected;
+    host.isOptionSelected.set(result.isOptionSelected);
     host.isAnswered = result.isAnswered;
     host.quizQuestionManagerService.setExplanationText(currentQuestion.explanation || '');
     host.isAnswerSelectedChange.emit(host.isAnswered);
@@ -1535,9 +1622,9 @@ export class QqcComponentOrchestratorService {
       host.displayStateManager.handleQuestionAndOptionsChange({
         currentQuestionChange,
         optionsChange,
-        currentQuestion: host.currentQuestion,
+        currentQuestion: host.currentQuestion(),
       });
-    if (nextQuestion) host.currentQuestion = nextQuestion;
+    if (nextQuestion) host.currentQuestion.set(nextQuestion);
     const normalizedOptions = host.refreshOptionsForQuestion(effectiveQuestion, incomingOptions);
     const selectedOptionValues = host.displayStateManager.extractSelectedOptionValues(effectiveQuestion);
     if (effectiveQuestion) {
@@ -1558,12 +1645,12 @@ export class QqcComponentOrchestratorService {
     const result = host.displayStateManager.refreshOptionsForQuestion({
       question,
       providedOptions,
-      currentQuestionIndex: host.currentQuestionIndex,
+      currentQuestionIndex: host.currentQuestionIndex(),
     });
-    host.options = result.options;
-    host.optionsToDisplay = result.optionsToDisplay;
-    if (host.optionsToDisplay.length > 0) {
-      host.quizService.setOptions(host.optionsToDisplay.map((option: Option) => ({ ...option })));
+    host.options.set(result.options);
+    host.optionsToDisplay.set(result.optionsToDisplay);
+    if (host.optionsToDisplay().length > 0) {
+      host.quizService.setOptions(host.optionsToDisplay().map((option: Option) => ({ ...option })));
     }
     host.cdRef.markForCheck();
     return result.normalizedOptions;
@@ -1590,7 +1677,7 @@ export class QqcComponentOrchestratorService {
 
   runApplyExplanationTextInZone(host: Host, text: string): void {
     host.ngZone.run(() => {
-      host.explanationToDisplay = text;
+      host.explanationToDisplay.set(text);
       host.explanationToDisplayChange.emit(text);
       host.cdRef.markForCheck();
       host.cdRef.detectChanges();
@@ -1609,16 +1696,16 @@ export class QqcComponentOrchestratorService {
   }
 
   runSetQuestionOptions(host: Host): void {
-    host.quizService.getQuestionByIndex(host.currentQuestionIndex).pipe(take(1)).subscribe((currentQuestion: QuizQuestion | null) => {
+    host.quizService.getQuestionByIndex(host.currentQuestionIndex()).pipe(take(1)).subscribe((currentQuestion: QuizQuestion | null) => {
       if (!currentQuestion) return;
-      host.currentQuestion = currentQuestion;
+      host.currentQuestion.set(currentQuestion);
       host.currentOptions = host.displayStateManager.buildOptionsWithCorrectness(currentQuestion);
       if (host.currentOptions.length === 0) return;
       if (host.shuffleOptions) Utils.shuffleArray(host.currentOptions);
       host.currentOptions = host.displayStateManager.applyDisplayOrder(host.currentOptions);
-      host.optionsToDisplay = host.currentOptions.map((o: any) => ({ ...o }));
-      host.updateShouldRenderOptions(host.optionsToDisplay);
-      host.quizService.nextOptionsSubject.next(host.optionsToDisplay.map((o: any) => ({ ...o })));
+      host.optionsToDisplay.set(host.currentOptions.map((o: any) => ({ ...o })));
+      host.updateShouldRenderOptions(host.optionsToDisplay());
+      host.quizService.nextOptionsSubject.next(host.optionsToDisplay().map((o: any) => ({ ...o })));
       host.cdRef.markForCheck();
     });
   }
@@ -1626,20 +1713,20 @@ export class QqcComponentOrchestratorService {
   runResetState(host: Host): void {
     const result = host.resetManager.resetState();
     host.selectedOption = result.selectedOption;
-    host.options = result.options;
+    host.options.set(result.options);
     host.resetFeedback();
   }
 
   runResetFeedback(host: Host): void {
     const result = host.resetManager.resetFeedback();
-    host.correctMessage = result.correctMessage;
-    host.showFeedback = result.showFeedback;
+    host.correctMessage.set(result.correctMessage);
+    host.showFeedback.set(result.showFeedback);
     host.selectedOption = result.selectedOption;
     host.showFeedbackForOption = result.showFeedbackForOption;
   }
 
   runUpdateOptionHighlighting(host: Host, selectedKeys: Set<string | number>): void {
-    host.optionsToDisplay = host.feedbackManager.updateOptionHighlighting(host.optionsToDisplay, selectedKeys, host.currentQuestionIndex, host.question?.type);
+    host.optionsToDisplay.set(host.feedbackManager.updateOptionHighlighting(host.optionsToDisplay(), selectedKeys, host.currentQuestionIndex(), host.question()?.type));
     host.cdRef.markForCheck();
     host.cdRef.detectChanges();
   }
@@ -1647,38 +1734,38 @@ export class QqcComponentOrchestratorService {
   runRefreshFeedbackFor(host: Host, opt: Option): void {
     if (!host.sharedOptionComponent) return;
     if (opt.optionId !== undefined) host.sharedOptionComponent.lastFeedbackOptionId = opt.optionId;
-    const cfg = host.feedbackManager.buildFeedbackConfigForOption(opt, host.optionBindings, host.currentQuestion!, host.sharedOptionComponent.feedbackConfigs);
+    const cfg = host.feedbackManager.buildFeedbackConfigForOption(opt, host.optionBindings(), host.currentQuestion()!, host.sharedOptionComponent.feedbackConfigs);
     host.sharedOptionComponent.feedbackConfigs = { ...host.sharedOptionComponent.feedbackConfigs, [opt.optionId!]: cfg };
     host.cdRef.markForCheck();
   }
 
   runPopulateOptionsToDisplay(host: Host): Option[] {
-    const result = host.questionLoader.populateOptionsToDisplay(host.currentQuestion, host.optionsToDisplay, host.lastOptionsQuestionSignature);
-    host.optionsToDisplay = result.options;
+    const result = host.questionLoader.populateOptionsToDisplay(host.currentQuestion(), host.optionsToDisplay(), host.lastOptionsQuestionSignature);
+    host.optionsToDisplay.set(result.options);
     host.lastOptionsQuestionSignature = result.signature;
-    return host.optionsToDisplay;
+    return host.optionsToDisplay();
   }
 
   runInitializeForm(host: Host): void {
-    const form = host.initializer.buildFormFromOptions(host.currentQuestion, host.fb);
+    const form = host.initializer.buildFormFromOptions(host.currentQuestion(), host.fb);
     if (form) {
       host.questionForm = form;
     }
   }
 
   runUnselectOption(host: Host): void {
-    const result = host.optionSelection.unselectOption(host.currentQuestionIndex);
+    const result = host.optionSelection.unselectOption(host.currentQuestionIndex());
     host.selectedOptions = result.selectedOptions;
     host.optionChecked = result.optionChecked;
     host.showFeedbackForOption = result.showFeedbackForOption;
-    host.showFeedback = result.showFeedback;
+    host.showFeedback.set(result.showFeedback);
     host.selectedOption = result.selectedOption;
   }
 
   runResetExplanation(host: Host, force = false): void {
-    const result = host.explanationFlow.performResetExplanation({ force, questionIndex: host.fixedQuestionIndex ?? host.currentQuestionIndex ?? 0 });
+    const result = host.explanationFlow.performResetExplanation({ force, questionIndex: host.fixedQuestionIndex ?? host.currentQuestionIndex() ?? 0 });
     host.displayExplanation = result.displayExplanation;
-    host.explanationToDisplay = result.explanationToDisplay;
+    host.explanationToDisplay.set(result.explanationToDisplay);
     if (!result.blocked) {
       host.emitExplanationChange('', false);
       host.cdRef?.markForCheck?.();
@@ -1686,23 +1773,23 @@ export class QqcComponentOrchestratorService {
   }
 
   async runPrepareAndSetExplanationText(host: Host, questionIndex: number): Promise<string> {
-    host.explanationToDisplay = await host.explanationFlow.prepareExplanationText(questionIndex);
-    return host.explanationToDisplay;
+    host.explanationToDisplay.set(await host.explanationFlow.prepareExplanationText(questionIndex));
+    return host.explanationToDisplay();
   }
 
   async runUpdateExplanationText(host: Host, index: number): Promise<string> {
-    return host.explanationDisplay.updateExplanationText({ index, normalizeIndex: (idx: number) => host.normalizeIndex(idx), questionsArray: host.questionsArray, currentQuestionIndex: host.currentQuestionIndex, currentQuestion: host.currentQuestion, optionsToDisplay: host.optionsToDisplay, options: host.options });
+    return host.explanationDisplay.updateExplanationText({ index, normalizeIndex: (idx: number) => host.normalizeIndex(idx), questionsArray: host.questionsArray, currentQuestionIndex: host.currentQuestionIndex(), currentQuestion: host.currentQuestion(), optionsToDisplay: host.optionsToDisplay(), options: host.options });
   }
 
   async runOnSubmit(host: Host): Promise<void> {
     if (!host.initializer.validateFormForSubmission(host.questionForm)) return;
     const selectedOption = host.questionForm.get('selectedOption')?.value;
-    await host.initializer.processAnswer({ selectedOption, currentQuestion: host.currentQuestion!, currentQuestionIndex: host.currentQuestionIndex, answers: host.answers });
+    await host.initializer.processAnswer({ selectedOption, currentQuestion: host.currentQuestion()!, currentQuestionIndex: host.currentQuestionIndex(), answers: host.answers });
     host.questionAnswered.emit();
   }
 
   runRestoreSelectionsAndIconsForQuestion(host: Host, index: number): void {
-    host.optionsToDisplay = host.resetManager.restoreSelectionsAndIcons(index, host.optionsToDisplay);
+    host.optionsToDisplay.set(host.resetManager.restoreSelectionsAndIcons(index, host.optionsToDisplay()));
     host.cdRef.detectChanges();
   }
 
@@ -1725,15 +1812,15 @@ export class QqcComponentOrchestratorService {
     host.optionSelection.emitPassiveNow({
       index,
       normalizeIndex: (idx: number) => host.normalizeIndex(idx),
-      optionsToDisplay: host.optionsToDisplay,
-      currentQuestionType: host.currentQuestion?.type,
+      optionsToDisplay: host.optionsToDisplay(),
+      currentQuestionType: host.currentQuestion()?.type,
     });
   }
 
   runDisableAllBindingsAndOptions(host: Host): { optionBindings: any[]; optionsToDisplay: Option[] } {
-    const result = host.displayStateManager.disableAllBindingsAndOptions(host.optionBindings, host.optionsToDisplay);
-    host.optionBindings = result.optionBindings;
-    host.optionsToDisplay = result.optionsToDisplay;
+    const result = host.displayStateManager.disableAllBindingsAndOptions(host.optionBindings(), host.optionsToDisplay());
+    host.optionBindings.set(result.optionBindings);
+    host.optionsToDisplay.set(result.optionsToDisplay);
     return result;
   }
 
@@ -1746,8 +1833,8 @@ export class QqcComponentOrchestratorService {
 
   runUpdateShouldRenderOptions(host: Host, options: Option[] | null | undefined): void {
     const v = host.displayStateManager.computeRenderReadiness(options);
-    if (host.shouldRenderOptions !== v) {
-      host.shouldRenderOptions = v;
+    if (host.shouldRenderOptions() !== v) {
+      host.shouldRenderOptions.set(v);
       host.cdRef.markForCheck();
     }
   }

@@ -1,7 +1,7 @@
 import {
-  AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ComponentRef, EventEmitter, HostListener,
+  AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ComponentRef, effect, EventEmitter, HostListener,
   Input, NgZone, OnChanges, OnDestroy, OnInit, Output, SimpleChange, SimpleChanges, ViewChild, ViewContainerRef,
-  input, output
+  input, model, output, untracked
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup } from '@angular/forms';
@@ -61,7 +61,8 @@ import { FeedbackKey, FeedbackConfig } from '../../../shared/models/FeedbackConf
     CommonModule,
     ReactiveFormsModule,
     MatCheckboxModule,
-    MatRadioModule
+    MatRadioModule,
+    AnswerComponent
   ],
   templateUrl: './quiz-question.component.html',
   styleUrls: ['./quiz-question.component.scss'],
@@ -73,55 +74,50 @@ export class QuizQuestionComponent extends BaseQuestion
   dynamicAnswerContainer!: ViewContainerRef;
   @ViewChild(SharedOptionComponent, { static: false })
   sharedOptionComponent!: SharedOptionComponent;
-  answer = new EventEmitter<number>();
-  answeredChange = new EventEmitter<boolean>();
-  selectionChanged: EventEmitter<{
+  readonly answer = output<number>();
+  readonly answeredChange = output<boolean>();
+  readonly selectionChanged = output<{
     question: QuizQuestion,
     selectedOptions: Option[]
-  }> = new EventEmitter();
-  questionAnswered = new EventEmitter<QuizQuestion>();
-  isAnswerSelectedChange = new EventEmitter<boolean>();
-  override explanationToDisplayChange = new EventEmitter<string>();
-  showExplanationChange = new EventEmitter<boolean>();
-  selectionMessageChange = new EventEmitter<string>();
-  isAnsweredChange = new EventEmitter<boolean>();
-  feedbackTextChange = new EventEmitter<string>();
+  }>();
+  readonly questionAnswered = output<QuizQuestion>();
+  readonly isAnswerSelectedChange = output<boolean>();
+  readonly showExplanationChange = output<boolean>();
+  readonly selectionMessageChange = output<string>();
+  readonly isAnsweredChange = output<boolean>();
+  readonly feedbackTextChange = output<string>();
   isAnswered = false;
-  answerSelected = new EventEmitter<boolean>();
-  optionSelected = new EventEmitter<SelectedOption>();
-  displayStateChange = new EventEmitter<{
+  readonly answerSelected = output<boolean>();
+  readonly optionSelected = output<SelectedOption>();
+  readonly displayStateChange = output<{
     mode: 'question' | 'explanation',
     answered: boolean
   }>();
-  feedbackApplied = new EventEmitter<number>();
-  nextButtonState = new EventEmitter<boolean>();
-  questionAndOptionsReady = new EventEmitter<void>();
+  readonly feedbackApplied = output<number>();
+  readonly nextButtonState = output<boolean>();
+  readonly questionAndOptionsReady = output<void>();
 
-  @Input() data!: {
+  readonly data = model<{
     questionText: string,
     explanationText?: string,
     correctAnswersText?: string,
     options: Option[]
-  };
-  @Input() questionData!: QuizQuestion;
-  @Input() override question!: QuizQuestion;
-  @Input() options!: Option[];
-  @Input() override optionsToDisplay: Option[] = [];
-  @Input() currentQuestion: QuizQuestion | null = null;
+  }>(undefined as any);
+  readonly questionData = model<QuizQuestion>(undefined as unknown as QuizQuestion);
+  readonly options = model<Option[]>(undefined as unknown as Option[]);
+  readonly currentQuestion = model<QuizQuestion | null>(null);
   readonly currentQuestion$ = input<Observable<QuizQuestion | null>>(of(null));
-  @Input() currentQuestionIndex = 0;
-  @Input() previousQuestionIndex!: number;
-  @Input() quizId: string | null | undefined = '';
-  @Input() explanationText!: string | null;
-  @Input() isOptionSelected = false;
-  @Input() override showFeedback = false;
-  @Input() selectionMessage!: string;
+  readonly currentQuestionIndex = model<number>(0);
+  readonly previousQuestionIndex = model<number>(undefined as unknown as number);
+  readonly quizId = model<string | null | undefined>('');
+  readonly explanationText = model<string | null>(null);
+  readonly isOptionSelected = model<boolean>(false);
+  readonly selectionMessage = model<string>(undefined as unknown as string);
   readonly reset = input<boolean>(false);
-  @Input() override explanationToDisplay = '';
   readonly questionToDisplay$ = input<Observable<string>>(of(''));
   readonly displayState$ = input<Observable<{ mode: 'question' | 'explanation'; answered: boolean }>>(of({ mode: 'question', answered: false }));
   readonly explanation = input<string>('');
-  @Input() shouldRenderOptions = false;
+  readonly shouldRenderOptions = model<boolean>(false);
   quiz!: Quiz | null;
   questions: QuizQuestion[] = [];
   questionsArray: QuizQuestion[] = [];
@@ -142,11 +138,9 @@ export class QuizQuestionComponent extends BaseQuestion
   selectedOptions: SelectedOption[] = [];
   currentOptions: Option[] | undefined;
   correctAnswers: number[] | undefined;
-  override correctMessage = '';
   optionChecked: { [optionId: number]: boolean } = {};
   answers: any[] = [];
   shuffleOptions = true;
-  override optionBindings: OptionBindings[] = [];
   override showFeedbackForOption: { [optionId: number]: boolean } = {};
   resetFeedbackSubscription!: Subscription;
   resetStateSubscription!: Subscription;
@@ -273,41 +267,39 @@ export class QuizQuestionComponent extends BaseQuestion
       cdRef
     );
 
+    effect(() => {
+      const value = this.questionIndex();
+      if (value === undefined || value === null) return;
+      this._abortController?.abort();
+      this._abortController = new AbortController();
+      const signal = this._abortController.signal;
+      this.currentQuestionIndex.set(value);
+      this.loadQuestion(signal);
+    });
+
+    effect(() => {
+      const value = this.questionPayload();
+      if (!value) return;
+      try {
+        this._questionPayload = value;
+        this.questionPayloadSubject.next(value);
+        this.hydrateFromPayload(value);
+      } catch {
+      }
+    });
+
+    // (Removed signal→handleQuestionAndOptionsChange bridge — was interfering
+    // with init flow. The inline <codelab-question-answer> in the template
+    // now drives options directly via signal bindings.)
+
     setTimeout(() => {
       // manual test call purgeAndDefer(99)
       this.explanationTextService.purgeAndDefer(99);
     }, 500);
   }
 
-  @Input() set questionIndex(value: number) {
-    // Cancel any previous request
-    this._abortController?.abort();
-
-    // Create a new AbortController for this load
-    this._abortController = new AbortController();
-    const signal = this._abortController.signal;
-
-    // Save the new index locally if needed
-    this.currentQuestionIndex = value;
-
-    // Call loader with the signal
-    this.loadQuestion(signal);
-  }
-
-  @Input() set questionPayload(value: QuestionPayload | null) {
-    if (!value) return;
-
-    try {
-      this._questionPayload = value;
-      this.questionPayloadSubject.next(value);
-      this.hydrateFromPayload(value);
-    } catch {
-    }
-  }
-
-  get questionPayload(): QuestionPayload | null {
-    return this._questionPayload;
-  }
+  readonly questionIndex = input<number>(undefined as unknown as number);
+  readonly questionPayload = input<QuestionPayload | null>(null);
 
   private resetUIForNewQuestion(): void {
     this.sharedOptionComponent?.resetUIForNewQuestion();
@@ -412,8 +404,8 @@ export class QuizQuestionComponent extends BaseQuestion
   }
 
   public async generateFeedbackText(question: QuizQuestion): Promise<string> {
-    if (!this.optionsToDisplay?.length) this.populateOptionsToDisplay();
-    this.feedbackText = this.feedbackManager.generateFeedbackText(question, this.optionsToDisplay);
+    if (!this.optionsToDisplay()?.length) this.populateOptionsToDisplay();
+    this.feedbackText = this.feedbackManager.generateFeedbackText(question, this.optionsToDisplay());
     this.feedbackTextChange.emit(this.feedbackText); return this.feedbackText;
   }
 

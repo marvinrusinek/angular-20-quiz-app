@@ -975,6 +975,7 @@ export class QqcQuestionLoaderService {
    */
   configureDynamicInstance(params: {
     instance: any;
+    componentRef?: any;
     question: any;
     options: Option[];
     isMultipleAnswer: boolean;
@@ -987,28 +988,41 @@ export class QqcQuestionLoaderService {
     questionData: any;
     sharedOptionConfig: SharedOptionConfig | null;
   } {
-    const { instance, question, options, isMultipleAnswer, currentQuestionIndex } = params;
+    const { instance, componentRef, question, options, isMultipleAnswer, currentQuestionIndex } = params;
 
-    // Set backward nav flag if supported
-    if ((instance as any)?.hasOwnProperty('isNavigatingBackwards')) {
-      (instance as any).isNavigatingBackwards = params.navigatingBackwards ?? false;
-    }
 
     // Configure instance with cloned options and bindings
     const clonedOptions =
       structuredClone?.(options) ?? JSON.parse(JSON.stringify(options));
 
+    const builtBindings = this.buildOptionBindings(clonedOptions, isMultipleAnswer);
+
     try {
-      (instance as any).question = { ...question };
-      instance.optionsToDisplay = clonedOptions;
+      console.log('[loader] configureDynamicInstance', { hasComponentRef: !!componentRef, optionsLen: clonedOptions?.length });
+      if (componentRef?.setInput) {
+        try { componentRef.setInput('question', { ...question }); } catch {}
+        try { componentRef.setInput('optionsToDisplay', clonedOptions); } catch {}
+        try { componentRef.setInput('questionData', { ...question, options: clonedOptions }); } catch {}
+        try { componentRef.setInput('optionBindings', builtBindings); } catch {}
+      }
+      // Also set directly via signal API as a guaranteed write path.
+      try { instance.question.set({ ...question }); } catch {}
+      try { instance.optionsToDisplay.set(clonedOptions); } catch {}
+      try { instance.optionBindings.set(builtBindings); } catch {}
+      try { if (instance.questionData?.set) instance.questionData.set({ ...question, options: clonedOptions }); } catch {}
+      try { componentRef?.changeDetectorRef?.markForCheck(); } catch {}
     } catch (error) {
       console.error('[❌ Assignment failed in loadDynamicComponent]', error, {
         question,
         options: clonedOptions,
       });
+      try {
+        instance.question.set({ ...question });
+        instance.optionsToDisplay.set(clonedOptions);
+        instance.optionBindings.set(builtBindings);
+      } catch {}
     }
 
-    instance.optionBindings = this.buildOptionBindings(clonedOptions, isMultipleAnswer);
     instance.sharedOptionConfig = this.buildSharedOptionConfig({
       question,
       clonedOptions,
@@ -1017,7 +1031,7 @@ export class QqcQuestionLoaderService {
       defaultConfig: params.defaultConfig,
     });
 
-    const questionData = { ...(instance as any).question, options: clonedOptions };
+    const questionData = { ...(instance as any).question(), options: clonedOptions };
     const sharedOptionConfig = instance.sharedOptionConfig;
 
     return { clonedOptions, questionData, sharedOptionConfig };

@@ -314,6 +314,55 @@ export class SharedOptionClickService {
       return;
     }
 
+    // SINGLE-ANSWER: disable incorrect options only when the correct one is clicked
+    if (!isMultiFromQ) {
+      // Resolve correct indices from raw question if cache is empty
+      let correctIdxs = correctIndicesFromQ;
+      if (!correctIdxs || correctIdxs.length === 0) {
+        const rawQ = (this.quizService as any)?.questions?.[qIdx]
+          ?? comp.currentQuestion;
+        const rawOpts = rawQ?.options ?? [];
+        correctIdxs = rawOpts
+          .map((o: any, i: number) => {
+            const c = o?.correct;
+            return (c === true || c === 'true' || c === 1) ? i : -1;
+          })
+          .filter((n: number) => n >= 0);
+      }
+      const correctSet = new Set(correctIdxs);
+      const isClickedCorrect = correctSet.has(index);
+      console.log(`[SOC] SINGLE-MODE check Q${qIdx + 1}: clicked=${index}, correct=[${[...correctSet]}], isCorrect=${isClickedCorrect}`);
+      if (isClickedCorrect) {
+        if (!comp.disabledOptionsPerQuestion.has(qIdx)) {
+          comp.disabledOptionsPerQuestion.set(qIdx, new Set<number>());
+        }
+        const disabledSetRef = comp.disabledOptionsPerQuestion.get(qIdx)!;
+        disabledSetRef.clear();
+        const currentBindings: any[] = Array.isArray(comp.optionBindings)
+          ? comp.optionBindings
+          : (typeof comp.optionBindings === 'function' ? comp.optionBindings() : []);
+        for (let i = 0; i < currentBindings.length; i++) {
+          if (!correctSet.has(i)) disabledSetRef.add(i);
+        }
+        // MUTATE in place so the same object refs held by parent signal update
+        for (let bi = 0; bi < currentBindings.length; bi++) {
+          const b = currentBindings[bi];
+          if (!b) continue;
+          const isCorrectBinding = correctSet.has(bi);
+          b.disabled = !isCorrectBinding;
+          b.isSelected = bi === index;
+          if (b.option) {
+            b.option.selected = bi === index;
+            b.option.highlight = bi === index;
+            b.option.showIcon = bi === index;
+          }
+        }
+        console.log(`[SOC] SINGLE-MODE disabled Q${qIdx + 1}: disabled=[${[...disabledSetRef]}], bindings.disabled=[${currentBindings.map(b => b?.disabled).join(',')}]`);
+        comp.cdRef?.markForCheck?.();
+        comp.cdRef?.detectChanges?.();
+      }
+    }
+
     comp._feedbackDisplay = null;
     if (comp.showFeedback) {
       const clickedBinding = comp.optionBindings[index];

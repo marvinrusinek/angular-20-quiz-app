@@ -9,3 +9,13 @@
     </div>
   }
 </form>
+
+<!-- Inline options renderer (signal-driven, replaces dynamic-only path) -->
+@if (currentQuestion() && optionsToDisplay().length) {
+  <codelab-question-answer
+    [questionData]="currentQuestion()!"
+    [optionsToDisplay]="optionsToDisplay()"
+    [currentQuestionIndex]="currentQuestionIndex()"
+    (optionClicked)="onOptionClicked($any($event))">
+  </codelab-question-answer>
+}

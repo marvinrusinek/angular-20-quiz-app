@@ -911,6 +911,7 @@ export class QuizQuestionLoaderService {
     this.selectionMessageService['_multiAnswerInProgressLock'].delete(index);
     this.selectionMessageService['_multiAnswerCompletionLock'].delete(index);
     this.selectionMessageService['_multiAnswerPreLock']?.delete(index);
+    this.selectedOptionService.unlockAllOptionsForQuestion?.(index);
   }
 
   private seedSelectionBaseline(index: number | null | undefined): void {

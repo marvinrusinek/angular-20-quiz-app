@@ -1,5 +1,5 @@
-import { ChangeDetectorRef, Directive, EventEmitter, Input, OnChanges,
-  OnDestroy, OnInit, Output, SimpleChange, SimpleChanges } from '@angular/core';
+import { ChangeDetectorRef, Directive, input, model, OnChanges,
+  OnDestroy, OnInit, output, SimpleChange, SimpleChanges } from '@angular/core';
 import { FormBuilder, FormControl, FormGroup } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
@@ -27,30 +27,29 @@ export interface OptionClickEvent {
 export abstract class BaseQuestion<T extends OptionClickEvent =
   OptionClickEvent> implements OnInit, OnChanges, OnDestroy
 {
-  @Output() optionClicked = new EventEmitter<T>();
-  @Output() questionChange = new EventEmitter<QuizQuestion>();
-  @Output() explanationToDisplayChange = new EventEmitter<any>();
-  @Output() correctMessageChange = new EventEmitter<string>();
+  readonly optionClicked = output<T>();
+  readonly questionChange = output<QuizQuestion>();
+  readonly explanationToDisplayChange = output<any>();
+  readonly correctMessageChange = output<string>();
 
-  @Input() quizQuestionComponentOnOptionClicked!:
-    (option: SelectedOption, index: number) => void;
-  @Input() question: QuizQuestion | null = null;
-  @Input() optionsToDisplay: Option[] = [];
-  @Input() correctMessage = '';
-  @Input() feedback = '';
-  @Input() showFeedback = false;
-  @Input() shouldResetBackground = false;
-  @Input() type: 'single' | 'multiple' = 'single';
-  @Input() config!: SharedOptionConfig;
+  readonly quizQuestionComponentOnOptionClicked = input<(option: SelectedOption, index: number) => void>(undefined as unknown as (option: SelectedOption, index: number) => void);
+  readonly question = model<QuizQuestion | null>(null);
+  readonly optionsToDisplay = model<Option[]>([]);
+  readonly correctMessage = model<string>('');
+  readonly feedback = input<string>('');
+  readonly showFeedback = model<boolean>(false);
+  readonly shouldResetBackground = input<boolean>(false);
+  readonly type = model<'single' | 'multiple'>('single');
+  readonly config = input<SharedOptionConfig>(undefined as unknown as SharedOptionConfig);
   sharedOptionConfig: SharedOptionConfig | null = null;
   currentQuestionSubscription!: Subscription;
-  explanationToDisplay: string | null = null;
+  readonly explanationToDisplay = model<string | null>(null);
   questionForm!: FormGroup;
   selectedOption: SelectedOption | null = null;
   selectedOptionId: number | null = null;
   selectedOptionIndex: number | null = null;
   showFeedbackForOption: { [optionId: number]: boolean } = {};
-  optionBindings: OptionBindings[] = [];
+  readonly optionBindings = model<OptionBindings[]>([]);
   optionsInitialized = false;
   containerInitialized = false;
 
@@ -95,8 +94,8 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
     }
 
     // Safe to initialize dynamic component after both inputs are handled
-    if (shouldInitializeDynamicComponent && this.question &&
-      this.optionsToDisplay?.length > 0) {
+    if (shouldInitializeDynamicComponent && this.question() &&
+      this.optionsToDisplay()?.length > 0) {
       console.log('[📦 ngOnChanges] Inputs ready, initializing dynamic component.');
       this.initializeDynamicComponentIfNeeded();
     }
@@ -108,7 +107,7 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
 
   private updateSelectedOption(index: number): void {
     this.selectedOptionIndex = index;
-    this.showFeedback = true;
+    this.showFeedback.set(true);
   }
 
   private initializeDynamicComponentIfNeeded(): void {
@@ -119,13 +118,13 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
 
     // Defer load if inputs are not yet ready
     if (
-      !this.question ||
-      !Array.isArray(this.optionsToDisplay) ||
-      this.optionsToDisplay.length === 0
+      !this.question() ||
+      !Array.isArray(this.optionsToDisplay()) ||
+      this.optionsToDisplay().length === 0
     ) {
       console.warn('[🕒 Waiting to initialize dynamic component – data not ready]', {
-        question: this.question,
-        optionsToDisplay: this.optionsToDisplay
+        question: this.question(),
+        optionsToDisplay: this.optionsToDisplay()
       });
 
       setTimeout(() => {
@@ -147,8 +146,8 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
   private updateQuizStateService(): void {
     if (this.quizStateService) {
       try {
-        if (this.question) {
-          this.quizService.setCurrentQuestion(this.question);
+        if (this.question()) {
+          this.quizService.setCurrentQuestion(this.question()!);
         }
       } catch (error: any) {
         console.error('Error updating current question:', error);
@@ -169,35 +168,35 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
       console.warn('[BQC] ⚠️ Could not clear _fetEarlyShown:', err);
     }
 
-    if (this.question && Array.isArray(this.question.options) && this.question.options.length > 0) {
+    if (this.question() && Array.isArray(this.question()!.options) && this.question()!.options.length > 0) {
       this.initializeOptions();
       this.optionsInitialized = true;
-      this.questionChange.emit(this.question);
+      this.questionChange.emit(this.question()!);
     } else {
       console.error(
         '[❌ initializeQuestion] Question input is invalid or missing options:',
-        this.question
+        this.question()
       );
     }
   }
 
   private initializeQuestionIfAvailable(): void {
-    if (this.question && Array.isArray(this.question.options) &&
-      this.question.options.length > 0) {
-      this.setCurrentQuestion(this.question);
+    if (this.question() && Array.isArray(this.question()!.options) &&
+      this.question()!.options.length > 0) {
+      this.setCurrentQuestion(this.question()!);
       this.initializeQuestion();
     } else {
       console.warn(
         '[⚠️ initializeQuestionIfAvailable] Question or options not ready:',
-        this.question
+        this.question()
       );
     }
   }
 
   protected initializeOptions(): void {
-    if (!this.question?.options?.length) {
+    if (!this.question()?.options?.length) {
       console.error('initializeOptions - Invalid question or options', {
-        question: this.question
+        question: this.question()
       });
       return;
     }
@@ -205,7 +204,7 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
     // Only initialize form if not yet created
     if (!this.questionForm) {
       this.questionForm = new FormGroup({});
-      for (const option of this.question.options) {
+      for (const option of this.question()!.options) {
         const controlName = `option_${option.optionId}`;  // stable and unique
         if (!this.questionForm.contains(controlName)) {
           this.questionForm.addControl(controlName, new FormControl(false));
@@ -215,32 +214,32 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
 
     // Don't overwrite optionsToDisplay if it's already populated from @Input()
     // The parent passes the correct shuffled options via [optionsToDisplay] binding.
-    // Overwriting with this.question.options could use unshuffled data from a different source.
-    if (!this.optionsToDisplay || this.optionsToDisplay.length === 0) {
-      this.optionsToDisplay = [...this.question.options];
+    // Overwriting with this.question().options could use unshuffled data from a different source.
+    if (!this.optionsToDisplay() || this.optionsToDisplay().length === 0) {
+      this.optionsToDisplay.set([...this.question()!.options]);
       console.log(
         '[✅ optionsToDisplay initialized from question.options]',
-        this.optionsToDisplay.length
+        this.optionsToDisplay().length
       );
     } else {
       console.log(
         '[🔒 optionsToDisplay preserved from Input - NOT overwriting]',
-        this.optionsToDisplay.length
+        this.optionsToDisplay().length
       );
     }
   }
 
   public async initializeSharedOptionConfig(options?: Option[]): Promise<void> {
     if (
-      !this.question ||
-      !Array.isArray(this.question.options) ||
-      this.question.options.length === 0
+      !this.question() ||
+      !Array.isArray(this.question()!.options) ||
+      this.question()!.options.length === 0
     ) {
-      console.warn('[❌ ISOC] Invalid or missing question/options:', this.question);
+      console.warn('[❌ ISOC] Invalid or missing question/options:', this.question());
       return;
     }
 
-    const clonedOptions = (options ?? this.question.options ?? []).map((opt, idx) => ({
+    const clonedOptions = (options ?? this.question()!.options ?? []).map((opt, idx) => ({
       ...opt,
       optionId: opt.optionId ?? idx,
       correct: opt.correct ?? false,
@@ -249,18 +248,18 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
 
     this.sharedOptionConfig = {
       ...this.getDefaultSharedOptionConfig(),
-      type: this.type, // FIX: Use the actual type (which might be 'multiple') to configure Option behavior
+      type: this.type(), // FIX: Use the actual type (which might be 'multiple') to configure Option behavior
       optionsToDisplay: clonedOptions,
-      currentQuestion: { ...this.question },
-      shouldResetBackground: this.shouldResetBackground || false,
+      currentQuestion: { ...this.question()! } as QuizQuestion,
+      shouldResetBackground: this.shouldResetBackground() || false,
       selectedOption: this.selectedOption || null,
       showFeedbackForOption: { ...this.showFeedbackForOption },
-      showFeedback: this.showFeedback || false,
-      correctMessage: this.correctMessage || '',
+      showFeedback: this.showFeedback() || false,
+      correctMessage: this.correctMessage() || '',
       isOptionSelected: false,
       selectedOptionIndex: -1,
       isAnswerCorrect: false,
-      feedback: this.feedback || '',
+      feedback: this.feedback() || '',
       highlightCorrectAfterIncorrect: false
     };
   }
@@ -326,7 +325,7 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
       )
       .subscribe({
         next: (quizQuestion: QuizQuestion) => {
-          this.question = quizQuestion;
+          this.question.set(quizQuestion);
           this.initializeOptions();
         },
         error: (err: Error) => {
@@ -363,12 +362,12 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
 
     try {
       // Always show feedback when an option is clicked
-      this.showFeedback = true;
+      this.showFeedback.set(true);
 
       // For single-selection type questions
-      if (this.type === 'single') {
+      if (this.type() === 'single') {
         // Deselect all other options
-        for (const opt of this.optionsToDisplay) {
+        for (const opt of this.optionsToDisplay()) {
           opt.selected = opt === option;
           if (opt.optionId) {
             this.showFeedbackForOption[opt.optionId] = false;
@@ -404,8 +403,8 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
   }
 
   updateCorrectMessageForQuestion(): void {
-    this.correctMessage = this.feedbackService.setCorrectMessage(this.optionsToDisplay);
-    this.correctMessageChange.emit(this.correctMessage);
+    this.correctMessage.set(this.feedbackService.setCorrectMessage(this.optionsToDisplay()));
+    this.correctMessageChange.emit(this.correctMessage());
     this.cdRef.detectChanges();
   }
 
@@ -420,27 +419,27 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
 
   private handleQuestionChange(change: SimpleChange): void {
     if (change.currentValue) {
-      this.question = change.currentValue;
+      this.question.set(change.currentValue);
 
       // Sync internal type with question type to enable multi-select logic
-      if (this.question?.type === QuestionType.MultipleAnswer) {
-        this.type = 'multiple';
+      if (this.question()?.type === QuestionType.MultipleAnswer) {
+        this.type.set('multiple');
       } else {
-        this.type = 'single';
+        this.type.set('single');
       }
 
       this.updateQuizStateService();
 
       if (
-        this.question &&
-        Array.isArray(this.question.options) &&
-        this.question.options.length > 0
+        this.question() &&
+        Array.isArray(this.question()!.options) &&
+        this.question()!.options.length > 0
       ) {
         this.initializeQuestion();
         this.optionsInitialized = true;
       } else {
         console.warn('[⚠️ handleQuestionChange] Options not loaded yet: ',
-          this.question);
+          this.question());
       }
     } else {
       console.warn('[⚠️ handleQuestionChange] Received null or undefined question:',
@@ -451,7 +450,7 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
   private handleOptionsToDisplayChange(change: SimpleChange): void {
     if (change.currentValue) {
       console.log('New options value:', change.currentValue);
-      this.optionsToDisplay = change.currentValue;
+      this.optionsToDisplay.set(change.currentValue);
     } else {
       console.warn('Received null or undefined options');
     }

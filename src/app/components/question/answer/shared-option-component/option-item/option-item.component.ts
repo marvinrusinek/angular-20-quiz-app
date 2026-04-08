@@ -15,6 +15,7 @@ import { OptionService } from '../../../../../shared/services/options/view/optio
 import { SharedOptionConfig } from '../../../../../shared/models/SharedOptionConfig.model';
 import { QuizService } from '../../../../../shared/services/data/quiz.service';
 import { SelectedOptionService } from '../../../../../shared/services/state/selectedoption.service';
+import { SelectionMessageService } from '../../../../../shared/services/features/selection-message/selection-message.service';
 
 export type OptionUIEventKind = 'change' | 'interaction' | 'contentClick';
 
@@ -64,7 +65,8 @@ export class OptionItemComponent implements OnChanges {
   constructor(
     private optionService: OptionService,
     private quizService: QuizService,
-    private selectedOptionService: SelectedOptionService
+    private selectedOptionService: SelectedOptionService,
+    private selectionMessageService: SelectionMessageService
   ) { }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -154,7 +156,27 @@ export class OptionItemComponent implements OnChanges {
   }
 
   isDisabled(): boolean {
-    return this.b.disabled;
+    if (this.b?.disabled) return true;
+    try {
+      const qIdx = Number(this.currentQuestionIndex() ?? -1);
+      const id = this.optionId;
+      if (Number.isFinite(qIdx) && qIdx >= 0 && Number.isFinite(id)) {
+        if (this.selectedOptionService.isOptionLocked(qIdx, id)) {
+          return true;
+        }
+      }
+
+      // SINGLE-ANSWER auto-lock via shared correct-lock set: when the user
+      // has clicked the correct option, the orchestrator adds this index to
+      // _singleAnswerCorrectLock. Disable any non-correct binding.
+      if (this.selectionMessageService._singleAnswerCorrectLock?.has(qIdx)) {
+        const myCorrect = this.b?.option?.correct === true ||
+          String(this.b?.option?.correct) === 'true';
+        if (!myCorrect) return true;
+      }
+
+    } catch {}
+    return false;
   }
 
   shouldShowIcon(option?: any, i?: number): boolean {
@@ -250,8 +272,9 @@ export class OptionItemComponent implements OnChanges {
       return this.isOptionIndividuallySelected() || !!this.b.option?.highlight ||
         this._wasSelected;
     }
-    // Single-answer: isSelected (current) + option.highlight (history from click handler)
-    return this.b.isSelected || !!this.b.option?.highlight;
+    // Single-answer: current selection + sticky history (previously clicked,
+    // incorrect options stay highlighted red across subsequent clicks)
+    return this.b.isSelected || !!this.b.option?.highlight || this._wasSelected;
   }
 
   private isOptionIndividuallySelected(): boolean {

@@ -394,7 +394,21 @@ export class ExplanationFormatterService {
     options?: Option[],
     displayIndex?: number
   ): number[] {
-    const opts = options || question?.options || [];
+    // Prefer the raw, untouched questions array as source of truth — upstream
+    // services may OR-merge stale correct flags into the in-memory question.
+    let opts = options || question?.options || [];
+    try {
+      const quizSvc = this.injector.get(QuizService, null);
+      const idx = Number.isFinite(displayIndex)
+        ? (displayIndex as number)
+        : (typeof quizSvc?.getCurrentQuestionIndex === 'function'
+          ? quizSvc.getCurrentQuestionIndex()
+          : -1);
+      const rawOpts = (quizSvc as any)?.questions?.[idx]?.options;
+      if (Array.isArray(rawOpts) && rawOpts.length) {
+        opts = rawOpts;
+      }
+    } catch {}
 
     const normalizeLocal = (s: any) => {
       if (typeof s !== 'string') return '';
@@ -448,7 +462,7 @@ export class ExplanationFormatterService {
 
     // Attempt 0: Trust the internal correct flags FIRST — they are the most
     // reliable signal and should take priority over text-matching heuristics.
-    const internalCorrectIndices = (question?.options || [])
+    const internalCorrectIndices = opts
       .map((opt, i) => (opt.correct === true || (opt as any).correct === 'true' ? i + 1 : null))
       .filter((n): n is number => n !== null);
 
