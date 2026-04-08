@@ -1,7 +1,7 @@
 import {
-  AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, DoCheck,
-  EventEmitter, HostListener, Input, OnChanges, OnDestroy, OnInit, Output,
-  SimpleChanges, input, output } from '@angular/core';
+  AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, DoCheck, effect,
+  HostListener, input, OnChanges, OnDestroy, OnInit, output, SimpleChanges
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule, MatCheckboxChange } from '@angular/material/checkbox';
@@ -70,25 +70,37 @@ export class SharedOptionComponent
   readonly renderReadyChange = output<boolean>();
   readonly showExplanationChange = output<boolean>();
   readonly explanationToDisplayChange = output<string>();
-  @Input() currentQuestion: QuizQuestion | null = null;
-  @Input() currentQuestionIndex!: number;
+  // Signal inputs (parent-bound). Internal mutable backing fields with the same
+  // logical names are kept below, since multiple services write to them via
+  // `host as any`. Effects in the constructor mirror input → backing field.
+  readonly currentQuestionInput = input<QuizQuestion | null>(null);
+  readonly currentQuestionIndexInput = input<number>(undefined as unknown as number);
   readonly questionIndex = input<number | null>(null);
-  @Input() optionsToDisplay!: Option[];
+  readonly optionsToDisplayInput = input<Option[]>(undefined as unknown as Option[]);
   readonly quizId = input<string>(undefined as unknown as string);
-  @Input() type: 'single' | 'multiple' = 'single';
+  readonly typeInput = input<'single' | 'multiple'>('single');
   readonly config = input<SharedOptionConfig>(undefined as unknown as SharedOptionConfig);
-  @Input() selectedOption: Option | null = null;
-  @Input() showFeedbackForOption!: { [key: string | number]: boolean };
-  @Input() correctMessage = '';
-  @Input() showFeedback = false;
-  @Input() shouldResetBackground = false;
   readonly highlightCorrectAfterIncorrect = input<boolean>(false);
   readonly quizQuestionComponentOnOptionClicked = input<(option: SelectedOption, index: number) => void>(undefined as unknown as (option: SelectedOption, index: number) => void);
-  @Input() optionBindings: OptionBindings[] = [];
+  readonly optionBindingsInput = input<OptionBindings[]>([]);
   readonly selectedOptionId = input<number | null>(null);
-  @Input() selectedOptionIndex: number | null = null;
-  @Input() isNavigatingBackwards = false;
-  @Input() renderReady = false;
+  readonly isNavigatingBackwardsInput = input<boolean>(false);
+  readonly renderReadyInput = input<boolean>(false);
+
+  // Mutable backing fields (mirrored from inputs and freely written by services)
+  public currentQuestion: QuizQuestion | null = null;
+  public currentQuestionIndex!: number;
+  public optionsToDisplay!: Option[];
+  public type: 'single' | 'multiple' = 'single';
+  public selectedOption: Option | null = null;
+  public showFeedbackForOption!: { [key: string | number]: boolean };
+  public correctMessage = '';
+  public showFeedback = false;
+  public shouldResetBackground = false;
+  public optionBindings: OptionBindings[] = [];
+  public selectedOptionIndex: number | null = null;
+  public isNavigatingBackwards = false;
+  public renderReady = false;
   readonly finalRenderReady$ = input<Observable<boolean> | null>(null);
   readonly questionVersion = input<number>(0);  // increments every time questionIndex changes
   readonly sharedOptionConfig = input<SharedOptionConfig>(undefined as unknown as SharedOptionConfig);
@@ -194,6 +206,36 @@ export class SharedOptionComponent
     this.ui = this.sharedOptionStateAdapterService.createInitialUiState();
     this.form = this.fb.group({
       selectedOptionId: [null, Validators.required]
+    });
+
+    // Mirror signal inputs into mutable backing fields. Services elsewhere
+    // freely reassign these fields via `host as any`, so we cannot expose
+    // the readonly signals directly under those names.
+    effect(() => {
+      const v = this.currentQuestionInput();
+      if (v !== undefined) this.currentQuestion = v;
+    });
+    effect(() => {
+      const v = this.currentQuestionIndexInput();
+      if (v !== undefined) this.currentQuestionIndex = v;
+    });
+    effect(() => {
+      const v = this.optionsToDisplayInput();
+      if (v !== undefined) this.optionsToDisplay = v;
+    });
+    effect(() => {
+      const v = this.typeInput();
+      if (v !== undefined) this.type = v;
+    });
+    effect(() => {
+      const v = this.optionBindingsInput();
+      if (v !== undefined) this.optionBindings = v;
+    });
+    effect(() => {
+      this.isNavigatingBackwards = this.isNavigatingBackwardsInput();
+    });
+    effect(() => {
+      this.renderReady = this.renderReadyInput();
     });
   }
 

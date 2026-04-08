@@ -1,15 +1,15 @@
 @if (optionsToDisplay().length) {
   <app-shared-option
-    [optionsToDisplay]="optionsToDisplay()"
-    [optionBindings]="optionBindings()"
+    [optionsToDisplayInput]="optionsToDisplay()"
+    [optionBindingsInput]="optionBindings()"
     [questionIndex]="currentQuestionIndex()"
-    [currentQuestionIndex]="currentQuestionIndex()"
-    [currentQuestion]="questionData()"
+    [currentQuestionIndexInput]="currentQuestionIndex()"
+    [currentQuestionInput]="questionData()"
     [quizId]="quizId()"
-    [renderReady]="renderReady"
+    [renderReadyInput]="renderReady"
     [config]="sharedOptionConfig"
-    [isNavigatingBackwards]="isNavigatingBackwards()"
-    [type]="type()"
+    [isNavigatingBackwardsInput]="isNavigatingBackwards()"
+    [typeInput]="type()"
     (optionClicked)="onOptionClicked($event)">
   </app-shared-option>
 }
