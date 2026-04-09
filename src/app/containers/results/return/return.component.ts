@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
@@ -18,9 +18,9 @@ import { TimerService } from '../../../shared/services/features/timer/timer.serv
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ReturnComponent implements OnInit {
-  quizId = '';
-  indexOfQuizId = 0;
-  codelabUrl = 'https://www.codelab.fun';
+  readonly quizId = signal<string>('');
+  readonly indexOfQuizId = signal<number>(0);
+  readonly codelabUrl = 'https://www.codelab.fun';
 
   constructor(
     private quizService: QuizService,
@@ -31,15 +31,15 @@ export class ReturnComponent implements OnInit {
   ) { }
 
   ngOnInit(): void {
-    this.quizId = this.quizService.quizId;
+    this.quizId.set(this.quizService.quizId);
   }
 
   restartQuiz(): void {
-    if (!this.quizId) {
-      this.quizId = this.quizService.quizId;
+    if (!this.quizId()) {
+      this.quizId.set(this.quizService.quizId);
     }
 
-    // CRITICAL: Reset score FIRST before anything else
+    // Reset score FIRST before anything else
     this.quizService.resetScore();
     localStorage.removeItem('correctAnswersCount');
     localStorage.removeItem('questionCorrectness');
@@ -47,9 +47,11 @@ export class ReturnComponent implements OnInit {
     // Clear “results snapshot”
     this.quizService.clearFinalResult();
 
+    const id = this.quizId();
+
     // Clear session state (answered, selections, resume index, completion flags)
-    if (this.quizId) {
-      this.quizService.resetQuizSessionForNewRun(this.quizId);
+    if (id) {
+      this.quizService.resetQuizSessionForNewRun(id);
       this.selectedOptionService.clearState();
     }
 
@@ -59,14 +61,12 @@ export class ReturnComponent implements OnInit {
 
     this.timerService.clearTimerState();
 
-    if (this.quizId) {
-      void this.router.navigate(['/quiz/question', this.quizId, 1]);
+    if (id) {
+      void this.router.navigate(['/quiz/question', id, 1]);
     }
   }
 
   selectQuiz(): void {
-    const id = this.quizId;
-
     this.selectedOptionService.clearState();
 
     this.quizService.resetAll();
@@ -74,8 +74,8 @@ export class ReturnComponent implements OnInit {
     this.explanationTextService.resetExplanationState();
     this.timerService.clearTimerState();
 
-    this.quizId = '';
-    this.indexOfQuizId = 0;
+    this.quizId.set('');
+    this.indexOfQuizId.set(0);
     this.router.navigate(['/select/']);
   }
 }
