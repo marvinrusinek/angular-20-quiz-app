@@ -1,23 +1,18 @@
 import {
-  AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ComponentRef, effect, EventEmitter, HostListener,
-  Input, NgZone, OnChanges, OnDestroy, OnInit, Output, SimpleChange, SimpleChanges, ViewChild, ViewContainerRef,
-  input, model, output, untracked
-} from '@angular/core';
+  AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, effect,
+  HostListener, input, model, NgZone, OnChanges, OnDestroy, OnInit, output,
+  SimpleChange, SimpleChanges, ViewChild, ViewContainerRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { BehaviorSubject, firstValueFrom, Observable, of, Subject, Subscription } from 'rxjs';
-import { debounceTime, filter, take } from 'rxjs/operators';
+import { BehaviorSubject, Observable, of, Subject, Subscription } from 'rxjs';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatRadioModule } from '@angular/material/radio';
 import { AnswerComponent } from '../answer/answer-component/answer.component';
 
-import { QuestionType } from '../../../shared/models/question-type.enum';
-import { Utils } from '../../../shared/utils/utils';
 import { Option } from '../../../shared/models/Option.model';
 import { OptionBindings } from '../../../shared/models/OptionBindings.model';
 import { QuestionPayload } from '../../../shared/models/QuestionPayload.model';
-import { QuestionState } from '../../../shared/models/QuestionState.model';
 import { Quiz } from '../../../shared/models/Quiz.model';
 import { QuizQuestion } from '../../../shared/models/QuizQuestion.model';
 import { SelectedOption } from '../../../shared/models/SelectedOption.model';
@@ -123,10 +118,8 @@ export class QuizQuestionComponent extends BaseQuestion
   questionsArray: QuizQuestion[] = [];
   questionsObservableSubscription!: Subscription;
   override questionForm: FormGroup = new FormGroup({});
-  questionToDisplay = '';
   private _questionPayload: QuestionPayload | null = null;
   totalQuestions!: number;
-  private lastProcessedQuestionIndex: number | null = null;
   fixedQuestionIndex = 0;
   lastLoggedIndex = -1;
   private lastLoggedQuestionIndex = -1;
