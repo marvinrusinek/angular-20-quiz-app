@@ -167,6 +167,20 @@ export class OptionItemComponent implements OnChanges {
   }
 
   isDisabled(): boolean {
+    // In single-answer mode, correct options must stay clickable until the
+    // correct answer has been selected (so user can recover from a wrong pick).
+    const optCorrectFlag = this.b?.option?.correct ?? (this.b?.option as any)?.isCorrect;
+    const thisIsCorrect = optCorrectFlag === true || String(optCorrectFlag) === 'true' || optCorrectFlag === 1 || optCorrectFlag === '1';
+
+    if (this.type() === 'single' && thisIsCorrect) {
+      // Only disable this correct option if a correct answer was already selected
+      const qIdx = this.currentQuestionIndex() ?? this.quizService.currentQuestionIndex;
+      const clickConfirmed = this.selectedOptionService.clickConfirmedDotStatus.get(qIdx);
+      if (clickConfirmed !== 'correct') {
+        return false;
+      }
+    }
+
     if (this.b?.disabled === true) return true;
 
     // SINGLE-ANSWER GUARD: if any sibling selection for the current question

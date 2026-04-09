@@ -562,7 +562,6 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
       // Single-answer questions only allow one selection — once any option
       // is clicked, disable all other options so they grey out.
       const disableOthers = isSingle && enrichedOption.selected === true;
-      console.log(`[AC click DIAG] isSingle=${isSingle} disableOthers=${disableOthers} type()=${this.type()} bindingsLen=${currentBindings.length}`);
       const updated = currentBindings.map((b, i) => {
         const bId = getEffectiveId(b.option, i);
         const matches = bId === targetKey;
@@ -584,7 +583,9 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
           } as OptionBindings;
         }
         if (isSingle) {
-          // Deselect all others in single mode; grey them if a correct answer was just selected.
+          // Deselect all others in single mode; grey them if an option was selected.
+          // Keep correct options enabled so the user can still click the right answer.
+          const isThisOptCorrect = b.option?.correct === true || String(b.option?.correct) === 'true';
           const newOpt = { ...b.option, selected: false, highlight: false, showIcon: false };
           return {
             ...b,
@@ -592,13 +593,23 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
             isSelected: false,
             highlight: false,
             checked: false,
-            disabled: disableOthers ? true : b.disabled
+            disabled: (disableOthers && !isThisOptCorrect) ? true : b.disabled
           } as OptionBindings;
         }
         return b;
       });
       this.optionBindings.set(updated);
       this.cdRef.markForCheck();
+    }
+
+    // SET DOT STATUS EARLY — before emitting, so updateDotStatus sees the correct value
+    if (enrichedOption.selected === true && activeQuestionIndex != null) {
+      const dotStatus = enrichedOption.correct ? 'correct' : 'wrong';
+      this.selectedOptionService.clickConfirmedDotStatus.set(activeQuestionIndex, dotStatus);
+      this.selectedOptionService.lastClickedCorrectByQuestion.set(activeQuestionIndex, !!enrichedOption.correct);
+      try {
+        sessionStorage.setItem('dot_confirmed_' + activeQuestionIndex, dotStatus);
+      } catch {}
     }
 
     // FORWARD CLEAN PAYLOAD UPWARD

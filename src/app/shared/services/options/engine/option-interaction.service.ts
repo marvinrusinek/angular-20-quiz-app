@@ -87,8 +87,24 @@ export class OptionInteractionService {
 
     console.log(`[OIS.handleOptionClick] Q${qIdx + 1} Index=${index} TargetKey=${targetKey} isCurrentlySelected=${binding.isSelected}`);
 
-    // Guard: disabled
-    if (binding.disabled) return;
+    // Guard: disabled — but allow correct options in single-answer mode
+    // so the user can still click the correct answer after a wrong pick.
+    if (binding.disabled) {
+      const isSingle = state.type === 'single' || !(state as any).isMultiMode;
+      if (!(isSingle && isCorrectHelper(binding.option))) {
+        return;
+      }
+    }
+
+    // SET DOT STATUS EARLY — before any subscription-triggering code runs,
+    // so updateDotStatus sees the correct confirmed status immediately.
+    const clickedIsCorrectEarly = isCorrectHelper(binding.option);
+    const dotStatusEarly = clickedIsCorrectEarly ? 'correct' : 'wrong';
+    this.selectedOptionService.clickConfirmedDotStatus.set(qIdx, dotStatusEarly);
+    this.selectedOptionService.lastClickedCorrectByQuestion.set(qIdx, clickedIsCorrectEarly);
+    try {
+      sessionStorage.setItem('dot_confirmed_' + qIdx, dotStatusEarly);
+    } catch {}
 
     const bindingsForScore = state.optionBindings ?? [];
     const correctCountInBindings = bindingsForScore.filter(b => isCorrectHelper(b.option)).length;

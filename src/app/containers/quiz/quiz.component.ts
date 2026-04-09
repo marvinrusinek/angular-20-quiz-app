@@ -390,8 +390,18 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
 
   updateDotStatus(index: number): void {
     this.dotStatusService.timerExpiredUnanswered.delete(index);
-    const status = this.getQuestionStatus(index, { forceRecompute: true });
+    let status = this.getQuestionStatus(index, { forceRecompute: true });
+
+    // Override with confirmed click status when it's more authoritative
+    const confirmed = this.selectedOptionService.clickConfirmedDotStatus.get(index);
+    if (confirmed === 'correct' || confirmed === 'wrong') {
+      if (status === 'pending' || (status === 'wrong' && confirmed === 'correct')) {
+        status = confirmed;
+      }
+    }
+
     this.dotStatusService.dotStatusCache.set(index, status);
+
     this.cdRef.detectChanges();
     this.cdRef.markForCheck();
   }

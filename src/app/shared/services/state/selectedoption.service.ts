@@ -73,6 +73,32 @@ export class SelectedOptionService {
       if (this._refreshBackup.size > 0) {
         this.scheduleBackupClear();
       }
+
+      // Detect if this is a page refresh (F5) vs fresh navigation
+      const navEntries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
+      const isPageRefresh = navEntries.length > 0 && navEntries[0].type === 'reload';
+
+      if (isPageRefresh) {
+        // Restore clickConfirmedDotStatus from sessionStorage dot_confirmed_* entries
+        for (let i = 0; i < 100; i++) {
+          const val = sessionStorage.getItem('dot_confirmed_' + i);
+          if (val === 'correct' || val === 'wrong') {
+            this.clickConfirmedDotStatus.set(i, val);
+          }
+        }
+      } else {
+        // Fresh navigation — clear all stale dot/selection data from sessionStorage
+        for (let i = 0; i < 100; i++) {
+          sessionStorage.removeItem('dot_confirmed_' + i);
+        }
+        sessionStorage.removeItem('rawSelectionsMap');
+        sessionStorage.removeItem('selectedOptionsMap');
+        sessionStorage.removeItem('selectionHistory');
+        this._refreshBackup.clear();
+        this.selectedOptionsMap.clear();
+        this.rawSelectionsMap.clear();
+      }
+
     } catch (err) {
       console.warn('[SelectedOptionService] Failed to load state from sessionStorage', err);
     }

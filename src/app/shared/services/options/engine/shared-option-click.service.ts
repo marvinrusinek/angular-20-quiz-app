@@ -92,13 +92,21 @@ export class SharedOptionClickService {
       }
 
       const target = event?.target as HTMLElement;
-      if (
+      const isInsideMaterialControl =
         target?.tagName === 'INPUT' ||
         target?.closest('.mat-mdc-radio-button') ||
-        target?.closest('.mat-mdc-checkbox')
-      ) {
-        console.log(`[SOC.onOptionUI] ⏭️ Skipping '${ev.kind}' on input for Q${comp.getActiveQuestionIndex() + 1} option ${index} (Delegating to 'change')`);
-        return;
+        target?.closest('.mat-mdc-checkbox');
+
+      if (isInsideMaterialControl) {
+        // If the option is disabled but is a correct single-answer option,
+        // process it here — mat-radio won't fire 'change' when disabled.
+        const isCorrectOpt = binding?.option?.correct === true || String(binding?.option?.correct) === 'true';
+        const isSingleMode = comp.type === 'single' && !comp.isMultiMode;
+        if (!(isSingleMode && isCorrectOpt && binding.disabled)) {
+          console.log(`[SOC.onOptionUI] ⏭️ Skipping '${ev.kind}' on input for Q${comp.getActiveQuestionIndex() + 1} option ${index} (Delegating to 'change')`);
+          return;
+        }
+        // Fall through to process the click directly for disabled correct options
       }
 
       if (isRapidDuplicate) {

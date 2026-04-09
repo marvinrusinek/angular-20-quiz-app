@@ -137,13 +137,11 @@ export class QqcOptionClickOrchestratorService {
     const clickedOptData = question?.options?.[evtIdx];
     const clickedIsCorrect = clickedOptData?.correct === true || String(clickedOptData?.correct) === 'true';
 
+    const dotStatus = clickedIsCorrect ? 'correct' : 'wrong';
     this.selectedOptionService.lastClickedCorrectByQuestion.set(questionIndex, clickedIsCorrect);
-    this.selectedOptionService.clickConfirmedDotStatus.set(
-      questionIndex,
-      clickedIsCorrect ? 'correct' : 'wrong'
-    );
+    this.selectedOptionService.clickConfirmedDotStatus.set(questionIndex, dotStatus);
     try {
-      sessionStorage.setItem('dot_confirmed_' + questionIndex, clickedIsCorrect ? 'correct' : 'wrong');
+      sessionStorage.setItem('dot_confirmed_' + questionIndex, dotStatus);
     } catch {}
 
     return clickedIsCorrect;

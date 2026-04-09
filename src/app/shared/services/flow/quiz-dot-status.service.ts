@@ -501,7 +501,8 @@ export class QuizDotStatusService {
 
     const hasSelectionsInSelectedOptionService =
       (this.selectedOptionService?.selectedOptionsMap?.size ?? 0) > 0
-      || this.selectedOptionService?.hasRefreshBackup;
+      || this.selectedOptionService?.hasRefreshBackup
+      || (this.selectedOptionService?.clickConfirmedDotStatus?.size ?? 0) > 0;
     const hasSelectionsInQuizService =
       (this.quizService?.selectedOptionsMap?.size ?? 0) > 0;
     const hasScoredQuestions =
@@ -577,6 +578,17 @@ export class QuizDotStatusService {
       questionsArray, dotStatusCache, pendingDotStatusOverrides, activeDotClickStatus,
     } = params;
 
+    // On refresh, restore dot color from clickConfirmedDotStatus (backed by sessionStorage)
+    const confirmedForIndex = this.selectedOptionService.clickConfirmedDotStatus.get(index);
+    if (
+      (confirmedForIndex === 'correct' || confirmedForIndex === 'wrong') &&
+      !pendingDotStatusOverrides.has(index) &&
+      !activeDotClickStatus.has(index)
+    ) {
+      dotStatusCache.set(index, confirmedForIndex);
+      return confirmedForIndex;
+    }
+
     if (this.isQuizFreshAtQuestionOne(currentQuestionIndex)) {
       dotStatusCache.set(index, 'pending');
       return 'pending';
@@ -637,6 +649,25 @@ export class QuizDotStatusService {
         dotStatusCache.set(index, localStatus);
         return localStatus;
       }
+
+      // Fallback: check clickConfirmedDotStatus (restored from sessionStorage on refresh)
+      const confirmedStatus = this.selectedOptionService.clickConfirmedDotStatus.get(index);
+      if (confirmedStatus === 'correct' || confirmedStatus === 'wrong') {
+        dotStatusCache.set(index, confirmedStatus);
+        this.persistence.setPersistedDotStatus(quizId, index, confirmedStatus);
+        return confirmedStatus;
+      }
+
+      // Last resort: check sessionStorage directly
+      try {
+        const sessionVal = sessionStorage.getItem('dot_confirmed_' + index);
+        if (sessionVal === 'correct' || sessionVal === 'wrong') {
+          dotStatusCache.set(index, sessionVal);
+          this.persistence.setPersistedDotStatus(quizId, index, sessionVal);
+          return sessionVal;
+        }
+      } catch {}
+
       dotStatusCache.set(index, 'pending');
       return 'pending';
     }
@@ -701,6 +732,13 @@ export class QuizDotStatusService {
       evaluatedStatus !== true &&
       !hasAuthoritativeCorrectState
     ) {
+      // Don't return 'wrong' if the most recent click was correct
+      const clickConfirmedHere = this.selectedOptionService.clickConfirmedDotStatus.get(index);
+      if (clickConfirmedHere === 'correct') {
+        this.persistence.setPersistedDotStatus(quizId, index, 'correct');
+        dotStatusCache.set(index, 'correct');
+        return 'correct';
+      }
       dotStatusCache.set(index, 'wrong');
       return 'wrong';
     }
@@ -728,6 +766,21 @@ export class QuizDotStatusService {
       evaluatedStatus === false &&
       (questionHasLiveSessionState || selections.length > 0)
     ) {
+      // The most recent click may be correct even though evaluateSelectionCorrectness
+      // returns false (stale wrong selections still in the array).
+      // Trust the per-click confirmed status over the aggregate evaluation.
+      const clickConfirmed = this.selectedOptionService.clickConfirmedDotStatus.get(index);
+      if (clickConfirmed === 'correct') {
+        this.persistence.setPersistedDotStatus(quizId, index, 'correct');
+        dotStatusCache.set(index, 'correct');
+        return 'correct';
+      }
+      const lastClickedCorrect = this.selectedOptionService.lastClickedCorrectByQuestion.get(index);
+      if (lastClickedCorrect === true) {
+        this.persistence.setPersistedDotStatus(quizId, index, 'correct');
+        dotStatusCache.set(index, 'correct');
+        return 'correct';
+      }
       this.persistence.setPersistedDotStatus(quizId, index, 'wrong');
       dotStatusCache.set(index, 'wrong');
       return 'wrong';
@@ -770,6 +823,11 @@ export class QuizDotStatusService {
         dotStatusCache.set(index, localStatus);
         return localStatus;
       }
+      const confirmed2 = this.selectedOptionService.clickConfirmedDotStatus.get(index);
+      if (confirmed2 === 'correct' || confirmed2 === 'wrong') {
+        dotStatusCache.set(index, confirmed2);
+        return confirmed2;
+      }
       dotStatusCache.set(index, 'pending');
       return 'pending';
     }
@@ -785,6 +843,20 @@ export class QuizDotStatusService {
       dotStatusCache.set(index, status);
       return status;
     }
+
+    // Final fallback: check clickConfirmedDotStatus / sessionStorage
+    const finalConfirmed = this.selectedOptionService.clickConfirmedDotStatus.get(index);
+    if (finalConfirmed === 'correct' || finalConfirmed === 'wrong') {
+      dotStatusCache.set(index, finalConfirmed);
+      return finalConfirmed;
+    }
+    try {
+      const sessionVal = sessionStorage.getItem('dot_confirmed_' + index);
+      if (sessionVal === 'correct' || sessionVal === 'wrong') {
+        dotStatusCache.set(index, sessionVal);
+        return sessionVal;
+      }
+    } catch {}
 
     return 'pending';
   }
@@ -827,6 +899,11 @@ export class QuizDotStatusService {
       }
 
       if (!this.quizStateService.hasUserInteracted(index)) {
+        // On refresh, interaction state is lost — check clickConfirmedDotStatus (from sessionStorage)
+        const confirmedStatus = this.selectedOptionService.clickConfirmedDotStatus.get(index);
+        if (confirmedStatus === 'correct' || confirmedStatus === 'wrong') {
+          return `${confirmedStatus} current`;
+        }
         if (timerExpiredUnanswered.has(index)) {
           return 'pending';
         }
@@ -934,10 +1011,14 @@ export class QuizDotStatusService {
     }
 
     if (this.isQuizFreshAtQuestionOne(currentQuestionIndex)) {
-      for (let i = 0; i < totalCount; i++) {
-        this.dotStatusCache.set(i, 'pending');
+      // Check if any confirmed dot statuses exist — if so, not truly fresh
+      const hasConfirmedDots = this.selectedOptionService.clickConfirmedDotStatus.size > 0;
+      if (!hasConfirmedDots) {
+        for (let i = 0; i < totalCount; i++) {
+          this.dotStatusCache.set(i, 'pending');
+        }
+        return { progress: 0, isFresh: true };
       }
-      return { progress: 0, isFresh: true };
     }
 
     let answeredCount = 0;

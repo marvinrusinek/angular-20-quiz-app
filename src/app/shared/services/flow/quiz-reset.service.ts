@@ -145,7 +145,9 @@ export class QuizResetService {
     const hasExistingState =
       (this.quizService.questionCorrectness?.size ?? 0) > 0 ||
       (this.quizService.selectedOptionsMap?.size ?? 0) > 0 ||
-      (this.selectedOptionService.selectedOptionsMap?.size ?? 0) > 0;
+      (this.selectedOptionService.selectedOptionsMap?.size ?? 0) > 0 ||
+      this.selectedOptionService.hasRefreshBackup ||
+      (this.selectedOptionService.clickConfirmedDotStatus?.size ?? 0) > 0;
 
     if (hasExistingState) {
       return false;
@@ -179,6 +181,10 @@ export class QuizResetService {
    * Caller must reset its own component-local fields after calling this.
    */
   performQuizSwitchResets(routeQuizId: string): void {
+    // Skip full reset if this is actually a page refresh (not a real quiz switch)
+    if (this.selectedOptionService.hasRefreshBackup) {
+      return;
+    }
     this.resetForQuizSwitch(routeQuizId);
     this.quizPersistence.clearAllPersistedDotStatus(routeQuizId);
     this.dotStatusService.clearAllMaps();

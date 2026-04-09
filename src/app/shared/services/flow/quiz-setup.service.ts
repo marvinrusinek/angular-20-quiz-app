@@ -153,6 +153,16 @@ export class QuizSetupService {
 
     host.markQuestionAnswered(idx);
     host.updateDotStatus(idx);
+
+    // Persist dot status to localStorage so it survives refresh.
+    // Use clickConfirmedDotStatus (set during click) as the source of truth,
+    // since dotStatusCache may still be 'pending' at this point.
+    const confirmed = this.selectedOptionService.clickConfirmedDotStatus.get(idx);
+    const dotStatus = confirmed || this.dotStatusService.dotStatusCache.get(idx);
+    if (dotStatus === 'correct' || dotStatus === 'wrong') {
+      this.quizPersistence.setPersistedDotStatus(host.quizId, idx, dotStatus);
+    }
+
     host.cdRef.detectChanges();
     host._processingOptionClick = false;
 
@@ -163,6 +173,11 @@ export class QuizSetupService {
         this.quizStateService.isNavigatingSubject.getValue()
       );
       host.updateDotStatus(idx);
+      // Persist dot status to localStorage so it survives refresh
+      const delayedDotStatus = this.dotStatusService.dotStatusCache.get(idx);
+      if (delayedDotStatus === 'correct' || delayedDotStatus === 'wrong') {
+        this.quizPersistence.setPersistedDotStatus(host.quizId, idx, delayedDotStatus);
+      }
       host.cdRef.detectChanges();
     }, 150);
   }
@@ -186,7 +201,9 @@ export class QuizSetupService {
       if (destIndex < host.totalQuestions) {
         this.dotStatusService.clearForIndex(destIndex);
         this.selectedOptionService.lastClickedCorrectByQuestion.delete(destIndex);
+        this.selectedOptionService.clickConfirmedDotStatus.delete(destIndex);
         this.quizPersistence.clearPersistedDotStatus(host.quizId, destIndex);
+        try { sessionStorage.removeItem('dot_confirmed_' + destIndex); } catch {}
       }
     }
     await host.ngZone.run(async () => {
@@ -867,6 +884,9 @@ export class QuizSetupService {
     const quizId = await host.initializeQuizId();
     if (!quizId) return;
     host.quizId = quizId;
+
+    // Persist quizId so route-event handler doesn't mistake a refresh for a quiz switch
+    try { localStorage.setItem('lastQuizId', quizId); } catch {}
 
     host.initializeQuestionIndex();
     const cleared = this.quizResetService.clearStaleProgressAndDotStateForFreshStart(
