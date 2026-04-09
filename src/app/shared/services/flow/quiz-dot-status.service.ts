@@ -500,7 +500,8 @@ export class QuizDotStatusService {
     }
 
     const hasSelectionsInSelectedOptionService =
-      (this.selectedOptionService?.selectedOptionsMap?.size ?? 0) > 0;
+      (this.selectedOptionService?.selectedOptionsMap?.size ?? 0) > 0
+      || this.selectedOptionService?.hasRefreshBackup;
     const hasSelectionsInQuizService =
       (this.quizService?.selectedOptionsMap?.size ?? 0) > 0;
     const hasScoredQuestions =

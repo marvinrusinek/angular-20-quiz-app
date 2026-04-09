@@ -72,7 +72,9 @@ export class QuizSetupService {
         combinedQuestionDataSubject: host.combinedQuestionDataSubject,
         optionsToDisplay$: host.optionsToDisplay$,
       });
-      if (needsRender) host.cdRef.markForCheck();
+      if (needsRender) {
+        host.cdRef.markForCheck();
+      }
     });
 
     host.isAnswered$ = this.selectedOptionService.isAnswered$;

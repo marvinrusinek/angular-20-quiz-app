@@ -25,6 +25,28 @@ export class SelectedOptionService {
   rawSelectionsMap = new Map<number, { optionId: number; text: string }[]>();
   selectedOptionIndices: { [key: number]: number[] } = {};
 
+  // Durable backup that survives clearState() — used for refresh restore.
+  // Auto-cleared after 5s so stale data doesn't leak into future sessions.
+  private _refreshBackup = new Map<number, SelectedOption[]>();
+
+  // Accumulates ALL selections per question (including prior single-answer picks)
+  // so that _wasSelected-style highlights survive refresh.
+  private _selectionHistory = new Map<number, SelectedOption[]>();
+
+  get hasRefreshBackup(): boolean {
+    return this._refreshBackup.size > 0;
+  }
+
+  getRefreshBackup(idx: number): SelectedOption[] {
+    return this._refreshBackup.get(idx) ?? [];
+  }
+
+  private scheduleBackupClear(): void {
+    setTimeout(() => {
+      this._refreshBackup.clear();
+    }, 5000);
+  }
+
   private loadState(): void {
     try {
       const raw = sessionStorage.getItem('rawSelectionsMap');
@@ -39,6 +61,18 @@ export class SelectedOptionService {
         this.selectedOptionsMap = new Map(Object.entries(parsed).map(([k, v]) => [Number(k), v as any]));
         this.selectedOptionsMap$.next(new Map(this.selectedOptionsMap));
       }
+
+      // Load full selection history (includes all single-answer picks)
+      const history = sessionStorage.getItem('selectionHistory');
+      if (history) {
+        const parsed = JSON.parse(history);
+        this._refreshBackup = new Map(Object.entries(parsed).map(([k, v]) => [Number(k), v as any]));
+      } else if (this.selectedOptionsMap.size > 0) {
+        this._refreshBackup = new Map(this.selectedOptionsMap);
+      }
+      if (this._refreshBackup.size > 0) {
+        this.scheduleBackupClear();
+      }
     } catch (err) {
       console.warn('[SelectedOptionService] Failed to load state from sessionStorage', err);
     }
@@ -51,6 +85,12 @@ export class SelectedOptionService {
 
       const selectedObj = Object.fromEntries(this.selectedOptionsMap);
       sessionStorage.setItem('selectedOptionsMap', JSON.stringify(selectedObj));
+
+      // Save full selection history for refresh restore
+      if (this._selectionHistory.size > 0) {
+        const historyObj = Object.fromEntries(this._selectionHistory);
+        sessionStorage.setItem('selectionHistory', JSON.stringify(historyObj));
+      }
     } catch (err) {
       console.warn('[SelectedOptionService] Failed to save state to sessionStorage', err);
     }
@@ -60,6 +100,7 @@ export class SelectedOptionService {
     console.log('[SOS] clearState() called - WIPING ALL SELECTIONS from map!');
     this.selectedOptionsMap.clear();
     this.rawSelectionsMap.clear();
+    this._selectionHistory.clear();
     this.selectedOption = [];
     this.selectedOptionIndices = {};
     this.feedbackByQuestion.clear();
@@ -76,6 +117,7 @@ export class SelectedOptionService {
     try {
       sessionStorage.removeItem('rawSelectionsMap');
       sessionStorage.removeItem('selectedOptionsMap');
+      sessionStorage.removeItem('selectionHistory');
       sessionStorage.removeItem('answeredMap');
       sessionStorage.removeItem('currentQuestionIndex');
     } catch (err) {
@@ -540,6 +582,16 @@ export class SelectedOptionService {
       canonicalCurrent = [enriched];
     }
 
+    // Accumulate selection history for refresh restore (mirrors _wasSelected behavior)
+    const history = this._selectionHistory.get(qIndex) ?? [];
+    const alreadyInHistory = history.some(h =>
+      h.optionId === enriched.optionId && (h.displayIndex === enriched.displayIndex)
+    );
+    if (!alreadyInHistory) {
+      history.push(enriched);
+      this._selectionHistory.set(qIndex, history);
+    }
+
     const committed = this.commitSelections(qIndex, canonicalCurrent);
     this.selectedOptionsMap.set(qIndex, committed); // VITAL: Update the map!
     this.saveState();
@@ -668,6 +720,18 @@ export class SelectedOptionService {
       }
     }
 
+    // Accumulate selection history for refresh restore (mirrors _wasSelected behavior)
+    for (const sel of merged.values()) {
+      const history = this._selectionHistory.get(questionIndex) ?? [];
+      const alreadyInHistory = history.some(h =>
+        h.optionId === sel.optionId && h.displayIndex === sel.displayIndex
+      );
+      if (!alreadyInHistory) {
+        history.push(sel);
+        this._selectionHistory.set(questionIndex, history);
+      }
+    }
+
     const committed = this.commitSelections(questionIndex, Array.from(merged.values()));
 
     // Also store in rawSelectionsMap for results display
@@ -721,8 +785,7 @@ export class SelectedOptionService {
     questionIndex: number
   ): SelectedOption[] {
     const options = this.selectedOptionsMap.get(questionIndex) || [];
-
-    return options;  // return as-is — no cloning, no canonicalization 
+    return options;
   }
 
   public areAllCorrectAnswersSelected(
@@ -2206,7 +2269,11 @@ export class SelectedOptionService {
 
   public isQuestionAnswered(questionIndex: number): boolean {
     const options = this.selectedOptionsMap.get(questionIndex);
-    return Array.isArray(options) && options.length > 0;
+    if (Array.isArray(options) && options.length > 0) {
+      return true;
+    }
+    const backup = this._refreshBackup.get(questionIndex);
+    return Array.isArray(backup) && backup.length > 0;
   }
 
   setAnswered(isAnswered: boolean, force = false): void {

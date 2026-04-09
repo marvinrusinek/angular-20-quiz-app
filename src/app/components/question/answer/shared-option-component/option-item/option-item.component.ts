@@ -174,7 +174,10 @@ export class OptionItemComponent implements OnChanges {
     // questionIndex on the selection record, so navigation cannot leak.
     if (this.type() === 'single') {
       const qIdx = this.currentQuestionIndex() ?? this.quizService.currentQuestionIndex;
-      const selections = this.selectedOptionService.getSelectedOptionsForQuestion(qIdx) ?? [];
+      let selections = this.selectedOptionService.getSelectedOptionsForQuestion(qIdx) ?? [];
+      if (selections.length === 0) {
+        selections = this.selectedOptionService.getRefreshBackup(qIdx);
+      }
       const filtered = selections.filter((s: any) => {
         const sQ = s?.questionIndex ?? s?.qIdx ?? s?.questionIdx;
         return sQ === undefined || sQ === null || sQ === -1 || Number(sQ) === Number(qIdx);
@@ -254,7 +257,12 @@ export class OptionItemComponent implements OnChanges {
 
   private getSelectionsForCurrentBinding(): any[] {
     const qIndex = this.currentQuestionIndex() ?? this.quizService.currentQuestionIndex;
-    return this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
+    const selections = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
+    if (selections.length > 0) {
+      return selections;
+    }
+    // Visual-only fallback: check refresh backup for highlight/disable state
+    return this.selectedOptionService.getRefreshBackup(qIndex);
   }
 
   private matchesBindingSelection(sel: any): boolean {
@@ -276,7 +284,19 @@ export class OptionItemComponent implements OnChanges {
         ? Number(selectedIndexFallback)
         : null;
 
-    return (normalizedSelectedIndex != null && normalizedSelectedIndex === this.i);
+    // Match by index first (preferred during normal operation)
+    if (normalizedSelectedIndex != null) {
+      return normalizedSelectedIndex === this.i;
+    }
+
+    // Fallback: match by optionId only when no index data exists on the
+    // selection record (e.g. refresh-backup data after deserialization)
+    if (sel?.optionId != null && this.b?.option?.optionId != null
+        && String(sel.optionId) === String(this.b.option.optionId)) {
+      return true;
+    }
+
+    return false;
   }
 
   shouldShowFeedback(): boolean {
@@ -309,7 +329,8 @@ export class OptionItemComponent implements OnChanges {
       return this.isOptionIndividuallySelected() || !!this.b.option?.highlight ||
         this._wasSelected;
     }
-    return this.b.isSelected || !!this.b.option?.highlight || this._wasSelected;
+    return this.b.isSelected || !!this.b.option?.highlight || this._wasSelected
+      || this.isSelectedForCurrentQuestion();
   }
 
   private isOptionIndividuallySelected(): boolean {
