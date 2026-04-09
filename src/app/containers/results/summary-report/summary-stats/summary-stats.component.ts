@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, Input, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { of } from 'rxjs';
 
@@ -21,7 +21,7 @@ export class SummaryStatsComponent {
     percentage: 0,
     completionTime: 0
 });
-  @Input() score: QuizScore | null = null;
+  readonly score = input<QuizScore | null>(null);
   readonly elapsedMinutes = input(0);
   readonly elapsedSeconds = input(0);
   readonly isShuffled = input(false);
