@@ -48,19 +48,21 @@ import { QuizDataService } from '../../shared/services/data/quizdata.service';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ResultsComponent implements OnInit, OnDestroy {
-  quizData: Quiz[] = QUIZ_DATA;
-  quizId = '';
-  indexOfQuizId = 0;
-  detailedSummaryQuestions: QuizQuestion[] = [];
-  headerLabel = '';
+  readonly quizData: Quiz[] = QUIZ_DATA;
+  readonly quizId = signal('');
+  readonly indexOfQuizId = signal(0);
+  readonly detailedSummaryQuestions = signal<QuizQuestion[]>([]);
+  readonly headerLabel = signal('');
 
   readonly menuOpen = signal(false);
   readonly activeSection = signal<
     'score' | 'report' | 'summary' | 'highscores' | 'resources'
   >('score');
 
-  finalResult: FinalResult | null = null;
-  scoreAnalysis: ScoreAnalysisItem[] = [];
+  readonly finalResult = signal<FinalResult | null>(null);
+  readonly scoreAnalysis = computed<ScoreAnalysisItem[]>(
+    () => this.finalResult()?.analysis ?? []
+  );
 
   readonly showScrollIndicator = signal(true);
 
@@ -85,23 +87,20 @@ export class ResultsComponent implements OnInit, OnDestroy {
     this.setCompletedQuiz();
     this.findQuizIndex();
 
-    this.detailedSummaryQuestions =
-      this.quizService.getQuestionsInDisplayOrder();
+    this.detailedSummaryQuestions.set(
+      this.quizService.getQuestionsInDisplayOrder()
+    );
 
-    /* this.headerLabel = this.quizService.isShuffleEnabled()
-      ? `${this.detailedSummaryQuestions.length} questions, SHUFFLED`
-      : `${this.detailedSummaryQuestions.length} questions`; */
     this.updateHeaderLabel(
-      this.quizService.totalQuestions || this.detailedSummaryQuestions.length
+      this.quizService.totalQuestions || this.detailedSummaryQuestions().length
     );
 
     const snapshot = this.quizService.getFinalResultSnapshot();
     if (snapshot) {
       if (snapshot.quizId) {
-        this.quizId = snapshot.quizId;
+        this.quizId.set(snapshot.quizId);
       }
-      this.finalResult = snapshot;
-      this.scoreAnalysis = snapshot.analysis;
+      this.finalResult.set(snapshot);
       this.applyFinalResultSnapshot(snapshot);
       this.updateHeaderLabel(snapshot.total);
       this.cdRef.markForCheck();
@@ -113,10 +112,9 @@ export class ResultsComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.unsubscribe$))
       .subscribe(r => {
         if (r?.quizId) {
-          this.quizId = r.quizId;
+          this.quizId.set(r.quizId);
         }
-        this.finalResult = r;
-        this.scoreAnalysis = r?.analysis ?? [];
+        this.finalResult.set(r);
         if (r) {
           this.applyFinalResultSnapshot(r);
           this.updateHeaderLabel(r.total);
@@ -156,7 +154,7 @@ export class ResultsComponent implements OnInit, OnDestroy {
       .subscribe((params) => {
         const routeQuizId = params.get('quizId');
         if (routeQuizId) {
-          this.quizId = routeQuizId;
+          this.quizId.set(routeQuizId);
           this.setCompletedQuiz();
           this.findQuizIndex();
           this.cdRef.markForCheck();
@@ -165,21 +163,22 @@ export class ResultsComponent implements OnInit, OnDestroy {
   }
 
   private setCompletedQuiz(): void {
-    if (this.quizId) {
-      this.quizService.setCompletedQuizId(this.quizId);
-      // this.quizService.quizId = this.quizId;  // ensure service has correct ID for high scores
-      this.quizService.setQuizId(this.quizId);  // ensure service has correct ID for high scores
+    const id = this.quizId();
+    if (id) {
+      this.quizService.setCompletedQuizId(id);
+      this.quizService.setQuizId(id);  // ensure service has correct ID for high scores
       this.quizService.setQuizStatus(QuizStatus.COMPLETED);
-      
+
       // Update the quiz object's status so QuizSelectionComponent can show the icon
-      this.quizDataService.updateQuizStatus(this.quizId, QuizStatus.COMPLETED);
+      this.quizDataService.updateQuizStatus(id, QuizStatus.COMPLETED);
     }
   }
 
   private findQuizIndex(): void {
-    if (this.quizId) {
-      this.indexOfQuizId = this.quizData.findIndex(
-        (elem) => elem.quizId === this.quizId
+    const id = this.quizId();
+    if (id) {
+      this.indexOfQuizId.set(
+        this.quizData.findIndex((elem) => elem.quizId === id)
       );
     }
   }
@@ -192,18 +191,20 @@ export class ResultsComponent implements OnInit, OnDestroy {
   private updateHeaderLabel(totalQuestions: number): void {
     const questionCount = Number.isFinite(totalQuestions) && totalQuestions > 0
       ? totalQuestions
-      : this.detailedSummaryQuestions.length;
+      : this.detailedSummaryQuestions().length;
 
-    this.headerLabel = this.quizService.isShuffleEnabled()
-      ? `${questionCount} questions, SHUFFLED`
-      : `${questionCount} questions`;
+    this.headerLabel.set(
+      this.quizService.isShuffleEnabled()
+        ? `${questionCount} questions, SHUFFLED`
+        : `${questionCount} questions`
+    );
   }
 
   selectQuiz(): void {
     this.quizService.resetAll();
     this.quizService.resetQuestions();
-    this.quizId = '';
-    this.indexOfQuizId = 0;
+    this.quizId.set('');
+    this.indexOfQuizId.set(0);
     this.router.navigate(['/select/']);
   }
 
