@@ -1,11 +1,9 @@
 import {
-  ChangeDetectionStrategy, ChangeDetectorRef, Component, NgZone, OnDestroy,
-  OnInit, signal
+  ChangeDetectionStrategy, Component, computed
 } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { CommonModule, DecimalPipe } from '@angular/common';
 import { MatMenuModule } from '@angular/material/menu';
-import { Observable, Subscription } from 'rxjs';
-import { map } from 'rxjs/operators';
 
 import { TimerService } from '../../../shared/services/features/timer/timer.service';
 
@@ -20,104 +18,41 @@ enum TimerType {
   imports: [CommonModule, MatMenuModule, DecimalPipe],
   templateUrl: './timer.component.html',
   styleUrls: ['./timer.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class TimerComponent implements OnInit, OnDestroy {
-  timerType = TimerType;
-  timePerQuestion = 30;
-  currentTimerType = TimerType.Countdown;
+export class TimerComponent {
+  readonly timerType = TimerType;
+  readonly timePerQuestion = 30;
 
-  timeLeft$!: Observable<number>;
-  
-  // Direct display value for reliability
-  readonly displayTime = signal(30);
-  private uiUpdateInterval: any = null;
-  private elapsedSub: Subscription | null = null;
-  private timerTypeSub: Subscription | null = null;
+  private readonly elapsedSig = toSignal(
+    this.timerService.elapsedTime$,
+    { initialValue: 0 }
+  );
 
-  constructor(
-    private timerService: TimerService,
-    private cdRef: ChangeDetectorRef,
-    private ngZone: NgZone
-  ) {}
-
-  ngOnInit(): void {
-    this.currentTimerType = this.timerService.isCountdown
-      ? TimerType.Countdown
-      : TimerType.Stopwatch;
-      
-    // Standard observable for async pipe
-    this.timeLeft$ = this.timerService.elapsedTime$.pipe(
-      map((elapsedTime) =>
-        this.currentTimerType === TimerType.Countdown
-          ? Math.max(this.timePerQuestion - elapsedTime, 0)
-          : elapsedTime
-      ),
-    );
-    
-    // Subscribe to elapsed time and update display directly
-    this.elapsedSub = this.timerService.elapsedTime$.subscribe((elapsed) => {
-      this.updateDisplayTime(elapsed);
-    });
-
-    this.timerTypeSub = this.timerService.timerType$.subscribe((type) => {
-      const nextType =
-        type === 'countdown' ? TimerType.Countdown : TimerType.Stopwatch;
-      if (this.currentTimerType !== nextType) {
-        this.currentTimerType = nextType;
-        this.updateDisplayTime(this.timerService.elapsedTime || 0);
-      }
-    });
-    
-    // Fallback: Poll TimerService every 500ms to ensure UI stays in sync
-    this.ngZone.runOutsideAngular(() => {
-      this.uiUpdateInterval = setInterval(() => {
-        this.ngZone.run(() => {
-          const elapsed = this.timerService.elapsedTime || 0;
-          const newDisplayTime = this.getDisplayTime(elapsed);
-          
-          if (this.displayTime() !== newDisplayTime) {
-            this.displayTime.set(newDisplayTime);
-            this.cdRef.markForCheck();
-          }
-        });
-      }, 500);
-    });
-  }
-  
-  ngOnDestroy(): void {
-    if (this.uiUpdateInterval) {
-      clearInterval(this.uiUpdateInterval);
+  private readonly timerTypeSig = toSignal(
+    this.timerService.timerType$,
+    {
+      initialValue: this.timerService.isCountdown ? 'countdown' : 'stopwatch'
     }
-    if (this.elapsedSub) {
-      this.elapsedSub.unsubscribe();
-    }
-    if (this.timerTypeSub) {
-      this.timerTypeSub.unsubscribe();
-    }
-  }
+  );
 
-  setTimerType(type: TimerType): void {
-    if (this.currentTimerType !== type) {
-      this.currentTimerType = type;
-      this.timerService.setTimerType(
-        type === TimerType.Countdown ? 'countdown' : 'stopwatch',
-      );
-      const elapsed = this.timerService.elapsedTime || 0;
-      this.updateDisplayTime(elapsed);
-    } else {
-      console.log(`[TimerComponent] Timer type is already set to ${type}`);
-    }
-  }
+  readonly currentTimerType = computed<TimerType>(() =>
+    this.timerTypeSig() === 'countdown' ? TimerType.Countdown : TimerType.Stopwatch
+  );
 
-  private updateDisplayTime(elapsed: number): void {
-    this.displayTime.set(this.getDisplayTime(elapsed));
-    this.cdRef.markForCheck();
-  }
-
-  private getDisplayTime(elapsed: number): number {
-    return this.currentTimerType === TimerType.Countdown
+  readonly displayTime = computed<number>(() => {
+    const elapsed = this.elapsedSig() ?? 0;
+    return this.currentTimerType() === TimerType.Countdown
       ? Math.max(this.timePerQuestion - elapsed, 0)
       : elapsed;
+  });
+
+  constructor(private timerService: TimerService) {}
+
+  setTimerType(type: TimerType): void {
+    if (this.currentTimerType() === type) return;
+    this.timerService.setTimerType(
+      type === TimerType.Countdown ? 'countdown' : 'stopwatch'
+    );
   }
 }
