@@ -1,8 +1,8 @@
 import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component,
-  HostListener, NgZone, OnDestroy, OnInit, ViewChild, ViewEncapsulation
+  HostListener, OnDestroy, OnInit, ViewChild, ViewEncapsulation
 } from '@angular/core';
-import { CommonModule, AsyncPipe } from '@angular/common';
+import { AsyncPipe, CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { BehaviorSubject, Observable, Subject, Subscription } from 'rxjs';
 import { debounceTime, shareReplay } from 'rxjs/operators';
@@ -156,7 +156,6 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     private quizSetupService: QuizSetupService,
     public activatedRoute: ActivatedRoute,
     private router: Router,
-    private ngZone: NgZone,
     public cdRef: ChangeDetectorRef
   ) {
     this.isAnswered$ = this.selectedOptionService.isAnswered$;
