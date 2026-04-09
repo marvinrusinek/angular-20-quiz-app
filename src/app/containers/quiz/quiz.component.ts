@@ -1,12 +1,10 @@
 import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component,
-  HostListener, Input, NgZone, OnDestroy, OnInit, ViewChild, ViewEncapsulation
+  HostListener, NgZone, OnDestroy, OnInit, ViewChild, ViewEncapsulation
 } from '@angular/core';
 import { CommonModule, AsyncPipe } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import {
-  BehaviorSubject, Observable, Subject, Subscription
-} from 'rxjs';
+import { BehaviorSubject, Observable, Subject, Subscription } from 'rxjs';
 import { debounceTime, shareReplay } from 'rxjs/operators';
 import { MatCardModule } from '@angular/material/card';
 import { MatTooltip, MatTooltipModule } from '@angular/material/tooltip';
@@ -70,8 +68,8 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('nextButton', { static: false })
   nextButtonTooltip!: MatTooltip;
 
-  @Input() selectedQuiz: Quiz | null = null;
-  @Input() currentQuestion: QuizQuestion | null = null;
+  selectedQuiz: Quiz | null = null;
+  currentQuestion: QuizQuestion | null = null;
   quiz!: Quiz;
   quizId = '';
   question: QuizQuestion | null = null;
