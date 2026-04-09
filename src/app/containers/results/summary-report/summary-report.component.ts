@@ -1,7 +1,10 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnChanges, OnInit, SimpleChanges, signal, computed } from '@angular/core';
+import {
+  ChangeDetectionStrategy, ChangeDetectorRef, Component, computed, effect,
+  input, OnInit, signal
+} from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { Observable, of } from 'rxjs';
-import { take, takeUntil } from 'rxjs/operators';
+import { take } from 'rxjs/operators';
 
 import { Quiz } from '../../../shared/models/Quiz.model';
 import { QuizMetadata } from '../../../shared/models/QuizMetadata.model';
@@ -27,37 +30,47 @@ import { TimerService } from '../../../shared/services/features/timer/timer.serv
   styleUrls: ['./summary-report.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class SummaryReportComponent implements OnInit, OnChanges {
-  @Input() quizId = '';
-  @Input() viewMode: 'summary' | 'highscores' | 'all' = 'all';
+export class SummaryReportComponent implements OnInit {
+  // Signal input aliased to "quizId" so parent template binding stays the same.
+  // Internal code may reassign the backing field, so we mirror via effect().
+  readonly quizIdInput = input<string>('', { alias: 'quizId' });
+  quizId = '';
+  readonly viewMode = input<'summary' | 'highscores' | 'all'>('all');
+
   quizzes$: Observable<Quiz[]> = of([]);
   quizName$: Observable<string> = of('');
-  quizMetadata: Partial<QuizMetadata> = {};
+  readonly quizMetadata = signal<Partial<QuizMetadata>>({});
+  readonly quizPercentage = computed(() => this.quizMetadata().percentage ?? 0);
   readonly completionTimeSig = signal(0);
   readonly elapsedMinutes = computed(() => Math.floor(this.completionTimeSig() / 60));
   readonly elapsedSeconds = computed(() => this.completionTimeSig() % 60);
-  checkedShuffle = false;
+  readonly checkedShuffle = signal(false);
   checkedShuffle$: Observable<boolean> = of(false);
-  highScores: QuizScore[] = [];
+  readonly highScores = signal<QuizScore[]>([]);
   quizMilestones: Record<string, string> = {};
-  currentScore: QuizScore | null = null;  // the current quiz attempt score
-  codelabUrl = 'https://www.codelab.fun';
+  readonly currentScore = signal<QuizScore | null>(null);  // current quiz attempt score
+  readonly codelabUrl = 'https://www.codelab.fun';
 
   constructor(
     private quizService: QuizService,
     private quizDataService: QuizDataService,
     private timerService: TimerService,
     private cdRef: ChangeDetectorRef
-  ) {}
+  ) {
+    let firstRun = true;
+    effect(() => {
+      const incoming = this.quizIdInput();
+      if (incoming) this.quizId = incoming;
+      if (firstRun) {
+        firstRun = false;
+        return;
+      }
+      this.initComponent();
+    });
+  }
 
   ngOnInit(): void {
     this.initComponent();
-  }
-
-  ngOnChanges(changes: SimpleChanges): void {
-    if (changes['quizId'] && !changes['quizId'].firstChange) {
-      this.initComponent();
-    }
   }
 
   private initComponent(): void {
@@ -67,7 +80,7 @@ export class SummaryReportComponent implements OnInit, OnChanges {
 
     try {
       // Initialize quizMetadata in initComponent when service data is available
-      this.quizMetadata = {
+      this.quizMetadata.set({
         totalQuestions: this.quizService.totalQuestions,
         totalQuestionsAttempted: this.quizService.totalQuestions,
         correctAnswersCount$: this.quizService.correctAnswersCountSubject,
@@ -76,7 +89,7 @@ export class SummaryReportComponent implements OnInit, OnChanges {
         completionTime: this.timerService.calculateTotalElapsedTime(
           this.timerService.elapsedTimes
         )
-      };
+      });
 
       this.quizzes$ = this.quizDataService.getQuizzes();
       this.quizzes$.pipe(take(1)).subscribe((quizzes) => {
@@ -89,27 +102,27 @@ export class SummaryReportComponent implements OnInit, OnChanges {
 
       this.quizName$ = of(this.quizId);
       this.checkedShuffle$ = this.quizService.checkedShuffle$;
-      this.checkedShuffle = this.quizService.isShuffleEnabled();
+      this.checkedShuffle.set(this.quizService.isShuffleEnabled());
       this.calculateElapsedTime();
       this.quizService.saveHighScores();
-      this.highScores = this.quizService.highScores;
+      this.highScores.set(this.quizService.highScores);
 
       // Create current score object for display
-      this.currentScore = {
+      this.currentScore.set({
         quizId: this.quizId,
         attemptDateTime: new Date(),
-        score: this.quizMetadata.percentage ?? 0,
+        score: this.quizMetadata().percentage ?? 0,
         totalQuestions: this.quizService.totalQuestions
-      };
+      });
     } catch (error) {
       console.error('[SUMMARY] Error in initComponent:', error);
       // Fallback to ensure UI doesn't look broken
-      this.currentScore = {
+      this.currentScore.set({
         quizId: this.quizId || 'Unknown',
         attemptDateTime: new Date(),
         score: 0,
         totalQuestions: 0
-      };
+      });
     }
 
     // Force change detection for OnPush when navigating back or tab switching
@@ -118,7 +131,7 @@ export class SummaryReportComponent implements OnInit, OnChanges {
   }
 
   calculateElapsedTime(): void {
-    const completionTime = this.quizMetadata?.completionTime ?? 0;
+    const completionTime = this.quizMetadata().completionTime ?? 0;
     this.completionTimeSig.set(completionTime);
   }
 

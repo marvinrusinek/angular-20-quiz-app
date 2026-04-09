@@ -1,34 +1,34 @@
 <div class="summary-report">
-  @if (viewMode === 'all') {
+  @if (viewMode() === 'all') {
     <h2>Summary Report</h2>
   }
 
   <!-- === SUMMARY STATS SECTION === -->
-  @if (viewMode === 'all' || viewMode === 'summary') {
+  @if (viewMode() === 'all' || viewMode() === 'summary') {
     <div class="summary-stats-view">
-      @if (viewMode === 'summary') {
+      @if (viewMode() === 'summary') {
         <h2>Summary Stats</h2>
       }
 
       <codelab-summary-icons
-        [quizPercentage]="quizMetadata.percentage ?? 0"
-        [quizMetadata]="quizMetadata"
+        [quizPercentage]="quizPercentage()"
+        [quizMetadata]="quizMetadata()"
         [codelabUrl]="codelabUrl"
       >
       </codelab-summary-icons>
 
       <codelab-summary-stats
-        [quizMetadata]="quizMetadata"
-        [score]="currentScore"
+        [quizMetadata]="quizMetadata()"
+        [score]="currentScore()"
         [elapsedMinutes]="elapsedMinutes()"
         [elapsedSeconds]="elapsedSeconds()"
-        [isShuffled]="checkedShuffle"
+        [isShuffled]="checkedShuffle()"
       >
       </codelab-summary-stats>
 
       <br />
 
-      @if (checkedShuffle) {
+      @if (checkedShuffle()) {
         <span class="quiz-note">
           <i
             class="material-icons"
@@ -46,10 +46,10 @@
   }
 
   <!-- === HIGH SCORES SECTION === -->
-  @if (viewMode === 'all' || viewMode === 'highscores') {
+  @if (viewMode() === 'all' || viewMode() === 'highscores') {
     <div class="high-scores-view">
       <!-- Use DETAILS wrapper only in 'all' or 'summary' mode to keep it compact -->
-      @if (viewMode === 'all') {
+      @if (viewMode() === 'all') {
         <details>
           <summary i18n>View High Scores</summary>
           <ng-container *ngTemplateOutlet="highScoresTable"></ng-container>
@@ -65,7 +65,7 @@
 
 <!-- === REUSABLE TABLE TEMPLATE === -->
 <ng-template #highScoresTable>
-  @if (viewMode === 'all') {
+  @if (viewMode() === 'all') {
     <h2 class="high-scores-heading">High Scores</h2>
   }
 
@@ -76,7 +76,7 @@
       <th>Date/Time</th>
     </tr>
 
-    @for (highScore of highScores; track highScore.attemptDateTime) {
+    @for (highScore of highScores(); track highScore.attemptDateTime) {
       <tr i18n>
         <td>{{ getMilestoneLabel(highScore.quizId) }}</td>
         <td>{{ highScore.score }}</td>
