@@ -1,4 +1,7 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnChanges, OnInit, SimpleChanges, signal, computed } from '@angular/core';
+import {
+  ChangeDetectionStrategy, ChangeDetectorRef, Component, computed, effect,
+  input, OnInit, signal
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Observable, of } from 'rxjs';
 import { map } from 'rxjs/operators';
@@ -19,11 +22,14 @@ import { TimerService } from '../../../shared/services/features/timer/timer.serv
   styleUrls: ['./statistics.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class StatisticsComponent implements OnInit, OnChanges {
+export class StatisticsComponent implements OnInit {
   quizzes$: Observable<Quiz[]> = of([]);
   milestoneName$: Observable<string> = of('');
-  @Input() quizId = '';
-  @Input() viewMode: 'score' | 'resources' | 'all' = 'all';
+  // Signal input aliased to "quizId" so parent template binding stays the same.
+  // Internal code may reassign the backing field, so we mirror via effect().
+  readonly quizIdInput = input<string>('', { alias: 'quizId' });
+  quizId = '';
+  readonly viewMode = input<'score' | 'resources' | 'all'>('all');
 
   quizMetadata: Partial<QuizMetadata> = {};
   resources: Resource[] = [];
@@ -45,16 +51,21 @@ export class StatisticsComponent implements OnInit, OnChanges {
     private quizDataService: QuizDataService,
     private timerService: TimerService,
     private cdRef: ChangeDetectorRef
-  ) { }
+  ) {
+    let firstRun = true;
+    effect(() => {
+      const incoming = this.quizIdInput();
+      if (incoming) this.quizId = incoming;
+      if (firstRun) {
+        firstRun = false;
+        return;
+      }
+      this.initComponent();
+    });
+  }
 
   ngOnInit(): void {
     this.initComponent();
-  }
-
-  ngOnChanges(changes: SimpleChanges): void {
-    if (changes['quizId'] && !changes['quizId'].firstChange) {
-      this.initComponent();
-    }
   }
 
   private initComponent(): void {

@@ -3,7 +3,7 @@
     <div class="statistics">
       
       <!-- === SCORE ANALYSIS SECTION === -->
-      @if (viewMode === 'all' || viewMode === 'score') {
+      @if (viewMode() === 'all' || viewMode() === 'score') {
         <div class="score-view">
           <div class="score-grid">
             <!-- LEFT COLUMN: Feedback Image, Score Text -->
@@ -40,7 +40,7 @@
                       title="Try Again"
                     />
                     <!-- If viewMode is 'all', show resources here for low scores -->
-                    @if (viewMode === 'all') {
+                    @if (viewMode() === 'all') {
                       <ng-container *ngTemplateOutlet="resourcesTemplate"></ng-container>
                     }
                   }
@@ -132,7 +132,7 @@
       }
 
       <!-- === RESOURCES SECTION (Standalone) === -->
-      @if (viewMode === 'resources') {
+      @if (viewMode() === 'resources') {
         <div class="resources-view">
           <h3 class="section-title">Use these resources to improve your score:</h3>
           <ng-container *ngTemplateOutlet="resourcesTemplate"></ng-container>
