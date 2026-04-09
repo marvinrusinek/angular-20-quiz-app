@@ -29,15 +29,16 @@ export class StatisticsComponent implements OnInit {
   // Internal code may reassign the backing field, so we mirror via effect().
   readonly quizIdInput = input<string>('', { alias: 'quizId' });
   quizId = '';
-  readonly viewMode = input<'score' | 'resources' | 'all'>('all');
+  readonly viewMode=
+    input<'score' | 'resources' | 'all'>('all');
 
-  quizMetadata: Partial<QuizMetadata> = {};
+  readonly quizMetadata = signal<Partial<QuizMetadata>>({});
   resources: Resource[] = [];
   status: QuizStatus = QuizStatus.STARTED;
   readonly completionTimeSig = signal(0);
   readonly elapsedMinutes = computed(() => Math.floor(this.completionTimeSig() / 60));
   readonly elapsedSeconds = computed(() => this.completionTimeSig() % 60);
-  percentage = 0;
+  readonly percentage = computed(() => this.quizMetadata().percentage ?? 0);
 
   CONGRATULATIONS =
     'https://raw.githubusercontent.com/marvinrusinek/angular-9-quiz-app/master/src/assets/images/congratulations.jpg';
@@ -85,13 +86,13 @@ export class StatisticsComponent implements OnInit {
     }
 
     // Initialize quizMetadata in initComponent when service data is available
-    this.quizMetadata = {
+    this.quizMetadata.set({
       totalQuestions: this.quizService.totalQuestions,
       totalQuestionsAttempted: this.quizService.totalQuestions,
       correctAnswersCount$: this.quizService.correctAnswersCountSubject,
       percentage: this.calculatePercentageOfCorrectlyAnsweredQuestions(),
       completionTime: totalElapsedTime
-    };
+    });
 
     this.quizzes$ = this.quizDataService.getQuizzes();
 
@@ -113,7 +114,6 @@ export class StatisticsComponent implements OnInit {
     }
     this.resources = this.quizService.resources;
     this.status = QuizStatus.COMPLETED;
-    this.percentage = this.quizMetadata?.percentage ?? 0;
     this.calculateElapsedTime();
     this.sendQuizStatusToQuizService();
 
@@ -123,7 +123,7 @@ export class StatisticsComponent implements OnInit {
   }
 
   calculateElapsedTime(): void {
-    const completionTime = this.quizMetadata?.completionTime ?? 0;
+    const completionTime = this.quizMetadata().completionTime ?? 0;
     this.completionTimeSig.set(completionTime);
   }
 
