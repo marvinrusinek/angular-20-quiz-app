@@ -69,12 +69,6 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   readonly questionIndex = input<number>(0);
 
   private combinedTextSubject = new BehaviorSubject<string>('');
-  combinedText$ = this.combinedTextSubject.asObservable();
-
-  private shouldDisplayCorrectAnswersSubject: BehaviorSubject<boolean> =
-    new BehaviorSubject<boolean>(false);
-  shouldDisplayCorrectAnswers$ =
-    this.shouldDisplayCorrectAnswersSubject.asObservable();
 
   currentQuestionIndexValue = 0;
   currentQuestion$: BehaviorSubject<QuizQuestion | null> =
@@ -100,14 +94,11 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   private questionIndexSubject = new BehaviorSubject<number>(0);
   currentIndex$ = this.questionIndexSubject.asObservable();
   private readonly questionLoadingText = 'Loading question…';
-  private lastQuestionIndexForReset: number | null = null;
 
   explanationTextLocal = '';
   isExplanationDisplayed = false;
   explanationVisible = false;
   isExplanationTextDisplayed$: Observable<boolean>;
-  private isExplanationDisplayed$ = new BehaviorSubject<boolean>(false);
-  private _showExplanation = false;
 
   private get _fetLocked(): boolean { return this.displayService._fetLocked; }
   private set _fetLocked(v: boolean) { this.displayService._fetLocked = v; }
@@ -126,19 +117,13 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     new BehaviorSubject<string>('');
   correctAnswersText$ = this.correctAnswersTextSource.asObservable();
 
-  public displayCorrectAnswersText$!: Observable<string | null>;
-
   explanationText: string | null = null;
   explanationTexts: string[] = [];
-
-  private correctAnswersDisplaySubject = new Subject<boolean>();
 
   questionRendered: BehaviorSubject<boolean> =
     new BehaviorSubject<boolean>(false);
 
   isContentAvailable$!: Observable<boolean>;
-
-  private combinedSub?: Subscription;
 
   private navTime = 0;  // track when we landed on this question
 
