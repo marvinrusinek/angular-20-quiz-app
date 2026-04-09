@@ -1,7 +1,6 @@
 import {
-  ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnDestroy,
-  OnInit,
-  input
+  ChangeDetectionStrategy, ChangeDetectorRef, Component, effect, input,
+  OnDestroy, OnInit
 } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { Subject } from 'rxjs';
@@ -28,7 +27,9 @@ import { ExplanationTextService } from '../../../shared/services/features/explan
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AccordionComponent implements OnInit, OnDestroy {
-  @Input() questions: QuizQuestion[] = [];
+  readonly questionsInput = input<QuizQuestion[]>([], { alias: 'questions' });
+  questions: QuizQuestion[] = [];
+
   readonly isShuffled = input(false);
   readonly accordionHeaderLabel = input('', { alias: "headerLabel" });
 
@@ -48,13 +49,13 @@ export class AccordionComponent implements OnInit, OnDestroy {
     private explanationTextService: ExplanationTextService,
     private cdRef: ChangeDetectorRef,
     private route: ActivatedRoute
-  ) {}
-
-  get headerLabel(): string {
-    const count = this.questions?.length ?? 0;
-    return this.isShuffled()
-      ? `${count} questions, SHUFFLED`
-      : `${count} questions`;
+  ) {
+    effect(() => {
+      const incoming = this.questionsInput();
+      if (Array.isArray(incoming) && incoming.length > 0) {
+        this.questions = incoming;
+      }
+    });
   }
 
   ngOnInit(): void {
@@ -171,7 +172,7 @@ export class AccordionComponent implements OnInit, OnDestroy {
          );
 
          // Fallback: treat id as a 0-based display index (used when options lack optionId)
-         if (idx === -1 && typeof id === 'number' && id >= 0 && id < question.options.length) {
+         if (idx === -1 && id >= 0 && id < question.options.length) {
            idx = id;
          }
 
@@ -273,10 +274,7 @@ export class AccordionComponent implements OnInit, OnDestroy {
       .map(o => (o.text || '').trim().toLowerCase());
     
     // Check if ALL correct answers are included in selections
-    const allCorrectSelected = 
-      correctTexts.every(ct => selectedTexts.includes(ct));
-    
-    return allCorrectSelected;
+    return correctTexts.every(ct => selectedTexts.includes(ct));
   }
 
   ngOnDestroy(): void {
