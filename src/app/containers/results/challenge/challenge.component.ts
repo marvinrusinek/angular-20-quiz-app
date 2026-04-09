@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, OnInit, Signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { Observable, of } from 'rxjs';
@@ -21,14 +22,25 @@ export class ChallengeComponent implements OnInit {
   quizzes$: Observable<Quiz[]> = of([]);
   quizName$: Observable<string> = of('');
   currentQuizId = '';
+
+  private readonly correctAnswersCount: Signal<number> = toSignal(
+    this.quizService.correctAnswersCountSubject,
+    { initialValue: this.quizService.correctAnswersCountSubject.getValue() }
+  );
+  readonly percentageCorrect = computed(() => {
+    const total = this.quizService.totalQuestions;
+    if (!total) return 0;
+    return Math.round((100 * this.correctAnswersCount()) / total);
+  });
+
   quizMetadata: Partial<QuizMetadata> = {
     totalQuestions: this.quizService.totalQuestions,
     totalQuestionsAttempted: this.quizService.totalQuestions,
     correctAnswersCount$: this.quizService.correctAnswersCountSubject,
-    percentage: this.calculatePercentageOfCorrectlyAnsweredQuestions(),
+    percentage: this.percentageCorrect(),
     completionTime: this.timerService.calculateTotalElapsedTime(
       this.timerService.elapsedTimes
-    ),
+    )
   };
   codelabUrl = 'https://www.codelab.fun';
 
@@ -41,21 +53,11 @@ export class ChallengeComponent implements OnInit {
 
   ngOnInit(): void {
     this.quizzes$ = this.quizDataService.getQuizzes();
-    
-    // Get quizId from service (most reliable) or from route params
-    this.currentQuizId = this.quizService.quizId || 
-      this.activatedRoute.snapshot.paramMap.get('quizId') || 
-      this.activatedRoute.parent?.snapshot.paramMap.get('quizId') || '';
-    
-    console.log('[ChallengeComponent] currentQuizId:', this.currentQuizId);
-    
-    this.quizName$ = of(this.currentQuizId);
-  }
 
-  calculatePercentageOfCorrectlyAnsweredQuestions(): number {
-    return Math.round(
-      (100 * this.quizService.correctAnswersCountSubject.getValue()) /
-        this.quizService.totalQuestions
-    );
+    // Get quizId from service (most reliable) or from route params
+    this.currentQuizId = this.quizService.quizId ||
+      this.activatedRoute.snapshot.paramMap.get('quizId') ||
+      this.activatedRoute.parent?.snapshot.paramMap.get('quizId') || '';
+    this.quizName$ = of(this.currentQuizId);
   }
 }
