@@ -15,9 +15,11 @@ export class HighlightOptionDirective implements OnInit {
   readonly resetBackground = output<boolean>();
   readonly optionClicked = output<Option>();
   readonly appHighlightInputTypeInput =
-    input<'checkbox' | 'radio'>('radio', { alias: 'appHighlightInputType' });
+    input<'checkbox' | 'radio'>('radio',
+      { alias: 'appHighlightInputType' });
   appHighlightInputType: 'checkbox' | 'radio' = 'radio';
-  readonly type = input<'single' | 'multiple'>('single');
+  readonly type =
+    input<'single' | 'multiple'>('single');
   readonly appHighlightResetInput =
     input(false, { alias: 'appHighlightReset' });
   appHighlightReset = false;
@@ -25,12 +27,11 @@ export class HighlightOptionDirective implements OnInit {
   readonly optionInput =
     input<Option | undefined>(undefined, { alias: 'option' });
   option!: Option;
-  readonly showFeedbackForOption = input<{
-    [key: number]: boolean;
-  }>({});
+  readonly showFeedbackForOption =
+    input<{ [key: number]: boolean; }>({});
   readonly highlightCorrectAfterIncorrect =
     input(false);
-  readonly allOptions = input<Option[]>([]);  // to access all options directly
+  readonly allOptions = input<Option[]>([]);
   readonly optionsToDisplay = input<Option[]>([]);
   readonly optionBinding =
     input<OptionBindings>();
