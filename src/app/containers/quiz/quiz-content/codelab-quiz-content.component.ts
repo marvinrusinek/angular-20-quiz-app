@@ -6,7 +6,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, ParamMap } from '@angular/router';
-import { BehaviorSubject, Observable, Subject, Subscription } from 'rxjs';
+import { BehaviorSubject, Observable, Subject } from 'rxjs';
 
 import { CombinedQuestionDataType } from
   '../../../shared/models/CombinedQuestionDataType.model';
@@ -118,10 +118,8 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   correctAnswersText$ = this.correctAnswersTextSource.asObservable();
 
   explanationText: string | null = null;
-  explanationTexts: string[] = [];
 
-  questionRendered: BehaviorSubject<boolean> =
-    new BehaviorSubject<boolean>(false);
+  questionRendered: BehaviorSubject<boolean> = new BehaviorSubject<boolean>(false);
 
   isContentAvailable$!: Observable<boolean>;
 
@@ -132,7 +130,6 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   get fetToDisplay$(): Observable<string> { return this.displayService.fetToDisplay$; }
   set fetToDisplay$(v: Observable<string>) { this.displayService.fetToDisplay$ = v; }
 
-  private timedOutForIdx = new Set<number>();
   private timedOutIdxSubject = new BehaviorSubject<number>(-1);
   public timedOutIdx$ = this.timedOutIdxSubject.asObservable();
 
