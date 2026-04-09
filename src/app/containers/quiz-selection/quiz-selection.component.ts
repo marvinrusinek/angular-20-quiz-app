@@ -1,17 +1,15 @@
-import {
-  ChangeDetectionStrategy, Component, OnDestroy, OnInit, ViewEncapsulation, signal
-} from '@angular/core';
-import { toObservable, toSignal } from '@angular/core/rxjs-interop';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, signal,
+  ViewEncapsulation } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
 import { CommonModule, NgOptimizedImage } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
+import { EMPTY, Observable, of, Subject, Subscription } from 'rxjs';
+import { catchError, takeUntil } from 'rxjs/operators';
+
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import {
-  EMPTY, Observable, of, Subject, Subscription
-} from 'rxjs';
-import { catchError, takeUntil } from 'rxjs/operators';
 
 import { SlideLeftToRightAnimation } from '../../animations/animations';
 import { AnimationState } from '../../shared/models/AnimationState.type';
@@ -33,7 +31,7 @@ import { QuizDataService } from '../../shared/services/data/quizdata.service';
     MatIconModule,
     MatMenuModule,
     MatTooltipModule,
-    NgOptimizedImage,
+    NgOptimizedImage
   ],
   templateUrl: './quiz-selection.component.html',
   styleUrls: ['./quiz-selection.component.scss'],
@@ -185,27 +183,12 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
     return hasStatus || isCompletedQuiz;
   }
 
-  /* getLinkRouterLink(quiz: Quiz): string[] {
-    const quizId = quiz.quizId;
-    const currentQuestionIndexStr = `${this.currentQuestionIndex}`;
-
-    switch (quiz.status) {
-      case QuizStatus.STARTED:
-        return [QuizRoutes.INTRO, quizId];
-      case QuizStatus.CONTINUE:
-        return [QuizRoutes.QUESTION, quizId, currentQuestionIndexStr];
-      case QuizStatus.COMPLETED:
-        return [QuizRoutes.RESULTS, quizId];
-      default:
-        return [];
-    }
-  } */
   getLinkRouterLink(quiz: any): any[] {
     const quizId = quiz?.quizId;
     const status = String(quiz?.status ?? '').toLowerCase();
   
     if (status === 'completed') return ['/results/', quizId];
-    if (status === 'continue') return ['/intro/', quizId]; // or resume route
+    if (status === 'continue') return ['/intro/', quizId];  // or resume route
     return ['/intro/', quizId];
   }
 
@@ -226,35 +209,7 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
     this.animationStateSignal.set('none');
   }
 
-  onSelectQuiz(quiz: any, index: number): void {
-    const quizId = quiz?.quizId;
-    if (!quizId) return;
-  
-    const status = String(quiz?.status ?? '').toLowerCase();
-  
-    // ✅ Completed quizzes go to Results (matches Milestones menu behavior)
-    if (status === 'completed') {
-      this.router.navigate(['/results/', quizId]);
-      return;
-    }
-  
-    // ✅ Continue quizzes resume (optional — only keep if you support this state)
-    if (status === 'continue') {
-      // If you store a resume index somewhere, use it here.
-      // Otherwise, sending them to intro is fine.
-      this.router.navigate(['/intro/', quizId]);
-      return;
-    }
-  
-    // Default: Start/Intro
-    this.router.navigate(['/intro/', quizId]);
-  }
-
   public isCompleted(quiz: any): boolean {
     return (quiz?.status ?? '').toString().toLowerCase() === 'completed';
   }
-
-  public isContinue(quiz: any): boolean {
-    return (quiz?.status ?? '').toString().toLowerCase() === 'continue';
-  }  
 }
