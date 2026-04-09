@@ -110,11 +110,16 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   explanationToDisplay = '';
 
   isLoading = false;
+  isQuizLoaded = false;
   isQuizDataLoaded = false;
   public isQuizRenderReady$ = new BehaviorSubject<boolean>(false);
+  quizAlreadyInitialized = false;
+  public hasOptionsLoaded = false;
   public shouldRenderOptions = false;
+  isCurrentQuestionAnswered = false;
 
   previousIndex: number | null = null;
+  isNavigatedByUrl = false;
   navigatingToResults = false;
 
   private nextButtonTooltipSubject = new BehaviorSubject<string>('Please click an option to continue...');
@@ -131,6 +136,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   destroy$ = new Subject<void>();
 
   displayState$ = this.quizStateService.displayState$;
+  qaToDisplay?: { question: QuizQuestion; options: Option[] };
 
   constructor(
     public quizService: QuizService,
@@ -164,6 +170,10 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     this.isContentAvailable$ = this.quizDataService.isContentAvailable$;
     this.quizSetupService.wireConstructor(this);
   }
+
+  public _processingOptionClick = false;
+  public _lastClickTime = 0;
+  public _lastOptionId = -1;
 
   @HostListener('window:keydown', ['$event'])
   async onGlobalKey(event: KeyboardEvent): Promise<void> {
