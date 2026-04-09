@@ -900,6 +900,16 @@ export class QuizSetupService {
     await this.loadQuestions(host);
     host.isQuizLoaded = true;
 
+    // Restore answeredQuestionIndices from clickConfirmedDotStatus (survives F5 refresh)
+    for (const [idx, status] of this.selectedOptionService.clickConfirmedDotStatus) {
+      if (status === 'correct' || status === 'wrong') {
+        host.answeredQuestionIndices.add(idx);
+      }
+    }
+    if (host.answeredQuestionIndices.size > 0) {
+      host.progress = Math.round((host.answeredQuestionIndices.size / host.totalQuestions) * 100);
+    }
+
     const initialIndex = host.currentQuestionIndex || 0;
     this.quizService.setCurrentQuestionIndex(initialIndex);
     host.updateDotStatus(initialIndex);
