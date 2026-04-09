@@ -366,8 +366,13 @@ export class SharedOptionBindingService {
           if (comp.isMultiMode) {
             const isCorrect = comp.isCorrect(b.option);
             if (isCorrect) {
-              let lastCorrectIdx: number | null = null;
-              if (comp.selectedOptionHistory?.length > 0) {
+              // On refresh, selectedOptionHistory is empty — highlight all
+              // selected correct options so they don't appear un-highlighted.
+              const isRefresh = this.selectedOptionService.hasRefreshBackup;
+              if (isRefresh || !comp.selectedOptionHistory?.length) {
+                b.option.highlight = !!match.selected;
+              } else {
+                let lastCorrectIdx: number | null = null;
                 for (let j = comp.selectedOptionHistory.length - 1; j >= 0; j--) {
                   const histId = comp.selectedOptionHistory[j];
                   let hIdx = comp.optionBindings.findIndex((_: any, bIdx: number) => bIdx === histId || String(bIdx) === String(histId));
@@ -382,8 +387,8 @@ export class SharedOptionBindingService {
                     }
                   }
                 }
+                b.option.highlight = (lastCorrectIdx !== null && idx === lastCorrectIdx);
               }
-              b.option.highlight = (lastCorrectIdx !== null && idx === lastCorrectIdx);
             } else {
               b.option.highlight = !!match.selected;
             }
@@ -410,8 +415,11 @@ export class SharedOptionBindingService {
           if (comp.isMultiMode) {
             const isCorrect = comp.isCorrect(opt);
             if (isCorrect) {
-              let lastCorrectIdx: number | null = null;
-              if (comp.selectedOptionHistory?.length > 0) {
+              const isRefresh = this.selectedOptionService.hasRefreshBackup;
+              if (isRefresh || !comp.selectedOptionHistory?.length) {
+                opt.highlight = !!match.selected;
+              } else {
+                let lastCorrectIdx: number | null = null;
                 for (let j = comp.selectedOptionHistory.length - 1; j >= 0; j--) {
                   const hIdx = Number(comp.selectedOptionHistory[j]);
                   const optAtH = comp.optionsToDisplay[hIdx];
@@ -420,8 +428,8 @@ export class SharedOptionBindingService {
                     break;
                   }
                 }
+                opt.highlight = (lastCorrectIdx !== null && idx === lastCorrectIdx);
               }
-              opt.highlight = (lastCorrectIdx !== null && idx === lastCorrectIdx);
             } else {
               opt.highlight = !!match.selected;
             }

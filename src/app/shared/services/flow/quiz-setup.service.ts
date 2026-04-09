@@ -946,6 +946,27 @@ export class QuizSetupService {
     this.initializeTooltip(host);
     host.resetQuestionState();
     this.initializeExplanationText(host);
+
+    // Re-enable next button AFTER resetQuestionState (which disables it).
+    // Use clickConfirmedDotStatus as the source of truth — it reliably
+    // survives refresh via individual sessionStorage keys, unlike
+    // selectedOptionsMap which may be cleared by downstream reset paths.
+    const confirmedStatus = this.selectedOptionService.clickConfirmedDotStatus.get(host.currentQuestionIndex);
+    const isAnsweredOnRefresh = confirmedStatus === 'correct' || confirmedStatus === 'wrong';
+    if (isAnsweredOnRefresh) {
+      // Must update BOTH next-button state systems:
+      // 1. NextButtonStateService.isButtonEnabled (signal) via forceEnable
+      // 2. SelectedOptionService.isNextButtonEnabledSubject via setNextButtonEnabled
+      // Use setTimeout to ensure this runs after all init microtasks settle.
+      setTimeout(() => {
+        this.selectedOptionService.setAnswered(true, true);
+        this.selectedOptionService.setNextButtonEnabled(true);
+        this.nextButtonStateService.forceEnable(60000);
+        host.isNextButtonEnabled = true;
+        host.isAnswered = true;
+        host.cdRef.detectChanges();
+      }, 100);
+    }
   }
 
   runOnDestroy(host: Host): void {
