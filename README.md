@@ -2,14 +2,15 @@
 
 <p align="center">
 A feature-rich quiz platform built with <strong>Angular 20</strong> that demonstrates
-reactive state management with RxJS, modular Angular architecture,
-and dynamic UI rendering.
+<strong>Signals-based state management</strong>, <strong>RxJS-powered reactive flows</strong>,
+modular Angular architecture, and dynamic UI rendering.
 </p>
 
 <p align="center">
 <img src="https://img.shields.io/badge/Angular-20-red">
 <img src="https://img.shields.io/badge/TypeScript-Enabled-blue">
 <img src="https://img.shields.io/badge/RxJS-Reactive-purple">
+<img src="https://img.shields.io/badge/Signals-Integrated-orange">
 <img src="https://img.shields.io/badge/Status-Active%20Development-brightgreen">
 </p>
 
@@ -24,20 +25,18 @@ and dynamic UI rendering.
 <h2>🎯 Goal / Purpose</h2>
 
 <p>
-This project explores advanced Angular application design, focusing on
-reactive state management with RxJS, modular service-driven architecture,
-and dynamic UI rendering.
+This project explores advanced Angular application design through a real-world quiz platform
+that combines <strong>Signals</strong>, <strong>RxJS</strong>, and a <strong>modular service-driven architecture</strong>.
 </p>
 
 <p>
-It is intended both as a practical learning tool and as a demonstration
-of scalable Angular engineering patterns.
+It was built both as a practical learning project and as a demonstration of scalable frontend engineering patterns,
+including dynamic UI rendering, reactive state synchronization, and maintainable application structure.
 </p>
 
 <p>
-The application is currently being refactored to improve maintainability,
-reduce component complexity, and better separate concerns across services
-and UI layers, with future plans for <strong>Angular Signals</strong> integration.
+The app has been <strong>heavily refactored</strong> to reduce component complexity, improve separation of concerns,
+and organize quiz behavior into focused services and UI layers.
 </p>
 
 <hr>
@@ -45,12 +44,12 @@ and UI layers, with future plans for <strong>Angular Signals</strong> integratio
 <h2>🏆 Engineering Highlights</h2>
 
 <ul>
-<li>Built with <strong>Angular 20</strong>, <strong>TypeScript</strong>, and <strong>RxJS</strong></li>
-<li>Implemented support for <strong>single-answer</strong> and <strong>multiple-answer</strong> quiz flows</li>
-<li>Designed a reactive feedback and explanation system synchronized with quiz state</li>
-<li>Integrated timer-driven quiz behavior and real-time score updates</li>
-<li>Structured the application using modular, service-driven architecture</li>
-<li>Designed with future <strong>Angular Signals</strong> adoption in mind</li>
+<li>Built with <strong>Angular 20</strong>, <strong>TypeScript</strong>, <strong>RxJS</strong>, and <strong>Angular Signals</strong></li>
+<li>Supports <strong>single-answer</strong> and <strong>multiple-answer</strong> quiz flows with distinct interaction logic</li>
+<li>Refactored large components into a more modular, service-oriented architecture</li>
+<li>Combines <strong>Signals</strong> for local/reactive UI state and <strong>RxJS</strong> for async/event-driven flows</li>
+<li>Implements timer-based quiz behavior, score tracking, feedback display, and explanation text handling</li>
+<li>Designed to keep quiz logic, rendering, and state synchronization cleanly separated</li>
 </ul>
 
 <hr>
@@ -60,35 +59,34 @@ and UI layers, with future plans for <strong>Angular Signals</strong> integratio
 <h3>🧠 Multiple Question Types</h3>
 <p>
 Supports both <strong>single-answer</strong> and <strong>multiple-answer</strong> questions,
-each with independent selection logic and validation.
+each with its own selection rules, validation flow, and feedback behavior.
 </p>
 
-<h3>💡 Instant Feedback + Explanation Text</h3>
+<h3>💡 Feedback + Explanation Text</h3>
 <p>
-Provides immediate feedback and explanation text after answer selection,
-turning the quiz into a learning experience.
+Displays immediate answer feedback and explanation text to make the quiz experience
+more instructional and interactive.
 </p>
 
 <h3>⏱️ Timer-Based Quiz Flow</h3>
 <p>
-Each question can be timed, adding urgency and realism to the quiz experience.
+Includes timed question behavior to add urgency and simulate a more realistic quiz environment.
 </p>
 
 <h3>📈 Live Score Tracking</h3>
 <p>
-Score updates dynamically as users progress through the quiz.
+Updates the user’s score dynamically throughout the quiz experience.
 </p>
 
 <h3>🔀 Shuffle Mode</h3>
 <p>
-Questions can be randomized while preserving accurate feedback
-and explanation alignment.
+Supports randomized quiz/question flow while preserving consistent answer validation,
+feedback, and explanation behavior.
 </p>
 
 <h3>📊 Results Summary</h3>
 <p>
-After completing the quiz, users can review their performance through
-a structured results breakdown.
+Provides a structured summary view so users can review performance after completing a quiz.
 </p>
 
 <hr>
@@ -96,9 +94,13 @@ a structured results breakdown.
 <h2>🧭 Architecture Overview</h2>
 
 <p>
-The application follows a modular Angular architecture where container components
-coordinate UI behavior and services manage state, logic, and data flow.
-RxJS streams are used to synchronize state across the application.
+The application follows a modular Angular architecture where container components coordinate UI behavior,
+focused services manage quiz logic and state, and reactive primitives keep the interface synchronized.
+</p>
+
+<p>
+It uses <strong>Angular Signals</strong> for direct reactive UI state and <strong>RxJS streams</strong> for asynchronous flows,
+event coordination, and cross-component synchronization.
 </p>
 
 <h3>High-Level Flow</h3>
@@ -118,7 +120,7 @@ Introduction / Quiz / Results
  ├── TimerService
  └── SelectionMessageService
         ↓
-[RxJS State Streams]
+[Signals + RxJS State]
         ↓
 [UI Updates]
 Scoreboard / Feedback / Results
@@ -131,6 +133,7 @@ Scoreboard / Feedback / Results
 <ul>
 <li><strong>Angular 20</strong></li>
 <li><strong>TypeScript</strong></li>
+<li><strong>Angular Signals</strong></li>
 <li><strong>RxJS</strong></li>
 <li><strong>Angular Material</strong></li>
 <li><strong>SCSS</strong></li>
@@ -184,11 +187,11 @@ npm install
 <h2>🚧 Roadmap</h2>
 
 <ul>
-<li>Angular Signals integration</li>
-<li>Further modular refactoring</li>
-<li>Improved mobile responsiveness and touch interactions</li>
-<li>UI/UX enhancements</li>
-<li>Expanded quiz content</li>
+<li>Continue refining Signals usage across the application</li>
+<li>Further reduce complexity in larger feature areas</li>
+<li>Improve mobile responsiveness and touch interactions</li>
+<li>Enhance UI/UX polish and animation consistency</li>
+<li>Expand quiz content and results insights</li>
 </ul>
 
 <hr>
