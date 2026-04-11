@@ -175,10 +175,17 @@ export class QuizContentDisplayService {
     // Was this question answered in a prior session (e.g. before a page
     // refresh)? The answered set is persisted to sessionStorage and
     // restored in QuizStateService's constructor, so this survives F5.
+    // NOTE: This flag alone is NOT sufficient to show the FET — a
+    // single-answer wrong click also marks a question "answered", but the
+    // FET must only appear when ALL correct answers have been selected.
+    // We keep it around for the nav-back hasPriorAnswer check below.
     const wasPreviouslyAnswered = this.quizStateService.isQuestionAnswered(safeIdx);
 
-    // Allow FET if: Resolved OR TimedOut OR was answered in a prior session
-    let shouldShowExplanation = isResolved || isTimedOut || wasPreviouslyAnswered;
+    // Allow FET only if the question is actually resolved (all correct
+    // answers selected) OR the timer expired. Previously-answered alone
+    // must not trigger FET — otherwise a wrong single-answer click that
+    // survives a refresh would incorrectly show the explanation.
+    let shouldShowExplanation = isResolved || isTimedOut;
 
     // CRITICAL GUARD: Only show FET if user has actively interacted with
     // this question in the current session. On a page refresh the in-memory

@@ -138,8 +138,15 @@ export class OptionItemComponent implements OnChanges {
     const classes = { ...this.b.cssClasses };
 
     if (this.timerExpired()) {
-      classes['correct-option'] = this.shouldShowCorrectOnTimeout();
-      classes['incorrect-option'] = false;
+      // Preserve the user's selected state on timer expiry: a selected
+      // wrong option must still paint red with its close icon.
+      const wasSelected = this.b?.isSelected
+        || !!this.b?.option?.highlight
+        || this._wasSelected
+        || this.isSelectedForCurrentQuestion();
+      const showCorrect = this.shouldShowCorrectOnTimeout();
+      classes['correct-option'] = showCorrect;
+      classes['incorrect-option'] = wasSelected && !this.isOptionCorrect();
       return classes;
     }
 
@@ -264,7 +271,13 @@ export class OptionItemComponent implements OnChanges {
 
   shouldShowIcon(option?: any, i?: number): boolean {
     if (this.timerExpired()) {
-      return this.shouldShowCorrectOnTimeout();
+      // Show icon for correct options AND for any option the user
+      // actually selected (so a selected wrong answer keeps its X).
+      if (this.shouldShowCorrectOnTimeout()) return true;
+      return this.b?.isSelected
+        || !!this.b?.option?.highlight
+        || this._wasSelected
+        || this.isSelectedForCurrentQuestion();
     }
 
     // Always show icon if the option should be highlighted
@@ -283,7 +296,13 @@ export class OptionItemComponent implements OnChanges {
 
   getOptionBackgroundColor(): string | null {
     if (this.timerExpired()) {
-      return this.shouldShowCorrectOnTimeout() ? '#43e756' : null;
+      if (this.shouldShowCorrectOnTimeout()) return '#43e756';
+      // Keep the user's wrong selection red on timer expiry.
+      const wasSelected = this.b?.isSelected
+        || !!this.b?.option?.highlight
+        || this._wasSelected
+        || this.isSelectedForCurrentQuestion();
+      return wasSelected && !this.isOptionCorrect() ? '#ff0000' : null;
     }
 
     if (!this.shouldHighlightOption()) {

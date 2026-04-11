@@ -784,8 +784,37 @@ export class CqcOrchestratorService {
           // to prevent sessionStorage contamination from causing FET
           // to show on siblings.
           const hasClicked = host.quizStateService.hasClickedInSession?.(zeroBasedIndex) ?? false;
-          console.log(`[loadQuestion] Q${zeroBasedIndex + 1} refresh-recovery check: initialLoadAfterRefresh=${isInitialLoadAfterRefresh} hasClickedInSession=${hasClicked} hasExplanation=${!!question?.explanation}`);
-          const shouldInject = hasClicked && !!question?.explanation;
+
+          // RESOLUTION GATE: The clickedInSession seed fires on refresh for
+          // ANY answered question — including a single-answer wrong click
+          // that marked the question as "answered" without resolving it.
+          // The FET must only appear once all correct answers are actually
+          // selected. Read the persisted selections and check resolution
+          // against the loaded question.
+          let isResolvedFromPersistence = false;
+          try {
+            let storedSelections: any[] = [];
+            try {
+              const raw = sessionStorage.getItem('sel_Q' + zeroBasedIndex);
+              if (raw) {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) storedSelections = parsed;
+              }
+            } catch { /* ignore */ }
+            if (storedSelections.length === 0) {
+              storedSelections =
+                host.selectedOptionService.getSelectedOptionsForQuestion?.(zeroBasedIndex)
+                ?? [];
+            }
+            if (storedSelections.length > 0 && question) {
+              isResolvedFromPersistence =
+                host.selectedOptionService.isQuestionResolvedLeniently?.(question, storedSelections)
+                ?? false;
+            }
+          } catch { /* ignore */ }
+
+          console.log(`[loadQuestion] Q${zeroBasedIndex + 1} refresh-recovery check: initialLoadAfterRefresh=${isInitialLoadAfterRefresh} hasClickedInSession=${hasClicked} hasExplanation=${!!question?.explanation} isResolvedFromPersistence=${isResolvedFromPersistence}`);
+          const shouldInject = hasClicked && !!question?.explanation && isResolvedFromPersistence;
           if (shouldInject) {
             const correctIndices = ets.getCorrectOptionIndices(question, question.options, zeroBasedIndex);
             if (correctIndices.length > 0) {
