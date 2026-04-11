@@ -195,7 +195,7 @@ export class TimerService implements OnDestroy {
       console.info(`[TimerService] Start suppressed — already expired for this question.`);
       return;
     }
-    if (this._lastStartedAtMs > 0 && (nowMs - this._lastStartedAtMs) < 60000) {
+    if (this._lastStartedAtMs > 0 && (nowMs - this._lastStartedAtMs) < this.timePerQuestion * 1000) {
       console.info(`[TimerService] Duplicate start suppressed (anti-thrash).`);
       // Re-arm running flag in case a rogue stop slipped through
       if (!this.isTimerRunning && this.timerSubscription) {
@@ -295,7 +295,7 @@ export class TimerService implements OnDestroy {
     // (init-chain churn). Only honor stops once the timer has had a chance
     // to actually tick, OR if expiry has been reached.
     const sinceStart = Date.now() - this._lastStartedAtMs;
-    if (sinceStart < 60000 && !this.hasExpiredForRun && !options.bypassAntiThrash) {
+    if (sinceStart < this.timePerQuestion * 1000 && !this.hasExpiredForRun && !options.bypassAntiThrash) {
       console.info(
         `[TimerService] stopTimer suppressed (only ${sinceStart}ms since start).`
       );
@@ -337,7 +337,7 @@ export class TimerService implements OnDestroy {
       return;
     }
     const sinceStart = Date.now() - this._lastStartedAtMs;
-    if (this._lastStartedAtMs > 0 && sinceStart < 60000) {
+    if (this._lastStartedAtMs > 0 && sinceStart < this.timePerQuestion * 1000) {
       console.info(`[TimerService] resetTimer suppressed (${sinceStart}ms since start).`);
       return;
     }
