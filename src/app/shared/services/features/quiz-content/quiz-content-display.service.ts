@@ -172,18 +172,33 @@ export class QuizContentDisplayService {
 
     const isMultipleAnswer = numCorrect > 1;
 
-    // Allow FET if: Resolved OR TimedOut
-    let shouldShowExplanation = isResolved || isTimedOut;
+    // Was this question answered in a prior session (e.g. before a page
+    // refresh)? The answered set is persisted to sessionStorage and
+    // restored in QuizStateService's constructor, so this survives F5.
+    const wasPreviouslyAnswered = this.quizStateService.isQuestionAnswered(safeIdx);
+
+    // Allow FET if: Resolved OR TimedOut OR was answered in a prior session
+    let shouldShowExplanation = isResolved || isTimedOut || wasPreviouslyAnswered;
 
     // CRITICAL GUARD: Only show FET if user has actively interacted with
-    // this question in the current session.
-    const hasInteracted = this.quizStateService.hasUserInteracted(safeIdx) || lastInteractedIdx === safeIdx;
+    // this question in the current session. On a page refresh the in-memory
+    // interaction set is empty, so we also accept the presence of restored
+    // selections (safeSelections) OR a resolved state as proof of prior
+    // interaction — both are persisted via sel_Q*/selectedOptionsMap.
+    const hasInteracted =
+      this.quizStateService.hasUserInteracted(safeIdx) ||
+      lastInteractedIdx === safeIdx ||
+      safeSelections.length > 0 ||
+      isResolved;
     if (!hasInteracted && !isTimedOut) {
       shouldShowExplanation = false;
     }
 
-    // When navigating backwards (Previous button), always show question text
-    if (isNavBack) {
+    // When navigating backwards (Previous button), show question text
+    // UNLESS the question was previously answered / resolved — in that
+    // case we want the FET to persist so the user sees their prior result.
+    const hasPriorAnswer = wasPreviouslyAnswered || isResolved || safeSelections.length > 0;
+    if (isNavBack && !hasPriorAnswer) {
       shouldShowExplanation = false;
     }
 
@@ -202,6 +217,17 @@ export class QuizContentDisplayService {
       shouldShowExplanation = isResolved;
     }
 
+    // FINAL HARD GUARD: authoritative check via hasClickedInSession.
+    // This Set only grows on real user clicks or refresh-of-answered,
+    // so it's immune to sessionStorage contamination affecting other
+    // flags. If the user hasn't clicked this idx in this session and
+    // it wasn't just timed out, force question text.
+    const hasClickedThisIdx = this.quizStateService.hasClickedInSession?.(safeIdx) ?? false;
+    if (shouldShowExplanation && !isTimedOut && !hasClickedThisIdx) {
+      console.log(`[displayText$] Q${safeIdx + 1} ⛔ final hard guard: !hasClickedInSession → forcing question text`);
+      shouldShowExplanation = false;
+    }
+
     const finalFet = (fetText ?? '').trim();
     const hasFet = finalFet.length > 0;
     const hasRaw = !!qObj?.explanation;
@@ -212,6 +238,11 @@ export class QuizContentDisplayService {
       (this.explanationTextService as any).fetByIndex?.get(safeIdx)?.trim() === finalFet ||
       finalFet.toLowerCase().includes('correct because')
     );
+
+    // DIAGNOSTIC
+    try {
+      document.title = `DT Q${safeIdx} sel=${safeSelections.length} R=${isResolved?1:0} sSE=${shouldShowExplanation?1:0} hF=${hasFet?1:0} iFQ=${isFetForThisQuestion?1:0} hR=${hasRaw?1:0} NB=${isNavBack?1:0}`;
+    } catch { /* ignore */ }
 
     if (shouldShowExplanation) {
       console.log(`[displayText$] Q${safeIdx + 1} DISPLAY: hasFet=${hasFet}, isValid=${isFetForThisQuestion}, hasRaw=${hasRaw}`);
@@ -244,6 +275,21 @@ export class QuizContentDisplayService {
         console.warn(`[displayText$] Q${safeIdx + 1} falling back to RAW: FET mismatch or missing`);
         return qObj.explanation || '';
       }
+      // We WANT to show FET but no text is producible in this emission
+      // (caches not yet populated after refresh). Try regenerating from
+      // scratch using the raw question data so we don't have to fall back
+      // to question text — that would cause the visible FET to flicker
+      // back to the question on every stray emission.
+      const regenerated = this.regenerateFetForIndex(safeIdx);
+      if (regenerated) {
+        console.log(`[displayText$] Q${safeIdx + 1} REGENERATED FET: "${regenerated.slice(0, 40)}..."`);
+        return regenerated;
+      }
+      // Last resort: return empty string so the subscribeToDisplayText
+      // guard preserves the previously cached FET in the DOM rather than
+      // overwriting it with question text.
+      console.warn(`[displayText$] Q${safeIdx + 1} shouldShowExplanation but no FET producible — returning empty to preserve cached`);
+      return '';
     }
 
     return qDisplay;

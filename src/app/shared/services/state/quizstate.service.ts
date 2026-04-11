@@ -92,6 +92,94 @@ export class QuizStateService {
 
   constructor() {
     this.questionStates = new Map<number, QuestionState>();
+    this.restoreInteractionState();
+    // Seed the click-in-session tracker ONLY for the refresh-initial URL
+    // idx. This is the single source of truth for "should FET show": it
+    // only grows on actual user clicks or refresh-of-answered-question.
+    this.seedClickedInSessionFromRefresh();
+  }
+
+  // Persist _hasUserInteracted and _answeredQuestionIndices across page
+  // refreshes so that the FET display pipeline recognises previously
+  // answered questions and shows their explanation text.
+  private readonly INTERACTED_STORAGE_KEY = 'userInteractedQuestions';
+  private readonly ANSWERED_STORAGE_KEY = 'userAnsweredQuestions';
+
+  private restoreInteractionState(): void {
+    try {
+      const navEntries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
+      const isPageRefresh = navEntries.length > 0 && navEntries[0].type === 'reload';
+      if (!isPageRefresh) {
+        sessionStorage.removeItem(this.INTERACTED_STORAGE_KEY);
+        sessionStorage.removeItem(this.ANSWERED_STORAGE_KEY);
+        return;
+      }
+
+      // Determine which question index (0-based) the URL is currently on —
+      // restore ONLY that index's interaction state. This prevents stale
+      // "answered" flags from other questions (persisted during a prior
+      // play session) from leaking into the post-refresh display and
+      // causing resolveDisplayText to surface FET instead of question text
+      // when the user later navigates to a sibling question.
+      let currentUrlIdx: number | null = null;
+      try {
+        const match = (window?.location?.pathname ?? '').match(/\/question\/[^/]+\/(\d+)/);
+        if (match && match[1]) {
+          const oneBased = parseInt(match[1], 10);
+          if (Number.isFinite(oneBased) && oneBased >= 1) {
+            currentUrlIdx = oneBased - 1;
+          }
+        }
+      } catch { /* ignore */ }
+
+      const restore = (key: string, target: Set<number>) => {
+        const raw = sessionStorage.getItem(key);
+        if (!raw) return;
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) {
+          for (const idx of arr) {
+            if (typeof idx === 'number' && Number.isFinite(idx)) {
+              // Only restore the currently-displayed question's state;
+              // drop all other persisted indices so post-refresh
+              // navigation to siblings starts fresh.
+              if (currentUrlIdx === null || idx === currentUrlIdx) {
+                target.add(idx);
+              }
+            }
+          }
+        }
+      };
+      restore(this.INTERACTED_STORAGE_KEY, this._hasUserInteracted);
+      restore(this.ANSWERED_STORAGE_KEY, this._answeredQuestionIndices);
+
+      // Also re-persist the pruned sets so sessionStorage no longer
+      // carries stale entries for the dropped indices. If the user
+      // refreshes AGAIN on a different question later, this ensures the
+      // new refresh starts from a clean slate for the non-current index.
+      try {
+        sessionStorage.setItem(
+          this.INTERACTED_STORAGE_KEY,
+          JSON.stringify(Array.from(this._hasUserInteracted))
+        );
+        sessionStorage.setItem(
+          this.ANSWERED_STORAGE_KEY,
+          JSON.stringify(Array.from(this._answeredQuestionIndices))
+        );
+      } catch { /* ignore */ }
+    } catch { /* ignore */ }
+  }
+
+  private persistInteractionState(): void {
+    try {
+      sessionStorage.setItem(
+        this.INTERACTED_STORAGE_KEY,
+        JSON.stringify(Array.from(this._hasUserInteracted))
+      );
+      sessionStorage.setItem(
+        this.ANSWERED_STORAGE_KEY,
+        JSON.stringify(Array.from(this._answeredQuestionIndices))
+      );
+    } catch { /* ignore */ }
   }
 
   setDisplayState(state: {
@@ -424,6 +512,13 @@ export class QuizStateService {
     this._hasUserInteracted.add(idx);
     this.userHasInteracted$.next(idx);
     this.lastInteractionTime$.next(Date.now());
+    this.persistInteractionState();
+    // Also register as a click-in-session: every real user click path
+    // calls markUserInteracted, while sessionStorage restore populates
+    // _hasUserInteracted directly (without calling this method). So
+    // hooking here ensures clicks are captured in _clickedInSession
+    // without being polluted by F5 restoration.
+    this.markClickedInSession(idx);
   }
 
   hasUserInteracted(idx: number): boolean {
@@ -432,10 +527,58 @@ export class QuizStateService {
 
   markQuestionAnswered(idx: number): void {
     this._answeredQuestionIndices.add(idx);
+    this.persistInteractionState();
   }
 
   isQuestionAnswered(idx: number): boolean {
     return this._answeredQuestionIndices.has(idx);
+  }
+
+  // ───────────────────────────────────────────────────────────────
+  // Click-in-session tracking — authoritative source of truth for
+  // "should FET show for this idx". Populated ONLY by actual user
+  // click events (via quiz-setup.service.onOptionSelected). On page
+  // refresh, it is seeded *only* for the refresh-initial URL idx if
+  // sessionStorage says that idx was already answered — this keeps
+  // Q1's FET visible after F5 without contaminating sibling indices.
+  // ───────────────────────────────────────────────────────────────
+  private _clickedInSession = new Set<number>();
+
+  markClickedInSession(idx: number): void {
+    if (!Number.isFinite(idx) || idx < 0) return;
+    this._clickedInSession.add(idx);
+  }
+
+  hasClickedInSession(idx: number): boolean {
+    return this._clickedInSession.has(idx);
+  }
+
+  seedClickedInSessionFromRefresh(): void {
+    try {
+      const navEntries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
+      const isPageRefresh = navEntries.length > 0 && navEntries[0].type === 'reload';
+      if (!isPageRefresh) return;
+      let currentUrlIdx: number | null = null;
+      try {
+        const match = (window?.location?.pathname ?? '').match(/\/question\/[^/]+\/(\d+)/);
+        if (match && match[1]) {
+          const oneBased = parseInt(match[1], 10);
+          if (Number.isFinite(oneBased) && oneBased >= 1) {
+            currentUrlIdx = oneBased - 1;
+          }
+        }
+      } catch { /* ignore */ }
+      if (currentUrlIdx === null) return;
+      // Only seed if sessionStorage says this exact idx was answered.
+      if (this._answeredQuestionIndices.has(currentUrlIdx)
+          || this._hasUserInteracted.has(currentUrlIdx)) {
+        this._clickedInSession.add(currentUrlIdx);
+      }
+    } catch { /* ignore */ }
+  }
+
+  clearClickedInSession(): void {
+    this._clickedInSession.clear();
   }
 
   // Reset interaction state (called on Navigation)
@@ -451,6 +594,10 @@ export class QuizStateService {
     this.quizStates = {};
     this._hasUserInteracted.clear();
     this._answeredQuestionIndices.clear();
+    try {
+      sessionStorage.removeItem(this.INTERACTED_STORAGE_KEY);
+      sessionStorage.removeItem(this.ANSWERED_STORAGE_KEY);
+    } catch { /* ignore */ }
     this.userHasInteracted$.next(-1);  // Reset so stale index doesn't falsely pass hasInteracted checks
     this.currentQuestionSubject.next(null);
     this.explanationReadySubject.next(false);

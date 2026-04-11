@@ -79,8 +79,57 @@ export class SelectedOptionService {
       const isPageRefresh = navEntries.length > 0 && navEntries[0].type === 'reload';
 
       if (isPageRefresh) {
+        // Determine which question (0-based) the URL is currently on.
+        // Only restore/keep state for THAT index — drop everything else
+        // so that post-refresh navigation to sibling questions starts
+        // fresh (without inheriting stale selections/dot-status that
+        // would cause resolveDisplayText to show FET instead of the
+        // question text).
+        let currentUrlIdx: number | null = null;
+        try {
+          const match = (window?.location?.pathname ?? '').match(/\/question\/[^/]+\/(\d+)/);
+          if (match && match[1]) {
+            const oneBased = parseInt(match[1], 10);
+            if (Number.isFinite(oneBased) && oneBased >= 1) {
+              currentUrlIdx = oneBased - 1;
+            }
+          }
+        } catch { /* ignore */ }
+
+        // Prune in-memory maps restored above (rawSelectionsMap,
+        // selectedOptionsMap, _refreshBackup) to the current URL index only.
+        // _refreshBackup is consulted by getSelectedOptionsForQuestion and
+        // would otherwise leak stale selections for other indices, causing
+        // resolveDisplayText to flag them as resolved and show FET.
+        if (currentUrlIdx !== null) {
+          for (const key of Array.from(this.rawSelectionsMap.keys())) {
+            if (key !== currentUrlIdx) this.rawSelectionsMap.delete(key);
+          }
+          for (const key of Array.from(this.selectedOptionsMap.keys())) {
+            if (key !== currentUrlIdx) this.selectedOptionsMap.delete(key);
+          }
+          for (const key of Array.from(this._refreshBackup.keys())) {
+            if (key !== currentUrlIdx) this._refreshBackup.delete(key);
+          }
+          // Also prune the persisted selectionHistory so a future refresh
+          // on another index starts clean.
+          try {
+            if (this._refreshBackup.size > 0) {
+              const historyObj = Object.fromEntries(this._refreshBackup);
+              sessionStorage.setItem('selectionHistory', JSON.stringify(historyObj));
+            } else {
+              sessionStorage.removeItem('selectionHistory');
+            }
+          } catch { /* ignore */ }
+        }
+
         // Restore clickConfirmedDotStatus from sessionStorage dot_confirmed_* entries
         for (let i = 0; i < 100; i++) {
+          if (currentUrlIdx !== null && i !== currentUrlIdx) {
+            // Drop stale dot-status for non-current indices AND prune storage.
+            sessionStorage.removeItem('dot_confirmed_' + i);
+            continue;
+          }
           const val = sessionStorage.getItem('dot_confirmed_' + i);
           if (val === 'correct' || val === 'wrong') {
             this.clickConfirmedDotStatus.set(i, val);
@@ -89,6 +138,11 @@ export class SelectedOptionService {
         // Restore selectedOptionsMap from durable per-question keys
         // (these survive clearState which wipes the main sessionStorage keys)
         for (let i = 0; i < 100; i++) {
+          if (currentUrlIdx !== null && i !== currentUrlIdx) {
+            // Prune stale per-question selection key for non-current indices.
+            sessionStorage.removeItem('sel_Q' + i);
+            continue;
+          }
           const sel = sessionStorage.getItem('sel_Q' + i);
           if (sel) {
             try {
