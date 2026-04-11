@@ -125,6 +125,12 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
   private navTime = 0;  // track when we landed on this question
 
+  // Signal-backed source of truth for the qText heading's innerHTML.
+  // Binding the template to this signal makes Angular's change detection
+  // keep the heading stable across tab visibility flips and async restores —
+  // no more fighting the DOM imperatively.
+  readonly qTextHtmlSig = signal<string>('');
+
   get shouldShowFet$(): Observable<boolean> { return this.displayService.shouldShowFet$; }
   set shouldShowFet$(v: Observable<boolean>) { this.displayService.shouldShowFet$ = v; }
   get fetToDisplay$(): Observable<string> { return this.displayService.fetToDisplay$; }

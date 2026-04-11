@@ -105,51 +105,57 @@ export class CqcOrchestratorService {
       const intended = computeIntendedQText();
       if (!intended) return;
       if (!current || current !== intended) {
-        host.renderer.setProperty(el, 'innerHTML', intended);
-        host._lastDisplayedText = intended;
+        this.writeQText(host, intended);
         console.log(`[CQCC qText] 🔁 Force-stamped (${reason})`);
       }
     };
 
-    // Mutation observer safety net — only active for a short window after
-    // visibility restore. The SCSS rule `h3:empty { display:none }` means
-    // any transient clear of qText makes the heading vanish, and some
-    // restore paths blank it via Angular's change detection without
-    // routing through questionIndexSubject. During the guard window we
-    // re-stamp any blank we observe; outside it we stay dormant so
-    // intentional navigation blanks (runQuestionIndexSet) aren't
-    // interfered with.
-    const activateQTextGuard = (): void => {
-      try {
-        const el = host.qText?.nativeElement;
-        if (!el || typeof MutationObserver === 'undefined') return;
-        const idxAtStart = host.currentIndex;
+    // Persistent MutationObserver safety net. The SCSS rule
+    // `h3:empty { display: none }` means any transient blank collapses
+    // the heading, and some restore paths (tab visibility, async
+    // emissions) clear qText without routing through a path we control.
+    // Watch qText forever and debounced-restore when it goes empty:
+    //   - 80ms debounce lets intentional navigation blanks (runQuestionIndexSet)
+    //     be overwritten by stampQuestionTextNow's own retry array before
+    //     we try to intervene.
+    //   - If it's STILL empty after the debounce, restore `_lastDisplayedText`
+    //     (or recompute via the builder) so the user never sees a collapsed heading.
+    try {
+      const el = host.qText?.nativeElement;
+      if (el && typeof MutationObserver !== 'undefined') {
         if (host._qTextObserver) {
           try { host._qTextObserver.disconnect(); } catch { /* ignore */ }
           host._qTextObserver = null;
         }
+        let debounceTimer: any = null;
         const observer = new MutationObserver(() => {
-          if (host.currentIndex !== idxAtStart) {
-            try { observer.disconnect(); } catch { /* ignore */ }
-            if (host._qTextObserver === observer) host._qTextObserver = null;
-            return;
-          }
           const innerNow = (el.innerHTML ?? '').trim();
           if (innerNow) return;
-          forceStampIfBlank('mutation-observer');
+          if (debounceTimer) clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(() => {
+            debounceTimer = null;
+            const innerLater = (el.innerHTML ?? '').trim();
+            if (innerLater) return;
+            // Prefer whatever was last successfully displayed — that's
+            // the most recent truth for this index. Fall back to a fresh
+            // compute only if the cache is empty.
+            let restore = (host._lastDisplayedText ?? '').trim();
+            if (!restore) {
+              restore = computeIntendedQText();
+            }
+            if (restore) {
+              this.writeQText(host, restore);
+              console.log('[CQCC qText] 🔁 Observer restored blank heading');
+            }
+          }, 80);
         });
         observer.observe(el, { childList: true, characterData: true, subtree: true });
         host._qTextObserver = observer;
-        setTimeout(() => {
-          try { observer.disconnect(); } catch { /* ignore */ }
-          if (host._qTextObserver === observer) host._qTextObserver = null;
-        }, 3000);
-      } catch { /* ignore */ }
-    };
+      }
+    } catch { /* ignore */ }
 
     host._cqcVisibilityHandler = () => {
       if (document.visibilityState !== 'visible') return;
-      activateQTextGuard();
       // Replay at several points to win races with the QQC visibility-restore
       // flow (which runs async with ~350ms + 400ms setTimeouts and may
       // overwrite or clear the qText DOM).
@@ -205,6 +211,28 @@ export class CqcOrchestratorService {
     host.correctAnswersDisplaySubject.complete();
     host.combinedTextSubject.complete();
     host.combinedSub?.unsubscribe();
+  }
+
+  /**
+   * Write HTML to qText. Updates the host signal (which the template is
+   * bound to via [innerHTML]) AND the imperative Renderer2 mirror AND the
+   * _lastDisplayedText cache. The signal is the durable source of truth
+   * for Angular's change detection — writing it means visibility flips
+   * and async restores can't leave the heading blank, because CD will
+   * keep re-stamping from the signal on every pass. The Renderer2 write
+   * remains for immediate synchronous DOM visibility inside the same
+   * microtask (before CD has had a chance to run).
+   */
+  private writeQText(host: Host, html: string): void {
+    try {
+      const safe = html ?? '';
+      host.qTextHtmlSig?.set(safe);
+      host._lastDisplayedText = safe;
+      const el = host.qText?.nativeElement;
+      if (el) {
+        host.renderer.setProperty(el, 'innerHTML', safe);
+      }
+    } catch { /* ignore */ }
   }
 
   /**
@@ -279,8 +307,7 @@ export class CqcOrchestratorService {
       if (!el) return false;
       const display = this.buildQuestionDisplayHTML(host, idx);
       if (!display) return false;
-      host.renderer.setProperty(el, 'innerHTML', display);
-      host._lastDisplayedText = display;
+      this.writeQText(host, display);
       return true;
     } catch {
       return false;
@@ -385,8 +412,11 @@ export class CqcOrchestratorService {
 
     // Reset cached display text so the empty-emission guard in
     // subscribeToDisplayText doesn't re-stamp the previous question's
-    // FET onto this freshly loaded one.
+    // FET onto this freshly loaded one. Also clear the signal so
+    // Angular's [innerHTML] binding blanks the heading (retry stamps
+    // below will repopulate it for the new index).
     host._lastDisplayedText = '';
+    host.qTextHtmlSig?.set('');
 
     // POST-REFRESH STALE-STATE CLEANUP: clear restored state for the
     // target idx if we're navigating to a sibling after a refresh.
@@ -405,7 +435,7 @@ export class CqcOrchestratorService {
     if (!stamped && host.qText?.nativeElement && !this.hasInteractionEvidence(host, idx)) {
       // Question data wasn't ready — blank for now; retries below will
       // re-try once the questions array is populated.
-      host.renderer.setProperty(host.qText.nativeElement, 'innerHTML', '');
+      this.writeQText(host, '');
     }
 
     // Retry stamps to beat async rewriters (visibility handler, pipeline
@@ -589,7 +619,7 @@ export class CqcOrchestratorService {
             if (!incoming) {
               if (cached) {
                 console.warn('[subscribeToDisplayText] ⚠️ Empty text after restore — keeping cached');
-                host.renderer.setProperty(el, 'innerHTML', cached);
+                this.writeQText(host, cached);
                 return;
               }
               // Cached is also empty — rebuild question text from scratch
@@ -598,8 +628,7 @@ export class CqcOrchestratorService {
               try {
                 const rebuilt = this.buildQuestionDisplayHTML(host, currentIdx);
                 if (rebuilt) {
-                  host.renderer.setProperty(el, 'innerHTML', rebuilt);
-                  host._lastDisplayedText = rebuilt;
+                  this.writeQText(host, rebuilt);
                   console.warn('[subscribeToDisplayText] ⚠️ Empty text + empty cache — rebuilt question text');
                   return;
                 }
@@ -631,8 +660,7 @@ export class CqcOrchestratorService {
                     console.warn(
                       `[subscribeToDisplayText] 🛡️ question-first guard Q${currentIdx + 1} — forcing question text over "${incoming.slice(0, 40)}"`
                     );
-                    host.renderer.setProperty(el, 'innerHTML', forcedQText);
-                    host._lastDisplayedText = forcedQText;
+                    this.writeQText(host, forcedQText);
                     return;
                   }
                 }
@@ -641,9 +669,8 @@ export class CqcOrchestratorService {
               }
             }
 
-            host.renderer.setProperty(el, 'innerHTML', finalText);
-            host._lastDisplayedText = finalText;
-            console.log(`[subscribeToDisplayText] ✅ Updated innerHTML using Renderer2: "${finalText?.substring(0, 50)}..."`);
+            this.writeQText(host, finalText);
+            console.log(`[subscribeToDisplayText] ✅ Updated innerHTML via signal+Renderer2: "${finalText?.substring(0, 50)}..."`);
           } else {
             console.warn(`[subscribeToDisplayText] ⚠️ qText.nativeElement not available!`);
           }
@@ -919,12 +946,8 @@ export class CqcOrchestratorService {
                   try {
                     ets.storeFormattedExplanation(zeroBasedIndex, question.explanation, question, question.options, true);
                   } catch { /* ignore */ }
-                  const el = host.qText?.nativeElement;
-                  if (el) {
-                    host.renderer.setProperty(el, 'innerHTML', formattedFet);
-                    host._lastDisplayedText = formattedFet;
-                    console.log(`[loadQuestion] Q${zeroBasedIndex + 1} eager FET injected: "${formattedFet.slice(0, 40)}..."`);
-                  }
+                  this.writeQText(host, formattedFet);
+                  console.log(`[loadQuestion] Q${zeroBasedIndex + 1} eager FET injected: "${formattedFet.slice(0, 40)}..."`);
                 };
                 // Initial injection
                 injectNow();
