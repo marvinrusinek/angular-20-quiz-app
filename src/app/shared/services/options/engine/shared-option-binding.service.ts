@@ -377,6 +377,63 @@ export class SharedOptionBindingService {
     // already clean — bail to avoid accidentally restamping stale highlights.
     if (savedByIndex.size === 0) return;
 
+    // MULTI-ANSWER LOCK REHYDRATION
+    // `disabledOptionsPerQuestion` is in-memory state that the click path
+    // populates when the user picks a wrong option (locks that pick) and
+    // again when all correct answers have been selected (locks every
+    // remaining incorrect option). On refresh the map is empty, so
+    // computeDisabledState returns false and the dark gray lock is lost.
+    // Rebuild it here from the persisted selections + canonical question
+    // before computeDisabledState runs for each binding below.
+    try {
+      const qForCorrect: any = comp.currentQuestion
+        ?? comp.getQuestionAtDisplayIndex?.(qIndex);
+      const correctOpts: any[] = qForCorrect?.options ?? comp.optionsToDisplay ?? [];
+      const isCorrectFlag = (o: any) =>
+        o?.correct === true
+        || String(o?.correct) === 'true'
+        || o?.correct === 1
+        || String(o?.correct) === '1';
+      const correctIdxs: number[] = correctOpts
+        .map((o: any, i: number) => (isCorrectFlag(o) ? i : -1))
+        .filter((n: number) => n >= 0);
+      const isMulti = correctIdxs.length > 1;
+      if (isMulti && correctOpts.length > 0) {
+        if (!comp.disabledOptionsPerQuestion.has(qIndex)) {
+          comp.disabledOptionsPerQuestion.set(qIndex, new Set<number>());
+        }
+        const disabledSet: Set<number> = comp.disabledOptionsPerQuestion.get(qIndex)!;
+        const correctSet = new Set<number>(correctIdxs);
+
+        // Any saved incorrect pick is locked (mirrors the live click path).
+        const selectedIdxs = new Set<number>();
+        for (const idx of savedByIndex.keys()) {
+          selectedIdxs.add(idx);
+          if (!correctSet.has(idx)) {
+            disabledSet.add(idx);
+          }
+        }
+
+        // If every correct answer is in the persisted selections, the
+        // question is fully resolved — lock all unselected incorrect
+        // options as dark gray and mark the perfect-answer flag so other
+        // paths (FET, scoring) stay consistent.
+        const allCorrectSelected = correctIdxs.every((ci) => selectedIdxs.has(ci));
+        if (allCorrectSelected) {
+          for (let i = 0; i < correctOpts.length; i++) {
+            if (!correctSet.has(i)) disabledSet.add(i);
+          }
+          try {
+            const qs: any = this.quizService as any;
+            if (!qs._multiAnswerPerfect) {
+              qs._multiAnswerPerfect = new Map<number, boolean>();
+            }
+            qs._multiAnswerPerfect.set(qIndex, true);
+          } catch { /* ignore */ }
+        }
+      }
+    } catch { /* ignore */ }
+
     if (comp.optionBindings?.length) {
       comp.optionBindings.forEach((b: any, idx: number) => {
         const match = savedByIndex.get(idx);
