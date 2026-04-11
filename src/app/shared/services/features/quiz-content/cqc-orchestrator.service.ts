@@ -237,12 +237,29 @@ export class CqcOrchestratorService {
 
       if (!isPageRefresh) return;
 
-      // Track the refresh-initial index the first time we see any index
-      // after a refresh. runLoadQuestion also sets this; whichever fires
-      // first wins, and subsequent writes are no-ops.
+      // Derive the refresh-initial index from the URL the FIRST time we
+      // see any index after a refresh. Previously we trusted whatever
+      // idx was passed on the first call — but if the component's
+      // questionIndex signal briefly emits 0 before the parent route
+      // resolves to the real value (e.g. 1 for Q2), we'd latch
+      // _refreshInitialIdx=0 and then treat the real Q2 call as a
+      // post-refresh sibling navigation, wiping Q2's restored
+      // selections/highlights on page reload.
       if (host._refreshInitialIdx == null) {
-        host._refreshInitialIdx = idx;
-        return;  // This IS the refresh-initial index; no cleanup needed.
+        let urlIdx: number | null = null;
+        try {
+          const match = (window?.location?.pathname ?? '').match(/\/question\/[^/]+\/(\d+)/);
+          if (match && match[1]) {
+            const oneBased = parseInt(match[1], 10);
+            if (Number.isFinite(oneBased) && oneBased >= 1) {
+              urlIdx = oneBased - 1;
+            }
+          }
+        } catch { /* ignore */ }
+        host._refreshInitialIdx = urlIdx ?? idx;
+        // If the URL-derived refresh index matches this idx, bail — no cleanup.
+        if (host._refreshInitialIdx === idx) return;
+        // Otherwise fall through: this call is a sibling idx, clean it up.
       }
 
       if (host._refreshInitialIdx === idx) return;
@@ -602,6 +619,14 @@ export class CqcOrchestratorService {
         host.quizService.setQuizId(quizId);
         localStorage.setItem('quizId', quizId);
         host.currentQuestionIndexValue = zeroBasedIndex;
+
+        // Restore the persisted score now that the quizId is known.
+        // QuizService's constructor ran this too, but with an empty quizId,
+        // which is a no-op. On page refresh, this call is what actually
+        // rehydrates correctCount / questionCorrectness from localStorage.
+        try {
+          host.quizService.scoringService?.restoreScoreFromPersistence?.(quizId);
+        } catch { /* ignore */ }
 
         // IMPORTANT: set currentIndex BEFORE cleanup so the guard check
         // in subscribeToDisplayText sees the new index.

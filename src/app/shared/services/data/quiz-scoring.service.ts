@@ -231,39 +231,45 @@ export class QuizScoringService {
 
   restoreScoreFromPersistence(quizId: string): void {
     try {
+      // If quizId is not yet known (e.g. called from QuizService constructor
+      // before the route has resolved), do nothing. Wiping state here
+      // destroys the localStorage-persisted score the user just earned
+      // right before the refresh.
+      if (!quizId || quizId.length === 0) {
+        console.log('[QuizScoringService] restoreScoreFromPersistence skipped — no quizId yet');
+        return;
+      }
+
       const savedIndexRaw = localStorage.getItem('savedQuestionIndex');
       const savedIndex = Number(savedIndexRaw);
-      const hasInProgressIndex = Number.isFinite(savedIndex) && Math.trunc(savedIndex) > 0;
+      const hasInProgressIndex = Number.isFinite(savedIndex) && Math.trunc(savedIndex) >= 0;
       const scoreQuizId = localStorage.getItem(this.scoreQuizIdStorageKey) ?? '';
-      const quizMatches =
-        scoreQuizId.length > 0 &&
-        quizId.length > 0 &&
-        scoreQuizId === quizId;
+      const quizMatches = scoreQuizId.length > 0 && scoreQuizId === quizId;
 
-      // Fresh starts at Q1 should not resurrect stale scores from prior attempts.
-      // Only restore persisted score for in-progress sessions (index > 0).
-      if (!hasInProgressIndex || !quizMatches) {
+      // Compute what we HAVE stored for this quiz. If there's real data,
+      // this is an in-progress session and we must restore it on refresh,
+      // even if the user was on Q1 (savedIndex === 0).
+      const storedRaw = localStorage.getItem('correctAnswersCount');
+      const storedCount = Number(storedRaw);
+      const safeStored = Number.isFinite(storedCount) ? Math.max(0, Math.trunc(storedCount)) : 0;
+      const mapTrueCount = Array.from(this.questionCorrectness.values())
+        .filter((v) => v === true)
+        .length;
+      const hasStoredScore = safeStored > 0 || mapTrueCount > 0;
+
+      // Wipe ONLY when: (a) quiz doesn't match (switching quizzes), OR
+      // (b) there is genuinely no progress (no stored score AND no
+      // in-progress index). Otherwise, restore from the stronger source.
+      const shouldWipe = !quizMatches || (!hasInProgressIndex && !hasStoredScore);
+      if (shouldWipe) {
         this.correctCount = 0;
         this.correctAnswersCountSubject.next(0);
         this.questionCorrectness.clear();
         this.saveQuestionCorrectness();
         localStorage.setItem('correctAnswersCount', '0');
-        if (quizId) {
-          localStorage.setItem(this.scoreQuizIdStorageKey, quizId);
-        }
+        localStorage.setItem(this.scoreQuizIdStorageKey, quizId);
         return;
       }
-
-      const storedRaw = localStorage.getItem('correctAnswersCount');
-      const storedCount = Number(storedRaw);
-      const safeStored = Number.isFinite(storedCount) ? Math.max(0, Math.trunc(storedCount)) : 0;
-
-      // questionCorrectness can survive service/component recreation even when
-      // correctAnswersCountSubject is back at its initial 0.
-      // Recover using the stronger of persisted count and correctness-map count.
-      const mapTrueCount = Array.from(this.questionCorrectness.values())
-        .filter((v) => v === true)
-        .length;
 
       const restored = Math.max(safeStored, mapTrueCount);
       this.correctCount = restored;
