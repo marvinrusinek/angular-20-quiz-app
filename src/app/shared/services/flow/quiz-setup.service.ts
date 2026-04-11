@@ -1018,9 +1018,18 @@ export class QuizSetupService {
   async runOnGlobalKey(host: Host, event: KeyboardEvent): Promise<void> {
     const tag = (event.target as HTMLElement)?.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+    // Arrow-key navigation is only allowed once the user has selected an
+    // option for the CURRENT question. Without a selection, arrow keys
+    // are inert — this prevents skipping a question without answering.
+    const currentIdx = this.quizService.getCurrentQuestionIndex();
+    const hasSelectionForCurrent =
+      (this.selectedOptionService.getSelectedOptionsForQuestion?.(currentIdx) ?? []).length > 0;
+
     switch (event.key) {
       case 'ArrowRight':
       case 'Enter': {
+        if (!hasSelectionForCurrent) return;
         if (host.shouldShowNextButton) {
           event.preventDefault();
           await host.advanceToNextQuestion();
@@ -1034,8 +1043,8 @@ export class QuizSetupService {
         break;
       }
       case 'ArrowLeft': {
-        const idx = this.quizService.getCurrentQuestionIndex();
-        if (idx > 0) {
+        if (!hasSelectionForCurrent) return;
+        if (currentIdx > 0) {
           event.preventDefault();
           await host.advanceToPreviousQuestion();
         }
