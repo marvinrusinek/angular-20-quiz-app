@@ -465,6 +465,75 @@ export class SharedOptionBindingService {
         comp.lastFeedbackOptionId = Number(lastIdx);
         comp.showFeedback = true;
       }
+
+      // Restore _feedbackDisplay so the feedback sentence reappears under
+      // the last selected option on page refresh. shouldShowFeedbackAfter
+      // in shared-option.component consults only _feedbackDisplay — the
+      // bindings themselves are enough for highlights, but the inline
+      // feedback block is gated on this field.
+      if (!comp._feedbackDisplay) {
+        // Use CLICK order (last element of `saved`) to identify the
+        // last-clicked row. `saved` is ordered by push order, not by
+        // display position, so saved[last].displayIndex is the true
+        // "last selected" regardless of whether the user clicked top
+        // to bottom or bottom to top. Falling back to the highest key
+        // in savedByIndex gave wrong answers when the user clicked
+        // from the bottom row upward.
+        let targetIdx = -1;
+        if (Number.isFinite(Number(lastIdx))) {
+          targetIdx = Number(lastIdx);
+        } else {
+          // No displayIndex on the last saved record — fall back to
+          // highest key in savedByIndex (matched via optionId/text).
+          for (const k of savedByIndex.keys()) {
+            if (k > targetIdx) targetIdx = k;
+          }
+        }
+        const targetBinding = targetIdx >= 0 ? comp.optionBindings?.[targetIdx] : null;
+        if (targetBinding && comp.currentQuestion) {
+          try {
+            // IMPORTANT: pass ONLY the last-clicked selection to
+            // buildFeedbackMessage — not the full saved history.
+            // For single-answer, `saved` may contain the prior wrong
+            // click plus the subsequent correct click. Passing both
+            // causes buildFeedbackMessage to generate a wrong-answer
+            // variant (e.g. "Not this one, try again!") even though
+            // the LAST click was correct. The click path only feeds
+            // the current click into the feedback builder, so mirror
+            // that here.
+            const lastSelectionOnly = (saved?.length > 0)
+              ? [saved[saved.length - 1]] as any[]
+              : [];
+            const feedbackText = this.feedbackService.buildFeedbackMessage(
+              comp.currentQuestion,
+              lastSelectionOnly,
+              false,
+              false,
+              qIndex,
+              comp.optionsToDisplay
+            ) || '';
+            let correctMessage = '';
+            try {
+              correctMessage = this.feedbackService.setCorrectMessage(
+                (comp.optionsToDisplay ?? []).filter((o: any) => o && typeof o === 'object'),
+                comp.currentQuestion
+              );
+            } catch { /* ignore */ }
+            comp._feedbackDisplay = {
+              idx: targetIdx,
+              config: {
+                feedback: feedbackText,
+                showFeedback: true,
+                correctMessage,
+                selectedOption: targetBinding.option,
+                options: comp.optionsToDisplay ?? [],
+                question: comp.currentQuestion ?? null,
+                idx: targetIdx
+              } as FeedbackProps
+            };
+          } catch { /* ignore */ }
+        }
+      }
     }
 
     // Replace binding array with NEW object references so OnPush

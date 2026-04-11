@@ -196,6 +196,27 @@ export class OptionItemComponent implements OnChanges {
       if (selections.length === 0) {
         selections = this.selectedOptionService.getRefreshBackup(qIdx);
       }
+      // Durable fallback: on navigate-away-and-back, single-answer clicks
+      // may have trimmed the in-memory map to just the last click (or
+      // cleared it entirely). The per-question sessionStorage key still
+      // holds the merged history from saveState(), which is what we need
+      // here to detect that a correct answer was already chosen so the
+      // unclicked siblings stay locked (dark gray).
+      // IMPORTANT: only read this fallback inside isDisabled() — do NOT
+      // expose it through getSelectedOptionsForQuestion, otherwise the
+      // highlight path would also see these entries and paint red on
+      // the unclicked option.
+      if (selections.length === 0) {
+        try {
+          const raw = sessionStorage.getItem('sel_Q' + qIdx);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              selections = parsed as any[];
+            }
+          }
+        } catch { /* ignore */ }
+      }
       const filtered = selections.filter((s: any) => {
         const sQ = s?.questionIndex ?? s?.qIdx ?? s?.questionIdx;
         return sQ === undefined || sQ === null || sQ === -1 || Number(sQ) === Number(qIdx);
@@ -302,15 +323,26 @@ export class OptionItemComponent implements OnChanges {
         ? Number(selectedIndexFallback)
         : null;
 
-    // Match by index first (preferred during normal operation)
+    // Match by index first (preferred during normal operation).
+    // When the record HAS a displayIndex, trust it exclusively — do NOT
+    // fall through to optionId match, otherwise a sentinel -1 optionId
+    // on the unclicked 4th binding could still match a record whose
+    // index points at a different binding.
     if (normalizedSelectedIndex != null) {
       return normalizedSelectedIndex === this.i;
     }
 
     // Fallback: match by optionId only when no index data exists on the
-    // selection record (e.g. refresh-backup data after deserialization)
-    if (sel?.optionId != null && this.b?.option?.optionId != null
-        && String(sel.optionId) === String(this.b.option.optionId)) {
+    // selection record (e.g. refresh-backup data after deserialization).
+    // Require a real, non-sentinel id on BOTH sides so that multiple
+    // bindings sharing a -1/null optionId don't all match the same record.
+    const selId = sel?.optionId;
+    const bId = this.b?.option?.optionId;
+    const selIdIsReal =
+      selId != null && selId !== -1 && String(selId) !== '-1';
+    const bIdIsReal =
+      bId != null && bId !== -1 && String(bId) !== '-1';
+    if (selIdIsReal && bIdIsReal && String(selId) === String(bId)) {
       return true;
     }
 
