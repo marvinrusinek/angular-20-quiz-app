@@ -70,24 +70,45 @@ export class CqcOrchestratorService {
       const replay = () => {
         const el = host.qText?.nativeElement;
         if (!el) return;
-        let cached = (host._lastDisplayedText ?? '').trim();
-        // Fallback: if no cached text, pull current question text directly
-        // from the canonical quizService questions array.
-        if (!cached) {
+        const idx = host.currentIndex >= 0
+          ? host.currentIndex
+          : (host.quizService.getCurrentQuestionIndex?.() ?? 0);
+
+        // Compute the intended text for this idx from scratch so a stale
+        // or empty `_lastDisplayedText` can never strand us on a blank DOM.
+        //   - No interaction evidence → force question text.
+        //   - Interaction + FET cached → keep FET.
+        //   - Interaction but no FET yet → fall back to question text.
+        let intended = '';
+        const hasInteracted = this.hasInteractionEvidence(host, idx);
+        if (hasInteracted) {
+          const cachedFet =
+            (host.explanationTextService.formattedExplanations?.[idx]?.explanation ?? '').trim()
+            || ((host.explanationTextService as any).fetByIndex?.get(idx) ?? '').trim();
+          if (cachedFet) {
+            intended = cachedFet;
+          }
+        }
+        if (!intended) {
+          intended = this.buildQuestionDisplayHTML(host, idx);
+        }
+        // Last-ditch fallback: cached or raw questionText.
+        if (!intended) {
+          intended = (host._lastDisplayedText ?? '').trim();
+        }
+        if (!intended) {
           try {
-            const idx = host.currentIndex >= 0
-              ? host.currentIndex
-              : (host.quizService.getCurrentQuestionIndex?.() ?? 0);
             const q = host.quizService.questions?.[idx];
-            cached = (q?.questionText ?? '').trim();
+            intended = (q?.questionText ?? '').trim();
           } catch {}
         }
-        if (!cached) return;
+        if (!intended) return;
+
         const current = (el.innerHTML ?? '').trim();
-        if (!current || current !== cached) {
-          host.renderer.setProperty(el, 'innerHTML', cached);
-          host._lastDisplayedText = cached;
-          console.log('[CQCC visibility] 🔁 Replayed question text');
+        if (!current || current !== intended) {
+          host.renderer.setProperty(el, 'innerHTML', intended);
+          host._lastDisplayedText = intended;
+          console.log('[CQCC visibility] 🔁 Replayed text to qText');
         }
       };
       // Replay at several points to win races with the QQC visibility-restore
@@ -97,6 +118,7 @@ export class CqcOrchestratorService {
       setTimeout(replay, 100);
       setTimeout(replay, 500);
       setTimeout(replay, 900);
+      setTimeout(replay, 1200);
     };
     document.addEventListener('visibilitychange', host._cqcVisibilityHandler);
 
@@ -520,9 +542,25 @@ export class CqcOrchestratorService {
             // when combineLatest sources re-fire with stale/null values).
             const incoming = (finalText ?? '').trim();
             const cached = (host._lastDisplayedText ?? '').trim();
-            if (!incoming && cached) {
-              console.warn('[subscribeToDisplayText] ⚠️ Empty text after restore — keeping cached');
-              host.renderer.setProperty(el, 'innerHTML', cached);
+            if (!incoming) {
+              if (cached) {
+                console.warn('[subscribeToDisplayText] ⚠️ Empty text after restore — keeping cached');
+                host.renderer.setProperty(el, 'innerHTML', cached);
+                return;
+              }
+              // Cached is also empty — rebuild question text from scratch
+              // rather than let an empty innerHTML reach the DOM (which is
+              // what leaves the heading blank after a tab visibility flip).
+              try {
+                const rebuilt = this.buildQuestionDisplayHTML(host, currentIdx);
+                if (rebuilt) {
+                  host.renderer.setProperty(el, 'innerHTML', rebuilt);
+                  host._lastDisplayedText = rebuilt;
+                  console.warn('[subscribeToDisplayText] ⚠️ Empty text + empty cache — rebuilt question text');
+                  return;
+                }
+              } catch { /* ignore */ }
+              // Nothing to write — leave existing DOM untouched.
               return;
             }
 
