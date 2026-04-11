@@ -123,13 +123,12 @@ export class SelectedOptionService {
           } catch { /* ignore */ }
         }
 
-        // Restore clickConfirmedDotStatus from sessionStorage dot_confirmed_* entries
+        // Restore clickConfirmedDotStatus from sessionStorage dot_confirmed_* entries.
+        // IMPORTANT: preserve dot status for EVERY answered index — not just the
+        // current URL index — so the progress bar retains credit for questions
+        // answered before the refresh (e.g. Q1 answered, then user refreshes on Q2).
+        // Pruning here erases Q1's dot and reverts the progress percentage.
         for (let i = 0; i < 100; i++) {
-          if (currentUrlIdx !== null && i !== currentUrlIdx) {
-            // Drop stale dot-status for non-current indices AND prune storage.
-            sessionStorage.removeItem('dot_confirmed_' + i);
-            continue;
-          }
           const val = sessionStorage.getItem('dot_confirmed_' + i);
           if (val === 'correct' || val === 'wrong') {
             this.clickConfirmedDotStatus.set(i, val);
