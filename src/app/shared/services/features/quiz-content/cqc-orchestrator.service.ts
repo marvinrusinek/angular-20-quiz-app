@@ -65,60 +65,100 @@ export class CqcOrchestratorService {
         console.log('[CQCC] ♻️ Questions updated - FET will be generated on-demand when user clicks');
       });
 
+    // Build the intended qText HTML for the current index. Centralised so
+    // the visibility handler, replay retries, and the MutationObserver
+    // safety net all derive the same value.
+    const computeIntendedQText = (): string => {
+      const idx = host.currentIndex >= 0
+        ? host.currentIndex
+        : (host.quizService.getCurrentQuestionIndex?.() ?? 0);
+      let intended = '';
+      const hasInteracted = this.hasInteractionEvidence(host, idx);
+      if (hasInteracted) {
+        const cachedFet =
+          (host.explanationTextService.formattedExplanations?.[idx]?.explanation ?? '').trim()
+          || ((host.explanationTextService as any).fetByIndex?.get(idx) ?? '').trim();
+        if (cachedFet) {
+          intended = cachedFet;
+        }
+      }
+      if (!intended) {
+        intended = this.buildQuestionDisplayHTML(host, idx);
+      }
+      if (!intended) {
+        intended = (host._lastDisplayedText ?? '').trim();
+      }
+      if (!intended) {
+        try {
+          const q = host.quizService.questions?.[idx];
+          intended = (q?.questionText ?? '').trim();
+        } catch {}
+      }
+      return intended;
+    };
+    host._cqcComputeIntendedQText = computeIntendedQText;
+
+    const forceStampIfBlank = (reason: string): void => {
+      const el = host.qText?.nativeElement;
+      if (!el) return;
+      const current = (el.innerHTML ?? '').trim();
+      const intended = computeIntendedQText();
+      if (!intended) return;
+      if (!current || current !== intended) {
+        host.renderer.setProperty(el, 'innerHTML', intended);
+        host._lastDisplayedText = intended;
+        console.log(`[CQCC qText] 🔁 Force-stamped (${reason})`);
+      }
+    };
+
+    // Mutation observer safety net — only active for a short window after
+    // visibility restore. The SCSS rule `h3:empty { display:none }` means
+    // any transient clear of qText makes the heading vanish, and some
+    // restore paths blank it via Angular's change detection without
+    // routing through questionIndexSubject. During the guard window we
+    // re-stamp any blank we observe; outside it we stay dormant so
+    // intentional navigation blanks (runQuestionIndexSet) aren't
+    // interfered with.
+    const activateQTextGuard = (): void => {
+      try {
+        const el = host.qText?.nativeElement;
+        if (!el || typeof MutationObserver === 'undefined') return;
+        const idxAtStart = host.currentIndex;
+        if (host._qTextObserver) {
+          try { host._qTextObserver.disconnect(); } catch { /* ignore */ }
+          host._qTextObserver = null;
+        }
+        const observer = new MutationObserver(() => {
+          if (host.currentIndex !== idxAtStart) {
+            try { observer.disconnect(); } catch { /* ignore */ }
+            if (host._qTextObserver === observer) host._qTextObserver = null;
+            return;
+          }
+          const innerNow = (el.innerHTML ?? '').trim();
+          if (innerNow) return;
+          forceStampIfBlank('mutation-observer');
+        });
+        observer.observe(el, { childList: true, characterData: true, subtree: true });
+        host._qTextObserver = observer;
+        setTimeout(() => {
+          try { observer.disconnect(); } catch { /* ignore */ }
+          if (host._qTextObserver === observer) host._qTextObserver = null;
+        }, 3000);
+      } catch { /* ignore */ }
+    };
+
     host._cqcVisibilityHandler = () => {
       if (document.visibilityState !== 'visible') return;
-      const replay = () => {
-        const el = host.qText?.nativeElement;
-        if (!el) return;
-        const idx = host.currentIndex >= 0
-          ? host.currentIndex
-          : (host.quizService.getCurrentQuestionIndex?.() ?? 0);
-
-        // Compute the intended text for this idx from scratch so a stale
-        // or empty `_lastDisplayedText` can never strand us on a blank DOM.
-        //   - No interaction evidence → force question text.
-        //   - Interaction + FET cached → keep FET.
-        //   - Interaction but no FET yet → fall back to question text.
-        let intended = '';
-        const hasInteracted = this.hasInteractionEvidence(host, idx);
-        if (hasInteracted) {
-          const cachedFet =
-            (host.explanationTextService.formattedExplanations?.[idx]?.explanation ?? '').trim()
-            || ((host.explanationTextService as any).fetByIndex?.get(idx) ?? '').trim();
-          if (cachedFet) {
-            intended = cachedFet;
-          }
-        }
-        if (!intended) {
-          intended = this.buildQuestionDisplayHTML(host, idx);
-        }
-        // Last-ditch fallback: cached or raw questionText.
-        if (!intended) {
-          intended = (host._lastDisplayedText ?? '').trim();
-        }
-        if (!intended) {
-          try {
-            const q = host.quizService.questions?.[idx];
-            intended = (q?.questionText ?? '').trim();
-          } catch {}
-        }
-        if (!intended) return;
-
-        const current = (el.innerHTML ?? '').trim();
-        if (!current || current !== intended) {
-          host.renderer.setProperty(el, 'innerHTML', intended);
-          host._lastDisplayedText = intended;
-          console.log('[CQCC visibility] 🔁 Replayed text to qText');
-        }
-      };
+      activateQTextGuard();
       // Replay at several points to win races with the QQC visibility-restore
       // flow (which runs async with ~350ms + 400ms setTimeouts and may
       // overwrite or clear the qText DOM).
-      replay();
-      setTimeout(replay, 100);
-      setTimeout(replay, 500);
-      setTimeout(replay, 900);
-      setTimeout(replay, 1200);
+      forceStampIfBlank('visibility:0');
+      setTimeout(() => forceStampIfBlank('visibility:100'), 100);
+      setTimeout(() => forceStampIfBlank('visibility:500'), 500);
+      setTimeout(() => forceStampIfBlank('visibility:900'), 900);
+      setTimeout(() => forceStampIfBlank('visibility:1200'), 1200);
+      setTimeout(() => forceStampIfBlank('visibility:2000'), 2000);
     };
     document.addEventListener('visibilitychange', host._cqcVisibilityHandler);
 
@@ -150,6 +190,10 @@ export class CqcOrchestratorService {
     if (host._cqcVisibilityHandler) {
       document.removeEventListener('visibilitychange', host._cqcVisibilityHandler);
       host._cqcVisibilityHandler = null;
+    }
+    if (host._qTextObserver) {
+      try { host._qTextObserver.disconnect(); } catch { /* ignore */ }
+      host._qTextObserver = null;
     }
     if (Array.isArray(host._questionStampRetryTimers)) {
       for (const t of host._questionStampRetryTimers) clearTimeout(t);
