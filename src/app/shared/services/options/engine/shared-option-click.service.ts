@@ -485,6 +485,7 @@ export class SharedOptionClickService {
 
       comp.selectedOptions.clear();
       comp.selectedOptions.add(effectiveId);
+      (option as any).displayIndex = index;
       this.selectedOptionService.setSelectedOption(option);
     } else {
       const qIdx = comp.getActiveQuestionIndex() ?? 0;
@@ -501,9 +502,12 @@ export class SharedOptionClickService {
       const selOpt: SelectedOption = {
         ...option,
         optionId: (option.optionId != null && option.optionId !== -1) ? option.optionId : effectiveId,
+        displayIndex: index,
         questionIndex: qIdx,
         selected: option.selected
-      };
+      } as SelectedOption;
+      (selOpt as any).index = index;
+      (option as any).displayIndex = index;
       this.selectedOptionService.addOption(qIdx, selOpt);
     }
 

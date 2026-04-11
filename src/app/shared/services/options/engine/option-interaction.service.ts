@@ -67,7 +67,14 @@ export class OptionInteractionService {
     emitExplanation: (idx: number) => void,
     updateOptionAndUI: (b: OptionBindings, i: number, ev: any, ctx?: any) => void
   ): void {
-    const qIdx = state.currentQuestionIndex;
+    // Always prefer the live quiz service index over the state snapshot.
+    // On the first click after navigating Q1→Q2, state.currentQuestionIndex
+    // can still be 0 (stale) while the user is physically on Q2, causing
+    // the click to be attributed to the wrong question and dropped.
+    const liveIdx = this.quizService?.getCurrentQuestionIndex?.();
+    const qIdx = (typeof liveIdx === 'number' && Number.isFinite(liveIdx) && liveIdx >= 0)
+      ? liveIdx
+      : state.currentQuestionIndex;
     const isCorrectHelper = (o: any): boolean => {
       if (!o) return false;
       const c = o.correct ?? o.isCorrect ?? (o as any).correct;
@@ -84,6 +91,11 @@ export class OptionInteractionService {
 
     const getEffectiveId = (o: any, i: number) => (o?.optionId != null && o.optionId !== -1) ? o.optionId : i;
     const targetKey = getEffectiveId(binding.option, index);
+    // Composite identity: optionId alone can collide when loader fallbacks
+    // produce duplicate ids (e.g. `optionId ?? i+1` gives position 0 an id
+    // that already exists at position 1). Use `id|displayIndex` for
+    // deselection matching so each position is distinct.
+    const targetCompositeKey = `${targetKey}|${index}`;
 
     console.log(`[OIS.handleOptionClick] Q${qIdx + 1} Index=${index} TargetKey=${targetKey} isCurrentlySelected=${binding.isSelected}`);
 
@@ -134,10 +146,12 @@ export class OptionInteractionService {
 
     console.log(`[OIS] Q${qIdx + 1} clicked text="${binding.option?.text}" storedSelection.length=${storedSelection.length}`, storedSelection.map((s: any) => ({ id: s.optionId, idx: s.displayIndex, text: s.text?.slice(0, 30) })));
 
-    // Check if ALREADY selected using robust ID matching
+    // Check if ALREADY selected using composite (id + displayIndex) matching.
+    // See targetCompositeKey comment above — optionId alone can collide.
     const existingIdx = simulatedSelection.findIndex(o => {
       const sIdx = (o as any).displayIndex ?? (o as any).index ?? (o as any).idx;
-      return getEffectiveId(o, sIdx) === targetKey;
+      const sKey = `${getEffectiveId(o, sIdx)}|${sIdx}`;
+      return sKey === targetCompositeKey;
     });
     const isCurrentlySelected = (existingIdx !== -1);
 
@@ -198,6 +212,39 @@ export class OptionInteractionService {
 
     state.selectedOptionMap.clear();
     futureKeys.forEach(k => state.selectedOptionMap.set(k, true));
+
+    // Normalize displayIndex on EVERY futureSelection entry (not just the
+    // freshly-clicked one). Pre-existing entries in simulatedSelection can
+    // come from persisted state with a missing displayIndex, and rehydrate
+    // keys strictly on displayIndex — so entries without it silently fail
+    // to restore on refresh. Resolve by matching optionId/text against the
+    // current bindings or optionsToDisplay to stamp the correct position.
+    futureSelection = futureSelection.map((s: any) => {
+      const hasIdx =
+        s?.displayIndex != null && Number.isFinite(Number(s.displayIndex));
+      if (hasIdx) return s;
+      const sId = s?.optionId;
+      const sText = (s?.text ?? '').trim().toLowerCase();
+      let pos = state.optionBindings.findIndex((b: any) => {
+        const bId = b?.option?.optionId;
+        if (sId != null && sId !== -1 && bId != null && bId !== -1 && String(sId) === String(bId)) return true;
+        if (sText && (b?.option?.text ?? '').trim().toLowerCase() === sText) return true;
+        return false;
+      });
+      if (pos === -1) {
+        pos = state.optionsToDisplay.findIndex((o: any) => {
+          if (sId != null && sId !== -1 && o?.optionId != null && o.optionId !== -1 && String(sId) === String(o.optionId)) return true;
+          if (sText && (o?.text ?? '').trim().toLowerCase() === sText) return true;
+          return false;
+        });
+      }
+      if (pos === -1) return s;
+      return { ...s, displayIndex: pos, index: pos };
+    });
+
+    // Re-sync simulatedSelection with the normalized futureSelection so the
+    // subsequent syncSelectionState call below persists the corrected data.
+    simulatedSelection = [...futureSelection];
 
     // UPDATE UI STATE BASICS
     const newState = !isCurrentlySelected;

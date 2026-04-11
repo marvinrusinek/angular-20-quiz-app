@@ -73,19 +73,23 @@ export class OptionItemComponent implements OnChanges {
     if (changes['currentQuestionIndex']) {
       const nextQuestionIndex = Number(this.currentQuestionIndex() ?? -1);
       if (Number.isFinite(nextQuestionIndex) && nextQuestionIndex !== this._lastQuestionIndex) {
-        this._wasSelected = false;  // full reset for new question
-        this._lastQuestionIndex = nextQuestionIndex;
-        // Force-clear any stale visual state on this binding from a prior question
-        if (this.b) {
-          this.b.isSelected = false;
-          this.b.disabled = false;
-          this.b.cssClasses = {};
-          if (this.b.option) {
-            this.b.option.selected = false;
-            this.b.option.highlight = false;
-            this.b.option.showIcon = false;
+        // Only clear stale visual state when navigating between questions,
+        // NOT on initial render (where _lastQuestionIndex is still -1).
+        // Clearing on initial render wipes rehydrated highlight state.
+        if (this._lastQuestionIndex !== -1) {
+          this._wasSelected = false;
+          if (this.b) {
+            this.b.isSelected = false;
+            this.b.disabled = false;
+            this.b.cssClasses = {};
+            if (this.b.option) {
+              this.b.option.selected = false;
+              this.b.option.highlight = false;
+              this.b.option.showIcon = false;
+            }
           }
         }
+        this._lastQuestionIndex = nextQuestionIndex;
       }
     }
 

@@ -65,6 +65,12 @@ export class QqcOptionSelectionService {
       option.optionId = event.index ?? -1;
     }
 
+    // Always stamp displayIndex so the persist/dedup layer can key by it.
+    if (typeof event.index === 'number' && Number.isFinite(event.index)) {
+      option.displayIndex = event.index;
+      (option as any).index = event.index;
+    }
+
     if (event.checked) {
       this.selectedOptionService.addOption(currentQuestionIndex, option);
     } else {

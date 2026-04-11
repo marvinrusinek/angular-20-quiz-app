@@ -77,7 +77,6 @@ export class SharedOptionBindingService {
       comp.showOptions = true;
       comp.renderReady = true;
       comp.cdRef.detectChanges();
-      console.warn('[SOC] optionBindings REASSIGNED', bindings);
     });
 
     comp.updateHighlighting();
@@ -249,13 +248,13 @@ export class SharedOptionBindingService {
 
       const isSelected = savedIds.has(effectiveId) || savedIds.has(String(effectiveId));
 
-      const isMulti = comp.isMultiMode;
-      if (!isMulti && (isSelected || highlightSet.has(effectiveId))) {
+      // Honor saved selections for BOTH single and multi mode. The previous
+      // behavior unconditionally wiped highlights in multi mode, so rehydrate
+      // restored them but any subsequent processOptionBindings run would
+      // clear them again. Only clear when there's no matching saved entry.
+      if (isSelected || highlightSet.has(effectiveId)) {
         opt.highlight = true;
       } else {
-        // Always clear highlight on fresh build for non-selected options,
-        // for both single and multi mode, so prior question state can't
-        // bleed into this one.
         opt.highlight = false;
       }
 
@@ -342,6 +341,7 @@ export class SharedOptionBindingService {
     if (!saved.length) return;
 
     const savedByIndex = new Map<number, any>();
+    const unindexed: any[] = [];
     for (const s of saved) {
       // Strict question-context check: drop selections from a different question
       const sQIdx = (s as any).questionIndex ?? (s as any).qIdx ?? (s as any).questionIdx;
@@ -350,6 +350,27 @@ export class SharedOptionBindingService {
       const sIdx = (s as any).displayIndex ?? (s as any).index ?? (s as any).idx;
       if (sIdx != null && Number.isFinite(Number(sIdx))) {
         savedByIndex.set(Number(sIdx), s);
+      } else {
+        // Missing displayIndex — will be matched by optionId/text below.
+        unindexed.push(s);
+      }
+    }
+    // Fallback: match unindexed saved entries by optionId or text against
+    // the live bindings so refresh can restore them even if persistence
+    // dropped the displayIndex field.
+    if (unindexed.length > 0 && comp.optionBindings?.length) {
+      for (const s of unindexed) {
+        const sId = (s as any).optionId;
+        const sText = ((s as any).text ?? '').trim().toLowerCase();
+        const pos = comp.optionBindings.findIndex((b: any) => {
+          const bId = b?.option?.optionId;
+          if (sId != null && sId !== -1 && bId != null && bId !== -1 && String(sId) === String(bId)) return true;
+          if (sText && (b?.option?.text ?? '').trim().toLowerCase() === sText) return true;
+          return false;
+        });
+        if (pos !== -1 && !savedByIndex.has(pos)) {
+          savedByIndex.set(pos, s);
+        }
       }
     }
     // If nothing remains after filtering, freshly-generated bindings are
@@ -363,37 +384,33 @@ export class SharedOptionBindingService {
           b.isSelected = !!match.selected;
           b.option.selected = !!match.selected;
 
-          if (comp.isMultiMode) {
+          // On refresh, highlight all selected options unconditionally.
+          // During live interaction, use history-based logic for multi-mode correct options.
+          const isRefresh = this.selectedOptionService.hasRefreshBackup;
+          if (isRefresh || !comp.isMultiMode || !comp.selectedOptionHistory?.length) {
+            b.option.highlight = !!match.selected;
+          } else {
             const isCorrect = comp.isCorrect(b.option);
             if (isCorrect) {
-              // On refresh, selectedOptionHistory is empty — highlight all
-              // selected correct options so they don't appear un-highlighted.
-              const isRefresh = this.selectedOptionService.hasRefreshBackup;
-              if (isRefresh || !comp.selectedOptionHistory?.length) {
-                b.option.highlight = !!match.selected;
-              } else {
-                let lastCorrectIdx: number | null = null;
-                for (let j = comp.selectedOptionHistory.length - 1; j >= 0; j--) {
-                  const histId = comp.selectedOptionHistory[j];
-                  let hIdx = comp.optionBindings.findIndex((_: any, bIdx: number) => bIdx === histId || String(bIdx) === String(histId));
-                  if (hIdx === -1) {
-                    hIdx = comp.optionBindings.findIndex((b2: any) => (b2.option?.optionId != null && b2.option.optionId !== -1 && b2.option.optionId == histId));
-                  }
-                  if (hIdx !== -1) {
-                    const optAtH = comp.optionBindings[hIdx]?.option;
-                    if (optAtH?.selected && comp.isCorrect(optAtH)) {
-                      lastCorrectIdx = hIdx;
-                      break;
-                    }
+              let lastCorrectIdx: number | null = null;
+              for (let j = comp.selectedOptionHistory.length - 1; j >= 0; j--) {
+                const histId = comp.selectedOptionHistory[j];
+                let hIdx = comp.optionBindings.findIndex((_: any, bIdx: number) => bIdx === histId || String(bIdx) === String(histId));
+                if (hIdx === -1) {
+                  hIdx = comp.optionBindings.findIndex((b2: any) => (b2.option?.optionId != null && b2.option.optionId !== -1 && b2.option.optionId == histId));
+                }
+                if (hIdx !== -1) {
+                  const optAtH = comp.optionBindings[hIdx]?.option;
+                  if (optAtH?.selected && comp.isCorrect(optAtH)) {
+                    lastCorrectIdx = hIdx;
+                    break;
                   }
                 }
-                b.option.highlight = (lastCorrectIdx !== null && idx === lastCorrectIdx);
               }
+              b.option.highlight = (lastCorrectIdx !== null && idx === lastCorrectIdx);
             } else {
               b.option.highlight = !!match.selected;
             }
-          } else {
-            b.option.highlight = !!match.selected;
           }
           b.option.showIcon = !!match.showIcon;
         } else {
@@ -412,29 +429,25 @@ export class SharedOptionBindingService {
         const match = savedByIndex.get(idx);
         if (match) {
           opt.selected = !!match.selected;
-          if (comp.isMultiMode) {
+          const isRefresh = this.selectedOptionService.hasRefreshBackup;
+          if (isRefresh || !comp.isMultiMode || !comp.selectedOptionHistory?.length) {
+            opt.highlight = !!match.selected;
+          } else {
             const isCorrect = comp.isCorrect(opt);
             if (isCorrect) {
-              const isRefresh = this.selectedOptionService.hasRefreshBackup;
-              if (isRefresh || !comp.selectedOptionHistory?.length) {
-                opt.highlight = !!match.selected;
-              } else {
-                let lastCorrectIdx: number | null = null;
-                for (let j = comp.selectedOptionHistory.length - 1; j >= 0; j--) {
-                  const hIdx = Number(comp.selectedOptionHistory[j]);
-                  const optAtH = comp.optionsToDisplay[hIdx];
-                  if (optAtH?.selected && comp.isCorrect(optAtH)) {
-                    lastCorrectIdx = hIdx;
-                    break;
-                  }
+              let lastCorrectIdx: number | null = null;
+              for (let j = comp.selectedOptionHistory.length - 1; j >= 0; j--) {
+                const hIdx = Number(comp.selectedOptionHistory[j]);
+                const optAtH = comp.optionsToDisplay[hIdx];
+                if (optAtH?.selected && comp.isCorrect(optAtH)) {
+                  lastCorrectIdx = hIdx;
+                  break;
                 }
-                opt.highlight = (lastCorrectIdx !== null && idx === lastCorrectIdx);
               }
+              opt.highlight = (lastCorrectIdx !== null && idx === lastCorrectIdx);
             } else {
               opt.highlight = !!match.selected;
             }
-          } else {
-            opt.highlight = !!match.selected;
           }
           opt.showIcon = !!match.showIcon;
         } else {
@@ -454,9 +467,16 @@ export class SharedOptionBindingService {
       }
     }
 
+    // Replace binding array with NEW object references so OnPush
+    // option-item components detect the input change and re-render.
+    comp.optionBindings = comp.optionBindings.map((b: any) => ({
+      ...b,
+      option: { ...b.option }
+    }));
+
     comp.rebuildShowFeedbackMapFromBindings();
     comp.updateHighlighting();
-    comp.cdRef.markForCheck();
+    comp.cdRef.detectChanges();
   }
 
   buildSharedOptionConfig(comp: any, b: OptionBindings, i: number): SharedOptionConfig {
@@ -499,7 +519,8 @@ export class SharedOptionBindingService {
       isAnswerCorrect: b.isCorrect,
       highlightCorrectAfterIncorrect: comp.highlightCorrectAfterIncorrect(),
       shouldResetBackground:
-        comp.shouldResetBackground || (!isOnCorrectQuestion && currentSelections.length === 0),
+        (comp.shouldResetBackground || (!isOnCorrectQuestion && currentSelections.length === 0))
+        && !shouldHighlight,
       feedback: b.feedback ?? '',
       showFeedbackForOption: comp.showFeedbackForOption,
       optionsToDisplay: comp.optionsToDisplay,

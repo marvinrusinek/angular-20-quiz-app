@@ -86,10 +86,28 @@ export class SelectedOptionService {
             this.clickConfirmedDotStatus.set(i, val);
           }
         }
+        // Restore selectedOptionsMap from durable per-question keys
+        // (these survive clearState which wipes the main sessionStorage keys)
+        for (let i = 0; i < 100; i++) {
+          const sel = sessionStorage.getItem('sel_Q' + i);
+          if (sel) {
+            try {
+              const opts = JSON.parse(sel);
+              if (Array.isArray(opts) && opts.length > 0) {
+                this.selectedOptionsMap.set(i, opts);
+              }
+            } catch { /* ignore */ }
+          }
+        }
+        if (this.selectedOptionsMap.size > 0) {
+          this.selectedOptionsMap$.next(new Map(this.selectedOptionsMap));
+          this._refreshBackup = new Map(this.selectedOptionsMap);
+        }
       } else {
         // Fresh navigation — clear all stale dot/selection data from sessionStorage
         for (let i = 0; i < 100; i++) {
           sessionStorage.removeItem('dot_confirmed_' + i);
+          sessionStorage.removeItem('sel_Q' + i);
         }
         sessionStorage.removeItem('rawSelectionsMap');
         sessionStorage.removeItem('selectedOptionsMap');
@@ -116,6 +134,55 @@ export class SelectedOptionService {
       if (this._selectionHistory.size > 0) {
         const historyObj = Object.fromEntries(this._selectionHistory);
         sessionStorage.setItem('selectionHistory', JSON.stringify(historyObj));
+      }
+
+      // Save to durable per-question keys that survive clearState().
+      // MERGE approach: combine all sources (history, map, existing storage)
+      // to never lose entries. Uses text as the unique key since optionId
+      // resolution can collide for options without explicit IDs.
+      const allSources = new Map<number, SelectedOption[]>();
+      for (const [idx, opts] of this._selectionHistory) {
+        allSources.set(idx, [...(allSources.get(idx) ?? []), ...opts]);
+      }
+      for (const [idx, opts] of this.selectedOptionsMap) {
+        allSources.set(idx, [...(allSources.get(idx) ?? []), ...opts]);
+      }
+      for (const [idx, combined] of allSources) {
+        // Deduplicate by optionId + displayIndex (NOT text — text can collide,
+        // be empty, or be undefined, causing the last-clicked entry to be
+        // dropped so the highlight never comes back on refresh).
+        const seen = new Set<string>();
+        const unique: SelectedOption[] = [];
+        const keyOf = (sel: any) =>
+          `${sel?.optionId ?? '?'}|${sel?.displayIndex ?? sel?.index ?? -1}`;
+        for (const sel of combined) {
+          if (!sel) continue;
+          const key = keyOf(sel);
+          if (!seen.has(key)) {
+            seen.add(key);
+            unique.push(sel);
+          }
+        }
+        // Also merge with what's already in sessionStorage
+        const existingRaw = sessionStorage.getItem('sel_Q' + idx);
+        if (existingRaw) {
+          try {
+            const existing = JSON.parse(existingRaw);
+            if (Array.isArray(existing)) {
+              for (const sel of existing) {
+                if (!sel) continue;
+                const key = keyOf(sel);
+                if (!seen.has(key)) {
+                  seen.add(key);
+                  unique.push(sel);
+                }
+              }
+            }
+          } catch { /* ignore corrupt */ }
+        }
+        if (unique.length > 0) {
+          sessionStorage.setItem('sel_Q' + idx, JSON.stringify(unique));
+        }
       }
     } catch (err) {
       console.warn('[SelectedOptionService] Failed to save state to sessionStorage', err);
@@ -394,6 +461,20 @@ export class SelectedOptionService {
     const committed = this.commitSelections(idx, mergedList);
     this.selectedOptionsMap.set(idx, committed); // VITAL: Update the map!
 
+    // Accumulate selection history for refresh restore (mirrors _wasSelected behavior)
+    for (const sel of committed) {
+      const history = this._selectionHistory.get(idx) ?? [];
+      const alreadyInHistory = history.some(h =>
+        h.optionId === sel.optionId
+        && h.displayIndex === sel.displayIndex
+        && (h.text ?? '') === (sel.text ?? '')
+      );
+      if (!alreadyInHistory) {
+        history.push(sel);
+        this._selectionHistory.set(idx, history);
+      }
+    }
+
     // PROACTIVE SYNC: Ensure QuizService knows about this answer immediately.
     // This drives calculateAnsweredCount and progress persistence.
     if (this.quizService) {
@@ -611,7 +692,9 @@ export class SelectedOptionService {
     // Accumulate selection history for refresh restore (mirrors _wasSelected behavior)
     const history = this._selectionHistory.get(qIndex) ?? [];
     const alreadyInHistory = history.some(h =>
-      h.optionId === enriched.optionId && (h.displayIndex === enriched.displayIndex)
+      h.optionId === enriched.optionId
+      && h.displayIndex === enriched.displayIndex
+      && (h.text ?? '') === (enriched.text ?? '')
     );
     if (!alreadyInHistory) {
       history.push(enriched);
@@ -750,7 +833,9 @@ export class SelectedOptionService {
     for (const sel of merged.values()) {
       const history = this._selectionHistory.get(questionIndex) ?? [];
       const alreadyInHistory = history.some(h =>
-        h.optionId === sel.optionId && h.displayIndex === sel.displayIndex
+        h.optionId === sel.optionId
+        && h.displayIndex === sel.displayIndex
+        && (h.text ?? '') === (sel.text ?? '')
       );
       if (!alreadyInHistory) {
         history.push(sel);
@@ -759,6 +844,14 @@ export class SelectedOptionService {
     }
 
     const committed = this.commitSelections(questionIndex, Array.from(merged.values()));
+
+    // VITAL: Update the live map so getSelectedOptionsForQuestion can see it
+    // and saveState can persist it to sessionStorage. Without this, the map
+    // stays stale and refresh restore sees M=0.
+    if (committed.length > 0) {
+      this.selectedOptionsMap.set(questionIndex, committed);
+      this.selectedOptionsMap$.next(new Map(this.selectedOptionsMap));
+    }
 
     // Also store in rawSelectionsMap for results display
     if (committed.length > 0) {
@@ -811,7 +904,34 @@ export class SelectedOptionService {
     questionIndex: number
   ): SelectedOption[] {
     const options = this.selectedOptionsMap.get(questionIndex) || [];
-    return options;
+    const backup = this._refreshBackup.get(questionIndex) || [];
+
+    // During the refresh window, UNION map + backup + durable sel_Q key.
+    // The map comes from sel_Q* (text-dedup'd in saveState) while backup
+    // comes from _selectionHistory (raw). If the text-dedup dropped the
+    // last-clicked entry, the backup still has it. Merging both ensures
+    // no click is lost on rehydrate.
+    if (this._refreshBackup.size > 0) {
+      const merged = new Map<string, SelectedOption>();
+      const keyOf = (o: any) =>
+        `${o?.optionId ?? '?'}|${o?.displayIndex ?? o?.index ?? -1}`;
+      for (const o of options) if (o) merged.set(keyOf(o), o);
+      for (const o of backup) if (o && !merged.has(keyOf(o))) merged.set(keyOf(o), o);
+      try {
+        const sel = sessionStorage.getItem('sel_Q' + questionIndex);
+        if (sel) {
+          const parsed = JSON.parse(sel);
+          if (Array.isArray(parsed)) {
+            for (const o of parsed) if (o && !merged.has(keyOf(o))) merged.set(keyOf(o), o);
+          }
+        }
+      } catch { /* ignore */ }
+      if (merged.size > 0) return Array.from(merged.values());
+    }
+
+    if (options.length > 0) return options;
+    if (backup.length > 0) return backup;
+    return [];
   }
 
   public areAllCorrectAnswersSelected(
