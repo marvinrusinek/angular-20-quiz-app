@@ -135,9 +135,12 @@ export class HighlightOptionDirective implements OnInit {
         const inputSelected = this.isSelected;
         const isLiveSelected = bindingSelected || optionSelected || inputSelected;
 
-        // If the option is currently selected (from live state), apply correct/incorrect color
+        // If the option is currently selected (from live state), do NOT
+        // force showIcon here. Icon visibility is controlled by
+        // OptionItemComponent.shouldShowIcon() which has proper guards
+        // against stale binding flags on refresh. Setting showIcon = true
+        // here would bypass those guards.
         if (isLiveSelected) {
-          opt.showIcon = true;
           return;
         }
 
@@ -149,13 +152,9 @@ export class HighlightOptionDirective implements OnInit {
             cfg.isOptionSelected || cfg.option.selected === true || cfg.highlight === true;
 
           if (cfgSelected) {
-            const isCorrectHelper =
-              (o: any) =>
-              o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || o.correct === '1');
-            const isCorrect = isCorrectHelper(cfg.option) || isCorrectHelper(opt);
-            opt.showIcon = true;
+            // Do NOT set showIcon here — let OptionItemComponent decide.
+            return;
           } else if (cfg.shouldResetBackground) {
-            // Only reset to transparent if the option is truly not selected
             opt.showIcon = false;
           } else {
             opt.showIcon = false;
@@ -169,7 +168,7 @@ export class HighlightOptionDirective implements OnInit {
         this.setPointerEvents(host, 'auto');
 
         if (opt.highlight) {
-          opt.showIcon = true;
+          // Do NOT set showIcon here — let OptionItemComponent decide.
           return;
         }
 
@@ -207,15 +206,10 @@ export class HighlightOptionDirective implements OnInit {
       return;  // exit early - don't apply any stale highlighting
     }
 
-    // Only apply highlighting if not resetting and actually selected
-    const isSelectedNow =
-      cfg.highlight === true || cfg.isOptionSelected ||
-      cfg.option.selected === true ||
-      this.isSelected || this.optionBinding()?.isSelected === true;
-
-    if (isSelectedNow) {
-      opt.showIcon = true;
-    }
+    // Do NOT set opt.showIcon = true here. Icon visibility decisions
+    // belong to OptionItemComponent.shouldShowIcon() which has guards
+    // against stale binding flags during refresh. Setting it here
+    // bypasses those guards and causes flash/premature highlights.
   }
 
   private setPointerEvents(el: HTMLElement, value: string): void {

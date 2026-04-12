@@ -47,32 +47,51 @@ export class SharedOptionBindingService {
       const isSelected = option.selected ?? false;
       const isCorrect = option.correct ?? false;
       return {
-        option,
+        option: {
+          ...option,
+          // Force visual flags OFF for the initial pass. The real
+          // visual state is applied by rehydrateUiFromState AFTER
+          // authoritative selections are resolved. Using stale
+          // option.selected here causes a brief flash of incorrect
+          // highlights on refresh.
+          highlight: false,
+          showIcon: false
+        },
         index: idx,
-        isSelected,
+        isSelected: false,
         isCorrect,
         showFeedback: false,
         feedback: option.feedback ?? 'No feedback available',
         showFeedbackForOption: { [idx]: false },
         highlightCorrectAfterIncorrect: false,
-        highlightIncorrect: isSelected && !isCorrect,
-        highlightCorrect: isSelected && isCorrect,
+        highlightIncorrect: false,
+        highlightCorrect: false,
         disabled: comp.computeDisabledState(option, idx),
         type: comp.resolveInteractionType(),
-        appHighlightOption: isSelected,
+        appHighlightOption: false,
         appHighlightInputType: (comp.type === 'multiple' ? 'checkbox' : 'radio') as 'checkbox' | 'radio',
         allOptions: [...comp.optionsToDisplay],
         appHighlightReset: false,
         ariaLabel: `Option ${idx + 1}`,
         appResetBackground: false,
         optionsToDisplay: [...comp.optionsToDisplay],
-        checked: isSelected,
+        checked: false,
         change: () => { },
         active: true
       };
     });
 
     queueMicrotask(() => {
+      // If processOptionBindings already built correct bindings (with
+      // rehydrated state), skip this overwrite — the microtask would
+      // replace them with stale option.selected data, causing a flash
+      // of incorrect highlights before the next CD cycle corrects them.
+      if (comp.optionBindingsInitialized && comp.optionBindings?.length > 0) {
+        comp.showOptions = true;
+        comp.renderReady = true;
+        comp.cdRef.markForCheck();
+        return;
+      }
       comp.optionBindings = bindings;
       comp.showOptions = true;
       comp.renderReady = true;
@@ -236,6 +255,12 @@ export class SharedOptionBindingService {
       comp.optionsToDisplay
     ) || '';
 
+    // DIAGNOSTIC: dump what processOptionBindings sees on Q2
+    console.log(`[POB] Q${currentIdx + 1} savedIds=[${[...savedIds]}] highlightSet=[${[...highlightSet]}] savedSelections.length=${savedSelections.length}`);
+    for (const s of savedSelections) {
+      console.log(`  saved: id=${(s as any).optionId} sel=${(s as any).selected} disp=${(s as any).displayIndex} text="${((s as any).text ?? '').substring(0, 30)}"`);
+    }
+
     comp.optionBindings = options.map((opt: any, idx: number) => {
       const oIdNum = Number(opt.optionId);
       const effectiveId = (!isNaN(oIdNum) && oIdNum > -1) ? oIdNum : idx;
@@ -252,8 +277,13 @@ export class SharedOptionBindingService {
       // behavior unconditionally wiped highlights in multi mode, so rehydrate
       // restored them but any subsequent processOptionBindings run would
       // clear them again. Only clear when there's no matching saved entry.
-      if (isSelected || highlightSet.has(effectiveId)) {
+      // NOTE: Only trust highlightSet during LIVE interaction (hasUserClicked).
+      // On refresh, highlightSet may contain stale IDs from a previous CD
+      // cycle that briefly flash an incorrect option before rehydrate clears it.
+      const useHighlightSet = comp.hasUserClicked && highlightSet.has(effectiveId);
+      if (isSelected || useHighlightSet) {
         opt.highlight = true;
+        console.log(`[POB] Q${currentIdx + 1} idx=${idx} effectiveId=${effectiveId} → highlight=TRUE (isSelected=${isSelected} inHighlightSet=${highlightSet.has(effectiveId)}) text="${(opt.text ?? '').substring(0, 30)}"`);
       } else {
         opt.highlight = false;
       }
@@ -265,6 +295,15 @@ export class SharedOptionBindingService {
 
     comp.updateSelections(-1);
     comp.updateHighlighting();
+
+    // Re-apply persisted refresh state AFTER the id-based rebuild above.
+    // `processOptionBindings` only knows how to light options whose
+    // `optionId` appears in `savedIds`. That misses position-encoded
+    // matches (displayIndex/text) needed on refresh, AND it does not
+    // populate `disabledOptionsPerQuestion` for never-clicked wrongs.
+    // Calling rehydrate after the rebuild guarantees the canonical
+    // refresh state is the last write before detectChanges.
+    comp.rehydrateUiFromState('processOptionBindings');
 
     comp.optionsReady = true;
     comp.renderReady = true;
@@ -311,9 +350,15 @@ export class SharedOptionBindingService {
   }
 
   rehydrateUiFromState(comp: any, reason: string): void {
-    // Universal clean-slate: ALWAYS clear stale visual state on the freshly
-    // built bindings, BEFORE any guard, so highlights/selected from a
-    // previous question can never leak into a new one.
+    // Guard FIRST: if the user has already clicked or bindings are frozen,
+    // do NOT touch visual state — the click handler owns it.  Moving this
+    // above the clean-slate prevents a subscription-triggered rehydrate
+    // from wiping showIcon/highlight that the click path just set.
+    if (comp.hasUserClicked || comp.freezeOptionBindings) return;
+
+    // Universal clean-slate: clear stale visual state on the freshly
+    // built bindings so highlights/selected from a previous question
+    // can never leak into a new one.
     if (comp.optionBindings?.length) {
       comp.optionBindings.forEach((b: any) => {
         b.isSelected = false;
@@ -334,48 +379,65 @@ export class SharedOptionBindingService {
     // Force a re-render of the cleared state
     comp.cdRef?.markForCheck?.();
 
-    if (comp.hasUserClicked || comp.freezeOptionBindings) return;
-
     const qIndex = comp.resolveCurrentQuestionIndex();
     const saved = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
     if (!saved.length) return;
 
+    // Match saved entries to the LIVE bindings by optionId/text FIRST
+    // (stable across refresh), falling back to the saved displayIndex only
+    // when no id/text match is found. Using displayIndex as the primary
+    // key breaks on shuffle or any binding-position change: the saved
+    // entry for the user's wrong click lands on a DIFFERENT binding,
+    // painting a never-clicked option red and leaving the clicked option
+    // unhighlighted.
     const savedByIndex = new Map<number, any>();
-    const unindexed: any[] = [];
     for (const s of saved) {
       // Strict question-context check: drop selections from a different question
       const sQIdx = (s as any).questionIndex ?? (s as any).qIdx ?? (s as any).questionIdx;
       if (sQIdx != null && Number(sQIdx) !== qIndex) continue;
 
-      const sIdx = (s as any).displayIndex ?? (s as any).index ?? (s as any).idx;
-      if (sIdx != null && Number.isFinite(Number(sIdx))) {
-        savedByIndex.set(Number(sIdx), s);
-      } else {
-        // Missing displayIndex — will be matched by optionId/text below.
-        unindexed.push(s);
-      }
-    }
-    // Fallback: match unindexed saved entries by optionId or text against
-    // the live bindings so refresh can restore them even if persistence
-    // dropped the displayIndex field.
-    if (unindexed.length > 0 && comp.optionBindings?.length) {
-      for (const s of unindexed) {
-        const sId = (s as any).optionId;
-        const sText = ((s as any).text ?? '').trim().toLowerCase();
-        const pos = comp.optionBindings.findIndex((b: any) => {
+      // Ignore unselect traces UNLESS they carry explicit showIcon/highlight
+      // (those are previously-clicked wrong options saved by the correct-click
+      // binding rebuild — they need to restore their red+X on refresh).
+      if ((s as any)?.selected === false && !(s as any)?.showIcon && !(s as any)?.highlight) continue;
+
+      const sId = (s as any).optionId;
+      const sText = ((s as any).text ?? '').trim().toLowerCase();
+      const sIdIsReal = sId != null && sId !== -1 && String(sId) !== '-1';
+
+      let pos = -1;
+      if (comp.optionBindings?.length) {
+        pos = comp.optionBindings.findIndex((b: any) => {
           const bId = b?.option?.optionId;
-          if (sId != null && sId !== -1 && bId != null && bId !== -1 && String(sId) === String(bId)) return true;
+          const bIdIsReal = bId != null && bId !== -1 && String(bId) !== '-1';
+          if (sIdIsReal && bIdIsReal && String(sId) === String(bId)) return true;
           if (sText && (b?.option?.text ?? '').trim().toLowerCase() === sText) return true;
           return false;
         });
-        if (pos !== -1 && !savedByIndex.has(pos)) {
-          savedByIndex.set(pos, s);
+      }
+
+      // Fallback to displayIndex only when id/text match fails
+      if (pos === -1) {
+        const sIdx = (s as any).displayIndex ?? (s as any).index ?? (s as any).idx;
+        if (sIdx != null && Number.isFinite(Number(sIdx))) {
+          pos = Number(sIdx);
         }
+      }
+
+      if (pos !== -1 && !savedByIndex.has(pos)) {
+        savedByIndex.set(pos, s);
       }
     }
     // If nothing remains after filtering, freshly-generated bindings are
     // already clean — bail to avoid accidentally restamping stale highlights.
     if (savedByIndex.size === 0) return;
+
+    // TEMP DIAGNOSTIC — remove after debugging
+    console.log(`[rehydrate] Q${qIndex + 1} saved.length=${saved.length} savedByIndex.size=${savedByIndex.size}`);
+    for (const [pos, s] of savedByIndex.entries()) {
+      const bText = comp.optionBindings?.[pos]?.option?.text?.substring(0, 30) ?? '?';
+      console.log(`  pos=${pos} sId=${(s as any).optionId} sSel=${(s as any).selected} sShowIcon=${(s as any).showIcon} sText="${((s as any).text ?? '').substring(0, 30)}" bText="${bText}"`);
+    }
 
     // MULTI-ANSWER LOCK REHYDRATION
     // `disabledOptionsPerQuestion` is in-memory state that the click path
@@ -388,22 +450,50 @@ export class SharedOptionBindingService {
     try {
       const qForCorrect: any = comp.currentQuestion
         ?? comp.getQuestionAtDisplayIndex?.(qIndex);
-      const correctOpts: any[] = qForCorrect?.options ?? comp.optionsToDisplay ?? [];
       const isCorrectFlag = (o: any) =>
         o?.correct === true
         || String(o?.correct) === 'true'
         || o?.correct === 1
         || String(o?.correct) === '1';
-      const correctIdxs: number[] = correctOpts
-        .map((o: any, i: number) => (isCorrectFlag(o) ? i : -1))
+      // Compute correct indices in the LIVE binding index space (not the
+      // canonical question.options order) so they align with savedByIndex
+      // keys. optionBindings may be shuffled relative to currentQuestion.
+      // Fall back to canonical correct flags by optionId/text when the
+      // binding's own option.correct is missing.
+      const liveOpts: any[] = (comp.optionBindings ?? [])
+        .map((b: any) => b?.option)
+        .filter((o: any) => o != null);
+      const canonicalOpts: any[] = qForCorrect?.options ?? [];
+      const isBindingCorrect = (opt: any): boolean => {
+        if (isCorrectFlag(opt)) return true;
+        if (!canonicalOpts.length) return false;
+        const byId = canonicalOpts.find((c: any) =>
+          c?.optionId != null && opt?.optionId != null &&
+          c.optionId !== -1 && opt.optionId !== -1 &&
+          String(c.optionId) === String(opt.optionId)
+        );
+        if (byId && isCorrectFlag(byId)) return true;
+        const oText = (opt?.text ?? '').trim().toLowerCase();
+        if (oText) {
+          const byText = canonicalOpts.find((c: any) =>
+            (c?.text ?? '').trim().toLowerCase() === oText
+          );
+          if (byText && isCorrectFlag(byText)) return true;
+        }
+        return false;
+      };
+      const correctIdxs: number[] = liveOpts
+        .map((o: any, i: number) => (isBindingCorrect(o) ? i : -1))
         .filter((n: number) => n >= 0);
-      const isMulti = correctIdxs.length > 1;
+      const correctOpts: any[] = liveOpts.length > 0 ? liveOpts : canonicalOpts;
+      const isMulti = correctIdxs.length > 1
+        || canonicalOpts.filter((o: any) => isCorrectFlag(o)).length > 1;
+      const correctSet = new Set<number>(correctIdxs);
       if (isMulti && correctOpts.length > 0) {
         if (!comp.disabledOptionsPerQuestion.has(qIndex)) {
           comp.disabledOptionsPerQuestion.set(qIndex, new Set<number>());
         }
         const disabledSet: Set<number> = comp.disabledOptionsPerQuestion.get(qIndex)!;
-        const correctSet = new Set<number>(correctIdxs);
 
         // Any saved incorrect pick is locked (mirrors the live click path).
         const selectedIdxs = new Set<number>();
@@ -432,19 +522,120 @@ export class SharedOptionBindingService {
           } catch { /* ignore */ }
         }
       }
+
+      // SINGLE-ANSWER LOCK REHYDRATION
+      // On refresh after the user picked the correct answer (possibly
+      // after prior wrong clicks), every NEVER-CLICKED wrong option must
+      // render as dark-gray-no-icon via computeDisabledState. Rebuild the
+      // disabled set here. The clicked-wrong entry stays in savedByIndex
+      // so the apply loop restores it as red-with-X (its selection trace).
+      if (!isMulti && correctOpts.length > 0) {
+        const hasCorrectPick = Array.from(savedByIndex.keys())
+          .some((i) => correctSet.has(i));
+        if (hasCorrectPick) {
+          if (!comp.disabledOptionsPerQuestion.has(qIndex)) {
+            comp.disabledOptionsPerQuestion.set(qIndex, new Set<number>());
+          }
+          const disabledSet: Set<number> = comp.disabledOptionsPerQuestion.get(qIndex)!;
+          for (let i = 0; i < correctOpts.length; i++) {
+            if (!correctSet.has(i)) disabledSet.add(i);
+          }
+        }
+      }
+
+      // DOT-CONFIRMED FALLBACK LOCK (works for BOTH single AND multi)
+      // clickConfirmedDotStatus is persisted to sessionStorage as
+      // dot_confirmed_<i> and restored on load. If the dot for this
+      // question is 'correct', the user fully resolved it — lock every
+      // non-correct binding as dark-gray-no-icon regardless of whether
+      // the canonical/live correct-flag computation above produced a
+      // usable correctSet. This is the reliable refresh signal that
+      // survives shuffled/polluted option data.
+      let dotStatus: 'correct' | 'wrong' | undefined;
+      try {
+        dotStatus = this.selectedOptionService.clickConfirmedDotStatus.get(qIndex);
+        if (!dotStatus) {
+          const stored = sessionStorage.getItem('dot_confirmed_' + qIndex);
+          if (stored === 'correct' || stored === 'wrong') {
+            dotStatus = stored;
+          }
+        }
+      } catch { /* ignore */ }
+
+      if (dotStatus === 'correct' && correctOpts.length > 0) {
+        // For multi-answer, dot_confirmed='correct' is set per-click, not
+        // per-question. A single correct click in multi-answer incorrectly
+        // sets it. Only apply the full lock when ALL correct answers are
+        // actually present in the saved selections.
+        const allCorrectInSaved = isMulti
+          ? correctIdxs.every((ci) => savedByIndex.has(ci))
+          : true;
+
+        if (allCorrectInSaved) {
+          if (!comp.disabledOptionsPerQuestion.has(qIndex)) {
+            comp.disabledOptionsPerQuestion.set(qIndex, new Set<number>());
+          }
+          const disabledSet: Set<number> = comp.disabledOptionsPerQuestion.get(qIndex)!;
+          for (let i = 0; i < correctOpts.length; i++) {
+            if (!correctSet.has(i)) {
+              disabledSet.add(i);
+            }
+          }
+          // Mark the multi question as "perfect" so computeDisabledState
+          // for correct options returns the proper locked state.
+          if (isMulti) {
+            try {
+              const qs: any = this.quizService as any;
+              if (!qs._multiAnswerPerfect) {
+                qs._multiAnswerPerfect = new Map<number, boolean>();
+              }
+              qs._multiAnswerPerfect.set(qIndex, true);
+            } catch { /* ignore */ }
+          }
+        }
+      }
     } catch { /* ignore */ }
 
     if (comp.optionBindings?.length) {
       comp.optionBindings.forEach((b: any, idx: number) => {
-        const match = savedByIndex.get(idx);
+        let match = savedByIndex.get(idx);
+
+        // Bidirectional verification: confirm the binding at this position
+        // actually corresponds to the saved record. A displayIndex-fallback
+        // match can land on the wrong binding when option order changed
+        // between sessions (shuffle, data reload). If neither optionId nor
+        // text agrees, discard the match so the binding stays clean.
+        if (match && b?.option) {
+          const mId = (match as any).optionId;
+          const bId = b.option.optionId;
+          const mIdReal = mId != null && mId !== -1 && String(mId) !== '-1';
+          const bIdReal = bId != null && bId !== -1 && String(bId) !== '-1';
+          const idsAgree = mIdReal && bIdReal && String(mId) === String(bId);
+          const mText = ((match as any).text ?? '').trim().toLowerCase();
+          const bText = (b.option.text ?? '').trim().toLowerCase();
+          const textsAgree = mText && bText && mText === bText;
+          if (!idsAgree && !textsAgree) {
+            match = undefined;
+          }
+        }
+
         if (match) {
           b.isSelected = !!match.selected;
           b.option.selected = !!match.selected;
 
+          // A "previously clicked wrong" entry has selected=false but
+          // explicit highlight=true + showIcon=true. Trust the saved
+          // record's flags directly for these entries so the red+X
+          // restores on refresh without treating the option as the
+          // active selection.
+          const isPreviouslyClicked = !match.selected && !!match.showIcon;
+
           // On refresh, highlight all selected options unconditionally.
           // During live interaction, use history-based logic for multi-mode correct options.
           const isRefresh = this.selectedOptionService.hasRefreshBackup;
-          if (isRefresh || !comp.isMultiMode || !comp.selectedOptionHistory?.length) {
+          if (isPreviouslyClicked) {
+            b.option.highlight = true;
+          } else if (isRefresh || !comp.isMultiMode || !comp.selectedOptionHistory?.length) {
             b.option.highlight = !!match.selected;
           } else {
             const isCorrect = comp.isCorrect(b.option);
@@ -469,7 +660,12 @@ export class SharedOptionBindingService {
               b.option.highlight = !!match.selected;
             }
           }
-          b.option.showIcon = !!match.showIcon;
+          // showIcon: trust the saved record's explicit flag for
+          // previously-clicked entries. For normal entries, only show
+          // when selected to prevent stale intermediate states.
+          b.option.showIcon = isPreviouslyClicked
+            ? !!match.showIcon
+            : (!!match.selected && !!match.showIcon);
         } else {
           b.isSelected = false;
           b.option.selected = false;
@@ -483,11 +679,28 @@ export class SharedOptionBindingService {
 
     if (comp.optionsToDisplay?.length) {
       comp.optionsToDisplay.forEach((opt: any, idx: number) => {
-        const match = savedByIndex.get(idx);
+        let match = savedByIndex.get(idx);
+        // Same bidirectional verification as the optionBindings loop above.
+        if (match && opt) {
+          const mId = (match as any).optionId;
+          const oId = opt.optionId;
+          const mIdReal = mId != null && mId !== -1 && String(mId) !== '-1';
+          const oIdReal = oId != null && oId !== -1 && String(oId) !== '-1';
+          const idsAgree = mIdReal && oIdReal && String(mId) === String(oId);
+          const mText = ((match as any).text ?? '').trim().toLowerCase();
+          const oText = (opt.text ?? '').trim().toLowerCase();
+          const textsAgree = mText && oText && mText === oText;
+          if (!idsAgree && !textsAgree) {
+            match = undefined;
+          }
+        }
         if (match) {
           opt.selected = !!match.selected;
+          const isPreviouslyClicked = !match.selected && !!match.showIcon;
           const isRefresh = this.selectedOptionService.hasRefreshBackup;
-          if (isRefresh || !comp.isMultiMode || !comp.selectedOptionHistory?.length) {
+          if (isPreviouslyClicked) {
+            opt.highlight = true;
+          } else if (isRefresh || !comp.isMultiMode || !comp.selectedOptionHistory?.length) {
             opt.highlight = !!match.selected;
           } else {
             const isCorrect = comp.isCorrect(opt);
@@ -506,7 +719,9 @@ export class SharedOptionBindingService {
               opt.highlight = !!match.selected;
             }
           }
-          opt.showIcon = !!match.showIcon;
+          opt.showIcon = isPreviouslyClicked
+            ? !!match.showIcon
+            : (!!match.selected && !!match.showIcon);
         } else {
           opt.selected = false;
           opt.highlight = false;
@@ -516,10 +731,20 @@ export class SharedOptionBindingService {
     }
 
     if (saved.length > 0) {
-      const last = saved[saved.length - 1];
-      const lastIdx = (last as any).displayIndex ?? (last as any).index ?? (last as any).idx;
-      if (lastIdx != null && Number.isFinite(Number(lastIdx))) {
-        comp.lastFeedbackOptionId = Number(lastIdx);
+      // Find the ACTIVE selection (selected: true) — this is the last
+      // click the user made. The `saved` array is ordered by binding
+      // position (not click order), so saved[saved.length - 1] is the
+      // highest-index entry, NOT necessarily the last-clicked option.
+      // For single-answer: only the current (correct) click has
+      // selected: true; prior wrong clicks are saved with selected: false.
+      const activeSelection = [...saved].reverse().find(
+        (s: any) => s?.selected === true
+      ) ?? saved[saved.length - 1];
+      const activeIdx = (activeSelection as any).displayIndex
+        ?? (activeSelection as any).index
+        ?? (activeSelection as any).idx;
+      if (activeIdx != null && Number.isFinite(Number(activeIdx))) {
+        comp.lastFeedbackOptionId = Number(activeIdx);
         comp.showFeedback = true;
       }
 
@@ -529,18 +754,16 @@ export class SharedOptionBindingService {
       // bindings themselves are enough for highlights, but the inline
       // feedback block is gated on this field.
       if (!comp._feedbackDisplay) {
-        // Use CLICK order (last element of `saved`) to identify the
-        // last-clicked row. `saved` is ordered by push order, not by
-        // display position, so saved[last].displayIndex is the true
-        // "last selected" regardless of whether the user clicked top
-        // to bottom or bottom to top. Falling back to the highest key
-        // in savedByIndex gave wrong answers when the user clicked
-        // from the bottom row upward.
+        // Use the ACTIVE selection (selected: true) to identify the
+        // feedback target row. The saved array is ordered by binding
+        // position, not by click order, so we cannot rely on array
+        // order. The entry with selected: true is the authoritative
+        // last-clicked option.
         let targetIdx = -1;
-        if (Number.isFinite(Number(lastIdx))) {
-          targetIdx = Number(lastIdx);
+        if (Number.isFinite(Number(activeIdx))) {
+          targetIdx = Number(activeIdx);
         } else {
-          // No displayIndex on the last saved record — fall back to
+          // No displayIndex on the active record — fall back to
           // highest key in savedByIndex (matched via optionId/text).
           for (const k of savedByIndex.keys()) {
             if (k > targetIdx) targetIdx = k;
@@ -549,7 +772,7 @@ export class SharedOptionBindingService {
         const targetBinding = targetIdx >= 0 ? comp.optionBindings?.[targetIdx] : null;
         if (targetBinding && comp.currentQuestion) {
           try {
-            // IMPORTANT: pass ONLY the last-clicked selection to
+            // IMPORTANT: pass ONLY the active selection to
             // buildFeedbackMessage — not the full saved history.
             // For single-answer, `saved` may contain the prior wrong
             // click plus the subsequent correct click. Passing both
@@ -558,9 +781,7 @@ export class SharedOptionBindingService {
             // the LAST click was correct. The click path only feeds
             // the current click into the feedback builder, so mirror
             // that here.
-            const lastSelectionOnly = (saved?.length > 0)
-              ? [saved[saved.length - 1]] as any[]
-              : [];
+            const lastSelectionOnly = [activeSelection] as any[];
             const feedbackText = this.feedbackService.buildFeedbackMessage(
               comp.currentQuestion,
               lastSelectionOnly,
@@ -609,15 +830,14 @@ export class SharedOptionBindingService {
     const qIndex = comp.resolveCurrentQuestionIndex();
     const isMulti = comp.isMultiMode;
 
-    const isActuallySelected = isMulti
-      ? b.isSelected
-      : (() => {
-          const currentSelections = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
-          return currentSelections.some((s: any) => {
-            const selIdx = (s as any).displayIndex ?? (s as any).index ?? (s as any).idx;
-            return selIdx != null && Number(selIdx) === i;
-          });
-        })();
+    // Use the binding's own isSelected flag rather than querying the
+    // service. getSelectedOptionsForQuestion returns accumulated history
+    // (correct + all prior wrong clicks) for single-answer mode, which
+    // causes stale wrong-click entries to appear as "selected" — making
+    // never-clicked wrong options highlight on refresh. The binding's
+    // isSelected is set correctly by rehydrateUiFromState and by the
+    // click handler, so it is the reliable source of truth.
+    const isActuallySelected = b.isSelected;
 
     const optionKey = this.optionService.keyOf(b.option, i);
     const showCorrectOnTimeout = comp.timerExpiredForQuestion

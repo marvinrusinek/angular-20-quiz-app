@@ -58,6 +58,12 @@ export class OptionItemComponent implements OnChanges {
 
   private _wasSelected = false;
   private _lastQuestionIndex = -1;
+  // Tracks whether this component instance has seen a real user click.
+  // Used to gate destructive visual-state clears in ngOnChanges: on
+  // refresh the parent may briefly emit currentQuestionIndex=0 before
+  // the real index resolves, and the second ngOnChanges would wipe the
+  // refresh-restored state if we cleared unconditionally.
+  private _userHasClicked = false;
 
   // ONE output
   readonly optionUI = output<OptionUIEvent>();
@@ -73,10 +79,14 @@ export class OptionItemComponent implements OnChanges {
     if (changes['currentQuestionIndex']) {
       const nextQuestionIndex = Number(this.currentQuestionIndex() ?? -1);
       if (Number.isFinite(nextQuestionIndex) && nextQuestionIndex !== this._lastQuestionIndex) {
-        // Only clear stale visual state when navigating between questions,
-        // NOT on initial render (where _lastQuestionIndex is still -1).
-        // Clearing on initial render wipes rehydrated highlight state.
-        if (this._lastQuestionIndex !== -1) {
+        // Only clear stale visual state when we're navigating AWAY from
+        // a question the user actually clicked on inside this component
+        // instance. On refresh the parent's questionIndex signal may
+        // briefly emit the default 0 before settling on the real index,
+        // which would otherwise wipe refresh-restored highlights on Q2+.
+        // _userHasClicked gates the clear so restore-only transitions
+        // leave the rehydrated binding state alone.
+        if (this._lastQuestionIndex !== -1 && this._userHasClicked) {
           this._wasSelected = false;
           if (this.b) {
             this.b.isSelected = false;
@@ -88,6 +98,7 @@ export class OptionItemComponent implements OnChanges {
               this.b.option.showIcon = false;
             }
           }
+          this._userHasClicked = false;
         }
         this._lastQuestionIndex = nextQuestionIndex;
       }
@@ -270,6 +281,16 @@ export class OptionItemComponent implements OnChanges {
   }
 
   shouldShowIcon(option?: any, i?: number): boolean {
+    // TEMP DIAGNOSTIC — remove after debugging
+    const _si = this.b?.option?.showIcon;
+    const _is = this.b?.isSelected;
+    const _hl = !!this.b?.option?.highlight;
+    const _ws = this._wasSelected;
+    const _dis = this.b?.disabled;
+    const _shl = this.shouldHighlightOption();
+    if (_is || _hl || _ws || _si) {
+      console.log(`[shouldShowIcon] i=${this.i} showIcon=${_si} isSel=${_is} hl=${_hl} _was=${_ws} dis=${_dis} shouldHL=${_shl}`);
+    }
     if (this.timerExpired()) {
       // Show icon for correct options AND for any option the user
       // actually selected (so a selected wrong answer keeps its X).
@@ -280,7 +301,28 @@ export class OptionItemComponent implements OnChanges {
         || this.isSelectedForCurrentQuestion();
     }
 
-    // Always show icon if the option should be highlighted
+    // HARD GUARD: On refresh (user hasn't clicked), ONLY trust the
+    // authoritative saved selection state. The binding flags
+    // (highlight, showIcon, isSelected) can be transiently set by
+    // processOptionBindings / synchronizeOptionBindings before
+    // rehydrate clears them, causing a flash. _wasSelected is only
+    // true after a live user click, so it's safe.
+    if (!this._userHasClicked && !this._wasSelected) {
+      // No live click this session → only show icon if a saved
+      // selection actually matches this exact binding position.
+      return this.isSelectedForCurrentQuestion();
+    }
+
+    const hasAnyPerBindingSignal =
+      this.b?.option?.showIcon === true
+      || this.b?.isSelected === true
+      || !!this.b?.option?.highlight
+      || this._wasSelected;
+    if (!hasAnyPerBindingSignal) {
+      if (this.b?.disabled === true) return false;
+      if (!this.isSelectedForCurrentQuestion()) return false;
+    }
+
     return this.shouldHighlightOption();
   }
 
@@ -336,17 +378,25 @@ export class OptionItemComponent implements OnChanges {
       }
     }
 
-    const selectedIndexFallback = (sel as any)?.index ?? sel?.displayIndex ?? (sel as any)?.idx;
+    // Saved record must represent an actual selection. `selected: false`
+    // is an unselect trace — ignore it so a never-clicked binding that
+    // happens to share an index with an unselect entry never lights up.
+    if (sel?.selected === false) {
+      return false;
+    }
+
+    // Prefer `displayIndex` — that's what setSelectedOption enriches with
+    // and it is stable across refresh. `sel.index` can be a stale legacy
+    // field with an unrelated value (e.g. an array position), causing a
+    // false positive against this binding's `this.i`. Fall back to
+    // `index`/`idx` only when displayIndex is missing.
+    const rawIdx =
+      sel?.displayIndex ?? (sel as any)?.index ?? (sel as any)?.idx;
     const normalizedSelectedIndex =
-      selectedIndexFallback != null && Number.isFinite(Number(selectedIndexFallback))
-        ? Number(selectedIndexFallback)
+      rawIdx != null && Number.isFinite(Number(rawIdx))
+        ? Number(rawIdx)
         : null;
 
-    // Match by index first (preferred during normal operation).
-    // When the record HAS a displayIndex, trust it exclusively — do NOT
-    // fall through to optionId match, otherwise a sentinel -1 optionId
-    // on the unclicked 4th binding could still match a record whose
-    // index points at a different binding.
     if (normalizedSelectedIndex != null) {
       return normalizedSelectedIndex === this.i;
     }
@@ -373,6 +423,7 @@ export class OptionItemComponent implements OnChanges {
   }
 
   onChanged(event: any): void {
+    this._userHasClicked = true;
     this.optionUI.emit({
       optionId: this.optionId,
       displayIndex: this.i,
@@ -384,6 +435,7 @@ export class OptionItemComponent implements OnChanges {
 
   onContentClick(event: MouseEvent): void {
     event.stopPropagation();  // prevents double firing with parent (click)
+    this._userHasClicked = true;
     this.optionUI.emit({
       optionId: this.optionId,
       displayIndex: this.i,
@@ -395,8 +447,20 @@ export class OptionItemComponent implements OnChanges {
 
   shouldHighlightOption(): boolean {
     if (this.type() === 'multiple') {
+      // On refresh (no live click), ONLY trust authoritative saved
+      // selection state — not binding flags which can be transiently
+      // stale from processOptionBindings / hydrateOptions. This
+      // prevents the 2nd correct answer from auto-highlighting when
+      // only the 1st was clicked before refresh.
+      if (!this._userHasClicked && !this._wasSelected) {
+        return this.isSelectedForCurrentQuestion();
+      }
       return this.isOptionIndividuallySelected() || !!this.b.option?.highlight ||
         this._wasSelected;
+    }
+    // Single-answer: same refresh guard
+    if (!this._userHasClicked && !this._wasSelected) {
+      return this.isSelectedForCurrentQuestion();
     }
     return this.b.isSelected || !!this.b.option?.highlight || this._wasSelected
       || this.isSelectedForCurrentQuestion();
