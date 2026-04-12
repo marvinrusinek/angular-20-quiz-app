@@ -22,12 +22,16 @@ export class OptionHydrationService {
 
   // Convenience helper if there are saved selections as objects
   toIdSet(
-    saved: Array<{ optionId?: number | string }> | null | undefined
+    saved: Array<{ optionId?: number | string; selected?: boolean }> | null | undefined
   ): Set<number | string> {
     const set = new Set<number | string>();
     if (!saved?.length) return set;
 
     for (const s of saved) {
+      // Skip unselect traces so a never-clicked binding whose optionId
+      // happens to match a prior unselect record does not get stamped
+      // as highlighted by processOptionBindings.
+      if ((s as any)?.selected === false) continue;
       const id = s?.optionId;
       if (id !== undefined && id !== null) {
         set.add(id);

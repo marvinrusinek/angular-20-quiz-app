@@ -410,37 +410,86 @@ export class SharedOptionInitService {
         // because the @Input might not have been updated yet when this subscription fires
         if (comp.lastProcessedQuestionIndex !== idx) {
 
-          this.resetStateForNewQuestion(comp);
-
-          // Clear highlighting state
-          comp.highlightedOptionIds.clear();
-          comp.selectedOptions.clear();
-          comp.feedbackConfigs = {};
-          comp.showFeedback = false;
-          comp.showFeedbackForOption = {};
-
-          // Reset option bindings to clear visual state
-          for (const b of comp.optionBindings ?? []) {
-            b.isSelected = false;
-            b.showFeedback = false;
-            b.highlightCorrect = false;
-            b.highlightIncorrect = false;
-            b.highlightCorrectAfterIncorrect = false;
-            b.disabled = false;
-            if (b.option) {
-              b.option.selected = false;
-              b.option.showIcon = false;
+          // On Q2+ refresh the quizService.currentQuestionIndex$ is a
+          // BehaviorSubject(0), so this subscription fires twice: once
+          // with the stale idx=0 and once with the real idx from the URL.
+          // The stale emission must NEVER touch component state — updating
+          // lastProcessedQuestionIndex or currentQuestionIndex to the wrong
+          // value causes rehydrateUiFromState to resolve the wrong question,
+          // run a clean-slate on Q3's bindings, find no saved state for Q1,
+          // and return — blanking the icons. When the real idx arrives and
+          // restores them, the user sees a flash.
+          let urlQuestionIdx = -1;
+          try {
+            const m = window.location.pathname.match(/\/question\/[^/]+\/(\d+)/);
+            if (m) {
+              urlQuestionIdx = Number(m[1]) - 1; // URL is 1-based
             }
-          }
+          } catch { /* ignore */ }
+          const isStaleIdx = urlQuestionIdx >= 0 && idx !== urlQuestionIdx;
 
-          // Update the internal tracker
-          comp.lastProcessedQuestionIndex = idx;
-          // Also update currentQuestionIndex if it's stale
-          if (comp.currentQuestionIndex !== idx) {
-            comp.currentQuestionIndex = idx;
-          }
+          if (isStaleIdx) {
+            // Completely ignore the stale BehaviorSubject(0) emission.
+            // Do NOT update trackers — the real idx will arrive shortly.
+            console.log(`[SOC] Ignoring stale idx=${idx} (URL says ${urlQuestionIdx})`);
+          } else {
+            // Skip the state clear when the current bindings are already
+            // aligned with the NEW question's options (same optionIds).
+            const bindingIds = (comp.optionBindings ?? [])
+              .map((b: any) => b?.option?.optionId)
+              .filter((id: any) => id != null && id !== -1);
+            const optsIds = (opts ?? [])
+              .map((o: Option) => o?.optionId)
+              .filter((id: any) => id != null && id !== -1);
+            const bindingsAlignWithOpts =
+              bindingIds.length > 0 &&
+              optsIds.length > 0 &&
+              bindingIds.length === optsIds.length &&
+              bindingIds.every((id: any) => optsIds.includes(id));
 
-          comp.cdRef.markForCheck();
+            // Also skip when the target question has persisted selections
+            // that the rehydrate path just applied. Clearing them here would
+            // just force rehydrate to re-apply them, producing the flash.
+            let hasPersistedForIdx = false;
+            try {
+              const persisted = this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
+              hasPersistedForIdx = persisted.length > 0;
+            } catch { /* ignore */ }
+
+            if (!bindingsAlignWithOpts && !hasPersistedForIdx) {
+              this.resetStateForNewQuestion(comp);
+
+              // Clear highlighting state
+              comp.highlightedOptionIds.clear();
+              comp.selectedOptions.clear();
+              comp.feedbackConfigs = {};
+              comp.showFeedback = false;
+              comp.showFeedbackForOption = {};
+
+              // Reset option bindings to clear visual state
+              for (const b of comp.optionBindings ?? []) {
+                b.isSelected = false;
+                b.showFeedback = false;
+                b.highlightCorrect = false;
+                b.highlightIncorrect = false;
+                b.highlightCorrectAfterIncorrect = false;
+                b.disabled = false;
+                if (b.option) {
+                  b.option.selected = false;
+                  b.option.showIcon = false;
+                }
+              }
+            }
+
+            // Update the internal tracker
+            comp.lastProcessedQuestionIndex = idx;
+            // Also update currentQuestionIndex if it's stale
+            if (comp.currentQuestionIndex !== idx) {
+              comp.currentQuestionIndex = idx;
+            }
+
+            comp.cdRef.markForCheck();
+          }
         }
 
         // Use opts (synced) instead of this.optionsToDisplay (may be stale)
@@ -700,17 +749,40 @@ export class SharedOptionInitService {
 
     const saved = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex);
     if (saved?.length > 0) {
-      // Robust check: match by ID, index, or text
+      // Match saved selections to options by optionId/text FIRST (stable),
+      // falling back to displayIndex only when no id/text match is found.
+      // Pure displayIndex matching caused false positives when stale data
+      // from a different question had the same index.
       for (let idx = 0; idx < comp.optionsToDisplay.length; idx++) {
         const opt = comp.optionsToDisplay[idx];
-        const isSaved = saved.some(s =>
-          (s.displayIndex === idx) || ((s as any).index === idx)
-        );
+        const optText = (opt.text ?? '').trim().toLowerCase();
+        const optId = opt.optionId;
+        const optIdReal = optId != null && optId !== -1 && String(optId) !== '-1';
+
+        const isSaved = saved.some(s => {
+          // Skip unselect traces that lack visual flags
+          if ((s as any)?.selected === false && !(s as any)?.showIcon && !(s as any)?.highlight) {
+            return false;
+          }
+          const sId = (s as any).optionId;
+          const sIdReal = sId != null && sId !== -1 && String(sId) !== '-1';
+          const sText = ((s as any).text ?? '').trim().toLowerCase();
+          // Match by optionId
+          if (optIdReal && sIdReal && String(optId) === String(sId)) {
+            return true;
+          }
+          // Match by text
+          if (optText && sText && optText === sText) {
+            return true;
+          }
+          // Fallback: displayIndex only when id/text didn't match
+          const sIdx = (s as any).displayIndex ?? (s as any).index;
+          return sIdx === idx;
+        });
 
         if (isSaved) {
           opt.selected = true;
           opt.showIcon = true;
-          // also sync to internal set if needed
           const effectiveId = (opt.optionId != null && opt.optionId !== -1) ? opt.optionId : idx;
           comp.selectedOptions.add(Number(effectiveId));
         }

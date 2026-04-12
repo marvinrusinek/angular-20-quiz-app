@@ -75,11 +75,38 @@ export class CqcOrchestratorService {
       let intended = '';
       const hasInteracted = this.hasInteractionEvidence(host, idx);
       if (hasInteracted) {
+        // Check FET caches first
         const cachedFet =
           (host.explanationTextService.formattedExplanations?.[idx]?.explanation ?? '').trim()
           || ((host.explanationTextService as any).fetByIndex?.get(idx) ?? '').trim();
         if (cachedFet) {
           intended = cachedFet;
+        }
+        // No cached FET — try on-the-fly if quiz data is available
+        if (!intended) {
+          try {
+            const questions = host.quizService.getQuestionsInDisplayOrder?.()
+              ?? host.quizService.questions;
+            const q = questions?.[idx];
+            if (q?.explanation && q?.options?.length > 0) {
+              // Check resolution to decide FET vs question text
+              const isResolved = this.isQuestionResolvedFromStorage(host, idx);
+              if (isResolved) {
+                const correctIndices = host.explanationTextService.getCorrectOptionIndices(q, q.options, idx);
+                if (correctIndices.length > 0) {
+                  intended = host.explanationTextService.formatExplanation(q, correctIndices, q.explanation);
+                }
+              } else {
+                // Unresolved (partial multi-answer) — show question text
+                intended = this.buildQuestionDisplayHTML(host, idx);
+              }
+            }
+          } catch { /* ignore */ }
+          // If quiz data isn't loaded yet, return '' — loadQuestion
+          // will handle it once data is available.
+          if (!intended) {
+            return '';
+          }
         }
       }
       if (!intended) {
@@ -288,6 +315,37 @@ export class CqcOrchestratorService {
     }
   }
 
+  /** Check if the question at idx is fully resolved (all correct answers
+   *  selected) based on persisted sessionStorage / in-memory state.
+   *  Used to distinguish "should show FET" from "should show question text"
+   *  for questions with partial interaction (e.g. 1-of-2 correct in multi). */
+  private isQuestionResolvedFromStorage(host: Host, idx: number): boolean {
+    try {
+      let storedSelections: any[] = [];
+      try {
+        const raw = sessionStorage.getItem('sel_Q' + idx);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) storedSelections = parsed;
+        }
+      } catch { /* ignore */ }
+      if (storedSelections.length === 0) {
+        storedSelections =
+          host.selectedOptionService.getSelectedOptionsForQuestion?.(idx) ?? [];
+      }
+      if (storedSelections.length > 0) {
+        const questions = host.quizService.getQuestionsInDisplayOrder?.()
+          ?? host.quizService.questions;
+        const q = questions?.[idx];
+        if (q) {
+          return host.selectedOptionService.isQuestionResolvedLeniently?.(q, storedSelections)
+            ?? false;
+        }
+      }
+    } catch { /* ignore */ }
+    return false;
+  }
+
   /**
    * Unconditionally stamp the question text for idx into qText. Used by
    * runQuestionIndexSet on every navigation to guarantee the user sees
@@ -302,7 +360,12 @@ export class CqcOrchestratorService {
       // Don't clobber an explicit FET that the user has already earned
       // for this very index (e.g. refresh-initial index with restored
       // answered state, or the user just clicked and the FET is live).
-      if (this.hasInteractionEvidence(host, idx)) return false;
+      // Bail on interaction evidence alone — loadQuestion (which runs
+      // AFTER quiz data is fetched) handles the resolved-vs-unresolved
+      // distinction and will stamp question text for partial multi-answer.
+      if (this.hasInteractionEvidence(host, idx)) {
+        return false;
+      }
       const el = host.qText?.nativeElement;
       if (!el) return false;
       const display = this.buildQuestionDisplayHTML(host, idx);
@@ -412,11 +475,13 @@ export class CqcOrchestratorService {
 
     // Reset cached display text so the empty-emission guard in
     // subscribeToDisplayText doesn't re-stamp the previous question's
-    // FET onto this freshly loaded one. Also clear the signal so
-    // Angular's [innerHTML] binding blanks the heading (retry stamps
-    // below will repopulate it for the new index).
-    host._lastDisplayedText = '';
-    host.qTextHtmlSig?.set('');
+    // FET onto this freshly loaded one. Skip the blank when there's
+    // interaction evidence — loadQuestion will inject FET (resolved)
+    // or stamp question text (unresolved) once quiz data is available.
+    if (!this.hasInteractionEvidence(host, idx)) {
+      host._lastDisplayedText = '';
+      host.qTextHtmlSig?.set('');
+    }
 
     // POST-REFRESH STALE-STATE CLEANUP: clear restored state for the
     // target idx if we're navigating to a sibling after a refresh.
@@ -571,6 +636,9 @@ export class CqcOrchestratorService {
           // navigating from a refreshed Q1.
           const currentIdx = host.currentIndex;
           const hasRealInteraction = this.hasInteractionEvidence(host, currentIdx);
+          const isResolvedForGuard = hasRealInteraction
+            ? this.isQuestionResolvedFromStorage(host, currentIdx)
+            : false;
 
           const isExplanation = lowerText.length > 0
             && !isQuestionText
@@ -625,14 +693,19 @@ export class CqcOrchestratorService {
               // Cached is also empty — rebuild question text from scratch
               // rather than let an empty innerHTML reach the DOM (which is
               // what leaves the heading blank after a tab visibility flip).
-              try {
-                const rebuilt = this.buildQuestionDisplayHTML(host, currentIdx);
-                if (rebuilt) {
-                  this.writeQText(host, rebuilt);
-                  console.warn('[subscribeToDisplayText] ⚠️ Empty text + empty cache — rebuilt question text');
-                  return;
-                }
-              } catch { /* ignore */ }
+              // BUT: skip the rebuild ONLY when the question is both
+              // interacted AND resolved — loadQuestion will inject FET.
+              // For partial multi-answer, rebuild question text.
+              if (!hasRealInteraction || !isResolvedForGuard) {
+                try {
+                  const rebuilt = this.buildQuestionDisplayHTML(host, currentIdx);
+                  if (rebuilt) {
+                    this.writeQText(host, rebuilt);
+                    console.warn('[subscribeToDisplayText] ⚠️ Empty text + empty cache — rebuilt question text');
+                    return;
+                  }
+                } catch { /* ignore */ }
+              }
               // Nothing to write — leave existing DOM untouched.
               return;
             }
@@ -666,6 +739,34 @@ export class CqcOrchestratorService {
                 }
               } catch (e) {
                 console.warn('[subscribeToDisplayText] question-first guard failed', e);
+              }
+            }
+
+            // FET-OVER-QUESTION-TEXT GUARD: when the user has interaction
+            // evidence, the question is RESOLVED, and the pipeline emits
+            // question text (not FET), check FET caches before writing.
+            // After resetExplanationState clears latestExplanationIndex,
+            // the isExplanation check above fails and the pipeline falls
+            // through with question text — this would overwrite the eager
+            // FET that loadQuestion just injected. Only applies to resolved
+            // questions; unresolved (partial multi-answer) should show qText.
+            if (hasRealInteraction && isQuestionText && isResolvedForGuard) {
+              const fetCached =
+                (host.explanationTextService.formattedExplanations[currentIdx]?.explanation ?? '').trim()
+                || ((host.explanationTextService as any).fetByIndex?.get(currentIdx) ?? '').trim();
+              if (fetCached && fetCached.toLowerCase().includes('correct because')) {
+                this.writeQText(host, fetCached);
+                console.log(`[subscribeToDisplayText] 🛡️ FET-over-qText guard Q${currentIdx + 1} — wrote cached FET over question text`);
+                return;
+              }
+              // No cached FET yet — loadQuestion's eager injection hasn't
+              // run or hasn't called storeFormattedExplanation yet. Skip
+              // writing question text so the DOM keeps whatever the eager
+              // injection already placed there.
+              const domNow = (el.innerHTML ?? '').trim();
+              if (domNow && domNow.toLowerCase().includes('correct because')) {
+                console.log(`[subscribeToDisplayText] 🛡️ FET-over-qText guard Q${currentIdx + 1} — DOM already has FET, skipping qText write`);
+                return;
               }
             }
 
@@ -968,6 +1069,19 @@ export class CqcOrchestratorService {
               }
             } else {
               console.warn(`[loadQuestion] Q${zeroBasedIndex + 1} no correct indices found — cannot format FET`);
+            }
+          }
+
+          // UNRESOLVED BUT INTERACTED: the user clicked on this question
+          // but didn't select all correct answers (e.g. partial multi-answer
+          // or single-answer wrong click). stampQuestionTextNow bailed on
+          // interaction evidence, so nothing is displayed yet. Now that quiz
+          // data IS available, stamp question text explicitly.
+          if (hasClicked && !isResolvedFromPersistence) {
+            const display = this.buildQuestionDisplayHTML(host, zeroBasedIndex);
+            if (display && host.currentIndex === zeroBasedIndex) {
+              this.writeQText(host, display);
+              console.log(`[loadQuestion] Q${zeroBasedIndex + 1} interacted but unresolved — stamped question text`);
             }
           }
         } catch (e) {

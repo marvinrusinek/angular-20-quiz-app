@@ -197,7 +197,14 @@ export class HighlightOptionDirective implements OnInit {
     this.renderer.removeClass(host, 'deactivated-option');
     this.renderer.setStyle(host, 'cursor', 'pointer');
     this.setPointerEvents(host, 'auto');
-    opt.showIcon = false;
+    // Only reset showIcon if the option is NOT currently selected/highlighted.
+    // rehydrateUiFromState sets showIcon on matched bindings; blindly
+    // clearing it here would undo that before OptionItemComponent renders.
+    const binding = this.optionBinding();
+    const isLiveSelected = binding?.isSelected || opt.selected || opt.highlight;
+    if (!isLiveSelected) {
+      opt.showIcon = false;
+    }
 
     // Check shouldResetBackground FIRST, before selection state
     // This ensures new questions always start clean, regardless of stale state

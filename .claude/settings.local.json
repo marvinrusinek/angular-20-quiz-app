@@ -58,7 +58,12 @@
       "Bash(for p:*)",
       "Bash(do npx:*)",
       "Bash(echo \"exit=$?\")",
-      "Bash(find C:/Users/marvi/OneDrive/Desktop/angular-20-quiz-app/src/assets -name *depend*)"
+      "Bash(find C:/Users/marvi/OneDrive/Desktop/angular-20-quiz-app/src/assets -name *depend*)",
+      "Bash(find:*)",
+      "Bash(npm start:*)",
+      "Bash(kill %1)",
+      "Bash(netstat -ano)",
+      "Bash(findstr \"4200\\\\|4201\")"
     ]
   }
 }

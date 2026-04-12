@@ -114,9 +114,11 @@ export class OptionInteractionService {
     const dotStatusEarly = clickedIsCorrectEarly ? 'correct' : 'wrong';
     this.selectedOptionService.clickConfirmedDotStatus.set(qIdx, dotStatusEarly);
     this.selectedOptionService.lastClickedCorrectByQuestion.set(qIdx, clickedIsCorrectEarly);
-    try {
-      sessionStorage.setItem('dot_confirmed_' + qIdx, dotStatusEarly);
-    } catch {}
+    // NOTE: sessionStorage persist of dot_confirmed is deferred to AFTER we
+    // know the question type. For multi-answer, a single correct click must
+    // NOT persist 'correct' — only full resolution should. The in-memory
+    // map is fine for live dot rendering; the sessionStorage value drives
+    // the DOT-CONFIRMED FALLBACK LOCK on refresh.
 
     const bindingsForScore = state.optionBindings ?? [];
     const correctCountInBindings = bindingsForScore.filter(b => isCorrectHelper(b.option)).length;
@@ -299,6 +301,24 @@ export class OptionInteractionService {
     const allCorrectFound = correctIndicesSet.size > 0 && [...correctIndicesSet].every(i => futureKeys.has(i));
     const numIncorrectInFuture = futureSelection.filter(o => !isCorrectHelper(o)).length;
     const isPerfect = allCorrectFound && numIncorrectInFuture === 0;
+
+    // DEFERRED DOT PERSIST: For single-answer, persist immediately.
+    // For multi-answer, only persist 'correct' when ALL correct answers
+    // are selected. A partial 'correct' causes the DOT-CONFIRMED FALLBACK
+    // LOCK to treat the question as fully resolved on refresh, which
+    // auto-highlights the 2nd correct answer the user never selected.
+    try {
+      if (!isMultipleMode) {
+        sessionStorage.setItem('dot_confirmed_' + qIdx, dotStatusEarly);
+      } else if (allCorrectFound) {
+        sessionStorage.setItem('dot_confirmed_' + qIdx, 'correct');
+      } else if (!clickedIsCorrectEarly) {
+        sessionStorage.setItem('dot_confirmed_' + qIdx, 'wrong');
+      }
+      // For multi-answer partial correct: don't persist to sessionStorage.
+      // The in-memory map handles live rendering; refresh should NOT see
+      // a 'correct' status for an incomplete multi-answer question.
+    } catch {}
 
     // COMMIT STATE
     simulatedSelection = [...futureSelection];

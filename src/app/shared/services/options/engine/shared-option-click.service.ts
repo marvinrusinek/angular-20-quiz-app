@@ -395,24 +395,73 @@ export class SharedOptionClickService {
         for (let i = 0; i < currentBindings.length; i++) {
           if (!correctSet.has(i)) disabledSetRef.add(i);
         }
+        // Build a set of previously-clicked indices for THIS question so
+        // that a wrong option the user selected earlier keeps its red + X
+        // icon after the correct answer is found.
+        // IMPORTANT: Do NOT use selectedOptionService.getSelectedOptionsForQuestion
+        // here — handleOptionClick already cleared and replaced the service
+        // state with only the current (correct) click. The _multiSelectByQuestion
+        // durable set tracks every click index for the lifetime of the session
+        // and is NOT cleared between clicks, making it the reliable source.
+        const durableClicks = comp._multiSelectByQuestion?.get(qIdx);
+        const historySet = new Set<number>(durableClicks ?? []);
+
         // Replace with NEW array of NEW binding objects so OnPush children
         // re-render. In-place mutation alone does not trigger child CD.
         const newBindings = currentBindings.map((ob: any, bi: number) => {
           const isCorrectBinding = correctSet.has(bi);
+          const isClicked = bi === index;
+          const wasPreviouslyClicked = historySet.has(bi) && !isClicked && !isCorrectBinding;
           return {
             ...ob,
             disabled: !isCorrectBinding,
-            isSelected: bi === index,
+            isSelected: isClicked,
             option: ob?.option ? {
               ...ob.option,
-              selected: bi === index,
-              highlight: bi === index,
-              showIcon: bi === index
+              selected: isClicked,
+              highlight: isClicked || wasPreviouslyClicked,
+              showIcon: isClicked || wasPreviouslyClicked
             } : ob?.option
           };
         });
         comp.optionBindings = newBindings;
         console.log(`[SOC] SINGLE-MODE disabled Q${qIdx + 1}: disabled=[${[...disabledSetRef]}], bindings.disabled=[${newBindings.map((b: any) => b?.disabled).join(',')}]`);
+
+        // Persist previously-clicked wrong options alongside the correct
+        // click so refresh can restore the red+X icons. The entries are
+        // saved with `selected: false` to distinguish them from the active
+        // selection — rehydrate uses this to set isSelected=false (gray
+        // radio) while still showing highlight + showIcon (red + X).
+        try {
+          const toSave: any[] = [];
+          for (let bi = 0; bi < newBindings.length; bi++) {
+            const nb = newBindings[bi];
+            if (!nb?.option) continue;
+            const isCorrectBinding = correctSet.has(bi);
+            const isClicked = bi === index;
+            const wasPreviouslyClicked = historySet.has(bi) && !isClicked && !isCorrectBinding;
+            if (isClicked || wasPreviouslyClicked) {
+              toSave.push({
+                optionId: nb.option.optionId,
+                text: nb.option.text,
+                displayIndex: bi,
+                questionIndex: qIdx,
+                selected: isClicked,
+                highlight: true,
+                showIcon: true,
+                correct: isCorrectBinding
+              });
+            }
+          }
+          if (toSave.length > 0) {
+            sessionStorage.setItem('sel_Q' + qIdx, JSON.stringify(toSave));
+            // Also persist to _selectionHistory so subsequent saveState()
+            // calls don't overwrite sel_Q* with data that's missing the
+            // previously-clicked wrong entries.
+            this.selectedOptionService.addToSelectionHistory(qIdx, toSave as any[]);
+          }
+        } catch { /* ignore */ }
+
         comp.cdRef?.markForCheck?.();
         comp.cdRef?.detectChanges?.();
       }
@@ -450,6 +499,15 @@ export class SharedOptionClickService {
         }
       }
     }
+
+    // Create NEW binding object references so OnPush option-item children
+    // detect the input change and re-render.  The click handler mutates
+    // bindings in-place (showIcon, highlight, isSelected, etc.), but
+    // OnPush only triggers when the @Input reference changes.
+    comp.optionBindings = (comp.optionBindings ?? []).map((b: any) => ({
+      ...b,
+      option: b.option ? { ...b.option } : b.option
+    }));
 
     comp.cdRef.detectChanges();
   }

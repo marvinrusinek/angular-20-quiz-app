@@ -109,7 +109,9 @@ export class OptionItemComponent implements OnChanges {
     }
 
     // Sticky: once selected, stays highlighted for the rest of the question.
-    // Only goes true when the BINDING says selected (set by click handler).
+    // Only goes true when the BINDING says selected (set by click handler
+    // or rehydrateUiFromState on refresh). The processOptionBindings fix
+    // (idMatch && posMatch) prevents false-positive latching.
     if (this.b?.isSelected) this._wasSelected = true;
   }
 
@@ -356,7 +358,24 @@ export class OptionItemComponent implements OnChanges {
   }
 
   private getSelectionsForCurrentBinding(): any[] {
-    const qIndex = this.currentQuestionIndex() ?? this.quizService.currentQuestionIndex;
+    let qIndex = this.currentQuestionIndex() ?? this.quizService.currentQuestionIndex;
+
+    // On page refresh, the input signal and quiz service may both
+    // still be 0 (BehaviorSubject default) before the route resolver
+    // updates them with the URL-derived index. Fall back to the URL
+    // so saved selections for Q2+ are found on first render.
+    if (qIndex === 0) {
+      try {
+        const m = window.location.pathname.match(/\/question\/[^/]+\/(\d+)/);
+        if (m) {
+          const urlIdx = Number(m[1]) - 1;
+          if (Number.isFinite(urlIdx) && urlIdx > 0) {
+            qIndex = urlIdx;
+          }
+        }
+      } catch { /* ignore */ }
+    }
+
     const selections = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
     if (selections.length > 0) {
       return selections;
@@ -366,8 +385,23 @@ export class OptionItemComponent implements OnChanges {
   }
 
   private matchesBindingSelection(sel: any): boolean {
-    const qIndex =
+    let qIndex =
       this.currentQuestionIndex() ?? this.quizService.currentQuestionIndex;
+
+    // Same URL fallback as getSelectionsForCurrentBinding — on refresh
+    // the input may still be 0 before the route resolves.
+    if (qIndex === 0) {
+      try {
+        const m = window.location.pathname.match(/\/question\/[^/]+\/(\d+)/);
+        if (m) {
+          const urlIdx = Number(m[1]) - 1;
+          if (Number.isFinite(urlIdx) && urlIdx > 0) {
+            qIndex = urlIdx;
+          }
+        }
+      } catch { /* ignore */ }
+    }
+
     const selQIdx =
       sel.questionIndex ?? (sel as any).qIdx ?? (sel as any).questionIdx;
 
@@ -381,7 +415,10 @@ export class OptionItemComponent implements OnChanges {
     // Saved record must represent an actual selection. `selected: false`
     // is an unselect trace — ignore it so a never-clicked binding that
     // happens to share an index with an unselect entry never lights up.
-    if (sel?.selected === false) {
+    // EXCEPTION: entries with explicit showIcon/highlight are previously-
+    // clicked wrong options saved by the correct-click handler — they
+    // MUST match so the red+X icon restores on refresh.
+    if (sel?.selected === false && !sel?.showIcon && !sel?.highlight) {
       return false;
     }
 
@@ -446,21 +483,28 @@ export class OptionItemComponent implements OnChanges {
   }
 
   shouldHighlightOption(): boolean {
-    if (this.type() === 'multiple') {
-      // On refresh (no live click), ONLY trust authoritative saved
-      // selection state — not binding flags which can be transiently
-      // stale from processOptionBindings / hydrateOptions. This
-      // prevents the 2nd correct answer from auto-highlighting when
-      // only the 1st was clicked before refresh.
-      if (!this._userHasClicked && !this._wasSelected) {
-        return this.isSelectedForCurrentQuestion();
+    // Catch in-place mutations from rehydrateUiFromState that bypass
+    // ngOnChanges (same object reference, no @Input change detected).
+    // Only latch if (a) the user has actually clicked, or (b) the
+    // binding's selection is confirmed by authoritative saved state.
+    // Without the guard, transient b.isSelected from stale option.selected
+    // data latches _wasSelected and bypasses the refresh guard below.
+    if (this.b?.isSelected && !this._wasSelected) {
+      if (this._userHasClicked || this.isSelectedForCurrentQuestion()) {
+        this._wasSelected = true;
       }
-      return this.isOptionIndividuallySelected() || !!this.b.option?.highlight ||
-        this._wasSelected;
     }
-    // Single-answer: same refresh guard
+
+    // On refresh (no live click), ONLY trust authoritative saved
+    // selection state — not binding flags which can be transiently
+    // stale from processOptionBindings / hydrateOptions / setOptionBindingsIfChanged.
     if (!this._userHasClicked && !this._wasSelected) {
       return this.isSelectedForCurrentQuestion();
+    }
+
+    if (this.type() === 'multiple') {
+      return this.isOptionIndividuallySelected() || !!this.b.option?.highlight ||
+        this._wasSelected;
     }
     return this.b.isSelected || !!this.b.option?.highlight || this._wasSelected
       || this.isSelectedForCurrentQuestion();

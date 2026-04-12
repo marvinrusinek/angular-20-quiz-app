@@ -33,6 +33,23 @@ export class SelectedOptionService {
   // so that _wasSelected-style highlights survive refresh.
   private _selectionHistory = new Map<number, SelectedOption[]>();
 
+  /** Add entries to selection history without replacing existing ones.
+   *  Used by the correct-click handler to persist previously-clicked wrong
+   *  options so that subsequent saveState() calls don't lose them. */
+  addToSelectionHistory(questionIndex: number, entries: SelectedOption[]): void {
+    const history = this._selectionHistory.get(questionIndex) ?? [];
+    for (const entry of entries) {
+      const already = history.some(h =>
+        h.optionId === entry.optionId
+        && h.displayIndex === entry.displayIndex
+      );
+      if (!already) {
+        history.push(entry);
+      }
+    }
+    this._selectionHistory.set(questionIndex, history);
+  }
+
   get hasRefreshBackup(): boolean {
     return this._refreshBackup.size > 0;
   }
@@ -71,7 +88,8 @@ export class SelectedOptionService {
         this._refreshBackup = new Map(this.selectedOptionsMap);
       }
       if (this._refreshBackup.size > 0) {
-        this.scheduleBackupClear();
+        // No auto-clearing: let backup persist for the session so Score/Dots
+        // remain consistent after multiple refreshes.
       }
 
       // Detect if this is a page refresh (F5) vs fresh navigation
@@ -101,33 +119,9 @@ export class SelectedOptionService {
         // _refreshBackup is consulted by getSelectedOptionsForQuestion and
         // would otherwise leak stale selections for other indices, causing
         // resolveDisplayText to flag them as resolved and show FET.
-        if (currentUrlIdx !== null) {
-          for (const key of Array.from(this.rawSelectionsMap.keys())) {
-            if (key !== currentUrlIdx) this.rawSelectionsMap.delete(key);
-          }
-          for (const key of Array.from(this.selectedOptionsMap.keys())) {
-            if (key !== currentUrlIdx) this.selectedOptionsMap.delete(key);
-          }
-          for (const key of Array.from(this._refreshBackup.keys())) {
-            if (key !== currentUrlIdx) this._refreshBackup.delete(key);
-          }
-          // Also prune the persisted selectionHistory so a future refresh
-          // on another index starts clean.
-          try {
-            if (this._refreshBackup.size > 0) {
-              const historyObj = Object.fromEntries(this._refreshBackup);
-              sessionStorage.setItem('selectionHistory', JSON.stringify(historyObj));
-            } else {
-              sessionStorage.removeItem('selectionHistory');
-            }
-          } catch { /* ignore */ }
-        }
-
-        // Restore clickConfirmedDotStatus from sessionStorage dot_confirmed_* entries.
-        // IMPORTANT: preserve dot status for EVERY answered index — not just the
+        // Important: preserve dot status for EVERY answered index — not just the
         // current URL index — so the progress bar retains credit for questions
-        // answered before the refresh (e.g. Q1 answered, then user refreshes on Q2).
-        // Pruning here erases Q1's dot and reverts the progress percentage.
+        // answered before the refresh.
         for (let i = 0; i < 100; i++) {
           const val = sessionStorage.getItem('dot_confirmed_' + i);
           if (val === 'correct' || val === 'wrong') {
@@ -137,11 +131,6 @@ export class SelectedOptionService {
         // Restore selectedOptionsMap from durable per-question keys
         // (these survive clearState which wipes the main sessionStorage keys)
         for (let i = 0; i < 100; i++) {
-          if (currentUrlIdx !== null && i !== currentUrlIdx) {
-            // Prune stale per-question selection key for non-current indices.
-            sessionStorage.removeItem('sel_Q' + i);
-            continue;
-          }
           const sel = sessionStorage.getItem('sel_Q' + i);
           if (sel) {
             try {
@@ -176,6 +165,17 @@ export class SelectedOptionService {
   }
 
   private saveState(): void {
+    // DIAGNOSTIC: trace every saveState call
+    const _caller = new Error().stack?.split('\n')[2]?.trim() ?? '?';
+    console.log(`[SOS.saveState] called from: ${_caller}`);
+    console.log(`  _selectionHistory keys: [${[...this._selectionHistory.keys()]}]`);
+    for (const [k, v] of this._selectionHistory) {
+      console.log(`  _selectionHistory[${k}]: ${v.length} entries: ${v.map((s: any) => `id=${s.optionId}|sel=${s.selected}|text="${(s.text ?? '').substring(0, 20)}"`).join(', ')}`);
+    }
+    console.log(`  selectedOptionsMap keys: [${[...this.selectedOptionsMap.keys()]}]`);
+    for (const [k, v] of this.selectedOptionsMap) {
+      console.log(`  selectedOptionsMap[${k}]: ${v.length} entries: ${v.map((s: any) => `id=${s.optionId}|sel=${s.selected}|text="${(s.text ?? '').substring(0, 20)}"`).join(', ')}`);
+    }
     try {
       const rawObj = Object.fromEntries(this.rawSelectionsMap);
       sessionStorage.setItem('rawSelectionsMap', JSON.stringify(rawObj));
@@ -187,12 +187,14 @@ export class SelectedOptionService {
       if (this._selectionHistory.size > 0) {
         const historyObj = Object.fromEntries(this._selectionHistory);
         sessionStorage.setItem('selectionHistory', JSON.stringify(historyObj));
+      } else {
+        sessionStorage.removeItem('selectionHistory');
       }
 
       // Save to durable per-question keys that survive clearState().
-      // MERGE approach: combine all sources (history, map, existing storage)
-      // to never lose entries. Uses text as the unique key since optionId
-      // resolution can collide for options without explicit IDs.
+      // Write ONLY what's in the current in-memory state (history + map).
+      // Do NOT merge with existing sessionStorage — that re-introduces
+      // stale wrong-click entries that were just cleared.
       const allSources = new Map<number, SelectedOption[]>();
       for (const [idx, opts] of this._selectionHistory) {
         allSources.set(idx, [...(allSources.get(idx) ?? []), ...opts]);
@@ -201,9 +203,6 @@ export class SelectedOptionService {
         allSources.set(idx, [...(allSources.get(idx) ?? []), ...opts]);
       }
       for (const [idx, combined] of allSources) {
-        // Deduplicate by optionId + displayIndex (NOT text — text can collide,
-        // be empty, or be undefined, causing the last-clicked entry to be
-        // dropped so the highlight never comes back on refresh).
         const seen = new Set<string>();
         const unique: SelectedOption[] = [];
         const keyOf = (sel: any) =>
@@ -215,23 +214,6 @@ export class SelectedOptionService {
             seen.add(key);
             unique.push(sel);
           }
-        }
-        // Also merge with what's already in sessionStorage
-        const existingRaw = sessionStorage.getItem('sel_Q' + idx);
-        if (existingRaw) {
-          try {
-            const existing = JSON.parse(existingRaw);
-            if (Array.isArray(existing)) {
-              for (const sel of existing) {
-                if (!sel) continue;
-                const key = keyOf(sel);
-                if (!seen.has(key)) {
-                  seen.add(key);
-                  unique.push(sel);
-                }
-              }
-            }
-          } catch { /* ignore corrupt */ }
         }
         if (unique.length > 0) {
           sessionStorage.setItem('sel_Q' + idx, JSON.stringify(unique));
@@ -625,6 +607,20 @@ export class SelectedOptionService {
     this.selectedOptionsMap.set(idx, []);
     this.selectedOptionIndices[idx] = [];
 
+    // Clear accumulated history so saveState() doesn't re-merge stale
+    // wrong-click entries back into sel_Q*. The live interaction uses
+    // _multiSelectByQuestion (not _selectionHistory) for the binding
+    // rebuild, so this is safe.
+    this._selectionHistory.delete(idx);
+
+    // Clear the durable per-question sessionStorage key BEFORE saveState
+    // runs — otherwise saveState's merge reads the old key and re-adds
+    // entries that were just cleared. This prevents stale wrong-click
+    // entries from accumulating across multiple click attempts.
+    try {
+      sessionStorage.removeItem('sel_Q' + idx);
+    } catch { /* ignore */ }
+
     // Snapshot used by correctness logic
     this.optionSnapshotByQuestion.delete(idx);
 
@@ -651,7 +647,6 @@ export class SelectedOptionService {
     isMultipleAnswer?: boolean
   ): void {
     if (!option) {
-      if (questionIndex == null) {
         console.warn(
           '[setSelectedOption] null option with no questionIndex — ignoring'
         );
@@ -743,6 +738,7 @@ export class SelectedOptionService {
     }
 
     // Accumulate selection history for refresh restore (mirrors _wasSelected behavior)
+    console.log(`[SOS.setSelectedOption] Q${qIndex} adding to _selectionHistory: id=${enriched.optionId} text="${(enriched.text ?? '').substring(0, 30)}"`, new Error().stack?.split('\n').slice(1, 4).join(' <- '));
     const history = this._selectionHistory.get(qIndex) ?? [];
     const alreadyInHistory = history.some(h =>
       h.optionId === enriched.optionId
@@ -959,32 +955,29 @@ export class SelectedOptionService {
     const options = this.selectedOptionsMap.get(questionIndex) || [];
     const backup = this._refreshBackup.get(questionIndex) || [];
 
-    // During the refresh window, UNION map + backup + durable sel_Q key.
-    // The map comes from sel_Q* (text-dedup'd in saveState) while backup
-    // comes from _selectionHistory (raw). If the text-dedup dropped the
-    // last-clicked entry, the backup still has it. Merging both ensures
-    // no click is lost on rehydrate.
-    if (this._refreshBackup.size > 0) {
-      const merged = new Map<string, SelectedOption>();
-      const keyOf = (o: any) =>
-        `${o?.optionId ?? '?'}|${o?.displayIndex ?? o?.index ?? -1}`;
-      for (const o of options) if (o) merged.set(keyOf(o), o);
-      for (const o of backup) if (o && !merged.has(keyOf(o))) merged.set(keyOf(o), o);
-      try {
-        const sel = sessionStorage.getItem('sel_Q' + questionIndex);
-        if (sel) {
-          const parsed = JSON.parse(sel);
-          if (Array.isArray(parsed)) {
-            for (const o of parsed) if (o && !merged.has(keyOf(o))) merged.set(keyOf(o), o);
+    const merged = new Map<string, SelectedOption>();
+    const keyOf = (o: any) =>
+      `${o?.optionId ?? '?'}|${o?.displayIndex ?? o?.index ?? -1}`;
+
+    // 1. History (Backup)
+    for (const o of backup) if (o) merged.set(keyOf(o), o);
+    // 2. Active selections (take precedence)
+    for (const o of options) if (o) merged.set(keyOf(o), o);
+
+    // 3. Durable sessionStorage fallback
+    try {
+      const storedStr = sessionStorage.getItem('sel_Q' + questionIndex);
+      if (storedStr) {
+        const parsed = JSON.parse(storedStr);
+        if (Array.isArray(parsed)) {
+          for (const o of parsed) {
+            if (o && !merged.has(keyOf(o))) merged.set(keyOf(o), o);
           }
         }
-      } catch { /* ignore */ }
-      if (merged.size > 0) return Array.from(merged.values());
-    }
+      }
+    } catch { /* ignore */ }
 
-    if (options.length > 0) return options;
-    if (backup.length > 0) return backup;
-    return [];
+    return Array.from(merged.values());
   }
 
   public areAllCorrectAnswersSelected(
