@@ -199,7 +199,7 @@ npm install
 <h2>⭐ Support</h2>
 
 <p>
-If you find this project useful or interesting, consider giving it a ⭐ on GitHub.
+If you’ve found this project helpful or even a little interesting, please take a moment to give it a ⭐ on GitHub — it really helps support the project and keeps it growing!
 </p>
 
 <hr>
