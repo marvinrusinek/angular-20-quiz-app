@@ -79,12 +79,11 @@ export class SelectedOptionService {
         this.selectedOptionsMap$.next(new Map(this.selectedOptionsMap));
       }
 
-      // Load full selection history (includes all single-answer picks)
-      const history = sessionStorage.getItem('selectionHistory');
-      if (history) {
-        const parsed = JSON.parse(history);
-        this._refreshBackup = new Map(Object.entries(parsed).map(([k, v]) => [Number(k), v as any]));
-      } else if (this.selectedOptionsMap.size > 0) {
+      // Derive _refreshBackup from selectedOptionsMap (the authoritative
+      // current state) rather than from selectionHistory. The history
+      // accumulates ALL prior wrong-click entries with selected:true,
+      // which causes ghost highlights for never-selected options on refresh.
+      if (this.selectedOptionsMap.size > 0) {
         this._refreshBackup = new Map(this.selectedOptionsMap);
       }
       if (this._refreshBackup.size > 0) {
@@ -192,31 +191,14 @@ export class SelectedOptionService {
       }
 
       // Save to durable per-question keys that survive clearState().
-      // Write ONLY what's in the current in-memory state (history + map).
-      // Do NOT merge with existing sessionStorage — that re-introduces
-      // stale wrong-click entries that were just cleared.
-      const allSources = new Map<number, SelectedOption[]>();
-      for (const [idx, opts] of this._selectionHistory) {
-        allSources.set(idx, [...(allSources.get(idx) ?? []), ...opts]);
-      }
+      // Write ONLY from selectedOptionsMap (the authoritative current
+      // state). Do NOT merge _selectionHistory — it accumulates all
+      // prior wrong-click entries with selected:true, which causes
+      // ghost highlights for never-selected options on refresh.
       for (const [idx, opts] of this.selectedOptionsMap) {
-        allSources.set(idx, [...(allSources.get(idx) ?? []), ...opts]);
-      }
-      for (const [idx, combined] of allSources) {
-        const seen = new Set<string>();
-        const unique: SelectedOption[] = [];
-        const keyOf = (sel: any) =>
-          `${sel?.optionId ?? '?'}|${sel?.displayIndex ?? sel?.index ?? -1}`;
-        for (const sel of combined) {
-          if (!sel) continue;
-          const key = keyOf(sel);
-          if (!seen.has(key)) {
-            seen.add(key);
-            unique.push(sel);
-          }
-        }
-        if (unique.length > 0) {
-          sessionStorage.setItem('sel_Q' + idx, JSON.stringify(unique));
+        const filtered = (opts ?? []).filter((s: any) => s != null);
+        if (filtered.length > 0) {
+          sessionStorage.setItem('sel_Q' + idx, JSON.stringify(filtered));
         }
       }
     } catch (err) {
@@ -647,6 +629,7 @@ export class SelectedOptionService {
     isMultipleAnswer?: boolean
   ): void {
     if (!option) {
+      if (questionIndex == null) {
         console.warn(
           '[setSelectedOption] null option with no questionIndex — ignoring'
         );

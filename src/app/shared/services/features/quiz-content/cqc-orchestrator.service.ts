@@ -685,6 +685,12 @@ export class CqcOrchestratorService {
             const incoming = (finalText ?? '').trim();
             const cached = (host._lastDisplayedText ?? '').trim();
             if (!incoming) {
+              // FET LOCK: if eager FET was injected for this index, don't
+              // let an empty pipeline emission blank the DOM.
+              if ((host as any)._fetLockedForIndex === currentIdx) {
+                console.log(`[subscribeToDisplayText] 🔒 FET lock active Q${currentIdx + 1} — ignoring empty emission`);
+                return;
+              }
               if (cached) {
                 console.warn('[subscribeToDisplayText] ⚠️ Empty text after restore — keeping cached');
                 this.writeQText(host, cached);
@@ -693,19 +699,16 @@ export class CqcOrchestratorService {
               // Cached is also empty — rebuild question text from scratch
               // rather than let an empty innerHTML reach the DOM (which is
               // what leaves the heading blank after a tab visibility flip).
-              // BUT: skip the rebuild ONLY when the question is both
-              // interacted AND resolved — loadQuestion will inject FET.
-              // For partial multi-answer, rebuild question text.
-              if (!hasRealInteraction || !isResolvedForGuard) {
-                try {
-                  const rebuilt = this.buildQuestionDisplayHTML(host, currentIdx);
-                  if (rebuilt) {
-                    this.writeQText(host, rebuilt);
-                    console.warn('[subscribeToDisplayText] ⚠️ Empty text + empty cache — rebuilt question text');
-                    return;
-                  }
-                } catch { /* ignore */ }
-              }
+              // Always rebuild — loadQuestion's eager FET injection will
+              // overwrite this with FET shortly if the question is resolved.
+              try {
+                const rebuilt = this.buildQuestionDisplayHTML(host, currentIdx);
+                if (rebuilt) {
+                  this.writeQText(host, rebuilt);
+                  console.warn('[subscribeToDisplayText] ⚠️ Empty text + empty cache — rebuilt question text');
+                  return;
+                }
+              } catch { /* ignore */ }
               // Nothing to write — leave existing DOM untouched.
               return;
             }
@@ -759,6 +762,15 @@ export class CqcOrchestratorService {
                 console.log(`[subscribeToDisplayText] 🛡️ FET-over-qText guard Q${currentIdx + 1} — wrote cached FET over question text`);
                 return;
               }
+              // Also check _lastDisplayedText — on double-refresh the
+              // in-memory caches are cleared by resetExplanationState but
+              // the eager injection already wrote FET via writeQText which
+              // updates _lastDisplayedText. Preserve it.
+              const lastText = (host._lastDisplayedText ?? '').trim();
+              if (lastText && lastText.toLowerCase().includes('correct because')) {
+                console.log(`[subscribeToDisplayText] 🛡️ FET-over-qText guard Q${currentIdx + 1} — _lastDisplayedText has FET, skipping qText write`);
+                return;
+              }
               // No cached FET yet — loadQuestion's eager injection hasn't
               // run or hasn't called storeFormattedExplanation yet. Skip
               // writing question text so the DOM keeps whatever the eager
@@ -768,6 +780,15 @@ export class CqcOrchestratorService {
                 console.log(`[subscribeToDisplayText] 🛡️ FET-over-qText guard Q${currentIdx + 1} — DOM already has FET, skipping qText write`);
                 return;
               }
+            }
+
+            // FET LOCK: if loadQuestion's eager injection set a lock for
+            // this index, do NOT overwrite with question text. The lock
+            // prevents late pipeline emissions from blanking the FET
+            // that was already written to the DOM.
+            if ((host as any)._fetLockedForIndex === currentIdx && isQuestionText) {
+              console.log(`[subscribeToDisplayText] 🔒 FET lock active for Q${currentIdx + 1} — skipping qText write`);
+              return;
             }
 
             this.writeQText(host, finalText);
@@ -921,6 +942,8 @@ export class CqcOrchestratorService {
           for (const t of host._eagerFetRetryTimers) clearTimeout(t);
         }
         host._eagerFetRetryTimers = [];
+        // Clear FET lock from previous question
+        (host as any)._fetLockedForIndex = -1;
 
         // REFRESH RECOVERY: If this question was previously answered
         // (sessionStorage-persisted interaction), eagerly regenerate the
@@ -1030,6 +1053,10 @@ export class CqcOrchestratorService {
             if (correctIndices.length > 0) {
               const formattedFet = ets.formatExplanation(question, correctIndices, question.explanation);
               if (formattedFet) {
+                // FET LOCK: prevent subscribeToDisplayText from overwriting
+                // the eager FET with question text. The lock is index-specific
+                // so navigating to a different question automatically invalidates it.
+                (host as any)._fetLockedForIndex = zeroBasedIndex;
                 const injectNow = () => {
                   // Abort if the user has navigated away from this index —
                   // otherwise a retry would stamp the previous question's

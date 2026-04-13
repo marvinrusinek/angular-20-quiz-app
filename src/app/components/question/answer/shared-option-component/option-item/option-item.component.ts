@@ -435,7 +435,22 @@ export class OptionItemComponent implements OnChanges {
         : null;
 
     if (normalizedSelectedIndex != null) {
-      return normalizedSelectedIndex === this.i;
+      if (normalizedSelectedIndex !== this.i) {
+        return false;
+      }
+      // Position matches — cross-check optionId to prevent false
+      // positives when options reload in a different order or when
+      // stale displayIndex values leak from a prior session.
+      const selId = sel?.optionId;
+      const bId = this.b?.option?.optionId;
+      const selIdIsReal =
+        selId != null && selId !== -1 && String(selId) !== '-1';
+      const bIdIsReal =
+        bId != null && bId !== -1 && String(bId) !== '-1';
+      if (selIdIsReal && bIdIsReal && String(selId) !== String(bId)) {
+        return false;
+      }
+      return true;
     }
 
     // Fallback: match by optionId only when no index data exists on the

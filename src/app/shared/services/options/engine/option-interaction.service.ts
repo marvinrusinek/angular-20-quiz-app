@@ -144,7 +144,18 @@ export class OptionInteractionService {
     const questionOptions = Array.isArray(question?.options) ? question.options : [];
 
     const storedSelection = this.selectedOptionService.getSelectedOptionsForQuestion(qIdx) ?? [];
-    let simulatedSelection = [...storedSelection];
+    // Detect stale pre-refresh selections: if the durable click tracker
+    // for this question is empty but the service has stored selections,
+    // those are remnants from before refresh. Discard them so the user
+    // starts fresh after page reload.
+    const durableClicks = (state as any)._multiSelectByQuestion?.get(qIdx);
+    const isStaleFromRefresh = storedSelection.length > 0
+      && (!durableClicks || durableClicks.size === 0);
+    let simulatedSelection = isStaleFromRefresh ? [] : [...storedSelection];
+    if (isStaleFromRefresh) {
+      console.log(`[OIS] Q${qIdx + 1}: Discarding ${storedSelection.length} stale pre-refresh selections`);
+      this.selectedOptionService.clearAllSelectionsForQuestion(qIdx);
+    }
 
     console.log(`[OIS] Q${qIdx + 1} clicked text="${binding.option?.text}" storedSelection.length=${storedSelection.length}`, storedSelection.map((s: any) => ({ id: s.optionId, idx: s.displayIndex, text: s.text?.slice(0, 30) })));
 
@@ -213,7 +224,11 @@ export class OptionInteractionService {
     });
 
     state.selectedOptionMap.clear();
-    futureKeys.forEach(k => state.selectedOptionMap.set(k, true));
+    futureKeys.forEach(k => {
+      const b = state.optionBindings[k];
+      const eid = b ? getEffectiveId(b.option, k) : k;
+      state.selectedOptionMap.set(eid, true);
+    });
 
     // Normalize displayIndex on EVERY futureSelection entry (not just the
     // freshly-clicked one). Pre-existing entries in simulatedSelection can

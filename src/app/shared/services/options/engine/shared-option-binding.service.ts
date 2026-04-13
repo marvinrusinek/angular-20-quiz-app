@@ -297,11 +297,16 @@ export class SharedOptionBindingService {
       const posMatch = savedByDisplayIdx.has(idx);
       const isSelected = hasRealId ? idMatch : (idMatch && posMatch);
 
-      // Only trust highlightSet during LIVE interaction (hasUserClicked).
-      // On refresh, highlightSet may contain stale IDs from a previous CD
-      // cycle that briefly flash an incorrect option before rehydrate clears it.
+      // Only trust highlightSet and savedIds during LIVE interaction
+      // (hasUserClicked). On refresh, savedIds may contain stale entries
+      // from accumulated selection history, and highlightSet may have
+      // IDs from a previous CD cycle — both cause ghost highlights for
+      // options the user never selected. rehydrateUiFromState (called
+      // immediately after this loop) handles refresh highlighting
+      // authoritatively with its own clean-slate + match logic.
       const useHighlightSet = comp.hasUserClicked && highlightSet.has(effectiveId);
-      if (isSelected || useHighlightSet) {
+      const useSelected = comp.hasUserClicked ? isSelected : false;
+      if (useSelected || useHighlightSet) {
         opt.highlight = true;
         console.log(`[POB] Q${currentIdx + 1} idx=${idx} effectiveId=${effectiveId} → highlight=TRUE (isSelected=${isSelected} inHighlightSet=${highlightSet.has(effectiveId)}) text="${(opt.text ?? '').substring(0, 30)}"`);
       } else {
@@ -378,6 +383,7 @@ export class SharedOptionBindingService {
       if (comp.optionBindings?.length) {
         comp.optionBindings.forEach((b: any) => {
           b.isSelected = false;
+          b.checked = false;
           if (b.option) {
             b.option.selected = false;
             b.option.highlight = false;
@@ -421,7 +427,18 @@ export class SharedOptionBindingService {
         if (pos === -1) {
           const sIdx = (s as any).displayIndex ?? (s as any).index ?? (s as any).idx;
           if (sIdx != null && Number.isFinite(Number(sIdx))) {
-            pos = Number(sIdx);
+            const candidatePos = Number(sIdx);
+            // Cross-check: if both sides have real optionIds, reject
+            // the position match when IDs disagree. Prevents stale
+            // displayIndex from lighting up a different option.
+            const candidateBinding = comp.optionBindings?.[candidatePos];
+            const cbId = candidateBinding?.option?.optionId;
+            const cbIdIsReal = cbId != null && cbId !== -1 && String(cbId) !== '-1';
+            if (sIdIsReal && cbIdIsReal && String(sId) !== String(cbId)) {
+              // ID mismatch — skip this position fallback
+            } else {
+              pos = candidatePos;
+            }
           }
         }
         if (pos !== -1 && !savedByIndex.has(pos)) {
@@ -475,7 +492,11 @@ export class SharedOptionBindingService {
       }
 
       if (saved.length > 0) {
-        const activeSelection = saved.find((s: any) => s?.selected === true)
+        // Use reverse() to find the LAST selected option — that's where
+        // feedback should appear (the most recently clicked option).
+        // saved.find() returns the first match which is typically the
+        // option with the lowest index, not the last one the user clicked.
+        const activeSelection = [...saved].reverse().find((s: any) => s?.selected === true)
           ?? [...saved].reverse().find((s: any) => s?.showIcon === true)
           ?? saved[saved.length - 1];
 
@@ -554,9 +575,15 @@ export class SharedOptionBindingService {
     const showCorrectOnTimeout = comp.timerExpiredForQuestion
       && (comp.timeoutCorrectOptionKeys?.has(optionKey) || !!b.option.correct);
 
+    // On refresh (!hasUserClicked), b.option.highlight may carry stale
+    // values from processOptionBindings or rehydrate matching errors.
+    // Only trust isActuallySelected (set authoritatively by rehydrate)
+    // and showCorrectOnTimeout. During live interaction, also include
+    // b.option.highlight which is set by the click handler.
+    const trustOptionHighlight = !!comp.hasUserClicked && !!b.option.highlight;
     let shouldHighlight = isMulti
-      ? (!!b.option.highlight || showCorrectOnTimeout)
-      : (!!b.option.highlight || isActuallySelected || showCorrectOnTimeout);
+      ? (trustOptionHighlight || showCorrectOnTimeout)
+      : (trustOptionHighlight || isActuallySelected || showCorrectOnTimeout);
 
     const isOnCorrectQuestion = comp.lastProcessedQuestionIndex === qIndex;
     const currentSelections = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];

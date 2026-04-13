@@ -427,11 +427,9 @@ export class SharedOptionClickService {
         comp.optionBindings = newBindings;
         console.log(`[SOC] SINGLE-MODE disabled Q${qIdx + 1}: disabled=[${[...disabledSetRef]}], bindings.disabled=[${newBindings.map((b: any) => b?.disabled).join(',')}]`);
 
-        // Persist previously-clicked wrong options alongside the correct
-        // click so refresh can restore the red+X icons. The entries are
-        // saved with `selected: false` to distinguish them from the active
-        // selection — rehydrate uses this to set isSelected=false (gray
-        // radio) while still showing highlight + showIcon (red + X).
+        // Persist the currently-selected (correct) option AND any
+        // previously-clicked wrong options to sel_Q* so refresh can
+        // restore red+X icons on incorrect options the user tried.
         try {
           const toSave: any[] = [];
           for (let bi = 0; bi < newBindings.length; bi++) {
@@ -455,9 +453,6 @@ export class SharedOptionClickService {
           }
           if (toSave.length > 0) {
             sessionStorage.setItem('sel_Q' + qIdx, JSON.stringify(toSave));
-            // Also persist to _selectionHistory so subsequent saveState()
-            // calls don't overwrite sel_Q* with data that's missing the
-            // previously-clicked wrong entries.
             this.selectedOptionService.addToSelectionHistory(qIdx, toSave as any[]);
           }
         } catch { /* ignore */ }

@@ -570,8 +570,33 @@ export class QuizStateService {
       } catch { /* ignore */ }
       if (currentUrlIdx === null) return;
       // Only seed if sessionStorage says this exact idx was answered.
-      if (this._answeredQuestionIndices.has(currentUrlIdx)
-          || this._hasUserInteracted.has(currentUrlIdx)) {
+      // Check multiple evidence sources because QuizStateService.reset()
+      // (triggered by handleQuestionChange → resetAll → quizReset$)
+      // wipes _answeredQuestionIndices and _hasUserInteracted from
+      // sessionStorage. The durable sel_Q* and dot_confirmed_* keys
+      // survive reset and serve as fallback evidence.
+      let hasEvidence = this._answeredQuestionIndices.has(currentUrlIdx)
+          || this._hasUserInteracted.has(currentUrlIdx);
+      if (!hasEvidence) {
+        try {
+          const selRaw = sessionStorage.getItem('sel_Q' + currentUrlIdx);
+          if (selRaw) {
+            const parsed = JSON.parse(selRaw);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              hasEvidence = true;
+            }
+          }
+        } catch { /* ignore */ }
+      }
+      if (!hasEvidence) {
+        try {
+          const dot = sessionStorage.getItem('dot_confirmed_' + currentUrlIdx);
+          if (dot === 'correct' || dot === 'wrong') {
+            hasEvidence = true;
+          }
+        } catch { /* ignore */ }
+      }
+      if (hasEvidence) {
         this._clickedInSession.add(currentUrlIdx);
       }
     } catch { /* ignore */ }

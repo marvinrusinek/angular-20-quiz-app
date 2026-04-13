@@ -144,7 +144,7 @@ export class OptionUiSyncService {
     }
 
     if (checked) {
-      ctx.selectedOptionMap.set(index, true);
+      ctx.selectedOptionMap.set(effectiveId, true);
       const anchorKey = `idx:${index}`;
       ctx.showFeedbackForOption[anchorKey] = true;
       ctx.lastFeedbackOptionId = index;
@@ -304,14 +304,20 @@ export class OptionUiSyncService {
       const seenIndices = new Set<number>();
 
       // 1. Process history (known order)
+      // selectedOptionMap is keyed by effectiveId (optionId when real,
+      // else position index). selectedOptionHistory stores position
+      // indices. Resolve each history entry to its binding's effectiveId
+      // before checking the map, so a 1-based optionId that collides
+      // with another option's position index doesn't cause a false match.
       for (const hIdx of ctx.selectedOptionHistory || []) {
         const numIdx = Number(hIdx);
-        if (ctx.selectedOptionMap.has(hIdx) && !seenIndices.has(numIdx)) {
-          const b = ctx.optionBindings[numIdx];
-          if (b) {
+        const hBinding = ctx.optionBindings[numIdx];
+        const hEffId = hBinding ? getEffectiveId(hBinding.option, numIdx) : numIdx;
+        if (ctx.selectedOptionMap.has(hEffId) && !seenIndices.has(numIdx)) {
+          if (hBinding) {
             fullSelections.push({
-              ...b.option,
-              optionId: getEffectiveId(b.option, numIdx),
+              ...hBinding.option,
+              optionId: hEffId,
               index: numIdx,
               displayIndex: numIdx,
               questionIndex: currentIndex,
@@ -323,11 +329,16 @@ export class OptionUiSyncService {
       }
 
       // 2. Catch any selected options not in history (redundancy)
+      // Use the binding's effectiveId for the map lookup — the map
+      // key is effectiveId (optionId), not position index. Using the
+      // raw position idx would false-positive when a 1-based optionId
+      // from another option collides with this binding's array index.
       ctx.optionBindings.forEach((b, idx) => {
-        if (ctx.selectedOptionMap.has(idx) && !seenIndices.has(idx)) {
+        const bEffId = getEffectiveId(b.option, idx);
+        if (ctx.selectedOptionMap.has(bEffId) && !seenIndices.has(idx)) {
           fullSelections.push({
             ...b.option,
-            optionId: getEffectiveId(b.option, idx),
+            optionId: bEffId,
             index: idx,
             displayIndex: idx,
             questionIndex: currentIndex,
@@ -548,9 +559,11 @@ export class OptionUiSyncService {
    * `change` event path which bypasses OIS and QuizComponent.onOptionSelected.
    */
   private syncSelectedFlags(ctx: OptionUiSyncContext): void {
+    const getEffId = (o: any, idx: number) => (o?.optionId != null && o.optionId !== -1) ? o.optionId : idx;
     for (let i = 0; i < (ctx.optionBindings?.length ?? 0); i++) {
       const b = ctx.optionBindings[i];
-      const chosen = ctx.selectedOptionMap.get(i) === true;
+      const eid = getEffId(b.option, i);
+      const chosen = ctx.selectedOptionMap.get(eid) === true;
 
       b.option.selected = chosen;
       b.isSelected = chosen;
@@ -612,12 +625,13 @@ export class OptionUiSyncService {
         if (val) mapSelectedIds.add(key);
       }
     }
+    const getEffIdMap = (o: any, idx: number) => (o?.optionId != null && o.optionId !== -1) ? o.optionId : idx;
     const mapSelected = ctx.optionBindings
-      .filter(b => {
-        // Correctly check if THIS specific binding's index is in the selection set
-        return mapSelectedIds.has(b.index) ||
-          mapSelectedIds.has(String(b.index)) ||
-          mapSelectedIds.has(Number(b.index));
+      .filter((b, idx) => {
+        const eid = getEffIdMap(b.option, idx);
+        return mapSelectedIds.has(eid) ||
+          mapSelectedIds.has(String(eid)) ||
+          mapSelectedIds.has(Number(eid));
       })
       .map(b => b.option);
 
@@ -769,8 +783,12 @@ export class OptionUiSyncService {
     const correctCountInBindings = ctx.optionBindings.filter(b => isCorrectHelper(b.option)).length;
     const isMultipleMode = ctx.type === 'multiple' || (ctx as any).isMultiMode === true || correctCountInBindings > 1;
     const isTrulyMulti = isMultipleMode;
+    const getEffId = (o: any, i: number) => (o?.optionId != null && o.optionId !== -1) ? o.optionId : i;
     const selectedOptions: Option[] = ctx.optionBindings
-      .filter((_, idx) => ctx.selectedOptionMap.has(idx))
+      .filter((b, idx) => {
+        const eid = getEffId(b.option, idx);
+        return ctx.selectedOptionMap.has(eid);
+      })
       .map(b => b.option);
 
     // Build dynamic feedback
