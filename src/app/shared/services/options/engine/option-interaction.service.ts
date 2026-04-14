@@ -412,29 +412,24 @@ export class OptionInteractionService {
     }
 
     // FET & Explanation & Scoring
-    if (allCorrectFound) {
+    // For MULTI-ANSWER, defer FET/scoring to runOptionContentClick which uses
+    // the authoritative correctIndicesFromQ (resolved by resolveCorrectIndices).
+    // correctIndicesSet here is built from questionOptions which may have
+    // incomplete correct flags — causing allCorrectFound to fire prematurely
+    // (e.g. 1 of 2 correct answers found). runOptionContentClick checks
+    // clickState.remaining === 0 against the canonical correct count.
+    if (allCorrectFound && !isMultipleMode) {
       if (!(this.quizService as any)._multiAnswerPerfect) {
         (this.quizService as any)._multiAnswerPerfect = new Map<number, boolean>();
       }
       (this.quizService as any)._multiAnswerPerfect.set(qIdx, true);
 
-      // Score when all correct answers are found, regardless of whether incorrect
-      // options were also clicked (they get disabled, user can't undo them).
-      // incrementScore handles deduplication internally via scoringKey.
       this.quizService.scoreDirectly(qIdx, true, isMultipleMode);
 
-      // Trigger FET when all correct found or single correct interaction
-      if (allCorrectFound || (!isMultipleMode && isCorrectHelper(binding.option))) {
-        // Emit for the parent (QuizQuestionComponent)
-        if ((state as any).showExplanationChange) {
-          (state as any).showExplanationChange.emit(true);
-        }
-        // Fire FET emission as a microtask so it completes BEFORE the
-        // requestAnimationFrame that sets displayState to 'explanation'.
-        // setTimeout (macrotask) fires AFTER RAF, causing displayText$ to
-        // evaluate with empty FET and fall back to raw explanation text.
-        queueMicrotask(() => emitExplanation(qIdx));
+      if ((state as any).showExplanationChange) {
+        (state as any).showExplanationChange.emit(true);
       }
+      queueMicrotask(() => emitExplanation(qIdx));
     }
 
     // UPDATE ANCHOR: If we just selected something, that's the new anchor.

@@ -75,10 +75,14 @@ export class CqcOrchestratorService {
       let intended = '';
       const hasInteracted = this.hasInteractionEvidence(host, idx);
       if (hasInteracted) {
-        // Check FET caches first
-        const cachedFet =
-          (host.explanationTextService.formattedExplanations?.[idx]?.explanation ?? '').trim()
-          || ((host.explanationTextService as any).fetByIndex?.get(idx) ?? '').trim();
+        // Check FET caches first — but only if the question is resolved.
+        // For multi-answer questions, the cache may have been populated by
+        // an upstream path before all correct answers were selected.
+        const isResolvedForCache = this.isQuestionResolvedFromStorage(host, idx);
+        const cachedFet = isResolvedForCache
+          ? ((host.explanationTextService.formattedExplanations?.[idx]?.explanation ?? '').trim()
+            || ((host.explanationTextService as any).fetByIndex?.get(idx) ?? '').trim())
+          : '';
         if (cachedFet) {
           intended = cachedFet;
         }
@@ -640,12 +644,25 @@ export class CqcOrchestratorService {
             ? this.isQuestionResolvedFromStorage(host, currentIdx)
             : false;
 
+          // CENTRAL MULTI-ANSWER FET GUARD: For questions with multiple
+          // correct answers, do NOT display FET until ALL correct answers
+          // are selected. This blocks every upstream emission path that may
+          // set latestExplanationIndex / explanationToDisplay too early.
+          const qForMultiCheck = host.quizService.getQuestionsInDisplayOrder()?.[currentIdx]
+            ?? host.quizService.questions?.[currentIdx];
+          const multiCorrectCount = (qForMultiCheck?.options ?? []).filter(
+            (o: any) => o?.correct === true || o?.correct === 1 || String(o?.correct) === 'true'
+          ).length;
+          const isMultiAnswer = multiCorrectCount > 1;
+          const multiAnswerBlocked = isMultiAnswer && hasRealInteraction && !isResolvedForGuard;
+
           const isExplanation = lowerText.length > 0
             && !isQuestionText
             && !lowerText.includes('correct because')
             && host.explanationTextService.latestExplanationIndex === host.currentIndex
             && host.explanationTextService.latestExplanationIndex >= 0
-            && hasRealInteraction;
+            && hasRealInteraction
+            && !multiAnswerBlocked;
           if (isExplanation) {
             const idx = host.currentIndex;
             const cached = (host.explanationTextService.formattedExplanations[idx]?.explanation ?? '').trim()
@@ -687,7 +704,7 @@ export class CqcOrchestratorService {
             if (!incoming) {
               // FET LOCK: if eager FET was injected for this index, don't
               // let an empty pipeline emission blank the DOM.
-              if ((host as any)._fetLockedForIndex === currentIdx) {
+              if ((host as any)._fetLockedForIndex === currentIdx && !multiAnswerBlocked) {
                 console.log(`[subscribeToDisplayText] 🔒 FET lock active Q${currentIdx + 1} — ignoring empty emission`);
                 return;
               }
@@ -785,10 +802,37 @@ export class CqcOrchestratorService {
             // FET LOCK: if loadQuestion's eager injection set a lock for
             // this index, do NOT overwrite with question text. The lock
             // prevents late pipeline emissions from blanking the FET
-            // that was already written to the DOM.
-            if ((host as any)._fetLockedForIndex === currentIdx && isQuestionText) {
+            // that was already written to the DOM. Disable lock for
+            // unresolved multi-answer to prevent partial FET display.
+            if ((host as any)._fetLockedForIndex === currentIdx && isQuestionText && !multiAnswerBlocked) {
               console.log(`[subscribeToDisplayText] 🔒 FET lock active for Q${currentIdx + 1} — skipping qText write`);
               return;
+            }
+
+            // MULTI-ANSWER FET BLOCK: If the text about to be written is
+            // FET (contains "correct because") and the current question is
+            // multi-answer but NOT fully resolved, replace with question text.
+            // This is the FINAL gate — upstream paths (emitExplanation,
+            // applyExplanationText, setExplanationText) can inject FET into
+            // the pipeline after a single correct click; this gate catches
+            // ALL of them regardless of which path they took.
+            const isFetText = (finalText ?? '').toLowerCase().includes('correct because');
+            const isMultiQ = host.quizService.multipleAnswer
+              || ((qForMultiCheck?.options ?? []).filter(
+                (o: any) => o?.correct === true || o?.correct === 1 || String(o?.correct) === 'true'
+              ).length > 1);
+            // Check BOTH storage-based resolution AND the in-memory perfect
+            // flag set by the multi-answer click handler when remaining===0.
+            // The storage check can lag behind the click handler.
+            const multiPerfect = (host.quizService as any)._multiAnswerPerfect?.get(currentIdx) === true;
+            const isActuallyResolved = isResolvedForGuard || multiPerfect;
+            if (isFetText && isMultiQ && !isActuallyResolved) {
+              const qText = this.buildQuestionDisplayHTML(host, currentIdx);
+              if (qText) {
+                this.writeQText(host, qText);
+                console.log(`[subscribeToDisplayText] ⛔ BLOCKED FET for unresolved multi-answer Q${currentIdx + 1} — wrote question text instead`);
+                return;
+              }
             }
 
             this.writeQText(host, finalText);

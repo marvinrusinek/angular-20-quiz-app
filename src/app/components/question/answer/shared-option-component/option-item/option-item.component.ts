@@ -109,10 +109,16 @@ export class OptionItemComponent implements OnChanges {
     }
 
     // Sticky: once selected, stays highlighted for the rest of the question.
-    // Only goes true when the BINDING says selected (set by click handler
-    // or rehydrateUiFromState on refresh). The processOptionBindings fix
-    // (idMatch && posMatch) prevents false-positive latching.
-    if (this.b?.isSelected) this._wasSelected = true;
+    // GUARD: only latch during live interaction (_userHasClicked).
+    // On refresh, transient init paths (processOptionBindings, generateOptionBindings)
+    // can briefly set b.isSelected = true on options the user never clicked.
+    // rehydrateUiFromState resets them, but ngOnChanges fires BEFORE rehydrate,
+    // so _wasSelected would already be latched — causing ghost highlights
+    // (e.g. 2nd correct answer in multi-answer). Gating on _userHasClicked
+    // ensures only actual user clicks latch the highlight.
+    if (this.b?.isSelected && this._userHasClicked) {
+      this._wasSelected = true;
+    }
   }
 
   get optionId(): number {
@@ -283,16 +289,6 @@ export class OptionItemComponent implements OnChanges {
   }
 
   shouldShowIcon(option?: any, i?: number): boolean {
-    // TEMP DIAGNOSTIC — remove after debugging
-    const _si = this.b?.option?.showIcon;
-    const _is = this.b?.isSelected;
-    const _hl = !!this.b?.option?.highlight;
-    const _ws = this._wasSelected;
-    const _dis = this.b?.disabled;
-    const _shl = this.shouldHighlightOption();
-    if (_is || _hl || _ws || _si) {
-      console.log(`[shouldShowIcon] i=${this.i} showIcon=${_si} isSel=${_is} hl=${_hl} _was=${_ws} dis=${_dis} shouldHL=${_shl}`);
-    }
     if (this.timerExpired()) {
       // Show icon for correct options AND for any option the user
       // actually selected (so a selected wrong answer keeps its X).
@@ -422,6 +418,14 @@ export class OptionItemComponent implements OnChanges {
       return false;
     }
 
+    // TEXT MATCH (most reliable — immune to synthetic ID mismatches
+    // and index collisions from different init paths).
+    const selText = ((sel as any)?.text ?? '').trim().toLowerCase();
+    const bText = (this.b?.option?.text ?? '').trim().toLowerCase();
+    if (selText && bText) {
+      return selText === bText;
+    }
+
     // Prefer `displayIndex` — that's what setSelectedOption enriches with
     // and it is stable across refresh. `sel.index` can be a stale legacy
     // field with an unrelated value (e.g. an array position), causing a
@@ -498,26 +502,56 @@ export class OptionItemComponent implements OnChanges {
   }
 
   shouldHighlightOption(): boolean {
-    // Catch in-place mutations from rehydrateUiFromState that bypass
-    // ngOnChanges (same object reference, no @Input change detected).
-    // Only latch if (a) the user has actually clicked, or (b) the
-    // binding's selection is confirmed by authoritative saved state.
-    // Without the guard, transient b.isSelected from stale option.selected
-    // data latches _wasSelected and bypasses the refresh guard below.
-    if (this.b?.isSelected && !this._wasSelected) {
-      if (this._userHasClicked || this.isSelectedForCurrentQuestion()) {
-        this._wasSelected = true;
+    // NUCLEAR REFRESH GUARD: On refresh (no live click), bypass ALL
+    // intermediate layers (binding state, _wasSelected, sharedOptionConfig)
+    // and read sel_Q* directly. Only highlight if this option's TEXT appears
+    // in the durable sessionStorage. This is immune to every init-path
+    // contamination vector (processOptionBindings, generateOptionBindings,
+    // rehydrateUiFromState, etc.).
+    if (!this._userHasClicked) {
+      const bText = (this.b?.option?.text ?? '').trim().toLowerCase();
+      if (!bText) {
+        return false;
       }
+      let qIndex = this.currentQuestionIndex() ?? this.quizService.currentQuestionIndex;
+      if (qIndex === 0) {
+        try {
+          const m = window.location.pathname.match(/\/question\/[^/]+\/(\d+)/);
+          if (m) {
+            const urlIdx = Number(m[1]) - 1;
+            if (Number.isFinite(urlIdx) && urlIdx > 0) {
+              qIndex = urlIdx;
+            }
+          }
+        } catch { /* ignore */ }
+      }
+      try {
+        const raw = sessionStorage.getItem('sel_Q' + qIndex);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            const found = parsed.some((s: any) => {
+              const sText = ((s as any)?.text ?? '').trim().toLowerCase();
+              return sText && sText === bText;
+            });
+            return found;
+          }
+        }
+      } catch { /* ignore */ }
+      return false;
     }
 
-    // On refresh (no live click), ONLY trust authoritative saved
-    // selection state — not binding flags which can be transiently
-    // stale from processOptionBindings / hydrateOptions / setOptionBindingsIfChanged.
-    if (!this._userHasClicked && !this._wasSelected) {
-      return this.isSelectedForCurrentQuestion();
+    // Sticky latch for live interaction
+    if (this.b?.isSelected && !this._wasSelected) {
+      this._wasSelected = true;
     }
 
     if (this.type() === 'multiple') {
+      // For multi-answer, trust the sharedOptionConfig as the final authority.
+      const cfg = this.sharedOptionConfig();
+      if (cfg?.option && !cfg.option.highlight && !cfg.isOptionSelected) {
+        return false;
+      }
       return this.isOptionIndividuallySelected() || !!this.b.option?.highlight ||
         this._wasSelected;
     }

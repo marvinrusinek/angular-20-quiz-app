@@ -106,11 +106,18 @@ export class SharedOptionExplanationService {
     console.log(`[SharedOptionExplanationService] emitExplanation checking Q${resolvedIndex + 1} skipGuard=${skipGuard}...`);
 
     // Guard: Emit FET only when the question is resolved correctly.
-    if (!skipGuard && question && Array.isArray(question.options)) {
-      const resolved = this.checkResolution(ctx);
-
-      if (!resolved) {
-        console.log(`[emitExplanation] Q${resolvedIndex + 1} NOT resolved. Skipping FET.`);
+    // Use authoritative question source to ensure correct flags are present.
+    const authQ = this.quizService.questions?.[resolvedIndex] ?? question;
+    if (!skipGuard) {
+      if (authQ && Array.isArray(authQ.options)) {
+        const resolved = this.checkResolution(ctx);
+        if (!resolved) {
+          console.log(`[emitExplanation] Q${resolvedIndex + 1} NOT resolved. Skipping FET.`);
+          return;
+        }
+      } else if (!question || !Array.isArray(question?.options)) {
+        // No question data available — cannot verify resolution. Block FET.
+        console.log(`[emitExplanation] Q${resolvedIndex + 1} no question data. Blocking FET.`);
         return;
       }
     }
@@ -158,9 +165,14 @@ export class SharedOptionExplanationService {
   private checkResolution(ctx: ExplanationContext): boolean {
     const { resolvedIndex, question, optionBindings, optionsToDisplay } = ctx;
 
-    const correctCount = question!.options.filter(
+    // Use authoritative question source — the component's question.options
+    // often lack the `correct` flag, making correctCount=0 and falling to
+    // single-answer logic which resolves on 1 correct selection.
+    const authQuestion = this.quizService.questions?.[resolvedIndex] ?? question;
+    const correctCount = (authQuestion?.options ?? question!.options).filter(
       (o: any) => o.correct === true || String(o.correct) === 'true'
     ).length;
+    const isMultiAnswer = correctCount > 1 || this.quizService.multipleAnswer;
 
     const visualOptions = (Array.isArray(optionBindings) && optionBindings.length > 0)
       ? optionBindings.map((b: OptionBindings) => b.option)
@@ -228,7 +240,11 @@ export class SharedOptionExplanationService {
 
     let resolved = (selectedFromUi.length > 0) ? uiResolved : status.resolved;
 
-    if (!resolved && status.resolved) {
+    // For multi-answer questions, do NOT let the service override the UI
+    // check. The service's selectedOptionsMap can be contaminated by init
+    // paths, causing it to report "resolved" when only 1 of 2 correct
+    // answers are actually selected. Only allow override for single-answer.
+    if (!resolved && status.resolved && !isMultiAnswer) {
       console.log(`[emitExplanation] Q${resolvedIndex + 1} UI check failed but Service check PASSED. Overriding to RESOLVED=true.`);
       resolved = true;
     }

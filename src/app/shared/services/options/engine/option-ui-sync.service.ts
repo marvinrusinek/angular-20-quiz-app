@@ -361,9 +361,14 @@ export class OptionUiSyncService {
       this.selectedOptionService.setAnswered(true, true);
     }
 
-    // Ensure explanation is emitted for ALL types (including multiple), 
-    // not just single (which handled it in applySingleSelectionPainting).
-    ctx.emitExplanation(currentIndex);
+    // Emit explanation only for single-answer. For multi-answer, FET must
+    // wait until ALL correct answers are selected — emitting here on every
+    // partial click causes premature FET display. The multi-answer path in
+    // runOptionContentClick and checkAndScoreMultiAnswer handle FET emission
+    // when clickState.remaining === 0.
+    if (ctx.type === 'single') {
+      ctx.emitExplanation(currentIndex);
+    }
 
     // Update Next Button State based on ACTUAL selection count
     const hasSelection = ctx.selectedOptionMap.size > 0;

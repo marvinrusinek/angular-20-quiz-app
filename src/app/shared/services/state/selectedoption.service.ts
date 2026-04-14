@@ -942,23 +942,27 @@ export class SelectedOptionService {
     const keyOf = (o: any) =>
       `${o?.optionId ?? '?'}|${o?.displayIndex ?? o?.index ?? -1}`;
 
-    // 1. History (Backup)
-    for (const o of backup) if (o) merged.set(keyOf(o), o);
-    // 2. Active selections (take precedence)
-    for (const o of options) if (o) merged.set(keyOf(o), o);
-
-    // 3. Durable sessionStorage fallback
+    // 1. Durable sessionStorage FIRST — the cleanest source of truth.
     try {
       const storedStr = sessionStorage.getItem('sel_Q' + questionIndex);
       if (storedStr) {
         const parsed = JSON.parse(storedStr);
         if (Array.isArray(parsed)) {
+          console.warn(`[getSelectedOptionsForQuestion] sel_Q${questionIndex} RAW:`, JSON.stringify(parsed.map((o: any) => ({ text: (o?.text ?? '').substring(0, 30), sel: o?.selected, id: o?.optionId, dIdx: o?.displayIndex }))));
           for (const o of parsed) {
-            if (o && !merged.has(keyOf(o))) merged.set(keyOf(o), o);
+            if (o) merged.set(keyOf(o), o);
           }
         }
       }
     } catch { /* ignore */ }
+
+    // 2. Fall back to in-memory maps only if sel_Q* had nothing.
+    //    During live interaction sel_Q* may not be written yet, so
+    //    the in-memory maps are needed.
+    if (merged.size === 0) {
+      for (const o of backup) if (o) merged.set(keyOf(o), o);
+      for (const o of options) if (o) merged.set(keyOf(o), o);
+    }
 
     return Array.from(merged.values());
   }

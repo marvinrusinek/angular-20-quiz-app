@@ -139,7 +139,24 @@ export class QuizSetupService {
 
     host._processingOptionClick = true;
     const idx = host.normalizeQuestionIndex(option?.questionIndex);
-    this.showExplanationForQuestion(host, idx);
+
+    // Only show explanation immediately for single-answer questions.
+    // For multi-answer, FET must wait until ALL correct answers are
+    // selected. showExplanationForQuestion → prepareExplanationForQuestion
+    // sets latestExplanationIndex, setDisplayState('explanation'), and
+    // setExplanationText — all of which trigger premature FET display
+    // if called on a partial multi-answer click.
+    // Use the authoritative questions array from QuizService — the
+    // host.currentQuestion.options often lack the `correct` flag, which
+    // makes correctCount=0 and bypasses this guard entirely.
+    const authQ = this.quizService.questions?.[idx] ?? host.currentQuestion;
+    const correctCount = (authQ?.options ?? []).filter(
+      (o: any) => o?.correct === true || o?.correct === 1 || String(o?.correct) === 'true'
+    ).length;
+    const isMultiAnswer = correctCount > 1 || this.quizService.multipleAnswer;
+    if (!isMultiAnswer) {
+      this.showExplanationForQuestion(host, idx);
+    }
 
     await this.quizOptionProcessingService.processOptionClick({
       option, idx, quizId: host.quizId,
