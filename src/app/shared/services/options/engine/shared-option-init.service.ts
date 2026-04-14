@@ -776,8 +776,15 @@ export class SharedOptionInitService {
             return true;
           }
           // Fallback: displayIndex only when id/text didn't match
+          // AND when text is unavailable on either side. If both sides
+          // have text but it didn't match above, the position coincidence
+          // is a false positive (e.g. options shuffled on refresh).
           const sIdx = (s as any).displayIndex ?? (s as any).index;
-          return sIdx === idx;
+          if (sIdx !== idx) return false;
+          // Position matches — only accept if we can't verify by text
+          const sText2 = ((s as any).text ?? '').trim().toLowerCase();
+          if (optText && sText2 && optText !== sText2) return false;
+          return true;
         });
 
         if (isSaved) {
