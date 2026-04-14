@@ -75,7 +75,19 @@ export class SelectedOptionService {
       const selected = sessionStorage.getItem('selectedOptionsMap');
       if (selected) {
         const parsed = JSON.parse(selected);
-        this.selectedOptionsMap = new Map(Object.entries(parsed).map(([k, v]) => [Number(k), v as any]));
+        // Filter ghost entries (selected:true without highlight/showIcon flags)
+        // — these are auto-injected correct options that the user never clicked.
+        const entries: Array<[number, SelectedOption[]]> = [];
+        for (const [k, v] of Object.entries(parsed)) {
+          const arr = Array.isArray(v) ? (v as any[]) : [];
+          const userClicks = arr.filter(
+            (o: any) => o && o.highlight === true && o.showIcon === true
+          ) as SelectedOption[];
+          if (userClicks.length > 0) {
+            entries.push([Number(k), userClicks]);
+          }
+        }
+        this.selectedOptionsMap = new Map(entries);
         this.selectedOptionsMap$.next(new Map(this.selectedOptionsMap));
       }
 
@@ -135,7 +147,25 @@ export class SelectedOptionService {
             try {
               const opts = JSON.parse(sel);
               if (Array.isArray(opts) && opts.length > 0) {
-                this.selectedOptionsMap.set(i, opts);
+                // Filter ghost entries: real user clicks have highlight:true
+                // and showIcon:true (set by addOption/setSelectedOption).
+                // Ghost entries (auto-injected correct options via alt paths)
+                // lack these flags and cause refresh auto-highlight + FET bugs.
+                const userClicks = opts.filter(
+                  (o: any) => o && o.highlight === true && o.showIcon === true
+                );
+                if (userClicks.length > 0) {
+                  this.selectedOptionsMap.set(i, userClicks);
+                  // Rewrite sessionStorage so callers that read sel_Q* directly
+                  // (e.g. getSelectedOptionsForQuestion, rehydrateUiFromState)
+                  // see the filtered set, not the contaminated original.
+                  if (userClicks.length !== opts.length) {
+                    sessionStorage.setItem('sel_Q' + i, JSON.stringify(userClicks));
+                  }
+                } else {
+                  this.selectedOptionsMap.delete(i);
+                  sessionStorage.removeItem('sel_Q' + i);
+                }
               }
             } catch { /* ignore */ }
           }
@@ -196,9 +226,16 @@ export class SelectedOptionService {
       // prior wrong-click entries with selected:true, which causes
       // ghost highlights for never-selected options on refresh.
       for (const [idx, opts] of this.selectedOptionsMap) {
-        const filtered = (opts ?? []).filter((s: any) => s != null);
+        // Only persist real user clicks (highlight:true, showIcon:true)
+        // to the durable per-question keys. Ghost entries injected via
+        // alt paths lack these flags and cause refresh auto-highlight bugs.
+        const filtered = (opts ?? []).filter(
+          (s: any) => s != null && s.highlight === true && s.showIcon === true
+        );
         if (filtered.length > 0) {
           sessionStorage.setItem('sel_Q' + idx, JSON.stringify(filtered));
+        } else {
+          sessionStorage.removeItem('sel_Q' + idx);
         }
       }
     } catch (err) {

@@ -94,10 +94,7 @@ export class QuizOptionProcessingService {
   }): Promise<void> {
     const { option, idx, quizId } = params;
 
-    const isAnswered = this.selectedOptionService.isQuestionAnswered(idx);
-    this.nextButtonStateService.setNextButtonState(isAnswered);
     this.quizStateService.markUserInteracted(idx);
-    if (isAnswered) this.quizStateService.markQuestionAnswered(idx);
 
     const immediate = this.evaluateImmediateCorrectness({
       option, idx, liveSelections: params.liveSelections,
@@ -112,6 +109,7 @@ export class QuizOptionProcessingService {
     }
 
     let immediateMultiDotStatus: 'correct' | 'wrong' | null = null;
+    let isQuestionComplete = immediate.isSingleAnswerQuestion;
     if (immediate.isSingleAnswerQuestion) {
       this.evaluateSingleAnswer({
         option, idx, optionsForImmediateScoring: immediate.optionsForImmediateScoring,
@@ -126,6 +124,7 @@ export class QuizOptionProcessingService {
         quizId,
       });
       immediateMultiDotStatus = multiResult.immediateMultiDotStatus;
+      isQuestionComplete = multiResult.allCorrectSelected;
     }
 
     await this.handleAuthoritativeCheck({
@@ -133,16 +132,21 @@ export class QuizOptionProcessingService {
       immediateMultiDotStatus, quizId,
     });
 
-    const prev = this.quizStateService.getQuestionState(quizId, idx);
-    if (prev) {
-      this.quizStateService.setQuestionState(quizId, idx, {
-        ...prev, isAnswered: true,
-        explanationText: params.explanationToDisplay || prev.explanationText || ''
-      });
+    this.nextButtonStateService.setNextButtonState(isQuestionComplete);
+    if (isQuestionComplete) {
+      this.quizStateService.markQuestionAnswered(idx);
+      const prev = this.quizStateService.getQuestionState(quizId, idx);
+      if (prev) {
+        this.quizStateService.setQuestionState(quizId, idx, {
+          ...prev, isAnswered: true,
+          explanationText: params.explanationToDisplay || prev.explanationText || ''
+        });
+      }
     }
 
     this.persistOptionSelection({
       idx, quizId, explanationToDisplay: params.explanationToDisplay, option,
+      isQuestionComplete,
     });
   }
 
@@ -447,8 +451,9 @@ export class QuizOptionProcessingService {
     quizId: string;
     explanationToDisplay: string;
     option: SelectedOption;
+    isQuestionComplete?: boolean;
   }): void {
-    const { idx, quizId, explanationToDisplay } = params;
+    const { idx, quizId, explanationToDisplay, isQuestionComplete = true } = params;
 
     // Update QuizStateService QuestionState
     const prev = (this.quizService as any).quizStateService?.getQuestionState?.(quizId, idx);
@@ -456,10 +461,12 @@ export class QuizOptionProcessingService {
 
     // Persist to session
     try {
-      sessionStorage.setItem('isAnswered', 'true');
       const currentIndices = this.selectedOptionService.getSelectedOptionIndices(idx);
       sessionStorage.setItem(`quiz_selection_${idx}`, JSON.stringify(currentIndices));
-      sessionStorage.setItem(`displayMode_${idx}`, 'explanation');
+      if (isQuestionComplete) {
+        sessionStorage.setItem('isAnswered', 'true');
+        sessionStorage.setItem(`displayMode_${idx}`, 'explanation');
+      }
     } catch (e) {
       console.warn('[onOptionSelected] Storage failed', e);
     }
