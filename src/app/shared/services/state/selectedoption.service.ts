@@ -197,6 +197,7 @@ export class SelectedOptionService {
     // DIAGNOSTIC: trace every saveState call
     const _caller = new Error().stack?.split('\n')[2]?.trim() ?? '?';
     console.log(`[SOS.saveState] called from: ${_caller}`);
+
     console.log(`  _selectionHistory keys: [${[...this._selectionHistory.keys()]}]`);
     for (const [k, v] of this._selectionHistory) {
       console.log(`  _selectionHistory[${k}]: ${v.length} entries: ${v.map((s: any) => `id=${s.optionId}|sel=${s.selected}|text="${(s.text ?? '').substring(0, 20)}"`).join(', ')}`);
@@ -220,20 +221,39 @@ export class SelectedOptionService {
         sessionStorage.removeItem('selectionHistory');
       }
 
-      // Save to durable per-question keys that survive clearState().
-      // Write ONLY from selectedOptionsMap (the authoritative current
-      // state). Do NOT merge _selectionHistory — it accumulates all
-      // prior wrong-click entries with selected:true, which causes
-      // ghost highlights for never-selected options on refresh.
-      for (const [idx, opts] of this.selectedOptionsMap) {
-        // Only persist real user clicks (highlight:true, showIcon:true)
-        // to the durable per-question keys. Ghost entries injected via
-        // alt paths lack these flags and cause refresh auto-highlight bugs.
-        const filtered = (opts ?? []).filter(
-          (s: any) => s != null && s.highlight === true && s.showIcon === true
-        );
-        if (filtered.length > 0) {
-          sessionStorage.setItem('sel_Q' + idx, JSON.stringify(filtered));
+      // Persist the UNION of selectedOptionsMap (current selections) and
+      // _selectionHistory (prior-click record) to sel_Q*. In single-answer
+      // mode, the live map only holds the most recent selection, but we
+      // still want prior wrong clicks to rehydrate on refresh as
+      // "previously clicked" (selected:false, highlight:true, showIcon:true)
+      // so the rehydrate pass (shared-option-binding.service.ts:512) renders
+      // them. Map entries win for their key — they represent the authoritative
+      // current state (selected:true); history entries for the same key are
+      // displaced. History-only entries are persisted as previously-clicked.
+      const durableIndices = new Set<number>([
+        ...this.selectedOptionsMap.keys(),
+        ...this._selectionHistory.keys()
+      ]);
+      for (const idx of durableIndices) {
+        const fromMap = this.selectedOptionsMap.get(idx) ?? [];
+        const fromHistory = this._selectionHistory.get(idx) ?? [];
+        const merged = new Map<string, any>();
+        // History first as "previously clicked" baseline.
+        for (const s of fromHistory) {
+          if (s == null || s.optionId == null) continue;
+          const key = `${s.optionId}|${(s as any).displayIndex ?? (s as any).index ?? -1}`;
+          merged.set(key, { ...s, selected: false, highlight: true, showIcon: true });
+        }
+        // Map overrides history for entries present in both — these are
+        // the current live selections (selected:true).
+        for (const s of fromMap) {
+          if (s == null || s.optionId == null) continue;
+          const key = `${s.optionId}|${(s as any).displayIndex ?? (s as any).index ?? -1}`;
+          merged.set(key, { ...s, highlight: true, showIcon: true });
+        }
+        const normalized = Array.from(merged.values());
+        if (normalized.length > 0) {
+          sessionStorage.setItem('sel_Q' + idx, JSON.stringify(normalized));
         } else {
           sessionStorage.removeItem('sel_Q' + idx);
         }

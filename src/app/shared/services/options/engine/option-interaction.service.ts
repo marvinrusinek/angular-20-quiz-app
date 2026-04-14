@@ -184,8 +184,15 @@ export class OptionInteractionService {
       } as SelectedOption;
       
       if (!isMultipleMode) {
-        console.log(`[OIS] Q${qIdx + 1}: HARD SINGULAR RESET - Clearing all before selecting ${targetKey}`);
-        this.selectedOptionService.clearAllSelectionsForQuestion(qIdx);
+        console.log(`[OIS] Q${qIdx + 1}: Single-answer replace - selecting ${targetKey}`);
+        // Do NOT call clearAllSelectionsForQuestion here: it wipes
+        // _selectionHistory and sel_Q* in sessionStorage, which erases the
+        // "previously clicked" record for prior wrong clicks. We still
+        // want A to rehydrate on refresh (as previously-clicked, even if
+        // not currently selected). futureSelection = [newOpt] below
+        // already enforces single-answer "only one currently selected"
+        // semantics in the live map; history accumulation is handled by
+        // setSelectedOptionsForQuestion downstream.
         futureSelection = [newOpt];
       } else {
         futureSelection = [...simulatedSelection, newOpt];
