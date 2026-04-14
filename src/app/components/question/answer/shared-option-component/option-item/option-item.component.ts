@@ -502,52 +502,31 @@ export class OptionItemComponent implements OnChanges {
   }
 
   shouldHighlightOption(): boolean {
-    // NUCLEAR REFRESH GUARD: On refresh (no live click), bypass ALL
-    // intermediate layers (binding state, _wasSelected, sharedOptionConfig)
-    // and read sel_Q* directly. Only highlight if this option's TEXT appears
-    // in the durable sessionStorage. This is immune to every init-path
-    // contamination vector (processOptionBindings, generateOptionBindings,
-    // rehydrateUiFromState, etc.).
-    if (!this._userHasClicked) {
-      const bText = (this.b?.option?.text ?? '').trim().toLowerCase();
-      if (!bText) {
-        return false;
+    // Catch in-place mutations from rehydrateUiFromState that bypass
+    // ngOnChanges (same object reference, no @Input change detected).
+    // Only latch if (a) the user has actually clicked, or (b) the
+    // binding's selection is confirmed by authoritative saved state.
+    // Without the guard, transient b.isSelected from stale option.selected
+    // data latches _wasSelected and bypasses the refresh guard below.
+    if (this.b?.isSelected && !this._wasSelected) {
+      if (this._userHasClicked || this.isSelectedForCurrentQuestion()) {
+        this._wasSelected = true;
       }
-      let qIndex = this.currentQuestionIndex() ?? this.quizService.currentQuestionIndex;
-      if (qIndex === 0) {
-        try {
-          const m = window.location.pathname.match(/\/question\/[^/]+\/(\d+)/);
-          if (m) {
-            const urlIdx = Number(m[1]) - 1;
-            if (Number.isFinite(urlIdx) && urlIdx > 0) {
-              qIndex = urlIdx;
-            }
-          }
-        } catch { /* ignore */ }
-      }
-      try {
-        const raw = sessionStorage.getItem('sel_Q' + qIndex);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) {
-            const found = parsed.some((s: any) => {
-              const sText = ((s as any)?.text ?? '').trim().toLowerCase();
-              return sText && sText === bText;
-            });
-            return found;
-          }
-        }
-      } catch { /* ignore */ }
-      return false;
     }
 
-    // Sticky latch for live interaction
-    if (this.b?.isSelected && !this._wasSelected) {
-      this._wasSelected = true;
+    // On refresh (no live click), ONLY trust authoritative saved
+    // selection state — not binding flags which can be transiently
+    // stale from processOptionBindings / hydrateOptions / setOptionBindingsIfChanged.
+    if (!this._userHasClicked && !this._wasSelected) {
+      return this.isSelectedForCurrentQuestion();
     }
 
     if (this.type() === 'multiple') {
       // For multi-answer, trust the sharedOptionConfig as the final authority.
+      // The config uses the durableSet (actual user clicks) to determine
+      // highlight eligibility. Without this guard, transient binding state
+      // from intermediate change-detection cycles can latch _wasSelected
+      // on options the user never clicked (e.g. the 2nd correct answer).
       const cfg = this.sharedOptionConfig();
       if (cfg?.option && !cfg.option.highlight && !cfg.isOptionSelected) {
         return false;
