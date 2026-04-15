@@ -168,9 +168,26 @@ export class QuizContentDisplayService {
 
     // AUTHORITATIVE RESOLUTION FOR THIS INDEX
     const safeSelections = Array.isArray(selections) ? selections : [];
-    const isResolved = qObj ? this.selectedOptionService.isQuestionResolvedLeniently(qObj, safeSelections) : false;
-
     const isMultipleAnswer = numCorrect > 1;
+
+    // Multi-answer resolution uses RAW source options so mutated qObj.options
+    // with reduced correct flags can't make a 1-of-2 correct pick resolve true.
+    let isResolved = false;
+    if (qObj) {
+      if (isMultipleAnswer) {
+        const norm = (t: any) => String(t ?? '').trim().toLowerCase();
+        const rawCorrectTexts = (sourceOpts as any[])
+          .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+          .map((o: any) => norm(o?.text))
+          .filter((t: string) => !!t);
+        const selTexts = new Set(
+          (safeSelections as any[]).map((s: any) => norm(s?.text)).filter((t: string) => !!t)
+        );
+        isResolved = rawCorrectTexts.length > 0 && rawCorrectTexts.every((t: string) => selTexts.has(t));
+      } else {
+        isResolved = this.selectedOptionService.isQuestionResolvedLeniently(qObj, safeSelections);
+      }
+    }
 
     // Was this question answered in a prior session (e.g. before a page
     // refresh)? The answered set is persisted to sessionStorage and

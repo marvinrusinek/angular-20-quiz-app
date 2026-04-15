@@ -752,25 +752,41 @@ export class ExplanationDisplayStateService {
             console.warn(`[emitFormatted] Guard metadata unavailable for Q${index + 1}`);
           }
 
-          if (!bypassGuard && correctCount > 1) {
+          // Determine authoritative correct count from RAW questions (unmutated).
+          const rawQs: any[] = (quizSvc as any).questions ?? [];
+          const rawQ: any = rawQs[index] ?? question;
+          const rawCorrectCount = (rawQ?.options ?? []).filter(
+            (o: any) => o?.correct === true || String(o?.correct) === 'true'
+          ).length;
+          const effectiveCorrectCount = Math.max(correctCount, rawCorrectCount);
+
+          // Multi-answer gate: block FET until ALL correct answers are selected.
+          // Uses raw question options as source of truth so mutated display-
+          // order copies with scrambled correct flags don't fool the check.
+          if (!bypassGuard && effectiveCorrectCount > 1) {
+            const sos = this.injector.get(SelectedOptionService, null);
+            const selections = sos?.selectedOptionsMap?.get(index) ?? [];
+            const norm = (t: any) => String(t ?? '').trim().toLowerCase();
+            const rawOpts: any[] = rawQ?.options ?? [];
+            const rawCorrectTexts = new Set(
+              rawOpts.filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+                .map((o: any) => norm(o?.text)).filter((t: string) => !!t)
+            );
+            const selTexts = new Set(
+              (selections as any[]).map((s: any) => norm(s?.text)).filter((t: string) => !!t)
+            );
+            const allCorrectSel = rawCorrectTexts.size > 0 && [...rawCorrectTexts].every(t => selTexts.has(t));
+
             const perfectMap = (quizSvc as any)._multiAnswerPerfect as Map<number, boolean> | undefined;
             const oisPerfect = perfectMap?.get(index) === true;
 
-            const sos = this.injector.get(SelectedOptionService, null);
-            const selections = sos?.selectedOptionsMap?.get(index) ?? [];
-            const selectionResolved = (question && sos) ? sos.isQuestionResolvedLeniently(question as QuizQuestion, selections) : false;
-
-            if (!oisPerfect && !selectionResolved) {
-              const statusLog = {
-                correct: (question as any).correctAnswerCount ?? '?',
-                total: correctCount
-              };
-              console.log(`[emitFormatted] ⛔ Q${index + 1} BLOCKED. (Needs ${statusLog.total} correct, has ${statusLog.correct})`);
+            if (!oisPerfect && !allCorrectSel) {
+              console.log(`[emitFormatted] ⛔ Q${index + 1} MULTI-ANSWER GATE BLOCKED: allCorrectSel=${allCorrectSel}, selTexts=[${[...selTexts]}]`);
               this._fetLocked = false;
               return;
             }
 
-            console.log(`[emitFormatted] ✅ Q${index + 1} PASSED. (oisPerfect=${oisPerfect} || resolved=${selectionResolved})`);
+            console.log(`[emitFormatted] ✅ Q${index + 1} MULTI-ANSWER GATE PASSED.`);
           }
         }
       } catch (e) {

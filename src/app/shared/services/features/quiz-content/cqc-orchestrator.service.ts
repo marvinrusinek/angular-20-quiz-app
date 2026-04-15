@@ -256,7 +256,90 @@ export class CqcOrchestratorService {
    */
   private writeQText(host: Host, html: string): void {
     try {
-      const safe = html ?? '';
+      let safe = html ?? '';
+      // HARD FINAL GATE: for multi-answer questions that are not fully
+      // resolved against the raw quiz data, never write FET-shaped text.
+      // Replace with question display HTML instead. This catches every
+      // upstream writer — innerHTML assignments, signal sets, pipeline
+      // emissions — because all paths ultimately route through writeQText.
+      try {
+        const rawQs: any[] = (host.quizService as any)?.questions ?? [];
+        const norm = (t: any) => String(t ?? '').trim().toLowerCase();
+        const safeNorm = norm(safe);
+        // Find which raw question this text belongs to, regardless of
+        // host.currentIndex staleness. Match by questionText substring,
+        // explanation substring, or FET "correct because" + fragment.
+        let idx = host.currentIndex >= 0
+          ? host.currentIndex
+          : (host.quizService.getCurrentQuestionIndex?.() ?? 0);
+        if (safeNorm) {
+          let bestIdx = -1;
+          for (let i = 0; i < rawQs.length; i++) {
+            const ex = norm(rawQs[i]?.explanation);
+            if (ex && safeNorm.includes(ex)) { bestIdx = i; break; }
+          }
+          if (bestIdx < 0) {
+            for (let i = 0; i < rawQs.length; i++) {
+              const qt = norm(rawQs[i]?.questionText);
+              if (qt && safeNorm.includes(qt)) { bestIdx = i; break; }
+            }
+          }
+          if (bestIdx >= 0) idx = bestIdx;
+        }
+        const rawQ: any = rawQs[idx];
+        const rawOpts: any[] = rawQ?.options ?? [];
+        const rawCorrectTexts = rawOpts
+          .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+          .map((o: any) => norm(o?.text))
+          .filter((t: string) => !!t);
+        if (rawCorrectTexts.length > 1) {
+          const qTextNorm = norm(rawQ?.questionText);
+          const explNorm = norm(rawQ?.explanation);
+          const looksLikeFet = !!safeNorm && (
+            safeNorm.includes('correct because')
+            || (!!explNorm && safeNorm.includes(explNorm))
+            || (!!qTextNorm && !safeNorm.includes(qTextNorm))
+          );
+          if (looksLikeFet) {
+            // Combine sessionStorage + service selections — use the UNION
+            // so we don't miss any actual selection, but selection count is
+            // still authoritative via rawCorrectTexts match.
+            let storedSelections: any[] = [];
+            try {
+              const raw = sessionStorage.getItem('sel_Q' + idx);
+              if (raw) {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) storedSelections = parsed;
+              }
+            } catch { /* ignore */ }
+            const svcSel = host.selectedOptionService.getSelectedOptionsForQuestion?.(idx) ?? [];
+            const selTexts = new Set<string>();
+            for (const s of storedSelections) {
+              const t = norm(s?.text);
+              if (t) selTexts.add(t);
+            }
+            for (const s of svcSel as any[]) {
+              const t = norm(s?.text);
+              if (t) selTexts.add(t);
+            }
+            const allRawCorrectSel = rawCorrectTexts.every((t: string) => selTexts.has(t));
+            console.log(`[writeQText][Q${idx + 1}] looksLikeFet=${looksLikeFet} rawCorrect=${JSON.stringify(rawCorrectTexts)} sel=${JSON.stringify([...selTexts])} allCorrectSel=${allRawCorrectSel}`);
+            if (!allRawCorrectSel) {
+              const replacement = this.buildQuestionDisplayHTML(host, idx);
+              const fallback = rawQ?.questionText ?? '';
+              const substitute = replacement || fallback;
+              if (substitute) {
+                safe = substitute;
+                console.log(`[writeQText] ⛔ HARD-BLOCKED premature FET for Q${idx + 1} — substituted question text`);
+              } else {
+                safe = '';
+                console.log(`[writeQText] ⛔ HARD-BLOCKED premature FET for Q${idx + 1} — cleared (no substitute available)`);
+              }
+            }
+          }
+        }
+      } catch { /* ignore */ }
+
       host.qTextHtmlSig?.set(safe);
       host._lastDisplayedText = safe;
       const el = host.qText?.nativeElement;
@@ -812,25 +895,64 @@ export class CqcOrchestratorService {
             // MULTI-ANSWER FET BLOCK: If the text about to be written is
             // FET (contains "correct because") and the current question is
             // multi-answer but NOT fully resolved, replace with question text.
-            // This is the FINAL gate — upstream paths (emitExplanation,
-            // applyExplanationText, setExplanationText) can inject FET into
-            // the pipeline after a single correct click; this gate catches
-            // ALL of them regardless of which path they took.
-            const isFetText = (finalText ?? '').toLowerCase().includes('correct because');
-            const isMultiQ = host.quizService.multipleAnswer
-              || ((qForMultiCheck?.options ?? []).filter(
-                (o: any) => o?.correct === true || o?.correct === 1 || String(o?.correct) === 'true'
-              ).length > 1);
-            // Check BOTH storage-based resolution AND the in-memory perfect
-            // flag set by the multi-answer click handler when remaining===0.
-            // The storage check can lag behind the click handler.
-            const multiPerfect = (host.quizService as any)._multiAnswerPerfect?.get(currentIdx) === true;
-            const isActuallyResolved = isResolvedForGuard || multiPerfect;
-            if (isFetText && isMultiQ && !isActuallyResolved) {
+            // Uses RAW quizService.questions for both the multi detection AND
+            // the resolution check — mutated display-order copies can flip
+            // _multiAnswerPerfect=true on a single correct click and let FET
+            // through the old guard.
+            // FET detection: Q2's explanation "a service gets passed to the
+            // client during DI" does not contain "correct because", so we
+            // can't rely on that substring. Detect FET as any text that
+            // matches the current question's explanation or the non-
+            // questionText path (i.e. it's not the buildQuestionDisplayHTML
+            // output).
+            const normForFet = (t: any) => String(t ?? '').trim().toLowerCase();
+            const finalNorm = normForFet(finalText);
+            const qTextNormForFet = normForFet(qForMultiCheck?.questionText);
+            const rawExplanation = normForFet(
+              (host.quizService as any)?.questions?.[currentIdx]?.explanation
+                ?? qForMultiCheck?.explanation
+            );
+            const isFetText = !!finalNorm && (
+              finalNorm.includes('correct because')
+              || (!!rawExplanation && finalNorm.includes(rawExplanation))
+              || (!!qTextNormForFet && !finalNorm.includes(qTextNormForFet))
+            );
+            const rawQForBlock: any = (host.quizService as any)?.questions?.[currentIdx] ?? qForMultiCheck;
+            const rawOptsForBlock: any[] = rawQForBlock?.options ?? [];
+            const rawCorrectCountBlock = rawOptsForBlock.filter(
+              (o: any) => o?.correct === true || o?.correct === 1 || String(o?.correct) === 'true'
+            ).length;
+            const isMultiQ = host.quizService.multipleAnswer || rawCorrectCountBlock > 1;
+            let rawResolved = false;
+            if (isMultiQ) {
+              try {
+                const norm = (t: any) => String(t ?? '').trim().toLowerCase();
+                const rawCorrectTexts = rawOptsForBlock
+                  .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+                  .map((o: any) => norm(o?.text))
+                  .filter((t: string) => !!t);
+                let storedSelections: any[] = [];
+                try {
+                  const raw = sessionStorage.getItem('sel_Q' + currentIdx);
+                  if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (Array.isArray(parsed)) storedSelections = parsed;
+                  }
+                } catch { /* ignore */ }
+                if (storedSelections.length === 0) {
+                  storedSelections = host.selectedOptionService.getSelectedOptionsForQuestion?.(currentIdx) ?? [];
+                }
+                const selTexts = new Set(
+                  (storedSelections as any[]).map((s: any) => norm(s?.text)).filter((t: string) => !!t)
+                );
+                rawResolved = rawCorrectTexts.length > 0 && rawCorrectTexts.every((t: string) => selTexts.has(t));
+              } catch { /* default false */ }
+            }
+            if (isFetText && isMultiQ && !rawResolved) {
               const qText = this.buildQuestionDisplayHTML(host, currentIdx);
               if (qText) {
                 this.writeQText(host, qText);
-                console.log(`[subscribeToDisplayText] ⛔ BLOCKED FET for unresolved multi-answer Q${currentIdx + 1} — wrote question text instead`);
+                console.log(`[subscribeToDisplayText] ⛔ BLOCKED FET for unresolved multi-answer Q${currentIdx + 1} (raw-based) — wrote question text instead`);
                 return;
               }
             }

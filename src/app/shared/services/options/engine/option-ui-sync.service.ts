@@ -47,7 +47,7 @@ export interface OptionUiSyncContext {
   keyOf: (opt: Option, i: number) => string;
   getActiveQuestionIndex: () => number;
   getQuestionAtDisplayIndex: (idx: number) => QuizQuestion | null;
-  emitExplanation: (idx: number) => void;
+  emitExplanation: (idx: number, skipGuard?: boolean) => void;
 
   enforceSingleSelection: (b: OptionBindings) => void;
   syncSelectedFlags: () => void;
@@ -707,11 +707,46 @@ export class OptionUiSyncService {
         this.quizService.scoreDirectly(questionIndex, true, false);
       }
     } else {
-      if (correctSelectedCount >= correctOptions.length) {
+      // Also sanity-check the selection count directly against the durable
+       // correct-index tracker via bindings. hasIncorrect text-matching can
+       // false-negative when freshOptions has had correct flags mutated by
+       // an earlier flow, which would otherwise let this branch fire after
+       // only a partial set of correct answers plus incorrects.
+      const selectedTexts = new Set(selectedOptions.map(s => normalize(s?.text)).filter(Boolean));
+      const allCorrectTextsSelected =
+        correctTextSet.size > 0 &&
+        [...correctTextSet].every(t => selectedTexts.has(t));
+      const anyIncorrectTextSelected = freshOptions.some(o =>
+        !isCorrectHelper(o) && selectedTexts.has(normalize(o?.text))
+      );
+      if (
+        correctSelectedCount >= correctOptions.length &&
+        correctOptions.length >= 2 &&
+        allCorrectTextsSelected &&
+        !hasIncorrect &&
+        !anyIncorrectTextSelected
+      ) {
         console.log(`[OptionUiSyncService] ✅ Scoring multi-answer Q${questionIndex + 1}: ALL ${correctOptions.length} correct answers found`);
         this.quizService.scoreDirectly(questionIndex, true, true);
         // Force FET readiness even if already scored correct (to be safe)
         this.selectedOptionService.setAnswered(true, true);
+        // Persist FET-ready state to sessionStorage. quiz-option-processing's
+        // persistOptionSelection gates these writes on isQuestionComplete from
+        // evaluateMultiAnswer, which can disagree for some questions (e.g.
+        // non-contiguous correct indices). Writing here is a safety net so
+        // FET actually renders when all correct answers are selected.
+        try {
+          sessionStorage.setItem('isAnswered', 'true');
+          sessionStorage.setItem(`displayMode_${questionIndex}`, 'explanation');
+        } catch { /* ignore */ }
+        this.nextButtonStateService.setNextButtonState(true);
+        // Emit FET — the shared-option-click path handles this when
+        // clickState.remaining === 0, but when that path doesn't fire,
+        // the explanation never renders. Emit here as a safety net.
+        // skipGuard=true bypasses the lock that otherwise suppresses FET.
+        if (ctx.emitExplanation) {
+          setTimeout(() => ctx.emitExplanation(questionIndex, true), 0);
+        }
       }
     }
   }

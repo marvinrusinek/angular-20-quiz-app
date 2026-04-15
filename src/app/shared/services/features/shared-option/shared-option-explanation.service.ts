@@ -108,6 +108,7 @@ export class SharedOptionExplanationService {
     // Guard: Emit FET only when the question is resolved correctly.
     // Use authoritative question source to ensure correct flags are present.
     const authQ = this.quizService.questions?.[resolvedIndex] ?? question;
+
     if (!skipGuard) {
       if (authQ && Array.isArray(authQ.options)) {
         const resolved = this.checkResolution(ctx);

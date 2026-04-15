@@ -256,9 +256,38 @@ export class QqcOptionClickOrchestratorService {
       return selKeys.has(getStableId(o, originalIdx !== -1 ? originalIdx : -1));
     }).length;
 
+    // For multi-answer, cross-check against RAW question data so a mutated
+    // canonicalOpts with fewer correct flags than the ground truth can't
+    // flip allCorrect=true prematurely (e.g. inc→correct where canonicalOpts
+    // only marks 1 option as correct, giving selectedCorrectCount===1===correctOpts.length).
+    let rawAllCorrect = true;
+    if (isMultiForSelection) {
+      try {
+        const rawQs: any[] = (this.quizService as any)?.questions ?? [];
+        const qText = (question?.questionText ?? '').trim().toLowerCase();
+        const rawQ = qText
+          ? rawQs.find((r: any) => (r?.questionText ?? '').trim().toLowerCase() === qText)
+          : rawQs[questionIndex];
+        if (rawQ && Array.isArray(rawQ.options)) {
+          const norm = (t: any) => String(t ?? '').trim().toLowerCase();
+          const rawCorrectTexts = rawQ.options
+            .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+            .map((o: any) => norm(o?.text))
+            .filter((t: string) => !!t);
+          if (rawCorrectTexts.length > 0) {
+            const selTexts = new Set(
+              canonicalOpts.filter(o => o.selected).map((o: any) => norm(o?.text)).filter((t: string) => !!t)
+            );
+            rawAllCorrect = rawCorrectTexts.every((t: string) => selTexts.has(t));
+          }
+        }
+      } catch { /* trust canonical */ }
+    }
     const allCorrect =
       isMultiForSelection
-        ? correctOpts.length > 0 && selectedCorrectCount === correctOpts.length
+        ? correctOpts.length > 0
+          && selectedCorrectCount === correctOpts.length
+          && rawAllCorrect
         : !!evtOpt?.correct;
 
     const hasAnySelection = canonicalOpts.some(o => o.selected);

@@ -339,7 +339,34 @@ export class QuizOptionProcessingService {
         );
       });
 
-      allCorrectSelected = everyCorrectSelected;
+      // Cross-check against authoritative raw question data. Mutated
+      // questionForSelection/optionsForImmediateScoring can have reduced
+      // correct flags, letting `everyCorrectSelected` fire on only 1 of
+      // 2 correct answers, which then marks isQuestionComplete=true and
+      // persists displayMode=explanation — causing premature FET display.
+      let rawAllCorrectSelected = everyCorrectSelected;
+      try {
+        const rawQs: any[] = (this.quizService as any)?.questions ?? [];
+        const qText = (questionForSelection?.questionText ?? '').trim().toLowerCase();
+        const rawQ = qText
+          ? rawQs.find((r: any) => (r?.questionText ?? '').trim().toLowerCase() === qText)
+          : rawQs[idx];
+        if (rawQ && Array.isArray(rawQ.options)) {
+          const norm = (t: any) => String(t ?? '').trim().toLowerCase();
+          const rawCorrectTexts = rawQ.options
+            .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+            .map((o: any) => norm(o?.text))
+            .filter((t: string) => !!t);
+          if (rawCorrectTexts.length > correctOptionEntries.length) {
+            const selTexts = new Set(
+              currentSelections.map((s: any) => norm(s?.text)).filter((t: string) => !!t)
+            );
+            rawAllCorrectSelected = rawCorrectTexts.every((t: string) => selTexts.has(t));
+          }
+        }
+      } catch { /* trust canonical */ }
+
+      allCorrectSelected = everyCorrectSelected && rawAllCorrectSelected;
 
       hasIncorrectSelection = currentSelections.some((selection) =>
         !this.dotStatusService.matchesAnyCorrectOption(selection, questionForSelection, optionsForImmediateScoring)

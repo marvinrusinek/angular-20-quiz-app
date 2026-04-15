@@ -33,7 +33,7 @@ export class OptionUiContextBuilderService {
       keyOf: (o: Option, i: number) => src.keyOf(o, i),
       getActiveQuestionIndex: () => src.getActiveQuestionIndex(),
       getQuestionAtDisplayIndex: (idx: number) => src.getQuestionAtDisplayIndex(idx),
-      emitExplanation: (idx: number) => src.emitExplanation(idx),
+      emitExplanation: (idx: number, skipGuard?: boolean) => src.emitExplanation(idx, skipGuard),
       type: (src.isMultiMode || src.type === 'multiple') ? 'multiple' : 'single',
       isMultiMode: src.isMultiMode,
       currentQuestion: src.currentQuestion,

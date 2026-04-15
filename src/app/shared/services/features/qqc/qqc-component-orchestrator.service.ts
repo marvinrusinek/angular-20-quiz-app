@@ -589,7 +589,30 @@ export class QqcComponentOrchestratorService {
 
       const lockedIndex = host.currentQuestionIndex() ?? idx;
 
-      if (allCorrect && isMultiForSelection && !host._fetEarlyShown.has(lockedIndex)) {
+      // Multi-answer FET gate: verify all correct selected using authoritative
+      // raw question data so mutated canonicalOpts correct flags can't fire
+      // FET prematurely.
+      let fetGatePassed = allCorrect && isMultiForSelection;
+      if (fetGatePassed) {
+        try {
+          const rawQ: any = (host.quizService as any)?.questions?.[idx] ?? q;
+          const rawOpts: any[] = rawQ?.options ?? [];
+          const norm = (t: any) => String(t ?? '').trim().toLowerCase();
+          const rawCorrectTexts = new Set(
+            rawOpts.filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+              .map((o: any) => norm(o?.text)).filter((t: string) => !!t)
+          );
+          const svcSel = host.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
+          const selTexts = new Set(svcSel.map((s: any) => norm(s?.text)).filter((t: string) => !!t));
+          const allCorrectSel = rawCorrectTexts.size > 0 && [...rawCorrectTexts].every(t => selTexts.has(t));
+          if (!allCorrectSel) {
+            console.log(`[QQC-Orch] FET gate blocked Q${idx + 1}: allCorrectSel=${allCorrectSel}`);
+            fetGatePassed = false;
+          }
+        } catch { /* trust upstream */ }
+      }
+
+      if (fetGatePassed && !host._fetEarlyShown.has(lockedIndex)) {
         if (host.timerEffect.safeStopTimer('completed', host._timerStoppedForQuestion, host._lastAllCorrect)) {
           host._timerStoppedForQuestion = true;
         }

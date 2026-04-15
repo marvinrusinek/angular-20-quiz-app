@@ -3159,7 +3159,30 @@ export class SelectedOptionService {
       return { resolved: false, correctTotal: 0, correctSelected: 0, incorrectSelected: 0, remainingCorrect: 0 };
     }
 
-    const questionOptions = Array.isArray(question.options) ? question.options : [];
+    // Resolve authoritative question data. The `question` arg can be a
+    // mutated/display-order copy where correct flags have been scrambled; use
+    // the raw quizService.questions[] entry matched by text when possible, so
+    // correctTotal reflects the true number of correct answers.
+    let questionOptions = Array.isArray(question.options) ? question.options : [];
+    try {
+      const rawQs: any[] = this.quizService?.questions ?? [];
+      const qText = (question.questionText ?? '').trim().toLowerCase();
+      const rawQ = qText
+        ? rawQs.find(r => (r?.questionText ?? '').trim().toLowerCase() === qText)
+        : null;
+      if (rawQ && Array.isArray(rawQ.options)) {
+        const rawCorrectCount = rawQ.options.filter((o: any) =>
+          o?.correct === true || String(o?.correct) === 'true'
+        ).length;
+        const currentCorrectCount = questionOptions.filter(o =>
+          this.coerceToBoolean(o.correct)
+        ).length;
+        // If raw has more correct answers than current, raw is authoritative.
+        if (rawCorrectCount > currentCorrectCount) {
+          questionOptions = rawQ.options;
+        }
+      }
+    } catch { /* ignore and keep original */ }
     const correctTotal = questionOptions.filter(o => this.coerceToBoolean(o.correct)).length;
 
     let correctSelected = 0;
