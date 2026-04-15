@@ -488,8 +488,18 @@ export class SharedOptionBindingService {
           }
         }
 
-        if (pos !== -1 && !savedByIndex.has(pos)) {
-          savedByIndex.set(pos, s);
+        if (pos !== -1) {
+          // Prefer the sel:true entry when multiple saved records resolve to
+          // the same binding position (can happen when prev-click and current-
+          // click for the same option were persisted with differing displayIndex
+          // values). Without this, a prev-click (sel:false) entry found first
+          // wins, and the currently-selected option renders as white/gray.
+          const existing = savedByIndex.get(pos);
+          if (!existing) {
+            savedByIndex.set(pos, s);
+          } else if ((s as any)?.selected === true && (existing as any)?.selected !== true) {
+            savedByIndex.set(pos, s);
+          }
         }
       }
       if (savedByIndex.size === 0) return;

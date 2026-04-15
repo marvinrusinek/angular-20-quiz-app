@@ -101,6 +101,35 @@ export class OptionUiSyncService {
       if (!ctx.selectedOptionHistory.includes(index)) {
         ctx.selectedOptionHistory.push(index);
       }
+      // Seed history from durable sel_Q* on first post-refresh click.
+      // ctx.selectedOptionHistory is component-local and empty after refresh,
+      // but sel_Q* holds every prior click. Without seeding, prev-clicked
+      // bindings unhighlight to white on the next click.
+      try {
+        const saved = this.selectedOptionService.getSelectedOptionsForQuestion(currentIndex) ?? [];
+        for (const s of saved) {
+          const sText = ((s as any)?.text ?? '').trim().toLowerCase();
+          const sId = (s as any)?.optionId;
+          let pos = -1;
+          if (sText) {
+            pos = ctx.optionBindings.findIndex((b: any) =>
+              (b?.option?.text ?? '').trim().toLowerCase() === sText
+            );
+          }
+          if (pos === -1 && sId != null && sId !== -1) {
+            pos = ctx.optionBindings.findIndex((b: any) =>
+              b?.option?.optionId != null && String(b.option.optionId) === String(sId)
+            );
+          }
+          if (pos === -1) {
+            const sIdx = (s as any)?.displayIndex ?? (s as any)?.index;
+            if (sIdx != null && Number.isFinite(Number(sIdx))) pos = Number(sIdx);
+          }
+          if (pos !== -1 && !ctx.selectedOptionHistory.includes(pos)) {
+            ctx.selectedOptionHistory.push(pos);
+          }
+        }
+      } catch { /* ignore */ }
       const historySet = new Set(ctx.selectedOptionHistory);
 
       ctx.optionBindings.forEach((b, i) => {

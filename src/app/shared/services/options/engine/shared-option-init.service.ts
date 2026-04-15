@@ -759,6 +759,7 @@ export class SharedOptionInitService {
         const optId = opt.optionId;
         const optIdReal = optId != null && optId !== -1 && String(optId) !== '-1';
 
+        let matchedSaved: any = null;
         const isSaved = saved.some(s => {
           // Skip unselect traces that lack visual flags
           if ((s as any)?.selected === false && !(s as any)?.showIcon && !(s as any)?.highlight) {
@@ -769,10 +770,12 @@ export class SharedOptionInitService {
           const sText = ((s as any).text ?? '').trim().toLowerCase();
           // Match by optionId
           if (optIdReal && sIdReal && String(optId) === String(sId)) {
+            matchedSaved = s;
             return true;
           }
           // Match by text
           if (optText && sText && optText === sText) {
+            matchedSaved = s;
             return true;
           }
           // Fallback: displayIndex only when id/text didn't match
@@ -784,14 +787,23 @@ export class SharedOptionInitService {
           // Position matches — only accept if we can't verify by text
           const sText2 = ((s as any).text ?? '').trim().toLowerCase();
           if (optText && sText2 && optText !== sText2) return false;
+          matchedSaved = s;
           return true;
         });
 
         if (isSaved) {
-          opt.selected = true;
+          // Honor saved `selected` flag: prev-clicked entries (selected:false
+          // + highlight:true + showIcon:true) must render dark gray, not white.
+          // Unconditionally setting opt.selected=true promoted them to the
+          // currently-selected semantic.
+          const savedSelected = (matchedSaved as any)?.selected;
+          opt.selected = savedSelected === false ? false : true;
           opt.showIcon = true;
-          const effectiveId = (opt.optionId != null && opt.optionId !== -1) ? opt.optionId : idx;
-          comp.selectedOptions.add(Number(effectiveId));
+          (opt as any).highlight = true;
+          if (opt.selected) {
+            const effectiveId = (opt.optionId != null && opt.optionId !== -1) ? opt.optionId : idx;
+            comp.selectedOptions.add(Number(effectiveId));
+          }
         }
       }
     } else {

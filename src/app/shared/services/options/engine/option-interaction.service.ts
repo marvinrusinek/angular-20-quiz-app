@@ -151,11 +151,13 @@ export class OptionInteractionService {
     const durableClicks = (state as any)._multiSelectByQuestion?.get(qIdx);
     const isStaleFromRefresh = storedSelection.length > 0
       && (!durableClicks || durableClicks.size === 0);
+    // Even if the in-memory multi-select tracker is empty post-refresh, the
+    // durable sel_Q* / _selectionHistory entries are legitimate prior clicks
+    // that must be preserved so they rehydrate as prev-clicked (dark gray /
+    // red+X) on the next refresh. Only use isStaleFromRefresh to scope the
+    // LOCAL simulatedSelection shape; do NOT call clearAllSelectionsForQuestion
+    // here — it wipes _selectionHistory and sel_Q* in sessionStorage.
     let simulatedSelection = isStaleFromRefresh ? [] : [...storedSelection];
-    if (isStaleFromRefresh) {
-      console.log(`[OIS] Q${qIdx + 1}: Discarding ${storedSelection.length} stale pre-refresh selections`);
-      this.selectedOptionService.clearAllSelectionsForQuestion(qIdx);
-    }
 
     console.log(`[OIS] Q${qIdx + 1} clicked text="${binding.option?.text}" storedSelection.length=${storedSelection.length}`, storedSelection.map((s: any) => ({ id: s.optionId, idx: s.displayIndex, text: s.text?.slice(0, 30) })));
 
@@ -366,7 +368,40 @@ export class OptionInteractionService {
       if (!state.selectedOptionHistory.includes(index)) {
         state.selectedOptionHistory.push(index);
       }
+      // Seed history from durable sel_Q* on first post-refresh click.
+      // state.selectedOptionHistory is component-local and empty after
+      // refresh, but sel_Q* holds every prior click for this question. Without
+      // seeding, the binding loop below unhighlights prev-clicked options
+      // (wasPreviouslyClicked=false) and turns them white.
       const historySet = new Set<number | string>(state.selectedOptionHistory);
+      try {
+        const saved = this.selectedOptionService.getSelectedOptionsForQuestion(qIdx) ?? [];
+        for (const s of saved) {
+          const sText = ((s as any)?.text ?? '').trim().toLowerCase();
+          const sId = (s as any)?.optionId;
+          let pos = -1;
+          if (sText) {
+            pos = state.optionBindings.findIndex((b: any) =>
+              (b?.option?.text ?? '').trim().toLowerCase() === sText
+            );
+          }
+          if (pos === -1 && sId != null && sId !== -1) {
+            pos = state.optionBindings.findIndex((b: any) =>
+              b?.option?.optionId != null && String(b.option.optionId) === String(sId)
+            );
+          }
+          if (pos === -1) {
+            const sIdx = (s as any)?.displayIndex ?? (s as any)?.index;
+            if (sIdx != null && Number.isFinite(Number(sIdx))) pos = Number(sIdx);
+          }
+          if (pos !== -1) {
+            historySet.add(pos);
+            if (!state.selectedOptionHistory.includes(pos)) {
+              state.selectedOptionHistory.push(pos);
+            }
+          }
+        }
+      } catch { /* ignore */ }
 
       state.optionBindings.forEach((b, i) => {
         const isCurrent = (i === index);

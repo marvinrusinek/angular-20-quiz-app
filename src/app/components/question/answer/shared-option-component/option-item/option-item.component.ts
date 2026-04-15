@@ -273,8 +273,13 @@ export class OptionItemComponent implements OnChanges {
       });
 
       if (anyCorrectSelected) {
-        // Lock self if NOT the selected one
+        // Lock self if NOT the currently-selected one.
+        // Prev-clicked entries (selected:false + showIcon:true + highlight:true)
+        // must NOT count as self-selected here — they represent the user's
+        // earlier wrong click that should now render dark gray/disabled after
+        // the correct answer has been chosen.
         const selfSelected = filtered.some((s: any) => {
+          if (s?.selected === false) return false;
           const sIdx = s?.displayIndex ?? s?.index ?? s?.idx;
           if (typeof sIdx === 'number' && sIdx === this.i) return true;
           const sId = s?.optionId;

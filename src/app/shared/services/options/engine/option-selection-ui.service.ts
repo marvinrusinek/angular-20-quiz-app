@@ -34,6 +34,20 @@ export class OptionSelectionUiService {
       selectedOptionHistory.push(selectedId);
     }
 
+    // Seed history from bindings whose option already reflects a prior click
+    // (highlight:true + showIcon:true stamped by rehydrateUiFromState on refresh).
+    // selectedOptionHistory is component-local and empty after refresh, so
+    // without this, the loop below unhighlights prev-clicked bindings to white.
+    for (const b of optionBindings ?? []) {
+      const bId = b?.option?.optionId;
+      if (bId == null) continue;
+      if (b.option?.highlight === true && b.option?.showIcon === true) {
+        if (!selectedOptionHistory.includes(bId)) {
+          selectedOptionHistory.push(bId);
+        }
+      }
+    }
+
     // Faster lookups than repeated .includes()
     const historySet = new Set<number | string>(selectedOptionHistory);
 
