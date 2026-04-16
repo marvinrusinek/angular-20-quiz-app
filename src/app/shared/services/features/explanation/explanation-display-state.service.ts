@@ -180,6 +180,46 @@ export class ExplanationDisplayStateService {
     const targetIdx = options.index ?? this._activeIndexValue;
     this.latestExplanationIndex = targetIdx;
 
+    // ── CENTRALIZED MULTI-ANSWER GUARD ──────────────────────────────
+    // Block non-empty FET text from entering the reactive pipeline for
+    // multi-answer questions that are not yet fully resolved. This
+    // prevents explanation text from reaching subscribeToDisplayText
+    // and writeQText before all correct answers are selected.
+    if (trimmed && !options.force) {
+      try {
+        const quizSvc = this.injector.get(QuizService, null);
+        const selectedSvc = this.injector.get(SelectedOptionService, null);
+        if (quizSvc && selectedSvc) {
+          const activeIdx = targetIdx ?? quizSvc.getCurrentQuestionIndex?.() ?? 0;
+          const rawQ: any = (quizSvc as any)?.questions?.[activeIdx];
+          const rawOpts: any[] = rawQ?.options ?? [];
+          const correctCount = rawOpts.filter(
+            (o: any) => o?.correct === true || String(o?.correct) === 'true'
+          ).length;
+          if (correctCount > 1) {
+            const norm = (t: any) => String(t ?? '').trim().toLowerCase();
+            const correctTexts = rawOpts
+              .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+              .map((o: any) => norm(o?.text))
+              .filter((t: string) => !!t);
+            const selections = selectedSvc.getSelectedOptionsForQuestion(activeIdx) ?? [];
+            const selTexts = new Set(
+              selections
+                .filter((s: any) => s?.selected !== false)
+                .map((s: any) => norm(s?.text))
+                .filter((t: string) => !!t)
+            );
+            const allCorrectSelected = correctTexts.length > 0
+              && correctTexts.every((t: string) => selTexts.has(t));
+            if (!allCorrectSelected) {
+              console.log(`[ETS] ⛔ CENTRALIZED multi-answer guard BLOCKED setExplanationText for Q${activeIdx + 1}`);
+              return;
+            }
+          }
+        }
+      } catch { /* fall through if injection fails */ }
+    }
+
     // Visibility lock: prevent overwrites during tab restore
     if ((this as any)._visibilityLocked) {
       console.log('[ETS] ⏸ Ignored setExplanationText while locked');
@@ -559,6 +599,46 @@ export class ExplanationDisplayStateService {
     if ((this as any)._visibilityLocked) {
       console.log('[ETS] ⏸ Ignored setShouldDisplayExplanation while locked');
       return;
+    }
+
+    // ── CENTRALIZED MULTI-ANSWER GUARD ──────────────────────────────
+    // Block setShouldDisplayExplanation(true) for multi-answer questions
+    // unless ALL correct answers are currently selected. This is the
+    // single choke point that prevents every upstream caller from
+    // prematurely enabling FET on Q2/Q4.
+    if (shouldDisplay && !options.force) {
+      try {
+        const quizSvc = this.injector.get(QuizService, null);
+        const selectedSvc = this.injector.get(SelectedOptionService, null);
+        if (quizSvc && selectedSvc) {
+          const activeIdx = this._activeIndexValue ?? quizSvc.getCurrentQuestionIndex?.() ?? 0;
+          const rawQ: any = (quizSvc as any)?.questions?.[activeIdx];
+          const rawOpts: any[] = rawQ?.options ?? [];
+          const correctCount = rawOpts.filter(
+            (o: any) => o?.correct === true || String(o?.correct) === 'true'
+          ).length;
+          if (correctCount > 1) {
+            const norm = (t: any) => String(t ?? '').trim().toLowerCase();
+            const correctTexts = rawOpts
+              .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+              .map((o: any) => norm(o?.text))
+              .filter((t: string) => !!t);
+            const selections = selectedSvc.getSelectedOptionsForQuestion(activeIdx) ?? [];
+            const selTexts = new Set(
+              selections
+                .filter((s: any) => s?.selected !== false)
+                .map((s: any) => norm(s?.text))
+                .filter((t: string) => !!t)
+            );
+            const allCorrectSelected = correctTexts.length > 0
+              && correctTexts.every((t: string) => selTexts.has(t));
+            if (!allCorrectSelected) {
+              console.log(`[ETS] ⛔ CENTRALIZED multi-answer guard BLOCKED setShouldDisplayExplanation(true) for Q${activeIdx + 1}`);
+              return;
+            }
+          }
+        }
+      } catch { /* fall through if injection fails */ }
     }
 
     const contextKey = this.normalizeContext(options.context);
