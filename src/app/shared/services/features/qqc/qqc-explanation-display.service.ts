@@ -153,7 +153,40 @@ export class QqcExplanationDisplayService {
 
     if (stillActive) {
       svc.setExplanationText(nextText, { index: i0 });
-      svc.setShouldDisplayExplanation(true);
+
+      // Multi-answer guard: only display FET when ALL correct answers
+      // are selected. Without this, each click unconditionally set
+      // shouldDisplayExplanation=true, which leaked FET for partially-
+      // answered multi-answer questions (e.g. inc→correct→inc on Q2/Q4).
+      const rawQ: any = this.quizService?.questions?.[i0] ?? q;
+      const rawOpts: any[] = rawQ?.options ?? [];
+      const correctCount = rawOpts.filter(
+        (o: any) => o?.correct === true || String(o?.correct) === 'true'
+      ).length;
+      const isMultiAnswer = correctCount > 1;
+
+      if (isMultiAnswer) {
+        const norm = (t: any) => String(t ?? '').trim().toLowerCase();
+        const correctTexts = rawOpts
+          .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+          .map((o: any) => norm(o?.text))
+          .filter((t: string) => !!t);
+        const selections = this.selectedOptionService.getSelectedOptionsForQuestion(i0) ?? [];
+        const selTexts = new Set(
+          selections
+            .filter((s: any) => s?.selected !== false)
+            .map((s: any) => norm(s?.text))
+            .filter((t: string) => !!t)
+        );
+        const allCorrectSelected = correctTexts.length > 0
+          && correctTexts.every((t: string) => selTexts.has(t));
+        if (allCorrectSelected) {
+          svc.setShouldDisplayExplanation(true);
+        }
+      } else {
+        svc.setShouldDisplayExplanation(true);
+      }
+
       svc.latestExplanation = nextText;
     }
 
