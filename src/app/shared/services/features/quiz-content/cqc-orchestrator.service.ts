@@ -591,6 +591,82 @@ export class CqcOrchestratorService {
         }
       } catch { /* ignore */ }
 
+      // ════════════════════════════════════════════════════════════════
+      // ABSOLUTE LAST-LINE GUARD — runs after ALL other guards and
+      // transformations. Compares the outgoing text against the question
+      // text. If they differ (i.e. we're writing FET), and this is a
+      // pristine multi-answer question where not all correct answers
+      // are currently selected, replace with question text. This is the
+      // ONE guard that cannot be bypassed because it sits immediately
+      // before the DOM write.
+      // ════════════════════════════════════════════════════════════════
+      try {
+        const _norm = (t: any) => String(t ?? '').trim().toLowerCase();
+        const qs_ll: any = host.quizService;
+        const idx_ll: number = Number.isFinite(qs_ll?.currentQuestionIndex)
+          ? qs_ll.currentQuestionIndex
+          : (qs_ll?.getCurrentQuestionIndex?.() ?? 0);
+        const isShuf_ll = qs_ll?.isShuffleEnabled?.()
+          && Array.isArray(qs_ll?.shuffledQuestions)
+          && qs_ll.shuffledQuestions.length > 0;
+        const liveQ_ll: any = isShuf_ll
+          ? qs_ll?.shuffledQuestions?.[idx_ll]
+          : qs_ll?.questions?.[idx_ll];
+        const qTextNorm_ll = _norm(liveQ_ll?.questionText);
+        // Strip HTML tags for comparison (qDisplay includes <span> banner)
+        const safeTextOnly_ll = _norm(safe.replace(/<[^>]*>/g, ''));
+        const isNotQuestionText = !!qTextNorm_ll
+          && !safeTextOnly_ll.startsWith(qTextNorm_ll)
+          && safeTextOnly_ll !== qTextNorm_ll;
+        if (isNotQuestionText) {
+          // Text being written is NOT the question text — check pristine
+          let pristineCorrect_ll: string[] = [];
+          const bundle_ll: any[] = qs_ll?.quizInitialState ?? [];
+          for (const quiz of bundle_ll) {
+            for (const pq of (quiz?.questions ?? [])) {
+              if (_norm(pq?.questionText) !== qTextNorm_ll) continue;
+              pristineCorrect_ll = (pq?.options ?? [])
+                .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+                .map((o: any) => _norm(o?.text))
+                .filter((t: string) => !!t);
+              break;
+            }
+            if (pristineCorrect_ll.length > 0) break;
+          }
+          if (pristineCorrect_ll.length >= 2) {
+            // Multi-answer: check selectedOptionsMap for current selections
+            const selNow_ll = new Set<string>();
+            try {
+              const rawMap_ll = host.selectedOptionService?.selectedOptionsMap;
+              if (rawMap_ll && typeof rawMap_ll.get === 'function') {
+                for (const o of (rawMap_ll.get(idx_ll) ?? [])) {
+                  if ((o as any)?.selected === false) continue;
+                  const t = _norm((o as any)?.text);
+                  if (t) selNow_ll.add(t);
+                }
+              }
+            } catch { /* ignore */ }
+            // Also check sel_Q* in sessionStorage
+            try {
+              const stored_ll = sessionStorage.getItem('sel_Q' + idx_ll);
+              if (stored_ll) {
+                for (const o of JSON.parse(stored_ll)) {
+                  if (o?.selected !== true) continue;
+                  const t = _norm(o?.text);
+                  if (t) selNow_ll.add(t);
+                }
+              }
+            } catch { /* ignore */ }
+            const allResolved_ll = pristineCorrect_ll.every(t => selNow_ll.has(t));
+            console.error(`🛡️ [writeQText] LAST-LINE GUARD Q${idx_ll + 1} pristine=${JSON.stringify(pristineCorrect_ll)} sel=${JSON.stringify([...selNow_ll])} resolved=${allResolved_ll}`);
+            if (!allResolved_ll) {
+              safe = this.buildQuestionDisplayHTML(host, idx_ll) || (liveQ_ll?.questionText ?? '').trim() || '';
+              console.error(`🛡️ [writeQText] ⛔ LAST-LINE GUARD BLOCKED FET for Q${idx_ll + 1} — substituted question text`);
+            }
+          }
+        }
+      } catch { /* ignore */ }
+
       host.qTextHtmlSig?.set(safe);
       host._lastDisplayedText = safe;
       const el = host.qText?.nativeElement;
