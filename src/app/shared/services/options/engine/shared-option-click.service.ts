@@ -323,7 +323,45 @@ export class SharedOptionClickService {
       queueMicrotask(() => this.selectionMessageService.pushMessage(selMsg, qIdx));
       setTimeout(() => this.selectionMessageService.pushMessage(selMsg, qIdx), 0);
 
-      if (clickState.remaining === 0) {
+      // PRISTINE QUIZ_DATA GATE: verify every correct option text in the
+      // pristine bundle is present in the durable selection set BEFORE
+      // firing the FET. This bypasses any mutated `correctIndicesFromQ`
+      // cache and ensures the FET only fires when the user has literally
+      // selected every correct answer.
+      let pristineAllCorrectSelected = false;
+      try {
+        const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
+        const qText = nrm(comp.currentQuestion?.questionText ?? '');
+        let pristineCorrectTexts: string[] = [];
+        const pristineBundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
+        for (const quiz of pristineBundle) {
+          for (const pq of quiz?.questions ?? []) {
+            if (nrm(pq?.questionText) !== qText) continue;
+            pristineCorrectTexts = (pq?.options ?? [])
+              .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+              .map((o: any) => nrm(o?.text))
+              .filter((t: string) => !!t);
+            break;
+          }
+          if (pristineCorrectTexts.length > 0) break;
+        }
+        if (pristineCorrectTexts.length > 0) {
+          const durableTexts = new Set<string>();
+          for (const bi of durableSet) {
+            const t = nrm(comp.optionBindings?.[bi]?.option?.text);
+            if (t) durableTexts.add(t);
+          }
+          pristineAllCorrectSelected =
+            pristineCorrectTexts.every((t: string) => durableTexts.has(t));
+          console.log(`[SOC] PRISTINE gate Q${qIdx + 1} pristineCorrect=${JSON.stringify(pristineCorrectTexts)} durable=${JSON.stringify([...durableTexts])} allSel=${pristineAllCorrectSelected}`);
+        } else {
+          pristineAllCorrectSelected = clickState.remaining === 0;
+        }
+      } catch {
+        pristineAllCorrectSelected = clickState.remaining === 0;
+      }
+
+      if (clickState.remaining === 0 && pristineAllCorrectSelected) {
         try { this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true }); } catch {}
         this.nextButtonStateService.setNextButtonState(true);
 
@@ -340,6 +378,10 @@ export class SharedOptionClickService {
 
         comp.showExplanationChange.emit(true);
         setTimeout(() => comp.emitExplanation(qIdx, true), 0);
+      } else if (clickState.remaining === 0 && !pristineAllCorrectSelected) {
+        console.warn(`[SOC] ⛔ FET-fire BLOCKED by pristine gate Q${qIdx + 1} — clickState.remaining=0 but pristine says NOT all correct selected`);
+        // Clear any falsely-set perfect flag
+        (this.quizService as any)._multiAnswerPerfect?.delete?.(qIdx);
       }
 
       const savedFeedback = comp._feedbackDisplay;

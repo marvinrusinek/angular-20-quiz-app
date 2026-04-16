@@ -180,10 +180,19 @@ export class QuizContentDisplayService {
           .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
           .map((o: any) => norm(o?.text))
           .filter((t: string) => !!t);
+        // Only count entries that are ACTIVELY selected right now.
+        // `getSelectedOptionsForQuestion$` unions `_selectionHistory`
+        // with `selected: false`, so past clicks would otherwise be
+        // treated as current selections and falsely resolve the question
+        // when only 1 of N correct answers is actually selected.
         const selTexts = new Set(
-          (safeSelections as any[]).map((s: any) => norm(s?.text)).filter((t: string) => !!t)
+          (safeSelections as any[])
+            .filter((s: any) => s?.selected === true)
+            .map((s: any) => norm(s?.text))
+            .filter((t: string) => !!t)
         );
         isResolved = rawCorrectTexts.length > 0 && rawCorrectTexts.every((t: string) => selTexts.has(t));
+        console.log(`[displayText$] Q${safeIdx + 1} MULTI-resolution rawCorrect=${JSON.stringify(rawCorrectTexts)} selTexts=${JSON.stringify([...selTexts])} isResolved=${isResolved}`);
       } else {
         isResolved = this.selectedOptionService.isQuestionResolvedLeniently(qObj, safeSelections);
       }
@@ -250,6 +259,68 @@ export class QuizContentDisplayService {
     if (shouldShowExplanation && !isTimedOut && !hasClickedThisIdx) {
       console.log(`[displayText$] Q${safeIdx + 1} ⛔ final hard guard: !hasClickedInSession → forcing question text`);
       shouldShowExplanation = false;
+    }
+
+    // ABSOLUTE PRISTINE GATE: re-validate multi-answer resolution
+    // directly against pristine quizInitialState regardless of which
+    // upstream flag flipped shouldShowExplanation to true. This closes
+    // every path that can set the flag erroneously (isResolved,
+    // _multiAnswerPerfect, explanation-mode override, etc.).
+    if (shouldShowExplanation && !isTimedOut) {
+      try {
+        const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
+        const qs: any = this.quizService;
+        const isShuffled = qs?.isShuffleEnabled?.()
+          && Array.isArray(qs?.shuffledQuestions)
+          && qs.shuffledQuestions.length > 0;
+        const liveQForGate: any = isShuffled
+          ? qs?.shuffledQuestions?.[safeIdx]
+          : qs?.questions?.[safeIdx];
+        const qText = nrm(liveQForGate?.questionText ?? qObj?.questionText ?? '');
+        let pristineCorrect: string[] = [];
+        const bundle: any[] = qs?.quizInitialState ?? [];
+        for (const quiz of bundle) {
+          for (const pq of quiz?.questions ?? []) {
+            if (nrm(pq?.questionText) !== qText) continue;
+            pristineCorrect = (pq?.options ?? [])
+              .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+              .map((o: any) => nrm(o?.text))
+              .filter((t: string) => !!t);
+            break;
+          }
+          if (pristineCorrect.length > 0) break;
+        }
+        if (pristineCorrect.length >= 2) {
+          const selectedNow = new Set<string>();
+          // Active selections only
+          for (const s of safeSelections) {
+            if (s?.selected !== true) continue;
+            const t = nrm(s?.text);
+            if (t) selectedNow.add(t);
+          }
+          // Live question options
+          const liveOpts: any[] = Array.isArray(liveQForGate?.options)
+            ? liveQForGate.options
+            : [];
+          for (const o of liveOpts) {
+            const isSel = o?.selected === true
+              || o?.highlight === true
+              || o?.showIcon === true;
+            if (!isSel) continue;
+            const t = nrm(o?.text);
+            if (t) selectedNow.add(t);
+          }
+          const allSel = pristineCorrect.every(t => selectedNow.has(t));
+          console.log(`[displayText$] Q${safeIdx + 1} ABSOLUTE pristine gate pristineCorrect=${JSON.stringify(pristineCorrect)} selected=${JSON.stringify([...selectedNow])} allSel=${allSel}`);
+          if (!allSel) {
+            console.warn(`[displayText$] Q${safeIdx + 1} ⛔ ABSOLUTE pristine gate BLOCK — FET suppressed`);
+            shouldShowExplanation = false;
+            // Also clear any falsely-set perfect flag so downstream
+            // OIS-bypass can't re-trigger on the next emission.
+            (this.quizService as any)?._multiAnswerPerfect?.delete?.(safeIdx);
+          }
+        }
+      } catch { /* ignore */ }
     }
 
     const finalFet = (fetText ?? '').trim();

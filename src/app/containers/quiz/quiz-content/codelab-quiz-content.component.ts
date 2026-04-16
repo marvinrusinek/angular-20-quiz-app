@@ -201,7 +201,152 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     // downstream setup sees the correct currentIndex / FET state.
     const initialIdx = this.questionIndex();
     this.orchestrator.runQuestionIndexSet(this, initialIdx);
-    return this.orchestrator.runOnInit(this);
+    const result = this.orchestrator.runOnInit(this);
+
+    // ══════════════════════════════════════════════════════════════════
+    // DOM-LEVEL FET WATCHDOG. MutationObserver on the <h3 #qText>
+    // element. Whenever its content changes to something that looks
+    // like FET for the CURRENT multi-answer question, we consult
+    // pristine quizInitialState + live selections and revert the DOM
+    // to plain question text if not every correct option is selected.
+    // This is the ultimate safety net that bypasses every RxJS/Angular
+    // state path, running after the DOM has been written.
+    // ══════════════════════════════════════════════════════════════════
+    try {
+      const el = this.qText?.nativeElement;
+      if (el && typeof MutationObserver !== 'undefined') {
+        const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
+        const revert = (reason: string) => {
+          try {
+            const qs: any = this.quizService;
+            const idx: number = Number.isFinite(qs?.currentQuestionIndex)
+              ? qs.currentQuestionIndex
+              : (qs?.getCurrentQuestionIndex?.() ?? 0);
+            const isShuffled = qs?.isShuffleEnabled?.()
+              && Array.isArray(qs?.shuffledQuestions)
+              && qs.shuffledQuestions.length > 0;
+            const liveQ: any = isShuffled
+              ? qs?.shuffledQuestions?.[idx]
+              : qs?.questions?.[idx];
+            const rawQ = (liveQ?.questionText ?? '').trim();
+            if (rawQ) {
+              (el as HTMLElement).innerHTML = rawQ;
+              console.warn(`[FET-WATCHDOG] Q${idx + 1} ⛔ REVERTED DOM — ${reason}`);
+            }
+          } catch { /* ignore */ }
+        };
+        const isResolvedRightNow = (): boolean | null => {
+          try {
+            const qs: any = this.quizService;
+            const idx: number = Number.isFinite(qs?.currentQuestionIndex)
+              ? qs.currentQuestionIndex
+              : (qs?.getCurrentQuestionIndex?.() ?? 0);
+            const isShuffled = qs?.isShuffleEnabled?.()
+              && Array.isArray(qs?.shuffledQuestions)
+              && qs.shuffledQuestions.length > 0;
+            const liveQ: any = isShuffled
+              ? qs?.shuffledQuestions?.[idx]
+              : qs?.questions?.[idx];
+            const qText = nrm(liveQ?.questionText ?? '');
+
+            let pristineCorrectTexts: string[] = [];
+            const bundle: any[] = qs?.quizInitialState ?? [];
+            for (const quiz of bundle) {
+              for (const pq of quiz?.questions ?? []) {
+                if (nrm(pq?.questionText) !== qText) continue;
+                pristineCorrectTexts = (pq?.options ?? [])
+                  .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+                  .map((o: any) => nrm(o?.text))
+                  .filter((t: string) => !!t);
+                break;
+              }
+              if (pristineCorrectTexts.length > 0) break;
+            }
+            if (pristineCorrectTexts.length < 2) return null;  // not multi
+
+            const selectedNow = new Set<string>();
+            const liveOpts: any[] = Array.isArray(liveQ?.options)
+              ? liveQ.options
+              : [];
+            for (const o of liveOpts) {
+              const isSel = o?.selected === true
+                || o?.highlight === true
+                || o?.showIcon === true;
+              if (!isSel) continue;
+              const t = nrm(o?.text);
+              if (t) selectedNow.add(t);
+            }
+            const rawMap: any = (this.selectedOptionService as any)?.selectedOptionsMap;
+            if (rawMap && typeof rawMap.get === 'function') {
+              const mapSel: any[] = rawMap.get(idx) ?? [];
+              for (const o of mapSel) {
+                if (o?.selected === false) continue;
+                const t = nrm(o?.text);
+                if (t) selectedNow.add(t);
+              }
+            }
+            const all = pristineCorrectTexts.every(t => selectedNow.has(t));
+            console.log(`[FET-WATCHDOG] Q${idx + 1} check pristine=${JSON.stringify(pristineCorrectTexts)} selected=${JSON.stringify([...selectedNow])} all=${all}`);
+            return all;
+          } catch {
+            return null;
+          }
+        };
+        const looksLikeFetFn = (html: string): boolean => {
+          const n = nrm(html);
+          if (!n) return false;
+          if (n.includes('are correct because')) return true;
+          if (n.includes('is correct because')) return true;
+          try {
+            const qs: any = this.quizService;
+            const idx: number = Number.isFinite(qs?.currentQuestionIndex)
+              ? qs.currentQuestionIndex
+              : (qs?.getCurrentQuestionIndex?.() ?? 0);
+            const isShuffled = qs?.isShuffleEnabled?.()
+              && Array.isArray(qs?.shuffledQuestions)
+              && qs.shuffledQuestions.length > 0;
+            const liveQ: any = isShuffled
+              ? qs?.shuffledQuestions?.[idx]
+              : qs?.questions?.[idx];
+            const qText = nrm(liveQ?.questionText ?? '');
+            const qExp = nrm(liveQ?.explanation ?? '');
+            if (qExp && n.includes(qExp)) return true;
+            const bundle: any[] = qs?.quizInitialState ?? [];
+            for (const quiz of bundle) {
+              for (const pq of quiz?.questions ?? []) {
+                if (nrm(pq?.questionText) !== qText) continue;
+                const pExp = nrm(pq?.explanation ?? '');
+                if (pExp && n.includes(pExp)) return true;
+              }
+            }
+          } catch { /* ignore */ }
+          return false;
+        };
+        const enforce = () => {
+          try {
+            const html = (el as HTMLElement).innerHTML ?? '';
+            if (!looksLikeFetFn(html)) return;
+            const resolved = isResolvedRightNow();
+            if (resolved === false) {
+              revert(`DOM contained FET but pristine says not resolved: "${html.substring(0, 60)}"`);
+            }
+          } catch { /* ignore */ }
+        };
+        const mo = new MutationObserver(() => enforce());
+        mo.observe(el, { childList: true, characterData: true, subtree: true });
+        (this as any)._fetWatchdog = mo;
+        // Also enforce on every click (covers cases where the DOM
+        // hasn't mutated recently but the selection changed).
+        const clickHandler = () => setTimeout(enforce, 0);
+        document.addEventListener('click', clickHandler, true);
+        (this as any)._fetWatchdogClick = clickHandler;
+        console.log('[FET-WATCHDOG] installed on #qText');
+      }
+    } catch (e) {
+      console.warn('[FET-WATCHDOG] install failed', e);
+    }
+
+    return result;
   }
 
   ngOnChanges(changes: SimpleChanges) {
@@ -211,6 +356,12 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   }
 
   ngOnDestroy(): void {
+    try {
+      (this as any)._fetWatchdog?.disconnect?.();
+      if ((this as any)._fetWatchdogClick) {
+        document.removeEventListener('click', (this as any)._fetWatchdogClick, true);
+      }
+    } catch { /* ignore */ }
     this.orchestrator.runOnDestroy(this);
   }
 

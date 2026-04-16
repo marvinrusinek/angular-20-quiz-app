@@ -170,9 +170,31 @@ export class SharedOptionExplanationService {
     // often lack the `correct` flag, making correctCount=0 and falling to
     // single-answer logic which resolves on 1 correct selection.
     const authQuestion = this.quizService.questions?.[resolvedIndex] ?? question;
-    const correctCount = (authQuestion?.options ?? question!.options).filter(
+    let correctCount = (authQuestion?.options ?? question!.options).filter(
       (o: any) => o.correct === true || String(o.correct) === 'true'
     ).length;
+    let pristineCorrectTexts = new Set<string>();
+    if (correctCount === 0) {
+      const qText = this.normalize(authQuestion?.questionText ?? question?.questionText);
+      try {
+        for (const quiz of ((this.quizService as any)?.quizInitialState ?? []) as any[]) {
+          for (const pq of quiz?.questions ?? []) {
+            if (this.normalize(pq?.questionText) !== qText) continue;
+            const correctOpts = (pq?.options ?? []).filter(
+              (o: any) => o?.correct === true || String(o?.correct) === 'true'
+            );
+            if (correctOpts.length === 0) continue;
+            correctCount = correctOpts.length;
+            for (const o of correctOpts) {
+              const t = this.normalize(o?.text);
+              if (t) pristineCorrectTexts.add(t);
+            }
+            break;
+          }
+          if (correctCount > 0) break;
+        }
+      } catch { /* ignore */ }
+    }
     const isMultiAnswer = correctCount > 1 || this.quizService.multipleAnswer;
 
     const visualOptions = (Array.isArray(optionBindings) && optionBindings.length > 0)
@@ -198,10 +220,13 @@ export class SharedOptionExplanationService {
       this.selectedOptionService.getSelectedOptionsForQuestion(resolvedIndex) ?? [];
 
     const isSelectionCorrect = (sel: any): boolean => {
+      const selText = this.normalize(sel?.text);
+      if (pristineCorrectTexts.size > 0 && selText) {
+        return pristineCorrectTexts.has(selText);
+      }
       if (sel?.correct === true || String(sel?.correct) === 'true') return true;
 
       const selId = sel?.optionId;
-      const selText = this.normalize(sel?.text);
 
       const byId = question!.options.find((o: any) =>
         o?.optionId !== undefined && o?.optionId !== null &&
@@ -240,6 +265,44 @@ export class SharedOptionExplanationService {
     );
 
     let resolved = (selectedFromUi.length > 0) ? uiResolved : status.resolved;
+
+    // Multi-answer pristine gate: regardless of UI/service verdict, require
+    // that ALL pristine-correct option texts are present in selected set
+    // (UI union service). Blocks false positives when flags are mutated.
+    if (isMultiAnswer && pristineCorrectTexts.size > 0) {
+      const selectedTexts = new Set<string>();
+      for (const s of selectedFromUi) {
+        const t = this.normalize(s?.text);
+        if (t) selectedTexts.add(t);
+      }
+      for (const s of selectedFromService) {
+        if (s?.selected === false) continue;
+        const t = this.normalize((s as any)?.text);
+        if (t) selectedTexts.add(t);
+      }
+      try {
+        const idx = resolvedIndex;
+        const raw = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('sel_Q' + idx) : null;
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            for (const s of parsed) {
+              if (s?.selected !== true) continue;
+              const t = this.normalize(s?.text);
+              if (t) selectedTexts.add(t);
+            }
+          }
+        }
+      } catch { /* ignore */ }
+      let allPresent = true;
+      for (const t of pristineCorrectTexts) {
+        if (!selectedTexts.has(t)) { allPresent = false; break; }
+      }
+      if (!allPresent) {
+        console.log(`[emitExplanation] Q${resolvedIndex + 1} pristine-gate BLOCK: have=${JSON.stringify([...selectedTexts])} need=${JSON.stringify([...pristineCorrectTexts])}`);
+        resolved = false;
+      }
+    }
 
     // For multi-answer questions, do NOT let the service override the UI
     // check. The service's selectedOptionsMap can be contaminated by init

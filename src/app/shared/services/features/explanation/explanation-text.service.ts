@@ -8,6 +8,8 @@ import { QuizQuestion } from '../../../models/QuizQuestion.model';
 import { QuizShuffleService } from '../../flow/quiz-shuffle.service';
 import { ExplanationFormatterService } from './explanation-formatter.service';
 import { ExplanationDisplayStateService, FETPayload } from './explanation-display-state.service';
+import { QuizService } from '../../data/quiz.service';
+import { SelectedOptionService } from '../../state/selectedoption.service';
 
 export { FETPayload } from './explanation-display-state.service';
 
@@ -22,8 +24,100 @@ export class ExplanationTextService {
     private activatedRoute: ActivatedRoute,
     private quizShuffleService: QuizShuffleService,
     private formatter: ExplanationFormatterService,
-    private displayState: ExplanationDisplayStateService
+    private displayState: ExplanationDisplayStateService,
+    private quizService: QuizService,
+    private selectedOptionService: SelectedOptionService
   ) {}
+
+  /**
+   * Central pristine-source FET gate. For multi-answer questions,
+   * verifies that every pristine correct-option text (from
+   * quizService.quizInitialState) is currently selected in
+   * selectedOptionsMap. Returns false if any correct option is not
+   * actually selected right now — meaning the FET must not be shown.
+   */
+  private isMultiAnswerPristineResolved(index: number): boolean | null {
+    try {
+      const norm = (t: any) => String(t ?? '').trim().toLowerCase();
+      const idx = Number.isFinite(index) ? index : this.quizService.currentQuestionIndex;
+      if (idx < 0) return null;
+
+      const qs: any = this.quizService;
+      const isShuffled = qs?.isShuffleEnabled?.()
+        && Array.isArray(qs?.shuffledQuestions)
+        && qs.shuffledQuestions.length > 0;
+      const liveQ: any = isShuffled
+        ? qs?.shuffledQuestions?.[idx]
+        : qs?.questions?.[idx];
+      const qText = norm(liveQ?.questionText ?? '');
+      if (!qText) return null;
+
+      let pristineCorrectTexts: string[] = [];
+      const pristineBundle: any[] = qs?.quizInitialState ?? [];
+      for (const quiz of pristineBundle) {
+        for (const pq of quiz?.questions ?? []) {
+          if (norm(pq?.questionText) !== qText) continue;
+          pristineCorrectTexts = (pq?.options ?? [])
+            .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+            .map((o: any) => norm(o?.text))
+            .filter((t: string) => !!t);
+          break;
+        }
+        if (pristineCorrectTexts.length > 0) break;
+      }
+
+      if (pristineCorrectTexts.length < 2) return null;  // not multi-answer
+
+      const selectedTexts = new Set<string>();
+
+      // Live question options
+      const liveOpts: any[] = Array.isArray(liveQ?.options) ? liveQ.options : [];
+      for (const o of liveOpts) {
+        const isSel = o?.selected === true
+          || o?.highlight === true
+          || o?.showIcon === true;
+        if (!isSel) continue;
+        const t = norm(o?.text);
+        if (t) selectedTexts.add(t);
+      }
+
+      // selectedOptionsMap
+      try {
+        const rawMap: any = (this.selectedOptionService as any)?.selectedOptionsMap;
+        if (rawMap && typeof rawMap.get === 'function') {
+          const mapSel: any[] = rawMap.get(idx) ?? [];
+          for (const o of mapSel) {
+            if (o?.selected === false) continue;
+            const t = norm(o?.text);
+            if (t) selectedTexts.add(t);
+          }
+        }
+      } catch { /* ignore */ }
+
+      // sessionStorage sel_Q{idx}
+      try {
+        const raw = typeof sessionStorage !== 'undefined'
+          ? sessionStorage.getItem('sel_Q' + idx)
+          : null;
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            for (const o of parsed) {
+              if (o?.selected !== true) continue;
+              const t = norm(o?.text);
+              if (t) selectedTexts.add(t);
+            }
+          }
+        }
+      } catch { /* ignore */ }
+
+      const allCorrect = pristineCorrectTexts.every(t => selectedTexts.has(t));
+      console.log(`[ETS.pristineGate] Q${idx + 1} pristineCorrect=${JSON.stringify(pristineCorrectTexts)} selected=${JSON.stringify([...selectedTexts])} allCorrect=${allCorrect}`);
+      return allCorrect;
+    } catch {
+      return null;
+    }
+  }
 
   // ═══════════════════════════════════════════════════════════════════════
   // Formatter pass-through properties
@@ -307,6 +401,15 @@ export class ExplanationTextService {
     explanation: string | null,
     options?: { force?: boolean; context?: string; index?: number }
   ): void {
+    if (explanation && explanation.trim().length > 0) {
+      const idx = options?.index ?? this.parseIndexFromContext(options?.context)
+        ?? this.quizService.currentQuestionIndex;
+      const pristine = this.isMultiAnswerPristineResolved(idx);
+      if (pristine === false) {
+        console.warn(`[ETS] ⛔ setExplanationText BLOCKED — pristine says multi-answer Q${idx + 1} not fully resolved (text="${explanation.substring(0, 40)}...")`);
+        return;
+      }
+    }
     this.displayState.setExplanationText(explanation, options);
   }
 
@@ -336,6 +439,15 @@ export class ExplanationTextService {
     isDisplayed: boolean,
     options?: { force?: boolean; context?: string }
   ): void {
+    if (isDisplayed === true) {
+      const idxFromCtx = this.parseIndexFromContext(options?.context);
+      const idx = idxFromCtx ?? this.quizService.currentQuestionIndex;
+      const pristine = this.isMultiAnswerPristineResolved(idx);
+      if (pristine === false) {
+        console.warn(`[ETS] ⛔ setIsExplanationTextDisplayed(true) BLOCKED — pristine says multi-answer Q${idx + 1} not fully resolved`);
+        return;
+      }
+    }
     this.displayState.setIsExplanationTextDisplayed(isDisplayed, options);
   }
 
@@ -343,7 +455,22 @@ export class ExplanationTextService {
     shouldDisplay: boolean,
     options?: { force?: boolean; context?: string }
   ): void {
+    if (shouldDisplay === true) {
+      const idxFromCtx = this.parseIndexFromContext(options?.context);
+      const idx = idxFromCtx ?? this.quizService.currentQuestionIndex;
+      const pristine = this.isMultiAnswerPristineResolved(idx);
+      if (pristine === false) {
+        console.warn(`[ETS] ⛔ setShouldDisplayExplanation(true) BLOCKED — pristine says multi-answer Q${idx + 1} not fully resolved`);
+        return;
+      }
+    }
     this.displayState.setShouldDisplayExplanation(shouldDisplay, options);
+  }
+
+  private parseIndexFromContext(context?: string): number | null {
+    if (!context) return null;
+    const m = /question:(\d+)/.exec(context);
+    return m ? parseInt(m[1], 10) : null;
   }
 
   triggerExplanationEvaluation(): void {
@@ -383,6 +510,13 @@ export class ExplanationTextService {
     value: string | null,
     options?: { token?: number; bypassGuard?: boolean }
   ): void {
+    if (value && value.trim().length > 0) {
+      const pristine = this.isMultiAnswerPristineResolved(index);
+      if (pristine === false) {
+        console.warn(`[ETS] ⛔ emitFormatted BLOCKED — pristine says multi-answer Q${index + 1} not fully resolved`);
+        return;
+      }
+    }
     this.displayState.emitFormatted(index, value, options);
   }
 

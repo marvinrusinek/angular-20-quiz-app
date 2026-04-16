@@ -3198,6 +3198,12 @@ export class SelectedOptionService {
 
     for (const sel of selectedArr) {
       if (!sel) continue;
+      // Skip history/deselected entries. getSelectedOptionsForQuestion
+      // unions _selectionHistory with `selected: false`, so counting
+      // those here would treat past clicks as current selections and
+      // falsely resolve the question (e.g. inc→correct→inc would look
+      // like both correct answers are picked).
+      if ((sel as any).selected === false) continue;
 
       let matchedIdx = -1;
       let matchMethod = 'none';
