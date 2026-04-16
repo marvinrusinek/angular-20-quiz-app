@@ -236,12 +236,56 @@ export class QuizContentDisplayService {
     }
 
     // DIRECT OIS BYPASS: If OIS has already confirmed all correct answers
-    // are selected, trust it unconditionally.
+    // are selected, trust it — but validate against pristine data first
+    // to prevent false positives from mutated bindings.
     if (!shouldShowExplanation) {
       const perfectMap = (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
       if (perfectMap?.get(safeIdx) === true && hasInteracted) {
-        shouldShowExplanation = true;
-        console.log(`[displayText$] Q${safeIdx + 1} OIS bypass: _multiAnswerPerfect=true → forcing SHOW`);
+        // Validate: for multi-answer questions, confirm all correct are truly selected
+        let oisBypassAllowed = true;
+        try {
+          const nrm2 = (t: any) => String(t ?? '').trim().toLowerCase();
+          const bundle2: any[] = (this.quizService as any)?.quizInitialState ?? [];
+          const qs2: any = this.quizService;
+          const isShuf2 = qs2?.isShuffleEnabled?.() && Array.isArray(qs2?.shuffledQuestions) && qs2.shuffledQuestions.length > 0;
+          const liveQ2: any = isShuf2 ? qs2?.shuffledQuestions?.[safeIdx] : qs2?.questions?.[safeIdx];
+          const qText2 = nrm2(liveQ2?.questionText ?? qObj?.questionText ?? '');
+          let pCorrect: string[] = [];
+          for (const quiz of bundle2) {
+            for (const pq of (quiz?.questions ?? [])) {
+              if (nrm2(pq?.questionText) !== qText2) continue;
+              pCorrect = (pq?.options ?? [])
+                .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+                .map((o: any) => nrm2(o?.text)).filter((t: string) => !!t);
+              break;
+            }
+            if (pCorrect.length > 0) break;
+          }
+          if (pCorrect.length >= 2) {
+            const selNow2 = new Set<string>();
+            for (const s of safeSelections) {
+              if (s?.selected !== true) continue;
+              const t = nrm2(s?.text);
+              if (t) selNow2.add(t);
+            }
+            const liveOpts2: any[] = Array.isArray(liveQ2?.options) ? liveQ2.options : [];
+            for (const o of liveOpts2) {
+              if (o?.selected === true || o?.highlight === true || o?.showIcon === true) {
+                const t = nrm2(o?.text);
+                if (t) selNow2.add(t);
+              }
+            }
+            if (!pCorrect.every(t => selNow2.has(t))) {
+              oisBypassAllowed = false;
+              perfectMap?.delete?.(safeIdx);
+              console.warn(`[displayText$] Q${safeIdx + 1} OIS bypass BLOCKED — pristine shows multi-answer not fully resolved`);
+            }
+          }
+        } catch { /* ignore */ }
+        if (oisBypassAllowed) {
+          shouldShowExplanation = true;
+          console.log(`[displayText$] Q${safeIdx + 1} OIS bypass: _multiAnswerPerfect=true → forcing SHOW`);
+        }
       }
     }
 
