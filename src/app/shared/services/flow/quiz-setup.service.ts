@@ -889,7 +889,39 @@ export class QuizSetupService {
     if (!resolved) return;
     host.explanationToDisplay = resolved.text;
     this.explanationTextService.setExplanationText(resolved.text, { index: resolved.index });
-    this.explanationTextService.setShouldDisplayExplanation(true);
+
+    // Multi-answer guard: only set shouldDisplayExplanation=true when ALL
+    // correct answers are selected. Without this, every explanationToDisplayChange
+    // emission unconditionally enabled FET for partially-answered multi-answer Qs.
+    const qIdx = resolved.index ?? this.quizService.getCurrentQuestionIndex?.() ?? 0;
+    const rawQ: any = (this.quizService as any)?.questions?.[qIdx];
+    const rawOpts: any[] = rawQ?.options ?? [];
+    const correctCount = rawOpts.filter(
+      (o: any) => o?.correct === true || String(o?.correct) === 'true'
+    ).length;
+    const isMultiAnswer = correctCount > 1;
+
+    if (isMultiAnswer) {
+      const norm = (t: any) => String(t ?? '').trim().toLowerCase();
+      const correctTexts = rawOpts
+        .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+        .map((o: any) => norm(o?.text))
+        .filter((t: string) => !!t);
+      const selections = this.selectedOptionService.getSelectedOptionsForQuestion(qIdx) ?? [];
+      const selTexts = new Set(
+        selections
+          .filter((s: any) => s?.selected !== false)
+          .map((s: any) => norm(s?.text))
+          .filter((t: string) => !!t)
+      );
+      const allCorrectSelected = correctTexts.length > 0
+        && correctTexts.every((t: string) => selTexts.has(t));
+      if (allCorrectSelected) {
+        this.explanationTextService.setShouldDisplayExplanation(true);
+      }
+    } else {
+      this.explanationTextService.setShouldDisplayExplanation(true);
+    }
   }
 
   // ─── Lifecycle / event wrappers extracted from QuizComponent ───
