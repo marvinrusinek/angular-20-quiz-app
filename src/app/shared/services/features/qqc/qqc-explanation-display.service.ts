@@ -152,12 +152,10 @@ export class QqcExplanationDisplayService {
     const stillActive = i0 === params.currentQuestionIndex;
 
     if (stillActive) {
-      svc.setExplanationText(nextText, { index: i0 });
-
-      // Multi-answer guard: only display FET when ALL correct answers
-      // are selected. Without this, each click unconditionally set
-      // shouldDisplayExplanation=true, which leaked FET for partially-
-      // answered multi-answer questions (e.g. inc→correct→inc on Q2/Q4).
+      // Multi-answer guard: only emit FET text and set shouldDisplayExplanation
+      // when ALL correct answers are selected. Previously, setExplanationText
+      // was called unconditionally BEFORE this guard, leaking FET into the
+      // reactive pipeline for partially-answered multi-answer questions.
       const rawQ: any = this.quizService?.questions?.[i0] ?? q;
       const rawOpts: any[] = rawQ?.options ?? [];
       const correctCount = rawOpts.filter(
@@ -165,6 +163,7 @@ export class QqcExplanationDisplayService {
       ).length;
       const isMultiAnswer = correctCount > 1;
 
+      let shouldEmitFet = true;
       if (isMultiAnswer) {
         const norm = (t: any) => String(t ?? '').trim().toLowerCase();
         const correctTexts = rawOpts
@@ -181,9 +180,13 @@ export class QqcExplanationDisplayService {
         const allCorrectSelected = correctTexts.length > 0
           && correctTexts.every((t: string) => selTexts.has(t));
         if (allCorrectSelected) {
+          svc.setExplanationText(nextText, { index: i0 });
           svc.setShouldDisplayExplanation(true);
+        } else {
+          shouldEmitFet = false;
         }
       } else {
+        svc.setExplanationText(nextText, { index: i0 });
         svc.setShouldDisplayExplanation(true);
       }
 
