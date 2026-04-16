@@ -541,7 +541,18 @@ export class QqcOptionSelectionService {
       snapshot
     );
 
-    this.explanationTextService.setIsExplanationTextDisplayed(true);
+    // Multi-answer guard: don't emit FET-related state for partially-answered
+    // multi-answer questions. Check RAW question data for correct count.
+    const rawQ: any = (this.quizService as any)?.questions?.[currentQuestionIndex] ?? currentQuestion;
+    const rawOpts: any[] = rawQ?.options ?? [];
+    const maCorrectCount = rawOpts.filter(
+      (o: any) => o?.correct === true || String(o?.correct) === 'true'
+    ).length;
+    const isMultiQ = maCorrectCount > 1;
+
+    if (!isMultiQ) {
+      this.explanationTextService.setIsExplanationTextDisplayed(true);
+    }
     this.quizService.setCurrentQuestion(currentQuestion);
 
     this.selectedOptionService.updateSelectedOptions(
@@ -554,9 +565,14 @@ export class QqcOptionSelectionService {
     const explanationText =
       (await getExplanationText(currentQuestionIndex)) ||
       'No explanation available';
-    this.explanationTextService.setExplanationText(explanationText);
 
-    if (currentQuestion) {
+    // Only emit explanation text to reactive pipeline for single-answer
+    // or fully-resolved multi-answer questions.
+    if (!isMultiQ) {
+      this.explanationTextService.setExplanationText(explanationText);
+    }
+
+    if (currentQuestion && !isMultiQ) {
       this.explanationTextService.updateExplanationText(currentQuestion);
     }
 
