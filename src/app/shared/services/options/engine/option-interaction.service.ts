@@ -460,7 +460,27 @@ export class OptionInteractionService {
     // incomplete correct flags — causing allCorrectFound to fire prematurely
     // (e.g. 1 of 2 correct answers found). runOptionContentClick checks
     // clickState.remaining === 0 against the canonical correct count.
-    if (allCorrectFound && !isMultipleMode) {
+    // PRISTINE MULTI-ANSWER GUARD: correctCountInBindings can be wrong
+    // (bindings may show only 1 correct due to mutation). Cross-check
+    // against quizInitialState to detect true multi-answer questions.
+    let pristineIsMultiAnswer = false;
+    try {
+      const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
+      const qTextForLookup = nrm(question?.questionText ?? state.currentQuestion?.questionText);
+      const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
+      for (const quiz of bundle) {
+        for (const pq of (quiz?.questions ?? [])) {
+          if (nrm(pq?.questionText) !== qTextForLookup) continue;
+          const pristineCorrectCount = (pq?.options ?? [])
+            .filter((o: any) => o?.correct === true || String(o?.correct) === 'true').length;
+          if (pristineCorrectCount > 1) pristineIsMultiAnswer = true;
+          break;
+        }
+        if (pristineIsMultiAnswer) break;
+      }
+    } catch { /* ignore */ }
+
+    if (allCorrectFound && !isMultipleMode && !pristineIsMultiAnswer) {
       if (!(this.quizService as any)._multiAnswerPerfect) {
         (this.quizService as any)._multiAnswerPerfect = new Map<number, boolean>();
       }
