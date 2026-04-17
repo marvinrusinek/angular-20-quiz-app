@@ -264,6 +264,21 @@ export class QuizSetupService {
     host.progress = 0;
     this.quizPersistence.clearClickConfirmedDotStatus(host.totalQuestions);
 
+    // Clear all session-persisted selection/interaction state so options
+    // don't auto-highlight and question text displays after restart.
+    try {
+      for (let i = 0; i < host.totalQuestions; i++) {
+        sessionStorage.removeItem('sel_Q' + i);
+      }
+      sessionStorage.removeItem('answeredQuestionIndices');
+    } catch {}
+    try {
+      this.quizStateService._hasUserInteracted?.clear?.();
+      this.quizStateService._answeredQuestionIndices?.clear?.();
+      (this.quizStateService as any)._clickedInSession?.clear?.();
+      (this.quizStateService as any).persistInteractionState?.();
+    } catch {}
+
     this.router.navigate(['/quiz/question', host.quizId, 1])
       .then(() => {
         host.currentQuestionIndex = 0;
@@ -271,6 +286,27 @@ export class QuizSetupService {
           host.sharedOptionComponent?.generateOptionBindings();
           host.cdRef.detectChanges();
         });
+
+        // Force question text into <h3> after restart navigation
+        const question = host.questionsArray?.[0]
+          ?? this.quizService.questions?.[0]
+          ?? null;
+        if (question) {
+          const displayHTML = this.buildQuestionDisplayHTML(question);
+          if (displayHTML) {
+            const writeH3 = () => {
+              try {
+                const h3 = document.querySelector('codelab-quiz-content h3');
+                if (h3 && !h3.innerHTML.trim()) {
+                  h3.innerHTML = displayHTML;
+                }
+              } catch {}
+            };
+            setTimeout(writeH3, 50);
+            setTimeout(writeH3, 200);
+            setTimeout(writeH3, 500);
+          }
+        }
       })
       .catch((error: Error) => console.error('Navigation error on restart:', error));
   }
