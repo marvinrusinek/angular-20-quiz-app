@@ -667,6 +667,75 @@ export class CqcOrchestratorService {
         }
       } catch { /* ignore */ }
 
+      // ── FINAL PRISTINE GATE (cannot fail silently) ──────────────
+      // Absolute last check before DOM write. Uses quizInitialState ONLY.
+      // If this is FET for a multi-answer question and not all correct
+      // are selected, replace with question text. Errors are logged, not
+      // swallowed.
+      const _nf = (t: any): string => String(t ?? '').trim().toLowerCase();
+      const _safeStripped = _nf(safe.replace(/<[^>]*>/g, ''));
+      const _qs: any = host.quizService;
+      const _idx: number = _qs?.currentQuestionIndex ?? 0;
+      const _isShuf = _qs?.isShuffleEnabled?.() && Array.isArray(_qs?.shuffledQuestions) && _qs.shuffledQuestions.length > 0;
+      const _liveQ: any = _isShuf ? _qs?.shuffledQuestions?.[_idx] : _qs?.questions?.[_idx];
+      const _qTextNorm = _nf(_liveQ?.questionText);
+      // Only gate if text being written is NOT the question text
+      if (_qTextNorm && _safeStripped !== _qTextNorm && !_safeStripped.startsWith(_qTextNorm)) {
+        // Look up pristine correct count
+        let _pCorrect: string[] = [];
+        const _bundle: any[] = _qs?.quizInitialState ?? [];
+        for (let qi = 0; qi < _bundle.length; qi++) {
+          const _questions = _bundle[qi]?.questions ?? [];
+          for (let pi = 0; pi < _questions.length; pi++) {
+            if (_nf(_questions[pi]?.questionText) === _qTextNorm) {
+              _pCorrect = (_questions[pi]?.options ?? [])
+                .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+                .map((o: any) => _nf(o?.text))
+                .filter((t: string) => !!t);
+              break;
+            }
+          }
+          if (_pCorrect.length > 0) break;
+        }
+        if (_pCorrect.length >= 2) {
+          // Multi-answer — check live selections
+          const _selNow = new Set<string>();
+          try {
+            const _map = host.selectedOptionService?.selectedOptionsMap;
+            if (_map && typeof _map.get === 'function') {
+              for (const _o of (_map.get(_idx) ?? [])) {
+                if ((_o as any)?.selected === false) continue;
+                const _t = _nf((_o as any)?.text);
+                if (_t) _selNow.add(_t);
+              }
+            }
+          } catch (e) { console.error('[writeQText] FINAL GATE sel error:', e); }
+          try {
+            const _stored = sessionStorage.getItem('sel_Q' + _idx);
+            if (_stored) {
+              for (const _o of JSON.parse(_stored)) {
+                if (_o?.selected !== true) continue;
+                const _t = _nf(_o?.text);
+                if (_t) _selNow.add(_t);
+              }
+            }
+          } catch (e) { console.error('[writeQText] FINAL GATE storage error:', e); }
+          const _allOk = _pCorrect.every(t => _selNow.has(t));
+          console.warn(`[writeQText] FINAL-GATE Q${_idx + 1}: pristine=${JSON.stringify(_pCorrect)} sel=${JSON.stringify([..._selNow])} ok=${_allOk} text="${_safeStripped.substring(0, 60)}"`);
+          if (!_allOk) {
+            safe = this.buildQuestionDisplayHTML(host, _idx) || (_liveQ?.questionText ?? '').trim() || '';
+            console.error(`[writeQText] ⛔ FINAL-GATE BLOCKED FET for Q${_idx + 1}`);
+          }
+        }
+      }
+
+      // VISIBLE DIAGNOSTIC: change document.title on every write so we
+      // can see what reaches the DOM without opening DevTools.
+      if (typeof document !== 'undefined') {
+        const stripped = (safe || '').replace(/<[^>]*>/g, '').substring(0, 80);
+        document.title = `WQT: ${stripped}`;
+      }
+
       host.qTextHtmlSig?.set(safe);
       host._lastDisplayedText = safe;
       const el = host.qText?.nativeElement;
@@ -747,11 +816,43 @@ export class CqcOrchestratorService {
         storedSelections =
           host.selectedOptionService.getSelectedOptionsForQuestion?.(idx) ?? [];
       }
+      // Filter out deselected history entries
+      storedSelections = storedSelections.filter((s: any) => s?.selected !== false);
       if (storedSelections.length > 0) {
         const questions = host.quizService.getQuestionsInDisplayOrder?.()
           ?? host.quizService.questions;
         const q = questions?.[idx];
         if (q) {
+          // PRISTINE CROSS-CHECK: for multi-answer questions, verify against
+          // quizInitialState to catch cases where live correct flags are mutated.
+          const norm = (t: any) => String(t ?? '').trim().toLowerCase();
+          const qText = norm(q?.questionText);
+          const bundle: any[] = (host.quizService as any)?.quizInitialState ?? [];
+          let pristineCorrectTexts: string[] = [];
+          for (const quiz of bundle) {
+            for (const pq of (quiz?.questions ?? [])) {
+              if (norm(pq?.questionText) !== qText) continue;
+              pristineCorrectTexts = (pq?.options ?? [])
+                .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+                .map((o: any) => norm(o?.text))
+                .filter((t: string) => !!t);
+              break;
+            }
+            if (pristineCorrectTexts.length > 0) break;
+          }
+          // For multi-answer: check ALL pristine correct texts are selected
+          if (pristineCorrectTexts.length >= 2) {
+            const selTexts = new Set(
+              storedSelections
+                .filter((s: any) => s?.selected !== false)
+                .map((s: any) => norm(s?.text))
+                .filter((t: string) => !!t)
+            );
+            const allCorrectSelected = pristineCorrectTexts.every(t => selTexts.has(t));
+            console.log(`[isResolvedFromStorage] Q${idx + 1} PRISTINE CHECK: correct=${JSON.stringify(pristineCorrectTexts)} sel=${JSON.stringify([...selTexts])} resolved=${allCorrectSelected}`);
+            return allCorrectSelected;
+          }
+          // Single-answer: use standard resolution
           return host.selectedOptionService.isQuestionResolvedLeniently?.(q, storedSelections)
             ?? false;
         }
@@ -1058,11 +1159,32 @@ export class CqcOrchestratorService {
           // correct answers, do NOT display FET until ALL correct answers
           // are selected. This blocks every upstream emission path that may
           // set latestExplanationIndex / explanationToDisplay too early.
+          // CRITICAL: Use PRISTINE quizInitialState to detect multi-answer,
+          // NOT live quizService.questions[] which can be mutated by
+          // option-lock-policy backfill (setting correct=false on options).
           const qForMultiCheck = host.quizService.getQuestionsInDisplayOrder()?.[currentIdx]
             ?? host.quizService.questions?.[currentIdx];
-          const multiCorrectCount = (qForMultiCheck?.options ?? []).filter(
+          let multiCorrectCount = (qForMultiCheck?.options ?? []).filter(
             (o: any) => o?.correct === true || o?.correct === 1 || String(o?.correct) === 'true'
           ).length;
+          // Cross-check against pristine data — always use the HIGHER count
+          try {
+            const _n = (t: any) => String(t ?? '').trim().toLowerCase();
+            const _qText = _n(qForMultiCheck?.questionText);
+            const _bundle: any[] = (host.quizService as any)?.quizInitialState ?? [];
+            for (const _quiz of _bundle) {
+              for (const _pq of (_quiz?.questions ?? [])) {
+                if (_n(_pq?.questionText) !== _qText) continue;
+                const pristineCount = (_pq?.options ?? []).filter(
+                  (o: any) => o?.correct === true || String(o?.correct) === 'true'
+                ).length;
+                if (pristineCount > multiCorrectCount) {
+                  multiCorrectCount = pristineCount;
+                }
+                break;
+              }
+            }
+          } catch { /* ignore */ }
           const isMultiAnswer = multiCorrectCount > 1;
           const multiAnswerBlocked = isMultiAnswer && hasRealInteraction && !isResolvedForGuard;
 
@@ -1246,9 +1368,25 @@ export class CqcOrchestratorService {
             );
             const rawQForBlock: any = (host.quizService as any)?.questions?.[currentIdx] ?? qForMultiCheck;
             const rawOptsForBlock: any[] = rawQForBlock?.options ?? [];
-            const rawCorrectCountBlock = rawOptsForBlock.filter(
+            let rawCorrectCountBlock = rawOptsForBlock.filter(
               (o: any) => o?.correct === true || o?.correct === 1 || String(o?.correct) === 'true'
             ).length;
+            // PRISTINE cross-check: use quizInitialState for true correct count
+            try {
+              const _n2 = (t: any) => String(t ?? '').trim().toLowerCase();
+              const _qText2 = _n2(rawQForBlock?.questionText ?? qForMultiCheck?.questionText);
+              const _bundle2: any[] = (host.quizService as any)?.quizInitialState ?? [];
+              for (const _quiz2 of _bundle2) {
+                for (const _pq2 of (_quiz2?.questions ?? [])) {
+                  if (_n2(_pq2?.questionText) !== _qText2) continue;
+                  const pc2 = (_pq2?.options ?? []).filter(
+                    (o: any) => o?.correct === true || String(o?.correct) === 'true'
+                  ).length;
+                  if (pc2 > rawCorrectCountBlock) rawCorrectCountBlock = pc2;
+                  break;
+                }
+              }
+            } catch { /* ignore */ }
             const isMultiQ = host.quizService.multipleAnswer || rawCorrectCountBlock > 1;
             let rawResolved = false;
             if (isMultiQ) {

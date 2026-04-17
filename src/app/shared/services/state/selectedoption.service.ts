@@ -3159,27 +3159,54 @@ export class SelectedOptionService {
       return { resolved: false, correctTotal: 0, correctSelected: 0, incorrectSelected: 0, remainingCorrect: 0 };
     }
 
-    // Resolve authoritative question data. The `question` arg can be a
-    // mutated/display-order copy where correct flags have been scrambled; use
-    // the raw quizService.questions[] entry matched by text when possible, so
-    // correctTotal reflects the true number of correct answers.
+    // Resolve authoritative question data. Use PRISTINE quizInitialState
+    // (immune to runtime mutation) as the source of truth for correct flags.
+    // This prevents mutated live options (e.g. from option-lock-policy
+    // backfill) from dropping correctTotal and falsely resolving multi-answer
+    // questions when only 1 of 2 correct answers is selected.
     let questionOptions = Array.isArray(question.options) ? question.options : [];
     try {
-      const rawQs: any[] = this.quizService?.questions ?? [];
       const qText = (question.questionText ?? '').trim().toLowerCase();
-      const rawQ = qText
-        ? rawQs.find(r => (r?.questionText ?? '').trim().toLowerCase() === qText)
-        : null;
-      if (rawQ && Array.isArray(rawQ.options)) {
-        const rawCorrectCount = rawQ.options.filter((o: any) =>
+      // First try pristine quizInitialState (immutable deep clone of QUIZ_DATA)
+      const pristineBundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
+      let pristineQ: any = null;
+      for (const quiz of pristineBundle) {
+        for (const pq of (quiz?.questions ?? [])) {
+          if ((pq?.questionText ?? '').trim().toLowerCase() === qText) {
+            pristineQ = pq;
+            break;
+          }
+        }
+        if (pristineQ) break;
+      }
+      if (pristineQ && Array.isArray(pristineQ.options)) {
+        const pristineCorrectCount = pristineQ.options.filter((o: any) =>
           o?.correct === true || String(o?.correct) === 'true'
         ).length;
         const currentCorrectCount = questionOptions.filter(o =>
           this.coerceToBoolean(o.correct)
         ).length;
-        // If raw has more correct answers than current, raw is authoritative.
-        if (rawCorrectCount > currentCorrectCount) {
-          questionOptions = rawQ.options;
+        // Always prefer pristine if it has more correct answers
+        if (pristineCorrectCount > currentCorrectCount) {
+          questionOptions = pristineQ.options;
+        }
+      }
+      // Fallback: also check live quizService.questions[]
+      if (!pristineQ) {
+        const rawQs: any[] = this.quizService?.questions ?? [];
+        const rawQ = qText
+          ? rawQs.find(r => (r?.questionText ?? '').trim().toLowerCase() === qText)
+          : null;
+        if (rawQ && Array.isArray(rawQ.options)) {
+          const rawCorrectCount = rawQ.options.filter((o: any) =>
+            o?.correct === true || String(o?.correct) === 'true'
+          ).length;
+          const currentCorrectCount = questionOptions.filter(o =>
+            this.coerceToBoolean(o.correct)
+          ).length;
+          if (rawCorrectCount > currentCorrectCount) {
+            questionOptions = rawQ.options;
+          }
         }
       }
     } catch { /* ignore and keep original */ }

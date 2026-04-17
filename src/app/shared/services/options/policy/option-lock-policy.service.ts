@@ -99,12 +99,15 @@ export class OptionLockPolicyService {
       return v === true || String(v) === 'true' || v === 1 || v === '1';
     };
 
-    // Backfill correct flags onto bindings so downstream code sees them
+    // Backfill correct flags onto bindings so downstream code sees them.
+    // IMPORTANT: Only set isCorrect on the BINDING — do NOT mutate
+    // b.option.correct, because b.option is a shared reference to
+    // quizService.questions[].options[]. Mutating it corrupts the live
+    // data and makes multi-answer guards think the question is single-answer.
     if (canonicalCorrectIdxs.size > 0) {
       bindings.forEach((b, i) => {
         const isC = canonicalCorrectIdxs.has(i);
         b.isCorrect = isC;
-        if (b.option) (b.option as any).correct = isC;
       });
     }
 

@@ -9,6 +9,7 @@ import { Option } from '../../../models/Option.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
 import { QuizService } from '../../data/quiz.service';
 import { QuizShuffleService } from '../../flow/quiz-shuffle.service';
+import { SelectedOptionService } from '../../state/selectedoption.service';
 
 @Injectable({ providedIn: 'root' })
 export class ExplanationFormatterService {

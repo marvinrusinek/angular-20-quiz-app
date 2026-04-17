@@ -152,12 +152,28 @@ export class QuizContentDisplayService {
 
     // Build the base question text display (with multi-answer banner if applicable)
     let qDisplay = effectiveQText;
-    // Use the raw, untouched questions array as the source of truth for the
-    // correct-count. The qObj passed in here may have been mutated by upstream
-    // services that OR-merge correct flags from prior state.
+    // Use PRISTINE quizInitialState as the source of truth for the correct
+    // count. Live quizService.questions[] can be mutated by option-lock-policy.
     const rawQuestion = (this.quizService as any)?.questions?.[safeIdx] as QuizQuestion | undefined;
     const sourceOpts = rawQuestion?.options ?? qObj?.options ?? [];
-    const numCorrect = sourceOpts.filter((o: Option) => o?.correct === true).length;
+    let numCorrect = sourceOpts.filter((o: Option) => o?.correct === true).length;
+    // Cross-check against pristine data — use the HIGHER count
+    try {
+      const _n = (t: any) => String(t ?? '').trim().toLowerCase();
+      const _qText = _n(rawQuestion?.questionText ?? qObj?.questionText);
+      const _bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
+      for (const _quiz of _bundle) {
+        for (const _pq of (_quiz?.questions ?? [])) {
+          if (_n(_pq?.questionText) === _qText) {
+            const pc = (_pq?.options ?? []).filter(
+              (o: any) => o?.correct === true || String(o?.correct) === 'true'
+            ).length;
+            if (pc > numCorrect) numCorrect = pc;
+            break;
+          }
+        }
+      }
+    } catch { /* ignore */ }
     if (numCorrect > 1 && sourceOpts.length) {
       const banner = this.quizQuestionManagerService.getNumberOfCorrectAnswersText(
         numCorrect,
@@ -175,24 +191,13 @@ export class QuizContentDisplayService {
     let isResolved = false;
     if (qObj) {
       if (isMultipleAnswer) {
-        const norm = (t: any) => String(t ?? '').trim().toLowerCase();
-        const rawCorrectTexts = (sourceOpts as any[])
-          .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
-          .map((o: any) => norm(o?.text))
-          .filter((t: string) => !!t);
-        // Only count entries that are ACTIVELY selected right now.
-        // `getSelectedOptionsForQuestion$` unions `_selectionHistory`
-        // with `selected: false`, so past clicks would otherwise be
-        // treated as current selections and falsely resolve the question
-        // when only 1 of N correct answers is actually selected.
-        const selTexts = new Set(
-          (safeSelections as any[])
-            .filter((s: any) => s?.selected === true)
-            .map((s: any) => norm(s?.text))
-            .filter((t: string) => !!t)
-        );
-        isResolved = rawCorrectTexts.length > 0 && rawCorrectTexts.every((t: string) => selTexts.has(t));
-        console.log(`[displayText$] Q${safeIdx + 1} MULTI-resolution rawCorrect=${JSON.stringify(rawCorrectTexts)} selTexts=${JSON.stringify([...selTexts])} isResolved=${isResolved}`);
+        // Multi-answer: NEVER resolve from this pipeline. The
+        // selectedOptionsMap is polluted (timer expiry / history writes
+        // mark all options as selected:true). FET for multi-answer
+        // questions must ONLY be triggered by the explicit click handler
+        // that verifies all correct answers at the moment of the click.
+        isResolved = false;
+        console.log(`[displayText$] Q${safeIdx + 1} MULTI-ANSWER: forced isResolved=false`);
       } else {
         isResolved = this.selectedOptionService.isQuestionResolvedLeniently(qObj, safeSelections);
       }
@@ -208,10 +213,16 @@ export class QuizContentDisplayService {
     const wasPreviouslyAnswered = this.quizStateService.isQuestionAnswered(safeIdx);
 
     // Allow FET only if the question is actually resolved (all correct
-    // answers selected) OR the timer expired. Previously-answered alone
-    // must not trigger FET — otherwise a wrong single-answer click that
-    // survives a refresh would incorrectly show the explanation.
-    let shouldShowExplanation = isResolved || isTimedOut;
+    // answers selected) OR the timer expired for a SINGLE-answer question.
+    // For multi-answer questions, FET requires ALL correct selected even
+    // on timeout — the user must select all correct to see the explanation.
+    let shouldShowExplanation: boolean;
+    if (isMultipleAnswer) {
+      // Multi-answer: ONLY show FET when fully resolved, never on timeout alone
+      shouldShowExplanation = isResolved;
+    } else {
+      shouldShowExplanation = isResolved || isTimedOut;
+    }
 
     // CRITICAL GUARD: Only show FET if user has actively interacted with
     // this question in the current session. On a page refresh the in-memory
@@ -378,9 +389,16 @@ export class QuizContentDisplayService {
       finalFet.toLowerCase().includes('correct because')
     );
 
-    // DIAGNOSTIC
+    // DIAGNOSTIC — show what's in the live map for this index
     try {
-      document.title = `DT Q${safeIdx} sel=${safeSelections.length} R=${isResolved?1:0} sSE=${shouldShowExplanation?1:0} hF=${hasFet?1:0} iFQ=${isFetForThisQuestion?1:0} hR=${hasRaw?1:0} NB=${isNavBack?1:0}`;
+      const _mapEntries: string[] = [];
+      const _lm = this.selectedOptionService?.selectedOptionsMap;
+      if (_lm && typeof _lm.get === 'function') {
+        for (const _o of (_lm.get(safeIdx) ?? [])) {
+          _mapEntries.push(`${((_o as any)?.text ?? '').substring(0, 15)}:s=${(_o as any)?.selected}`);
+        }
+      }
+      document.title = `Q${safeIdx} R=${isResolved?1:0} sSE=${shouldShowExplanation?1:0} MAP=[${_mapEntries.join('|')}]`;
     } catch { /* ignore */ }
 
     if (shouldShowExplanation) {
