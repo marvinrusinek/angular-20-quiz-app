@@ -124,9 +124,8 @@ export class SharedOptionClickService {
       console.log(`[SOC.onOptionUI] 🟢 Processing '${ev.kind}' for Q${comp.getActiveQuestionIndex() + 1} option ${index}`);
 
       if (comp.type === 'single') {
-        const optionId = binding.option?.optionId ?? index;
-        if (comp.form.get('selectedOptionId')?.value !== optionId) {
-          comp.form.get('selectedOptionId')?.setValue(optionId, { emitEvent: false });
+        if (comp.form.get('selectedOptionId')?.value !== index) {
+          comp.form.get('selectedOptionId')?.setValue(index, { emitEvent: false });
         }
       } else {
         const ctrl = comp.form.get(String(index));
@@ -141,6 +140,7 @@ export class SharedOptionClickService {
   }
 
   runOptionContentClick(comp: any, binding: any, index: number, event: any): void {
+    console.error('🟣 SOC.runOptionContentClick ENTERED idx=' + index + ' optionIds=' + (comp.optionBindings||[]).map((b:any,i:number)=>i+':'+b?.option?.optionId).join(','));
     const now = Date.now();
     if (comp._lastRunClickIndex === index && comp._lastRunClickTime && (now - comp._lastRunClickTime) < 200) {
       console.log(`[SOC.runOptionContentClick] Skipping rapid duplicate for index=${index}`);
@@ -541,10 +541,42 @@ export class SharedOptionClickService {
     // detect the input change and re-render.  The click handler mutates
     // bindings in-place (showIcon, highlight, isSelected, etc.), but
     // OnPush only triggers when the @Input reference changes.
-    comp.optionBindings = (comp.optionBindings ?? []).map((b: any) => ({
-      ...b,
-      option: b.option ? { ...b.option } : b.option
-    }));
+    // For single-answer: authoritatively enforce that ONLY the clicked
+    // binding has isSelected=true, while previously-clicked options keep
+    // highlight+showIcon (but NOT isSelected). Intermediate service calls
+    // (syncSelectedFlags, forceSelectIntoServices) can corrupt isSelected
+    // via effectiveId collisions; this is the final backstop.
+    if (!isMultiFromQ) {
+      const histSet = new Set<number>(durableSet ?? []);
+      comp.optionBindings = (comp.optionBindings ?? []).map((b: any, bi: number) => {
+        const isClicked = bi === index;
+        const inHistory = histSet.has(bi);
+        return {
+          ...b,
+          isSelected: isClicked,
+          option: b.option ? {
+            ...b.option,
+            selected: isClicked,
+            highlight: isClicked || inHistory,
+            showIcon: isClicked || inHistory
+          } : b.option
+        };
+      });
+    } else {
+      comp.optionBindings = (comp.optionBindings ?? []).map((b: any) => ({
+        ...b,
+        option: b.option ? { ...b.option } : b.option
+      }));
+    }
+
+    // DIAGNOSTIC: final binding state + document.title
+    try {
+      const _s = comp.optionBindings.map((b: any, i: number) =>
+        `${i}:${b.isSelected?'S':'_'}${b.option?.highlight?'H':'_'}${b.option?.selected?'s':'_'}`
+      ).join('|');
+      console.error(`🔴 FINAL BINDINGS Q${qIdx+1} clicked=${index} isMulti=${isMultiFromQ}: ${_s}`);
+      document.title = `FINAL Q${qIdx+1} i=${index} ${_s}`;
+    } catch {}
 
     comp.cdRef.detectChanges();
   }
@@ -652,6 +684,27 @@ export class SharedOptionClickService {
         showFeedback: comp.showFeedback,
         disabled: comp.computeDisabledState(b.option, b.index)
       }));
+    }
+
+    // SINGLE-ANSWER GUARD: OUS's syncSelectedFlags can corrupt isSelected
+    // via effectiveId collisions. Enforce correct state BEFORE detectChanges
+    // so option-item's _wasSelected latch never sees a false positive.
+    const isCheckedForGuard = 'checked' in event ? event.checked : true;
+    if (isCheckedForGuard && ctx.type === 'single') {
+      const correctCount = (ctx.optionBindings ?? []).filter((b: any) => {
+        const c = b?.option?.correct ?? b?.option?.isCorrect;
+        return c === true || String(c) === 'true' || c === 1 || c === '1';
+      }).length;
+      if (correctCount <= 1) {
+        for (let bi = 0; bi < (comp.optionBindings ?? []).length; bi++) {
+          const ob = comp.optionBindings[bi];
+          if (!ob) continue;
+          ob.isSelected = (bi === index);
+          if (ob.option) {
+            ob.option.selected = (bi === index);
+          }
+        }
+      }
     }
 
     this.updateBindingSnapshots(comp);

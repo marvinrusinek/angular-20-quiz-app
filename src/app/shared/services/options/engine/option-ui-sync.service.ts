@@ -362,9 +362,27 @@ export class OptionUiSyncService {
       // key is effectiveId (optionId), not position index. Using the
       // raw position idx would false-positive when a 1-based optionId
       // from another option collides with this binding's array index.
+      // Collision guard: when a binding has no real optionId, getEffectiveId
+      // falls back to the array index, which can collide with another
+      // binding's real optionId. Build a set of real IDs to detect this.
+      const realIdOwnerForSelect = new Map<number | string, number>();
+      ctx.optionBindings.forEach((b, idx) => {
+        const id = b.option?.optionId;
+        if (id != null && id !== -1) {
+          realIdOwnerForSelect.set(id, idx);
+        }
+      });
       ctx.optionBindings.forEach((b, idx) => {
         const bEffId = getEffectiveId(b.option, idx);
         if (ctx.selectedOptionMap.has(bEffId) && !seenIndices.has(idx)) {
+          // Reject false-positive: fallback index collides with another binding's real optionId
+          const hasRealId = b.option?.optionId != null && b.option.optionId !== -1;
+          if (!hasRealId) {
+            const owner = realIdOwnerForSelect.get(bEffId);
+            if (owner !== undefined && owner !== idx) {
+              return; // skip — this binding doesn't actually match the map entry
+            }
+          }
           fullSelections.push({
             ...b.option,
             optionId: bEffId,
@@ -594,10 +612,44 @@ export class OptionUiSyncService {
    */
   private syncSelectedFlags(ctx: OptionUiSyncContext): void {
     const getEffId = (o: any, idx: number) => (o?.optionId != null && o.optionId !== -1) ? o.optionId : idx;
+
+    // Collision guard: when a binding has no real optionId, getEffId falls back
+    // to the array index.  That index can collide with another binding's real
+    // optionId (e.g. binding[0].optionId=1 vs binding[1] fallback index=1).
+    // Map real optionIds → their owning binding index so we can reject false matches.
+    const realIdOwner = new Map<number | string, number>();
+    for (let i = 0; i < (ctx.optionBindings?.length ?? 0); i++) {
+      const id = ctx.optionBindings[i].option?.optionId;
+      if (id != null && id !== -1) {
+        realIdOwner.set(id, i);
+      }
+    }
+
+    // DIAGNOSTIC: dump map keys and binding optionIds
+    const _mapKeys = [...ctx.selectedOptionMap.entries()].filter(([,v]) => v).map(([k]) => k);
+    const _ids = (ctx.optionBindings ?? []).map((b: any, i: number) => `${i}:id=${b.option?.optionId}`);
+    console.error(`🔍 syncSelectedFlags mapKeys=[${_mapKeys}] ids=[${_ids.join(',')}]`);
+
     for (let i = 0; i < (ctx.optionBindings?.length ?? 0); i++) {
       const b = ctx.optionBindings[i];
       const eid = getEffId(b.option, i);
-      const chosen = ctx.selectedOptionMap.get(eid) === true;
+      let chosen = ctx.selectedOptionMap.get(eid) === true;
+
+      // Reject false-positive: this binding has no real optionId and its
+      // fallback index collides with another binding's real optionId.
+      if (chosen) {
+        const hasRealId = b.option?.optionId != null && b.option.optionId !== -1;
+        if (!hasRealId) {
+          const owner = realIdOwner.get(eid);
+          if (owner !== undefined && owner !== i) {
+            chosen = false;
+          }
+        }
+      }
+
+      if (chosen && i !== 0) {
+        console.error(`🔍 syncSelectedFlags b[${i}] chosen=true eid=${eid} optionId=${b.option?.optionId} hasRealId=${b.option?.optionId != null && b.option.optionId !== -1}`);
+      }
 
       b.option.selected = chosen;
       b.isSelected = chosen;

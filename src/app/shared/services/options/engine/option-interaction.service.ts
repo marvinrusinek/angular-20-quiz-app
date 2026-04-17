@@ -403,6 +403,7 @@ export class OptionInteractionService {
         }
       } catch { /* ignore */ }
 
+      console.log(`[OIS] SINGLE-ANSWER BINDING LOOP Q${qIdx + 1}: clickedIndex=${index} historySet=[${[...historySet]}]`);
       state.optionBindings.forEach((b, i) => {
         const isCurrent = (i === index);
         const wasPreviouslyClicked = historySet.has(i);
@@ -417,9 +418,11 @@ export class OptionInteractionService {
         b.highlightCorrect = false;
         b.highlightIncorrect = false;
         b.showFeedback = isCurrent;
+        console.log(`[OIS]   binding[${i}]: isCurrent=${isCurrent} wasPrev=${wasPreviouslyClicked} isSelected=${b.isSelected} highlight=${b.option?.highlight} text="${(b.option?.text || '').substring(0, 30)}"`);
       });
       state.selectedOptionMap.clear();
       state.selectedOptionMap.set(targetKey, true);
+      console.log(`[OIS] selectedOptionMap after clear+set: keys=[${[...state.selectedOptionMap.keys()]}]`);
       state.feedbackConfigs = {};
     } else { // Multiple mode: two-pass update to ensure correct results regardless of binding order
       // Pass 1: Sync 'selected' state for all bindings AND optionsToDisplay based on futureKeys.
@@ -539,6 +542,7 @@ export class OptionInteractionService {
 
     // CALL UPDATE with THE AUTHORITATIVE CONTEXT (state)
     (updateOptionAndUI as any)(binding, index, mockEvent, state);
+
 
     // MESSAGE UPDATE
     try {

@@ -834,16 +834,30 @@ export class SharedOptionBindingService {
   }
 
   syncSelectedFlags(comp: any): void {
+    // Collision guard: when a binding has no real optionId, the fallback (array
+    // index) can collide with another binding's real optionId (e.g. binding[0]
+    // has optionId=1, binding[1] has no id so falls back to index 1 → collision).
+    const realIdOwner = new Map<number, number>();
+    for (let i = 0; i < (comp.optionBindings?.length ?? 0); i++) {
+      const id = comp.optionBindings[i].option.optionId;
+      if (id != null && id !== -1) {
+        realIdOwner.set(Number(id), i);
+      }
+    }
+
     for (let i = 0; i < (comp.optionBindings?.length ?? 0); i++) {
       const b = comp.optionBindings[i];
       const id = b.option.optionId;
       const numericId = (id != null && id !== -1) ? Number(id) : i;
+      const hasRealId = id != null && id !== -1;
+      const isCollision = !hasRealId && realIdOwner.has(numericId) && realIdOwner.get(numericId) !== i;
 
-      let chosen = comp.selectedOptionMap.has(i) ||
-        (Number.isFinite(numericId) && comp.selectedOptionMap.has(numericId));
-
-      if (!chosen) {
-        chosen = comp.selectedOptionHistory.some((h: any) => Number(h) === numericId || Number(h) === i);
+      let chosen = false;
+      if (!isCollision) {
+        chosen = Number.isFinite(numericId) && comp.selectedOptionMap.has(numericId);
+        if (!chosen) {
+          chosen = comp.selectedOptionHistory.some((h: any) => Number(h) === numericId);
+        }
       }
 
       b.option.selected = chosen;

@@ -233,52 +233,6 @@ export class SelectedOptionService {
   }
 
   private saveState(): void {
-    // DIAGNOSTIC: trace every saveState call
-    const _caller = new Error().stack?.split('\n')[2]?.trim() ?? '?';
-    console.log(`[SOS.saveState] called from: ${_caller}`);
-
-    // ON-PAGE DIAGNOSTIC BANNER
-    try {
-      let banner = document.getElementById('__sos_diag_banner__');
-      if (!banner) {
-        banner = document.createElement('div');
-        banner.id = '__sos_diag_banner__';
-        banner.style.cssText =
-          'position:fixed;top:0;left:0;right:0;z-index:99999;' +
-          'background:#000;color:#0f0;font:11px/1.3 monospace;' +
-          'padding:6px 10px;white-space:pre-wrap;max-height:50vh;' +
-          'overflow:auto;border-bottom:2px solid #0f0;';
-        document.body.appendChild(banner);
-      }
-      const fmtArr = (v: any[]) => v.map((s: any) => `id=${s.optionId}|sel=${s.selected}|hl=${s.highlight}|si=${s.showIcon}|t="${(s.text ?? '').substring(0, 15)}"`).join(' , ');
-      const mapLines: string[] = [];
-      for (const [k, v] of this.selectedOptionsMap) mapLines.push(`  map[${k}] n=${v.length}: ${fmtArr(v)}`);
-      const histLines: string[] = [];
-      for (const [k, v] of this._selectionHistory) histLines.push(`  hist[${k}] n=${v.length}: ${fmtArr(v)}`);
-      const sessLines: string[] = [];
-      for (let i = 0; i < sessionStorage.length; i++) {
-        const k = sessionStorage.key(i);
-        if (k && k.startsWith('sel_Q')) sessLines.push(`  ${k} = ${sessionStorage.getItem(k)?.substring(0, 300)}`);
-      }
-      const qIdx = this.quizService?.currentQuestionIndex;
-      const isMulti = qIdx != null ? this.isMultiAnswerQuestion(qIdx) : '?';
-      banner.textContent =
-        `=== saveState @ ${new Date().toLocaleTimeString()} ===\n` +
-        `caller: ${_caller}\n` +
-        `currentQIdx=${qIdx} isMulti=${isMulti}\n` +
-        `SELECTED MAP:\n` + (mapLines.join('\n') || '  (empty)') + '\n' +
-        `HISTORY:\n` + (histLines.join('\n') || '  (empty)') + '\n' +
-        `SESSION sel_Q*:\n` + (sessLines.join('\n') || '  (empty)');
-    } catch { /* ignore */ }
-
-    console.log(`  _selectionHistory keys: [${[...this._selectionHistory.keys()]}]`);
-    for (const [k, v] of this._selectionHistory) {
-      console.log(`  _selectionHistory[${k}]: ${v.length} entries: ${v.map((s: any) => `id=${s.optionId}|sel=${s.selected}|text="${(s.text ?? '').substring(0, 20)}"`).join(', ')}`);
-    }
-    console.log(`  selectedOptionsMap keys: [${[...this.selectedOptionsMap.keys()]}]`);
-    for (const [k, v] of this.selectedOptionsMap) {
-      console.log(`  selectedOptionsMap[${k}]: ${v.length} entries: ${v.map((s: any) => `id=${s.optionId}|sel=${s.selected}|text="${(s.text ?? '').substring(0, 20)}"`).join(', ')}`);
-    }
     try {
       const rawObj = Object.fromEntries(this.rawSelectionsMap);
       sessionStorage.setItem('rawSelectionsMap', JSON.stringify(rawObj));

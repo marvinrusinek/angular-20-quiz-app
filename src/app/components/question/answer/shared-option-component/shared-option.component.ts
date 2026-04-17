@@ -646,6 +646,7 @@ export class SharedOptionComponent
   }
 
   public onOptionUI(ev: OptionUIEvent): void {
+    console.error(`🟡 onOptionUI kind=${ev.kind} idx=${ev.displayIndex} optId=${ev.optionId}`);
     this.clickService.onOptionUI(this as any, ev);
   }
 

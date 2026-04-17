@@ -389,17 +389,6 @@ export class QuizContentDisplayService {
       finalFet.toLowerCase().includes('correct because')
     );
 
-    // DIAGNOSTIC — show what's in the live map for this index
-    try {
-      const _mapEntries: string[] = [];
-      const _lm = this.selectedOptionService?.selectedOptionsMap;
-      if (_lm && typeof _lm.get === 'function') {
-        for (const _o of (_lm.get(safeIdx) ?? [])) {
-          _mapEntries.push(`${((_o as any)?.text ?? '').substring(0, 15)}:s=${(_o as any)?.selected}`);
-        }
-      }
-      document.title = `Q${safeIdx} R=${isResolved?1:0} sSE=${shouldShowExplanation?1:0} MAP=[${_mapEntries.join('|')}]`;
-    } catch { /* ignore */ }
 
     if (shouldShowExplanation) {
       console.log(`[displayText$] Q${safeIdx + 1} DISPLAY: hasFet=${hasFet}, isValid=${isFetForThisQuestion}, hasRaw=${hasRaw}`);

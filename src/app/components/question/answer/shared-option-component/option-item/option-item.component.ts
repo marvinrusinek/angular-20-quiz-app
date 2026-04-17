@@ -311,6 +311,16 @@ export class OptionItemComponent implements OnChanges {
     // rehydrate clears them, causing a flash. _wasSelected is only
     // true after a live user click, so it's safe.
     if (!this._userHasClicked && !this._wasSelected) {
+      // During LIVE interaction (user clicked a sibling, not this option),
+      // the click pipeline (OIS/OUS/SOC backstop) authoritatively sets
+      // b.option.showIcon=false on non-clicked, non-history options.
+      // Trust that flag to prevent service-level false positives from
+      // effectiveId collisions or stale entries.
+      // On refresh/initial-load, showIcon is typically undefined (not
+      // explicitly false), so the service check below still runs.
+      if (this.b?.option?.showIcon === false) {
+        return false;
+      }
       // No live click this session → only show icon if a saved
       // selection actually matches this exact binding position.
       return this.isSelectedForCurrentQuestion();
@@ -350,7 +360,11 @@ export class OptionItemComponent implements OnChanges {
       return wasSelected && !this.isOptionCorrect() ? '#ff0000' : null;
     }
 
-    if (!this.shouldHighlightOption()) {
+    const _sh = this.shouldHighlightOption();
+    if (_sh) {
+      console.error(`🔴 BG i=${this.i} text="${(this.b?.option?.text||'').substring(0,20)}" isSel=${this.b.isSelected} hl=${this.b.option?.highlight} _was=${this._wasSelected} isSelQ=${this.isSelectedForCurrentQuestion()} _uc=${this._userHasClicked}`);
+    }
+    if (!_sh) {
       return null;
     }
 
@@ -523,6 +537,11 @@ export class OptionItemComponent implements OnChanges {
     // selection state — not binding flags which can be transiently
     // stale from processOptionBindings / hydrateOptions / setOptionBindingsIfChanged.
     if (!this._userHasClicked && !this._wasSelected) {
+      // During live interaction, trust the binding's highlight flag
+      // when explicitly false — prevents service-level false positives.
+      if (this.b?.option?.highlight === false) {
+        return false;
+      }
       return this.isSelectedForCurrentQuestion();
     }
 
@@ -554,6 +573,11 @@ export class OptionItemComponent implements OnChanges {
 
   private isSelectedForCurrentQuestion(): boolean {
     const selections = this.getSelectionsForCurrentBinding();
-    return selections.some((s: any) => this.matchesBindingSelection(s));
+    const result = selections.some((s: any) => this.matchesBindingSelection(s));
+    if (this.i === 1 && result) {
+      const matching = selections.filter((s: any) => this.matchesBindingSelection(s));
+      console.error(`⚡ FALSE-MATCH i=1 text="${(this.b?.option?.text||'').substring(0,20)}" optId=${this.b?.option?.optionId} selections=${JSON.stringify(selections.map((s:any)=>({t:(s?.text||'').substring(0,20),id:s?.optionId,dIdx:s?.displayIndex,sel:s?.selected,hl:s?.highlight,si:s?.showIcon})))} matching=${JSON.stringify(matching.map((s:any)=>({t:(s?.text||'').substring(0,20),id:s?.optionId,dIdx:s?.displayIndex})))}`);
+    }
+    return result;
   }
 }
