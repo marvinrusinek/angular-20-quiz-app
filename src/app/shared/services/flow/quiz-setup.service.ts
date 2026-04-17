@@ -75,6 +75,31 @@ export class QuizSetupService {
       if (needsRender) {
         host.cdRef.markForCheck();
       }
+
+      // When tab becomes visible, ensure question text is in the <h3>
+      if (!isHidden) {
+        const idx = host.currentQuestionIndex;
+        const question = host.questionsArray?.[idx]
+          ?? this.quizService.questions?.[idx]
+          ?? null;
+        if (question) {
+          const displayHTML = this.buildQuestionDisplayHTML(question);
+          if (displayHTML) {
+            const writeH3 = () => {
+              try {
+                const h3 = document.querySelector('codelab-quiz-content h3');
+                if (h3 && !h3.innerHTML.trim()) {
+                  h3.innerHTML = displayHTML;
+                }
+              } catch {}
+            };
+            setTimeout(writeH3, 50);
+            setTimeout(writeH3, 200);
+            setTimeout(writeH3, 500);
+            setTimeout(writeH3, 1000);
+          }
+        }
+      }
     });
 
     host.isAnswered$ = this.selectedOptionService.isAnswered$;

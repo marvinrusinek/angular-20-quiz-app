@@ -110,11 +110,8 @@ export class CqcOrchestratorService {
               }
             }
           } catch { /* ignore */ }
-          // If quiz data isn't loaded yet, return '' — loadQuestion
-          // will handle it once data is available.
-          if (!intended) {
-            return '';
-          }
+          // If no FET was resolved, fall through to question text below
+          // instead of returning '' — that would leave the heading blank.
         }
       }
       if (!intended) {
