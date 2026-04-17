@@ -1909,73 +1909,29 @@ export class QuizService {
     // MULTI-ANSWER GUARD: when isCorrect=true and the question has multiple
     // correct answers, verify ALL are actually selected before scoring.
     // Callers can misclassify or fire before all correct answers are picked.
-    if (isCorrect) {
+    // MULTI-ANSWER GUARD: if the question has multiple correct answers
+    // (per pristine quizInitialState), block scoring unless the caller
+    // explicitly passed isMultipleAnswer=true — which only happens when
+    // the click handler has verified ALL correct answers are selected.
+    if (isCorrect && !isMultipleAnswer) {
       try {
         const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
         const q = this.questions?.[questionIndex];
         const qText = nrm(q?.questionText);
-        let pristineCorrectTexts: string[] = [];
+        let pristineCorrectCount = 0;
         const bundle: any[] = (this as any)?.quizInitialState ?? [];
         for (const quiz of bundle) {
           for (const pq of (quiz?.questions ?? [])) {
             if (nrm(pq?.questionText) !== qText) continue;
-            pristineCorrectTexts = (pq?.options ?? [])
-              .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
-              .map((o: any) => nrm(o?.text))
-              .filter((t: string) => !!t);
+            pristineCorrectCount = (pq?.options ?? [])
+              .filter((o: any) => o?.correct === true || String(o?.correct) === 'true').length;
             break;
           }
-          if (pristineCorrectTexts.length > 0) break;
+          if (pristineCorrectCount > 0) break;
         }
-        if (pristineCorrectTexts.length > 1) {
-          const selectedTexts = new Set<string>();
-
-          // Source 1: userAnswers
-          const userAnswerIds = Array.isArray(this.userAnswers?.[questionIndex])
-            ? this.userAnswers[questionIndex] as number[]
-            : [];
-          for (const id of userAnswerIds) {
-            const opt = q?.options?.find((o: any) => String(o?.optionId) === String(id));
-            if (opt) selectedTexts.add(nrm(opt.text));
-            if (!opt && typeof id === 'number' && id >= 0 && id < (q?.options?.length ?? 0)) {
-              selectedTexts.add(nrm(q!.options[id]?.text));
-            }
-          }
-
-          // Source 2: selectedOptionsMap on QuizService
-          for (const s of (this.selectedOptionsMap.get(questionIndex) ?? [])) {
-            const t = nrm((s as any)?.text);
-            if (t) selectedTexts.add(t);
-          }
-
-          // Source 3: option.selected flags
-          for (const opt of (q?.options ?? [])) {
-            if ((opt as any)?.selected === true) {
-              selectedTexts.add(nrm(opt.text));
-            }
-          }
-
-          // Source 4: sessionStorage sel_Q* (most durable)
-          try {
-            const raw = sessionStorage.getItem('sel_Q' + questionIndex);
-            if (raw) {
-              const parsed = JSON.parse(raw);
-              if (Array.isArray(parsed)) {
-                for (const s of parsed) {
-                  if (s?.selected !== false) {
-                    const t = nrm(s?.text);
-                    if (t) selectedTexts.add(t);
-                  }
-                }
-              }
-            }
-          } catch { /* ignore */ }
-
-          const allCorrectSelected = pristineCorrectTexts.every(t => selectedTexts.has(t));
-          console.log(`[scoreDirectly] Q${questionIndex + 1} multi-guard: selected=[${[...selectedTexts]}] needed=[${pristineCorrectTexts}] pass=${allCorrectSelected}`);
-          if (!allCorrectSelected) {
-            return;
-          }
+        if (pristineCorrectCount > 1) {
+          console.log(`[scoreDirectly] Q${questionIndex + 1} BLOCKED: isMultipleAnswer=false but pristine has ${pristineCorrectCount} correct answers`);
+          return;
         }
       } catch { /* ignore — let scoring proceed */ }
     }
