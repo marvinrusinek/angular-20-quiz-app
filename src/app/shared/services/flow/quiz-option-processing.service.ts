@@ -488,8 +488,60 @@ export class QuizOptionProcessingService {
     const authoritativeCorrectness = await this.quizService.checkIfAnsweredCorrectly(idx, false);
 
     if (authoritativeCorrectness === true) {
-      this.quizService.scoreDirectly(idx, true, !isSingleAnswerQuestion);
-      this.quizPersistence.setPersistedDotStatus(quizId, idx, 'correct');
+      // PRISTINE GUARD: checkIfAnsweredCorrectly uses potentially-mutated
+      // question data, so it can return true prematurely for multi-answer
+      // questions (e.g. reports 1 correct when pristine has 2). Cross-check
+      // against quizInitialState to ensure ALL correct answers are selected.
+      let pristineBlocked = false;
+      if (!isSingleAnswerQuestion) {
+        try {
+          const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
+          const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
+          const q = this.quizService.questions?.[idx];
+          const qText = nrm(q?.questionText);
+          let pristineCorrectTexts: string[] = [];
+
+          if (qText) {
+            for (const quiz of bundle) {
+              for (const pq of (quiz?.questions ?? [])) {
+                if (nrm(pq?.questionText) !== qText) continue;
+                pristineCorrectTexts = (pq?.options ?? [])
+                  .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+                  .map((o: any) => nrm(o?.text))
+                  .filter((t: string) => !!t);
+                break;
+              }
+              if (pristineCorrectTexts.length > 0) break;
+            }
+          }
+
+          if (pristineCorrectTexts.length === 0 && this.quizService.quizId) {
+            const pristineQuiz = bundle.find((qz: any) => qz?.quizId === this.quizService.quizId);
+            const pristineQ = pristineQuiz?.questions?.[idx];
+            if (pristineQ) {
+              pristineCorrectTexts = (pristineQ?.options ?? [])
+                .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+                .map((o: any) => nrm(o?.text))
+                .filter((t: string) => !!t);
+            }
+          }
+
+          if (pristineCorrectTexts.length > 1) {
+            const selections = this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
+            const selTexts = new Set(selections.map((s: any) => nrm(s?.text)).filter((t: string) => !!t));
+            const allPristineSelected = pristineCorrectTexts.every(t => selTexts.has(t));
+            if (!allPristineSelected) {
+              console.log(`[handleAuthoritativeCheck] Q${idx + 1} BLOCKED: pristine has ${pristineCorrectTexts.length} correct but only ${selTexts.size} selected`);
+              pristineBlocked = true;
+            }
+          }
+        } catch { }
+      }
+
+      if (!pristineBlocked) {
+        this.quizService.scoreDirectly(idx, true, !isSingleAnswerQuestion);
+        this.quizPersistence.setPersistedDotStatus(quizId, idx, 'correct');
+      }
     } else if (!isSingleAnswerQuestion && immediateMultiDotStatus) {
       this.quizPersistence.setPersistedDotStatus(quizId, idx, immediateMultiDotStatus);
     }

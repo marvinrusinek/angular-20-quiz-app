@@ -50,8 +50,28 @@ export class SharedOptionClickService {
 
     if (!comp.isDisabled(binding, index)) {
       comp.cdRef.markForCheck();
+      // Determine correctness from pristine quiz data to avoid stale flags
+      let pristineCorrect = binding.option?.correct === true;
+      try {
+        const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
+        const optText = nrm(binding.option?.text);
+        const qIdx = comp.getActiveQuestionIndex?.() ?? comp.currentQuestionIndex ?? 0;
+        const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
+        const quizId = this.quizService?.quizId;
+        if (optText && bundle.length > 0 && quizId) {
+          const pristineQuiz = bundle.find((qz: any) => qz?.quizId === quizId);
+          const pristineQ = pristineQuiz?.questions?.[qIdx];
+          if (pristineQ) {
+            const matchedOpt = (pristineQ.options ?? []).find((o: any) => nrm(o?.text) === optText);
+            if (matchedOpt !== undefined) {
+              pristineCorrect = matchedOpt?.correct === true || String(matchedOpt?.correct) === 'true';
+            }
+          }
+        }
+      } catch { }
       comp.soundService.playOnceForOption({
         ...binding.option,
+        correct: pristineCorrect,
         selected: true,
         questionIndex: comp.currentQuestionIndex
       });

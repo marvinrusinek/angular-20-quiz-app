@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, Injector } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { HttpClient } from '@angular/common/http';
 import {
@@ -29,6 +29,7 @@ import { QuizDataLoaderService } from './quiz-data-loader.service';
 import { QuizQuestionResolverService } from './quiz-question-resolver.service';
 import { QuizOptionsService } from './quiz-options.service';
 import { QuizScoringService } from './quiz-scoring.service';
+import { SelectedOptionService } from '../state/selectedoption.service';
 
 @Injectable({ providedIn: 'root' })
 export class QuizService {
@@ -278,6 +279,16 @@ export class QuizService {
 
   destroy$ = new Subject<void>();
 
+  private _selectedOptionService: SelectedOptionService | null = null;
+  private get selectedOptionServiceLazy(): SelectedOptionService | null {
+    if (!this._selectedOptionService) {
+      try {
+        this._selectedOptionService = this.injector.get(SelectedOptionService);
+      } catch { }
+    }
+    return this._selectedOptionService;
+  }
+
   constructor(
     private quizShuffleService: QuizShuffleService,
     private quizStateService: QuizStateService,
@@ -285,7 +296,8 @@ export class QuizService {
     public dataLoader: QuizDataLoaderService,
     public questionResolver: QuizQuestionResolverService,
     public optionsService: QuizOptionsService,
-    public scoringService: QuizScoringService
+    public scoringService: QuizScoringService,
+    private injector: Injector
   ) {
     this.http = http;
     // Scoring state is loaded in QuizScoringService constructor (loadQuestionCorrectness)
@@ -1901,39 +1913,103 @@ export class QuizService {
    * @param isMultipleAnswer Whether this is a multi-answer question
    */
   public scoreDirectly(questionIndex: number, isCorrect: boolean, isMultipleAnswer: boolean): void {
-    // MULTI-ANSWER GUARD: if a caller says isCorrect=true, cross-check
-    // against pristine quiz data. If the question actually has multiple
-    // correct answers, verify ALL are selected before allowing a positive
-    // score. This prevents premature increments when a single correct
-    // option is clicked on a multi-answer question.
-    // MULTI-ANSWER GUARD: when isCorrect=true and the question has multiple
-    // correct answers, verify ALL are actually selected before scoring.
-    // Callers can misclassify or fire before all correct answers are picked.
-    // MULTI-ANSWER GUARD: if the question has multiple correct answers
-    // (per pristine quizInitialState), block scoring unless the caller
-    // explicitly passed isMultipleAnswer=true — which only happens when
-    // the click handler has verified ALL correct answers are selected.
-    if (isCorrect && !isMultipleAnswer) {
-      try {
-        const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
-        const q = this.questions?.[questionIndex];
-        const qText = nrm(q?.questionText);
-        let pristineCorrectCount = 0;
-        const bundle: any[] = (this as any)?.quizInitialState ?? [];
+    if (isCorrect) {
+      // PRISTINE VERIFICATION: cross-check the caller's isCorrect=true against
+      // the actual pristine quiz data and user selections. Block if the user's
+      // current selection doesn't match the pristine correct answer(s).
+      const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
+      const bundle: any[] = this.quizInitialState ?? [];
+
+      // Resolve pristine correct option texts
+      let pristineCorrectTexts: string[] = [];
+
+      // Strategy 1: match by question text
+      const q = this.questions?.[questionIndex];
+      const qText = nrm(q?.questionText);
+      if (qText) {
         for (const quiz of bundle) {
           for (const pq of (quiz?.questions ?? [])) {
             if (nrm(pq?.questionText) !== qText) continue;
-            pristineCorrectCount = (pq?.options ?? [])
-              .filter((o: any) => o?.correct === true || String(o?.correct) === 'true').length;
+            pristineCorrectTexts = (pq?.options ?? [])
+              .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+              .map((o: any) => nrm(o?.text))
+              .filter((t: string) => !!t);
             break;
           }
-          if (pristineCorrectCount > 0) break;
+          if (pristineCorrectTexts.length > 0) break;
         }
-        if (pristineCorrectCount > 1) {
-          console.log(`[scoreDirectly] Q${questionIndex + 1} BLOCKED: isMultipleAnswer=false but pristine has ${pristineCorrectCount} correct answers`);
+      }
+
+      // Strategy 2: look up by index in the current quiz's pristine data
+      if (pristineCorrectTexts.length === 0 && this.quizId) {
+        const pristineQuiz = bundle.find((qz: any) => qz?.quizId === this.quizId);
+        const pristineQ = pristineQuiz?.questions?.[questionIndex];
+        if (pristineQ) {
+          pristineCorrectTexts = (pristineQ?.options ?? [])
+            .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+            .map((o: any) => nrm(o?.text))
+            .filter((t: string) => !!t);
+        }
+      }
+
+      if (pristineCorrectTexts.length > 0) {
+        // MULTI-ANSWER GUARD
+        if (pristineCorrectTexts.length > 1 && !isMultipleAnswer) {
+          console.log(`[scoreDirectly] Q${questionIndex + 1} BLOCKED: isMultipleAnswer=false but pristine has ${pristineCorrectTexts.length} correct answers`);
           return;
         }
-      } catch { /* ignore — let scoring proceed */ }
+
+        // SELECTION VERIFICATION: gather selections from multiple sources
+        const selTexts = new Set<string>();
+
+        try {
+          const sos = this.selectedOptionServiceLazy;
+          if (sos) {
+            const selections = sos.getSelectedOptionsForQuestion(questionIndex) ?? [];
+            for (const s of selections) {
+              const t = nrm((s as any)?.text);
+              if (t) selTexts.add(t);
+            }
+          }
+        } catch { }
+
+        if (selTexts.size === 0 && this.answers?.length > 0) {
+          for (const a of this.answers) {
+            const t = nrm((a as any)?.text);
+            if (t) selTexts.add(t);
+          }
+        }
+
+        if (selTexts.size === 0) {
+          try {
+            const uaIds = Array.isArray(this.userAnswers?.[questionIndex])
+              ? (this.userAnswers[questionIndex] as number[])
+              : [];
+            const qOpts = this.questions?.[questionIndex]?.options ?? [];
+            for (const id of uaIds) {
+              const opt = qOpts.find((o: any) => String(o?.optionId) === String(id))
+                ?? (typeof id === 'number' && id >= 0 && id < qOpts.length ? qOpts[id] : null);
+              if (opt) {
+                const t = nrm((opt as any)?.text);
+                if (t) selTexts.add(t);
+              }
+            }
+          } catch { }
+        }
+
+        // Verify selections match pristine correct answers
+        if (pristineCorrectTexts.length === 1) {
+          if (!pristineCorrectTexts.some(t => selTexts.has(t))) {
+            console.log(`[scoreDirectly] Q${questionIndex + 1} BLOCKED: selection [${[...selTexts]}] doesn't match pristine correct [${pristineCorrectTexts}]`);
+            return;
+          }
+        } else {
+          if (!pristineCorrectTexts.every(t => selTexts.has(t))) {
+            console.log(`[scoreDirectly] Q${questionIndex + 1} BLOCKED: not all pristine correct selected (need=${pristineCorrectTexts.length}, have=${selTexts.size})`);
+            return;
+          }
+        }
+      }
     }
     this.scoringService.scoreDirectly(questionIndex, isCorrect, isMultipleAnswer, this.shouldShuffle(), this.quizId);
   }
