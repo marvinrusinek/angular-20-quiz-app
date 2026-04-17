@@ -679,7 +679,31 @@ export class OptionUiSyncService {
       ? ctx.optionsToDisplay
       : (question?.options ?? []);
 
-    const correctOptions = freshOptions.filter(o => isCorrectHelper(o));
+    // PRISTINE-FIRST: Resolve correct options from quizInitialState to avoid
+    // stale/mutated correct flags on freshOptions (e.g. after Restart Quiz).
+    let correctOptions = freshOptions.filter(o => isCorrectHelper(o));
+    let correctTextSet = new Set(
+      correctOptions.map(o => normalize(o.text)).filter(Boolean)
+    );
+
+    try {
+      const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
+      const quizId = (this.quizService as any)?.quizId;
+      if (bundle.length > 0 && quizId) {
+        const pristineQuiz = bundle.find((qz: any) => qz?.quizId === quizId);
+        const pristineQ = pristineQuiz?.questions?.[questionIndex];
+        if (pristineQ) {
+          const pristineCorrect = (pristineQ.options ?? [])
+            .filter((o: any) => o?.correct === true || String(o?.correct) === 'true');
+          if (pristineCorrect.length > 0) {
+            correctOptions = pristineCorrect;
+            correctTextSet = new Set(
+              pristineCorrect.map((o: any) => normalize(o.text)).filter(Boolean)
+            );
+          }
+        }
+      }
+    } catch { /* ignore */ }
 
     console.log(`[checkAndScoreMultiAnswer] Q${questionIndex + 1} ENTRY: freshOptions=${freshOptions.length}, correctOptions=${correctOptions.length}, options=`,
       freshOptions.map((o: any) => ({ id: o.optionId, text: o.text?.substring(0, 30), correct: o.correct, selected: o.selected }))
@@ -692,11 +716,6 @@ export class OptionUiSyncService {
 
     const isTrulyMulti = correctOptions.length > 1 || ctx.type === 'multiple';
     const isActuallySingle = !isTrulyMulti;
-
-    // Build a set of correct answer texts for text-based matching
-    const correctTextSet = new Set(
-      correctOptions.map(o => normalize(o.text)).filter(Boolean)
-    );
 
     // Gather selected options from MULTIPLE sources for robustness:
     // 1. Bindings (most immediate UI state)
@@ -735,17 +754,12 @@ export class OptionUiSyncService {
 
     for (const sel of selectedOptions) {
       const selText = normalize(sel?.text);
-      const selCorrect = isCorrectHelper(sel);
-
-      // Check if this selection matches any correct option (by text or explicit flag)
-      if (selCorrect || (selText && correctTextSet.has(selText))) {
+      // Use pristine correctTextSet for matching, not stale binding flags
+      if (selText && correctTextSet.has(selText)) {
         correctSelectedCount++;
       } else if (selText) {
-        // Only count as incorrect if it's a known option with text
-        const matchedInFresh = freshOptions.find(o => normalize(o.text) === selText);
-        if (matchedInFresh && !isCorrectHelper(matchedInFresh)) {
-          hasIncorrect = true;
-        }
+        // If the selected text is not in the pristine correct set, it's incorrect
+        hasIncorrect = true;
       }
     }
 
@@ -768,9 +782,8 @@ export class OptionUiSyncService {
       const allCorrectTextsSelected =
         correctTextSet.size > 0 &&
         [...correctTextSet].every(t => selectedTexts.has(t));
-      const anyIncorrectTextSelected = freshOptions.some(o =>
-        !isCorrectHelper(o) && selectedTexts.has(normalize(o?.text))
-      );
+      const anyIncorrectTextSelected = selectedTexts.size > 0 &&
+        [...selectedTexts].some(t => !correctTextSet.has(t));
       if (
         correctSelectedCount >= correctOptions.length &&
         correctOptions.length >= 2 &&

@@ -114,9 +114,51 @@ export class QqcOptionClickOrchestratorService {
       selections.delete(evtIdx);
     }
 
-    const correctIndices = question.options
-      .map((o: any, i: number) => (o.correct === true || String(o.correct) === 'true') ? i : -1)
-      .filter((i: number) => i !== -1);
+    // PRISTINE-FIRST: Resolve correct indices from quizInitialState to avoid
+    // stale/mutated correct flags on question.options.
+    let correctIndices: number[] = [];
+    try {
+      const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
+      const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
+      const quizId = (this.quizService as any)?.quizId;
+      const qText = nrm(question?.questionText);
+      let pristineOpts: any[] | null = null;
+
+      if (qText && bundle.length > 0) {
+        for (const quiz of bundle) {
+          for (const pq of (quiz?.questions ?? [])) {
+            if (nrm(pq?.questionText) !== qText) continue;
+            pristineOpts = pq?.options ?? [];
+            break;
+          }
+          if (pristineOpts) break;
+        }
+      }
+      if (!pristineOpts && quizId) {
+        const pristineQuiz = bundle.find((qz: any) => qz?.quizId === quizId);
+        pristineOpts = pristineQuiz?.questions?.[questionIndex]?.options ?? null;
+      }
+      if (pristineOpts) {
+        const pristineCorrectTexts = new Set<string>(
+          pristineOpts
+            .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+            .map((o: any) => nrm(o?.text))
+            .filter((t: string) => !!t)
+        );
+        question.options.forEach((o: any, i: number) => {
+          if (pristineCorrectTexts.has(nrm(o?.text))) {
+            correctIndices.push(i);
+          }
+        });
+      }
+    } catch { /* ignore */ }
+
+    // Fallback: use question.options directly
+    if (correctIndices.length === 0) {
+      correctIndices = question.options
+        .map((o: any, i: number) => (o.correct === true || String(o.correct) === 'true') ? i : -1)
+        .filter((i: number) => i !== -1);
+    }
 
     const allCorrectSelected = correctIndices.length > 0 &&
       correctIndices.every((ci: number) => selections.has(ci));
@@ -478,7 +520,7 @@ export class QqcOptionClickOrchestratorService {
 
     // Track multi-answer scoring
     if (isMultiForSelection && question?.options) {
-      const { allCorrectSelected } = this.trackMultiAnswerSelection({
+      const { allCorrectSelected, selections } = this.trackMultiAnswerSelection({
         questionIndex,
         evtIdx,
         checked,

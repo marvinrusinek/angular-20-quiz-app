@@ -81,6 +81,30 @@ export class OptionInteractionService {
       return c === true || String(c) === 'true' || c === 1 || c === '1';
     };
 
+    // PRISTINE CORRECTNESS RESOLVER: Resolve whether the clicked option is
+    // truly correct from quizInitialState, not from potentially-mutated binding data.
+    const isPristineCorrect = (o: any): boolean => {
+      if (!o) return false;
+      try {
+        const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
+        const optText = nrm(o?.text);
+        const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
+        const quizId = (this.quizService as any)?.quizId;
+        if (optText && bundle.length > 0 && quizId) {
+          const pristineQuiz = bundle.find((qz: any) => qz?.quizId === quizId);
+          const pristineQ = pristineQuiz?.questions?.[qIdx];
+          if (pristineQ) {
+            const matchedOpt = (pristineQ.options ?? []).find((po: any) => nrm(po?.text) === optText);
+            if (matchedOpt !== undefined) {
+              return matchedOpt?.correct === true || String(matchedOpt?.correct) === 'true';
+            }
+          }
+        }
+      } catch { /* ignore */ }
+      // Fallback to binding flag if pristine lookup fails
+      return isCorrectHelper(o);
+    };
+
     // Mark interaction immediately
     this.quizStateService.markUserInteracted(qIdx);
 
@@ -103,15 +127,20 @@ export class OptionInteractionService {
     // so the user can still click the correct answer after a wrong pick.
     if (binding.disabled) {
       const isSingle = state.type === 'single' || !(state as any).isMultiMode;
-      if (!(isSingle && isCorrectHelper(binding.option))) {
+      if (!(isSingle && isPristineCorrect(binding.option))) {
         return;
       }
     }
 
     // SET DOT STATUS EARLY — before any subscription-triggering code runs,
     // so updateDotStatus sees the correct confirmed status immediately.
-    const clickedIsCorrectEarly = isCorrectHelper(binding.option);
+    const clickedIsCorrectEarly = isPristineCorrect(binding.option);
     const dotStatusEarly = clickedIsCorrectEarly ? 'correct' : 'wrong';
+
+    // Record this correct click for the scoring service's pristine gate
+    if (clickedIsCorrectEarly && binding.option?.text) {
+      (this.quizService as any)?.scoringService?.recordCorrectClick?.(qIdx, binding.option.text);
+    }
     this.selectedOptionService.clickConfirmedDotStatus.set(qIdx, dotStatusEarly);
     this.selectedOptionService.lastClickedCorrectByQuestion.set(qIdx, clickedIsCorrectEarly);
     // NOTE: sessionStorage persist of dot_confirmed is deferred to AFTER we
@@ -133,7 +162,7 @@ export class OptionInteractionService {
     console.log(`[OIS] Q${qIdx + 1}: correctCount=${correctCountInBindings} stateType=${state.type} isMultipleMode=${isMultipleMode}`);
 
     // Guard: prevent deselection of correct answers in multiple
-    if (isMultipleMode && binding.isSelected && isCorrectHelper(binding.option)) {
+    if (isMultipleMode && binding.isSelected && isPristineCorrect(binding.option)) {
       if (event && event.preventDefault) event.preventDefault();
       console.log(`[OIS] Q${qIdx + 1}: Ignoring deselection of correct answer in multiple mode`);
       return;
@@ -286,11 +315,43 @@ export class OptionInteractionService {
     }
 
     const correctIndicesSet = new Set<number>();
-    questionOptions.forEach((o, i) => {
-      if (isCorrectHelper(o)) correctIndicesSet.add(i);
-    });
 
-    // Fallback: if questionOptions had no correct flags, cross-reference raw _questions
+    // PRISTINE-FIRST: Resolve correct indices from quizInitialState to avoid
+    // stale/mutated correct flags on questionOptions (e.g. after Restart Quiz).
+    try {
+      const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
+      const qTextForLookup = nrm(question?.questionText ?? state.currentQuestion?.questionText);
+      const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
+      if (qTextForLookup && bundle.length > 0) {
+        for (const quiz of bundle) {
+          for (const pq of (quiz?.questions ?? [])) {
+            if (nrm(pq?.questionText) !== qTextForLookup) continue;
+            const pristineCorrectTexts = new Set<string>(
+              (pq?.options ?? [])
+                .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+                .map((o: any) => nrm(o?.text))
+                .filter((t: string) => !!t)
+            );
+            questionOptions.forEach((o: any, i: number) => {
+              if (pristineCorrectTexts.has(nrm(o?.text))) {
+                correctIndicesSet.add(i);
+              }
+            });
+            break;
+          }
+          if (correctIndicesSet.size > 0) break;
+        }
+      }
+    } catch { /* ignore */ }
+
+    // Fallback: use questionOptions directly (may have stale flags but better than nothing)
+    if (correctIndicesSet.size === 0) {
+      questionOptions.forEach((o, i) => {
+        if (isCorrectHelper(o)) correctIndicesSet.add(i);
+      });
+    }
+
+    // Fallback: cross-reference raw _questions
     if (correctIndicesSet.size === 0 && question?.questionText) {
       const rawQs: any[] = (this.quizService as any)._questions ?? [];
       const qText = (question.questionText ?? '').trim().toLowerCase();
@@ -452,7 +513,7 @@ export class OptionInteractionService {
     }
 
     // Stop timer when correct answer(s) selected
-    if (allCorrectFound || (!isMultipleMode && isCorrectHelper(binding.option))) {
+    if (allCorrectFound || (!isMultipleMode && isPristineCorrect(binding.option))) {
       try { this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true }); } catch {}
     }
 

@@ -365,30 +365,50 @@ export class QuizOptionProcessingService {
         );
       });
 
-      // Cross-check against authoritative raw question data. Mutated
-      // questionForSelection/optionsForImmediateScoring can have reduced
-      // correct flags, letting `everyCorrectSelected` fire on only 1 of
+      // Cross-check against PRISTINE quiz data. Mutated question data can have
+      // reduced correct flags, letting `everyCorrectSelected` fire on only 1 of
       // 2 correct answers, which then marks isQuestionComplete=true and
       // persists displayMode=explanation — causing premature FET display.
       let rawAllCorrectSelected = everyCorrectSelected;
       try {
-        const rawQs: any[] = (this.quizService as any)?.questions ?? [];
-        const qText = (questionForSelection?.questionText ?? '').trim().toLowerCase();
-        const rawQ = qText
-          ? rawQs.find((r: any) => (r?.questionText ?? '').trim().toLowerCase() === qText)
-          : rawQs[idx];
-        if (rawQ && Array.isArray(rawQ.options)) {
-          const norm = (t: any) => String(t ?? '').trim().toLowerCase();
-          const rawCorrectTexts = rawQ.options
-            .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
-            .map((o: any) => norm(o?.text))
-            .filter((t: string) => !!t);
-          if (rawCorrectTexts.length > correctOptionEntries.length) {
-            const selTexts = new Set(
-              currentSelections.map((s: any) => norm(s?.text)).filter((t: string) => !!t)
-            );
-            rawAllCorrectSelected = rawCorrectTexts.every((t: string) => selTexts.has(t));
+        const norm = (t: any) => String(t ?? '').trim().toLowerCase();
+        const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
+        const quizIdVal = this.quizService?.quizId;
+        const qText = norm(questionForSelection?.questionText);
+        let pristineCorrectTexts: string[] = [];
+
+        // Strategy 1: match by question text across all pristine quizzes
+        if (qText && bundle.length > 0) {
+          for (const quiz of bundle) {
+            for (const pq of (quiz?.questions ?? [])) {
+              if (norm(pq?.questionText) !== qText) continue;
+              pristineCorrectTexts = (pq?.options ?? [])
+                .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+                .map((o: any) => norm(o?.text))
+                .filter((t: string) => !!t);
+              break;
+            }
+            if (pristineCorrectTexts.length > 0) break;
           }
+        }
+
+        // Strategy 2: look up by index in the current quiz's pristine data
+        if (pristineCorrectTexts.length === 0 && quizIdVal) {
+          const pristineQuiz = bundle.find((qz: any) => qz?.quizId === quizIdVal);
+          const pristineQ = pristineQuiz?.questions?.[idx];
+          if (pristineQ) {
+            pristineCorrectTexts = (pristineQ?.options ?? [])
+              .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+              .map((o: any) => norm(o?.text))
+              .filter((t: string) => !!t);
+          }
+        }
+
+        if (pristineCorrectTexts.length > 0) {
+          const selTexts = new Set(
+            currentSelections.map((s: any) => norm(s?.text)).filter((t: string) => !!t)
+          );
+          rawAllCorrectSelected = pristineCorrectTexts.every((t: string) => selTexts.has(t));
         }
       } catch { /* trust canonical */ }
 

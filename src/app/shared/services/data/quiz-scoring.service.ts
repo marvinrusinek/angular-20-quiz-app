@@ -1,8 +1,10 @@
-import { Injectable } from '@angular/core';
+import { Injectable, Injector } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 
+import { QUIZ_DATA } from '../../quiz';
 import { QuizScore } from '../../models/QuizScore.model';
 import { QuizShuffleService } from '../flow/quiz-shuffle.service';
+import { SelectedOptionService } from '../state/selectedoption.service';
 
 @Injectable({ providedIn: 'root' })
 export class QuizScoringService {
@@ -17,10 +19,36 @@ export class QuizScoringService {
 
   public correctAnswersCountSubject = new BehaviorSubject<number>(0);
 
+  // Tracks confirmed correct clicks per question. Each call to recordCorrectClick
+  // adds the option text; the pristine gate only allows scoring when the count
+  // matches the pristine correct count. This avoids relying on SelectedOptionService
+  // which can return polluted/extra selections.
+  private _confirmedCorrectClicks = new Map<number, Set<string>>();
+
+  /** Record that a correct option was clicked for a multi-answer question. */
+  recordCorrectClick(questionIndex: number, optionText: string): void {
+    const nrm = String(optionText ?? '').trim().toLowerCase();
+    if (!nrm) return;
+    if (!this._confirmedCorrectClicks.has(questionIndex)) {
+      this._confirmedCorrectClicks.set(questionIndex, new Set());
+    }
+    this._confirmedCorrectClicks.get(questionIndex)!.add(nrm);
+  }
+
+  /** Clear confirmed clicks for a question (used on reset). */
+  clearConfirmedClicks(questionIndex?: number): void {
+    if (questionIndex !== undefined) {
+      this._confirmedCorrectClicks.delete(questionIndex);
+    } else {
+      this._confirmedCorrectClicks.clear();
+    }
+  }
+
   private readonly scoreQuizIdStorageKey = 'scoreQuizId';
 
   constructor(
-    private quizShuffleService: QuizShuffleService
+    private quizShuffleService: QuizShuffleService,
+    private _injector: Injector
   ) {
     this.loadQuestionCorrectness();
   }
@@ -38,6 +66,17 @@ export class QuizScoringService {
    * @param shouldShuffle Whether shuffle is currently enabled
    * @param quizId The current quiz ID
    */
+  // Lazily resolved to avoid circular dependency
+  private _selectedOptionService: SelectedOptionService | null = null;
+  private get selectedOptionServiceLazy(): SelectedOptionService | null {
+    if (!this._selectedOptionService) {
+      try {
+        this._selectedOptionService = this._injector.get(SelectedOptionService);
+      } catch { /* ignore */ }
+    }
+    return this._selectedOptionService;
+  }
+
   public scoreDirectly(
     questionIndex: number,
     isCorrect: boolean,
@@ -45,8 +84,6 @@ export class QuizScoringService {
     shouldShuffle: boolean,
     quizId: string
   ): void {
-    const _caller = new Error().stack?.split('\n').slice(1, 4).map(l => l.trim()).join(' <- ') ?? '?';
-    console.error(`[scoreDirectly] 🎯 Q${questionIndex + 1}: isCorrect=${isCorrect}, isMulti=${isMultipleAnswer} CALLER: ${_caller}`);
     this.incrementScore([], isCorrect, isMultipleAnswer, questionIndex, shouldShuffle, quizId);
   }
 
@@ -112,24 +149,38 @@ export class QuizScoringService {
       this.questionCorrectness.set(scoringKey, false);
     }
 
-    const isNowCorrect = correctAnswerFound;  // simplified
+    let isNowCorrect = correctAnswerFound;  // simplified
 
-    console.log(`[incrementScore] Q${qIndex} scoringKey=${scoringKey} isNowCorrect=${isNowCorrect} wasCorrect=${wasCorrect} correctCount=${this.correctCount}`);
+    // PRISTINE GATE (incrementScore): Block increment for multi-answer questions
+    // unless ALL pristine correct answers have been confirmed clicked.
+    if (isNowCorrect && quizId) {
+      const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
+      const pristineQuiz = QUIZ_DATA.find((qz: any) => qz?.quizId === quizId);
+      const pristineQ = pristineQuiz?.questions?.[qIndex];
+      if (pristineQ) {
+        const pristineCorrectTexts = (pristineQ.options ?? [])
+          .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+          .map((o: any) => nrm(o?.text))
+          .filter((t: string) => !!t);
+
+        if (pristineCorrectTexts.length > 1) {
+          const confirmed = this._confirmedCorrectClicks.get(qIndex) ?? new Set();
+          const allConfirmed = pristineCorrectTexts.every((t: string) => confirmed.has(t));
+          if (!allConfirmed) {
+            isNowCorrect = false;
+          }
+        }
+      }
+    }
 
     if (isNowCorrect && !wasCorrect) {
       this.questionCorrectness.set(scoringKey, true);
       this.updateCorrectCountForResults(this.correctCount + 1);
-      console.error(`🔥 [incrementScore] INCREMENTED score to ${this.correctCount} for Q${qIndex + 1} (key=${scoringKey}) STACK: ${new Error().stack?.split('\n').slice(1, 5).map(l => l.trim()).join(' <- ')}`);
     } else if (!isNowCorrect && wasCorrect) {
       this.updateCorrectCountForResults(Math.max(this.correctCount - 1, 0));
       this.questionCorrectness.set(scoringKey, false);
-      console.log(`[incrementScore] Decremented score for Q${qIndex} (Key=${scoringKey})`);
     } else if (!isNowCorrect) {
-      // Persist explicit wrong status so dots/progress remain stable after navigation.
       this.questionCorrectness.set(scoringKey, false);
-      console.log(`[incrementScore] Marked Q${qIndex} wrong (Key=${scoringKey})`);
-    } else {
-      console.log(`[incrementScore] NO CHANGE: isNowCorrect=${isNowCorrect}, wasCorrect=${wasCorrect}`);
     }
 
     this.saveQuestionCorrectness();
@@ -156,9 +207,6 @@ export class QuizScoringService {
       const trueCount = Array.from(this.questionCorrectness.values())
         .filter(v => v === true).length;
       if (trueCount > 0) {
-        console.warn(
-          `[QuizScoringService] BLOCKED score reset to 0 — questionCorrectness has ${trueCount} correct answers. Keeping score at ${trueCount}.`
-        );
         this.correctCount = trueCount;
         this.correctAnswersCountSubject.next(trueCount);
         localStorage.setItem('correctAnswersCount', String(trueCount));
@@ -184,6 +232,7 @@ export class QuizScoringService {
   resetScore(quizId?: string): void {
     localStorage.setItem('DEBUG_resetScore', new Error().stack || 'no stack');
     this.questionCorrectness.clear();
+    this._confirmedCorrectClicks.clear();
     this.saveQuestionCorrectness();  // clear persistence
     this.correctCount = 0;
     // Use _forceSetScore to bypass the guard in sendCorrectCountToResults
