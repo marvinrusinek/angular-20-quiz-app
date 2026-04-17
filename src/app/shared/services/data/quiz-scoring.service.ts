@@ -45,7 +45,8 @@ export class QuizScoringService {
     shouldShuffle: boolean,
     quizId: string
   ): void {
-    console.log(`[scoreDirectly] 🎯 Q${questionIndex}: isCorrect=${isCorrect}, isMulti=${isMultipleAnswer}`);
+    const _caller = new Error().stack?.split('\n').slice(1, 4).map(l => l.trim()).join(' <- ') ?? '?';
+    console.error(`[scoreDirectly] 🎯 Q${questionIndex + 1}: isCorrect=${isCorrect}, isMulti=${isMultipleAnswer} CALLER: ${_caller}`);
     this.incrementScore([], isCorrect, isMultipleAnswer, questionIndex, shouldShuffle, quizId);
   }
 
@@ -118,7 +119,7 @@ export class QuizScoringService {
     if (isNowCorrect && !wasCorrect) {
       this.questionCorrectness.set(scoringKey, true);
       this.updateCorrectCountForResults(this.correctCount + 1);
-      console.log(`[incrementScore] INCREMENTED score to ${this.correctCount}`);
+      console.error(`🔥 [incrementScore] INCREMENTED score to ${this.correctCount} for Q${qIndex + 1} (key=${scoringKey}) STACK: ${new Error().stack?.split('\n').slice(1, 5).map(l => l.trim()).join(' <- ')}`);
     } else if (!isNowCorrect && wasCorrect) {
       this.updateCorrectCountForResults(Math.max(this.correctCount - 1, 0));
       this.questionCorrectness.set(scoringKey, false);

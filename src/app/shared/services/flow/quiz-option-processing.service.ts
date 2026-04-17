@@ -184,7 +184,33 @@ export class QuizOptionProcessingService {
       optionsForImmediateScoring
     );
 
-    const correctCountForQuestion = correctOptionsForQuestion.length;
+    let correctCountForQuestion = correctOptionsForQuestion.length;
+
+    // PRISTINE MULTI-ANSWER GUARD: the resolved correct count can be wrong
+    // when option.correct flags are mutated or incomplete in the runtime
+    // question objects. Cross-check against the pristine quiz bundle to
+    // detect true multi-answer questions that were misclassified.
+    try {
+      const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
+      const qText = nrm(questionForSelection?.questionText ?? currentQuestion?.questionText);
+      if (qText) {
+        const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
+        for (const quiz of bundle) {
+          for (const pq of (quiz?.questions ?? [])) {
+            if (nrm(pq?.questionText) !== qText) continue;
+            const pristineCorrectCount = (pq?.options ?? [])
+              .filter((o: any) => o?.correct === true || String(o?.correct) === 'true').length;
+            if (pristineCorrectCount > correctCountForQuestion) {
+              console.log(`[evaluateImmediateCorrectness] Pristine override: correctCount ${correctCountForQuestion} → ${pristineCorrectCount} for Q${idx + 1}`);
+              correctCountForQuestion = pristineCorrectCount;
+            }
+            break;
+          }
+          if (correctCountForQuestion > 1) break;
+        }
+      }
+    } catch { /* ignore */ }
+
     const isSingleAnswerQuestion = correctCountForQuestion === 1;
 
     const immediateSelections = this.quizScoringService.buildImmediateSelectionsForScoring(
