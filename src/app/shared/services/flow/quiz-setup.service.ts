@@ -266,8 +266,48 @@ export class QuizSetupService {
           host.isQuizLoaded = true;
         }
 
+        host.currentQuestionIndex = idx;
         this.quizService.setCurrentQuestionIndex(idx);
         host.updateDotStatus(idx);
+
+        // Force-update combinedQuestionDataSubject so the template always
+        // has question data after URL navigation. Try multiple sources.
+        const question = host.questionsArray?.[idx]
+          ?? this.quizService.questions?.[idx]
+          ?? null;
+        if (question && question.options?.length > 0) {
+          const payload = {
+            question,
+            options: question.options,
+            explanation: question.explanation,
+          };
+          host.combinedQuestionDataSubject.next(payload);
+          host.questionToDisplaySource.next(question.questionText?.trim() ?? '');
+          host.cdRef.detectChanges();
+
+          // Force question text (with multi-answer banner) into <h3 #qText>
+          const displayHTML = this.buildQuestionDisplayHTML(question);
+          if (displayHTML) {
+            const writeH3 = () => {
+              try {
+                const h3 = document.querySelector('codelab-quiz-content h3');
+                if (h3 && !h3.innerHTML.trim()) {
+                  h3.innerHTML = displayHTML;
+                }
+              } catch {}
+            };
+            setTimeout(writeH3, 0);
+            setTimeout(writeH3, 100);
+            setTimeout(writeH3, 300);
+            setTimeout(writeH3, 600);
+          }
+
+          // Retry after microtask to ensure child components have rendered
+          Promise.resolve().then(() => {
+            host.combinedQuestionDataSubject.next(payload);
+            host.cdRef.detectChanges();
+          });
+        }
       });
   }
 
@@ -307,9 +347,11 @@ export class QuizSetupService {
         host.lastLoggedIndex = idx;
         host.currentQuestionIndex = idx;
 
+        console.log(`[subscribeToQuestionIndex] idx=${idx}, prevIdx=${prevIdx}, questionsArray.length=${host.questionsArray?.length}`);
         const { question, isNavigation } = this.quizContentLoaderService.handleQuestionIndexTransition({
           idx, prevIdx, quizId: host.quizId, questionsArray: host.questionsArray,
         });
+        console.log(`[subscribeToQuestionIndex] question=${!!question}, questionText="${question?.questionText?.substring(0, 50)}", isNavigation=${isNavigation}`);
 
         if (question) {
           host.currentQuestion = question;
@@ -317,6 +359,9 @@ export class QuizSetupService {
           host.combinedQuestionDataSubject.next({
             question, options: question.options, explanation: question.explanation,
           });
+          console.log(`[subscribeToQuestionIndex] EMITTED to combinedQuestionDataSubject, options=${question.options?.length}`);
+        } else {
+          console.warn(`[subscribeToQuestionIndex] NO QUESTION for idx=${idx} in questionsArray of length ${host.questionsArray?.length}`);
         }
         host.cdRef.markForCheck();
 
@@ -343,6 +388,60 @@ export class QuizSetupService {
         if (!this.selectedOptionService.isQuestionAnswered(idx)) {
           this.timerService.restartForQuestion(idx);
         }
+      });
+  }
+
+  /**
+   * Build question display HTML including the multi-answer banner.
+   * Uses pristine quizInitialState for accurate correct-answer count.
+   */
+  private buildQuestionDisplayHTML(question: QuizQuestion): string {
+    const rawQ = (question.questionText ?? '').trim();
+    if (!rawQ) return '';
+
+    const opts = question.options ?? [];
+    let numCorrect = opts.filter((o: Option) => o?.correct === true).length;
+
+    // Cross-check against pristine data for accurate count
+    try {
+      const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
+      const qText = nrm(rawQ);
+      const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
+      for (const quiz of bundle) {
+        for (const pq of (quiz?.questions ?? [])) {
+          if (nrm(pq?.questionText) !== qText) continue;
+          const pc = (pq?.options ?? []).filter(
+            (o: any) => o?.correct === true || String(o?.correct) === 'true'
+          ).length;
+          if (pc > numCorrect) numCorrect = pc;
+          break;
+        }
+        if (numCorrect > 1) break;
+      }
+    } catch {}
+
+    if (numCorrect > 1 && opts.length > 0) {
+      const pluralSuffix = numCorrect === 1 ? 'answer is' : 'answers are';
+      const banner = `(${numCorrect} ${pluralSuffix} correct)`;
+      return `${rawQ} <span class="correct-count">${banner}</span>`;
+    }
+    return rawQ;
+  }
+
+  /**
+   * Bridge: forward quizService.questionPayload$ emissions to
+   * host.combinedQuestionDataSubject so URL navigation always
+   * updates the quiz card template (which gates on combinedQuestionData$).
+   */
+  private bridgeQuestionPayload(host: Host): void {
+    this.quizService.questionPayload$
+      .pipe(
+        filter((p): p is QuestionPayload => !!p && !!p.question && Array.isArray(p.options) && p.options.length > 0)
+      )
+      .subscribe((payload) => {
+        host.combinedQuestionDataSubject.next(payload);
+        host.questionToDisplaySource.next(payload.question.questionText?.trim() ?? '');
+        host.cdRef.markForCheck();
       });
   }
 
@@ -519,7 +618,11 @@ export class QuizSetupService {
     const quizId = params.get('quizId') ?? '';
     const indexParam = params.get('questionIndex');
     const index = Number(indexParam) - 1;
-    if (!quizId || isNaN(index) || index < 0) return;
+    console.log(`[handleParamMapChange] quizId=${quizId}, indexParam=${indexParam}, index=${index}`);
+    if (!quizId || isNaN(index) || index < 0) {
+      console.warn(`[handleParamMapChange] EARLY RETURN: quizId=${quizId}, index=${index}`);
+      return;
+    }
 
     if (host.quizId && host.quizId !== quizId) {
       this.dotStatusService.clearAllMaps();
@@ -538,20 +641,40 @@ export class QuizSetupService {
 
     try {
       const result = await this.quizContentLoaderService.loadQuestionFromRouteChange({ quizId, index });
+      console.log(`[handleParamMapChange] loadResult: success=${result.success}, question=${!!result.question}, options=${result.options?.length}`);
       if (!result.success || !result.question) return;
 
       host.totalQuestions = result.totalQuestions;
       host.currentQuestion = result.question;
       host.question = result.question;
-      host.combinedQuestionDataSubject.next({
+      const payload = {
         question: result.question, options: result.options, explanation: result.explanation,
-      });
+      };
+      console.log(`[handleParamMapChange] EMITTING to combinedQuestionDataSubject: questionText="${result.question.questionText?.substring(0, 50)}", options=${result.options?.length}`);
+      host.combinedQuestionDataSubject.next(payload);
       host.questionToDisplaySource.next(result.question.questionText?.trim() ?? '');
       host.optionsToDisplay = [...result.options];
       host.optionsToDisplay$.next([...result.options]);
       host.explanationToDisplay = result.explanation;
       host.qaToDisplay = { question: result.question, options: result.options };
       host.shouldRenderOptions = true;
+      host.cdRef.detectChanges();
+
+      // Force question text (with multi-answer banner) into <h3 #qText>
+      const displayHTML = this.buildQuestionDisplayHTML(result.question);
+      if (displayHTML) {
+        const writeH3 = () => {
+          try {
+            const h3 = document.querySelector('codelab-quiz-content h3');
+            if (h3 && !h3.innerHTML.trim()) {
+              h3.innerHTML = displayHTML;
+            }
+          } catch {}
+        };
+        setTimeout(writeH3, 0);
+        setTimeout(writeH3, 100);
+        setTimeout(writeH3, 300);
+      }
 
       if (!result.hasValidSelections) this.timerService.restartForQuestion(index);
       localStorage.setItem('savedQuestionIndex', index.toString());
@@ -945,6 +1068,7 @@ export class QuizSetupService {
 
     this.fetchTotalQuestions(host);
     this.subscribeToQuestionIndex(host);
+    this.bridgeQuestionPayload(host);
 
     await this.loadQuestions(host);
     host.isQuizLoaded = true;

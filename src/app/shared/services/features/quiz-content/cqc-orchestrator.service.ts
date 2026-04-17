@@ -871,23 +871,29 @@ export class CqcOrchestratorService {
    */
   private stampQuestionTextNow(host: Host, idx: number): boolean {
     try {
-      if (host.currentIndex !== idx) return false;
-      // Don't clobber an explicit FET that the user has already earned
-      // for this very index (e.g. refresh-initial index with restored
-      // answered state, or the user just clicked and the FET is live).
-      // Bail on interaction evidence alone — loadQuestion (which runs
-      // AFTER quiz data is fetched) handles the resolved-vs-unresolved
-      // distinction and will stamp question text for partial multi-answer.
+      if (host.currentIndex !== idx) {
+        console.log(`[stampQuestionTextNow] SKIP: currentIndex=${host.currentIndex} !== idx=${idx}`);
+        return false;
+      }
       if (this.hasInteractionEvidence(host, idx)) {
+        console.log(`[stampQuestionTextNow] SKIP: hasInteractionEvidence for idx=${idx}`);
         return false;
       }
       const el = host.qText?.nativeElement;
-      if (!el) return false;
+      if (!el) {
+        console.warn(`[stampQuestionTextNow] SKIP: qText element not found for idx=${idx}`);
+        return false;
+      }
       const display = this.buildQuestionDisplayHTML(host, idx);
-      if (!display) return false;
+      if (!display) {
+        console.warn(`[stampQuestionTextNow] SKIP: buildQuestionDisplayHTML returned empty for idx=${idx}, questions.length=${host.quizService.questions?.length}`);
+        return false;
+      }
+      console.log(`[stampQuestionTextNow] WRITING Q${idx + 1}: "${display.substring(0, 50)}"`);
       this.writeQText(host, display);
       return true;
-    } catch {
+    } catch (e) {
+      console.error(`[stampQuestionTextNow] ERROR for idx=${idx}:`, e);
       return false;
     }
   }
