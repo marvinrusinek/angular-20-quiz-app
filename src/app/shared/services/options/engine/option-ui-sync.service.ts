@@ -402,19 +402,32 @@ export class OptionUiSyncService {
       this.selectedOptionService.removeOption(currentIndex, index as any, index);
     }
 
-    // Only set answered=true immediately for single-answer questions.
-    // For multi-answer, checkAndScoreMultiAnswer will handle it when perfect.
+    // Only set answered=true and emit FET for single-answer when the
+    // clicked option is actually correct (pristine check). After Restart Quiz,
+    // binding correct flags can be stale, so resolve from quizInitialState.
     if (ctx.type === 'single') {
-      this.selectedOptionService.setAnswered(true, true);
-    }
+      let clickedIsCorrect = false;
+      try {
+        const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
+        const clickedText = nrm(optionBinding?.option?.text);
+        const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
+        const quizId = (this.quizService as any)?.quizId;
+        if (clickedText && bundle.length > 0 && quizId) {
+          const pristineQuiz = bundle.find((qz: any) => qz?.quizId === quizId);
+          const pristineQ = pristineQuiz?.questions?.[currentIndex];
+          if (pristineQ) {
+            const matchedOpt = (pristineQ.options ?? []).find((o: any) => nrm(o?.text) === clickedText);
+            if (matchedOpt) {
+              clickedIsCorrect = matchedOpt?.correct === true || String(matchedOpt?.correct) === 'true';
+            }
+          }
+        }
+      } catch { /* ignore */ }
 
-    // Emit explanation only for single-answer. For multi-answer, FET must
-    // wait until ALL correct answers are selected — emitting here on every
-    // partial click causes premature FET display. The multi-answer path in
-    // runOptionContentClick and checkAndScoreMultiAnswer handle FET emission
-    // when clickState.remaining === 0.
-    if (ctx.type === 'single') {
-      ctx.emitExplanation(currentIndex);
+      if (clickedIsCorrect) {
+        this.selectedOptionService.setAnswered(true, true);
+        ctx.emitExplanation(currentIndex);
+      }
     }
 
     // Update Next Button State based on ACTUAL selection count

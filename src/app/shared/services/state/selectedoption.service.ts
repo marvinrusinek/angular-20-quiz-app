@@ -3140,8 +3140,10 @@ export class SelectedOptionService {
         const currentCorrectCount = questionOptions.filter(o =>
           this.coerceToBoolean(o.correct)
         ).length;
-        // Always prefer pristine if it has more correct answers
-        if (pristineCorrectCount > currentCorrectCount) {
+        // Always prefer pristine when correct counts differ — after
+        // Restart Quiz the live options can have ALL correct flags set
+        // to true (stale mutation), making currentCorrectCount > pristine.
+        if (pristineCorrectCount !== currentCorrectCount) {
           questionOptions = pristineQ.options;
         }
       }

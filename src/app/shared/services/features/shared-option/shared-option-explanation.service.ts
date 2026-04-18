@@ -170,30 +170,36 @@ export class SharedOptionExplanationService {
     // often lack the `correct` flag, making correctCount=0 and falling to
     // single-answer logic which resolves on 1 correct selection.
     const authQuestion = this.quizService.questions?.[resolvedIndex] ?? question;
-    let correctCount = (authQuestion?.options ?? question!.options).filter(
-      (o: any) => o.correct === true || String(o.correct) === 'true'
-    ).length;
+    // Always resolve correct count and texts from pristine quizInitialState.
+    // After Restart Quiz, live options can have ALL correct flags set to true
+    // (stale mutation), inflating correctCount and bypassing the multi-answer
+    // gate. Pristine data is immutable and always authoritative.
+    let correctCount = 0;
     let pristineCorrectTexts = new Set<string>();
-    if (correctCount === 0) {
-      const qText = this.normalize(authQuestion?.questionText ?? question?.questionText);
-      try {
-        for (const quiz of ((this.quizService as any)?.quizInitialState ?? []) as any[]) {
-          for (const pq of quiz?.questions ?? []) {
-            if (this.normalize(pq?.questionText) !== qText) continue;
-            const correctOpts = (pq?.options ?? []).filter(
-              (o: any) => o?.correct === true || String(o?.correct) === 'true'
-            );
-            if (correctOpts.length === 0) continue;
-            correctCount = correctOpts.length;
-            for (const o of correctOpts) {
-              const t = this.normalize(o?.text);
-              if (t) pristineCorrectTexts.add(t);
-            }
-            break;
+    const qText = this.normalize(authQuestion?.questionText ?? question?.questionText);
+    try {
+      for (const quiz of ((this.quizService as any)?.quizInitialState ?? []) as any[]) {
+        for (const pq of quiz?.questions ?? []) {
+          if (this.normalize(pq?.questionText) !== qText) continue;
+          const correctOpts = (pq?.options ?? []).filter(
+            (o: any) => o?.correct === true || String(o?.correct) === 'true'
+          );
+          if (correctOpts.length === 0) continue;
+          correctCount = correctOpts.length;
+          for (const o of correctOpts) {
+            const t = this.normalize(o?.text);
+            if (t) pristineCorrectTexts.add(t);
           }
-          if (correctCount > 0) break;
+          break;
         }
-      } catch { /* ignore */ }
+        if (correctCount > 0) break;
+      }
+    } catch { /* ignore */ }
+    // Fallback: use live data only if pristine lookup failed
+    if (correctCount === 0) {
+      correctCount = (authQuestion?.options ?? question!.options).filter(
+        (o: any) => o.correct === true || String(o.correct) === 'true'
+      ).length;
     }
     const isMultiAnswer = correctCount > 1 || this.quizService.multipleAnswer;
 

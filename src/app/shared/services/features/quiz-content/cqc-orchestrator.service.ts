@@ -439,6 +439,28 @@ export class CqcOrchestratorService {
           const allCorrectSelected =
             correctTotal > 0 && correctSelected >= correctTotal;
           console.error(`🛡️ [writeQText] NUCLEAR FET-gate idx=${activeIdx} qText="${displayedQText.substring(0, 40)}" pristineCorrect=${JSON.stringify([...pristineCorrectTexts])} selectedTexts=${JSON.stringify([...selectedTexts])} correctTotal=${correctTotal} correctSelected=${correctSelected} isMulti=${isMulti} allCorrect=${allCorrectSelected}`);
+          // SINGLE-ANSWER GATE: selections are polluted (ID collisions
+          // add the correct option even when the user never clicked it).
+          // Use QuizScoringService.questionCorrectness as the source of
+          // truth — it was fixed with a pristine gate and only marks a
+          // question correct on genuine correct clicks.
+          if (!isMulti && correctTotal === 1) {
+            const scoringSvc = (host.quizService as any)?.scoringService;
+            const isScored = scoringSvc?.questionCorrectness?.get(activeIdx) === true;
+            if (!isScored) {
+              const qText = (liveQ?.questionText ?? '').trim();
+              const rebuilt = activeIdx >= 0
+                ? this.buildQuestionDisplayHTML(host, activeIdx)
+                : '';
+              safe = rebuilt || qText || '';
+              console.log(`[writeQText] ⛔ SINGLE-ANSWER BLOCK: scoring says Q${activeIdx + 1} not correct — substituted question text`);
+              host.qTextHtmlSig?.set(safe);
+              host._lastDisplayedText = safe;
+              const el0 = host.qText?.nativeElement;
+              if (el0) host.renderer.setProperty(el0, 'innerHTML', safe);
+              return;
+            }
+          }
           if (isMulti && !allCorrectSelected) {
             // Replace outgoing FET with the plain question text from
             // the component's own question object (what the user sees

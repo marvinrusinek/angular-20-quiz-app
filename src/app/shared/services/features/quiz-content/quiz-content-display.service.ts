@@ -157,7 +157,9 @@ export class QuizContentDisplayService {
     const rawQuestion = (this.quizService as any)?.questions?.[safeIdx] as QuizQuestion | undefined;
     const sourceOpts = rawQuestion?.options ?? qObj?.options ?? [];
     let numCorrect = sourceOpts.filter((o: Option) => o?.correct === true).length;
-    // Cross-check against pristine data — use the HIGHER count
+    // Cross-check against pristine data — always prefer pristine count.
+    // After Restart Quiz, live options can have ALL correct flags set to
+    // true (stale mutation), inflating numCorrect. Pristine is immutable.
     try {
       const _n = (t: any) => String(t ?? '').trim().toLowerCase();
       const _qText = _n(rawQuestion?.questionText ?? qObj?.questionText);
@@ -168,7 +170,7 @@ export class QuizContentDisplayService {
             const pc = (_pq?.options ?? []).filter(
               (o: any) => o?.correct === true || String(o?.correct) === 'true'
             ).length;
-            if (pc > numCorrect) numCorrect = pc;
+            if (pc > 0) numCorrect = pc;
             break;
           }
         }
@@ -200,6 +202,47 @@ export class QuizContentDisplayService {
         console.log(`[displayText$] Q${safeIdx + 1} MULTI-ANSWER: forced isResolved=false`);
       } else {
         isResolved = this.selectedOptionService.isQuestionResolvedLeniently(qObj, safeSelections);
+
+        // PRISTINE SINGLE-ANSWER GATE: getSelectedOptionsForQuestion can
+        // return polluted data (e.g. ID collisions add the correct option
+        // even though the user never clicked it). Cross-check: the LAST
+        // actively-selected entry's text must match a pristine correct
+        // option. If not, the "correct" hit was pollution.
+        if (isResolved) {
+          try {
+            const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
+            const qTextLookup = nrm(qObj?.questionText);
+            const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
+            let pristineCorrectTexts = new Set<string>();
+            for (const quiz of bundle) {
+              for (const pq of (quiz?.questions ?? [])) {
+                if (nrm(pq?.questionText) !== qTextLookup) continue;
+                for (const o of (pq?.options ?? [])) {
+                  if (o?.correct === true || String(o?.correct) === 'true') {
+                    const t = nrm(o?.text);
+                    if (t) pristineCorrectTexts.add(t);
+                  }
+                }
+                break;
+              }
+              if (pristineCorrectTexts.size > 0) break;
+            }
+            if (pristineCorrectTexts.size > 0) {
+              // Find the last actively-selected entry (most recent click)
+              const activeSelections = safeSelections.filter(
+                (s: any) => s?.selected !== false
+              );
+              const lastSel = activeSelections.length > 0
+                ? activeSelections[activeSelections.length - 1]
+                : null;
+              const lastSelText = nrm(lastSel?.text);
+              if (lastSelText && !pristineCorrectTexts.has(lastSelText)) {
+                isResolved = false;
+                console.log(`[displayText$] Q${safeIdx + 1} ⛔ single-answer pristine gate: last selection "${lastSelText}" is NOT correct — blocking FET`);
+              }
+            }
+          } catch { /* ignore */ }
+        }
       }
     }
 
