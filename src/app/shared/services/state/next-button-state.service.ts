@@ -16,12 +16,6 @@ export class NextButtonStateService {
     'pointer-events': 'auto'
   }));
 
-  public nextButtonStyle: { [key: string]: string } = {
-    opacity: '0.5',
-    cursor: 'not-allowed',
-    'pointer-events': 'auto'  // always allow click events
-  };
-
   private nextButtonStateSubscription?: Subscription;
   private initialized = false;
 
@@ -91,12 +85,7 @@ export class NextButtonStateService {
   public updateAndSyncNextButtonState(isEnabled: boolean): void {
     this.ngZone.run(() => {
       this.isButtonEnabled.set(isEnabled);
-
-      this.nextButtonStyle = {
-        opacity: isEnabled ? '1' : '0.5',
-        cursor: isEnabled ? 'pointer' : 'not-allowed',
-        'pointer-events': 'auto'
-      };
+      // nextButtonStyleSig auto-derives from isButtonEnabled via computed()
     });
   }
 
