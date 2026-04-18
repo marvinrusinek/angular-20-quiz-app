@@ -328,6 +328,29 @@ export class CqcOrchestratorService {
           || safeNorm.includes('is correct because')
           || containsRawExpl;
         console.error(`🛡️ [writeQText] FET-sniff safe="${safe.substring(0, 60)}" looksLikeFet=${looksLikeFet} containsRawExpl=${containsRawExpl} rawExpl="${rawExplNorm.substring(0, 40)}" pristineExpl="${pristineExplanation.substring(0, 40)}"`);
+
+        // If FET-sniff missed, also check if this is NOT the question text
+        // (i.e. it's some other text being written that might be FET).
+        // For single-answer questions, block ANY non-question-text write
+        // when scoring says the question isn't correctly answered.
+        if (!looksLikeFet) {
+          const displayedQTextEarly = norm(liveQEarly?.questionText ?? '');
+          if (displayedQTextEarly && safeNorm !== displayedQTextEarly && !safeNorm.startsWith(displayedQTextEarly)) {
+            const scoringSvc = (host.quizService as any)?.scoringService;
+            const isScored = scoringSvc?.questionCorrectness?.get(activeIdxEarly) === true;
+            if (!isScored) {
+              const rebuilt = this.buildQuestionDisplayHTML(host, activeIdxEarly);
+              safe = rebuilt || (liveQEarly?.questionText ?? '').trim() || '';
+              console.log(`[writeQText] ⛔ UNDETECTED-FET BLOCK: Q${activeIdxEarly + 1} not scored correct, text doesn't match question — substituted`);
+              host.qTextHtmlSig?.set(safe);
+              host._lastDisplayedText = safe;
+              const el0 = host.qText?.nativeElement;
+              if (el0) host.renderer.setProperty(el0, 'innerHTML', safe);
+              return;
+            }
+          }
+        }
+
         if (looksLikeFet) {
           // codelab-quiz-question is a SIBLING of codelab-quiz-content,
           // so @ViewChild on the content host does NOT populate
@@ -1452,6 +1475,23 @@ export class CqcOrchestratorService {
                 this.writeQText(host, qText);
                 console.log(`[subscribeToDisplayText] ⛔ BLOCKED FET for unresolved multi-answer Q${currentIdx + 1} (raw-based) — wrote question text instead`);
                 return;
+              }
+            }
+
+            // SINGLE-ANSWER FET GATE: block FET for single-answer questions
+            // when scoring says the question isn't correctly answered. This
+            // catches FET that bypasses writeQText's looksLikeFet detection
+            // (e.g. raw explanation text without "correct because" prefix).
+            if (isFetText && !isMultiQ) {
+              const scoringSvc = (host.quizService as any)?.scoringService;
+              const isScored = scoringSvc?.questionCorrectness?.get(currentIdx) === true;
+              if (!isScored) {
+                const qText = this.buildQuestionDisplayHTML(host, currentIdx);
+                if (qText) {
+                  this.writeQText(host, qText);
+                  console.log(`[subscribeToDisplayText] ⛔ BLOCKED FET for unscored single-answer Q${currentIdx + 1}`);
+                  return;
+                }
               }
             }
 
