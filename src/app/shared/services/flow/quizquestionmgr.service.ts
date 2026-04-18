@@ -1,28 +1,25 @@
-import { Injectable } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { BehaviorSubject, Observable, of } from 'rxjs';
+import { Injectable, signal } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
+import { Observable, of } from 'rxjs';
 
 import { Option } from '../../models/Option.model';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
 
 @Injectable({ providedIn: 'root' })
 export class QuizQuestionManagerService {
-  private shouldDisplayExplanationSubject = new BehaviorSubject<boolean>(false);
-  shouldDisplayExplanation$ =
-    this.shouldDisplayExplanationSubject.asObservable();
+  /** Signal-first source of truth for explanation display state */
+  readonly shouldDisplayExplanationSig = signal<boolean>(false);
+  /** @deprecated Use shouldDisplayExplanationSig instead */
+  shouldDisplayExplanation$ = toObservable(this.shouldDisplayExplanationSig);
 
-  // Signal mirrors for new code; existing $ subscribers unaffected.
-  readonly shouldDisplayExplanationSig = toSignal(this.shouldDisplayExplanation$, { initialValue: false });
-
-  private explanationTextSubject: BehaviorSubject<string | null> =
-    new BehaviorSubject<string | null>(null);
+  private readonly explanationTextSig = signal<string | null>(null);
 
   selectedOption: Option | null = null;
   explanationText = '';
 
   setExplanationText(explanation: string): void {
-    this.explanationTextSubject.next(explanation);
-    this.shouldDisplayExplanationSubject.next(!!explanation);
+    this.explanationTextSig.set(explanation);
+    this.shouldDisplayExplanationSig.set(!!explanation);
   }
 
   getNumberOfCorrectAnswersText(
