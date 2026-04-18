@@ -1,5 +1,5 @@
-import { Injectable } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { Injectable, signal } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { distinctUntilChanged } from 'rxjs/operators';
 
@@ -23,15 +23,18 @@ interface OptionSnapshot {
 
 @Injectable({ providedIn: 'root' })
 export class SelectionMessageService {
+  /** @deprecated Use selectionMessageSig instead */
   public selectionMessageSubject = new BehaviorSubject<string>(START_MSG);
+
+  // Signal-first source of truth
+  readonly selectionMessageSig = signal<string>(START_MSG);
   public readonly selectionMessage$: Observable<string> =
-    this.selectionMessageSubject.pipe(distinctUntilChanged());
+    toObservable(this.selectionMessageSig).pipe(distinctUntilChanged());
 
-  // Signal mirrors for new code; existing $ subscribers unaffected.
-  readonly selectionMessageSig = toSignal(this.selectionMessage$, { initialValue: START_MSG });
-
-  public optionsSnapshot: Option[] = [];
-  private optionsSnapshotSubject = new BehaviorSubject<Option[]>([]);
+  // Signal-first options snapshot
+  readonly optionsSnapshotSig = signal<Option[]>([]);
+  public get optionsSnapshot(): Option[] { return this.optionsSnapshotSig(); }
+  public set optionsSnapshot(v: Option[]) { this.optionsSnapshotSig.set(v); }
   private writeSeq = 0;
   private latestByIndex = new Map<number, number>();
   private freezeNextishUntil = new Map<number, number>();
@@ -57,7 +60,7 @@ export class SelectionMessageService {
   ) { }
 
   public getCurrentMessage(): string {
-    return this.selectionMessageSubject.getValue();
+    return this.selectionMessageSig();
   }
 
   private getQuestion(index: number): QuizQuestion | null {
@@ -182,9 +185,10 @@ export class SelectionMessageService {
   }
 
   public pushMessage(newMsg: string, _index: number): void {
-    const prev = this.selectionMessageSubject.getValue();
+    const prev = this.selectionMessageSig();
     if (prev !== newMsg) {
       console.log(`[SEL-MSG] pushMessage Q${_index + 1}: "${prev}" → "${newMsg}"`, new Error().stack?.split('\n').slice(1, 4).map(s => s.trim()));
+      this.selectionMessageSig.set(newMsg);
       this.selectionMessageSubject.next(newMsg);
     }
   }
@@ -246,8 +250,7 @@ export class SelectionMessageService {
   public setOptionsSnapshot(opts: Option[] | null | undefined): void {
     const safe = Array.isArray(opts) ? opts.map((o) => ({ ...o })) : [];
     if (safe.length > 0) {
-      this.optionsSnapshot = safe;
-      this.optionsSnapshotSubject.next(safe);
+      this.optionsSnapshotSig.set(safe);
     }
   }
 
@@ -332,7 +335,7 @@ export class SelectionMessageService {
   }
 
   public getLatestOptionsSnapshot(): OptionSnapshot[] {
-    const snap = this.optionsSnapshotSubject.getValue();
+    const snap = this.optionsSnapshotSig();
     return Array.isArray(snap) ? snap.map((o, i) => ({
       id: this.toStableId(o, i),
       selected: !!o.selected,
@@ -385,9 +388,10 @@ export class SelectionMessageService {
   }
 
   public setSelectionMessageText(message: string): void {
-    const prev = this.selectionMessageSubject.getValue();
+    const prev = this.selectionMessageSig();
     if (prev !== message) {
       console.log(`[SEL-MSG] setSelectionMessageText: "${prev}" → "${message}"`, new Error().stack?.split('\n').slice(1, 3).map(s => s.trim()));
+      this.selectionMessageSig.set(message);
       this.selectionMessageSubject.next(message);
     }
   }
