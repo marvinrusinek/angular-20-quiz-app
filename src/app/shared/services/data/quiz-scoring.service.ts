@@ -1,4 +1,5 @@
-import { Injectable, Injector } from '@angular/core';
+import { computed, Injectable, Injector, signal } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
 import { BehaviorSubject } from 'rxjs';
 
 import { QUIZ_DATA } from '../../quiz';
@@ -11,12 +12,16 @@ export class QuizScoringService {
   // State tracking for scoring (Index -> IsCorrect)
   public questionCorrectness = new Map<number, boolean>();
 
-  correctCount = 0;
-  score = 0;
+  readonly correctCountSig = signal<number>(0);
+  readonly scoreSig = signal<number>(0);
   quizScore: QuizScore | null = null;
   highScores: QuizScore[] = [];
   highScoresLocal = JSON.parse(localStorage.getItem('highScoresLocal') ?? '[]');
 
+  public readonly correctAnswersCountSig = signal<number>(0);
+  public readonly correctAnswersCount$ = toObservable(this.correctAnswersCountSig);
+
+  /** @deprecated Use correctAnswersCountSig / correctAnswersCount$ instead */
   public correctAnswersCountSubject = new BehaviorSubject<number>(0);
 
   // Tracks confirmed correct clicks per question. Each call to recordCorrectClick
@@ -144,12 +149,12 @@ export class QuizScoringService {
     // Self-heal: if questionCorrectness says "already correct" but correctCount is 0,
     // the map entry is stale (e.g. from a previous localStorage session that wasn't
     // fully cleared). Reset so scoring can proceed.
-    if (wasCorrect && this.correctCount === 0) {
+    if (wasCorrect && this.correctCountSig() === 0) {
       wasCorrect = false;
       this.questionCorrectness.set(scoringKey, false);
     }
 
-    console.log(`[incrementScore] Q${qIndex}: scoringKey=${scoringKey} wasCorrect=${wasCorrect} correctAnswerFound=${correctAnswerFound} correctCount=${this.correctCount} shouldShuffle=${shouldShuffle} quizId=${quizId}`);
+    console.log(`[incrementScore] Q${qIndex}: scoringKey=${scoringKey} wasCorrect=${wasCorrect} correctAnswerFound=${correctAnswerFound} correctCount=${this.correctCountSig()} shouldShuffle=${shouldShuffle} quizId=${quizId}`);
 
     let isNowCorrect = correctAnswerFound;  // simplified
 
@@ -186,9 +191,9 @@ export class QuizScoringService {
 
     if (isNowCorrect && !wasCorrect) {
       this.questionCorrectness.set(scoringKey, true);
-      this.updateCorrectCountForResults(this.correctCount + 1);
+      this.updateCorrectCountForResults(this.correctCountSig() + 1);
     } else if (!isNowCorrect && wasCorrect) {
-      this.updateCorrectCountForResults(Math.max(this.correctCount - 1, 0));
+      this.updateCorrectCountForResults(Math.max(this.correctCountSig() - 1, 0));
       this.questionCorrectness.set(scoringKey, false);
     } else if (!isNowCorrect) {
       this.questionCorrectness.set(scoringKey, false);
@@ -203,8 +208,8 @@ export class QuizScoringService {
 
   private updateCorrectCountForResults(value: number): void {
     const safeValue = Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
-    this.correctCount = safeValue;
-    this.sendCorrectCountToResults(this.correctCount);
+    this.correctCountSig.set(safeValue);
+    this.sendCorrectCountToResults(this.correctCountSig());
   }
 
   sendCorrectCountToResults(value: number, quizId?: string): void {
@@ -218,7 +223,8 @@ export class QuizScoringService {
       const trueCount = Array.from(this.questionCorrectness.values())
         .filter(v => v === true).length;
       if (trueCount > 0) {
-        this.correctCount = trueCount;
+        this.correctCountSig.set(trueCount);
+        this.correctAnswersCountSig.set(trueCount);
         this.correctAnswersCountSubject.next(trueCount);
         localStorage.setItem('correctAnswersCount', String(trueCount));
         if (quizId) {
@@ -228,7 +234,8 @@ export class QuizScoringService {
       }
     }
 
-    this.correctCount = safeValue;
+    this.correctCountSig.set(safeValue);
+    this.correctAnswersCountSig.set(safeValue);
     this.correctAnswersCountSubject.next(safeValue);
     localStorage.setItem('correctAnswersCount', String(safeValue));
     if (quizId) {
@@ -245,7 +252,7 @@ export class QuizScoringService {
     this.questionCorrectness.clear();
     this._confirmedCorrectClicks.clear();
     this.saveQuestionCorrectness();  // clear persistence
-    this.correctCount = 0;
+    this.correctCountSig.set(0);
     // Use _forceSetScore to bypass the guard in sendCorrectCountToResults
     this._forceSetScore(0, quizId);
     console.log('[QuizScoringService] Score fully reset.');
@@ -254,7 +261,8 @@ export class QuizScoringService {
   /** Bypass guard — only for explicit resets (restart, new quiz). */
   _forceSetScore(value: number, quizId?: string): void {
     const safeValue = Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
-    this.correctCount = safeValue;
+    this.correctCountSig.set(safeValue);
+    this.correctAnswersCountSig.set(safeValue);
     this.correctAnswersCountSubject.next(safeValue);
     localStorage.setItem('correctAnswersCount', String(safeValue));
     if (quizId) {
@@ -323,7 +331,8 @@ export class QuizScoringService {
       // in-progress index). Otherwise, restore from the stronger source.
       const shouldWipe = !quizMatches || (!hasInProgressIndex && !hasStoredScore);
       if (shouldWipe) {
-        this.correctCount = 0;
+        this.correctCountSig.set(0);
+        this.correctAnswersCountSig.set(0);
         this.correctAnswersCountSubject.next(0);
         this.questionCorrectness.clear();
         this.saveQuestionCorrectness();
@@ -333,7 +342,8 @@ export class QuizScoringService {
       }
 
       const restored = Math.max(safeStored, mapTrueCount);
-      this.correctCount = restored;
+      this.correctCountSig.set(restored);
+      this.correctAnswersCountSig.set(restored);
       this.correctAnswersCountSubject.next(restored);
       localStorage.setItem('correctAnswersCount', String(restored));
       console.log(`[QuizScoringService] Restored score from persistence: ${restored} (stored=${safeStored}, map=${mapTrueCount}, savedIndex=${savedIndex})`);
@@ -381,7 +391,7 @@ export class QuizScoringService {
   }
 
   calculatePercentageOfCorrectlyAnsweredQuestions(totalQuestions: number): number {
-    const correctAnswers = this.correctAnswersCountSubject.getValue();
+    const correctAnswers = this.correctAnswersCountSig();
 
     if (totalQuestions === 0) {
       return 0;  // handle division by zero

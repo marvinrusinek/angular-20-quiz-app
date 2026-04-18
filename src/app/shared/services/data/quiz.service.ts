@@ -96,8 +96,8 @@ export class QuizService {
   answersSubject = new Subject<number[]>();
 
   totalQuestions = 0;
-  get correctCount(): number { return this.scoringService.correctCount; }
-  set correctCount(val: number) { this.scoringService.correctCount = val; }
+  get correctCount(): number { return this.scoringService.correctCountSig(); }
+  set correctCount(val: number) { this.scoringService.correctCountSig.set(val); }
 
   selectedQuiz: Quiz | null = null;
   selectedQuiz$ = new BehaviorSubject<Quiz | null>(null);
@@ -236,8 +236,8 @@ export class QuizService {
 
   lock = false;
 
-  get score(): number { return this.scoringService.score; }
-  set score(val: number) { this.scoringService.score = val; }
+  get score(): number { return this.scoringService.scoreSig(); }
+  set score(val: number) { this.scoringService.scoreSig.set(val); }
   currentScore$: Observable<number> = of(0);
   get quizScore(): QuizScore | null { return this.scoringService.quizScore; }
   set quizScore(val: QuizScore | null) { this.scoringService.quizScore = val; }
@@ -2122,6 +2122,7 @@ export class QuizService {
     this.questionPayloadSubject.next(null);
     this.answersSubject.next([]);
     this.selectedOption$.next(null);
+    this.scoringService.correctAnswersCountSig.set(0);
     this.correctAnswersCountSubject.next(0);
     this.correctAnswersSubject.next(new Map<string, number[]>());
     this.correctAnswersLoadedSubject.next(false);
