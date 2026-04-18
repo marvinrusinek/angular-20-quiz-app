@@ -275,6 +275,20 @@ export class IntroductionComponent implements OnInit, OnDestroy {
         localStorage.removeItem('selectedOptionsMap');
         localStorage.removeItem('userAnswers');
         sessionStorage.removeItem('selectedOptionsMap');
+        sessionStorage.removeItem('rawSelectionsMap');
+        sessionStorage.removeItem('selectionHistory');
+        sessionStorage.removeItem('isAnswered');
+        sessionStorage.removeItem('finalResult');
+        sessionStorage.removeItem('elapsedTimes');
+        sessionStorage.removeItem('completionTime');
+        // Clear per-question sessionStorage entries from previous quiz
+        for (let i = 0; i < 20; i++) {
+          sessionStorage.removeItem('sel_Q' + i);
+          sessionStorage.removeItem('dot_confirmed_' + i);
+          sessionStorage.removeItem('quiz_selection_' + i);
+          sessionStorage.removeItem('displayMode_' + i);
+          sessionStorage.removeItem('feedbackText_' + i);
+        }
       } catch {}
 
       try {
