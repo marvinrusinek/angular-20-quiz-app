@@ -61,12 +61,34 @@ export class SharedOptionClickService {
       const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
       const quizId = this.quizService?.quizId;
       if (optText && bundle.length > 0 && quizId) {
-        const pristineQuiz = bundle.find((qz: any) => qz?.quizId === quizId);
-        const pristineQ = pristineQuiz?.questions?.[qIdx];
-        if (pristineQ) {
-          const matchedOpt = (pristineQ.options ?? []).find((o: any) => nrm(o?.text) === optText);
-          if (matchedOpt !== undefined) {
-            pristineCorrect = matchedOpt?.correct === true || String(matchedOpt?.correct) === 'true';
+        // Use question TEXT matching to handle shuffled mode correctly.
+        // pristineQuiz.questions[qIdx] uses display index which maps to
+        // the wrong question when shuffle is active.
+        const qText = nrm(comp.currentQuestion?.questionText);
+        let matched = false;
+        if (qText) {
+          for (const quiz of bundle) {
+            for (const pq of (quiz?.questions ?? [])) {
+              if (nrm(pq?.questionText) !== qText) continue;
+              const matchedOpt = (pq?.options ?? []).find((o: any) => nrm(o?.text) === optText);
+              if (matchedOpt !== undefined) {
+                pristineCorrect = matchedOpt?.correct === true || String(matchedOpt?.correct) === 'true';
+                matched = true;
+              }
+              break;
+            }
+            if (matched) break;
+          }
+        }
+        // Fallback: index-based lookup (works for unshuffled mode)
+        if (!matched) {
+          const pristineQuiz = bundle.find((qz: any) => qz?.quizId === quizId);
+          const pristineQ = pristineQuiz?.questions?.[qIdx];
+          if (pristineQ) {
+            const matchedOpt = (pristineQ.options ?? []).find((o: any) => nrm(o?.text) === optText);
+            if (matchedOpt !== undefined) {
+              pristineCorrect = matchedOpt?.correct === true || String(matchedOpt?.correct) === 'true';
+            }
           }
         }
       }

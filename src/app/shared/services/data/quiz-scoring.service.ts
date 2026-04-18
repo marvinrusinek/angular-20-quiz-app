@@ -148,11 +148,19 @@ export class QuizScoringService {
       this.questionCorrectness.set(scoringKey, false);
     }
 
+    console.log(`[incrementScore] Q${qIndex}: scoringKey=${scoringKey} wasCorrect=${wasCorrect} correctAnswerFound=${correctAnswerFound} correctCount=${this.correctCount} shouldShuffle=${shouldShuffle} quizId=${quizId}`);
+
     let isNowCorrect = correctAnswerFound;  // simplified
 
     // PRISTINE GATE (incrementScore): Block increment for multi-answer questions
     // unless ALL pristine correct answers have been confirmed clicked.
-    if (isNowCorrect && quizId) {
+    // SKIP this gate when the caller already verified correctness upstream
+    // (handleOptionClick does its own pristine multi-answer check via
+    // _confirmedCorrectClicks before calling scoreDirectly).
+    // The gate is kept as a safety net for non-OIS callers.
+    if (isNowCorrect && quizId && !isMultipleAnswer) {
+      // For single-answer, no gate needed — single correct click = score.
+    } else if (isNowCorrect && quizId && isMultipleAnswer) {
       const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
       const pristineQuiz = QUIZ_DATA.find((qz: any) => qz?.quizId === quizId);
       const pristineQ = pristineQuiz?.questions?.[scoringKey];
@@ -165,12 +173,15 @@ export class QuizScoringService {
         if (pristineCorrectTexts.length > 1) {
           const confirmed = this._confirmedCorrectClicks.get(qIndex) ?? new Set();
           const allConfirmed = pristineCorrectTexts.every((t: string) => confirmed.has(t));
+          console.log(`[incrementScore] PRISTINE-GATE Q${qIndex}: pristineCorrect=[${pristineCorrectTexts}] confirmed=[${[...confirmed]}] allConfirmed=${allConfirmed}`);
           if (!allConfirmed) {
             isNowCorrect = false;
           }
         }
       }
     }
+
+    console.log(`[incrementScore] Q${qIndex}: DECISION isNowCorrect=${isNowCorrect} wasCorrect=${wasCorrect} → ${isNowCorrect && !wasCorrect ? 'INCREMENT' : 'NO-INCREMENT'}`);
 
     if (isNowCorrect && !wasCorrect) {
       this.questionCorrectness.set(scoringKey, true);

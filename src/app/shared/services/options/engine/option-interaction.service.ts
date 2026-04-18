@@ -553,14 +553,66 @@ export class OptionInteractionService {
       }
     } catch { /* ignore */ }
 
-    if (allCorrectFound && !isMultipleMode && !pristineIsMultiAnswer) {
+    // ─── AUTHORITATIVE TEXT-BASED SCORING ───
+    // Bypasses all index/flag-based gates which can fail in shuffled mode.
+    // Uses question TEXT + option TEXT matching against immutable QUIZ_DATA
+    // to determine correctness. Works for both single and multi-answer.
+    const clickedIsCorrectPristine = isPristineCorrect(binding.option);
+    let scoreFired = false;
+
+    if (clickedIsCorrectPristine && !pristineIsMultiAnswer) {
+      // SINGLE-ANSWER: clicked option is correct per pristine data → score
+      console.log(`[OIS] Q${qIdx + 1} SCORE: single-answer correct click → scoring`);
       if (!(this.quizService as any)._multiAnswerPerfect) {
         (this.quizService as any)._multiAnswerPerfect = new Map<number, boolean>();
       }
       (this.quizService as any)._multiAnswerPerfect.set(qIdx, true);
+      this.quizService.scoreDirectly(qIdx, true, false);
+      scoreFired = true;
+    } else if (clickedIsCorrectPristine && pristineIsMultiAnswer) {
+      // MULTI-ANSWER: check if ALL pristine correct answers have been clicked
+      try {
+        const nrmS = (t: any) => String(t ?? '').trim().toLowerCase();
+        const scoringService = (this.quizService as any)?.scoringService;
+        const confirmedClicks: Set<string> = scoringService?._confirmedCorrectClicks?.get(qIdx) ?? new Set();
+        const qTextS = nrmS(question?.questionText ?? state.currentQuestion?.questionText);
+        const bundleS: any[] = (this.quizService as any)?.quizInitialState ?? [];
+        let pristineCorrectTextsS: string[] = [];
+        for (const quiz of bundleS) {
+          for (const pq of (quiz?.questions ?? [])) {
+            if (nrmS(pq?.questionText) !== qTextS) continue;
+            pristineCorrectTextsS = (pq?.options ?? [])
+              .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+              .map((o: any) => nrmS(o?.text))
+              .filter((t: string) => !!t);
+            break;
+          }
+          if (pristineCorrectTextsS.length > 0) break;
+        }
+        const allCorrectClicked = pristineCorrectTextsS.length > 0 &&
+          pristineCorrectTextsS.every((t: string) => confirmedClicks.has(t));
+        console.log(`[OIS] Q${qIdx + 1} MULTI-CHECK: pristineCorrect=[${pristineCorrectTextsS}] confirmed=[${[...confirmedClicks]}] allClicked=${allCorrectClicked}`);
+        if (allCorrectClicked) {
+          if (!(this.quizService as any)._multiAnswerPerfect) {
+            (this.quizService as any)._multiAnswerPerfect = new Map<number, boolean>();
+          }
+          (this.quizService as any)._multiAnswerPerfect.set(qIdx, true);
+          this.quizService.scoreDirectly(qIdx, true, true);
+          scoreFired = true;
+        }
+      } catch { /* ignore */ }
+    } else if (allCorrectFound && !pristineIsMultiAnswer) {
+      // FALLBACK: original index-based gate still works
+      console.log(`[OIS] Q${qIdx + 1} SCORE: allCorrectFound fallback → scoring`);
+      if (!(this.quizService as any)._multiAnswerPerfect) {
+        (this.quizService as any)._multiAnswerPerfect = new Map<number, boolean>();
+      }
+      (this.quizService as any)._multiAnswerPerfect.set(qIdx, true);
+      this.quizService.scoreDirectly(qIdx, true, false);
+      scoreFired = true;
+    }
 
-      this.quizService.scoreDirectly(qIdx, true, isMultipleMode);
-
+    if (scoreFired) {
       if ((state as any).showExplanationChange) {
         (state as any).showExplanationChange.emit(true);
       }
