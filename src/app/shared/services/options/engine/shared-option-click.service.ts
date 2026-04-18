@@ -48,34 +48,35 @@ export class SharedOptionClickService {
     const binding = comp.optionBindings[index];
     if (!binding) return;
 
-    if (!comp.isDisabled(binding, index)) {
-      comp.cdRef.markForCheck();
-      // Determine correctness from pristine quiz data to avoid stale flags
-      let pristineCorrect = binding.option?.correct === true;
-      try {
-        const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
-        const optText = nrm(binding.option?.text);
-        const qIdx = comp.getActiveQuestionIndex?.() ?? comp.currentQuestionIndex ?? 0;
-        const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
-        const quizId = this.quizService?.quizId;
-        if (optText && bundle.length > 0 && quizId) {
-          const pristineQuiz = bundle.find((qz: any) => qz?.quizId === quizId);
-          const pristineQ = pristineQuiz?.questions?.[qIdx];
-          if (pristineQ) {
-            const matchedOpt = (pristineQ.options ?? []).find((o: any) => nrm(o?.text) === optText);
-            if (matchedOpt !== undefined) {
-              pristineCorrect = matchedOpt?.correct === true || String(matchedOpt?.correct) === 'true';
-            }
+    // Always play sound when an option event fires — the event itself
+    // proves the user interacted with the option. The previous isDisabled
+    // gate blocked sound for options that were still clickable via
+    // mat-radio (change) events, causing silent incorrect clicks.
+    comp.cdRef.markForCheck();
+    let pristineCorrect = binding.option?.correct === true;
+    try {
+      const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
+      const optText = nrm(binding.option?.text);
+      const qIdx = comp.getActiveQuestionIndex?.() ?? comp.currentQuestionIndex ?? 0;
+      const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
+      const quizId = this.quizService?.quizId;
+      if (optText && bundle.length > 0 && quizId) {
+        const pristineQuiz = bundle.find((qz: any) => qz?.quizId === quizId);
+        const pristineQ = pristineQuiz?.questions?.[qIdx];
+        if (pristineQ) {
+          const matchedOpt = (pristineQ.options ?? []).find((o: any) => nrm(o?.text) === optText);
+          if (matchedOpt !== undefined) {
+            pristineCorrect = matchedOpt?.correct === true || String(matchedOpt?.correct) === 'true';
           }
         }
-      } catch { }
-      comp.soundService.playOnceForOption({
-        ...binding.option,
-        correct: pristineCorrect,
-        selected: true,
-        questionIndex: comp.currentQuestionIndex
-      });
-    }
+      }
+    } catch { }
+    comp.soundService.playOnceForOption({
+      ...binding.option,
+      correct: pristineCorrect,
+      selected: true,
+      questionIndex: comp.currentQuestionIndex
+    });
 
     const now = Date.now();
     const isRapidDuplicate = comp._lastHandledIndex === index &&
