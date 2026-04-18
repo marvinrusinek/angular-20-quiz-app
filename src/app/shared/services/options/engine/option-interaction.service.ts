@@ -147,10 +147,39 @@ export class OptionInteractionService {
     const clickedIsCorrectEarly = isPristineCorrect(binding.option);
     const dotStatusEarly = clickedIsCorrectEarly ? 'correct' : 'wrong';
 
-    // Record this correct click for the scoring service's pristine gate
-    if (clickedIsCorrectEarly && binding.option?.text) {
-      (this.quizService as any)?.scoringService?.recordCorrectClick?.(qIdx, binding.option.text);
-    }
+    // Record correct clicks for the scoring service's multi-answer gate.
+    // Use a DIRECT quizInitialState lookup (independent of isPristineCorrect)
+    // to ensure correct clicks are always recorded even when isPristineCorrect
+    // fails due to stale question text resolution.
+    try {
+      const nrmR = (t: any) => String(t ?? '').trim().toLowerCase();
+      const optTextR = nrmR(binding.option?.text);
+      if (optTextR) {
+        const bundleR: any[] = (this.quizService as any)?.quizInitialState ?? [];
+        // Try multiple sources for question text
+        const qTextCandidates = [
+          nrmR(state.currentQuestion?.questionText),
+          nrmR((this.quizService as any)?.questions?.[qIdx]?.questionText),
+          nrmR((this.quizService as any)?.shuffledQuestions?.[qIdx]?.questionText)
+        ].filter((t: string) => !!t);
+        for (const qTextR of qTextCandidates) {
+          let found = false;
+          for (const quiz of bundleR) {
+            for (const pq of (quiz?.questions ?? [])) {
+              if (nrmR(pq?.questionText) !== qTextR) continue;
+              const matchedOpt = (pq?.options ?? []).find((po: any) => nrmR(po?.text) === optTextR);
+              if (matchedOpt && (matchedOpt.correct === true || String(matchedOpt.correct) === 'true')) {
+                (this.quizService as any)?.scoringService?.recordCorrectClick?.(qIdx, binding.option.text);
+                found = true;
+              }
+              break;
+            }
+            if (found) break;
+          }
+          if (found) break;
+        }
+      }
+    } catch { /* ignore */ }
     this.selectedOptionService.clickConfirmedDotStatus.set(qIdx, dotStatusEarly);
     this.selectedOptionService.lastClickedCorrectByQuestion.set(qIdx, clickedIsCorrectEarly);
     // NOTE: sessionStorage persist of dot_confirmed is deferred to AFTER we
@@ -584,28 +613,41 @@ export class OptionInteractionService {
         (this.quizService as any)._multiAnswerPerfect.set(qIdx, true);
         this.quizService.scoreDirectly(qIdx, true, false);
         scoreFired = true;
-      } else if (clickedIsCorrectPristine && pristineIsMultiAnswer) {
-        // Multi-answer: score only when ALL pristine correct answers clicked
+      } else if (pristineIsMultiAnswer) {
+        // Multi-answer: score only when ALL pristine correct answers clicked.
+        // Don't gate on clickedIsCorrectPristine — it may fail in shuffle mode.
+        // Instead, check confirmedClicks which was populated by the robust
+        // recordCorrectClick above.
         try {
           const nrmS = (t: any) => String(t ?? '').trim().toLowerCase();
           const scoringService = (this.quizService as any)?.scoringService;
           const confirmedClicks: Set<string> = scoringService?._confirmedCorrectClicks?.get(qIdx) ?? new Set();
-          const qTextS = nrmS(question?.questionText ?? state.currentQuestion?.questionText);
+          // Try multiple sources for question text (same as recordCorrectClick)
+          const qTextCandidatesS = [
+            nrmS(question?.questionText),
+            nrmS(state.currentQuestion?.questionText),
+            nrmS((this.quizService as any)?.questions?.[qIdx]?.questionText),
+            nrmS((this.quizService as any)?.shuffledQuestions?.[qIdx]?.questionText)
+          ].filter((t: string) => !!t);
           const bundleS: any[] = (this.quizService as any)?.quizInitialState ?? [];
           let pristineCorrectTextsS: string[] = [];
-          for (const quiz of bundleS) {
-            for (const pq of (quiz?.questions ?? [])) {
-              if (nrmS(pq?.questionText) !== qTextS) continue;
-              pristineCorrectTextsS = (pq?.options ?? [])
-                .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
-                .map((o: any) => nrmS(o?.text))
-                .filter((t: string) => !!t);
-              break;
+          for (const qTextS of qTextCandidatesS) {
+            for (const quiz of bundleS) {
+              for (const pq of (quiz?.questions ?? [])) {
+                if (nrmS(pq?.questionText) !== qTextS) continue;
+                pristineCorrectTextsS = (pq?.options ?? [])
+                  .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+                  .map((o: any) => nrmS(o?.text))
+                  .filter((t: string) => !!t);
+                break;
+              }
+              if (pristineCorrectTextsS.length > 0) break;
             }
             if (pristineCorrectTextsS.length > 0) break;
           }
           const allCorrectClicked = pristineCorrectTextsS.length > 0 &&
             pristineCorrectTextsS.every((t: string) => confirmedClicks.has(t));
+          console.log(`[OIS] Q${qIdx + 1} MULTI-CHECK: pristineCorrect=[${pristineCorrectTextsS}] confirmed=[${[...confirmedClicks]}] allClicked=${allCorrectClicked}`);
           if (allCorrectClicked) {
             console.log(`[OIS] Q${qIdx + 1} SCORE: shuffle multi-answer all correct → scoring`);
             if (!(this.quizService as any)._multiAnswerPerfect) {
