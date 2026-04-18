@@ -255,7 +255,7 @@ export class QuizContentLoaderService {
     // Reset display mode on navigation
     const isNavigation = prevIdx !== null && prevIdx !== idx;
     if (isNavigation) {
-      this.quizStateService.displayStateSubject.next({
+      this.quizStateService.setDisplayState({
         mode: 'question',
         answered: false
       });

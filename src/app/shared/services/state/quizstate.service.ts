@@ -1,7 +1,7 @@
-import { Injectable } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { Injectable, signal } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
 import {
-  BehaviorSubject, EMPTY, Observable, ReplaySubject, Subject
+  EMPTY, Observable, ReplaySubject, Subject
 } from 'rxjs';
 import { catchError, distinctUntilChanged, filter } from 'rxjs/operators';
 
@@ -12,20 +12,18 @@ import { QuizQuestion } from '../../models/QuizQuestion.model';
 
 @Injectable({ providedIn: 'root' })
 export class QuizStateService {
-  currentQuestion: BehaviorSubject<QuizQuestion | null> =
-    new BehaviorSubject<QuizQuestion | null>(null);
-
-  currentQuestionSubject = new BehaviorSubject<QuizQuestion | null>(null);
+  // ── Signal-first state (current question / index / options) ────
+  readonly currentQuestionSig = signal<QuizQuestion | null>(null);
   currentQuestion$: Observable<QuizQuestion | null> =
-    this.currentQuestionSubject.asObservable();
+    toObservable(this.currentQuestionSig);
 
-  private currentQuestionIndexSubject = new BehaviorSubject<number>(0);
+  readonly currentQuestionIndexSig = signal<number>(0);
   currentQuestionIndex$: Observable<number> =
-    this.currentQuestionIndexSubject.asObservable();
+    toObservable(this.currentQuestionIndexSig);
 
-  private currentOptionsSubject = new BehaviorSubject<Option[]>([]);
+  readonly currentOptionsSig = signal<Option[]>([]);
   currentOptions$: Observable<Option[]> =
-    this.currentOptionsSubject.asObservable();
+    toObservable(this.currentOptionsSig);
 
   questionStates: Map<number, QuestionState> = new Map();
   private quizStates: { [quizId: string]: Map<number, QuestionState> } = {};
@@ -39,36 +37,34 @@ export class QuizStateService {
   private _visibilityRestoreLock = false;
   private _visibilityRestoreLockTimeout: ReturnType<typeof setTimeout> | null = null;
 
-  loadingSubject = new BehaviorSubject<boolean>(false);
+  // ── Signal-first state (loading / navigating / answered) ──────
+  readonly isLoadingSig = signal<boolean>(false);
+  public isLoading$ = toObservable(this.isLoadingSig);
 
-  isLoadingSubject = new BehaviorSubject<boolean>(false);
-  public isLoading$ = this.isLoadingSubject.asObservable();
+  readonly isNavigatingSig = signal<boolean>(false);
+  public isNavigating$ = toObservable(this.isNavigatingSig);
 
-  isNavigatingSubject = new BehaviorSubject<boolean>(false);
-  public isNavigating$ = this.isNavigatingSubject.asObservable();
-
-  answeredSubject = new BehaviorSubject<boolean>(false);
-  isAnswered$: Observable<boolean> = this.answeredSubject.asObservable();
+  readonly isAnsweredSig = signal<boolean>(false);
+  isAnswered$: Observable<boolean> = toObservable(this.isAnsweredSig);
 
   // Tracks when the explanation text (FET) is fully formatted and ready
-  private explanationReadySubject =
-    new BehaviorSubject<boolean>(false);
-  public explanationReady$ = this.explanationReadySubject.asObservable();
+  readonly explanationReadySig = signal<boolean>(false);
+  public explanationReady$ = toObservable(this.explanationReadySig);
 
-  public displayStateSubject = new BehaviorSubject<{
-    mode: 'question' | 'explanation',
-    answered: boolean
+  readonly displayStateSig = signal<{
+    mode: 'question' | 'explanation';
+    answered: boolean;
   }>({
     mode: 'question',
     answered: false
   });
-  public displayState$ = this.displayStateSubject.asObservable();
+  public displayState$ = toObservable(this.displayStateSig);
 
   qaSubject = new ReplaySubject<QAPayload>(1);
   qa$ = this.qaSubject.asObservable();
 
-  private interactionReadySubject = new BehaviorSubject<boolean>(true);
-  public interactionReady$ = this.interactionReadySubject.asObservable();
+  readonly interactionReadySig = signal<boolean>(true);
+  public interactionReady$ = toObservable(this.interactionReadySig);
 
   // Tracks whether the quiz state has completed at least one full restoration
   public hasRestoredOnce = false;
@@ -76,19 +72,7 @@ export class QuizStateService {
   public _hasUserInteracted = new Set<number>();
   public _answeredQuestionIndices = new Set<number>();
 
-  // Signal mirrors derived from the BehaviorSubjects above.
-  // New code should read these; existing code can keep using the $ observables.
-  readonly currentQuestionSig = toSignal(this.currentQuestion$, { initialValue: null });
-  readonly currentQuestionIndexSig = toSignal(this.currentQuestionIndex$, { initialValue: 0 });
-  readonly currentOptionsSig = toSignal(this.currentOptions$, { initialValue: [] as Option[] });
-  readonly isLoadingSig = toSignal(this.isLoading$, { initialValue: false });
-  readonly isNavigatingSig = toSignal(this.isNavigating$, { initialValue: false });
-  readonly isAnsweredSig = toSignal(this.isAnswered$, { initialValue: false });
-  readonly explanationReadySig = toSignal(this.explanationReady$, { initialValue: false });
-  readonly displayStateSig = toSignal(this.displayState$, {
-    initialValue: { mode: 'question' as 'question' | 'explanation', answered: false }
-  });
-  readonly interactionReadySig = toSignal(this.interactionReady$, { initialValue: true });
+  // All signals are now signal-first (declared above)
 
   constructor() {
     this.questionStates = new Map<number, QuestionState>();
@@ -191,7 +175,7 @@ export class QuizStateService {
       console.log('[QSS] setDisplayState blocked by visibility restore lock:', state);
       return;
     }
-    this.displayStateSubject.next(state);
+    this.displayStateSig.set(state);
   }
 
   // Lock display state changes (used during tab visibility restoration)
@@ -398,14 +382,13 @@ export class QuizStateService {
         })
       )
       .subscribe((question: QuizQuestion) => {
-        this.currentQuestion.next(question);
-        this.currentQuestionSubject.next(question);
-        this.currentOptionsSubject.next(question.options ?? []);
+        this.currentQuestionSig.set(question);
+        this.currentOptionsSig.set(question.options ?? []);
       });
   }
 
   updateCurrentQuestion(newQuestion: QuizQuestion): void {
-    this.currentQuestionSubject.next(newQuestion);
+    this.currentQuestionSig.set(newQuestion);
   }
 
   onRestoreQuestionState(): Observable<void> {
@@ -421,37 +404,37 @@ export class QuizStateService {
   }
 
   isLoading(): boolean {
-    return this.loadingSubject.getValue();
+    return this.isLoadingSig();
   }
 
   setNavigating(isNavigating: boolean): void {
-    this.isNavigatingSubject.next(isNavigating);
+    this.isNavigatingSig.set(isNavigating);
   }
 
   setLoading(isLoading: boolean): void {
-    this.loadingSubject.next(isLoading);
-    this.isLoadingSubject.next(isLoading);
+    this.isLoadingSig.set(isLoading);
   }
 
   setAnswered(isAnswered: boolean): void {
-    this.answeredSubject.next(isAnswered);
+    this.isAnsweredSig.set(isAnswered);
   }
 
   // Method to set isAnswered and lock displayExplanation
   setAnswerSelected(isAnswered: boolean): void {
-    this.answeredSubject.next(isAnswered);
-    if (isAnswered && !this.displayExplanationLocked)
+    this.isAnsweredSig.set(isAnswered);
+    if (isAnswered && !this.displayExplanationLocked) {
       this.displayExplanationLocked = true;
+    }
   }
 
   setExplanationReady(isReady: boolean): void {
-    this.explanationReadySubject.next(isReady);
+    this.explanationReadySig.set(isReady);
   }
 
   startLoading(): void {
     if (!this.isLoading()) {
       console.log('Loading started');
-      this.loadingSubject.next(true);
+      this.isLoadingSig.set(true);
     }
   }
 
@@ -494,24 +477,25 @@ export class QuizStateService {
   }
 
   setInteractionReady(v: boolean) {
-    this.interactionReadySubject.next(v);
+    this.interactionReadySig.set(v);
   }
 
   isInteractionReady(): boolean {
-    return this.interactionReadySubject.getValue();
+    return this.interactionReadySig();
   }
 
-  // Emits the timestamp of the last user interaction
-  public lastInteractionTime$ = new BehaviorSubject<number>(0);
+  // Timestamp of the last user interaction
+  readonly lastInteractionTimeSig = signal<number>(0);
+  public lastInteractionTime$ = toObservable(this.lastInteractionTimeSig);
 
-  // Emits the index of the question the user just interacted with
-  // Use BehaviorSubject to hold the latest interaction so tardy subscribers don't miss it
-  public userHasInteracted$ = new BehaviorSubject<number>(-1);
+  // Index of the question the user just interacted with
+  readonly userHasInteractedSig = signal<number>(-1);
+  public userHasInteracted$ = toObservable(this.userHasInteractedSig);
 
   markUserInteracted(idx: number): void {
     this._hasUserInteracted.add(idx);
-    this.userHasInteracted$.next(idx);
-    this.lastInteractionTime$.next(Date.now());
+    this.userHasInteractedSig.set(idx);
+    this.lastInteractionTimeSig.set(Date.now());
     this.persistInteractionState();
     // Also register as a click-in-session: every real user click path
     // calls markUserInteracted, while sessionStorage restore populates
@@ -608,8 +592,8 @@ export class QuizStateService {
 
   // Reset interaction state (called on Navigation)
   resetInteraction(): void {
-    this.userHasInteracted$.next(-1);
-    this.lastInteractionTime$.next(0);
+    this.userHasInteractedSig.set(-1);
+    this.lastInteractionTimeSig.set(0);
   }
 
   // Reset all state (called on Shuffle Toggle or Quiz Reset)
@@ -623,10 +607,10 @@ export class QuizStateService {
       sessionStorage.removeItem(this.INTERACTED_STORAGE_KEY);
       sessionStorage.removeItem(this.ANSWERED_STORAGE_KEY);
     } catch { /* ignore */ }
-    this.userHasInteracted$.next(-1);  // Reset so stale index doesn't falsely pass hasInteracted checks
-    this.currentQuestionSubject.next(null);
-    this.explanationReadySubject.next(false);
-    this.answeredSubject.next(false);
+    this.userHasInteractedSig.set(-1);  // Reset so stale index doesn't falsely pass hasInteracted checks
+    this.currentQuestionSig.set(null);
+    this.explanationReadySig.set(false);
+    this.isAnsweredSig.set(false);
     this.qaSubject.next(null as any);  // clear replay subject
   }
 }

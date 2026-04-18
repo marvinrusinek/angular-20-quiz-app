@@ -149,7 +149,7 @@ export class QqcOptionSelectionService {
       );
     }
 
-    if (!this.quizStateService.answeredSubject.value) {
+    if (!this.quizStateService.isAnsweredSig()) {
       this.quizStateService.setAnswerSelected(true);
     }
   }

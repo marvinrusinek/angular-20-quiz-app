@@ -39,7 +39,7 @@ export class QuizVisibilityRestoreService {
    */
   handleVisibilityChange(isHidden: boolean, params: VisibilityRestoreParams): boolean {
     if (isHidden) {
-      const currentDisplayState = this.quizStateService.displayStateSubject?.value;
+      const currentDisplayState = this.quizStateService.displayStateSig();
       if (currentDisplayState) {
         this._savedDisplayState = { ...currentDisplayState };
         console.log('[VISIBILITY] Saved display state on hide:', this._savedDisplayState);

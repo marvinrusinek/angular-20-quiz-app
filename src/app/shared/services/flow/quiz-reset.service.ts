@@ -260,7 +260,7 @@ export class QuizResetService {
       console.warn('[RESET] questionToDisplay$ not available');
     }
 
-    this.quizStateService.displayStateSubject?.next(
+    this.quizStateService.setDisplayState(
       { mode: 'question', answered: false }
     );
     this.quizStateService.setExplanationReady(false);

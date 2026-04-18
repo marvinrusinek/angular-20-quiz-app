@@ -573,7 +573,7 @@ export class QuizNavigationService {
     } catch { }
 
     // Reset to question mode so next frame starts clean
-    this.quizStateService.displayStateSubject.next({
+    this.quizStateService.setDisplayState({
       mode: 'question',
       answered: false
     });

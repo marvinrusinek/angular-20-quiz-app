@@ -220,8 +220,8 @@ export class QuizSetupService {
     setTimeout(() => {
       this.nextButtonStateService.evaluateNextButtonState(
         this.selectedOptionService.isAnsweredSubject.getValue(),
-        this.quizStateService.isLoadingSubject.getValue(),
-        this.quizStateService.isNavigatingSubject.getValue()
+        this.quizStateService.isLoadingSig(),
+        this.quizStateService.isNavigatingSig()
       );
       host.updateDotStatus(idx);
       // Persist dot status to localStorage so it survives refresh
@@ -603,8 +603,8 @@ export class QuizSetupService {
         this.quizContentLoaderService.restoreSelectionState(host.currentQuestionIndex);
         this.nextButtonStateService.evaluateNextButtonState(
           host.isAnswered,
-          this.quizStateService.isLoadingSubject.getValue(),
-          this.quizStateService.isNavigatingSubject.getValue()
+          this.quizStateService.isLoadingSig(),
+          this.quizStateService.isNavigatingSig()
         );
       },
       error: (error: Error) => console.error('Error fetching question:', error)

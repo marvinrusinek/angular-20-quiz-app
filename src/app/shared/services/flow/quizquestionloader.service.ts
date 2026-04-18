@@ -414,7 +414,7 @@ export class QuizQuestionLoaderService {
     this.resetQuestionState(index);
 
     // Always reset display state when navigating to new question (not conditional)
-    this.quizStateService.displayStateSubject.next({
+    this.quizStateService.setDisplayState({
       mode: 'question',
       answered: false
     });
