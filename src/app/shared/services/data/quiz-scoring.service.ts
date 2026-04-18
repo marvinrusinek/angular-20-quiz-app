@@ -144,7 +144,6 @@ export class QuizScoringService {
     // the map entry is stale (e.g. from a previous localStorage session that wasn't
     // fully cleared). Reset so scoring can proceed.
     if (wasCorrect && this.correctCount === 0) {
-      console.warn(`[incrementScore] Self-heal: wasCorrect=true but correctCount=0 for Q${qIndex} (key=${scoringKey}). Clearing stale entry.`);
       wasCorrect = false;
       this.questionCorrectness.set(scoringKey, false);
     }
@@ -156,7 +155,7 @@ export class QuizScoringService {
     if (isNowCorrect && quizId) {
       const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
       const pristineQuiz = QUIZ_DATA.find((qz: any) => qz?.quizId === quizId);
-      const pristineQ = pristineQuiz?.questions?.[qIndex];
+      const pristineQ = pristineQuiz?.questions?.[scoringKey];
       if (pristineQ) {
         const pristineCorrectTexts = (pristineQ.options ?? [])
           .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')

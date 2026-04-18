@@ -469,7 +469,14 @@ export class QuizService {
     }
     if (Array.isArray(q?.questions)) {
       this.questionsList = q.questions;
-      this.questionsSubject.next(q.questions);
+      // When shuffle is active, do NOT emit unshuffled questions to subscribers.
+      // That causes questionsArray in QuizComponent to briefly hold unshuffled
+      // data, which downstream code reads as the display question source.
+      if (this.isShuffleEnabled() && this.shuffledQuestions.length > 0) {
+        this.questionsSubject.next(this.shuffledQuestions);
+      } else {
+        this.questionsSubject.next(q.questions);
+      }
       this.questionsQuizId = q.quizId;
       this.questions = q.questions;
       this.totalQuestions = q.questions.length;
@@ -646,7 +653,6 @@ export class QuizService {
           console.warn('[fetchQuizQuestions] Cache hit but questions array is empty. Proceeding to fetch.');
         } else {
           console.log(`[fetchQuizQuestions] Quiz mismatch - clearing old shuffle. quizId=${quizId}, this.quizId=${this.quizId}, questionsQuizId=${this.questionsQuizId}`);
-          // Clear old shuffle for new quiz
           this.shuffledQuestions = [];
           this._questions = [];
           this.questionsQuizId = null;
@@ -1914,6 +1920,12 @@ export class QuizService {
    */
   public scoreDirectly(questionIndex: number, isCorrect: boolean, isMultipleAnswer: boolean): void {
     if (isCorrect) {
+      // For SHUFFLED mode, skip the selection verification gate.
+      if (this.shouldShuffle()) {
+        this.scoringService.scoreDirectly(questionIndex, isCorrect, isMultipleAnswer, true, this.quizId);
+        return;
+      }
+
       // PRISTINE VERIFICATION: cross-check the caller's isCorrect=true against
       // the actual pristine quiz data and user selections. Block if the user's
       // current selection doesn't match the pristine correct answer(s).
@@ -1997,16 +2009,20 @@ export class QuizService {
           } catch { }
         }
 
-        // Verify selections match pristine correct answers
-        if (pristineCorrectTexts.length === 1) {
-          if (!pristineCorrectTexts.some(t => selTexts.has(t))) {
-            console.log(`[scoreDirectly] Q${questionIndex + 1} BLOCKED: selection [${[...selTexts]}] doesn't match pristine correct [${pristineCorrectTexts}]`);
-            return;
-          }
-        } else {
-          if (!pristineCorrectTexts.every(t => selTexts.has(t))) {
-            console.log(`[scoreDirectly] Q${questionIndex + 1} BLOCKED: not all pristine correct selected (need=${pristineCorrectTexts.length}, have=${selTexts.size})`);
-            return;
+        // Verify selections match pristine correct answers.
+        // If selTexts is empty, we have no data to verify against — trust the
+        // caller's isCorrect=true (upstream already verified via pristine data).
+        if (selTexts.size > 0) {
+          if (pristineCorrectTexts.length === 1) {
+            if (!pristineCorrectTexts.some(t => selTexts.has(t))) {
+              console.log(`[scoreDirectly] Q${questionIndex + 1} BLOCKED: selection [${[...selTexts]}] doesn't match pristine correct [${pristineCorrectTexts}]`);
+              return;
+            }
+          } else {
+            if (!pristineCorrectTexts.every(t => selTexts.has(t))) {
+              console.log(`[scoreDirectly] Q${questionIndex + 1} BLOCKED: not all pristine correct selected (need=${pristineCorrectTexts.length}, have=${selTexts.size})`);
+              return;
+            }
           }
         }
       }

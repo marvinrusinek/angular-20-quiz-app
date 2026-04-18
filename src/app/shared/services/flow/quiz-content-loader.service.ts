@@ -287,13 +287,33 @@ export class QuizContentLoaderService {
     );
     if (!currentQuiz) return empty;
 
-    this.quizService.setCurrentQuiz(currentQuiz);
+    // Only call setCurrentQuiz when switching quizzes — calling it on every
+    // question navigation triggers questionsSubject emissions that cascade
+    // into clearing shuffledQuestions, breaking shuffled mode for Q2+.
+    const isSameQuiz = this.quizService.quizId === quizId
+      || this.quizService.getCurrentQuizId() === quizId;
+    if (!isSameQuiz) {
+      this.quizService.setCurrentQuiz(currentQuiz);
+    }
     this.quizQuestionLoaderService.activeQuizId = quizId;
     const totalQ = currentQuiz.questions?.length ?? 0;
     this.quizQuestionLoaderService.totalQuestions = totalQ;
 
+    // Snapshot shuffled questions BEFORE any async operations that might
+    // clear them through side-effects.
+    const shuffledSnapshot = this.quizService.isShuffleEnabled()
+      ? [...(this.quizService.shuffledQuestions ?? [])]
+      : null;
+
     await this.quizQuestionLoaderService.loadQuestionAndOptions(index);
     await this.quizQuestionLoaderService.loadQA(index);
+
+    // Restore shuffledQuestions if they were cleared during async operations
+    if (shuffledSnapshot && shuffledSnapshot.length > 0
+        && (!this.quizService.shuffledQuestions || this.quizService.shuffledQuestions.length === 0)) {
+      console.warn('[loadQuestionFromRouteChange] Restoring shuffledQuestions that were cleared during async load');
+      this.quizService.shuffledQuestions = shuffledSnapshot;
+    }
 
     const shouldUseShuffled =
       this.quizService.isShuffleEnabled() &&

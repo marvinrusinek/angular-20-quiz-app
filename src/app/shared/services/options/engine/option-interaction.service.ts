@@ -83,20 +83,29 @@ export class OptionInteractionService {
 
     // PRISTINE CORRECTNESS RESOLVER: Resolve whether the clicked option is
     // truly correct from quizInitialState, not from potentially-mutated binding data.
+    // Uses question TEXT matching (not index) to handle shuffled mode correctly.
     const isPristineCorrect = (o: any): boolean => {
       if (!o) return false;
       try {
         const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
         const optText = nrm(o?.text);
         const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
-        const quizId = (this.quizService as any)?.quizId;
-        if (optText && bundle.length > 0 && quizId) {
-          const pristineQuiz = bundle.find((qz: any) => qz?.quizId === quizId);
-          const pristineQ = pristineQuiz?.questions?.[qIdx];
-          if (pristineQ) {
-            const matchedOpt = (pristineQ.options ?? []).find((po: any) => nrm(po?.text) === optText);
-            if (matchedOpt !== undefined) {
-              return matchedOpt?.correct === true || String(matchedOpt?.correct) === 'true';
+        if (optText && bundle.length > 0) {
+          // Resolve the current question text for matching
+          const question = state.currentQuestion
+            ?? (this.quizService as any)?.questions?.[qIdx];
+          const qText = nrm(question?.questionText);
+          if (qText) {
+            // Match by question text across all pristine quizzes
+            for (const quiz of bundle) {
+              for (const pq of (quiz?.questions ?? [])) {
+                if (nrm(pq?.questionText) !== qText) continue;
+                const matchedOpt = (pq?.options ?? []).find((po: any) => nrm(po?.text) === optText);
+                if (matchedOpt !== undefined) {
+                  return matchedOpt?.correct === true || String(matchedOpt?.correct) === 'true';
+                }
+                break;
+              }
             }
           }
         }

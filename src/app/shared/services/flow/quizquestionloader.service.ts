@@ -976,9 +976,17 @@ export class QuizQuestionLoaderService {
 
     try {
       // ─── Fetch all questions once ──────────────────────────────────
-      const allQuestions = (await firstValueFrom(
-        this.quizDataService.getQuestionsForQuiz(this.activeQuizId),
-      )) as QuizQuestion[];
+      // In shuffled mode, use the shuffled questions array so that
+      // display index maps to the correct shuffled question (not the
+      // raw/unshuffled question at that position).
+      let allQuestions: QuizQuestion[];
+      if (this.quizService.isShuffleEnabled() && this.quizService.shuffledQuestions?.length > 0) {
+        allQuestions = this.quizService.shuffledQuestions;
+      } else {
+        allQuestions = (await firstValueFrom(
+          this.quizDataService.getQuestionsForQuiz(this.activeQuizId),
+        )) as QuizQuestion[];
+      }
       const q: QuizQuestion | undefined = allQuestions[index];
 
       if (!q) {
