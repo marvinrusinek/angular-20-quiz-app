@@ -33,6 +33,7 @@ export class QuizScoringService {
       this._confirmedCorrectClicks.set(questionIndex, new Set());
     }
     this._confirmedCorrectClicks.get(questionIndex)!.add(nrm);
+    console.log(`[recordCorrectClick] Q${questionIndex + 1}: recorded "${nrm}" → all=[${[...this._confirmedCorrectClicks.get(questionIndex)!]}]`);
   }
 
   /** Clear confirmed clicks for a question (used on reset). */

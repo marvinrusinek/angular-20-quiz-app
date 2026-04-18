@@ -374,17 +374,26 @@ export class SharedOptionClickService {
       let pristineAllCorrectSelected = false;
       try {
         const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
-        const qText = nrm(comp.currentQuestion?.questionText ?? '');
+        // Use multiple question text sources for shuffle compatibility
+        const qTextCandidates = [
+          nrm(comp.currentQuestion?.questionText),
+          nrm(comp.getQuestionAtDisplayIndex?.(qIdx)?.questionText),
+          nrm((this.quizService as any)?.questions?.[qIdx]?.questionText),
+          nrm((this.quizService as any)?.shuffledQuestions?.[qIdx]?.questionText)
+        ].filter((t: string) => !!t);
         let pristineCorrectTexts: string[] = [];
         const pristineBundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
-        for (const quiz of pristineBundle) {
-          for (const pq of quiz?.questions ?? []) {
-            if (nrm(pq?.questionText) !== qText) continue;
-            pristineCorrectTexts = (pq?.options ?? [])
-              .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
-              .map((o: any) => nrm(o?.text))
-              .filter((t: string) => !!t);
-            break;
+        for (const qText of qTextCandidates) {
+          for (const quiz of pristineBundle) {
+            for (const pq of quiz?.questions ?? []) {
+              if (nrm(pq?.questionText) !== qText) continue;
+              pristineCorrectTexts = (pq?.options ?? [])
+                .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+                .map((o: any) => nrm(o?.text))
+                .filter((t: string) => !!t);
+              break;
+            }
+            if (pristineCorrectTexts.length > 0) break;
           }
           if (pristineCorrectTexts.length > 0) break;
         }
@@ -404,7 +413,10 @@ export class SharedOptionClickService {
         pristineAllCorrectSelected = clickState.remaining === 0;
       }
 
-      if (clickState.remaining === 0 && pristineAllCorrectSelected) {
+      // Score when EITHER remaining===0 AND pristine confirms, OR pristine
+      // alone confirms all correct selected (handles cases where
+      // correctIndicesFromQ is wrong but pristine text matching works).
+      if ((clickState.remaining === 0 && pristineAllCorrectSelected) || pristineAllCorrectSelected) {
         try { this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true }); } catch {}
         this.nextButtonStateService.setNextButtonState(true);
 
