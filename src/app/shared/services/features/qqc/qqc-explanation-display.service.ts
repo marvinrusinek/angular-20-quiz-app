@@ -384,7 +384,7 @@ export class QqcExplanationDisplayService {
       isExplanationLocked: false;
     };
   } | null {
-    const isAnswered = this.selectedOptionService.isAnsweredSubject.getValue();
+    const isAnswered = this.selectedOptionService.isAnsweredSig();
 
     if (!isAnswered || !shouldDisplayExplanation) return null;
     if (currentDisplayMode === 'explanation') return null;

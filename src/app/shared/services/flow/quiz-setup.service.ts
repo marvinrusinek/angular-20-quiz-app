@@ -219,7 +219,7 @@ export class QuizSetupService {
 
     setTimeout(() => {
       this.nextButtonStateService.evaluateNextButtonState(
-        this.selectedOptionService.isAnsweredSubject.getValue(),
+        this.selectedOptionService.isAnsweredSig(),
         this.quizStateService.isLoadingSig(),
         this.quizStateService.isNavigatingSig()
       );

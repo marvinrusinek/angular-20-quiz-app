@@ -337,7 +337,7 @@ export class QqcOptionSelectionService {
         );
       }
 
-      this.selectedOptionService.isAnsweredSubject.next(true);
+      this.selectedOptionService.isAnsweredSig.set(true);
     }
 
     // Update selection state
@@ -377,7 +377,7 @@ export class QqcOptionSelectionService {
     // Compute next button state
     const shouldEnableNext =
       params.allCorrectSelected ||
-      this.selectedOptionService.isAnsweredSubject.getValue();
+      this.selectedOptionService.isAnsweredSig();
 
     return {
       explanationToDisplay,

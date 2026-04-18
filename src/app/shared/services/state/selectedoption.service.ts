@@ -1,6 +1,6 @@
-import { Injectable } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { BehaviorSubject, Observable, Subject } from 'rxjs';
+import { Injectable, signal } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
+import { Observable, Subject } from 'rxjs';
 import { distinctUntilChanged, map, startWith } from 'rxjs/operators';
 
 import { QuestionType } from '../../models/question-type.enum';
@@ -88,7 +88,7 @@ export class SelectedOptionService {
           }
         }
         this.selectedOptionsMap = new Map(entries);
-        this.selectedOptionsMap$.next(new Map(this.selectedOptionsMap));
+        this.selectedOptionsMapSig.set(new Map(this.selectedOptionsMap));
       }
 
       // Restore _selectionHistory from its dedicated key. This is the
@@ -210,7 +210,7 @@ export class SelectedOptionService {
           }
         }
         if (this.selectedOptionsMap.size > 0) {
-          this.selectedOptionsMap$.next(new Map(this.selectedOptionsMap));
+          this.selectedOptionsMapSig.set(new Map(this.selectedOptionsMap));
           this._refreshBackup = new Map(this.selectedOptionsMap);
         }
       } else {
@@ -365,10 +365,10 @@ export class SelectedOptionService {
     this.optionStates.clear();
     this._questionLocks.clear();
     this._lockedByQuestion.clear();
-    this.isAnsweredSubject.next(false);
-    this.isOptionSelectedSubject.next(false);
-    this.selectedOptionsMap$.next(new Map());
-    this.showFeedbackForOptionSubject.next({});
+    this.isAnsweredSig.set(false);
+    this.isOptionSelectedSig.set(false);
+    this.selectedOptionsMapSig.set(new Map());
+    this.showFeedbackForOptionSig.set({});
 
     try {
       sessionStorage.removeItem('rawSelectionsMap');
@@ -383,48 +383,39 @@ export class SelectedOptionService {
 
   public resetAllOptions(): void {
     this.clearState();
-    this.selectedOptionSubject.next([]);
-    this.isOptionSelectedSubject.next(false);
-    this.isAnsweredSubject.next(false);
+    this.selectedOptionSig.set([]);
+    this.isOptionSelectedSig.set(false);
+    this.isAnsweredSig.set(false);
   }
 
-  selectedOptionSubject = new BehaviorSubject<SelectedOption[]>([]);
-  selectedOption$ = this.selectedOptionSubject.asObservable();
+  // ── Signal-first state ─────────────────────────────────────────
+  readonly selectedOptionSig = signal<SelectedOption[]>([]);
+  selectedOption$ = toObservable(this.selectedOptionSig);
 
-  private selectedOptionExplanationSource = new BehaviorSubject<string>('');
-  selectedOptionExplanation$ =
-    this.selectedOptionExplanationSource.asObservable();
+  readonly selectedOptionExplanationSig = signal<string>('');
+  selectedOptionExplanation$ = toObservable(this.selectedOptionExplanationSig);
 
-  private isOptionSelectedSubject = new BehaviorSubject<boolean>(false);
+  readonly isOptionSelectedSig = signal<boolean>(false);
 
-  isAnsweredSubject = new BehaviorSubject<boolean>(false);
-  isAnswered$: Observable<boolean> = this.isAnsweredSubject.asObservable();
+  readonly isAnsweredSig = signal<boolean>(false);
+  isAnswered$: Observable<boolean> = toObservable(this.isAnsweredSig);
   public answered$ = this.isAnswered$;
 
   private _questionCache = new Map<number, QuizQuestion>();
 
-  private questionTextSubject = new BehaviorSubject<string>('');
-  questionText$ = this.questionTextSubject.asObservable();
+  readonly questionTextSig = signal<string>('');
+  questionText$ = toObservable(this.questionTextSig);
 
-  public selectedOptionsMap$ = new BehaviorSubject<Map<number, SelectedOption[]>>(new Map());
+  readonly selectedOptionsMapSig = signal<Map<number, SelectedOption[]>>(new Map());
+  public selectedOptionsMap$ = toObservable(this.selectedOptionsMapSig);
 
-  private showFeedbackForOptionSubject = new BehaviorSubject<
-    Record<string, boolean>
-  >({});
-  showFeedbackForOption$ = this.showFeedbackForOptionSubject.asObservable();
-
-  // Signal mirrors for new code; existing $ subscribers unaffected.
-  readonly selectedOptionSig = toSignal(this.selectedOption$, { initialValue: [] as SelectedOption[] });
-  readonly selectedOptionExplanationSig = toSignal(this.selectedOptionExplanation$, { initialValue: '' });
-  readonly isAnsweredSig = toSignal(this.isAnswered$, { initialValue: false });
-  readonly questionTextSig = toSignal(this.questionText$, { initialValue: '' });
-  readonly showFeedbackForOptionSig = toSignal(this.showFeedbackForOption$, { initialValue: {} as Record<string, boolean> });
-  readonly selectedOptionsMapSig = toSignal(this.selectedOptionsMap$, { initialValue: new Map<number, SelectedOption[]>() });
+  readonly showFeedbackForOptionSig = signal<Record<string, boolean>>({});
+  showFeedbackForOption$ = toObservable(this.showFeedbackForOptionSig);
 
   private feedbackByQuestion = new Map<number, Record<string, boolean>>();
   private optionSnapshotByQuestion = new Map<number, Option[]>();
 
-  private isNextButtonEnabledSubject = new BehaviorSubject<boolean>(false);
+  readonly isNextButtonEnabledSig = signal<boolean>(false);
 
   stopTimer$ = new Subject<void>();
   stopTimerEmitted = false;
@@ -437,11 +428,11 @@ export class SelectedOptionService {
   public optionStates: Map<number, any> = new Map();
 
   set isNextButtonEnabled(value: boolean) {
-    this.isNextButtonEnabledSubject.next(value);
+    this.isNextButtonEnabledSig.set(value);
   }
 
   get isNextButtonEnabled$(): Observable<boolean> {
-    return this.isNextButtonEnabledSubject.asObservable();
+    return toObservable(this.isNextButtonEnabledSig);
   }
 
   constructor(
@@ -521,12 +512,12 @@ export class SelectedOptionService {
 
     // VITAL: Update the map so that getSelectedOptionsForQuestion(index) returns the new state!
     this.selectedOptionsMap.set(questionIndex, committed);
-    this.selectedOptionsMap$.next(new Map(this.selectedOptionsMap));
+    this.selectedOptionsMapSig.set(new Map(this.selectedOptionsMap));
 
     this.selectedOption = committed;
-    this.selectedOptionSubject.next(committed);
-    this.isOptionSelectedSubject.next(committed.length > 0);
-    this.isAnsweredSubject.next(true);
+    this.selectedOptionSig.set(committed);
+    this.isOptionSelectedSig.set(committed.length > 0);
+    this.isAnsweredSig.set(true);
 
     // Persist to sessionStorage so data survives navigation
     this.saveState();
@@ -570,8 +561,8 @@ export class SelectedOptionService {
   }
 
   deselectOption(): void {
-    this.selectedOptionSubject.next([]);
-    this.isOptionSelectedSubject.next(false);
+    this.selectedOptionSig.set([]);
+    this.isOptionSelectedSig.set(false);
   }
 
   // Adds an option to the selectedOptionsMap
@@ -677,8 +668,8 @@ export class SelectedOptionService {
 
     // Emit observable updates
     this.selectedOption = committed;
-    this.selectedOptionSubject.next(committed);
-    this.isOptionSelectedSubject.next(committed.length > 0);
+    this.selectedOptionSig.set(committed);
+    this.isOptionSelectedSig.set(committed.length > 0);
   }
 
   // Removes an option from the selectedOptionsMap
@@ -718,8 +709,8 @@ export class SelectedOptionService {
       }
 
       this.selectedOption = committed;
-      this.selectedOptionSubject.next(committed);
-      this.isOptionSelectedSubject.next(committed.length > 0);
+      this.selectedOptionSig.set(committed);
+      this.isOptionSelectedSig.set(committed.length > 0);
       this.updateAnsweredState(committed, questionIndex);
     } else {
       this.selectedOptionsMap.delete(questionIndex);
@@ -729,8 +720,8 @@ export class SelectedOptionService {
       }
 
       this.selectedOption = [];
-      this.selectedOptionSubject.next([]);
-      this.isOptionSelectedSubject.next(false);
+      this.selectedOptionSig.set([]);
+      this.isOptionSelectedSig.set(false);
       this.setAnswered(false, true); // Update answered state
       this.setNextButtonEnabled(false); // Explicitly disable next button
     }
@@ -738,11 +729,11 @@ export class SelectedOptionService {
   }
 
   setNextButtonEnabled(enabled: boolean): void {
-    this.isNextButtonEnabledSubject.next(enabled);  // update the button's enabled state
+    this.isNextButtonEnabledSig.set(enabled);  // update the button's enabled state
   }
 
   clearSelection(): void {
-    this.isOptionSelectedSubject.next(false);  // no option selected
+    this.isOptionSelectedSig.set(false);  // no option selected
   }
 
   clearOtherSelections(questionIndex: number, keepOptionId: number): void {
@@ -783,11 +774,11 @@ export class SelectedOptionService {
 
     // Emit clean state so UI updates
     try {
-      this.selectedOptionSubject.next([]);
+      this.selectedOptionSig.set([]);
     } catch { }
 
     try {
-      this.isOptionSelectedSubject.next(false);
+      this.isOptionSelectedSig.set(false);
     } catch { }
 
     this.saveState();
@@ -812,8 +803,8 @@ export class SelectedOptionService {
         `[setSelectedOption] Clearing selections for Q${questionIndex}`
       );
       this.selectedOptionsMap.delete(questionIndex);
-      this.selectedOptionSubject.next([]);
-      this.isOptionSelectedSubject.next(false);
+      this.selectedOptionSig.set([]);
+      this.isOptionSelectedSig.set(false);
       this.updateAnsweredState();
       return;
     }
@@ -922,8 +913,8 @@ export class SelectedOptionService {
 
     // Synchronously emit the full updated list
     this.selectedOption = committed;
-    this.selectedOptionSubject.next(committed);
-    this.isOptionSelectedSubject.next(true);
+    this.selectedOptionSig.set(committed);
+    this.isOptionSelectedSig.set(true);
   }
 
   setSelectedOptions(options: SelectedOption[]): void {
@@ -933,8 +924,8 @@ export class SelectedOptionService {
 
     if (normalizedOptions.length === 0) {
       this.selectedOption = [];
-      this.selectedOptionSubject.next([]);
-      this.isOptionSelectedSubject.next(false);
+      this.selectedOptionSig.set([]);
+      this.isOptionSelectedSig.set(false);
       this.updateAnsweredState([], this.getFallbackQuestionIndex());
       return;
     }
@@ -1006,8 +997,8 @@ export class SelectedOptionService {
     }
 
     this.selectedOption = combinedSelections;
-    this.selectedOptionSubject.next(combinedSelections);
-    this.isOptionSelectedSubject.next(combinedSelections.length > 0);
+    this.selectedOptionSig.set(combinedSelections);
+    this.isOptionSelectedSig.set(combinedSelections.length > 0);
   }
 
   setSelectedOptionsForQuestion(
@@ -1077,7 +1068,7 @@ export class SelectedOptionService {
     // stays stale and refresh restore sees M=0.
     if (committed.length > 0) {
       this.selectedOptionsMap.set(questionIndex, committed);
-      this.selectedOptionsMap$.next(new Map(this.selectedOptionsMap));
+      this.selectedOptionsMapSig.set(new Map(this.selectedOptionsMap));
     }
 
     // Also store in rawSelectionsMap for results display
@@ -1105,14 +1096,14 @@ export class SelectedOptionService {
     this.quizService.updateUserAnswer(questionIndex, ids);
 
     // Emit only current question selections
-    this.selectedOptionSubject.next(committed);
+    this.selectedOptionSig.set(committed);
 
-    this.isOptionSelectedSubject.next(committed.length > 0);
+    this.isOptionSelectedSig.set(committed.length > 0);
   }
 
   setSelectionsForQuestion(qIndex: number, selections: SelectedOption[]): void {
     const committed = this.commitSelections(qIndex, selections);
-    this.selectedOptionSubject.next(committed);
+    this.selectedOptionSig.set(committed);
   }
 
   getSelectedOptions(): SelectedOption[] {
@@ -1224,7 +1215,7 @@ export class SelectedOptionService {
 
     // Reset feedback UI if currently on this question
     if (this.quizService?.getCurrentQuestionIndex?.() === idx) {
-      this.showFeedbackForOptionSubject.next({});
+      this.showFeedbackForOptionSig.set({});
     }
 
     // Clear any lingering lock states
@@ -1235,11 +1226,11 @@ export class SelectedOptionService {
 
   // Method to get the current option selected state
   getCurrentOptionSelectedState(): boolean {
-    return this.isOptionSelectedSubject.getValue();
+    return this.isOptionSelectedSig();
   }
 
   getShowFeedbackForOption(): { [optionId: number]: boolean } {
-    return this.showFeedbackForOptionSubject.getValue();
+    return this.showFeedbackForOptionSig();
   }
 
   getFeedbackForQuestion(questionIndex: number): Record<string, boolean> {
@@ -1253,7 +1244,7 @@ export class SelectedOptionService {
       this.feedbackByQuestion.delete(questionIndex);
 
       if (this.quizService?.currentQuestionIndex === questionIndex) {
-        this.showFeedbackForOptionSubject.next({});
+        this.showFeedbackForOptionSig.set({});
       }
 
       return;
@@ -1266,7 +1257,7 @@ export class SelectedOptionService {
     }
 
     if (this.quizService?.currentQuestionIndex === questionIndex) {
-      this.showFeedbackForOptionSubject.next({ ...feedback });
+      this.showFeedbackForOptionSig.set({ ...feedback });
     }
   }
 
@@ -1279,12 +1270,12 @@ export class SelectedOptionService {
           : null;
 
     if (resolvedIndex === null) {
-      this.showFeedbackForOptionSubject.next({});
+      this.showFeedbackForOptionSig.set({});
       return;
     }
 
     const cached = this.feedbackByQuestion.get(resolvedIndex) ?? {};
-    this.showFeedbackForOptionSubject.next({ ...cached });
+    this.showFeedbackForOptionSig.set({ ...cached });
   }
 
   // Method to update the selected option state
@@ -1526,14 +1517,14 @@ export class SelectedOptionService {
       this.selectedOptionIndices[questionIndex].push(canonicalOptionId);
     }
 
-    this.selectedOptionSubject.next(committedSelections);
+    this.selectedOptionSig.set(committedSelections);
 
     // Emit to isAnsweredSubject so NextButtonStateService enables the button
-    this.isAnsweredSubject.next(true);
+    this.isAnsweredSig.set(true);
     console.log('[SelectedOptionService] isAnsweredSubject emitted TRUE');
 
     if (!isMultiSelect) {
-      this.isOptionSelectedSubject.next(true);
+      this.isOptionSelectedSig.set(true);
       this.setNextButtonEnabled(true);
     } else {
       const selectedOptions = this.selectedOptionsMap.get(questionIndex) || [];
@@ -1606,7 +1597,7 @@ export class SelectedOptionService {
     } else {
       // Clear the single selected option for single-answer questions
       this.selectedOption = [];
-      this.selectedOptionSubject.next([]);
+      this.selectedOptionSig.set([]);
 
       const activeIndex = Number.isInteger(
         this.quizService?.currentQuestionIndex,
@@ -1624,27 +1615,27 @@ export class SelectedOptionService {
     }
 
     // Only clear feedback state here — do NOT touch answered state
-    this.showFeedbackForOptionSubject.next({});
+    this.showFeedbackForOptionSig.set({});
   }
 
   // Resets the internal selection state for the current view, but DOES NOT 
   // wipe persistence/history.
   resetCurrentSelection(): void {
     this.selectedOption = [];
-    this.selectedOptionSubject.next([]);
+    this.selectedOptionSig.set([]);
   }
 
   clearOptions(): void {
-    this.selectedOptionSubject.next([]);
+    this.selectedOptionSig.set([]);
     this.feedbackByQuestion.clear();
-    this.showFeedbackForOptionSubject.next({});
+    this.showFeedbackForOptionSig.set({});
     this.optionSnapshotByQuestion.clear();
   }
 
   // Observable to get the current option selected state
   isOptionSelected$(): Observable<boolean> {
     return this.selectedOption$.pipe(
-      startWith(this.selectedOptionSubject.getValue()),  // emit the current state immediately when subscribed
+      startWith(this.selectedOptionSig()),  // emit the current state immediately when subscribed
       map((option) => option !== null),  // determine if an option is selected
       distinctUntilChanged()  // emit only when the selection state changes
     );
@@ -1652,8 +1643,8 @@ export class SelectedOptionService {
 
   // Method to set the option selected state
   setOptionSelected(isSelected: boolean): void {
-    if (this.isOptionSelectedSubject.getValue() !== isSelected) {
-      this.isOptionSelectedSubject.next(isSelected);
+    if (this.isOptionSelectedSig() !== isSelected) {
+      this.isOptionSelectedSig.set(isSelected);
     }
   }
 
@@ -1908,7 +1899,7 @@ export class SelectedOptionService {
       const isAnswered = snapshot.some((option) =>
         this.coerceToBoolean(option.selected)
       );
-      this.isAnsweredSubject.next(isAnswered);
+      this.isAnsweredSig.set(isAnswered);
     } catch (error) {
       console.error('[updateAnsweredState] Unhandled error:', error);
     }
@@ -2410,7 +2401,7 @@ export class SelectedOptionService {
     }
 
     // VITAL: Propagate changes to the reactive map
-    this.selectedOptionsMap$.next(new Map(this.selectedOptionsMap));
+    this.selectedOptionsMapSig.set(new Map(this.selectedOptionsMap));
 
     this.syncFeedbackForQuestion(idx, canonicalSelections);
 
@@ -2454,7 +2445,7 @@ export class SelectedOptionService {
       this.feedbackByQuestion.delete(questionIndex);
 
       if (this.quizService?.currentQuestionIndex === questionIndex) {
-        this.showFeedbackForOptionSubject.next({});
+        this.showFeedbackForOptionSig.set({});
       }
       return;
     }
@@ -2463,7 +2454,7 @@ export class SelectedOptionService {
     this.feedbackByQuestion.set(questionIndex, feedbackMap);
 
     if (this.quizService?.currentQuestionIndex === questionIndex) {
-      this.showFeedbackForOptionSubject.next({ ...feedbackMap });
+      this.showFeedbackForOptionSig.set({ ...feedbackMap });
     }
   }
 
@@ -2664,22 +2655,22 @@ export class SelectedOptionService {
   }
 
   setAnswered(isAnswered: boolean, force = false): void {
-    const current = this.isAnsweredSubject.getValue();
+    const current = this.isAnsweredSig();
     if (force || current !== isAnswered) {
       console.log('[EMIT CHECK] About to emit answered:', isAnswered);
-      this.isAnsweredSubject.next(isAnswered);
+      this.isAnsweredSig.set(isAnswered);
       sessionStorage.setItem('isAnswered', JSON.stringify(isAnswered));
     } else {
       // Force re-emit even if value didn't change
-      this.isAnsweredSubject.next(isAnswered);
+      this.isAnsweredSig.set(isAnswered);
     }
   }
 
   setAnsweredState(isAnswered: boolean): void {
-    const current = this.isAnsweredSubject.getValue();
+    const current = this.isAnsweredSig();
 
     if (current !== isAnswered) {
-      this.isAnsweredSubject.next(isAnswered);
+      this.isAnsweredSig.set(isAnswered);
     } else {
       console.log(
         '[setAnsweredState] No change needed (already', current + ')'
@@ -2688,19 +2679,19 @@ export class SelectedOptionService {
   }
 
   getAnsweredState(): boolean {
-    return this.isAnsweredSubject.getValue();
+    return this.isAnsweredSig();
   }
 
   resetSelectedOption(): void {
-    this.isOptionSelectedSubject.next(false);
+    this.isOptionSelectedSig.set(false);
   }
 
   resetSelectionState(): void {
     this.selectedOptionsMap.clear();
     this.selectedOption = [];
-    this.selectedOptionSubject.next([]);
-    this.showFeedbackForOptionSubject.next({});
-    this.isOptionSelectedSubject.next(false);
+    this.selectedOptionSig.set([]);
+    this.showFeedbackForOptionSig.set({});
+    this.isOptionSelectedSig.set(false);
     console.log('[Selection state fully reset]');
   }
 
@@ -2809,7 +2800,7 @@ export class SelectedOptionService {
         const anySelected = selected.length > 0;
 
         this.setAnswered(true);
-        this.isOptionSelectedSubject.next(anySelected);
+        this.isOptionSelectedSig.set(anySelected);
         this.nextButtonStateService.setNextButtonState(true);
 
         console.log('[Next Enabled] Override allowing empty selection', {
@@ -2823,7 +2814,7 @@ export class SelectedOptionService {
       if (!isMultiSelect) {
         // Single → deterministic on first selection
         this.setAnswered(true);  // stream sees answered=true
-        this.isOptionSelectedSubject.next(true);
+        this.isOptionSelectedSig.set(true);
         this.nextButtonStateService.setNextButtonState(true);
         console.log('[Next Enabled] Single → first selection');
         return;
@@ -2835,7 +2826,7 @@ export class SelectedOptionService {
       // Tell the stream it's answered so it won’t re-disable the button
       this.setAnswered(anySelected);
 
-      this.isOptionSelectedSubject.next(anySelected);
+      this.isOptionSelectedSig.set(anySelected);
       this.nextButtonStateService.setNextButtonState(anySelected);
 
       console.log(
@@ -3311,9 +3302,9 @@ export class SelectedOptionService {
     this._lockedOptionsMap.clear();
     this.optionStates.clear();
     this.selectedOption = [];
-    this.selectedOptionSubject.next([]);
-    this.isOptionSelectedSubject.next(false);
-    this.isAnsweredSubject.next(false);
+    this.selectedOptionSig.set([]);
+    this.isOptionSelectedSig.set(false);
+    this.isAnsweredSig.set(false);
 
     // Also clear the durable results store for a fresh start
     this.clearAnswersForResults();

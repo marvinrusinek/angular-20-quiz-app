@@ -198,7 +198,7 @@ export class QqcExplanationManagerService {
 
     const answered = Boolean(
       questionState?.isAnswered ||
-      this.selectedOptionService.isAnsweredSubject.getValue() ||
+      this.selectedOptionService.isAnsweredSig() ||
       params.isAnswered ||
       params.displayStateAnswered
     );
