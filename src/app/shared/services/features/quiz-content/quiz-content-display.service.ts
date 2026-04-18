@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 import {
   BehaviorSubject, combineLatest, Observable, of
 } from 'rxjs';
@@ -22,8 +22,8 @@ export class QuizContentDisplayService {
   // ═══════════════════════════════════════════════════════════════════════
 
   // Lock flag to prevent displayText$ from overwriting FET
-  _fetLocked = false;
-  _lockedForIndex = -1;
+  readonly _fetLockedSig = signal<boolean>(false);
+  readonly _lockedForIndexSig = signal<number>(-1);
 
   // Session-based tracking: which questions have had FET displayed this session
   _fetDisplayedThisSession = new Set<number>();

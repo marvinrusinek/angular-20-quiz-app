@@ -100,10 +100,10 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   explanationVisible = false;
   isExplanationTextDisplayed$: Observable<boolean>;
 
-  private get _fetLocked(): boolean { return this.displayService._fetLocked; }
-  private set _fetLocked(v: boolean) { this.displayService._fetLocked = v; }
-  private get _lockedForIndex(): number { return this.displayService._lockedForIndex; }
-  private set _lockedForIndex(v: number) { this.displayService._lockedForIndex = v; }
+  private get _fetLocked(): boolean { return this.displayService._fetLockedSig(); }
+  private set _fetLocked(v: boolean) { this.displayService._fetLockedSig.set(v); }
+  private get _lockedForIndex(): number { return this.displayService._lockedForIndexSig(); }
+  private set _lockedForIndex(v: number) { this.displayService._lockedForIndexSig.set(v); }
 
   formattedExplanation$!: Observable<FETPayload>;
   public activeFetText$!: Observable<string>;
