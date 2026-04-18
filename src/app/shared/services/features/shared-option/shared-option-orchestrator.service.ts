@@ -44,8 +44,8 @@ export class SharedOptionOrchestratorService {
   }
 
   runOnDestroy(host: Host): void {
-    host.destroy$.next();
-    host.destroy$.complete();
+    try { host.destroy$?.next(); } catch {}
+    try { host.destroy$?.complete(); } catch {}
     host.selectionSub?.unsubscribe();
     host.finalRenderReadySub?.unsubscribe();
   }

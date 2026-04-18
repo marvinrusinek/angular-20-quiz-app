@@ -369,9 +369,9 @@ export class QqcComponentOrchestratorService {
   // ngOnDestroy body (besides super)
   // ═══════════════════════════════════════════════════════════════
   runOnDestroy(host: Host): void {
-    document.removeEventListener('visibilitychange', host.onVisibilityChange.bind(host));
-    host.destroy$.next();
-    host.destroy$.complete();
+    try { document.removeEventListener('visibilitychange', host.onVisibilityChange.bind(host)); } catch {}
+    try { host.destroy$?.next(); } catch {}
+    try { host.destroy$?.complete(); } catch {}
     host.idxSub?.unsubscribe();
     host.questionsObservableSubscription?.unsubscribe();
     host.sharedVisibilitySubscription?.unsubscribe();
@@ -380,7 +380,7 @@ export class QqcComponentOrchestratorService {
     host.displayModeSubscription?.unsubscribe();
     host.renderReadySubscription?.unsubscribe();
     host.shufflePreferenceSubscription?.unsubscribe();
-    host.nextButtonStateService.cleanupNextButtonStateStream();
+    try { host.nextButtonStateService.cleanupNextButtonStateStream(); } catch {}
   }
 
   // ═══════════════════════════════════════════════════════════════

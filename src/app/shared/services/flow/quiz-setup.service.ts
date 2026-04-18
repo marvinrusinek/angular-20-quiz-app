@@ -1204,24 +1204,26 @@ export class QuizSetupService {
   }
 
   runOnDestroy(host: Host): void {
-    host.unsubscribe$.next();
-    host.unsubscribe$.complete();
-    host.destroy$.next();
-    host.destroy$.complete();
-    host.subscriptions.unsubscribe();
-    this.dotStatusService.dotStatusCache.clear();
-    this.dotStatusService.pendingDotStatusOverrides.clear();
-    this.dotStatusService.activeDotClickStatus.clear();
+    try { host.unsubscribe$?.next(); } catch {}
+    try { host.unsubscribe$?.complete(); } catch {}
+    try { host.destroy$?.next(); } catch {}
+    try { host.destroy$?.complete(); } catch {}
+    try { host.subscriptions?.unsubscribe(); } catch {}
+    try { this.dotStatusService.dotStatusCache.clear(); } catch {}
+    try { this.dotStatusService.pendingDotStatusOverrides.clear(); } catch {}
+    try { this.dotStatusService.activeDotClickStatus.clear(); } catch {}
     host.routeSubscription?.unsubscribe();
     host.routerSubscription?.unsubscribe();
     host.indexSubscription?.unsubscribe();
     host.questionAndOptionsSubscription?.unsubscribe();
     host.optionSelectedSubscription?.unsubscribe();
-    this.timerService.stopTimer(undefined, { force: true });
-    this.nextButtonStateService.cleanupNextButtonStateStream();
+    try { this.timerService.stopTimer(undefined, { force: true }); } catch {}
+    try { this.nextButtonStateService.cleanupNextButtonStateStream(); } catch {}
     if (host.nextButtonTooltip) {
-      host.nextButtonTooltip.disabled = true;
-      host.nextButtonTooltip.hide();
+      try {
+        host.nextButtonTooltip.disabled = true;
+        host.nextButtonTooltip.hide();
+      } catch {}
     }
   }
 

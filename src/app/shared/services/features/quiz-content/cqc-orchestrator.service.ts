@@ -237,11 +237,11 @@ export class CqcOrchestratorService {
       for (const t of host._questionStampRetryTimers) clearTimeout(t);
       host._questionStampRetryTimers = [];
     }
-    host.destroy$.next();
-    host.destroy$.complete();
-    host.correctAnswersTextSource.complete();
-    host.correctAnswersDisplaySubject.complete();
-    host.combinedTextSubject.complete();
+    try { host.destroy$?.next(); } catch {}
+    try { host.destroy$?.complete(); } catch {}
+    try { host.correctAnswersTextSource?.complete(); } catch {}
+    try { host.correctAnswersDisplaySubject?.complete(); } catch {}
+    try { host.combinedTextSubject?.complete(); } catch {}
     host.combinedSub?.unsubscribe();
   }
 

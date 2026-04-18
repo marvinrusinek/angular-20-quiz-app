@@ -339,8 +339,21 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   advanceToResults(): void {
     if (this.navigatingToResults) return;
     this.navigatingToResults = true;
+
+    // Record elapsed time and stop timer (no navigation from service)
     this.quizNavigationService.recordElapsedAndGoToResults(this.currentQuestionIndex);
-    this.navigatingToResults = false;
+
+    // Navigate to results from the component
+    const quizId = this.quizId
+      || this.quizService.quizId
+      || this.quizService.getCurrentQuizId()
+      || this.activatedRoute.snapshot.paramMap.get('quizId')
+      || '';
+    if (quizId) {
+      this.ngZone.run(() => {
+        this.router.navigateByUrl(`/quiz/results/${quizId}`);
+      });
+    }
   }
 
   restartQuiz(): void { this.quizSetupService.restartQuiz(this); }

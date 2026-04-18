@@ -593,7 +593,7 @@ export class QuizNavigationService {
     if (this.timerService.isTimerRunning) {
       this.timerService.stopTimer(() => {}, { force: true });
     }
-    this.navigateToResults();
+    this.quizCompleted = true;
   }
 
   navigateToResults(): void {
@@ -616,11 +616,17 @@ export class QuizNavigationService {
     this.quizCompleted = true;
 
     // Use correct route path: /quiz/results/:quizId (not just results/)
-    const routePath = ['/quiz', 'results', targetQuizId];
+    const routePath = `/quiz/results/${targetQuizId}`;
     console.log(`[navigateToResults] Navigating to:`, routePath);
 
-    this.router.navigate(routePath).catch((error) => {
-      console.error('Navigation to results failed:', error);
+    this.ngZone.run(() => {
+      this.router.navigateByUrl(routePath).then((success) => {
+        if (!success) {
+          console.error('[navigateToResults] Navigation was cancelled');
+        }
+      }).catch((error) => {
+        console.error('Navigation to results failed:', error);
+      });
     });
   }
 
