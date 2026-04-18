@@ -1,5 +1,5 @@
-import { Injectable, Injector } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { Injectable, Injector, signal } from '@angular/core';
+import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { HttpClient } from '@angular/common/http';
 import {
   BehaviorSubject, firstValueFrom, from, Observable, of, Subject
@@ -116,14 +116,13 @@ export class QuizService {
     return this.scoringService.correctAnswersCountSubject;
   }
 
-  private correctAnswersCountTextSource = new BehaviorSubject<string>(
+  private readonly correctAnswersCountTextSig = signal<string>(
     localStorage.getItem('correctAnswersText') ?? ''
   );
 
   // Frame-synchronized observable for banner display
   // Smooth banner emission (coalesced with question text)
-  public readonly correctAnswersText$ = this.correctAnswersCountTextSource
-    .asObservable()
+  public readonly correctAnswersText$ = toObservable(this.correctAnswersCountTextSig)
     .pipe(
       // Always emit — including empty clears — but skip null/undefined
       filter((v) => v != null), // keeps '', filters null/undefined
@@ -153,8 +152,8 @@ export class QuizService {
   currentOptionsSubject = new BehaviorSubject<Array<Option>>([]);
   totalQuestionsSubject = new BehaviorSubject<number>(0);
 
-  private questionDataSubject = new BehaviorSubject<any>(null);
-  questionData$ = this.questionDataSubject.asObservable();
+  readonly questionDataSig = signal<any>(null);
+  questionData$ = toObservable(this.questionDataSig);
 
   explanationText: BehaviorSubject<string> = new BehaviorSubject<string>('');
   displayExplanation = false;
@@ -200,7 +199,7 @@ export class QuizService {
   previousAnswers: string[] = [];
 
   optionsSource: Subject<Option[]> = new Subject<Option[]>();
-  private optionsSubject = new BehaviorSubject<Option[]>([]);
+  private readonly optionsSig = signal<Option[]>([]);
 
   nextQuestionSource = new BehaviorSubject<QuizQuestion | null>(null);
   nextQuestionSubject = new BehaviorSubject<QuizQuestion | null>(null);
@@ -225,11 +224,11 @@ export class QuizService {
   badgeTextSource = new BehaviorSubject<string>('');
   badgeText = this.badgeTextSource.asObservable();
 
-  private nextExplanationTextSource = new BehaviorSubject<string>('');
-  nextExplanationText$ = this.nextExplanationTextSource.asObservable();
+  readonly nextExplanationTextSig = signal<string>('');
+  nextExplanationText$ = toObservable(this.nextExplanationTextSig);
 
-  private questionsLoadedSource = new BehaviorSubject<boolean>(false);
-  questionsLoaded$ = this.questionsLoadedSource.asObservable();
+  readonly questionsLoadedSig = signal<boolean>(false);
+  questionsLoaded$ = toObservable(this.questionsLoadedSig);
 
   private quizResetSource = new Subject<void>();
   quizReset$ = this.quizResetSource.asObservable();
@@ -270,29 +269,27 @@ export class QuizService {
   );
   private questionPayloadMap = new Map<number, QuestionPayload>();
 
-  private finalResultSource = new BehaviorSubject<FinalResult | null>(null);
-  finalResult$ = this.finalResultSource.asObservable();
+  readonly finalResultSig = signal<FinalResult | null>(null);
+  finalResult$ = toObservable(this.finalResultSig);
 
   private readonly _preReset$ = new Subject<number>();
   // Emitted with the target question index just before navigation hydrates it
   readonly preReset$ = this._preReset$.asObservable();
 
   // Signal mirrors for new code; existing $ subscribers unaffected.
+  // questionDataSig, questionsLoadedSig, nextExplanationTextSig, finalResultSig
+  // are now signal-first (declared above) — no toSignal mirror needed.
   readonly questionsSig = toSignal(this.questions$, { initialValue: [] as QuizQuestion[] });
   readonly questionToDisplaySig = toSignal(this.questionToDisplay$, { initialValue: '' });
   readonly currentQuestionIndexSig = toSignal(this.currentQuestionIndex$, { initialValue: 0 });
   readonly currentQuestionSig = toSignal(this.currentQuestion$, { initialValue: null as QuizQuestion | null });
-  readonly questionDataSig = toSignal(this.questionData$, { initialValue: null as any });
   readonly checkedShuffleSig = toSignal(this.checkedShuffle$, { initialValue: localStorage.getItem('checkedShuffle') === 'true' });
   readonly nextQuestionSig = toSignal(this.nextQuestion$, { initialValue: null as QuizQuestion | null });
   readonly nextOptionsSig = toSignal(this.nextOptions$, { initialValue: [] as Option[] });
   readonly previousQuestionSig = toSignal(this.previousQuestion$, { initialValue: null as QuizQuestion | null });
   readonly previousOptionsSig = toSignal(this.previousOptions$, { initialValue: [] as Option[] });
   readonly badgeTextSig = toSignal(this.badgeText, { initialValue: '' });
-  readonly nextExplanationTextSig = toSignal(this.nextExplanationText$, { initialValue: '' });
-  readonly questionsLoadedSig = toSignal(this.questionsLoaded$, { initialValue: false });
   readonly questionPayloadSig = toSignal(this.questionPayload$, { initialValue: null as QuestionPayload | null });
-  readonly finalResultSig = toSignal(this.finalResult$, { initialValue: null as FinalResult | null });
 
   private fetchPromise: Promise<QuizQuestion[]> | null = null;
 
@@ -563,7 +560,7 @@ export class QuizService {
       return;
     }
 
-    this.optionsSubject.next(options);  // emit to options$
+    this.optionsSig.set(options);  // emit to options$
   }
 
   // Return a sanitized array of options for the given question index.
@@ -802,7 +799,7 @@ export class QuizService {
   }
 
   public setQuestionData(data: any): void {
-    this.questionDataSubject.next(data);
+    this.questionDataSig.set(data);
   }
 
   getQuestionData(
@@ -1093,14 +1090,14 @@ export class QuizService {
 
     // Emit immediately — even empty — for reactive streams
     console.log('[QuizService] updateCorrectAnswersText called with:', text);
-    this.correctAnswersCountTextSource.next(text);
+    this.correctAnswersCountTextSig.set(text);
     console.log(
       '[QuizService] Emitted banner text to Subject →', JSON.stringify(text)
     );
 
     // Optional micro-delay to keep UI paint order stable (prevents banner from racing the question text)
     requestAnimationFrame(() => {
-      const current = this.correctAnswersCountTextSource.value;
+      const current = this.correctAnswersCountTextSig();
       console.log('[QuizService] 🧮 Banner visible value after RAF:', current);
     });
 
@@ -1115,7 +1112,7 @@ export class QuizService {
   public clearStoredCorrectAnswersText(): void {
     try {
       localStorage.removeItem('correctAnswersText');
-      this.correctAnswersCountTextSource.next('');
+      this.correctAnswersCountTextSig.set('');
       console.log('[QuizService] Cleared correctAnswersText from storage');
     } catch (err) {
       console.warn('[QuizService] Failed to clear correctAnswersText', err);
@@ -1358,7 +1355,7 @@ export class QuizService {
 
   setQuestionsLoaded(state: boolean): void {
     console.log('Questions loaded state set to:', state);
-    this.questionsLoadedSource.next(state);
+    this.questionsLoadedSig.set(state);
   }
 
   saveHighScores(): void {
@@ -2116,7 +2113,7 @@ export class QuizService {
     this.previousOptionsSubject.next([]);
 
     this.currentOptionsSubject.next([]);
-    this.optionsSubject.next([]);
+    this.optionsSig.set([]);
     this.optionsSource.next([]);
 
     this.questionPayloadSubject.next(null);
@@ -2536,7 +2533,7 @@ export class QuizService {
   }
 
   setFinalResult(result: FinalResult): void {
-    this.finalResultSource.next(result);
+    this.finalResultSig.set(result);
 
     try {
       sessionStorage.setItem('finalResult', JSON.stringify(result));
@@ -2547,7 +2544,7 @@ export class QuizService {
 
   getFinalResultSnapshot(): FinalResult | null {
     // Prefer in-memory snapshot
-    const live = this.finalResultSource.value;
+    const live = this.finalResultSig();
     if (live) return live;
 
     // Fallback to sessionStorage (tab switch / reload safe)
@@ -2561,7 +2558,7 @@ export class QuizService {
   }
 
   clearFinalResult(): void {
-    this.finalResultSource.next(null);
+    this.finalResultSig.set(null);
     try {
       sessionStorage.removeItem('finalResult');
     } catch { }
