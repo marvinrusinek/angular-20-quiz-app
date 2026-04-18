@@ -1,5 +1,5 @@
-import { Injectable, NgZone, OnDestroy } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { Injectable, NgZone, OnDestroy, signal } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
 import { BehaviorSubject, Subject, Subscription, timer } from 'rxjs';
 import { finalize, map, takeUntil, tap } from 'rxjs/operators';
 
@@ -38,37 +38,30 @@ export class TimerService implements OnDestroy {
   private isStop = new Subject<void>();
   private isReset = new Subject<void>();
 
-  // Observables
-  private elapsedTimeSubject = new BehaviorSubject<number>(0);
-  public elapsedTime$ = this.elapsedTimeSubject.asObservable();
+  // Signal-first sources of truth
+  readonly elapsedTimeSig = signal<number>(0);
+  public elapsedTime$ = toObservable(this.elapsedTimeSig);
 
-  private readonly timerTypeSubject = new BehaviorSubject<'countdown' | 'stopwatch'>(
-    (() => {
-      try {
-        return localStorage.getItem('timerType') === 'stopwatch'
-          ? 'stopwatch'
-          : 'countdown';
-      } catch {
-        return 'countdown';
-      }
-    })()
-  );
-  public timerType$ = this.timerTypeSubject.asObservable();
+  private static _initTimerType(): 'countdown' | 'stopwatch' {
+    try {
+      return localStorage.getItem('timerType') === 'stopwatch'
+        ? 'stopwatch'
+        : 'countdown';
+    } catch {
+      return 'countdown';
+    }
+  }
+  readonly timerTypeSig = signal<'countdown' | 'stopwatch'>(TimerService._initTimerType());
+  public timerType$ = toObservable(this.timerTypeSig);
 
-  // Consolidated stop/reset using BehaviorSubjects
-  private stopSubject = new BehaviorSubject<void>(undefined);
-  public stop$ = this.stopSubject.asObservable().pipe(map(() => 0));
+  readonly stopSig = signal<number>(0);
+  public stop$ = toObservable(this.stopSig);
 
   private timerSubscription: Subscription | null = null;
   private stopTimerSignalSubscription: Subscription | null = null;
 
   private expiredSubject = new Subject<void>();
   public expired$ = this.expiredSubject.asObservable();
-
-  // Signal mirrors for new code; existing $ subscribers unaffected.
-  readonly elapsedTimeSig = toSignal(this.elapsedTime$, { initialValue: 0 });
-  readonly timerTypeSig = toSignal(this.timerType$, { initialValue: (() => { try { return localStorage.getItem('timerType') === 'stopwatch' ? 'stopwatch' : 'countdown'; } catch { return 'countdown'; } })() as 'countdown' | 'stopwatch' });
-  readonly stopSig = toSignal(this.stop$, { initialValue: 0 });
 
   private _authoritativeStop = false;
   private hasExpiredForRun = false;
@@ -78,7 +71,7 @@ export class TimerService implements OnDestroy {
     private quizService: QuizService,
     private selectedOptionService: SelectedOptionService
   ) {
-    this.isCountdown = this.timerTypeSubject.value === 'countdown';
+    this.isCountdown = this.timerTypeSig() === 'countdown';
     this.setupTimer();
     this.listenForCorrectSelections();
   }
@@ -161,11 +154,11 @@ export class TimerService implements OnDestroy {
   }
 
   setTimerType(type: 'countdown' | 'stopwatch'): void {
-    if (this.timerTypeSubject.value === type) {
+    if (this.timerTypeSig() === type) {
       return;
     }
 
-    this.timerTypeSubject.next(type);
+    this.timerTypeSig.set(type);
     this.isCountdown = type === 'countdown';
     try {
       localStorage.setItem('timerType', type);
@@ -224,7 +217,7 @@ export class TimerService implements OnDestroy {
 
     // Show initial value immediately (inside Angular so UI updates right away)
     this.ngZone.run(() => {
-      this.elapsedTimeSubject.next(0);
+      this.elapsedTimeSig.set(0);
     });
 
     // Start ticking after 1s so the initial value stays visible for a second
@@ -238,7 +231,7 @@ export class TimerService implements OnDestroy {
 
         // Re-enter Angular so async pipes trigger change detection on every tick
         this.ngZone.run(() => {
-          this.elapsedTimeSubject.next(this.elapsedTime);
+          this.elapsedTimeSig.set(this.elapsedTime);
         });
 
         // If reached the duration, emit expiration once (stop only for countdown)
@@ -313,7 +306,7 @@ export class TimerService implements OnDestroy {
 
     this.isTimerRunning = false;  // mark the timer as stopped
     this.isTimerStoppedForCurrentQuestion = true;  // prevent restart for current question
-    this.stopSubject.next();  // emit stop signal to stop the timer
+    this.stopSig.update(v => v + 1);  // emit stop signal to stop the timer
     this.isStop.next();
 
     if (callback) {
@@ -353,7 +346,7 @@ export class TimerService implements OnDestroy {
     this.hasExpiredForRun = false;
 
     this.isReset.next();  // signal to reset
-    this.elapsedTimeSubject.next(0);  // reset elapsed time for observers
+    this.elapsedTimeSig.set(0);  // reset elapsed time for observers
     console.log('Timer reset successfully.');
   }
 
