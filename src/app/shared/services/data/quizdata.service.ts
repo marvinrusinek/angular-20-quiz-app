@@ -1,5 +1,5 @@
-import { Injectable, OnDestroy } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { Injectable, OnDestroy, signal } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import {
   BehaviorSubject, firstValueFrom, Observable, of, Subject, throwError
@@ -22,8 +22,8 @@ export class QuizDataService implements OnDestroy {
   question: QuizQuestion | null = null;
   questionType: string | null = null;
 
-  private quizzesSubject = new BehaviorSubject<Quiz[]>([]);
-  quizzes$ = this.quizzesSubject.asObservable();
+  readonly quizzesSig = signal<Quiz[]>([]);
+  quizzes$ = toObservable(this.quizzesSig);
   private quizzes: Quiz[] = [];
   private readonly baseQuizQuestionCache = new Map<string, QuizQuestion[]>();
   private readonly quizQuestionCache = new Map<string, QuizQuestion[]>();
@@ -31,15 +31,11 @@ export class QuizDataService implements OnDestroy {
   selectedQuiz$: BehaviorSubject<Quiz | null> =
     new BehaviorSubject<Quiz | null>(null);
 
-  private currentQuizSubject = new BehaviorSubject<Quiz | null>(null);
+  private readonly currentQuizSig = signal<Quiz | null>(null);
 
-  private isContentAvailableSubject = new BehaviorSubject<boolean>(false);
+  readonly isContentAvailableSig = signal<boolean>(false);
   public isContentAvailable$: Observable<boolean> =
-    this.isContentAvailableSubject.asObservable();
-
-  // Signal mirrors for new code; existing $ subscribers unaffected.
-  readonly quizzesSig = toSignal(this.quizzes$, { initialValue: [] as Quiz[] });
-  readonly isContentAvailableSig = toSignal(this.isContentAvailable$, { initialValue: false });
+    toObservable(this.isContentAvailableSig);
 
   private destroy$ = new Subject<void>();
 
@@ -75,7 +71,7 @@ export class QuizDataService implements OnDestroy {
       tap((quizzes) => {
         // Preserve existing statuses from previously loaded quizzes
         const existingStatuses = new Map<string, string>();
-        for (const quiz of this.quizzesSubject.value) {
+        for (const quiz of this.quizzesSig()) {
           if (quiz.status) {
             existingStatuses.set(quiz.quizId, quiz.status);
           }
@@ -90,7 +86,7 @@ export class QuizDataService implements OnDestroy {
           : [];
 
         this.quizzes = mergedQuizzes;
-        this.quizzesSubject.next(mergedQuizzes);
+        this.quizzesSig.set(mergedQuizzes);
         console.log('[QuizDataService] Loaded quizzes (with preserved statuses):', mergedQuizzes);
       }),
       catchError((err) => {
@@ -103,7 +99,7 @@ export class QuizDataService implements OnDestroy {
   // Ensure quiz metadata is available before performing operations that rely on it.
   // If quizzes have already been loaded, returns the cached list; otherwise triggers a load.
   ensureQuizzesLoaded(): Observable<Quiz[]> {
-    const cached = this.quizzesSubject.value;
+    const cached = this.quizzesSig();
     if (Array.isArray(cached) && cached.length > 0) {
       return of(cached);
     }
@@ -118,7 +114,7 @@ export class QuizDataService implements OnDestroy {
     if (!quizId) return null;
 
     // Prefer the BehaviorSubject cache (always up-to-date)
-    const quizzes = this.quizzesSubject.value;
+    const quizzes = this.quizzesSig();
 
     // Fallback to your original this.quizzes array if ever needed
     const source =
@@ -143,11 +139,11 @@ export class QuizDataService implements OnDestroy {
     }
 
     // Update in the BehaviorSubject
-    const currentQuizzes = this.quizzesSubject.value;
+    const currentQuizzes = this.quizzesSig();
     const updatedQuizzes = currentQuizzes.map(q => 
       q.quizId === quizId ? { ...q, status } : q
     );
-    this.quizzesSubject.next(updatedQuizzes);
+    this.quizzesSig.set(updatedQuizzes);
 
     console.log(`[QuizDataService] Updated quiz ${quizId} status to: ${status}`);
   }
@@ -187,7 +183,7 @@ export class QuizDataService implements OnDestroy {
   }
 
   getCurrentQuizId(): string | null {
-    const currentQuiz = this.currentQuizSubject.getValue();
+    const currentQuiz = this.currentQuizSig();
     return currentQuiz ? currentQuiz.quizId : null;
   }
 
@@ -220,11 +216,11 @@ export class QuizDataService implements OnDestroy {
   }
 
   setCurrentQuiz(quiz: Quiz): void {
-    this.currentQuizSubject.next(quiz);
+    this.currentQuizSig.set(quiz);
   }
 
   getCurrentQuizSnapshot(): Quiz | null {
-    return this.currentQuizSubject.getValue();
+    return this.currentQuizSig();
   }
 
   getQuiz(quizId: string): Observable<Quiz | null> {
@@ -248,7 +244,7 @@ export class QuizDataService implements OnDestroy {
   }
 
   updateContentAvailableState(isAvailable: boolean): void {
-    this.isContentAvailableSubject.next(isAvailable);
+    this.isContentAvailableSig.set(isAvailable);
   }
 
   // Return a brand-new array of questions with fully-cloned options.
