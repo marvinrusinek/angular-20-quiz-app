@@ -105,7 +105,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
 
     effect(() => {
       const next = this.optionsToDisplay();
-      console.log('[AC effect] optionsToDisplay changed →', next?.length ?? 0);
+      console.log(`[AC effect] optionsToDisplay changed → ${next?.length ?? 0}, questionData="${this.questionData()?.questionText?.substring(0, 40)}", opt0="${next?.[0]?.text?.substring(0, 30)}", opt1="${next?.[1]?.text?.substring(0, 30)}"`);
       if (Array.isArray(next) && next.length) {
         // Skip rebuild if the option set is the same as the current bindings
         // (e.g. parent re-emit after a click). Rebuilding here would wipe

@@ -80,8 +80,8 @@ export class QuizDotStatusService {
   // ═══════════════════════════════════════════════════════════════
 
   getQuestionForIndex(index: number, questionsArray: QuizQuestion[]): QuizQuestion | null {
-    return questionsArray?.[index] ||
-      this.quizService.questions?.[index] ||
+    return this.quizService.questions?.[index] ||
+      questionsArray?.[index] ||
       this.quizService.activeQuiz?.questions?.[index] ||
       null;
   }
@@ -307,8 +307,8 @@ export class QuizDotStatusService {
     questionsArray: QuizQuestion[];
   }): SelectedOption[] {
     const { index, currentQuestionIndex, optionsToDisplay, currentQuestion, questionsArray } = params;
-    const question = questionsArray?.[index] ||
-      this.quizService.questions?.[index] ||
+    const question = this.quizService.questions?.[index] ||
+      questionsArray?.[index] ||
       this.quizService.activeQuiz?.questions?.[index];
     const currentQuestionOptions = index === currentQuestionIndex
       ? ((Array.isArray(optionsToDisplay) && optionsToDisplay.length > 0)

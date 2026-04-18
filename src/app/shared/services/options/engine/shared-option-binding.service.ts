@@ -182,6 +182,21 @@ export class SharedOptionBindingService {
 
     const currentIndex = comp.getActiveQuestionIndex() ?? 0;
 
+    // SHUFFLE GUARD: when shuffle is active, ensure we use options from
+    // the authoritative shuffledQuestions array for this display index.
+    if (this.quizService.isShuffleEnabled() && this.quizService.shuffledQuestions?.length > 0) {
+      const correctQ = this.quizService.shuffledQuestions[currentIndex];
+      if (correctQ?.options?.length > 0) {
+        const correctTexts = new Set(correctQ.options.map((o: any) => (o?.text ?? '').trim().toLowerCase()));
+        const currentTexts = new Set((comp.optionsToDisplay ?? []).map((o: any) => (o?.text ?? '').trim().toLowerCase()));
+        const match = correctTexts.size === currentTexts.size && [...correctTexts].every((t: string) => currentTexts.has(t));
+        if (!match && comp.optionsToDisplay?.length > 0) {
+          console.warn(`[generateOptionBindings SHUFFLE GUARD] Q${currentIndex + 1} options mismatch — replacing with shuffled options`);
+          comp.optionsToDisplay = correctQ.options.map((o: any) => ({ ...o }));
+        }
+      }
+    }
+
     const localOpts = Array.isArray(comp.optionsToDisplay)
       ? comp.optionsToDisplay.map((o: any) => structuredClone(o))
       : [];
@@ -247,6 +262,21 @@ export class SharedOptionBindingService {
   }
 
   processOptionBindings(comp: any): void {
+    // SHUFFLE GUARD: same as generateOptionBindings
+    const pIdx = comp.currentQuestionIndex ?? this.quizService.getCurrentQuestionIndex() ?? 0;
+    if (this.quizService.isShuffleEnabled() && this.quizService.shuffledQuestions?.length > 0) {
+      const correctQ = this.quizService.shuffledQuestions[pIdx];
+      if (correctQ?.options?.length > 0 && comp.optionsToDisplay?.length > 0) {
+        const correctTexts = new Set(correctQ.options.map((o: any) => (o?.text ?? '').trim().toLowerCase()));
+        const currentTexts = new Set((comp.optionsToDisplay).map((o: any) => (o?.text ?? '').trim().toLowerCase()));
+        const match = correctTexts.size === currentTexts.size && [...correctTexts].every((t: string) => currentTexts.has(t));
+        if (!match) {
+          console.warn(`[processOptionBindings SHUFFLE GUARD] Q${pIdx + 1} options mismatch — replacing`);
+          comp.optionsToDisplay = correctQ.options.map((o: any) => ({ ...o }));
+        }
+      }
+    }
+
     const options = comp.optionsToDisplay ?? [];
 
     if (!options.length) {

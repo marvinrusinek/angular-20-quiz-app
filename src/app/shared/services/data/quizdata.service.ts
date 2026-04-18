@@ -381,9 +381,13 @@ export class QuizDataService implements OnDestroy {
       this.quizService.applySessionQuestions(quizId, sessionReadyQuestions);
       this.syncSelectedQuizState(quizId, sessionReadyQuestions);
       return of(this.cloneQuestions(sessionReadyQuestions));
-    } else if (shouldShuffle && Array.isArray(cached) && cached.length > 0) {
-      console.log('[QuizDataService] Cache Exists but Shuffle is ON. Regenerating fresh shuffle from Base to avoid stale order.');
-      // Intentionally fall through to the buildSessionQuestions logic below
+    } else if (shouldShuffle) {
+      const existingShuffled = this.quizService.shuffledQuestions;
+      if (existingShuffled?.length > 0) {
+        console.log('[QuizDataService] Shuffle is ON — reusing existing shuffled order.');
+        return of(this.cloneQuestions(existingShuffled));
+      }
+      // No shuffled data yet — fall through to buildSessionQuestions to generate initial shuffle
     }
 
     const baseQuestions = this.baseQuizQuestionCache.get(quizId);

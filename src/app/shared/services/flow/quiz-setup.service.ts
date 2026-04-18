@@ -79,8 +79,8 @@ export class QuizSetupService {
       // When tab becomes visible, ensure question text is in the <h3>
       if (!isHidden) {
         const idx = host.currentQuestionIndex;
-        const question = host.questionsArray?.[idx]
-          ?? this.quizService.questions?.[idx]
+        const question = this.quizService.questions?.[idx]
+          ?? host.questionsArray?.[idx]
           ?? null;
         if (question) {
           const displayHTML = this.buildQuestionDisplayHTML(question);
@@ -113,9 +113,18 @@ export class QuizSetupService {
       this.quizService.questions$.subscribe((questions: QuizQuestion[]) => {
         const serviceQuizId = this.quizService.getCurrentQuizId();
         if (questions?.length && (!host.quizId || serviceQuizId === host.quizId)) {
-          host.questions = questions;
-          host.questionsArray = [...questions];
-          host.totalQuestions = questions.length;
+          // When shuffle is active, ALWAYS use shuffledQuestions as the
+          // authoritative source. questionsSubject can receive unshuffled
+          // data from setActiveQuiz/syncSelectedQuizState which would
+          // poison host.questionsArray and cause Q&A mismatches.
+          const shuffled = this.quizService.shuffledQuestions;
+          const effectiveQuestions =
+            this.quizService.isShuffleEnabled() && shuffled?.length > 0
+              ? shuffled
+              : questions;
+          host.questions = effectiveQuestions;
+          host.questionsArray = [...effectiveQuestions];
+          host.totalQuestions = effectiveQuestions.length;
           host.cdRef.markForCheck();
         }
       })
@@ -288,8 +297,8 @@ export class QuizSetupService {
         });
 
         // Force question text into <h3> after restart navigation
-        const question = host.questionsArray?.[0]
-          ?? this.quizService.questions?.[0]
+        const question = this.quizService.questions?.[0]
+          ?? host.questionsArray?.[0]
           ?? null;
         if (question) {
           const displayHTML = this.buildQuestionDisplayHTML(question);
@@ -332,9 +341,10 @@ export class QuizSetupService {
         host.updateDotStatus(idx);
 
         // Force-update combinedQuestionDataSubject so the template always
-        // has question data after URL navigation. Try multiple sources.
-        const question = host.questionsArray?.[idx]
-          ?? this.quizService.questions?.[idx]
+        // has question data after URL navigation. Prefer quizService.questions
+        // getter which returns shuffled data when shuffle is active.
+        const question = this.quizService.questions?.[idx]
+          ?? host.questionsArray?.[idx]
           ?? null;
         if (question && question.options?.length > 0) {
           const payload = {
@@ -522,7 +532,8 @@ export class QuizSetupService {
 
   private pushInitialQuestionPayload(host: Host): void {
     const initialIdx = host.currentQuestionIndex || 0;
-    const initialQuestion = host.questionsArray?.[initialIdx];
+    const initialQuestion = this.quizService.questions?.[initialIdx]
+      ?? host.questionsArray?.[initialIdx];
     if (!initialQuestion?.options?.length) return;
 
     host.currentQuestion = initialQuestion;

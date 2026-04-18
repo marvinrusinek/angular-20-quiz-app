@@ -248,7 +248,26 @@ export class QuizService {
 
   private quizUrl = 'assets/data/quiz.json';
   questionPayloadSubject = new BehaviorSubject<QuestionPayload | null>(null);
-  questionPayload$ = this.questionPayloadSubject.asObservable();
+  questionPayload$ = this.questionPayloadSubject.pipe(
+    map((payload) => {
+      if (!payload?.question) {
+        return payload;
+      }
+      if (this.isShuffleEnabled() && this.shuffledQuestions?.length > 0) {
+        const idx = this.currentQuestionIndex ?? 0;
+        const correctQ = this.shuffledQuestions[idx];
+        if (correctQ) {
+          // ALWAYS use shuffled data when shuffle is active
+          return {
+            question: correctQ,
+            options: correctQ.options ?? [],
+            explanation: correctQ.explanation ?? '',
+          };
+        }
+      }
+      return payload;
+    })
+  );
   private questionPayloadMap = new Map<number, QuestionPayload>();
 
   private finalResultSource = new BehaviorSubject<FinalResult | null>(null);
@@ -438,7 +457,13 @@ export class QuizService {
     this.activeQuiz = quiz;
     this.quizId = quiz.quizId;
     this.questionsList = quiz.questions ?? [];
-    this.questionsSubject.next(quiz.questions ?? []);
+    // When shuffle is active, emit shuffled questions to subscribers so
+    // host.questionsArray doesn't get poisoned with unshuffled data.
+    if (this.isShuffleEnabled() && this.shuffledQuestions.length > 0) {
+      this.questionsSubject.next(this.shuffledQuestions);
+    } else {
+      this.questionsSubject.next(quiz.questions ?? []);
+    }
     this.questionsQuizId = quiz.quizId;
     this.questions = quiz.questions ?? [];
     this.totalQuestions = (quiz.questions ?? []).length;

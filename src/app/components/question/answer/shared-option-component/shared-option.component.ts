@@ -211,8 +211,27 @@ export class SharedOptionComponent
       if (v !== undefined) this.currentQuestionIndex = v;
     });
     effect(() => {
-      const v = this.optionsToDisplayInput();
-      if (v !== undefined) this.optionsToDisplay = v;
+      let v = this.optionsToDisplayInput();
+      if (v !== undefined) {
+        // SHUFFLE GUARD: ensure options belong to the shuffled question for this index.
+        // Compare the SET of option texts — if the incoming options have texts that
+        // don't match the shuffled question's options, replace them.
+        const qs = this.quizService;
+        if (qs.isShuffleEnabled() && qs.shuffledQuestions?.length > 0) {
+          const idx = this.currentQuestionIndex ?? qs.currentQuestionIndex ?? 0;
+          const correctQ = qs.shuffledQuestions[idx];
+          if (correctQ?.options?.length > 0 && v.length > 0) {
+            const correctTexts = new Set(correctQ.options.map((o: any) => (o?.text ?? '').trim().toLowerCase()));
+            const actualTexts = new Set(v.map((o: any) => (o?.text ?? '').trim().toLowerCase()));
+            const match = correctTexts.size === actualTexts.size && [...correctTexts].every(t => actualTexts.has(t));
+            if (!match) {
+              console.warn(`[SOC SHUFFLE GUARD] Q${idx + 1} options mismatch! Replacing with shuffled options.`);
+              v = correctQ.options.map((o: any) => ({ ...o }));
+            }
+          }
+        }
+        this.optionsToDisplay = v;
+      }
     });
     effect(() => {
       const v = this.typeInput();

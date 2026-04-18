@@ -168,8 +168,8 @@ export class QuizOptionProcessingService {
     const { option, idx, liveSelections, questionsArray, currentQuestion, optionsToDisplay, quizId, currentQuestionIndex } = params;
 
     const questionForSelection =
-      questionsArray?.[idx] ||
       this.quizService.questions?.[idx] ||
+      questionsArray?.[idx] ||
       this.quizService.activeQuiz?.questions?.[idx] ||
       null;
 

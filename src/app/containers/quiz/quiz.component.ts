@@ -5,7 +5,7 @@ import {
 import { CommonModule, AsyncPipe } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { BehaviorSubject, Observable, Subject, Subscription } from 'rxjs';
-import { debounceTime, shareReplay } from 'rxjs/operators';
+import { debounceTime, map, shareReplay } from 'rxjs/operators';
 import { MatCardModule } from '@angular/material/card';
 import { MatTooltip, MatTooltipModule } from '@angular/material/tooltip';
 
@@ -93,7 +93,29 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   showScrollIndicator = false;
 
   combinedQuestionDataSubject = new BehaviorSubject<QuestionPayload | null>(null);
-  combinedQuestionData$ = this.combinedQuestionDataSubject.asObservable();
+  combinedQuestionData$ = this.combinedQuestionDataSubject.pipe(
+    map((payload) => {
+      if (!payload?.question) {
+        return payload;
+      }
+      const shuffled = this.quizService.shuffledQuestions;
+      const isShuffleActive = this.quizService.isShuffleEnabled() && shuffled?.length > 0;
+      if (isShuffleActive) {
+        const idx = this.currentQuestionIndex ?? 0;
+        const correctQ = shuffled[idx];
+        console.log(`[combinedQD$ DIAG] idx=${idx}, payloadQ="${payload.question.questionText?.substring(0, 40)}", shuffledQ="${correctQ?.questionText?.substring(0, 40)}", payloadOpts=${payload.options?.length}, shuffledOpts=${correctQ?.options?.length}, payloadOpt0="${payload.options?.[0]?.text?.substring(0, 30)}", shuffledOpt0="${correctQ?.options?.[0]?.text?.substring(0, 30)}"`);
+        if (correctQ) {
+          // ALWAYS use shuffled data when shuffle is active
+          return {
+            question: correctQ,
+            options: correctQ.options ?? [],
+            explanation: correctQ.explanation ?? '',
+          };
+        }
+      }
+      return payload;
+    })
+  );
 
   questionIndex = 0;
   currentQuestionIndex = 0;

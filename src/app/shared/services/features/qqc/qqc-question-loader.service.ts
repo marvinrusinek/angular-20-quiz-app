@@ -78,6 +78,12 @@ export class QqcQuestionLoaderService {
     questionsArray: QuizQuestion[],
     quizId: string | null | undefined
   ): Promise<{ loaded: boolean; questions: QuizQuestion[] | null }> {
+    // When shuffle is active, always prefer shuffledQuestions
+    const shuffled = this.quizService.shuffledQuestions;
+    if (this.quizService.isShuffleEnabled() && shuffled?.length > 0) {
+      return { loaded: true, questions: shuffled };
+    }
+
     if (this.isLoadingInProgress) {
       console.info('Waiting for ongoing loading process...');
       while (this.isLoadingInProgress) {
@@ -129,6 +135,14 @@ export class QqcQuestionLoaderService {
   async fetchQuestionsIfNeeded(
     questionsArray: QuizQuestion[] | null
   ): Promise<QuizQuestion[]> {
+    // When shuffle is active, always prefer shuffledQuestions as the
+    // authoritative source — the passed-in questionsArray may be
+    // unshuffled, causing Q&A mismatches for Q2+.
+    const shuffled = this.quizService.shuffledQuestions;
+    if (this.quizService.isShuffleEnabled() && shuffled?.length > 0) {
+      return shuffled;
+    }
+
     if (questionsArray && questionsArray.length > 0) {
       return questionsArray;
     }
@@ -1224,7 +1238,13 @@ export class QqcQuestionLoaderService {
       params.questionForm.patchValue({ answer: '' });
     }
 
-    const currentQuestion = params.questionsArray?.[params.zeroBasedIndex] ?? null;
+    // When shuffle is active, use shuffledQuestions as the authoritative source.
+    // params.questionsArray may contain unshuffled data, causing Q&A mismatch.
+    const shuffled = this.quizService.shuffledQuestions;
+    const effectiveQuestions = this.quizService.isShuffleEnabled() && shuffled?.length > 0
+      ? shuffled
+      : params.questionsArray;
+    const currentQuestion = effectiveQuestions?.[params.zeroBasedIndex] ?? null;
     if (!currentQuestion) return null;
 
     const optionsToDisplay = (currentQuestion.options ?? []).map((opt: Option) => ({

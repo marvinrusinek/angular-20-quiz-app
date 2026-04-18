@@ -241,8 +241,12 @@ export class QuizContentLoaderService {
     ets.latestExplanationIndex = idx;
     ets._fetLocked = false;
 
-    // Sync question from array
-    const question = params.questionsArray[idx] ?? null;
+    // Sync question from array — prefer quizService.questions getter which
+    // returns shuffledQuestions when shuffle is active, avoiding stale
+    // unshuffled data in host.questionsArray due to timing races.
+    const question = this.quizService.questions?.[idx]
+      ?? params.questionsArray[idx]
+      ?? null;
     if (question) {
       this.quizStateService.updateCurrentQuestion(question);
       this.quizService.updateCurrentQuestion(question);
