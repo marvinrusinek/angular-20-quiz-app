@@ -306,7 +306,7 @@ export class ExplanationDisplayStateService {
       }
 
       // Broadcast the change to the collection
-      this.formatter.explanationsUpdated.next(this.formatter.formattedExplanations);
+      this.formatter.explanationsUpdatedSig.set({ ...this.formatter.formattedExplanations });
     }
 
     // Unified emission pipeline (Global)
@@ -496,7 +496,7 @@ export class ExplanationDisplayStateService {
   }
 
   getFormattedExplanation(questionIndex: number): Observable<string> {
-    if (!this.formatter.explanationsInitialized) {
+    if (!this.formatter.explanationsInitializedSig()) {
       return new Observable(sub => { sub.next('No explanation available'); sub.complete(); });
     }
 
@@ -1018,7 +1018,7 @@ export class ExplanationDisplayStateService {
 
     return merge(
       text$,
-      this.formatter.explanationsUpdated.pipe(
+      this.formatter.explanationsUpdated$.pipe(
         map(dict => dict[index]?.explanation || ''),
         distinctUntilChanged()
       )

@@ -145,8 +145,8 @@ export class ExplanationTextService {
     return this.formatter.formattedExplanation$;
   }
 
-  get explanationsUpdated(): BehaviorSubject<Record<number, FormattedExplanation>> {
-    return this.formatter.explanationsUpdated;
+  get explanationsUpdated(): Observable<Record<number, FormattedExplanation>> {
+    return this.formatter.explanationsUpdated$;
   }
 
   get processedQuestions(): Set<string> {
@@ -161,10 +161,10 @@ export class ExplanationTextService {
   }
 
   get explanationsInitialized(): boolean {
-    return this.formatter.explanationsInitialized;
+    return this.formatter.explanationsInitializedSig();
   }
   set explanationsInitialized(val: boolean) {
-    this.formatter.explanationsInitialized = val;
+    this.formatter.explanationsInitializedSig.set(val);
   }
 
   // ═══════════════════════════════════════════════════════════════════════

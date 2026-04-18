@@ -1,5 +1,5 @@
-import { Injectable, Injector } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { Injectable, Injector, signal } from '@angular/core';
+import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { BehaviorSubject, Observable, of } from 'rxjs';
 
@@ -21,12 +21,11 @@ export class ExplanationFormatterService {
   readonly formattedExplanationSig = toSignal(this.formattedExplanation$, { initialValue: '' });
   private formattedExplanationByQuestionText = new Map<string, string>();
 
-  public explanationsUpdated = new BehaviorSubject<
-    Record<number, FormattedExplanation>
-  >(this.formattedExplanations);
+  public readonly explanationsUpdatedSig = signal<Record<number, FormattedExplanation>>(this.formattedExplanations);
+  public readonly explanationsUpdated$ = toObservable(this.explanationsUpdatedSig);
 
   processedQuestions: Set<string> = new Set<string>();
-  explanationsInitialized = false;
+  readonly explanationsInitializedSig = signal<boolean>(false);
 
   // FET cache by index - reliable storage that won't be cleared by stream timing issues
   public fetByIndex = new Map<number, string>();
@@ -82,7 +81,7 @@ export class ExplanationFormatterService {
     }
 
     // Notify subscribers about the updated explanations
-    this.explanationsUpdated.next(this.formattedExplanations);
+    this.explanationsUpdatedSig.set({ ...this.formattedExplanations });
   }
 
   formatExplanationText(
@@ -358,7 +357,7 @@ export class ExplanationFormatterService {
       formattedExplanation
     );
 
-    this.explanationsUpdated.next(this.formattedExplanations);
+    this.explanationsUpdatedSig.set({ ...this.formattedExplanations });
   }
 
   private storeFormattedExplanationForQuestion(
@@ -858,7 +857,7 @@ export class ExplanationFormatterService {
     this.formattedExplanations$ = [];
     this.formattedExplanationSubject.next('');
     this.processedQuestions = new Set<string>();
-    this.explanationsInitialized = false;
+    this.explanationsInitializedSig.set(false);
   }
 
   // Exposed so the facade (ExplanationTextService) can provide it to emitFormatted guardrail
