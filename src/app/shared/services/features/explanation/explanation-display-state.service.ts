@@ -17,7 +17,7 @@ export type FETPayload = { idx: number; text: string; token: number };
 
 @Injectable({ providedIn: 'root' })
 export class ExplanationDisplayStateService {
-  private explanationTextSubject = new BehaviorSubject<string>('');
+  private readonly explanationTextSig = signal<string>('');
   explanationText$: BehaviorSubject<string | null> = new BehaviorSubject<
     string | null
   >('');
@@ -145,7 +145,7 @@ export class ExplanationDisplayStateService {
       return;
     }
 
-    this.explanationTextSubject.next(explanation);
+    this.explanationTextSig.set(explanation);
   }
 
   getLatestExplanation(): string {
@@ -318,7 +318,7 @@ export class ExplanationDisplayStateService {
 
     // Ensure direct subject update for visibility-stable downstream
     try {
-      (this as any).explanationTextSubject?.next(finalExplanation);
+      this.explanationTextSig.set(finalExplanation);
     } catch {
       // optional secondary stream
     }
@@ -727,7 +727,7 @@ export class ExplanationDisplayStateService {
     this.clearExplanationCaches();
 
     this.setExplanationText('', { force: true });
-    this.explanationTextSubject.next('');
+    this.explanationTextSig.set('');
     this.setShouldDisplayExplanation(false, { force: true });
     this.setIsExplanationTextDisplayed(false, { force: true });
 
@@ -754,7 +754,7 @@ export class ExplanationDisplayStateService {
     this._activeIndex = null;
     this.latestExplanationIndex = -1;
 
-    this.explanationTextSubject.next('');
+    this.explanationTextSig.set('');
     this.explanationText$.next('');
     this.formatter.formattedExplanationSubject.next('');
     this._fetSubject.next(undefined as any);
