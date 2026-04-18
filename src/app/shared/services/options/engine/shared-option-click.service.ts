@@ -624,14 +624,6 @@ export class SharedOptionClickService {
       }));
     }
 
-    // DIAGNOSTIC: final binding state + document.title
-    try {
-      const _s = comp.optionBindings.map((b: any, i: number) =>
-        `${i}:${b.isSelected?'S':'_'}${b.option?.highlight?'H':'_'}${b.option?.selected?'s':'_'}`
-      ).join('|');
-      console.error(`🔴 FINAL BINDINGS Q${qIdx+1} clicked=${index} isMulti=${isMultiFromQ}: ${_s}`);
-      document.title = `FINAL Q${qIdx+1} i=${index} ${_s}`;
-    } catch {}
 
     comp.cdRef.detectChanges();
   }

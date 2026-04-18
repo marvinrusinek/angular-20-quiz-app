@@ -269,10 +269,6 @@ export class CqcOrchestratorService {
         'background:#b00;color:#fff;padding:2px 6px;border-radius:3px;',
         (html ?? '').substring(0, 120)
       );
-      if (typeof document !== 'undefined') {
-        document.title = 'wqt#' + (globalThis as any).__writeQTextCalls
-          + ' ' + (html ?? '').substring(0, 30);
-      }
     } catch { /* ignore */ }
     try {
       let safe = html ?? '';
@@ -771,12 +767,6 @@ export class CqcOrchestratorService {
         }
       }
 
-      // VISIBLE DIAGNOSTIC: change document.title on every write so we
-      // can see what reaches the DOM without opening DevTools.
-      if (typeof document !== 'undefined') {
-        const stripped = (safe || '').replace(/<[^>]*>/g, '').substring(0, 80);
-        document.title = `WQT: ${stripped}`;
-      }
 
       host.qTextHtmlSig?.set(safe);
       host._lastDisplayedText = safe;
