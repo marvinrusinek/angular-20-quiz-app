@@ -1,6 +1,7 @@
-import { Injectable, NgZone } from '@angular/core';
+import { Injectable, NgZone, signal } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, ActivatedRouteSnapshot, Router } from '@angular/router';
-import { BehaviorSubject, firstValueFrom, Observable, of, Subject } from 'rxjs';
+import { firstValueFrom, Observable, of, Subject } from 'rxjs';
 import { catchError, take } from 'rxjs/operators';
 
 import { Option } from '../../models/Option.model';
@@ -46,7 +47,10 @@ export class QuizNavigationService {
   }>();
   public navigationToQuestion$ =
     this.navigationToQuestionSubject.asObservable();
-  private isNavigatingToPrevious = new BehaviorSubject<boolean>(false);
+  /** Signal-first source of truth for backward-navigation state */
+  readonly isNavigatingToPreviousSig = signal<boolean>(false);
+  /** @deprecated Use isNavigatingToPreviousSig instead */
+  private readonly isNavigatingToPrevious$ = toObservable(this.isNavigatingToPreviousSig);
 
   private explanationResetSubject = new Subject<void>();
   explanationReset$ = this.explanationResetSubject.asObservable();
@@ -101,7 +105,7 @@ export class QuizNavigationService {
 
   public async advanceToPreviousQuestion(): Promise<boolean> {
     // Signal backward navigation so display pipeline suppresses FET
-    this.isNavigatingToPrevious.next(true);
+    this.isNavigatingToPreviousSig.set(true);
 
     try {
       // Do not wipe everything; only clear transient display flags if necessary
@@ -120,7 +124,7 @@ export class QuizNavigationService {
     const result = await this.navigateWithOffset(-1);
 
     // Reset flag after a short delay to allow display pipeline to process
-    setTimeout(() => this.isNavigatingToPrevious.next(false), 500);
+    setTimeout(() => this.isNavigatingToPreviousSig.set(false), 500);
 
     return result;
   }
@@ -313,7 +317,7 @@ export class QuizNavigationService {
     qqls._isVisualFrozen = false;
     qqls._renderFreezeUntil = 0;
     qqls._quietZoneUntil = performance.now() - 1;
-    qqls.quietZoneUntil$?.next(qqls._quietZoneUntil);
+    qqls.quietZoneUntilSig?.set(qqls._quietZoneUntil);
 
     const ets: any = this.explanationTextService;
     ets._hardMuteUntil = performance.now() - 1;
@@ -631,11 +635,11 @@ export class QuizNavigationService {
   }
 
   setIsNavigatingToPrevious(value: boolean): void {
-    this.isNavigatingToPrevious.next(value);
+    this.isNavigatingToPreviousSig.set(value);
   }
 
   getIsNavigatingToPrevious(): Observable<boolean> {
-    return this.isNavigatingToPrevious.asObservable();
+    return this.isNavigatingToPrevious$;
   }
 
   // Reset navigation state when switching quizzes

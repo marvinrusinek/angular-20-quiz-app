@@ -1,8 +1,8 @@
-import { Injectable } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { Injectable, signal } from '@angular/core';
+import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRouteSnapshot, Router } from '@angular/router';
 import {
-  BehaviorSubject, firstValueFrom, forkJoin, lastValueFrom, of,
+  firstValueFrom, forkJoin, lastValueFrom, of,
   ReplaySubject
 } from 'rxjs';
 import { catchError, filter, take, timeout } from 'rxjs/operators';
@@ -54,8 +54,10 @@ export class QuizQuestionLoaderService {
 
   selectedOptions: Option[] = [];
   optionsToDisplay: Option[] = [];
-  public optionsToDisplay$ = new BehaviorSubject<Option[]>([]);
-  readonly optionsToDisplaySig = toSignal(this.optionsToDisplay$, { initialValue: [] as Option[] });
+  /** Signal-first source of truth for options to display */
+  readonly optionsToDisplaySig = signal<Option[]>([]);
+  /** @deprecated Use optionsToDisplaySig instead */
+  public optionsToDisplay$ = toObservable(this.optionsToDisplaySig);
   optionBindingsSrc: Option[] = [];
   public hasOptionsLoaded = false;
   public shouldRenderOptions = false;
@@ -70,27 +72,27 @@ export class QuizQuestionLoaderService {
   shouldRenderQuestionComponent = false;
   resetComplete = false;
 
-  private questionTextSubject = new BehaviorSubject<string>('');
-  private questionPayloadReadySource = new BehaviorSubject<boolean>(false);
+  private readonly questionTextSig = signal<string>('');
+  private readonly questionPayloadReadySig = signal<boolean>(false);
 
-  private explanationTextSubject = new BehaviorSubject<string>('');
+  private readonly explanationTextSig = signal<string>('');
 
   isButtonEnabled = false;
-  private isButtonEnabledSubject = new BehaviorSubject<boolean>(false);
+  private readonly isButtonEnabledSig = signal<boolean>(false);
 
-  public readonly isLoading$ = new BehaviorSubject<boolean>(false);  // true while a question is being fetched
-  readonly isLoadingSig = toSignal(this.isLoading$, { initialValue: false });
+  /** Signal-first source of truth for loading state */
+  readonly isLoadingSig = signal<boolean>(false);
+  /** @deprecated Use isLoadingSig instead */
+  public readonly isLoading$ = toObservable(this.isLoadingSig);
   private currentLoadAbortCtl = new AbortController();  // abort a stale fetch when the user clicks “Next” too fast
 
-  private qaSubject = new BehaviorSubject<QAPayload | null>(null);
+  private readonly qaSig = signal<QAPayload | null>(null);
 
-  readonly optionsStream$: BehaviorSubject<Option[]> = new BehaviorSubject<
-    Option[]
-  >([]);
-  options$ = this.optionsStream$.asObservable();
-
-  // Signal mirrors for new code; existing $ subscribers unaffected.
-  readonly optionsSig = toSignal(this.options$, { initialValue: [] as Option[] });
+  /** Signal-first source of truth for options stream */
+  readonly optionsSig = signal<Option[]>([]);
+  /** @deprecated Use optionsSig instead */
+  readonly optionsStream$ = toObservable(this.optionsSig);
+  options$ = this.optionsStream$;
 
   lastQuizId: string | null = null;
   questionsArray: QuizQuestion[] = [];
@@ -110,8 +112,10 @@ export class QuizQuestionLoaderService {
   public _quietZoneUntil = 0;
   private _navBarrier = false;
 
-  public quietZoneUntil$ = new BehaviorSubject<number>(0);
-  readonly quietZoneUntilSig = toSignal(this.quietZoneUntil$, { initialValue: 0 });
+  /** Signal-first source of truth for quiet zone timestamp */
+  readonly quietZoneUntilSig = signal<number>(0);
+  /** @deprecated Use quietZoneUntilSig instead */
+  public quietZoneUntil$ = toObservable(this.quietZoneUntilSig);
 
   constructor(
     private explanationTextService: ExplanationTextService,
@@ -217,7 +221,7 @@ export class QuizQuestionLoaderService {
 
         // Apply loaded values to local state
         this.optionsToDisplay = [...data.options];
-        this.optionsToDisplay$.next(this.optionsToDisplay);
+        this.optionsToDisplaySig.set(this.optionsToDisplay);
         this.hasOptionsLoaded = true;
 
         this.questionData = data.question ?? ({} as QuizQuestion);
@@ -422,7 +426,7 @@ export class QuizQuestionLoaderService {
     this.explanationTextService.resetExplanationState();
 
     this.quizService.questionPayloadSubject.next(null);
-    this.questionPayloadReadySource.next(false);
+    this.questionPayloadReadySig.set(false);
     this.questionPayload = null;
     this.isLoading = !canReuseCachedQuestion;
 
@@ -432,10 +436,10 @@ export class QuizQuestionLoaderService {
       // next question is already available locally.
       this.clearQA();
       this.resetQuestionDisplayState();
-      this.questionTextSubject.next('');
+      this.questionTextSig.set('');
       this.questionToDisplaySubject.next('');
-      this.optionsStream$.next([]);
-      this.explanationTextSubject.next('');
+      this.optionsSig.set([]);
+      this.explanationTextSig.set('');
     }
 
     // Per-question flags
@@ -629,8 +633,8 @@ export class QuizQuestionLoaderService {
     };
 
     // Streams for the template
-    this.optionsStream$.next(optionsForPayload);
-    this.qaSubject.next({
+    this.optionsSig.set(optionsForPayload);
+    this.qaSig.set({
       quizId: this.quizService.quizId,
       index,
       heading: question.questionText.trim(),
@@ -759,7 +763,7 @@ export class QuizQuestionLoaderService {
     };
     this.questionPayload = payloadForBroadcast;
     this.shouldRenderQuestionComponent = true;
-    this.questionPayloadReadySource.next(true);
+    this.questionPayloadReadySig.set(true);
     this.quizService.questionPayloadSubject.next(payloadForBroadcast);
 
     this.quizService.setCurrentQuestion({ ...q, options: opts });
@@ -790,7 +794,7 @@ export class QuizQuestionLoaderService {
     this.resetComplete = true;
 
     // Final emit so late subscribers have data
-    this.optionsStream$.next([...opts]);
+    this.optionsSig.set([...opts]);
   }
 
   public setQuestionDetails(
@@ -808,8 +812,8 @@ export class QuizQuestionLoaderService {
     this.explanationToDisplay = explanationText.trim();
 
     // Emit latest values to any subscribers (template/UI)
-    this.questionTextSubject.next(this.questionToDisplay);
-    this.explanationTextSubject.next(this.explanationToDisplay);
+    this.questionTextSig.set(this.questionToDisplay);
+    this.explanationTextSig.set(this.explanationToDisplay);
 
     if (!explanationText.trim() && explanationText.length > 0) {
       console.warn('[setQuestionDetails] ⚠️ Explanation fallback triggered');
@@ -823,11 +827,11 @@ export class QuizQuestionLoaderService {
     this.currentQuestion = null;
     this.optionsToDisplay = [];
     this.resetQuestionDisplayState();
-    this.questionTextSubject.next('');
+    this.questionTextSig.set('');
     this.questionToDisplaySubject.next('');
-    this.optionsStream$.next([]);
-    this.explanationTextSubject.next('');
-    this.questionPayloadReadySource.next(false);
+    this.optionsSig.set([]);
+    this.explanationTextSig.set('');
+    this.questionPayloadReadySig.set(false);
     this.questionPayload = null;
 
     // Reset question component state only if method exists
@@ -868,7 +872,7 @@ export class QuizQuestionLoaderService {
     this.currentQuestionAnswered = false;
     this.isNextButtonEnabled = false;
     this.isButtonEnabled = false;
-    this.isButtonEnabledSubject.next(false);
+    this.isButtonEnabledSig.set(false);
 
     // Clear all lock sets (single + multi)
     this.selectionMessageService['_singleAnswerIncorrectLock'].clear();
@@ -969,7 +973,7 @@ export class QuizQuestionLoaderService {
     // Abort any in-flight request
     this.currentLoadAbortCtl.abort();
     this.currentLoadAbortCtl = new AbortController();
-    this.isLoading$.next(true);
+    this.isLoadingSig.set(true);
 
     // Clear stale explanation so it can’t flash
     this.explanationTextService.explanationText$.next('');
@@ -1056,7 +1060,7 @@ export class QuizQuestionLoaderService {
       }
       return false;
     } finally {
-      this.isLoading$.next(false);
+      this.isLoadingSig.set(false);
     }
   }
 
@@ -1084,7 +1088,7 @@ export class QuizQuestionLoaderService {
   }
 
   clearQA(): void {
-    this.qaSubject.next({
+    this.qaSig.set({
       quizId: '',
       index: -1,
       heading: '',
