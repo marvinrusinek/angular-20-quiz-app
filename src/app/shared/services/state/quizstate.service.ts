@@ -1,4 +1,4 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, computed, signal } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import {
   EMPTY, Observable, ReplaySubject, Subject
@@ -21,7 +21,9 @@ export class QuizStateService {
   currentQuestionIndex$: Observable<number> =
     toObservable(this.currentQuestionIndexSig);
 
-  readonly currentOptionsSig = signal<Option[]>([]);
+  readonly currentOptionsSig = computed<Option[]>(
+    () => this.currentQuestionSig()?.options ?? []
+  );
   currentOptions$: Observable<Option[]> =
     toObservable(this.currentOptionsSig);
 
@@ -383,7 +385,7 @@ export class QuizStateService {
       )
       .subscribe((question: QuizQuestion) => {
         this.currentQuestionSig.set(question);
-        this.currentOptionsSig.set(question.options ?? []);
+        // currentOptionsSig auto-derives from currentQuestionSig via computed()
       });
   }
 
