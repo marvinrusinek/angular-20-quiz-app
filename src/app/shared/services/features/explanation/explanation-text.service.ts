@@ -213,7 +213,7 @@ export class ExplanationTextService {
     return this.displayState._gate;
   }
 
-  get activeIndex$(): BehaviorSubject<number> {
+  get activeIndex$(): Observable<number> {
     return this.displayState.activeIndex$;
   }
 
@@ -224,7 +224,7 @@ export class ExplanationTextService {
     this.displayState._visibilityLocked = val;
   }
 
-  get questionRendered$(): BehaviorSubject<boolean> {
+  get questionRendered$(): Observable<boolean> {
     return this.displayState.questionRendered$;
   }
 
@@ -246,7 +246,7 @@ export class ExplanationTextService {
     this.displayState._lastNavTime = val;
   }
 
-  get quietZoneUntil$(): BehaviorSubject<number> {
+  get quietZoneUntil$(): Observable<number> {
     return this.displayState.quietZoneUntil$;
   }
 

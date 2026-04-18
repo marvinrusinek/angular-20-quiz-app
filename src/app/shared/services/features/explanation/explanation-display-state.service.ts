@@ -1,5 +1,5 @@
-import { Injectable, Injector } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { Injectable, Injector, signal } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
 import {
   BehaviorSubject, firstValueFrom, merge, Observable, ReplaySubject, Subject
 } from 'rxjs';
@@ -32,19 +32,18 @@ export class ExplanationDisplayStateService {
   isExplanationTextDisplayed$ =
     this.isExplanationTextDisplayedSource.asObservable();
 
-  private isExplanationDisplayedSource = new BehaviorSubject<boolean>(false);
+  private readonly isExplanationDisplayedSig = signal<boolean>(false);
 
   shouldDisplayExplanationSource = new BehaviorSubject<boolean>(false);
   shouldDisplayExplanation$ =
     this.shouldDisplayExplanationSource.asObservable();
 
-  // Signal mirrors for new code; existing $ subscribers unaffected.
-  readonly isExplanationTextDisplayedSig = toSignal(this.isExplanationTextDisplayed$, { initialValue: false });
-  readonly shouldDisplayExplanationSig = toSignal(this.shouldDisplayExplanation$, { initialValue: false });
+  // isExplanationTextDisplayedSource and shouldDisplayExplanationSource
+  // remain BehaviorSubjects due to external .next()/.getValue() callers.
 
   private explanationTrigger = new Subject<void>();
 
-  private resetCompleteSubject = new BehaviorSubject<boolean>(false);
+  private readonly resetCompleteSig = signal<boolean>(false);
 
   currentQuestionExplanation: string | null = null;
   latestExplanation = '';
@@ -59,14 +58,16 @@ export class ExplanationDisplayStateService {
   public _gate = new Map<number, BehaviorSubject<boolean>>();
   private _activeIndexValue: number | null = 0;
 
-  public readonly activeIndex$ = new BehaviorSubject<number>(0);
+  public readonly activeIndexSig = signal<number>(0);
+  public readonly activeIndex$ = toObservable(this.activeIndexSig);
 
-  private _readyForExplanation$ = new BehaviorSubject<boolean>(false);
+  private readonly _readyForExplanationSig = signal<boolean>(false);
 
   public _visibilityLocked = false;
 
   // Tracks whether the current question text has rendered at least once.
-  public questionRendered$ = new BehaviorSubject<boolean>(false);
+  public readonly questionRenderedSig = signal<boolean>(false);
+  public questionRendered$ = toObservable(this.questionRenderedSig);
 
   // Track which indices currently have open gates (used for cleanup)
   public _gatesByIndex: Map<number, BehaviorSubject<boolean>> = new Map();
@@ -76,7 +77,8 @@ export class ExplanationDisplayStateService {
   // Timestamp of the most recent navigation (from QuizNavigationService).
   public _lastNavTime = 0;
 
-  public quietZoneUntil$ = new BehaviorSubject<number>(0);
+  public readonly quietZoneUntilSig = signal<number>(0);
+  public quietZoneUntil$ = toObservable(this.quietZoneUntilSig);
 
   // Internal guards
   public _quietZoneUntil = 0;
@@ -97,7 +99,7 @@ export class ExplanationDisplayStateService {
     console.log(`[ETS] 📍 _activeIndex SET: ${this._activeIndexValue} → ${value}`);
     this._activeIndexValue = value;
     if (value !== null) {
-      this.activeIndex$.next(value);
+      this.activeIndexSig.set(value);
     }
   }
 
@@ -729,7 +731,7 @@ export class ExplanationDisplayStateService {
     this.setShouldDisplayExplanation(false, { force: true });
     this.setIsExplanationTextDisplayed(false, { force: true });
 
-    this.isExplanationDisplayedSource.next(false);
+    this.isExplanationDisplayedSig.set(false);
   }
 
   resetStateBetweenQuestions(): void {
@@ -759,7 +761,7 @@ export class ExplanationDisplayStateService {
 
     this.shouldDisplayExplanationSource.next(false);
     this.isExplanationTextDisplayedSource.next(false);
-    this.resetCompleteSubject.next(false);
+    this.resetCompleteSig.set(false);
 
     // FET is definitely NOT ready after a full reset
     try {
@@ -768,7 +770,7 @@ export class ExplanationDisplayStateService {
   }
 
   setResetComplete(value: boolean): void {
-    this.resetCompleteSubject.next(value);
+    this.resetCompleteSig.set(value);
   }
 
   public forceResetBetweenQuestions(): void {
@@ -1077,7 +1079,7 @@ export class ExplanationDisplayStateService {
 
   // Set readiness flag
   public setReadyForExplanation(ready: boolean): void {
-    this._readyForExplanation$.next(ready);
+    this._readyForExplanationSig.set(ready);
     console.log(`[ETS] ⚙️ setReadyForExplanation = ${ready}`);
   }
 
@@ -1121,7 +1123,7 @@ export class ExplanationDisplayStateService {
   public setQuietZone(durationMs: number): void {
     const until = performance.now() + Math.max(0, durationMs);
     this._quietZoneUntil = until;
-    this.quietZoneUntil$.next(until);
+    this.quietZoneUntilSig.set(until);
     console.log(
       `[ETS] ⏸ Quiet zone set for ${durationMs}ms (until=${until.toFixed(1)})`
     );
