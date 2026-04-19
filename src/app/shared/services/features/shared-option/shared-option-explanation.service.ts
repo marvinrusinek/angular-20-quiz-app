@@ -76,6 +76,7 @@ export class SharedOptionExplanationService {
     // Guard: Prevent stale deferred calls from emitting for the wrong question.
     if (currentQuestion && resolvedIndex !== questionIndex) {
       const questionAtIndex = getQuestionAtDisplayIndex(resolvedIndex)
+        ?? this.quizService.getQuestionsInDisplayOrder?.()?.[resolvedIndex]
         ?? this.quizService.questions?.[resolvedIndex];
       if (questionAtIndex && questionAtIndex.questionText !== currentQuestion.questionText) {
         console.warn(`[emitExplanation] BLOCKED: stale deferred call for index=${resolvedIndex}`);
@@ -106,8 +107,10 @@ export class SharedOptionExplanationService {
     console.log(`[SharedOptionExplanationService] emitExplanation checking Q${resolvedIndex + 1} skipGuard=${skipGuard}...`);
 
     // Guard: Emit FET only when the question is resolved correctly.
-    // Use authoritative question source to ensure correct flags are present.
-    const authQ = this.quizService.questions?.[resolvedIndex] ?? question;
+    // Use display-order question source to handle shuffled mode correctly.
+    const authQ = this.quizService.getQuestionsInDisplayOrder?.()?.[resolvedIndex]
+      ?? this.quizService.questions?.[resolvedIndex]
+      ?? question;
 
     if (!skipGuard) {
       if (authQ && Array.isArray(authQ.options)) {
@@ -169,7 +172,9 @@ export class SharedOptionExplanationService {
     // Use authoritative question source — the component's question.options
     // often lack the `correct` flag, making correctCount=0 and falling to
     // single-answer logic which resolves on 1 correct selection.
-    const authQuestion = this.quizService.questions?.[resolvedIndex] ?? question;
+    const authQuestion = this.quizService.getQuestionsInDisplayOrder?.()?.[resolvedIndex]
+      ?? this.quizService.questions?.[resolvedIndex]
+      ?? question;
     // Always resolve correct count and texts from pristine quizInitialState.
     // After Restart Quiz, live options can have ALL correct flags set to true
     // (stale mutation), inflating correctCount and bypassing the multi-answer
@@ -494,7 +499,9 @@ export class SharedOptionExplanationService {
    * for correct "Option N" labeling (shuffle-safe).
    */
   resolveExplanationText(ctx: ExplanationContext): string {
-    const { resolvedIndex: displayIndex, optionBindings, optionsToDisplay, currentQuestion, quizId } = ctx;
+    const { resolvedIndex: displayIndex, question, optionBindings, optionsToDisplay, currentQuestion, quizId } = ctx;
+    // Use ctx.question (resolved from display index) over currentQuestion (can be null)
+    const effectiveQuestion = question ?? currentQuestion;
 
     console.error(`🔴🔴🔴 [FET-SOC] Q${displayIndex + 1} | Resolving for display...`);
 
@@ -507,19 +514,19 @@ export class SharedOptionExplanationService {
 
     if (displayOptions.length === 0) {
       console.warn(`[FET-SOC] Q${displayIndex + 1} | No visual options found! Falling back to raw.`);
-      return (currentQuestion?.explanation || '').trim();
+      return (effectiveQuestion?.explanation || '').trim();
     }
 
     // 2. Identify the authoritative canonical question
     const allCanonical = this.quizService.quizDataLoader.getCanonicalQuestions(quizId) || [];
-    const currentQText = this.normalize(currentQuestion?.questionText);
+    const currentQText = this.normalize(effectiveQuestion?.questionText);
 
     let authQ = allCanonical.find(q => this.normalize(q.questionText) === currentQText);
-    authQ = authQ || (currentQuestion as QuizQuestion);
+    authQ = authQ || (effectiveQuestion as QuizQuestion);
 
     if (!authQ) {
       console.warn(`[FET-SOC] Q${displayIndex + 1} | No auth question found. Using raw.`);
-      return (currentQuestion?.explanation || '').trim();
+      return (effectiveQuestion?.explanation || '').trim();
     }
 
     // 3. Build sets of correct identifiers from the authoritative source

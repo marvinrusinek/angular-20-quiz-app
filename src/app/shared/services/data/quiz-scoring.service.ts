@@ -168,21 +168,50 @@ export class QuizScoringService {
       // For single-answer, no gate needed — single correct click = score.
     } else if (isNowCorrect && quizId && isMultipleAnswer) {
       const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
+      const confirmed = this._confirmedCorrectClicks.get(qIndex) ?? new Set();
+
+      // Find pristine question by BOTH index-based and text-based matching.
+      // In shuffled mode, scoringKey (original index) may not correspond to
+      // the right position in QUIZ_DATA. Use confirmed click texts to
+      // cross-validate: the right pristine question's correct texts will
+      // ALL appear in confirmed clicks.
+      let pristineCorrectTexts: string[] = [];
       const pristineQuiz = QUIZ_DATA.find((qz: any) => qz?.quizId === quizId);
+
+      // PRIMARY: index-based lookup
       const pristineQ = pristineQuiz?.questions?.[scoringKey];
       if (pristineQ) {
-        const pristineCorrectTexts = (pristineQ.options ?? [])
+        pristineCorrectTexts = (pristineQ.options ?? [])
           .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
           .map((o: any) => nrm(o?.text))
           .filter((t: string) => !!t);
+      }
 
-        if (pristineCorrectTexts.length > 1) {
-          const confirmed = this._confirmedCorrectClicks.get(qIndex) ?? new Set();
-          const allConfirmed = pristineCorrectTexts.every((t: string) => confirmed.has(t));
-          console.log(`[incrementScore] PRISTINE-GATE Q${qIndex}: pristineCorrect=[${pristineCorrectTexts}] confirmed=[${[...confirmed]}] allConfirmed=${allConfirmed}`);
-          if (!allConfirmed) {
-            isNowCorrect = false;
+      // CROSS-VALIDATE: if index-based lookup found correct texts but they
+      // DON'T match confirmed clicks, the lookup hit the wrong question.
+      // Scan ALL questions in the quiz to find one whose correct texts
+      // match the confirmed clicks.
+      if (pristineCorrectTexts.length > 1 && confirmed.size > 0) {
+        const allMatch = pristineCorrectTexts.every((t: string) => confirmed.has(t));
+        if (!allMatch && pristineQuiz?.questions) {
+          for (const pq of pristineQuiz.questions) {
+            const pqCorrect = (pq?.options ?? [])
+              .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+              .map((o: any) => nrm(o?.text))
+              .filter((t: string) => !!t);
+            if (pqCorrect.length > 1 && pqCorrect.every((t: string) => confirmed.has(t))) {
+              pristineCorrectTexts = pqCorrect;
+              break;
+            }
           }
+        }
+      }
+
+      if (pristineCorrectTexts.length > 1) {
+        const allConfirmed = pristineCorrectTexts.every((t: string) => confirmed.has(t));
+        console.log(`[incrementScore] PRISTINE-GATE Q${qIndex}: pristineCorrect=[${pristineCorrectTexts}] confirmed=[${[...confirmed]}] allConfirmed=${allConfirmed}`);
+        if (!allConfirmed) {
+          isNowCorrect = false;
         }
       }
     }
@@ -195,7 +224,9 @@ export class QuizScoringService {
     } else if (!isNowCorrect && wasCorrect) {
       this.updateCorrectCountForResults(Math.max(this.correctCountSig() - 1, 0));
       this.questionCorrectness.set(scoringKey, false);
-    } else if (!isNowCorrect) {
+    } else if (!isNowCorrect && !this.questionCorrectness.has(scoringKey)) {
+      // Only set to false if not already set — don't overwrite a true
+      // value that was set directly by the SOC's display-index path.
       this.questionCorrectness.set(scoringKey, false);
     }
 

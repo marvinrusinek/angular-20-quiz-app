@@ -64,7 +64,7 @@ export class OptionInteractionService {
     event: any,
     state: OptionInteractionState,
     getQuestionAtDisplayIndex: (idx: number) => QuizQuestion | null,
-    emitExplanation: (idx: number) => void,
+    emitExplanation: (idx: number, skipGuard?: boolean) => void,
     updateOptionAndUI: (b: OptionBindings, i: number, ev: any, ctx?: any) => void
   ): void {
     // Always prefer the live quiz service index over the state snapshot.
@@ -91,8 +91,14 @@ export class OptionInteractionService {
         const optText = nrm(o?.text);
         const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
         if (optText && bundle.length > 0) {
-          // Resolve the current question text for matching
+          // Resolve the current question text for matching.
+          // SHUFFLED FIX: state.currentQuestion can be null; the fallback
+          // quizService.questions[qIdx] is original-order and gets the
+          // WRONG question when qIdx is a display index. Use
+          // getQuestionsInDisplayOrder() or shuffledQuestions instead.
           const question = state.currentQuestion
+            ?? this.quizService.getQuestionsInDisplayOrder?.()?.[qIdx]
+            ?? (this.quizService as any)?.shuffledQuestions?.[qIdx]
             ?? (this.quizService as any)?.questions?.[qIdx];
           const qText = nrm(question?.questionText);
           if (qText) {
@@ -159,8 +165,9 @@ export class OptionInteractionService {
         // Try multiple sources for question text
         const qTextCandidates = [
           nrmR(state.currentQuestion?.questionText),
-          nrmR((this.quizService as any)?.questions?.[qIdx]?.questionText),
-          nrmR((this.quizService as any)?.shuffledQuestions?.[qIdx]?.questionText)
+          nrmR(this.quizService.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText),
+          nrmR((this.quizService as any)?.shuffledQuestions?.[qIdx]?.questionText),
+          nrmR((this.quizService as any)?.questions?.[qIdx]?.questionText)
         ].filter((t: string) => !!t);
         for (const qTextR of qTextCandidates) {
           let found = false;
@@ -190,12 +197,35 @@ export class OptionInteractionService {
 
     const bindingsForScore = state.optionBindings ?? [];
     const correctCountInBindings = bindingsForScore.filter(b => isCorrectHelper(b.option)).length;
-    
+
+    // PRISTINE correct-count: bindings can have mutated correct flags (e.g.
+    // only 1 of 2 shown as correct). Cross-check against quizInitialState
+    // so multi-answer questions are never misidentified as single-answer.
+    let pristineCorrectCount = correctCountInBindings;
+    try {
+      const nrmQ = (t: any) => String(t ?? '').trim().toLowerCase();
+      const qTextLookup = nrmQ(state.currentQuestion?.questionText)
+        || nrmQ(this.quizService.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText)
+        || nrmQ((this.quizService as any)?.questions?.[qIdx]?.questionText);
+      if (qTextLookup) {
+        const bundleQ: any[] = (this.quizService as any)?.quizInitialState ?? [];
+        for (const quiz of bundleQ) {
+          for (const pq of (quiz?.questions ?? [])) {
+            if (nrmQ(pq?.questionText) !== qTextLookup) continue;
+            pristineCorrectCount = (pq?.options ?? [])
+              .filter((o: any) => o?.correct === true || String(o?.correct) === 'true').length;
+            break;
+          }
+          if (pristineCorrectCount !== correctCountInBindings) break;
+        }
+      }
+    } catch { /* ignore */ }
+
     // Authoritative Type Resolution
     const qText = state.currentQuestion?.questionText?.toLowerCase() || '';
     const isExplicitMulti = qText.includes('select all') || qText.includes('multiple') || qText.includes('apply');
-    const isMultipleMode = state.type === 'multiple' || (state as any).isMultiMode === true || 
-                          isExplicitMulti || correctCountInBindings > 1;
+    const isMultipleMode = state.type === 'multiple' || (state as any).isMultiMode === true ||
+                          isExplicitMulti || correctCountInBindings > 1 || pristineCorrectCount > 1;
     const isTrulyMulti = isMultipleMode;
 
     console.log(`[OIS] Q${qIdx + 1}: correctCount=${correctCountInBindings} stateType=${state.type} isMultipleMode=${isMultipleMode}`);
@@ -592,6 +622,9 @@ export class OptionInteractionService {
     const clickedIsCorrectPristine = isPristineCorrect(binding.option);
     let scoreFired = false;
 
+    // ── DIAGNOSTIC: trace scoring decision ──
+    console.warn(`%c[FET-DIAG OIS] Q${qIdx + 1} SCORING: shuffle=${isShuffleActive} clickedCorrect=${clickedIsCorrectPristine} pristineMulti=${pristineIsMultiAnswer} allCorrectFound=${allCorrectFound} isMultipleMode=${isMultipleMode} optText="${(binding.option?.text ?? '').substring(0, 30)}" qText="${(state.currentQuestion?.questionText ?? '').substring(0, 30)}"`, 'background:#060;color:#fff;padding:2px 6px;');
+
     if (!isShuffleActive) {
       // ── UNSHUFFLED: original gate ──
       if (allCorrectFound && !isMultipleMode && !pristineIsMultiAnswer) {
@@ -673,7 +706,7 @@ export class OptionInteractionService {
       if ((state as any).showExplanationChange) {
         (state as any).showExplanationChange.emit(true);
       }
-      queueMicrotask(() => emitExplanation(qIdx));
+      queueMicrotask(() => emitExplanation(qIdx, true));
     }
 
     // UPDATE ANCHOR: If we just selected something, that's the new anchor.

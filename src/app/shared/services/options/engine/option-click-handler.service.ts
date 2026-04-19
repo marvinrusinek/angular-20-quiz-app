@@ -112,7 +112,30 @@ export class OptionClickHandlerService {
       }
     }
 
-    const correctIndices = fromRaw.length > 0 ? fromRaw : fromCurrentQ;
+    // SOURCE 3: Pristine quizInitialState — most reliable, never mutated
+    let fromPristine: number[] = [];
+    if (qText) {
+      try {
+        const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
+        for (const quiz of bundle) {
+          for (const pq of (quiz?.questions ?? [])) {
+            if ((pq?.questionText ?? '').trim().toLowerCase() !== qText) continue;
+            const pristineCorrectTexts = new Set<string>(
+              (pq?.options ?? [])
+                .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+                .map((o: any) => (o?.text ?? '').trim().toLowerCase())
+            );
+            fromPristine = questionOpts
+              .map((o: any, idx: number) => pristineCorrectTexts.has((o?.text ?? '').trim().toLowerCase()) ? idx : -1)
+              .filter((idx: number) => idx >= 0);
+            break;
+          }
+          if (fromPristine.length > 0) break;
+        }
+      } catch { /* ignore */ }
+    }
+
+    const correctIndices = fromPristine.length > 0 ? fromPristine : (fromRaw.length > 0 ? fromRaw : fromCurrentQ);
     const correctCount = correctIndices.length;
     const isMultiMode = isMultiModeFromComponent || typeFromComponent === 'multiple' || correctCount > 1;
 

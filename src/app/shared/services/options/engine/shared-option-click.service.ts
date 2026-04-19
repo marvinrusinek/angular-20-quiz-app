@@ -217,7 +217,7 @@ export class SharedOptionClickService {
         event,
         state,
         (idx: number) => comp.getQuestionAtDisplayIndex(idx),
-        (idx: number) => comp.emitExplanation(idx),
+        (idx: number, skipGuard?: boolean) => comp.emitExplanation(idx, skipGuard),
         (b: any, i: number, ev: any, existingCtx: any) => {
           this.updateOptionAndUI(comp, b, i, ev, existingCtx || state);
           state.showFeedback = comp.showFeedback;
@@ -378,8 +378,9 @@ export class SharedOptionClickService {
         const qTextCandidates = [
           nrm(comp.currentQuestion?.questionText),
           nrm(comp.getQuestionAtDisplayIndex?.(qIdx)?.questionText),
-          nrm((this.quizService as any)?.questions?.[qIdx]?.questionText),
-          nrm((this.quizService as any)?.shuffledQuestions?.[qIdx]?.questionText)
+          nrm((this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText),
+          nrm((this.quizService as any)?.shuffledQuestions?.[qIdx]?.questionText),
+          nrm((this.quizService as any)?.questions?.[qIdx]?.questionText)
         ].filter((t: string) => !!t);
         let pristineCorrectTexts: string[] = [];
         const pristineBundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
@@ -421,6 +422,17 @@ export class SharedOptionClickService {
         this.nextButtonStateService.setNextButtonState(true);
 
         this.quizService.scoreDirectly(qIdx, true, true);
+
+        // Ensure questionCorrectness is set for BOTH display index and
+        // original index. scoreDirectly uses toOriginalIndex for the key,
+        // but the NUCLEAR gate in writeQText checks display index first.
+        // Set display index directly to guarantee the gate passes.
+        try {
+          const scoringSvc = (this.quizService as any)?.scoringService;
+          if (scoringSvc?.questionCorrectness) {
+            scoringSvc.questionCorrectness.set(qIdx, true);
+          }
+        } catch { /* ignore */ }
         console.log(`[SOC] Scored multi-answer Q${qIdx + 1} as correct (incorrectSel=${clickState.incorrectSelected})`);
 
         if (!(this.quizService as any)._multiAnswerPerfect) {
@@ -479,8 +491,60 @@ export class SharedOptionClickService {
       const correctSet = new Set(correctIdxs);
       const isClickedCorrect = correctSet.has(index);
       console.log(`[SOC] SINGLE-MODE check Q${qIdx + 1}: clicked=${index}, correct=[${[...correctSet]}], isCorrect=${isClickedCorrect}`);
-      if (isClickedCorrect) {
+      // PRISTINE cross-check for single-answer: verify against quizInitialState.
+      // Default to FALSE (safe) — only set true when pristine confirms.
+      let pristineSingleCorrect = false;
+      try {
+        const nrmSA = (t: any) => String(t ?? '').trim().toLowerCase();
+        const clickedText = nrmSA(comp.optionBindings?.[index]?.option?.text);
+        const qTextSA = nrmSA(comp.currentQuestion?.questionText)
+          || nrmSA(comp.getQuestionAtDisplayIndex?.(qIdx)?.questionText)
+          || nrmSA((this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText);
+        if (clickedText && qTextSA) {
+          const bundleSA: any[] = (this.quizService as any)?.quizInitialState ?? [];
+          for (const quiz of bundleSA) {
+            for (const pq of (quiz?.questions ?? [])) {
+              if (nrmSA(pq?.questionText) !== qTextSA) continue;
+              const matchedOpt = (pq?.options ?? []).find((o: any) => nrmSA(o?.text) === clickedText);
+              if (matchedOpt !== undefined) {
+                pristineSingleCorrect = matchedOpt?.correct === true || String(matchedOpt?.correct) === 'true';
+              }
+              break;
+            }
+            if (pristineSingleCorrect) break;
+          }
+        }
+      } catch { /* ignore */ }
+      // FALLBACK: if pristine text matching didn't confirm, check correctIndicesFromQ
+      // (which is also pristine-sourced via resolveCorrectIndices SOURCE 3)
+      if (!pristineSingleCorrect && isClickedCorrect && correctIndicesFromQ?.length > 0) {
+        const fromQSet = new Set(correctIndicesFromQ);
+        if (fromQSet.has(index)) {
+          pristineSingleCorrect = true;
+          console.log(`[SOC] SINGLE pristine FALLBACK: correctIndicesFromQ confirms index ${index} is correct`);
+        }
+      }
+      if (pristineSingleCorrect) {
         try { this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true }); } catch {}
+
+        // Score and emit FET for single-answer correct click
+        this.quizService.scoreDirectly(qIdx, true, false);
+        try {
+          const scoringSvc = (this.quizService as any)?.scoringService;
+          if (scoringSvc?.questionCorrectness) {
+            scoringSvc.questionCorrectness.set(qIdx, true);
+          }
+        } catch { /* ignore */ }
+        this.nextButtonStateService.setNextButtonState(true);
+        if (!(this.quizService as any)._multiAnswerPerfect) {
+          (this.quizService as any)._multiAnswerPerfect = new Map<number, boolean>();
+        }
+        (this.quizService as any)._multiAnswerPerfect.set(qIdx, true);
+
+        (this.explanationTextService as any)._fetLocked = false;
+        this.explanationTextService.unlockExplanation();
+        comp.showExplanationChange.emit(true);
+        setTimeout(() => comp.emitExplanation(qIdx, true), 0);
         if (!comp.disabledOptionsPerQuestion.has(qIdx)) {
           comp.disabledOptionsPerQuestion.set(qIdx, new Set<number>());
         }
