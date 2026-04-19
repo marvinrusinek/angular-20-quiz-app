@@ -243,7 +243,7 @@ export class QqcComponentOrchestratorService {
       host.resetStateSubscription = resetSubs[1];
 
       host.subscriptionWiring.createTotalQuestionsSubscription({
-        quizId: host.quizId()!,
+        quizId: host.quizId!,
         destroy$: host.destroy$,
         onTotal: (totalQuestions: number) => { host.totalQuestions = totalQuestions; },
       });
@@ -389,7 +389,7 @@ export class QqcComponentOrchestratorService {
   async runOnVisibilityChange(host: Host): Promise<void> {
     if (document.visibilityState === 'hidden') {
       host.navigationHandler.persistStateOnHide({
-        quizId: host.quizId()!,
+        quizId: host.quizId!,
         currentQuestionIndex: host.currentQuestionIndex() ?? 0,
         displayExplanation: host.displayExplanation,
       });
@@ -418,7 +418,7 @@ export class QqcComponentOrchestratorService {
       host._suppressDisplayStateUntil = performance.now() + 300;
 
       const restoreResult = await host.navigationHandler.performFullVisibilityRestore({
-        quizId: host.quizId()!,
+        quizId: host.quizId!,
         currentQuestionIndex: host.currentQuestionIndex() ?? 0,
         optionsToDisplay: host.optionsToDisplay(),
         currentQuestion: host.currentQuestion(),
@@ -784,7 +784,7 @@ export class QqcComponentOrchestratorService {
       preserveVisualState: shouldPreserveVisualState,
       index: host.currentQuestionIndex(),
       explanationToDisplay: host.explanationToDisplay(),
-      quizId: host.quizId(),
+      quizId: host.quizId,
       isAnswered: host.isAnswered as boolean,
       displayMode: host.displayMode$.getValue(),
       shouldDisplayExplanation: host.shouldDisplayExplanation,
@@ -832,7 +832,7 @@ export class QqcComponentOrchestratorService {
           questionIndex: lockedIndex,
           explanationText: explanationSnapshot.explanationText,
           questionState: explanationSnapshot.questionState,
-          quizId: host.quizId(),
+          quizId: host.quizId,
           quizServiceQuizId: host.quizService.quizId,
           currentQuizId: host.quizService.getCurrentQuizId(),
         });
@@ -848,14 +848,14 @@ export class QqcComponentOrchestratorService {
       const loadResult = await host.questionLoader.performLoadQuestionPostReset({
         currentQuestionIndex: host.currentQuestionIndex(),
         questionsArray: host.questionsArray,
-        quizId: host.quizId(),
+        quizId: host.quizId,
         signal,
         questions: host.questions,
       });
 
       if (!loadResult) return false;
       if (loadResult.shouldRedirect) {
-        await host.router.navigate(['/results', host.quizId()]);
+        await host.router.navigate(['/results', host.quizId]);
         return false;
       }
 
@@ -1181,7 +1181,7 @@ export class QqcComponentOrchestratorService {
     host.resetExplanation();
 
     const ensureLoaded = async () => {
-      const r = await host.questionLoader.ensureQuestionsLoaded(host.questionsArray, host.quizId());
+      const r = await host.questionLoader.ensureQuestionsLoaded(host.questionsArray, host.quizId);
       if (r.loaded && r.questions) {
         host.questions = r.questions;
         host.questionsArray = r.questions;
@@ -1192,12 +1192,12 @@ export class QqcComponentOrchestratorService {
     const result = await host.explanationFlow.performFetchAndSetExplanation({
       questionIndex,
       questionsArray: host.questionsArray,
-      quizId: host.quizId(),
+      quizId: host.quizId,
       isAnswered: host.isAnswered as boolean,
       shouldDisplayExplanation: host.shouldDisplayExplanation,
       ensureQuestionsLoaded: ensureLoaded,
       ensureQuestionIsFullyLoaded: (idx: number) =>
-        host.questionLoader.ensureQuestionIsFullyLoaded(idx, host.questionsArray, host.quizId()),
+        host.questionLoader.ensureQuestionIsFullyLoaded(idx, host.questionsArray, host.quizId),
       prepareExplanationText: (idx: number) => host.prepareAndSetExplanationText(idx),
       isAnyOptionSelected: (idx: number) => host.isAnyOptionSelected(idx),
     });
@@ -1254,7 +1254,7 @@ export class QqcComponentOrchestratorService {
       optionIndex,
       currentQuestion,
       currentQuestionIndex: host.currentQuestionIndex(),
-      quizId: host.quizId()!,
+      quizId: host.quizId!,
       lastAllCorrect: host._lastAllCorrect,
       optionsToDisplay: host.optionsToDisplay(),
       handleOptionClickedFn: async (q: QuizQuestion, idx: number) => {
@@ -1470,7 +1470,7 @@ export class QqcComponentOrchestratorService {
       opt,
       idx,
       questionIndex: lockedIndex,
-      quizId: host.quizId()!,
+      quizId: host.quizId!,
       lastAllCorrect: host._lastAllCorrect,
       currentQuestionIndex: host.currentQuestionIndex(),
     });
@@ -1559,7 +1559,7 @@ export class QqcComponentOrchestratorService {
       index,
       wasPreviouslySelected,
       currentQuestionIndex: host.currentQuestionIndex(),
-      quizId: host.quizId()!,
+      quizId: host.quizId!,
       lastAllCorrect: host._lastAllCorrect,
       fetchAndProcessCurrentQuestion: () => host.fetchAndProcessCurrentQuestion(),
       selectOption: (q: QuizQuestion, opt: SelectedOption, idx: number) => host.selectOption(q, opt, idx),
@@ -1567,7 +1567,7 @@ export class QqcComponentOrchestratorService {
         host.explanationFlow.processCurrentQuestion({
           currentQuestion: q,
           currentQuestionIndex: host.currentQuestionIndex(),
-          quizId: host.quizId()!,
+          quizId: host.quizId!,
           lastAllCorrect: host._lastAllCorrect,
           getExplanationText: (idx: number) => host.explanationManager.getExplanationText(idx),
         }),
@@ -1683,7 +1683,7 @@ export class QqcComponentOrchestratorService {
   // initializeQuizDataAndRouting body
   // ═══════════════════════════════════════════════════════════════
   async runInitializeQuizDataAndRouting(host: Host): Promise<void> {
-    const result = await host.questionLoader.performQuizDataAndRoutingInit({ quizId: host.quizId() });
+    const result = await host.questionLoader.performQuizDataAndRoutingInit({ quizId: host.quizId });
     if (!result) return;
 
     host.questions = result.questions;

@@ -90,6 +90,9 @@ export class NextButtonStateService {
   }
 
   public setNextButtonState(enabled: boolean): void {
+    if (enabled) {
+      this._forceHoldUntil = Date.now() + 300;
+    }
     this.updateAndSyncNextButtonState(enabled);
   }
 
