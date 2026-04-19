@@ -348,6 +348,31 @@ export class QuizContentDisplayService {
       shouldShowExplanation = isResolved;
     }
 
+    // SCORING SERVICE OVERRIDE: if questionCorrectness says this question
+    // is correctly answered, trust it — it's set by scoreDirectly() which
+    // is called by SharedOptionClickService when all correct options are
+    // confirmed selected. This bypasses the selection text matching that
+    // fails in shuffled mode because option flags on quizService.questions
+    // don't reflect the SharedOptionComponent's binding state.
+    if (!shouldShowExplanation && hasInteracted) {
+      try {
+        const scoringSvc = (this.quizService as any)?.scoringService;
+        if (scoringSvc?.questionCorrectness) {
+          let scored = scoringSvc.questionCorrectness.get(safeIdx) === true;
+          if (!scored) {
+            const origIdx = scoringSvc.quizShuffleService?.toOriginalIndex?.(this.quizService?.quizId, safeIdx);
+            if (typeof origIdx === 'number' && origIdx >= 0) {
+              scored = scoringSvc.questionCorrectness.get(origIdx) === true;
+            }
+          }
+          if (scored) {
+            shouldShowExplanation = true;
+            console.log(`[displayText$] Q${safeIdx + 1} SCORING OVERRIDE: questionCorrectness=true → forcing SHOW`);
+          }
+        }
+      } catch { /* ignore */ }
+    }
+
     // FINAL HARD GUARD: authoritative check via hasClickedInSession.
     // This Set only grows on real user clicks or refresh-of-answered,
     // so it's immune to sessionStorage contamination affecting other
@@ -411,11 +436,32 @@ export class QuizContentDisplayService {
           const allSel = pristineCorrect.every(t => selectedNow.has(t));
           console.log(`[displayText$] Q${safeIdx + 1} ABSOLUTE pristine gate pristineCorrect=${JSON.stringify(pristineCorrect)} selected=${JSON.stringify([...selectedNow])} allSel=${allSel}`);
           if (!allSel) {
-            console.warn(`[displayText$] Q${safeIdx + 1} ⛔ ABSOLUTE pristine gate BLOCK — FET suppressed`);
-            shouldShowExplanation = false;
-            // Also clear any falsely-set perfect flag so downstream
-            // OIS-bypass can't re-trigger on the next emission.
-            (this.quizService as any)?._multiAnswerPerfect?.delete?.(safeIdx);
+            // Before blocking, check questionCorrectness — the most
+            // authoritative signal for whether the question is correctly
+            // answered. scoreDirectly() sets it and handles shuffle key
+            // conversion internally.
+            let scoringOverrideGate = false;
+            try {
+              const scoringSvc4 = (this.quizService as any)?.scoringService;
+              if (scoringSvc4?.questionCorrectness) {
+                scoringOverrideGate = scoringSvc4.questionCorrectness.get(safeIdx) === true;
+                if (!scoringOverrideGate) {
+                  const origIdx4 = scoringSvc4.quizShuffleService?.toOriginalIndex?.(this.quizService?.quizId, safeIdx);
+                  if (typeof origIdx4 === 'number' && origIdx4 >= 0) {
+                    scoringOverrideGate = scoringSvc4.questionCorrectness.get(origIdx4) === true;
+                  }
+                }
+              }
+            } catch { /* ignore */ }
+            if (!scoringOverrideGate) {
+              console.warn(`[displayText$] Q${safeIdx + 1} ⛔ ABSOLUTE pristine gate BLOCK — FET suppressed`);
+              shouldShowExplanation = false;
+              // Also clear any falsely-set perfect flag so downstream
+              // OIS-bypass can't re-trigger on the next emission.
+              (this.quizService as any)?._multiAnswerPerfect?.delete?.(safeIdx);
+            } else {
+              console.log(`[displayText$] Q${safeIdx + 1} ABSOLUTE pristine gate OVERRIDDEN by questionCorrectness`);
+            }
           }
         }
       } catch { /* ignore */ }

@@ -475,7 +475,12 @@ export class QqcComponentOrchestratorService {
     if (!host.currentQuestion() || !host.currentOptions) return;
 
     const idx = host.quizService.getCurrentQuestionIndex() ?? 0;
-    const q = host.questions?.[idx];
+    // SHUFFLED FIX: host.questions is original-order, but idx is a DISPLAY
+    // index. In shuffled mode questions[idx] gets the WRONG question, which
+    // makes isMultiForSelection return false and blocks multi-answer FET.
+    // Use getQuestionsInDisplayOrder() to get the actually-displayed question.
+    const q = host.quizService.getQuestionsInDisplayOrder?.()?.[idx]
+      ?? host.questions?.[idx];
     const evtIdx = event.index;
     const evtOpt = event.option;
 
@@ -511,6 +516,9 @@ export class QqcComponentOrchestratorService {
       host._msgTok = clickResult.msgTok;
       host._lastAllCorrect = allCorrect;
 
+      // ── DIAGNOSTIC: trace the multi-answer FET decision chain ──
+      console.warn(`%c[FET-DIAG] Q${idx + 1} click: q=${q?.questionText?.substring(0, 40)} type=${q?.type} correctCount=${(q?.options ?? []).filter((o: any) => o?.correct === true || String(o?.correct) === 'true').length} isMulti=${isMultiForSelection} allCorrect=${allCorrect} → fetGateEntry=${allCorrect && isMultiForSelection}`, 'background:#060;color:#fff;padding:2px 6px;');
+
       host.updateOptionHighlighting(selOptsSetImmediate);
       host.refreshFeedbackFor(evtOpt ?? undefined);
 
@@ -521,7 +529,9 @@ export class QqcComponentOrchestratorService {
       // stays active. Use RAW quizService data to determine correctness so
       // mutated/polluted question.options can't break detection.
       try {
-        const rawQuestion: any = (host.quizService as any)?.questions?.[idx] ?? q;
+        const rawQuestion: any = host.quizService.getQuestionsInDisplayOrder?.()?.[idx]
+          ?? (host.quizService as any)?.questions?.[idx]
+          ?? q;
         const rawOpts: any[] = rawQuestion?.options ?? [];
         const rawCorrectCount = rawOpts.filter((o: any) =>
           o?.correct === true || String(o?.correct) === 'true'
@@ -590,34 +600,65 @@ export class QqcComponentOrchestratorService {
       const lockedIndex = host.currentQuestionIndex() ?? idx;
 
       // Multi-answer FET gate: verify all correct selected using authoritative
-      // raw question data so mutated canonicalOpts correct flags can't fire
+      // question data so mutated canonicalOpts correct flags can't fire
       // FET prematurely.
+      // SHUFFLED FIX: idx is a DISPLAY index. In shuffled mode,
+      // quizService.questions[] is original order, so questions[idx] gets the
+      // WRONG question. Use getQuestionsInDisplayOrder() which returns the
+      // shuffled array when shuffle is active.
       let fetGatePassed = allCorrect && isMultiForSelection;
       if (fetGatePassed) {
         try {
-          const rawQ: any = (host.quizService as any)?.questions?.[idx] ?? q;
-          const rawOpts: any[] = rawQ?.options ?? [];
+          const displayQ: any = host.quizService.getQuestionsInDisplayOrder?.()?.[idx]
+            ?? (host.quizService as any)?.questions?.[idx]
+            ?? q;
           const norm = (t: any) => String(t ?? '').trim().toLowerCase();
-          const rawCorrectTexts = new Set(
-            rawOpts.filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
-              .map((o: any) => norm(o?.text)).filter((t: string) => !!t)
-          );
+          // Get correct option texts from PRISTINE quizInitialState to avoid
+          // mutated correct flags from option-lock-policy backfill.
+          let rawCorrectTexts = new Set<string>();
+          try {
+            const qTextNorm = norm(displayQ?.questionText);
+            for (const quiz of ((host.quizService as any)?.quizInitialState ?? []) as any[]) {
+              for (const pq of (quiz?.questions ?? [])) {
+                if (norm(pq?.questionText) !== qTextNorm) continue;
+                rawCorrectTexts = new Set(
+                  (pq?.options ?? [])
+                    .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+                    .map((o: any) => norm(o?.text))
+                    .filter((t: string) => !!t)
+                );
+                break;
+              }
+              if (rawCorrectTexts.size > 0) break;
+            }
+          } catch { /* ignore */ }
+          // Fallback to live options if pristine lookup missed
+          if (rawCorrectTexts.size === 0) {
+            const rawOpts: any[] = displayQ?.options ?? [];
+            rawCorrectTexts = new Set(
+              rawOpts.filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+                .map((o: any) => norm(o?.text))
+                .filter((t: string) => !!t)
+            );
+          }
           const svcSel = host.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
           const selTexts = new Set(svcSel.map((s: any) => norm(s?.text)).filter((t: string) => !!t));
           const allCorrectSel = rawCorrectTexts.size > 0 && [...rawCorrectTexts].every(t => selTexts.has(t));
           if (!allCorrectSel) {
-            console.log(`[QQC-Orch] FET gate blocked Q${idx + 1}: allCorrectSel=${allCorrectSel}`);
+            console.log(`[QQC-Orch] FET gate blocked Q${idx + 1}: allCorrectSel=${allCorrectSel} correctTexts=${JSON.stringify([...rawCorrectTexts])} selTexts=${JSON.stringify([...selTexts])}`);
             fetGatePassed = false;
           }
         } catch { /* trust upstream */ }
       }
 
+      console.warn(`%c[FET-DIAG] Q${idx + 1} fetGatePassed=${fetGatePassed} earlyShown=${host._fetEarlyShown.has(lockedIndex)} → willTrigger=${fetGatePassed && !host._fetEarlyShown.has(lockedIndex)}`, 'background:#060;color:#fff;padding:2px 6px;');
       if (fetGatePassed && !host._fetEarlyShown.has(lockedIndex)) {
         if (host.timerEffect.safeStopTimer('completed', host._timerStoppedForQuestion, host._lastAllCorrect)) {
           host._timerStoppedForQuestion = true;
         }
         host._fetEarlyShown.add(lockedIndex);
-        host.explanationFlow.triggerMultiAnswerFet({ lockedIndex, question: q }).then((fetResult: any) => {
+        const displayQForFet = host.quizService.getQuestionsInDisplayOrder?.()?.[lockedIndex] ?? q;
+        host.explanationFlow.triggerMultiAnswerFet({ lockedIndex, question: displayQForFet }).then((fetResult: any) => {
           if (host.currentQuestionIndex() !== lockedIndex || !fetResult) return;
           host.displayExplanation = true;
           host.displayStateSubject?.next({ mode: 'explanation', answered: true });

@@ -333,7 +333,18 @@ export class CqcOrchestratorService {
           const displayedQTextEarly = norm(liveQEarly?.questionText ?? '');
           if (displayedQTextEarly && safeNorm !== displayedQTextEarly && !safeNorm.startsWith(displayedQTextEarly)) {
             const scoringSvc = (host.quizService as any)?.scoringService;
-            const isScored = scoringSvc?.questionCorrectness?.get(activeIdxEarly) === true;
+            // In shuffled mode, questionCorrectness is keyed by ORIGINAL index, not display index.
+            // Resolve the scoring key so the lookup succeeds for shuffled quizzes.
+            let scoringKeyEarly = activeIdxEarly;
+            try {
+              if (isShuffledEarly) {
+                const origIdx = scoringSvc?.quizShuffleService?.toOriginalIndex?.(host.quizService?.quizId, activeIdxEarly);
+                if (typeof origIdx === 'number' && origIdx >= 0) {
+                  scoringKeyEarly = origIdx;
+                }
+              }
+            } catch { /* ignore */ }
+            const isScored = scoringSvc?.questionCorrectness?.get(scoringKeyEarly) === true;
             if (!isScored) {
               const rebuilt = this.buildQuestionDisplayHTML(host, activeIdxEarly);
               safe = rebuilt || (liveQEarly?.questionText ?? '').trim() || '';
@@ -465,7 +476,17 @@ export class CqcOrchestratorService {
           // question correct on genuine correct clicks.
           if (!isMulti && correctTotal === 1) {
             const scoringSvc = (host.quizService as any)?.scoringService;
-            const isScored = scoringSvc?.questionCorrectness?.get(activeIdx) === true;
+            // In shuffled mode, questionCorrectness is keyed by ORIGINAL index, not display index.
+            let scoringKeyForGate = activeIdx;
+            try {
+              if (isShuffled) {
+                const origIdx = scoringSvc?.quizShuffleService?.toOriginalIndex?.(host.quizService?.quizId, activeIdx);
+                if (typeof origIdx === 'number' && origIdx >= 0) {
+                  scoringKeyForGate = origIdx;
+                }
+              }
+            } catch { /* ignore */ }
+            const isScored = scoringSvc?.questionCorrectness?.get(scoringKeyForGate) === true;
             if (!isScored) {
               const qText = (liveQ?.questionText ?? '').trim();
               const rebuilt = activeIdx >= 0
@@ -481,20 +502,41 @@ export class CqcOrchestratorService {
             }
           }
           if (isMulti && !allCorrectSelected) {
-            // Replace outgoing FET with the plain question text from
-            // the component's own question object (what the user sees
-            // as the question above the options).
-            const qText = (liveQ?.questionText ?? '').trim();
-            const rebuilt = activeIdx >= 0
-              ? this.buildQuestionDisplayHTML(host, activeIdx)
-              : '';
-            safe = rebuilt || qText || '';
-            console.log(`[writeQText] ⛔ NUCLEAR HARD-BLOCK premature FET — substituted "${safe.substring(0, 60)}..."`);
-            host.qTextHtmlSig?.set(safe);
-            host._lastDisplayedText = safe;
-            const el0 = host.qText?.nativeElement;
-            if (el0) host.renderer.setProperty(el0, 'innerHTML', safe);
-            return;
+            // Before blocking, check questionCorrectness — the most
+            // authoritative signal. scoreDirectly() sets it when the
+            // SharedOptionClickService confirms all correct selected.
+            // The DOM/option-text checks above can miss selections in
+            // shuffled mode due to binding timing.
+            let scoringOverride = false;
+            try {
+              const scoringSvc2 = (host.quizService as any)?.scoringService;
+              if (scoringSvc2?.questionCorrectness) {
+                scoringOverride = scoringSvc2.questionCorrectness.get(activeIdx) === true;
+                if (!scoringOverride) {
+                  const origIdx2 = scoringSvc2.quizShuffleService?.toOriginalIndex?.(host.quizService?.quizId, activeIdx);
+                  if (typeof origIdx2 === 'number' && origIdx2 >= 0) {
+                    scoringOverride = scoringSvc2.questionCorrectness.get(origIdx2) === true;
+                  }
+                }
+              }
+            } catch { /* ignore */ }
+            if (!scoringOverride) {
+              // Replace outgoing FET with the plain question text from
+              // the component's own question object (what the user sees
+              // as the question above the options).
+              const qText = (liveQ?.questionText ?? '').trim();
+              const rebuilt = activeIdx >= 0
+                ? this.buildQuestionDisplayHTML(host, activeIdx)
+                : '';
+              safe = rebuilt || qText || '';
+              console.log(`[writeQText] ⛔ NUCLEAR HARD-BLOCK premature FET — substituted "${safe.substring(0, 60)}..."`);
+              host.qTextHtmlSig?.set(safe);
+              host._lastDisplayedText = safe;
+              const el0 = host.qText?.nativeElement;
+              if (el0) host.renderer.setProperty(el0, 'innerHTML', safe);
+              return;
+            }
+            console.log(`[writeQText] ✅ NUCLEAR gate OVERRIDDEN by questionCorrectness for Q${activeIdx + 1}`);
           }
         }
       } catch (e) { console.warn('[writeQText] NUCLEAR gate error', e); }
@@ -836,6 +878,35 @@ export class CqcOrchestratorService {
    *  for questions with partial interaction (e.g. 1-of-2 correct in multi). */
   private isQuestionResolvedFromStorage(host: Host, idx: number): boolean {
     try {
+      // FAST PATH: if QuizScoringService.questionCorrectness says this
+      // question is scored correct, it IS resolved. This is the most
+      // authoritative signal — set by scoreDirectly() in the
+      // SharedOptionClickService multi-answer flow. Works regardless of
+      // shuffle mode because scoreDirectly converts to the scoring key
+      // internally.
+      try {
+        const scoringSvc = (host.quizService as any)?.scoringService;
+        if (scoringSvc?.questionCorrectness) {
+          // Check BOTH display index and scoring key (original index)
+          const directHit = scoringSvc.questionCorrectness.get(idx) === true;
+          if (directHit) {
+            console.log(`[isResolvedFromStorage] Q${idx + 1} FAST PATH: questionCorrectness[${idx}]=true`);
+            return true;
+          }
+          // In shuffled mode, scoring key is the original index
+          try {
+            const origIdx = scoringSvc.quizShuffleService?.toOriginalIndex?.(host.quizService?.quizId, idx);
+            if (typeof origIdx === 'number' && origIdx >= 0 && origIdx !== idx) {
+              const origHit = scoringSvc.questionCorrectness.get(origIdx) === true;
+              if (origHit) {
+                console.log(`[isResolvedFromStorage] Q${idx + 1} FAST PATH: questionCorrectness[origIdx=${origIdx}]=true`);
+                return true;
+              }
+            }
+          } catch { /* ignore */ }
+        }
+      } catch { /* ignore */ }
+
       let storedSelections: any[] = [];
       try {
         const raw = sessionStorage.getItem('sel_Q' + idx);
@@ -1456,6 +1527,26 @@ export class CqcOrchestratorService {
                     .filter((t: string) => !!t)
                 );
                 rawResolved = rawCorrectTexts.length > 0 && rawCorrectTexts.every((t: string) => selTexts.has(t));
+                // SCORING OVERRIDE: if questionCorrectness says correct,
+                // trust it — the selection text matching can fail in
+                // shuffled mode when sessionStorage/selectedOptionService
+                // stores data differently from pristine option texts.
+                if (!rawResolved) {
+                  try {
+                    const scoringSvc3 = (host.quizService as any)?.scoringService;
+                    if (scoringSvc3?.questionCorrectness) {
+                      const directHit3 = scoringSvc3.questionCorrectness.get(currentIdx) === true;
+                      const origIdx3 = scoringSvc3.quizShuffleService?.toOriginalIndex?.(host.quizService?.quizId, currentIdx);
+                      const origHit3 = typeof origIdx3 === 'number' && origIdx3 >= 0
+                        ? scoringSvc3.questionCorrectness.get(origIdx3) === true
+                        : false;
+                      if (directHit3 || origHit3) {
+                        rawResolved = true;
+                        console.log(`[subscribeToDisplayText] Q${currentIdx + 1} multi-answer gate OVERRIDE by questionCorrectness`);
+                      }
+                    }
+                  } catch { /* ignore */ }
+                }
                 console.log(`[subscribeToDisplayText] Q${currentIdx + 1} multi-answer gate rawCorrect=${JSON.stringify(rawCorrectTexts)} selTexts=${JSON.stringify([...selTexts])} rawResolved=${rawResolved}`);
               } catch { /* default false */ }
             }
@@ -1474,7 +1565,18 @@ export class CqcOrchestratorService {
             // (e.g. raw explanation text without "correct because" prefix).
             if (isFetText && !isMultiQ) {
               const scoringSvc = (host.quizService as any)?.scoringService;
-              const isScored = scoringSvc?.questionCorrectness?.get(currentIdx) === true;
+              // In shuffled mode, questionCorrectness is keyed by ORIGINAL index.
+              let scoringKeyForSub = currentIdx;
+              try {
+                const qs = host.quizService;
+                if (qs?.isShuffleEnabled?.() && qs?.shuffledQuestions?.length > 0) {
+                  const origIdx = scoringSvc?.quizShuffleService?.toOriginalIndex?.(qs?.quizId, currentIdx);
+                  if (typeof origIdx === 'number' && origIdx >= 0) {
+                    scoringKeyForSub = origIdx;
+                  }
+                }
+              } catch { /* ignore */ }
+              const isScored = scoringSvc?.questionCorrectness?.get(scoringKeyForSub) === true;
               if (!isScored) {
                 const qText = this.buildQuestionDisplayHTML(host, currentIdx);
                 if (qText) {

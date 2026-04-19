@@ -86,9 +86,15 @@ export class QqcOptionClickOrchestratorService {
    * Determines if a question should use multi-answer selection logic.
    */
   isMultiForSelection(question: QuizQuestion | undefined): boolean {
-    if (!question) return false;
-    return question.type === QuestionType.MultipleAnswer ||
-      ((question.options?.filter((o: any) => o.correct === true || String(o.correct) === 'true').length ?? 0) > 1);
+    if (!question) {
+      console.warn('%c[FET-DIAG isMultiForSelection] question is NULL/UNDEFINED → false', 'background:#c00;color:#fff;padding:2px 6px;');
+      return false;
+    }
+    const typeMatch = question.type === QuestionType.MultipleAnswer;
+    const correctCount = (question.options?.filter((o: any) => o.correct === true || String(o.correct) === 'true').length ?? 0);
+    const result = typeMatch || correctCount > 1;
+    console.warn(`%c[FET-DIAG isMultiForSelection] type=${question.type} typeMatch=${typeMatch} correctCount=${correctCount} → ${result}`, 'background:#609;color:#fff;padding:2px 6px;');
+    return result;
   }
 
   /**
@@ -331,6 +337,15 @@ export class QqcOptionClickOrchestratorService {
           && selectedCorrectCount === correctOpts.length
           && rawAllCorrect
         : !!evtOpt?.correct;
+
+    // ── DIAGNOSTIC: trace correctness computation ──
+    if (isMultiForSelection) {
+      const norm = (t: any) => String(t ?? '').trim().toLowerCase();
+      console.warn(
+        `%c[FET-DIAG computeCorrectness] Q${questionIndex + 1}: correctOpts=${correctOpts.length} selectedCorrectCount=${selectedCorrectCount} rawAllCorrect=${rawAllCorrect} → allCorrect=${allCorrect} | canonicalCorrectTexts=${JSON.stringify(correctOpts.map((o: any) => norm(o?.text)?.substring(0, 25)))} selectedTexts=${JSON.stringify(canonicalOpts.filter(o => o.selected).map((o: any) => norm(o?.text)?.substring(0, 25)))}`,
+        'background:#906;color:#fff;padding:2px 6px;'
+      );
+    }
 
     const hasAnySelection = canonicalOpts.some(o => o.selected);
     const enableNext = isMultiForSelection ? hasAnySelection : allCorrect;

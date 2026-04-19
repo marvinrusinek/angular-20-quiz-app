@@ -533,21 +533,43 @@ export class QqcExplanationFlowService {
       svc._activeIndex = params.lockedIndex;
       svc.readyForExplanation = true;
       svc._fetLocked = true;
-      svc.setShouldDisplayExplanation(true);
-      svc.setIsExplanationTextDisplayed(false);
 
-      await new Promise(res => setTimeout(res, 40));
-
-      // Retrieve canonical question using locked index
-      const canonicalQ = this.quizService?.questions?.[params.lockedIndex] ?? params.question;
+      // Generate FET text SYNCHRONOUSLY — no delay. The FET must be
+      // cached before the displayText$ pipeline fires (next microtask),
+      // otherwise the FET-OVER-QUESTION-TEXT guard finds nothing and
+      // writes question text instead.
+      // SHUFFLED FIX: params.lockedIndex is a DISPLAY index. In shuffled
+      // mode, quizService.questions[] is original order — use
+      // getQuestionsInDisplayOrder() to get the correct displayed question.
+      const canonicalQ = this.quizService?.getQuestionsInDisplayOrder?.()?.[params.lockedIndex]
+        ?? this.quizService?.questions?.[params.lockedIndex]
+        ?? params.question;
       const raw = (canonicalQ?.explanation ?? '').trim();
       const correctIdxs = svc.getCorrectOptionIndices(canonicalQ);
       const formatted = svc.formatExplanation(canonicalQ, correctIdxs, raw).trim();
 
-      // Emit to service
-      svc.setExplanationText(formatted);
-      svc.setIsExplanationTextDisplayed(true);
-      svc.setShouldDisplayExplanation(true);
+      // Store in FET caches FIRST so the CQC's FET-OVER-QUESTION-TEXT
+      // guard can find it when displayText$ emits question text.
+      try {
+        if (svc.fetByIndex && typeof svc.fetByIndex.set === 'function') {
+          svc.fetByIndex.set(params.lockedIndex, formatted);
+        }
+        if (svc.formattedExplanations) {
+          svc.formattedExplanations[params.lockedIndex] = {
+            explanation: formatted,
+            idx: params.lockedIndex,
+          };
+        }
+      } catch { /* ignore */ }
+
+      // Bypass the ETS pristine gates by calling displayState directly.
+      // The caller (orchestrator) already verified all correct answers are
+      // selected via fetGatePassed — the ETS gates can falsely block for
+      // shuffled quizzes because selectedOptionsMap/live-option flags may
+      // not yet reflect the current click at the moment the gate runs.
+      svc.displayState?.setShouldDisplayExplanation?.(true);
+      svc.displayState?.setExplanationText?.(formatted);
+      svc.displayState?.setIsExplanationTextDisplayed?.(true);
 
       console.log(`[QQC ✅] FET computed for Q${params.lockedIndex + 1}`);
       return { formatted, shouldDisplay: true };
