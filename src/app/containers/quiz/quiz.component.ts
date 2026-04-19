@@ -144,9 +144,6 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   isNavigatedByUrl = false;
   navigatingToResults = false;
 
-  private nextButtonTooltipSubject = new BehaviorSubject<string>('Please click an option to continue...');
-  nextButtonTooltip$: Observable<string> = this.nextButtonTooltipSubject.asObservable();
-
   nextButtonEnabled$: Observable<boolean> = this.nextButtonStateService.isButtonEnabled$;
   isButtonEnabled$: Observable<boolean>;
   isAnswered$: Observable<boolean>;

@@ -67,7 +67,7 @@
                     @if (shouldShowNextButton) {
                       <button type="button" class="nav-btn" #nextButton="matTooltip"
                         [disabled]="!(nextButtonEnabled$ | async)" (click)="advanceToNextQuestion()"
-                        [matTooltip]="nextButtonTooltip$ | async" matTooltipPosition="above" aria-label="Next Question">
+                        matTooltip="Next Question »" matTooltipPosition="above" aria-label="Next Question">
                         <i class="material-icons">navigate_next</i>
                       </button>
                     }

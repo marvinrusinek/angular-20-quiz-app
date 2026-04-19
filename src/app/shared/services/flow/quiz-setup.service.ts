@@ -611,18 +611,6 @@ export class QuizSetupService {
     });
   }
 
-  initializeTooltip(host: Host): void {
-    const sel$: any = this.selectedOptionService.isOptionSelected$().pipe(startWith(false), distinctUntilChanged());
-    const btn$: any = host.isButtonEnabled$.pipe(startWith(false), distinctUntilChanged());
-    host.nextButtonTooltip$ = combineLatest<[boolean, boolean]>([sel$, btn$]).pipe(
-      map(([isSelected, isEnabled]: [boolean, boolean]) =>
-        isSelected && isEnabled ? 'Next Question »' : 'Please click an option to continue...'
-      ),
-      distinctUntilChanged(),
-      catchError(() => of('Please click an option to continue...'))
-    );
-    host.nextButtonTooltip$.subscribe(() => host.nextButtonTooltip?.show());
-  }
 
   fetchRouteParams(host: Host): void {
     host.activatedRoute.params
@@ -1188,7 +1176,6 @@ export class QuizSetupService {
       host.destroy$
     );
 
-    this.initializeTooltip(host);
     host.resetQuestionState();
     this.initializeExplanationText(host);
 
