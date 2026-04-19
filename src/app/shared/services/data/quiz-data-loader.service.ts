@@ -86,7 +86,7 @@ export class QuizDataLoaderService {
     totalQuestionsSubject: BehaviorSubject<number>,
     setQuestions: (qs: QuizQuestion[]) => void,
     setTotalQuestions: (n: number) => void
-  ): { questions: QuizQuestion[]; totalQuestions: number } {
+  ): { questions: QuizQuestion[]; totalQuestions: number; resolvedQuizId: string } {
     if (!QUIZ_DATA || !Array.isArray(QUIZ_DATA)) {
       console.error('QUIZ_DATA is invalid:', QUIZ_DATA);
       this.quizData = [];
@@ -96,6 +96,7 @@ export class QuizDataLoaderService {
 
     let questions: QuizQuestion[] = [];
     let totalQuestions = 0;
+    let resolvedQuizId = quizId;
 
     if (this.quizData.length > 0) {
       this.quizInitialState = _.cloneDeep(this.quizData);
@@ -108,6 +109,7 @@ export class QuizDataLoaderService {
       }
 
       selectedQuiz = selectedQuiz ?? this.quizData[0];
+      resolvedQuizId = selectedQuiz.quizId;
 
       if (Array.isArray(selectedQuiz.questions) && selectedQuiz.questions.length > 0) {
         questions = [...selectedQuiz.questions];
@@ -131,7 +133,7 @@ export class QuizDataLoaderService {
       }
     }
 
-    return { questions, totalQuestions };
+    return { questions, totalQuestions, resolvedQuizId };
   }
 
   loadResourcesForQuiz(quizId: string): void {
@@ -353,6 +355,10 @@ export class QuizDataLoaderService {
     })();
 
     return this.fetchPromise;
+  }
+
+  clearFetchPromise(): void {
+    this.fetchPromise = null;
   }
 
   shouldShuffle(): boolean {

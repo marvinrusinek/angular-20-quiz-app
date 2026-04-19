@@ -511,7 +511,7 @@ export class SharedOptionExplanationService {
     }
 
     // 2. Identify the authoritative canonical question
-    const allCanonical = this.quizService.getCanonicalQuestions(quizId) || [];
+    const allCanonical = this.quizService.quizDataLoader.getCanonicalQuestions(quizId) || [];
     const currentQText = this.normalize(currentQuestion?.questionText);
 
     let authQ = allCanonical.find(q => this.normalize(q.questionText) === currentQText);

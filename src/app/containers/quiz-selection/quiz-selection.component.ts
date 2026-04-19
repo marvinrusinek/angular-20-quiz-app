@@ -106,8 +106,6 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
 
       // this.quizService.quizId = quizId;
       this.quizService.setQuizId(quizId);
-      this.quizService.setIndexOfQuizId(index);
-      
       const currentQuiz = this.quizDataService.getCachedQuizById(quizId);
       const isCompleted = currentQuiz?.status === QuizStatus.COMPLETED;
       this.quizService.quizCompleted = isCompleted;

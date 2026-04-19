@@ -382,7 +382,7 @@ export class QqcOptionClickOrchestratorService {
 
     // 🧪 ROBUSTNESS FIX: Try to find origIdx by question text if mapping fails
     if (!pristine && params.questionText) {
-      const canonical = this.quizService.getCanonicalQuestions(params.quizId);
+      const canonical = this.quizService.quizDataLoader.getCanonicalQuestions(params.quizId);
       const normalize = (s: string) => s.replace(/\s/g, '').toLowerCase();
       const foundIdx = canonical.findIndex(q => normalize(q.questionText) === normalize(params.questionText!));
       if (foundIdx !== -1) {

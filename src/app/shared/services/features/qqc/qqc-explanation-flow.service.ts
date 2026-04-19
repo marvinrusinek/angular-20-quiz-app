@@ -260,7 +260,7 @@ export class QqcExplanationFlowService {
       // Set the current explanation text
       this.explanationTextService.setCurrentQuestionExplanation(explanationText);
 
-      const totalCorrectAnswers = this.quizService.getTotalCorrectAnswers(params.currentQuestion);
+      const totalCorrectAnswers = this.quizService.quizOptions.getTotalCorrectAnswers(params.currentQuestion);
 
       // Update the quiz state with the latest question information
       this.quizStateService.updateQuestionState(

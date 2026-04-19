@@ -545,7 +545,7 @@ export class ExplanationFormatterService {
 
         // ROBUSTNESS FIX: Try to find origIdx by question text if mapping fails
         if (!pristine && targetQuestionText) {
-          const canonical = quizSvc.getCanonicalQuestions(resolvedQuizId);
+          const canonical = quizSvc.quizDataLoader.getCanonicalQuestions(resolvedQuizId);
           const foundIdx = canonical.findIndex(q => normalizeLocal(q.questionText) === normalizeLocal(targetQuestionText));
           if (foundIdx !== -1) {
             origIdx = foundIdx;

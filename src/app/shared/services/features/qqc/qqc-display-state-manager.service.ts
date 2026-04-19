@@ -100,7 +100,7 @@ export class QqcDisplayStateManagerService {
       return { normalizedOptions: [], options: [], optionsToDisplay: [] };
     }
 
-    const normalizedOptions = this.quizService.assignOptionIds(
+    const normalizedOptions = this.quizService.quizOptions.assignOptionIds(
       baseOptions.map((option) => ({ ...option })),
       params.currentQuestionIndex
     );

@@ -75,10 +75,6 @@ export class ResultsComponent implements OnInit, OnDestroy {
     private router: Router,
     private cdRef: ChangeDetectorRef
   ) {
-    this.quizService.setPreviousUserAnswersText(
-      this.quizService.questions,
-      this.quizService.userAnswers
-    );
   }
 
   ngOnInit(): void {

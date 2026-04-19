@@ -144,7 +144,7 @@ export class QuizQuestionLoaderService {
         return;
       }
 
-      const hasCachedQuestion = this.quizService.hasCachedQuestion(
+      const hasCachedQuestion = this.quizService.quizDataLoader.hasCachedQuestion(
         quizId,
         questionIndex
       );
@@ -380,7 +380,7 @@ export class QuizQuestionLoaderService {
 
     if (
       activeQuizId &&
-      this.quizService.hasCachedQuestion(activeQuizId, index)
+      this.quizService.quizDataLoader.hasCachedQuestion(activeQuizId, index)
     ) {
       return true;
     }
@@ -603,7 +603,7 @@ export class QuizQuestionLoaderService {
     }));
 
     // Apply your active-state logic (returns Option[])
-    const active: Option[] = this.quizService.assignOptionActiveStates(hydrated, false);
+    const active: Option[] = this.quizService.quizOptions.assignOptionActiveStates(hydrated, false);
 
     // Deep clone to guarantee fresh references
     const options: Option[] =

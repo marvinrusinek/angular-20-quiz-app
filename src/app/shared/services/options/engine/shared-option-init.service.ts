@@ -201,7 +201,7 @@ export class SharedOptionInitService {
         : question?.options ?? [];
       const correctFromDisplay = displayOptions.filter((option) => option?.correct);
       const correctOptions = question
-        ? this.quizService.getCorrectOptionsForCurrentQuestion(question)
+        ? this.quizService.optionsService.getCorrectOptionsForCurrentQuestion(question)
         : [];
       const keys = new Set<string>();
 

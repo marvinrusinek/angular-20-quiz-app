@@ -417,7 +417,7 @@ export class QuizContentLoaderService {
         feedback: opt.feedback ?? `The correct options are: ${opt.text}`
       }));
 
-      const finalOptions = this.quizService.assignOptionActiveStates(hydratedOptions, false);
+      const finalOptions = this.quizService.quizOptions.assignOptionActiveStates(hydratedOptions, false);
       const clonedOptions = structuredClone?.(finalOptions) ?? JSON.parse(JSON.stringify(finalOptions));
 
       // Evaluate answered state
@@ -620,7 +620,7 @@ export class QuizContentLoaderService {
 
     const questionText = question.questionText?.trim() ?? 'No question available';
 
-    const optionsWithIds = this.quizService.assignOptionIds(
+    const optionsWithIds = this.quizService.quizOptions.assignOptionIds(
       question.options || [],
       questionIndex
     ).map((option, index) => ({
@@ -692,7 +692,7 @@ export class QuizContentLoaderService {
       return empty;
     }
 
-    const normalizedOptions = this.quizService
+    const normalizedOptions = this.quizService.quizOptions
       .assignOptionIds(selectedQuestion.options ?? [], normalizedIndex)
       .map((option) => ({
         ...option,

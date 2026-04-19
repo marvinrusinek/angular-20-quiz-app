@@ -193,7 +193,7 @@ export class QqcNavigationHandlerService {
           typeof params.currentQuestionIndex === 'number' && !Number.isNaN(params.currentQuestionIndex)
             ? params.currentQuestionIndex
             : 0;
-        optionsToDisplay = this.quizService.assignOptionIds(restored.parsedOptions, storageIndex);
+        optionsToDisplay = this.quizService.quizOptions.assignOptionIds(restored.parsedOptions, storageIndex);
       }
 
       // Fallback: use last known options if still empty

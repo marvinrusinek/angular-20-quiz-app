@@ -579,12 +579,12 @@ export class QqcQuestionLoaderService {
           `[loadCurrentQuestion] Loaded data for question index: ${params.currentQuestionIndex}`
         );
 
-        questionData.options = this.quizService.assignOptionIds(
+        questionData.options = this.quizService.quizOptions.assignOptionIds(
           questionData.options,
           params.currentQuestionIndex
         );
 
-        questionData.options = this.quizService.assignOptionActiveStates(
+        questionData.options = this.quizService.quizOptions.assignOptionActiveStates(
           questionData.options,
           false
         );

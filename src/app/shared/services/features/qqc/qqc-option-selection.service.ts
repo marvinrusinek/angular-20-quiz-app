@@ -413,7 +413,7 @@ export class QqcOptionSelectionService {
       }
 
       // Ensure optionId is assigned to all options in the current question
-      currentQuestion.options = this.quizService.assignOptionIds(
+      currentQuestion.options = this.quizService.quizOptions.assignOptionIds(
         currentQuestion.options, currentQuestionIndex
       );
 
@@ -677,7 +677,7 @@ export class QqcOptionSelectionService {
       this.quizService.updateAnswersForOption(option);
       await this.checkAndHandleCorrectAnswer(currentQuestionIndex);
 
-      const totalCorrectAnswers = this.quizService.getTotalCorrectAnswers(currentQuestion);
+      const totalCorrectAnswers = this.quizService.quizOptions.getTotalCorrectAnswers(currentQuestion);
 
       // Update the question state in the QuizStateService
       this.quizStateService.updateQuestionState(
