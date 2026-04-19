@@ -1,6 +1,6 @@
-import { Injectable } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { BehaviorSubject, combineLatest, of } from 'rxjs';
+import { Injectable, signal } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
+import { combineLatest, of } from 'rxjs';
 import { catchError, filter, take, tap } from 'rxjs/operators';
 
 import { Option } from '../../models/Option.model';
@@ -9,15 +9,17 @@ import { QuizService } from '../data/quiz.service';
 
 @Injectable({ providedIn: 'root' })
 export class RenderStateService {
-  public optionsToDisplay$ = new BehaviorSubject<Option[]>([]);
-  readonly optionsToDisplaySig = toSignal(this.optionsToDisplay$, { initialValue: [] as Option[] });
+  /** Signal-first source of truth */
+  readonly optionsToDisplaySig = signal<Option[]>([]);
+  /** @deprecated Use optionsToDisplaySig instead */
+  public optionsToDisplay$ = toObservable(this.optionsToDisplaySig);
 
-  private combinedQuestionDataSubject = new BehaviorSubject<{
-    question: QuizQuestion,
-    options: Option[]
+  private readonly combinedQuestionDataSig = signal<{
+    question: QuizQuestion;
+    options: Option[];
   } | null>(null);
 
-  private renderGateSubject = new BehaviorSubject<boolean>(false);
+  private readonly renderGateSig = signal<boolean>(false);
 
   constructor(private quizService: QuizService) {}
 
@@ -42,8 +44,8 @@ export class RenderStateService {
             question,
             options
           });
-          this.combinedQuestionDataSubject.next({ question, options });
-          this.renderGateSubject.next(true);  // tells the template it's safe to render
+          this.combinedQuestionDataSig.set({ question, options });
+          this.renderGateSig.set(true);  // tells the template it's safe to render
         }),
         catchError((error) => {
           console.error('[RenderGateSync Error]', error);
