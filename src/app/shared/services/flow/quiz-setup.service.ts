@@ -174,21 +174,51 @@ export class QuizSetupService {
     host._processingOptionClick = true;
     const idx = host.normalizeQuestionIndex(option?.questionIndex);
 
-    // Only show explanation immediately for single-answer questions.
-    // For multi-answer, FET must wait until ALL correct answers are
-    // selected. showExplanationForQuestion → prepareExplanationForQuestion
-    // sets latestExplanationIndex, setDisplayState('explanation'), and
-    // setExplanationText — all of which trigger premature FET display
-    // if called on a partial multi-answer click.
-    // Use the authoritative questions array from QuizService — the
-    // host.currentQuestion.options often lack the `correct` flag, which
-    // makes correctCount=0 and bypasses this guard entirely.
-    const authQ = this.quizService.questions?.[idx] ?? host.currentQuestion;
+    // Only show explanation immediately for single-answer questions
+    // when the clicked option is CORRECT. For multi-answer, FET must
+    // wait until ALL correct answers are selected.
+    // SHUFFLED FIX: quizService.questions[idx] is original order — use
+    // display-order source so the multi-answer check uses the right question.
+    const _isShuf = (this.quizService as any)?.isShuffleEnabled?.()
+      && (this.quizService as any)?.shuffledQuestions?.length > 0;
+    const authQ = _isShuf
+      ? ((this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[idx]
+        ?? (this.quizService as any)?.shuffledQuestions?.[idx]
+        ?? host.currentQuestion)
+      : (this.quizService.questions?.[idx] ?? host.currentQuestion);
     const correctCount = (authQ?.options ?? []).filter(
       (o: any) => o?.correct === true || o?.correct === 1 || String(o?.correct) === 'true'
     ).length;
     const isMultiAnswer = correctCount > 1 || this.quizService.multipleAnswer;
+
+    // For single-answer, only show explanation if the clicked option is
+    // actually correct (pristine check). Without this, every click —
+    // including incorrect ones — triggers FET display.
+    let clickedIsCorrectForFET = false;
     if (!isMultiAnswer) {
+      try {
+        const nrmF = (t: any) => String(t ?? '').trim().toLowerCase();
+        const clickedText = nrmF(option?.text);
+        const qTextF = nrmF(authQ?.questionText);
+        if (clickedText && qTextF) {
+          const bundleF: any[] = (this.quizService as any)?.quizInitialState ?? [];
+          for (const quiz of bundleF) {
+            let found = false;
+            for (const pq of (quiz?.questions ?? [])) {
+              if (nrmF(pq?.questionText) !== qTextF) continue;
+              const mo = (pq?.options ?? []).find((o: any) => nrmF(o?.text) === clickedText);
+              if (mo) {
+                clickedIsCorrectForFET = mo?.correct === true || String(mo?.correct) === 'true';
+              }
+              found = true;
+              break;
+            }
+            if (found) break;
+          }
+        }
+      } catch { /* ignore */ }
+    }
+    if (!isMultiAnswer && clickedIsCorrectForFET) {
       this.showExplanationForQuestion(host, idx);
     }
 
@@ -1070,41 +1100,136 @@ export class QuizSetupService {
       explanation, index, host.explanationToDisplay
     );
     if (!resolved) return;
-    host.explanationToDisplay = resolved.text;
-    this.explanationTextService.setExplanationText(resolved.text, { index: resolved.index });
 
-    // Multi-answer guard: only set shouldDisplayExplanation=true when ALL
-    // correct answers are selected. Without this, every explanationToDisplayChange
-    // emission unconditionally enabled FET for partially-answered multi-answer Qs.
     const qIdx = resolved.index ?? this.quizService.getCurrentQuestionIndex?.() ?? 0;
-    const rawQ: any = (this.quizService as any)?.questions?.[qIdx];
-    const rawOpts: any[] = rawQ?.options ?? [];
-    const correctCount = rawOpts.filter(
-      (o: any) => o?.correct === true || String(o?.correct) === 'true'
-    ).length;
-    const isMultiAnswer = correctCount > 1;
 
-    if (isMultiAnswer) {
-      const norm = (t: any) => String(t ?? '').trim().toLowerCase();
-      const correctTexts = rawOpts
+    // CORRECTNESS GATE: check if the question is scored correct BEFORE
+    // setting any explanation text. Without this, host.explanationToDisplay
+    // and setExplanationText fire for every click (including incorrect),
+    // triggering FET display through subscription chains.
+    // SHUFFLED FIX: use display-order question source.
+    const _isShufEC = (this.quizService as any)?.isShuffleEnabled?.()
+      && (this.quizService as any)?.shuffledQuestions?.length > 0;
+    const rawQ: any = _isShufEC
+      ? ((this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]
+        ?? (this.quizService as any)?.shuffledQuestions?.[qIdx]
+        ?? (this.quizService as any)?.questions?.[qIdx])
+      : (this.quizService as any)?.questions?.[qIdx];
+
+    const normEC = (t: any) => String(t ?? '').trim().toLowerCase();
+    const qTextEC = normEC(rawQ?.questionText);
+    let correctCountEC = 0;
+    let correctTextsEC: string[] = [];
+    try {
+      const bundleEC: any[] = (this.quizService as any)?.quizInitialState ?? [];
+      if (qTextEC && bundleEC.length > 0) {
+        for (const quiz of bundleEC) {
+          let found = false;
+          for (const pq of (quiz?.questions ?? [])) {
+            if (normEC(pq?.questionText) !== qTextEC) continue;
+            found = true;
+            const pOpts = (pq?.options ?? []).filter(
+              (o: any) => o?.correct === true || String(o?.correct) === 'true'
+            );
+            correctCountEC = pOpts.length;
+            correctTextsEC = pOpts.map((o: any) => normEC(o?.text)).filter((t: string) => !!t);
+            break;
+          }
+          if (found) break;
+        }
+      }
+    } catch { /* ignore */ }
+    if (correctCountEC === 0) {
+      const rawOpts: any[] = rawQ?.options ?? [];
+      correctCountEC = rawOpts.filter(
+        (o: any) => o?.correct === true || String(o?.correct) === 'true'
+      ).length;
+      correctTextsEC = rawOpts
         .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
-        .map((o: any) => norm(o?.text))
+        .map((o: any) => normEC(o?.text))
         .filter((t: string) => !!t);
+    }
+    const isMultiAnswer = correctCountEC > 1;
+
+    // For single-answer: block the ENTIRE method if not scored correct.
+    // This prevents host.explanationToDisplay and setExplanationText from
+    // being called, which avoids triggering subscription chains.
+    if (!isMultiAnswer) {
+      let scoredCorrect = false;
+      try {
+        const scoringSvc = (this.quizService as any)?.scoringService;
+        // Resolve original index for shuffled mode
+        const isShuf = (this.quizService as any)?.isShuffleEnabled?.() && (this.quizService as any)?.shuffledQuestions?.length > 0;
+        if (isShuf && scoringSvc?.questionCorrectness) {
+          let effectiveQuizId = (this.quizService as any)?.quizId || '';
+          if (!effectiveQuizId) {
+            try { effectiveQuizId = localStorage.getItem('lastQuizId') || ''; } catch {}
+          }
+          if (effectiveQuizId) {
+            const origIdx = scoringSvc.quizShuffleService?.toOriginalIndex?.(effectiveQuizId, qIdx);
+            if (typeof origIdx === 'number' && origIdx >= 0) {
+              scoredCorrect = scoringSvc.questionCorrectness.get(origIdx) === true;
+            }
+          }
+        } else {
+          scoredCorrect = scoringSvc?.questionCorrectness?.get(qIdx) === true;
+        }
+        // Also check fetBypass for SOC-driven FET (keyed by display index)
+        if (!scoredCorrect) {
+          scoredCorrect = this.explanationTextService.fetBypassForQuestion?.get(qIdx) === true;
+        }
+      } catch { /* ignore */ }
+      if (!scoredCorrect) {
+        return; // Block entirely — don't set explanationToDisplay or call services
+      }
+    }
+
+    // For multi-answer: check if all correct selected before proceeding
+    if (isMultiAnswer) {
       const selections = this.selectedOptionService.getSelectedOptionsForQuestion(qIdx) ?? [];
       const selTexts = new Set(
         selections
           .filter((s: any) => s?.selected !== false)
-          .map((s: any) => norm(s?.text))
+          .map((s: any) => normEC(s?.text))
           .filter((t: string) => !!t)
       );
-      const allCorrectSelected = correctTexts.length > 0
-        && correctTexts.every((t: string) => selTexts.has(t));
-      if (allCorrectSelected) {
-        this.explanationTextService.setShouldDisplayExplanation(true);
+      const allCorrectSelected = correctTextsEC.length > 0
+        && correctTextsEC.every((t: string) => selTexts.has(t));
+      if (!allCorrectSelected) {
+        // Also check scoring override
+        let scoredCorrect = false;
+        try {
+          const scoringSvc = (this.quizService as any)?.scoringService;
+          // Resolve original index for shuffled mode
+          const isShuf = (this.quizService as any)?.isShuffleEnabled?.() && (this.quizService as any)?.shuffledQuestions?.length > 0;
+          if (isShuf && scoringSvc?.questionCorrectness) {
+            let effectiveQuizId = (this.quizService as any)?.quizId || '';
+            if (!effectiveQuizId) {
+              try { effectiveQuizId = localStorage.getItem('lastQuizId') || ''; } catch {}
+            }
+            if (effectiveQuizId) {
+              const origIdx = scoringSvc.quizShuffleService?.toOriginalIndex?.(effectiveQuizId, qIdx);
+              if (typeof origIdx === 'number' && origIdx >= 0) {
+                scoredCorrect = scoringSvc.questionCorrectness.get(origIdx) === true;
+              }
+            }
+          } else {
+            scoredCorrect = scoringSvc?.questionCorrectness?.get(qIdx) === true;
+          }
+          if (!scoredCorrect) {
+            scoredCorrect = this.explanationTextService.fetBypassForQuestion?.get(qIdx) === true;
+          }
+        } catch { /* ignore */ }
+        if (!scoredCorrect) {
+          return; // Block entirely for multi-answer too
+        }
       }
-    } else {
-      this.explanationTextService.setShouldDisplayExplanation(true);
     }
+
+    // Only set explanation text after correctness check passes
+    host.explanationToDisplay = resolved.text;
+    this.explanationTextService.setExplanationText(resolved.text, { index: resolved.index });
+    this.explanationTextService.setShouldDisplayExplanation(true);
   }
 
   // ─── Lifecycle / event wrappers extracted from QuizComponent ───

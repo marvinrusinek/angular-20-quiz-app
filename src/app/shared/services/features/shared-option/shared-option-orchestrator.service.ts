@@ -200,22 +200,49 @@ export class SharedOptionOrchestratorService {
   // ===== Multi-mode =====
   runIsMultiMode(host: Host): boolean {
     const idx = host.getActiveQuestionIndex();
-    if (host._isMultiModeCache !== null) {
-      if (host._isMultiModeCache) {
-        console.warn(`[isMultiMode] (CACHED) Q${idx + 1} = TRUE (multiple)`);
-      }
-      return host._isMultiModeCache;
-    }
+
+    // Always resolve the display-order question for this index
     const currentQ = host.getQuestionAtDisplayIndex(idx) ?? host.currentQuestion;
-    const result = host.clickHandler.detectMultiMode(
+
+    let result = host.clickHandler.detectMultiMode(
         currentQ, host.type, host.config()?.type
     );
-    host._isMultiModeCache = result;
-    if (result) {
-      console.warn(`[isMultiMode] Q${idx + 1} FINAL RESULT: MULTIPLE-ANSWER`);
-    } else {
-      console.log(`[isMultiMode] Q${idx + 1} FINAL RESULT: SINGLE-ANSWER`);
+
+    // PRISTINE FALLBACK: cross-check against quizInitialState.
+    // In shuffled mode, currentQ may have mutated correct flags.
+    if (!result) {
+      try {
+        const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
+        // In shuffled mode, use display-order question text
+        const qs: any = host.quizService;
+        const isShuffled = qs?.isShuffleEnabled?.()
+          && Array.isArray(qs?.shuffledQuestions)
+          && qs.shuffledQuestions.length > 0;
+        const displayQ = isShuffled
+          ? (qs?.getQuestionsInDisplayOrder?.()?.[idx] ?? qs?.shuffledQuestions?.[idx])
+          : currentQ;
+        const qText = nrm(displayQ?.questionText ?? currentQ?.questionText);
+        if (qText) {
+          const bundle: any[] = qs?.quizInitialState ?? [];
+          for (const quiz of bundle) {
+            for (const pq of (quiz?.questions ?? [])) {
+              if (nrm(pq?.questionText) !== qText) continue;
+              const correctCount = (pq?.options ?? [])
+                .filter((o: any) => o?.correct === true || String(o?.correct) === 'true').length;
+              if (correctCount > 1) {
+                result = true;
+              }
+              break;
+            }
+            if (result) break;
+          }
+        }
+      } catch { /* ignore */ }
     }
+
+    // Update cache for other code that reads it
+    host._isMultiModeCache = result;
+    console.log(`[isMultiMode] Q${idx + 1} = ${result ? 'MULTIPLE' : 'SINGLE'} (qText="${(currentQ?.questionText || '').slice(0, 40)}")`);
     return result;
   }
 
@@ -406,8 +433,17 @@ export class SharedOptionOrchestratorService {
       return;
     }
     if (host.type !== 'multiple') {
-      host.type = host.currentQuestion
-          ? host.determineQuestionType(host.currentQuestion)
+      // In shuffled mode, use display-order question (currentQuestion may be wrong)
+      const qs: any = host.quizService;
+      const isShuf = qs?.isShuffleEnabled?.()
+        && Array.isArray(qs?.shuffledQuestions)
+        && qs.shuffledQuestions.length > 0;
+      const displayIdx = host.getActiveQuestionIndex();
+      const questionForType = isShuf
+        ? (qs?.getQuestionsInDisplayOrder?.()?.[displayIdx] ?? qs?.shuffledQuestions?.[displayIdx] ?? host.currentQuestion)
+        : host.currentQuestion;
+      host.type = questionForType
+          ? host.determineQuestionType(questionForType)
           : 'single';
     } else {
       console.log('[SOC] finalizeOptionPopulation preserved type="multiple"');

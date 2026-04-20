@@ -14,6 +14,7 @@ import { OptionSelectionPolicyService } from '../policy/option-selection-policy.
 import { OptionService } from '../view/option.service';
 import { OptionLockService } from '../policy/option-lock.service';
 import { NextButtonStateService } from '../../state/next-button-state.service';
+import { SharedOptionExplanationService } from '../../features/shared-option/shared-option-explanation.service';
 
 import { Option } from '../../../models/Option.model';
 import { OptionBindings } from '../../../models/OptionBindings.model';
@@ -37,7 +38,8 @@ export class SharedOptionClickService {
     private optionService: OptionService,
     private optionLockService: OptionLockService,
     private clickHandler: OptionClickHandlerService,
-    private nextButtonStateService: NextButtonStateService
+    private nextButtonStateService: NextButtonStateService,
+    private sharedOptionExplanationService: SharedOptionExplanationService
   ) {}
 
   onOptionUI(comp: any, ev: any): void {
@@ -184,6 +186,15 @@ export class SharedOptionClickService {
 
   runOptionContentClick(comp: any, binding: any, index: number, event: any): void {
     console.error('🟣 SOC.runOptionContentClick ENTERED idx=' + index + ' optionIds=' + (comp.optionBindings||[]).map((b:any,i:number)=>i+':'+b?.option?.optionId).join(','));
+    // DIAGNOSTIC: show what question text sources resolve to
+    try {
+      const _qIdx = comp.getActiveQuestionIndex();
+      const _dispQ = (this.quizService as any)?.getQuestionsInDisplayOrder?.();
+      const _shufQ = (this.quizService as any)?.shuffledQuestions;
+      const _origQ = (this.quizService as any)?.questions;
+      console.log(`[SOC] QUESTION SOURCES Q${_qIdx + 1}: comp.currentQuestion="${(comp.currentQuestion?.questionText || '').slice(0, 50)}" displayOrder="${(_dispQ?.[_qIdx]?.questionText || '').slice(0, 50)}" shuffled="${(_shufQ?.[_qIdx]?.questionText || '').slice(0, 50)}" original="${(_origQ?.[_qIdx]?.questionText || '').slice(0, 50)}" isShuffleEnabled=${(this.quizService as any)?.isShuffleEnabled?.()}`);
+    } catch {}
+
     const now = Date.now();
     if (comp._lastRunClickIndex === index && comp._lastRunClickTime && (now - comp._lastRunClickTime) < 200) {
       console.log(`[SOC.runOptionContentClick] Skipping rapid duplicate for index=${index}`);
@@ -210,6 +221,16 @@ export class SharedOptionClickService {
     comp.freezeOptionBindings = true;
     state.freezeOptionBindings = true;
 
+    // In shuffled mode, OIS/OUS must NOT emit FET — their correctness
+    // checks use stale data. Only the SOC's pristine-based logic (below)
+    // is authoritative. Pass a no-op emitExplanation to suppress.
+    const _isShuffledForFET = (this.quizService as any)?.isShuffleEnabled?.()
+      && Array.isArray((this.quizService as any)?.shuffledQuestions)
+      && (this.quizService as any)?.shuffledQuestions?.length > 0;
+    const emitExplanationFn = _isShuffledForFET
+      ? (_idx: number, _skip?: boolean) => { /* no-op in shuffled mode */ }
+      : (idx: number, skipGuard?: boolean) => comp.emitExplanation(idx, skipGuard);
+
     try {
       this.optionInteractionService.handleOptionClick(
         binding,
@@ -217,7 +238,7 @@ export class SharedOptionClickService {
         event,
         state,
         (idx: number) => comp.getQuestionAtDisplayIndex(idx),
-        (idx: number, skipGuard?: boolean) => comp.emitExplanation(idx, skipGuard),
+        emitExplanationFn,
         (b: any, i: number, ev: any, existingCtx: any) => {
           this.updateOptionAndUI(comp, b, i, ev, existingCtx || state);
           state.showFeedback = comp.showFeedback;
@@ -266,9 +287,94 @@ export class SharedOptionClickService {
     }
     const correctIndicesFromQ = comp._correctIndicesByQuestion.get(qIdx)!;
     const correctCountFromQ = correctIndicesFromQ.length;
-    const isMultiFromQ = comp.isMultiMode || comp.type === 'multiple' || correctCountFromQ > 1;
 
-    console.log(`[SOC.runOptionContentClick] DEBUG: Q${qIdx + 1} index=${index} isMultiFromQ=${isMultiFromQ} correctIndicesFromQ=[${correctIndicesFromQ}]`);
+    // ALWAYS resolve correct indices from pristine quizInitialState.
+    // This is the single source of truth — mutated flags are unreliable.
+    let effectiveCorrectIndices = correctIndicesFromQ;
+    const isShuffled = (this.quizService as any)?.isShuffleEnabled?.()
+      && Array.isArray((this.quizService as any)?.shuffledQuestions)
+      && (this.quizService as any)?.shuffledQuestions?.length > 0;
+
+    let pristineCorrectCount = correctCountFromQ;
+    try {
+      const nrmP = (t: any) => String(t ?? '').trim().toLowerCase();
+      // IMPORTANT: In shuffled mode, comp.currentQuestion points to the
+      // WRONG question (original order). Use ONLY display-order sources.
+      let qTextCandidates: string[];
+      if (isShuffled) {
+        qTextCandidates = [
+          nrmP((this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText),
+          nrmP((this.quizService as any)?.shuffledQuestions?.[qIdx]?.questionText),
+          nrmP(comp.getQuestionAtDisplayIndex?.(qIdx)?.questionText)
+        ].filter((t: string) => !!t);
+      } else {
+        qTextCandidates = [
+          nrmP(comp.currentQuestion?.questionText),
+          nrmP((this.quizService as any)?.questions?.[qIdx]?.questionText),
+          nrmP(comp.getQuestionAtDisplayIndex?.(qIdx)?.questionText)
+        ].filter((t: string) => !!t);
+      }
+      const bundleP: any[] = (this.quizService as any)?.quizInitialState ?? [];
+
+      console.log(`[SOC] PRISTINE REBUILD Q${qIdx + 1}: bundleLen=${bundleP.length}, qTextCandidates count=${qTextCandidates.length}`);
+      if (qTextCandidates.length > 0) {
+        console.log(`[SOC] PRISTINE REBUILD Q${qIdx + 1}: qText[0]="${qTextCandidates[0]?.slice(0, 60)}"`);
+      }
+      if (bundleP.length === 0) {
+        console.warn(`[SOC] PRISTINE REBUILD Q${qIdx + 1}: quizInitialState is EMPTY!`);
+      }
+
+      let matched = false;
+      for (const qText of qTextCandidates) {
+        for (const quiz of bundleP) {
+          const quizQuestions = quiz?.questions ?? [];
+          for (const pq of quizQuestions) {
+            const pqText = nrmP(pq?.questionText);
+            if (pqText !== qText) continue;
+            matched = true;
+            const pristineOpts = pq?.options ?? [];
+            const pristineCorrectTexts = new Set<string>(
+              pristineOpts
+                .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
+                .map((o: any) => nrmP(o?.text))
+            );
+            pristineCorrectCount = pristineCorrectTexts.size;
+            const rebuilt: number[] = [];
+            const bindings: any[] = Array.isArray(comp.optionBindings) ? comp.optionBindings : [];
+            const bindingTexts: string[] = [];
+            for (let i = 0; i < bindings.length; i++) {
+              const bt = nrmP(bindings[i]?.option?.text);
+              bindingTexts.push(bt);
+              if (pristineCorrectTexts.has(bt)) {
+                rebuilt.push(i);
+              }
+            }
+            console.log(`[SOC] PRISTINE REBUILD Q${qIdx + 1}: MATCHED question. pristineCorrectTexts=${JSON.stringify([...pristineCorrectTexts].map(t => t.slice(0, 40)))}, bindingTexts=${JSON.stringify(bindingTexts.map(t => t.slice(0, 40)))}, rebuilt=[${rebuilt}]`);
+            if (rebuilt.length > 0) {
+              effectiveCorrectIndices = rebuilt;
+              comp._correctIndicesByQuestion.set(qIdx, rebuilt);
+            }
+            break;
+          }
+          if (matched) break;
+        }
+        if (matched) break;
+      }
+      if (!matched) {
+        console.warn(`[SOC] PRISTINE REBUILD Q${qIdx + 1}: NO QUESTION MATCHED in quizInitialState!`);
+        // Log first few pristine question texts for comparison
+        for (const quiz of bundleP) {
+          const pqTexts = (quiz?.questions ?? []).map((pq: any) => nrmP(pq?.questionText)?.slice(0, 50));
+          console.log(`[SOC] PRISTINE available questions: ${JSON.stringify(pqTexts)}`);
+        }
+      }
+    } catch (err) {
+      console.error(`[SOC] PRISTINE REBUILD error:`, err);
+    }
+    const effectiveCorrectCount = effectiveCorrectIndices.length;
+    const isMultiFromQ = comp.isMultiMode || comp.type === 'multiple' || effectiveCorrectCount > 1 || pristineCorrectCount > 1;
+
+    console.log(`[SOC.runOptionContentClick] DEBUG: Q${qIdx + 1} index=${index} isMultiFromQ=${isMultiFromQ} correctIndicesFromQ=[${effectiveCorrectIndices}] pristineCorrectCount=${pristineCorrectCount}`);
 
     // Universal "all correct selected" timer stop. Resolves the canonical
     // correct indices and checks whether the durable selection set now
@@ -290,8 +396,8 @@ export class SharedOptionClickService {
           return (c === true || c === 'true' || c === 1 || c === '1') ? i : -1;
         })
         .filter((n: number) => n >= 0);
-      if (allCorrectIdxs.length === 0 && correctIndicesFromQ?.length) {
-        allCorrectIdxs = correctIndicesFromQ;
+      if (allCorrectIdxs.length === 0 && effectiveCorrectIndices?.length) {
+        allCorrectIdxs = effectiveCorrectIndices;
       }
       if (allCorrectIdxs.length > 0) {
         const allSelected = allCorrectIdxs.every(ci => durableSet.has(ci));
@@ -301,9 +407,9 @@ export class SharedOptionClickService {
       }
     } catch {}
 
-    if (isMultiFromQ && correctCountFromQ > 0) {
+    if (isMultiFromQ && effectiveCorrectCount > 0) {
       const clickState = this.clickHandler.computeMultiAnswerClickState(
-        index, durableSet, correctIndicesFromQ
+        index, durableSet, effectiveCorrectIndices
       );
 
       console.log(`[SOC] MULTI-ANSWER STATE Q${qIdx + 1}: correctSel=${clickState.correctSelected}, incorrectSel=${clickState.incorrectSelected}, remaining=${clickState.remaining}, durableSet=[${[...durableSet]}]`);
@@ -314,11 +420,11 @@ export class SharedOptionClickService {
       const disabledSetRef = comp.disabledOptionsPerQuestion.get(qIdx)!;
       this.clickHandler.updateDisabledSet(
         disabledSetRef, index, clickState.isClickedCorrect,
-        clickState.remaining, comp.optionBindings.length, correctIndicesFromQ
+        clickState.remaining, comp.optionBindings.length, effectiveCorrectIndices
       );
 
       const bindingUpdates = this.clickHandler.computeMultiAnswerBindingUpdates(
-        comp.optionBindings.length, durableSet, correctIndicesFromQ, disabledSetRef
+        comp.optionBindings.length, durableSet, effectiveCorrectIndices, disabledSetRef
       );
       comp.optionBindings = comp.optionBindings.map((ob: any, bi: number) => ({
         ...ob,
@@ -353,7 +459,7 @@ export class SharedOptionClickService {
 
       const optsForMsg: Option[] = comp.optionBindings.map((ob: any, bi: number) => ({
         ...ob.option,
-        correct: new Set(correctIndicesFromQ).has(bi),
+        correct: new Set(effectiveCorrectIndices).has(bi),
         selected: durableSet.has(bi),
       })) as Option[];
       const selMsg = this.selectionMessageService.computeFinalMessage({
@@ -366,73 +472,20 @@ export class SharedOptionClickService {
       queueMicrotask(() => this.selectionMessageService.pushMessage(selMsg, qIdx));
       setTimeout(() => this.selectionMessageService.pushMessage(selMsg, qIdx), 0);
 
-      // PRISTINE QUIZ_DATA GATE: verify every correct option text in the
-      // pristine bundle is present in the durable selection set BEFORE
-      // firing the FET. This bypasses any mutated `correctIndicesFromQ`
-      // cache and ensures the FET only fires when the user has literally
-      // selected every correct answer.
-      let pristineAllCorrectSelected = false;
-      try {
-        const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
-        // Use multiple question text sources for shuffle compatibility
-        const qTextCandidates = [
-          nrm(comp.currentQuestion?.questionText),
-          nrm(comp.getQuestionAtDisplayIndex?.(qIdx)?.questionText),
-          nrm((this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText),
-          nrm((this.quizService as any)?.shuffledQuestions?.[qIdx]?.questionText),
-          nrm((this.quizService as any)?.questions?.[qIdx]?.questionText)
-        ].filter((t: string) => !!t);
-        let pristineCorrectTexts: string[] = [];
-        const pristineBundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
-        for (const qText of qTextCandidates) {
-          for (const quiz of pristineBundle) {
-            for (const pq of quiz?.questions ?? []) {
-              if (nrm(pq?.questionText) !== qText) continue;
-              pristineCorrectTexts = (pq?.options ?? [])
-                .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
-                .map((o: any) => nrm(o?.text))
-                .filter((t: string) => !!t);
-              break;
-            }
-            if (pristineCorrectTexts.length > 0) break;
-          }
-          if (pristineCorrectTexts.length > 0) break;
-        }
-        if (pristineCorrectTexts.length > 0) {
-          const durableTexts = new Set<string>();
-          for (const bi of durableSet) {
-            const t = nrm(comp.optionBindings?.[bi]?.option?.text);
-            if (t) durableTexts.add(t);
-          }
-          pristineAllCorrectSelected =
-            pristineCorrectTexts.every((t: string) => durableTexts.has(t));
-          console.log(`[SOC] PRISTINE gate Q${qIdx + 1} pristineCorrect=${JSON.stringify(pristineCorrectTexts)} durable=${JSON.stringify([...durableTexts])} allSel=${pristineAllCorrectSelected}`);
-        } else {
-          pristineAllCorrectSelected = clickState.remaining === 0;
-        }
-      } catch {
-        pristineAllCorrectSelected = clickState.remaining === 0;
-      }
+      // CHECK: all correct options selected? Uses effectiveCorrectIndices
+      // (already rebuilt from pristine quizInitialState when needed).
+      const allCorrectInDurable = effectiveCorrectIndices.length > 0 &&
+        effectiveCorrectIndices.every((ci: number) => durableSet.has(ci));
+      console.log(`[SOC] MULTI gate Q${qIdx + 1}: effectiveCorrect=[${effectiveCorrectIndices}] durableSet=[${[...durableSet]}] allCorrectInDurable=${allCorrectInDurable} remaining=${clickState.remaining}`);
 
-      // Score when EITHER remaining===0 AND pristine confirms, OR pristine
-      // alone confirms all correct selected (handles cases where
-      // correctIndicesFromQ is wrong but pristine text matching works).
-      if ((clickState.remaining === 0 && pristineAllCorrectSelected) || pristineAllCorrectSelected) {
+      if (allCorrectInDurable) {
         try { this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true }); } catch {}
         this.nextButtonStateService.setNextButtonState(true);
 
-        this.quizService.scoreDirectly(qIdx, true, true);
+        // Set FET bypass BEFORE scoring so all downstream gates are open
+        this.explanationTextService.fetBypassForQuestion.set(qIdx, true);
 
-        // Ensure questionCorrectness is set for BOTH display index and
-        // original index. scoreDirectly uses toOriginalIndex for the key,
-        // but the NUCLEAR gate in writeQText checks display index first.
-        // Set display index directly to guarantee the gate passes.
-        try {
-          const scoringSvc = (this.quizService as any)?.scoringService;
-          if (scoringSvc?.questionCorrectness) {
-            scoringSvc.questionCorrectness.set(qIdx, true);
-          }
-        } catch { /* ignore */ }
+        this.quizService.scoreDirectly(qIdx, true, true);
         console.log(`[SOC] Scored multi-answer Q${qIdx + 1} as correct (incorrectSel=${clickState.incorrectSelected})`);
 
         if (!(this.quizService as any)._multiAnswerPerfect) {
@@ -444,11 +497,85 @@ export class SharedOptionClickService {
         this.explanationTextService.unlockExplanation();
 
         comp.showExplanationChange.emit(true);
-        setTimeout(() => comp.emitExplanation(qIdx, true), 0);
-      } else if (clickState.remaining === 0 && !pristineAllCorrectSelected) {
-        console.warn(`[SOC] ⛔ FET-fire BLOCKED by pristine gate Q${qIdx + 1} — clickState.remaining=0 but pristine says NOT all correct selected`);
-        // Clear any falsely-set perfect flag
-        (this.quizService as any)._multiAnswerPerfect?.delete?.(qIdx);
+
+        // Resolve explanation text from pristine data and write directly
+        // via explanationTextService — bypasses all intermediary paths.
+        let fetText = '';
+        try {
+          const nrmFET = (t: any) => String(t ?? '').trim().toLowerCase();
+          const fetQText = isShuffled
+            ? (nrmFET((this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText)
+              || nrmFET((this.quizService as any)?.shuffledQuestions?.[qIdx]?.questionText))
+            : (nrmFET(comp.currentQuestion?.questionText)
+              || nrmFET((this.quizService as any)?.questions?.[qIdx]?.questionText));
+          const bundleFET: any[] = (this.quizService as any)?.quizInitialState ?? [];
+          for (const quiz of bundleFET) {
+            for (const pq of (quiz?.questions ?? [])) {
+              if (nrmFET(pq?.questionText) !== fetQText) continue;
+              fetText = (pq?.explanation ?? '').trim();
+              break;
+            }
+            if (fetText) break;
+          }
+          // Also try live question objects
+          if (!fetText) {
+            const liveQ = comp.currentQuestion
+              ?? comp.getQuestionAtDisplayIndex?.(qIdx)
+              ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx];
+            fetText = (liveQ?.explanation ?? '').trim();
+          }
+        } catch { /* ignore */ }
+
+        console.log(`[SOC] MULTI FET Q${qIdx + 1}: resolved explanation="${(fetText || '').slice(0, 60)}"`);
+
+        if (fetText) {
+          // Format the explanation with correct option names
+          let formattedFET = fetText;
+          try {
+            const correctNames: string[] = [];
+            for (const ci of effectiveCorrectIndices) {
+              const name = comp.optionBindings?.[ci]?.option?.text;
+              if (name) correctNames.push(name.trim());
+            }
+            if (correctNames.length > 0) {
+              const nameStr = correctNames.length === 1
+                ? correctNames[0]
+                : correctNames.slice(0, -1).join(', ') + ' and ' + correctNames[correctNames.length - 1];
+              formattedFET = `${nameStr} are correct because ${fetText}`;
+            }
+          } catch { /* ignore */ }
+
+          // Write directly via explanationTextService
+          this.explanationTextService._activeIndex = qIdx;
+          (this.explanationTextService as any).latestExplanation = formattedFET;
+          (this.explanationTextService as any).latestExplanationIndex = qIdx;
+          this.explanationTextService.setExplanationText(formattedFET, {
+            force: true,
+            context: `question:${qIdx}`,
+            index: qIdx
+          });
+          this.explanationTextService.emitFormatted(qIdx, formattedFET);
+          this.explanationTextService.setShouldDisplayExplanation(true, {
+            context: `question:${qIdx}`,
+            force: true
+          } as any);
+          this.explanationTextService.setIsExplanationTextDisplayed(true, {
+            context: `question:${qIdx}`,
+            force: true
+          } as any);
+          this.explanationTextService.lockExplanation();
+          this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
+          console.log(`[SOC] MULTI FET WRITTEN for Q${qIdx + 1}: "${formattedFET.slice(0, 60)}..."`);
+        }
+
+        // Also try the component path as backup
+        setTimeout(() => {
+          try {
+            comp.emitExplanation(qIdx, true);
+          } catch { /* ignore */ }
+        }, 50);
+      } else if (!allCorrectInDurable) {
+        console.log(`[SOC] FET not fired Q${qIdx + 1} — not all correct selected yet`);
       }
 
       const savedFeedback = comp._feedbackDisplay;
@@ -485,8 +612,8 @@ export class SharedOptionClickService {
           })
           .filter((n: number) => n >= 0);
       } catch {}
-      if (correctIdxs.length === 0 && correctIndicesFromQ?.length) {
-        correctIdxs = correctIndicesFromQ;
+      if (correctIdxs.length === 0 && effectiveCorrectIndices?.length) {
+        correctIdxs = effectiveCorrectIndices;
       }
       const correctSet = new Set(correctIdxs);
       const isClickedCorrect = correctSet.has(index);
@@ -497,44 +624,37 @@ export class SharedOptionClickService {
       try {
         const nrmSA = (t: any) => String(t ?? '').trim().toLowerCase();
         const clickedText = nrmSA(comp.optionBindings?.[index]?.option?.text);
-        const qTextSA = nrmSA(comp.currentQuestion?.questionText)
-          || nrmSA(comp.getQuestionAtDisplayIndex?.(qIdx)?.questionText)
-          || nrmSA((this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText);
+        const qTextSA = isShuffled
+          ? (nrmSA((this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText)
+            || nrmSA((this.quizService as any)?.shuffledQuestions?.[qIdx]?.questionText))
+          : (nrmSA(comp.currentQuestion?.questionText)
+            || nrmSA((this.quizService as any)?.questions?.[qIdx]?.questionText));
         if (clickedText && qTextSA) {
           const bundleSA: any[] = (this.quizService as any)?.quizInitialState ?? [];
+          let saMatched = false;
           for (const quiz of bundleSA) {
             for (const pq of (quiz?.questions ?? [])) {
               if (nrmSA(pq?.questionText) !== qTextSA) continue;
+              saMatched = true;
               const matchedOpt = (pq?.options ?? []).find((o: any) => nrmSA(o?.text) === clickedText);
               if (matchedOpt !== undefined) {
                 pristineSingleCorrect = matchedOpt?.correct === true || String(matchedOpt?.correct) === 'true';
               }
+              console.log(`[SOC] SINGLE pristine match: qText="${qTextSA.slice(0, 40)}" clickedText="${clickedText.slice(0, 40)}" matchedOpt=${matchedOpt !== undefined} correct=${pristineSingleCorrect}`);
               break;
             }
-            if (pristineSingleCorrect) break;
+            if (saMatched) break;
           }
         }
       } catch { /* ignore */ }
-      // FALLBACK: if pristine text matching didn't confirm, check correctIndicesFromQ
-      // (which is also pristine-sourced via resolveCorrectIndices SOURCE 3)
-      if (!pristineSingleCorrect && isClickedCorrect && correctIndicesFromQ?.length > 0) {
-        const fromQSet = new Set(correctIndicesFromQ);
-        if (fromQSet.has(index)) {
-          pristineSingleCorrect = true;
-          console.log(`[SOC] SINGLE pristine FALLBACK: correctIndicesFromQ confirms index ${index} is correct`);
-        }
-      }
+      console.log(`[SOC] SINGLE pristine text-match result: pristineSingleCorrect=${pristineSingleCorrect}`);
       if (pristineSingleCorrect) {
         try { this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true }); } catch {}
 
         // Score and emit FET for single-answer correct click
+        // Set FET bypass BEFORE scoring so all downstream gates are open
+        this.explanationTextService.fetBypassForQuestion.set(qIdx, true);
         this.quizService.scoreDirectly(qIdx, true, false);
-        try {
-          const scoringSvc = (this.quizService as any)?.scoringService;
-          if (scoringSvc?.questionCorrectness) {
-            scoringSvc.questionCorrectness.set(qIdx, true);
-          }
-        } catch { /* ignore */ }
         this.nextButtonStateService.setNextButtonState(true);
         if (!(this.quizService as any)._multiAnswerPerfect) {
           (this.quizService as any)._multiAnswerPerfect = new Map<number, boolean>();
@@ -544,7 +664,96 @@ export class SharedOptionClickService {
         (this.explanationTextService as any)._fetLocked = false;
         this.explanationTextService.unlockExplanation();
         comp.showExplanationChange.emit(true);
-        setTimeout(() => comp.emitExplanation(qIdx, true), 0);
+        const singleFetQuestion = comp.currentQuestion
+          ?? comp.getQuestionAtDisplayIndex?.(qIdx)
+          ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx];
+
+        // SYNCHRONOUS FET write — push FET directly into the pipeline
+        // so combineLatest fires while fetBypassForQuestion is already set.
+        // The setTimeout path below is kept as backup.
+        try {
+          const singleFetCtxSync = {
+            resolvedIndex: qIdx,
+            question: singleFetQuestion,
+            currentQuestion: comp.currentQuestion,
+            quizId: comp.quizId?.() ?? comp.quizId ?? '',
+            optionBindings: comp.optionBindings ?? [],
+            optionsToDisplay: comp.optionsToDisplay ?? [],
+            isMultiMode: false
+          };
+          const fetText = this.sharedOptionExplanationService.resolveExplanationText(singleFetCtxSync as any)?.trim()
+            || singleFetQuestion?.explanation || '';
+          if (fetText) {
+            this.explanationTextService._activeIndex = qIdx;
+            (this.explanationTextService as any).latestExplanation = fetText;
+            (this.explanationTextService as any).latestExplanationIndex = qIdx;
+            this.explanationTextService.setExplanationText(fetText, {
+              force: true,
+              context: `question:${qIdx}`,
+              index: qIdx
+            });
+            this.explanationTextService.emitFormatted(qIdx, fetText);
+            this.explanationTextService.setShouldDisplayExplanation(true, {
+              context: `question:${qIdx}`,
+              force: true
+            } as any);
+            this.explanationTextService.setIsExplanationTextDisplayed(true, {
+              context: `question:${qIdx}`,
+              force: true
+            } as any);
+            this.explanationTextService.lockExplanation();
+            this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
+            console.log(`[SOC] SYNC single-answer FET written for Q${qIdx + 1}: "${fetText.slice(0, 60)}..."`);
+          }
+        } catch (syncErr) {
+          console.warn(`[SOC] Sync single-answer FET write failed:`, syncErr);
+        }
+
+        const singleFetCtx = {
+          resolvedIndex: qIdx,
+          question: singleFetQuestion,
+          currentQuestion: comp.currentQuestion,
+          quizId: comp.quizId?.() ?? comp.quizId ?? '',
+          optionBindings: comp.optionBindings ?? [],
+          optionsToDisplay: comp.optionsToDisplay ?? [],
+          isMultiMode: false
+        };
+        // Resolve FET text once for reuse by all write paths
+        let resolvedFetText = '';
+        try {
+          resolvedFetText = this.sharedOptionExplanationService.resolveExplanationText(singleFetCtx as any)?.trim()
+            || singleFetQuestion?.explanation || '';
+        } catch { /* ignore */ }
+        setTimeout(() => {
+          try {
+            this.sharedOptionExplanationService.emitExplanation(singleFetCtx as any, true);
+            console.log(`[SOC] Direct single-answer emitExplanation called for Q${qIdx + 1}`);
+          } catch (err) {
+            console.error(`[SOC] Direct single-answer emitExplanation failed:`, err);
+            comp.emitExplanation(qIdx, true);
+          }
+        }, 0);
+        // DIRECT DOM FALLBACK: after pipeline has had time to process,
+        // verify the DOM actually shows FET. If not, stamp it directly.
+        // This bypasses every pipeline gate and guard.
+        if (resolvedFetText) {
+          const fetForDom = resolvedFetText;
+          const stampFet = (label: string) => {
+            try {
+              const h3 = document.querySelector('codelab-quiz-content h3');
+              if (h3) {
+                const domNow = (h3.innerHTML || '').toLowerCase();
+                if (!domNow.includes('correct because')) {
+                  h3.innerHTML = fetForDom;
+                  console.log(`[SOC] ⚡ DIRECT DOM FALLBACK (${label}) wrote FET for Q${qIdx + 1}`);
+                }
+              }
+            } catch { /* ignore */ }
+          };
+          setTimeout(() => stampFet('50ms'), 50);
+          setTimeout(() => stampFet('150ms'), 150);
+          setTimeout(() => stampFet('350ms'), 350);
+        }
         if (!comp.disabledOptionsPerQuestion.has(qIdx)) {
           comp.disabledOptionsPerQuestion.set(qIdx, new Set<number>());
         }

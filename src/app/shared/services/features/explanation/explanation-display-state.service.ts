@@ -614,7 +614,15 @@ export class ExplanationDisplayStateService {
         const selectedSvc = this.injector.get(SelectedOptionService, null);
         if (quizSvc && selectedSvc) {
           const activeIdx = this._activeIndexValue ?? quizSvc.getCurrentQuestionIndex?.() ?? 0;
-          const rawQ: any = (quizSvc as any)?.questions?.[activeIdx];
+
+          // SHUFFLED FIX: use display-order question source
+          const _isShufG = (quizSvc as any)?.isShuffleEnabled?.()
+            && (quizSvc as any)?.shuffledQuestions?.length > 0;
+          const rawQ: any = _isShufG
+            ? ((quizSvc as any)?.getQuestionsInDisplayOrder?.()?.[activeIdx]
+              ?? (quizSvc as any)?.shuffledQuestions?.[activeIdx]
+              ?? (quizSvc as any)?.questions?.[activeIdx])
+            : (quizSvc as any)?.questions?.[activeIdx];
           const rawOpts: any[] = rawQ?.options ?? [];
           const correctCount = rawOpts.filter(
             (o: any) => o?.correct === true || String(o?.correct) === 'true'
@@ -635,8 +643,12 @@ export class ExplanationDisplayStateService {
             const allCorrectSelected = correctTexts.length > 0
               && correctTexts.every((t: string) => selTexts.has(t));
             if (!allCorrectSelected) {
-              console.log(`[ETS] ⛔ CENTRALIZED multi-answer guard BLOCKED setShouldDisplayExplanation(true) for Q${activeIdx + 1}`);
-              return;
+              // Check questionCorrectness override before blocking
+              const scoringSvc = (quizSvc as any)?.scoringService;
+              const scoredCorrect = scoringSvc?.questionCorrectness?.get(activeIdx) === true;
+              if (!scoredCorrect) {
+                return;
+              }
             }
           }
         }

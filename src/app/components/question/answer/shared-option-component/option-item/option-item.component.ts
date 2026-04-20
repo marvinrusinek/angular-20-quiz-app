@@ -197,15 +197,33 @@ export class OptionItemComponent implements OnChanges {
   }
 
   isDisabled(): boolean {
+    const _type = this.type();
+    const _qIdx = this.currentQuestionIndex() ?? this.quizService.currentQuestionIndex;
+
+    // For MULTIPLE mode, NEVER disable unless the question is definitively
+    // fully answered or the timer expired. This prevents stale b.disabled
+    // from initialization (when isMultiMode wasn't yet true) from blocking clicks.
+    if (_type === 'multiple') {
+      if (this.timerExpired()) {
+        return true;
+      }
+      const perfectMap = (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
+      const isFullyAnswered = perfectMap?.get(_qIdx) === true;
+      if (isFullyAnswered && this.b?.disabled === true) {
+        return true;
+      }
+      // Multi-answer options are NEVER disabled before the question is fully answered
+      return false;
+    }
+
     // In single-answer mode, correct options must stay clickable until the
     // correct answer has been selected (so user can recover from a wrong pick).
     const optCorrectFlag = this.b?.option?.correct ?? (this.b?.option as any)?.isCorrect;
     const thisIsCorrect = optCorrectFlag === true || String(optCorrectFlag) === 'true' || optCorrectFlag === 1 || optCorrectFlag === '1';
 
-    if (this.type() === 'single' && thisIsCorrect) {
+    if (thisIsCorrect) {
       // Only disable this correct option if a correct answer was already selected
-      const qIdx = this.currentQuestionIndex() ?? this.quizService.currentQuestionIndex;
-      const clickConfirmed = this.selectedOptionService.clickConfirmedDotStatus.get(qIdx);
+      const clickConfirmed = this.selectedOptionService.clickConfirmedDotStatus.get(_qIdx);
       if (clickConfirmed !== 'correct') {
         return false;
       }
@@ -249,8 +267,14 @@ export class OptionItemComponent implements OnChanges {
       });
       if (filtered.length === 0) return false;
 
-      // Resolve correct flags from canonical question (quizService.questions[qIdx])
-      const canonicalQ: any = (this.quizService as any)?.questions?.[qIdx];
+      // Resolve correct flags from canonical question (use display order for shuffled mode)
+      const isShuffled = this.quizService?.isShuffleEnabled?.()
+        && Array.isArray((this.quizService as any)?.shuffledQuestions)
+        && (this.quizService as any)?.shuffledQuestions?.length > 0;
+      const canonicalQ: any = isShuffled
+        ? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]
+          ?? (this.quizService as any)?.shuffledQuestions?.[qIdx]
+        : (this.quizService as any)?.questions?.[qIdx];
       const canonicalOpts: any[] = canonicalQ?.options ?? [];
       const isCorrectFlag = (v: any) => v === true || String(v) === 'true' || v === 1 || v === '1';
 

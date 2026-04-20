@@ -360,14 +360,36 @@ export class QuizContentDisplayService {
         if (scoringSvc?.questionCorrectness) {
           let scored = scoringSvc.questionCorrectness.get(safeIdx) === true;
           if (!scored) {
-            const origIdx = scoringSvc.quizShuffleService?.toOriginalIndex?.(this.quizService?.quizId, safeIdx);
-            if (typeof origIdx === 'number' && origIdx >= 0) {
-              scored = scoringSvc.questionCorrectness.get(origIdx) === true;
+            // Full quizId resolution chain (mirrors incrementScore)
+            let effectiveQuizId = (this.quizService as any)?.quizId || '';
+            if (!effectiveQuizId) {
+              try { effectiveQuizId = localStorage.getItem('lastQuizId') || ''; } catch {}
+            }
+            if (!effectiveQuizId) {
+              try {
+                const shuffleKeys = Object.keys(localStorage).filter((k: string) => k.startsWith('shuffleState:'));
+                if (shuffleKeys.length > 0) {
+                  effectiveQuizId = shuffleKeys[0].replace('shuffleState:', '');
+                }
+              } catch {}
+            }
+            if (effectiveQuizId) {
+              const origIdx = scoringSvc.quizShuffleService?.toOriginalIndex?.(effectiveQuizId, safeIdx);
+              if (typeof origIdx === 'number' && origIdx >= 0) {
+                scored = scoringSvc.questionCorrectness.get(origIdx) === true;
+              }
             }
           }
           if (scored) {
             shouldShowExplanation = true;
             console.log(`[displayText$] Q${safeIdx + 1} SCORING OVERRIDE: questionCorrectness=true → forcing SHOW`);
+          }
+        }
+        // Also check fetBypassForQuestion — set by SOC before scoring
+        if (!shouldShowExplanation) {
+          if (this.explanationTextService.fetBypassForQuestion?.get(safeIdx) === true) {
+            shouldShowExplanation = true;
+            console.log(`[displayText$] Q${safeIdx + 1} FET BYPASS OVERRIDE: fetBypassForQuestion=true → forcing SHOW`);
           }
         }
       } catch { /* ignore */ }
@@ -446,11 +468,28 @@ export class QuizContentDisplayService {
               if (scoringSvc4?.questionCorrectness) {
                 scoringOverrideGate = scoringSvc4.questionCorrectness.get(safeIdx) === true;
                 if (!scoringOverrideGate) {
-                  const origIdx4 = scoringSvc4.quizShuffleService?.toOriginalIndex?.(this.quizService?.quizId, safeIdx);
-                  if (typeof origIdx4 === 'number' && origIdx4 >= 0) {
-                    scoringOverrideGate = scoringSvc4.questionCorrectness.get(origIdx4) === true;
+                  // Full quizId resolution chain
+                  let eqId4 = (this.quizService as any)?.quizId || '';
+                  if (!eqId4) {
+                    try { eqId4 = localStorage.getItem('lastQuizId') || ''; } catch {}
+                  }
+                  if (!eqId4) {
+                    try {
+                      const sk4 = Object.keys(localStorage).filter((k: string) => k.startsWith('shuffleState:'));
+                      if (sk4.length > 0) eqId4 = sk4[0].replace('shuffleState:', '');
+                    } catch {}
+                  }
+                  if (eqId4) {
+                    const origIdx4 = scoringSvc4.quizShuffleService?.toOriginalIndex?.(eqId4, safeIdx);
+                    if (typeof origIdx4 === 'number' && origIdx4 >= 0) {
+                      scoringOverrideGate = scoringSvc4.questionCorrectness.get(origIdx4) === true;
+                    }
                   }
                 }
+              }
+              // Also check fetBypassForQuestion
+              if (!scoringOverrideGate) {
+                scoringOverrideGate = this.explanationTextService.fetBypassForQuestion?.get(safeIdx) === true;
               }
             } catch { /* ignore */ }
             if (!scoringOverrideGate) {

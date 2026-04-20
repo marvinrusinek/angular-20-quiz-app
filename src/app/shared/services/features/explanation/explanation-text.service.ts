@@ -30,6 +30,13 @@ export class ExplanationTextService {
   ) {}
 
   /**
+   * Map of question display indices that have been confirmed correct
+   * by SOC pristine verification. When set, ALL FET gates are bypassed
+   * for that index. Set by SharedOptionClickService after scoring.
+   */
+  fetBypassForQuestion = new Map<number, boolean>();
+
+  /**
    * Central pristine-source FET gate. For multi-answer questions,
    * verifies that every pristine correct-option text (from
    * quizService.quizInitialState) is currently selected in
@@ -38,10 +45,21 @@ export class ExplanationTextService {
    */
   private isMultiAnswerPristineResolved(index: number): boolean | null {
     try {
-      const norm = (t: any) => String(t ?? '').trim().toLowerCase();
       const idx = Number.isFinite(index) ? index : this.quizService.currentQuestionIndex;
       if (idx < 0) return null;
 
+      // FAST PATH: if SOC has confirmed this question correct, bypass all checks.
+      if (this.fetBypassForQuestion.get(idx) === true) {
+        return true;
+      }
+      try {
+        const scoringSvc = (this.quizService as any)?.scoringService;
+        if (scoringSvc?.questionCorrectness?.get(idx) === true) {
+          return true;
+        }
+      } catch { /* ignore */ }
+
+      const norm = (t: any) => String(t ?? '').trim().toLowerCase();
       const qs: any = this.quizService;
       const isShuffled = qs?.isShuffleEnabled?.()
         && Array.isArray(qs?.shuffledQuestions)

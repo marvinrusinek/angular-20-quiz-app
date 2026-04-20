@@ -201,7 +201,10 @@ export class OptionUiSyncService {
     this.refreshFeedbackConfigForClicked(optionBinding, index, effectiveId, ctx);
 
     // Scoring and FET triggering for Multi-answer
-    if (isTrulyMulti) {
+    // In shuffled mode, SOC handles all scoring/FET.
+    const isShufSkipScore = (this.quizService as any)?.isShuffleEnabled?.()
+      && (this.quizService as any)?.shuffledQuestions?.length > 0;
+    if (isTrulyMulti && !isShufSkipScore) {
       this.checkAndScoreMultiAnswer(ctx, currentIndex);
     }
 
@@ -261,7 +264,12 @@ export class OptionUiSyncService {
     // SCORING: The checkbox `change` event path bypasses OIS and onOptionSelected,
     // so scoring must happen here for multi-answer questions. Check if ALL correct
     // answers are now selected and score accordingly.
-    this.checkAndScoreMultiAnswer(ctx, currentIndex);
+    // In shuffled mode, SOC handles all scoring/FET.
+    const isShufSkipScore2 = (this.quizService as any)?.isShuffleEnabled?.()
+      && (this.quizService as any)?.shuffledQuestions?.length > 0;
+    if (!isShufSkipScore2) {
+      this.checkAndScoreMultiAnswer(ctx, currentIndex);
+    }
 
     this.selectionMessageService.notifySelectionMutated(ctx.optionsToDisplay);
     this.selectionMessageService.setSelectionMessage(false);
@@ -405,20 +413,40 @@ export class OptionUiSyncService {
     // Only set answered=true and emit FET for single-answer when the
     // clicked option is actually correct (pristine check). After Restart Quiz,
     // binding correct flags can be stale, so resolve from quizInitialState.
-    if (ctx.type === 'single') {
+    // In SHUFFLED mode, skip entirely — SOC handles all scoring/FET.
+    const isShufForFET = (this.quizService as any)?.isShuffleEnabled?.()
+      && (this.quizService as any)?.shuffledQuestions?.length > 0;
+    if (ctx.type === 'single' && !isShufForFET) {
       let clickedIsCorrect = false;
       try {
         const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
         const clickedText = nrm(optionBinding?.option?.text);
         const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
-        const quizId = (this.quizService as any)?.quizId;
-        if (clickedText && bundle.length > 0 && quizId) {
-          const pristineQuiz = bundle.find((qz: any) => qz?.quizId === quizId);
-          const pristineQ = pristineQuiz?.questions?.[currentIndex];
-          if (pristineQ) {
-            const matchedOpt = (pristineQ.options ?? []).find((o: any) => nrm(o?.text) === clickedText);
-            if (matchedOpt) {
-              clickedIsCorrect = matchedOpt?.correct === true || String(matchedOpt?.correct) === 'true';
+        if (clickedText && bundle.length > 0) {
+          // Use TEXT-BASED question matching — index-based lookup fails in
+          // shuffled mode because pristineQuiz.questions[displayIndex] is
+          // the WRONG question (original order).
+          const isShuf = (this.quizService as any)?.isShuffleEnabled?.()
+            && (this.quizService as any)?.shuffledQuestions?.length > 0;
+          const displayQ = isShuf
+            ? ((this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[currentIndex]
+              ?? (this.quizService as any)?.shuffledQuestions?.[currentIndex])
+            : (ctx.getQuestionAtDisplayIndex?.(currentIndex)
+              ?? (this.quizService as any)?.questions?.[currentIndex]);
+          const qText = nrm(displayQ?.questionText);
+          if (qText) {
+            let matched = false;
+            for (const quiz of bundle) {
+              for (const pq of (quiz?.questions ?? [])) {
+                if (nrm(pq?.questionText) !== qText) continue;
+                matched = true;
+                const matchedOpt = (pq?.options ?? []).find((o: any) => nrm(o?.text) === clickedText);
+                if (matchedOpt) {
+                  clickedIsCorrect = matchedOpt?.correct === true || String(matchedOpt?.correct) === 'true';
+                }
+                break;
+              }
+              if (matched) break;
             }
           }
         }
@@ -701,18 +729,33 @@ export class OptionUiSyncService {
 
     try {
       const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
-      const quizId = (this.quizService as any)?.quizId;
-      if (bundle.length > 0 && quizId) {
-        const pristineQuiz = bundle.find((qz: any) => qz?.quizId === quizId);
-        const pristineQ = pristineQuiz?.questions?.[questionIndex];
-        if (pristineQ) {
-          const pristineCorrect = (pristineQ.options ?? [])
-            .filter((o: any) => o?.correct === true || String(o?.correct) === 'true');
-          if (pristineCorrect.length > 0) {
-            correctOptions = pristineCorrect;
-            correctTextSet = new Set(
-              pristineCorrect.map((o: any) => normalize(o.text)).filter(Boolean)
-            );
+      if (bundle.length > 0) {
+        // Use TEXT-BASED question matching — index-based lookup
+        // (pristineQuiz.questions[displayIndex]) fails in shuffled mode.
+        const isShuf = (this.quizService as any)?.isShuffleEnabled?.()
+          && (this.quizService as any)?.shuffledQuestions?.length > 0;
+        const displayQ = isShuf
+          ? ((this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[questionIndex]
+            ?? (this.quizService as any)?.shuffledQuestions?.[questionIndex])
+          : question;
+        const qText = normalize(displayQ?.questionText);
+        if (qText) {
+          let matched = false;
+          for (const quiz of bundle) {
+            for (const pq of (quiz?.questions ?? [])) {
+              if (normalize(pq?.questionText) !== qText) continue;
+              matched = true;
+              const pristineCorrect = (pq?.options ?? [])
+                .filter((o: any) => o?.correct === true || String(o?.correct) === 'true');
+              if (pristineCorrect.length > 0) {
+                correctOptions = pristineCorrect;
+                correctTextSet = new Set(
+                  pristineCorrect.map((o: any) => normalize(o.text)).filter(Boolean)
+                );
+              }
+              break;
+            }
+            if (matched) break;
           }
         }
       }

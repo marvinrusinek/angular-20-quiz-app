@@ -92,26 +92,39 @@ export class OptionInteractionService {
         const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
         if (optText && bundle.length > 0) {
           // Resolve the current question text for matching.
-          // SHUFFLED FIX: state.currentQuestion can be null; the fallback
-          // quizService.questions[qIdx] is original-order and gets the
-          // WRONG question when qIdx is a display index. Use
-          // getQuestionsInDisplayOrder() or shuffledQuestions instead.
-          const question = state.currentQuestion
-            ?? this.quizService.getQuestionsInDisplayOrder?.()?.[qIdx]
-            ?? (this.quizService as any)?.shuffledQuestions?.[qIdx]
-            ?? (this.quizService as any)?.questions?.[qIdx];
+          // CRITICAL: In shuffled mode, state.currentQuestion points to the
+          // WRONG question (original order). ALWAYS prefer display-order
+          // sources first in shuffled mode.
+          const isShuffledPC = (this.quizService as any)?.isShuffleEnabled?.()
+            && (this.quizService as any)?.shuffledQuestions?.length > 0;
+          let question: any;
+          if (isShuffledPC) {
+            question = this.quizService.getQuestionsInDisplayOrder?.()?.[qIdx]
+              ?? (this.quizService as any)?.shuffledQuestions?.[qIdx]
+              ?? state.currentQuestion
+              ?? (this.quizService as any)?.questions?.[qIdx];
+          } else {
+            question = state.currentQuestion
+              ?? (this.quizService as any)?.questions?.[qIdx]
+              ?? this.quizService.getQuestionsInDisplayOrder?.()?.[qIdx];
+          }
           const qText = nrm(question?.questionText);
           if (qText) {
             // Match by question text across all pristine quizzes
+            let pcMatched = false;
             for (const quiz of bundle) {
               for (const pq of (quiz?.questions ?? [])) {
                 if (nrm(pq?.questionText) !== qText) continue;
+                pcMatched = true;
                 const matchedOpt = (pq?.options ?? []).find((po: any) => nrm(po?.text) === optText);
                 if (matchedOpt !== undefined) {
-                  return matchedOpt?.correct === true || String(matchedOpt?.correct) === 'true';
+                  const result = matchedOpt?.correct === true || String(matchedOpt?.correct) === 'true';
+                  console.log(`[isPristineCorrect] Q${qIdx + 1} opt="${optText.slice(0, 30)}" qText="${qText.slice(0, 40)}" → ${result}`);
+                  return result;
                 }
                 break;
               }
+              if (pcMatched) break;
             }
           }
         }
@@ -139,14 +152,11 @@ export class OptionInteractionService {
 
     console.log(`[OIS.handleOptionClick] Q${qIdx + 1} Index=${index} TargetKey=${targetKey} isCurrentlySelected=${binding.isSelected}`);
 
-    // Guard: disabled — but allow correct options in single-answer mode
-    // so the user can still click the correct answer after a wrong pick.
-    if (binding.disabled) {
-      const isSingle = state.type === 'single' || !(state as any).isMultiMode;
-      if (!(isSingle && isPristineCorrect(binding.option))) {
-        return;
-      }
-    }
+    // NOTE: binding.disabled guard REMOVED. The option-item's isDisabled()
+    // already gates clicks at the template level. If a click reaches here,
+    // the user was able to interact with the option. Processing it is correct.
+    // The old guard caused false early-returns because binding.disabled was
+    // set by computeDisabledState using stale isMultiMode during initialization.
 
     // SET DOT STATUS EARLY — before any subscription-triggering code runs,
     // so updateDotStatus sees the correct confirmed status immediately.
@@ -581,8 +591,17 @@ export class OptionInteractionService {
       });
     }
 
-    // Stop timer when correct answer(s) selected
-    if (allCorrectFound || (!isMultipleMode && isPristineCorrect(binding.option))) {
+    // Detect shuffle mode early — needed for timer and scoring gates
+    const isShuffleActive = (this.quizService as any)?.isShuffleEnabled?.() &&
+      (this.quizService as any)?.shuffledQuestions?.length > 0;
+
+    // Stop timer when correct answer(s) selected.
+    // In shuffled mode, only trust isPristineCorrect — allCorrectFound uses
+    // mutated binding flags which can be wrong.
+    const shouldStopTimer = isShuffleActive
+      ? (!isMultipleMode && isPristineCorrect(binding.option))
+      : (allCorrectFound || (!isMultipleMode && isPristineCorrect(binding.option)));
+    if (shouldStopTimer) {
       try { this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true }); } catch {}
     }
 
@@ -599,31 +618,42 @@ export class OptionInteractionService {
     let pristineIsMultiAnswer = false;
     try {
       const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
-      const qTextForLookup = nrm(question?.questionText ?? state.currentQuestion?.questionText);
+      // In shuffled mode, prefer display-order question text over state.currentQuestion
+      const isShuffledPM = (this.quizService as any)?.isShuffleEnabled?.()
+        && (this.quizService as any)?.shuffledQuestions?.length > 0;
+      let qTextForLookup: string;
+      if (isShuffledPM) {
+        qTextForLookup = nrm(
+          question?.questionText
+          ?? this.quizService.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText
+          ?? (this.quizService as any)?.shuffledQuestions?.[qIdx]?.questionText
+          ?? state.currentQuestion?.questionText
+        );
+      } else {
+        qTextForLookup = nrm(question?.questionText ?? state.currentQuestion?.questionText);
+      }
       const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
+      let pmMatched = false;
       for (const quiz of bundle) {
         for (const pq of (quiz?.questions ?? [])) {
           if (nrm(pq?.questionText) !== qTextForLookup) continue;
+          pmMatched = true;
           const pristineCorrectCount = (pq?.options ?? [])
             .filter((o: any) => o?.correct === true || String(o?.correct) === 'true').length;
           if (pristineCorrectCount > 1) pristineIsMultiAnswer = true;
           break;
         }
-        if (pristineIsMultiAnswer) break;
+        if (pmMatched) break;
       }
     } catch { /* ignore */ }
 
     // ─── SCORING ───
-    // Two modes:
-    // UNSHUFFLED: use the original allCorrectFound gate (index-based, reliable)
-    // SHUFFLED:   use text-based isPristineCorrect (index-independent)
-    const isShuffleActive = (this.quizService as any)?.isShuffleEnabled?.() &&
-      (this.quizService as any)?.shuffledQuestions?.length > 0;
-    const clickedIsCorrectPristine = isPristineCorrect(binding.option);
+    // In SHUFFLED mode, ALL scoring and FET is handled by the SOC
+    // (runOptionContentClick) which has authoritative pristine-based logic.
+    // OIS must NOT score or emit FET in shuffled mode — its data sources
+    // (allCorrectFound, correctIndicesSet, binding flags) are unreliable
+    // when questions are reordered.
     let scoreFired = false;
-
-    // ── DIAGNOSTIC: trace scoring decision ──
-    console.warn(`%c[FET-DIAG OIS] Q${qIdx + 1} SCORING: shuffle=${isShuffleActive} clickedCorrect=${clickedIsCorrectPristine} pristineMulti=${pristineIsMultiAnswer} allCorrectFound=${allCorrectFound} isMultipleMode=${isMultipleMode} optText="${(binding.option?.text ?? '').substring(0, 30)}" qText="${(state.currentQuestion?.questionText ?? '').substring(0, 30)}"`, 'background:#060;color:#fff;padding:2px 6px;');
 
     if (!isShuffleActive) {
       // ── UNSHUFFLED: original gate ──
@@ -635,78 +665,13 @@ export class OptionInteractionService {
         this.quizService.scoreDirectly(qIdx, true, isMultipleMode);
         scoreFired = true;
       }
-    } else {
-      // ── SHUFFLED: text-based scoring ──
-      if (clickedIsCorrectPristine && !pristineIsMultiAnswer) {
-        // Single-answer: correct click per pristine data → score
-        console.log(`[OIS] Q${qIdx + 1} SCORE: shuffle single-answer correct → scoring`);
-        if (!(this.quizService as any)._multiAnswerPerfect) {
-          (this.quizService as any)._multiAnswerPerfect = new Map<number, boolean>();
-        }
-        (this.quizService as any)._multiAnswerPerfect.set(qIdx, true);
-        this.quizService.scoreDirectly(qIdx, true, false);
-        scoreFired = true;
-      } else if (pristineIsMultiAnswer) {
-        // Multi-answer: score only when ALL pristine correct answers clicked.
-        // Don't gate on clickedIsCorrectPristine — it may fail in shuffle mode.
-        // Instead, check confirmedClicks which was populated by the robust
-        // recordCorrectClick above.
-        try {
-          const nrmS = (t: any) => String(t ?? '').trim().toLowerCase();
-          const scoringService = (this.quizService as any)?.scoringService;
-          const confirmedClicks: Set<string> = scoringService?._confirmedCorrectClicks?.get(qIdx) ?? new Set();
-          // Try multiple sources for question text (same as recordCorrectClick)
-          const qTextCandidatesS = [
-            nrmS(question?.questionText),
-            nrmS(state.currentQuestion?.questionText),
-            nrmS((this.quizService as any)?.questions?.[qIdx]?.questionText),
-            nrmS((this.quizService as any)?.shuffledQuestions?.[qIdx]?.questionText)
-          ].filter((t: string) => !!t);
-          const bundleS: any[] = (this.quizService as any)?.quizInitialState ?? [];
-          let pristineCorrectTextsS: string[] = [];
-          for (const qTextS of qTextCandidatesS) {
-            for (const quiz of bundleS) {
-              for (const pq of (quiz?.questions ?? [])) {
-                if (nrmS(pq?.questionText) !== qTextS) continue;
-                pristineCorrectTextsS = (pq?.options ?? [])
-                  .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
-                  .map((o: any) => nrmS(o?.text))
-                  .filter((t: string) => !!t);
-                break;
-              }
-              if (pristineCorrectTextsS.length > 0) break;
-            }
-            if (pristineCorrectTextsS.length > 0) break;
-          }
-          const allCorrectClicked = pristineCorrectTextsS.length > 0 &&
-            pristineCorrectTextsS.every((t: string) => confirmedClicks.has(t));
-          console.log(`[OIS] Q${qIdx + 1} MULTI-CHECK: pristineCorrect=[${pristineCorrectTextsS}] confirmed=[${[...confirmedClicks]}] allClicked=${allCorrectClicked}`);
-          if (allCorrectClicked) {
-            console.log(`[OIS] Q${qIdx + 1} SCORE: shuffle multi-answer all correct → scoring`);
-            if (!(this.quizService as any)._multiAnswerPerfect) {
-              (this.quizService as any)._multiAnswerPerfect = new Map<number, boolean>();
-            }
-            (this.quizService as any)._multiAnswerPerfect.set(qIdx, true);
-            this.quizService.scoreDirectly(qIdx, true, true);
-            scoreFired = true;
-          }
-        } catch { /* ignore */ }
-      } else if (allCorrectFound && !pristineIsMultiAnswer) {
-        // Fallback: original index-based gate
-        if (!(this.quizService as any)._multiAnswerPerfect) {
-          (this.quizService as any)._multiAnswerPerfect = new Map<number, boolean>();
-        }
-        (this.quizService as any)._multiAnswerPerfect.set(qIdx, true);
-        this.quizService.scoreDirectly(qIdx, true, false);
-        scoreFired = true;
-      }
-    }
 
-    if (scoreFired) {
-      if ((state as any).showExplanationChange) {
-        (state as any).showExplanationChange.emit(true);
+      if (scoreFired) {
+        if ((state as any).showExplanationChange) {
+          (state as any).showExplanationChange.emit(true);
+        }
+        queueMicrotask(() => emitExplanation(qIdx, true));
       }
-      queueMicrotask(() => emitExplanation(qIdx, true));
     }
 
     // UPDATE ANCHOR: If we just selected something, that's the new anchor.

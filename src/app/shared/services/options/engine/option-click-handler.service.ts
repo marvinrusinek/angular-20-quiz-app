@@ -340,9 +340,29 @@ export class OptionClickHandlerService {
     const lockId = (option?.optionId != null && Number(option.optionId) !== -1)
       ? option.optionId : index;
 
+    // Detect multi-answer from data as well as the context flag — isMultiMode
+    // can be stale/false during initialization before runIsMultiMode computes.
+    let effectiveMulti = isMultiMode;
+    if (!effectiveMulti) {
+      try {
+        const isShuffledChk = this.quizService?.isShuffleEnabled?.() &&
+          this.quizService?.shuffledQuestions?.length > 0;
+        const qSrc = isShuffledChk
+          ? (this.quizService as any)?.getQuestionsInDisplayOrder?.() ?? this.quizService.shuffledQuestions
+          : this.quizService?.questions;
+        const chkQ = qSrc?.[qIndex] ?? null;
+        const chkCorrectCount = (chkQ?.options ?? []).filter(
+          (o: any) => o?.correct === true || String(o?.correct) === 'true'
+        ).length;
+        if (chkCorrectCount > 1) {
+          effectiveMulti = true;
+        }
+      } catch { /* ignore */ }
+    }
+
     // Multi-answer: only use the explicit disabledOptionsPerQuestion set
     // and forceDisableAll. Lock services can cross-contaminate.
-    if (isMultiMode) {
+    if (effectiveMulti) {
       if (forceDisableAll) return true;
       const disabledSet = disabledOptionsPerQuestion.get(qIndex);
       return !!(disabledSet && disabledSet.has(index));
