@@ -24,7 +24,7 @@ import { Utils } from '../../utils/utils';
 @Injectable({ providedIn: 'root' })
 export class QuizDataLoaderService {
   quizInitialState: Quiz[] = _.cloneDeep(QUIZ_DATA);
-  quizData: Quiz[] | null = this.quizInitialState;
+  quizData: Quiz[] | null = _.cloneDeep(QUIZ_DATA);
   private _quizData$ = new BehaviorSubject<Quiz[]>([]);
   quizResources: QuizResource[] = [];
   resources: Resource[] = [];
@@ -91,7 +91,8 @@ export class QuizDataLoaderService {
       console.error('QUIZ_DATA is invalid:', QUIZ_DATA);
       this.quizData = [];
     } else {
-      this.quizData = QUIZ_DATA;
+      // Deep-clone so gameplay mutations never propagate back to QUIZ_DATA
+      this.quizData = _.cloneDeep(QUIZ_DATA);
     }
 
     let questions: QuizQuestion[] = [];
@@ -99,7 +100,9 @@ export class QuizDataLoaderService {
     let resolvedQuizId = quizId;
 
     if (this.quizData.length > 0) {
-      this.quizInitialState = _.cloneDeep(this.quizData);
+      // Always clone from the ORIGINAL QUIZ_DATA constant — never from
+      // this.quizData which may carry mutations from prior quiz runs.
+      this.quizInitialState = _.cloneDeep(QUIZ_DATA);
       let selectedQuiz = quizId
         ? this.quizData.find((quiz) => quiz.quizId === quizId)
         : undefined;

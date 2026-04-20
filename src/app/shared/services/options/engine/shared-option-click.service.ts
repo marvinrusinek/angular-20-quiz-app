@@ -278,6 +278,12 @@ export class SharedOptionClickService {
     durableSet.add(index);
     console.log(`[SOC] DURABLE tracker Q${qIdx + 1}: clicked=${index}, all selected=[${[...durableSet]}]`);
 
+    // Enable Next button on ANY option selection (correct or incorrect).
+    // Use forceEnable so the reactive stream cannot override for 2 seconds,
+    // giving setAnswered time to propagate through the stream as well.
+    this.nextButtonStateService.forceEnable(2000);
+    this.selectedOptionService.setAnswered(true, true);
+
     if (!comp._correctIndicesByQuestion.has(qIdx)) {
       const question = comp.currentQuestion ?? comp.getQuestionAtDisplayIndex(qIdx);
       const result = this.clickHandler.resolveCorrectIndices(

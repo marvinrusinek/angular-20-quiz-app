@@ -508,6 +508,7 @@ export class ExplanationTextService {
   }
 
   resetExplanationState(): void {
+    this.fetBypassForQuestion.clear();
     this.displayState.resetExplanationState();
   }
 
