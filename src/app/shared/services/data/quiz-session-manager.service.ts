@@ -351,6 +351,21 @@ export class QuizSessionManagerService {
       localStorage.removeItem('selectedOptions');
     } catch { }
 
+    // Clear per-question selection/display keys so stale highlights
+    // from a previous session don't leak into the new quiz run.
+    try {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key?.startsWith('sel_Q') || key?.startsWith('displayMode_')) {
+          keysToRemove.push(key);
+        }
+      }
+      for (const key of keysToRemove) {
+        sessionStorage.removeItem(key);
+      }
+    } catch { }
+
     // Clear shuffled questions to prevent stale data when switching quizzes
     state.shuffledQuestions = [];
     // Also clear regular questions for unshuffled mode
