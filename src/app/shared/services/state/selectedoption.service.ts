@@ -376,6 +376,17 @@ export class SelectedOptionService {
       sessionStorage.removeItem('selectionHistory');
       sessionStorage.removeItem('answeredMap');
       sessionStorage.removeItem('currentQuestionIndex');
+      // Clear per-question selection keys used by rehydrateUiFromState
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key?.startsWith('sel_Q') || key?.startsWith('displayMode_')) {
+          keysToRemove.push(key);
+        }
+      }
+      for (const key of keysToRemove) {
+        sessionStorage.removeItem(key);
+      }
     } catch (err) {
       // ignore
     }
