@@ -406,7 +406,7 @@ export class QqcComponentOrchestratorService {
       });
       if (shouldExpire) {
         host.timerService.stopTimer?.(undefined, { force: true });
-        host.ngZone.run(() => host.onTimerExpiredFor(expiredIndex));
+        host.onTimerExpiredFor(expiredIndex);
         return;
       }
     } catch {}
@@ -1053,17 +1053,15 @@ export class QqcComponentOrchestratorService {
     host.handledOnExpiry.add(i0);
     host.onQuestionTimedOut(i0);
 
-    host.ngZone.run(() => {
-      const expiryState = host.timerEffect.applyTimerExpiryState({
-        i0,
-        questions: host.questions,
-        currentQuestionType: host.currentQuestion()?.type,
-      });
-      host.feedbackText = expiryState.feedbackText;
-      host.displayExplanation = expiryState.displayExplanation;
-      host.showExplanationChange?.emit(true);
-      host.cdRef.markForCheck();
+    const expiryState = host.timerEffect.applyTimerExpiryState({
+      i0,
+      questions: host.questions,
+      currentQuestionType: host.currentQuestion()?.type,
     });
+    host.feedbackText = expiryState.feedbackText;
+    host.displayExplanation = expiryState.displayExplanation;
+    host.showExplanationChange?.emit(true);
+    host.cdRef.markForCheck();
 
     const { formattedText, needsAsyncRepair } = await host.timerEffect.performTimerExpiredForAsync({
       i0,
@@ -1740,12 +1738,10 @@ export class QqcComponentOrchestratorService {
   // ─── Misc thin wrappers (extracted from QuizQuestionComponent) ───
 
   runApplyExplanationTextInZone(host: Host, text: string): void {
-    host.ngZone.run(() => {
-      host.explanationToDisplay.set(text);
-      host.explanationToDisplayChange.emit(text);
-      host.cdRef.markForCheck();
-      host.cdRef.detectChanges();
-    });
+    host.explanationToDisplay.set(text);
+    host.explanationToDisplayChange.emit(text);
+    host.cdRef.markForCheck();
+    host.cdRef.detectChanges();
   }
 
   runApplyExplanationFlags(host: Host, flags: any): void {

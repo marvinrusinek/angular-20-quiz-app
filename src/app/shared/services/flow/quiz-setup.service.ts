@@ -287,11 +287,9 @@ export class QuizSetupService {
         try { sessionStorage.removeItem('dot_confirmed_' + destIndex); } catch {}
       }
     }
-    await host.ngZone.run(async () => {
-      if (direction === 'next') await this.quizNavigationService.advanceToNextQuestion();
-      else await this.quizNavigationService.advanceToPreviousQuestion();
-      host.cdRef.markForCheck();
-    });
+    if (direction === 'next') await this.quizNavigationService.advanceToNextQuestion();
+    else await this.quizNavigationService.advanceToPreviousQuestion();
+    host.cdRef.markForCheck();
   }
 
   restartQuiz(host: Host): void {

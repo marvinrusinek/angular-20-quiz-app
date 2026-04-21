@@ -1,4 +1,4 @@
-import { Injectable, NgZone } from '@angular/core';
+import { Injectable } from '@angular/core';
 import { firstValueFrom, Observable, of } from 'rxjs';
 import { catchError, filter, map, take } from 'rxjs/operators';
 
@@ -96,8 +96,7 @@ export class QuizContentLoaderService {
     private selectionMessageService: SelectionMessageService,
     private quizQuestionDataService: QuizQuestionDataService,
     private quizQuestionLoaderService: QuizQuestionLoaderService,
-    private quizScoringService: QuizScoringService,
-    private ngZone: NgZone
+    private quizScoringService: QuizScoringService
   ) {}
 
   // ═══════════════════════════════════════════════════════════════
@@ -132,8 +131,8 @@ export class QuizContentLoaderService {
 
   /**
    * Re-closes the FET gate, then unlocks it after Angular has stabilized
-   * (waits for ngZone.onStable + rAF + 100ms tail) only if the index is
-   * still current. Caller passes a getter for the live index.
+   * (waits for rAF + 100ms tail) only if the index is still current.
+   * Caller passes a getter for the live index.
    */
   unlockFetGateAfterRender(
     adjustedIndex: number,
@@ -148,16 +147,14 @@ export class QuizContentLoaderService {
 
     setTimeout(() => {
       detectChanges();
-      this.ngZone.onStable.pipe(take(1)).subscribe(() => {
-        requestAnimationFrame(() => {
-          setTimeout(() => {
-            const stillCurrent =
-              ets._gateToken === ets._currentGateToken &&
-              adjustedIndex === getCurrentIndex();
-            if (!stillCurrent) return;
-            ets._fetLocked = false;
-          }, 100);
-        });
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          const stillCurrent =
+            ets._gateToken === ets._currentGateToken &&
+            adjustedIndex === getCurrentIndex();
+          if (!stillCurrent) return;
+          ets._fetLocked = false;
+        }, 100);
       });
     }, 140);
   }

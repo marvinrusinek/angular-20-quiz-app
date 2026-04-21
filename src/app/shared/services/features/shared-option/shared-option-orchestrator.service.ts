@@ -383,14 +383,12 @@ export class SharedOptionOrchestratorService {
         Array.isArray(host.optionsToDisplay) && host.optionsToDisplay.length > 0;
 
     if (bindingsReady && optionsReady) {
-      host.ngZone.run(() => {
-        if (reason) {
-          console.log('[renderReady]: ' + reason);
-        }
-        host.renderReady = true;
-        host.renderReadyChange.emit(true);
-        host.renderReadySubject.next(true);
-      });
+      if (reason) {
+        console.log('[renderReady]: ' + reason);
+      }
+      host.renderReady = true;
+      host.renderReadyChange.emit(true);
+      host.renderReadySubject.next(true);
     } else {
       console.warn('[markRenderReady skipped] Incomplete state:', {
         bindingsReady,
@@ -417,13 +415,9 @@ export class SharedOptionOrchestratorService {
     if (host._pendingHighlightRAF !== null) {
       cancelAnimationFrame(host._pendingHighlightRAF);
     }
-    host.ngZone.runOutsideAngular(() => {
-      host._pendingHighlightRAF = requestAnimationFrame(() => {
-        host._pendingHighlightRAF = null;
-        host.ngZone.run(() => {
-          callback();
-        });
-      });
+    host._pendingHighlightRAF = requestAnimationFrame(() => {
+      host._pendingHighlightRAF = null;
+      callback();
     });
   }
 

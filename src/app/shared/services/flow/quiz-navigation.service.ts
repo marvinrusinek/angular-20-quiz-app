@@ -1,4 +1,4 @@
-import { Injectable, NgZone, signal } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, ActivatedRouteSnapshot, Router } from '@angular/router';
 import { firstValueFrom, Observable, of, Subject } from 'rxjs';
@@ -74,8 +74,7 @@ export class QuizNavigationService {
     private selectedOptionService: SelectedOptionService,
     private timerService: TimerService,
     private activatedRoute: ActivatedRoute,
-    private router: Router,
-    private ngZone: NgZone
+    private router: Router
   ) { }
 
   public async advanceToNextQuestion(): Promise<boolean> {
@@ -245,14 +244,10 @@ export class QuizNavigationService {
     // Handle same-URL reload scenario
     if (currentIndex === index && currentUrl === routeUrl) {
       console.log('[NAV DEBUG] Same URL detected. Reloading root first.');
-      await this.ngZone.run(() =>
-        this.router.navigateByUrl('/', { skipLocationChange: true })
-      );
+      await this.router.navigateByUrl('/', { skipLocationChange: true });
     }
 
-    const navSuccess = await this.ngZone.run(() =>
-      this.router.navigateByUrl(routeUrl)
-    );
+    const navSuccess = await this.router.navigateByUrl(routeUrl);
     if (!navSuccess) {
       console.warn('[⚠️ Router navigateByUrl returned false]', routeUrl);
       return false;
@@ -414,9 +409,7 @@ export class QuizNavigationService {
         return true;
       }
 
-      const navSuccess = await this.ngZone.run(() =>
-        this.router.navigateByUrl(routeUrl)
-      );
+      const navSuccess = await this.router.navigateByUrl(routeUrl);
       if (!navSuccess) {
         console.error(
           `[resetUIAndNavigate] ❌ Navigation failed for index ${index}`
@@ -623,14 +616,12 @@ export class QuizNavigationService {
     const routePath = `/quiz/results/${targetQuizId}`;
     console.log(`[navigateToResults] Navigating to:`, routePath);
 
-    this.ngZone.run(() => {
-      this.router.navigateByUrl(routePath).then((success) => {
-        if (!success) {
-          console.error('[navigateToResults] Navigation was cancelled');
-        }
-      }).catch((error) => {
-        console.error('Navigation to results failed:', error);
-      });
+    this.router.navigateByUrl(routePath).then((success) => {
+      if (!success) {
+        console.error('[navigateToResults] Navigation was cancelled');
+      }
+    }).catch((error) => {
+      console.error('Navigation to results failed:', error);
     });
   }
 

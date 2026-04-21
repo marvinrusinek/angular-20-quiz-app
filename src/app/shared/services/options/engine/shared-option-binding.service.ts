@@ -939,15 +939,13 @@ export class SharedOptionBindingService {
       Array.isArray(comp.optionsToDisplay) && comp.optionsToDisplay.length > 0;
 
     if (bindingsReady && optionsReady) {
-      comp.ngZone.run(() => {
-        if (reason) {
-          console.log('[renderReady]: ' + reason);
-        }
+      if (reason) {
+        console.log('[renderReady]: ' + reason);
+      }
 
-        comp.renderReady = true;
-        comp.renderReadyChange.emit(true);
-        comp.renderReadySubject?.next(true);
-      });
+      comp.renderReady = true;
+      comp.renderReadyChange.emit(true);
+      comp.renderReadySubject?.next(true);
     } else {
       console.warn('[markRenderReady skipped] Incomplete state:', {
         bindingsReady,
