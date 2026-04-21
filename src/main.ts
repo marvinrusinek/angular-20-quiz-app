@@ -2,6 +2,7 @@ import { bootstrapApplication } from '@angular/platform-browser';
 import { provideHttpClient, withFetch } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
 import { provideAnimations } from '@angular/platform-browser/animations';
+import { provideZoneChangeDetection } from '@angular/core';
 
 import { routes } from './app/router/quiz-routing.routes';
 import { AppComponent } from './app/app.component';
@@ -162,6 +163,7 @@ import { QUIZ_DATA } from './app/shared/quiz';
 
 bootstrapApplication(AppComponent, {
   providers: [
+    provideZoneChangeDetection({ eventCoalescing: true }),
     provideHttpClient(withFetch()),
     provideRouter(routes),
     provideAnimations(),
