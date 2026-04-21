@@ -7,9 +7,9 @@ h3 {
   font-weight: 500;
   margin: 5px 0;
   padding: 10px 15px;
-  background-color: vars.$light-gray;
+  background-color: var(--bg-option, vars.$light-gray);
   border: 2px solid vars.$vivid-blue;
-  color: vars.$dark-brown;
+  color: var(--text-option, vars.$dark-brown);
   width: 615px;
   max-width: 100%;
   height: auto;

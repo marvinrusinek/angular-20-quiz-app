@@ -6,7 +6,7 @@
   min-height: 100vh;
   
   // Gradient background to showcase glassmorphism
-  background: linear-gradient(135deg, #74ebd5 0%, #9face6 100%);
+  background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
   padding: 20px 0;
 }
 
@@ -55,12 +55,13 @@
 }
 
 .quiz-card {
+  position: relative;
   width: 100%;
   padding: 16px;
 
   // Basic fallback if ng-deep fails or for standard usage
-  background: rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: var(--bg-card-alpha);
+  border: 1px solid var(--bg-card-border);
   border-radius: 16px;
 
   box-shadow: none;
@@ -70,10 +71,10 @@
 // FORCE OVERRIDE Angular Material's card styling
 :host ::ng-deep mat-card.quiz-card {
   // Glassmorphism Effect
-  background: rgba(255, 255, 255, 0.75) !important;
+  background: var(--bg-card-alpha) !important;
   backdrop-filter: blur(16px) !important;
   -webkit-backdrop-filter: blur(16px) !important;
-  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  border: 1px solid var(--bg-card-border) !important;
   box-shadow: none !important;
 
   border-right-width: 1px !important;
@@ -133,8 +134,8 @@
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  background: var(--bg-scroll-indicator);
+  box-shadow: var(--shadow-scroll);
   cursor: pointer;
   animation: bounce 2s infinite;
 
@@ -203,7 +204,7 @@ mat-card {
           font-size: 14px;
           font-weight: 600;
           font-style: italic;
-          color: #555;
+          color: var(--text-secondary);
           margin: 0;
         }
       }
@@ -214,8 +215,8 @@ mat-card {
         gap: 8px;
 
         .nav-btn {
-          background-color: white;
-          border: 2px solid #e0e0e0;
+          background-color: var(--bg-nav-btn);
+          border: 2px solid var(--border-color);
           border-radius: 50%;
           width: 48px;
           height: 48px;

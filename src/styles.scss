@@ -6,6 +6,90 @@
 @import '@angular/material/prebuilt-themes/indigo-pink.css';
 
 /* ─────────────────────────────────────────────
+   THEME CSS CUSTOM PROPERTIES
+───────────────────────────────────────────────*/
+:root,
+[data-theme="light"] {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f5f5;
+  --bg-card: #ffffff;
+  --bg-card-alpha: rgba(255, 255, 255, 0.75);
+  --bg-card-border: rgba(255, 255, 255, 0.6);
+  --bg-input: #ffffff;
+  --bg-option-hover: #f0f0f0;
+  --bg-nav-btn: #ffffff;
+  --bg-gradient-start: #74ebd5;
+  --bg-gradient-end: #9face6;
+  --bg-scroll-indicator: rgba(255, 255, 255, 0.95);
+  --bg-deactivated: #a3a3a3;
+
+  --text-primary: #212121;
+  --text-secondary: #555555;
+  --text-muted: #808080;
+  --text-on-card: #212121;
+  --text-link: #{vars.$vivid-blue};
+
+  --border-color: #e0e0e0;
+  --border-card: #000000;
+  --border-header: rgba(0, 0, 0, 0.1);
+
+  --shadow-card: 10px 10px 5px #999;
+  --shadow-glass: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+  --shadow-scroll: 0 4px 12px rgba(0, 0, 0, 0.25);
+
+  --theme-toggle-bg: #f0f0f0;
+  --theme-toggle-color: #333333;
+
+  --mat-card-bg: #ffffff;
+
+  --bg-option: #f5f5f5;
+  --border-option: #979797;
+  --text-option: #0f0900;
+  --text-scoreboard-badge: #006400;
+  --text-scoreboard-timer: #006400;
+}
+
+[data-theme="dark"] {
+  --bg-primary: #2b2d35;
+  --bg-secondary: #353840;
+  --bg-card: #3a3d46;
+  --bg-card-alpha: rgba(55, 58, 68, 0.88);
+  --bg-card-border: rgba(255, 255, 255, 0.15);
+  --bg-input: #404350;
+  --bg-option-hover: #484b55;
+  --bg-nav-btn: #404350;
+  --bg-gradient-start: #2a4a4a;
+  --bg-gradient-end: #3a3a5a;
+  --bg-scroll-indicator: rgba(55, 58, 68, 0.95);
+  --bg-deactivated: #666666;
+
+  --text-primary: #eaeaea;
+  --text-secondary: #c0c0c0;
+  --text-muted: #9a9a9a;
+  --text-on-card: #eaeaea;
+  --text-link: #{vars.$vivid-blue};
+
+  --border-color: #5a5d65;
+  --border-card: #6a6d75;
+  --border-header: rgba(255, 255, 255, 0.12);
+
+  --shadow-card: 4px 4px 16px rgba(0, 0, 0, 0.35);
+  --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.35);
+  --shadow-scroll: 0 4px 12px rgba(0, 0, 0, 0.35);
+
+  --theme-toggle-bg: #505360;
+  --theme-toggle-color: #f0c040;
+
+  --mat-card-bg: #3a3d46;
+
+  --bg-option: #484b55;
+  --border-option: #6a6d75;
+  --text-option: #eaeaea;
+  --text-scoreboard-badge: #81e081;
+  --text-scoreboard-timer: #81e081;
+}
+
+/* ─────────────────────────────────────────────
    FONT IMPORTS
 ───────────────────────────────────────────────*/
 @font-face {
@@ -46,6 +130,9 @@ body {
   font-family: Roboto, 'Helvetica Neue', sans-serif;
   font-size: 14px;
   line-height: 1.4;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* Compact buttons */
@@ -81,7 +168,7 @@ mat-card {
   //margin: 12px auto;
   //padding: 16px !important;
   //max-width: 680px;
-  background: #fff;
+  background: var(--bg-card);
   //border: 1.5px solid vars.$black;
   // border-radius: 10px !important;
   //box-shadow: 10px 10px 5px vars.$gray !important;
@@ -92,7 +179,7 @@ mat-card {
     justify-content: center;
     align-items: center;
     padding: 8px 16px !important;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    border-bottom: 1px solid var(--border-header);
 
     .mat-mdc-card-title,
     mat-card-title {
@@ -173,7 +260,7 @@ mat-card {
 }
 
 .deactivated-option {
-  background-color: #a3a3a3;
+  background-color: var(--bg-deactivated);
   pointer-events: none !important;
   opacity: 0.4;
   cursor: default !important;
@@ -354,4 +441,127 @@ button.mat-mdc-menu-trigger {
 .option-cursor-wrapper.cursor-not-allowed .option-text,
 .option-cursor-wrapper.cursor-not-allowed .option-wrapper {
   cursor: not-allowed !important;
+}
+
+/* ─────────────────────────────────────────────
+   DARK MODE OVERRIDES (QuizComponent only)
+───────────────────────────────────────────────*/
+[data-theme="dark"] codelab-quiz-component {
+  // Material card on quiz page
+  .mat-mdc-card,
+  mat-card {
+    background: var(--bg-card) !important;
+    color: var(--text-on-card) !important;
+
+    .mat-mdc-card-title,
+    mat-card-title {
+      color: var(--text-link) !important;
+    }
+
+    .mat-mdc-card-subtitle,
+    mat-card-subtitle {
+      color: var(--text-muted) !important;
+    }
+  }
+
+  // Radio/checkbox label text
+  .mdc-label,
+  .mdc-form-field,
+  .mat-mdc-radio-button .mdc-label,
+  .mat-mdc-checkbox .mdc-label {
+    color: var(--text-primary) !important;
+  }
+
+  // Radio button circles
+  .mat-mdc-radio-button .mdc-radio__outer-circle {
+    border-color: var(--text-muted) !important;
+  }
+  .mat-mdc-radio-button.mat-mdc-radio-checked .mdc-radio__outer-circle {
+    border-color: var(--text-link) !important;
+  }
+  .mat-mdc-radio-button.mat-mdc-radio-checked .mdc-radio__inner-circle {
+    border-color: var(--text-link) !important;
+  }
+
+  // Checkbox
+  .mat-mdc-checkbox .mdc-checkbox__background {
+    border-color: var(--text-muted) !important;
+  }
+
+  // Option and question text
+  .option-text,
+  .question-text {
+    color: var(--text-primary) !important;
+  }
+
+  // Correct count
+  .correct-count {
+    color: #4caf50 !important;
+  }
+
+  // Feedback messages
+  .message,
+  .correct-message,
+  .wrong-message {
+    color: var(--text-primary);
+  }
+
+  // Scoreboard "Score" / "Timer" label
+  .leader {
+    background-color: #2e5e3a !important;
+    color: #c8f7c8 !important;
+  }
+
+  // Scoreboard score/timer value text
+  span.scoreboard {
+    color: #7ed87e !important;
+  }
+
+  // Scoreboard badge ("Q1 of 6")
+  .scoreboard__badge {
+    color: #7ed87e !important;
+  }
+
+  // Feedback correct/wrong messages
+  .correct-message {
+    color: #5ce05c !important;
+    border-color: #5ce05c !important;
+  }
+
+  .wrong-message {
+    color: #ff6b6b !important;
+    border-color: #ff6b6b !important;
+  }
+
+  // Correct count text
+  .correct-count {
+    color: #5ce05c !important;
+  }
+
+  // Feedback icon (lightbulb)
+  .feedback-message mat-icon {
+    color: #ffd740 !important;
+  }
+
+  // Nav buttons
+  .nav-btn {
+    background-color: var(--bg-nav-btn) !important;
+    border-color: var(--border-color) !important;
+  }
+
+  // Instructions message
+  .instructions-message {
+    color: var(--text-secondary) !important;
+  }
+
+  // Progress text
+  .progress-inline {
+    color: var(--text-muted) !important;
+  }
+}
+
+// Tooltip (rendered in overlay, outside component scope)
+[data-theme="dark"] .mat-mdc-tooltip .mdc-tooltip__surface {
+  background: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
 }

@@ -52,7 +52,7 @@ mat-card-content {
     font-size: 26px;
     font-weight: vars.$font-weight-max;
     font-style: italic;
-    color: vars.$dark-green;
+    color: var(--text-scoreboard-badge, vars.$dark-green);
     margin: 0 10px;
     line-height: 1.2;
   }

@@ -41,6 +41,7 @@ import { QuizContentLoaderService } from '../../shared/services/flow/quiz-conten
 import { QuizVisibilityRestoreService } from '../../shared/services/flow/quiz-visibility-restore.service';
 import { QuizPersistenceService } from '../../shared/services/state/quiz-persistence.service';
 import { QuizSetupService } from '../../shared/services/flow/quiz-setup.service';
+import { ThemeToggleComponent } from '../../components/theme-toggle/theme-toggle.component';
 
 import { ChangeRouteAnimation } from '../../animations/animations';
 
@@ -52,7 +53,8 @@ type AnimationState = 'animationStarted' | 'none';
   imports: [
     CommonModule, AsyncPipe, MatCardModule, MatTooltipModule,
     QuizQuestionComponent, CodelabQuizHeaderComponent,
-    CodelabQuizContentComponent, ScoreboardComponent
+    CodelabQuizContentComponent, ScoreboardComponent,
+    ThemeToggleComponent
   ],
   templateUrl: './quiz.component.html',
   styleUrls: ['./quiz.component.scss'],

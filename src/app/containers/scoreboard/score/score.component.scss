@@ -21,11 +21,12 @@
 }
 
 mat-toolbar {
-  background: vars.$white;
+  background: var(--bg-card, vars.$white);
+  color: var(--text-primary, inherit);
   margin-left: -30px;
 }
 mat-toolbar:hover {
-  background-color: vars.$white !important;
+  background-color: var(--bg-card, vars.$white) !important;
 }
 mat-toolbar .leader {
   // margin-left: -35px !important;
