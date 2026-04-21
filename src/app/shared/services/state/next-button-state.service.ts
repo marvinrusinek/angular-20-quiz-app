@@ -1,4 +1,4 @@
-import { computed, Injectable, NgZone, signal } from '@angular/core';
+import { computed, Injectable, signal } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { combineLatest, Observable, of, Subscription } from 'rxjs';
 import { distinctUntilChanged, takeUntil } from 'rxjs/operators';
@@ -23,7 +23,7 @@ export class NextButtonStateService {
   // Decremented by a timer so it auto-expires.
   private _forceHoldUntil = 0;
 
-  constructor(private ngZone: NgZone) { }
+  constructor() { }
 
   public initializeNextButtonStateStream(
       isAnswered$: Observable<boolean>,
@@ -83,10 +83,8 @@ export class NextButtonStateService {
   }
 
   public updateAndSyncNextButtonState(isEnabled: boolean): void {
-    this.ngZone.run(() => {
-      this.isButtonEnabled.set(isEnabled);
-      // nextButtonStyleSig auto-derives from isButtonEnabled via computed()
-    });
+    this.isButtonEnabled.set(isEnabled);
+    // nextButtonStyleSig auto-derives from isButtonEnabled via computed()
   }
 
   public setNextButtonState(enabled: boolean): void {

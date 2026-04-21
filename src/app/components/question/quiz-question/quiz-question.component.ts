@@ -1,6 +1,6 @@
 import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, effect,
-  HostListener, input, model, NgZone, OnChanges, OnDestroy, OnInit, output,
+  HostListener, input, model, OnChanges, OnDestroy, OnInit, output,
   SimpleChange, SimpleChanges, ViewChild, ViewContainerRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup } from '@angular/forms';
@@ -247,8 +247,7 @@ export class QuizQuestionComponent extends BaseQuestion
     protected componentOrchestrator: QqcComponentOrchestratorService,
     protected override fb: FormBuilder,
     protected override cdRef: ChangeDetectorRef,
-    protected router: Router,
-    protected ngZone: NgZone
+    protected router: Router
   ) {
     super(
       fb,

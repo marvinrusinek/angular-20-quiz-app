@@ -1,4 +1,4 @@
-import { Injectable, NgZone, OnDestroy, signal } from '@angular/core';
+import { Injectable, OnDestroy, signal } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { BehaviorSubject, Subject, Subscription, timer } from 'rxjs';
 import { finalize, map, takeUntil, tap } from 'rxjs/operators';
@@ -67,7 +67,6 @@ export class TimerService implements OnDestroy {
   private hasExpiredForRun = false;
 
   constructor(
-    private ngZone: NgZone,
     private quizService: QuizService,
     private selectedOptionService: SelectedOptionService
   ) {
@@ -215,10 +214,8 @@ export class TimerService implements OnDestroy {
     this.elapsedTime = 0;
     this.hasExpiredForRun = false;
 
-    // Show initial value immediately (inside Angular so UI updates right away)
-    this.ngZone.run(() => {
-      this.elapsedTimeSig.set(0);
-    });
+    // Show initial value immediately
+    this.elapsedTimeSig.set(0);
 
     // Start ticking after 1s so the initial value stays visible for a second
     const timer$ = timer(1000, 1000).pipe(
@@ -226,13 +223,8 @@ export class TimerService implements OnDestroy {
         // Tick starts at 0 after 1s → elapsed = tick + 1 (1,2,3,…)
         const elapsed = tick + 1;
 
-        // Internal state can be outside Angular
         this.elapsedTime = elapsed;
-
-        // Re-enter Angular so async pipes trigger change detection on every tick
-        this.ngZone.run(() => {
-          this.elapsedTimeSig.set(this.elapsedTime);
-        });
+        this.elapsedTimeSig.set(this.elapsedTime);
 
         // If reached the duration, emit expiration once (stop only for countdown)
         if (elapsed >= duration && !this.hasExpiredForRun) {
@@ -240,7 +232,7 @@ export class TimerService implements OnDestroy {
           console.log(
             `[TimerService] Time expired${isCountdown ? '. Stopping timer.' : '.'}`
           );
-          this.ngZone.run(() => this.expiredSubject.next());
+          this.expiredSubject.next();
           if (isCountdown) {
             this.stopTimer(undefined, { force: true });
           }
@@ -249,10 +241,7 @@ export class TimerService implements OnDestroy {
       takeUntil(this.isStop),
       finalize(() => {
         console.log('[TimerService] Timer finalized.');
-        // Reset running state when timer completes (inside Angular)
-        this.ngZone.run(() => {
-          this.isTimerRunning = false;
-        });
+        this.isTimerRunning = false;
       }),
     );
 

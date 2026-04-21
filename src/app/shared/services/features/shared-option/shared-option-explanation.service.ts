@@ -1,4 +1,4 @@
-import { Injectable, NgZone } from '@angular/core';
+import { Injectable } from '@angular/core';
 import { take } from 'rxjs/operators';
 
 import { Option } from '../../../models/Option.model';
@@ -37,8 +37,7 @@ export class SharedOptionExplanationService {
     private explanationTextService: ExplanationTextService,
     private quizService: QuizService,
     private quizStateService: QuizStateService,
-    private selectedOptionService: SelectedOptionService,
-    private ngZone: NgZone
+    private selectedOptionService: SelectedOptionService
   ) {}
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -386,46 +385,42 @@ export class SharedOptionExplanationService {
     displayIndex: number,
     explanationText: string
   ): void {
-    this.ngZone.runOutsideAngular(() => {
-      requestAnimationFrame(() => {
-        let latest: string | null = null;
+    requestAnimationFrame(() => {
+      let latest: string | null = null;
 
-        const subj = this.explanationTextService
-          .formattedExplanationSubject as any;
+      const subj = this.explanationTextService
+        .formattedExplanationSubject as any;
 
-        try {
-          if (typeof subj.getValue === 'function') {
-            latest = subj.getValue();
-          } else {
-            subj.pipe(take(1)).subscribe((val: string) => {
-              latest = val;
-            });
-          }
-        } catch {
-          latest = null;
-        }
-
-        if (this.pendingExplanationIndex !== displayIndex) {
-          return;
-        }
-
-        if (latest?.trim() === explanationText.trim()) {
-          this.clearPendingExplanation();
-          return;
-        }
-
-        this.ngZone.run(() => {
-          console.warn('[Re-applying explanation text after mismatch]', {
-            expected: explanationText,
-            latest,
-            displayIndex
+      try {
+        if (typeof subj.getValue === 'function') {
+          latest = subj.getValue();
+        } else {
+          subj.pipe(take(1)).subscribe((val: string) => {
+            latest = val;
           });
+        }
+      } catch {
+        latest = null;
+      }
 
-          this.explanationTextService.unlockExplanation();
-          this.applyExplanationText(explanationText, displayIndex);
-          this.clearPendingExplanation();
-        });
+      if (this.pendingExplanationIndex !== displayIndex) {
+        return;
+      }
+
+      if (latest?.trim() === explanationText.trim()) {
+        this.clearPendingExplanation();
+        return;
+      }
+
+      console.warn('[Re-applying explanation text after mismatch]', {
+        expected: explanationText,
+        latest,
+        displayIndex
       });
+
+      this.explanationTextService.unlockExplanation();
+      this.applyExplanationText(explanationText, displayIndex);
+      this.clearPendingExplanation();
     });
   }
 

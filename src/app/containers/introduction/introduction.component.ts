@@ -1,5 +1,5 @@
 import {
-  ChangeDetectionStrategy, ChangeDetectorRef, Component, NgZone, OnDestroy, OnInit,
+  ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit,
   signal, computed
 } from '@angular/core';
 import { CommonModule, NgOptimizedImage } from '@angular/common';
@@ -76,7 +76,6 @@ export class IntroductionComponent implements OnInit, OnDestroy {
     private activatedRoute: ActivatedRoute,
     private router: Router,
     private fb: FormBuilder,
-    private ngZone: NgZone,
     private cdRef: ChangeDetectorRef
   ) {
     // Initialize the form group with default values
@@ -367,9 +366,7 @@ export class IntroductionComponent implements OnInit, OnDestroy {
     // Fallback to direct router navigation
     try {
       // Router expects 1-based question in URL; index 0 ⇒ "/.../1"
-      const fallbackSucceeded = await this.ngZone.run(() =>
-        this.router.navigate(['/quiz/question', quizId, 1]),
-      );
+      const fallbackSucceeded = await this.router.navigate(['/quiz/question', quizId, 1]);
 
       if (!fallbackSucceeded) {
         console.error(

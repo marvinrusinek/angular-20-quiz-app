@@ -1,6 +1,6 @@
 import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component,
-  HostListener, NgZone, OnDestroy, OnInit, ViewChild, ViewEncapsulation
+  HostListener, OnDestroy, OnInit, ViewChild, ViewEncapsulation
 } from '@angular/core';
 import { CommonModule, AsyncPipe } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -181,7 +181,6 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     private quizSetupService: QuizSetupService,
     public activatedRoute: ActivatedRoute,
     private router: Router,
-    private ngZone: NgZone,
     public cdRef: ChangeDetectorRef
   ) {
     this.isAnswered$ = this.selectedOptionService.isAnswered$;
@@ -369,9 +368,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
       || this.activatedRoute.snapshot.paramMap.get('quizId')
       || '';
     if (quizId) {
-      this.ngZone.run(() => {
-        this.router.navigateByUrl(`/quiz/results/${quizId}`);
-      });
+      this.router.navigateByUrl(`/quiz/results/${quizId}`);
     }
   }
 

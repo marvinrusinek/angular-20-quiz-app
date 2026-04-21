@@ -1,4 +1,4 @@
-import { ApplicationRef, Injectable, NgZone } from '@angular/core';
+import { ApplicationRef, Injectable } from '@angular/core';
 
 import { Option } from '../../../models/Option.model';
 import { OptionBindings } from '../../../models/OptionBindings.model';
@@ -51,7 +51,6 @@ export class OptionInteractionService {
     private feedbackService: FeedbackService,
     private selectionMessageService: SelectionMessageService,
     private nextButtonStateService: NextButtonStateService,
-    private ngZone: NgZone,
     private appRef: ApplicationRef
   ) { }
 
