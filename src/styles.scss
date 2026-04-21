@@ -517,8 +517,10 @@ button.mat-mdc-menu-trigger {
     color: #006400 !important;
     background-color: #ffffff !important;
     border: none !important;
-    margin: 0 !important;
-    line-height: 1 !important;
+    line-height: normal !important;
+    margin-top: 10px !important;
+    display: block !important;
+    overflow: hidden !important;
   }
 
   // Scoreboard badge ("Q1 of 6")
