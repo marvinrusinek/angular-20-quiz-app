@@ -1678,6 +1678,17 @@ export class CqcOrchestratorService {
               }
             }
 
+            // BANNER PRESERVATION: when the pipeline emits raw question
+            // text (e.g. after visibility-restore combineLatest re-fire),
+            // enrich it with the correct-count banner so multi-answer
+            // questions keep showing "Please select N answers" after tab switch.
+            if (isQuestionText) {
+              const enriched = this.buildQuestionDisplayHTML(host, currentIdx);
+              if (enriched) {
+                finalText = enriched;
+              }
+            }
+
             this.writeQText(host, finalText);
             console.log(`[subscribeToDisplayText] ✅ Updated innerHTML via signal+Renderer2: "${finalText?.substring(0, 50)}..."`);
           } else {
