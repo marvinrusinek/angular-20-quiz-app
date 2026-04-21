@@ -26,11 +26,6 @@ mat-toolbar {
   margin-left: -30px;
 }
 
-:host-context([data-theme="dark"]) {
-  .scoreboard-score .scoreboard {
-    color: #b8a9e8 !important;
-  }
-}
 mat-toolbar:hover {
   background-color: var(--bg-card, vars.$white) !important;
 }

@@ -48,8 +48,3 @@
   border: none !important;
 }
 
-:host-context([data-theme="dark"]) {
-  .scoreboard-timer .scoreboard {
-    color: #b8a9e8 !important;
-  }
-}

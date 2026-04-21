@@ -86,7 +86,7 @@
   --border-option: #6a6d75;
   --text-option: #eaeaea;
   --text-scoreboard-badge: #87ceeb;
-  --text-scoreboard-timer: #87ceeb;
+  --text-scoreboard-timer: #006400;
 }
 
 /* ─────────────────────────────────────────────
@@ -514,7 +514,11 @@ button.mat-mdc-menu-trigger {
 
   // Scoreboard score/timer value text
   span.scoreboard {
-    color: #87ceeb !important;
+    color: #006400 !important;
+    background-color: #ffffff !important;
+    border: none !important;
+    margin: 0 !important;
+    line-height: 1 !important;
   }
 
   // Scoreboard badge ("Q1 of 6")
