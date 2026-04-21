@@ -85,8 +85,8 @@
   --bg-option: #484b55;
   --border-option: #6a6d75;
   --text-option: #eaeaea;
-  --text-scoreboard-badge: #81e081;
-  --text-scoreboard-timer: #81e081;
+  --text-scoreboard-badge: #87ceeb;
+  --text-scoreboard-timer: #87ceeb;
 }
 
 /* ─────────────────────────────────────────────
@@ -508,18 +508,18 @@ button.mat-mdc-menu-trigger {
 
   // Scoreboard "Score" / "Timer" label
   .leader {
-    background-color: #2e5e3a !important;
-    color: #c8f7c8 !important;
+    background-color: #1a3a5c !important;
+    color: #87ceeb !important;
   }
 
   // Scoreboard score/timer value text
   span.scoreboard {
-    color: #7ed87e !important;
+    color: #87ceeb !important;
   }
 
   // Scoreboard badge ("Q1 of 6")
   .scoreboard__badge {
-    color: #7ed87e !important;
+    color: #87ceeb !important;
   }
 
   // Feedback correct/wrong messages
