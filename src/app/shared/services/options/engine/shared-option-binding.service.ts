@@ -204,12 +204,12 @@ export class SharedOptionBindingService {
     const correctTexts = new Set<string>();
     const correctIds = new Set<number>();
     if (comp.currentQuestion && Array.isArray(comp.currentQuestion.answer)) {
-      comp.currentQuestion.answer.forEach((a: any) => {
-        if (!a) return;
+      for (const a of comp.currentQuestion.answer) {
+        if (!a) continue;
         if (a.text) correctTexts.add(a.text.trim().toLowerCase());
         const id = Number(a.optionId);
         if (!isNaN(id)) correctIds.add(id);
-      });
+      }
     }
 
     comp.optionsToDisplay = localOpts.map((opt: any, i: number) => {
@@ -438,7 +438,7 @@ export class SharedOptionBindingService {
 
       // Universal clean-slate
       if (comp.optionBindings?.length) {
-        comp.optionBindings.forEach((b: any) => {
+        for (const b of comp.optionBindings) {
           b.isSelected = false;
           b.checked = false;
           if (b.option) {
@@ -446,14 +446,14 @@ export class SharedOptionBindingService {
             b.option.highlight = false;
             b.option.showIcon = false;
           }
-        });
+        }
       }
       if (comp.optionsToDisplay?.length) {
-        comp.optionsToDisplay.forEach((opt: any) => {
+        for (const opt of comp.optionsToDisplay) {
           opt.selected = false;
           opt.highlight = false;
           opt.showIcon = false;
-        });
+        }
       }
       comp.cdRef?.markForCheck?.();
 
@@ -538,7 +538,7 @@ export class SharedOptionBindingService {
 
       // Restored optionsToDisplay loop
       if (comp.optionsToDisplay?.length) {
-        comp.optionsToDisplay.forEach((opt: any, idx: number) => {
+        for (const [idx, opt] of comp.optionsToDisplay.entries()) {
           let match = savedByIndex.get(idx);
           if (match && opt) {
             opt.selected = !!match.selected;
@@ -557,11 +557,11 @@ export class SharedOptionBindingService {
             // before the visual-update pass stamps showIcon on the binding).
             opt.showIcon = isPreviouslyClicked ? !!match.showIcon : !!match.selected;
           }
-        });
+        }
       }
 
       if (comp.optionBindings?.length) {
-        comp.optionBindings.forEach((b: any, idx: number) => {
+        for (const [idx, b] of comp.optionBindings.entries()) {
           let match = savedByIndex.get(idx);
           if (match) {
             b.isSelected = !!match.selected;
@@ -579,7 +579,7 @@ export class SharedOptionBindingService {
           }
           b.disabled = comp.computeDisabledState(b.option, idx);
           b.showFeedback = true;
-        });
+        }
       }
 
       if (saved.length > 0) {

@@ -291,17 +291,17 @@ export class SelectionMessageService {
 
   private ensureStableIds(index: number, canonical: Option[], uiSnapshot: any[]): void {
     let fwd = this._idMapByIndex.get(index) ?? new Map<string, string | number>();
-    canonical.forEach((c, i) => {
+    for (const [i, c] of canonical.entries()) {
       const id = c.optionId ?? (c as any).id ?? `q${index}o${i}`;
       c.optionId = id;
       fwd.set(this.stableKey(c, i), id);
       fwd.set(`ix:${i}`, id);
-    });
+    }
     this._idMapByIndex.set(index, fwd);
-    uiSnapshot.forEach((o, i) => {
+    for (const [i, o] of uiSnapshot.entries()) {
       const id = fwd.get(this.stableKey(o as Option, i)) ?? fwd.get(`ix:${i}`);
       if (id != null) (o as any).optionId = id;
-    });
+    }
   }
 
   public stableKey(opt: Option, idx?: number): string {
@@ -360,9 +360,13 @@ export class SelectionMessageService {
     const keys = new Set<string | number>();
     if (!rawSel) return keys;
     if (rawSel instanceof Set) {
-      rawSel.forEach(s => keys.add(s?.optionId ?? s));
+      for (const s of rawSel) {
+        keys.add(s?.optionId ?? s);
+      }
     } else if (Array.isArray(rawSel)) {
-      rawSel.forEach(o => keys.add(keyFn(o)));
+      for (const o of rawSel) {
+        keys.add(keyFn(o));
+      }
     }
     return keys;
   }

@@ -154,11 +154,11 @@ export class QuizPersistenceService {
   /** Clear clickConfirmedDotStatus map AND its sessionStorage backing. */
   clearClickConfirmedDotStatus(totalQuestions: number): void {
     // Clear sessionStorage entries before clearing the map
-    this.selectedOptionService.clickConfirmedDotStatus.forEach((_val, key) => {
+    for (const [key] of this.selectedOptionService.clickConfirmedDotStatus) {
       try {
         sessionStorage.removeItem('dot_confirmed_' + key);
       } catch {}
-    });
+    }
     // Also sweep any orphaned session keys (up to totalQuestions)
     const total = totalQuestions || 20;
     for (let i = 0; i < total; i++) {

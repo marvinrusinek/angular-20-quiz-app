@@ -429,21 +429,21 @@ export class CqcOrchestratorService {
                 'codelab-option-item, .option-row, [data-option-text], .option-item'
               )
               : ([] as any);
-            rows.forEach((row: any) => {
-              const cls = String(row?.className ?? '');
+            for (const row of rows) {
+              const cls = String((row as any)?.className ?? '');
               const isHighlighted = cls.includes('selected')
                 || cls.includes('highlight')
-                || row?.querySelector?.('.selected, .highlight, mat-icon') != null;
-              if (!isHighlighted) return;
+                || (row as any)?.querySelector?.('.selected, .highlight, mat-icon') != null;
+              if (!isHighlighted) continue;
               const txt = norm(
-                row?.getAttribute?.('data-option-text')
+                (row as any)?.getAttribute?.('data-option-text')
                 ?? row?.textContent
                 ?? ''
               );
               for (const pt of pristineCorrectTexts) {
                 if (txt.includes(pt)) selectedTexts.add(pt);
               }
-            });
+            }
           } catch { /* ignore */ }
 
 
@@ -2035,10 +2035,10 @@ export class CqcOrchestratorService {
         (host.quizService.questions$ as unknown as Subject<QuizQuestion[]>).next(questions);
       }
 
-      questions.forEach((_: any, index: number) => {
+      for (const [index] of questions.entries()) {
         const explanation = host.explanationTexts[index] ?? 'No explanation available';
         host.explanationTextService.setExplanationTextForQuestionIndex(index, explanation);
-      });
+      }
 
       host.explanationTextService.explanationsInitialized = true;
 

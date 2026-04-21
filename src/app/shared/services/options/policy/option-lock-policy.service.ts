@@ -38,10 +38,10 @@ export class OptionLockPolicyService {
       });
       if (!matchedQ) return new Set<number>();
       const set = new Set<number>();
-      (matchedQ.options ?? []).forEach((o: any, i: number) => {
+      for (const [i, o] of (matchedQ.options ?? []).entries()) {
         const c = o?.correct ?? o?.isCorrect;
         if (c === true || String(c) === 'true' || c === 1 || c === '1') set.add(i);
-      });
+      }
       return set;
     } catch {
       return new Set<number>();
@@ -105,10 +105,10 @@ export class OptionLockPolicyService {
     // quizService.questions[].options[]. Mutating it corrupts the live
     // data and makes multi-answer guards think the question is single-answer.
     if (canonicalCorrectIdxs.size > 0) {
-      bindings.forEach((b, i) => {
+      for (const [i, b] of bindings.entries()) {
         const isC = canonicalCorrectIdxs.has(i);
         b.isCorrect = isC;
-      });
+      }
     }
 
     const hasCorrectSelection = bindings.some(

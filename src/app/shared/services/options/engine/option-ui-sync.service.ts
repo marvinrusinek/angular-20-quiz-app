@@ -132,7 +132,7 @@ export class OptionUiSyncService {
       } catch { /* ignore */ }
       const historySet = new Set(ctx.selectedOptionHistory);
 
-      ctx.optionBindings.forEach((b, i) => {
+      for (const [i, b] of ctx.optionBindings.entries()) {
         const isCurrent = (i === index);
         const inHistory = historySet.has(i);
         b.isSelected = isCurrent;
@@ -144,7 +144,7 @@ export class OptionUiSyncService {
         b.highlightCorrect = false;
         b.highlightIncorrect = false;
         b.showFeedback = isCurrent;
-      });
+      }
       ctx.selectedOptionMap.clear();
       ctx.feedbackConfigs = {};
     }
@@ -238,14 +238,14 @@ export class OptionUiSyncService {
 
     // AUTHORITATIVE SYNC: Update SelectedOptionService with the locking results
     const qIdx = ctx.getActiveQuestionIndex();
-    ctx.optionBindings.forEach((b, i) => {
+    for (const [i, b] of ctx.optionBindings.entries()) {
       const lockId = (b.option?.optionId != null && String(b.option.optionId) !== '-1') ? b.option.optionId : i;
       if (b.disabled) {
         this.selectedOptionService.lockOption(qIdx, lockId);
       } else {
         this.selectedOptionService.unlockOption(qIdx, lockId);
       }
-    });
+    }
 
     if (ctx.type === 'single') {
       this.optionSelectionPolicyService.enforceSingleSelection({
@@ -374,13 +374,13 @@ export class OptionUiSyncService {
       // falls back to the array index, which can collide with another
       // binding's real optionId. Build a set of real IDs to detect this.
       const realIdOwnerForSelect = new Map<number | string, number>();
-      ctx.optionBindings.forEach((b, idx) => {
+      for (const [idx, b] of ctx.optionBindings.entries()) {
         const id = b.option?.optionId;
         if (id != null && id !== -1) {
           realIdOwnerForSelect.set(id, idx);
         }
-      });
-      ctx.optionBindings.forEach((b, idx) => {
+      }
+      for (const [idx, b] of ctx.optionBindings.entries()) {
         const bEffId = getEffectiveId(b.option, idx);
         if (ctx.selectedOptionMap.has(bEffId) && !seenIndices.has(idx)) {
           // Reject false-positive: fallback index collides with another binding's real optionId
@@ -388,7 +388,7 @@ export class OptionUiSyncService {
           if (!hasRealId) {
             const owner = realIdOwnerForSelect.get(bEffId);
             if (owner !== undefined && owner !== idx) {
-              return; // skip — this binding doesn't actually match the map entry
+              continue; // skip — this binding doesn't actually match the map entry
             }
           }
           fullSelections.push({
@@ -401,7 +401,7 @@ export class OptionUiSyncService {
           });
           seenIndices.add(idx);
         }
-      });
+      }
 
       // Selection: Store the COMPLETE set in service
       this.selectedOptionService.setSelectedOptionsForQuestion(currentIndex, fullSelections);
@@ -510,19 +510,19 @@ export class OptionUiSyncService {
   ): void {
     const history = new Set(ctx.selectedOptionHistory || []);
 
-    ctx.optionBindings.forEach((b, idx) => {
+    for (const [idx, b] of ctx.optionBindings.entries()) {
       const isSelected = (idx === selectedIndex);
       const inHistory = history.has(idx);
 
       b.isSelected = isSelected;
       b.option.selected = isSelected;
-      
+
       b.option.highlight = isSelected || inHistory;
       b.option.showIcon = isSelected || inHistory;
 
       // Force directive update
       b.directiveInstance?.updateHighlight();
-    });
+    }
   }
 
   private trackVisited(effectiveId: number | undefined, ctx: OptionUiSyncContext): boolean {
@@ -575,10 +575,10 @@ export class OptionUiSyncService {
     // correct indices and selected indices to guarantee index consistency.
     const correctIndicesSet = new Set<number>();
     const futureIndices = new Set<number>();
-    ctx.optionBindings.forEach((b, i) => {
+    for (const [i, b] of ctx.optionBindings.entries()) {
       if (isCorrectHelper(b.option)) correctIndicesSet.add(i);
       if (b.isSelected) futureIndices.add(i);
-    });
+    }
 
     const allCorrectFound = correctIndicesSet.size > 0 && [...correctIndicesSet].every(i => futureIndices.has(i));
     const numIncorrectInFuture = [...futureIndices].filter(i => !correctIndicesSet.has(i)).length;

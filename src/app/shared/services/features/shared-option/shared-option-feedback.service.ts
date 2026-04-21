@@ -206,9 +206,9 @@ export class SharedOptionFeedbackService {
 
       // Count correct options
       const correctIndices: number[] = [];
-      displayOpts.forEach((o, i) => {
+      for (const [i, o] of displayOpts.entries()) {
         if (isCorrectFlag(o)) correctIndices.push(i);
-      });
+      }
       const correctCount = correctIndices.length;
 
       // Check selection using MULTIPLE sources: any match = selected
@@ -230,11 +230,11 @@ export class SharedOptionFeedbackService {
 
       let correctSelectedCount = 0;
       let incorrectSelectedCount = 0;
-      displayOpts.forEach((o, i) => {
+      for (const [i, o] of displayOpts.entries()) {
         const selected = isOptSelected(o, i);
         if (isCorrectFlag(o) && selected) correctSelectedCount++;
         if (!isCorrectFlag(o) && selected) incorrectSelectedCount++;
-      });
+      }
 
       console.log(`[SOC.override] Q${(ctx.activeQuestionIndex ?? 0) + 1} | correctCount=${correctCount} correctSelected=${correctSelectedCount} incorrectSelected=${incorrectSelectedCount} selectedOptionsSet=[${Array.from(ctx.selectedOptions)}] selectedIndex=${selectedIndex}`);
 
@@ -373,7 +373,7 @@ export class SharedOptionFeedbackService {
     // This ensures that if the latest click solves the question, any previous "Select 1 more"
     // blocks also update to "You're right!" for consistency.
     if (ctx.optionBindings) {
-      ctx.optionBindings.forEach((b, i) => {
+      for (const [i, b] of ctx.optionBindings.entries()) {
         const id = (b.option?.optionId != null && b.option.optionId > -1) ? b.option.optionId : i;
         if (showFeedbackForOption[id] === true && id !== effectiveId && String(id) !== String(effectiveId)) {
           const hydrated = ctx.optionsToDisplay?.[i];
@@ -393,7 +393,7 @@ export class SharedOptionFeedbackService {
             feedbackConfigs[bKey] = updatedCfg;
           }
         }
-      });
+      }
     }
 
     // Update the answered state in the service

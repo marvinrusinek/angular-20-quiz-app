@@ -738,9 +738,9 @@ export class QqcQuestionLoaderService {
     const optionsToDisplay = this.buildFreshOptions(params.potentialQuestion, params.currentQuestionIndex);
 
     console.group(`[QQC TRACE] Fresh options for Q${params.currentQuestionIndex}`);
-    optionsToDisplay.forEach((o, j) =>
-      console.log(`Opt${j}:`, o.text, '| id:', o.optionId, '| ref:', o)
-    );
+    for (const [j, o] of optionsToDisplay.entries()) {
+      console.log(`Opt${j}:`, o.text, '| id:', o.optionId, '| ref:', o);
+    }
     console.groupEnd();
 
     // 4️⃣ Verify no shared references

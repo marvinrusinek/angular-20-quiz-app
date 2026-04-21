@@ -77,7 +77,9 @@ export class QqcComponentOrchestratorService {
       onRenderReset: () => { host.renderReady = false; },
       onResetUIForNewQuestion: () => host.resetUIForNewQuestion(),
     });
-    navSubs.forEach((sub: Subscription) => host.displaySubscriptions.push(sub));
+    for (const sub of navSubs) {
+      host.displaySubscriptions.push(sub);
+    }
 
     host.subscriptionWiring.createPreResetSubscription({
       destroy$: host.destroy$,
@@ -1416,7 +1418,9 @@ export class QqcComponentOrchestratorService {
   runHandlePageVisibilityChange(host: Host, isHidden: boolean): void {
     const action = host.navigationHandler.computeVisibilityAction(isHidden);
     if (action.shouldClearSubscriptions) {
-      host.displaySubscriptions?.forEach((sub: Subscription) => sub.unsubscribe());
+      for (const sub of (host.displaySubscriptions ?? [])) {
+        sub.unsubscribe();
+      }
       host.displaySubscriptions = [];
       const cleanup = host.navigationHandler.computeDisplaySubscriptionCleanup();
       host.explanationToDisplay.set(cleanup.explanationToDisplay);

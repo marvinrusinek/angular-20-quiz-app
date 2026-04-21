@@ -172,20 +172,20 @@ export class QqcDisplayStateManagerService {
 
     if (needsSwap) {
       // Clear previous highlight / form flags before we clone
-      params.newOptions.forEach((o: Option) => {
+      for (const o of params.newOptions) {
         o.selected = false;
         o.highlight = false;
         o.showIcon = false;
-      });
+      }
 
       // Rebuild the reactive form
       const formGroup = new FormGroup({});
-      params.newOptions.forEach((o: Option) =>
+      for (const o of params.newOptions) {
         formGroup.addControl(
           `opt_${o.optionId}`,
           new FormControl(false)
-        )
-      );
+        );
+      }
 
       return {
         needsSwap: true,

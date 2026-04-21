@@ -131,10 +131,12 @@ export class QqcTimerEffectService {
         .filter((opt): opt is Option => !!opt);
     }
 
-    (context.optionsToDisplay ?? []).forEach((opt, idx) => harvestOptionKeys(opt, idx));
-    (context.sharedOptionBindings ?? []).forEach((binding, idx) =>
-      harvestOptionKeys(binding?.option, idx)
-    );
+    for (const [idx, opt] of (context.optionsToDisplay ?? []).entries()) {
+      harvestOptionKeys(opt, idx);
+    }
+    for (const [idx, binding] of (context.sharedOptionBindings ?? []).entries()) {
+      harvestOptionKeys(binding?.option, idx);
+    }
 
     return { canonicalOpts, lockKeys };
   }

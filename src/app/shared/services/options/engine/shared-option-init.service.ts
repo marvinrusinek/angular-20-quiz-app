@@ -206,19 +206,19 @@ export class SharedOptionInitService {
       const keys = new Set<string>();
 
       if (correctFromDisplay.length > 0) {
-        displayOptions.forEach((option, index) => {
+        for (const [index, option] of displayOptions.entries()) {
           if (option?.correct) {
             keys.add(comp.keyOf(option, index));
           }
-        });
+        }
       } else if (correctOptions.length > 0) {
-        correctOptions.forEach((correctOption, fallbackIndex) => {
+        for (const [fallbackIndex, correctOption] of correctOptions.entries()) {
           const displayIndex = displayOptions.findIndex((option) =>
             option?.optionId != null && option.optionId === correctOption.optionId
           );
           if (displayIndex >= 0) {
             keys.add(comp.keyOf(displayOptions[displayIndex], displayIndex));
-            return;
+            continue;
           }
 
           const textMatchIndex = displayOptions.findIndex((option) =>
@@ -226,11 +226,11 @@ export class SharedOptionInitService {
           );
           if (textMatchIndex >= 0) {
             keys.add(comp.keyOf(displayOptions[textMatchIndex], textMatchIndex));
-            return;
+            continue;
           }
 
           keys.add(comp.keyOf(correctOption, fallbackIndex));
-        });
+        }
       }
 
       comp.timeoutCorrectOptionKeys = keys;

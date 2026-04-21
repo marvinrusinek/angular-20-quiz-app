@@ -879,8 +879,9 @@ export class QuizContentLoaderService {
         try {
           const ids = JSON.parse(storedSel);
           if (Array.isArray(ids) && ids.length > 0) {
-            ids.forEach((id: any) =>
-              this.selectedOptionService.addSelectedOptionIndex(questionIndex, id));
+            for (const id of ids) {
+              this.selectedOptionService.addSelectedOptionIndex(questionIndex, id);
+            }
             this.selectedOptionService.updateAnsweredState(
               this.selectedOptionService.getSelectedOptionsForQuestion(questionIndex),
               questionIndex

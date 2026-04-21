@@ -310,7 +310,7 @@ export class OptionInteractionService {
 
     console.log(`[OIS] Q${qIdx + 1}: Resulting futureSelection.length=${futureSelection.length}`);
     const futureKeys = new Set<number>();
-    futureSelection.forEach(s => {
+    for (const s of futureSelection) {
       const sId = (s as any).optionId;
       const sText = (s as any).text?.trim().toLowerCase();
       let idx = (s as any).displayIndex ?? (s as any).index ?? (s as any).idx;
@@ -337,14 +337,14 @@ export class OptionInteractionService {
       if (idx !== undefined && idx !== null && idx !== -1 && !isNaN(Number(idx))) {
         futureKeys.add(Number(idx));
       }
-    });
+    }
 
     state.selectedOptionMap.clear();
-    futureKeys.forEach(k => {
+    for (const k of futureKeys) {
       const b = state.optionBindings[k];
       const eid = b ? getEffectiveId(b.option, k) : k;
       state.selectedOptionMap.set(eid, true);
-    });
+    }
 
     // Normalize displayIndex on EVERY futureSelection entry (not just the
     // freshly-clicked one). Pre-existing entries in simulatedSelection can
@@ -410,11 +410,11 @@ export class OptionInteractionService {
                 .map((o: any) => nrm(o?.text))
                 .filter((t: string) => !!t)
             );
-            questionOptions.forEach((o: any, i: number) => {
-              if (pristineCorrectTexts.has(nrm(o?.text))) {
+            for (const [i, o] of questionOptions.entries()) {
+              if (pristineCorrectTexts.has(nrm((o as any)?.text))) {
                 correctIndicesSet.add(i);
               }
-            });
+            }
             break;
           }
           if (correctIndicesSet.size > 0) break;
@@ -424,9 +424,9 @@ export class OptionInteractionService {
 
     // Fallback: use questionOptions directly (may have stale flags but better than nothing)
     if (correctIndicesSet.size === 0) {
-      questionOptions.forEach((o, i) => {
+      for (const [i, o] of questionOptions.entries()) {
         if (isCorrectHelper(o)) correctIndicesSet.add(i);
-      });
+      }
     }
 
     // Fallback: cross-reference raw _questions
@@ -438,11 +438,11 @@ export class OptionInteractionService {
           const rawCorrectTexts = new Set<string>(
             (rq.options ?? []).filter((o: any) => isCorrectHelper(o)).map((o: any) => (o.text ?? '').trim().toLowerCase())
           );
-          questionOptions.forEach((o: any, i: number) => {
-            if (rawCorrectTexts.has((o.text ?? '').trim().toLowerCase())) {
+          for (const [i, o] of questionOptions.entries()) {
+            if (rawCorrectTexts.has(((o as any).text ?? '').trim().toLowerCase())) {
               correctIndicesSet.add(i);
             }
-          });
+          }
           console.log(`[OIS] Fallback correct indices from raw _questions: [${[...correctIndicesSet]}]`);
           break;
         }
@@ -451,9 +451,9 @@ export class OptionInteractionService {
 
     // Also try bindings as a source of correct info
     if (correctIndicesSet.size === 0) {
-      state.optionBindings.forEach((b, i) => {
+      for (const [i, b] of state.optionBindings.entries()) {
         if (b.isCorrect || isCorrectHelper(b.option)) correctIndicesSet.add(i);
-      });
+      }
       if (correctIndicesSet.size > 0) {
         console.log(`[OIS] Fallback correct indices from bindings: [${[...correctIndicesSet]}]`);
       }
@@ -543,7 +543,7 @@ export class OptionInteractionService {
       } catch { /* ignore */ }
 
       console.log(`[OIS] SINGLE-ANSWER BINDING LOOP Q${qIdx + 1}: clickedIndex=${index} historySet=[${[...historySet]}]`);
-      state.optionBindings.forEach((b, i) => {
+      for (const [i, b] of state.optionBindings.entries()) {
         const isCurrent = (i === index);
         const wasPreviouslyClicked = historySet.has(i);
         // Radio state: only current
@@ -558,7 +558,7 @@ export class OptionInteractionService {
         b.highlightIncorrect = false;
         b.showFeedback = isCurrent;
         console.log(`[OIS]   binding[${i}]: isCurrent=${isCurrent} wasPrev=${wasPreviouslyClicked} isSelected=${b.isSelected} highlight=${b.option?.highlight} text="${(b.option?.text || '').substring(0, 30)}"`);
-      });
+      }
       state.selectedOptionMap.clear();
       state.selectedOptionMap.set(targetKey, true);
       console.log(`[OIS] selectedOptionMap after clear+set: keys=[${[...state.selectedOptionMap.keys()]}]`);
@@ -566,7 +566,7 @@ export class OptionInteractionService {
     } else { // Multiple mode: two-pass update to ensure correct results regardless of binding order
       // Pass 1: Sync 'selected' state for all bindings AND optionsToDisplay based on futureKeys.
       // Binding options are structuredClone'd copies of optionsToDisplay, so both must be updated.
-      state.optionBindings.forEach((b, i) => {
+      for (const [i, b] of state.optionBindings.entries()) {
         const isCurrentlySelected = futureKeys.has(i);
         b.isSelected = isCurrentlySelected;
         if (b.option) {
@@ -575,11 +575,11 @@ export class OptionInteractionService {
         if (state.optionsToDisplay?.[i]) {
           state.optionsToDisplay[i].selected = isCurrentlySelected;
         }
-      });
+      }
 
       // Pass 2: Calculate 'highlight' and 'showIcon' based on the updated state
-      state.optionBindings.forEach((b, i) => {
-        if (!b.option) return;
+      for (const [i, b] of state.optionBindings.entries()) {
+        if (!b.option) continue;
         const isCurrentlySelected = b.isSelected;
         b.option.highlight = isCurrentlySelected;
         b.option.showIcon = isCurrentlySelected;
@@ -587,7 +587,7 @@ export class OptionInteractionService {
           state.optionsToDisplay[i].highlight = isCurrentlySelected;
           state.optionsToDisplay[i].showIcon = isCurrentlySelected;
         }
-      });
+      }
     }
 
     // Detect shuffle mode early — needed for timer and scoring gates

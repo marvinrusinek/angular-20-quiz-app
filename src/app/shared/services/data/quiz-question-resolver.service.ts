@@ -245,8 +245,8 @@ export class QuizQuestionResolverService {
     // Phase 2: Build authoritative 'answer' array
     const finalAnswers: Option[] = [];
     if (Array.isArray(deepClone.answer)) {
-      deepClone.answer.forEach(rawAns => {
-        if (!rawAns) return;
+      for (const rawAns of deepClone.answer) {
+        if (!rawAns) continue;
         const normAnsText = normalize(rawAns.text);
         const ansId = Number(rawAns.optionId);
 
@@ -264,12 +264,12 @@ export class QuizQuestionResolverService {
             correct: true
           });
         }
-      });
+      }
     }
 
     // Fallback Phase 2
     if (finalAnswers.length === 0) {
-      normalizedOptions.forEach(o => {
+      for (const o of normalizedOptions) {
         if (o.correct === true || (o as any).correct === "true") {
           finalAnswers.push({
             optionId: o.optionId,
@@ -277,7 +277,7 @@ export class QuizQuestionResolverService {
             correct: true
           } as Option);
         }
-      });
+      }
     }
 
     // Phase 3: Synchronize 'correct' flag

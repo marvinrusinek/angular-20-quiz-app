@@ -529,22 +529,22 @@ export class SharedOptionExplanationService {
     const correctTexts = new Set<string>();
 
     if (Array.isArray(authQ.answer)) {
-      authQ.answer.forEach(a => {
-        if (!a) return;
+      for (const a of authQ.answer) {
+        if (!a) continue;
         const id = Number(a.optionId);
         if (!isNaN(id)) correctIds.add(id);
         const t = this.normalize(a.text);
         if (t) correctTexts.add(t);
-      });
+      }
     }
     if (correctIds.size === 0 && Array.isArray(authQ.options)) {
-      authQ.options.forEach(o => {
-        if (!o || !o.correct) return;
+      for (const o of authQ.options) {
+        if (!o || !o.correct) continue;
         const id = Number(o.optionId);
         if (!isNaN(id)) correctIds.add(id);
         const t = this.normalize(o.text);
         if (t) correctTexts.add(t);
-      });
+      }
     }
 
     // 4. Calculate indices based on VISUAL POSITIONS

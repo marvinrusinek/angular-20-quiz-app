@@ -105,9 +105,9 @@ export class FeedbackService {
     // Compute correctIndices DIRECTLY from canonical question's correct flags.
     let correctIndices: number[] = [];
     const canonicalOpts: Option[] = (resolvedQuestion?.options ?? []) as Option[];
-    canonicalOpts.forEach((o, i) => {
+    for (const [i, o] of canonicalOpts.entries()) {
       if (isCorrectFlag(o)) correctIndices.push(i + 1);
-    });
+    }
     if (correctIndices.length === 0) {
       correctIndices = this.explanationTextService.getCorrectOptionIndices(
         resolvedQuestion,
@@ -193,13 +193,13 @@ if ((!correctIndices || correctIndices.length === 0) && quizSvc) {
     let numIncorrectSelected = 0;
 
     const normalizedSelected = new Map<string, any>();
-    selectedArr.forEach(sel => {
+    for (const sel of selectedArr) {
       const id = sel.optionId != null ? String(sel.optionId) : sel.text;
       if (id) normalizedSelected.set(id, sel);
-    });
+    }
     const dedupedSelected = Array.from(normalizedSelected.values());
 
-    dedupedSelected.forEach(sel => {
+    for (const sel of dedupedSelected) {
       let visualIdx = sel.displayIndex;
       if (visualIdx === undefined || visualIdx < 0) {
         visualIdx = optionsRaw.findIndex((o: Option) =>
@@ -209,7 +209,7 @@ if ((!correctIndices || correctIndices.length === 0) && quizSvc) {
         );
       }
 
-      // ROBUST EVALUATION: 
+      // ROBUST EVALUATION:
       // An option is correct if its 'correct' flag is true OR if its visual position matches a correct index.
       const isCorrect = isCorrectHelper(sel) ||
         (visualIdx >= 0 && correctIndices.includes(visualIdx + 1));
@@ -219,7 +219,7 @@ if ((!correctIndices || correctIndices.length === 0) && quizSvc) {
       } else {
         numIncorrectSelected++;
       }
-    });
+    }
 
     // CROSS-CHECK: Count correct/incorrect selections directly from optionsRaw (optionsToDisplay).
     // This handles cases where the `selected` parameter is incomplete due to timing/ID issues.
@@ -384,9 +384,9 @@ if ((!correctIndices || correctIndices.length === 0) && quizSvc) {
       }
     } catch {}
     const directFromCanonical: number[] = [];
-    (canonicalQ?.options ?? []).forEach((o, i) => {
+    for (const [i, o] of (canonicalQ?.options ?? []).entries()) {
       if (isCorrectFlagSCM(o)) directFromCanonical.push(i + 1);
-    });
+    }
 const indices = directFromCanonical.length > 0
       ? directFromCanonical
       : this.explanationTextService.getCorrectOptionIndices(question!, optionsToDisplay, typeof currentIndex === 'number' ? currentIndex : undefined);

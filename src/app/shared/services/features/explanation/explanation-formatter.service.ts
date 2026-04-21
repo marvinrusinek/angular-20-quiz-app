@@ -44,7 +44,9 @@ export class ExplanationFormatterService {
   }
 
   initializeExplanationTexts(explanationTexts: Record<number, string>, explanations: string[]): void {
-    Object.keys(explanationTexts).forEach(k => delete explanationTexts[Number(k)]);
+    for (const k of Object.keys(explanationTexts)) {
+      delete explanationTexts[Number(k)];
+    }
     this.formattedExplanationByQuestionText.clear();
 
     for (const [index, explanation] of explanations.entries()) {
@@ -511,7 +513,9 @@ export class ExplanationFormatterService {
     }
 
     console.error(`🔴🔴🔴 [getCorrectOptionIndices] Q${(qIdx ?? 0) + 1} | OPTS COUNT: ${opts.length}`);
-    opts.forEach((o, i) => console.error(`   - Opt ${i + 1}: ID=${o.optionId}, CORRECT=${o.correct}, TEXT="${o.text?.slice(0, 30)}..."`));
+    for (const [i, o] of opts.entries()) {
+      console.error(`   - Opt ${i + 1}: ID=${o.optionId}, CORRECT=${o.correct}, TEXT="${o.text?.slice(0, 30)}..."`);
+    }
 
     // 1. TRUST THE VISUAL OPTIONS FIRST
     // The user sees these on screen. If one is marked `correct: true` (Green),
@@ -577,7 +581,7 @@ export class ExplanationFormatterService {
 
             if (correctPristine.length > 0) {
               console.log(`[ETS] 🎯 Correct Answer(s) for Q${qIdx + 1}:`, correctPristine.map(a => a?.text));
-              correctPristine.forEach(a => {
+              for (const a of correctPristine) {
                 if (a) {
                   const norm = normalizeLocal(a.text);
                   if (norm) correctTexts.add(norm);
@@ -586,7 +590,7 @@ export class ExplanationFormatterService {
                     correctIds.add(Number(a.optionId));
                   }
                 }
-              });
+              }
               console.log(`[ETS] ✅ Attempt 1 (PRISTINE) SUCCESS for Q${qIdx + 1}. Correct Texts:`, [...correctTexts]);
             } else {
               console.warn(`[ETS] Attempt 1: Pristine question ${origIdx} has NO correct answers!`);
@@ -602,7 +606,7 @@ export class ExplanationFormatterService {
     if (correctTexts.size === 0 && correctIds.size === 0) {
       const answers = question?.answer || [];
       if (Array.isArray(answers) && answers.length > 0) {
-        answers.forEach(a => {
+        for (const a of answers) {
           if (a) {
             const norm = normalizeLocal(a.text);
             if (norm) correctTexts.add(norm);
@@ -611,7 +615,7 @@ export class ExplanationFormatterService {
               correctIds.add(Number(a.optionId));
             }
           }
-        });
+        }
         console.log(`[ETS] ✅ Attempt 2 (question.answer) SUCCESS. IDs:`, [...correctIds], `Texts:`, [...correctTexts]);
       }
     }
