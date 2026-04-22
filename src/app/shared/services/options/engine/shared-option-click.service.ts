@@ -429,6 +429,15 @@ export class SharedOptionClickService {
         clickState.remaining, comp.optionBindings.length, effectiveCorrectIndices
       );
 
+      // Set _multiAnswerPerfect BEFORE applying bindings so that
+      // isDisabled() sees it when Angular re-renders the option items.
+      if (clickState.remaining === 0) {
+        if (!(this.quizService as any)._multiAnswerPerfect) {
+          (this.quizService as any)._multiAnswerPerfect = new Map<number, boolean>();
+        }
+        (this.quizService as any)._multiAnswerPerfect.set(qIdx, true);
+      }
+
       const bindingUpdates = this.clickHandler.computeMultiAnswerBindingUpdates(
         comp.optionBindings.length, durableSet, effectiveCorrectIndices, disabledSetRef
       );

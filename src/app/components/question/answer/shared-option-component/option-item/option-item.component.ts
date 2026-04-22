@@ -389,6 +389,20 @@ export class OptionItemComponent implements OnChanges {
       console.error(`🔴 BG i=${this.i} text="${(this.b?.option?.text||'').substring(0,20)}" isSel=${this.b.isSelected} hl=${this.b.option?.highlight} _was=${this._wasSelected} isSelQ=${this.isSelectedForCurrentQuestion()} _uc=${this._userHasClicked}`);
     }
     if (!_sh) {
+      // Dark gray for disabled unselected options (e.g. remaining
+      // incorrect after all correct answers selected in multi-answer)
+      if (this.b?.disabled && !this.b?.isSelected) {
+        return '#a0a0a0';
+      }
+      // Also check _multiAnswerPerfect directly for the case where
+      // the binding disabled flag is set and all correct are selected
+      if (this.type() === 'multiple' && !this.b?.isSelected) {
+        const perfectMap = (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
+        const _qIdx = this.currentQuestionIndex() ?? this.quizService.currentQuestionIndex;
+        if (perfectMap?.get(_qIdx) === true && !this.isOptionCorrect()) {
+          return '#a0a0a0';
+        }
+      }
       return null;
     }
 
