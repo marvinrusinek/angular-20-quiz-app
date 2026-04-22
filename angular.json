@@ -22,7 +22,8 @@
               "namedChunks": false,
               "optimization": true,
               "outputHashing": "all",
-              "sourceMap": false
+              "sourceMap": false,
+              "serviceWorker": "ngsw-config.json"
             }
           },
           "options": {
