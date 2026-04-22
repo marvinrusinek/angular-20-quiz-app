@@ -53,7 +53,8 @@
     margin-left: -10px;
     margin-bottom: 10px;
     box-sizing: border-box;
-    width: 615px;
+    width: 100%;
+    max-width: 615px;
     display: flex;
     align-items: center;
     justify-content: flex-start;
@@ -159,7 +160,38 @@ mat-icon {
   margin-top: -6px;
   margin-bottom: 10px;
   margin-left: -10px;
-  width: 615px;
+  width: 100%;
+  max-width: 615px;
   display: flex;
   justify-content: center;
+}
+
+/* ────────────────────────────────────────────────
+   MOBILE RESPONSIVE
+──────────────────────────────────────────────────*/
+@media (max-width: 600px) {
+  .options {
+    margin-left: 0;
+
+    mat-radio-button,
+    mat-checkbox {
+      margin-left: 0;
+      width: 100%;
+
+      .option-text {
+        margin-left: -10px;
+        font-size: 16px;
+      }
+
+      mat-icon {
+        right: 10px;
+        font-size: 24px;
+      }
+    }
+  }
+
+  .feedback-below-option {
+    margin-left: 0;
+    width: 100%;
+  }
 }

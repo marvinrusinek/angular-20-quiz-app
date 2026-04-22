@@ -4,10 +4,21 @@
 :host {
   display: block;
   min-height: 100vh;
-  
+
   // Gradient background to showcase glassmorphism
   background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
   padding: 20px 0;
+}
+
+@media (max-width: 600px) {
+  :host {
+    padding: 10px 8px;
+  }
+
+  .animation-shell,
+  .quiz-card-wrapper {
+    margin: 8px auto;
+  }
 }
 
 /* ============================================================

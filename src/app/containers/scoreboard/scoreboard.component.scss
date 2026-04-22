@@ -71,9 +71,16 @@ mat-card-content {
 /* shrink internal spacing on small screens */
 @media (max-width: 600px) {
   .scoreboard {
-    padding: 0 10px;
+    padding: 0 5px;
+    gap: 4px;
+
     .scoreboard__badge {
-      font-size: 22px;
+      font-size: 18px;
+      margin: 0 4px;
+    }
+
+    .scoreboard__timer {
+      margin-right: 0;
     }
   }
 }
