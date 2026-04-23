@@ -13,11 +13,18 @@
 @media (max-width: 600px) {
   :host {
     padding: 10px 8px;
+    max-width: 100vw;
+    overflow-x: hidden;
   }
 
   .animation-shell,
   .quiz-card-wrapper {
     margin: 8px auto;
+    max-width: 100%;
+  }
+
+  .quiz-card {
+    padding: 10px !important;
   }
 }
 
