@@ -38,3 +38,18 @@ button {
   font-family: vars.$font-stack;
   padding: 5px 10px;
 }
+
+@media (max-width: 600px) {
+  .score-toolbar {
+    float: none;
+    margin-left: 0;
+  }
+
+  .scoreboard-score {
+    margin-left: 0;
+  }
+
+  mat-toolbar {
+    margin-left: 0;
+  }
+}

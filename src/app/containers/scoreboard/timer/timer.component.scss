@@ -48,3 +48,17 @@
   border: none !important;
 }
 
+@media (max-width: 600px) {
+  .timer-container {
+    float: none;
+
+    button .timer-menu-button-text {
+      margin-left: 0;
+    }
+
+    .scoreboard-timer {
+      margin-left: 0;
+    }
+  }
+}
+

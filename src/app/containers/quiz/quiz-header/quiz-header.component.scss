@@ -34,3 +34,38 @@ mat-card-header {
     }
   }
 }
+
+@media (max-width: 600px) {
+  mat-card-header {
+    .header-image {
+      float: none;
+      margin: 0 auto;
+      display: flex;
+      justify-content: center;
+    }
+
+    .header-titles {
+      float: none;
+      margin-top: 0;
+      text-align: center;
+
+      mat-card-title {
+        font-size: 24px;
+        margin-left: 0;
+        margin-top: 10px;
+        padding-top: 5px;
+        white-space: normal;
+        text-align: center;
+        display: block;
+      }
+
+      mat-card-subtitle {
+        float: none;
+        margin-right: 0 !important;
+        margin-top: 0 !important;
+        text-align: center;
+        white-space: normal;
+      }
+    }
+  }
+}
