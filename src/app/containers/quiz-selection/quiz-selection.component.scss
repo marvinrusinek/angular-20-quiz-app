@@ -233,52 +233,82 @@
 /* Extra small devices (portrait phones, less than 576px) */
 @media (max-width: 576px) {
   .container {
-    width: 450px;
+    position: relative;
+    width: 100% !important;
+    max-width: 100vw;
+    padding: 0 12px;
+    box-sizing: border-box;
     height: fit-content;
   }
   header {
-    display: grid !important;
-    grid-template-columns: 240px 180px auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
     height: fit-content !important;
-    padding-bottom: 10px !important;
+    padding: 10px 0 !important;
   }
   .logo {
-    width: 50px;
-    height: 50px;
-    margin-left: -20px !important;
+    width: auto;
+    height: auto;
+    margin-left: 0 !important;
+    padding: 10px 0 !important;
   }
-  h1 {
-    margin-left: -80px;
-    display: inline-block !important;
-    word-break: break-word !important;
-  }
-  h4 {
-    margin-left: -170px !important;
-    margin-top: 15px !important;
-    display: inline-block !important;
-    word-break: break-word !important;
+  .intro-titles {
+    text-align: center;
+
+    h1 {
+      margin-left: 0 !important;
+      font-size: 24px !important;
+    }
+
+    h4 {
+      margin-left: 0 !important;
+      margin-top: 5px !important;
+      font-size: 14px !important;
+    }
   }
   .info {
-    margin-left: -20px !important;
+    position: fixed !important;
+    top: 10px !important;
+    right: 10px !important;
+    margin: 0 !important;
+    z-index: 100;
   }
   .toolbar {
     margin-top: 0;
   }
   .quiz-grid {
-    width: 420px;
-    padding-bottom: 20px;
-    display: grid !important;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)) !important;
-    grid-template-rows: auto !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 10px 0 0 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 16px !important;
   }
   .quiz-tile {
-    width: 380px;
-    height: 370px;
-    margin-left: 30px !important;
+    width: calc(100% - 24px) !important;
+    max-width: 100% !important;
+    height: 375px !important;
+    margin: 0 !important;
+    background-size: 300px 210px !important;
+    background-position: center 10px !important;
+  }
+  .quiz-info {
+    margin: 230px 0 0 5px !important;
+    width: calc(100% - 10px) !important;
+    height: auto !important;
+    padding: 10px !important;
+    box-sizing: border-box;
+
+    .quiz-summary {
+      width: 100% !important;
+    }
   }
   footer {
-    width: 440px;
+    width: 100% !important;
     margin: 0 auto !important;
+    padding-top: 20px !important;
   }
 }
 
