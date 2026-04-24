@@ -52,12 +52,27 @@
   .timer-container {
     float: none;
 
-    button .timer-menu-button-text {
+    button {
+      padding: 2px 5px;
+      font-size: 12px;
+
+      .timer-menu-button-text {
+        margin-left: 0;
+      }
+    }
+
+    .mat-menu {
       margin-left: 0;
+
+      .timer-menu-button-text,
+      span.scoreboard-timer-text {
+        margin: 0;
+      }
     }
 
     .scoreboard-timer {
       margin-left: 0;
+      margin-top: 5px !important;
     }
   }
 }

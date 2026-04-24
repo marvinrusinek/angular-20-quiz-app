@@ -140,6 +140,14 @@ body {
   box-sizing: border-box;
 }
 
+/* Ensure option component hosts are block-level so width: 100% works */
+codelab-question-answer,
+codelab-shared-option,
+app-option-item {
+  display: block;
+  width: 100%;
+}
+
 /* Compact buttons */
 .mat-mdc-button,
 .mat-mdc-raised-button,
@@ -520,12 +528,18 @@ button.mat-mdc-menu-trigger {
   // Scoreboard score/timer value text
   span.scoreboard {
     color: #006400 !important;
-    background-color: #ffffff !important;
+    background-color: transparent !important;
     border: none !important;
     line-height: normal !important;
     margin-top: 10px !important;
     display: block !important;
     overflow: hidden !important;
+  }
+
+  // Scoreboard sections
+  section.scoreboard-score,
+  section.scoreboard-timer {
+    background: transparent !important;
   }
 
   // Scoreboard badge ("Q1 of 6")

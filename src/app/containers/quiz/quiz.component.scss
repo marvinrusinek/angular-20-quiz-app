@@ -26,6 +26,23 @@
   .quiz-card {
     padding: 10px !important;
   }
+
+  .footer-row-1 {
+    flex-direction: column !important;
+    align-items: center !important;
+    padding: 0 !important;
+  }
+
+  .message-area {
+    min-width: 0 !important;
+    width: 100% !important;
+    text-align: center !important;
+  }
+
+  .nav-buttons {
+    justify-content: center !important;
+    width: 100% !important;
+  }
 }
 
 /* ============================================================

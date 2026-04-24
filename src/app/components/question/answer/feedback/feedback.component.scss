@@ -113,3 +113,24 @@
     margin-left: 0;
   }
 }
+
+@media (max-width: 600px) {
+  .message {
+    width: 100% !important;
+    margin: 10px 0 !important;
+
+    .feedback-message {
+      width: 100% !important;
+    }
+
+    .correct-message,
+    .wrong-message {
+      margin: -5px 0 !important;
+    }
+
+    .correct-icon,
+    .wrong-icon {
+      margin-left: 0;
+    }
+  }
+}

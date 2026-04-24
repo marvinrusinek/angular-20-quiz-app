@@ -12,7 +12,6 @@
   flex-direction: column !important;
   align-items: stretch !important;
   gap: 30px !important;
-
 }
 
 
@@ -25,4 +24,16 @@
   margin-top: -15px;
   margin-bottom: -20px;
   padding-left: 35px !important;
+}
+
+@media (max-width: 600px) {
+  .options {
+    gap: 20px !important;
+  }
+
+  .feedback-below-option {
+    padding-left: 0 !important;
+    margin-left: 0 !important;
+    max-width: 100% !important;
+  }
 }

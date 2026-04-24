@@ -43,13 +43,30 @@ button {
   .score-toolbar {
     float: none;
     margin-left: 0;
+
+    .mat-menu {
+      margin-left: 0;
+
+      .leader,
+      span.scoreboard {
+        margin: 0;
+      }
+    }
   }
 
   .scoreboard-score {
     margin-left: 0;
+    margin-top: 0;
   }
 
   mat-toolbar {
     margin-left: 0;
+    min-width: 0;
+    padding: 0 !important;
+  }
+
+  button {
+    padding: 2px 5px;
+    font-size: 12px;
   }
 }

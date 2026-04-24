@@ -5,7 +5,8 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  padding: 1rem;
+  padding: 0;
+  margin-top: 20px;
 }
 
 .options-group {
@@ -41,7 +42,7 @@
    MAIN OPTION BOX (replaces visible radio/checkbox)
 ──────────────────────────────────────────────────*/
 .options {
-  margin-left: -5px;
+  margin-left: 0;
 
   mat-radio-button,
   mat-checkbox {
@@ -175,8 +176,9 @@ mat-icon {
 
     mat-radio-button,
     mat-checkbox {
-      margin-left: 0;
-      width: 100%;
+      margin-left: 0 !important;
+      width: 100% !important;
+      max-width: 100% !important;
 
       .option-text {
         margin-left: -10px;
@@ -188,10 +190,19 @@ mat-icon {
         font-size: 24px;
       }
     }
+
+    /* Prevent layout shift when correct/incorrect classes are applied */
+    .correct,
+    .incorrect {
+      margin-left: 0 !important;
+      width: 100% !important;
+      max-width: 100% !important;
+    }
   }
 
   .feedback-below-option {
     margin-left: 0;
     width: 100%;
+    max-width: 100%;
   }
 }

@@ -25,7 +25,7 @@
   transition: all 0.2s ease !important;
   cursor: pointer !important;
   margin-bottom: 0 !important;
-  margin-left: -10px !important;
+  margin-left: 0 !important;
   position: relative !important;
 
   &:hover:not(.mat-mdc-radio-disabled):not(.mat-mdc-checkbox-disabled) {
@@ -163,6 +163,15 @@
   .option-row {
     margin-left: 0 !important;
     padding: 10px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .option-row.correct-option,
+  .option-row.incorrect-option {
+    margin-left: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
   }
 
   .option-text {
@@ -174,5 +183,10 @@
     font-size: 22px !important;
     width: 22px !important;
     height: 22px !important;
+  }
+
+  .option-cursor-wrapper {
+    width: 100% !important;
+    max-width: 100% !important;
   }
 }
