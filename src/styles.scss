@@ -157,6 +157,12 @@ app-option-item {
     box-sizing: border-box !important;
     margin-left: auto !important;
     margin-right: auto !important;
+  }
+
+  /* Only clip overflow on intro card, not results (hamburger needs overflow visible) */
+  codelab-quiz-intro mat-card,
+  codelab-quiz-intro .mat-mdc-card,
+  codelab-quiz-intro .quiz-card {
     overflow: hidden !important;
   }
 

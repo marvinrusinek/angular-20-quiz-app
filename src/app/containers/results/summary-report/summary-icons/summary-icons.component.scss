@@ -26,3 +26,22 @@
     margin-right: 10px;
   }
 }
+
+@media (max-width: 600px) {
+  .summary-icons {
+    float: none !important;
+    display: flex !important;
+    justify-content: center !important;
+    gap: 20px !important;
+    margin: 0 0 12px 0 !important;
+
+    .print,
+    .email,
+    .share {
+      float: none !important;
+      margin: 0 !important;
+      margin-top: 0 !important;
+      margin-right: 0 !important;
+    }
+  }
+}

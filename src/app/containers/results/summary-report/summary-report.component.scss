@@ -219,15 +219,28 @@
   .summary-report {
     width: 95%;
     padding: 16px;
-    
+
     h2 {
       font-size: 18px;
     }
-    
+
+    .summary-stats-view {
+      display: flex;
+      flex-direction: column;
+
+      codelab-summary-icons {
+        float: none !important;
+        display: flex;
+        justify-content: center;
+        order: -1;
+        margin-bottom: 12px;
+      }
+    }
+
     table {
       width: 100%;
       font-size: 12px;
-      
+
       th, td {
         padding: 8px 6px;
       }

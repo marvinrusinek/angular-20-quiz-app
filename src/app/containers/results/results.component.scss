@@ -501,11 +501,12 @@ mat-card {
 @media (max-width: 768px) {
   .results-header {
     gap: 16px;
-    
+    margin-top: 0 !important;
+
     .logo img {
       width: 70px;
     }
-    
+
     .results-title {
       font-size: 80px !important;
     }
@@ -516,27 +517,37 @@ mat-card {
   }
 }
 
-@media (max-width: 550px) {
+@media (max-width: 600px) {
   .results-header {
     // Switch to 2-row grid layout
     grid-template-columns: 1fr 1fr;
     grid-template-rows: auto auto;
     gap: 12px;
-    
+    margin-top: 0 !important;
+
     .hamburger-menu {
       grid-column: 1;
       grid-row: 1;
       justify-self: start;
+      display: block !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+
+      .hamburger-btn {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+      }
     }
-    
+
     .logo {
       grid-column: 2;
       grid-row: 1;
       justify-self: end;
     }
-    
+
     .results-title {
-      grid-column: 1 / -1; // Span full width
+      grid-column: 1 / -1;
       grid-row: 2;
       width: 100%;
       font-size: 60px !important;
@@ -547,5 +558,6 @@ mat-card {
   mat-card {
     margin: 12px;
     padding: 16px;
+    overflow: visible !important;
   }
 }
