@@ -55,6 +55,15 @@ mat-card-content {
     color: var(--text-scoreboard-badge, vars.$dark-green);
     margin: 0 10px;
     line-height: 1.2;
+
+    .badge-label,
+    .badge-number {
+      display: inline;
+    }
+
+    .badge-label::after {
+      content: '\00a0';
+    }
   }
 
   .scoreboard__score * {
@@ -90,7 +99,18 @@ mat-card-content {
     .scoreboard__badge {
       font-size: 14px;
       margin: 0 2px;
-      white-space: nowrap;
+      white-space: normal;
+      flex-direction: column;
+
+      .badge-label {
+        text-transform: uppercase;
+        font-style: normal;
+        font-weight: 700;
+      }
+
+      .badge-number {
+        font-style: italic;
+      }
     }
 
     .scoreboard__timer {

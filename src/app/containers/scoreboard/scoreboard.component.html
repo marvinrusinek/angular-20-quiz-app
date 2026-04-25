@@ -5,7 +5,8 @@
 
       @if (badgeText(); as text) {
         <span class="scoreboard__badge" i18n role="status">
-          {{ text }}
+          <span class="badge-label">Question</span>
+          <span class="badge-number">{{ text.replace('Question ', '') }}</span>
         </span>
       }
 
