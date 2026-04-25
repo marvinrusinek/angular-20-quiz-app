@@ -1,4 +1,3 @@
-// Self-destroying service worker - unregisters itself
 self.addEventListener('install', function() { self.skipWaiting(); });
 self.addEventListener('activate', function() {
   self.registration.unregister().then(function() {
