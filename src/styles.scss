@@ -189,6 +189,20 @@ codelab-results-summary .summary-report table tr:nth-child(odd) {
   background-color: transparent !important;
 }
 
+/* Resources list icon-to-link spacing */
+codelab-results-statistics .resources-view li,
+codelab-results-statistics details li {
+  position: relative !important;
+  padding-left: 34px !important;
+}
+
+codelab-results-statistics .resources-view li::before,
+codelab-results-statistics details li::before {
+  position: absolute !important;
+  left: 10px !important;
+  top: 10px !important;
+}
+
 /* Compact buttons */
 .mat-mdc-button,
 .mat-mdc-raised-button,
