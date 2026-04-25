@@ -10,6 +10,7 @@ import { SelectedOptionService } from '../../../shared/services/state/selectedop
 import { TimerService } from '../../../shared/services/features/timer/timer.service';
 import { QuizDotStatusService } from '../../../shared/services/flow/quiz-dot-status.service';
 import { QuizPersistenceService } from '../../../shared/services/state/quiz-persistence.service';
+import { ThemeService } from '../../../shared/services/ui/theme.service';
 
 @Component({
   selector: 'codelab-results-return',
@@ -31,6 +32,7 @@ export class ReturnComponent implements OnInit {
     private timerService: TimerService,
     private dotStatusService: QuizDotStatusService,
     private quizPersistence: QuizPersistenceService,
+    private themeService: ThemeService,
     private router: Router
   ) { }
 
@@ -79,6 +81,11 @@ export class ReturnComponent implements OnInit {
       }
     } catch {}
 
+    // Reset to light mode when restarting
+    if (this.themeService.isDark()) {
+      this.themeService.toggle();
+    }
+
     if (id) {
       void this.router.navigate(['/quiz/question', id, 1]);
     }
@@ -91,6 +98,11 @@ export class ReturnComponent implements OnInit {
     this.quizService.resetQuestions();
     this.explanationTextService.resetExplanationState();
     this.timerService.clearTimerState();
+
+    // Reset to light mode when leaving results
+    if (this.themeService.isDark()) {
+      this.themeService.toggle();
+    }
 
     this.quizId.set('');
     this.indexOfQuizId.set(0);
