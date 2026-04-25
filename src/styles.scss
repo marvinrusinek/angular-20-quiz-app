@@ -248,6 +248,7 @@ mat-card {
     align-items: center;
     padding: 8px 16px !important;
     border-bottom: 1px solid var(--border-header);
+    overflow: visible !important;
 
     .mat-mdc-card-title,
     mat-card-title {
@@ -269,13 +270,18 @@ mat-card {
       text-align: center;
     }
 
-    .header-image {
+    .header-image,
+    .header-image[mat-card-avatar],
+    img.header-image.mat-mdc-card-avatar {
       float: left;
       background: url(vars.$header-image) no-repeat center center;
       background-size: contain;
-      margin: -10px 0 0 -40px;
+      margin: -10px 0 0 0;
       height: 90px !important;
       width: 160px !important;
+      border-radius: 0 !important;
+      overflow: visible !important;
+      object-fit: contain;
     }
   }
 
@@ -515,6 +521,11 @@ button.mat-mdc-menu-trigger {
    DARK MODE OVERRIDES (QuizComponent only)
 ───────────────────────────────────────────────*/
 [data-theme="dark"] codelab-quiz-component {
+  // Blend codelab logo white background into dark card
+  .header-image {
+    mix-blend-mode: multiply;
+  }
+
   // Material card on quiz page
   .mat-mdc-card,
   mat-card {
