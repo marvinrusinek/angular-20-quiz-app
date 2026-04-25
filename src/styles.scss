@@ -170,6 +170,23 @@ app-option-item {
     max-width: 100% !important;
     height: auto !important;
   }
+
+  /* High scores table in results */
+  codelab-results-summary .summary-report table {
+    margin-left: -15px !important;
+    margin-right: 0 !important;
+    background: transparent !important;
+  }
+
+}
+
+/* High scores alternating row colors (global, all screen sizes) */
+codelab-results-summary .summary-report table tr:nth-child(even) {
+  background-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+codelab-results-summary .summary-report table tr:nth-child(odd) {
+  background-color: transparent !important;
 }
 
 /* Compact buttons */

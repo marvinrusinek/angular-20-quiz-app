@@ -22,7 +22,7 @@
   padding: 24px;
   clear: both;
   
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  box-shadow: none;
   animation: fadeInUp 0.4s ease-out;
 
   h2 {
@@ -92,7 +92,7 @@
   // ============================================================
   details {
     margin-top: 16px;
-    background: rgba(255, 255, 255, 0.4);
+    background: transparent;
     border-radius: 12px;
     overflow: hidden;
     
@@ -163,17 +163,18 @@
     border-collapse: collapse;
     border-radius: 8px;
     overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: none;
+    background: transparent;
 
     tr {
       transition: background 0.2s ease;
-      
+
       &:nth-child(even) {
-        background-color: rgba(255, 255, 255, 0.6);
+        background-color: rgba(0, 0, 0, 0.08) !important;
       }
-      
+
       &:nth-child(odd) {
-        background-color: rgba(255, 255, 255, 0.3);
+        background-color: transparent !important;
       }
 
       &:hover {
@@ -242,9 +243,11 @@
       padding-left: 0 !important;
     }
 
-    table {
-      width: 100%;
+    table,
+    ::ng-deep table {
+      width: 100% !important;
       font-size: 12px;
+      margin-left: -15px !important;
 
       th, td {
         padding: 8px 6px;
