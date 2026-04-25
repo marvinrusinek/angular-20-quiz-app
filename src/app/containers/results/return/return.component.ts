@@ -5,6 +5,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatListModule } from '@angular/material/list';
 
 import { QuizService } from '../../../shared/services/data/quiz.service';
+import { QuizDataService } from '../../../shared/services/data/quizdata.service';
 import { ExplanationTextService } from '../../../shared/services/features/explanation/explanation-text.service';
 import { SelectedOptionService } from '../../../shared/services/state/selectedoption.service';
 import { TimerService } from '../../../shared/services/features/timer/timer.service';
@@ -27,6 +28,7 @@ export class ReturnComponent implements OnInit {
 
   constructor(
     private quizService: QuizService,
+    private quizDataService: QuizDataService,
     private selectedOptionService: SelectedOptionService,
     private explanationTextService: ExplanationTextService,
     private timerService: TimerService,
@@ -95,6 +97,12 @@ export class ReturnComponent implements OnInit {
 
   selectQuiz(): void {
     this.selectedOptionService.clearState();
+
+    // Clear quiz status so tiles don't show stale icons
+    const id = this.quizId() || this.quizService.quizId;
+    if (id) {
+      this.quizDataService.updateQuizStatus(id, '');
+    }
 
     this.quizService.resetAll();
     this.quizService.resetQuestions();
