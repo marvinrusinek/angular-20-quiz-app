@@ -15,5 +15,15 @@
   <body>
     <codelab-root></codelab-root>
     <noscript>Please enable JavaScript to continue using this application.</noscript>
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          registrations.forEach(function(r) { r.unregister(); });
+        });
+        caches.keys().then(function(names) {
+          names.forEach(function(name) { caches.delete(name); });
+        });
+      }
+    </script>
 <link rel="modulepreload" href="chunk-S4IYR6XD.js"><script src="polyfills.js" type="module"></script><script src="main.js" type="module"></script></body>
 </html>
