@@ -57,7 +57,7 @@ export class ResultsComponent implements OnInit, OnDestroy {
   readonly menuOpen = signal(false);
   readonly activeSection = signal<
     'score' | 'report' | 'summary' | 'highscores' | 'resources'
-  >('score');
+  >(this.restoreActiveSection());
 
   readonly finalResult = signal<FinalResult | null>(null);
   readonly scoreAnalysis = computed<ScoreAnalysisItem[]>(
@@ -79,6 +79,7 @@ export class ResultsComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     window.scrollTo(0, 0);
+    this.quizDataService.loadQuizzes().pipe(take(1)).subscribe();
     this.fetchQuizIdFromParams();
     this.setCompletedQuiz();
     this.findQuizIndex();
@@ -91,7 +92,23 @@ export class ResultsComponent implements OnInit, OnDestroy {
       this.quizService.totalQuestions || this.detailedSummaryQuestions().length
     );
 
-    const snapshot = this.quizService.getFinalResultSnapshot();
+    // Try in-memory snapshot first
+    let snapshot = this.quizService.getFinalResultSnapshot();
+
+    // If no snapshot exists, build one from current service state
+    if (!snapshot && this.quizService.totalQuestions > 0) {
+      const correct = this.quizService.correctAnswersCountSubject.getValue();
+      const total = this.quizService.totalQuestions;
+      snapshot = {
+        quizId: this.quizId() || this.quizService.quizId,
+        correct,
+        total,
+        percentage: total > 0 ? Math.round((correct / total) * 100) : 0,
+        analysis: [],
+        completedAt: Date.now()
+      };
+    }
+
     if (snapshot) {
       if (snapshot.quizId) {
         this.quizId.set(snapshot.quizId);
@@ -99,6 +116,7 @@ export class ResultsComponent implements OnInit, OnDestroy {
       this.finalResult.set(snapshot);
       this.applyFinalResultSnapshot(snapshot);
       this.updateHeaderLabel(snapshot.total);
+      this.persistResultsToSession(snapshot);
       this.cdRef.markForCheck();
       return;
     }
@@ -114,6 +132,7 @@ export class ResultsComponent implements OnInit, OnDestroy {
         if (r) {
           this.applyFinalResultSnapshot(r);
           this.updateHeaderLabel(r.total);
+          this.persistResultsToSession(r);
         }
         this.cdRef.markForCheck();
       });
@@ -139,9 +158,20 @@ export class ResultsComponent implements OnInit, OnDestroy {
 
   setActiveSection(section: 'score' | 'report' | 'summary' | 'highscores' | 'resources'): void {
     this.activeSection.set(section);
+    try { sessionStorage.setItem('resultsActiveSection', section); } catch {}
     this.closeMenu();
     window.scrollTo({ top: 0, behavior: 'smooth' });
     this.cdRef.markForCheck();
+  }
+
+  private restoreActiveSection(): 'score' | 'report' | 'summary' | 'highscores' | 'resources' {
+    try {
+      const stored = sessionStorage.getItem('resultsActiveSection');
+      if (stored === 'score' || stored === 'report' || stored === 'summary' || stored === 'highscores' || stored === 'resources') {
+        return stored;
+      }
+    } catch {}
+    return 'score';
   }
 
   private fetchQuizIdFromParams(): void {
@@ -202,6 +232,12 @@ export class ResultsComponent implements OnInit, OnDestroy {
     this.quizId.set('');
     this.indexOfQuizId.set(0);
     this.router.navigate(['/select/']);
+  }
+
+  private persistResultsToSession(result: FinalResult): void {
+    try {
+      sessionStorage.setItem('finalResult', JSON.stringify(result));
+    } catch {}
   }
 
   scrollDown(): void {

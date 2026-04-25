@@ -86,6 +86,8 @@ export class ReturnComponent implements OnInit {
       this.themeService.toggle();
     }
 
+    try { sessionStorage.removeItem('resultsActiveSection'); } catch {}
+
     if (id) {
       void this.router.navigate(['/quiz/question', id, 1]);
     }
@@ -103,6 +105,8 @@ export class ReturnComponent implements OnInit {
     if (this.themeService.isDark()) {
       this.themeService.toggle();
     }
+
+    try { sessionStorage.removeItem('resultsActiveSection'); } catch {}
 
     this.quizId.set('');
     this.indexOfQuizId.set(0);
