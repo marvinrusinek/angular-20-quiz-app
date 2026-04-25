@@ -237,6 +237,11 @@
       }
     }
 
+    ::ng-deep .summary-stats {
+      margin-left: 0 !important;
+      padding-left: 0 !important;
+    }
+
     table {
       width: 100%;
       font-size: 12px;
