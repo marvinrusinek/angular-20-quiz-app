@@ -78,12 +78,15 @@ mat-card-content {
     }
   }
 
-  .scoreboard__score * {
+}
+
+@media (min-width: 601px) {
+  .scoreboard .scoreboard__score * {
     margin-top: 0 !important;
     margin-bottom: 0 !important;
   }
 
-  .scoreboard__timer * {
+  .scoreboard .scoreboard__timer * {
     margin-top: 0 !important;
     margin-bottom: 0 !important;
   }
@@ -112,7 +115,7 @@ mat-card-content {
       min-width: 0 !important;
       overflow: visible;
       text-align: center !important;
-      margin: 0 !important;
+      margin: 0 0 0 -10px !important;
       padding: 0 !important;
     }
 
@@ -134,7 +137,7 @@ mat-card-content {
       min-width: 0 !important;
       overflow: visible;
       text-align: center !important;
-      margin: 0 !important;
+      margin: 10px -5px 0 0 !important;
       padding: 0 !important;
     }
   }

@@ -56,13 +56,14 @@ button {
 
   .scoreboard-score {
     margin-left: 0;
-    margin-top: 0;
+    margin-top: -8px !important;
   }
 
   mat-toolbar {
     margin-left: 0;
     min-width: 0;
     padding: 0 !important;
+    margin-bottom: -5px !important;
   }
 
   button {
