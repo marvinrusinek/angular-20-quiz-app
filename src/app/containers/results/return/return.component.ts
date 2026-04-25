@@ -8,6 +8,8 @@ import { QuizService } from '../../../shared/services/data/quiz.service';
 import { ExplanationTextService } from '../../../shared/services/features/explanation/explanation-text.service';
 import { SelectedOptionService } from '../../../shared/services/state/selectedoption.service';
 import { TimerService } from '../../../shared/services/features/timer/timer.service';
+import { QuizDotStatusService } from '../../../shared/services/flow/quiz-dot-status.service';
+import { QuizPersistenceService } from '../../../shared/services/state/quiz-persistence.service';
 
 @Component({
   selector: 'codelab-results-return',
@@ -27,6 +29,8 @@ export class ReturnComponent implements OnInit {
     private selectedOptionService: SelectedOptionService,
     private explanationTextService: ExplanationTextService,
     private timerService: TimerService,
+    private dotStatusService: QuizDotStatusService,
+    private quizPersistence: QuizPersistenceService,
     private router: Router
   ) { }
 
@@ -60,6 +64,20 @@ export class ReturnComponent implements OnInit {
     this.explanationTextService.resetExplanationState();
 
     this.timerService.clearTimerState();
+
+    // Clear ALL dot status sources so dots reset to gray
+    this.dotStatusService.clearAllMaps();
+    this.selectedOptionService.clickConfirmedDotStatus.clear();
+    this.selectedOptionService.lastClickedCorrectByQuestion.clear();
+    this.quizService.questionCorrectness.clear();
+    if (id) {
+      this.quizPersistence.clearAllPersistedDotStatus(id);
+    }
+    try {
+      for (let i = 0; i < 20; i++) {
+        sessionStorage.removeItem('dot_confirmed_' + i);
+      }
+    } catch {}
 
     if (id) {
       void this.router.navigate(['/quiz/question', id, 1]);
