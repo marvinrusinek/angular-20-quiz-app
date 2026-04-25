@@ -556,8 +556,16 @@ mat-card {
   }
 
   mat-card {
-    margin: 12px;
-    padding: 16px;
+    margin: 4px;
+    padding: 4px;
     overflow: visible !important;
+  }
+
+  ::ng-deep .mat-mdc-card-content {
+    padding: 0 4px !important;
+  }
+
+  ::ng-deep .mat-expansion-panel {
+    margin: 0 !important;
   }
 }

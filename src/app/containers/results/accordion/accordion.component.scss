@@ -126,5 +126,53 @@ mat-accordion {
 
 .summary-header {
   margin: 0 0 15px 40px;
-  font-family: vars.$font-stack; 
+  font-family: vars.$font-stack;
+}
+
+@media (max-width: 600px) {
+  :host ::ng-deep .mat-expansion-panel-header {
+    padding: 8px 2px 8px 2px !important;
+  }
+
+  :host ::ng-deep .mat-expansion-panel-header-description,
+  :host ::ng-deep mat-panel-description {
+    flex: 0 0 0px !important;
+    min-width: 0 !important;
+    max-width: 0 !important;
+    margin-right: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  :host ::ng-deep .mat-expansion-panel-header-title,
+  :host ::ng-deep mat-panel-title {
+    flex-direction: column !important;
+    flex: 1 1 100% !important;
+    padding-left: 26px !important;
+    margin-right: 0 !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  :host ::ng-deep .question-leader {
+    margin-bottom: 4px !important;
+    margin-left: 10px !important;
+  }
+
+  :host ::ng-deep .question-text {
+    width: 100% !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+    margin-left: 10px !important;
+  }
+
+  :host ::ng-deep .accordion-icon {
+    margin-left: 4px !important;
+  }
+
+  .quiz-summary-question {
+    padding: 2px !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
 }
