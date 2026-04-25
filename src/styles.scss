@@ -645,3 +645,74 @@ button.mat-mdc-menu-trigger {
   background: var(--bg-secondary) !important;
   color: var(--text-primary) !important;
 }
+
+// Mobile: scoreboard overrides
+@media (max-width: 600px) {
+  // Score/Timer values hug their labels
+  codelab-scoreboard-score .scoreboard-score,
+  codelab-scoreboard-timer .scoreboard-timer {
+    margin-top: -5px !important;
+  }
+
+  // Timer section nudge down 5px and right 5px
+  codelab-scoreboard .scoreboard__timer {
+    margin-top: 10px !important;
+    margin-right: -5px !important;
+  }
+
+  // Score section nudge left 5px
+  codelab-scoreboard .scoreboard__score {
+    margin-left: -5px !important;
+  }
+
+  // Constrain mat-toolbar width inside score
+  codelab-scoreboard-score mat-toolbar,
+  codelab-scoreboard-timer mat-toolbar {
+    width: auto !important;
+    min-width: 0 !important;
+  }
+
+  // Badge: Q 1 of 6 on one line, evenly spaced
+  codelab-scoreboard .scoreboard__badge {
+    display: flex !important;
+    flex-direction: row !important;
+    white-space: nowrap !important;
+    font-size: 14px !important;
+    margin: 0 !important;
+    align-items: baseline !important;
+    gap: 3px !important;
+
+    .badge-q,
+    .badge-current,
+    .badge-of,
+    .badge-total {
+      display: inline !important;
+    }
+
+    .badge-q {
+      font-size: 14px !important;
+      font-weight: 700;
+      text-transform: uppercase;
+      &::before {
+        content: none !important;
+      }
+    }
+
+    .badge-current,
+    .badge-total {
+      font-size: 20px !important;
+      font-weight: 700;
+    }
+
+    .badge-q::after,
+    .badge-current::after,
+    .badge-of::after {
+      content: none !important;
+    }
+
+    .badge-of {
+      font-size: 12px !important;
+      font-weight: 400;
+    }
+  }
+}

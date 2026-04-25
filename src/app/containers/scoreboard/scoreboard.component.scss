@@ -56,12 +56,24 @@ mat-card-content {
     margin: 0 10px;
     line-height: 1.2;
 
-    .badge-label,
-    .badge-number {
+    .badge-q,
+    .badge-current,
+    .badge-of,
+    .badge-total {
       display: inline;
     }
 
-    .badge-label::after {
+    // Desktop: show "Question" instead of "Q"
+    .badge-q {
+      font-size: 0;
+      &::before {
+        content: 'Question\00a0';
+        font-size: 26px;
+      }
+    }
+
+    .badge-current::after,
+    .badge-of::after {
       content: '\00a0';
     }
   }
@@ -82,45 +94,48 @@ mat-card-content {
   mat-card {
     margin-top: -10px !important;
     margin-bottom: 0 !important;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .scoreboard {
-    padding: 0;
-    gap: 0;
-    overflow: hidden;
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    overflow: visible;
+    width: 100% !important;
 
-    .scoreboard__score,
-    .scoreboard__timer {
-      min-width: 0;
-      overflow: hidden;
+    .scoreboard__score {
+      flex: 1 1 0 !important;
+      min-width: 0 !important;
+      overflow: visible;
+      text-align: center !important;
+      margin: 0 !important;
+      padding: 0 !important;
     }
 
     .scoreboard__badge {
-      font-size: 14px;
-      margin: 0 2px;
-      white-space: normal;
-      flex-direction: column;
-
-      .badge-label {
-        text-transform: uppercase;
-        font-style: normal;
-        font-weight: 700;
-      }
-
-      .badge-number {
-        font-style: italic;
-      }
+      flex: 1 1 0 !important;
+      min-width: 0 !important;
+      display: flex !important;
+      flex-direction: row !important;
+      justify-content: center !important;
+      align-items: baseline !important;
+      white-space: nowrap !important;
+      font-size: 14px !important;
+      margin: 0 !important;
+      gap: 3px !important;
     }
 
     .scoreboard__timer {
-      margin-right: 0;
-      margin-top: 0;
-    }
-
-    .scoreboard__score *,
-    .scoreboard__timer * {
-      max-width: 100%;
+      flex: 1 1 0 !important;
+      min-width: 0 !important;
+      overflow: visible;
+      text-align: center !important;
+      margin: 0 !important;
+      padding: 0 !important;
     }
   }
 }

@@ -1,5 +1,5 @@
 import {
-  ChangeDetectionStrategy, Component, OnDestroy, OnInit
+  ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
@@ -102,6 +102,12 @@ export class ScoreboardComponent implements OnInit, OnDestroy {
   );
 
   readonly badgeText = toSignal(this.badgeText$, { initialValue: '' });
+
+  readonly badgeparts = computed(() => {
+    const text = this.badgeText().replace('Question ', '');
+    const parts = text.split(' of ');
+    return [parts[0] || '', parts[1] || ''];
+  });
 
   constructor(
     private readonly quizService: QuizService,

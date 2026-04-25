@@ -5,8 +5,10 @@
 
       @if (badgeText(); as text) {
         <span class="scoreboard__badge" i18n role="status">
-          <span class="badge-label">Question</span>
-          <span class="badge-number">{{ text.replace('Question ', '') }}</span>
+          <span class="badge-q">Q</span>
+          <span class="badge-current">{{ badgeparts()[0] }}</span>
+          <span class="badge-of">of</span>
+          <span class="badge-total">{{ badgeparts()[1] }}</span>
         </span>
       }
 
