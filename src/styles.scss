@@ -148,6 +148,24 @@ app-option-item {
   width: 100%;
 }
 
+/* Mobile: all cards and images fit viewport */
+@media (max-width: 600px) {
+  mat-card,
+  .mat-mdc-card,
+  .quiz-card {
+    max-width: calc(100vw - 24px) !important;
+    box-sizing: border-box !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    overflow: hidden !important;
+  }
+
+  img {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+}
+
 /* Compact buttons */
 .mat-mdc-button,
 .mat-mdc-raised-button,

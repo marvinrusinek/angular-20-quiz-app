@@ -93,6 +93,50 @@ mat-card-actions {
   }
 }
 
+@media (max-width: 600px) {
+  mat-card-header {
+    .header-image {
+      margin: 5px auto 0 !important;
+      display: block;
+    }
+
+    mat-card-title {
+      margin-left: 0 !important;
+      font-size: 22px !important;
+      text-align: center;
+    }
+
+    mat-card-subtitle {
+      text-align: center;
+    }
+  }
+
+  .quiz-topic-image {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  mat-card-content {
+    padding: 0 10px !important;
+
+    .intro-text {
+      font-size: 14px;
+    }
+  }
+
+  mat-card-actions {
+    padding: 10px 8px 20px !important;
+
+    .intro-preferences {
+      mat-slide-toggle {
+        font-size: 14px !important;
+        transform: none !important;
+      }
+    }
+  }
+}
+
 /* ✓ CLEAN clone-hide block — keep this exactly */
 :host ::ng-deep .ng-animating {
   opacity: 0 !important;
@@ -112,4 +156,38 @@ mat-card-actions {
   background: #fff !important;
   border-radius: 10px !important;
   box-shadow: 10px 10px 5px #999 !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
+@media (max-width: 600px) {
+  :host ::ng-deep mat-card.quiz-card,
+  :host ::ng-deep .quiz-card {
+    max-width: calc(100vw - 24px) !important;
+    margin: 0 auto !important;
+    padding: 12px !important;
+  }
+
+  :host ::ng-deep mat-card.quiz-card *,
+  :host ::ng-deep .quiz-card * {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  :host ::ng-deep .mat-mdc-card-header {
+    flex-direction: column !important;
+    align-items: center !important;
+    padding: 8px !important;
+  }
+
+  :host ::ng-deep .mat-mdc-card-avatar {
+    margin: 0 auto 8px !important;
+  }
+
+  :host ::ng-deep .mdc-card__media,
+  :host ::ng-deep [mat-card-image] {
+    width: 100% !important;
+    height: auto !important;
+    object-fit: contain !important;
+  }
 }
