@@ -73,14 +73,37 @@ export class ReturnComponent implements OnInit {
     this.dotStatusService.clearAllMaps();
     this.selectedOptionService.clickConfirmedDotStatus.clear();
     this.selectedOptionService.lastClickedCorrectByQuestion.clear();
+    this.selectedOptionService.clearRefreshBackup();
     this.quizService.questionCorrectness.clear();
     if (id) {
+      this.selectedOptionService.clearAllSelectionsForQuiz(id);
       this.quizPersistence.clearAllPersistedDotStatus(id);
+      this.quizPersistence.clearClickConfirmedDotStatus(20);
     }
     try {
-      for (let i = 0; i < 20; i++) {
+      for (let i = 0; i < 100; i++) {
         sessionStorage.removeItem('dot_confirmed_' + i);
+        sessionStorage.removeItem('sel_Q' + i);
+        sessionStorage.removeItem('quiz_selection_' + i);
+        sessionStorage.removeItem('displayMode_' + i);
+        sessionStorage.removeItem('feedbackText_' + i);
       }
+      sessionStorage.removeItem('selectedOptionsMap');
+      sessionStorage.removeItem('rawSelectionsMap');
+      sessionStorage.removeItem('selectionHistory');
+      sessionStorage.removeItem('isAnswered');
+      sessionStorage.removeItem('answeredQuestionIndices');
+      const lsKeysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('quiz_dot_status_') || key.startsWith('quiz_progress_'))) {
+          lsKeysToRemove.push(key);
+        }
+      }
+      for (const key of lsKeysToRemove) {
+        localStorage.removeItem(key);
+      }
+      sessionStorage.setItem('freshStartFromResults', 'true');
     } catch {}
 
     // Reset to light mode when restarting

@@ -1259,7 +1259,20 @@ export class QuizSetupService {
       this.quizPersistence.clearAllPersistedDotStatus(host.quizId);
       this.selectedOptionService.lastClickedCorrectByQuestion.clear();
       this.selectedOptionService.clearRefreshBackup();
+      this.selectedOptionService.clearState();
+      host.answeredQuestionIndices.clear();
       host.progress = 0;
+      // Clear quiz_selection_* so restoreSelectionState doesn't find stale data
+      try {
+        for (let i = 0; i < 100; i++) {
+          sessionStorage.removeItem('quiz_selection_' + i);
+          sessionStorage.removeItem('displayMode_' + i);
+          sessionStorage.removeItem('feedbackText_' + i);
+        }
+        sessionStorage.removeItem('selectedOptionsMap');
+        sessionStorage.removeItem('rawSelectionsMap');
+        sessionStorage.removeItem('answeredQuestionIndices');
+      } catch {}
     }
 
     const cleared = this.quizResetService.clearStaleProgressAndDotStateForFreshStart(
@@ -1339,6 +1352,18 @@ export class QuizSetupService {
         host.isAnswered = true;
         host.cdRef.detectChanges();
       }, 100);
+    }
+
+    // Safety net: after all init subscriptions settle, force progress to 0
+    // when restarting from Results. Downstream code (restoreSelectionState,
+    // selectedOption$ subscription) can re-mark Q1 as answered from stale
+    // sessionStorage entries (quiz_selection_*).
+    if (freshFromResults) {
+      setTimeout(() => {
+        host.answeredQuestionIndices.clear();
+        host.progress = 0;
+        host.cdRef.detectChanges();
+      }, 150);
     }
   }
 
