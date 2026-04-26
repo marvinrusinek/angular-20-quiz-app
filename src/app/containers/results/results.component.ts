@@ -29,6 +29,7 @@ import { QuizDotStatusService } from '../../shared/services/flow/quiz-dot-status
 import { QuizPersistenceService } from '../../shared/services/state/quiz-persistence.service';
 import { SelectedOptionService } from '../../shared/services/state/selectedoption.service';
 import { QuizStateService } from '../../shared/services/state/quizstate.service';
+import { ThemeService } from '../../shared/services/ui/theme.service';
 
 @Component({
   selector: 'codelab-quiz-results',
@@ -79,6 +80,7 @@ export class ResultsComponent implements OnInit, OnDestroy {
     private quizPersistence: QuizPersistenceService,
     private selectedOptionService: SelectedOptionService,
     private quizStateService: QuizStateService,
+    private themeService: ThemeService,
     private activatedRoute: ActivatedRoute,
     private router: Router,
     private cdRef: ChangeDetectorRef
@@ -284,6 +286,11 @@ export class ResultsComponent implements OnInit, OnDestroy {
       localStorage.removeItem('userAnswers');
       localStorage.removeItem('shuffledQuestions');
     } catch {}
+
+    // Reset to light mode when leaving results
+    if (this.themeService.isDark()) {
+      this.themeService.toggle();
+    }
 
     this.quizId.set('');
     this.indexOfQuizId.set(0);
