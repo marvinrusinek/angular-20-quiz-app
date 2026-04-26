@@ -25,6 +25,10 @@ import { QuizQuestion } from '../../shared/models/QuizQuestion.model';
 import { QuizStatus } from '../../shared/models/quiz-status.enum';
 import { QuizService } from '../../shared/services/data/quiz.service';
 import { QuizDataService } from '../../shared/services/data/quizdata.service';
+import { QuizDotStatusService } from '../../shared/services/flow/quiz-dot-status.service';
+import { QuizPersistenceService } from '../../shared/services/state/quiz-persistence.service';
+import { SelectedOptionService } from '../../shared/services/state/selectedoption.service';
+import { QuizStateService } from '../../shared/services/state/quizstate.service';
 
 @Component({
   selector: 'codelab-quiz-results',
@@ -71,6 +75,10 @@ export class ResultsComponent implements OnInit, OnDestroy {
   constructor(
     private quizService: QuizService,
     private quizDataService: QuizDataService,
+    private dotStatusService: QuizDotStatusService,
+    private quizPersistence: QuizPersistenceService,
+    private selectedOptionService: SelectedOptionService,
+    private quizStateService: QuizStateService,
     private activatedRoute: ActivatedRoute,
     private router: Router,
     private cdRef: ChangeDetectorRef
@@ -227,8 +235,51 @@ export class ResultsComponent implements OnInit, OnDestroy {
   }
 
   selectQuiz(): void {
+    const quizId = this.quizId() || this.quizService.quizId || '';
+
     this.quizService.resetAll();
     this.quizService.resetQuestions();
+
+    // Clear all in-memory dot/selection state
+    this.dotStatusService.clearAllMaps();
+    this.selectedOptionService.lastClickedCorrectByQuestion.clear();
+    this.selectedOptionService.clearAllSelectionsForQuiz(quizId);
+    this.selectedOptionService.clearRefreshBackup();
+    this.selectedOptionService.clickConfirmedDotStatus.clear();
+    this.quizStateService._answeredQuestionIndices?.clear();
+    this.quizStateService._hasUserInteracted?.clear();
+
+    // Signal to quiz component that this is a fresh start from results
+    try { sessionStorage.setItem('freshStartFromResults', 'true'); } catch {}
+
+    // Nuclear: wipe ALL quiz-related sessionStorage and localStorage
+    try {
+      for (let i = 0; i < 100; i++) {
+        sessionStorage.removeItem('sel_Q' + i);
+        sessionStorage.removeItem('dot_confirmed_' + i);
+      }
+      sessionStorage.removeItem('rawSelectionsMap');
+      sessionStorage.removeItem('selectedOptionsMap');
+      sessionStorage.removeItem('selectionHistory');
+      sessionStorage.removeItem('finalResult');
+      sessionStorage.removeItem('resultsActiveSection');
+
+      const lsKeysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('quiz_dot_status_') || key.startsWith('quiz_progress_'))) {
+          lsKeysToRemove.push(key);
+        }
+      }
+      for (const key of lsKeysToRemove) {
+        localStorage.removeItem(key);
+      }
+      localStorage.removeItem('questionCorrectness');
+      localStorage.removeItem('selectedOptionsMap');
+      localStorage.removeItem('userAnswers');
+      localStorage.removeItem('shuffledQuestions');
+    } catch {}
+
     this.quizId.set('');
     this.indexOfQuizId.set(0);
     this.router.navigate(['/select/']);

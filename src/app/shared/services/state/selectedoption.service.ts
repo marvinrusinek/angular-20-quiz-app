@@ -58,6 +58,10 @@ export class SelectedOptionService {
     return this._refreshBackup.get(idx) ?? [];
   }
 
+  clearRefreshBackup(): void {
+    this._refreshBackup.clear();
+  }
+
   private scheduleBackupClear(): void {
     setTimeout(() => {
       this._refreshBackup.clear();

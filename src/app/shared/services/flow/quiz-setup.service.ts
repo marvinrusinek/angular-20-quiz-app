@@ -1244,6 +1244,24 @@ export class QuizSetupService {
     try { localStorage.setItem('lastQuizId', quizId); } catch {}
 
     host.initializeQuestionIndex();
+
+    // Check if returning from Results via "Select Quiz" button
+    let freshFromResults = false;
+    try {
+      freshFromResults = sessionStorage.getItem('freshStartFromResults') === 'true';
+      sessionStorage.removeItem('freshStartFromResults');
+    } catch {}
+
+    if (freshFromResults) {
+      this.quizResetService.performRestartServiceResets(host.quizId, host.totalQuestions || 20);
+      this.dotStatusService.clearAllMaps();
+      this.quizPersistence.clearClickConfirmedDotStatus(host.totalQuestions || 20);
+      this.quizPersistence.clearAllPersistedDotStatus(host.quizId);
+      this.selectedOptionService.lastClickedCorrectByQuestion.clear();
+      this.selectedOptionService.clearRefreshBackup();
+      host.progress = 0;
+    }
+
     const cleared = this.quizResetService.clearStaleProgressAndDotStateForFreshStart(
       host.currentQuestionIndex, host.quizId, host.totalQuestions
     );

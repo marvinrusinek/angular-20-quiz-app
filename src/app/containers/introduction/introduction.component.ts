@@ -21,8 +21,10 @@ import { Quiz } from '../../shared/models/Quiz.model';
 import { QuizQuestion } from '../../shared/models/QuizQuestion.model';
 import { QuizService } from '../../shared/services/data/quiz.service';
 import { QuizDataService } from '../../shared/services/data/quizdata.service';
+import { QuizDotStatusService } from '../../shared/services/flow/quiz-dot-status.service';
 import { QuizShuffleService } from '../../shared/services/flow/quiz-shuffle.service';
 import { QuizNavigationService } from '../../shared/services/flow/quiz-navigation.service';
+import { QuizPersistenceService } from '../../shared/services/state/quiz-persistence.service';
 import { SelectedOptionService } from '../../shared/services/state/selectedoption.service';
 
 @Component({
@@ -70,8 +72,10 @@ export class IntroductionComponent implements OnInit, OnDestroy {
   constructor(
     private quizService: QuizService,
     private quizDataService: QuizDataService,
+    private dotStatusService: QuizDotStatusService,
     private quizShuffleService: QuizShuffleService,
     private quizNavigationService: QuizNavigationService,
+    private quizPersistence: QuizPersistenceService,
     private selectedOptionService: SelectedOptionService,
     private activatedRoute: ActivatedRoute,
     private router: Router,
@@ -267,6 +271,12 @@ export class IntroductionComponent implements OnInit, OnDestroy {
       this.quizService.userAnswers = [];
       this.quizService.answers = [];
       this.selectedOptionService.clearAllSelectionsForQuiz(targetQuizId);
+      this.selectedOptionService.clearRefreshBackup();
+      this.selectedOptionService.clickConfirmedDotStatus.clear();
+      this.selectedOptionService.lastClickedCorrectByQuestion.clear();
+      this.dotStatusService.clearAllMaps();
+      this.quizPersistence.clearClickConfirmedDotStatus(20);
+      this.quizPersistence.clearAllPersistedDotStatus(targetQuizId);
       try {
         localStorage.setItem('savedQuestionIndex', '0');
         localStorage.setItem('correctAnswersCount', '0');
@@ -281,12 +291,23 @@ export class IntroductionComponent implements OnInit, OnDestroy {
         sessionStorage.removeItem('elapsedTimes');
         sessionStorage.removeItem('completionTime');
         // Clear per-question sessionStorage entries from previous quiz
-        for (let i = 0; i < 20; i++) {
+        for (let i = 0; i < 100; i++) {
           sessionStorage.removeItem('sel_Q' + i);
           sessionStorage.removeItem('dot_confirmed_' + i);
           sessionStorage.removeItem('quiz_selection_' + i);
           sessionStorage.removeItem('displayMode_' + i);
           sessionStorage.removeItem('feedbackText_' + i);
+        }
+        // Clear all localStorage dot status keys
+        const lsKeysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith('quiz_dot_status_') || key.startsWith('quiz_progress_'))) {
+            lsKeysToRemove.push(key);
+          }
+        }
+        for (const key of lsKeysToRemove) {
+          localStorage.removeItem(key);
         }
       } catch {}
 
