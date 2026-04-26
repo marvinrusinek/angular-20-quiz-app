@@ -71,7 +71,11 @@
 
   @if (accessedCount() > 0) {
     <div class="accessed-banner">
-      You've accessed {{ accessedCount() }} {{ accessedCount() === 1 ? 'quiz' : 'quizzes' }}. Keep going!
+      @if (accessedCount() >= totalQuizCount) {
+        ALL quizzes accessed! You are an Angular master!
+      } @else {
+        You've accessed {{ accessedCount() }} {{ accessedCount() === 1 ? 'quiz' : 'quizzes' }}. Keep going!
+      }
     </div>
   }
 

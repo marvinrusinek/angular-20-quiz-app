@@ -45,6 +45,7 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
   currentQuestionIndex = 0;
   private completedQuizIds = new Set<string>();
   readonly accessedCount = signal(0);
+  totalQuizCount = 0;
   private animationStateSignal = signal<AnimationState>('none');
   readonly animationState$ = toObservable(this.animationStateSignal);
   readonly animationStateSig = this.animationStateSignal.asReadonly();
@@ -97,7 +98,9 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
     this.selectionParams = this.quizService.returnQuizSelectionParams();
 
     // Load quizzes once – replaces constructor side-effect
-    this.quizDataService.loadQuizzes().subscribe();
+    this.quizDataService.loadQuizzes().subscribe((quizzes) => {
+      this.totalQuizCount = quizzes?.length ?? 0;
+    });
 
     // Use live observable to receive status updates
     this.quizzes$ = this.quizDataService.quizzes$;
