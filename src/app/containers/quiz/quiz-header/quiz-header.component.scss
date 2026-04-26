@@ -1,5 +1,6 @@
 mat-card-header {
   display: block;
+  position: relative;
   background: transparent !important;
   box-shadow: none !important;
   border: none !important;
@@ -7,25 +8,18 @@ mat-card-header {
   overflow: visible !important;
   min-height: 80px;
 
-  &::after {
-    content: '';
-    display: table;
-    clear: both;
-  }
-
   .header-image {
-    float: left;
-    margin: 0 0 5px 15px;
+    position: absolute;
+    top: 5px;
+    left: 25px;
   }
 
   .header-titles {
-    float: left;
-    margin-top: -90px;
+    margin-left: 130px;
+    padding-top: 10px;
 
     mat-card-title {
-      display: inline-block;
-      margin-top: 40px;
-      margin-left: 25px;
+      display: block;
       font-size: 40px;
       padding-top: 15px;
       padding-bottom: 10px;
@@ -34,10 +28,7 @@ mat-card-header {
 
     mat-card-subtitle {
       display: block;
-      float: right;
       margin-top: -10px !important;
-      margin-right: 20px !important;
-      clear: both;
       white-space: nowrap;
     }
   }
