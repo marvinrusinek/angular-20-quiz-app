@@ -237,6 +237,11 @@ export class ResultsComponent implements OnInit, OnDestroy {
   selectQuiz(): void {
     const quizId = this.quizId() || this.quizService.quizId || '';
 
+    // Persist completed quiz ID so QuizSelectionComponent can show checkmark
+    if (quizId) {
+      try { sessionStorage.setItem('completedQuizId', quizId); } catch {}
+    }
+
     this.quizService.resetAll();
     this.quizService.resetQuestions();
 

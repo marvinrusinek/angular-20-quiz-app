@@ -287,6 +287,7 @@ export class IntroductionComponent implements OnInit, OnDestroy {
         sessionStorage.removeItem('rawSelectionsMap');
         sessionStorage.removeItem('selectionHistory');
         sessionStorage.removeItem('isAnswered');
+        sessionStorage.removeItem('completedQuizId');
         sessionStorage.removeItem('finalResult');
         sessionStorage.removeItem('elapsedTimes');
         sessionStorage.removeItem('completionTime');

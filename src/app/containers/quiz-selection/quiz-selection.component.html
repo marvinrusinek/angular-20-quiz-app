@@ -47,13 +47,13 @@
       </span>
 
       @for (quiz of quizzes$ | async; track quiz?.quizId) {
-        <button 
-          mat-menu-item 
+        <button
+          mat-menu-item
           [routerLink]="isCompleted(quiz) ? ['/results/', quiz?.quizId] : ['/intro/', quiz?.quizId]"
           class="milestone-menu-item"
         >
           <div class="milestone-content">
-            @if (quiz?.status === 'completed') {
+            @if (isCompleted(quiz)) {
               <span class="milestone-text" style="text-decoration: line-through; opacity: 0.7;">
                 {{ quiz?.milestone || 'Milestone not found' }}
               </span>

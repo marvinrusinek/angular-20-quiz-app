@@ -76,6 +76,13 @@ export class QuizDataService implements OnDestroy {
             existingStatuses.set(quiz.quizId, quiz.status);
           }
         }
+        // Also restore completed quiz status from sessionStorage
+        try {
+          const completedId = sessionStorage.getItem('completedQuizId');
+          if (completedId && !existingStatuses.has(completedId)) {
+            existingStatuses.set(completedId, 'completed');
+          }
+        } catch {}
 
         // Merge statuses into new data
         const mergedQuizzes = Array.isArray(quizzes) 

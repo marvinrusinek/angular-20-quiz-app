@@ -43,6 +43,7 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
   quizzes$: Observable<Quiz[]> = of([]);
   selectedQuiz: Quiz | null = null;
   currentQuestionIndex = 0;
+  private completedQuizId = '';
   private animationStateSignal = signal<AnimationState>('none');
   readonly animationState$ = toObservable(this.animationStateSignal);
   readonly animationStateSig = this.animationStateSignal.asReadonly();
@@ -68,8 +69,21 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
 
   private initializeQuizSelection(): void {
     this.currentQuestionIndex = this.quizService.currentQuestionIndex;
+
+    // Restore completed quiz status from sessionStorage (survives resetAll)
+    let completedId: string | null = null;
+    try {
+      completedId = sessionStorage.getItem('completedQuizId');
+    } catch {}
+    if (completedId) {
+      this.completedQuizId = completedId;
+      this.quizDataService.updateQuizStatus(completedId, QuizStatus.COMPLETED);
+      this.quizService.setCompletedQuizId(completedId);
+      this.quizService.quizCompleted = true;
+    }
+
     this.selectionParams = this.quizService.returnQuizSelectionParams();
-    
+
     // Load quizzes once – replaces constructor side-effect
     this.quizDataService.loadQuizzes().subscribe();
 
@@ -107,9 +121,10 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
       // this.quizService.quizId = quizId;
       this.quizService.setQuizId(quizId);
       const currentQuiz = this.quizDataService.getCachedQuizById(quizId);
-      const isCompleted = currentQuiz?.status === QuizStatus.COMPLETED;
+      const isCompleted = currentQuiz?.status === QuizStatus.COMPLETED
+        || quizId === this.completedQuizId;
       this.quizService.quizCompleted = isCompleted;
-      
+
       // If quiz is completed, go to results instead of intro
       if (isCompleted) {
         this.quizService.setQuizStatus(QuizStatus.COMPLETED);
@@ -159,47 +174,52 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
   }
 
   getTooltip(quiz: Quiz): string {
+    if (quiz.status === QuizStatus.COMPLETED || quiz.quizId === this.completedQuizId) {
+      return 'Completed';
+    }
     switch (quiz.status) {
       case QuizStatus.STARTED:
         return 'Start';
       case QuizStatus.CONTINUE:
         return 'Continue';
-      case QuizStatus.COMPLETED:
-        return 'Completed';
       default:
         return '';
     }
   }
 
   shouldShowLink(quiz: Quiz): boolean {
-    // Show the status icon if the quiz has any status set
-    // OR if it's the completed quiz (based on selectionParams)
-    const hasStatus = !!quiz.status;
+    const hasKnownStatus = quiz.status === QuizStatus.STARTED
+      || quiz.status === QuizStatus.CONTINUE
+      || quiz.status === QuizStatus.COMPLETED;
     const isCompletedQuiz = quiz.quizId === this.selectionParams.completedQuizId;
-    
-    // Show icon if quiz has a status OR if it matches the completed quiz ID
-    return hasStatus || isCompletedQuiz;
+    return hasKnownStatus || isCompletedQuiz;
   }
 
   getLinkRouterLink(quiz: any): any[] {
     const quizId = quiz?.quizId;
-    const status = String(quiz?.status ?? '').toLowerCase();
-  
-    if (status === 'completed') return ['/results/', quizId];
-    if (status === 'continue') return ['/intro/', quizId];  // or resume route
+    if (quiz?.status === QuizStatus.COMPLETED || quizId === this.completedQuizId) {
+      return ['/results/', quizId];
+    }
+    if (quiz?.status === QuizStatus.CONTINUE) {
+      return ['/intro/', quizId];
+    }
     return ['/intro/', quizId];
   }
 
   getIconClass(quiz: Quiz): string {
     switch (quiz.status) {
       case QuizStatus.STARTED:
-        return 'play_arrow';  // Start icon
+        return 'play_arrow';
       case QuizStatus.CONTINUE:
-        return 'fast_forward';  // Continue icon
+        return 'fast_forward';
       case QuizStatus.COMPLETED:
-        return 'done';  // Completed checkmark
+        return 'done';
       default:
-        return 'help_outline';  // Unknown state
+        // Fallback: if this quiz matches the completedQuizId, show checkmark
+        if (quiz.quizId === this.selectionParams.completedQuizId) {
+          return 'done';
+        }
+        return '';
     }
   }
 
@@ -208,6 +228,7 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
   }
 
   public isCompleted(quiz: any): boolean {
-    return (quiz?.status ?? '').toString().toLowerCase() === 'completed';
+    return (quiz?.status ?? '').toString().toLowerCase() === 'completed'
+      || quiz?.quizId === this.completedQuizId;
   }
 }
