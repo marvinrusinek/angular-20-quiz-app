@@ -239,10 +239,38 @@ export class ResultsComponent implements OnInit, OnDestroy {
   selectQuiz(): void {
     const quizId = this.quizId() || this.quizService.quizId || '';
 
-    // Persist completed quiz ID so QuizSelectionComponent can show checkmark
+    // Only mark as completed (checkmark) if score is 100%
+    const snapshot = this.finalResult();
+    const isPerfect = snapshot && snapshot.total > 0 && snapshot.correct === snapshot.total;
     if (quizId) {
-      try { sessionStorage.setItem('completedQuizId', quizId); } catch {}
+      try {
+        if (isPerfect) {
+          const existing = JSON.parse(sessionStorage.getItem('completedQuizIds') || '[]');
+          if (!existing.includes(quizId)) {
+            existing.push(quizId);
+          }
+          sessionStorage.setItem('completedQuizIds', JSON.stringify(existing));
+        } else {
+          const existing = JSON.parse(sessionStorage.getItem('startedQuizIds') || '[]');
+          if (!existing.includes(quizId)) {
+            existing.push(quizId);
+          }
+          sessionStorage.setItem('startedQuizIds', JSON.stringify(existing));
+        }
+      } catch {}
     }
+
+    // Clear quiz status set by setCompletedQuiz() so non-perfect quizzes
+    // don't show as completed on the selection screen
+    if (quizId) {
+      if (isPerfect) {
+        this.quizDataService.updateQuizStatus(quizId, QuizStatus.COMPLETED);
+      } else {
+        this.quizDataService.updateQuizStatus(quizId, QuizStatus.STARTED);
+      }
+    }
+    this.quizService.setCompletedQuizId(isPerfect ? quizId : '');
+    this.quizService.quizCompleted = !!isPerfect;
 
     this.quizService.resetAll();
     this.quizService.resetQuestions();

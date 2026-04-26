@@ -76,11 +76,19 @@ export class QuizDataService implements OnDestroy {
             existingStatuses.set(quiz.quizId, quiz.status);
           }
         }
-        // Also restore completed quiz status from sessionStorage
+        // Also restore quiz statuses from sessionStorage
         try {
-          const completedId = sessionStorage.getItem('completedQuizId');
-          if (completedId && !existingStatuses.has(completedId)) {
-            existingStatuses.set(completedId, 'completed');
+          const completedIds: string[] = JSON.parse(sessionStorage.getItem('completedQuizIds') || '[]');
+          for (const id of completedIds) {
+            if (!existingStatuses.has(id)) {
+              existingStatuses.set(id, 'completed');
+            }
+          }
+          const startedIds: string[] = JSON.parse(sessionStorage.getItem('startedQuizIds') || '[]');
+          for (const id of startedIds) {
+            if (!existingStatuses.has(id)) {
+              existingStatuses.set(id, 'started');
+            }
           }
         } catch {}
 

@@ -287,7 +287,16 @@ export class IntroductionComponent implements OnInit, OnDestroy {
         sessionStorage.removeItem('rawSelectionsMap');
         sessionStorage.removeItem('selectionHistory');
         sessionStorage.removeItem('isAnswered');
-        sessionStorage.removeItem('completedQuizId');
+        // Remove this quiz from completed list (restarting it)
+        try {
+          const ids: string[] = JSON.parse(sessionStorage.getItem('completedQuizIds') || '[]');
+          const filtered = ids.filter(id => id !== targetQuizId);
+          if (filtered.length > 0) {
+            sessionStorage.setItem('completedQuizIds', JSON.stringify(filtered));
+          } else {
+            sessionStorage.removeItem('completedQuizIds');
+          }
+        } catch { sessionStorage.removeItem('completedQuizIds'); }
         sessionStorage.removeItem('finalResult');
         sessionStorage.removeItem('elapsedTimes');
         sessionStorage.removeItem('completionTime');

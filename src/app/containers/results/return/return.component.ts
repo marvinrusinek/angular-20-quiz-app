@@ -121,10 +121,39 @@ export class ReturnComponent implements OnInit {
   selectQuiz(): void {
     this.selectedOptionService.clearState();
 
-    // Clear quiz status so tiles don't show stale icons
     const id = this.quizId() || this.quizService.quizId;
+
+    // Only mark as completed (checkmark) if score is 100%
+    let isPerfect = false;
+    try {
+      const snapshot = JSON.parse(sessionStorage.getItem('finalResult') || '{}');
+      isPerfect = snapshot.total > 0 && snapshot.correct === snapshot.total;
+    } catch {}
     if (id) {
-      this.quizDataService.updateQuizStatus(id, '');
+      try {
+        if (isPerfect) {
+          const existing = JSON.parse(sessionStorage.getItem('completedQuizIds') || '[]');
+          if (!existing.includes(id)) {
+            existing.push(id);
+          }
+          sessionStorage.setItem('completedQuizIds', JSON.stringify(existing));
+        } else {
+          const existing = JSON.parse(sessionStorage.getItem('startedQuizIds') || '[]');
+          if (!existing.includes(id)) {
+            existing.push(id);
+          }
+          sessionStorage.setItem('startedQuizIds', JSON.stringify(existing));
+        }
+      } catch {}
+    }
+
+    // Clear quiz status so non-perfect quizzes don't show as completed
+    if (id) {
+      if (isPerfect) {
+        this.quizDataService.updateQuizStatus(id, 'completed');
+      } else {
+        this.quizDataService.updateQuizStatus(id, 'started');
+      }
     }
 
     this.quizService.resetAll();

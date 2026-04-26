@@ -43,7 +43,7 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
   quizzes$: Observable<Quiz[]> = of([]);
   selectedQuiz: Quiz | null = null;
   currentQuestionIndex = 0;
-  private completedQuizId = '';
+  private completedQuizIds = new Set<string>();
   private animationStateSignal = signal<AnimationState>('none');
   readonly animationState$ = toObservable(this.animationStateSignal);
   readonly animationStateSig = this.animationStateSignal.asReadonly();
@@ -70,17 +70,25 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
   private initializeQuizSelection(): void {
     this.currentQuestionIndex = this.quizService.currentQuestionIndex;
 
-    // Restore completed quiz status from sessionStorage (survives resetAll)
-    let completedId: string | null = null;
+    // Restore quiz statuses from sessionStorage (one-time consumption)
     try {
-      completedId = sessionStorage.getItem('completedQuizId');
+      const completedIds: string[] = JSON.parse(sessionStorage.getItem('completedQuizIds') || '[]');
+      sessionStorage.removeItem('completedQuizIds');
+      for (const id of completedIds) {
+        this.completedQuizIds.add(id);
+        this.quizDataService.updateQuizStatus(id, QuizStatus.COMPLETED);
+      }
+      if (completedIds.length > 0) {
+        this.quizService.setCompletedQuizId(completedIds[completedIds.length - 1]);
+        this.quizService.quizCompleted = true;
+      }
+
+      const startedIds: string[] = JSON.parse(sessionStorage.getItem('startedQuizIds') || '[]');
+      sessionStorage.removeItem('startedQuizIds');
+      for (const id of startedIds) {
+        this.quizDataService.updateQuizStatus(id, QuizStatus.STARTED);
+      }
     } catch {}
-    if (completedId) {
-      this.completedQuizId = completedId;
-      this.quizDataService.updateQuizStatus(completedId, QuizStatus.COMPLETED);
-      this.quizService.setCompletedQuizId(completedId);
-      this.quizService.quizCompleted = true;
-    }
 
     this.selectionParams = this.quizService.returnQuizSelectionParams();
 
@@ -122,7 +130,7 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
       this.quizService.setQuizId(quizId);
       const currentQuiz = this.quizDataService.getCachedQuizById(quizId);
       const isCompleted = currentQuiz?.status === QuizStatus.COMPLETED
-        || quizId === this.completedQuizId;
+        || this.completedQuizIds.has(quizId);
       this.quizService.quizCompleted = isCompleted;
 
       // If quiz is completed, go to results instead of intro
@@ -164,7 +172,7 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
           !this.selectionParams.quizCompleted ||
           quiz.quizId === this.selectionParams.startedQuizId ||
           quiz.quizId === this.selectionParams.continueQuizId ||
-          quiz.quizId === this.selectionParams.completedQuizId
+          this.completedQuizIds.has(quiz.quizId)
         ) {
           classes.push('link');
         }
@@ -174,7 +182,7 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
   }
 
   getTooltip(quiz: Quiz): string {
-    if (quiz.status === QuizStatus.COMPLETED || quiz.quizId === this.completedQuizId) {
+    if (quiz.status === QuizStatus.COMPLETED || this.completedQuizIds.has(quiz.quizId)) {
       return 'Completed';
     }
     switch (quiz.status) {
@@ -191,13 +199,13 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
     const hasKnownStatus = quiz.status === QuizStatus.STARTED
       || quiz.status === QuizStatus.CONTINUE
       || quiz.status === QuizStatus.COMPLETED;
-    const isCompletedQuiz = quiz.quizId === this.selectionParams.completedQuizId;
+    const isCompletedQuiz = this.completedQuizIds.has(quiz.quizId);
     return hasKnownStatus || isCompletedQuiz;
   }
 
   getLinkRouterLink(quiz: any): any[] {
     const quizId = quiz?.quizId;
-    if (quiz?.status === QuizStatus.COMPLETED || quizId === this.completedQuizId) {
+    if (quiz?.status === QuizStatus.COMPLETED || this.completedQuizIds.has(quizId)) {
       return ['/results/', quizId];
     }
     if (quiz?.status === QuizStatus.CONTINUE) {
@@ -216,7 +224,7 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
         return 'done';
       default:
         // Fallback: if this quiz matches the completedQuizId, show checkmark
-        if (quiz.quizId === this.selectionParams.completedQuizId) {
+        if (this.completedQuizIds.has(quiz.quizId)) {
           return 'done';
         }
         return '';
@@ -229,6 +237,6 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
 
   public isCompleted(quiz: any): boolean {
     return (quiz?.status ?? '').toString().toLowerCase() === 'completed'
-      || quiz?.quizId === this.completedQuizId;
+      || this.completedQuizIds.has(quiz?.quizId);
   }
 }
