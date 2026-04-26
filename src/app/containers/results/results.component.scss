@@ -568,4 +568,13 @@ mat-card {
   ::ng-deep .mat-expansion-panel {
     margin: 0 !important;
   }
+
+  .results {
+    margin-top: 0 !important;
+
+    .section-heading {
+      margin-top: -20px !important;
+      font-size: 22px !important;
+    }
+  }
 }

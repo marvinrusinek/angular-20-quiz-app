@@ -219,11 +219,14 @@
 // ============================================================
 @media (max-width: 600px) {
   .summary-report {
-    width: 95%;
-    padding: 16px;
+    width: 100%;
+    max-width: 100%;
+    padding: 16px 12px;
+    margin-top: 0;
+    box-sizing: border-box;
 
     h2 {
-      font-size: 18px;
+      font-size: 20px;
     }
 
     .summary-stats-view {
@@ -242,17 +245,39 @@
     ::ng-deep .summary-stats {
       margin-left: 0 !important;
       padding-left: 0 !important;
+
+      li {
+        padding: 8px 10px !important;
+
+        .summary-stats-leader {
+          font-size: 15px !important;
+        }
+
+        .result {
+          font-size: 18px !important;
+        }
+      }
+    }
+
+    .quiz-note {
+      font-size: 14px;
+      padding: 10px;
     }
 
     table,
     ::ng-deep table {
       width: 100% !important;
-      font-size: 12px;
-      margin-left: -15px !important;
+      font-size: 13px;
+      margin-left: 0 !important;
+      margin-right: 0 !important;
 
       th, td {
-        padding: 8px 6px;
+        padding: 10px 8px;
       }
+    }
+
+    details summary {
+      font-size: 15px;
     }
   }
 }
