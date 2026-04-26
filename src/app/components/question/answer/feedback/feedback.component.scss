@@ -120,8 +120,9 @@
     margin: 10px 0 !important;
 
     .feedback-message {
-      width: auto !important;
+      width: calc(100% - 40px) !important;
       max-width: 100% !important;
+      box-sizing: border-box !important;
       white-space: normal !important;
       word-wrap: break-word !important;
       overflow-wrap: break-word !important;

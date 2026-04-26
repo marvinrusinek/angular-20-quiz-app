@@ -725,7 +725,7 @@ button.mat-mdc-menu-trigger {
 @media (max-width: 600px) {
   .message .feedback-message.correct-message,
   .message .feedback-message.wrong-message {
-    width: 100% !important;
+    width: calc(100% - 40px) !important;
     padding: 8px 15px 8px 10px !important;
     height: auto !important;
     min-height: 50px !important;
