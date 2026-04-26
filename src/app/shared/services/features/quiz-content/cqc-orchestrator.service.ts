@@ -292,9 +292,11 @@ export class CqcOrchestratorService {
         // (not the formatted "Options N are correct because..." form),
         // which means detecting "correct because" alone misses it.
         const qsEarly: any = host.quizService;
-        const activeIdxEarly: number = Number.isFinite(qsEarly?.currentQuestionIndex)
-          ? qsEarly.currentQuestionIndex
-          : (qsEarly?.getCurrentQuestionIndex?.() ?? 0);
+        const activeIdxEarly: number = host.currentIndex ?? (
+          Number.isFinite(qsEarly?.currentQuestionIndex)
+            ? qsEarly.currentQuestionIndex
+            : (qsEarly?.getCurrentQuestionIndex?.() ?? 0)
+        );
         const isShuffledEarly = qsEarly?.isShuffleEnabled?.()
           && Array.isArray(qsEarly?.shuffledQuestions)
           && qsEarly.shuffledQuestions.length > 0;
@@ -350,9 +352,11 @@ export class CqcOrchestratorService {
           // quizQuestionComponent. Resolve the live question via the
           // quizService's current index instead.
           const qs: any = host.quizService;
-          const activeIdx: number = Number.isFinite(qs?.currentQuestionIndex)
-            ? qs.currentQuestionIndex
-            : (qs?.getCurrentQuestionIndex?.() ?? 0);
+          const activeIdx: number = host.currentIndex ?? (
+            Number.isFinite(qs?.currentQuestionIndex)
+              ? qs.currentQuestionIndex
+              : (qs?.getCurrentQuestionIndex?.() ?? 0)
+          );
           const isShuffled = qs?.isShuffleEnabled?.()
             && Array.isArray(qs?.shuffledQuestions)
             && qs.shuffledQuestions.length > 0;
@@ -608,9 +612,11 @@ export class CqcOrchestratorService {
               try {
                 const scoringSvcHG = (host.quizService as any)?.scoringService;
                 const qs2 = host.quizService as any;
-                const displayIdx = Number.isFinite(qs2?.currentQuestionIndex)
-                  ? qs2.currentQuestionIndex
-                  : (qs2?.getCurrentQuestionIndex?.() ?? -1);
+                const displayIdx = host.currentIndex ?? (
+                  Number.isFinite(qs2?.currentQuestionIndex)
+                    ? qs2.currentQuestionIndex
+                    : (qs2?.getCurrentQuestionIndex?.() ?? -1)
+                );
                 hardGateOverride = this.isScoredCorrectAtDisplay(host, displayIdx);
               } catch { /* ignore */ }
               if (hardGateOverride) {
@@ -641,9 +647,11 @@ export class CqcOrchestratorService {
       try {
         const _norm = (t: any) => String(t ?? '').trim().toLowerCase();
         const qs_ll: any = host.quizService;
-        const idx_ll: number = Number.isFinite(qs_ll?.currentQuestionIndex)
-          ? qs_ll.currentQuestionIndex
-          : (qs_ll?.getCurrentQuestionIndex?.() ?? 0);
+        const idx_ll: number = host.currentIndex ?? (
+          Number.isFinite(qs_ll?.currentQuestionIndex)
+            ? qs_ll.currentQuestionIndex
+            : (qs_ll?.getCurrentQuestionIndex?.() ?? 0)
+        );
         const isShuf_ll = qs_ll?.isShuffleEnabled?.()
           && Array.isArray(qs_ll?.shuffledQuestions)
           && qs_ll.shuffledQuestions.length > 0;
@@ -718,7 +726,7 @@ export class CqcOrchestratorService {
       const _nf = (t: any): string => String(t ?? '').trim().toLowerCase();
       const _safeStripped = _nf(safe.replace(/<[^>]*>/g, ''));
       const _qs: any = host.quizService;
-      const _idx: number = _qs?.currentQuestionIndex ?? 0;
+      const _idx: number = host.currentIndex ?? (_qs?.currentQuestionIndex ?? 0);
       const _isShuf = _qs?.isShuffleEnabled?.() && Array.isArray(_qs?.shuffledQuestions) && _qs.shuffledQuestions.length > 0;
       const _liveQ: any = _isShuf ? _qs?.shuffledQuestions?.[_idx] : _qs?.questions?.[_idx];
       const _qTextNorm = _nf(_liveQ?.questionText);
@@ -787,9 +795,11 @@ export class CqcOrchestratorService {
       // ════════════════════════════════════════════════════════════════
       try {
         const qsBs: any = host.quizService;
-        const bsIdx: number = Number.isFinite(qsBs?.currentQuestionIndex)
-          ? qsBs.currentQuestionIndex
-          : (qsBs?.getCurrentQuestionIndex?.() ?? 0);
+        const bsIdx: number = host.currentIndex ?? (
+          Number.isFinite(qsBs?.currentQuestionIndex)
+            ? qsBs.currentQuestionIndex
+            : (qsBs?.getCurrentQuestionIndex?.() ?? 0)
+        );
         const normBs = (t: any) => String(t ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
         const safeNormBs = normBs(safe);
         // Resolve pristine explanation for the current display question
@@ -840,9 +850,11 @@ export class CqcOrchestratorService {
       // question text from stripping the banner.
       try {
         const qsBnr: any = host.quizService;
-        const bnrIdx: number = Number.isFinite(qsBnr?.currentQuestionIndex)
-          ? qsBnr.currentQuestionIndex
-          : (qsBnr?.getCurrentQuestionIndex?.() ?? 0);
+        const bnrIdx: number = host.currentIndex ?? (
+          Number.isFinite(qsBnr?.currentQuestionIndex)
+            ? qsBnr.currentQuestionIndex
+            : (qsBnr?.getCurrentQuestionIndex?.() ?? 0)
+        );
         const expectedWithBanner = this.buildQuestionDisplayHTML(host, bnrIdx);
         if (expectedWithBanner && expectedWithBanner.includes('correct-count')) {
           // This is a multi-answer question with a banner.
