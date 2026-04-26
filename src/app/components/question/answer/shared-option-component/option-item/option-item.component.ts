@@ -16,6 +16,7 @@ import { SharedOptionConfig } from '../../../../../shared/models/SharedOptionCon
 import { QuizService } from '../../../../../shared/services/data/quiz.service';
 import { SelectedOptionService } from '../../../../../shared/services/state/selectedoption.service';
 import { SelectionMessageService } from '../../../../../shared/services/features/selection-message/selection-message.service';
+import { TimerService } from '../../../../../shared/services/features/timer/timer.service';
 
 export type OptionUIEventKind = 'change' | 'interaction' | 'contentClick';
 
@@ -64,6 +65,10 @@ export class OptionItemComponent implements OnChanges {
   // the real index resolves, and the second ngOnChanges would wipe the
   // refresh-restored state if we cleared unconditionally.
   private _userHasClicked = false;
+  // Tracks whether the timer expired for the current question. Used to
+  // clear timer-expiry highlighting on question change even when the
+  // user never clicked an option (_userHasClicked is false).
+  private _wasTimerExpired = false;
 
   // ONE output
   readonly optionUI = output<OptionUIEvent>();
@@ -72,22 +77,21 @@ export class OptionItemComponent implements OnChanges {
     private optionService: OptionService,
     private quizService: QuizService,
     private selectedOptionService: SelectedOptionService,
-    private selectionMessageService: SelectionMessageService
+    private selectionMessageService: SelectionMessageService,
+    private timerService: TimerService
   ) { }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['currentQuestionIndex']) {
       const nextQuestionIndex = Number(this.currentQuestionIndex() ?? -1);
       if (Number.isFinite(nextQuestionIndex) && nextQuestionIndex !== this._lastQuestionIndex) {
-        // Only clear stale visual state when we're navigating AWAY from
-        // a question the user actually clicked on inside this component
-        // instance. On refresh the parent's questionIndex signal may
-        // briefly emit the default 0 before settling on the real index,
-        // which would otherwise wipe refresh-restored highlights on Q2+.
-        // _userHasClicked gates the clear so restore-only transitions
-        // leave the rehydrated binding state alone.
-        if (this._lastQuestionIndex !== -1 && this._userHasClicked) {
+        // Clear stale visual state when navigating AWAY from a question.
+        // Gate on _userHasClicked OR _wasTimerExpired so timer-expired
+        // highlighting (correct answers revealed on timeout) is also
+        // cleared when the user advances without having clicked.
+        if (this._lastQuestionIndex !== -1 && (this._userHasClicked || this._wasTimerExpired)) {
           this._wasSelected = false;
+          this._wasTimerExpired = false;
           if (this.b) {
             this.b.isSelected = false;
             this.b.disabled = false;
@@ -102,6 +106,12 @@ export class OptionItemComponent implements OnChanges {
         }
         this._lastQuestionIndex = nextQuestionIndex;
       }
+    }
+
+    // Track timer expiry so we can clear highlighting on question change
+    // even when the user never clicked an option.
+    if (this.isTimerExpiredForThisQuestion() && !this._wasTimerExpired) {
+      this._wasTimerExpired = true;
     }
 
     if (changes['shouldResetBackground'] && this.shouldResetBackground()) {
@@ -119,6 +129,25 @@ export class OptionItemComponent implements OnChanges {
     if (this.b?.isSelected && this._userHasClicked) {
       this._wasSelected = true;
     }
+  }
+
+  /**
+   * Authoritative timer-expired check: the `timerExpired` input may be
+   * stale (set for Q1 but not yet cleared when Q2 renders). Cross-check
+   * against TimerService.expiredForQuestionIndex so a stale input from
+   * Q1 doesn't disable/highlight Q2's options.
+   */
+  private isTimerExpiredForThisQuestion(): boolean {
+    if (!this.timerExpired()) {
+      return false;
+    }
+    const qIdx = this.currentQuestionIndex() ?? this.quizService.currentQuestionIndex;
+    const expiredIdx = this.timerService.expiredForQuestionIndex;
+    // If the timer expired for a different question, this is stale
+    if (expiredIdx >= 0 && expiredIdx !== qIdx) {
+      return false;
+    }
+    return true;
   }
 
   get optionId(): number {
@@ -156,7 +185,7 @@ export class OptionItemComponent implements OnChanges {
   getOptionClasses(): { [key: string]: boolean } {
     const classes = { ...this.b.cssClasses };
 
-    if (this.timerExpired()) {
+    if (this.isTimerExpiredForThisQuestion()) {
       // Preserve the user's selected state on timer expiry: a selected
       // wrong option must still paint red with its close icon.
       const wasSelected = this.b?.isSelected
@@ -204,7 +233,7 @@ export class OptionItemComponent implements OnChanges {
     // fully answered or the timer expired. This prevents stale b.disabled
     // from initialization (when isMultiMode wasn't yet true) from blocking clicks.
     if (_type === 'multiple') {
-      if (this.timerExpired()) {
+      if (this.isTimerExpiredForThisQuestion()) {
         return true;
       }
       const perfectMap = (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
@@ -318,7 +347,7 @@ export class OptionItemComponent implements OnChanges {
   }
 
   shouldShowIcon(option?: any, i?: number): boolean {
-    if (this.timerExpired()) {
+    if (this.isTimerExpiredForThisQuestion()) {
       // Show icon for correct options AND for any option the user
       // actually selected (so a selected wrong answer keeps its X).
       if (this.shouldShowCorrectOnTimeout()) return true;
@@ -364,7 +393,7 @@ export class OptionItemComponent implements OnChanges {
   }
 
   shouldShowCorrectOnTimeout(): boolean {
-    if (!this.timerExpired()) {
+    if (!this.isTimerExpiredForThisQuestion()) {
       return false;
     }
 
@@ -374,7 +403,7 @@ export class OptionItemComponent implements OnChanges {
   }
 
   getOptionBackgroundColor(): string | null {
-    if (this.timerExpired()) {
+    if (this.isTimerExpiredForThisQuestion()) {
       if (this.shouldShowCorrectOnTimeout()) return '#43e756';
       // Keep the user's wrong selection red on timer expiry.
       const wasSelected = this.b?.isSelected

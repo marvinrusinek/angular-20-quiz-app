@@ -65,6 +65,8 @@ export class TimerService implements OnDestroy {
 
   private _authoritativeStop = false;
   private hasExpiredForRun = false;
+  /** The question index the timer most recently expired for, or -1 if none. */
+  public expiredForQuestionIndex = -1;
 
   constructor(
     private quizService: QuizService,
@@ -229,8 +231,9 @@ export class TimerService implements OnDestroy {
         // If reached the duration, emit expiration once (stop only for countdown)
         if (elapsed >= duration && !this.hasExpiredForRun) {
           this.hasExpiredForRun = true;
+          this.expiredForQuestionIndex = this.quizService.currentQuestionIndex;
           console.log(
-            `[TimerService] Time expired${isCountdown ? '. Stopping timer.' : '.'}`
+            `[TimerService] Time expired for Q${this.expiredForQuestionIndex}${isCountdown ? '. Stopping timer.' : '.'}`
           );
           this.expiredSubject.next();
           if (isCountdown) {
@@ -575,6 +578,7 @@ export class TimerService implements OnDestroy {
     this._runningForQuestion = questionIndex;
     // Clear expiry/start guards so this fresh question can run
     this.hasExpiredForRun = false;
+    this.expiredForQuestionIndex = -1;
     this._lastStartedAtMs = 0;
     this.stopTimer?.(undefined, { force: true });
     this.resetTimer();

@@ -454,6 +454,10 @@ export class SharedOptionOrchestratorService {
     host.selectedOptionHistory = [];
     host.feedbackConfigs = {};
     host.lockedIncorrectOptionIds.clear();
+    host.timerExpiredForQuestion = false;
+    host.forceDisableAll = false;
+    host.timeoutCorrectOptionKeys?.clear?.();
+    host.flashDisabledSet?.clear?.();
   }
 
   runInitializeOptionBindings(host: Host): void {
