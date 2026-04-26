@@ -121,17 +121,33 @@
 
     .feedback-message {
       width: auto !important;
-      max-width: 100%;
+      max-width: 100% !important;
+      white-space: normal !important;
+      word-wrap: break-word !important;
+      overflow-wrap: break-word !important;
+      height: auto !important;
+      min-height: 50px !important;
     }
 
-    .correct-message,
-    .wrong-message {
+    .feedback-message.correct-message,
+    .feedback-message.wrong-message {
       margin: -5px 0 !important;
     }
 
-    .correct-icon,
+    .feedback-message.wrong-message {
+      padding: 8px 15px 8px 10px !important;
+    }
+
+    .feedback-message.correct-message mat-icon {
+      margin-left: 5px !important;
+    }
+
+    .correct-icon {
+      margin-left: 5px !important;
+    }
+
     .wrong-icon {
-      margin-left: 0;
+      margin-left: 0 !important;
     }
   }
 }
