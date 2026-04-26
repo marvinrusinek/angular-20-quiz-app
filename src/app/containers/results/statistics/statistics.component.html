@@ -134,7 +134,7 @@
       <!-- === RESOURCES SECTION (Standalone) === -->
       @if (viewMode() === 'resources') {
         <div class="resources-view">
-          <h3 class="section-title">Use these resources to improve your score:</h3>
+          <h3 class="section-title">Use these resources to improve your score!</h3>
           <ng-container *ngTemplateOutlet="resourcesTemplate"></ng-container>
         </div>
       }
@@ -147,7 +147,7 @@
   <details class="resources-section" open>
     <summary class="resources-header">
       <span class="resources-icon">📚</span>
-      <span i18n>Brush up your knowledge of <strong><em>{{ milestoneName$ | async }}</em></strong> with these resources</span>
+      <span i18n>Brush up your knowledge of <strong><em>{{ milestoneName$ | async }}</em></strong> with these resources:</span>
     </summary>
 
     <ul>
