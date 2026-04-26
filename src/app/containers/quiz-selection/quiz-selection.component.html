@@ -69,6 +69,12 @@
     </mat-menu>
   </div>
 
+  @if (accessedCount() > 0) {
+    <div class="accessed-banner">
+      You've accessed {{ accessedCount() }} {{ accessedCount() === 1 ? 'quiz' : 'quizzes' }}. Keep going!
+    </div>
+  }
+
   <!-- Quiz Tiles Grid -->
   <div class="quiz-grid">
     @for (quiz of quizzes$ | async; let i = $index; track quiz?.quizId) {

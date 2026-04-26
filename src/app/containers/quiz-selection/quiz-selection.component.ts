@@ -44,6 +44,7 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
   selectedQuiz: Quiz | null = null;
   currentQuestionIndex = 0;
   private completedQuizIds = new Set<string>();
+  readonly accessedCount = signal(0);
   private animationStateSignal = signal<AnimationState>('none');
   readonly animationState$ = toObservable(this.animationStateSignal);
   readonly animationStateSig = this.animationStateSignal.asReadonly();
@@ -88,6 +89,9 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
       for (const id of startedIds) {
         this.quizDataService.updateQuizStatus(id, QuizStatus.STARTED);
       }
+
+      const allAccessed = new Set([...completedIds, ...startedIds]);
+      this.accessedCount.set(allAccessed.size);
     } catch {}
 
     this.selectionParams = this.quizService.returnQuizSelectionParams();

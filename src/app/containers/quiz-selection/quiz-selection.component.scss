@@ -36,6 +36,9 @@
     }
 
     .intro-titles {
+      text-align: center;
+      margin-left: -200px;
+
       h1 {
         font-family: vars.$font-stack;
         font-weight: vars.$font-weight-max;
@@ -45,9 +48,9 @@
       }
 
       h4 {
-        margin-left: 40px;
         font-style: italic;
         font-size: 18px;
+        margin: 0;
       }
     }
 
@@ -70,6 +73,8 @@
     width: 220px;
     padding-bottom: 15px;
     margin: 35px auto 0;
+    position: relative;
+    left: 40px;
     background-color: color.scale(vars.$light-gray, $alpha: -50%);
 
     button {
@@ -119,6 +124,15 @@
       height: 20px;
       margin-left: 12px;
     }
+  }
+
+  .accessed-banner {
+    text-align: center;
+    padding: 10px 20px;
+    margin: 0 auto 5px;
+    font-size: 15px;
+    font-weight: 600;
+    color: vars.$dodger-blue;
   }
 
   .quiz-grid {
