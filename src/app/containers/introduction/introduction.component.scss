@@ -1,8 +1,16 @@
 @use '../../../variables' as vars;
 
+:host {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  margin-top: -20px;
+}
+
 mat-card-header {
   display: block;
-  padding-top: 15px;
+  padding-top: 15px !important;
   background: transparent !important;
   box-shadow: none !important;
   border: none !important;
@@ -146,6 +154,15 @@ mat-card-actions {
   position: absolute !important;
   inset: 0 !important;
   pointer-events: none !important;
+}
+
+/* Force header padding through Material encapsulation */
+:host ::ng-deep .mat-mdc-card-header {
+  padding-top: 15px !important;
+}
+
+:host ::ng-deep mat-card.quiz-card {
+  padding-top: 15px !important;
 }
 
 /* ✓ Final card style — thick RHS + bottom border */
