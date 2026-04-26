@@ -718,3 +718,22 @@ button.mat-mdc-menu-trigger {
     }
   }
 }
+
+/* ─────────────────────────────────────────────
+   MOBILE FEEDBACK TEXT STYLES
+─────────────────────────────────────────────*/
+@media (max-width: 600px) {
+  .message .feedback-message.correct-message,
+  .message .feedback-message.wrong-message {
+    padding: 8px 15px 8px 10px !important;
+    height: auto !important;
+    min-height: 50px !important;
+    white-space: normal !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+  }
+
+  .message .feedback-message.correct-message mat-icon {
+    margin-left: 5px !important;
+  }
+}
