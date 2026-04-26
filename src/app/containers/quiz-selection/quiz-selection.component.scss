@@ -95,6 +95,11 @@
     }
   }
 
+  // Override Material menu panel background to white
+  ::ng-deep .mat-mdc-menu-panel {
+    background: white !important;
+  }
+
   // Milestone menu item styling (::ng-deep needed for mat-menu overlay)
   ::ng-deep .milestone-menu-item {
     // Flex container for the button content
