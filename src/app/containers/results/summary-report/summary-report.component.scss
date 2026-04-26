@@ -173,8 +173,8 @@
         background-color: rgba(0, 0, 0, 0.08) !important;
       }
 
-      &:nth-child(odd) {
-        background-color: transparent !important;
+      &:nth-child(odd):not(:first-child) {
+        background-color: rgba(255, 255, 255, 0.6) !important;
       }
 
       &:hover {
@@ -197,6 +197,7 @@
         padding: 10px 16px;
         text-align: center;
         font-size: 14px;
+        color: vars.$dark-blue;
       }
     }
   }
