@@ -415,6 +415,16 @@
 
 // Resources List Styling
 .resources-view, details {
+  .section-title {
+    color: vars.$dark-blue;
+    font-weight: 700;
+  }
+
+  .resources-header {
+    color: vars.$dark-blue;
+    font-weight: 600;
+  }
+
   ul {
     list-style-type: none;
     padding-left: 0;
