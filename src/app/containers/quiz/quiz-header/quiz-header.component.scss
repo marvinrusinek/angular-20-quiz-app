@@ -36,22 +36,23 @@ mat-card-header {
 
 @media (max-width: 600px) {
   mat-card-header {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+
     .header-image {
-      float: none;
+      position: static !important;
       margin: 0 auto;
-      display: flex;
-      justify-content: center;
+      display: block;
     }
 
     .header-titles {
-      float: none;
-      margin-top: 0;
+      margin-left: 0;
+      padding-top: 5px;
       text-align: center;
 
       mat-card-title {
         font-size: 24px;
-        margin-left: 0;
-        margin-top: 10px;
         padding-top: 5px;
         white-space: normal;
         text-align: center;
@@ -59,8 +60,6 @@ mat-card-header {
       }
 
       mat-card-subtitle {
-        float: none;
-        margin-right: 0 !important;
         margin-top: 0 !important;
         text-align: center;
         white-space: normal;
