@@ -167,6 +167,8 @@ export class QuizResetService {
       localStorage.removeItem('questionCorrectness');
       localStorage.removeItem('selectedOptionsMap');
       localStorage.removeItem('userAnswers');
+      sessionStorage.removeItem('quizProgress');
+      sessionStorage.removeItem('quizProgressQuizId');
     } catch { }
 
     return true;
