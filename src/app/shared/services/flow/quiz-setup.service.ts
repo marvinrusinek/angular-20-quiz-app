@@ -1312,6 +1312,13 @@ export class QuizSetupService {
           if (!isNaN(parsed) && parsed > 0) {
             host.progress = parsed;
           }
+          const savedIndices = sessionStorage.getItem('answeredQuestionIndices');
+          if (savedIndices) {
+            const indices: number[] = JSON.parse(savedIndices);
+            for (const idx of indices) {
+              host.answeredQuestionIndices.add(idx);
+            }
+          }
         }
       } catch {}
     }

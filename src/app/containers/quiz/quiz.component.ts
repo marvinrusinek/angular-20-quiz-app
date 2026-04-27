@@ -384,6 +384,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     try {
       sessionStorage.setItem('quizProgress', String(this.progress));
       sessionStorage.setItem('quizProgressQuizId', this.quizId);
+      sessionStorage.setItem('answeredQuestionIndices', JSON.stringify([...this.answeredQuestionIndices]));
     } catch {}
     this.cdRef.detectChanges();
     this.cdRef.markForCheck();

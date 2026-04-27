@@ -169,6 +169,7 @@ export class QuizResetService {
       localStorage.removeItem('userAnswers');
       sessionStorage.removeItem('quizProgress');
       sessionStorage.removeItem('quizProgressQuizId');
+      sessionStorage.removeItem('answeredQuestionIndices');
     } catch { }
 
     return true;
