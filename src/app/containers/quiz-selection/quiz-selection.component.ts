@@ -21,6 +21,7 @@ import { QuizTileStyles } from '../../shared/models/QuizTileStyles.model';
 import { QuizService } from '../../shared/services/data/quiz.service';
 import { QuizDataService } from '../../shared/services/data/quizdata.service';
 import { ScrollDownIndicatorComponent } from '../../components/scroll-down-indicator/scroll-down-indicator.component';
+import { BackToTopComponent } from '../../components/back-to-top/back-to-top.component';
 
 @Component({
   selector: 'codelab-quiz-selection',
@@ -33,7 +34,8 @@ import { ScrollDownIndicatorComponent } from '../../components/scroll-down-indic
     MatMenuModule,
     MatTooltipModule,
     NgOptimizedImage,
-    ScrollDownIndicatorComponent
+    ScrollDownIndicatorComponent,
+    BackToTopComponent
   ],
   templateUrl: './quiz-selection.component.html',
   styleUrls: ['./quiz-selection.component.scss'],
