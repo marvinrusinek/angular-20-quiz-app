@@ -49,7 +49,7 @@ export class ScrollDownIndicatorComponent implements OnInit {
       return;
     }
     const rect = el.getBoundingClientRect();
-    const shouldShow = (rect.bottom - window.innerHeight) > 80;
+    const shouldShow = (rect.bottom - window.innerHeight) > 20;
     if (this.showIndicator !== shouldShow) {
       this.showIndicator = shouldShow;
       this.cdRef.detectChanges();
