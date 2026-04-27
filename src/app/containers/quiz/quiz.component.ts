@@ -381,6 +381,10 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     const total = this.totalCount;
     if (total <= 0) { this.cdRef.markForCheck(); return; }
     this.progress = Math.round((this.answeredQuestionIndices.size / total) * 100);
+    try {
+      sessionStorage.setItem('quizProgress', String(this.progress));
+      sessionStorage.setItem('quizProgressQuizId', this.quizId);
+    } catch {}
     this.cdRef.detectChanges();
     this.cdRef.markForCheck();
   }

@@ -308,6 +308,8 @@ export class QuizSetupService {
         sessionStorage.removeItem('sel_Q' + i);
       }
       sessionStorage.removeItem('answeredQuestionIndices');
+      sessionStorage.removeItem('quizProgress');
+      sessionStorage.removeItem('quizProgressQuizId');
     } catch {}
     try {
       this.quizStateService._hasUserInteracted?.clear?.();
@@ -1272,6 +1274,8 @@ export class QuizSetupService {
         sessionStorage.removeItem('selectedOptionsMap');
         sessionStorage.removeItem('rawSelectionsMap');
         sessionStorage.removeItem('answeredQuestionIndices');
+        sessionStorage.removeItem('quizProgress');
+        sessionStorage.removeItem('quizProgressQuizId');
       } catch {}
     }
 
@@ -1295,6 +1299,21 @@ export class QuizSetupService {
     }
     if (host.answeredQuestionIndices.size > 0) {
       host.progress = Math.round((host.answeredQuestionIndices.size / host.totalQuestions) * 100);
+    }
+
+    // Fallback: restore progress from sessionStorage if dot status was cleared
+    // (e.g., URL navigation within the same quiz)
+    if (host.progress === 0 && !freshFromResults) {
+      try {
+        const savedQuizId = sessionStorage.getItem('quizProgressQuizId');
+        const savedProgress = sessionStorage.getItem('quizProgress');
+        if (savedQuizId === host.quizId && savedProgress) {
+          const parsed = parseInt(savedProgress, 10);
+          if (!isNaN(parsed) && parsed > 0) {
+            host.progress = parsed;
+          }
+        }
+      } catch {}
     }
 
     const initialIndex = host.currentQuestionIndex || 0;
