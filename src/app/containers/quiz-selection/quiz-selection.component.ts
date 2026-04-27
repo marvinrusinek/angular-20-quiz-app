@@ -1,5 +1,5 @@
-import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, signal,
-  ViewEncapsulation } from '@angular/core';
+import { ChangeDetectionStrategy, Component,
+  OnDestroy, OnInit, signal, ViewEncapsulation } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { CommonModule, NgOptimizedImage } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
@@ -20,6 +20,7 @@ import { QuizSelectionParams } from '../../shared/models/QuizSelectionParams.mod
 import { QuizTileStyles } from '../../shared/models/QuizTileStyles.model';
 import { QuizService } from '../../shared/services/data/quiz.service';
 import { QuizDataService } from '../../shared/services/data/quizdata.service';
+import { ScrollDownIndicatorComponent } from '../../components/scroll-down-indicator/scroll-down-indicator.component';
 
 @Component({
   selector: 'codelab-quiz-selection',
@@ -31,7 +32,8 @@ import { QuizDataService } from '../../shared/services/data/quizdata.service';
     MatIconModule,
     MatMenuModule,
     MatTooltipModule,
-    NgOptimizedImage
+    NgOptimizedImage,
+    ScrollDownIndicatorComponent
   ],
   templateUrl: './quiz-selection.component.html',
   styleUrls: ['./quiz-selection.component.scss'],
