@@ -76,9 +76,13 @@ export class QuizSetupService {
         host.cdRef.markForCheck();
       }
 
-      // When tab becomes visible, ensure question text is in the <h3>
+      // When tab becomes visible, restore selection message for current question
       if (!isHidden) {
         const idx = host.currentQuestionIndex;
+        const isAnswered = this.selectedOptionService.isQuestionAnswered(idx);
+        if (!isAnswered) {
+          this.selectionMessageService.forceBaseline(idx);
+        }
         const question = this.quizService.questions?.[idx]
           ?? host.questionsArray?.[idx]
           ?? null;
@@ -287,8 +291,27 @@ export class QuizSetupService {
         try { sessionStorage.removeItem('dot_confirmed_' + destIndex); } catch {}
       }
     }
-    if (direction === 'next') await this.quizNavigationService.advanceToNextQuestion();
-    else await this.quizNavigationService.advanceToPreviousQuestion();
+    if (direction === 'next') {
+      const destIdx = host.currentQuestionIndex + 1;
+      // Clear stale options snapshot and locks before forcing baseline
+      this.selectionMessageService.setOptionsSnapshot([]);
+      this.selectionMessageService._singleAnswerCorrectLock.delete(destIdx);
+      this.selectionMessageService._singleAnswerIncorrectLock.delete(destIdx);
+      this.selectionMessageService.forceBaseline(destIdx);
+      await this.quizNavigationService.advanceToNextQuestion();
+      // Re-force baseline after navigation settles to guard against
+      // async pipelines overwriting with stale "Next button" message
+      if (!this.selectedOptionService.isQuestionAnswered(destIdx)) {
+        this.selectionMessageService.forceBaseline(destIdx);
+        setTimeout(() => {
+          if (!this.selectedOptionService.isQuestionAnswered(destIdx)) {
+            this.selectionMessageService.forceBaseline(destIdx);
+          }
+        }, 100);
+      }
+    } else {
+      await this.quizNavigationService.advanceToPreviousQuestion();
+    }
     host.cdRef.markForCheck();
   }
 
