@@ -1,9 +1,10 @@
-import { ChangeDetectionStrategy, Component, Input, OnChanges, SimpleChanges, ViewEncapsulation, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, Input, OnChanges, OnInit, SimpleChanges, ViewEncapsulation, inject, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatRadioModule } from '@angular/material/radio';
 import { MatIconModule } from '@angular/material/icon';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { OptionBindings } from '../../../../../shared/models/OptionBindings.model';
 import { FeedbackProps } from '../../../../../shared/models/FeedbackProps.model';
@@ -46,7 +47,7 @@ export interface OptionUIEvent {
   animations: [correctAnswerAnim],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class OptionItemComponent implements OnChanges {
+export class OptionItemComponent implements OnChanges, OnInit {
   @Input() b!: OptionBindings;
   @Input() i!: number;
   readonly type = input<'single' | 'multiple'>('single');
@@ -69,6 +70,13 @@ export class OptionItemComponent implements OnChanges {
   // clear timer-expiry highlighting on question change even when the
   // user never clicked an option (_userHasClicked is false).
   private _wasTimerExpired = false;
+  // Direct timer expiry flag — set by subscribing to timerService.expired$
+  // directly, bypassing the parent OnPush binding chain.
+  private _directTimerExpired = false;
+  private _directTimerExpiredForIndex = -1;
+
+  private destroyRef = inject(DestroyRef);
+  private cdRef = inject(ChangeDetectorRef);
 
   // ONE output
   readonly optionUI = output<OptionUIEvent>();
@@ -81,6 +89,17 @@ export class OptionItemComponent implements OnChanges {
     private timerService: TimerService
   ) { }
 
+  ngOnInit(): void {
+    this.timerService.expired$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        this._directTimerExpired = true;
+        this._directTimerExpiredForIndex = this.timerService.expiredForQuestionIndex;
+        this.cdRef.markForCheck();
+        this.cdRef.detectChanges();
+      });
+  }
+
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['currentQuestionIndex']) {
       const nextQuestionIndex = Number(this.currentQuestionIndex() ?? -1);
@@ -92,6 +111,8 @@ export class OptionItemComponent implements OnChanges {
         if (this._lastQuestionIndex !== -1 && (this._userHasClicked || this._wasTimerExpired)) {
           this._wasSelected = false;
           this._wasTimerExpired = false;
+          this._directTimerExpired = false;
+          this._directTimerExpiredForIndex = -1;
           if (this.b) {
             this.b.isSelected = false;
             this.b.disabled = false;
@@ -138,13 +159,27 @@ export class OptionItemComponent implements OnChanges {
    * Q1 doesn't disable/highlight Q2's options.
    */
   private isTimerExpiredForThisQuestion(): boolean {
+    const qIdx = this.currentQuestionIndex() ?? this.quizService.currentQuestionIndex;
+
+    // Signal-based check: reading expiredForQuestionIndexSig() inside a
+    // template-bound method lets Angular auto-track the dependency and
+    // re-render this OnPush component when the signal changes.
+    const expiredIdx = this.timerService.expiredForQuestionIndexSig();
+    if (expiredIdx >= 0 && expiredIdx === qIdx) {
+      return true;
+    }
+
+    // Direct subscription flag (belt-and-suspenders)
+    if (this._directTimerExpired && this._directTimerExpiredForIndex === qIdx) {
+      return true;
+    }
+
+    // Legacy fallback: parent input-based check
     if (!this.timerExpired()) {
       return false;
     }
-    const qIdx = this.currentQuestionIndex() ?? this.quizService.currentQuestionIndex;
-    const expiredIdx = this.timerService.expiredForQuestionIndex;
-    // If the timer expired for a different question, this is stale
-    if (expiredIdx >= 0 && expiredIdx !== qIdx) {
+    const expiredPlain = this.timerService.expiredForQuestionIndex;
+    if (expiredPlain >= 0 && expiredPlain !== qIdx) {
       return false;
     }
     return true;
@@ -166,16 +201,37 @@ export class OptionItemComponent implements OnChanges {
 
   private isOptionCorrect(): boolean {
     const opt = this.b?.option as any;
-    return (
+    if (
       opt?.correct === true ||
       String(opt?.correct) === 'true' ||
       opt?.correct === 1 ||
       opt?.correct === '1' ||
       this.b?.isCorrect === true
-    );
+    ) {
+      return true;
+    }
+
+    // Fallback: check authoritative question data from quiz service.
+    // Binding options may lack the `correct` flag after regeneration.
+    const qIdx = this.currentQuestionIndex() ?? this.quizService.currentQuestionIndex;
+    const question = (this.quizService as any).questions?.[qIdx];
+    if (question?.options && opt?.text) {
+      const optText = (opt.text as string).trim().toLowerCase();
+      const match = question.options.find(
+        (o: any) => o?.text && (o.text as string).trim().toLowerCase() === optText
+      );
+      if (match?.correct === true || String(match?.correct) === 'true') {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   getOptionIcon(option?: any, i?: number): string {
+    if (this.isTimerStamped()) {
+      return this.isStampedCorrect() ? 'check' : 'close';
+    }
     if (this.shouldShowFeedback() || this.shouldShowCorrectOnTimeout()) {
       return this.isOptionCorrect() ? 'check' : 'close';
     }
@@ -184,6 +240,12 @@ export class OptionItemComponent implements OnChanges {
 
   getOptionClasses(): { [key: string]: boolean } {
     const classes = { ...this.b.cssClasses };
+
+    // If the timer-expiry handler pre-stamped CSS classes on this binding,
+    // return them directly — do NOT let downstream logic overwrite them.
+    if ((this.b as any)?._timerExpiredStamped) {
+      return classes;
+    }
 
     if (this.isTimerExpiredForThisQuestion()) {
       // Preserve the user's selected state on timer expiry: a selected
@@ -226,6 +288,11 @@ export class OptionItemComponent implements OnChanges {
   }
 
   isDisabled(): boolean {
+    // Timer-expiry handler stamped all bindings as disabled
+    if (this.isTimerStamped()) {
+      return true;
+    }
+
     const _type = this.type();
     const _qIdx = this.currentQuestionIndex() ?? this.quizService.currentQuestionIndex;
 
@@ -346,7 +413,21 @@ export class OptionItemComponent implements OnChanges {
     return false;
   }
 
+  /** True when the timer-expiry handler pre-stamped this binding. */
+  private isTimerStamped(): boolean {
+    return !!(this.b as any)?._timerExpiredStamped;
+  }
+
+  /** True when this binding was stamped as a correct option by the timer handler. */
+  private isStampedCorrect(): boolean {
+    return this.isTimerStamped() && this.b?.cssClasses?.['correct-option'] === true;
+  }
+
   shouldShowIcon(option?: any, i?: number): boolean {
+    if (this.isTimerStamped()) {
+      if (this.isStampedCorrect()) return true;
+      return !!this.b?.isSelected || this._wasSelected;
+    }
     if (this.isTimerExpiredForThisQuestion()) {
       // Show icon for correct options AND for any option the user
       // actually selected (so a selected wrong answer keeps its X).
@@ -403,6 +484,12 @@ export class OptionItemComponent implements OnChanges {
   }
 
   getOptionBackgroundColor(): string | null {
+    // Timer-expiry handler stamped this binding — use stamped classes for color
+    if (this.isTimerStamped()) {
+      if (this.isStampedCorrect()) return '#43e756';
+      const wasSelected = this.b?.isSelected || this._wasSelected;
+      return wasSelected && !this.isStampedCorrect() ? '#ff0000' : null;
+    }
     if (this.isTimerExpiredForThisQuestion()) {
       if (this.shouldShowCorrectOnTimeout()) return '#43e756';
       // Keep the user's wrong selection red on timer expiry.
@@ -414,9 +501,6 @@ export class OptionItemComponent implements OnChanges {
     }
 
     const _sh = this.shouldHighlightOption();
-    if (_sh) {
-      console.error(`🔴 BG i=${this.i} text="${(this.b?.option?.text||'').substring(0,20)}" isSel=${this.b.isSelected} hl=${this.b.option?.highlight} _was=${this._wasSelected} isSelQ=${this.isSelectedForCurrentQuestion()} _uc=${this._userHasClicked}`);
-    }
     if (!_sh) {
       // Dark gray for disabled unselected options (e.g. remaining
       // incorrect after all correct answers selected in multi-answer)
@@ -561,6 +645,7 @@ export class OptionItemComponent implements OnChanges {
   }
 
   shouldShowFeedback(): boolean {
+    if (this.isTimerStamped()) return true;
     return this.shouldHighlightOption() || this.shouldShowCorrectOnTimeout();
   }
 
@@ -640,11 +725,6 @@ export class OptionItemComponent implements OnChanges {
 
   private isSelectedForCurrentQuestion(): boolean {
     const selections = this.getSelectionsForCurrentBinding();
-    const result = selections.some((s: any) => this.matchesBindingSelection(s));
-    if (this.i === 1 && result) {
-      const matching = selections.filter((s: any) => this.matchesBindingSelection(s));
-      console.error(`⚡ FALSE-MATCH i=1 text="${(this.b?.option?.text||'').substring(0,20)}" optId=${this.b?.option?.optionId} selections=${JSON.stringify(selections.map((s:any)=>({t:(s?.text||'').substring(0,20),id:s?.optionId,dIdx:s?.displayIndex,sel:s?.selected,hl:s?.highlight,si:s?.showIcon})))} matching=${JSON.stringify(matching.map((s:any)=>({t:(s?.text||'').substring(0,20),id:s?.optionId,dIdx:s?.displayIndex})))}`);
-    }
-    return result;
+    return selections.some((s: any) => this.matchesBindingSelection(s));
   }
 }

@@ -995,6 +995,24 @@ export class QqcComponentOrchestratorService {
   runOnQuestionTimedOut(host: Host, targetIndex?: number): void {
     if (host.timedOut) return;
     host.timedOut = true;
+
+    // Pre-set timer flags on SharedOptionComponent
+    if (host.sharedOptionComponent) {
+      const soc = host.sharedOptionComponent;
+      soc.timerExpiredForQuestion = true;
+
+      const displayOpts = soc.optionsToDisplay?.length
+        ? soc.optionsToDisplay
+        : host.optionsToDisplay() ?? [];
+      const keys = new Set<string>();
+      for (const [i, opt] of displayOpts.entries()) {
+        if (opt?.correct) {
+          keys.add(soc.keyOf(opt, i));
+        }
+      }
+      soc.timeoutCorrectOptionKeys = keys;
+    }
+
     const result = host.timerEffect.onQuestionTimedOut({
       targetIndex,
       currentQuestionIndex: host.currentQuestionIndex(),
@@ -1021,6 +1039,11 @@ export class QqcComponentOrchestratorService {
     host.explanationToDisplay.set(result.explanationToDisplay);
     host.explanationToDisplayChange?.emit(result.explanationToDisplay);
     host._timerStoppedForQuestion = result.timerStoppedForQuestion;
+
+    if (host.sharedOptionComponent) {
+      host.sharedOptionComponent.cdRef.markForCheck();
+      host.sharedOptionComponent.cdRef.detectChanges();
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════

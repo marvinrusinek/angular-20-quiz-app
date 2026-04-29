@@ -294,6 +294,8 @@ export class QuizQuestionComponent extends BaseQuestion
   readonly questionPayload = input<QuestionPayload | null>(null);
 
   private resetUIForNewQuestion(): void {
+    this.timedOut = false;
+    this._timerStoppedForQuestion = false;
     this.sharedOptionComponent?.resetUIForNewQuestion();
     this.updateShouldRenderOptions([]);
   }

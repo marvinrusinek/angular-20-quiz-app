@@ -73,6 +73,7 @@ export interface SharedOptionComponentLike {
   flashDisabledSet: Set<number>;
   forceDisableAll: boolean;
   timerExpiredForQuestion: boolean;
+  _timerExpiryHandled: boolean;
   viewReady: boolean;
   optionsReady: boolean;
   showOptions: boolean;
@@ -150,6 +151,7 @@ export class SharedOptionInitService {
     comp.lockedIncorrectOptionIds.clear();
     comp.flashDisabledSet.clear();
     comp.timerExpiredForQuestion = false;
+    comp._timerExpiryHandled = false;
     comp.timeoutCorrectOptionKeys.clear();
     comp.forceDisableAll = false;  // reset forceDisableAll for new question
     comp.selectedOptions.clear();
@@ -235,6 +237,7 @@ export class SharedOptionInitService {
 
       comp.timeoutCorrectOptionKeys = keys;
       comp.cdRef.markForCheck();
+      comp.cdRef.detectChanges();
     });
   }
 

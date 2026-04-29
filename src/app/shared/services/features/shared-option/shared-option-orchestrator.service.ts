@@ -455,6 +455,7 @@ export class SharedOptionOrchestratorService {
     host.feedbackConfigs = {};
     host.lockedIncorrectOptionIds.clear();
     host.timerExpiredForQuestion = false;
+    host._timerExpiryHandled = false;
     host.forceDisableAll = false;
     host.timeoutCorrectOptionKeys?.clear?.();
     host.flashDisabledSet?.clear?.();

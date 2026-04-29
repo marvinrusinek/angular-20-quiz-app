@@ -92,12 +92,11 @@ export class QqcResetManagerService {
     // Prewarm explanation cache
     params.resolveFormatted(i0, { useCache: true, setCache: true });
 
-    // Timer reset/restart
-    this.timerService.stopTimer?.(undefined, { force: true });
-    this.timerService.resetTimer();
-    requestAnimationFrame(() =>
-      this.timerService.startTimer(this.timerService.timePerQuestion, true)
-    );
+    // Timer reset/restart — must use restartForQuestion so that
+    // hasExpiredForRun is cleared before resetTimer/startTimer.
+    // Without this, the anti-thrash guards in resetTimer/startTimer
+    // suppress the restart after Q1's timer has expired.
+    this.timerService.restartForQuestion(i0);
 
     // Build showFeedbackForOption from existing selections
     let showFeedbackForOption: { [optionId: number]: boolean } = {};

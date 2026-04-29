@@ -39,6 +39,7 @@ import { SharedOptionInitService } from '../../../../shared/services/options/eng
 import { SharedOptionBindingService } from '../../../../shared/services/options/engine/shared-option-binding.service';
 import { SharedOptionClickService } from '../../../../shared/services/options/engine/shared-option-click.service';
 import { SharedOptionOrchestratorService } from '../../../../shared/services/features/shared-option/shared-option-orchestrator.service';
+import { TimerService } from '../../../../shared/services/features/timer/timer.service';
 
 @Component({
   selector: 'app-shared-option',
@@ -172,6 +173,8 @@ export class SharedOptionComponent
   private _correctIndicesByQuestion = new Map<number, number[]>();
 
   destroy$ = new Subject<void>();
+  // Flag to prevent the timer-expiry effect from firing more than once per question
+  public _timerExpiryHandled = false;
 
   constructor(
     private quizService: QuizService,
@@ -191,6 +194,7 @@ export class SharedOptionComponent
     private bindingService: SharedOptionBindingService,
     private clickService: SharedOptionClickService,
     private orchestrator: SharedOptionOrchestratorService,
+    private timerService: TimerService,
     private cdRef: ChangeDetectorRef,
     private fb: FormBuilder
   ) {
@@ -246,6 +250,60 @@ export class SharedOptionComponent
     });
     effect(() => {
       this.renderReady = this.renderReadyInput();
+    });
+
+    // Independent timer-expiry watcher: uses the elapsed time signal
+    // directly, bypassing expired$ and all orchestrator chains.
+    // When elapsed time reaches the time-per-question, apply correct
+    // answer highlighting via direct DOM manipulation.
+    effect(() => {
+      const elapsed = this.timerService.elapsedTimeSig();
+      const duration = this.timerService.timePerQuestion;
+      if (elapsed > 0 && elapsed >= duration && !this._timerExpiryHandled) {
+        this._timerExpiryHandled = true;
+        this.timerExpiredForQuestion = true;
+
+        // Get correct answer texts from canonical question data
+        const qIdx = this.currentQuestionIndex ?? this.quizService.currentQuestionIndex ?? 0;
+        const question = this.quizService.questions?.[qIdx]
+          ?? this.currentQuestion;
+        const displayOpts = this.optionsToDisplay?.length
+          ? this.optionsToDisplay
+          : question?.options ?? [];
+        const correctTexts = new Set<string>();
+        for (const opt of displayOpts) {
+          if (opt?.correct === true || String(opt?.correct) === 'true') {
+            correctTexts.add(((opt.text as string) || '').trim().toLowerCase());
+          }
+        }
+
+        // Stamp bindings
+        for (const b of (this.optionBindings ?? [])) {
+          if (!b) continue;
+          const optText = ((b.option?.text as string) || '').trim().toLowerCase();
+          const isCorrect = correctTexts.has(optText);
+          if (!b.cssClasses) b.cssClasses = {};
+          b.cssClasses!['correct-option'] = isCorrect;
+          b.cssClasses!['incorrect-option'] = !isCorrect && !!b.isSelected;
+          (b as any)._timerExpiredStamped = true;
+          b.disabled = true;
+        }
+
+        this.cdRef.markForCheck();
+        this.cdRef.detectChanges();
+
+        // DOM fallback: directly add CSS classes after Angular renders
+        setTimeout(() => {
+          document.querySelectorAll('.option-row').forEach((el: Element) => {
+            const textEl = el.querySelector('.option-text');
+            const text = ((textEl?.textContent as string) || '').trim().toLowerCase();
+            if (correctTexts.has(text)) {
+              el.classList.add('correct-option');
+            }
+            (el as HTMLElement).style.pointerEvents = 'none';
+          });
+        }, 50);
+      }
     });
   }
 
@@ -665,7 +723,6 @@ export class SharedOptionComponent
   }
 
   public onOptionUI(ev: OptionUIEvent): void {
-    console.error(`🟡 onOptionUI kind=${ev.kind} idx=${ev.displayIndex} optId=${ev.optionId}`);
     this.clickService.onOptionUI(this as any, ev);
   }
 

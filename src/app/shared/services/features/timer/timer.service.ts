@@ -67,6 +67,8 @@ export class TimerService implements OnDestroy {
   private hasExpiredForRun = false;
   /** The question index the timer most recently expired for, or -1 if none. */
   public expiredForQuestionIndex = -1;
+  /** Signal version — read this in OnPush templates so Angular auto-tracks it. */
+  public readonly expiredForQuestionIndexSig = signal(-1);
 
   constructor(
     private quizService: QuizService,
@@ -232,6 +234,7 @@ export class TimerService implements OnDestroy {
         if (elapsed >= duration && !this.hasExpiredForRun) {
           this.hasExpiredForRun = true;
           this.expiredForQuestionIndex = this.quizService.currentQuestionIndex;
+          this.expiredForQuestionIndexSig.set(this.expiredForQuestionIndex);
           console.log(
             `[TimerService] Time expired for Q${this.expiredForQuestionIndex}${isCountdown ? '. Stopping timer.' : '.'}`
           );
@@ -579,6 +582,7 @@ export class TimerService implements OnDestroy {
     // Clear expiry/start guards so this fresh question can run
     this.hasExpiredForRun = false;
     this.expiredForQuestionIndex = -1;
+    this.expiredForQuestionIndexSig.set(-1);
     this._lastStartedAtMs = 0;
     this.stopTimer?.(undefined, { force: true });
     this.resetTimer();
