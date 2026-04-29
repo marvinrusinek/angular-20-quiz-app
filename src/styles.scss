@@ -65,7 +65,7 @@
 
   --text-primary: #eaeaea;
   --text-secondary: #c0c0c0;
-  --text-muted: #9a9a9a;
+  --text-muted: #e0e0e0;
   --text-on-card: #eaeaea;
   --text-link: #{vars.$vivid-blue};
 
@@ -87,6 +87,9 @@
   --text-option: #eaeaea;
   --text-scoreboard-badge: #87ceeb;
   --text-scoreboard-timer: #66bb6a;
+
+  // Material card subtitle text color for dark mode
+  --mat-card-subtitle-text-color: #e0e0e0;
 }
 
 /* ─────────────────────────────────────────────
@@ -266,7 +269,7 @@ mat-card {
       font-weight: vars.$font-weight-max;
       font-size: 16px !important;
       font-style: italic;
-      color: vars.$gray;
+      color: var(--text-muted, vars.$gray);
       text-align: center;
     }
 
@@ -539,7 +542,12 @@ button.mat-mdc-menu-trigger {
 
     .mat-mdc-card-subtitle,
     mat-card-subtitle {
-      color: var(--text-muted) !important;
+      color: #ffffff !important;
+      display: block !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      position: relative !important;
+      z-index: 9999 !important;
     }
   }
 
