@@ -218,14 +218,36 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   @HostListener('window:resize')
   onResize(): void { this.checkScrollIndicator(); }
 
+  private scrollIndicatorEl: HTMLElement | null = null;
+
   checkScrollIndicator(): void {
     const quizCard = document.querySelector('.quiz-card');
-    if (!quizCard) { this.showScrollIndicator = false; return; }
+    if (!quizCard) {
+      this.removeScrollIndicator();
+      return;
+    }
     const cardRect = quizCard.getBoundingClientRect();
     const shouldShow = (cardRect.bottom - window.innerHeight) > 80;
-    if (this.showScrollIndicator !== shouldShow) {
-      this.showScrollIndicator = shouldShow;
-      this.cdRef.detectChanges();
+    if (shouldShow && !this.scrollIndicatorEl) {
+      this.createScrollIndicator();
+    } else if (!shouldShow && this.scrollIndicatorEl) {
+      this.removeScrollIndicator();
+    }
+  }
+
+  private createScrollIndicator(): void {
+    const el = document.createElement('div');
+    el.style.cssText = 'position:fixed;bottom:20px;left:0;right:0;margin:0 auto;z-index:9999;width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,0.95);box-shadow:0 4px 12px rgba(0,0,0,0.25);display:flex;justify-content:center;align-items:center;cursor:pointer;animation:scrollBounce 2s infinite;';
+    el.innerHTML = '<i class="material-icons" style="font-size:32px;color:#1e90ff;">keyboard_arrow_down</i>';
+    el.addEventListener('click', () => this.scrollToBottom());
+    document.body.appendChild(el);
+    this.scrollIndicatorEl = el;
+  }
+
+  private removeScrollIndicator(): void {
+    if (this.scrollIndicatorEl) {
+      this.scrollIndicatorEl.remove();
+      this.scrollIndicatorEl = null;
     }
   }
 
@@ -291,6 +313,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   ngOnDestroy(): void {
+    this.removeScrollIndicator();
     this.quizSetupService.runOnDestroy(this);
   }
 

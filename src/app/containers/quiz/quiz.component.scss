@@ -153,61 +153,6 @@
   inset: 0 !important;
 }
 
-/* ============================================================
-   SCROLL INDICATOR
-   ============================================================ */
-.scroll-indicator {
-  position: fixed;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1000;
-
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: var(--bg-scroll-indicator);
-  box-shadow: var(--shadow-scroll);
-  cursor: pointer;
-  animation: bounce 2s infinite;
-
-  i {
-    font-size: 32px;
-    color: vars.$dodger-blue;
-    transition: all 0.3s ease;
-  }
-
-  &:hover {
-    background: #fff;
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
-
-    i {
-      transform: scale(1.1);
-    }
-  }
-}
-
-@keyframes bounce {
-  0%,
-  20%,
-  50%,
-  80%,
-  100% {
-    transform: translateY(0);
-  }
-
-  40% {
-    transform: translateY(-8px);
-  }
-
-  60% {
-    transform: translateY(-4px);
-  }
-}
-
 mat-card {
   margin: 0 !important;
 
