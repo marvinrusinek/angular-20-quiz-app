@@ -9,6 +9,7 @@ import { QuizQuestion } from '../../models/QuizQuestion.model';
 import { SelectedOption } from '../../models/SelectedOption.model';
 import { NextButtonStateService } from './next-button-state.service';
 import { OptionIdResolverService } from './option-id-resolver.service';
+import { OptionLockStateService } from './option-lock-state.service';
 import { QuizService } from '../data/quiz.service';
 
 @Injectable({ providedIn: 'root' })
@@ -366,10 +367,8 @@ export class SelectedOptionService {
     this.selectedOptionIndices = {};
     this.feedbackByQuestion.clear();
     this.optionSnapshotByQuestion.clear();
-    this._lockedOptionsMap.clear();
+    this.lockState.clearAll();
     this.optionStates.clear();
-    this._questionLocks.clear();
-    this._lockedByQuestion.clear();
     this.isAnsweredSig.set(false);
     this.isOptionSelectedSig.set(false);
     this.selectedOptionsMapSig.set(new Map());
@@ -437,10 +436,10 @@ export class SelectedOptionService {
   stopTimerEmitted = false;
 
   currentQuestionType: QuestionType | null = null;
-  private _lockedByQuestion = new Map<number, Set<string | number>>();
-  private _questionLocks = new Set<number>();
-
-  public _lockedOptionsMap: Map<number, Set<number>> = new Map();
+  // Lock state delegated to OptionLockStateService
+  public get _lockedOptionsMap(): Map<number, Set<number>> {
+    return this.lockState._lockedOptionsMap;
+  }
   public optionStates: Map<number, any> = new Map();
 
   set isNextButtonEnabled(value: boolean) {
@@ -454,7 +453,8 @@ export class SelectedOptionService {
   constructor(
     private quizService: QuizService,
     private nextButtonStateService: NextButtonStateService,
-    private idResolver: OptionIdResolverService
+    private idResolver: OptionIdResolverService,
+    private lockState: OptionLockStateService
   ) {
     this.loadState();
     const index$ = this.quizService?.currentQuestionIndex$;
@@ -1236,9 +1236,7 @@ export class SelectedOptionService {
     }
 
     // Clear any lingering lock states
-    try {
-      (this as any)._lockedOptionsMap?.delete(idx);
-    } catch { }
+    this.lockState.clearLockedOptionsMap(idx);
   }
 
   // Method to get the current option selected state
@@ -2304,7 +2302,7 @@ export class SelectedOptionService {
   public resetAllStates(): void {
     try {
       this.selectedOptionsMap.clear();
-      this._lockedOptionsMap?.clear?.();
+      this.lockState.clearLockedOptionsMap();
       this.optionStates?.clear?.();
       console.log(
         '[SelectedOptionService] Cleared all selection/lock state',
@@ -2405,57 +2403,39 @@ export class SelectedOptionService {
   }
 
   isOptionLocked(qIndex: number, optId: string | number): boolean {
-    return this._lockedByQuestion.get(qIndex)?.has(String(optId)) ?? false;
+    return this.lockState.isOptionLocked(qIndex, optId);
   }
 
   lockOption(qIndex: number, optId: string | number): void {
-    let set = this._lockedByQuestion.get(qIndex);
-    if (!set) {
-      set = new Set<string | number>();
-      this._lockedByQuestion.set(qIndex, set);
-    }
-    set.add(String(optId));
+    this.lockState.lockOption(qIndex, optId);
   }
 
   unlockOption(qIndex: number, optId: string | number): void {
-    const set = this._lockedByQuestion.get(qIndex);
-    if (set) {
-      set.delete(String(optId));
-    }
+    this.lockState.unlockOption(qIndex, optId);
   }
 
   unlockAllOptionsForQuestion(qIndex: number): void {
-    this._lockedByQuestion.delete(qIndex);
+    this.lockState.unlockAllOptionsForQuestion(qIndex);
   }
 
   lockMany(qIndex: number, optIds: (string | number)[]): void {
-    let set = this._lockedByQuestion.get(qIndex);
-    if (!set) {
-      set = new Set<string | number>();
-      this._lockedByQuestion.set(qIndex, set);
-    }
-    for (const id of optIds) {
-      set!.add(String(id));
-    }
+    this.lockState.lockMany(qIndex, optIds);
   }
 
   lockQuestion(qIndex: number): void {
-    if (Number.isFinite(qIndex)) {
-      this._questionLocks.add(qIndex);
-    }
+    this.lockState.lockQuestion(qIndex);
   }
 
   unlockQuestion(qIndex: number): void {
-    this._questionLocks.delete(qIndex);
+    this.lockState.unlockQuestion(qIndex);
   }
 
   isQuestionLocked(qIndex: number): boolean {
-    return this._questionLocks.has(qIndex);
+    return this.lockState.isQuestionLocked(qIndex);
   }
 
   resetLocksForQuestion(qIndex: number): void {
-    this._lockedByQuestion.delete(qIndex);
-    this._questionLocks.delete(qIndex);
+    this.lockState.resetLocksForQuestion(qIndex);
   }
 
   // --- shared identity helpers ---
@@ -2841,9 +2821,7 @@ export class SelectedOptionService {
     this._questionCache.clear();
     this.feedbackByQuestion.clear();
     this.optionSnapshotByQuestion.clear();
-    this._lockedByQuestion.clear();
-    this._questionLocks.clear();
-    this._lockedOptionsMap.clear();
+    this.lockState.clearAll();
     this.optionStates.clear();
     this.selectedOption = [];
     this.selectedOptionSig.set([]);
