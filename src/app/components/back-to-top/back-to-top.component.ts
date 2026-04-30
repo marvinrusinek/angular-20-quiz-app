@@ -16,7 +16,10 @@ export class BackToTopComponent {
   @HostListener('window:scroll')
   onWindowScroll(): void {
     const yOffset = window.pageYOffset || document.documentElement.scrollTop;
-    this.isVisible.set(yOffset > 300);  // show button after scrolling 300px
+    const docHeight = document.documentElement.scrollHeight;
+    const winHeight = window.innerHeight;
+    const nearBottom = (docHeight - (yOffset + winHeight)) < 50;
+    this.isVisible.set(yOffset > 300 && nearBottom);
   }
 
   scrollToTop(): void {
