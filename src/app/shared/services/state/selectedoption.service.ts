@@ -8,6 +8,7 @@ import { Option } from '../../models/Option.model';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
 import { SelectedOption } from '../../models/SelectedOption.model';
 import { NextButtonStateService } from './next-button-state.service';
+import { OptionFeedbackStateService } from './option-feedback-state.service';
 import { OptionIdResolverService } from './option-id-resolver.service';
 import { OptionLockStateService } from './option-lock-state.service';
 import { QuizService } from '../data/quiz.service';
@@ -365,14 +366,13 @@ export class SelectedOptionService {
     this._selectionHistory.clear();
     this.selectedOption = [];
     this.selectedOptionIndices = {};
-    this.feedbackByQuestion.clear();
+    this.feedbackState.clearAll();
     this.optionSnapshotByQuestion.clear();
     this.lockState.clearAll();
     this.optionStates.clear();
     this.isAnsweredSig.set(false);
     this.isOptionSelectedSig.set(false);
     this.selectedOptionsMapSig.set(new Map());
-    this.showFeedbackForOptionSig.set({});
 
     try {
       sessionStorage.removeItem('rawSelectionsMap');
@@ -424,10 +424,13 @@ export class SelectedOptionService {
   readonly selectedOptionsMapSig = signal<Map<number, SelectedOption[]>>(new Map());
   public selectedOptionsMap$ = toObservable(this.selectedOptionsMapSig);
 
-  readonly showFeedbackForOptionSig = signal<Record<string, boolean>>({});
-  showFeedbackForOption$ = toObservable(this.showFeedbackForOptionSig);
-
-  private feedbackByQuestion = new Map<number, Record<string, boolean>>();
+  // Feedback state delegated to OptionFeedbackStateService
+  get showFeedbackForOptionSig() {
+    return this.feedbackState.showFeedbackForOptionSig;
+  }
+  get showFeedbackForOption$() {
+    return this.feedbackState.showFeedbackForOption$;
+  }
   private optionSnapshotByQuestion = new Map<number, Option[]>();
 
   readonly isNextButtonEnabledSig = signal<boolean>(false);
@@ -454,7 +457,8 @@ export class SelectedOptionService {
     private quizService: QuizService,
     private nextButtonStateService: NextButtonStateService,
     private idResolver: OptionIdResolverService,
-    private lockState: OptionLockStateService
+    private lockState: OptionLockStateService,
+    private feedbackState: OptionFeedbackStateService
   ) {
     this.loadState();
     const index$ = this.quizService?.currentQuestionIndex$;
@@ -1227,12 +1231,12 @@ export class SelectedOptionService {
       this.selectedOptionsMap.delete(idx);
     }
 
-    this.feedbackByQuestion.delete(idx);
+    this.feedbackState.deleteFeedbackForQuestion(idx);
     this.optionSnapshotByQuestion?.delete(idx);
 
     // Reset feedback UI if currently on this question
     if (this.quizService?.getCurrentQuestionIndex?.() === idx) {
-      this.showFeedbackForOptionSig.set({});
+      this.feedbackState.clearFeedbackSignal();
     }
 
     // Clear any lingering lock states
@@ -1245,52 +1249,28 @@ export class SelectedOptionService {
   }
 
   getShowFeedbackForOption(): { [optionId: number]: boolean } {
-    return this.showFeedbackForOptionSig();
+    return this.feedbackState.getShowFeedbackForOption();
   }
 
   getFeedbackForQuestion(questionIndex: number): Record<string, boolean> {
-    return { ...(this.feedbackByQuestion.get(questionIndex) ?? {}) };
+    return this.feedbackState.getFeedbackForQuestion(questionIndex);
   }
 
   republishFeedbackForQuestion(questionIndex: number): void {
     const selections = this.selectedOptionsMap.get(questionIndex) ?? [];
-
-    if (!Array.isArray(selections) || selections.length === 0) {
-      this.feedbackByQuestion.delete(questionIndex);
-
-      if (this.quizService?.currentQuestionIndex === questionIndex) {
-        this.showFeedbackForOptionSig.set({});
-      }
-
-      return;
-    }
-
-    let feedback = this.feedbackByQuestion.get(questionIndex);
-    if (!feedback || Object.keys(feedback).length === 0) {
-      feedback = this.buildFeedbackMap(questionIndex, selections);
-      this.feedbackByQuestion.set(questionIndex, feedback);
-    }
-
-    if (this.quizService?.currentQuestionIndex === questionIndex) {
-      this.showFeedbackForOptionSig.set({ ...feedback });
-    }
+    this.feedbackState.republishFeedbackForQuestion(
+      questionIndex,
+      selections,
+      this.quizService?.currentQuestionIndex,
+      this.isMultiAnswerQuestion(questionIndex)
+    );
   }
 
   private publishFeedbackForQuestion(index: number | null | undefined): void {
-    const resolvedIndex =
-      typeof index === 'number' && Number.isInteger(index)
-        ? index
-        : Number.isInteger(this.quizService?.currentQuestionIndex)
-          ? (this.quizService.currentQuestionIndex as number)
-          : null;
-
-    if (resolvedIndex === null) {
-      this.showFeedbackForOptionSig.set({});
-      return;
-    }
-
-    const cached = this.feedbackByQuestion.get(resolvedIndex) ?? {};
-    this.showFeedbackForOptionSig.set({ ...cached });
+    this.feedbackState.publishFeedbackForQuestion(
+      index,
+      this.quizService?.currentQuestionIndex
+    );
   }
 
   // Method to update the selected option state
@@ -1604,7 +1584,7 @@ export class SelectedOptionService {
       const idx = this.quizService.currentQuestionIndex;
       if (typeof idx === 'number') {
         this.selectedOptionsMap.delete(idx);
-        this.feedbackByQuestion.delete(idx);
+        this.feedbackState.deleteFeedbackForQuestion(idx);
         this.optionSnapshotByQuestion.delete(idx);
       } else {
         console.warn('[SOS] clearSelectedOption: No valid index to delete');
@@ -1621,16 +1601,16 @@ export class SelectedOptionService {
         : null;
 
       if (activeIndex !== null) {
-        this.feedbackByQuestion.delete(activeIndex);
+        this.feedbackState.deleteFeedbackForQuestion(activeIndex);
         this.optionSnapshotByQuestion.delete(activeIndex);
       } else {
-        this.feedbackByQuestion.clear();
+        this.feedbackState.clearAll();
         this.optionSnapshotByQuestion.clear();
       }
     }
 
     // Only clear feedback state here — do NOT touch answered state
-    this.showFeedbackForOptionSig.set({});
+    this.feedbackState.clearFeedbackSignal();
   }
 
   // Resets the internal selection state for the current view, but DOES NOT 
@@ -1642,8 +1622,7 @@ export class SelectedOptionService {
 
   clearOptions(): void {
     this.selectedOptionSig.set([]);
-    this.feedbackByQuestion.clear();
-    this.showFeedbackForOptionSig.set({});
+    this.feedbackState.clearAll();
     this.optionSnapshotByQuestion.clear();
   }
 
@@ -2110,102 +2089,12 @@ export class SelectedOptionService {
     questionIndex: number,
     selections: SelectedOption[]
   ): void {
-    if (!Array.isArray(selections) || selections.length === 0) {
-      this.feedbackByQuestion.delete(questionIndex);
-
-      if (this.quizService?.currentQuestionIndex === questionIndex) {
-        this.showFeedbackForOptionSig.set({});
-      }
-      return;
-    }
-
-    const feedbackMap = this.buildFeedbackMap(questionIndex, selections);
-    this.feedbackByQuestion.set(questionIndex, feedbackMap);
-
-    if (this.quizService?.currentQuestionIndex === questionIndex) {
-      this.showFeedbackForOptionSig.set({ ...feedbackMap });
-    }
-  }
-
-  private buildFeedbackMap(
-    questionIndex: number,
-    selections: SelectedOption[]
-  ): Record<string, boolean> {
-    const feedbackMap: Record<string, boolean> = {};
-
-    const targetSelections = this.isMultiAnswerQuestion(questionIndex) && selections.length > 0
-      ? [selections[selections.length - 1]]
-      : selections;
-
-    for (const selection of targetSelections ?? []) {
-      if (!selection) {
-        continue;
-      }
-
-      const keys = this.collectFeedbackKeys(questionIndex, selection);
-      for (const key of keys) {
-        if (key) {
-          feedbackMap[String(key)] = true;
-        }
-      }
-    }
-
-    return feedbackMap;
-  }
-
-  private collectFeedbackKeys(
-    questionIndex: number,
-    selection: SelectedOption
-  ): Array<string | number> {
-    const keys = new Set<string | number>();
-
-    const normalizedSelectionId = this.idResolver.normalizeOptionId(selection.optionId);
-    if (normalizedSelectionId && String(normalizedSelectionId) !== '-1') {
-      keys.add(normalizedSelectionId);
-    }
-
-    const numericSelectionId = this.idResolver.extractNumericId(selection.optionId);
-    if (numericSelectionId !== null && String(numericSelectionId) !== '-1') {
-      keys.add(numericSelectionId);
-    }
-
-    if (selection.optionId !== undefined && selection.optionId !== null && String(selection.optionId) !== '-1') {
-      keys.add(selection.optionId);
-    }
-
-    const options = this.idResolver.getKnownOptions(questionIndex);
-    if (options.length > 0) {
-      const resolvedIndex = this.idResolver.resolveOptionIndexFromSelection(
-        options,
-        selection
-      );
-
-      if (
-        resolvedIndex !== null &&
-        resolvedIndex >= 0 &&
-        resolvedIndex < options.length
-      ) {
-        const option: any = options[resolvedIndex];
-
-        const normalizedOptionId = this.idResolver.normalizeOptionId(option?.optionId);
-        if (normalizedOptionId && String(normalizedOptionId) !== '-1') {
-          keys.add(normalizedOptionId);
-        }
-
-        const numericOptionId = this.idResolver.extractNumericId(option?.optionId);
-        if (numericOptionId !== null && String(numericOptionId) !== '-1') {
-          keys.add(numericOptionId);
-        }
-
-        if (option?.optionId !== undefined && option?.optionId !== null && String(option.optionId) !== '-1') {
-          keys.add(option.optionId);
-        }
-
-        keys.add(resolvedIndex);
-      }
-    }
-
-    return Array.from(keys);
+    this.feedbackState.syncFeedbackForQuestion(
+      questionIndex,
+      selections,
+      this.quizService?.currentQuestionIndex,
+      this.isMultiAnswerQuestion(questionIndex)
+    );
   }
 
   // normalizeQuestionIndex, normalizeStr, resolveOptionIndexFromSelection -> delegated to idResolver
@@ -2255,7 +2144,7 @@ export class SelectedOptionService {
     this.selectedOptionsMap.clear();
     this.selectedOption = [];
     this.selectedOptionSig.set([]);
-    this.showFeedbackForOptionSig.set({});
+    this.feedbackState.clearFeedbackSignal();
     this.isOptionSelectedSig.set(false);
     console.log('[Selection state fully reset]');
   }
@@ -2819,7 +2708,7 @@ export class SelectedOptionService {
     this.rawSelectionsMap.clear();
     this.selectedOptionIndices = {};
     this._questionCache.clear();
-    this.feedbackByQuestion.clear();
+    this.feedbackState.clearAll();
     this.optionSnapshotByQuestion.clear();
     this.lockState.clearAll();
     this.optionStates.clear();
