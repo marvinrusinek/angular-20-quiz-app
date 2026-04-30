@@ -1,0 +1,277 @@
+import { Injectable } from '@angular/core';
+
+import { QuestionType } from '../../models/question-type.enum';
+import { Option } from '../../models/Option.model';
+import { QuizQuestion } from '../../models/QuizQuestion.model';
+import { SelectedOption } from '../../models/SelectedOption.model';
+import { OptionIdResolverService } from './option-id-resolver.service';
+import { QuizService } from '../data/quiz.service';
+
+export interface ResolutionStatus {
+  resolved: boolean;
+  correctTotal: number;
+  correctSelected: number;
+  incorrectSelected: number;
+  remainingCorrect: number;
+}
+
+@Injectable({ providedIn: 'root' })
+export class AnswerEvaluationService {
+  constructor(
+    private quizService: QuizService,
+    private idResolver: OptionIdResolverService
+  ) {}
+
+  // ── Question completeness ──────────────────────────────────
+
+  isQuestionComplete(
+    question: QuizQuestion,
+    selected: SelectedOption[]
+  ): boolean {
+    if (!question || !Array.isArray(question.options)) {
+      return false;
+    }
+
+    if (!selected || selected.length === 0) {
+      return false;
+    }
+
+    const totalCorrect = question.options.filter((o: any) => {
+      const c = o.correct;
+      return c === true || String(c) === 'true' || c === 1 || c === '1';
+    }).length;
+    if (totalCorrect === 0) {
+      return false;
+    }
+
+    const selectedCorrectCount = selected.filter(sel => {
+      const c = (sel as any).correct;
+      if (c === true || String(c) === 'true' || c === 1 || c === '1') {
+        return true;
+      }
+
+      const selIdStr = String(sel.optionId);
+
+      const matchById = question.options.find(o =>
+        (o.optionId !== undefined && o.optionId !== null) && String(o.optionId) === selIdStr
+      );
+      if (matchById) {
+        return !!matchById.correct;
+      }
+
+      const numericId = Number(sel.optionId);
+      if (Number.isInteger(numericId)) {
+        const index = numericId - 1;
+        if (index >= 0 && index < question.options.length) {
+          const target = question.options[index];
+          if (target.optionId === undefined || target.optionId === null) {
+            return !!target.correct;
+          }
+        }
+      }
+      return false;
+    }).length;
+
+    const selectedIncorrectCount = selected.length - selectedCorrectCount;
+
+    return selectedCorrectCount === totalCorrect && selectedIncorrectCount === 0;
+  }
+
+  // ── Resolution status ──────────────────────────────────────
+
+  isQuestionResolvedCorrectly(
+    question: QuizQuestion,
+    selected: Array<SelectedOption | Option> | null
+  ): boolean {
+    return this.getResolutionStatus(question, selected as Option[], true).resolved;
+  }
+
+  isQuestionResolvedLeniently(
+    question: QuizQuestion,
+    selected: Array<SelectedOption | Option> | null
+  ): boolean {
+    return this.getResolutionStatus(question, selected as Option[], false).resolved;
+  }
+
+  isAnyCorrectAnswerSelected(
+    question: QuizQuestion,
+    selected: Array<SelectedOption | Option> | null
+  ): boolean {
+    const status = this.getResolutionStatus(question, selected as Option[], false);
+    return status.correctSelected > 0;
+  }
+
+  getResolutionStatus(
+    question: QuizQuestion,
+    selected: Option[],
+    strict: boolean = false
+  ): ResolutionStatus {
+    if (!question) {
+      return { resolved: false, correctTotal: 0, correctSelected: 0, incorrectSelected: 0, remainingCorrect: 0 };
+    }
+
+    let questionOptions = Array.isArray(question.options) ? question.options : [];
+    try {
+      const qText = (question.questionText ?? '').trim().toLowerCase();
+      const pristineBundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
+      let pristineQ: any = null;
+      for (const quiz of pristineBundle) {
+        for (const pq of (quiz?.questions ?? [])) {
+          if ((pq?.questionText ?? '').trim().toLowerCase() === qText) {
+            pristineQ = pq;
+            break;
+          }
+        }
+        if (pristineQ) {
+          break;
+        }
+      }
+      if (pristineQ && Array.isArray(pristineQ.options)) {
+        const pristineCorrectCount = pristineQ.options.filter((o: any) =>
+          o?.correct === true || String(o?.correct) === 'true'
+        ).length;
+        const currentCorrectCount = questionOptions.filter(o =>
+          this.idResolver.coerceToBoolean(o.correct)
+        ).length;
+        if (pristineCorrectCount !== currentCorrectCount) {
+          questionOptions = pristineQ.options;
+        }
+      }
+      if (!pristineQ) {
+        const rawQs: any[] = this.quizService?.questions ?? [];
+        const rawQ = qText
+          ? rawQs.find(r => (r?.questionText ?? '').trim().toLowerCase() === qText)
+          : null;
+        if (rawQ && Array.isArray(rawQ.options)) {
+          const rawCorrectCount = rawQ.options.filter((o: any) =>
+            o?.correct === true || String(o?.correct) === 'true'
+          ).length;
+          const currentCorrectCount = questionOptions.filter(o =>
+            this.idResolver.coerceToBoolean(o.correct)
+          ).length;
+          if (rawCorrectCount > currentCorrectCount) {
+            questionOptions = rawQ.options;
+          }
+        }
+      }
+    } catch { /* ignore and keep original */ }
+    const correctTotal = questionOptions.filter(o => this.idResolver.coerceToBoolean(o.correct)).length;
+
+    let correctSelected = 0;
+    let incorrectSelected = 0;
+
+    const selectedArr = Array.isArray(selected) ? selected : [];
+    const seenIndicesInQuestion = new Set<number>();
+
+    const hasRealIds = questionOptions.some(o => o.optionId != null);
+
+    console.log(`[RESOLUTION_TRACE] Q: "${question.questionText?.substring(0, 50)}..." | totalCorrect=${correctTotal} | selections=${selectedArr.length} | hasRealIds=${hasRealIds}`);
+
+    for (const sel of selectedArr) {
+      if (!sel) {
+        continue;
+      }
+      if ((sel as any).selected === false) {
+        continue;
+      }
+
+      let matchedIdx = -1;
+      let matchMethod = 'none';
+
+      // STRATEGY 1: TEXT MATCH
+      if (sel.text) {
+        const selText = sel.text.trim().toLowerCase();
+        matchedIdx = questionOptions.findIndex(o =>
+          o.text && o.text.trim().toLowerCase() === selText
+        );
+        if (matchedIdx !== -1) {
+          matchMethod = 'text';
+        }
+      }
+
+      // STRATEGY 2: ID MATCH
+      if (matchedIdx === -1 && sel.optionId != null && hasRealIds) {
+        const selIdStr = String(sel.optionId);
+        matchedIdx = questionOptions.findIndex(o =>
+          o.optionId != null && String(o.optionId) === selIdStr
+        );
+        if (matchedIdx !== -1) {
+          matchMethod = 'id';
+        }
+      }
+
+      // STRATEGY 3: Synthetic ID Modulo
+      if (matchedIdx === -1 && typeof sel.optionId === 'number' && sel.optionId > 100) {
+        const potentialIdx = (sel.optionId % 100) - 1;
+        if (potentialIdx >= 0 && potentialIdx < questionOptions.length) {
+          matchedIdx = potentialIdx;
+          matchMethod = 'synthetic_id';
+        }
+      }
+
+      // STRATEGY 4: Explicit index fallback
+      if (matchedIdx === -1 && typeof (sel as any).index === 'number') {
+        const idx = (sel as any).index;
+        if (idx >= 0 && idx < questionOptions.length) {
+          matchedIdx = idx;
+          matchMethod = 'index';
+        }
+      }
+
+      if (matchedIdx !== -1) {
+        if (seenIndicesInQuestion.has(matchedIdx)) {
+          continue;
+        }
+        seenIndicesInQuestion.add(matchedIdx);
+
+        const isCorrect = this.idResolver.coerceToBoolean(questionOptions[matchedIdx].correct);
+        if (isCorrect) {
+          correctSelected++;
+          console.log(`  ✅ "${sel.text?.substring(0, 25)}" -> Q[${matchedIdx}] via ${matchMethod} = CORRECT`);
+        } else {
+          incorrectSelected++;
+          console.log(`  ❌ "${sel.text?.substring(0, 25)}" -> Q[${matchedIdx}] via ${matchMethod} = INCORRECT`);
+        }
+      } else {
+        if (this.idResolver.coerceToBoolean(sel.correct)) {
+          correctSelected++;
+          console.log(`  ⚠️ "${sel.text?.substring(0, 25)}" no Q-match, using sel.correct=true`);
+        } else {
+          incorrectSelected++;
+          console.log(`  ❓ "${sel.text?.substring(0, 25)}" no Q-match, assuming INCORRECT`);
+        }
+      }
+    }
+
+    const remainingCorrect = Math.max(correctTotal - correctSelected, 0);
+    let resolved = correctTotal > 0 && remainingCorrect === 0;
+
+    if (strict) {
+      resolved = resolved && incorrectSelected === 0;
+    }
+
+    console.log(`[RESOLUTION_TRACE] RESULT: correct=${correctSelected}/${correctTotal}, incorrect=${incorrectSelected}, strict=${strict} -> RESOLVED=${resolved}`);
+
+    return { resolved, correctTotal, correctSelected, incorrectSelected, remainingCorrect };
+  }
+
+  // ── Multi-answer detection ─────────────────────────────────
+
+  isMultiAnswerQuestion(questionIndex: number): boolean {
+    const q = this.quizService.questions?.[questionIndex];
+    if (!q) {
+      return false;
+    }
+    if (q.type === QuestionType.MultipleAnswer) {
+      return true;
+    }
+    if (!Array.isArray(q.options)) {
+      return false;
+    }
+
+    const correctAnswersCount = (q.options ?? []).filter(
+      (o: any) => o.correct === true || String(o.correct) === 'true'
+    ).length;
+    return correctAnswersCount > 1;
+  }
+}
