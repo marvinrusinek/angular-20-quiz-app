@@ -180,9 +180,7 @@ export class QuizSessionManagerService {
     questionsSubject: BehaviorSubject<QuizQuestion[]>,
     quizResetSource: Subject<void>
   ): string | null {
-    if (!quizId) {
-      console.warn('[applySessionQuestions] quizId missing.');
-      return null;
+    if (!quizId) {      return null;
     }
 
     // Guard: Skip if questions already applied for this quiz
@@ -190,9 +188,7 @@ export class QuizSessionManagerService {
       state.shuffledQuestions &&
       state.shuffledQuestions.length > 0 &&
       state.quizId === quizId
-    ) {
-      console.log(`[applySessionQuestions] SKIPPING - already applied for ${quizId}`);
-      return null;
+    ) {      return null;
     }
 
     // Set quizId first to enable guard for subsequent calls
@@ -202,27 +198,21 @@ export class QuizSessionManagerService {
       quizResetSource.next();
     } catch { }
 
-    if (!Array.isArray(questions) || questions.length === 0) {
-      console.warn('[applySessionQuestions] No questions supplied.');
-      return null;
+    if (!Array.isArray(questions) || questions.length === 0) {      return null;
     }
 
     const sanitizedQuestions = questions
       .map((question) => this.questionResolver.cloneQuestionForSession(question))
       .filter((question): question is QuizQuestion => !!question);
 
-    if (sanitizedQuestions.length === 0) {
-      console.warn('[applySessionQuestions] Sanitized question list empty.');
-      return null;
+    if (sanitizedQuestions.length === 0) {      return null;
     }
 
     state.shuffledQuestions = sanitizedQuestions;
     try {
       localStorage.setItem('shuffledQuestions', JSON.stringify(state.shuffledQuestions));
       localStorage.setItem('shuffledQuestionsQuizId', String(state.quizId ?? ''));
-    } catch (err) {
-      console.warn('Failed to persist shuffledQuestions:', err);
-    }
+    } catch (err) {    }
     state.questions = sanitizedQuestions;
     questionsSubject.next(sanitizedQuestions);
 

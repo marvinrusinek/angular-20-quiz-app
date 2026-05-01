@@ -37,9 +37,7 @@ export class QuizScoringService {
     if (!this._confirmedCorrectClicks.has(questionIndex)) {
       this._confirmedCorrectClicks.set(questionIndex, new Set());
     }
-    this._confirmedCorrectClicks.get(questionIndex)!.add(nrm);
-    console.log(`[recordCorrectClick] Q${questionIndex + 1}: recorded "${nrm}" → all=[${[...this._confirmedCorrectClicks.get(questionIndex)!]}]`);
-  }
+    this._confirmedCorrectClicks.get(questionIndex)!.add(nrm);  }
 
   /** Clear confirmed clicks for a question (used on reset). */
   clearConfirmedClicks(questionIndex?: number): void {
@@ -123,9 +121,7 @@ export class QuizScoringService {
         // Try to find any active shuffle state
         const shuffleKeys = Object.keys(localStorage).filter(k => k.startsWith('shuffleState:'));
         if (shuffleKeys.length > 0) {
-          effectiveQuizId = shuffleKeys[0].replace('shuffleState:', '');
-          console.log(`[incrementScore] Found shuffle state for quizId: ${effectiveQuizId}`);
-        }
+          effectiveQuizId = shuffleKeys[0].replace('shuffleState:', '');        }
       }
 
       if (effectiveQuizId) {
@@ -135,9 +131,7 @@ export class QuizScoringService {
         if (typeof originalIndex === 'number' && originalIndex >= 0) {
           scoringKey = originalIndex;
         }
-      } else {
-        console.warn(`[incrementScore] Shuffle enabled but no quizId found - using display index as scoringKey`);
-      }
+      } else {      }
     }
 
     // IMPORTANT: Only use scoringKey for questionCorrectness lookups.
@@ -153,9 +147,6 @@ export class QuizScoringService {
       wasCorrect = false;
       this.questionCorrectness.set(scoringKey, false);
     }
-
-    console.log(`[incrementScore] Q${qIndex}: scoringKey=${scoringKey} wasCorrect=${wasCorrect} correctAnswerFound=${correctAnswerFound} correctCount=${this.correctCountSig()} shouldShuffle=${shouldShuffle} quizId=${quizId}`);
-
     let isNowCorrect = correctAnswerFound;  // simplified
 
     // PRISTINE GATE (incrementScore): Block increment for multi-answer questions
@@ -208,16 +199,11 @@ export class QuizScoringService {
       }
 
       if (pristineCorrectTexts.length > 1) {
-        const allConfirmed = pristineCorrectTexts.every((t: string) => confirmed.has(t));
-        console.log(`[incrementScore] PRISTINE-GATE Q${qIndex}: pristineCorrect=[${pristineCorrectTexts}] confirmed=[${[...confirmed]}] allConfirmed=${allConfirmed}`);
-        if (!allConfirmed) {
+        const allConfirmed = pristineCorrectTexts.every((t: string) => confirmed.has(t));        if (!allConfirmed) {
           isNowCorrect = false;
         }
       }
     }
-
-    console.log(`[incrementScore] Q${qIndex}: DECISION isNowCorrect=${isNowCorrect} wasCorrect=${wasCorrect} → ${isNowCorrect && !wasCorrect ? 'INCREMENT' : 'NO-INCREMENT'}`);
-
     if (isNowCorrect && !wasCorrect) {
       this.questionCorrectness.set(scoringKey, true);
       this.updateCorrectCountForResults(this.correctCountSig() + 1);
@@ -285,9 +271,7 @@ export class QuizScoringService {
     this.saveQuestionCorrectness();  // clear persistence
     this.correctCountSig.set(0);
     // Use _forceSetScore to bypass the guard in sendCorrectCountToResults
-    this._forceSetScore(0, quizId);
-    console.log('[QuizScoringService] Score fully reset.');
-  }
+    this._forceSetScore(0, quizId);  }
 
   /** Bypass guard — only for explicit resets (restart, new quiz). */
   _forceSetScore(value: number, quizId?: string): void {
@@ -312,21 +296,15 @@ export class QuizScoringService {
         const parsed = JSON.parse(stored);
         this.questionCorrectness = new Map(
           Object.entries(parsed).map(([k, v]) => [Number(k), Boolean(v)])
-        );
-        console.log('[QuizScoringService] Loaded questionCorrectness:', this.questionCorrectness);
-      }
-    } catch (err) {
-      console.warn('Failed to load questionCorrectness:', err);
-    }
+        );      }
+    } catch (err) {    }
   }
 
   saveQuestionCorrectness(): void {
     try {
       const obj = Object.fromEntries(this.questionCorrectness);
       localStorage.setItem('questionCorrectness', JSON.stringify(obj));
-    } catch (err) {
-      console.warn('Failed to save questionCorrectness:', err);
-    }
+    } catch (err) {    }
   }
 
   restoreScoreFromPersistence(quizId: string): void {
@@ -335,9 +313,7 @@ export class QuizScoringService {
       // before the route has resolved), do nothing. Wiping state here
       // destroys the localStorage-persisted score the user just earned
       // right before the refresh.
-      if (!quizId || quizId.length === 0) {
-        console.log('[QuizScoringService] restoreScoreFromPersistence skipped — no quizId yet');
-        return;
+      if (!quizId || quizId.length === 0) {        return;
       }
 
       const savedIndexRaw = localStorage.getItem('savedQuestionIndex');
@@ -376,11 +352,7 @@ export class QuizScoringService {
       this.correctCountSig.set(restored);
       this.correctAnswersCountSig.set(restored);
       this.correctAnswersCountSubject.next(restored);
-      localStorage.setItem('correctAnswersCount', String(restored));
-      console.log(`[QuizScoringService] Restored score from persistence: ${restored} (stored=${safeStored}, map=${mapTrueCount}, savedIndex=${savedIndex})`);
-    } catch (err) {
-      console.warn('[QuizScoringService] Failed to restore score from persistence:', err);
-    }
+      localStorage.setItem('correctAnswersCount', String(restored));    } catch (err) {    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════

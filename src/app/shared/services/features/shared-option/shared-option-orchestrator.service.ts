@@ -32,13 +32,10 @@ export class SharedOptionOrchestratorService {
     host.setupRehydrateTriggers();
 
     if (host.form) {
-      console.log('form value:', host.form.value);
     } else {
-      console.warn('[SOC] form is undefined in ngAfterViewInit');
     }
 
     if (!host.optionBindings?.length && host.optionsToDisplay?.length) {
-      console.warn('[SOC] ngOnChanges not triggered, forcing optionBindings generation');
       host.generateOptionBindings();
     }
   }
@@ -181,7 +178,6 @@ export class SharedOptionOrchestratorService {
 
   runUpdateResolvedQuestionIndex(host: Host, candidate: unknown): void {
     if (typeof candidate !== 'number' && candidate !== null) {
-      console.warn('[SharedOption] Invalid candidate for updateResolvedQuestionIndex:', candidate);
       return;
     }
     const normalized = host.normalizeQuestionIndex(candidate);
@@ -242,7 +238,6 @@ export class SharedOptionOrchestratorService {
 
     // Update cache for other code that reads it
     host._isMultiModeCache = result;
-    console.log(`[isMultiMode] Q${idx + 1} = ${result ? 'MULTIPLE' : 'SINGLE'} (qText="${(currentQ?.questionText || '').slice(0, 40)}")`);
     return result;
   }
 
@@ -384,17 +379,11 @@ export class SharedOptionOrchestratorService {
 
     if (bindingsReady && optionsReady) {
       if (reason) {
-        console.log('[renderReady]: ' + reason);
       }
       host.renderReady = true;
       host.renderReadyChange.emit(true);
       host.renderReadySubject.next(true);
     } else {
-      console.warn('[markRenderReady skipped] Incomplete state:', {
-        bindingsReady,
-        optionsReady,
-        reason
-      });
     }
   }
 
@@ -423,7 +412,6 @@ export class SharedOptionOrchestratorService {
 
   runFinalizeOptionPopulation(host: Host): void {
     if (!host.optionsToDisplay?.length) {
-      console.warn('[No options to display. Skipping type determination.');
       return;
     }
     if (host.type !== 'multiple') {
@@ -440,7 +428,6 @@ export class SharedOptionOrchestratorService {
           ? host.determineQuestionType(questionForType)
           : 'single';
     } else {
-      console.log('[SOC] finalizeOptionPopulation preserved type="multiple"');
     }
   }
 

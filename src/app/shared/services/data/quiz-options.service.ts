@@ -15,9 +15,7 @@ export class QuizOptionsService {
   constructor() {}
 
   sanitizeOptions(options: Option[]): Option[] {
-    if (!Array.isArray(options)) {
-      console.warn('[sanitizeOptions] options is not an array');
-      return [];
+    if (!Array.isArray(options)) {      return [];
     }
 
     return options.map((opt, idx) => {
@@ -68,9 +66,7 @@ export class QuizOptionsService {
   ): Observable<Option[]> {
     return getQuestionByIndex(index).pipe(
       map((question) => {
-        if (!question || !Array.isArray(question.options) || question.options.length === 0) {
-          console.warn(`[getOptions] No options found for Q${index}.`);
-          return [];
+        if (!question || !Array.isArray(question.options) || question.options.length === 0) {          return [];
         }
 
         const deepClone = (obj: any) => JSON.parse(JSON.stringify(obj));
@@ -99,9 +95,7 @@ export class QuizOptionsService {
 
     return getQuestionByIndex(questionIndex).pipe(
       map((question) => {
-        if (!question || !Array.isArray(question.options) || question.options.length === 0) {
-          console.warn(`No options found for Q${questionIndex}. Returning empty array.`);
-          return [];
+        if (!question || !Array.isArray(question.options) || question.options.length === 0) {          return [];
         }
 
         const deepClone =
@@ -116,10 +110,7 @@ export class QuizOptionsService {
           feedback:
             opt.feedback ??
             `Generated feedback for Q${questionIndex} Option ${index}`
-        }));
-
-        console.log(`[getCurrentOptions] Q${questionIndex} returning ${sanitized.length} options`);
-        return sanitized;
+        }));        return sanitized;
       }),
       catchError((error) => {
         console.error(`Error fetching options for Q${questionIndex}:`, error);
@@ -131,10 +122,7 @@ export class QuizOptionsService {
   getSafeOptionId(option: any, index: number): number | undefined {
     if (option && typeof option.optionId === 'number') {
       return option.optionId;
-    }
-
-    console.warn(`Invalid or missing optionId. Falling back to index: ${index}`);
-    return index;
+    }    return index;
   }
 
   assignOptionIds(options: Option[], questionIndex: number): Option[] {
@@ -183,9 +171,7 @@ export class QuizOptionsService {
     options: Option[],
     correctOptionSelected: boolean,
   ): Option[] {
-    if (!Array.isArray(options) || options.length === 0) {
-      console.warn('[assignOptionActiveStates] No options provided.');
-      return [];
+    if (!Array.isArray(options) || options.length === 0) {      return [];
     }
 
     return options.map((opt) => ({
@@ -311,9 +297,7 @@ export class QuizOptionsService {
       .filter((option) => option.correct && option.optionId !== undefined)
       .map((option) => option.optionId as number);
 
-    if (correctAnswers.length === 0) {
-      console.warn(`No correct answers found for question: "${question.questionText}".`);
-    }
+    if (correctAnswers.length === 0) {    }
 
     return correctAnswers;
   }
@@ -335,9 +319,7 @@ export class QuizOptionsService {
         );
 
         correctAnswers.set(question.questionText, correctOptionNumbers);
-      } else {
-        console.warn('Options are undefined for question:', question);
-      }
+      } else {      }
     }
 
     return correctAnswers;

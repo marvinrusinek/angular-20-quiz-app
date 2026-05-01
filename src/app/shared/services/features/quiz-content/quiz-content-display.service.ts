@@ -199,7 +199,6 @@ export class QuizContentDisplayService {
         // questions must ONLY be triggered by the explicit click handler
         // that verifies all correct answers at the moment of the click.
         isResolved = false;
-        console.log(`[displayText$] Q${safeIdx + 1} MULTI-ANSWER: forced isResolved=false`);
       } else {
         isResolved = this.selectedOptionService.isQuestionResolvedLeniently(qObj, safeSelections);
 
@@ -238,7 +237,6 @@ export class QuizContentDisplayService {
               const lastSelText = nrm(lastSel?.text);
               if (lastSelText && !pristineCorrectTexts.has(lastSelText)) {
                 isResolved = false;
-                console.log(`[displayText$] Q${safeIdx + 1} ⛔ single-answer pristine gate: last selection "${lastSelText}" is NOT correct — blocking FET`);
               }
             }
           } catch { /* ignore */ }
@@ -332,13 +330,11 @@ export class QuizContentDisplayService {
             if (!pCorrect.every(t => selNow2.has(t))) {
               oisBypassAllowed = false;
               perfectMap?.delete?.(safeIdx);
-              console.warn(`[displayText$] Q${safeIdx + 1} OIS bypass BLOCKED — pristine shows multi-answer not fully resolved`);
             }
           }
         } catch { /* ignore */ }
         if (oisBypassAllowed) {
           shouldShowExplanation = true;
-          console.log(`[displayText$] Q${safeIdx + 1} OIS bypass: _multiAnswerPerfect=true → forcing SHOW`);
         }
       }
     }
@@ -382,14 +378,12 @@ export class QuizContentDisplayService {
           }
           if (scored) {
             shouldShowExplanation = true;
-            console.log(`[displayText$] Q${safeIdx + 1} SCORING OVERRIDE: questionCorrectness=true → forcing SHOW`);
           }
         }
         // Also check fetBypassForQuestion — set by SOC before scoring
         if (!shouldShowExplanation) {
           if (this.explanationTextService.fetBypassForQuestion?.get(safeIdx) === true) {
             shouldShowExplanation = true;
-            console.log(`[displayText$] Q${safeIdx + 1} FET BYPASS OVERRIDE: fetBypassForQuestion=true → forcing SHOW`);
           }
         }
       } catch { /* ignore */ }
@@ -402,7 +396,6 @@ export class QuizContentDisplayService {
     // it wasn't just timed out, force question text.
     const hasClickedThisIdx = this.quizStateService.hasClickedInSession?.(safeIdx) ?? false;
     if (shouldShowExplanation && !isTimedOut && !hasClickedThisIdx) {
-      console.log(`[displayText$] Q${safeIdx + 1} ⛔ final hard guard: !hasClickedInSession → forcing question text`);
       shouldShowExplanation = false;
     }
 
@@ -456,7 +449,6 @@ export class QuizContentDisplayService {
             if (t) selectedNow.add(t);
           }
           const allSel = pristineCorrect.every(t => selectedNow.has(t));
-          console.log(`[displayText$] Q${safeIdx + 1} ABSOLUTE pristine gate pristineCorrect=${JSON.stringify(pristineCorrect)} selected=${JSON.stringify([...selectedNow])} allSel=${allSel}`);
           if (!allSel) {
             // Before blocking, check questionCorrectness — the most
             // authoritative signal for whether the question is correctly
@@ -493,13 +485,11 @@ export class QuizContentDisplayService {
               }
             } catch { /* ignore */ }
             if (!scoringOverrideGate) {
-              console.warn(`[displayText$] Q${safeIdx + 1} ⛔ ABSOLUTE pristine gate BLOCK — FET suppressed`);
               shouldShowExplanation = false;
               // Also clear any falsely-set perfect flag so downstream
               // OIS-bypass can't re-trigger on the next emission.
               (this.quizService as any)?._multiAnswerPerfect?.delete?.(safeIdx);
             } else {
-              console.log(`[displayText$] Q${safeIdx + 1} ABSOLUTE pristine gate OVERRIDDEN by questionCorrectness`);
             }
           }
         }
@@ -519,9 +509,7 @@ export class QuizContentDisplayService {
 
 
     if (shouldShowExplanation) {
-      console.log(`[displayText$] Q${safeIdx + 1} DISPLAY: hasFet=${hasFet}, isValid=${isFetForThisQuestion}, hasRaw=${hasRaw}`);
       if (isFetForThisQuestion) {
-        console.log(`[displayText$] Q${safeIdx + 1} showing FET: "${finalFet.slice(0, 40)}..."`);
         return finalFet;
       }
       // Before falling back to raw explanation, check formatted caches directly.
@@ -531,7 +519,6 @@ export class QuizContentDisplayService {
       const cachedFet = (this.explanationTextService.formattedExplanations[safeIdx]?.explanation ?? '').trim()
         || ((this.explanationTextService as any).fetByIndex?.get(safeIdx) ?? '').trim();
       if (cachedFet && cachedFet.toLowerCase().includes('correct because')) {
-        console.log(`[displayText$] Q${safeIdx + 1} showing CACHED FET: "${cachedFet.slice(0, 40)}..."`);
         return cachedFet;
       }
       if (hasRaw) {
@@ -543,10 +530,8 @@ export class QuizContentDisplayService {
           const formatted = this.explanationTextService.formatExplanation(
             qObj, correctIndices, qObj.explanation
           );
-          console.log(`[displayText$] Q${safeIdx + 1} ON-THE-FLY FET: "${formatted.slice(0, 40)}..."`);
           return formatted;
         }
-        console.warn(`[displayText$] Q${safeIdx + 1} falling back to RAW: FET mismatch or missing`);
         return qObj.explanation || '';
       }
       // We WANT to show FET but no text is producible in this emission
@@ -556,13 +541,11 @@ export class QuizContentDisplayService {
       // back to the question on every stray emission.
       const regenerated = this.regenerateFetForIndex(safeIdx);
       if (regenerated) {
-        console.log(`[displayText$] Q${safeIdx + 1} REGENERATED FET: "${regenerated.slice(0, 40)}..."`);
         return regenerated;
       }
       // Last resort: return empty string so the subscribeToDisplayText
       // guard preserves the previously cached FET in the DOM rather than
       // overwriting it with question text.
-      console.warn(`[displayText$] Q${safeIdx + 1} shouldShowExplanation but no FET producible — returning empty to preserve cached`);
       return '';
     }
 
@@ -591,8 +574,6 @@ export class QuizContentDisplayService {
                 selected ?? []
               )
               : false;
-
-            console.log(`[shouldShowFet] Idx: ${idx}, Resolved: ${resolved}, Selected: ${selected?.length}`);
             return resolved;
           })
         )
@@ -629,7 +610,6 @@ export class QuizContentDisplayService {
     ]).pipe(
       map(([fet, resolved, timedOut, question]) => {
         const text = (fet ?? '').trim();
-        console.log(`[fetToDisplay$] Resolved: ${resolved}, TimedOut: ${timedOut}, FET len: ${text.length}`);
 
         // Allow display if: Resolved OR TimedOut
         if (resolved || timedOut) {
@@ -638,7 +618,6 @@ export class QuizContentDisplayService {
           }
           // Fallback if formatted text is missing
           if (question && question.explanation) {
-            console.warn('[fetToDisplay$] Using fallback raw explanation');
             return question.explanation;
           }
         }

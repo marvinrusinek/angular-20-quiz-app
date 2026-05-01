@@ -118,7 +118,6 @@ export class OptionInteractionService {
                 const matchedOpt = (pq?.options ?? []).find((po: any) => nrm(po?.text) === optText);
                 if (matchedOpt !== undefined) {
                   const result = matchedOpt?.correct === true || String(matchedOpt?.correct) === 'true';
-                  console.log(`[isPristineCorrect] Q${qIdx + 1} opt="${optText.slice(0, 30)}" qText="${qText.slice(0, 40)}" → ${result}`);
                   return result;
                 }
                 break;
@@ -148,8 +147,6 @@ export class OptionInteractionService {
     // that already exists at position 1). Use `id|displayIndex` for
     // deselection matching so each position is distinct.
     const targetCompositeKey = `${targetKey}|${index}`;
-
-    console.log(`[OIS.handleOptionClick] Q${qIdx + 1} Index=${index} TargetKey=${targetKey} isCurrentlySelected=${binding.isSelected}`);
 
     // NOTE: binding.disabled guard REMOVED. The option-item's isDisabled()
     // already gates clicks at the template level. If a click reaches here,
@@ -237,12 +234,9 @@ export class OptionInteractionService {
                           isExplicitMulti || correctCountInBindings > 1 || pristineCorrectCount > 1;
     const isTrulyMulti = isMultipleMode;
 
-    console.log(`[OIS] Q${qIdx + 1}: correctCount=${correctCountInBindings} stateType=${state.type} isMultipleMode=${isMultipleMode}`);
-
     // Guard: prevent deselection of correct answers in multiple
     if (isMultipleMode && binding.isSelected && isPristineCorrect(binding.option)) {
       if (event && event.preventDefault) event.preventDefault();
-      console.log(`[OIS] Q${qIdx + 1}: Ignoring deselection of correct answer in multiple mode`);
       return;
     }
 
@@ -266,8 +260,6 @@ export class OptionInteractionService {
     // here — it wipes _selectionHistory and sel_Q* in sessionStorage.
     let simulatedSelection = isStaleFromRefresh ? [] : [...storedSelection];
 
-    console.log(`[OIS] Q${qIdx + 1} clicked text="${binding.option?.text}" storedSelection.length=${storedSelection.length}`, storedSelection.map((s: any) => ({ id: s.optionId, idx: s.displayIndex, text: s.text?.slice(0, 30) })));
-
     // Check if ALREADY selected using composite (id + displayIndex) matching.
     // See targetCompositeKey comment above — optionId alone can collide.
     const existingIdx = simulatedSelection.findIndex(o => {
@@ -279,10 +271,8 @@ export class OptionInteractionService {
 
     let futureSelection: SelectedOption[] = [];
     if (isCurrentlySelected) {
-      console.log(`[OIS] Deselecting already-selected option ${targetKey}`);
       futureSelection = simulatedSelection.filter((_, i) => i !== existingIdx);
     } else {
-      console.log(`[OIS] Selecting new option ${targetKey}`);
       const newOpt: SelectedOption = {
         ...binding.option,
         optionId: targetKey,
@@ -293,7 +283,6 @@ export class OptionInteractionService {
       } as SelectedOption;
       
       if (!isMultipleMode) {
-        console.log(`[OIS] Q${qIdx + 1}: Single-answer replace - selecting ${targetKey}`);
         // Do NOT call clearAllSelectionsForQuestion here: it wipes
         // _selectionHistory and sel_Q* in sessionStorage, which erases the
         // "previously clicked" record for prior wrong clicks. We still
@@ -307,8 +296,6 @@ export class OptionInteractionService {
         futureSelection = [...simulatedSelection, newOpt];
       }
     }
-
-    console.log(`[OIS] Q${qIdx + 1}: Resulting futureSelection.length=${futureSelection.length}`);
     const futureKeys = new Set<number>();
     for (const s of futureSelection) {
       const sId = (s as any).optionId;
@@ -443,7 +430,6 @@ export class OptionInteractionService {
               correctIndicesSet.add(i);
             }
           }
-          console.log(`[OIS] Fallback correct indices from raw _questions: [${[...correctIndicesSet]}]`);
           break;
         }
       }
@@ -455,11 +441,8 @@ export class OptionInteractionService {
         if (b.isCorrect || isCorrectHelper(b.option)) correctIndicesSet.add(i);
       }
       if (correctIndicesSet.size > 0) {
-        console.log(`[OIS] Fallback correct indices from bindings: [${[...correctIndicesSet]}]`);
       }
     }
-
-    console.log(`[OIS] Q${qIdx + 1}: correctIndicesSet=[${[...correctIndicesSet]}] futureKeys=[${[...futureKeys]}]`);
 
     const allCorrectFound = correctIndicesSet.size > 0 && [...correctIndicesSet].every(i => futureKeys.has(i));
     const numIncorrectInFuture = futureSelection.filter(o => !isCorrectHelper(o)).length;
@@ -502,7 +485,6 @@ export class OptionInteractionService {
     // - highlight/showIcon: current click + all previously clicked options
     // - feedback: ONLY the current click (handled by _feedbackDisplay)
     if (!isMultipleMode) {
-      console.log(`[OIS] Authoritative Visual Reset for Q${qIdx + 1}`);
       // Accumulate history (don't reset it)
       if (!state.selectedOptionHistory.includes(index)) {
         state.selectedOptionHistory.push(index);
@@ -541,8 +523,6 @@ export class OptionInteractionService {
           }
         }
       } catch { /* ignore */ }
-
-      console.log(`[OIS] SINGLE-ANSWER BINDING LOOP Q${qIdx + 1}: clickedIndex=${index} historySet=[${[...historySet]}]`);
       for (const [i, b] of state.optionBindings.entries()) {
         const isCurrent = (i === index);
         const wasPreviouslyClicked = historySet.has(i);
@@ -557,11 +537,9 @@ export class OptionInteractionService {
         b.highlightCorrect = false;
         b.highlightIncorrect = false;
         b.showFeedback = isCurrent;
-        console.log(`[OIS]   binding[${i}]: isCurrent=${isCurrent} wasPrev=${wasPreviouslyClicked} isSelected=${b.isSelected} highlight=${b.option?.highlight} text="${(b.option?.text || '').substring(0, 30)}"`);
       }
       state.selectedOptionMap.clear();
       state.selectedOptionMap.set(targetKey, true);
-      console.log(`[OIS] selectedOptionMap after clear+set: keys=[${[...state.selectedOptionMap.keys()]}]`);
       state.feedbackConfigs = {};
     } else { // Multiple mode: two-pass update to ensure correct results regardless of binding order
       // Pass 1: Sync 'selected' state for all bindings AND optionsToDisplay based on futureKeys.

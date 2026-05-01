@@ -79,7 +79,6 @@ export class QuizNavigationService {
 
   public async advanceToNextQuestion(): Promise<boolean> {
     if (this.isNavigating) {
-      console.warn('[NAV] ⚠️ advanceToNextQuestion ignored - isNavigating is TRUE');
       return false;
     }
 
@@ -96,7 +95,6 @@ export class QuizNavigationService {
     try {
       this.resetExplanationAndState();
     } catch (err) {
-      console.warn('[NAV DEBUG] resetExplanationAndState failed, but proceeding', err);
     }
 
     return await this.navigateWithOffset(1);  // defer navigation until state is clean
@@ -115,9 +113,6 @@ export class QuizNavigationService {
       (this as any).explanationToDisplay = '';
       this.explanationTextService.setShouldDisplayExplanation(false);
     } catch (err) {
-      console.warn(
-        '[NAV] ⚠️ partial reset before previous question failed', err
-      );
     }
 
     const result = await this.navigateWithOffset(-1);
@@ -135,30 +130,23 @@ export class QuizNavigationService {
 
     // User requested logic: Check if answered.
     const isAnswered = this.selectedOptionService.isQuestionAnswered(currentRouteIndex - 1);
-    console.log(`[NAV FORCE] Logic Check: Q${currentRouteIndex} Answered? ${isAnswered}`);
 
-    /* console.log(`[NAV FORCE] URL Index: ${currentRouteIndex} -> Target: ${targetRouteIndex}`);
+    /*
 
     // Get Quiz ID (best effort, fallback to 'angular-quiz')
     let quizId = this.resolveEffectiveQuizId();
     if (!quizId) {
-      console.warn('[NAV FORCE] No quizId found, defaulting to "angular-quiz"');
       quizId = 'angular-quiz';
-    } */
-   console.log(`[NAV FORCE] Route Index: ${currentRouteIndex} -> Target: ${targetRouteIndex}`);   
+    } */   
 
     // Simple Bounds Safety (only check min)
     if (targetRouteIndex < 1) {
-      console.warn('[NAV] Cannot navigate below Q1');
       return false;
     }
 
     const maxQuestions = this.quizService.totalQuestions || this.quizService.questions?.length || 99;
 
-    console.log(`[NAV DEBUG] navigateWithOffset: Current=${currentRouteIndex} Target=${targetRouteIndex} Max=${maxQuestions} (ServiceTotal=${this.quizService.totalQuestions})`);
-
     if (targetRouteIndex > maxQuestions) {
-      console.warn(`[NAV FORCE] Target ${targetRouteIndex} > Max ${maxQuestions}. Proceeding anyway to verify existence.`);
     }
 
     return this.navigateToQuestion(targetRouteIndex - 1);
@@ -219,7 +207,6 @@ export class QuizNavigationService {
       this.isNavigating = false;
       this.quizStateService.setNavigating(false);
       this.quizStateService.setLoading(false);
-      console.log(`[NAV DEBUG] navigateToQuestion END. Index: ${index}`);
     }
   }
 
@@ -243,13 +230,11 @@ export class QuizNavigationService {
 
     // Handle same-URL reload scenario
     if (currentIndex === index && currentUrl === routeUrl) {
-      console.log('[NAV DEBUG] Same URL detected. Reloading root first.');
       await this.router.navigateByUrl('/', { skipLocationChange: true });
     }
 
     const navSuccess = await this.router.navigateByUrl(routeUrl);
     if (!navSuccess) {
-      console.warn('[⚠️ Router navigateByUrl returned false]', routeUrl);
       return false;
     }
 
@@ -261,7 +246,6 @@ export class QuizNavigationService {
       this.quizService.getQuestionByIndex(index)
     );
     if (!fresh) {
-      console.warn(`[NAV] ⚠️ getQuestionByIndex(${index}) returned null`);
       return null;
     }
 
@@ -283,7 +267,6 @@ export class QuizNavigationService {
         for (const gate of ets._gate.values()) gate?.next?.(false);
       }
     } catch (err) {
-      console.warn('[NAV] ⚠️ Failed to purge FET cache', err);
     }
 
     // Prepare text
@@ -322,16 +305,13 @@ export class QuizNavigationService {
       requestAnimationFrame(() => {
         try {
           qqls.emitQuestionTextSafely(trimmedQ, index);
-          console.log(`[NAV] 🧩 Question emitted for Q${index + 1}`);
 
           requestAnimationFrame(() => {
             this.quizService.updateCorrectAnswersText(banner);
-            console.log(`[NAV] 🏷 Banner emitted for Q${index + 1}`);
           });
 
           resolve();
         } catch (err) {
-          console.warn('[NAV] ⚠️ Question emission failed', err);
           qqls._frozen = false;
           qqls._isVisualFrozen = false;
           resolve();
@@ -398,14 +378,10 @@ export class QuizNavigationService {
           this.quizService.updateBadgeText(index + 1, totalQuestions);
         }
       } else {
-        console.warn(
-          `[resetUIAndNavigate] ⚠️ Proceeding without a cached question for index ${index}.`
-        );
       }
 
       const routeUrl = `/quiz/question/${effectiveQuizId}/${index + 1}`;
       if (this.router.url === routeUrl) {
-        console.warn(`[resetUIAndNavigate] ⚠️ Already on route ${routeUrl}`);
         return true;
       }
 
@@ -416,10 +392,6 @@ export class QuizNavigationService {
         );
         return false;
       }
-
-      console.log(
-        `[resetUIAndNavigate] ✅ Navigation and UI reset complete for Q${index + 1}`
-      );
       return true;
     } catch (err) {
       console.error(`[resetUIAndNavigate] ❌ Error during reset:`, err);
@@ -594,16 +566,13 @@ export class QuizNavigationService {
   }
 
   navigateToResults(): void {
-    console.log(`[navigateToResults] Called. quizCompleted=${this.quizCompleted}`);
 
     if (this.quizCompleted) {
-      console.warn('Navigation to results already completed.');
       return;
     }
 
     // Ensure we have a robust quizId
     const targetQuizId = this.quizId || this.resolveEffectiveQuizId() || this.quizService.quizId;
-    console.log(`[navigateToResults] targetQuizId=${targetQuizId}`);
 
     if (!targetQuizId) {
       console.error('[navigateToResults] No quizId available for navigation!');
@@ -614,7 +583,6 @@ export class QuizNavigationService {
 
     // Use correct route path: /quiz/results/:quizId (not just results/)
     const routePath = `/quiz/results/${targetQuizId}`;
-    console.log(`[navigateToResults] Navigating to:`, routePath);
 
     this.router.navigateByUrl(routePath).then((success) => {
       if (!success) {
@@ -635,7 +603,6 @@ export class QuizNavigationService {
 
   // Reset navigation state when switching quizzes
   resetForNewQuiz(): void {
-    console.log('[QuizNavigationService] Resetting for new quiz');
     this.quizCompleted = false;
     this.isNavigating = false;
     this.currentQuestionIndex = 0;

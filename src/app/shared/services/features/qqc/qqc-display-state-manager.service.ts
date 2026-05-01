@@ -95,9 +95,7 @@ export class QqcDisplayStateManagerService {
         ? params.question!.options
         : [];
 
-    if (!baseOptions.length) {
-      console.warn('[refreshOptionsForQuestion] No options found for the current question.');
-      return { normalizedOptions: [], options: [], optionsToDisplay: [] };
+    if (!baseOptions.length) {      return { normalizedOptions: [], options: [], optionsToDisplay: [] };
     }
 
     const normalizedOptions = this.quizService.quizOptions.assignOptionIds(
@@ -125,19 +123,13 @@ export class QqcDisplayStateManagerService {
   ): Option[] | null {
     const context = '[buildOptionsToDisplay]';
 
-    if (!sourceQuestion || !Array.isArray(sourceQuestion.options)) {
-      console.warn(
-        `${context} ❌ No valid sourceQuestion or options. Skipping option assignment.`
-      );
-      return null;
+    if (!sourceQuestion || !Array.isArray(sourceQuestion.options)) {      return null;
     }
 
     const validOptions = (sourceQuestion.options ?? []).filter(
       (o: Option) => !!o && typeof o === 'object'
     );
-    if (!validOptions.length) {
-      console.warn(`${context} ❌ All options were invalid.`);
-      return null;
+    if (!validOptions.length) {      return null;
     }
 
     return validOptions.map((opt: Option, index: number) => ({
@@ -228,9 +220,7 @@ export class QqcDisplayStateManagerService {
       incomingQuestionText &&
       incomingQuestionText === currentQuestionText &&
       params.isAlreadyRendered
-    ) {
-      console.warn('[⚠️ Skipping rehydration: same question text and already rendered]');
-      return null;
+    ) {      return null;
     }
 
     const { question, options, explanation } = params.payload;
@@ -362,12 +352,7 @@ export class QqcDisplayStateManagerService {
 
     if (hasValidQuestion && hasValidOptions) {
       return true;
-    } else {
-      console.warn('[⏸️ renderReady] Conditions not met:', {
-        hasValidQuestion,
-        hasValidOptions,
-      });
-      return false;
+    } else {      return false;
     }
   }
 
@@ -383,9 +368,7 @@ export class QqcDisplayStateManagerService {
       typeof params.newIndex === 'number' &&
       typeof params.prevIndex === 'number' &&
       params.newIndex !== params.prevIndex
-    ) {
-      console.log(`[QQC] 🔄 Reset _fetEarlyShown for transition ${params.prevIndex + 1} → ${params.newIndex + 1}`);
-      return { shouldClear: true, indexToClear: params.prevIndex };
+    ) {      return { shouldClear: true, indexToClear: params.prevIndex };
     }
     return { shouldClear: false, indexToClear: -1 };
   }

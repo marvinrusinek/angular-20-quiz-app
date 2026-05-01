@@ -76,7 +76,6 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
       const newQuestion = changes['question'].currentValue;
       if (!newQuestion || !Array.isArray(newQuestion.options) ||
         newQuestion.options.length === 0) {
-        console.warn('[⏳ ngOnChanges] Question or options not ready. Will retry.');
         setTimeout(() => this.ngOnChanges(changes), 50);  // retry once after delay
         return;
       }
@@ -96,7 +95,6 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
     // Safe to initialize dynamic component after both inputs are handled
     if (shouldInitializeDynamicComponent && this.question() &&
       this.optionsToDisplay()?.length > 0) {
-      console.log('[📦 ngOnChanges] Inputs ready, initializing dynamic component.');
       this.initializeDynamicComponentIfNeeded();
     }
   }
@@ -112,7 +110,6 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
 
   private initializeDynamicComponentIfNeeded(): void {
     if (this.containerInitialized) {
-      console.log('Dynamic component already initialized. Skipping load.');
       return;
     }
 
@@ -122,10 +119,6 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
       !Array.isArray(this.optionsToDisplay()) ||
       this.optionsToDisplay().length === 0
     ) {
-      console.warn('[🕒 Waiting to initialize dynamic component – data not ready]', {
-        question: this.question(),
-        optionsToDisplay: this.optionsToDisplay()
-      });
 
       setTimeout(() => {
         if (!this.containerInitialized) {
@@ -153,8 +146,6 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
         console.error('Error updating current question:', error);
       }
     } else {
-      console.warn('quizStateService is not available. Unable to set current question.');
-      console.log('Component instance:', this);
     }
   }
 
@@ -163,9 +154,7 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
       const qqc = (this as any).quizQuestionComponent ??
         (this as any)._quizQuestionComponent;
       qqc?._fetEarlyShown?.clear();
-      console.log('[BQC] 🔄 Cleared _fetEarlyShown before showing new question');
     } catch (err) {
-      console.warn('[BQC] ⚠️ Could not clear _fetEarlyShown:', err);
     }
 
     if (this.question() && Array.isArray(this.question()!.options) && this.question()!.options.length > 0) {
@@ -186,10 +175,6 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
       this.setCurrentQuestion(this.question()!);
       this.initializeQuestion();
     } else {
-      console.warn(
-        '[⚠️ initializeQuestionIfAvailable] Question or options not ready:',
-        this.question()
-      );
     }
   }
 
@@ -217,15 +202,7 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
     // Overwriting with this.question().options could use unshuffled data from a different source.
     if (!this.optionsToDisplay() || this.optionsToDisplay().length === 0) {
       this.optionsToDisplay.set([...this.question()!.options]);
-      console.log(
-        '[✅ optionsToDisplay initialized from question.options]',
-        this.optionsToDisplay().length
-      );
     } else {
-      console.log(
-        '[🔒 optionsToDisplay preserved from Input - NOT overwriting]',
-        this.optionsToDisplay().length
-      );
     }
   }
 
@@ -235,7 +212,6 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
       !Array.isArray(this.question()!.options) ||
       this.question()!.options.length === 0
     ) {
-      console.warn('[❌ ISOC] Invalid or missing question/options:', this.question());
       return;
     }
 
@@ -289,17 +265,12 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
 
   protected subscribeToQuestionChanges(): void {
     if (!this.quizStateService) {
-      console.warn(
-        'quizStateService is undefined. Make sure it is properly injected and ' +
-        'initialized.'
-      );
       return;
     }
 
     const currentQuestion$ = this.quizStateService.currentQuestion$;
 
     if (!currentQuestion$) {
-      console.warn('currentQuestion$ is undefined in quizStateService');
       return;
     }
 
@@ -310,14 +281,12 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
         filter((quizQuestion): quizQuestion is QuizQuestion => {
           // Guard against undefined values
           if (!quizQuestion) {
-            console.warn('Received undefined currentQuestion');
             return false;
           }
 
           // Guard against questions that don’t yet have options
           const hasOptions = !!quizQuestion.options?.length;
           if (!hasOptions) {
-            console.warn('Current question has no options', quizQuestion);
           }
 
           return hasOptions;
@@ -412,8 +381,6 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
     if (this.quizStateService) {
       this.quizService.setCurrentQuestion(question);
     } else {
-      console.warn('quizStateService is not available. Unable to set current ' +
-        'question.');
     }
   }
 
@@ -438,21 +405,15 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
         this.initializeQuestion();
         this.optionsInitialized = true;
       } else {
-        console.warn('[⚠️ handleQuestionChange] Options not loaded yet: ',
-          this.question());
       }
     } else {
-      console.warn('[⚠️ handleQuestionChange] Received null or undefined question:',
-        change);
     }
   }
 
   private handleOptionsToDisplayChange(change: SimpleChange): void {
     if (change.currentValue) {
-      console.log('New options value:', change.currentValue);
       this.optionsToDisplay.set(change.currentValue);
     } else {
-      console.warn('Received null or undefined options');
     }
   }
 }

@@ -117,9 +117,6 @@ export class QuizInitializationService {
     }
 
     if (!this.selectedQuiz || !Array.isArray(this.selectedQuiz.questions)) {
-      console.warn(
-        '🚧 selectedQuiz or questions not ready yet – skipping UI update'
-      );
       return;
     }
 

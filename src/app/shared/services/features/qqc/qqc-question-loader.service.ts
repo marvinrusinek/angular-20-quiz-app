@@ -84,9 +84,7 @@ export class QqcQuestionLoaderService {
       return { loaded: true, questions: shuffled };
     }
 
-    if (this.isLoadingInProgress) {
-      console.info('Waiting for ongoing loading process...');
-      while (this.isLoadingInProgress) {
+    if (this.isLoadingInProgress) {      while (this.isLoadingInProgress) {
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
       return { loaded: this.isQuizLoaded, questions: questionsArray };
@@ -209,9 +207,7 @@ export class QqcQuestionLoaderService {
     this.selectedOptionService.resetAllStates?.();
     this.selectedOptionService.selectedOptionsMap?.clear?.();
     (this.selectedOptionService as any)._lockedOptionsMap?.clear?.();
-    (this.selectedOptionService as any).optionStates?.clear?.();
-    console.log('[QQC LOAD] 🧹 All selection/lock state cleared');
-  }
+    (this.selectedOptionService as any).optionStates?.clear?.();  }
 
   /**
    * Resets explanation-related state for a new question load.
@@ -275,34 +271,19 @@ export class QqcQuestionLoaderService {
         if (!questionsArray || questionsArray.length === 0) {
           console.error('[initializeComponent] Failed to fetch questions. Aborting initialization.');
           return null;
-        }
-
-        console.info('[initializeComponent] Questions array successfully fetched:', questionsArray);
-      }
+        }      }
 
       // Clamp currentQuestionIndex to valid range
       if (currentQuestionIndex < 0) {
         currentQuestionIndex = 0;
       }
       const lastIndex = questionsArray.length - 1;
-      if (currentQuestionIndex > lastIndex) {
-        console.warn(
-          `[initializeComponent] Index ${currentQuestionIndex} out of range — clamping to last question (${lastIndex}).`
-        );
-        currentQuestionIndex = lastIndex;
+      if (currentQuestionIndex > lastIndex) {        currentQuestionIndex = lastIndex;
       }
 
       const currentQuestion = questionsArray[currentQuestionIndex];
-      if (!currentQuestion) {
-        console.warn('[initializeComponent] Current question is missing after loading.', {
-          currentQuestionIndex,
-          questionsArray,
-        });
-        return null;
+      if (!currentQuestion) {        return null;
       }
-
-      console.info('[initializeComponent] Current question set:', currentQuestion);
-
       return {
         questionsArray,
         currentQuestionIndex,
@@ -319,9 +300,7 @@ export class QqcQuestionLoaderService {
    * Returns the enriched options array.
    */
   enrichOptionsForDisplay(question: QuizQuestion): Option[] {
-    if (!question || !question.options?.length) {
-      console.warn('[loadOptionsForQuestion] ❌ No question or options found.');
-      return [];
+    if (!question || !question.options?.length) {      return [];
     }
 
     return [...question.options].map(option => ({
@@ -357,14 +336,10 @@ export class QqcQuestionLoaderService {
     currentOptionsToDisplay: Option[],
     lastSignature: string | null
   ): { options: Option[]; signature: string | null } {
-    if (!currentQuestion) {
-      console.warn('[⚠️ populateOptionsToDisplay] currentQuestion is null or undefined. Skipping population.');
-      return { options: [], signature: lastSignature };
+    if (!currentQuestion) {      return { options: [], signature: lastSignature };
     }
 
-    if (!Array.isArray(currentQuestion.options) || currentQuestion.options.length === 0) {
-      console.warn('[⚠️ populateOptionsToDisplay] currentQuestion.options is not a valid array. Returning empty array.');
-      return { options: [], signature: lastSignature };
+    if (!Array.isArray(currentQuestion.options) || currentQuestion.options.length === 0) {      return { options: [], signature: lastSignature };
     }
 
     const signature = this.computeQuestionSignature(currentQuestion);
@@ -519,9 +494,7 @@ export class QqcQuestionLoaderService {
     return new Promise((resolve, reject) => {
       const subscription = this.quizService.getQuestionByIndex(index).subscribe({
         next: (question) => {
-          if (question && question.questionText) {
-            console.log(`Question loaded for index ${index}:`, question);
-            subscription?.unsubscribe();
+          if (question && question.questionText) {            subscription?.unsubscribe();
             resolve();
           } else {
             reject(new Error(`No valid question at index ${index}`));
@@ -575,10 +548,6 @@ export class QqcQuestionLoaderService {
       );
 
       if (questionData) {
-        console.log(
-          `[loadCurrentQuestion] Loaded data for question index: ${params.currentQuestionIndex}`
-        );
-
         questionData.options = this.quizService.quizOptions.assignOptionIds(
           questionData.options,
           params.currentQuestionIndex
@@ -635,10 +604,6 @@ export class QqcQuestionLoaderService {
       );
 
       if (!question) {
-        console.warn(
-          `[waitForQuestionData] Index ${idx} out of range — clamping to last question`
-        );
-
         const total: number = await firstValueFrom(
           this.quizService.getTotalQuestionsCount(params.quizId)
         );
@@ -699,9 +664,7 @@ export class QqcQuestionLoaderService {
       enrichedOptions.length > 0 &&
       params.currentOptionsLength !== params.question.options.length;
 
-    if (shouldClearFirst) {
-      console.warn('[DEBUG] ❌ Clearing optionsToDisplay due to length mismatch');
-    }
+    if (shouldClearFirst) {    }
 
     return { enrichedOptions, shouldClearFirst };
   }
@@ -738,9 +701,7 @@ export class QqcQuestionLoaderService {
     const optionsToDisplay = this.buildFreshOptions(params.potentialQuestion, params.currentQuestionIndex);
 
     console.group(`[QQC TRACE] Fresh options for Q${params.currentQuestionIndex}`);
-    for (const [j, o] of optionsToDisplay.entries()) {
-      console.log(`Opt${j}:`, o.text, '| id:', o.optionId, '| ref:', o);
-    }
+    for (const [j, o] of optionsToDisplay.entries()) {    }
     console.groupEnd();
 
     // 4️⃣ Verify no shared references
@@ -748,9 +709,7 @@ export class QqcQuestionLoaderService {
     if (params.questionsArray?.[params.currentQuestionIndex - 1]?.options) {
       const prev = params.questionsArray[params.currentQuestionIndex - 1].options;
       const curr = optionsToDisplay;
-      hasSharedRefs = prev.some((p, i) => p === curr[i]);
-      console.log(`[QQC REF CHECK] Between Q${params.currentQuestionIndex - 1} and Q${params.currentQuestionIndex}: shared=${hasSharedRefs}`);
-    }
+      hasSharedRefs = prev.some((p, i) => p === curr[i]);    }
 
     // 5️⃣ Compute question text
     const questionToDisplay = currentQuestion.questionText?.trim() || '';
@@ -917,25 +876,13 @@ export class QqcQuestionLoaderService {
   }): void {
     queueMicrotask(() => {
       requestAnimationFrame(async () => {
-        if (params.optionsToDisplay?.length > 0) {
-          console.log('[loadQuestion] Forcing baseline selection message after emit', {
-            index: params.currentQuestionIndex,
-            total: this.quizService.totalQuestions,
-            opts: params.optionsToDisplay.map(o => ({
-              text: o.text,
-              correct: o.correct,
-              selected: o.selected
-            }))
-          });
-          const q = params.questions[params.currentQuestionIndex];
+        if (params.optionsToDisplay?.length > 0) {          const q = params.questions[params.currentQuestionIndex];
           if (q) {
             const totalCorrect = q.options.filter(o => !!o.correct).length;
             // Push the baseline immediately
             await this.selectionMessageService.enforceBaselineAtInit(params.currentQuestionIndex, q.type!, totalCorrect);
           }
-        } else {
-          console.warn('[loadQuestion] Skipped baseline recompute (no options yet)');
-        }
+        } else {        }
       });
     });
   }
@@ -1011,9 +958,7 @@ export class QqcQuestionLoaderService {
 
     const builtBindings = this.buildOptionBindings(clonedOptions, isMultipleAnswer);
 
-    try {
-      console.log('[loader] configureDynamicInstance', { hasComponentRef: !!componentRef, optionsLen: clonedOptions?.length });
-      if (componentRef?.setInput) {
+    try {      if (componentRef?.setInput) {
         try { componentRef.setInput('question', { ...question }); } catch {}
         try { componentRef.setInput('optionsToDisplay', clonedOptions); } catch {}
         try { componentRef.setInput('questionData', { ...question, options: clonedOptions }); } catch {}

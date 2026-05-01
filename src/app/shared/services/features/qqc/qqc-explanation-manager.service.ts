@@ -30,9 +30,6 @@ export class QqcExplanationManagerService {
   async getExplanationText(questionIndex: number): Promise<string> {
     try {
       if (!this.explanationTextService.explanationsInitialized) {
-        console.warn(
-          `[getExplanationText] Explanations not initialized — returning fallback for Q${questionIndex}`
-        );
         return 'No explanation available for this question.';
       }
 
@@ -44,9 +41,6 @@ export class QqcExplanationManagerService {
 
       const trimmed = explanationText?.trim();
       if (!trimmed) {
-        console.warn(
-          `[getExplanationText] Empty or undefined explanation for Q${questionIndex}. Using fallback.`
-        );
         return 'No explanation available for this question.';
       }
 
@@ -95,7 +89,6 @@ export class QqcExplanationManagerService {
           explanation: explanationText,
         };
       } else {
-        console.warn('No formatted explanation received');
         return {
           questionIndex,
           explanation: questionData.explanation || 'No explanation available',

@@ -41,9 +41,7 @@ export class QqcSubscriptionWiringService {
         distinctUntilChanged(),
         tap((mode: 'question' | 'explanation') => {
           if (isRestoringState) {
-            console.log(`[🛠️ Restoration] Skipping displayMode$ update (${mode})`);
           } else {
-            console.log(`[👀 Observed isAnswered ➡️ ${mode}] — no displayMode$ update`);
           }
         }),
         catchError((error) => {
@@ -90,7 +88,6 @@ export class QqcSubscriptionWiringService {
 
         const questionsLength = params.getQuestionsLength();
         if (questionsLength === 0) {
-          console.warn('Questions are not loaded yet.');
           return;
         }
 
@@ -155,7 +152,6 @@ export class QqcSubscriptionWiringService {
       )
       .subscribe((payload: QuestionPayload) => {
         console.time('[📥 QQC received QA]');
-        console.log('[📥 QQC got payload]', payload);
         console.timeEnd('[📥 QQC received QA]');
       });
   }
@@ -187,14 +183,12 @@ export class QqcSubscriptionWiringService {
 
     subs.push(
       this.quizNavigationService.navigationSuccess$.subscribe(() => {
-        console.info('[QQC] 📦 navigationSuccess$ received — general navigation');
         callbacks.onNavigationSuccess();
       })
     );
 
     subs.push(
       this.quizNavigationService.navigatingBack$.subscribe(() => {
-        console.info('[QQC] 🔙 navigatingBack$ received');
         callbacks.onNavigatingBack(null); // component passes sharedOptionComponent reference
       })
     );
@@ -205,10 +199,6 @@ export class QqcSubscriptionWiringService {
           if (question?.questionText && options?.length) {
             callbacks.onNavigationToQuestion({ question, options });
           } else {
-            console.warn('[🚫 Dynamic injection skipped]', {
-              questionText: question?.questionText,
-              optionsLength: options?.length,
-            });
           }
         }
       )
@@ -303,9 +293,6 @@ export class QqcSubscriptionWiringService {
     return this.quizService.currentQuestionIndex$.subscribe((index: number) => {
       // Log a stack trace for tracing unexpected emissions
       if (index === 1) {
-        console.warn('[🧵 Stack trace for index === 1]', {
-          stack: new Error().stack
-        });
       }
 
       onIndex(index);

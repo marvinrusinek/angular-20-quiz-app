@@ -65,9 +65,7 @@ export class CqcOrchestratorService {
         takeUntil(host.destroy$),
         filter((qs: any) => Array.isArray(qs) && qs.length > 0)
       )
-      .subscribe(() => {
-        console.log('[CQCC] ♻️ Questions updated - FET will be generated on-demand when user clicks');
-      });
+      .subscribe(() => {});
 
     // Build the intended qText HTML for the current index. Centralised so
     // the visibility handler, replay retries, and the MutationObserver
@@ -138,7 +136,6 @@ export class CqcOrchestratorService {
       if (!intended) return;
       if (!current || current !== intended) {
         this.writeQText(host, intended);
-        console.log(`[CQCC qText] 🔁 Force-stamped (${reason})`);
       }
     };
 
@@ -177,7 +174,6 @@ export class CqcOrchestratorService {
             }
             if (restore) {
               this.writeQText(host, restore);
-              console.log('[CQCC qText] 🔁 Observer restored blank heading');
             }
           }, 80);
         });
@@ -205,7 +201,6 @@ export class CqcOrchestratorService {
       .subscribe(() => {
         const idx = host.currentIndex >= 0 ? host.currentIndex : (host.quizService.getCurrentQuestionIndex?.() ?? host.currentQuestionIndexValue ?? 0);
 
-        console.warn(`[CQCC] ⏰ Timer expired for Q${idx + 1} → allow FET display`);
         host.timedOutIdxSubject.next(idx);
 
         const isShuffled = host.quizService.isShuffleEnabled?.() && Array.isArray(host.quizService.shuffledQuestions) && host.quizService.shuffledQuestions.length > 0;
@@ -262,20 +257,10 @@ export class CqcOrchestratorService {
     // or restart the dev server) OR writeQText is not the write path
     // that produces the FET you're seeing.
     try {
-      (globalThis as any).__writeQTextCalls = ((globalThis as any).__writeQTextCalls ?? 0) + 1;
-      // eslint-disable-next-line no-console
-      console.warn(
-        '%c[writeQText] CALL #' + (globalThis as any).__writeQTextCalls,
-        'background:#b00;color:#fff;padding:2px 6px;border-radius:3px;',
-        (html ?? '').substring(0, 120)
-      );
-    } catch { /* ignore */ }
-    try {
       let safe = html ?? '';
       const rawQs: any[] = (host.quizService as any)?.questions ?? [];
       const norm = (t: any) => String(t ?? '').trim().toLowerCase();
       const safeNorm = norm(safe);
-      console.log(`[writeQText] ENTRY safe="${safe.substring(0, 80)}..." rawQsLen=${rawQs.length}`);
 
       // ════════════════════════════════════════════════════════════════
       // NUCLEAR GATE — runs before anything else. If the outgoing HTML
@@ -605,7 +590,6 @@ export class CqcOrchestratorService {
             const resolved =
               rawCorrectTexts.length > 0
               && selectedCorrectTexts.size === rawCorrectTexts.length;
-            console.log(`[writeQText] Q${qIdx + 1} FET-match gate rawCorrect=${JSON.stringify(rawCorrectTexts)} selCorrect=${JSON.stringify([...selectedCorrectTexts])} resolved=${resolved}`);
             if (!resolved) {
               // Check questionCorrectness override before blocking
               let hardGateOverride = false;
@@ -620,14 +604,13 @@ export class CqcOrchestratorService {
                 hardGateOverride = this.isScoredCorrectAtDisplay(host, displayIdx);
               } catch { /* ignore */ }
               if (hardGateOverride) {
-                console.log(`[writeQText] ✅ HARD FINAL GATE OVERRIDDEN by questionCorrectness for Q${qIdx + 1}`);
+                // overridden by questionCorrectness
               } else {
                 const replacement = qIdx >= 0
                   ? this.buildQuestionDisplayHTML(host, qIdx)
                   : '';
                 const fallback = pristineQ?.questionText ?? '';
                 safe = replacement || fallback || '';
-                console.log(`[writeQText] ⛔ HARD-BLOCKED premature FET — substituted "${safe.substring(0, 60)}..."`);
               }
             }
             break;
@@ -708,7 +691,7 @@ export class CqcOrchestratorService {
             if (!allResolved_ll) {
               const llOverride = this.isScoredCorrectAtDisplay(host, idx_ll);
               if (llOverride) {
-                console.log(`[writeQText] ✅ LAST-LINE GUARD OVERRIDDEN by questionCorrectness for Q${idx_ll + 1}`);
+                // overridden by questionCorrectness
               } else {
                 safe = this.buildQuestionDisplayHTML(host, idx_ll) || (liveQ_ll?.questionText ?? '').trim() || '';
                 console.error(`🛡️ [writeQText] ⛔ LAST-LINE GUARD BLOCKED FET for Q${idx_ll + 1} — substituted question text`);
@@ -772,11 +755,10 @@ export class CqcOrchestratorService {
             }
           } catch (e) { console.error('[writeQText] FINAL GATE storage error:', e); }
           const _allOk = _pCorrect.every(t => _selNow.has(t));
-          console.warn(`[writeQText] FINAL-GATE Q${_idx + 1}: pristine=${JSON.stringify(_pCorrect)} sel=${JSON.stringify([..._selNow])} ok=${_allOk} text="${_safeStripped.substring(0, 60)}"`);
           if (!_allOk) {
             const _fgOverride = this.isScoredCorrectAtDisplay(host, _idx);
             if (_fgOverride) {
-              console.log(`[writeQText] ✅ FINAL-GATE OVERRIDDEN by questionCorrectness for Q${_idx + 1}`);
+              // overridden by questionCorrectness
             } else {
               safe = this.buildQuestionDisplayHTML(host, _idx) || (_liveQ?.questionText ?? '').trim() || '';
               console.error(`[writeQText] ⛔ FINAL-GATE BLOCKED FET for Q${_idx + 1}`);
@@ -1062,7 +1044,6 @@ export class CqcOrchestratorService {
                 .filter((t: string) => !!t)
             );
             const allCorrectSelected = pristineCorrectTexts.every(t => selTexts.has(t));
-            console.log(`[isResolvedFromStorage] Q${idx + 1} PRISTINE CHECK: correct=${JSON.stringify(pristineCorrectTexts)} sel=${JSON.stringify([...selTexts])} resolved=${allCorrectSelected}`);
             return allCorrectSelected;
           }
           // Single-answer: use standard resolution
@@ -1085,11 +1066,9 @@ export class CqcOrchestratorService {
   private stampQuestionTextNow(host: Host, idx: number): boolean {
     try {
       if (host.currentIndex !== idx) {
-        console.log(`[stampQuestionTextNow] SKIP: currentIndex=${host.currentIndex} !== idx=${idx}`);
         return false;
       }
       if (this.hasInteractionEvidence(host, idx)) {
-        console.log(`[stampQuestionTextNow] SKIP: hasInteractionEvidence for idx=${idx}`);
         return false;
       }
       const el = host.qText?.nativeElement;
@@ -1102,7 +1081,6 @@ export class CqcOrchestratorService {
         console.warn(`[stampQuestionTextNow] SKIP: buildQuestionDisplayHTML returned empty for idx=${idx}, questions.length=${host.quizService.questions?.length}`);
         return false;
       }
-      console.log(`[stampQuestionTextNow] WRITING Q${idx + 1}: "${display.substring(0, 50)}"`);
       this.writeQText(host, display);
       return true;
     } catch (e) {
@@ -1191,7 +1169,6 @@ export class CqcOrchestratorService {
       try {
         host.quizStateService.setDisplayState({ mode: 'question', answered: false }, { force: true });
       } catch { /* ignore */ }
-      console.log(`[cleanupStaleStateForIndex] Q${idx + 1} cleared post-refresh stale state`);
     } catch { /* ignore */ }
   }
 
@@ -1275,10 +1252,8 @@ export class CqcOrchestratorService {
     const isActuallyResolved = currentQuestion && host.selectedOptionService.isQuestionResolvedCorrectly(currentQuestion, selectedForIdx);
 
     if (isActuallyResolved && !host.isNavigatingToPrevious) {
-      console.log(`[CQCC] Q${idx + 1} is already perfectly resolved. Showing explanation mode.`);
       host.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
     } else {
-      console.log(`[CQCC] Q${idx + 1} is ${host.isNavigatingToPrevious ? 'navigating back' : 'not resolved'}. Forcing question mode.`);
       host.quizStateService.setDisplayState({ mode: 'question', answered: false });
 
       if (!hasAnswerEvidence) {
@@ -1345,16 +1320,12 @@ export class CqcOrchestratorService {
       host.combinedSub.unsubscribe();
     }
 
-    console.log('[subscribeToDisplayText] 🔄 Setting up subscription...');
-
     host.combinedSub = host.combinedText$
       .pipe(
-        tap((text: string) => console.log(`[subscribeToDisplayText] 🔔 RAW emission (${text?.length || 0} chars): "${text?.substring(0, 50)}..."`)),
         takeUntil(host.destroy$)
       )
       .subscribe({
         next: (text: string) => {
-          console.log(`[subscribeToDisplayText] 📝 Processing text (${text?.length || 0} chars)`);
 
           let finalText = text;
           const lowerText = (text ?? '').toLowerCase();
@@ -1371,7 +1342,6 @@ export class CqcOrchestratorService {
               && host.explanationTextService?.fetBypassForQuestion?.get(currentIdx) === true) {
             const el = host.qText?.nativeElement;
             if (el) {
-              console.log(`[subscribeToDisplayText] ⚡ FAST-PATH FET BYPASS for Q${currentIdx + 1}`);
               host.qTextHtmlSig?.set(text);
               host._lastDisplayedText = text;
               host.renderer.setProperty(el, 'innerHTML', text);
@@ -1437,7 +1407,6 @@ export class CqcOrchestratorService {
               || ((host.explanationTextService as any).fetByIndex?.get(idx) ?? '').trim();
             if (cached && cached.toLowerCase().includes('correct because')) {
               finalText = cached;
-              console.log(`[subscribeToDisplayText] 🔧 Replaced raw with CACHED FET for Q${idx + 1}`);
             } else {
               try {
                 const questions = host.quizService.getQuestionsInDisplayOrder();
@@ -1446,12 +1415,9 @@ export class CqcOrchestratorService {
                   const correctIndices = host.explanationTextService.getCorrectOptionIndices(q, q.options, idx);
                   if (correctIndices.length > 0) {
                     finalText = host.explanationTextService.formatExplanation(q, correctIndices, q.explanation);
-                    console.log(`[subscribeToDisplayText] 🔧 On-the-fly FET for Q${idx + 1}: "${finalText.slice(0, 50)}"`);
                   }
                 }
-              } catch (e) {
-                console.warn('[subscribeToDisplayText] On-the-fly FET failed', e);
-              }
+              } catch { /* ignore */ }
             }
           } else if (!isQuestionText && !lowerText.includes('correct because')
                      && host.explanationTextService.latestExplanationIndex === host.currentIndex
@@ -1459,7 +1425,6 @@ export class CqcOrchestratorService {
             // Diagnostic: substitution was suppressed because the user has
             // not actually interacted with this question (e.g. post-refresh
             // navigation to a sibling index).
-            console.log(`[subscribeToDisplayText] ⛔ FET substitution suppressed for Q${currentIdx + 1} — no interaction evidence`);
           }
 
           const el = host.qText?.nativeElement;
@@ -1473,11 +1438,9 @@ export class CqcOrchestratorService {
               // FET LOCK: if eager FET was injected for this index, don't
               // let an empty pipeline emission blank the DOM.
               if ((host as any)._fetLockedForIndex === currentIdx && !multiAnswerBlocked) {
-                console.log(`[subscribeToDisplayText] 🔒 FET lock active Q${currentIdx + 1} — ignoring empty emission`);
                 return;
               }
               if (cached) {
-                console.warn('[subscribeToDisplayText] ⚠️ Empty text after restore — keeping cached');
                 this.writeQText(host, cached);
                 return;
               }
@@ -1490,7 +1453,6 @@ export class CqcOrchestratorService {
                 const rebuilt = this.buildQuestionDisplayHTML(host, currentIdx);
                 if (rebuilt) {
                   this.writeQText(host, rebuilt);
-                  console.warn('[subscribeToDisplayText] ⚠️ Empty text + empty cache — rebuilt question text');
                   return;
                 }
               } catch { /* ignore */ }
@@ -1518,16 +1480,11 @@ export class CqcOrchestratorService {
                   const rawQ = (qForCurrent?.questionText ?? '').trim();
                   const incomingStartsWithQ = incoming.length > 0 && incoming.startsWith(rawQ);
                   if (!incomingStartsWithQ) {
-                    console.warn(
-                      `[subscribeToDisplayText] 🛡️ question-first guard Q${currentIdx + 1} — forcing question text over "${incoming.slice(0, 40)}"`
-                    );
                     this.writeQText(host, forcedQText);
                     return;
                   }
                 }
-              } catch (e) {
-                console.warn('[subscribeToDisplayText] question-first guard failed', e);
-              }
+              } catch { /* ignore */ }
             }
 
             // FET-OVER-QUESTION-TEXT GUARD: when the user has interaction
@@ -1544,7 +1501,6 @@ export class CqcOrchestratorService {
                 || ((host.explanationTextService as any).fetByIndex?.get(currentIdx) ?? '').trim();
               if (fetCached && fetCached.toLowerCase().includes('correct because')) {
                 this.writeQText(host, fetCached);
-                console.log(`[subscribeToDisplayText] 🛡️ FET-over-qText guard Q${currentIdx + 1} — wrote cached FET over question text`);
                 return;
               }
               // Also check _lastDisplayedText — on double-refresh the
@@ -1553,7 +1509,6 @@ export class CqcOrchestratorService {
               // updates _lastDisplayedText. Preserve it.
               const lastText = (host._lastDisplayedText ?? '').trim();
               if (lastText && lastText.toLowerCase().includes('correct because')) {
-                console.log(`[subscribeToDisplayText] 🛡️ FET-over-qText guard Q${currentIdx + 1} — _lastDisplayedText has FET, skipping qText write`);
                 return;
               }
               // No cached FET yet — loadQuestion's eager injection hasn't
@@ -1562,7 +1517,6 @@ export class CqcOrchestratorService {
               // injection already placed there.
               const domNow = (el.innerHTML ?? '').trim();
               if (domNow && domNow.toLowerCase().includes('correct because')) {
-                console.log(`[subscribeToDisplayText] 🛡️ FET-over-qText guard Q${currentIdx + 1} — DOM already has FET, skipping qText write`);
                 return;
               }
             }
@@ -1573,7 +1527,6 @@ export class CqcOrchestratorService {
             // that was already written to the DOM. Disable lock for
             // unresolved multi-answer to prevent partial FET display.
             if ((host as any)._fetLockedForIndex === currentIdx && isQuestionText && !multiAnswerBlocked) {
-              console.log(`[subscribeToDisplayText] 🔒 FET lock active for Q${currentIdx + 1} — skipping qText write`);
               return;
             }
 
@@ -1663,7 +1616,6 @@ export class CqcOrchestratorService {
                     rawResolved = true;
                   }
                 }
-                console.log(`[subscribeToDisplayText] Q${currentIdx + 1} multi-answer gate rawCorrect=${JSON.stringify(rawCorrectTexts)} selTexts=${JSON.stringify([...selTexts])} rawResolved=${rawResolved}`);
               } catch { /* default false */ }
             }
             if (isFetText && isMultiQ) {
@@ -1702,16 +1654,10 @@ export class CqcOrchestratorService {
             }
 
             this.writeQText(host, finalText);
-            console.log(`[subscribeToDisplayText] ✅ Updated innerHTML via signal+Renderer2: "${finalText?.substring(0, 50)}..."`);
-          } else {
-            console.warn(`[subscribeToDisplayText] ⚠️ qText.nativeElement not available!`);
           }
         },
-        error: (err: Error) => console.error('[subscribeToDisplayText] ❌ Error:', err),
-        complete: () => console.log('[subscribeToDisplayText] 🏁 Subscription completed')
+        error: (err: Error) => console.error('[subscribeToDisplayText] Error:', err)
       });
-
-    console.log('[subscribeToDisplayText] ✅ Subscription active');
   }
 
   runSetupContentAvailability(host: Host): void {
@@ -1729,13 +1675,7 @@ export class CqcOrchestratorService {
 
     host.isContentAvailable$
       .pipe(distinctUntilChanged())
-      .subscribe((isAvailable: boolean) => {
-        if (isAvailable) {
-          console.log('Content is available. Setting up state subscription.');
-        } else {
-          console.log('Content is not yet available.');
-        }
-      });
+      .subscribe(() => {});
   }
 
   runEmitContentAvailableState(host: Host): void {
@@ -1834,7 +1774,6 @@ export class CqcOrchestratorService {
         if (host.quizService.isShuffleEnabled() &&
           host.quizService.shuffledQuestions?.length > zeroBasedIndex) {
           question = host.quizService.shuffledQuestions[zeroBasedIndex];
-          console.log(`[loadQuestion] 🔀 Using Shuffled Question for Q${zeroBasedIndex + 1}`);
         }
 
         host.currentQuestion.next(question);
@@ -1916,7 +1855,6 @@ export class CqcOrchestratorService {
               host.explanationTextService.fetByIndex?.delete(zeroBasedIndex);
               delete (host.explanationTextService.formattedExplanations as any)[zeroBasedIndex];
             } catch { /* ignore */ }
-            console.log(`[loadQuestion] Q${zeroBasedIndex + 1} post-refresh nav → cleared stale interaction state`);
           }
 
           const ets = host.explanationTextService;
@@ -1956,7 +1894,6 @@ export class CqcOrchestratorService {
             }
           } catch { /* ignore */ }
 
-          console.log(`[loadQuestion] Q${zeroBasedIndex + 1} refresh-recovery check: initialLoadAfterRefresh=${isInitialLoadAfterRefresh} hasClickedInSession=${hasClicked} hasExplanation=${!!question?.explanation} isResolvedFromPersistence=${isResolvedFromPersistence}`);
           const shouldInject = hasClicked && !!question?.explanation && isResolvedFromPersistence;
           if (shouldInject) {
             const correctIndices = ets.getCorrectOptionIndices(question, question.options, zeroBasedIndex);
@@ -1985,7 +1922,6 @@ export class CqcOrchestratorService {
                     ets.storeFormattedExplanation(zeroBasedIndex, question.explanation, question, question.options, true);
                   } catch { /* ignore */ }
                   this.writeQText(host, formattedFet);
-                  console.log(`[loadQuestion] Q${zeroBasedIndex + 1} eager FET injected: "${formattedFet.slice(0, 40)}..."`);
                 };
                 // Initial injection
                 injectNow();
@@ -2018,7 +1954,6 @@ export class CqcOrchestratorService {
             const display = this.buildQuestionDisplayHTML(host, zeroBasedIndex);
             if (display && host.currentIndex === zeroBasedIndex) {
               this.writeQText(host, display);
-              console.log(`[loadQuestion] Q${zeroBasedIndex + 1} interacted but unresolved — stamped question text`);
             }
           }
         } catch (e) {
@@ -2137,7 +2072,6 @@ export class CqcOrchestratorService {
 
     currentQuizAndOptions$.pipe(takeUntil(host.destroy$)).subscribe({
       next: (data: any) => {
-        console.log('Current Quiz and Options Data', data);
       },
       error: (err: any) => console.error('Error combining current quiz and options:', err)
     });

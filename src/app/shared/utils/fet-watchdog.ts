@@ -85,14 +85,10 @@ export function installGlobalFetWatchdog(): void {
       try {
         const bodyHtml = document.body?.innerHTML ?? '';
         const fetMatches = bodyHtml.match(/[A-Z][^<>]{0,200}(are correct because|is correct because)[^<>]{0,300}/gi);
-        if (fetMatches && fetMatches.length > 0) {
-          console.warn('[GLOBAL FET-WATCHDOG] 🔍 FET-like text detected in DOM:', fetMatches.slice(0, 3));
-        }
+        if (fetMatches && fetMatches.length > 0) {        }
         const current = findQuestionTextFromPristine();
         if (!current) {
-          if (fetMatches && fetMatches.length > 0) {
-            console.warn('[GLOBAL FET-WATCHDOG] ⚠ FET present but findQuestionTextFromPristine returned null');
-          }
+          if (fetMatches && fetMatches.length > 0) {          }
           return;
         }
         if (current.correctTexts.length < 2) return;  // not multi-answer
@@ -103,9 +99,7 @@ export function installGlobalFetWatchdog(): void {
           }
           return false;
         });
-        if (allSel) return;
-        console.warn(`[GLOBAL FET-WATCHDOG] 🎯 enforcing — pristine correct=${JSON.stringify(current.correctTexts)} selected=${JSON.stringify([...selectedTexts])}`);
-        const all = document.querySelectorAll('*');
+        if (allSel) return;        const all = document.querySelectorAll('*');
         let revertCount = 0;
         let candidateCount = 0;
         all.forEach((h: any) => {
@@ -114,28 +108,18 @@ export function installGlobalFetWatchdog(): void {
             const html = h?.innerHTML ?? '';
             if (!isFetLike(tc, current.explanation) && !isFetLike(html, current.explanation)) return;
             candidateCount++;
-            const childCount = h?.children?.length ?? 0;
-            console.warn(`[GLOBAL FET-WATCHDOG] candidate <${h.tagName}.${h.className}> children=${childCount} tc="${tc.slice(0, 120)}"`);
-            if (childCount > 3) return;
+            const childCount = h?.children?.length ?? 0;            if (childCount > 3) return;
             h.innerHTML = current.qText;
-            revertCount++;
-            console.warn(`[GLOBAL FET-WATCHDOG] ⛔ reverted <${h.tagName}.${h.className}>`);
-          } catch { /* ignore */ }
-        });
-        console.warn(`[GLOBAL FET-WATCHDOG] revert pass complete — candidates=${candidateCount} reverted=${revertCount}`);
-      } catch { /* ignore */ }
+            revertCount++;          } catch { /* ignore */ }
+        });      } catch { /* ignore */ }
     };
     const mo = new MutationObserver(() => enforce());
     const start = () => {
       try {
-        mo.observe(document.body, { childList: true, characterData: true, subtree: true });
-        console.warn('%c[GLOBAL FET-WATCHDOG] INSTALLED', 'background:#060;color:#fff;padding:2px 6px;');
-      } catch { /* ignore */ }
+        mo.observe(document.body, { childList: true, characterData: true, subtree: true });      } catch { /* ignore */ }
     };
     if (document.body) start();
     else document.addEventListener('DOMContentLoaded', start, { once: true });
     document.addEventListener('click', () => setTimeout(enforce, 50), true);
-  } catch (e) {
-    console.warn('[GLOBAL FET-WATCHDOG] install failed', e);
-  }
+  } catch (e) {  }
 }

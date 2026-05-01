@@ -250,7 +250,6 @@ export class IntroductionComponent implements OnInit, OnDestroy {
 
       // Retrieve form values
       const preferences = this.preferencesForm.value;
-      console.log('Form Preferences:', preferences);
 
       // Access individual preferences from the form
       const shouldShuffleOptions = preferences.shouldShuffleOptions;
@@ -332,7 +331,6 @@ export class IntroductionComponent implements OnInit, OnDestroy {
           questions: preparedQuestions ?? activeQuiz.questions
         };
         this.quizDataService.setCurrentQuiz(quizWithShuffledQuestions);
-        console.log(`[IntroComponent] Set currentQuiz with ${preparedQuestions?.length ?? 0} shuffled questions`);
       } catch (error) {
         console.error('Failed to prepare quiz session:', error);
         // Fallback: set with original questions if shuffle fails
@@ -368,13 +366,6 @@ export class IntroductionComponent implements OnInit, OnDestroy {
     await this.quizNavigationService.ensureSessionQuestions(quizId);
     const q0 = await this.quizNavigationService.tryResolveQuestion(0);
     if (!q0) {
-      console.warn(
-        '[navigateToFirstQuestion] Q0 could not be resolved pre-nav (continuing anyway).',
-        {
-          quizId,
-          index: 0
-        }
-      );
     }
 
     try {
@@ -386,10 +377,6 @@ export class IntroductionComponent implements OnInit, OnDestroy {
       if (viaService) return true;  // if the service explicitly succeeded, we’re done
 
       // Service returned false/undefined/non-boolean – fall back to direct navigation
-      console.warn(
-        '[navigateToFirstQuestion] resetUIAndNavigate did not confirm success; falling back.',
-        { viaService }
-      );
     } catch (error) {
       console.error('[navigateToFirstQuestion] resetUIAndNavigate threw.', error);
     }
@@ -450,7 +437,6 @@ export class IntroductionComponent implements OnInit, OnDestroy {
     try {
       localStorage.setItem('quizId', quizId);
     } catch (storageError) {
-      console.warn('Unable to persist quizId to local storage.', storageError);
     }
   }
 

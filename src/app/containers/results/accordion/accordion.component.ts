@@ -97,7 +97,6 @@ export class AccordionComponent implements OnInit, OnDestroy {
       this.cdRef.detectChanges();  // force immediate update for OnPush
       
       if (this.questions.length === 0 && !this.hasRetried) {
-         console.warn('[ACCORDION] Questions empty, attempting force fetch...');
          this.hasRetried = true;
          // Use a small timeout to let other initializations settle
          setTimeout(() => {
@@ -110,7 +109,6 @@ export class AccordionComponent implements OnInit, OnDestroy {
             } else {
               // Sync service state if it's currently empty or different
               if (this.quizService.quizId !== id) {
-                console.log(`[ACCORDION] Syncing service quizId to URL param: ${id}`);
                 // this.quizService.quizId = id;
                 this.quizService.setQuizId(id);
               }
@@ -124,7 +122,6 @@ export class AccordionComponent implements OnInit, OnDestroy {
            // Fallback to QuizDataService to ensure clarity (bypasses shuffling/state complexity)
            this.quizDataService.getQuestionsForQuiz(id).pipe(takeUntil(this.destroy$)).subscribe((qs: QuizQuestion[]) => {
              if (qs && qs.length > 0) {
-               console.log('[ACCORDION] Loaded questions via QuizDataService fallback:', qs.length);
                this.questions = qs;
                this.cdRef.detectChanges();  // force immediate update for OnPush
              }

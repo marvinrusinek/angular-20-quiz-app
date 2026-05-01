@@ -49,9 +49,7 @@ export class QqcStatePersistenceService {
         sessionStorage.setItem(
           `displayMode_${questionIndex}`,
           params.displayMode
-        );
-        console.log('[saveQuizState] Saved display mode:', params.displayMode);
-      }
+        );      }
 
       if (params.optionsToDisplay?.length > 0) {
         sessionStorage.setItem(
@@ -111,9 +109,7 @@ export class QqcStatePersistenceService {
         const parsed = JSON.parse(optionsData);
         if (Array.isArray(parsed) && parsed.length > 0) {
           parsedOptions = parsed;
-        } else {
-          console.warn('[restoreQuizState] Parsed options data is empty or invalid.');
-        }
+        } else {        }
       } catch (error) {
         console.error('[restoreQuizState] Error parsing options data:', error);
       }

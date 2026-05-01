@@ -143,9 +143,6 @@ export class SharedOptionChangeHandlerService {
     // BLOCK 1: Full state reset when question index or question changes
     // ---------------------------------------------------------------
     if (hasIndexChanged || hasQuestionChanged) {
-      console.log(
-        `[SharedOptionComponent] Question index changed from ${ctx.lastProcessedQuestionIndex} to ${currentIdx}. Performing full state reset.`
-      );
 
       result.selectedOptions = 'clear';
       result.clickedOptionIds = 'clear';
@@ -206,14 +203,8 @@ export class SharedOptionChangeHandlerService {
         this.selectedOptionService.unlockAllOptionsForQuestion(fallbackIndex);
       } catch {}
 
-      console.log('[ngOnChanges] Moving to NEW question: Cleared state');
-
       result.disableRenderTrigger = 'increment';
     }
-
-    console.log(
-      `[HYDRATE-INDEX FIX] Resolved questionIndex=${fallbackIndex}`
-    );
 
     // ---------------------------------------------------------------
     // BLOCK 4: Hard reset when optionsToDisplay changes
@@ -257,11 +248,8 @@ export class SharedOptionChangeHandlerService {
         result.selectedOption = null;
         result.optionsToDisplay = clonedOptions;
 
-        console.log('[HARD RESET] Question changed: selection state cleared');
-
         result.markForCheck = true;
       } catch (error: any) {
-        console.warn('[HARD RESET] deep clone failed', error);
         result.markForCheck = true;
       }
     }
@@ -274,11 +262,7 @@ export class SharedOptionChangeHandlerService {
           typeof structuredClone === 'function'
             ? structuredClone(currentOptions)
             : JSON.parse(JSON.stringify(currentOptions));
-        console.log(
-          '[HARD CLONE BARRIER] optionsToDisplay deep-cloned for new question'
-        );
       } catch (error: any) {
-        console.warn('[HARD CLONE BARRIER] clone failed', error);
       }
     }
 
@@ -315,16 +299,9 @@ export class SharedOptionChangeHandlerService {
         typeof changes['questionIndex'].currentValue === 'number');
 
     if (changes['currentQuestionIndex']) {
-      console.log(
-        '[currentQuestionIndex changed]',
-        changes['currentQuestionIndex']
-      );
 
       const newIndex = changes['currentQuestionIndex'].currentValue;
       if (typeof newIndex === 'number') {
-        console.log(
-          `[ngOnChanges] Updating lastProcessedQuestionIndex from ${ctx.lastProcessedQuestionIndex} to ${newIndex}`
-        );
         result.lastProcessedQuestionIndex = newIndex;
 
         result.callResetStateForNewQuestion = true;
@@ -353,9 +330,6 @@ export class SharedOptionChangeHandlerService {
     ) {
       result.callHydrateAndGenerate = true;
     } else {
-      console.warn(
-        '[generateOptionBindings skipped] No triggering inputs changed'
-      );
     }
 
     // ---------------------------------------------------------------
@@ -372,7 +346,6 @@ export class SharedOptionChangeHandlerService {
 
     // Only reset display mode when question changes
     if (questionChanged) {
-      console.log(`[RESET] Question changed - resetting to question mode`);
 
       result.resolvedQuestionIndex = null;
 
@@ -390,8 +363,6 @@ export class SharedOptionChangeHandlerService {
       this.explanationTextService.setIsExplanationTextDisplayed(false, {
         force: true
       });
-
-      console.log(`[RESET] Cleared explanation text service for new question`);
     }
 
     // Handle TYPE changes explicitly
@@ -422,9 +393,6 @@ export class SharedOptionChangeHandlerService {
 
     // Full local visual reset when question changes
     if (questionChanged) {
-      console.log(
-        `[SOC] Resetting local visual state for Q${result.resolvedQuestionIndex ?? ctx.resolvedQuestionIndex}`
-      );
       result.highlightedOptionIds = 'clear';
       result.flashDisabledSet = 'clear';
       result.correctClicksPerQuestion = 'clear';

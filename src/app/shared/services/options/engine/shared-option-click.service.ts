@@ -111,13 +111,11 @@ export class SharedOptionClickService {
       const native = ev.nativeEvent;
 
       if (isRapidDuplicate) {
-        console.log(`[SOC.onOptionUI] ⏭️ Skipping 'change' for Q${comp.getActiveQuestionIndex() + 1} option ${index} (Already handled)`);
         return;
       }
 
       comp._lastHandledIndex = index;
       comp._lastHandledTime = now;
-      console.log(`[SOC.onOptionUI] 🟢 Processing 'change' for Q${comp.getActiveQuestionIndex() + 1} option ${index}`);
 
       this.quizStateService.markUserInteracted(comp.getActiveQuestionIndex());
 
@@ -148,25 +146,21 @@ export class SharedOptionClickService {
         const isCorrectOpt = binding?.option?.correct === true || String(binding?.option?.correct) === 'true';
         const isSingleMode = comp.type === 'single' && !comp.isMultiMode;
         if (!(isSingleMode && isCorrectOpt && binding.disabled)) {
-          console.log(`[SOC.onOptionUI] ⏭️ Skipping '${ev.kind}' on input for Q${comp.getActiveQuestionIndex() + 1} option ${index} (Delegating to 'change')`);
           return;
         }
         // Fall through to process the click directly for disabled correct options
       }
 
       if (isRapidDuplicate) {
-        console.log(`[SOC.onOptionUI] ⏭️ Skipping '${ev.kind}' for Q${comp.getActiveQuestionIndex() + 1} option ${index} (Rapid duplicate)`);
         return;
       }
 
       if (comp.type === 'single' && !comp.isMultiMode && binding.option.selected && comp.showFeedback) {
-        console.log(`[SOC.onOptionUI] ⏭️ Skipping '${ev.kind}' for ALREADY selected single option ${index}`);
         return;
       }
 
       comp._lastHandledIndex = index;
       comp._lastHandledTime = now;
-      console.log(`[SOC.onOptionUI] 🟢 Processing '${ev.kind}' for Q${comp.getActiveQuestionIndex() + 1} option ${index}`);
 
       if (comp.type === 'single') {
         if (comp.form.get('selectedOptionId')?.value !== index) {
@@ -192,12 +186,10 @@ export class SharedOptionClickService {
       const _dispQ = (this.quizService as any)?.getQuestionsInDisplayOrder?.();
       const _shufQ = (this.quizService as any)?.shuffledQuestions;
       const _origQ = (this.quizService as any)?.questions;
-      console.log(`[SOC] QUESTION SOURCES Q${_qIdx + 1}: comp.currentQuestion="${(comp.currentQuestion?.questionText || '').slice(0, 50)}" displayOrder="${(_dispQ?.[_qIdx]?.questionText || '').slice(0, 50)}" shuffled="${(_shufQ?.[_qIdx]?.questionText || '').slice(0, 50)}" original="${(_origQ?.[_qIdx]?.questionText || '').slice(0, 50)}" isShuffleEnabled=${(this.quizService as any)?.isShuffleEnabled?.()}`);
     } catch {}
 
     const now = Date.now();
     if (comp._lastRunClickIndex === index && comp._lastRunClickTime && (now - comp._lastRunClickTime) < 200) {
-      console.log(`[SOC.runOptionContentClick] Skipping rapid duplicate for index=${index}`);
       return;
     }
     comp._lastRunClickIndex = index;
@@ -276,7 +268,6 @@ export class SharedOptionClickService {
     }
     const durableSet = comp._multiSelectByQuestion.get(qIdx)!;
     durableSet.add(index);
-    console.log(`[SOC] DURABLE tracker Q${qIdx + 1}: clicked=${index}, all selected=[${[...durableSet]}]`);
 
     // Enable Next button on ANY option selection (correct or incorrect).
     // Use forceEnable so the reactive stream cannot override for 2 seconds,
@@ -321,13 +312,9 @@ export class SharedOptionClickService {
         ].filter((t: string) => !!t);
       }
       const bundleP: any[] = (this.quizService as any)?.quizInitialState ?? [];
-
-      console.log(`[SOC] PRISTINE REBUILD Q${qIdx + 1}: bundleLen=${bundleP.length}, qTextCandidates count=${qTextCandidates.length}`);
       if (qTextCandidates.length > 0) {
-        console.log(`[SOC] PRISTINE REBUILD Q${qIdx + 1}: qText[0]="${qTextCandidates[0]?.slice(0, 60)}"`);
       }
       if (bundleP.length === 0) {
-        console.warn(`[SOC] PRISTINE REBUILD Q${qIdx + 1}: quizInitialState is EMPTY!`);
       }
 
       let matched = false;
@@ -355,7 +342,6 @@ export class SharedOptionClickService {
                 rebuilt.push(i);
               }
             }
-            console.log(`[SOC] PRISTINE REBUILD Q${qIdx + 1}: MATCHED question. pristineCorrectTexts=${JSON.stringify([...pristineCorrectTexts].map(t => t.slice(0, 40)))}, bindingTexts=${JSON.stringify(bindingTexts.map(t => t.slice(0, 40)))}, rebuilt=[${rebuilt}]`);
             if (rebuilt.length > 0) {
               effectiveCorrectIndices = rebuilt;
               comp._correctIndicesByQuestion.set(qIdx, rebuilt);
@@ -367,11 +353,9 @@ export class SharedOptionClickService {
         if (matched) break;
       }
       if (!matched) {
-        console.warn(`[SOC] PRISTINE REBUILD Q${qIdx + 1}: NO QUESTION MATCHED in quizInitialState!`);
         // Log first few pristine question texts for comparison
         for (const quiz of bundleP) {
           const pqTexts = (quiz?.questions ?? []).map((pq: any) => nrmP(pq?.questionText)?.slice(0, 50));
-          console.log(`[SOC] PRISTINE available questions: ${JSON.stringify(pqTexts)}`);
         }
       }
     } catch (err) {
@@ -379,8 +363,6 @@ export class SharedOptionClickService {
     }
     const effectiveCorrectCount = effectiveCorrectIndices.length;
     const isMultiFromQ = comp.isMultiMode || comp.type === 'multiple' || effectiveCorrectCount > 1 || pristineCorrectCount > 1;
-
-    console.log(`[SOC.runOptionContentClick] DEBUG: Q${qIdx + 1} index=${index} isMultiFromQ=${isMultiFromQ} correctIndicesFromQ=[${effectiveCorrectIndices}] pristineCorrectCount=${pristineCorrectCount}`);
 
     // Universal "all correct selected" timer stop. Resolves the canonical
     // correct indices and checks whether the durable selection set now
@@ -417,8 +399,6 @@ export class SharedOptionClickService {
       const clickState = this.clickHandler.computeMultiAnswerClickState(
         index, durableSet, effectiveCorrectIndices
       );
-
-      console.log(`[SOC] MULTI-ANSWER STATE Q${qIdx + 1}: correctSel=${clickState.correctSelected}, incorrectSel=${clickState.incorrectSelected}, remaining=${clickState.remaining}, durableSet=[${[...durableSet]}]`);
 
       if (!comp.disabledOptionsPerQuestion.has(qIdx)) {
         comp.disabledOptionsPerQuestion.set(qIdx, new Set<number>());
@@ -470,7 +450,6 @@ export class SharedOptionClickService {
           idx: index
         } as FeedbackProps
       };
-      console.log(`[SOC] FORCED _feedbackDisplay: idx=${index} text="${feedbackText}"`);
 
       const optsForMsg: Option[] = comp.optionBindings.map((ob: any, bi: number) => ({
         ...ob.option,
@@ -491,7 +470,6 @@ export class SharedOptionClickService {
       // (already rebuilt from pristine quizInitialState when needed).
       const allCorrectInDurable = effectiveCorrectIndices.length > 0 &&
         effectiveCorrectIndices.every((ci: number) => durableSet.has(ci));
-      console.log(`[SOC] MULTI gate Q${qIdx + 1}: effectiveCorrect=[${effectiveCorrectIndices}] durableSet=[${[...durableSet]}] allCorrectInDurable=${allCorrectInDurable} remaining=${clickState.remaining}`);
 
       if (allCorrectInDurable) {
         try { this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true }); } catch {}
@@ -501,7 +479,6 @@ export class SharedOptionClickService {
         this.explanationTextService.fetBypassForQuestion.set(qIdx, true);
 
         this.quizService.scoreDirectly(qIdx, true, true);
-        console.log(`[SOC] Scored multi-answer Q${qIdx + 1} as correct (incorrectSel=${clickState.incorrectSelected})`);
 
         if (!(this.quizService as any)._multiAnswerPerfect) {
           (this.quizService as any)._multiAnswerPerfect = new Map<number, boolean>();
@@ -541,8 +518,6 @@ export class SharedOptionClickService {
           }
         } catch { /* ignore */ }
 
-        console.log(`[SOC] MULTI FET Q${qIdx + 1}: resolved explanation="${(fetText || '').slice(0, 60)}"`);
-
         if (fetText) {
           // Format the explanation with correct option names
           let formattedFET = fetText;
@@ -580,7 +555,6 @@ export class SharedOptionClickService {
           } as any);
           this.explanationTextService.lockExplanation();
           this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
-          console.log(`[SOC] MULTI FET WRITTEN for Q${qIdx + 1}: "${formattedFET.slice(0, 60)}..."`);
         }
 
         // Also try the component path as backup
@@ -590,7 +564,6 @@ export class SharedOptionClickService {
           } catch { /* ignore */ }
         }, 50);
       } else if (!allCorrectInDurable) {
-        console.log(`[SOC] FET not fired Q${qIdx + 1} — not all correct selected yet`);
       }
 
       const savedFeedback = comp._feedbackDisplay;
@@ -632,7 +605,6 @@ export class SharedOptionClickService {
       }
       const correctSet = new Set(correctIdxs);
       const isClickedCorrect = correctSet.has(index);
-      console.log(`[SOC] SINGLE-MODE check Q${qIdx + 1}: clicked=${index}, correct=[${[...correctSet]}], isCorrect=${isClickedCorrect}`);
       // PRISTINE cross-check for single-answer: verify against quizInitialState.
       // Default to FALSE (safe) — only set true when pristine confirms.
       let pristineSingleCorrect = false;
@@ -655,14 +627,12 @@ export class SharedOptionClickService {
               if (matchedOpt !== undefined) {
                 pristineSingleCorrect = matchedOpt?.correct === true || String(matchedOpt?.correct) === 'true';
               }
-              console.log(`[SOC] SINGLE pristine match: qText="${qTextSA.slice(0, 40)}" clickedText="${clickedText.slice(0, 40)}" matchedOpt=${matchedOpt !== undefined} correct=${pristineSingleCorrect}`);
               break;
             }
             if (saMatched) break;
           }
         }
       } catch { /* ignore */ }
-      console.log(`[SOC] SINGLE pristine text-match result: pristineSingleCorrect=${pristineSingleCorrect}`);
       if (pristineSingleCorrect) {
         try { this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true }); } catch {}
 
@@ -718,10 +688,8 @@ export class SharedOptionClickService {
             } as any);
             this.explanationTextService.lockExplanation();
             this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
-            console.log(`[SOC] SYNC single-answer FET written for Q${qIdx + 1}: "${fetText.slice(0, 60)}..."`);
           }
         } catch (syncErr) {
-          console.warn(`[SOC] Sync single-answer FET write failed:`, syncErr);
         }
 
         const singleFetCtx = {
@@ -742,7 +710,6 @@ export class SharedOptionClickService {
         setTimeout(() => {
           try {
             this.sharedOptionExplanationService.emitExplanation(singleFetCtx as any, true);
-            console.log(`[SOC] Direct single-answer emitExplanation called for Q${qIdx + 1}`);
           } catch (err) {
             console.error(`[SOC] Direct single-answer emitExplanation failed:`, err);
             comp.emitExplanation(qIdx, true);
@@ -760,7 +727,6 @@ export class SharedOptionClickService {
                 const domNow = (h3.innerHTML || '').toLowerCase();
                 if (!domNow.includes('correct because')) {
                   h3.innerHTML = fetForDom;
-                  console.log(`[SOC] ⚡ DIRECT DOM FALLBACK (${label}) wrote FET for Q${qIdx + 1}`);
                 }
               }
             } catch { /* ignore */ }
@@ -810,7 +776,6 @@ export class SharedOptionClickService {
           };
         });
         comp.optionBindings = newBindings;
-        console.log(`[SOC] SINGLE-MODE disabled Q${qIdx + 1}: disabled=[${[...disabledSetRef]}], bindings.disabled=[${newBindings.map((b: any) => b?.disabled).join(',')}]`);
 
         // Persist the currently-selected (correct) option AND any
         // previously-clicked wrong options to sel_Q* so refresh can
@@ -869,13 +834,7 @@ export class SharedOptionClickService {
 
         if (cfg?.showFeedback) {
           comp._feedbackDisplay = { idx: index, config: cfg };
-          console.log(`[SOC] _feedbackDisplay SET: idx=${index} text="${cfg.feedback}"`);
         } else {
-          console.warn(`[SOC] No feedback config found for idx=${index}`, {
-            key,
-            feedbackConfigKeys: Object.keys(comp.feedbackConfigs),
-            activeFeedbackConfig: comp.activeFeedbackConfig
-          });
         }
       }
     }
@@ -1215,13 +1174,7 @@ export class SharedOptionClickService {
         feedback: option.feedback ?? undefined,
         showIcon: option.showIcon ?? false
       }));
-      console.info(
-        '[SharedOptionComponent] Restored optionsToDisplay from display-order question/options fallback'
-      );
     } else {
-      console.warn(
-        '[SharedOptionComponent] No valid options available to restore.'
-      );
       comp.optionsToDisplay = [];
     }
 

@@ -105,7 +105,6 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
 
     effect(() => {
       const next = this.optionsToDisplay();
-      console.log(`[AC effect] optionsToDisplay changed → ${next?.length ?? 0}, questionData="${this.questionData()?.questionText?.substring(0, 40)}", opt0="${next?.[0]?.text?.substring(0, 30)}", opt1="${next?.[1]?.text?.substring(0, 30)}"`);
       if (Array.isArray(next) && next.length) {
         // Skip rebuild if the option set is the same as the current bindings
         // (e.g. parent re-emit after a click). Rebuilding here would wipe
@@ -157,8 +156,6 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
         ).length;
 
         this.type.set(correctCount > 1 ? 'multiple' : 'single');
-        console.log(`[AnswerComponent] Q${this.currentQuestionIndex() + 1} 
-          detected as ${this.type()} (Correct count: ${correctCount})`);
 
         if (!this.hasComponentLoaded) {
           this.hasComponentLoaded = true;
@@ -175,7 +172,6 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
         // Skip empty arrays to prevent BehaviorSubject initial emission
         // from clearing valid options that may have arrived via @Input
         if (!opts?.length) {
-          console.log('[AC] ⏭️ Skipping empty optionsStream$ emission');
           return;
         }
 
@@ -199,7 +195,6 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
   ngAfterViewInit(): void {
     if (this.viewContainerRefs) {
       this.viewContainerRefs?.changes.subscribe((refs) => {
-        console.log('viewContainerRefs changed:', refs.toArray());
         this.handleViewContainerRef();
       });
     } else {
@@ -273,14 +268,12 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
   private syncOptionsWithSelections(): void {
     const idx = this.currentQuestionIndex();
     if (idx === null || idx === undefined || idx < 0) {
-      console.warn('[AC] ⏭️ Cannot sync options: valid question index not found');
       return;
     }
 
     const savedSelections =
       this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
     if (!savedSelections.length || !this.optionsToDisplay()?.length) {
-      console.log(`[AC] 🧬 No saved selections or options to display for Q${idx + 1}. Skipping sync.`);
       return;
     }
 
@@ -334,8 +327,6 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     if (this.type() === 'single' && this.form()) {
       const selectedId = savedSelections[0]?.optionId;
       if (selectedId != null) {
-        console.log(`[AC] 📻 Patching form for single-answer Q${idx + 1} with 
-          ID=${selectedId}`);
         this.form().patchValue({ selectedOptionId: selectedId }, { emitEvent: false });
       }
     }
@@ -343,7 +334,6 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
 
   private handleViewContainerRef(): void {
     if (this.hasComponentLoaded) {
-      console.log('Component already loaded, skipping handleViewContainerRef.');
       return;
     }
 
@@ -353,19 +343,16 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
       this.loadQuizQuestionComponent();
       this.hasComponentLoaded = true;  // prevent further attempts to load
     } else {
-      console.warn('No viewContainerRef available in handleViewContainerRef');
     }
   }
 
   private loadQuizQuestionComponent(): void {
     if (this.hasComponentLoaded) {
-      console.log('QuizQuestionComponent already loaded, skipping load.');
       return;
     }
 
     // Ensure that the current component container is cleared before loading a new one
     if (this.viewContainerRef) {
-      console.log('Clearing viewContainerRef before loading new component.');
       this.viewContainerRef.clear();
     } else {
       console.error('viewContainerRef is not available.');
@@ -490,8 +477,6 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     }
 
     if (!serviceQuestion) {
-      console.warn(`[AC] ⚠️ Service question missing for 
-        Q${activeQuestionIndex + 1}. Using @Input fallback.`);
     }
 
     const optionsSource =
@@ -519,7 +504,6 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
 
     // AUTHORITATIVE COMPLETE CHECK (AFTER SOS UPDATE)
     if (this.questionIndex == null) {
-      console.warn('[onOptionClicked] questionIndex is null — skipping completion check');
       return;
     }
 

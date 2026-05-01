@@ -56,7 +56,6 @@ export class QuizDataService implements OnDestroy {
   clearQuizQuestionCache(quizId: string): void {
     this.quizQuestionCache.delete(quizId);
     this.baseQuizQuestionCache.delete(quizId);
-    console.log(`[QuizDataService] 🗑️ Cleared question cache for quiz ${quizId}`);
   }
 
   getQuizzes(): Observable<Quiz[]> {
@@ -102,7 +101,6 @@ export class QuizDataService implements OnDestroy {
 
         this.quizzes = mergedQuizzes;
         this.quizzesSig.set(mergedQuizzes);
-        console.log('[QuizDataService] Loaded quizzes (with preserved statuses):', mergedQuizzes);
       }),
       catchError((err) => {
         console.error('[QuizDataService] Failed:', err);
@@ -159,8 +157,6 @@ export class QuizDataService implements OnDestroy {
       q.quizId === quizId ? { ...q, status } : q
     );
     this.quizzesSig.set(updatedQuizzes);
-
-    console.log(`[QuizDataService] Updated quiz ${quizId} status to: ${status}`);
   }
 
   async loadQuizById(quizId: string): Promise<Quiz | null> {
@@ -173,7 +169,6 @@ export class QuizDataService implements OnDestroy {
       );
 
       if (!quiz.questions?.length) {
-        console.warn('[QuizDataService] Quiz invalid or empty:', quiz);
         return null;
       }
 
@@ -271,13 +266,11 @@ export class QuizDataService implements OnDestroy {
       const baseCached = this.baseQuizQuestionCache.get(quizId);
 
       if (hasShuffled && baseCached && baseCached.length > 0) {
-        console.log(`[getQuestionsForQuiz] Returning shuffled data + sync canonical cache (Full Hit)`);
         this.quizService.setCanonicalQuestions(quizId, baseCached);
         return of(this.cloneQuestions(this.quizService.shuffledQuestions!));
       } 
       
       if (hasShuffled && (!baseCached || baseCached.length === 0)) {
-        console.log(`[getQuestionsForQuiz] Shuffled data exists but canonical cache empty. Fetching quiz to restore...`);
         return this.getQuiz(quizId).pipe(
           map(quiz => {
             const base = (quiz?.questions ?? []).map((q, i) => this.normalizeQuestion(q, i));
@@ -287,15 +280,12 @@ export class QuizDataService implements OnDestroy {
           })
         );
       }
-
-      console.log(`[getQuestionsForQuiz] Delegating to prepareQuizSession (No shuffled data)`);
       return this.prepareQuizSession(quizId);
     }
 
     // Cache Check: Return cached questions if already built for this quiz (unshuffled case)
     const cachedQuestions = this.quizQuestionCache.get(quizId);
     if (Array.isArray(cachedQuestions) && cachedQuestions.length > 0) {
-      console.log(`[QuizDataService] Returning CACHED questions for quiz ${quizId} (${cachedQuestions.length} questions)`);
       // Sync cache hit with QuizService so standard subscribers (like ScoreComponent) get the update
       this.quizService.questions = this.cloneQuestions(cachedQuestions);
       return of(this.cloneQuestions(cachedQuestions));
@@ -322,7 +312,6 @@ export class QuizDataService implements OnDestroy {
         this.quizService.setCanonicalQuestions(quizId, baseQuestions);
 
         const shouldShuffle = this.quizService.isShuffleEnabled();
-        console.log(`[QuizDataService] 🔀 getQuestionsForQuiz: shouldShuffle = ${shouldShuffle}`);
         const sessionQuestions = this.buildSessionQuestions(
           quizId,
           baseQuestions,
@@ -340,7 +329,6 @@ export class QuizDataService implements OnDestroy {
         this.syncSelectedQuizState(quizId, sessionQuestions, quiz);
 
         // Assign questions to QuizService so UI can access them
-        console.log(`[QuizDataService] OVERWRITING quizService.questions with ${sessionQuestions.length} questions. Q1: "${sessionQuestions[0]?.questionText?.substring(0, 40)}..."`);
         this.quizService.questions = this.cloneQuestions(sessionQuestions);
         
         // Stamp multi-answer flag for each question
@@ -350,11 +338,6 @@ export class QuizDataService implements OnDestroy {
             (Array.isArray(question.options) &&
               question.options.filter((o: Option) => o.correct === true)
                 .length > 1);
-
-          console.log(
-            `[QuizDataService] Q${qIndex + 1} isMulti =`,
-            (question as any).isMulti
-          );
         }
 
         return this.cloneQuestions(sessionQuestions);
@@ -387,7 +370,6 @@ export class QuizDataService implements OnDestroy {
     // If shuffling is enabled, we MUST regenerate to ensure the user gets a shuffled set.
     // (Future improvement: Store 'isShuffled' metadata in cache to allow resuming shuffled sessions correctly)
     if (!shouldShuffle && Array.isArray(cached) && cached.length > 0) {
-      console.log('[QuizDataService] Cache Hit (Unshuffled) - reusing session');
       const sessionReadyQuestions = this.cloneQuestions(cached);
       this.quizService.applySessionQuestions(quizId, sessionReadyQuestions);
       this.syncSelectedQuizState(quizId, sessionReadyQuestions);
@@ -395,7 +377,6 @@ export class QuizDataService implements OnDestroy {
     } else if (shouldShuffle) {
       const existingShuffled = this.quizService.shuffledQuestions;
       if (existingShuffled?.length > 0) {
-        console.log('[QuizDataService] Shuffle is ON — reusing existing shuffled order.');
         return of(this.cloneQuestions(existingShuffled));
       }
       // No shuffled data yet — fall through to buildSessionQuestions to generate initial shuffle
@@ -454,7 +435,6 @@ export class QuizDataService implements OnDestroy {
     const workingSet = this.cloneQuestions(baseQuestions);
 
     if (shouldShuffle) {
-      console.log('[buildSessionQuestions] Starting shuffle...');
       this.quizShuffleService.prepareShuffle(quizId, workingSet);
       const shuffled = this.quizShuffleService.buildShuffledQuestions(
         quizId,
@@ -683,9 +663,6 @@ export class QuizDataService implements OnDestroy {
 
         const maxIndex = totalQuestions - 1;
         if (questionIndex < 0 || questionIndex > maxIndex) {
-          console.warn(
-            `[fetchQuizQuestionByIdAndIndex] Index ${questionIndex} out of range (0-${maxIndex}).`
-          );
           return of(null);
         }
 
@@ -749,9 +726,6 @@ export class QuizDataService implements OnDestroy {
         const cachedQuestions = this.quizQuestionCache.get(quizId);
         if (cachedQuestions) {
           if (questionIndex < 0 || questionIndex >= cachedQuestions.length) {
-            console.warn(
-              `Question at index ${questionIndex} not found in cached quiz "${quizId}".`
-            );
             return [];
           }
           return cachedQuestions[questionIndex].options ?? [];
@@ -761,7 +735,6 @@ export class QuizDataService implements OnDestroy {
         if (quiz) {
           return this.extractOptions(quiz, questionIndex);
         } else {
-          console.warn(`[QuizDataService] No quiz found for ID: ${quizId}`);
           return [];
         }
       }),
@@ -778,9 +751,6 @@ export class QuizDataService implements OnDestroy {
 
   private extractOptions(quiz: Quiz, questionIndex: number): Option[] {
     if (!quiz?.questions || quiz.questions.length <= questionIndex) {
-      console.warn(
-        `Question at index ${questionIndex} not found in quiz "${quiz.quizId}".`
-      );
       return [];
     }
 
@@ -847,7 +817,6 @@ export class QuizDataService implements OnDestroy {
     }
 
     if (question.options.length === 0) {
-      console.warn('Question options array is empty:', question.options);
       return;
     }
 

@@ -82,7 +82,6 @@ export class SelectedOptionService {
   }
 
   public clearState(): void {
-    console.log('[SOS] clearState() called - WIPING ALL SELECTIONS from map!');
     this.selectedOptionsMap.clear();
     this.rawSelectionsMap.clear();
     this._selectionHistory.clear();
@@ -191,7 +190,6 @@ export class SelectedOptionService {
 
     // Reset Sync: Automatically clear all selections when QuizService resets
     this.quizService.quizReset$.subscribe(() => {
-      console.log('[SelectedOptionService] 🧹 Triggering resetAllOptions via QuizService.quizReset$');
       this.resetAllOptions();
     });
   }
@@ -295,7 +293,6 @@ export class SelectedOptionService {
 
     // Trust: questionIndex is 0-based (QQC is the source of truth now)
     const idx = Number.isFinite(questionIndex) ? Math.trunc(questionIndex) : -1;
-    console.log(`[SOS.addOption] Q${idx + 1} OptionId=${option.optionId} text="${option.text}"`);
 
     if (idx < 0) {
       console.error('[SOS] Invalid questionIndex passed to addOption:', { questionIndex });
@@ -392,10 +389,6 @@ export class SelectedOptionService {
   removeOption(questionIndex: number, optionId: number | string, indexHint?: number): void {
     const canonicalId = this.idResolver.resolveCanonicalOptionId(questionIndex, optionId, indexHint);
     if (canonicalId == null && indexHint == null) {
-      console.warn('[removeOption] Unable to resolve canonical optionId', {
-        optionId,
-        questionIndex
-      });
       return;
     }
 
@@ -496,7 +489,6 @@ export class SelectedOptionService {
     } catch { }
 
     this.saveState();
-    console.log('[SelectedOptionService] Cleared all selections for Q', idx);
   }
 
   setSelectedOption(
@@ -507,15 +499,8 @@ export class SelectedOptionService {
   ): void {
     if (!option) {
       if (questionIndex == null) {
-        console.warn(
-          '[setSelectedOption] null option with no questionIndex — ignoring'
-        );
         return;
       }
-
-      console.log(
-        `[setSelectedOption] Clearing selections for Q${questionIndex}`
-      );
       this.selectedOptionsMap.delete(questionIndex);
       this.selectedOptionSig.set([]);
       this.isOptionSelectedSig.set(false);
@@ -534,14 +519,8 @@ export class SelectedOptionService {
 
     // Populate snapshot if provided
     if (optionsSnapshot && optionsSnapshot.length > 0) {
-      console.log(
-        `[setSelectedOption] 📸 Setting snapshot for Q${questionIndex} with ${optionsSnapshot.length} options.`
-      );
       this.optionSnapshotByQuestion.set(qIndex, optionsSnapshot);
     } else {
-      console.log(
-        `[setSelectedOption] ⚠️ No snapshot provided for Q${questionIndex}.`
-      );
     }
 
     const enriched: SelectedOption = this.idResolver.canonicalizeOptionForQuestion(
@@ -558,10 +537,6 @@ export class SelectedOptionService {
 
     // HARD RULE: Single-answer questions may never accumulate selections
     if (isMultipleAnswer === false) {
-      console.warn(
-        '[LOCKDOWN] Clearing previous selections for single-answer question',
-        qIndex
-      );
       this.selectedOptionsMap.set(qIndex, []);
     }
 
@@ -598,7 +573,6 @@ export class SelectedOptionService {
     }
 
     // Accumulate selection history for refresh restore (mirrors _wasSelected behavior)
-    console.log(`[SOS.setSelectedOption] Q${qIndex} adding to _selectionHistory: id=${enriched.optionId} text="${(enriched.text ?? '').substring(0, 30)}"`, new Error().stack?.split('\n').slice(1, 4).join(' <- '));
     const history = this._selectionHistory.get(qIndex) ?? [];
     const alreadyInHistory = history.some(h =>
       h.optionId === enriched.optionId
@@ -650,9 +624,6 @@ export class SelectedOptionService {
       const qIndex = option?.questionIndex;
 
       if (qIndex === undefined || qIndex === null) {
-        console.warn(
-          '[setSelectedOptions] Missing questionIndex on option', option
-        );
         continue;
       }
 
@@ -672,13 +643,6 @@ export class SelectedOptionService {
         enrichedOption?.optionId === undefined ||
         enrichedOption.optionId === null
       ) {
-        console.warn(
-          '[setSelectedOptions] Unable to resolve canonical optionId',
-          {
-            option,
-            questionIndex: qIndex
-          }
-        );
         continue;
       }
 
@@ -739,7 +703,6 @@ export class SelectedOptionService {
           selected: opt.selected === false ? false : true
         });
       } else {
-        console.warn('[SOS] Skipping option with invalid optionId', opt);
       }
     }
 
@@ -805,8 +768,6 @@ export class SelectedOptionService {
     const ids = committed
       .map((o: any) => o.optionId)
       .filter((id: any): id is number => typeof id === 'number');
-
-    console.log(`[SOS] setSelectedOptionsForQuestion Q${questionIndex} syncing IDs:`, ids);
     this.quizService.updateUserAnswer(questionIndex, ids);
 
     // Emit only current question selections
@@ -848,7 +809,6 @@ export class SelectedOptionService {
       if (storedStr) {
         const parsed = JSON.parse(storedStr);
         if (Array.isArray(parsed)) {
-          console.warn(`[getSelectedOptionsForQuestion] sel_Q${questionIndex} RAW:`, JSON.stringify(parsed.map((o: any) => ({ text: (o?.text ?? '').substring(0, 30), sel: o?.selected, id: o?.optionId, dIdx: o?.displayIndex }))));
           for (const o of parsed) {
             if (o) merged.set(keyOf(o), o);
           }
@@ -890,9 +850,6 @@ export class SelectedOptionService {
   clearSelectionsForQuestion(questionIndex: number): void {
     const idx = Number(questionIndex);
     if (!Number.isFinite(idx)) {
-      console.warn(
-        `[clearSelectionsForQuestion] Invalid index:`, questionIndex
-      );
       return;
     }
 
@@ -976,9 +933,6 @@ export class SelectedOptionService {
         source.map((option) => ({ ...option }))
       );
     } else {
-      console.warn(
-        `[SelectedOptionService] No options source available for snapshot Q${questionIndex + 1}`
-      );
     }
 
     const resolved = this.idResolver.resolveOptionFromSource(
@@ -1040,7 +994,6 @@ export class SelectedOptionService {
 
     // Emit to isAnsweredSubject so NextButtonStateService enables the button
     this.isAnsweredSig.set(true);
-    console.log('[SelectedOptionService] isAnsweredSubject emitted TRUE');
 
     if (!isMultiSelect) {
       this.isOptionSelectedSig.set(true);
@@ -1050,7 +1003,6 @@ export class SelectedOptionService {
 
       // Multi-select: Next button is controlled elsewhere (QQC / QuizComponent)
       if (selectedOptions.length === 0) {
-        console.warn('[No selected options found for multi-select]');
         this.setNextButtonEnabled(false);
       }
     }
@@ -1111,7 +1063,6 @@ export class SelectedOptionService {
         this.feedbackState.deleteFeedbackForQuestion(idx);
         this.optionSnapshotByQuestion.delete(idx);
       } else {
-        console.warn('[SOS] clearSelectedOption: No valid index to delete');
       }
     } else {
       // Clear the single selected option for single-answer questions
@@ -1231,13 +1182,6 @@ export class SelectedOptionService {
       optionIndex
     );
     if (canonicalId == null) {
-      console.warn(
-        '[removeSelectedOptionIndex] Unable to resolve canonical optionId',
-        {
-          optionIndex,
-          questionIndex
-        }
-      );
       return;
     }
 
@@ -1270,10 +1214,6 @@ export class SelectedOptionService {
       canonicalOption?.optionId === undefined ||
       canonicalOption.optionId === null
     ) {
-      console.warn('[addSelection] Unable to resolve canonical optionId', {
-        option,
-        questionIndex
-      });
       return;
     }
 
@@ -1312,10 +1252,6 @@ export class SelectedOptionService {
     );
 
     if (canonicalSelected?.optionId == null) {
-      console.warn(
-        '[updateSelectionState] Unable to resolve canonical optionId',
-        { questionIndex, selectedOption }
-      );
       return;
     }
 
@@ -1344,14 +1280,6 @@ export class SelectedOptionService {
       optionIndex
     );
     if (canonicalId == null) {
-      console.warn(
-        '[updateSelectedOptions] Unable to resolve canonical optionId',
-        {
-          optionIndex,
-          questionIndex,
-          action
-        }
-      );
       return;
     }
 
@@ -1362,9 +1290,6 @@ export class SelectedOptionService {
 
     const option = options.find((opt) => opt.optionId === canonicalId);
     if (!option) {
-      console.warn(
-        `[updateSelectedOptions] Option not found for optionIndex: ${optionIndex}`
-      );
       return;
     }
 
@@ -1408,9 +1333,6 @@ export class SelectedOptionService {
       );
 
       if (!Array.isArray(snapshot) || snapshot.length === 0) {
-        console.warn(
-          '[updateAnsweredState] No option snapshot available for evaluation.'
-        );
         return;
       }
 
@@ -1474,9 +1396,6 @@ export class SelectedOptionService {
     // Always normalize to numeric key
     const idx = Number(questionIndex);
     if (!Number.isFinite(idx) || idx < 0) {
-      console.warn(
-        `[commitSelections] ⚠️ Invalid question index: ${questionIndex}`
-      );
       return [];
     }
 
@@ -1488,8 +1407,6 @@ export class SelectedOptionService {
 
     // Do NOT force highlight/showIcon here — let calling logic or sync methods decide
     // based on multi-answer rules (e.g. only highlight the last selection).
-
-    console.log(`[SOS] commitSelections for Q${idx + 1}: count=${canonicalSelections.length}`);
 
     if (canonicalSelections.length > 0) {
       // Replace the old bucket completely
@@ -1562,7 +1479,6 @@ export class SelectedOptionService {
   setAnswered(isAnswered: boolean, force = false): void {
     const current = this.isAnsweredSig();
     if (force || current !== isAnswered) {
-      console.log('[EMIT CHECK] About to emit answered:', isAnswered);
       this.isAnsweredSig.set(isAnswered);
       sessionStorage.setItem('isAnswered', JSON.stringify(isAnswered));
     } else {
@@ -1577,9 +1493,6 @@ export class SelectedOptionService {
     if (current !== isAnswered) {
       this.isAnsweredSig.set(isAnswered);
     } else {
-      console.log(
-        '[setAnsweredState] No change needed (already', current + ')'
-      );
     }
   }
 
@@ -1597,7 +1510,6 @@ export class SelectedOptionService {
     this.selectedOptionSig.set([]);
     this.feedbackState.clearFeedbackSignal();
     this.isOptionSelectedSig.set(false);
-    console.log('[Selection state fully reset]');
   }
 
   public resetOptionState(
@@ -1615,14 +1527,8 @@ export class SelectedOptionService {
           disabled: false
         }));
         this.selectedOptionsMap.set(questionIndex, cleared);
-        console.log(
-          `[SelectedOptionService] 🔄 Reset options for question ${questionIndex}`
-        );
       } else {
         this.selectedOptionsMap.clear();
-        console.log(
-          '[SelectedOptionService] Reset options for ALL questions'
-        );
       }
 
       // Also reset any visible array directly bound to the template
@@ -1635,7 +1541,6 @@ export class SelectedOptionService {
         }
       }
     } catch (error) {
-      console.warn('[SelectedOptionService] resetOptionState failed:', error);
     }
   }
 
@@ -1644,27 +1549,15 @@ export class SelectedOptionService {
       this.selectedOptionsMap.clear();
       this.lockState.clearLockedOptionsMap();
       this.optionStates?.clear?.();
-      console.log(
-        '[SelectedOptionService] Cleared all selection/lock state',
-      );
     } catch (error) {
-      console.warn('[SelectedOptionService] resetAllStates failed', error);
     }
   }
 
   private getFallbackQuestionIndex(): number {
     const keys = Array.from(this.selectedOptionsMap.keys());
     if (keys.length > 0) {
-      console.log(
-        '[getFallbackQuestionIndex] Using fallback index from selectedOptionsMap:',
-        keys[0]
-      );
       return keys[0];
     }
-
-    console.info(
-      '[getFallbackQuestionIndex] No keys found in selectedOptionsMap. Unable to infer fallback question index.'
-    );
     return -1;
   }
 
@@ -1708,11 +1601,6 @@ export class SelectedOptionService {
         this.isOptionSelectedSig.set(anySelected);
         this.nextButtonStateService.setNextButtonState(true);
 
-        console.log('[Next Enabled] Override allowing empty selection', {
-          questionIndex,
-          anySelected
-        });
-
         return;
       }
 
@@ -1721,7 +1609,6 @@ export class SelectedOptionService {
         this.setAnswered(true);  // stream sees answered=true
         this.isOptionSelectedSig.set(true);
         this.nextButtonStateService.setNextButtonState(true);
-        console.log('[Next Enabled] Single → first selection');
         return;
       }
 
@@ -1733,12 +1620,6 @@ export class SelectedOptionService {
 
       this.isOptionSelectedSig.set(anySelected);
       this.nextButtonStateService.setNextButtonState(anySelected);
-
-      console.log(
-        anySelected
-          ? '[✅ Multi] at least one selected → Next enabled'
-          : '[⛔ Multi] none selected → Next disabled'
-      );
     });
   }
 
@@ -1792,7 +1673,6 @@ export class SelectedOptionService {
   }
 
   public reapplySelectionForQuestion(option: Option, index: number): void {
-    console.log('[SelectedOptionService] Reapplying selection for Q', index);
 
     // mark as selected again
     option.selected = true;

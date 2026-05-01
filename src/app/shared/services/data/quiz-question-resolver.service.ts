@@ -26,9 +26,7 @@ export class QuizQuestionResolverService {
     questions$: Observable<QuizQuestion[]>
   ): Observable<QuizQuestion | null> {
     const quizId = resolveShuffleQuizId();
-    if (!quizId) {
-      console.warn('[getQuestionByIndex] No active quiz ID resolved.');
-      return of(null);
+    if (!quizId) {      return of(null);
     }
 
     const resolvedQuestion = resolveCanonicalQuestion(index, null);
@@ -36,9 +34,7 @@ export class QuizQuestionResolverService {
     if (resolvedQuestion) {
       if (isShuffleEnabled() && shuffledQuestions && shuffledQuestions.length > index) {
         const strictShuffled = shuffledQuestions[index];
-        if (strictShuffled && strictShuffled.questionText !== resolvedQuestion.questionText) {
-          console.warn(`[getQuestionByIndex] MISMATCH DETECTED for Q${index + 1}!`);
-          return of({
+        if (strictShuffled && strictShuffled.questionText !== resolvedQuestion.questionText) {          return of({
             ...strictShuffled,
             options: (strictShuffled.options ?? []).map((o) => ({ ...o }))
           });
@@ -76,9 +72,7 @@ export class QuizQuestionResolverService {
           return null;
         }
 
-        if (questionIndex < 0 || questionIndex >= questions.length) {
-          console.warn(`[QuizService] Index ${questionIndex} out of bounds (0-${questions.length - 1}).`);
-          return null;
+        if (questionIndex < 0 || questionIndex >= questions.length) {          return null;
         }
 
         return questions[questionIndex];
@@ -111,9 +105,7 @@ export class QuizQuestionResolverService {
     if (isShuffleEnabled() && shuffledQuestions && shuffledQuestions.length > 0) {
       if (index >= 0 && index < shuffledQuestions.length) {
         const shuffledQ = shuffledQuestions[index];
-        if (currentQuestion && currentQuestion.questionText !== shuffledQ.questionText) {
-          console.warn(`[resolveCanonicalQuestion] Index ${index} Mismatch!`);
-        }
+        if (currentQuestion && currentQuestion.questionText !== shuffledQ.questionText) {        }
         return shuffledQ;
       }
     }
@@ -287,9 +279,7 @@ export class QuizQuestionResolverService {
       correct: correctIds.has(Number(o.optionId))
     }));
 
-    if (qIndex !== undefined) {
-      console.log(`[QuizService] Normalized Q${qIndex + 1}: ${finalAnswers.length} answers, ids: ${Array.from(correctIds)}`);
-    }
+    if (qIndex !== undefined) {    }
 
     return {
       ...deepClone,

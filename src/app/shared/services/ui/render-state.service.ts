@@ -39,11 +39,6 @@ export class RenderStateService {
         ),
         take(1),  // only care about first render (Q1)
         tap(([index, question, options]) => {
-          console.log('[RenderGate Triggered]', {
-            index,
-            question,
-            options
-          });
           this.combinedQuestionDataSig.set({ question, options });
           this.renderGateSig.set(true);  // tells the template it's safe to render
         }),

@@ -16,12 +16,7 @@ export class OptionSelectionUiService {
         ? Number.parseInt(rawSelectedId, 10)
         : rawSelectedId;
 
-    if (!Number.isFinite(parsedId)) {
-      console.warn(
-        '[OptionSelectionUiService] Ignoring non-numeric selection id',
-        { rawSelectedId }
-      );
-      return;
+    if (!Number.isFinite(parsedId)) {      return;
     }
 
     // Ignore the synthetic "-1 repaint" that runs right after question load

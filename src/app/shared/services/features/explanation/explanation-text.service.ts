@@ -130,7 +130,6 @@ export class ExplanationTextService {
       } catch { /* ignore */ }
 
       const allCorrect = pristineCorrectTexts.every(t => selectedTexts.has(t));
-      console.log(`[ETS.pristineGate] Q${idx + 1} pristineCorrect=${JSON.stringify(pristineCorrectTexts)} selected=${JSON.stringify([...selectedTexts])} allCorrect=${allCorrect}`);
       return allCorrect;
     } catch {
       return null;
@@ -424,7 +423,6 @@ export class ExplanationTextService {
         ?? this.quizService.currentQuestionIndex;
       const pristine = this.isMultiAnswerPristineResolved(idx);
       if (pristine === false) {
-        console.warn(`[ETS] ⛔ setExplanationText BLOCKED — pristine says multi-answer Q${idx + 1} not fully resolved (text="${explanation.substring(0, 40)}...")`);
         return;
       }
     }
@@ -462,7 +460,6 @@ export class ExplanationTextService {
       const idx = idxFromCtx ?? this.quizService.currentQuestionIndex;
       const pristine = this.isMultiAnswerPristineResolved(idx);
       if (pristine === false) {
-        console.warn(`[ETS] ⛔ setIsExplanationTextDisplayed(true) BLOCKED — pristine says multi-answer Q${idx + 1} not fully resolved`);
         return;
       }
     }
@@ -478,7 +475,6 @@ export class ExplanationTextService {
       const idx = idxFromCtx ?? this.quizService.currentQuestionIndex;
       const pristine = this.isMultiAnswerPristineResolved(idx);
       if (pristine === false) {
-        console.warn(`[ETS] ⛔ setShouldDisplayExplanation(true) BLOCKED — pristine says multi-answer Q${idx + 1} not fully resolved`);
         return;
       }
     }
@@ -532,7 +528,6 @@ export class ExplanationTextService {
     if (value && value.trim().length > 0) {
       const pristine = this.isMultiAnswerPristineResolved(index);
       if (pristine === false) {
-        console.warn(`[ETS] ⛔ emitFormatted BLOCKED — pristine says multi-answer Q${index + 1} not fully resolved`);
         return;
       }
     }

@@ -40,9 +40,6 @@ export class QqcFeedbackManagerService {
     correctMessage: string
   ): Option[] {
     if (!currentQuestion || !optionsToDisplay.length) {
-      console.warn(
-        '[restoreFeedbackState] Missing current question or options to display.'
-      );
       return optionsToDisplay;
     }
 
@@ -85,7 +82,6 @@ export class QqcFeedbackManagerService {
       !currentQuestion ||
       !Array.isArray(currentQuestion.options)
     ) {
-      console.warn('[updateOptionHighlightState] No valid question or options available.');
       return;
     }
 
@@ -108,7 +104,6 @@ export class QqcFeedbackManagerService {
     selectedIndices: Set<number>
   ): Option[] | null {
     if (!allCorrectSelected) {
-      console.log('No action taken. Not all correct answers selected yet.');
       return null;
     }
 
@@ -127,9 +122,6 @@ export class QqcFeedbackManagerService {
       this.updateOptionHighlightState(currentQuestion, selectedIndices);
       return updatedOptions;
     } else {
-      console.warn(
-        '[deactivateIncorrectOptions] No options available to deactivate.'
-      );
       return null;
     }
   }
@@ -139,7 +131,6 @@ export class QqcFeedbackManagerService {
    */
   disableIncorrectOptions(optionsToDisplay: Option[]): Option[] {
     if (!optionsToDisplay || optionsToDisplay.length === 0) {
-      console.warn('No options available to disable.');
       return optionsToDisplay;
     }
 
@@ -301,7 +292,6 @@ export class QqcFeedbackManagerService {
     selectedIndex: number;
   } | null {
     if (!params.isUserClickInProgress) {
-      console.warn('[updateFeedback] skipped — no user click in progress');
       return null;
     }
 
@@ -480,17 +470,11 @@ export class QqcFeedbackManagerService {
     try {
       // Validate the question and its options
       if (!question || !question.options || question.options.length === 0) {
-        console.warn(
-          '[generateFeedbackText] Invalid question or options are missing.'
-        );
         return 'No feedback available for the current question.';
       }
 
       // Validate optionsToDisplay
       if (!optionsToDisplay || optionsToDisplay.length === 0) {
-        console.warn(
-          '[generateFeedbackText] optionsToDisplay is empty.'
-        );
         return 'No options available to generate feedback.';
       }
 
@@ -499,9 +483,6 @@ export class QqcFeedbackManagerService {
         (option) => option.correct
       );
       if (correctOptions.length === 0) {
-        console.info(
-          '[generateFeedbackText] No correct options found for the question.'
-        );
         return 'No correct answers defined for this question.';
       }
 
@@ -562,11 +543,6 @@ export class QqcFeedbackManagerService {
 
     const foundOption = optionsToDisplay[selectedOptionIndex];
 
-    console.log(
-      `[✅ applyFeedbackIfNeeded] Found Option at index ${selectedOptionIndex}:`,
-      foundOption
-    );
-
     // Explanation evaluation check
     const ready = !!this.explanationTextService.latestExplanation?.trim();
     const show =
@@ -603,15 +579,12 @@ export class QqcFeedbackManagerService {
         const msg = this.quizQuestionManagerService.getNumberOfCorrectAnswersText(numCorrect, totalOpts);
 
         if (numCorrect > 1) {
-          console.log(`[BANNER] Set multi-answer banner for Q${params.currentQuestionIndex + 1}:`, msg);
           return { bannerText: msg, numCorrect };
         } else {
-          console.log(`[BANNER] Cleared single-answer banner for Q${params.currentQuestionIndex + 1}`);
           return { bannerText: '', numCorrect };
         }
       }
     } catch (err) {
-      console.warn('[BANNER] Failed to compute correct-answers text', err);
     }
 
     return { bannerText: '', numCorrect: 0 };

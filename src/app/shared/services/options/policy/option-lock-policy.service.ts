@@ -123,8 +123,6 @@ export class OptionLockPolicyService {
     );
     const isPerfect = allCorrectSelected && !hasIncorrectSelection;
 
-    console.log(`[OptionLockPolicy] Q Evaluation: hasCorrect=${hasCorrectSelection}, allCorrect=${allCorrectSelected}, isPerfect=${isPerfect}, type=${params.resolvedType}`);
-
     const shouldLockIncorrect = params.computeShouldLockIncorrectOptions(
       params.resolvedType,
       hasCorrectSelection,

@@ -91,7 +91,6 @@ export class SharedOptionFeedbackService {
     ctx: FeedbackContext
   ): FeedbackProps {
     if (!option) {
-      console.warn('[generateFeedbackConfig] option is null or undefined');
       return {
         selectedOption: null,
         correctMessage: '',
@@ -161,10 +160,6 @@ export class SharedOptionFeedbackService {
         return false;
       });
 
-      console.log(`[SOC.generateFeedbackConfig] Q${activeQIdx + 1} | selectedOptionsSet:`, Array.from(ctx.selectedOptions));
-      console.log(`[SOC.generateFeedbackConfig] Q${activeQIdx + 1} | serviceSelectedIds:`, Array.from(serviceSelectedIds));
-      console.log(`[SOC.generateFeedbackConfig] Q${activeQIdx + 1} | selectedModels:`, selectedModels.map(m => m.optionId));
-
       // Map to include displayIndex for FeedbackService reconciliation
       optionsToCheck = selectedModels.map(m => {
         const idx = (ctx.optionsToDisplay || []).findIndex(orig =>
@@ -180,7 +175,6 @@ export class SharedOptionFeedbackService {
       if (!optionsToCheck.find(o => o === option || (o.optionId != null && o.optionId > -1 && o.optionId === option.optionId))) {
         optionsToCheck.push(option);
       }
-      console.log(`[SOC.generateFeedbackConfig] Q${activeQIdx + 1} | finalOptionsToCheck IDs:`, optionsToCheck.map(o => o.optionId));
     }
 
     // Ensure correct feedback message context
@@ -236,11 +230,8 @@ export class SharedOptionFeedbackService {
         if (!isCorrectFlag(o) && selected) incorrectSelectedCount++;
       }
 
-      console.log(`[SOC.override] Q${(ctx.activeQuestionIndex ?? 0) + 1} | correctCount=${correctCount} correctSelected=${correctSelectedCount} incorrectSelected=${incorrectSelectedCount} selectedOptionsSet=[${Array.from(ctx.selectedOptions)}] selectedIndex=${selectedIndex}`);
-
       if (correctCount > 0 && correctSelectedCount >= correctCount && incorrectSelectedCount === 0) {
         finalFeedback = `You're right! ${correctMessage}`;
-        console.log(`[SOC.override] OVERRIDE APPLIED → "${finalFeedback}"`);
       }
     }
 
@@ -342,18 +333,8 @@ export class SharedOptionFeedbackService {
     }
 
     if (isResolved) {
-      console.log('[SharedOption] Question resolved. Setting answered=true.', {
-        questionIndex: currentQuestionIndex,
-        selectedCount: selectedForResolution.length,
-        feedback: feedbackConfig.feedback
-      });
       this.selectedOptionService.setAnswered(true, true);
     } else {
-      console.log('[SharedOption] Question not yet resolved. Staying in question mode.', {
-        questionIndex: currentQuestionIndex,
-        selectedCount: selectedForResolution.length,
-        feedback: feedbackConfig.feedback
-      });
       // Ensure we don't accidentally reveal the explanation path
       this.selectedOptionService.setAnswered(false, false);
     }
@@ -400,12 +381,6 @@ export class SharedOptionFeedbackService {
     this.selectedOptionService.updateAnsweredState();
 
     // Final debug state
-    console.log('[displayFeedbackForOption] Sync Complete', {
-      effectiveId,
-      feedback: feedbackConfig?.feedback,
-      showFeedbackForOption,
-      activeQuestionIndex: currentQuestionIndex
-    });
 
     return {
       showFeedback: true,
@@ -604,13 +579,11 @@ export class SharedOptionFeedbackService {
     ctx: FeedbackContext
   ): FeedbackProps[] {
     if (optionBindings?.some((b) => b.isSelected)) {
-      console.warn('[Skipped reassignment — already selected]');
       return optionBindings.map((_, idx) => this.getDefaultFeedbackProps(idx, ctx));
     }
 
     return optionBindings.map((optionBinding, idx) => {
       if (!optionBinding || !optionBinding.option) {
-        console.warn('Option binding at index ' + idx + ' is null or undefined. Using default feedback properties.');
         return this.getDefaultFeedbackProps(idx, ctx);
       }
 
@@ -622,7 +595,6 @@ export class SharedOptionFeedbackService {
 
       // Validate the generated feedback binding
       if (!feedbackBinding || !feedbackBinding.selectedOption) {
-        console.warn('Invalid feedback binding at index ' + idx + ':', feedbackBinding);
       }
 
       return feedbackBinding;

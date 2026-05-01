@@ -137,11 +137,7 @@ export class QuizQuestionLoaderService {
     try {
       // Validate quizId before proceeding
       const quizId = this.quizService.getCurrentQuizId();
-      if (!quizId) {
-        console.warn(
-          `[QuizQuestionLoaderService] No quiz ID available. Cannot load question contents.`
-        );
-        return;
+      if (!quizId) {        return;
       }
 
       const hasCachedQuestion = this.quizService.quizDataLoader.hasCachedQuestion(
@@ -211,11 +207,7 @@ export class QuizQuestionLoaderService {
           !data.question?.questionText?.trim() ||
           !Array.isArray(data.options) ||
           data.options.length === 0
-        ) {
-          console.warn(
-            `[QuizQuestionLoaderService] Missing question or options for Q${questionIndex}. Aborting render.`
-          );
-          this.isLoading = false;
+        ) {          this.isLoading = false;
           return;
         }
 
@@ -256,9 +248,7 @@ export class QuizQuestionLoaderService {
     const isCountValid = await this.ensureQuestionCount();
     const isIndexValid = this.validateIndex(index);
 
-    if (!isCountValid || !isIndexValid) {
-      console.warn('[Invalid index or quiz length]', { index });
-      return false;
+    if (!isCountValid || !isIndexValid) {      return false;
     }
 
     // UI reset for a new question
@@ -284,12 +274,7 @@ export class QuizQuestionLoaderService {
         opt.active = true;
         i++;
       }
-    } catch (error) {
-      console.warn(
-        '[QQ Loader] Deep clone failed, falling back to structuredClone',
-        error
-      );
-      cloned =
+    } catch (error) {      cloned =
         typeof structuredClone === 'function'
           ? structuredClone(opts)
           : [...opts.map((o) => ({ ...o }))];
@@ -354,9 +339,7 @@ export class QuizQuestionLoaderService {
   // Bounds check
   private validateIndex(i: number): boolean {
     const ok = Number.isInteger(i) && i >= 0 && i < this.totalQuestions;
-    if (!ok) {
-      console.warn('[Loader] bad index', i);
-    }
+    if (!ok) {    }
     return ok;
   }
 
@@ -489,9 +472,7 @@ export class QuizQuestionLoaderService {
 
     // Ensure questions are loaded in QuizService
     // Strictly prioritize shuffledQuestions if shuffle is enabled
-    if (this.quizService.isShuffleEnabled() && this.quizService.shuffledQuestions?.length > 0) {
-      console.log(`[QQLoader] 🛡️ Using SHUFFLED questions source (${this.quizService.shuffledQuestions.length})`);
-      this.questionsArray = [...this.quizService.shuffledQuestions];
+    if (this.quizService.isShuffleEnabled() && this.quizService.shuffledQuestions?.length > 0) {      this.questionsArray = [...this.quizService.shuffledQuestions];
     } else {
       let questions = this.quizService.questions;
 
@@ -501,9 +482,7 @@ export class QuizQuestionLoaderService {
 
         // Race Condition Fix: If shuffle is enabled but we don't have shuffled questions YET,
         // we must not fetch raw data from QuizDataService. We must wait for QuizService to finish its shuffle.
-        if (this.quizService.isShuffleEnabled()) {
-          console.log(`[QQLoader] Shuffle enabled but no questions yet. WAITING for QuizService...`);
-          try {
+        if (this.quizService.isShuffleEnabled()) {          try {
             // Wait for QuizService to populate questions (it handles the fetch + shuffle)
             const fetched = await firstValueFrom(this.quizService.getAllQuestions().pipe(
               filter(q => Array.isArray(q) && q.length > 0),
@@ -512,13 +491,9 @@ export class QuizQuestionLoaderService {
             ));
 
             // Re-check shuffled questions
-            if (this.quizService.shuffledQuestions?.length > 0) {
-              console.log(`[QQLoader] Shuffle ready! Loading shuffled questions.`);
-              this.questionsArray = [...this.quizService.shuffledQuestions];
+            if (this.quizService.shuffledQuestions?.length > 0) {              this.questionsArray = [...this.quizService.shuffledQuestions];
               // this.quizService.questions = this.questionsArray; // DO NOT POISON
-            } else {
-              console.warn(`[QQLoader] ⚠️ Shuffle wait timed out or failed. Using fetched data.`);
-              this.questionsArray = [...(fetched as QuizQuestion[])];
+            } else {              this.questionsArray = [...(fetched as QuizQuestion[])];
               // If fetched data is essentially shuffled data, do not assign.
               // But 'fetched' came from getAllQuestions() which returns shuffled if enabled.
               // So we should NOT assign.
@@ -529,17 +504,13 @@ export class QuizQuestionLoaderService {
             this.questionsArray = await firstValueFrom(this.quizDataService.getQuestionsForQuiz(quizId));
             this.quizService.questions = [...this.questionsArray];
           }
-        } else {
-          console.log(`[QQLoader fetchQO] quizService.questions EMPTY - fetching from getQuestionsForQuiz`);
-          this.questionsArray = await firstValueFrom(
+        } else {          this.questionsArray = await firstValueFrom(
             this.quizDataService.getQuestionsForQuiz(quizId),
           );
           // Update QuizService so it has the base data
           this.quizService.questions = [...this.questionsArray];
         }
-      } else {
-        console.log(`[QQLoader fetchQO] reusing existing quizService.questions (Length: ${questions.length})`);
-      }
+      } else {      }
     }
 
     // Keep other services in sync
@@ -815,9 +786,7 @@ export class QuizQuestionLoaderService {
     this.questionTextSig.set(this.questionToDisplay);
     this.explanationTextSig.set(this.explanationToDisplay);
 
-    if (!explanationText.trim() && explanationText.length > 0) {
-      console.warn('[setQuestionDetails] ⚠️ Explanation fallback triggered');
-    }
+    if (!explanationText.trim() && explanationText.length > 0) {    }
   }
 
   // Reset UI immediately before navigating
@@ -842,11 +811,7 @@ export class QuizQuestionLoaderService {
       if (typeof this.quizQuestionComponent.resetState === 'function') {
         this.quizQuestionComponent.resetState();
       }
-    } else {
-      console.warn(
-        '[resetUI] ⚠️ quizQuestionComponent not initialized or dynamically loaded.'
-      );
-    }
+    } else {    }
 
     // Reset visual selection state
     this.showFeedbackForOption = {};
@@ -884,11 +849,7 @@ export class QuizQuestionLoaderService {
     // Only reset options if current question exists
     if (this.currentQuestion?.options?.length) {
       for (const option of this.currentQuestion.options) {
-        if (option.selected || option.highlight || !option.active) {
-          console.log(
-            `[resetQuestionState] Clearing state for optionId: ${option.optionId}`
-          );
-        }
+        if (option.selected || option.highlight || !option.active) {        }
 
         // Reset all option UI-related flags
         option.selected = false;
@@ -897,11 +858,7 @@ export class QuizQuestionLoaderService {
         option.showIcon = false;
         option.feedback = undefined;
       }
-    } else {
-      console.warn(
-        '[resetQuestionState] No current question options found to reset.'
-      );
-    }
+    } else {    }
 
     // Reset internal selected options tracking
     this.selectedOptionService.stopTimerEmitted = false;
@@ -1068,15 +1025,8 @@ export class QuizQuestionLoaderService {
     const activeIndex = this.quizService.getCurrentQuestionIndex();
 
     // Guard: skip stale resets from previous questions
-    if (index != null && index !== activeIndex) {
-      console.log(
-        `[SKIP stale resetHeadlineStreams] tried Q${index + 1}, active Q${activeIndex + 1}`
-      );
-      return;
+    if (index != null && index !== activeIndex) {      return;
     }
-
-    console.log('[RESET HEADLINES] clearing for active index', activeIndex);
-
     // Clear streams only for the current question
     this.questionToDisplaySubject.next('');  // clears question text
     this.explanationTextService.explanationText$.next('');  // clears explanation
@@ -1100,63 +1050,41 @@ export class QuizQuestionLoaderService {
   }
 
   public emitQuestionTextSafely(text: string, index: number): void {
-    if (this.isNavBarrierActive()) {
-      console.log('[Loader] Blocked emission: navigation barrier active');
-      return;
+    if (this.isNavBarrierActive()) {      return;
     }
 
     const now = performance.now();
 
     // Global quiet-zone guard (shared with ETS)
     if (now < (this._quietZoneUntil ?? 0)) {
-      const remain = (this._quietZoneUntil ?? 0) - now;
-      console.log(
-        `[Loader] 🚫 Blocked question emission during quiet zone (${remain.toFixed(1)}ms left)`
-      );
-      return;
+      const remain = (this._quietZoneUntil ?? 0) - now;      return;
     }
 
     // Standard freeze gating
-    if (this._frozen && now < (this._renderFreezeUntil ?? 0)) {
-      console.log('[Loader] 🧊 Emission blocked within freeze window');
-      return;
+    if (this._frozen && now < (this._renderFreezeUntil ?? 0)) {      return;
     }
 
     const activeIndex = this.quizService.getCurrentQuestionIndex();
-    if (index !== activeIndex) {
-      console.log(
-        `[SKIP] stale emission for Q${index + 1} (active is Q${activeIndex + 1})`
-      );
-      return;
+    if (index !== activeIndex) {      return;
     }
 
     const trimmed = (text ?? '').trim();
     if (!trimmed || trimmed === '?') return;
 
     // Anti-early guard — skip emissions too close to navigation
-    if (now - (this._lastNavTime ?? 0) < 80) {
-      console.log(
-        `[Drop] Early emission for Q${index + 1} (Δ=${(now - (this._lastNavTime ?? 0)).toFixed(1)}ms)`,
-      );
-      return;
+    if (now - (this._lastNavTime ?? 0) < 80) {      return;
     }
 
     // Safe to emit
     this._lastQuestionText = trimmed;
-    this.questionToDisplaySubject.next(trimmed);
-    console.log(`[Loader] Emitted question text safely for Q${index + 1}`);
-  }
+    this.questionToDisplaySubject.next(trimmed);  }
 
   public clearQuestionTextBeforeNavigation(): void {
     try {
       this._frozen = true;  // extra safeguard
       this.questionToDisplaySubject.next('');  // emit empty to flush template
       this._lastQuestionText = '';
-      this._lastRenderedIndex = -1;
-      console.log('[Loader] Cleared question text before navigation');
-    } catch (error) {
-      console.warn('[Loader] clearQuestionTextBeforeNavigation error', error);
-    }
+      this._lastRenderedIndex = -1;    } catch (error) {    }
   }
 
   public freezeQuestionStream(durationMs = 120): void {
@@ -1169,11 +1097,6 @@ export class QuizQuestionLoaderService {
     // Extend the logic freeze window slightly (extra 20–40 ms)
     const EXTENSION_MS = 40;
     this._renderFreezeUntil = performance.now() + durationMs + EXTENSION_MS;
-
-    console.log(
-      `[Freeze] Logic+visual freeze started (${durationMs + EXTENSION_MS} ms)`,
-    );
-
     // Hide content DOM-side without touching Angular templates
     const el = document.querySelector('h3[i18n]');
     if (el) (el as HTMLElement).style.opacity = '0';
@@ -1196,8 +1119,6 @@ export class QuizQuestionLoaderService {
     // If still within freeze window, schedule a delayed unfreeze
     if (now < this._renderFreezeUntil) {
       const delay = this._renderFreezeUntil - now;
-      console.log(`[Loader] Delaying unfreeze ${delay.toFixed(1)} ms`);
-
       // keep question text hidden visually during this delay
       this._isVisualFrozen = true;
       const el = document.querySelector('h3[i18n]');
@@ -1212,11 +1133,7 @@ export class QuizQuestionLoaderService {
         // Restore visibility one frame after Angular repaint
         requestAnimationFrame(() => {
           const el2 = document.querySelector('h3[i18n]');
-          if (el2) (el2 as HTMLElement).style.visibility = 'visible';
-          console.log(
-            `[Loader] Stream unfrozen (delayed) + quiet ${QUIET_WINDOW_MS} ms`
-          );
-        });
+          if (el2) (el2 as HTMLElement).style.visibility = 'visible';        });
       }, delay + 12);
 
       return;
@@ -1230,11 +1147,7 @@ export class QuizQuestionLoaderService {
     // Show the element again right after frame stabilization
     requestAnimationFrame(() => {
       const el = document.querySelector('h3[i18n]');
-      if (el) (el as HTMLElement).style.opacity = '1';
-      console.log(
-        `[Loader] Stream unfrozen (immediate) + quiet ${QUIET_WINDOW_MS} ms`
-      );
-    });
+      if (el) (el as HTMLElement).style.opacity = '1';    });
   }
 
   public isNavBarrierActive(): boolean {

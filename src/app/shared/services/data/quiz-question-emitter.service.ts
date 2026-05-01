@@ -82,9 +82,7 @@ export class QuizQuestionEmitterService {
     questionToEmit: QuizQuestion;
     optionsToUse: Option[];
   } | null {
-    if (!currentQuestion) {
-      console.warn('[emitQuestionAndOptions] Missing question data.');
-      return null;
+    if (!currentQuestion) {      return null;
     }
 
     const rawOptions = Array.isArray(options) ? options : [];
@@ -155,11 +153,7 @@ export class QuizQuestionEmitterService {
       }
     }
 
-    if (!optionsToUse.length) {
-      console.warn(
-        '[emitQuestionAndOptions] No options available after normalization.'
-      );
-      return null;
+    if (!optionsToUse.length) {      return null;
     }
 
     const normalizedOptions = optionsToUse.map((option) => ({ ...option }));

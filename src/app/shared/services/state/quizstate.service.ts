@@ -174,7 +174,6 @@ export class QuizStateService {
   }, options?: { force?: boolean }): void {
     // If visibility restore lock is active, block state changes unless forced
     if (this._visibilityRestoreLock && !options?.force) {
-      console.log('[QSS] setDisplayState blocked by visibility restore lock:', state);
       return;
     }
     this.displayStateSig.set(state);
@@ -183,7 +182,6 @@ export class QuizStateService {
   // Lock display state changes (used during tab visibility restoration)
   lockDisplayStateForVisibilityRestore(durationMs: number = 500): void {
     this._visibilityRestoreLock = true;
-    console.log('[QSS] Visibility restore lock ENABLED');
 
     // Clear any existing timeout
     if (this._visibilityRestoreLockTimeout) {
@@ -194,7 +192,6 @@ export class QuizStateService {
     this._visibilityRestoreLockTimeout = setTimeout(() => {
       this._visibilityRestoreLock = false;
       this._visibilityRestoreLockTimeout = null;
-      console.log('[QSS] Visibility restore lock RELEASED');
     }, durationMs);
   }
 
@@ -204,7 +201,6 @@ export class QuizStateService {
       this._visibilityRestoreLockTimeout = null;
     }
     this._visibilityRestoreLock = false;
-    console.log('[QSS] Visibility restore lock manually RELEASED');
   }
 
   getStoredState(quizId: string): Map<number, QuestionState> | null {
@@ -435,7 +431,6 @@ export class QuizStateService {
 
   startLoading(): void {
     if (!this.isLoading()) {
-      console.log('Loading started');
       this.isLoadingSig.set(true);
     }
   }
@@ -447,7 +442,6 @@ export class QuizStateService {
     index: number,
   ): void {
     if (!question?.options?.length) {
-      console.warn('[emitQA] Question or options missing', { question });
       return;
     }
 
@@ -600,7 +594,6 @@ export class QuizStateService {
 
   // Reset all state (called on Shuffle Toggle or Quiz Reset)
   reset(): void {
-    console.log('[QuizStateService] Resetting all state.');
     this.questionStates.clear();
     this.quizStates = {};
     this._hasUserInteracted.clear();

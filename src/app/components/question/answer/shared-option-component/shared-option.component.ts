@@ -229,7 +229,6 @@ export class SharedOptionComponent
             const actualTexts = new Set(v.map((o: any) => (o?.text ?? '').trim().toLowerCase()));
             const match = correctTexts.size === actualTexts.size && [...correctTexts].every(t => actualTexts.has(t));
             if (!match) {
-              console.warn(`[SOC SHUFFLE GUARD] Q${idx + 1} options mismatch! Replacing with shuffled options.`);
               v = correctQ.options.map((o: any) => ({ ...o }));
             }
           }

@@ -30,7 +30,6 @@ export class SharedOptionBindingService {
 
   synchronizeOptionBindings(comp: any): void {
     if (!Array.isArray(comp.optionsToDisplay) || comp.optionsToDisplay.length === 0) {
-      console.warn('[SOC] synchronizeOptionBindings() aborted — optionsToDisplay EMPTY');
       const hasSelection = comp.optionBindings?.some((opt: any) => opt.isSelected);
       if (!hasSelection && !comp.freezeOptionBindings) {
         comp.optionBindings = [];
@@ -39,7 +38,6 @@ export class SharedOptionBindingService {
     }
 
     if (comp.freezeOptionBindings || comp.hasUserClicked) {
-      console.warn('[SOC] freezeOptionBindings/hasUserClicked active — ABORTING reassignment');
       return;
     }
 
@@ -176,7 +174,6 @@ export class SharedOptionBindingService {
 
   generateOptionBindings(comp: any): void {
     if (comp.hasUserClicked && comp.optionBindings?.length > 0) {
-      console.log('[generateOptionBindings] SKIPPED — user has already clicked, preserving binding state');
       return;
     }
 
@@ -191,7 +188,6 @@ export class SharedOptionBindingService {
         const currentTexts = new Set((comp.optionsToDisplay ?? []).map((o: any) => (o?.text ?? '').trim().toLowerCase()));
         const match = correctTexts.size === currentTexts.size && [...correctTexts].every((t: string) => currentTexts.has(t));
         if (!match && comp.optionsToDisplay?.length > 0) {
-          console.warn(`[generateOptionBindings SHUFFLE GUARD] Q${currentIndex + 1} options mismatch — replacing with shuffled options`);
           comp.optionsToDisplay = correctQ.options.map((o: any) => ({ ...o }));
         }
       }
@@ -271,7 +267,6 @@ export class SharedOptionBindingService {
         const currentTexts = new Set((comp.optionsToDisplay).map((o: any) => (o?.text ?? '').trim().toLowerCase()));
         const match = correctTexts.size === currentTexts.size && [...correctTexts].every((t: string) => currentTexts.has(t));
         if (!match) {
-          console.warn(`[processOptionBindings SHUFFLE GUARD] Q${pIdx + 1} options mismatch — replacing`);
           comp.optionsToDisplay = correctQ.options.map((o: any) => ({ ...o }));
         }
       }
@@ -311,9 +306,7 @@ export class SharedOptionBindingService {
     ) || '';
 
     // DIAGNOSTIC: dump what processOptionBindings sees on Q2
-    console.log(`[POB] Q${currentIdx + 1} savedIds=[${[...savedIds]}] highlightSet=[${[...highlightSet]}] savedSelections.length=${savedSelections.length}`);
     for (const s of savedSelections) {
-      console.log(`  saved: id=${(s as any).optionId} sel=${(s as any).selected} disp=${(s as any).displayIndex} text="${((s as any).text ?? '').substring(0, 30)}"`);
     }
 
     // Build a position-based set from saved selections so the id-based
@@ -358,7 +351,6 @@ export class SharedOptionBindingService {
       const useSelected = comp.hasUserClicked ? isSelected : false;
       if (useSelected || useHighlightSet) {
         opt.highlight = true;
-        console.log(`[POB] Q${currentIdx + 1} idx=${idx} effectiveId=${effectiveId} → highlight=TRUE (isSelected=${isSelected} inHighlightSet=${highlightSet.has(effectiveId)}) text="${(opt.text ?? '').substring(0, 30)}"`);
       } else {
         opt.highlight = false;
       }
@@ -534,8 +526,6 @@ export class SharedOptionBindingService {
       }
       if (savedByIndex.size === 0) return;
 
-      console.log(`[rehydrate] Q${qIndex + 1} candidates=${saved.length} matched=${savedByIndex.size}`);
-
       // Restored optionsToDisplay loop
       if (comp.optionsToDisplay?.length) {
         for (const [idx, opt] of comp.optionsToDisplay.entries()) {
@@ -645,7 +635,6 @@ export class SharedOptionBindingService {
       if (comp.updateHighlighting) comp.updateHighlighting();
       comp.cdRef?.markForCheck?.();
     } catch (e) {
-      console.warn('[rehydrate] Critical failure - bailing to prevent crash', e);
     }
   }
 
@@ -697,7 +686,6 @@ export class SharedOptionBindingService {
         saved = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
       }
       const bText = (b.option?.text ?? '').trim().toLowerCase();
-      console.log(`[buildSharedOptionConfig] REFRESH Q${qIndex + 1} option[${i}] text="${bText.substring(0, 30)}" | saved.length=${saved.length} | saved=${JSON.stringify(saved.map((s: any) => ({ text: (s.text ?? '').substring(0, 25), sel: s.selected, id: s.optionId, dIdx: s.displayIndex })))}`);
       // TEXT-ONLY PRIMARY MATCH: immune to synthetic ID mismatches and
       // position shifts from shuffled options. ID/index fallbacks are only
       // used when the saved entry has no text (legacy data).
@@ -721,7 +709,6 @@ export class SharedOptionBindingService {
         }
         return false;
       });
-      console.log(`[buildSharedOptionConfig] REFRESH Q${qIndex + 1} option[${i}] matchEntry=${matchEntry ? JSON.stringify({ text: ((matchEntry as any).text ?? '').substring(0, 25), sel: (matchEntry as any).selected, id: (matchEntry as any).optionId }) : 'null'} isMulti=${isMulti}`);
       if (matchEntry) {
         // For multi-answer: only highlight options that were actually selected
         // (selected: true). For single-answer: also highlight previously-clicked
@@ -940,18 +927,12 @@ export class SharedOptionBindingService {
 
     if (bindingsReady && optionsReady) {
       if (reason) {
-        console.log('[renderReady]: ' + reason);
       }
 
       comp.renderReady = true;
       comp.renderReadyChange.emit(true);
       comp.renderReadySubject?.next(true);
     } else {
-      console.warn('[markRenderReady skipped] Incomplete state:', {
-        bindingsReady,
-        optionsReady,
-        reason
-      });
     }
   }
 }

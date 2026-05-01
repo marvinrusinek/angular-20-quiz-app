@@ -470,12 +470,9 @@ export class QuizSetupService {
         const prevIdx = host.lastLoggedIndex;
         host.lastLoggedIndex = idx;
         host.currentQuestionIndex = idx;
-
-        console.log(`[subscribeToQuestionIndex] idx=${idx}, prevIdx=${prevIdx}, questionsArray.length=${host.questionsArray?.length}`);
         const { question, isNavigation } = this.quizContentLoaderService.handleQuestionIndexTransition({
           idx, prevIdx, quizId: host.quizId, questionsArray: host.questionsArray,
         });
-        console.log(`[subscribeToQuestionIndex] question=${!!question}, questionText="${question?.questionText?.substring(0, 50)}", isNavigation=${isNavigation}`);
 
         if (question) {
           host.currentQuestion = question;
@@ -483,9 +480,7 @@ export class QuizSetupService {
           host.combinedQuestionDataSubject.next({
             question, options: question.options, explanation: question.explanation,
           });
-          console.log(`[subscribeToQuestionIndex] EMITTED to combinedQuestionDataSubject, options=${question.options?.length}`);
         } else {
-          console.warn(`[subscribeToQuestionIndex] NO QUESTION for idx=${idx} in questionsArray of length ${host.questionsArray?.length}`);
         }
         host.cdRef.markForCheck();
 
@@ -731,9 +726,7 @@ export class QuizSetupService {
     const quizId = params.get('quizId') ?? '';
     const indexParam = params.get('questionIndex');
     const index = Number(indexParam) - 1;
-    console.log(`[handleParamMapChange] quizId=${quizId}, indexParam=${indexParam}, index=${index}`);
     if (!quizId || isNaN(index) || index < 0) {
-      console.warn(`[handleParamMapChange] EARLY RETURN: quizId=${quizId}, index=${index}`);
       return;
     }
 
@@ -754,7 +747,6 @@ export class QuizSetupService {
 
     try {
       const result = await this.quizContentLoaderService.loadQuestionFromRouteChange({ quizId, index });
-      console.log(`[handleParamMapChange] loadResult: success=${result.success}, question=${!!result.question}, options=${result.options?.length}`);
       if (!result.success || !result.question) return;
 
       host.totalQuestions = result.totalQuestions;
@@ -763,7 +755,6 @@ export class QuizSetupService {
       const payload = {
         question: result.question, options: result.options, explanation: result.explanation,
       };
-      console.log(`[handleParamMapChange] EMITTING to combinedQuestionDataSubject: questionText="${result.question.questionText?.substring(0, 50)}", options=${result.options?.length}`);
       host.combinedQuestionDataSubject.next(payload);
       host.questionToDisplaySource.next(result.question.questionText?.trim() ?? '');
       host.optionsToDisplay = [...result.options];

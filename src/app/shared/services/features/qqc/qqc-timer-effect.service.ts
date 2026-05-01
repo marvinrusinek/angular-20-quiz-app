@@ -457,14 +457,12 @@ export class QqcTimerEffectService {
       }
 
       if (!text || text === 'No explanation available for this question.') {
-        console.log(`[QQC] 💤 Explanation not ready for Q${i0 + 1} — skipping emit.`);
         return '';
       }
 
       if (text && setCache) params.formattedByIndex.set(i0, text);
       return text;
     } catch (err) {
-      console.warn('[resolveFormatted] failed', i0, err);
       return '';
     }
   }
@@ -494,7 +492,6 @@ export class QqcTimerEffectService {
 
     // Wait if the explanation gate is still locked
     if (ets._fetLocked) {
-      console.log(`[onTimerExpiredFor] Waiting for FET unlock before processing Q${params.currentQuestionIndex + 1}`);
       await new Promise(res => setTimeout(res, 60));
     }
 
@@ -507,19 +504,16 @@ export class QqcTimerEffectService {
     let formattedNow = '';
     if (cachedFet && cachedFet.toLowerCase().includes('correct because')) {
       formattedNow = cachedFet.trim();
-      console.log(`[onTimerExpiredFor] Using cached FET for Q${i0 + 1}: "${formattedNow.slice(0, 40)}..."`);
     } else {
       formattedNow = (await params.updateExplanationText(i0))?.toString().trim() ?? '';
     }
 
     // Guard: skip empty or placeholder text, wait one frame before giving up
     if (!formattedNow || formattedNow === 'No explanation available for this question.') {
-      console.log(`[QQC] 💤 Explanation not ready for Q${i0 + 1} — deferring emit by one frame.`);
       await new Promise(requestAnimationFrame);
 
       const retry = (await params.updateExplanationText(i0))?.toString().trim() ?? '';
       if (!retry || retry === 'No explanation available for this question.') {
-        console.log(`[QQC] ⚠️ Still no explanation for Q${i0 + 1} — skipping emit.`);
         return { formattedText: '', needsAsyncRepair: false };
       }
 
@@ -529,7 +523,6 @@ export class QqcTimerEffectService {
 
     // Use valid formatted FET
     if (formattedNow && formattedNow !== 'No explanation available for this question.') {
-      console.log(`[onTimerExpiredFor] ✅ Using FET on expiry for Q${i0 + 1}: "${formattedNow.slice(0, 40)}..."`);
       ets.emitFormatted(i0, formattedNow, { bypassGuard: true });
       return { formattedText: formattedNow, needsAsyncRepair: false };
     }
@@ -539,8 +532,6 @@ export class QqcTimerEffectService {
       ((params.questions[i0]?.explanation ?? '') as string).toString().trim() ||
       ((ets.formattedExplanations[i0]?.explanation ?? '') as string).toString().trim() ||
       'Explanation not available.';
-
-    console.warn(`[onTimerExpiredFor] 📄 No FET available on expiry for Q${i0 + 1}. Fallback to raw: "${rawBest.slice(0, 30)}..."`);
     ets.setExplanationText(rawBest);
 
     // Needs async repair if no proper FET was found
@@ -585,8 +576,6 @@ export class QqcTimerEffectService {
         params.normalizeIndex?.(params.fixedQuestionIndex ?? params.currentQuestionIndex ?? 0) ??
         (params.currentQuestionIndex ?? 0);
       if (active !== i0) return null;
-
-      console.log(`[onTimerExpiredFor] 🔄 Async resolve produced FET: "${out.slice(0, 30)}..."`);
       this.explanationTextService.setExplanationText(out);
       return out;
     } catch {
@@ -628,7 +617,6 @@ export class QqcTimerEffectService {
       });
 
       if (!stopped) {
-        console.log('❌ Timer not stopped: Conditions not met.');
       }
 
       return { optionsToDisplay: updatedOptions, stopped: !!stopped };
@@ -710,7 +698,6 @@ export class QqcTimerEffectService {
 
       return { formattedText, needsAsyncRepair };
     } catch (err) {
-      console.warn('[performTimerExpiredForAsync] failed; using raw', err);
       return { formattedText: null, needsAsyncRepair: false };
     }
   }

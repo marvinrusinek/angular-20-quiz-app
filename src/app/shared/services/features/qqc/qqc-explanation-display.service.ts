@@ -64,9 +64,7 @@ export class QqcExplanationDisplayService {
         const svcQuestions = (quizSvc as any).shuffledQuestions || quizSvc.questions || [];
         q = svcQuestions[i0];
       }
-    } catch (err) {
-      console.warn(`[QQC] Error resolving question for Q${i0 + 1}`, err);
-    }
+    } catch (err) {    }
 
     if (!q) {
       console.error(`[QQC] FAILED to resolve question object for Q${i0 + 1}. FET generation aborted.`);
@@ -127,9 +125,7 @@ export class QqcExplanationDisplayService {
           formatted = baseRaw;
         }
       }
-    } catch (e) {
-      console.warn('[updateExplanationText] formatter threw; using raw', e);
-      formatted = baseRaw;
+    } catch (e) {      formatted = baseRaw;
     }
 
     const clean = (formatted ?? '').trim();
@@ -220,9 +216,7 @@ export class QqcExplanationDisplayService {
     questionIndex: number,
     currentIndex: number
   ): boolean {
-    if (currentIndex !== questionIndex) {
-      console.warn(`[Explanation index mismatch]`, { currentIndex, questionIndex });
-      return false;
+    if (currentIndex !== questionIndex) {      return false;
     }
 
     this.explanationTextService.setExplanationText(explanationText);
@@ -274,9 +268,7 @@ export class QqcExplanationDisplayService {
     explanationToDisplay: string;
     shouldEmit: boolean;
   } | null> {
-    if (!params.questionsArray || params.questionsArray.length === 0) {
-      console.warn('Questions not loaded yet. Skipping explanation update.');
-      return null;
+    if (!params.questionsArray || params.questionsArray.length === 0) {      return null;
     }
 
     const adjustedIndex = Math.max(
@@ -417,9 +409,7 @@ export class QqcExplanationDisplayService {
 
     const qIndex = fixedQuestionIndex ?? currentQuestionIndex ?? 0;
     const locked = this.explanationTextService.isExplanationLocked?.();
-    if (!force && locked) {
-      console.log('[resetExplanation] Blocked — lock is active.', { qIndex });
-      return true; // blocked
+    if (!force && locked) {      return true; // blocked
     }
 
     this.explanationTextService.setShouldDisplayExplanation(false);
@@ -559,9 +549,7 @@ export class QqcExplanationDisplayService {
   }> {
     const { questionsArray, questionIndex, quizId, shouldDisplayExplanation, getExplanationText } = params;
 
-    if (!questionsArray || questionsArray.length === 0) {
-      console.warn('[handleQuestionData] Questions array is not initialized or empty.');
-      return { explanationText: '', shouldShowExplanation: false };
+    if (!questionsArray || questionsArray.length === 0) {      return { explanationText: '', shouldShowExplanation: false };
     }
 
     if (questionIndex < 0 || questionIndex >= questionsArray.length) {
@@ -685,11 +673,7 @@ export class QqcExplanationDisplayService {
             )
           );
           explanationText = fetched?.trim() || explanationText;
-        } else {
-          console.warn(
-            `[updateExplanationDisplay] Explanations not initialized for Q${currentQuestionIndex}`
-          );
-        }
+        } else {        }
 
         this.explanationTextService.setExplanationText(explanationText);
 
@@ -720,9 +704,7 @@ export class QqcExplanationDisplayService {
           shouldEmitExplanation: true,
           shouldResetQuestionState: true,
         };
-      } else {
-        console.warn('[updateExplanationDisplay] Blocked reset — explanation is locked');
-        return {
+      } else {        return {
           explanationToDisplay: '',
           displayExplanation: false,
           shouldEmitExplanation: true,
@@ -806,16 +788,12 @@ export class QqcExplanationDisplayService {
       // ────────────────────────────────────────────────
       // Final check — only emit real explanation text
       // ────────────────────────────────────────────────
-      if (!text || text === 'No explanation available for this question.') {
-        console.log(`[QQC] 💤 Explanation not ready for Q${i0 + 1} — skipping emit.`);
-        return '';
+      if (!text || text === 'No explanation available for this question.') {        return '';
       }
 
       if (text && setCache) context.formattedByIndex.set(i0, text);
       return text;
-    } catch (err) {
-      console.warn('[resolveFormatted] failed', i0, err);
-      return '';
+    } catch (err) {      return '';
     }
   }
 

@@ -201,7 +201,6 @@ export class QuizOptionProcessingService {
             const pristineCorrectCount = (pq?.options ?? [])
               .filter((o: any) => o?.correct === true || String(o?.correct) === 'true').length;
             if (pristineCorrectCount > correctCountForQuestion) {
-              console.log(`[evaluateImmediateCorrectness] Pristine override: correctCount ${correctCountForQuestion} → ${pristineCorrectCount} for Q${idx + 1}`);
               correctCountForQuestion = pristineCorrectCount;
             }
             break;
@@ -551,7 +550,6 @@ export class QuizOptionProcessingService {
             const selTexts = new Set(selections.map((s: any) => nrm(s?.text)).filter((t: string) => !!t));
             const allPristineSelected = pristineCorrectTexts.every(t => selTexts.has(t));
             if (!allPristineSelected) {
-              console.log(`[handleAuthoritativeCheck] Q${idx + 1} BLOCKED: pristine has ${pristineCorrectTexts.length} correct but only ${selTexts.size} selected`);
               pristineBlocked = true;
             }
           }
@@ -593,7 +591,6 @@ export class QuizOptionProcessingService {
         sessionStorage.setItem(`displayMode_${idx}`, 'explanation');
       }
     } catch (e) {
-      console.warn('[onOptionSelected] Storage failed', e);
     }
 
     // Ensure sessionStorage has a dot_confirmed_ entry

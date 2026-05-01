@@ -60,18 +60,14 @@ export class ExplanationFormatterService {
     this.formattedExplanations = {};  // clear existing data
     this.formattedExplanationByQuestionText.clear();
 
-    if (!Array.isArray(explanations) || explanations.length === 0) {
-      console.warn('No explanations provided for initialization.');
-      return;
+    if (!Array.isArray(explanations) || explanations.length === 0) {      return;
     }
 
     for (const entry of explanations) {
       const idx = Number(entry.questionIndex);
       const text = entry.explanation ?? '';
 
-      if (!Number.isFinite(idx) || idx < 0) {
-        console.warn(`Invalid questionIndex:`, entry.questionIndex);
-        continue;
+      if (!Number.isFinite(idx) || idx < 0) {        continue;
       }
 
       const trimmed = String(text).trim();
@@ -91,11 +87,7 @@ export class ExplanationFormatterService {
     questionIndex: number
   ): Observable<{ questionIndex: number; explanation: string }> {
     // Early exit for invalid or stale questions
-    if (!this.isQuestionValid(question)) {
-      console.warn(
-        `[⏩ Skipping invalid or stale question at index ${questionIndex}]`
-      );
-      return of({ questionIndex, explanation: '' });
+    if (!this.isQuestionValid(question)) {      return of({ questionIndex, explanation: '' });
     }
 
     // Explanation fallback if missing or blank
@@ -307,9 +299,7 @@ export class ExplanationFormatterService {
       finalVisualIndices.length > 0 &&
       (finalPrefixIndices.length !== finalVisualIndices.length ||
         !finalPrefixIndices.every((num, idx) => num === finalVisualIndices[idx]))
-    ) {
-      console.warn(`[ETS] 🔧 GUARDRAIL: Q${index + 1} FET prefix [${finalPrefixIndices}] != visual [${finalVisualIndices}]. Correcting...`);
-      let rawExplanation = formattedExplanation.replace(alreadyFormattedRe, '').trim();
+    ) {      let rawExplanation = formattedExplanation.replace(alreadyFormattedRe, '').trim();
       if (!rawExplanation) rawExplanation = trimmedExplanation;
       const questionForFormatting =
         Array.isArray(options) && options.length > 0
@@ -330,12 +320,8 @@ export class ExplanationFormatterService {
       const existing = this.fetByIndex.get(index)
         ?? this.formattedExplanations[index]?.explanation
         ?? '';
-      if (existing.trim() === formattedExplanation.trim()) {
-        console.log(`[ETS] 🔒 FET for Q${index + 1} is LOCKED - skipping duplicate regeneration`);
-        return;
-      }
-      console.warn(`[ETS] 🔓 Replacing locked FET for Q${index + 1} because option numbering changed`);
-    }
+      if (existing.trim() === formattedExplanation.trim()) {        return;
+      }    }
 
     this.formattedExplanations[index] = {
       questionIndex: index,
@@ -351,8 +337,6 @@ export class ExplanationFormatterService {
 
     // LOCK this index to prevent future overwrites with wrong options
     this.lockedFetIndices.add(index);
-    console.log(`[ETS] 🔒 Locked FET for Q${index + 1}: "${formattedExplanation.slice(0, 50)}..."`);
-
     this.storeFormattedExplanationForQuestion(
       question,
       index,
@@ -435,9 +419,7 @@ export class ExplanationFormatterService {
         if (quizSvc) {
           const svcIdx = quizSvc.getCurrentQuestionIndex();
           if (typeof svcIdx === 'number' && svcIdx >= 0) {
-            qIdx = svcIdx;
-            console.log(`[ETS] qIdx resolved from QuizService: ${qIdx}`);
-          }
+            qIdx = svcIdx;          }
         }
       } catch (e) {
         // ignore
@@ -477,14 +459,9 @@ export class ExplanationFormatterService {
            const t = (opts[idx - 1]?.text || '').toLowerCase();
            return t.length > 2 && lowerExpContent.includes(t);
         });
-        if (matchingExp.length === 1) {
-           console.log(`[ETS] 🎯 Internal Flag Ambiguity Resolved to Option ${matchingExp[0]} via explanation content.`);
-           result = matchingExp;
+        if (matchingExp.length === 1) {           result = matchingExp;
         }
-      }
-
-      console.log(`[ETS.getCorrectOptionIndices] ✅ Attempt 0 SUCCESS for Q${qIdx + 1}. Result: ${JSON.stringify(result)}`);
-      return result;
+      }      return result;
     }
 
     // TRUTH LAYER 0: EXPLANATION KEYWORD SCAN (fallback only when correct flags are absent)
@@ -492,9 +469,7 @@ export class ExplanationFormatterService {
       // HARD-LOCK for Constructor Question (Q5)
       if (lowerExpContent.includes('constructor') && lowerExpContent.includes('instantiation')) {
         const found = opts.findIndex(o => (o.text || '').toLowerCase().includes('constructor'));
-        if (found !== -1) {
-          console.log(`[ETS] 🎯 Q5 TRUTH LOCK SUCCESS: Found "constructor" in explanation and option ${found + 1}`);
-          return [found + 1];
+        if (found !== -1) {          return [found + 1];
         }
       }
 
@@ -506,9 +481,7 @@ export class ExplanationFormatterService {
         })
         .filter((n): n is number => n !== null);
 
-      if (uniqueMention.length === 1) {
-        console.log(`[ETS] 🛡️ TRUTH LAYER 0 SUCCESS! Explanation uniquely mentions Option ${uniqueMention[0]}. Using it.`);
-        return uniqueMention;
+      if (uniqueMention.length === 1) {        return uniqueMention;
       }
     }
 
@@ -525,9 +498,7 @@ export class ExplanationFormatterService {
       .filter((n): n is number => n !== null);
 
     if (visualCorrectIndices.length > 0) {
-      const result = Array.from(new Set(visualCorrectIndices)).sort((a, b) => a - b);
-      console.log(`[ETS.getCorrectOptionIndices] --- Q${(qIdx ?? 0) + 1} --- ✅ Using Visual Options (correct=true). Result: ${JSON.stringify(result)}`);
-      return result;
+      const result = Array.from(new Set(visualCorrectIndices)).sort((a, b) => a - b);      return result;
     }
 
     // ATTEMPT 1: Get PRISTINE correct texts/IDs from QuizService
@@ -540,9 +511,7 @@ export class ExplanationFormatterService {
       const quizSvc = this.injector.get(QuizService, null);
       const shuffleSvc = this.injector.get(QuizShuffleService, null);
 
-      const resolvedQuizId = quizSvc?.quizId || this.activatedRoute.snapshot.paramMap.get('quizId') || 'dependency-injection';
-      console.log(`[ETS] 🎯 Resolved QuizId: "${resolvedQuizId}" for Q${qIdx + 1}`);
-      if (quizSvc && shuffleSvc && typeof qIdx === 'number' && resolvedQuizId) {
+      const resolvedQuizId = quizSvc?.quizId || this.activatedRoute.snapshot.paramMap.get('quizId') || 'dependency-injection';      if (quizSvc && shuffleSvc && typeof qIdx === 'number' && resolvedQuizId) {
         let origIdx = shuffleSvc.toOriginalIndex(resolvedQuizId, qIdx);
         pristine = (origIdx !== null) ? quizSvc.getPristineQuestion(origIdx) : null;
 
@@ -553,9 +522,7 @@ export class ExplanationFormatterService {
           const foundIdx = canonical.findIndex(q => normalizeLocal(q.questionText) === normalizeLocal(targetQuestionText));
           if (foundIdx !== -1) {
             origIdx = foundIdx;
-            pristine = canonical[foundIdx];
-            console.log(`[ETS] ✅ Text-Match Recovery for Q${qIdx + 1} at OrigIdx ${origIdx}`);
-          }
+            pristine = canonical[foundIdx];          }
         }
 
         if (pristine) {
@@ -568,20 +535,14 @@ export class ExplanationFormatterService {
           // CRITICAL: Strict equality check. Loose .includes() was mixing Q5 and Q6 results.
           const isExactMatch = pristineText === currentText;
 
-          if (!isExactMatch) {
-            console.warn(`[ETS] ⚠️ Question mismatch. PRISTINE="${pristineText.slice(0, 40)}" vs CURRENT="${currentText.slice(0, 40)}"`);
-            pristine = null;
-          } else {
-            console.log(`[ETS] 🔍 Question verified. Original Index ${origIdx} identified.`);
-            // Check both answer (if populated) and options (standard raw data)
+          if (!isExactMatch) {            pristine = null;
+          } else {            // Check both answer (if populated) and options (standard raw data)
             const correctPristine = [
               ...(Array.isArray(pristine.answer) ? (pristine.answer as any[]) : []),
               ...(Array.isArray(pristine.options) ? (pristine.options as any[]).filter((o: any) => o.correct) : [])
             ];
 
-            if (correctPristine.length > 0) {
-              console.log(`[ETS] 🎯 Correct Answer(s) for Q${qIdx + 1}:`, correctPristine.map(a => a?.text));
-              for (const a of correctPristine) {
+            if (correctPristine.length > 0) {              for (const a of correctPristine) {
                 if (a) {
                   const norm = normalizeLocal(a.text);
                   if (norm) correctTexts.add(norm);
@@ -590,17 +551,11 @@ export class ExplanationFormatterService {
                     correctIds.add(Number(a.optionId));
                   }
                 }
-              }
-              console.log(`[ETS] ✅ Attempt 1 (PRISTINE) SUCCESS for Q${qIdx + 1}. Correct Texts:`, [...correctTexts]);
-            } else {
-              console.warn(`[ETS] Attempt 1: Pristine question ${origIdx} has NO correct answers!`);
-            }
+              }            } else {            }
           }
         }
       }
-    } catch (e) {
-      console.warn('[ETS] ❌ Attempt 1 failed:', e);
-    }
+    } catch (e) {    }
 
     // ATTEMPT 2: Use provided question.answer
     if (correctTexts.size === 0 && correctIds.size === 0) {
@@ -615,31 +570,21 @@ export class ExplanationFormatterService {
               correctIds.add(Number(a.optionId));
             }
           }
-        }
-        console.log(`[ETS] ✅ Attempt 2 (question.answer) SUCCESS. IDs:`, [...correctIds], `Texts:`, [...correctTexts]);
-      }
+        }      }
     }
 
-    if (correctTexts.size > 0 || correctIds.size > 0) {
-      console.log(`[ETS] Matching against ${opts.length} options...`);
-      const indices = opts
+    if (correctTexts.size > 0 || correctIds.size > 0) {      const indices = opts
         .map((option, idx) => {
           if (!option) return null;
           const normalizedInput = normalizeLocal(option.text);
-          console.log(`[ETS]   Q${qIdx + 1} Opt ${idx + 1} Text: "${option.text?.slice(0, 30)}..." (Norm: "${normalizedInput?.slice(0, 30)}...")`);
-
           // PRIORITY 1: Match by TEXT (stable across ID reassignments)
-          if (correctTexts.size > 0 && normalizedInput && correctTexts.has(normalizedInput)) {
-            console.log(`[ETS]   ✅ Match Found (TEXT): "${option.text?.slice(0, 30)}" Exactly Matches Correct Text. -> Option ${idx + 1}`);
-            return idx + 1;
+          if (correctTexts.size > 0 && normalizedInput && correctTexts.has(normalizedInput)) {            return idx + 1;
           }
 
           // PRIORITY 2: Match by ID (only if text matching didn't find anything)
           if (correctTexts.size === 0) {
             const oid = option.optionId !== undefined ? Number(option.optionId) : null;
-            if (oid !== null && correctIds.has(oid)) {
-              console.log(`[ETS]   ✅ Match Found (ID): ID=${oid} -> Option ${idx + 1}`);
-              return idx + 1;
+            if (oid !== null && correctIds.has(oid)) {              return idx + 1;
             }
           }
 
@@ -651,17 +596,13 @@ export class ExplanationFormatterService {
         let result = Array.from(new Set(indices)).sort((a, b) => a - b);
 
         if (isSingleChoice && result.length > 1) {
-          console.warn(`[ETS] 🚨 Data Conflict! Q${qIdx + 1} produced multiple indices: ${JSON.stringify(result)}. Refining...`);
-
           // Priority 1: Pick the one that appears in the explanation
           const matchingExplanation = result.filter(idx => {
              const text = (opts[idx - 1]?.text ?? '').toLowerCase();
              return text.length > 2 && lowerExpContent.includes(text);
           });
 
-          if (matchingExplanation.length === 1) {
-            console.log(`[ETS] ✅ Refined by explanation text match: [${matchingExplanation[0]}]`);
-            result = matchingExplanation;
+          if (matchingExplanation.length === 1) {            result = matchingExplanation;
           } else {
             // Priority 2: Filter by visual 'correct' flags
             const verified = result.filter(idx => {
@@ -669,21 +610,14 @@ export class ExplanationFormatterService {
               return opt?.correct === true || String(opt?.correct) === 'true';
             });
 
-            if (verified.length === 1) {
-              console.log(`[ETS] ✅ Refined to visual correct: [${verified[0]}]`);
-              result = verified;
+            if (verified.length === 1) {              result = verified;
             } else if (result.includes(2) && qTextNormFull.includes('injection occur')) {
-              // Specific Q5 Hotfix: Option 2 (constructor) is the truth
-              console.log(`[ETS] ⚡ Q5 specific override applied: Option 2`);
-              result = [2];
+              // Specific Q5 Hotfix: Option 2 (constructor) is the truth              result = [2];
             } else {
               result = [result[0]];
             }
           }
-        }
-
-        console.log(`[ETS.getCorrectOptionIndices] --- COMPLETE (Robust Match) --- Result: ${JSON.stringify(result)}`);
-        return result;
+        }        return result;
       }
 
     }
@@ -693,13 +627,8 @@ export class ExplanationFormatterService {
       .map((o, idx) => (o.correct === true || String(o.correct) === 'true' ? idx + 1 : null))
       .filter((n): n is number => n !== null);
 
-    if (quickVisual.length > 0) {
-      console.log(`[ETS.getCorrectOptionIndices] ATTEMPT 4 (Quick Visual) SUCCESS: ${JSON.stringify(quickVisual)}`);
-      return Array.from(new Set(quickVisual)).sort((a, b) => a - b);
-    }
-
-    console.warn(`[ETS.getCorrectOptionIndices] ⚠️ FAILED ALL ATTEMPTS for Q${qIdx + 1}`);
-    return [];
+    if (quickVisual.length > 0) {      return Array.from(new Set(quickVisual)).sort((a, b) => a - b);
+    }    return [];
   }
 
   formatExplanation(
@@ -718,9 +647,7 @@ export class ExplanationFormatterService {
     if (alreadyFormattedRe.test(e)) {
       const parts = e.split(/ because /i);
       if (parts.length > 1) {
-        e = parts.slice(1).join(' because ').trim();
-        console.log(`[ETS] 🔄 Stripped existing prefix to re-format with new indices. Raw: "${e.slice(0, 30)}..."`);
-      }
+        e = parts.slice(1).join(' because ').trim();      }
     }
 
     // Normalize incoming indices
@@ -734,11 +661,7 @@ export class ExplanationFormatterService {
     indices = Array.from(new Set(indices)).sort((a, b) => a - b);
 
     // DIAGNOSTIC: Log stack trace for Q1 to identify which caller produces wrong indices
-    console.log(`[formatExplanation] Q${(displayIndex ?? 0) + 1} | FINAL INDICES: ${JSON.stringify(indices)}`);
-
-    if (indices.length === 0) {
-      console.warn(`[formatExplanation] ⚠️ No indices! Fallback to raw.`);
-      return e;
+    if (indices.length === 0) {      return e;
     }
 
     // Multi-answer
@@ -759,9 +682,7 @@ export class ExplanationFormatterService {
           ? `${indices.slice(0, -1).join(', ')} and ${indices.slice(-1)}`
           : indices.join(' and ');
 
-      const result = `Options ${optionsText} are correct because ${e}`;
-      console.log(`🔴🔴🔴 [formatExplanation] Q${(displayIndex ?? 0) + 1} RESULT (MULTI): "${result.slice(0, 80)}..."`);
-      return result;
+      const result = `Options ${optionsText} are correct because ${e}`;      return result;
     }
 
     // Single-answer (or fallback for multi-indices on a single-answer question)
@@ -780,15 +701,11 @@ export class ExplanationFormatterService {
           return text.length > 2 && expLower.includes(text);
         });
         if (verified.length === 1) {
-          targetIndex = verified[0];
-          console.log(`[ETS] 🎯 Single-answer ambiguity resolved to Option ${targetIndex} via explanation content.`);
-        }
+          targetIndex = verified[0];        }
       }
 
       question.type = QuestionType.SingleAnswer;
-      const result = `Option ${targetIndex} is correct because ${e}`;
-      console.log(`🔴🔴🔴 [formatExplanation] Q${(displayIndex ?? 0) + 1} RESULT (SINGLE): "${result.slice(0, 80)}..."`);
-      return result;
+      const result = `Option ${targetIndex} is correct because ${e}`;      return result;
     }
 
     // Zero derived indices -> just return the explanation (no scolding)
@@ -917,9 +834,7 @@ export class ExplanationFormatterService {
                 const sortedVisual = [...visualIndices].sort((a, b) => a - b);
                 const matches = sortedPrefix.length === sortedVisual.length &&
                   sortedPrefix.every((n, i) => n === sortedVisual[i]);
-                if (!matches) {
-                  console.warn(`[emitFormatted] 🔧 GUARDRAIL: Q${index + 1} prefix [${sortedPrefix}] != visual [${sortedVisual}]. Correcting...`);
-                  let raw = trimmed.replace(alreadyFormattedRe, '').trim();
+                if (!matches) {                  let raw = trimmed.replace(alreadyFormattedRe, '').trim();
                   if (!raw) raw = trimmed;
                   return this.formatExplanation(
                     qData, sortedVisual, raw, index

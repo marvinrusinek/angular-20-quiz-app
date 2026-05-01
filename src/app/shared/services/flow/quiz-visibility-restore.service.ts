@@ -42,14 +42,11 @@ export class QuizVisibilityRestoreService {
       const currentDisplayState = this.quizStateService.displayStateSig();
       if (currentDisplayState) {
         this._savedDisplayState = { ...currentDisplayState };
-        console.log('[VISIBILITY] Saved display state on hide:', this._savedDisplayState);
       }
       return false;
     }
 
     if (!this._savedDisplayState) return false;
-
-    console.log('[VISIBILITY] Restoring saved display state:', this._savedDisplayState);
 
     this.quizStateService.lockDisplayStateForVisibilityRestore(500);
     this.quizStateService.setDisplayState(this._savedDisplayState, { force: true });
@@ -59,7 +56,6 @@ export class QuizVisibilityRestoreService {
     this.explanationTextService.setIsExplanationTextDisplayed(showingExplanation);
 
     if (params.currentQuestion) {
-      console.log('[VISIBILITY] Re-emitting question data to force re-render');
       const currentPayload = params.combinedQuestionDataSubject.getValue();
       const payloadToEmit: QuestionPayload = currentPayload || {
         question: params.currentQuestion,

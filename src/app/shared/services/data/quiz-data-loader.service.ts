@@ -108,7 +108,6 @@ export class QuizDataLoaderService {
         : undefined;
 
       if (!selectedQuiz && quizId) {
-        console.warn(`No quiz found with ID: ${quizId}. Falling back to the first quiz.`);
       }
 
       selectedQuiz = selectedQuiz ?? this.quizData[0];
@@ -142,7 +141,6 @@ export class QuizDataLoaderService {
   loadResourcesForQuiz(quizId: string): void {
     const quizResource = this.quizResources.find(r => r.quizId === quizId);
     this.resources = quizResource?.resources ?? [];
-    console.log(`[QuizService] Loaded ${this.resources.length} resources for quiz: ${quizId}`);
   }
 
   setCurrentQuizSubject(quiz: Quiz | null): void {
@@ -159,7 +157,6 @@ export class QuizDataLoaderService {
       : null;
 
     if (!quiz) {
-      console.warn(`No quiz found for quizId: ${quizId}`);
     }
 
     return of(quiz ?? null);
@@ -212,7 +209,6 @@ export class QuizDataLoaderService {
     questionsSubject: BehaviorSubject<QuizQuestion[]>,
     setInternalQuestions: (qs: QuizQuestion[]) => void
   ): Promise<QuizQuestion[]> {
-    console.log(`[QuizService] fetchQuizQuestions(${quizId}). hasShuffle=${this.shuffledQuestions?.length}, questionsQuizId=${this.questionsQuizId}, shouldShuffle=${this.shouldShuffle()}`);
 
     // Restore persisted shuffled order
     if (this.shouldShuffle() && (!this.shuffledQuestions || this.shuffledQuestions.length === 0)) {
@@ -224,7 +220,6 @@ export class QuizDataLoaderService {
           if (Array.isArray(parsed) && parsed.length > 0) {
             this.shuffledQuestions = parsed;
             this.questionsQuizId = quizId;
-            console.log(`[QuizService] Restored persisted shuffledQuestions for quiz ${quizId} (${parsed.length} questions).`);
           }
         }
       } catch { }
@@ -239,7 +234,6 @@ export class QuizDataLoaderService {
       );
 
       if (hasBadData) {
-        console.warn('[QuizService] Cache Eviction: Detected stale shuffledQuestions. Purging cache.');
         this.shuffledQuestions = [];
         setInternalQuestions([]);
         this.questionsQuizId = null;
@@ -252,13 +246,10 @@ export class QuizDataLoaderService {
 
         if (isSameQuiz) {
           if (Array.isArray(this.shuffledQuestions) && this.shuffledQuestions.length > 0) {
-            console.log(`[fetchQuizQuestions] Returning EXISTING shuffledQuestions (${this.shuffledQuestions.length} questions) for quiz ${quizId}`);
             questionsSubject.next(this.shuffledQuestions);
             return this.shuffledQuestions;
           }
-          console.warn('[fetchQuizQuestions] Cache hit but questions array is empty. Proceeding to fetch.');
         } else {
-          console.log(`[fetchQuizQuestions] Quiz mismatch - clearing old shuffle.`);
           this.shuffledQuestions = [];
           setInternalQuestions([]);
           this.questionsQuizId = null;
@@ -271,7 +262,6 @@ export class QuizDataLoaderService {
     }
 
     if (this.fetchPromise) {
-      console.log('[QuizService] Reuse in-flight fetch promise.');
       return this.fetchPromise;
     }
 
@@ -301,12 +291,9 @@ export class QuizDataLoaderService {
         const lengthMatches = cachedLen > 0 && cachedLen === metadataLen;
 
         if (isSameQuiz && lengthMatches) {
-          console.log(`[QuizService] fetchQuizQuestions: Cache Hit & Length Match (${cachedLen}). Returning shuffle.`);
           questionsSubject.next(this.shuffledQuestions);
           return this.shuffledQuestions;
         }
-
-        console.log(`[QuizService] fetchQuizQuestions: ${isSameQuiz ? 'STALE (Length Mismatch)' : 'MISS'}.`);
 
         this.shuffledQuestions = [];
         setInternalQuestions([]);
@@ -333,7 +320,6 @@ export class QuizDataLoaderService {
         setInternalQuestions(JSON.parse(JSON.stringify(normalized)));
 
         if (this.shouldShuffle()) {
-          console.log('[QuizService] Generating fresh shuffle for', quizId);
           this.quizShuffleService.prepareShuffle(quizId, normalized);
           const shuffled = this.quizShuffleService.buildShuffledQuestions(quizId, normalized);
 
@@ -377,7 +363,6 @@ export class QuizDataLoaderService {
   }
 
   setCheckedShuffle(isChecked: boolean): void {
-    console.log(`[QuizService] setCheckedShuffle(${isChecked})`);
     this.shuffleEnabledSubject.next(isChecked);
     try {
       localStorage.setItem('checkedShuffle', String(isChecked));
@@ -395,7 +380,6 @@ export class QuizDataLoaderService {
     questionsSubject: BehaviorSubject<QuizQuestion[]>,
     fetchQuizQuestionsFn: (id: string) => Promise<QuizQuestion[]>
   ): Observable<QuizQuestion[]> {
-    console.log(`[QuizService] getShuffledQuestions called. stored=${this.shuffledQuestions?.length}`);
     if (this.shuffledQuestions && this.shuffledQuestions.length > 0) {
       return of(this.shuffledQuestions);
     }
@@ -407,7 +391,6 @@ export class QuizDataLoaderService {
     }
 
     if (!quizId) {
-      console.warn('[getShuffledQuestions] Quiz ID not set.');
       return of([]);
     }
 
@@ -434,7 +417,6 @@ export class QuizDataLoaderService {
     normalizeQuestionText: (text: string | null | undefined) => string
   ): void {
     if (!quizId) {
-      console.warn('[setCanonicalQuestions] quizId missing.');
       return;
     }
 

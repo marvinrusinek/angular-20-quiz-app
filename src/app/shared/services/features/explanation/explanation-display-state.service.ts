@@ -95,9 +95,7 @@ export class ExplanationDisplayStateService {
   get _activeIndex(): number | null {
     return this._activeIndexValue;
   }
-  set _activeIndex(value: number | null) {
-    console.log(`[ETS] 📍 _activeIndex SET: ${this._activeIndexValue} → ${value}`);
-    this._activeIndexValue = value;
+  set _activeIndex(value: number | null) {    this._activeIndexValue = value;
     if (value !== null) {
       this.activeIndexSig.set(value);
     }
@@ -112,8 +110,6 @@ export class ExplanationDisplayStateService {
     private formatter: ExplanationFormatterService
   ) {
     this._instanceId = `EDS-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-    console.log(`[${this._instanceId}] ExplanationDisplayStateService initialized`);
-
     // Always clear stale FET payloads when switching to a new question index.
     this.activeIndex$.pipe(
       distinctUntilChanged()
@@ -140,9 +136,7 @@ export class ExplanationDisplayStateService {
     const explanation = question.explanation?.trim();
 
     // Guard: don't push placeholder text early
-    if (!explanation || explanation === 'No explanation available') {
-      console.log('[ETS] ⏸ No valid explanation yet — skipping emit.');
-      return;
+    if (!explanation || explanation === 'No explanation available') {      return;
     }
 
     this.explanationTextSig.set(explanation);
@@ -213,9 +207,7 @@ export class ExplanationDisplayStateService {
             );
             const allCorrectSelected = correctTexts.length > 0
               && correctTexts.every((t: string) => selTexts.has(t));
-            if (!allCorrectSelected) {
-              console.log(`[ETS] ⛔ CENTRALIZED multi-answer guard BLOCKED setExplanationText for Q${activeIdx + 1}`);
-              return;
+            if (!allCorrectSelected) {              return;
             }
           }
         }
@@ -223,9 +215,7 @@ export class ExplanationDisplayStateService {
     }
 
     // Visibility lock: prevent overwrites during tab restore
-    if ((this as any)._visibilityLocked) {
-      console.log('[ETS] ⏸ Ignored setExplanationText while locked');
-      return;
+    if ((this as any)._visibilityLocked) {      return;
     }
 
     if (!options.force && this.explanationLocked) {
@@ -235,27 +225,16 @@ export class ExplanationDisplayStateService {
         contextKey === this.globalContextKey ||
         lockedContext === contextKey;
 
-      if (!contextsMatch) {
-        console.warn(
-          `[🛡️ Blocked explanation update for ${contextKey} while locked to ${lockedContext}]`
-        );
-        return;
+      if (!contextsMatch) {        return;
       }
 
-      if (trimmed === '') {
-        console.warn('[🛡️ Blocked reset: explanation is locked]');
-        return;
+      if (trimmed === '') {        return;
       }
     }
 
     if (!options.force) {
       const previous = this.explanationByContext.get(contextKey) ?? '';
-      if (previous === trimmed && signature === this.lastExplanationSignature) {
-        console.log(
-          `[🛡️ Prevented duplicate emit${contextKey !== this.globalContextKey ? ` for ${contextKey}` : ''
-          }]`
-        );
-        return;
+      if (previous === trimmed && signature === this.lastExplanationSignature) {        return;
       }
     }
 
@@ -271,9 +250,7 @@ export class ExplanationDisplayStateService {
 
     // Clear old explanation when we're NOT setting new text.
     // This prevents Q1's explanation from showing for Q2.
-    if (!finalExplanation && this.latestExplanation) {
-      console.log('[ETS] Clearing stale explanation');
-      this.latestExplanation = '';
+    if (!finalExplanation && this.latestExplanation) {      this.latestExplanation = '';
       this.latestExplanationIndex = targetIdx ?? this._activeIndex ?? 0;
     } else {
       this.latestExplanation = finalExplanation;
@@ -301,19 +278,13 @@ export class ExplanationDisplayStateService {
         const { text$ } = this.getOrCreate(qIdx);
         text$.next(trimmedFinal);
         this._byIndex.get(qIdx)?.next(trimmedFinal);
-      } catch (e) {
-        console.warn(`[ETS] Failed to update indexed streams for Q${qIdx + 1}`, e);
-      }
+      } catch (e) {      }
 
       // Broadcast the change to the collection
       this.formatter.explanationsUpdatedSig.set({ ...this.formatter.formattedExplanations });
     }
 
-    // Unified emission pipeline (Global)
-    console.log(
-      `[ETS] Emitting to global subjects: "${finalExplanation}" (Index: ${qIdx})`
-    );
-    this.explanationText$.next(finalExplanation);
+    // Unified emission pipeline (Global)    this.explanationText$.next(finalExplanation);
     this.formatter.formattedExplanationSubject.next(finalExplanation);
 
     // Ensure direct subject update for visibility-stable downstream
@@ -325,11 +296,7 @@ export class ExplanationDisplayStateService {
   }
 
   setExplanationTextForQuestionIndex(index: number, explanation: string): void {
-    if (index < 0) {
-      console.warn(
-        `Invalid index: ${index}, must be greater than or equal to 0`
-      );
-      return;
+    if (index < 0) {      return;
     }
 
     const trimmed = (explanation ?? '').trim();
@@ -352,10 +319,6 @@ export class ExplanationDisplayStateService {
     if (this._fetLocked) {
       const lockedEntry = this.formatter.formattedExplanations[questionIndex];
       const lockedExplanation = (lockedEntry?.explanation ?? '').trim();
-      console.log(
-        `[ETS] ⏸ FET locked for Q${questionIndex + 1}; serving index-scoped cached explanation when available`,
-      );
-
       if (lockedExplanation) {
         try {
           this.emitFormatted(questionIndex, lockedExplanation);
@@ -371,11 +334,7 @@ export class ExplanationDisplayStateService {
     }
 
     // Step 1: Fully purge cached FET state if switching question
-    if (this._activeIndex !== questionIndex) {
-      console.warn(
-        `[ETS] ⚠️ Index mismatch detected! Active=${this._activeIndex}, Requested=${questionIndex}. Purging state...`
-      );
-      try {
+    if (this._activeIndex !== questionIndex) {      try {
         if ((this.latestExplanation ?? '') !== '') {
           this.formatter.formattedExplanationSubject?.next('');
         }
@@ -393,17 +352,11 @@ export class ExplanationDisplayStateService {
           this.shouldDisplayExplanationSource.next(false);
         if (this.isExplanationTextDisplayedSource instanceof BehaviorSubject)
           this.isExplanationTextDisplayedSource.next(false);
-      } catch (err) {
-        console.warn('[ETS] ⚠️ Failed to clear stale FET state', err);
-      }
+      } catch (err) {      }
 
       this._activeIndex = questionIndex;
       this.latestExplanationIndex = questionIndex;
-    } else {
-      console.log(
-        `[ETS] ℹ️ Index match: Active=${this._activeIndex}, Requested=${questionIndex}`
-      );
-    }
+    } else {    }
 
     // Normalize index FIRST
     const idx = Number(questionIndex);
@@ -434,8 +387,6 @@ export class ExplanationDisplayStateService {
       console.error(
         `[❌ Q${questionIndex} not found in formattedExplanations`, entry
       );
-      console.log('🧾 All formattedExplanations:', this.formatter.formattedExplanations);
-
       try {
         this.emitFormatted(questionIndex, null);
       } catch { }
@@ -446,9 +397,7 @@ export class ExplanationDisplayStateService {
     }
 
     const explanation = (entry.explanation ?? '').trim();
-    if (!explanation) {
-      console.warn(`[⚠️ No valid explanation for Q${questionIndex}]`);
-      try {
+    if (!explanation) {      try {
         this.emitFormatted(questionIndex, null);
       } catch { }
       try {
@@ -456,14 +405,7 @@ export class ExplanationDisplayStateService {
       } catch { }
       return new Observable(sub => { sub.next(FALLBACK); sub.complete(); });
     }
-
-    console.log(
-      `[ETS] ✅ Valid explanation found for Q${questionIndex + 1}, opening gate`
-    );
-
-    if (this._activeIndex !== questionIndex) {
-      console.log(`[ETS]  Setting _activeIndex: ${this._activeIndex} → ${questionIndex} before emit`);
-      this._activeIndex = questionIndex;
+    if (this._activeIndex !== questionIndex) {      this._activeIndex = questionIndex;
     }
 
     // Drive only the index-scoped channel (no global .next here)
@@ -511,11 +453,7 @@ export class ExplanationDisplayStateService {
       } catch { }
       try {
         this.setGate(this._activeIndex, false);
-      } catch { }
-      console.log(
-        `[ETS] 🧹 Cleared stale FET for previous Q${this._activeIndex + 1}`
-      );
-    }
+      } catch { }    }
 
     // Now safely update active index to current question
     this._activeIndex = questionIndex;
@@ -524,11 +462,7 @@ export class ExplanationDisplayStateService {
       map((explanationText: string | null) => {
         const text = explanationText?.trim() || 'No explanation available';
 
-        if (this._activeIndex !== questionIndex) {
-          console.log(
-            `[ETS] 🚫 Ignoring stale FET emission (incoming=${questionIndex}, active=${this._activeIndex})`
-          );
-          return this.latestExplanation || 'No explanation available';
+        if (this._activeIndex !== questionIndex) {          return this.latestExplanation || 'No explanation available';
         }
 
         return text;
@@ -546,9 +480,7 @@ export class ExplanationDisplayStateService {
     options: { force?: boolean; context?: string } = {}
   ): void {
     // Visibility lock: prevent overwrites during visibility restore
-    if ((this as any)._visibilityLocked) {
-      console.log('[ETS] ⏸ Ignored setIsExplanationTextDisplayed while locked');
-      return;
+    if ((this as any)._visibilityLocked) {      return;
     }
 
     const contextKey = this.normalizeContext(options.context);
@@ -598,9 +530,7 @@ export class ExplanationDisplayStateService {
     options: { force?: boolean; context?: string } = {}
   ): void {
     // Visibility lock: prevent any reactive writes while restoring visibility
-    if ((this as any)._visibilityLocked) {
-      console.log('[ETS] ⏸ Ignored setShouldDisplayExplanation while locked');
-      return;
+    if ((this as any)._visibilityLocked) {      return;
     }
 
     // ── CENTRALIZED MULTI-ANSWER GUARD ──────────────────────────────
@@ -707,14 +637,7 @@ export class ExplanationDisplayStateService {
         force: true,
         context: 'evaluation'
       });
-    } else {
-      console.warn(
-        '[⏭️ triggerExplanationEvaluation] Skipped — Missing explanation or display flag'
-      );
-    }
-
-    console.log('[✅ Change Detection Applied after Explanation Evaluation]');
-  }
+    } else {    }  }
 
   setCurrentQuestionExplanation(explanation: string): void {
     this.currentQuestionExplanation = explanation;
@@ -842,9 +765,7 @@ export class ExplanationDisplayStateService {
             correctCount = question.options.filter(
               (o: any) => o.correct === true || String(o.correct) === 'true'
             ).length;
-          } else {
-            console.warn(`[emitFormatted] Guard metadata unavailable for Q${index + 1}`);
-          }
+          } else {          }
 
           // Determine authoritative correct count from RAW questions (unmutated).
           const rawQs: any[] = (quizSvc as any).questions ?? [];
@@ -874,45 +795,24 @@ export class ExplanationDisplayStateService {
             const perfectMap = (quizSvc as any)._multiAnswerPerfect as Map<number, boolean> | undefined;
             const oisPerfect = perfectMap?.get(index) === true;
 
-            if (!oisPerfect && !allCorrectSel) {
-              console.log(`[emitFormatted] ⛔ Q${index + 1} MULTI-ANSWER GATE BLOCKED: allCorrectSel=${allCorrectSel}, selTexts=[${[...selTexts]}]`);
-              this._fetLocked = false;
+            if (!oisPerfect && !allCorrectSel) {              this._fetLocked = false;
               return;
-            }
-
-            console.log(`[emitFormatted] ✅ Q${index + 1} MULTI-ANSWER GATE PASSED.`);
-          }
+            }          }
         }
-      } catch (e) {
-        console.warn('[emitFormatted] Multi-answer guard error:', e);
-      }
+      } catch (e) {      }
     }
 
     // Guards: Allow emission if we have valid content
-    if (this._gateToken !== token) {
-      console.log(
-        `[emitFormatted] Token mismatch: gate=${this._gateToken}, current=${token}`
-      );
-    }
+    if (this._gateToken !== token) {    }
 
-    if (index !== this._activeIndex) {
-      console.log(
-        `[emitFormatted] Index mismatch: active=${this._activeIndex}, requested=${index}`
-      );
-    }
+    if (index !== this._activeIndex) {    }
 
     const trimmed = (value ?? '').trim();
-    if (!trimmed) {
-      console.log(`[emitFormatted] No content to emit for Q${index + 1}`);
-      return;
+    if (!trimmed) {      return;
     }
 
     // Allow re-emission of same content if it's important (e.g., after navigation)
-    if (trimmed === (this.latestExplanation ?? '').trim()) {
-      console.log(
-        `[emitFormatted] Same content, but emitting anyway for Q${index + 1}`
-      );
-    }
+    if (trimmed === (this.latestExplanation ?? '').trim()) {    }
 
     this.latestExplanationIndex = index;
 
@@ -927,12 +827,7 @@ export class ExplanationDisplayStateService {
     // Also emit to formattedExplanationSubject for FINAL LAYER.
     this.formatter.formattedExplanationSubject.next(validatedText);
 
-    // Emit immediately without waiting for requestAnimationFrame.
-    console.log(
-      `[emitFormatted] ✅ Emitting FET for Q${index + 1}:`,
-      validatedText.slice(0, 80)
-    );
-    this.safeNext(this._fetSubject, { idx: index, text: validatedText, token });
+    // Emit immediately without waiting for requestAnimationFrame.    this.safeNext(this._fetSubject, { idx: index, text: validatedText, token });
     this.safeNext(this.shouldDisplayExplanationSource, true);
     this.safeNext(this.isExplanationTextDisplayedSource, true);
 
@@ -966,11 +861,7 @@ export class ExplanationDisplayStateService {
       this._fetLocked ||
       index !== this._activeIndex ||
       token !== this._gateToken
-    ) {
-      console.log(
-        `[ETS] ⏸ openExclusive rejected (idx=${index}, active=${this._activeIndex}, token=${token}/${this._gateToken})`
-      );
-      return;
+    ) {      return;
     }
 
     const trimmed = (text ?? '').trim();
@@ -984,9 +875,7 @@ export class ExplanationDisplayStateService {
         this._fetLocked ||
         index !== this._activeIndex ||
         token !== this._currentGateToken
-      ) {
-        console.log(`[ETS] 🚫 late openExclusive dropped for Q${index + 1}`);
-        return;
+      ) {        return;
       }
       this.safeNext(this.formatter.formattedExplanationSubject, trimmed);
       this.safeNext(this.shouldDisplayExplanationSource, true);
@@ -1055,12 +944,7 @@ export class ExplanationDisplayStateService {
       this.latestExplanationIndex = null;
       this.formatter.formattedExplanationSubject?.next('');
       this.setShouldDisplayExplanation(false, { force: true });
-      this.setIsExplanationTextDisplayed(false, { force: true });
-
-      console.log(
-        `[ETS] Cleared global state for question switch: ${this._activeIndex} -> ${index}`
-      );
-    }
+      this.setIsExplanationTextDisplayed(false, { force: true });    }
 
     // Ensure and hard-emit for new index
     const { text$, gate$ } = this.getOrCreate(index);
@@ -1082,8 +966,6 @@ export class ExplanationDisplayStateService {
         explanation: ''
       };
     }
-    console.log(`[ETS] resetForIndex(${index}) -> cachedFet=${cachedFet ? 'YES' : 'NO'}`);
-
     try {
       this.qss.setExplanationReady(false);
     } catch { }
@@ -1091,9 +973,7 @@ export class ExplanationDisplayStateService {
 
   // Set readiness flag
   public setReadyForExplanation(ready: boolean): void {
-    this._readyForExplanationSig.set(ready);
-    console.log(`[ETS] ⚙️ setReadyForExplanation = ${ready}`);
-  }
+    this._readyForExplanationSig.set(ready);  }
 
   public async waitUntilQuestionRendered(timeoutMs = 500): Promise<void> {
     try {
@@ -1121,12 +1001,7 @@ export class ExplanationDisplayStateService {
     try {
       this.setShouldDisplayExplanation(false, { force: true });
       this.setIsExplanationTextDisplayed(false);
-    } catch (err) {
-      console.warn('[ETS] Failed to close gates cleanly', err);
-    }
-
-    console.log('[ETS] All explanation gates closed');
-  }
+    } catch (err) {    }  }
 
   public markLastNavTime(time: number): void {
     this._lastNavTime = time;
@@ -1135,15 +1010,9 @@ export class ExplanationDisplayStateService {
   public setQuietZone(durationMs: number): void {
     const until = performance.now() + Math.max(0, durationMs);
     this._quietZoneUntil = until;
-    this.quietZoneUntilSig.set(until);
-    console.log(
-      `[ETS] ⏸ Quiet zone set for ${durationMs}ms (until=${until.toFixed(1)})`
-    );
-  }
+    this.quietZoneUntilSig.set(until);  }
 
   public purgeAndDefer(newIndex: number): void {
-    console.log(`[EDS ${this._instanceId}] 🔄 purgeAndDefer(${newIndex})`);
-
     // Bump generation and lock everything immediately
     this._gateToken++;
     this._currentGateToken = this._gateToken;
@@ -1192,18 +1061,10 @@ export class ExplanationDisplayStateService {
     const localToken = this._currentGateToken;
     this._unlockRAFId = requestAnimationFrame(() => {
       setTimeout(() => {
-        if (this._currentGateToken !== localToken) {
-          console.log(
-            `[EDS ${this._instanceId}] 🚫 stale unlock aborted for Q${newIndex + 1}`
-          );
-          return;
+        if (this._currentGateToken !== localToken) {          return;
         }
 
-        this._fetLocked = false;
-        console.log(
-          `[EDS ${this._instanceId}] 🔓 gate reopened cleanly for Q${newIndex + 1}`
-        );
-      }, 120);
+        this._fetLocked = false;      }, 120);
     });
   }
 

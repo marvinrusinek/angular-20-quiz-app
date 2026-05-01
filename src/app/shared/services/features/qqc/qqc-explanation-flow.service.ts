@@ -121,11 +121,7 @@ export class QqcExplanationFlowService {
     const locked =
       this.explanationTextService.isExplanationLocked?.() ?? false;
 
-    if (!params.force && locked) {
-      console.log('[🛡️ resetExplanation] Blocked — lock is active.', {
-        qIndex: params.questionIndex,
-      });
-      return { blocked: true };
+    if (!params.force && locked) {      return { blocked: true };
     }
 
     return {
@@ -217,9 +213,7 @@ export class QqcExplanationFlowService {
     adjustedIndex: number;
     currentQuestion: QuizQuestion;
   } | null {
-    if (!params.questionsArray || params.questionsArray.length === 0) {
-      console.warn('Questions not loaded yet. Skipping explanation update.');
-      return null;
+    if (!params.questionsArray || params.questionsArray.length === 0) {      return null;
     }
 
     const adjustedIndex = Math.max(
@@ -333,9 +327,7 @@ export class QqcExplanationFlowService {
   } | null {
     const idx = params.currentQuestionIndex;
     const q = this.quizService.questions?.[idx];
-    if (!q) {
-      console.warn(`[computeSubmitMultipleExplanation] ❌ No question found at index ${idx}`);
-      return null;
+    if (!q) {      return null;
     }
 
     const correctIdxs = this.explanationTextService.getCorrectOptionIndices(q);
@@ -386,17 +378,11 @@ export class QqcExplanationFlowService {
         requestAnimationFrame(() => {
           try {
             this.quizService.updateCorrectAnswersText(params.correctAnswersText);
-          } catch (err) {
-            console.warn('[NAV ⚠️] Failed to emit banner + question text', err);
-          }
-        });
-        console.log(`[applySubmitMultipleExplanation] 🧮 Correct answers text for Q${idx + 1}:`, params.correctAnswersText);
-      } else {
+          } catch (err) {          }
+        });      } else {
         this.quizService.updateCorrectAnswersText('');
       }
-    } catch (err) {
-      console.warn('[applySubmitMultipleExplanation] ⚠️ FET open failed:', err);
-    }
+    } catch (err) {    }
   }
 
   /**
@@ -440,9 +426,7 @@ export class QqcExplanationFlowService {
           explanationToDisplay: explanationText || 'No explanation available',
           success: true,
         };
-      } else {
-        console.log(`Skipping explanation for unanswered question ${params.questionIndex}.`);
-        return { explanationToDisplay: '', success: false };
+      } else {        return { explanationToDisplay: '', success: false };
       }
     } catch (error) {
       console.error(`Error fetching explanation for question ${params.questionIndex}:`, error);
@@ -507,11 +491,7 @@ export class QqcExplanationFlowService {
       const explanationText = formatted?.explanation
         || this.explanationTextService.prepareExplanationText(params.question);
       return { shouldUpdate: true, explanationText };
-    } else {
-      console.log(
-        `Question ${params.index} is not answered. Skipping explanation update.`
-      );
-      return { shouldUpdate: false, explanationText: '' };
+    } else {      return { shouldUpdate: false, explanationText: '' };
     }
   }
 
@@ -569,13 +549,8 @@ export class QqcExplanationFlowService {
       // not yet reflect the current click at the moment the gate runs.
       svc.displayState?.setShouldDisplayExplanation?.(true);
       svc.displayState?.setExplanationText?.(formatted);
-      svc.displayState?.setIsExplanationTextDisplayed?.(true);
-
-      console.log(`[QQC ✅] FET computed for Q${params.lockedIndex + 1}`);
-      return { formatted, shouldDisplay: true };
-    } catch (err) {
-      console.warn('[QQC] ⚠️ FET trigger failed', err);
-      return null;
+      svc.displayState?.setIsExplanationTextDisplayed?.(true);      return { formatted, shouldDisplay: true };
+    } catch (err) {      return null;
     }
   }
 

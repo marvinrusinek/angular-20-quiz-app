@@ -96,7 +96,6 @@ export class OptionUiSyncService {
     // UI-LEVEL RESET for single-answer mode (Visuals only, OIS handles service state)
     // ONLY run if it's definitely NOT a multi-answer scenario.
     if (!isTrulyMulti && checked) {
-      console.log(`[OUS] Authoritative Visual Reset for Q${currentIndex + 1}`);
       // Accumulate history for previous-selection highlighting
       if (!ctx.selectedOptionHistory.includes(index)) {
         ctx.selectedOptionHistory.push(index);
@@ -157,8 +156,6 @@ export class OptionUiSyncService {
       ? optionBinding.option.optionId
       : index;
 
-    console.log(`[OUS.updateOptionAndUI] Q${currentIndex + 1} Id=${effectiveId} Index=${index} checked=${checked}`);
-
     // Maintain global history for anchor fallback
     if (checked) {
       if (!ctx.selectedOptionHistory.includes(index)) {
@@ -191,7 +188,6 @@ export class OptionUiSyncService {
     if (isTrulyMulti) {
       const clickedIsCorrect = isCorrectHelper(optionBinding.option);
       this.selectedOptionService.lastClickedCorrectByQuestion.set(currentIndex, clickedIsCorrect);
-      console.log(`[OUS] lastClickedCorrectByQuestion Q${currentIndex + 1} = ${clickedIsCorrect} (checked=${checked}, option=`, optionBinding.option, ')');
     }
 
     // Sync to services (Single call here)
@@ -318,7 +314,6 @@ export class OptionUiSyncService {
       now - ctx.lastClickTimestamp < 150 &&
       !checked
     ) {
-      console.warn('[Duplicate false event]', optionId);
       return true;
     }
     return false;
@@ -761,12 +756,7 @@ export class OptionUiSyncService {
       }
     } catch { /* ignore */ }
 
-    console.log(`[checkAndScoreMultiAnswer] Q${questionIndex + 1} ENTRY: freshOptions=${freshOptions.length}, correctOptions=${correctOptions.length}, options=`,
-      freshOptions.map((o: any) => ({ id: o.optionId, text: o.text?.substring(0, 30), correct: o.correct, selected: o.selected }))
-    );
-
     if (correctOptions.length === 0) {
-      console.log(`[checkAndScoreMultiAnswer] Q${questionIndex + 1} EXIT EARLY: no correct options found`);
       return;
     }
 
@@ -819,13 +809,8 @@ export class OptionUiSyncService {
       }
     }
 
-    console.log(`[checkAndScoreMultiAnswer] Q${questionIndex + 1} RESULT: correctSelectedCount=${correctSelectedCount}, correctOptions.length=${correctOptions.length}, hasIncorrect=${hasIncorrect}, isActuallySingle=${isActuallySingle}, selectedOptions=`,
-      selectedOptions.map((s: any) => ({ id: s?.optionId, text: s?.text?.substring(0, 30), correct: s?.correct }))
-    );
-
     if (isActuallySingle) {
       if (correctSelectedCount >= 1 && !hasIncorrect) {
-        console.log(`[OptionUiSyncService] Scoring single-answer Q${questionIndex + 1} via change path`);
         this.quizService.scoreDirectly(questionIndex, true, false);
       }
     } else {
@@ -847,7 +832,6 @@ export class OptionUiSyncService {
         !hasIncorrect &&
         !anyIncorrectTextSelected
       ) {
-        console.log(`[OptionUiSyncService] ✅ Scoring multi-answer Q${questionIndex + 1}: ALL ${correctOptions.length} correct answers found`);
         this.quizService.scoreDirectly(questionIndex, true, true);
         // Force FET readiness even if already scored correct (to be safe)
         this.selectedOptionService.setAnswered(true, true);
@@ -952,7 +936,6 @@ export class OptionUiSyncService {
       null;
 
     if (!question) {
-      console.warn('[applyFeedback] No question found. Feedback generation skipped.');
       return;
     }
 

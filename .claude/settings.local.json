@@ -67,7 +67,8 @@
       "Bash(curl -s http://localhost:4200)",
       "Bash(xxd src/app/shared/services/state/selectedoption.service.ts)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:4200)",
-      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); q=d.get\\('questions',d.get\\('quiz',{}\\).get\\('questions',[]\\)\\)[:4]; [print\\(f'Q{i+1}: {q[\\\\\"questionText\\\\\"][:50]}... options: {[\\(o.get\\(\\\\\"optionId\\\\\",\\\\\"none\\\\\"\\),o.get\\(\\\\\"text\\\\\",\\\\\"\\\\\"\\)[:20],o.get\\(\\\\\"correct\\\\\",False\\)\\) for o in q.get\\(\\\\\"options\\\\\",[]\\)]}'\\) for i,q in enumerate\\(q\\)]\")"
+      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); q=d.get\\('questions',d.get\\('quiz',{}\\).get\\('questions',[]\\)\\)[:4]; [print\\(f'Q{i+1}: {q[\\\\\"questionText\\\\\"][:50]}... options: {[\\(o.get\\(\\\\\"optionId\\\\\",\\\\\"none\\\\\"\\),o.get\\(\\\\\"text\\\\\",\\\\\"\\\\\"\\)[:20],o.get\\(\\\\\"correct\\\\\",False\\)\\) for o in q.get\\(\\\\\"options\\\\\",[]\\)]}'\\) for i,q in enumerate\\(q\\)]\")",
+      "Bash(npx angular-cli-ghpages *)"
     ]
   }
 }

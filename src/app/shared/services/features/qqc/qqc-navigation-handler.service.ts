@@ -68,15 +68,7 @@ export class QqcNavigationHandlerService {
         numberOfCorrectAnswers: qState.numberOfCorrectAnswers,
         explanationDisplayed: displayExplanation,
         explanationText: this.explanationTextService.latestExplanation ?? ''
-      });
-
-      console.log(
-        `[VISIBILITY] 💾 Saved FET display state for Q${idx + 1}:`,
-        displayExplanation
-      );
-    } catch (err) {
-      console.warn('[VISIBILITY] ⚠️ Failed to persist FET state', err);
-    }
+      });    } catch (err) {    }
   }
 
   /**
@@ -90,11 +82,7 @@ export class QqcNavigationHandlerService {
       ets.setIsExplanationTextDisplayed(false);
       ets.updateFormattedExplanation('');
       ets._activeIndex = -1;
-      ets.latestExplanation = '';
-      console.log('[VISIBILITY] 💤 Cleared FET cache before backgrounding');
-    } catch (err) {
-      console.warn('[VISIBILITY] ⚠️ Failed to reset FET cache before sleep', err);
-    }
+      ets.latestExplanation = '';    } catch (err) {    }
   }
 
   /**
@@ -156,9 +144,7 @@ export class QqcNavigationHandlerService {
 
       this._hiddenAt = null;
       this._elapsedAtHide = null;
-    } catch (err) {
-      console.warn('[NavigationHandler] fast-path expiry check failed', err);
-    }
+    } catch (err) {    }
 
     return { shouldExpire: false, expiredIndex: -1 };
   }
@@ -211,8 +197,6 @@ export class QqcNavigationHandlerService {
 
       // Mark that at least one full restore has occurred
       this.quizStateService.hasRestoredOnce = true;
-      console.log('[restoreQuizState] hasRestoredOnce set -> true');
-
       return {
         explanationText: restored.explanationText,
         displayMode: restored.displayMode,
@@ -256,22 +240,15 @@ export class QqcNavigationHandlerService {
         this.explanationTextService.setExplanationText(
           qState?.explanationText ?? this.explanationTextService.latestExplanation ?? '',
           { force: true }
-        );
-
-        console.log(`[NavigationHandler] ✅ Restored FET for Q${qIdx + 1}`);
-      } else {
+        );      } else {
         this.explanationTextService.setShouldDisplayExplanation(false, { force: true });
-        this.explanationTextService.setIsExplanationTextDisplayed(false, { force: true });
-        console.log(`[NavigationHandler] ↩️ Restored question text for Q${qIdx + 1}`);
-      }
+        this.explanationTextService.setIsExplanationTextDisplayed(false, { force: true });      }
 
       return {
         shouldShowExplanation,
         explanationText: qState?.explanationText ?? ''
       };
-    } catch (fetErr) {
-      console.warn('[NavigationHandler] ⚠️ FET restore failed:', fetErr);
-      return { shouldShowExplanation: false, explanationText: '' };
+    } catch (fetErr) {      return { shouldShowExplanation: false, explanationText: '' };
     }
   }
 
@@ -279,12 +256,8 @@ export class QqcNavigationHandlerService {
    * Handles FET purge logic when user navigated to another question while hidden.
    */
   purgeFetIfNavigatedWhileHidden(currentQuestionIndex: number): void {
-    if (this._wasHidden && currentQuestionIndex !== this.explanationTextService._activeIndex) {
-      console.log(`[Visibility] User navigated while hidden → purging FET for Q${currentQuestionIndex + 1}`);
-      this.explanationTextService.purgeAndDefer(currentQuestionIndex);
-    } else {
-      console.log('[Visibility] Same question — skipping FET clear');
-    }
+    if (this._wasHidden && currentQuestionIndex !== this.explanationTextService._activeIndex) {      this.explanationTextService.purgeAndDefer(currentQuestionIndex);
+    } else {    }
 
     this._wasHidden = false;
   }
@@ -299,12 +272,7 @@ export class QqcNavigationHandlerService {
       ets.updateFormattedExplanation('');
       ets.latestExplanation = '';
       ets.setShouldDisplayExplanation(false);
-      ets.setIsExplanationTextDisplayed(false);
-
-      console.log(`[VISIBILITY] 🔄 Explanation state refreshed for Q${currentQuestionIndex + 1}`);
-    } catch (err) {
-      console.warn('[VISIBILITY] ⚠️ Failed post-restore FET refresh', err);
-    }
+      ets.setIsExplanationTextDisplayed(false);    } catch (err) {    }
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -319,9 +287,7 @@ export class QqcNavigationHandlerService {
     const parsedParam = Number(rawParam);
     let questionIndex = isNaN(parsedParam) ? 1 : parsedParam;
 
-    if (questionIndex < 1 || questionIndex > totalQuestions) {
-      console.warn(`[⚠️ Invalid questionIndex param: ${rawParam}. Defaulting to Q1]`);
-      questionIndex = 1;
+    if (questionIndex < 1 || questionIndex > totalQuestions) {      questionIndex = 1;
     }
 
     return questionIndex - 1; // Convert to 0-based
@@ -432,9 +398,7 @@ export class QqcNavigationHandlerService {
     visibilityRestoreInProgress: boolean;
     suppressDisplayStateUntil: number;
   }): boolean {
-    if (params.visibilityRestoreInProgress || performance.now() < params.suppressDisplayStateUntil) {
-      console.log('[safeSetDisplayState] 🚫 Suppressed reactive display update during restore:', params.state);
-      return false; // suppressed
+    if (params.visibilityRestoreInProgress || performance.now() < params.suppressDisplayStateUntil) {      return false; // suppressed
     }
     return true; // allowed
   }
@@ -523,9 +487,7 @@ export class QqcNavigationHandlerService {
     this.quizStateService.hasRestoredOnce = true;
 
     // Ensure options are ready (fallback if restore returned empty)
-    if (!Array.isArray(optionsToDisplay) || optionsToDisplay.length === 0) {
-      console.warn('[onVisibilityChange] ⚠️ optionsToDisplay empty → repopulating');
-      if (params.currentQuestion && Array.isArray(params.currentQuestion.options)) {
+    if (!Array.isArray(optionsToDisplay) || optionsToDisplay.length === 0) {      if (params.currentQuestion && Array.isArray(params.currentQuestion.options)) {
         optionsToDisplay = params.currentQuestion.options.map((option, index) => ({
           ...option,
           optionId: option.optionId ?? index,

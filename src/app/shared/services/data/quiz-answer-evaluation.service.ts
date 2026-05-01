@@ -41,9 +41,7 @@ export class QuizAnswerEvaluationService {
     questionIndex: number,
     shouldShuffle: boolean
   ): Option[] {
-    if (!question || !Array.isArray(question.options)) {
-      console.warn(`[QuizAnswerEvaluation] Could not find question/options for Q${questionIndex}`);
-      return answerIds.map(id => ({ optionId: id } as Option));
+    if (!question || !Array.isArray(question.options)) {      return answerIds.map(id => ({ optionId: id } as Option));
     }
 
     return answerIds
@@ -76,9 +74,7 @@ export class QuizAnswerEvaluationService {
           }
         }
 
-        if (!match) {
-          console.warn(`[QuizAnswerEvaluation] No match found for Option ID ${id} in Q${questionIndex + 1}.`);
-        }
+        if (!match) {        }
         return match;
       })
       .filter((o): o is Option => !!o);
@@ -128,9 +124,7 @@ export class QuizAnswerEvaluationService {
       })
       .filter((o): o is Option => !!o);
 
-    if (!resolvedAnswers || resolvedAnswers.length === 0) {
-      console.log(`[evaluateCorrectness] Answers empty for Q${qIndex} -> exiting false`);
-      return { isCorrect: false, numberOfCorrectAnswers, multipleAnswer, resolvedAnswers, answerIds: [] };
+    if (!resolvedAnswers || resolvedAnswers.length === 0) {      return { isCorrect: false, numberOfCorrectAnswers, multipleAnswer, resolvedAnswers, answerIds: [] };
     }
 
     const correctnessArray = await this.optionsService.determineCorrectAnswer(currentQuestion, resolvedAnswers);
@@ -204,9 +198,7 @@ export class QuizAnswerEvaluationService {
       return true;
     }
 
-    if (pristineCorrectTexts.length > 1 && !isMultipleAnswer) {
-      console.log(`[scoreDirectly] Q${questionIndex + 1} BLOCKED: isMultipleAnswer=false but pristine has ${pristineCorrectTexts.length} correct answers`);
-      return false;
+    if (pristineCorrectTexts.length > 1 && !isMultipleAnswer) {      return false;
     }
 
     const selTexts = new Set<string>();
@@ -254,14 +246,10 @@ export class QuizAnswerEvaluationService {
 
     if (selTexts.size > 0) {
       if (pristineCorrectTexts.length === 1) {
-        if (!pristineCorrectTexts.some(t => selTexts.has(t))) {
-          console.log(`[scoreDirectly] Q${questionIndex + 1} BLOCKED: selection [${[...selTexts]}] doesn't match pristine correct [${pristineCorrectTexts}]`);
-          return false;
+        if (!pristineCorrectTexts.some(t => selTexts.has(t))) {          return false;
         }
       } else {
-        if (!pristineCorrectTexts.every(t => selTexts.has(t))) {
-          console.log(`[scoreDirectly] Q${questionIndex + 1} BLOCKED: not all pristine correct selected (need=${pristineCorrectTexts.length}, have=${selTexts.size})`);
-          return false;
+        if (!pristineCorrectTexts.every(t => selTexts.has(t))) {          return false;
         }
       }
     }

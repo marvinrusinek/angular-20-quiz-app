@@ -32,13 +32,11 @@ export class FeedbackService {
     const validOptionsToDisplay = (optionsToDisplay || []).filter(opt => opt && typeof opt === 'object');
 
     if (validOptionsToDisplay.length === 0) {
-      console.warn('[generateFeedbackForOptions] ❌ No valid options to display.');
       return 'Feedback unavailable.';
     }
 
     const correctFeedback = this.setCorrectMessage(validOptionsToDisplay);
     if (!correctFeedback?.trim()) {
-      console.warn('[generateFeedbackForOptions] ❌ setCorrectMessage returned empty or invalid feedback. Falling back...');
       return 'Feedback unavailable.';
     }
 
@@ -172,9 +170,6 @@ if ((!correctIndices || correctIndices.length === 0) && quizSvc) {
           sortedCalc.every((n, i) => n === sortedVisual[i]);
 
         if (!match) {
-          console.warn(
-            `[FeedbackService] GUARDRAIL: correctIndices [${sortedCalc}] != visual [${sortedVisual}]. Using visual.`
-          );
           correctIndices = visualCorrect;
         }
       }
@@ -245,7 +240,6 @@ if ((!correctIndices || correctIndices.length === 0) && quizSvc) {
         );
         if (!alreadyCounted) rawCorrectSelected++;
       }
-      console.log(`[FeedbackService] CROSS-CHECK: rawCorrectSelected=${rawCorrectSelected}, rawIncorrectSelected=${rawIncorrectSelected} vs numCorrectSelected=${numCorrectSelected}, numIncorrectSelected=${numIncorrectSelected}`);
       // Use whichever source found MORE correct selections (more complete picture)
       if (rawCorrectSelected > numCorrectSelected) {
         numCorrectSelected = rawCorrectSelected;
@@ -271,18 +265,6 @@ if ((!correctIndices || correctIndices.length === 0) && quizSvc) {
       };
       return `You're right! ${formatReveal(correctIndices)}`;
     }
-
-    console.log(`[FeedbackService] Evaluation: Q${qIdx + 1}`, {
-      numCorrectSelected,
-      totalCorrectRequired,
-      numIncorrectSelected,
-      isMultiMode,
-      isMultiResolved,
-      dedupedCount: dedupedSelected.length,
-      correctIndices,
-      selectedIds: dedupedSelected.map(s => s.optionId),
-      selectedFlags: dedupedSelected.map(s => s.correct)
-    });
 
     const formatReveal = (indices: number[]) => {
       const deduped = Array.from(new Set(indices)).sort((a, b) => a - b);

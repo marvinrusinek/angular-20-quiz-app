@@ -945,10 +945,6 @@ export class QuizDotStatusService {
       }
     })();
 
-    console.warn(
-      `[DOT-TRACE] Q${index + 1} (non-current) | scoringKey=${scoringKey} scored=${scoredCorrect} | persisted=${persisted} | confirmed=${confirmed} | cached=${cached} | ss=${ssStored} | qCorrectness keys=[${[...this.quizService.questionCorrectness.keys()]}]`
-    );
-
     // 1. Ground truth: questionCorrectness
     if (scoredCorrect === true) {
       return 'correct';
@@ -978,7 +974,6 @@ export class QuizDotStatusService {
 
     // 5. Fallback
     const status = this.getQuestionStatus({ ...params, options: undefined });
-    console.warn(`[DOT-TRACE] Q${index + 1} fell through to getQuestionStatus => "${status}"`);
     return status;
   }
 

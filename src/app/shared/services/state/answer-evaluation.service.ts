@@ -164,9 +164,6 @@ export class AnswerEvaluationService {
     const seenIndicesInQuestion = new Set<number>();
 
     const hasRealIds = questionOptions.some(o => o.optionId != null);
-
-    console.log(`[RESOLUTION_TRACE] Q: "${question.questionText?.substring(0, 50)}..." | totalCorrect=${correctTotal} | selections=${selectedArr.length} | hasRealIds=${hasRealIds}`);
-
     for (const sel of selectedArr) {
       if (!sel) {
         continue;
@@ -226,20 +223,12 @@ export class AnswerEvaluationService {
 
         const isCorrect = this.idResolver.coerceToBoolean(questionOptions[matchedIdx].correct);
         if (isCorrect) {
-          correctSelected++;
-          console.log(`  ✅ "${sel.text?.substring(0, 25)}" -> Q[${matchedIdx}] via ${matchMethod} = CORRECT`);
-        } else {
-          incorrectSelected++;
-          console.log(`  ❌ "${sel.text?.substring(0, 25)}" -> Q[${matchedIdx}] via ${matchMethod} = INCORRECT`);
-        }
+          correctSelected++;        } else {
+          incorrectSelected++;        }
       } else {
         if (this.idResolver.coerceToBoolean(sel.correct)) {
-          correctSelected++;
-          console.log(`  ⚠️ "${sel.text?.substring(0, 25)}" no Q-match, using sel.correct=true`);
-        } else {
-          incorrectSelected++;
-          console.log(`  ❓ "${sel.text?.substring(0, 25)}" no Q-match, assuming INCORRECT`);
-        }
+          correctSelected++;        } else {
+          incorrectSelected++;        }
       }
     }
 
@@ -249,9 +238,6 @@ export class AnswerEvaluationService {
     if (strict) {
       resolved = resolved && incorrectSelected === 0;
     }
-
-    console.log(`[RESOLUTION_TRACE] RESULT: correct=${correctSelected}/${correctTotal}, incorrect=${incorrectSelected}, strict=${strict} -> RESOLVED=${resolved}`);
-
     return { resolved, correctTotal, correctSelected, incorrectSelected, remainingCorrect };
   }
 
@@ -313,9 +299,7 @@ export class AnswerEvaluationService {
       const qIndex = this.quizService.currentQuestionIndexSource?.getValue?.() ?? questionIndex;
 
       const question = questionCache.get(qIndex);
-      if (!question || !Array.isArray(question.options)) {
-        console.warn('[AnswerEvaluation] No cached question for index:', qIndex);
-        return false;
+      if (!question || !Array.isArray(question.options)) {        return false;
       }
 
       const selected = getSelectedOptionsForQuestion(qIndex) ?? [];

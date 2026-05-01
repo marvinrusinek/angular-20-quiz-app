@@ -55,9 +55,7 @@ export class DynamicComponentService {
       instance.optionClicked.subscribe((event: any) => {
         onOptionClicked(event);
       });
-    } else {
-      console.warn('[DCS] optionClicked output not found on AnswerComponent');
-    }
+    } else {    }
 
     return componentRef;
   }

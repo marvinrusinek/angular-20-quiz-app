@@ -113,7 +113,6 @@ export class QuizContentLoaderService {
       ets._fetLocked = true;
       ets.purgeAndDefer(adjustedIndex);
     } catch (error: any) {
-      console.warn('[lockAndPurgeFet] failed', error);
     }
   }
 
@@ -179,7 +178,6 @@ export class QuizContentLoaderService {
         }
       }
     } catch (error: any) {
-      console.warn('[clearAllOptionStates] failed', error);
     }
   }
 
@@ -312,7 +310,6 @@ export class QuizContentLoaderService {
     // Restore shuffledQuestions if they were cleared during async operations
     if (shuffledSnapshot && shuffledSnapshot.length > 0
         && (!this.quizService.shuffledQuestions || this.quizService.shuffledQuestions.length === 0)) {
-      console.warn('[loadQuestionFromRouteChange] Restoring shuffledQuestions that were cleared during async load');
       this.quizService.shuffledQuestions = shuffledSnapshot;
     }
 
@@ -373,7 +370,6 @@ export class QuizContentLoaderService {
     try {
       // Safety Checks
       if (isNaN(questionIndex) || questionIndex < 0 || questionIndex >= totalQuestions) {
-        console.warn(`[Invalid index: Q${questionIndex}]`);
         return empty;
       }
 
@@ -585,7 +581,6 @@ export class QuizContentLoaderService {
     }
 
     if (isNaN(routeIndex) || routeIndex < 1 || routeIndex > quiz.questions.length) {
-      console.warn('[loadQuestionByRouteIndex] Invalid route index:', routeIndex);
       return { ...empty, questionIndex: -1 }; // signal redirect needed
     }
 
@@ -839,7 +834,6 @@ export class QuizContentLoaderService {
     const rawExpl = (question.explanation || 'No explanation available').trim();
 
     let formatted = this.explanationTextService.getFormattedSync(qIdx);
-    console.log(`[prepareExplanation] Q${qIdx + 1} cached=${!!formatted}, cachedSnippet="${(formatted ?? '').slice(0, 60)}"`);
     if (!formatted) {
       // Use the robust multi-strategy method for correct option indices (1-based)
       // instead of raw optionId which may be 0-based or undefined
@@ -849,10 +843,7 @@ export class QuizContentLoaderService {
         qIdx
       );
 
-      console.log(`[prepareExplanation] Q${qIdx + 1} correctIndices=${JSON.stringify(correctIndices)}, optionCorrectFlags=${JSON.stringify(question.options?.map((o: any, i: number) => ({ i: i+1, correct: o.correct })))}`);
-
       formatted = this.explanationTextService.formatExplanation(question, correctIndices, rawExpl);
-      console.log(`[prepareExplanation] Q${qIdx + 1} formatted="${formatted?.slice(0, 80)}"`);
       this.explanationTextService.setExplanationTextForQuestionIndex(qIdx, formatted);
     }
 
@@ -1128,7 +1119,6 @@ export class QuizContentLoaderService {
     try {
       const selectedOptions = JSON.parse(selectedOptionsData);
       if (!Array.isArray(selectedOptions) || selectedOptions.length === 0) {
-        console.warn('[restoreSelectedOptions] No valid selected options to restore.');
         return;
       }
 
@@ -1139,9 +1129,7 @@ export class QuizContentLoaderService {
 
         if (restoredOption) {
           restoredOption.selected = true;
-          console.log('[restoreSelectedOptions] Restored option as selected:', restoredOption);
         } else {
-          console.warn('[restoreSelectedOptions] Option not found in optionsToDisplay:', option);
         }
       }
     } catch (error: any) {
@@ -1225,7 +1213,6 @@ export class QuizContentLoaderService {
     this.explanationTextService.initializeExplanationTexts(explanations);
 
     this.explanationTextService.fetByIndex.clear();
-    console.log('[QuizContentLoader] Cleared FET cache (fetByIndex) before regenerating.');
 
     const formattedExplanations =
       this.quizQuestionDataService.formatExplanationsForQuestions(hydratedQuestions);
@@ -1257,9 +1244,7 @@ export class QuizContentLoaderService {
       ets.setIsExplanationTextDisplayed(false);
       ets.formattedExplanationSubject?.next('');
       requestAnimationFrame(() => ets.emitFormatted(-1, null));
-      console.log('[INIT] Cleared old FET state before first render');
     } catch (error) {
-      console.warn('[INIT] FET clear failed', error);
     }
   }
 
@@ -1273,17 +1258,14 @@ export class QuizContentLoaderService {
       if (firstQuestion) {
         const trimmed = (firstQuestion.questionText ?? '').trim();
         if (trimmed.length > 0) {
-          console.log('[QUIZ INIT] Seeded initial question text for Q1');
           setTimeout(() => {
             this.explanationTextService._fetLocked = false;
-            console.log('[INIT] FET gate opened after first-question seed');
           }, 80);
         }
       }
       this.explanationTextService.setShouldDisplayExplanation(false);
       this.explanationTextService.setIsExplanationTextDisplayed(false);
     } catch (error: any) {
-      console.warn('[QUIZ INIT] Could not seed initial question text', error);
     }
   }
 
@@ -1306,7 +1288,6 @@ export class QuizContentLoaderService {
     const option =
       params.question?.options?.[params.optionIndex] ?? params.optionsToDisplay?.[params.optionIndex];
     if (!option) {
-      console.warn(`[selectedAnswer] No option found at index ${params.optionIndex}`);
       return { option: null, answers: params.answers, answerIds: [] };
     }
 
@@ -1339,7 +1320,6 @@ export class QuizContentLoaderService {
    */
   fetchAndSubscribeQuestionAndOptions(quizId: string, questionIndex: number): void {
     if (document.hidden) {
-      console.log('Document is hidden, not loading question');
       return;
     }
 
@@ -1372,7 +1352,6 @@ export class QuizContentLoaderService {
           if (question && options) {
             this.quizStateService.updateCurrentQuizState(of(question));
           } else {
-            console.log('Question or options not found');
           }
         },
         error: (error: Error) => {
@@ -1408,7 +1387,6 @@ export class QuizContentLoaderService {
       this.explanationTextService.initializeExplanationTexts(
         shuffledQuestions.map((q: QuizQuestion) => q.explanation)
       );
-      console.log('[resolveQuizData] FET initialized with SHUFFLED question order');
     }
   }
 

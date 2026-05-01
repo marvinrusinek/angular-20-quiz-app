@@ -409,9 +409,7 @@ export class OptionClickHandlerService {
 
     const result = !!(disabledBySet || forceDisabled || questionLocked || optionLocked || lockedIncorrect || flashDisabled);
 
-    if (result) {
-      console.log(`[computeDisabledState] Q${qIndex + 1} opt${index} DISABLED: disabledBySet=${disabledBySet} forceDisable=${forceDisabled} questionLocked=${questionLocked} optionLocked=${optionLocked} lockedIncorrect=${lockedIncorrect} flashDisabled=${flashDisabled}`);
-    }
+    if (result) {    }
 
     return result;
   }

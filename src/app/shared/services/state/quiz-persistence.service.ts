@@ -179,9 +179,7 @@ export class QuizPersistenceService {
     }
 
     // Hard Block: never persist CONTINUE after completion
-    if (this.quizService.quizCompleted === true) {
-      console.log('[QuizComponent] Quiz completed. Skipping CONTINUE persist.');
-      return;
+    if (this.quizService.quizCompleted === true) {      return;
     }
 
     // Only persist if the user actually answered something

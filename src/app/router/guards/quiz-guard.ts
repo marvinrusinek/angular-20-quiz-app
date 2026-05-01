@@ -23,7 +23,6 @@ export class QuizGuard implements CanActivate {
     const questionParam = route.params['questionIndex'];
 
     if (!quizId) {
-      console.warn('[🛡️ QuizGuard] Missing quizId.');
       return this.router.createUrlTree(['/quiz']);
     }
 
@@ -44,7 +43,6 @@ export class QuizGuard implements CanActivate {
     quizId: string
   ): number | UrlTree {
     if (questionParam == null) {
-      console.warn('[🛡️ QuizGuard] No index → redirect to #1');
       return this.router.createUrlTree(['/quiz/question', quizId, 1]);
     }
 
@@ -77,11 +75,8 @@ export class QuizGuard implements CanActivate {
     const quizQuestionsCount = quiz.questions?.length ?? 0;
     const serviceQuestionsCount = this.quizService.questions?.length ?? 0;
     const total = Math.max(quizQuestionsCount, serviceQuestionsCount, 1);
-    console.log(`[🛡️ QuizGuard] Eval: Q${questionIndex} of ${total} 
-      (quizId=${quizId}, fromQuiz=${quizQuestionsCount}, fromService=${serviceQuestionsCount})`);
 
     if (total <= 0) {
-      console.warn(`[❌ QuizId=${quizId}] No questions.`);
       return this.router.createUrlTree(['/quiz']);
     }
 
@@ -89,7 +84,6 @@ export class QuizGuard implements CanActivate {
     if (zeroIdx >= 0 && zeroIdx < total) return true;
 
     const fallback = Math.min(total, Math.max(1, questionIndex));
-    console.warn(`[🛡️ QuizGuard] Invalid index. Redirecting to Q${fallback}`);
 
     if (fallback !== questionIndex) {
       return this.router.createUrlTree(['/quiz/question', quizId, fallback]);

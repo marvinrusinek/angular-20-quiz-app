@@ -96,7 +96,6 @@ export class QqcLifecycleService {
 
     if (current && next && current.options && next.options) {
       const shared = current.options.some((o: Option, i: number) => o === next.options[i]);
-      console.log(`[REF TRACE] Shared option refs between Q${qIndex} and Q${qIndex + 1}:`, shared);
     }
   }
 
@@ -141,8 +140,6 @@ export class QqcLifecycleService {
           params.setRenderReady(true);
           params.emitRenderReady(true);
         }, 0);
-
-        console.log('[✅ renderReady triggered with Q&A]');
       }),
       map(() => true)
     );
@@ -182,7 +179,6 @@ export class QqcLifecycleService {
       if (params.sharedOptionComponent) {
         params.subscribeToRenderReady();
       } else {
-        console.warn('[⚠️ sharedOptionComponent not ready in ngAfterViewInit]');
       }
     });
   }

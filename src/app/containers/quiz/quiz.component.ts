@@ -105,7 +105,6 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
       if (isShuffleActive) {
         const idx = this.currentQuestionIndex ?? 0;
         const correctQ = shuffled[idx];
-        console.log(`[combinedQD$ DIAG] idx=${idx}, payloadQ="${payload.question.questionText?.substring(0, 40)}", shuffledQ="${correctQ?.questionText?.substring(0, 40)}", payloadOpts=${payload.options?.length}, shuffledOpts=${correctQ?.options?.length}, payloadOpt0="${payload.options?.[0]?.text?.substring(0, 30)}", shuffledOpt0="${correctQ?.options?.[0]?.text?.substring(0, 30)}"`);
         if (correctQ) {
           // ALWAYS use shuffled data when shuffle is active
           return {

@@ -144,10 +144,6 @@ export class SelectionMessageService {
     const selectedCorrect = opts.filter(o => o.selected && isCorrectHelper(o)).length;
     const selectedWrong = opts.filter(o => o.selected && !isCorrectHelper(o)).length;
 
-    console.log(`[SEL-MSG] Q${index + 1} computeFinalMessage: qType=${qType}, totalCorrect=${totalCorrect}, selectedCorrect=${selectedCorrect}, selectedWrong=${selectedWrong}, opts=`, opts.map((o, i) => ({
-      i, text: (o.text ?? '').substring(0, 20), correct: o.correct, selected: o.selected
-    })));
-
     if (qType === QuestionType.SingleAnswer) {
       if (selectedCorrect > 0) {
         this._singleAnswerCorrectLock.add(index);
@@ -187,7 +183,6 @@ export class SelectionMessageService {
   public pushMessage(newMsg: string, _index: number): void {
     const prev = this.selectionMessageSig();
     if (prev !== newMsg) {
-      console.log(`[SEL-MSG] pushMessage Q${_index + 1}: "${prev}" → "${newMsg}"`, new Error().stack?.split('\n').slice(1, 4).map(s => s.trim()));
       this.selectionMessageSig.set(newMsg);
       this.selectionMessageSubject.next(newMsg);
     }
@@ -275,16 +270,12 @@ export class SelectionMessageService {
       ? QuestionType.MultipleAnswer
       : (declaredType ?? QuestionType.SingleAnswer);
 
-    console.log(`[SEL-MSG] emitFromClick Q${params.index + 1}: declaredType=${declaredType}, correctCount=${correctCount}, derivedQType=${qType}`);
-
     const msg = this.computeFinalMessage({
       index: params.index,
       total: params.totalQuestions,
       qType,
       opts
     });
-
-    console.log(`[SEL-MSG] emitFromClick Q${params.index + 1}: msg="${msg}"`);
     if (params.onMessageChange) params.onMessageChange(msg);
     this.pushMessage(msg, params.index);
   }
@@ -394,7 +385,6 @@ export class SelectionMessageService {
   public setSelectionMessageText(message: string): void {
     const prev = this.selectionMessageSig();
     if (prev !== message) {
-      console.log(`[SEL-MSG] setSelectionMessageText: "${prev}" → "${message}"`, new Error().stack?.split('\n').slice(1, 3).map(s => s.trim()));
       this.selectionMessageSig.set(message);
       this.selectionMessageSubject.next(message);
     }

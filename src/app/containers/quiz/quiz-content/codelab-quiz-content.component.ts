@@ -286,7 +286,6 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
               }
             }
             const all = pristineCorrectTexts.every(t => selectedNow.has(t));
-            console.log(`[FET-WATCHDOG] Q${idx + 1} check pristine=${JSON.stringify(pristineCorrectTexts)} selected=${JSON.stringify([...selectedNow])} all=${all}`);
             return all;
           } catch {
             return null;
@@ -340,7 +339,6 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         const clickHandler = () => setTimeout(enforce, 0);
         document.addEventListener('click', clickHandler, true);
         (this as any)._fetWatchdogClick = clickHandler;
-        console.log('[FET-WATCHDOG] installed on #qText');
       }
     } catch (e) {
       console.warn('[FET-WATCHDOG] install failed', e);

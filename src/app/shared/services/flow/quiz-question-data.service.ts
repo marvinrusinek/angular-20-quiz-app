@@ -60,7 +60,6 @@ export class QuizQuestionDataService {
         );
         explanation = fetchedExplanation?.trim() || 'No explanation available';
       } else {
-        console.warn(`[Q${questionIndex}] Explanations not initialized`);
       }
 
       if (
@@ -158,29 +157,18 @@ export class QuizQuestionDataService {
 
   forceRegenerateExplanation(question: QuizQuestion, index: number): void {
     if (question && question.options) {
-      console.log(`[forceRegenerateExplanation] Q${index + 1} options:`,
-        question.options.map((o, i) => ({
-          idx: i + 1,
-          text: o.text?.substring(0, 20),
-          correct: o.correct,
-          optionId: o.optionId
-        }))
-      );
 
       const correctIndices = this.explanationTextService.getCorrectOptionIndices(
         question,
         question.options,
         index
       );
-      console.log(`[forceRegenerateExplanation] Q${index + 1} correctIndices:`, correctIndices);
 
       const formattedExplanation = this.explanationTextService.formatExplanation(
         question,
         correctIndices,
         question.explanation
       );
-      console.log(`[forceRegenerateExplanation] Q${index + 1} formattedExplanation:`,
-        formattedExplanation?.substring(0, 80));
 
       this.explanationTextService.storeFormattedExplanation(
         index,
@@ -189,9 +177,7 @@ export class QuizQuestionDataService {
         question.options,
         true
       );
-      console.log(`[forceRegenerateExplanation] Updated FET for Q${index + 1}`);
     } else {
-      console.warn(`[forceRegenerateExplanation] Q${index + 1} has no options!`);
     }
   }
 }

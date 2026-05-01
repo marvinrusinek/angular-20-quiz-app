@@ -518,9 +518,6 @@ export class QqcComponentOrchestratorService {
       host._msgTok = clickResult.msgTok;
       host._lastAllCorrect = allCorrect;
 
-      // ── DIAGNOSTIC: trace the multi-answer FET decision chain ──
-      console.warn(`%c[FET-DIAG] Q${idx + 1} click: q=${q?.questionText?.substring(0, 40)} type=${q?.type} correctCount=${(q?.options ?? []).filter((o: any) => o?.correct === true || String(o?.correct) === 'true').length} isMulti=${isMultiForSelection} allCorrect=${allCorrect} → fetGateEntry=${allCorrect && isMultiForSelection}`, 'background:#060;color:#fff;padding:2px 6px;');
-
       host.updateOptionHighlighting(selOptsSetImmediate);
       host.refreshFeedbackFor(evtOpt ?? undefined);
 
@@ -647,13 +644,11 @@ export class QqcComponentOrchestratorService {
           const selTexts = new Set(svcSel.map((s: any) => norm(s?.text)).filter((t: string) => !!t));
           const allCorrectSel = rawCorrectTexts.size > 0 && [...rawCorrectTexts].every(t => selTexts.has(t));
           if (!allCorrectSel) {
-            console.log(`[QQC-Orch] FET gate blocked Q${idx + 1}: allCorrectSel=${allCorrectSel} correctTexts=${JSON.stringify([...rawCorrectTexts])} selTexts=${JSON.stringify([...selTexts])}`);
             fetGatePassed = false;
           }
         } catch { /* trust upstream */ }
       }
 
-      console.warn(`%c[FET-DIAG] Q${idx + 1} fetGatePassed=${fetGatePassed} earlyShown=${host._fetEarlyShown.has(lockedIndex)} → willTrigger=${fetGatePassed && !host._fetEarlyShown.has(lockedIndex)}`, 'background:#060;color:#fff;padding:2px 6px;');
       if (fetGatePassed && !host._fetEarlyShown.has(lockedIndex)) {
         if (host.timerEffect.safeStopTimer('completed', host._timerStoppedForQuestion, host._lastAllCorrect)) {
           host._timerStoppedForQuestion = true;

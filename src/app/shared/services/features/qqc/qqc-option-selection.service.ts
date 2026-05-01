@@ -40,9 +40,7 @@ export class QqcOptionSelectionService {
    * Returns true if the click should be blocked (already selected).
    */
   handleSingleAnswerLock(isMultipleAnswer: boolean, isOptionSelected: boolean): boolean {
-    if (!isMultipleAnswer && isOptionSelected) {
-      console.log('Single-answer question: Option already selected. Skipping.');
-      return true;
+    if (!isMultipleAnswer && isOptionSelected) {      return true;
     }
     return false;
   }
@@ -184,9 +182,7 @@ export class QqcOptionSelectionService {
     isMultipleAnswer: boolean,
     isUserClickInProgress: boolean
   ): SelectedOption | null {
-    if (!isUserClickInProgress) {
-      console.warn('[processOptionSelectionAndUpdateState] skipped — no user click in progress');
-      return null;
+    if (!isUserClickInProgress) {      return null;
     }
 
     const selectedOption = this.buildSelectedOption(question, index, currentQuestionIndex);
@@ -216,11 +212,7 @@ export class QqcOptionSelectionService {
 
     try {
       if (isMultipleAnswer) {
-        if (!currentQuestion || !Array.isArray(currentQuestion.options)) {
-          console.warn(
-            '[stopTimerIfApplicable] Invalid question or options for multiple-answer question.'
-          );
-          return;
+        if (!currentQuestion || !Array.isArray(currentQuestion.options)) {          return;
         }
 
         const allCorrectSelected = this.selectedOptionService.areAllCorrectAnswersSelected(
@@ -240,12 +232,8 @@ export class QqcOptionSelectionService {
 
         if (stopped) {
           this.timerService.isTimerRunning = false;
-        } else {
-          console.log('[stopTimerIfApplicable] Timer stop attempt rejected.');
-        }
-      } else {
-        console.log('[stopTimerIfApplicable] Timer not stopped: Condition not met.');
-      }
+        } else {        }
+      } else {      }
     } catch (error) {
       console.error('[stopTimerIfApplicable] Error in timer logic:', error);
     }
@@ -259,9 +247,7 @@ export class QqcOptionSelectionService {
     if (isCorrect) {
       this.timerService.attemptStopTimerForQuestion({
         questionIndex: currentQuestionIndex,
-        onStop: () => {
-          console.log('Correct answer selected!');
-        },
+        onStop: () => {        },
       });
     }
   }
@@ -331,11 +317,7 @@ export class QqcOptionSelectionService {
 
       if (stopped) {
         this.timerService.isTimerRunning = false;
-      } else if (!this.timerService.isTimerRunning) {
-        console.log(
-          '[handleCorrectnessOutcome] Timer was already stopped. No action taken.'
-        );
-      }
+      } else if (!this.timerService.isTimerRunning) {      }
 
       this.selectedOptionService.isAnsweredSig.set(true);
     }
@@ -404,12 +386,7 @@ export class QqcOptionSelectionService {
     const { currentQuestion, optionIndex, currentQuestionIndex } = params;
 
     try {
-      if (!currentQuestion || !Array.isArray(currentQuestion.options)) {
-        console.warn(
-          '[❌ handleOptionClicked] currentQuestion or options is null/invalid',
-          currentQuestion
-        );
-        return null;
+      if (!currentQuestion || !Array.isArray(currentQuestion.options)) {        return null;
       }
 
       // Ensure optionId is assigned to all options in the current question
@@ -453,11 +430,7 @@ export class QqcOptionSelectionService {
         questionIndex: currentQuestionIndex,
       });
 
-      if (timerStopped) {
-        console.log(
-          '[handleOptionClicked] All correct options selected. Timer stopped successfully.'
-        );
-      }
+      if (timerStopped) {      }
 
       return {
         selectedOptions,
@@ -650,9 +623,7 @@ export class QqcOptionSelectionService {
       if (!(this.explanationTextService as any).isExplanationLocked?.()) {
         // Only trigger explanation if selected and correct, otherwise ensure it's hidden
         this.explanationTextService.setShouldDisplayExplanation(isOptionSelected && params.lastAllCorrect);
-      } else {
-        console.warn('[handleFullOptionSelection] 🛡️ Explanation is locked. Skipping display update.');
-      }
+      } else {      }
 
       // Update selected option service
       this.selectedOptionService.setAnsweredState(true);
@@ -669,10 +640,6 @@ export class QqcOptionSelectionService {
 
       // ⚡ RE-GENERATE FET immediately on every click to ensure cache is fresh and prefix is correct
       const explanationText = await params.updateExplanationTextFn(currentQuestionIndex);
-      console.log(
-        `[📢 Fresh FET for Q${currentQuestionIndex + 1}]: "${explanationText.slice(0, 50)}..."`
-      );
-
       // Update the answers and check if the selection is correct
       this.quizService.updateAnswersForOption(option);
       await this.checkAndHandleCorrectAnswer(currentQuestionIndex);
@@ -750,9 +717,7 @@ export class QqcOptionSelectionService {
       // Update the selection message based on the current state
       if (await params.shouldUpdateMessageOnAnswerFn(isAnswered)) {
         // Selection message update would go here
-      } else {
-        console.log('No update required for the selection message.');
-      }
+      } else {      }
 
       return { currentQuestion, optionsToDisplay, data };
     } catch (error) {
@@ -783,9 +748,7 @@ export class QqcOptionSelectionService {
           explanationText: params.explanationToDisplay,
         },
         params.correctAnswersLength
-      );
-      console.log(`Question state updated with explanationDisplayed: ${params.lastAllCorrect}`);
-    } catch (stateUpdateError) {
+      );    } catch (stateUpdateError) {
       console.error('Error updating question state:', stateUpdateError);
     }
   }
@@ -821,14 +784,7 @@ export class QqcOptionSelectionService {
     });
 
     const correctAnswers = await params.getCorrectAnswers();
-    console.log('Handling correct answers for option:', params.option);
-    console.log('Fetched correct answers:', correctAnswers);
-
-    if (!correctAnswers || correctAnswers.length === 0) {
-      console.warn('No correct answers available for this question.');
-    } else {
-      console.log('Is the specific answer correct?', correctAnswers.includes(params.option.optionId!));
-    }
+    if (!correctAnswers || correctAnswers.length === 0) {    } else {    }
 
     return { correctAnswers };
   }

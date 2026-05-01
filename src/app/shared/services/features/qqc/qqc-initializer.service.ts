@@ -146,7 +146,6 @@ export class QqcInitializerService {
           return null;
         }
         result = fetched;
-        console.log('[✅] Quiz questions set once.');
       }
 
       // Now safe to run post-fetch logic
@@ -239,7 +238,6 @@ export class QqcInitializerService {
     let questionIndex = isNaN(parsedParam) ? 1 : parsedParam;
 
     if (questionIndex < 1 || questionIndex > totalQuestions) {
-      console.warn(`[⚠️ Invalid questionIndex param: ${rawParam}. Defaulting to Q1]`);
       questionIndex = 1;
     }
 
@@ -271,7 +269,6 @@ export class QqcInitializerService {
     fb: FormBuilder
   ): FormGroup | null {
     if (!currentQuestion?.options?.length) {
-      console.warn('Question data not ready or options are missing.');
       return null;
     }
 
@@ -284,7 +281,6 @@ export class QqcInitializerService {
     );
 
     const form = fb.group(controls);
-    console.log('Form initialized:', form.value);
     form.updateValueAndValidity();
     return form;
   }
@@ -296,9 +292,7 @@ export class QqcInitializerService {
   checkRenderReady(questionForm: FormGroup | null): boolean {
     const valid = questionForm?.valid ?? false;
     if (valid) {
-      console.info('Both form and question data are ready, rendering component.');
     } else {
-      console.log('Form or question data is not ready yet');
     }
     return valid;
   }
@@ -308,13 +302,11 @@ export class QqcInitializerService {
    */
   validateFormForSubmission(questionForm: FormGroup): boolean {
     if (questionForm.invalid) {
-      console.log('Form is invalid');
       return false;
     }
 
     const selectedOption = questionForm.get('selectedOption')?.value;
     if (selectedOption === null || selectedOption === undefined) {
-      console.log('No option selected');
       return false;
     }
 
@@ -387,7 +379,6 @@ export class QqcInitializerService {
     onQuestionsLoaded: (questions: QuizQuestion[]) => void;
   }): Subscription | null {
     if (!this.quizStateService || !this.quizService) {
-      console.warn('Required services are not available.');
       return null;
     }
 
@@ -432,9 +423,6 @@ export class QqcInitializerService {
             if (hasAnswered) {
               this.selectedOptionService.setAnsweredState(true);
             } else {
-              console.log(
-                'Skipping setAnsweredState(false) to avoid overwrite'
-              );
             }
 
             params.onQuestionsLoaded(questions);

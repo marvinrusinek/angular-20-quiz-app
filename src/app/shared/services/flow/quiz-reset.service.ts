@@ -117,9 +117,6 @@ export class QuizResetService {
     if (!this.explanationTextService.isExplanationLocked()) {
       this.explanationTextService.resetExplanationState();
     } else {
-      console.log(
-        '[resetQuestionState] Skipping explanation reset — lock is active.'
-      );
     }
 
     this.selectedOptionService.stopTimerEmitted = false;
@@ -260,7 +257,6 @@ export class QuizResetService {
     try {
       this.quizQuestionLoaderService?.questionToDisplaySubject.next('');
     } catch {
-      console.warn('[RESET] questionToDisplay$ not available');
     }
 
     this.quizStateService.setDisplayState(
@@ -268,14 +264,11 @@ export class QuizResetService {
     );
     this.quizStateService.setExplanationReady(false);
 
-    console.log('[RESET] Reactive quiz state cleared.');
-
     this.selectedOptionService.clearSelectedOption();
     this.selectedOptionService.clearSelection();
     this.selectedOptionService.deselectOption();
     this.selectedOptionService.resetSelectionState();
     this.selectedOptionService.selectedOptionsMap.clear();
-    console.log('[SOS] restartQuiz() called - WIPING ALL SELECTIONS from map!');
     this.selectedOptionService.setAnswered(false);
     this.quizStateService.setAnswerSelected(false);
 

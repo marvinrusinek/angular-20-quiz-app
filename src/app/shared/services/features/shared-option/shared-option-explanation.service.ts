@@ -78,7 +78,6 @@ export class SharedOptionExplanationService {
         ?? this.quizService.getQuestionsInDisplayOrder?.()?.[resolvedIndex]
         ?? this.quizService.questions?.[resolvedIndex];
       if (questionAtIndex && questionAtIndex.questionText !== currentQuestion.questionText) {
-        console.warn(`[emitExplanation] BLOCKED: stale deferred call for index=${resolvedIndex}`);
         return;
       }
     }
@@ -103,8 +102,6 @@ export class SharedOptionExplanationService {
   emitExplanation(ctx: ExplanationContext, skipGuard = false): void {
     const { resolvedIndex, question, currentQuestion } = ctx;
 
-    console.log(`[SharedOptionExplanationService] emitExplanation checking Q${resolvedIndex + 1} skipGuard=${skipGuard}...`);
-
     // Guard: Emit FET only when the question is resolved correctly.
     // Use display-order question source to handle shuffled mode correctly.
     const authQ = this.quizService.getQuestionsInDisplayOrder?.()?.[resolvedIndex]
@@ -115,12 +112,10 @@ export class SharedOptionExplanationService {
       if (authQ && Array.isArray(authQ.options)) {
         const resolved = this.checkResolution(ctx);
         if (!resolved) {
-          console.log(`[emitExplanation] Q${resolvedIndex + 1} NOT resolved. Skipping FET.`);
           return;
         }
       } else if (!question || !Array.isArray(question?.options)) {
         // No question data available — cannot verify resolution. Block FET.
-        console.log(`[emitExplanation] Q${resolvedIndex + 1} no question data. Blocking FET.`);
         return;
       }
     }
@@ -130,11 +125,8 @@ export class SharedOptionExplanationService {
       || '';
 
     if (!explanationText) {
-      console.warn(`[emitExplanation] No explanation text resolved for Q${resolvedIndex + 1}`);
       return;
     }
-
-    console.log(`[SharedOptionExplanationService] emitExplanation proceeding for Q${resolvedIndex + 1}: "${explanationText.substring(0, 30)}..."`);
 
     // Cache the resolved formatted text
     this.cacheResolvedFormattedExplanation(resolvedIndex, explanationText);
@@ -144,7 +136,7 @@ export class SharedOptionExplanationService {
       (this.explanationTextService as any)._fetLocked = false;
       this.explanationTextService.unlockExplanation();
       this.explanationTextService.explanationText$.next('');
-    } catch (e) { console.warn('[SOC] Failed to unlock/pulse FET', e); }
+    } catch (e) { }
 
     // Force display flags to TRUE
     this.explanationTextService.setIsExplanationTextDisplayed(true);
@@ -153,8 +145,6 @@ export class SharedOptionExplanationService {
     this.pendingExplanationIndex = resolvedIndex;
     this.applyExplanationText(explanationText, resolvedIndex);
     this.scheduleExplanationVerification(resolvedIndex, explanationText);
-
-    console.log(`[SharedOptionExplanationService] emitExplanation COMPLETED for Q${resolvedIndex + 1}`);
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -261,7 +251,6 @@ export class SharedOptionExplanationService {
       if (correctCount > 1) {
         const allCorrect = correctSelected >= correctCount;
         if (allCorrect) {
-          console.log(`[emitExplanation] Multi-answer UI Resolved: correct=${correctSelected}/${correctCount}, inc=${incorrectSelected}`);
         }
         return allCorrect;
       }
@@ -309,7 +298,6 @@ export class SharedOptionExplanationService {
         if (!selectedTexts.has(t)) { allPresent = false; break; }
       }
       if (!allPresent) {
-        console.log(`[emitExplanation] Q${resolvedIndex + 1} pristine-gate BLOCK: have=${JSON.stringify([...selectedTexts])} need=${JSON.stringify([...pristineCorrectTexts])}`);
         resolved = false;
       }
     }
@@ -319,11 +307,8 @@ export class SharedOptionExplanationService {
     // paths, causing it to report "resolved" when only 1 of 2 correct
     // answers are actually selected. Only allow override for single-answer.
     if (!resolved && status.resolved && !isMultiAnswer) {
-      console.log(`[emitExplanation] Q${resolvedIndex + 1} UI check failed but Service check PASSED. Overriding to RESOLVED=true.`);
       resolved = true;
     }
-
-    console.log(`[emitExplanation] Q${resolvedIndex + 1} | correctTotal=${correctCount} | uiResolved=${uiResolved} | serviceResolved=${status.resolved} -> FINAL=${resolved}`);
 
     return resolved;
   }
@@ -336,7 +321,6 @@ export class SharedOptionExplanationService {
     explanationText: string,
     displayIndex: number
   ): void {
-    console.log(`[SharedOptionExplanationService] applyExplanationText displaying for Q${displayIndex + 1}`);
     this.quizStateService.markUserInteracted(displayIndex);
 
     const contextKey = this.buildExplanationContext(displayIndex);
@@ -370,7 +354,6 @@ export class SharedOptionExplanationService {
       mode: 'explanation',
       answered: true
     });
-    console.log(`[SharedOptionExplanationService] DisplayState set to EXPLANATION for Q${displayIndex + 1}`);
   }
 
   buildExplanationContext(questionIndex: number): string {
@@ -411,12 +394,6 @@ export class SharedOptionExplanationService {
         this.clearPendingExplanation();
         return;
       }
-
-      console.warn('[Re-applying explanation text after mismatch]', {
-        expected: explanationText,
-        latest,
-        displayIndex
-      });
 
       this.explanationTextService.unlockExplanation();
       this.applyExplanationText(explanationText, displayIndex);
@@ -508,7 +485,6 @@ export class SharedOptionExplanationService {
         : [];
 
     if (displayOptions.length === 0) {
-      console.warn(`[FET-SOC] Q${displayIndex + 1} | No visual options found! Falling back to raw.`);
       return (effectiveQuestion?.explanation || '').trim();
     }
 
@@ -520,7 +496,6 @@ export class SharedOptionExplanationService {
     authQ = authQ || (effectiveQuestion as QuizQuestion);
 
     if (!authQ) {
-      console.warn(`[FET-SOC] Q${displayIndex + 1} | No auth question found. Using raw.`);
       return (effectiveQuestion?.explanation || '').trim();
     }
 
@@ -559,8 +534,6 @@ export class SharedOptionExplanationService {
         return isCorrect ? i + 1 : null;
       })
       .filter((n): n is number => n !== null);
-
-    console.log(`[FET-SOC] Q${displayIndex + 1} | CORRECT INDICES: ${JSON.stringify(correctIndices)}`);
 
     // 5. Format and Emit
     const rawExplanation = (authQ.explanation || '').trim();

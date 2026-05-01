@@ -27,7 +27,6 @@ export class QuizResolverService implements Resolve<Quiz | UrlTree | null> {
     // This prevents "cold observable" stutter or "waiting for data" hangs during Q1->Q2 nav.
     const activeQuiz = this.quizService.selectedQuiz;
     if (activeQuiz && activeQuiz.quizId === quizId) {
-      console.log('[🚀 QuizResolver] Fast path: Quiz already loaded:', quizId);
       return of(activeQuiz);
     }
 
@@ -38,7 +37,6 @@ export class QuizResolverService implements Resolve<Quiz | UrlTree | null> {
           console.error(`[❌ QuizResolver] Quiz not found for ID: ${quizId}`);
           return this.router.createUrlTree(['/quiz']);
         }
-        console.log('[✅ QuizResolver] Quiz resolved (slow path):', quiz);
         return quiz;
       }),
 

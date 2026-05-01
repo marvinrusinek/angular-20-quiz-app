@@ -247,7 +247,6 @@ export class QuizService {
     // When quizReset$ emits (e.g. on Shuffle Toggle), clear the internal state cache
     // in QuizStateService. Otherwise, "isAnswered" state for index 0 persists across shuffles.
     this.quizReset$.subscribe(() => {
-      console.log('[QuizService] 🧹 Triggering QuizStateService RESET via quizReset$');
       this.quizStateService.reset();
     });
   }
@@ -263,7 +262,6 @@ export class QuizService {
   }
   set questions(value: any) {
     if (Array.isArray(value) && value.length === 0 && Array.isArray(this._questions) && this._questions.length > 0) {
-      console.warn('[QuizService] CLEARING questions array! Trace:');
       console.trace();
     }
 
@@ -276,7 +274,6 @@ export class QuizService {
       value === this.shuffledQuestions;
 
     if (isIncomingShuffledData) {
-      console.warn('[QuizService] BLOCKED: Attempted to overwrite _questions with shuffledQuestions reference!');
       // Do NOT update _questions - the canonical data should remain unshuffled
       // But still emit the shuffled questions for subscribers
       this.questionsSubject.next(this.shuffledQuestions);
@@ -290,7 +287,6 @@ export class QuizService {
     // Instead, re-emit the shuffled questions to keep everyone in sync.
     // Use isShuffleEnabled() instead of checkedShuffle property
     if (this.isShuffleEnabled() && this.shuffledQuestions.length > 0) {
-      console.log('[QuizService] 🔒 Shuffle active: Emitting shuffledQuestions instead of incoming value.');
       this.questionsSubject.next(this.shuffledQuestions);
       this.questionsQuizId = this.quizId ?? null;
     } else {
@@ -402,9 +398,6 @@ export class QuizService {
   setQuizStatus(value: QuizStatus): void {
     // Hard lock: once completed, status is immutable
     if (this.quizCompleted && value === QuizStatus.CONTINUE) {
-      console.warn(
-        '[QuizService] ⚠️ Ignoring CONTINUE status after quiz completion'
-      );
       return;
     }
 
@@ -463,7 +456,6 @@ export class QuizService {
   getAllQuestions(): Observable<QuizQuestion[]> {
     // Prioritize shuffled questions if they exist!
     if (this.shuffledQuestions && this.shuffledQuestions.length > 0) {
-      console.log('[getAllQuestions] Returning active SHUFFLED questions');
       return of(this.shuffledQuestions);
     }
 
@@ -561,7 +553,6 @@ export class QuizService {
           prevSelected.some(s => (s.text || '').trim() === (o.text || '').trim())
         );
         this.answers = restoredAnswers;
-        console.log(`[QuizService] Restored ${restoredAnswers.length} answers for Q${safeIndex} (preventing score drop)`);
       } else {
         this.answers = [];
       }
@@ -698,9 +689,6 @@ export class QuizService {
       if (!this.userAnswers) this.userAnswers = [];
       this.userAnswers[this.currentQuestionIndex] = answerIds;
     }
-
-    console.log(`[updateAnswersForOption] Final answers array: 
-      ${JSON.stringify(this.answers.map(a => a.text?.substring(0, 15)))}`);
   }
 
 
@@ -715,7 +703,6 @@ export class QuizService {
   }
 
   setQuestionsLoaded(state: boolean): void {
-    console.log('Questions loaded state set to:', state);
     this.questionsLoadedSig.set(state);
   }
 
@@ -729,7 +716,6 @@ export class QuizService {
 
   private shouldShuffle(): boolean {
     const should = this.shuffleEnabledSubject.getValue();
-    console.log(`[QuizService] shouldShuffle? ${should}`);
     return should;
   }
 
@@ -769,7 +755,6 @@ export class QuizService {
     this.resetScore();
 
     this.quizId = '';
-    console.log(`[setCheckedShuffle] Shuffle=${isChecked}, cleared shuffle state & questions for fresh start`);
   }
 
   setCanonicalQuestions(
@@ -845,12 +830,10 @@ export class QuizService {
   }
 
   updateUserAnswer(questionIndex: number, answerIds: number[]): void {
-    console.log(`[QuizService] updateUserAnswer(idx=${questionIndex}, ids=${JSON.stringify(answerIds)})`);
     this.userAnswers[questionIndex] = answerIds;
     try {
       localStorage.setItem('userAnswers', JSON.stringify(this.userAnswers));
     } catch (err) {
-      console.warn('Failed to persist userAnswers:', err);
     }
 
     let question = this.questions[questionIndex];
@@ -1066,7 +1049,6 @@ export class QuizService {
       const raw = sessionStorage.getItem('finalResult');
       return raw ? (JSON.parse(raw) as FinalResult) : null;
     } catch (err) {
-      console.warn('[QuizService] Unable to restore finalResult', err);
       return null;
     }
   }

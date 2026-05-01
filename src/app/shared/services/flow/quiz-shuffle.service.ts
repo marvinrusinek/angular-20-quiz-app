@@ -23,7 +23,6 @@ export class QuizShuffleService {
     // Only shuffle ONCE per quiz session.
     // If we already have a shuffle order for this quiz, DO NOT recreate it!
     if (this.shuffleByQuizId.has(quizId)) {
-      console.log(`[QuizShuffleService] ⚡ REUSING existing shuffle for quiz ${quizId} - NOT re-shuffling!`);
       // Fix any pre-existing option shuffling: normalize option orders to identity
       this.normalizeOptionOrders(quizId, questions);
       return;
@@ -33,7 +32,6 @@ export class QuizShuffleService {
     if (this.loadState(quizId)) {
       const state = this.shuffleByQuizId.get(quizId);
       if (state && state.questionOrder.length === questions.length) {
-        console.log(`[QuizShuffleService] 💾 Loaded VALID PERSISTED shuffle for quiz ${quizId}`);
         // Fix any pre-existing option shuffling: normalize option orders to identity
         this.normalizeOptionOrders(quizId, questions);
         return;
@@ -45,8 +43,6 @@ export class QuizShuffleService {
 
     // Question shuffling enabled, but option shuffling disabled for stability
     const { shuffleQuestions = true, shuffleOptions = false } = opts;
-
-    console.log(`[QuizShuffleService] 🔀 prepareShuffle FIRST TIME for ${quizId}. shuffleQuestions=${shuffleQuestions}, shuffleOptions=${shuffleOptions}`);
 
     const qIdx = questions.map((_, i) => i);
     const questionOrder = shuffleQuestions ? Utils.shuffleArray(qIdx) : qIdx;
@@ -85,7 +81,6 @@ export class QuizShuffleService {
     }
 
     if (changed) {
-      console.warn(`[QuizShuffleService] 🔧 Normalized option orders to identity for quiz ${quizId} (option shuffle disabled)`);
       this.saveState(quizId);
     }
   }
@@ -279,7 +274,6 @@ export class QuizShuffleService {
     }
     const state = this.shuffleByQuizId.get(quizId);
     if (!state) {
-      console.warn(`[toOriginalIndex] ⚠️ No shuffle state found for quizId=${quizId}`);
       return null;
     }
     const result = state.questionOrder[displayIdx] ?? null;

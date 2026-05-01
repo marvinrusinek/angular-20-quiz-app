@@ -33,7 +33,6 @@ export class NextButtonStateService {
       interactionReady$?: Observable<boolean>
   ): void {
     if (this.initialized) {
-      console.warn('[🛑 initializeNextButtonStateStream] Already initialized');
       return;
     }
     this.initialized = true;

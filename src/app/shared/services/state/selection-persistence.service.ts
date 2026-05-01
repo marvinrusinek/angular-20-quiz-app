@@ -79,9 +79,7 @@ export class SelectionPersistenceService {
         this.clearStaleSessionData(ctx);
       }
 
-    } catch (err) {
-      console.warn('[SelectionPersistenceService] Failed to load state from sessionStorage', err);
-    }
+    } catch (err) {    }
   }
 
   private restoreFromRefresh(ctx: SelectionStateContext): void {
@@ -157,9 +155,7 @@ export class SelectionPersistenceService {
       for (const idx of durableIndices) {
         this.mergeAndPersistQuestion(ctx, idx);
       }
-    } catch (err) {
-      console.warn('[SelectionPersistenceService] Failed to save state to sessionStorage', err);
-    }
+    } catch (err) {    }
   }
 
   private mergeAndPersistQuestion(ctx: SelectionStateContext, idx: number): void {

@@ -277,7 +277,6 @@ export class SharedOptionInitService {
         // If we've exhausted retries, show fallback
         if (attempt >= maxAttempts) {
           if (!comp.renderReady || !comp.optionsToDisplay?.length) {
-            console.warn('[SOC] Options still not ready after retries, showing fallback');
             comp.showNoOptionsFallback = true;
             comp.cdRef.detectChanges();  // force immediate update for OnPush
           }
@@ -303,9 +302,7 @@ export class SharedOptionInitService {
     if (cfg && cfg.optionsToDisplay?.length > 0) {
       comp.optionsToDisplay = cfg.optionsToDisplay;
     } else if (comp.optionsToDisplay?.length > 0) {
-      console.log('Options received directly:', comp.optionsToDisplay);
     } else {
-      console.warn('No options received in SharedOptionComponent');
     }
 
     comp.renderReady = comp.optionsToDisplay?.length > 0;
@@ -318,7 +315,6 @@ export class SharedOptionInitService {
   private initializeOptionBindings(comp: SharedOptionComponentLike): void {
     try {
       if (comp.optionBindingsInitialized) {
-        console.warn('[Already initialized]');
         return;
       }
 
@@ -327,7 +323,6 @@ export class SharedOptionInitService {
       const options = comp.optionsToDisplay;
 
       if (!options?.length) {
-        console.warn('[No options available on init - will be set by ngOnChanges]');
         comp.optionBindingsInitialized = false;
         return;
       }
@@ -355,7 +350,6 @@ export class SharedOptionInitService {
       comp.renderReady = true;
       comp.viewReady = true;
     } else {
-      console.warn('[Display init skipped — not ready]');
     }
 
     // Initial feedback generation for Q1
@@ -403,9 +397,6 @@ export class SharedOptionInitService {
       .pipe(takeUntil(comp.destroy$))
       .subscribe(([idx, opts]: [number, Option[]]) => {
         // Use opts (synced latest options) for logging/logic
-        console.log(
-          `[SOC] currentQuestionIndex$ fired: idx=${idx}, optionsToDisplay.length=${opts?.length}`
-        );
 
         // Reset all state when question index changes
         // This fixes highlighting/disabled state persisting from previous questions
@@ -434,7 +425,6 @@ export class SharedOptionInitService {
           if (isStaleIdx) {
             // Completely ignore the stale BehaviorSubject(0) emission.
             // Do NOT update trackers — the real idx will arrive shortly.
-            console.log(`[SOC] Ignoring stale idx=${idx} (URL says ${urlQuestionIdx})`);
           } else {
             // Skip the state clear when the current bindings are already
             // aligned with the NEW question's options (same optionIds).
@@ -504,10 +494,6 @@ export class SharedOptionInitService {
             const correctOptions = opts.filter(
               (o: Option) => o.correct === true
             );
-            console.log(
-              `[SOC] Q${idx + 1} correctOptions from optionsToDisplay:`,
-              correctOptions?.map((o) => o.optionId)
-            );
 
             const serviceDisplayOrders = question.options
               ?.map((o: Option) => o.displayOrder)
@@ -515,10 +501,6 @@ export class SharedOptionInitService {
             const inputDisplayOrders = opts
               ?.map((o) => o.displayOrder)
               .join(',');
-            console.log(
-              `[SOC] Service DisplayOrders: [${serviceDisplayOrders}] |
-                 Input DisplayOrders: [${inputDisplayOrders}]`
-            );
 
             const selections = this.selectedOptionService.getSelectedOptionsForQuestion(idx) || [];
             const freshFeedback = this.feedbackService.buildFeedbackMessage(
@@ -655,9 +637,6 @@ export class SharedOptionInitService {
    */
   initializeFromConfig(comp: SharedOptionComponentLike): void {
     if (comp.freezeOptionBindings || comp.hasUserClicked) {
-      console.warn(
-        '[initializeFromConfig] Skipping initialization - option bindings frozen or user has clicked'
-      );
       return;
     }
 
@@ -676,7 +655,6 @@ export class SharedOptionInitService {
     // Guard: Config or options missing
     const cfg2 = comp.config();
     if (!cfg2 || !cfg2.optionsToDisplay?.length) {
-      console.warn('[initializeFromConfig] Config missing or empty.');
       return;
     }
 
@@ -710,9 +688,6 @@ export class SharedOptionInitService {
     });
 
     if (!comp.optionsToDisplay.length) {
-      console.warn(
-        '[initializeFromConfig] optionsToDisplay is empty after processing.'
-      );
       return;
     }
 
@@ -747,7 +722,6 @@ export class SharedOptionInitService {
 
     // Mismatch Guard logging only
     if (qIndex !== inputIndex && Number.isFinite(inputIndex)) {
-      console.warn(`[initializeFromConfig] Index divergence noted: Service/Calculated says ${qIndex}, Input says ${inputIndex}. Using ${qIndex}.`);
     }
 
     const saved = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex);
@@ -810,9 +784,6 @@ export class SharedOptionInitService {
         }
       }
     } else {
-      console.log(
-        `[initializeFromConfig] No saved selections for Q${qIndex + 1} - starting clean`
-      );
     }
 
     // Determine question type based on options, but Respect explicit input first!
