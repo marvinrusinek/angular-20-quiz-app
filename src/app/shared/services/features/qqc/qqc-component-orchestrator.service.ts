@@ -1,5 +1,4 @@
 import { Injectable } from '@angular/core';
-import { firstValueFrom } from 'rxjs';
 import { take } from 'rxjs/operators';
 
 import { Option } from '../../../models/Option.model';
@@ -10,6 +9,8 @@ import { QqcOrchLifecycleService } from './qqc-orch-lifecycle.service';
 import { QqcOrchClickService } from './qqc-orch-click.service';
 import { QqcOrchQuestionLoadService } from './qqc-orch-question-load.service';
 import { QqcOrchTimerService } from './qqc-orch-timer.service';
+import { QqcOrchExplanationService } from './qqc-orch-explanation.service';
+import { QqcOrchSelectionService } from './qqc-orch-selection.service';
 
 type Host = any;
 
@@ -26,6 +27,8 @@ export class QqcComponentOrchestratorService {
     private orchClick: QqcOrchClickService,
     private orchQuestionLoad: QqcOrchQuestionLoadService,
     private orchTimer: QqcOrchTimerService,
+    private orchExplanation: QqcOrchExplanationService,
+    private orchSelection: QqcOrchSelectionService,
   ) {}
 
   // ═══════════════════════════════════════════════════════════════
@@ -60,71 +63,7 @@ export class QqcComponentOrchestratorService {
   // onVisibilityChange body
   // ═══════════════════════════════════════════════════════════════
   async runOnVisibilityChange(host: Host): Promise<void> {
-    if (document.visibilityState === 'hidden') {
-      host.navigationHandler.persistStateOnHide({
-        quizId: host.quizId()!,
-        currentQuestionIndex: host.currentQuestionIndex() ?? 0,
-        displayExplanation: host.displayExplanation,
-      });
-      host.navigationHandler.resetExplanationStateOnHide();
-      await host.navigationHandler.captureElapsedOnHide();
-      return;
-    }
-
-    try {
-      const { shouldExpire, expiredIndex } = await host.navigationHandler.handleFastPathExpiry({
-        currentQuestionIndex: host.currentQuestionIndex() ?? 0,
-        displayExplanation: host.displayExplanation,
-        normalizeIndex: (idx: number) => host.normalizeIndex(idx),
-      });
-      if (shouldExpire) {
-        host.timerService.stopTimer?.(undefined, { force: true });
-        host.onTimerExpiredFor(expiredIndex);
-        return;
-      }
-    } catch {}
-
-    try {
-      if (document.visibilityState !== 'visible') return;
-      host._visibilityRestoreInProgress = true;
-      (host.explanationTextService as any)._visibilityLocked = true;
-      host._suppressDisplayStateUntil = performance.now() + 300;
-
-      const restoreResult = await host.navigationHandler.performFullVisibilityRestore({
-        quizId: host.quizId()!,
-        currentQuestionIndex: host.currentQuestionIndex() ?? 0,
-        optionsToDisplay: host.optionsToDisplay(),
-        currentQuestion: host.currentQuestion(),
-        generateFeedbackText: (q: QuizQuestion) => host.generateFeedbackText(q),
-        applyOptionFeedback: (opt: Option) => host.applyOptionFeedback(opt),
-        restoreFeedbackState: () => {
-          host.optionsToDisplay.set(host.feedbackManager.restoreFeedbackState(
-            host.currentQuestion(),
-            host.optionsToDisplay(),
-            host.correctMessage()
-          ));
-        },
-      });
-
-      host.displayState.mode = restoreResult.displayMode as 'question' | 'explanation';
-      host.optionsToDisplay.set(restoreResult.optionsToDisplay);
-      host.feedbackText = restoreResult.feedbackText;
-      host.displayExplanation = restoreResult.shouldShowExplanation;
-      host.safeSetDisplayState(
-        restoreResult.shouldShowExplanation
-          ? { mode: 'explanation', answered: true }
-          : { mode: 'question', answered: false }
-      );
-
-      setTimeout(() => {
-        (host.explanationTextService as any)._visibilityLocked = false;
-        host._visibilityRestoreInProgress = false;
-        setTimeout(
-          () => host.navigationHandler.refreshExplanationStatePostRestore(host.currentQuestionIndex() ?? 0),
-          400
-        );
-      }, 350);
-    } catch {}
+    return this.orchExplanation.runOnVisibilityChange(host);
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -275,95 +214,21 @@ export class QqcComponentOrchestratorService {
   // updateExplanationDisplay body
   // ═══════════════════════════════════════════════════════════════
   async runUpdateExplanationDisplay(host: Host, shouldDisplay: boolean): Promise<void> {
-    host.showExplanationChange.emit(shouldDisplay);
-    host.displayExplanation = shouldDisplay;
-    if (shouldDisplay) {
-      setTimeout(async () => {
-        const result = await host.explanationDisplay.performUpdateExplanationDisplay({
-          shouldDisplay: true,
-          currentQuestionIndex: host.currentQuestionIndex(),
-        });
-        host.explanationToDisplay.set(result.explanationToDisplay);
-        host.explanationToDisplayChange.emit(result.explanationToDisplay);
-        host.cdRef.markForCheck();
-      }, 50);
-    } else {
-      const result = await host.explanationDisplay.performUpdateExplanationDisplay({
-        shouldDisplay: false,
-        currentQuestionIndex: host.currentQuestionIndex(),
-      });
-      if (result.explanationToDisplay !== undefined) {
-        host.explanationToDisplay.set(result.explanationToDisplay);
-        host.explanationToDisplayChange.emit(result.explanationToDisplay);
-      }
-      if (result.shouldResetQuestionState) host.resetQuestionStateBeforeNavigation();
-    }
+    return this.orchExplanation.runUpdateExplanationDisplay(host, shouldDisplay);
   }
 
   // ═══════════════════════════════════════════════════════════════
   // fetchAndSetExplanationText body
   // ═══════════════════════════════════════════════════════════════
   async runFetchAndSetExplanationText(host: Host, questionIndex: number): Promise<void> {
-    host.resetExplanation();
-
-    const ensureLoaded = async () => {
-      const r = await host.questionLoader.ensureQuestionsLoaded(host.questionsArray, host.quizId());
-      if (r.loaded && r.questions) {
-        host.questions = r.questions;
-        host.questionsArray = r.questions;
-      }
-      return r.loaded;
-    };
-
-    const result = await host.explanationFlow.performFetchAndSetExplanation({
-      questionIndex,
-      questionsArray: host.questionsArray,
-      quizId: host.quizId(),
-      isAnswered: host.isAnswered as boolean,
-      shouldDisplayExplanation: host.shouldDisplayExplanation,
-      ensureQuestionsLoaded: ensureLoaded,
-      ensureQuestionIsFullyLoaded: (idx: number) =>
-        host.questionLoader.ensureQuestionIsFullyLoaded(idx, host.questionsArray, host.quizId()),
-      prepareExplanationText: (idx: number) => host.prepareAndSetExplanationText(idx),
-      isAnyOptionSelected: (idx: number) => host.isAnyOptionSelected(idx),
-    });
-
-    if (result.success) {
-      host.currentQuestionIndex.set(questionIndex);
-      host.explanationToDisplay.set(result.explanationToDisplay);
-      host.explanationTextService.updateFormattedExplanation(host.explanationToDisplay());
-      host.explanationToDisplayChange.emit(host.explanationToDisplay());
-    } else if (result.explanationToDisplay) {
-      host.explanationToDisplay.set(host.explanationFlow.getExplanationErrorText());
-      if (host.isAnswered && host.shouldDisplayExplanation) {
-        host.emitExplanationChange(host.explanationToDisplay(), true);
-      }
-    }
+    return this.orchExplanation.runFetchAndSetExplanationText(host, questionIndex);
   }
 
   // ═══════════════════════════════════════════════════════════════
   // updateExplanationUI body
   // ═══════════════════════════════════════════════════════════════
   runUpdateExplanationUI(host: Host, questionIndex: number, explanationText: string): void {
-    const validated = host.explanationFlow.performUpdateExplanationUI({
-      questionsArray: host.questionsArray,
-      questionIndex,
-    });
-    if (!validated) return;
-
-    try {
-      host.quizService.setCurrentQuestion(validated.currentQuestion);
-      new Promise<void>((resolve) => setTimeout(resolve, 100))
-        .then(async () => {
-          if (host.shouldDisplayExplanation && (await host.isAnyOptionSelected(validated.adjustedIndex))) {
-            host.emitExplanationChange('', false);
-            host.explanationToDisplay.set(explanationText);
-            host.emitExplanationChange(host.explanationToDisplay(), true);
-            host.isAnswerSelectedChange.emit(true);
-          }
-        })
-        .catch(() => {});
-    } catch {}
+    this.orchExplanation.runUpdateExplanationUI(host, questionIndex, explanationText);
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -375,32 +240,7 @@ export class QqcComponentOrchestratorService {
     optionIndex: number,
     currentQuestion: QuizQuestion
   ): Promise<void> {
-    const result = await host.optionSelection.handleFullOptionSelection({
-      option,
-      optionIndex,
-      currentQuestion,
-      currentQuestionIndex: host.currentQuestionIndex(),
-      quizId: host.quizId()!,
-      lastAllCorrect: host._lastAllCorrect,
-      optionsToDisplay: host.optionsToDisplay(),
-      handleOptionClickedFn: async (q: QuizQuestion, idx: number) => {
-        const r = host.optionSelection.handleOptionClicked({
-          currentQuestion: q,
-          optionIndex: idx,
-          currentQuestionIndex: host.currentQuestionIndex(),
-        });
-        if (r) host.cdRef.markForCheck();
-      },
-      updateExplanationTextFn: (idx: number) => host.updateExplanationText(idx),
-    });
-    if (!result) return;
-    host.selectedOption = result.selectedOption;
-    host.showFeedback.set(result.showFeedback);
-    host.showFeedbackForOption = result.showFeedbackForOption;
-    host.selectedOptionIndex = result.selectedOptionIndex;
-    host.explanationText.set(result.explanationText);
-    host.applyFeedbackIfNeeded(option);
-    host.optionSelection.setAnsweredAndDisplayState(host._lastAllCorrect);
+    return this.orchSelection.runHandleOptionSelection(host, option, optionIndex, currentQuestion);
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -482,38 +322,14 @@ export class QqcComponentOrchestratorService {
   // updateExplanationIfAnswered body
   // ═══════════════════════════════════════════════════════════════
   async runUpdateExplanationIfAnswered(host: Host, index: number, question: QuizQuestion): Promise<void> {
-    const result = await host.explanationFlow.updateExplanationIfAnswered({
-      index,
-      question,
-      shouldDisplayExplanation: host.shouldDisplayExplanation,
-      isAnyOptionSelected: (idx: number) => host.isAnyOptionSelected(idx),
-      getFormattedExplanation: (q: QuizQuestion, idx: number) =>
-        host.explanationManager.getFormattedExplanation(q, idx),
-    });
-    if (result.shouldUpdate) {
-      host.explanationToDisplay.set(result.explanationText);
-      host.emitExplanationChange(host.explanationToDisplay(), true);
-      host.isAnswerSelectedChange.emit(true);
-    }
+    return this.orchExplanation.runUpdateExplanationIfAnswered(host, index, question);
   }
 
   // ═══════════════════════════════════════════════════════════════
   // handlePageVisibilityChange body
   // ═══════════════════════════════════════════════════════════════
   runHandlePageVisibilityChange(host: Host, isHidden: boolean): void {
-    const action = host.navigationHandler.computeVisibilityAction(isHidden);
-    if (action.shouldClearSubscriptions) {
-      for (const sub of (host.displaySubscriptions ?? [])) {
-        sub.unsubscribe();
-      }
-      host.displaySubscriptions = [];
-      const cleanup = host.navigationHandler.computeDisplaySubscriptionCleanup();
-      host.explanationToDisplay.set(cleanup.explanationToDisplay);
-      host.emitExplanationChange('', cleanup.showExplanation);
-    }
-    if (action.shouldRefreshExplanation) {
-      host.prepareAndSetExplanationText(host.currentQuestionIndex());
-    }
+    this.orchExplanation.runHandlePageVisibilityChange(host, isHidden);
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -527,37 +343,14 @@ export class QqcComponentOrchestratorService {
   // isAnyOptionSelected body
   // ═══════════════════════════════════════════════════════════════
   async runIsAnyOptionSelected(host: Host, questionIndex: number): Promise<boolean> {
-    const rs = host.optionSelection.resetStateForNewQuestion();
-    host.showFeedbackForOption = rs.showFeedbackForOption;
-    host.showFeedback.set(rs.showFeedback);
-    host.correctMessage.set(rs.correctMessage);
-    host.selectedOption = rs.selectedOption;
-    host.isOptionSelected.set(rs.isOptionSelected);
-    host.emitExplanationChange('', false);
-    try {
-      return await firstValueFrom(host.quizService.isAnswered(questionIndex));
-    } catch {
-      return false;
-    }
+    return this.orchSelection.runIsAnyOptionSelected(host, questionIndex);
   }
 
   // ═══════════════════════════════════════════════════════════════
   // onSubmitMultiple body
   // ═══════════════════════════════════════════════════════════════
   async runOnSubmitMultiple(host: Host): Promise<void> {
-    const idx = host.currentQuestionIndex() ?? host.quizService.getCurrentQuestionIndex() ?? 0;
-    const computed = host.explanationFlow.computeSubmitMultipleExplanation({ currentQuestionIndex: idx });
-    if (!computed) return;
-    await host.explanationFlow.applySubmitMultipleExplanation({
-      currentQuestionIndex: idx,
-      formatted: computed.formatted,
-      correctAnswersText: computed.correctAnswersText,
-      questionType: computed.questionType,
-    });
-    host.displayStateSubject?.next({ mode: 'explanation', answered: true });
-    host.displayExplanation = true;
-    host.explanationToDisplay.set(computed.formatted);
-    host.explanationToDisplayChange?.emit(computed.formatted);
+    return this.orchSelection.runOnSubmitMultiple(host);
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -571,84 +364,28 @@ export class QqcComponentOrchestratorService {
     wasPreviouslySelected: boolean,
     questionIndex?: number
   ): Promise<void> {
-    const lockedIndex = questionIndex ?? host.currentQuestionIndex();
-    const { sel, shouldUpdateGlobalState } = host.optionSelection.performPostClickTasks({
-      opt,
-      idx,
-      questionIndex: lockedIndex,
-      quizId: host.quizId()!,
-      lastAllCorrect: host._lastAllCorrect,
-      currentQuestionIndex: host.currentQuestionIndex(),
-    });
-    await host.finalizeSelection(opt, idx, wasPreviouslySelected);
-    host.optionSelected.emit(sel);
-    host.events.emit({ type: 'optionSelected', payload: sel });
-    if (shouldUpdateGlobalState) host.nextButtonStateService.setNextButtonState(true);
-    host.cdRef.markForCheck();
+    return this.orchSelection.runPostClickTasks(host, opt, idx, checked, wasPreviouslySelected, questionIndex);
   }
 
   // ═══════════════════════════════════════════════════════════════
   // performInitialSelectionFlow body
   // ═══════════════════════════════════════════════════════════════
   async runPerformInitialSelectionFlow(host: Host, event: any, option: SelectedOption): Promise<void> {
-    const prevSelected = !!option.selected;
-    host.optionSelection.updateOptionSelection(event, option, host.currentQuestionIndex());
-    await host.handleOptionSelection(option, event.index, host.currentQuestion()!);
-    host.applyFeedbackIfNeeded(option);
-    const nowSelected = !!option.selected;
-    const transition = host.feedbackManager.computeSelectionTransition({
-      prevSelected,
-      nowSelected,
-      option,
-      currentQuestionIndex: host.currentQuestionIndex(),
-    });
-    host.optionSelection.handleSelectionTransitionAndMessage({
-      prevSelected,
-      nowSelected,
-      transition,
-      currentQuestionIndex: host.currentQuestionIndex(),
-      optionsToDisplay: host.optionsToDisplay(),
-      currentQuestionOptions: host.currentQuestion()?.options,
-      isAnswered: host.isAnswered as boolean,
-    });
+    return this.orchSelection.runPerformInitialSelectionFlow(host, event, option);
   }
 
   // ═══════════════════════════════════════════════════════════════
   // applyFeedbackIfNeeded body
   // ═══════════════════════════════════════════════════════════════
   async runApplyFeedbackIfNeeded(host: Host, option: SelectedOption): Promise<void> {
-    if (!host.optionsToDisplay()?.length) host.populateOptionsToDisplay();
-    const result = host.feedbackManager.applyFeedbackIfNeeded({
-      option,
-      optionsToDisplay: host.optionsToDisplay(),
-      showFeedbackForOption: host.showFeedbackForOption,
-    });
-    if (!result) return;
-    host.showFeedbackForOption = result.showFeedbackForOption;
-    host.selectedOptionIndex = result.selectedOptionIndex;
-    if (result.shouldTriggerExplanation) {
-      host.explanationTextService.triggerExplanationEvaluation();
-    }
-    host.cdRef.detectChanges();
+    return this.orchSelection.runApplyFeedbackIfNeeded(host, option);
   }
 
   // ═══════════════════════════════════════════════════════════════
   // applyOptionFeedback body
   // ═══════════════════════════════════════════════════════════════
   async runApplyOptionFeedback(host: Host, selectedOption: Option): Promise<void> {
-    if (!host.optionsToDisplay()?.length) host.populateOptionsToDisplay();
-    const result = host.feedbackManager.applyOptionFeedback(
-      selectedOption,
-      host.optionsToDisplay(),
-      host.showFeedbackForOption
-    );
-    if (!result) return;
-    host.optionsToDisplay.set(result.optionsToDisplay);
-    host.showFeedbackForOption = result.showFeedbackForOption;
-    host.selectedOptionIndex = result.selectedOptionIndex;
-    host.feedbackApplied.emit(selectedOption.optionId);
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    host.cdRef.markForCheck();
+    return this.orchSelection.runApplyOptionFeedback(host, selectedOption);
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -660,56 +397,14 @@ export class QqcComponentOrchestratorService {
     index: number,
     wasPreviouslySelected: boolean
   ): Promise<void> {
-    const result = await host.optionSelection.performFinalizeSelection({
-      option,
-      index,
-      wasPreviouslySelected,
-      currentQuestionIndex: host.currentQuestionIndex(),
-      quizId: host.quizId()!,
-      lastAllCorrect: host._lastAllCorrect,
-      fetchAndProcessCurrentQuestion: () => host.fetchAndProcessCurrentQuestion(),
-      selectOption: (q: QuizQuestion, opt: SelectedOption, idx: number) => host.selectOption(q, opt, idx),
-      processCurrentQuestion: (q: QuizQuestion) =>
-        host.explanationFlow.processCurrentQuestion({
-          currentQuestion: q,
-          currentQuestionIndex: host.currentQuestionIndex(),
-          quizId: host.quizId()!,
-          lastAllCorrect: host._lastAllCorrect,
-          getExplanationText: (idx: number) => host.explanationManager.getExplanationText(idx),
-        }),
-      handleOptionSelection: (opt: SelectedOption, idx: number, q: QuizQuestion) =>
-        host.handleOptionSelection(opt, idx, q),
-    });
-    if (!result) return;
-    host.updateExplanationDisplay(result.shouldDisplay);
-    host.questionAnswered.emit();
-    host.timerEffect.stopTimerIfAllCorrectSelected({
-      currentQuestionIndex: host.currentQuestionIndex(),
-      questions: host.questions,
-      optionsToDisplay: host.optionsToDisplay(),
-    });
+    return this.orchSelection.runFinalizeSelection(host, option, index, wasPreviouslySelected);
   }
 
   // ═══════════════════════════════════════════════════════════════
   // fetchAndProcessCurrentQuestion body
   // ═══════════════════════════════════════════════════════════════
   async runFetchAndProcessCurrentQuestion(host: Host): Promise<QuizQuestion | null> {
-    const result = await host.optionSelection.fetchAndProcessCurrentQuestion({
-      currentQuestionIndex: host.currentQuestionIndex(),
-      isAnyOptionSelectedFn: (idx: number) => host.isAnyOptionSelected(idx),
-      shouldUpdateMessageOnAnswerFn: async (isAnswered: boolean) =>
-        host.selectionMessage() !==
-        host.selectionMessageService.determineSelectionMessage(
-          host.currentQuestionIndex(),
-          host.totalQuestions,
-          isAnswered
-        ),
-    });
-    if (!result) return null;
-    host.currentQuestion.set(result.currentQuestion);
-    host.optionsToDisplay.set(result.optionsToDisplay);
-    host.data.set(result.data);
-    return result.currentQuestion;
+    return this.orchSelection.runFetchAndProcessCurrentQuestion(host);
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -721,26 +416,7 @@ export class QqcComponentOrchestratorService {
     option: SelectedOption,
     optionIndex: number
   ): Promise<void> {
-    const result = await host.optionSelection.performSelectOption({
-      currentQuestion,
-      option,
-      optionIndex,
-      currentQuestionIndex: host.currentQuestionIndex(),
-      isMultipleAnswer: host.isMultipleAnswer,
-      optionsToDisplay: host.optionsToDisplay(),
-      selectedOptionsCount: host.selectedOptions.length,
-      getExplanationText: (idx: number) => host.explanationManager.getExplanationText(idx),
-    });
-    if (!result) return;
-    host.showFeedbackForOption = result.showFeedbackForOption;
-    host.selectedOption = result.selectedOption;
-    host.isOptionSelected.set(result.isOptionSelected);
-    host.isAnswered = result.isAnswered;
-    host.quizQuestionManagerService.setExplanationText(currentQuestion.explanation || '');
-    host.isAnswerSelectedChange.emit(host.isAnswered);
-    host.optionSelected.emit(result.selectedOption);
-    host.events.emit({ type: 'optionSelected', payload: result.selectedOption });
-    host.selectionChanged.emit({ question: currentQuestion, selectedOptions: host.selectedOptions });
+    return this.orchSelection.runSelectOption(host, currentQuestion, option, optionIndex);
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -795,21 +471,11 @@ export class QqcComponentOrchestratorService {
   // ─── Misc thin wrappers (extracted from QuizQuestionComponent) ───
 
   runApplyExplanationTextInZone(host: Host, text: string): void {
-    host.explanationToDisplay.set(text);
-    host.explanationToDisplayChange.emit(text);
-    host.cdRef.markForCheck();
-    host.cdRef.detectChanges();
+    this.orchExplanation.runApplyExplanationTextInZone(host, text);
   }
 
   runApplyExplanationFlags(host: Host, flags: any): void {
-    host.forceQuestionDisplay = flags.forceQuestionDisplay;
-    host.readyForExplanationDisplay = flags.readyForExplanationDisplay;
-    host.isExplanationReady = flags.isExplanationReady;
-    host.isExplanationLocked = flags.isExplanationLocked;
-    host.explanationLocked = flags.explanationLocked;
-    host.explanationVisible = flags.explanationVisible;
-    host.displayExplanation = flags.displayExplanation;
-    host.shouldDisplayExplanation = flags.shouldDisplayExplanation;
+    this.orchExplanation.runApplyExplanationFlags(host, flags);
   }
 
   runSetQuestionOptions(host: Host): void {
@@ -871,38 +537,23 @@ export class QqcComponentOrchestratorService {
   }
 
   runUnselectOption(host: Host): void {
-    const result = host.optionSelection.unselectOption(host.currentQuestionIndex());
-    host.selectedOptions = result.selectedOptions;
-    host.optionChecked = result.optionChecked;
-    host.showFeedbackForOption = result.showFeedbackForOption;
-    host.showFeedback.set(result.showFeedback);
-    host.selectedOption = result.selectedOption;
+    this.orchSelection.runUnselectOption(host);
   }
 
   runResetExplanation(host: Host, force = false): void {
-    const result = host.explanationFlow.performResetExplanation({ force, questionIndex: host.fixedQuestionIndex ?? host.currentQuestionIndex() ?? 0 });
-    host.displayExplanation = result.displayExplanation;
-    host.explanationToDisplay.set(result.explanationToDisplay);
-    if (!result.blocked) {
-      host.emitExplanationChange('', false);
-      host.cdRef?.markForCheck?.();
-    }
+    this.orchExplanation.runResetExplanation(host, force);
   }
 
   async runPrepareAndSetExplanationText(host: Host, questionIndex: number): Promise<string> {
-    host.explanationToDisplay.set(await host.explanationFlow.prepareExplanationText(questionIndex));
-    return host.explanationToDisplay();
+    return this.orchExplanation.runPrepareAndSetExplanationText(host, questionIndex);
   }
 
   async runUpdateExplanationText(host: Host, index: number): Promise<string> {
-    return host.explanationDisplay.updateExplanationText({ index, normalizeIndex: (idx: number) => host.normalizeIndex(idx), questionsArray: host.questionsArray, currentQuestionIndex: host.currentQuestionIndex(), currentQuestion: host.currentQuestion(), optionsToDisplay: host.optionsToDisplay(), options: host.options });
+    return this.orchExplanation.runUpdateExplanationText(host, index);
   }
 
   async runOnSubmit(host: Host): Promise<void> {
-    if (!host.initializer.validateFormForSubmission(host.questionForm)) return;
-    const selectedOption = host.questionForm.get('selectedOption')?.value;
-    await host.initializer.processAnswer({ selectedOption, currentQuestion: host.currentQuestion()!, currentQuestionIndex: host.currentQuestionIndex(), answers: host.answers });
-    host.questionAnswered.emit();
+    return this.orchSelection.runOnSubmit(host);
   }
 
   runRestoreSelectionsAndIconsForQuestion(host: Host, index: number): void {
@@ -926,12 +577,7 @@ export class QqcComponentOrchestratorService {
   }
 
   runEmitPassiveNow(host: Host, index: number): void {
-    host.optionSelection.emitPassiveNow({
-      index,
-      normalizeIndex: (idx: number) => host.normalizeIndex(idx),
-      optionsToDisplay: host.optionsToDisplay(),
-      currentQuestionType: host.currentQuestion()?.type,
-    });
+    this.orchSelection.runEmitPassiveNow(host, index);
   }
 
   runDisableAllBindingsAndOptions(host: Host): { optionBindings: any[]; optionsToDisplay: Option[] } {
