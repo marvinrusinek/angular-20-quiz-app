@@ -12,6 +12,7 @@ import { NextButtonStateService } from './next-button-state.service';
 import { OptionFeedbackStateService } from './option-feedback-state.service';
 import { OptionIdResolverService } from './option-id-resolver.service';
 import { OptionLockStateService } from './option-lock-state.service';
+import { SelectionPersistenceService } from './selection-persistence.service';
 import { QuizService } from '../data/quiz.service';
 
 @Injectable({ providedIn: 'root' })
@@ -31,11 +32,11 @@ export class SelectedOptionService {
 
   // Durable backup that survives clearState() — used for refresh restore.
   // Auto-cleared after 5s so stale data doesn't leak into future sessions.
-  private _refreshBackup = new Map<number, SelectedOption[]>();
+  _refreshBackup = new Map<number, SelectedOption[]>();
 
   // Accumulates ALL selections per question (including prior single-answer picks)
   // so that _wasSelected-style highlights survive refresh.
-  private _selectionHistory = new Map<number, SelectedOption[]>();
+  _selectionHistory = new Map<number, SelectedOption[]>();
 
   /** Add entries to selection history without replacing existing ones.
    *  Used by the correct-click handler to persist previously-clicked wrong
@@ -73,291 +74,11 @@ export class SelectedOptionService {
   }
 
   private loadState(): void {
-    try {
-      const raw = sessionStorage.getItem('rawSelectionsMap');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        this.rawSelectionsMap = new Map(Object.entries(parsed).map(([k, v]) => [Number(k), v as any]));
-      }
-
-      const selected = sessionStorage.getItem('selectedOptionsMap');
-      if (selected) {
-        const parsed = JSON.parse(selected);
-        // Filter ghost entries (selected:true without highlight/showIcon flags)
-        // — these are auto-injected correct options that the user never clicked.
-        const entries: Array<[number, SelectedOption[]]> = [];
-        for (const [k, v] of Object.entries(parsed)) {
-          const arr = Array.isArray(v) ? (v as any[]) : [];
-          const userClicks = arr.filter(
-            (o: any) => o && o.highlight === true && o.showIcon === true
-          ) as SelectedOption[];
-          if (userClicks.length > 0) {
-            entries.push([Number(k), userClicks]);
-          }
-        }
-        this.selectedOptionsMap = new Map(entries);
-        this.selectedOptionsMapSig.set(new Map(this.selectedOptionsMap));
-      }
-
-      // Restore _selectionHistory from its dedicated key. This is the
-      // authoritative prior-click record across refreshes — without it,
-      // subsequent clicks' saveState merges against an empty history and
-      // drops prev-clicked entries from sel_Q* on the next refresh.
-      try {
-        const histRaw = sessionStorage.getItem('selectionHistory');
-        if (histRaw) {
-          const histParsed = JSON.parse(histRaw);
-          for (const [k, v] of Object.entries(histParsed)) {
-            const arr = Array.isArray(v) ? (v as any[]) : [];
-            if (arr.length > 0) {
-              this._selectionHistory.set(Number(k), arr.map((o: any) => ({ ...o })) as any);
-            }
-          }
-        }
-      } catch { /* ignore */ }
-
-      // Derive _refreshBackup from selectedOptionsMap (the authoritative
-      // current state) rather than from selectionHistory. The history
-      // accumulates ALL prior wrong-click entries with selected:true,
-      // which causes ghost highlights for never-selected options on refresh.
-      if (this.selectedOptionsMap.size > 0) {
-        this._refreshBackup = new Map(this.selectedOptionsMap);
-      }
-      if (this._refreshBackup.size > 0) {
-        // No auto-clearing: let backup persist for the session so Score/Dots
-        // remain consistent after multiple refreshes.
-      }
-
-      // Detect if this is a page refresh (F5) vs fresh navigation.
-      // Treat ANY page load that has durable sel_Q* state as a refresh —
-      // if saved state exists, we must never wipe it, or prev-clicked
-      // entries disappear on the 2nd (or later) refresh.
-      const navEntries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
-      let isPageRefresh = navEntries.length > 0 && navEntries[0].type === 'reload';
-      // Only fall back to the sel_Q* sniff when the Navigation API gave us
-      // nothing (navEntries.length === 0). If it said 'navigate', trust it:
-      // fresh navigation must NOT inherit stale sel_Q* from a prior session,
-      // or prev-clicked entries leak in as pre-highlighted options.
-      if (!isPageRefresh && navEntries.length === 0) {
-        for (let i = 0; i < 100; i++) {
-          if (sessionStorage.getItem('sel_Q' + i)) {
-            isPageRefresh = true;
-            break;
-          }
-        }
-      }
-
-      if (isPageRefresh) {
-        // Determine which question (0-based) the URL is currently on.
-        // Only restore/keep state for THAT index — drop everything else
-        // so that post-refresh navigation to sibling questions starts
-        // fresh (without inheriting stale selections/dot-status that
-        // would cause resolveDisplayText to show FET instead of the
-        // question text).
-        let currentUrlIdx: number | null = null;
-        try {
-          const match = (window?.location?.pathname ?? '').match(/\/question\/[^/]+\/(\d+)/);
-          if (match && match[1]) {
-            const oneBased = parseInt(match[1], 10);
-            if (Number.isFinite(oneBased) && oneBased >= 1) {
-              currentUrlIdx = oneBased - 1;
-            }
-          }
-        } catch { /* ignore */ }
-
-        // Prune in-memory maps restored above (rawSelectionsMap,
-        // selectedOptionsMap, _refreshBackup) to the current URL index only.
-        // _refreshBackup is consulted by getSelectedOptionsForQuestion and
-        // would otherwise leak stale selections for other indices, causing
-        // resolveDisplayText to flag them as resolved and show FET.
-        // Important: preserve dot status for EVERY answered index — not just the
-        // current URL index — so the progress bar retains credit for questions
-        // answered before the refresh.
-        for (let i = 0; i < 100; i++) {
-          const val = sessionStorage.getItem('dot_confirmed_' + i);
-          if (val === 'correct' || val === 'wrong') {
-            this.clickConfirmedDotStatus.set(i, val);
-          }
-        }
-        // Restore selectedOptionsMap from durable per-question keys
-        // (these survive clearState which wipes the main sessionStorage keys)
-        for (let i = 0; i < 100; i++) {
-          const sel = sessionStorage.getItem('sel_Q' + i);
-          if (sel) {
-            try {
-              const opts = JSON.parse(sel);
-              if (Array.isArray(opts) && opts.length > 0) {
-                // Filter ghost entries: real user clicks have highlight:true
-                // and showIcon:true (set by addOption/setSelectedOption).
-                // Ghost entries (auto-injected correct options via alt paths)
-                // lack these flags and cause refresh auto-highlight + FET bugs.
-                const userClicks = opts.filter(
-                  (o: any) => o && o.highlight === true && o.showIcon === true
-                );
-                if (userClicks.length > 0) {
-                  this.selectedOptionsMap.set(i, userClicks);
-                  // Rehydrate _selectionHistory from sel_Q* — sel_Q* is the
-                  // durable record of every click for this question (prev +
-                  // current). Without this, a subsequent click's saveState
-                  // would merge against an empty history and drop prior
-                  // prev-clicks from sel_Q*, losing their dark-gray
-                  // highlighting on next refresh.
-                  this._selectionHistory.set(i, userClicks.map((o: any) => ({ ...o })));
-                  // Rewrite sessionStorage so callers that read sel_Q* directly
-                  // (e.g. getSelectedOptionsForQuestion, rehydrateUiFromState)
-                  // see the filtered set, not the contaminated original.
-                  if (userClicks.length !== opts.length) {
-                    sessionStorage.setItem('sel_Q' + i, JSON.stringify(userClicks));
-                  }
-                } else {
-                  this.selectedOptionsMap.delete(i);
-                  sessionStorage.removeItem('sel_Q' + i);
-                }
-              }
-            } catch { /* ignore */ }
-          }
-        }
-        if (this.selectedOptionsMap.size > 0) {
-          this.selectedOptionsMapSig.set(new Map(this.selectedOptionsMap));
-          this._refreshBackup = new Map(this.selectedOptionsMap);
-        }
-      } else {
-        // Fresh navigation — clear all stale dot/selection data from sessionStorage
-        for (let i = 0; i < 100; i++) {
-          sessionStorage.removeItem('dot_confirmed_' + i);
-          sessionStorage.removeItem('sel_Q' + i);
-        }
-        sessionStorage.removeItem('rawSelectionsMap');
-        sessionStorage.removeItem('selectedOptionsMap');
-        sessionStorage.removeItem('selectionHistory');
-        this._refreshBackup.clear();
-        this.selectedOptionsMap.clear();
-        this.rawSelectionsMap.clear();
-      }
-
-    } catch (err) {
-      console.warn('[SelectedOptionService] Failed to load state from sessionStorage', err);
-    }
+    this.persistence.loadState(this as any);
   }
 
   private saveState(): void {
-    try {
-      const rawObj = Object.fromEntries(this.rawSelectionsMap);
-      sessionStorage.setItem('rawSelectionsMap', JSON.stringify(rawObj));
-
-      const selectedObj = Object.fromEntries(this.selectedOptionsMap);
-      sessionStorage.setItem('selectedOptionsMap', JSON.stringify(selectedObj));
-
-      // Save full selection history for refresh restore
-      if (this._selectionHistory.size > 0) {
-        const historyObj = Object.fromEntries(this._selectionHistory);
-        sessionStorage.setItem('selectionHistory', JSON.stringify(historyObj));
-      } else {
-        sessionStorage.removeItem('selectionHistory');
-      }
-
-      // Persist the UNION of selectedOptionsMap (current selections) and
-      // _selectionHistory (prior-click record) to sel_Q*. In single-answer
-      // mode, the live map only holds the most recent selection, but we
-      // still want prior wrong clicks to rehydrate on refresh as
-      // "previously clicked" (selected:false, highlight:true, showIcon:true)
-      // so the rehydrate pass (shared-option-binding.service.ts:512) renders
-      // them. Map entries win for their key — they represent the authoritative
-      // current state (selected:true); history entries for the same key are
-      // displaced. History-only entries are persisted as previously-clicked.
-      const durableIndices = new Set<number>([
-        ...this.selectedOptionsMap.keys(),
-        ...this._selectionHistory.keys()
-      ]);
-      for (const idx of durableIndices) {
-        const fromMap = this.selectedOptionsMap.get(idx) ?? [];
-        const fromHistory = this._selectionHistory.get(idx) ?? [];
-        // Preserve any prev-clicked entries already persisted to sel_Q* even
-        // if they aren't currently in map or history (e.g. history was cleared
-        // by an intermediate path between refreshes). Without this seed,
-        // saveState would shrink sel_Q* on subsequent clicks and prev-clicks
-        // from earlier sessions would disappear on the next refresh.
-        let fromPrior: any[] = [];
-        try {
-          const priorRaw = sessionStorage.getItem('sel_Q' + idx);
-          if (priorRaw) {
-            const parsed = JSON.parse(priorRaw);
-            if (Array.isArray(parsed)) fromPrior = parsed;
-          }
-        } catch { /* ignore */ }
-        const merged = new Map<string, any>();
-        // Prior sel_Q* entries as baseline (prev-clicked only: sel:false,
-        // hl:true, si:true). Map/history loops below may override with
-        // fresher semantics.
-        for (const s of fromPrior) {
-          if (s == null || s.optionId == null) continue;
-          if ((s as any).highlight !== true || (s as any).showIcon !== true) continue;
-          const sKeyText = ((s as any).text ?? '').trim().toLowerCase();
-          const key = sKeyText
-            ? `t:${s.optionId}|${sKeyText}`
-            : `i:${s.optionId}|${(s as any).displayIndex ?? (s as any).index ?? -1}`;
-          // Preserve BOTH sel:false (prev-click) AND sel:true (currently-
-          // selected) entries from the prior sel_Q*. Previously only sel:false
-          // was seeded, so if fromMap/fromHistory lost the current selection
-          // between refreshes (e.g. map was reset by an init path), saveState
-          // would write back sel_Q* with the current option demoted to
-          // sel:false via the fromHistory loop, rendering as gray/white on
-          // next refresh. Fresh fromMap entries still override below.
-          merged.set(key, { ...s });
-        }
-        // History first as "previously clicked" baseline. IMPORTANT:
-        // _selectionHistory is also written by non-user-click paths
-        // (setSelectedOptions, setSelectedOptionsForQuestion with
-        // auto-injected options), so only persist entries that were
-        // marked as REAL user clicks at insertion time via both
-        // highlight:true AND showIcon:true — these flags are set by
-        // addOption / setSelectedOption on actual click events and are
-        // absent on auto-injected "ghost" entries. Do not re-normalize
-        // flags here; trust the originals so ghosts are rejected.
-        for (const s of fromHistory) {
-          if (s == null || s.optionId == null) continue;
-          if ((s as any).highlight !== true || (s as any).showIcon !== true) continue;
-          const sKeyText = ((s as any).text ?? '').trim().toLowerCase();
-          const key = sKeyText
-            ? `t:${s.optionId}|${sKeyText}`
-            : `i:${s.optionId}|${(s as any).displayIndex ?? (s as any).index ?? -1}`;
-          // Do NOT demote an entry that fromPrior already marked sel:true —
-          // that would overwrite the carried-over current selection with
-          // sel:false when fromMap is empty, making the currently-selected
-          // option render as prev-clicked (gray/white) on next refresh.
-          const existing = merged.get(key);
-          if (existing && (existing as any).selected === true) continue;
-          merged.set(key, { ...s, selected: false });
-        }
-        // Map loop: persist ONLY entries that are currently selected
-        // (selected !== false). The "prev-clicked" semantic (selected:false)
-        // belongs to _selectionHistory alone; the map periodically gets
-        // contaminated by re-sync paths that carry prev-clicked entries
-        // alongside the current selection, and re-writing those here would
-        // cause a double-write that can promote them into sel_Q* with
-        // inconsistent flags on the next refresh cycle.
-        // Map entries are the authoritative CURRENT selection shape —
-        // normalize highlight/showIcon to true on write (they may not be
-        // stamped yet when saveState fires on the just-clicked option).
-        for (const s of fromMap) {
-          if (s == null || s.optionId == null) continue;
-          if ((s as any).selected === false) continue;
-          const sKeyText = ((s as any).text ?? '').trim().toLowerCase();
-          const key = sKeyText
-            ? `t:${s.optionId}|${sKeyText}`
-            : `i:${s.optionId}|${(s as any).displayIndex ?? (s as any).index ?? -1}`;
-          merged.set(key, { ...s, highlight: true, showIcon: true });
-        }
-        const normalized = Array.from(merged.values());
-        if (normalized.length > 0) {
-          sessionStorage.setItem('sel_Q' + idx, JSON.stringify(normalized));
-        } else {
-          sessionStorage.removeItem('sel_Q' + idx);
-        }
-      }
-    } catch (err) {
-      console.warn('[SelectedOptionService] Failed to save state to sessionStorage', err);
-    }
+    this.persistence.saveState(this as any);
   }
 
   public clearState(): void {
@@ -376,11 +97,7 @@ export class SelectedOptionService {
     this.selectedOptionsMapSig.set(new Map());
 
     try {
-      sessionStorage.removeItem('rawSelectionsMap');
-      sessionStorage.removeItem('selectedOptionsMap');
-      sessionStorage.removeItem('selectionHistory');
-      sessionStorage.removeItem('answeredMap');
-      sessionStorage.removeItem('currentQuestionIndex');
+      this.persistence.clearSessionKeys();
       // Clear per-question selection keys used by rehydrateUiFromState
       const keysToRemove: string[] = [];
       for (let i = 0; i < sessionStorage.length; i++) {
@@ -460,7 +177,8 @@ export class SelectedOptionService {
     private idResolver: OptionIdResolverService,
     private lockState: OptionLockStateService,
     private feedbackState: OptionFeedbackStateService,
-    private answerEval: AnswerEvaluationService
+    private answerEval: AnswerEvaluationService,
+    private persistence: SelectionPersistenceService
   ) {
     this.loadState();
     const index$ = this.quizService?.currentQuestionIndex$;
@@ -546,41 +264,16 @@ export class SelectedOptionService {
     this.saveState();
   }
 
-  /** Persist a single question's selections to a durable localStorage key
-   *  that is NOT cleared by clearState/resetAllOptions/resetAll. */
   private persistAnswerForResults(questionIndex: number, selections: { optionId: number; text: string }[]): void {
-    try {
-      const key = 'quizAnswersForResults';
-      const existing = JSON.parse(localStorage.getItem(key) || '{}');
-      existing[questionIndex] = selections;
-      localStorage.setItem(key, JSON.stringify(existing));
-    } catch { /* ignore */ }
+    this.persistence.persistAnswerForResults(questionIndex, selections);
   }
 
-  /** Recover all persisted answers from the durable store into rawSelectionsMap. */
   public recoverAnswersForResults(): void {
-    try {
-      const key = 'quizAnswersForResults';
-      const stored = localStorage.getItem(key);
-      if (!stored) return;
-      const parsed = JSON.parse(stored);
-      for (const [k, v] of Object.entries(parsed)) {
-        const idx = Number(k);
-        if (Number.isFinite(idx) && Array.isArray(v) && v.length > 0) {
-          // Only recover if rawSelectionsMap doesn't already have data for this question
-          if (!this.rawSelectionsMap.has(idx) || this.rawSelectionsMap.get(idx)!.length === 0) {
-            this.rawSelectionsMap.set(idx, v as any);
-          }
-        }
-      }
-    } catch { /* ignore */ }
+    this.persistence.recoverAnswersForResults(this.rawSelectionsMap);
   }
 
-  /** Clear the durable answers store (call only on explicit quiz restart). */
   public clearAnswersForResults(): void {
-    try {
-      localStorage.removeItem('quizAnswersForResults');
-    } catch { /* ignore */ }
+    this.persistence.clearAnswersForResults();
   }
 
   deselectOption(): void {
@@ -785,9 +478,7 @@ export class SelectedOptionService {
     // runs — otherwise saveState's merge reads the old key and re-adds
     // entries that were just cleared. This prevents stale wrong-click
     // entries from accumulating across multiple click attempts.
-    try {
-      sessionStorage.removeItem('sel_Q' + idx);
-    } catch { /* ignore */ }
+    this.persistence.clearPerQuestionSessionKey(idx);
 
     // Snapshot used by correctness logic
     this.optionSnapshotByQuestion.delete(idx);
