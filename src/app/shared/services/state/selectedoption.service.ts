@@ -1623,76 +1623,11 @@ export class SelectedOptionService {
     questionIndex: number,
     overrides: Option[]
   ): Option[] {
-    const canonicalOptions = this.idResolver.getKnownOptions(questionIndex);
-
-    const normalizedOverrides = Array.isArray(overrides)
-      ? overrides.filter(Boolean)
-      : [];
-    const mapSelections = this.idResolver.canonicalizeSelectionsForQuestion(
+    return this.idResolver.buildCanonicalSelectionSnapshot(
       questionIndex,
-      this.selectedOptionsMap.get(questionIndex) || []
+      this.selectedOptionsMap,
+      this.quizService
     );
-
-    const overlaySelections = new Map<number, Option>();
-
-    const recordSelection = (option: Option, fallbackIdx?: number): void => {
-      if (!option) {
-        return;
-      }
-
-      const resolvedIdx = this.idResolver.resolveOptionIndexFromSelection(
-        canonicalOptions,
-        option
-      );
-
-      if (resolvedIdx != null && resolvedIdx >= 0) {
-        overlaySelections.set(resolvedIdx, option);
-      } else if (typeof fallbackIdx === 'number' && fallbackIdx >= 0) {
-        overlaySelections.set(fallbackIdx, option);
-      }
-    };
-
-    let idx = 0;
-    for (const opt of normalizedOverrides) {
-      recordSelection(opt, idx);
-      idx++;
-    }
-
-    for (const opt of mapSelections) {
-      recordSelection(opt);
-    }
-
-    const subjectOptions = this.quizService.currentOptions?.getValue();
-    const dataOptions = Array.isArray(this.quizService.data?.currentOptions)
-      ? this.quizService.data.currentOptions : [];
-
-    const baseOptions =
-      [
-        canonicalOptions,
-        Array.isArray(subjectOptions) ? subjectOptions : [],
-        dataOptions,
-        normalizedOverrides,
-        mapSelections
-      ].find((options) => Array.isArray(options) && options.length > 0) || [];
-
-    return baseOptions.map((option, idx) => {
-      const overlay = overlaySelections.get(idx);
-      const mergedOption = {
-        ...option,
-        ...(overlay ?? {})
-      } as Option;
-
-      return {
-        ...mergedOption,
-        optionId: overlay?.optionId ?? option?.optionId ?? idx,
-        correct: this.idResolver.coerceToBoolean(
-          (overlay as Option)?.correct ?? option?.correct
-        ),
-        selected: this.idResolver.coerceToBoolean(
-          (overlay as Option)?.selected ?? option?.selected
-        )
-      };
-    });
   }
 
   // ── Delegated to OptionIdResolverService ─────────────────────
@@ -2012,49 +1947,11 @@ export class SelectedOptionService {
     this.lockState.resetLocksForQuestion(qIndex);
   }
 
-  // --- shared identity helpers ---
-  private normKey(x: unknown): string {
-    if (x == null) return '';
-    return String(x).trim().toLowerCase().replace(/\s+/g, ' ');
-  }
-
-  private forEachUiMatch(
-    canonical: Option[],
-    ui: Option[] | undefined,
-    cb: (canonIndex: number, uiItem: Option) => void
-  ): void {
-    if (!Array.isArray(canonical) || canonical.length === 0) return;
-    if (!Array.isArray(ui) || ui.length === 0) return;
-
-    const idxByKey = new Map<string, number>();
-    for (let i = 0; i < canonical.length; i++) {
-      const c: any = canonical[i];
-      // 0 is valid — use nullish checks, not truthy
-      const key = this.normKey(c.optionId ?? c.id ?? c.value ?? c.text ?? i);
-      if (key) idxByKey.set(key, i);
-    }
-
-    for (const u of ui) {
-      const uu: any = u;
-      const key = this.normKey(uu.optionId ?? uu.id ?? uu.value ?? uu.text);
-      const i = key ? idxByKey.get(key) : undefined;
-      if (i !== undefined) cb(i, u);
-    }
-  }
-
-  // Keep overlay (pure, returns a snapshot)
   public overlaySelectedByIdentity(
     canonical: Option[],
     ui: Option[]
   ): Option[] {
-    if (!Array.isArray(canonical) || canonical.length === 0) return [];
-    const out = canonical.map((o) => ({ ...o, selected: false }));
-
-    this.forEachUiMatch(canonical, ui, (i, u) => {
-      out[i].selected = !!(u as any).selected;
-    });
-
-    return out;
+    return this.idResolver.overlaySelectedByIdentity(canonical, ui);
   }
 
   private ensureBucket(idx: number): SelectedOption[] {

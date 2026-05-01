@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 
 import { Option } from '../../models/Option.model';
+import { QuizQuestion } from '../../models/QuizQuestion.model';
 import { SelectedOption } from '../../models/SelectedOption.model';
 import { QuizService } from '../data/quiz.service';
 
@@ -452,6 +453,129 @@ export class OptionIdResolverService {
       'description',
       'html'
     ];
+  }
+
+  // ── Identity matching helpers ────────────────────────────────
+
+  normKey(x: unknown): string {
+    if (x == null) {
+      return '';
+    }
+    return String(x).trim().toLowerCase().replace(/\s+/g, ' ');
+  }
+
+  forEachUiMatch(
+    canonical: Option[],
+    ui: Option[] | undefined,
+    cb: (canonIndex: number, uiItem: Option) => void
+  ): void {
+    if (!Array.isArray(canonical) || canonical.length === 0) {
+      return;
+    }
+    if (!Array.isArray(ui) || ui.length === 0) {
+      return;
+    }
+
+    const idxByKey = new Map<string, number>();
+    for (let i = 0; i < canonical.length; i++) {
+      const c: any = canonical[i];
+      const key = this.normKey(c.optionId ?? c.id ?? c.value ?? c.text ?? i);
+      if (key) {
+        idxByKey.set(key, i);
+      }
+    }
+
+    for (const u of ui) {
+      const uu: any = u;
+      const key = this.normKey(uu.optionId ?? uu.id ?? uu.value ?? uu.text);
+      const i = key ? idxByKey.get(key) : undefined;
+      if (i !== undefined) {
+        cb(i, u);
+      }
+    }
+  }
+
+  overlaySelectedByIdentity(
+    canonical: Option[],
+    ui: Option[]
+  ): Option[] {
+    if (!Array.isArray(canonical) || canonical.length === 0) {
+      return [];
+    }
+    const out = canonical.map((o) => ({ ...o, selected: false }));
+
+    this.forEachUiMatch(canonical, ui, (i, u) => {
+      out[i].selected = !!(u as any).selected;
+    });
+
+    return out;
+  }
+
+  buildCanonicalSelectionSnapshot(
+    questionIndex: number,
+    selectedOptionsMap: Map<number, SelectedOption[]>,
+    quizService: any
+  ): Option[] {
+    const canonicalOptions = this.getKnownOptions(questionIndex);
+
+    const mapSelections = this.canonicalizeSelectionsForQuestion(
+      questionIndex,
+      selectedOptionsMap.get(questionIndex) || []
+    );
+
+    const overlaySelections = new Map<number, Option>();
+
+    const recordSelection = (option: Option, fallbackIdx?: number): void => {
+      if (!option) {
+        return;
+      }
+
+      const resolvedIdx = this.resolveOptionIndexFromSelection(
+        canonicalOptions,
+        option
+      );
+
+      if (resolvedIdx != null && resolvedIdx >= 0) {
+        overlaySelections.set(resolvedIdx, option);
+      } else if (typeof fallbackIdx === 'number' && fallbackIdx >= 0) {
+        overlaySelections.set(fallbackIdx, option);
+      }
+    };
+
+    for (const opt of mapSelections) {
+      recordSelection(opt);
+    }
+
+    const subjectOptions = quizService?.currentOptions?.getValue?.();
+    const dataOptions = Array.isArray(quizService?.data?.currentOptions)
+      ? quizService.data.currentOptions : [];
+
+    const baseOptions =
+      [
+        canonicalOptions,
+        Array.isArray(subjectOptions) ? subjectOptions : [],
+        dataOptions,
+        mapSelections
+      ].find((options) => Array.isArray(options) && options.length > 0) || [];
+
+    return baseOptions.map((option: any, idx: number) => {
+      const overlay = overlaySelections.get(idx);
+      const mergedOption = {
+        ...option,
+        ...(overlay ?? {})
+      } as Option;
+
+      return {
+        ...mergedOption,
+        optionId: overlay?.optionId ?? option?.optionId ?? idx,
+        correct: this.coerceToBoolean(
+          (overlay as Option)?.correct ?? option?.correct
+        ),
+        selected: this.coerceToBoolean(
+          (overlay as Option)?.selected ?? option?.selected
+        )
+      };
+    });
   }
 
   private buildNormalizer(): (value: unknown) => string {
