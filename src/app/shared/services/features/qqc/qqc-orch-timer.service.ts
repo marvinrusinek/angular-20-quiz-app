@@ -1,0 +1,131 @@
+import { Injectable } from '@angular/core';
+
+import { Option } from '../../../models/Option.model';
+
+type Host = any;
+
+/**
+ * Orchestrates QQC timer expiry and timeout handling.
+ * Extracted from QqcComponentOrchestratorService.
+ */
+@Injectable({ providedIn: 'root' })
+export class QqcOrchTimerService {
+
+  runOnQuestionTimedOut(host: Host, targetIndex?: number): void {
+    if (host.timedOut) return;
+    host.timedOut = true;
+
+    if (host.sharedOptionComponent) {
+      const soc = host.sharedOptionComponent;
+      soc.timerExpiredForQuestion = true;
+
+      const displayOpts = soc.optionsToDisplay?.length
+        ? soc.optionsToDisplay
+        : host.optionsToDisplay() ?? [];
+      const keys = new Set<string>();
+      for (const [i, opt] of displayOpts.entries()) {
+        if (opt?.correct) {
+          keys.add(soc.keyOf(opt, i));
+        }
+      }
+      soc.timeoutCorrectOptionKeys = keys;
+    }
+
+    const result = host.timerEffect.onQuestionTimedOut({
+      targetIndex,
+      currentQuestionIndex: host.currentQuestionIndex(),
+      questions: host.questions,
+      currentQuestion: host.currentQuestion(),
+      optionsToDisplay: host.optionsToDisplay(),
+      sharedOptionBindings: host.sharedOptionComponent?.optionBindings,
+      totalQuestions: host.totalQuestions,
+      formattedByIndex: host._formattedByIndex,
+      lastAllCorrect: host._lastAllCorrect,
+      normalizeIndex: (idx: number) => host.normalizeIndex(idx),
+      setExplanationFor: (_idx: number, html: string) => {
+        host.explanationTextService.setExplanationText(html);
+        host.cdRef.markForCheck();
+      },
+      resolveFormatted: (idx: number) => host.resolveFormatted(idx),
+      revealFeedbackForAllOptions: (opts: Option[]) => host.revealFeedbackForAllOptions(opts),
+      forceDisableSharedOption: () => host.forceDisableSharedOption(),
+      updateBindingsAndOptions: () => host.disableAllBindingsAndOptions(),
+      markForCheck: () => host.cdRef.markForCheck(),
+    });
+    host.displayExplanation = true;
+    host.showExplanationChange.emit(true);
+    host.explanationToDisplay.set(result.explanationToDisplay);
+    host.explanationToDisplayChange?.emit(result.explanationToDisplay);
+    host._timerStoppedForQuestion = result.timerStoppedForQuestion;
+
+    if (host.sharedOptionComponent) {
+      host.sharedOptionComponent.cdRef.markForCheck();
+      host.sharedOptionComponent.cdRef.detectChanges();
+    }
+  }
+
+  runHandleTimerStoppedForActiveQuestion(host: Host, reason: 'timeout' | 'stopped'): void {
+    const stopped = host.timerEffect.handleTimerStoppedForActiveQuestion({
+      reason,
+      timerStoppedForQuestion: host._timerStoppedForQuestion,
+      currentQuestionIndex: host.currentQuestionIndex(),
+      questions: host.questions,
+      questionFresh: host.questionFresh,
+      optionsToDisplay: host.optionsToDisplay(),
+      sharedOptionBindings: host.sharedOptionComponent?.optionBindings,
+      currentQuestion: host.currentQuestion(),
+      normalizeIndex: (idx: number) => host.normalizeIndex(idx),
+      revealFeedbackForAllOptions: (opts: Option[]) => host.revealFeedbackForAllOptions(opts),
+      forceDisableSharedOption: () => host.forceDisableSharedOption(),
+      updateBindingsAndOptions: () => host.disableAllBindingsAndOptions(),
+      markForCheck: () => host.cdRef.markForCheck(),
+      detectChanges: () => host.cdRef.detectChanges(),
+    });
+    if (stopped) host._timerStoppedForQuestion = true;
+  }
+
+  async runOnTimerExpiredFor(host: Host, index: number): Promise<void> {
+    const i0 = host.normalizeIndex(index);
+    if (host.handledOnExpiry.has(i0)) return;
+    host.handledOnExpiry.add(i0);
+    host.onQuestionTimedOut(i0);
+
+    const expiryState = host.timerEffect.applyTimerExpiryState({
+      i0,
+      questions: host.questions,
+      currentQuestionType: host.currentQuestion()?.type,
+    });
+    host.feedbackText = expiryState.feedbackText;
+    host.displayExplanation = expiryState.displayExplanation;
+    host.showExplanationChange?.emit(true);
+    host.cdRef.markForCheck();
+
+    const { formattedText, needsAsyncRepair } = await host.timerEffect.performTimerExpiredForAsync({
+      i0,
+      normalizeIndex: (idx: number) => host.normalizeIndex(idx),
+      questions: host.questions,
+      currentQuestionIndex: host.currentQuestionIndex(),
+      currentQuestion: host.currentQuestion(),
+      formattedByIndex: host._formattedByIndex,
+      fixedQuestionIndex: host.fixedQuestionIndex,
+      updateExplanationText: (idx: number) => host.updateExplanationText(idx),
+    });
+
+    if (formattedText) host.applyExplanationTextInZone(formattedText);
+    if (needsAsyncRepair) {
+      host.timerEffect
+        .repairExplanationAsync({
+          index: i0,
+          normalizeIndex: (idx: number) => host.normalizeIndex(idx),
+          formattedByIndex: host._formattedByIndex,
+          fixedQuestionIndex: host.fixedQuestionIndex,
+          currentQuestionIndex: host.currentQuestionIndex(),
+          updateExplanationText: (idx: number) => host.updateExplanationText(idx),
+        })
+        .then((repaired: string) => {
+          if (repaired) host.applyExplanationTextInZone(repaired);
+        })
+        .catch(() => {});
+    }
+  }
+}
