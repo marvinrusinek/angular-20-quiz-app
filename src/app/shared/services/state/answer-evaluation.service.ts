@@ -274,4 +274,79 @@ export class AnswerEvaluationService {
     ).length;
     return correctAnswersCount > 1;
   }
+
+  // ── Static correctness checks ──────────────────────────────
+
+  areAllCorrectAnswersSelected(
+    question: QuizQuestion,
+    selectedOptionIds: Set<number>
+  ): boolean {
+    const correctIds = question.options
+      .filter(o => {
+        const c = (o as any).correct;
+        return c === true || String(c) === 'true' || c === 1 || c === '1';
+      })
+      .map(o => o.optionId)
+      .filter((id): id is number => typeof id === 'number');
+
+    if (correctIds.length === 0) {
+      return false;
+    }
+
+    const selectedStrings = new Set(Array.from(selectedOptionIds).map(id => String(id)));
+
+    for (const id of correctIds) {
+      if (!selectedStrings.has(String(id))) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  areAllCorrectAnswersSelectedForQuestion(
+    questionIndex: number,
+    getSelectedOptionsForQuestion: (idx: number) => SelectedOption[],
+    questionCache: Map<number, QuizQuestion>
+  ): boolean {
+    try {
+      const qIndex = this.quizService.currentQuestionIndexSource?.getValue?.() ?? questionIndex;
+
+      const question = questionCache.get(qIndex);
+      if (!question || !Array.isArray(question.options)) {
+        console.warn('[AnswerEvaluation] No cached question for index:', qIndex);
+        return false;
+      }
+
+      const selected = getSelectedOptionsForQuestion(qIndex) ?? [];
+      if (selected.length === 0) {
+        return false;
+      }
+
+      const correctOptions = question.options.filter((o: any) => {
+        const c = o.correct;
+        return c === true || String(c) === 'true' || c === 1 || c === '1';
+      });
+      const correctIds = new Set(correctOptions.map((o) => String(o.optionId)));
+
+      const selectedIds = new Set(
+        selected.map((o) => String((o as any).optionId ?? '')),
+      );
+
+      for (const id of selectedIds) {
+        if (!correctIds.has(id)) {
+          return false;
+        }
+      }
+
+      return (
+        correctIds.size > 0 &&
+        selectedIds.size === correctIds.size &&
+        [...selectedIds].every((id) => correctIds.has(id))
+      );
+    } catch (err) {
+      console.error('[AnswerEvaluation] Error evaluating correctness:', err);
+      return false;
+    }
+  }
 }

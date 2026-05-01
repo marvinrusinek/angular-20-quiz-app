@@ -578,6 +578,118 @@ export class OptionIdResolverService {
     });
   }
 
+  /**
+   * Resolves an option ID and its source Option from a set of source options.
+   * Returns { canonicalOptionId, foundSourceOption } or null if unresolvable.
+   */
+  resolveOptionFromSource(
+    questionIndex: number,
+    optionId: number,
+    text: string,
+    source: Option[]
+  ): { canonicalOptionId: number; foundSourceOption: Option | undefined } | null {
+    const normalize = this.buildNormalizer();
+    const toNum = (v: unknown): number | null => {
+      if (typeof v === 'number' && Number.isFinite(v)) {
+        return v;
+      }
+      const n = Number(String(v));
+      return Number.isFinite(n) ? n : null;
+    };
+
+    const key = normalize(text);
+    const aliasFields = this.getAliasFields();
+
+    const directMatch = this.matchOptionFromSource(
+      source,
+      optionId,
+      text,
+      aliasFields
+    );
+
+    let fallbackIndexFromText = -1;
+    for (let i = 0; i < source.length && fallbackIndexFromText < 0; i++) {
+      const o: any = source[i];
+      for (const f of aliasFields) {
+        if (normalize(o?.[f]) === key) {
+          fallbackIndexFromText = i;
+          break;
+        }
+      }
+    }
+
+    let indexFromId = -1;
+    for (let i = 0; i < source.length && indexFromId < 0; i++) {
+      const oid = (source[i] as any)?.optionId;
+      if (
+        oid === optionId ||
+        String(oid) === String(optionId) ||
+        toNum(oid) === toNum(optionId)
+      ) {
+        indexFromId = i;
+      }
+    }
+
+    const resolverHint: number | string | undefined =
+      indexFromId >= 0
+        ? indexFromId
+        : fallbackIndexFromText >= 0
+          ? fallbackIndexFromText
+          : (directMatch?.index ?? text);
+
+    let canonicalOptionId = this.resolveCanonicalOptionId(
+      questionIndex,
+      optionId,
+      resolverHint
+    );
+
+    if (canonicalOptionId == null) {
+      if (indexFromId >= 0) {
+        canonicalOptionId = indexFromId;
+      } else if (fallbackIndexFromText >= 0) {
+        canonicalOptionId = fallbackIndexFromText;
+      } else if (directMatch?.option) {
+        const resolved = toNum((directMatch.option as any)?.optionId);
+        if (resolved !== null) {
+          canonicalOptionId = resolved;
+        } else {
+          canonicalOptionId = directMatch.index;
+        }
+      }
+    }
+
+    if (canonicalOptionId == null) {
+      return null;
+    }
+
+    let foundSourceOption: Option | undefined;
+
+    if (
+      typeof canonicalOptionId === 'number' &&
+      canonicalOptionId >= 0 &&
+      canonicalOptionId < source.length &&
+      (source[canonicalOptionId]?.optionId === canonicalOptionId || source[canonicalOptionId]?.optionId === undefined)
+    ) {
+      foundSourceOption = source[canonicalOptionId];
+    }
+
+    if (!foundSourceOption) {
+      if (indexFromId >= 0) {
+        foundSourceOption = source[indexFromId];
+      } else if (fallbackIndexFromText >= 0) {
+        foundSourceOption = source[fallbackIndexFromText];
+      } else if (directMatch?.option) {
+        foundSourceOption = directMatch.option;
+      }
+    }
+
+    if (!foundSourceOption) {
+      foundSourceOption = source.find(o => String(o.optionId) === String(canonicalOptionId));
+    }
+
+    return { canonicalOptionId, foundSourceOption };
+  }
+
   private buildNormalizer(): (value: unknown) => string {
     const decodeHtml = (s: string) =>
       s

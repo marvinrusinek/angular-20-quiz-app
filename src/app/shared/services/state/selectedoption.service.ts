@@ -884,30 +884,7 @@ export class SelectedOptionService {
     question: QuizQuestion,
     selectedOptionIds: Set<number>
   ): boolean {
-    // Only get CORRECT option IDs, not ALL options
-    const correctIds = question.options
-      .filter(o => {
-        const c = (o as any).correct;
-        return c === true || String(c) === 'true' || c === 1 || c === '1';
-      })  // filter for correct options first
-      .map(o => o.optionId)
-      .filter((id): id is number => typeof id === 'number');
-
-    console.log('[areAllCorrectAnswersSelected] correctIds:', correctIds,
-      'selectedIds:', Array.from(selectedOptionIds));
-
-    if (correctIds.length === 0) return false;
-
-    // Convert Set<number> to Set<string> for robust comparison
-    const selectedStrings = new Set(Array.from(selectedOptionIds).map(id => String(id)));
-
-    for (const id of correctIds) {
-      if (!selectedStrings.has(String(id))) {
-        return false;
-      }
-    }
-
-    return true;
+    return this.answerEval.areAllCorrectAnswersSelected(question, selectedOptionIds);
   }
 
   clearSelectionsForQuestion(questionIndex: number): void {
@@ -1004,170 +981,24 @@ export class SelectedOptionService {
       );
     }
 
-    const decodeHtml = (s: string) =>
-      s
-        .replace(/&nbsp;/gi, ' ')
-        .replace(/&amp;/gi, '&')
-        .replace(/&lt;/gi, '<')
-        .replace(/&gt;/gi, '>')
-        .replace(/&quot;/gi, '"')
-        .replace(/&#39;/gi, "'");
-    const stripTags = (s: string) => s.replace(/<[^>]*>/g, ' ');
-    const norm = (s: unknown) =>
-      typeof s === 'string'
-        ? stripTags(decodeHtml(s)).trim().toLowerCase().replace(/\s+/g, ' ')
-        : '';
-    const toNum = (v: unknown): number | null => {
-      if (typeof v === 'number' && Number.isFinite(v)) return v;  // 0 allowed
-      const n = Number(String(v));
-      return Number.isFinite(n) ? n : null;
-    };
-
-    const key = norm(text);
-    const aliasFields = [
-      'text',
-      'value',
-      'label',
-      'name',
-      'title',
-      'displayText',
-      'description',
-      'html'
-    ];
-
-    const directMatch = this.idResolver.matchOptionFromSource(
-      source,
-      optionId,
-      text,
-      aliasFields
-    );
-
-    // Try to find a concrete index in the chosen source by matching text/value/aliases
-    let fallbackIndexFromText = -1;
-    for (let i = 0; i < source.length && fallbackIndexFromText < 0; i++) {
-      const o: any = source[i];
-      for (const f of aliasFields) {
-        if (norm(o?.[f]) === key) {
-          fallbackIndexFromText = i;
-          break;
-        }
-      }
-    }
-
-    // Also try to resolve by id inside the same source (handle 0, string/number)
-    let indexFromId = -1;
-    for (let i = 0; i < source.length && indexFromId < 0; i++) {
-      const oid = (source[i] as any)?.optionId;
-      if (
-        oid === optionId ||
-        String(oid) === String(optionId) ||
-        toNum(oid) === toNum(optionId)
-      ) {
-        indexFromId = i;
-      }
-    }
-
-    // Prefer a concrete index hint (from id or text) over raw text
-    const resolverHint: number | string | undefined =
-      indexFromId >= 0
-        ? indexFromId
-        : fallbackIndexFromText >= 0
-          ? fallbackIndexFromText
-          : (directMatch?.index ?? text);
-
-    let canonicalOptionId = this.idResolver.resolveCanonicalOptionId(
+    const resolved = this.idResolver.resolveOptionFromSource(
       questionIndex,
       optionId,
-      resolverHint
+      text,
+      source
     );
 
-    // Last-resort fallbacks: if resolver failed but we have a concrete index from the source, use it.
-    if (canonicalOptionId == null) {
-      if (indexFromId >= 0) {
-        console.warn(
-          '[SelectedOptionService] Resolver missed; using snapshot indexFromId',
-          {
-            questionIndex,
-            optionId,
-            text,
-            indexFromId
-          }
-        );
-        canonicalOptionId = indexFromId;
-      } else if (fallbackIndexFromText >= 0) {
-        console.warn(
-          '[SelectedOptionService] Resolver missed; using snapshot fallbackIndexFromText',
-          {
-            questionIndex,
-            optionId,
-            text,
-            fallbackIndexFromText
-          },
-        );
-        canonicalOptionId = fallbackIndexFromText;
-      } else if (directMatch?.option) {
-        const resolved = toNum((directMatch.option as any)?.optionId);
-        if (resolved !== null) {
-          console.warn(
-            '[SelectedOptionService] Resolver missed; using matched optionId from snapshot',
-            {
-              questionIndex,
-              optionId,
-              text,
-              resolved
-            }
-          );
-          canonicalOptionId = resolved;
-        } else {
-          canonicalOptionId = directMatch.index;
-        }
-      }
-    }
-
-    if (canonicalOptionId == null) {
-      // Log a compact snapshot to see why it failed.
+    if (!resolved) {
       console.error('[SelectedOptionService] ❌ canonicalOptionId is null - EARLY RETURN', {
         optionId,
         questionIndex,
-        text,
-        optionsSnapshot: source.map((o: any, i: number) => ({
-          i,
-          id: o?.optionId,
-          text: o?.text,
-          value: o?.value,
-          label: o?.label,
-          name: o?.name,
-          title: o?.title,
-          displayText: o?.displayText
-        }))
+        text
       });
       return;
     }
 
-    // Resolve the source option to extract 'correct' status
-    let foundSourceOption: Option | undefined;
-
-    // Priority 1: Use direct index if canonicalOptionId is an index into source
-    if (
-      typeof canonicalOptionId === 'number' &&
-      canonicalOptionId >= 0 &&
-      canonicalOptionId < source.length &&
-      (source[canonicalOptionId]?.optionId === canonicalOptionId || source[canonicalOptionId]?.optionId === undefined)
-    ) {
-      foundSourceOption = source[canonicalOptionId];
-    }
-
-    // Priority 2: Use resolved indices from previous steps
-    if (!foundSourceOption) {
-      if (indexFromId >= 0) foundSourceOption = source[indexFromId];
-      else if (fallbackIndexFromText >= 0) foundSourceOption = source[fallbackIndexFromText];
-      else if (directMatch?.option) foundSourceOption = directMatch.option;
-    }
-
-    // Priority 3: Scan source for ID match
-    if (!foundSourceOption) {
-      foundSourceOption = source.find(o => String(o.optionId) === String(canonicalOptionId));
-    }
+    const canonicalOptionId = resolved.canonicalOptionId;
+    const foundSourceOption = resolved.foundSourceOption;
 
     const newSelection: SelectedOption = {
       optionId: canonicalOptionId,  // numeric id if available, else index
@@ -1972,56 +1803,12 @@ export class SelectedOptionService {
     // let your existing pipelines react naturally
   }
 
-  /**
-   * Returns true ONLY if the user has selected:
-   *  - every correct option for this question, AND
-   *  - no incorrect options.
-   *
-   * Returns false for:
-   *  - partial correct selections,
-   *  - selections including any incorrect option,
-   *  - invalid question index,
-   *  - no selections,
-   *  - single-answer questions with incorrect option.
-   */
   public areAllCorrectAnswersSelectedActiveQuestion(): boolean {
-    try {
-      const qIndex = this.quizService.currentQuestionIndexSource.getValue();
-
-      const question = this._questionCache.get(qIndex);
-      if (!question || !Array.isArray(question.options)) {
-        console.warn('[SOS] No cached question for index:', qIndex);
-        return false;
-      }
-
-      const selected = this.getSelectedOptionsForQuestion(qIndex) ?? [];
-      if (selected.length === 0) return false;
-
-      const correctOptions = question.options.filter((o: any) => {
-        const c = o.correct;
-        return c === true || String(c) === 'true' || c === 1 || c === '1';
-      });
-      const correctIds = new Set(correctOptions.map((o) => String(o.optionId)));
-
-      const selectedIds = new Set(
-        selected.map((o) => String((o as any).optionId ?? '')),
-      );
-
-      // Reject immediately if selected any incorrect option
-      for (const id of selectedIds) {
-        if (!correctIds.has(id)) return false;
-      }
-
-      // Exact match only
-      return (
-        correctIds.size > 0 &&
-        selectedIds.size === correctIds.size &&
-        [...selectedIds].every((id) => correctIds.has(id))
-      );
-    } catch (err) {
-      console.error('[SOS] Error evaluating correctness:', err);
-      return false;
-    }
+    return this.answerEval.areAllCorrectAnswersSelectedForQuestion(
+      this.quizService.currentQuestionIndexSource?.getValue?.() ?? -1,
+      (idx) => this.getSelectedOptionsForQuestion(idx),
+      this._questionCache
+    );
   }
 
   public storeQuestion(index: number, question: QuizQuestion): void {
