@@ -544,6 +544,11 @@ mat-card {
       grid-column: 2;
       grid-row: 1;
       justify-self: end;
+
+      img {
+        height: auto !important;
+        width: 120px !important;
+      }
     }
 
     .results-title {

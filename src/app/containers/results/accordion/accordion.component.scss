@@ -127,6 +127,7 @@ mat-accordion {
 .summary-header {
   margin: 0 0 15px 40px;
   font-family: vars.$font-stack;
+  color: vars.$dark-blue;
 }
 
 @media (max-width: 600px) {
@@ -178,8 +179,13 @@ mat-accordion {
   }
 
   .summary-header {
-    margin-left: 0 !important;
+    margin: 0 0 12px 0 !important;
     text-align: center;
+    font-size: 18px;
+    color: vars.$dark-blue;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
   }
 
   mat-accordion {
