@@ -188,6 +188,7 @@ export class QqcResetManagerService {
       ...opt,
       selected: false,
       showIcon: false,
+      highlight: false,
     })) ?? [];
   }
 
@@ -209,6 +210,7 @@ export class QqcResetManagerService {
         ...opt,
         selected: !!match,
         showIcon: !!match?.showIcon,
+        highlight: false,
       };
     }) ?? [];
   }
