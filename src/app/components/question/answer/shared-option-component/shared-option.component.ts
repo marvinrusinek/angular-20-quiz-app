@@ -681,10 +681,14 @@ export class SharedOptionComponent
   }
 
   public shouldShowFeedbackAfter(b: OptionBindings, i: number): boolean {
-    // ONLY trust _feedbackDisplay — it is set synchronously at end of click
-    // processing with the exact display index. The legacy showFeedbackForOption
-    // map uses optionId keys that can collide with other options' display indices.
-    return this._feedbackDisplay !== null && this._feedbackDisplay.idx === i;
+    if (this._feedbackDisplay !== null && this._feedbackDisplay.idx === i) {
+      return true;
+    }
+    if (this.timerExpiredForQuestion) {
+      const key = this.keyOf(b.option, i);
+      return !!this.feedbackConfigs[key]?.showFeedback;
+    }
+    return false;
   }
 
   public getInlineFeedbackConfig(b: OptionBindings, i: number): FeedbackProps | null {

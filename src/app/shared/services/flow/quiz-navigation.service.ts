@@ -9,7 +9,7 @@ import { QuestionType } from '../../models/question-type.enum';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
 import { ExplanationTextService } from '../features/explanation/explanation-text.service';
 import { NextButtonStateService } from '../state/next-button-state.service';
-import { QuizQuestionLoaderService } from '../flow/quizquestionloader.service';
+import { QqcQuestionLoaderService } from '../features/qqc/qqc-question-loader.service';
 import { QuizQuestionManagerService } from '../flow/quizquestionmgr.service';
 import { QuizService } from '../data/quiz.service';
 import { QuizDataService } from '../data/quizdata.service';
@@ -66,7 +66,7 @@ export class QuizNavigationService {
   constructor(
     private explanationTextService: ExplanationTextService,
     private nextButtonStateService: NextButtonStateService,
-    private quizQuestionLoaderService: QuizQuestionLoaderService,
+    private quizQuestionLoaderService: QqcQuestionLoaderService,
     private quizQuestionManagerService: QuizQuestionManagerService,
     private quizService: QuizService,
     private quizDataService: QuizDataService,

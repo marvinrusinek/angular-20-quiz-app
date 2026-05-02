@@ -1,0 +1,235 @@
+import { TestBed } from '@angular/core/testing';
+import { SelectionMessageService } from './selection-message.service';
+import { QuizService } from '../../../services/data/quiz.service';
+import { SelectedOptionService } from '../../../services/state/selectedoption.service';
+import { QuestionType } from '../../../models/question-type.enum';
+
+describe('SelectionMessageService', () => {
+  let service: SelectionMessageService;
+  let quizServiceMock: any;
+  let selectedOptionServiceMock: any;
+
+  const START_MSG = 'Please start the quiz by selecting an option.';
+  const CONTINUE_MSG = 'Please click an option to continue.';
+  const NEXT_BTN_MSG = 'Please click the Next button to continue.';
+  const SHOW_RESULTS_MSG = 'Please click the Show Results button.';
+
+  beforeEach(() => {
+    quizServiceMock = {
+      currentQuestionIndex: 0,
+      totalQuestions: 6,
+      questions: [],
+      shuffledQuestions: [],
+      isShuffleEnabled: jest.fn().mockReturnValue(false),
+      currentQuestion: { value: null },
+    };
+
+    selectedOptionServiceMock = {
+      selectedOptionsMap: new Map(),
+    };
+
+    TestBed.configureTestingModule({
+      providers: [
+        SelectionMessageService,
+        { provide: QuizService, useValue: quizServiceMock },
+        { provide: SelectedOptionService, useValue: selectedOptionServiceMock },
+      ],
+    });
+
+    service = TestBed.inject(SelectionMessageService);
+  });
+
+  it('should be created', () => {
+    expect(service).toBeTruthy();
+  });
+
+  it('should initialize with START_MSG', () => {
+    expect(service.getCurrentMessage()).toBe(START_MSG);
+  });
+
+  // ── resetAll ────────────────────────────────────────────────
+
+  describe('resetAll', () => {
+    it('should reset message to START_MSG', () => {
+      service.pushMessage('some other message', 0);
+      service.resetAll();
+      expect(service.getCurrentMessage()).toBe(START_MSG);
+    });
+
+    it('should clear all locks', () => {
+      service._singleAnswerCorrectLock.add(0);
+      service._singleAnswerIncorrectLock.add(1);
+      service.resetAll();
+      expect(service._singleAnswerCorrectLock.size).toBe(0);
+      expect(service._singleAnswerIncorrectLock.size).toBe(0);
+    });
+
+    it('should clear last message map', () => {
+      service._lastMessageByIndex.set(0, 'old msg');
+      service.resetAll();
+      expect(service._lastMessageByIndex.size).toBe(0);
+    });
+
+    it('should clear options snapshot', () => {
+      service.setOptionsSnapshot([{ text: 'A', value: 1 }]);
+      service.resetAll();
+      expect(service.optionsSnapshot).toEqual([]);
+    });
+  });
+
+  // ── computeFinalMessage ───────────────────────────────────��─
+
+  describe('computeFinalMessage', () => {
+    it('should return START_MSG for index 0 with no selections', () => {
+      const msg = service.computeFinalMessage({
+        index: 0,
+        total: 6,
+        qType: QuestionType.SingleAnswer,
+        opts: [
+          { text: 'A', correct: true, selected: false, value: 1 },
+          { text: 'B', correct: false, selected: false, value: 2 },
+        ],
+      });
+      expect(msg).toBe(START_MSG);
+    });
+
+    it('should return CONTINUE_MSG for non-zero index with no selections', () => {
+      const msg = service.computeFinalMessage({
+        index: 2,
+        total: 6,
+        qType: QuestionType.SingleAnswer,
+        opts: [
+          { text: 'A', correct: true, selected: false, value: 1 },
+          { text: 'B', correct: false, selected: false, value: 2 },
+        ],
+      });
+      expect(msg).toBe(CONTINUE_MSG);
+    });
+
+    it('should return NEXT_BTN_MSG when correct single answer is selected', () => {
+      const msg = service.computeFinalMessage({
+        index: 0,
+        total: 6,
+        qType: QuestionType.SingleAnswer,
+        opts: [
+          { text: 'A', correct: true, selected: true, value: 1 },
+          { text: 'B', correct: false, selected: false, value: 2 },
+        ],
+      });
+      expect(msg).toBe(NEXT_BTN_MSG);
+    });
+
+    it('should return SHOW_RESULTS_MSG when correct answer selected on last question', () => {
+      const msg = service.computeFinalMessage({
+        index: 5,
+        total: 6,
+        qType: QuestionType.SingleAnswer,
+        opts: [
+          { text: 'A', correct: true, selected: true, value: 1 },
+          { text: 'B', correct: false, selected: false, value: 2 },
+        ],
+      });
+      expect(msg).toBe(SHOW_RESULTS_MSG);
+    });
+
+    it('should return "select correct answer" when wrong answer selected', () => {
+      const msg = service.computeFinalMessage({
+        index: 0,
+        total: 6,
+        qType: QuestionType.SingleAnswer,
+        opts: [
+          { text: 'A', correct: true, selected: false, value: 1 },
+          { text: 'B', correct: false, selected: true, value: 2 },
+        ],
+      });
+      expect(msg).toBe('Please select the correct answer to continue.');
+    });
+
+    it('should show remaining count for multi-answer with partial selection', () => {
+      const msg = service.computeFinalMessage({
+        index: 0,
+        total: 6,
+        qType: QuestionType.MultipleAnswer,
+        opts: [
+          { text: 'A', correct: true, selected: true, value: 1 },
+          { text: 'B', correct: true, selected: false, value: 2 },
+          { text: 'C', correct: false, selected: false, value: 3 },
+        ],
+      });
+      expect(msg).toBe('Select 1 more correct answer to continue...');
+    });
+
+    it('should show total correct count for multi-answer with no selection', () => {
+      const msg = service.computeFinalMessage({
+        index: 0,
+        total: 6,
+        qType: QuestionType.MultipleAnswer,
+        opts: [
+          { text: 'A', correct: true, selected: false, value: 1 },
+          { text: 'B', correct: true, selected: false, value: 2 },
+          { text: 'C', correct: false, selected: false, value: 3 },
+        ],
+      });
+      expect(msg).toBe('Select 2 correct options to continue...');
+    });
+
+    it('should return NEXT_BTN_MSG when all correct multi-answers selected', () => {
+      const msg = service.computeFinalMessage({
+        index: 0,
+        total: 6,
+        qType: QuestionType.MultipleAnswer,
+        opts: [
+          { text: 'A', correct: true, selected: true, value: 1 },
+          { text: 'B', correct: true, selected: true, value: 2 },
+          { text: 'C', correct: false, selected: false, value: 3 },
+        ],
+      });
+      expect(msg).toBe(NEXT_BTN_MSG);
+    });
+
+    it('should return START_MSG for empty opts at index 0', () => {
+      const msg = service.computeFinalMessage({
+        index: 0,
+        total: 6,
+        qType: QuestionType.SingleAnswer,
+        opts: [],
+      });
+      expect(msg).toBe(START_MSG);
+    });
+  });
+
+  // ── pushMessage ─────────────────────────────────────────────
+
+  describe('pushMessage', () => {
+    it('should update the signal value', () => {
+      service.pushMessage('New message', 0);
+      expect(service.getCurrentMessage()).toBe('New message');
+    });
+
+    it('should not push if message is the same', () => {
+      service.pushMessage(START_MSG, 0);
+      expect(service.getCurrentMessage()).toBe(START_MSG);
+    });
+  });
+
+  // ── forceNextButtonMessage ──────────────────────────────────
+
+  describe('forceNextButtonMessage', () => {
+    it('should set NEXT_BTN_MSG for non-last question', () => {
+      quizServiceMock.totalQuestions = 6;
+      service.forceNextButtonMessage(0);
+      expect(service.getCurrentMessage()).toBe(NEXT_BTN_MSG);
+    });
+
+    it('should set SHOW_RESULTS_MSG for last question', () => {
+      quizServiceMock.totalQuestions = 6;
+      service.forceNextButtonMessage(5);
+      expect(service.getCurrentMessage()).toBe(SHOW_RESULTS_MSG);
+    });
+
+    it('should release baseline for the index', () => {
+      service.forceNextButtonMessage(2);
+      expect(service._baselineReleased.has(2)).toBe(true);
+    });
+  });
+});

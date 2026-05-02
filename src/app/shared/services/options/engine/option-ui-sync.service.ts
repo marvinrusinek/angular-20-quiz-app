@@ -12,12 +12,10 @@ import { QuizQuestion } from '../../../models/QuizQuestion.model';
 import { SelectedOptionService } from '../../state/selectedoption.service';
 import { NextButtonStateService } from '../../state/next-button-state.service';
 import { FeedbackService } from '../../features/feedback/feedback.service';
-import { OptionVisualEffectsService } from '../view/option-visual-effects.service';
 import { SelectionMessageService } from '../../features/selection-message/selection-message.service';
 import { QuizService } from '../../data/quiz.service';
 import { OptionSelectionPolicyService } from '../policy/option-selection-policy.service';
 import { OptionLockPolicyService } from '../policy/option-lock-policy.service';
-import { OptionLockRulesService } from '../policy/option-lock-rules.service';
 
 export interface OptionUiSyncContext {
   form: any;
@@ -63,10 +61,8 @@ export class OptionUiSyncService {
     private feedbackService: FeedbackService,
     private selectionMessageService: SelectionMessageService,
     private quizService: QuizService,
-    private optionVisualEffectsService: OptionVisualEffectsService,
     private optionSelectionPolicyService: OptionSelectionPolicyService,
-    private optionLockPolicyService: OptionLockPolicyService,
-    private optionLockRulesService: OptionLockRulesService
+    private optionLockPolicyService: OptionLockPolicyService
   ) { }
 
   updateOptionAndUI(
@@ -217,7 +213,7 @@ export class OptionUiSyncService {
 
 
     // optional: refresh directive highlighting after state changes
-    this.optionVisualEffectsService.refreshHighlights(ctx.optionBindings);
+    this.refreshHighlights(ctx.optionBindings);
 
     // AUTHORITATIVE TYPE INFERENCE: Rely on data, not just metadata
     const resolvedType = (isTrulyMulti)
@@ -229,7 +225,7 @@ export class OptionUiSyncService {
       forceDisableAll: ctx.forceDisableAll,
       resolvedType,
       computeShouldLockIncorrectOptions: (t, has, all) =>
-        this.optionLockRulesService.computeShouldLockIncorrectOptions(t, has, all)
+        this.computeShouldLockIncorrectOptions(t, has, all)
     });
 
     // AUTHORITATIVE SYNC: Update SelectedOptionService with the locking results
@@ -1000,5 +996,26 @@ export class OptionUiSyncService {
 
     ctx.lastFeedbackOptionId = displayIndex;
     ctx.showFeedback = true;
+  }
+
+  // ── Inlined from OptionVisualEffectsService ──────────────────────
+
+  private refreshHighlights(bindings: OptionBindings[]): void {
+    for (const b of bindings ?? []) {
+      b?.directiveInstance?.updateHighlight?.();
+    }
+  }
+
+  // ── Inlined from OptionLockRulesService ──────────────────────────
+
+  private computeShouldLockIncorrectOptions(
+    type: QuestionType,
+    hasCorrectSelection: boolean,
+    allCorrectSelected: boolean
+  ): boolean {
+    if (type === QuestionType.MultipleAnswer || type as any === 'multiple') {
+      return allCorrectSelected;
+    }
+    return hasCorrectSelection;
   }
 }

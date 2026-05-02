@@ -418,7 +418,7 @@ export class ExplanationTextService {
     explanation: string | null,
     options?: { force?: boolean; context?: string; index?: number }
   ): void {
-    if (explanation && explanation.trim().length > 0) {
+    if (explanation && explanation.trim().length > 0 && !options?.force) {
       const idx = options?.index ?? this.parseIndexFromContext(options?.context)
         ?? this.quizService.currentQuestionIndex;
       const pristine = this.isMultiAnswerPristineResolved(idx);
@@ -455,7 +455,7 @@ export class ExplanationTextService {
     isDisplayed: boolean,
     options?: { force?: boolean; context?: string }
   ): void {
-    if (isDisplayed === true) {
+    if (isDisplayed === true && !options?.force) {
       const idxFromCtx = this.parseIndexFromContext(options?.context);
       const idx = idxFromCtx ?? this.quizService.currentQuestionIndex;
       const pristine = this.isMultiAnswerPristineResolved(idx);
@@ -470,7 +470,7 @@ export class ExplanationTextService {
     shouldDisplay: boolean,
     options?: { force?: boolean; context?: string }
   ): void {
-    if (shouldDisplay === true) {
+    if (shouldDisplay === true && !options?.force) {
       const idxFromCtx = this.parseIndexFromContext(options?.context);
       const idx = idxFromCtx ?? this.quizService.currentQuestionIndex;
       const pristine = this.isMultiAnswerPristineResolved(idx);
@@ -525,7 +525,7 @@ export class ExplanationTextService {
     value: string | null,
     options?: { token?: number; bypassGuard?: boolean }
   ): void {
-    if (value && value.trim().length > 0) {
+    if (value && value.trim().length > 0 && !options?.bypassGuard) {
       const pristine = this.isMultiAnswerPristineResolved(index);
       if (pristine === false) {
         return;

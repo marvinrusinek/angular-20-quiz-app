@@ -131,6 +131,7 @@ export class CqcQuestionNavService {
     host._fetLocked = false;
     host._lockedForIndex = -1;
     host.timedOutIdxSubject.next(-1);
+    (window as any).__quizTimerExpired = false;
 
     if (!this.fetGuard.hasInteractionEvidence(host, idx)) {
       host._lastDisplayedText = '';

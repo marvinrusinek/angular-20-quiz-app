@@ -25,7 +25,7 @@ import { QuizDataService } from '../../shared/services/data/quizdata.service';
 import { QuizInitializationService } from '../../shared/services/flow/quiz-initialization.service';
 import { QuizNavigationService } from '../../shared/services/flow/quiz-navigation.service';
 import { QuizStateService } from '../../shared/services/state/quizstate.service';
-import { QuizQuestionLoaderService } from '../../shared/services/flow/quizquestionloader.service';
+import { QqcQuestionLoaderService } from '../../shared/services/features/qqc/qqc-question-loader.service';
 import { NextButtonStateService } from '../../shared/services/state/next-button-state.service';
 import { RenderStateService } from '../../shared/services/ui/render-state.service';
 import { SelectedOptionService } from '../../shared/services/state/selectedoption.service';
@@ -163,7 +163,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     private quizDataService: QuizDataService,
     private quizInitializationService: QuizInitializationService,
     private quizNavigationService: QuizNavigationService,
-    private quizQuestionLoaderService: QuizQuestionLoaderService,
+    private quizQuestionLoaderService: QqcQuestionLoaderService,
     public quizStateService: QuizStateService,
     private timerService: TimerService,
     private nextButtonStateService: NextButtonStateService,

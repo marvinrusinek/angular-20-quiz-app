@@ -17,7 +17,7 @@ import { SharedOptionConfig } from '../../../../shared/models/SharedOptionConfig
 import { DynamicComponentService } from '../../../../shared/services/ui/dynamic-component.service';
 import { FeedbackService } from '../../../../shared/services/features/feedback/feedback.service';
 import { QuizService } from '../../../../shared/services/data/quiz.service';
-import { QuizQuestionLoaderService } from '../../../../shared/services/flow/quizquestionloader.service';
+import { QqcQuestionLoaderService } from '../../../../shared/services/features/qqc/qqc-question-loader.service';
 import { QuizQuestionManagerService } from '../../../../shared/services/flow/quizquestionmgr.service';
 import { QuizStateService } from '../../../../shared/services/state/quizstate.service';
 import { SelectedOptionService } from '../../../../shared/services/state/selectedoption.service';
@@ -71,7 +71,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
   readonly questionIndex = input<number | null>(null);
 
   constructor(
-    protected quizQuestionLoaderService: QuizQuestionLoaderService,
+    protected quizQuestionLoaderService: QqcQuestionLoaderService,
     protected quizQuestionManagerService: QuizQuestionManagerService,
     protected timerService: TimerService,
     protected override dynamicComponentService: DynamicComponentService,

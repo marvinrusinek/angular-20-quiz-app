@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 
 import { QuizService } from '../data/quiz.service';
 import { QuizStateService } from '../state/quizstate.service';
-import { QuizQuestionLoaderService } from './quizquestionloader.service';
+import { QqcQuestionLoaderService } from '../features/qqc/qqc-question-loader.service';
 import { ExplanationTextService } from '../features/explanation/explanation-text.service';
 import { NextButtonStateService } from '../state/next-button-state.service';
 import { SelectedOptionService } from '../state/selectedoption.service';
@@ -23,7 +23,7 @@ export class QuizResetService {
   constructor(
     private quizService: QuizService,
     private quizStateService: QuizStateService,
-    private quizQuestionLoaderService: QuizQuestionLoaderService,
+    private quizQuestionLoaderService: QqcQuestionLoaderService,
     private explanationTextService: ExplanationTextService,
     private nextButtonStateService: NextButtonStateService,
     private selectedOptionService: SelectedOptionService,

@@ -259,8 +259,7 @@ export class QuizContentDisplayService {
     // on timeout — the user must select all correct to see the explanation.
     let shouldShowExplanation: boolean;
     if (isMultipleAnswer) {
-      // Multi-answer: ONLY show FET when fully resolved, never on timeout alone
-      shouldShowExplanation = isResolved;
+      shouldShowExplanation = isResolved || isTimedOut;
     } else {
       shouldShowExplanation = isResolved || isTimedOut;
     }

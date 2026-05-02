@@ -21,7 +21,7 @@ import { SharedOptionConfig } from '../../../shared/models/SharedOptionConfig.mo
 import { FeedbackService } from '../../../shared/services/features/feedback/feedback.service';
 import { QuizService } from '../../../shared/services/data/quiz.service';
 import { QuizStateService } from '../../../shared/services/state/quizstate.service';
-import { QuizQuestionLoaderService } from '../../../shared/services/flow/quizquestionloader.service';
+// QuizQuestionLoaderService consolidated into QqcQuestionLoaderService
 import { QuizQuestionManagerService } from '../../../shared/services/flow/quizquestionmgr.service';
 import { DynamicComponentService } from '../../../shared/services/ui/dynamic-component.service';
 import { ExplanationTextService } from '../../../shared/services/features/explanation/explanation-text.service';
@@ -216,10 +216,12 @@ export class QuizQuestionComponent extends BaseQuestion
 
   private destroy$: Subject<void> = new Subject<void>();
 
+  /** Alias so host:any callers (quiz-setup, qqc-orch-lifecycle) still resolve. */
+  get quizQuestionLoaderService(): QqcQuestionLoaderService { return this.questionLoader; }
+
   constructor(
     protected override quizService: QuizService,
     protected override quizStateService: QuizStateService,
-    protected quizQuestionLoaderService: QuizQuestionLoaderService,
     protected quizQuestionManagerService: QuizQuestionManagerService,
     protected override dynamicComponentService: DynamicComponentService,
     protected explanationTextService: ExplanationTextService,

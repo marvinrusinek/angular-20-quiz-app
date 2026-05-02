@@ -30,6 +30,29 @@ export class CqcFetGuardService {
   writeQText(host: Host, html: string): void {
     try {
       let safe = html ?? '';
+
+      // TIMER-EXPIRY BYPASS: when the timer has expired for this question,
+      // skip ALL FET gates — the explanation must display regardless of
+      // whether the question is "scored correct" or "resolved".
+      const _timedOutIdx = host.timedOutIdxSubject?.getValue?.() ?? -1;
+      const _curIdx = host.currentIndex ?? -1;
+      if (_timedOutIdx >= 0 && _timedOutIdx === _curIdx && safe.trim().length > 0) {
+        const _qNorm = String(
+          (host.quizService?.getQuestionsInDisplayOrder?.()?.[ _curIdx]?.questionText ?? '').trim()
+        );
+        const _safeNorm = safe.trim();
+        const _isJustQuestionText = _qNorm.length > 0 && _safeNorm.startsWith(_qNorm) && !_safeNorm.toLowerCase().includes('correct because');
+        if (!_isJustQuestionText) {
+          host.qTextHtmlSig?.set(safe);
+          host._lastDisplayedText = safe;
+          const el = host.qText?.nativeElement;
+          if (el) {
+            host.renderer.setProperty(el, 'innerHTML', safe);
+          }
+          return;
+        }
+      }
+
       const rawQs: any[] = (host.quizService as any)?.questions ?? [];
       const norm = (t: any) => String(t ?? '').trim().toLowerCase();
       const safeNorm = norm(safe);

@@ -43,7 +43,7 @@ export class QqcOrchTimerService {
       lastAllCorrect: host._lastAllCorrect,
       normalizeIndex: (idx: number) => host.normalizeIndex(idx),
       setExplanationFor: (_idx: number, html: string) => {
-        host.explanationTextService.setExplanationText(html);
+        host.explanationTextService.setExplanationText(html, { force: true });
         host.cdRef.markForCheck();
       },
       resolveFormatted: (idx: number) => host.resolveFormatted(idx),
@@ -57,6 +57,36 @@ export class QqcOrchTimerService {
     host.explanationToDisplay.set(result.explanationToDisplay);
     host.explanationToDisplayChange?.emit(result.explanationToDisplay);
     host._timerStoppedForQuestion = result.timerStoppedForQuestion;
+
+    // Write FET directly to the <h3> in codelab-quiz-content.
+    // The cqc-orchestrator's own expired$ subscription is unreliable
+    // (component may be destroyed/recreated), so we write from here.
+    try {
+      (window as any).__quizTimerExpired = true;
+      const qTextEl = document.querySelector('codelab-quiz-content h3');
+      if (qTextEl) {
+        const i0 = host.normalizeIndex(targetIndex ?? host.currentQuestionIndex() ?? 0);
+        const q = host.questions?.[i0] ?? host.currentQuestion();
+        if (q) {
+          const opts = q.options ?? host.optionsToDisplay() ?? [];
+          const correctIndices = host.explanationTextService.getCorrectOptionIndices(q, opts, i0);
+          let fetHtml = '';
+          if (correctIndices.length > 0) {
+            fetHtml = host.explanationTextService.formatExplanation(q, correctIndices, q.explanation);
+          }
+          if (!fetHtml) {
+            fetHtml = q.explanation || '';
+          }
+          if (fetHtml) {
+            const write = () => { qTextEl.innerHTML = fetHtml; };
+            write();
+            setTimeout(write, 100);
+            setTimeout(write, 300);
+            setTimeout(write, 600);
+          }
+        }
+      }
+    } catch { /* ignore */ }
 
     if (host.sharedOptionComponent) {
       host.sharedOptionComponent.cdRef.markForCheck();

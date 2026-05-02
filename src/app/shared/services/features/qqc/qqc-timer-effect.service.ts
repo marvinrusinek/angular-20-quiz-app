@@ -252,7 +252,7 @@ export class QqcTimerEffectService {
     // Show explanation regardless of correctness
     let explanationToDisplay = '';
     try {
-      this.explanationTextService.setShouldDisplayExplanation(true);
+      this.explanationTextService.setShouldDisplayExplanation(true, { force: true });
 
       const cached = params.formattedByIndex.get(i0)
         ?? this.explanationTextService.fetByIndex?.get(i0)
@@ -267,7 +267,7 @@ export class QqcTimerEffectService {
 
       // Emit FET to the service
       if (hasFet) {
-        this.explanationTextService.setExplanationText(immediateTxt, { index: i0 });
+        this.explanationTextService.setExplanationText(immediateTxt, { index: i0, force: true });
       }
 
       // If no cached FET, resolve asynchronously
@@ -275,7 +275,7 @@ export class QqcTimerEffectService {
         params.resolveFormatted(i0).then(formatted => {
           if (formatted) {
             params.setExplanationFor(i0, formatted);
-            this.explanationTextService.setExplanationText(formatted, { index: i0 });
+            this.explanationTextService.setExplanationText(formatted, { index: i0, force: true });
             params.markForCheck();
           }
         }).catch(() => {});
@@ -517,7 +517,7 @@ export class QqcTimerEffectService {
         return { formattedText: '', needsAsyncRepair: false };
       }
 
-      ets.emitFormatted(i0, retry);
+      ets.emitFormatted(i0, retry, { bypassGuard: true });
       return { formattedText: retry, needsAsyncRepair: false };
     }
 
@@ -532,7 +532,7 @@ export class QqcTimerEffectService {
       ((params.questions[i0]?.explanation ?? '') as string).toString().trim() ||
       ((ets.formattedExplanations[i0]?.explanation ?? '') as string).toString().trim() ||
       'Explanation not available.';
-    ets.setExplanationText(rawBest);
+    ets.setExplanationText(rawBest, { force: true });
 
     // Needs async repair if no proper FET was found
     const needsAsyncRepair = !formattedNow ||
@@ -576,7 +576,7 @@ export class QqcTimerEffectService {
         params.normalizeIndex?.(params.fixedQuestionIndex ?? params.currentQuestionIndex ?? 0) ??
         (params.currentQuestionIndex ?? 0);
       if (active !== i0) return null;
-      this.explanationTextService.setExplanationText(out);
+      this.explanationTextService.setExplanationText(out, { force: true });
       return out;
     } catch {
       return null;
@@ -640,7 +640,7 @@ export class QqcTimerEffectService {
   } {
     this.timerService.stopTimer(undefined, { force: true });
 
-    this.explanationTextService.setShouldDisplayExplanation(true);
+    this.explanationTextService.setShouldDisplayExplanation(true, { force: true });
     this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
     this.quizStateService.setAnswered(true);
     this.quizStateService.setAnswerSelected(true);

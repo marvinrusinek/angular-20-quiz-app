@@ -208,6 +208,7 @@ export class CqcOrchestratorService {
         const idx = host.currentIndex >= 0 ? host.currentIndex : (host.quizService.getCurrentQuestionIndex?.() ?? host.currentQuestionIndexValue ?? 0);
 
         host.timedOutIdxSubject.next(idx);
+        (window as any).__quizTimerExpired = true;
 
         const isShuffled = host.quizService.isShuffleEnabled?.() && Array.isArray(host.quizService.shuffledQuestions) && host.quizService.shuffledQuestions.length > 0;
         let q = isShuffled
@@ -215,11 +216,40 @@ export class CqcOrchestratorService {
           : host.quizService.questions?.[idx];
 
         q = q ?? (host.quizService?.currentQuestion?.value ?? null);
+        console.warn('[FET-TIMER] expired$ FIRED idx=' + idx, 'hasExplanation=' + !!q?.explanation, 'hasQText=' + !!host.qText?.nativeElement);
 
         if (q?.explanation) {
           const visualOpts = host.quizQuestionComponent?.optionsToDisplay ?? q.options;
           host.explanationTextService.storeFormattedExplanation(idx, q.explanation, q, visualOpts);
         }
+
+        // DIRECT DOM FET WRITE on timer expiry — bypasses all service/guard layers
+        try {
+          const el = host.qText?.nativeElement;
+          if (el && q) {
+            const opts = q.options ?? host.quizQuestionComponent?.optionsToDisplay ?? [];
+            const correctIndices = host.explanationTextService.getCorrectOptionIndices(q, opts, idx);
+            let fetHtml = '';
+            if (correctIndices.length > 0) {
+              fetHtml = host.explanationTextService.formatExplanation(q, correctIndices, q.explanation);
+            }
+            if (!fetHtml) {
+              fetHtml = q.explanation || '';
+            }
+            if (fetHtml) {
+              const write = () => {
+                el.innerHTML = fetHtml;
+                host.qTextHtmlSig?.set(fetHtml);
+                host._lastDisplayedText = fetHtml;
+                (host as any)._fetLockedForIndex = idx;
+              };
+              write();
+              setTimeout(write, 50);
+              setTimeout(write, 200);
+              setTimeout(write, 500);
+            }
+          }
+        } catch { /* ignore */ }
 
         host.cdRef.markForCheck();
       });

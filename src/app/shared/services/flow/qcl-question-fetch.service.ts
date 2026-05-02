@@ -14,7 +14,7 @@ import { ExplanationTextService } from '../features/explanation/explanation-text
 import { SelectedOptionService } from '../state/selectedoption.service';
 import { SelectionMessageService } from '../features/selection-message/selection-message.service';
 import { QuizQuestionDataService } from './quiz-question-data.service';
-import { QuizQuestionLoaderService } from './quizquestionloader.service';
+import { QqcQuestionLoaderService } from '../features/qqc/qqc-question-loader.service';
 import {
   FetchQuestionResult,
   RouteChangeQuestionResult,
@@ -36,7 +36,7 @@ export class QclQuestionFetchService {
     private selectedOptionService: SelectedOptionService,
     private selectionMessageService: SelectionMessageService,
     private quizQuestionDataService: QuizQuestionDataService,
-    private quizQuestionLoaderService: QuizQuestionLoaderService,
+    private quizQuestionLoaderService: QqcQuestionLoaderService,
   ) {}
 
   async loadQuestionFromRouteChange(params: {

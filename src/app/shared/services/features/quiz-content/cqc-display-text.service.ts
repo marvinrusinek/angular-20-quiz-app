@@ -40,11 +40,27 @@ export class CqcDisplayTextService {
 
           const currentIdx = host.currentIndex;
 
+          // Timer-expiry detection: bypasses all FET guards below
+          const isTimedOutForIdx = host.timedOutIdxSubject?.getValue?.() === currentIdx && currentIdx >= 0;
+
           // FAST-PATH FET BYPASS: if SOC has confirmed this question correct
           // via fetBypassForQuestion AND the incoming text contains FET,
           // write it directly — skip all downstream gates that can block it.
           if (!isQuestionText && lowerText.includes('correct because')
               && host.explanationTextService?.fetBypassForQuestion?.get(currentIdx) === true) {
+            const el = host.qText?.nativeElement;
+            if (el) {
+              host.qTextHtmlSig?.set(text);
+              host._lastDisplayedText = text;
+              host.renderer.setProperty(el, 'innerHTML', text);
+              (host as any)._fetLockedForIndex = currentIdx;
+              return;
+            }
+          }
+
+          // TIMER-EXPIRY FET FAST PATH: when timed out and incoming text
+          // contains actual FET content, write it directly.
+          if (isTimedOutForIdx && !isQuestionText && (text ?? '').trim().length > 0) {
             const el = host.qText?.nativeElement;
             if (el) {
               host.qTextHtmlSig?.set(text);
@@ -84,14 +100,14 @@ export class CqcDisplayTextService {
             }
           } catch { /* ignore */ }
           const isMultiAnswer = multiCorrectCount > 1;
-          const multiAnswerBlocked = isMultiAnswer && hasRealInteraction && !isResolvedForGuard;
+          const multiAnswerBlocked = isMultiAnswer && hasRealInteraction && !isResolvedForGuard && !isTimedOutForIdx;
 
           const isExplanation = lowerText.length > 0
             && !isQuestionText
             && !lowerText.includes('correct because')
             && host.explanationTextService.latestExplanationIndex === host.currentIndex
             && host.explanationTextService.latestExplanationIndex >= 0
-            && hasRealInteraction
+            && (hasRealInteraction || isTimedOutForIdx)
             && !multiAnswerBlocked;
           if (isExplanation) {
             const idx = host.currentIndex;
@@ -113,7 +129,7 @@ export class CqcDisplayTextService {
             }
           } else if (!isQuestionText && !lowerText.includes('correct because')
                      && host.explanationTextService.latestExplanationIndex === host.currentIndex
-                     && !hasRealInteraction) {
+                     && !hasRealInteraction && !isTimedOutForIdx) {
             // Substitution suppressed — no interaction evidence
           }
 
@@ -139,8 +155,8 @@ export class CqcDisplayTextService {
               return;
             }
 
-            // UNIVERSAL QUESTION-FIRST GUARD
-            if (!hasRealInteraction) {
+            // UNIVERSAL QUESTION-FIRST GUARD (skip when timed out)
+            if (!hasRealInteraction && !isTimedOutForIdx) {
               try {
                 const forcedQText = this.fetGuard.buildQuestionDisplayHTML(host, currentIdx);
                 if (forcedQText) {
@@ -184,89 +200,59 @@ export class CqcDisplayTextService {
               return;
             }
 
-            // MULTI-ANSWER / SINGLE-ANSWER FET BLOCK
-            const normForFet = (t: any) => String(t ?? '').trim().toLowerCase();
-            const finalNorm = normForFet(finalText);
-            const qTextNormForFet = normForFet(qForMultiCheck?.questionText);
-            const rawExplanation = normForFet(
-              (host.quizService as any)?.questions?.[currentIdx]?.explanation
-                ?? qForMultiCheck?.explanation
-            );
-            const isFetText = !!finalNorm && (
-              finalNorm.includes('correct because')
-              || (!!rawExplanation && finalNorm.includes(rawExplanation))
-              || (!!qTextNormForFet && !finalNorm.includes(qTextNormForFet))
-            );
-            const rawQForBlock: any = (host.quizService as any)?.questions?.[currentIdx] ?? qForMultiCheck;
-            const rawOptsForBlock: any[] = rawQForBlock?.options ?? [];
-            let rawCorrectCountBlock = rawOptsForBlock.filter(
-              (o: any) => o?.correct === true || o?.correct === 1 || String(o?.correct) === 'true'
-            ).length;
-            try {
-              const _n2 = (t: any) => String(t ?? '').trim().toLowerCase();
-              const _qText2 = _n2(rawQForBlock?.questionText ?? qForMultiCheck?.questionText);
-              const _bundle2: any[] = (host.quizService as any)?.quizInitialState ?? [];
-              for (const _quiz2 of _bundle2) {
-                for (const _pq2 of (_quiz2?.questions ?? [])) {
-                  if (_n2(_pq2?.questionText) !== _qText2) continue;
-                  const pc2 = (_pq2?.options ?? []).filter(
-                    (o: any) => o?.correct === true || String(o?.correct) === 'true'
-                  ).length;
-                  if (pc2 > rawCorrectCountBlock) rawCorrectCountBlock = pc2;
-                  break;
-                }
-              }
-            } catch { /* ignore */ }
-            const isMultiQ = host.quizService.multipleAnswer || rawCorrectCountBlock > 1;
-            let rawResolved = false;
-            if (isMultiQ) {
+            // MULTI-ANSWER / SINGLE-ANSWER FET BLOCK (skip when timed out)
+            if (!isTimedOutForIdx) {
+              const normForFet = (t: any) => String(t ?? '').trim().toLowerCase();
+              const finalNorm = normForFet(finalText);
+              const qTextNormForFet = normForFet(qForMultiCheck?.questionText);
+              const rawExplanation = normForFet(
+                (host.quizService as any)?.questions?.[currentIdx]?.explanation
+                  ?? qForMultiCheck?.explanation
+              );
+              const isFetText = !!finalNorm && (
+                finalNorm.includes('correct because')
+                || (!!rawExplanation && finalNorm.includes(rawExplanation))
+                || (!!qTextNormForFet && !finalNorm.includes(qTextNormForFet))
+              );
+              const rawQForBlock: any = (host.quizService as any)?.questions?.[currentIdx] ?? qForMultiCheck;
+              const rawOptsForBlock: any[] = rawQForBlock?.options ?? [];
+              let rawCorrectCountBlock = rawOptsForBlock.filter(
+                (o: any) => o?.correct === true || o?.correct === 1 || String(o?.correct) === 'true'
+              ).length;
               try {
-                const norm = (t: any) => String(t ?? '').trim().toLowerCase();
-                const rawCorrectTexts = rawOptsForBlock
-                  .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
-                  .map((o: any) => norm(o?.text))
-                  .filter((t: string) => !!t);
-                let storedSelections: any[] = [];
-                try {
-                  const raw = sessionStorage.getItem('sel_Q' + currentIdx);
-                  if (raw) {
-                    const parsed = JSON.parse(raw);
-                    if (Array.isArray(parsed)) storedSelections = parsed;
-                  }
-                } catch { /* ignore */ }
-                if (storedSelections.length === 0) {
-                  storedSelections = host.selectedOptionService.getSelectedOptionsForQuestion?.(currentIdx) ?? [];
-                }
-                const selTexts = new Set(
-                  (storedSelections as any[])
-                    .filter((s: any) => s?.selected === true)
-                    .map((s: any) => norm(s?.text))
-                    .filter((t: string) => !!t)
-                );
-                rawResolved = rawCorrectTexts.length > 0 && rawCorrectTexts.every((t: string) => selTexts.has(t));
-                if (!rawResolved) {
-                  if (this.fetGuard.isScoredCorrectAtDisplay(host, currentIdx)) {
-                    rawResolved = true;
+                const _n2 = (t: any) => String(t ?? '').trim().toLowerCase();
+                const _qText2 = _n2(rawQForBlock?.questionText ?? qForMultiCheck?.questionText);
+                const _bundle2: any[] = (host.quizService as any)?.quizInitialState ?? [];
+                for (const _quiz2 of _bundle2) {
+                  for (const _pq2 of (_quiz2?.questions ?? [])) {
+                    if (_n2(_pq2?.questionText) !== _qText2) continue;
+                    const pc2 = (_pq2?.options ?? []).filter(
+                      (o: any) => o?.correct === true || String(o?.correct) === 'true'
+                    ).length;
+                    if (pc2 > rawCorrectCountBlock) rawCorrectCountBlock = pc2;
+                    break;
                   }
                 }
-              } catch { /* default false */ }
-            }
-            if (isFetText && isMultiQ) {
-              if (!this.fetGuard.isScoredCorrectAtDisplay(host, currentIdx)) {
-                const qText = this.fetGuard.buildQuestionDisplayHTML(host, currentIdx);
-                if (qText) {
-                  this.fetGuard.writeQText(host, qText);
-                  return;
+              } catch { /* ignore */ }
+              const isMultiQ = host.quizService.multipleAnswer || rawCorrectCountBlock > 1;
+
+              if (isFetText && isMultiQ) {
+                if (!this.fetGuard.isScoredCorrectAtDisplay(host, currentIdx)) {
+                  const qText = this.fetGuard.buildQuestionDisplayHTML(host, currentIdx);
+                  if (qText) {
+                    this.fetGuard.writeQText(host, qText);
+                    return;
+                  }
                 }
               }
-            }
 
-            if (isFetText && !isMultiQ) {
-              if (!this.fetGuard.isScoredCorrectAtDisplay(host, currentIdx)) {
-                const qText = this.fetGuard.buildQuestionDisplayHTML(host, currentIdx);
-                if (qText) {
-                  this.fetGuard.writeQText(host, qText);
-                  return;
+              if (isFetText && !isMultiQ) {
+                if (!this.fetGuard.isScoredCorrectAtDisplay(host, currentIdx)) {
+                  const qText = this.fetGuard.buildQuestionDisplayHTML(host, currentIdx);
+                  if (qText) {
+                    this.fetGuard.writeQText(host, qText);
+                    return;
+                  }
                 }
               }
             }

@@ -185,6 +185,14 @@ export class QqcOrchDisplayService {
     const result = host.feedbackManager.revealFeedbackForAllOptions(canonicalOpts, host.feedbackConfigs, host.showFeedbackForOption);
     host.feedbackConfigs = result.feedbackConfigs;
     host.showFeedbackForOption = result.showFeedbackForOption;
+
+    const soc = host.sharedOptionComponent;
+    if (soc) {
+      soc.feedbackConfigs = result.feedbackConfigs;
+      soc.showFeedbackForOption = result.showFeedbackForOption;
+      soc.cdRef.markForCheck();
+    }
+
     host.cdRef.markForCheck();
   }
 

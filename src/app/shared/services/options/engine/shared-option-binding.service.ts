@@ -11,7 +11,6 @@ import { OptionService } from '../view/option.service';
 import { QuizService } from '../../data/quiz.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
 import { FeedbackService } from '../../features/feedback/feedback.service';
-import { OptionHydrationService } from './option-hydration.service';
 import { OptionBindingFactoryService } from './option-binding-factory.service';
 import { ExplanationTextService } from '../../features/explanation/explanation-text.service';
 
@@ -21,7 +20,6 @@ export class SharedOptionBindingService {
     private quizService: QuizService,
     private selectedOptionService: SelectedOptionService,
     private feedbackService: FeedbackService,
-    private optionHydrationService: OptionHydrationService,
     private optionBindingFactory: OptionBindingFactoryService,
     private explanationTextService: ExplanationTextService,
     private clickHandler: OptionClickHandlerService,
@@ -291,7 +289,7 @@ export class SharedOptionBindingService {
       const sQIdx = s?.questionIndex ?? s?.qIdx ?? s?.questionIdx;
       return sQIdx == null || Number(sQIdx) === Number(currentIdx);
     });
-    const savedIds = this.optionHydrationService.toIdSet(savedSelections);
+    const savedIds = this.toIdSet(savedSelections);
 
     const getBindings = comp.getOptionBindings.bind(comp);
     const highlightSet = comp.highlightedOptionIds;
@@ -800,37 +798,48 @@ export class SharedOptionBindingService {
   }
 
   getInlineFeedbackConfig(comp: any, b: OptionBindings, i: number): FeedbackProps | null {
+    let config: FeedbackProps | null = null;
+
     if (comp._feedbackDisplay?.idx === i && comp._feedbackDisplay.config?.showFeedback) {
-      let config = comp._feedbackDisplay.config;
-
-      const qIdx = comp.getActiveQuestionIndex();
-
-      let correctIndicesArr: number[] = comp._correctIndicesByQuestion?.get(qIdx) ?? [];
-      if (correctIndicesArr.length === 0) {
-        const feedbackQ = comp.currentQuestion ?? comp.getQuestionAtDisplayIndex(qIdx);
-        const result = this.clickHandler.resolveCorrectIndices(
-          feedbackQ, qIdx, comp.isMultiMode, comp.type
-        );
-        correctIndicesArr = result.correctIndices;
+      config = comp._feedbackDisplay.config;
+    } else if (comp.timerExpiredForQuestion) {
+      const key = comp.keyOf(b.option, i);
+      const cfg = comp.feedbackConfigs?.[key];
+      if (cfg?.showFeedback) {
+        config = cfg;
       }
-
-      const effectiveMultiMode = comp.isMultiMode || comp.type === 'multiple' || correctIndicesArr.length > 1;
-      const durableSelected = comp._multiSelectByQuestion?.get(qIdx);
-
-      if (effectiveMultiMode && durableSelected && durableSelected.size > 0 && correctIndicesArr.length > 0) {
-        const clickState = this.clickHandler.computeMultiAnswerClickState(
-          i, durableSelected, correctIndicesArr
-        );
-        const newFeedback = this.clickHandler.generateMultiAnswerFeedbackText(clickState);
-
-        if (newFeedback !== config.feedback) {
-          config = { ...config, feedback: newFeedback };
-        }
-      }
-
-      return config;
     }
-    return null;
+
+    if (!config) {
+      return null;
+    }
+
+    const qIdx = comp.getActiveQuestionIndex();
+
+    let correctIndicesArr: number[] = comp._correctIndicesByQuestion?.get(qIdx) ?? [];
+    if (correctIndicesArr.length === 0) {
+      const feedbackQ = comp.currentQuestion ?? comp.getQuestionAtDisplayIndex(qIdx);
+      const result = this.clickHandler.resolveCorrectIndices(
+        feedbackQ, qIdx, comp.isMultiMode, comp.type
+      );
+      correctIndicesArr = result.correctIndices;
+    }
+
+    const effectiveMultiMode = comp.isMultiMode || comp.type === 'multiple' || correctIndicesArr.length > 1;
+    const durableSelected = comp._multiSelectByQuestion?.get(qIdx);
+
+    if (effectiveMultiMode && durableSelected && durableSelected.size > 0 && correctIndicesArr.length > 0) {
+      const clickState = this.clickHandler.computeMultiAnswerClickState(
+        i, durableSelected, correctIndicesArr
+      );
+      const newFeedback = this.clickHandler.generateMultiAnswerFeedbackText(clickState);
+
+      if (newFeedback !== config.feedback) {
+        config = { ...config, feedback: newFeedback };
+      }
+    }
+
+    return config;
   }
 
   fullyResetRows(comp: any): void {
@@ -934,5 +943,33 @@ export class SharedOptionBindingService {
       comp.renderReadySubject?.next(true);
     } else {
     }
+  }
+
+  // ── Inlined from OptionHydrationService ──────────────────────────
+
+  private applySavedSelections(
+    bindings: OptionBindings[] | null | undefined,
+    savedIds: Set<number | string>
+  ): void {
+    if (!bindings?.length) return;
+    for (const b of bindings) {
+      const id = b?.option?.optionId;
+      b.isSelected = id !== undefined && id !== null && savedIds.has(id);
+    }
+  }
+
+  private toIdSet(
+    saved: Array<{ optionId?: number | string; selected?: boolean }> | null | undefined
+  ): Set<number | string> {
+    const set = new Set<number | string>();
+    if (!saved?.length) return set;
+    for (const s of saved) {
+      if ((s as any)?.selected === false) continue;
+      const id = s?.optionId;
+      if (id !== undefined && id !== null) {
+        set.add(id);
+      }
+    }
+    return set;
   }
 }

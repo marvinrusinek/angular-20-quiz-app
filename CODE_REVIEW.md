@@ -16,7 +16,7 @@
 | PWA | Enabled with Service Worker | Done |
 | Test Coverage | None (0 spec files) | Not started |
 | Code Complexity | Improved - 7 largest services split, some still >1000 lines | ~60% |
-| Production Readiness | Improved (logging reduced, no tests, some large files remain) | ~40% |
+| Production Readiness | Improved (logging cleaned, no tests, some large files remain) | ~50% |
 
 ---
 
@@ -73,14 +73,12 @@ Zero spec files in `src/app/`. No karma.conf.js, jest.config.js, or test scripts
 
 **Remaining:** 5 services still >1000 lines + 1 data file.
 
-### 3. Excessive Console Logging
+### 3. Console Logging Cleanup
 
-| Completeness | ~70% — reduced from 1,133 to 326 statements |
+| Completeness | Done — only 1 critical bootstrap error remains |
 |:--|:--|
 
-326 console.log/warn/error/info statements remain across the codebase. A bulk removal pass was done (commit 2d45209a removed debug statements across 77 files).
-
-**Remaining:** Remove or gate the remaining 326 statements.
+All diagnostic console.warn/log/info/error removed across 65 files (~293 statements). Only `main.ts` bootstrap error kept. Previous pass removed ~800 statements (commit 2d45209a).
 
 ### 4. Large Components
 
@@ -231,7 +229,7 @@ Angular CLI is 19.1.7 but the build tool is 20.3.8. Update CLI to 20.x.
 | # | Task | Completeness |
 |---|------|:------------:|
 | 1 | **Split oversized services (>1200 lines)** | Done (7/7 split) |
-| 2 | **Remove or gate console logging** (1,133 → 326) | ~70% |
+| 2 | **Remove or gate console logging** (1,133 → 1) | Done |
 | 3 | **Add unit tests** for core services, guards, and pipes | Not started |
 | 4 | **Consolidate duplicate services** (`quizquestionloader` vs `qqc-question-loader`) | Not started |
 | 5 | **Remove deprecated APIs** (9 remaining) | Not started |

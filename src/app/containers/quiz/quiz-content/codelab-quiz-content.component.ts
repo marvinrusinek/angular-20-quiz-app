@@ -15,8 +15,8 @@ import { QuizQuestion } from '../../../shared/models/QuizQuestion.model';
 import { QuizService } from '../../../shared/services/data/quiz.service';
 import { QuizDataService } from '../../../shared/services/data/quizdata.service';
 import { QuizNavigationService } from '../../../shared/services/flow/quiz-navigation.service';
-import { QuizQuestionLoaderService } from
-  '../../../shared/services/flow/quizquestionloader.service';
+import { QqcQuestionLoaderService } from
+  '../../../shared/services/features/qqc/qqc-question-loader.service';
 import { QuizQuestionManagerService } from '../../../shared/services/flow/quizquestionmgr.service';
 import { QuizStateService } from '../../../shared/services/state/quizstate.service';
 import { SelectedOptionService } from '../../../shared/services/state/selectedoption.service';
@@ -147,7 +147,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     private quizNavigationService: QuizNavigationService,
     private quizStateService: QuizStateService,
     private explanationTextService: ExplanationTextService,
-    private quizQuestionLoaderService: QuizQuestionLoaderService,
+    private quizQuestionLoaderService: QqcQuestionLoaderService,
     private quizQuestionManagerService: QuizQuestionManagerService,
     private selectedOptionService: SelectedOptionService,
     private timerService: TimerService,
@@ -241,6 +241,9 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             const idx: number = Number.isFinite(qs?.currentQuestionIndex)
               ? qs.currentQuestionIndex
               : (qs?.getCurrentQuestionIndex?.() ?? 0);
+            // Timer expired → always allow FET
+            const timedOutVal = this.timedOutIdxSubject?.getValue?.() ?? -1;
+            if (timedOutVal >= 0 && timedOutVal === idx) return true;
             const isShuffled = qs?.isShuffleEnabled?.()
               && Array.isArray(qs?.shuffledQuestions)
               && qs.shuffledQuestions.length > 0;

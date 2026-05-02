@@ -5,11 +5,7 @@ import { Option } from '../../../models/Option.model';
 import { OptionUiSyncContext } from '../engine/option-ui-sync.service';
 
 type SharedOptionComponentLike =
-  Omit<OptionUiSyncContext, 'toggleSelectedOption'> & {
-    optionVisualEffectsService: {
-      toggleSelectedOption: (opt: Option, map: Map<number, boolean>) => void;
-    };
-  };
+  Omit<OptionUiSyncContext, 'toggleSelectedOption'>;
 
 @Injectable({ providedIn: 'root' })
 export class OptionUiContextBuilderService {
@@ -38,8 +34,10 @@ export class OptionUiContextBuilderService {
       isMultiMode: src.isMultiMode,
       currentQuestion: src.currentQuestion,
       
-      toggleSelectedOption: (opt: any) =>
-        src.optionVisualEffectsService.toggleSelectedOption(opt, src.selectedOptionMap),
+      toggleSelectedOption: (opt: any) => {
+        if (opt == null || opt < 0) return;
+        src.selectedOptionMap?.set(opt, !src.selectedOptionMap?.get(opt));
+      },
 
       onSelect: (binding: any, checked: boolean, questionIndex: number) => {
         // NO-OP: Do NOT emit optionClicked here.

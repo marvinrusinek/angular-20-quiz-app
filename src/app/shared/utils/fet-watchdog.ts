@@ -83,6 +83,9 @@ export function installGlobalFetWatchdog(): void {
     };
     const enforce = () => {
       try {
+        // Timer-expiry bypass: Angular sets this flag when timer expires
+        if ((window as any).__quizTimerExpired === true) return;
+
         const bodyHtml = document.body?.innerHTML ?? '';
         const fetMatches = bodyHtml.match(/[A-Z][^<>]{0,200}(are correct because|is correct because)[^<>]{0,300}/gi);
         if (fetMatches && fetMatches.length > 0) {        }
