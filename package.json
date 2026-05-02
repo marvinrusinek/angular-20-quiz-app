@@ -29,7 +29,7 @@
   },
   "devDependencies": {
     "@angular/build": "20.3.8",
-    "@angular/cli": "^19.1.7",
+    "@angular/cli": "^20.3.8",
     "@angular/compiler-cli": "20.3.14",
     "@types/howler": "^2.2.11",
     "@types/jest": "^30.0.0",
