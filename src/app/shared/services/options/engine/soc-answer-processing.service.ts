@@ -1,0 +1,463 @@
+import { Injectable } from '@angular/core';
+
+import { QuizService } from '../../data/quiz.service';
+import { QuizStateService } from '../../state/quizstate.service';
+import { SelectedOptionService } from '../../state/selectedoption.service';
+import { FeedbackService } from '../../features/feedback/feedback.service';
+import { SelectionMessageService } from '../../features/selection-message/selection-message.service';
+import { TimerService } from '../../features/timer/timer.service';
+import { ExplanationTextService } from '../../features/explanation/explanation-text.service';
+import { OptionClickHandlerService } from './option-click-handler.service';
+import { NextButtonStateService } from '../../state/next-button-state.service';
+import { SharedOptionExplanationService } from '../../features/shared-option/shared-option-explanation.service';
+
+import { Option } from '../../../models/Option.model';
+import { FeedbackProps } from '../../../models/FeedbackProps.model';
+import { QuestionType } from '../../../models/question-type.enum';
+
+/**
+ * Handles multi-answer and single-answer click processing logic.
+ * Extracted from SharedOptionClickService.runOptionContentClick.
+ */
+@Injectable({ providedIn: 'root' })
+export class SocAnswerProcessingService {
+
+  constructor(
+    private quizService: QuizService,
+    private quizStateService: QuizStateService,
+    private selectedOptionService: SelectedOptionService,
+    private feedbackService: FeedbackService,
+    private selectionMessageService: SelectionMessageService,
+    private timerService: TimerService,
+    private explanationTextService: ExplanationTextService,
+    private clickHandler: OptionClickHandlerService,
+    private nextButtonStateService: NextButtonStateService,
+    private sharedOptionExplanationService: SharedOptionExplanationService
+  ) {}
+
+  /**
+   * Processes a multi-answer option click: updates disabled set, bindings,
+   * feedback, selection message, and triggers FET when all correct are selected.
+   */
+  processMultiAnswerClick(params: {
+    comp: any;
+    index: number;
+    binding: any;
+    qIdx: number;
+    durableSet: Set<number>;
+    effectiveCorrectIndices: number[];
+    effectiveCorrectCount: number;
+    isShuffled: boolean;
+  }): void {
+    const { comp, index, binding, qIdx, durableSet, effectiveCorrectIndices, effectiveCorrectCount, isShuffled } = params;
+
+    const clickState = this.clickHandler.computeMultiAnswerClickState(
+      index, durableSet, effectiveCorrectIndices
+    );
+
+    if (!comp.disabledOptionsPerQuestion.has(qIdx)) {
+      comp.disabledOptionsPerQuestion.set(qIdx, new Set<number>());
+    }
+    const disabledSetRef = comp.disabledOptionsPerQuestion.get(qIdx)!;
+    this.clickHandler.updateDisabledSet(
+      disabledSetRef, index, clickState.isClickedCorrect,
+      clickState.remaining, comp.optionBindings.length, effectiveCorrectIndices
+    );
+
+    // Set _multiAnswerPerfect BEFORE applying bindings so that
+    // isDisabled() sees it when Angular re-renders the option items.
+    if (clickState.remaining === 0) {
+      if (!(this.quizService as any)._multiAnswerPerfect) {
+        (this.quizService as any)._multiAnswerPerfect = new Map<number, boolean>();
+      }
+      (this.quizService as any)._multiAnswerPerfect.set(qIdx, true);
+    }
+
+    const bindingUpdates = this.clickHandler.computeMultiAnswerBindingUpdates(
+      comp.optionBindings.length, durableSet, effectiveCorrectIndices, disabledSetRef
+    );
+    comp.optionBindings = comp.optionBindings.map((ob: any, bi: number) => ({
+      ...ob,
+      isSelected: bindingUpdates[bi].isSelected,
+      isCorrect: bindingUpdates[bi].isCorrect,
+      disabled: bindingUpdates[bi].disabled,
+      option: ob.option ? {
+        ...ob.option,
+        ...bindingUpdates[bi].optionOverrides
+      } : ob.option
+    }));
+
+    const feedbackText = this.clickHandler.generateMultiAnswerFeedbackText(clickState);
+
+    const correctMessage = this.feedbackService.setCorrectMessage(
+      (comp.optionsToDisplay ?? []).filter((o: any) => o && typeof o === 'object'),
+      comp.currentQuestion!
+    );
+    comp._feedbackDisplay = {
+      idx: index,
+      config: {
+        feedback: feedbackText,
+        showFeedback: true,
+        correctMessage,
+        selectedOption: binding.option,
+        options: comp.optionsToDisplay ?? [],
+        question: comp.currentQuestion ?? null,
+        idx: index
+      } as FeedbackProps
+    };
+
+    const optsForMsg: Option[] = comp.optionBindings.map((ob: any, bi: number) => ({
+      ...ob.option,
+      correct: new Set(effectiveCorrectIndices).has(bi),
+      selected: durableSet.has(bi),
+    })) as Option[];
+    const selMsg = this.selectionMessageService.computeFinalMessage({
+      index: qIdx,
+      total: this.quizService?.totalQuestions ?? 0,
+      qType: QuestionType.MultipleAnswer,
+      opts: optsForMsg
+    });
+    this.selectionMessageService.pushMessage(selMsg, qIdx);
+    queueMicrotask(() => this.selectionMessageService.pushMessage(selMsg, qIdx));
+    setTimeout(() => this.selectionMessageService.pushMessage(selMsg, qIdx), 0);
+
+    // CHECK: all correct options selected?
+    const allCorrectInDurable = effectiveCorrectIndices.length > 0 &&
+      effectiveCorrectIndices.every((ci: number) => durableSet.has(ci));
+
+    if (allCorrectInDurable) {
+      try { this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true }); } catch {}
+      this.nextButtonStateService.setNextButtonState(true);
+
+      // Set FET bypass BEFORE scoring so all downstream gates are open
+      this.explanationTextService.fetBypassForQuestion.set(qIdx, true);
+
+      this.quizService.scoreDirectly(qIdx, true, true);
+
+      if (!(this.quizService as any)._multiAnswerPerfect) {
+        (this.quizService as any)._multiAnswerPerfect = new Map<number, boolean>();
+      }
+      (this.quizService as any)._multiAnswerPerfect.set(qIdx, true);
+
+      (this.explanationTextService as any)._fetLocked = false;
+      this.explanationTextService.unlockExplanation();
+
+      comp.showExplanationChange.emit(true);
+
+      // Resolve explanation text from pristine data and write directly
+      let fetText = '';
+      try {
+        const nrmFET = (t: any) => String(t ?? '').trim().toLowerCase();
+        const fetQText = isShuffled
+          ? (nrmFET((this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText)
+            || nrmFET((this.quizService as any)?.shuffledQuestions?.[qIdx]?.questionText))
+          : (nrmFET(comp.currentQuestion?.questionText)
+            || nrmFET((this.quizService as any)?.questions?.[qIdx]?.questionText));
+        const bundleFET: any[] = (this.quizService as any)?.quizInitialState ?? [];
+        for (const quiz of bundleFET) {
+          for (const pq of (quiz?.questions ?? [])) {
+            if (nrmFET(pq?.questionText) !== fetQText) continue;
+            fetText = (pq?.explanation ?? '').trim();
+            break;
+          }
+          if (fetText) break;
+        }
+        // Also try live question objects
+        if (!fetText) {
+          const liveQ = comp.currentQuestion
+            ?? comp.getQuestionAtDisplayIndex?.(qIdx)
+            ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx];
+          fetText = (liveQ?.explanation ?? '').trim();
+        }
+      } catch { /* ignore */ }
+
+      if (fetText) {
+        // Format the explanation with correct option names
+        let formattedFET = fetText;
+        try {
+          const correctNames: string[] = [];
+          for (const ci of effectiveCorrectIndices) {
+            const name = comp.optionBindings?.[ci]?.option?.text;
+            if (name) correctNames.push(name.trim());
+          }
+          if (correctNames.length > 0) {
+            const nameStr = correctNames.length === 1
+              ? correctNames[0]
+              : correctNames.slice(0, -1).join(', ') + ' and ' + correctNames[correctNames.length - 1];
+            formattedFET = `${nameStr} are correct because ${fetText}`;
+          }
+        } catch { /* ignore */ }
+
+        // Write directly via explanationTextService
+        this.explanationTextService._activeIndex = qIdx;
+        (this.explanationTextService as any).latestExplanation = formattedFET;
+        (this.explanationTextService as any).latestExplanationIndex = qIdx;
+        this.explanationTextService.setExplanationText(formattedFET, {
+          force: true,
+          context: `question:${qIdx}`,
+          index: qIdx
+        });
+        this.explanationTextService.emitFormatted(qIdx, formattedFET);
+        this.explanationTextService.setShouldDisplayExplanation(true, {
+          context: `question:${qIdx}`,
+          force: true
+        } as any);
+        this.explanationTextService.setIsExplanationTextDisplayed(true, {
+          context: `question:${qIdx}`,
+          force: true
+        } as any);
+        this.explanationTextService.lockExplanation();
+        this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
+      }
+
+      // Also try the component path as backup
+      setTimeout(() => {
+        try {
+          comp.emitExplanation(qIdx, true);
+        } catch { /* ignore */ }
+      }, 50);
+    } else if (!allCorrectInDurable) {
+    }
+
+    const savedFeedback = comp._feedbackDisplay;
+    queueMicrotask(() => {
+      comp._feedbackDisplay = savedFeedback;
+      comp.cdRef.detectChanges();
+    });
+
+    comp.showFeedback = true;
+    comp.cdRef.detectChanges();
+  }
+
+  /**
+   * Processes a single-answer option click: pristine correctness check,
+   * FET emission, timer stop, option disable/highlight, session persistence.
+   */
+  processSingleAnswerClick(params: {
+    comp: any;
+    index: number;
+    qIdx: number;
+    durableSet: Set<number>;
+    effectiveCorrectIndices: number[];
+    isShuffled: boolean;
+  }): void {
+    const { comp, index, qIdx, durableSet, effectiveCorrectIndices, isShuffled } = params;
+
+    // CANONICAL resolution: match comp.currentQuestion text against
+    // quizService.questions[] to get authoritative correct flags.
+    let correctIdxs: number[] = [];
+    try {
+      const allQs: any[] = (this.quizService as any)?.questions ?? [];
+      const passedText = (comp.currentQuestion?.questionText || '').trim().toLowerCase();
+      let canonicalQ: any = null;
+      if (passedText && allQs.length) {
+        const idx = allQs.findIndex((q: any) => (q?.questionText || '').trim().toLowerCase() === passedText);
+        if (idx >= 0) canonicalQ = allQs[idx];
+      }
+      if (!canonicalQ) canonicalQ = allQs[qIdx] ?? comp.currentQuestion;
+      const rawOpts = canonicalQ?.options ?? [];
+      correctIdxs = rawOpts
+        .map((o: any, i: number) => {
+          const c = o?.correct ?? o?.isCorrect;
+          return (c === true || c === 'true' || c === 1 || c === '1') ? i : -1;
+        })
+        .filter((n: number) => n >= 0);
+    } catch {}
+    if (correctIdxs.length === 0 && effectiveCorrectIndices?.length) {
+      correctIdxs = effectiveCorrectIndices;
+    }
+    const correctSet = new Set(correctIdxs);
+
+    // PRISTINE cross-check for single-answer
+    let pristineSingleCorrect = false;
+    try {
+      const nrmSA = (t: any) => String(t ?? '').trim().toLowerCase();
+      const clickedText = nrmSA(comp.optionBindings?.[index]?.option?.text);
+      const qTextSA = isShuffled
+        ? (nrmSA((this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText)
+          || nrmSA((this.quizService as any)?.shuffledQuestions?.[qIdx]?.questionText))
+        : (nrmSA(comp.currentQuestion?.questionText)
+          || nrmSA((this.quizService as any)?.questions?.[qIdx]?.questionText));
+      if (clickedText && qTextSA) {
+        const bundleSA: any[] = (this.quizService as any)?.quizInitialState ?? [];
+        let saMatched = false;
+        for (const quiz of bundleSA) {
+          for (const pq of (quiz?.questions ?? [])) {
+            if (nrmSA(pq?.questionText) !== qTextSA) continue;
+            saMatched = true;
+            const matchedOpt = (pq?.options ?? []).find((o: any) => nrmSA(o?.text) === clickedText);
+            if (matchedOpt !== undefined) {
+              pristineSingleCorrect = matchedOpt?.correct === true || String(matchedOpt?.correct) === 'true';
+            }
+            break;
+          }
+          if (saMatched) break;
+        }
+      }
+    } catch { /* ignore */ }
+
+    if (pristineSingleCorrect) {
+      try { this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true }); } catch {}
+
+      // Score and emit FET for single-answer correct click
+      this.explanationTextService.fetBypassForQuestion.set(qIdx, true);
+      this.quizService.scoreDirectly(qIdx, true, false);
+      this.nextButtonStateService.setNextButtonState(true);
+      if (!(this.quizService as any)._multiAnswerPerfect) {
+        (this.quizService as any)._multiAnswerPerfect = new Map<number, boolean>();
+      }
+      (this.quizService as any)._multiAnswerPerfect.set(qIdx, true);
+
+      (this.explanationTextService as any)._fetLocked = false;
+      this.explanationTextService.unlockExplanation();
+      comp.showExplanationChange.emit(true);
+      const singleFetQuestion = comp.currentQuestion
+        ?? comp.getQuestionAtDisplayIndex?.(qIdx)
+        ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx];
+
+      // SYNCHRONOUS FET write
+      try {
+        const singleFetCtxSync = {
+          resolvedIndex: qIdx,
+          question: singleFetQuestion,
+          currentQuestion: comp.currentQuestion,
+          quizId: comp.quizId?.() ?? comp.quizId ?? '',
+          optionBindings: comp.optionBindings ?? [],
+          optionsToDisplay: comp.optionsToDisplay ?? [],
+          isMultiMode: false
+        };
+        const fetText = this.sharedOptionExplanationService.resolveExplanationText(singleFetCtxSync as any)?.trim()
+          || singleFetQuestion?.explanation || '';
+        if (fetText) {
+          this.explanationTextService._activeIndex = qIdx;
+          (this.explanationTextService as any).latestExplanation = fetText;
+          (this.explanationTextService as any).latestExplanationIndex = qIdx;
+          this.explanationTextService.setExplanationText(fetText, {
+            force: true,
+            context: `question:${qIdx}`,
+            index: qIdx
+          });
+          this.explanationTextService.emitFormatted(qIdx, fetText);
+          this.explanationTextService.setShouldDisplayExplanation(true, {
+            context: `question:${qIdx}`,
+            force: true
+          } as any);
+          this.explanationTextService.setIsExplanationTextDisplayed(true, {
+            context: `question:${qIdx}`,
+            force: true
+          } as any);
+          this.explanationTextService.lockExplanation();
+          this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
+        }
+      } catch (syncErr) {
+      }
+
+      const singleFetCtx = {
+        resolvedIndex: qIdx,
+        question: singleFetQuestion,
+        currentQuestion: comp.currentQuestion,
+        quizId: comp.quizId?.() ?? comp.quizId ?? '',
+        optionBindings: comp.optionBindings ?? [],
+        optionsToDisplay: comp.optionsToDisplay ?? [],
+        isMultiMode: false
+      };
+      let resolvedFetText = '';
+      try {
+        resolvedFetText = this.sharedOptionExplanationService.resolveExplanationText(singleFetCtx as any)?.trim()
+          || singleFetQuestion?.explanation || '';
+      } catch { /* ignore */ }
+      setTimeout(() => {
+        try {
+          this.sharedOptionExplanationService.emitExplanation(singleFetCtx as any, true);
+        } catch (err) {
+          console.error(`[SOC] Direct single-answer emitExplanation failed:`, err);
+          comp.emitExplanation(qIdx, true);
+        }
+      }, 0);
+
+      // DIRECT DOM FALLBACK
+      if (resolvedFetText) {
+        const fetForDom = resolvedFetText;
+        const stampFet = (label: string) => {
+          try {
+            const h3 = document.querySelector('codelab-quiz-content h3');
+            if (h3) {
+              const domNow = (h3.innerHTML || '').toLowerCase();
+              if (!domNow.includes('correct because')) {
+                h3.innerHTML = fetForDom;
+              }
+            }
+          } catch { /* ignore */ }
+        };
+        setTimeout(() => stampFet('50ms'), 50);
+        setTimeout(() => stampFet('150ms'), 150);
+        setTimeout(() => stampFet('350ms'), 350);
+      }
+
+      if (!comp.disabledOptionsPerQuestion.has(qIdx)) {
+        comp.disabledOptionsPerQuestion.set(qIdx, new Set<number>());
+      }
+      const disabledSetRef = comp.disabledOptionsPerQuestion.get(qIdx)!;
+      disabledSetRef.clear();
+      const currentBindings: any[] = Array.isArray(comp.optionBindings)
+        ? comp.optionBindings
+        : (typeof comp.optionBindings === 'function' ? comp.optionBindings() : []);
+      for (let i = 0; i < currentBindings.length; i++) {
+        if (!correctSet.has(i)) disabledSetRef.add(i);
+      }
+
+      const durableClicks = comp._multiSelectByQuestion?.get(qIdx);
+      const historySet = new Set<number>(durableClicks ?? []);
+
+      // Replace with NEW array of NEW binding objects so OnPush children re-render.
+      const newBindings = currentBindings.map((ob: any, bi: number) => {
+        const isCorrectBinding = correctSet.has(bi);
+        const isClicked = bi === index;
+        const wasPreviouslyClicked = historySet.has(bi) && !isClicked && !isCorrectBinding;
+        return {
+          ...ob,
+          disabled: !isCorrectBinding,
+          isSelected: isClicked,
+          option: ob?.option ? {
+            ...ob.option,
+            selected: isClicked,
+            highlight: isClicked || wasPreviouslyClicked,
+            showIcon: isClicked || wasPreviouslyClicked
+          } : ob?.option
+        };
+      });
+      comp.optionBindings = newBindings;
+
+      // Persist selections to session storage
+      try {
+        const toSave: any[] = [];
+        for (let bi = 0; bi < newBindings.length; bi++) {
+          const nb = newBindings[bi];
+          if (!nb?.option) continue;
+          const isCorrectBinding = correctSet.has(bi);
+          const isClicked = bi === index;
+          const wasPreviouslyClicked = historySet.has(bi) && !isClicked && !isCorrectBinding;
+          if (isClicked || wasPreviouslyClicked) {
+            toSave.push({
+              optionId: nb.option.optionId,
+              text: nb.option.text,
+              displayIndex: bi,
+              questionIndex: qIdx,
+              selected: isClicked,
+              highlight: true,
+              showIcon: true,
+              correct: isCorrectBinding
+            });
+          }
+        }
+        if (toSave.length > 0) {
+          sessionStorage.setItem('sel_Q' + qIdx, JSON.stringify(toSave));
+          this.selectedOptionService.addToSelectionHistory(qIdx, toSave as any[]);
+        }
+      } catch { /* ignore */ }
+
+      comp.cdRef?.markForCheck?.();
+      comp.cdRef?.detectChanges?.();
+    }
+  }
+}
