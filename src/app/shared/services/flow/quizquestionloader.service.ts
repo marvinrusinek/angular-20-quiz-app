@@ -188,11 +188,7 @@ export class QuizQuestionLoaderService {
             options: options$,
             explanation: explanation$
           }).pipe(
-            catchError((error) => {
-              console.error(
-                `[QuizQuestionLoaderService] Error in forkJoin for Q${questionIndex}:`,
-                error
-              );
+            catchError(() => {
               return of({
                 question: null,
                 options: [],
@@ -223,15 +219,9 @@ export class QuizQuestionLoaderService {
         // Final loading flag
         this.isLoading = false;
       } catch (error) {
-        console.error(
-          `[QuizQuestionLoaderService] ❌ Error loading question contents for Q${questionIndex}:`,
-          error
-        );
         this.isLoading = false;
       }
     } catch (error) {
-      console.error(
-        `[QuizQuestionLoaderService] ❌ Unexpected outer error:`, error);
       this.isLoading = false;
     }
   }
@@ -308,7 +298,6 @@ export class QuizQuestionLoaderService {
   private ensureRouteQuizId(): boolean {
     const routeId = this.readRouteParam('quizId') ?? this.quizService.quizId;
     if (!routeId) {
-      console.error('[Loader] No quizId');
       return false;
     }
 
@@ -460,7 +449,6 @@ export class QuizQuestionLoaderService {
       this.activeQuizId ??
       this.quizService.quizId;
     if (!quizId) {
-      console.error('[Loader] No quizId in route');
       return { q: null, opts: [] };
     }
 
@@ -499,7 +487,6 @@ export class QuizQuestionLoaderService {
               // So we should NOT assign.
             }
           } catch (error) {
-            console.error(`[QQLoader] ❌ Error waiting for shuffle:`, error);
             // Fallback only on error
             this.questionsArray = await firstValueFrom(this.quizDataService.getQuestionsForQuiz(quizId));
             this.quizService.questions = [...this.questionsArray];
@@ -951,7 +938,6 @@ export class QuizQuestionLoaderService {
       const q: QuizQuestion | undefined = allQuestions[index];
 
       if (!q) {
-        console.error('[loadQA] null question for Q', index);
         return false;
       }
 
@@ -961,7 +947,6 @@ export class QuizQuestionLoaderService {
         // Fallback: recheck question structure
         opts = (allQuestions as QuizQuestion[])?.[index]?.options ?? [];
         if (opts.length === 0) {
-          console.error('[loadQA] no options for Q', index);
           return false;
         }
       }
@@ -1013,7 +998,6 @@ export class QuizQuestionLoaderService {
       return true;
     } catch (err: any) {
       if (err?.name !== 'AbortError') {
-        console.error('[loadQA] fetch failed', err);
       }
       return false;
     } finally {

@@ -67,7 +67,7 @@ export class QqcExplanationDisplayService {
     } catch (err) {    }
 
     if (!q) {
-      console.error(`[QQC] FAILED to resolve question object for Q${i0 + 1}. FET generation aborted.`);
+      // Question object could not be resolved for this index
       return '';
     }
 
@@ -239,7 +239,7 @@ export class QqcExplanationDisplayService {
     shouldDisplayExplanation: boolean
   ): { explanationToDisplay: string; shouldEmit: boolean } {
     if (!formattedExplanation) {
-      console.error('Error: formatExplanationText returned void');
+      // formatExplanationText returned void
       return { explanationToDisplay: '', shouldEmit: false };
     }
 
@@ -278,7 +278,7 @@ export class QqcExplanationDisplayService {
     const currentQuestion = params.questionsArray[adjustedIndex];
 
     if (!currentQuestion) {
-      console.error(`Question not found at index: ${adjustedIndex}`);
+      // Question not found at adjusted index
       return null;
     }
 
@@ -336,7 +336,7 @@ export class QqcExplanationDisplayService {
           displayExplanation: true,
         };
       } catch (error) {
-        console.error('[updateExplanationDisplay] Error fetching explanation:', error);
+        // Error fetching explanation in updateExplanationDisplay
         return {
           explanationToDisplay: 'Error loading explanation.',
           displayExplanation: true,
@@ -517,7 +517,7 @@ export class QqcExplanationDisplayService {
         questionState,
       };
     } catch (error) {
-      console.error('Error managing explanation display:', error);
+      // Error managing explanation display
 
       // Ensure flags are always set
       if (!this.explanationTextService.isExplanationLocked()) {
@@ -553,7 +553,7 @@ export class QqcExplanationDisplayService {
     }
 
     if (questionIndex < 0 || questionIndex >= questionsArray.length) {
-      console.error(`[handleQuestionData] Invalid questionIndex: ${questionIndex}`);
+      // Invalid questionIndex
       return { explanationText: '', shouldShowExplanation: false };
     }
 
@@ -572,7 +572,7 @@ export class QqcExplanationDisplayService {
 
         return { explanationText, shouldShowExplanation: true };
       } catch (error) {
-        console.error('[handleQuestionData] Error fetching explanation text:', error);
+        // Error fetching explanation text
         return { explanationText: 'Error loading explanation.', shouldShowExplanation: true };
       }
     } else {
@@ -684,7 +684,7 @@ export class QqcExplanationDisplayService {
           shouldResetQuestionState: false,
         };
       } catch (error) {
-        console.error('[updateExplanationDisplay] Error fetching explanation:', error);
+        // Error fetching explanation in updateExplanationDisplay
         return {
           explanationToDisplay: 'Error loading explanation.',
           displayExplanation: true,
@@ -851,22 +851,15 @@ export class QqcExplanationDisplayService {
             }
           }
         } catch (timeoutError) {
-          console.error(
-            'Timeout while fetching formatted explanation:',
-            timeoutError
-          );
+          // Timeout while fetching formatted explanation
           return 'Explanation text unavailable at the moment.';
         }
       } else {
-        console.error('Error: questionData is invalid');
+        // questionData is invalid
         return 'No explanation available.';
       }
     } catch (error) {
-      console.error('Error in fetching explanation text:', error);
-      if (error instanceof Error) {
-        console.error('Error message:', error.message);
-        console.error('Error stack:', error.stack);
-      }
+      // Error in fetching explanation text
       return 'Error fetching explanation.';
     }
   }
@@ -890,8 +883,8 @@ export class QqcExplanationDisplayService {
       this.quizDataService
         .getQuestionsForQuiz(params.quizId)
         .pipe(
-          catchError((error: Error) => {
-            console.error('There was an error loading the questions', error);
+          catchError(() => {
+            // Error loading questions
             return of([]);
           })
         )

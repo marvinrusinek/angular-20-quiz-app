@@ -286,7 +286,7 @@ export class QuizSetupService {
         host.currentQuestion = null;
         setTimeout(() => { host.currentQuestion = { ...newQuestion }; }, 10);
       },
-      error: (error: Error) => console.error('currentQuestion subscription:', error)
+      error: () => { }
     });
 
     host.isContentAvailable$ = this.quizDataService.isContentAvailable$;
@@ -478,7 +478,7 @@ export class QuizSetupService {
           }
         }
       })
-      .catch((error: Error) => console.error('Navigation error on restart:', error));
+      .catch(() => { });
   }
 
   subscribeToNextButtonState(host: Host): void {

@@ -139,13 +139,11 @@ export class IntroductionComponent implements OnInit, OnDestroy {
   private fetchQuiz(params: Params) {
     const quizId = params['quizId'];
     if (!quizId) {
-      console.error('No quiz ID found in route parameters');
       return EMPTY;  // return EMPTY if no quizId is available
     }
 
     return this.quizDataService.getQuiz(quizId).pipe(
-      catchError((error) => {
-        console.error('Error fetching quiz:', error);
+      catchError(() => {
         return EMPTY;  // handle the error by returning EMPTY to keep the Observable flow intact
       }),
     );
@@ -153,7 +151,7 @@ export class IntroductionComponent implements OnInit, OnDestroy {
 
   private logQuizLoaded(quiz: Quiz | null): void {
     if (!quiz) {
-      console.error('Quiz is undefined or null after fetching.');
+      // quiz is undefined or null after fetching
     }
   }
 
@@ -168,12 +166,12 @@ export class IntroductionComponent implements OnInit, OnDestroy {
       );
       this.cdRef.markForCheck();
     } else {
-      console.error('Quiz is undefined or null.');
+      // quiz is undefined or null
     }
   }
 
   private handleError(error: any): void {
-    console.error('Error loading quiz:', error);
+    // error handled silently
   }
 
   private handleQuizSelectionAndFetchQuestions(): void {
@@ -199,8 +197,7 @@ export class IntroductionComponent implements OnInit, OnDestroy {
           // Do NOT shuffle here - it would break question-option correspondence
           return of(questions);
         }),
-        catchError((error: Error) => {
-          console.error('Failed to load questions for quiz:', error);
+        catchError(() => {
           return of([]);
         }),
         takeUntil(this.destroy$)
@@ -230,7 +227,6 @@ export class IntroductionComponent implements OnInit, OnDestroy {
     try {
       const targetQuizId = quizId ?? this.quizId ?? this.getStoredQuizId();
       if (!targetQuizId) {
-        console.error('Quiz data is not ready.');
         return;
       }
 
@@ -242,9 +238,6 @@ export class IntroductionComponent implements OnInit, OnDestroy {
 
       const activeQuiz = await this.resolveActiveQuiz(targetQuizId);
       if (!activeQuiz) {
-        console.error(
-          'Unable to start quiz because quiz data could not be loaded.'
-        );
         return;
       }
 
@@ -332,7 +325,6 @@ export class IntroductionComponent implements OnInit, OnDestroy {
         };
         this.quizDataService.setCurrentQuiz(quizWithShuffledQuestions);
       } catch (error) {
-        console.error('Failed to prepare quiz session:', error);
         // Fallback: set with original questions if shuffle fails
         this.quizDataService.setCurrentQuiz(activeQuiz);
       }
@@ -341,9 +333,7 @@ export class IntroductionComponent implements OnInit, OnDestroy {
         await this.navigateToFirstQuestion(targetQuizId);
 
       if (!navigationSucceeded) {
-        console.error('Navigation to first question was prevented.', {
-          quizId: targetQuizId
-        });
+        // navigation to first question was prevented
       }
     } finally {
       this.isStartingQuiz.set(false);
@@ -358,7 +348,6 @@ export class IntroductionComponent implements OnInit, OnDestroy {
     const quizId =
       this.quizNavigationService.resolveEffectiveQuizId(targetQuizId);
     if (!quizId) {
-      console.error('[navigateToFirstQuestion] Missing targetQuizId.');
       return false;
     }
 
@@ -378,7 +367,7 @@ export class IntroductionComponent implements OnInit, OnDestroy {
 
       // Service returned false/undefined/non-boolean – fall back to direct navigation
     } catch (error) {
-      console.error('[navigateToFirstQuestion] resetUIAndNavigate threw.', error);
+      // error handled silently
     }
 
     // Fallback to direct router navigation
@@ -387,17 +376,12 @@ export class IntroductionComponent implements OnInit, OnDestroy {
       const fallbackSucceeded = await this.router.navigate(['/quiz/question', quizId, 1]);
 
       if (!fallbackSucceeded) {
-        console.error(
-          '[navigateToFirstQuestion] Fallback navigation returned false.',
-          { quizId }
-        );
+        // fallback navigation returned false
       }
 
       return fallbackSucceeded;
     } catch (fallbackErr) {
-      console.error(
-        '[navigateToFirstQuestion] Fallback navigation threw.', fallbackErr
-      );
+      // error handled silently
       return false;
     }
   }
@@ -417,7 +401,7 @@ export class IntroductionComponent implements OnInit, OnDestroy {
       }
       return loadedQuiz;
     } catch (error) {
-      console.error('Failed to hydrate quiz before starting.', error);
+      // error handled silently
       return null;
     }
   }

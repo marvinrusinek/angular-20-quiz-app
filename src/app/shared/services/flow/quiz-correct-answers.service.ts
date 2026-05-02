@@ -64,7 +64,6 @@ export class QuizCorrectAnswersService {
       this.quizService.updateCorrectAnswersText('');
       return correctAnswersText;
     } catch (error: any) {
-      console.error('Error updating correct answers text:', error);
       this.quizService.updateCorrectAnswersText('');
       return '';
     }

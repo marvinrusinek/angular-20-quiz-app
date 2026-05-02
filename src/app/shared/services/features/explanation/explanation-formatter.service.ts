@@ -143,14 +143,10 @@ export class ExplanationFormatterService {
     force = false
   ): void {
     if (index < 0) {
-      console.error(
-        `Invalid index: ${index}, must be greater than or equal to 0`
-      );
       return;
     }
 
     if (!explanation || explanation.trim() === '') {
-      console.error(`Invalid explanation: "${explanation}"`);
       return;
     }
 
@@ -329,12 +325,6 @@ export class ExplanationFormatterService {
     };
     this.fetByIndex.set(index, formattedExplanation);  // sync helper map for component fallback
 
-    // DIAGNOSTIC: Log stack trace when writing Q1 FET
-    if (index === 0) {
-      const stack = new Error().stack?.split('\n').slice(1, 6).map(l => l.trim()).join(' <- ') ?? 'no stack';
-      console.error(`🔴🔴🔴 [storeFormattedExplanation] Q1 | STORED: "${formattedExplanation.slice(0, 60)}" | STACK: ${stack}`);
-    }
-
     // LOCK this index to prevent future overwrites with wrong options
     this.lockedFetIndices.add(index);
     this.storeFormattedExplanationForQuestion(
@@ -483,11 +473,6 @@ export class ExplanationFormatterService {
 
       if (uniqueMention.length === 1) {        return uniqueMention;
       }
-    }
-
-    console.error(`🔴🔴🔴 [getCorrectOptionIndices] Q${(qIdx ?? 0) + 1} | OPTS COUNT: ${opts.length}`);
-    for (const [i, o] of opts.entries()) {
-      console.error(`   - Opt ${i + 1}: ID=${o.optionId}, CORRECT=${o.correct}, TEXT="${o.text?.slice(0, 30)}..."`);
     }
 
     // 1. TRUST THE VISUAL OPTIONS FIRST
@@ -734,10 +719,6 @@ export class ExplanationFormatterService {
         questionIndex,
         explanation: formattedExplanation
       };
-    } else {
-      console.error(
-        `No element at index ${questionIndex} in formattedExplanations$`
-      );
     }
   }
 

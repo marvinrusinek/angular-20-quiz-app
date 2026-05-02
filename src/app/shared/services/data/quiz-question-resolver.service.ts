@@ -68,7 +68,6 @@ export class QuizQuestionResolverService {
     return of(null).pipe(
       map(() => {
         if (!Array.isArray(questions) || questions.length === 0) {
-          console.error('[QuizService] getCurrentQuestion: No questions available');
           return null;
         }
 
@@ -78,8 +77,7 @@ export class QuizQuestionResolverService {
         return questions[questionIndex];
       }),
       distinctUntilChanged(),
-      catchError((error: Error) => {
-        console.error('Error fetching current question:', error);
+      catchError(() => {
         return of(null);
       })
     );

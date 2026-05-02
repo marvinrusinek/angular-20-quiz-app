@@ -47,18 +47,17 @@ export class CqcQuestionNavService {
       }
       const el = host.qText?.nativeElement;
       if (!el) {
-        console.warn(`[stampQuestionTextNow] SKIP: qText element not found for idx=${idx}`);
+        // qText element not found
         return false;
       }
       const display = this.fetGuard.buildQuestionDisplayHTML(host, idx);
       if (!display) {
-        console.warn(`[stampQuestionTextNow] SKIP: buildQuestionDisplayHTML returned empty for idx=${idx}, questions.length=${host.quizService.questions?.length}`);
+        // buildQuestionDisplayHTML returned empty
         return false;
       }
       this.fetGuard.writeQText(host, display);
       return true;
     } catch (e) {
-      console.error(`[stampQuestionTextNow] ERROR for idx=${idx}:`, e);
       return false;
     }
   }
@@ -248,7 +247,6 @@ export class CqcQuestionNavService {
 
         await host.loadQuestion(quizId, zeroBasedIndex);
       } else {
-        console.error('Quiz ID is missing from route parameters');
       }
     });
 
@@ -264,7 +262,6 @@ export class CqcQuestionNavService {
 
   async runLoadQuestion(host: Host, quizId: string, zeroBasedIndex: number): Promise<void> {
     if (zeroBasedIndex == null || isNaN(zeroBasedIndex)) {
-      console.error('Question index is null or undefined');
       return;
     }
 
@@ -387,7 +384,7 @@ export class CqcQuestionNavService {
                 host._eagerFetRetryTimers.push(setTimeout(injectNow, 1000));
               }
             } else {
-              console.warn(`[loadQuestion] Q${zeroBasedIndex + 1} no correct indices found — cannot format FET`);
+              // No correct indices found — cannot format FET
             }
           }
 
@@ -398,13 +395,11 @@ export class CqcQuestionNavService {
             }
           }
         } catch (e) {
-          console.warn(`[loadQuestion] Q${zeroBasedIndex + 1} eager FET regeneration failed:`, e);
+          // Eager FET regeneration failed
         }
       } else {
-        console.error('Invalid question index:', zeroBasedIndex);
       }
     } catch (error: any) {
-      console.error('Error fetching questions for quiz:', error);
     }
   }
 }

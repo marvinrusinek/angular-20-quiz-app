@@ -167,7 +167,6 @@ export class QuizNavigationService {
       // Perform Router Navigation
       const navSuccess = await this.performRouterNavigation(index);
       if (!navSuccess) {
-        console.error('[NAV] Router navigation failed');
         return false;
       }
 
@@ -191,7 +190,6 @@ export class QuizNavigationService {
       // Fetch New Question Data
       const fresh = await this.fetchAndEmitQuestion(index);
       if (!fresh) {
-        console.error('[NAV] Failed to fetch new question data');
         return false;
       }
 
@@ -200,7 +198,6 @@ export class QuizNavigationService {
 
       return true;
     } catch (err) {
-      console.error('[❌ navigateToQuestion error]', err);
       return false;
     } finally {
       this._fetchInProgress = false;
@@ -217,7 +214,6 @@ export class QuizNavigationService {
 
     const quizId = this.resolveEffectiveQuizId();
     if (!quizId) {
-      console.error('[NAV] Cannot navigate without a valid quizId');
       return false;
     }
 
@@ -329,9 +325,6 @@ export class QuizNavigationService {
     try {
       const effectiveQuizId = this.resolveEffectiveQuizId(quizIdOverride);
       if (!effectiveQuizId) {
-        console.error(
-          '[resetUIAndNavigate] ❌ Cannot navigate without a quizId.',
-        );
         return false;
       }
 
@@ -387,14 +380,10 @@ export class QuizNavigationService {
 
       const navSuccess = await this.router.navigateByUrl(routeUrl);
       if (!navSuccess) {
-        console.error(
-          `[resetUIAndNavigate] ❌ Navigation failed for index ${index}`
-        );
         return false;
       }
       return true;
     } catch (err) {
-      console.error(`[resetUIAndNavigate] ❌ Error during reset:`, err);
       return false;
     }
   }
@@ -438,18 +427,13 @@ export class QuizNavigationService {
       await firstValueFrom(
         this.quizDataService.prepareQuizSession(quizId).pipe(
           take(1),
-          catchError((error: Error) => {
-            console.error(
-              '[resetUIAndNavigate] Failed to prepare quiz session:', error
-            );
+          catchError(() => {
             return of([]);
           })
         )
       );
     } catch (error) {
-      console.error(
-        '[resetUIAndNavigate] Error while ensuring session questions:', error
-      );
+      // session hydration failed
     }
   }
 
@@ -457,20 +441,12 @@ export class QuizNavigationService {
     try {
       return await firstValueFrom(
         this.quizService.getQuestionByIndex(index).pipe(
-          catchError((error: Error) => {
-            console.error(
-              `[resetUIAndNavigate] Failed to resolve question at index ${index}:`,
-              error
-            );
+          catchError(() => {
             return of(null);
           })
         )
       );
     } catch (error) {
-      console.error(
-        `[resetUIAndNavigate] Question stream did not emit for index ${index}:`,
-        error
-      );
       return null;
     }
   }
@@ -575,7 +551,6 @@ export class QuizNavigationService {
     const targetQuizId = this.quizId || this.resolveEffectiveQuizId() || this.quizService.quizId;
 
     if (!targetQuizId) {
-      console.error('[navigateToResults] No quizId available for navigation!');
       return;
     }
 
@@ -586,11 +561,9 @@ export class QuizNavigationService {
 
     this.router.navigateByUrl(routePath).then((success) => {
       if (!success) {
-        console.error('[navigateToResults] Navigation was cancelled');
+        // navigation was cancelled
       }
-    }).catch((error) => {
-      console.error('Navigation to results failed:', error);
-    });
+    }).catch(() => { });
   }
 
   setIsNavigatingToPrevious(value: boolean): void {

@@ -63,10 +63,6 @@ export class QuizQuestionManagerService {
       }
       return false;
     } catch (error) {
-      console.error(
-        'Error determining if it is a multiple-answer question:',
-        error,
-      );
       return false;
     }
   }

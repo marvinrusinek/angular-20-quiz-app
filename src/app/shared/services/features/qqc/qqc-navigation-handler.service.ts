@@ -206,7 +206,6 @@ export class QqcNavigationHandlerService {
         optionsToDisplay,
       };
     } catch (error) {
-      console.error('[restoreQuizState] Error restoring quiz state:', error);
       return {
         explanationText: '',
         displayMode: 'question',
@@ -494,7 +493,6 @@ export class QqcNavigationHandlerService {
           correct: option.correct ?? false
         }));
       } else {
-        console.error('[onVisibilityChange] ❌ Failed to repopulate optionsToDisplay');
         return {
           currentExplanationText: restoredState.explanationText,
           displayMode: restoredState.displayMode,
@@ -519,7 +517,6 @@ export class QqcNavigationHandlerService {
       try {
         feedbackText = await params.generateFeedbackText(params.currentQuestion);
       } catch (error) {
-        console.error('[onVisibilityChange] ❌ Error generating feedback text:', error);
       }
     }
 

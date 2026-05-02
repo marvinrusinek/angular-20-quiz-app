@@ -391,8 +391,7 @@ export class QuizContentLoaderService {
           explanation
         } as QuestionPayload;
       }),
-      catchError((error: Error) => {
-        console.error('[Error in createNormalizedQuestionPayload$]', error);
+      catchError(() => {
         return of(fallbackPayload);
       })
     );

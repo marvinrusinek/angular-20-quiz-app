@@ -256,7 +256,7 @@ export class QuizSetupRouteService {
       if (!result.hasValidSelections) this.timerService.restartForQuestion(index);
       localStorage.setItem('savedQuestionIndex', index.toString());
     } catch (error) {
-      console.error('[handleParamMapChange]', error);
+      // param map change handling failed
     }
   }
 
@@ -329,7 +329,7 @@ export class QuizSetupRouteService {
       );
       setTimeout(() => this.quizContentLoaderService.enableAllOptionPointerEvents(), 200);
     } catch (error: any) {
-      console.error('[updateContentBasedOnIndex]', error);
+      // content update failed
     } finally {
       host.isNavigatedByUrl = false;
     }

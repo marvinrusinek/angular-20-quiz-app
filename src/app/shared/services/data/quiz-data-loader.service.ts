@@ -88,7 +88,6 @@ export class QuizDataLoaderService {
     setTotalQuestions: (n: number) => void
   ): { questions: QuizQuestion[]; totalQuestions: number; resolvedQuizId: string } {
     if (!QUIZ_DATA || !Array.isArray(QUIZ_DATA)) {
-      console.error('QUIZ_DATA is invalid:', QUIZ_DATA);
       this.quizData = [];
     } else {
       // Deep-clone so gameplay mutations never propagate back to QUIZ_DATA
@@ -116,13 +115,11 @@ export class QuizDataLoaderService {
       if (Array.isArray(selectedQuiz.questions) && selectedQuiz.questions.length > 0) {
         questions = [...selectedQuiz.questions];
       } else {
-        console.error(`Selected quiz (ID: ${selectedQuiz.quizId}) does not have a valid questions array:`, selectedQuiz.questions);
         questions = [];
       }
 
       totalQuestions = questions.length;
     } else {
-      console.error('QUIZ_DATA is empty');
       questions = [];
     }
 
@@ -131,7 +128,7 @@ export class QuizDataLoaderService {
     if (questions.length > 0) {
       const firstQuestion = questions[0];
       if (!this.isValidQuestionStructure(firstQuestion)) {
-        console.error('First question does not have a valid structure:', firstQuestion);
+        // Invalid question structure detected
       }
     }
 
@@ -268,7 +265,6 @@ export class QuizDataLoaderService {
     this.fetchPromise = (async () => {
       try {
         if (!quizId) {
-          console.error('Quiz ID is not provided or is empty:', quizId);
           return [];
         }
 
@@ -278,7 +274,6 @@ export class QuizDataLoaderService {
 
         const quiz = quizzes.find((q) => String(q.quizId) === String(quizId));
         if (!quiz) {
-          console.error(`Quiz with ID ${quizId} not found`);
           return [];
         }
 
@@ -335,8 +330,7 @@ export class QuizDataLoaderService {
 
         questionsSubject.next(normalized);
         return normalized;
-      } catch (error) {
-        console.error('Error in fetchQuizQuestions:', error);
+      } catch {
         return [];
       } finally {
         this.fetchPromise = null;

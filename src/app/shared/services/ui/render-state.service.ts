@@ -42,8 +42,7 @@ export class RenderStateService {
           this.combinedQuestionDataSig.set({ question, options });
           this.renderGateSig.set(true);  // tells the template it's safe to render
         }),
-        catchError((error) => {
-          console.error('[RenderGateSync Error]', error);
+        catchError(() => {
           return of(null);
         }),
       )

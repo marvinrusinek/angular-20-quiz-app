@@ -32,7 +32,6 @@ export class QuizQuestionDataService {
       );
 
       if (!resolvedQuestion || !resolvedQuestion.questionText?.trim()) {
-        console.error(`[Q${questionIndex}] Missing or invalid question payload`);
         return null;
       }
 
@@ -47,7 +46,6 @@ export class QuizQuestionDataService {
           : [];
 
       if (!options.length) {
-        console.error(`[Q${questionIndex}] No valid options`);
         return null;
       }
 
@@ -85,7 +83,6 @@ export class QuizQuestionDataService {
       this.quizDataService.setQuestionType(question);
       return question;
     } catch (error: any) {
-      console.error(`[fetchQuestionDetails] Error loading Q${questionIndex}:`, error);
       throw error;
     }
   }
@@ -120,7 +117,6 @@ export class QuizQuestionDataService {
         type: this.quizDataService.questionType as QuestionType,
       } as QuizQuestion;
     } catch (error) {
-      console.error('Error fetching question data:', error);
       throw error;
     }
   }

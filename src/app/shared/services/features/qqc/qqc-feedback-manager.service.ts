@@ -52,10 +52,6 @@ export class QqcFeedbackManagerService {
         selected: option.selected ?? false,
       }));
     } catch (error) {
-      console.error(
-        '[restoreFeedbackState] Error restoring feedback state:',
-        error
-      );
       return optionsToDisplay;
     }
   }
@@ -332,7 +328,6 @@ export class QqcFeedbackManagerService {
     selectedOptionIndex: number;
   } | null {
     if (!selectedOption) {
-      console.error('[applyOptionFeedback] selectedOption is null or undefined! Aborting.');
       return null;
     }
 
@@ -343,9 +338,6 @@ export class QqcFeedbackManagerService {
       (opt) => opt.optionId === selectedOption.optionId
     );
     if (selectedOptionIndex === -1) {
-      console.error(
-        `[applyOptionFeedback] selectedOptionIndex not found for optionId: ${selectedOption.optionId}`
-      );
       return null;
     }
 
@@ -435,9 +427,6 @@ export class QqcFeedbackManagerService {
           questionData as QuizQuestion
         );
       } else {
-        console.error(
-          '[handleOptionProcessingAndFeedback] ❌ Invalid question data when handling option processing.'
-        );
         return null;
       }
 
@@ -453,7 +442,6 @@ export class QqcFeedbackManagerService {
         displayExplanation,
       };
     } catch (error) {
-      console.error('[handleOptionProcessingAndFeedback] ❌ Error:', error);
       return null;
     }
   }
@@ -494,14 +482,6 @@ export class QqcFeedbackManagerService {
 
       return feedbackText || 'No feedback generated for the current question.';
     } catch (error) {
-      console.error(
-        '[generateFeedbackText] Error generating feedback:',
-        error,
-        {
-          question,
-          optionsToDisplay,
-        }
-      );
       return 'An error occurred while generating feedback. Please try again.';
     }
   }
@@ -524,7 +504,6 @@ export class QqcFeedbackManagerService {
     const { option, optionsToDisplay } = params;
 
     if (!option) {
-      console.error('[applyFeedbackIfNeeded] ❌ ERROR: option is null or undefined! Aborting.');
       return null;
     }
 
@@ -537,7 +516,6 @@ export class QqcFeedbackManagerService {
       (opt) => opt.optionId === option.optionId
     );
     if (selectedOptionIndex === -1) {
-      console.error(`[applyFeedbackIfNeeded] ❌ ERROR: selectedOptionIndex not found for optionId: ${option.optionId}`);
       return null;
     }
 

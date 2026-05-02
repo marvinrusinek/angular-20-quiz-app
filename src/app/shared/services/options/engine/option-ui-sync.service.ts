@@ -661,11 +661,6 @@ export class OptionUiSyncService {
       }
     }
 
-    // DIAGNOSTIC: dump map keys and binding optionIds
-    const _mapKeys = [...ctx.selectedOptionMap.entries()].filter(([,v]) => v).map(([k]) => k);
-    const _ids = (ctx.optionBindings ?? []).map((b: any, i: number) => `${i}:id=${b.option?.optionId}`);
-    console.error(`🔍 syncSelectedFlags mapKeys=[${_mapKeys}] ids=[${_ids.join(',')}]`);
-
     for (let i = 0; i < (ctx.optionBindings?.length ?? 0); i++) {
       const b = ctx.optionBindings[i];
       const eid = getEffId(b.option, i);
@@ -681,10 +676,6 @@ export class OptionUiSyncService {
             chosen = false;
           }
         }
-      }
-
-      if (chosen && i !== 0) {
-        console.error(`🔍 syncSelectedFlags b[${i}] chosen=true eid=${eid} optionId=${b.option?.optionId} hasRealId=${b.option?.optionId != null && b.option.optionId !== -1}`);
       }
 
       b.option.selected = chosen;

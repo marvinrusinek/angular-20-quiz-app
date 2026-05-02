@@ -710,8 +710,8 @@ export class OptionInteractionService {
         })) as Option[]
       });
       this.selectionMessageService.pushMessage(message, qIdx);
-    } catch (e) {
-      console.error('[OIS] Message sync failed', e);
+    } catch {
+      // Message sync failed
     }
   }
 }

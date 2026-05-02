@@ -69,7 +69,7 @@ export class QqcStatePersistenceService {
         sessionStorage.setItem(`feedbackText_${questionIndex}`, params.feedbackText);
       }
     } catch (error) {
-      console.error('[saveQuizState] Error saving quiz state:', error);
+      // Error saving quiz state
     }
   }
 
@@ -111,7 +111,7 @@ export class QqcStatePersistenceService {
           parsedOptions = parsed;
         } else {        }
       } catch (error) {
-        console.error('[restoreQuizState] Error parsing options data:', error);
+        // Error parsing options data
       }
     }
 
@@ -127,7 +127,7 @@ export class QqcStatePersistenceService {
           selectedOptions = parsed.filter((o: any) => o.optionId !== undefined);
         }
       } catch (error) {
-        console.error('[restoreQuizState] Error parsing selected options data:', error);
+        // Error parsing selected options data
       }
     }
 

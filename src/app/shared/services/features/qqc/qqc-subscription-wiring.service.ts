@@ -44,8 +44,7 @@ export class QqcSubscriptionWiringService {
           } else {
           }
         }),
-        catchError((error) => {
-          console.error('❌ Error in display mode subscription:', error);
+        catchError(() => {
           return of('question');
         })
       )
@@ -338,7 +337,6 @@ export class QqcSubscriptionWiringService {
       try {
         await params.onRouteChange(zeroBasedIndex, displayIndex);
       } catch (error) {
-        console.error('[handleRouteChanges] ❌ Unexpected error:', error);
       }
     });
   }

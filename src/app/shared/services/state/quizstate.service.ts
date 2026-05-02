@@ -232,13 +232,10 @@ export class QuizStateService {
             ),
           );
         } else {
-          console.error('Stored state is not in object format');
+          // Stored state is not in object format
         }
       } catch (error) {
-        console.error(
-          `Error parsing stored state for quizId ${quizId}:`,
-          error,
-        );
+        // Error parsing stored state
         return null;
       }
     }
@@ -374,8 +371,7 @@ export class QuizStateService {
       .pipe(
         filter((q): q is QuizQuestion => q !== null),
         distinctUntilChanged((a, b) => a === b),  // object reference check
-        catchError((err) => {
-          console.error('[QuizState] Error in question$ stream:', err);
+        catchError(() => {
           return EMPTY;  // safest fallback
         })
       )

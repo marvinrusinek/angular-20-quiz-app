@@ -173,12 +173,10 @@ export class QuizRouteService {
     const questionIndex = Number(params.get('questionIndex'));
 
     if (!quizId) {
-      console.error('Quiz ID is missing.');
       return throwError(() => new Error('Quiz ID is required'));
     }
 
     if (isNaN(questionIndex)) {
-      console.error('Invalid question index:', params.get('questionIndex'));
       return throwError(() => new Error('Invalid question index'));
     }
 
@@ -190,8 +188,7 @@ export class QuizRouteService {
         }
         return { quizId, questionIndex, quizData };
       }),
-      catchError((error: Error) => {
-        console.error('Error processing quiz data:', error);
+      catchError(() => {
         return throwError(() => new Error('Failed to process quiz data'));
       })
     );

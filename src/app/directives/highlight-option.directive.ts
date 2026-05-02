@@ -181,7 +181,7 @@ export class HighlightOptionDirective implements OnInit {
 
         opt.showIcon = false;
       } catch (error: unknown) {
-        console.error('[HighlightOptionDirective] updateHighlight failed', error);
+        // error handled silently
       }
     }, 0);
   }

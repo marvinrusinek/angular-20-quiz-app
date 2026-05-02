@@ -110,9 +110,6 @@ export class QuizInitializationService {
     question: QuizQuestion | null = this.currentQuestion,
   ): void {
     if (!question) {
-      console.error(
-        '🚨 [updateQuizUIForNewQuestion] Invalid question (null or undefined).'
-      );
       return;
     }
 
@@ -125,10 +122,6 @@ export class QuizInitializationService {
       questionIndex < 0 ||
       questionIndex >= this.selectedQuiz.questions.length
     ) {
-      console.error(
-        '🚨 [updateQuizUIForNewQuestion] Invalid question index:',
-        questionIndex
-      );
       return;
     }
 

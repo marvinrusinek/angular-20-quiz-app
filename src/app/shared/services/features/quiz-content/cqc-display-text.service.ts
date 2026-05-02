@@ -282,7 +282,7 @@ export class CqcDisplayTextService {
             this.fetGuard.writeQText(host, finalText);
           }
         },
-        error: (err: Error) => console.error('[subscribeToDisplayText] Error:', err)
+        error: () => { }
       });
   }
 }

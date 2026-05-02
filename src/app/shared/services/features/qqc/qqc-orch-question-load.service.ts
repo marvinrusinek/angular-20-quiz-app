@@ -68,7 +68,6 @@ export class QqcOrchQuestionLoadService {
       }
       try { componentRef.changeDetectorRef.markForCheck(); } catch {}
     } catch (error) {
-      console.error('[loadDynamicComponent] Failed:', error);
     }
   }
 
@@ -187,7 +186,6 @@ export class QqcOrchQuestionLoadService {
 
       return true;
     } catch (error) {
-      console.error('[loadQuestion] Error:', error);
       host.feedbackText = 'Error loading question. Please try again.';
       host.currentQuestion.set(null);
       host.optionsToDisplay.set([]);

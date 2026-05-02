@@ -600,9 +600,7 @@ export class SelectedOptionService {
       );
 
       if (resolvedIndex == null || resolvedIndex < 0) {
-        console.error(
-          '[updateAnsweredState] Unable to resolve a valid question index.',
-        );
+          // Unable to resolve a valid question index
         return;
       }
 
@@ -620,7 +618,7 @@ export class SelectedOptionService {
       );
       this.isAnsweredSig.set(isAnswered);
     } catch (error) {
-      console.error('[updateAnsweredState] Unhandled error:', error);
+      // Unhandled error in updateAnsweredState
     }
   }
 

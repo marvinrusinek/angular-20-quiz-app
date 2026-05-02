@@ -278,9 +278,6 @@ export class QqcDisplayStateManagerService {
     const options = question.options ?? [];
 
     if (!Array.isArray(options) || options.length === 0) {
-      console.error(
-        `[buildOptionsWithCorrectness] No options available for question.`
-      );
       return [];
     }
 

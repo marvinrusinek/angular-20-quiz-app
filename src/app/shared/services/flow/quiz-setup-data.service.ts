@@ -50,7 +50,7 @@ export class QuizSetupDataService {
       host.isQuizDataLoaded = true;
       host.cdRef.detectChanges();
     } catch (error) {
-      console.error('[loadQuestions]', error);
+      // question loading failed
     }
     this.pushInitialQuestionPayload(host);
   }
@@ -99,7 +99,6 @@ export class QuizSetupDataService {
       host.isQuizLoaded = true;
       return true;
     } catch (error: any) {
-      console.error('Error loading quiz data:', error);
       host.questions = [];
       return false;
     }
@@ -110,7 +109,6 @@ export class QuizSetupDataService {
       .pipe(
         tap((question: QuizQuestion | null) => {
           if (!question) {
-            console.error('Failed to load question at index:', host.currentQuestionIndex);
             return;
           }
           host.question = question;
@@ -121,14 +119,12 @@ export class QuizSetupDataService {
                 this.timerService.restartForQuestion(host.currentQuestionIndex);
               }
             },
-            error: (error: Error) => {
-              console.error('Error fetching options:', error);
+            error: () => {
               host.optionsToDisplay = [];
             }
           });
         }),
-        catchError((error: Error) => {
-          console.error('Error fetching question:', error);
+        catchError(() => {
           return of(null);
         }),
       )
@@ -142,7 +138,7 @@ export class QuizSetupDataService {
         this.quizService.setCurrentQuestion(question);
         this.loadCurrentQuestion(host);
       })
-      .catch((error: Error) => console.error('[refreshQuestionOnReset]', error));
+      .catch(() => { });
   }
 
   async getQuestion(host: Host): Promise<void | null> {
@@ -151,7 +147,6 @@ export class QuizSetupDataService {
       quizId, host.currentQuestionIndex
     );
     host.question = question ?? null;
-    if (!question) console.error('Invalid question provided.');
   }
 
   // ── Session hydration ────────────────────────────────────────
@@ -325,7 +320,7 @@ export class QuizSetupDataService {
           this.quizStateService.isNavigatingSig()
         );
       },
-      error: (error: Error) => console.error('Error fetching question:', error)
+      error: () => { }
     });
   }
 

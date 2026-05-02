@@ -410,7 +410,6 @@ export class QuizService {
 
   setOptions(options: Option[]): void {
     if (!Array.isArray(options) || options.length === 0) {
-      console.error('[setOptions] Options are either missing or empty.');
       return;
     }
   }
@@ -870,7 +869,6 @@ export class QuizService {
     }
 
     if (!currentQuestionValue) {
-      console.error(`[checkIfAnsweredCorrectly] No Question Found for Q${qIndex}`);
       return false;
     }
 

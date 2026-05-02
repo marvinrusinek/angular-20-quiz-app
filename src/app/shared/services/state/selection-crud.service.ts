@@ -88,12 +88,12 @@ export class SelectionCrudService {
   // Adds an option to the selectedOptionsMap
   addOption(host: Host, questionIndex: number, option: SelectedOption): void {
     if (!option) {
-      console.error('Option is undefined. Cannot add it to selectedOptionsMap.');
+      // Option is undefined
       return;
     }
 
     if (option.optionId == null) {
-      console.error('option.optionId is undefined:', option);
+      // option.optionId is undefined
       return;
     }
 
@@ -101,7 +101,7 @@ export class SelectionCrudService {
     const idx = Number.isFinite(questionIndex) ? Math.trunc(questionIndex) : -1;
 
     if (idx < 0) {
-      console.error('[SOS] Invalid questionIndex passed to addOption:', { questionIndex });
+      // Invalid questionIndex
       return;
     }
 
@@ -125,7 +125,7 @@ export class SelectionCrudService {
     }, option.text || fallbackIdx);
 
     if (newCanonical.optionId == null) {
-      console.error('[SOS] canonical option missing ID:', newCanonical);
+      // Canonical option missing ID
       return;
     }
 
@@ -267,10 +267,7 @@ export class SelectionCrudService {
 
     const qIndex = questionIndex ?? option.questionIndex;
     if (qIndex == null) {
-      console.error('[setSelectedOption] Missing questionIndex', {
-        option,
-        questionIndex
-      });
+      // Missing questionIndex
       return;
     }
 
@@ -556,11 +553,7 @@ export class SelectionCrudService {
     optionsSnapshot?: Option[]
   ): Promise<void> {
     if (optionId == null || questionIndex == null || !text) {
-      console.error('[SelectedOptionService] Invalid data - EARLY RETURN:', {
-        optionId,
-        questionIndex,
-        text
-      });
+      // Invalid data — early return
       return;
     }
 
@@ -590,11 +583,7 @@ export class SelectionCrudService {
     );
 
     if (!resolved) {
-      console.error('[SelectedOptionService] \u274C canonicalOptionId is null - EARLY RETURN', {
-        optionId,
-        questionIndex,
-        text
-      });
+      // canonicalOptionId is null — early return
       return;
     }
 

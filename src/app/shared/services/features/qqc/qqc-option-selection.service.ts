@@ -54,12 +54,12 @@ export class QqcOptionSelectionService {
     currentQuestionIndex: number
   ): void {
     if (!option) {
-      console.error('Option is undefined, cannot update.');
+      // Option is undefined, cannot update
       return;
     }
 
     if (option.optionId === undefined) {
-      console.error('option.optionId is undefined:', option);
+      // option.optionId is undefined, assigning fallback
       option.optionId = event.index ?? -1;
     }
 
@@ -142,9 +142,7 @@ export class QqcOptionSelectionService {
 
       this.quizStateService.setQuestionState(quizId, questionIndex, questionState);
     } else {
-      console.error(
-        `[markQuestionAsAnswered] Question state not found for Q${questionIndex}`
-      );
+      // Question state not found for this question index
     }
 
     if (!this.quizStateService.isAnsweredSig()) {
@@ -235,7 +233,7 @@ export class QqcOptionSelectionService {
         } else {        }
       } else {      }
     } catch (error) {
-      console.error('[stopTimerIfApplicable] Error in timer logic:', error);
+      // Error in timer logic
     }
   }
 
@@ -293,7 +291,7 @@ export class QqcOptionSelectionService {
     shouldEnableNext: boolean;
   }> {
     if (!params.currentQuestion) {
-      console.error('[handleCorrectnessOutcome] currentQuestion is null');
+      // currentQuestion is null
       return {
         explanationToDisplay: params.explanationToDisplay,
         shouldEmitAnswerSelected: false,
@@ -438,7 +436,7 @@ export class QqcOptionSelectionService {
         timerStopped: !!timerStopped,
       };
     } catch (error) {
-      console.error('[handleOptionClicked] Unhandled error:', error);
+      // Unhandled error in handleOptionClicked
       return null;
     }
   }
@@ -482,7 +480,7 @@ export class QqcOptionSelectionService {
     } = params;
 
     if (optionIndex < 0) {
-      console.error(`Invalid optionIndex ${optionIndex}.`);
+      // Invalid optionIndex
       return null;
     }
 
@@ -592,17 +590,13 @@ export class QqcOptionSelectionService {
 
     // Ensure that the option and optionIndex are valid
     if (!option || optionIndex < 0) {
-      console.error(
-        `Invalid option or optionIndex: ${JSON.stringify(
-          option
-        )}, index: ${optionIndex}`
-      );
+      // Invalid option or optionIndex
       return null;
     }
 
     // Ensure the question index is valid
     if (typeof currentQuestionIndex !== 'number' || currentQuestionIndex < 0) {
-      console.error(`Invalid question index: ${currentQuestionIndex}`);
+      // Invalid question index
       return null;
     }
 
@@ -669,7 +663,7 @@ export class QqcOptionSelectionService {
         isFeedbackApplied: true,
       };
     } catch (error) {
-      console.error('Error during option selection:', error);
+      // Error during option selection
       return null;
     }
   }
@@ -721,7 +715,7 @@ export class QqcOptionSelectionService {
 
       return { currentQuestion, optionsToDisplay, data };
     } catch (error) {
-      console.error('[fetchAndProcessCurrentQuestion] An error occurred while fetching the current question:', error);
+      // Error fetching the current question
       return null;
     }
   }
@@ -749,7 +743,7 @@ export class QqcOptionSelectionService {
         },
         params.correctAnswersLength
       );    } catch (stateUpdateError) {
-      console.error('Error updating question state:', stateUpdateError);
+      // Error updating question state
     }
   }
 

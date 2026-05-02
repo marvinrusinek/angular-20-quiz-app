@@ -115,7 +115,6 @@ export class SummaryReportComponent implements OnInit {
         totalQuestions: this.quizService.totalQuestions
       });
     } catch (error) {
-      console.error('[SUMMARY] Error in initComponent:', error);
       // Fallback to ensure UI doesn't look broken
       this.currentScore.set({
         quizId: this.quizId || 'Unknown',

@@ -120,7 +120,7 @@ export class QclSessionRestoreService {
             );
           }
         } catch (error: any) {
-          console.error('Error restoring selections:', error);
+          // failed to restore selections
         }
       }
     }
@@ -139,7 +139,7 @@ export class QclSessionRestoreService {
               selectedOptions = ids;
             }
           } catch (error: any) {
-            console.error('[restoreSelectionState] Error parsing stored selections', error);
+            // failed to parse stored selections
           }
         }
       }
@@ -152,7 +152,7 @@ export class QclSessionRestoreService {
         this.selectedOptionService.selectedOptionsMap.get(currentQuestionIndex) || [];
       this.selectedOptionService.updateAnsweredState(questionOptions, currentQuestionIndex);
     } catch (error) {
-      console.error('[restoreSelectionState] Unhandled error:', error);
+      // selection restore failed
     }
   }
 
@@ -176,7 +176,7 @@ export class QclSessionRestoreService {
         }
       }
     } catch (error: any) {
-      console.error('[restoreSelectedOptions] Error parsing selected options:', error);
+      // failed to parse selected options
     }
   }
 
@@ -262,7 +262,7 @@ export class QclSessionRestoreService {
         this.quizStateService.applyDefaultStates(params.quizId, questions);
       }
     } catch (error: any) {
-      console.error('Error in prepareQuizSession:', error);
+      // quiz session preparation failed
     }
   }
 }

@@ -83,22 +83,15 @@ export class QqcExplanationFlowService {
             }
           }
         } catch (timeoutError) {
-          console.error(
-            'Timeout while fetching formatted explanation:',
-            timeoutError
-          );
+          // Timeout while fetching formatted explanation
           return 'Explanation text unavailable at the moment.';
         }
       } else {
-        console.error('Error: questionData is invalid');
+        // questionData is invalid
         return 'No explanation available.';
       }
     } catch (error) {
-      console.error('Error in fetching explanation text:', error);
-      if (error instanceof Error) {
-        console.error('Error message:', error.message);
-        console.error('Error stack:', error.stack);
-      }
+      // Error in fetching explanation text
       return 'Error fetching explanation.';
     }
   }
@@ -223,7 +216,7 @@ export class QqcExplanationFlowService {
     const currentQuestion = params.questionsArray[adjustedIndex];
 
     if (!currentQuestion) {
-      console.error(`Question not found at index: ${adjustedIndex}`);
+      // Question not found at adjusted index
       return null;
     }
 
@@ -269,7 +262,7 @@ export class QqcExplanationFlowService {
         shouldDisplay: params.lastAllCorrect,
       };
     } catch (error) {
-      console.error('Error processing current question:', error);
+      // Error processing current question
 
       // Set a fallback explanation text on error
       this.explanationTextService.setCurrentQuestionExplanation(
@@ -408,12 +401,12 @@ export class QqcExplanationFlowService {
       const questionsLoaded = await params.ensureQuestionsLoaded();
 
       if (!questionsLoaded || !params.questionsArray || params.questionsArray.length === 0) {
-        console.error('Failed to load questions or questions array is empty. Aborting explanation fetch.');
+        // Failed to load questions or questions array is empty
         return { explanationToDisplay: '', success: false };
       }
 
       if (!params.questionsArray[params.questionIndex]) {
-        console.error(`Questions array is not properly populated or invalid index: ${params.questionIndex}`);
+        // Questions array is not properly populated or invalid index
         return { explanationToDisplay: '', success: false };
       }
 
@@ -429,7 +422,7 @@ export class QqcExplanationFlowService {
       } else {        return { explanationToDisplay: '', success: false };
       }
     } catch (error) {
-      console.error(`Error fetching explanation for question ${params.questionIndex}:`, error);
+      // Error fetching explanation for question
       return {
         explanationToDisplay: this.getExplanationErrorText(),
         success: false,
@@ -641,7 +634,7 @@ export class QqcExplanationFlowService {
 
       return { success: true, explanationToDisplay };
     } catch (error) {
-      console.error('[performFetchAndSetExplanation] Error:', error);
+      // Error in performFetchAndSetExplanation
       return {
         success: false,
         explanationToDisplay: this.getExplanationErrorText(),

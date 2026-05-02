@@ -70,9 +70,7 @@ export class AccordionComponent implements OnInit, OnDestroy {
       const stored = localStorage.getItem('userAnswers');
       storedAnswers = stored ? JSON.parse(stored) : [];
     } catch (error) {
-      console.error(
-        '[ACCORDION] Failed to parse userAnswers from localStorage:', error
-      );
+      // error handled silently
     }
 
     // Use localStorage data as primary source, fallback to service
@@ -115,7 +113,6 @@ export class AccordionComponent implements OnInit, OnDestroy {
             }
 
            if (!id) {
-             console.error('[ACCORDION] Could not determine quizId from route params.');
              return;
            }
 

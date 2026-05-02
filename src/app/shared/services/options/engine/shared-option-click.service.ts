@@ -168,7 +168,6 @@ export class SharedOptionClickService {
   }
 
   runOptionContentClick(comp: any, binding: any, index: number, event: any): void {
-    console.error('🟣 SOC.runOptionContentClick ENTERED idx=' + index + ' optionIds=' + (comp.optionBindings||[]).map((b:any,i:number)=>i+':'+b?.option?.optionId).join(','));
     try {
       const _qIdx = comp.getActiveQuestionIndex();
       const _dispQ = (this.quizService as any)?.getQuestionsInDisplayOrder?.();
@@ -332,8 +331,8 @@ export class SharedOptionClickService {
           const pqTexts = (quiz?.questions ?? []).map((pq: any) => nrmP(pq?.questionText)?.slice(0, 50));
         }
       }
-    } catch (err) {
-      console.error(`[SOC] PRISTINE REBUILD error:`, err);
+    } catch {
+      // Pristine rebuild failed
     }
     const effectiveCorrectCount = effectiveCorrectIndices.length;
     const isMultiFromQ = comp.isMultiMode || comp.type === 'multiple' || effectiveCorrectCount > 1 || pristineCorrectCount > 1;

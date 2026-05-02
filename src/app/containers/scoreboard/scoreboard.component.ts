@@ -133,11 +133,7 @@ export class ScoreboardComponent implements OnInit, OnDestroy {
           (prev, curr) => JSON.stringify(prev) === JSON.stringify(curr),
         ),
         switchMap((params: Params) => this.processRouteParams(params)),
-        catchError((error: Error) => {
-          console.error(
-            '[handleRouteParameters] Error processing route params:',
-            error,
-          );
+        catchError(() => {
           return of(null);
         })
       )

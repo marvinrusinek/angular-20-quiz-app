@@ -232,10 +232,6 @@ export class TimerService implements OnDestroy {
   ): void {
     // Authoritative Stop Guard: Blocks rogue direct calls
     if (!options.force && !this._authoritativeStop) {
-      console.error('ILLEGAL stopTimer() CALL — BLOCKED', {
-        elapsedTime: this.elapsedTime,
-        stack: new Error().stack
-      });
       return;
     }
 
@@ -304,10 +300,6 @@ export class TimerService implements OnDestroy {
   ): boolean {
     // Guard: NOTHING may stop the timer without authority
     if (!this._authoritativeStop) {
-      console.error('ILLEGAL attemptStopTimerForQuestion — BLOCKED', {
-        questionIndex: options.questionIndex,
-        stack: new Error().stack
-      });
       return false;
     }
 
@@ -351,11 +343,7 @@ export class TimerService implements OnDestroy {
       this.stoppedForQuestion.add(questionIndex);
 
       return true;
-    } catch (error: any) {
-      console.error(
-        '[TimerService] stopTimer failed in attemptStopTimerForQuestion:',
-        error
-      );
+    } catch {
       return false;
     }
   }
@@ -463,8 +451,8 @@ export class TimerService implements OnDestroy {
       if (!stopped) {
         this.stopTimer(undefined, { force: true });
       }
-    } catch (error) {
-      console.error('[TimerService] Error in stopTimerIfApplicable:', error);
+    } catch {
+      // stopTimerIfApplicable failed
     }
   }
 
@@ -565,10 +553,7 @@ export class TimerService implements OnDestroy {
       this.completionTime = total;
       this.saveTimerState();
       return total;
-    } catch (error) {
-      console.error(
-        '[TimerService] Error calculating total elapsed time:', error
-      );
+    } catch {
       return 0;
     }
   }

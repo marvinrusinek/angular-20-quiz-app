@@ -526,7 +526,6 @@ export class QqcQuestionLoaderService {
 
       return question;
     } else {
-      console.error(`[ngAfterViewInit] ❌ No question found at index ${index}`);
       return null;
     }
   }

@@ -36,7 +36,7 @@ export class QuizShuffleService {
         this.normalizeOptionOrders(quizId, questions);
         return;
       }
-      console.warn(`[QuizShuffleService] ⚠️ Persisted shuffle length mismatch (${state?.questionOrder.length} vs ${questions.length}). Regenerating...`);
+      // Persisted shuffle length mismatch — regenerating
       this.shuffleByQuizId.delete(quizId);
       localStorage.removeItem(`shuffleState:${quizId}`);
     }
@@ -110,7 +110,7 @@ export class QuizShuffleService {
       };
       localStorage.setItem(`shuffleState:${quizId}`, JSON.stringify(serializedState));
     } catch (err) {
-      console.warn('[QuizShuffleService] Failed to persist shuffle state:', err);
+      // persist failed — non-critical
     }
   }
 
@@ -130,7 +130,7 @@ export class QuizShuffleService {
       this.shuffleByQuizId.set(quizId, state);
       return true;
     } catch (err) {
-      console.warn('[QuizShuffleService] Failed to load shuffle state:', err);
+      // load failed — non-critical
       return false;
     }
   }
@@ -413,7 +413,7 @@ export class QuizShuffleService {
         }
       }
     } catch (e) {
-      console.warn('[QuizShuffleService] Failed to clear localStorage', e);
+      // clear failed — non-critical
     }
   }
 

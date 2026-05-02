@@ -198,7 +198,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
         this.handleViewContainerRef();
       });
     } else {
-      console.error('viewContainerRefs is undefined or not initialized.');
+      // viewContainerRefs not initialized
     }
 
     this.cdRef.detectChanges();  // ensure change detection runs
@@ -355,7 +355,6 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     if (this.viewContainerRef) {
       this.viewContainerRef.clear();
     } else {
-      console.error('viewContainerRef is not available.');
       return;
     }
 
@@ -372,7 +371,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
           this.quizQuestionComponentLoaded.emit();  // notify listeners that component is loaded
           this.cdRef.markForCheck();
         } else {
-          console.error('Could not determine whether question is multiple answer.');
+          // could not determine whether question is multiple answer
         }
       });
   }
@@ -385,7 +384,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     if (this.sharedOptionConfig) {
       this.sharedOptionConfig.type = this.type();
     } else {
-      console.error('Failed to initialize sharedOptionConfig in AnswerComponent');
+      // failed to initialize sharedOptionConfig
     }
   }
 
@@ -400,9 +399,6 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     payload: OptionClickedPayload,
   ): Promise<void> {
     if (!payload || !payload.option) {
-      console.error(
-        '[AnswerComponent] INVALID payload passed into onOptionClicked:', payload
-      );
       return;
     }
 
@@ -469,10 +465,6 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     const question = serviceQuestion ?? this.questionData();
 
     if (!question) {
-      console.error(
-        '[AC][INVARIANT] Missing question for index', activeQuestionIndex,
-        'ServiceQuestionsLength:', this.quizService.questions?.length
-      );
       return;
     }
 

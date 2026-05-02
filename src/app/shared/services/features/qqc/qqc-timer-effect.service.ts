@@ -621,7 +621,6 @@ export class QqcTimerEffectService {
 
       return { optionsToDisplay: updatedOptions, stopped: !!stopped };
     } catch (error) {
-      console.error('[handleMultipleAnswerTimerLogic] Error:', error);
       return { optionsToDisplay: params.optionsToDisplay, stopped: false };
     }
   }

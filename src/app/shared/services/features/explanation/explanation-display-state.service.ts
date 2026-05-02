@@ -363,10 +363,6 @@ export class ExplanationDisplayStateService {
 
     // Guard invalid
     if (!Number.isFinite(idx)) {
-      console.error(
-        `[❌ Invalid questionIndex — must be a finite number]:`, questionIndex
-      );
-
       try {
         this.emitFormatted(0, null);
       } catch { }
@@ -384,9 +380,6 @@ export class ExplanationDisplayStateService {
 
     const entry = this.formatter.formattedExplanations[questionIndex];
     if (!entry) {
-      console.error(
-        `[❌ Q${questionIndex} not found in formattedExplanations`, entry
-      );
       try {
         this.emitFormatted(questionIndex, null);
       } catch { }

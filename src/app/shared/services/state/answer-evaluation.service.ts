@@ -329,7 +329,7 @@ export class AnswerEvaluationService {
         [...selectedIds].every((id) => correctIds.has(id))
       );
     } catch (err) {
-      console.error('[AnswerEvaluation] Error evaluating correctness:', err);
+      // Error evaluating correctness
       return false;
     }
   }

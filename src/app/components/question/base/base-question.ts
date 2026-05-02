@@ -132,7 +132,7 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
       this.containerInitialized = true;
       this.cdRef.markForCheck();
     } catch (error: any) {
-      console.error('[❌ initializeDynamicComponentIfNeeded] Exception caught:', error);
+      // error handled silently
     }
   }
 
@@ -143,7 +143,7 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
           this.quizService.setCurrentQuestion(this.question()!);
         }
       } catch (error: any) {
-        console.error('Error updating current question:', error);
+        // error handled silently
       }
     } else {
     }
@@ -162,10 +162,7 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
       this.optionsInitialized = true;
       this.questionChange.emit(this.question()!);
     } else {
-      console.error(
-        '[❌ initializeQuestion] Question input is invalid or missing options:',
-        this.question()
-      );
+      // question input is invalid or missing options
     }
   }
 
@@ -180,9 +177,6 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
 
   protected initializeOptions(): void {
     if (!this.question()?.options?.length) {
-      console.error('initializeOptions - Invalid question or options', {
-        question: this.question()
-      });
       return;
     }
 
@@ -297,9 +291,7 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
           this.question.set(quizQuestion);
           this.initializeOptions();
         },
-        error: (err: Error) => {
-          console.error('Error subscribing to currentQuestion:', err);
-        }
+        error: () => { }
       });
   }
 
@@ -320,12 +312,10 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
     this.updateSelectedOption(index);
 
     if (!this.sharedOptionConfig) {
-      console.error('sharedOptionConfig is not initialized');
       await this.initializeSharedOptionConfig();
     }
 
     if (!this.sharedOptionConfig) {
-      console.error('Failed to initialize sharedOptionConfig. Cannot proceed.');
       return;
     }
 
@@ -367,7 +357,7 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
       // Trigger change detection to update the UI
       this.cdRef.detectChanges();
     } catch (error: any) {
-      console.error('An error occurred while processing the option click:', error);
+      // error handled silently
     }
   }
 

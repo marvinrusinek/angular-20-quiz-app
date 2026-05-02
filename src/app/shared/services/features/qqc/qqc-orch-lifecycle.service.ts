@@ -243,7 +243,6 @@ export class QqcOrchLifecycleService {
         onTotal: (totalQuestions: number) => { host.totalQuestions = totalQuestions; },
       });
     } catch (error) {
-      console.error('Error in ngOnInit:', error);
     }
   }
 

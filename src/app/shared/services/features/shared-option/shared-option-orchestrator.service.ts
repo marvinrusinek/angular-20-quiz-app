@@ -320,10 +320,8 @@ export class SharedOptionOrchestratorService {
       host.ensureOptionsToDisplay();
       host.preserveOptionHighlighting();
       host.cdRef.markForCheck();
-    } catch (error) {
-      console.error(
-          '[SharedOptionComponent] Error during visibility change handling:', error
-      );
+    } catch {
+      // visibility change handling failed
     }
   }
 

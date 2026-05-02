@@ -369,8 +369,7 @@ export class SocAnswerProcessingService {
       setTimeout(() => {
         try {
           this.sharedOptionExplanationService.emitExplanation(singleFetCtx as any, true);
-        } catch (err) {
-          console.error(`[SOC] Direct single-answer emitExplanation failed:`, err);
+        } catch {
           comp.emitExplanation(qIdx, true);
         }
       }, 0);

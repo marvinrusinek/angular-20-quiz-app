@@ -155,7 +155,6 @@ export class QclQuestionFetchService {
         !Array.isArray(fetchedOptions) ||
         fetchedOptions.length === 0
       ) {
-        console.error(`[Q${questionIndex}] Missing question or options`);
         return empty;
       }
 
@@ -306,7 +305,6 @@ export class QclQuestionFetchService {
         shouldStartTimer,
       };
     } catch (error: any) {
-      console.error(`[fetchAndSetQuestionData] Error at Q${questionIndex}:`, error);
       return empty;
     }
   }
@@ -328,7 +326,6 @@ export class QclQuestionFetchService {
     };
 
     if (!quiz || !quiz.questions) {
-      console.error('[loadQuestionByRouteIndex] Quiz data is missing.');
       return empty;
     }
 
@@ -339,7 +336,6 @@ export class QclQuestionFetchService {
     const questionIndex = routeIndex - 1;
 
     if (questionIndex < 0 || questionIndex >= quiz.questions.length) {
-      console.error('[loadQuestionByRouteIndex] Question index out of bounds:', questionIndex);
       return empty;
     }
 
@@ -353,7 +349,6 @@ export class QclQuestionFetchService {
     const question = await firstValueFrom(this.quizService.getQuestionByIndex(questionIndex));
 
     if (!question) {
-      console.error(`[loadQuestionByRouteIndex] Failed to load Q${questionIndex}`);
       return empty;
     }
 
@@ -392,7 +387,6 @@ export class QclQuestionFetchService {
     questionIndex: number
   ): Promise<QuizQuestion | null> {
     if (!quizId || quizId.trim() === '') {
-      console.error('Quiz ID is required but not provided.');
       return null;
     }
 
@@ -407,7 +401,6 @@ export class QclQuestionFetchService {
       );
 
       if (!result) {
-        console.error('No valid question found');
         return null;
       }
 
@@ -422,7 +415,6 @@ export class QclQuestionFetchService {
         })) ?? question.options
       };
     } catch (error: any) {
-      console.error('Error fetching question and options:', error);
       return null;
     }
   }
@@ -434,7 +426,6 @@ export class QclQuestionFetchService {
     try {
       const questions = await this.quizService.fetchQuizQuestions(quizId);
       if (!questions || questions.length === 0) {
-        console.error('Quiz has no questions or failed to load via QuizService.');
         return null;
       }
 
@@ -442,13 +433,11 @@ export class QclQuestionFetchService {
         this.quizDataService.getQuiz(quizId).pipe(take(1))
       );
       if (!quiz) {
-        console.error('Quiz metadata not found.');
         return null;
       }
 
       return { quiz, questions };
     } catch (error: any) {
-      console.error('Error loading quiz data:', error);
       return null;
     }
   }
@@ -459,12 +448,10 @@ export class QclQuestionFetchService {
     }
 
     if (!quizId || quizId.trim() === '') {
-      console.error('Quiz ID is required but not provided.');
       return;
     }
 
     if (questionIndex < 0) {
-      console.error(`Invalid question index: ${questionIndex}`);
       return;
     }
 
@@ -476,8 +463,7 @@ export class QclQuestionFetchService {
             : [null, null];
         }),
         catchError(
-          (error: Error): Observable<[QuizQuestion | null, Option[] | null]> => {
-            console.error('Error fetching question and options:', error);
+          (): Observable<[QuizQuestion | null, Option[] | null]> => {
             return of<[QuizQuestion | null, Option[] | null]>([null, null]);
           }
         )
@@ -489,9 +475,7 @@ export class QclQuestionFetchService {
           } else {
           }
         },
-        error: (error: Error) => {
-          console.error('Subscription error:', error);
-        }
+        error: () => { }
       });
   }
 }

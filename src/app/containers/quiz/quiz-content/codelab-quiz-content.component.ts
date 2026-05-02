@@ -231,7 +231,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
             const rawQ = (liveQ?.questionText ?? '').trim();
             if (rawQ) {
               (el as HTMLElement).innerHTML = rawQ;
-              console.warn(`[FET-WATCHDOG] Q${idx + 1} ⛔ REVERTED DOM — ${reason}`);
+              // DOM reverted for question
             }
           } catch { /* ignore */ }
         };
@@ -341,7 +341,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         (this as any)._fetWatchdogClick = clickHandler;
       }
     } catch (e) {
-      console.warn('[FET-WATCHDOG] install failed', e);
+      // watchdog install failed
     }
 
     return result;

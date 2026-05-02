@@ -34,14 +34,12 @@ export class QuizResolverService implements Resolve<Quiz | UrlTree | null> {
       switchMap(() => this.quizDataService.getQuiz(quizId)),
       map((quiz) => {
         if (!quiz) {
-          console.error(`[❌ QuizResolver] Quiz not found for ID: ${quizId}`);
           return this.router.createUrlTree(['/quiz']);
         }
         return quiz;
       }),
 
-      catchError((error) => {
-        console.error('[❌ QuizResolverService failure]', error);
+      catchError(() => {
         return of(this.router.createUrlTree(['/quiz']));
       }),
     );

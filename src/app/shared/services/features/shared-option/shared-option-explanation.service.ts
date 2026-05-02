@@ -475,8 +475,6 @@ export class SharedOptionExplanationService {
     // Use ctx.question (resolved from display index) over currentQuestion (can be null)
     const effectiveQuestion = question ?? currentQuestion;
 
-    console.error(`🔴🔴🔴 [FET-SOC] Q${displayIndex + 1} | Resolving for display...`);
-
     // 1. Determine which options are ACTUALLY displayed right now
     const displayOptions = (Array.isArray(optionBindings) && optionBindings.length > 0)
       ? optionBindings.map(b => b.option)

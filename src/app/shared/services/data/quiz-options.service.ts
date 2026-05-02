@@ -77,8 +77,7 @@ export class QuizOptionsService {
       tap(options => {
         currentOptionsSubject.next(options);
       }),
-      catchError((err) => {
-        console.error(`[getOptions] Failed for index ${index}`, err);
+      catchError(() => {
         return of([]);
       })
     );
@@ -89,7 +88,6 @@ export class QuizOptionsService {
     getQuestionByIndex: (idx: number) => Observable<QuizQuestion | null>
   ): Observable<Option[]> {
     if (!Number.isInteger(questionIndex) || questionIndex < 0) {
-      console.error(`Invalid questionIndex: ${questionIndex}. Returning empty options.`);
       return of([]);
     }
 
@@ -112,8 +110,7 @@ export class QuizOptionsService {
             `Generated feedback for Q${questionIndex} Option ${index}`
         }));        return sanitized;
       }),
-      catchError((error) => {
-        console.error(`Error fetching options for Q${questionIndex}:`, error);
+      catchError(() => {
         return of([]);
       }),
     );
@@ -127,7 +124,6 @@ export class QuizOptionsService {
 
   assignOptionIds(options: Option[], questionIndex: number): Option[] {
     if (!Array.isArray(options)) {
-      console.error('[assignOptionIds] Invalid options array:', options);
       return [];
     }
 
@@ -275,12 +271,10 @@ export class QuizOptionsService {
 
   getCorrectOptionsForCurrentQuestion(question: QuizQuestion): Option[] {
     if (!question) {
-      console.error('No question provided to getCorrectOptionsForCurrentQuestion.');
       return [];
     }
 
     if (!Array.isArray(question.options)) {
-      console.error('No options available for the provided question:', question);
       return [];
     }
 
@@ -289,7 +283,6 @@ export class QuizOptionsService {
 
   getCorrectAnswers(question: QuizQuestion): number[] {
     if (!question || !Array.isArray(question.options) || question.options.length === 0) {
-      console.error('Invalid question or no options available.');
       return [];
     }
 

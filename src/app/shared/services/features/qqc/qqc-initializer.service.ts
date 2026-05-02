@@ -55,7 +55,7 @@ export class QqcInitializerService {
 
     const activeQuiz = this.quizService.getActiveQuiz();
     if (!activeQuiz) {
-      console.error('Failed to get the active quiz.');
+      // Failed to get the active quiz
       return { questions, quiz: null, isQuizLoaded: false };
     }
 
@@ -81,7 +81,7 @@ export class QqcInitializerService {
     const { index, questionsArray } = params;
 
     if (!questionsArray || questionsArray.length === 0) {
-      console.error('[setQuestionFirst] ❌ questionsArray is empty or undefined.');
+      // questionsArray is empty or undefined
       return null;
     }
 
@@ -92,13 +92,13 @@ export class QqcInitializerService {
     );
 
     if (questionIndex >= questionsArray.length) {
-      console.error(`[setQuestionFirst] ❌ Invalid question index: ${questionIndex}`);
+      // Invalid question index
       return null;
     }
 
     const question = questionsArray[questionIndex];
     if (!question) {
-      console.error(`[setQuestionFirst] ❌ No question data available at index: ${questionIndex}`);
+      // No question data available at this index
       return null;
     }
 
@@ -133,7 +133,7 @@ export class QqcInitializerService {
 
     try {
       if (!quizId) {
-        console.error('Quiz ID is empty after initialization.');
+        // Quiz ID is empty after initialization
         return null;
       }
 
@@ -142,7 +142,7 @@ export class QqcInitializerService {
       if (!result || result.length === 0) {
         const fetched = await fetchAndProcessQuizQuestions(quizId);
         if (!fetched || fetched.length === 0) {
-          console.error('[❌] No questions returned.');
+          // No questions returned
           return null;
         }
         result = fetched;
@@ -159,7 +159,7 @@ export class QqcInitializerService {
         questions: result,
       };
     } catch (error) {
-      console.error('Error initializing quiz questions and answers:', error);
+      // Error initializing quiz questions and answers
       return null;
     }
   }
@@ -192,10 +192,7 @@ export class QqcInitializerService {
             explanation: explanationText || 'No explanation provided.',
           };
         } catch (explanationError) {
-          console.error(
-            `❌ Failed to fetch explanation for Q${questionIndex}:`,
-            explanationError
-          );
+          // Failed to fetch explanation for this question
 
           this.explanationTextService.formattedExplanations[questionIndex] = {
             questionIndex,
@@ -204,10 +201,7 @@ export class QqcInitializerService {
         }
       }
     } catch (fatalError) {
-      console.error(
-        `Unexpected error during prepareQuestion for Q${questionIndex}:`,
-        fatalError
-      );
+      // Unexpected error during prepareQuestion
     }
   }
 
@@ -331,7 +325,7 @@ export class QqcInitializerService {
         (opt) => opt.optionId === selectedOption.optionId
       )
     ) {
-      console.error('Invalid or unselected option.');
+      // Invalid or unselected option
       return false;
     }
 
@@ -345,7 +339,7 @@ export class QqcInitializerService {
     try {
       isCorrect = await this.quizService.checkIfAnsweredCorrectly();
     } catch (error) {
-      console.error('Error checking answer correctness:', error);
+      // Error checking answer correctness
     }
 
     const explanationText = currentQuestion?.explanation;
@@ -403,9 +397,7 @@ export class QqcInitializerService {
                 })
               );
             } else {
-              console.error(
-                `Options are not properly defined for question: ${quizQuestion.questionText}`
-              );
+              // Options are not properly defined for this question
               quizQuestion.options = [];
             }
           }
@@ -428,9 +420,7 @@ export class QqcInitializerService {
             params.onQuestionsLoaded(questions);
           }
         },
-        error: (err) => {
-          console.error('Error fetching questions:', err);
-        },
+        error: () => { },
       });
   }
 

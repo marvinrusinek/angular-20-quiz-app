@@ -29,7 +29,7 @@ export class QqcQlFetchService {
     try {
       const quizIdExists = await this.quizService.ensureQuizIdExists();
       if (!quizIdExists) {
-        console.error('Quiz ID is missing');
+        // Quiz ID is missing
         return null;
       }
 
@@ -37,7 +37,7 @@ export class QqcQlFetchService {
       if (questions && questions.length > 0) {
         const activeQuiz = this.quizService.getActiveQuiz();
         if (!activeQuiz) {
-          console.error('Failed to get the active quiz.');
+          // Failed to get the active quiz
           return null;
         }
 
@@ -45,11 +45,11 @@ export class QqcQlFetchService {
         this.quizService.setQuestionsLoaded(true);
         return questions;
       } else {
-        console.error('No questions loaded.');
+        // No questions loaded
         return null;
       }
     } catch (error) {
-      console.error('Error loading questions:', error);
+      // Error loading questions
       return null;
     }
   }
@@ -84,7 +84,7 @@ export class QqcQlFetchService {
     this.isLoadingInProgress = false;
 
     if (!loadedQuestions) {
-      console.error('Failed to load questions.');
+      // Failed to load questions
       return { loaded: false, questions: null };
     }
 
@@ -186,13 +186,13 @@ export class QqcQlFetchService {
       if (!questionsArray || questionsArray.length === 0) {
         const quizId = this.quizService.getCurrentQuizId();
         if (!quizId) {
-          console.error('[initializeComponent] No active quiz ID found. Aborting initialization.');
+          // No active quiz ID found — aborting initialization
           return null;
         }
 
         questionsArray = await this.quizService.fetchQuizQuestions(quizId);
         if (!questionsArray || questionsArray.length === 0) {
-          console.error('[initializeComponent] Failed to fetch questions. Aborting initialization.');
+          // Failed to fetch questions — aborting initialization
           return null;
         }
       }
@@ -216,7 +216,7 @@ export class QqcQlFetchService {
         currentQuestion,
       };
     } catch (error) {
-      console.error('[initializeComponent] Error during initialization:', error);
+      // Error during initialization
       return null;
     }
   }
@@ -233,7 +233,7 @@ export class QqcQlFetchService {
     const { quizId, prepareQuestion } = params;
 
     if (!quizId) {
-      console.error('Quiz ID is not provided or is empty.');
+      // Quiz ID is not provided or is empty
       return [];
     }
 
@@ -241,7 +241,7 @@ export class QqcQlFetchService {
       const questions = await this.quizService.fetchQuizQuestions(quizId);
 
       if (!questions || questions.length === 0) {
-        console.error('No questions were loaded');
+        // No questions were loaded
         return [];
       }
 
@@ -254,7 +254,7 @@ export class QqcQlFetchService {
 
       return questions;
     } catch (error) {
-      console.error('Error loading questions:', error);
+      // Error loading questions
       return [];
     }
   }
@@ -268,17 +268,17 @@ export class QqcQlFetchService {
     quizId: string | null | undefined
   ): Promise<void> {
     if (!questionsArray || questionsArray.length === 0) {
-      console.error('Questions array is not loaded yet. Loading questions...');
+      // Questions array is not loaded yet — loading questions
       const loaded = await this.loadQuizData(quizId);
 
       if (!loaded) {
-        console.error('Questions array still not loaded after loading attempt.');
+        // Questions array still not loaded after loading attempt
         throw new Error('Failed to load questions array.');
       }
     }
 
     if (index < 0 || index >= questionsArray.length) {
-      console.error(`Invalid index ${index}. Must be between 0 and ${questionsArray.length - 1}.`);
+      // Invalid index
       throw new Error(`Invalid index ${index}. No such question exists.`);
     }
 
@@ -293,7 +293,6 @@ export class QqcQlFetchService {
           }
         },
         error: (err: any) => {
-          console.error(`Error loading question at index ${index}:`, err);
           subscription?.unsubscribe();
           reject(err);
         },
@@ -317,7 +316,7 @@ export class QqcQlFetchService {
   }> {
     const result = await this.ensureQuestionsLoaded(params.questionsArray, params.quizId);
     if (!result.loaded) {
-      console.error('[loadCurrentQuestion] No questions available.');
+      // No questions available
       return { success: false, currentQuestion: null, optionsToDisplay: [], questions: params.questionsArray };
     }
 
@@ -327,9 +326,7 @@ export class QqcQlFetchService {
       params.currentQuestionIndex < 0 ||
       params.currentQuestionIndex >= questions.length
     ) {
-      console.error(
-        `[loadCurrentQuestion] Invalid question index: ${params.currentQuestionIndex}`
-      );
+      // Invalid question index
       return { success: false, currentQuestion: null, optionsToDisplay: [], questions };
     }
 
@@ -356,16 +353,11 @@ export class QqcQlFetchService {
           questions,
         };
       } else {
-        console.error(
-          `[loadCurrentQuestion] No data found for question index: ${params.currentQuestionIndex}`
-        );
+        // No data found for question index
         return { success: false, currentQuestion: null, optionsToDisplay: [], questions };
       }
     } catch (error) {
-      console.error(
-        '[loadCurrentQuestion] Error fetching question data:',
-        error
-      );
+      // Error fetching question data
       return { success: false, currentQuestion: null, optionsToDisplay: [], questions };
     }
   }
@@ -406,17 +398,13 @@ export class QqcQlFetchService {
         );
 
         if (!question) {
-          console.error(
-            '[waitForQuestionData] Still no question after clamping — aborting.'
-          );
+          // Still no question after clamping — aborting
           return { currentQuestion: null, optionsToDisplay: [], currentQuestionIndex: idx };
         }
       }
 
       if (!question.options?.length) {
-        console.error(
-          `[waitForQuestionData] ❌ Invalid question data or options missing for index: ${idx}`
-        );
+        // Invalid question data or options missing
         return { currentQuestion: null, optionsToDisplay: [], currentQuestionIndex: idx };
       }
 
@@ -426,10 +414,7 @@ export class QqcQlFetchService {
         currentQuestionIndex: idx,
       };
     } catch (error) {
-      console.error(
-        `[waitForQuestionData] ❌ Error loading question data for index ${idx}:`,
-        error
-      );
+      // Error loading question data
       return { currentQuestion: null, optionsToDisplay: [], currentQuestionIndex: idx };
     }
   }

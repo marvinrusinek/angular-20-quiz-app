@@ -46,10 +46,6 @@ export class QqcExplanationManagerService {
 
       return trimmed;
     } catch (error) {
-      console.error(
-        `[getExplanationText] Error fetching explanation for Q${questionIndex}:`,
-        error
-      );
       return 'Error loading explanation.';
     }
   }
@@ -62,7 +58,6 @@ export class QqcExplanationManagerService {
     questionIndex: number
   ): Promise<FormattedExplanation | null> {
     if (!questionData) {
-      console.error(`Invalid question data for index ${questionIndex}`);
       return {
         questionIndex,
         explanation: 'No question data available',
@@ -95,7 +90,6 @@ export class QqcExplanationManagerService {
         };
       }
     } catch (error) {
-      console.error('Error in processing explanation text:', error);
       return {
         questionIndex,
         explanation: questionData.explanation || 'Error processing explanation',

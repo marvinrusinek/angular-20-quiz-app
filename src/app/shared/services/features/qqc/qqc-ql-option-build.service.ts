@@ -241,10 +241,6 @@ export class QqcQlOptionBuildService {
       try { if (instance.questionData?.set) instance.questionData.set({ ...question, options: clonedOptions }); } catch {}
       try { componentRef?.changeDetectorRef?.markForCheck(); } catch {}
     } catch (error) {
-      console.error('[❌ Assignment failed in loadDynamicComponent]', error, {
-        question,
-        options: clonedOptions,
-      });
       try {
         instance.question.set({ ...question });
         instance.optionsToDisplay.set(clonedOptions);

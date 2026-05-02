@@ -77,7 +77,6 @@ export class CqcFetGuardService {
         const looksLikeFet = safeNorm.includes('are correct because')
           || safeNorm.includes('is correct because')
           || containsRawExpl;
-        console.error(`🛡️ [writeQText] FET-sniff safe="${safe.substring(0, 60)}" looksLikeFet=${looksLikeFet} containsRawExpl=${containsRawExpl} rawExpl="${rawExplNorm.substring(0, 40)}" pristineExpl="${pristineExplanation.substring(0, 40)}"`);
 
         if (!looksLikeFet) {
           const displayedQTextEarly = norm(liveQEarly?.questionText ?? '');
@@ -193,7 +192,6 @@ export class CqcFetGuardService {
           const isMulti = correctTotal >= 2;
           const allCorrectSelected =
             correctTotal > 0 && correctSelected >= correctTotal;
-          console.error(`🛡️ [writeQText] NUCLEAR FET-gate idx=${activeIdx} qText="${displayedQText.substring(0, 40)}" pristineCorrect=${JSON.stringify([...pristineCorrectTexts])} selectedTexts=${JSON.stringify([...selectedTexts])} correctTotal=${correctTotal} correctSelected=${correctSelected} isMulti=${isMulti} allCorrect=${allCorrectSelected}`);
 
           if (!isMulti) {
             if (!this.isScoredCorrectAtDisplay(host, activeIdx)) {
@@ -218,7 +216,7 @@ export class CqcFetGuardService {
             }
           }
         }
-      } catch (e) { console.warn('[writeQText] NUCLEAR gate error', e); }
+      } catch { }
 
       // HARD FINAL GATE.
       try {
@@ -406,14 +404,12 @@ export class CqcFetGuardService {
               }
             } catch { /* ignore */ }
             const allResolved_ll = pristineCorrect_ll.every(t => selNow_ll.has(t));
-            console.error(`🛡️ [writeQText] LAST-LINE GUARD Q${idx_ll + 1} pristine=${JSON.stringify(pristineCorrect_ll)} sel=${JSON.stringify([...selNow_ll])} resolved=${allResolved_ll}`);
             if (!allResolved_ll) {
               const llOverride = this.isScoredCorrectAtDisplay(host, idx_ll);
               if (llOverride) {
                 // overridden by questionCorrectness
               } else {
                 safe = this.buildQuestionDisplayHTML(host, idx_ll) || (liveQ_ll?.questionText ?? '').trim() || '';
-                console.error(`🛡️ [writeQText] ⛔ LAST-LINE GUARD BLOCKED FET for Q${idx_ll + 1} — substituted question text`);
               }
             }
           }
@@ -455,7 +451,7 @@ export class CqcFetGuardService {
                 if (_t) _selNow.add(_t);
               }
             }
-          } catch (e) { console.error('[writeQText] FINAL GATE sel error:', e); }
+          } catch { }
           try {
             const _stored = sessionStorage.getItem('sel_Q' + _idx);
             if (_stored) {
@@ -465,7 +461,7 @@ export class CqcFetGuardService {
                 if (_t) _selNow.add(_t);
               }
             }
-          } catch (e) { console.error('[writeQText] FINAL GATE storage error:', e); }
+          } catch { }
           const _allOk = _pCorrect.every(t => _selNow.has(t));
           if (!_allOk) {
             const _fgOverride = this.isScoredCorrectAtDisplay(host, _idx);
@@ -473,7 +469,6 @@ export class CqcFetGuardService {
               // overridden by questionCorrectness
             } else {
               safe = this.buildQuestionDisplayHTML(host, _idx) || (_liveQ?.questionText ?? '').trim() || '';
-              console.error(`[writeQText] ⛔ FINAL-GATE BLOCKED FET for Q${_idx + 1}`);
             }
           }
         }

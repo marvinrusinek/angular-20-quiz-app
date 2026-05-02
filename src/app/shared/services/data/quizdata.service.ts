@@ -102,8 +102,7 @@ export class QuizDataService implements OnDestroy {
         this.quizzes = mergedQuizzes;
         this.quizzesSig.set(mergedQuizzes);
       }),
-      catchError((err) => {
-        console.error('[QuizDataService] Failed:', err);
+      catchError(() => {
         return throwError(() => new Error('Error fetching quiz data'));
       }),
     );
@@ -173,8 +172,7 @@ export class QuizDataService implements OnDestroy {
       }
 
       return quiz;
-    } catch (err) {
-      console.error('[QuizDataService] Failed to fetch quiz:', err);
+    } catch {
       return null;
     }
   }
@@ -182,11 +180,7 @@ export class QuizDataService implements OnDestroy {
   isValidQuiz(quizId: string): Observable<boolean> {
     return this.getQuizzes().pipe(
       map((quizzes: Quiz[]) => quizzes.some((quiz) => quiz.quizId === quizId)),
-      catchError((error: any) => {
-        console.error(
-          `Error validating quiz ID "${quizId}":`,
-          error.message || error,
-        );
+      catchError(() => {
         return of(false);  // return `false` to indicate an invalid quiz
       }),
     );
@@ -217,8 +211,7 @@ export class QuizDataService implements OnDestroy {
 
         this.setSelectedQuiz(selectedQuiz);
       }),
-      catchError((error: HttpErrorResponse) => {
-        console.error('Error retrieving quizzes:', error.message || error);
+      catchError(() => {
         return throwError(() => new Error('Error retrieving quizzes'));
       }),
       takeUntil(this.destroy$)
@@ -246,8 +239,7 @@ export class QuizDataService implements OnDestroy {
         return quiz;
       }),
       take(1),
-      catchError((error) => {
-        console.error(`[QuizDataService] Error fetching quiz:`, error);
+      catchError(() => {
         return of(null);
       })
     );
@@ -343,7 +335,6 @@ export class QuizDataService implements OnDestroy {
         return this.cloneQuestions(sessionQuestions);
       }),
       catchError((error) => {
-        console.error('[QuizDataService] getQuestionsForQuiz:', error);
         return throwError(() => error);
       })
     );
@@ -354,7 +345,6 @@ export class QuizDataService implements OnDestroy {
   // so downstream consumers receive a consistent question set.
   prepareQuizSession(quizId: string): Observable<QuizQuestion[]> {
     if (!quizId) {
-      console.error('[prepareQuizSession] quizId is required.');
       return of([]);
     }
 
@@ -420,8 +410,7 @@ export class QuizDataService implements OnDestroy {
 
         return this.cloneQuestions(sessionClone);
       }),
-      catchError((error: Error) => {
-        console.error('[prepareQuizSession] Failed to fetch questions:', error);
+      catchError(() => {
         return of([]);
       })
     );
@@ -572,16 +561,12 @@ export class QuizDataService implements OnDestroy {
     questionIndex: number
   ): Observable<[QuizQuestion | null, Option[] | null]> {
     if (typeof questionIndex !== 'number' || isNaN(questionIndex)) {
-      console.error(`❌ Invalid questionIndex: ${questionIndex}`);
       return of<[QuizQuestion | null, Option[] | null]>([null, null]);
     }
 
     return this.getQuiz(quizId).pipe(
       map((quiz) => {
         if (!quiz) {
-          console.error(
-            `[getQuestionAndOptions] No quiz found for ID: ${quizId}`
-          );
           return [null, null] as [QuizQuestion | null, Option[] | null];
         }
 
@@ -607,13 +592,11 @@ export class QuizDataService implements OnDestroy {
           !Array.isArray(questionsToUse) ||
           questionIndex >= questionsToUse.length
         ) {
-          console.error(`Question index ${questionIndex} out of bounds`);
           return [null, null] as [QuizQuestion | null, Option[] | null];
         }
 
         const question = this.cloneQuestion(questionsToUse[questionIndex]);
         if (!question) {
-          console.error(`No question found at index ${questionIndex}`);
           return [null, null] as [QuizQuestion | null, Option[] | null];
         }
 
@@ -633,8 +616,7 @@ export class QuizDataService implements OnDestroy {
 
         return [question, options] as [QuizQuestion | null, Option[] | null];
       }),
-      catchError((error) => {
-        console.error('Error fetching question and options:', error);
+      catchError(() => {
         return of<[QuizQuestion | null, Option[] | null]>([null, null]);
       }),
     );
@@ -645,7 +627,6 @@ export class QuizDataService implements OnDestroy {
     questionIndex: number
   ): Observable<QuizQuestion | null> {
     if (!quizId) {
-      console.error('Quiz ID is required but not provided.');
       return of(null);
     }
 
@@ -655,9 +636,6 @@ export class QuizDataService implements OnDestroy {
       switchMap((totalQuestions) => {
         // Index-bounds guard now that we have the number
         if (!Number.isFinite(totalQuestions) || totalQuestions <= 0) {
-          console.error(
-            `[fetchQuizQuestionByIdAndIndex] ❌ Invalid totalQuestions (${totalQuestions}) for quiz ${quizId}`,
-          );
           return of(null);
         }
 
@@ -670,17 +648,11 @@ export class QuizDataService implements OnDestroy {
         return this.getQuestionAndOptions(quizId, questionIndex).pipe(
           switchMap((result) => {
             if (!result) {
-              console.error(
-                `Expected a tuple with QuizQuestion and Options from getQuestionAndOptions but received null for index ${questionIndex}`
-              );
               return of(null);
             }
 
             const [question, options] = result;
             if (!question || !options) {
-              console.error(
-                'Received incomplete data from getQuestionAndOptions:', result
-              );
               return of(null);
             }
 
@@ -692,7 +664,6 @@ export class QuizDataService implements OnDestroy {
       // Unchanged operators
       distinctUntilChanged(),
       catchError((err) => {
-        console.error('Error getting quiz question:', err);
         return throwError(
           () =>
             new Error('An error occurred while fetching data: ' + err.message)
@@ -714,8 +685,7 @@ export class QuizDataService implements OnDestroy {
       );
 
       return questionAndOptions;
-    } catch (error) {
-      console.error('Error fetching question and options:', error);
+    } catch {
       return null;
     }
   }
@@ -739,11 +709,7 @@ export class QuizDataService implements OnDestroy {
         }
       }),
       distinctUntilChanged(),
-      catchError((error: HttpErrorResponse) => {
-        console.error(
-          `Error fetching options for quiz ID "${quizId}", question index ${questionIndex}:`,
-          error.message
-        );
+      catchError(() => {
         return throwError(() => new Error('Failed to fetch question options.'));
       }),
     );
@@ -770,8 +736,7 @@ export class QuizDataService implements OnDestroy {
 
         return of(explanationTexts);
       }),
-      catchError((error: HttpErrorResponse) => {
-        console.error('Error getting explanation texts:', error);
+      catchError(() => {
         return of([]);
       }),
     );
@@ -783,7 +748,6 @@ export class QuizDataService implements OnDestroy {
   ): Promise<void> {
     try {
       if (!quizId || currentQuestionIndex < 0) {
-        console.error('Invalid quiz ID or question index');
         return;
       }
 
@@ -792,27 +756,22 @@ export class QuizDataService implements OnDestroy {
         currentQuestionIndex
       );
       if (!observable) {
-        console.error(
-          'Received undefined Observable from fetchQuizQuestionByIdAndIndex',
-        );
         return;
       }
 
       const question = await firstValueFrom(observable);
       this.question = question ?? null;
-    } catch (error) {
-      console.error('Error setting question:', error);
+    } catch {
+      // Error setting question
     }
   }
 
   setQuestionType(question: QuizQuestion): void {
     if (!question) {
-      console.error('Question is undefined or null:', question);
       return;
     }
 
     if (!Array.isArray(question.options)) {
-      console.error('Question options is not an array:', question.options);
       return;
     }
 

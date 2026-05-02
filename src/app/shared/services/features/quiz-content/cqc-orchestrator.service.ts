@@ -295,7 +295,6 @@ export class CqcOrchestratorService {
       }),
       distinctUntilChanged(),
       catchError((error: Error) => {
-        console.error('Error in isContentAvailable$:', error);
         return of(false);
       }),
       startWith(false)
@@ -312,7 +311,7 @@ export class CqcOrchestratorService {
         host.isContentAvailableChange.emit(isAvailable);
         host.quizDataService.updateContentAvailableState(isAvailable);
       },
-      error: (error: Error) => console.error('Error in isContentAvailable$:', error)
+      error: () => { }
     });
   }
 
@@ -339,7 +338,7 @@ export class CqcOrchestratorService {
       const [questions, explanationTexts] = data;
 
       if (!questions || questions.length === 0) {
-        console.warn('No questions found');
+        // No questions found
         return;
       }
 
@@ -359,7 +358,6 @@ export class CqcOrchestratorService {
 
       host.initializeCurrentQuestionIndex();
     } catch (error: any) {
-      console.error('Error in initializeQuestionData:', error);
     }
   }
 
@@ -367,20 +365,18 @@ export class CqcOrchestratorService {
     host.setQuizId(params.get('quizId') ?? '');
     const qid = host.quizId();
     if (!qid) {
-      console.warn('No quizId provided in the parameters.');
+      // No quizId provided
       return of([[], []] as [QuizQuestion[], string[]]);
     }
 
     return forkJoin([
       host.quizDataService.getQuestionsForQuiz(qid).pipe(
         catchError((error: Error) => {
-          console.error('Error fetching questions:', error);
           return of([] as QuizQuestion[]);
         })
       ),
       host.quizDataService.getAllExplanationTextsForQuiz(qid).pipe(
         catchError((error: Error) => {
-          console.error('Error fetching explanation texts:', error);
           return of([] as string[]);
         })
       ),
@@ -430,7 +426,7 @@ export class CqcOrchestratorService {
     currentQuizAndOptions$.pipe(takeUntil(host.destroy$)).subscribe({
       next: (data: any) => {
       },
-      error: (err: any) => console.error('Error combining current quiz and options:', err)
+      error: () => { }
     });
 
     host.setCombinedQuestionData$(combineLatest([
@@ -483,7 +479,6 @@ export class CqcOrchestratorService {
       ),
       filter((data: CombinedQuestionDataType | null): data is CombinedQuestionDataType => data !== null),
       catchError((error: Error) => {
-        console.error('Error combining quiz data:', error);
         const fallback: CombinedQuestionDataType = {
           currentQuestion: {
             questionText: 'Error loading question',
@@ -549,9 +544,7 @@ export class CqcOrchestratorService {
         const normalizedIncoming = host.normalizeKeySource(payload.question?.questionText);
 
         if (normalizedExpected && normalizedIncoming && normalizedExpected !== normalizedIncoming) {
-          console.warn('[combineCurrentQuestionAndOptions] ⚠️ Mismatch detected but ALLOWING update to fix Shuffled Stuck Text.', {
-            index, normalizedExpected, normalizedIncoming
-          });
+          // Mismatch detected but allowing update for shuffled text
         }
 
         return true;
@@ -610,7 +603,6 @@ export class CqcOrchestratorService {
         }),
       shareReplay({ bufferSize: 1, refCount: true }),
       catchError((error: Error) => {
-        console.error('Error in combineCurrentQuestionAndOptions:', error);
         return of({
           currentQuestion: null,
           currentOptions: [],
@@ -631,7 +623,6 @@ export class CqcOrchestratorService {
     const { currentQuestion, currentOptions } = currentQuizData;
 
     if (!currentQuestion) {
-      console.error('No current question found in data:', currentQuizData);
       return {
         currentQuestion: null,
         currentOptions: [],
@@ -697,7 +688,6 @@ export class CqcOrchestratorService {
       map((arr: any) => !!arr[0] && !arr[1]),
       distinctUntilChanged(),
       catchError((error: Error) => {
-        console.error('Error in shouldDisplayCorrectAnswers$ observable:', error);
         return of(false);
       }),
     );
@@ -708,7 +698,6 @@ export class CqcOrchestratorService {
       }),
       distinctUntilChanged(),
       catchError((error: Error) => {
-        console.error('Error in displayCorrectAnswersText$ observable:', error);
         return of(null);
       })
     );

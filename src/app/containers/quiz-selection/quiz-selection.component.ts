@@ -116,12 +116,7 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
     this.selectedQuizSubscription = this.quizService.selectedQuiz$
       .pipe(
         takeUntil(this.unsubscribe$),
-        catchError((error: unknown) => {
-          if (error instanceof Error) {
-            console.error('Error fetching selected quiz:', error.message);
-          } else {
-            console.error('Unexpected error fetching selected quiz:', error);
-          }
+        catchError(() => {
           return EMPTY;  // completes the stream safely
         }),
       )
@@ -133,7 +128,6 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
   async onSelect(quizId: string, index: number): Promise<void> {
     try {
       if (!quizId) {
-        console.error('[navigateToQuestion] quizId is null or undefined');
         return;
       }
 
@@ -160,11 +154,7 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
       
       await this.router.navigate([QuizRoutes.INTRO, quizId]);
     } catch (error) {
-      if (error instanceof Error) {
-        console.error(error.message);
-      } else {
-        console.error('Unexpected error:', error);
-      }
+      // error handled silently
     }
   }
 

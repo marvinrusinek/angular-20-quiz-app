@@ -329,11 +329,8 @@ export class SharedOptionInitService {
 
       // Use generateOptionBindings for consistency (handles deduplication, showOptions, etc.)
       comp.generateOptionBindings();
-    } catch (error) {
-      console.error('[initializeOptionBindings error]', error);
+    } catch {
       comp.optionBindingsInitialized = false;
-    } finally {
-      console.timeEnd('[initializeOptionBindings]');
     }
   }
 
@@ -663,9 +660,6 @@ export class SharedOptionInitService {
 
     // Validate currentQuestion before proceeding
     if (!comp.currentQuestion || !Array.isArray(comp.currentQuestion.options)) {
-      console.error(
-        '[initializeFromConfig] Invalid or missing currentQuestion options.'
-      );
       return;
     }
 
