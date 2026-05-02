@@ -11,6 +11,7 @@ import { ResetBackgroundService } from '../ui/reset-background.service';
 import { QuizPersistenceService } from '../state/quiz-persistence.service';
 import { QuizDotStatusService } from './quiz-dot-status.service';
 import { TimerService } from '../features/timer/timer.service';
+import { SelectionMessageService } from '../features/selection-message/selection-message.service';
 
 /**
  * Orchestrates reset operations across multiple services.
@@ -30,7 +31,8 @@ export class QuizResetService {
     private resetBackgroundService: ResetBackgroundService,
     private quizPersistence: QuizPersistenceService,
     private dotStatusService: QuizDotStatusService,
-    private timerService: TimerService
+    private timerService: TimerService,
+    private selectionMessageService: SelectionMessageService
   ) {}
 
   // ═══════════════════════════════════════════════════════════════
@@ -278,5 +280,8 @@ export class QuizResetService {
     this.quizStateService.setDisplayState({ mode: 'question', answered: false });
 
     this.nextButtonStateService.setNextButtonState(false);
+
+    // Clear stale selection message state from previous quiz run
+    this.selectionMessageService.resetAll();
   }
 }

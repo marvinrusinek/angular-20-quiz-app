@@ -63,6 +63,21 @@ export class SelectionMessageService {
     return this.selectionMessageSig();
   }
 
+  public resetAll(): void {
+    this._singleAnswerCorrectLock.clear();
+    this._singleAnswerIncorrectLock.clear();
+    this._multiAnswerInProgressLock.clear();
+    this._multiAnswerCompletionLock.clear();
+    this._multiAnswerPreLock.clear();
+    this._lastMessageByIndex.clear();
+    this._baselineReleased.clear();
+    this._pendingMsgTokens.clear();
+    this._idMapByIndex.clear();
+    this.optionsSnapshotSig.set([]);
+    this.selectionMessageSig.set(START_MSG);
+    this.selectionMessageSubject.next(START_MSG);
+  }
+
   private getQuestion(index: number): QuizQuestion | null {
     const svc = this.quizService as any;
     const questions = (svc.isShuffleEnabled() && svc.shuffledQuestions?.length > 0)
