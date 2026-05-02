@@ -1,0 +1,497 @@
+import { Injectable } from '@angular/core';
+import { firstValueFrom, Observable, of } from 'rxjs';
+import { catchError, filter, map, take } from 'rxjs/operators';
+
+import { Option } from '../../models/Option.model';
+import { Quiz } from '../../models/Quiz.model';
+import { QuestionPayload } from '../../models/QuestionPayload.model';
+import { QuestionType } from '../../models/question-type.enum';
+import { QuizQuestion } from '../../models/QuizQuestion.model';
+import { QuizService } from '../data/quiz.service';
+import { QuizDataService } from '../data/quizdata.service';
+import { QuizStateService } from '../state/quizstate.service';
+import { ExplanationTextService } from '../features/explanation/explanation-text.service';
+import { SelectedOptionService } from '../state/selectedoption.service';
+import { SelectionMessageService } from '../features/selection-message/selection-message.service';
+import { QuizQuestionDataService } from './quiz-question-data.service';
+import { QuizQuestionLoaderService } from './quizquestionloader.service';
+import {
+  FetchQuestionResult,
+  RouteChangeQuestionResult,
+  RouteQuestionResult,
+} from './quiz-content-loader.service';
+
+/**
+ * Handles question fetching, loading, and API data retrieval.
+ * Extracted from QuizContentLoaderService.
+ */
+@Injectable({ providedIn: 'root' })
+export class QclQuestionFetchService {
+
+  constructor(
+    private quizService: QuizService,
+    private quizDataService: QuizDataService,
+    private quizStateService: QuizStateService,
+    private explanationTextService: ExplanationTextService,
+    private selectedOptionService: SelectedOptionService,
+    private selectionMessageService: SelectionMessageService,
+    private quizQuestionDataService: QuizQuestionDataService,
+    private quizQuestionLoaderService: QuizQuestionLoaderService,
+  ) {}
+
+  async loadQuestionFromRouteChange(params: {
+    quizId: string;
+    index: number;
+  }): Promise<RouteChangeQuestionResult> {
+    const { quizId, index } = params;
+    const empty: RouteChangeQuestionResult = {
+      success: false,
+      question: null,
+      options: [],
+      explanation: '',
+      totalQuestions: 0,
+      hasValidSelections: false,
+    };
+
+    const currentQuiz: Quiz = await firstValueFrom(
+      this.quizDataService.getQuiz(quizId).pipe(
+        filter((q): q is Quiz => !!q && Array.isArray(q.questions)),
+        take(1)
+      )
+    );
+    if (!currentQuiz) return empty;
+
+    const isSameQuiz = this.quizService.quizId === quizId
+      || this.quizService.getCurrentQuizId() === quizId;
+    if (!isSameQuiz) {
+      this.quizService.setCurrentQuiz(currentQuiz);
+    }
+    this.quizQuestionLoaderService.activeQuizId = quizId;
+    const totalQ = currentQuiz.questions?.length ?? 0;
+    this.quizQuestionLoaderService.totalQuestions = totalQ;
+
+    const shuffledSnapshot = this.quizService.isShuffleEnabled()
+      ? [...(this.quizService.shuffledQuestions ?? [])]
+      : null;
+
+    await this.quizQuestionLoaderService.loadQuestionAndOptions(index);
+    await this.quizQuestionLoaderService.loadQA(index);
+
+    if (shuffledSnapshot && shuffledSnapshot.length > 0
+        && (!this.quizService.shuffledQuestions || this.quizService.shuffledQuestions.length === 0)) {
+      this.quizService.shuffledQuestions = shuffledSnapshot;
+    }
+
+    const shouldUseShuffled =
+      this.quizService.isShuffleEnabled() &&
+      this.quizService.shuffledQuestions?.length > 0;
+    const effectiveQuestions = shouldUseShuffled
+      ? this.quizService.shuffledQuestions : currentQuiz.questions;
+    const question = effectiveQuestions?.[index] ?? null;
+    if (!question) return empty;
+
+    this.quizQuestionLoaderService.resetHeadlineStreams(index);
+    this.quizService.updateCurrentQuestion(question);
+
+    const options = question.options ?? [];
+    const explanation = question.explanation ?? '';
+
+    const optionIdSet = new Set(
+      options.map((opt) => opt.optionId).filter((id): id is number => typeof id === 'number')
+    );
+    const validSelections =
+      (this.selectedOptionService.getSelectedOptionsForQuestion(index) ?? [])
+        .filter((opt) => optionIdSet.has(opt.optionId ?? -1));
+
+    return {
+      success: true,
+      question,
+      options,
+      explanation,
+      totalQuestions: totalQ,
+      hasValidSelections: validSelections.length > 0,
+    };
+  }
+
+  async fetchAndPrepareQuestion(
+    params: {
+      questionIndex: number;
+      totalQuestions: number;
+      quizId: string;
+    },
+    restoreSessionSelections: (questionIndex: number) => void
+  ): Promise<FetchQuestionResult> {
+    const { questionIndex, totalQuestions, quizId } = params;
+    const empty: FetchQuestionResult = {
+      success: false,
+      question: null,
+      currentQuestion: null,
+      trimmedText: '',
+      clonedOptions: [],
+      finalOptions: [],
+      explanationText: '',
+      isAnswered: false,
+      questionPayload: null,
+      shouldStartTimer: false,
+    };
+
+    try {
+      if (isNaN(questionIndex) || questionIndex < 0 || questionIndex >= totalQuestions) {
+        return empty;
+      }
+
+      restoreSessionSelections(questionIndex);
+
+      const [fetchedQuestion, fetchedOptions] = await Promise.all([
+        this.quizQuestionDataService.fetchQuestionDetails(questionIndex),
+        firstValueFrom(
+          this.quizService.getCurrentOptions(questionIndex).pipe(take(1))
+        )
+      ]);
+
+      if (
+        !fetchedQuestion ||
+        !fetchedQuestion.questionText?.trim() ||
+        !Array.isArray(fetchedOptions) ||
+        fetchedOptions.length === 0
+      ) {
+        console.error(`[Q${questionIndex}] Missing question or options`);
+        return empty;
+      }
+
+      this.explanationTextService.setResetComplete(false);
+      this.explanationTextService.setShouldDisplayExplanation(false);
+      this.explanationTextService.explanationText$.next('');
+
+      const trimmedText = (fetchedQuestion?.questionText ?? '').trim() || 'No question available';
+
+      const hydratedOptions = fetchedOptions.map((opt, idx) => ({
+        ...opt,
+        optionId: opt.optionId ?? idx,
+        correct: opt.correct ?? false,
+        feedback: opt.feedback ?? `The correct options are: ${opt.text}`
+      }));
+
+      const finalOptions = this.quizService.quizOptions.assignOptionActiveStates(hydratedOptions, false);
+      const clonedOptions = structuredClone?.(finalOptions) ?? JSON.parse(JSON.stringify(finalOptions));
+
+      const quizIdForState = quizId || this.quizService.quizId || 'default-quiz';
+      const questionState = this.quizStateService.getQuestionState(quizIdForState, questionIndex);
+      const optionIdSet = new Set(
+        clonedOptions
+          .map((opt: Option) => opt.optionId)
+          .filter((id: any): id is number => typeof id === 'number')
+      );
+      const selectedOptions = this.selectedOptionService.getSelectedOptionsForQuestion(questionIndex);
+      const validSelections = (selectedOptions ?? []).filter((opt) =>
+        optionIdSet.has(opt.optionId ?? -1)
+      );
+
+      let isAnswered = validSelections.length > 0;
+      if (!isAnswered && questionState?.isAnswered) {
+        this.quizStateService.setQuestionState(quizIdForState, questionIndex, {
+          ...questionState,
+          isAnswered: false,
+          explanationDisplayed: false
+        });
+        this.selectedOptionService.clearSelectionsForQuestion(questionIndex);
+        this.selectedOptionService.setAnswered(false, true);
+      }
+
+      if (isAnswered) {
+        this.quizStateService.setAnswered(true);
+        this.selectedOptionService.setAnswered(true, true);
+      } else {
+        this.quizStateService.setAnswered(false);
+        this.selectedOptionService.setAnswered(false, true);
+      }
+
+      this.quizStateService.setDisplayState({
+        mode: isAnswered ? 'explanation' : 'question',
+        answered: isAnswered
+      });
+
+      const question: QuizQuestion = {
+        questionText: fetchedQuestion.questionText,
+        explanation: fetchedQuestion.explanation ?? '',
+        options: clonedOptions,
+        type: fetchedQuestion.type ?? QuestionType.SingleAnswer
+      };
+      const currentQuestion = { ...question };
+
+      this.quizService.emitQuestionAndOptions(currentQuestion, clonedOptions, questionIndex);
+
+      this.quizService.questionPayloadSubject.next({
+        question: currentQuestion,
+        options: clonedOptions,
+        explanation: currentQuestion.explanation ?? ''
+      });
+
+      this.quizStateService.qaSubject.next({
+        question: currentQuestion,
+        options: structuredClone(clonedOptions),
+        explanation: currentQuestion.explanation ?? '',
+        quizId: this.quizService.quizId ?? 'default-id',
+        index: questionIndex,
+        heading: currentQuestion.questionText ?? 'Untitled Question',
+        selectionMessage: this.selectionMessageService.getCurrentMessage()
+      });
+
+      let explanationText = '';
+      const shouldStartTimer = !isAnswered;
+
+      if (isAnswered) {
+        const correctIndices = this.explanationTextService.getCorrectOptionIndices(
+          fetchedQuestion,
+          finalOptions,
+          questionIndex
+        );
+        const rawExplanation = fetchedQuestion.explanation?.trim() || 'No explanation available';
+        explanationText = this.explanationTextService.formatExplanation(
+          fetchedQuestion,
+          correctIndices,
+          rawExplanation
+        );
+
+        this.explanationTextService.storeFormattedExplanation(
+          questionIndex,
+          explanationText,
+          fetchedQuestion,
+          finalOptions,
+          true
+        );
+        this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
+      } else {
+        this.selectionMessageService.forceBaseline(questionIndex);
+        await this.selectionMessageService.setSelectionMessage(false);
+      }
+
+      this.quizService.setCurrentQuestion(currentQuestion);
+      this.quizService.setCurrentQuestionIndex(questionIndex);
+      this.quizStateService.updateCurrentQuestion(currentQuestion);
+
+      const liveSelections = this.selectedOptionService.getSelectedOptionsForQuestion(questionIndex) ?? [];
+      const hasUserAnswersForQuestion =
+        Array.isArray(this.quizService.userAnswers?.[questionIndex]) &&
+        this.quizService.userAnswers[questionIndex].length > 0;
+      const savedIndexRaw = localStorage.getItem('savedQuestionIndex');
+      const isFreshStartAtQ1 =
+        questionIndex === 0 &&
+        this.quizService.questionCorrectness.size === 0 &&
+        (savedIndexRaw == null || String(savedIndexRaw).trim() === '0');
+
+      if (isFreshStartAtQ1 && liveSelections.length === 0 && !hasUserAnswersForQuestion) {
+        this.quizService.questionCorrectness.delete(questionIndex);
+        this.quizService.sendCorrectCountToResults(0);
+      } else {
+        await this.quizService.checkIfAnsweredCorrectly(questionIndex, false);
+      }
+
+      const questionPayload: QuestionPayload = {
+        question: currentQuestion,
+        options: clonedOptions,
+        explanation: explanationText
+      };
+
+      return {
+        success: true,
+        question,
+        currentQuestion,
+        trimmedText,
+        clonedOptions,
+        finalOptions,
+        explanationText,
+        isAnswered,
+        questionPayload,
+        shouldStartTimer,
+      };
+    } catch (error: any) {
+      console.error(`[fetchAndSetQuestionData] Error at Q${questionIndex}:`, error);
+      return empty;
+    }
+  }
+
+  async loadQuestionByRoute(params: {
+    routeIndex: number;
+    quiz: any;
+    quizId: string;
+    totalQuestions: number;
+  }): Promise<RouteQuestionResult> {
+    const { routeIndex, quiz, quizId, totalQuestions } = params;
+    const empty: RouteQuestionResult = {
+      success: false,
+      question: null,
+      questionText: '',
+      optionsWithIds: [],
+      questionIndex: 0,
+      totalCount: 0,
+    };
+
+    if (!quiz || !quiz.questions) {
+      console.error('[loadQuestionByRouteIndex] Quiz data is missing.');
+      return empty;
+    }
+
+    if (isNaN(routeIndex) || routeIndex < 1 || routeIndex > quiz.questions.length) {
+      return { ...empty, questionIndex: -1 };
+    }
+
+    const questionIndex = routeIndex - 1;
+
+    if (questionIndex < 0 || questionIndex >= quiz.questions.length) {
+      console.error('[loadQuestionByRouteIndex] Question index out of bounds:', questionIndex);
+      return empty;
+    }
+
+    this.quizService.setCurrentQuestionIndex(questionIndex);
+
+    const totalCount = totalQuestions > 0 ? totalQuestions : (quiz.questions?.length || 0);
+    if (totalCount > 0 && questionIndex >= 0) {
+      this.quizService.updateBadgeText(questionIndex + 1, totalCount);
+    }
+
+    const question = await firstValueFrom(this.quizService.getQuestionByIndex(questionIndex));
+
+    if (!question) {
+      console.error(`[loadQuestionByRouteIndex] Failed to load Q${questionIndex}`);
+      return empty;
+    }
+
+    this.quizQuestionDataService.forceRegenerateExplanation(question, questionIndex);
+
+    const questionText = question.questionText?.trim() ?? 'No question available';
+
+    const optionsWithIds = this.quizService.quizOptions.assignOptionIds(
+      question.options || [],
+      questionIndex
+    ).map((option, index) => ({
+      ...option,
+      feedback: 'Loading feedback...',
+      showIcon: option.showIcon ?? false,
+      active: option.active ?? true,
+      selected: option.selected ?? false,
+      correct: !!option.correct,
+      optionId:
+        typeof option.optionId === 'number' && !isNaN(option.optionId)
+          ? option.optionId
+          : index + 1
+    }));
+
+    return {
+      success: true,
+      question,
+      questionText,
+      optionsWithIds,
+      questionIndex,
+      totalCount,
+    };
+  }
+
+  async fetchQuestionFromAPI(
+    quizId: string,
+    questionIndex: number
+  ): Promise<QuizQuestion | null> {
+    if (!quizId || quizId.trim() === '') {
+      console.error('Quiz ID is required but not provided.');
+      return null;
+    }
+
+    try {
+      const result = await firstValueFrom(
+        of(
+          this.quizDataService.fetchQuestionAndOptionsFromAPI(
+            quizId,
+            questionIndex
+          )
+        )
+      );
+
+      if (!result) {
+        console.error('No valid question found');
+        return null;
+      }
+
+      const [question, options] = result ?? [null, null];
+      if (!question) return null;
+
+      return {
+        ...question,
+        options: options?.map((option: Option) => ({
+          ...option,
+          correct: option.correct ?? false
+        })) ?? question.options
+      };
+    } catch (error: any) {
+      console.error('Error fetching question and options:', error);
+      return null;
+    }
+  }
+
+  async loadQuizDataFromService(quizId: string): Promise<{
+    quiz: Quiz;
+    questions: QuizQuestion[];
+  } | null> {
+    try {
+      const questions = await this.quizService.fetchQuizQuestions(quizId);
+      if (!questions || questions.length === 0) {
+        console.error('Quiz has no questions or failed to load via QuizService.');
+        return null;
+      }
+
+      const quiz = await firstValueFrom(
+        this.quizDataService.getQuiz(quizId).pipe(take(1))
+      );
+      if (!quiz) {
+        console.error('Quiz metadata not found.');
+        return null;
+      }
+
+      return { quiz, questions };
+    } catch (error: any) {
+      console.error('Error loading quiz data:', error);
+      return null;
+    }
+  }
+
+  fetchAndSubscribeQuestionAndOptions(quizId: string, questionIndex: number): void {
+    if (document.hidden) {
+      return;
+    }
+
+    if (!quizId || quizId.trim() === '') {
+      console.error('Quiz ID is required but not provided.');
+      return;
+    }
+
+    if (questionIndex < 0) {
+      console.error(`Invalid question index: ${questionIndex}`);
+      return;
+    }
+
+    this.quizDataService.getQuestionAndOptions(quizId, questionIndex)
+      .pipe(
+        map((data: any): [QuizQuestion | null, Option[] | null] => {
+          return Array.isArray(data)
+            ? (data as [QuizQuestion | null, Option[] | null])
+            : [null, null];
+        }),
+        catchError(
+          (error: Error): Observable<[QuizQuestion | null, Option[] | null]> => {
+            console.error('Error fetching question and options:', error);
+            return of<[QuizQuestion | null, Option[] | null]>([null, null]);
+          }
+        )
+      )
+      .subscribe({
+        next: ([question, options]: [QuizQuestion | null, Option[] | null]) => {
+          if (question && options) {
+            this.quizStateService.updateCurrentQuizState(of(question));
+          } else {
+          }
+        },
+        error: (error: Error) => {
+          console.error('Subscription error:', error);
+        }
+      });
+  }
+}
