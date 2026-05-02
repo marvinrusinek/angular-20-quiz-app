@@ -523,13 +523,6 @@ export class SelectedOptionService {
     this.feedbackState.clearFeedbackSignal();
   }
 
-  // Resets the internal selection state for the current view, but DOES NOT 
-  // wipe persistence/history.
-  resetCurrentSelection(): void {
-    this.selectedOption = [];
-    this.selectedOptionSig.set([]);
-  }
-
   clearOptions(): void {
     this.selectedOptionSig.set([]);
     this.feedbackState.clearAll();
@@ -775,10 +768,6 @@ export class SelectedOptionService {
 
   getAnsweredState(): boolean {
     return this.isAnsweredSig();
-  }
-
-  resetSelectedOption(): void {
-    this.isOptionSelectedSig.set(false);
   }
 
   resetSelectionState(): void {
