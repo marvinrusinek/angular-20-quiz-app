@@ -349,7 +349,10 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
 
     if (!question) return false;
     const selected = this.selectedOptionService.getSelectedOptionsForQuestion(this.currentQuestionIndex) ?? [];
-    return selected.length > 0;
+    if (selected.length > 0) return true;
+
+    // Also show Results button when timer expired on last question without an answer
+    return this.dotStatusService.timerExpiredUnanswered.has(this.currentQuestionIndex);
   }
 
   public handleQuizQuestionEvent(event: QuizQuestionEvent): void {
