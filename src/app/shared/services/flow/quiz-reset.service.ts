@@ -70,6 +70,13 @@ export class QuizResetService {
     });
 
     queueMicrotask(postBindingCallback);
+
+    // Re-assert START message after all async reset triggers have settled.
+    // Without this, question-loading code may overwrite the message with a
+    // stale "Next button" value before the UI renders.
+    setTimeout(() => {
+      this.selectionMessageService.resetAll();
+    }, 0);
   }
 
 
