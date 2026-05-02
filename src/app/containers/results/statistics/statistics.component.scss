@@ -65,11 +65,15 @@
 }
 
 // Mobile Responsiveness for Grid
-@media (max-width: 650px) {
+@media (max-width: 600px) {
   .score-grid {
     grid-template-columns: 1fr; // Stack vertically on small screens
     gap: 24px;
-    padding: 24px;
+    padding: 16px;
+  }
+
+  .circular-score .score-value .percentage {
+    font-size: 34px;
   }
 }
 

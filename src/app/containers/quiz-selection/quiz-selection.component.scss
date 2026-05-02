@@ -249,8 +249,8 @@
   }
 }
 
-/* Extra small devices (portrait phones, less than 576px) */
-@media (max-width: 576px) {
+/* Extra small devices (portrait phones, max 600px) */
+@media (max-width: 600px) {
   .container {
     position: relative;
     width: 100% !important;

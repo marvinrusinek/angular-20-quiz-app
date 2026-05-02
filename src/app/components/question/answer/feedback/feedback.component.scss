@@ -136,14 +136,8 @@
       padding: 8px 15px 8px 10px !important;
     }
 
-    .feedback-message.correct-message mat-icon {
-      margin-left: 5px !important;
-    }
-
-    .correct-icon {
-      margin-left: 5px !important;
-    }
-
+    .feedback-message.correct-message mat-icon,
+    .correct-icon,
     .wrong-icon {
       margin-left: 0 !important;
     }

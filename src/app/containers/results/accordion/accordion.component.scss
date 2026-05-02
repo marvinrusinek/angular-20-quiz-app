@@ -171,8 +171,31 @@ mat-accordion {
   }
 
   .quiz-summary-question {
-    padding: 2px !important;
+    padding: 8px 4px !important;
     margin-left: 0 !important;
     margin-right: 0 !important;
+    margin-bottom: 12px !important;
+  }
+
+  .summary-header {
+    margin-left: 0 !important;
+    text-align: center;
+  }
+
+  mat-accordion {
+    .quiz-summary-question ul.quiz-summary-fields {
+      margin-left: 0 !important;
+      padding-left: 8px !important;
+
+      li {
+        margin-left: 0 !important;
+        word-break: break-word;
+        overflow-wrap: break-word;
+
+        .leader {
+          margin-left: 0 !important;
+        }
+      }
+    }
   }
 }
