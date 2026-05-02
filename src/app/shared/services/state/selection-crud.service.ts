@@ -363,7 +363,6 @@ export class SelectionCrudService {
   }
 
   // ── setSelectedOptions ──────────────────────────────────────
-
   setSelectedOptions(host: Host, options: SelectedOption[]): void {
     const normalizedOptions = Array.isArray(options)
       ? options.filter(Boolean)
