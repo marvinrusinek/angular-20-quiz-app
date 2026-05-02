@@ -6,8 +6,6 @@ import {
 import {
   auditTime, distinctUntilChanged, filter, map, shareReplay
 } from 'rxjs/operators';
-import _, { isEqual } from 'lodash';
-
 import { QUIZ_DATA } from '../../quiz';
 import { QuizStatus } from '../../models/quiz-status.enum';
 import { FinalResult } from '../../models/Final-Result.model';
@@ -33,7 +31,7 @@ import { QuizSessionManagerService } from './quiz-session-manager.service';
 export class QuizService {
   currentQuestionIndex = 0;
   activeQuiz: Quiz | null = null;
-  quizInitialState: Quiz[] = _.cloneDeep(QUIZ_DATA);
+  quizInitialState: Quiz[] = structuredClone(QUIZ_DATA);
   quizData: Quiz[] | null = this.quizInitialState;
   data: {
     questionText: string,
@@ -498,7 +496,7 @@ export class QuizService {
     if (!question) return;
 
     const previousQuestion = this.currentQuestion.getValue();
-    if (previousQuestion && question && isEqual(previousQuestion, question)) return;
+    if (previousQuestion && question && JSON.stringify(previousQuestion) === JSON.stringify(question)) return;
     if (!Array.isArray(question.options) || question.options.length === 0) return;
 
     const updatedOptions = question.options.map((option, index) => ({
@@ -812,7 +810,7 @@ export class QuizService {
       (quiz) => quiz.quizId === this.quizId
     );
     if (currentQuizData) {
-      this.quizData = _.cloneDeep([currentQuizData]);
+      this.quizData = structuredClone([currentQuizData]);
       this.questions = currentQuizData.questions ?? [];
       this.setCurrentQuestionIndex(0);
     } else {

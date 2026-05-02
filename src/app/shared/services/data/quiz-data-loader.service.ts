@@ -8,8 +8,6 @@ import {
 import {
   distinctUntilChanged, filter, map, take
 } from 'rxjs/operators';
-import _ from 'lodash';
-
 import { QUIZ_DATA, QUIZ_RESOURCES } from '../../quiz';
 import { QuestionType } from '../../models/question-type.enum';
 import { Option } from '../../models/Option.model';
@@ -23,8 +21,8 @@ import { Utils } from '../../utils/utils';
 
 @Injectable({ providedIn: 'root' })
 export class QuizDataLoaderService {
-  quizInitialState: Quiz[] = _.cloneDeep(QUIZ_DATA);
-  quizData: Quiz[] | null = _.cloneDeep(QUIZ_DATA);
+  quizInitialState: Quiz[] = structuredClone(QUIZ_DATA);
+  quizData: Quiz[] | null = structuredClone(QUIZ_DATA);
   private _quizData$ = new BehaviorSubject<Quiz[]>([]);
   quizResources: QuizResource[] = [];
   resources: Resource[] = [];
@@ -91,7 +89,7 @@ export class QuizDataLoaderService {
       this.quizData = [];
     } else {
       // Deep-clone so gameplay mutations never propagate back to QUIZ_DATA
-      this.quizData = _.cloneDeep(QUIZ_DATA);
+      this.quizData = structuredClone(QUIZ_DATA);
     }
 
     let questions: QuizQuestion[] = [];
@@ -101,7 +99,7 @@ export class QuizDataLoaderService {
     if (this.quizData.length > 0) {
       // Always clone from the ORIGINAL QUIZ_DATA constant — never from
       // this.quizData which may carry mutations from prior quiz runs.
-      this.quizInitialState = _.cloneDeep(QUIZ_DATA);
+      this.quizInitialState = structuredClone(QUIZ_DATA);
       let selectedQuiz = quizId
         ? this.quizData.find((quiz) => quiz.quizId === quizId)
         : undefined;

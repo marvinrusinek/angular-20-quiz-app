@@ -149,14 +149,16 @@ Mixed approaches across services:
 
 ### 10. Unnecessary/Redundant Dependencies
 
-| Completeness | Not started |
+| Completeness | Done — 8 packages removed, ~24 kB transfer-size reduction |
 |:--|:--|
 
-| Dependency | Issue |
-|-----------|-------|
-| `lodash` | Only used in `quiz.service.ts` for `cloneDeep()` and `isEqual()` - replace with native `structuredClone()` and utility function |
-| `bootstrap` | Included alongside Angular Material - likely redundant |
-| `@ionic/angular` | In devDependencies but not used in app code |
+| Dependency | Resolution |
+|-----------|------------|
+| `lodash` + `@types/lodash` | Removed. 6× `_.cloneDeep` → `structuredClone` (built-in), 1× `isEqual` → `JSON.stringify` compare for plain `QuizQuestion` data. Cleaned `quiz.service.ts` and `quiz-data-loader.service.ts`. |
+| `bootstrap` | Removed. No imports anywhere — Angular Material already covers UI. |
+| `@ionic/angular` | Removed. Not imported anywhere in `src/`. |
+
+Stale `src/package.json` (Angular 18 versions) also cleaned to match. Type-check + full build pass.
 
 ### 11. Angular CLI Version Mismatch
 
@@ -230,14 +232,14 @@ Ordered by impact + effort. Active work first, completed at bottom.
 
 | # | Task | Effort | Completed |
 |---|------|:------:|:---------:|
-| 1 | **Remove unused dependencies** (lodash, bootstrap, @ionic/angular) — quick win, smaller bundle | Low | No |
-| 2 | **Update Angular CLI** to version 20.x — fixes 19.1.7 ↔ 20.3.8 mismatch | Low | No |
-| 3 | **Consolidate duplicate services** (`quizquestionloader` vs `qqc-question-loader`) | Medium | No |
-| 4 | **Create StorageService** abstraction for localStorage/sessionStorage (25+ sites) | Medium | No |
-| 5 | **Split remaining >1000-line services** (5 files: quizquestionloader, explanation-display-state, qqc-option-selection, quiz.service, plus shared/quiz data) | High | No |
-| 6 | **Split large components** (shared-option 741, option-item 729, answer 696, quiz-question 585) | High | No |
-| 7 | **Add unit tests** for core services, guards, and pipes — production-readiness blocker | High | No |
-| 8 | **Extract hardcoded quiz data** from bundle to external file or API | High | No |
+| 1 | **Update Angular CLI** to version 20.x — fixes 19.1.7 ↔ 20.3.8 mismatch | Low | No |
+| 2 | **Consolidate duplicate services** (`quizquestionloader` vs `qqc-question-loader`) | Medium | No |
+| 3 | **Create StorageService** abstraction for localStorage/sessionStorage (25+ sites) | Medium | No |
+| 4 | **Split remaining >1000-line services** (5 files: quizquestionloader, explanation-display-state, qqc-option-selection, quiz.service, plus shared/quiz data) | High | No |
+| 5 | **Split large components** (shared-option 741, option-item 729, answer 696, quiz-question 585) | High | No |
+| 6 | **Add unit tests** for core services, guards, and pipes — production-readiness blocker | High | No |
+| 7 | **Extract hardcoded quiz data** from bundle to external file or API | High | No |
+| — | **Remove unused dependencies** — lodash, bootstrap, @ionic/angular removed; 8 packages dropped, ~24 kB smaller bundle | — | Yes |
 | — | **Remove deprecated APIs** — all 5 `@deprecated` markers removed, callers migrated, type-check passes | — | Yes |
 | — | **Split oversized services (>1200 lines)** — 7/7 split | — | Yes |
 | — | **Remove or gate console logging** (1,133 → 1) | — | Yes |
