@@ -1,5 +1,4 @@
 import { Injectable, signal } from '@angular/core';
-import { toObservable } from '@angular/core/rxjs-interop';
 import { Observable, of } from 'rxjs';
 
 import { Option } from '../../models/Option.model';
@@ -9,8 +8,6 @@ import { QuizQuestion } from '../../models/QuizQuestion.model';
 export class QuizQuestionManagerService {
   /** Signal-first source of truth for explanation display state */
   readonly shouldDisplayExplanationSig = signal<boolean>(false);
-  /** @deprecated Use shouldDisplayExplanationSig instead */
-  shouldDisplayExplanation$ = toObservable(this.shouldDisplayExplanationSig);
 
   private readonly explanationTextSig = signal<string | null>(null);
 

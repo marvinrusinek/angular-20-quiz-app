@@ -95,8 +95,11 @@ export class QuizService {
 
   correctAnswers: Map<string, number[]> = new Map<string, number[]>();
 
-  public get correctAnswersCountSubject(): BehaviorSubject<number> {
-    return this.scoringService.correctAnswersCountSubject;
+  public get correctAnswersCount$(): Observable<number> {
+    return this.scoringService.correctAnswersCount$;
+  }
+  public get correctAnswersCountSig() {
+    return this.scoringService.correctAnswersCountSig;
   }
 
   private readonly correctAnswersCountTextSig = signal<string>(

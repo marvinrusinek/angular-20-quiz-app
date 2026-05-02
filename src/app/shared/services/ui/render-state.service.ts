@@ -11,8 +11,7 @@ import { QuizService } from '../data/quiz.service';
 export class RenderStateService {
   /** Signal-first source of truth */
   readonly optionsToDisplaySig = signal<Option[]>([]);
-  /** @deprecated Use optionsToDisplaySig instead */
-  public optionsToDisplay$ = toObservable(this.optionsToDisplaySig);
+  private readonly optionsToDisplay$ = toObservable(this.optionsToDisplaySig);
 
   private readonly combinedQuestionDataSig = signal<{
     question: QuizQuestion;

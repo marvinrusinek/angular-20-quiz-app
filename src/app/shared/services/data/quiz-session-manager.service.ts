@@ -371,7 +371,6 @@ export class QuizSessionManagerService {
     state.optionsSource.next([]);
     state.questionPayloadSubject.next(null);
     this.scoringService.correctAnswersCountSig.set(0);
-    this.scoringService.correctAnswersCountSubject.next(0);
     state.userAnswers = [];
     try { localStorage.removeItem('userAnswers'); } catch { }
     state.badgeTextSource.next('');

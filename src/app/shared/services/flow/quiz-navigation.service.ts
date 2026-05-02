@@ -49,7 +49,6 @@ export class QuizNavigationService {
     this.navigationToQuestionSubject.asObservable();
   /** Signal-first source of truth for backward-navigation state */
   readonly isNavigatingToPreviousSig = signal<boolean>(false);
-  /** @deprecated Use isNavigatingToPreviousSig instead */
   private readonly isNavigatingToPrevious$ = toObservable(this.isNavigatingToPreviousSig);
 
   private explanationResetSubject = new Subject<void>();

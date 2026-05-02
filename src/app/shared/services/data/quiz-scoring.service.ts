@@ -1,6 +1,5 @@
 import { computed, Injectable, Injector, signal } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
-import { BehaviorSubject } from 'rxjs';
 
 import { QUIZ_DATA } from '../../quiz';
 import { QuizScore } from '../../models/QuizScore.model';
@@ -20,9 +19,6 @@ export class QuizScoringService {
 
   public readonly correctAnswersCountSig = signal<number>(0);
   public readonly correctAnswersCount$ = toObservable(this.correctAnswersCountSig);
-
-  /** @deprecated Use correctAnswersCountSig / correctAnswersCount$ instead */
-  public correctAnswersCountSubject = new BehaviorSubject<number>(0);
 
   // Tracks confirmed correct clicks per question. Each call to recordCorrectClick
   // adds the option text; the pristine gate only allows scoring when the count
@@ -242,7 +238,6 @@ export class QuizScoringService {
       if (trueCount > 0) {
         this.correctCountSig.set(trueCount);
         this.correctAnswersCountSig.set(trueCount);
-        this.correctAnswersCountSubject.next(trueCount);
         localStorage.setItem('correctAnswersCount', String(trueCount));
         if (quizId) {
           localStorage.setItem(this.scoreQuizIdStorageKey, quizId);
@@ -253,7 +248,6 @@ export class QuizScoringService {
 
     this.correctCountSig.set(safeValue);
     this.correctAnswersCountSig.set(safeValue);
-    this.correctAnswersCountSubject.next(safeValue);
     localStorage.setItem('correctAnswersCount', String(safeValue));
     if (quizId) {
       localStorage.setItem(this.scoreQuizIdStorageKey, quizId);
@@ -278,7 +272,6 @@ export class QuizScoringService {
     const safeValue = Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
     this.correctCountSig.set(safeValue);
     this.correctAnswersCountSig.set(safeValue);
-    this.correctAnswersCountSubject.next(safeValue);
     localStorage.setItem('correctAnswersCount', String(safeValue));
     if (quizId) {
       localStorage.setItem(this.scoreQuizIdStorageKey, quizId);
@@ -340,7 +333,6 @@ export class QuizScoringService {
       if (shouldWipe) {
         this.correctCountSig.set(0);
         this.correctAnswersCountSig.set(0);
-        this.correctAnswersCountSubject.next(0);
         this.questionCorrectness.clear();
         this.saveQuestionCorrectness();
         localStorage.setItem('correctAnswersCount', '0');
@@ -351,7 +343,6 @@ export class QuizScoringService {
       const restored = Math.max(safeStored, mapTrueCount);
       this.correctCountSig.set(restored);
       this.correctAnswersCountSig.set(restored);
-      this.correctAnswersCountSubject.next(restored);
       localStorage.setItem('correctAnswersCount', String(restored));    } catch (err) {    }
   }
 

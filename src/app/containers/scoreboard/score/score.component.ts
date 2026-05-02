@@ -22,10 +22,7 @@ export class ScoreComponent implements OnInit {
   private readonly scoreDisplayStorageKey = 'scoreDisplayType';
 
   // Source signals derived directly from QuizService streams.
-  private readonly correctAnswersCountSig = toSignal(
-    this.quizService.correctAnswersCountSubject,
-    { initialValue: 0 }
-  );
+  private readonly correctAnswersCountSig = this.quizService.correctAnswersCountSig;
   private readonly questionsSig = toSignal(
     this.quizService.questions$,
     { initialValue: [] as QuizQuestion[] }

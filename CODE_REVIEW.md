@@ -105,15 +105,15 @@ All diagnostic console.warn/log/info/error removed across 65 files (~293 stateme
 
 ### 6. Deprecated APIs Still Present
 
-| Completeness | Not started — 9 deprecated members remain |
+| Completeness | Done — all `@deprecated` markers removed, type-check passes |
 |:--|:--|
 
-- `quiz-scoring.service.ts` - `correctAnswerCount` (use `correctAnswersCountSig`)
-- `selection-message.service.ts` - `selectionMessage$` (use `selectionMessageSig`)
-- `quiz-navigation.service.ts` - `isNavigatingToPrevious$` (use `isNavigatingToPreviousSig`)
-- `quizquestionloader.service.ts` - 3 deprecated properties
-- `quizquestionmgr.service.ts` - `shouldDisplayExplanationSub`
-- `render-state.service.ts` - `optionsToDisplaySub`
+Removed:
+- `quiz-scoring.service.ts` — `correctAnswersCountSubject` deleted; 5 callers migrated to `correctAnswersCountSig` / `correctAnswersCount$` (passthroughs added on `quiz.service.ts`)
+- `selection-message.service.ts` — `selectionMessageSubject` deleted (3 internal `.next()` calls already paired with `.set()`)
+- `quiz-navigation.service.ts` — `isNavigatingToPrevious$` `@deprecated` JSDoc removed (field is private; backs the `getIsNavigatingToPrevious()` Observable used by 3 callers via `combineLatest`/`subscribe`)
+- `quizquestionmgr.service.ts` — `shouldDisplayExplanation$` deleted (no external callers)
+- `render-state.service.ts` — `optionsToDisplay$` made private (only used internally in `setupRenderGateSync`)
 
 ### 7. Circular Dependency Risks
 
@@ -226,17 +226,19 @@ Angular CLI is 19.1.7 but the build tool is 20.3.8. Update CLI to 20.x.
 
 ## Refactoring Priority
 
-| # | Task | Completeness |
-|---|------|:------------:|
-| 1 | **Split oversized services (>1200 lines)** | Done (7/7 split) |
-| 2 | **Remove or gate console logging** (1,133 → 1) | Done |
-| 3 | **Add unit tests** for core services, guards, and pipes | Not started |
-| 4 | **Consolidate duplicate services** (`quizquestionloader` vs `qqc-question-loader`) | Not started |
-| 5 | **Remove deprecated APIs** (9 remaining) | Not started |
-| 6 | **Split remaining >1000-line services** (5 files) | Not started |
-| 7 | **Split large components** (shared-option, option-item, answer, quiz-question) | Not started |
-| 8 | **Create StorageService** abstraction for localStorage/sessionStorage | Not started |
-| 9 | **Remove unused dependencies** (lodash, bootstrap, @ionic/angular) | Not started |
-| 10 | **Update Angular CLI** to version 20.x | Not started |
-| 11 | **Extract hardcoded quiz data** from bundle to external file or API | Not started |
-| 12 | **Mobile responsiveness** | Done |
+Ordered by impact + effort. Active work first, completed at bottom.
+
+| # | Task | Effort | Completed |
+|---|------|:------:|:---------:|
+| 1 | **Remove unused dependencies** (lodash, bootstrap, @ionic/angular) — quick win, smaller bundle | Low | No |
+| 2 | **Update Angular CLI** to version 20.x — fixes 19.1.7 ↔ 20.3.8 mismatch | Low | No |
+| 3 | **Consolidate duplicate services** (`quizquestionloader` vs `qqc-question-loader`) | Medium | No |
+| 4 | **Create StorageService** abstraction for localStorage/sessionStorage (25+ sites) | Medium | No |
+| 5 | **Split remaining >1000-line services** (5 files: quizquestionloader, explanation-display-state, qqc-option-selection, quiz.service, plus shared/quiz data) | High | No |
+| 6 | **Split large components** (shared-option 741, option-item 729, answer 696, quiz-question 585) | High | No |
+| 7 | **Add unit tests** for core services, guards, and pipes — production-readiness blocker | High | No |
+| 8 | **Extract hardcoded quiz data** from bundle to external file or API | High | No |
+| — | **Remove deprecated APIs** — all 5 `@deprecated` markers removed, callers migrated, type-check passes | — | Yes |
+| — | **Split oversized services (>1200 lines)** — 7/7 split | — | Yes |
+| — | **Remove or gate console logging** (1,133 → 1) | — | Yes |
+| — | **Mobile responsiveness** | — | Yes |

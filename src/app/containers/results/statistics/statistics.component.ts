@@ -89,7 +89,7 @@ export class StatisticsComponent implements OnInit {
     this.quizMetadata.set({
       totalQuestions: this.quizService.totalQuestions,
       totalQuestionsAttempted: this.quizService.totalQuestions,
-      correctAnswersCount$: this.quizService.correctAnswersCountSubject,
+      correctAnswersCount$: this.quizService.correctAnswersCount$,
       percentage: this.calculatePercentageOfCorrectlyAnsweredQuestions(),
       completionTime: totalElapsedTime
     });
@@ -132,7 +132,7 @@ export class StatisticsComponent implements OnInit {
     if (total === 0) return 0; // Prevent NaN
 
     return Math.round(
-      (100 * this.quizService.correctAnswersCountSubject.getValue()) / total
+      (100 * this.quizService.correctAnswersCountSig()) / total
     );
   }
 

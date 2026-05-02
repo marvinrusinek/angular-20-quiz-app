@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { Observable } from 'rxjs';
 import { distinctUntilChanged } from 'rxjs/operators';
 
 import { QuestionType } from '../../../models/question-type.enum';
@@ -23,9 +23,6 @@ interface OptionSnapshot {
 
 @Injectable({ providedIn: 'root' })
 export class SelectionMessageService {
-  /** @deprecated Use selectionMessageSig instead */
-  public selectionMessageSubject = new BehaviorSubject<string>(START_MSG);
-
   // Signal-first source of truth
   readonly selectionMessageSig = signal<string>(START_MSG);
   public readonly selectionMessage$: Observable<string> =
@@ -75,7 +72,6 @@ export class SelectionMessageService {
     this._idMapByIndex.clear();
     this.optionsSnapshotSig.set([]);
     this.selectionMessageSig.set(START_MSG);
-    this.selectionMessageSubject.next(START_MSG);
   }
 
   private getQuestion(index: number): QuizQuestion | null {
@@ -199,7 +195,6 @@ export class SelectionMessageService {
     const prev = this.selectionMessageSig();
     if (prev !== newMsg) {
       this.selectionMessageSig.set(newMsg);
-      this.selectionMessageSubject.next(newMsg);
     }
   }
 
@@ -401,7 +396,6 @@ export class SelectionMessageService {
     const prev = this.selectionMessageSig();
     if (prev !== message) {
       this.selectionMessageSig.set(message);
-      this.selectionMessageSubject.next(message);
     }
   }
 }

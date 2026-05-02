@@ -1,5 +1,4 @@
 import { ChangeDetectionStrategy, Component, computed, OnInit, Signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { Observable, of } from 'rxjs';
@@ -23,10 +22,7 @@ export class ChallengeComponent implements OnInit {
   quizName$: Observable<string> = of('');
   currentQuizId = '';
 
-  private readonly correctAnswersCount: Signal<number> = toSignal(
-    this.quizService.correctAnswersCountSubject,
-    { initialValue: this.quizService.correctAnswersCountSubject.getValue() }
-  );
+  private readonly correctAnswersCount: Signal<number> = this.quizService.correctAnswersCountSig;
   readonly percentageCorrect = computed(() => {
     const total = this.quizService.totalQuestions;
     if (!total) return 0;
@@ -36,7 +32,7 @@ export class ChallengeComponent implements OnInit {
   quizMetadata: Partial<QuizMetadata> = {
     totalQuestions: this.quizService.totalQuestions,
     totalQuestionsAttempted: this.quizService.totalQuestions,
-    correctAnswersCount$: this.quizService.correctAnswersCountSubject,
+    correctAnswersCount$: this.quizService.correctAnswersCount$,
     percentage: this.percentageCorrect(),
     completionTime: this.timerService.calculateTotalElapsedTime(
       this.timerService.elapsedTimes

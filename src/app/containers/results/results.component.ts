@@ -107,7 +107,7 @@ export class ResultsComponent implements OnInit, OnDestroy {
 
     // If no snapshot exists, build one from current service state
     if (!snapshot && this.quizService.totalQuestions > 0) {
-      const correct = this.quizService.correctAnswersCountSubject.getValue();
+      const correct = this.quizService.correctAnswersCountSig();
       const total = this.quizService.totalQuestions;
       snapshot = {
         quizId: this.quizId() || this.quizService.quizId,
