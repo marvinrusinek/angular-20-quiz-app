@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, WritableSignal } from '@angular/core';
 import {
   BehaviorSubject, Observable, of
 } from 'rxjs';
@@ -62,7 +62,7 @@ export class QuizOptionsService {
   getOptions(
     index: number,
     getQuestionByIndex: (idx: number) => Observable<QuizQuestion | null>,
-    currentOptionsSubject: BehaviorSubject<Option[]>
+    currentOptionsSig: WritableSignal<Option[]>
   ): Observable<Option[]> {
     return getQuestionByIndex(index).pipe(
       map((question) => {
@@ -75,7 +75,7 @@ export class QuizOptionsService {
         return normalized.map(opt => deepClone(opt));
       }),
       tap(options => {
-        currentOptionsSubject.next(options);
+        currentOptionsSig.set(options);
       }),
       catchError(() => {
         return of([]);

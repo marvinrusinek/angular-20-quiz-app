@@ -127,7 +127,7 @@ export class QuizService {
   public currentQuestion$: Observable<QuizQuestion | null> =
     toObservable(this.currentQuestionSig);
 
-  currentOptionsSubject = new BehaviorSubject<Array<Option>>([]);
+  currentOptionsSig = signal<Option[]>([]);
   totalQuestionsSig = signal<number>(0);
   totalQuestions$: Observable<number> = toObservable(this.totalQuestionsSig);
 
@@ -412,7 +412,7 @@ export class QuizService {
     return this.optionsService.getOptions(
       index,
       (idx) => this.getQuestionByIndex(idx),
-      this.currentOptionsSubject
+      this.currentOptionsSig
     );
   }
 
