@@ -140,7 +140,7 @@ export class SharedOptionExplanationService {
 
     // Force display flags to TRUE
     this.explanationTextService.setIsExplanationTextDisplayed(true);
-    this.explanationTextService.shouldDisplayExplanationSig.set(true);
+    this.explanationTextService.shouldDisplayExplanationSource.next(true);
 
     this.pendingExplanationIndex = resolvedIndex;
     this.applyExplanationText(explanationText, resolvedIndex);

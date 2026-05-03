@@ -197,8 +197,8 @@ export class ExplanationTextService {
     return this.displayState.isExplanationTextDisplayed$;
   }
 
-  get shouldDisplayExplanationSig(): WritableSignal<boolean> {
-    return this.displayState.shouldDisplayExplanationSig;
+  get shouldDisplayExplanationSource(): BehaviorSubject<boolean> {
+    return this.displayState.shouldDisplayExplanationSource;
   }
 
   get shouldDisplayExplanation$(): Observable<boolean> {

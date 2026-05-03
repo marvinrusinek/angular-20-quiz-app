@@ -195,7 +195,7 @@ export class QqcExplanationManagerService {
       params.shouldDisplayExplanation ||
       params.explanationVisible ||
       params.displayExplanation ||
-      this.explanationTextService.shouldDisplayExplanationSig() ||
+      this.explanationTextService.shouldDisplayExplanationSource.getValue() ||
       questionState?.explanationDisplayed
     );
 

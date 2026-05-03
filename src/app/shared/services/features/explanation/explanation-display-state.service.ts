@@ -31,8 +31,8 @@ export class ExplanationDisplayStateService {
 
   private readonly isExplanationDisplayedSig = signal<boolean>(false);
 
-  shouldDisplayExplanationSig = signal<boolean>(false);
-  shouldDisplayExplanation$ = toObservable(this.shouldDisplayExplanationSig);
+  shouldDisplayExplanationSource = new BehaviorSubject<boolean>(false);
+  shouldDisplayExplanation$ = this.shouldDisplayExplanationSource.asObservable();
 
   private explanationTrigger = new Subject<void>();
 
@@ -95,7 +95,7 @@ export class ExplanationDisplayStateService {
   }
 
   get shouldDisplayExplanationSnapshot(): boolean {
-    return this.shouldDisplayExplanationSig() === true;
+    return this.shouldDisplayExplanationSource.getValue() === true;
   }
 
   constructor(
@@ -335,7 +335,7 @@ export class ExplanationDisplayStateService {
         this.latestExplanationIndex = null;
         this._fetLocked = false;
 
-        this.shouldDisplayExplanationSig.set(false);
+        this.shouldDisplayExplanationSource.next(false);
         this.isExplanationTextDisplayedSig.set(false);
       } catch (err) { }
 
@@ -576,11 +576,11 @@ export class ExplanationDisplayStateService {
 
     if (
       !options.force &&
-      aggregated === this.shouldDisplayExplanationSig()
+      aggregated === this.shouldDisplayExplanationSource.getValue()
     ) return;
 
     // Normal reactive push (this is your main subject)
-    this.shouldDisplayExplanationSig.set(aggregated);
+    this.shouldDisplayExplanationSource.next(aggregated);
 
     // Update Subject
     try {
@@ -592,7 +592,7 @@ export class ExplanationDisplayStateService {
 
   public triggerExplanationEvaluation(): void {
     const currentExplanation = this.getLatestFormattedExplanation();
-    const shouldShow = this.shouldDisplayExplanationSig();
+    const shouldShow = this.shouldDisplayExplanationSource.getValue();
 
     if (shouldShow && currentExplanation) {
       this.explanationTrigger.next();
@@ -652,7 +652,7 @@ export class ExplanationDisplayStateService {
     this.formatter.formattedExplanationSig.set('');
     this._fetSubject.next(undefined as any);
 
-    this.shouldDisplayExplanationSig.set(false);
+    this.shouldDisplayExplanationSource.next(false);
     this.isExplanationTextDisplayedSig.set(false);
     this.resetCompleteSig.set(false);
 
@@ -777,7 +777,7 @@ export class ExplanationDisplayStateService {
     // tab-switch + Next navigation. The original code had this line
     // muted (hidden in a same-line comment) and the app behaved
     // correctly without it.
-    this.shouldDisplayExplanationSig.set(true);
+    this.shouldDisplayExplanationSource.next(true);
     this.isExplanationTextDisplayedSig.set(true);
 
     // At this point, FET is computed and "ready" for this question
@@ -826,7 +826,7 @@ export class ExplanationDisplayStateService {
       ) {        return;
       }
       this.formatter.formattedExplanationSig.set(trimmed);
-      this.shouldDisplayExplanationSig.set(true);
+      this.shouldDisplayExplanationSource.next(true);
       this.isExplanationTextDisplayedSig.set(true);
 
       // FET now open and visible for this index

@@ -47,8 +47,8 @@ describe('ExplanationDisplayStateService', () => {
     expect(service.isExplanationTextDisplayedSig()).toBe(false);
   });
 
-  it('should have shouldDisplayExplanationSig with initial value of false', () => {
-    expect(service.shouldDisplayExplanationSig()).toBe(false);
+  it('should have shouldDisplayExplanationSource with initial value of false', () => {
+    expect(service.shouldDisplayExplanationSource.getValue()).toBe(false);
   });
 
   it('should have latestExplanation initialized to empty string', () => {
@@ -75,13 +75,13 @@ describe('ExplanationDisplayStateService', () => {
 
   // ── Getters / accessors ─────────────────────────────────────────────
 
-  it('shouldDisplayExplanationSnapshot should return current value of shouldDisplayExplanationSig', () => {
+  it('shouldDisplayExplanationSnapshot should return current value of shouldDisplayExplanationSource', () => {
     expect(service.shouldDisplayExplanationSnapshot).toBe(false);
 
-    service.shouldDisplayExplanationSig.set(true);
+    service.shouldDisplayExplanationSource.next(true);
     expect(service.shouldDisplayExplanationSnapshot).toBe(true);
 
-    service.shouldDisplayExplanationSig.set(false);
+    service.shouldDisplayExplanationSource.next(false);
     expect(service.shouldDisplayExplanationSnapshot).toBe(false);
   });
 
@@ -143,13 +143,13 @@ describe('ExplanationDisplayStateService', () => {
 
   it('resetExplanationText should clear all explanation state', () => {
     service.setExplanationText('Some explanation', { force: true, index: 0 });
-    service.shouldDisplayExplanationSig.set(true);
+    service.shouldDisplayExplanationSource.next(true);
     service.isExplanationTextDisplayedSig.set(true);
 
     service.resetExplanationText();
 
     expect(service.latestExplanation).toBe('');
-    expect(service.shouldDisplayExplanationSig()).toBe(false);
+    expect(service.shouldDisplayExplanationSource.getValue()).toBe(false);
     expect(service.isExplanationTextDisplayedSig()).toBe(false);
   });
 

@@ -269,7 +269,7 @@ export class QuizContentLoaderService {
         ets.latestExplanation = '';
         ets.latestExplanationIndex = null;
         ets.formattedExplanationSig.set('');
-        ets.shouldDisplayExplanationSig.set(false);
+        ets.shouldDisplayExplanationSource.next(false);
         ets.setIsExplanationTextDisplayed(false);
       }
     }
