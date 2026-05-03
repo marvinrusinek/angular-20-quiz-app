@@ -31,11 +31,20 @@ export class CqcFetGuardService {
     try {
       let safe = html ?? '';
 
+      // Live index — read from the input signal (sync-current). Using
+      // host.currentIndex (a plain field updated by an effect, lagging
+      // by a microtask) caused the TIMER-EXPIRY BYPASS below to fire
+      // for the PRIOR question on Next nav, writing its FET into qText.
+      const _liveIdxRaw = host.questionIndex?.();
+      const _liveIdx = (typeof _liveIdxRaw === 'number' && _liveIdxRaw >= 0)
+        ? _liveIdxRaw
+        : (host.currentIndex ?? -1);
+
       // TIMER-EXPIRY BYPASS: when the timer has expired for this question,
       // skip ALL FET gates — the explanation must display regardless of
       // whether the question is "scored correct" or "resolved".
       const _timedOutIdx = host.timedOutIdxSubject?.getValue?.() ?? -1;
-      const _curIdx = host.currentIndex ?? -1;
+      const _curIdx = _liveIdx;
       if (_timedOutIdx >= 0 && _timedOutIdx === _curIdx && safe.trim().length > 0) {
         const _qNorm = String(
           (host.quizService?.getQuestionsInDisplayOrder?.()?.[ _curIdx]?.questionText ?? '').trim()
@@ -68,11 +77,11 @@ export class CqcFetGuardService {
       // ════════════════════════════════════════════════════════════════
       try {
         const qsEarly: any = host.quizService;
-        const activeIdxEarly: number = host.currentIndex ?? (
-          Number.isFinite(qsEarly?.currentQuestionIndex)
+        const activeIdxEarly: number = (_liveIdx >= 0)
+          ? _liveIdx
+          : (Number.isFinite(qsEarly?.currentQuestionIndex)
             ? qsEarly.currentQuestionIndex
-            : (qsEarly?.getCurrentQuestionIndex?.() ?? 0)
-        );
+            : (qsEarly?.getCurrentQuestionIndex?.() ?? 0));
         const isShuffledEarly = qsEarly?.isShuffleEnabled?.()
           && Array.isArray(qsEarly?.shuffledQuestions)
           && qsEarly.shuffledQuestions.length > 0;
@@ -118,11 +127,11 @@ export class CqcFetGuardService {
 
         if (looksLikeFet) {
           const qs: any = host.quizService;
-          const activeIdx: number = host.currentIndex ?? (
-            Number.isFinite(qs?.currentQuestionIndex)
+          const activeIdx: number = (_liveIdx >= 0)
+            ? _liveIdx
+            : (Number.isFinite(qs?.currentQuestionIndex)
               ? qs.currentQuestionIndex
-              : (qs?.getCurrentQuestionIndex?.() ?? 0)
-          );
+              : (qs?.getCurrentQuestionIndex?.() ?? 0));
           const isShuffled = qs?.isShuffleEnabled?.()
             && Array.isArray(qs?.shuffledQuestions)
             && qs.shuffledQuestions.length > 0;
