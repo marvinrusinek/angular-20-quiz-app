@@ -36,16 +36,6 @@ export class QqcOptionSelectionService {
   ) {}
 
   /**
-   * Handles single-answer lock logic.
-   * Returns true if the click should be blocked (already selected).
-   */
-  handleSingleAnswerLock(isMultipleAnswer: boolean, isOptionSelected: boolean): boolean {
-    if (!isMultipleAnswer && isOptionSelected) {      return true;
-    }
-    return false;
-  }
-
-  /**
    * Handles option add/remove based on checked state.
    */
   updateOptionSelection(
@@ -102,31 +92,6 @@ export class QqcOptionSelectionService {
   }
 
   /**
-   * Initializes or retrieves the question state for a given index.
-   */
-  initializeQuestionState(quizId: string, questionIndex: number): QuestionState {
-    let questionState = this.quizStateService.getQuestionState(
-      quizId,
-      questionIndex
-    );
-
-    if (!questionState) {
-      questionState = {
-        isAnswered: false,
-        numberOfCorrectAnswers: 0,
-        selectedOptions: [],
-        explanationDisplayed: false,
-      };
-
-      this.quizStateService.setQuestionState(quizId, questionIndex, questionState);
-    } else {
-      questionState.isAnswered = false;
-    }
-
-    return questionState;
-  }
-
-  /**
    * Marks a question as answered in the quiz state.
    */
   markQuestionAsAnswered(
@@ -148,52 +113,6 @@ export class QqcOptionSelectionService {
     if (!this.quizStateService.isAnsweredSig()) {
       this.quizStateService.setAnswerSelected(true);
     }
-  }
-
-  /**
-   * Builds a SelectedOption from a question's options array at the given index.
-   */
-  buildSelectedOption(
-    question: QuizQuestion,
-    index: number,
-    currentQuestionIndex: number
-  ): SelectedOption {
-    const option = question.options[index];
-    return {
-      optionId: option.optionId,
-      questionIndex: currentQuestionIndex,
-      text: option.text,
-      correct: option.correct ?? false,
-      selected: true,
-      highlight: true,
-      showIcon: true
-    };
-  }
-
-  /**
-   * Updates selection state in the service and emits answered state.
-   */
-  processOptionSelectionAndUpdateState(
-    question: QuizQuestion,
-    index: number,
-    currentQuestionIndex: number,
-    isMultipleAnswer: boolean,
-    isUserClickInProgress: boolean
-  ): SelectedOption | null {
-    if (!isUserClickInProgress) {      return null;
-    }
-
-    const selectedOption = this.buildSelectedOption(question, index, currentQuestionIndex);
-
-    this.selectedOptionService.updateSelectionState(
-      currentQuestionIndex,
-      selectedOption,
-      isMultipleAnswer
-    );
-    this.selectedOptionService.setOptionSelected(true);
-    this.selectedOptionService.setAnsweredState(true);
-
-    return selectedOption;
   }
 
   /**
@@ -270,99 +189,6 @@ export class QqcOptionSelectionService {
       correctMessage: '',
       selectedOption: null,
       isOptionSelected: false,
-    };
-  }
-
-  /**
-   * Handles correctness outcome after all correct check: timer stop, sound, selection, explanation, next button.
-   * Returns state values for the component to apply.
-   */
-  async handleCorrectnessOutcome(params: {
-    allCorrectSelected: boolean;
-    option: SelectedOption;
-    wasPreviouslySelected: boolean;
-    currentQuestion: QuizQuestion | null;
-    currentQuestionIndex: number;
-    isMultipleAnswer: boolean;
-    explanationToDisplay: string;
-  }): Promise<{
-    explanationToDisplay: string;
-    shouldEmitAnswerSelected: boolean;
-    shouldEnableNext: boolean;
-  }> {
-    if (!params.currentQuestion) {
-      // currentQuestion is null
-      return {
-        explanationToDisplay: params.explanationToDisplay,
-        shouldEmitAnswerSelected: false,
-        shouldEnableNext: false,
-      };
-    }
-
-    // Handle multi-answer timer logic
-    if (params.currentQuestion.type === QuestionType.MultipleAnswer) {
-      this.timerService.allowAuthoritativeStop();
-      await this.timerService.attemptStopTimerForQuestion({
-        questionIndex: params.currentQuestionIndex,
-      });
-    }
-
-    if (params.allCorrectSelected) {
-      this.timerService.allowAuthoritativeStop();
-      const stopped = await this.timerService.attemptStopTimerForQuestion({
-        questionIndex: params.currentQuestionIndex,
-      });
-
-      if (stopped) {
-        this.timerService.isTimerRunning = false;
-      } else if (!this.timerService.isTimerRunning) {      }
-
-      this.selectedOptionService.isAnsweredSig.set(true);
-    }
-
-    // Update selection state
-    this.selectedOptionService.setSelectedOption(
-      params.option,
-      params.currentQuestionIndex,
-      undefined,
-      params.isMultipleAnswer
-    );
-
-    // Play sound based on correctness (only for new selections)
-    if (!params.wasPreviouslySelected) {
-      const enrichedOption: SelectedOption = {
-        ...params.option,
-        questionIndex: params.currentQuestionIndex,
-      };
-      this.soundService.playOnceForOption(enrichedOption);
-    }
-
-    // Ensure explanation text is preserved if not already set
-    let explanationToDisplay = params.explanationToDisplay;
-    if (!explanationToDisplay || !explanationToDisplay.trim()) {
-      const explanationText = this.explanationTextService
-        .explanationsInitialized
-        ? await (async () => {
-            return firstValueFrom(
-              this.explanationTextService.getFormattedExplanationTextForQuestion(
-                params.currentQuestionIndex
-              )
-            );
-          })()
-        : 'No explanation available';
-
-      explanationToDisplay = explanationText || 'No explanation available';
-    }
-
-    // Compute next button state
-    const shouldEnableNext =
-      params.allCorrectSelected ||
-      this.selectedOptionService.isAnsweredSig();
-
-    return {
-      explanationToDisplay,
-      shouldEmitAnswerSelected: params.allCorrectSelected,
-      shouldEnableNext,
     };
   }
 
