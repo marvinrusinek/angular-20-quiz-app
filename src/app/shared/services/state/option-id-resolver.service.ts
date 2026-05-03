@@ -546,14 +546,12 @@ export class OptionIdResolverService {
       recordSelection(opt);
     }
 
-    const subjectOptions = quizService?.currentOptions?.getValue?.();
     const dataOptions = Array.isArray(quizService?.data?.currentOptions)
       ? quizService.data.currentOptions : [];
 
     const baseOptions =
       [
         canonicalOptions,
-        Array.isArray(subjectOptions) ? subjectOptions : [],
         dataOptions,
         mapSelections
       ].find((options) => Array.isArray(options) && options.length > 0) || [];

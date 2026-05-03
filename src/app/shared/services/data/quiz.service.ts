@@ -72,7 +72,6 @@ export class QuizService {
   currentQuestionIndexSig = signal<number>(0);
   currentQuestionIndex$: Observable<number> = toObservable(this.currentQuestionIndexSig);
 
-  currentOptions: BehaviorSubject<Option[]> = new BehaviorSubject<Option[]>([]);
   selectedOptionsMap: Map<number, SelectedOption[]> = new Map();
 
   resources: Resource[] = [];
