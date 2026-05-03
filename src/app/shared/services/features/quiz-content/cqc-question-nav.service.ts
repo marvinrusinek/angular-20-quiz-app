@@ -281,7 +281,7 @@ export class CqcQuestionNavService {
           question = host.quizService.shuffledQuestions[zeroBasedIndex];
         }
 
-        host.currentQuestionSig.set(question);
+        host.currentQuestion.next(question);
         host.isExplanationDisplayed = false;
 
         host.explanationTextService.resetExplanationState();
