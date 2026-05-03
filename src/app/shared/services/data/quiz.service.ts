@@ -61,8 +61,8 @@ export class QuizService {
     return this.dataLoader.currentQuizSubject$;
   }
 
-  private questionsSubject = new BehaviorSubject<QuizQuestion[]>([]);
-  questions$ = this.questionsSubject.asObservable();
+  private questionsSig = signal<QuizQuestion[]>([]);
+  questions$: Observable<QuizQuestion[]> = toObservable(this.questionsSig);
 
   private questionsQuizId: string | null = (() => {
     try { return localStorage.getItem('shuffledQuestionsQuizId'); }
@@ -279,7 +279,7 @@ export class QuizService {
     if (isIncomingShuffledData) {
       // Do NOT update _questions - the canonical data should remain unshuffled
       // But still emit the shuffled questions for subscribers
-      this.questionsSubject.next(this.shuffledQuestions);
+      this.questionsSig.set(this.shuffledQuestions);
       return;
     }
 
@@ -290,10 +290,10 @@ export class QuizService {
     // Instead, re-emit the shuffled questions to keep everyone in sync.
     // Use isShuffleEnabled() instead of checkedShuffle property
     if (this.isShuffleEnabled() && this.shuffledQuestions.length > 0) {
-      this.questionsSubject.next(this.shuffledQuestions);
+      this.questionsSig.set(this.shuffledQuestions);
       this.questionsQuizId = this.quizId ?? null;
     } else {
-      this.questionsSubject.next(value);
+      this.questionsSig.set(value);
       this.questionsQuizId = this.quizId ?? null;
     }
   }
@@ -305,7 +305,7 @@ export class QuizService {
   initializeData(): void {
     const result = this.dataLoader.initializeData(
       this.quizId,
-      this.questionsSubject,
+      this.questionsSig,
       (qs) => { this.questions = qs; },
       (n) => { this.totalQuestions = n; }
     );
@@ -329,9 +329,9 @@ export class QuizService {
     // When shuffle is active, emit shuffled questions to subscribers so
     // host.questionsArray doesn't get poisoned with unshuffled data.
     if (this.isShuffleEnabled() && this.shuffledQuestions.length > 0) {
-      this.questionsSubject.next(this.shuffledQuestions);
+      this.questionsSig.set(this.shuffledQuestions);
     } else {
-      this.questionsSubject.next(quiz.questions ?? []);
+      this.questionsSig.set(quiz.questions ?? []);
     }
     this.questionsQuizId = quiz.quizId;
     this.questions = quiz.questions ?? [];
@@ -366,9 +366,9 @@ export class QuizService {
       // That causes questionsArray in QuizComponent to briefly hold unshuffled
       // data, which downstream code reads as the display question source.
       if (this.isShuffleEnabled() && this.shuffledQuestions.length > 0) {
-        this.questionsSubject.next(this.shuffledQuestions);
+        this.questionsSig.set(this.shuffledQuestions);
       } else {
-        this.questionsSubject.next(q.questions);
+        this.questionsSig.set(q.questions);
       }
       this.questionsQuizId = q.quizId;
       this.questions = q.questions;
@@ -389,7 +389,7 @@ export class QuizService {
 
   setQuizId(id: string): void {
     if (id && this.questionsQuizId && this.questionsQuizId !== id) {
-      this.questionsSubject.next([]);
+      this.questionsSig.set([]);
       this.questionsQuizId = null;
       this.questions = [];
       this.shuffledQuestions = [];
@@ -446,7 +446,7 @@ export class QuizService {
   async fetchQuizQuestions(quizId: string): Promise<QuizQuestion[]> {
     const questions = await this.dataLoader.fetchQuizQuestions(
       quizId,
-      this.questionsSubject,
+      this.questionsSig,
       (qs) => { this._questions = qs; }
     );
     this.quizId = quizId;
@@ -460,7 +460,7 @@ export class QuizService {
       return of(this.shuffledQuestions);
     }
 
-    if (this.questionsSubject.getValue().length === 0) {
+    if (this.questionsSig().length === 0) {
       // Delegate to fetchQuizQuestions which handles normalization AND shuffling!
       // This prevents getAllQuestions from returning raw/unshuffled data that bypasses the shuffle logic.
       return from(this.fetchQuizQuestions(this.quizId));
@@ -652,7 +652,7 @@ export class QuizService {
   } {
     const result = this.sessionManager.handleQuestionChange(
       this, question, selectedOptions, options,
-      this._questions, this.questionsSubject, this.questionsQuizId
+      this._questions, this.questionsSig, this.questionsQuizId
     );
     this.questionsQuizId = result.restoredQuestionsQuizId;
     return result;
@@ -743,7 +743,7 @@ export class QuizService {
 
     // Also clear basic questions to force a fresh fetch/shuffle cycle
     this.questions = [];
-    this.questionsSubject.next([]);
+    this.questionsSig.set([]);
     this.questionsQuizId = null;
 
     // Reset score when shuffle is toggled to clear stale questionCorrectness.
@@ -781,7 +781,7 @@ export class QuizService {
   applySessionQuestions(quizId: string, questions: QuizQuestion[]): void {
     const newQuizId = this.sessionManager.applySessionQuestions(
       this, quizId, questions,
-      this.questionsSubject, this.quizResetSource
+      this.questionsSig, this.quizResetSource
     );
     if (newQuizId) {
       this.questionsQuizId = newQuizId;
@@ -939,7 +939,7 @@ export class QuizService {
     this.answers = [];
     this.shuffledQuestions = [];
     this._questions = [];
-    this.questionsSubject.next([]);
+    this.questionsSig.set([]);
     this.questionsQuizId = null;
     this.dataLoader.clearFetchPromise();
     this.quizCompleted = false;

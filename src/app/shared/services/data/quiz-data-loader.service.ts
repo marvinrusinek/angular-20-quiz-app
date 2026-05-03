@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, WritableSignal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
@@ -80,7 +80,7 @@ export class QuizDataLoaderService {
 
   initializeData(
     quizId: string,
-    questionsSubject: BehaviorSubject<QuizQuestion[]>,
+    questionsSig: WritableSignal<QuizQuestion[]>,
     setQuestions: (qs: QuizQuestion[]) => void,
     setTotalQuestions: (n: number) => void
   ): { questions: QuizQuestion[]; totalQuestions: number; resolvedQuizId: string } {
@@ -200,7 +200,7 @@ export class QuizDataLoaderService {
 
   async fetchQuizQuestions(
     quizId: string,
-    questionsSubject: BehaviorSubject<QuizQuestion[]>,
+    questionsSig: WritableSignal<QuizQuestion[]>,
     setInternalQuestions: (qs: QuizQuestion[]) => void
   ): Promise<QuizQuestion[]> {
 
@@ -240,7 +240,7 @@ export class QuizDataLoaderService {
 
         if (isSameQuiz) {
           if (Array.isArray(this.shuffledQuestions) && this.shuffledQuestions.length > 0) {
-            questionsSubject.next(this.shuffledQuestions);
+            questionsSig.set(this.shuffledQuestions);
             return this.shuffledQuestions;
           }
         } else {
@@ -283,7 +283,7 @@ export class QuizDataLoaderService {
         const lengthMatches = cachedLen > 0 && cachedLen === metadataLen;
 
         if (isSameQuiz && lengthMatches) {
-          questionsSubject.next(this.shuffledQuestions);
+          questionsSig.set(this.shuffledQuestions);
           return this.shuffledQuestions;
         }
 
@@ -321,11 +321,11 @@ export class QuizDataLoaderService {
             localStorage.setItem('shuffledQuestionsQuizId', quizId);
           } catch { }
 
-          questionsSubject.next(shuffled);
+          questionsSig.set(shuffled);
           return shuffled;
         }
 
-        questionsSubject.next(normalized);
+        questionsSig.set(normalized);
         return normalized;
       } catch {
         return [];
@@ -368,14 +368,14 @@ export class QuizDataLoaderService {
 
   getShuffledQuestions(
     quizId: string,
-    questionsSubject: BehaviorSubject<QuizQuestion[]>,
+    questionsSig: WritableSignal<QuizQuestion[]>,
     fetchQuizQuestionsFn: (id: string) => Promise<QuizQuestion[]>
   ): Observable<QuizQuestion[]> {
     if (this.shuffledQuestions && this.shuffledQuestions.length > 0) {
       return of(this.shuffledQuestions);
     }
 
-    const cachedQuestions = questionsSubject.getValue();
+    const cachedQuestions = questionsSig();
     if (Array.isArray(cachedQuestions) && cachedQuestions.length > 0) {
       const shuffled = this.shuffleQuestions(cachedQuestions);
       return of(shuffled);

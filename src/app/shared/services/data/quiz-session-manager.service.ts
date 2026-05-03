@@ -85,7 +85,7 @@ export class QuizSessionManagerService {
     selectedOptions: Array<string | number> | null | undefined,
     options: Option[],
     _questions: QuizQuestion[],
-    questionsSubject: BehaviorSubject<QuizQuestion[]>,
+    questionsSig: WritableSignal<QuizQuestion[]>,
     questionsQuizId: string | null
   ): {
     updatedOptions: Option[];
@@ -117,7 +117,7 @@ export class QuizSessionManagerService {
       }
       if (savedQuestions.length > 0) {
         state.questions = savedQuestions;
-        questionsSubject.next(savedQuestions);
+        questionsSig.set(savedQuestions);
       }
       questionsQuizId = savedQuestionsQuizId;
     }
@@ -177,7 +177,7 @@ export class QuizSessionManagerService {
     state: QuizSessionState,
     quizId: string,
     questions: QuizQuestion[],
-    questionsSubject: BehaviorSubject<QuizQuestion[]>,
+    questionsSig: WritableSignal<QuizQuestion[]>,
     quizResetSource: Subject<void>
   ): string | null {
     if (!quizId) {      return null;
@@ -214,7 +214,7 @@ export class QuizSessionManagerService {
       localStorage.setItem('shuffledQuestionsQuizId', String(state.quizId ?? ''));
     } catch (err) {    }
     state.questions = sanitizedQuestions;
-    questionsSubject.next(sanitizedQuestions);
+    questionsSig.set(sanitizedQuestions);
 
     const newQuizId = quizId;
 
@@ -294,7 +294,7 @@ export class QuizSessionManagerService {
       state.selectedQuiz = updatedQuiz;
     }
 
-    questionsSubject.next(sanitizedQuestions);
+    questionsSig.set(sanitizedQuestions);
 
     return newQuizId;
   }
