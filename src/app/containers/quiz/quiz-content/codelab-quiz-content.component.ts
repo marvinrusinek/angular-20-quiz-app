@@ -88,7 +88,11 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   }
 
   private currentIndex = -1;
-  private questionIndexSubject = new BehaviorSubject<number>(0);
+  // Signal source of truth + sync BS mirror so .asObservable() consumers
+  // (displayText$ pipeline) keep their sync emission. Migrating fully to
+  // toObservable(sig) would re-introduce the FET flash bug fixed earlier.
+  readonly questionIndexSig = signal<number>(0);
+  questionIndexSubject = new BehaviorSubject<number>(0);
   currentIndex$ = this.questionIndexSubject.asObservable();
   private readonly questionLoadingText = 'Loading question…';
 
@@ -126,7 +130,12 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   get fetToDisplay$(): Observable<string> { return this.displayService.fetToDisplay$; }
   set fetToDisplay$(v: Observable<string>) { this.displayService.fetToDisplay$ = v; }
 
-  private timedOutIdxSubject = new BehaviorSubject<number>(-1);
+  // Signal source of truth + sync BS mirror. The TIMER-EXPIRY FAST PATH
+  // in cqc-display-text and the displayText$ pipeline both read .getValue()
+  // / subscribe to currentIndex$/timedOutIdx$ and rely on sync emission
+  // so they don't observe a stale-Q FET window during navigation.
+  readonly timedOutIdxSig = signal<number>(-1);
+  timedOutIdxSubject = new BehaviorSubject<number>(-1);
   public timedOutIdx$ = this.timedOutIdxSubject.asObservable();
 
   private destroy$ = new Subject<void>();
@@ -417,6 +426,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   private initializeCurrentQuestionIndex(): void {
     const idx = this.currentQuestionIndexValue ?? 0;
     this.quizService.currentQuestionIndex = idx;
+    this.questionIndexSig.set(idx);
     this.questionIndexSubject.next(idx);
     this.currentIndex = idx;
     this.currentQuestionIndex$ =

@@ -130,6 +130,7 @@ export class CqcQuestionNavService {
     host.currentIndex = idx;
     host._fetLocked = false;
     host._lockedForIndex = -1;
+    host.timedOutIdxSig.set(-1);
     host.timedOutIdxSubject.next(-1);
     (window as any).__quizTimerExpired = false;
 
@@ -157,6 +158,7 @@ export class CqcQuestionNavService {
       );
     }
 
+    host.questionIndexSig.set(idx);
     host.questionIndexSubject.next(idx);
 
     const ets = host.explanationTextService;
@@ -242,6 +244,7 @@ export class CqcQuestionNavService {
           );
         }
 
+        host.questionIndexSig.set(zeroBasedIndex);
         host.questionIndexSubject.next(zeroBasedIndex);
 
         await host.loadQuestion(quizId, zeroBasedIndex);

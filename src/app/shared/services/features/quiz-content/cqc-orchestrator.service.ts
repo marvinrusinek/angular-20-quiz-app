@@ -213,6 +213,7 @@ export class CqcOrchestratorService {
       .subscribe(() => {
         const idx = host.currentIndex >= 0 ? host.currentIndex : (host.quizService.getCurrentQuestionIndex?.() ?? host.currentQuestionIndexValue ?? 0);
 
+        host.timedOutIdxSig.set(idx);
         host.timedOutIdxSubject.next(idx);
         (window as any).__quizTimerExpired = true;
 
