@@ -772,8 +772,11 @@ export class ExplanationDisplayStateService {
     // Also emit to formattedExplanationSig for FINAL LAYER.
     this.formatter.formattedExplanationSig.set(validatedText);
 
-    // Emit immediately without waiting for requestAnimationFrame.
-    this._fetSubject.next({ idx: index, text: validatedText, token });
+    // Note: _fetSubject.next(...) deliberately not called here.
+    // Activating it caused FET of the current question to leak across
+    // tab-switch + Next navigation. The original code had this line
+    // muted (hidden in a same-line comment) and the app behaved
+    // correctly without it.
     this.shouldDisplayExplanationSig.set(true);
     this.isExplanationTextDisplayedSig.set(true);
 
