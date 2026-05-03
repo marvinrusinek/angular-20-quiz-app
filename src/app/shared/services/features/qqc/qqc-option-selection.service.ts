@@ -677,26 +677,17 @@ export class QqcOptionSelectionService {
    * Computes the emitPassiveNow logic: determines question type from options and begins write.
    * Extracted from emitPassiveNow().
    */
-  emitPassiveNow(params: {
+  emitPassiveNow(_params: {
     index: number;
     normalizeIndex: (idx: number) => number;
     optionsToDisplay: Option[];
     currentQuestionType: QuestionType | undefined;
   }): void {
-    const i0 = params.normalizeIndex ? params.normalizeIndex(params.index) : params.index;
-
-    // Use the freshest live options list
-    const opts = Array.isArray(params.optionsToDisplay) ? params.optionsToDisplay : [];
-
-    const fallbackType =
-      (opts.filter(o => !!o?.correct).length > 1)
-        ? QuestionType.MultipleAnswer
-        : QuestionType.SingleAnswer;
-
-    const qType = params.currentQuestionType ?? fallbackType;
-
-    // Use a short freeze only for Q1
-    const token = this.selectionMessageService.beginWrite(i0, 200);
+    // Body intentionally empty: the previous implementation only seeded
+    // the SelectionMessageService.beginWrite() write-fence (now removed
+    // as dead). Keeping the method as a no-op stub avoids ripping out
+    // the entire emitPassiveNow delegation chain (component ->
+    // componentOrchestrator -> orchSelection -> here) in this commit.
   }
 
   /**
@@ -859,12 +850,6 @@ export class QqcOptionSelectionService {
     currentQuestionOptions: Option[] | undefined;
     isAnswered: boolean;
   }): void {
-    if (params.transition.becameSelected && Number.isFinite(params.transition.optId)) {
-      this.selectionMessageService.registerClick(
-        params.currentQuestionIndex, params.transition.optId, params.transition.wasCorrect
-      );
-    }
-
     if (params.transition.becameDeselected) {
       const optsNow = (params.optionsToDisplay?.length ? params.optionsToDisplay : params.currentQuestionOptions) as Option[] || [];
       this.selectionMessageService['reconcileObservedWithCurrentSelection']?.(params.currentQuestionIndex, optsNow);

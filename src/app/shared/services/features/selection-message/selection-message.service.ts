@@ -32,9 +32,6 @@ export class SelectionMessageService {
   readonly optionsSnapshotSig = signal<Option[]>([]);
   public get optionsSnapshot(): Option[] { return this.optionsSnapshotSig(); }
   public set optionsSnapshot(v: Option[]) { this.optionsSnapshotSig.set(v); }
-  private writeSeq = 0;
-  private latestByIndex = new Map<number, number>();
-  private freezeNextishUntil = new Map<number, number>();
 
   private _idMapByIndex = new Map<number, Map<string, string | number>>();
 
@@ -49,7 +46,6 @@ export class SelectionMessageService {
   public _baselineReleased = new Set<number>();
 
   private _pendingMsgTokens = new Map<number, number>();
-  private _setMsgCounter = 0;
 
   constructor(
     private quizService: QuizService,
@@ -263,13 +259,6 @@ export class SelectionMessageService {
     this.setOptionsSnapshot(options);
   }
 
-  public beginWrite(index: number, freezeMs = 600): number {
-    const token = ++this.writeSeq;
-    this.latestByIndex.set(index, token);
-    this.freezeNextishUntil.set(index, performance.now() + freezeMs);
-    return token;
-  }
-
   public emitFromClick(params: any): void {
     const opts = params.canonicalOptions as Option[];
     const correctCount = (opts ?? []).filter(
@@ -371,10 +360,6 @@ export class SelectionMessageService {
     }
     return keys;
   }
-
-  public registerClick(index: number, optionId: any, wasCorrect: boolean, selectedNow = true): void { }
-  public setExpectedCorrectCountForId(_qid: any, _count: number): void { }
-  public setExpectedCorrectCount(_index: number, _count: number): void { }
 
   public reconcileObservedWithCurrentSelection(index: number, optionsNow: Option[]): void {
     const totalCorrect = optionsNow.filter(o => !!o?.correct).length;

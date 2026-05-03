@@ -765,7 +765,6 @@ export class QuizSetupService {
     }
     Promise.resolve().then(() => host.cdRef.detectChanges());
 
-    host.quizScoringService.initializeCorrectExpectedCounts(host.questionsArray);
     this.subscribeToNextButtonState(host);
     this.subscribeToTimerExpiry(host);
 
