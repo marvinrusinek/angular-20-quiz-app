@@ -356,7 +356,7 @@ export class ExplanationDisplayStateService {
 
       this._activeIndex = questionIndex;
       this.latestExplanationIndex = questionIndex;
-    } else {    }
+    }
 
     // Normalize index FIRST
     const idx = Number(questionIndex);
@@ -630,7 +630,8 @@ export class ExplanationDisplayStateService {
         force: true,
         context: 'evaluation'
       });
-    } else {    }  }
+    }
+  }
 
   setCurrentQuestionExplanation(explanation: string): void {
     this.currentQuestionExplanation = explanation;
@@ -711,13 +712,7 @@ export class ExplanationDisplayStateService {
   }
 
   private computeContextualFlag(map: Map<string, boolean>): boolean {
-    for (const value of map.values()) {
-      if (value) {
-        return true;
-      }
-    }
-
-    return false;
+    return [...map.values()].some(Boolean);
   }
 
   // Emit per-index formatted text; coalesces duplicates and broadcasts event
@@ -758,7 +753,7 @@ export class ExplanationDisplayStateService {
             correctCount = question.options.filter(
               (o: any) => o.correct === true || String(o.correct) === 'true'
             ).length;
-          } else {          }
+          }
 
           // Determine authoritative correct count from RAW questions (unmutated).
           const rawQs: any[] = (quizSvc as any).questions ?? [];
@@ -794,11 +789,6 @@ export class ExplanationDisplayStateService {
         }
       } catch (e) {      }
     }
-
-    // Guards: Allow emission if we have valid content
-    if (this._gateToken !== token) {    }
-
-    if (index !== this._activeIndex) {    }
 
     const trimmed = (value ?? '').trim();
     if (!trimmed) {      return;
