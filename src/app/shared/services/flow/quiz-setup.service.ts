@@ -280,7 +280,7 @@ export class QuizSetupService {
       host.cdRef.detectChanges();
     });
 
-    this.quizService.currentQuestion.subscribe({
+    this.quizService.currentQuestion$.subscribe({
       next: (newQuestion: QuizQuestion | null) => {
         if (!newQuestion) return;
         host.currentQuestion = null;

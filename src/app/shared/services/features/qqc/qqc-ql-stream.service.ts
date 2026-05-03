@@ -869,7 +869,7 @@ export class QqcQlStreamService {
 
       const effectiveQuizId = this.quizService.quizId;
 
-      this.quizService.currentQuestion.next(safeQuestion);
+      this.quizService.currentQuestionSig.set(safeQuestion);
       this.quizService.optionsSource.next(finalOpts);
 
       this.quizStateService.emitQA(safeQuestion, msg, effectiveQuizId, index);

@@ -124,10 +124,9 @@ export class QuizService {
 
   multipleAnswer = false;
 
-  currentQuestion: BehaviorSubject<QuizQuestion | null> =
-    new BehaviorSubject<QuizQuestion | null>(null);
+  currentQuestionSig = signal<QuizQuestion | null>(null);
   public currentQuestion$: Observable<QuizQuestion | null> =
-    this.currentQuestion.asObservable();
+    toObservable(this.currentQuestionSig);
 
   currentOptionsSubject = new BehaviorSubject<Array<Option>>([]);
   totalQuestionsSig = signal<number>(0);
@@ -489,7 +488,7 @@ export class QuizService {
   public setCurrentQuestion(question: QuizQuestion): void {
     if (!question) return;
 
-    const previousQuestion = this.currentQuestion.getValue();
+    const previousQuestion = this.currentQuestionSig();
     if (previousQuestion && question && JSON.stringify(previousQuestion) === JSON.stringify(question)) return;
     if (!Array.isArray(question.options) || question.options.length === 0) return;
 
@@ -502,7 +501,7 @@ export class QuizService {
       showIcon: option.showIcon ?? false
     }));
 
-    this.currentQuestion.next({ ...question, options: updatedOptions });
+    this.currentQuestionSig.set({ ...question, options: updatedOptions });
   }
 
   public getCurrentQuestion(
@@ -512,7 +511,7 @@ export class QuizService {
   }
 
   public getLastKnownOptions(): Option[] {
-    return this.currentQuestion.getValue()?.options || [];
+    return this.currentQuestionSig()?.options || [];
   }
 
   // Get the current options for the current quiz and question
@@ -853,7 +852,7 @@ export class QuizService {
         currentQuestionValue = resolved;
       }
     } else {
-      currentQuestionValue = this.questions[qIndex] ?? this.currentQuestion.getValue();
+      currentQuestionValue = this.questions[qIndex] ?? this.currentQuestionSig();
     }
 
     if (!currentQuestionValue) {
