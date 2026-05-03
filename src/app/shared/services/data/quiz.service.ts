@@ -175,8 +175,6 @@ export class QuizService {
   nextOptionsSig = signal<Option[]>([]);
   nextOptions$: Observable<Option[]> = toObservable(this.nextOptionsSig);
 
-  previousQuestionSubject = new BehaviorSubject<QuizQuestion | null>(null);
-  previousQuestion$ = this.previousQuestionSubject.asObservable();
 
   badgeTextSig = signal<string>('');
   badgeText = toObservable(this.badgeTextSig);

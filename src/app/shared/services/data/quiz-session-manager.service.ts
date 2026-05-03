@@ -37,7 +37,6 @@ export interface QuizSessionState {
   currentQuestionIndexSig: WritableSignal<number>;
   nextQuestionSig: WritableSignal<QuizQuestion | null>;
   nextOptionsSig: WritableSignal<Option[]>;
-  previousQuestionSubject: BehaviorSubject<QuizQuestion | null>;
   currentOptionsSig: WritableSignal<Option[]>;
   optionsSource: Subject<Option[]>;
   questionPayloadSubject: BehaviorSubject<any>;
@@ -357,7 +356,6 @@ export class QuizSessionManagerService {
     state.currentQuestionSig.set(null);
     state.nextQuestionSig.set(null);
     state.nextOptionsSig.set([]);
-    state.previousQuestionSubject.next(null);
     state.currentOptionsSig.set([]);
     state.optionsSource.next([]);
     state.questionPayloadSubject.next(null);

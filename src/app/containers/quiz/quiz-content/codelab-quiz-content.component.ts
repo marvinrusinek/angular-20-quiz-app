@@ -77,7 +77,6 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     new BehaviorSubject<Option[] | null>([]);
   currentQuestionIndex$!: Observable<number>;
   nextQuestion$: Observable<QuizQuestion | null>;
-  previousQuestion$: Observable<QuizQuestion | null>;
   isNavigatingToPrevious = false;
 
   private get _lastQuestionTextByIndex(): Map<number, string> {
@@ -158,7 +157,6 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     private orchestrator: CqcOrchestratorService
   ) {
     this.nextQuestion$ = this.quizService.nextQuestion$;
-    this.previousQuestion$ = this.quizService.previousQuestion$;
 
     this.formattedExplanation$ = this.displayService.createFormattedExplanation$(this.currentIndex$);
     this.activeFetText$ = this.displayService.createActiveFetText$(this.currentIndex$);
