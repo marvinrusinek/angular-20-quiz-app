@@ -39,7 +39,7 @@ export interface QuizSessionState {
   nextOptionsSig: WritableSignal<Option[]>;
   currentOptionsSig: WritableSignal<Option[]>;
   optionsSource: Subject<Option[]>;
-  questionPayloadSubject: BehaviorSubject<any>;
+  questionPayloadSig: WritableSignal<any>;
   totalQuestionsSig: WritableSignal<number>;
   badgeTextSig: WritableSignal<string>;
 
@@ -358,7 +358,7 @@ export class QuizSessionManagerService {
     state.nextOptionsSig.set([]);
     state.currentOptionsSig.set([]);
     state.optionsSource.next([]);
-    state.questionPayloadSubject.next(null);
+    state.questionPayloadSig.set(null);
     this.scoringService.correctAnswersCountSig.set(0);
     state.userAnswers = [];
     try { localStorage.removeItem('userAnswers'); } catch { }

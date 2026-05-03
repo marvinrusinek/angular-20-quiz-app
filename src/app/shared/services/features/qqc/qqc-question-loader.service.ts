@@ -666,8 +666,8 @@ export class QqcQuestionLoaderService {
       questionsArray,
     });
 
-    // Emit to quiz service subjects
-    this.quizService.questionPayloadSubject.next({
+    // Emit to quiz service signal
+    this.quizService.questionPayloadSig.set({
       question: preparedState.currentQuestion!,
       options: preparedState.optionsToDisplay,
       explanation: '',

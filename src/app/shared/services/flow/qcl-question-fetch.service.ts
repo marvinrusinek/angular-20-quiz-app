@@ -220,7 +220,7 @@ export class QclQuestionFetchService {
 
       this.quizService.emitQuestionAndOptions(currentQuestion, clonedOptions, questionIndex);
 
-      this.quizService.questionPayloadSubject.next({
+      this.quizService.questionPayloadSig.set({
         question: currentQuestion,
         options: clonedOptions,
         explanation: currentQuestion.explanation ?? ''

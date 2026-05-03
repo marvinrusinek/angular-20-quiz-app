@@ -194,8 +194,8 @@ export class QuizService {
   get highScoresLocal(): any { return this.scoringService.highScoresLocal; }
   set highScoresLocal(val: any) { this.scoringService.highScoresLocal = val; }
 
-  questionPayloadSubject = new BehaviorSubject<QuestionPayload | null>(null);
-  questionPayload$ = this.questionPayloadSubject.pipe(
+  questionPayloadSig = signal<QuestionPayload | null>(null);
+  questionPayload$ = toObservable(this.questionPayloadSig).pipe(
     map((payload) => {
       if (!payload?.question) {
         return payload;
@@ -998,7 +998,7 @@ export class QuizService {
     this.nextOptionsSig.set(result.optionsToUse);
 
     // Emit the combined payload
-    this.questionPayloadSubject.next({
+    this.questionPayloadSig.set({
       question: result.questionToEmit,
       options: result.optionsToUse,
       explanation: result.questionToEmit.explanation ?? ''
@@ -1012,11 +1012,11 @@ export class QuizService {
   }
 
   /**
-   * Clears any cached question payloads so a stale BehaviorSubject value
-   * from a previous run cannot leak into a freshly loaded quiz.
+   * Clears any cached question payloads so a stale value from a previous
+   * run cannot leak into a freshly loaded quiz.
    */
   resetQuestionPayload(): void {
-    this.questionPayloadSubject.next(null);
+    this.questionPayloadSig.set(null);
   }
 
   getFinalResultSnapshot(): FinalResult | null {

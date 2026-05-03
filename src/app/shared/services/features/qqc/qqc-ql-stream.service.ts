@@ -361,7 +361,7 @@ export class QqcQlStreamService {
     this.resetStateService.triggerResetState();
     this.explanationTextService.resetExplanationState();
 
-    this.quizService.questionPayloadSubject.next(null);
+    this.quizService.questionPayloadSig.set(null);
     this.questionPayloadReadySig.set(false);
     this.questionPayload = null;
     this.isLoading = !canReuseCachedQuestion;
@@ -547,7 +547,7 @@ export class QqcQlStreamService {
       index
     );
 
-    this.quizService.questionPayloadSubject.next({
+    this.quizService.questionPayloadSig.set({
       question: questionForPayload,
       options: optionsForPayload,
       explanation: explanationForPayload
@@ -637,7 +637,7 @@ export class QqcQlStreamService {
     this.questionPayload = payloadForBroadcast;
     this.shouldRenderQuestionComponent = true;
     this.questionPayloadReadySig.set(true);
-    this.quizService.questionPayloadSubject.next(payloadForBroadcast);
+    this.quizService.questionPayloadSig.set(payloadForBroadcast);
 
     this.quizService.setCurrentQuestion({ ...q, options: opts });
     this.quizStateService.updateCurrentQuestion({ ...q, options: opts });
