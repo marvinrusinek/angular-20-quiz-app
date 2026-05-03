@@ -737,9 +737,7 @@ export class SelectedOptionService {
       for (const key of keysToRemove) {
         sessionStorage.removeItem(key);
       }
-    } catch (err) {
-      // ignore
-    }
+    } catch (err) {}
   }
 
   public resetAllOptions(): void {
@@ -785,8 +783,7 @@ export class SelectedOptionService {
           (o as any).disabled = false;
         }
       }
-    } catch (error) {
-    }
+    } catch (error) {}
   }
 
   public resetAllStates(): void {
@@ -794,8 +791,7 @@ export class SelectedOptionService {
       this.selectedOptionsMap.clear();
       this.lockState.clearLockedOptionsMap();
       this.optionStates?.clear();
-    } catch (error) {
-    }
+    } catch (error) {}
   }
 
   private getFallbackQuestionIndex(): number {
