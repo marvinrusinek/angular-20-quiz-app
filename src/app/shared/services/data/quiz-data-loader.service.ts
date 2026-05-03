@@ -1,5 +1,5 @@
-import { Injectable, WritableSignal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { Injectable, signal, WritableSignal } from '@angular/core';
+import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import {
@@ -23,11 +23,11 @@ import { Utils } from '../../utils/utils';
 export class QuizDataLoaderService {
   quizInitialState: Quiz[] = structuredClone(QUIZ_DATA);
   quizData: Quiz[] | null = structuredClone(QUIZ_DATA);
-  private _quizData$ = new BehaviorSubject<Quiz[]>([]);
   quizResources: QuizResource[] = [];
   resources: Resource[] = [];
 
-  private currentQuizSubject = new BehaviorSubject<Quiz | null>(null);
+  readonly currentQuizSig = signal<Quiz | null>(null);
+  readonly currentQuiz$: Observable<Quiz | null> = toObservable(this.currentQuizSig);
 
   private canonicalQuestionsByQuiz = new Map<string, QuizQuestion[]>();
   private canonicalQuestionIndexByText = new Map<string, Map<string, number>>();
@@ -69,14 +69,6 @@ export class QuizDataLoaderService {
     private activatedRoute: ActivatedRoute,
     private http: HttpClient
   ) {}
-
-  get currentQuizSubject$() {
-    return this.currentQuizSubject;
-  }
-
-  get quizData$() {
-    return this._quizData$;
-  }
 
   initializeData(
     quizId: string,
@@ -138,7 +130,7 @@ export class QuizDataLoaderService {
   }
 
   setCurrentQuizSubject(quiz: Quiz | null): void {
-    this.currentQuizSubject.next(quiz);
+    this.currentQuizSig.set(quiz);
   }
 
   getCurrentQuiz(quizId: string, activeQuiz: Quiz | null): Observable<Quiz | null> {
@@ -178,7 +170,7 @@ export class QuizDataLoaderService {
   }
 
   getTotalQuestionsCount(quizId: string, questions: QuizQuestion[]): Observable<number> {
-    return this.currentQuizSubject.pipe(
+    return this.currentQuiz$.pipe(
       map((quiz) => {
         if (quiz && quiz.quizId === quizId) {
           return quiz.questions?.length ?? 0;
@@ -274,7 +266,7 @@ export class QuizDataLoaderService {
           return [];
         }
 
-        this.currentQuizSubject.next(quiz);
+        this.currentQuizSig.set(quiz);
         const totalQuestions = quiz.questions?.length || 0;
 
         const isSameQuiz = quizId && this.questionsQuizId === quizId;
@@ -462,7 +454,7 @@ export class QuizDataLoaderService {
   }
 
   hasCachedQuestion(quizId: string, questionIndex: number): boolean {
-    const quiz = this.currentQuizSubject.getValue();
+    const quiz = this.currentQuizSig();
     if (!quiz || quiz.quizId !== quizId) return false;
 
     const questions = quiz.questions ?? [];

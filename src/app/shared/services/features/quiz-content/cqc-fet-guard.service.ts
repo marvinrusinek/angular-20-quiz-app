@@ -266,8 +266,7 @@ export class CqcFetGuardService {
           }
         };
         addSource(qs?.questions);
-        addSource(qs?.currentQuizSubject?.getValue?.()?.questions);
-        addSource(qs?.dataLoader?.currentQuizSubject$?.getValue?.()?.questions);
+        addSource(qs?.dataLoader?.currentQuizSig?.()?.questions);
         const canonMap = qs?.getCanonicalQuestionsByQuiz?.();
         if (canonMap) {
           for (const v of canonMap.values?.() ?? []) addSource(v);

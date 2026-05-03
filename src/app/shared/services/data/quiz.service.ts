@@ -1,4 +1,4 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, WritableSignal } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import {
   BehaviorSubject, from, Observable, of, Subject
@@ -56,9 +56,12 @@ export class QuizService {
     this.scoringService.questionCorrectness = val;
   }
 
-  // Delegate to dataLoader's currentQuizSubject for single source of truth
-  private get currentQuizSubject(): BehaviorSubject<Quiz | null> {
-    return this.dataLoader.currentQuizSubject$;
+  // Delegate to dataLoader's signal for single source of truth.
+  private get currentQuizSig(): WritableSignal<Quiz | null> {
+    return this.dataLoader.currentQuizSig;
+  }
+  private get currentQuiz$(): Observable<Quiz | null> {
+    return this.dataLoader.currentQuiz$;
   }
 
   private questionsSig = signal<QuizQuestion[]>([]);
@@ -334,8 +337,8 @@ export class QuizService {
     // Load resources for this quiz
     this.loadResourcesForQuiz(quiz.quizId);
 
-    // Push quiz into observable stream
-    this.currentQuizSubject.next(quiz);
+    // Push quiz into the source-of-truth signal
+    this.currentQuizSig.set(quiz);
   }
 
   // Load resources for a specific quiz ID
@@ -350,7 +353,7 @@ export class QuizService {
 
   setCurrentQuiz(q: Quiz): void {
     this.activeQuiz = q;
-    this.currentQuizSubject.next(q);
+    this.currentQuizSig.set(q);
     if (q?.quizId) {
       this.quizId = q.quizId;
     }
@@ -614,7 +617,7 @@ export class QuizService {
   }
 
   getTotalQuestionsCount(quizId: string): Observable<number> {
-    return this.currentQuizSubject.pipe(
+    return this.currentQuiz$.pipe(
       map((quiz) => {
         // Try to get count from the emitted quiz object
         if (quiz && quiz.quizId === quizId) {
@@ -778,9 +781,9 @@ export class QuizService {
     );
     if (newQuizId) {
       this.questionsQuizId = newQuizId;
-      // Update the currentQuizSubject from the now-mutated activeQuiz
+      // Update the source-of-truth signal from the now-mutated activeQuiz
       if (this.activeQuiz) {
-        this.currentQuizSubject.next(this.activeQuiz);
+        this.currentQuizSig.set(this.activeQuiz);
       }
     }
   }
