@@ -270,7 +270,7 @@ export class QqcResetManagerService {
     if (!preserveExplanation) {
       this.explanationTextService.resetExplanationState();
       this.explanationTextService.setExplanationText('');
-      this.explanationTextService.explanationText$.next('');
+      this.explanationTextService.explanationTextSig.set('');
       this.explanationTextService.updateFormattedExplanation('');
       this.explanationTextService.setResetComplete(false);
       this.explanationTextService.unlockExplanation();

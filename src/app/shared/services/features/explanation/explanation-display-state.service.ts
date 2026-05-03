@@ -17,10 +17,8 @@ export type FETPayload = { idx: number; text: string; token: number };
 
 @Injectable({ providedIn: 'root' })
 export class ExplanationDisplayStateService {
-  private readonly explanationTextSig = signal<string>('');
-  explanationText$: BehaviorSubject<string | null> = new BehaviorSubject<
-    string | null
-  >('');
+  readonly explanationTextSig = signal<string | null>('');
+  explanationText$: Observable<string | null> = toObservable(this.explanationTextSig);
   explanationTexts: Record<number, string> = {};
 
   private readonly globalContextKey = 'global';
@@ -111,7 +109,7 @@ export class ExplanationDisplayStateService {
     ).subscribe((idx: number) => {
       this.latestExplanation = '';
       this.latestExplanationIndex = idx;
-      this.explanationText$.next('');
+      this.explanationTextSig.set('');
       this.formatter.formattedExplanationSubject.next('');
       this.setShouldDisplayExplanation(false, { force: true });
       this.setIsExplanationTextDisplayed(false, { force: true });
@@ -279,7 +277,7 @@ export class ExplanationDisplayStateService {
       this.formatter.explanationsUpdatedSig.set({ ...this.formatter.formattedExplanations });
     }
 
-    // Unified emission pipeline (Global)    this.explanationText$.next(finalExplanation);
+    // Unified emission pipeline (Global)
     this.formatter.formattedExplanationSubject.next(finalExplanation);
 
     // Ensure direct subject update for visibility-stable downstream
@@ -677,7 +675,6 @@ export class ExplanationDisplayStateService {
     this.latestExplanationIndex = -1;
 
     this.explanationTextSig.set('');
-    this.explanationText$.next('');
     this.formatter.formattedExplanationSubject.next('');
     this._fetSubject.next(undefined as any);
 

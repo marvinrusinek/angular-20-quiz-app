@@ -166,7 +166,7 @@ export class QqcExplanationManagerService {
     const latestExplanation = (this.explanationTextService.getLatestExplanation() ?? '')
       .toString()
       .trim();
-    const serviceExplanation = (this.explanationTextService.explanationText$.getValue() ?? '')
+    const serviceExplanation = (this.explanationTextService.explanationTextSig() ?? '')
       .toString()
       .trim();
     const explanationText = rawExplanation || latestExplanation || serviceExplanation;
