@@ -660,8 +660,7 @@ export class CqcFetGuardService {
       } else {
         if (scoringSvc.questionCorrectness.get(displayIdx) === true) return true;
       }
-      if (host.explanationTextService?.fetBypassForQuestion?.get(displayIdx) === true) return true;
-      return false;
+      return host.explanationTextService?.fetBypassForQuestion?.get(displayIdx) === true;
     } catch {
       return false;
     }

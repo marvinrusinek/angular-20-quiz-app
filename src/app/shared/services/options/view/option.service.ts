@@ -131,10 +131,6 @@ export class OptionService {
     }
 
     // Also check if this specific ID was explicitly locked
-    if (binding.option.optionId != null && lockedIncorrectOptionIds.has(binding.option.optionId)) {
-      return true;
-    }
-
-    return false;
+    return binding.option.optionId != null && lockedIncorrectOptionIds.has(binding.option.optionId);
   }
 }

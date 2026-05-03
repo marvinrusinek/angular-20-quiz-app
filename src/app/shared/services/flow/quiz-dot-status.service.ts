@@ -344,16 +344,10 @@ export class QuizDotStatusService {
         return false;
       }
 
-      if (
-        selection.selected === false ||
-        (selection as any)?.checked === false ||
-        (selection as any)?.isSelected === false ||
-        (selection as any)?.active === false
-      ) {
-        return false;
-      }
-
-      return true;
+      return selection.selected !== false &&
+        (selection as any)?.checked !== false &&
+        (selection as any)?.isSelected !== false &&
+        (selection as any)?.active !== false;
     };
 
     const pickRelevantSelections = (selections: SelectedOption[]): SelectedOption[] => {
@@ -483,11 +477,7 @@ export class QuizDotStatusService {
     }
 
     const answers = this.quizService?.userAnswers?.[index];
-    if (Array.isArray(answers) && answers.length > 0) {
-      return true;
-    }
-
-    return false;
+    return Array.isArray(answers) && answers.length > 0;
   }
 
   // ═══════════════════════════════════════════════════════════════

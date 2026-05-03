@@ -385,8 +385,7 @@ export class OptionItemComponent implements OnChanges, OnInit {
           if (co && isCorrectFlag(co.correct ?? co.isCorrect)) return true;
         }
         // Or by selection record's own flag
-        if (isCorrectFlag(s?.correct ?? s?.isCorrect)) return true;
-        return false;
+        return isCorrectFlag(s?.correct ?? s?.isCorrect);
       });
 
       if (anyCorrectSelected) {
@@ -400,8 +399,7 @@ export class OptionItemComponent implements OnChanges, OnInit {
           const sIdx = s?.displayIndex ?? s?.index ?? s?.idx;
           if (typeof sIdx === 'number' && sIdx === this.i) return true;
           const sId = s?.optionId;
-          if (sId != null && this.b?.option?.optionId != null && String(sId) === String(this.b.option.optionId)) return true;
-          return false;
+          return sId != null && this.b?.option?.optionId != null && String(sId) === String(this.b.option.optionId);
         });
         return !selfSelected;
       }
@@ -618,10 +616,7 @@ export class OptionItemComponent implements OnChanges, OnInit {
         selId != null && selId !== -1 && String(selId) !== '-1';
       const bIdIsReal =
         bId != null && bId !== -1 && String(bId) !== '-1';
-      if (selIdIsReal && bIdIsReal && String(selId) !== String(bId)) {
-        return false;
-      }
-      return true;
+      return !selIdIsReal || !bIdIsReal || String(selId) === String(bId);
     }
 
     // Fallback: match by optionId only when no index data exists on the
@@ -634,11 +629,7 @@ export class OptionItemComponent implements OnChanges, OnInit {
       selId != null && selId !== -1 && String(selId) !== '-1';
     const bIdIsReal =
       bId != null && bId !== -1 && String(bId) !== '-1';
-    if (selIdIsReal && bIdIsReal && String(selId) === String(bId)) {
-      return true;
-    }
-
-    return false;
+    return selIdIsReal && bIdIsReal && String(selId) === String(bId);
   }
 
   shouldShowFeedback(): boolean {

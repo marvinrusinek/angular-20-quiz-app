@@ -155,9 +155,7 @@ export class SharedOptionFeedbackService {
 
         // Check 4: Service has this option as selected (handles stale local state)
         if (serviceSelectedIds.has(currentEffectiveId)) return true;
-        if (id != null && serviceSelectedIds.has(id)) return true;
-
-        return false;
+        return id != null && serviceSelectedIds.has(id);
       });
 
       // Map to include displayIndex for FeedbackService reconciliation

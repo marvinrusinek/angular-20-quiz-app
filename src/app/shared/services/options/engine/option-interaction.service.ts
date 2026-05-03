@@ -307,16 +307,14 @@ export class OptionInteractionService {
           if (b.option === s) return true;
           const bId = b.option?.optionId;
           if (sId != null && sId !== -1 && bId != null && bId !== -1 && String(sId) === String(bId)) return true;
-          if (sText && b.option?.text?.trim().toLowerCase() === sText) return true;
-          return false;
+          return !!sText && b.option?.text?.trim().toLowerCase() === sText;
         });
         if (foundIdx !== -1) idx = foundIdx;
         else {
           const oIdx = state.optionsToDisplay.findIndex(o => {
             if (o === s) return true;
             if (sId != null && sId !== -1 && o.optionId != null && o.optionId !== -1 && String(sId) === String(o.optionId)) return true;
-            if (sText && o.text?.trim().toLowerCase() === sText) return true;
-            return false;
+            return !!sText && o.text?.trim().toLowerCase() === sText;
           });
           if (oIdx !== -1) idx = oIdx;
         }
@@ -348,14 +346,12 @@ export class OptionInteractionService {
       let pos = state.optionBindings.findIndex((b: any) => {
         const bId = b?.option?.optionId;
         if (sId != null && sId !== -1 && bId != null && bId !== -1 && String(sId) === String(bId)) return true;
-        if (sText && (b?.option?.text ?? '').trim().toLowerCase() === sText) return true;
-        return false;
+        return !!sText && (b?.option?.text ?? '').trim().toLowerCase() === sText;
       });
       if (pos === -1) {
         pos = state.optionsToDisplay.findIndex((o: any) => {
           if (sId != null && sId !== -1 && o?.optionId != null && o.optionId !== -1 && String(sId) === String(o.optionId)) return true;
-          if (sText && (o?.text ?? '').trim().toLowerCase() === sText) return true;
-          return false;
+          return !!sText && (o?.text ?? '').trim().toLowerCase() === sText;
         });
       }
       if (pos === -1) return s;

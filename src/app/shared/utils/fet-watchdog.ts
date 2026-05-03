@@ -37,8 +37,7 @@ export function installGlobalFetWatchdog(): void {
       if (n.includes('are correct because')) return true;
       if (n.includes('is correct because')) return true;
       if (n.includes('correct because')) return true;
-      if (explanation && explanation.length > 10 && n.includes(explanation)) return true;
-      return false;
+      return !!explanation && explanation.length > 10 && n.includes(explanation);
     };
     const scrapeSelectedOptionTexts = (): Set<string> => {
       const out = new Set<string>();

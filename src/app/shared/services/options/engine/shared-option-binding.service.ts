@@ -702,10 +702,7 @@ export class SharedOptionBindingService {
         const bId = b.option?.optionId;
         const sIdReal = sId != null && sId !== -1 && String(sId) !== '-1';
         const bIdReal = bId != null && bId !== -1 && String(bId) !== '-1';
-        if (sIdReal && bIdReal && String(sId) === String(bId)) {
-          return true;
-        }
-        return false;
+        return sIdReal && bIdReal && String(sId) === String(bId);
       });
       if (matchEntry) {
         // For multi-answer: only highlight options that were actually selected
