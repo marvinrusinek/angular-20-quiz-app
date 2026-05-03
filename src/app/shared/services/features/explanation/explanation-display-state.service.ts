@@ -772,8 +772,9 @@ export class ExplanationDisplayStateService {
     // Also emit to formattedExplanationSig for FINAL LAYER.
     this.formatter.formattedExplanationSig.set(validatedText);
 
-    // Emit immediately without waiting for requestAnimationFrame.
-    this._fetSubject.next({ idx: index, text: validatedText, token });
+    // (FET payload emission intentionally muted — see history; was hidden
+    // inside a same-line comment for a long time; activation caused a
+    // regression on Previous-navigation FET display.)
     this.shouldDisplayExplanationSig.set(true);
     this.isExplanationTextDisplayedSig.set(true);
 
