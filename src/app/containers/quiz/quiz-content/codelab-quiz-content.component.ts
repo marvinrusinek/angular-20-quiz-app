@@ -88,9 +88,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   currentIndex$ = this.questionIndexSubject.asObservable();
   private readonly questionLoadingText = 'Loading question…';
 
-  explanationTextLocal = '';
   isExplanationDisplayed = false;
-  explanationVisible = false;
   isExplanationTextDisplayed$: Observable<boolean>;
 
   private get _fetLocked(): boolean { return this.displayService._fetLockedSig(); }
@@ -110,13 +108,9 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   readonly correctAnswersTextSig = signal<string>('');
   readonly correctAnswersText$ = toObservable(this.correctAnswersTextSig);
 
-  explanationText: string | null = null;
-
   readonly questionRenderedSig = signal<boolean>(false);
 
   isContentAvailable$!: Observable<boolean>;
-
-  private navTime = 0;  // track when we landed on this question
 
   // Signal-backed source of truth for the qText heading's innerHTML.
   // Binding the template to this signal makes Angular's change detection
@@ -173,15 +167,11 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
           effectFiredOnce = true;
           return;
         }
-        this.navTime = Date.now();
         this._fetLocked = false;
         this._lockedForIndex = -1;
         this.orchestrator.runQuestionIndexSet(this, idx);
         this.currentIndex = idx;
         this.resetExplanationView();
-        this.explanationText = '';
-        this.explanationTextLocal = '';
-        this.explanationVisible = false;
         this.cdRef.markForCheck();
       });
     });
