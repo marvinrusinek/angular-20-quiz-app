@@ -998,11 +998,8 @@ export class SelectedOptionService {
     );
   }
 
-  // normalizeIdx -> delegated to idResolver
-
   clearAllSelectionsForQuiz(quizId: string): void {
     this.selectedOptionsMap.clear();
-
     this.rawSelectionsMap.clear();
     this.selectedOptionIndices = {};
     this._questionCache.clear();
