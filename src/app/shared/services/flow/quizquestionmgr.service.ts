@@ -1,4 +1,4 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable } from '@angular/core';
 import { Observable, of } from 'rxjs';
 
 import { Option } from '../../models/Option.model';
@@ -6,19 +6,6 @@ import { QuizQuestion } from '../../models/QuizQuestion.model';
 
 @Injectable({ providedIn: 'root' })
 export class QuizQuestionManagerService {
-  /** Signal-first source of truth for explanation display state */
-  readonly shouldDisplayExplanationSig = signal<boolean>(false);
-
-  private readonly explanationTextSig = signal<string | null>(null);
-
-  selectedOption: Option | null = null;
-  explanationText = '';
-
-  setExplanationText(explanation: string): void {
-    this.explanationTextSig.set(explanation);
-    this.shouldDisplayExplanationSig.set(!!explanation);
-  }
-
   getNumberOfCorrectAnswersText(
     numberOfCorrectAnswers: number | undefined,
     totalOptions: number | undefined,
@@ -50,7 +37,7 @@ export class QuizQuestionManagerService {
     return of(this.isMultipleAnswerQuestionSync(question));
   }
 
-  public isMultipleAnswerQuestionSync(question: QuizQuestion): boolean {
+  private isMultipleAnswerQuestionSync(question: QuizQuestion): boolean {
     try {
       if (question && Array.isArray(question.options)) {
         const correctAnswersCount = question.options.filter(

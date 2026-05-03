@@ -637,7 +637,6 @@ export class QqcOptionSelectionService {
     selectedOption: null;
   } {
     this.selectedOptionService.clearSelectionsForQuestion(currentQuestionIndex);
-    this.quizQuestionManagerService.setExplanationText('');
     return {
       selectedOptions: [],
       optionChecked: {},

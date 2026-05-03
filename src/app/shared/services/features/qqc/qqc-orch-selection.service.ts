@@ -234,7 +234,6 @@ export class QqcOrchSelectionService {
     host.selectedOption = result.selectedOption;
     host.isOptionSelected.set(result.isOptionSelected);
     host.isAnswered = result.isAnswered;
-    host.quizQuestionManagerService.setExplanationText(currentQuestion.explanation || '');
     host.isAnswerSelectedChange.emit(host.isAnswered);
     host.optionSelected.emit(result.selectedOption);
     host.events.emit({ type: 'optionSelected', payload: result.selectedOption });
