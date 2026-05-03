@@ -78,7 +78,16 @@ export class QqcOrchTimerService {
             fetHtml = q.explanation || '';
           }
           if (fetHtml) {
-            const write = () => { qTextEl.innerHTML = fetHtml; };
+            // Guard the delayed writes against the user navigating away
+            // before they fire — without this, a Next click during the
+            // 600ms window re-writes the prior question's FET into qText
+            // after Q(N+1) has already rendered, causing FET->q-txt flash.
+            const expectedIdx = i0;
+            const write = () => {
+              const liveIdx = host.normalizeIndex(host.currentQuestionIndex() ?? 0);
+              if (liveIdx !== expectedIdx) return;
+              qTextEl.innerHTML = fetHtml;
+            };
             write();
             setTimeout(write, 100);
             setTimeout(write, 300);
