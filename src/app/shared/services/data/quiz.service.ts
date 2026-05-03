@@ -29,7 +29,18 @@ import { QuizSessionManagerService } from './quiz-session-manager.service';
 
 @Injectable({ providedIn: 'root' })
 export class QuizService {
-  currentQuestionIndex = 0;
+  /**
+   * Field-style accessor backed by currentQuestionIndexSig (the signal
+   * source of truth) and currentQuestionIndexSubject (the sync BS
+   * mirror added in commit 1f7ae3e0 to fix the FET flash bug).
+   * Plain `quizService.currentQuestionIndex = X` writes route through
+   * the setter so external writers always update both stores.
+   */
+  get currentQuestionIndex(): number { return this.currentQuestionIndexSig(); }
+  set currentQuestionIndex(v: number) {
+    this.currentQuestionIndexSig.set(v);
+    this.currentQuestionIndexSubject.next(v);
+  }
   activeQuiz: Quiz | null = null;
   quizInitialState: Quiz[] = structuredClone(QUIZ_DATA);
   quizData: Quiz[] | null = this.quizInitialState;
@@ -532,9 +543,8 @@ export class QuizService {
   setCurrentQuestionIndex(idx: number) {
     const safeIndex = Number.isFinite(idx) ? Math.max(0, Math.trunc(idx)) : 0;
 
+    // Setter routes to both currentQuestionIndexSig and ...Subject.
     this.currentQuestionIndex = safeIndex;
-    this.currentQuestionIndexSig.set(safeIndex);
-    this.currentQuestionIndexSubject.next(safeIndex);
 
     // Restore answers from persistence if available to prevent score decrement on navigation
     const prevSelected = this.selectedOptionsMap.get(safeIndex);
