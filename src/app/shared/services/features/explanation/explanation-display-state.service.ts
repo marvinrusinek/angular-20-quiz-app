@@ -129,8 +129,7 @@ export class ExplanationDisplayStateService {
     const explanation = question.explanation?.trim();
 
     // Guard: don't push placeholder text early
-    if (!explanation || explanation === 'No explanation available') {      return;
-    }
+    if (!explanation || explanation === 'No explanation available') return;
 
     this.explanationTextSig.set(explanation);
   }
@@ -200,16 +199,14 @@ export class ExplanationDisplayStateService {
             );
             const allCorrectSelected = correctTexts.length > 0
               && correctTexts.every((t: string) => selTexts.has(t));
-            if (!allCorrectSelected) {              return;
-            }
+            if (!allCorrectSelected) return;
           }
         }
-      } catch { /* fall through if injection fails */ }
+      } catch { }
     }
 
     // Visibility lock: prevent overwrites during tab restore
-    if ((this as any)._visibilityLocked) {      return;
-    }
+    if ((this as any)._visibilityLocked) return;
 
     if (!options.force && this.explanationLocked) {
       const lockedContext = this.lockedContext ?? this.globalContextKey;
@@ -218,17 +215,13 @@ export class ExplanationDisplayStateService {
         contextKey === this.globalContextKey ||
         lockedContext === contextKey;
 
-      if (!contextsMatch) {        return;
-      }
-
-      if (trimmed === '') {        return;
-      }
+      if (!contextsMatch) return;
+      if (trimmed === '') return;
     }
 
     if (!options.force) {
       const previous = this.explanationByContext.get(contextKey) ?? '';
-      if (previous === trimmed && signature === this.lastExplanationSignature) {        return;
-      }
+      if (previous === trimmed && signature === this.lastExplanationSignature) return;
     }
 
     if (trimmed) {
@@ -243,7 +236,8 @@ export class ExplanationDisplayStateService {
 
     // Clear old explanation when we're NOT setting new text.
     // This prevents Q1's explanation from showing for Q2.
-    if (!finalExplanation && this.latestExplanation) {      this.latestExplanation = '';
+    if (!finalExplanation && this.latestExplanation) {
+      this.latestExplanation = '';
       this.latestExplanationIndex = targetIdx ?? this._activeIndex ?? 0;
     } else {
       this.latestExplanation = finalExplanation;
@@ -271,7 +265,7 @@ export class ExplanationDisplayStateService {
         const { text$ } = this.getOrCreate(qIdx);
         text$.next(trimmedFinal);
         this._byIndex.get(qIdx)?.next(trimmedFinal);
-      } catch (e) {      }
+      } catch (e) { }
 
       // Broadcast the change to the collection
       this.formatter.explanationsUpdatedSig.set({ ...this.formatter.formattedExplanations });
@@ -289,8 +283,7 @@ export class ExplanationDisplayStateService {
   }
 
   setExplanationTextForQuestionIndex(index: number, explanation: string): void {
-    if (index < 0) {      return;
-    }
+    if (index < 0) return;
 
     const trimmed = (explanation ?? '').trim();
     const previous = this.explanationTexts[index];
@@ -327,7 +320,8 @@ export class ExplanationDisplayStateService {
     }
 
     // Step 1: Fully purge cached FET state if switching question
-    if (this._activeIndex !== questionIndex) {      try {
+    if (this._activeIndex !== questionIndex) {
+      try {
         if ((this.latestExplanation ?? '') !== '') {
           this.formatter.formattedExplanationSig.set('');
         }
@@ -343,7 +337,7 @@ export class ExplanationDisplayStateService {
 
         this.shouldDisplayExplanationSig.set(false);
         this.isExplanationTextDisplayedSig.set(false);
-      } catch (err) {      }
+      } catch (err) { }
 
       this._activeIndex = questionIndex;
       this.latestExplanationIndex = questionIndex;
@@ -365,9 +359,7 @@ export class ExplanationDisplayStateService {
     }
 
     // Allow rehydration after restore: refresh active index
-    if (this._activeIndex === -1) {
-      this._activeIndex = questionIndex;
-    }
+    if (this._activeIndex === -1) this._activeIndex = questionIndex;
 
     const entry = this.formatter.formattedExplanations[questionIndex];
     if (!entry) {
@@ -389,8 +381,7 @@ export class ExplanationDisplayStateService {
       } catch { }
       return new Observable(sub => { sub.next(FALLBACK); sub.complete(); });
     }
-    if (this._activeIndex !== questionIndex) {      this._activeIndex = questionIndex;
-    }
+    if (this._activeIndex !== questionIndex) this._activeIndex = questionIndex;
 
     // Drive only the index-scoped channel (no global .next here)
     try {
@@ -430,7 +421,8 @@ export class ExplanationDisplayStateService {
       } catch { }
       try {
         this.setGate(this._activeIndex, false);
-      } catch { }    }
+      } catch { }
+    }
 
     // Now safely update active index to current question
     this._activeIndex = questionIndex;
@@ -439,11 +431,12 @@ export class ExplanationDisplayStateService {
       map((explanationText: string | null) => {
         const text = explanationText?.trim() || 'No explanation available';
 
-        if (this._activeIndex !== questionIndex) {          return this.latestExplanation || 'No explanation available';
+        if (this._activeIndex !== questionIndex) {
+          return this.latestExplanation || 'No explanation available';
         }
 
         return text;
-      }),
+      })
     );
   }
 
@@ -457,8 +450,7 @@ export class ExplanationDisplayStateService {
     options: { force?: boolean; context?: string } = {}
   ): void {
     // Visibility lock: prevent overwrites during visibility restore
-    if ((this as any)._visibilityLocked) {      return;
-    }
+    if ((this as any)._visibilityLocked) return;
 
     const contextKey = this.normalizeContext(options.context);
     const signature = `${options.context ?? 'global'}:::${isDisplayed}`;
@@ -468,9 +460,7 @@ export class ExplanationDisplayStateService {
       if (
         previous === isDisplayed &&
         signature === this.lastDisplayedSignature
-      ) {
-        return;
-      }
+      ) return;
     }
 
     if (isDisplayed) {
@@ -487,9 +477,7 @@ export class ExplanationDisplayStateService {
     if (
       !options.force &&
       aggregated === this.isExplanationTextDisplayedSig()
-    ) {
-      return;
-    }
+    ) return;
 
     // Update the canonical BehaviorSubject
     this.isExplanationTextDisplayedSig.set(aggregated);
@@ -589,9 +577,7 @@ export class ExplanationDisplayStateService {
     if (
       !options.force &&
       aggregated === this.shouldDisplayExplanationSig()
-    ) {
-      return;
-    }
+    ) return;
 
     // Normal reactive push (this is your main subject)
     this.shouldDisplayExplanationSig.set(aggregated);
@@ -624,26 +610,21 @@ export class ExplanationDisplayStateService {
   private clearExplanationCaches(): void {
     this.latestExplanation = '';
     this.currentQuestionExplanation = null;
-
     this.lastExplanationSignature = null;
     this.lastDisplaySignature = null;
     this.lastDisplayedSignature = null;
-
     this.explanationByContext.clear();
     this.shouldDisplayByContext.clear();
     this.displayedByContext.clear();
-
     this.explanationTexts = {};
   }
 
   resetExplanationText(): void {
     this.clearExplanationCaches();
-
     this.setExplanationText('', { force: true });
     this.explanationTextSig.set('');
     this.setShouldDisplayExplanation(false, { force: true });
     this.setIsExplanationTextDisplayed(false, { force: true });
-
     this.isExplanationDisplayedSig.set(false);
   }
 
