@@ -10,19 +10,12 @@ import { QuizService } from '../../data/quiz.service';
 
 @Injectable({ providedIn: 'root' })
 export class FeedbackService {
-  lastKnownOptions: Option[] = [];
-  private lastCorrectIndices: number[] = [];
-
   constructor(
     private selectedOptionService: SelectedOptionService,
     @Inject(forwardRef(() => ExplanationTextService))
     private explanationTextService: ExplanationTextService,
     private injector: Injector
   ) { }
-
-  getLastCorrectIndices(): number[] {
-    return this.lastCorrectIndices.slice();
-  }
 
   public generateFeedbackForOptions(
     correctOptions: Option[],
@@ -340,10 +333,6 @@ if ((!correctIndices || correctIndices.length === 0) && quizSvc) {
     optionsToDisplay?: Option[],
     question?: QuizQuestion
   ): string {
-    if (optionsToDisplay && optionsToDisplay.length > 0) {
-      this.lastKnownOptions = [...optionsToDisplay];
-    }
-
     if (!optionsToDisplay || optionsToDisplay.length === 0) {
       return 'Feedback unavailable.';
     }
@@ -373,7 +362,6 @@ const indices = directFromCanonical.length > 0
       ? directFromCanonical
       : this.explanationTextService.getCorrectOptionIndices(question!, optionsToDisplay, typeof currentIndex === 'number' ? currentIndex : undefined);
     const deduped = Array.from(new Set(indices)).sort((a, b) => a - b);
-    this.lastCorrectIndices = deduped;
 
     if (deduped.length === 0) {
       return 'No correct options found.';
