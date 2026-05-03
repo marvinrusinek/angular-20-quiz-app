@@ -673,8 +673,8 @@ export class QqcQuestionLoaderService {
       explanation: '',
     });
 
-    this.quizService.nextQuestionSubject.next(preparedState.currentQuestion);
-    this.quizService.nextOptionsSubject.next(preparedState.optionsToDisplay);
+    this.quizService.nextQuestionSig.set(preparedState.currentQuestion);
+    this.quizService.nextOptionsSig.set(preparedState.optionsToDisplay);
 
     // Emit baseline selection message
     this.emitBaselineSelectionMessage({

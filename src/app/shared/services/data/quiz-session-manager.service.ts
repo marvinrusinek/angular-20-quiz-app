@@ -35,8 +35,8 @@ export interface QuizSessionState {
   // Subjects that need to be emitted to
   currentQuestionSig: WritableSignal<QuizQuestion | null>;
   currentQuestionIndexSig: WritableSignal<number>;
-  nextQuestionSubject: BehaviorSubject<QuizQuestion | null>;
-  nextOptionsSubject: BehaviorSubject<Option[]>;
+  nextQuestionSig: WritableSignal<QuizQuestion | null>;
+  nextOptionsSig: WritableSignal<Option[]>;
   previousQuestionSubject: BehaviorSubject<QuizQuestion | null>;
   currentOptionsSig: WritableSignal<Option[]>;
   optionsSource: Subject<Option[]>;
@@ -247,8 +247,8 @@ export class QuizSessionManagerService {
         state.currentQuestionIndex
       );
     } else {
-      state.nextQuestionSubject.next(currentQuestion);
-      state.nextOptionsSubject.next(normalizedOptions);
+      state.nextQuestionSig.set(currentQuestion);
+      state.nextOptionsSig.set(normalizedOptions);
     }
 
     const correctAnswersMap = this.optionsService.calculateCorrectAnswers(sanitizedQuestions);
@@ -355,8 +355,8 @@ export class QuizSessionManagerService {
     state.questions = [];
 
     state.currentQuestionSig.set(null);
-    state.nextQuestionSubject.next(null);
-    state.nextOptionsSubject.next([]);
+    state.nextQuestionSig.set(null);
+    state.nextOptionsSig.set([]);
     state.previousQuestionSubject.next(null);
     state.currentOptionsSig.set([]);
     state.optionsSource.next([]);

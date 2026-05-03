@@ -129,7 +129,7 @@ export class QqcOrchDisplayService {
       host.currentOptions = host.displayStateManager.applyDisplayOrder(host.currentOptions);
       host.optionsToDisplay.set(host.currentOptions.map((o: any) => ({ ...o })));
       host.updateShouldRenderOptions(host.optionsToDisplay());
-      host.quizService.nextOptionsSubject.next(host.optionsToDisplay().map((o: any) => ({ ...o })));
+      host.quizService.nextOptionsSig.set(host.optionsToDisplay().map((o: any) => ({ ...o })));
       host.cdRef.markForCheck();
     });
   }

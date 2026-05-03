@@ -169,11 +169,11 @@ export class QuizService {
   })();
   optionsSource: Subject<Option[]> = new Subject<Option[]>();
 
-  nextQuestionSubject = new BehaviorSubject<QuizQuestion | null>(null);
-  nextQuestion$ = this.nextQuestionSubject.asObservable();
+  nextQuestionSig = signal<QuizQuestion | null>(null);
+  nextQuestion$: Observable<QuizQuestion | null> = toObservable(this.nextQuestionSig);
 
-  nextOptionsSubject = new BehaviorSubject<Option[]>([]);
-  nextOptions$ = this.nextOptionsSubject.asObservable();
+  nextOptionsSig = signal<Option[]>([]);
+  nextOptions$: Observable<Option[]> = toObservable(this.nextOptionsSig);
 
   previousQuestionSubject = new BehaviorSubject<QuizQuestion | null>(null);
   previousQuestion$ = this.previousQuestionSubject.asObservable();
@@ -995,9 +995,9 @@ export class QuizService {
     if (!result) return;
 
     // Emit to individual subjects
-    this.nextQuestionSubject.next(result.questionToEmit);
+    this.nextQuestionSig.set(result.questionToEmit);
     this.updateCurrentQuestion(result.questionToEmit);
-    this.nextOptionsSubject.next(result.optionsToUse);
+    this.nextOptionsSig.set(result.optionsToUse);
 
     // Emit the combined payload
     this.questionPayloadSubject.next({
