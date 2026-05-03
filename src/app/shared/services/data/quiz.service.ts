@@ -128,10 +128,8 @@ export class QuizService {
     new Subject<QuizQuestion | null>();
   currentQuestion: BehaviorSubject<QuizQuestion | null> =
     new BehaviorSubject<QuizQuestion | null>(null);
-  currentQuestionSubject: BehaviorSubject<QuizQuestion | null> =
-    new BehaviorSubject<QuizQuestion | null>(null);
   public currentQuestion$: Observable<QuizQuestion | null> =
-    this.currentQuestionSubject.asObservable();
+    this.currentQuestion.asObservable();
 
   currentOptionsSubject = new BehaviorSubject<Array<Option>>([]);
   totalQuestionsSig = signal<number>(0);
@@ -859,7 +857,7 @@ export class QuizService {
         currentQuestionValue = resolved;
       }
     } else {
-      currentQuestionValue = this.questions[qIndex] ?? this.currentQuestionSubject.getValue();
+      currentQuestionValue = this.questions[qIndex] ?? this.currentQuestion.getValue();
     }
 
     if (!currentQuestionValue) {
