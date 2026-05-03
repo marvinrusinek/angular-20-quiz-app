@@ -311,6 +311,7 @@ export class QuizSetupRouteService {
     host.currentQuestionIndex = adjustedIndex;
     host.previousIndex = adjustedIndex;
     this.quizService.currentQuestionIndexSig.set(adjustedIndex);
+    this.quizService.currentQuestionIndexSubject.next(adjustedIndex);
 
     host.explanationToDisplay = '';
     this.quizContentLoaderService.resetDisplayExplanationText(host.currentQuestionIndex);

@@ -70,7 +70,11 @@ export class QuizService {
   })();
 
   currentQuestionIndexSig = signal<number>(0);
-  currentQuestionIndex$: Observable<number> = toObservable(this.currentQuestionIndexSig);
+  // Sync mirror so observable subscribers (displayText$, etc.) receive
+  // index changes in the same microtask as the signal write — avoids the
+  // toObservable() async lag that caused FET-to-q-text flicker on Next.
+  currentQuestionIndexSubject = new BehaviorSubject<number>(0);
+  currentQuestionIndex$: Observable<number> = this.currentQuestionIndexSubject.asObservable();
 
   selectedOptionsMap: Map<number, SelectedOption[]> = new Map();
 
@@ -527,6 +531,7 @@ export class QuizService {
 
     this.currentQuestionIndex = safeIndex;
     this.currentQuestionIndexSig.set(safeIndex);
+    this.currentQuestionIndexSubject.next(safeIndex);
 
     // Restore answers from persistence if available to prevent score decrement on navigation
     const prevSelected = this.selectedOptionsMap.get(safeIndex);
