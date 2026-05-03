@@ -124,8 +124,6 @@ export class QuizService {
 
   multipleAnswer = false;
 
-  currentQuestionSource: Subject<QuizQuestion | null> =
-    new Subject<QuizQuestion | null>();
   currentQuestion: BehaviorSubject<QuizQuestion | null> =
     new BehaviorSubject<QuizQuestion | null>(null);
   public currentQuestion$: Observable<QuizQuestion | null> =
@@ -312,8 +310,6 @@ export class QuizService {
     this.totalQuestions = result.totalQuestions;
     this.quizData = this.dataLoader.quizData;
     this.quizInitialState = this.dataLoader.quizInitialState;
-
-    this.currentQuestion$ = this.currentQuestionSource.asObservable();
 
     if (this.questions.length > 0) {
       this.totalQuestionsSig.set(this.totalQuestions);

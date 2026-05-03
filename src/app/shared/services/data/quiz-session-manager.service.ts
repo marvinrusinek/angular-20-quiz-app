@@ -33,7 +33,6 @@ export interface QuizSessionState {
   totalQuestions: number;
 
   // Subjects that need to be emitted to
-  currentQuestionSource: Subject<QuizQuestion | null>;
   currentQuestion: BehaviorSubject<QuizQuestion | null>;
   currentQuestionIndexSig: WritableSignal<number>;
   nextQuestionSubject: BehaviorSubject<QuizQuestion | null>;
@@ -231,7 +230,6 @@ export class QuizSessionManagerService {
 
     const currentQuestion =
       sanitizedQuestions[state.currentQuestionIndex] ?? null;
-    state.currentQuestionSource.next(currentQuestion);
     state.currentQuestion.next(currentQuestion);
 
     const normalizedOptions = Array.isArray(currentQuestion?.options)
@@ -356,7 +354,6 @@ export class QuizSessionManagerService {
     // Also clear regular questions for unshuffled mode
     state.questions = [];
 
-    state.currentQuestionSource.next(null);
     state.currentQuestion.next(null);
     state.nextQuestionSubject.next(null);
     state.nextOptionsSubject.next([]);
