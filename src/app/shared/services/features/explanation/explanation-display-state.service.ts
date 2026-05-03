@@ -17,8 +17,10 @@ export type FETPayload = { idx: number; text: string; token: number };
 
 @Injectable({ providedIn: 'root' })
 export class ExplanationDisplayStateService {
-  readonly explanationTextSig = signal<string | null>('');
-  explanationText$: Observable<string | null> = toObservable(this.explanationTextSig);
+  private readonly explanationTextSig = signal<string>('');
+  explanationText$: BehaviorSubject<string | null> = new BehaviorSubject<
+    string | null
+  >('');
   explanationTexts: Record<number, string> = {};
 
   private readonly globalContextKey = 'global';
@@ -109,7 +111,7 @@ export class ExplanationDisplayStateService {
     ).subscribe((idx: number) => {
       this.latestExplanation = '';
       this.latestExplanationIndex = idx;
-      this.explanationTextSig.set('');
+      this.explanationText$.next('');
       this.formatter.formattedExplanationSig.set('');
       this.setShouldDisplayExplanation(false, { force: true });
       this.setIsExplanationTextDisplayed(false, { force: true });
@@ -649,6 +651,7 @@ export class ExplanationDisplayStateService {
     this.latestExplanationIndex = -1;
 
     this.explanationTextSig.set('');
+    this.explanationText$.next('');
     this.formatter.formattedExplanationSig.set('');
     this._fetSubject.next(undefined as any);
 

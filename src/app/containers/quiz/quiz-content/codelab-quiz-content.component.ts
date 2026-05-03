@@ -385,7 +385,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     this.resetExplanationView();
 
     this.explanationTextService.setShouldDisplayExplanation(false);
-    this.explanationTextService.explanationTextSig.set('');
+    this.explanationTextService.explanationText$.next('');
 
     this.explanationTextService.resetForIndex(0);
     this.explanationTextService.setShouldDisplayExplanation(false, {

@@ -135,7 +135,7 @@ export class SharedOptionExplanationService {
     try {
       (this.explanationTextService as any)._fetLocked = false;
       this.explanationTextService.unlockExplanation();
-      this.explanationTextService.explanationTextSig.set('');
+      this.explanationTextService.explanationText$.next('');
     } catch (e) { }
 
     // Force display flags to TRUE
