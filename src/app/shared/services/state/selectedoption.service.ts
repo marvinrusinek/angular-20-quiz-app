@@ -536,8 +536,7 @@ export class SelectedOptionService {
       );
 
       if (resolvedIndex == null || resolvedIndex < 0) {
-          // Unable to resolve a valid question index
-        return;
+        return;  // unable to resolve a valid question index
       }
 
       const snapshot = this.buildCanonicalSelectionSnapshot(
@@ -571,7 +570,6 @@ export class SelectedOptionService {
         .map((opt) => (opt as SelectedOption)?.questionIndex)
         .find((idx) => typeof idx === 'number' && idx >= 0)
       : undefined;
-
     if (typeof optionIndexFromPayload === 'number') {
       return optionIndexFromPayload;
     }
@@ -595,8 +593,6 @@ export class SelectedOptionService {
       this.quizService
     );
   }
-
-  // ── Delegated to OptionIdResolverService ─────────────────────
 
   private isMultiAnswerQuestion(questionIndex: number): boolean {
     return this.answerEval.isMultiAnswerQuestion(questionIndex);
@@ -629,7 +625,7 @@ export class SelectedOptionService {
       this.optionSnapshotByQuestion.delete(idx);
     }
 
-    // VITAL: Propagate changes to the reactive map
+    // Propagate changes to the reactive map
     this.selectedOptionsMapSig.set(new Map(this.selectedOptionsMap));
 
     this.syncFeedbackForQuestion(idx, canonicalSelections);
@@ -678,15 +674,9 @@ export class SelectedOptionService {
     );
   }
 
-  // normalizeQuestionIndex, normalizeStr, resolveOptionIndexFromSelection -> delegated to idResolver
-
   public isQuestionAnswered(questionIndex: number): boolean {
-    const options = this.selectedOptionsMap.get(questionIndex);
-    if (Array.isArray(options) && options.length > 0) {
-      return true;
-    }
-    const backup = this._refreshBackup.get(questionIndex);
-    return Array.isArray(backup) && backup.length > 0;
+    return !!this.selectedOptionsMap.get(questionIndex)?.length
+      || !!this._refreshBackup.get(questionIndex)?.length;
   }
 
   setAnswered(isAnswered: boolean, force = false): void {
@@ -803,17 +793,13 @@ export class SelectedOptionService {
     try {
       this.selectedOptionsMap.clear();
       this.lockState.clearLockedOptionsMap();
-      this.optionStates?.clear?.();
+      this.optionStates?.clear();
     } catch (error) {
     }
   }
 
   private getFallbackQuestionIndex(): number {
-    const keys = Array.from(this.selectedOptionsMap.keys());
-    if (keys.length > 0) {
-      return keys[0];
-    }
-    return -1;
+    return this.selectedOptionsMap.keys().next().value ?? -1;
   }
 
   public wasOptionPreviouslySelected(option: SelectedOption): boolean {
@@ -914,10 +900,7 @@ export class SelectedOptionService {
     this.lockState.resetLocksForQuestion(qIndex);
   }
 
-  public overlaySelectedByIdentity(
-    canonical: Option[],
-    ui: Option[]
-  ): Option[] {
+  public overlaySelectedByIdentity(canonical: Option[], ui: Option[]): Option[] {
     return this.idResolver.overlaySelectedByIdentity(canonical, ui);
   }
 
@@ -928,14 +911,8 @@ export class SelectedOptionService {
   }
 
   public reapplySelectionForQuestion(option: Option, index: number): void {
-
-    // mark as selected again
-    option.selected = true;
-
-    // mark question as answered
-    this.setAnswered(true);
-
-    // let your existing pipelines react naturally
+    option.selected = true;  // mark as selected again
+    this.setAnswered(true);  // mark question as answered
   }
 
   public areAllCorrectAnswersSelectedActiveQuestion(): boolean {
