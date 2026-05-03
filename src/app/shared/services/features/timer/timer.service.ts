@@ -19,7 +19,8 @@ interface StopTimerAttemptOptions {
 @Injectable({ providedIn: 'root' })
 export class TimerService implements OnDestroy {
   timePerQuestion = 30;
-  public elapsedTime = 0;
+  /** Live elapsed time for the current run, derived from elapsedTimeSig. */
+  public get elapsedTime(): number { return this.elapsedTimeSig(); }
   completionTime = Number(sessionStorage.getItem('completionTime')) || 0;
   elapsedTimes: number[] = (() => {
     try {
@@ -30,13 +31,13 @@ export class TimerService implements OnDestroy {
   })();
 
   isTimerRunning = false;  // tracks whether the timer is currently running
-  isCountdown = true;  // tracks the timer mode (true = countdown, false = stopwatch)
+  /** Derived from timerTypeSig — single source of truth. */
+  get isCountdown(): boolean { return this.timerTypeSig() === 'countdown'; }
   isTimerStoppedForCurrentQuestion = false;
   stoppedForQuestion = new Set<number>();
 
   // Signals
   private isStop = new Subject<void>();
-  private isReset = new Subject<void>();
 
   // Signal-first sources of truth
   readonly elapsedTimeSig = signal<number>(0);
@@ -65,16 +66,15 @@ export class TimerService implements OnDestroy {
 
   private _authoritativeStop = false;
   private hasExpiredForRun = false;
-  /** The question index the timer most recently expired for, or -1 if none. */
-  public expiredForQuestionIndex = -1;
   /** Signal version — read this in OnPush templates so Angular auto-tracks it. */
   public readonly expiredForQuestionIndexSig = signal(-1);
+  /** Derived from expiredForQuestionIndexSig — single source of truth. */
+  public get expiredForQuestionIndex(): number { return this.expiredForQuestionIndexSig(); }
 
   constructor(
     private quizService: QuizService,
     private selectedOptionService: SelectedOptionService
   ) {
-    this.isCountdown = this.timerTypeSig() === 'countdown';
     this.setupTimer();
     this.listenForCorrectSelections();
   }
@@ -141,7 +141,6 @@ export class TimerService implements OnDestroy {
     }
 
     this.timerTypeSig.set(type);
-    this.isCountdown = type === 'countdown';
     try {
       localStorage.setItem('timerType', type);
     } catch {
@@ -189,8 +188,6 @@ export class TimerService implements OnDestroy {
     }
 
     this.isTimerRunning = true;  // mark timer as running
-    this.isCountdown = isCountdown;
-    this.elapsedTime = 0;
     this.hasExpiredForRun = false;
 
     // Show initial value immediately
@@ -202,14 +199,12 @@ export class TimerService implements OnDestroy {
         // Tick starts at 0 after 1s → elapsed = tick + 1 (1,2,3,…)
         const elapsed = tick + 1;
 
-        this.elapsedTime = elapsed;
-        this.elapsedTimeSig.set(this.elapsedTime);
+        this.elapsedTimeSig.set(elapsed);
 
         // If reached the duration, emit expiration once (stop only for countdown)
         if (elapsed >= duration && !this.hasExpiredForRun) {
           this.hasExpiredForRun = true;
-          this.expiredForQuestionIndex = this.quizService.currentQuestionIndex;
-          this.expiredForQuestionIndexSig.set(this.expiredForQuestionIndex);
+          this.expiredForQuestionIndexSig.set(this.quizService.currentQuestionIndex);
           this.expiredSubject.next();
           if (isCountdown) {
             this.stopTimer(undefined, { force: true });
@@ -285,12 +280,10 @@ export class TimerService implements OnDestroy {
       this.stopTimer(undefined, { force: true });
     }
 
-    this.elapsedTime = 0;
     this.isTimerRunning = false;
     this.isTimerStoppedForCurrentQuestion = false;  // allow restart for the new question
     this.hasExpiredForRun = false;
 
-    this.isReset.next();  // signal to reset
     this.elapsedTimeSig.set(0);  // reset elapsed time for observers
   }
 
@@ -497,7 +490,6 @@ export class TimerService implements OnDestroy {
     this._runningForQuestion = questionIndex;
     // Clear expiry/start guards so this fresh question can run
     this.hasExpiredForRun = false;
-    this.expiredForQuestionIndex = -1;
     this.expiredForQuestionIndexSig.set(-1);
     this._lastStartedAtMs = 0;
     this.stopTimer?.(undefined, { force: true });
