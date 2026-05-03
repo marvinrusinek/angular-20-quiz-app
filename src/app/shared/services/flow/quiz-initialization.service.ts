@@ -1,6 +1,6 @@
 // SETS UP QUIZ, LOADS QUESTIONS
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Subject, Subscription } from 'rxjs';
+import { Subject, Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged, takeUntil } from 'rxjs/operators';
 
 import { Option } from '../../models/Option.model';
@@ -23,8 +23,6 @@ export class QuizInitializationService {
   currentQuestionIndex = 0;
   totalQuestions = 0;
   quizId = '';
-  selectedOption$: BehaviorSubject<Option | null> =
-    new BehaviorSubject<Option | null>(null);
 
   options: Option[] = [];
   optionsToDisplay: Option[] = [];
@@ -106,26 +104,4 @@ export class QuizInitializationService {
       });
   }
 
-  public updateQuizUIForNewQuestion(
-    question: QuizQuestion | null = this.currentQuestion,
-  ): void {
-    if (!question) {
-      return;
-    }
-
-    if (!this.selectedQuiz || !Array.isArray(this.selectedQuiz.questions)) {
-      return;
-    }
-
-    const questionIndex = this.quizService.findQuestionIndex(question);
-    if (
-      questionIndex < 0 ||
-      questionIndex >= this.selectedQuiz.questions.length
-    ) {
-      return;
-    }
-
-    // Reset UI elements
-    this.selectedOption$.next(null);
-  }
 }
