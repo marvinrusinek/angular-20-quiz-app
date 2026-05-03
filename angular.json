@@ -9,6 +9,7 @@
       "architect": {
         "build": {
           "builder": "@angular/build:application",
+          "defaultConfiguration": "production",
           "configurations": {
             "development": {
               "extractLicenses": false,
@@ -18,6 +19,7 @@
             },
             "production": {
               "aot": true,
+              "baseHref": "/angular-20-quiz-app/",
               "extractLicenses": true,
               "namedChunks": false,
               "optimization": true,
