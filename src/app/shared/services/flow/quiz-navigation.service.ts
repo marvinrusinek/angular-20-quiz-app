@@ -369,7 +369,6 @@ export class QuizNavigationService {
         if (totalQuestions > 0) {
           this.quizService.updateBadgeText(index + 1, totalQuestions);
         }
-      } else {
       }
 
       const routeUrl = `/quiz/question/${effectiveQuizId}/${index + 1}`;

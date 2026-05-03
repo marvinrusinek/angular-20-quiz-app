@@ -247,7 +247,6 @@ export class CqcQuestionNavService {
         host.questionIndexSubject.next(zeroBasedIndex);
 
         await host.loadQuestion(quizId, zeroBasedIndex);
-      } else {
       }
     });
 
@@ -398,7 +397,6 @@ export class CqcQuestionNavService {
         } catch (e) {
           // Eager FET regeneration failed
         }
-      } else {
       }
     } catch (error: any) {
     }

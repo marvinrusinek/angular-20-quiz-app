@@ -48,6 +48,6 @@ export class SoundService {
     const sound = this.sounds[soundName];
     if (sound) {
       sound.play();
-    } else {    }
+    }
   }
 }

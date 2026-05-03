@@ -256,7 +256,7 @@ export class QqcNavigationHandlerService {
    */
   purgeFetIfNavigatedWhileHidden(currentQuestionIndex: number): void {
     if (this._wasHidden && currentQuestionIndex !== this.explanationTextService._activeIndex) {      this.explanationTextService.purgeAndDefer(currentQuestionIndex);
-    } else {    }
+    }
 
     this._wasHidden = false;
   }

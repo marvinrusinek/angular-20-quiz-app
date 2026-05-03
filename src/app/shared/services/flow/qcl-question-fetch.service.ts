@@ -472,7 +472,6 @@ export class QclQuestionFetchService {
         next: ([question, options]: [QuizQuestion | null, Option[] | null]) => {
           if (question && options) {
             this.quizStateService.updateCurrentQuizState(of(question));
-          } else {
           }
         },
         error: () => { }

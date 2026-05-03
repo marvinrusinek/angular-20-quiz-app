@@ -673,7 +673,7 @@ export class QqcExplanationDisplayService {
             )
           );
           explanationText = fetched?.trim() || explanationText;
-        } else {        }
+        }
 
         this.explanationTextService.setExplanationText(explanationText);
 

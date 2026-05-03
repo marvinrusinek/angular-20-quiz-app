@@ -342,7 +342,6 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
       this.viewContainerRef = this.viewContainerRefs.first;
       this.loadQuizQuestionComponent();
       this.hasComponentLoaded = true;  // prevent further attempts to load
-    } else {
     }
   }
 

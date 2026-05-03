@@ -497,7 +497,6 @@ export class SelectedOptionService {
         this.selectedOptionsMap.delete(idx);
         this.feedbackState.deleteFeedbackForQuestion(idx);
         this.optionSnapshotByQuestion.delete(idx);
-      } else {
       }
     } else {
       // Clear the single selected option for single-answer questions
@@ -762,7 +761,6 @@ export class SelectedOptionService {
 
     if (current !== isAnswered) {
       this.isAnsweredSig.set(isAnswered);
-    } else {
     }
   }
 

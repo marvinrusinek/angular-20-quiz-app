@@ -527,7 +527,6 @@ export class QqcQuestionLoaderService {
             // Push the baseline immediately
             await this.selectionMessageService.enforceBaselineAtInit(params.currentQuestionIndex, q.type!, totalCorrect);
           }
-        } else {
         }
       });
     });

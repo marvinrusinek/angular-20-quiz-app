@@ -57,7 +57,6 @@ export class QuizQuestionDataService {
           )
         );
         explanation = fetchedExplanation?.trim() || 'No explanation available';
-      } else {
       }
 
       if (
@@ -173,7 +172,6 @@ export class QuizQuestionDataService {
         question.options,
         true
       );
-    } else {
     }
   }
 }

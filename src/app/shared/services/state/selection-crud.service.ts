@@ -274,7 +274,6 @@ export class SelectionCrudService {
     // Populate snapshot if provided
     if (optionsSnapshot && optionsSnapshot.length > 0) {
       host.optionSnapshotByQuestion.set(qIndex, optionsSnapshot);
-    } else {
     }
 
     const enriched: SelectedOption = this.idResolver.canonicalizeOptionForQuestion(
@@ -460,7 +459,6 @@ export class SelectionCrudService {
           questionIndex,
           selected: opt.selected === false ? false : true
         });
-      } else {
       }
     }
 
@@ -572,7 +570,6 @@ export class SelectionCrudService {
         questionIndex,
         source.map((option) => ({ ...option }))
       );
-    } else {
     }
 
     const resolved = this.idResolver.resolveOptionFromSource(

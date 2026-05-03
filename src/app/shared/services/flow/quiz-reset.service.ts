@@ -125,7 +125,6 @@ export class QuizResetService {
 
     if (!this.explanationTextService.isExplanationLocked()) {
       this.explanationTextService.resetExplanationState();
-    } else {
     }
 
     this.selectedOptionService.stopTimerEmitted = false;

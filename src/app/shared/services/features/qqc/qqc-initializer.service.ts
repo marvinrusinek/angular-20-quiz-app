@@ -286,7 +286,6 @@ export class QqcInitializerService {
   checkRenderReady(questionForm: FormGroup | null): boolean {
     const valid = questionForm?.valid ?? false;
     if (valid) {
-    } else {
     }
     return valid;
   }
@@ -414,7 +413,6 @@ export class QqcInitializerService {
 
             if (hasAnswered) {
               this.selectedOptionService.setAnsweredState(true);
-            } else {
             }
 
             params.onQuestionsLoaded(questions);

@@ -256,7 +256,6 @@ export class TimerService implements OnDestroy {
     if (this.timerSubscription) {
       this.timerSubscription.unsubscribe();
       this.timerSubscription = null;
-    } else {
     }
 
     this.isTimerRunning = false;  // mark the timer as stopped

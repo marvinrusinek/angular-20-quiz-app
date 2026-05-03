@@ -153,7 +153,6 @@ export class QuizSetupRouteService {
           host.combinedQuestionDataSubject.next({
             question, options: question.options, explanation: question.explanation,
           });
-        } else {
         }
         host.cdRef.markForCheck();
 

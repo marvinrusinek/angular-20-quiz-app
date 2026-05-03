@@ -941,7 +941,6 @@ export class SharedOptionBindingService {
       comp.renderReady = true;
       comp.renderReadyChange.emit(true);
       comp.renderReadySubject?.next(true);
-    } else {
     }
   }
 

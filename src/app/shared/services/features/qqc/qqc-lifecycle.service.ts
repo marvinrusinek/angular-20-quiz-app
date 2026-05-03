@@ -178,7 +178,6 @@ export class QqcLifecycleService {
     setTimeout(() => {
       if (params.sharedOptionComponent) {
         params.subscribeToRenderReady();
-      } else {
       }
     });
   }

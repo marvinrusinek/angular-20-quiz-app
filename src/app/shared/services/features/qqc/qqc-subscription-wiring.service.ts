@@ -41,7 +41,6 @@ export class QqcSubscriptionWiringService {
         distinctUntilChanged(),
         tap((mode: 'question' | 'explanation') => {
           if (isRestoringState) {
-          } else {
           }
         }),
         catchError(() => {
@@ -197,7 +196,6 @@ export class QqcSubscriptionWiringService {
         ({ question, options }) => {
           if (question?.questionText && options?.length) {
             callbacks.onNavigationToQuestion({ question, options });
-          } else {
           }
         }
       )

@@ -48,7 +48,6 @@ export class FeedbackComponent implements OnInit, OnChanges {
 
       // Force view update
       this.cdRef.markForCheck();
-    } else {
     }
   }
 

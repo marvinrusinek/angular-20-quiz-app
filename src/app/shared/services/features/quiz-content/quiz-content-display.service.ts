@@ -488,7 +488,6 @@ export class QuizContentDisplayService {
               // Also clear any falsely-set perfect flag so downstream
               // OIS-bypass can't re-trigger on the next emission.
               (this.quizService as any)?._multiAnswerPerfect?.delete?.(safeIdx);
-            } else {
             }
           }
         }

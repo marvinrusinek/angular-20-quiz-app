@@ -536,7 +536,7 @@ export class ExplanationFormatterService {
                     correctIds.add(Number(a.optionId));
                   }
                 }
-              }            } else {            }
+              }            }
           }
         }
       }

@@ -32,7 +32,6 @@ export class SharedOptionOrchestratorService {
     host.setupRehydrateTriggers();
 
     if (host.form) {
-    } else {
     }
 
     if (!host.optionBindings?.length && host.optionsToDisplay?.length) {
@@ -381,7 +380,6 @@ export class SharedOptionOrchestratorService {
       host.renderReady = true;
       host.renderReadyChange.emit(true);
       host.renderReadySubject.next(true);
-    } else {
     }
   }
 
@@ -425,7 +423,6 @@ export class SharedOptionOrchestratorService {
       host.type = questionForType
           ? host.determineQuestionType(questionForType)
           : 'single';
-    } else {
     }
   }
 

@@ -149,8 +149,8 @@ export class QqcOptionSelectionService {
 
         if (stopped) {
           this.timerService.isTimerRunning = false;
-        } else {        }
-      } else {      }
+        }
+      }
     } catch (error) {
       // Error in timer logic
     }
@@ -443,7 +443,7 @@ export class QqcOptionSelectionService {
       if (!(this.explanationTextService as any).isExplanationLocked?.()) {
         // Only trigger explanation if selected and correct, otherwise ensure it's hidden
         this.explanationTextService.setShouldDisplayExplanation(isOptionSelected && params.lastAllCorrect);
-      } else {      }
+      }
 
       // Update selected option service
       this.selectedOptionService.setAnsweredState(true);
@@ -537,7 +537,7 @@ export class QqcOptionSelectionService {
       // Update the selection message based on the current state
       if (await params.shouldUpdateMessageOnAnswerFn(isAnswered)) {
         // Selection message update would go here
-      } else {      }
+      }
 
       return { currentQuestion, optionsToDisplay, data };
     } catch (error) {
@@ -604,7 +604,7 @@ export class QqcOptionSelectionService {
     });
 
     const correctAnswers = await params.getCorrectAnswers();
-    if (!correctAnswers || correctAnswers.length === 0) {    } else {    }
+    if (!correctAnswers || correctAnswers.length === 0) {    }
 
     return { correctAnswers };
   }

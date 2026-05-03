@@ -329,7 +329,6 @@ export class SharedOptionChangeHandlerService {
       changes['optionBindings'].currentValue.length
     ) {
       result.callHydrateAndGenerate = true;
-    } else {
     }
 
     // ---------------------------------------------------------------

@@ -127,7 +127,7 @@ export class QuizScoringService {
         if (typeof originalIndex === 'number' && originalIndex >= 0) {
           scoringKey = originalIndex;
         }
-      } else {      }
+      }
     }
 
     // IMPORTANT: Only use scoringKey for questionCorrectness lookups.

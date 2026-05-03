@@ -312,7 +312,7 @@ export class QuizOptionsService {
         );
 
         correctAnswers.set(question.questionText, correctOptionNumbers);
-      } else {      }
+      }
     }
 
     return correctAnswers;

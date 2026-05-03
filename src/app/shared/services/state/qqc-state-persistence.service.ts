@@ -109,7 +109,7 @@ export class QqcStatePersistenceService {
         const parsed = JSON.parse(optionsData);
         if (Array.isArray(parsed) && parsed.length > 0) {
           parsedOptions = parsed;
-        } else {        }
+        }
       } catch (error) {
         // Error parsing options data
       }

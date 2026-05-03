@@ -55,7 +55,7 @@ export class DynamicComponentService {
       instance.optionClicked.subscribe((event: any) => {
         onOptionClicked(event);
       });
-    } else {    }
+    }
 
     return componentRef;
   }

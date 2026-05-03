@@ -407,7 +407,6 @@ export class SharedOptionClickService {
 
         if (cfg?.showFeedback) {
           comp._feedbackDisplay = { idx: index, config: cfg };
-        } else {
         }
       }
     }

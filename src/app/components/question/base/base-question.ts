@@ -145,7 +145,6 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
       } catch (error: any) {
         // error handled silently
       }
-    } else {
     }
   }
 
@@ -171,7 +170,6 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
       this.question()!.options.length > 0) {
       this.setCurrentQuestion(this.question()!);
       this.initializeQuestion();
-    } else {
     }
   }
 
@@ -196,7 +194,6 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
     // Overwriting with this.question().options could use unshuffled data from a different source.
     if (!this.optionsToDisplay() || this.optionsToDisplay().length === 0) {
       this.optionsToDisplay.set([...this.question()!.options]);
-    } else {
     }
   }
 
@@ -370,7 +367,6 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
   protected setCurrentQuestion(question: QuizQuestion): void {
     if (this.quizStateService) {
       this.quizService.setCurrentQuestion(question);
-    } else {
     }
   }
 
@@ -394,16 +390,13 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
       ) {
         this.initializeQuestion();
         this.optionsInitialized = true;
-      } else {
       }
-    } else {
     }
   }
 
   private handleOptionsToDisplayChange(change: SimpleChange): void {
     if (change.currentValue) {
       this.optionsToDisplay.set(change.currentValue);
-    } else {
     }
   }
 }

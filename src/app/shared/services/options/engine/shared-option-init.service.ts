@@ -302,7 +302,6 @@ export class SharedOptionInitService {
     if (cfg && cfg.optionsToDisplay?.length > 0) {
       comp.optionsToDisplay = cfg.optionsToDisplay;
     } else if (comp.optionsToDisplay?.length > 0) {
-    } else {
     }
 
     comp.renderReady = comp.optionsToDisplay?.length > 0;
@@ -346,7 +345,6 @@ export class SharedOptionInitService {
     ) {
       comp.renderReady = true;
       comp.viewReady = true;
-    } else {
     }
 
     // Initial feedback generation for Q1
@@ -777,7 +775,6 @@ export class SharedOptionInitService {
           }
         }
       }
-    } else {
     }
 
     // Determine question type based on options, but Respect explicit input first!
@@ -785,8 +782,6 @@ export class SharedOptionInitService {
     const authoritativeQuestion = this.quizService.questions[qIndex] || comp.currentQuestion;
     if (comp.type !== 'multiple' && authoritativeQuestion) {
       comp.type = comp.determineQuestionType(authoritativeQuestion);
-    } else {
-
     }
 
     // Initialize bindings and feedback maps
