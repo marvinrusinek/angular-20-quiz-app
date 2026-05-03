@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, WritableSignal } from '@angular/core';
 import { BehaviorSubject, Subject } from 'rxjs';
 
 import { Option } from '../../models/Option.model';
@@ -45,7 +45,7 @@ export interface QuizSessionState {
   optionsSource: Subject<Option[]>;
   questionPayloadSubject: BehaviorSubject<any>;
   totalQuestionsSubject: BehaviorSubject<number>;
-  badgeTextSource: BehaviorSubject<string>;
+  badgeTextSig: WritableSignal<string>;
 
   // Methods that need to be called
   get questions(): QuizQuestion[];
@@ -373,7 +373,7 @@ export class QuizSessionManagerService {
     this.scoringService.correctAnswersCountSig.set(0);
     state.userAnswers = [];
     try { localStorage.removeItem('userAnswers'); } catch { }
-    state.badgeTextSource.next('');
+    state.badgeTextSig.set('');
     state.resetScore();
     quizResetSource.next();
     state.questionCorrectness.clear();

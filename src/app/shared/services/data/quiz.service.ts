@@ -139,10 +139,10 @@ export class QuizService {
   readonly questionDataSig = signal<any>(null);
   questionData$ = toObservable(this.questionDataSig);
 
-  private readonly shuffleEnabledSubject = new BehaviorSubject<boolean>(
+  private readonly shuffleEnabledSig = signal<boolean>(
     localStorage.getItem('checkedShuffle') === 'true'
   );
-  checkedShuffle$ = this.shuffleEnabledSubject.asObservable();
+  checkedShuffle$ = toObservable(this.shuffleEnabledSig);
 
   public shuffledQuestions: QuizQuestion[] = (() => {
     try {
@@ -183,8 +183,8 @@ export class QuizService {
   previousQuestionSubject = new BehaviorSubject<QuizQuestion | null>(null);
   previousQuestion$ = this.previousQuestionSubject.asObservable();
 
-  badgeTextSource = new BehaviorSubject<string>('');
-  badgeText = this.badgeTextSource.asObservable();
+  badgeTextSig = signal<string>('');
+  badgeText = toObservable(this.badgeTextSig);
 
   readonly questionsLoadedSig = signal<boolean>(false);
   questionsLoaded$ = toObservable(this.questionsLoadedSig);
@@ -581,10 +581,10 @@ export class QuizService {
       return;
     }
     const newBadgeText = `Question ${questionIndex} of ${totalQuestions}`;
-    if (this.badgeTextSource.getValue() === newBadgeText) {
+    if (this.badgeTextSig() === newBadgeText) {
       return;
     }
-    this.badgeTextSource.next(newBadgeText);
+    this.badgeTextSig.set(newBadgeText);
     localStorage.setItem('savedQuestionIndex', JSON.stringify(questionIndex - 1));
   }
 
@@ -715,13 +715,12 @@ export class QuizService {
   }
 
   private shouldShuffle(): boolean {
-    const should = this.shuffleEnabledSubject.getValue();
-    return should;
+    return this.shuffleEnabledSig();
   }
 
   isShuffleEnabled(): boolean {
-    // Keep using local subject since it's initialized in this service
-    return this.shuffleEnabledSubject.getValue();
+    // Keep using local signal since it's initialized in this service
+    return this.shuffleEnabledSig();
   }
 
   // Expose sub-services for direct access by consumers that need them
@@ -731,7 +730,7 @@ export class QuizService {
   get quizScoring(): QuizScoringService { return this.scoringService; }
 
   setCheckedShuffle(isChecked: boolean): void {
-    this.shuffleEnabledSubject.next(isChecked);
+    this.shuffleEnabledSig.set(isChecked);
     try {
       localStorage.setItem('checkedShuffle', String(isChecked));
 
