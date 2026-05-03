@@ -280,7 +280,6 @@ export class CqcQuestionNavService {
         }
 
         host.currentQuestionSig.set(question);
-        host.isExplanationDisplayed = false;
 
         host.explanationTextService.resetExplanationState();
         host.explanationTextService.resetExplanationText();

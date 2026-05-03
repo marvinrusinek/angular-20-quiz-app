@@ -73,7 +73,11 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   currentQuestionIndexValue = 0;
   currentQuestionIndex$!: Observable<number>;
   nextQuestion$: Observable<QuizQuestion | null>;
-  isNavigatingToPrevious = false;
+
+  // Read live from the navigation service signal — no local mirror needed.
+  get isNavigatingToPrevious(): boolean {
+    return this.quizNavigationService.isNavigatingToPreviousSig();
+  }
 
   private get _lastQuestionTextByIndex(): Map<number, string> {
     return this.displayService._lastQuestionTextByIndex;
@@ -88,7 +92,6 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   currentIndex$ = this.questionIndexSubject.asObservable();
   private readonly questionLoadingText = 'Loading question…';
 
-  isExplanationDisplayed = false;
   isExplanationTextDisplayed$: Observable<boolean>;
 
   private get _fetLocked(): boolean { return this.displayService._fetLockedSig(); }
@@ -148,12 +151,6 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
     this.formattedExplanation$ = this.displayService.createFormattedExplanation$(this.currentIndex$);
     this.activeFetText$ = this.displayService.createActiveFetText$(this.currentIndex$);
-
-    this.quizNavigationService
-      .getIsNavigatingToPrevious()
-      .subscribe((isNavigating: boolean) => {
-        this.isNavigatingToPrevious = isNavigating;
-      });
 
     this.isExplanationTextDisplayed$ =
       this.explanationTextService.isExplanationTextDisplayed$;
@@ -348,7 +345,6 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   }
 
   private resetInitialState(): void {
-    this.isExplanationDisplayed = false;
     this.explanationTextService.setIsExplanationTextDisplayed(false);
   }
 
