@@ -1,23 +1,23 @@
-import { Injectable, signal } from '@angular/core';
-import { toObservable } from '@angular/core/rxjs-interop';
+import { Injectable } from '@angular/core';
 
 import { SelectedOption } from '../../models/SelectedOption.model';
 import { OptionIdResolverService } from './option-id-resolver.service';
 
+/**
+ * Map-keyed feedback cache.
+ *
+ * Components manage their own `showFeedbackForOption` properties for
+ * UI rendering; this service only stores the per-question feedback
+ * map that qqc-reset-manager rebuilds + reads when re-entering an
+ * answered question.
+ */
 @Injectable({ providedIn: 'root' })
 export class OptionFeedbackStateService {
-  readonly showFeedbackForOptionSig = signal<Record<string, boolean>>({});
-  readonly showFeedbackForOption$ = toObservable(this.showFeedbackForOptionSig);
-
   private feedbackByQuestion = new Map<number, Record<string, boolean>>();
 
   constructor(private idResolver: OptionIdResolverService) {}
 
   // ── Read ────────────────────────────────────────────────────
-
-  getShowFeedbackForOption(): { [optionId: number]: boolean } {
-    return this.showFeedbackForOptionSig();
-  }
 
   getFeedbackForQuestion(questionIndex: number): Record<string, boolean> {
     return { ...(this.feedbackByQuestion.get(questionIndex) ?? {}) };
@@ -25,40 +25,8 @@ export class OptionFeedbackStateService {
 
   // ── Write / Publish ─────────────────────────────────────────
 
-  setFeedbackForQuestion(questionIndex: number, feedback: Record<string, boolean>): void {
-    this.feedbackByQuestion.set(questionIndex, feedback);
-  }
-
   deleteFeedbackForQuestion(questionIndex: number): void {
     this.feedbackByQuestion.delete(questionIndex);
-  }
-
-  publishFeedback(feedback: Record<string, boolean>): void {
-    this.showFeedbackForOptionSig.set({ ...feedback });
-  }
-
-  clearFeedbackSignal(): void {
-    this.showFeedbackForOptionSig.set({});
-  }
-
-  publishFeedbackForQuestion(
-    questionIndex: number | null | undefined,
-    currentQuestionIndex: number | null | undefined
-  ): void {
-    const resolvedIndex =
-      typeof questionIndex === 'number' && Number.isInteger(questionIndex)
-        ? questionIndex
-        : Number.isInteger(currentQuestionIndex)
-          ? (currentQuestionIndex as number)
-          : null;
-
-    if (resolvedIndex === null) {
-      this.showFeedbackForOptionSig.set({});
-      return;
-    }
-
-    const cached = this.feedbackByQuestion.get(resolvedIndex) ?? {};
-    this.showFeedbackForOptionSig.set({ ...cached });
   }
 
   // ── Sync / Build ────────────────────────────────────────────
@@ -66,24 +34,16 @@ export class OptionFeedbackStateService {
   syncFeedbackForQuestion(
     questionIndex: number,
     selections: SelectedOption[],
-    currentQuestionIndex: number | null | undefined,
+    _currentQuestionIndex: number | null | undefined,
     isMultiAnswer: boolean
   ): void {
     if (!Array.isArray(selections) || selections.length === 0) {
       this.feedbackByQuestion.delete(questionIndex);
-
-      if (currentQuestionIndex === questionIndex) {
-        this.showFeedbackForOptionSig.set({});
-      }
       return;
     }
 
     const feedbackMap = this.buildFeedbackMap(questionIndex, selections, isMultiAnswer);
     this.feedbackByQuestion.set(questionIndex, feedbackMap);
-
-    if (currentQuestionIndex === questionIndex) {
-      this.showFeedbackForOptionSig.set({ ...feedbackMap });
-    }
   }
 
   buildFeedbackMap(
@@ -173,16 +133,11 @@ export class OptionFeedbackStateService {
   republishFeedbackForQuestion(
     questionIndex: number,
     selections: SelectedOption[],
-    currentQuestionIndex: number | null | undefined,
+    _currentQuestionIndex: number | null | undefined,
     isMultiAnswer: boolean
   ): void {
     if (!Array.isArray(selections) || selections.length === 0) {
       this.feedbackByQuestion.delete(questionIndex);
-
-      if (currentQuestionIndex === questionIndex) {
-        this.showFeedbackForOptionSig.set({});
-      }
-
       return;
     }
 
@@ -191,16 +146,11 @@ export class OptionFeedbackStateService {
       feedback = this.buildFeedbackMap(questionIndex, selections, isMultiAnswer);
       this.feedbackByQuestion.set(questionIndex, feedback);
     }
-
-    if (currentQuestionIndex === questionIndex) {
-      this.showFeedbackForOptionSig.set({ ...feedback });
-    }
   }
 
   // ── Bulk clear ──────────────────────────────────────────────
 
   clearAll(): void {
     this.feedbackByQuestion.clear();
-    this.showFeedbackForOptionSig.set({});
   }
 }

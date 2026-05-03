@@ -86,13 +86,6 @@ export class SelectedOptionService {
   readonly selectedOptionsMapSig = signal<Map<number, SelectedOption[]>>(new Map());
   public selectedOptionsMap$ = toObservable(this.selectedOptionsMapSig);
 
-  // Feedback state delegated to OptionFeedbackStateService
-  get showFeedbackForOptionSig() {
-    return this.feedbackState.showFeedbackForOptionSig;
-  }
-  get showFeedbackForOption$() {
-    return this.feedbackState.showFeedbackForOption$;
-  }
   private optionSnapshotByQuestion = new Map<number, Option[]>();
 
   readonly isNextButtonEnabledSig = signal<boolean>(false);
@@ -128,9 +121,8 @@ export class SelectedOptionService {
     this.loadState();
     const index$ = this.quizService?.currentQuestionIndex$;
     if (index$) {
-      index$.pipe(distinctUntilChanged()).subscribe((index) => {
+      index$.pipe(distinctUntilChanged()).subscribe(() => {
         this.stopTimerEmitted = false;
-        this.publishFeedbackForQuestion(index);
       });
     }
 
@@ -337,11 +329,6 @@ export class SelectedOptionService {
     this.feedbackState.deleteFeedbackForQuestion(idx);
     this.optionSnapshotByQuestion?.delete(idx);
 
-    // Reset feedback UI if currently on this question
-    if (this.quizService?.getCurrentQuestionIndex?.() === idx) {
-      this.feedbackState.clearFeedbackSignal();
-    }
-
     // Clear any lingering lock states
     this.lockState.clearLockedOptionsMap(idx);
   }
@@ -349,10 +336,6 @@ export class SelectedOptionService {
   // Method to get the current option selected state
   getCurrentOptionSelectedState(): boolean {
     return this.isOptionSelectedSig();
-  }
-
-  getShowFeedbackForOption(): { [optionId: number]: boolean } {
-    return this.feedbackState.getShowFeedbackForOption();
   }
 
   getFeedbackForQuestion(questionIndex: number): Record<string, boolean> {
@@ -366,13 +349,6 @@ export class SelectedOptionService {
       selections,
       this.quizService?.currentQuestionIndex,
       this.isMultiAnswerQuestion(questionIndex)
-    );
-  }
-
-  private publishFeedbackForQuestion(index: number | null | undefined): void {
-    this.feedbackState.publishFeedbackForQuestion(
-      index,
-      this.quizService?.currentQuestionIndex
     );
   }
 
@@ -462,8 +438,6 @@ export class SelectedOptionService {
       }
     }
 
-    // Only clear feedback state here — do NOT touch answered state
-    this.feedbackState.clearFeedbackSignal();
   }
 
   clearOptions(): void {
@@ -751,7 +725,6 @@ export class SelectedOptionService {
     this.selectedOptionsMap.clear();
     this.selectedOption = [];
     this.selectedOptionSig.set([]);
-    this.feedbackState.clearFeedbackSignal();
     this.isOptionSelectedSig.set(false);
   }
 

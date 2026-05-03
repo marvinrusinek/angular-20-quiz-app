@@ -60,14 +60,9 @@ describe('SelectedOptionService', () => {
 
   const mockFeedbackState = {
     clearAll: jest.fn(),
-    showFeedbackForOptionSig: {},
-    showFeedbackForOption$: new Subject(),
     deleteFeedbackForQuestion: jest.fn(),
-    clearFeedbackSignal: jest.fn(),
-    getShowFeedbackForOption: jest.fn(() => ({})),
     getFeedbackForQuestion: jest.fn(() => ({})),
     republishFeedbackForQuestion: jest.fn(),
-    publishFeedbackForQuestion: jest.fn(),
     syncFeedbackForQuestion: jest.fn(),
   };
 
