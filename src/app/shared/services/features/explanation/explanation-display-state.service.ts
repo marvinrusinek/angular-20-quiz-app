@@ -766,23 +766,21 @@ export class ExplanationDisplayStateService {
             const perfectMap = (quizSvc as any)._multiAnswerPerfect as Map<number, boolean> | undefined;
             const oisPerfect = perfectMap?.get(index) === true;
 
-            if (!oisPerfect && !allCorrectSel) {              this._fetLocked = false;
+            if (!oisPerfect && !allCorrectSel) {
+              this._fetLocked = false;
               return;
-            }          }
+            }
+          }
         }
-      } catch (e) {      }
+      } catch (e) {}
     }
 
     const trimmed = (value ?? '').trim();
-    if (!trimmed) {      return;
-    }
-
-    // Allow re-emission of same content if it's important (e.g., after navigation)
-    if (trimmed === (this.latestExplanation ?? '').trim()) {    }
+    if (!trimmed) return;
 
     this.latestExplanationIndex = index;
 
-    // ── GUARDRAIL: Validate prefix option numbers against visual data ──
+    // Validate prefix option numbers against visual data
     let validatedText = this.formatter.validateAndCorrectFetPrefix(trimmed, index);
 
     this.latestExplanation = validatedText;
@@ -793,7 +791,8 @@ export class ExplanationDisplayStateService {
     // Also emit to formattedExplanationSig for FINAL LAYER.
     this.formatter.formattedExplanationSig.set(validatedText);
 
-    // Emit immediately without waiting for requestAnimationFrame.    this.safeNext(this._fetSubject, { idx: index, text: validatedText, token });
+    // Emit immediately without waiting for requestAnimationFrame.
+    this._fetSubject.next({ idx: index, text: validatedText, token });
     this.shouldDisplayExplanationSig.set(true);
     this.isExplanationTextDisplayedSig.set(true);
 
@@ -827,8 +826,7 @@ export class ExplanationDisplayStateService {
       this._fetLocked ||
       index !== this._activeIndex ||
       token !== this._gateToken
-    ) {      return;
-    }
+    ) return;
 
     const trimmed = (text ?? '').trim();
     if (!trimmed || trimmed === this.latestExplanation?.trim()) return;
@@ -881,7 +879,9 @@ export class ExplanationDisplayStateService {
   // Returns a reactive stream for a given question index
   public getExplanationText$(index: number): Observable<string | null> {
     const { text$ } = this.getOrCreate(index);
-    const existing = this.formatter.formattedExplanations[index]?.explanation || this.formatter.fetByIndex.get(index) || '';
+    const existing = 
+      this.formatter.formattedExplanations[index]?.explanation || 
+      this.formatter.fetByIndex.get(index) || '';
 
     return merge(
       text$,
@@ -997,7 +997,8 @@ export class ExplanationDisplayStateService {
     this._textMap?.delete?.(newIndex);
 
     // Preserve cached FET for back-navigation.
-    const hasCachedFet = !!(this.formatter.formattedExplanations[newIndex]?.explanation?.trim()
+    const hasCachedFet = 
+      !!(this.formatter.formattedExplanations[newIndex]?.explanation?.trim()
       || this.formatter.fetByIndex.get(newIndex)?.trim());
     if (!hasCachedFet) {
       this.formatter.fetByIndex.delete(newIndex);
@@ -1022,15 +1023,9 @@ export class ExplanationDisplayStateService {
     const localToken = this._currentGateToken;
     this._unlockRAFId = requestAnimationFrame(() => {
       setTimeout(() => {
-        if (this._currentGateToken !== localToken) {          return;
-        }
-
-        this._fetLocked = false;      }, 120);
+        if (this._currentGateToken !== localToken) return;
+        this._fetLocked = false;
+      }, 120);
     });
-  }
-
-  // Helper
-  private safeNext<T>(s: any, v: T) {
-    if (s && typeof s.next === 'function') s.next(v);
   }
 }
