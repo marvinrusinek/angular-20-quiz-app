@@ -107,13 +107,6 @@ export class SelectedOptionService {
     }
   }
 
-  public resetAllOptions(): void {
-    this.clearState();
-    this.selectedOptionSig.set([]);
-    this.isOptionSelectedSig.set(false);
-    this.isAnsweredSig.set(false);
-  }
-
   // ── Signal-first state ─────────────────────────────────────────
   readonly selectedOptionSig = signal<SelectedOption[]>([]);
   selectedOption$ = toObservable(this.selectedOptionSig);
@@ -767,6 +760,13 @@ export class SelectedOptionService {
     this.selectedOptionSig.set([]);
     this.feedbackState.clearFeedbackSignal();
     this.isOptionSelectedSig.set(false);
+  }
+
+  public resetAllOptions(): void {
+    this.clearState();
+    this.selectedOptionSig.set([]);
+    this.isOptionSelectedSig.set(false);
+    this.isAnsweredSig.set(false);
   }
 
   public resetOptionState(
