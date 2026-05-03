@@ -84,7 +84,8 @@ export class QuizService {
   set correctCount(val: number) { this.scoringService.correctCountSig.set(val); }
 
   selectedQuiz: Quiz | null = null;
-  selectedQuiz$ = new BehaviorSubject<Quiz | null>(null);
+  selectedQuizSig = signal<Quiz | null>(null);
+  selectedQuiz$: Observable<Quiz | null> = toObservable(this.selectedQuizSig);
   startedQuizId = '';
   continueQuizId = '';
   completedQuizId = '';
@@ -382,7 +383,7 @@ export class QuizService {
   }
 
   setSelectedQuiz(selectedQuiz: Quiz): void {
-    this.selectedQuiz$.next(selectedQuiz);
+    this.selectedQuizSig.set(selectedQuiz);
     this.selectedQuiz = selectedQuiz;
   }
 
