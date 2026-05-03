@@ -1,9 +1,8 @@
 import { Injectable, signal } from '@angular/core';
-import { toObservable, toSignal } from '@angular/core/rxjs-interop';
+import { toObservable } from '@angular/core/rxjs-interop';
 import { ActivatedRouteSnapshot, Router } from '@angular/router';
 import {
-  firstValueFrom, forkJoin, lastValueFrom, of,
-  ReplaySubject
+  firstValueFrom, forkJoin, lastValueFrom, of
 } from 'rxjs';
 import { catchError, filter, take, timeout } from 'rxjs/operators';
 
@@ -41,9 +40,8 @@ export class QqcQlStreamService {
 
   questionToDisplay = '';
 
-  public readonly questionToDisplaySubject = new ReplaySubject<string>(1);
-  public readonly questionToDisplay$ = this.questionToDisplaySubject.asObservable();
-  readonly questionToDisplaySig = toSignal(this.questionToDisplay$, { initialValue: '' });
+  public readonly questionToDisplaySig = signal<string>('');
+  public readonly questionToDisplay$ = toObservable(this.questionToDisplaySig);
 
   questionTextLoaded = false;
   questionInitialized = false;
@@ -370,7 +368,7 @@ export class QqcQlStreamService {
       this.clearQA();
       this.resetQuestionDisplayState();
       this.questionTextSig.set('');
-      this.questionToDisplaySubject.next('');
+      this.questionToDisplaySig.set('');
       this.optionsSig.set([]);
       this.explanationTextSig.set('');
     }
@@ -690,7 +688,7 @@ export class QqcQlStreamService {
     this.optionsToDisplay = [];
     this.resetQuestionDisplayState();
     this.questionTextSig.set('');
-    this.questionToDisplaySubject.next('');
+    this.questionToDisplaySig.set('');
     this.optionsSig.set([]);
     this.explanationTextSig.set('');
     this.questionPayloadReadySig.set(false);
@@ -888,7 +886,7 @@ export class QqcQlStreamService {
     if (index != null && index !== activeIndex) {
       return;
     }
-    this.questionToDisplaySubject.next('');
+    this.questionToDisplaySig.set('');
     this.explanationTextService.explanationText$.next('');
     this.clearQA();
     this.quizStateService.setDisplayState({
@@ -937,13 +935,13 @@ export class QqcQlStreamService {
     }
 
     this._lastQuestionText = trimmed;
-    this.questionToDisplaySubject.next(trimmed);
+    this.questionToDisplaySig.set(trimmed);
   }
 
   public clearQuestionTextBeforeNavigation(): void {
     try {
       this._frozen = true;
-      this.questionToDisplaySubject.next('');
+      this.questionToDisplaySig.set('');
       this._lastQuestionText = '';
       this._lastRenderedIndex = -1;
     } catch (error) { }

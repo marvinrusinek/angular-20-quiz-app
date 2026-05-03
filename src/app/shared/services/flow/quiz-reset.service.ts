@@ -263,7 +263,7 @@ export class QuizResetService {
     this.quizStateService.reset();
 
     try {
-      this.quizQuestionLoaderService?.questionToDisplaySubject.next('');
+      this.quizQuestionLoaderService?.questionToDisplaySig.set('');
     } catch {
     }
 

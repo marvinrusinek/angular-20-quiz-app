@@ -505,7 +505,7 @@ export class QuizNavigationService {
 
     // Drop any lingering question text
     try {
-      this.quizQuestionLoaderService?.questionToDisplaySubject?.next('');
+      this.quizQuestionLoaderService?.questionToDisplaySig?.set('');
     } catch { }
 
     // Reset to question mode so next frame starts clean

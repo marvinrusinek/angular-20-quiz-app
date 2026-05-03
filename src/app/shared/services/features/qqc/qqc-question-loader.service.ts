@@ -84,8 +84,7 @@ export class QqcQuestionLoaderService {
   get _lastRenderedIndex(): number { return this.qql._lastRenderedIndex; }
   set _lastRenderedIndex(v: number) { this.qql._lastRenderedIndex = v; }
 
-  // Subjects / Signals / Observables
-  get questionToDisplaySubject() { return this.qql.questionToDisplaySubject; }
+  // Signals / Observables
   get questionToDisplay$() { return this.qql.questionToDisplay$; }
   get questionToDisplaySig() { return this.qql.questionToDisplaySig; }
   get optionsToDisplaySig() { return this.qql.optionsToDisplaySig; }
