@@ -81,7 +81,6 @@ export class QuizDataLoaderService {
   initializeData(
     quizId: string,
     questionsSubject: BehaviorSubject<QuizQuestion[]>,
-    totalQuestionsSubject: BehaviorSubject<number>,
     setQuestions: (qs: QuizQuestion[]) => void,
     setTotalQuestions: (n: number) => void
   ): { questions: QuizQuestion[]; totalQuestions: number; resolvedQuizId: string } {

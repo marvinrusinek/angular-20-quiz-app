@@ -134,7 +134,8 @@ export class QuizService {
     this.currentQuestionSubject.asObservable();
 
   currentOptionsSubject = new BehaviorSubject<Array<Option>>([]);
-  totalQuestionsSubject = new BehaviorSubject<number>(0);
+  totalQuestionsSig = signal<number>(0);
+  totalQuestions$: Observable<number> = toObservable(this.totalQuestionsSig);
 
   readonly questionDataSig = signal<any>(null);
   questionData$ = toObservable(this.questionDataSig);
@@ -304,7 +305,6 @@ export class QuizService {
     const result = this.dataLoader.initializeData(
       this.quizId,
       this.questionsSubject,
-      this.totalQuestionsSubject,
       (qs) => { this.questions = qs; },
       (n) => { this.totalQuestions = n; }
     );
@@ -318,7 +318,7 @@ export class QuizService {
     this.currentQuestion$ = this.currentQuestionSource.asObservable();
 
     if (this.questions.length > 0) {
-      this.totalQuestionsSubject.next(this.totalQuestions);
+      this.totalQuestionsSig.set(this.totalQuestions);
     }
   }
 
@@ -335,7 +335,7 @@ export class QuizService {
     this.questionsQuizId = quiz.quizId;
     this.questions = quiz.questions ?? [];
     this.totalQuestions = (quiz.questions ?? []).length;
-    this.totalQuestionsSubject.next(this.totalQuestions);
+    this.totalQuestionsSig.set(this.totalQuestions);
 
     // Load resources for this quiz
     this.loadResourcesForQuiz(quiz.quizId);
@@ -372,7 +372,7 @@ export class QuizService {
       this.questionsQuizId = q.quizId;
       this.questions = q.questions;
       this.totalQuestions = q.questions.length;
-      this.totalQuestionsSubject.next(this.totalQuestions);
+      this.totalQuestionsSig.set(this.totalQuestions);
     }
   }
 
@@ -617,10 +617,6 @@ export class QuizService {
     const options = this.selectedOptionsMap.get(questionIndex) ?? [];
     const isAnswered = options.length > 0;
     return of(isAnswered);
-  }
-
-  get totalQuestions$(): Observable<number> {
-    return this.totalQuestionsSubject.asObservable();
   }
 
   getTotalQuestionsCount(quizId: string): Observable<number> {

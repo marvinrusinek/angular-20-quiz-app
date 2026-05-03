@@ -44,7 +44,7 @@ export interface QuizSessionState {
   currentOptionsSubject: BehaviorSubject<Array<Option>>;
   optionsSource: Subject<Option[]>;
   questionPayloadSubject: BehaviorSubject<any>;
-  totalQuestionsSubject: BehaviorSubject<number>;
+  totalQuestionsSig: WritableSignal<number>;
   badgeTextSig: WritableSignal<string>;
 
   // Methods that need to be called
@@ -219,7 +219,7 @@ export class QuizSessionManagerService {
     const newQuizId = quizId;
 
     state.totalQuestions = sanitizedQuestions.length;
-    state.totalQuestionsSubject.next(state.totalQuestions);
+    state.totalQuestionsSig.set(state.totalQuestions);
 
     const boundedIndex = Math.min(
       Math.max(state.currentQuestionIndex ?? 0, 0),
