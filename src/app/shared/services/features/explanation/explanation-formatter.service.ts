@@ -14,11 +14,8 @@ import { SelectedOptionService } from '../../state/selectedoption.service';
 @Injectable({ providedIn: 'root' })
 export class ExplanationFormatterService {
   formattedExplanations: Record<number, FormattedExplanation> = {};
-  formattedExplanations$: BehaviorSubject<string | null>[] = [];
-  formattedExplanationSubject = new BehaviorSubject<string>('');
-  formattedExplanation$ = this.formattedExplanationSubject.asObservable();
-  // Signal mirrors for new code; existing $ subscribers unaffected.
-  readonly formattedExplanationSig = toSignal(this.formattedExplanation$, { initialValue: '' });
+  readonly formattedExplanationSig = signal<string>('');
+  formattedExplanation$ = toObservable(this.formattedExplanationSig);
   private formattedExplanationByQuestionText = new Map<string, string>();
 
   public readonly explanationsUpdatedSig = signal<Record<number, FormattedExplanation>>(this.formattedExplanations);
@@ -132,7 +129,7 @@ export class ExplanationFormatterService {
     const trimmed = explanation?.trim();
     if (!trimmed) return;
 
-    this.formattedExplanationSubject.next(trimmed);
+    this.formattedExplanationSig.set(trimmed);
   }
 
   storeFormattedExplanation(
@@ -701,25 +698,10 @@ export class ExplanationFormatterService {
     questionIndex: number,
     formattedExplanation: string
   ): void {
-    if (!this.formattedExplanations$[questionIndex]) {
-      // Initialize the BehaviorSubject if it doesn't exist at the specified index
-      this.formattedExplanations$[questionIndex] = new BehaviorSubject<
-        string | null
-      >(null);
-    }
-
-    // Access the BehaviorSubject at the specified questionIndex
-    const subjectAtIndex = this.formattedExplanations$[questionIndex];
-
-    if (subjectAtIndex) {
-      subjectAtIndex.next(formattedExplanation);
-
-      // Update the formattedExplanations array
-      this.formattedExplanations[questionIndex] = {
-        questionIndex,
-        explanation: formattedExplanation
-      };
-    }
+    this.formattedExplanations[questionIndex] = {
+      questionIndex,
+      explanation: formattedExplanation
+    };
   }
 
   isQuestionValid(question: QuizQuestion): boolean {
@@ -756,8 +738,7 @@ export class ExplanationFormatterService {
     this.lockedFetIndices.clear();
     this.formattedExplanations = {};
     this.formattedExplanationByQuestionText.clear();
-    this.formattedExplanations$ = [];
-    this.formattedExplanationSubject.next('');
+    this.formattedExplanationSig.set('');
     this.processedQuestions = new Set<string>();
     this.explanationsInitializedSig.set(false);
   }

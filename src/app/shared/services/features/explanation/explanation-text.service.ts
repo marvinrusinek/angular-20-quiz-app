@@ -147,15 +147,8 @@ export class ExplanationTextService {
     this.formatter.formattedExplanations = val;
   }
 
-  get formattedExplanations$(): BehaviorSubject<string | null>[] {
-    return this.formatter.formattedExplanations$;
-  }
-  set formattedExplanations$(val: BehaviorSubject<string | null>[]) {
-    this.formatter.formattedExplanations$ = val;
-  }
-
-  get formattedExplanationSubject(): BehaviorSubject<string> {
-    return this.formatter.formattedExplanationSubject;
+  get formattedExplanationSig(): WritableSignal<string> {
+    return this.formatter.formattedExplanationSig;
   }
 
   get formattedExplanation$(): Observable<string> {

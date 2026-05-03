@@ -246,7 +246,7 @@ export class QuizNavigationService {
     try {
       const ets: any = this.explanationTextService;
       ets._activeIndex = index;
-      ets.formattedExplanationSubject?.next('');
+      ets.formattedExplanationSig.set('');
       ets.shouldDisplayExplanationSubject?.next(false);
       ets.isExplanationTextDisplayedSubject?.next(false);
 

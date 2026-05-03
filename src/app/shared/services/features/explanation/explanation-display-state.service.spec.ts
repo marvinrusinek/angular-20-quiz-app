@@ -14,7 +14,7 @@ describe('ExplanationDisplayStateService', () => {
       resetFormatterState: jest.fn(),
       resetProcessedQuestionsState: jest.fn(),
       validateAndCorrectFetPrefix: jest.fn((text: string) => text),
-      formattedExplanationSubject: new BehaviorSubject<string>(''),
+      formattedExplanationSig: Object.assign(jest.fn().mockReturnValue(''), { set: jest.fn() }),
       formattedExplanation$: new BehaviorSubject<string>('').asObservable(),
       formattedExplanations: {},
       fetByIndex: new Map<number, string>(),
@@ -22,8 +22,6 @@ describe('ExplanationDisplayStateService', () => {
       explanationsUpdatedSig: { set: jest.fn() },
       explanationsInitializedSig: jest.fn().mockReturnValue(false),
     };
-    // Wire up formattedExplanation$ from the subject
-    formatterMock.formattedExplanation$ = formatterMock.formattedExplanationSubject.asObservable();
 
     TestBed.configureTestingModule({
       providers: [

@@ -110,7 +110,7 @@ export class ExplanationDisplayStateService {
       this.latestExplanation = '';
       this.latestExplanationIndex = idx;
       this.explanationTextSig.set('');
-      this.formatter.formattedExplanationSubject.next('');
+      this.formatter.formattedExplanationSig.set('');
       this.setShouldDisplayExplanation(false, { force: true });
       this.setIsExplanationTextDisplayed(false, { force: true });
       this._fetLocked = false;
@@ -278,7 +278,7 @@ export class ExplanationDisplayStateService {
     }
 
     // Unified emission pipeline (Global)
-    this.formatter.formattedExplanationSubject.next(finalExplanation);
+    this.formatter.formattedExplanationSig.set(finalExplanation);
 
     // Ensure direct subject update for visibility-stable downstream
     try {
@@ -297,7 +297,7 @@ export class ExplanationDisplayStateService {
 
     if (previous !== trimmed) {
       this.explanationTexts[index] = trimmed;
-      this.formatter.formattedExplanationSubject.next(trimmed);
+      this.formatter.formattedExplanationSig.set(trimmed);
 
       this.emitFormatted(index, trimmed || null);
       this.setGate(index, !!trimmed);
@@ -329,7 +329,7 @@ export class ExplanationDisplayStateService {
     // Step 1: Fully purge cached FET state if switching question
     if (this._activeIndex !== questionIndex) {      try {
         if ((this.latestExplanation ?? '') !== '') {
-          this.formatter.formattedExplanationSubject?.next('');
+          this.formatter.formattedExplanationSig.set('');
         }
 
         if (this._activeIndex !== null) {
@@ -407,15 +407,8 @@ export class ExplanationDisplayStateService {
   }
 
   public getLatestFormattedExplanation(): string | null {
-    const subj = this.formatter.formattedExplanationSubject as any;
     try {
-      if (typeof subj.getValue === 'function') {
-        return subj.getValue();
-      }
-
-      let val: string | null = null;
-      subj.pipe(take(1)).subscribe((v: string) => (val = v));
-      return val;
+      return this.formatter.formattedExplanationSig();
     } catch {
       return null;
     }
@@ -675,7 +668,7 @@ export class ExplanationDisplayStateService {
     this.latestExplanationIndex = -1;
 
     this.explanationTextSig.set('');
-    this.formatter.formattedExplanationSubject.next('');
+    this.formatter.formattedExplanationSig.set('');
     this._fetSubject.next(undefined as any);
 
     this.shouldDisplayExplanationSig.set(false);
@@ -797,8 +790,8 @@ export class ExplanationDisplayStateService {
     // Store in Map by index for reliable retrieval
     this.formatter.fetByIndex.set(index, validatedText);
 
-    // Also emit to formattedExplanationSubject for FINAL LAYER.
-    this.formatter.formattedExplanationSubject.next(validatedText);
+    // Also emit to formattedExplanationSig for FINAL LAYER.
+    this.formatter.formattedExplanationSig.set(validatedText);
 
     // Emit immediately without waiting for requestAnimationFrame.    this.safeNext(this._fetSubject, { idx: index, text: validatedText, token });
     this.shouldDisplayExplanationSig.set(true);
@@ -850,7 +843,7 @@ export class ExplanationDisplayStateService {
         token !== this._currentGateToken
       ) {        return;
       }
-      this.safeNext(this.formatter.formattedExplanationSubject, trimmed);
+      this.formatter.formattedExplanationSig.set(trimmed);
       this.shouldDisplayExplanationSig.set(true);
       this.isExplanationTextDisplayedSig.set(true);
 
@@ -915,7 +908,7 @@ export class ExplanationDisplayStateService {
 
       this.latestExplanation = '';
       this.latestExplanationIndex = null;
-      this.formatter.formattedExplanationSubject?.next('');
+      this.formatter.formattedExplanationSig.set('');
       this.setShouldDisplayExplanation(false, { force: true });
       this.setIsExplanationTextDisplayed(false, { force: true });    }
 
@@ -992,13 +985,8 @@ export class ExplanationDisplayStateService {
     this._activeIndex = newIndex;
     this._fetLocked = true;
 
-    // Stop all lingering subjects to prevent replay from Q1
-    try {
-      if (this.formatter.formattedExplanationSubject) {
-        this.formatter.formattedExplanationSubject.next('');
-      }
-    } catch { }
-    this.formatter.formattedExplanation$ = this.formatter.formattedExplanationSubject.asObservable();
+    // Reset formatted explanation to prevent replay from Q1
+    this.formatter.formattedExplanationSig.set('');
 
     // Hard reset every flag
     this.latestExplanation = '';

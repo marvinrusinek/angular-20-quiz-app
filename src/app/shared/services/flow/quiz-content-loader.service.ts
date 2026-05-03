@@ -268,7 +268,7 @@ export class QuizContentLoaderService {
       if (ets.latestExplanationIndex === prevIdx) {
         ets.latestExplanation = '';
         ets.latestExplanationIndex = null;
-        ets.formattedExplanationSubject.next('');
+        ets.formattedExplanationSig.set('');
         ets.shouldDisplayExplanationSig.set(false);
         ets.setIsExplanationTextDisplayed(false);
       }

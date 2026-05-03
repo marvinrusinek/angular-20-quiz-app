@@ -194,7 +194,7 @@ export class QclFetGateService {
       ets.latestExplanation = '';
       ets.setShouldDisplayExplanation(false);
       ets.setIsExplanationTextDisplayed(false);
-      ets.formattedExplanationSubject?.next('');
+      ets.formattedExplanationSig.set('');
       requestAnimationFrame(() => ets.emitFormatted(-1, null));
     } catch (error) {
     }

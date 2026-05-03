@@ -370,18 +370,8 @@ export class SharedOptionExplanationService {
   ): void {
     requestAnimationFrame(() => {
       let latest: string | null = null;
-
-      const subj = this.explanationTextService
-        .formattedExplanationSubject as any;
-
       try {
-        if (typeof subj.getValue === 'function') {
-          latest = subj.getValue();
-        } else {
-          subj.pipe(take(1)).subscribe((val: string) => {
-            latest = val;
-          });
-        }
+        latest = this.explanationTextService.formattedExplanationSig();
       } catch {
         latest = null;
       }

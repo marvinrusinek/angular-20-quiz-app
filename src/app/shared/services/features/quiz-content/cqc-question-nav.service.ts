@@ -188,7 +188,7 @@ export class CqcQuestionNavService {
         ets.resetForIndex(idx);
         ets.latestExplanation = '';
         ets.latestExplanationIndex = -1;
-        ets.formattedExplanationSubject.next('');
+        ets.formattedExplanationSig.set('');
         ets.explanationTextSig.set('');
 
         try { (ets as any)._fetSubject?.next({ idx: -1, text: '', token: 0 }); } catch { }
