@@ -530,7 +530,39 @@ export class QuizNavigationService {
         const targetQ = isShuffled
           ? qs.shuffledQuestions?.[targetIndex]
           : qs.questions?.[targetIndex];
-        const targetQText = (targetQ?.questionText ?? '').trim();
+        const rawQText = (targetQ?.questionText ?? '').trim();
+
+        // Build target HTML with multi-answer banner if applicable, so
+        // the lock matches the canonical display HTML — otherwise blank-
+        // reverts strip the banner and other writers re-add it, causing
+        // banner flicker on Q(N) -> Q(N+1) transitions.
+        let targetQText = rawQText;
+        try {
+          const norm = (t: any) => String(t ?? '').trim().toLowerCase();
+          const qNormText = norm(rawQText);
+          let numCorrect = 0;
+          let totalOpts = (targetQ?.options ?? []).length;
+          for (const quiz of ((qs as any)?.quizInitialState ?? []) as any[]) {
+            for (const pq of quiz?.questions ?? []) {
+              if (norm(pq?.questionText) !== qNormText) continue;
+              const pOpts = pq?.options ?? [];
+              numCorrect = pOpts.filter((o: any) => o?.correct === true || String(o?.correct) === 'true').length;
+              totalOpts = pOpts.length;
+              break;
+            }
+            if (numCorrect > 0) break;
+          }
+          if (numCorrect === 0) {
+            const sourceOpts = targetQ?.options ?? [];
+            numCorrect = sourceOpts.filter((o: any) => o?.correct === true).length;
+            totalOpts = sourceOpts.length;
+          }
+          if (numCorrect > 1 && totalOpts > 0) {
+            const banner = this.quizQuestionManagerService.getNumberOfCorrectAnswersText(numCorrect, totalOpts);
+            targetQText = `${rawQText} <span class="correct-count">${banner}</span>`;
+          }
+        } catch { }
+
         if (targetQText) {
           h3.innerHTML = targetQText;
 
@@ -549,13 +581,22 @@ export class QuizNavigationService {
             return lower.includes('correct because');
           };
 
+          const targetHasBanner = targetQText !== rawQText;
           const enforce = (): void => {
             const now = (h3.innerHTML ?? '').trim();
+            if (now === targetQText) return;
             if (!now) {
               h3.innerHTML = targetQText;
               return;
             }
             if (looksLikeFet(now) && !looksLikeFet(targetQText)) {
+              h3.innerHTML = targetQText;
+              return;
+            }
+            // Bare-question-text write when target has the banner —
+            // restore the banner version so the user doesn't see the
+            // count flicker in/out as different writers race.
+            if (targetHasBanner && now === rawQText) {
               h3.innerHTML = targetQText;
             }
           };
