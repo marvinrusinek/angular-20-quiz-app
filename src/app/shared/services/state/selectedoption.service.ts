@@ -32,6 +32,7 @@ export class SelectedOptionService {
   selectedOptionIndices: { [key: number]: number[] } = {};
 
   // Durable backup that survives clearState() — used for refresh restore.
+  // Auto-cleared after 5s so stale data doesn't leak into future sessions.
   _refreshBackup = new Map<number, SelectedOption[]>();
 
   // Accumulates ALL selections per question (including prior single-answer picks)
@@ -48,9 +49,7 @@ export class SelectedOptionService {
         h.optionId === entry.optionId
         && h.displayIndex === entry.displayIndex
       );
-      if (!already) {
-        history.push(entry);
-      }
+      if (!already) history.push(entry);
     }
     this._selectionHistory.set(questionIndex, history);
   }
@@ -67,44 +66,10 @@ export class SelectedOptionService {
     this._refreshBackup.clear();
   }
 
-  private loadState(): void {
-    this.persistence.loadState(this as any);
-  }
-
-  private saveState(): void {
-    this.persistence.saveState(this as any);
-  }
-
-  public clearState(): void {
-    this.selectedOptionsMap.clear();
-    this.rawSelectionsMap.clear();
-    this._selectionHistory.clear();
-    this.selectedOption = [];
-    this.selectedOptionIndices = {};
-    this.feedbackState.clearAll();
-    this.optionSnapshotByQuestion.clear();
-    this.lockState.clearAll();
-    this.optionStates.clear();
-    this.isAnsweredSig.set(false);
-    this.isOptionSelectedSig.set(false);
-    this.selectedOptionsMapSig.set(new Map());
-
-    try {
-      this.persistence.clearSessionKeys();
-      // Clear per-question selection keys used by rehydrateUiFromState
-      const keysToRemove: string[] = [];
-      for (let i = 0; i < sessionStorage.length; i++) {
-        const key = sessionStorage.key(i);
-        if (key?.startsWith('sel_Q') || key?.startsWith('displayMode_')) {
-          keysToRemove.push(key);
-        }
-      }
-      for (const key of keysToRemove) {
-        sessionStorage.removeItem(key);
-      }
-    } catch (err) {
-      // ignore
-    }
+  private scheduleBackupClear(): void {
+    setTimeout(() => {
+      this._refreshBackup.clear();
+    }, 5000);
   }
 
   // ── Signal-first state ─────────────────────────────────────────
@@ -754,12 +719,44 @@ export class SelectedOptionService {
     return this.isAnsweredSig();
   }
 
-  resetSelectionState(): void {
+  private loadState(): void {
+    this.persistence.loadState(this as any);
+  }
+
+  private saveState(): void {
+    this.persistence.saveState(this as any);
+  }
+
+  public clearState(): void {
     this.selectedOptionsMap.clear();
+    this.rawSelectionsMap.clear();
+    this._selectionHistory.clear();
     this.selectedOption = [];
-    this.selectedOptionSig.set([]);
-    this.feedbackState.clearFeedbackSignal();
+    this.selectedOptionIndices = {};
+    this.feedbackState.clearAll();
+    this.optionSnapshotByQuestion.clear();
+    this.lockState.clearAll();
+    this.optionStates.clear();
+    this.isAnsweredSig.set(false);
     this.isOptionSelectedSig.set(false);
+    this.selectedOptionsMapSig.set(new Map());
+
+    try {
+      this.persistence.clearSessionKeys();
+      // Clear per-question selection keys used by rehydrateUiFromState
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key?.startsWith('sel_Q') || key?.startsWith('displayMode_')) {
+          keysToRemove.push(key);
+        }
+      }
+      for (const key of keysToRemove) {
+        sessionStorage.removeItem(key);
+      }
+    } catch (err) {
+      // ignore
+    }
   }
 
   public resetAllOptions(): void {
@@ -767,6 +764,14 @@ export class SelectedOptionService {
     this.selectedOptionSig.set([]);
     this.isOptionSelectedSig.set(false);
     this.isAnsweredSig.set(false);
+  }
+
+  resetSelectionState(): void {
+    this.selectedOptionsMap.clear();
+    this.selectedOption = [];
+    this.selectedOptionSig.set([]);
+    this.feedbackState.clearFeedbackSignal();
+    this.isOptionSelectedSig.set(false);
   }
 
   public resetOptionState(
