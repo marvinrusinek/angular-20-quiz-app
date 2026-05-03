@@ -129,7 +129,7 @@ export class QqcOrchLifecycleService {
       );
 
       host.renderReady$ = host.lifecycle.createRenderReadyObservable({
-        questionPayloadSubject: host.questionPayloadSubject,
+        questionPayload$: host.questionPayload$,
         setCurrentQuestion: (q: QuizQuestion | null) => { host.currentQuestion.set(q); },
         setOptionsToDisplay: (opts: Option[]) => { host.optionsToDisplay.set(opts); },
         setExplanationToDisplay: (text: string) => { host.explanationToDisplay.set(text); },
@@ -309,7 +309,7 @@ export class QqcOrchLifecycleService {
 
     if (changes['questionPayload'] && host.questionPayload) {
       host.hydrateFromPayload(host.questionPayload);
-      host.questionPayloadSubject.next(host.questionPayload);
+      host.questionPayloadSig.set(host.questionPayload);
       setTimeout(() => {
         if (host.displayStateManager.shouldTriggerHydrationFallback({
           renderReady: host.renderReady,

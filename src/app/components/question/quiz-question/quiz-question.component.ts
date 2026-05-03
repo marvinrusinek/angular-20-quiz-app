@@ -1,7 +1,8 @@
 import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, effect,
-  HostListener, input, model, OnChanges, OnDestroy, OnInit, output,
+  HostListener, input, model, OnChanges, OnDestroy, OnInit, output, signal,
   SimpleChange, SimpleChanges, ViewChild, ViewContainerRef } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -184,7 +185,8 @@ export class QuizQuestionComponent extends BaseQuestion
   private _fetEarlyShown = new Set<number>();
 
 
-  private questionPayloadSubject = new BehaviorSubject<QuestionPayload | null>(null);
+  readonly questionPayloadSig = signal<QuestionPayload | null>(null);
+  readonly questionPayload$ = toObservable(this.questionPayloadSig);
 
   private renderReadySubject = new BehaviorSubject<boolean>(false);
   public renderReady$ = this.renderReadySubject.asObservable();
@@ -276,7 +278,7 @@ export class QuizQuestionComponent extends BaseQuestion
       if (!value) return;
       try {
         this._questionPayload = value;
-        this.questionPayloadSubject.next(value);
+        this.questionPayloadSig.set(value);
         this.hydrateFromPayload(value);
       } catch {
       }

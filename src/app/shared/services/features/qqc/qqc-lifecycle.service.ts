@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { BehaviorSubject, firstValueFrom, Observable, Subject } from 'rxjs';
+import { firstValueFrom, Observable, Subject } from 'rxjs';
 import { distinctUntilChanged, filter, map, switchMap, take, tap } from 'rxjs/operators';
 
 import { Option } from '../../../models/Option.model';
@@ -114,18 +114,19 @@ export class QqcLifecycleService {
   }
 
   /**
-   * Creates the renderReady$ observable from questionPayloadSubject.
+   * Creates the renderReady$ observable from the host's questionPayload$
+   * (which mirrors the questionPayloadSig signal via toObservable).
    * Extracted from ngOnInit (lines 627–647).
    */
   createRenderReadyObservable(params: {
-    questionPayloadSubject: BehaviorSubject<QuestionPayload | null>;
+    questionPayload$: Observable<QuestionPayload | null>;
     setCurrentQuestion: (q: QuizQuestion) => void;
     setOptionsToDisplay: (opts: Option[]) => void;
     setExplanationToDisplay: (text: string) => void;
     setRenderReady: (val: boolean) => void;
     emitRenderReady: (val: boolean) => void;
   }): Observable<boolean> {
-    return params.questionPayloadSubject.pipe(
+    return params.questionPayload$.pipe(
       filter((payload): payload is QuestionPayload => !!payload),
       distinctUntilChanged((a, b) => JSON.stringify(a) === JSON.stringify(b)),
       tap((payload: QuestionPayload) => {
