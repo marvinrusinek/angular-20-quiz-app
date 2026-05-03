@@ -84,7 +84,11 @@ export class QqcOrchTimerService {
             // after Q(N+1) has already rendered, causing FET->q-txt flash.
             const expectedIdx = i0;
             const write = () => {
-              const liveIdx = host.normalizeIndex(host.currentQuestionIndex() ?? 0);
+              // Read questionIndex() (the input signal — live), not
+              // currentQuestionIndex() which is a model updated async
+              // by an effect and therefore lags by a microtask.
+              const sigIdx = host.questionIndex?.() ?? host.currentQuestionIndex?.() ?? 0;
+              const liveIdx = host.normalizeIndex(sigIdx);
               if (liveIdx !== expectedIdx) return;
               qTextEl.innerHTML = fetHtml;
             };
