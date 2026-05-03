@@ -428,7 +428,7 @@ export class CqcOrchestratorService {
       .pipe(
         tap((isMultipleAnswer: boolean) => {
           const correctAnswers = question.options.filter((option) => option.correct).length;
-          const explanationDisplayed = host.explanationTextService.isExplanationTextDisplayedSource.getValue();
+          const explanationDisplayed = host.explanationTextService.isExplanationTextDisplayedSig();
           const newCorrectAnswersText =
             isMultipleAnswer && !explanationDisplayed
               ? host.quizQuestionManagerService.getNumberOfCorrectAnswersText(

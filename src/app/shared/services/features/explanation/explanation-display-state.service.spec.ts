@@ -45,8 +45,8 @@ describe('ExplanationDisplayStateService', () => {
     expect(service.explanationText$.getValue()).toBe('');
   });
 
-  it('should have isExplanationTextDisplayedSource with initial value of false', () => {
-    expect(service.isExplanationTextDisplayedSource.getValue()).toBe(false);
+  it('should have isExplanationTextDisplayedSig with initial value of false', () => {
+    expect(service.isExplanationTextDisplayedSig()).toBe(false);
   });
 
   it('should have shouldDisplayExplanationSig with initial value of false', () => {
@@ -146,13 +146,13 @@ describe('ExplanationDisplayStateService', () => {
   it('resetExplanationText should clear all explanation state', () => {
     service.setExplanationText('Some explanation', { force: true, index: 0 });
     service.shouldDisplayExplanationSig.set(true);
-    service.isExplanationTextDisplayedSource.next(true);
+    service.isExplanationTextDisplayedSig.set(true);
 
     service.resetExplanationText();
 
     expect(service.latestExplanation).toBe('');
     expect(service.shouldDisplayExplanationSig()).toBe(false);
-    expect(service.isExplanationTextDisplayedSource.getValue()).toBe(false);
+    expect(service.isExplanationTextDisplayedSig()).toBe(false);
   });
 
   // ── setCurrentQuestionExplanation ───────────────────────────────────

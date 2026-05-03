@@ -54,7 +54,7 @@ export class QuizCorrectAnswersService {
     try {
       const [multipleAnswers] = await Promise.all([
         this.isMultipleAnswer(question),
-        this.explanationTextService.isExplanationTextDisplayedSource.getValue()
+        this.explanationTextService.isExplanationTextDisplayedSig()
       ]);
 
       const correctAnswersText = multipleAnswers

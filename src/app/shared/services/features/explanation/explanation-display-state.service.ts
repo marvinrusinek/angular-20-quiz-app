@@ -28,17 +28,13 @@ export class ExplanationDisplayStateService {
   private shouldDisplayByContext = new Map<string, boolean>();
   private displayedByContext = new Map<string, boolean>();
 
-  isExplanationTextDisplayedSource = new BehaviorSubject<boolean>(false);
-  isExplanationTextDisplayed$ =
-    this.isExplanationTextDisplayedSource.asObservable();
+  isExplanationTextDisplayedSig = signal<boolean>(false);
+  isExplanationTextDisplayed$ = toObservable(this.isExplanationTextDisplayedSig);
 
   private readonly isExplanationDisplayedSig = signal<boolean>(false);
 
   shouldDisplayExplanationSig = signal<boolean>(false);
   shouldDisplayExplanation$ = toObservable(this.shouldDisplayExplanationSig);
-
-  // isExplanationTextDisplayedSource remains a BehaviorSubject due to external
-  // .next()/.getValue() callers.
 
   private explanationTrigger = new Subject<void>();
 
@@ -348,8 +344,7 @@ export class ExplanationDisplayStateService {
         this._fetLocked = false;
 
         this.shouldDisplayExplanationSig.set(false);
-        if (this.isExplanationTextDisplayedSource instanceof BehaviorSubject)
-          this.isExplanationTextDisplayedSource.next(false);
+        this.isExplanationTextDisplayedSig.set(false);
       } catch (err) {      }
 
       this._activeIndex = questionIndex;
@@ -500,13 +495,13 @@ export class ExplanationDisplayStateService {
 
     if (
       !options.force &&
-      aggregated === this.isExplanationTextDisplayedSource.getValue()
+      aggregated === this.isExplanationTextDisplayedSig()
     ) {
       return;
     }
 
     // Update the canonical BehaviorSubject
-    this.isExplanationTextDisplayedSource.next(aggregated);
+    this.isExplanationTextDisplayedSig.set(aggregated);
 
     // Also update a secondary Subject for legacy or parallel subscribers
     try {
@@ -687,7 +682,7 @@ export class ExplanationDisplayStateService {
     this._fetSubject.next(undefined as any);
 
     this.shouldDisplayExplanationSig.set(false);
-    this.isExplanationTextDisplayedSource.next(false);
+    this.isExplanationTextDisplayedSig.set(false);
     this.resetCompleteSig.set(false);
 
     // FET is definitely NOT ready after a full reset
@@ -810,7 +805,7 @@ export class ExplanationDisplayStateService {
 
     // Emit immediately without waiting for requestAnimationFrame.    this.safeNext(this._fetSubject, { idx: index, text: validatedText, token });
     this.shouldDisplayExplanationSig.set(true);
-    this.safeNext(this.isExplanationTextDisplayedSource, true);
+    this.isExplanationTextDisplayedSig.set(true);
 
     // At this point, FET is computed and "ready" for this question
     try {
@@ -860,7 +855,7 @@ export class ExplanationDisplayStateService {
       }
       this.safeNext(this.formatter.formattedExplanationSubject, trimmed);
       this.shouldDisplayExplanationSig.set(true);
-      this.safeNext(this.isExplanationTextDisplayedSource, true);
+      this.isExplanationTextDisplayedSig.set(true);
 
       // FET now open and visible for this index
       try {
