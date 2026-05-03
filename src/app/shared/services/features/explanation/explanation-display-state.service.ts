@@ -34,12 +34,11 @@ export class ExplanationDisplayStateService {
 
   private readonly isExplanationDisplayedSig = signal<boolean>(false);
 
-  shouldDisplayExplanationSource = new BehaviorSubject<boolean>(false);
-  shouldDisplayExplanation$ =
-    this.shouldDisplayExplanationSource.asObservable();
+  shouldDisplayExplanationSig = signal<boolean>(false);
+  shouldDisplayExplanation$ = toObservable(this.shouldDisplayExplanationSig);
 
-  // isExplanationTextDisplayedSource and shouldDisplayExplanationSource
-  // remain BehaviorSubjects due to external .next()/.getValue() callers.
+  // isExplanationTextDisplayedSource remains a BehaviorSubject due to external
+  // .next()/.getValue() callers.
 
   private explanationTrigger = new Subject<void>();
 
@@ -102,7 +101,7 @@ export class ExplanationDisplayStateService {
   }
 
   get shouldDisplayExplanationSnapshot(): boolean {
-    return this.shouldDisplayExplanationSource.getValue() === true;
+    return this.shouldDisplayExplanationSig() === true;
   }
 
   constructor(
@@ -348,8 +347,7 @@ export class ExplanationDisplayStateService {
         this.latestExplanationIndex = null;
         this._fetLocked = false;
 
-        if (this.shouldDisplayExplanationSource instanceof BehaviorSubject)
-          this.shouldDisplayExplanationSource.next(false);
+        this.shouldDisplayExplanationSig.set(false);
         if (this.isExplanationTextDisplayedSource instanceof BehaviorSubject)
           this.isExplanationTextDisplayedSource.next(false);
       } catch (err) {      }
@@ -604,13 +602,13 @@ export class ExplanationDisplayStateService {
 
     if (
       !options.force &&
-      aggregated === this.shouldDisplayExplanationSource.getValue()
+      aggregated === this.shouldDisplayExplanationSig()
     ) {
       return;
     }
 
     // Normal reactive push (this is your main subject)
-    this.shouldDisplayExplanationSource.next(aggregated);
+    this.shouldDisplayExplanationSig.set(aggregated);
 
     // Update Subject
     try {
@@ -622,7 +620,7 @@ export class ExplanationDisplayStateService {
 
   public triggerExplanationEvaluation(): void {
     const currentExplanation = this.getLatestFormattedExplanation();
-    const shouldShow = this.shouldDisplayExplanationSource.getValue();
+    const shouldShow = this.shouldDisplayExplanationSig();
 
     if (shouldShow && currentExplanation) {
       this.explanationTrigger.next();
@@ -688,7 +686,7 @@ export class ExplanationDisplayStateService {
     this.formatter.formattedExplanationSubject.next('');
     this._fetSubject.next(undefined as any);
 
-    this.shouldDisplayExplanationSource.next(false);
+    this.shouldDisplayExplanationSig.set(false);
     this.isExplanationTextDisplayedSource.next(false);
     this.resetCompleteSig.set(false);
 
@@ -811,7 +809,7 @@ export class ExplanationDisplayStateService {
     this.formatter.formattedExplanationSubject.next(validatedText);
 
     // Emit immediately without waiting for requestAnimationFrame.    this.safeNext(this._fetSubject, { idx: index, text: validatedText, token });
-    this.safeNext(this.shouldDisplayExplanationSource, true);
+    this.shouldDisplayExplanationSig.set(true);
     this.safeNext(this.isExplanationTextDisplayedSource, true);
 
     // At this point, FET is computed and "ready" for this question
@@ -861,7 +859,7 @@ export class ExplanationDisplayStateService {
       ) {        return;
       }
       this.safeNext(this.formatter.formattedExplanationSubject, trimmed);
-      this.safeNext(this.shouldDisplayExplanationSource, true);
+      this.shouldDisplayExplanationSig.set(true);
       this.safeNext(this.isExplanationTextDisplayedSource, true);
 
       // FET now open and visible for this index

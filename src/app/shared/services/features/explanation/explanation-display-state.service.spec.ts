@@ -49,8 +49,8 @@ describe('ExplanationDisplayStateService', () => {
     expect(service.isExplanationTextDisplayedSource.getValue()).toBe(false);
   });
 
-  it('should have shouldDisplayExplanationSource with initial value of false', () => {
-    expect(service.shouldDisplayExplanationSource.getValue()).toBe(false);
+  it('should have shouldDisplayExplanationSig with initial value of false', () => {
+    expect(service.shouldDisplayExplanationSig()).toBe(false);
   });
 
   it('should have latestExplanation initialized to empty string', () => {
@@ -77,13 +77,13 @@ describe('ExplanationDisplayStateService', () => {
 
   // ── Getters / accessors ─────────────────────────────────────────────
 
-  it('shouldDisplayExplanationSnapshot should return current value of shouldDisplayExplanationSource', () => {
+  it('shouldDisplayExplanationSnapshot should return current value of shouldDisplayExplanationSig', () => {
     expect(service.shouldDisplayExplanationSnapshot).toBe(false);
 
-    service.shouldDisplayExplanationSource.next(true);
+    service.shouldDisplayExplanationSig.set(true);
     expect(service.shouldDisplayExplanationSnapshot).toBe(true);
 
-    service.shouldDisplayExplanationSource.next(false);
+    service.shouldDisplayExplanationSig.set(false);
     expect(service.shouldDisplayExplanationSnapshot).toBe(false);
   });
 
@@ -145,13 +145,13 @@ describe('ExplanationDisplayStateService', () => {
 
   it('resetExplanationText should clear all explanation state', () => {
     service.setExplanationText('Some explanation', { force: true, index: 0 });
-    service.shouldDisplayExplanationSource.next(true);
+    service.shouldDisplayExplanationSig.set(true);
     service.isExplanationTextDisplayedSource.next(true);
 
     service.resetExplanationText();
 
     expect(service.latestExplanation).toBe('');
-    expect(service.shouldDisplayExplanationSource.getValue()).toBe(false);
+    expect(service.shouldDisplayExplanationSig()).toBe(false);
     expect(service.isExplanationTextDisplayedSource.getValue()).toBe(false);
   });
 

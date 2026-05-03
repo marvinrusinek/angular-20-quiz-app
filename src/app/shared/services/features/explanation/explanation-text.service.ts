@@ -1,4 +1,4 @@
-import { Injectable, Injector } from '@angular/core';
+import { Injectable, Injector, WritableSignal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { BehaviorSubject, Observable } from 'rxjs';
 
@@ -200,8 +200,8 @@ export class ExplanationTextService {
     return this.displayState.isExplanationTextDisplayed$;
   }
 
-  get shouldDisplayExplanationSource(): BehaviorSubject<boolean> {
-    return this.displayState.shouldDisplayExplanationSource;
+  get shouldDisplayExplanationSig(): WritableSignal<boolean> {
+    return this.displayState.shouldDisplayExplanationSig;
   }
 
   get shouldDisplayExplanation$(): Observable<boolean> {
