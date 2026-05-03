@@ -77,9 +77,16 @@ export class CqcOrchestratorService {
     // the visibility handler, replay retries, and the MutationObserver
     // safety net all derive the same value.
     const computeIntendedQText = (): string => {
-      const idx = host.currentIndex >= 0
-        ? host.currentIndex
-        : (host.quizService.getCurrentQuestionIndex?.() ?? 0);
+      // Read from the input signal — host.currentIndex lags by a microtask
+      // because it's a plain field updated by an effect. Using the signal
+      // means the MutationObserver and visibility-restore replays compute
+      // the intended HTML for the LIVE question, never the prior one.
+      const sigIdx = host.questionIndex?.();
+      const idx = (typeof sigIdx === 'number' && sigIdx >= 0)
+        ? sigIdx
+        : (host.currentIndex >= 0
+          ? host.currentIndex
+          : (host.quizService.getCurrentQuestionIndex?.() ?? 0));
       let intended = '';
       const hasInteracted = this.fetGuard.hasInteractionEvidence(host, idx);
       if (hasInteracted) {
@@ -171,13 +178,12 @@ export class CqcOrchestratorService {
             debounceTimer = null;
             const innerLater = (el.innerHTML ?? '').trim();
             if (innerLater) return;
-            // Prefer whatever was last successfully displayed — that's
-            // the most recent truth for this index. Fall back to a fresh
-            // compute only if the cache is empty.
-            let restore = (host._lastDisplayedText ?? '').trim();
-            if (!restore) {
-              restore = computeIntendedQText();
-            }
+            // Always recompute via computeIntendedQText (which reads the
+            // live index from the input signal). Using the cached
+            // _lastDisplayedText was unsafe across navigation: after Next
+            // from Q(N), if qText briefly emptied, this branch would
+            // restore Q(N)'s FET — exactly the FET->q-txt flash bug.
+            const restore = computeIntendedQText();
             if (restore) {
               this.fetGuard.writeQText(host, restore);
             }
