@@ -286,7 +286,6 @@ export class CqcOrchestratorService {
     try { host.destroy$?.complete(); } catch {}
     try { host.correctAnswersTextSource?.complete(); } catch {}
     try { host.correctAnswersDisplaySubject?.complete(); } catch {}
-    try { host.combinedTextSubject?.complete(); } catch {}
     host.combinedSub?.unsubscribe();
   }
 

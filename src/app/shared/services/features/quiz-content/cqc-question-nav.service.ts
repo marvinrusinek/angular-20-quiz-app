@@ -157,9 +157,7 @@ export class CqcQuestionNavService {
       );
     }
 
-    host.overrideSubject.next({ idx, html: '' });
     host.questionIndexSubject.next(idx);
-    host.clearCachedQuestionArtifacts(idx);
 
     const ets = host.explanationTextService;
     ets._activeIndex = idx;

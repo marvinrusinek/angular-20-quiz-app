@@ -68,8 +68,6 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
 
   readonly questionIndex = input<number>(0);
 
-  private combinedTextSubject = new BehaviorSubject<string>('');
-
   currentQuestionIndexValue = 0;
   currentQuestion$: BehaviorSubject<QuizQuestion | null> =
     new BehaviorSubject<QuizQuestion | null>(null);
@@ -87,8 +85,6 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
     return this.displayService._fetDisplayedThisSession;
   }
 
-  private overrideSubject =
-    new BehaviorSubject<{ idx: number; html: string }>({ idx: -1, html: '' });
   private currentIndex = -1;
   private questionIndexSubject = new BehaviorSubject<number>(0);
   currentIndex$ = this.questionIndexSubject.asObservable();
@@ -184,7 +180,6 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
         this._lockedForIndex = -1;
         this.orchestrator.runQuestionIndexSet(this, idx);
         this.currentIndex = idx;
-        this.overrideSubject.next({ idx, html: '' });
         this.resetExplanationView();
         this.explanationText = '';
         this.explanationTextLocal = '';
@@ -404,13 +399,6 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   private resetExplanationView(): void {
     this.explanationTextService.setShouldDisplayExplanation(false);
     this.explanationTextService.setExplanationText('');
-  }
-
-  private clearCachedQuestionArtifacts(index: number): void {
-    const placeholder = this.questionLoadingText;
-    if (this.combinedTextSubject.getValue() !== placeholder) {
-      this.combinedTextSubject.next(placeholder);
-    }
   }
 
   private regenerateFetForIndex(idx: number): string {
