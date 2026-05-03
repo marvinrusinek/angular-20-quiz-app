@@ -833,8 +833,7 @@ export class QuizService {
     this.userAnswers[questionIndex] = answerIds;
     try {
       localStorage.setItem('userAnswers', JSON.stringify(this.userAnswers));
-    } catch (err) {
-    }
+    } catch (err) {}
 
     let question = this.questions[questionIndex];
     if (this.shouldShuffle() && this.quizId) {
@@ -960,8 +959,6 @@ export class QuizService {
 
     this.quizResetSource.next();
   }
-
-
 
   private resolveShuffleQuizId(): string | null {
     return this.quizId || this.activeQuiz?.quizId || this.selectedQuiz?.quizId || null;
