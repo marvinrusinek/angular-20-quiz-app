@@ -514,6 +514,25 @@ export class QuizNavigationService {
       answered: false
     });
     this.quizStateService.setExplanationReady(false);
+
+    // SYNC qText DOM write: stamp the target question's text directly
+    // into <h3 #qText> right now. Without this, the prior question's FET
+    // (or any other content) sits in the DOM until the displayText$
+    // pipeline catches up — that's the "FET -> q-txt" flash on Next.
+    try {
+      const h3 = document.querySelector('codelab-quiz-content h3') as HTMLElement | null;
+      if (h3) {
+        const qs = this.quizService;
+        const isShuffled = qs.isShuffleEnabled?.() && Array.isArray(qs.shuffledQuestions) && qs.shuffledQuestions.length > 0;
+        const targetQ = isShuffled
+          ? qs.shuffledQuestions?.[targetIndex]
+          : qs.questions?.[targetIndex];
+        const qText = (targetQ?.questionText ?? '').trim();
+        if (qText) {
+          h3.innerHTML = qText;
+        }
+      }
+    } catch { }
   }
 
   /**
