@@ -299,11 +299,8 @@ export class QqcInitializerService {
     }
 
     const selectedOption = questionForm.get('selectedOption')?.value;
-    if (selectedOption === null || selectedOption === undefined) {
-      return false;
-    }
-
-    return true; // form is valid and option is selected
+    // form is valid and option is selected
+    return selectedOption != null;
   }
 
   /**

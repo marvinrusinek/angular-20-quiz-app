@@ -218,8 +218,7 @@ export class SharedOptionFeedbackService {
         if (ctx.optionBindings?.[idx]?.isSelected) return true;
         if (ctx.optionBindings?.[idx]?.option?.selected) return true;
         // Source 4: is this the option being clicked right now?
-        if (idx === selectedIndex) return true;
-        return false;
+        return idx === selectedIndex;
       };
 
       let correctSelectedCount = 0;

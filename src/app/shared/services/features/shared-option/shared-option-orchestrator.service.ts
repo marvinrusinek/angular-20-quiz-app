@@ -339,8 +339,7 @@ export class SharedOptionOrchestratorService {
   runShouldDisableOption(host: Host, binding: OptionBindings): boolean {
     if (!binding || !binding.option) return false;
     if (host.isMultiMode) {
-      if (host.forceDisableAll) return true;
-      return false;
+      return host.forceDisableAll;
     }
     return true;
   }

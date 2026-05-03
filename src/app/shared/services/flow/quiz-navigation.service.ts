@@ -229,11 +229,7 @@ export class QuizNavigationService {
     }
 
     const navSuccess = await this.router.navigateByUrl(routeUrl);
-    if (!navSuccess) {
-      return false;
-    }
-
-    return true;
+    return navSuccess;
   }
 
   private async fetchAndEmitQuestion(index: number): Promise<any> {
@@ -377,10 +373,7 @@ export class QuizNavigationService {
       }
 
       const navSuccess = await this.router.navigateByUrl(routeUrl);
-      if (!navSuccess) {
-        return false;
-      }
-      return true;
+      return navSuccess;
     } catch (err) {
       return false;
     }

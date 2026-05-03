@@ -179,10 +179,7 @@ export class OptionItemComponent implements OnChanges, OnInit {
       return false;
     }
     const expiredPlain = this.timerService.expiredForQuestionIndex;
-    if (expiredPlain >= 0 && expiredPlain !== qIdx) {
-      return false;
-    }
-    return true;
+    return expiredPlain < 0 || expiredPlain === qIdx;
   }
 
   get optionId(): number {

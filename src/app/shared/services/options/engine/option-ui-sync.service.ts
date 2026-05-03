@@ -304,15 +304,10 @@ export class OptionUiSyncService {
     now: number,
     ctx: OptionUiSyncContext
   ): boolean {
-    if (
-      ctx.lastClickedOptionId === optionId &&
-      ctx.lastClickTimestamp &&
+    return ctx.lastClickedOptionId === optionId &&
+      ctx.lastClickTimestamp != null &&
       now - ctx.lastClickTimestamp < 150 &&
-      !checked
-    ) {
-      return true;
-    }
-    return false;
+      !checked;
   }
 
   private forceSelectIntoServices(
