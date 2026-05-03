@@ -32,7 +32,6 @@ export class SelectedOptionService {
   selectedOptionIndices: { [key: number]: number[] } = {};
 
   // Durable backup that survives clearState() — used for refresh restore.
-  // Auto-cleared after 5s so stale data doesn't leak into future sessions.
   _refreshBackup = new Map<number, SelectedOption[]>();
 
   // Accumulates ALL selections per question (including prior single-answer picks)
@@ -64,12 +63,6 @@ export class SelectedOptionService {
 
   clearRefreshBackup(): void {
     this._refreshBackup.clear();
-  }
-
-  private scheduleBackupClear(): void {
-    setTimeout(() => {
-      this._refreshBackup.clear();
-    }, 5000);
   }
 
   // ── Signal-first state ─────────────────────────────────────────
