@@ -589,7 +589,7 @@ export class QuizContentDisplayService {
     currentIndex$: Observable<number>,
     timedOutIdx$: Observable<number>,
     activeFetText$: Observable<string>,
-    currentQuestion: BehaviorSubject<QuizQuestion | null>
+    currentQuestion$: Observable<QuizQuestion | null>
   ): void {
     const showOnTimeout$ = combineLatest([
       currentIndex$.pipe(startWith(-1)),
@@ -604,7 +604,7 @@ export class QuizContentDisplayService {
       activeFetText$.pipe(startWith('')),
       this.shouldShowFet$.pipe(startWith(false)),
       showOnTimeout$.pipe(startWith(false)),
-      currentQuestion.pipe(startWith(null))
+      currentQuestion$.pipe(startWith(null))
     ]).pipe(
       map(([fet, resolved, timedOut, question]) => {
         const text = (fet ?? '').trim();

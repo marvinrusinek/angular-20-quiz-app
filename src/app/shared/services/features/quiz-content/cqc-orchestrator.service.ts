@@ -284,7 +284,6 @@ export class CqcOrchestratorService {
     }
     try { host.destroy$?.next(); } catch {}
     try { host.destroy$?.complete(); } catch {}
-    try { host.correctAnswersTextSource?.complete(); } catch {}
     try { host.correctAnswersDisplaySubject?.complete(); } catch {}
     host.combinedSub?.unsubscribe();
   }
@@ -450,8 +449,8 @@ export class CqcOrchestratorService {
               )
               : '';
 
-          if (host.correctAnswersTextSource.getValue() !== newCorrectAnswersText) {
-            host.correctAnswersTextSource.next(newCorrectAnswersText);
+          if (host.correctAnswersTextSig() !== newCorrectAnswersText) {
+            host.correctAnswersTextSig.set(newCorrectAnswersText);
           }
 
           const shouldDisplayCorrectAnswers = isMultipleAnswer && !explanationDisplayed;
@@ -605,9 +604,6 @@ export class CqcOrchestratorService {
           ...payload.question,
           options: normalizedOptions
         };
-
-        host.currentQuestion$.next(normalizedQuestion);
-        host.currentOptions$.next(normalizedOptions);
 
         return {
           currentQuestion: normalizedQuestion,

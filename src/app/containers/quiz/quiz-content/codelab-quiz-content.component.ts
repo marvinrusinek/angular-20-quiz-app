@@ -4,9 +4,10 @@ import {
   OnChanges, OnDestroy, OnInit, Renderer2, SimpleChanges, untracked, ViewChild,
   input, output, signal
 } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, ParamMap } from '@angular/router';
-import { BehaviorSubject, Observable, Subject } from 'rxjs';
+import { BehaviorSubject, Observable, of, Subject } from 'rxjs';
 
 import { CombinedQuestionDataType } from
   '../../../shared/models/CombinedQuestionDataType.model';
@@ -47,7 +48,8 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   private _combinedQuestionDataSig = signal<Observable<CombinedQuestionDataType> | null>(null);
   readonly combinedQuestionData$ = this._combinedQuestionDataSig.asReadonly();
   setCombinedQuestionData$(v: Observable<CombinedQuestionDataType> | null): void { this._combinedQuestionDataSig.set(v); }
-  currentQuestion = new BehaviorSubject<QuizQuestion | null>(null);
+  readonly currentQuestionSig = signal<QuizQuestion | null>(null);
+  readonly currentQuestion$ = toObservable(this.currentQuestionSig);
   readonly questionToDisplay = input<string>('');
   readonly questionToDisplay$ = input<Observable<string | null> | null>(null);
   readonly explanationToDisplay = input<string | null>(null);
@@ -69,10 +71,6 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   readonly questionIndex = input<number>(0);
 
   currentQuestionIndexValue = 0;
-  currentQuestion$: BehaviorSubject<QuizQuestion | null> =
-    new BehaviorSubject<QuizQuestion | null>(null);
-  currentOptions$: BehaviorSubject<Option[] | null> =
-    new BehaviorSubject<Option[] | null>([]);
   currentQuestionIndex$!: Observable<number>;
   nextQuestion$: Observable<QuizQuestion | null>;
   isNavigatingToPrevious = false;
@@ -105,16 +103,16 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   get displayText$(): Observable<string> { return this.displayService.displayText$; }
   set displayText$(v: Observable<string>) { this.displayService.displayText$ = v; }
 
-  numberOfCorrectAnswers$: BehaviorSubject<string> =
-    new BehaviorSubject<string>('0');
+  // Never written; cqc-orchestrator subscribes only to seed its
+  // combineLatest pipeline. Constant observable keeps the API stable.
+  readonly numberOfCorrectAnswers$ = of('0');
 
-  correctAnswersTextSource: BehaviorSubject<string> =
-    new BehaviorSubject<string>('');
-  correctAnswersText$ = this.correctAnswersTextSource.asObservable();
+  readonly correctAnswersTextSig = signal<string>('');
+  readonly correctAnswersText$ = toObservable(this.correctAnswersTextSig);
 
   explanationText: string | null = null;
 
-  questionRendered: BehaviorSubject<boolean> = new BehaviorSubject<boolean>(false);
+  readonly questionRenderedSig = signal<boolean>(false);
 
   isContentAvailable$!: Observable<boolean>;
 
@@ -344,8 +342,8 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
   }
 
   ngOnChanges(changes: SimpleChanges) {
-    if (!!this.questionText() && !this.questionRendered.getValue()) {
-      this.questionRendered.next(true);
+    if (!!this.questionText() && !this.questionRenderedSig()) {
+      this.questionRenderedSig.set(true);
     }
   }
 
@@ -482,7 +480,7 @@ export class CodelabQuizContentComponent implements OnInit, OnChanges, OnDestroy
       this.currentIndex$,
       this.timedOutIdx$,
       this.activeFetText$,
-      this.currentQuestion
+      this.currentQuestion$
     );
   }
 
