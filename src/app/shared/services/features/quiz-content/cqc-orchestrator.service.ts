@@ -237,7 +237,16 @@ export class CqcOrchestratorService {
               fetHtml = q.explanation || '';
             }
             if (fetHtml) {
+              // Guard the delayed writes against the user navigating away
+              // before they fire. Without this, a Next click during the
+              // 500ms window re-writes the prior question's FET into qText
+              // after the new question has rendered, causing the flash.
+              const expectedIdx = idx;
               const write = () => {
+                const liveIdx = host.currentIndex >= 0
+                  ? host.currentIndex
+                  : (host.quizService.getCurrentQuestionIndex?.() ?? host.currentQuestionIndexValue ?? 0);
+                if (liveIdx !== expectedIdx) return;
                 el.innerHTML = fetHtml;
                 host.qTextHtmlSig?.set(fetHtml);
                 host._lastDisplayedText = fetHtml;
