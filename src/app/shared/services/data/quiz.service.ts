@@ -69,8 +69,8 @@ export class QuizService {
     catch { return null; }
   })();
 
-  currentQuestionIndexSource = new BehaviorSubject<number>(0);
-  currentQuestionIndex$ = this.currentQuestionIndexSource.asObservable();
+  currentQuestionIndexSig = signal<number>(0);
+  currentQuestionIndex$: Observable<number> = toObservable(this.currentQuestionIndexSig);
 
   currentOptions: BehaviorSubject<Option[]> = new BehaviorSubject<Option[]>([]);
   selectedOptionsMap: Map<number, SelectedOption[]> = new Map();
@@ -122,7 +122,6 @@ export class QuizService {
   private _lastBanner = '';  // last text we emitted
   private _pendingBannerTimer: any = null;
 
-  currentQuestionIndexSubject = new BehaviorSubject<number>(0);
   multipleAnswer = false;
 
   currentQuestionSource: Subject<QuizQuestion | null> =
@@ -537,8 +536,7 @@ export class QuizService {
     const safeIndex = Number.isFinite(idx) ? Math.max(0, Math.trunc(idx)) : 0;
 
     this.currentQuestionIndex = safeIndex;
-    this.currentQuestionIndexSource.next(safeIndex);
-    this.currentQuestionIndexSubject.next(safeIndex);
+    this.currentQuestionIndexSig.set(safeIndex);
 
     // Restore answers from persistence if available to prevent score decrement on navigation
     const prevSelected = this.selectedOptionsMap.get(safeIndex);
@@ -563,11 +561,11 @@ export class QuizService {
   }
 
   getCurrentQuestionIndex(): number {
-    return this.currentQuestionIndexSource.getValue();
+    return this.currentQuestionIndexSig();
   }
 
   getCurrentQuestionIndexObservable(): Observable<number> {
-    return this.currentQuestionIndexSubject.asObservable();
+    return this.currentQuestionIndex$;
   }
 
 

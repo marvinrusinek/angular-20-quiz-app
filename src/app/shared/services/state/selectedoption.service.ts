@@ -913,7 +913,7 @@ export class SelectedOptionService {
 
   public areAllCorrectAnswersSelectedActiveQuestion(): boolean {
     return this.answerEval.areAllCorrectAnswersSelectedForQuestion(
-      this.quizService.currentQuestionIndexSource?.getValue?.() ?? -1,
+      this.quizService.currentQuestionIndexSig?.() ?? -1,
       (idx) => this.getSelectedOptionsForQuestion(idx),
       this._questionCache
     );

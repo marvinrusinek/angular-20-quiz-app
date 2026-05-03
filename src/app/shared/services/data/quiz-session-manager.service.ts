@@ -36,8 +36,7 @@ export interface QuizSessionState {
   currentQuestionSource: Subject<QuizQuestion | null>;
   currentQuestion: BehaviorSubject<QuizQuestion | null>;
   currentQuestionSubject: BehaviorSubject<QuizQuestion | null>;
-  currentQuestionIndexSource: BehaviorSubject<number>;
-  currentQuestionIndexSubject: BehaviorSubject<number>;
+  currentQuestionIndexSig: WritableSignal<number>;
   nextQuestionSubject: BehaviorSubject<QuizQuestion | null>;
   nextOptionsSubject: BehaviorSubject<Option[]>;
   previousQuestionSubject: BehaviorSubject<QuizQuestion | null>;
@@ -229,8 +228,7 @@ export class QuizSessionManagerService {
       ? boundedIndex
       : 0;
 
-    state.currentQuestionIndexSource.next(state.currentQuestionIndex);
-    state.currentQuestionIndexSubject.next(state.currentQuestionIndex);
+    state.currentQuestionIndexSig.set(state.currentQuestionIndex);
 
     const currentQuestion =
       sanitizedQuestions[state.currentQuestionIndex] ?? null;
@@ -332,8 +330,7 @@ export class QuizSessionManagerService {
   resetQuizSessionState(state: QuizSessionState, quizResetSource: Subject<void>): void {
     state.resetScore();
     state.currentQuestionIndex = 0;
-    state.currentQuestionIndexSource.next(0);
-    state.currentQuestionIndexSubject.next(0);
+    state.currentQuestionIndexSig.set(0);
 
     try {
       localStorage.removeItem('shuffledQuestions');

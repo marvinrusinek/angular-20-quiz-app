@@ -23,7 +23,7 @@ describe('SelectedOptionService', () => {
     quizReset$,
     currentQuestionIndex: 0,
     getCurrentQuestionIndex: () => 0,
-    currentQuestionIndexSource: { getValue: () => 0 },
+    currentQuestionIndexSig: () => 0,
     updateUserAnswer: jest.fn(),
   };
 

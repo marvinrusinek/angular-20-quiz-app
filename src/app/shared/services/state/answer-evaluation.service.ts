@@ -296,7 +296,7 @@ export class AnswerEvaluationService {
     questionCache: Map<number, QuizQuestion>
   ): boolean {
     try {
-      const qIndex = this.quizService.currentQuestionIndexSource?.getValue?.() ?? questionIndex;
+      const qIndex = this.quizService.currentQuestionIndexSig?.() ?? questionIndex;
 
       const question = questionCache.get(qIndex);
       if (!question || !Array.isArray(question.options)) {        return false;
