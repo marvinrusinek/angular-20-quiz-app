@@ -515,10 +515,13 @@ export class QuizNavigationService {
     });
     this.quizStateService.setExplanationReady(false);
 
-    // SYNC qText DOM write: stamp the target question's text directly
-    // into <h3 #qText> right now. Without this, the prior question's FET
-    // (or any other content) sits in the DOM until the displayText$
-    // pipeline catches up — that's the "FET -> q-txt" flash on Next.
+    // SYNC qText DOM write + post-nav lock: stamp the target question's
+    // text directly into <h3 #qText> right now AND install a short-lived
+    // MutationObserver that reverts any FET-looking write back to q-txt
+    // for the next ~1200ms. Multiple async writers (timer-expiry
+    // setTimeout cascades, visibility-restore replays, soc FET stamps)
+    // race after a Next click and re-write the prior question's FET.
+    // The lock resolves the race deterministically.
     try {
       const h3 = document.querySelector('codelab-quiz-content h3') as HTMLElement | null;
       if (h3) {
@@ -527,9 +530,44 @@ export class QuizNavigationService {
         const targetQ = isShuffled
           ? qs.shuffledQuestions?.[targetIndex]
           : qs.questions?.[targetIndex];
-        const qText = (targetQ?.questionText ?? '').trim();
-        if (qText) {
-          h3.innerHTML = qText;
+        const targetQText = (targetQ?.questionText ?? '').trim();
+        if (targetQText) {
+          h3.innerHTML = targetQText;
+
+          const w: any = window;
+          if (w.__navLockObserver) {
+            try { w.__navLockObserver.disconnect(); } catch { }
+          }
+          if (w.__navLockTimer) clearTimeout(w.__navLockTimer);
+
+          const looksLikeFet = (s: string): boolean => {
+            const lower = (s ?? '').toLowerCase();
+            return lower.includes('correct because')
+              || lower.includes('are correct')
+              || lower.includes('is correct');
+          };
+
+          const enforce = (): void => {
+            const now = (h3.innerHTML ?? '').trim();
+            if (!now) {
+              h3.innerHTML = targetQText;
+              return;
+            }
+            if (looksLikeFet(now) && !looksLikeFet(targetQText)) {
+              h3.innerHTML = targetQText;
+            }
+          };
+
+          if (typeof MutationObserver !== 'undefined') {
+            const observer = new MutationObserver(() => enforce());
+            observer.observe(h3, { childList: true, characterData: true, subtree: true });
+            w.__navLockObserver = observer;
+            w.__navLockTimer = setTimeout(() => {
+              try { observer.disconnect(); } catch { }
+              w.__navLockObserver = null;
+              w.__navLockTimer = null;
+            }, 1200);
+          }
         }
       }
     } catch { }
