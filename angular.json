@@ -34,7 +34,8 @@
             "polyfills": ["src/polyfills.ts"],
             "scripts": [],
             "styles": ["src/global_styles.css", "src/styles.scss"],
-            "tsConfig": "tsconfig.app.json"
+            "tsConfig": "tsconfig.app.json",
+            "allowedCommonJsDependencies": ["howler"]
           }
         },
         "serve": {
