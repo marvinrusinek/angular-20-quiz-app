@@ -34,11 +34,18 @@ export class CqcDisplayTextService {
 
           let finalText = text;
           const lowerText = (text ?? '').toLowerCase();
-          const currentQ = host.quizService.getQuestionsInDisplayOrder()?.[host.currentIndex];
+          // Read currentIdx from the input signal — host.currentIndex is a
+          // plain field updated asynchronously by an effect, so it lags
+          // questionIndex() by a microtask. Without this, after timer
+          // expiry on Q(N), a Next click to Q(N+1) hits the FAST-PATH
+          // branches below with stale currentIdx === N, re-writing Q(N)'s
+          // FET into qText. That's the FET->q-txt flash.
+          const liveIdx = host.questionIndex?.() ?? host.currentIndex ?? 0;
+          const currentQ = host.quizService.getQuestionsInDisplayOrder()?.[liveIdx];
           const qTextRaw = (currentQ?.questionText ?? '').trim();
           const isQuestionText = qTextRaw.length > 0 && (text ?? '').trim().startsWith(qTextRaw);
 
-          const currentIdx = host.currentIndex;
+          const currentIdx = liveIdx;
 
           // Timer-expiry detection: bypasses all FET guards below
           const isTimedOutForIdx = host.timedOutIdxSubject?.getValue?.() === currentIdx && currentIdx >= 0;
@@ -105,12 +112,12 @@ export class CqcDisplayTextService {
           const isExplanation = lowerText.length > 0
             && !isQuestionText
             && !lowerText.includes('correct because')
-            && host.explanationTextService.latestExplanationIndex === host.currentIndex
+            && host.explanationTextService.latestExplanationIndex === currentIdx
             && host.explanationTextService.latestExplanationIndex >= 0
             && (hasRealInteraction || isTimedOutForIdx)
             && !multiAnswerBlocked;
           if (isExplanation) {
-            const idx = host.currentIndex;
+            const idx = currentIdx;
             const cached = (host.explanationTextService.formattedExplanations[idx]?.explanation ?? '').trim()
               || ((host.explanationTextService as any).fetByIndex?.get(idx) ?? '').trim();
             if (cached && cached.toLowerCase().includes('correct because')) {
@@ -128,7 +135,7 @@ export class CqcDisplayTextService {
               } catch { /* ignore */ }
             }
           } else if (!isQuestionText && !lowerText.includes('correct because')
-                     && host.explanationTextService.latestExplanationIndex === host.currentIndex
+                     && host.explanationTextService.latestExplanationIndex === currentIdx
                      && !hasRealInteraction && !isTimedOutForIdx) {
             // Substitution suppressed — no interaction evidence
           }
