@@ -1,11 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Option } from '../../../models/Option.model';
 import { OptionBindings } from '../../../models/OptionBindings.model';
-import { QuestionType } from '../../../models/question-type.enum';
-import { SharedOptionConfig } from '../../../models/SharedOptionConfig.model';
-import { SelectedOption } from '../../../models/SelectedOption.model';
-import { QuizQuestion } from '../../../models/QuizQuestion.model';
-import { FeedbackProps } from '../../../models/FeedbackProps.model';
 
 @Injectable({
   providedIn: 'root'
@@ -88,49 +83,4 @@ export class OptionService {
     return 'pointer';
   }
 
-  /**
-   * Decide if an option should be disabled based on various rules
-   */
-  isDisabled(
-    binding: OptionBindings,
-    idx: number,
-    disabledOptionsPerQuestion: Map<number, Set<number>>,
-    currentQuestionIndex: number,
-    forceDisableAll: boolean,
-    timerExpiredForQuestion: boolean,
-    isLocked: boolean
-  ): boolean {
-    if (forceDisableAll || timerExpiredForQuestion || isLocked) {
-      return true;
-    }
-
-    const disabledSet = disabledOptionsPerQuestion.get(currentQuestionIndex);
-    if (disabledSet && binding.option.optionId != null && disabledSet.has(binding.option.optionId)) {
-      return true;
-    }
-
-    return !!binding.disabled;
-  }
-
-  /**
-   * Determines if an option is locked (e.g., after a correct selection in single mode)
-   */
-  isLocked(
-    binding: OptionBindings,
-    index: number,
-    shouldLockIncorrectOptions: boolean,
-    lockedIncorrectOptionIds: Set<number>
-  ): boolean {
-    if (!shouldLockIncorrectOptions) {
-      return false;
-    }
-
-    // If it's incorrect and we're locking incorrect options, it's locked
-    if (binding.option.correct === false) {
-      return true;
-    }
-
-    // Also check if this specific ID was explicitly locked
-    return binding.option.optionId != null && lockedIncorrectOptionIds.has(binding.option.optionId);
-  }
 }
