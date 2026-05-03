@@ -542,9 +542,11 @@ export class QuizNavigationService {
 
           const looksLikeFet = (s: string): boolean => {
             const lower = (s ?? '').toLowerCase();
-            return lower.includes('correct because')
-              || lower.includes('are correct')
-              || lower.includes('is correct');
+            // "correct because" is the FET signature.
+            // The multi-answer banner says "are correct" / "is correct"
+            // without "because", so we must NOT match those — otherwise
+            // the observer reverts banner writes back to bare q-txt.
+            return lower.includes('correct because');
           };
 
           const enforce = (): void => {
