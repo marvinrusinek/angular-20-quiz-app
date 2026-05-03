@@ -21,18 +21,8 @@ import { QuizRoutes } from '../../models/quiz-routes.enum';
 @Injectable({ providedIn: 'root' })
 export class QuizNavigationService {
   private quizId = '';
-  question!: QuizQuestion;
-  currentQuestion: QuizQuestion | null = null;
-  currentQuestionIndex = 0;
-  totalQuestions = 0;
-  questionReady = false;
-  answers = [];
-
-  optionsToDisplay: Option[] = [];
-  explanationToDisplay = '';
 
   isNavigating = false;
-  isOptionSelected = false;
   quizCompleted = false;
 
   private navigationSuccessSubject = new Subject<void>();
@@ -176,7 +166,6 @@ export class QuizNavigationService {
 
       // Update Service State (Index) - Update AFTER router nav success
       this.quizService.setCurrentQuestionIndex(index);
-      this.currentQuestionIndex = index;
 
       // Reset UI States for New Question
       this.resetExplanationAndState();
@@ -669,6 +658,5 @@ export class QuizNavigationService {
   resetForNewQuiz(): void {
     this.quizCompleted = false;
     this.isNavigating = false;
-    this.currentQuestionIndex = 0;
   }
 }
