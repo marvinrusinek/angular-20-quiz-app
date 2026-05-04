@@ -172,8 +172,48 @@ export class SocAnswerProcessingService {
     setTimeout(() => this.selectionMessageService.pushMessage(selMsg, qIdx), 0);
 
     // CHECK: all correct options selected?
-    const allCorrectInDurable = effectiveCorrectIndices.length > 0 &&
+    // PRISTINE-AUTHORITATIVE: count how many selected options' texts
+    // match a pristine correct option text. allCorrectInDurable only
+    // when count === pristine correct count. This bypasses any index-
+    // mismatch issues between effectiveCorrectIndices and the actual
+    // multi-answer count from quizInitialState.
+    let allCorrectInDurable = effectiveCorrectIndices.length > 0 &&
       effectiveCorrectIndices.every((ci: number) => durableSet.has(ci));
+    try {
+      const nrmAC = (t: any) => String(t ?? '').trim().toLowerCase();
+      const liveQAC: any = comp.currentQuestion
+        ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]
+        ?? (this.quizService as any)?.questions?.[qIdx];
+      const liveQTextAC = nrmAC(liveQAC?.questionText);
+      const bindingsAC: any[] = comp.optionBindings ?? [];
+      if (liveQTextAC && bindingsAC.length) {
+        const bundleAC: any[] = (this.quizService as any)?.quizInitialState ?? [];
+        outerAC: for (const quizAC of bundleAC) {
+          for (const pqAC of (quizAC?.questions ?? [])) {
+            if (nrmAC(pqAC?.questionText) !== liveQTextAC) continue;
+            const pristineCorrectTextsAC = new Set(
+              (pqAC?.options ?? [])
+                .filter((o: any) =>
+                  o?.correct === true || String(o?.correct) === 'true' ||
+                  o?.correct === 1 || o?.correct === '1'
+                )
+                .map((o: any) => nrmAC(o?.text))
+                .filter((t: string) => !!t)
+            );
+            if (pristineCorrectTextsAC.size > 0) {
+              // Count selected bindings whose text matches a pristine correct
+              let selectedCorrectCount = 0;
+              for (const selIdx of durableSet) {
+                const txt = nrmAC(bindingsAC[selIdx]?.option?.text);
+                if (pristineCorrectTextsAC.has(txt)) selectedCorrectCount++;
+              }
+              allCorrectInDurable = selectedCorrectCount >= pristineCorrectTextsAC.size;
+            }
+            break outerAC;
+          }
+        }
+      }
+    } catch { /* keep upstream value */ }
 
     if (allCorrectInDurable) {
       try { this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true }); } catch {}
