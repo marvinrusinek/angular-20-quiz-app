@@ -126,16 +126,70 @@ export class SocAnswerProcessingService {
     const bindingUpdates = this.clickHandler.computeMultiAnswerBindingUpdates(
       comp.optionBindings.length, durableSet, effectiveCorrectIndices, disabledSetRef
     );
-    comp.optionBindings = comp.optionBindings.map((ob: any, bi: number) => ({
-      ...ob,
-      isSelected: bindingUpdates[bi].isSelected,
-      isCorrect: bindingUpdates[bi].isCorrect,
-      disabled: bindingUpdates[bi].disabled,
-      option: ob.option ? {
-        ...ob.option,
-        ...bindingUpdates[bi].optionOverrides
-      } : ob.option
-    }));
+
+    // Q2/Q4 GUARD: when pristine has more correct than we've selected,
+    // suppress disabled=true on every binding except the previously-
+    // clicked incorrect option(s). This blocks both the binding flag
+    // AND the .disabled-option CSS class that getOptionClasses derives
+    // from !!binding.disabled.
+    let suppressDisableForUnselected = false;
+    try {
+      const nrmS = (t: any) => String(t ?? '').trim().toLowerCase();
+      const liveQS: any = comp.currentQuestion
+        ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]
+        ?? (this.quizService as any)?.questions?.[qIdx];
+      const liveQTextS = nrmS(liveQS?.questionText);
+      if (liveQTextS) {
+        const bundleS: any[] = (this.quizService as any)?.quizInitialState ?? [];
+        outerS: for (const quizS of bundleS) {
+          for (const pqS of (quizS?.questions ?? [])) {
+            if (nrmS(pqS?.questionText) !== liveQTextS) continue;
+            const pristineCorrectTextsS = new Set(
+              (pqS?.options ?? [])
+                .filter((o: any) =>
+                  o?.correct === true || String(o?.correct) === 'true' ||
+                  o?.correct === 1 || o?.correct === '1'
+                )
+                .map((o: any) => nrmS(o?.text))
+                .filter((t: string) => !!t)
+            );
+            if (pristineCorrectTextsS.size > 1) {
+              const bindingsS: any[] = comp.optionBindings ?? [];
+              let selectedCorrectS = 0;
+              for (const sIdx of durableSet) {
+                if (pristineCorrectTextsS.has(nrmS(bindingsS[sIdx]?.option?.text))) {
+                  selectedCorrectS++;
+                }
+              }
+              if (selectedCorrectS < pristineCorrectTextsS.size) {
+                suppressDisableForUnselected = true;
+              }
+            }
+            break outerS;
+          }
+        }
+      }
+    } catch { /* ignore */ }
+
+    comp.optionBindings = comp.optionBindings.map((ob: any, bi: number) => {
+      let disabledFinal = bindingUpdates[bi].disabled;
+      // Only allow `disabled` for clicked-incorrect options before the
+      // question is fully answered. Everything else stays enabled so the
+      // user can still pick the second correct answer.
+      if (suppressDisableForUnselected && disabledFinal && !durableSet.has(bi)) {
+        disabledFinal = false;
+      }
+      return {
+        ...ob,
+        isSelected: bindingUpdates[bi].isSelected,
+        isCorrect: bindingUpdates[bi].isCorrect,
+        disabled: disabledFinal,
+        option: ob.option ? {
+          ...ob.option,
+          ...bindingUpdates[bi].optionOverrides
+        } : ob.option
+      };
+    });
 
     const feedbackText = this.clickHandler.generateMultiAnswerFeedbackText(clickState);
 
