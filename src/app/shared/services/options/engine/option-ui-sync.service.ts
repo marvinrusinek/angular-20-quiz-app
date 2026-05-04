@@ -82,12 +82,17 @@ export class OptionUiSyncService {
 
     const checked = 'checked' in event ? (event as MatCheckboxChange).checked : true;
     const correctCountInBindings = ctx.optionBindings.filter(b => isCorrectHelper(b.option)).length;
-    
+    // Canonical fallback: when binding flags are stale/missing, recover
+    // the correct count from quizInitialState (pristine source). Use the
+    // higher of the two so single-answer detection isn't weakened.
+    const canonicalCorrectCount = this.resolveCanonicalCorrectCount(ctx.optionBindings);
+    const effectiveCorrectCount = Math.max(correctCountInBindings, canonicalCorrectCount);
+
     // Authoritative Type Resolution
     const qText = (ctx as any).currentQuestion?.questionText?.toLowerCase() || '';
     const isExplicitMulti = qText.includes('select all') || qText.includes('multiple') || qText.includes('apply');
-    const isTrulyMulti = ctx.type === 'multiple' || (ctx as any).isMultiMode === true || 
-                        isExplicitMulti || correctCountInBindings > 1;
+    const isTrulyMulti = ctx.type === 'multiple' || (ctx as any).isMultiMode === true ||
+                        isExplicitMulti || effectiveCorrectCount > 1;
 
     // UI-LEVEL RESET for single-answer mode (Visuals only, OIS handles service state)
     // ONLY run if it's definitely NOT a multi-answer scenario.
@@ -572,7 +577,9 @@ export class OptionUiSyncService {
 
     // Determine if we are really in multi-mode for the sake of the feedback message
     const correctCountInBindings = correctIndicesSet.size;
-    const isTrulyMulti = ctx.type === 'multiple' || (ctx as any).isMultiMode === true || correctCountInBindings > 1;
+    const canonicalCorrectCount = this.resolveCanonicalCorrectCount(ctx.optionBindings);
+    const effectiveCorrectCount = Math.max(correctCountInBindings, canonicalCorrectCount);
+    const isTrulyMulti = ctx.type === 'multiple' || (ctx as any).isMultiMode === true || effectiveCorrectCount > 1;
 
     const key = ctx.keyOf(optionBinding.option, index);
     for (const configKey of Object.keys(ctx.feedbackConfigs)) {
@@ -936,7 +943,9 @@ export class OptionUiSyncService {
       return false;
     };
     const correctCountInBindings = ctx.optionBindings.filter(b => isCorrectHelper(b.option)).length;
-    const isMultipleMode = ctx.type === 'multiple' || (ctx as any).isMultiMode === true || correctCountInBindings > 1;
+    const canonicalCorrectCount = this.resolveCanonicalCorrectCount(ctx.optionBindings);
+    const effectiveCorrectCount = Math.max(correctCountInBindings, canonicalCorrectCount);
+    const isMultipleMode = ctx.type === 'multiple' || (ctx as any).isMultiMode === true || effectiveCorrectCount > 1;
     const isTrulyMulti = isMultipleMode;
     const getEffId = (o: any, i: number) => (o?.optionId != null && o.optionId !== -1) ? o.optionId : i;
     const selectedOptions: Option[] = ctx.optionBindings
@@ -1012,5 +1021,39 @@ export class OptionUiSyncService {
       return allCorrectSelected;
     }
     return hasCorrectSelection;
+  }
+
+  // Text-match the bindings' question against quizInitialState (pristine
+  // structuredClone of QUIZ_DATA) to recover the canonical correct count.
+  // Live binding `option.correct` flags can be stale/missing, which made
+  // multi-answer detection (correctCountInBindings > 1) wrongly classify
+  // Q2/Q4 as single-answer and lock incorrect options after just 1 correct
+  // selection. Using the immutable pristine source side-steps that.
+  private resolveCanonicalCorrectCount(bindings: OptionBindings[]): number {
+    try {
+      if (!bindings?.length) return 0;
+      const norm = (t: any) => String(t ?? '').trim().toLowerCase();
+      const bindingTexts = bindings.map(b => norm(b?.option?.text)).filter(Boolean);
+      if (!bindingTexts.length) return 0;
+      const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
+      for (const quiz of bundle) {
+        for (const pq of (quiz?.questions ?? [])) {
+          const opts = pq?.options ?? [];
+          if (opts.length !== bindings.length) continue;
+          const allMatch = opts.every(
+            (o: any, i: number) => norm(o?.text) === bindingTexts[i]
+          );
+          if (!allMatch) continue;
+          return opts.filter(
+            (o: any) =>
+              o?.correct === true || String(o?.correct) === 'true' ||
+              o?.correct === 1 || o?.correct === '1'
+          ).length;
+        }
+      }
+      return 0;
+    } catch {
+      return 0;
+    }
   }
 }
