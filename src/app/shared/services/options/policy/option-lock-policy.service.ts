@@ -17,30 +17,62 @@ export class OptionLockPolicyService {
   constructor(private injector: Injector) {}
 
   // Resolve canonical correct indices for a binding set by text-matching
-  // the first binding's question against quizService.questions[]. This
-  // covers cases where bindings have stale/missing correct flags.
+  // against quizInitialState (the immutable structuredClone of QUIZ_DATA).
+  // Pristine is the source of truth — quizService.questions[] can have
+  // mutated/missing correct flags after gameplay, which makes multi-answer
+  // questions appear single-answer here.
   private resolveCanonicalCorrectIdxs(bindings: OptionBindings[]): Set<number> {
     try {
       const quizSvc: any = this.injector.get(QuizService, null);
-      const allQs: any[] = quizSvc?.questions ?? [];
-      if (!allQs.length || !bindings.length) return new Set<number>();
-      // Build a fingerprint of the binding option texts
-      const bindingTexts = bindings
-        .map(b => (b?.option?.text || '').trim().toLowerCase())
-        .filter(Boolean);
+      if (!bindings.length) return new Set<number>();
+      const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
+      const bindingTexts = bindings.map(b => nrm(b?.option?.text)).filter(Boolean);
       if (!bindingTexts.length) return new Set<number>();
-      const matchedQ = allQs.find((q: any) => {
-        const opts = q?.options ?? [];
-        if (opts.length !== bindings.length) return false;
-        return opts.every(
-          (o: any, i: number) => (o?.text || '').trim().toLowerCase() === bindingTexts[i]
-        );
-      });
-      if (!matchedQ) return new Set<number>();
+      // Build set of pristine correct option texts by matching the bindings'
+      // option-text fingerprint against the immutable quizInitialState bundle.
+      const bundle: any[] = quizSvc?.quizInitialState ?? [];
+      let pristineCorrectTexts: Set<string> | null = null;
+      outer: for (const quiz of bundle) {
+        for (const pq of (quiz?.questions ?? [])) {
+          const pqOpts = pq?.options ?? [];
+          if (pqOpts.length !== bindings.length) continue;
+          // Match if every binding text appears among pristine option texts.
+          const pqTexts = pqOpts.map((o: any) => nrm(o?.text));
+          const allMatch = bindingTexts.every(bt => pqTexts.includes(bt));
+          if (!allMatch) continue;
+          pristineCorrectTexts = new Set(
+            pqOpts
+              .filter((o: any) =>
+                o?.correct === true || String(o?.correct) === 'true' ||
+                o?.correct === 1 || o?.correct === '1'
+              )
+              .map((o: any) => nrm(o?.text))
+          );
+          break outer;
+        }
+      }
+      // Fallback to live questions[] if pristine match failed.
+      if (!pristineCorrectTexts) {
+        const allQs: any[] = quizSvc?.questions ?? [];
+        const matchedQ = allQs.find((q: any) => {
+          const opts = q?.options ?? [];
+          if (opts.length !== bindings.length) return false;
+          return opts.every(
+            (o: any, i: number) => nrm(o?.text) === bindingTexts[i]
+          );
+        });
+        if (!matchedQ) return new Set<number>();
+        const set = new Set<number>();
+        for (const [i, o] of (matchedQ.options ?? []).entries()) {
+          const c = o?.correct ?? o?.isCorrect;
+          if (c === true || String(c) === 'true' || c === 1 || c === '1') set.add(i);
+        }
+        return set;
+      }
+      // Map pristine correct texts to binding indices in display order.
       const set = new Set<number>();
-      for (const [i, o] of (matchedQ.options ?? []).entries()) {
-        const c = o?.correct ?? o?.isCorrect;
-        if (c === true || String(c) === 'true' || c === 1 || c === '1') set.add(i);
+      for (let i = 0; i < bindings.length; i++) {
+        if (pristineCorrectTexts.has(bindingTexts[i])) set.add(i);
       }
       return set;
     } catch {
