@@ -243,6 +243,63 @@ export class SocAnswerProcessingService {
   }): void {
     const { comp, index, qIdx, durableSet, effectiveCorrectIndices, isShuffled } = params;
 
+    // GUARD: If pristine data says this is actually a multi-answer
+    // question, abort the single-answer path. Otherwise selecting one
+    // correct option (or one incorrect + one correct) would lock the
+    // remaining options before the user has answered the second correct.
+    // Routes back through processMultiAnswerClick which only locks
+    // incorrects after all correct answers are selected.
+    try {
+      const nrmGuard = (t: any) => String(t ?? '').trim().toLowerCase();
+      const liveQText = nrmGuard(comp.currentQuestion?.questionText)
+        || nrmGuard((this.quizService as any)?.questions?.[qIdx]?.questionText)
+        || nrmGuard((this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText);
+      if (liveQText) {
+        const bundleGuard: any[] = (this.quizService as any)?.quizInitialState ?? [];
+        for (const quiz of bundleGuard) {
+          for (const pq of (quiz?.questions ?? [])) {
+            if (nrmGuard(pq?.questionText) !== liveQText) continue;
+            const pristineCorrectCount = (pq?.options ?? []).filter(
+              (o: any) =>
+                o?.correct === true || String(o?.correct) === 'true' ||
+                o?.correct === 1 || o?.correct === '1'
+            ).length;
+            if (pristineCorrectCount > 1) {
+              const correctIndicesByText: number[] = [];
+              const pristineCorrectTexts = new Set(
+                (pq?.options ?? [])
+                  .filter((o: any) =>
+                    o?.correct === true || String(o?.correct) === 'true' ||
+                    o?.correct === 1 || o?.correct === '1'
+                  )
+                  .map((o: any) => nrmGuard(o?.text))
+              );
+              const bindings: any[] = comp.optionBindings ?? [];
+              for (let i = 0; i < bindings.length; i++) {
+                if (pristineCorrectTexts.has(nrmGuard(bindings[i]?.option?.text))) {
+                  correctIndicesByText.push(i);
+                }
+              }
+              this.processMultiAnswerClick({
+                comp,
+                index,
+                binding: comp.optionBindings?.[index],
+                qIdx,
+                durableSet,
+                effectiveCorrectIndices: correctIndicesByText.length
+                  ? correctIndicesByText
+                  : effectiveCorrectIndices,
+                effectiveCorrectCount: correctIndicesByText.length || pristineCorrectCount,
+                isShuffled
+              });
+              return;
+            }
+            break;
+          }
+        }
+      }
+    } catch { /* fall through to single-answer path */ }
+
     // CANONICAL resolution: match comp.currentQuestion text against
     // quizService.questions[] to get authoritative correct flags.
     let correctIdxs: number[] = [];
