@@ -52,12 +52,12 @@ export class SocAnswerProcessingService {
     const { comp, index, binding, qIdx, durableSet, isShuffled } = params;
     let { effectiveCorrectIndices, effectiveCorrectCount } = params;
 
-    // PRISTINE RECOMPUTE: if the incoming effectiveCorrectIndices undercounts
-    // vs. quizInitialState (e.g. only 1 of 2 correct were identified upstream
-    // due to stale binding flags), correctIndices.length === 1 makes remaining
-    // hit 0 after one correct click — and updateDisabledSet then locks every
-    // non-correct option, including the OTHER correct one. Recompute from
-    // pristine to guarantee we have the full set of correct indices.
+    // PRISTINE-AUTHORITATIVE: always recompute correctIndices from
+    // quizInitialState. Upstream bindings can have mutated/missing
+    // correct flags so passed-in values aren't reliable. Pristine is
+    // the immutable source of truth and the ONLY way to guarantee
+    // correctIndices.length matches what the user actually expects
+    // for multi-answer questions.
     try {
       const nrmR = (t: any) => String(t ?? '').trim().toLowerCase();
       const liveQ: any = comp.currentQuestion
@@ -67,7 +67,7 @@ export class SocAnswerProcessingService {
       const bindings: any[] = comp.optionBindings ?? [];
       if (liveQText && bindings.length) {
         const bundleR: any[] = (this.quizService as any)?.quizInitialState ?? [];
-        for (const quizR of bundleR) {
+        outer: for (const quizR of bundleR) {
           for (const pqR of (quizR?.questions ?? [])) {
             if (nrmR(pqR?.questionText) !== liveQText) continue;
             const pristineCorrectTexts = new Set(
@@ -79,19 +79,23 @@ export class SocAnswerProcessingService {
                 .map((o: any) => nrmR(o?.text))
                 .filter((t: string) => !!t)
             );
-            if (pristineCorrectTexts.size > effectiveCorrectIndices.length) {
+            if (pristineCorrectTexts.size > 0) {
               const rebuilt: number[] = [];
               for (let i = 0; i < bindings.length; i++) {
                 if (pristineCorrectTexts.has(nrmR(bindings[i]?.option?.text))) {
                   rebuilt.push(i);
                 }
               }
-              if (rebuilt.length > effectiveCorrectIndices.length) {
+              // Authoritative override (pristine wins) — but only when
+              // the rebuild actually identifies AT LEAST as many correct
+              // bindings as we already had, to avoid pathological cases
+              // where text matching fails completely.
+              if (rebuilt.length >= effectiveCorrectIndices.length && rebuilt.length > 0) {
                 effectiveCorrectIndices = rebuilt;
                 effectiveCorrectCount = rebuilt.length;
               }
             }
-            break;
+            break outer;
           }
         }
       }

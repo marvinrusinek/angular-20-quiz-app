@@ -255,8 +255,45 @@ export class OptionClickHandlerService {
     if (!isClickedCorrect) {
       disabledSet.add(clickedIndex);
     }
-    // When all correct answers selected, disable ALL incorrect options
+    // When all correct answers selected, disable ALL incorrect options.
+    // PRISTINE GUARD: before triggering the disable-all branch, sanity-
+    // check correctIndices.length against quizInitialState. If pristine
+    // shows more correct options than we have here, the upstream count
+    // was undercounted (stale binding flags) and remaining=0 fired
+    // prematurely. Abort to prevent locking the OTHER unselected correct
+    // option(s).
     if (remaining === 0) {
+      try {
+        const isShuffled = this.quizService?.isShuffleEnabled?.() &&
+          this.quizService?.shuffledQuestions?.length > 0;
+        const liveIdx = this.quizService?.getCurrentQuestionIndex?.() ?? 0;
+        const nrmG = (t: any) => String(t ?? '').trim().toLowerCase();
+        const liveQ: any = isShuffled
+          ? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[liveIdx]
+            ?? (this.quizService as any)?.shuffledQuestions?.[liveIdx]
+          : (this.quizService as any)?.questions?.[liveIdx];
+        const liveQText = nrmG(liveQ?.questionText);
+        if (liveQText) {
+          const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
+          for (const quiz of bundle) {
+            for (const pq of (quiz?.questions ?? [])) {
+              if (nrmG(pq?.questionText) !== liveQText) continue;
+              const pristineCorrectCount = (pq?.options ?? []).filter(
+                (o: any) =>
+                  o?.correct === true || String(o?.correct) === 'true' ||
+                  o?.correct === 1 || o?.correct === '1'
+              ).length;
+              if (pristineCorrectCount > correctIndices.length) {
+                // Pristine has more correct than passed-in correctIndices.
+                // This is the undercounted case — bail without locking.
+                return;
+              }
+              break;
+            }
+          }
+        }
+      } catch { /* fall through to original disable-all */ }
+
       for (let bi = 0; bi < bindingsCount; bi++) {
         if (!correctSet.has(bi)) disabledSet.add(bi);
       }
