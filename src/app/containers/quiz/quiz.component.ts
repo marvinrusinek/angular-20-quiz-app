@@ -27,11 +27,9 @@ import { QuizNavigationService } from '../../shared/services/flow/quiz-navigatio
 import { QuizStateService } from '../../shared/services/state/quizstate.service';
 import { QqcQuestionLoaderService } from '../../shared/services/features/qqc/qqc-question-loader.service';
 import { NextButtonStateService } from '../../shared/services/state/next-button-state.service';
-import { RenderStateService } from '../../shared/services/ui/render-state.service';
 import { SelectedOptionService } from '../../shared/services/state/selectedoption.service';
 import { SelectionMessageService } from '../../shared/services/features/selection-message/selection-message.service';
 import { TimerService } from '../../shared/services/features/timer/timer.service';
-import { SharedVisibilityService } from '../../shared/services/ui/shared-visibility.service';
 import { QuizDotStatusService } from '../../shared/services/flow/quiz-dot-status.service';
 import { QuizResetService } from '../../shared/services/flow/quiz-reset.service';
 import { QuizRouteService } from '../../shared/services/flow/quiz-route.service';
@@ -169,8 +167,6 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     private nextButtonStateService: NextButtonStateService,
     private selectionMessageService: SelectionMessageService,
     private selectedOptionService: SelectedOptionService,
-    private renderStateService: RenderStateService,
-    private sharedVisibilityService: SharedVisibilityService,
     private dotStatusService: QuizDotStatusService,
     private quizPersistence: QuizPersistenceService,
     private quizResetService: QuizResetService,

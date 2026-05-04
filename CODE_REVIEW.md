@@ -15,7 +15,7 @@
 | Theme Support | Good - CSS custom properties, light/dark mode | Done |
 | PWA | Enabled with Service Worker | Done |
 | Test Coverage | None (0 spec files) | Not started |
-| Code Complexity | Improved - 7 largest services split, some still >1000 lines | ~60% |
+| Code Complexity | Improved - 7 split + 1 consolidated, 4 services barely >1000 lines | ~70% |
 | Production Readiness | Improved (logging cleaned, no tests, some large files remain) | ~50% |
 
 ---
@@ -53,25 +53,25 @@ Zero spec files in `src/app/`. No karma.conf.js, jest.config.js, or test scripts
 
 ### 2. Oversized Files (>1000 lines)
 
-| Completeness | ~60% — 7 files split, 6 still >1000 lines |
+| Completeness | ~70% — 8 files split/consolidated, 4 services + 1 data file still >1000 lines |
 |:--|:--|
 
 | File | Original | Current | Status |
 |------|----------|---------|:------:|
-| `selectedoption.service.ts` | 3,335 | 1,053 | Split (extracted selection-crud + others) |
+| `selectedoption.service.ts` | 3,335 | 1,051 | Split (extracted selection-crud + others) — barely over 1k |
 | `cqc-orchestrator.service.ts` | 2,452 | 743 | Split (3 extracted services) |
 | `qqc-component-orchestrator.service.ts` | 1,938 | 310 | Split (8 extracted services) |
 | `quiz-setup.service.ts` | 1,504 | 891 | Split (route + data services) |
 | `quiz-content-loader.service.ts` | 1,444 | 464 | Split (3 extracted services) |
-| `qqc-question-loader.service.ts` | 1,289 | 685 | Split (fetch + option-build) |
+| `quizquestionloader.service.ts` | 1,252 | — | **Consolidated into `qqc-question-loader.service.ts`** |
+| `qqc-question-loader.service.ts` | 1,289 | 758 | Split (fetch + option-build) + absorbed legacy loader |
 | `shared-option-click.service.ts` | 1,254 | 540 | Split (answer-processing + option-ui) |
-| `quizquestionloader.service.ts` | 1,252 | 1,165 | Remaining |
-| `explanation-display-state.service.ts` | 1,214 | 1,075 | Remaining |
+| `explanation-display-state.service.ts` | 1,214 | 1,068 | Remaining |
 | `shared/quiz.ts` | 1,121 | 1,121 | Remaining (hardcoded data) |
-| `qqc-option-selection.service.ts` | 1,103 | 1,059 | Remaining |
-| `quiz.service.ts` | 1,083 | 1,065 | Remaining |
+| `qqc-option-selection.service.ts` | 1,103 | 1,053 | Remaining |
+| `quiz.service.ts` | 1,083 | 1,064 | Remaining |
 
-**Remaining:** 5 services still >1000 lines + 1 data file.
+**Remaining:** 4 services still >1000 lines (3 are within ~70 lines of the threshold) + 1 data file.
 
 ### 3. Console Logging Cleanup
 
@@ -98,10 +98,10 @@ All diagnostic console.warn/log/info/error removed across 65 files (~293 stateme
 
 ### 5. Duplicate Functionality
 
-| Completeness | Not started |
+| Completeness | Done — `QuizQuestionLoaderService` consolidated into `QqcQuestionLoaderService` in a prior session |
 |:--|:--|
 
-`quizquestionloader.service.ts` (1,165 lines) and `qqc-question-loader.service.ts` (685 lines) both still exist. Consolidate into a single service.
+The legacy `quizquestionloader.service.ts` file no longer exists. Its functionality lives in `qqc-question-loader.service.ts` (758 lines). Marker comment in `quiz-question.component.ts:24` documents the consolidation. All injection sites now resolve `QqcQuestionLoaderService`; the parameter/getter names `quizQuestionLoaderService` are preserved purely as call-site identifiers for backward compat.
 
 ### 6. Deprecated APIs Still Present
 
@@ -126,12 +126,17 @@ Removed:
 
 ### 8. No Storage Abstraction
 
-| Completeness | Not started |
+| Completeness | Won't Do (reconsider only when adding unit tests) |
 |:--|:--|
 
-Direct `localStorage`/`sessionStorage` access scattered across 25+ locations. No encryption or secure storage wrapper.
+Direct `localStorage`/`sessionStorage` access at **367 sites across 46 files** (the original "25+" estimate was way off). Considered building a `StorageService` abstraction; deferred because:
 
-**Recommendation:** Create a `StorageService` abstraction for all storage access.
+- Static quiz app, no PII, no credentials → "encryption / secure storage" is a non-issue
+- Most reads already have JSON.parse fallback patterns; remaining `QuotaExceeded` / private-mode crashes aren't a real risk for this app
+- No unit tests exist yet → "improved testability" benefit is theoretical
+- Migration is 367 mechanical replacements with real regression risk in scoring / selection / navigation paths
+
+Revisit this only if/when unit tests are added (Task #5 in the priority list) — that's where mockable storage actually pays off.
 
 ### 9. Inconsistent State Management Patterns
 
@@ -162,10 +167,10 @@ Stale `src/package.json` (Angular 18 versions) also cleaned to match. Type-check
 
 ### 11. Angular CLI Version Mismatch
 
-| Completeness | Not started |
+| Completeness | Done — `@angular/cli` bumped to 20.3.25 (was 19.2.19) |
 |:--|:--|
 
-Angular CLI is 19.1.7 but the build tool is 20.3.8. Update CLI to 20.x.
+Bumped `package.json`: `"@angular/cli": "^19.1.7"` → `"^20.3.8"`. npm picked 20.3.25 (latest within range). Schematics and devkit packages followed (also 20.3.25). Build output identical — same bundle size, same build time, same single `howler` warning.
 
 ---
 
@@ -232,13 +237,13 @@ Ordered by impact + effort. Active work first, completed at bottom.
 
 | # | Task | Effort | Completed |
 |---|------|:------:|:---------:|
-| 1 | **Update Angular CLI** to version 20.x — fixes 19.1.7 ↔ 20.3.8 mismatch | Low | No |
-| 2 | **Consolidate duplicate services** (`quizquestionloader` vs `qqc-question-loader`) | Medium | No |
-| 3 | **Create StorageService** abstraction for localStorage/sessionStorage (25+ sites) | Medium | No |
-| 4 | **Split remaining >1000-line services** (5 files: quizquestionloader, explanation-display-state, qqc-option-selection, quiz.service, plus shared/quiz data) | High | No |
-| 5 | **Split large components** (shared-option 741, option-item 729, answer 696, quiz-question 585) | High | No |
-| 6 | **Add unit tests** for core services, guards, and pipes — production-readiness blocker | High | No |
-| 7 | **Extract hardcoded quiz data** from bundle to external file or API | High | No |
+| 1 | **Split remaining >1000-line services** (4 services barely over the threshold: explanation-display-state 1,068, qqc-option-selection 1,053, selectedoption 1,051, quiz.service 1,064) | Medium | No |
+| 2 | **Split large components** (shared-option 741, option-item 729, answer 696, quiz-question 585) | High | No |
+| 3 | **Add unit tests** for core services, guards, and pipes — production-readiness blocker | High | No |
+| 4 | **Extract hardcoded quiz data** from `shared/quiz.ts` (1,121 lines) to external file or API | High | No |
+| — | **Update Angular CLI** to version 20.x — bumped to 20.3.25 (was 19.2.19); build unchanged | — | Yes |
+| — | **Create StorageService** abstraction — Won't Do; revisit only if/when unit tests are added (Section 8) | — | Won't Do |
+| — | **Consolidate duplicate services** — `QuizQuestionLoaderService` already merged into `QqcQuestionLoaderService` in a prior session (CODE_REVIEW was stale on this) | — | Yes |
 | — | **Remove unused dependencies** — lodash, bootstrap, @ionic/angular removed; 8 packages dropped, ~24 kB smaller bundle | — | Yes |
 | — | **Remove deprecated APIs** — all 5 `@deprecated` markers removed, callers migrated, type-check passes | — | Yes |
 | — | **Split oversized services (>1200 lines)** — 7/7 split | — | Yes |

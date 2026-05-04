@@ -848,7 +848,6 @@ export class QuizSetupService {
         ?.pipe(debounceTime(10))
         .subscribe((isReady: boolean) => {
           host.isQuizRenderReady$.next(isReady);
-          if (isReady) host.renderStateService.setupRenderGateSync();
         });
     }, 0);
   }
