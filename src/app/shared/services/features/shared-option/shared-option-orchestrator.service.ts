@@ -199,33 +199,67 @@ export class SharedOptionOrchestratorService {
     // Always resolve the display-order question for this index
     const currentQ = host.getQuestionAtDisplayIndex(idx) ?? host.currentQuestion;
 
-    // PRISTINE-FIRST: text-match against quizInitialState BEFORE trusting
-    // detectMultiMode, because live binding flags can be mutated/missing.
-    // For Q2/Q4 of dependency-injection (and any other multi-answer
-    // question), pristine is the immutable source of truth.
+    // PRISTINE-FIRST via OPTION-TEXT FINGERPRINT.
+    // Question-text matching can fail (currentQuestion may be null/stale at
+    // initial render). Match by the option-text fingerprint instead — it
+    // uniquely identifies a question across the entire QUIZ_DATA.
     let result = false;
     try {
       const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
       const qs: any = host.quizService;
-      const isShuffled = qs?.isShuffleEnabled?.()
-        && Array.isArray(qs?.shuffledQuestions)
-        && qs.shuffledQuestions.length > 0;
-      const displayQ = isShuffled
-        ? (qs?.getQuestionsInDisplayOrder?.()?.[idx] ?? qs?.shuffledQuestions?.[idx])
-        : currentQ;
-      const qText = nrm(displayQ?.questionText ?? currentQ?.questionText);
-      if (qText) {
+
+      // Collect candidate option texts from anywhere we can find them.
+      const collectTexts = (arr: any[] | undefined | null): string[] => {
+        if (!Array.isArray(arr)) return [];
+        return arr.map((o: any) => nrm(o?.text)).filter((t: string) => !!t);
+      };
+      let candidateTexts: string[] = collectTexts(host.optionBindings?.map((b: any) => b?.option));
+      if (!candidateTexts.length) candidateTexts = collectTexts(host.optionsToDisplay);
+      if (!candidateTexts.length) candidateTexts = collectTexts(currentQ?.options);
+
+      if (candidateTexts.length > 0) {
+        const candidateSet = new Set(candidateTexts);
         const bundle: any[] = qs?.quizInitialState ?? [];
         outer: for (const quiz of bundle) {
           for (const pq of (quiz?.questions ?? [])) {
-            if (nrm(pq?.questionText) !== qText) continue;
-            const correctCount = (pq?.options ?? []).filter(
+            const pqOpts = pq?.options ?? [];
+            if (pqOpts.length !== candidateTexts.length) continue;
+            const pqTexts = pqOpts.map((o: any) => nrm(o?.text));
+            // Every pristine option text must appear in candidate set.
+            if (!pqTexts.every((t: string) => candidateSet.has(t))) continue;
+            const correctCount = pqOpts.filter(
               (o: any) =>
                 o?.correct === true || String(o?.correct) === 'true' ||
                 o?.correct === 1 || o?.correct === '1'
             ).length;
             if (correctCount > 1) result = true;
             break outer;
+          }
+        }
+      }
+
+      // ALSO try question-text match in case option fingerprint missed.
+      if (!result) {
+        const isShuffled = qs?.isShuffleEnabled?.()
+          && Array.isArray(qs?.shuffledQuestions)
+          && qs.shuffledQuestions.length > 0;
+        const displayQ = isShuffled
+          ? (qs?.getQuestionsInDisplayOrder?.()?.[idx] ?? qs?.shuffledQuestions?.[idx])
+          : currentQ;
+        const qText = nrm(displayQ?.questionText ?? currentQ?.questionText);
+        if (qText) {
+          const bundle: any[] = qs?.quizInitialState ?? [];
+          outerQ: for (const quiz of bundle) {
+            for (const pq of (quiz?.questions ?? [])) {
+              if (nrm(pq?.questionText) !== qText) continue;
+              const correctCount = (pq?.options ?? []).filter(
+                (o: any) =>
+                  o?.correct === true || String(o?.correct) === 'true' ||
+                  o?.correct === 1 || o?.correct === '1'
+              ).length;
+              if (correctCount > 1) result = true;
+              break outerQ;
+            }
           }
         }
       }
