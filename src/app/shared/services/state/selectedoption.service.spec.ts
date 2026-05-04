@@ -235,7 +235,6 @@ describe('SelectedOptionService', () => {
     service._selectionHistory.set(0, [makeOption()]);
     service.selectedOption = [makeOption()];
     service.selectedOptionIndices = { 0: [1] };
-    service.optionStates.set(0, {});
 
     service.clearState();
 
@@ -244,7 +243,6 @@ describe('SelectedOptionService', () => {
     expect(service._selectionHistory.size).toBe(0);
     expect(service.selectedOption).toEqual([]);
     expect(service.selectedOptionIndices).toEqual({});
-    expect(service.optionStates.size).toBe(0);
     expect(mockFeedbackState.clearAll).toHaveBeenCalled();
     expect(mockLockState.clearAll).toHaveBeenCalled();
     expect(mockPersistence.clearSessionKeys).toHaveBeenCalled();

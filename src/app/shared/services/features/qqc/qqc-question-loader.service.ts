@@ -317,7 +317,6 @@ export class QqcQuestionLoaderService {
     this.selectedOptionService.resetAllStates?.();
     this.selectedOptionService.selectedOptionsMap?.clear?.();
     (this.selectedOptionService as any)._lockedOptionsMap?.clear?.();
-    (this.selectedOptionService as any).optionStates?.clear?.();
   }
 
   /**

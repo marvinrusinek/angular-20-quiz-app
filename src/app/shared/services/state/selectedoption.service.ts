@@ -98,7 +98,6 @@ export class SelectedOptionService {
   public get _lockedOptionsMap(): Map<number, Set<number>> {
     return this.lockState._lockedOptionsMap;
   }
-  public optionStates: Map<number, any> = new Map();
 
   set isNextButtonEnabled(value: boolean) {
     this.isNextButtonEnabledSig.set(value);
@@ -693,7 +692,6 @@ export class SelectedOptionService {
     this.feedbackState.clearAll();
     this.optionSnapshotByQuestion.clear();
     this.lockState.clearAll();
-    this.optionStates.clear();
     this.isAnsweredSig.set(false);
     this.isOptionSelectedSig.set(false);
     this.selectedOptionsMapSig.set(new Map());
@@ -763,34 +761,11 @@ export class SelectedOptionService {
     try {
       this.selectedOptionsMap.clear();
       this.lockState.clearLockedOptionsMap();
-      this.optionStates?.clear();
     } catch (error) {}
   }
 
   private getFallbackQuestionIndex(): number {
     return this.selectedOptionsMap.keys().next().value ?? -1;
-  }
-
-  public wasOptionPreviouslySelected(option: SelectedOption): boolean {
-    const qIndex = option.questionIndex;
-    const optId = option.optionId;
-
-    if (qIndex == null || optId == null) return false;
-
-    if (this.currentQuestionType === QuestionType.MultipleAnswer) {
-      const options = this.selectedOptionsMap.get(qIndex);
-      return options?.some((o) => o.optionId === optId) ?? false;
-    } else {
-      // Ensure selectedOption is not an array before accessing properties
-      const singleSelected = this.selectedOption;
-      if (this.isSelectedOptionType(singleSelected)) {
-        return (
-          singleSelected.optionId === optId &&
-          singleSelected.questionIndex === qIndex
-        );
-      }
-      return false;
-    }
   }
 
   public evaluateNextButtonStateForQuestion(
@@ -952,7 +927,6 @@ export class SelectedOptionService {
     this.feedbackState.clearAll();
     this.optionSnapshotByQuestion.clear();
     this.lockState.clearAll();
-    this.optionStates.clear();
     this.selectedOption = [];
     this.selectedOptionSig.set([]);
     this.isOptionSelectedSig.set(false);
