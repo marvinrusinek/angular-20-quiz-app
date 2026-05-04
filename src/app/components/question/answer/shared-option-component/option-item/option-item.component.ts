@@ -287,7 +287,6 @@ export class OptionItemComponent implements OnChanges, OnInit {
   isDisabled(): boolean {
     // Timer-expiry handler stamped all bindings as disabled
     if (this.isTimerStamped()) {
-      console.warn('[Q2-DEBUG] isDisabled=true via TIMER_STAMPED', { idx: this.i, text: this.b?.option?.text });
       return true;
     }
 
@@ -332,19 +331,56 @@ export class OptionItemComponent implements OnChanges, OnInit {
     // from initialization (when isMultiMode wasn't yet true) from blocking clicks.
     if (_type === 'multiple') {
       if (this.isTimerExpiredForThisQuestion()) {
-        console.warn('[Q2-DEBUG] isDisabled=true via MULTI_TIMER_EXPIRED', { idx: this.i, text: this.b?.option?.text });
         return true;
       }
       const perfectMap = (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
       const isFullyAnswered = perfectMap?.get(_qIdx) === true;
       if (isFullyAnswered && this.b?.disabled === true) {
-        console.warn('[Q2-DEBUG] isDisabled=true via MULTI_FULLY_ANSWERED', { idx: this.i, text: this.b?.option?.text, perfectMap: perfectMap ? Array.from(perfectMap.entries()) : null });
+        // Pristine verification: only honor _multiAnswerPerfect if the
+        // user's selections actually cover every pristine-correct option.
+        // _multiAnswerPerfect can be set prematurely when upstream code
+        // undercounts correct options (Q2/Q4 multi-answer issue).
+        const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
+        const liveQT = nrm(
+          (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[_qIdx]?.questionText
+          ?? (this.quizService as any)?.questions?.[_qIdx]?.questionText
+        );
+        const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
+        let pristineCorrectTexts: Set<string> | null = null;
+        if (liveQT) {
+          outerVerify: for (const quiz of bundle) {
+            for (const pq of (quiz?.questions ?? [])) {
+              if (nrm(pq?.questionText) !== liveQT) continue;
+              pristineCorrectTexts = new Set(
+                (pq?.options ?? [])
+                  .filter((o: any) =>
+                    o?.correct === true || String(o?.correct) === 'true' ||
+                    o?.correct === 1 || o?.correct === '1'
+                  )
+                  .map((o: any) => nrm(o?.text))
+                  .filter((t: string) => !!t)
+              );
+              break outerVerify;
+            }
+          }
+        }
+        if (pristineCorrectTexts && pristineCorrectTexts.size > 0) {
+          const selections = this.selectedOptionService.getSelectedOptionsForQuestion(_qIdx) ?? [];
+          const selectedTexts = new Set(
+            selections.map((s: any) => nrm(s?.text)).filter((t: string) => !!t)
+          );
+          const allPristineCorrectSelected =
+            [...pristineCorrectTexts].every(t => selectedTexts.has(t));
+          if (!allPristineCorrectSelected) {
+            // Premature _multiAnswerPerfect — keep this option enabled.
+            return false;
+          }
+        }
         return true;
       }
       // Multi-answer options are NEVER disabled before the question is fully answered
       return false;
     }
-    console.warn('[Q2-DEBUG] isDisabled fell through to single-answer path', { idx: this.i, text: this.b?.option?.text, _type, qIdx: _qIdx });
 
     // In single-answer mode, correct options must stay clickable until the
     // correct answer has been selected (so user can recover from a wrong pick).

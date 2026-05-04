@@ -113,13 +113,6 @@ export class QqcOrchClickService {
         } catch { /* ignore */ }
 
         const isSingleAnswer = !pristineMultiDetected && rawCorrectCount <= 1;
-        console.warn('[Q2-DEBUG] qqc-orch-click applySingleAnswerDisable', {
-          idx,
-          rawCorrectCount,
-          pristineMultiDetected,
-          isSingleAnswer,
-          rawQuestionText: rawQuestion?.questionText,
-        });
         const correctIdSet = new Set<number>(
           rawOpts
             .map((o: any, i: number) => {
