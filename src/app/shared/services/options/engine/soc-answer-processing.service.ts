@@ -316,19 +316,24 @@ export class SocAnswerProcessingService {
       } catch { /* ignore */ }
 
       if (fetText) {
-        // Format the explanation with correct option names
+        // Format as "Options X and Y are correct because ..." using
+        // 1-based option numbers (matches the formatter used everywhere
+        // else for multi-answer FET).
         let formattedFET = fetText;
         try {
-          const correctNames: string[] = [];
-          for (const ci of effectiveCorrectIndices) {
-            const name = comp.optionBindings?.[ci]?.option?.text;
-            if (name) correctNames.push(name.trim());
-          }
-          if (correctNames.length > 0) {
-            const nameStr = correctNames.length === 1
-              ? correctNames[0]
-              : correctNames.slice(0, -1).join(', ') + ' and ' + correctNames[correctNames.length - 1];
-            formattedFET = `${nameStr} are correct because ${fetText}`;
+          const oneBasedIndices = effectiveCorrectIndices
+            .map((ci: number) => ci + 1)
+            .filter((n: number) => Number.isFinite(n) && n > 0);
+          const qForFormat = comp.currentQuestion
+            ?? comp.getQuestionAtDisplayIndex?.(qIdx)
+            ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]
+            ?? (this.quizService as any)?.questions?.[qIdx];
+          if (qForFormat && oneBasedIndices.length > 0) {
+            formattedFET = this.explanationTextService.formatExplanation(
+              qForFormat,
+              oneBasedIndices,
+              fetText
+            );
           }
         } catch { /* ignore */ }
 
@@ -352,6 +357,29 @@ export class SocAnswerProcessingService {
         } as any);
         this.explanationTextService.lockExplanation();
         this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
+
+        // DIRECT DOM FALLBACK — writes FET into the qText heading without
+        // routing through the reactive pipeline or writeQText guards.
+        // Mirrors the single-answer path; required for multi-answer because
+        // the reactive pipeline can race with selectedOptionsMap updates and
+        // the writeQText looksLikeFet gate can revert FET back to question
+        // text before scoreDirectly's questionCorrectness flag is observed.
+        const fetForDom = formattedFET;
+        const stampFet = () => {
+          try {
+            const h3 = document.querySelector('codelab-quiz-content h3');
+            if (h3) {
+              const domNow = (h3.innerHTML || '').toLowerCase();
+              if (!domNow.includes('correct because')) {
+                h3.innerHTML = fetForDom;
+              }
+            }
+          } catch { /* ignore */ }
+        };
+        stampFet();
+        setTimeout(stampFet, 50);
+        setTimeout(stampFet, 150);
+        setTimeout(stampFet, 350);
       }
 
       // Also try the component path as backup
