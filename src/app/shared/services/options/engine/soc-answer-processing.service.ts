@@ -216,6 +216,12 @@ export class SocAnswerProcessingService {
     } catch { /* keep upstream value */ }
 
     if (allCorrectInDurable) {
+      console.warn('[Q2-DEBUG] processMultiAnswerClick: setting _multiAnswerPerfect=true', {
+        qIdx,
+        durableSet: Array.from(durableSet),
+        effectiveCorrectIndices,
+        effectiveCorrectCount,
+      });
       try { this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true }); } catch {}
       this.nextButtonStateService.setNextButtonState(true);
 
@@ -444,6 +450,7 @@ export class SocAnswerProcessingService {
     } catch { /* ignore */ }
 
     if (pristineSingleCorrect) {
+      console.warn('[Q2-DEBUG] processSingleAnswerClick: pristineSingleCorrect path firing', { qIdx, index, correctIdxs });
       try { this.timerService.stopTimer?.(undefined, { force: true, bypassAntiThrash: true }); } catch {}
 
       // Score and emit FET for single-answer correct click

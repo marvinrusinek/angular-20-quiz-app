@@ -287,6 +287,7 @@ export class OptionItemComponent implements OnChanges, OnInit {
   isDisabled(): boolean {
     // Timer-expiry handler stamped all bindings as disabled
     if (this.isTimerStamped()) {
+      console.warn('[Q2-DEBUG] isDisabled=true via TIMER_STAMPED', { idx: this.i, text: this.b?.option?.text });
       return true;
     }
 
@@ -331,16 +332,19 @@ export class OptionItemComponent implements OnChanges, OnInit {
     // from initialization (when isMultiMode wasn't yet true) from blocking clicks.
     if (_type === 'multiple') {
       if (this.isTimerExpiredForThisQuestion()) {
+        console.warn('[Q2-DEBUG] isDisabled=true via MULTI_TIMER_EXPIRED', { idx: this.i, text: this.b?.option?.text });
         return true;
       }
       const perfectMap = (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
       const isFullyAnswered = perfectMap?.get(_qIdx) === true;
       if (isFullyAnswered && this.b?.disabled === true) {
+        console.warn('[Q2-DEBUG] isDisabled=true via MULTI_FULLY_ANSWERED', { idx: this.i, text: this.b?.option?.text, perfectMap: perfectMap ? Array.from(perfectMap.entries()) : null });
         return true;
       }
       // Multi-answer options are NEVER disabled before the question is fully answered
       return false;
     }
+    console.warn('[Q2-DEBUG] isDisabled fell through to single-answer path', { idx: this.i, text: this.b?.option?.text, _type, qIdx: _qIdx });
 
     // In single-answer mode, correct options must stay clickable until the
     // correct answer has been selected (so user can recover from a wrong pick).

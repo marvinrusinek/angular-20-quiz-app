@@ -294,6 +294,13 @@ export class OptionClickHandlerService {
         }
       } catch { /* fall through to original disable-all */ }
 
+      console.warn('[Q2-DEBUG] updateDisabledSet: disable-all-incorrects branch firing', {
+        clickedIndex,
+        isClickedCorrect,
+        remaining,
+        bindingsCount,
+        correctIndices: [...correctIndices],
+      });
       for (let bi = 0; bi < bindingsCount; bi++) {
         if (!correctSet.has(bi)) disabledSet.add(bi);
       }
