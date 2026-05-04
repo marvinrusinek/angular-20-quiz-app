@@ -199,40 +199,43 @@ export class SharedOptionOrchestratorService {
     // Always resolve the display-order question for this index
     const currentQ = host.getQuestionAtDisplayIndex(idx) ?? host.currentQuestion;
 
-    let result = host.clickHandler.detectMultiMode(
-        currentQ, host.type, host.config()?.type
-    );
-
-    // PRISTINE FALLBACK: cross-check against quizInitialState.
-    // In shuffled mode, currentQ may have mutated correct flags.
-    if (!result) {
-      try {
-        const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
-        // In shuffled mode, use display-order question text
-        const qs: any = host.quizService;
-        const isShuffled = qs?.isShuffleEnabled?.()
-          && Array.isArray(qs?.shuffledQuestions)
-          && qs.shuffledQuestions.length > 0;
-        const displayQ = isShuffled
-          ? (qs?.getQuestionsInDisplayOrder?.()?.[idx] ?? qs?.shuffledQuestions?.[idx])
-          : currentQ;
-        const qText = nrm(displayQ?.questionText ?? currentQ?.questionText);
-        if (qText) {
-          const bundle: any[] = qs?.quizInitialState ?? [];
-          for (const quiz of bundle) {
-            for (const pq of (quiz?.questions ?? [])) {
-              if (nrm(pq?.questionText) !== qText) continue;
-              const correctCount = (pq?.options ?? [])
-                .filter((o: any) => o?.correct === true || String(o?.correct) === 'true').length;
-              if (correctCount > 1) {
-                result = true;
-              }
-              break;
-            }
-            if (result) break;
+    // PRISTINE-FIRST: text-match against quizInitialState BEFORE trusting
+    // detectMultiMode, because live binding flags can be mutated/missing.
+    // For Q2/Q4 of dependency-injection (and any other multi-answer
+    // question), pristine is the immutable source of truth.
+    let result = false;
+    try {
+      const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
+      const qs: any = host.quizService;
+      const isShuffled = qs?.isShuffleEnabled?.()
+        && Array.isArray(qs?.shuffledQuestions)
+        && qs.shuffledQuestions.length > 0;
+      const displayQ = isShuffled
+        ? (qs?.getQuestionsInDisplayOrder?.()?.[idx] ?? qs?.shuffledQuestions?.[idx])
+        : currentQ;
+      const qText = nrm(displayQ?.questionText ?? currentQ?.questionText);
+      if (qText) {
+        const bundle: any[] = qs?.quizInitialState ?? [];
+        outer: for (const quiz of bundle) {
+          for (const pq of (quiz?.questions ?? [])) {
+            if (nrm(pq?.questionText) !== qText) continue;
+            const correctCount = (pq?.options ?? []).filter(
+              (o: any) =>
+                o?.correct === true || String(o?.correct) === 'true' ||
+                o?.correct === 1 || o?.correct === '1'
+            ).length;
+            if (correctCount > 1) result = true;
+            break outer;
           }
         }
-      } catch { /* ignore */ }
+      }
+    } catch { /* ignore */ }
+
+    // Fall back to detectMultiMode if pristine didn't decide.
+    if (!result) {
+      result = host.clickHandler.detectMultiMode(
+          currentQ, host.type, host.config()?.type
+      );
     }
 
     // Update cache for other code that reads it
