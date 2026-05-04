@@ -49,7 +49,53 @@ export class SocAnswerProcessingService {
     effectiveCorrectCount: number;
     isShuffled: boolean;
   }): void {
-    const { comp, index, binding, qIdx, durableSet, effectiveCorrectIndices, effectiveCorrectCount, isShuffled } = params;
+    const { comp, index, binding, qIdx, durableSet, isShuffled } = params;
+    let { effectiveCorrectIndices, effectiveCorrectCount } = params;
+
+    // PRISTINE RECOMPUTE: if the incoming effectiveCorrectIndices undercounts
+    // vs. quizInitialState (e.g. only 1 of 2 correct were identified upstream
+    // due to stale binding flags), correctIndices.length === 1 makes remaining
+    // hit 0 after one correct click — and updateDisabledSet then locks every
+    // non-correct option, including the OTHER correct one. Recompute from
+    // pristine to guarantee we have the full set of correct indices.
+    try {
+      const nrmR = (t: any) => String(t ?? '').trim().toLowerCase();
+      const liveQ: any = comp.currentQuestion
+        ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]
+        ?? (this.quizService as any)?.questions?.[qIdx];
+      const liveQText = nrmR(liveQ?.questionText);
+      const bindings: any[] = comp.optionBindings ?? [];
+      if (liveQText && bindings.length) {
+        const bundleR: any[] = (this.quizService as any)?.quizInitialState ?? [];
+        for (const quizR of bundleR) {
+          for (const pqR of (quizR?.questions ?? [])) {
+            if (nrmR(pqR?.questionText) !== liveQText) continue;
+            const pristineCorrectTexts = new Set(
+              (pqR?.options ?? [])
+                .filter((o: any) =>
+                  o?.correct === true || String(o?.correct) === 'true' ||
+                  o?.correct === 1 || o?.correct === '1'
+                )
+                .map((o: any) => nrmR(o?.text))
+                .filter((t: string) => !!t)
+            );
+            if (pristineCorrectTexts.size > effectiveCorrectIndices.length) {
+              const rebuilt: number[] = [];
+              for (let i = 0; i < bindings.length; i++) {
+                if (pristineCorrectTexts.has(nrmR(bindings[i]?.option?.text))) {
+                  rebuilt.push(i);
+                }
+              }
+              if (rebuilt.length > effectiveCorrectIndices.length) {
+                effectiveCorrectIndices = rebuilt;
+                effectiveCorrectCount = rebuilt.length;
+              }
+            }
+            break;
+          }
+        }
+      }
+    } catch { /* ignore */ }
 
     const clickState = this.clickHandler.computeMultiAnswerClickState(
       index, durableSet, effectiveCorrectIndices
