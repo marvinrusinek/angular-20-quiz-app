@@ -265,47 +265,6 @@ describe('QuizStateService', () => {
     expect(state!.isAnswered).toBe(false);
   });
 
-  // ── emitQA ───────────────────────────────────────────────────────
-
-  it('emitQA should emit a normalised QA payload', (done) => {
-    const options: Option[] = [
-      { text: 'Option A', correct: true, value: 1 },
-      { text: 'Option B', correct: false, value: 2 }
-    ];
-    const question: QuizQuestion = {
-      questionText: 'What is 1+1?',
-      options,
-      explanation: 'It is 2.'
-    } as QuizQuestion;
-
-    service.qa$.subscribe((payload) => {
-      expect(payload.quizId).toBe('quiz1');
-      expect(payload.index).toBe(0);
-      expect(payload.heading).toBe('What is 1+1?');
-      expect(payload.explanation).toBe('It is 2.');
-      expect(payload.options.length).toBe(2);
-      expect(payload.options[0].correct).toBe(true);
-      expect(payload.options[0].showIcon).toBe(false);
-      expect(payload.options[0].feedback).toBe('No feedback');
-      expect(payload.options[0].active).toBe(true);
-      expect(payload.options[1].optionId).toBeDefined();
-      done();
-    });
-
-    service.emitQA(question, 'Select an answer', 'quiz1', 0);
-  });
-
-  it('emitQA should not emit when question has no options', () => {
-    const spy = jest.fn();
-    service.qa$.subscribe(spy);
-
-    const question = { questionText: 'Empty', options: [], explanation: '' } as any;
-    service.emitQA(question, '', 'q1', 0);
-
-    // The spy should not have been called with a new payload
-    expect(spy).not.toHaveBeenCalled();
-  });
-
   // ── Visibility restore lock/unlock ───────────────────────────────
 
   it('unlockDisplayStateForVisibilityRestore should allow state changes again', () => {

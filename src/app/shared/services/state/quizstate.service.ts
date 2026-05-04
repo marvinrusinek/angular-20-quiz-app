@@ -1,12 +1,9 @@
 import { Injectable, computed, signal } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
-import {
-  EMPTY, Observable, ReplaySubject, Subject
-} from 'rxjs';
+import { EMPTY, Observable } from 'rxjs';
 import { catchError, distinctUntilChanged, filter } from 'rxjs/operators';
 
 import { Option } from '../../models/Option.model';
-import { QAPayload } from '../../models/QAPayload.model';
 import { QuestionState } from '../../models/QuestionState.model';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
 
@@ -29,8 +26,6 @@ export class QuizStateService {
 
   questionStates: Map<number, QuestionState> = new Map();
   private quizStates: { [quizId: string]: Map<number, QuestionState> } = {};
-
-  private restoreStateSubject = new Subject<void>();
 
   private quizQuestionCreated = false;
   public displayExplanationLocked = false;
@@ -61,9 +56,6 @@ export class QuizStateService {
     answered: false
   });
   public displayState$ = toObservable(this.displayStateSig);
-
-  qaSubject = new ReplaySubject<QAPayload>(1);
-  qa$ = this.qaSubject.asObservable();
 
   readonly interactionReadySig = signal<boolean>(true);
   public interactionReady$ = toObservable(this.interactionReadySig);
@@ -385,10 +377,6 @@ export class QuizStateService {
     this.currentQuestionSig.set(newQuestion);
   }
 
-  onRestoreQuestionState(): Observable<void> {
-    return this.restoreStateSubject.asObservable();
-  }
-
   setQuizQuestionCreated(): void {
     this.quizQuestionCreated = true;
   }
@@ -429,43 +417,6 @@ export class QuizStateService {
     if (!this.isLoading()) {
       this.isLoadingSig.set(true);
     }
-  }
-
-  emitQA(
-    question: QuizQuestion,
-    selectionMessage: string,
-    quizId: string,
-    index: number,
-  ): void {
-    if (!question?.options?.length) {
-      return;
-    }
-
-    // Normalize each option safely
-    const normalizedOptions = question.options.map((opt, i) => ({
-      ...opt,
-      optionId: opt.optionId ?? i,
-      active: opt.active !== undefined ? opt.active : true,
-      showIcon: Boolean(opt.showIcon),
-      correct: Boolean(opt.correct),
-      selected: Boolean(opt.selected),
-      feedback:
-        typeof opt.feedback === 'string' ? opt.feedback.trim() : 'No feedback'
-    }));
-
-    // Emit the complete QA object as a single payload
-    this.qaSubject.next({
-      quizId,
-      index,
-      question: {
-        ...question,
-        options: normalizedOptions,
-      },
-      options: normalizedOptions,
-      selectionMessage,
-      heading: question.questionText ?? 'No question available',
-      explanation: question.explanation ?? 'No explanation available'
-    });
   }
 
   setInteractionReady(v: boolean) {
@@ -602,6 +553,5 @@ export class QuizStateService {
     this.currentQuestionSig.set(null);
     this.explanationReadySig.set(false);
     this.isAnsweredSig.set(false);
-    this.qaSubject.next(null as any);  // clear replay subject
   }
 }

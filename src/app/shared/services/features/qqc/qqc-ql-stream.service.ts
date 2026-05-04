@@ -533,18 +533,6 @@ export class QqcQlStreamService {
     this.quizService.setCurrentQuestion(question);
     this.quizStateService.updateCurrentQuestion(question);
 
-    const selMsg = this.selectionMessageService.determineSelectionMessage(
-      index,
-      this.totalQuestions,
-      false
-    );
-    this.quizStateService.emitQA(
-      questionForPayload,
-      selMsg,
-      this.quizService.quizId!,
-      index
-    );
-
     this.quizService.questionPayloadSig.set({
       question: questionForPayload,
       options: optionsForPayload,
@@ -639,21 +627,6 @@ export class QqcQlStreamService {
 
     this.quizService.setCurrentQuestion({ ...q, options: opts });
     this.quizStateService.updateCurrentQuestion({ ...q, options: opts });
-
-    if (q.questionText && opts.length) {
-      const selMsg = this.selectionMessageService.determineSelectionMessage(
-        idx,
-        this.totalQuestions,
-        false
-      );
-
-      this.quizStateService.emitQA(
-        { ...q, options: opts },
-        selMsg,
-        this.quizService.quizId!,
-        idx
-      );
-    }
 
     await this.loadQuestionContents(idx);
     await this.quizService.checkIfAnsweredCorrectly(idx, false);
@@ -852,12 +825,6 @@ export class QqcQlStreamService {
         feedback: o.feedback ?? correctLabel
       }));
 
-      const msg = this.selectionMessageService.determineSelectionMessage(
-        index,
-        this.totalQuestions,
-        false
-      );
-
       const safeQuestion: QuizQuestion = JSON.parse(
         JSON.stringify({
           ...q,
@@ -865,12 +832,8 @@ export class QqcQlStreamService {
         })
       );
 
-      const effectiveQuizId = this.quizService.quizId;
-
       this.quizService.currentQuestionSig.set(safeQuestion);
       this.quizService.optionsSource.next(finalOpts);
-
-      this.quizStateService.emitQA(safeQuestion, msg, effectiveQuizId, index);
 
       return true;
     } catch (err: any) {

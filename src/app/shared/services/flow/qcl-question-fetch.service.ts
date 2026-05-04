@@ -226,16 +226,6 @@ export class QclQuestionFetchService {
         explanation: currentQuestion.explanation ?? ''
       });
 
-      this.quizStateService.qaSubject.next({
-        question: currentQuestion,
-        options: structuredClone(clonedOptions),
-        explanation: currentQuestion.explanation ?? '',
-        quizId: this.quizService.quizId ?? 'default-id',
-        index: questionIndex,
-        heading: currentQuestion.questionText ?? 'Untitled Question',
-        selectionMessage: this.selectionMessageService.getCurrentMessage()
-      });
-
       let explanationText = '';
       const shouldStartTimer = !isAnswered;
 
