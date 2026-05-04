@@ -82,7 +82,37 @@ export class QqcOrchClickService {
         const rawCorrectCount = rawOpts.filter((o: any) =>
           o?.correct === true || String(o?.correct) === 'true'
         ).length;
-        const isSingleAnswer = rawCorrectCount <= 1;
+
+        // Pristine fallback: if rawCorrectCount looks like single-answer
+        // (0 or 1) but quizInitialState shows >1 correct for the same
+        // question text, the binding/raw flags are stale and this is
+        // actually a multi-answer question. Skip the single-answer
+        // disable-all-incorrects path; the multi-answer pipeline
+        // (option-click-handler.updateDisabledSet) will lock incorrects
+        // only after ALL correct are selected.
+        let pristineMultiDetected = false;
+        try {
+          const nrmM = (t: any) => String(t ?? '').trim().toLowerCase();
+          const liveQText = nrmM(rawQuestion?.questionText);
+          if (liveQText) {
+            const bundleM: any[] = (host.quizService as any)?.quizInitialState ?? [];
+            for (const quizM of bundleM) {
+              for (const pqM of (quizM?.questions ?? [])) {
+                if (nrmM(pqM?.questionText) !== liveQText) continue;
+                const pristineCorrect = (pqM?.options ?? []).filter(
+                  (o: any) =>
+                    o?.correct === true || String(o?.correct) === 'true' ||
+                    o?.correct === 1 || o?.correct === '1'
+                ).length;
+                if (pristineCorrect > 1) pristineMultiDetected = true;
+                break;
+              }
+              if (pristineMultiDetected) break;
+            }
+          }
+        } catch { /* ignore */ }
+
+        const isSingleAnswer = !pristineMultiDetected && rawCorrectCount <= 1;
         const correctIdSet = new Set<number>(
           rawOpts
             .map((o: any, i: number) => {
