@@ -290,8 +290,41 @@ export class OptionItemComponent implements OnChanges, OnInit {
       return true;
     }
 
-    const _type = this.type();
+    let _type = this.type();
     const _qIdx = this.currentQuestionIndex() ?? this.quizService.currentQuestionIndex;
+
+    // RENDERING-LAYER PRISTINE GUARD: trust quizInitialState over the
+    // [type] input binding. If pristine says this question has >1
+    // correct option, force multi-mode regardless of what the parent
+    // template passed. This catches cases where isMultiMode resolved
+    // false in the template (e.g. Q2 of dependency-injection quiz)
+    // due to mutated/missing live binding flags.
+    if (_type !== 'multiple') {
+      try {
+        const nrmDis = (t: any) => String(t ?? '').trim().toLowerCase();
+        const liveQT = nrmDis(this.b?.option?.text)
+          ? nrmDis(
+              (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[_qIdx]?.questionText
+              ?? (this.quizService as any)?.questions?.[_qIdx]?.questionText
+            )
+          : '';
+        if (liveQT) {
+          const bundleDis: any[] = (this.quizService as any)?.quizInitialState ?? [];
+          outerDis: for (const quizDis of bundleDis) {
+            for (const pqDis of (quizDis?.questions ?? [])) {
+              if (nrmDis(pqDis?.questionText) !== liveQT) continue;
+              const pristineCC = (pqDis?.options ?? []).filter(
+                (o: any) =>
+                  o?.correct === true || String(o?.correct) === 'true' ||
+                  o?.correct === 1 || o?.correct === '1'
+              ).length;
+              if (pristineCC > 1) _type = 'multiple';
+              break outerDis;
+            }
+          }
+        }
+      } catch { /* ignore */ }
+    }
 
     // For MULTIPLE mode, NEVER disable unless the question is definitively
     // fully answered or the timer expired. This prevents stale b.disabled
