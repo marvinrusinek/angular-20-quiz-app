@@ -158,15 +158,15 @@ export class AccordionComponent implements OnInit, OnDestroy {
 
     return ids
       .map((id: number) => {
-         // Try matching by optionId first
-         let idx = question.options.findIndex((opt: Option) =>
-           opt.optionId != null && String(opt.optionId) === String(id)
-         );
+        // Try matching by optionId first
+        let idx = question.options.findIndex((opt: Option) =>
+          opt.optionId != null && String(opt.optionId) === String(id)
+        );
 
-         // Fallback: treat id as a 0-based display index (used when options lack optionId)
-         if (idx === -1 && id >= 0 && id < question.options.length) idx = id;
+        // Fallback: treat id as a 0-based display index (used when options lack optionId)
+        if (idx === -1 && id >= 0 && id < question.options.length) idx = id;
 
-         return idx >= 0 ? idx + 1 : -1;
+        return idx >= 0 ? idx + 1 : -1;
       })
       .filter((idx: number) => idx !== -1)
       .sort((a, b) => a - b);
