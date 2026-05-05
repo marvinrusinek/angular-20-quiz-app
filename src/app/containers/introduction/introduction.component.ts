@@ -341,9 +341,7 @@ export class IntroductionComponent implements OnInit, OnDestroy {
     }
   }
 
-  private async navigateToFirstQuestion(
-    targetQuizId: string
-  ): Promise<boolean> {
+  private async navigateToFirstQuestion(targetQuizId: string): Promise<boolean> {
     // Resolve the effective quiz id (override → service → component → localStorage)
     const quizId =
       this.quizNavigationService.resolveEffectiveQuizId(targetQuizId);
@@ -374,7 +372,6 @@ export class IntroductionComponent implements OnInit, OnDestroy {
     try {
       // Router expects 1-based question in URL; index 0 ⇒ "/.../1"
       const fallbackSucceeded = await this.router.navigate(['/quiz/question', quizId, 1]);
-
       if (!fallbackSucceeded) {
         // fallback navigation returned false
       }
@@ -420,8 +417,7 @@ export class IntroductionComponent implements OnInit, OnDestroy {
   private persistQuizId(quizId: string): void {
     try {
       localStorage.setItem('quizId', quizId);
-    } catch (storageError) {
-    }
+    } catch (storageError) { }
   }
 
   public get milestone(): string {
