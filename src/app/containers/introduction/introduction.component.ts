@@ -1,6 +1,6 @@
 import {
-  ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit,
-  signal, computed
+  ChangeDetectionStrategy, ChangeDetectorRef, Component, computed, OnDestroy, 
+  OnInit, signal
 } from '@angular/core';
 import { CommonModule, NgOptimizedImage } from '@angular/common';
 import { ActivatedRoute, Params, Router } from '@angular/router';
