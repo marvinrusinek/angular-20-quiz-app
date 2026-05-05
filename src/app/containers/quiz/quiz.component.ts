@@ -95,9 +95,8 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   combinedQuestionDataSubject = new BehaviorSubject<QuestionPayload | null>(null);
   combinedQuestionData$ = this.combinedQuestionDataSubject.pipe(
     map((payload) => {
-      if (!payload?.question) {
-        return payload;
-      }
+      if (!payload?.question) return payload;
+
       const shuffled = this.quizService.shuffledQuestions;
       const isShuffleActive = this.quizService.isShuffleEnabled() && shuffled?.length > 0;
       if (isShuffleActive) {
@@ -108,7 +107,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
           return {
             question: correctQ,
             options: correctQ.options ?? [],
-            explanation: correctQ.explanation ?? '',
+            explanation: correctQ.explanation ?? ''
           };
         }
       }
@@ -374,10 +373,13 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
-  public advanceToNextQuestion(): Promise<void> { return this.quizSetupService.advanceQuestion(this, 'next'); }
-  public advanceToPreviousQuestion(): Promise<void> { return this.quizSetupService.advanceQuestion(this, 'previous'); }
-
-  advanceToResults(): void {
+  public advanceToNextQuestion(): Promise<void> { 
+    return this.quizSetupService.advanceQuestion(this, 'next');
+  }
+  public advanceToPreviousQuestion(): Promise<void> {
+    return this.quizSetupService.advanceQuestion(this, 'previous');
+  }
+  public advanceToResults(): void {
     if (this.navigatingToResults) return;
     this.navigatingToResults = true;
 
@@ -395,7 +397,9 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
-  restartQuiz(): void { this.quizSetupService.restartQuiz(this); }
+  restartQuiz(): void {
+    this.quizSetupService.restartQuiz(this);
+  }
 
   // ── Progress / dots ────────────────────────────────────────────
   updateProgressValue(): void {
@@ -433,7 +437,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
       currentQuestionIndex: this.currentQuestionIndex,
       optionsToDisplay: this.optionsToDisplay,
       currentQuestion: this.currentQuestion,
-      questionsArray: this.questionsArray,
+      questionsArray: this.questionsArray
     };
   }
 
