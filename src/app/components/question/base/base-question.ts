@@ -109,9 +109,7 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
   }
 
   private initializeDynamicComponentIfNeeded(): void {
-    if (this.containerInitialized) {
-      return;
-    }
+    if (this.containerInitialized) return;
 
     // Defer load if inputs are not yet ready
     if (
@@ -174,9 +172,7 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
   }
 
   protected initializeOptions(): void {
-    if (!this.question()?.options?.length) {
-      return;
-    }
+    if (!this.question()?.options?.length) return;
 
     // Only initialize form if not yet created
     if (!this.questionForm) {
@@ -202,9 +198,7 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
       !this.question() ||
       !Array.isArray(this.question()!.options) ||
       this.question()!.options.length === 0
-    ) {
-      return;
-    }
+    ) return;
 
     const clonedOptions = (options ?? this.question()!.options ?? []).map((opt, idx) => ({
       ...opt,
@@ -255,15 +249,10 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
   }
 
   protected subscribeToQuestionChanges(): void {
-    if (!this.quizStateService) {
-      return;
-    }
+    if (!this.quizStateService) return;
 
     const currentQuestion$ = this.quizStateService.currentQuestion$;
-
-    if (!currentQuestion$) {
-      return;
-    }
+    if (!currentQuestion$) return;
 
     // Subscribe to `currentQuestion$` with filtering to skip undefined values
     this.currentQuestionSubscription = currentQuestion$
@@ -271,9 +260,7 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
         // Filter out undefined or option-less emissions
         filter((quizQuestion): quizQuestion is QuizQuestion => {
           // Guard against undefined values
-          if (!quizQuestion) {
-            return false;
-          }
+          if (!quizQuestion) return false;
 
           // Guard against questions that don’t yet have options
           const hasOptions = !!quizQuestion.options?.length;
@@ -359,7 +346,9 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
   }
 
   updateCorrectMessageForQuestion(): void {
-    this.correctMessage.set(this.feedbackService.setCorrectMessage(this.optionsToDisplay()));
+    this.correctMessage.set(
+      this.feedbackService.setCorrectMessage(this.optionsToDisplay())
+    );
     this.correctMessageChange.emit(this.correctMessage());
     this.cdRef.detectChanges();
   }
