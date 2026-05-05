@@ -229,23 +229,29 @@ export class QqcNavigationHandlerService {
 
     try {
       const qState = this.quizStateService.getQuestionState(quizId, qIdx);
-      const shouldShowExplanation =
-        qState?.explanationDisplayed === true ||
-        (this.explanationTextService as any)?.shouldDisplayExplanation$.value === true;
+      // Only restore FET display when THIS question's persisted state says
+      // it was being displayed AND has its own explanation text. Falling
+      // back to the global shouldDisplayExplanation$ flag or to
+      // latestExplanation lets a previously-answered question's FET (e.g.
+      // Q1) bleed onto an unanswered Q2 on tab return.
+      const ownFetText = (typeof qState?.explanationText === 'string'
+        ? qState.explanationText.trim()
+        : '');
+      const thisQHasOwnFet = qState?.explanationDisplayed === true
+        && ownFetText.length > 0;
 
-      if (shouldShowExplanation) {
+      if (thisQHasOwnFet) {
         this.explanationTextService.setShouldDisplayExplanation(true, { force: true });
         this.explanationTextService.setIsExplanationTextDisplayed(true, { force: true });
-        this.explanationTextService.setExplanationText(
-          qState?.explanationText ?? this.explanationTextService.latestExplanation ?? '',
-          { force: true }
-        );      } else {
+        this.explanationTextService.setExplanationText(ownFetText, { force: true });
+      } else {
         this.explanationTextService.setShouldDisplayExplanation(false, { force: true });
-        this.explanationTextService.setIsExplanationTextDisplayed(false, { force: true });      }
+        this.explanationTextService.setIsExplanationTextDisplayed(false, { force: true });
+      }
 
       return {
-        shouldShowExplanation,
-        explanationText: qState?.explanationText ?? ''
+        shouldShowExplanation: thisQHasOwnFet,
+        explanationText: thisQHasOwnFet ? ownFetText : ''
       };
     } catch (fetErr) {      return { shouldShowExplanation: false, explanationText: '' };
     }

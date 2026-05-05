@@ -91,12 +91,19 @@ export class ScoreboardComponent implements OnInit, OnDestroy {
     shareReplay(1)
   );
 
-  // Final badge: prefer service text if non-empty; otherwise show computed fallback
+  // Final badge: prefer service text only when it agrees with the route-
+  // derived computed badge. The service signal can lag the route on tab
+  // visibility return (stays at the previous question's text), so when
+  // the two disagree, trust the route.
   private readonly badgeText$: Observable<string> = combineLatest([
     this.serviceBadgeText$,
     this.computedBadgeText$
   ]).pipe(
-    map(([svc, cmp]) => (svc !== '' ? svc : cmp)),
+    map(([svc, cmp]) => {
+      if (svc === '') return cmp;
+      if (cmp === '') return svc;
+      return svc === cmp ? svc : cmp;
+    }),
     distinctUntilChanged(),
     shareReplay(1)
   );

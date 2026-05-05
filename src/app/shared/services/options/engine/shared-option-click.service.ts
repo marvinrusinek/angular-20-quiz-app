@@ -246,7 +246,25 @@ export class SharedOptionClickService {
     }
     comp.optionBindings = state.optionBindings;
 
-    const qIdx = comp.getActiveQuestionIndex();
+    let qIdx = comp.getActiveQuestionIndex();
+    // Self-heal: getActiveQuestionIndex falls back to quizService's signal,
+    // which can be stuck at 0 while the user is actually on Q2/Q3 (observed
+    // via diagnostics). When qIdx and comp.currentQuestion's text don't
+    // match quizService.questions[qIdx], correct qIdx by text fingerprint.
+    // Without this fix, scoring writes to the wrong question's slot and
+    // increments are skipped because that slot is already 'correct'.
+    try {
+      const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
+      const liveQText = nrm(comp.currentQuestion?.questionText);
+      const allQs: any[] = (this.quizService as any)?.questions ?? [];
+      if (liveQText && allQs.length) {
+        const atQIdx = nrm(allQs[qIdx]?.questionText);
+        if (liveQText !== atQIdx) {
+          const fixed = allQs.findIndex((q: any) => nrm(q?.questionText) === liveQText);
+          if (fixed >= 0) qIdx = fixed;
+        }
+      }
+    } catch { /* ignore */ }
     if (!comp._multiSelectByQuestion.has(qIdx)) {
       comp._multiSelectByQuestion.set(qIdx, new Set<number>());
     }

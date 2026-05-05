@@ -71,9 +71,25 @@ export class OptionInteractionService {
     // can still be 0 (stale) while the user is physically on Q2, causing
     // the click to be attributed to the wrong question and dropped.
     const liveIdx = this.quizService?.getCurrentQuestionIndex?.();
-    const qIdx = (typeof liveIdx === 'number' && Number.isFinite(liveIdx) && liveIdx >= 0)
+    let qIdx = (typeof liveIdx === 'number' && Number.isFinite(liveIdx) && liveIdx >= 0)
       ? liveIdx
       : state.currentQuestionIndex;
+    // Self-heal: quizService.getCurrentQuestionIndex() can be stuck at 0
+    // even when the user is on Q2/Q3. Correct qIdx by matching the live
+    // currentQuestion text against quizService.questions, so confirmed
+    // clicks get recorded under the right question slot.
+    try {
+      const nrmH = (t: any) => String(t ?? '').trim().toLowerCase();
+      const liveQText = nrmH(state.currentQuestion?.questionText);
+      const allQs: any[] = (this.quizService as any)?.questions ?? [];
+      if (liveQText && allQs.length) {
+        const atQIdx = nrmH(allQs[qIdx]?.questionText);
+        if (liveQText !== atQIdx) {
+          const fixed = allQs.findIndex((q: any) => nrmH(q?.questionText) === liveQText);
+          if (fixed >= 0) qIdx = fixed;
+        }
+      }
+    } catch { /* ignore */ }
     const isCorrectHelper = (o: any): boolean => {
       if (!o) return false;
       const c = o.correct ?? o.isCorrect ?? (o as any).correct;
