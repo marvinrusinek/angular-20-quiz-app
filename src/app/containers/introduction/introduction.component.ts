@@ -217,18 +217,14 @@ export class IntroductionComponent implements OnInit, OnDestroy {
   }
 
   async onStartQuiz(quizId?: string): Promise<void> {
-    if (this.isStartingQuiz()) {
-      return;
-    }
+    if (this.isStartingQuiz()) return;
 
     this.isStartingQuiz.set(true);
     this.cdRef.markForCheck();
 
     try {
       const targetQuizId = quizId ?? this.quizId ?? this.getStoredQuizId();
-      if (!targetQuizId) {
-        return;
-      }
+      if (!targetQuizId) return;
 
       // Clear cache before starting to ensure fresh shuffle with correct flag
       this.quizDataService.clearQuizQuestionCache(targetQuizId);
@@ -237,9 +233,7 @@ export class IntroductionComponent implements OnInit, OnDestroy {
       this.quizService.resetQuizSessionState();
 
       const activeQuiz = await this.resolveActiveQuiz(targetQuizId);
-      if (!activeQuiz) {
-        return;
-      }
+      if (!activeQuiz) return;
 
       // Retrieve form values
       const preferences = this.preferencesForm.value;
