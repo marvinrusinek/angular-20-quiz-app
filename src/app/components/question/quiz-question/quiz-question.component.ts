@@ -184,7 +184,6 @@ export class QuizQuestionComponent extends BaseQuestion
 
   private _fetEarlyShown = new Set<number>();
 
-
   readonly questionPayloadSig = signal<QuestionPayload | null>(null);
   readonly questionPayload$ = toObservable(this.questionPayloadSig);
 
@@ -219,7 +218,9 @@ export class QuizQuestionComponent extends BaseQuestion
   private destroy$: Subject<void> = new Subject<void>();
 
   /** Alias so host:any callers (quiz-setup, qqc-orch-lifecycle) still resolve. */
-  get quizQuestionLoaderService(): QqcQuestionLoaderService { return this.questionLoader; }
+  get quizQuestionLoaderService(): QqcQuestionLoaderService {
+    return this.questionLoader;
+  }
 
   constructor(
     protected override quizService: QuizService,
@@ -326,7 +327,6 @@ export class QuizQuestionComponent extends BaseQuestion
     return this.componentOrchestrator.runOnVisibilityChange(this);
   }
 
-
   private applyExplanationTextInZone(text: string): void {
     this.componentOrchestrator.runApplyExplanationTextInZone(this, text);
   }
@@ -383,7 +383,6 @@ export class QuizQuestionComponent extends BaseQuestion
   private setupRouteChangeHandler(): void {
     this.componentOrchestrator.runSetupRouteChangeHandler(this);
   }
-
 
   private async updateExplanationIfAnswered(index: number, question: QuizQuestion): Promise<void> {
     return this.componentOrchestrator.runUpdateExplanationIfAnswered(this, index, question);
