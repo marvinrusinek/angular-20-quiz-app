@@ -13,10 +13,31 @@ type Host = any;
 export class QqcOrchExplanationService {
 
   async runOnVisibilityChange(host: Host): Promise<void> {
+    // Self-heal qIdx by text fingerprint. host.currentQuestionIndex() can
+    // be stuck at 0 while the user is on Q2/Q3 (same desync the click
+    // handlers self-heal). Using the stale index for persist/restore
+    // writes Q1's slot and reads Q1's data on tab return.
+    const resolveIdx = (): number => {
+      const fallback = host.currentQuestionIndex?.() ?? 0;
+      try {
+        const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
+        const liveQText = nrm(host.currentQuestion?.()?.questionText);
+        const allQs: any[] = (host.quizService as any)?.questions ?? [];
+        if (liveQText && allQs.length) {
+          const atFallback = nrm(allQs[fallback]?.questionText);
+          if (liveQText !== atFallback) {
+            const fixed = allQs.findIndex((q: any) => nrm(q?.questionText) === liveQText);
+            if (fixed >= 0) return fixed;
+          }
+        }
+      } catch { /* ignore */ }
+      return fallback;
+    };
+
     if (document.visibilityState === 'hidden') {
       host.navigationHandler.persistStateOnHide({
         quizId: host.quizId()!,
-        currentQuestionIndex: host.currentQuestionIndex() ?? 0,
+        currentQuestionIndex: resolveIdx(),
         displayExplanation: host.displayExplanation,
       });
       host.navigationHandler.resetExplanationStateOnHide();
@@ -26,7 +47,7 @@ export class QqcOrchExplanationService {
 
     try {
       const { shouldExpire, expiredIndex } = await host.navigationHandler.handleFastPathExpiry({
-        currentQuestionIndex: host.currentQuestionIndex() ?? 0,
+        currentQuestionIndex: resolveIdx(),
         displayExplanation: host.displayExplanation,
         normalizeIndex: (idx: number) => host.normalizeIndex(idx),
       });
@@ -43,9 +64,10 @@ export class QqcOrchExplanationService {
       (host.explanationTextService as any)._visibilityLocked = true;
       host._suppressDisplayStateUntil = performance.now() + 300;
 
+      const idxForRestore = resolveIdx();
       const restoreResult = await host.navigationHandler.performFullVisibilityRestore({
         quizId: host.quizId()!,
-        currentQuestionIndex: host.currentQuestionIndex() ?? 0,
+        currentQuestionIndex: idxForRestore,
         optionsToDisplay: host.optionsToDisplay(),
         currentQuestion: host.currentQuestion(),
         generateFeedbackText: (q: QuizQuestion) => host.generateFeedbackText(q),
@@ -73,7 +95,7 @@ export class QqcOrchExplanationService {
         (host.explanationTextService as any)._visibilityLocked = false;
         host._visibilityRestoreInProgress = false;
         setTimeout(
-          () => host.navigationHandler.refreshExplanationStatePostRestore(host.currentQuestionIndex() ?? 0),
+          () => host.navigationHandler.refreshExplanationStatePostRestore(idxForRestore),
           400
         );
       }, 350);
