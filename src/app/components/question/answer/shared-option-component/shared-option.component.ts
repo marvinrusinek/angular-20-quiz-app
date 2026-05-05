@@ -357,6 +357,11 @@ export class SharedOptionComponent
     this.orchestrator.runOnDestroy(this);
   }
 
+  @HostListener('window:visibilitychange', [])
+  onVisibilityChange(): void {
+    this.orchestrator.runOnVisibilityChange(this);
+  }
+
   private rehydrateUiFromState(reason: string): void {
     this.bindingService.rehydrateUiFromState(this as any, reason);
   }
@@ -367,11 +372,6 @@ export class SharedOptionComponent
 
   private rebuildShowFeedbackMapFromBindings(): void {
     this.orchestrator.runRebuildShowFeedbackMapFromBindings(this);
-  }
-
-  @HostListener('window:visibilitychange', [])
-  onVisibilityChange(): void {
-    this.orchestrator.runOnVisibilityChange(this);
   }
 
   private updateSelections(rawSelectedId: number | string): void {
