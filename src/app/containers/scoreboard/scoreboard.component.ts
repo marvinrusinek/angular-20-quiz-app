@@ -154,7 +154,7 @@ export class ScoreboardComponent implements OnInit, OnDestroy {
           if (validQuestionNumber <= totalQuestions) {
             this.quizService.updateBadgeText(
               validQuestionNumber,
-              totalQuestions,
+              totalQuestions
             );
           }
         }
@@ -165,8 +165,7 @@ export class ScoreboardComponent implements OnInit, OnDestroy {
     if (params['questionIndex'] !== undefined) {
       const rawIndex =
         params['questionIndex'] != null
-          ? String(params['questionIndex'])
-          : null;
+          ? String(params['questionIndex']) : null;
       const normalizedIndex = this.coerceIndex(rawIndex);
       const updatedQuestionNumber = normalizedIndex + 1;
 
@@ -203,10 +202,7 @@ export class ScoreboardComponent implements OnInit, OnDestroy {
       });
   }
 
-  private getParamDeep(
-    snap: ActivatedRouteSnapshot,
-    key: string
-  ): string | null {
+  private getParamDeep(snap: ActivatedRouteSnapshot, key: string): string | null {
     let cur: ActivatedRouteSnapshot | null = snap;
     while (cur) {
       const v = cur.paramMap.get(key);
