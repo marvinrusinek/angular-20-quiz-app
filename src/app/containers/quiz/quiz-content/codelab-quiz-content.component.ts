@@ -1,8 +1,8 @@
 
 import {
   ChangeDetectionStrategy, ChangeDetectorRef, Component, effect, ElementRef,
-  OnChanges, OnDestroy, OnInit, Renderer2, SimpleChanges, untracked, ViewChild,
-  input, output, signal
+  input, OnChanges, OnDestroy, OnInit, output, Renderer2, signal, SimpleChanges, 
+  untracked, ViewChild 
 } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
