@@ -184,8 +184,7 @@ export class OptionItemComponent implements OnChanges, OnInit {
 
   get optionId(): number {
     return (this.b?.option?.optionId != null && this.b.option.optionId !== -1)
-      ? Number(this.b.option.optionId)
-      : this.i;
+      ? Number(this.b.option.optionId) : this.i;
   }
 
   private get inputType(): 'radio' | 'checkbox' {
@@ -204,9 +203,7 @@ export class OptionItemComponent implements OnChanges, OnInit {
       opt?.correct === 1 ||
       opt?.correct === '1' ||
       this.b?.isCorrect === true
-    ) {
-      return true;
-    }
+    ) return true;
 
     // Fallback: check authoritative question data from quiz service.
     // Binding options may lack the `correct` flag after regeneration.
@@ -240,9 +237,7 @@ export class OptionItemComponent implements OnChanges, OnInit {
 
     // If the timer-expiry handler pre-stamped CSS classes on this binding,
     // return them directly — do NOT let downstream logic overwrite them.
-    if ((this.b as any)?._timerExpiredStamped) {
-      return classes;
-    }
+    if ((this.b as any)?._timerExpiredStamped) return classes;
 
     if (this.isTimerExpiredForThisQuestion()) {
       // Preserve the user's selected state on timer expiry: a selected
@@ -330,9 +325,8 @@ export class OptionItemComponent implements OnChanges, OnInit {
     // fully answered or the timer expired. This prevents stale b.disabled
     // from initialization (when isMultiMode wasn't yet true) from blocking clicks.
     if (_type === 'multiple') {
-      if (this.isTimerExpiredForThisQuestion()) {
-        return true;
-      }
+      if (this.isTimerExpiredForThisQuestion()) return true;
+
       const perfectMap = (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
       const isFullyAnswered = perfectMap?.get(_qIdx) === true;
       if (isFullyAnswered && this.b?.disabled === true) {
@@ -390,9 +384,7 @@ export class OptionItemComponent implements OnChanges, OnInit {
     if (thisIsCorrect) {
       // Only disable this correct option if a correct answer was already selected
       const clickConfirmed = this.selectedOptionService.clickConfirmedDotStatus.get(_qIdx);
-      if (clickConfirmed !== 'correct') {
-        return false;
-      }
+      if (clickConfirmed !== 'correct') return false;
     }
 
     if (this.b?.disabled === true) return true;
@@ -603,9 +595,7 @@ export class OptionItemComponent implements OnChanges, OnInit {
         const m = window.location.pathname.match(/\/question\/[^/]+\/(\d+)/);
         if (m) {
           const urlIdx = Number(m[1]) - 1;
-          if (Number.isFinite(urlIdx) && urlIdx > 0) {
-            qIndex = urlIdx;
-          }
+          if (Number.isFinite(urlIdx) && urlIdx > 0) qIndex = urlIdx;
         }
       } catch { /* ignore */ }
     }
@@ -660,9 +650,7 @@ export class OptionItemComponent implements OnChanges, OnInit {
     // and index collisions from different init paths).
     const selText = ((sel as any)?.text ?? '').trim().toLowerCase();
     const bText = (this.b?.option?.text ?? '').trim().toLowerCase();
-    if (selText && bText) {
-      return selText === bText;
-    }
+    if (selText && bText) return selText === bText;
 
     // Prefer `displayIndex` — that's what setSelectedOption enriches with
     // and it is stable across refresh. `sel.index` can be a stale legacy
