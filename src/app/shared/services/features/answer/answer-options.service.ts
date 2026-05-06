@@ -10,8 +10,7 @@ import { QuizQuestion } from '../../../../shared/models/QuizQuestion.model';
 export class AnswerOptionsService {
   getEffectiveOptionId(option: any, index: number): number {
     return option?.optionId != null && option.optionId !== -1
-      ? option.optionId
-      : index;
+      ? option.optionId : index;
   }
 
   isCorrectOptionValue(option: any): boolean {
@@ -29,27 +28,25 @@ export class AnswerOptionsService {
   normalizeOptions(options: Option[]): Option[] {
     return (options ?? []).map((option, index) => ({
       ...option,
-      optionId: option.optionId ?? index,
+      optionId: option.optionId ?? index
     }));
   }
 
   resolveOptionsSource(
     optionsToDisplay: Option[],
-    question: QuizQuestion,
+    question: QuizQuestion
   ): Option[] {
-    return optionsToDisplay?.length
-      ? optionsToDisplay
-      : question.options;
+    return optionsToDisplay?.length ? optionsToDisplay : question.options;
   }
 
   isMultipleAnswerQuestion(
     question: QuizQuestion,
     optionsSource: Option[],
-    currentType: 'single' | 'multiple',
+    currentType: 'single' | 'multiple'
   ): boolean {
     const correctCount =
       optionsSource?.filter((option: any) =>
-        option.correct === true || String(option.correct) === 'true',
+        option.correct === true || String(option.correct) === 'true'
       ).length ?? 0;
 
     return (
@@ -64,7 +61,7 @@ export class AnswerOptionsService {
       options.filter((option: any) =>
         option.correct === true ||
         option.correct === 'true' ||
-        option.correct === 1,
+        option.correct === 1
       ).length;
 
     return correctCount > 1 ? 'multiple' : 'single';
