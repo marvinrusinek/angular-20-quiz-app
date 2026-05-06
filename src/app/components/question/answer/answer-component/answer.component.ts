@@ -171,9 +171,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
       .subscribe((opts: Option[]) => {
         // Skip empty arrays to prevent BehaviorSubject initial emission
         // from clearing valid options that may have arrived via @Input
-        if (!opts?.length) {
-          return;
-        }
+        if (!opts?.length) return;
 
         this.incomingOptions = this.normalizeOptions(structuredClone(opts));
 
@@ -228,8 +226,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     config: { resetSelection?: boolean } = {}
   ): void {
     const normalized = this.normalizeOptions(options);
-    const nextOptions =
-      normalized.map((option: Option) => ({ ...option }));
+    const nextOptions = normalized.map((option: Option) => ({ ...option }));
 
     if (config.resetSelection ?? true) this.resetSelectionState();
 
@@ -267,15 +264,11 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
    */
   private syncOptionsWithSelections(): void {
     const idx = this.currentQuestionIndex();
-    if (idx === null || idx === undefined || idx < 0) {
-      return;
-    }
+    if (idx === null || idx === undefined || idx < 0) return;
 
     const savedSelections =
       this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
-    if (!savedSelections.length || !this.optionsToDisplay()?.length) {
-      return;
-    }
+    if (!savedSelections.length || !this.optionsToDisplay()?.length) return;
 
     const savedIds = new Set(savedSelections.map(s => String(s.optionId)));
     const savedTexts = new Set(savedSelections.map(s => (s.text || '').trim().toLowerCase()));
@@ -327,15 +320,14 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     if (this.type() === 'single' && this.form()) {
       const selectedId = savedSelections[0]?.optionId;
       if (selectedId != null) {
-        this.form().patchValue({ selectedOptionId: selectedId }, { emitEvent: false });
+        this.form().patchValue({ selectedOptionId: selectedId },
+          { emitEvent: false });
       }
     }
   }
 
   private handleViewContainerRef(): void {
-    if (this.hasComponentLoaded) {
-      return;
-    }
+    if (this.hasComponentLoaded) return;
 
     if (this.viewContainerRefs && this.viewContainerRefs.length > 0) {
       // Assign the first available ViewContainerRef
@@ -346,9 +338,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
   }
 
   private loadQuizQuestionComponent(): void {
-    if (this.hasComponentLoaded) {
-      return;
-    }
+    if (this.hasComponentLoaded) return;
 
     // Ensure that the current component container is cleared before loading a new one
     if (this.viewContainerRef) {
@@ -397,206 +387,369 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
   public override async onOptionClicked(
     payload: OptionClickedPayload,
   ): Promise<void> {
-    if (!payload || !payload.option) {
-      return;
-    }
+    if (!payload || !payload.option) return;
+  
+    const activeQuestionIndex = this.getActiveQuestionIndex();
+    const enrichedOption = this.buildEnrichedSelectedOption(
+      payload,
+      activeQuestionIndex
+    );
+  
+    this.updateLocalSelectionState(enrichedOption);
+  
+    const question = this.resolveQuestion(activeQuestionIndex);
+  
+    if (!question) return;
+  
+    const optionsSource = this.resolveOptionsSource(question);
+    const isMultiAnswer = this.isMultipleAnswerQuestion(question, optionsSource);
+  
+    this.syncSelectedOptionService(
+      activeQuestionIndex,
+      enrichedOption,
+      isMultiAnswer
+    );
+  
+    const complete = this.updateQuestionCompletionState(question);
+  
+    this.updateScoringAndAnswerSelectedState(
+      activeQuestionIndex,
+      question,
+      optionsSource,
+      isMultiAnswer,
+      complete
+    );
+  
+    this.updateVisualBindings(enrichedOption);
+  
+    this.updateDotStatus(activeQuestionIndex, enrichedOption);
+  
+    this.emitCleanOptionClickedPayload(payload, enrichedOption);
+  }
 
+  private getActiveQuestionIndex(): number {
+    return typeof this.currentQuestionIndex() === 'number'
+      ? this.currentQuestionIndex()
+      : 0;
+  }
+
+  private getEffectiveOptionId(option: any, index: number): number {
+    return option?.optionId != null && option.optionId !== -1
+      ? option.optionId
+      : index;
+  }
+
+  private isCorrectOptionValue(option: any): boolean {
+    return (
+      option &&
+      (
+        option.correct === true ||
+        String(option.correct) === 'true' ||
+        option.correct === 1 ||
+        option.correct === '1'
+      )
+    );
+  }
+
+  private buildEnrichedSelectedOption(
+    payload: OptionClickedPayload,
+    activeQuestionIndex: number
+  ): SelectedOption {
     const rawOption = payload.option;
     const wasChecked = payload.checked ?? true;
-
-    // Always get the QUESTION INDEX from QQC input
-    const activeQuestionIndex =
-      typeof this.currentQuestionIndex() === 'number'
-        ? this.currentQuestionIndex()
-        : 0;
-
-    const getEffectiveId =
-      (o: any, i: number) => (o?.optionId != null && o.optionId !== -1) ? o.optionId : i;
-    const targetKey = getEffectiveId(rawOption, payload.index);
-
+  
+    const targetKey = this.getEffectiveOptionId(rawOption, payload.index);
+  
     const canonical =
       this.optionsToDisplay()?.find(
-        (opt: Option, i: number) => getEffectiveId(opt, i) === targetKey
+        (opt: Option, index: number) =>
+          this.getEffectiveOptionId(opt, index) === targetKey,
       ) ?? rawOption;
-
-    // Robust correctness check (matches SelectedOptionService)
-    const isCorrectValue =
-      (o: any) => o && (o.correct === true || String(o.correct) === 'true' ||
-        o.correct === 1 || o.correct === '1');
-
-    const enrichedOption: SelectedOption = {
+  
+    return {
       ...canonical,
       optionId: targetKey,
       text: canonical.text,
-      correct: isCorrectValue(canonical),
+      correct: this.isCorrectOptionValue(canonical),
       questionIndex: activeQuestionIndex,
       displayIndex: payload.index,
       selected: wasChecked,
       highlight: wasChecked,
-      showIcon: wasChecked
+      showIcon: wasChecked,
     } as any;
+  }
 
-    // INTERNAL STATE UPDATE
+  private updateLocalSelectionState(enrichedOption: SelectedOption): void {
     if (this.type() === 'single') {
       this.selectedOption = enrichedOption;
       this.selectedOptions = [enrichedOption];
-    } else {
-      this.selectedOptions ??= [];
-
-      const i = this.selectedOptions.findIndex(
-        (o: any) => getEffectiveId(o, (o as any).displayIndex ??
-        (o as any).index) === targetKey
-      );
-
-      if (enrichedOption.selected) {
-        if (i === -1) {
-          this.selectedOptions.push(enrichedOption);
-        } else {
-          this.selectedOptions[i] = enrichedOption;
-        }
-      } else {
-        if (i !== -1) this.selectedOptions.splice(i, 1);
-      }
-    }
-
-    // Resolve canonical question by INDEX (prefer service, fallback to @Input)
-    const serviceQuestion = this.quizService.questions?.[activeQuestionIndex];
-    const question = serviceQuestion ?? this.questionData();
-
-    if (!question) {
       return;
     }
-
-    if (!serviceQuestion) {
+  
+    this.selectedOptions ??= [];
+  
+    const existingIndex = this.selectedOptions.findIndex((option: any) => {
+      const optionIndex = option.displayIndex ?? option.index;
+  
+      return (
+        this.getEffectiveOptionId(option, optionIndex) === enrichedOption.optionId
+      );
+    });
+  
+    if (enrichedOption.selected) {
+      if (existingIndex === -1) {
+        this.selectedOptions.push(enrichedOption);
+      } else {
+        this.selectedOptions[existingIndex] = enrichedOption;
+      }
+  
+      return;
     }
+  
+    if (existingIndex !== -1) {
+      this.selectedOptions.splice(existingIndex, 1);
+    }
+  }
+  
+  private resolveQuestion(activeQuestionIndex: number): QuizQuestion | undefined {
+    const serviceQuestion = this.quizService.questions?.[activeQuestionIndex];
+    const question = serviceQuestion ?? this.questionData();
+  
+    if (!question) {
+      console.warn(
+        '[AnswerComponent] No question available for active index:',
+        activeQuestionIndex
+      );
+  
+      return undefined;
+    }
+  
+    if (!serviceQuestion) {
+      console.warn(
+        '[AnswerComponent] Falling back to questionData() because quizService.questions did not contain question at index:',
+        activeQuestionIndex
+      );
+    }
+  
+    return question;
+  }
 
-    const optionsSource =
-      this.optionsToDisplay()?.length ? this.optionsToDisplay() : question.options;
+  private resolveOptionsSource(question: QuizQuestion): Option[] {
+    return this.optionsToDisplay()?.length
+      ? this.optionsToDisplay()
+      : question.options;
+  }
+
+  private isMultipleAnswerQuestion(
+    question: QuizQuestion,
+    optionsSource: Option[]
+  ): boolean {
     const correctCount =
-      optionsSource?.filter((o: any) => o.correct === true || String(o.correct) === 'true').length ?? 0;
-    const isMultiAnswer =
-      this.type() === 'multiple' || question.type === QuestionType.MultipleAnswer || correctCount > 1;
-
-    // Push to SelectedOptionService (merge, not replace)
-    this.selectedOptionService.currentQuestionType =
-      !isMultiAnswer ? QuestionType.SingleAnswer : QuestionType.MultipleAnswer;
-
+      optionsSource?.filter((option: any) =>
+        option.correct === true || String(option.correct) === 'true',
+      ).length ?? 0;
+  
+    return (
+      this.type() === 'multiple' ||
+      question.type === QuestionType.MultipleAnswer ||
+      correctCount > 1
+    );
+  }
+  
+  private syncSelectedOptionService(
+    activeQuestionIndex: number,
+    enrichedOption: SelectedOption,
+    isMultiAnswer: boolean
+  ): void {
+    this.selectedOptionService.currentQuestionType = !isMultiAnswer
+      ? QuestionType.SingleAnswer
+      : QuestionType.MultipleAnswer;
+  
     if (!isMultiAnswer) {
-      // Single-answer: REPLACE selection
       this.selectedOptionService.setSelectedOptionsForQuestion(
         activeQuestionIndex,
         [enrichedOption]
       );
-    } else {
-      // Multiple-answer: MERGE selection
-      // (High-level exclusive highlighting logic is now handled in SelectedOptionService.addOption)
-      this.selectedOptionService.addOption(activeQuestionIndex, enrichedOption);
-    }
-
-    // AUTHORITATIVE COMPLETE CHECK (AFTER SOS UPDATE)
-    if (this.questionIndex == null) {
+  
       return;
     }
+  
+    // Multiple-answer: MERGE selection
+    // High-level exclusive highlighting logic is handled in SelectedOptionService.addOption.
+    this.selectedOptionService.addOption(activeQuestionIndex, enrichedOption);
+  }
 
+  private updateQuestionCompletionState(question: QuizQuestion): boolean {
+    if (this.questionIndex == null) return false;
+  
+    const questionIndex = this.questionIndex();
+  
+    if (questionIndex == null) return false;
+  
     const allSelected =
-      this.selectedOptionService.getSelectedOptionsForQuestion(this.questionIndex()!);
-
+      this.selectedOptionService.getSelectedOptionsForQuestion(questionIndex);
+  
     const complete =
       this.selectedOptionService.isQuestionComplete(question, allSelected);
-
+  
     this._wasComplete = complete;
+  
+    return complete;
+  }
 
-    // MULTI-ANSWER SCORING: Score when ALL correct answers have been selected
-    // Uses this.selectedOptions (local state with correct flags) — NOT the service map,
-    // which may lose the correct flag during canonicalization or use a different index key.
+  private updateScoringAndAnswerSelectedState(
+    activeQuestionIndex: number,
+    question: QuizQuestion,
+    optionsSource: Option[],
+    isMultiAnswer: boolean,
+    complete: boolean
+  ): void {
     if (isMultiAnswer && this.selectedOptions?.length > 0) {
-      const isCorrect = (o: any) => {
-        const c = o?.correct;
-        return c === true || String(c) === 'true' || c === 1 || c === '1';
-      };
-
-      const totalCorrectInQuestion = optionsSource.filter(isCorrect).length;
-      const correctSelectedCount = this.selectedOptions.filter(isCorrect).length;
-
-      if (correctSelectedCount === totalCorrectInQuestion && totalCorrectInQuestion > 0) {
+      const totalCorrectInQuestion =
+        optionsSource.filter((option: any) =>
+          this.isCorrectOptionValue(option),
+        ).length;
+  
+      const correctSelectedCount =
+        this.selectedOptions.filter((option: any) =>
+          this.isCorrectOptionValue(option),
+        ).length;
+  
+      if (
+        correctSelectedCount === totalCorrectInQuestion &&
+        totalCorrectInQuestion > 0
+      ) {
         this.quizService.scoreDirectly(activeQuestionIndex, true, true);
         this.quizStateService.setAnswerSelected(true);
-      } else {
-        this.quizStateService.setAnswerSelected(complete);
+        return;
       }
-    } else {
-      // Mark answered ONLY when invariant is satisfied
+  
       this.quizStateService.setAnswerSelected(complete);
+      return;
     }
+  
+    // Mark answered only when invariant is satisfied.
+    this.quizStateService.setAnswerSelected(complete);
+  }
 
-    // VISUAL HIGHLIGHTING UPDATE: mutate bindings so the clicked option
-    // (and previously selected ones in multi-mode) reflect selection state.
+  private updateVisualBindings(enrichedOption: SelectedOption): void {
     const currentBindings = this.optionBindings();
-    if (currentBindings?.length) {
-      const isSingle = this.type() === 'single';
-      // Single-answer questions only allow one selection — once any option
-      // is clicked, disable all other options so they grey out.
-      const disableOthers = isSingle && enrichedOption.selected === true;
-      const updated = currentBindings.map((b, i) => {
-        const bId = getEffectiveId(b.option, i);
-        const matches = bId === targetKey;
-        if (matches) {
-          const newOpt = {
-            ...b.option,
-            selected: enrichedOption.selected,
-            highlight: enrichedOption.selected,
-            showIcon: enrichedOption.selected
-          };
-          return {
-            ...b,
-            option: newOpt,
-            isSelected: enrichedOption.selected === true,
-            highlight: enrichedOption.selected === true,
-            checked: enrichedOption.selected === true,
-            showFeedback: true,
-            disabled: false
-          } as OptionBindings;
-        }
-        if (isSingle) {
-          // Deselect all others in single mode; grey them if an option was selected.
-          // Keep correct options enabled so the user can still click the right answer.
-          const isThisOptCorrect = b.option?.correct === true || String(b.option?.correct) === 'true';
-          const newOpt = { ...b.option, selected: false, highlight: false, showIcon: false };
-          return {
-            ...b,
-            option: newOpt,
-            isSelected: false,
-            highlight: false,
-            checked: false,
-            disabled: (disableOthers && !isThisOptCorrect) ? true : b.disabled
-          } as OptionBindings;
-        }
-        return b;
-      });
-      this.optionBindings.set(updated);
-      this.cdRef.markForCheck();
-    }
+  
+    if (!currentBindings?.length) return;
+  
+    const isSingle = this.type() === 'single';
+  
+    // Single-answer questions only allow one selection.
+    // Once any option is clicked, disable all other wrong options so they grey out.
+    const disableOthers = isSingle && enrichedOption.selected === true;
+  
+    const updated = currentBindings.map((binding, index) => {
+      const bindingId = this.getEffectiveOptionId(binding.option, index);
+      const matchesClickedOption = bindingId === enrichedOption.optionId;
+  
+      if (matchesClickedOption) {
+        return this.buildClickedOptionBinding(binding, enrichedOption);
+      }
+  
+      if (isSingle) {
+        return this.buildUnselectedSingleAnswerBinding(binding, disableOthers);
+      }
+  
+      return binding;
+    });
+  
+    this.optionBindings.set(updated);
+    this.cdRef.markForCheck();
+  }
 
-    // SET DOT STATUS EARLY — before emitting, so updateDotStatus sees the correct value
-    if (enrichedOption.selected === true && activeQuestionIndex != null) {
-      const dotStatus = enrichedOption.correct ? 'correct' : 'wrong';
-      this.selectedOptionService.clickConfirmedDotStatus.set(activeQuestionIndex, dotStatus);
-      this.selectedOptionService.lastClickedCorrectByQuestion.set(activeQuestionIndex, !!enrichedOption.correct);
-      try {
-        sessionStorage.setItem('dot_confirmed_' + activeQuestionIndex, dotStatus);
-      } catch {}
-    }
+  private buildClickedOptionBinding(
+    binding: OptionBindings,
+    enrichedOption: SelectedOption,
+  ): OptionBindings {
+    const selected = enrichedOption.selected === true;
+  
+    const newOption = {
+      ...binding.option,
+      selected,
+      highlight: selected,
+      showIcon: selected
+    };
+  
+    return {
+      ...binding,
+      option: newOption,
+      isSelected: selected,
+      highlight: selected,
+      checked: selected,
+      showFeedback: true,
+      disabled: false
+    } as OptionBindings;
+  }
 
-    // FORWARD CLEAN PAYLOAD UPWARD
+  private buildUnselectedSingleAnswerBinding(
+    binding: OptionBindings,
+    disableOthers: boolean,
+  ): OptionBindings {
+    const isThisOptionCorrect =
+      binding.option?.correct === true ||
+      String(binding.option?.correct) === 'true';
+  
+    const newOption = {
+      ...binding.option,
+      selected: false,
+      highlight: false,
+      showIcon: false
+    };
+  
+    return {
+      ...binding,
+      option: newOption,
+      isSelected: false,
+      highlight: false,
+      checked: false,
+      disabled: disableOthers && !isThisOptionCorrect
+        ? true
+        : binding.disabled
+    } as OptionBindings;
+  }
+
+  private updateDotStatus(
+    activeQuestionIndex: number,
+    enrichedOption: SelectedOption
+  ): void {
+    if (enrichedOption.selected !== true || activeQuestionIndex == null) return;
+  
+    const dotStatus = enrichedOption.correct ? 'correct' : 'wrong';
+  
+    this.selectedOptionService.clickConfirmedDotStatus.set(
+      activeQuestionIndex,
+      dotStatus
+    );
+  
+    this.selectedOptionService.lastClickedCorrectByQuestion.set(
+      activeQuestionIndex,
+      !!enrichedOption.correct
+    );
+  
+    try {
+      sessionStorage.setItem('dot_confirmed_' + activeQuestionIndex, dotStatus);
+    } catch {}
+  }
+
+  private emitCleanOptionClickedPayload(
+    originalPayload: OptionClickedPayload,
+    enrichedOption: SelectedOption,
+  ): void {
     const cleanPayload: OptionClickedPayload = {
       option: enrichedOption,
-      index: payload.index,
+      index: originalPayload.index,
       checked: enrichedOption.selected === true,
-      wasReselected: payload.wasReselected ?? false
+      wasReselected: originalPayload.wasReselected ?? false,
     };
-
+  
     this.optionClicked.emit(cleanPayload);
   }
+
 
   // Rebuild optionBindings from the latest optionsToDisplay.
   private rebuildOptionBindings(opt: Option[]): OptionBindings[] {
@@ -608,12 +761,11 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     // Deep clone options to avoid mutation
     const cloned: Option[] =
       typeof structuredClone === 'function'
-        ? structuredClone(opt)
-        : JSON.parse(JSON.stringify(opt));
+        ? structuredClone(opt) : JSON.parse(JSON.stringify(opt));
 
     // Build fresh bindings
     const rebuilt = cloned.map((opt, idx) =>
-      this.buildFallbackBinding(opt, idx),
+      this.buildFallbackBinding(opt, idx)
     );
 
     // Patch shared references
