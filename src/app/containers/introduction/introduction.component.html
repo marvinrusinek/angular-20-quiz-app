@@ -1,5 +1,4 @@
-@let selectedQuiz = selectedQuiz$ | async;
-@if (selectedQuiz) {
+@if (selectedQuiz(); as quiz) {
   <mat-card class="quiz-card">
     <mat-card-header>
       <img
@@ -19,7 +18,7 @@
 
         <mat-card-subtitle i18n>
           <span>
-            How well versed are you in {{ selectedQuiz.milestone }}?<br />
+            How well versed are you in {{ selectedQuiz().milestone }}?<br />
             Take the quiz and find out!
           </span>
         </mat-card-subtitle>
@@ -37,13 +36,13 @@
     <mat-card-content>
       <div class="intro-text" i18n>
         <p>
-          <strong class="bold-text">{{ selectedQuiz.summary }}</strong>
+          <strong class="bold-text">{{ selectedQuiz().summary }}</strong>
         </p>
 
         <p style="text-align: center">
           Test your wits with
           <strong class="bold-text">
-            {{ selectedQuiz.questions?.length ?? 0 }}
+            {{ selectedQuiz().questions?.length ?? 0 }}
           </strong>
           timed multiple-choice {{ questionLabel }}! Have fun and share!
         </p>
