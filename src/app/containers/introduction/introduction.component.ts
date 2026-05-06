@@ -180,7 +180,7 @@ export class IntroductionComponent implements OnInit, OnDestroy {
   private handleError(error: unknown): void {
     console.error('[QuizSelection] Failed to load quiz:', error);
   
-    this.selectedQuiz$.next(null);
+    this.selectedQuiz.set(null);
     this.quiz = null;
     this.introImg = '';
     this.questionCountSig.set(0);
