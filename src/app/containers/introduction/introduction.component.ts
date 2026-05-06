@@ -223,115 +223,94 @@ export class IntroductionComponent implements OnInit, OnDestroy {
     this.cdRef.markForCheck();
 
     try {
-      const targetQuizId = quizId ?? this.quizId ?? this.getStoredQuizId();
+      const targetQuizId = this.resolveTargetQuizId(quizId);
       if (!targetQuizId) return;
 
-      // Clear cache before starting to ensure fresh shuffle with correct flag
-      this.quizDataService.clearQuizQuestionCache(targetQuizId);
-      this.quizShuffleService.clear(targetQuizId);  // clear shuffle state to force fresh shuffle
-
-      this.quizService.resetQuizSessionState();
+      this.clearCachesAndResetSession(targetQuizId);
 
       const activeQuiz = await this.resolveActiveQuiz(targetQuizId);
       if (!activeQuiz) return;
 
-      // Retrieve form values
-      const preferences = this.preferencesForm.value;
+      const shouldShuffleOptions = !!this.preferencesForm.value?.shouldShuffleOptions;
+      this.applySelectedQuizState(activeQuiz, targetQuizId, shouldShuffleOptions);
 
-      // Access individual preferences from the form
-      const shouldShuffleOptions = preferences.shouldShuffleOptions;
+      this.resetQuizForFreshStart(targetQuizId);
 
-      this.quizDataService.setSelectedQuiz(activeQuiz);
-      this.quizService.setSelectedQuiz(activeQuiz);
-      this.quizService.setActiveQuiz(activeQuiz);
-      this.persistQuizId(targetQuizId);
-      this.quizService.setCheckedShuffle(shouldShuffleOptions);
-      this.quizService.setQuizId(targetQuizId);
-      this.quizService.setCurrentQuestionIndex(0);
+      await this.prepareAndSetCurrentQuiz(activeQuiz, targetQuizId);
 
-      // Hard fresh-start reset for same-tab runs before entering Q1.
-      // Prevent stale score like 1/6 from previous attempts.
-      this.quizService.resetScore();
-      this.quizService.questionCorrectness.clear();
-      this.quizService.selectedOptionsMap.clear();
-      this.quizService.userAnswers = [];
-      this.quizService.answers = [];
-      this.selectedOptionService.clearAllSelectionsForQuiz(targetQuizId);
-      this.selectedOptionService.clearRefreshBackup();
-      this.selectedOptionService.clickConfirmedDotStatus.clear();
-      this.selectedOptionService.lastClickedCorrectByQuestion.clear();
-      this.dotStatusService.clearAllMaps();
-      this.quizPersistence.clearClickConfirmedDotStatus(20);
-      this.quizPersistence.clearAllPersistedDotStatus(targetQuizId);
-      try {
-        localStorage.setItem('savedQuestionIndex', '0');
-        localStorage.setItem('correctAnswersCount', '0');
-        localStorage.removeItem('questionCorrectness');
-        localStorage.removeItem('selectedOptionsMap');
-        localStorage.removeItem('userAnswers');
-        sessionStorage.removeItem('selectedOptionsMap');
-        sessionStorage.removeItem('rawSelectionsMap');
-        sessionStorage.removeItem('selectionHistory');
-        sessionStorage.removeItem('isAnswered');
-        // Remove this quiz from completed list (restarting it)
-        try {
-          const ids: string[] = JSON.parse(sessionStorage.getItem('completedQuizIds') || '[]');
-          const filtered = ids.filter(id => id !== targetQuizId);
-          if (filtered.length > 0) {
-            sessionStorage.setItem('completedQuizIds', JSON.stringify(filtered));
-          } else {
-            sessionStorage.removeItem('completedQuizIds');
-          }
-        } catch { sessionStorage.removeItem('completedQuizIds'); }
-        sessionStorage.removeItem('finalResult');
-        sessionStorage.removeItem('elapsedTimes');
-        sessionStorage.removeItem('completionTime');
-        // Clear per-question sessionStorage entries from previous quiz
-        for (let i = 0; i < 100; i++) {
-          sessionStorage.removeItem('sel_Q' + i);
-          sessionStorage.removeItem('dot_confirmed_' + i);
-          sessionStorage.removeItem('quiz_selection_' + i);
-          sessionStorage.removeItem('displayMode_' + i);
-          sessionStorage.removeItem('feedbackText_' + i);
-        }
-        // Clear all localStorage dot status keys
-        const lsKeysToRemove: string[] = [];
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && (key.startsWith('quiz_dot_status_') || key.startsWith('quiz_progress_'))) {
-            lsKeysToRemove.push(key);
-          }
-        }
-        for (const key of lsKeysToRemove) {
-          localStorage.removeItem(key);
-        }
-      } catch {}
-
-      try {
-        const preparedQuestions = (await firstValueFrom(
-          this.quizDataService.prepareQuizSession(targetQuizId),
-        )) as QuizQuestion[];
-
-        // Now set current quiz with the SHUFFLED questions
-        const quizWithShuffledQuestions = {
-          ...activeQuiz,
-          questions: preparedQuestions ?? activeQuiz.questions
-        };
-        this.quizDataService.setCurrentQuiz(quizWithShuffledQuestions);
-      } catch (error) {
-        // Fallback: set with original questions if shuffle fails
-        this.quizDataService.setCurrentQuiz(activeQuiz);
-      }
-
-      const navigationSucceeded =
-        await this.navigateToFirstQuestion(targetQuizId);
-
-      if (!navigationSucceeded) {
-        // navigation to first question was prevented
-      }
+      await this.navigateToFirstQuestion(targetQuizId);
     } finally {
       this.isStartingQuiz.set(false);
       this.cdRef.markForCheck();
+    }
+  }
+
+  // Resolve which quiz id the user is starting: explicit override → field
+  // → localStorage fallback. Returns null when nothing resolves.
+  private resolveTargetQuizId(override?: string): string | null {
+    return override ?? this.quizId ?? this.getStoredQuizId();
+  }
+
+  // Drop cached questions + shuffle state for this quiz so the run that
+  // follows gets a fresh shuffle, then reset the in-memory session.
+  private clearCachesAndResetSession(targetQuizId: string): void {
+    this.quizDataService.clearQuizQuestionCache(targetQuizId);
+    this.quizShuffleService.clear(targetQuizId);
+    this.quizService.resetQuizSessionState();
+  }
+
+  // Apply the user's selected quiz across services, persist the id, and
+  // commit the shuffle preference. Index resets to Q1 (0).
+  private applySelectedQuizState(
+    activeQuiz: Quiz,
+    targetQuizId: string,
+    shouldShuffleOptions: boolean
+  ): void {
+    this.quizDataService.setSelectedQuiz(activeQuiz);
+    this.quizService.setSelectedQuiz(activeQuiz);
+    this.quizService.setActiveQuiz(activeQuiz);
+    this.persistQuizId(targetQuizId);
+    this.quizService.setCheckedShuffle(shouldShuffleOptions);
+    this.quizService.setQuizId(targetQuizId);
+    this.quizService.setCurrentQuestionIndex(0);
+  }
+
+  // Hard fresh-start reset for same-tab runs before entering Q1.
+  // Prevents stale state (e.g. 1/6 score) leaking from a prior attempt.
+  // Storage cleanup is delegated to QuizPersistenceService.
+  private resetQuizForFreshStart(targetQuizId: string): void {
+    this.quizService.resetScore();
+    this.quizService.questionCorrectness.clear();
+    this.quizService.selectedOptionsMap.clear();
+    this.quizService.userAnswers = [];
+    this.quizService.answers = [];
+    this.selectedOptionService.clearAllSelectionsForQuiz(targetQuizId);
+    this.selectedOptionService.clearRefreshBackup();
+    this.selectedOptionService.clickConfirmedDotStatus.clear();
+    this.selectedOptionService.lastClickedCorrectByQuestion.clear();
+    this.dotStatusService.clearAllMaps();
+    this.quizPersistence.clearClickConfirmedDotStatus(20);
+    this.quizPersistence.clearAllPersistedDotStatus(targetQuizId);
+    this.quizPersistence.clearAllForFreshStart(targetQuizId);
+  }
+
+  // Prepare the quiz session (which produces shuffled questions) and
+  // commit the resulting quiz to the data service. Falls back to the
+  // un-shuffled quiz if preparation fails.
+  private async prepareAndSetCurrentQuiz(
+    activeQuiz: Quiz,
+    targetQuizId: string
+  ): Promise<void> {
+    try {
+      const preparedQuestions = (await firstValueFrom(
+        this.quizDataService.prepareQuizSession(targetQuizId),
+      )) as QuizQuestion[];
+      this.quizDataService.setCurrentQuiz({
+        ...activeQuiz,
+        questions: preparedQuestions ?? activeQuiz.questions
+      });
+    } catch {
+      this.quizDataService.setCurrentQuiz(activeQuiz);
     }
   }
 

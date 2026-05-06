@@ -169,6 +169,62 @@ export class QuizPersistenceService {
     this.selectedOptionService.clickConfirmedDotStatus.clear();
   }
 
+  // Wipe every browser-storage key that could leak state from a prior
+  // attempt into a fresh-start of `quizId`. Called by IntroductionComponent
+  // before navigating to Q1. Pulls together the localStorage and
+  // sessionStorage cleanup that was previously inlined in onStartQuiz.
+  clearAllForFreshStart(quizId: string): void {
+    try {
+      localStorage.setItem('savedQuestionIndex', '0');
+      localStorage.setItem('correctAnswersCount', '0');
+      localStorage.removeItem('questionCorrectness');
+      localStorage.removeItem('selectedOptionsMap');
+      localStorage.removeItem('userAnswers');
+
+      sessionStorage.removeItem('selectedOptionsMap');
+      sessionStorage.removeItem('rawSelectionsMap');
+      sessionStorage.removeItem('selectionHistory');
+      sessionStorage.removeItem('isAnswered');
+      sessionStorage.removeItem('finalResult');
+      sessionStorage.removeItem('elapsedTimes');
+      sessionStorage.removeItem('completionTime');
+
+      // Drop this quiz from the completed list (we're restarting it)
+      try {
+        const ids: string[] = JSON.parse(sessionStorage.getItem('completedQuizIds') || '[]');
+        const filtered = ids.filter(id => id !== quizId);
+        if (filtered.length > 0) {
+          sessionStorage.setItem('completedQuizIds', JSON.stringify(filtered));
+        } else {
+          sessionStorage.removeItem('completedQuizIds');
+        }
+      } catch {
+        sessionStorage.removeItem('completedQuizIds');
+      }
+
+      // Per-question session entries from the previous quiz
+      for (let i = 0; i < 100; i++) {
+        sessionStorage.removeItem('sel_Q' + i);
+        sessionStorage.removeItem('dot_confirmed_' + i);
+        sessionStorage.removeItem('quiz_selection_' + i);
+        sessionStorage.removeItem('displayMode_' + i);
+        sessionStorage.removeItem('feedbackText_' + i);
+      }
+
+      // localStorage dot-status / progress keys (any quiz)
+      const lsKeysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('quiz_dot_status_') || key.startsWith('quiz_progress_'))) {
+          lsKeysToRemove.push(key);
+        }
+      }
+      for (const key of lsKeysToRemove) {
+        localStorage.removeItem(key);
+      }
+    } catch {}
+  }
+
   // ═══════════════════════════════════════════════════════════════
   // CONTINUE STATUS
   // ════════════════════════════════════════════════════��══════════
