@@ -4,9 +4,7 @@ import { Option } from '../../../../shared/models/Option.model';
 import { QuestionType } from '../../../../shared/models/question-type.enum';
 import { QuizQuestion } from '../../../../shared/models/QuizQuestion.model';
 
-@Injectable({
-  providedIn: 'root',
-})
+@Injectable({ providedIn: 'root' })
 export class AnswerOptionsService {
   getEffectiveOptionId(option: any, index: number): number {
     return option?.optionId != null && option.optionId !== -1
