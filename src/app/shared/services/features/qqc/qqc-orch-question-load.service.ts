@@ -87,7 +87,7 @@ export class QqcOrchQuestionLoadService {
       explanationToDisplay: host.explanationToDisplay(),
       quizId: host.quizId(),
       isAnswered: host.isAnswered as boolean,
-      displayMode: host.displayMode$.getValue(),
+      displayMode: host.displayMode(),
       shouldDisplayExplanation: host.shouldDisplayExplanation,
       explanationVisible: host.explanationVisible,
       displayExplanation: host.displayExplanation,
@@ -225,7 +225,7 @@ export class QqcOrchQuestionLoadService {
           host.showExplanationChange.emit(true);
           const transition = host.explanationDisplay.computeExplanationModeTransition(
             host.shouldDisplayExplanation,
-            host.displayMode$.getValue()
+            host.displayMode()
           );
           if (transition) {
             host.applyDisplayState(transition.displayState);

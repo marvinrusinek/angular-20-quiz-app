@@ -137,7 +137,6 @@ export class QuizQuestionComponent extends BaseQuestion
   shouldRenderFinalOptions = false;
   explanationLocked = false;  // flag to lock explanation
   explanationVisible = false;
-  private displayMode$ = new BehaviorSubject<'question' | 'explanation'>('question');
   private displaySubscriptions: Subscription[] = [];
   private displayModeSubscription!: Subscription;
   private lastOptionsQuestionSignature: string | null = null;
@@ -348,7 +347,6 @@ export class QuizQuestionComponent extends BaseQuestion
 
   private updateDisplayMode(mode: 'question' | 'explanation'): void {
     this.displayMode.set(mode);
-    this.displayMode$.next(mode);
   }
 
   private markRenderReady(): void {
