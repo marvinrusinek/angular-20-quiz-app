@@ -224,10 +224,11 @@ export class IntroductionComponent implements OnInit, OnDestroy {
 
   onSlideToggleChange(event: MatSlideToggleChange): void {
     const isChecked = event.checked;
+  
     this.highlightPreference = isChecked;
     this.shouldShuffleOptions = isChecked;
     this.quizService.setCheckedShuffle(isChecked);
-    this.isCheckedSubject.next(isChecked);
+    this.isChecked.set(isChecked);
   }
 
   async onStartQuiz(quizId?: string): Promise<void> {
