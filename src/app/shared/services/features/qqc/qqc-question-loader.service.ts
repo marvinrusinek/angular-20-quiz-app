@@ -1,12 +1,9 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, Subscription } from 'rxjs';
-import { distinctUntilChanged, filter } from 'rxjs/operators';
 
 import { Option } from '../../../models/Option.model';
 import { OptionBindings } from '../../../models/OptionBindings.model';
 import { SharedOptionConfig } from '../../../models/SharedOptionConfig.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
-import { QuestionPayload } from '../../../models/QuestionPayload.model';
 import { QuizService } from '../../data/quiz.service';
 import { QuizStateService } from '../../state/quizstate.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
@@ -398,57 +395,6 @@ export class QqcQuestionLoaderService {
     const questionToDisplay = currentQuestion.questionText?.trim() || '';
 
     return { currentQuestion, optionsToDisplay, questionToDisplay, hasSharedRefs };
-  }
-
-  /**
-   * Creates the payload hydration subscription used in ngAfterViewInit.
-   */
-  createPayloadHydrationSubscription(params: {
-    payloadSubject: BehaviorSubject<QuestionPayload | null>;
-    getHydrationInProgress: () => boolean;
-    setHydrationInProgress: (val: boolean) => void;
-    setRenderReady: (val: boolean) => void;
-    setCurrentQuestion: (q: QuizQuestion) => void;
-    setExplanationToDisplay: (text: string) => void;
-    setOptionsToDisplay: (opts: Option[]) => void;
-    initializeOptionBindings: () => void;
-    releaseBaseline: (idx: number) => void;
-    getCurrentQuestionIndex: () => number;
-    detectChanges: () => void;
-  }): Subscription {
-    return params.payloadSubject
-      .pipe(
-        filter((payload): payload is QuestionPayload => !!payload),
-        distinctUntilChanged((a, b) => JSON.stringify(a) === JSON.stringify(b))
-      )
-      .subscribe((payload: QuestionPayload) => {
-        if (params.getHydrationInProgress()) return;
-
-        params.setRenderReady(false);
-        params.setHydrationInProgress(true);
-
-        // Extract and assign payload
-        const { question, options, explanation } = payload;
-        params.setCurrentQuestion(question);
-        params.setExplanationToDisplay(explanation?.trim() || '');
-        params.setOptionsToDisplay(structuredClone(options));  // ensure isolation
-
-        // Initialize option bindings if needed
-        params.initializeOptionBindings();
-
-        // Baseline message recompute, now that options are known
-        if (options && options.length > 0) {
-          // Release baseline immediately
-          this.selectionMessageService.releaseBaseline(params.getCurrentQuestionIndex());
-        }
-
-        // Finalize rendering state after one microtask delay
-        setTimeout(() => {
-          params.setRenderReady(true);
-          params.setHydrationInProgress(false);
-          params.detectChanges();  // trigger OnPush refresh
-        }, 0);
-      });
   }
 
   /**

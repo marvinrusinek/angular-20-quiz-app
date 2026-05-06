@@ -265,24 +265,6 @@ export class QqcOrchLifecycleService {
       setCurrentOptions: (opts: Option[]) => { host.currentOptions = opts; },
     });
 
-    host.questionLoader.createPayloadHydrationSubscription({
-      payloadSubject: host.payloadSubject,
-      getHydrationInProgress: () => host.hydrationInProgress,
-      setHydrationInProgress: (val: boolean) => { host.hydrationInProgress = val; },
-      setRenderReady: (val: boolean) => { host.renderReady = val; },
-      setCurrentQuestion: (q: QuizQuestion | null) => { host.currentQuestion.set(q); },
-      setExplanationToDisplay: (text: string) => { host.explanationToDisplay.set(text); },
-      setOptionsToDisplay: (opts: Option[]) => { host.optionsToDisplay.set(opts); },
-      initializeOptionBindings: () => {
-        if (host.sharedOptionComponent) {
-          host.sharedOptionComponent.initializeOptionBindings();
-        }
-      },
-      releaseBaseline: (i: number) => host.selectionMessageService.releaseBaseline(i),
-      getCurrentQuestionIndex: () => host.currentQuestionIndex(),
-      detectChanges: () => host.cdRef.detectChanges(),
-    });
-
     const index = host.currentQuestionIndex();
 
     const setupResult = await host.questionLoader.performAfterViewInitQuestionSetup({

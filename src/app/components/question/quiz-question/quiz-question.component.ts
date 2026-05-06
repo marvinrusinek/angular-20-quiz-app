@@ -7,7 +7,7 @@ import { toObservable } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { BehaviorSubject, Observable, of, Subject, Subscription } from 'rxjs';
+import { Observable, of, Subject, Subscription } from 'rxjs';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatRadioModule } from '@angular/material/radio';
 import { AnswerComponent } from '../answer/answer-component/answer.component';
@@ -157,7 +157,6 @@ export class QuizQuestionComponent extends BaseQuestion
   private _formattedByIndex = new Map<number, string>();
   private handledOnExpiry = new Set<number>();
   private lastSerializedOptions = '';
-  private payloadSubject = new BehaviorSubject<QuestionPayload | null>(null);
   private hydrationInProgress = false;
 
   public readonly finalRenderReady = signal(false); // maybe remove
