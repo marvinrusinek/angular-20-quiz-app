@@ -91,6 +91,18 @@ export class IntroductionComponent implements OnInit, OnDestroy {
   
       this.cdRef.markForCheck();
     });
+
+    effect(() => {
+      const quiz = this.selectedQuiz();
+      const checked = this.isChecked();
+  
+      if (!quiz) {
+        return;
+      }
+  
+      this.shouldShuffleOptions = checked;
+      this.fetchAndHandleQuestions(quiz.quizId);
+    });
   }
 
   ngOnInit(): void {
