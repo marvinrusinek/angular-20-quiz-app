@@ -5,24 +5,19 @@ import { OptionBindings } from '../../../../shared/models/OptionBindings.model';
 import { SelectedOption } from '../../../../shared/models/SelectedOption.model';
 import { AnswerOptionsService } from './answer-options.service';
 
-@Injectable({
-  providedIn: 'root',
-})
+@Injectable({ providedIn: 'root' })
 export class AnswerBindingsService {
   constructor(private answerOptionsService: AnswerOptionsService) {}
 
   rebuildOptionBindings(options: Option[]): OptionBindings[] {
-    if (!options?.length) {
-      return [];
-    }
+    if (!options?.length) return [];
 
     const cloned: Option[] =
       typeof structuredClone === 'function'
-        ? structuredClone(options)
-        : JSON.parse(JSON.stringify(options));
+        ? structuredClone(options) : JSON.parse(JSON.stringify(options));
 
     const rebuilt = cloned.map((option, index) =>
-      this.buildFallbackBinding(option, index),
+      this.buildFallbackBinding(option, index)
     );
 
     for (const binding of rebuilt) {
@@ -65,7 +60,7 @@ export class AnswerBindingsService {
       optionsToDisplay: [],
       checked: !!option.selected,
       change: () => {},
-      active: true,
+      active: true
     } as OptionBindings;
   }
 
@@ -74,9 +69,7 @@ export class AnswerBindingsService {
     enrichedOption: SelectedOption,
     type: 'single' | 'multiple',
   ): OptionBindings[] {
-    if (!currentBindings?.length) {
-      return [];
-    }
+    if (!currentBindings?.length) return [];
 
     const isSingle = type === 'single';
     const disableOthers = isSingle && enrichedOption.selected === true;
@@ -84,7 +77,7 @@ export class AnswerBindingsService {
     return currentBindings.map((binding, index) => {
       const bindingId = this.answerOptionsService.getEffectiveOptionId(
         binding.option,
-        index,
+        index
       );
 
       const matchesClickedOption = bindingId === enrichedOption.optionId;
@@ -103,7 +96,7 @@ export class AnswerBindingsService {
 
   private buildClickedOptionBinding(
     binding: OptionBindings,
-    enrichedOption: SelectedOption,
+    enrichedOption: SelectedOption
   ): OptionBindings {
     const selected = enrichedOption.selected === true;
 
@@ -111,7 +104,7 @@ export class AnswerBindingsService {
       ...binding.option,
       selected,
       highlight: selected,
-      showIcon: selected,
+      showIcon: selected
     };
 
     return {
@@ -121,7 +114,7 @@ export class AnswerBindingsService {
       highlight: selected,
       checked: selected,
       showFeedback: true,
-      disabled: false,
+      disabled: false
     } as OptionBindings;
   }
 
@@ -137,7 +130,7 @@ export class AnswerBindingsService {
       ...binding.option,
       selected: false,
       highlight: false,
-      showIcon: false,
+      showIcon: false
     };
 
     return {
@@ -149,14 +142,14 @@ export class AnswerBindingsService {
       disabled:
         disableOthers && !isThisOptionCorrect
           ? true
-          : binding.disabled,
+          : binding.disabled
     } as OptionBindings;
   }
 
   hydrateBindingsFromSavedSelections(
     currentBindings: OptionBindings[],
     savedSelections: SelectedOption[],
-    isMulti: boolean,
+    isMulti: boolean
   ): OptionBindings[] {
     if (!currentBindings?.length || !savedSelections?.length) {
       return currentBindings ?? [];
@@ -167,7 +160,7 @@ export class AnswerBindingsService {
     const savedTexts = new Set(
       savedSelections.map(selection =>
         (selection.text || '').trim().toLowerCase(),
-      ),
+      )
     );
 
     return currentBindings.map(binding => {
@@ -184,7 +177,7 @@ export class AnswerBindingsService {
         ...binding.option,
         selected: isSelected,
         highlight: isSelected,
-        showIcon: isSelected,
+        showIcon: isSelected
       };
 
       return {
@@ -193,7 +186,7 @@ export class AnswerBindingsService {
         isSelected,
         highlight: isSelected,
         checked: isSelected,
-        showFeedback: true,
+        showFeedback: true
       } as OptionBindings;
     });
   }
