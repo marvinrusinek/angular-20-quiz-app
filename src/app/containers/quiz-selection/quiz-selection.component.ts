@@ -49,7 +49,7 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
   currentQuestionIndex = 0;
   private completedQuizIds = new Set<string>();
   readonly accessedCount = signal(0);
-  totalQuizCount = 0;
+  readonly totalQuizCountSig = signal(0);
   private animationStateSignal = signal<AnimationState>('none');
   readonly animationState$ = toObservable(this.animationStateSignal);
   readonly animationStateSig = this.animationStateSignal.asReadonly();
