@@ -383,7 +383,7 @@ export class IntroductionComponent implements OnInit, OnDestroy {
   }
 
   private async resolveActiveQuiz(targetQuizId: string): Promise<Quiz | null> {
-    const quizFromState = this.selectedQuiz$.getValue() ?? this.quiz ?? null;
+    const quizFromState = this.selectedQuiz() ?? this.quiz ?? null;
 
     if (quizFromState?.quizId === targetQuizId) return quizFromState;
 
