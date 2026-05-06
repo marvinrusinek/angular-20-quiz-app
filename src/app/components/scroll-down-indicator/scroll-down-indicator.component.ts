@@ -1,5 +1,5 @@
 import {
-  ChangeDetectionStrategy, ChangeDetectorRef, Component, HostListener, Input,
+  ChangeDetectionStrategy, ChangeDetectorRef, Component, HostListener, input,
   OnInit
 } from '@angular/core';
 
@@ -17,7 +17,7 @@ import {
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ScrollDownIndicatorComponent implements OnInit {
-  @Input() targetSelector = '';
+  targetSelector = input<string>('');
   showIndicator = false;
 
   constructor(private cdRef: ChangeDetectorRef) {}
@@ -38,7 +38,7 @@ export class ScrollDownIndicatorComponent implements OnInit {
 
   check(): void {
     const el = this.targetSelector
-      ? document.querySelector(this.targetSelector)
+      ? document.querySelector(this.targetSelector()) 
       : document.documentElement;
     if (!el) {
       this.showIndicator = false;
