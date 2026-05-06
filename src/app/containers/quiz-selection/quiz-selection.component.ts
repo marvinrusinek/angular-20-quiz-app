@@ -118,7 +118,7 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
         takeUntil(this.unsubscribe$),
         catchError(() => {
           return EMPTY;  // completes the stream safely
-        }),
+        })
       )
       .subscribe((quiz: Quiz | null) => {
         this.selectedQuiz = (quiz as Quiz) ?? null;
@@ -223,9 +223,7 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
         return 'done';
       default:
         // Fallback: if this quiz matches the completedQuizId, show checkmark
-        if (this.completedQuizIds.has(quiz.quizId)) {
-          return 'done';
-        }
+        if (this.completedQuizIds.has(quiz.quizId)) return 'done';
         return '';
     }
   }
