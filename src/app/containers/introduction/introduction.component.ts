@@ -62,7 +62,6 @@ export class IntroductionComponent implements OnInit, OnDestroy {
 
   questionLabel = '';
   introImg = '';
-  imagePath = 'assets/images/milestones/';
 
   private destroy$ = new Subject<void>();
 
@@ -170,7 +169,7 @@ export class IntroductionComponent implements OnInit, OnDestroy {
   
       this.selectedQuiz.set(quiz);
       this.quiz = quiz;
-      this.introImg = this.imagePath + quiz.image;
+      this.introImg = quiz.image;
       this.questionCountSig.set(questionCount);
   
       this.cdRef.markForCheck();
