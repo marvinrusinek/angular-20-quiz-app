@@ -69,13 +69,9 @@
     </mat-menu>
   </div>
 
-  @if (accessedCount() > 0) {
+  @if (hasAccessedQuizzes()) {
     <div class="accessed-banner">
-      @if (accessedCount() >= totalQuizCount) {
-        ALL quizzes accessed! You are an Angular master!
-      } @else {
-        You've accessed {{ accessedCount() }} {{ accessedCount() === 1 ? 'quiz' : 'quizzes' }}. Keep going!
-      }
+      {{ accessedBannerMessage() }}
     </div>
   }
 
