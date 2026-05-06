@@ -54,15 +54,11 @@ export class ReturnComponent implements OnInit {
     this.resetThemeToLight();
     this.clearResultsUiState();
   
-    if (id) {
-      void this.router.navigate(['/quiz/question', id, 1]);
-    }
+    if (id) void this.router.navigate(['/quiz/question', id, 1]);
   }
 
   private ensureQuizId(): void {
-    if (!this.quizId()) {
-      this.quizId.set(this.quizService.quizId);
-    }
+    if (!this.quizId()) this.quizId.set(this.quizService.quizId);
   }
   
   private resetScoreAndResults(): void {
@@ -142,9 +138,7 @@ export class ReturnComponent implements OnInit {
       if (
         key &&
         (key.startsWith('quiz_dot_status_') || key.startsWith('quiz_progress_'))
-      ) {
-        lsKeysToRemove.push(key);
-      }
+      ) lsKeysToRemove.push(key);
     }
   
     for (const key of lsKeysToRemove) {
@@ -164,7 +158,7 @@ export class ReturnComponent implements OnInit {
       sessionStorage.removeItem('resultsActiveSection');
     } catch {}
   }
-  
+
 
   selectQuiz(): void {
     this.selectedOptionService.clearState();
