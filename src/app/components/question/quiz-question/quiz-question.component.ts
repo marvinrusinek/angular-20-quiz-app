@@ -1,7 +1,8 @@
 import {
-  AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, effect,
-  HostListener, input, model, OnChanges, OnDestroy, OnInit, output, signal,
-  SimpleChange, SimpleChanges, ViewChild, ViewContainerRef } from '@angular/core';
+  AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, 
+  computed, effect, HostListener, input, model, OnChanges, OnDestroy, OnInit, 
+  output, signal, SimpleChange, SimpleChanges, ViewChild, ViewContainerRef
+} from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup } from '@angular/forms';
@@ -69,7 +70,6 @@ export class QuizQuestionComponent extends BaseQuestion
   readonly selectionMessageChange = output<string>();
   readonly isAnsweredChange = output<boolean>();
   readonly feedbackTextChange = output<string>();
-  isAnswered = false;
   readonly answerSelected = output<boolean>();
   readonly optionSelected = output<SelectedOption>();
   readonly displayStateChange = output<{
@@ -137,7 +137,6 @@ export class QuizQuestionComponent extends BaseQuestion
   shouldRenderFinalOptions = false;
   explanationLocked = false;  // flag to lock explanation
   explanationVisible = false;
-  displayMode: 'question' | 'explanation' = 'question';
   private displayMode$ = new BehaviorSubject<'question' | 'explanation'>('question');
   private displaySubscriptions: Subscription[] = [];
   private displayModeSubscription!: Subscription;
@@ -338,7 +337,7 @@ export class QuizQuestionComponent extends BaseQuestion
   }): void {
     this.displayMode.set(state.mode);
     this.isAnswered.set(state.answered);
-    
+  
     this.displayStateChange.emit(state);
   }
 
