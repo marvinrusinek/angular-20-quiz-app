@@ -48,8 +48,30 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
   selectedQuiz: Quiz | null = null;
   currentQuestionIndex = 0;
   private completedQuizIds = new Set<string>();
+  
   readonly accessedCount = signal(0);
   readonly totalQuizCountSig = signal(0);
+  readonly hasAccessedQuizzes = computed(() => this.accessedCount() > 0);
+
+  readonly allQuizzesAccessed = computed(() =>
+    this.totalQuizCountSig() > 0 &&
+    this.accessedCount() >= this.totalQuizCountSig()
+  );
+  
+  readonly accessedQuizLabel = computed(() =>
+    this.accessedCount() === 1 ? 'quiz' : 'quizzes'
+  );
+  
+  readonly accessedBannerMessage = computed(() => {
+    const accessedCount = this.accessedCount();
+  
+    if (this.allQuizzesAccessed()) {
+      return 'ALL quizzes accessed! You are an Angular master!';
+    }
+  
+    return `You've accessed ${accessedCount} ${this.accessedQuizLabel()}. Keep going!`;
+  });
+
   private animationStateSignal = signal<AnimationState>('none');
   readonly animationState$ = toObservable(this.animationStateSignal);
   readonly animationStateSig = this.animationStateSignal.asReadonly();
