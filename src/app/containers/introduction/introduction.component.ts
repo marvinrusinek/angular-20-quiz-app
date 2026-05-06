@@ -147,10 +147,12 @@ export class IntroductionComponent implements OnInit, OnDestroy {
       return EMPTY;  // return EMPTY if no quizId is available
     }
 
-    return this.quizDataService.getQuiz(quizId).pipe(
-      catchError(() => {
-        return EMPTY;  // handle the error by returning EMPTY to keep the Observable flow intact
-      })
+    // Hard refresh on /quiz/intro/:quizId skips QuizSelection, so the
+    // quizzes list may not have been fetched yet. ensureQuizzesLoaded()
+    // triggers the HTTP load on first run, then getQuiz() can resolve.
+    return this.quizDataService.ensureQuizzesLoaded().pipe(
+      switchMap(() => this.quizDataService.getQuiz(quizId)),
+      catchError(() => EMPTY)
     );
   }
 
