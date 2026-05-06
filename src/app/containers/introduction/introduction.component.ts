@@ -45,7 +45,7 @@ import { SelectedOptionService } from '../../shared/services/state/selectedoptio
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class IntroductionComponent implements OnInit, OnDestroy {
-  quiz!: Quiz;
+  quiz: Quiz | null = null;
   quizId: string | undefined;
   selectedQuiz: Quiz | null = null;
   selectedQuiz$ = new BehaviorSubject<Quiz | null>(null);
