@@ -64,14 +64,14 @@
           Shuffle questions
         </mat-slide-toggle>
 
-        @if (selectedQuiz(); as selectedQuiz) {
+        @if (selectedQuiz(); as quiz) {
           <button
             type="button"
             mat-raised-button
             color="primary"
             class="btn btn-outline-primary start-btn"
             [disabled]="isStartingQuiz()"
-            (click)="onStartQuiz(selectedQuiz.quizId)"
+            (click)="onStartQuiz(quiz.quizId)"
             aria-label="Start the Quiz"
           >
             <span i18n class="start-btn-content">
