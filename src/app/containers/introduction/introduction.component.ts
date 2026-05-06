@@ -390,7 +390,7 @@ export class IntroductionComponent implements OnInit, OnDestroy {
     try {
       const loadedQuiz = await this.quizDataService.loadQuizById(targetQuizId);
       if (loadedQuiz) {
-        this.selectedQuiz$.next(loadedQuiz);
+        this.selectedQuiz.set(loadedQuiz);
         this.quiz = loadedQuiz;
       }
       return loadedQuiz;
