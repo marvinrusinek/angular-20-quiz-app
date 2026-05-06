@@ -1,6 +1,6 @@
 import {
-  ChangeDetectionStrategy, ChangeDetectorRef, Component, computed, OnDestroy, 
-  OnInit, signal
+  ChangeDetectionStrategy, ChangeDetectorRef, Component, computed, effect, 
+  OnDestroy, OnInit, signal
 } from '@angular/core';
 import { CommonModule, NgOptimizedImage } from '@angular/common';
 import { ActivatedRoute, Params, Router } from '@angular/router';
@@ -189,17 +189,17 @@ export class IntroductionComponent implements OnInit, OnDestroy {
   }
 
   private handleQuizSelectionAndFetchQuestions(): void {
-    combineLatest([this.selectedQuiz$, this.isCheckedSubject])
-      .pipe(
-        takeUntil(this.destroy$),
-        // Narrow the entire tuple: [Quiz, boolean]
-        filter((tuple): tuple is [Quiz, boolean] => !!tuple[0]),
-        tap(([quiz, checked]) => {
-          this.shouldShuffleOptions = checked;
-          this.fetchAndHandleQuestions(quiz.quizId);
-        })
-      )
-      .subscribe();
+    effect(() => {
+      const quiz = this.selectedQuiz();
+      const checked = this.isChecked();
+  
+      if (!quiz) {
+        return;
+      }
+  
+      this.shouldShuffleOptions = checked;
+      this.fetchAndHandleQuestions(quiz.quizId);
+    });
   }
 
   private fetchAndHandleQuestions(quizId: string): void {
