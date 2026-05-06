@@ -179,7 +179,9 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
         // from clearing valid options that may have arrived via @Input
         if (!opts?.length) return;
 
-        this.incomingOptions = this.normalizeOptions(structuredClone(opts));
+        this.incomingOptions = this.answerOptionsService.normalizeOptions(
+          structuredClone(opts)
+        );
 
         //  Clear prior icons and bindings (clean slate)
         this.optionBindings.set([]);
@@ -224,7 +226,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     options: Option[],
     config: { resetSelection?: boolean } = {}
   ): void {
-    const normalized = this.normalizeOptions(options);
+    const normalized = this.answerOptionsService.normalizeOptions(options);
     const nextOptions = normalized.map((option: Option) => ({ ...option }));
 
     if (config.resetSelection ?? true) this.resetSelectionState();
