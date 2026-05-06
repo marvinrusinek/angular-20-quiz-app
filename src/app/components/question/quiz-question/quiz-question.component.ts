@@ -143,17 +143,15 @@ export class QuizQuestionComponent extends BaseQuestion
   private displayModeSubscription!: Subscription;
   private lastOptionsQuestionSignature: string | null = null;
   shouldDisplayExplanation = false;
-  private displayState = {
-    mode: 'question' as 'question' | 'explanation',
-    answered: false
-  };
-  public displayStateSubject = new BehaviorSubject<{
-    mode: 'question' | 'explanation',
-    answered: boolean
-  }>({
-    mode: 'question',
-    answered: false
-  });
+  
+  readonly displayMode = signal<'question' | 'explanation'>('question');
+  readonly isAnswered = signal(false);
+  
+  readonly displayState = computed(() => ({
+    mode: this.displayMode(),
+    answered: this.isAnswered()
+  }));
+
   private forceQuestionDisplay = true;
   readyForExplanationDisplay = false;
   isExplanationReady = false;
@@ -334,10 +332,14 @@ export class QuizQuestionComponent extends BaseQuestion
     this.componentOrchestrator.runApplyExplanationFlags(this, flags);
   }
 
-  private applyDisplayState(state: { mode: 'question' | 'explanation'; answered: boolean }): void {
-    this.displayState = state;
-    this.displayStateSubject.next(this.displayState);
-    this.displayStateChange.emit(this.displayState);
+  private applyDisplayState(state: {
+    mode: 'question' | 'explanation';
+    answered: boolean;
+  }): void {
+    this.displayMode.set(state.mode);
+    this.isAnswered.set(state.answered);
+    
+    this.displayStateChange.emit(state);
   }
 
   private emitExplanationChange(text: string, show: boolean): void {
