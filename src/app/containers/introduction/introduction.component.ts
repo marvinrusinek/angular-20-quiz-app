@@ -169,12 +169,28 @@ export class IntroductionComponent implements OnInit, OnDestroy {
       );
       this.cdRef.markForCheck();
     } else {
-      // quiz is undefined or null
+      console.warn('[QuizSelection] Quiz was not found or failed to load.');
+  
+      this.selectedQuiz$.next(null);
+      this.quiz = null;
+      this.introImg = '';
+      this.questionCountSig.set(0);
+      this.questionLabel = this.getPluralizedQuestionLabel(0);
+  
+      this.cdRef.markForCheck();
     }
   }
 
-  private handleError(error: any): void {
-    // error handled silently
+  private handleError(error: unknown): void {
+    console.error('[QuizSelection] Failed to load quiz:', error);
+  
+    this.selectedQuiz$.next(null);
+    this.quiz = null;
+    this.introImg = '';
+    this.questionCountSig.set(0);
+    this.questionLabel = this.getPluralizedQuestionLabel(0);
+  
+    this.cdRef.markForCheck();
   }
 
   private handleQuizSelectionAndFetchQuestions(): void {
