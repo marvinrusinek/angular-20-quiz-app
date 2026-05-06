@@ -362,14 +362,26 @@ export class IntroductionComponent implements OnInit, OnDestroy {
     // Fallback to direct router navigation
     try {
       // Router expects 1-based question in URL; index 0 ⇒ "/.../1"
-      const fallbackSucceeded = await this.router.navigate(['/quiz/question', quizId, 1]);
+      const fallbackSucceeded = await this.router.navigate([
+        '/quiz/question',
+        quizId,
+        1,
+      ]);
+    
       if (!fallbackSucceeded) {
-        // fallback navigation returned false
+        console.warn(
+          '[QuizSelection] Fallback navigation returned false.',
+          { quizId }
+        );
       }
-
+    
       return fallbackSucceeded;
-    } catch (fallbackErr) {
-      // error handled silently
+    } catch (fallbackErr: unknown) {
+      console.error(
+        '[QuizSelection] Fallback navigation failed.',
+        { quizId, error: fallbackErr }
+      );
+    
       return false;
     }
   }
