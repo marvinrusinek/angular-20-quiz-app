@@ -135,7 +135,6 @@ export class QuizQuestionComponent extends BaseQuestion
   displayExplanation = false;
   override sharedOptionConfig: SharedOptionConfig | null = null;
   shouldRenderFinalOptions = false;
-  public renderReady = false;
   explanationLocked = false;  // flag to lock explanation
   explanationVisible = false;
   displayMode: 'question' | 'explanation' = 'question';
@@ -165,17 +164,14 @@ export class QuizQuestionComponent extends BaseQuestion
   private payloadSubject = new BehaviorSubject<QuestionPayload | null>(null);
   private hydrationInProgress = false;
 
-  public finalRenderReadySubject = new BehaviorSubject<boolean>(false);
-  public finalRenderReady$ = this.finalRenderReadySubject.asObservable();
-  public finalRenderReady = false;
+  public readonly finalRenderReady = signal(false); // maybe remove
 
   private _fetEarlyShown = new Set<number>();
 
   readonly questionPayloadSig = signal<QuestionPayload | null>(null);
   readonly questionPayload$ = toObservable(this.questionPayloadSig);
 
-  private renderReadySubject = new BehaviorSubject<boolean>(false);
-  public renderReady$ = this.renderReadySubject.asObservable();
+  readonly renderReady = signal(false);
   private renderReadySubscription?: Subscription;
 
   waitingForReady = false;
@@ -356,8 +352,7 @@ export class QuizQuestionComponent extends BaseQuestion
 
   private markRenderReady(): void {
     this.finalRenderReady = true;
-    this.renderReady = true;
-    this.renderReadySubject.next(true);
+    this.renderReady.set(true);
     this.cdRef.markForCheck();
   }
 

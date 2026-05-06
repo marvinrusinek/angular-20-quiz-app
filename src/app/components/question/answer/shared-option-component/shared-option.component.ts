@@ -1,6 +1,6 @@
 import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, DoCheck, effect,
-  HostListener, input, OnChanges, OnDestroy, OnInit, output, SimpleChanges
+  HostListener, input, OnChanges, OnDestroy, OnInit, output, signal, SimpleChanges
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
@@ -102,7 +102,6 @@ export class SharedOptionComponent
   public optionBindings: OptionBindings[] = [];
   public selectedOptionIndex: number | null = null;
   public isNavigatingBackwards = false;
-  public renderReady = false;
   readonly finalRenderReady$ = input<Observable<boolean> | null>(null);
   readonly questionVersion = input<number>(0);  // increments every time questionIndex changes
   readonly sharedOptionConfig = input<SharedOptionConfig>(undefined as unknown as SharedOptionConfig);
@@ -139,9 +138,7 @@ export class SharedOptionComponent
   showOptions = false;
   form!: FormGroup;
 
-  private renderReadySubject =
-    new BehaviorSubject<boolean>(false);
-  public renderReady$ = this.renderReadySubject.asObservable();
+  readonly renderReady = signal(false);
 
   // Include disableRenderTrigger to force re-render when disabled state changes
   trackByOptionId = (b: OptionBindings, idx: number) => {
