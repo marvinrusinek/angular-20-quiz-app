@@ -14,6 +14,9 @@ import { QuestionType } from '../../../../shared/models/question-type.enum';
 import { QuizQuestion } from '../../../../shared/models/QuizQuestion.model';
 import { SelectedOption } from '../../../../shared/models/SelectedOption.model';
 import { SharedOptionConfig } from '../../../../shared/models/SharedOptionConfig.model';
+import { AnswerOptionsService } from './services/answer-options.service';
+import { AnswerSelectionService } from './services/answer-selection.service';
+import { AnswerBindingsService } from './services/answer-bindings.service';
 import { DynamicComponentService } from '../../../../shared/services/ui/dynamic-component.service';
 import { FeedbackService } from '../../../../shared/services/features/feedback/feedback.service';
 import { QuizService } from '../../../../shared/services/data/quiz.service';
@@ -79,6 +82,9 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     protected override quizService: QuizService,
     protected override quizStateService: QuizStateService,
     protected override selectedOptionService: SelectedOptionService,
+    private answerOptionsService: AnswerOptionsService,
+    private answerSelectionService: AnswerSelectionService,
+    private answerBindingsService: AnswerBindingsService,
     protected override fb: FormBuilder,
     protected override cdRef: ChangeDetectorRef
   ) {
@@ -214,13 +220,6 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     this.showFeedbackForOption = {};
   }
 
-  private normalizeOptions(options: Option[]): Option[] {
-    return (options ?? []).map((option, index) => ({
-      ...option,
-      optionId: option.optionId ?? index
-    }));
-  }
-
   private applyIncomingOptions(
     options: Option[],
     config: { resetSelection?: boolean } = {}
@@ -263,65 +262,57 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
    * from the SelectedOptionService.
    */
   private syncOptionsWithSelections(): void {
-    const idx = this.currentQuestionIndex();
-    if (idx === null || idx === undefined || idx < 0) return;
-
+    const index = this.currentQuestionIndex();
+  
+    if (index === null || index === undefined || index < 0) return;
+  
     const savedSelections =
-      this.selectedOptionService.getSelectedOptionsForQuestion(idx) ?? [];
+      this.selectedOptionService.getSelectedOptionsForQuestion(index) ?? [];
+  
     if (!savedSelections.length || !this.optionsToDisplay()?.length) return;
-
-    const savedIds = new Set(savedSelections.map(s => String(s.optionId)));
-    const savedTexts = new Set(savedSelections.map(s => (s.text || '').trim().toLowerCase()));
-
-    // For multi-answer: do NOT pre-select/highlight all saved options.
-    // Each option should highlight individually on click, not all at once.
+  
     const isMulti = this.type() === 'multiple';
-
-    for (const opt of this.optionsToDisplay()) {
+  
+    for (const option of this.optionsToDisplay()) {
       if (isMulti) {
-        opt.selected = false;
-      } else {
-        const idMatch = opt.optionId != null && savedIds.has(String(opt.optionId));
-        const textMatch =
-          !!(opt.text && savedTexts.has(opt.text.trim().toLowerCase()));
-        opt.selected = idMatch || textMatch;
+        option.selected = false;
+        continue;
       }
+  
+      const savedIds = new Set(savedSelections.map(selection => String(selection.optionId)));
+  
+      const savedTexts = new Set(
+        savedSelections.map(selection =>
+          (selection.text || '').trim().toLowerCase(),
+        ),
+      );
+  
+      const idMatch =
+        option.optionId != null && savedIds.has(String(option.optionId));
+  
+      const textMatch =
+        !!(option.text && savedTexts.has(option.text.trim().toLowerCase()));
+  
+      option.selected = idMatch || textMatch;
     }
-
-    // Also update bindings — mutate ALL visual fields and re-emit so the
-    // signal consumers (option-item) re-render the highlight state.
-    const currentBindings = this.optionBindings();
-    if (currentBindings?.length) {
-      const updated = currentBindings.map(b => {
-        const id = b.option?.optionId;
-        const text = b.option?.text;
-        const idMatch = id != null && savedIds.has(String(id));
-        const textMatch = !!(text && savedTexts.has((text || '').trim().toLowerCase()));
-        const isSel = isMulti ? false : (idMatch || textMatch);
-        const newOpt = {
-          ...b.option,
-          selected: isSel,
-          highlight: isSel,
-          showIcon: isSel
-        };
-        return {
-          ...b,
-          option: newOpt,
-          isSelected: isSel,
-          highlight: isSel,
-          checked: isSel,
-          showFeedback: true
-        } as OptionBindings;
-      });
-      this.optionBindings.set(updated);
-    }
-
-    // Update FormGroup for single-answer (radio group sync)
+  
+    const updatedBindings =
+      this.answerBindingsService.hydrateBindingsFromSavedSelections(
+        this.optionBindings(),
+        savedSelections,
+        isMulti,
+      );
+  
+    this.optionBindings.set(updatedBindings);
+  
     if (this.type() === 'single' && this.form()) {
       const selectedId = savedSelections[0]?.optionId;
+  
       if (selectedId != null) {
-        this.form().patchValue({ selectedOptionId: selectedId },
-          { emitEvent: false });
+        this.form().patchValue(
+          { selectedOptionId: selectedId },
+          { emitEvent: false },
+        );
       }
     }
   }
@@ -390,39 +381,76 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     if (!payload || !payload.option) return;
   
     const activeQuestionIndex = this.getActiveQuestionIndex();
-    const enrichedOption = this.buildEnrichedSelectedOption(
-      payload,
-      activeQuestionIndex
-    );
   
-    this.updateLocalSelectionState(enrichedOption);
+    const enrichedOption =
+      this.answerSelectionService.buildEnrichedSelectedOption(
+        payload,
+        activeQuestionIndex,
+        this.optionsToDisplay(),
+      );
+  
+    this.selectedOption = enrichedOption;
+  
+    this.selectedOptions =
+      this.answerSelectionService.updateSelectedOptionsArray(
+        this.selectedOptions,
+        enrichedOption,
+        this.type(),
+      );
   
     const question = this.resolveQuestion(activeQuestionIndex);
   
     if (!question) return;
   
-    const optionsSource = this.resolveOptionsSource(question);
-    const isMultiAnswer = this.isMultipleAnswerQuestion(question, optionsSource);
+    const optionsSource =
+      this.answerOptionsService.resolveOptionsSource(
+        this.optionsToDisplay(),
+        question,
+      );
   
-    this.syncSelectedOptionService(
+    const isMultiAnswer =
+      this.answerOptionsService.isMultipleAnswerQuestion(
+        question,
+        optionsSource,
+        this.type(),
+      );
+  
+    this.answerSelectionService.syncSelectedOptionService(
       activeQuestionIndex,
       enrichedOption,
-      isMultiAnswer
-    );
-  
-    const complete = this.updateQuestionCompletionState(question);
-  
-    this.updateScoringAndAnswerSelectedState(
-      activeQuestionIndex,
-      question,
-      optionsSource,
       isMultiAnswer,
-      complete
     );
   
-    this.updateVisualBindings(enrichedOption);
+    const complete =
+      this.answerSelectionService.updateQuestionCompletionState(
+        this.questionIndex(),
+        question,
+      );
   
-    this.updateDotStatus(activeQuestionIndex, enrichedOption);
+    this._wasComplete = complete;
+  
+    this.answerSelectionService.updateScoringAndAnswerSelectedState(
+      activeQuestionIndex,
+      optionsSource,
+      this.selectedOptions,
+      isMultiAnswer,
+      complete,
+    );
+  
+    const updatedBindings =
+      this.answerBindingsService.updateVisualBindings(
+        this.optionBindings(),
+        enrichedOption,
+        this.type(),
+      );
+  
+    this.optionBindings.set(updatedBindings);
+    this.cdRef.markForCheck();
+  
+    this.answerSelectionService.updateDotStatus(
+      activeQuestionIndex,
+      enrichedOption,
+    );
   
     this.emitCleanOptionClickedPayload(payload, enrichedOption);
   }
@@ -752,38 +780,16 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
 
 
   // Rebuild optionBindings from the latest optionsToDisplay.
-  private rebuildOptionBindings(opt: Option[]): OptionBindings[] {
-    if (!opt?.length) {
-      this.optionBindings.set([]);
-      return [];
-    }
-
-    // Deep clone options to avoid mutation
-    const cloned: Option[] =
-      typeof structuredClone === 'function'
-        ? structuredClone(opt) : JSON.parse(JSON.stringify(opt));
-
-    // Build fresh bindings
-    const rebuilt = cloned.map((opt, idx) =>
-      this.buildFallbackBinding(opt, idx)
-    );
-
-    // Patch shared references
-    for (const b of rebuilt) {
-      b.allOptions = cloned;
-      b.optionsToDisplay = cloned;
-    }
-
-    // Set renderReady synchronously instead of in microtask to avoid race
-    // condition where template checks renderReady before Promise resolves
+  private rebuildOptionBindings(options: Option[]): OptionBindings[] {
+    const rebuilt = this.answerBindingsService.rebuildOptionBindings(options);
+  
     this.optionBindings.set(rebuilt);
     this.renderReady = true;
-
-    // Use requestAnimationFrame for change detection to ensure paint-synchronized update
+  
     requestAnimationFrame(() => {
       this.cdRef.markForCheck();
     });
-
+  
     return rebuilt;
   }
 
