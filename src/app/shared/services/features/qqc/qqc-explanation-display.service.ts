@@ -64,12 +64,9 @@ export class QqcExplanationDisplayService {
         const svcQuestions = (quizSvc as any).shuffledQuestions || quizSvc.questions || [];
         q = svcQuestions[i0];
       }
-    } catch (err) {    }
+    } catch (err) { }
 
-    if (!q) {
-      // Question object could not be resolved for this index
-      return '';
-    }
+    if (!q) return ''; // Question object could not be resolved for this index
 
     const baseRaw = (q?.explanation ?? '').toString().trim();
 
@@ -125,7 +122,8 @@ export class QqcExplanationDisplayService {
           formatted = baseRaw;
         }
       }
-    } catch (e) {      formatted = baseRaw;
+    } catch (e) {
+      formatted = baseRaw;
     }
 
     const clean = (formatted ?? '').trim();
@@ -146,7 +144,6 @@ export class QqcExplanationDisplayService {
     if (!nextText) return clean || baseRaw;
 
     const stillActive = i0 === params.currentQuestionIndex;
-
     if (stillActive) {
       // Multi-answer guard: only emit FET text and set shouldDisplayExplanation
       // when ALL correct answers are selected. Previously, setExplanationText
@@ -216,15 +213,14 @@ export class QqcExplanationDisplayService {
     questionIndex: number,
     currentIndex: number
   ): boolean {
-    if (currentIndex !== questionIndex) {      return false;
-    }
+    if (currentIndex !== questionIndex) return false;
 
     this.explanationTextService.setExplanationText(explanationText);
     this.explanationTextService.setShouldDisplayExplanation(true);
 
     this.quizStateService.setDisplayState({
       mode: 'explanation',
-      answered: true,
+      answered: true
     });
 
     return true;
@@ -268,8 +264,7 @@ export class QqcExplanationDisplayService {
     explanationToDisplay: string;
     shouldEmit: boolean;
   } | null> {
-    if (!params.questionsArray || params.questionsArray.length === 0) {      return null;
-    }
+    if (!params.questionsArray || params.questionsArray.length === 0) return null;
 
     const adjustedIndex = Math.max(
       0,
@@ -277,10 +272,7 @@ export class QqcExplanationDisplayService {
     );
     const currentQuestion = params.questionsArray[adjustedIndex];
 
-    if (!currentQuestion) {
-      // Question not found at adjusted index
-      return null;
-    }
+    if (!currentQuestion) return null;  // Question not found at adjusted index
 
     this.quizService.setCurrentQuestion(currentQuestion);
 
@@ -294,7 +286,7 @@ export class QqcExplanationDisplayService {
       params.updateCombinedQuestionData(currentQuestion, params.explanationText);
       return {
         explanationToDisplay: params.explanationText,
-        shouldEmit: true,
+        shouldEmit: true
       };
     }
 
@@ -333,13 +325,13 @@ export class QqcExplanationDisplayService {
 
         return {
           explanationToDisplay: explanationText,
-          displayExplanation: true,
+          displayExplanation: true
         };
       } catch (error) {
         // Error fetching explanation in updateExplanationDisplay
         return {
           explanationToDisplay: 'Error loading explanation.',
-          displayExplanation: true,
+          displayExplanation: true
         };
       }
     } else {
@@ -349,7 +341,7 @@ export class QqcExplanationDisplayService {
         this.explanationTextService.setShouldDisplayExplanation(false);
         return {
           explanationToDisplay: '',
-          displayExplanation: false,
+          displayExplanation: false
         };
       }
       return { displayExplanation: false };
@@ -391,8 +383,8 @@ export class QqcExplanationDisplayService {
         forceQuestionDisplay: false,
         readyForExplanationDisplay: true,
         isExplanationReady: true,
-        isExplanationLocked: false,
-      },
+        isExplanationLocked: false
+      }
     };
   }
 
@@ -409,14 +401,13 @@ export class QqcExplanationDisplayService {
 
     const qIndex = fixedQuestionIndex ?? currentQuestionIndex ?? 0;
     const locked = this.explanationTextService.isExplanationLocked?.();
-    if (!force && locked) {      return true; // blocked
-    }
+    if (!force && locked) return true;  // blocked
 
     this.explanationTextService.setShouldDisplayExplanation(false);
 
     this.quizStateService.setDisplayState({
       mode: 'question',
-      answered: false,
+      answered: false
     });
     this.quizStateService.setAnswerSelected(false);
 
@@ -435,7 +426,7 @@ export class QqcExplanationDisplayService {
   ): void {
     this.quizStateService.setDisplayState({
       mode: lastAllCorrect ? 'explanation' : 'question',
-      answered: true,
+      answered: true
     });
   }
 
@@ -514,7 +505,7 @@ export class QqcExplanationDisplayService {
         explanationToDisplay: explanationText,
         displayExplanation: true,
         explanationText,
-        questionState,
+        questionState
       };
     } catch (error) {
       // Error managing explanation display
@@ -528,7 +519,7 @@ export class QqcExplanationDisplayService {
 
       return {
         explanationToDisplay: 'Error loading explanation. Please try again.',
-        displayExplanation: true,
+        displayExplanation: true
       };
     }
   }
@@ -549,7 +540,8 @@ export class QqcExplanationDisplayService {
   }> {
     const { questionsArray, questionIndex, quizId, shouldDisplayExplanation, getExplanationText } = params;
 
-    if (!questionsArray || questionsArray.length === 0) {      return { explanationText: '', shouldShowExplanation: false };
+    if (!questionsArray || questionsArray.length === 0) {
+      return { explanationText: '', shouldShowExplanation: false };
     }
 
     if (questionIndex < 0 || questionIndex >= questionsArray.length) {
@@ -639,7 +631,7 @@ export class QqcExplanationDisplayService {
       explanationVisible: true,
       displayExplanation: true,
       shouldDisplayExplanation: true,
-      isExplanationTextDisplayed: true,
+      isExplanationTextDisplayed: true
     };
   }
 
@@ -681,7 +673,7 @@ export class QqcExplanationDisplayService {
           explanationToDisplay: explanationText,
           displayExplanation: true,
           shouldEmitExplanation: true,
-          shouldResetQuestionState: false,
+          shouldResetQuestionState: false
         };
       } catch (error) {
         // Error fetching explanation in updateExplanationDisplay
@@ -689,7 +681,7 @@ export class QqcExplanationDisplayService {
           explanationToDisplay: 'Error loading explanation.',
           displayExplanation: true,
           shouldEmitExplanation: true,
-          shouldResetQuestionState: false,
+          shouldResetQuestionState: false
         };
       }
     } else {
@@ -702,13 +694,14 @@ export class QqcExplanationDisplayService {
           explanationToDisplay: '',
           displayExplanation: false,
           shouldEmitExplanation: true,
-          shouldResetQuestionState: true,
+          shouldResetQuestionState: true
         };
-      } else {        return {
+      } else {
+        return {
           explanationToDisplay: '',
           displayExplanation: false,
           shouldEmitExplanation: true,
-          shouldResetQuestionState: false,
+          shouldResetQuestionState: false
         };
       }
     }
@@ -788,12 +781,14 @@ export class QqcExplanationDisplayService {
       // ────────────────────────────────────────────────
       // Final check — only emit real explanation text
       // ────────────────────────────────────────────────
-      if (!text || text === 'No explanation available for this question.') {        return '';
+      if (!text || text === 'No explanation available for this question.') {
+        return '';
       }
 
       if (text && setCache) context.formattedByIndex.set(i0, text);
       return text;
-    } catch (err) {      return '';
+    } catch (err) {
+      return '';
     }
   }
 
@@ -830,7 +825,7 @@ export class QqcExplanationDisplayService {
             firstValueFrom(formattedExplanationObservable),
             new Promise<string>((_, reject) =>
               setTimeout(() => reject(new Error('Timeout')), 5000)
-            ),
+            )
           ]);
 
           if (formattedExplanation) {
@@ -894,13 +889,13 @@ export class QqcExplanationDisplayService {
             questionIndex: params.questionIndex,
             quizId: params.quizId,
             shouldDisplayExplanation: params.shouldDisplayExplanation,
-            getExplanationText: params.getExplanationText,
+            getExplanationText: params.getExplanationText
           });
 
           resolve({
             questionsArray: data,
             explanationText: result.explanationText,
-            shouldShowExplanation: result.shouldShowExplanation,
+            shouldShowExplanation: result.shouldShowExplanation
           });
         });
     });
