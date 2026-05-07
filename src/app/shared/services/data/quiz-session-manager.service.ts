@@ -8,7 +8,6 @@ import { QuizStatus } from '../../models/quiz-status.enum';
 import { SelectedOption } from '../../models/SelectedOption.model';
 import { QuizOptionsService } from './quiz-options.service';
 import { QuizQuestionResolverService } from './quiz-question-resolver.service';
-import { QuizDataLoaderService } from './quiz-data-loader.service';
 import { QuizScoringService } from './quiz-scoring.service';
 
 /**
@@ -67,7 +66,6 @@ export class QuizSessionManagerService {
   constructor(
     private optionsService: QuizOptionsService,
     private questionResolver: QuizQuestionResolverService,
-    private dataLoader: QuizDataLoaderService,
     private scoringService: QuizScoringService
   ) {}
 
@@ -109,9 +107,7 @@ export class QuizSessionManagerService {
       state.questionCorrectness = savedCorrectness;
       state.selectedOptionsMap = savedSelections;
       state.correctCount = savedCount;
-      if (savedShuffled.length > 0) {
-        state.shuffledQuestions = savedShuffled;
-      }
+      if (savedShuffled.length > 0) state.shuffledQuestions = savedShuffled;
       if (savedQuestions.length > 0) {
         state.questions = savedQuestions;
         questionsSig.set(savedQuestions);
@@ -177,16 +173,14 @@ export class QuizSessionManagerService {
     questionsSig: WritableSignal<QuizQuestion[]>,
     quizResetSource: Subject<void>
   ): string | null {
-    if (!quizId) {      return null;
-    }
+    if (!quizId) return null;
 
     // Guard: Skip if questions already applied for this quiz
     if (
       state.shuffledQuestions &&
       state.shuffledQuestions.length > 0 &&
       state.quizId === quizId
-    ) {      return null;
-    }
+    ) return null;
 
     // Set quizId first to enable guard for subsequent calls
     state.quizId = quizId;
@@ -195,15 +189,13 @@ export class QuizSessionManagerService {
       quizResetSource.next();
     } catch { }
 
-    if (!Array.isArray(questions) || questions.length === 0) {      return null;
-    }
+    if (!Array.isArray(questions) || questions.length === 0) return null;
 
     const sanitizedQuestions = questions
       .map((question) => this.questionResolver.cloneQuestionForSession(question))
       .filter((question): question is QuizQuestion => !!question);
 
-    if (sanitizedQuestions.length === 0) {      return null;
-    }
+    if (sanitizedQuestions.length === 0) return null;
 
     state.shuffledQuestions = sanitizedQuestions;
     try {
@@ -223,8 +215,7 @@ export class QuizSessionManagerService {
       sanitizedQuestions.length - 1
     );
     state.currentQuestionIndex = Number.isFinite(boundedIndex)
-      ? boundedIndex
-      : 0;
+      ? boundedIndex : 0;
 
     state.currentQuestionIndexSig.set(state.currentQuestionIndex);
     state.currentQuestionIndexSubject.next(state.currentQuestionIndex);
@@ -234,12 +225,9 @@ export class QuizSessionManagerService {
     state.currentQuestionSig.set(currentQuestion);
 
     const normalizedOptions = Array.isArray(currentQuestion?.options)
-      ? [...currentQuestion.options]
-      : [];
+      ? [...currentQuestion.options] : [];
 
-    if (currentQuestion) {
-      currentQuestion.options = normalizedOptions;
-    }
+    if (currentQuestion) currentQuestion.options = normalizedOptions;
 
     if (currentQuestion && normalizedOptions.length > 0) {
       state.emitQuestionAndOptions(
@@ -255,9 +243,7 @@ export class QuizSessionManagerService {
     const correctAnswersMap = this.optionsService.calculateCorrectAnswers(sanitizedQuestions);
     state.correctAnswers = correctAnswersMap;
 
-    if (!Array.isArray(state.quizData)) {
-      state.quizData = [];
-    }
+    if (!Array.isArray(state.quizData)) state.quizData = [];
 
     const baseQuiz =
       state.quizData.find((quiz) => quiz.quizId === quizId) ||
