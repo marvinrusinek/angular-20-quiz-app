@@ -18,9 +18,7 @@ import { QuizService } from '../../data/quiz.service';
 @Injectable({ providedIn: 'root' })
 export class QqcDisplayStateManagerService {
 
-  constructor(
-    private quizService: QuizService
-  ) {}
+  constructor(private quizService: QuizService) {}
 
   // ═══════════════════════════════════════════════════════════════
   // QUESTION AND OPTIONS CHANGE HANDLING
@@ -46,8 +44,7 @@ export class QqcDisplayStateManagerService {
 
     const incomingOptions = (params.optionsChange?.currentValue as Option[]) ??
       nextQuestion?.options ??
-      params.currentQuestionChange?.currentValue?.options ??
-      null;
+      params.currentQuestionChange?.currentValue?.options ?? null;
 
     const effectiveQuestion = nextQuestion ?? params.currentQuestion ?? null;
 
@@ -61,9 +58,7 @@ export class QqcDisplayStateManagerService {
   extractSelectedOptionValues(effectiveQuestion: QuizQuestion | null): any[] {
     return (effectiveQuestion?.selectedOptions ?? [])
       .map((opt: any) => {
-        if (opt == null) {
-          return null;
-        }
+        if (opt == null) return null;
 
         if (typeof opt === 'object') {
           return opt.value ?? opt.optionId ?? opt.text ?? null;
@@ -95,7 +90,8 @@ export class QqcDisplayStateManagerService {
         ? params.question!.options
         : [];
 
-    if (!baseOptions.length) {      return { normalizedOptions: [], options: [], optionsToDisplay: [] };
+    if (!baseOptions.length) {
+      return { normalizedOptions: [], options: [], optionsToDisplay: [] };
     }
 
     const normalizedOptions = this.quizService.quizOptions.assignOptionIds(
@@ -123,14 +119,12 @@ export class QqcDisplayStateManagerService {
   ): Option[] | null {
     const context = '[buildOptionsToDisplay]';
 
-    if (!sourceQuestion || !Array.isArray(sourceQuestion.options)) {      return null;
-    }
+    if (!sourceQuestion || !Array.isArray(sourceQuestion.options)) return null;
 
     const validOptions = (sourceQuestion.options ?? []).filter(
       (o: Option) => !!o && typeof o === 'object'
     );
-    if (!validOptions.length) {      return null;
-    }
+    if (!validOptions.length) return null;
 
     return validOptions.map((opt: Option, index: number) => ({
       ...opt,
@@ -183,7 +177,7 @@ export class QqcDisplayStateManagerService {
         needsSwap: true,
         cleanedOptions: [...params.newOptions],
         formGroup,
-        serialized: incoming,
+        serialized: incoming
       };
     }
 
@@ -191,7 +185,7 @@ export class QqcDisplayStateManagerService {
       needsSwap: false,
       cleanedOptions: params.newOptions,
       formGroup: new FormGroup({}),
-      serialized: incoming,
+      serialized: incoming
     };
   }
 
@@ -220,8 +214,7 @@ export class QqcDisplayStateManagerService {
       incomingQuestionText &&
       incomingQuestionText === currentQuestionText &&
       params.isAlreadyRendered
-    ) {      return null;
-    }
+    ) return null;
 
     const { question, options, explanation } = params.payload;
 
@@ -230,7 +223,7 @@ export class QqcDisplayStateManagerService {
       currentQuestion: question,
       optionsToDisplay: structuredClone(options),
       explanationToDisplay: explanation?.trim() || '',
-      serializedPayload: JSON.stringify(params.payload),
+      serializedPayload: JSON.stringify(params.payload)
     };
   }
 
@@ -272,23 +265,17 @@ export class QqcDisplayStateManagerService {
    * selected, and displayOrder fields set.
    * Extracted from QuizQuestionComponent.setQuestionOptions().
    */
-  buildOptionsWithCorrectness(
-    question: QuizQuestion
-  ): Option[] {
+  buildOptionsWithCorrectness(question: QuizQuestion): Option[] {
     const options = question.options ?? [];
 
-    if (!Array.isArray(options) || options.length === 0) {
-      return [];
-    }
+    if (!Array.isArray(options) || options.length === 0) return [];
 
     const answerValues = (question.answer ?? [])
       .map((answer: any) => answer?.value)
       .filter((value: any): value is Option['value'] => value !== undefined && value !== null);
 
     const resolveCorrect = (option: Option): boolean => {
-      if (option.correct === true) {
-        return true;
-      }
+      if (option.correct === true) return true;
 
       if (Array.isArray(answerValues) && answerValues.length > 0) {
         return answerValues.includes(option.value);
@@ -315,7 +302,7 @@ export class QqcDisplayStateManagerService {
       ...opt,
       active: true,
       feedback: undefined,
-      showIcon: false,
+      showIcon: false
     }));
   }
 
@@ -349,7 +336,8 @@ export class QqcDisplayStateManagerService {
 
     if (hasValidQuestion && hasValidOptions) {
       return true;
-    } else {      return false;
+    } else {
+      return false;
     }
   }
 
@@ -365,7 +353,8 @@ export class QqcDisplayStateManagerService {
       typeof params.newIndex === 'number' &&
       typeof params.prevIndex === 'number' &&
       params.newIndex !== params.prevIndex
-    ) {      return { shouldClear: true, indexToClear: params.prevIndex };
+    ) {
+      return { shouldClear: true, indexToClear: params.prevIndex };
     }
     return { shouldClear: false, indexToClear: -1 };
   }
@@ -387,7 +376,7 @@ export class QqcDisplayStateManagerService {
       return updated;
     });
     const disabledOptions = (optionsToDisplay ?? []).map(option => ({
-      ...option, active: false,
+      ...option, active: false
     }));
     return { optionBindings: disabledBindings, optionsToDisplay: disabledOptions };
   }
