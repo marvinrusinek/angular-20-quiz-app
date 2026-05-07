@@ -38,7 +38,7 @@ export class QqcOrchExplanationService {
       host.navigationHandler.persistStateOnHide({
         quizId: host.quizId()!,
         currentQuestionIndex: resolveIdx(),
-        displayExplanation: host.displayExplanation,
+        displayExplanation: host.displayExplanation
       });
       host.navigationHandler.resetExplanationStateOnHide();
       await host.navigationHandler.captureElapsedOnHide();
@@ -49,7 +49,7 @@ export class QqcOrchExplanationService {
       const { shouldExpire, expiredIndex } = await host.navigationHandler.handleFastPathExpiry({
         currentQuestionIndex: resolveIdx(),
         displayExplanation: host.displayExplanation,
-        normalizeIndex: (idx: number) => host.normalizeIndex(idx),
+        normalizeIndex: (idx: number) => host.normalizeIndex(idx)
       });
       if (shouldExpire) {
         host.timerService.stopTimer?.(undefined, { force: true });
@@ -78,7 +78,7 @@ export class QqcOrchExplanationService {
             host.optionsToDisplay(),
             host.correctMessage()
           ));
-        },
+        }
       });
 
       host.displayState.mode = restoreResult.displayMode as 'question' | 'explanation';
@@ -150,7 +150,7 @@ export class QqcOrchExplanationService {
       ensureQuestionIsFullyLoaded: (idx: number) =>
         host.questionLoader.ensureQuestionIsFullyLoaded(idx, host.questionsArray, host.quizId()),
       prepareExplanationText: (idx: number) => host.prepareAndSetExplanationText(idx),
-      isAnyOptionSelected: (idx: number) => host.isAnyOptionSelected(idx),
+      isAnyOptionSelected: (idx: number) => host.isAnyOptionSelected(idx)
     });
 
     if (result.success) {
@@ -169,7 +169,7 @@ export class QqcOrchExplanationService {
   runUpdateExplanationUI(host: Host, questionIndex: number, explanationText: string): void {
     const validated = host.explanationFlow.performUpdateExplanationUI({
       questionsArray: host.questionsArray,
-      questionIndex,
+      questionIndex
     });
     if (!validated) return;
 
@@ -195,7 +195,7 @@ export class QqcOrchExplanationService {
       shouldDisplayExplanation: host.shouldDisplayExplanation,
       isAnyOptionSelected: (idx: number) => host.isAnyOptionSelected(idx),
       getFormattedExplanation: (q: QuizQuestion, idx: number) =>
-        host.explanationManager.getFormattedExplanation(q, idx),
+        host.explanationManager.getFormattedExplanation(q, idx)
     });
     if (result.shouldUpdate) {
       host.explanationToDisplay.set(result.explanationText);
@@ -254,6 +254,14 @@ export class QqcOrchExplanationService {
   }
 
   async runUpdateExplanationText(host: Host, index: number): Promise<string> {
-    return host.explanationDisplay.updateExplanationText({ index, normalizeIndex: (idx: number) => host.normalizeIndex(idx), questionsArray: host.questionsArray, currentQuestionIndex: host.currentQuestionIndex(), currentQuestion: host.currentQuestion(), optionsToDisplay: host.optionsToDisplay(), options: host.options });
+    return host.explanationDisplay.updateExplanationText(
+      { index, 
+        normalizeIndex: (idx: number) => host.normalizeIndex(idx), 
+        questionsArray: host.questionsArray, 
+        currentQuestionIndex: host.currentQuestionIndex(), 
+        currentQuestion: host.currentQuestion(), 
+        optionsToDisplay: host.optionsToDisplay(), 
+        options: host.options
+      });
   }
 }
