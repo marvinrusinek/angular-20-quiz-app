@@ -13,9 +13,7 @@ import { QuizService } from '../../data/quiz.service';
 @Injectable({ providedIn: 'root' })
 export class QqcQlOptionBuildService {
 
-  constructor(
-    private quizService: QuizService
-  ) {}
+  constructor(private quizService: QuizService) {}
 
   /**
    * Builds fresh options from a question's raw options.
@@ -26,8 +24,7 @@ export class QqcQlOptionBuildService {
     currentQuestionIndex: number
   ): Option[] {
     const rawOpts = Array.isArray(question.options)
-      ? JSON.parse(JSON.stringify(question.options))
-      : [];
+      ? JSON.parse(JSON.stringify(question.options)) : [];
 
     return rawOpts.map((opt: Option, i: number) => ({
       ...opt,
@@ -37,7 +34,7 @@ export class QqcQlOptionBuildService {
       showIcon: false,
       active: true,
       disabled: false,
-      feedback: opt.feedback ?? `Default feedback for Q${currentQuestionIndex} Opt${i}`,
+      feedback: opt.feedback ?? `Default feedback for Q${currentQuestionIndex} Opt${i}`
     }));
   }
 
@@ -46,9 +43,7 @@ export class QqcQlOptionBuildService {
    * Returns the enriched options array.
    */
   enrichOptionsForDisplay(question: QuizQuestion): Option[] {
-    if (!question || !question.options?.length) {
-      return [];
-    }
+    if (!question || !question.options?.length) return [];
 
     return [...question.options].map(option => ({
       ...option,
@@ -83,11 +78,11 @@ export class QqcQlOptionBuildService {
     currentOptionsToDisplay: Option[],
     lastSignature: string | null
   ): { options: Option[]; signature: string | null } {
-    if (!currentQuestion) {
-      return { options: [], signature: lastSignature };
-    }
+    if (!currentQuestion) return { options: [], signature: lastSignature };
 
-    if (!Array.isArray(currentQuestion.options) || currentQuestion.options.length === 0) {
+    if (!Array.isArray(currentQuestion.options) || 
+      currentQuestion.options.length === 0
+    ) {
       return { options: [], signature: lastSignature };
     }
 
@@ -98,14 +93,12 @@ export class QqcQlOptionBuildService {
       currentOptionsToDisplay.length === currentQuestion.options.length &&
       lastSignature === signature;
 
-    if (hasValidOptions) {
-      return { options: currentOptionsToDisplay, signature };
-    }
+    if (hasValidOptions) return { options: currentOptionsToDisplay, signature };
 
     const populated = currentQuestion.options.map((option, index) => ({
       ...option,
       optionId: option.optionId ?? index,
-      correct: option.correct ?? false,
+      correct: option.correct ?? false
     }));
 
     return { options: populated, signature };
@@ -140,7 +133,7 @@ export class QqcQlOptionBuildService {
       highlightIncorrect: false,
       highlightCorrect: false,
       disabled: false,
-      ariaLabel: opt.text ?? `Option ${idx + 1}`,
+      ariaLabel: opt.text ?? `Option ${idx + 1}`
     })) as OptionBindings[];
   }
 
@@ -172,7 +165,7 @@ export class QqcQlOptionBuildService {
       isOptionSelected: false,
       correctMessage: '',
       feedback: '',
-      idx: params.currentQuestionIndex,
+      idx: params.currentQuestionIndex
     } as SharedOptionConfig;
   }
 
@@ -188,15 +181,12 @@ export class QqcQlOptionBuildService {
     shouldClearFirst: boolean;
   } {
     const enrichedOptions = this.enrichOptionsForDisplay(params.question);
-
-    // If incoming list length differs, clear current list to avoid stale bleed-through
+  
+    // If incoming list length differs, caller can clear current list to avoid stale bleed-through
     const shouldClearFirst =
       enrichedOptions.length > 0 &&
       params.currentOptionsLength !== params.question.options.length;
-
-    if (shouldClearFirst) {
-    }
-
+  
     return { enrichedOptions, shouldClearFirst };
   }
 
@@ -253,7 +243,7 @@ export class QqcQlOptionBuildService {
       clonedOptions,
       isMultipleAnswer,
       currentQuestionIndex,
-      defaultConfig: params.defaultConfig,
+      defaultConfig: params.defaultConfig
     });
 
     const questionData = { ...(instance as any).question(), options: clonedOptions };
@@ -278,7 +268,7 @@ export class QqcQlOptionBuildService {
       questionText: question.questionText,
       explanationText: question.explanation || 'No explanation available',
       correctAnswersText: this.quizService.getCorrectAnswersAsString() || '',
-      options: options || [],
+      options: options || []
     };
   }
 }
