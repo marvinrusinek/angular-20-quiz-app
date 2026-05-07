@@ -60,7 +60,7 @@ export class QqcOrchResetService {
       normalizeIndex: (idx: number) => host.normalizeIndex(idx),
       formattedByIndex: host._formattedByIndex,
       clearSharedOptionForceDisable: () => host.sharedOptionComponent?.clearForceDisableAllOptions?.(),
-      resolveFormatted: (idx: number, opts: any) => host.resolveFormatted(idx, opts),
+      resolveFormatted: (idx: number, opts: any) => host.resolveFormatted(idx, opts)
     });
 
     host.handledOnExpiry.delete(result.i0);
@@ -69,7 +69,11 @@ export class QqcOrchResetService {
     host.showFeedbackForOption = result.showFeedbackForOption;
 
     if (result.hasSelections) {
-      host.optionsToDisplay.set(host.resetManager.restoreSelectionsAndIcons(result.i0, host.optionsToDisplay()));
+      host.optionsToDisplay.set(
+        host.resetManager.restoreSelectionsAndIcons(
+          result.i0, host.optionsToDisplay()
+        )
+      );
       host.cdRef.detectChanges();
     }
 
@@ -91,7 +95,7 @@ export class QqcOrchResetService {
 
     try {
       host.questionForm?.enable({ emitEvent: false });
-    } catch {}
+    } catch { }
     queueMicrotask(() => host.emitPassiveNow(index));
     host.cdRef.markForCheck();
     host.cdRef.detectChanges();
@@ -113,7 +117,9 @@ export class QqcOrchResetService {
   }
 
   runRestoreSelectionsAndIconsForQuestion(host: Host, index: number): void {
-    host.optionsToDisplay.set(host.resetManager.restoreSelectionsAndIcons(index, host.optionsToDisplay()));
+    host.optionsToDisplay.set(
+      host.resetManager.restoreSelectionsAndIcons(index, host.optionsToDisplay())
+    );
     host.cdRef.detectChanges();
   }
 
