@@ -34,7 +34,7 @@ export class AnswerSelectionService {
 
     const canonical =
       optionsToDisplay?.find((option: Option, index: number) =>
-        this.answerOptionsService.getEffectiveOptionId(option, index) === targetKey,
+        this.answerOptionsService.getEffectiveOptionId(option, index) === targetKey
       ) ?? rawOption;
 
     return {
@@ -89,8 +89,7 @@ export class AnswerSelectionService {
     isMultiAnswer: boolean
   ): void {
     this.selectedOptionService.currentQuestionType = !isMultiAnswer
-      ? QuestionType.SingleAnswer
-      : QuestionType.MultipleAnswer;
+      ? QuestionType.SingleAnswer : QuestionType.MultipleAnswer;
 
     if (!isMultiAnswer) {
       this.selectedOptionService.setSelectedOptionsForQuestion(
@@ -126,12 +125,12 @@ export class AnswerSelectionService {
     if (isMultiAnswer && selectedOptions?.length > 0) {
       const totalCorrectInQuestion =
         optionsSource.filter(option =>
-          this.answerOptionsService.isCorrectOptionValue(option),
+          this.answerOptionsService.isCorrectOptionValue(option)
         ).length;
 
       const correctSelectedCount =
         selectedOptions.filter(option =>
-          this.answerOptionsService.isCorrectOptionValue(option),
+          this.answerOptionsService.isCorrectOptionValue(option)
         ).length;
 
       if (
@@ -154,9 +153,7 @@ export class AnswerSelectionService {
     activeQuestionIndex: number,
     enrichedOption: SelectedOption
   ): void {
-    if (enrichedOption.selected !== true || activeQuestionIndex == null) {
-      return;
-    }
+    if (enrichedOption.selected !== true || activeQuestionIndex == null) return;
 
     const dotStatus = enrichedOption.correct ? 'correct' : 'wrong';
 
