@@ -28,18 +28,12 @@ export class QqcQlFetchService {
   async loadQuizData(quizId: string | null | undefined): Promise<QuizQuestion[] | null> {
     try {
       const quizIdExists = await this.quizService.ensureQuizIdExists();
-      if (!quizIdExists) {
-        // Quiz ID is missing
-        return null;
-      }
+      if (!quizIdExists) return null;  // quiz ID is missing
 
       const questions = await this.quizService.fetchQuizQuestions(quizId!);
       if (questions && questions.length > 0) {
         const activeQuiz = this.quizService.getActiveQuiz();
-        if (!activeQuiz) {
-          // Failed to get the active quiz
-          return null;
-        }
+        if (!activeQuiz) return null;  // failed to get the active quiz
 
         this.isQuizLoaded = true;
         this.quizService.setQuestionsLoaded(true);
@@ -106,17 +100,13 @@ export class QqcQlFetchService {
       return shuffled;
     }
 
-    if (questionsArray && questionsArray.length > 0) {
-      return questionsArray;
-    }
+    if (questionsArray && questionsArray.length > 0) return questionsArray;
 
     const quizId = this.quizService.getCurrentQuizId();
     if (!quizId) throw new Error('No active quiz ID found.');
 
     const fetched = await this.quizService.fetchQuizQuestions(quizId);
-    if (!fetched?.length) {
-      throw new Error('Failed to fetch questions.');
-    }
+    if (!fetched?.length) throw new Error('Failed to fetch questions.');
 
     return fetched;
   }
@@ -137,7 +127,7 @@ export class QqcQlFetchService {
 
     return {
       shouldRedirect: params.currentQuestionIndex >= trueTotal && trueTotal > 0,
-      trueTotal,
+      trueTotal
     };
   }
 
@@ -157,9 +147,7 @@ export class QqcQlFetchService {
     }
 
     const candidate = questionsArray[index];
-    if (!candidate) {
-      return false;
-    }
+    if (!candidate) return false;
 
     const hasQuestionText =
       typeof candidate.questionText === 'string' && candidate.questionText.trim().length > 0;
@@ -186,35 +174,25 @@ export class QqcQlFetchService {
       if (!questionsArray || questionsArray.length === 0) {
         const quizId = this.quizService.getCurrentQuizId();
         if (!quizId) {
-          // No active quiz ID found — aborting initialization
-          return null;
+          return null;  // no active quiz ID found — aborting initialization
         }
 
         questionsArray = await this.quizService.fetchQuizQuestions(quizId);
         if (!questionsArray || questionsArray.length === 0) {
-          // Failed to fetch questions — aborting initialization
-          return null;
+          return null;  // failed to fetch questions — aborting initialization
         }
       }
 
       // Clamp currentQuestionIndex to valid range
-      if (currentQuestionIndex < 0) {
-        currentQuestionIndex = 0;
-      }
+      if (currentQuestionIndex < 0) currentQuestionIndex = 0;
+
       const lastIndex = questionsArray.length - 1;
-      if (currentQuestionIndex > lastIndex) {
-        currentQuestionIndex = lastIndex;
-      }
+      if (currentQuestionIndex > lastIndex) currentQuestionIndex = lastIndex;
 
       const currentQuestion = questionsArray[currentQuestionIndex];
-      if (!currentQuestion) {
-        return null;
-      }
-      return {
-        questionsArray,
-        currentQuestionIndex,
-        currentQuestion,
-      };
+      if (!currentQuestion) return null;
+
+      return { questionsArray, currentQuestionIndex, currentQuestion };
     } catch (error) {
       // Error during initialization
       return null;
@@ -232,17 +210,13 @@ export class QqcQlFetchService {
   }): Promise<QuizQuestion[]> {
     const { quizId, prepareQuestion } = params;
 
-    if (!quizId) {
-      // Quiz ID is not provided or is empty
-      return [];
-    }
+    if (!quizId) return [];  // quiz ID is not provided or is empty
 
     try {
       const questions = await this.quizService.fetchQuizQuestions(quizId);
 
       if (!questions || questions.length === 0) {
-        // No questions were loaded
-        return [];
+        return [];  // no questions were loaded
       }
 
       // Run all question preparations in parallel
@@ -295,7 +269,7 @@ export class QqcQlFetchService {
         error: (err: any) => {
           subscription?.unsubscribe();
           reject(err);
-        },
+        }
       });
     });
   }
@@ -317,7 +291,12 @@ export class QqcQlFetchService {
     const result = await this.ensureQuestionsLoaded(params.questionsArray, params.quizId);
     if (!result.loaded) {
       // No questions available
-      return { success: false, currentQuestion: null, optionsToDisplay: [], questions: params.questionsArray };
+      return { 
+        success: false,
+        currentQuestion: null,
+        optionsToDisplay: [],
+        questions: params.questionsArray
+      };
     }
 
     const questions = result.questions || params.questionsArray;
@@ -327,7 +306,12 @@ export class QqcQlFetchService {
       params.currentQuestionIndex >= questions.length
     ) {
       // Invalid question index
-      return { success: false, currentQuestion: null, optionsToDisplay: [], questions };
+      return { 
+        success: false,
+        currentQuestion: null,
+        optionsToDisplay: [],
+        questions
+      };
     }
 
     try {
@@ -350,11 +334,16 @@ export class QqcQlFetchService {
           success: true,
           currentQuestion: questionData,
           optionsToDisplay: questionData.options ?? [],
-          questions,
+          questions
         };
       } else {
         // No data found for question index
-        return { success: false, currentQuestion: null, optionsToDisplay: [], questions };
+        return {
+          success: false,
+          currentQuestion: null,
+          optionsToDisplay: [],
+          questions
+        };
       }
     } catch (error) {
       // Error fetching question data
@@ -376,9 +365,7 @@ export class QqcQlFetchService {
   }> {
     let idx = params.currentQuestionIndex;
 
-    if (!Number.isInteger(idx) || idx < 0) {
-      idx = 0;
-    }
+    if (!Number.isInteger(idx) || idx < 0) idx = 0;
 
     try {
       let question = await firstValueFrom(
@@ -399,23 +386,35 @@ export class QqcQlFetchService {
 
         if (!question) {
           // Still no question after clamping — aborting
-          return { currentQuestion: null, optionsToDisplay: [], currentQuestionIndex: idx };
+          return {
+            currentQuestion: null,
+            optionsToDisplay: [],
+            currentQuestionIndex: idx
+          };
         }
       }
 
       if (!question.options?.length) {
         // Invalid question data or options missing
-        return { currentQuestion: null, optionsToDisplay: [], currentQuestionIndex: idx };
+        return { 
+          currentQuestion: null, 
+          optionsToDisplay: [], 
+          currentQuestionIndex: idx
+        };
       }
 
       return {
         currentQuestion: question,
         optionsToDisplay: [...question.options],
-        currentQuestionIndex: idx,
+        currentQuestionIndex: idx
       };
     } catch (error) {
       // Error loading question data
-      return { currentQuestion: null, optionsToDisplay: [], currentQuestionIndex: idx };
+      return { 
+        currentQuestion: null, 
+        optionsToDisplay: [], 
+        currentQuestionIndex: idx
+      };
     }
   }
 
@@ -434,7 +433,7 @@ export class QqcQlFetchService {
     const activeQuiz = this.quizService.getActiveQuiz();
     return {
       questions,
-      quiz: activeQuiz || null,
+      quiz: activeQuiz || null
     };
   }
 }
