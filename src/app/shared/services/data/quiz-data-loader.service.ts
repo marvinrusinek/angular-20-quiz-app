@@ -2,12 +2,9 @@ import { Injectable, signal, WritableSignal } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import {
-  firstValueFrom, from, Observable, of, Subject
-} from 'rxjs';
-import {
-  distinctUntilChanged, filter, map, take
-} from 'rxjs/operators';
+import { firstValueFrom, from, Observable, of } from 'rxjs';
+import { distinctUntilChanged, map } from 'rxjs/operators';
+
 import { QUIZ_DATA, QUIZ_RESOURCES } from '../../quiz';
 import { QuestionType } from '../../models/question-type.enum';
 import { Option } from '../../models/Option.model';
@@ -16,7 +13,6 @@ import { QuizQuestion } from '../../models/QuizQuestion.model';
 import { QuizResource } from '../../models/QuizResource.model';
 import { Resource } from '../../models/Resource.model';
 import { QuizShuffleService } from '../flow/quiz-shuffle.service';
-import { QuizStateService } from '../state/quizstate.service';
 import { Utils } from '../../utils/utils';
 
 @Injectable({ providedIn: 'root' })
@@ -65,7 +61,6 @@ export class QuizDataLoaderService {
 
   constructor(
     private quizShuffleService: QuizShuffleService,
-    private quizStateService: QuizStateService,
     private activatedRoute: ActivatedRoute,
     private http: HttpClient
   ) {}
@@ -92,10 +87,10 @@ export class QuizDataLoaderService {
       // this.quizData which may carry mutations from prior quiz runs.
       this.quizInitialState = structuredClone(QUIZ_DATA);
       let selectedQuiz = quizId
-        ? this.quizData.find((quiz) => quiz.quizId === quizId)
-        : undefined;
+        ? this.quizData.find((quiz) => quiz.quizId === quizId) : undefined;
 
       if (!selectedQuiz && quizId) {
+        console.warn(`[QuizDataLoader] Quiz id=${quizId} not found, using default`);
       }
 
       selectedQuiz = selectedQuiz ?? this.quizData[0];
@@ -117,7 +112,7 @@ export class QuizDataLoaderService {
     if (questions.length > 0) {
       const firstQuestion = questions[0];
       if (!this.isValidQuestionStructure(firstQuestion)) {
-        // Invalid question structure detected
+        console.warn('[QuizDataLoader] Invalid question structure detected', firstQuestion);
       }
     }
 
@@ -143,6 +138,7 @@ export class QuizDataLoaderService {
       : null;
 
     if (!quiz) {
+      console.warn(`[QuizDataLoader] Quiz id=${quizId} not found in quizData`);
     }
 
     return of(quiz ?? null);
