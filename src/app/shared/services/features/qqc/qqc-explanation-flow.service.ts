@@ -12,8 +12,8 @@ import { QuizService } from '../../data/quiz.service';
 import { QuizDataService } from '../../data/quizdata.service';
 import { QuizStateService } from '../../state/quizstate.service';
 import { QuizQuestionManagerService } from '../../flow/quizquestionmgr.service';
-import { QqcExplanationManagerService } from './qqc-explanation-manager.service';
 import { QqcExplanationDisplayService } from './qqc-explanation-display.service';
+import { QqcExplanationManagerService } from './qqc-explanation-manager.service';
 import { QqcQuestionLoaderService } from './qqc-question-loader.service';
 
 /**
@@ -62,7 +62,7 @@ export class QqcExplanationFlowService {
             firstValueFrom(formattedExplanationObservable),
             new Promise<string>((_, reject) =>
               setTimeout(() => reject(new Error('Timeout')), 5000)
-            ),
+            )
           ]);
 
           if (formattedExplanation) {
@@ -111,17 +111,14 @@ export class QqcExplanationFlowService {
     explanationToDisplay?: '';
     displayState?: { mode: 'question'; answered: false };
   } {
-    const locked =
-      this.explanationTextService.isExplanationLocked?.() ?? false;
-
-    if (!params.force && locked) {      return { blocked: true };
-    }
+    const locked = this.explanationTextService.isExplanationLocked?.() ?? false;
+    if (!params.force && locked) return { blocked: true };
 
     return {
       blocked: false,
       displayExplanation: false,
       explanationToDisplay: '',
-      displayState: { mode: 'question', answered: false },
+      displayState: { mode: 'question', answered: false }
     };
   }
 
@@ -155,9 +152,7 @@ export class QqcExplanationFlowService {
     resolvedQuizId: string | null;
   } | { shouldSkip: true } {
     const normalized = (args.explanationText ?? '').trim();
-    if (!normalized) {
-      return { shouldSkip: true };
-    }
+    if (!normalized) return { shouldSkip: true };
 
     // Apply service-level state
     this.explanationTextService.setExplanationText(normalized);
@@ -190,7 +185,7 @@ export class QqcExplanationFlowService {
       displayExplanation: true,
       shouldDisplayExplanation: true,
       isExplanationTextDisplayed: true,
-      resolvedQuizId,
+      resolvedQuizId
     };
   }
 
@@ -206,7 +201,8 @@ export class QqcExplanationFlowService {
     adjustedIndex: number;
     currentQuestion: QuizQuestion;
   } | null {
-    if (!params.questionsArray || params.questionsArray.length === 0) {      return null;
+    if (!params.questionsArray || params.questionsArray.length === 0) {
+      return null;
     }
 
     const adjustedIndex = Math.max(
@@ -215,10 +211,7 @@ export class QqcExplanationFlowService {
     );
     const currentQuestion = params.questionsArray[adjustedIndex];
 
-    if (!currentQuestion) {
-      // Question not found at adjusted index
-      return null;
-    }
+    if (!currentQuestion) return null;  // question not found at adjusted index
 
     return { adjustedIndex, currentQuestion };
   }
@@ -247,7 +240,8 @@ export class QqcExplanationFlowService {
       // Set the current explanation text
       this.explanationTextService.setCurrentQuestionExplanation(explanationText);
 
-      const totalCorrectAnswers = this.quizService.quizOptions.getTotalCorrectAnswers(params.currentQuestion);
+      const totalCorrectAnswers = 
+        this.quizService.quizOptions.getTotalCorrectAnswers(params.currentQuestion);
 
       // Update the quiz state with the latest question information
       this.quizStateService.updateQuestionState(
@@ -259,7 +253,7 @@ export class QqcExplanationFlowService {
 
       return {
         explanationText,
-        shouldDisplay: params.lastAllCorrect,
+        shouldDisplay: params.lastAllCorrect
       };
     } catch (error) {
       // Error processing current question
@@ -271,7 +265,7 @@ export class QqcExplanationFlowService {
 
       return {
         explanationText: 'Unable to load explanation.',
-        shouldDisplay: false,
+        shouldDisplay: false
       };
     }
   }
@@ -320,8 +314,7 @@ export class QqcExplanationFlowService {
   } | null {
     const idx = params.currentQuestionIndex;
     const q = this.quizService.questions?.[idx];
-    if (!q) {      return null;
-    }
+    if (!q) return null;
 
     const correctIdxs = this.explanationTextService.getCorrectOptionIndices(q);
     const rawExpl = (q.explanation ?? '').trim() || 'Explanation not provided';
@@ -343,7 +336,7 @@ export class QqcExplanationFlowService {
       correctIdxs,
       questionType: q.type,
       correctAnswersText,
-      totalOpts,
+      totalOpts
     };
   }
 
@@ -371,11 +364,12 @@ export class QqcExplanationFlowService {
         requestAnimationFrame(() => {
           try {
             this.quizService.updateCorrectAnswersText(params.correctAnswersText);
-          } catch (err) {          }
-        });      } else {
+          } catch (err) { }
+        });
+      } else {
         this.quizService.updateCorrectAnswersText('');
       }
-    } catch (err) {    }
+    } catch (err) { }
   }
 
   /**
@@ -419,13 +413,14 @@ export class QqcExplanationFlowService {
           explanationToDisplay: explanationText || 'No explanation available',
           success: true,
         };
-      } else {        return { explanationToDisplay: '', success: false };
+      } else {
+        return { explanationToDisplay: '', success: false };
       }
     } catch (error) {
       // Error fetching explanation for question
       return {
         explanationToDisplay: this.getExplanationErrorText(),
-        success: false,
+        success: false
       };
     }
   }
@@ -484,7 +479,8 @@ export class QqcExplanationFlowService {
       const explanationText = formatted?.explanation
         || this.explanationTextService.prepareExplanationText(params.question);
       return { shouldUpdate: true, explanationText };
-    } else {      return { shouldUpdate: false, explanationText: '' };
+    } else {
+      return { shouldUpdate: false, explanationText: '' };
     }
   }
 
@@ -530,7 +526,7 @@ export class QqcExplanationFlowService {
         if (svc.formattedExplanations) {
           svc.formattedExplanations[params.lockedIndex] = {
             explanation: formatted,
-            idx: params.lockedIndex,
+            idx: params.lockedIndex
           };
         }
       } catch { /* ignore */ }
@@ -542,8 +538,10 @@ export class QqcExplanationFlowService {
       // not yet reflect the current click at the moment the gate runs.
       svc.displayState?.setShouldDisplayExplanation?.(true);
       svc.displayState?.setExplanationText?.(formatted);
-      svc.displayState?.setIsExplanationTextDisplayed?.(true);      return { formatted, shouldDisplay: true };
-    } catch (err) {      return null;
+      svc.displayState?.setIsExplanationTextDisplayed?.(true);
+      return { formatted, shouldDisplay: true };
+    } catch (err) {
+      return null;
     }
   }
 
@@ -565,7 +563,7 @@ export class QqcExplanationFlowService {
 
     const result = this.computeResetExplanation({
       force: params.force,
-      questionIndex: params.questionIndex,
+      questionIndex: params.questionIndex
     });
 
     if (result.blocked) {
@@ -580,7 +578,7 @@ export class QqcExplanationFlowService {
     return {
       blocked: false,
       displayExplanation: false,
-      explanationToDisplay: '',
+      explanationToDisplay: ''
     };
   }
 
@@ -637,7 +635,7 @@ export class QqcExplanationFlowService {
       // Error in performFetchAndSetExplanation
       return {
         success: false,
-        explanationToDisplay: this.getExplanationErrorText(),
+        explanationToDisplay: this.getExplanationErrorText()
       };
     }
   }
