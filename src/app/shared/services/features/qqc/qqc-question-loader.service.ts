@@ -714,9 +714,7 @@ export class QqcQuestionLoaderService {
     }));
 
     const isAnswered = await params.isAnyOptionSelected(params.zeroBasedIndex);
-    if (isAnswered) {
-      await params.updateExplanationText(params.zeroBasedIndex);
-    }
+    if (isAnswered) await params.updateExplanationText(params.zeroBasedIndex);
 
     return {
       loaded: true,
