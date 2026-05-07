@@ -90,10 +90,9 @@ export class ExplanationDisplayStateService {
   get _activeIndex(): number | null {
     return this._activeIndexValue;
   }
-  set _activeIndex(value: number | null) {    this._activeIndexValue = value;
-    if (value !== null) {
-      this.activeIndexSig.set(value);
-    }
+  set _activeIndex(value: number | null) {
+    this._activeIndexValue = value;
+    if (value !== null) this.activeIndexSig.set(value);
   }
 
   get shouldDisplayExplanationSnapshot(): boolean {
@@ -121,9 +120,7 @@ export class ExplanationDisplayStateService {
 
   private _qss!: QuizStateService;
   private get qss(): QuizStateService {
-    if (!this._qss) {
-      this._qss = this.injector.get(QuizStateService);
-    }
+    if (!this._qss) this._qss = this.injector.get(QuizStateService);
     return this._qss;
   }
 
@@ -560,9 +557,7 @@ export class ExplanationDisplayStateService {
       if (
         previous === shouldDisplay &&
         signature === this.lastDisplaySignature
-      ) {
-        return;
-      }
+      ) return;
     }
 
     if (shouldDisplay) {
@@ -756,7 +751,7 @@ export class ExplanationDisplayStateService {
             }
           }
         }
-      } catch (e) {}
+      } catch (e) { }
     }
 
     const trimmed = (value ?? '').trim();
@@ -826,8 +821,7 @@ export class ExplanationDisplayStateService {
         this._fetLocked ||
         index !== this._activeIndex ||
         token !== this._currentGateToken
-      ) {        return;
-      }
+      ) return;
       this.formatter.formattedExplanationSig.set(trimmed);
       this.shouldDisplayExplanationSig.set(true);
       this.isExplanationTextDisplayedSig.set(true);
@@ -897,7 +891,8 @@ export class ExplanationDisplayStateService {
       this.latestExplanationIndex = null;
       this.formatter.formattedExplanationSig.set('');
       this.setShouldDisplayExplanation(false, { force: true });
-      this.setIsExplanationTextDisplayed(false, { force: true });    }
+      this.setIsExplanationTextDisplayed(false, { force: true });
+    }
 
     // Ensure and hard-emit for new index
     const { text$, gate$ } = this.getOrCreate(index);
@@ -935,7 +930,7 @@ export class ExplanationDisplayStateService {
           filter((v) => v),
           take(1),
           timeout(timeoutMs)
-        ),
+        )
       );
     } catch {
       // Swallow timeouts or interruptions silently
@@ -954,7 +949,8 @@ export class ExplanationDisplayStateService {
     try {
       this.setShouldDisplayExplanation(false, { force: true });
       this.setIsExplanationTextDisplayed(false);
-    } catch (err) {    }  }
+    } catch (err) { }
+  }
 
   public markLastNavTime(time: number): void {
     this._lastNavTime = time;
@@ -963,7 +959,8 @@ export class ExplanationDisplayStateService {
   public setQuietZone(durationMs: number): void {
     const until = performance.now() + Math.max(0, durationMs);
     this._quietZoneUntil = until;
-    this.quietZoneUntilSig.set(until);  }
+    this.quietZoneUntilSig.set(until);
+  }
 
   public purgeAndDefer(newIndex: number): void {
     // Bump generation and lock everything immediately
