@@ -40,9 +40,7 @@ export class QqcExplanationManagerService {
       const explanationText = await firstValueFrom(explanation$);
 
       const trimmed = explanationText?.trim();
-      if (!trimmed) {
-        return 'No explanation available for this question.';
-      }
+      if (!trimmed) return 'No explanation available for this question.';
 
       return trimmed;
     } catch (error) {
@@ -60,7 +58,7 @@ export class QqcExplanationManagerService {
     if (!questionData) {
       return {
         questionIndex,
-        explanation: 'No question data available',
+        explanation: 'No question data available'
       };
     }
 
@@ -81,18 +79,18 @@ export class QqcExplanationManagerService {
 
         return {
           questionIndex,
-          explanation: explanationText,
+          explanation: explanationText
         };
       } else {
         return {
           questionIndex,
-          explanation: questionData.explanation || 'No explanation available',
+          explanation: questionData.explanation || 'No explanation available'
         };
       }
     } catch (error) {
       return {
         questionIndex,
-        explanation: questionData.explanation || 'Error processing explanation',
+        explanation: questionData.explanation || 'Error processing explanation'
       };
     }
   }
