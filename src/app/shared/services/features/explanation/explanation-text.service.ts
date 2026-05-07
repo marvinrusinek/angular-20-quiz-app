@@ -49,14 +49,10 @@ export class ExplanationTextService {
       if (idx < 0) return null;
 
       // FAST PATH: if SOC has confirmed this question correct, bypass all checks.
-      if (this.fetBypassForQuestion.get(idx) === true) {
-        return true;
-      }
+      if (this.fetBypassForQuestion.get(idx) === true) return true;
       try {
         const scoringSvc = (this.quizService as any)?.scoringService;
-        if (scoringSvc?.questionCorrectness?.get(idx) === true) {
-          return true;
-        }
+        if (scoringSvc?.questionCorrectness?.get(idx) === true) return true;
       } catch { /* ignore */ }
 
       const norm = (t: any) => String(t ?? '').trim().toLowerCase();
@@ -115,8 +111,7 @@ export class ExplanationTextService {
       // sessionStorage sel_Q{idx}
       try {
         const raw = typeof sessionStorage !== 'undefined'
-          ? sessionStorage.getItem('sel_Q' + idx)
-          : null;
+          ? sessionStorage.getItem('sel_Q' + idx) : null;
         if (raw) {
           const parsed = JSON.parse(raw);
           if (Array.isArray(parsed)) {
@@ -415,9 +410,7 @@ export class ExplanationTextService {
       const idx = options?.index ?? this.parseIndexFromContext(options?.context)
         ?? this.quizService.currentQuestionIndex;
       const pristine = this.isMultiAnswerPristineResolved(idx);
-      if (pristine === false) {
-        return;
-      }
+      if (pristine === false) return;
     }
     this.displayState.setExplanationText(explanation, options);
   }
@@ -452,9 +445,7 @@ export class ExplanationTextService {
       const idxFromCtx = this.parseIndexFromContext(options?.context);
       const idx = idxFromCtx ?? this.quizService.currentQuestionIndex;
       const pristine = this.isMultiAnswerPristineResolved(idx);
-      if (pristine === false) {
-        return;
-      }
+      if (pristine === false) return;
     }
     this.displayState.setIsExplanationTextDisplayed(isDisplayed, options);
   }
@@ -467,9 +458,7 @@ export class ExplanationTextService {
       const idxFromCtx = this.parseIndexFromContext(options?.context);
       const idx = idxFromCtx ?? this.quizService.currentQuestionIndex;
       const pristine = this.isMultiAnswerPristineResolved(idx);
-      if (pristine === false) {
-        return;
-      }
+      if (pristine === false) return;
     }
     this.displayState.setShouldDisplayExplanation(shouldDisplay, options);
   }
@@ -520,9 +509,7 @@ export class ExplanationTextService {
   ): void {
     if (value && value.trim().length > 0 && !options?.bypassGuard) {
       const pristine = this.isMultiAnswerPristineResolved(index);
-      if (pristine === false) {
-        return;
-      }
+      if (pristine === false) return;
     }
     this.displayState.emitFormatted(index, value, options);
   }
