@@ -10,25 +10,20 @@ type Host = any;
  * Extracted from CqcOrchestratorService.
  *
  * Responsible for:
- * - runSubscribeToDisplayText: the central pipeline subscription that
- *   decides what text (question or FET) to write into the qText DOM element
+ * - runSubscribeToDisplayText: the central pipeline subscription that decides
+ *   what text (question or FET) to write into the qText DOM element
  */
 @Injectable({ providedIn: 'root' })
 export class CqcDisplayTextService {
-
   constructor(private fetGuard: CqcFetGuardService) {}
 
   runSubscribeToDisplayText(host: Host): void {
     host.combinedText$ = host.displayText$;
 
-    if (host.combinedSub) {
-      host.combinedSub.unsubscribe();
-    }
+    if (host.combinedSub) host.combinedSub.unsubscribe();
 
     host.combinedSub = host.combinedText$
-      .pipe(
-        takeUntil(host.destroy$)
-      )
+      .pipe(takeUntil(host.destroy$))
       .subscribe({
         next: (text: string) => {
 
@@ -203,9 +198,10 @@ export class CqcDisplayTextService {
             }
 
             // FET LOCK
-            if ((host as any)._fetLockedForIndex === currentIdx && isQuestionText && !multiAnswerBlocked) {
-              return;
-            }
+            if ((host as any)._fetLockedForIndex === currentIdx && 
+              isQuestionText && 
+              !multiAnswerBlocked
+            ) return;
 
             // MULTI-ANSWER / SINGLE-ANSWER FET BLOCK (skip when timed out)
             if (!isTimedOutForIdx) {
@@ -221,7 +217,8 @@ export class CqcDisplayTextService {
                 || (!!rawExplanation && finalNorm.includes(rawExplanation))
                 || (!!qTextNormForFet && !finalNorm.includes(qTextNormForFet))
               );
-              const rawQForBlock: any = (host.quizService as any)?.questions?.[currentIdx] ?? qForMultiCheck;
+              const rawQForBlock: any = 
+                (host.quizService as any)?.questions?.[currentIdx] ?? qForMultiCheck;
               const rawOptsForBlock: any[] = rawQForBlock?.options ?? [];
               let rawCorrectCountBlock = rawOptsForBlock.filter(
                 (o: any) => o?.correct === true || o?.correct === 1 || String(o?.correct) === 'true'
@@ -267,9 +264,7 @@ export class CqcDisplayTextService {
             // BANNER PRESERVATION
             if (isQuestionText) {
               const enriched = this.fetGuard.buildQuestionDisplayHTML(host, currentIdx);
-              if (enriched) {
-                finalText = enriched;
-              }
+              if (enriched) finalText = enriched;
             }
 
             this.fetGuard.writeQText(host, finalText);
