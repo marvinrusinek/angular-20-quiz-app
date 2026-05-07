@@ -17,7 +17,7 @@ export class QqcOrchDisplayService {
   runUpdateOptionsSafely(host: Host, newOptions: Option[]): void {
     const result = host.displayStateManager.prepareOptionSwap({
       newOptions,
-      currentOptionsJson: JSON.stringify(host.optionsToDisplay()),
+      currentOptionsJson: JSON.stringify(host.optionsToDisplay())
     });
 
     if (result.needsSwap) {
@@ -48,7 +48,7 @@ export class QqcOrchDisplayService {
     const result = host.displayStateManager.hydrateFromPayload({
       payload,
       currentQuestionText: host.currentQuestion()?.questionText?.trim(),
-      isAlreadyRendered: host.finalRenderReady,
+      isAlreadyRendered: host.finalRenderReady
     });
     if (!result) return;
 
@@ -78,7 +78,7 @@ export class QqcOrchDisplayService {
         host.displayStateManager.computeRenderReadiness(host.optionsToDisplay()) &&
         bindingsReady
       ) {
-        host.sharedOptionComponent?.markRenderReady('✅ Hydrated from new payload');
+        host.sharedOptionComponent?.markRenderReady('Hydrated from new payload');
       }
     }, 0);
   }
@@ -108,7 +108,7 @@ export class QqcOrchDisplayService {
     const result = host.displayStateManager.refreshOptionsForQuestion({
       question,
       providedOptions,
-      currentQuestionIndex: host.currentQuestionIndex(),
+      currentQuestionIndex: host.currentQuestionIndex()
     });
     host.options.set(result.options);
     host.optionsToDisplay.set(result.optionsToDisplay);
@@ -167,7 +167,7 @@ export class QqcOrchDisplayService {
       useCache: opts.useCache,
       setCache: opts.setCache,
       timeoutMs: opts.timeoutMs,
-      updateExplanationText: (idx: number) => host.updateExplanationText(idx),
+      updateExplanationText: (idx: number) => host.updateExplanationText(idx)
     });
   }
 
@@ -204,7 +204,7 @@ export class QqcOrchDisplayService {
   runSafeSetDisplayState(host: Host, state: { mode: 'question' | 'explanation'; answered: boolean }): void {
     if (host.displayStateManager.shouldSuppressDisplayState({
       visibilityRestoreInProgress: host._visibilityRestoreInProgress,
-      suppressDisplayStateUntil: host._suppressDisplayStateUntil,
+      suppressDisplayStateUntil: host._suppressDisplayStateUntil
     })) {
       return;
     }
