@@ -2,7 +2,7 @@ import { Injectable, OnDestroy, signal } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import {
-  BehaviorSubject, firstValueFrom, Observable, of, Subject, throwError
+  firstValueFrom, Observable, of, Subject, throwError
 } from 'rxjs';
 import {
   catchError, distinctUntilChanged, filter, map, switchMap, take,
@@ -28,8 +28,8 @@ export class QuizDataService implements OnDestroy {
   private readonly baseQuizQuestionCache = new Map<string, QuizQuestion[]>();
   private readonly quizQuestionCache = new Map<string, QuizQuestion[]>();
 
-  selectedQuiz$: BehaviorSubject<Quiz | null> =
-    new BehaviorSubject<Quiz | null>(null);
+  private selectedQuizSig = signal<Quiz | null>(null);
+  selectedQuiz$: Observable<Quiz | null> = toObservable(this.selectedQuizSig);
 
   private readonly currentQuizSig = signal<Quiz | null>(null);
 
@@ -125,7 +125,7 @@ export class QuizDataService implements OnDestroy {
   getCachedQuizById(quizId: string): Quiz | null {
     if (!quizId) return null;
 
-    // Prefer the BehaviorSubject cache (always up-to-date)
+    // Prefer the signal cache (always up-to-date)
     const quizzes = this.quizzesSig();
 
     // Fallback to your original this.quizzes array if ever needed
@@ -140,7 +140,7 @@ export class QuizDataService implements OnDestroy {
   }
 
   //  Update the status of a quiz (e.g., to 'completed') and persist it.
-  // This updates both the local array and the BehaviorSubject so subscribers see the change.
+  // This updates both the local array and the signal so subscribers see the change.
   updateQuizStatus(quizId: string, status: string): void {
     if (!quizId) return;
 
@@ -150,7 +150,7 @@ export class QuizDataService implements OnDestroy {
       this.quizzes[quizIndex] = { ...this.quizzes[quizIndex], status };
     }
 
-    // Update in the BehaviorSubject
+    // Update in the signal
     const currentQuizzes = this.quizzesSig();
     const updatedQuizzes = currentQuizzes.map(q => 
       q.quizId === quizId ? { ...q, status } : q
@@ -192,11 +192,11 @@ export class QuizDataService implements OnDestroy {
   }
 
   setSelectedQuiz(quiz: Quiz | null): void {
-    this.selectedQuiz$.next(quiz);
+    this.selectedQuizSig.set(quiz);
   }
 
   getSelectedQuizSnapshot(): Quiz | null {
-    return this.selectedQuiz$.getValue();
+    return this.selectedQuizSig();
   }
 
   setSelectedQuizById(quizId: string): Observable<void> {
@@ -811,7 +811,7 @@ export class QuizDataService implements OnDestroy {
 
     const baseQuiz =
       sourceQuiz ??
-      this.selectedQuiz$.getValue() ??
+      this.selectedQuizSig() ??
       this.quizService.selectedQuiz ??
       this.getCachedQuizById(quizId);
 
