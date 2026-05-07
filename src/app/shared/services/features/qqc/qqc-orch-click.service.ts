@@ -27,7 +27,9 @@ export class QqcOrchClickService {
     }
 
     if (!host.quizStateService.isInteractionReady()) {
-      await firstValueFrom(host.quizStateService.interactionReady$.pipe(filter(Boolean), take(1)));
+      await firstValueFrom(
+        host.quizStateService.interactionReady$.pipe(filter(Boolean), take(1))
+      );
     }
 
     if (!host.currentQuestion() || !host.currentOptions) return;
@@ -63,10 +65,11 @@ export class QqcOrchClickService {
         optionsToDisplay: host.optionsToDisplay(),
         currentQuestionOptions: host.currentQuestion()?.options,
         totalQuestions: host.totalQuestions,
-        msgTok: host._msgTok,
+        msgTok: host._msgTok
       });
 
-      const { canonicalOpts, selectedKeysSet: selOptsSetImmediate, isMultiForSelection, allCorrect } = clickResult;
+      const { canonicalOpts, selectedKeysSet: selOptsSetImmediate, 
+        isMultiForSelection, allCorrect } = clickResult;
       host._msgTok = clickResult.msgTok;
       host._lastAllCorrect = allCorrect;
 
