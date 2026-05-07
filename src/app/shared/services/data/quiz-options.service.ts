@@ -266,7 +266,10 @@ export class QuizOptionsService {
       .map((option) => option.optionId as number);
 
     if (correctAnswers.length === 0) {
-      console.warn('[QuizOptions] No correct answers found for question', question?.questionText);
+      console.warn(
+        '[QuizOptions] No correct answers found for question',
+        question?.questionText
+      );
     }
 
     return correctAnswers;
