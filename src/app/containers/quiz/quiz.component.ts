@@ -125,7 +125,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   public questionToDisplay$ = toObservable(this.questionToDisplaySig);
 
   optionsToDisplay: Option[] = [];
-  optionsToDisplay$ = new BehaviorSubject<Option[]>([]);
+  optionsToDisplaySig = signal<Option[]>([]);
   explanationToDisplay = '';
 
   isLoading = false;

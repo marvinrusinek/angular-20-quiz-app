@@ -200,7 +200,7 @@ export class QuizSetupService {
         optionsToDisplay: host.optionsToDisplay,
         explanationToDisplay: host.explanationToDisplay,
         combinedQuestionData: host.combinedQuestionData,
-        optionsToDisplay$: host.optionsToDisplay$,
+        optionsToDisplaySig: host.optionsToDisplaySig,
       });
       if (needsRender) {
         host.cdRef.markForCheck();

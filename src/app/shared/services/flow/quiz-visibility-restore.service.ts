@@ -1,5 +1,4 @@
 import { Injectable, WritableSignal } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
 
 import { Option } from '../../models/Option.model';
 import { QuestionPayload } from '../../models/QuestionPayload.model';
@@ -17,7 +16,7 @@ export interface VisibilityRestoreParams {
   optionsToDisplay: Option[];
   explanationToDisplay: string;
   combinedQuestionData: WritableSignal<QuestionPayload | null>;
-  optionsToDisplay$: BehaviorSubject<Option[]>;
+  optionsToDisplaySig: WritableSignal<Option[]>;
 }
 
 /**
@@ -66,7 +65,7 @@ export class QuizVisibilityRestoreService {
       params.combinedQuestionData.set(payloadToEmit);
 
       if (params.optionsToDisplay && params.optionsToDisplay.length > 0) {
-        params.optionsToDisplay$.next(params.optionsToDisplay);
+        params.optionsToDisplaySig.set(params.optionsToDisplay);
       }
     }
 

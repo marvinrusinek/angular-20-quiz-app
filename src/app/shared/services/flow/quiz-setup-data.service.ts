@@ -178,7 +178,7 @@ export class QuizSetupDataService {
       host.qaToDisplay = undefined;
       host.currentQuestion = null;
       host.optionsToDisplay = [];
-      host.optionsToDisplay$.next([]);
+      host.optionsToDisplaySig.set([]);
       host.hasOptionsLoaded = false;
       host.shouldRenderOptions = false;
       host.explanationToDisplay = '';
@@ -191,7 +191,7 @@ export class QuizSetupDataService {
     host.qaToDisplay = { question: result.question!, options: result.normalizedOptions };
     host.questionToDisplaySig.set(result.trimmedQuestionText);
     host.optionsToDisplay = [...result.normalizedOptions];
-    host.optionsToDisplay$.next([...result.normalizedOptions]);
+    host.optionsToDisplaySig.set([...result.normalizedOptions]);
     host.hasOptionsLoaded = result.normalizedOptions.length > 0;
     host.shouldRenderOptions = host.hasOptionsLoaded;
     host.explanationToDisplay = result.trimmedExplanation;
@@ -301,7 +301,7 @@ export class QuizSetupDataService {
         host.question = payload.question;
         host.currentQuestion = payload.question;
         host.optionsToDisplay = [...payload.options];
-        host.optionsToDisplay$.next([...payload.options]);
+        host.optionsToDisplaySig.set([...payload.options]);
         host.cdRef.detectChanges();
       });
     host.subscriptions.add(sub);

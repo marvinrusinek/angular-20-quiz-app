@@ -112,7 +112,7 @@ export class QuizSetupRouteService {
     host.questionsArray = [];
     host.currentQuestion = null;
     host.optionsToDisplay = [];
-    host.optionsToDisplay$.next([]);
+    host.optionsToDisplaySig.set([]);
     host.combinedQuestionData.set(null);
     host.questionToDisplaySig.set('');
     host.explanationToDisplay = '';
@@ -230,7 +230,7 @@ export class QuizSetupRouteService {
       host.combinedQuestionData.set(payload);
       host.questionToDisplaySig.set(result.question.questionText?.trim() ?? '');
       host.optionsToDisplay = [...result.options];
-      host.optionsToDisplay$.next([...result.options]);
+      host.optionsToDisplaySig.set([...result.options]);
       host.explanationToDisplay = result.explanation;
       host.qaToDisplay = { question: result.question, options: result.options };
       host.shouldRenderOptions = true;
