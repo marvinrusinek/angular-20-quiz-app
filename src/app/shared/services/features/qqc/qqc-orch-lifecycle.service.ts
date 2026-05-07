@@ -31,7 +31,7 @@ export class QqcOrchLifecycleService {
           host.resolveFormatted(i0, { useCache: true, setCache: true }).catch(() => {});
         }
       },
-      onTimerExpiredFor: (i0: number) => host.onTimerExpiredFor(i0),
+      onTimerExpiredFor: (i0: number) => host.onTimerExpiredFor(i0)
     });
 
     host.subscriptionWiring.createCurrentQuestionIndexSubscription((index: number) => {
@@ -44,7 +44,7 @@ export class QqcOrchLifecycleService {
         host.optionsToDisplay.set(payload.options);
         host.explanationToDisplay.set(payload.explanation ?? '');
         host.updateShouldRenderOptions(host.optionsToDisplay());
-      },
+      }
     });
 
     host.shufflePreferenceSubscription = host.subscriptionWiring.createShufflePreferenceSubscription(
@@ -68,7 +68,7 @@ export class QqcOrchLifecycleService {
       },
       onExplanationReset: () => host.resetExplanation(),
       onRenderReset: () => { host.renderReady = false; },
-      onResetUIForNewQuestion: () => host.resetUIForNewQuestion(),
+      onResetUIForNewQuestion: () => host.resetUIForNewQuestion()
     });
     for (const sub of navSubs) {
       host.displaySubscriptions.push(sub);
@@ -78,7 +78,7 @@ export class QqcOrchLifecycleService {
       destroy$: host.destroy$,
       onPreReset: (idx: number) => host.resetPerQuestionState(idx),
       getLastResetFor: () => host.lastResetFor,
-      setLastResetFor: (idx: number) => { host.lastResetFor = idx; },
+      setLastResetFor: (idx: number) => { host.lastResetFor = idx; }
     });
 
     host.subscriptionWiring.createRouteParamSubscription({
@@ -90,7 +90,7 @@ export class QqcOrchLifecycleService {
           const question = await firstValueFrom(host.quizService.getQuestionByIndex(questionIndex));
           if (!question) return;
         } catch {}
-      },
+      }
     });
 
     const initialIdx = host.lifecycle.computeInitialQuestionIndex(host.activatedRoute);
@@ -106,7 +106,7 @@ export class QqcOrchLifecycleService {
       onExpired: () => {
         const idx = host.normalizeIndex(host.currentQuestionIndex() ?? 0);
         host.onQuestionTimedOut(idx);
-      },
+      }
     });
 
     host.subscriptionWiring.createTimerStopSubscription({
@@ -115,7 +115,7 @@ export class QqcOrchLifecycleService {
       onTimerStopped: () => {
         const reason = host.timedOut ? 'timeout' : 'stopped';
         host.handleTimerStoppedForActiveQuestion(reason);
-      },
+      }
     });
 
     try {
@@ -134,7 +134,7 @@ export class QqcOrchLifecycleService {
         setOptionsToDisplay: (opts: Option[]) => { host.optionsToDisplay.set(opts); },
         setExplanationToDisplay: (text: string) => { host.explanationToDisplay.set(text); },
         setRenderReady: (val: boolean) => { host.renderReady = val; },
-        emitRenderReady: (val: boolean) => host.renderReadySubject.next(val),
+        emitRenderReady: (val: boolean) => host.renderReadySubject.next(val)
       });
       host.renderReadySubscription = host.renderReady$.subscribe();
 
@@ -184,7 +184,7 @@ export class QqcOrchLifecycleService {
       await host.initializeQuizDataAndRouting();
 
       const quizQuestionSub = host.initializer.initializeQuizQuestion({
-        onQuestionsLoaded: (_questions: QuizQuestion[]) => {},
+        onQuestionsLoaded: (_questions: QuizQuestion[]) => {}
       });
       if (quizQuestionSub) {
         host.questionsObservableSubscription = quizQuestionSub;
@@ -194,7 +194,7 @@ export class QqcOrchLifecycleService {
       const firstQuestionIndex = host.initializer.parseQuestionIndexFromRoute(questionIndexParam);
       const firstQResult = host.initializer.setQuestionFirst({
         index: firstQuestionIndex,
-        questionsArray: host.questionsArray,
+        questionsArray: host.questionsArray
       });
       if (firstQResult) {
         host.currentQuestion.set(firstQResult.currentQuestion);
@@ -218,7 +218,7 @@ export class QqcOrchLifecycleService {
 
       host.sharedVisibilitySubscription = host.subscriptionWiring.createVisibilitySubscription({
         onHidden: () => host.handlePageVisibilityChange(true),
-        onVisible: () => host.handlePageVisibilityChange(false),
+        onVisible: () => host.handlePageVisibilityChange(false)
       });
 
       host.subscriptionWiring.createRouteListener({
@@ -227,12 +227,12 @@ export class QqcOrchLifecycleService {
         onRouteChange: (adjustedIndex: number) => {
           host.quizService.updateCurrentQuestionIndex(adjustedIndex);
           host.fetchAndSetExplanationText(adjustedIndex);
-        },
+        }
       });
 
       const resetSubs = host.subscriptionWiring.createResetSubscriptions({
         onResetFeedback: () => host.resetFeedback(),
-        onResetState: () => host.resetState(),
+        onResetState: () => host.resetState()
       });
       host.resetFeedbackSubscription = resetSubs[0];
       host.resetStateSubscription = resetSubs[1];
@@ -240,7 +240,7 @@ export class QqcOrchLifecycleService {
       host.subscriptionWiring.createTotalQuestionsSubscription({
         quizId: host.quizId()!,
         destroy$: host.destroy$,
-        onTotal: (totalQuestions: number) => { host.totalQuestions = totalQuestions; },
+        onTotal: (totalQuestions: number) => { host.totalQuestions = totalQuestions; }
       });
     } catch (error) {
     }
@@ -257,12 +257,12 @@ export class QqcOrchLifecycleService {
         host.sharedOptionComponent.renderReady$
           .pipe(filter((ready: boolean) => ready === true), take(1))
           .subscribe(() => host.cdRef.detectChanges());
-      },
+      }
     });
 
     host.lifecycle.createOptionsLoaderSubscription({
       options$: host.quizQuestionLoaderService.options$,
-      setCurrentOptions: (opts: Option[]) => { host.currentOptions = opts; },
+      setCurrentOptions: (opts: Option[]) => { host.currentOptions = opts; }
     });
 
     const index = host.currentQuestionIndex();
@@ -271,7 +271,7 @@ export class QqcOrchLifecycleService {
       questionsArray: host.questionsArray,
       currentQuestionIndex: index,
       getFormattedExplanation: (q: QuizQuestion, i: number) => host.explanationManager.getFormattedExplanation(q, i),
-      updateExplanationUI: (i: number, text: string) => host.updateExplanationUI(i, text),
+      updateExplanationUI: (i: number, text: string) => host.updateExplanationUI(i, text)
     });
 
     if (!setupResult) {
@@ -283,7 +283,7 @@ export class QqcOrchLifecycleService {
   async runOnChanges(host: Host, changes: any): Promise<void> {
     const fetClear = host.displayStateManager.shouldClearFetEarlyShown({
       newIndex: changes['currentQuestionIndex']?.currentValue,
-      prevIndex: changes['currentQuestionIndex']?.previousValue,
+      prevIndex: changes['currentQuestionIndex']?.previousValue
     });
     if (fetClear.shouldClear && host._fetEarlyShown instanceof Set) {
       host._fetEarlyShown.delete(fetClear.indexToClear);
@@ -295,7 +295,7 @@ export class QqcOrchLifecycleService {
       setTimeout(() => {
         if (host.displayStateManager.shouldTriggerHydrationFallback({
           renderReady: host.renderReady,
-          options: host.optionsToDisplay(),
+          options: host.optionsToDisplay()
         })) {
           host.renderReady = true;
           host.cdRef.detectChanges();
@@ -325,7 +325,7 @@ export class QqcOrchLifecycleService {
     const isRenderReady = host.displayStateManager.computeRenderReadyFromInputs({
       questionDataText: host.questionData()?.questionText,
       currentQuestionText: host.currentQuestion()?.questionText,
-      options: host.options(),
+      options: host.options()
     });
 
     if (isRenderReady) {
