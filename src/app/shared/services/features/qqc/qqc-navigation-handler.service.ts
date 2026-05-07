@@ -34,12 +34,12 @@ export class QqcNavigationHandlerService {
   private _elapsedAtHide: number | null = null;
 
   constructor(
-    private quizStateService: QuizStateService,
     private explanationTextService: ExplanationTextService,
-    private timerService: TimerService,
-    private statePersistence: QqcStatePersistenceService,
     private quizService: QuizService,
-    private selectedOptionService: SelectedOptionService
+    private quizStateService: QuizStateService,
+    private selectedOptionService: SelectedOptionService,
+    private statePersistence: QqcStatePersistenceService,
+    private timerService: TimerService
   ) {}
 
   // ═══════════════════════════════════════════════════════════════
@@ -68,7 +68,8 @@ export class QqcNavigationHandlerService {
         numberOfCorrectAnswers: qState.numberOfCorrectAnswers,
         explanationDisplayed: displayExplanation,
         explanationText: this.explanationTextService.latestExplanation ?? ''
-      });    } catch (err) {    }
+      });
+    } catch (err) { }
   }
 
   /**
@@ -82,7 +83,8 @@ export class QqcNavigationHandlerService {
       ets.setIsExplanationTextDisplayed(false);
       ets.updateFormattedExplanation('');
       ets._activeIndex = -1;
-      ets.latestExplanation = '';    } catch (err) {    }
+      ets.latestExplanation = '';
+    } catch (err) { }
   }
 
   /**
@@ -170,7 +172,6 @@ export class QqcNavigationHandlerService {
   } {
     try {
       const restored = this.statePersistence.restoreState(params.currentQuestionIndex);
-
       let optionsToDisplay = params.optionsToDisplay;
 
       // Restore options
@@ -203,7 +204,7 @@ export class QqcNavigationHandlerService {
         parsedOptions: restored.parsedOptions,
         selectedOptions: restored.selectedOptions,
         feedbackText: restored.feedbackText,
-        optionsToDisplay,
+        optionsToDisplay
       };
     } catch (error) {
       return {
@@ -212,7 +213,7 @@ export class QqcNavigationHandlerService {
         parsedOptions: null,
         selectedOptions: [],
         feedbackText: '',
-        optionsToDisplay: params.optionsToDisplay,
+        optionsToDisplay: params.optionsToDisplay
       };
     }
   }
@@ -235,8 +236,7 @@ export class QqcNavigationHandlerService {
       // latestExplanation lets a previously-answered question's FET (e.g.
       // Q1) bleed onto an unanswered Q2 on tab return.
       const ownFetText = (typeof qState?.explanationText === 'string'
-        ? qState.explanationText.trim()
-        : '');
+        ? qState.explanationText.trim() : '');
       const thisQHasOwnFet = qState?.explanationDisplayed === true
         && ownFetText.length > 0;
 
@@ -253,7 +253,8 @@ export class QqcNavigationHandlerService {
         shouldShowExplanation: thisQHasOwnFet,
         explanationText: thisQHasOwnFet ? ownFetText : ''
       };
-    } catch (fetErr) {      return { shouldShowExplanation: false, explanationText: '' };
+    } catch (fetErr) {
+      return { shouldShowExplanation: false, explanationText: '' };
     }
   }
 
@@ -261,7 +262,10 @@ export class QqcNavigationHandlerService {
    * Handles FET purge logic when user navigated to another question while hidden.
    */
   purgeFetIfNavigatedWhileHidden(currentQuestionIndex: number): void {
-    if (this._wasHidden && currentQuestionIndex !== this.explanationTextService._activeIndex) {      this.explanationTextService.purgeAndDefer(currentQuestionIndex);
+    if (this._wasHidden && 
+      currentQuestionIndex !== this.explanationTextService._activeIndex
+    ) {
+      this.explanationTextService.purgeAndDefer(currentQuestionIndex);
     }
 
     this._wasHidden = false;
@@ -277,7 +281,8 @@ export class QqcNavigationHandlerService {
       ets.updateFormattedExplanation('');
       ets.latestExplanation = '';
       ets.setShouldDisplayExplanation(false);
-      ets.setIsExplanationTextDisplayed(false);    } catch (err) {    }
+      ets.setIsExplanationTextDisplayed(false);
+    } catch (err) { }
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -292,10 +297,9 @@ export class QqcNavigationHandlerService {
     const parsedParam = Number(rawParam);
     let questionIndex = isNaN(parsedParam) ? 1 : parsedParam;
 
-    if (questionIndex < 1 || questionIndex > totalQuestions) {      questionIndex = 1;
-    }
+    if (questionIndex < 1 || questionIndex > totalQuestions) questionIndex = 1;
 
-    return questionIndex - 1; // Convert to 0-based
+    return questionIndex - 1;  // convert to 0-based
   }
 
   /**
@@ -335,8 +339,7 @@ export class QqcNavigationHandlerService {
     displayExplanation: boolean;
     normalizeIndex: (idx: number) => number;
   }): Promise<{ shouldExpire: boolean; expiredIndex: number }> {
-    const result = await this.checkFastPathExpiry(params);
-    return result;
+    return await this.checkFastPathExpiry(params);
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -377,13 +380,13 @@ export class QqcNavigationHandlerService {
     // 2. Restore core quiz state
     const restoredState = this.restoreQuizState({
       currentQuestionIndex,
-      optionsToDisplay,
+      optionsToDisplay
     });
 
     // 3. Restore FET display state
     const fetState = this.restoreFetDisplayState({
       quizId,
-      currentQuestionIndex,
+      currentQuestionIndex
     });
 
     return { restoredState, fetState };
@@ -403,9 +406,11 @@ export class QqcNavigationHandlerService {
     visibilityRestoreInProgress: boolean;
     suppressDisplayStateUntil: number;
   }): boolean {
-    if (params.visibilityRestoreInProgress || performance.now() < params.suppressDisplayStateUntil) {      return false; // suppressed
-    }
-    return true; // allowed
+    if (params.visibilityRestoreInProgress || 
+      performance.now() < params.suppressDisplayStateUntil
+    ) return false;  // suppressed
+    
+    return true;  // allowed
   }
 
   /**
@@ -419,7 +424,7 @@ export class QqcNavigationHandlerService {
   } {
     return {
       explanationToDisplay: '',
-      showExplanation: false,
+      showExplanation: false
     };
   }
 
@@ -437,13 +442,13 @@ export class QqcNavigationHandlerService {
       return {
         isPaused: true,
         shouldClearSubscriptions: true,
-        shouldRefreshExplanation: false,
+        shouldRefreshExplanation: false
       };
     } else {
       return {
         isPaused: false,
         shouldClearSubscriptions: false,
-        shouldRefreshExplanation: true,
+        shouldRefreshExplanation: true
       };
     }
   }
@@ -481,18 +486,19 @@ export class QqcNavigationHandlerService {
     const { restoredState, fetState } = this.handleVisibilityRestore({
       quizId: params.quizId,
       currentQuestionIndex: params.currentQuestionIndex,
-      optionsToDisplay: params.optionsToDisplay,
+      optionsToDisplay: params.optionsToDisplay
     });
 
     // Apply restored state
     let optionsToDisplay = restoredState.optionsToDisplay;
     let feedbackText = restoredState.feedbackText;
 
-    // ✅ Mark that restoration has occurred
+    // Mark that restoration has occurred
     this.quizStateService.hasRestoredOnce = true;
 
     // Ensure options are ready (fallback if restore returned empty)
-    if (!Array.isArray(optionsToDisplay) || optionsToDisplay.length === 0) {      if (params.currentQuestion && Array.isArray(params.currentQuestion.options)) {
+    if (!Array.isArray(optionsToDisplay) || optionsToDisplay.length === 0) {
+      if (params.currentQuestion && Array.isArray(params.currentQuestion.options)) {
         optionsToDisplay = params.currentQuestion.options.map((option, index) => ({
           ...option,
           optionId: option.optionId ?? index,
@@ -504,7 +510,7 @@ export class QqcNavigationHandlerService {
           displayMode: restoredState.displayMode,
           optionsToDisplay,
           feedbackText,
-          shouldShowExplanation: false,
+          shouldShowExplanation: false
         };
       }
     }
@@ -522,8 +528,7 @@ export class QqcNavigationHandlerService {
 
       try {
         feedbackText = await params.generateFeedbackText(params.currentQuestion);
-      } catch (error) {
-      }
+      } catch (error) { }
     }
 
     // Debounce before applying FET state (ensures no race)
@@ -534,7 +539,7 @@ export class QqcNavigationHandlerService {
       displayMode: restoredState.displayMode,
       optionsToDisplay,
       feedbackText,
-      shouldShowExplanation: fetState.shouldShowExplanation,
+      shouldShowExplanation: fetState.shouldShowExplanation
     };
   }
 }
