@@ -22,9 +22,8 @@ export class QqcOrchQuestionLoadService {
         !options.length ||
         !host.dynamicAnswerContainer ||
         !('questionText' in question)
-      ) {
-        return;
-      }
+      ) return;
+
       let isMultipleAnswer = false;
       try {
         isMultipleAnswer = await firstValueFrom(
@@ -53,7 +52,7 @@ export class QqcOrchQuestionLoadService {
         currentQuestionIndex: host.currentQuestionIndex(),
         navigatingBackwards: false,
         defaultConfig: host.getDefaultSharedOptionConfig?.(),
-        onOptionClicked: host.onOptionClicked.bind(host),
+        onOptionClicked: host.onOptionClicked.bind(host)
       });
       host.questionData.set(configured.questionData);
       host.sharedOptionConfig = configured.sharedOptionConfig;
@@ -91,14 +90,14 @@ export class QqcOrchQuestionLoadService {
       shouldDisplayExplanation: host.shouldDisplayExplanation,
       explanationVisible: host.explanationVisible,
       displayExplanation: host.displayExplanation,
-      displayStateAnswered: host.displayState?.answered,
+      displayStateAnswered: host.displayState?.answered
     });
     const shouldKeepExplanationVisible = explanationSnapshot.shouldRestore;
 
     host.questionLoader.performPreLoadReset({
       shouldPreserveVisualState,
       shouldKeepExplanationVisible,
-      currentQuestionIndex: host.currentQuestionIndex(),
+      currentQuestionIndex: host.currentQuestionIndex()
     });
 
     if (shouldPreserveVisualState) {
@@ -116,7 +115,7 @@ export class QqcOrchQuestionLoadService {
 
       await host.resetQuestionStateBeforeNavigation({
         preserveVisualState: shouldPreserveVisualState,
-        preserveExplanation: shouldKeepExplanationVisible,
+        preserveExplanation: shouldKeepExplanationVisible
       });
 
       if (!shouldKeepExplanationVisible) {
@@ -151,7 +150,7 @@ export class QqcOrchQuestionLoadService {
         questionsArray: host.questionsArray,
         quizId: host.quizId(),
         signal,
-        questions: host.questions,
+        questions: host.questions
       });
 
       if (!loadResult) return false;
@@ -168,7 +167,7 @@ export class QqcOrchQuestionLoadService {
 
       const banner = host.feedbackManager.computeCorrectAnswersBanner({
         currentQuestion: host.currentQuestion(),
-        currentQuestionIndex: host.currentQuestionIndex(),
+        currentQuestionIndex: host.currentQuestionIndex()
       });
       host.quizService.updateCorrectAnswersText(banner.bannerText);
 
@@ -214,7 +213,7 @@ export class QqcOrchQuestionLoadService {
           isAnyOptionSelected: (idx: number) => host.isAnyOptionSelected(idx),
           updateExplanationText: (idx: number) => host.updateExplanationText(idx),
           shouldDisplayExplanation: host.shouldDisplayExplanation,
-          questionForm: host.questionForm,
+          questionForm: host.questionForm
         });
 
         if (!routeResult) return;
@@ -239,7 +238,7 @@ export class QqcOrchQuestionLoadService {
             host.isExplanationLocked = f.isExplanationLocked;
           }
         }
-      },
+      }
     });
   }
 
@@ -257,7 +256,7 @@ export class QqcOrchQuestionLoadService {
         setQuestionOptions: () => host.setQuestionOptions(),
         questionLoader: host.questionLoader,
         prepareExplanationForQuestion: (p: any) => host.initializer.prepareExplanationForQuestion(p),
-        getExplanationText: (idx: number) => host.explanationManager.getExplanationText(idx),
+        getExplanationText: (idx: number) => host.explanationManager.getExplanationText(idx)
       });
       if (result) {
         host.questionsArray = result.questionsArray;
@@ -270,7 +269,10 @@ export class QqcOrchQuestionLoadService {
   }
 
   async runInitializeQuizDataAndRouting(host: Host): Promise<void> {
-    const result = await host.questionLoader.performQuizDataAndRoutingInit({ quizId: host.quizId() });
+    const result = 
+      await host.questionLoader.performQuizDataAndRoutingInit(
+        { quizId: host.quizId() }
+      );
     if (!result) return;
 
     host.questions = result.questions;
@@ -278,7 +280,9 @@ export class QqcOrchQuestionLoadService {
     if (result.quiz) host.quiz = result.quiz;
     if (!host.quiz) return;
 
-    host.quizService.questionsLoaded$.pipe(take(1), debounceTime(100)).subscribe((loaded: boolean) => {
+    host.quizService.questionsLoaded$.pipe(
+      take(1), debounceTime(100)
+    ).subscribe((loaded: boolean) => {
       if (loaded) host.setupRouteChangeHandler();
     });
   }
