@@ -1,11 +1,7 @@
 import { Injectable } from '@angular/core';
 import { ParamMap } from '@angular/router';
-import {
-  firstValueFrom, Subject
-} from 'rxjs';
-import {
-  debounceTime, filter, take, takeUntil, tap
-} from 'rxjs/operators';
+import { firstValueFrom } from 'rxjs';
+import { debounceTime, tap } from 'rxjs/operators';
 
 import { Option } from '../../../models/Option.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
@@ -26,7 +22,6 @@ type Host = any;
  */
 @Injectable({ providedIn: 'root' })
 export class CqcQuestionNavService {
-
   constructor(private fetGuard: CqcFetGuardService) {}
 
   /**
@@ -39,17 +34,12 @@ export class CqcQuestionNavService {
    */
   stampQuestionTextNow(host: Host, idx: number): boolean {
     try {
-      if (host.currentIndex !== idx) {
-        return false;
-      }
-      if (this.fetGuard.hasInteractionEvidence(host, idx)) {
-        return false;
-      }
+      if (host.currentIndex !== idx) return false;
+      if (this.fetGuard.hasInteractionEvidence(host, idx)) return false;
+      
       const el = host.qText?.nativeElement;
-      if (!el) {
-        // qText element not found
-        return false;
-      }
+      if (!el) return false;  // qText element not found
+        
       const display = this.fetGuard.buildQuestionDisplayHTML(host, idx);
       if (!display) {
         // buildQuestionDisplayHTML returned empty
@@ -57,7 +47,7 @@ export class CqcQuestionNavService {
       }
       this.fetGuard.writeQText(host, display);
       return true;
-    } catch (e) {
+    } catch (err) {
       return false;
     }
   }
@@ -84,9 +74,7 @@ export class CqcQuestionNavService {
           const match = (window?.location?.pathname ?? '').match(/\/question\/[^/]+\/(\d+)/);
           if (match && match[1]) {
             const oneBased = parseInt(match[1], 10);
-            if (Number.isFinite(oneBased) && oneBased >= 1) {
-              urlIdx = oneBased - 1;
-            }
+            if (Number.isFinite(oneBased) && oneBased >= 1) urlIdx = oneBased - 1;
           }
         } catch { /* ignore */ }
         host._refreshInitialIdx = urlIdx ?? idx;
@@ -142,7 +130,9 @@ export class CqcQuestionNavService {
     this.cleanupStaleStateForIndex(host, idx);
 
     const stamped = this.stampQuestionTextNow(host, idx);
-    if (!stamped && host.qText?.nativeElement && !this.fetGuard.hasInteractionEvidence(host, idx)) {
+    if (!stamped && host.qText?.nativeElement && 
+      !this.fetGuard.hasInteractionEvidence(host, idx)
+    ) {
       this.fetGuard.writeQText(host, '');
     }
 
@@ -262,9 +252,7 @@ export class CqcQuestionNavService {
   }
 
   async runLoadQuestion(host: Host, quizId: string, zeroBasedIndex: number): Promise<void> {
-    if (zeroBasedIndex == null || isNaN(zeroBasedIndex)) {
-      return;
-    }
+    if (zeroBasedIndex == null || isNaN(zeroBasedIndex)) return;
 
     try {
       const questions = (await firstValueFrom(
@@ -365,9 +353,7 @@ export class CqcQuestionNavService {
               if (formattedFet) {
                 (host as any)._fetLockedForIndex = zeroBasedIndex;
                 const injectNow = () => {
-                  if (host.currentIndex !== zeroBasedIndex) {
-                    return;
-                  }
+                  if (host.currentIndex !== zeroBasedIndex) return;
                   try {
                     ets.storeFormattedExplanation(zeroBasedIndex, question.explanation, question, question.options, true);
                   } catch { /* ignore */ }
@@ -394,7 +380,7 @@ export class CqcQuestionNavService {
               this.fetGuard.writeQText(host, display);
             }
           }
-        } catch (e) {
+        } catch (err) {
           // Eager FET regeneration failed
         }
       }
