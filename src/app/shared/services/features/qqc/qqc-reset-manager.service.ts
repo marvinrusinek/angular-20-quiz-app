@@ -1,14 +1,12 @@
 import { Injectable } from '@angular/core';
-import { FormGroup } from '@angular/forms';
 
+import { FeedbackConfig } from '../../../models/FeedbackConfig.model';
 import { Option } from '../../../models/Option.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
-import { SelectedOption } from '../../../models/SelectedOption.model';
 import { ExplanationTextService } from '../explanation/explanation-text.service';
-import { TimerService } from '../timer/timer.service';
 import { QuizStateService } from '../../state/quizstate.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
-import { FeedbackConfig } from '../../../models/FeedbackConfig.model';
+import { TimerService } from '../timer/timer.service';
 
 /**
  * Manages per-question reset, state clearing, and click guard resets for QQC.
@@ -16,7 +14,6 @@ import { FeedbackConfig } from '../../../models/FeedbackConfig.model';
  */
 @Injectable({ providedIn: 'root' })
 export class QqcResetManagerService {
-
   constructor(
     private explanationTextService: ExplanationTextService,
     private quizStateService: QuizStateService,
@@ -86,9 +83,6 @@ export class QqcResetManagerService {
       this.quizStateService.setAnswerSelected(false);
     }
 
-    // Form state
-    // (component handles this since it owns the FormGroup)
-
     // Prewarm explanation cache
     params.resolveFormatted(i0, { useCache: true, setCache: true });
 
@@ -119,8 +113,8 @@ export class QqcResetManagerService {
       lastLoggedQuestionIndex: -1,
       displayMode: hasSelections ? 'explanation' : 'question',
       displayExplanation: hasSelections,
-      explanationToDisplay: hasSelections ? '' : '', // component keeps or clears
-      explanationOwnerIdx: hasSelections ? -1 : -1,
+      explanationToDisplay: hasSelections ? '' : '',  // component keeps or clears
+      explanationOwnerIdx: hasSelections ? -1 : -1
     };
   }
 
@@ -137,7 +131,7 @@ export class QqcResetManagerService {
       correctMessage: '',
       showFeedback: false,
       selectedOption: null,
-      showFeedbackForOption: {},
+      showFeedbackForOption: {}
     };
   }
 
@@ -154,7 +148,7 @@ export class QqcResetManagerService {
     return {
       selectedOption: null,
       options: [],
-      areOptionsReadyToRender: false,
+      areOptionsReadyToRender: false
     };
   }
 
@@ -188,7 +182,7 @@ export class QqcResetManagerService {
       ...opt,
       selected: false,
       showIcon: false,
-      highlight: false,
+      highlight: false
     })) ?? [];
   }
 
@@ -210,7 +204,7 @@ export class QqcResetManagerService {
         ...opt,
         selected: !!match,
         showIcon: !!match?.showIcon,
-        highlight: false,
+        highlight: false
       };
     }) ?? [];
   }
@@ -230,7 +224,7 @@ export class QqcResetManagerService {
       waitingForReady: false,
       deferredClick: undefined,
       lastLoggedQuestionIndex: -1,
-      lastLoggedIndex: -1,
+      lastLoggedIndex: -1
     };
   }
 
@@ -300,7 +294,7 @@ export class QqcResetManagerService {
       feedbackText: preserveExplanation ? '' : '',
       currentQuestion: null,
       selectedOption: null,
-      resetOptions: [],
+      resetOptions: []
     };
   }
 
