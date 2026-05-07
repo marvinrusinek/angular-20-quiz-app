@@ -524,7 +524,7 @@ export class QqcFeedbackManagerService {
     // Explanation evaluation check
     const ready = !!this.explanationTextService.latestExplanation?.trim();
     const show =
-      this.explanationTextService.shouldDisplayExplanationSource.getValue();
+      this.explanationTextService.shouldDisplayExplanationSig();
 
     return {
       showFeedbackForOption,
