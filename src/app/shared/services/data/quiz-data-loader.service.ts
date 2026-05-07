@@ -129,14 +129,10 @@ export class QuizDataLoaderService {
   }
 
   getCurrentQuiz(quizId: string, activeQuiz: Quiz | null): Observable<Quiz | null> {
-    if (activeQuiz) {
-      return of(activeQuiz);
-    }
+    if (activeQuiz) return of(activeQuiz);
 
     const quiz = Array.isArray(this.quizData)
-      ? this.quizData.find((q) => q.quizId === quizId)
-      : null;
-
+      ? this.quizData.find((q) => q.quizId === quizId) : null;
     if (!quiz) {
       console.warn(`[QuizDataLoader] Quiz id=${quizId} not found in quizData`);
     }
@@ -146,10 +142,7 @@ export class QuizDataLoaderService {
 
   findQuizByQuizId(quizId: string): Observable<Quiz | undefined> {
     const foundQuiz = this.quizData?.find((quiz) => quiz.quizId === quizId) ?? null;
-
-    if (foundQuiz && this.isQuiz(foundQuiz)) {
-      return of(foundQuiz as Quiz);
-    }
+    if (foundQuiz && this.isQuiz(foundQuiz)) return of(foundQuiz as Quiz);
 
     return of(undefined);
   }
@@ -158,9 +151,7 @@ export class QuizDataLoaderService {
     let resolved = quizId;
     if (!resolved) {
       resolved = this.activatedRoute.snapshot.paramMap.get('quizId') || quizId;
-      if (resolved) {
-        localStorage.setItem('quizId', resolved);
-      }
+      if (resolved) localStorage.setItem('quizId', resolved);
     }
     return { exists: !!resolved, resolvedId: resolved };
   }
@@ -168,9 +159,7 @@ export class QuizDataLoaderService {
   getTotalQuestionsCount(quizId: string, questions: QuizQuestion[]): Observable<number> {
     return this.currentQuiz$.pipe(
       map((quiz) => {
-        if (quiz && quiz.quizId === quizId) {
-          return quiz.questions?.length ?? 0;
-        }
+        if (quiz && quiz.quizId === quizId) return quiz.questions?.length ?? 0;
 
         if (Array.isArray(questions) && questions.length > 0) {
           return questions.length;
@@ -178,7 +167,7 @@ export class QuizDataLoaderService {
 
         return 0;
       }),
-      distinctUntilChanged(),
+      distinctUntilChanged()
     );
   }
 
@@ -243,24 +232,18 @@ export class QuizDataLoaderService {
       }
     }
 
-    if (this.fetchPromise) {
-      return this.fetchPromise;
-    }
+    if (this.fetchPromise) return this.fetchPromise;
 
     this.fetchPromise = (async () => {
       try {
-        if (!quizId) {
-          return [];
-        }
+        if (!quizId) return [];
 
         const quizzes = await firstValueFrom<Quiz[]>(
           this.http.get<Quiz[]>(this.quizUrl)
         );
 
         const quiz = quizzes.find((q) => String(q.quizId) === String(quizId));
-        if (!quiz) {
-          return [];
-        }
+        if (!quiz) return [];
 
         this.currentQuizSig.set(quiz);
         const totalQuestions = quiz.questions?.length || 0;
@@ -369,9 +352,7 @@ export class QuizDataLoaderService {
       return of(shuffled);
     }
 
-    if (!quizId) {
-      return of([]);
-    }
+    if (!quizId) return of([]);
 
     return from(fetchQuizQuestionsFn(quizId)).pipe(
       map(questions => this.shuffleQuestions(questions))
@@ -395,9 +376,7 @@ export class QuizDataLoaderService {
     cloneQuestionForSession: (q: QuizQuestion, idx?: number) => QuizQuestion | null,
     normalizeQuestionText: (text: string | null | undefined) => string
   ): void {
-    if (!quizId) {
-      return;
-    }
+    if (!quizId) return;
 
     if (!Array.isArray(questions) || questions.length === 0) {
       this.canonicalQuestionsByQuiz.delete(quizId);
@@ -411,8 +390,7 @@ export class QuizDataLoaderService {
       .map((question) => ({
         ...question,
         options: Array.isArray(question.options)
-          ? question.options.map((option) => ({ ...option }))
-          : []
+          ? question.options.map((option) => ({ ...option })) : []
       }));
 
     if (sanitized.length === 0) {
@@ -479,9 +457,7 @@ export class QuizDataLoaderService {
     if (!quizId) return null;
 
     const canonical = this.canonicalQuestionsByQuiz.get(quizId);
-    if (!canonical || canonical.length <= index) {
-      return null;
-    }
+    if (!canonical || canonical.length <= index) return null;
 
     // Return a clone to be safe
     return cloneQuestionForSession(canonical[index], index);
