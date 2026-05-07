@@ -1,7 +1,9 @@
 import { Injectable } from '@angular/core';
 import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
 import { Observable, of, Subject, Subscription } from 'rxjs';
-import { catchError, debounceTime, distinctUntilChanged, filter, map, skip, takeUntil, tap } from 'rxjs/operators';
+import { 
+  catchError, distinctUntilChanged, filter, map, skip, takeUntil, tap
+} from 'rxjs/operators';
 
 import { Option } from '../../../models/Option.model';
 import { QuestionPayload } from '../../../models/QuestionPayload.model';
@@ -18,7 +20,6 @@ import { SharedVisibilityService } from '../../ui/shared-visibility.service';
  */
 @Injectable({ providedIn: 'root' })
 export class QqcSubscriptionWiringService {
-
   constructor(
     private quizService: QuizService,
     private quizNavigationService: QuizNavigationService,
@@ -31,21 +32,12 @@ export class QqcSubscriptionWiringService {
    * Creates the display mode subscription (isAnswered -> mode).
    * Extracted from initializeDisplayModeSubscription().
    */
-  createDisplayModeSubscription(
-    currentQuestionIndex: number,
-    isRestoringState: boolean
-  ): Subscription {
+  createDisplayModeSubscription(currentQuestionIndex: number): Subscription {
     return this.quizService.isAnswered(currentQuestionIndex)
       .pipe(
         map((isAnswered) => (isAnswered ? 'explanation' : 'question')),
         distinctUntilChanged(),
-        tap((mode: 'question' | 'explanation') => {
-          if (isRestoringState) {
-          }
-        }),
-        catchError(() => {
-          return of('question');
-        })
+        catchError(() => of('question'))
       )
       .subscribe();
   }
@@ -85,9 +77,7 @@ export class QqcSubscriptionWiringService {
         const index = paramIndex ? +paramIndex : 0;
 
         const questionsLength = params.getQuestionsLength();
-        if (questionsLength === 0) {
-          return;
-        }
+        if (questionsLength === 0) return;
 
         const adjustedIndex = Math.max(0, Math.min(index - 1, questionsLength - 1));
         params.onRouteChange(adjustedIndex);
@@ -129,7 +119,7 @@ export class QqcSubscriptionWiringService {
   }): Subscription[] {
     return [
       this.resetStateService.resetFeedback$.subscribe(callbacks.onResetFeedback),
-      this.resetStateService.resetState$.subscribe(callbacks.onResetState),
+      this.resetStateService.resetState$.subscribe(callbacks.onResetState)
     ];
   }
 
@@ -144,14 +134,9 @@ export class QqcSubscriptionWiringService {
     return this.quizService.questionPayload$
       .pipe(
         filter((payload): payload is QuestionPayload => !!payload),
-        tap((payload: QuestionPayload) => {
-          callbacks.onPayload(payload);
-        })
+        tap((payload: QuestionPayload) => callbacks.onPayload(payload))
       )
-      .subscribe((payload: QuestionPayload) => {
-        console.time('[📥 QQC received QA]');
-        console.timeEnd('[📥 QQC received QA]');
-      });
+      .subscribe();
   }
 
   /**
@@ -187,7 +172,8 @@ export class QqcSubscriptionWiringService {
 
     subs.push(
       this.quizNavigationService.navigatingBack$.subscribe(() => {
-        callbacks.onNavigatingBack(null); // component passes sharedOptionComponent reference
+        // Component passes sharedOptionComponent reference
+        callbacks.onNavigatingBack(null);
       })
     );
 
@@ -285,13 +271,9 @@ export class QqcSubscriptionWiringService {
    * Extracted from ngOnInit (lines 470–479).
    */
   createCurrentQuestionIndexSubscription(
-    onIndex: (index: number) => void
-  ): Subscription {
+    onIndex: (index: number) => void                                                                                        
+  ): Subscription {    
     return this.quizService.currentQuestionIndex$.subscribe((index: number) => {
-      // Log a stack trace for tracing unexpected emissions
-      if (index === 1) {
-      }
-
       onIndex(index);
     });
   }
@@ -308,7 +290,7 @@ export class QqcSubscriptionWiringService {
     return params.activatedRoute.paramMap.subscribe(async (paramMap) => {
       const rawParam = paramMap.get('questionIndex');
       const routeIndex = Number(rawParam);
-      const questionIndex = Math.max(0, routeIndex - 1); // Normalize to 0-based
+      const questionIndex = Math.max(0, routeIndex - 1);  // normalize to 0-based
 
       await params.onRouteChange(questionIndex);
     });
@@ -330,12 +312,11 @@ export class QqcSubscriptionWiringService {
 
       // Delegate route parsing
       const zeroBasedIndex = params.parseRouteIndex(rawParam);
-      const displayIndex = zeroBasedIndex + 1; // 1-based for logging
+      const displayIndex = zeroBasedIndex + 1;  // 1-based for logging
 
       try {
         await params.onRouteChange(zeroBasedIndex, displayIndex);
-      } catch (error) {
-      }
+      } catch (error) { }
     });
   }
 }

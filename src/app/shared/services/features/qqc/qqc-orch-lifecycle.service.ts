@@ -124,8 +124,7 @@ export class QqcOrchLifecycleService {
       host.populateOptionsToDisplay();
 
       host.displayModeSubscription = host.subscriptionWiring.createDisplayModeSubscription(
-        host.currentQuestionIndex(),
-        false
+        host.currentQuestionIndex()
       );
 
       host.renderReady$ = host.lifecycle.createRenderReadyObservable({
