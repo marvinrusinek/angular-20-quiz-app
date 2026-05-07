@@ -8,9 +8,9 @@ import { QuizDataLoaderService } from './quiz-data-loader.service';
 import { QuizShuffleService } from '../flow/quiz-shuffle.service';
 
 /**
- * Responsible for preparing and emitting question + options data
- * to QuizService's reactive subjects. Extracted from QuizService
- * to reduce its size.
+ * Responsible for preparing and emitting question + options data to
+ * QuizService's reactive subjects. Extracted from QuizService to reduce
+ * its size.
  */
 @Injectable({ providedIn: 'root' })
 export class QuizQuestionEmitterService {
@@ -25,9 +25,8 @@ export class QuizQuestionEmitterService {
    * Convert a value to a numeric ID, falling back to the given default.
    */
   toNumericId(value: unknown, fallback: number): number {
-    if (typeof value === 'number' && Number.isFinite(value)) {
-      return value;
-    }
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : fallback;
   }
@@ -82,8 +81,7 @@ export class QuizQuestionEmitterService {
     questionToEmit: QuizQuestion;
     optionsToUse: Option[];
   } | null {
-    if (!currentQuestion) {      return null;
-    }
+    if (!currentQuestion) return null;
 
     const rawOptions = Array.isArray(options) ? options : [];
     const normalizedIndex = Number.isFinite(indexOverride as number)
@@ -121,16 +119,14 @@ export class QuizQuestionEmitterService {
               canonical.explanation ?? currentQuestion.explanation ?? ''
           };
           optionsToUse = Array.isArray(canonical.options)
-            ? canonical.options.map((option) => ({ ...option }))
-            : [];
+            ? canonical.options.map((option) => ({ ...option })) : [];
         } else {
           questionToEmit = {
             ...currentQuestion,
             explanation:
               canonical.explanation ?? currentQuestion.explanation ?? '',
             options: Array.isArray(canonical.options)
-              ? canonical.options.map((option) => ({ ...option }))
-              : []
+              ? canonical.options.map((option) => ({ ...option })) : []
           };
         }
 
@@ -153,8 +149,7 @@ export class QuizQuestionEmitterService {
       }
     }
 
-    if (!optionsToUse.length) {      return null;
-    }
+    if (!optionsToUse.length) return null;
 
     const normalizedOptions = optionsToUse.map((option) => ({ ...option }));
     const normalizedQuestion = {
