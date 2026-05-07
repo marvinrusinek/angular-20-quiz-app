@@ -1,7 +1,9 @@
 import { Injectable } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { firstValueFrom, Observable, Subject } from 'rxjs';
-import { distinctUntilChanged, filter, map, switchMap, take, tap } from 'rxjs/operators';
+import { firstValueFrom, Observable, Subject, Subscription } from 'rxjs';
+import { 
+  distinctUntilChanged, filter, map, switchMap, take, tap
+} from 'rxjs/operators';
 
 import { Option } from '../../../models/Option.model';
 import { QuizQuestion } from '../../../models/QuizQuestion.model';
@@ -23,13 +25,12 @@ import { SelectionMessageService } from '../selection-message/selection-message.
  */
 @Injectable({ providedIn: 'root' })
 export class QqcLifecycleService {
-
   constructor(
+    private explanationTextService: ExplanationTextService,
     private quizService: QuizService,
     private quizStateService: QuizStateService,
-    private timerService: TimerService,
-    private explanationTextService: ExplanationTextService,
-    private selectionMessageService: SelectionMessageService
+    private selectionMessageService: SelectionMessageService,
+    private timerService: TimerService
   ) {}
 
   // ═══════════════════════════════════════════════════════════════
@@ -158,14 +159,14 @@ export class QqcLifecycleService {
   createOptionsLoaderSubscription(params: {
     options$: Observable<Option[]>;
     setCurrentOptions: (opts: Option[]) => void;
-  }): import('rxjs').Subscription {
-    return params.options$.pipe(
-      filter((arr) => Array.isArray(arr) && arr.length > 0)  // skip empties
-    ).subscribe((opts: Option[]) => {
-      // NEW array reference
-      const fresh = [...opts];
-      params.setCurrentOptions(fresh);  // parent's public field
-    });
+  }): Subscription {
+    return params.options$
+      .pipe(
+        filter((opts) => opts.length > 0)  // skip empties
+      )
+      .subscribe((opts) => {
+        params.setCurrentOptions([...opts]);  // parent's public field
+      });
   }
 
   /**
@@ -177,9 +178,7 @@ export class QqcLifecycleService {
     subscribeToRenderReady: () => void;
   }): void {
     setTimeout(() => {
-      if (params.sharedOptionComponent) {
-        params.subscribeToRenderReady();
-      }
+      if (params.sharedOptionComponent) params.subscribeToRenderReady();
     });
   }
 }
