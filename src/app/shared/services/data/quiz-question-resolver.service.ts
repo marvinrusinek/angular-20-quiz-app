@@ -1,7 +1,5 @@
 import { Injectable } from '@angular/core';
-import {
-  Observable, of
-} from 'rxjs';
+import { Observable, of } from 'rxjs';
 import {
   catchError, distinctUntilChanged, filter, map, take
 } from 'rxjs/operators';
@@ -26,15 +24,15 @@ export class QuizQuestionResolverService {
     questions$: Observable<QuizQuestion[]>
   ): Observable<QuizQuestion | null> {
     const quizId = resolveShuffleQuizId();
-    if (!quizId) {      return of(null);
-    }
+    if (!quizId) return of(null);
 
     const resolvedQuestion = resolveCanonicalQuestion(index, null);
 
     if (resolvedQuestion) {
       if (isShuffleEnabled() && shuffledQuestions && shuffledQuestions.length > index) {
         const strictShuffled = shuffledQuestions[index];
-        if (strictShuffled && strictShuffled.questionText !== resolvedQuestion.questionText) {          return of({
+        if (strictShuffled && strictShuffled.questionText !== resolvedQuestion.questionText) {
+          return of({
             ...strictShuffled,
             options: (strictShuffled.options ?? []).map((o) => ({ ...o }))
           });
@@ -67,12 +65,8 @@ export class QuizQuestionResolverService {
   ): Observable<QuizQuestion | null> {
     return of(null).pipe(
       map(() => {
-        if (!Array.isArray(questions) || questions.length === 0) {
-          return null;
-        }
-
-        if (questionIndex < 0 || questionIndex >= questions.length) {          return null;
-        }
+        if (!Array.isArray(questions) || questions.length === 0) return null;
+        if (questionIndex < 0 || questionIndex >= questions.length) return null;
 
         return questions[questionIndex];
       }),
@@ -102,9 +96,7 @@ export class QuizQuestionResolverService {
     // Strict Shuffle Priority
     if (isShuffleEnabled() && shuffledQuestions && shuffledQuestions.length > 0) {
       if (index >= 0 && index < shuffledQuestions.length) {
-        const shuffledQ = shuffledQuestions[index];
-        if (currentQuestion && currentQuestion.questionText !== shuffledQ.questionText) {        }
-        return shuffledQ;
+        return shuffledQuestions[index];
       }
     }
 
@@ -122,15 +114,15 @@ export class QuizQuestionResolverService {
       const clone = cloneQuestionForSession(question);
       if (!clone) return null;
 
-      if (!clone.type) {
-        clone.type = question.type ?? QuestionType.SingleAnswer;
-      }
+      if (!clone.type) clone.type = question.type ?? QuestionType.SingleAnswer;
 
       if (currentQuestion) {
         const incomingText = normalizeQuestionText(clone.questionText);
         const currentText = normalizeQuestionText(currentQuestion.questionText);
         if (incomingText && currentText && incomingText !== currentText) {
-          console.debug('[resolveCanonicalQuestion] Replacing mismatched question text', { reason, currentText, incomingText, index });
+          console.debug('[resolveCanonicalQuestion] Replacing mismatched question text', 
+            { reason, currentText, incomingText, index }
+          );
         }
       }
 
@@ -204,9 +196,7 @@ export class QuizQuestionResolverService {
   }
 
   cloneQuestionForSession(question: QuizQuestion, qIndex?: number): QuizQuestion | null {
-    if (!question) {
-      return null;
-    }
+    if (!question) return null;
 
     const deepClone = JSON.parse(JSON.stringify(question)) as QuizQuestion;
 
@@ -276,8 +266,6 @@ export class QuizQuestionResolverService {
       ...o,
       correct: correctIds.has(Number(o.optionId))
     }));
-
-    if (qIndex !== undefined) {    }
 
     return {
       ...deepClone,
