@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { afterNextRender, Injectable } from '@angular/core';
 
 import { Option } from '../../../models/Option.model';
 
@@ -24,9 +24,7 @@ export class QqcOrchTimerService {
         : host.optionsToDisplay() ?? [];
       const keys = new Set<string>();
       for (const [i, opt] of displayOpts.entries()) {
-        if (opt?.correct) {
-          keys.add(soc.keyOf(opt, i));
-        }
+        if (opt?.correct) keys.add(soc.keyOf(opt, i));
       }
       soc.timeoutCorrectOptionKeys = keys;
     }
@@ -50,7 +48,7 @@ export class QqcOrchTimerService {
       revealFeedbackForAllOptions: (opts: Option[]) => host.revealFeedbackForAllOptions(opts),
       forceDisableSharedOption: () => host.forceDisableSharedOption(),
       updateBindingsAndOptions: () => host.disableAllBindingsAndOptions(),
-      markForCheck: () => host.cdRef.markForCheck(),
+      markForCheck: () => host.cdRef.markForCheck()
     });
     host.displayExplanation = true;
     host.showExplanationChange.emit(true);
@@ -74,9 +72,8 @@ export class QqcOrchTimerService {
           if (correctIndices.length > 0) {
             fetHtml = host.explanationTextService.formatExplanation(q, correctIndices, q.explanation);
           }
-          if (!fetHtml) {
-            fetHtml = q.explanation || '';
-          }
+          if (!fetHtml) fetHtml = q.explanation || '';
+
           if (fetHtml) {
             // Guard the delayed writes against the user navigating away
             // before they fire — without this, a Next click during the
@@ -93,9 +90,9 @@ export class QqcOrchTimerService {
               qTextEl.innerHTML = fetHtml;
             };
             write();
-            setTimeout(write, 100);
-            setTimeout(write, 300);
-            setTimeout(write, 600);
+            afterNextRender(() => {
+              write();
+            });
           }
         }
       }
@@ -122,7 +119,7 @@ export class QqcOrchTimerService {
       forceDisableSharedOption: () => host.forceDisableSharedOption(),
       updateBindingsAndOptions: () => host.disableAllBindingsAndOptions(),
       markForCheck: () => host.cdRef.markForCheck(),
-      detectChanges: () => host.cdRef.detectChanges(),
+      detectChanges: () => host.cdRef.detectChanges()
     });
     if (stopped) host._timerStoppedForQuestion = true;
   }
@@ -136,7 +133,7 @@ export class QqcOrchTimerService {
     const expiryState = host.timerEffect.applyTimerExpiryState({
       i0,
       questions: host.questions,
-      currentQuestionType: host.currentQuestion()?.type,
+      currentQuestionType: host.currentQuestion()?.type
     });
     host.feedbackText = expiryState.feedbackText;
     host.displayExplanation = expiryState.displayExplanation;
@@ -151,7 +148,7 @@ export class QqcOrchTimerService {
       currentQuestion: host.currentQuestion(),
       formattedByIndex: host._formattedByIndex,
       fixedQuestionIndex: host.fixedQuestionIndex,
-      updateExplanationText: (idx: number) => host.updateExplanationText(idx),
+      updateExplanationText: (idx: number) => host.updateExplanationText(idx)
     });
 
     if (formattedText) host.applyExplanationTextInZone(formattedText);
@@ -163,7 +160,7 @@ export class QqcOrchTimerService {
           formattedByIndex: host._formattedByIndex,
           fixedQuestionIndex: host.fixedQuestionIndex,
           currentQuestionIndex: host.currentQuestionIndex(),
-          updateExplanationText: (idx: number) => host.updateExplanationText(idx),
+          updateExplanationText: (idx: number) => host.updateExplanationText(idx)
         })
         .then((repaired: string) => {
           if (repaired) host.applyExplanationTextInZone(repaired);
