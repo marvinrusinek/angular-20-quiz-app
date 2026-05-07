@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import {
-  BehaviorSubject, Observable, of
+  Observable, of
 } from 'rxjs';
 import {
   catchError, distinctUntilChanged, filter, map, take

@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { ParamMap } from '@angular/router';
 import {
-  BehaviorSubject, firstValueFrom, Subject
+  firstValueFrom, Subject
 } from 'rxjs';
 import {
   debounceTime, filter, take, takeUntil, tap

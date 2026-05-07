@@ -1,7 +1,7 @@
 import { Injectable, Injector, signal } from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
-import { BehaviorSubject, Observable, of } from 'rxjs';
+import { Observable, of } from 'rxjs';
 
 import { QuestionType } from '../../../models/question-type.enum';
 import { FormattedExplanation } from '../../../models/FormattedExplanation.model';

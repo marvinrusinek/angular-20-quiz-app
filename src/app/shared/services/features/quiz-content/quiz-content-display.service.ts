@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import {
-  BehaviorSubject, combineLatest, Observable, of
+  combineLatest, Observable, of
 } from 'rxjs';
 import {
   distinctUntilChanged, filter, map, shareReplay, startWith, switchMap
