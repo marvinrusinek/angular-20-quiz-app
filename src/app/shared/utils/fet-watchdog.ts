@@ -63,7 +63,8 @@ export function installGlobalFetWatchdog(): void {
       }
       return out;
     };
-    const findQuestionTextFromPristine = (): { qText: string; correctTexts: string[]; explanation: string } | null => {
+    const findQuestionTextFromPristine = (): 
+      { qText: string; correctTexts: string[]; explanation: string } | null => {
       const bodyText = nrm(document.body?.textContent ?? '');
       if (!bodyText) return null;
       for (const quiz of (QUIZ_DATA as any[]) ?? []) {
@@ -75,7 +76,11 @@ export function installGlobalFetWatchdog(): void {
             .filter((o: any) => o?.correct === true || String(o?.correct) === 'true')
             .map((o: any) => nrm(o?.text))
             .filter((t: string) => !!t);
-          return { qText: pq?.questionText ?? '', correctTexts, explanation: nrm(pq?.explanation ?? '') };
+          return { 
+            qText: pq?.questionText ?? '', 
+            correctTexts, 
+            explanation: nrm(pq?.explanation ?? '')
+          };
         }
       }
       return null;
@@ -86,22 +91,22 @@ export function installGlobalFetWatchdog(): void {
         if ((window as any).__quizTimerExpired === true) return;
 
         const bodyHtml = document.body?.innerHTML ?? '';
-        const fetMatches = bodyHtml.match(/[A-Z][^<>]{0,200}(are correct because|is correct because)[^<>]{0,300}/gi);
+        const fetMatches = 
+          bodyHtml.match(/[A-Z][^<>]{0,200}(are correct because|is correct because)[^<>]{0,300}/gi);
         if (fetMatches && fetMatches.length > 0) {        }
         const current = findQuestionTextFromPristine();
         if (!current) {
-          if (fetMatches && fetMatches.length > 0) {          }
+          if (fetMatches && fetMatches.length > 0) { }
           return;
         }
         if (current.correctTexts.length < 2) return;  // not multi-answer
         const selectedTexts = scrapeSelectedOptionTexts();
         const allSel = current.correctTexts.every(t => {
-          for (const sel of selectedTexts) {
-            if (sel.includes(t)) return true;
-          }
+          for (const sel of selectedTexts) if (sel.includes(t)) return true;
           return false;
         });
-        if (allSel) return;        const all = document.querySelectorAll('*');
+        if (allSel) return;
+        const all = document.querySelectorAll('*');
         let revertCount = 0;
         let candidateCount = 0;
         all.forEach((h: any) => {
@@ -110,18 +115,22 @@ export function installGlobalFetWatchdog(): void {
             const html = h?.innerHTML ?? '';
             if (!isFetLike(tc, current.explanation) && !isFetLike(html, current.explanation)) return;
             candidateCount++;
-            const childCount = h?.children?.length ?? 0;            if (childCount > 3) return;
+            const childCount = h?.children?.length ?? 0;
+            if (childCount > 3) return;
             h.innerHTML = current.qText;
-            revertCount++;          } catch { /* ignore */ }
-        });      } catch { /* ignore */ }
+            revertCount++;
+          } catch { /* ignore */ }
+        });
+      } catch { /* ignore */ }
     };
     const mo = new MutationObserver(() => enforce());
     const start = () => {
       try {
-        mo.observe(document.body, { childList: true, characterData: true, subtree: true });      } catch { /* ignore */ }
+        mo.observe(document.body, { childList: true, characterData: true, subtree: true });
+      } catch { /* ignore */ }
     };
     if (document.body) start();
     else document.addEventListener('DOMContentLoaded', start, { once: true });
     document.addEventListener('click', () => setTimeout(enforce, 50), true);
-  } catch (e) {  }
+  } catch (err: any) { }
 }
