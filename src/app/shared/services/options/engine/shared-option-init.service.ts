@@ -192,7 +192,6 @@ export class SharedOptionInitService {
    */
   subscribeToTimerExpiration(comp: SharedOptionComponentLike): void {
     this.timerService.expired$.pipe(takeUntil(comp.destroy$)).subscribe(() => {
-
       comp.timerExpiredForQuestion = true;
       const question = comp.currentQuestion
         || comp.config()?.currentQuestion
@@ -209,9 +208,7 @@ export class SharedOptionInitService {
 
       if (correctFromDisplay.length > 0) {
         for (const [index, option] of displayOptions.entries()) {
-          if (option?.correct) {
-            keys.add(comp.keyOf(option, index));
-          }
+          if (option?.correct) keys.add(comp.keyOf(option, index));
         }
       } else if (correctOptions.length > 0) {
         for (const [fallbackIndex, correctOption] of correctOptions.entries()) {
@@ -255,7 +252,6 @@ export class SharedOptionInitService {
       setTimeout(() => {
         // If options are now ready, try to initialize them
         if (comp.optionsToDisplay?.length && !comp.optionBindings?.length) {
-
           comp.generateOptionBindings();
           comp.cdRef.detectChanges();  // force immediate update for OnPush
           return;
@@ -297,14 +293,15 @@ export class SharedOptionInitService {
    */
   initializeConfiguration(comp: SharedOptionComponentLike): void {
     this.initializeFromConfig(comp);
-
+  
     const cfg = comp.config();
-    if (cfg && cfg.optionsToDisplay?.length > 0) {
-      comp.optionsToDisplay = cfg.optionsToDisplay;
-    } else if (comp.optionsToDisplay?.length > 0) {
+    const configOptions = cfg?.optionsToDisplay;
+  
+    if (configOptions?.length) {
+      comp.optionsToDisplay = configOptions;
     }
-
-    comp.renderReady = comp.optionsToDisplay?.length > 0;
+  
+    comp.renderReady = !!comp.optionsToDisplay?.length;
   }
 
   /**
@@ -313,9 +310,7 @@ export class SharedOptionInitService {
    */
   private initializeOptionBindings(comp: SharedOptionComponentLike): void {
     try {
-      if (comp.optionBindingsInitialized) {
-        return;
-      }
+      if (comp.optionBindingsInitialized) return;
 
       comp.optionBindingsInitialized = true;
 
@@ -411,9 +406,7 @@ export class SharedOptionInitService {
           let urlQuestionIdx = -1;
           try {
             const m = window.location.pathname.match(/\/question\/[^/]+\/(\d+)/);
-            if (m) {
-              urlQuestionIdx = Number(m[1]) - 1; // URL is 1-based
-            }
+            if (m) urlQuestionIdx = Number(m[1]) - 1;  // URL is 1-based
           } catch { /* ignore */ }
           const isStaleIdx = urlQuestionIdx >= 0 && idx !== urlQuestionIdx;
 
@@ -584,8 +577,7 @@ export class SharedOptionInitService {
 
         comp.applySelectionsUI(selList);
 
-        const selectedIds =
-          selList.map((s) => s.optionId);
+        const selectedIds = selList.map((s) => s.optionId);
 
         const selId = comp.selectedOptionId();
         if (selId != null) {
@@ -604,11 +596,9 @@ export class SharedOptionInitService {
    */
   setupRehydrateTriggers(comp: SharedOptionComponentLike): void {
     const renderReady$ =
-      comp.finalRenderReady$() ??
-      comp.renderReadySubject.asObservable();
+      comp.finalRenderReady$() ?? comp.renderReadySubject.asObservable();
 
-    const qIndex$ =
-      this.quizService?.currentQuestionIndex$ ?? of(0);
+    const qIndex$ = this.quizService?.currentQuestionIndex$ ?? of(0);
 
     combineLatest([renderReady$, qIndex$])
       .pipe(
@@ -631,9 +621,7 @@ export class SharedOptionInitService {
    * Corresponds to SharedOptionComponent.initializeFromConfig().
    */
   initializeFromConfig(comp: SharedOptionComponentLike): void {
-    if (comp.freezeOptionBindings || comp.hasUserClicked) {
-      return;
-    }
+    if (comp.freezeOptionBindings || comp.hasUserClicked) return;
 
     // Full reset
     comp.optionBindings = [];
@@ -649,9 +637,7 @@ export class SharedOptionInitService {
 
     // Guard: Config or options missing
     const cfg2 = comp.config();
-    if (!cfg2 || !cfg2.optionsToDisplay?.length) {
-      return;
-    }
+    if (!cfg2 || !cfg2.optionsToDisplay?.length) return;
 
     // Assign current question
     comp.currentQuestion = cfg2.currentQuestion;
@@ -679,9 +665,7 @@ export class SharedOptionInitService {
       };
     });
 
-    if (!comp.optionsToDisplay.length) {
-      return;
-    }
+    if (!comp.optionsToDisplay.length) return;
 
     // Rehydrate selection state from Service (persistence)
     // This ensures that when navigating back, the options show as selected
@@ -710,10 +694,6 @@ export class SharedOptionInitService {
           qIndex = inputIndex;
         }
       }
-    }
-
-    // Mismatch Guard logging only
-    if (qIndex !== inputIndex && Number.isFinite(inputIndex)) {
     }
 
     const saved = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex);
@@ -787,7 +767,7 @@ export class SharedOptionInitService {
     // Initialize bindings and feedback maps
     comp.setOptionBindingsIfChanged(comp.optionsToDisplay);
     comp.initializeFeedbackBindings();
-
+    
     comp.finalizeOptionPopulation();
   }
 }
