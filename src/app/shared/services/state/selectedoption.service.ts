@@ -252,9 +252,7 @@ export class SelectedOptionService {
     const combined: SelectedOption[] = [];
 
     for (const [, opts] of this.selectedOptionsMap) {
-      if (Array.isArray(opts)) {
-        combined.push(...opts);
-      }
+      if (Array.isArray(opts)) combined.push(...opts);
     }
 
     return combined;
@@ -316,14 +314,10 @@ export class SelectedOptionService {
 
   clearSelectionsForQuestion(questionIndex: number): void {
     const idx = Number(questionIndex);
-    if (!Number.isFinite(idx)) {
-      return;
-    }
+    if (!Number.isFinite(idx)) return;
 
     // Remove from selection and feedback maps
-    if (this.selectedOptionsMap.has(idx)) {
-      this.selectedOptionsMap.delete(idx);
-    }
+    if (this.selectedOptionsMap.has(idx)) this.selectedOptionsMap.delete(idx);
 
     this.feedbackState.deleteFeedbackForQuestion(idx);
     this.optionSnapshotByQuestion?.delete(idx);
@@ -377,8 +371,7 @@ export class SelectedOptionService {
     const currentIndex = this.quizService?.currentQuestionIndex ?? null;
     const indices =
       currentIndex != null
-        ? [currentIndex]
-        : Array.from(this.selectedOptionsMap.keys());
+        ? [currentIndex] : Array.from(this.selectedOptionsMap.keys());
 
     const normId = this.idResolver.normalizeOptionId(option.optionId);
     const normText = this.idResolver.normalizeStr(option.text);
@@ -517,15 +510,13 @@ export class SelectedOptionService {
         questionOptions
       );
 
-      if (!Array.isArray(snapshot) || snapshot.length === 0) {
-        return;
-      }
+      if (!Array.isArray(snapshot) || snapshot.length === 0) return;
 
       const isAnswered = snapshot.some((option) =>
         this.idResolver.coerceToBoolean(option.selected)
       );
       this.isAnsweredSig.set(isAnswered);
-    } catch (error) {
+    } catch (error: any) {
       // Unhandled error in updateAnsweredState
     }
   }
@@ -577,9 +568,7 @@ export class SelectedOptionService {
   ): SelectedOption[] {
     // Always normalize to numeric key
     const idx = Number(questionIndex);
-    if (!Number.isFinite(idx) || idx < 0) {
-      return [];
-    }
+    if (!Number.isFinite(idx) || idx < 0) return [];
 
     // Canonicalize and deep clone the selections
     const canonicalSelections = this.idResolver.canonicalizeSelectionsForQuestion(
@@ -666,9 +655,7 @@ export class SelectedOptionService {
   setAnsweredState(isAnswered: boolean): void {
     const current = this.isAnsweredSig();
 
-    if (current !== isAnswered) {
-      this.isAnsweredSig.set(isAnswered);
-    }
+    if (current !== isAnswered) this.isAnsweredSig.set(isAnswered);
   }
 
   getAnsweredState(): boolean {
@@ -706,9 +693,7 @@ export class SelectedOptionService {
           keysToRemove.push(key);
         }
       }
-      for (const key of keysToRemove) {
-        sessionStorage.removeItem(key);
-      }
+      for (const key of keysToRemove) sessionStorage.removeItem(key);
     } catch (err) {}
   }
 
@@ -761,7 +746,7 @@ export class SelectedOptionService {
     try {
       this.selectedOptionsMap.clear();
       this.lockState.clearLockedOptionsMap();
-    } catch (error) {}
+    } catch (error: any) { }
   }
 
   private getFallbackQuestionIndex(): number {
@@ -868,9 +853,7 @@ export class SelectedOptionService {
   }
 
   public storeQuestion(index: number, question: QuizQuestion): void {
-    if (question) {
-      this._questionCache.set(index, question);
-    }
+    if (question) this._questionCache.set(index, question);
   }
 
   public isQuestionComplete(
