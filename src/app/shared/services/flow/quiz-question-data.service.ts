@@ -14,7 +14,6 @@ import { ExplanationTextService } from '../features/explanation/explanation-text
  */
 @Injectable({ providedIn: 'root' })
 export class QuizQuestionDataService {
-
   constructor(
     private quizService: QuizService,
     private quizDataService: QuizDataService,
@@ -42,12 +41,9 @@ export class QuizQuestionDataService {
           ? resolvedQuestion.options.map((option, idx) => ({
             ...option,
             optionId: option.optionId ?? idx
-          }))
-          : [];
+          })) : [];
 
-      if (!options.length) {
-        return null;
-      }
+      if (!options.length) return null;
 
       let explanation = 'No explanation available';
       if (this.explanationTextService.explanationsInitialized) {
@@ -62,15 +58,12 @@ export class QuizQuestionDataService {
       if (
         (!explanation || explanation === 'No explanation available') &&
         resolvedQuestion.explanation?.trim()
-      ) {
-        explanation = resolvedQuestion.explanation.trim();
-      }
+      ) explanation = resolvedQuestion.explanation.trim();
 
       const correctCount = options.filter((opt: Option) => opt.correct).length;
       const type =
         correctCount > 1
-          ? QuestionType.MultipleAnswer
-          : QuestionType.SingleAnswer;
+          ? QuestionType.MultipleAnswer : QuestionType.SingleAnswer;
 
       const question: QuizQuestion = {
         questionText: trimmedText,
@@ -96,9 +89,7 @@ export class QuizQuestionDataService {
   ): Promise<QuizQuestion | undefined> {
     try {
       const rawData = this.quizService.getQuestionData(quizId, questionIndex);
-      if (!rawData) {
-        return undefined;
-      }
+      if (!rawData) return undefined;
 
       const explanationObservable = this.explanationTextService.explanationsInitialized
         ? this.explanationTextService.getFormattedExplanationTextForQuestion(questionIndex)
@@ -113,9 +104,9 @@ export class QuizQuestionDataService {
         questionText: (rawData as any).questionText ?? '',
         options: (rawData as any).currentOptions ?? [],
         explanation: explanation ?? '',
-        type: this.quizDataService.questionType as QuestionType,
+        type: this.quizDataService.questionType as QuestionType
       } as QuizQuestion;
-    } catch (error) {
+    } catch (error: any) {
       throw error;
     }
   }
