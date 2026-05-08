@@ -13,7 +13,6 @@ import { QuizService } from '../data/quiz.service';
  */
 @Injectable({ providedIn: 'root' })
 export class QuizRouteService {
-
   constructor(
     private quizDataService: QuizDataService,
     private quizService: QuizService
@@ -35,7 +34,8 @@ export class QuizRouteService {
     const routeQuizId = params.get('quizId');
     const raw = params.get('questionIndex');
     const index = Math.max(0, (Number(raw) || 1) - 1);
-    const prev = previousQuizId || this.quizService.quizId || localStorage.getItem('lastQuizId') || '';
+    const prev = previousQuizId || this.quizService.quizId ||
+      localStorage.getItem('lastQuizId') || '';
     const isQuizSwitch = !!(routeQuizId && prev && routeQuizId !== prev);
     return { routeQuizId, index, isQuizSwitch };
   }
@@ -49,13 +49,11 @@ export class QuizRouteService {
     router: Router
   ): number | null {
     const parseNum = (raw: string | null): number | null => {
-      if (raw == null) {
-        return null;
-      }
+      if (raw == null) return null;
+
       const n = Number(raw);
-      if (!Number.isFinite(n)) {
-        return null;
-      }
+      if (!Number.isFinite(n)) return null;
+
       const qn = Math.trunc(n);
       return qn >= 1 ? qn : null;
     };
@@ -63,38 +61,28 @@ export class QuizRouteService {
     const fromCurrent = parseNum(
       activatedRoute.snapshot.paramMap.get('questionIndex')
     );
-    if (fromCurrent !== null) {
-      return fromCurrent;
-    }
+    if (fromCurrent !== null) return fromCurrent;
 
     const walk = (snapshot: any): number | null => {
-      if (!snapshot) {
-        return null;
-      }
+      if (!snapshot) return null;
+
       const found = parseNum(snapshot.paramMap?.get?.('questionIndex') ?? null);
-      if (found !== null) {
-        return found;
-      }
+      if (found !== null) return found;
+
       for (const child of snapshot.children ?? []) {
         const childFound = walk(child);
-        if (childFound !== null) {
-          return childFound;
-        }
+        if (childFound !== null) return childFound;
       }
       return null;
     };
 
     const fromTree = walk(router.routerState.snapshot.root);
-    if (fromTree !== null) {
-      return fromTree;
-    }
+    if (fromTree !== null) return fromTree;
 
     const m = router.url.match(/\/(\d+)(?:\/)?(?:\?|$)/);
     if (m) {
       const fromUrl = parseNum(m[1]);
-      if (fromUrl !== null) {
-        return fromUrl;
-      }
+      if (fromUrl !== null) return fromUrl;
     }
 
     return null;
@@ -109,55 +97,41 @@ export class QuizRouteService {
     router: Router
   ): number {
     const toIndex = (raw: string | null): number | null => {
-      if (raw == null) {
-        return null;
-      }
+      if (raw == null) return null;
+      
       const n = Number(raw);
-      if (!Number.isFinite(n)) {
-        return null;
-      }
+      if (!Number.isFinite(n)) return null;
+
       return Math.max(0, Math.trunc(n) - 1);
     };
 
     const fromCurrent = toIndex(
       activatedRoute.snapshot.paramMap.get('questionIndex')
     );
-    if (fromCurrent !== null) {
-      return fromCurrent;
-    }
+    if (fromCurrent !== null) return fromCurrent;
 
     const walk = (snapshot: any): number | null => {
-      if (!snapshot) {
-        return null;
-      }
+      if (!snapshot) return null;
+
       const found = toIndex(snapshot.paramMap?.get?.('questionIndex') ?? null);
-      if (found !== null) {
-        return found;
-      }
+      if (found !== null) return found;
+      
       for (const child of snapshot.children ?? []) {
         const childFound = walk(child);
-        if (childFound !== null) {
-          return childFound;
-        }
+        if (childFound !== null) return childFound;
       }
       return null;
     };
 
     const fromTree = walk(router.routerState.snapshot.root);
-    if (fromTree !== null) {
-      return fromTree;
-    }
+    if (fromTree !== null) return fromTree;
 
     const fromUrl = (() => {
       const m = router.url.match(/\/(\d+)(?:\?|$)/);
-      if (!m) {
-        return null;
-      }
+      if (!m) return null;
       return toIndex(m[1]);
     })();
-    if (fromUrl !== null) {
-      return fromUrl;
-    }
+    if (fromUrl !== null) return fromUrl;
 
     return 0;
   }
@@ -171,10 +145,7 @@ export class QuizRouteService {
   ): Observable<{ quizId: string; questionIndex: number; quizData: Quiz }> {
     const quizId = params.get('quizId');
     const questionIndex = Number(params.get('questionIndex'));
-
-    if (!quizId) {
-      return throwError(() => new Error('Quiz ID is required'));
-    }
+    if (!quizId) return throwError(() => new Error('Quiz ID is required'));
 
     if (isNaN(questionIndex)) {
       return throwError(() => new Error('Invalid question index'));
