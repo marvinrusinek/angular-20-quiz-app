@@ -23,9 +23,7 @@ export class OptionLockStateService {
 
   unlockOption(qIndex: number, optId: string | number): void {
     const set = this._lockedByQuestion.get(qIndex);
-    if (set) {
-      set.delete(String(optId));
-    }
+    if (set) set.delete(String(optId));
   }
 
   unlockAllOptionsForQuestion(qIndex: number): void {
@@ -38,17 +36,13 @@ export class OptionLockStateService {
       set = new Set<string | number>();
       this._lockedByQuestion.set(qIndex, set);
     }
-    for (const id of optIds) {
-      set!.add(String(id));
-    }
+    for (const id of optIds) set!.add(String(id));
   }
 
   // ── Question-level locking ─────────────────────────────────
 
   lockQuestion(qIndex: number): void {
-    if (Number.isFinite(qIndex)) {
-      this._questionLocks.add(qIndex);
-    }
+    if (Number.isFinite(qIndex)) this._questionLocks.add(qIndex);
   }
 
   unlockQuestion(qIndex: number): void {
