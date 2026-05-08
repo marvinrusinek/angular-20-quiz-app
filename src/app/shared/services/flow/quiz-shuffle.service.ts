@@ -80,9 +80,7 @@ export class QuizShuffleService {
       }
     }
 
-    if (changed) {
-      this.saveState(quizId);
-    }
+    if (changed) this.saveState(quizId);
   }
 
   public hasShuffleState(quizId: string): boolean {
@@ -91,9 +89,7 @@ export class QuizShuffleService {
   }
 
   public getShuffleState(quizId: string): ShuffleState | undefined {
-    if (!this.shuffleByQuizId.has(quizId)) {
-      this.loadState(quizId);
-    }
+    if (!this.shuffleByQuizId.has(quizId)) this.loadState(quizId);
     return this.shuffleByQuizId.get(quizId);
   }
 
@@ -109,7 +105,7 @@ export class QuizShuffleService {
         optionOrder: Array.from(state.optionOrder.entries())
       };
       localStorage.setItem(`shuffleState:${quizId}`, JSON.stringify(serializedState));
-    } catch (err) {
+    } catch (err: any) {
       // persist failed — non-critical
     }
   }
@@ -129,16 +125,14 @@ export class QuizShuffleService {
 
       this.shuffleByQuizId.set(quizId, state);
       return true;
-    } catch (err) {
+    } catch (err: any) {
       // load failed — non-critical
       return false;
     }
   }
 
   private reorderOptions(options: Option[], order?: number[]): Option[] {
-    if (!Array.isArray(options) || options.length === 0) {
-      return [];
-    }
+    if (!Array.isArray(options) || options.length === 0) return [];
 
     const normalizeForDisplay = (opts: Option[]): Option[] =>
       opts.map((option, index) => {
@@ -147,8 +141,7 @@ export class QuizShuffleService {
         // value must remain a number per your model
         const numericValue =
           typeof option.value === 'number'
-            ? option.value
-            : (this.toNum(option.value) ?? id);
+            ? option.value : (this.toNum(option.value) ?? id);
 
         return {
           ...option,
@@ -191,18 +184,14 @@ export class QuizShuffleService {
     answer: Option | null | undefined,
     options: Option[]
   ): Option | null {
-    if (!answer) {
-      return null;
-    }
+    if (!answer) return null;
 
     const byId = this.toNum(answer.optionId);
     if (byId != null) {
       const matchById = options.find(
         (option) => this.toNum(option.optionId) === byId
       );
-      if (matchById) {
-        return matchById;
-      }
+      if (matchById) return matchById;
     }
 
     const byValue = this.toNum(answer.value);
@@ -210,9 +199,7 @@ export class QuizShuffleService {
       const matchByValue = options.find(
         (option) => this.toNum(option.value) === byValue
       );
-      if (matchByValue) {
-        return matchByValue;
-      }
+      if (matchByValue) return matchByValue;
     }
 
     const normAnsText = this.normalize(answer.text);
@@ -220,9 +207,7 @@ export class QuizShuffleService {
       const matchByText = options.find(
         (option) => this.normalize(option.text) === normAnsText
       );
-      if (matchByText) {
-        return matchByText;
-      }
+      if (matchByText) return matchByText;
     }
 
     return null;
@@ -233,9 +218,7 @@ export class QuizShuffleService {
     options: Option[] = [],
   ): Option[] {
     const normalizedOptions = Array.isArray(options) ? options : [];
-    if (normalizedOptions.length === 0) {
-      return [];
-    }
+    if (normalizedOptions.length === 0) return [];
 
     const answers = Array.isArray(rawAnswers) ? rawAnswers : [];
     const aligned = answers
@@ -260,24 +243,19 @@ export class QuizShuffleService {
     }
 
     const fallback = normalizedOptions.filter((option) => option.correct);
-    if (fallback.length > 0) {
-      return fallback.map((option) => ({ ...option }));
-    }
+    if (fallback.length > 0) return fallback.map((option) => ({ ...option }));
 
     return [];
   }
 
   // Map display index -> original index (for scoring, persistence, timers)
   public toOriginalIndex(quizId: string, displayIdx: number): number | null {
-    if (!this.shuffleByQuizId.has(quizId)) {
-      this.loadState(quizId);
-    }
+    if (!this.shuffleByQuizId.has(quizId)) this.loadState(quizId);
+    
     const state = this.shuffleByQuizId.get(quizId);
-    if (!state) {
-      return null;
-    }
-    const result = state.questionOrder[displayIdx] ?? null;
+    if (!state) return null;
 
+    const result = state.questionOrder[displayIdx] ?? null;
     return result;
   }
 
@@ -315,9 +293,7 @@ export class QuizShuffleService {
     quizId: string,
     questions: QuizQuestion[]
   ): QuizQuestion[] {
-    if (!Array.isArray(questions) || questions.length === 0) {
-      return [];
-    }
+    if (!Array.isArray(questions) || questions.length === 0) return [];
 
     const state = this.shuffleByQuizId.get(quizId);
     if (!state) {
@@ -412,7 +388,7 @@ export class QuizShuffleService {
           localStorage.removeItem(key);
         }
       }
-    } catch (e) {
+    } catch (err: any) {
       // clear failed — non-critical
     }
   }
