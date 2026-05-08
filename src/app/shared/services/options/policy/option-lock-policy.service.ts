@@ -200,9 +200,7 @@ export class OptionLockPolicyService {
       if (b.option) b.option.active = !shouldDisable;
 
       const bIdx = b.index;
-      if (shouldDisable && bIdx != null) {
-        locked.add(bIdx);
-      }
+      if (shouldDisable && bIdx != null) locked.add(bIdx);
     }
 
     return {
