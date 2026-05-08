@@ -1,14 +1,11 @@
 import { Injectable } from '@angular/core';
+
 import { OptionBindings } from '../../../models/OptionBindings.model';
-import { SelectionMessageService } from '../../features/selection-message/selection-message.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
 
 @Injectable({ providedIn: 'root' })
 export class OptionLockService {
-  constructor(
-    private selectionMessageService: SelectionMessageService,
-    private selectedOptionService: SelectedOptionService
-  ) {}
+  constructor(private selectedOptionService: SelectedOptionService) {}
 
   isLocked(
     binding: OptionBindings,
