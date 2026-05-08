@@ -84,15 +84,14 @@ export interface RouteChangeQuestionResult {
  */
 @Injectable({ providedIn: 'root' })
 export class QuizContentLoaderService {
-
   constructor(
     private quizService: QuizService,
     private quizStateService: QuizStateService,
     private explanationTextService: ExplanationTextService,
     private selectedOptionService: SelectedOptionService,
+    private fetGate: QclFetGateService,
     private questionFetch: QclQuestionFetchService,
     private sessionRestore: QclSessionRestoreService,
-    private fetGate: QclFetGateService,
   ) {}
 
   // ─── FET Gate (delegated) ───
@@ -288,8 +287,7 @@ export class QuizContentLoaderService {
     ets._fetLocked = false;
 
     const question = this.quizService.questions?.[idx]
-      ?? params.questionsArray[idx]
-      ?? null;
+      ?? params.questionsArray[idx] ?? null;
     if (question) {
       this.quizStateService.updateCurrentQuestion(question);
       this.quizService.updateCurrentQuestion(question);
@@ -308,9 +306,7 @@ export class QuizContentLoaderService {
 
   emitCorrectAnswersBanner(index: number, getNumberOfCorrectAnswersText: (numCorrect: number, totalOpts: number) => string): void {
     const fresh = this.quizService.questions?.[index];
-    if (!fresh || !Array.isArray(fresh.options)) {
-      return;
-    }
+    if (!fresh || !Array.isArray(fresh.options)) return;
 
     const isMulti =
       fresh.type === QuestionType.MultipleAnswer ||
@@ -343,9 +339,11 @@ export class QuizContentLoaderService {
       try {
         const key = `dot_status_${quizId}_${leavingIdx}`;
         localStorage.setItem(key, leavingStatus);
-      } catch {}
+      } catch { }
       this.selectedOptionService.clickConfirmedDotStatus.set(leavingIdx, leavingStatus);
-      try { sessionStorage.setItem('dot_confirmed_' + leavingIdx, leavingStatus); } catch {}
+      try { 
+        sessionStorage.setItem('dot_confirmed_' + leavingIdx, leavingStatus);
+      } catch { }
     }
   }
 
@@ -410,9 +408,7 @@ export class QuizContentLoaderService {
   } {
     const option =
       params.question?.options?.[params.optionIndex] ?? params.optionsToDisplay?.[params.optionIndex];
-    if (!option) {
-      return { option: null, answers: params.answers, answerIds: [] };
-    }
+    if (!option) return { option: null, answers: params.answers, answerIds: [] };
 
     const correctAnswers = params.question?.options.filter((opt: Option) => opt.correct) ?? [];
     let answers = [...params.answers];
