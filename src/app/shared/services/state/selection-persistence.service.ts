@@ -37,9 +37,7 @@ export class SelectionPersistenceService {
           const userClicks = arr.filter(
             (o: any) => o && o.highlight === true && o.showIcon === true
           ) as SelectedOption[];
-          if (userClicks.length > 0) {
-            entries.push([Number(k), userClicks]);
-          }
+          if (userClicks.length > 0) entries.push([Number(k), userClicks]);          
         }
         ctx.selectedOptionsMap = new Map(entries);
         ctx.selectedOptionsMapSig.set(new Map(ctx.selectedOptionsMap));
@@ -79,7 +77,7 @@ export class SelectionPersistenceService {
         this.clearStaleSessionData(ctx);
       }
 
-    } catch (err) {    }
+    } catch (err: any) {    }
   }
 
   private restoreFromRefresh(ctx: SelectionStateContext): void {
@@ -152,10 +150,8 @@ export class SelectionPersistenceService {
         ...ctx.selectedOptionsMap.keys(),
         ...ctx._selectionHistory.keys()
       ]);
-      for (const idx of durableIndices) {
-        this.mergeAndPersistQuestion(ctx, idx);
-      }
-    } catch (err) {    }
+      for (const idx of durableIndices) this.mergeAndPersistQuestion(ctx, idx);
+    } catch (err: any) { }
   }
 
   private mergeAndPersistQuestion(ctx: SelectionStateContext, idx: number): void {
@@ -167,18 +163,14 @@ export class SelectionPersistenceService {
       const priorRaw = sessionStorage.getItem('sel_Q' + idx);
       if (priorRaw) {
         const parsed = JSON.parse(priorRaw);
-        if (Array.isArray(parsed)) {
-          fromPrior = parsed;
-        }
+        if (Array.isArray(parsed)) fromPrior = parsed;
       }
     } catch { /* ignore */ }
 
     const merged = new Map<string, any>();
 
     for (const s of fromPrior) {
-      if (s == null || s.optionId == null) {
-        continue;
-      }
+      if (s == null || s.optionId == null) continue;
       if ((s as any).highlight !== true || (s as any).showIcon !== true) {
         continue;
       }
@@ -187,27 +179,19 @@ export class SelectionPersistenceService {
     }
 
     for (const s of fromHistory) {
-      if (s == null || s.optionId == null) {
-        continue;
-      }
+      if (s == null || s.optionId == null) continue;
       if ((s as any).highlight !== true || (s as any).showIcon !== true) {
         continue;
       }
       const key = this.buildMergeKey(s);
       const existing = merged.get(key);
-      if (existing && (existing as any).selected === true) {
-        continue;
-      }
+      if (existing && (existing as any).selected === true) continue;
       merged.set(key, { ...s, selected: false });
     }
 
     for (const s of fromMap) {
-      if (s == null || s.optionId == null) {
-        continue;
-      }
-      if ((s as any).selected === false) {
-        continue;
-      }
+      if (s == null || s.optionId == null) continue;
+      if ((s as any).selected === false) continue;
       const key = this.buildMergeKey(s);
       merged.set(key, { ...s, highlight: true, showIcon: true });
     }
@@ -242,9 +226,7 @@ export class SelectionPersistenceService {
     try {
       const key = 'quizAnswersForResults';
       const stored = localStorage.getItem(key);
-      if (!stored) {
-        return;
-      }
+      if (!stored) return;
       const parsed = JSON.parse(stored);
       for (const [k, v] of Object.entries(parsed)) {
         const idx = Number(k);
