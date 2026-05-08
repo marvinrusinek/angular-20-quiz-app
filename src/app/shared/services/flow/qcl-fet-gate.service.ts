@@ -18,7 +18,7 @@ export class QclFetGateService {
   constructor(
     private quizService: QuizService,
     private quizStateService: QuizStateService,
-    private explanationTextService: ExplanationTextService,
+    private explanationTextService: ExplanationTextService
   ) {}
 
   lockAndPurgeFet(adjustedIndex: number): void {
@@ -26,8 +26,7 @@ export class QclFetGateService {
     try {
       ets._fetLocked = true;
       ets.purgeAndDefer(adjustedIndex);
-    } catch (error: any) {
-    }
+    } catch (error: any) { }
   }
 
   resetDisplayExplanationText(currentQuestionIndex: number): void {
@@ -120,22 +119,16 @@ export class QclFetGateService {
       explanationText: '',
       showExplanation: false,
       shouldLockExplanation: false,
-      shouldDisableExplanation: false,
+      shouldDisableExplanation: false
     };
 
     const questionState = this.quizStateService.getQuestionState(quizId, questionIndex);
-    if (!questionState) {
-      return noOp;
-    }
+    if (!questionState) return noOp;
 
-    if (!questionState.selectedOptions) {
-      questionState.selectedOptions = [];
-    }
+    if (!questionState.selectedOptions) questionState.selectedOptions = [];
 
     const hasUserSelected = (questionState.selectedOptions?.length ?? 0) > 0;
-    if (!hasUserSelected) {
-      return noOp;
-    }
+    if (!hasUserSelected) return noOp;
 
     const isAnswered = questionState.isAnswered;
     const explanationAlreadyDisplayed = questionState.explanationDisplayed;
@@ -165,7 +158,7 @@ export class QclFetGateService {
         explanationText,
         showExplanation: true,
         shouldLockExplanation: true,
-        shouldDisableExplanation: false,
+        shouldDisableExplanation: false
       };
     } else if (shouldDisableExplanation) {
       if (!this.explanationTextService.isExplanationLocked()) {
@@ -179,7 +172,7 @@ export class QclFetGateService {
         explanationText: '',
         showExplanation: false,
         shouldLockExplanation: false,
-        shouldDisableExplanation: true,
+        shouldDisableExplanation: true
       };
     }
 
