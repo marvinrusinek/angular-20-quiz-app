@@ -583,7 +583,9 @@ export class QuizNavigationService {
     if (this.quizCompleted) return;
 
     // Ensure we have a robust quizId
-    const targetQuizId = this.quizId || this.resolveEffectiveQuizId() || this.quizService.quizId;
+    const targetQuizId = this.quizId 
+      || this.resolveEffectiveQuizId() 
+      || this.quizService.quizId;
     if (!targetQuizId) return;
 
     this.quizCompleted = true;
