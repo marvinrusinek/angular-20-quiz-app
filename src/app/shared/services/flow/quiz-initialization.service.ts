@@ -13,7 +13,7 @@ export class QuizInitializationService {
     private nextButtonStateService: NextButtonStateService,
     private quizStateService: QuizStateService,
     private selectedOptionService: SelectedOptionService,
-    private selectionMessageService: SelectionMessageService,
+    private selectionMessageService: SelectionMessageService
   ) {}
 
   initializeAnswerSync(
@@ -40,7 +40,10 @@ export class QuizInitializationService {
       .subscribe(onOptionSelected);
 
     this.selectionMessageService.selectionMessage$
-      .pipe(debounceTime(300), distinctUntilChanged(), takeUntil(destroy$))
+      .pipe(
+        debounceTime(300),
+        distinctUntilChanged(),
+        takeUntil(destroy$))
       .subscribe(onSelectionMessageChanged);
   }
 }
