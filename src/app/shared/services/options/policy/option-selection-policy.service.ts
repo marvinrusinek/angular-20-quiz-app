@@ -7,7 +7,6 @@ export class OptionSelectionPolicyService {
   enforceSingleSelection(params: {
     optionBindings: OptionBindings[];
     selectedBinding: OptionBindings;
-
     showFeedbackForOption: Record<number, boolean>;
     updateFeedbackState: (id: number) => void;
   }): void {
@@ -18,7 +17,7 @@ export class OptionSelectionPolicyService {
 
       if (!isTarget && binding.isSelected) {
         if (binding.option) binding.option.selected = false;
-        binding.isSelected = false; // Sync both flags
+        binding.isSelected = false;  // sync both flags
       }
     }
   }
