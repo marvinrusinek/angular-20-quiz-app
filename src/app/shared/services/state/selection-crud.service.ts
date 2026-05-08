@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 
 import { Option } from '../../models/Option.model';
-import { QuizQuestion } from '../../models/QuizQuestion.model';
 import { SelectedOption } from '../../models/SelectedOption.model';
 import { OptionIdResolverService } from './option-id-resolver.service';
 import { QuizService } from '../data/quiz.service';
@@ -14,10 +13,9 @@ type Host = any;
  */
 @Injectable({ providedIn: 'root' })
 export class SelectionCrudService {
-
   constructor(
     private idResolver: OptionIdResolverService,
-    private quizService: QuizService,
+    private quizService: QuizService
   ) {}
 
   // ── syncSelectionState ──────────────────────────────────────
@@ -87,23 +85,12 @@ export class SelectionCrudService {
 
   // Adds an option to the selectedOptionsMap
   addOption(host: Host, questionIndex: number, option: SelectedOption): void {
-    if (!option) {
-      // Option is undefined
-      return;
-    }
-
-    if (option.optionId == null) {
-      // option.optionId is undefined
-      return;
-    }
+    if (!option) return;  // option is undefined
+    if (option.optionId == null) return;  // option.optionId is undefined
 
     // Trust: questionIndex is 0-based (QQC is the source of truth now)
     const idx = Number.isFinite(questionIndex) ? Math.trunc(questionIndex) : -1;
-
-    if (idx < 0) {
-      // Invalid questionIndex
-      return;
-    }
+    if (idx < 0) return;  // invalid questionIndex
 
     // Get existing selections for this question
     const existing = host.selectedOptionsMap.get(idx) ?? [];
@@ -124,14 +111,13 @@ export class SelectionCrudService {
       showIcon: true
     }, option.text || fallbackIdx);
 
-    if (newCanonical.optionId == null) {
-      // Canonical option missing ID
-      return;
-    }
+    if (newCanonical.optionId == null) return;  // canonical option missing ID
 
     // AUTHORITATIVE MERGE (REPLACE BY unique key: optionId + index)
     const merged = new Map<string, SelectedOption>();
-    const isCorrectHelper = (o: any) => o && (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || o.correct === '1');
+    const isCorrectHelper = 
+      (o: any) => o && 
+        (o.correct === true || String(o.correct) === 'true' || o.correct === 1 || o.correct === '1');
 
     // Keep existing selections (as a base)
     for (const o of existingCanonical) {
@@ -158,7 +144,7 @@ export class SelectionCrudService {
     // and correctly applies the exclusive highlight logic.
     const mergedList = Array.from(merged.values());
     const committed = host.commitSelections(idx, mergedList);
-    host.selectedOptionsMap.set(idx, committed); // VITAL: Update the map!
+    host.selectedOptionsMap.set(idx, committed);  // update the map!
 
     // Accumulate selection history for refresh restore (mirrors _wasSelected behavior)
     for (const sel of committed) {
@@ -196,9 +182,7 @@ export class SelectionCrudService {
   // Removes an option from the selectedOptionsMap
   removeOption(host: Host, questionIndex: number, optionId: number | string, indexHint?: number): void {
     const canonicalId = this.idResolver.resolveCanonicalOptionId(questionIndex, optionId, indexHint);
-    if (canonicalId == null && indexHint == null) {
-      return;
-    }
+    if (canonicalId == null && indexHint == null) return;
 
     const currentOptions = this.idResolver.canonicalizeSelectionsForQuestion(
       questionIndex,
@@ -208,8 +192,7 @@ export class SelectionCrudService {
       (o) => {
         const matchesId = (o.optionId === canonicalId || (canonicalId === null && o.optionId === -1));
         const matchesIndex = (indexHint != null) ?
-          (o.displayIndex === indexHint || (o as any).index === indexHint) :
-          true;
+          (o.displayIndex === indexHint || (o as any).index === indexHint) : true;
         return !(matchesId && matchesIndex);
       }
     );
@@ -239,8 +222,8 @@ export class SelectionCrudService {
       host.selectedOption = [];
       host.selectedOptionSig.set([]);
       host.isOptionSelectedSig.set(false);
-      host.setAnswered(false, true); // Update answered state
-      host.setNextButtonEnabled(false); // Explicitly disable next button
+      host.setAnswered(false, true);  // update answered state
+      host.setNextButtonEnabled(false);  // explicitly disable next button
     }
     host.saveState();
   }
@@ -255,9 +238,7 @@ export class SelectionCrudService {
     isMultipleAnswer?: boolean
   ): void {
     if (!option) {
-      if (questionIndex == null) {
-        return;
-      }
+      if (questionIndex == null) return;
       host.selectedOptionsMap.delete(questionIndex);
       host.selectedOptionSig.set([]);
       host.isOptionSelectedSig.set(false);
@@ -266,10 +247,7 @@ export class SelectionCrudService {
     }
 
     const qIndex = questionIndex ?? option.questionIndex;
-    if (qIndex == null) {
-      // Missing questionIndex
-      return;
-    }
+    if (qIndex == null) return;  // missing questionIndex
 
     // Populate snapshot if provided
     if (optionsSnapshot && optionsSnapshot.length > 0) {
@@ -289,9 +267,7 @@ export class SelectionCrudService {
     );
 
     // HARD RULE: Single-answer questions may never accumulate selections
-    if (isMultipleAnswer === false) {
-      host.selectedOptionsMap.set(qIndex, []);
-    }
+    if (isMultipleAnswer === false) host.selectedOptionsMap.set(qIndex, []);
 
     const current = host.selectedOptionsMap.get(qIndex) || [];
     let canonicalCurrent = this.idResolver.canonicalizeSelectionsForQuestion(
@@ -300,9 +276,7 @@ export class SelectionCrudService {
     );
 
     // If single answer, clear previous selections
-    if (isMultipleAnswer === false) {
-      canonicalCurrent = [];
-    }
+    if (isMultipleAnswer === false) canonicalCurrent = [];
 
     const exists = canonicalCurrent.find(
       (sel) => sel.optionId === enriched.optionId &&
@@ -361,8 +335,7 @@ export class SelectionCrudService {
   // ── setSelectedOptions ──────────────────────────────────────
   setSelectedOptions(host: Host, options: SelectedOption[]): void {
     const normalizedOptions = Array.isArray(options)
-      ? options.filter(Boolean)
-      : [];
+      ? options.filter(Boolean) : [];
 
     if (normalizedOptions.length === 0) {
       host.selectedOption = [];
@@ -377,9 +350,7 @@ export class SelectionCrudService {
     for (const option of normalizedOptions) {
       const qIndex = option?.questionIndex;
 
-      if (qIndex === undefined || qIndex === null) {
-        continue;
-      }
+      if (qIndex === undefined || qIndex === null) continue;
 
       const enrichedOption: SelectedOption = this.idResolver.canonicalizeOptionForQuestion(
         qIndex,
@@ -396,9 +367,7 @@ export class SelectionCrudService {
       if (
         enrichedOption?.optionId === undefined ||
         enrichedOption.optionId === null
-      ) {
-        continue;
-      }
+      ) continue;
 
       const existing = groupedSelections.get(qIndex) ?? [];
       existing.push(enrichedOption);
@@ -416,9 +385,7 @@ export class SelectionCrudService {
       host.saveState();
 
       // Aggregate globally
-      if (committed.length > 0) {
-        combinedSelections.push(...committed);
-      }
+      if (committed.length > 0) combinedSelections.push(...committed);
 
       // Update answered state
       host.updateAnsweredState(committed, questionIndex);
@@ -551,8 +518,7 @@ export class SelectionCrudService {
     optionsSnapshot?: Option[]
   ): Promise<void> {
     if (optionId == null || questionIndex == null || !text) {
-      // Invalid data — early return
-      return;
+      return;  // invalid data — early return
     }
 
     // Resolve a best-effort index from the incoming text across common aliases.
@@ -562,8 +528,7 @@ export class SelectionCrudService {
     // Prefer the caller-provided snapshot (fresh UI state) if available
     const source: Option[] =
       Array.isArray(optionsSnapshot) && optionsSnapshot.length > 0
-        ? optionsSnapshot
-        : options;
+        ? optionsSnapshot : options;
 
     if (Array.isArray(source) && source.length > 0) {
       host.optionSnapshotByQuestion.set(
@@ -579,10 +544,7 @@ export class SelectionCrudService {
       source
     );
 
-    if (!resolved) {
-      // canonicalOptionId is null — early return
-      return;
-    }
+    if (!resolved) return;  // canonicalOptionId is null — early return
 
     const canonicalOptionId = resolved.canonicalOptionId;
     const foundSourceOption = resolved.foundSourceOption;
@@ -635,9 +597,7 @@ export class SelectionCrudService {
       const selectedOptions = host.selectedOptionsMap.get(questionIndex) || [];
 
       // Multi-select: Next button is controlled elsewhere (QQC / QuizComponent)
-      if (selectedOptions.length === 0) {
-        host.setNextButtonEnabled(false);
-      }
+      if (selectedOptions.length === 0) host.setNextButtonEnabled(false);      
     }
   }
 
@@ -658,15 +618,13 @@ export class SelectionCrudService {
       const canonicalOptions = this.idResolver.getKnownOptions(questionIndex);
       const resolvedIndex =
         typeof canonicalId === 'number' && canonicalId >= 0
-          ? canonicalId
-          : optionIndex;
+          ? canonicalId : optionIndex;
 
       const canonicalOption =
         Array.isArray(canonicalOptions) &&
           resolvedIndex >= 0 &&
           resolvedIndex < canonicalOptions.length
-          ? canonicalOptions[resolvedIndex]
-          : undefined;
+          ? canonicalOptions[resolvedIndex] : undefined;
 
       const baseOption: SelectedOption = canonicalOption
         ? { ...canonicalOption }
@@ -702,9 +660,7 @@ export class SelectionCrudService {
       questionIndex,
       optionIndex
     );
-    if (canonicalId == null) {
-      return;
-    }
+    if (canonicalId == null) return;
 
     const currentOptions = this.idResolver.canonicalizeSelectionsForQuestion(
       questionIndex,
@@ -736,14 +692,10 @@ export class SelectionCrudService {
     if (
       canonicalOption?.optionId === undefined ||
       canonicalOption.optionId === null
-    ) {
-      return;
-    }
+    ) return;
 
     // If this optionId is already in the list, skip
-    if (list.some((sel) => sel.optionId === canonicalOption.optionId)) {
-      return;
-    }
+    if (list.some((sel) => sel.optionId === canonicalOption.optionId)) return;
 
     // Enrich the option object with flags
     const enriched: SelectedOption = {
@@ -777,17 +729,14 @@ export class SelectionCrudService {
       selectedOption
     );
 
-    if (canonicalSelected?.optionId == null) {
-      return;
-    }
+    if (canonicalSelected?.optionId == null) return;
 
     let updatedSelections: SelectedOption[];
     if (isMultiSelect) {
       const already = prevSelections.find(
         (opt: any) => opt.optionId === canonicalSelected.optionId
       );
-      updatedSelections = already
-        ? prevSelections
+      updatedSelections = already ? prevSelections
         : [...prevSelections, { ...canonicalSelected }];
     } else {
       updatedSelections = [{ ...canonicalSelected }];  // single-answer: replace
@@ -808,9 +757,7 @@ export class SelectionCrudService {
       questionIndex,
       optionIndex
     );
-    if (canonicalId == null) {
-      return;
-    }
+    if (canonicalId == null) return;
 
     const options = this.idResolver.canonicalizeSelectionsForQuestion(
       questionIndex,
@@ -818,9 +765,7 @@ export class SelectionCrudService {
     );
 
     const option = options.find((opt) => opt.optionId === canonicalId);
-    if (!option) {
-      return;
-    }
+    if (!option) return;
 
     if (action === 'add') {
       if (!options.some((opt) => opt.optionId === canonicalId)) {
