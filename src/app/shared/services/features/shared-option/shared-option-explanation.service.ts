@@ -1,5 +1,4 @@
 import { Injectable } from '@angular/core';
-import { take } from 'rxjs/operators';
 
 import { Option } from '../../../models/Option.model';
 import { OptionBindings } from '../../../models/OptionBindings.model';
@@ -105,15 +104,12 @@ export class SharedOptionExplanationService {
     // Guard: Emit FET only when the question is resolved correctly.
     // Use display-order question source to handle shuffled mode correctly.
     const authQ = this.quizService.getQuestionsInDisplayOrder?.()?.[resolvedIndex]
-      ?? this.quizService.questions?.[resolvedIndex]
-      ?? question;
+      ?? this.quizService.questions?.[resolvedIndex] ?? question;
 
     if (!skipGuard) {
       if (authQ && Array.isArray(authQ.options)) {
         const resolved = this.checkResolution(ctx);
-        if (!resolved) {
-          return;
-        }
+        if (!resolved) return;
       } else if (!question || !Array.isArray(question?.options)) {
         // No question data available — cannot verify resolution. Block FET.
         return;
@@ -121,22 +117,19 @@ export class SharedOptionExplanationService {
     }
 
     const explanationText = this.resolveExplanationText(ctx)?.trim()
-      || question?.explanation
-      || '';
+      || question?.explanation || '';
 
-    if (!explanationText) {
-      return;
-    }
+    if (!explanationText) return;
 
     // Cache the resolved formatted text
     this.cacheResolvedFormattedExplanation(resolvedIndex, explanationText);
 
-    // BRUTE FORCE: Clear locks and pulse stream
+    // Clear locks and pulse stream
     try {
       (this.explanationTextService as any)._fetLocked = false;
       this.explanationTextService.unlockExplanation();
       this.explanationTextService.explanationText$.next('');
-    } catch (e) { }
+    } catch (err) { }
 
     // Force display flags to TRUE
     this.explanationTextService.setIsExplanationTextDisplayed(true);
@@ -162,8 +155,7 @@ export class SharedOptionExplanationService {
     // often lack the `correct` flag, making correctCount=0 and falling to
     // single-answer logic which resolves on 1 correct selection.
     const authQuestion = this.quizService.getQuestionsInDisplayOrder?.()?.[resolvedIndex]
-      ?? this.quizService.questions?.[resolvedIndex]
-      ?? question;
+      ?? this.quizService.questions?.[resolvedIndex] ?? question;
     // Always resolve correct count and texts from pristine quizInitialState.
     // After Restart Quiz, live options can have ALL correct flags set to true
     // (stale mutation), inflating correctCount and bypassing the multi-answer
@@ -246,7 +238,6 @@ export class SharedOptionExplanationService {
       if (selectedFromUi.length === 0) return false;
 
       const correctSelected = selectedFromUi.filter(isSelectionCorrect).length;
-      const incorrectSelected = selectedFromUi.filter(s => !isSelectionCorrect(s)).length;
 
       if (correctCount > 1) {
         const allCorrect = correctSelected >= correctCount;
@@ -297,18 +288,14 @@ export class SharedOptionExplanationService {
       for (const t of pristineCorrectTexts) {
         if (!selectedTexts.has(t)) { allPresent = false; break; }
       }
-      if (!allPresent) {
-        resolved = false;
-      }
+      if (!allPresent) resolved = false;
     }
 
     // For multi-answer questions, do NOT let the service override the UI
     // check. The service's selectedOptionsMap can be contaminated by init
     // paths, causing it to report "resolved" when only 1 of 2 correct
     // answers are actually selected. Only allow override for single-answer.
-    if (!resolved && status.resolved && !isMultiAnswer) {
-      resolved = true;
-    }
+    if (!resolved && status.resolved && !isMultiAnswer) resolved = true;
 
     return resolved;
   }
@@ -376,9 +363,7 @@ export class SharedOptionExplanationService {
         latest = null;
       }
 
-      if (this.pendingExplanationIndex !== displayIndex) {
-        return;
-      }
+      if (this.pendingExplanationIndex !== displayIndex) return;
 
       if (latest?.trim() === explanationText.trim()) {
         this.clearPendingExplanation();
@@ -469,8 +454,7 @@ export class SharedOptionExplanationService {
     const displayOptions = (Array.isArray(optionBindings) && optionBindings.length > 0)
       ? optionBindings.map(b => b.option)
       : (Array.isArray(optionsToDisplay) && optionsToDisplay.length > 0)
-        ? optionsToDisplay
-        : [];
+        ? optionsToDisplay : [];
 
     if (displayOptions.length === 0) {
       return (effectiveQuestion?.explanation || '').trim();
@@ -483,9 +467,7 @@ export class SharedOptionExplanationService {
     let authQ = allCanonical.find(q => this.normalize(q.questionText) === currentQText);
     authQ = authQ || (effectiveQuestion as QuizQuestion);
 
-    if (!authQ) {
-      return (effectiveQuestion?.explanation || '').trim();
-    }
+    if (!authQ) return (effectiveQuestion?.explanation || '').trim();
 
     // 3. Build sets of correct identifiers from the authoritative source
     const correctIds = new Set<number>();
