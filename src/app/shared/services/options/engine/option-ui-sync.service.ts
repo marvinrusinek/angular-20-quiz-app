@@ -23,20 +23,15 @@ export interface OptionUiSyncContext {
   optionBindings: OptionBindings[];
   optionsToDisplay: Option[];
   currentQuestionIndex: number;
-
   forceDisableAll: boolean;
-
   feedbackConfigs: Record<string, any>;
   showFeedbackForOption: Record<number | string, boolean>;
   lastFeedbackOptionId: number | string;
   lastFeedbackQuestionIndex: number;
-
   lastClickedOptionId: number | string | null;
   lastClickTimestamp: number | null;
-
   freezeOptionBindings: boolean;
   hasUserClicked: boolean;
-
   showFeedback: boolean;
   selectedOptionHistory: (number | string)[];
   selectedOptionMap: Map<number | string, boolean>;
@@ -59,10 +54,10 @@ export class OptionUiSyncService {
     private selectedOptionService: SelectedOptionService,
     private nextButtonStateService: NextButtonStateService,
     private feedbackService: FeedbackService,
-    private selectionMessageService: SelectionMessageService,
-    private quizService: QuizService,
     private optionSelectionPolicyService: OptionSelectionPolicyService,
-    private optionLockPolicyService: OptionLockPolicyService
+    private optionLockPolicyService: OptionLockPolicyService,
+    private quizService: QuizService,
+    private selectionMessageService: SelectionMessageService
   ) { }
 
   updateOptionAndUI(
@@ -154,8 +149,7 @@ export class OptionUiSyncService {
     }
 
     const effectiveId = (optionBinding?.option?.optionId != null && optionBinding.option.optionId !== -1)
-      ? optionBinding.option.optionId
-      : index;
+      ? optionBinding.option.optionId : index;
 
     // Maintain global history for anchor fallback
     if (checked) {
@@ -166,9 +160,7 @@ export class OptionUiSyncService {
 
     // Apply the selection to the current option (single-answer only)
     // For multi-answer, handleOptionClick already set the correct selection state
-    if (!isTrulyMulti) {
-      this.applySingleSelectionPainting(index, ctx);
-    }
+    if (!isTrulyMulti) this.applySingleSelectionPainting(index, ctx);
 
     if (checked) {
       ctx.selectedOptionMap.set(effectiveId, true);
@@ -206,9 +198,7 @@ export class OptionUiSyncService {
     }
 
     // Notify component (sound, etc.)
-    if (ctx.onSelect) {
-      ctx.onSelect(optionBinding, checked, currentIndex);
-    }
+    if (ctx.onSelect) ctx.onSelect(optionBinding, checked, currentIndex);
 
     this.trackVisited(index, ctx);
 
@@ -216,14 +206,12 @@ export class OptionUiSyncService {
     // already set authoritative feedback (it handles resolution logic correctly).
     // Running applyFeedback after would overwrite with stale buildFeedbackMessage.
 
-
     // optional: refresh directive highlighting after state changes
     this.refreshHighlights(ctx.optionBindings);
 
     // AUTHORITATIVE TYPE INFERENCE: Rely on data, not just metadata
     const resolvedType = (isTrulyMulti)
-      ? QuestionType.MultipleAnswer
-      : QuestionType.SingleAnswer;
+      ? QuestionType.MultipleAnswer : QuestionType.SingleAnswer;
 
     this.optionLockPolicyService.updateLockedIncorrectOptions({
       bindings: ctx.optionBindings ?? [],
@@ -654,9 +642,7 @@ export class OptionUiSyncService {
     const realIdOwner = new Map<number | string, number>();
     for (let i = 0; i < (ctx.optionBindings?.length ?? 0); i++) {
       const id = ctx.optionBindings[i].option?.optionId;
-      if (id != null && id !== -1) {
-        realIdOwner.set(id, i);
-      }
+      if (id != null && id !== -1) realIdOwner.set(id, i);
     }
 
     for (let i = 0; i < (ctx.optionBindings?.length ?? 0); i++) {
@@ -680,9 +666,7 @@ export class OptionUiSyncService {
       b.isSelected = chosen;
 
       // Sync optionsToDisplay selected flag (binding options are structuredClone'd copies)
-      if (ctx.optionsToDisplay?.[i]) {
-        ctx.optionsToDisplay[i].selected = chosen;
-      }
+      if (ctx.optionsToDisplay?.[i]) ctx.optionsToDisplay[i].selected = chosen;
     }
   }
 
@@ -701,8 +685,7 @@ export class OptionUiSyncService {
     // Get the authoritative question data
     const question = ctx.getQuestionAtDisplayIndex(questionIndex);
     const freshOptions = ctx.optionsToDisplay?.length > 0
-      ? ctx.optionsToDisplay
-      : (question?.options ?? []);
+      ? ctx.optionsToDisplay : (question?.options ?? []);
 
     // PRISTINE-FIRST: Resolve correct options from quizInitialState to avoid
     // stale/mutated correct flags on freshOptions (e.g. after Restart Quiz).
@@ -745,9 +728,7 @@ export class OptionUiSyncService {
       }
     } catch { /* ignore */ }
 
-    if (correctOptions.length === 0) {
-      return;
-    }
+    if (correctOptions.length === 0) return;
 
     const isTrulyMulti = correctOptions.length > 1 || ctx.type === 'multiple';
     const isActuallySingle = !isTrulyMulti;
@@ -918,8 +899,7 @@ export class OptionUiSyncService {
 
     // Ensure styleClass matches for backward compatibility with older templates
     optionBinding.styleClass = isHighlighted
-      ? (isCorrect ? 'correct-option' : 'incorrect-option')
-      : '';
+      ? (isCorrect ? 'correct-option' : 'incorrect-option') : '';
   }
 
   private applyFeedback(
@@ -930,17 +910,13 @@ export class OptionUiSyncService {
     const qIdx = ctx.getActiveQuestionIndex() ?? 0;
     const question =
       ctx.getQuestionAtDisplayIndex(qIdx) ??
-      ctx.getQuestionAtDisplayIndex(ctx.currentQuestionIndex ?? qIdx) ??
-      null;
+      ctx.getQuestionAtDisplayIndex(ctx.currentQuestionIndex ?? qIdx) ?? null;
 
-    if (!question) {
-      return;
-    }
+    if (!question) return;
 
     const visualOptions =
       (ctx.optionsToDisplay?.length ?? 0) > 0
-        ? ctx.optionsToDisplay
-        : (question.options ?? []);
+        ? ctx.optionsToDisplay : (question.options ?? []);
 
     const isCorrectHelper = (val: any) => {
       if (!val) return false;
@@ -994,9 +970,7 @@ export class OptionUiSyncService {
       questionIndex: qIdx
     } as any;
 
-    if (ctx.feedbackConfigs[key]) {
-      ctx.feedbackConfigs[key].showFeedback = true;
-    }
+    if (ctx.feedbackConfigs[key]) ctx.feedbackConfigs[key].showFeedback = true;
 
     ctx.showFeedbackForOption[displayIndex] = true;
     ctx.showFeedbackForOption[String(displayIndex)] = true;
