@@ -1,5 +1,9 @@
 import { Injectable } from '@angular/core';
 
+import { Option } from '../../../models/Option.model';
+import { OptionBindings } from '../../../models/OptionBindings.model';
+import { FeedbackProps } from '../../../models/FeedbackProps.model';
+import { SelectedOption } from '../../../models/SelectedOption.model';
 import { QuizService } from '../../data/quiz.service';
 import { QuizStateService } from '../../state/quizstate.service';
 import { SelectedOptionService } from '../../state/selectedoption.service';
@@ -13,11 +17,6 @@ import { OptionUiSyncService } from './option-ui-sync.service';
 import { NextButtonStateService } from '../../state/next-button-state.service';
 import { SocAnswerProcessingService } from './soc-answer-processing.service';
 import { SocOptionUiService } from './soc-option-ui.service';
-
-import { Option } from '../../../models/Option.model';
-import { OptionBindings } from '../../../models/OptionBindings.model';
-import { FeedbackProps } from '../../../models/FeedbackProps.model';
-import { SelectedOption } from '../../../models/SelectedOption.model';
 
 /**
  * Handles option click events for shared option components.
@@ -102,9 +101,7 @@ export class SharedOptionClickService {
     if (ev.kind === 'change') {
       const native = ev.nativeEvent;
 
-      if (isRapidDuplicate) {
-        return;
-      }
+      if (isRapidDuplicate) return;
 
       comp._lastHandledIndex = index;
       comp._lastHandledTime = now;
@@ -135,14 +132,10 @@ export class SharedOptionClickService {
       if (isInsideMaterialControl) {
         const isCorrectOpt = binding?.option?.correct === true || String(binding?.option?.correct) === 'true';
         const isSingleMode = comp.type === 'single' && !comp.isMultiMode;
-        if (!(isSingleMode && isCorrectOpt && binding.disabled)) {
-          return;
-        }
+        if (!(isSingleMode && isCorrectOpt && binding.disabled)) return;
       }
 
-      if (isRapidDuplicate) {
-        return;
-      }
+      if (isRapidDuplicate) return;
 
       if (comp.type === 'single' && !comp.isMultiMode && binding.option.selected && comp.showFeedback) {
         return;
@@ -240,9 +233,7 @@ export class SharedOptionClickService {
     comp.lastFeedbackOptionId = state.lastFeedbackOptionId;
 
     for (const b of state.optionBindings) {
-      if (b) {
-        b.showFeedbackForOption = { ...comp.showFeedbackForOption };
-      }
+      if (b) b.showFeedbackForOption = { ...comp.showFeedbackForOption };
     }
     comp.optionBindings = state.optionBindings;
 
@@ -330,9 +321,7 @@ export class SharedOptionClickService {
             for (let i = 0; i < bindings.length; i++) {
               const bt = nrmP(bindings[i]?.option?.text);
               bindingTexts.push(bt);
-              if (pristineCorrectTexts.has(bt)) {
-                rebuilt.push(i);
-              }
+              if (pristineCorrectTexts.has(bt)) rebuilt.push(i);
             }
             if (rebuilt.length > 0) {
               effectiveCorrectIndices = rebuilt;
@@ -402,7 +391,6 @@ export class SharedOptionClickService {
     }
 
     // ─── Post-click feedback display ───
-
     comp._feedbackDisplay = null;
     if (comp.showFeedback) {
       const clickedBinding = comp.optionBindings[index];
@@ -489,7 +477,8 @@ export class SharedOptionClickService {
 
   // ─── Remaining inline ───────────────────────────────────────
 
-  updateOptionAndUI(comp: any, optionBinding: any, index: number, event: any, existingCtx?: any): void {
+  updateOptionAndUI(comp: any, optionBinding: any, index: number, event: any, 
+    existingCtx?: any): void {
     const ctx = existingCtx ?? comp.buildOptionUiSyncContext();
 
     this.optionUiSyncService.updateOptionAndUI(optionBinding, index, event, ctx);
