@@ -95,9 +95,7 @@ export class QuizDotStatusService {
     option: Partial<Option> | null | undefined,
     optionIndex?: number
   ): boolean {
-    if (!selection || !option) {
-      return false;
-    }
+    if (!selection || !option) return false;
 
     const normalize = (value: unknown): string => String(value ?? '').trim().toLowerCase();
     const selectionId = String(selection.optionId ?? '').trim();
@@ -128,31 +126,22 @@ export class QuizDotStatusService {
     fallbackOptions: Option[] = []
   ): Array<{ option: Option; index: number }> {
     const options = Array.isArray(question?.options) && question!.options.length > 0
-      ? question!.options
-      : fallbackOptions;
+      ? question!.options : fallbackOptions;
 
-    if (!Array.isArray(options) || options.length === 0) {
-      return [];
-    }
+    if (!Array.isArray(options) || options.length === 0) return [];
 
     const correctIds = new Set<number>();
     const correctTexts = new Set<string>();
 
     if (Array.isArray((question as any)?.answer)) {
       for (const answer of (question as any).answer) {
-        if (!answer) {
-          continue;
-        }
+        if (!answer) continue;
 
         const id = Number(answer.optionId);
-        if (!Number.isNaN(id)) {
-          correctIds.add(id);
-        }
+        if (!Number.isNaN(id)) correctIds.add(id);
 
         const text = String(answer.text ?? '').trim().toLowerCase();
-        if (text) {
-          correctTexts.add(text);
-        }
+        if (text) correctTexts.add(text);
       }
     }
 
@@ -165,9 +154,7 @@ export class QuizDotStatusService {
         return (!Number.isNaN(id) && correctIds.has(id)) || (!!text && correctTexts.has(text));
       });
 
-    if (resolvedFromAnswers.length > 0) {
-      return resolvedFromAnswers;
-    }
+    if (resolvedFromAnswers.length > 0) return resolvedFromAnswers;
 
     return options
       .map((opt: Option, index: number) => ({ option: opt, index }))
@@ -207,23 +194,17 @@ export class QuizDotStatusService {
     const question = this.getQuestionForIndex(index, questionsArray);
     const fallbackOptions = this.getFallbackOptions(index, currentQuestionIndex, optionsToDisplay, currentQuestion);
 
-    if (selections.length === 0) {
-      return false;
-    }
+    if (selections.length === 0) return false;
 
     const correctOptionEntries = this.getResolvedCorrectOptionEntries(question, fallbackOptions);
 
-    if (correctOptionEntries.length <= 1) {
-      return false;
-    }
+    if (correctOptionEntries.length <= 1) return false;
 
     const hasIncorrectSelection = selections.some((selection) =>
       !this.matchesAnyCorrectOption(selection, question, fallbackOptions)
     );
 
-    if (hasIncorrectSelection) {
-      return false;
-    }
+    if (hasIncorrectSelection) return false;
 
     const matchedCorrectSelections = selections.filter((selection) =>
       this.matchesAnyCorrectOption(selection, question, fallbackOptions)
@@ -251,18 +232,14 @@ export class QuizDotStatusService {
     if (
       (!question || !Array.isArray(question.options) || question.options.length === 0)
       && fallbackOptions.length === 0
-    ) {
-      return null;
-    }
+    ) return null;
 
     const correctOptionEntries = this.getResolvedCorrectOptionEntries(question, fallbackOptions);
     const correctOptions = correctOptionEntries.map(({ option }) => option);
     const isMultipleAnswerQuestion =
       question?.type === QuestionType.MultipleAnswer || correctOptions.length > 1;
 
-    if (correctOptions.length === 0 || selections.length === 0) {
-      return null;
-    }
+    if (correctOptions.length === 0 || selections.length === 0) return null;
 
     const matchedCorrectSelections = selections.filter((selection) =>
       correctOptionEntries.some(({ option, index: optionIndex }) =>
@@ -281,16 +258,12 @@ export class QuizDotStatusService {
     }
 
     if (isMultipleAnswerQuestion) {
-      if (incorrectSelections.length > 0) {
-        return false;
-      }
+      if (incorrectSelections.length > 0) return false;
 
       return matchedCorrectSelections.length === correctOptionEntries.length;
     }
 
-    if (incorrectSelections.length > 0) {
-      return false;
-    }
+    if (incorrectSelections.length > 0) return false;
 
     return matchedCorrectSelections.length > 0 ? true : null;
   }
@@ -331,18 +304,14 @@ export class QuizDotStatusService {
         })
     );
     const optionTextSet = new Set(
-      referenceOptions
-        .map((opt: Option) => normalize(opt?.text))
-        .filter(Boolean)
+      referenceOptions.map((opt: Option) => normalize(opt?.text)).filter(Boolean)
     );
     const optionIndexSet = new Set(
       referenceOptions.map((_opt: Option, optIndex: number) => optIndex)
     );
 
     const isSelectionActive = (selection: SelectedOption): boolean => {
-      if (!selection) {
-        return false;
-      }
+      if (!selection) return false;
 
       return selection.selected !== false &&
         (selection as any)?.checked !== false &&
@@ -351,21 +320,15 @@ export class QuizDotStatusService {
     };
 
     const pickRelevantSelections = (selections: SelectedOption[]): SelectedOption[] => {
-      if (!Array.isArray(selections) || selections.length === 0) {
-        return [];
-      }
+      if (!Array.isArray(selections) || selections.length === 0) return [];
 
       const activeSelections = selections.filter(isSelectionActive);
-      if (activeSelections.length === 0) {
-        return [];
-      }
+      if (activeSelections.length === 0) return [];
 
       const exactQuestionSelections = activeSelections.filter(
         (selection: SelectedOption) => selection?.questionIndex === index
       );
-      if (exactQuestionSelections.length > 0) {
-        return exactQuestionSelections;
-      }
+      if (exactQuestionSelections.length > 0) return exactQuestionSelections;
 
       const matchedSelections = activeSelections.filter((selection: SelectedOption) => {
         const selectionId = String(selection?.optionId ?? '').trim();
@@ -395,7 +358,7 @@ export class QuizDotStatusService {
           displayIndex: Number(
             (option as any)?.displayIndex ?? (option as any)?.index ?? optionIndex
           ),
-          selected: true,
+          selected: true
         } as SelectedOption));
 
       if (displayedSelections.length > 0) {
@@ -415,8 +378,7 @@ export class QuizDotStatusService {
 
     if (index !== currentQuestionIndex) {
       const storedAnswerIds = Array.isArray(this.quizService?.userAnswers?.[index])
-        ? (this.quizService.userAnswers[index] as number[])
-        : [];
+        ? (this.quizService.userAnswers[index] as number[]) : [];
       if (storedAnswerIds.length > 0 && Array.isArray(question?.options) && question!.options.length > 0) {
         const reconstructedSelections = storedAnswerIds
           .map((answerId: number) => {
@@ -428,7 +390,7 @@ export class QuizDotStatusService {
                 ...directMatch,
                 optionId: directMatch.optionId ?? answerId,
                 questionIndex: index,
-                selected: true,
+                selected: true
               } as SelectedOption;
             }
 
@@ -438,7 +400,7 @@ export class QuizDotStatusService {
                 optionId: question!.options[answerId]?.optionId ?? answerId,
                 questionIndex: index,
                 displayIndex: answerId,
-                selected: true,
+                selected: true
               } as SelectedOption;
             }
 
@@ -472,9 +434,7 @@ export class QuizDotStatusService {
 
     const scoringKey = this.getScoringKey(quizId, index);
     const score = this.quizService?.questionCorrectness?.get(scoringKey);
-    if (score === true || score === false) {
-      return true;
-    }
+    if (score === true || score === false) return true;
 
     const answers = this.quizService?.userAnswers?.[index];
     return Array.isArray(answers) && answers.length > 0;
@@ -485,9 +445,7 @@ export class QuizDotStatusService {
   // ═══════════════════════════════════════════════════════════════
 
   isQuizFreshAtQuestionOne(currentQuestionIndex: number): boolean {
-    if (currentQuestionIndex !== 0) {
-      return false;
-    }
+    if (currentQuestionIndex !== 0) return false;
 
     const hasSelectionsInSelectedOptionService =
       (this.selectedOptionService?.selectedOptionsMap?.size ?? 0) > 0
@@ -530,7 +488,7 @@ export class QuizDotStatusService {
       ...params,
       dotStatusCache: this.dotStatusCache,
       pendingDotStatusOverrides: this.pendingDotStatusOverrides,
-      activeDotClickStatus: this.activeDotClickStatus,
+      activeDotClickStatus: this.activeDotClickStatus
     });
   }
 
@@ -547,7 +505,7 @@ export class QuizDotStatusService {
       dotStatusCache: this.dotStatusCache,
       pendingDotStatusOverrides: this.pendingDotStatusOverrides,
       activeDotClickStatus: this.activeDotClickStatus,
-      timerExpiredUnanswered: this.timerExpiredUnanswered,
+      timerExpiredUnanswered: this.timerExpiredUnanswered
     });
   }
 
@@ -656,7 +614,7 @@ export class QuizDotStatusService {
           this.persistence.setPersistedDotStatus(quizId, index, sessionVal);
           return sessionVal;
         }
-      } catch {}
+      } catch { }
 
       dotStatusCache.set(index, 'pending');
       return 'pending';
@@ -879,14 +837,10 @@ export class QuizDotStatusService {
       }
 
       const activeClickStatus = activeDotClickStatus.get(index);
-      if (activeClickStatus) {
-        return `${activeClickStatus} current`;
-      }
+      if (activeClickStatus) return `${activeClickStatus} current`;
 
       const pendingOverrideStatus = pendingDotStatusOverrides.get(index);
-      if (pendingOverrideStatus) {
-        return `${pendingOverrideStatus} current`;
-      }
+      if (pendingOverrideStatus) return `${pendingOverrideStatus} current`;
 
       if (!this.quizStateService.hasUserInteracted(index)) {
         // On refresh, interaction state is lost — check clickConfirmedDotStatus (from sessionStorage)
@@ -894,9 +848,8 @@ export class QuizDotStatusService {
         if (confirmedStatus === 'correct' || confirmedStatus === 'wrong') {
           return `${confirmedStatus} current`;
         }
-        if (timerExpiredUnanswered.has(index)) {
-          return 'pending';
-        }
+        if (timerExpiredUnanswered.has(index)) return 'pending';
+        
         return 'current';
       }
 
@@ -910,17 +863,13 @@ export class QuizDotStatusService {
         return `${persistedStatus} current`;
       }
 
-      if (timerExpiredUnanswered.has(index)) {
-        return 'pending';
-      }
+      if (timerExpiredUnanswered.has(index)) return 'pending';
 
       return 'current';
     }
 
     // Non-current question
-    if (timerExpiredUnanswered.has(index)) {
-      return 'pending';
-    }
+    if (timerExpiredUnanswered.has(index)) return 'pending';
 
     const scoringKey = this.getScoringKey(quizId, index);
     const scoredCorrect = this.quizService.questionCorrectness.get(scoringKey);
@@ -936,31 +885,21 @@ export class QuizDotStatusService {
     })();
 
     // 1. Ground truth: questionCorrectness
-    if (scoredCorrect === true) {
-      return 'correct';
-    }
+    if (scoredCorrect === true) return 'correct';
 
     // 2. Persisted dot status (localStorage)
-    if (persisted === 'correct') {
-      return 'correct';
-    }
+    if (persisted === 'correct') return 'correct';
 
     // 3. clickConfirmedDotStatus (in-memory or sessionStorage fallback)
-    if (confirmed) {
-      return confirmed;
-    }
+    if (confirmed) return confirmed;
     if (ssStored === 'correct' || ssStored === 'wrong') {
       this.selectedOptionService.clickConfirmedDotStatus.set(index, ssStored);
       return ssStored;
     }
 
     // 4. Explicit wrong from scoring
-    if (scoredCorrect === false) {
-      return 'wrong';
-    }
-    if (persisted === 'wrong') {
-      return 'wrong';
-    }
+    if (scoredCorrect === false) return 'wrong';
+    if (persisted === 'wrong') return 'wrong';
 
     // 5. Fallback
     const status = this.getQuestionStatus({ ...params, options: undefined });
