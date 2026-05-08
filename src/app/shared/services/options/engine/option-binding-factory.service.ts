@@ -41,8 +41,7 @@ export class OptionBindingFactoryService {
 
     // Infer input type from correctness count (your prior behavior)
     const correctOptionsCount = opts.reduce(
-      (count, o) => (o?.correct ? count + 1 : count),
-      0
+      (count, o) => (o?.correct ? count + 1 : count), 0
     );
     const inferredType: 'single' | 'multiple' =
       correctOptionsCount > 1 ? 'multiple' : 'single';
@@ -62,7 +61,7 @@ export class OptionBindingFactoryService {
         feedback: option?.feedback ?? 'No feedback available',
         // Clear stale visual flags carried over from prior question state
         highlight: false,
-        selected: false,
+        selected: false
       };
 
       bindings.push({
@@ -104,7 +103,7 @@ export class OptionBindingFactoryService {
         checked: selected,
         cssClasses: {},
         optionIcon: '',
-        optionCursor: 'default',
+        optionCursor: 'default'
       } as OptionBindings);
     }
 
