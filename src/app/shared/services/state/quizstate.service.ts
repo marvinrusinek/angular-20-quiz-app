@@ -165,9 +165,7 @@ export class QuizStateService {
     answered: boolean;
   }, options?: { force?: boolean }): void {
     // If visibility restore lock is active, block state changes unless forced
-    if (this._visibilityRestoreLock && !options?.force) {
-      return;
-    }
+    if (this._visibilityRestoreLock && !options?.force) return;
     this.displayStateSig.set(state);
   }
 
@@ -220,8 +218,8 @@ export class QuizStateService {
                     `Invalid question state format for questionId ${key}`
                   );
                 }
-              },
-            ),
+              }
+            )
           );
         } else {
           // Stored state is not in object format
@@ -262,7 +260,7 @@ export class QuizStateService {
     let state =
       this.quizStates[quizId].get(questionId) ??
       this.createDefaultQuestionState();
-    this.quizStates[quizId].set(questionId, state);  // store the default state in the quiz's state map
+    this.quizStates[quizId].set(questionId, state);  // store default state in quiz's state map
 
     return state;
   }
@@ -355,9 +353,7 @@ export class QuizStateService {
   }
 
   updateCurrentQuizState(question$: Observable<QuizQuestion | null>): void {
-    if (!question$) {
-      throw new Error('question$ must be an observable.');
-    }
+    if (!question$) throw new Error('question$ must be an observable.');
 
     question$
       .pipe(
@@ -414,9 +410,7 @@ export class QuizStateService {
   }
 
   startLoading(): void {
-    if (!this.isLoading()) {
-      this.isLoadingSig.set(true);
-    }
+    if (!this.isLoading()) this.isLoadingSig.set(true);
   }
 
   setInteractionReady(v: boolean) {
@@ -502,25 +496,21 @@ export class QuizStateService {
       // wipes _answeredQuestionIndices and _hasUserInteracted from
       // sessionStorage. The durable sel_Q* and dot_confirmed_* keys
       // survive reset and serve as fallback evidence.
-      let hasEvidence = this._answeredQuestionIndices.has(currentUrlIdx)
-          || this._hasUserInteracted.has(currentUrlIdx);
+      let hasEvidence = this._answeredQuestionIndices.has(currentUrlIdx) || 
+        this._hasUserInteracted.has(currentUrlIdx);
       if (!hasEvidence) {
         try {
           const selRaw = sessionStorage.getItem('sel_Q' + currentUrlIdx);
           if (selRaw) {
             const parsed = JSON.parse(selRaw);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              hasEvidence = true;
-            }
+            if (Array.isArray(parsed) && parsed.length > 0) hasEvidence = true;
           }
         } catch { /* ignore */ }
       }
       if (!hasEvidence) {
         try {
           const dot = sessionStorage.getItem('dot_confirmed_' + currentUrlIdx);
-          if (dot === 'correct' || dot === 'wrong') {
-            hasEvidence = true;
-          }
+          if (dot === 'correct' || dot === 'wrong') hasEvidence = true;
         } catch { /* ignore */ }
       }
       if (hasEvidence) {
