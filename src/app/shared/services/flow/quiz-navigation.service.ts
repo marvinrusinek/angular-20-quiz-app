@@ -6,6 +6,7 @@ import { catchError, take } from 'rxjs/operators';
 
 import { Option } from '../../models/Option.model';
 import { QuestionType } from '../../models/question-type.enum';
+import { QuizRoutes } from '../../models/quiz-routes.enum';
 import { QuizQuestion } from '../../models/QuizQuestion.model';
 import { ExplanationTextService } from '../features/explanation/explanation-text.service';
 import { NextButtonStateService } from '../state/next-button-state.service';
@@ -16,7 +17,6 @@ import { QuizDataService } from '../data/quizdata.service';
 import { QuizStateService } from '../state/quizstate.service';
 import { SelectedOptionService } from '../state/selectedoption.service';
 import { TimerService } from '../features/timer/timer.service';
-import { QuizRoutes } from '../../models/quiz-routes.enum';
 
 @Injectable({ providedIn: 'root' })
 export class QuizNavigationService {
@@ -67,9 +67,7 @@ export class QuizNavigationService {
   ) { }
 
   public async advanceToNextQuestion(): Promise<boolean> {
-    if (this.isNavigating) {
-      return false;
-    }
+    if (this.isNavigating) return false;
 
     // Record elapsed time for current question before navigating
     const currentIndex = this.quizService.getCurrentQuestionIndex();
@@ -81,10 +79,7 @@ export class QuizNavigationService {
       }
     }
 
-    try {
-      this.resetExplanationAndState();
-    } catch (err) {
-    }
+    try { this.resetExplanationAndState(); } catch (err: any) { }
 
     return await this.navigateWithOffset(1);  // defer navigation until state is clean
   }
@@ -101,8 +96,7 @@ export class QuizNavigationService {
       (this as any).displayExplanation = false;
       (this as any).explanationToDisplay = '';
       this.explanationTextService.setShouldDisplayExplanation(false);
-    } catch (err) {
-    }
+    } catch (err: any) { }
 
     const result = await this.navigateWithOffset(-1);
 
@@ -120,23 +114,8 @@ export class QuizNavigationService {
     // User requested logic: Check if answered.
     const isAnswered = this.selectedOptionService.isQuestionAnswered(currentRouteIndex - 1);
 
-    /*
-
-    // Get Quiz ID (best effort, fallback to 'angular-quiz')
-    let quizId = this.resolveEffectiveQuizId();
-    if (!quizId) {
-      quizId = 'angular-quiz';
-    } */   
-
     // Simple Bounds Safety (only check min)
-    if (targetRouteIndex < 1) {
-      return false;
-    }
-
-    const maxQuestions = this.quizService.totalQuestions || this.quizService.questions?.length || 99;
-
-    if (targetRouteIndex > maxQuestions) {
-    }
+    if (targetRouteIndex < 1) return false;
 
     return this.navigateToQuestion(targetRouteIndex - 1);
   }
@@ -155,9 +134,7 @@ export class QuizNavigationService {
 
       // Perform Router Navigation
       const navSuccess = await this.performRouterNavigation(index);
-      if (!navSuccess) {
-        return false;
-      }
+      if (!navSuccess) return false;
 
       // Reset timer state before emitting the new index to avoid immediate expiry
       this.timerService.stopTimer(undefined, { force: true });
@@ -177,15 +154,13 @@ export class QuizNavigationService {
 
       // Fetch New Question Data
       const fresh = await this.fetchAndEmitQuestion(index);
-      if (!fresh) {
-        return false;
-      }
+      if (!fresh) return false;
 
       // Finalize
       this.notifyNavigationSuccess();
 
       return true;
-    } catch (err) {
+    } catch (err: any) {
       return false;
     } finally {
       this._fetchInProgress = false;
@@ -196,14 +171,8 @@ export class QuizNavigationService {
   }
 
   private async performRouterNavigation(index: number): Promise<boolean> {
-    //const quizIdFromRoute = this.activatedRoute.snapshot.paramMap.get('quizId');
-    //const fallbackQuizId = localStorage.getItem('quizId');
-    //const quizId = quizIdFromRoute || fallbackQuizId;
-
     const quizId = this.resolveEffectiveQuizId();
-    if (!quizId) {
-      return false;
-    }
+    if (!quizId) return false;
 
     this.quizId = quizId;
     this.quizService.setQuizId(quizId);
@@ -225,9 +194,7 @@ export class QuizNavigationService {
     const fresh = await firstValueFrom(
       this.quizService.getQuestionByIndex(index)
     );
-    if (!fresh) {
-      return null;
-    }
+    if (!fresh) return null;
 
     this.quizService.setCurrentQuestionIndex(index);
 
@@ -246,8 +213,7 @@ export class QuizNavigationService {
       if (ets._gate) {
         for (const gate of ets._gate.values()) gate?.next?.(false);
       }
-    } catch (err) {
-    }
+    } catch (err: any) { }
 
     // Prepare text
     const isMulti =
@@ -308,9 +274,7 @@ export class QuizNavigationService {
   ): Promise<boolean> {
     try {
       const effectiveQuizId = this.resolveEffectiveQuizId(quizIdOverride);
-      if (!effectiveQuizId) {
-        return false;
-      }
+      if (!effectiveQuizId) return false;
 
       if (quizIdOverride && this.quizService.quizId !== quizIdOverride) {
         this.quizService.setQuizId(quizIdOverride);
@@ -336,7 +300,7 @@ export class QuizNavigationService {
           localStorage.removeItem('selectedOptionsMap');
           localStorage.removeItem('userAnswers');
           sessionStorage.removeItem('selectedOptionsMap');
-        } catch {}
+        } catch { }
       }
 
       // Always ensure the quiz session is hydrated before attempting to access questions.
@@ -357,13 +321,11 @@ export class QuizNavigationService {
       }
 
       const routeUrl = `/quiz/question/${effectiveQuizId}/${index + 1}`;
-      if (this.router.url === routeUrl) {
-        return true;
-      }
+      if (this.router.url === routeUrl) return true;
 
       const navSuccess = await this.router.navigateByUrl(routeUrl);
       return navSuccess;
-    } catch (err) {
+    } catch (err: any) {
       return false;
     }
   }
@@ -412,7 +374,7 @@ export class QuizNavigationService {
           })
         )
       );
-    } catch (error) {
+    } catch (error: any) {
       // session hydration failed
     }
   }
@@ -426,7 +388,7 @@ export class QuizNavigationService {
           })
         )
       );
-    } catch (error) {
+    } catch (error: any) {
       return null;
     }
   }
@@ -474,9 +436,7 @@ export class QuizNavigationService {
     while (snapshot) {
       const value = snapshot.paramMap?.get('questionIndex');
       const parsed = Number.parseInt(value ?? '', 10);
-      if (Number.isFinite(parsed) && parsed > 0) {
-        return parsed;
-      }
+      if (Number.isFinite(parsed) && parsed > 0) return parsed;
       snapshot = snapshot.firstChild ?? null;
     }
 
@@ -585,9 +545,7 @@ export class QuizNavigationService {
             // Bare-question-text write when target has the banner —
             // restore the banner version so the user doesn't see the
             // count flicker in/out as different writers race.
-            if (targetHasBanner && now === rawQText) {
-              h3.innerHTML = targetQText;
-            }
+            if (targetHasBanner && now === rawQText) h3.innerHTML = targetQText;
           };
 
           if (typeof MutationObserver !== 'undefined') {
@@ -622,28 +580,34 @@ export class QuizNavigationService {
   }
 
   navigateToResults(): void {
-
-    if (this.quizCompleted) {
-      return;
-    }
+    if (this.quizCompleted) return;
 
     // Ensure we have a robust quizId
     const targetQuizId = this.quizId || this.resolveEffectiveQuizId() || this.quizService.quizId;
-
-    if (!targetQuizId) {
-      return;
-    }
+    if (!targetQuizId) return;
 
     this.quizCompleted = true;
 
     // Use correct route path: /quiz/results/:quizId (not just results/)
     const routePath = `/quiz/results/${targetQuizId}`;
 
-    this.router.navigateByUrl(routePath).then((success) => {
-      if (!success) {
-        // navigation was cancelled
-      }
-    }).catch(() => { });
+    this.router.navigateByUrl(routePath)
+      .then((success) => {
+        if (!success) {
+          console.warn('Quiz navigation was cancelled:', {
+            routePath,
+            currentUrl: this.router.url
+          });
+
+          return;
+        }
+      })
+      .catch((error) => {
+        console.error('Quiz navigation failed:', {
+          routePath,
+          error
+        });
+      });
   }
 
   setIsNavigatingToPrevious(value: boolean): void {
