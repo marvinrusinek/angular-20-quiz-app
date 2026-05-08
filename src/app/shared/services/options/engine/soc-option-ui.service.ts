@@ -34,9 +34,7 @@ export class SocOptionUiService {
       correctCount > 1;
 
     if (!isMultiMode) {
-      for (const opt of comp.optionsToDisplay || []) {
-        opt.selected = false;
-      }
+      for (const opt of comp.optionsToDisplay || []) opt.selected = false;
       for (const b of comp.optionBindings || []) {
         b.isSelected = false;
         b.option.selected = false;
@@ -79,9 +77,7 @@ export class SocOptionUiService {
     }
 
     const optionBinding = comp.optionBindings[index];
-    if (optionBinding) {
-      optionBinding.isSelected = option.selected;
-    }
+    if (optionBinding) optionBinding.isSelected = option.selected;
   }
 
   handleBackwardNavigationOptionClick(comp: any, option: any, index: number): void {
@@ -137,7 +133,8 @@ export class SocOptionUiService {
     for (let i = selectedOptions.length - 1; i >= 0; i--) {
       const s = selectedOptions[i];
       if (isCorrect(s)) {
-        const sIdx = (s as any).displayIndex ?? (s as any).index ?? (s as any).idx;
+        const sIdx = (s as any).displayIndex ?? 
+          (s as any).index ?? (s as any).idx;
         if (sIdx != null && Number.isFinite(Number(sIdx))) {
           lastCorrectIdx = Number(sIdx);
           break;
@@ -236,15 +233,12 @@ export class SocOptionUiService {
     const displayQuestion = comp.getQuestionAtDisplayIndex(activeIdx);
     const fallbackOptions =
       displayQuestion?.options?.length
-        ? displayQuestion.options
-        : comp.currentQuestion?.options;
+        ? displayQuestion.options : comp.currentQuestion?.options;
 
     if (
       Array.isArray(comp.optionsToDisplay) &&
       comp.optionsToDisplay.length > 0
-    ) {
-      return;
-    }
+    ) return;
 
     if (Array.isArray(fallbackOptions) && fallbackOptions.length > 0) {
       comp.optionsToDisplay = fallbackOptions.map((option: any) => ({
@@ -266,12 +260,10 @@ export class SocOptionUiService {
       selectedBinding,
       showFeedbackForOption: comp.showFeedbackForOption,
       updateFeedbackState: (id: number) => {
-        if (!comp.showFeedbackForOption) {
-          comp.showFeedbackForOption = {};
-        }
+        if (!comp.showFeedbackForOption) comp.showFeedbackForOption = {};
         comp.showFeedback = true;
         comp.showFeedbackForOption[id] = true;
-      },
+      }
     });
   }
 
