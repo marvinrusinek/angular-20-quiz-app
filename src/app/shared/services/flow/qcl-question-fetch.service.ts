@@ -15,11 +15,8 @@ import { SelectedOptionService } from '../state/selectedoption.service';
 import { SelectionMessageService } from '../features/selection-message/selection-message.service';
 import { QuizQuestionDataService } from './quiz-question-data.service';
 import { QqcQuestionLoaderService } from '../features/qqc/qqc-question-loader.service';
-import {
-  FetchQuestionResult,
-  RouteChangeQuestionResult,
-  RouteQuestionResult,
-} from './quiz-content-loader.service';
+import { FetchQuestionResult, RouteChangeQuestionResult, RouteQuestionResult } 
+  from './quiz-content-loader.service';
 
 /**
  * Handles question fetching, loading, and API data retrieval.
@@ -27,16 +24,15 @@ import {
  */
 @Injectable({ providedIn: 'root' })
 export class QclQuestionFetchService {
-
   constructor(
     private quizService: QuizService,
     private quizDataService: QuizDataService,
     private quizStateService: QuizStateService,
     private explanationTextService: ExplanationTextService,
-    private selectedOptionService: SelectedOptionService,
-    private selectionMessageService: SelectionMessageService,
     private quizQuestionDataService: QuizQuestionDataService,
     private quizQuestionLoaderService: QqcQuestionLoaderService,
+    private selectedOptionService: SelectedOptionService,
+    private selectionMessageService: SelectionMessageService
   ) {}
 
   async loadQuestionFromRouteChange(params: {
@@ -50,7 +46,7 @@ export class QclQuestionFetchService {
       options: [],
       explanation: '',
       totalQuestions: 0,
-      hasValidSelections: false,
+      hasValidSelections: false
     };
 
     const currentQuiz: Quiz = await firstValueFrom(
@@ -71,8 +67,7 @@ export class QclQuestionFetchService {
     this.quizQuestionLoaderService.totalQuestions = totalQ;
 
     const shuffledSnapshot = this.quizService.isShuffleEnabled()
-      ? [...(this.quizService.shuffledQuestions ?? [])]
-      : null;
+      ? [...(this.quizService.shuffledQuestions ?? [])] : null;
 
     await this.quizQuestionLoaderService.loadQuestionAndOptions(index);
     await this.quizQuestionLoaderService.loadQA(index);
@@ -109,7 +104,7 @@ export class QclQuestionFetchService {
       options,
       explanation,
       totalQuestions: totalQ,
-      hasValidSelections: validSelections.length > 0,
+      hasValidSelections: validSelections.length > 0
     };
   }
 
@@ -132,13 +127,14 @@ export class QclQuestionFetchService {
       explanationText: '',
       isAnswered: false,
       questionPayload: null,
-      shouldStartTimer: false,
+      shouldStartTimer: false
     };
 
     try {
-      if (isNaN(questionIndex) || questionIndex < 0 || questionIndex >= totalQuestions) {
-        return empty;
-      }
+      if (isNaN(questionIndex) || 
+        questionIndex < 0 || 
+        questionIndex >= totalQuestions
+      ) return empty;
 
       restoreSessionSelections(questionIndex);
 
@@ -154,9 +150,7 @@ export class QclQuestionFetchService {
         !fetchedQuestion.questionText?.trim() ||
         !Array.isArray(fetchedOptions) ||
         fetchedOptions.length === 0
-      ) {
-        return empty;
-      }
+      ) return empty;
 
       this.explanationTextService.setResetComplete(false);
       this.explanationTextService.setShouldDisplayExplanation(false);
@@ -292,7 +286,7 @@ export class QclQuestionFetchService {
         explanationText,
         isAnswered,
         questionPayload,
-        shouldStartTimer,
+        shouldStartTimer
       };
     } catch (error: any) {
       return empty;
@@ -312,12 +306,10 @@ export class QclQuestionFetchService {
       questionText: '',
       optionsWithIds: [],
       questionIndex: 0,
-      totalCount: 0,
+      totalCount: 0
     };
 
-    if (!quiz || !quiz.questions) {
-      return empty;
-    }
+    if (!quiz || !quiz.questions) return empty;
 
     if (isNaN(routeIndex) || routeIndex < 1 || routeIndex > quiz.questions.length) {
       return { ...empty, questionIndex: -1 };
@@ -337,10 +329,7 @@ export class QclQuestionFetchService {
     }
 
     const question = await firstValueFrom(this.quizService.getQuestionByIndex(questionIndex));
-
-    if (!question) {
-      return empty;
-    }
+    if (!question) return empty;
 
     this.quizQuestionDataService.forceRegenerateExplanation(question, questionIndex);
 
@@ -368,7 +357,7 @@ export class QclQuestionFetchService {
       questionText,
       optionsWithIds,
       questionIndex,
-      totalCount,
+      totalCount
     };
   }
 
@@ -376,9 +365,7 @@ export class QclQuestionFetchService {
     quizId: string,
     questionIndex: number
   ): Promise<QuizQuestion | null> {
-    if (!quizId || quizId.trim() === '') {
-      return null;
-    }
+    if (!quizId || quizId.trim() === '') return null;
 
     try {
       const result = await firstValueFrom(
@@ -390,9 +377,7 @@ export class QclQuestionFetchService {
         )
       );
 
-      if (!result) {
-        return null;
-      }
+      if (!result) return null;
 
       const [question, options] = result ?? [null, null];
       if (!question) return null;
@@ -415,16 +400,12 @@ export class QclQuestionFetchService {
   } | null> {
     try {
       const questions = await this.quizService.fetchQuizQuestions(quizId);
-      if (!questions || questions.length === 0) {
-        return null;
-      }
+      if (!questions || questions.length === 0) return null;
 
       const quiz = await firstValueFrom(
         this.quizDataService.getQuiz(quizId).pipe(take(1))
       );
-      if (!quiz) {
-        return null;
-      }
+      if (!quiz) return null;
 
       return { quiz, questions };
     } catch (error: any) {
@@ -433,17 +414,9 @@ export class QclQuestionFetchService {
   }
 
   fetchAndSubscribeQuestionAndOptions(quizId: string, questionIndex: number): void {
-    if (document.hidden) {
-      return;
-    }
-
-    if (!quizId || quizId.trim() === '') {
-      return;
-    }
-
-    if (questionIndex < 0) {
-      return;
-    }
+    if (document.hidden) return;
+    if (!quizId || quizId.trim() === '') return;
+    if (questionIndex < 0) return;
 
     this.quizDataService.getQuestionAndOptions(quizId, questionIndex)
       .pipe(
