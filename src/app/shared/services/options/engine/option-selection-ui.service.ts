@@ -16,10 +16,9 @@ export class OptionSelectionUiService {
         ? Number.parseInt(rawSelectedId, 10)
         : rawSelectedId;
 
-    if (!Number.isFinite(parsedId)) {      return;
-    }
+    if (!Number.isFinite(parsedId)) return;
 
-    // Ignore the synthetic "-1 repaint" that runs right after question load
+    // Ignore synthetic "-1 repaint" that runs right after question load
     if (parsedId === -1) return;
 
     const selectedId = parsedId;
@@ -48,24 +47,20 @@ export class OptionSelectionUiService {
 
     for (const b of optionBindings ?? []) {
       const id = b?.option?.optionId;
-      if (id === undefined) {
-        continue;
-      }
+      if (id === undefined) continue;
 
       const isCurrent = id === selectedId;
       const inHistory = historySet.has(id);
 
       b.option.highlight = isCurrent || inHistory;
-
       b.option.showIcon = isCurrent || inHistory;
 
       // Native control state (single truth for selection in UI)
       b.isSelected = isCurrent;
 
       // Feedback – only current row is true
-      if (!b.showFeedbackForOption) {
-        b.showFeedbackForOption = {};
-      }
+      if (!b.showFeedbackForOption) b.showFeedbackForOption = {};
+      
       b.showFeedbackForOption[id] = isCurrent;
 
       // Repaint row
