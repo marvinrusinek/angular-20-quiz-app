@@ -18,7 +18,7 @@ export class QuizScoringService {
     index: number,
     existingSelections: SelectedOption[],
     clickedOption: SelectedOption,
-    isSingleAnswerQuestion: boolean,
+    isSingleAnswerQuestion: boolean
   ): SelectedOption[] {
     const canonicalClicked: SelectedOption = {
       ...clickedOption,
@@ -26,27 +26,23 @@ export class QuizScoringService {
       selected:
         clickedOption?.selected !== undefined
           ? clickedOption.selected
-          : true,
+          : true
     };
 
     if (isSingleAnswerQuestion) {
-      if (canonicalClicked.selected === false) {
-        return [];
-      }
+      if (canonicalClicked.selected === false) return [];
       return [canonicalClicked];
     }
 
     const merged = new Map<string, SelectedOption>();
     for (const selection of existingSelections) {
       const key = String(selection?.optionId ?? selection?.text ?? '').trim();
-      if (!key) {
-        continue;
-      }
+      if (!key) continue;
       merged.set(key, selection);
     }
 
     const clickedKey = String(
-      canonicalClicked?.optionId ?? canonicalClicked?.text ?? '',
+      canonicalClicked?.optionId ?? canonicalClicked?.text ?? ''
     ).trim();
 
     if (clickedKey) {
@@ -74,9 +70,7 @@ export class QuizScoringService {
   // ═══════════════════════════════════════════════════════════════
 
   hydrateQuestionSet(questions: QuizQuestion[] | null | undefined): QuizQuestion[] {
-    if (!Array.isArray(questions) || questions.length === 0) {
-      return [];
-    }
+    if (!Array.isArray(questions) || questions.length === 0) return [];
 
     return questions.map((question) => ({
       ...question,
