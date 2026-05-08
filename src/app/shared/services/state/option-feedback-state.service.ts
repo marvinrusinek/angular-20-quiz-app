@@ -54,19 +54,14 @@ export class OptionFeedbackStateService {
     const feedbackMap: Record<string, boolean> = {};
 
     const targetSelections = isMultiAnswer && selections.length > 0
-      ? [selections[selections.length - 1]]
-      : selections;
+      ? [selections[selections.length - 1]] : selections;
 
     for (const selection of targetSelections ?? []) {
-      if (!selection) {
-        continue;
-      }
+      if (!selection) continue;
 
       const keys = this.collectFeedbackKeys(questionIndex, selection);
       for (const key of keys) {
-        if (key) {
-          feedbackMap[String(key)] = true;
-        }
+        if (key) feedbackMap[String(key)] = true;
       }
     }
 
