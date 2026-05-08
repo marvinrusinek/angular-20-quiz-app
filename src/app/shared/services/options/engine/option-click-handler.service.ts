@@ -252,9 +252,7 @@ export class OptionClickHandlerService {
   ): void {
     const correctSet = new Set(correctIndices);
 
-    if (!isClickedCorrect) {
-      disabledSet.add(clickedIndex);
-    }
+    if (!isClickedCorrect) disabledSet.add(clickedIndex);
     // When all correct answers selected, disable ALL incorrect options.
     // PRISTINE GUARD: before triggering the disable-all branch, sanity-
     // check correctIndices.length against quizInitialState. If pristine
@@ -391,9 +389,7 @@ export class OptionClickHandlerService {
         const chkCorrectCount = (chkQ?.options ?? []).filter(
           (o: any) => o?.correct === true || String(o?.correct) === 'true'
         ).length;
-        if (chkCorrectCount > 1) {
-          effectiveMulti = true;
-        }
+        if (chkCorrectCount > 1) effectiveMulti = true;
       } catch { /* ignore */ }
     }
 
@@ -445,9 +441,6 @@ export class OptionClickHandlerService {
     const flashDisabled = flashDisabledSet.has(index) || flashDisabledSet.has(lockId);
 
     const result = !!(disabledBySet || forceDisabled || questionLocked || optionLocked || lockedIncorrect || flashDisabled);
-
-    if (result) {    }
-
     return result;
   }
 
