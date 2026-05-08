@@ -10,7 +10,7 @@ describe('QuizShuffleService', () => {
     { text: 'Option A', correct: true, value: 1 },
     { text: 'Option B', correct: false, value: 2 },
     { text: 'Option C', correct: false, value: 3 },
-    { text: 'Option D', correct: false, value: 4 },
+    { text: 'Option D', correct: false, value: 4 }
   ];
 
   const mockQuestions: QuizQuestion[] = [
@@ -18,16 +18,16 @@ describe('QuizShuffleService', () => {
       questionText: 'Question 1',
       options: [...mockOptions],
       explanation: 'Explanation 1',
-      type: QuestionType.SingleAnswer,
+      type: QuestionType.SingleAnswer
     },
     {
       questionText: 'Question 2',
       options: [
         { text: 'True', correct: true, value: 1 },
-        { text: 'False', correct: false, value: 2 },
+        { text: 'False', correct: false, value: 2 }
       ],
       explanation: 'Explanation 2',
-      type: QuestionType.SingleAnswer,
+      type: QuestionType.SingleAnswer
     },
     {
       questionText: 'Question 3',
@@ -36,8 +36,8 @@ describe('QuizShuffleService', () => {
       type: QuestionType.MultipleAnswer,
       answer: [
         { text: 'Option A', correct: true, value: 1 },
-        { text: 'Option C', correct: true, value: 3 },
-      ],
+        { text: 'Option C', correct: true, value: 3 }
+      ]
     },
   ];
 
@@ -62,7 +62,7 @@ describe('QuizShuffleService', () => {
           return undefined;
         },
       }),
-      writable: true,
+      writable: true
     });
   });
 
@@ -161,7 +161,7 @@ describe('QuizShuffleService', () => {
     it('should map display index to original index', () => {
       service.prepareShuffle('quiz-1', mockQuestions, {
         shuffleQuestions: false,
-        shuffleOptions: false,
+        shuffleOptions: false
       });
       expect(service.toOriginalIndex('quiz-1', 0)).toBe(0);
       expect(service.toOriginalIndex('quiz-1', 1)).toBe(1);
@@ -184,12 +184,12 @@ describe('QuizShuffleService', () => {
     const opts: Option[] = [
       { optionId: 1, text: 'Alpha', correct: true, value: 1 },
       { optionId: 2, text: 'Beta', correct: false, value: 2 },
-      { optionId: 3, text: 'Gamma', correct: true, value: 3 },
+      { optionId: 3, text: 'Gamma', correct: true, value: 3 }
     ];
 
     it('should align answers by optionId', () => {
       const answers: Option[] = [
-        { optionId: 1, text: 'Alpha', correct: true, value: 1 },
+        { optionId: 1, text: 'Alpha', correct: true, value: 1 }
       ];
       const result = service.alignAnswersWithOptions(answers, opts);
       expect(result.length).toBe(1);
@@ -235,7 +235,7 @@ describe('QuizShuffleService', () => {
     it('should return all questions', () => {
       service.prepareShuffle('quiz-1', mockQuestions, {
         shuffleQuestions: false,
-        shuffleOptions: false,
+        shuffleOptions: false
       });
       const result = service.buildShuffledQuestions('quiz-1', mockQuestions);
       expect(result.length).toBe(mockQuestions.length);
@@ -291,7 +291,7 @@ describe('QuizShuffleService', () => {
     it('should return the question at the display index', () => {
       service.prepareShuffle('quiz-1', mockQuestions, {
         shuffleQuestions: false,
-        shuffleOptions: false,
+        shuffleOptions: false
       });
       const result = service.getQuestionAtDisplayIndex('quiz-1', 0, mockQuestions);
       expect(result).not.toBeNull();
@@ -306,7 +306,7 @@ describe('QuizShuffleService', () => {
     it('should normalize options with IDs', () => {
       service.prepareShuffle('quiz-1', mockQuestions, {
         shuffleQuestions: false,
-        shuffleOptions: false,
+        shuffleOptions: false
       });
       const result = service.getQuestionAtDisplayIndex('quiz-1', 0, mockQuestions);
       expect(result!.options.every(o => typeof o.optionId === 'number')).toBe(true);
