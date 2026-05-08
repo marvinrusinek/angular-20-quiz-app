@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+
 import { NextButtonStateService } from './next-button-state.service';
 
 describe('NextButtonStateService', () => {
@@ -8,7 +9,7 @@ describe('NextButtonStateService', () => {
     jest.useFakeTimers();
 
     TestBed.configureTestingModule({
-      providers: [NextButtonStateService],
+      providers: [NextButtonStateService]
     });
 
     service = TestBed.inject(NextButtonStateService);
@@ -148,7 +149,7 @@ describe('NextButtonStateService', () => {
     expect(style).toEqual({
       opacity: '0.5',
       cursor: 'not-allowed',
-      'pointer-events': 'auto',
+      'pointer-events': 'auto'
     });
   });
 
@@ -158,7 +159,7 @@ describe('NextButtonStateService', () => {
     expect(style).toEqual({
       opacity: '1',
       cursor: 'pointer',
-      'pointer-events': 'auto',
+      'pointer-events': 'auto'
     });
   });
 });
