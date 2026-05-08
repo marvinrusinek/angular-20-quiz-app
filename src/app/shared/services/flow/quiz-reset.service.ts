@@ -19,7 +19,6 @@ import { SelectionMessageService } from '../features/selection-message/selection
  */
 @Injectable({ providedIn: 'root' })
 export class QuizResetService {
-
   constructor(
     private quizService: QuizService,
     private quizStateService: QuizStateService,
@@ -143,9 +142,7 @@ export class QuizResetService {
     quizId: string,
     totalQuestions: number
   ): boolean {
-    if (currentQuestionIndex !== 0) {
-      return false;
-    }
+    if (currentQuestionIndex !== 0) return false;
 
     const hasExistingState =
       (this.quizService.questionCorrectness?.size ?? 0) > 0 ||
@@ -154,9 +151,7 @@ export class QuizResetService {
       this.selectedOptionService.hasRefreshBackup ||
       (this.selectedOptionService.clickConfirmedDotStatus?.size ?? 0) > 0;
 
-    if (hasExistingState) {
-      return false;
-    }
+    if (hasExistingState) return false;
 
     this.dotStatusService.dotStatusCache.clear();
     this.dotStatusService.pendingDotStatusOverrides.clear();
@@ -190,9 +185,7 @@ export class QuizResetService {
    */
   performQuizSwitchResets(routeQuizId: string): void {
     // Skip full reset if this is actually a page refresh (not a real quiz switch)
-    if (this.selectedOptionService.hasRefreshBackup) {
-      return;
-    }
+    if (this.selectedOptionService.hasRefreshBackup) return;
     this.resetForQuizSwitch(routeQuizId);
     this.quizPersistence.clearAllPersistedDotStatus(routeQuizId);
     this.dotStatusService.clearAllMaps();
@@ -264,12 +257,9 @@ export class QuizResetService {
 
     try {
       this.quizQuestionLoaderService?.questionToDisplaySig.set('');
-    } catch {
-    }
+    } catch { }
 
-    this.quizStateService.setDisplayState(
-      { mode: 'question', answered: false }
-    );
+    this.quizStateService.setDisplayState({ mode: 'question', answered: false });
     this.quizStateService.setExplanationReady(false);
 
     this.selectedOptionService.clearSelectedOption();
