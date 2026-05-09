@@ -11,6 +11,7 @@
       [optionBinding]="b"
       [value]="i"
       [ngClass]="getOptionClasses()"
+      [class.sa-trying]="isSingleAnswerTrying()"
       [style.background-color]="getOptionBackgroundColor()"
       [disabled]="isDisabled()"
       [disableRipple]="true"

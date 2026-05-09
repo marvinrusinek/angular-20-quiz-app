@@ -342,6 +342,48 @@ export class OptionItemComponent implements OnChanges, OnInit {
     return this.b.optionCursor || 'default';
   }
 
+  /**
+   * True when this is a single-answer question, no correct option has been
+   * selected yet, and this binding is not currently selected. Used to apply
+   * the `.sa-trying` class which forces clear background + clickable cursor
+   * and pointer-events:auto via SCSS, beating any Material-added disabled
+   * styling that might leak through other code paths.
+   */
+  isSingleAnswerTrying(): boolean {
+    if (this.type() !== 'single') return false;
+    if (this.b?.isSelected) return false;
+    try {
+      const qIdx = this.currentQuestionIndex() ?? this.quizService.currentQuestionIndex;
+      const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
+      const isShuf = this.quizService?.isShuffleEnabled?.()
+        && Array.isArray((this.quizService as any)?.shuffledQuestions)
+        && (this.quizService as any)?.shuffledQuestions?.length > 0;
+      const liveQ: any = isShuf
+        ? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]
+          ?? (this.quizService as any)?.shuffledQuestions?.[qIdx]
+        : (this.quizService as any)?.questions?.[qIdx];
+      const correctTexts = new Set(
+        (liveQ?.options ?? [])
+          .filter((o: any) =>
+            o?.correct === true || String(o?.correct) === 'true' ||
+            o?.correct === 1 || o?.correct === '1'
+          )
+          .map((o: any) => nrm(o?.text))
+          .filter((t: string) => !!t)
+      );
+      if (correctTexts.size !== 1) return false;
+      // Read signal so OnPush re-evaluates on every selection mutation.
+      const selectionsMap = this.selectedOptionService.selectedOptionsMapSig();
+      const selections = selectionsMap.get(qIdx) ?? [];
+      const anyCorrectSelected = selections.some((s: any) =>
+        correctTexts.has(nrm(s?.text))
+      );
+      return !anyCorrectSelected;
+    } catch {
+      return false;
+    }
+  }
+
   isDisabled(): boolean {
     // Timer-expiry handler stamped all bindings as disabled
     if (this.isTimerStamped()) return true;

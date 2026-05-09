@@ -127,8 +127,8 @@
 }
 
 /* DISABLED STATE — only for unselected/non-highlighted options */
-.option-row.mat-mdc-radio-disabled:not(.correct-option):not(.incorrect-option),
-.option-row.mat-mdc-checkbox-disabled:not(.correct-option):not(.incorrect-option) {
+.option-row.mat-mdc-radio-disabled:not(.correct-option):not(.incorrect-option):not(.sa-trying),
+.option-row.mat-mdc-checkbox-disabled:not(.correct-option):not(.incorrect-option):not(.sa-trying) {
   background-color: #a0a0a0 !important;
   border-color: #888 !important;
   cursor: default !important;
@@ -136,6 +136,22 @@
 
   .option-text {
     color: #444 !important;
+  }
+}
+
+/* SINGLE-ANSWER "TRYING" STATE — single-answer question where no correct
+   option has been selected yet. Force a clean clickable look regardless of
+   any Material-added disabled class or stale b.disabled flag, so the user
+   can keep clicking until they pick the right answer. */
+.option-row.sa-trying:not(.correct-option):not(.incorrect-option) {
+  background-color: var(--bg-option, #f5f5f5) !important;
+  border-color: var(--border-option, #979797) !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  opacity: 1 !important;
+
+  .option-text {
+    color: var(--text-option, #0f0900) !important;
   }
 }
 
