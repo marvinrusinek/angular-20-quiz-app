@@ -118,10 +118,13 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
   }
 
   private consumeCompletedQuizIds(): string[] {
+    // Read but DON'T remove — the user's accessed-quiz history needs to
+    // persist across visits to the selection page, otherwise the
+    // "You've accessed N quizzes" banner resets to whatever the latest
+    // results page wrote (typically 1).
     const completedIds: string[] = JSON.parse(
       sessionStorage.getItem('completedQuizIds') || '[]'
     );
-    sessionStorage.removeItem('completedQuizIds');
 
     for (const id of completedIds) {
       this.completedQuizIds.add(id);
@@ -137,10 +140,10 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
   }
 
   private consumeStartedQuizIds(): string[] {
+    // Read but DON'T remove — see consumeCompletedQuizIds.
     const startedIds: string[] = JSON.parse(
       sessionStorage.getItem('startedQuizIds') || '[]'
     );
-    sessionStorage.removeItem('startedQuizIds');
 
     for (const id of startedIds) {
       this.quizDataService.updateQuizStatus(id, QuizStatus.STARTED);
