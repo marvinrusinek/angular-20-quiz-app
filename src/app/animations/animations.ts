@@ -21,14 +21,14 @@ export const SlideLeftToRightAnimation = {
  * Scale/Bounce (Quiz transition)
  ***************************************/
 export const ChangeRouteAnimation = {
-  // `:increment` / `:decrement` fire only when the bound numeric value
-  // changes between two non-void states. The previous `* <=> *` matched
-  // the initial void → state mount as well, so URL navigation that
-  // re-mounted the anim-host with currentQuestionIndex=0 and then
-  // assigned the URL index played the animation twice (once for the
-  // enter, once for the value change).
+  // `:enter` plays on the initial mount of the anim-host (e.g. Q1's
+  // first render); `:increment` / `:decrement` play on numeric
+  // transitions between two non-void states. This combination gives
+  // a single scale-bounce on Q1 load AND on subsequent navigation,
+  // without the double-fire that `* <=> *` produced when URL nav
+  // re-mounted the host with idx=0 and then assigned the URL index.
   changeRoute: trigger('changeRoute', [
-    transition(':increment, :decrement', [
+    transition(':enter, :increment, :decrement', [
       animate(
         '1500ms cubic-bezier(0.4, 0.0, 0.2, 1)',
         keyframes([
