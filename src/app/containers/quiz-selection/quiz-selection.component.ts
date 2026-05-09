@@ -152,6 +152,34 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
     return startedIds;
   }
 
+  // Persist a quiz access at selection time so the accessed-quizzes count
+  // reflects every quiz the user has clicked into, regardless of whether
+  // they completed it. The previous tracking in results.component.ts only
+  // fires when the user reaches the results page, so quizzes the user
+  // bailed on were uncounted.
+  private recordQuizAccess(quizId: string): void {
+    if (!quizId) return;
+    try {
+      const completed: string[] = JSON.parse(
+        sessionStorage.getItem('completedQuizIds') || '[]'
+      );
+      if (completed.includes(quizId)) return;  // already counted
+
+      const started: string[] = JSON.parse(
+        sessionStorage.getItem('startedQuizIds') || '[]'
+      );
+      if (!started.includes(quizId)) {
+        started.push(quizId);
+        sessionStorage.setItem('startedQuizIds', JSON.stringify(started));
+      }
+
+      // Update the live count immediately so the banner refreshes without
+      // needing a route round-trip back to the selection page.
+      const accessedSet = new Set([...completed, ...started]);
+      this.accessedCount.set(accessedSet.size);
+    } catch { /* ignore storage failures */ }
+  }
+
   // Load quizzes once – replaces constructor side-effect
   private loadQuizCatalog(): void {
     this.quizDataService.loadQuizzes().subscribe((quizzes) => {
@@ -179,6 +207,12 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
     try {
       if (!quizId) return;
 
+      // Track this quiz as accessed AT SELECTION TIME so the
+      // "You've accessed N quizzes" / "ALL quizzes accessed" banner
+      // counts every quiz the user has clicked into, not just ones
+      // that reached the results page.
+      this.recordQuizAccess(quizId);
+
       // this.quizService.quizId = quizId;
       this.quizService.setQuizId(quizId);
       const currentQuiz = this.quizDataService.getCachedQuizById(quizId);
@@ -193,13 +227,13 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
         await this.router.navigate([QuizRoutes.RESULTS, quizId]);
         return;
       }
-      
+
       // Set status to STARTED if not already CONTINUE or COMPLETED
       if (!currentQuiz?.status || currentQuiz.status === QuizStatus.STARTED) {
         this.quizDataService.updateQuizStatus(quizId, QuizStatus.STARTED);
         this.quizService.setQuizStatus(QuizStatus.STARTED);
       }
-      
+
       await this.router.navigate([QuizRoutes.INTRO, quizId]);
     } catch (error: any) {
       // error handled silently
