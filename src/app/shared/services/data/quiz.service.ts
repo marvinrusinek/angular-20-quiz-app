@@ -1,9 +1,7 @@
 import { Injectable, signal, WritableSignal } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { BehaviorSubject, from, Observable, of, Subject } from 'rxjs';
-import {
-  auditTime, distinctUntilChanged, filter, map, shareReplay
-} from 'rxjs/operators';
+import { distinctUntilChanged, map } from 'rxjs/operators';
 import { getQuizData } from '../../quiz-data-cache';
 import { QuizStatus } from '../../models/quiz-status.enum';
 import { FinalResult } from '../../models/Final-Result.model';
@@ -17,6 +15,7 @@ import { Resource } from '../../models/Resource.model';
 import { SelectedOption } from '../../models/SelectedOption.model';
 import { QuizStateService } from '../state/quizstate.service';
 import { QuizShuffleService } from '../flow/quiz-shuffle.service';
+import { QuizBannerService } from './quiz-banner.service';
 import { QuizDataLoaderService } from './quiz-data-loader.service';
 import { QuizQuestionResolverService } from './quiz-question-resolver.service';
 import { QuizOptionsService } from './quiz-options.service';
@@ -115,26 +114,12 @@ export class QuizService {
     return this.scoringService.correctAnswersCountSig;
   }
 
-  private readonly correctAnswersCountTextSig = signal<string>(
-    localStorage.getItem('correctAnswersText') ?? ''
-  );
-
-  // Frame-synchronized observable for banner display
-  // Smooth banner emission (coalesced with question text)
-  public readonly correctAnswersText$ = toObservable(this.correctAnswersCountTextSig)
-    .pipe(
-      // Always emit — including empty clears — but skip null/undefined
-      filter((v) => v != null),  // keeps '', filters null/undefined
-      // Give Angular and questionText$ exactly one paint frame to sync
-      auditTime(0),
-      // Drop accidental rapid double-emits
-      distinctUntilChanged(),
-      shareReplay({ bufferSize: 1, refCount: true })
-    );
-
-  // Guards to prevent banner flicker during nav
-  private _lastBanner = '';  // last text we emitted
-  private _pendingBannerTimer: any = null;
+  public get correctAnswersCountTextSig(): WritableSignal<string> {
+    return this.bannerService.correctAnswersCountTextSig;
+  }
+  public get correctAnswersText$(): Observable<string> {
+    return this.bannerService.correctAnswersText$;
+  }
 
   multipleAnswer = false;
 
@@ -190,8 +175,12 @@ export class QuizService {
   nextOptionsSig = signal<Option[]>([]);
   nextOptions$: Observable<Option[]> = toObservable(this.nextOptionsSig);
 
-  badgeTextSig = signal<string>('');
-  badgeText = toObservable(this.badgeTextSig);
+  public get badgeTextSig(): WritableSignal<string> {
+    return this.bannerService.badgeTextSig;
+  }
+  public get badgeText(): Observable<string> {
+    return this.bannerService.badgeText$;
+  }
 
   readonly questionsLoadedSig = signal<boolean>(false);
   questionsLoaded$ = toObservable(this.questionsLoadedSig);
@@ -244,7 +233,8 @@ export class QuizService {
     public scoringService: QuizScoringService,
     public answerEvaluation: QuizAnswerEvaluationService,
     public questionEmitter: QuizQuestionEmitterService,
-    public sessionManager: QuizSessionManagerService
+    public sessionManager: QuizSessionManagerService,
+    public bannerService: QuizBannerService
   ) {
     // Scoring state is loaded in QuizScoringService constructor (loadQuestionCorrectness)
     this.scoringService.restoreScoreFromPersistence(this.quizId);
@@ -561,43 +551,15 @@ export class QuizService {
   }
 
   updateBadgeText(questionIndex: number, totalQuestions: number): void {
-    if (!Number.isInteger(questionIndex) || questionIndex < 1 ||
-        !Number.isInteger(totalQuestions) || totalQuestions < 1 ||
-        questionIndex > totalQuestions) {
-      return;
-    }
-    const newBadgeText = `Question ${questionIndex} of ${totalQuestions}`;
-    if (this.badgeTextSig() === newBadgeText) return;
-
-    this.badgeTextSig.set(newBadgeText);
-    localStorage.setItem('savedQuestionIndex', JSON.stringify(questionIndex - 1));
+    this.bannerService.updateBadgeText(questionIndex, totalQuestions);
+  }
+  updateCorrectAnswersText(newText: string): void {
+    this.bannerService.updateCorrectAnswersText(newText);
+  }
+  clearStoredCorrectAnswersText(): void {
+    this.bannerService.clearStoredCorrectAnswersText();
   }
 
-  public updateCorrectAnswersText(newText: string): void {
-    const text = (newText ?? '').trim();
-    if (this._lastBanner === text) return;
-
-    if (this._pendingBannerTimer) {
-      clearTimeout(this._pendingBannerTimer);
-      this._pendingBannerTimer = null;
-    }
-
-    this._lastBanner = text;
-    this.correctAnswersCountTextSig.set(text);
-
-    try {
-      localStorage.setItem('correctAnswersText', text);
-    } catch { }
-  }
-
-  public clearStoredCorrectAnswersText(): void {
-    try {
-      localStorage.removeItem('correctAnswersText');
-      this.correctAnswersCountTextSig.set('');
-    } catch { }
-  }
-
-  // Method to check if the current question is answered
   isAnswered(questionIndex: number): Observable<boolean> {
     const options = this.selectedOptionsMap.get(questionIndex) ?? [];
     const isAnswered = options.length > 0;
