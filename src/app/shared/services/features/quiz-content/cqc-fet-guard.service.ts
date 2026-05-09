@@ -878,6 +878,18 @@ export class CqcFetGuardService {
   }
 
   private getActiveIdx(host: Host): number {
+    // PREFER the URL — currentQuestionIndex lags during multi-step nav
+    // (Q4 -> URL-bar Q6) and would have getLiveQuestion return the prior
+    // question, which is what revertQTextToQuestion was writing into the
+    // heading.
+    try {
+      const m = window.location.pathname.match(/\/question\/[^/]+\/(\d+)/);
+      if (m) {
+        const urlIdx = Number(m[1]) - 1;
+        if (urlIdx >= 0) return urlIdx;
+      }
+    } catch { /* non-browser env */ }
+
     const qs: any = host.quizService;
     return Number.isFinite(qs?.currentQuestionIndex)
       ? qs.currentQuestionIndex
