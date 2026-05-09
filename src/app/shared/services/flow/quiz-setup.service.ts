@@ -157,7 +157,14 @@ export class QuizSetupService {
       )
       .subscribe(() => {
         this.setupNavigation(host);
-        const trimmed = (this.quizService.questions?.[0]?.questionText ?? '').trim();
+        // Seed the question text against the question the URL is targeting,
+        // not always questions[0]. Direct navigation to /question/.../3
+        // would otherwise display Q1's text until a downstream emission
+        // overrides it — visible to the user as a "Q1 then Q3" flash, or
+        // worse, as Q1 stuck if the override never lands.
+        const seedIdx = Number.isFinite(host.currentQuestionIndex) && host.currentQuestionIndex >= 0
+          ? host.currentQuestionIndex : 0;
+        const trimmed = (this.quizService.questions?.[seedIdx]?.questionText ?? '').trim();
         if (trimmed) host.questionToDisplaySig.set(trimmed);
         this.quizContentLoaderService.seedFirstQuestionText();
         host.cdRef.markForCheck();

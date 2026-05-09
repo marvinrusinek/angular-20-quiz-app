@@ -267,13 +267,20 @@ export class QuizSetupDataService {
     host.questions$ = this.quizDataService.getQuestionsForQuiz(host.quizId);
     host.questions$.subscribe((questions: QuizQuestion[]) => {
       if (!questions?.length) return;
-      host.currentQuestionIndex = 0;
+      // Honour the URL-derived index that initializeQuestionIndex set
+      // earlier in runOnInit. Hard-resetting to 0/questions[0] here
+      // overwrote it on direct URL navigation to /question/.../3,
+      // making Q3's view start with Q1's question and options.
+      const idx = Number.isFinite(host.currentQuestionIndex) && host.currentQuestionIndex >= 0
+        ? host.currentQuestionIndex : 0;
+      const safeIdx = idx < questions.length ? idx : 0;
       for (const [index] of questions.entries()) {
         this.quizStateService.setQuestionState(
           host.quizId, index, this.quizStateService.createDefaultQuestionState()
         );
       }
-      host.currentQuestion = questions[0];
+      host.currentQuestionIndex = safeIdx;
+      host.currentQuestion = questions[safeIdx];
     });
   }
 

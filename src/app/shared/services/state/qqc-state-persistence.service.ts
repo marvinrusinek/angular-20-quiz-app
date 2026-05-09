@@ -86,24 +86,22 @@ export class QqcStatePersistenceService {
     const selectedOptionsKey = `selectedOptions_${storageIndex}`;
     const feedbackKey = `feedbackText_${storageIndex}`;
 
-    // Restore explanation text
-    const explanationText =
-      sessionStorage.getItem(explanationKey) ||
-      sessionStorage.getItem('explanationText') ||
-      '';
+    // Restore explanation text. Read ONLY the per-question key — the
+    // legacy non-indexed 'explanationText' fallback was last written by
+    // whichever question saved most recently (typically Q1 after a
+    // forward walk), so falling back to it leaks Q1's state into Q3's
+    // restore on visibility-change / direct URL load. Same pattern for
+    // displayMode, options, selectedOptions, feedbackText below.
+    const explanationText = sessionStorage.getItem(explanationKey) || '';
 
-    // Restore display mode
-    const rawDisplayMode =
-      sessionStorage.getItem(displayModeKey) ||
-      sessionStorage.getItem('displayMode');
+    // Restore display mode (per-question key only)
+    const rawDisplayMode = sessionStorage.getItem(displayModeKey);
     const displayMode: 'question' | 'explanation' =
       rawDisplayMode === 'explanation' ? 'explanation' : 'question';
 
-    // Restore options
+    // Restore options (per-question key only)
     let parsedOptions: any[] | null = null;
-    const optionsData =
-      sessionStorage.getItem(optionsKey) ||
-      sessionStorage.getItem('options');
+    const optionsData = sessionStorage.getItem(optionsKey);
     if (optionsData) {
       try {
         const parsed = JSON.parse(optionsData);
@@ -113,11 +111,9 @@ export class QqcStatePersistenceService {
       }
     }
 
-    // Restore selected options (full objects, not just IDs)
+    // Restore selected options (per-question key only)
     let selectedOptions: any[] = [];
-    const selectedOptionsData =
-      sessionStorage.getItem(selectedOptionsKey) ||
-      sessionStorage.getItem('selectedOptions');
+    const selectedOptionsData = sessionStorage.getItem(selectedOptionsKey);
     if (selectedOptionsData) {
       try {
         const parsed = JSON.parse(selectedOptionsData);
@@ -129,11 +125,8 @@ export class QqcStatePersistenceService {
       }
     }
 
-    // Restore feedback text
-    const feedbackText =
-      sessionStorage.getItem(feedbackKey) ||
-      sessionStorage.getItem('feedbackText') ||
-      '';
+    // Restore feedback text (per-question key only)
+    const feedbackText = sessionStorage.getItem(feedbackKey) || '';
 
     return {
       explanationText,
