@@ -430,6 +430,12 @@ export class OptionClickHandlerService {
     // optionLocked, lockedIncorrectOptionIds, flashDisabled) occasionally
     // leak true on incorrect-only single-answer clicks; bypass them here
     // until the user actually picks the correct answer.
+    //
+    // PRISTINE-FIRST: read correct flags from quizInitialState (the
+    // immutable structuredClone of QUIZ_DATA) since live quizService
+    // .questions[].options[].correct can get mutated during gameplay,
+    // making the size===1 gate fail on Q3/Q5+ even though pristine
+    // clearly shows one correct option.
     if (!forceDisableAll) {
       try {
         const nrmSA = (t: any) => String(t ?? '').trim().toLowerCase();
@@ -437,11 +443,24 @@ export class OptionClickHandlerService {
           this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
         const isShuffledSA = this.quizService?.isShuffleEnabled?.() &&
           this.quizService?.shuffledQuestions?.length > 0;
-        const saQ = isShuffledSA
+        const liveSAQ = isShuffledSA
           ? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIndex]
             ?? (this.quizService as any)?.shuffledQuestions?.[qIndex]
           : (this.quizService as any)?.questions?.[qIndex];
-        const saOpts = saQ?.options ?? [];
+        const liveSAQText = nrmSA(liveSAQ?.questionText);
+        const bundleSA: any[] = (this.quizService as any)?.quizInitialState ?? [];
+        let pristineSAQ: any = null;
+        if (liveSAQText) {
+          outerSA: for (const quizSA of bundleSA) {
+            for (const pqSA of (quizSA?.questions ?? [])) {
+              if (nrmSA(pqSA?.questionText) === liveSAQText) {
+                pristineSAQ = pqSA;
+                break outerSA;
+              }
+            }
+          }
+        }
+        const saOpts = (pristineSAQ?.options ?? liveSAQ?.options ?? []) as any[];
         const correctTextsSA = new Set(
           saOpts
             .filter((o: any) =>
