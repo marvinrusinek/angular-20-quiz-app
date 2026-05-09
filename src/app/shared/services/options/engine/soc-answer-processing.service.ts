@@ -775,14 +775,33 @@ export class SocAnswerProcessingService {
       }
       if (!pristineCorrectTextsAR || pristineCorrectTextsAR.size !== 1) return;
 
-      // Collect every selected text for this question (in-memory + durable).
-      const selectionsAR =
-        this.selectedOptionService.getSelectedOptionsForQuestion(qIdx) ?? [];
-      const selectedTextsAR = new Set(
-        selectionsAR.map((s: any) => nrmAR(s?.text)).filter((t: string) => !!t)
-      );
+      // Collect every selected text for this question. For single-answer,
+      // selectedOptionsMap holds only the latest click (each click replaces
+      // the previous), so we MUST read from comp._multiSelectByQuestion —
+      // a Set<number> of every clicked binding index for this qIdx, set by
+      // shared-option-click.runOptionContentClick line 263. Without this,
+      // we'd never see all 3 incorrects-selected for a 4-option SA question.
+      const selectedTextsAR = new Set<string>();
+      const durableClicksAR0: Set<number> | undefined =
+        comp._multiSelectByQuestion?.get(qIdx);
+      if (durableClicksAR0) {
+        for (const ci of durableClicksAR0) {
+          const tx = nrmAR(bindingsAR[ci]?.option?.text);
+          if (tx) selectedTextsAR.add(tx);
+        }
+      }
+      // Belt-and-suspenders: also include the just-clicked option in case
+      // the durable set hasn't been populated yet on this CD cycle.
       const clickedTextAR = nrmAR(comp.optionBindings?.[index]?.option?.text);
       if (clickedTextAR) selectedTextsAR.add(clickedTextAR);
+      // And merge any in-memory map entries (no-op for single-answer but
+      // safe for any path that did populate it).
+      const selectionsAR =
+        this.selectedOptionService.getSelectedOptionsForQuestion(qIdx) ?? [];
+      for (const s of selectionsAR) {
+        const tx = nrmAR(s?.text);
+        if (tx) selectedTextsAR.add(tx);
+      }
 
       // Build the set of incorrect bindings by text — option whose text is
       // not in the pristine correct set.
