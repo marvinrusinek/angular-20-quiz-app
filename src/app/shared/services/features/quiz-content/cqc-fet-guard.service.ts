@@ -68,14 +68,27 @@ export class CqcFetGuardService {
       } catch { /* non-browser env */ }
 
 
-      // Live index — read from the input signal (sync-current). Using
-      // host.currentIndex (a plain field updated by an effect, lagging
-      // by a microtask) caused the TIMER-EXPIRY BYPASS below to fire
-      // for the PRIOR question on Next nav, writing its FET into qText.
-      const _liveIdxRaw = host.questionIndex?.();
-      const _liveIdx = (typeof _liveIdxRaw === 'number' && _liveIdxRaw >= 0)
-        ? _liveIdxRaw
-        : (host.currentIndex ?? -1);
+      // Live index — prefer the URL pathname, then the input signal,
+      // then host.currentIndex. The URL is the ONLY source that's
+      // sync-correct on multi-step URL navigation (Q4 -> URL-bar Q6);
+      // host.questionIndex() is a signal input that lags one microtask
+      // behind the route change, so the NUCLEAR GATE below was using
+      // stale idx=0 (Q1) to rebuild the heading and re-overwrite the
+      // URL-correct text my guard at the top had set.
+      let _liveIdx = -1;
+      try {
+        const m = window.location.pathname.match(/\/question\/[^/]+\/(\d+)/);
+        if (m) {
+          const urlIdx = Number(m[1]) - 1;
+          if (urlIdx >= 0) _liveIdx = urlIdx;
+        }
+      } catch { /* non-browser env */ }
+      if (_liveIdx < 0) {
+        const _liveIdxRaw = host.questionIndex?.();
+        _liveIdx = (typeof _liveIdxRaw === 'number' && _liveIdxRaw >= 0)
+          ? _liveIdxRaw
+          : (host.currentIndex ?? -1);
+      }
 
       // TIMER-EXPIRY BYPASS: when the timer has expired for this question,
       // skip ALL FET gates — the explanation must display regardless of
