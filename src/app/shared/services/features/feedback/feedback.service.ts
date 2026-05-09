@@ -199,14 +199,26 @@ export class FeedbackService {
     }
     const dedupedSelected = Array.from(normalizedSelected.values());
 
-    // Canonical options from the URL-resolved question — these have the
-    // authoritative correct flags. Text-matching the clicked option here
-    // catches the case where the click handler has handed us a `sel`
-    // with stale or missing `correct: true` (post-navigation state),
-    // and where optionsRaw is also stale, so visualIdx/correctIndices
-    // both fail to identify the click as correct.
-    const canonicalOptionsForMatch: Option[] =
-      (resolvedQuestion?.options ?? []) as Option[];
+    // Canonical options for text-match. Build from the URL question
+    // directly (most authoritative; never mutated by gameplay) and fall
+    // back to resolvedQuestion only when the URL parse is unavailable.
+    // This catches the intermittent "Not this one" on Q3 Option 4
+    // where the click handler hands us a `sel` with `correct: false`
+    // and optionsRaw / resolvedQuestion are also stale.
+    let canonicalOptionsForMatch: Option[] = [];
+    try {
+      const m = window.location.pathname.match(/\/question\/[^/]+\/(\d+)/);
+      if (m) {
+        const urlIdx = Number(m[1]) - 1;
+        const allQs: any[] = (quizSvc as any)?.questions ?? [];
+        if (urlIdx >= 0 && allQs[urlIdx]?.options?.length) {
+          canonicalOptionsForMatch = allQs[urlIdx].options as Option[];
+        }
+      }
+    } catch { /* non-browser env */ }
+    if (canonicalOptionsForMatch.length === 0) {
+      canonicalOptionsForMatch = (resolvedQuestion?.options ?? []) as Option[];
+    }
 
     for (const sel of dedupedSelected) {
       let visualIdx = sel.displayIndex;
