@@ -362,22 +362,40 @@ export class OptionItemComponent implements OnChanges, OnInit {
         ? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]
           ?? (this.quizService as any)?.shuffledQuestions?.[qIdx]
         : (this.quizService as any)?.questions?.[qIdx];
+      const canonicalOpts: any[] = liveQ?.options ?? [];
+      const isCorrectFlag = (v: any) =>
+        v === true || String(v) === 'true' || v === 1 || v === '1';
       const correctTexts = new Set(
-        (liveQ?.options ?? [])
-          .filter((o: any) =>
-            o?.correct === true || String(o?.correct) === 'true' ||
-            o?.correct === 1 || o?.correct === '1'
-          )
+        canonicalOpts
+          .filter((o: any) => isCorrectFlag(o?.correct ?? o?.isCorrect))
           .map((o: any) => nrm(o?.text))
           .filter((t: string) => !!t)
       );
       if (correctTexts.size !== 1) return false;
+
       // Read signal so OnPush re-evaluates on every selection mutation.
       const selectionsMap = this.selectedOptionService.selectedOptionsMapSig();
       const selections = selectionsMap.get(qIdx) ?? [];
-      const anyCorrectSelected = selections.some((s: any) =>
-        correctTexts.has(nrm(s?.text))
-      );
+
+      // Match isDisabled()'s detection: by canonical index, by id, by own
+      // flag, AND by text. Any one is enough — text alone misses entries
+      // where the saved selection lacks `text`.
+      const anyCorrectSelected = selections.some((s: any) => {
+        const sIdx = s?.displayIndex ?? s?.index ?? s?.idx;
+        if (typeof sIdx === 'number' && sIdx >= 0) {
+          const co = canonicalOpts[sIdx];
+          if (co && isCorrectFlag(co?.correct ?? co?.isCorrect)) return true;
+        }
+        const sId = s?.optionId;
+        if (sId != null) {
+          const co = canonicalOpts.find((o: any) => o?.optionId === sId);
+          if (co && isCorrectFlag(co?.correct ?? co?.isCorrect)) return true;
+        }
+        if (isCorrectFlag(s?.correct ?? s?.isCorrect)) return true;
+        const txt = nrm(s?.text);
+        return !!txt && correctTexts.has(txt);
+      });
+
       return !anyCorrectSelected;
     } catch {
       return false;
