@@ -589,11 +589,13 @@ export class OptionItemComponent implements OnChanges, OnInit {
       return wasSelected && !this.isOptionCorrect() ? '#ff0000' : null;
     }
 
-    // AUTO-REVEAL backup: if this option is the canonical correct one AND
-    // either of the auto-reveal signals is set, paint green directly. This
-    // bypasses any shouldHighlightOption() race on Q3+ where the
-    // _userHasClicked-based refresh path may briefly return false even
-    // after _multiAnswerPerfect is set.
+    // AUTO-REVEAL backup: persistent custom flag wins over any state that
+    // might cause shouldHighlightOption() to return false. Paints green
+    // directly via inline style.
+    if ((this.b as any)?._autoRevealedCorrect === true ||
+        (this.b?.option as any)?._autoRevealedCorrect === true) {
+      return '#43e756';
+    }
     if (this.isOptionCorrect()) {
       const _qIdxARBg = this.currentQuestionIndex() ?? this.quizService.currentQuestionIndex;
       const perfectMapARBg =
@@ -855,16 +857,18 @@ export class OptionItemComponent implements OnChanges, OnInit {
       }
     }
 
-    // AUTO-REVEAL: when the question has been resolved (correct option
-    // selected directly OR all-incorrect-exhausted auto-reveal fired),
-    // the canonical correct option highlights green even if THIS option-
-    // item never had a live click. Two parallel signals — either is enough:
-    //   1. _multiAnswerPerfect.get(qIdx) === true on quizService
-    //      (set by processSingleAnswerClick and the auto-reveal block)
-    //   2. b.cssClasses['correct-option'] === true on this binding
-    //      (stamped directly by the auto-reveal block when it rebuilds
-    //      bindings — survives the post-click binding spread because
-    //      cssClasses is preserved via {...b}).
+    // AUTO-REVEAL: persistent custom flag stamped by the auto-reveal block
+    // (soc-answer-processing line ~840). Survives the post-click binding
+    // spread AND the updateBindingSnapshots cssClasses rebuild that wipes
+    // option.highlight-derived classes. Checked first so the green
+    // highlight wins regardless of any downstream class/flag mutations.
+    if ((this.b as any)?._autoRevealedCorrect === true ||
+        (this.b?.option as any)?._autoRevealedCorrect === true) {
+      return true;
+    }
+    // Secondary auto-reveal signals: _multiAnswerPerfect map (cross-mechanism
+    // flag) AND cssClasses['correct-option'] (set by auto-reveal, kept by
+    // {...b} spread but wiped by updateBindingSnapshots).
     if (this.isOptionCorrect()) {
       const _qIdxAR = this.currentQuestionIndex() ?? this.quizService.currentQuestionIndex;
       const perfectMapAR =

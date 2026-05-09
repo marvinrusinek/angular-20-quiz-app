@@ -856,12 +856,18 @@ export class SocAnswerProcessingService {
           disabled: !isCorrectBinding && !isClicked,
           isSelected: isClicked,
           isCorrect: isCorrectBinding,
+          // Persistent auto-reveal marker — checked by option-item to keep
+          // the correct option painted green even after post-click pipelines
+          // (runOptionContentClick spread, updateBindingSnapshots) reassign
+          // cssClasses and wipe option.highlight back to false.
+          _autoRevealedCorrect: isCorrectBinding,
           option: ob?.option ? {
             ...ob.option,
             selected: isClicked,
             highlight: isClicked || wasPreviouslyClicked || isCorrectBinding,
             showIcon: isClicked || wasPreviouslyClicked || isCorrectBinding,
-            active: isCorrectBinding
+            active: isCorrectBinding,
+            _autoRevealedCorrect: isCorrectBinding
           } : ob?.option,
           cssClasses: {
             ...(ob?.cssClasses || {}),
