@@ -1,7 +1,5 @@
 import { Injectable } from '@angular/core';
-import {
-  BehaviorSubject, merge, Observable, ReplaySubject
-} from 'rxjs';
+import { BehaviorSubject, merge, Observable, ReplaySubject } from 'rxjs';
 import { distinctUntilChanged, map, startWith } from 'rxjs/operators';
 
 import { ExplanationFormatterService } from './explanation-formatter.service';
@@ -16,18 +14,18 @@ import { ExplanationFormatterService } from './explanation-formatter.service';
  */
 @Injectable({ providedIn: 'root' })
 export class ExplanationGateService {
-  /** Per-index BehaviorSubject mirrors of the latest explanation text. */
+  // Per-index BehaviorSubject mirrors of the latest explanation text.
   public readonly _byIndex = new Map<number, BehaviorSubject<string | null>>();
-  /** Per-index BehaviorSubject gates ("should this index render now"). */
+  // Per-index BehaviorSubject gates ("should this index render now").
   public readonly _gate = new Map<number, BehaviorSubject<boolean>>();
-  /** Legacy/secondary gates by index — closed by external nav reset paths. */
+  // Legacy/secondary gates by index — closed by external nav reset paths.
   public readonly _gatesByIndex = new Map<number, BehaviorSubject<boolean>>();
-  /** Per-index ReplaySubject text streams (preferred over _byIndex). */
+  // Per-index ReplaySubject text streams (preferred over _byIndex).
   private readonly _textMap = new Map<number, { text$: ReplaySubject<string> }>();
 
   constructor(private formatter: ExplanationFormatterService) {}
 
-  /** Coalesced gate write — only emits when the value actually changes. */
+  // Coalesced gate write — only emits when the value actually changes.
   setGate(index: number, show: boolean): void {
     const idx = Math.max(0, Number(index) || 0);
     if (!this._gate.has(idx)) {
@@ -37,7 +35,7 @@ export class ExplanationGateService {
     if (bs.getValue() !== show) bs.next(show);
   }
 
-  /** Lazily create the per-index text + gate streams. */
+  // Lazily create the per-index text + gate streams.
   getOrCreate(index: number): {
     text$: ReplaySubject<string>;
     gate$: BehaviorSubject<boolean>;
@@ -62,7 +60,7 @@ export class ExplanationGateService {
     };
   }
 
-  /** Reactive merge of per-index stream + formatter dictionary updates. */
+  // Reactive merge of per-index stream + formatter dictionary updates.
   getExplanationText$(index: number): Observable<string | null> {
     const { text$ } = this.getOrCreate(index);
     const existing =
@@ -81,30 +79,30 @@ export class ExplanationGateService {
     );
   }
 
-  /** Close the secondary `_gatesByIndex` entry for one index, if present. */
+  // Close the secondary `_gatesByIndex` entry for one index, if present.
   closeGateForIndex(index: number): void {
     const gate = this._gatesByIndex.get(index);
     if (gate) gate.next(false);
   }
 
-  /** Close the primary `_gate` entry for one index, if present. */
+  // Close the primary `_gate` entry for one index, if present.
   closePrimaryGate(index: number): void {
     try {
       this._gate.get(index)?.next(false);
     } catch { /* ignore */ }
   }
 
-  /** Drop the text-stream entry for a single index (used by purge flows). */
+  // Drop the text-stream entry for a single index (used by purge flows).
   deleteText(index: number): void {
     this._textMap?.delete?.(index);
   }
 
-  /** Drop every text-stream entry (used by full reset). */
+  // Drop every text-stream entry (used by full reset).
   clearTextMap(): void {
     this._textMap?.clear?.();
   }
 
-  /** Clear the secondary gates map (used by closeAllGates). */
+  // Clear the secondary gates map (used by closeAllGates).
   clearGatesByIndex(): void {
     this._gatesByIndex.clear();
   }

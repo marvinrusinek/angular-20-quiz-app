@@ -284,15 +284,11 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
     return hasKnownStatus || isCompletedQuiz;
   }
 
-  getLinkRouterLink(quiz: any): any[] {
-    const quizId = quiz?.quizId;
-    if (quiz?.status === QuizStatus.COMPLETED || this.completedQuizIds.has(quizId)) {
-      return ['/results/', quizId];
-    }
-    if (quiz?.status === QuizStatus.CONTINUE) {
-      return ['/intro/', quizId];
-    }
-    return ['/intro/', quizId];
+  getLinkRouterLink(quiz: Quiz): string[] {
+    const quizId = quiz.quizId;
+    const isCompleted = quiz.status === QuizStatus.COMPLETED
+      || this.completedQuizIds.has(quizId);
+    return isCompleted ? ['/results/', quizId] : ['/intro/', quizId];
   }
 
   getIconClass(quiz: Quiz): string {
