@@ -354,7 +354,8 @@ export class SharedOptionComponent
           }
         }
 
-        // Stamp bindings
+        // Stamp bindings, scoped to this question index so navigating to
+        // the next question does NOT inherit the disabled/highlight stamps.
         for (const b of (this.optionBindings ?? [])) {
           if (!b) continue;
           const optText = ((b.option?.text as string) || '').trim().toLowerCase();
@@ -363,14 +364,24 @@ export class SharedOptionComponent
           b.cssClasses!['correct-option'] = isCorrect;
           b.cssClasses!['incorrect-option'] = !isCorrect && !!b.isSelected;
           (b as any)._timerExpiredStamped = true;
+          (b as any)._timerExpiredStampedForIndex = qIdx;
           b.disabled = true;
         }
 
         this.cdRef.markForCheck();
         this.cdRef.detectChanges();
 
-        // DOM fallback: directly add CSS classes after Angular renders
+        // DOM fallback: directly add CSS classes after Angular renders.
+        // Bail out if the user has already navigated away — without this
+        // guard, the deferred timeout fires after Q2 has rendered and
+        // re-applies pointer-events:none + correct-option to Q2's rows,
+        // making them appear disabled/highlighted on the new question.
+        const stampedForIdx = qIdx;
         setTimeout(() => {
+          const liveIdx =
+            this.currentQuestionIndex ?? this.quizService.currentQuestionIndex ?? 0;
+          if (liveIdx !== stampedForIdx) return;
+
           document.querySelectorAll('.option-row').forEach((el: Element) => {
             const textEl = el.querySelector('.option-text');
             const text = ((textEl?.textContent as string) || '').trim().toLowerCase();

@@ -296,9 +296,11 @@ export class OptionItemComponent implements OnChanges, OnInit {
   getOptionClasses(): { [key: string]: boolean } {
     const classes = { ...this.b.cssClasses };
 
-    // If the timer-expiry handler pre-stamped CSS classes on this binding,
-    // return them directly — do NOT let downstream logic overwrite them.
-    if ((this.b as any)?._timerExpiredStamped) return classes;
+    // If the timer-expiry handler pre-stamped CSS classes on this binding
+    // FOR THIS question, return them directly — do NOT let downstream
+    // logic overwrite them. Stale stamps from a previous question fall
+    // through to the normal class-derivation path.
+    if (this.isTimerStamped()) return classes;
 
     if (this.isTimerExpiredForThisQuestion()) {
       // Preserve the user's selected state on timer expiry: a selected
@@ -537,9 +539,21 @@ export class OptionItemComponent implements OnChanges, OnInit {
     return false;
   }
 
-  /** True when the timer-expiry handler pre-stamped this binding. */
+  /**
+   * True when the timer-expiry handler pre-stamped this binding for the
+   * CURRENT question. Stamps are scoped to the question index they were
+   * applied for; a stale stamp from a previous question is ignored so
+   * Q2's options don't inherit Q1's expired state.
+   */
   private isTimerStamped(): boolean {
-    return !!(this.b as any)?._timerExpiredStamped;
+    const stamped = (this.b as any)?._timerExpiredStamped;
+    if (!stamped) return false;
+
+    const stampedFor = (this.b as any)?._timerExpiredStampedForIndex;
+    if (stampedFor == null) return true;  // legacy stamps with no scope
+
+    const qIdx = this.currentQuestionIndex() ?? this.quizService.currentQuestionIndex;
+    return stampedFor === qIdx;
   }
 
   /** True when this binding was stamped as a correct option by the timer handler. */

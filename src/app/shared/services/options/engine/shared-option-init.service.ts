@@ -154,6 +154,31 @@ export class SharedOptionInitService {
     comp._timerExpiryHandled = false;
     comp.timeoutCorrectOptionKeys.clear();
     comp.forceDisableAll = false;  // reset forceDisableAll for new question
+
+    // Clear per-binding timer-expiry stamps applied by the timer-expiry
+    // handler in shared-option.component.ts. Without this, Q2's options
+    // inherit Q1's _timerExpiredStamped flag, and isDisabled() returns
+    // true for every option on the new question via isTimerStamped().
+    for (const b of (comp as any).optionBindings ?? []) {
+      if (!b) continue;
+      delete (b as any)._timerExpiredStamped;
+      if (b.cssClasses) {
+        delete b.cssClasses['correct-option'];
+        delete b.cssClasses['incorrect-option'];
+      }
+    }
+
+    // Strip the DOM mutations the timer-expiry handler applied directly
+    // (pointer-events:none and the 'correct-option' class on .option-row).
+    // Angular may reuse the row nodes across questions, so leftover
+    // inline styles/classes leak from Q1 into Q2.
+    try {
+      document.querySelectorAll('.option-row').forEach((el: Element) => {
+        const html = el as HTMLElement;
+        html.style.pointerEvents = '';
+        el.classList.remove('correct-option');
+      });
+    } catch { /* ignore — non-browser env */ }
     comp.selectedOptions.clear();
     comp.selectedOptionMap.clear();
     comp._multiSelectByQuestion.clear();
