@@ -97,53 +97,66 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
 
   private initializeQuizSelection(): void {
     this.currentQuestionIndex = this.quizService.currentQuestionIndex;
-  
-    // Restore quiz statuses from sessionStorage (one-time consumption)
+    this.restoreSessionAccessState();
+    this.selectionParams = this.quizService.returnQuizSelectionParams();
+    this.loadQuizCatalog();
+    this.subscribeToSelectedQuiz();
+  }
+
+  // Restore quiz statuses from sessionStorage (one-time consumption)
+  private restoreSessionAccessState(): void {
     try {
-      const completedIds: string[] = JSON.parse(
-        sessionStorage.getItem('completedQuizIds') || '[]'
-      );
-  
-      sessionStorage.removeItem('completedQuizIds');
-  
-      for (const id of completedIds) {
-        this.completedQuizIds.add(id);
-        this.quizDataService.updateQuizStatus(id, QuizStatus.COMPLETED);
-      }
-  
-      if (completedIds.length > 0) {
-        this.quizService.setCompletedQuizId(completedIds[completedIds.length - 1]);
-        this.quizService.quizCompleted = true;
-      }
-  
-      const startedIds: string[] = JSON.parse(
-        sessionStorage.getItem('startedQuizIds') || '[]'
-      );
-  
-      sessionStorage.removeItem('startedQuizIds');
-  
-      for (const id of startedIds) {
-        this.quizDataService.updateQuizStatus(id, QuizStatus.STARTED);
-      }
-  
+      const completedIds = this.consumeCompletedQuizIds();
+      const startedIds = this.consumeStartedQuizIds();
+
       const allAccessed = new Set([...completedIds, ...startedIds]);
       this.accessedCount.set(allAccessed.size);
     } catch (error: unknown) {
       console.warn('[QuizSelection] Failed to restore quiz access state.', error);
       this.accessedCount.set(0);
     }
-  
-    this.selectionParams = this.quizService.returnQuizSelectionParams();
-  
-    // Load quizzes once – replaces constructor side-effect
+  }
+
+  private consumeCompletedQuizIds(): string[] {
+    const completedIds: string[] = JSON.parse(
+      sessionStorage.getItem('completedQuizIds') || '[]'
+    );
+    sessionStorage.removeItem('completedQuizIds');
+
+    for (const id of completedIds) {
+      this.completedQuizIds.add(id);
+      this.quizDataService.updateQuizStatus(id, QuizStatus.COMPLETED);
+    }
+
+    if (completedIds.length > 0) {
+      this.quizService.setCompletedQuizId(completedIds[completedIds.length - 1]);
+      this.quizService.quizCompleted = true;
+    }
+
+    return completedIds;
+  }
+
+  private consumeStartedQuizIds(): string[] {
+    const startedIds: string[] = JSON.parse(
+      sessionStorage.getItem('startedQuizIds') || '[]'
+    );
+    sessionStorage.removeItem('startedQuizIds');
+
+    for (const id of startedIds) {
+      this.quizDataService.updateQuizStatus(id, QuizStatus.STARTED);
+    }
+
+    return startedIds;
+  }
+
+  // Load quizzes once – replaces constructor side-effect
+  private loadQuizCatalog(): void {
     this.quizDataService.loadQuizzes().subscribe((quizzes) => {
       this.totalQuizCountSig.set(quizzes?.length ?? 0);
     });
-  
+
     // Use live observable to receive status updates
     this.quizzes$ = this.quizDataService.quizzes$;
-  
-    this.subscribeToSelectedQuiz();
   }
 
   private subscribeToSelectedQuiz(): void {
@@ -199,17 +212,15 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
 
   getLinkClass(quiz: Quiz): string[] {
     const classes = ['status-link'];
-    switch (quiz.status) {
-      case QuizStatus.STARTED:
-        if (
-          !this.selectionParams.quizCompleted ||
-          quiz.quizId === this.selectionParams.startedQuizId ||
-          quiz.quizId === this.selectionParams.continueQuizId ||
-          this.completedQuizIds.has(quiz.quizId)
-        ) {
-          classes.push('link');
-        }
-        break;
+    if (
+      quiz.status === QuizStatus.STARTED && (
+        !this.selectionParams.quizCompleted ||
+        quiz.quizId === this.selectionParams.startedQuizId ||
+        quiz.quizId === this.selectionParams.continueQuizId ||
+        this.completedQuizIds.has(quiz.quizId)
+      )
+    ) {
+      classes.push('link');
     }
     return classes;
   }
