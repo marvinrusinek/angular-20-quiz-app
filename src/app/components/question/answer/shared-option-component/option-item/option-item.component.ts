@@ -442,144 +442,55 @@ export class OptionItemComponent implements OnChanges, OnInit {
       return false;
     }
 
-    // In single-answer mode, correct options must stay clickable until the
-    // correct answer has been selected (so user can recover from a wrong pick).
-    const optCorrectFlag = this.b?.option?.correct ?? (this.b?.option as any)?.isCorrect;
-    const thisIsCorrect = optCorrectFlag === true || String(optCorrectFlag) === 'true' || optCorrectFlag === 1 || optCorrectFlag === '1';
+    // SINGLE-ANSWER MODE — single, direct rule:
+    //   Lock = NOT-selected AND a pristine-correct option is already selected
+    //          for this question.
+    // The currently-selected option is never disabled.
+    // While no correct option has been selected, every option stays clickable.
+    if (this.b?.isSelected) return false;
 
-    if (thisIsCorrect) {
-      // Only disable this correct option if a correct answer was already selected
-      const clickConfirmed = this.selectedOptionService.clickConfirmedDotStatus.get(_qIdx);
-      if (clickConfirmed !== 'correct') return false;
-    }
+    const qIdx = this.currentQuestionIndex() ?? this.quizService.currentQuestionIndex;
+    // Read signal directly — OnPush auto-tracks selection mutations.
+    const selectionsMapSig = this.selectedOptionService.selectedOptionsMapSig();
+    const selections = selectionsMapSig.get(qIdx) ?? [];
+    if (selections.length === 0) return false;
 
-    // SINGLE-ANSWER GUARD: if any sibling selection for the current question
-    // is correct, lock every non-selected option. Strictly question-scoped via
-    // questionIndex on the selection record, so navigation cannot leak.
-    // Runs BEFORE the b.disabled early-return so a stale/incorrect b.disabled=true
-    // flag (set by upstream pipelines that don't recompute on incorrect-only
-    // single-answer clicks) doesn't lock the unclicked siblings — the user must
-    // be able to recover from an incorrect pick by clicking another option.
-    if (this.type() === 'single') {
-      const qIdx = this.currentQuestionIndex() ?? this.quizService.currentQuestionIndex;
-      // Read the signal directly — auto-tracks as a template dependency so
-      // OnPush re-evaluates this method on every selection mutation.
-      const selectionsMapSA = this.selectedOptionService.selectedOptionsMapSig();
-      let selections: any[] = selectionsMapSA.get(qIdx) ?? [];
-      if (selections.length === 0) {
-        selections = this.selectedOptionService.getSelectedOptionsForQuestion(qIdx) ?? [];
-      }
-      if (selections.length === 0) {
-        selections = this.selectedOptionService.getRefreshBackup(qIdx);
-      }
-      // Durable fallback: on navigate-away-and-back, single-answer clicks
-      // may have trimmed the in-memory map to just the last click (or
-      // cleared it entirely). The per-question sessionStorage key still
-      // holds the merged history from saveState(), which is what we need
-      // here to detect that a correct answer was already chosen so the
-      // unclicked siblings stay locked (dark gray).
-      // IMPORTANT: only read this fallback inside isDisabled() — do NOT
-      // expose it through getSelectedOptionsForQuestion, otherwise the
-      // highlight path would also see these entries and paint red on
-      // the unclicked option.
-      if (selections.length === 0) {
-        try {
-          const raw = sessionStorage.getItem('sel_Q' + qIdx);
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              selections = parsed as any[];
+    // Resolve pristine correct texts for this question via questionText match
+    // against quizInitialState (immutable structuredClone of QUIZ_DATA).
+    const nrmSA = (t: any) => String(t ?? '').trim().toLowerCase();
+    const isShufSA = this.quizService?.isShuffleEnabled?.()
+      && Array.isArray((this.quizService as any)?.shuffledQuestions)
+      && (this.quizService as any)?.shuffledQuestions?.length > 0;
+    const liveSAQ: any = isShufSA
+      ? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]
+        ?? (this.quizService as any)?.shuffledQuestions?.[qIdx]
+      : (this.quizService as any)?.questions?.[qIdx];
+    const liveSAQText = nrmSA(liveSAQ?.questionText);
+    const correctTextsSA = new Set<string>();
+    if (liveSAQText) {
+      const bundleSA: any[] = (this.quizService as any)?.quizInitialState ?? [];
+      outerSA: for (const quizSA of bundleSA) {
+        for (const pqSA of (quizSA?.questions ?? [])) {
+          if (nrmSA(pqSA?.questionText) !== liveSAQText) continue;
+          for (const o of (pqSA?.options ?? [])) {
+            if (o?.correct === true || String(o?.correct) === 'true' ||
+                o?.correct === 1 || o?.correct === '1') {
+              const t = nrmSA(o?.text);
+              if (t) correctTextsSA.add(t);
             }
           }
-        } catch { /* ignore */ }
-      }
-      const filtered = selections.filter((s: any) => {
-        const sQ = s?.questionIndex ?? s?.qIdx ?? s?.questionIdx;
-        return sQ === undefined || sQ === null || sQ === -1 || Number(sQ) === Number(qIdx);
-      });
-      if (filtered.length === 0) return false;
-
-      // Resolve correct flags from canonical question (use display order for shuffled mode)
-      // PRISTINE-FIRST: match by questionText against quizInitialState since
-      // live quizService.questions[].options[].correct flags can be mutated
-      // during gameplay (binding rebuilds, restart-quiz flows, etc.).
-      const isShuffled = this.quizService?.isShuffleEnabled?.()
-        && Array.isArray((this.quizService as any)?.shuffledQuestions)
-        && (this.quizService as any)?.shuffledQuestions?.length > 0;
-      const liveQ: any = isShuffled
-        ? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]
-          ?? (this.quizService as any)?.shuffledQuestions?.[qIdx]
-        : (this.quizService as any)?.questions?.[qIdx];
-      const isCorrectFlag = (v: any) => v === true || String(v) === 'true' || v === 1 || v === '1';
-      const nrmCanon = (t: any) => String(t ?? '').trim().toLowerCase();
-      const liveQTextCanon = nrmCanon(liveQ?.questionText);
-      const bundleCanon: any[] = (this.quizService as any)?.quizInitialState ?? [];
-      let pristineQCanon: any = null;
-      if (liveQTextCanon) {
-        outerCanon: for (const quizCanon of bundleCanon) {
-          for (const pqCanon of (quizCanon?.questions ?? [])) {
-            if (nrmCanon(pqCanon?.questionText) === liveQTextCanon) {
-              pristineQCanon = pqCanon;
-              break outerCanon;
-            }
-          }
+          break outerSA;
         }
       }
-      const canonicalOpts: any[] = (pristineQCanon?.options ?? liveQ?.options ?? []) as any[];
-      // Build text-keyed correct set so text-based detection works even if
-      // ID/index lookups fail (e.g., shuffle desync).
-      const correctTextsCanon = new Set(
-        canonicalOpts
-          .filter((o: any) => isCorrectFlag(o?.correct ?? o?.isCorrect))
-          .map((o: any) => nrmCanon(o?.text))
-          .filter((t: string) => !!t)
-      );
-
-      const anyCorrectSelected = filtered.some((s: any) => {
-        // Match by text first — most reliable across shuffle/index drift
-        const txt = nrmCanon(s?.text);
-        if (txt && correctTextsCanon.has(txt)) return true;
-        const sIdx = s?.displayIndex ?? s?.index ?? s?.idx;
-        // Match by canonical index
-        if (typeof sIdx === 'number' && sIdx >= 0) {
-          const co = canonicalOpts[sIdx];
-          if (co && isCorrectFlag(co.correct ?? co.isCorrect)) return true;
-        }
-        // Or by id
-        const sId = s?.optionId;
-        if (sId != null) {
-          const co = canonicalOpts.find((o: any) => o?.optionId === sId);
-          if (co && isCorrectFlag(co.correct ?? co.isCorrect)) return true;
-        }
-        // Or by selection record's own flag
-        return isCorrectFlag(s?.correct ?? s?.isCorrect);
-      });
-
-      // No correct yet → all options remain clickable so the user can recover.
-      // Do NOT consult b.disabled here; upstream pipelines occasionally leave
-      // it stale on incorrect-only single-answer clicks (the lock policy
-      // returns disabled=false but the WRITE site doesn't always reach it),
-      // and honoring that flag is what was making the siblings appear locked.
-      if (!anyCorrectSelected) return false;
-
-      // Correct was selected: lock self unless this binding is the selected one.
-      // Prev-clicked entries (selected:false + showIcon:true + highlight:true)
-      // must NOT count as self-selected here — they represent the user's
-      // earlier wrong click that should now render dark gray/disabled after
-      // the correct answer has been chosen.
-      const selfSelected = filtered.some((s: any) => {
-        if (s?.selected === false) return false;
-        const sIdx = s?.displayIndex ?? s?.index ?? s?.idx;
-        if (typeof sIdx === 'number' && sIdx === this.i) return true;
-        const sId = s?.optionId;
-        return sId != null && this.b?.option?.optionId != null && String(sId) === String(this.b.option.optionId);
-      });
-      return !selfSelected;
     }
+    if (correctTextsSA.size === 0) return false;
 
-    if (this.b?.disabled === true) return true;
-
-    return false;
+    // Lock only when at least one selection's text matches a pristine
+    // correct text for this exact question.
+    const hasCorrectSelection = selections.some(
+      (s: any) => correctTextsSA.has(nrmSA(s?.text))
+    );
+    return hasCorrectSelection;
   }
 
   /**
