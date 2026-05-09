@@ -279,7 +279,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
       const savedTexts = new Set(
         savedSelections.map(selection =>
           (selection.text || '').trim().toLowerCase(),
-        ),
+        )
       );
   
       const idMatch =
@@ -295,7 +295,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
       this.answerBindingsService.hydrateBindingsFromSavedSelections(
         this.optionBindings(),
         savedSelections,
-        isMulti,
+        isMulti
       );
   
     this.optionBindings.set(updatedBindings);
@@ -306,7 +306,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
       if (selectedId != null) {
         this.form().patchValue(
           { selectedOptionId: selectedId },
-          { emitEvent: false },
+          { emitEvent: false }
         );
       }
     }
@@ -352,9 +352,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
   }
 
   private async initializeAnswerConfig(): Promise<void> {
-    if (!this.sharedOptionConfig) {
-      await this.initializeSharedOptionConfig();
-    }
+    if (!this.sharedOptionConfig) await this.initializeSharedOptionConfig();
 
     if (this.sharedOptionConfig) {
       this.sharedOptionConfig.type = this.type();
@@ -381,7 +379,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
       this.answerSelectionService.buildEnrichedSelectedOption(
         payload,
         activeQuestionIndex,
-        this.optionsToDisplay(),
+        this.optionsToDisplay()
       );
   
     this.selectedOption = enrichedOption;
@@ -390,7 +388,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
       this.answerSelectionService.updateSelectedOptionsArray(
         this.selectedOptions,
         enrichedOption,
-        this.type(),
+        this.type()
       );
   
     const question = this.resolveQuestion(activeQuestionIndex);
@@ -400,26 +398,26 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     const optionsSource =
       this.answerOptionsService.resolveOptionsSource(
         this.optionsToDisplay(),
-        question,
+        question
       );
   
     const isMultiAnswer =
       this.answerOptionsService.isMultipleAnswerQuestion(
         question,
         optionsSource,
-        this.type(),
+        this.type()
       );
   
     this.answerSelectionService.syncSelectedOptionService(
       activeQuestionIndex,
       enrichedOption,
-      isMultiAnswer,
+      isMultiAnswer
     );
   
     const complete =
       this.answerSelectionService.updateQuestionCompletionState(
         this.questionIndex(),
-        question,
+        question
       );
   
     this._wasComplete = complete;
@@ -429,14 +427,14 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
       optionsSource,
       this.selectedOptions,
       isMultiAnswer,
-      complete,
+      complete
     );
   
     const updatedBindings =
       this.answerBindingsService.updateVisualBindings(
         this.optionBindings(),
         enrichedOption,
-        this.type(),
+        this.type()
       );
   
     this.optionBindings.set(updatedBindings);
@@ -444,7 +442,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
   
     this.answerSelectionService.updateDotStatus(
       activeQuestionIndex,
-      enrichedOption,
+      enrichedOption
     );
   
     this.emitCleanOptionClickedPayload(payload, enrichedOption);
@@ -487,7 +485,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
       option: enrichedOption,
       index: originalPayload.index,
       checked: enrichedOption.selected === true,
-      wasReselected: originalPayload.wasReselected ?? false,
+      wasReselected: originalPayload.wasReselected ?? false
     };
   
     this.optionClicked.emit(cleanPayload);
