@@ -6,17 +6,17 @@ import { MatRadioModule } from '@angular/material/radio';
 import { MatIconModule } from '@angular/material/icon';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
+import { correctAnswerAnim } from '../../../../../animations/animations';
 import { OptionBindings } from '../../../../../shared/models/OptionBindings.model';
 import { FeedbackProps } from '../../../../../shared/models/FeedbackProps.model';
+import { SharedOptionConfig } from '../../../../../shared/models/SharedOptionConfig.model';
+
 import { HighlightOptionDirective } from '../../../../../directives/highlight-option.directive';
 import { SharedOptionConfigDirective } from '../../../../../directives/shared-option-config.directive';
 
-import { correctAnswerAnim } from '../../../../../animations/animations';
 import { OptionService } from '../../../../../shared/services/options/view/option.service';
-import { SharedOptionConfig } from '../../../../../shared/models/SharedOptionConfig.model';
 import { QuizService } from '../../../../../shared/services/data/quiz.service';
 import { SelectedOptionService } from '../../../../../shared/services/state/selectedoption.service';
-import { SelectionMessageService } from '../../../../../shared/services/features/selection-message/selection-message.service';
 import { TimerService } from '../../../../../shared/services/features/timer/timer.service';
 
 export type OptionUIEventKind = 'change' | 'interaction' | 'contentClick';
@@ -50,6 +50,7 @@ export interface OptionUIEvent {
 export class OptionItemComponent implements OnChanges, OnInit {
   @Input() b!: OptionBindings;
   @Input() i!: number;
+  readonly optionUI = output<OptionUIEvent>();  // ONE output
   readonly type = input<'single' | 'multiple'>('single');
   readonly form = input.required<FormGroup>();
   readonly shouldResetBackground = input(false);
@@ -78,16 +79,12 @@ export class OptionItemComponent implements OnChanges, OnInit {
   private destroyRef = inject(DestroyRef);
   private cdRef = inject(ChangeDetectorRef);
 
-  // ONE output
-  readonly optionUI = output<OptionUIEvent>();
-
   constructor(
     private optionService: OptionService,
     private quizService: QuizService,
     private selectedOptionService: SelectedOptionService,
-    private selectionMessageService: SelectionMessageService,
     private timerService: TimerService
-  ) { }
+  ) {}
 
   ngOnInit(): void {
     this.timerService.expired$
@@ -565,7 +562,7 @@ export class OptionItemComponent implements OnChanges, OnInit {
         || this.isSelectedForCurrentQuestion();
     }
 
-    // HARD GUARD: On refresh (user hasn't clicked), ONLY trust the
+    // Hard Guard: On refresh (user hasn't clicked), ONLY trust the
     // authoritative saved selection state. The binding flags
     // (highlight, showIcon, isSelected) can be transiently set by
     // processOptionBindings / synchronizeOptionBindings before
@@ -676,7 +673,8 @@ export class OptionItemComponent implements OnChanges, OnInit {
           }
         }
         // Legacy flag fallback
-        const perfectMap = (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
+        const perfectMap = 
+          (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
         if (perfectMap?.get(_qIdx) === true && !this.isOptionCorrect()) {
           return '#a0a0a0';
         }
@@ -706,9 +704,8 @@ export class OptionItemComponent implements OnChanges, OnInit {
     }
 
     const selections = this.selectedOptionService.getSelectedOptionsForQuestion(qIndex) ?? [];
-    if (selections.length > 0) {
-      return selections;
-    }
+    if (selections.length > 0) return selections;
+    
     // Visual-only fallback: check refresh backup for highlight/disable state
     return this.selectedOptionService.getRefreshBackup(qIndex);
   }
