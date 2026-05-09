@@ -840,6 +840,19 @@ export class OptionItemComponent implements OnChanges, OnInit {
       }
     }
 
+    // AUTO-REVEAL: when the question has been resolved (correct option
+    // selected directly OR all-incorrect-exhausted auto-reveal fired),
+    // the canonical correct option highlights green even if THIS option-
+    // item never had a live click. _multiAnswerPerfect is the cross-
+    // mechanism flag set by both processSingleAnswerClick (correct path)
+    // and the auto-reveal block (all-incorrect-exhausted path).
+    const _qIdxAR = this.currentQuestionIndex() ?? this.quizService.currentQuestionIndex;
+    const perfectMapAR =
+      (this.quizService as any)?._multiAnswerPerfect as Map<number, boolean> | undefined;
+    if (perfectMapAR?.get(_qIdxAR) === true && this.isOptionCorrect()) {
+      return true;
+    }
+
     // On refresh (no live click), ONLY trust authoritative saved
     // selection state — not binding flags which can be transiently
     // stale from processOptionBindings / hydrateOptions / setOptionBindingsIfChanged.
@@ -847,7 +860,7 @@ export class OptionItemComponent implements OnChanges, OnInit {
       // During live interaction, trust the binding's highlight flag
       // when explicitly false — prevents service-level false positives.
       if (this.b?.option?.highlight === false) return false;
-      
+
       return this.isSelectedForCurrentQuestion();
     }
 
