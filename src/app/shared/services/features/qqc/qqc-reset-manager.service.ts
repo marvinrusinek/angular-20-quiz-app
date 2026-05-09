@@ -65,8 +65,12 @@ export class QqcResetManagerService {
     }
     params.clearSharedOptionForceDisable();
 
-    // Clear expiry guards
-    this.timerService.resetTimerFlagsFor?.(i0);
+    // Clear expiry guards. Skip when this question already has selections
+    // (i.e., it was just answered) so the stoppedForQuestion bookkeeping
+    // survives — otherwise restartForQuestion below would re-arm the timer.
+    if (!hasSelections) {
+      this.timerService.resetTimerFlagsFor?.(i0);
+    }
 
     // Explanation & display mode
     if (hasSelections) {
@@ -90,7 +94,12 @@ export class QqcResetManagerService {
     // hasExpiredForRun is cleared before resetTimer/startTimer.
     // Without this, the anti-thrash guards in resetTimer/startTimer
     // suppress the restart after Q1's timer has expired.
-    this.timerService.restartForQuestion(i0);
+    // Skip for already-answered questions so the timer stays frozen
+    // at the click-moment value instead of restarting to the full
+    // start value.
+    if (!hasSelections) {
+      this.timerService.restartForQuestion(i0);
+    }
 
     // Build showFeedbackForOption from existing selections
     let showFeedbackForOption: { [optionId: number]: boolean } = {};

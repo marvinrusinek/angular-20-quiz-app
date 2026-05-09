@@ -275,11 +275,14 @@ export class TimerService implements OnDestroy {
     const snapshot = Array.isArray(options.optionsSnapshot)
       ? options.optionsSnapshot : undefined;
 
-    // If we get here, all correct answers are selected
-    // Clear any previous stop state to allow stopping again
-    this.selectedOptionService.stopTimerEmitted = false;
-    this.isTimerStoppedForCurrentQuestion = false;
-    this.stoppedForQuestion.delete(questionIndex);
+    // If we get here, all correct answers are selected.
+    // Mark this question as stopped FIRST so subsequent restartForQuestion
+    // re-emits bail out, regardless of whether the underlying stopTimer
+    // path runs (it may early-return when the timer isn't running, or be
+    // rejected by anti-thrash without bypass).
+    this.selectedOptionService.stopTimerEmitted = true;
+    this.isTimerStoppedForCurrentQuestion = true;
+    this.stoppedForQuestion.add(questionIndex);
 
     // If the timer isn't running, nothing to stop
     if (!this.isTimerRunning) {
@@ -292,13 +295,11 @@ export class TimerService implements OnDestroy {
     } catch { }
 
     try {
-      // Stop the timer with force to ensure it stops
-      this.stopTimer(options.onStop, { force: true });
-
-      // Mark as stopped to prevent duplicate stops
-      this.selectedOptionService.stopTimerEmitted = true;
-      this.isTimerStoppedForCurrentQuestion = true;
-      this.stoppedForQuestion.add(questionIndex);
+      // Stop the timer with force AND bypass anti-thrash. Anti-thrash
+      // exists to absorb init-chain churn; an explicit stop after a
+      // correct-answer click is intentional and must not be ignored
+      // even if the click lands within the original start window.
+      this.stopTimer(options.onStop, { force: true, bypassAntiThrash: true });
 
       return true;
     } catch {
@@ -434,7 +435,15 @@ export class TimerService implements OnDestroy {
   private _lastStartedAtMs = 0;
 
   public restartForQuestion(questionIndex: number): void {
-    if (this._runningForQuestion === questionIndex && (this.isTimerRunning || this.hasExpiredForRun)) {
+    // Block re-entry if this question is already running, expired, or
+    // was already stopped via a correct-answer click. Without the
+    // stoppedForQuestion check, a downstream re-emit of the same
+    // question payload would clear _lastStartedAtMs and fully restart
+    // the timer from 0 on an already-answered question.
+    if (
+      this._runningForQuestion === questionIndex &&
+      (this.isTimerRunning || this.hasExpiredForRun || this.stoppedForQuestion.has(questionIndex))
+    ) {
       return;
     }
     this._runningForQuestion = questionIndex;
