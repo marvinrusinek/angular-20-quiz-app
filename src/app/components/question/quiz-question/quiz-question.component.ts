@@ -274,7 +274,6 @@ export class QuizQuestionComponent extends BaseQuestion
     // now drives options directly via signal bindings.)
 
     setTimeout(() => {
-      // manual test call purgeAndDefer(99)
       this.explanationTextService.purgeAndDefer(99);
     }, 500);
   }
@@ -456,7 +455,6 @@ export class QuizQuestionComponent extends BaseQuestion
   public async applyOptionFeedback(selectedOption: Option): Promise<void> {
     return this.componentOrchestrator.runApplyOptionFeedback(this, selectedOption);
   }
-
 
   private async finalizeSelection(option: SelectedOption, index: number, wasPreviouslySelected: boolean): Promise<void> {
     return this.componentOrchestrator.runFinalizeSelection(this, option, index, wasPreviouslySelected);
