@@ -672,6 +672,25 @@ export class QuizSetupService {
         filter((p): p is QuestionPayload => !!p && !!p.question && Array.isArray(p.options) && p.options.length > 0)
       )
       .subscribe((payload) => {
+        // URL-MISMATCH GUARD: when the user has navigated directly to
+        // /question/.../5 but a stale or default-Q1 payload is emitted
+        // afterwards, the original code would overwrite the freshly-
+        // loaded Q5 view with Q1's question + options. Cross-check the
+        // payload's questionText against the URL-derived question and
+        // drop emissions that don't belong to the current page.
+        try {
+          const m = window.location.pathname.match(/\/question\/[^/]+\/(\d+)/);
+          if (m) {
+            const urlIdx = Number(m[1]) - 1;
+            const urlQuestion = this.quizService.questions?.[urlIdx];
+            const urlText = (urlQuestion?.questionText ?? '').trim().toLowerCase();
+            const payloadText = (payload.question?.questionText ?? '').trim().toLowerCase();
+            if (urlText && payloadText && urlText !== payloadText) {
+              return;  // skip stale payload that doesn't match the URL question
+            }
+          }
+        } catch { /* non-browser env */ }
+
         host.combinedQuestionData.set(payload);
         host.questionToDisplaySig.set(payload.question.questionText?.trim() ?? '');
         host.cdRef.markForCheck();

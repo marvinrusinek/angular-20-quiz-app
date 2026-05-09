@@ -95,6 +95,32 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   combinedQuestionData = signal<QuestionPayload | null>(null);
   combinedQuestionDataView = computed(() => {
     const payload = this.combinedQuestionData();
+
+    // URL-AUTHORITATIVE OVERRIDE: when the user has navigated directly to
+    // /question/{quizId}/{N}, the URL is the only source we trust. Any
+    // payload whose question doesn't match the URL question is a stale
+    // emission (typically Q1 leaking through during the multi-step
+    // initialization chain) and must NOT render. We synthesize the
+    // payload from the URL-resolved question instead.
+    try {
+      const m = window.location.pathname.match(/\/question\/[^/]+\/(\d+)/);
+      if (m) {
+        const urlIdx = Number(m[1]) - 1;
+        const urlQ = this.quizService.questions?.[urlIdx];
+        if (urlQ?.options?.length) {
+          const urlText = (urlQ.questionText ?? '').trim().toLowerCase();
+          const payloadText = (payload?.question?.questionText ?? '').trim().toLowerCase();
+          if (!payloadText || urlText !== payloadText) {
+            return {
+              question: urlQ,
+              options: urlQ.options,
+              explanation: urlQ.explanation ?? ''
+            };
+          }
+        }
+      }
+    } catch { /* non-browser env */ }
+
     if (!payload?.question) return payload;
 
     const shuffled = this.quizService.shuffledQuestions;
@@ -122,7 +148,32 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
   public answeredQuestionIndices = new Set<number>();
 
   questionToDisplaySig = signal<string>('');
-  public questionToDisplay$ = toObservable(this.questionToDisplaySig);
+  // Derive the displayed question text from the URL-authoritative
+  // combinedQuestionDataView rather than questionToDisplaySig directly.
+  // questionToDisplaySig is written from many code paths (some still
+  // emit Q1's text on direct URL nav to /question/.../5), and binding
+  // its raw stream caused Q1's question text to render alongside Q5's
+  // options. The view computed already enforces the URL question, so
+  // routing the text through it makes both pieces consistent.
+  // Also re-attaches the "(Select N correct answers)" banner for
+  // multi-answer questions — the inline display path would otherwise
+  // drop it because we're synthesising from raw URL question data.
+  readonly questionToDisplayTextView = computed(() => {
+    const view = this.combinedQuestionDataView();
+    const baseText = (view?.question?.questionText ?? this.questionToDisplaySig() ?? '').trim();
+    if (!baseText) return '';
+
+    const opts = view?.options ?? [];
+    const numCorrect = opts.filter(
+      (o: any) => o?.correct === true || o?.correct === 1 || String(o?.correct) === 'true'
+    ).length;
+    if (numCorrect <= 1 || opts.length === 0) return baseText;
+
+    const suffix = numCorrect === 1 ? 'answer is' : 'answers are';
+    const banner = `(${numCorrect} ${suffix} correct)`;
+    return `${baseText} <span class="correct-count">${banner}</span>`;
+  });
+  public questionToDisplay$ = toObservable(this.questionToDisplayTextView);
 
   optionsToDisplay: Option[] = [];
   optionsToDisplaySig = signal<Option[]>([]);

@@ -218,20 +218,35 @@ export class QuizSetupDataService {
     host.quizAlreadyInitialized = true;
 
     await this.prepareQuizSession(host);
-    if (host.questionIndex >= 0) {
-      this.quizContentLoaderService.fetchAndSubscribeQuestionAndOptions(host.quizId, host.questionIndex);
-    }
-    this.quizService.setCurrentQuestionIndex(0);
 
-    const firstQuestion = await firstValueFrom(this.quizService.getQuestionByIndex(0));
-    if (firstQuestion) {
-      this.quizService.setCurrentQuestion(firstQuestion);
-      this.quizQuestionDataService.forceRegenerateExplanation(firstQuestion, 0);
+    // Honour the URL-derived question index. host.currentQuestionIndex is
+    // set by initializeQuestionIndex earlier in runOnInit (which parses the
+    // route param). Hard-coding 0 here on direct nav to /question/.../5
+    // overwrote it and made the entire init use Q1 — visible to the user
+    // as Q1's text + options on Q5.
+    const targetIdx = Number.isFinite(host.currentQuestionIndex) && host.currentQuestionIndex >= 0
+      ? host.currentQuestionIndex
+      : (Number.isFinite(host.questionIndex) && host.questionIndex >= 0 ? host.questionIndex : 0);
+
+    if (targetIdx >= 0) {
+      this.quizContentLoaderService.fetchAndSubscribeQuestionAndOptions(host.quizId, targetIdx);
+    }
+    this.quizService.setCurrentQuestionIndex(targetIdx);
+
+    const targetQuestion = await firstValueFrom(this.quizService.getQuestionByIndex(targetIdx));
+    if (targetQuestion) {
+      this.quizService.setCurrentQuestion(targetQuestion);
+      this.quizQuestionDataService.forceRegenerateExplanation(targetQuestion, targetIdx);
     }
   }
 
   private async prepareQuizSession(host: Host): Promise<void> {
-    host.currentQuestionIndex = 0;
+    // Don't blow away host.currentQuestionIndex here — initializeQuestionIndex
+    // ran earlier in runOnInit and may have set it from the URL param.
+    // Reset only when no URL-derived index was established yet.
+    if (!Number.isFinite(host.currentQuestionIndex) || host.currentQuestionIndex < 0) {
+      host.currentQuestionIndex = 0;
+    }
     host.quizId = host.activatedRoute.snapshot.paramMap.get('quizId') ?? '';
     await this.quizContentLoaderService.prepareQuizSession({
       quizId: host.quizId,
