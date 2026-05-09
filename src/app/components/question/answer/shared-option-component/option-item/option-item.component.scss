@@ -126,34 +126,15 @@
   }
 }
 
-/* DISABLED STATE — only for unselected/non-highlighted options */
-.option-row.mat-mdc-radio-disabled:not(.correct-option):not(.incorrect-option):not(.sa-trying),
-.option-row.mat-mdc-checkbox-disabled:not(.correct-option):not(.incorrect-option):not(.sa-trying) {
-  background-color: #a0a0a0 !important;
-  border-color: #888 !important;
-  cursor: default !important;
-  pointer-events: none !important;
-
-  .option-text {
-    color: #444 !important;
-  }
-}
-
-/* SINGLE-ANSWER "TRYING" STATE — single-answer question where no correct
-   option has been selected yet. Force a clean clickable look regardless of
-   any Material-added disabled class or stale b.disabled flag, so the user
-   can keep clicking until they pick the right answer. */
-.option-row.sa-trying:not(.correct-option):not(.incorrect-option) {
-  background-color: var(--bg-option, #f5f5f5) !important;
-  border-color: var(--border-option, #979797) !important;
-  cursor: pointer !important;
-  pointer-events: auto !important;
-  opacity: 1 !important;
-
-  .option-text {
-    color: var(--text-option, #0f0900) !important;
-  }
-}
+/* DISABLED STATE intentionally not styled at the CSS layer.
+   Gray is applied inline via [style.background-color]="getOptionBackgroundColor()"
+   which returns #a0a0a0 only for the precise cases that should look locked
+   (post-correct single-answer siblings, fully-resolved multi-answer wrong
+   options). Click prevention is handled by mat-radio-button's own
+   [disabled] property — the SCSS rule that previously combined
+   `mat-mdc-radio-disabled` with `pointer-events:none` over-applied to
+   every option Material flagged disabled, including transient states
+   that should stay clickable. */
 
 /* CURSOR FEEDBACK */
 .option-cursor-wrapper {
