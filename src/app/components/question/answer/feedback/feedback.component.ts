@@ -70,11 +70,35 @@ export class FeedbackComponent implements OnInit, OnChanges {
       return;
     }
 
-    // Prioritize the feedback message already computed by the Parent (SharedOptionComponent)
-    // This message has been carefully reconciled with authoritative correct flags and visual order.
-    if (this.feedbackConfig?.feedback && this.feedbackConfig.feedback.trim()) {
-      this.displayMessage.set(this.feedbackConfig.feedback);
-      return;
+    // Prioritize the feedback message already computed by the Parent
+    // (SharedOptionComponent) — but ONLY if the cached "Option N" matches
+    // the live URL question's actual correct option index. Without this
+    // gate, a Q1-built feedback string ("The correct answer is Option 1.")
+    // displays verbatim on Q3 even after navigation.
+    const cachedFeedback = this.feedbackConfig?.feedback?.trim();
+    if (cachedFeedback) {
+      let cacheMatchesUrl = true;
+      try {
+        const m = window.location.pathname.match(/\/question\/[^/]+\/(\d+)/);
+        if (m) {
+          const urlIdx = Number(m[1]) - 1;
+          const liveQ = this.quizService.questions?.[urlIdx];
+          const correctIdxs: number[] = (liveQ?.options ?? [])
+            .map((o: any, i: number) => o?.correct ? i + 1 : null)
+            .filter((n: number | null): n is number => n !== null);
+          // If the cached string says "Option N" but the live question's
+          // actual correct option isn't N, fall through and regenerate.
+          const optionMatch = cachedFeedback.match(/Option\s+(\d+)/i);
+          if (optionMatch && correctIdxs.length > 0) {
+            const cachedOptN = Number(optionMatch[1]);
+            cacheMatchesUrl = correctIdxs.includes(cachedOptN);
+          }
+        }
+      } catch {}
+      if (cacheMatchesUrl) {
+        this.displayMessage.set(this.feedbackConfig!.feedback!);
+        return;
+      }
     }
 
     const fallbackIndex = Number.isFinite(this.feedbackConfig.idx)

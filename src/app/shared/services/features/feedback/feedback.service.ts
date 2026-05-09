@@ -72,13 +72,35 @@ export class FeedbackService {
     let resolvedIdx = -1;
     try {
       const allQs: QuizQuestion[] = (quizSvc as any)?.questions ?? [];
-      const passedText = (question?.questionText || '').trim().toLowerCase();
-      if (passedText && allQs.length) {
-        resolvedIdx = allQs.findIndex(
-          (q) => (q?.questionText || '').trim().toLowerCase() === passedText
-        );
-        if (resolvedIdx >= 0 && allQs[resolvedIdx]?.options?.length) {
-          resolvedQuestion = allQs[resolvedIdx];
+
+      // FIRST: parse the URL directly. The URL is the only truly reliable
+      // source — signals/services can lag during rapid navigation, and
+      // upstream callers can pass stale `question` references (e.g. Q1's
+      // object while the user is actually on Q3). The route is structured
+      // /question/{quizId}/{1-based-index}.
+      try {
+        const m = window.location.pathname.match(/\/question\/[^/]+\/(\d+)/);
+        if (m) {
+          const urlIdx = Number(m[1]) - 1;
+          if (urlIdx >= 0 && allQs[urlIdx]?.options?.length) {
+            resolvedIdx = urlIdx;
+            resolvedQuestion = allQs[urlIdx];
+          }
+        }
+      } catch { /* non-browser env */ }
+
+      // FALLBACK: text-match the passed question (legacy behaviour). Used
+      // when the URL parse fails (e.g., during early bootstrap or in a
+      // non-browser environment).
+      if (resolvedIdx < 0) {
+        const passedText = (question?.questionText || '').trim().toLowerCase();
+        if (passedText && allQs.length) {
+          resolvedIdx = allQs.findIndex(
+            (q) => (q?.questionText || '').trim().toLowerCase() === passedText
+          );
+          if (resolvedIdx >= 0 && allQs[resolvedIdx]?.options?.length) {
+            resolvedQuestion = allQs[resolvedIdx];
+          }
         }
       }
     } catch {}
@@ -177,6 +199,15 @@ export class FeedbackService {
     }
     const dedupedSelected = Array.from(normalizedSelected.values());
 
+    // Canonical options from the URL-resolved question — these have the
+    // authoritative correct flags. Text-matching the clicked option here
+    // catches the case where the click handler has handed us a `sel`
+    // with stale or missing `correct: true` (post-navigation state),
+    // and where optionsRaw is also stale, so visualIdx/correctIndices
+    // both fail to identify the click as correct.
+    const canonicalOptionsForMatch: Option[] =
+      (resolvedQuestion?.options ?? []) as Option[];
+
     for (const sel of dedupedSelected) {
       let visualIdx = sel.displayIndex;
       if (visualIdx === undefined || visualIdx < 0) {
@@ -187,11 +218,26 @@ export class FeedbackService {
         );
       }
 
+      // CANONICAL TEXT MATCH: lookup the selected option in the URL-resolved
+      // question's options by text and read THAT correct flag. Survives
+      // bindings whose `correct: true` was wiped after Q→Q→Q navigation.
+      let canonicalCorrect = false;
+      if (sel?.text && canonicalOptionsForMatch.length) {
+        const selText = String(sel.text).trim();
+        const match = canonicalOptionsForMatch.find(
+          (o: Option) => o?.text && String(o.text).trim() === selText
+        );
+        if (match) canonicalCorrect = isCorrectHelper(match);
+      }
+
       // ROBUST EVALUATION:
-      // An option is correct if its 'correct' flag is true OR if its visual position matches a correct index.
+      // An option is correct if its `correct` flag is true OR its visual
+      // position matches a correct index OR the canonical-by-text lookup
+      // says it's correct.
       const isCorrect = isCorrectHelper(sel) ||
-        (visualIdx >= 0 && correctIndices.includes(visualIdx + 1));
-      
+        (visualIdx >= 0 && correctIndices.includes(visualIdx + 1)) ||
+        canonicalCorrect;
+
       if (isCorrect) {
         numCorrectSelected++;
       } else {
