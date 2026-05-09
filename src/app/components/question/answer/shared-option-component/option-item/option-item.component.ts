@@ -359,6 +359,20 @@ export class OptionItemComponent implements OnChanges, OnInit {
     return !this.isDisabled();
   }
 
+  /**
+   * True when the option should be visually locked (gray + non-interactive).
+   * Drives the `.is-locked` CSS class. Click prevention is handled in
+   * `onChangedSafe()` instead of mat-radio-button's [disabled] property,
+   * because Material's disabled-class application timing was over-blocking
+   * legit clicks on Q5+. Keeping [disabled]=false on the radio button
+   * means mat-radio always fires (change), and our handler decides whether
+   * to process or drop the event.
+   */
+  isVisuallyLocked(): boolean {
+    if (this.b?.isSelected) return false;
+    return this.isDisabled();
+  }
+
   isDisabled(): boolean {
     // Timer-expiry handler stamped all bindings as disabled
     if (this.isTimerStamped()) return true;
@@ -911,6 +925,13 @@ export class OptionItemComponent implements OnChanges, OnInit {
   }
 
   onChanged(event: any): void {
+    // Drop the click for visually-locked options (post-correct siblings,
+    // multi-answer perfect wrongs). [disabled] on mat-radio-button is
+    // wired to a constant `false` so Material never gets in the way of
+    // legit clicks; the lock check lives here instead.
+    if (this.isVisuallyLocked()) {
+      return;
+    }
     this._userHasClicked = true;
     this.optionUI.emit({
       optionId: this.optionId,
@@ -923,6 +944,10 @@ export class OptionItemComponent implements OnChanges, OnInit {
 
   onContentClick(event: MouseEvent): void {
     event.stopPropagation();  // prevents double firing with parent (click)
+    if (this.isVisuallyLocked()) {
+      event.preventDefault();
+      return;
+    }
     this._userHasClicked = true;
     this.optionUI.emit({
       optionId: this.optionId,

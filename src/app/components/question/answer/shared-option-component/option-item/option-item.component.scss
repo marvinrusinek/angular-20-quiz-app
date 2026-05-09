@@ -126,13 +126,20 @@
   }
 }
 
-/* GRAY-DISABLED visual is driven exclusively by inline
-   [style.background-color]="getOptionBackgroundColor()" which returns
-   #a0a0a0 only for the precise cases that should look locked. No CSS
-   class-based rule for the disabled state — Material's
-   mat-mdc-radio-disabled class application timing was over-applying to
-   transient single-answer states. Click prevention is handled by
-   mat-radio-button's own [disabled] JS handler. */
+/* GRAY-DISABLED visual driven by `.is-locked`, a class fully under our
+   control via [class.is-locked]="isVisuallyLocked()". mat-radio-button's
+   [disabled] is hard-wired to false so Material never gets in the way of
+   legit clicks; click prevention for locked options is handled inside
+   onChanged()/onContentClick() in option-item.ts. */
+.option-row.is-locked:not(.correct-option):not(.incorrect-option) {
+  background-color: #a0a0a0 !important;
+  border-color: #888 !important;
+  cursor: default !important;
+
+  .option-text {
+    color: #444 !important;
+  }
+}
 
 /* CURSOR FEEDBACK */
 .option-cursor-wrapper {
