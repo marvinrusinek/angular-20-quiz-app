@@ -21,8 +21,14 @@ export const SlideLeftToRightAnimation = {
  * Scale/Bounce (Quiz transition)
  ***************************************/
 export const ChangeRouteAnimation = {
+  // `:increment` / `:decrement` fire only when the bound numeric value
+  // changes between two non-void states. The previous `* <=> *` matched
+  // the initial void → state mount as well, so URL navigation that
+  // re-mounted the anim-host with currentQuestionIndex=0 and then
+  // assigned the URL index played the animation twice (once for the
+  // enter, once for the value change).
   changeRoute: trigger('changeRoute', [
-    transition('* <=> *', [
+    transition(':increment, :decrement', [
       animate(
         '1500ms cubic-bezier(0.4, 0.0, 0.2, 1)',
         keyframes([
