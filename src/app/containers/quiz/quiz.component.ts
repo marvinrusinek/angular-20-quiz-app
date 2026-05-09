@@ -10,11 +10,6 @@ import { debounceTime, shareReplay } from 'rxjs/operators';
 import { MatCardModule } from '@angular/material/card';
 import { MatTooltip, MatTooltipModule } from '@angular/material/tooltip';
 
-import { QuizQuestionComponent } from '../../components/question/quiz-question/quiz-question.component';
-import { SharedOptionComponent } from '../../components/question/answer/shared-option-component/shared-option.component';
-import { CodelabQuizContentComponent } from './quiz-content/codelab-quiz-content.component';
-import { CodelabQuizHeaderComponent } from './quiz-header/quiz-header.component';
-import { ScoreboardComponent } from '../scoreboard/scoreboard.component';
 import { QuestionPayload } from '../../shared/models/QuestionPayload.model';
 import { Option } from '../../shared/models/Option.model';
 import { Quiz } from '../../shared/models/Quiz.model';
@@ -40,6 +35,11 @@ import { QuizContentLoaderService } from '../../shared/services/flow/quiz-conten
 import { QuizVisibilityRestoreService } from '../../shared/services/flow/quiz-visibility-restore.service';
 import { QuizPersistenceService } from '../../shared/services/state/quiz-persistence.service';
 import { QuizSetupService } from '../../shared/services/flow/quiz-setup.service';
+import { QuizQuestionComponent } from '../../components/question/quiz-question/quiz-question.component';
+import { SharedOptionComponent } from '../../components/question/answer/shared-option-component/shared-option.component';
+import { CodelabQuizContentComponent } from './quiz-content/codelab-quiz-content.component';
+import { CodelabQuizHeaderComponent } from './quiz-header/quiz-header.component';
+import { ScoreboardComponent } from '../scoreboard/scoreboard.component';
 import { ThemeToggleComponent } from '../../components/theme-toggle/theme-toggle.component';
 
 import { ChangeRouteAnimation } from '../../animations/animations';
@@ -409,7 +409,7 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
       sessionStorage.setItem('quizProgress', String(this.progress));
       sessionStorage.setItem('quizProgressQuizId', this.quizId);
       sessionStorage.setItem('answeredQuestionIndices', JSON.stringify([...this.answeredQuestionIndices]));
-    } catch {}
+    } catch { }
     this.cdRef.detectChanges();
     this.cdRef.markForCheck();
   }
