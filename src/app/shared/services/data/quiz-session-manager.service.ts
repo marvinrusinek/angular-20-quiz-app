@@ -53,6 +53,7 @@ export interface QuizSessionState {
   resetAll(): void;
   resetScore(): void;
   setQuizStatus(val: QuizStatus): void;
+  setCurrentQuestionIndex(idx: number): void;
   isShuffleEnabled(): boolean;
 }
 
@@ -355,5 +356,51 @@ export class QuizSessionManagerService {
     state.resetScore();
     quizResetSource.next();
     state.questionCorrectness.clear();
+  }
+
+  /**
+   * Wipes every per-run accumulator on the host quiz state and emits the
+   * reset-source signal. The host (QuizService) handles the few internals
+   * that aren't on QuizSessionState (dataLoader fetch promise,
+   * questionsQuizId, _multiAnswerPerfect map).
+   */
+  resetAll(state: QuizSessionState, quizResetSource: Subject<void>): void {
+    state.currentQuestionIndex = 0;
+    state.questionCorrectness.clear();
+    state.selectedOptionsMap.clear();
+    state.userAnswers = [];
+    state.answers = [];
+    state.shuffledQuestions = [];
+    state.questions = [];
+    state.quizCompleted = false;
+
+    try {
+      localStorage.removeItem('userAnswers');
+      localStorage.removeItem('questionCorrectness');
+      localStorage.removeItem('shuffledQuestions');
+      localStorage.removeItem('selectedOptionsMap');
+      localStorage.removeItem('highScore');
+    } catch { /* ignore */ }
+
+    quizResetSource.next();
+  }
+
+  /**
+   * Restores the question array for the active quiz from quizInitialState
+   * and rewinds to question index 0. Used when restarting an in-progress
+   * quiz without leaving the route.
+   */
+  resetQuestions(state: QuizSessionState): void {
+    const currentQuizData = state.quizInitialState.find(
+      (quiz) => quiz.quizId === state.quizId
+    );
+    if (currentQuizData) {
+      state.quizData = structuredClone([currentQuizData]);
+      state.questions = currentQuizData.questions ?? [];
+    } else {
+      state.quizData = null;
+      state.questions = [];
+    }
+    state.setCurrentQuestionIndex(0);
   }
 }

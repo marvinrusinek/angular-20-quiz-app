@@ -745,18 +745,7 @@ export class QuizService {
   }
 
   resetQuestions(): void {
-    let currentQuizData = this.quizInitialState.find(
-      (quiz) => quiz.quizId === this.quizId
-    );
-    if (currentQuizData) {
-      this.quizData = structuredClone([currentQuizData]);
-      this.questions = currentQuizData.questions ?? [];
-      this.setCurrentQuestionIndex(0);
-    } else {
-      this.quizData = null;
-      this.questions = [];
-      this.setCurrentQuestionIndex(0);
-    }
+    this.sessionManager.resetQuestions(this);
   }
 
   // Ensure quiz ID exists, retrieving it if necessary
@@ -874,28 +863,13 @@ export class QuizService {
   }
 
   resetAll(): void {
-    this.currentQuestionIndex = 0;
-    this.questionCorrectness.clear();
-    this.selectedOptionsMap.clear();
-    this.userAnswers = [];
-    this.answers = [];
-    this.shuffledQuestions = [];
-    this._questions = [];
-    this.questionsSig.set([]);
+    this.sessionManager.resetAll(this, this.quizResetSource);
+    // Tail items not on the QuizSessionState interface — kept here so the
+    // session manager doesn't need to know about dataLoader internals or
+    // private QuizService fields.
     this.questionsQuizId = null;
     this.dataLoader.clearFetchPromise();
-    this.quizCompleted = false;
     (this as any)._multiAnswerPerfect?.clear?.();
-
-    try {
-      localStorage.removeItem('userAnswers');
-      localStorage.removeItem('questionCorrectness');
-      localStorage.removeItem('shuffledQuestions');
-      localStorage.removeItem('selectedOptionsMap');
-      localStorage.removeItem('highScore');
-    } catch { }
-
-    this.quizResetSource.next();
   }
 
   private resolveShuffleQuizId(): string | null {
