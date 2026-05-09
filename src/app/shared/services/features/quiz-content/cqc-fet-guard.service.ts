@@ -31,6 +31,42 @@ export class CqcFetGuardService {
     try {
       let safe = html ?? '';
 
+      // URL-AUTHORITATIVE GUARD: if the incoming HTML is the question
+      // text of a DIFFERENT question than the URL says, replace it with
+      // the URL question's text. Stops stale Q1 emissions from writing
+      // through to the heading on direct nav to /question/.../N.
+      try {
+        const m = window.location.pathname.match(/\/question\/[^/]+\/(\d+)/);
+        if (m) {
+          const urlIdx = Number(m[1]) - 1;
+          const allQs: any[] = (host.quizService as any)?.questions ?? [];
+          const urlQ = allQs[urlIdx];
+          const urlText = (urlQ?.questionText ?? '').trim().toLowerCase();
+          const safeText = safe.trim().toLowerCase();
+          const safeIsFet = safeText.includes('correct because') ||
+                            safeText.includes('correct answer is option') ||
+                            safeText.includes('correct answers are options');
+          if (urlText && safeText && !safeIsFet && !safeText.includes(urlText)) {
+            // Swap to the URL question's text + multi-answer banner
+            const correctCount = (urlQ?.options ?? []).filter(
+              (o: any) => o?.correct === true || o?.correct === 1 || String(o?.correct) === 'true'
+            ).length;
+            if (correctCount > 1 && (urlQ.options?.length ?? 0) > 0) {
+              const suffix = correctCount === 1 ? 'answer is' : 'answers are';
+              safe = `${urlQ.questionText} <span class="correct-count">(${correctCount} ${suffix} correct)</span>`;
+            } else {
+              safe = urlQ.questionText ?? safe;
+            }
+          } else if (urlIdx >= 0 && !urlQ && safeText && !safeIsFet) {
+            // URL-derived question hasn't loaded yet but a stale write is
+            // trying to push some other text. Drop it — let a later
+            // emission with the right data win, instead of stamping Q1.
+            return;
+          }
+        }
+      } catch { /* non-browser env */ }
+
+
       // Live index — read from the input signal (sync-current). Using
       // host.currentIndex (a plain field updated by an effect, lagging
       // by a microtask) caused the TIMER-EXPIRY BYPASS below to fire
