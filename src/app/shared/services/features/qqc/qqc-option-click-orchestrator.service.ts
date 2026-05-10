@@ -57,21 +57,25 @@ export class QqcOptionClickOrchestratorService {
     const { questionType, optionsNow, optionsToDisplay, evtIdx, checked, questionIndex } = params;
 
     if (questionType === QuestionType.SingleAnswer && checked === false) {
-      optionsNow.forEach(opt => { if (opt.selected) opt.selected = true; });
+      for (const opt of optionsNow) {
+        if (opt.selected) opt.selected = true;
+      }
       if (Array.isArray(optionsToDisplay)) {
-        optionsToDisplay.forEach(opt => { if (opt.selected) opt.selected = true; });
+        for (const opt of optionsToDisplay) {
+          if (opt.selected) opt.selected = true;
+        }
       }
     } else {
       this.selectionMessageService.releaseBaseline(questionIndex);
 
       if (questionType === QuestionType.SingleAnswer) {
-        optionsNow.forEach((opt, i) => {
+        for (const [i, opt] of optionsNow.entries()) {
           opt.selected = i === evtIdx ? (checked ?? true) : false;
-        });
+        }
         if (Array.isArray(optionsToDisplay)) {
-          optionsToDisplay.forEach((opt, i) => {
+          for (const [i, opt] of optionsToDisplay.entries()) {
             opt.selected = i === evtIdx ? (checked ?? true) : false;
-          });
+          }
         }
       } else {
         optionsNow[evtIdx].selected = checked ?? true;
@@ -147,9 +151,9 @@ export class QqcOptionClickOrchestratorService {
             .map((o: any) => nrm(o?.text))
             .filter((t: string) => !!t)
         );
-        question.options.forEach((o: any, i: number) => {
+        for (const [i, o] of (question.options as any[]).entries()) {
           if (pristineCorrectTexts.has(nrm(o?.text))) correctIndices.push(i);
-        });
+        }
       }
     } catch { /* ignore */ }
 
@@ -222,7 +226,9 @@ export class QqcOptionClickOrchestratorService {
 
     // Enforce single-answer exclusivity canonically
     if (question.type === QuestionType.SingleAnswer) {
-      canonicalOpts.forEach((opt, i) => { opt.selected = i === evtIdx; });
+      for (const [i, opt] of canonicalOpts.entries()) {
+        opt.selected = i === evtIdx;
+      }
       if (evtOpt?.correct && canonicalOpts[evtIdx]) {
         canonicalOpts[evtIdx].selected = true;
         this.selectionMessageService._singleAnswerCorrectLock.add(questionIndex);

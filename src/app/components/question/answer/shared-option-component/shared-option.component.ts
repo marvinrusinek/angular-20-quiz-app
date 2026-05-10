@@ -230,11 +230,11 @@ export class SharedOptionComponent
             }
           }
           try {
-            document.querySelectorAll('.option-row').forEach((el: Element) => {
+            for (const el of Array.from(document.querySelectorAll('.option-row'))) {
               const html = el as HTMLElement;
               html.style.pointerEvents = '';
               el.classList.remove('correct-option');
-            });
+            }
           } catch { /* ignore — non-browser env */ }
         }
         _lastQIdxForStampCleanup = v;
@@ -412,14 +412,14 @@ export class SharedOptionComponent
             this.currentQuestionIndex ?? this.quizService.currentQuestionIndex ?? 0;
           if (liveIdx !== stampedForIdx) return;
 
-          document.querySelectorAll('.option-row').forEach((el: Element) => {
+          for (const el of Array.from(document.querySelectorAll('.option-row'))) {
             const textEl = el.querySelector('.option-text');
             const text = ((textEl?.textContent as string) || '').trim().toLowerCase();
             if (correctTexts.has(text)) {
               el.classList.add('correct-option');
             }
             (el as HTMLElement).style.pointerEvents = 'none';
-          });
+          }
         }, 50);
       }
     });

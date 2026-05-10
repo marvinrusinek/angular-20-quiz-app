@@ -432,8 +432,8 @@ export class SocAnswerProcessingService {
         try {
           const correctSet = new Set(effectiveCorrectIndices);
           const items = document.querySelectorAll('app-option-item');
-          items.forEach((el, idx) => {
-            if (correctSet.has(idx)) return;
+          for (const [idx, el] of Array.from(items).entries()) {
+            if (correctSet.has(idx)) continue;
             const row = el.querySelector('.option-row') as HTMLElement | null;
             if (row) {
               row.style.pointerEvents = 'none';
@@ -442,7 +442,7 @@ export class SocAnswerProcessingService {
             }
             const input = el.querySelector('input') as HTMLInputElement | null;
             if (input) input.disabled = true;
-          });
+          }
         } catch { /* DOM not ready */ }
       };
       stamp();
@@ -828,10 +828,10 @@ export class SocAnswerProcessingService {
 
       // Highlight the canonical correct option + disable everything else.
       const correctIdxsAR: number[] = [];
-      bindingsAR.forEach((b: any, bi: number) => {
+      for (const [bi, b] of bindingsAR.entries()) {
         const tx = nrmAR(b?.option?.text);
         if (tx && pristineCorrectTextsAR!.has(tx)) correctIdxsAR.push(bi);
-      });
+      }
 
       if (!comp.disabledOptionsPerQuestion.has(qIdx)) {
         comp.disabledOptionsPerQuestion.set(qIdx, new Set<number>());

@@ -50,16 +50,16 @@ export function installGlobalFetWatchdog(): void {
       ];
       for (const sel of selectors) {
         const rows = document.querySelectorAll(sel);
-        rows.forEach((row: any) => {
+        for (const row of Array.from(rows) as any[]) {
           const cls = String(row?.className ?? '');
           const looksSelected = cls.includes('selected')
             || cls.includes('highlight')
             || cls.includes('active')
             || row?.querySelector?.('.selected, .highlight, .active, mat-icon.correct-icon, .correct-icon') != null;
-          if (!looksSelected) return;
+          if (!looksSelected) continue;
           const txt = nrm(row?.textContent ?? '');
           if (txt) out.add(txt);
-        });
+        }
       }
       return out;
     };
@@ -109,18 +109,18 @@ export function installGlobalFetWatchdog(): void {
         const all = document.querySelectorAll('*');
         let revertCount = 0;
         let candidateCount = 0;
-        all.forEach((h: any) => {
+        for (const h of Array.from(all) as any[]) {
           try {
             const tc = h?.textContent ?? '';
             const html = h?.innerHTML ?? '';
-            if (!isFetLike(tc, current.explanation) && !isFetLike(html, current.explanation)) return;
+            if (!isFetLike(tc, current.explanation) && !isFetLike(html, current.explanation)) continue;
             candidateCount++;
             const childCount = h?.children?.length ?? 0;
-            if (childCount > 3) return;
+            if (childCount > 3) continue;
             h.innerHTML = current.qText;
             revertCount++;
           } catch { /* ignore */ }
-        });
+        }
       } catch { /* ignore */ }
     };
     const mo = new MutationObserver(() => enforce());

@@ -173,11 +173,11 @@ export class SharedOptionInitService {
     // Angular may reuse the row nodes across questions, so leftover
     // inline styles/classes leak from Q1 into Q2.
     try {
-      document.querySelectorAll('.option-row').forEach((el: Element) => {
+      for (const el of Array.from(document.querySelectorAll('.option-row'))) {
         const html = el as HTMLElement;
         html.style.pointerEvents = '';
         el.classList.remove('correct-option');
-      });
+      }
     } catch { /* ignore — non-browser env */ }
     comp.selectedOptions.clear();
     comp.selectedOptionMap.clear();

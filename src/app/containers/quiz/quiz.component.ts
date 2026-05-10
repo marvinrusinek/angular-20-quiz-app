@@ -502,12 +502,12 @@ export class QuizComponent implements OnInit, OnDestroy, AfterViewInit {
     // regardless of which path called us first.
     try {
       const map = this.selectedOptionService?.selectedOptionsMap;
-      if (map && typeof map.forEach === 'function') {
-        map.forEach((selections: any[], qIdx: number) => {
+      if (map) {
+        for (const [qIdx, selections] of map) {
           if (Array.isArray(selections) && selections.length > 0 && qIdx >= 0) {
             this.answeredQuestionIndices.add(qIdx);
           }
-        });
+        }
       }
     } catch { /* ignore */ }
 
