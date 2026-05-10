@@ -166,21 +166,21 @@ export class SocAnswerProcessingService {
       (comp.optionsToDisplay ?? []).filter((o: any) => o && typeof o === 'object'),
       comp.currentQuestion!
     );
-    // Use the freshly-rebuilt binding's option (has the up-to-date `correct`
-    // flag from this click's `optionOverrides`). The `binding` parameter
-    // captures the option BEFORE the rebuild at line 143; for multi-answer
-    // 2nd-correct-clicks where the 1st click's `effectiveCorrectIndices`
-    // didn't yet include the 2nd correct position, that stale option has
-    // `correct: false` and the feedback shows a sad face even though the
-    // visuals (driven by the new bindings) correctly show green.
+    // Build selectedOption.correct from effectiveCorrectIndices (which is
+    // recomputed from pristine quizInitialState above). The `binding.option`
+    // and even comp.optionBindings[index].option can be stale relative to
+    // the latest pristine rebuild on multi-answer questions, leading to
+    // sad-face feedback on the 2nd correct click while the option visuals
+    // correctly show green. Pristine indices are the immutable source of truth.
     const freshOption = comp.optionBindings?.[index]?.option ?? binding.option;
+    const isClickedCorrect = new Set(effectiveCorrectIndices).has(index);
     comp._feedbackDisplay = {
       idx: index,
       config: {
         feedback: feedbackText,
         showFeedback: true,
         correctMessage,
-        selectedOption: freshOption,
+        selectedOption: { ...freshOption, correct: isClickedCorrect },
         options: comp.optionsToDisplay ?? [],
         question: comp.currentQuestion ?? null,
         idx: index
