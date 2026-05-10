@@ -350,6 +350,16 @@ export class SharedOptionClickService {
     }
     const effectiveCorrectCount = effectiveCorrectIndices.length;
     const isMultiFromQ = comp.isMultiMode || comp.type === 'multiple' || effectiveCorrectCount > 1 || pristineCorrectCount > 1;
+    console.log('[Q-DEBUG] runOptionContentClick branching',
+      'qIdx=', qIdx,
+      'effectiveCorrectIndices=', JSON.stringify(effectiveCorrectIndices),
+      'effectiveCorrectCount=', effectiveCorrectCount,
+      'pristineCorrectCount=', pristineCorrectCount,
+      'comp.isMultiMode=', comp.isMultiMode,
+      'comp.type=', comp.type,
+      'isMultiFromQ=', isMultiFromQ,
+      'comp.currentQuestion.text=', comp.currentQuestion?.questionText
+    );
 
     // Universal "all correct selected" timer stop
     try {
