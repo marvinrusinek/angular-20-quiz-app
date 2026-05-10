@@ -64,6 +64,13 @@ export class FeedbackComponent {
     // across separate signal calls, and re-reading risks a different value
     // mid-method anyway.
     const cfg = this.feedbackConfig();
+    console.log('[Q2-DEBUG] feedback.updateDisplayMessage',
+      'cfg.feedback=', cfg?.feedback,
+      'cfg.idx=', cfg?.idx,
+      'cfg.questionIndex=', cfg?.questionIndex,
+      'cfg.selectedOption.correct=', cfg?.selectedOption?.correct,
+      'cfg.selectedOption.text=', cfg?.selectedOption?.text
+    );
     if (!cfg) {
       this.displayMessage.set('');
       return;
