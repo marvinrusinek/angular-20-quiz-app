@@ -747,6 +747,11 @@ export class OptionItemComponent implements OnInit {
   }
 
   onChanged(event: any): void {
+    console.log('[Q5-DEBUG] option-item.onChanged fired',
+      'text=', this.binding()?.option?.text,
+      'displayIndex=', this.displayIndex(),
+      'optionId=', this.optionId
+    );
     this._userHasClicked = true;
     this.optionUI.emit({
       optionId: this.optionId,
@@ -758,6 +763,11 @@ export class OptionItemComponent implements OnInit {
   }
 
   onContentClick(event: MouseEvent): void {
+    console.log('[Q5-DEBUG] option-item.onContentClick fired',
+      'text=', this.binding()?.option?.text,
+      'displayIndex=', this.displayIndex(),
+      'optionId=', this.optionId
+    );
     event.stopPropagation();  // prevents double firing with parent (click)
     this._userHasClicked = true;
     this.optionUI.emit({
