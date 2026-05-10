@@ -1,5 +1,5 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, 
-  inject, input, OnChanges, OnInit, output, SimpleChanges, ViewEncapsulation 
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef,
+  effect, inject, input, OnInit, output, ViewEncapsulation
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormGroup, ReactiveFormsModule } from '@angular/forms';
@@ -49,7 +49,7 @@ export interface OptionUIEvent {
   animations: [correctAnswerAnim],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class OptionItemComponent implements OnChanges, OnInit {
+export class OptionItemComponent implements OnInit {
   readonly optionUI = output<OptionUIEvent>();
   readonly binding = input.required<OptionBindings>();
   readonly displayIndex = input.required<number>();
@@ -86,7 +86,68 @@ export class OptionItemComponent implements OnChanges, OnInit {
     private quizService: QuizService,
     private selectedOptionService: SelectedOptionService,
     private timerService: TimerService
-  ) {}
+  ) {
+    // Question-change cleanup. Replaces the prior ngOnChanges
+    // `changes['currentQuestionIndex']` block — necessary because
+    // currentQuestionIndex is now a signal input and signal-input
+    // changes don't fire ngOnChanges.
+    effect(() => {
+      const nextQuestionIndex = Number(this.currentQuestionIndex() ?? -1);
+      if (!Number.isFinite(nextQuestionIndex) ||
+          nextQuestionIndex === this._lastQuestionIndex) return;
+      // Clear stale visual state when navigating AWAY from a question.
+      // Gate on _userHasClicked OR _wasTimerExpired so timer-expired
+      // highlighting (correct answers revealed on timeout) is also
+      // cleared when the user advances without having clicked.
+      if (this._lastQuestionIndex !== -1 &&
+          (this._userHasClicked || this._wasTimerExpired)) {
+        this._wasSelected = false;
+        this._wasTimerExpired = false;
+        this._directTimerExpired = false;
+        this._directTimerExpiredForIndex = -1;
+        const b = this.binding();
+        if (b) {
+          b.isSelected = false;
+          b.disabled = false;
+          b.cssClasses = {};
+          if (b.option) {
+            b.option.selected = false;
+            b.option.highlight = false;
+            b.option.showIcon = false;
+          }
+        }
+        this._userHasClicked = false;
+      }
+      this._lastQuestionIndex = nextQuestionIndex;
+    });
+
+    // shouldResetBackground reset. Truthy → clear sticky highlight latch.
+    effect(() => {
+      if (this.shouldResetBackground()) this._wasSelected = false;
+    });
+
+    // Latch timer expiry so the question-change effect's cleanup branch
+    // also clears timer-expired highlighting when the user advances
+    // without ever having clicked an option.
+    effect(() => {
+      // Touch the timerExpired input so this effect re-runs on changes.
+      this.timerExpired();
+      if (this.isTimerExpiredForThisQuestion() && !this._wasTimerExpired) {
+        this._wasTimerExpired = true;
+      }
+    });
+
+    // Sticky highlight latch. Once the binding's isSelected goes true
+    // during a live interaction (_userHasClicked), keep _wasSelected true
+    // for the rest of the question. _userHasClicked guard prevents
+    // transient init paths (processOptionBindings, generateOptionBindings)
+    // from latching highlights on options the user never clicked.
+    effect(() => {
+      if (this.binding()?.isSelected && this._userHasClicked) {
+        this._wasSelected = true;
+      }
+    });
+  }
 
   ngOnInit(): void {
     this.timerService.expired$
@@ -147,56 +208,6 @@ export class OptionItemComponent implements OnChanges, OnInit {
     } catch { /* never throw from a CD-triggered method */ }
   }
 
-  ngOnChanges(changes: SimpleChanges): void {
-    if (changes['currentQuestionIndex']) {
-      const nextQuestionIndex = Number(this.currentQuestionIndex() ?? -1);
-      if (Number.isFinite(nextQuestionIndex) && nextQuestionIndex !== this._lastQuestionIndex) {
-        // Clear stale visual state when navigating AWAY from a question.
-        // Gate on _userHasClicked OR _wasTimerExpired so timer-expired
-        // highlighting (correct answers revealed on timeout) is also
-        // cleared when the user advances without having clicked.
-        if (this._lastQuestionIndex !== -1 && (this._userHasClicked || this._wasTimerExpired)) {
-          this._wasSelected = false;
-          this._wasTimerExpired = false;
-          this._directTimerExpired = false;
-          this._directTimerExpiredForIndex = -1;
-          const b = this.binding();
-          if (b) {
-            b.isSelected = false;
-            b.disabled = false;
-            b.cssClasses = {};
-            if (b.option) {
-              b.option.selected = false;
-              b.option.highlight = false;
-              b.option.showIcon = false;
-            }
-          }
-          this._userHasClicked = false;
-        }
-        this._lastQuestionIndex = nextQuestionIndex;
-      }
-    }
-
-    // Track timer expiry so we can clear highlighting on question change
-    // even when the user never clicked an option.
-    if (this.isTimerExpiredForThisQuestion() && !this._wasTimerExpired) {
-      this._wasTimerExpired = true;
-    }
-
-    if (changes['shouldResetBackground'] && this.shouldResetBackground()) {
-      this._wasSelected = false;
-    }
-
-    // Sticky: once selected, stays highlighted for the rest of the question.
-    // GUARD: only latch during live interaction (_userHasClicked).
-    // On refresh, transient init paths (processOptionBindings, generateOptionBindings)
-    // can briefly set b.isSelected = true on options the user never clicked.
-    // rehydrateUiFromState resets them, but ngOnChanges fires BEFORE rehydrate,
-    // so _wasSelected would already be latched — causing ghost highlights
-    // (e.g. 2nd correct answer in multi-answer). Gating on _userHasClicked
-    // ensures only actual user clicks latch the highlight.
-    if (this.binding()?.isSelected && this._userHasClicked) this._wasSelected = true;
-  }
 
   /**
    * Authoritative timer-expired check: the `timerExpired` input may be
