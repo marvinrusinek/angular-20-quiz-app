@@ -127,19 +127,29 @@ export class OptionUiSyncService {
       } catch { /* ignore */ }
       const historySet = new Set(ctx.selectedOptionHistory);
 
-      for (const [i, b] of ctx.optionBindings.entries()) {
+      // Build NEW binding refs so OnPush option-item children re-render.
+      // In-place mutation here used to leak through to the visible state
+      // ONLY when something downstream (e.g. processSingleAnswerClick's
+      // pristineSingleCorrect branch) replaced the bindings array later.
+      // Incorrect single-answer clicks have no such downstream rebuild,
+      // so the red-highlight on the wrong option never appeared.
+      ctx.optionBindings = ctx.optionBindings.map((b, i) => {
         const isCurrent = (i === index);
         const inHistory = historySet.has(i);
-        b.isSelected = isCurrent;
-        if (b.option) {
-          b.option.selected = isCurrent;
-          b.option.highlight = isCurrent || inHistory;
-          b.option.showIcon = isCurrent || inHistory;
-        }
-        b.highlightCorrect = false;
-        b.highlightIncorrect = false;
-        b.showFeedback = isCurrent;
-      }
+        return {
+          ...b,
+          isSelected: isCurrent,
+          highlightCorrect: false,
+          highlightIncorrect: false,
+          showFeedback: isCurrent,
+          option: b.option ? {
+            ...b.option,
+            selected: isCurrent,
+            highlight: isCurrent || inHistory,
+            showIcon: isCurrent || inHistory
+          } : b.option
+        };
+      });
       ctx.selectedOptionMap.clear();
       ctx.feedbackConfigs = {};
     }
