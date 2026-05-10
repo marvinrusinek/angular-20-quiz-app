@@ -179,23 +179,6 @@ export class QqcResetManagerService {
   }
 
   /**
-   * Clears option state (selections, icons) for a specific question index.
-   */
-  clearOptionStateForQuestion(
-    index: number,
-    optionsToDisplay: Option[]
-  ): Option[] {
-    this.selectedOptionService.clearSelectionsForQuestion(index);
-
-    return optionsToDisplay?.map(opt => ({
-      ...opt,
-      selected: false,
-      showIcon: false,
-      highlight: false
-    })) ?? [];
-  }
-
-  /**
    * Restores selections and icons for a question from the service state.
    */
   restoreSelectionsAndIcons(

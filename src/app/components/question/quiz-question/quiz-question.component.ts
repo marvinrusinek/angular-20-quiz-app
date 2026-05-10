@@ -508,8 +508,6 @@ export class QuizQuestionComponent extends BaseQuestion
     return this.componentOrchestrator.runOnSubmit(this);
   }
 
-
-
   // Per-question next and selections reset done from the child, timer
   public resetPerQuestionState(index: number): void {
     this.componentOrchestrator.runResetPerQuestionState(this, index);
