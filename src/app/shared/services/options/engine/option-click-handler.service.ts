@@ -449,12 +449,18 @@ export class OptionClickHandlerService {
           : (this.quizService as any)?.questions?.[qIndex];
         const correctTextsSA =
           this.quizService.getPristineCorrectTextsForQuestion(liveSAQ?.questionText);
-        if (correctTextsSA.size === 1) {
-          const anyCorrectSelected = saSelections.some((s: any) =>
-            correctTextsSA.has(nrmSA(s?.text))
-          );
-          if (!anyCorrectSelected) return false;
-        }
+        // anyCorrectSelected: trust the selection's own `correct` flag
+        // (spread from the canonical binding option) as a fallback when
+        // the cache misses — stale questionText on Q3+ would otherwise
+        // wrongly leave siblings clickable after a real correct pick.
+        const anyCorrectSelected = saSelections.some((s: any) => {
+          if (s?.correct === true || String(s?.correct) === 'true' ||
+              s?.correct === 1 || s?.correct === '1') {
+            return true;
+          }
+          return correctTextsSA.has(nrmSA(s?.text));
+        });
+        if (!anyCorrectSelected && correctTextsSA.size <= 1) return false;
       } catch { /* ignore — fall through to legacy lock checks */ }
     }
 

@@ -472,21 +472,50 @@ export class SocAnswerProcessingService {
     }
     const correctSet = new Set(correctIdxs);
 
-    // Pristine cross-check for single-answer: was the clicked option's
-    // text in the question's pristine correct-text set?
+    // Pristine cross-check for single-answer. Tries several sources in
+    // order of reliability so a stale `comp.currentQuestion` (which can
+    // still point to Q1's text right after navigating to Q3+) doesn't
+    // miss a real correct click and skip the post-correct disable block:
+    //   1. The clicked binding's own `option.correct` flag (set at
+    //      binding generation from the pristine JSON, so it's authoritative
+    //      unless something downstream mutates it).
+    //   2. Cache lookup by quizService.questions[qIdx].questionText.
+    //   3. Cache lookup by getQuestionsInDisplayOrder()[qIdx] (shuffled).
+    //   4. Cache lookup by comp.currentQuestion.questionText (last
+    //      resort because of the staleness risk).
     let pristineSingleCorrect = false;
     try {
       const nrmSA = (t: any) => String(t ?? '').trim().toLowerCase();
-      const clickedText = nrmSA(comp.optionBindings?.[index]?.option?.text);
-      const qTextSA = isShuffled
-        ? ((this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText
-          ?? (this.quizService as any)?.shuffledQuestions?.[qIdx]?.questionText)
-        : (comp.currentQuestion?.questionText
-          ?? (this.quizService as any)?.questions?.[qIdx]?.questionText);
-      if (clickedText) {
-        const pristineCorrectTextsSA =
-          this.quizService.getPristineCorrectTextsForQuestion(qTextSA);
-        pristineSingleCorrect = pristineCorrectTextsSA.has(clickedText);
+      const clickedBinding = comp.optionBindings?.[index];
+      const clickedText = nrmSA(clickedBinding?.option?.text);
+      const clickedFlag = clickedBinding?.option?.correct;
+      if (
+        clickedFlag === true || String(clickedFlag) === 'true' ||
+        clickedFlag === 1 || clickedFlag === '1'
+      ) {
+        pristineSingleCorrect = true;
+      } else if (clickedText) {
+        const candidates = isShuffled
+          ? [
+              (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText,
+              (this.quizService as any)?.shuffledQuestions?.[qIdx]?.questionText,
+              (this.quizService as any)?.questions?.[qIdx]?.questionText,
+              comp.currentQuestion?.questionText
+            ]
+          : [
+              (this.quizService as any)?.questions?.[qIdx]?.questionText,
+              (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText,
+              comp.currentQuestion?.questionText
+            ];
+        for (const qText of candidates) {
+          if (!qText) continue;
+          const pristineCorrectTextsSA =
+            this.quizService.getPristineCorrectTextsForQuestion(qText);
+          if (pristineCorrectTextsSA.has(clickedText)) {
+            pristineSingleCorrect = true;
+            break;
+          }
+        }
       }
     } catch { /* ignore */ }
 

@@ -411,13 +411,19 @@ export class OptionItemComponent implements OnChanges, OnInit {
       : (this.quizService as any)?.questions?.[qIdx];
     const correctTextsSA =
       this.quizService.getPristineCorrectTextsForQuestion(liveSAQ?.questionText);
-    if (correctTextsSA.size === 0) return false;
 
-    // Lock only when at least one selection's text matches a pristine
-    // correct text for this exact question.
-    const hasCorrectSelection = selections.some(
-      (s: any) => correctTextsSA.has(nrmSA(s?.text))
-    );
+    // Lock as soon as the selection record itself is flagged correct, OR
+    // its text matches a pristine correct text. The flag fallback covers
+    // the case where the cache lookup misses (stale questionText / wrong
+    // qIdx). Selection records are spread from the binding option which
+    // carries `correct: true` for the canonical correct option from JSON.
+    const hasCorrectSelection = selections.some((s: any) => {
+      if (s?.correct === true || String(s?.correct) === 'true' ||
+          s?.correct === 1 || s?.correct === '1') {
+        return true;
+      }
+      return correctTextsSA.has(nrmSA(s?.text));
+    });
     return hasCorrectSelection;
   }
 
