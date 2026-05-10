@@ -90,15 +90,6 @@ export class SocAnswerProcessingService {
     const clickState = this.clickHandler.computeMultiAnswerClickState(
       index, durableSet, effectiveCorrectIndices
     );
-    console.log('[Q2-DEBUG] clickState',
-      'index=', index,
-      'durableSet=', JSON.stringify([...durableSet]),
-      'effectiveCorrectIndices=', JSON.stringify(effectiveCorrectIndices),
-      'qIdx=', qIdx,
-      'correctSelected=', clickState.correctSelected,
-      'remaining=', clickState.remaining,
-      'isClickedCorrect=', clickState.isClickedCorrect
-    );
 
     if (!comp.disabledOptionsPerQuestion.has(qIdx)) {
       comp.disabledOptionsPerQuestion.set(qIdx, new Set<number>());
@@ -183,25 +174,6 @@ export class SocAnswerProcessingService {
     // correctly show green. Pristine indices are the immutable source of truth.
     const freshOption = comp.optionBindings?.[index]?.option ?? binding.option;
     const isClickedCorrect = new Set(effectiveCorrectIndices).has(index);
-    try {
-      const liveQT = comp.currentQuestion?.questionText;
-      const pristineTexts = this.quizService.getPristineCorrectTextsForQuestion(liveQT);
-      const bundleSize = ((this.quizService as any)?.quizInitialState ?? []).length;
-      const bindingTexts = (comp.optionBindings ?? []).map((b: any) => b?.option?.text);
-      const bindingCorrects = (comp.optionBindings ?? []).map((b: any) => b?.option?.correct);
-      console.log('[Q2-DEBUG] processMultiAnswerClick',
-        'index=', index,
-        'effectiveCorrectIndices=', JSON.stringify(effectiveCorrectIndices),
-        'isClickedCorrect=', isClickedCorrect,
-        '|| liveQText=', liveQT,
-        '|| pristineCorrectTexts=', JSON.stringify([...pristineTexts]),
-        '|| bundleSize=', bundleSize,
-        '|| bindingTexts=', JSON.stringify(bindingTexts),
-        '|| bindingCorrects=', JSON.stringify(bindingCorrects)
-      );
-    } catch (e: any) {
-      console.log('[Q2-DEBUG] log error:', e?.message);
-    }
     comp._feedbackDisplay = {
       idx: index,
       config: {
