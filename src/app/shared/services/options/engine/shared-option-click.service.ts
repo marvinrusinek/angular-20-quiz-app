@@ -42,6 +42,13 @@ export class SharedOptionClickService {
   ) {}
 
   onOptionUI(comp: any, ev: any): void {
+    console.log('[Q-DEBUG] onOptionUI fired',
+      'ev=', ev,
+      'currentQuestionIndex=', comp.currentQuestionIndex,
+      'optionBindings.length=', comp.optionBindings?.length,
+      'binding[ev.displayIndex]?.disabled=', comp.optionBindings?.[ev?.displayIndex]?.disabled,
+      'binding[ev.displayIndex]?.option.text=', comp.optionBindings?.[ev?.displayIndex]?.option?.text
+    );
     if (ev == null || ev.optionId == null) return;
 
     const index = ev.displayIndex ?? comp.findBindingByOptionId(ev.optionId)?.i;
