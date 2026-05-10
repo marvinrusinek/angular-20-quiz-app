@@ -258,6 +258,13 @@ export class SharedOptionComponent
           this._feedbackDisplay = null;
           this._lastClickFeedback = null;
           this.activeFeedbackConfig = null;
+          // Reset the radio-group form value so Q3's index-3 click ("All of
+          // the above") doesn't carry over and auto-check Q5's NgModule
+          // (also at displayIndex 3). The pre-checked state suppresses
+          // mat-radio-button's (change) event on subsequent clicks.
+          try {
+            this.form?.get('selectedOptionId')?.setValue(null, { emitEvent: false });
+          } catch { /* ignore */ }
           try {
             for (const el of Array.from(document.querySelectorAll('.option-row'))) {
               const html = el as HTMLElement;

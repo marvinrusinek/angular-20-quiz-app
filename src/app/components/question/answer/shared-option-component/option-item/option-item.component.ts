@@ -287,19 +287,6 @@ export class OptionItemComponent implements OnInit {
   }
 
   getOptionClasses(): { [key: string]: boolean } {
-    // Diagnostic: log when this is the NgModule option in Q5 (qIdx 4, displayIndex 3)
-    const b = this.binding();
-    if (b?.option?.text === 'NgModule' && this.currentQuestionIndex() === 4) {
-      console.log('[Q5-DEBUG] getOptionClasses called for NgModule',
-        'displayIndex=', this.displayIndex(),
-        'isSelected=', b.isSelected,
-        'option.highlight=', b.option?.highlight,
-        'option.selected=', b.option?.selected,
-        'option.correct=', b.option?.correct,
-        '_userHasClicked=', this._userHasClicked,
-        '_wasSelected=', this._wasSelected
-      );
-    }
     const classes = { ...this.binding().cssClasses };
 
     // If the timer-expiry handler pre-stamped CSS classes on this binding
@@ -747,11 +734,6 @@ export class OptionItemComponent implements OnInit {
   }
 
   onChanged(event: any): void {
-    console.log('[Q5-DEBUG] option-item.onChanged fired',
-      'text=', this.binding()?.option?.text,
-      'displayIndex=', this.displayIndex(),
-      'optionId=', this.optionId
-    );
     this._userHasClicked = true;
     this.optionUI.emit({
       optionId: this.optionId,
@@ -763,11 +745,6 @@ export class OptionItemComponent implements OnInit {
   }
 
   onContentClick(event: MouseEvent): void {
-    console.log('[Q5-DEBUG] option-item.onContentClick fired',
-      'text=', this.binding()?.option?.text,
-      'displayIndex=', this.displayIndex(),
-      'optionId=', this.optionId
-    );
     event.stopPropagation();  // prevents double firing with parent (click)
     this._userHasClicked = true;
     this.optionUI.emit({
