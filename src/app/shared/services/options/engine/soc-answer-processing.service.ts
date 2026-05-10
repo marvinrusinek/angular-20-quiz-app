@@ -174,6 +174,14 @@ export class SocAnswerProcessingService {
     // correctly show green. Pristine indices are the immutable source of truth.
     const freshOption = comp.optionBindings?.[index]?.option ?? binding.option;
     const isClickedCorrect = new Set(effectiveCorrectIndices).has(index);
+    console.log('[Q2-DEBUG] processMultiAnswerClick',
+      'index=', index,
+      'effectiveCorrectIndices=', JSON.stringify(effectiveCorrectIndices),
+      'isClickedCorrect=', isClickedCorrect,
+      'freshOption.text=', freshOption?.text,
+      'freshOption.correct=', freshOption?.correct,
+      'binding.option.correct=', binding?.option?.correct
+    );
     comp._feedbackDisplay = {
       idx: index,
       config: {
