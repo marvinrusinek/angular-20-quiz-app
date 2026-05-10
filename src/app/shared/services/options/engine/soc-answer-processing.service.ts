@@ -64,39 +64,24 @@ export class SocAnswerProcessingService {
       const liveQ: any = comp.currentQuestion
         ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]
         ?? (this.quizService as any)?.questions?.[qIdx];
-      const liveQText = nrmR(liveQ?.questionText);
       const bindings: any[] = comp.optionBindings ?? [];
-      if (liveQText && bindings.length) {
-        const bundleR: any[] = (this.quizService as any)?.quizInitialState ?? [];
-        outer: for (const quizR of bundleR) {
-          for (const pqR of (quizR?.questions ?? [])) {
-            if (nrmR(pqR?.questionText) !== liveQText) continue;
-            const pristineCorrectTexts = new Set(
-              (pqR?.options ?? [])
-                .filter((o: any) =>
-                  o?.correct === true || String(o?.correct) === 'true' ||
-                  o?.correct === 1 || o?.correct === '1'
-                )
-                .map((o: any) => nrmR(o?.text))
-                .filter((t: string) => !!t)
-            );
-            if (pristineCorrectTexts.size > 0) {
-              const rebuilt: number[] = [];
-              for (let i = 0; i < bindings.length; i++) {
-                if (pristineCorrectTexts.has(nrmR(bindings[i]?.option?.text))) {
-                  rebuilt.push(i);
-                }
-              }
-              // Authoritative override (pristine wins) — but only when
-              // the rebuild actually identifies AT LEAST as many correct
-              // bindings as we already had, to avoid pathological cases
-              // where text matching fails completely.
-              if (rebuilt.length >= effectiveCorrectIndices.length && rebuilt.length > 0) {
-                effectiveCorrectIndices = rebuilt;
-                effectiveCorrectCount = rebuilt.length;
-              }
+      if (bindings.length) {
+        const pristineCorrectTexts =
+          this.quizService.getPristineCorrectTextsForQuestion(liveQ?.questionText);
+        if (pristineCorrectTexts.size > 0) {
+          const rebuilt: number[] = [];
+          for (let i = 0; i < bindings.length; i++) {
+            if (pristineCorrectTexts.has(nrmR(bindings[i]?.option?.text))) {
+              rebuilt.push(i);
             }
-            break outer;
+          }
+          // Authoritative override (pristine wins) — but only when the
+          // rebuild identifies AT LEAST as many correct bindings as we
+          // already had, to avoid pathological cases where text matching
+          // fails completely.
+          if (rebuilt.length >= effectiveCorrectIndices.length && rebuilt.length > 0) {
+            effectiveCorrectIndices = rebuilt;
+            effectiveCorrectCount = rebuilt.length;
           }
         }
       }
@@ -139,35 +124,18 @@ export class SocAnswerProcessingService {
       const liveQS: any = comp.currentQuestion
         ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]
         ?? (this.quizService as any)?.questions?.[qIdx];
-      const liveQTextS = nrmS(liveQS?.questionText);
-      if (liveQTextS) {
-        const bundleS: any[] = (this.quizService as any)?.quizInitialState ?? [];
-        outerS: for (const quizS of bundleS) {
-          for (const pqS of (quizS?.questions ?? [])) {
-            if (nrmS(pqS?.questionText) !== liveQTextS) continue;
-            const pristineCorrectTextsS = new Set(
-              (pqS?.options ?? [])
-                .filter((o: any) =>
-                  o?.correct === true || String(o?.correct) === 'true' ||
-                  o?.correct === 1 || o?.correct === '1'
-                )
-                .map((o: any) => nrmS(o?.text))
-                .filter((t: string) => !!t)
-            );
-            if (pristineCorrectTextsS.size > 1) {
-              const bindingsS: any[] = comp.optionBindings ?? [];
-              let selectedCorrectS = 0;
-              for (const sIdx of durableSet) {
-                if (pristineCorrectTextsS.has(nrmS(bindingsS[sIdx]?.option?.text))) {
-                  selectedCorrectS++;
-                }
-              }
-              if (selectedCorrectS < pristineCorrectTextsS.size) {
-                suppressDisableForUnselected = true;
-              }
-            }
-            break outerS;
+      const pristineCorrectTextsS =
+        this.quizService.getPristineCorrectTextsForQuestion(liveQS?.questionText);
+      if (pristineCorrectTextsS.size > 1) {
+        const bindingsS: any[] = comp.optionBindings ?? [];
+        let selectedCorrectS = 0;
+        for (const sIdx of durableSet) {
+          if (pristineCorrectTextsS.has(nrmS(bindingsS[sIdx]?.option?.text))) {
+            selectedCorrectS++;
           }
+        }
+        if (selectedCorrectS < pristineCorrectTextsS.size) {
+          suppressDisableForUnselected = true;
         }
       }
     } catch { /* ignore */ }
@@ -239,33 +207,17 @@ export class SocAnswerProcessingService {
       const liveQAC: any = comp.currentQuestion
         ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]
         ?? (this.quizService as any)?.questions?.[qIdx];
-      const liveQTextAC = nrmAC(liveQAC?.questionText);
       const bindingsAC: any[] = comp.optionBindings ?? [];
-      if (liveQTextAC && bindingsAC.length) {
-        const bundleAC: any[] = (this.quizService as any)?.quizInitialState ?? [];
-        outerAC: for (const quizAC of bundleAC) {
-          for (const pqAC of (quizAC?.questions ?? [])) {
-            if (nrmAC(pqAC?.questionText) !== liveQTextAC) continue;
-            const pristineCorrectTextsAC = new Set(
-              (pqAC?.options ?? [])
-                .filter((o: any) =>
-                  o?.correct === true || String(o?.correct) === 'true' ||
-                  o?.correct === 1 || o?.correct === '1'
-                )
-                .map((o: any) => nrmAC(o?.text))
-                .filter((t: string) => !!t)
-            );
-            if (pristineCorrectTextsAC.size > 0) {
-              // Count selected bindings whose text matches a pristine correct
-              let selectedCorrectCount = 0;
-              for (const selIdx of durableSet) {
-                const txt = nrmAC(bindingsAC[selIdx]?.option?.text);
-                if (pristineCorrectTextsAC.has(txt)) selectedCorrectCount++;
-              }
-              allCorrectInDurable = selectedCorrectCount >= pristineCorrectTextsAC.size;
-            }
-            break outerAC;
+      if (bindingsAC.length) {
+        const pristineCorrectTextsAC =
+          this.quizService.getPristineCorrectTextsForQuestion(liveQAC?.questionText);
+        if (pristineCorrectTextsAC.size > 0) {
+          let selectedCorrectCount = 0;
+          for (const selIdx of durableSet) {
+            const txt = nrmAC(bindingsAC[selIdx]?.option?.text);
+            if (pristineCorrectTextsAC.has(txt)) selectedCorrectCount++;
           }
+          allCorrectInDurable = selectedCorrectCount >= pristineCorrectTextsAC.size;
         }
       }
     } catch { /* keep upstream value */ }
@@ -292,21 +244,13 @@ export class SocAnswerProcessingService {
       // Resolve explanation text from pristine data and write directly
       let fetText = '';
       try {
-        const nrmFET = (t: any) => String(t ?? '').trim().toLowerCase();
         const fetQText = isShuffled
-          ? (nrmFET((this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText)
-            || nrmFET((this.quizService as any)?.shuffledQuestions?.[qIdx]?.questionText))
-          : (nrmFET(comp.currentQuestion?.questionText)
-            || nrmFET((this.quizService as any)?.questions?.[qIdx]?.questionText));
-        const bundleFET: any[] = (this.quizService as any)?.quizInitialState ?? [];
-        for (const quiz of bundleFET) {
-          for (const pq of (quiz?.questions ?? [])) {
-            if (nrmFET(pq?.questionText) !== fetQText) continue;
-            fetText = (pq?.explanation ?? '').trim();
-            break;
-          }
-          if (fetText) break;
-        }
+          ? ((this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText
+            ?? (this.quizService as any)?.shuffledQuestions?.[qIdx]?.questionText)
+          : (comp.currentQuestion?.questionText
+            ?? (this.quizService as any)?.questions?.[qIdx]?.questionText);
+        const pristineFETQ = this.quizService.getPristineQuestionByText(fetQText);
+        fetText = ((pristineFETQ as any)?.explanation ?? '').trim();
         // Also try live question objects
         if (!fetText) {
           const liveQ = comp.currentQuestion
@@ -473,52 +417,33 @@ export class SocAnswerProcessingService {
     // incorrects after all correct answers are selected.
     try {
       const nrmGuard = (t: any) => String(t ?? '').trim().toLowerCase();
-      const liveQText = nrmGuard(comp.currentQuestion?.questionText)
-        || nrmGuard((this.quizService as any)?.questions?.[qIdx]?.questionText)
-        || nrmGuard((this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText);
-      if (liveQText) {
-        const bundleGuard: any[] = (this.quizService as any)?.quizInitialState ?? [];
-        for (const quiz of bundleGuard) {
-          for (const pq of (quiz?.questions ?? [])) {
-            if (nrmGuard(pq?.questionText) !== liveQText) continue;
-            const pristineCorrectCount = (pq?.options ?? []).filter(
-              (o: any) =>
-                o?.correct === true || String(o?.correct) === 'true' ||
-                o?.correct === 1 || o?.correct === '1'
-            ).length;
-            if (pristineCorrectCount > 1) {
-              const correctIndicesByText: number[] = [];
-              const pristineCorrectTexts = new Set(
-                (pq?.options ?? [])
-                  .filter((o: any) =>
-                    o?.correct === true || String(o?.correct) === 'true' ||
-                    o?.correct === 1 || o?.correct === '1'
-                  )
-                  .map((o: any) => nrmGuard(o?.text))
-              );
-              const bindings: any[] = comp.optionBindings ?? [];
-              for (let i = 0; i < bindings.length; i++) {
-                if (pristineCorrectTexts.has(nrmGuard(bindings[i]?.option?.text))) {
-                  correctIndicesByText.push(i);
-                }
-              }
-              this.processMultiAnswerClick({
-                comp,
-                index,
-                binding: comp.optionBindings?.[index],
-                qIdx,
-                durableSet,
-                effectiveCorrectIndices: correctIndicesByText.length
-                  ? correctIndicesByText
-                  : effectiveCorrectIndices,
-                effectiveCorrectCount: correctIndicesByText.length || pristineCorrectCount,
-                isShuffled
-              });
-              return;
-            }
-            break;
+      const liveQText = comp.currentQuestion?.questionText
+        ?? (this.quizService as any)?.questions?.[qIdx]?.questionText
+        ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText;
+      const pristineCorrectTexts =
+        this.quizService.getPristineCorrectTextsForQuestion(liveQText);
+      const pristineCorrectCount = pristineCorrectTexts.size;
+      if (pristineCorrectCount > 1) {
+        const correctIndicesByText: number[] = [];
+        const bindings: any[] = comp.optionBindings ?? [];
+        for (let i = 0; i < bindings.length; i++) {
+          if (pristineCorrectTexts.has(nrmGuard(bindings[i]?.option?.text))) {
+            correctIndicesByText.push(i);
           }
         }
+        this.processMultiAnswerClick({
+          comp,
+          index,
+          binding: comp.optionBindings?.[index],
+          qIdx,
+          durableSet,
+          effectiveCorrectIndices: correctIndicesByText.length
+            ? correctIndicesByText
+            : effectiveCorrectIndices,
+          effectiveCorrectCount: correctIndicesByText.length || pristineCorrectCount,
+          isShuffled
+        });
+        return;
       }
     } catch { /* fall through to single-answer path */ }
 
@@ -547,31 +472,21 @@ export class SocAnswerProcessingService {
     }
     const correctSet = new Set(correctIdxs);
 
-    // Pristine cross-check for single-answer
+    // Pristine cross-check for single-answer: was the clicked option's
+    // text in the question's pristine correct-text set?
     let pristineSingleCorrect = false;
     try {
       const nrmSA = (t: any) => String(t ?? '').trim().toLowerCase();
       const clickedText = nrmSA(comp.optionBindings?.[index]?.option?.text);
       const qTextSA = isShuffled
-        ? (nrmSA((this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText)
-          || nrmSA((this.quizService as any)?.shuffledQuestions?.[qIdx]?.questionText))
-        : (nrmSA(comp.currentQuestion?.questionText)
-          || nrmSA((this.quizService as any)?.questions?.[qIdx]?.questionText));
-      if (clickedText && qTextSA) {
-        const bundleSA: any[] = (this.quizService as any)?.quizInitialState ?? [];
-        let saMatched = false;
-        for (const quiz of bundleSA) {
-          for (const pq of (quiz?.questions ?? [])) {
-            if (nrmSA(pq?.questionText) !== qTextSA) continue;
-            saMatched = true;
-            const matchedOpt = (pq?.options ?? []).find((o: any) => nrmSA(o?.text) === clickedText);
-            if (matchedOpt !== undefined) {
-              pristineSingleCorrect = matchedOpt?.correct === true || String(matchedOpt?.correct) === 'true';
-            }
-            break;
-          }
-          if (saMatched) break;
-        }
+        ? ((this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]?.questionText
+          ?? (this.quizService as any)?.shuffledQuestions?.[qIdx]?.questionText)
+        : (comp.currentQuestion?.questionText
+          ?? (this.quizService as any)?.questions?.[qIdx]?.questionText);
+      if (clickedText) {
+        const pristineCorrectTextsSA =
+          this.quizService.getPristineCorrectTextsForQuestion(qTextSA);
+        pristineSingleCorrect = pristineCorrectTextsSA.has(clickedText);
       }
     } catch { /* ignore */ }
 
@@ -748,32 +663,16 @@ export class SocAnswerProcessingService {
       const liveQAR: any = comp.currentQuestion
         ?? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]
         ?? (this.quizService as any)?.questions?.[qIdx];
-      const liveQTextAR = nrmAR(liveQAR?.questionText);
       const bindingsAR: any[] = Array.isArray(comp.optionBindings)
         ? comp.optionBindings
         : (typeof comp.optionBindings === 'function' ? comp.optionBindings() : []);
-      if (!liveQTextAR || !bindingsAR.length) return;
+      if (!bindingsAR.length) return;
 
-      // Resolve canonical correct text(s) from quizInitialState — pristine
-      // wins over potentially-mutated live binding flags.
-      const bundleAR: any[] = (this.quizService as any)?.quizInitialState ?? [];
-      let pristineCorrectTextsAR: Set<string> | null = null;
-      outerAR: for (const quizAR of bundleAR) {
-        for (const pqAR of (quizAR?.questions ?? [])) {
-          if (nrmAR(pqAR?.questionText) !== liveQTextAR) continue;
-          pristineCorrectTextsAR = new Set(
-            (pqAR?.options ?? [])
-              .filter((o: any) =>
-                o?.correct === true || String(o?.correct) === 'true' ||
-                o?.correct === 1 || o?.correct === '1'
-              )
-              .map((o: any) => nrmAR(o?.text))
-              .filter((t: string) => !!t)
-          );
-          break outerAR;
-        }
-      }
-      if (!pristineCorrectTextsAR || pristineCorrectTextsAR.size !== 1) return;
+      // Pristine correct text(s) from cache — single-answer auto-reveal
+      // only fires when there's exactly one canonical correct option.
+      const pristineCorrectTextsAR =
+        this.quizService.getPristineCorrectTextsForQuestion(liveQAR?.questionText);
+      if (pristineCorrectTextsAR.size !== 1) return;
 
       // Collect every selected text for this question. For single-answer,
       // selectedOptionsMap holds only the latest click (each click replaces
@@ -830,7 +729,7 @@ export class SocAnswerProcessingService {
       const correctIdxsAR: number[] = [];
       for (const [bi, b] of bindingsAR.entries()) {
         const tx = nrmAR(b?.option?.text);
-        if (tx && pristineCorrectTextsAR!.has(tx)) correctIdxsAR.push(bi);
+        if (tx && pristineCorrectTextsAR.has(tx)) correctIdxsAR.push(bi);
       }
 
       if (!comp.disabledOptionsPerQuestion.has(qIdx)) {
