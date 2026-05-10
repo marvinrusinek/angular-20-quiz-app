@@ -296,7 +296,7 @@ export class QuizQuestionComponent extends BaseQuestion
     return this.componentOrchestrator.runAfterViewInit(this);
   }
 
-  override async ngOnChanges(changes: SimpleChanges): Promise<void> {
+  async ngOnChanges(changes: SimpleChanges): Promise<void> {
     return this.componentOrchestrator.runOnChanges(this, changes);
   }
 

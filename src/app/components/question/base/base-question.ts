@@ -1,10 +1,9 @@
-import { ChangeDetectorRef, Directive, input, model, OnChanges, OnDestroy,
-  OnInit, output, SimpleChange, SimpleChanges } from '@angular/core';
+import { ChangeDetectorRef, Directive, input, model, OnDestroy,
+  OnInit, output } from '@angular/core';
 import { FormBuilder, FormControl, FormGroup } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
 
-import { QuestionType } from '../../../shared/models/question-type.enum';
 import { Option } from '../../../shared/models/Option.model';
 import { OptionBindings } from '../../../shared/models/OptionBindings.model';
 import { QuizQuestion } from '../../../shared/models/QuizQuestion.model';
@@ -25,7 +24,7 @@ export interface OptionClickEvent {
 
 @Directive()
 export abstract class BaseQuestion<T extends OptionClickEvent =
-  OptionClickEvent> implements OnInit, OnChanges, OnDestroy
+  OptionClickEvent> implements OnInit, OnDestroy
 {
   readonly optionClicked = output<T>();
   readonly questionChange = output<QuizQuestion>();
@@ -69,36 +68,6 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
     this.subscribeToQuestionChanges();
   }
 
-  async ngOnChanges(changes: SimpleChanges): Promise<void> {
-    let shouldInitializeDynamicComponent = false;
-
-    if (changes['question']) {
-      const newQuestion = changes['question'].currentValue;
-      if (!newQuestion || !Array.isArray(newQuestion.options) ||
-        newQuestion.options.length === 0) {
-        setTimeout(() => this.ngOnChanges(changes), 50);  // retry once after delay
-        return;
-      }
-
-      this.handleQuestionChange(changes['question']);
-      this.initializeQuestionIfAvailable();
-      await this.initializeSharedOptionConfig();
-
-      shouldInitializeDynamicComponent = true;
-    }
-
-    if (changes['optionsToDisplay'] && changes['optionsToDisplay'].currentValue) {
-      this.handleOptionsToDisplayChange(changes['optionsToDisplay']);
-      shouldInitializeDynamicComponent = true;
-    }
-
-    // Safe to initialize dynamic component after both inputs are handled
-    if (shouldInitializeDynamicComponent && this.question() &&
-      this.optionsToDisplay()?.length > 0) {
-      this.initializeDynamicComponentIfNeeded();
-    }
-  }
-
   ngOnDestroy(): void {
     this.currentQuestionSubscription?.unsubscribe();
   }
@@ -106,31 +75,6 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
   private updateSelectedOption(index: number): void {
     this.selectedOptionIndex = index;
     this.showFeedback.set(true);
-  }
-
-  private initializeDynamicComponentIfNeeded(): void {
-    if (this.containerInitialized) return;
-
-    // Defer load if inputs are not yet ready
-    if (
-      !this.question() ||
-      !Array.isArray(this.optionsToDisplay()) ||
-      this.optionsToDisplay().length === 0
-    ) {
-      setTimeout(() => {
-        if (!this.containerInitialized) {
-          this.initializeDynamicComponentIfNeeded();
-        }
-      }, 50);
-      return;
-    }
-
-    try {
-      this.containerInitialized = true;
-      this.cdRef.markForCheck();
-    } catch (error: any) {
-      // error handled silently
-    }
   }
 
   private updateQuizStateService(): void {
@@ -346,33 +290,4 @@ export abstract class BaseQuestion<T extends OptionClickEvent =
     if (this.quizStateService) this.quizService.setCurrentQuestion(question);
   }
 
-  private handleQuestionChange(change: SimpleChange): void {
-    if (change.currentValue) {
-      this.question.set(change.currentValue);
-
-      // Sync internal type with question type to enable multi-select logic
-      if (this.question()?.type === QuestionType.MultipleAnswer) {
-        this.type.set('multiple');
-      } else {
-        this.type.set('single');
-      }
-
-      this.updateQuizStateService();
-
-      if (
-        this.question() &&
-        Array.isArray(this.question()!.options) &&
-        this.question()!.options.length > 0
-      ) {
-        this.initializeQuestion();
-        this.optionsInitialized = true;
-      }
-    }
-  }
-
-  private handleOptionsToDisplayChange(change: SimpleChange): void {
-    if (change.currentValue) {
-      this.optionsToDisplay.set(change.currentValue);
-    }
-  }
 }
