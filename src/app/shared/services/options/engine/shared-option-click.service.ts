@@ -42,13 +42,6 @@ export class SharedOptionClickService {
   ) {}
 
   onOptionUI(comp: any, ev: any): void {
-    console.log('[Q-DEBUG] onOptionUI fired',
-      'ev=', ev,
-      'currentQuestionIndex=', comp.currentQuestionIndex,
-      'optionBindings.length=', comp.optionBindings?.length,
-      'binding[ev.displayIndex]?.disabled=', comp.optionBindings?.[ev?.displayIndex]?.disabled,
-      'binding[ev.displayIndex]?.option.text=', comp.optionBindings?.[ev?.displayIndex]?.option?.text
-    );
     if (ev == null || ev.optionId == null) return;
 
     const index = ev.displayIndex ?? comp.findBindingByOptionId(ev.optionId)?.i;
@@ -350,16 +343,6 @@ export class SharedOptionClickService {
     }
     const effectiveCorrectCount = effectiveCorrectIndices.length;
     const isMultiFromQ = comp.isMultiMode || comp.type === 'multiple' || effectiveCorrectCount > 1 || pristineCorrectCount > 1;
-    console.log('[Q-DEBUG] runOptionContentClick branching',
-      'qIdx=', qIdx,
-      'effectiveCorrectIndices=', JSON.stringify(effectiveCorrectIndices),
-      'effectiveCorrectCount=', effectiveCorrectCount,
-      'pristineCorrectCount=', pristineCorrectCount,
-      'comp.isMultiMode=', comp.isMultiMode,
-      'comp.type=', comp.type,
-      'isMultiFromQ=', isMultiFromQ,
-      'comp.currentQuestion.text=', comp.currentQuestion?.questionText
-    );
 
     // Universal "all correct selected" timer stop
     try {
