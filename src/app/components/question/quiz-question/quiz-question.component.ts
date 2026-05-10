@@ -10,8 +10,6 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Observable, of, Subject, Subscription } from 'rxjs';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatRadioModule } from '@angular/material/radio';
-import { AnswerComponent } from '../answer/answer-component/answer.component';
-
 import { Option } from '../../../shared/models/Option.model';
 import { OptionBindings } from '../../../shared/models/OptionBindings.model';
 import { QuestionPayload } from '../../../shared/models/QuestionPayload.model';
@@ -45,8 +43,7 @@ import { FeedbackKey, FeedbackConfig } from '../../../shared/models/FeedbackConf
     CommonModule,
     ReactiveFormsModule,
     MatCheckboxModule,
-    MatRadioModule,
-    AnswerComponent
+    MatRadioModule
   ],
   templateUrl: './quiz-question.component.html',
   styleUrls: ['./quiz-question.component.scss'],
