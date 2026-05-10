@@ -136,7 +136,7 @@ export class OptionUiSyncService {
       ctx.optionBindings = ctx.optionBindings.map((b, i) => {
         const isCurrent = (i === index);
         const inHistory = historySet.has(i);
-        return {
+        const newBinding = {
           ...b,
           isSelected: isCurrent,
           highlightCorrect: false,
@@ -149,7 +149,19 @@ export class OptionUiSyncService {
             showIcon: isCurrent || inHistory
           } : b.option
         };
+        if (i === index) {
+          console.log('[Q5-DEBUG] new binding for clicked',
+            'i=', i,
+            'optionId=', newBinding.option?.optionId,
+            'text=', newBinding.option?.text,
+            'highlight=', newBinding.option?.highlight,
+            'selected=', newBinding.option?.selected,
+            'isSelected=', newBinding.isSelected
+          );
+        }
+        return newBinding;
       });
+      console.log('[Q5-DEBUG] ctx.optionBindings reassigned, count=', ctx.optionBindings.length, 'clickedIndex=', index);
       ctx.selectedOptionMap.clear();
       ctx.feedbackConfigs = {};
     }
