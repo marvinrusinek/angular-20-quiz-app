@@ -166,13 +166,21 @@ export class SocAnswerProcessingService {
       (comp.optionsToDisplay ?? []).filter((o: any) => o && typeof o === 'object'),
       comp.currentQuestion!
     );
+    // Use the freshly-rebuilt binding's option (has the up-to-date `correct`
+    // flag from this click's `optionOverrides`). The `binding` parameter
+    // captures the option BEFORE the rebuild at line 143; for multi-answer
+    // 2nd-correct-clicks where the 1st click's `effectiveCorrectIndices`
+    // didn't yet include the 2nd correct position, that stale option has
+    // `correct: false` and the feedback shows a sad face even though the
+    // visuals (driven by the new bindings) correctly show green.
+    const freshOption = comp.optionBindings?.[index]?.option ?? binding.option;
     comp._feedbackDisplay = {
       idx: index,
       config: {
         feedback: feedbackText,
         showFeedback: true,
         correctMessage,
-        selectedOption: binding.option,
+        selectedOption: freshOption,
         options: comp.optionsToDisplay ?? [],
         question: comp.currentQuestion ?? null,
         idx: index

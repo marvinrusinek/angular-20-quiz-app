@@ -376,8 +376,16 @@ export class SharedOptionClickService {
     // ─── Delegate to answer processing sub-services ───
 
     if (isMultiFromQ && effectiveCorrectCount > 0) {
+      // Use fresh binding from comp.optionBindings[index] — the local
+      // `binding` variable was captured before updateOptionAndUI's
+      // `comp.optionBindings = state.optionBindings` reassign at line 238,
+      // so its option may have a stale `correct` flag relative to the
+      // bindings now driving the UI. Without this fix, _feedbackDisplay
+      // captures the stale option and the 2nd correct click on a
+      // multi-answer question shows a sad face instead of smiley.
+      const freshBinding = comp.optionBindings?.[index] ?? binding;
       this.answerProcessing.processMultiAnswerClick({
-        comp, index, binding, qIdx, durableSet,
+        comp, index, binding: freshBinding, qIdx, durableSet,
         effectiveCorrectIndices, effectiveCorrectCount, isShuffled
       });
       return;
