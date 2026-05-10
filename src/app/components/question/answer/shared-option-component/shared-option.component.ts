@@ -105,6 +105,7 @@ export class SharedOptionComponent
   readonly questionVersion = input<number>(0);  // increments every time questionIndex changes
   readonly sharedOptionConfig = input<SharedOptionConfig>(undefined as unknown as SharedOptionConfig);
   public selectedOptionMap = new Map<number | string, boolean>();
+  public perQuestionHistory = new Set<number | string>();
   public ui!: SharedOptionUiState;
   public isSelected = false;
   feedbackBindings: FeedbackProps[] = [];
@@ -222,16 +223,47 @@ export class SharedOptionComponent
             if (!b) continue;
             delete (b as any)._timerExpiredStamped;
             delete (b as any)._timerExpiredStampedForIndex;
+            delete (b as any)._autoRevealedCorrect;
             if (b.cssClasses) {
               delete b.cssClasses['correct-option'];
               delete b.cssClasses['incorrect-option'];
             }
+            b.isSelected = false;
+            b.disabled = false;
+            b.highlight = false;
+            b.showFeedback = false;
+            b.highlightCorrect = false;
+            b.highlightIncorrect = false;
+            if (b.option) {
+              b.option.selected = false;
+              b.option.highlight = false;
+              b.option.showIcon = false;
+              b.option.active = true;
+              delete (b.option as any)._autoRevealedCorrect;
+              delete (b.option as any).feedback;
+            }
           }
+          this.selectedOptionMap.clear();
+          this.perQuestionHistory.clear();
+          this.selectedOptionHistory = [];
+          this.lastFeedbackOptionId = -1;
+          this.lastFeedbackQuestionIndex = v;
+          this.feedbackConfigs = {};
+          this.showFeedbackForOption = {};
+          this.showFeedback = false;
+          this.highlightedOptionIds.clear();
+          this.flashDisabledSet.clear();
+          this.lockedIncorrectOptionIds.clear();
+          this.forceDisableAll = false;
+          this._feedbackDisplay = null;
+          this._lastClickFeedback = null;
+          this.activeFeedbackConfig = null;
           try {
             for (const el of Array.from(document.querySelectorAll('.option-row'))) {
               const html = el as HTMLElement;
               html.style.pointerEvents = '';
               el.classList.remove('correct-option');
+              el.classList.remove('incorrect-option');
             }
           } catch { /* ignore — non-browser env */ }
         }

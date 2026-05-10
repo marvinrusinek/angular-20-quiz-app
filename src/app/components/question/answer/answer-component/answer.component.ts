@@ -49,7 +49,7 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
   }>();
   readonly questionData = model<QuizQuestion>(undefined as unknown as QuizQuestion);
   readonly isNavigatingBackwards = input<boolean>(false);
-  readonly currentQuestionIndex = input<number>(undefined as unknown as number);
+  readonly currentQuestionIndex = model<number>(undefined as unknown as number);
   readonly quizId = input<string>(undefined as unknown as string);
   readonly form = input<FormGroup>(undefined as unknown as FormGroup);
   private optionBindingsSource: Option[] = [];
@@ -118,14 +118,19 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
           currentBindings.every((b, i) => {
             const a = b.option;
             const n = next[i];
-            return (a?.optionId != null && a.optionId === n?.optionId) ||
-              (a?.text && a.text === n?.text);
+            return !!a?.text && a.text === n?.text;
           });
         if (sameSet) {
           this.cdRef.markForCheck();
           return;
         }
-        this.optionBindingsSource = next.map((o: Option) => ({ ...o }));
+        this.optionBindingsSource = next.map((o: Option) => ({
+          ...o,
+          selected: false,
+          highlight: false,
+          showIcon: false,
+          feedback: undefined
+        }));
         this.optionBindings.set(this.rebuildOptionBindings(this.optionBindingsSource));
         this.renderReady = true;
         this.syncOptionsWithSelections();
@@ -176,6 +181,15 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
         // from clearing valid options that may have arrived via @Input
         if (!opts?.length) return;
 
+        // Sync currentQuestionIndex with quizService on every Q->Q
+        // emission. Without this, the dynamic AnswerComponent's
+        // currentQuestionIndex stays at its init value (0) and SOC's
+        // Q->Q cleanup effect never fires, leaking visual state.
+        const svcIdx = this.quizService.currentQuestionIndex;
+        if (typeof svcIdx === 'number' && Number.isFinite(svcIdx)) {
+          this.currentQuestionIndex.set(svcIdx);
+        }
+
         this.incomingOptions = this.answerOptionsService.normalizeOptions(
           structuredClone(opts)
         );
@@ -220,7 +234,13 @@ export class AnswerComponent extends BaseQuestion<OptionClickedPayload>
     config: { resetSelection?: boolean } = {}
   ): void {
     const normalized = this.answerOptionsService.normalizeOptions(options);
-    const nextOptions = normalized.map((option: Option) => ({ ...option }));
+    const nextOptions = normalized.map((option: Option) => ({
+      ...option,
+      selected: false,
+      highlight: false,
+      showIcon: false,
+      feedback: undefined
+    }));
 
     if (config.resetSelection ?? true) this.resetSelectionState();
 
