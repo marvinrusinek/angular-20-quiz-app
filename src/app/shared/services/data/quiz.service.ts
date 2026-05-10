@@ -721,6 +721,49 @@ export class QuizService {
     );
   }
 
+  /**
+   * Lazy O(1) lookup of pristine correct option texts for a given live
+   * questionText. Replaces the nested `for (quiz) for (question)` scan
+   * over `quizInitialState` that was being run inside hot template
+   * methods (isDisabled / getOptionBackgroundColor / etc.) on every CD
+   * cycle for every option-item — easily thousands of string compares
+   * per click. Cache is built once on first access.
+   */
+  public getPristineCorrectTextsForQuestion(
+    questionText: string | null | undefined
+  ): Set<string> {
+    const key = String(questionText ?? '').trim().toLowerCase();
+    if (!key) return new Set();
+    if (!this._pristineCorrectTextsByQText) {
+      this._pristineCorrectTextsByQText = this.buildPristineCorrectTextsCache();
+    }
+    return this._pristineCorrectTextsByQText.get(key) ?? new Set();
+  }
+
+  private _pristineCorrectTextsByQText: Map<string, Set<string>> | null = null;
+
+  private buildPristineCorrectTextsCache(): Map<string, Set<string>> {
+    const cache = new Map<string, Set<string>>();
+    const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
+    const isCorrect = (v: any) =>
+      v === true || String(v) === 'true' || v === 1 || v === '1';
+    for (const quiz of this.quizInitialState ?? []) {
+      for (const pq of quiz?.questions ?? []) {
+        const key = nrm(pq?.questionText);
+        if (!key || cache.has(key)) continue;
+        const correctTexts = new Set<string>();
+        for (const opt of pq?.options ?? []) {
+          if (isCorrect(opt?.correct)) {
+            const txt = nrm(opt?.text);
+            if (txt) correctTexts.add(txt);
+          }
+        }
+        cache.set(key, correctTexts);
+      }
+    }
+    return cache;
+  }
+
   applySessionQuestions(quizId: string, questions: QuizQuestion[]): void {
     const newQuizId = this.sessionManager.applySessionQuestions(
       this, quizId, questions,

@@ -447,29 +447,8 @@ export class OptionClickHandlerService {
           ? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIndex]
             ?? (this.quizService as any)?.shuffledQuestions?.[qIndex]
           : (this.quizService as any)?.questions?.[qIndex];
-        const liveSAQText = nrmSA(liveSAQ?.questionText);
-        const bundleSA: any[] = (this.quizService as any)?.quizInitialState ?? [];
-        let pristineSAQ: any = null;
-        if (liveSAQText) {
-          outerSA: for (const quizSA of bundleSA) {
-            for (const pqSA of (quizSA?.questions ?? [])) {
-              if (nrmSA(pqSA?.questionText) === liveSAQText) {
-                pristineSAQ = pqSA;
-                break outerSA;
-              }
-            }
-          }
-        }
-        const saOpts = (pristineSAQ?.options ?? liveSAQ?.options ?? []) as any[];
-        const correctTextsSA = new Set(
-          saOpts
-            .filter((o: any) =>
-              o?.correct === true || String(o?.correct) === 'true' ||
-              o?.correct === 1 || o?.correct === '1'
-            )
-            .map((o: any) => nrmSA(o?.text))
-            .filter((t: string) => !!t)
-        );
+        const correctTextsSA =
+          this.quizService.getPristineCorrectTextsForQuestion(liveSAQ?.questionText);
         if (correctTextsSA.size === 1) {
           const anyCorrectSelected = saSelections.some((s: any) =>
             correctTextsSA.has(nrmSA(s?.text))

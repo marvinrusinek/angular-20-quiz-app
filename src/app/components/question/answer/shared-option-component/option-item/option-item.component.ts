@@ -120,33 +120,12 @@ export class OptionItemComponent implements OnChanges, OnInit {
       const _qIdx = this.currentQuestionIndex() ?? this.quizService.currentQuestionIndex;
 
       const nrm = (t: any) => String(t ?? '').trim().toLowerCase();
-      const liveQT = nrm(
+      const liveQT =
         (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[_qIdx]?.questionText
-        ?? (this.quizService as any)?.questions?.[_qIdx]?.questionText
-      );
-      if (!liveQT) return;
-
-      const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
-      let pristineCorrectTexts: Set<string> | null = null;
-      for (const quiz of bundle) {
-        let found = false;
-        for (const pq of (quiz?.questions ?? [])) {
-          if (nrm(pq?.questionText) !== liveQT) continue;
-          pristineCorrectTexts = new Set(
-            (pq?.options ?? [])
-              .filter((o: any) =>
-                o?.correct === true || String(o?.correct) === 'true' ||
-                o?.correct === 1 || o?.correct === '1'
-              )
-              .map((o: any) => nrm(o?.text))
-              .filter((t: string) => !!t)
-          );
-          found = true;
-          break;
-        }
-        if (found) break;
-      }
-      if (!pristineCorrectTexts || pristineCorrectTexts.size < 2) return;
+        ?? (this.quizService as any)?.questions?.[_qIdx]?.questionText;
+      const pristineCorrectTexts =
+        this.quizService.getPristineCorrectTextsForQuestion(liveQT);
+      if (pristineCorrectTexts.size < 2) return;
 
       const selectionsMap = this.selectedOptionService.selectedOptionsMapSig();
       const selections = selectionsMap.get(_qIdx) ?? [];
@@ -355,31 +334,13 @@ export class OptionItemComponent implements OnChanges, OnInit {
     // template passed. This catches cases where isMultiMode resolved
     // false in the template (e.g. Q2 of dependency-injection quiz)
     // due to mutated/missing live binding flags.
-    if (_type !== 'multiple') {
-      try {
-        const nrmDis = (t: any) => String(t ?? '').trim().toLowerCase();
-        const liveQT = nrmDis(this.b?.option?.text)
-          ? nrmDis(
-              (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[_qIdx]?.questionText
-              ?? (this.quizService as any)?.questions?.[_qIdx]?.questionText
-            )
-          : '';
-        if (liveQT) {
-          const bundleDis: any[] = (this.quizService as any)?.quizInitialState ?? [];
-          outerDis: for (const quizDis of bundleDis) {
-            for (const pqDis of (quizDis?.questions ?? [])) {
-              if (nrmDis(pqDis?.questionText) !== liveQT) continue;
-              const pristineCC = (pqDis?.options ?? []).filter(
-                (o: any) =>
-                  o?.correct === true || String(o?.correct) === 'true' ||
-                  o?.correct === 1 || o?.correct === '1'
-              ).length;
-              if (pristineCC > 1) _type = 'multiple';
-              break outerDis;
-            }
-          }
-        }
-      } catch { /* ignore */ }
+    if (_type !== 'multiple' && this.b?.option?.text) {
+      const liveQT =
+        (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[_qIdx]?.questionText
+        ?? (this.quizService as any)?.questions?.[_qIdx]?.questionText;
+      const pristineCC =
+        this.quizService.getPristineCorrectTextsForQuestion(liveQT).size;
+      if (pristineCC > 1) _type = 'multiple';
     }
 
     // For MULTIPLE mode, disable purely by data: when the user has
@@ -396,27 +357,10 @@ export class OptionItemComponent implements OnChanges, OnInit {
         (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[_qIdx]?.questionText
         ?? (this.quizService as any)?.questions?.[_qIdx]?.questionText
       );
-      const bundle: any[] = (this.quizService as any)?.quizInitialState ?? [];
-      let pristineCorrectTexts: Set<string> | null = null;
-      if (liveQT) {
-        outerVerify: for (const quiz of bundle) {
-          for (const pq of (quiz?.questions ?? [])) {
-            if (nrm(pq?.questionText) !== liveQT) continue;
-            pristineCorrectTexts = new Set(
-              (pq?.options ?? [])
-                .filter((o: any) =>
-                  o?.correct === true || String(o?.correct) === 'true' ||
-                  o?.correct === 1 || o?.correct === '1'
-                )
-                .map((o: any) => nrm(o?.text))
-                .filter((t: string) => !!t)
-            );
-            break outerVerify;
-          }
-        }
-      }
+      const pristineCorrectTexts =
+        this.quizService.getPristineCorrectTextsForQuestion(liveQT);
 
-      if (pristineCorrectTexts && pristineCorrectTexts.size > 0) {
+      if (pristineCorrectTexts.size > 0) {
         // Read the signal directly — registers as a template dependency
         // so this OnPush component re-renders when selections change.
         const selectionsMap = this.selectedOptionService.selectedOptionsMapSig();
@@ -465,24 +409,8 @@ export class OptionItemComponent implements OnChanges, OnInit {
       ? (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[qIdx]
         ?? (this.quizService as any)?.shuffledQuestions?.[qIdx]
       : (this.quizService as any)?.questions?.[qIdx];
-    const liveSAQText = nrmSA(liveSAQ?.questionText);
-    const correctTextsSA = new Set<string>();
-    if (liveSAQText) {
-      const bundleSA: any[] = (this.quizService as any)?.quizInitialState ?? [];
-      outerSA: for (const quizSA of bundleSA) {
-        for (const pqSA of (quizSA?.questions ?? [])) {
-          if (nrmSA(pqSA?.questionText) !== liveSAQText) continue;
-          for (const o of (pqSA?.options ?? [])) {
-            if (o?.correct === true || String(o?.correct) === 'true' ||
-                o?.correct === 1 || o?.correct === '1') {
-              const t = nrmSA(o?.text);
-              if (t) correctTextsSA.add(t);
-            }
-          }
-          break outerSA;
-        }
-      }
-    }
+    const correctTextsSA =
+      this.quizService.getPristineCorrectTextsForQuestion(liveSAQ?.questionText);
     if (correctTextsSA.size === 0) return false;
 
     // Lock only when at least one selection's text matches a pristine
@@ -617,35 +545,17 @@ export class OptionItemComponent implements OnChanges, OnInit {
       const _qIdxSA = this.currentQuestionIndex() ?? this.quizService.currentQuestionIndex;
       if (this.type() === 'single' && !this.b?.isSelected) {
         const nrmSA = (t: any) => String(t ?? '').trim().toLowerCase();
-        const liveQTSA = nrmSA(
+        const liveQTSA =
           (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[_qIdxSA]?.questionText
-          ?? (this.quizService as any)?.questions?.[_qIdxSA]?.questionText
-        );
-        const bundleSA: any[] = (this.quizService as any)?.quizInitialState ?? [];
-        let pristineCorrectTextsSA: Set<string> | null = null;
-        if (liveQTSA) {
-          outerSA: for (const qSA of bundleSA) {
-            for (const pqSA of (qSA?.questions ?? [])) {
-              if (nrmSA(pqSA?.questionText) !== liveQTSA) continue;
-              pristineCorrectTextsSA = new Set(
-                (pqSA?.options ?? [])
-                  .filter((o: any) =>
-                    o?.correct === true || String(o?.correct) === 'true' ||
-                    o?.correct === 1 || o?.correct === '1'
-                  )
-                  .map((o: any) => nrmSA(o?.text))
-                  .filter((t: string) => !!t)
-              );
-              break outerSA;
-            }
-          }
-        }
-        if (pristineCorrectTextsSA && pristineCorrectTextsSA.size === 1) {
+          ?? (this.quizService as any)?.questions?.[_qIdxSA]?.questionText;
+        const pristineCorrectTextsSA =
+          this.quizService.getPristineCorrectTextsForQuestion(liveQTSA);
+        if (pristineCorrectTextsSA.size === 1) {
           const selectionsMapSA = this.selectedOptionService.selectedOptionsMapSig();
           const selectionsSA = selectionsMapSA.get(_qIdxSA) ?? [];
           const noCorrectSelectedSA = !selectionsSA.some((s: any) => {
             const txt = nrmSA(s?.text);
-            return !!txt && pristineCorrectTextsSA!.has(txt);
+            return !!txt && pristineCorrectTextsSA.has(txt);
           });
           if (noCorrectSelectedSA) return null;
         }
@@ -663,30 +573,12 @@ export class OptionItemComponent implements OnChanges, OnInit {
       if (this.type() === 'multiple' && !this.b?.isSelected) {
         const _qIdx = this.currentQuestionIndex() ?? this.quizService.currentQuestionIndex;
         const nrmBg = (t: any) => String(t ?? '').trim().toLowerCase();
-        const liveQTBg = nrmBg(
+        const liveQTBg =
           (this.quizService as any)?.getQuestionsInDisplayOrder?.()?.[_qIdx]?.questionText
-          ?? (this.quizService as any)?.questions?.[_qIdx]?.questionText
-        );
-        const bundleBg: any[] = (this.quizService as any)?.quizInitialState ?? [];
-        let pristineCorrectTextsBg: Set<string> | null = null;
-        if (liveQTBg) {
-          outerBg: for (const qBg of bundleBg) {
-            for (const pqBg of (qBg?.questions ?? [])) {
-              if (nrmBg(pqBg?.questionText) !== liveQTBg) continue;
-              pristineCorrectTextsBg = new Set(
-                (pqBg?.options ?? [])
-                  .filter((o: any) =>
-                    o?.correct === true || String(o?.correct) === 'true' ||
-                    o?.correct === 1 || o?.correct === '1'
-                  )
-                  .map((o: any) => nrmBg(o?.text))
-                  .filter((t: string) => !!t)
-              );
-              break outerBg;
-            }
-          }
-        }
-        if (pristineCorrectTextsBg && pristineCorrectTextsBg.size > 0) {
+          ?? (this.quizService as any)?.questions?.[_qIdx]?.questionText;
+        const pristineCorrectTextsBg =
+          this.quizService.getPristineCorrectTextsForQuestion(liveQTBg);
+        if (pristineCorrectTextsBg.size > 0) {
           // Read the signal directly so OnPush auto-tracks selection changes.
           const selectionsMapBg = this.selectedOptionService.selectedOptionsMapSig();
           const selectionsBg = selectionsMapBg.get(_qIdx) ?? [];
