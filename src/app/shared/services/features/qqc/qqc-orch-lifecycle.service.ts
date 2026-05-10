@@ -282,61 +282,6 @@ export class QqcOrchLifecycleService {
     }
   }
 
-  async runOnChanges(host: Host, changes: any): Promise<void> {
-    const fetClear = host.displayStateManager.shouldClearFetEarlyShown({
-      newIndex: changes['currentQuestionIndex']?.currentValue,
-      prevIndex: changes['currentQuestionIndex']?.previousValue
-    });
-    if (fetClear.shouldClear && host._fetEarlyShown instanceof Set) {
-      host._fetEarlyShown.delete(fetClear.indexToClear);
-    }
-
-    if (changes['questionPayload'] && host.questionPayload) {
-      host.hydrateFromPayload(host.questionPayload);
-      host.questionPayloadSig.set(host.questionPayload);
-      setTimeout(() => {
-        if (host.displayStateManager.shouldTriggerHydrationFallback({
-          renderReady: host.renderReady(),
-          options: host.optionsToDisplay()
-        })) {
-          host.renderReady.set(true);
-          host.cdRef.detectChanges();
-        }
-      }, 150);
-    }
-
-    if (changes['currentQuestionIndex'] && !changes['currentQuestionIndex'].firstChange) {
-      host.explanationVisible = false;
-      host.explanationText.set('');
-    }
-
-    if (changes['question']) {
-      host.optionsToDisplay.set(host.resetManager.clearOptionStateForQuestion(host.previousQuestionIndex(), host.optionsToDisplay()));
-      host.cdRef.detectChanges();
-    }
-
-    if (changes['question'] || changes['options']) {
-      host.unselectOption();
-      host.handleQuestionAndOptionsChange(changes['question'], changes['options']);
-      if (host.currentQuestionIndex() != null) {
-        host.restoreSelectionsAndIconsForQuestion(host.quizService.currentQuestionIndex);
-      }
-      host.previousQuestionIndex.set(host.currentQuestionIndex());
-    }
-
-    const isRenderReady = host.displayStateManager.computeRenderReadyFromInputs({
-      questionDataText: host.questionData()?.questionText,
-      currentQuestionText: host.currentQuestion()?.questionText,
-      options: host.options()
-    });
-
-    if (isRenderReady) {
-      setTimeout(() => host.renderReady.set(true), 0);
-    } else {
-      host.renderReady.set(false);
-    }
-  }
-
   runOnDestroy(host: Host): void {
     try { document.removeEventListener('visibilitychange', host.onVisibilityChange.bind(host)); } catch {}
     try { host.destroy$?.next(); } catch {}

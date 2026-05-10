@@ -84,39 +84,6 @@ export class QqcOrchDisplayService {
     }, 0);
   }
 
-  runHandleQuestionAndOptionsChange(host: Host, currentQuestionChange: any, optionsChange: any): void {
-    const { nextQuestion, effectiveQuestion, incomingOptions } =
-      host.displayStateManager.handleQuestionAndOptionsChange({
-        currentQuestionChange,
-        optionsChange,
-        currentQuestion: host.currentQuestion(),
-      });
-    if (nextQuestion) host.currentQuestion.set(nextQuestion);
-    const normalizedOptions = host.refreshOptionsForQuestion(effectiveQuestion, incomingOptions);
-    const selectedOptionValues = host.displayStateManager.extractSelectedOptionValues(effectiveQuestion);
-    if (effectiveQuestion) {
-      host.quizService.handleQuestionChange(effectiveQuestion, selectedOptionValues, normalizedOptions);
-    } else if (optionsChange) {
-      host.quizService.handleQuestionChange(null, selectedOptionValues, normalizedOptions);
-    }
-  }
-
-  runRefreshOptionsForQuestion(
-    host: Host,
-    question: QuizQuestion | null,
-    providedOptions?: Option[] | null
-  ): Option[] {
-    const result = host.displayStateManager.refreshOptionsForQuestion({
-      question,
-      providedOptions,
-      currentQuestionIndex: host.currentQuestionIndex()
-    });
-    host.options.set(result.options);
-    host.optionsToDisplay.set(result.optionsToDisplay);
-    host.cdRef.markForCheck();
-    return result.normalizedOptions;
-  }
-
   runSetQuestionOptions(host: Host): void {
     host.quizService.getQuestionByIndex(host.currentQuestionIndex()).pipe(take(1)).subscribe((currentQuestion: QuizQuestion | null) => {
       if (!currentQuestion) return;

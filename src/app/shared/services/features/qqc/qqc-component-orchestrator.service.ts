@@ -41,10 +41,6 @@ export class QqcComponentOrchestratorService {
     return this.orchLifecycle.runAfterViewInit(host);
   }
 
-  async runOnChanges(host: Host, changes: any): Promise<void> {
-    return this.orchLifecycle.runOnChanges(host, changes);
-  }
-
   runOnDestroy(host: Host): void {
     this.orchLifecycle.runOnDestroy(host);
   }
@@ -237,10 +233,6 @@ export class QqcComponentOrchestratorService {
     this.orchReset.runResetFeedback(host);
   }
 
-  runRestoreSelectionsAndIconsForQuestion(host: Host, index: number): void {
-    this.orchReset.runRestoreSelectionsAndIconsForQuestion(host, index);
-  }
-
   runResetForQuestion(host: Host, index: number): void {
     this.orchReset.runResetForQuestion(host, index);
   }
@@ -253,18 +245,6 @@ export class QqcComponentOrchestratorService {
 
   runHydrateFromPayload(host: Host, payload: any): void {
     this.orchDisplay.runHydrateFromPayload(host, payload);
-  }
-
-  runHandleQuestionAndOptionsChange(host: Host, currentQuestionChange: any, optionsChange: any): void {
-    this.orchDisplay.runHandleQuestionAndOptionsChange(host, currentQuestionChange, optionsChange);
-  }
-
-  runRefreshOptionsForQuestion(
-    host: Host,
-    question: QuizQuestion | null,
-    providedOptions?: Option[] | null
-  ): Option[] {
-    return this.orchDisplay.runRefreshOptionsForQuestion(host, question, providedOptions);
   }
 
   runSetQuestionOptions(host: Host): void {

@@ -116,13 +116,6 @@ export class QqcOrchResetService {
     host.showFeedbackForOption = result.showFeedbackForOption;
   }
 
-  runRestoreSelectionsAndIconsForQuestion(host: Host, index: number): void {
-    host.optionsToDisplay.set(
-      host.resetManager.restoreSelectionsAndIcons(index, host.optionsToDisplay())
-    );
-    host.cdRef.detectChanges();
-  }
-
   runResetForQuestion(host: Host, index: number): void {
     const guards = host.resetManager.hardResetClickGuards();
     host._clickGate = guards.clickGate;

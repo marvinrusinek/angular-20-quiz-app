@@ -1,7 +1,7 @@
 import {
-  AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, 
-  computed, effect, HostListener, input, model, OnChanges, OnDestroy, OnInit, 
-  output, signal, SimpleChange, SimpleChanges, ViewChild, ViewContainerRef
+  AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component,
+  computed, effect, HostListener, input, model, OnDestroy, OnInit,
+  output, signal, ViewChild, ViewContainerRef
 } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
@@ -53,7 +53,7 @@ import { FeedbackKey, FeedbackConfig } from '../../../shared/models/FeedbackConf
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class QuizQuestionComponent extends BaseQuestion
-  implements OnInit, OnChanges, OnDestroy, AfterViewInit {
+  implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('dynamicAnswerContainer', { read: ViewContainerRef, static: false })
   dynamicAnswerContainer!: ViewContainerRef;
   @ViewChild(SharedOptionComponent, { static: false })
@@ -296,10 +296,6 @@ export class QuizQuestionComponent extends BaseQuestion
     return this.componentOrchestrator.runAfterViewInit(this);
   }
 
-  async ngOnChanges(changes: SimpleChanges): Promise<void> {
-    return this.componentOrchestrator.runOnChanges(this, changes);
-  }
-
   override ngOnDestroy(): void {
     super.ngOnDestroy();
     this.componentOrchestrator.runOnDestroy(this);
@@ -512,18 +508,6 @@ export class QuizQuestionComponent extends BaseQuestion
     return this.componentOrchestrator.runOnSubmit(this);
   }
 
-  private handleQuestionAndOptionsChange(currentQuestionChange: SimpleChange, optionsChange: SimpleChange): void {
-    this.componentOrchestrator.runHandleQuestionAndOptionsChange(this, currentQuestionChange, optionsChange);
-  }
-
-  private refreshOptionsForQuestion(question: QuizQuestion | null, providedOptions?: Option[] | null): Option[] {
-    return this.componentOrchestrator.runRefreshOptionsForQuestion(this, question, providedOptions);
-  }
-
-
-  restoreSelectionsAndIconsForQuestion(index: number) {
-    this.componentOrchestrator.runRestoreSelectionsAndIconsForQuestion(this, index);
-  }
 
 
   // Per-question next and selections reset done from the child, timer
