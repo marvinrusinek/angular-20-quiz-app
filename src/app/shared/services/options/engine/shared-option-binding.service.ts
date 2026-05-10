@@ -791,6 +791,16 @@ export class SharedOptionBindingService {
       );
       const newFeedback = this.clickHandler.generateMultiAnswerFeedbackText(clickState);
 
+      console.log('[Q2-DEBUG] getInlineFeedbackConfig',
+        'renderForI=', i,
+        'qIdx=', qIdx,
+        'durableSelected=', JSON.stringify([...durableSelected]),
+        'correctIndicesArr=', JSON.stringify(correctIndicesArr),
+        'remaining=', clickState.remaining,
+        'configFeedback=', config.feedback,
+        'newFeedback=', newFeedback
+      );
+
       if (newFeedback !== config.feedback) {
         config = { ...config, feedback: newFeedback };
       }
