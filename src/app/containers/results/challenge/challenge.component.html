@@ -1,5 +1,5 @@
 @for (quiz of quizzes$ | async; track quiz.quizId) {
-  @if (quiz.quizId === (quizName$ | async)) {
+  @if (quiz.quizId === quizName) {
     <div class="challenge">
       <h4>Challenge your friends!</h4>
 

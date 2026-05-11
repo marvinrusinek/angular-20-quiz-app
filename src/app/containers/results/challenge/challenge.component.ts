@@ -19,7 +19,7 @@ import { TimerService } from '../../../shared/services/features/timer/timer.serv
 })
 export class ChallengeComponent implements OnInit {
   quizzes$: Observable<Quiz[]> = of([]);
-  quizName$: Observable<string> = of('');
+  quizName = '';
   currentQuizId = '';
 
   private readonly correctAnswersCount: Signal<number> = this.quizService.correctAnswersCountSig;
@@ -54,6 +54,6 @@ export class ChallengeComponent implements OnInit {
     this.currentQuizId = this.quizService.quizId ||
       this.activatedRoute.snapshot.paramMap.get('quizId') ||
       this.activatedRoute.parent?.snapshot.paramMap.get('quizId') || '';
-    this.quizName$ = of(this.currentQuizId);
+    this.quizName = this.currentQuizId;
   }
 }

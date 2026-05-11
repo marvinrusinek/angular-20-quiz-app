@@ -15,7 +15,7 @@
     />
   </a>
 
-  @if (currentQuiz$ | async; as currentQuiz) {
+  @if (currentQuiz(); as currentQuiz) {
     <div class="header-titles">
       <mat-card-title i18n>
         {{ currentQuiz?.milestone || 'No questions found' }} Quiz
