@@ -60,7 +60,7 @@ export class QqcOrchLifecycleService {
         host.resetUIForNewQuestion();
       },
       onNavigationToQuestion: ({ question, options }: { question: QuizQuestion; options: Option[] }) => {
-        if (!host.containerInitialized && host.dynamicAnswerContainer) {
+        if (!host.containerInitialized && host.dynamicAnswerContainer?.()) {
           host.loadDynamicComponent(question, options);
           host.containerInitialized = true;
         }

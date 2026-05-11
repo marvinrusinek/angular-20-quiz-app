@@ -1,7 +1,7 @@
 import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component,
   computed, effect, HostListener, input, model, OnDestroy, OnInit,
-  output, signal, ViewChild, ViewContainerRef
+  output, signal, viewChild, ViewChild, ViewContainerRef
 } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
@@ -51,8 +51,7 @@ import { FeedbackKey, FeedbackConfig } from '../../../shared/models/FeedbackConf
 })
 export class QuizQuestionComponent extends BaseQuestion
   implements OnInit, OnDestroy, AfterViewInit {
-  @ViewChild('dynamicAnswerContainer', { read: ViewContainerRef, static: false })
-  dynamicAnswerContainer!: ViewContainerRef;
+  readonly dynamicAnswerContainer = viewChild('dynamicAnswerContainer', { read: ViewContainerRef });
   @ViewChild(SharedOptionComponent, { static: false })
   sharedOptionComponent!: SharedOptionComponent;
   readonly answer = output<number>();

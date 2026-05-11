@@ -64,7 +64,7 @@ export class QqcOrchDisplayService {
     host.updateShouldRenderOptions(host.optionsToDisplay());
     host.explanationToDisplay.set(result.explanationToDisplay);
 
-    if (!host.containerInitialized && host.dynamicAnswerContainer) {
+    if (!host.containerInitialized && host.dynamicAnswerContainer?.()) {
       host.loadDynamicComponent(host.currentQuestion(), host.optionsToDisplay());
       host.containerInitialized = true;
     }

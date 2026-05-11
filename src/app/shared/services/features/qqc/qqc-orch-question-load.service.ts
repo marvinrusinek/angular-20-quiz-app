@@ -16,11 +16,12 @@ export class QqcOrchQuestionLoadService {
 
   async runLoadDynamicComponent(host: Host, question: QuizQuestion, options: Option[]): Promise<void> {
     try {
+      const container = host.dynamicAnswerContainer?.();
       if (
         !question ||
         !Array.isArray(options) ||
         !options.length ||
-        !host.dynamicAnswerContainer ||
+        !container ||
         !('questionText' in question)
       ) return;
 
@@ -33,10 +34,10 @@ export class QqcOrchQuestionLoadService {
         return;
       }
 
-      host.dynamicAnswerContainer.clear();
+      container.clear();
       await Promise.resolve();
       const componentRef: ComponentRef<any> = await host.dynamicComponentService.loadComponent(
-        host.dynamicAnswerContainer,
+        container,
         isMultipleAnswer,
         host.onOptionClicked.bind(host)
       );
