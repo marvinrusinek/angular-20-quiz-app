@@ -1,4 +1,4 @@
-import { ElementRef, Injectable, ViewChild } from '@angular/core';
+import { Injectable } from '@angular/core';
 
 import { Option } from '../../../models/Option.model';
 import { FeedbackProps } from '../../../models/FeedbackProps.model';
@@ -20,9 +20,6 @@ import { SharedOptionExplanationService } from '../../features/shared-option/sha
  */
 @Injectable({ providedIn: 'root' })
 export class SocAnswerProcessingService {
-  @ViewChild('qText')
-  private qText?: ElementRef<HTMLHeadingElement>;
-  
   constructor(
     private quizService: QuizService,
     private quizStateService: QuizStateService,
@@ -311,30 +308,6 @@ export class SocAnswerProcessingService {
         this.explanationTextService.lockExplanation();
         this.quizStateService.setDisplayState({ mode: 'explanation', answered: true });
 
-        // DIRECT DOM FALLBACK — writes FET into the qText heading without
-        // routing through the reactive pipeline or writeQText guards.
-        // Mirrors the single-answer path; required for multi-answer because
-        // the reactive pipeline can race with selectedOptionsMap updates and
-        // the writeQText looksLikeFet gate can revert FET back to question
-        // text before scoreDirectly's questionCorrectness flag is observed.
-        const fetForDom = formattedFET;
-        const stampQIdx = qIdx;
-        const stampFet = () => {
-          try {
-            // Originating-question guard: if the user has navigated away,
-            // the current question is no longer the one this FET belongs
-            // to. Stamping Q(N)'s FET into Q(N+1)'s heading would leak
-            // stale FET across questions ("Q1's FET shows for Q2").
-            const liveIdx = (this.quizService as any)?.getCurrentQuestionIndex?.()
-              ?? (this.quizService as any)?.currentQuestionIndex;
-            if (typeof liveIdx === 'number' && liveIdx !== stampQIdx) return;
-            this.writeFetToQuestionTextIfNeeded(fetForDom);
-          } catch { /* ignore */ }
-        };
-        stampFet();
-        setTimeout(stampFet, 50);
-        setTimeout(stampFet, 150);
-        setTimeout(stampFet, 350);
       }
 
       // Also try the component path as backup
@@ -604,24 +577,6 @@ export class SocAnswerProcessingService {
         }
       }, 0);
 
-      // DIRECT DOM FALLBACK
-      if (resolvedFetText) {
-        const fetForDom = resolvedFetText;
-        const stampQIdx = qIdx;
-        const stampFet = (label: string) => {
-          try {
-            // Originating-question guard: skip if user has navigated away,
-            // otherwise this stamps Q(N)'s FET into Q(N+1)'s heading.
-            const liveIdx = (this.quizService as any)?.getCurrentQuestionIndex?.()
-              ?? (this.quizService as any)?.currentQuestionIndex;
-            if (typeof liveIdx === 'number' && liveIdx !== stampQIdx) return;
-            this.writeFetToQuestionTextIfNeeded(fetForDom);
-          } catch { /* ignore */ }
-        };
-        setTimeout(() => stampFet('50ms'), 50);
-        setTimeout(() => stampFet('150ms'), 150);
-        setTimeout(() => stampFet('350ms'), 350);
-      }
 
       if (!comp.disabledOptionsPerQuestion.has(qIdx)) {
         comp.disabledOptionsPerQuestion.set(qIdx, new Set<number>());
@@ -864,13 +819,4 @@ export class SocAnswerProcessingService {
     } catch { /* never throw from auto-reveal */ }
   }
 
-  private writeFetToQuestionTextIfNeeded(fetForDom: string): void {
-    const h3 = this.qText?.nativeElement;
-    if (!h3) return;
-  
-    const domNow = h3.innerHTML.toLowerCase();
-    if (!domNow.includes('correct because')) {
-      h3.innerHTML = fetForDom;
-    }
-  }
 }
