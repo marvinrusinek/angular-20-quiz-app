@@ -44,7 +44,7 @@ import { BackToTopComponent } from '../../components/back-to-top/back-to-top.com
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class QuizSelectionComponent implements OnInit, OnDestroy {
-  quizzes$: Observable<Quiz[]> = of([]);
+  readonly quizzes = this.quizDataService.quizzesSig;
   selectedQuiz: Quiz | null = null;
   currentQuestionIndex = 0;
   private completedQuizIds = new Set<string>();
@@ -186,8 +186,6 @@ export class QuizSelectionComponent implements OnInit, OnDestroy {
       this.totalQuizCountSig.set(quizzes?.length ?? 0);
     });
 
-    // Use live observable to receive status updates
-    this.quizzes$ = this.quizDataService.quizzes$;
   }
 
   private subscribeToSelectedQuiz(): void {

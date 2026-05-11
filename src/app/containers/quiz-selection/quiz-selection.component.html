@@ -46,7 +46,7 @@
         <strong>Select a Quiz…</strong>
       </span>
 
-      @for (quiz of quizzes$ | async; track quiz?.quizId) {
+      @for (quiz of quizzes(); track quiz?.quizId) {
         <button
           mat-menu-item
           [routerLink]="isCompleted(quiz) ? ['/results/', quiz?.quizId] : ['/intro/', quiz?.quizId]"
@@ -77,11 +77,11 @@
 
   <!-- Quiz Tiles Grid -->
   <div class="quiz-grid">
-    @for (quiz of quizzes$ | async; let i = $index; track quiz?.quizId) {
+    @for (quiz of quizzes(); let i = $index; track quiz?.quizId) {
       <div
         class="quiz-tile"
         [class.completed]="isCompleted(quiz)"
-        [@slideLeftToRight]="animationState$ | async"
+        [@slideLeftToRight]="animationStateSig()"
         (@slideLeftToRight.done)="animationDoneHandler()"
         (click)="onSelect(quiz.quizId, i)"
         routerLinkActive="active"
@@ -158,12 +158,12 @@
       <ion-item>
         <ion-label>Milestones</ion-label>
         <ion-select [interfaceOptions]="customPopoverOptions" interface="popover">
-          <ion-select-option *ngFor="let quiz of quizzes$ | async" [value]="quiz?.quizId">{{ quiz?.milestone || "Milestone not found" }}</ion-select-option>
+          <ion-select-option *ngFor="let quiz of quizzes()" [value]="quiz?.quizId">{{ quiz?.milestone || "Milestone not found" }}</ion-select-option>
         </ion-select>
       </ion-item>
   
       <div class="quiz-grid">
-        <ion-card class="quiz-tile" *ngFor="let quiz of quizzes$ | async" (click)="onSelect(quiz.quizId)" [@slideLeftToRight]="animationState$ | async" (@slideLeftToRight.done)="animationDoneHandler()" routerLinkActive="active" [ngStyle]="getQuizTileStyles(quiz)" loading="lazy">
+        <ion-card class="quiz-tile" *ngFor="let quiz of quizzes()" (click)="onSelect(quiz.quizId)" [@slideLeftToRight]="animationStateSig()" (@slideLeftToRight.done)="animationDoneHandler()" routerLinkActive="active" [ngStyle]="getQuizTileStyles(quiz)" loading="lazy">
           <ion-card-header>
             <ion-card-title>{{ quiz?.milestone || "Milestone not found" }}</ion-card-title>
           </ion-card-header>
